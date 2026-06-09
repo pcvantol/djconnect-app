@@ -705,7 +705,7 @@ struct SettingsView: View {
                 model.startPairingWait()
             }
             .onChange(of: model.homeAssistantURL) {
-                model.startPairingWait()
+                model.schedulePairingWait()
             }
         }
     }

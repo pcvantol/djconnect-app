@@ -31,6 +31,7 @@ public final class DJConnectAppModel: ObservableObject {
     public let identity: DJConnectIdentity
 
     private var pairingTask: Task<Void, Never>?
+    private var scheduledPairingTask: Task<Void, Never>?
     private var volumeCommandTask: Task<Void, Never>?
     private let defaults: UserDefaults
     private let tokenStore: DJConnectTokenStore
@@ -76,8 +77,24 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     deinit {
+        scheduledPairingTask?.cancel()
         pairingTask?.cancel()
         volumeCommandTask?.cancel()
+    }
+
+    public func schedulePairingWait() {
+        guard pairingStatus != .paired else {
+            return
+        }
+
+        scheduledPairingTask?.cancel()
+        scheduledPairingTask = Task { [weak self] in
+            try? await Task.sleep(for: .milliseconds(600))
+            guard !Task.isCancelled else {
+                return
+            }
+            self?.startPairingWait()
+        }
     }
 
     public func startPairingWait() {
@@ -85,13 +102,14 @@ public final class DJConnectAppModel: ObservableObject {
             return
         }
 
+        scheduledPairingTask?.cancel()
+        scheduledPairingTask = nil
         pairingTask?.cancel()
 
-        let trimmedURL = homeAssistantURL.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard let baseURL = URL(string: trimmedURL), baseURL.scheme?.isEmpty == false else {
+        guard let baseURL = Self.normalizedHomeAssistantURL(from: homeAssistantURL) else {
             pairingMessage = localized(
-                english: "Enter your Home Assistant URL to start waiting.",
-                dutch: "Vul je Home Assistant URL in om te wachten."
+                english: "Enter your Home Assistant URL, for example 192.168.1.10:8123.",
+                dutch: "Vul je Home Assistant URL in, bijvoorbeeld 192.168.1.10:8123."
             )
             pairingStatus = .unpaired
             isConnected = false
@@ -108,6 +126,8 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     public func stopPairingWait() {
+        scheduledPairingTask?.cancel()
+        scheduledPairingTask = nil
         pairingTask?.cancel()
         pairingTask = nil
         if pairingStatus == .pairing {
@@ -385,11 +405,10 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     private func makeClient() throws -> DJConnectClient {
-        let trimmedURL = homeAssistantURL.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard let baseURL = URL(string: trimmedURL), baseURL.scheme?.isEmpty == false else {
+        guard let baseURL = Self.normalizedHomeAssistantURL(from: homeAssistantURL) else {
             throw DJConnectError.network(message: localized(
-                english: "Enter your Home Assistant URL.",
-                dutch: "Vul je Home Assistant URL in."
+                english: "Enter your Home Assistant URL, for example 192.168.1.10:8123.",
+                dutch: "Vul je Home Assistant URL in, bijvoorbeeld 192.168.1.10:8123."
             ))
         }
         return DJConnectClient(baseURL: baseURL, identity: identity, tokenStore: tokenStore)
@@ -397,6 +416,25 @@ public final class DJConnectAppModel: ObservableObject {
 
     public func localized(english: String, dutch: String) -> String {
         language == "nl" ? dutch : english
+    }
+
+    public static func normalizedHomeAssistantURL(from rawValue: String) -> URL? {
+        let trimmed = rawValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
+            return nil
+        }
+
+        let candidate = trimmed.contains("://") ? trimmed : "http://\(trimmed)"
+        guard
+            let url = URL(string: candidate),
+            let scheme = url.scheme?.lowercased(),
+            ["http", "https"].contains(scheme),
+            url.host?.isEmpty == false
+        else {
+            return nil
+        }
+
+        return url
     }
 
     private static var keychainService: String {

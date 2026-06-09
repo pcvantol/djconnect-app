@@ -37,6 +37,8 @@ All notable changes to DJConnect App are documented here.
 - Translated the empty playback output label in Dutch.
 - Added Local Network, Home Assistant Bonjour service, and local HTTP transport
   declarations to the iOS/macOS app plists for local Home Assistant access.
+- Made Home Assistant URL entry accept bare local addresses like
+  `192.168.1.10:8123` and debounce pairing retries while editing.
 
 ### Changed
 
