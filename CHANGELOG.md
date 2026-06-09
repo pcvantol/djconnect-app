@@ -35,6 +35,8 @@ All notable changes to DJConnect App are documented here.
   English, and persist the selected language.
 - Added the missing Error option to the Log Level picker.
 - Translated the empty playback output label in Dutch.
+- Added Local Network, Home Assistant Bonjour service, and local HTTP transport
+  declarations to the iOS/macOS app plists for local Home Assistant access.
 
 ### Changed
 

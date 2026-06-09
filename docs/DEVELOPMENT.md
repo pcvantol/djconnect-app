@@ -53,6 +53,12 @@ The CLI build disables signing for local verification. Configure
 The app polls `POST /api/djconnect/pair`, stores the returned `device_token` in
 Keychain, and validates the pairing by posting to `/api/djconnect/status`.
 
+For iOS Simulator testing, use the polling flow above. Do not treat simulator
+mDNS/Bonjour reachability or inbound device checks as authoritative: the app
+does not expose an inbound pairing server, and Home Assistant should complete
+app pairing by accepting the app-generated code and returning `device_token` to
+the polling request.
+
 Reset Pairing clears the DJConnect Keychain token and generated local install
 id. It does not touch any Home Assistant, Spotify, or playback credentials.
 
