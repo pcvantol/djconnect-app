@@ -50,6 +50,10 @@ All notable changes to DJConnect App are documented here.
   pairing code, and show guidance to generate/use a fresh code.
 - Made Reset Pairing stop at a clean reset instead of immediately retrying with
   a potentially stale Home Assistant code.
+- Made diagnostic log rows stable when identical messages are logged in the
+  same second.
+- Cancelled pending pairing retries and cleared active pairing state during
+  Reset Pairing.
 
 ### Changed
 

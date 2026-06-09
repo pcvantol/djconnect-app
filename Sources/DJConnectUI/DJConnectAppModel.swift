@@ -27,6 +27,16 @@ public enum DJConnectAppLogLevel: String, CaseIterable, Sendable {
     }
 }
 
+public struct DJConnectDiagnosticLogLine: Identifiable, Equatable, Sendable {
+    public let id: UUID
+    public let text: String
+
+    public init(id: UUID = UUID(), text: String) {
+        self.id = id
+        self.text = text
+    }
+}
+
 @MainActor
 public final class DJConnectAppModel: ObservableObject {
     @Published public var homeAssistantURL = "" {
@@ -55,7 +65,7 @@ public final class DJConnectAppModel: ObservableObject {
     }
     @Published public var voiceEnabled = true
     @Published public var localResponseAudioEnabled = true
-    @Published public private(set) var diagnosticLogLines: [String] = []
+    @Published public private(set) var diagnosticLogLines: [DJConnectDiagnosticLogLine] = []
     @Published public private(set) var localDeviceURL: String?
 
     public let identity: DJConnectIdentity
@@ -240,6 +250,8 @@ public final class DJConnectAppModel: ObservableObject {
 
     public func resetPairing() {
         log(.warning, "Resetting pairing and clearing local token")
+        scheduledPairingTask?.cancel()
+        scheduledPairingTask = nil
         pairingTask?.cancel()
         pairingTask = nil
         try? tokenStore.clearToken()
@@ -247,6 +259,7 @@ public final class DJConnectAppModel: ObservableObject {
         _ = newPairingToken()
         pairingStatus = .unpaired
         isConnected = false
+        isPairing = false
         pairingMessage = localized(
             english: "Pairing reset.",
             dutch: "Pairing gereset."
@@ -630,7 +643,7 @@ public final class DJConnectAppModel: ObservableObject {
         let formatter = DateFormatter()
         formatter.dateFormat = "HH:mm:ss"
         let line = "[\(formatter.string(from: Date()))] \(level.rawValue.uppercased()) \(message)"
-        diagnosticLogLines.append(line)
+        diagnosticLogLines.append(DJConnectDiagnosticLogLine(text: line))
         if diagnosticLogLines.count > maxDiagnosticLogLines {
             diagnosticLogLines.removeFirst(diagnosticLogLines.count - maxDiagnosticLogLines)
         }
@@ -673,6 +686,9 @@ public final class DJConnectAppModel: ObservableObject {
 
     private static func redactedURL(_ url: URL) -> String {
         var components = URLComponents(url: url, resolvingAgainstBaseURL: false)
+        if let scheme = components?.scheme {
+            components?.scheme = scheme.lowercased()
+        }
         components?.user = nil
         components?.password = nil
         components?.query = nil

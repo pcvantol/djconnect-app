@@ -711,8 +711,8 @@ struct SettingsView: View {
                     } else {
                         ScrollView {
                             VStack(alignment: .leading, spacing: 6) {
-                                ForEach(model.diagnosticLogLines, id: \.self) { line in
-                                    Text(line)
+                                ForEach(model.diagnosticLogLines) { line in
+                                    Text(line.text)
                                         .font(.system(.caption, design: .monospaced))
                                         .textSelection(.enabled)
                                         .frame(maxWidth: .infinity, alignment: .leading)
