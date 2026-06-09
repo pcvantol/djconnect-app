@@ -297,12 +297,20 @@ struct SettingsView: View {
                 Section("Home Assistant") {
                     TextField("URL", text: $model.homeAssistantURL)
                         .textContentType(.URL)
-                    SecureField("Pairing token", text: $model.pairingToken)
+                    LabeledContent("Pairing Code") {
+                        Text(model.pairingToken)
+                            .font(.system(.title3, design: .monospaced).weight(.semibold))
+                            .textSelection(.enabled)
+                    }
                     HStack {
                         Button(model.isPairing ? "Pairing..." : "Pair") {
                             Task {
                                 await model.pair()
                             }
+                        }
+                        .disabled(model.isPairing)
+                        Button("New Code") {
+                            model.newPairingToken()
                         }
                         .disabled(model.isPairing)
                         Button("Reset Pairing", role: .destructive) {

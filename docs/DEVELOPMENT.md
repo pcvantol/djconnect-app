@@ -45,9 +45,9 @@ The CLI build disables signing for local verification. Configure
 4. Open Settings.
 5. Enter the Home Assistant base URL, for example
    `http://homeassistant.local:8123`.
-6. Enter a DJConnect pairing token created by the Home Assistant `djconnect`
-   integration.
-7. Click Pair.
+6. Copy the app-generated Pairing Code into the Home Assistant `djconnect`
+   integration setup/pairing flow.
+7. Click Pair in the app after Home Assistant has accepted the code.
 
 The app sends `POST /api/djconnect/pair`, stores the returned `device_token` in
 Keychain, and validates the pairing by posting to `/api/djconnect/status`.

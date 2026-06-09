@@ -6,7 +6,8 @@ This document tracks open implementation work and known project gaps.
 
 - Confirm the Home Assistant `POST /api/djconnect/pair` response shape against
   the custom integration.
-- Add a Home Assistant UI/deep-link path for creating pairing tokens.
+- Add a Home Assistant UI/deep-link path for accepting app-generated pairing
+  codes.
 - Wire `DJConnectClient` into `DJConnectAppModel` for real status and command
   calls.
 - Replace preview/sample playback state with live backend state.
@@ -59,7 +60,8 @@ This document tracks open implementation work and known project gaps.
 
 ## Known Issues
 
-- Pairing depends on the HA integration exposing `POST /api/djconnect/pair`.
+- Pairing depends on the HA integration accepting app-generated pairing codes
+  and exposing `POST /api/djconnect/pair`.
 - The current playback UI is a scaffold and only pairing/status are wired.
 - No direct app icon asset exists yet.
 - `DJConnectCoreTests` currently run through Swift Package tests; Xcode test

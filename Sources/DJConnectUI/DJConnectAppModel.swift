@@ -31,6 +31,7 @@ public final class DJConnectAppModel: ObservableObject {
     private let appVersion = "3.0.0"
     private let installIDKey = "DJConnectInstallID"
     private let homeAssistantURLKey = "DJConnectHomeAssistantURL"
+    private let pairingTokenKey = "DJConnectPairingToken"
 
     public var volume: Double {
         get { Double(playback?.volumePercent ?? 0) }
@@ -56,6 +57,8 @@ public final class DJConnectAppModel: ObservableObject {
         self.identity = Self.makeIdentity(defaults: defaults)
         self.playback = playback
         self.homeAssistantURL = defaults.string(forKey: homeAssistantURLKey) ?? ""
+        self.pairingToken = defaults.string(forKey: pairingTokenKey) ?? Self.generatePairingToken()
+        defaults.set(pairingToken, forKey: pairingTokenKey)
         if let existingToken = try? resolvedTokenStore.loadToken(), !existingToken.isEmpty {
             pairingStatus = .paired
             isConnected = true
@@ -73,12 +76,7 @@ public final class DJConnectAppModel: ObservableObject {
             return
         }
 
-        guard !trimmedPairingToken.isEmpty else {
-            pairingMessage = "Enter the DJConnect pairing token from Home Assistant."
-            pairingStatus = .unpaired
-            isConnected = false
-            return
-        }
+        let appPairingToken = trimmedPairingToken.isEmpty ? newPairingToken() : trimmedPairingToken
 
         isPairing = true
         pairingStatus = .pairing
@@ -87,8 +85,7 @@ public final class DJConnectAppModel: ObservableObject {
 
         do {
             let client = DJConnectClient(baseURL: baseURL, identity: identity, tokenStore: tokenStore)
-            _ = try await client.pair(DJConnectPairingPayload(identity: identity, pairingToken: trimmedPairingToken))
-            pairingToken = ""
+            _ = try await client.pair(DJConnectPairingPayload(identity: identity, pairingToken: appPairingToken))
             pairingStatus = .paired
             isConnected = true
             pairingMessage = "Paired with Home Assistant."
@@ -113,10 +110,18 @@ public final class DJConnectAppModel: ObservableObject {
     public func resetPairing() {
         try? tokenStore.clearToken()
         defaults.removeObject(forKey: installIDKey)
-        pairingToken = ""
+        _ = newPairingToken()
         pairingStatus = .unpaired
         isConnected = false
         pairingMessage = "Pairing reset."
+    }
+
+    @discardableResult
+    public func newPairingToken() -> String {
+        let token = Self.generatePairingToken()
+        pairingToken = token
+        defaults.set(token, forKey: pairingTokenKey)
+        return token
     }
 
     public func apply(playback: DJConnectPlayback?) {
@@ -200,6 +205,10 @@ public final class DJConnectAppModel: ObservableObject {
             platform: .ios
         )
         #endif
+    }
+
+    private static func generatePairingToken() -> String {
+        String(format: "%06d", Int.random(in: 0...999_999))
     }
 }
 
