@@ -26,6 +26,7 @@ public final class DJConnectAppModel: ObservableObject {
 
     public let identity: DJConnectIdentity
 
+    private var pairingTask: Task<Void, Never>?
     private let defaults: UserDefaults
     private let tokenStore: DJConnectTokenStore
     private let appVersion = "3.0.0"
@@ -65,49 +66,78 @@ public final class DJConnectAppModel: ObservableObject {
         }
     }
 
-    public func pair() async {
-        let trimmedURL = homeAssistantURL.trimmingCharacters(in: .whitespacesAndNewlines)
-        let trimmedPairingToken = pairingToken.trimmingCharacters(in: .whitespacesAndNewlines)
+    deinit {
+        pairingTask?.cancel()
+    }
 
-        guard let baseURL = URL(string: trimmedURL), baseURL.scheme?.isEmpty == false else {
-            pairingMessage = "Enter a valid Home Assistant URL."
-            pairingStatus = .unpaired
-            isConnected = false
+    public func startPairingWait() {
+        guard pairingStatus != .paired else {
             return
         }
 
-        let appPairingToken = trimmedPairingToken.isEmpty ? newPairingToken() : trimmedPairingToken
+        pairingTask?.cancel()
 
-        isPairing = true
-        pairingStatus = .pairing
-        pairingMessage = "Pairing with Home Assistant..."
-        defer { isPairing = false }
-
-        do {
-            let client = DJConnectClient(baseURL: baseURL, identity: identity, tokenStore: tokenStore)
-            _ = try await client.pair(DJConnectPairingPayload(identity: identity, pairingToken: appPairingToken))
-            pairingStatus = .paired
-            isConnected = true
-            pairingMessage = "Paired with Home Assistant."
-            try await refreshStatus(client: client)
-        } catch let error as DJConnectError {
-            apply(error: error)
-            isConnected = false
-            if case let .pairingFailed(message) = error {
-                pairingMessage = message ?? "Pairing failed."
-            } else if case let .network(message) = error {
-                pairingMessage = message
-            } else {
-                pairingMessage = "Pairing failed."
-            }
-        } catch {
+        let trimmedURL = homeAssistantURL.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let baseURL = URL(string: trimmedURL), baseURL.scheme?.isEmpty == false else {
+            pairingMessage = "Enter your Home Assistant URL to start waiting."
             pairingStatus = .unpaired
             isConnected = false
-            pairingMessage = error.localizedDescription
+            isPairing = false
+            return
+        }
+
+        let trimmedPairingToken = pairingToken.trimmingCharacters(in: .whitespacesAndNewlines)
+        let appPairingToken = trimmedPairingToken.isEmpty ? newPairingToken() : trimmedPairingToken
+
+        pairingTask = Task { [weak self] in
+            await self?.waitForHomeAssistantPairing(baseURL: baseURL, pairingToken: appPairingToken)
+        }
+    }
+
+    public func stopPairingWait() {
+        pairingTask?.cancel()
+        pairingTask = nil
+        if pairingStatus == .pairing {
+            pairingStatus = .unpaired
+            isPairing = false
+            pairingMessage = "Pairing wait stopped."
+        }
+    }
+
+    private func waitForHomeAssistantPairing(baseURL: URL, pairingToken: String) async {
+        isPairing = true
+        pairingStatus = .pairing
+        pairingMessage = "Waiting for Home Assistant to accept code \(pairingToken)."
+        defer {
+            if pairingStatus != .paired {
+                isPairing = false
+            }
+        }
+
+        while !Task.isCancelled && pairingStatus != .paired {
+            let client = DJConnectClient(baseURL: baseURL, identity: identity, tokenStore: tokenStore)
+            do {
+                _ = try await client.pair(DJConnectPairingPayload(identity: identity, pairingToken: pairingToken))
+                pairingStatus = .paired
+                isConnected = true
+                isPairing = false
+                pairingMessage = "Paired with Home Assistant."
+                try await refreshStatus(client: client)
+                return
+            } catch let error as DJConnectError {
+                applyPairingWait(error: error, pairingToken: pairingToken)
+            } catch {
+                isConnected = false
+                pairingMessage = error.localizedDescription
+            }
+
+            try? await Task.sleep(for: .seconds(2))
         }
     }
 
     public func resetPairing() {
+        pairingTask?.cancel()
+        pairingTask = nil
         try? tokenStore.clearToken()
         defaults.removeObject(forKey: installIDKey)
         _ = newPairingToken()
@@ -122,6 +152,14 @@ public final class DJConnectAppModel: ObservableObject {
         pairingToken = token
         defaults.set(token, forKey: pairingTokenKey)
         return token
+    }
+
+    public func rotatePairingTokenAndWait() {
+        guard pairingStatus != .paired else {
+            return
+        }
+        _ = newPairingToken()
+        startPairingWait()
     }
 
     public func apply(playback: DJConnectPlayback?) {
@@ -144,6 +182,31 @@ public final class DJConnectAppModel: ObservableObject {
             pairingStatus = .stale
         default:
             break
+        }
+    }
+
+    private func applyPairingWait(error: DJConnectError, pairingToken: String) {
+        isConnected = false
+
+        switch error {
+        case .pairingFailed:
+            pairingStatus = .pairing
+            pairingMessage = "Waiting for Home Assistant to accept code \(pairingToken)."
+        case let .network(message):
+            pairingStatus = .pairing
+            pairingMessage = "Waiting for Home Assistant: \(message)"
+        case .routeMissing:
+            pairingStatus = .pairing
+            pairingMessage = "Waiting for the DJConnect pairing route in Home Assistant."
+        case let .server(_, message):
+            pairingStatus = .pairing
+            pairingMessage = message ?? "Waiting for Home Assistant to finish pairing."
+        case let .versionMismatch(mismatch):
+            pairingStatus = .pairing
+            updateRequiredMessage = mismatch.message ?? "DJConnect update required"
+        default:
+            pairingStatus = .pairing
+            pairingMessage = "Waiting for Home Assistant to finish pairing."
         }
     }
 

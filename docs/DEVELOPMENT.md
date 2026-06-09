@@ -47,9 +47,10 @@ The CLI build disables signing for local verification. Configure
    `http://homeassistant.local:8123`.
 6. Copy the app-generated Pairing Code into the Home Assistant `djconnect`
    integration setup/pairing flow.
-7. Click Pair in the app after Home Assistant has accepted the code.
+7. Leave the app open. It waits automatically until Home Assistant accepts the
+   code and returns a device token.
 
-The app sends `POST /api/djconnect/pair`, stores the returned `device_token` in
+The app polls `POST /api/djconnect/pair`, stores the returned `device_token` in
 Keychain, and validates the pairing by posting to `/api/djconnect/status`.
 
 Reset Pairing clears the DJConnect Keychain token and generated local install

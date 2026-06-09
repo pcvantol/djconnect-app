@@ -6,6 +6,8 @@ This document tracks open implementation work and known project gaps.
 
 - Confirm the Home Assistant `POST /api/djconnect/pair` response shape against
   the custom integration.
+- Confirm the HA integration's pending response shape while the app is waiting
+  for code acceptance.
 - Add a Home Assistant UI/deep-link path for accepting app-generated pairing
   codes.
 - Wire `DJConnectClient` into `DJConnectAppModel` for real status and command
@@ -33,7 +35,8 @@ This document tracks open implementation work and known project gaps.
 
 ## iOS
 
-- Add app icon asset catalog.
+- Tune the generated app icon before release if a final brand mark becomes
+  available.
 - Tune iPhone and iPad layouts with real device/simulator screenshots.
 - Decide whether lock screen/live activity support belongs in the first release.
 - Decide whether Shortcuts integration should map to DJConnect commands.
@@ -63,7 +66,8 @@ This document tracks open implementation work and known project gaps.
 - Pairing depends on the HA integration accepting app-generated pairing codes
   and exposing `POST /api/djconnect/pair`.
 - The current playback UI is a scaffold and only pairing/status are wired.
-- No direct app icon asset exists yet.
+- The app icon is a generated placeholder brand mark and may need final design
+  polish before release.
 - `DJConnectCoreTests` currently run through Swift Package tests; Xcode test
   integration should be expanded as the app targets mature.
 - `xcodebuild` may print simulator/cache warnings in the sandboxed Codex

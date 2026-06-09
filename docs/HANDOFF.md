@@ -127,7 +127,7 @@ Recommended user flow:
 1. User enters or selects their Home Assistant URL.
 2. App generates and displays a short DJConnect pairing code.
 3. User enters/confirms that code in the Home Assistant DJConnect setup flow.
-4. App redeems the same code with the integration.
+4. App waits/polls with the same code until the integration completes pairing.
 5. Integration creates or returns a DJConnect device bearer token for the app
    runtime.
 6. App stores only the DJConnect bearer token in Keychain.
@@ -154,7 +154,7 @@ X-DJConnect-Device-ID: <device_id>
 }
 ```
 
-Expected response:
+Expected completion response:
 
 ```json
 {
@@ -162,6 +162,9 @@ Expected response:
   "device_token": "<device bearer token>"
 }
 ```
+
+While Home Assistant has not accepted the code yet, the app keeps waiting and
+does not show a manual Pair button.
 
 Bearer token storage:
 

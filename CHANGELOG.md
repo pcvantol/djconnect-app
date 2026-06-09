@@ -23,6 +23,9 @@ All notable changes to DJConnect App are documented here.
 - Implemented macOS/iOS app-generated pairing code flow against
   `POST /api/djconnect/pair` with Keychain device-token storage and status
   validation.
+- Added generated DJConnect app icon assets for macOS and iOS.
+- Replaced the manual Pair button with automatic waiting for Home Assistant to
+  accept the app-generated pairing code.
 
 ### Changed
 

@@ -302,19 +302,17 @@ struct SettingsView: View {
                             .font(.system(.title3, design: .monospaced).weight(.semibold))
                             .textSelection(.enabled)
                     }
+                    if model.isPairing {
+                        ProgressView("Waiting for Home Assistant")
+                    }
                     HStack {
-                        Button(model.isPairing ? "Pairing..." : "Pair") {
-                            Task {
-                                await model.pair()
-                            }
-                        }
-                        .disabled(model.isPairing)
                         Button("New Code") {
-                            model.newPairingToken()
+                            model.rotatePairingTokenAndWait()
                         }
-                        .disabled(model.isPairing)
+                        .disabled(model.pairingStatus == .paired)
                         Button("Reset Pairing", role: .destructive) {
                             model.resetPairing()
+                            model.startPairingWait()
                         }
                     }
                     LabeledContent("Device ID", value: model.identity.deviceID)
@@ -336,6 +334,12 @@ struct SettingsView: View {
                 }
             }
             .navigationTitle("Settings")
+            .task {
+                model.startPairingWait()
+            }
+            .onChange(of: model.homeAssistantURL) {
+                model.startPairingWait()
+            }
         }
     }
 }

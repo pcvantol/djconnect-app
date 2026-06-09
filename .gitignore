@@ -4,6 +4,7 @@ node_modules/
 # Build output
 .build/
 .xcode-derived/
+.xcode-derived*/
 dist/
 build/
 .next/

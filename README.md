@@ -118,8 +118,9 @@ POST /api/djconnect/pair
 ```
 
 The app sends `device_id`, `device_name`, `client_type`, `firmware`,
-`app_version`, `platform`, and an app-generated `pairing_token`, then stores
-the returned `device_token` in Keychain.
+`app_version`, `platform`, and an app-generated `pairing_token`. The app keeps
+waiting until Home Assistant accepts that code and returns `device_token`, then
+stores the token in Keychain.
 
 ## Version Contract
 
