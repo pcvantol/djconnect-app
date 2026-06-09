@@ -227,10 +227,6 @@ public final class DJConnectAppModel: ObservableObject {
                 return
             } catch let error as DJConnectError {
                 logPairingError(error)
-                if Self.isPairingCodeMismatch(error) {
-                    applyPairingCodeMismatch()
-                    return
-                }
                 applyPairingWait(error: error, pairingToken: pairingToken)
             } catch {
                 log(.error, "Unexpected pairing error: \(error.localizedDescription)")
@@ -424,6 +420,12 @@ public final class DJConnectAppModel: ObservableObject {
                 english: "Waiting for Home Assistant to finish pairing.",
                 dutch: "Wachten tot Home Assistant pairing afrondt."
             )
+        case let .authStale(_, message):
+            pairingStatus = .pairing
+            pairingMessage = message ?? localized(
+                english: "Waiting for Home Assistant to accept the current app code.",
+                dutch: "Wachten tot Home Assistant de huidige app-code accepteert."
+            )
         case let .versionMismatch(mismatch):
             pairingStatus = .pairing
             updateRequiredMessage = mismatch.message ?? localized(
@@ -437,19 +439,6 @@ public final class DJConnectAppModel: ObservableObject {
                 dutch: "Wachten tot Home Assistant pairing afrondt."
             )
         }
-    }
-
-    private func applyPairingCodeMismatch() {
-        pairingTask?.cancel()
-        pairingTask = nil
-        pairingStatus = .stale
-        isConnected = false
-        isPairing = false
-        pairingMessage = localized(
-            english: "Home Assistant rejected this pairing code. Tap New Code and enter the current app code in Home Assistant.",
-            dutch: "Home Assistant weigert deze koppelcode. Tik op Nieuwe code en vul de actuele app-code in Home Assistant in."
-        )
-        log(.error, "Pairing stopped because Home Assistant rejected the current code")
     }
 
     private func refreshStatus(client: DJConnectClient) async throws {
@@ -617,14 +606,6 @@ public final class DJConnectAppModel: ObservableObject {
         case let .pairingFailed(message):
             "pairing pending\(message.map { ": \($0)" } ?? "")"
         }
-    }
-
-    private static func isPairingCodeMismatch(_ error: DJConnectError) -> Bool {
-        guard case let .authStale(statusCode, message) = error, statusCode == 401 else {
-            return false
-        }
-        let normalized = (message ?? "").lowercased()
-        return normalized.contains("pairing code") || normalized.contains("pair code") || normalized.contains("koppelcode")
     }
 
     private static func redactedURL(_ url: URL) -> String {

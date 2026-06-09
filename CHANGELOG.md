@@ -56,6 +56,8 @@ All notable changes to DJConnect App are documented here.
   for ESP hardware clients.
 - Kept the app `client_id` stable when resetting pairing, clearing only the
   bearer token and pairing code.
+- Added `pairing_code` as a pairing payload alias and kept polling when Home
+  Assistant returns a temporary 401 during app-code acceptance.
 
 ### Changed
 

@@ -77,15 +77,16 @@ Payload:
   "app_version": "3.0.0",
   "platform": "macos",
   "pair_code": "123456",
+  "pairing_code": "123456",
   "pairing_token": "123456"
 }
 ```
 
-The app-generated code is sent as both `pair_code` and `pairing_token` for
-compatibility with current Home Assistant integration builds. The user confirms
-or enters the same value in the Home Assistant DJConnect setup flow. The app
-keeps polling this endpoint with the generated code until Home Assistant returns
-a device token.
+The app-generated code is sent as `pair_code`, `pairing_code`, and
+`pairing_token` for compatibility with current Home Assistant integration
+builds. The user confirms or enters the same value in the Home Assistant
+DJConnect setup flow. The app keeps polling this endpoint with the generated
+code until Home Assistant returns a device token.
 
 Expected response:
 

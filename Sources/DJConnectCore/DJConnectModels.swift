@@ -82,6 +82,7 @@ public struct DJConnectPairingPayload: Codable, Equatable, Sendable {
     public var platform: DJConnectPlatform
     public var pairingToken: String
     public var pairCode: String
+    public var pairingCode: String
     public var localURL: String?
 
     public init(identity: DJConnectIdentity, pairingToken: String, localURL: String? = nil) {
@@ -95,6 +96,7 @@ public struct DJConnectPairingPayload: Codable, Equatable, Sendable {
         self.platform = identity.platform
         self.pairingToken = pairingToken
         self.pairCode = pairingToken
+        self.pairingCode = pairingToken
         self.localURL = localURL
     }
 
@@ -109,6 +111,7 @@ public struct DJConnectPairingPayload: Codable, Equatable, Sendable {
         case platform
         case pairingToken = "pairing_token"
         case pairCode = "pair_code"
+        case pairingCode = "pairing_code"
         case localURL = "local_url"
     }
 }

@@ -111,6 +111,7 @@ import Testing
     #expect(json?["device_id"] as? String == identity.deviceID)
     #expect(json?["client_type"] as? String == "macos")
     #expect(json?["pair_code"] as? String == "123456")
+    #expect(json?["pairing_code"] as? String == "123456")
     #expect(json?["pairing_token"] as? String == "123456")
     #expect(json?["firmware"] as? String == "3.0.0")
 }
