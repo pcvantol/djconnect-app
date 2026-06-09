@@ -678,7 +678,6 @@ struct SettingsView: View {
                         .disabled(model.pairingStatus == .paired)
                         Button(localized(model.language, "Reset Pairing", "Reset pairing"), role: .destructive) {
                             model.resetPairing()
-                            model.startPairingWait()
                         }
                     }
                     LabeledContent(localized(model.language, "Device ID", "Device ID"), value: model.identity.deviceID)

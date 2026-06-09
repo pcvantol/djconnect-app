@@ -46,6 +46,10 @@ All notable changes to DJConnect App are documented here.
   `/api/device/dj_response` during two-way pairing and status updates.
 - Sent both `pair_code` and `pairing_token` during app-initiated pairing and
   posted status immediately after Home Assistant pairs through the local API.
+- Stopped repeated pairing polling when Home Assistant rejects the current
+  pairing code, and show guidance to generate/use a fresh code.
+- Made Reset Pairing stop at a clean reset instead of immediately retrying with
+  a potentially stale Home Assistant code.
 
 ### Changed
 
