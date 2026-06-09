@@ -58,6 +58,8 @@ All notable changes to DJConnect App are documented here.
   during repair flows, and log inbound pairing-info/pair requests.
 - Treated local pair requests without a device token as successful code
   verification instead of rejecting Home Assistant repair flows.
+- Completed local pair requests without a device token as paired local-API
+  sessions, stopping stale polling against Home Assistant.
 
 ### Changed
 

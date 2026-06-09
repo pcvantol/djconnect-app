@@ -132,10 +132,11 @@ For `POST /api/device/pair`, the app accepts the code as `pair_code`,
 device token may be sent as `device_token`, `bearer_token`, `token`, or
 `access_token`.
 
-If Home Assistant uses the local `POST /api/device/pair` call only to verify the
-code and does not include a device token yet, the app returns `success: true`
-with `ha_pairing_status: "pairing"` and keeps waiting for the token through the
-normal app-to-Home Assistant pairing endpoint or a later local pair call.
+If Home Assistant uses the local `POST /api/device/pair` call and does not
+include a device token, the app still returns `success: true` with
+`ha_pairing_status: "paired"` and stops polling the app-to-Home Assistant
+pairing endpoint. This supports integrations that use the app's local API as
+the paired device transport.
 
 ## Status
 
