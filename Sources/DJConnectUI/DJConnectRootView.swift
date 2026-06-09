@@ -9,6 +9,15 @@ private func localized(_ language: String, _ english: String, _ dutch: String) -
     language == "nl" ? dutch : english
 }
 
+private func localizedOutputName(_ outputName: String, language: String) -> String {
+    switch outputName {
+    case "Not selected", "No output selected":
+        localized(language, "No output selected", "Geen output geselecteerd")
+    default:
+        outputName
+    }
+}
+
 public struct DJConnectRootView: View {
     @ObservedObject private var model: DJConnectAppModel
 
@@ -198,7 +207,7 @@ private struct IOSConnectionCard: View {
     private var statusSubtitle: String {
         switch model.pairingStatus {
         case .paired:
-            model.selectedOutput == "Not selected" ? localized(model.language, "DJConnect is paired", "DJConnect is gekoppeld") : model.selectedOutput
+            model.selectedOutput == "Not selected" ? localized(model.language, "DJConnect is paired", "DJConnect is gekoppeld") : localizedOutputName(model.selectedOutput, language: model.language)
         case .pairing:
             localized(model.language, "Enter this code in the DJConnect Home Assistant integration", "Vul deze code in bij de DJConnect Home Assistant integratie")
         case .stale:
@@ -607,7 +616,7 @@ struct QueueView: View {
         NavigationStack {
             List {
                 Section(localized(model.language, "Output", "Output")) {
-                    Label(model.selectedOutput, systemImage: "speaker.wave.2")
+                    Label(localizedOutputName(model.selectedOutput, language: model.language), systemImage: "speaker.wave.2")
                 }
                 Section(localized(model.language, "Queue", "Wachtrij")) {
                     if model.queue.isEmpty {
@@ -685,6 +694,7 @@ struct SettingsView: View {
                         Text("Info").tag("info")
                         Text("Debug").tag("debug")
                         Text(localized(model.language, "Warning", "Waarschuwing")).tag("warning")
+                        Text(localized(model.language, "Error", "Fout")).tag("error")
                     }
                     Toggle(localized(model.language, "Voice", "Voice"), isOn: $model.voiceEnabled)
                     Toggle(localized(model.language, "Local Response Audio", "Lokale response-audio"), isOn: $model.localResponseAudioEnabled)

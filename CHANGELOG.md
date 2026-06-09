@@ -33,6 +33,8 @@ All notable changes to DJConnect App are documented here.
   artwork, playback controls, volume, repeat/shuffle, and DJ response panels.
 - Made the in-app language picker switch visible UI text between Dutch and
   English, and persist the selected language.
+- Added the missing Error option to the Log Level picker.
+- Translated the empty playback output label in Dutch.
 
 ### Changed
 
