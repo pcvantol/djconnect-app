@@ -150,6 +150,7 @@ X-DJConnect-Device-ID: <device_id>
   "firmware": "3.0.0",
   "app_version": "3.0.0",
   "platform": "macos",
+  "pair_code": "123456",
   "pairing_token": "123456"
 }
 ```

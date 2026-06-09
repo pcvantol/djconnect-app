@@ -71,6 +71,7 @@ public struct DJConnectPairingPayload: Codable, Equatable, Sendable {
     public var appVersion: String?
     public var platform: DJConnectPlatform
     public var pairingToken: String
+    public var pairCode: String
     public var localURL: String?
 
     public init(identity: DJConnectIdentity, pairingToken: String, localURL: String? = nil) {
@@ -81,6 +82,7 @@ public struct DJConnectPairingPayload: Codable, Equatable, Sendable {
         self.appVersion = identity.appVersion
         self.platform = identity.platform
         self.pairingToken = pairingToken
+        self.pairCode = pairingToken
         self.localURL = localURL
     }
 
@@ -92,6 +94,7 @@ public struct DJConnectPairingPayload: Codable, Equatable, Sendable {
         case appVersion = "app_version"
         case platform
         case pairingToken = "pairing_token"
+        case pairCode = "pair_code"
         case localURL = "local_url"
     }
 }

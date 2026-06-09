@@ -532,6 +532,7 @@ public final class DJConnectAppModel: ObservableObject {
                 language = deviceLanguage
             }
             log(.info, "Local device pairing accepted by Home Assistant")
+            refresh()
             return [
                 "success": true,
                 "device_id": identity.deviceID,
