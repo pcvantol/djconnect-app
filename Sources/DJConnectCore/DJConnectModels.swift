@@ -71,8 +71,9 @@ public struct DJConnectPairingPayload: Codable, Equatable, Sendable {
     public var appVersion: String?
     public var platform: DJConnectPlatform
     public var pairingToken: String
+    public var localURL: String?
 
-    public init(identity: DJConnectIdentity, pairingToken: String) {
+    public init(identity: DJConnectIdentity, pairingToken: String, localURL: String? = nil) {
         self.deviceID = identity.deviceID
         self.deviceName = identity.deviceName
         self.clientType = identity.clientType
@@ -80,6 +81,7 @@ public struct DJConnectPairingPayload: Codable, Equatable, Sendable {
         self.appVersion = identity.appVersion
         self.platform = identity.platform
         self.pairingToken = pairingToken
+        self.localURL = localURL
     }
 
     enum CodingKeys: String, CodingKey {
@@ -90,6 +92,7 @@ public struct DJConnectPairingPayload: Codable, Equatable, Sendable {
         case appVersion = "app_version"
         case platform
         case pairingToken = "pairing_token"
+        case localURL = "local_url"
     }
 }
 
@@ -136,6 +139,7 @@ public struct DJConnectStatusPayload: Codable, Equatable, Sendable {
     public var voiceSupported: Bool?
     public var screenState: String?
     public var networkType: String?
+    public var localURL: String?
 
     public init(
         identity: DJConnectIdentity,
@@ -151,7 +155,8 @@ public struct DJConnectStatusPayload: Codable, Equatable, Sendable {
         localAudioSupported: Bool? = nil,
         voiceSupported: Bool? = nil,
         screenState: String? = nil,
-        networkType: String? = nil
+        networkType: String? = nil,
+        localURL: String? = nil
     ) {
         self.deviceID = identity.deviceID
         self.clientType = identity.clientType
@@ -171,6 +176,7 @@ public struct DJConnectStatusPayload: Codable, Equatable, Sendable {
         self.voiceSupported = voiceSupported
         self.screenState = screenState
         self.networkType = networkType
+        self.localURL = localURL
     }
 
     enum CodingKeys: String, CodingKey {
@@ -192,6 +198,7 @@ public struct DJConnectStatusPayload: Codable, Equatable, Sendable {
         case voiceSupported = "voice_supported"
         case screenState = "screen_state"
         case networkType = "network_type"
+        case localURL = "local_url"
     }
 }
 

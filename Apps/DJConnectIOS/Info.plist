@@ -30,6 +30,7 @@
 	<key>NSBonjourServices</key>
 	<array>
 		<string>_home-assistant._tcp.</string>
+		<string>_djconnect._tcp.</string>
 	</array>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>DJConnect maakt verbinding met Home Assistant op je lokale netwerk.</string>

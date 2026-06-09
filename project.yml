@@ -91,6 +91,7 @@ targets:
         NSLocalNetworkUsageDescription: DJConnect maakt verbinding met Home Assistant op je lokale netwerk.
         NSBonjourServices:
           - _home-assistant._tcp.
+          - _djconnect._tcp.
         NSAppTransportSecurity:
           NSAllowsArbitraryLoadsInLocalNetworking: true
     settings:
@@ -116,6 +117,7 @@ targets:
         NSLocalNetworkUsageDescription: DJConnect maakt verbinding met Home Assistant op je lokale netwerk.
         NSBonjourServices:
           - _home-assistant._tcp.
+          - _djconnect._tcp.
         NSAppTransportSecurity:
           NSAllowsArbitraryLoadsInLocalNetworking: true
     settings:

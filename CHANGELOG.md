@@ -39,6 +39,11 @@ All notable changes to DJConnect App are documented here.
   declarations to the iOS/macOS app plists for local Home Assistant access.
 - Made Home Assistant URL entry accept bare local addresses like
   `192.168.1.10:8123` and debounce pairing retries while editing.
+- Added app logging with log-level filtering, OSLog output, and an in-app
+  diagnostics log for pairing, status refresh, commands, and network errors.
+- Added a local Bonjour-advertised app device API for Home Assistant to call
+  `/api/device/pairing-info`, `/api/device/pair`, `/api/device/command`, and
+  `/api/device/dj_response` during two-way pairing and status updates.
 
 ### Changed
 

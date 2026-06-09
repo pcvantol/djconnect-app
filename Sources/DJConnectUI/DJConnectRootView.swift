@@ -683,6 +683,9 @@ struct SettingsView: View {
                     }
                     LabeledContent(localized(model.language, "Device ID", "Device ID"), value: model.identity.deviceID)
                     LabeledContent(localized(model.language, "Client", "Client"), value: model.identity.clientType.rawValue)
+                    if let localDeviceURL = model.localDeviceURL {
+                        LabeledContent(localized(model.language, "Local API", "Lokale API"), value: localDeviceURL)
+                    }
                 }
 
                 Section(localized(model.language, "App", "App")) {
@@ -698,6 +701,35 @@ struct SettingsView: View {
                     }
                     Toggle(localized(model.language, "Voice", "Voice"), isOn: $model.voiceEnabled)
                     Toggle(localized(model.language, "Local Response Audio", "Lokale response-audio"), isOn: $model.localResponseAudioEnabled)
+                }
+
+                Section {
+                    if model.diagnosticLogLines.isEmpty {
+                        ContentUnavailableView(
+                            localized(model.language, "No Logs", "Geen logs"),
+                            systemImage: "doc.text.magnifyingglass"
+                        )
+                    } else {
+                        ScrollView {
+                            VStack(alignment: .leading, spacing: 6) {
+                                ForEach(model.diagnosticLogLines, id: \.self) { line in
+                                    Text(line)
+                                        .font(.system(.caption, design: .monospaced))
+                                        .textSelection(.enabled)
+                                        .frame(maxWidth: .infinity, alignment: .leading)
+                                }
+                            }
+                            .padding(.vertical, 4)
+                        }
+                        .frame(minHeight: 140, maxHeight: 260)
+                    }
+
+                    Button(localized(model.language, "Clear Logs", "Logs wissen")) {
+                        model.clearDiagnosticLog()
+                    }
+                    .disabled(model.diagnosticLogLines.isEmpty)
+                } header: {
+                    Text(localized(model.language, "Diagnostics", "Diagnostiek"))
                 }
             }
             .navigationTitle(localized(model.language, "Settings", "Instellingen"))
