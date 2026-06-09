@@ -249,7 +249,6 @@ public final class DJConnectAppModel: ObservableObject {
         pairingTask?.cancel()
         pairingTask = nil
         try? tokenStore.clearToken()
-        defaults.removeObject(forKey: installIDKey)
         _ = newPairingToken()
         pairingStatus = .unpaired
         isConnected = false
@@ -274,6 +273,11 @@ public final class DJConnectAppModel: ObservableObject {
             return
         }
         _ = newPairingToken()
+        pairingStatus = .unpaired
+        pairingMessage = localized(
+            english: "Enter the new app code in Home Assistant.",
+            dutch: "Vul de nieuwe app-code in Home Assistant in."
+        )
         startPairingWait()
     }
 

@@ -10,6 +10,10 @@ Assistant route compatibility the app also sends the same value as `device_id`,
 but app clients should be stored and reasoned about as clients, not ESP
 devices.
 
+The app must keep `client_id` stable across pairing reset/retry flows. Resetting
+pairing clears only the bearer token and generates a new app code; it must not
+change the app client identity.
+
 ```json
 {
   "client_id": "djconnect-ios-8F3A2C91B45D",

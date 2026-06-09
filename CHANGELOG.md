@@ -54,6 +54,8 @@ All notable changes to DJConnect App are documented here.
   temporary `device_id` route compatibility fields.
 - Removed the local app device API because `/api/device/*` routes are reserved
   for ESP hardware clients.
+- Kept the app `client_id` stable when resetting pairing, clearing only the
+  bearer token and pairing code.
 
 ### Changed
 
