@@ -56,6 +56,8 @@ All notable changes to DJConnect App are documented here.
   Reset Pairing.
 - Made the local device pairing API tolerate Home Assistant field/path aliases
   during repair flows, and log inbound pairing-info/pair requests.
+- Treated local pair requests without a device token as successful code
+  verification instead of rejecting Home Assistant repair flows.
 
 ### Changed
 

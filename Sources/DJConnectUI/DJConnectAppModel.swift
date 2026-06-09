@@ -539,11 +539,28 @@ public final class DJConnectAppModel: ObservableObject {
         }
 
         guard let deviceToken = payload.deviceToken?.trimmingCharacters(in: .whitespacesAndNewlines), !deviceToken.isEmpty else {
-            log(.warning, "Local pair rejected because HA did not send a device token")
+            pairingStatus = .pairing
+            isConnected = false
+            isPairing = true
+            pairingMessage = localized(
+                english: "Home Assistant verified the pairing code. Waiting for device token.",
+                dutch: "Home Assistant heeft de koppelcode geverifieerd. Wachten op device-token."
+            )
+            log(.info, "Local device pairing code accepted; waiting for Home Assistant device token")
             return [
-                "success": false,
-                "error": "missing_device_token",
-                "message": "Missing device token"
+                "success": true,
+                "device_id": identity.deviceID,
+                "device_name": identity.deviceName,
+                "client_type": identity.clientType.rawValue,
+                "ha_pairing_status": DJConnectPairingStatus.pairing.rawValue,
+                "firmware": identity.firmware,
+                "app_version": identity.appVersion ?? identity.firmware,
+                "platform": identity.platform.rawValue,
+                "state": "online",
+                "status": "online",
+                "pair_code": expectedPairCode,
+                "pairing_token": expectedPairCode,
+                "local_url": localDeviceURL ?? ""
             ]
         }
 

@@ -143,6 +143,8 @@ final class DJConnectLocalDeviceServer: @unchecked Sendable {
                 result = (200, self.pairingInfoJSON())
             case ("POST", "/api/device/pair"), ("POST", "/api/djconnect/device/pair"):
                 result = (200, self.delegate?.localDeviceServerPair(payload: Self.pairPayload(from: request.json)) ?? ["success": false])
+            case ("POST", "/api/device/status"), ("POST", "/api/djconnect/device/status"):
+                result = (200, self.delegate?.localDeviceServerCommand(payload: ["command": "status"]) ?? ["success": false])
             case ("POST", "/api/device/command"), ("POST", "/api/djconnect/device/command"):
                 result = (200, self.delegate?.localDeviceServerCommand(payload: request.json) ?? ["success": false])
             case ("POST", "/api/device/dj_response"), ("POST", "/api/djconnect/device/dj_response"):
