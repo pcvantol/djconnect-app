@@ -88,6 +88,50 @@ The app also accepts `bearer_token` or `token` for compatibility, but
 `device_token` is preferred. After successful pairing, the app stores only the
 returned DJConnect device bearer token in Keychain and posts status.
 
+## Local Device API
+
+The Apple app exposes a local HTTP API for Home Assistant repair/config flows.
+Home Assistant may discover it through Bonjour `_djconnect._tcp` or use the
+`local_url` sent by the app during pairing.
+
+```http
+GET /api/device/pairing-info
+GET /api/device/info
+GET /api/device/status
+POST /api/device/pair
+```
+
+The app also accepts underscore and `/api/djconnect/device/...` aliases for
+compatibility with integration builds.
+
+Pairing-info response includes the app-generated code under all supported code
+field names:
+
+```json
+{
+  "success": true,
+  "device_id": "djconnect-macos-8F3A2C91B45D",
+  "device_name": "DJConnect Mac",
+  "client_type": "macos",
+  "firmware": "3.0.0",
+  "app_version": "3.0.0",
+  "platform": "macos",
+  "state": "online",
+  "status": "online",
+  "ha_pairing_status": "pairing",
+  "pair_code": "123456",
+  "pairing_token": "123456",
+  "pairing_code": "123456",
+  "code": "123456",
+  "local_url": "http://192.168.1.104:64641"
+}
+```
+
+For `POST /api/device/pair`, the app accepts the code as `pair_code`,
+`pairing_token`, `pairing_code`, `code`, or `pin`. The Home Assistant-issued
+device token may be sent as `device_token`, `bearer_token`, `token`, or
+`access_token`.
+
 ## Status
 
 ```http

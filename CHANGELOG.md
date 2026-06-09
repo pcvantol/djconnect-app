@@ -54,6 +54,8 @@ All notable changes to DJConnect App are documented here.
   same second.
 - Cancelled pending pairing retries and cleared active pairing state during
   Reset Pairing.
+- Made the local device pairing API tolerate Home Assistant field/path aliases
+  during repair flows, and log inbound pairing-info/pair requests.
 
 ### Changed
 

@@ -777,7 +777,8 @@ extension DJConnectAppModel: DJConnectLocalDeviceServerDelegate {
     }
 
     func localDeviceServerPairingInfo() -> DJConnectLocalDeviceServer.PairingInfo {
-        DJConnectLocalDeviceServer.PairingInfo(
+        log(.info, "Local device API pairing info requested")
+        return DJConnectLocalDeviceServer.PairingInfo(
             deviceID: identity.deviceID,
             deviceName: identity.deviceName,
             clientType: identity.clientType,
@@ -790,7 +791,8 @@ extension DJConnectAppModel: DJConnectLocalDeviceServerDelegate {
     }
 
     func localDeviceServerPair(payload: DJConnectLocalDeviceServer.PairPayload) -> DJConnectLocalDeviceServer.JSON {
-        acceptLocalPairing(payload: payload)
+        log(.info, "Local device API pair request received")
+        return acceptLocalPairing(payload: payload)
     }
 
     func localDeviceServerCommand(payload: DJConnectLocalDeviceServer.JSON) -> DJConnectLocalDeviceServer.JSON {

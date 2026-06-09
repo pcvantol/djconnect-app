@@ -132,13 +132,20 @@ final class DJConnectLocalDeviceServer: @unchecked Sendable {
 
             let result: (Int, JSON)
             switch (request.method, request.path) {
-            case ("GET", "/api/device/info"), ("GET", "/api/device/pairing-info"):
+            case ("GET", "/api/device/info"),
+                 ("GET", "/api/device/status"),
+                 ("GET", "/api/device/pairing-info"),
+                 ("GET", "/api/device/pairing_info"),
+                 ("GET", "/api/djconnect/device/info"),
+                 ("GET", "/api/djconnect/device/status"),
+                 ("GET", "/api/djconnect/device/pairing-info"),
+                 ("GET", "/api/djconnect/device/pairing_info"):
                 result = (200, self.pairingInfoJSON())
-            case ("POST", "/api/device/pair"):
+            case ("POST", "/api/device/pair"), ("POST", "/api/djconnect/device/pair"):
                 result = (200, self.delegate?.localDeviceServerPair(payload: Self.pairPayload(from: request.json)) ?? ["success": false])
-            case ("POST", "/api/device/command"):
+            case ("POST", "/api/device/command"), ("POST", "/api/djconnect/device/command"):
                 result = (200, self.delegate?.localDeviceServerCommand(payload: request.json) ?? ["success": false])
-            case ("POST", "/api/device/dj_response"):
+            case ("POST", "/api/device/dj_response"), ("POST", "/api/djconnect/device/dj_response"):
                 result = (200, self.delegate?.localDeviceServerDJResponse(payload: request.json) ?? ["success": false])
             case ("POST", "/api/device/reboot"), ("POST", "/api/device/forget"), ("POST", "/api/device/ota"):
                 result = (200, ["success": true, "client_type": self.delegate?.localDeviceServerPairingInfo().clientType.rawValue ?? "ios"])
@@ -163,8 +170,13 @@ final class DJConnectLocalDeviceServer: @unchecked Sendable {
             "firmware": info.firmware,
             "app_version": info.appVersion ?? info.firmware,
             "platform": info.platform.rawValue,
+            "state": "online",
+            "status": "online",
+            "ha_pairing_status": "pairing",
             "pair_code": info.pairCode,
             "pairing_token": info.pairCode,
+            "pairing_code": info.pairCode,
+            "code": info.pairCode,
             "local_url": info.localURL ?? localURL ?? ""
         ]
     }
@@ -187,13 +199,22 @@ final class DJConnectLocalDeviceServer: @unchecked Sendable {
 
     private static func pairPayload(from json: JSON) -> PairPayload {
         PairPayload(
-            pairCode: json["pair_code"] as? String,
-            deviceToken: (json["device_token"] as? String) ?? (json["token"] as? String) ?? (json["bearer_token"] as? String),
+            pairCode: Self.firstString(json, keys: ["pair_code", "pairing_token", "pairing_code", "code", "pin"]),
+            deviceToken: Self.firstString(json, keys: ["device_token", "token", "bearer_token", "access_token"]),
             haLocalURL: json["ha_local_url"] as? String,
             haRemoteURL: json["ha_remote_url"] as? String,
             deviceLanguage: (json["device_language"] as? String) ?? (json["language"] as? String),
             assistPipelineID: json["assist_pipeline_id"] as? String
         )
+    }
+
+    private static func firstString(_ json: JSON, keys: [String]) -> String? {
+        for key in keys {
+            if let value = json[key] as? String, !value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                return value
+            }
+        }
+        return nil
     }
 
     private static func parseRequest(_ data: Data) -> HTTPRequest? {
