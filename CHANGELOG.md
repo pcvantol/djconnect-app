@@ -41,11 +41,7 @@ All notable changes to DJConnect App are documented here.
   `192.168.1.10:8123` and debounce pairing retries while editing.
 - Added app logging with log-level filtering, OSLog output, and an in-app
   diagnostics log for pairing, status refresh, commands, and network errors.
-- Added a local Bonjour-advertised app device API for Home Assistant to call
-  `/api/device/pairing-info`, `/api/device/pair`, `/api/device/command`, and
-  `/api/device/dj_response` during two-way pairing and status updates.
-- Sent both `pair_code` and `pairing_token` during app-initiated pairing and
-  posted status immediately after Home Assistant pairs through the local API.
+- Sent both `pair_code` and `pairing_token` during app-initiated pairing.
 - Stopped repeated pairing polling when Home Assistant rejects the current
   pairing code, and show guidance to generate/use a fresh code.
 - Made Reset Pairing stop at a clean reset instead of immediately retrying with
@@ -54,12 +50,10 @@ All notable changes to DJConnect App are documented here.
   same second.
 - Cancelled pending pairing retries and cleared active pairing state during
   Reset Pairing.
-- Made the local device pairing API tolerate Home Assistant field/path aliases
-  during repair flows, and log inbound pairing-info/pair requests.
-- Treated local pair requests without a device token as successful code
-  verification instead of rejecting Home Assistant repair flows.
-- Completed local pair requests without a device token as paired local-API
-  sessions, stopping stale polling against Home Assistant.
+- Added `client_id` and `client_name` app-client identity fields alongside
+  temporary `device_id` route compatibility fields.
+- Removed the local app device API because `/api/device/*` routes are reserved
+  for ESP hardware clients.
 
 ### Changed
 

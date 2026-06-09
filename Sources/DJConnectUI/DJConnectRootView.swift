@@ -680,11 +680,8 @@ struct SettingsView: View {
                             model.resetPairing()
                         }
                     }
-                    LabeledContent(localized(model.language, "Device ID", "Device ID"), value: model.identity.deviceID)
+                    LabeledContent(localized(model.language, "Client ID", "Client ID"), value: model.identity.clientID)
                     LabeledContent(localized(model.language, "Client", "Client"), value: model.identity.clientType.rawValue)
-                    if let localDeviceURL = model.localDeviceURL {
-                        LabeledContent(localized(model.language, "Local API", "Lokale API"), value: localDeviceURL)
-                    }
                 }
 
                 Section(localized(model.language, "App", "App")) {

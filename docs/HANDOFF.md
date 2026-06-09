@@ -132,18 +132,24 @@ Recommended user flow:
    runtime.
 6. App stores only the DJConnect bearer token in Keychain.
 7. App starts sending authenticated status and command payloads with
-   `client_type`.
+   `client_id` and `client_type`.
+
+The iOS/macOS app is an app client, not local ESP hardware. It must not expose
+or consume ESP-local `/api/device/*` routes.
 
 Implemented initial app contract:
 
 ```http
 POST /api/djconnect/pair
 Content-Type: application/json
+X-DJConnect-Client-ID: <client_id>
 X-DJConnect-Device-ID: <device_id>
 ```
 
 ```json
 {
+  "client_id": "djconnect-macos-8F3A2C91B45D",
+  "client_name": "DJConnect Mac",
   "device_id": "djconnect-macos-8F3A2C91B45D",
   "device_name": "DJConnect Mac",
   "client_type": "macos",
@@ -254,7 +260,9 @@ Send generic playback commands to:
 POST /api/djconnect/command
 ```
 
-All command payloads must include `device_id` and `client_type`.
+All command payloads must include `client_id` and `client_type`. During
+temporary route compatibility the app also sends `device_id` with the same
+stable app-client value.
 
 Examples:
 

@@ -30,6 +30,8 @@ public enum DJConnectRepeatState: String, Codable, Sendable {
 }
 
 public struct DJConnectIdentity: Codable, Equatable, Sendable {
+    public var clientID: String
+    public var clientName: String
     public var deviceID: String
     public var deviceName: String
     public var clientType: DJConnectClientType
@@ -38,6 +40,8 @@ public struct DJConnectIdentity: Codable, Equatable, Sendable {
     public var platform: DJConnectPlatform
 
     public init(
+        clientID: String? = nil,
+        clientName: String? = nil,
         deviceID: String,
         deviceName: String,
         clientType: DJConnectClientType,
@@ -45,6 +49,8 @@ public struct DJConnectIdentity: Codable, Equatable, Sendable {
         appVersion: String? = nil,
         platform: DJConnectPlatform
     ) {
+        self.clientID = clientID ?? deviceID
+        self.clientName = clientName ?? deviceName
         self.deviceID = deviceID
         self.deviceName = deviceName
         self.clientType = clientType
@@ -54,6 +60,8 @@ public struct DJConnectIdentity: Codable, Equatable, Sendable {
     }
 
     enum CodingKeys: String, CodingKey {
+        case clientID = "client_id"
+        case clientName = "client_name"
         case deviceID = "device_id"
         case deviceName = "device_name"
         case clientType = "client_type"
@@ -64,6 +72,8 @@ public struct DJConnectIdentity: Codable, Equatable, Sendable {
 }
 
 public struct DJConnectPairingPayload: Codable, Equatable, Sendable {
+    public var clientID: String
+    public var clientName: String
     public var deviceID: String
     public var deviceName: String
     public var clientType: DJConnectClientType
@@ -75,6 +85,8 @@ public struct DJConnectPairingPayload: Codable, Equatable, Sendable {
     public var localURL: String?
 
     public init(identity: DJConnectIdentity, pairingToken: String, localURL: String? = nil) {
+        self.clientID = identity.clientID
+        self.clientName = identity.clientName
         self.deviceID = identity.deviceID
         self.deviceName = identity.deviceName
         self.clientType = identity.clientType
@@ -87,6 +99,8 @@ public struct DJConnectPairingPayload: Codable, Equatable, Sendable {
     }
 
     enum CodingKeys: String, CodingKey {
+        case clientID = "client_id"
+        case clientName = "client_name"
         case deviceID = "device_id"
         case deviceName = "device_name"
         case clientType = "client_type"
@@ -105,6 +119,7 @@ public struct DJConnectPairingResponse: Codable, Equatable, Sendable {
     public var token: String?
     public var bearerToken: String?
     public var message: String?
+    public var clientID: String?
     public var deviceID: String?
     public var clientType: DJConnectClientType?
 
@@ -118,12 +133,14 @@ public struct DJConnectPairingResponse: Codable, Equatable, Sendable {
         case token
         case bearerToken = "bearer_token"
         case message
+        case clientID = "client_id"
         case deviceID = "device_id"
         case clientType = "client_type"
     }
 }
 
 public struct DJConnectStatusPayload: Codable, Equatable, Sendable {
+    public var clientID: String
     public var deviceID: String
     public var clientType: DJConnectClientType
     public var haPairingStatus: DJConnectPairingStatus
@@ -161,6 +178,7 @@ public struct DJConnectStatusPayload: Codable, Equatable, Sendable {
         networkType: String? = nil,
         localURL: String? = nil
     ) {
+        self.clientID = identity.clientID
         self.deviceID = identity.deviceID
         self.clientType = identity.clientType
         self.haPairingStatus = haPairingStatus
@@ -183,6 +201,7 @@ public struct DJConnectStatusPayload: Codable, Equatable, Sendable {
     }
 
     enum CodingKeys: String, CodingKey {
+        case clientID = "client_id"
         case deviceID = "device_id"
         case clientType = "client_type"
         case haPairingStatus = "ha_pairing_status"
@@ -206,6 +225,7 @@ public struct DJConnectStatusPayload: Codable, Equatable, Sendable {
 }
 
 public struct DJConnectCommandPayload: Codable, Equatable, Sendable {
+    public var clientID: String
     public var deviceID: String
     public var clientType: DJConnectClientType
     public var command: String
@@ -218,6 +238,7 @@ public struct DJConnectCommandPayload: Codable, Equatable, Sendable {
         value: DJConnectCommandValue? = nil,
         play: Bool? = nil
     ) {
+        self.clientID = identity.clientID
         self.deviceID = identity.deviceID
         self.clientType = identity.clientType
         self.command = command
@@ -226,6 +247,7 @@ public struct DJConnectCommandPayload: Codable, Equatable, Sendable {
     }
 
     enum CodingKeys: String, CodingKey {
+        case clientID = "client_id"
         case deviceID = "device_id"
         case clientType = "client_type"
         case command
