@@ -1,0 +1,137 @@
+# Home Assistant API Contract
+
+This document captures the app-to-Home Assistant DJConnect contract used by
+`DJConnectCore`.
+
+## Identity
+
+Every app installation needs a stable `device_id`.
+
+```json
+{
+  "device_id": "djconnect-ios-8F3A2C91B45D",
+  "device_name": "DJConnect iPhone",
+  "client_type": "ios",
+  "firmware": "3.0.0",
+  "app_version": "3.0.0",
+  "platform": "ios"
+}
+```
+
+Use `client_type` for DJConnect client identity:
+
+- `ios`
+- `macos`
+- `esp32`
+
+Do not use `device_type` for client identity.
+
+## Auth Headers
+
+JSON requests:
+
+```http
+Authorization: Bearer <device_token>
+X-DJConnect-Device-ID: <device_id>
+Content-Type: application/json
+```
+
+Voice upload:
+
+```http
+Authorization: Bearer <device_token>
+X-DJConnect-Device-ID: <device_id>
+Content-Type: audio/wav
+```
+
+## Status
+
+```http
+POST /api/djconnect/status
+```
+
+Minimum payload:
+
+```json
+{
+  "device_id": "djconnect-ios-8F3A2C91B45D",
+  "client_type": "ios",
+  "ha_pairing_status": "paired",
+  "firmware": "3.0.0",
+  "app_version": "3.0.0",
+  "state": "online",
+  "status": "online",
+  "battery_percent": 85,
+  "language": "nl",
+  "theme": "dark",
+  "log_level": "info"
+}
+```
+
+## Commands
+
+```http
+POST /api/djconnect/command
+```
+
+Examples:
+
+```json
+{"device_id":"djconnect-ios-8F3A2C91B45D","client_type":"ios","command":"status"}
+{"device_id":"djconnect-ios-8F3A2C91B45D","client_type":"ios","command":"devices"}
+{"device_id":"djconnect-ios-8F3A2C91B45D","client_type":"ios","command":"queue"}
+{"device_id":"djconnect-ios-8F3A2C91B45D","client_type":"ios","command":"playlists"}
+{"device_id":"djconnect-ios-8F3A2C91B45D","client_type":"ios","command":"pause"}
+{"device_id":"djconnect-ios-8F3A2C91B45D","client_type":"ios","command":"play"}
+{"device_id":"djconnect-ios-8F3A2C91B45D","client_type":"ios","command":"next"}
+{"device_id":"djconnect-ios-8F3A2C91B45D","client_type":"ios","command":"previous"}
+{"device_id":"djconnect-ios-8F3A2C91B45D","client_type":"ios","command":"set_volume","value":35}
+{"device_id":"djconnect-ios-8F3A2C91B45D","client_type":"ios","command":"set_shuffle","value":true}
+{"device_id":"djconnect-ios-8F3A2C91B45D","client_type":"ios","command":"set_repeat","value":"context"}
+{"device_id":"djconnect-ios-8F3A2C91B45D","client_type":"ios","command":"start_liked_proxy","play":true}
+{"device_id":"djconnect-ios-8F3A2C91B45D","client_type":"ios","command":"start_playlist","value":"spotify:playlist:...","play":true}
+{"device_id":"djconnect-ios-8F3A2C91B45D","client_type":"ios","command":"set_output","value":"iPhone","play":true}
+```
+
+## Voice
+
+```http
+POST /api/djconnect/voice
+Content-Type: audio/wav
+```
+
+The app uploads raw mono PCM WAV. Home Assistant owns STT, Assist, playback
+action, and TTS.
+
+Expected response:
+
+```json
+{
+  "success": true,
+  "text": "Daar gaan we.",
+  "dj_text": "Daar gaan we.",
+  "audio_url": "http://homeassistant.local:8123/api/djconnect/tts/token.mp3",
+  "audio_type": "mp3"
+}
+```
+
+## Error Semantics
+
+`backend_unavailable`
+
+Playback backend authorization is expired or unavailable. This is not an app
+pairing failure. Keep token and pairing state.
+
+HTTP `426` / `version_mismatch`
+
+The app and Home Assistant integration do not share the same `major.minor`
+protocol version. Keep token and pairing state. Show update required.
+
+HTTP `401`/`403`
+
+Pairing is stale or unauthorized. Keep token until explicit user reset.
+
+HTTP `404`
+
+Integration route is missing or setup is stale. Keep token until explicit user
+reset and show setup recovery.

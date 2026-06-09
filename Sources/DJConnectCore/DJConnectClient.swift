@@ -1,0 +1,138 @@
+import Foundation
+
+public final class DJConnectClient: Sendable {
+    public let baseURL: URL
+    public let identity: DJConnectIdentity
+    public let tokenStore: DJConnectTokenStore
+
+    private let session: URLSession
+    private let encoder: JSONEncoder
+    private let decoder: JSONDecoder
+
+    public init(
+        baseURL: URL,
+        identity: DJConnectIdentity,
+        tokenStore: DJConnectTokenStore,
+        session: URLSession = .shared
+    ) {
+        self.baseURL = baseURL
+        self.identity = identity
+        self.tokenStore = tokenStore
+        self.session = session
+        self.encoder = JSONEncoder()
+        self.decoder = JSONDecoder()
+    }
+
+    public func postStatus(_ payload: DJConnectStatusPayload) async throws -> DJConnectEnvelope<DJConnectPlayback> {
+        let request = try statusRequest(payload)
+        return try await decodedResponse(for: request)
+    }
+
+    public func sendCommand(_ payload: DJConnectCommandPayload) async throws -> DJConnectEnvelope<DJConnectPlayback> {
+        let request = try commandRequest(payload)
+        return try await decodedResponse(for: request)
+    }
+
+    public func sendVoice(wavData: Data) async throws -> DJConnectVoiceResponse {
+        let request = try voiceRequest(wavData: wavData)
+        return try await decodedResponse(for: request)
+    }
+
+    public func statusRequest(_ payload: DJConnectStatusPayload) throws -> URLRequest {
+        try jsonRequest(path: "/api/djconnect/status", payload: payload)
+    }
+
+    public func commandRequest(_ payload: DJConnectCommandPayload) throws -> URLRequest {
+        try jsonRequest(path: "/api/djconnect/command", payload: payload)
+    }
+
+    public func voiceRequest(wavData: Data) throws -> URLRequest {
+        var request = try authenticatedRequest(path: "/api/djconnect/voice")
+        request.httpMethod = "POST"
+        request.setValue("audio/wav", forHTTPHeaderField: "Content-Type")
+        request.httpBody = wavData
+        return request
+    }
+
+    public func classify(statusCode: Int, body: Data? = nil, networkError: Error? = nil) -> DJConnectError? {
+        if let networkError {
+            return .network(message: networkError.localizedDescription)
+        }
+
+        guard !(200...299).contains(statusCode) else {
+            return nil
+        }
+
+        let envelope = body.flatMap { try? decoder.decode(DJConnectErrorEnvelope.self, from: $0) }
+        let message = envelope?.message
+
+        if statusCode == 426 || envelope?.error == "version_mismatch" {
+            return .versionMismatch(
+                DJConnectVersionMismatch(
+                    message: message,
+                    haVersion: envelope?.haVersion,
+                    haMajorMinor: envelope?.haMajorMinor,
+                    firmware: envelope?.firmware,
+                    firmwareMajorMinor: envelope?.firmwareMajorMinor
+                )
+            )
+        }
+
+        if statusCode == 401 || statusCode == 403 {
+            return .authStale(statusCode: statusCode, message: message)
+        }
+
+        if statusCode == 404 {
+            return .routeMissing(message: message)
+        }
+
+        if envelope?.error == "backend_unavailable" || envelope?.backendAvailable == false {
+            return .backendUnavailable(message: message)
+        }
+
+        if envelope?.error == "not_configured" {
+            return .notConfigured(message: message)
+        }
+
+        return .server(statusCode: statusCode, message: message)
+    }
+
+    private func decodedResponse<T: Decodable>(for request: URLRequest) async throws -> T {
+        let (data, response): (Data, URLResponse)
+        do {
+            (data, response) = try await session.data(for: request)
+        } catch {
+            throw DJConnectError.network(message: error.localizedDescription)
+        }
+
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw DJConnectError.invalidResponse
+        }
+
+        if let error = classify(statusCode: httpResponse.statusCode, body: data) {
+            throw error
+        }
+
+        return try decoder.decode(T.self, from: data)
+    }
+
+    private func jsonRequest<T: Encodable>(path: String, payload: T) throws -> URLRequest {
+        var request = try authenticatedRequest(path: path)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try encoder.encode(payload)
+        return request
+    }
+
+    private func authenticatedRequest(path: String) throws -> URLRequest {
+        guard let token = try tokenStore.loadToken(), !token.isEmpty else {
+            throw DJConnectError.missingToken
+        }
+
+        let endpoint = baseURL.appendingPathComponent(path.trimmingCharacters(in: CharacterSet(charactersIn: "/")))
+        var request = URLRequest(url: endpoint)
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        request.setValue(identity.deviceID, forHTTPHeaderField: "X-DJConnect-Device-ID")
+        return request
+    }
+}

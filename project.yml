@@ -1,0 +1,135 @@
+name: DJConnectApp
+options:
+  bundleIdPrefix: nl.pcvantol
+  deploymentTarget:
+    iOS: "17.0"
+    macOS: "14.0"
+  createIntermediateGroups: true
+  generateEmptyDirectories: true
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    CURRENT_PROJECT_VERSION: "1"
+    MARKETING_VERSION: "3.0.0"
+    DEVELOPMENT_TEAM: ""
+    CODE_SIGN_STYLE: Automatic
+packages: {}
+targets:
+  DJConnectCoreIOS:
+    type: framework
+    platform: iOS
+    sources:
+      - path: Sources/DJConnectCore
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: nl.pcvantol.djconnect.core.ios
+        PRODUCT_NAME: DJConnectCore
+        PRODUCT_MODULE_NAME: DJConnectCore
+        GENERATE_INFOPLIST_FILE: YES
+  DJConnectCoreMac:
+    type: framework
+    platform: macOS
+    sources:
+      - path: Sources/DJConnectCore
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: nl.pcvantol.djconnect.core.mac
+        PRODUCT_NAME: DJConnectCore
+        PRODUCT_MODULE_NAME: DJConnectCore
+        GENERATE_INFOPLIST_FILE: YES
+  DJConnectUIIOS:
+    type: framework
+    platform: iOS
+    sources:
+      - path: Sources/DJConnectUI
+    dependencies:
+      - target: DJConnectCoreIOS
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: nl.pcvantol.djconnect.ui.ios
+        PRODUCT_NAME: DJConnectUI
+        PRODUCT_MODULE_NAME: DJConnectUI
+        GENERATE_INFOPLIST_FILE: YES
+  DJConnectUIMac:
+    type: framework
+    platform: macOS
+    sources:
+      - path: Sources/DJConnectUI
+    dependencies:
+      - target: DJConnectCoreMac
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: nl.pcvantol.djconnect.ui.mac
+        PRODUCT_NAME: DJConnectUI
+        PRODUCT_MODULE_NAME: DJConnectUI
+        GENERATE_INFOPLIST_FILE: YES
+  DJConnectIOS:
+    type: application
+    platform: iOS
+    sources:
+      - path: Apps/DJConnectIOS
+    dependencies:
+      - target: DJConnectUIIOS
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: nl.pcvantol.djconnect.ios
+        PRODUCT_NAME: DJConnect
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_CFBundleDisplayName: DJConnect
+        INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.music
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone: UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight
+        INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad: UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight
+        ASSETCATALOG_COMPILER_APPICON_NAME: ""
+  DJConnectMac:
+    type: application
+    platform: macOS
+    sources:
+      - path: Apps/DJConnectMac
+    dependencies:
+      - target: DJConnectUIMac
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: nl.pcvantol.djconnect.mac
+        PRODUCT_NAME: DJConnect
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_CFBundleDisplayName: DJConnect
+        INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.music
+        ASSETCATALOG_COMPILER_APPICON_NAME: ""
+        ENABLE_HARDENED_RUNTIME: YES
+  DJConnectCoreTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources:
+      - path: Tests/DJConnectCoreTests
+    dependencies:
+      - target: DJConnectCoreMac
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: nl.pcvantol.djconnect.core.tests
+        GENERATE_INFOPLIST_FILE: YES
+schemes:
+  DJConnectIOS:
+    build:
+      targets:
+        DJConnectIOS: all
+    run:
+      config: Debug
+    profile:
+      config: Release
+    archive:
+      config: Release
+  DJConnectMac:
+    build:
+      targets:
+        DJConnectMac: all
+    run:
+      config: Debug
+    test:
+      config: Debug
+      targets:
+        - DJConnectCoreTests
+    profile:
+      config: Release
+    archive:
+      config: Release

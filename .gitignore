@@ -2,9 +2,12 @@
 node_modules/
 
 # Build output
+.build/
+.xcode-derived/
 dist/
 build/
 .next/
+DerivedData/
 
 # Environment
 .env
@@ -20,5 +23,39 @@ pnpm-debug.log*
 
 # OS and editor files
 .DS_Store
+.AppleDouble
+.LSOverride
+._*
 .idea/
 .vscode/
+
+# Swift Package Manager
+Packages/
+.swiftpm/
+
+# Xcode user state
+*.xcuserstate
+xcuserdata/
+*.xcscmblueprint
+*.xccheckout
+
+# Xcode build and archives
+*.moved-aside
+*.hmap
+*.ipa
+*.dSYM.zip
+*.dSYM
+
+# Xcode playgrounds
+timeline.xctimeline
+playground.xcworkspace
+
+# CocoaPods and Carthage generated artifacts
+Pods/
+Carthage/Build/
+
+# Fastlane generated output
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/screenshots/**/*.png
+fastlane/test_output/
