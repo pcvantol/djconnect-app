@@ -4,6 +4,10 @@ import ImageIO
 import UniformTypeIdentifiers
 
 let root = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
+let sourceIcon = root
+    .appendingPathComponent("Tools")
+    .appendingPathComponent("IconSource")
+    .appendingPathComponent("djconnect-icon-1024.png")
 let iconset = root
     .appendingPathComponent("Apps")
     .appendingPathComponent("Shared")
@@ -43,7 +47,19 @@ let images: [(idiom: String, size: String, scale: String, pixels: Int)] = [
     ("ios-marketing", "1024x1024", "1x", 1024)
 ]
 
-func drawIcon(pixels: Int) throws -> CGImage {
+func loadSourceIcon() throws -> CGImage {
+    guard let source = CGImageSourceCreateWithURL(sourceIcon as CFURL, nil),
+          let image = CGImageSourceCreateImageAtIndex(source, 0, nil) else {
+        throw NSError(
+            domain: "DJConnectIcon",
+            code: 1,
+            userInfo: [NSLocalizedDescriptionKey: "Could not load source icon at \(sourceIcon.path)"]
+        )
+    }
+    return image
+}
+
+func renderIcon(from source: CGImage, pixels: Int) throws -> CGImage {
     let colorSpace = CGColorSpaceCreateDeviceRGB()
     guard let context = CGContext(
         data: nil,
@@ -52,107 +68,42 @@ func drawIcon(pixels: Int) throws -> CGImage {
         bitsPerComponent: 8,
         bytesPerRow: 0,
         space: colorSpace,
-        bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+        bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue
     ) else {
-        throw NSError(domain: "DJConnectIcon", code: 1, userInfo: [NSLocalizedDescriptionKey: "Could not create bitmap context"])
+        throw NSError(domain: "DJConnectIcon", code: 2, userInfo: [NSLocalizedDescriptionKey: "Could not create bitmap context"])
     }
 
     let dimension = CGFloat(pixels)
     let rect = CGRect(x: 0, y: 0, width: dimension, height: dimension)
     context.setAllowsAntialiasing(true)
     context.setShouldAntialias(true)
-    context.setFillColor(CGColor(red: 0.04, green: 0.08, blue: 0.16, alpha: 1))
+    context.interpolationQuality = .high
+
+    // Apple app icons should be square and opaque; the source brand mark has rounded transparent corners.
+    context.setFillColor(CGColor(red: 0.06, green: 0.04, blue: 0.18, alpha: 1))
     context.fill(rect)
-
-    let gradientColors = [
-        CGColor(red: 0.04, green: 0.08, blue: 0.16, alpha: 1),
-        CGColor(red: 0.00, green: 0.36, blue: 0.52, alpha: 1),
-        CGColor(red: 0.12, green: 0.74, blue: 0.64, alpha: 1)
-    ] as CFArray
-    if let gradient = CGGradient(colorsSpace: colorSpace, colors: gradientColors, locations: [0, 0.56, 1]) {
-        context.drawLinearGradient(
-            gradient,
-            start: CGPoint(x: dimension, y: dimension),
-            end: CGPoint(x: 0, y: 0),
-            options: []
-        )
-    }
-
-    let inset = dimension * 0.105
-    let innerRect = rect.insetBy(dx: inset, dy: inset)
-    let innerRadius = dimension * 0.18
-    context.setFillColor(CGColor(gray: 1, alpha: 0.10))
-    context.addPath(CGPath(roundedRect: innerRect, cornerWidth: innerRadius, cornerHeight: innerRadius, transform: nil))
-    context.fillPath()
-
-    let strokeWidth = max(dimension * 0.055, 2)
-    let noteColor = CGColor(red: 0.96, green: 1.0, blue: 0.94, alpha: 1)
-    context.setStrokeColor(noteColor)
-    context.setFillColor(noteColor)
-    context.setLineWidth(strokeWidth)
-    context.setLineCap(.round)
-
-    let stemX = dimension * 0.58
-    let stemTop = dimension * 0.69
-    let stemBottom = dimension * 0.34
-    context.beginPath()
-    context.move(to: CGPoint(x: stemX, y: stemBottom))
-    context.addLine(to: CGPoint(x: stemX, y: stemTop))
-    context.addLine(to: CGPoint(x: dimension * 0.76, y: dimension * 0.64))
-    context.strokePath()
-
-    let headRect = CGRect(
-        x: dimension * 0.32,
-        y: dimension * 0.25,
-        width: dimension * 0.28,
-        height: dimension * 0.20
-    )
-    context.fillEllipse(in: headRect)
-
-    context.setStrokeColor(CGColor(red: 0.80, green: 1.0, blue: 0.98, alpha: 0.82))
-    context.setLineWidth(max(dimension * 0.035, 1.5))
-    context.beginPath()
-    context.move(to: CGPoint(x: dimension * 0.28, y: dimension * 0.62))
-    context.addCurve(
-        to: CGPoint(x: dimension * 0.76, y: dimension * 0.38),
-        control1: CGPoint(x: dimension * 0.42, y: dimension * 0.82),
-        control2: CGPoint(x: dimension * 0.68, y: dimension * 0.72)
-    )
-    context.strokePath()
-
-    context.setFillColor(CGColor(red: 0.92, green: 1.0, blue: 0.76, alpha: 1))
-    for point in [
-        CGPoint(x: dimension * 0.27, y: dimension * 0.62),
-        CGPoint(x: dimension * 0.76, y: dimension * 0.38)
-    ] {
-        let dotSize = max(dimension * 0.075, 3)
-        context.fillEllipse(in: CGRect(
-            x: point.x - dotSize / 2,
-            y: point.y - dotSize / 2,
-            width: dotSize,
-            height: dotSize
-        ))
-    }
+    context.draw(source, in: rect)
 
     guard let image = context.makeImage() else {
-        throw NSError(domain: "DJConnectIcon", code: 2, userInfo: [NSLocalizedDescriptionKey: "Could not render icon"])
+        throw NSError(domain: "DJConnectIcon", code: 3, userInfo: [NSLocalizedDescriptionKey: "Could not render icon"])
     }
     return image
 }
 
 func writePNG(image: CGImage, to url: URL) throws {
     guard let destination = CGImageDestinationCreateWithURL(url as CFURL, UTType.png.identifier as CFString, 1, nil) else {
-        throw NSError(domain: "DJConnectIcon", code: 3, userInfo: [NSLocalizedDescriptionKey: "Could not create PNG destination"])
+        throw NSError(domain: "DJConnectIcon", code: 4, userInfo: [NSLocalizedDescriptionKey: "Could not create PNG destination"])
     }
     CGImageDestinationAddImage(destination, image, nil)
     guard CGImageDestinationFinalize(destination) else {
-        throw NSError(domain: "DJConnectIcon", code: 4, userInfo: [NSLocalizedDescriptionKey: "Could not write PNG"])
+        throw NSError(domain: "DJConnectIcon", code: 5, userInfo: [NSLocalizedDescriptionKey: "Could not write PNG"])
     }
 }
 
+let source = try loadSourceIcon()
 let uniquePixels = Set(images.map(\.pixels)).sorted()
 for pixels in uniquePixels {
-    try writePNG(image: try drawIcon(pixels: pixels), to: iconset.appendingPathComponent("icon-\(pixels).png"))
+    try writePNG(image: try renderIcon(from: source, pixels: pixels), to: iconset.appendingPathComponent("icon-\(pixels).png"))
 }
 
 let imageEntries = images.map { entry -> [String: String] in

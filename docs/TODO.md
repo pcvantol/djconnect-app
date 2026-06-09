@@ -35,8 +35,8 @@ This document tracks open implementation work and known project gaps.
 
 ## iOS
 
-- Tune the generated app icon before release if a final brand mark becomes
-  available.
+- Tune app icon presentation before release if App Store review or platform
+  guidelines require changes.
 - Tune iPhone and iPad layouts with real device/simulator screenshots.
 - Decide whether lock screen/live activity support belongs in the first release.
 - Decide whether Shortcuts integration should map to DJConnect commands.
@@ -57,7 +57,7 @@ This document tracks open implementation work and known project gaps.
 ## Release/Build
 
 - Configure Apple developer team and signing.
-- Add app icons and privacy manifests if required by release tooling.
+- Add privacy manifests if required by release tooling.
 - Decide on CI provider and add build/test workflow.
 - Decide on TestFlight/notarization/release packaging.
 
@@ -66,8 +66,8 @@ This document tracks open implementation work and known project gaps.
 - Pairing depends on the HA integration accepting app-generated pairing codes
   and exposing `POST /api/djconnect/pair`.
 - The current playback UI is a scaffold and only pairing/status are wired.
-- The app icon is a generated placeholder brand mark and may need final design
-  polish before release.
+- The app icon now follows the shared DJConnect brand asset from
+  `pcvantol/djconnect`.
 - `DJConnectCoreTests` currently run through Swift Package tests; Xcode test
   integration should be expanded as the app targets mature.
 - `xcodebuild` may print simulator/cache warnings in the sandboxed Codex
