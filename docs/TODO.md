@@ -10,20 +10,17 @@ This document tracks open implementation work and known project gaps.
   for code acceptance.
 - Add a Home Assistant UI/deep-link path for accepting app-generated pairing
   codes.
-- Wire `DJConnectClient` into `DJConnectAppModel` for real status and command
-  calls.
-- Replace preview/sample playback state with live backend state.
+- Replace remaining preview/sample queue and playlist state with live backend
+  state.
 - Add diagnostics export with required redaction rules.
 
 ## Playback
 
-- Implement play/pause, next, previous, volume, shuffle, and repeat commands.
 - Implement output selection using the backend `devices` command.
 - Implement queue loading using the backend `queue` command.
 - Implement playlists and liked proxy start flows.
 - Add retry throttling for `backend_unavailable`.
-- Add UI states for stale pairing, missing integration route, and version
-  mismatch.
+- Expand command integration tests with URLProtocol-backed response fixtures.
 
 ## Voice/PTT
 
@@ -65,7 +62,7 @@ This document tracks open implementation work and known project gaps.
 
 - Pairing depends on the HA integration accepting app-generated pairing codes
   and exposing `POST /api/djconnect/pair`.
-- The current playback UI is a scaffold and only pairing/status are wired.
+- Queue, playlist, output selection, and voice/PTT UI are still scaffolded.
 - The app icon now follows the shared DJConnect brand asset from
   `pcvantol/djconnect`.
 - `DJConnectCoreTests` currently run through Swift Package tests; Xcode test

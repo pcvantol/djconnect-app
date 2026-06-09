@@ -66,6 +66,9 @@ import Testing
     let json = try JSONSerialization.jsonObject(with: body) as? [String: Any]
 
     #expect(request.url?.path == "/api/djconnect/command")
+    #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer secret-token")
+    #expect(request.value(forHTTPHeaderField: "X-DJConnect-Device-ID") == identity.deviceID)
+    #expect(request.value(forHTTPHeaderField: "Content-Type") == "application/json")
     #expect(json?["device_id"] as? String == identity.deviceID)
     #expect(json?["client_type"] as? String == "macos")
     #expect(json?["command"] as? String == "set_volume")
@@ -213,4 +216,30 @@ import Testing
     let error = client.classify(statusCode: 503, body: body)
 
     #expect(error == .backendUnavailable(message: "Spotify authorization has expired or was revoked."))
+}
+
+@Test func authAndRouteErrorsAreClassifiedAsStaleSetupStates() throws {
+    let client = DJConnectClient(
+        baseURL: try #require(URL(string: "http://homeassistant.local:8123")),
+        identity: DJConnectIdentity(
+            deviceID: "djconnect-macos-8F3A2C91B45D",
+            deviceName: "DJConnect Mac",
+            clientType: .macos,
+            firmware: "3.0.0",
+            platform: .macos
+        ),
+        tokenStore: DJConnectInMemoryTokenStore(token: "secret-token")
+    )
+
+    let unauthorized = client.classify(
+        statusCode: 401,
+        body: Data(#"{"success":false,"message":"Token expired"}"#.utf8)
+    )
+    let missingRoute = client.classify(
+        statusCode: 404,
+        body: Data(#"{"success":false,"message":"Route missing"}"#.utf8)
+    )
+
+    #expect(unauthorized == .authStale(statusCode: 401, message: "Token expired"))
+    #expect(missingRoute == .routeMissing(message: "Route missing"))
 }

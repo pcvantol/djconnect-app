@@ -27,10 +27,16 @@ All notable changes to DJConnect App are documented here.
   and iOS.
 - Replaced the manual Pair button with automatic waiting for Home Assistant to
   accept the app-generated pairing code.
+- Wired native playback controls to `POST /api/djconnect/command` for
+  play/pause, previous, next, volume, shuffle, and repeat.
+- Added a richer native iOS now-playing interface with pairing status, album
+  artwork, playback controls, volume, repeat/shuffle, and DJ response panels.
 
 ### Changed
 
 - Set app/protocol scaffold version examples to `3.0.0`.
+- Improved stale pairing and missing integration-route UI states without
+  clearing the Keychain token automatically.
 - Expanded `.gitignore` with SwiftPM, Xcode, macOS, Fastlane, CocoaPods, and
   Carthage generated output rules.
 - Expanded README with Xcode, Swift Package, documentation, and integration

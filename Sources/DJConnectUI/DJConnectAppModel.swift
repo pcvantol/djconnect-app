@@ -27,6 +27,7 @@ public final class DJConnectAppModel: ObservableObject {
     public let identity: DJConnectIdentity
 
     private var pairingTask: Task<Void, Never>?
+    private var volumeCommandTask: Task<Void, Never>?
     private let defaults: UserDefaults
     private let tokenStore: DJConnectTokenStore
     private let appVersion = "3.0.0"
@@ -68,6 +69,7 @@ public final class DJConnectAppModel: ObservableObject {
 
     deinit {
         pairingTask?.cancel()
+        volumeCommandTask?.cancel()
     }
 
     public func startPairingWait() {
@@ -162,6 +164,55 @@ public final class DJConnectAppModel: ObservableObject {
         startPairingWait()
     }
 
+    public func refresh() {
+        Task {
+            do {
+                try await refreshStatus(client: try makeClient())
+            } catch let error as DJConnectError {
+                apply(error: error)
+            } catch {
+                pairingMessage = error.localizedDescription
+            }
+        }
+    }
+
+    public func sendPlaybackCommand(
+        _ command: String,
+        value: DJConnectCommandValue? = nil,
+        play: Bool? = nil
+    ) {
+        guard updateRequiredMessage == nil else {
+            return
+        }
+        Task {
+            await performCommand(command, value: value, play: play)
+        }
+    }
+
+    public func togglePlayback() {
+        sendPlaybackCommand(isPlaying ? "pause" : "play")
+    }
+
+    public func commitVolumeChange() {
+        volumeCommandTask?.cancel()
+        let value = Int(volume.rounded())
+        volumeCommandTask = Task { [weak self] in
+            try? await Task.sleep(for: .milliseconds(300))
+            guard !Task.isCancelled else {
+                return
+            }
+            await self?.performCommand("set_volume", value: .int(value))
+        }
+    }
+
+    public func setShuffle(_ value: Bool) {
+        sendPlaybackCommand("set_shuffle", value: .bool(value))
+    }
+
+    public func setRepeat(_ value: DJConnectRepeatState) {
+        sendPlaybackCommand("set_repeat", value: .string(value.rawValue))
+    }
+
     public func apply(playback: DJConnectPlayback?) {
         self.playback = playback
         selectedOutput = playback?.device?.name ?? selectedOutput
@@ -176,10 +227,22 @@ public final class DJConnectAppModel: ObservableObject {
             djResponseText = message ?? "Playback backend unavailable"
         case let .versionMismatch(mismatch):
             updateRequiredMessage = mismatch.message ?? "DJConnect update required"
-        case .authStale:
+        case let .authStale(_, message):
             pairingStatus = .stale
-        case .routeMissing:
+            isConnected = false
+            pairingMessage = message ?? "Pairing is stale. Open Home Assistant setup or reset pairing."
+        case let .routeMissing(message):
             pairingStatus = .stale
+            isConnected = false
+            pairingMessage = message ?? "DJConnect route missing in Home Assistant. Check the integration setup."
+        case let .notConfigured(message):
+            pairingStatus = .stale
+            isConnected = false
+            pairingMessage = message ?? "DJConnect is not configured in Home Assistant."
+        case .missingToken:
+            pairingStatus = .stale
+            isConnected = false
+            pairingMessage = "Missing DJConnect device token. Reset pairing to set up again."
         default:
             break
         }
@@ -233,6 +296,41 @@ public final class DJConnectAppModel: ObservableObject {
                 throw error
             }
         }
+    }
+
+    private func performCommand(
+        _ command: String,
+        value: DJConnectCommandValue? = nil,
+        play: Bool? = nil
+    ) async {
+        guard updateRequiredMessage == nil else {
+            return
+        }
+        do {
+            let client = try makeClient()
+            let response = try await client.sendCommand(
+                DJConnectCommandPayload(
+                    identity: identity,
+                    command: command,
+                    value: value,
+                    play: play
+                )
+            )
+            apply(playback: response.playback)
+            backendAvailable = response.backendAvailable ?? backendAvailable
+        } catch let error as DJConnectError {
+            apply(error: error)
+        } catch {
+            pairingMessage = error.localizedDescription
+        }
+    }
+
+    private func makeClient() throws -> DJConnectClient {
+        let trimmedURL = homeAssistantURL.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let baseURL = URL(string: trimmedURL), baseURL.scheme?.isEmpty == false else {
+            throw DJConnectError.network(message: "Enter your Home Assistant URL.")
+        }
+        return DJConnectClient(baseURL: baseURL, identity: identity, tokenStore: tokenStore)
     }
 
     private static var keychainService: String {
