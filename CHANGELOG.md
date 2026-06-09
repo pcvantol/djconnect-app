@@ -31,6 +31,8 @@ All notable changes to DJConnect App are documented here.
   play/pause, previous, next, volume, shuffle, and repeat.
 - Added a richer native iOS now-playing interface with pairing status, album
   artwork, playback controls, volume, repeat/shuffle, and DJ response panels.
+- Made the in-app language picker switch visible UI text between Dutch and
+  English, and persist the selected language.
 
 ### Changed
 

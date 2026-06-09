@@ -19,8 +19,12 @@ public final class DJConnectAppModel: ObservableObject {
     @Published public var playlists: [String] = []
     @Published public var selectedOutput = "Not selected"
     @Published public var djResponseText = ""
-    @Published public var logLevel = "info"
-    @Published public var language = "nl"
+    @Published public var logLevel = "info" {
+        didSet { defaults.set(logLevel, forKey: logLevelKey) }
+    }
+    @Published public var language = "nl" {
+        didSet { defaults.set(language, forKey: languageKey) }
+    }
     @Published public var voiceEnabled = true
     @Published public var localResponseAudioEnabled = true
 
@@ -34,6 +38,8 @@ public final class DJConnectAppModel: ObservableObject {
     private let installIDKey = "DJConnectInstallID"
     private let homeAssistantURLKey = "DJConnectHomeAssistantURL"
     private let pairingTokenKey = "DJConnectPairingToken"
+    private let languageKey = "DJConnectLanguage"
+    private let logLevelKey = "DJConnectLogLevel"
 
     public var volume: Double {
         get { Double(playback?.volumePercent ?? 0) }
@@ -60,6 +66,8 @@ public final class DJConnectAppModel: ObservableObject {
         self.playback = playback
         self.homeAssistantURL = defaults.string(forKey: homeAssistantURLKey) ?? ""
         self.pairingToken = defaults.string(forKey: pairingTokenKey) ?? Self.generatePairingToken()
+        self.language = defaults.string(forKey: languageKey) ?? "nl"
+        self.logLevel = defaults.string(forKey: logLevelKey) ?? "info"
         defaults.set(pairingToken, forKey: pairingTokenKey)
         if let existingToken = try? resolvedTokenStore.loadToken(), !existingToken.isEmpty {
             pairingStatus = .paired
@@ -81,7 +89,10 @@ public final class DJConnectAppModel: ObservableObject {
 
         let trimmedURL = homeAssistantURL.trimmingCharacters(in: .whitespacesAndNewlines)
         guard let baseURL = URL(string: trimmedURL), baseURL.scheme?.isEmpty == false else {
-            pairingMessage = "Enter your Home Assistant URL to start waiting."
+            pairingMessage = localized(
+                english: "Enter your Home Assistant URL to start waiting.",
+                dutch: "Vul je Home Assistant URL in om te wachten."
+            )
             pairingStatus = .unpaired
             isConnected = false
             isPairing = false
@@ -102,14 +113,20 @@ public final class DJConnectAppModel: ObservableObject {
         if pairingStatus == .pairing {
             pairingStatus = .unpaired
             isPairing = false
-            pairingMessage = "Pairing wait stopped."
+            pairingMessage = localized(
+                english: "Pairing wait stopped.",
+                dutch: "Wachten op pairing gestopt."
+            )
         }
     }
 
     private func waitForHomeAssistantPairing(baseURL: URL, pairingToken: String) async {
         isPairing = true
         pairingStatus = .pairing
-        pairingMessage = "Waiting for Home Assistant to accept code \(pairingToken)."
+        pairingMessage = localized(
+            english: "Waiting for Home Assistant to accept code \(pairingToken).",
+            dutch: "Wachten tot Home Assistant code \(pairingToken) accepteert."
+        )
         defer {
             if pairingStatus != .paired {
                 isPairing = false
@@ -123,7 +140,10 @@ public final class DJConnectAppModel: ObservableObject {
                 pairingStatus = .paired
                 isConnected = true
                 isPairing = false
-                pairingMessage = "Paired with Home Assistant."
+                pairingMessage = localized(
+                    english: "Paired with Home Assistant.",
+                    dutch: "Gekoppeld met Home Assistant."
+                )
                 try await refreshStatus(client: client)
                 return
             } catch let error as DJConnectError {
@@ -145,7 +165,10 @@ public final class DJConnectAppModel: ObservableObject {
         _ = newPairingToken()
         pairingStatus = .unpaired
         isConnected = false
-        pairingMessage = "Pairing reset."
+        pairingMessage = localized(
+            english: "Pairing reset.",
+            dutch: "Pairing gereset."
+        )
     }
 
     @discardableResult
@@ -224,25 +247,43 @@ public final class DJConnectAppModel: ObservableObject {
         switch error {
         case let .backendUnavailable(message):
             backendAvailable = false
-            djResponseText = message ?? "Playback backend unavailable"
+            djResponseText = message ?? localized(
+                english: "Playback backend unavailable",
+                dutch: "Playback-backend niet beschikbaar"
+            )
         case let .versionMismatch(mismatch):
-            updateRequiredMessage = mismatch.message ?? "DJConnect update required"
+            updateRequiredMessage = mismatch.message ?? localized(
+                english: "DJConnect update required",
+                dutch: "DJConnect update vereist"
+            )
         case let .authStale(_, message):
             pairingStatus = .stale
             isConnected = false
-            pairingMessage = message ?? "Pairing is stale. Open Home Assistant setup or reset pairing."
+            pairingMessage = message ?? localized(
+                english: "Pairing is stale. Open Home Assistant setup or reset pairing.",
+                dutch: "Pairing is verlopen. Open Home Assistant setup of reset pairing."
+            )
         case let .routeMissing(message):
             pairingStatus = .stale
             isConnected = false
-            pairingMessage = message ?? "DJConnect route missing in Home Assistant. Check the integration setup."
+            pairingMessage = message ?? localized(
+                english: "DJConnect route missing in Home Assistant. Check the integration setup.",
+                dutch: "DJConnect route ontbreekt in Home Assistant. Controleer de integratie."
+            )
         case let .notConfigured(message):
             pairingStatus = .stale
             isConnected = false
-            pairingMessage = message ?? "DJConnect is not configured in Home Assistant."
+            pairingMessage = message ?? localized(
+                english: "DJConnect is not configured in Home Assistant.",
+                dutch: "DJConnect is niet geconfigureerd in Home Assistant."
+            )
         case .missingToken:
             pairingStatus = .stale
             isConnected = false
-            pairingMessage = "Missing DJConnect device token. Reset pairing to set up again."
+            pairingMessage = localized(
+                english: "Missing DJConnect device token. Reset pairing to set up again.",
+                dutch: "DJConnect device-token ontbreekt. Reset pairing om opnieuw te koppelen."
+            )
         default:
             break
         }
@@ -254,22 +295,40 @@ public final class DJConnectAppModel: ObservableObject {
         switch error {
         case .pairingFailed:
             pairingStatus = .pairing
-            pairingMessage = "Waiting for Home Assistant to accept code \(pairingToken)."
+            pairingMessage = localized(
+                english: "Waiting for Home Assistant to accept code \(pairingToken).",
+                dutch: "Wachten tot Home Assistant code \(pairingToken) accepteert."
+            )
         case let .network(message):
             pairingStatus = .pairing
-            pairingMessage = "Waiting for Home Assistant: \(message)"
+            pairingMessage = localized(
+                english: "Waiting for Home Assistant: \(message)",
+                dutch: "Wachten op Home Assistant: \(message)"
+            )
         case .routeMissing:
             pairingStatus = .pairing
-            pairingMessage = "Waiting for the DJConnect pairing route in Home Assistant."
+            pairingMessage = localized(
+                english: "Waiting for the DJConnect pairing route in Home Assistant.",
+                dutch: "Wachten op de DJConnect pairing-route in Home Assistant."
+            )
         case let .server(_, message):
             pairingStatus = .pairing
-            pairingMessage = message ?? "Waiting for Home Assistant to finish pairing."
+            pairingMessage = message ?? localized(
+                english: "Waiting for Home Assistant to finish pairing.",
+                dutch: "Wachten tot Home Assistant pairing afrondt."
+            )
         case let .versionMismatch(mismatch):
             pairingStatus = .pairing
-            updateRequiredMessage = mismatch.message ?? "DJConnect update required"
+            updateRequiredMessage = mismatch.message ?? localized(
+                english: "DJConnect update required",
+                dutch: "DJConnect update vereist"
+            )
         default:
             pairingStatus = .pairing
-            pairingMessage = "Waiting for Home Assistant to finish pairing."
+            pairingMessage = localized(
+                english: "Waiting for Home Assistant to finish pairing.",
+                dutch: "Wachten tot Home Assistant pairing afrondt."
+            )
         }
     }
 
@@ -328,9 +387,16 @@ public final class DJConnectAppModel: ObservableObject {
     private func makeClient() throws -> DJConnectClient {
         let trimmedURL = homeAssistantURL.trimmingCharacters(in: .whitespacesAndNewlines)
         guard let baseURL = URL(string: trimmedURL), baseURL.scheme?.isEmpty == false else {
-            throw DJConnectError.network(message: "Enter your Home Assistant URL.")
+            throw DJConnectError.network(message: localized(
+                english: "Enter your Home Assistant URL.",
+                dutch: "Vul je Home Assistant URL in."
+            ))
         }
         return DJConnectClient(baseURL: baseURL, identity: identity, tokenStore: tokenStore)
+    }
+
+    public func localized(english: String, dutch: String) -> String {
+        language == "nl" ? dutch : english
     }
 
     private static var keychainService: String {

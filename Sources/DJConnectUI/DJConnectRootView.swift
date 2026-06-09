@@ -5,6 +5,10 @@ import SwiftUI
 import UIKit
 #endif
 
+private func localized(_ language: String, _ english: String, _ dutch: String) -> String {
+    language == "nl" ? dutch : english
+}
+
 public struct DJConnectRootView: View {
     @ObservedObject private var model: DJConnectAppModel
 
@@ -20,17 +24,17 @@ public struct DJConnectRootView: View {
                     NavigationLink {
                         NowPlayingView(model: model)
                     } label: {
-                        Label("Now Playing", systemImage: "music.note")
+                        Label(localized(model.language, "Now Playing", "Speelt Nu"), systemImage: "music.note")
                     }
                     NavigationLink {
                         QueueView(model: model)
                     } label: {
-                        Label("Queue", systemImage: "text.line.first.and.arrowtriangle.forward")
+                        Label(localized(model.language, "Queue", "Wachtrij"), systemImage: "text.line.first.and.arrowtriangle.forward")
                     }
                     NavigationLink {
                         SettingsView(model: model)
                     } label: {
-                        Label("Settings", systemImage: "gearshape")
+                        Label(localized(model.language, "Settings", "Instellingen"), systemImage: "gearshape")
                     }
                 }
                 .navigationTitle("DJConnect")
@@ -41,15 +45,15 @@ public struct DJConnectRootView: View {
             TabView {
                 NowPlayingView(model: model)
                     .tabItem {
-                        Label("Now Playing", systemImage: "music.note")
+                        Label(localized(model.language, "Now Playing", "Speelt Nu"), systemImage: "music.note")
                     }
                 QueueView(model: model)
                     .tabItem {
-                        Label("Queue", systemImage: "text.line.first.and.arrowtriangle.forward")
+                        Label(localized(model.language, "Queue", "Wachtrij"), systemImage: "text.line.first.and.arrowtriangle.forward")
                     }
                 SettingsView(model: model)
                     .tabItem {
-                        Label("Settings", systemImage: "gearshape")
+                        Label(localized(model.language, "Settings", "Instellingen"), systemImage: "gearshape")
                     }
             }
             #endif
@@ -68,7 +72,7 @@ struct NowPlayingView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 24) {
                     SetupStatusView(model: model)
-                    TrackSummaryView(playback: model.playback)
+                    TrackSummaryView(playback: model.playback, language: model.language)
                     PlaybackControlsView(model: model)
                     VoiceResponseView(model: model)
                 }
@@ -91,7 +95,7 @@ private struct IOSNowPlayingView: View {
             ScrollView {
                 VStack(spacing: 16) {
                     IOSConnectionCard(model: model)
-                    IOSTrackHero(playback: model.playback)
+                    IOSTrackHero(model: model)
                     IOSPlaybackSurface(model: model)
                     IOSVoiceCard(model: model)
                 }
@@ -108,7 +112,7 @@ private struct IOSNowPlayingView: View {
                         Image(systemName: "arrow.clockwise")
                     }
                     .disabled(model.pairingStatus != .paired)
-                    .accessibilityLabel("Refresh")
+                    .accessibilityLabel(localized(model.language, "Refresh", "Vernieuwen"))
                 }
             }
             .task {
@@ -144,7 +148,7 @@ private struct IOSConnectionCard: View {
 
             if model.pairingStatus != .paired {
                 HStack {
-                    Text("Code")
+                    Text(localized(model.language, "Code", "Code"))
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(.secondary)
                     Text(model.pairingToken)
@@ -164,7 +168,7 @@ private struct IOSConnectionCard: View {
                     .font(.footnote)
                     .foregroundStyle(.orange)
             } else if !model.backendAvailable {
-                Label("Playback backend unavailable", systemImage: "exclamationmark.triangle")
+                Label(localized(model.language, "Playback backend unavailable", "Playback-backend niet beschikbaar"), systemImage: "exclamationmark.triangle")
                     .font(.footnote)
                     .foregroundStyle(.orange)
             } else if let pairingMessage = model.pairingMessage {
@@ -181,26 +185,26 @@ private struct IOSConnectionCard: View {
     private var statusTitle: String {
         switch model.pairingStatus {
         case .paired:
-            "Connected"
+            localized(model.language, "Connected", "Verbonden")
         case .pairing:
-            "Waiting for Home Assistant"
+            localized(model.language, "Waiting for Home Assistant", "Wachten op Home Assistant")
         case .stale:
-            "Setup Needs Attention"
+            localized(model.language, "Setup Needs Attention", "Setup vraagt aandacht")
         case .unpaired:
-            "Ready to Pair"
+            localized(model.language, "Ready to Pair", "Klaar om te koppelen")
         }
     }
 
     private var statusSubtitle: String {
         switch model.pairingStatus {
         case .paired:
-            model.selectedOutput == "Not selected" ? "DJConnect is paired" : model.selectedOutput
+            model.selectedOutput == "Not selected" ? localized(model.language, "DJConnect is paired", "DJConnect is gekoppeld") : model.selectedOutput
         case .pairing:
-            "Enter this code in the DJConnect Home Assistant integration"
+            localized(model.language, "Enter this code in the DJConnect Home Assistant integration", "Vul deze code in bij de DJConnect Home Assistant integratie")
         case .stale:
-            "Open Settings to reset or recover pairing"
+            localized(model.language, "Open Settings to reset or recover pairing", "Open Instellingen om pairing te herstellen of resetten")
         case .unpaired:
-            "Add your Home Assistant URL in Settings"
+            localized(model.language, "Add your Home Assistant URL in Settings", "Vul je Home Assistant URL in bij Instellingen")
         }
     }
 
@@ -232,7 +236,11 @@ private struct IOSConnectionCard: View {
 }
 
 private struct IOSTrackHero: View {
-    var playback: DJConnectPlayback?
+    @ObservedObject var model: DJConnectAppModel
+
+    private var playback: DJConnectPlayback? {
+        model.playback
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -259,10 +267,10 @@ private struct IOSTrackHero: View {
             .clipShape(RoundedRectangle(cornerRadius: 8))
 
             VStack(alignment: .leading, spacing: 5) {
-                Text(playback?.trackName ?? "Nothing Playing")
+                Text(playback?.trackName ?? localized(model.language, "Nothing Playing", "Niets speelt af"))
                     .font(.title2.weight(.bold))
                     .lineLimit(2)
-                Text(playback?.artistName ?? playback?.device?.name ?? "Select a playback output")
+                Text(playback?.artistName ?? playback?.device?.name ?? localized(model.language, "Select a playback output", "Kies een playback-output"))
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                     .lineLimit(2)
@@ -326,7 +334,7 @@ private struct IOSPlaybackSurface: View {
                 }
                 .toggleStyle(.button)
 
-                Picker("Repeat", selection: Binding(
+                Picker(localized(model.language, "Repeat", "Herhaal"), selection: Binding(
                     get: { model.playback?.repeatState ?? .off },
                     set: { value in
                         var updated = model.playback ?? DJConnectPlayback()
@@ -335,8 +343,8 @@ private struct IOSPlaybackSurface: View {
                         model.setRepeat(value)
                     }
                 )) {
-                    Text("Off").tag(DJConnectRepeatState.off)
-                    Text("Track").tag(DJConnectRepeatState.track)
+                    Text(localized(model.language, "Off", "Uit")).tag(DJConnectRepeatState.off)
+                    Text(localized(model.language, "Track", "Track")).tag(DJConnectRepeatState.track)
                     Text("Context").tag(DJConnectRepeatState.context)
                 }
                 .pickerStyle(.segmented)
@@ -374,9 +382,9 @@ private struct IOSVoiceCard: View {
                 .frame(width: 34, height: 34)
                 .background(Color.purple.opacity(0.12), in: Circle())
             VStack(alignment: .leading, spacing: 2) {
-                Text("DJ Response")
+                Text(localized(model.language, "DJ Response", "DJ Reactie"))
                     .font(.headline)
-                Text(model.djResponseText.isEmpty ? "Ready for voice response" : model.djResponseText)
+                Text(model.djResponseText.isEmpty ? localized(model.language, "Ready for voice response", "Klaar voor voice response") : model.djResponseText)
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                     .lineLimit(2)
@@ -389,7 +397,7 @@ private struct IOSVoiceCard: View {
             }
             .buttonStyle(.bordered)
             .disabled(!model.voiceEnabled)
-            .accessibilityLabel("Push to talk")
+            .accessibilityLabel(localized(model.language, "Push to talk", "Push-to-talk"))
         }
         .padding(14)
         .background(Color(uiColor: .systemBackground), in: RoundedRectangle(cornerRadius: 8))
@@ -403,19 +411,19 @@ struct SetupStatusView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Label(model.pairingStatus.rawValue.capitalized, systemImage: statusIcon)
+                Label(statusTitle, systemImage: statusIcon)
                 Spacer()
                 Circle()
                     .fill(model.isConnected ? Color.green : Color.orange)
                     .frame(width: 10, height: 10)
-                    .accessibilityLabel(model.isConnected ? "Connected" : "Disconnected")
+                    .accessibilityLabel(model.isConnected ? localized(model.language, "Connected", "Verbonden") : localized(model.language, "Disconnected", "Niet verbonden"))
             }
 
             if let updateRequiredMessage = model.updateRequiredMessage {
                 Label(updateRequiredMessage, systemImage: "arrow.down.app")
                     .foregroundStyle(.orange)
             } else if !model.backendAvailable {
-                Label("Playback backend unavailable", systemImage: "exclamationmark.triangle")
+                Label(localized(model.language, "Playback backend unavailable", "Playback-backend niet beschikbaar"), systemImage: "exclamationmark.triangle")
                     .foregroundStyle(.orange)
             }
 
@@ -439,10 +447,24 @@ struct SetupStatusView: View {
             "lock.open"
         }
     }
+
+    private var statusTitle: String {
+        switch model.pairingStatus {
+        case .paired:
+            localized(model.language, "Paired", "Gekoppeld")
+        case .pairing:
+            localized(model.language, "Pairing", "Koppelen")
+        case .stale:
+            localized(model.language, "Stale", "Verlopen")
+        case .unpaired:
+            localized(model.language, "Unpaired", "Niet gekoppeld")
+        }
+    }
 }
 
 struct TrackSummaryView: View {
     var playback: DJConnectPlayback?
+    var language: String
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -463,10 +485,10 @@ struct TrackSummaryView: View {
             .clipShape(RoundedRectangle(cornerRadius: 8))
 
             VStack(alignment: .leading, spacing: 6) {
-                Text(playback?.trackName ?? "Nothing playing")
+                Text(playback?.trackName ?? localized(language, "Nothing playing", "Niets speelt af"))
                     .font(.title2.weight(.semibold))
                     .lineLimit(2)
-                Text(playback?.artistName ?? playback?.device?.name ?? "Select a playback output")
+                Text(playback?.artistName ?? playback?.device?.name ?? localized(language, "Select a playback output", "Kies een playback-output"))
                     .foregroundStyle(.secondary)
                     .lineLimit(2)
             }
@@ -491,7 +513,7 @@ struct PlaybackControlsView: View {
                     Image(systemName: "backward.fill")
                 }
                 .buttonStyle(.bordered)
-                .help("Previous")
+                .help(localized(model.language, "Previous", "Vorige"))
 
                 Button {
                     model.togglePlayback()
@@ -500,7 +522,7 @@ struct PlaybackControlsView: View {
                 }
                 .buttonStyle(.borderedProminent)
                 .controlSize(.large)
-                .help(model.isPlaying ? "Pause" : "Play")
+                .help(model.isPlaying ? localized(model.language, "Pause", "Pauze") : localized(model.language, "Play", "Afspelen"))
 
                 Button {
                     model.sendPlaybackCommand("next")
@@ -508,7 +530,7 @@ struct PlaybackControlsView: View {
                     Image(systemName: "forward.fill")
                 }
                 .buttonStyle(.bordered)
-                .help("Next")
+                .help(localized(model.language, "Next", "Volgende"))
             }
 
             HStack {
@@ -533,10 +555,10 @@ struct PlaybackControlsView: View {
                         model.setShuffle(value)
                     }
                 )) {
-                    Label("Shuffle", systemImage: "shuffle")
+                    Label(localized(model.language, "Shuffle", "Shuffle"), systemImage: "shuffle")
                 }
 
-                Picker("Repeat", selection: Binding(
+                Picker(localized(model.language, "Repeat", "Herhaal"), selection: Binding(
                     get: { model.playback?.repeatState ?? .off },
                     set: { value in
                         var updated = model.playback ?? DJConnectPlayback()
@@ -545,8 +567,8 @@ struct PlaybackControlsView: View {
                         model.setRepeat(value)
                     }
                 )) {
-                    Text("Off").tag(DJConnectRepeatState.off)
-                    Text("Track").tag(DJConnectRepeatState.track)
+                    Text(localized(model.language, "Off", "Uit")).tag(DJConnectRepeatState.off)
+                    Text(localized(model.language, "Track", "Track")).tag(DJConnectRepeatState.track)
                     Text("Context").tag(DJConnectRepeatState.context)
                 }
                 .pickerStyle(.segmented)
@@ -561,17 +583,17 @@ struct VoiceResponseView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Label("DJ", systemImage: "waveform")
+                Label(localized(model.language, "DJ", "DJ"), systemImage: "waveform")
                 Spacer()
                 Button(action: {}) {
                     Image(systemName: "mic.fill")
                 }
                 .buttonStyle(.bordered)
                 .disabled(!model.voiceEnabled)
-                .help("Push to talk")
+                .help(localized(model.language, "Push to talk", "Push-to-talk"))
             }
 
-            Text(model.djResponseText.isEmpty ? "Ready for a DJ response." : model.djResponseText)
+            Text(model.djResponseText.isEmpty ? localized(model.language, "Ready for a DJ response.", "Klaar voor een DJ-reactie.") : model.djResponseText)
                 .foregroundStyle(model.djResponseText.isEmpty ? .secondary : .primary)
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
@@ -584,21 +606,21 @@ struct QueueView: View {
     var body: some View {
         NavigationStack {
             List {
-                Section("Output") {
+                Section(localized(model.language, "Output", "Output")) {
                     Label(model.selectedOutput, systemImage: "speaker.wave.2")
                 }
-                Section("Queue") {
+                Section(localized(model.language, "Queue", "Wachtrij")) {
                     if model.queue.isEmpty {
-                        ContentUnavailableView("No Queue", systemImage: "music.note.list")
+                        ContentUnavailableView(localized(model.language, "No Queue", "Geen wachtrij"), systemImage: "music.note.list")
                     } else {
                         ForEach(model.queue, id: \.self) { item in
                             Text(item)
                         }
                     }
                 }
-                Section("Playlists") {
+                Section(localized(model.language, "Playlists", "Playlists")) {
                     if model.playlists.isEmpty {
-                        ContentUnavailableView("No Playlists", systemImage: "rectangle.stack")
+                        ContentUnavailableView(localized(model.language, "No Playlists", "Geen playlists"), systemImage: "rectangle.stack")
                     } else {
                         ForEach(model.playlists, id: \.self) { playlist in
                             Label(playlist, systemImage: "play.square")
@@ -606,7 +628,7 @@ struct QueueView: View {
                     }
                 }
             }
-            .navigationTitle("Queue")
+            .navigationTitle(localized(model.language, "Queue", "Wachtrij"))
         }
     }
 }
@@ -630,45 +652,45 @@ struct SettingsView: View {
         NavigationStack {
             Form {
                 Section("Home Assistant") {
-                    TextField("URL", text: $model.homeAssistantURL)
+                    TextField(localized(model.language, "URL", "URL"), text: $model.homeAssistantURL)
                         .textContentType(.URL)
-                    LabeledContent("Pairing Code") {
+                    LabeledContent(localized(model.language, "Pairing Code", "Pairingcode")) {
                         Text(model.pairingToken)
                             .font(.system(.title3, design: .monospaced).weight(.semibold))
                             .textSelection(.enabled)
                     }
                     if model.isPairing {
-                        ProgressView("Waiting for Home Assistant")
+                        ProgressView(localized(model.language, "Waiting for Home Assistant", "Wachten op Home Assistant"))
                     }
                     HStack {
-                        Button("New Code") {
+                        Button(localized(model.language, "New Code", "Nieuwe code")) {
                             model.rotatePairingTokenAndWait()
                         }
                         .disabled(model.pairingStatus == .paired)
-                        Button("Reset Pairing", role: .destructive) {
+                        Button(localized(model.language, "Reset Pairing", "Reset pairing"), role: .destructive) {
                             model.resetPairing()
                             model.startPairingWait()
                         }
                     }
-                    LabeledContent("Device ID", value: model.identity.deviceID)
-                    LabeledContent("Client", value: model.identity.clientType.rawValue)
+                    LabeledContent(localized(model.language, "Device ID", "Device ID"), value: model.identity.deviceID)
+                    LabeledContent(localized(model.language, "Client", "Client"), value: model.identity.clientType.rawValue)
                 }
 
-                Section("App") {
-                    Picker("Language", selection: $model.language) {
+                Section(localized(model.language, "App", "App")) {
+                    Picker(localized(model.language, "Language", "Taal"), selection: $model.language) {
                         Text("Nederlands").tag("nl")
                         Text("English").tag("en")
                     }
-                    Picker("Log Level", selection: $model.logLevel) {
+                    Picker(localized(model.language, "Log Level", "Logniveau"), selection: $model.logLevel) {
                         Text("Info").tag("info")
                         Text("Debug").tag("debug")
-                        Text("Warning").tag("warning")
+                        Text(localized(model.language, "Warning", "Waarschuwing")).tag("warning")
                     }
-                    Toggle("Voice", isOn: $model.voiceEnabled)
-                    Toggle("Local Response Audio", isOn: $model.localResponseAudioEnabled)
+                    Toggle(localized(model.language, "Voice", "Voice"), isOn: $model.voiceEnabled)
+                    Toggle(localized(model.language, "Local Response Audio", "Lokale response-audio"), isOn: $model.localResponseAudioEnabled)
                 }
             }
-            .navigationTitle("Settings")
+            .navigationTitle(localized(model.language, "Settings", "Instellingen"))
             .task {
                 model.startPairingWait()
             }
