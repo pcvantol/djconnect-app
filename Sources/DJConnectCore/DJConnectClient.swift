@@ -28,6 +28,16 @@ public final class DJConnectClient: Sendable {
         return try await decodedResponse(for: request)
     }
 
+    public func pair(_ payload: DJConnectPairingPayload) async throws -> DJConnectPairingResponse {
+        let request = try pairingRequest(payload)
+        let response: DJConnectPairingResponse = try await decodedResponse(for: request)
+        guard response.success, let token = response.resolvedDeviceToken, !token.isEmpty else {
+            throw DJConnectError.pairingFailed(message: response.message)
+        }
+        try tokenStore.saveToken(token)
+        return response
+    }
+
     public func sendCommand(_ payload: DJConnectCommandPayload) async throws -> DJConnectEnvelope<DJConnectPlayback> {
         let request = try commandRequest(payload)
         return try await decodedResponse(for: request)
@@ -40,6 +50,15 @@ public final class DJConnectClient: Sendable {
 
     public func statusRequest(_ payload: DJConnectStatusPayload) throws -> URLRequest {
         try jsonRequest(path: "/api/djconnect/status", payload: payload)
+    }
+
+    public func pairingRequest(_ payload: DJConnectPairingPayload) throws -> URLRequest {
+        var request = URLRequest(url: endpoint(path: "/api/djconnect/pair"))
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue(payload.deviceID, forHTTPHeaderField: "X-DJConnect-Device-ID")
+        request.httpBody = try encoder.encode(payload)
+        return request
     }
 
     public func commandRequest(_ payload: DJConnectCommandPayload) throws -> URLRequest {
@@ -129,10 +148,13 @@ public final class DJConnectClient: Sendable {
             throw DJConnectError.missingToken
         }
 
-        let endpoint = baseURL.appendingPathComponent(path.trimmingCharacters(in: CharacterSet(charactersIn: "/")))
-        var request = URLRequest(url: endpoint)
+        var request = URLRequest(url: endpoint(path: path))
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         request.setValue(identity.deviceID, forHTTPHeaderField: "X-DJConnect-Device-ID")
         return request
+    }
+
+    private func endpoint(path: String) -> URL {
+        baseURL.appendingPathComponent(path.trimmingCharacters(in: CharacterSet(charactersIn: "/")))
     }
 }

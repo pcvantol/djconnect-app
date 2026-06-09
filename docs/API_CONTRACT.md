@@ -44,6 +44,43 @@ X-DJConnect-Device-ID: <device_id>
 Content-Type: audio/wav
 ```
 
+## Pairing
+
+```http
+POST /api/djconnect/pair
+Content-Type: application/json
+X-DJConnect-Device-ID: <device_id>
+```
+
+Payload:
+
+```json
+{
+  "device_id": "djconnect-macos-8F3A2C91B45D",
+  "device_name": "DJConnect Mac",
+  "client_type": "macos",
+  "firmware": "3.0.0",
+  "app_version": "3.0.0",
+  "platform": "macos",
+  "pairing_token": "123456"
+}
+```
+
+Expected response:
+
+```json
+{
+  "success": true,
+  "device_token": "<device bearer token>",
+  "device_id": "djconnect-macos-8F3A2C91B45D",
+  "client_type": "macos"
+}
+```
+
+The app also accepts `bearer_token` or `token` for compatibility, but
+`device_token` is preferred. After successful pairing, the app stores only the
+returned DJConnect device bearer token in Keychain and posts status.
+
 ## Status
 
 ```http

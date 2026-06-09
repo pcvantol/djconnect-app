@@ -20,6 +20,8 @@ All notable changes to DJConnect App are documented here.
 - Added privacy and diagnostics documentation.
 - Added handoff, architecture, API contract, and development documentation.
 - Added architecture decision record and todo/issues documentation.
+- Implemented macOS/iOS pairing flow against `POST /api/djconnect/pair` with
+  Keychain device-token storage and status validation.
 
 ### Changed
 

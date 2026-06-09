@@ -3,7 +3,7 @@ import SwiftUI
 
 @main
 struct DJConnectIOSApp: App {
-    @StateObject private var model = DJConnectAppModel.preview
+    @StateObject private var model = DJConnectAppModel()
 
     var body: some Scene {
         WindowGroup {

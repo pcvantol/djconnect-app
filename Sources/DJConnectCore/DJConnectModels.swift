@@ -63,6 +63,60 @@ public struct DJConnectIdentity: Codable, Equatable, Sendable {
     }
 }
 
+public struct DJConnectPairingPayload: Codable, Equatable, Sendable {
+    public var deviceID: String
+    public var deviceName: String
+    public var clientType: DJConnectClientType
+    public var firmware: String
+    public var appVersion: String?
+    public var platform: DJConnectPlatform
+    public var pairingToken: String
+
+    public init(identity: DJConnectIdentity, pairingToken: String) {
+        self.deviceID = identity.deviceID
+        self.deviceName = identity.deviceName
+        self.clientType = identity.clientType
+        self.firmware = identity.firmware
+        self.appVersion = identity.appVersion
+        self.platform = identity.platform
+        self.pairingToken = pairingToken
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case deviceID = "device_id"
+        case deviceName = "device_name"
+        case clientType = "client_type"
+        case firmware
+        case appVersion = "app_version"
+        case platform
+        case pairingToken = "pairing_token"
+    }
+}
+
+public struct DJConnectPairingResponse: Codable, Equatable, Sendable {
+    public var success: Bool
+    public var deviceToken: String?
+    public var token: String?
+    public var bearerToken: String?
+    public var message: String?
+    public var deviceID: String?
+    public var clientType: DJConnectClientType?
+
+    public var resolvedDeviceToken: String? {
+        deviceToken ?? bearerToken ?? token
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case success
+        case deviceToken = "device_token"
+        case token
+        case bearerToken = "bearer_token"
+        case message
+        case deviceID = "device_id"
+        case clientType = "client_type"
+    }
+}
+
 public struct DJConnectStatusPayload: Codable, Equatable, Sendable {
     public var deviceID: String
     public var clientType: DJConnectClientType

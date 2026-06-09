@@ -132,6 +132,35 @@ Recommended user flow:
 5. App starts sending authenticated status and command payloads with
    `client_type`.
 
+Implemented initial app contract:
+
+```http
+POST /api/djconnect/pair
+Content-Type: application/json
+X-DJConnect-Device-ID: <device_id>
+```
+
+```json
+{
+  "device_id": "djconnect-macos-8F3A2C91B45D",
+  "device_name": "DJConnect Mac",
+  "client_type": "macos",
+  "firmware": "3.0.0",
+  "app_version": "3.0.0",
+  "platform": "macos",
+  "pairing_token": "123456"
+}
+```
+
+Expected response:
+
+```json
+{
+  "success": true,
+  "device_token": "<device bearer token>"
+}
+```
+
 Bearer token storage:
 
 - iOS: Keychain item scoped to the app.

@@ -9,7 +9,9 @@ public enum DJConnectError: Error, Equatable, Sendable {
     case server(statusCode: Int, message: String?)
     case network(message: String)
     case invalidResponse
+    case invalidConfiguration(String)
     case missingToken
+    case pairingFailed(message: String?)
 }
 
 public struct DJConnectVersionMismatch: Codable, Equatable, Sendable {

@@ -95,6 +95,12 @@ struct SetupStatusView: View {
                 Label("Playback backend unavailable", systemImage: "exclamationmark.triangle")
                     .foregroundStyle(.orange)
             }
+
+            if let pairingMessage = model.pairingMessage {
+                Text(pairingMessage)
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+            }
         }
     }
 
@@ -290,12 +296,21 @@ struct SettingsView: View {
             Form {
                 Section("Home Assistant") {
                     TextField("URL", text: $model.homeAssistantURL)
+                        .textContentType(.URL)
+                    SecureField("Pairing token", text: $model.pairingToken)
                     HStack {
-                        Button("Pair") {}
+                        Button(model.isPairing ? "Pairing..." : "Pair") {
+                            Task {
+                                await model.pair()
+                            }
+                        }
+                        .disabled(model.isPairing)
                         Button("Reset Pairing", role: .destructive) {
-                            model.pairingStatus = .unpaired
+                            model.resetPairing()
                         }
                     }
+                    LabeledContent("Device ID", value: model.identity.deviceID)
+                    LabeledContent("Client", value: model.identity.clientType.rawValue)
                 }
 
                 Section("App") {

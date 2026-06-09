@@ -111,6 +111,16 @@ All status and command payloads include `device_id`, `client_type`, and
 `firmware`. The `firmware` value remains the protocol compatibility version,
 even for app clients.
 
+Pairing is posted to:
+
+```http
+POST /api/djconnect/pair
+```
+
+The app sends `device_id`, `device_name`, `client_type`, `firmware`,
+`app_version`, `platform`, and `pairing_token`, then stores the returned
+`device_token` in Keychain.
+
 ## Version Contract
 
 DJConnect clients and the Home Assistant integration must share the same
