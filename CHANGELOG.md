@@ -64,6 +64,11 @@ All notable changes to DJConnect App are documented here.
 - Updated queue decoding to the Home Assistant `queue.items` contract, storing
   `queue.context` and accepting album-art aliases including `media_image_url`,
   `image_url`, and `entity_picture`.
+- Kept the Client API url stable after successful local pairing so Home
+  Assistant can continue sending callbacks to the same app endpoint it just
+  paired against.
+- Made shuffle and repeat use matching bordered icon-button styling on iOS and
+  macOS.
 - Changed pairing reset confirmation to an explicit alert and only show the
   reset action when a pairing token is stored.
 - Updated the user-facing proposition to "DJConnect. Jouw persoonlijke muziek
@@ -73,7 +78,10 @@ All notable changes to DJConnect App are documented here.
 - Added album-art thumbnails to queue rows and made queue items playable when
   Home Assistant provides a queue item URI.
 - Switched queue item taps away from unsupported `play_queue_item`/`play_uri`
-  commands and toward the queue context supplied by Home Assistant.
+  commands and toward the queue context supplied by Home Assistant when present.
+- Moved queue refresh out of the table body into a compact toolbar icon.
+- Moved the DJ announcement card to the top of Now Playing.
+- Moved output device selection to the bottom of Now Playing.
 - Split playlists into a dedicated iOS/macOS page and added the About page to
   the iOS/iPadOS tab bar.
 - Restyled playlist rows with primary text and a purple play icon instead of

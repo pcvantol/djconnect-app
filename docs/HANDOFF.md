@@ -336,8 +336,14 @@ Queue loading uses `command:"queue"` and should return:
 The app accepts `response.queue.items` first and falls back to flat
 `response.items`. Queue album art aliases are `album_image_url`,
 `media_image_url`, `image_url`, and `entity_picture`. Empty queue items are not
-an error. Queue row playback requires both `queue.context` and item `uri`; the
+an error. Queue row playback requires an item `uri`; when `queue.context` is
+present, the app includes it so Home Assistant can preserve queue context. The
 app no longer sends unsupported legacy `play_queue_item` or `play_uri` commands.
+
+The Client API url shown by the app must remain stable after a successful
+`POST /api/device/pair`. Home Assistant has just called that endpoint and will
+continue using it for app callbacks; the app should only restart the local
+listener when pairing is reset or the install identity changes.
 
 Expected success shape:
 
@@ -544,6 +550,7 @@ Do not put SwiftUI view logic into the HTTP client.
 - App command posts include `client_type` as `ios` or `macos`.
 - HA backend playback commands work without any Spotify credentials in the app.
 - Playback-changing commands trigger an immediate rich Now Playing refresh.
+- Successful local pairing keeps the Client API url unchanged.
 - Backend unavailable does not reset pairing.
 - HTTP 426 version mismatch shows update-required UI and keeps pairing.
 - Authenticated 401/403/404 show stale pairing/setup recovery and keep token

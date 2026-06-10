@@ -458,16 +458,14 @@ public final class DJConnectAppModel: ObservableObject {
             log(.warning, "Queue item \(item.title) cannot start because it has no URI")
             return
         }
-        guard let queueContext, !queueContext.isEmpty else {
-            log(.warning, "Queue item \(item.title) cannot start because Home Assistant did not provide queue context")
-            return
-        }
         var payload = [
-            "context": queueContext,
             "uri": uri,
             "offset_uri": uri,
             "title": item.title
         ]
+        if let queueContext, !queueContext.isEmpty {
+            payload["context"] = queueContext
+        }
         if let index = queueItems.firstIndex(where: { $0.id == item.id }) {
             payload["index"] = String(index)
         }
@@ -1130,7 +1128,6 @@ public final class DJConnectAppModel: ObservableObject {
         pairingStatus = .paired
         isConnected = true
         isPairing = false
-        restartLocalDeviceAPI()
         pairingMessage = localized(english: "Paired with Home Assistant.", dutch: "Gekoppeld met Home Assistant.")
         log(.info, "Local device API completed pairing from Home Assistant")
         refresh()

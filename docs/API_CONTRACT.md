@@ -269,8 +269,18 @@ Compatibility rules:
 - Older/debug responses may return flat `items`; the app still accepts them.
 - Album art may be returned as `album_image_url`, `media_image_url`,
   `image_url`, or `entity_picture`.
-- Queue row playback requires `queue.context` and item `uri`; without both, the
-  app will not send unsupported legacy commands.
+- Queue row playback requires an item `uri`. When `queue.context` is present,
+  the app includes it so Home Assistant can preserve queue context; when it is
+  absent, the app still sends the item URI and does not fall back to unsupported
+  legacy commands.
+
+## Client API URL Stability
+
+The app must keep the local Client API url stable across successful pairing.
+Home Assistant pairs by calling the URL shown by the app, then continues to use
+that same endpoint for app callbacks and status/control flows. The app may
+restart the local listener when pairing is reset or the install identity changes,
+but not as a side effect of accepting `/api/device/pair`.
 
 ## Voice
 

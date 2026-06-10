@@ -73,6 +73,17 @@ private func httpResponse(for request: URLRequest, statusCode: Int) throws -> HT
 }
 
 @MainActor
+private func waitForLocalDeviceAPIURL(_ model: DJConnectAppModel) async throws -> String {
+    for _ in 0..<30 {
+        if let url = model.localDeviceAPIURL, !url.isEmpty {
+            return url
+        }
+        try await Task.sleep(for: .milliseconds(100))
+    }
+    throw URLError(.timedOut)
+}
+
+@MainActor
 @Test func resetPairingRotatesLocalIdentityAndCode() throws {
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
@@ -497,6 +508,41 @@ private func httpResponse(for request: URLRequest, statusCode: Int) throws -> HT
     #expect(request.haLocalURL == "http://192.168.1.13:8123")
     #expect(request.haRemoteURL == "https://remote.ui.nabu.casa")
     #expect(request.assistPipelineID == "preferred")
+}
+
+@MainActor
+@Test func localPairingKeepsClientAPIURLStable() async throws {
+    let suiteName = "DJConnectTests-\(UUID().uuidString)"
+    let defaults = try #require(UserDefaults(suiteName: suiteName))
+    defaults.removePersistentDomain(forName: suiteName)
+    let tokenStore = DJConnectInMemoryTokenStore()
+    let model = DJConnectAppModel(defaults: defaults, tokenStore: tokenStore)
+    let clientAPIURL = try await waitForLocalDeviceAPIURL(model)
+    let pairURL = try #require(URL(string: "\(clientAPIURL)/api/device/pair"))
+    var request = URLRequest(url: pairURL)
+    request.httpMethod = "POST"
+    request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+    request.httpBody = Data(
+        """
+        {
+          "pair_code": "\(model.pairingToken)",
+          "device_id": "\(model.identity.deviceID)",
+          "device_name": "\(model.identity.deviceName)",
+          "client_type": "\(model.identity.clientType.rawValue)",
+          "device_language": "nl",
+          "device_token": "device-secret",
+          "ha_local_url": "http://192.168.1.13:8123"
+        }
+        """.utf8
+    )
+
+    let (_, response) = try await URLSession.shared.data(for: request)
+    let httpResponse = try #require(response as? HTTPURLResponse)
+    try await Task.sleep(for: .milliseconds(150))
+
+    #expect(httpResponse.statusCode == 200)
+    #expect(try tokenStore.loadToken() == "device-secret")
+    #expect(model.localDeviceAPIURL == clientAPIURL)
 }
 
 @Test func pairSuccessStoresReturnedBearerToken() async throws {

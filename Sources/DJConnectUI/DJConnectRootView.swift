@@ -100,11 +100,11 @@ struct NowPlayingView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 24) {
+                    VoiceResponseView(model: model)
                     SetupStatusView(model: model)
                     TrackSummaryView(playback: model.playback, language: model.language)
-                    OutputSelectorView(model: model)
                     PlaybackControlsView(model: model)
-                    VoiceResponseView(model: model)
+                    OutputSelectorView(model: model)
                 }
                 .padding()
                 .frame(maxWidth: 760)
@@ -154,11 +154,11 @@ private struct IOSNowPlayingView: View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 16) {
+                    IOSVoiceCard(model: model)
                     IOSConnectionCard(model: model)
                     IOSTrackHero(model: model)
-                    OutputSelectorView(model: model)
                     IOSPlaybackSurface(model: model)
-                    IOSVoiceCard(model: model)
+                    OutputSelectorView(model: model)
                 }
                 .padding(.horizontal, 16)
                 .padding(.vertical, 12)
@@ -379,20 +379,8 @@ private struct IOSPlaybackSurface: View {
             }
 
             HStack(spacing: 12) {
-                Toggle(isOn: Binding(
-                    get: { model.playback?.shuffle ?? false },
-                    set: { value in
-                        var updated = model.playback ?? DJConnectPlayback()
-                        updated.shuffle = value
-                        model.playback = updated
-                        model.setShuffle(value)
-                    }
-                )) {
-                    Image(systemName: "shuffle")
-                }
-                .toggleStyle(.button)
-                .tint(model.playback?.shuffle == true ? .accentColor : .secondary)
-                .disabled(!isPaired)
+                ShuffleModeButton(model: model)
+                    .disabled(!isPaired)
 
                 RepeatModeButton(model: model)
                     .disabled(!isPaired)
@@ -603,19 +591,8 @@ struct PlaybackControlsView: View {
             }
 
             HStack {
-                Toggle(isOn: Binding(
-                    get: { model.playback?.shuffle ?? false },
-                    set: { value in
-                        var updated = model.playback ?? DJConnectPlayback()
-                        updated.shuffle = value
-                        model.playback = updated
-                        model.setShuffle(value)
-                    }
-                )) {
-                    Label(localized(model.language, "Shuffle", "Shuffle"), systemImage: "shuffle")
-                }
-                .tint(model.playback?.shuffle == true ? .accentColor : .secondary)
-                .disabled(!isPaired)
+                ShuffleModeButton(model: model)
+                    .disabled(!isPaired)
 
                 RepeatModeButton(model: model)
                     .disabled(!isPaired)
@@ -733,6 +710,33 @@ private struct OutputSelectorView: View {
         .padding(14)
         .background(Color(uiColor: .systemBackground), in: RoundedRectangle(cornerRadius: 8))
         #endif
+    }
+}
+
+private struct ShuffleModeButton: View {
+    @ObservedObject var model: DJConnectAppModel
+
+    private var isShuffling: Bool {
+        model.playback?.shuffle == true
+    }
+
+    var body: some View {
+        Button {
+            let nextValue = !isShuffling
+            var updated = model.playback ?? DJConnectPlayback()
+            updated.shuffle = nextValue
+            model.playback = updated
+            model.setShuffle(nextValue)
+        } label: {
+            Image(systemName: "shuffle")
+                .symbolVariant(isShuffling ? .fill : .none)
+                .frame(width: 22, height: 22)
+        }
+        .buttonStyle(.bordered)
+        .tint(isShuffling ? .accentColor : .secondary)
+        .help(localized(model.language, "Shuffle", "Shuffle"))
+        .accessibilityLabel(localized(model.language, "Shuffle", "Shuffle"))
+        .accessibilityValue(isShuffling ? localized(model.language, "On", "Aan") : localized(model.language, "Off", "Uit"))
     }
 }
 
@@ -858,19 +862,25 @@ struct QueueView: View {
                                 QueueItemRow(item: item)
                             }
                             .buttonStyle(.plain)
-                            .disabled(!isPaired || item.uri?.isEmpty != false || model.queueContext?.isEmpty != false)
+                            .disabled(!isPaired || item.uri?.isEmpty != false)
                             .accessibilityLabel(item.displayTitle)
                         }
                     }
-                    Button {
-                        model.loadQueue()
-                    } label: {
-                        Label(localized(model.language, "Reload Queue", "Wachtrij herladen"), systemImage: "arrow.clockwise")
-                    }
-                    .disabled(!isPaired)
                 }
             }
             .navigationTitle(localized(model.language, "Queue", "Wachtrij"))
+            .toolbar {
+                ToolbarItem {
+                    Button {
+                        model.loadQueue()
+                    } label: {
+                        Image(systemName: "arrow.clockwise")
+                    }
+                    .disabled(!isPaired)
+                    .help(localized(model.language, "Reload Queue", "Wachtrij herladen"))
+                    .accessibilityLabel(localized(model.language, "Reload Queue", "Wachtrij herladen"))
+                }
+            }
             .task {
                 guard model.pairingStatus == .paired else {
                     return
