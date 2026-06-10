@@ -19,6 +19,8 @@ All notable changes to DJConnect App are documented here.
   stops the wait loop and tells the user to re-enter the visible app code.
 - Added a local Bonjour-advertised `/api/device/*` Web API for HA -> Apple app
   traffic, including info, pairing-info, pair, command, DJ response, and forget.
+- Local API now prefers a reachable LAN IPv4 URL over a best-effort `.local`
+  hostname so Home Assistant can call the app directly.
 
 ## 3.1.0 - 2026-06-10
 

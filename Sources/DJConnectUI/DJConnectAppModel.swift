@@ -248,6 +248,7 @@ public final class DJConnectAppModel: ObservableObject {
                 pairingStatus = .paired
                 isConnected = true
                 isPairing = false
+                restartLocalDeviceAPI()
                 pairingMessage = localized(
                     english: "Paired with Home Assistant.",
                     dutch: "Gekoppeld met Home Assistant."
@@ -282,6 +283,7 @@ public final class DJConnectAppModel: ObservableObject {
         defaults.removeObject(forKey: installIDKey)
         identity = Self.makeIdentity(defaults: defaults)
         _ = newPairingToken()
+        restartLocalDeviceAPI()
         pairingStatus = .unpaired
         isConnected = false
         isPairing = false
@@ -832,6 +834,12 @@ public final class DJConnectAppModel: ObservableObject {
         localDeviceAPI?.start()
     }
 
+    private func restartLocalDeviceAPI() {
+        localDeviceAPI?.stop()
+        localDeviceAPI = nil
+        startLocalDeviceAPI()
+    }
+
     private func localDeviceAPIInfo() -> DJConnectLocalDeviceAPIInfo {
         DJConnectLocalDeviceAPIInfo(
             identity: identity,
@@ -884,6 +892,7 @@ public final class DJConnectAppModel: ObservableObject {
         pairingStatus = .paired
         isConnected = true
         isPairing = false
+        restartLocalDeviceAPI()
         pairingMessage = localized(english: "Paired with Home Assistant.", dutch: "Gekoppeld met Home Assistant.")
         log(.info, "Local device API completed pairing from Home Assistant")
         refresh()

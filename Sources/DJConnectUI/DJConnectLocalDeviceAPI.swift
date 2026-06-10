@@ -1,4 +1,5 @@
 import DJConnectCore
+import Darwin
 import Foundation
 import Network
 
@@ -199,7 +200,8 @@ public final class DJConnectLocalDeviceAPI: @unchecked Sendable {
             return
         }
         let info = await infoProvider()
-        localURL = "http://\(info.identity.deviceID).local:\(port.rawValue)"
+        let host = Self.localIPv4Address() ?? "\(info.identity.deviceID).local"
+        localURL = "http://\(host):\(port.rawValue)"
         listener.service = NWListener.Service(
             name: info.identity.deviceID,
             type: "_djconnect._tcp",
@@ -215,6 +217,62 @@ public final class DJConnectLocalDeviceAPI: @unchecked Sendable {
         )
         await urlHandler(localURL)
         await logHandler("Local device API started at \(localURL ?? "unknown")")
+    }
+
+    private static func localIPv4Address() -> String? {
+        var interfaces: UnsafeMutablePointer<ifaddrs>?
+        guard getifaddrs(&interfaces) == 0, let firstInterface = interfaces else {
+            return nil
+        }
+        defer { freeifaddrs(interfaces) }
+
+        var fallback: String?
+        var interface = firstInterface
+        while true {
+            defer {
+                if let next = interface.pointee.ifa_next {
+                    interface = next
+                }
+            }
+
+            let flags = Int32(interface.pointee.ifa_flags)
+            let isUp = (flags & IFF_UP) == IFF_UP
+            let isLoopback = (flags & IFF_LOOPBACK) == IFF_LOOPBACK
+            guard isUp, !isLoopback, let address = interface.pointee.ifa_addr, address.pointee.sa_family == UInt8(AF_INET) else {
+                if interface.pointee.ifa_next == nil { break }
+                continue
+            }
+
+            let name = String(cString: interface.pointee.ifa_name)
+            var hostname = [CChar](repeating: 0, count: Int(NI_MAXHOST))
+            let result = getnameinfo(
+                address,
+                socklen_t(address.pointee.sa_len),
+                &hostname,
+                socklen_t(hostname.count),
+                nil,
+                0,
+                NI_NUMERICHOST
+            )
+            guard result == 0 else {
+                if interface.pointee.ifa_next == nil { break }
+                continue
+            }
+
+            let ipAddress = hostname.withUnsafeBufferPointer { buffer in
+                let bytes = buffer.prefix { $0 != 0 }.map { UInt8(bitPattern: $0) }
+                return String(decoding: bytes, as: UTF8.self)
+            }
+            if name == "en0" || name == "en1" {
+                return ipAddress
+            }
+            fallback = fallback ?? ipAddress
+
+            if interface.pointee.ifa_next == nil {
+                break
+            }
+        }
+        return fallback
     }
 
     private func handle(connection: NWConnection) {
