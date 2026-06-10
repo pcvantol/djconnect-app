@@ -749,9 +749,19 @@ struct SettingsView: View {
                     TextField(localized(model.language, "URL", "URL"), text: $model.homeAssistantURL)
                         .textContentType(.URL)
                     LabeledContent(localized(model.language, "Pairing Code", "Pairingcode")) {
-                        Text(model.pairingToken)
-                            .font(.system(.title3, design: .monospaced).weight(.semibold))
-                            .textSelection(.enabled)
+                        HStack(spacing: 8) {
+                            Text(model.pairingToken)
+                                .font(.system(.title3, design: .monospaced).weight(.semibold))
+                                .textSelection(.enabled)
+                            Button {
+                                copyText(model.pairingToken)
+                            } label: {
+                                Image(systemName: "doc.on.doc")
+                            }
+                            .buttonStyle(.borderless)
+                            .help(localized(model.language, "Copy Pairing Code", "Pairingcode kopieren"))
+                            .accessibilityLabel(localized(model.language, "Copy Pairing Code", "Pairingcode kopieren"))
+                        }
                     }
                     if model.isPairing {
                         ProgressView(localized(model.language, "Waiting for Home Assistant", "Wachten op Home Assistant"))
