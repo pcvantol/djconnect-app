@@ -47,6 +47,11 @@ public struct DJConnectRootView: View {
                     } label: {
                         Label(localized(model.language, "Settings", "Instellingen"), systemImage: "gearshape")
                     }
+                    NavigationLink {
+                        AboutView(model: model)
+                    } label: {
+                        Label(localized(model.language, "About", "Over"), systemImage: "info.circle")
+                    }
                 }
                 .navigationTitle("DJConnect")
             } detail: {
@@ -796,6 +801,13 @@ struct SettingsView: View {
                     }
 
                     SettingsSection(title: localized(model.language, "App", "App")) {
+                        NavigationLink {
+                            AboutView(model: model)
+                        } label: {
+                            Label(localized(model.language, "About DJConnect", "Over DJConnect"), systemImage: "info.circle")
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                        .buttonStyle(.plain)
                         SettingsRow(label: localized(model.language, "Language", "Taal")) {
                             Picker("", selection: $model.language) {
                                 Text("Nederlands").tag("nl")
@@ -871,6 +883,81 @@ struct SettingsView: View {
                 model.schedulePairingWait()
             }
         }
+    }
+}
+
+private struct AboutView: View {
+    @ObservedObject var model: DJConnectAppModel
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 28) {
+                VStack(alignment: .leading, spacing: 18) {
+                    DJConnectAppIconView()
+                        .frame(width: 96, height: 96)
+                        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+                        .shadow(color: .black.opacity(0.20), radius: 14, y: 8)
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("DJConnect")
+                            .font(.system(.largeTitle, design: .default).weight(.bold))
+                        Text(localized(model.language, "Apple client for Home Assistant and Spotify DJ control.", "Apple-client voor Home Assistant en Spotify DJ-bediening."))
+                            .foregroundStyle(.secondary)
+                    }
+                }
+
+                SettingsSection(title: localized(model.language, "App", "App")) {
+                    SettingsRow(label: localized(model.language, "Version", "Versie")) {
+                        SelectableValue(model.version)
+                    }
+                    SettingsRow(label: localized(model.language, "Client", "Client")) {
+                        SelectableValue(model.identity.clientType.rawValue)
+                    }
+                    SettingsRow(label: localized(model.language, "Platform", "Platform")) {
+                        SelectableValue(model.identity.platform.rawValue)
+                    }
+                    SettingsRow(label: localized(model.language, "Device Name", "Device naam")) {
+                        SelectableValue(model.identity.deviceName)
+                    }
+                    SettingsRow(label: localized(model.language, "Device ID", "Device ID")) {
+                        CopyableValue(
+                            text: model.identity.deviceID,
+                            copyLabel: localized(model.language, "Copy Device ID", "Device ID kopieren")
+                        )
+                    }
+                }
+
+                SettingsSection(title: localized(model.language, "Connection", "Verbinding")) {
+                    SettingsRow(label: localized(model.language, "Pairing", "Pairing")) {
+                        SelectableValue(model.pairingStatus.rawValue)
+                    }
+                    if let localDeviceAPIURL = model.localDeviceAPIURL, !localDeviceAPIURL.isEmpty {
+                        SettingsRow(label: localized(model.language, "Local API", "Lokale API")) {
+                            CopyableValue(
+                                text: localDeviceAPIURL,
+                                copyLabel: localized(model.language, "Copy Local API URL", "Lokale API URL kopieren")
+                            )
+                        }
+                    }
+                    if !model.haLocalURL.isEmpty {
+                        SettingsRow(label: localized(model.language, "Home Assistant", "Home Assistant")) {
+                            SelectableValue(model.haLocalURL)
+                        }
+                    }
+                }
+
+                Text(localized(
+                    model.language,
+                    "No Spotify, Home Assistant, or device tokens are shown here.",
+                    "Spotify-, Home Assistant- en device-tokens worden hier niet getoond."
+                ))
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+            }
+            .frame(maxWidth: 760, alignment: .leading)
+            .padding(.horizontal, 24)
+            .padding(.vertical, 28)
+        }
+        .navigationTitle(localized(model.language, "About", "Over"))
     }
 }
 

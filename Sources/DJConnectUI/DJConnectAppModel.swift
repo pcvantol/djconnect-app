@@ -116,6 +116,10 @@ public final class DJConnectAppModel: ObservableObject {
         playback?.isPlaying ?? false
     }
 
+    public var version: String {
+        appVersion
+    }
+
     public init(
         playback: DJConnectPlayback? = nil,
         defaults: UserDefaults = .standard,

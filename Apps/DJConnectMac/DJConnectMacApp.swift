@@ -7,7 +7,9 @@ struct DJConnectMacApp: App {
 
     var body: some Scene {
         WindowGroup {
-            DJConnectRootView(model: model)
+            DJConnectLaunchContainer {
+                DJConnectRootView(model: model)
+            }
                 .frame(minWidth: 820, minHeight: 560)
         }
 

@@ -35,6 +35,13 @@ All notable changes to DJConnect App are documented here.
   grouped actions, and less visual overlap on macOS.
 - Server error response bodies are now included in diagnostics after redacting
   tokens/secrets, making HA entity/status failures easier to debug.
+- Added a branded iOS launch storyboard and a shared iOS/macOS launch splash
+  inspired by the DJConnect app icon.
+- Added a native About screen with the DJConnect icon, app version, client type,
+  platform, device identity, pairing state, and copyable local connection
+  details.
+- Made iPadOS support explicit in the project template so the iOS target remains
+  universal for iPhone and iPad after project regeneration.
 
 ## 3.1.0 - 2026-06-10
 
