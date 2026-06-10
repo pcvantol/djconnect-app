@@ -112,6 +112,7 @@ targets:
       path: Apps/DJConnectMac/Info.plist
       properties:
         CFBundleDisplayName: DJConnect
+        CFBundleIconFile: AppIcon
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         LSApplicationCategoryType: public.app-category.music
