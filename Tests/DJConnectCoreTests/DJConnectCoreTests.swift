@@ -118,8 +118,8 @@ private func httpResponse(for request: URLRequest, statusCode: Int) throws -> HT
         deviceID: "djconnect-ios-8F3A2C91B45D",
         deviceName: "DJConnect iPhone",
         clientType: .ios,
-        firmware: "3.1.0",
-        appVersion: "3.1.0",
+        firmware: "3.1.2",
+        appVersion: "3.1.2",
         platform: .ios
     )
     let client = DJConnectClient(
@@ -136,7 +136,8 @@ private func httpResponse(for request: URLRequest, statusCode: Int) throws -> HT
         logLevel: "info",
         haLocalURL: "http://192.168.1.10:8123",
         haRemoteURL: "https://example.ui.nabu.casa",
-        haActiveURL: "http://192.168.1.10:8123"
+        haActiveURL: "http://192.168.1.10:8123",
+        localURL: "http://192.168.1.105:51193"
     )
 
     let request = try client.statusRequest(payload)
@@ -152,11 +153,12 @@ private func httpResponse(for request: URLRequest, statusCode: Int) throws -> HT
     #expect(json?["device_id"] as? String == identity.deviceID)
     #expect(json?["device_name"] as? String == identity.deviceName)
     #expect(json?["client_type"] as? String == "ios")
-    #expect(json?["firmware"] as? String == "3.1.0")
-    #expect(json?["app_version"] as? String == "3.1.0")
+    #expect(json?["firmware"] as? String == "3.1.2")
+    #expect(json?["app_version"] as? String == "3.1.2")
     #expect(json?["ha_local_url"] as? String == "http://192.168.1.10:8123")
     #expect(json?["ha_remote_url"] as? String == "https://example.ui.nabu.casa")
     #expect(json?["ha_active_url"] as? String == "http://192.168.1.10:8123")
+    #expect(json?["local_url"] as? String == "http://192.168.1.105:51193")
 }
 
 @Test func commandRequestSupportsTypedValues() throws {
@@ -164,8 +166,8 @@ private func httpResponse(for request: URLRequest, statusCode: Int) throws -> HT
         deviceID: "djconnect-macos-8F3A2C91B45D",
         deviceName: "DJConnect Mac",
         clientType: .macos,
-        firmware: "3.1.0",
-        appVersion: "3.1.0",
+        firmware: "3.1.2",
+        appVersion: "3.1.2",
         platform: .macos
     )
     let client = DJConnectClient(
@@ -238,8 +240,8 @@ private func httpResponse(for request: URLRequest, statusCode: Int) throws -> HT
         deviceID: "djconnect-macos-8F3A2C91B45D",
         deviceName: "DJConnect Mac",
         clientType: .macos,
-        firmware: "3.1.0",
-        appVersion: "3.1.0",
+        firmware: "3.1.2",
+        appVersion: "3.1.2",
         platform: .macos
     )
     let client = DJConnectClient(
@@ -267,7 +269,7 @@ private func httpResponse(for request: URLRequest, statusCode: Int) throws -> HT
     #expect(json?["pair_code"] as? String == "123456")
     #expect(json?["pairing_code"] as? String == "123456")
     #expect(json?["pairing_token"] as? String == "123456")
-    #expect(json?["firmware"] as? String == "3.1.0")
+    #expect(json?["firmware"] as? String == "3.1.2")
 }
 
 @Test func pairingResponseAcceptsCommonTokenFieldNames() throws {
@@ -308,7 +310,8 @@ private func httpResponse(for request: URLRequest, statusCode: Int) throws -> HT
         haLocalURL: "http://192.168.1.13:8123",
         haRemoteURL: "https://remote.ui.nabu.casa",
         deviceLanguage: "nl",
-        language: "en"
+        language: "en",
+        assistPipelineID: "preferred"
     )
 
     model.apply(pairingResponse: response, fallbackBaseURL: try #require(URL(string: "http://fallback.local:8123")))
@@ -318,6 +321,37 @@ private func httpResponse(for request: URLRequest, statusCode: Int) throws -> HT
     #expect(model.haRemoteURL == "https://remote.ui.nabu.casa")
     #expect(model.haActiveURL == "http://192.168.1.13:8123")
     #expect(model.language == "nl")
+    #expect(model.assistPipelineID == "preferred")
+}
+
+@Test func localPairRequestAcceptsHomeAssistantCallbackPayload() throws {
+    let request = try JSONDecoder().decode(
+        DJConnectLocalPairRequest.self,
+        from: Data(
+            """
+            {
+              "pair_code": 555293,
+              "device_id": "djconnect-macos-68B74487726D",
+              "device_name": "DJConnect Mac",
+              "client_type": "macos",
+              "device_language": "nl",
+              "language": "nl",
+              "device_token": "device-secret",
+              "ha_local_url": "http://192.168.1.13:8123",
+              "ha_remote_url": "https://remote.ui.nabu.casa",
+              "assist_pipeline_id": "preferred"
+            }
+            """.utf8
+        )
+    )
+
+    #expect(request.resolvedPairCode == "555293")
+    #expect(request.deviceID == "djconnect-macos-68B74487726D")
+    #expect(request.clientType == .macos)
+    #expect(request.resolvedDeviceToken == "device-secret")
+    #expect(request.haLocalURL == "http://192.168.1.13:8123")
+    #expect(request.haRemoteURL == "https://remote.ui.nabu.casa")
+    #expect(request.assistPipelineID == "preferred")
 }
 
 @Test func pairSuccessStoresReturnedBearerToken() async throws {
@@ -325,8 +359,8 @@ private func httpResponse(for request: URLRequest, statusCode: Int) throws -> HT
         deviceID: "djconnect-ios-8F3A2C91B45D",
         deviceName: "DJConnect iPhone",
         clientType: .ios,
-        firmware: "3.1.0",
-        appVersion: "3.1.0",
+        firmware: "3.1.2",
+        appVersion: "3.1.2",
         platform: .ios
     )
     let tokenStore = DJConnectInMemoryTokenStore()
@@ -359,8 +393,8 @@ private func httpResponse(for request: URLRequest, statusCode: Int) throws -> HT
         deviceID: "djconnect-macos-8F3A2C91B45D",
         deviceName: "DJConnect Mac",
         clientType: .macos,
-        firmware: "3.1.0",
-        appVersion: "3.1.0",
+        firmware: "3.1.2",
+        appVersion: "3.1.2",
         platform: .macos
     )
     let tokenStore = DJConnectInMemoryTokenStore()
@@ -407,7 +441,7 @@ private func httpResponse(for request: URLRequest, statusCode: Int) throws -> HT
         deviceID: "djconnect-ios-8F3A2C91B45D",
         deviceName: "DJConnect iPhone",
         clientType: .ios,
-        firmware: "3.1.0",
+        firmware: "3.1.2",
         platform: .ios
     )
     let client = DJConnectClient(
@@ -433,7 +467,7 @@ private func httpResponse(for request: URLRequest, statusCode: Int) throws -> HT
             deviceID: "djconnect-ios-8F3A2C91B45D",
             deviceName: "DJConnect iPhone",
             clientType: .ios,
-            firmware: "3.1.0",
+            firmware: "3.1.2",
             platform: .ios
         ),
         tokenStore: DJConnectInMemoryTokenStore(token: "secret-token")
@@ -444,9 +478,9 @@ private func httpResponse(for request: URLRequest, statusCode: Int) throws -> HT
           "success": false,
           "error": "version_mismatch",
           "message": "DJConnect Home Assistant integration and device firmware major.minor versions must match.",
-          "ha_version": "3.1.0",
+          "ha_version": "3.1.2",
           "ha_major_minor": "3.1",
-          "firmware": "3.1.0",
+          "firmware": "3.1.2",
           "firmware_major_minor": "3.0"
         }
         """.utf8
@@ -457,9 +491,9 @@ private func httpResponse(for request: URLRequest, statusCode: Int) throws -> HT
     #expect(error == .versionMismatch(
         DJConnectVersionMismatch(
             message: "DJConnect Home Assistant integration and device firmware major.minor versions must match.",
-            haVersion: "3.1.0",
+            haVersion: "3.1.2",
             haMajorMinor: "3.1",
-            firmware: "3.1.0",
+            firmware: "3.1.2",
             firmwareMajorMinor: "3.0"
         )
     ))
@@ -472,7 +506,7 @@ private func httpResponse(for request: URLRequest, statusCode: Int) throws -> HT
             deviceID: "djconnect-ios-8F3A2C91B45D",
             deviceName: "DJConnect iPhone",
             clientType: .ios,
-            firmware: "3.1.0",
+            firmware: "3.1.2",
             platform: .ios
         ),
         tokenStore: DJConnectInMemoryTokenStore(token: "secret-token")
@@ -501,7 +535,7 @@ private func httpResponse(for request: URLRequest, statusCode: Int) throws -> HT
             deviceID: "djconnect-macos-8F3A2C91B45D",
             deviceName: "DJConnect Mac",
             clientType: .macos,
-            firmware: "3.1.0",
+            firmware: "3.1.2",
             platform: .macos
         ),
         tokenStore: DJConnectInMemoryTokenStore(token: "secret-token")

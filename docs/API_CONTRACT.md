@@ -18,8 +18,8 @@ install identity.
   "device_id": "djconnect-ios-8F3A2C91B45D",
   "device_name": "DJConnect iPhone",
   "client_type": "ios",
-  "firmware": "3.1.0",
-  "app_version": "3.1.0",
+  "firmware": "3.1.2",
+  "app_version": "3.1.2",
   "platform": "ios"
 }
 ```
@@ -65,8 +65,8 @@ Payload:
   "device_id": "djconnect-macos-8F3A2C91B45D",
   "device_name": "DJConnect Mac",
   "client_type": "macos",
-  "firmware": "3.1.0",
-  "app_version": "3.1.0",
+  "firmware": "3.1.2",
+  "app_version": "3.1.2",
   "platform": "macos",
   "pair_code": "123456",
   "pairing_code": "123456",
@@ -121,12 +121,41 @@ Pairing callback:
 
 ```http
 POST /api/device/pair
+Content-Type: application/json
 ```
 
 `POST /api/device/pair` accepts this app installation's `device_id`,
 `client_type`, visible app `pair_code`, returned `device_token`, HA URLs, and
 language metadata. It stores only the DJConnect bearer token and HA/app
 settings.
+
+Expected callback payload:
+
+```json
+{
+  "pair_code": "555293",
+  "device_id": "djconnect-macos-8F3A2C91B45D",
+  "device_name": "DJConnect Mac",
+  "client_type": "macos",
+  "device_language": "nl",
+  "language": "nl",
+  "device_token": "<djconnect bearer token>",
+  "ha_local_url": "http://192.168.1.13:8123",
+  "ha_remote_url": "https://example.ui.nabu.casa",
+  "assist_pipeline_id": "preferred"
+}
+```
+
+Success response:
+
+```json
+{
+  "success": true,
+  "device_id": "djconnect-macos-8F3A2C91B45D",
+  "client_type": "macos",
+  "paired": true
+}
+```
 
 Protected endpoints require:
 
@@ -157,8 +186,8 @@ Minimum payload:
   "device_name": "DJConnect iPhone",
   "client_type": "ios",
   "ha_pairing_status": "paired",
-  "firmware": "3.1.0",
-  "app_version": "3.1.0",
+  "firmware": "3.1.2",
+  "app_version": "3.1.2",
   "state": "online",
   "status": "online",
   "battery_percent": 85,
@@ -167,7 +196,8 @@ Minimum payload:
   "log_level": "info",
   "ha_local_url": "http://192.168.1.13:8123",
   "ha_remote_url": "https://example.ui.nabu.casa",
-  "ha_active_url": "http://192.168.1.13:8123"
+  "ha_active_url": "http://192.168.1.13:8123",
+  "local_url": "http://192.168.1.105:51193"
 }
 ```
 

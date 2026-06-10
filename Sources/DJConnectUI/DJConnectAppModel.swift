@@ -49,6 +49,7 @@ public final class DJConnectAppModel: ObservableObject {
     @Published public private(set) var haLocalURL = ""
     @Published public private(set) var haRemoteURL = ""
     @Published public private(set) var haActiveURL = ""
+    @Published public private(set) var assistPipelineID = ""
     @Published public var pairingToken = ""
     @Published public var pairingStatus: DJConnectPairingStatus = .unpaired
     @Published public var isConnected = false
@@ -93,13 +94,14 @@ public final class DJConnectAppModel: ObservableObject {
     #endif
     private let defaults: UserDefaults
     private let tokenStore: DJConnectTokenStore
-    private static let protocolVersion = "3.1.0"
+    private static let protocolVersion = "3.1.2"
     private let appVersion = DJConnectAppModel.protocolVersion
     private let installIDKey = "DJConnectInstallID"
     private let homeAssistantURLKey = "DJConnectHomeAssistantURL"
     private let haLocalURLKey = "DJConnectHALocalURL"
     private let haRemoteURLKey = "DJConnectHARemoteURL"
     private let haActiveURLKey = "DJConnectHAActiveURL"
+    private let assistPipelineIDKey = "DJConnectAssistPipelineID"
     private let pairingTokenKey = "DJConnectPairingToken"
     private let languageKey = "DJConnectLanguage"
     private let logLevelKey = "DJConnectLogLevel"
@@ -136,6 +138,7 @@ public final class DJConnectAppModel: ObservableObject {
         self.haLocalURL = defaults.string(forKey: haLocalURLKey) ?? ""
         self.haRemoteURL = defaults.string(forKey: haRemoteURLKey) ?? ""
         self.haActiveURL = defaults.string(forKey: haActiveURLKey) ?? ""
+        self.assistPipelineID = defaults.string(forKey: assistPipelineIDKey) ?? ""
         self.pairingToken = defaults.string(forKey: pairingTokenKey) ?? Self.generatePairingToken()
         self.language = defaults.string(forKey: languageKey) ?? "nl"
         self.logLevel = defaults.string(forKey: logLevelKey) ?? "info"
@@ -541,6 +544,10 @@ public final class DJConnectAppModel: ObservableObject {
         defaults.set(haLocalURL, forKey: haLocalURLKey)
         defaults.set(haRemoteURL, forKey: haRemoteURLKey)
         defaults.set(haActiveURL, forKey: haActiveURLKey)
+        if let pipelineID = response.assistPipelineID, !pipelineID.isEmpty {
+            assistPipelineID = pipelineID
+            defaults.set(pipelineID, forKey: assistPipelineIDKey)
+        }
         if let responseLanguage = response.deviceLanguage ?? response.language, !responseLanguage.isEmpty {
             language = responseLanguage
         }
@@ -674,7 +681,8 @@ public final class DJConnectAppModel: ObservableObject {
                     voiceSupported: voiceEnabled,
                     haLocalURL: haLocalURL.isEmpty ? nil : haLocalURL,
                     haRemoteURL: haRemoteURL.isEmpty ? nil : haRemoteURL,
-                    haActiveURL: haActiveURL.isEmpty ? nil : haActiveURL
+                    haActiveURL: haActiveURL.isEmpty ? nil : haActiveURL,
+                    localURL: localDeviceAPIURL
                 )
             )
             apply(playback: response.playback)
@@ -781,8 +789,8 @@ public final class DJConnectAppModel: ObservableObject {
                         deviceID: "djconnect-macos-unavailable",
                         deviceName: "DJConnect",
                         clientType: .macos,
-                        firmware: "3.1.0",
-                        appVersion: "3.1.0",
+                        firmware: "3.1.2",
+                        appVersion: "3.1.2",
                         platform: .macos
                     ),
                     pairingToken: "",
@@ -891,7 +899,8 @@ public final class DJConnectAppModel: ObservableObject {
             haLocalURL: request.haLocalURL,
             haRemoteURL: request.haRemoteURL,
             deviceLanguage: request.deviceLanguage,
-            language: request.language
+            language: request.language,
+            assistPipelineID: request.assistPipelineID
         ), fallbackBaseURL: fallbackURL)
         pairingStatus = .paired
         isConnected = true
@@ -900,7 +909,13 @@ public final class DJConnectAppModel: ObservableObject {
         pairingMessage = localized(english: "Paired with Home Assistant.", dutch: "Gekoppeld met Home Assistant.")
         log(.info, "Local device API completed pairing from Home Assistant")
         refresh()
-        return DJConnectLocalDeviceAPIResponse(success: true, message: "paired")
+        return DJConnectLocalDeviceAPIResponse(
+            success: true,
+            message: "paired",
+            deviceID: identity.deviceID,
+            clientType: identity.clientType.rawValue,
+            paired: true
+        )
     }
 
     private func handleLocalCommand(_ request: DJConnectLocalCommandRequest) -> DJConnectLocalDeviceAPIResponse {
@@ -992,6 +1007,8 @@ public final class DJConnectAppModel: ObservableObject {
         defaults.removeObject(forKey: haLocalURLKey)
         defaults.removeObject(forKey: haRemoteURLKey)
         defaults.removeObject(forKey: haActiveURLKey)
+        assistPipelineID = ""
+        defaults.removeObject(forKey: assistPipelineIDKey)
     }
 
     public func clearDiagnosticLog() {
@@ -1016,6 +1033,7 @@ public final class DJConnectAppModel: ObservableObject {
         ha_local_url: \(haLocalURL.isEmpty ? "missing" : Self.redactSensitive(haLocalURL))
         ha_remote_url: \(haRemoteURL.isEmpty ? "missing" : Self.redactSensitive(haRemoteURL))
         ha_active_url: \(haActiveURL.isEmpty ? "missing" : Self.redactSensitive(haActiveURL))
+        assist_pipeline_id: \(assistPipelineID.isEmpty ? "missing" : "present")
         local_device_api_url: \(localDeviceAPIURL ?? "missing")
         backend_available: \(backendAvailable)
         selected_output: \(selectedOutput)

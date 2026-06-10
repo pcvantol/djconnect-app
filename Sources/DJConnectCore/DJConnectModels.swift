@@ -79,12 +79,14 @@ public struct DJConnectPairingPayload: Codable, Equatable, Sendable {
     public var pairingCode: String
     public var haLocalURL: String?
     public var haRemoteURL: String?
+    public var assistPipelineID: String?
 
     public init(
         identity: DJConnectIdentity,
         pairingToken: String,
         haLocalURL: String? = nil,
-        haRemoteURL: String? = nil
+        haRemoteURL: String? = nil,
+        assistPipelineID: String? = nil
     ) {
         self.deviceID = identity.deviceID
         self.deviceName = identity.deviceName
@@ -97,6 +99,7 @@ public struct DJConnectPairingPayload: Codable, Equatable, Sendable {
         self.pairingCode = pairingToken
         self.haLocalURL = haLocalURL
         self.haRemoteURL = haRemoteURL
+        self.assistPipelineID = assistPipelineID
     }
 
     enum CodingKeys: String, CodingKey {
@@ -111,6 +114,7 @@ public struct DJConnectPairingPayload: Codable, Equatable, Sendable {
         case pairingCode = "pairing_code"
         case haLocalURL = "ha_local_url"
         case haRemoteURL = "ha_remote_url"
+        case assistPipelineID = "assist_pipeline_id"
     }
 }
 
@@ -126,6 +130,7 @@ public struct DJConnectPairingResponse: Codable, Equatable, Sendable {
     public var haRemoteURL: String?
     public var deviceLanguage: String?
     public var language: String?
+    public var assistPipelineID: String?
 
     public var resolvedDeviceToken: String? {
         deviceToken ?? bearerToken ?? token
@@ -142,7 +147,8 @@ public struct DJConnectPairingResponse: Codable, Equatable, Sendable {
         haLocalURL: String? = nil,
         haRemoteURL: String? = nil,
         deviceLanguage: String? = nil,
-        language: String? = nil
+        language: String? = nil,
+        assistPipelineID: String? = nil
     ) {
         self.success = success
         self.deviceToken = deviceToken
@@ -155,6 +161,7 @@ public struct DJConnectPairingResponse: Codable, Equatable, Sendable {
         self.haRemoteURL = haRemoteURL
         self.deviceLanguage = deviceLanguage
         self.language = language
+        self.assistPipelineID = assistPipelineID
     }
 
     enum CodingKeys: String, CodingKey {
@@ -169,6 +176,7 @@ public struct DJConnectPairingResponse: Codable, Equatable, Sendable {
         case haRemoteURL = "ha_remote_url"
         case deviceLanguage = "device_language"
         case language
+        case assistPipelineID = "assist_pipeline_id"
     }
 }
 
@@ -195,6 +203,7 @@ public struct DJConnectStatusPayload: Codable, Equatable, Sendable {
     public var haLocalURL: String?
     public var haRemoteURL: String?
     public var haActiveURL: String?
+    public var localURL: String?
 
     public init(
         identity: DJConnectIdentity,
@@ -213,7 +222,8 @@ public struct DJConnectStatusPayload: Codable, Equatable, Sendable {
         networkType: String? = nil,
         haLocalURL: String? = nil,
         haRemoteURL: String? = nil,
-        haActiveURL: String? = nil
+        haActiveURL: String? = nil,
+        localURL: String? = nil
     ) {
         self.deviceID = identity.deviceID
         self.deviceName = identity.deviceName
@@ -237,6 +247,7 @@ public struct DJConnectStatusPayload: Codable, Equatable, Sendable {
         self.haLocalURL = haLocalURL
         self.haRemoteURL = haRemoteURL
         self.haActiveURL = haActiveURL
+        self.localURL = localURL
     }
 
     enum CodingKeys: String, CodingKey {
@@ -262,6 +273,7 @@ public struct DJConnectStatusPayload: Codable, Equatable, Sendable {
         case haLocalURL = "ha_local_url"
         case haRemoteURL = "ha_remote_url"
         case haActiveURL = "ha_active_url"
+        case localURL = "local_url"
     }
 }
 

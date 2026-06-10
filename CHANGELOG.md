@@ -2,15 +2,19 @@
 
 All notable changes to DJConnect App are documented here.
 
-## Unreleased
+## 3.1.2 - 2026-06-10
 
 ### Changed
 
+- Set app/protocol version to `3.1.2`.
 - Aligned iOS/macOS app-client pairing, status, command, and voice requests
   with the Home Assistant contract by using `device_id` as the only over-the-
   wire app identity and removing `client_id` headers/payload fields.
 - Persisted `ha_local_url`, optional `ha_remote_url`, active HA URL, and
-  language metadata returned by pairing; status now reports HA URL metadata.
+  language metadata returned by pairing; status now reports HA URL metadata and
+  the reachable local app API URL.
+- Local `/api/device/pair` now accepts HA app-client callbacks with
+  `assist_pipeline_id` and returns `device_id`, `client_type`, and `paired`.
 - Status, command, and voice requests now switch to `ha_remote_url` after a
   local Home Assistant network failure when pairing returned a remote URL.
 - Expanded macOS functional parity with iOS by adding refresh behavior and HA

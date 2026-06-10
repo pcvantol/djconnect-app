@@ -35,6 +35,7 @@ public struct DJConnectLocalPairRequest: Decodable, Sendable {
     public var haRemoteURL: String?
     public var deviceLanguage: String?
     public var language: String?
+    public var assistPipelineID: String?
 
     public var resolvedPairCode: String? {
         pairCode ?? pairingCode ?? pairingToken
@@ -57,6 +58,7 @@ public struct DJConnectLocalPairRequest: Decodable, Sendable {
         case haRemoteURL = "ha_remote_url"
         case deviceLanguage = "device_language"
         case language
+        case assistPipelineID = "assist_pipeline_id"
     }
 
     public init(from decoder: Decoder) throws {
@@ -75,16 +77,17 @@ public struct DJConnectLocalPairRequest: Decodable, Sendable {
         haRemoteURL = try Self.decodeStringIfPresent(from: container, forKey: .haRemoteURL)
         deviceLanguage = try Self.decodeStringIfPresent(from: container, forKey: .deviceLanguage)
         language = try Self.decodeStringIfPresent(from: container, forKey: .language)
+        assistPipelineID = try Self.decodeStringIfPresent(from: container, forKey: .assistPipelineID)
     }
 
     private static func decodeStringIfPresent(
         from container: KeyedDecodingContainer<CodingKeys>,
         forKey key: CodingKeys
     ) throws -> String? {
-        if let value = try container.decodeIfPresent(String.self, forKey: key) {
+        if let value = try? container.decodeIfPresent(String.self, forKey: key) {
             return value
         }
-        if let value = try container.decodeIfPresent(Int.self, forKey: key) {
+        if let value = try? container.decodeIfPresent(Int.self, forKey: key) {
             return String(value)
         }
         return nil
@@ -130,12 +133,36 @@ public struct DJConnectLocalDeviceAPIResponse: Encodable, Sendable {
     public var error: String?
     public var message: String?
     public var data: [String: String]?
+    public var deviceID: String?
+    public var clientType: String?
+    public var paired: Bool?
 
-    public init(success: Bool, error: String? = nil, message: String? = nil, data: [String: String]? = nil) {
+    public init(
+        success: Bool,
+        error: String? = nil,
+        message: String? = nil,
+        data: [String: String]? = nil,
+        deviceID: String? = nil,
+        clientType: String? = nil,
+        paired: Bool? = nil
+    ) {
         self.success = success
         self.error = error
         self.message = message
         self.data = data
+        self.deviceID = deviceID
+        self.clientType = clientType
+        self.paired = paired
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case success
+        case error
+        case message
+        case data
+        case deviceID = "device_id"
+        case clientType = "client_type"
+        case paired
     }
 }
 

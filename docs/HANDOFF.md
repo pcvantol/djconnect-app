@@ -59,8 +59,8 @@ Recommended iOS fields:
   "device_id": "djconnect-ios-8F3A2C91B45D",
   "device_name": "DJConnect iPhone",
   "client_type": "ios",
-  "firmware": "3.1.0",
-  "app_version": "3.1.0",
+  "firmware": "3.1.2",
+  "app_version": "3.1.2",
   "platform": "ios"
 }
 ```
@@ -72,8 +72,8 @@ Recommended macOS fields:
   "device_id": "djconnect-macos-8F3A2C91B45D",
   "device_name": "DJConnect Mac",
   "client_type": "macos",
-  "firmware": "3.1.0",
-  "app_version": "3.1.0",
+  "firmware": "3.1.2",
+  "app_version": "3.1.2",
   "platform": "macos"
 }
 ```
@@ -103,9 +103,9 @@ Expected response:
   "success": false,
   "error": "version_mismatch",
   "message": "DJConnect Home Assistant integration and device firmware major.minor versions must match.",
-  "ha_version": "3.1.0",
+  "ha_version": "3.1.2",
   "ha_major_minor": "3.1",
-  "firmware": "3.1.0",
+  "firmware": "3.1.2",
   "firmware_major_minor": "3.0"
 }
 ```
@@ -123,6 +123,8 @@ The app needs:
 - DJConnect bearer token returned/stored by the integration.
 - `ha_local_url` and optional `ha_remote_url` returned by the integration after
   pairing.
+- Optional `assist_pipeline_id` returned by the integration for future voice
+  flow selection.
 
 Recommended user flow:
 
@@ -166,8 +168,8 @@ X-DJConnect-Device-ID: <device_id>
 {  "device_id": "djconnect-macos-8F3A2C91B45D",
   "device_name": "DJConnect Mac",
   "client_type": "macos",
-  "firmware": "3.1.0",
-  "app_version": "3.1.0",
+  "firmware": "3.1.2",
+  "app_version": "3.1.2",
   "platform": "macos",
   "pair_code": "123456",
   "pairing_code": "123456",
@@ -226,17 +228,22 @@ POST /api/djconnect/status
 Minimum payload:
 
 ```json
-{  "device_id": "djconnect-ios-8F3A2C91B45D",
+{
+  "device_id": "djconnect-ios-8F3A2C91B45D",
   "client_type": "ios",
   "ha_pairing_status": "paired",
-  "firmware": "3.1.0",
-  "app_version": "3.1.0",
+  "firmware": "3.1.2",
+  "app_version": "3.1.2",
   "state": "online",
   "status": "online",
   "battery_percent": 85,
   "language": "nl",
   "theme": "dark",
-  "log_level": "info"
+  "log_level": "info",
+  "local_url": "http://192.168.1.105:51193",
+  "ha_local_url": "http://192.168.1.13:8123",
+  "ha_remote_url": "https://example.ui.nabu.casa",
+  "ha_active_url": "http://192.168.1.13:8123"
 }
 ```
 

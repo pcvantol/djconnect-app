@@ -95,12 +95,12 @@ Reasoning:
 - lets macOS use native `Settings` scenes while iOS uses tab navigation;
 - leaves room for platform-specific UX without forking the full UI.
 
-## ADR-007: Version Starts At `3.1.0`
+## ADR-007: Current App/Protocol Version Is `3.1.2`
 
 Status: accepted
 
-The scaffold uses version `3.1.0` for app/protocol examples and Xcode marketing
-version.
+The app uses version `3.1.2` for app/protocol examples and Xcode marketing
+version in this release.
 
 Reasoning:
 
