@@ -1017,11 +1017,6 @@ struct SettingsView: View {
                 }
 
                 Section(localized(model.language, "App", "App")) {
-                    NavigationLink {
-                        AboutView(model: model)
-                    } label: {
-                        Label(localized(model.language, "About DJConnect", "Over DJConnect"), systemImage: "info.circle")
-                    }
                     Picker(localized(model.language, "Language", "Taal"), selection: $model.language) {
                         Text("Nederlands").tag("nl")
                         Text("English").tag("en")
@@ -1066,7 +1061,7 @@ struct SettingsView: View {
                         Button {
                             copyText(model.diagnosticExportText())
                         } label: {
-                            Label(localized(model.language, "Copy Logs Export", "Logs-export kopieren"), systemImage: "doc.on.doc")
+                            Label(localized(model.language, "Copy Logs", "Logs kopiëren"), systemImage: "doc.on.doc")
                         }
                     }
                 }
