@@ -253,6 +253,10 @@ public final class DJConnectAppModel: ObservableObject {
             } catch let error as DJConnectError {
                 logPairingError(error)
                 applyPairingWait(error: error, pairingToken: pairingToken)
+                if isTerminalPairingError(error) {
+                    log(.error, "Pairing stopped because Home Assistant rejected the current app code")
+                    return
+                }
             } catch {
                 log(.error, "Unexpected pairing error: \(error.localizedDescription)")
                 isConnected = false
@@ -583,7 +587,7 @@ public final class DJConnectAppModel: ObservableObject {
         }
     }
 
-    private func applyPairingWait(error: DJConnectError, pairingToken: String) {
+    func applyPairingWait(error: DJConnectError, pairingToken: String) {
         isConnected = false
 
         switch error {
@@ -612,10 +616,13 @@ public final class DJConnectAppModel: ObservableObject {
                 dutch: "Wachten tot Home Assistant pairing afrondt."
             )
         case let .authStale(_, message):
-            pairingStatus = .pairing
-            pairingMessage = message ?? localized(
-                english: "Waiting for Home Assistant to accept the current app code.",
-                dutch: "Wachten tot Home Assistant de huidige app-code accepteert."
+            pairingStatus = .stale
+            isPairing = false
+            pairingMessage = localized(
+                english: message.map { "\($0) Enter the app code shown here again in Home Assistant." }
+                    ?? "Home Assistant rejected this app code. Enter the code shown here again in Home Assistant.",
+                dutch: message.map { "\($0) Vul de app-code die hier staat opnieuw in Home Assistant in." }
+                    ?? "Home Assistant weigert deze app-code. Vul de code die hier staat opnieuw in Home Assistant in."
             )
         case let .versionMismatch(mismatch):
             pairingStatus = .pairing
@@ -630,6 +637,13 @@ public final class DJConnectAppModel: ObservableObject {
                 dutch: "Wachten tot Home Assistant pairing afrondt."
             )
         }
+    }
+
+    func isTerminalPairingError(_ error: DJConnectError) -> Bool {
+        if case .authStale = error {
+            return true
+        }
+        return false
     }
 
     private func refreshStatus(client: DJConnectClient) async throws {

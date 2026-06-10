@@ -173,9 +173,10 @@ Expected completion response:
 While Home Assistant has not accepted the code yet, the app keeps waiting and
 does not show a manual Pair button. The app sends the same app-generated code
 as `pair_code`, `pairing_code`, and `pairing_token` for compatibility with
-current HA builds. A temporary 401 during unauthenticated pairing polling should
-be treated as pending setup, not as a reason to discard the code or app
-identity.
+current HA builds. HTTP 401/403 during unauthenticated pairing polling means
+Home Assistant rejected the current code or setup identity; stop polling, keep
+the visible app code, and ask the user to enter that same code again in Home
+Assistant. Do not rotate the code automatically.
 
 Bearer token storage:
 
@@ -340,8 +341,8 @@ When HA returns 401/403 on authenticated routes:
 - keep token until the user explicitly resets pairing;
 - show setup-again guidance.
 
-During unauthenticated pairing polling, temporary 401 responses with pairing
-code messages should keep the app in the polling state.
+During unauthenticated pairing polling, 401/403 responses with pairing-code
+messages stop polling and show code-mismatch recovery guidance.
 
 When HA returns 404:
 
@@ -493,7 +494,8 @@ Do not put SwiftUI view logic into the HTTP client.
 - HTTP 426 version mismatch shows update-required UI and keeps pairing.
 - Authenticated 401/403/404 show stale pairing/setup recovery and keep token
   until user reset.
-- Temporary 401 during unauthenticated pairing polling keeps the app waiting.
+- 401/403 during unauthenticated pairing polling stops the wait loop and asks
+  the user to re-enter the visible app code in Home Assistant.
 - Voice/PTT uploads raw WAV to `/api/djconnect/voice`.
 - No secrets appear in logs or diagnostics.
 - iOS and macOS clients can coexist with ESP32 clients in the same HA backend.

@@ -91,6 +91,28 @@ private func httpResponse(for request: URLRequest, statusCode: Int) throws -> HT
     #expect(try tokenStore.loadToken() == nil)
 }
 
+@MainActor
+@Test func pairingAuthStaleStopsPollingWithCodeMismatchMessage() throws {
+    let suiteName = "DJConnectTests-\(UUID().uuidString)"
+    let defaults = try #require(UserDefaults(suiteName: suiteName))
+    defaults.removePersistentDomain(forName: suiteName)
+    defaults.set("PAIR42", forKey: "DJConnectPairingToken")
+    let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore())
+
+    model.applyPairingWait(
+        error: .authStale(
+            statusCode: 401,
+            message: "The pairing code does not match this DJConnect setup."
+        ),
+        pairingToken: "PAIR42"
+    )
+
+    #expect(model.pairingStatus == .stale)
+    #expect(model.isPairing == false)
+    #expect(model.isTerminalPairingError(.authStale(statusCode: 401, message: nil)))
+    #expect(model.pairingMessage?.contains("Vul de app-code die hier staat opnieuw in Home Assistant in.") == true)
+}
+
 @Test func statusRequestIncludesContractFieldsAndHeaders() throws {
     let identity = DJConnectIdentity(
         deviceID: "djconnect-ios-8F3A2C91B45D",

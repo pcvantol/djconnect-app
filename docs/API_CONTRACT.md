@@ -202,10 +202,11 @@ HTTP `401`/`403`
 
 Pairing is stale or unauthorized. Keep token until explicit user reset.
 
-During unauthenticated app pairing polls, a temporary HTTP `401` with a pairing
-code message is treated as pending setup rather than destructive stale auth. The
-app keeps polling with the current code so the Home Assistant setup flow can
-finish.
+During unauthenticated app pairing polls, HTTP `401`/`403` means Home Assistant
+rejected the current app code or setup identity. The app must stop polling,
+keep the visible app-generated code, and ask the user to enter that same code
+again in the Home Assistant setup flow. It must not rotate the code
+automatically.
 
 HTTP `404`
 

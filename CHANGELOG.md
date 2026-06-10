@@ -15,6 +15,8 @@ All notable changes to DJConnect App are documented here.
   local Home Assistant network failure when pairing returned a remote URL.
 - Expanded macOS functional parity with iOS by adding refresh behavior and HA
   URL visibility in shared settings.
+- Fixed macOS/iOS pairing polling so a Home Assistant HTTP 401 code mismatch
+  stops the wait loop and tells the user to re-enter the visible app code.
 
 ## 3.1.0 - 2026-06-10
 
