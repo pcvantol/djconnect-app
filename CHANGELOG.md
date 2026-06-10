@@ -142,6 +142,12 @@ All notable changes to DJConnect App are documented here.
   Assistant keeps calling the same local app endpoint after restarts.
 - Extracted the `message` field from JSON server errors before showing DJ
   announcement text, preventing raw JSON from appearing in the UI.
+- Added explicit foreground wakeword support with a configurable wake phrase,
+  defaulting to "Hey DJ", using Apple Speech while the app is open. Wakeword is
+  session-only, does not auto-start after app launch, and is disabled on iOS
+  Simulator because simulator speech/audio capture is unstable.
+- Stopped sending Spotify `offset_uri` for queue contexts that do not support
+  offsets, such as artist contexts, so queue taps avoid Spotify 400 failures.
 - Split playlists into a dedicated iOS/macOS page and added the About page to
   the iOS/iPadOS tab bar.
 - Restyled playlist rows with primary text and a purple play icon instead of

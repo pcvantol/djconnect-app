@@ -274,10 +274,14 @@ Compatibility rules:
   or top-level `contextUri`.
 - Album art may be returned as `album_image_url`, `media_image_url`,
   `image_url`, or `entity_picture`.
-- Queue row playback sends `command:"play_context_at"` with `offset_uri` set to
-  the item URI. When queue context is present, the app includes it as
-  `context_uri`; when it is absent, the app still sends the item URI so Home
-  Assistant can fall back to its last playback context.
+- Queue row playback sends `command:"play_context_at"` with the item URI and,
+  when known, `context_uri`.
+- The app includes `offset_uri` only for Spotify contexts that support offsets:
+  playlist, album, and show contexts. Artist contexts are sent without
+  `offset_uri` because Spotify rejects offsets for artist playback.
+- When context is absent, the app keeps the row disabled and asks the user to
+  refresh Now Playing and the queue; Home Assistant should return a queue
+  context whenever queue row playback is supported.
 
 ## Client API URL Stability
 

@@ -1202,6 +1202,12 @@ struct SettingsView: View {
                     }
                     Toggle(localized(model.language, "Voice", "Spraak"), isOn: $model.voiceEnabled)
                     Toggle(localized(model.language, "Local Response Audio", "Lokale antwoord-audio"), isOn: $model.localResponseAudioEnabled)
+                    Toggle(localized(model.language, "Wakeword", "Wakeword"), isOn: $model.wakeWordEnabled)
+                    wakeWordPhraseField(model)
+                    LabeledContent(localized(model.language, "Wakeword status", "Wakeword-status")) {
+                        Text(wakeWordStatusText(model))
+                            .foregroundStyle(.secondary)
+                    }
                 }
 
                 Section(localized(model.language, "Logs", "Logs")) {
@@ -1507,4 +1513,34 @@ private func copyText(_ text: String) {
     NSPasteboard.general.clearContents()
     NSPasteboard.general.setString(text, forType: .string)
     #endif
+}
+
+@ViewBuilder
+@MainActor
+private func wakeWordPhraseField(_ model: DJConnectAppModel) -> some View {
+    let phrase = Binding(
+        get: { model.wakeWordPhrase },
+        set: { model.wakeWordPhrase = $0 }
+    )
+    #if os(iOS)
+    TextField(localized(model.language, "Wake phrase", "Wake-zin"), text: phrase)
+        .textInputAutocapitalization(.never)
+        .autocorrectionDisabled()
+    #else
+    TextField(localized(model.language, "Wake phrase", "Wake-zin"), text: phrase)
+    #endif
+}
+
+@MainActor
+private func wakeWordStatusText(_ model: DJConnectAppModel) -> String {
+    switch model.wakeWordStatus {
+    case .idle:
+        return localized(model.language, "Idle", "Inactief")
+    case .listening:
+        return localized(model.language, "Listening for wake phrase", "Luistert naar wake-zin")
+    case .detected:
+        return localized(model.language, "Wake phrase detected", "Wake-zin herkend")
+    case .unavailable:
+        return localized(model.language, "Not available", "Niet beschikbaar")
+    }
 }

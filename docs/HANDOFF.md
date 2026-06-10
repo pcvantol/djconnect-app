@@ -338,8 +338,10 @@ The app accepts `response.queue.items` first and falls back to flat
 `queue.context`, top-level `context_uri`, or top-level `contextUri`. Queue album
 art aliases are `album_image_url`, `media_image_url`, `image_url`, and
 `entity_picture`. Empty queue items are not an error. Queue row playback sends
-`command:"play_context_at"` with `offset_uri` set to the item URI and
-`context_uri` included when known. The app no longer sends unsupported legacy
+`command:"play_context_at"` with `context_uri` included when known. The app only
+adds `offset_uri` for Spotify contexts that support offsets, such as playlists,
+albums, and shows; artist contexts are sent without `offset_uri` to avoid
+Spotify API offset errors. The app no longer sends unsupported legacy
 `play_queue_item` or `play_uri` commands.
 
 The Client API url shown by the app must remain stable after a successful

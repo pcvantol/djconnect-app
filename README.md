@@ -123,6 +123,18 @@ POST /api/djconnect/command
 {"command":"start_liked_proxy","play":true}
 ```
 
+Queue item playback includes `offset_uri` only for Spotify contexts that support
+offsets, such as playlist, album and show contexts. Artist contexts are sent
+without `offset_uri` to avoid Spotify API offset errors.
+
+Foreground wakeword support is available from Settings. When enabled for the
+current app session, the app uses Apple Speech while the app is open to listen
+for the configured wake phrase (`Hey DJ` by default), then records a short WAV
+voice request through the normal `/api/djconnect/voice` flow. The app does not
+run an always-on background wakeword listener and does not auto-start wakeword
+listening after launch. Wakeword listening is disabled on iOS Simulator because
+simulator speech/audio capture is unstable; test it on a real iPhone or iPad.
+
 Queue responses may use `queue.items` plus `queue.context`, flat `queue` arrays,
 or flat `items` for compatibility. The app also accepts top-level `context_uri`
 and `contextUri` and supports album-art aliases `album_image_url`,

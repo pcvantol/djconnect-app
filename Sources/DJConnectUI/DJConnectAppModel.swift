@@ -6,6 +6,9 @@ import OSLog
 #if canImport(AVFoundation)
 import AVFoundation
 #endif
+#if canImport(Speech)
+import Speech
+#endif
 
 public enum DJConnectAppLogLevel: String, CaseIterable, Sendable {
     case debug
@@ -48,6 +51,13 @@ public enum DJConnectVoiceStatus: Equatable, Sendable {
     case unavailable
 }
 
+public enum DJConnectWakeWordStatus: Equatable, Sendable {
+    case idle
+    case listening
+    case detected
+    case unavailable
+}
+
 @MainActor
 public final class DJConnectAppModel: ObservableObject {
     @Published public var homeAssistantURL = "" {
@@ -60,6 +70,8 @@ public final class DJConnectAppModel: ObservableObject {
         didSet {
             if oldValue != .paired, pairingStatus == .paired {
                 schedulePairedRefresh(reason: "Pairing became online")
+            } else if pairingStatus != .paired {
+                stopWakeWordListening()
             }
         }
     }
@@ -96,6 +108,20 @@ public final class DJConnectAppModel: ObservableObject {
     }
     @Published public var voiceEnabled = true
     @Published public var localResponseAudioEnabled = true
+    @Published public var wakeWordEnabled = false {
+        didSet {
+            wakeWordEnabled ? startWakeWordListening() : stopWakeWordListening()
+        }
+    }
+    @Published public var wakeWordPhrase = "Hey DJ" {
+        didSet {
+            defaults.set(wakeWordPhrase, forKey: wakeWordPhraseKey)
+            if wakeWordEnabled, wakeWordStatus == .listening {
+                restartWakeWordListening()
+            }
+        }
+    }
+    @Published public private(set) var wakeWordStatus: DJConnectWakeWordStatus = .idle
     @Published public private(set) var localDeviceAPIURL: String?
     @Published public private(set) var diagnosticLogLines: [DJConnectDiagnosticLogLine] = []
 
@@ -115,6 +141,14 @@ public final class DJConnectAppModel: ObservableObject {
     private var voiceRecordingURL: URL?
     private var responseAudioPlayer: AVAudioPlayer?
     #endif
+    #if canImport(Speech) && canImport(AVFoundation)
+    private var wakeAudioEngine: AVAudioEngine?
+    private var wakeRecognitionRequest: SFSpeechAudioBufferRecognitionRequest?
+    private var wakeRecognitionTask: SFSpeechRecognitionTask?
+    private var wakeWordRestartTask: Task<Void, Never>?
+    private var wakeWordCaptureTask: Task<Void, Never>?
+    private var isStoppingWakeWord = false
+    #endif
     private let defaults: UserDefaults
     private let tokenStore: DJConnectTokenStore
     private static let protocolVersion = "3.1.3"
@@ -127,6 +161,7 @@ public final class DJConnectAppModel: ObservableObject {
     private let localDeviceAPIURLKey = "DJConnectLocalDeviceAPIURL"
     private let languageKey = "DJConnectLanguage"
     private let logLevelKey = "DJConnectLogLevel"
+    private let wakeWordPhraseKey = "DJConnectWakeWordPhrase"
     private let maxDiagnosticLogLines = 120
 
     public var volume: Double {
@@ -173,6 +208,8 @@ public final class DJConnectAppModel: ObservableObject {
         self.pairingToken = defaults.string(forKey: pairingTokenKey) ?? Self.generatePairingToken()
         self.language = defaults.string(forKey: languageKey) ?? "nl"
         self.logLevel = defaults.string(forKey: logLevelKey) ?? "info"
+        self.wakeWordEnabled = false
+        self.wakeWordPhrase = defaults.string(forKey: wakeWordPhraseKey) ?? "Hey DJ"
         defaults.set(pairingToken, forKey: pairingTokenKey)
         if let existingToken = try? resolvedTokenStore.loadToken(), !existingToken.isEmpty {
             pairingStatus = .paired
@@ -534,10 +571,12 @@ public final class DJConnectAppModel: ObservableObject {
         }
         var payload = [
             "uri": uri,
-            "offset_uri": uri,
             "title": item.title,
             "context_uri": contextURI
         ]
+        if Self.queueContextSupportsOffset(contextURI) {
+            payload["offset_uri"] = uri
+        }
         if let index {
             payload["index"] = String(index)
         } else if let index = queueItems.firstIndex(where: { $0.id == item.id }) {
@@ -580,6 +619,12 @@ public final class DJConnectAppModel: ObservableObject {
         return nil
     }
 
+    private static func queueContextSupportsOffset(_ contextURI: String) -> Bool {
+        contextURI.hasPrefix("spotify:playlist:")
+            || contextURI.hasPrefix("spotify:album:")
+            || contextURI.hasPrefix("spotify:show:")
+    }
+
     public func toggleVoiceRecording() {
         isRecordingVoice ? stopVoiceRecordingAndUpload() : startVoiceRecording()
     }
@@ -588,9 +633,11 @@ public final class DJConnectAppModel: ObservableObject {
         guard !isRecordingVoice, voiceStatus != .processing else {
             return
         }
+        stopWakeWordListening()
         guard voiceEnabled else {
             voiceStatus = .unavailable
             log(.warning, "Voice recording ignored because voice is disabled")
+            resumeWakeWordListeningIfNeeded()
             return
         }
         guard pairingStatus == .paired else {
@@ -600,6 +647,7 @@ public final class DJConnectAppModel: ObservableObject {
                 dutch: "Koppel eerst met Home Assistant voordat je voice gebruikt."
             )
             log(.warning, "Voice recording ignored because app is not paired")
+            resumeWakeWordListeningIfNeeded()
             return
         }
 
@@ -612,6 +660,7 @@ public final class DJConnectAppModel: ObservableObject {
                     dutch: "Microfoontoegang is nodig voor push-to-talk."
                 )
                 log(.warning, "Microphone permission was not granted")
+                resumeWakeWordListeningIfNeeded()
                 return
             }
             beginVoiceRecording()
@@ -637,6 +686,7 @@ public final class DJConnectAppModel: ObservableObject {
         guard let url else {
             voiceStatus = .unavailable
             log(.warning, "Voice upload skipped because recording URL is missing")
+            resumeWakeWordListeningIfNeeded()
             return
         }
 
@@ -657,6 +707,7 @@ public final class DJConnectAppModel: ObservableObject {
                 voiceErrorMessage = nil
                 voiceStatus = .idle
                 log(.info, "Voice request completed")
+                resumeWakeWordListeningIfNeeded()
             } catch let error as DJConnectError {
                 let describedError = Self.describe(error)
                 if let userFacingError = userFacingDJResponseText(describedError) {
@@ -668,10 +719,12 @@ public final class DJConnectAppModel: ObservableObject {
                 voiceStatus = .unavailable
                 log(.warning, "Voice upload failed: \(describedError)")
                 apply(error: error)
+                resumeWakeWordListeningIfNeeded()
             } catch {
                 voiceErrorMessage = error.localizedDescription
                 voiceStatus = .unavailable
                 log(.error, "Voice upload failed unexpectedly: \(error.localizedDescription)")
+                resumeWakeWordListeningIfNeeded()
             }
         }
         #else
@@ -1513,6 +1566,9 @@ public final class DJConnectAppModel: ObservableObject {
         language: \(language)
         log_level: \(logLevel)
         voice_enabled: \(voiceEnabled)
+        wakeword_enabled: \(wakeWordEnabled)
+        wakeword_phrase: \(wakeWordPhrase)
+        wakeword_status: \(wakeWordStatus)
         local_response_audio_enabled: \(localResponseAudioEnabled)
 
         Logs
@@ -1654,7 +1710,7 @@ public final class DJConnectAppModel: ObservableObject {
         #if canImport(AVFoundation)
         #if os(iOS)
         return await withCheckedContinuation { continuation in
-            let resumeOnMainActor: (Bool) -> Void = { granted in
+            let resumeOnMainActor: @Sendable (Bool) -> Void = { granted in
                 Task { @MainActor in
                     continuation.resume(returning: granted)
                 }
@@ -1675,12 +1731,204 @@ public final class DJConnectAppModel: ObservableObject {
         #endif
     }
 
+    private func startWakeWordListening() {
+        guard wakeWordEnabled else {
+            wakeWordStatus = .idle
+            return
+        }
+        guard voiceEnabled, pairingStatus == .paired, !isRecordingVoice, voiceStatus != .processing else {
+            wakeWordStatus = .idle
+            return
+        }
+        #if canImport(Speech) && canImport(AVFoundation)
+        #if os(iOS) && targetEnvironment(simulator)
+        wakeWordStatus = .unavailable
+        log(.warning, "Wakeword listening is disabled on iOS Simulator because simulator speech/audio capture is unstable")
+        return
+        #endif
+        guard wakeAudioEngine == nil else {
+            return
+        }
+        Task { @MainActor in
+            let microphoneGranted = await requestMicrophoneAccess()
+            let speechGranted = await requestSpeechAccess()
+            guard microphoneGranted, speechGranted else {
+                wakeWordStatus = .unavailable
+                log(.warning, "Wakeword listening unavailable because microphone or speech permission was not granted")
+                return
+            }
+            beginWakeWordListening()
+        }
+        #else
+        wakeWordStatus = .unavailable
+        log(.warning, "Wakeword listening is not available on this platform")
+        #endif
+    }
+
+    private func stopWakeWordListening() {
+        #if canImport(Speech) && canImport(AVFoundation)
+        guard !isStoppingWakeWord else {
+            return
+        }
+        isStoppingWakeWord = true
+        defer {
+            isStoppingWakeWord = false
+        }
+        wakeWordRestartTask?.cancel()
+        wakeWordRestartTask = nil
+        wakeRecognitionTask?.cancel()
+        wakeRecognitionTask = nil
+        wakeRecognitionRequest?.endAudio()
+        wakeRecognitionRequest = nil
+        if let wakeAudioEngine {
+            wakeAudioEngine.inputNode.removeTap(onBus: 0)
+            wakeAudioEngine.stop()
+        }
+        wakeAudioEngine = nil
+        #endif
+        wakeWordStatus = .idle
+    }
+
+    private func restartWakeWordListening() {
+        stopWakeWordListening()
+        resumeWakeWordListeningIfNeeded()
+    }
+
+    private func resumeWakeWordListeningIfNeeded() {
+        guard wakeWordEnabled, pairingStatus == .paired else {
+            return
+        }
+        #if canImport(Speech) && canImport(AVFoundation)
+        wakeWordRestartTask?.cancel()
+        wakeWordRestartTask = Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(500))
+            guard !Task.isCancelled else {
+                return
+            }
+            startWakeWordListening()
+        }
+        #else
+        wakeWordStatus = .unavailable
+        #endif
+    }
+
+    private func triggerWakeWordCapture() {
+        guard wakeWordEnabled, pairingStatus == .paired, !isRecordingVoice else {
+            return
+        }
+        log(.info, "Wakeword detected")
+        wakeWordStatus = .detected
+        stopWakeWordListening()
+        startVoiceRecording()
+        #if canImport(Speech) && canImport(AVFoundation)
+        wakeWordCaptureTask?.cancel()
+        wakeWordCaptureTask = Task { @MainActor in
+            try? await Task.sleep(for: .seconds(4))
+            guard !Task.isCancelled, isRecordingVoice else {
+                return
+            }
+            stopVoiceRecordingAndUpload()
+        }
+        #endif
+    }
+
+    #if canImport(Speech) && canImport(AVFoundation)
+    private func requestSpeechAccess() async -> Bool {
+        await withCheckedContinuation { continuation in
+            SFSpeechRecognizer.requestAuthorization { status in
+                Task { @MainActor in
+                    continuation.resume(returning: status == .authorized)
+                }
+            }
+        }
+    }
+
+    private func beginWakeWordListening() {
+        guard wakeAudioEngine == nil else {
+            return
+        }
+        guard !isStoppingWakeWord else {
+            return
+        }
+        let locale = Locale(identifier: language == "nl" ? "nl-NL" : "en-US")
+        guard let recognizer = SFSpeechRecognizer(locale: locale), recognizer.isAvailable else {
+            wakeWordStatus = .unavailable
+            log(.warning, "Wakeword speech recognizer is unavailable for \(locale.identifier)")
+            return
+        }
+        do {
+            #if os(iOS)
+            let session = AVAudioSession.sharedInstance()
+            try session.setCategory(.playAndRecord, mode: .measurement, options: [.defaultToSpeaker, .allowBluetoothHFP, .duckOthers])
+            try session.setActive(true, options: .notifyOthersOnDeactivation)
+            #endif
+
+            let engine = AVAudioEngine()
+            let request = SFSpeechAudioBufferRecognitionRequest()
+            request.shouldReportPartialResults = true
+            if recognizer.supportsOnDeviceRecognition {
+                request.requiresOnDeviceRecognition = true
+            }
+            let inputNode = engine.inputNode
+            let format = inputNode.outputFormat(forBus: 0)
+            inputNode.installTap(onBus: 0, bufferSize: 1024, format: format) { buffer, _ in
+                request.append(buffer)
+            }
+            engine.prepare()
+            try engine.start()
+            wakeAudioEngine = engine
+            wakeRecognitionRequest = request
+            wakeWordStatus = .listening
+            log(.info, "Wakeword listening started for \(wakeWordPhrase)")
+
+            wakeRecognitionTask = recognizer.recognitionTask(with: request) { [weak self] result, error in
+                Task { @MainActor in
+                    guard let self else { return }
+                    if let result {
+                        let transcript = result.bestTranscription.formattedString
+                        if self.transcriptContainsWakeWord(transcript) {
+                            self.triggerWakeWordCapture()
+                            return
+                        }
+                    }
+                    if let error {
+                        self.log(.warning, "Wakeword listening failed: \(error.localizedDescription)")
+                        self.stopWakeWordListening()
+                        self.resumeWakeWordListeningIfNeeded()
+                    }
+                }
+            }
+        } catch {
+            wakeWordStatus = .unavailable
+            log(.error, "Wakeword listening could not start: \(error.localizedDescription)")
+        }
+    }
+    #endif
+
+    private func transcriptContainsWakeWord(_ transcript: String) -> Bool {
+        let normalizedTranscript = Self.normalizedWakeWordText(transcript)
+        let normalizedWakeWord = Self.normalizedWakeWordText(wakeWordPhrase)
+        guard !normalizedWakeWord.isEmpty else {
+            return false
+        }
+        return normalizedTranscript.contains(normalizedWakeWord)
+    }
+
+    private static func normalizedWakeWordText(_ text: String) -> String {
+        text
+            .folding(options: [.diacriticInsensitive, .caseInsensitive], locale: .current)
+            .lowercased()
+            .components(separatedBy: CharacterSet.alphanumerics.inverted)
+            .filter { !$0.isEmpty }
+            .joined(separator: " ")
+    }
+
     private func beginVoiceRecording() {
         #if canImport(AVFoundation)
         do {
             #if os(iOS)
             let session = AVAudioSession.sharedInstance()
-            try session.setCategory(.playAndRecord, mode: .spokenAudio, options: [.defaultToSpeaker, .allowBluetooth])
+            try session.setCategory(.playAndRecord, mode: .spokenAudio, options: [.defaultToSpeaker, .allowBluetoothHFP])
             try session.setActive(true)
             #endif
 
