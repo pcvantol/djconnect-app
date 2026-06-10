@@ -47,6 +47,37 @@ All notable changes to DJConnect App are documented here.
   entry at launch time.
 - Reviewed visible shared UI labels and tightened Dutch translations for
   output, playlist, voice, pairing, reset, and diagnostics text.
+- Replaced the repeat segmented text control with a single three-state icon
+  button for off, track, and context repeat modes.
+- Kept the shuffle icon visually inactive when shuffle is off instead of
+  showing the accent color for both states.
+- Moved output selection from Queue to Now Playing and kept output selection
+  optimistic until Home Assistant confirms the new active output.
+- Refreshed Now Playing and backend collections automatically on startup when
+  an existing Home Assistant pairing token is present.
+- Fixed iPadOS simulator microphone permission handling by using the iOS 17+
+  recording-permission API and returning permission callbacks to the MainActor.
+- Added album-art thumbnails to queue rows and made queue items playable when
+  Home Assistant provides a queue item URI.
+- Switched queue item taps to a structured `play_queue_item` command payload
+  with URI, title, artist, and queue index so Home Assistant can preserve queue
+  context.
+- Split playlists into a dedicated iOS/macOS page and added the About page to
+  the iOS/iPadOS tab bar.
+- Restyled playlist rows with primary text and a purple play icon instead of
+  default link-colored labels.
+- Renamed the visible settings diagnostics section to Logs while keeping the
+  redacted diagnostics export contract unchanged.
+- Normalized playback volume from the active playback device when top-level
+  playback volume is missing, fixing the Now Playing slider showing `0`.
+- Advanced the playback progress bar locally every second while playback is
+  active, with Home Assistant snapshots still correcting the source of truth.
+- Added local playback for returned DJ response audio URLs when local response
+  audio is enabled.
+- Refreshed Now Playing, outputs, queue, and playlists after DJ voice responses
+  so playback changes from voice commands appear immediately.
+- Added a visible refresh busy state and completion logging for the manual
+  Now Playing refresh action.
 
 ## 3.1.0 - 2026-06-10
 

@@ -43,6 +43,11 @@ public struct DJConnectRootView: View {
                         Label(localized(model.language, "Queue", "Wachtrij"), systemImage: "text.line.first.and.arrowtriangle.forward")
                     }
                     NavigationLink {
+                        PlaylistsView(model: model)
+                    } label: {
+                        Label(localized(model.language, "Playlists", "Afspeellijsten"), systemImage: "rectangle.stack")
+                    }
+                    NavigationLink {
                         SettingsView(model: model)
                     } label: {
                         Label(localized(model.language, "Settings", "Instellingen"), systemImage: "gearshape")
@@ -67,9 +72,17 @@ public struct DJConnectRootView: View {
                     .tabItem {
                         Label(localized(model.language, "Queue", "Wachtrij"), systemImage: "text.line.first.and.arrowtriangle.forward")
                     }
+                PlaylistsView(model: model)
+                    .tabItem {
+                        Label(localized(model.language, "Playlists", "Afspeellijsten"), systemImage: "rectangle.stack")
+                    }
                 SettingsView(model: model)
                     .tabItem {
                         Label(localized(model.language, "Settings", "Instellingen"), systemImage: "gearshape")
+                    }
+                AboutView(model: model)
+                    .tabItem {
+                        Label(localized(model.language, "About", "Over"), systemImage: "info.circle")
                     }
             }
             #endif
@@ -89,6 +102,7 @@ struct NowPlayingView: View {
                 VStack(alignment: .leading, spacing: 24) {
                     SetupStatusView(model: model)
                     TrackSummaryView(playback: model.playback, language: model.language)
+                    OutputSelectorView(model: model)
                     PlaybackControlsView(model: model)
                     VoiceResponseView(model: model)
                 }
@@ -99,13 +113,7 @@ struct NowPlayingView: View {
             .navigationTitle("DJConnect")
             .toolbar {
                 ToolbarItem {
-                    Button {
-                        model.refresh()
-                    } label: {
-                        Image(systemName: "arrow.clockwise")
-                    }
-                    .disabled(model.pairingStatus != .paired)
-                    .help(localized(model.language, "Refresh", "Vernieuwen"))
+                    RefreshButton(model: model)
                 }
             }
             .task {
@@ -115,6 +123,26 @@ struct NowPlayingView: View {
             }
         }
         #endif
+    }
+}
+
+private struct RefreshButton: View {
+    @ObservedObject var model: DJConnectAppModel
+
+    var body: some View {
+        Button {
+            model.refresh()
+        } label: {
+            if model.isRefreshing {
+                ProgressView()
+                    .controlSize(.small)
+            } else {
+                Image(systemName: "arrow.clockwise")
+            }
+        }
+        .disabled(model.pairingStatus != .paired || model.isRefreshing)
+        .help(localized(model.language, "Refresh", "Vernieuwen"))
+        .accessibilityLabel(localized(model.language, "Refresh", "Vernieuwen"))
     }
 }
 
@@ -128,6 +156,7 @@ private struct IOSNowPlayingView: View {
                 VStack(spacing: 16) {
                     IOSConnectionCard(model: model)
                     IOSTrackHero(model: model)
+                    OutputSelectorView(model: model)
                     IOSPlaybackSurface(model: model)
                     IOSVoiceCard(model: model)
                 }
@@ -138,13 +167,7 @@ private struct IOSNowPlayingView: View {
             .navigationTitle("DJConnect")
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button {
-                        model.refresh()
-                    } label: {
-                        Image(systemName: "arrow.clockwise")
-                    }
-                    .disabled(model.pairingStatus != .paired)
-                    .accessibilityLabel(localized(model.language, "Refresh", "Vernieuwen"))
+                    RefreshButton(model: model)
                 }
             }
             .task {
@@ -365,21 +388,9 @@ private struct IOSPlaybackSurface: View {
                     Image(systemName: "shuffle")
                 }
                 .toggleStyle(.button)
+                .tint(model.playback?.shuffle == true ? .accentColor : .secondary)
 
-                Picker(localized(model.language, "Repeat", "Herhaal"), selection: Binding(
-                    get: { model.playback?.repeatState ?? .off },
-                    set: { value in
-                        var updated = model.playback ?? DJConnectPlayback()
-                        updated.repeatState = value
-                        model.playback = updated
-                        model.setRepeat(value)
-                    }
-                )) {
-                    Text(localized(model.language, "Off", "Uit")).tag(DJConnectRepeatState.off)
-                    Text(localized(model.language, "Track", "Track")).tag(DJConnectRepeatState.track)
-                    Text(localized(model.language, "Context", "Context")).tag(DJConnectRepeatState.context)
-                }
-                .pickerStyle(.segmented)
+                RepeatModeButton(model: model)
             }
         }
         .padding(14)
@@ -590,22 +601,187 @@ struct PlaybackControlsView: View {
                 )) {
                     Label(localized(model.language, "Shuffle", "Shuffle"), systemImage: "shuffle")
                 }
+                .tint(model.playback?.shuffle == true ? .accentColor : .secondary)
 
-                Picker(localized(model.language, "Repeat", "Herhaal"), selection: Binding(
-                    get: { model.playback?.repeatState ?? .off },
-                    set: { value in
-                        var updated = model.playback ?? DJConnectPlayback()
-                        updated.repeatState = value
-                        model.playback = updated
-                        model.setRepeat(value)
+                RepeatModeButton(model: model)
+            }
+        }
+    }
+}
+
+private struct QueueItemRow: View {
+    let item: DJConnectQueueItem
+
+    var body: some View {
+        HStack(spacing: 12) {
+            QueueArtworkView(url: item.albumImageURL)
+                .frame(width: 52, height: 52)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(item.title)
+                    .font(.body.weight(.medium))
+                    .lineLimit(2)
+                if let artist = item.artist, !artist.isEmpty {
+                    Text(artist)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+            }
+            Spacer(minLength: 8)
+            if item.uri?.isEmpty == false {
+                Image(systemName: "play.circle")
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .padding(.vertical, 3)
+    }
+}
+
+private struct QueueArtworkView: View {
+    let url: URL?
+
+    var body: some View {
+        AsyncImage(url: url) { image in
+            image
+                .resizable()
+                .scaledToFill()
+        } placeholder: {
+            ZStack {
+                RoundedRectangle(cornerRadius: 6)
+                    .fill(Color.secondary.opacity(0.14))
+                Image(systemName: "music.note")
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                .stroke(Color.secondary.opacity(0.12), lineWidth: 1)
+        }
+    }
+}
+
+private struct OutputSelectorView: View {
+    @ObservedObject var model: DJConnectAppModel
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Label(localized(model.language, "Output", "Uitvoer"), systemImage: "speaker.wave.2")
+                    .font(.headline)
+                Spacer()
+                Button {
+                    model.loadOutputs()
+                } label: {
+                    Image(systemName: "arrow.clockwise")
+                }
+                .buttonStyle(.borderless)
+                .help(localized(model.language, "Reload Outputs", "Uitvoer herladen"))
+                .accessibilityLabel(localized(model.language, "Reload Outputs", "Uitvoer herladen"))
+            }
+
+            if model.availableOutputs.isEmpty {
+                Text(localizedOutputName(model.selectedOutput, language: model.language))
+                    .foregroundStyle(.secondary)
+                    .textSelection(.enabled)
+            } else {
+                Picker(localized(model.language, "Output", "Uitvoer"), selection: Binding(
+                    get: { model.selectedOutput },
+                    set: { selected in
+                        if let output = model.availableOutputs.first(where: { $0.name == selected || $0.id == selected }) {
+                            model.selectOutput(output)
+                        }
                     }
                 )) {
-                    Text(localized(model.language, "Off", "Uit")).tag(DJConnectRepeatState.off)
-                    Text(localized(model.language, "Track", "Track")).tag(DJConnectRepeatState.track)
-                    Text(localized(model.language, "Context", "Context")).tag(DJConnectRepeatState.context)
+                    ForEach(model.availableOutputs) { output in
+                        Label(output.name, systemImage: output.active == true ? "speaker.wave.2.fill" : "speaker.wave.2")
+                            .tag(output.name)
+                    }
                 }
-                .pickerStyle(.segmented)
+                #if os(iOS)
+                .pickerStyle(.menu)
+                #endif
             }
+        }
+        .task {
+            if model.pairingStatus == .paired, model.availableOutputs.isEmpty {
+                model.loadOutputs()
+            }
+        }
+        #if os(iOS)
+        .padding(14)
+        .background(Color(uiColor: .systemBackground), in: RoundedRectangle(cornerRadius: 8))
+        #endif
+    }
+}
+
+private struct RepeatModeButton: View {
+    @ObservedObject var model: DJConnectAppModel
+
+    private var repeatState: DJConnectRepeatState {
+        model.playback?.repeatState ?? .off
+    }
+
+    var body: some View {
+        Button {
+            let nextState = repeatState.next
+            var updated = model.playback ?? DJConnectPlayback()
+            updated.repeatState = nextState
+            model.playback = updated
+            model.setRepeat(nextState)
+        } label: {
+            Image(systemName: repeatState.systemImage)
+                .symbolVariant(repeatState == .off ? .none : .fill)
+                .frame(width: 22, height: 22)
+        }
+        .buttonStyle(.bordered)
+        .tint(repeatState == .off ? .secondary : .accentColor)
+        .help(repeatHelpText)
+        .accessibilityLabel(localized(model.language, "Repeat", "Herhaal"))
+        .accessibilityValue(repeatState.localizedName(language: model.language))
+    }
+
+    private var repeatHelpText: String {
+        let state = repeatState.localizedName(language: model.language)
+        let next = repeatState.next.localizedName(language: model.language)
+        return localized(
+            model.language,
+            "Repeat: \(state). Click for \(next).",
+            "Herhaal: \(state). Klik voor \(next)."
+        )
+    }
+}
+
+private extension DJConnectRepeatState {
+    var next: DJConnectRepeatState {
+        switch self {
+        case .off:
+            .track
+        case .track:
+            .context
+        case .context:
+            .off
+        }
+    }
+
+    var systemImage: String {
+        switch self {
+        case .off, .context:
+            "repeat"
+        case .track:
+            "repeat.1"
+        }
+    }
+
+    func localizedName(language: String) -> String {
+        switch self {
+        case .off:
+            localized(language, "Off", "Uit")
+        case .track:
+            localized(language, "Track", "Nummer")
+        case .context:
+            localized(language, "Context", "Context")
         }
     }
 }
@@ -650,43 +826,19 @@ struct QueueView: View {
     var body: some View {
         NavigationStack {
             List {
-                Section(localized(model.language, "Output", "Uitvoer")) {
-                    if model.availableOutputs.isEmpty {
-                        Label(localizedOutputName(model.selectedOutput, language: model.language), systemImage: "speaker.wave.2")
-                    } else {
-                        Picker(localized(model.language, "Output", "Uitvoer"), selection: Binding(
-                            get: { model.selectedOutput },
-                            set: { selected in
-                                if let output = model.availableOutputs.first(where: { $0.name == selected || $0.id == selected }) {
-                                    model.selectOutput(output)
-                                }
-                            }
-                        )) {
-                            ForEach(model.availableOutputs) { output in
-                                Label(output.name, systemImage: output.active == true ? "speaker.wave.2.fill" : "speaker.wave.2")
-                                    .tag(output.name)
-                            }
-                        }
-                    }
-                    Button {
-                        model.loadOutputs()
-                    } label: {
-                        Label(localized(model.language, "Reload Outputs", "Uitvoer herladen"), systemImage: "arrow.clockwise")
-                    }
-                }
                 Section(localized(model.language, "Queue", "Wachtrij")) {
                     if model.queueItems.isEmpty {
                         ContentUnavailableView(localized(model.language, "No Queue", "Geen wachtrij"), systemImage: "music.note.list")
                     } else {
                         ForEach(model.queueItems) { item in
-                            VStack(alignment: .leading, spacing: 3) {
-                                Text(item.title)
-                                if let artist = item.artist {
-                                    Text(artist)
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
-                                }
+                            Button {
+                                model.startQueueItem(item)
+                            } label: {
+                                QueueItemRow(item: item)
                             }
+                            .buttonStyle(.plain)
+                            .disabled(item.uri?.isEmpty != false)
+                            .accessibilityLabel(item.displayTitle)
                         }
                     }
                     Button {
@@ -695,12 +847,33 @@ struct QueueView: View {
                         Label(localized(model.language, "Reload Queue", "Wachtrij herladen"), systemImage: "arrow.clockwise")
                     }
                 }
-                Section(localized(model.language, "Playlists", "Afspeellijsten")) {
+            }
+            .navigationTitle(localized(model.language, "Queue", "Wachtrij"))
+            .task {
+                guard model.pairingStatus == .paired else {
+                    return
+                }
+                model.loadQueue()
+            }
+        }
+    }
+}
+
+struct PlaylistsView: View {
+    @ObservedObject var model: DJConnectAppModel
+
+    var body: some View {
+        NavigationStack {
+            List {
+                Section(localized(model.language, "Liked Songs", "Gelikete nummers")) {
                     Button {
                         model.startLikedProxy()
                     } label: {
                         Label(localized(model.language, "Start Liked Songs", "Gelikete nummers starten"), systemImage: "heart.fill")
                     }
+                }
+
+                Section(localized(model.language, "Playlists", "Afspeellijsten")) {
                     if model.playlistItems.isEmpty {
                         ContentUnavailableView(localized(model.language, "No Playlists", "Geen afspeellijsten"), systemImage: "rectangle.stack")
                     } else {
@@ -708,8 +881,9 @@ struct QueueView: View {
                             Button {
                                 model.startPlaylist(playlist)
                             } label: {
-                                Label(playlist.name, systemImage: "play.square")
+                                PlaylistRow(playlist: playlist)
                             }
+                            .buttonStyle(.plain)
                         }
                     }
                     Button {
@@ -719,16 +893,31 @@ struct QueueView: View {
                     }
                 }
             }
-            .navigationTitle(localized(model.language, "Queue", "Wachtrij"))
+            .navigationTitle(localized(model.language, "Playlists", "Afspeellijsten"))
             .task {
                 guard model.pairingStatus == .paired else {
                     return
                 }
-                model.loadOutputs()
-                model.loadQueue()
                 model.loadPlaylists()
             }
         }
+    }
+}
+
+private struct PlaylistRow: View {
+    let playlist: DJConnectPlaylist
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "play.square.fill")
+                .foregroundStyle(.purple)
+                .frame(width: 22)
+            Text(playlist.name)
+                .foregroundStyle(.primary)
+                .lineLimit(2)
+            Spacer(minLength: 0)
+        }
+        .contentShape(Rectangle())
     }
 }
 
@@ -746,6 +935,7 @@ public struct DJConnectSettingsView: View {
 
 struct SettingsView: View {
     @ObservedObject var model: DJConnectAppModel
+    @State private var showingResetPairingConfirmation = false
 
     var body: some View {
         NavigationStack {
@@ -770,12 +960,14 @@ struct SettingsView: View {
                         }
                         SettingsRow(label: localized(model.language, "Actions", "Acties")) {
                             HStack(spacing: 10) {
-                                Button(localized(model.language, "New Code", "Nieuwe code")) {
-                                    model.rotatePairingTokenAndWait()
-                                }
-                                .disabled(model.pairingStatus == .paired)
-                                Button(localized(model.language, "Reset Pairing", "Pairing resetten"), role: .destructive) {
-                                    model.resetPairing()
+                                if model.pairingStatus == .paired {
+                                    Button(localized(model.language, "Reset Pairing", "Pairing resetten"), role: .destructive) {
+                                        showingResetPairingConfirmation = true
+                                    }
+                                } else {
+                                    Button(localized(model.language, "New Code", "Nieuwe code")) {
+                                        model.rotatePairingTokenAndWait()
+                                    }
                                 }
                             }
                         }
@@ -836,7 +1028,7 @@ struct SettingsView: View {
                         }
                     }
 
-                    SettingsSection(title: localized(model.language, "Diagnostics", "Diagnostiek")) {
+                    SettingsSection(title: localized(model.language, "Logs", "Logs")) {
                         if model.diagnosticLogLines.isEmpty {
                             ContentUnavailableView(
                                 localized(model.language, "No Logs", "Geen logs"),
@@ -866,7 +1058,7 @@ struct SettingsView: View {
                             Button {
                                 copyText(model.diagnosticExportText())
                             } label: {
-                                Label(localized(model.language, "Copy Diagnostics Export", "Diagnostics-export kopieren"), systemImage: "doc.on.doc")
+                                Label(localized(model.language, "Copy Logs Export", "Logs-export kopieren"), systemImage: "doc.on.doc")
                             }
                         }
                     }
@@ -881,6 +1073,22 @@ struct SettingsView: View {
             }
             .onChange(of: model.homeAssistantURL) {
                 model.schedulePairingWait()
+            }
+            .confirmationDialog(
+                localized(model.language, "Reset Pairing?", "Pairing resetten?"),
+                isPresented: $showingResetPairingConfirmation,
+                titleVisibility: .visible
+            ) {
+                Button(localized(model.language, "Reset Pairing", "Pairing resetten"), role: .destructive) {
+                    model.resetPairing()
+                }
+                Button(localized(model.language, "Cancel", "Annuleren"), role: .cancel) {}
+            } message: {
+                Text(localized(
+                    model.language,
+                    "This removes the Home Assistant pairing token from this app.",
+                    "Dit verwijdert de Home Assistant pairing-token uit deze app."
+                ))
             }
         }
     }
@@ -900,7 +1108,7 @@ private struct AboutView: View {
                     VStack(alignment: .leading, spacing: 6) {
                         Text("DJConnect")
                             .font(.system(.largeTitle, design: .default).weight(.bold))
-                        Text(localized(model.language, "Apple client for Home Assistant and Spotify DJ control.", "Apple-client voor Home Assistant en Spotify DJ-bediening."))
+                        Text(localized(model.language, "DJConnect: physical voice remote for your music.", "DJConnect: fysieke voice remote voor je muziek."))
                             .foregroundStyle(.secondary)
                     }
                 }
@@ -944,14 +1152,6 @@ private struct AboutView: View {
                         }
                     }
                 }
-
-                Text(localized(
-                    model.language,
-                    "No Spotify, Home Assistant, or device tokens are shown here.",
-                    "Spotify-, Home Assistant- en device-tokens worden hier niet getoond."
-                ))
-                .font(.footnote)
-                .foregroundStyle(.secondary)
             }
             .frame(maxWidth: 760, alignment: .leading)
             .padding(.horizontal, 24)

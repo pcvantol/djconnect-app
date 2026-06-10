@@ -198,6 +198,46 @@ private func httpResponse(for request: URLRequest, statusCode: Int) throws -> HT
     #expect(json?["play"] as? Bool == true)
 }
 
+@Test func commandRequestSupportsObjectValues() throws {
+    let identity = DJConnectIdentity(
+        deviceID: "djconnect-ios-8F3A2C91B45D",
+        deviceName: "DJConnect iPhone",
+        clientType: .ios,
+        firmware: "3.1.3",
+        appVersion: "3.1.3",
+        platform: .ios
+    )
+    let client = DJConnectClient(
+        baseURL: try #require(URL(string: "http://homeassistant.local:8123")),
+        identity: identity,
+        tokenStore: DJConnectInMemoryTokenStore(token: "secret-token")
+    )
+
+    let request = try client.commandRequest(
+        DJConnectCommandPayload(
+            identity: identity,
+            command: "play_queue_item",
+            value: .object([
+                "uri": "spotify:track:1",
+                "title": "Track One",
+                "artist": "Artist One",
+                "index": "0"
+            ]),
+            play: true
+        )
+    )
+    let body = try #require(request.httpBody)
+    let json = try JSONSerialization.jsonObject(with: body) as? [String: Any]
+    let value = json?["value"] as? [String: String]
+
+    #expect(json?["command"] as? String == "play_queue_item")
+    #expect(value?["uri"] == "spotify:track:1")
+    #expect(value?["title"] == "Track One")
+    #expect(value?["artist"] == "Artist One")
+    #expect(value?["index"] == "0")
+    #expect(json?["play"] as? Bool == true)
+}
+
 @Test func commandResponseDecodesBackendCollectionsFromDataEnvelope() throws {
     let response = try JSONDecoder().decode(
         DJConnectCommandResponse.self,
@@ -212,7 +252,7 @@ private func httpResponse(for request: URLRequest, statusCode: Int) throws -> HT
                   "Kitchen"
                 ],
                 "queue": [
-                  {"uri":"spotify:track:1","title":"Track One","artist":"Artist One"},
+                  {"uri":"spotify:track:1","title":"Track One","artist":"Artist One","album_image_url":"https://example.test/track-one.jpg"},
                   "Track Two"
                 ],
                 "playlists": [
@@ -230,6 +270,7 @@ private func httpResponse(for request: URLRequest, statusCode: Int) throws -> HT
     #expect(response.devices?.map(\.name) == ["Living Room", "Kitchen"])
     #expect(response.devices?.first?.supportsVolume == true)
     #expect(response.queue?.map(\.displayTitle) == ["Track One - Artist One", "Track Two"])
+    #expect(response.queue?.first?.albumImageURL?.absoluteString == "https://example.test/track-one.jpg")
     #expect(response.playlists?.map(\.commandValue) == ["spotify:playlist:1", "Liked Proxy"])
 }
 

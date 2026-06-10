@@ -52,6 +52,7 @@ public final class DJConnectAppModel: ObservableObject {
     @Published public var pairingStatus: DJConnectPairingStatus = .unpaired
     @Published public var isConnected = false
     @Published public var isPairing = false
+    @Published public var isRefreshing = false
     @Published public var backendAvailable = true
     @Published public var updateRequiredMessage: String?
     @Published public var pairingMessage: String?
@@ -85,10 +86,14 @@ public final class DJConnectAppModel: ObservableObject {
     private var pairingTask: Task<Void, Never>?
     private var scheduledPairingTask: Task<Void, Never>?
     private var volumeCommandTask: Task<Void, Never>?
+    private var playbackProgressTask: Task<Void, Never>?
+    private var startupRefreshTask: Task<Void, Never>?
+    private var pendingSelectedOutput: String?
     private var localDeviceAPI: DJConnectLocalDeviceAPI?
     #if canImport(AVFoundation)
     private var voiceRecorder: AVAudioRecorder?
     private var voiceRecordingURL: URL?
+    private var responseAudioPlayer: AVAudioPlayer?
     #endif
     private let defaults: UserDefaults
     private let tokenStore: DJConnectTokenStore
@@ -145,6 +150,7 @@ public final class DJConnectAppModel: ObservableObject {
             pairingStatus = .paired
             isConnected = true
             log(.info, "App started with existing DJConnect bearer token for \(identity.clientType.rawValue)")
+            scheduleStartupRefresh()
         } else {
             log(.info, "App started without DJConnect bearer token for \(identity.clientType.rawValue)")
         }
@@ -155,6 +161,8 @@ public final class DJConnectAppModel: ObservableObject {
         scheduledPairingTask?.cancel()
         pairingTask?.cancel()
         volumeCommandTask?.cancel()
+        playbackProgressTask?.cancel()
+        startupRefreshTask?.cancel()
         localDeviceAPI?.stop()
     }
 
@@ -317,11 +325,18 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     public func refresh() {
+        guard !isRefreshing else {
+            log(.debug, "Refresh ignored because one is already running")
+            return
+        }
         log(.debug, "Manual refresh requested")
+        isRefreshing = true
         Task {
+            defer { isRefreshing = false }
             do {
                 try await refreshStatusWithFallback()
                 await refreshBackendCollections()
+                log(.info, "Refresh completed")
             } catch let error as DJConnectError {
                 log(.warning, "Refresh failed: \(Self.describe(error))")
                 apply(error: error)
@@ -329,6 +344,18 @@ public final class DJConnectAppModel: ObservableObject {
                 log(.error, "Refresh failed unexpectedly: \(error.localizedDescription)")
                 pairingMessage = error.localizedDescription
             }
+        }
+    }
+
+    private func scheduleStartupRefresh() {
+        startupRefreshTask?.cancel()
+        startupRefreshTask = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: 350_000_000)
+            guard !Task.isCancelled else {
+                return
+            }
+            self?.log(.info, "Refreshing initial Home Assistant state")
+            self?.refresh()
         }
     }
 
@@ -394,6 +421,12 @@ public final class DJConnectAppModel: ObservableObject {
 
     public func selectOutput(_ output: DJConnectOutputDevice) {
         selectedOutput = output.name
+        pendingSelectedOutput = output.name
+        availableOutputs = availableOutputs.map { candidate in
+            var updated = candidate
+            updated.active = candidate.id == output.id || candidate.name == output.name
+            return updated
+        }
         log(.info, "Selecting output \(output.name)")
         sendPlaybackCommand("set_output", value: .string(output.name), play: true)
     }
@@ -406,6 +439,25 @@ public final class DJConnectAppModel: ObservableObject {
     public func startLikedProxy() {
         log(.info, "Starting liked proxy flow")
         sendPlaybackCommand("start_liked_proxy", play: true)
+    }
+
+    public func startQueueItem(_ item: DJConnectQueueItem) {
+        guard let uri = item.uri, !uri.isEmpty else {
+            log(.warning, "Queue item \(item.title) cannot start because it has no URI")
+            return
+        }
+        var payload = [
+            "uri": uri,
+            "title": item.title
+        ]
+        if let index = queueItems.firstIndex(where: { $0.id == item.id }) {
+            payload["index"] = String(index)
+        }
+        if let artist = item.artist, !artist.isEmpty {
+            payload["artist"] = artist
+        }
+        log(.info, "Starting queue item \(item.title)")
+        sendPlaybackCommand("play_queue_item", value: .object(payload), play: true)
     }
 
     public func toggleVoiceRecording() {
@@ -426,7 +478,7 @@ public final class DJConnectAppModel: ObservableObject {
             return
         }
 
-        Task {
+        Task { @MainActor in
             let granted = await requestMicrophoneAccess()
             guard granted else {
                 voiceErrorMessage = localized(
@@ -470,6 +522,11 @@ public final class DJConnectAppModel: ObservableObject {
                     english: "Voice request completed.",
                     dutch: "Voice-request afgerond."
                 )
+                let audioURL = response.audioURL
+                Task {
+                    await playResponseAudioIfNeeded(audioURL)
+                }
+                await refreshAfterDJResponse()
                 voiceErrorMessage = nil
                 log(.info, "Voice request completed")
             } catch let error as DJConnectError {
@@ -491,13 +548,24 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     public func apply(playback: DJConnectPlayback?) {
-        self.playback = playback
-        selectedOutput = playback?.device?.name ?? selectedOutput
+        var normalizedPlayback = playback
+        let deviceVolume = normalizedPlayback?.device?.volumePercent
+        if normalizedPlayback?.volumePercent == nil, let deviceVolume {
+            normalizedPlayback?.volumePercent = deviceVolume
+        }
+        self.playback = normalizedPlayback
+        updatePlaybackProgressTimer()
+        if let deviceName = normalizedPlayback?.device?.name, !deviceName.isEmpty {
+            if pendingSelectedOutput == nil || pendingSelectedOutput == deviceName {
+                selectedOutput = deviceName
+                pendingSelectedOutput = nil
+            }
+        }
         backendAvailable = true
         updateRequiredMessage = nil
-        if let playback {
-            let playing = playback.isPlaying.map(String.init) ?? "unknown"
-            let volume = playback.volumePercent.map(String.init) ?? "unknown"
+        if let normalizedPlayback {
+            let playing = normalizedPlayback.isPlaying.map(String.init) ?? "unknown"
+            let volume = normalizedPlayback.volumePercent.map(String.init) ?? "unknown"
             log(.debug, "Applied playback snapshot: playing=\(playing), volume=\(volume)")
         } else {
             log(.debug, "Applied empty playback snapshot")
@@ -512,7 +580,12 @@ public final class DJConnectAppModel: ObservableObject {
         if let devices = response.devices {
             availableOutputs = devices
             if let active = devices.first(where: { $0.active == true }) {
-                selectedOutput = active.name
+                if pendingSelectedOutput == nil || pendingSelectedOutput == active.name {
+                    selectedOutput = active.name
+                    pendingSelectedOutput = nil
+                } else if let pendingSelectedOutput {
+                    selectedOutput = pendingSelectedOutput
+                }
             } else if selectedOutput == "Not selected", let first = devices.first {
                 selectedOutput = first.name
             }
@@ -554,6 +627,12 @@ public final class DJConnectAppModel: ObservableObject {
         }
         if let audioURL = response.audioURL, !audioURL.isEmpty {
             log(.info, "Received DJ response audio URL from Home Assistant")
+            Task {
+                await playResponseAudioIfNeeded(Self.normalizedHomeAssistantURL(from: audioURL))
+            }
+        }
+        Task {
+            await refreshAfterDJResponse()
         }
     }
 
@@ -703,8 +782,91 @@ public final class DJConnectAppModel: ObservableObject {
         try await refreshStatus(client: try makeClient())
     }
 
+    private func refreshAfterDJResponse() async {
+        guard pairingStatus == .paired else {
+            return
+        }
+
+        do {
+            log(.debug, "Refreshing Home Assistant state after DJ response")
+            try await refreshStatusWithFallback()
+            await refreshBackendCollections()
+        } catch let error as DJConnectError {
+            log(.warning, "DJ response refresh failed: \(Self.describe(error))")
+            apply(error: error)
+        } catch {
+            log(.error, "DJ response refresh failed unexpectedly: \(error.localizedDescription)")
+        }
+    }
+
+    private func updatePlaybackProgressTimer() {
+        playbackProgressTask?.cancel()
+        guard playback?.isPlaying == true else {
+            return
+        }
+
+        playbackProgressTask = Task { [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(nanoseconds: 1_000_000_000)
+                guard !Task.isCancelled else {
+                    return
+                }
+                self?.advancePlaybackProgress()
+            }
+        }
+    }
+
+    private func advancePlaybackProgress() {
+        guard var currentPlayback = playback, currentPlayback.isPlaying == true else {
+            playbackProgressTask?.cancel()
+            playbackProgressTask = nil
+            return
+        }
+
+        let currentProgress = currentPlayback.progressMS ?? 0
+        if let duration = currentPlayback.durationMS, duration > 0 {
+            currentPlayback.progressMS = min(currentProgress + 1_000, duration)
+        } else {
+            currentPlayback.progressMS = currentProgress + 1_000
+        }
+        playback = currentPlayback
+    }
+
     private func sendVoiceWithFallback(wavData: Data) async throws -> DJConnectVoiceResponse {
         try await makeClient().sendVoice(wavData: wavData)
+    }
+
+    private func playResponseAudioIfNeeded(_ audioURL: URL?) async {
+        guard localResponseAudioEnabled else {
+            log(.debug, "Skipping DJ response audio because local response audio is disabled")
+            return
+        }
+        guard let audioURL else {
+            return
+        }
+        #if canImport(AVFoundation)
+        do {
+            log(.info, "Loading DJ response audio from Home Assistant")
+            let (data, response) = try await URLSession.shared.data(from: audioURL)
+            if let httpResponse = response as? HTTPURLResponse, !(200...299).contains(httpResponse.statusCode) {
+                log(.warning, "DJ response audio failed with HTTP \(httpResponse.statusCode)")
+                return
+            }
+            #if os(iOS)
+            try AVAudioSession.sharedInstance().setCategory(.playback, mode: .spokenAudio, options: [.duckOthers])
+            try AVAudioSession.sharedInstance().setActive(true)
+            #endif
+            let player = try AVAudioPlayer(data: data)
+            player.prepareToPlay()
+            responseAudioPlayer = player
+            player.play()
+            log(.info, "Playing DJ response audio")
+        } catch {
+            log(.warning, "DJ response audio could not be played: \(error.localizedDescription)")
+        }
+        #else
+        log(.warning, "DJ response audio is not available on this platform")
+        #endif
     }
 
     private func performCommand(
@@ -728,6 +890,9 @@ public final class DJConnectAppModel: ObservableObject {
                 )
             )
             apply(commandResponse: response)
+            if Self.shouldRefreshPlaybackAfterCommand(command), response.playback == nil {
+                try await refreshStatus(client: client)
+            }
             log(.debug, "Command \(command) succeeded")
         } catch let error as DJConnectError {
             log(.warning, "Command \(command) failed: \(Self.describe(error))")
@@ -735,6 +900,15 @@ public final class DJConnectAppModel: ObservableObject {
         } catch {
             log(.error, "Command \(command) failed unexpectedly: \(error.localizedDescription)")
             pairingMessage = error.localizedDescription
+        }
+    }
+
+    private static func shouldRefreshPlaybackAfterCommand(_ command: String) -> Bool {
+        switch command {
+        case "play", "pause", "next", "previous", "set_output", "start_playlist", "start_liked_proxy", "play_uri", "play_queue_item":
+            true
+        default:
+            false
         }
     }
 
@@ -928,7 +1102,7 @@ public final class DJConnectAppModel: ObservableObject {
             }
         case "diagnostics_export":
             return DJConnectLocalDeviceAPIResponse(success: true, message: diagnosticExportText())
-        case "play", "pause", "next", "previous", "set_volume", "set_shuffle", "set_repeat", "start_liked_proxy", "start_playlist", "set_output":
+        case "play", "pause", "next", "previous", "set_volume", "set_shuffle", "set_repeat", "start_liked_proxy", "start_playlist", "play_uri", "play_queue_item", "set_output":
             sendPlaybackCommand(command, value: request.value, play: request.play)
         default:
             return DJConnectLocalDeviceAPIResponse(success: false, error: "unsupported_command", message: "Unsupported local app command.")
@@ -1118,8 +1292,15 @@ public final class DJConnectAppModel: ObservableObject {
         #if canImport(AVFoundation)
         #if os(iOS)
         return await withCheckedContinuation { continuation in
-            AVAudioSession.sharedInstance().requestRecordPermission { granted in
-                continuation.resume(returning: granted)
+            let resumeOnMainActor: (Bool) -> Void = { granted in
+                Task { @MainActor in
+                    continuation.resume(returning: granted)
+                }
+            }
+            if #available(iOS 17.0, *) {
+                AVAudioApplication.requestRecordPermission(completionHandler: resumeOnMainActor)
+            } else {
+                AVAudioSession.sharedInstance().requestRecordPermission(resumeOnMainActor)
             }
         }
         #elseif os(macOS)

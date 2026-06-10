@@ -302,6 +302,7 @@ public enum DJConnectCommandValue: Codable, Equatable, Sendable {
     case bool(Bool)
     case int(Int)
     case string(String)
+    case object([String: String])
 
     public init(from decoder: Decoder) throws {
         let container = try decoder.singleValueContainer()
@@ -309,6 +310,8 @@ public enum DJConnectCommandValue: Codable, Equatable, Sendable {
             self = .bool(value)
         } else if let value = try? container.decode(Int.self) {
             self = .int(value)
+        } else if let value = try? container.decode([String: String].self) {
+            self = .object(value)
         } else {
             self = .string(try container.decode(String.self))
         }
@@ -322,6 +325,8 @@ public enum DJConnectCommandValue: Codable, Equatable, Sendable {
         case let .int(value):
             try container.encode(value)
         case let .string(value):
+            try container.encode(value)
+        case let .object(value):
             try container.encode(value)
         }
     }
