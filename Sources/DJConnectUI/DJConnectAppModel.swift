@@ -92,7 +92,7 @@ public final class DJConnectAppModel: ObservableObject {
     #endif
     private let defaults: UserDefaults
     private let tokenStore: DJConnectTokenStore
-    private static let protocolVersion = "3.1.2"
+    private static let protocolVersion = "3.1.3"
     private let appVersion = DJConnectAppModel.protocolVersion
     private let installIDKey = "DJConnectInstallID"
     private let homeAssistantURLKey = "DJConnectHomeAssistantURL"
@@ -756,8 +756,8 @@ public final class DJConnectAppModel: ObservableObject {
                         deviceID: "djconnect-macos-unavailable",
                         deviceName: "DJConnect",
                         clientType: .macos,
-                        firmware: "3.1.2",
-                        appVersion: "3.1.2",
+                        firmware: "3.1.3",
+                        appVersion: "3.1.3",
                         platform: .macos
                     ),
                     pairingToken: "",

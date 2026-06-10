@@ -135,7 +135,7 @@ POST /api/djconnect/pair
 The app sends `device_id`, `device_name`, `client_type`, `firmware`,
 `app_version`, `platform`, and the app-generated code as `pair_code`,
 `pairing_code`, and `pairing_token`. The app keeps polling until Home Assistant
-accepts that code and returns a DJConnect bearer token plus HA local/remote URL
+accepts that code and returns a DJConnect bearer token plus the HA local URL
 metadata. The current preferred response field is `device_token`; `bearer_token`
 and `token` are accepted for compatibility.
 

@@ -2,11 +2,11 @@
 
 All notable changes to DJConnect App are documented here.
 
-## 3.1.2 - 2026-06-10
+## 3.1.3 - 2026-06-10
 
 ### Changed
 
-- Set app/protocol version to `3.1.2`.
+- Set app/protocol version to `3.1.3`.
 - Aligned iOS/macOS app-client pairing, status, command, and voice requests
   with the Home Assistant contract by using `device_id` as the only over-the-
   wire app identity and removing `client_id` headers/payload fields.
@@ -27,6 +27,14 @@ All notable changes to DJConnect App are documented here.
   hostname so Home Assistant can call the app directly.
 - Local pairing-info now returns typed JSON and local pair failures are logged
   with the exact reject reason for Home Assistant repair diagnostics.
+- macOS now explicitly declares the bundled `AppIcon` so the Dock and
+  LaunchServices use the DJConnect icon reliably.
+- Pairing code, local API URL, diagnostics, and long IDs/URLs are selectable or
+  copyable from the native settings UI on iOS and macOS.
+- Reworked Settings into a cleaner native layout with stable label columns,
+  grouped actions, and less visual overlap on macOS.
+- Server error response bodies are now included in diagnostics after redacting
+  tokens/secrets, making HA entity/status failures easier to debug.
 
 ## 3.1.0 - 2026-06-10
 

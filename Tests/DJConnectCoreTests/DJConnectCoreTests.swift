@@ -118,8 +118,8 @@ private func httpResponse(for request: URLRequest, statusCode: Int) throws -> HT
         deviceID: "djconnect-ios-8F3A2C91B45D",
         deviceName: "DJConnect iPhone",
         clientType: .ios,
-        firmware: "3.1.2",
-        appVersion: "3.1.2",
+        firmware: "3.1.3",
+        appVersion: "3.1.3",
         platform: .ios
     )
     let client = DJConnectClient(
@@ -151,8 +151,8 @@ private func httpResponse(for request: URLRequest, statusCode: Int) throws -> HT
     #expect(json?["device_id"] as? String == identity.deviceID)
     #expect(json?["device_name"] as? String == identity.deviceName)
     #expect(json?["client_type"] as? String == "ios")
-    #expect(json?["firmware"] as? String == "3.1.2")
-    #expect(json?["app_version"] as? String == "3.1.2")
+    #expect(json?["firmware"] as? String == "3.1.3")
+    #expect(json?["app_version"] as? String == "3.1.3")
     #expect(json?["ha_local_url"] as? String == "http://192.168.1.10:8123")
     #expect(json?["ha_remote_url"] == nil)
     #expect(json?["ha_active_url"] == nil)
@@ -164,8 +164,8 @@ private func httpResponse(for request: URLRequest, statusCode: Int) throws -> HT
         deviceID: "djconnect-macos-8F3A2C91B45D",
         deviceName: "DJConnect Mac",
         clientType: .macos,
-        firmware: "3.1.2",
-        appVersion: "3.1.2",
+        firmware: "3.1.3",
+        appVersion: "3.1.3",
         platform: .macos
     )
     let client = DJConnectClient(
@@ -238,8 +238,8 @@ private func httpResponse(for request: URLRequest, statusCode: Int) throws -> HT
         deviceID: "djconnect-macos-8F3A2C91B45D",
         deviceName: "DJConnect Mac",
         clientType: .macos,
-        firmware: "3.1.2",
-        appVersion: "3.1.2",
+        firmware: "3.1.3",
+        appVersion: "3.1.3",
         platform: .macos
     )
     let client = DJConnectClient(
@@ -267,7 +267,7 @@ private func httpResponse(for request: URLRequest, statusCode: Int) throws -> HT
     #expect(json?["pair_code"] as? String == "123456")
     #expect(json?["pairing_code"] as? String == "123456")
     #expect(json?["pairing_token"] as? String == "123456")
-    #expect(json?["firmware"] as? String == "3.1.2")
+    #expect(json?["firmware"] as? String == "3.1.3")
 }
 
 @Test func pairingResponseAcceptsCommonTokenFieldNames() throws {
@@ -355,8 +355,8 @@ private func httpResponse(for request: URLRequest, statusCode: Int) throws -> HT
         deviceID: "djconnect-ios-8F3A2C91B45D",
         deviceName: "DJConnect iPhone",
         clientType: .ios,
-        firmware: "3.1.2",
-        appVersion: "3.1.2",
+        firmware: "3.1.3",
+        appVersion: "3.1.3",
         platform: .ios
     )
     let tokenStore = DJConnectInMemoryTokenStore()
@@ -389,8 +389,8 @@ private func httpResponse(for request: URLRequest, statusCode: Int) throws -> HT
         deviceID: "djconnect-macos-8F3A2C91B45D",
         deviceName: "DJConnect Mac",
         clientType: .macos,
-        firmware: "3.1.2",
-        appVersion: "3.1.2",
+        firmware: "3.1.3",
+        appVersion: "3.1.3",
         platform: .macos
     )
     let tokenStore = DJConnectInMemoryTokenStore()
@@ -437,7 +437,7 @@ private func httpResponse(for request: URLRequest, statusCode: Int) throws -> HT
         deviceID: "djconnect-ios-8F3A2C91B45D",
         deviceName: "DJConnect iPhone",
         clientType: .ios,
-        firmware: "3.1.2",
+        firmware: "3.1.3",
         platform: .ios
     )
     let client = DJConnectClient(
@@ -463,7 +463,7 @@ private func httpResponse(for request: URLRequest, statusCode: Int) throws -> HT
             deviceID: "djconnect-ios-8F3A2C91B45D",
             deviceName: "DJConnect iPhone",
             clientType: .ios,
-            firmware: "3.1.2",
+            firmware: "3.1.3",
             platform: .ios
         ),
         tokenStore: DJConnectInMemoryTokenStore(token: "secret-token")
@@ -474,9 +474,9 @@ private func httpResponse(for request: URLRequest, statusCode: Int) throws -> HT
           "success": false,
           "error": "version_mismatch",
           "message": "DJConnect Home Assistant integration and device firmware major.minor versions must match.",
-          "ha_version": "3.1.2",
+          "ha_version": "3.1.3",
           "ha_major_minor": "3.1",
-          "firmware": "3.1.2",
+          "firmware": "3.1.3",
           "firmware_major_minor": "3.0"
         }
         """.utf8
@@ -487,9 +487,9 @@ private func httpResponse(for request: URLRequest, statusCode: Int) throws -> HT
     #expect(error == .versionMismatch(
         DJConnectVersionMismatch(
             message: "DJConnect Home Assistant integration and device firmware major.minor versions must match.",
-            haVersion: "3.1.2",
+            haVersion: "3.1.3",
             haMajorMinor: "3.1",
-            firmware: "3.1.2",
+            firmware: "3.1.3",
             firmwareMajorMinor: "3.0"
         )
     ))
@@ -502,7 +502,7 @@ private func httpResponse(for request: URLRequest, statusCode: Int) throws -> HT
             deviceID: "djconnect-ios-8F3A2C91B45D",
             deviceName: "DJConnect iPhone",
             clientType: .ios,
-            firmware: "3.1.2",
+            firmware: "3.1.3",
             platform: .ios
         ),
         tokenStore: DJConnectInMemoryTokenStore(token: "secret-token")
@@ -531,7 +531,7 @@ private func httpResponse(for request: URLRequest, statusCode: Int) throws -> HT
             deviceID: "djconnect-macos-8F3A2C91B45D",
             deviceName: "DJConnect Mac",
             clientType: .macos,
-            firmware: "3.1.2",
+            firmware: "3.1.3",
             platform: .macos
         ),
         tokenStore: DJConnectInMemoryTokenStore(token: "secret-token")
@@ -557,7 +557,7 @@ private func httpResponse(for request: URLRequest, statusCode: Int) throws -> HT
             deviceID: "djconnect-macos-8F3A2C91B45D",
             deviceName: "DJConnect Mac",
             clientType: .macos,
-            firmware: "3.1.2",
+            firmware: "3.1.3",
             platform: .macos
         ),
         tokenStore: DJConnectInMemoryTokenStore(token: "secret-token")
