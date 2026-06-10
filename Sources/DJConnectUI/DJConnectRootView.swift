@@ -888,7 +888,7 @@ struct PlaylistsView: View {
     var body: some View {
         NavigationStack {
             List {
-                Section(localized(model.language, "Liked Songs", "Gelikete nummers")) {
+                Section(localized(model.language, "Default playlist", "Standaard playlist")) {
                     Button {
                         model.startLikedProxy()
                     } label: {
