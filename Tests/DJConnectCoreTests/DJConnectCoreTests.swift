@@ -2,6 +2,58 @@ import Foundation
 import Testing
 @testable import DJConnectCore
 
+private final class MockURLProtocol: URLProtocol, @unchecked Sendable {
+    nonisolated(unsafe) static var handlers: [String: (URLRequest) throws -> (HTTPURLResponse, Data)] = [:]
+
+    override class func canInit(with request: URLRequest) -> Bool {
+        true
+    }
+
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest {
+        request
+    }
+
+    override func startLoading() {
+        guard let host = request.url?.host, let handler = Self.handlers[host] else {
+            client?.urlProtocol(self, didFailWithError: URLError(.badServerResponse))
+            return
+        }
+
+        do {
+            let (response, data) = try handler(request)
+            client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+            client?.urlProtocol(self, didLoad: data)
+            client?.urlProtocolDidFinishLoading(self)
+        } catch {
+            client?.urlProtocol(self, didFailWithError: error)
+        }
+    }
+
+    override func stopLoading() {}
+}
+
+private func mockSession(
+    host: String,
+    handler: @escaping (URLRequest) throws -> (HTTPURLResponse, Data)
+) -> URLSession {
+    MockURLProtocol.handlers[host] = handler
+    let configuration = URLSessionConfiguration.ephemeral
+    configuration.protocolClasses = [MockURLProtocol.self]
+    return URLSession(configuration: configuration)
+}
+
+private func httpResponse(for request: URLRequest, statusCode: Int) throws -> HTTPURLResponse {
+    guard let url = request.url, let response = HTTPURLResponse(
+        url: url,
+        statusCode: statusCode,
+        httpVersion: nil,
+        headerFields: ["Content-Type": "application/json"]
+    ) else {
+        throw URLError(.badURL)
+    }
+    return response
+}
+
 @Test func statusRequestIncludesContractFieldsAndHeaders() throws {
     let identity = DJConnectIdentity(
         deviceID: "djconnect-ios-8F3A2C91B45D",
@@ -135,6 +187,68 @@ import Testing
     #expect(deviceToken.resolvedDeviceToken == "device-secret")
     #expect(bearerToken.resolvedDeviceToken == "bearer-secret")
     #expect(token.resolvedDeviceToken == "plain-secret")
+}
+
+@Test func pairSuccessStoresReturnedBearerToken() async throws {
+    let identity = DJConnectIdentity(
+        deviceID: "djconnect-ios-8F3A2C91B45D",
+        deviceName: "DJConnect iPhone",
+        clientType: .ios,
+        firmware: "3.0.0",
+        appVersion: "3.0.0",
+        platform: .ios
+    )
+    let tokenStore = DJConnectInMemoryTokenStore()
+    let host = "pair-success.local"
+    let session = mockSession(host: host) { request in
+        #expect(request.url?.path == "/api/djconnect/pair")
+        #expect(request.value(forHTTPHeaderField: "Authorization") == nil)
+        return (
+            try httpResponse(for: request, statusCode: 200),
+            Data(#"{"success":true,"device_token":"client-secret"}"#.utf8)
+        )
+    }
+    let client = DJConnectClient(
+        baseURL: try #require(URL(string: "http://\(host):8123")),
+        identity: identity,
+        tokenStore: tokenStore,
+        session: session
+    )
+
+    let response = try await client.pair(DJConnectPairingPayload(identity: identity, pairingToken: "123456"))
+
+    #expect(response.success)
+    #expect(try tokenStore.loadToken() == "client-secret")
+}
+
+@Test func pairPendingResponseDoesNotStoreToken() async throws {
+    let identity = DJConnectIdentity(
+        deviceID: "djconnect-macos-8F3A2C91B45D",
+        deviceName: "DJConnect Mac",
+        clientType: .macos,
+        firmware: "3.0.0",
+        appVersion: "3.0.0",
+        platform: .macos
+    )
+    let tokenStore = DJConnectInMemoryTokenStore()
+    let host = "pair-pending.local"
+    let session = mockSession(host: host) { request in
+        (
+            try httpResponse(for: request, statusCode: 200),
+            Data(#"{"success":false,"message":"Waiting for setup"}"#.utf8)
+        )
+    }
+    let client = DJConnectClient(
+        baseURL: try #require(URL(string: "http://\(host):8123")),
+        identity: identity,
+        tokenStore: tokenStore,
+        session: session
+    )
+
+    await #expect(throws: DJConnectError.pairingFailed(message: "Waiting for setup")) {
+        try await client.pair(DJConnectPairingPayload(identity: identity, pairingToken: "123456"))
+    }
+    #expect(try tokenStore.loadToken() == nil)
 }
 
 @Test func voiceRequestUsesRawWavContentType() throws {

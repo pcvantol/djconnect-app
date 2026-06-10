@@ -48,19 +48,23 @@ The CLI build disables signing for local verification. Configure
 6. Copy the app-generated Pairing Code into the Home Assistant `djconnect`
    integration setup/pairing flow.
 7. Leave the app open. It waits automatically until Home Assistant accepts the
-   code and returns a device token.
+   code and returns a DJConnect bearer token.
 
-The app polls `POST /api/djconnect/pair`, stores the returned `device_token` in
-Keychain, and validates the pairing by posting to `/api/djconnect/status`.
+The app polls `POST /api/djconnect/pair`, stores the returned DJConnect bearer
+token in Keychain, and validates the pairing by posting to
+`/api/djconnect/status`. The pairing request sends the app code as
+`pair_code`, `pairing_code`, and `pairing_token` for compatibility with current
+Home Assistant integration builds.
 
 For iOS Simulator testing, use the polling flow above. Do not treat simulator
 mDNS/Bonjour reachability or inbound device checks as authoritative: the app
 does not expose an inbound pairing server, and Home Assistant should complete
-app pairing by accepting the app-generated code and returning `device_token` to
-the polling request.
+app pairing by accepting the app-generated code and returning a token to the
+polling request.
 
-Reset Pairing clears the DJConnect Keychain token and generated local install
-id. It does not touch any Home Assistant, Spotify, or playback credentials.
+Reset Pairing clears the DJConnect Keychain token and generates a new local
+app code. It keeps the stable `client_id` so Home Assistant can continue to
+reason about the same Apple app client.
 
 ## Test
 
@@ -84,4 +88,4 @@ xcodebuild -project DJConnectApp.xcodeproj -scheme DJConnectMac -destination pla
 - Do not log bearer tokens, Home Assistant tokens, Spotify secrets, or temporary
   TTS/audio URLs.
 - Do not clear pairing/token state automatically on backend unavailable,
-  version mismatch, 401/403, or 404.
+  version mismatch, authenticated 401/403, or 404.

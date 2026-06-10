@@ -54,7 +54,10 @@ Pairing/auth failures are intentionally conservative:
 
 - `backend_unavailable`: keep pairing and token, show playback backend state.
 - HTTP `426` / `version_mismatch`: keep pairing and token, show update required.
-- HTTP `401`/`403`: mark pairing stale, keep token until user reset.
+- HTTP `401`/`403` on authenticated routes: mark pairing stale, keep token until
+  user reset.
+- HTTP `401` during unauthenticated pairing polling: keep polling with the
+  current app-generated code.
 - HTTP `404`: show integration/setup recovery, keep token until user reset.
 
 Only explicit user pairing reset should clear Keychain token state.

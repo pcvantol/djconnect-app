@@ -40,7 +40,7 @@ Do not use `device_type` for client identity.
 JSON requests:
 
 ```http
-Authorization: Bearer <device_token>
+Authorization: Bearer <djconnect_bearer_token>
 X-DJConnect-Client-ID: <client_id>
 X-DJConnect-Device-ID: <device_id>
 Content-Type: application/json
@@ -49,7 +49,7 @@ Content-Type: application/json
 Voice upload:
 
 ```http
-Authorization: Bearer <device_token>
+Authorization: Bearer <djconnect_bearer_token>
 X-DJConnect-Client-ID: <client_id>
 X-DJConnect-Device-ID: <device_id>
 Content-Type: audio/wav
@@ -86,14 +86,14 @@ The app-generated code is sent as `pair_code`, `pairing_code`, and
 `pairing_token` for compatibility with current Home Assistant integration
 builds. The user confirms or enters the same value in the Home Assistant
 DJConnect setup flow. The app keeps polling this endpoint with the generated
-code until Home Assistant returns a device token.
+code until Home Assistant returns a DJConnect bearer token.
 
 Expected response:
 
 ```json
 {
   "success": true,
-  "device_token": "<device bearer token>",
+  "device_token": "<djconnect bearer token>",
   "client_id": "djconnect-macos-8F3A2C91B45D",
   "device_id": "djconnect-macos-8F3A2C91B45D",
   "client_type": "macos"
@@ -101,8 +101,9 @@ Expected response:
 ```
 
 The app also accepts `bearer_token` or `token` for compatibility, but
-`device_token` is preferred. After successful pairing, the app stores only the
-returned DJConnect device bearer token in Keychain and posts status.
+`device_token` is preferred while the Home Assistant route keeps that field
+name. After successful pairing, the app stores only the returned DJConnect
+bearer token in Keychain and posts status.
 
 The iOS/macOS app does not expose or consume ESP local `/api/device/*` routes.
 Those routes are reserved for local ESP hardware.
@@ -194,6 +195,11 @@ protocol version. Keep token and pairing state. Show update required.
 HTTP `401`/`403`
 
 Pairing is stale or unauthorized. Keep token until explicit user reset.
+
+During unauthenticated app pairing polls, a temporary HTTP `401` with a pairing
+code message is treated as pending setup rather than destructive stale auth. The
+app keeps polling with the current code so the Home Assistant setup flow can
+finish.
 
 HTTP `404`
 

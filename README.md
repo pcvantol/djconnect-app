@@ -10,7 +10,7 @@ playback commands, Assist/STT/TTS, and native HA entities.
 The app owns native UI, local app state, optional local voice recording, and
 optional playback of returned DJ response audio. It must not store Spotify,
 Home Assistant, Sonos, OpenAI, or other backend credentials. The only app-owned
-credential is the DJConnect device bearer token issued by the integration.
+credential is the DJConnect client bearer token issued by the integration.
 
 ## Documentation
 
@@ -19,6 +19,7 @@ credential is the DJConnect device bearer token issued by the integration.
 - [docs/ARCHITECTURE_DECISIONS.md](docs/ARCHITECTURE_DECISIONS.md): key decisions and rationale.
 - [docs/API_CONTRACT.md](docs/API_CONTRACT.md): Home Assistant endpoint contract.
 - [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md): local development, generation, build, and test commands.
+- [docs/SYNC_PROMPTS.md](docs/SYNC_PROMPTS.md): copy/paste prompts for syncing the app and Home Assistant repos.
 - [docs/TODO.md](docs/TODO.md): open work, known issues, and next implementation steps.
 - [PRIVACY.md](PRIVACY.md): security, privacy, and diagnostics redaction rules.
 - [CHANGELOG.md](CHANGELOG.md): notable project changes.
@@ -120,10 +121,11 @@ POST /api/djconnect/pair
 
 The app sends `client_id`, `client_name`, `client_type`, `firmware`,
 `app_version`, `platform`, temporary `device_id`/`device_name` compatibility
-fields, and an app-generated `pairing_token`. The app keeps waiting until Home
-Assistant accepts that code and returns `device_token`, then stores the token in
-Keychain. The iOS/macOS app does not expose or use ESP-local `/api/device/*`
-routes.
+fields, and the app-generated code as `pair_code`, `pairing_code`, and
+`pairing_token`. The app keeps polling until Home Assistant accepts that code
+and returns a DJConnect bearer token. The current preferred response field is
+`device_token`; `bearer_token` and `token` are accepted for compatibility. The
+iOS/macOS app does not expose or use ESP-local `/api/device/*` routes.
 
 ## Version Contract
 

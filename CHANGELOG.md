@@ -21,7 +21,7 @@ All notable changes to DJConnect App are documented here.
 - Added handoff, architecture, API contract, and development documentation.
 - Added architecture decision record and todo/issues documentation.
 - Implemented macOS/iOS app-generated pairing code flow against
-  `POST /api/djconnect/pair` with Keychain device-token storage and status
+  `POST /api/djconnect/pair` with Keychain bearer-token storage and status
   validation.
 - Added official DJConnect app icon assets from `pcvantol/djconnect` for macOS
   and iOS.
@@ -41,9 +41,9 @@ All notable changes to DJConnect App are documented here.
   `192.168.1.10:8123` and debounce pairing retries while editing.
 - Added app logging with log-level filtering, OSLog output, and an in-app
   diagnostics log for pairing, status refresh, commands, and network errors.
-- Sent both `pair_code` and `pairing_token` during app-initiated pairing.
-- Stopped repeated pairing polling when Home Assistant rejects the current
-  pairing code, and show guidance to generate/use a fresh code.
+- Sent app pairing codes as `pair_code`, `pairing_code`, and `pairing_token`.
+- Kept app pairing polling active across temporary Home Assistant 401 responses
+  while the setup flow accepts the current app code.
 - Made Reset Pairing stop at a clean reset instead of immediately retrying with
   a potentially stale Home Assistant code.
 - Made diagnostic log rows stable when identical messages are logged in the
@@ -58,6 +58,8 @@ All notable changes to DJConnect App are documented here.
   bearer token and pairing code.
 - Added `pairing_code` as a pairing payload alias and kept polling when Home
   Assistant returns a temporary 401 during app-code acceptance.
+- Refreshed tests, docs, handoff notes, and app logs around the app-client
+  bearer-token pairing contract.
 
 ### Changed
 

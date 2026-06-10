@@ -37,11 +37,13 @@ The iOS/macOS app owns:
 The app must not store or request Spotify OAuth secrets, refresh tokens, client
 secrets, Sonos credentials, Home Assistant long-lived access tokens, or playback
 backend credentials. The only DJConnect credential owned by the app is its
-DJConnect device bearer token issued by the integration.
+DJConnect bearer token issued by the integration.
 
 ## Identity
 
-Use a stable device id per app installation.
+Use a stable `client_id` per app installation. During temporary route
+compatibility the app also sends the same value as `device_id`, but app clients
+should be registered and reasoned about as clients.
 
 Suggested format:
 
@@ -128,8 +130,7 @@ Recommended user flow:
 2. App generates and displays a short DJConnect pairing code.
 3. User enters/confirms that code in the Home Assistant DJConnect setup flow.
 4. App waits/polls with the same code until the integration completes pairing.
-5. Integration creates or returns a DJConnect device bearer token for the app
-   runtime.
+5. Integration creates or returns a DJConnect bearer token for the app runtime.
 6. App stores only the DJConnect bearer token in Keychain.
 7. App starts sending authenticated status and command payloads with
    `client_id` and `client_type`.
@@ -157,6 +158,7 @@ X-DJConnect-Device-ID: <device_id>
   "app_version": "3.0.0",
   "platform": "macos",
   "pair_code": "123456",
+  "pairing_code": "123456",
   "pairing_token": "123456"
 }
 ```
@@ -166,12 +168,16 @@ Expected completion response:
 ```json
 {
   "success": true,
-  "device_token": "<device bearer token>"
+  "device_token": "<djconnect bearer token>"
 }
 ```
 
 While Home Assistant has not accepted the code yet, the app keeps waiting and
-does not show a manual Pair button.
+does not show a manual Pair button. The app sends the same app-generated code
+as `pair_code`, `pairing_code`, and `pairing_token` for compatibility with
+current HA builds. A temporary 401 during unauthenticated pairing polling should
+be treated as pending setup, not as a reason to discard the code or app
+identity.
 
 Bearer token storage:
 
@@ -183,7 +189,8 @@ Bearer token storage:
 Auth headers for app to HA:
 
 ```http
-Authorization: Bearer <device_token>
+Authorization: Bearer <djconnect_bearer_token>
+X-DJConnect-Client-ID: <client_id>
 X-DJConnect-Device-ID: <device_id>
 Content-Type: application/json
 ```
@@ -191,7 +198,8 @@ Content-Type: application/json
 For raw voice audio:
 
 ```http
-Authorization: Bearer <device_token>
+Authorization: Bearer <djconnect_bearer_token>
+X-DJConnect-Client-ID: <client_id>
 X-DJConnect-Device-ID: <device_id>
 Content-Type: audio/wav
 ```
@@ -208,6 +216,7 @@ Minimum payload:
 
 ```json
 {
+  "client_id": "djconnect-ios-8F3A2C91B45D",
   "device_id": "djconnect-ios-8F3A2C91B45D",
   "client_type": "ios",
   "ha_pairing_status": "paired",
@@ -267,20 +276,20 @@ stable app-client value.
 Examples:
 
 ```json
-{"device_id":"djconnect-ios-8F3A2C91B45D","client_type":"ios","command":"status"}
-{"device_id":"djconnect-ios-8F3A2C91B45D","client_type":"ios","command":"devices"}
-{"device_id":"djconnect-ios-8F3A2C91B45D","client_type":"ios","command":"queue"}
-{"device_id":"djconnect-ios-8F3A2C91B45D","client_type":"ios","command":"playlists"}
-{"device_id":"djconnect-ios-8F3A2C91B45D","client_type":"ios","command":"pause"}
-{"device_id":"djconnect-ios-8F3A2C91B45D","client_type":"ios","command":"play"}
-{"device_id":"djconnect-ios-8F3A2C91B45D","client_type":"ios","command":"next"}
-{"device_id":"djconnect-ios-8F3A2C91B45D","client_type":"ios","command":"previous"}
-{"device_id":"djconnect-ios-8F3A2C91B45D","client_type":"ios","command":"set_volume","value":35}
-{"device_id":"djconnect-ios-8F3A2C91B45D","client_type":"ios","command":"set_shuffle","value":true}
-{"device_id":"djconnect-ios-8F3A2C91B45D","client_type":"ios","command":"set_repeat","value":"context"}
-{"device_id":"djconnect-ios-8F3A2C91B45D","client_type":"ios","command":"start_liked_proxy","play":true}
-{"device_id":"djconnect-ios-8F3A2C91B45D","client_type":"ios","command":"start_playlist","value":"spotify:playlist:...","play":true}
-{"device_id":"djconnect-ios-8F3A2C91B45D","client_type":"ios","command":"set_output","value":"iPhone","play":true}
+{"client_id":"djconnect-ios-8F3A2C91B45D","device_id":"djconnect-ios-8F3A2C91B45D","client_type":"ios","command":"status"}
+{"client_id":"djconnect-ios-8F3A2C91B45D","device_id":"djconnect-ios-8F3A2C91B45D","client_type":"ios","command":"devices"}
+{"client_id":"djconnect-ios-8F3A2C91B45D","device_id":"djconnect-ios-8F3A2C91B45D","client_type":"ios","command":"queue"}
+{"client_id":"djconnect-ios-8F3A2C91B45D","device_id":"djconnect-ios-8F3A2C91B45D","client_type":"ios","command":"playlists"}
+{"client_id":"djconnect-ios-8F3A2C91B45D","device_id":"djconnect-ios-8F3A2C91B45D","client_type":"ios","command":"pause"}
+{"client_id":"djconnect-ios-8F3A2C91B45D","device_id":"djconnect-ios-8F3A2C91B45D","client_type":"ios","command":"play"}
+{"client_id":"djconnect-ios-8F3A2C91B45D","device_id":"djconnect-ios-8F3A2C91B45D","client_type":"ios","command":"next"}
+{"client_id":"djconnect-ios-8F3A2C91B45D","device_id":"djconnect-ios-8F3A2C91B45D","client_type":"ios","command":"previous"}
+{"client_id":"djconnect-ios-8F3A2C91B45D","device_id":"djconnect-ios-8F3A2C91B45D","client_type":"ios","command":"set_volume","value":35}
+{"client_id":"djconnect-ios-8F3A2C91B45D","device_id":"djconnect-ios-8F3A2C91B45D","client_type":"ios","command":"set_shuffle","value":true}
+{"client_id":"djconnect-ios-8F3A2C91B45D","device_id":"djconnect-ios-8F3A2C91B45D","client_type":"ios","command":"set_repeat","value":"context"}
+{"client_id":"djconnect-ios-8F3A2C91B45D","device_id":"djconnect-ios-8F3A2C91B45D","client_type":"ios","command":"start_liked_proxy","play":true}
+{"client_id":"djconnect-ios-8F3A2C91B45D","device_id":"djconnect-ios-8F3A2C91B45D","client_type":"ios","command":"start_playlist","value":"spotify:playlist:...","play":true}
+{"client_id":"djconnect-ios-8F3A2C91B45D","device_id":"djconnect-ios-8F3A2C91B45D","client_type":"ios","command":"set_output","value":"iPhone","play":true}
 ```
 
 Expected success shape:
@@ -330,11 +339,14 @@ When backend unavailable:
 - do not send the user through app pairing again;
 - throttle retries enough to avoid UI churn.
 
-When HA returns 401/403:
+When HA returns 401/403 on authenticated routes:
 
 - mark pairing stale/unauthorized;
 - keep token until the user explicitly resets pairing;
 - show setup-again guidance.
+
+During unauthenticated pairing polling, temporary 401 responses with pairing
+code messages should keep the app in the polling state.
 
 When HA returns 404:
 
@@ -352,7 +364,8 @@ If implementing push-to-talk:
 ```http
 POST /api/djconnect/voice
 Content-Type: audio/wav
-Authorization: Bearer <device_token>
+Authorization: Bearer <djconnect_bearer_token>
+X-DJConnect-Client-ID: <client_id>
 X-DJConnect-Device-ID: <device_id>
 ```
 
@@ -428,7 +441,7 @@ iOS/macOS-specific UX may add:
 
 Never log:
 
-- DJConnect device bearer token;
+- DJConnect bearer token;
 - Home Assistant tokens;
 - Spotify refresh token;
 - OAuth client secret;
@@ -438,7 +451,7 @@ Never log:
 Diagnostics must redact:
 
 - `Authorization`;
-- `device_token`;
+- `device_token` and DJConnect bearer tokens;
 - any `token`;
 - `audio_url` query strings;
 - private HA URLs if the user chooses anonymized export.
@@ -484,7 +497,9 @@ Do not put SwiftUI view logic into the HTTP client.
 - HA backend playback commands work without any Spotify credentials in the app.
 - Backend unavailable does not reset pairing.
 - HTTP 426 version mismatch shows update-required UI and keeps pairing.
-- 401/403/404 show stale pairing/setup recovery and keep token until user reset.
+- Authenticated 401/403/404 show stale pairing/setup recovery and keep token
+  until user reset.
+- Temporary 401 during unauthenticated pairing polling keeps the app waiting.
 - Voice/PTT, if implemented, uploads raw WAV to `/api/djconnect/voice`.
 - No secrets appear in logs or diagnostics.
 - iOS and macOS clients can coexist with ESP32 clients in the same HA backend.

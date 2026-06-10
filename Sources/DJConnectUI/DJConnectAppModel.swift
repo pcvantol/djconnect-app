@@ -118,9 +118,9 @@ public final class DJConnectAppModel: ObservableObject {
         if let existingToken = try? resolvedTokenStore.loadToken(), !existingToken.isEmpty {
             pairingStatus = .paired
             isConnected = true
-            log(.info, "App started with existing device token for \(identity.clientType.rawValue)")
+            log(.info, "App started with existing DJConnect bearer token for \(identity.clientType.rawValue)")
         } else {
-            log(.info, "App started without device token for \(identity.clientType.rawValue)")
+            log(.info, "App started without DJConnect bearer token for \(identity.clientType.rawValue)")
         }
     }
 
@@ -384,8 +384,8 @@ public final class DJConnectAppModel: ObservableObject {
             pairingStatus = .stale
             isConnected = false
             pairingMessage = localized(
-                english: "Missing DJConnect device token. Reset pairing to set up again.",
-                dutch: "DJConnect device-token ontbreekt. Reset pairing om opnieuw te koppelen."
+                english: "Missing DJConnect bearer token. Reset pairing to set up again.",
+                dutch: "DJConnect bearer-token ontbreekt. Reset pairing om opnieuw te koppelen."
             )
         default:
             break
@@ -602,7 +602,7 @@ public final class DJConnectAppModel: ObservableObject {
         case let .invalidConfiguration(message):
             "invalid configuration: \(message)"
         case .missingToken:
-            "missing device token"
+            "missing DJConnect bearer token"
         case let .pairingFailed(message):
             "pairing pending\(message.map { ": \($0)" } ?? "")"
         }

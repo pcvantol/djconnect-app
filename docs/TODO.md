@@ -4,10 +4,8 @@ This document tracks open implementation work and known project gaps.
 
 ## High Priority
 
-- Confirm the Home Assistant `POST /api/djconnect/pair` response shape against
-  the custom integration.
-- Confirm the HA integration's pending response shape while the app is waiting
-  for code acceptance.
+- Confirm the Home Assistant integration accepts app pairing payloads with
+  `client_id`, `pair_code`, `pairing_code`, and `pairing_token`.
 - Add a Home Assistant UI/deep-link path for accepting app-generated pairing
   codes.
 - Replace remaining preview/sample queue and playlist state with live backend
@@ -20,7 +18,8 @@ This document tracks open implementation work and known project gaps.
 - Implement queue loading using the backend `queue` command.
 - Implement playlists and liked proxy start flows.
 - Add retry throttling for `backend_unavailable`.
-- Expand command integration tests with URLProtocol-backed response fixtures.
+- Expand command/status integration tests with URLProtocol-backed response
+  fixtures.
 
 ## Voice/PTT
 
@@ -46,8 +45,10 @@ This document tracks open implementation work and known project gaps.
 
 ## Testing
 
-- Add URLProtocol-backed async tests for `DJConnectClient` response handling.
-- Add tests for 401, 403, 404, network errors, and malformed responses.
+- Add URLProtocol-backed async tests for command, status, voice, network error,
+  and malformed response handling.
+- Add focused app-model tests for pairing retry state and stale authenticated
+  auth recovery.
 - Add tests that token stores never expose tokens through diagnostics.
 - Add UI tests after real pairing and network state flows exist.
 

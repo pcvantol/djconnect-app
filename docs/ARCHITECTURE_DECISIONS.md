@@ -71,7 +71,9 @@ xcodegen generate
 Status: accepted
 
 The app does not automatically clear Keychain token state for backend
-unavailable, version mismatch, 401/403, or 404 responses.
+unavailable, version mismatch, authenticated 401/403, or 404 responses. During
+unauthenticated pairing polling, temporary 401 responses keep the app in the
+pairing loop.
 
 Reasoning:
 
