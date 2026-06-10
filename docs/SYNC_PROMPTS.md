@@ -12,8 +12,8 @@ contract.
 Requirements:
 - Treat iOS/macOS as app clients, not ESP hardware devices.
 - Pair app clients through POST /api/djconnect/pair.
-- Accept stable client_id, client_name, client_type, firmware, app_version,
-  platform, and temporary device_id/device_name compatibility fields.
+- Accept stable device_id, device_name, client_type, firmware, app_version,
+  platform, and temporary client_id/client_name compatibility fields.
 - Accept the app-generated code as pair_code, pairing_code, or pairing_token.
 - Return a DJConnect bearer token on success. The current compatible field is
   device_token; bearer_token and token may also be returned.
@@ -22,7 +22,7 @@ Requirements:
 - Authenticated status/command/voice routes must accept Authorization: Bearer
   plus X-DJConnect-Client-ID and temporary X-DJConnect-Device-ID.
 - During app pairing, temporary 401 responses should not require the app to
-  regenerate its client_id.
+  regenerate its device_id.
 - Create native HA entities for paired app clients when status is received.
 ```
 
@@ -32,14 +32,14 @@ Requirements:
 Sync the DJConnect Apple app with the Home Assistant integration contract.
 
 Requirements:
-- Keep one stable client_id per app installation across reset/retry flows.
-- Reset Pairing clears only the DJConnect bearer token and app pairing code; it
-  must not rotate client_id.
+- Keep one stable device_id per app installation across normal launches.
+- Reset Pairing clears the DJConnect bearer token, rotates the app pairing
+  code, and creates a fresh device_id/client_id alias for a new setup.
 - Pair by polling POST /api/djconnect/pair with pair_code, pairing_code, and
   pairing_token set to the same app-generated code.
 - Store only the returned DJConnect bearer token in Keychain.
 - Do not expose or call ESP-local /api/device/* routes.
-- Send client_id, client_type, firmware, app_version, and temporary device_id on
+- Send device_id, client_type, firmware, app_version, and temporary client_id on
   status/command payloads.
 - Treat backend_unavailable and version_mismatch as recoverable without
   clearing pairing.

@@ -62,9 +62,9 @@ does not expose an inbound pairing server, and Home Assistant should complete
 app pairing by accepting the app-generated code and returning a token to the
 polling request.
 
-Reset Pairing clears the DJConnect Keychain token and generates a new local
-app code. It keeps the stable `client_id` so Home Assistant can continue to
-reason about the same Apple app client.
+Reset Pairing clears the DJConnect Keychain token, generates a new app code,
+and creates a fresh local `device_id`/`client_id` alias for a new DJConnect app
+client setup.
 
 ## Test
 

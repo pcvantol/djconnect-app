@@ -108,9 +108,9 @@ POST /api/djconnect/voice
 Content-Type: audio/wav
 ```
 
-All status and command payloads include `client_id`, `client_type`, and
+All status and command payloads include `device_id`, `client_type`, and
 `firmware`. During route compatibility with current Home Assistant builds, the
-same stable app id is also sent as `device_id`. The `firmware` value remains
+same stable app id is also sent as `client_id`. The `firmware` value remains
 the protocol compatibility version, even for app clients.
 
 Pairing is posted to:
@@ -119,8 +119,8 @@ Pairing is posted to:
 POST /api/djconnect/pair
 ```
 
-The app sends `client_id`, `client_name`, `client_type`, `firmware`,
-`app_version`, `platform`, temporary `device_id`/`device_name` compatibility
+The app sends `device_id`, `device_name`, `client_type`, `firmware`,
+`app_version`, `platform`, temporary `client_id`/`client_name` compatibility
 fields, and the app-generated code as `pair_code`, `pairing_code`, and
 `pairing_token`. The app keeps polling until Home Assistant accepts that code
 and returns a DJConnect bearer token. The current preferred response field is

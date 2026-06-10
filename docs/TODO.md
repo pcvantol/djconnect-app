@@ -5,7 +5,8 @@ This document tracks open implementation work and known project gaps.
 ## High Priority
 
 - Confirm the Home Assistant integration accepts app pairing payloads with
-  `client_id`, `pair_code`, `pairing_code`, and `pairing_token`.
+  `device_id`, temporary `client_id`, `pair_code`, `pairing_code`, and
+  `pairing_token`.
 - Add a Home Assistant UI/deep-link path for accepting app-generated pairing
   codes.
 - Replace remaining preview/sample queue and playlist state with live backend

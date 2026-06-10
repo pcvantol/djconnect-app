@@ -50,20 +50,22 @@ All notable changes to DJConnect App are documented here.
   same second.
 - Cancelled pending pairing retries and cleared active pairing state during
   Reset Pairing.
-- Added `client_id` and `client_name` app-client identity fields alongside
-  temporary `device_id` route compatibility fields.
+- Added `device_id`/`device_name` app identity fields alongside temporary
+  `client_id` route compatibility fields.
 - Removed the local app device API because `/api/device/*` routes are reserved
   for ESP hardware clients.
-- Kept the app `client_id` stable when resetting pairing, clearing only the
-  bearer token and pairing code.
+- Made explicit Reset Pairing clear the bearer token, generate a new app code,
+  and rotate the local `device_id`/`client_id` alias.
 - Added `pairing_code` as a pairing payload alias and kept polling when Home
   Assistant returns a temporary 401 during app-code acceptance.
 - Refreshed tests, docs, handoff notes, and app logs around the app-client
   bearer-token pairing contract.
+- Synced the Apple app contract with the DJConnect `3.0.25` Home Assistant
+  handoff and made `device_id` the canonical HA identity field.
 
 ### Changed
 
-- Set app/protocol scaffold version examples to `3.0.0`.
+- Set app/protocol scaffold version examples to `3.0.25`.
 - Improved stale pairing and missing integration-route UI states without
   clearing the Keychain token automatically.
 - Expanded `.gitignore` with SwiftPM, Xcode, macOS, Fastlane, CocoaPods, and

@@ -41,9 +41,9 @@ DJConnect bearer token issued by the integration.
 
 ## Identity
 
-Use a stable `client_id` per app installation. During temporary route
-compatibility the app also sends the same value as `device_id`, but app clients
-should be registered and reasoned about as clients.
+Use a stable `device_id` per app installation. The app also sends the same
+value as `client_id` while app-client support and Home Assistant route
+compatibility are being finalized.
 
 Suggested format:
 
@@ -61,8 +61,8 @@ Recommended iOS fields:
   "device_id": "djconnect-ios-8F3A2C91B45D",
   "device_name": "DJConnect iPhone",
   "client_type": "ios",
-  "firmware": "3.0.0",
-  "app_version": "3.0.0",
+  "firmware": "3.0.25",
+  "app_version": "3.0.25",
   "platform": "ios"
 }
 ```
@@ -74,8 +74,8 @@ Recommended macOS fields:
   "device_id": "djconnect-macos-8F3A2C91B45D",
   "device_name": "DJConnect Mac",
   "client_type": "macos",
-  "firmware": "3.0.0",
-  "app_version": "3.0.0",
+  "firmware": "3.0.25",
+  "app_version": "3.0.25",
   "platform": "macos"
 }
 ```
@@ -107,7 +107,7 @@ Expected response:
   "message": "DJConnect Home Assistant integration and device firmware major.minor versions must match.",
   "ha_version": "3.1.0",
   "ha_major_minor": "3.1",
-  "firmware": "3.0.0",
+  "firmware": "3.0.25",
   "firmware_major_minor": "3.0"
 }
 ```
@@ -133,7 +133,7 @@ Recommended user flow:
 5. Integration creates or returns a DJConnect bearer token for the app runtime.
 6. App stores only the DJConnect bearer token in Keychain.
 7. App starts sending authenticated status and command payloads with
-   `client_id` and `client_type`.
+   `device_id` and `client_type`.
 
 The iOS/macOS app is an app client, not local ESP hardware. It must not expose
 or consume ESP-local `/api/device/*` routes.
@@ -154,8 +154,8 @@ X-DJConnect-Device-ID: <device_id>
   "device_id": "djconnect-macos-8F3A2C91B45D",
   "device_name": "DJConnect Mac",
   "client_type": "macos",
-  "firmware": "3.0.0",
-  "app_version": "3.0.0",
+  "firmware": "3.0.25",
+  "app_version": "3.0.25",
   "platform": "macos",
   "pair_code": "123456",
   "pairing_code": "123456",
@@ -220,8 +220,8 @@ Minimum payload:
   "device_id": "djconnect-ios-8F3A2C91B45D",
   "client_type": "ios",
   "ha_pairing_status": "paired",
-  "firmware": "3.0.0",
-  "app_version": "3.0.0",
+  "firmware": "3.0.25",
+  "app_version": "3.0.25",
   "state": "online",
   "status": "online",
   "battery_percent": 85,
@@ -269,9 +269,14 @@ Send generic playback commands to:
 POST /api/djconnect/command
 ```
 
-All command payloads must include `client_id` and `client_type`. During
-temporary route compatibility the app also sends `device_id` with the same
+All command payloads must include `device_id` and `client_type`. During
+temporary route compatibility the app also sends `client_id` with the same
 stable app-client value.
+
+Keep command payloads focused on playback commands and client identity. Do not
+send partial device-status snapshots in `/api/djconnect/command`; use
+`/api/djconnect/status` as the authoritative source for client status and
+settings mirrored into Home Assistant entities.
 
 Examples:
 

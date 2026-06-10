@@ -28,7 +28,7 @@ let package = Package(
         ),
         .testTarget(
             name: "DJConnectCoreTests",
-            dependencies: ["DJConnectCore"]
+            dependencies: ["DJConnectCore", "DJConnectUI"]
         )
     ]
 )

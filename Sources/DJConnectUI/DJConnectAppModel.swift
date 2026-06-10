@@ -67,7 +67,7 @@ public final class DJConnectAppModel: ObservableObject {
     @Published public var localResponseAudioEnabled = true
     @Published public private(set) var diagnosticLogLines: [DJConnectDiagnosticLogLine] = []
 
-    public let identity: DJConnectIdentity
+    @Published public private(set) var identity: DJConnectIdentity
 
     private let logger: Logger
     private var pairingTask: Task<Void, Never>?
@@ -75,7 +75,8 @@ public final class DJConnectAppModel: ObservableObject {
     private var volumeCommandTask: Task<Void, Never>?
     private let defaults: UserDefaults
     private let tokenStore: DJConnectTokenStore
-    private let appVersion = "3.0.0"
+    private static let protocolVersion = "3.0.25"
+    private let appVersion = DJConnectAppModel.protocolVersion
     private let installIDKey = "DJConnectInstallID"
     private let homeAssistantURLKey = "DJConnectHomeAssistantURL"
     private let pairingTokenKey = "DJConnectPairingToken"
@@ -245,6 +246,8 @@ public final class DJConnectAppModel: ObservableObject {
         pairingTask?.cancel()
         pairingTask = nil
         try? tokenStore.clearToken()
+        defaults.removeObject(forKey: installIDKey)
+        identity = Self.makeIdentity(defaults: defaults)
         _ = newPairingToken()
         pairingStatus = .unpaired
         isConnected = false
@@ -641,8 +644,8 @@ public final class DJConnectAppModel: ObservableObject {
             deviceID: "djconnect-macos-\(installID.prefix(12))",
             deviceName: "DJConnect Mac",
             clientType: .macos,
-            firmware: "3.0.0",
-            appVersion: "3.0.0",
+            firmware: protocolVersion,
+            appVersion: protocolVersion,
             platform: .macos
         )
         #else
@@ -652,8 +655,8 @@ public final class DJConnectAppModel: ObservableObject {
             deviceID: "djconnect-ios-\(installID.prefix(12))",
             deviceName: "DJConnect iPhone",
             clientType: .ios,
-            firmware: "3.0.0",
-            appVersion: "3.0.0",
+            firmware: protocolVersion,
+            appVersion: protocolVersion,
             platform: .ios
         )
         #endif

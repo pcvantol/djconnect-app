@@ -5,14 +5,14 @@ This document captures the app-to-Home Assistant DJConnect contract used by
 
 ## Identity
 
-Every app installation needs a stable `client_id`. During transitional Home
-Assistant route compatibility the app also sends the same value as `device_id`,
-but app clients should be stored and reasoned about as clients, not ESP
-devices.
+Every app installation needs a stable `device_id`. The app also sends the same
+value as `client_id` while app-client support and Home Assistant route
+compatibility are being finalized. Home Assistant should treat the Apple client
+as an app client identified by `client_type`, not as an ESP emulator.
 
-The app must keep `client_id` stable across pairing reset/retry flows. Resetting
-pairing clears only the bearer token and generates a new app code; it must not
-change the app client identity.
+The suffix should stay stable across app launches. Explicit user pairing reset
+clears the bearer token, generates a new app code, and creates a fresh local
+install identity.
 
 ```json
 {
@@ -21,8 +21,8 @@ change the app client identity.
   "device_id": "djconnect-ios-8F3A2C91B45D",
   "device_name": "DJConnect iPhone",
   "client_type": "ios",
-  "firmware": "3.0.0",
-  "app_version": "3.0.0",
+  "firmware": "3.0.25",
+  "app_version": "3.0.25",
   "platform": "ios"
 }
 ```
@@ -73,8 +73,8 @@ Payload:
   "device_id": "djconnect-macos-8F3A2C91B45D",
   "device_name": "DJConnect Mac",
   "client_type": "macos",
-  "firmware": "3.0.0",
-  "app_version": "3.0.0",
+  "firmware": "3.0.25",
+  "app_version": "3.0.25",
   "platform": "macos",
   "pair_code": "123456",
   "pairing_code": "123456",
@@ -122,8 +122,8 @@ Minimum payload:
   "device_id": "djconnect-ios-8F3A2C91B45D",
   "client_type": "ios",
   "ha_pairing_status": "paired",
-  "firmware": "3.0.0",
-  "app_version": "3.0.0",
+  "firmware": "3.0.25",
+  "app_version": "3.0.25",
   "state": "online",
   "status": "online",
   "battery_percent": 85,
@@ -138,6 +138,11 @@ Minimum payload:
 ```http
 POST /api/djconnect/command
 ```
+
+Command payloads are focused on playback commands and client identity. Do not
+send partial status snapshots in `/api/djconnect/command`; use
+`/api/djconnect/status` as the authoritative source for client status and
+settings mirrored into Home Assistant entities.
 
 Examples:
 
