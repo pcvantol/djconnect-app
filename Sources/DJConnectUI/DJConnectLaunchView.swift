@@ -34,19 +34,30 @@ public struct DJConnectLaunchContainer<Content: View>: View {
 
 private struct DJConnectLaunchView: View {
     var body: some View {
-        ZStack {
-            Color(red: 0.09, green: 0.07, blue: 0.12)
-                .ignoresSafeArea()
-            VStack(spacing: 18) {
-                DJConnectAppIconView()
-                    .frame(width: 120, height: 120)
-                    .clipShape(RoundedRectangle(cornerRadius: 26, style: .continuous))
-                    .shadow(color: .black.opacity(0.22), radius: 18, y: 10)
-                Text("DJConnect")
-                    .font(.system(size: 34, weight: .bold, design: .default))
-                    .foregroundStyle(.white)
+        GeometryReader { proxy in
+            let shortestSide = min(proxy.size.width, proxy.size.height)
+            let iconSize = min(max(shortestSide * 0.22, 132), 240)
+            let titleSize = min(max(shortestSide * 0.075, 44), 76)
+
+            ZStack {
+                Color(red: 0.09, green: 0.07, blue: 0.12)
+                    .ignoresSafeArea()
+                VStack(spacing: max(20, iconSize * 0.16)) {
+                    DJConnectAppIconView()
+                        .frame(width: iconSize, height: iconSize)
+                        .clipShape(RoundedRectangle(cornerRadius: iconSize * 0.22, style: .continuous))
+                        .shadow(color: .black.opacity(0.24), radius: iconSize * 0.13, y: iconSize * 0.07)
+                    Text("DJConnect")
+                        .font(.system(size: titleSize, weight: .bold, design: .default))
+                        .foregroundStyle(.white)
+                        .multilineTextAlignment(.center)
+                        .minimumScaleFactor(0.72)
+                        .padding(.horizontal, 40)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .offset(y: -shortestSide * 0.04)
+                .accessibilityElement(children: .combine)
             }
-            .accessibilityElement(children: .combine)
         }
     }
 }
@@ -54,7 +65,7 @@ private struct DJConnectLaunchView: View {
 struct DJConnectAppIconView: View {
     var body: some View {
         #if os(iOS)
-        if let image = UIImage(named: "AppIcon") {
+        if let image = UIImage(named: "LaunchIcon") ?? UIImage(named: "AppIcon") {
             Image(uiImage: image)
                 .resizable()
                 .scaledToFit()

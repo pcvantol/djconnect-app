@@ -377,7 +377,7 @@ private struct IOSPlaybackSurface: View {
                 )) {
                     Text(localized(model.language, "Off", "Uit")).tag(DJConnectRepeatState.off)
                     Text(localized(model.language, "Track", "Track")).tag(DJConnectRepeatState.track)
-                    Text("Context").tag(DJConnectRepeatState.context)
+                    Text(localized(model.language, "Context", "Context")).tag(DJConnectRepeatState.context)
                 }
                 .pickerStyle(.segmented)
             }
@@ -602,7 +602,7 @@ struct PlaybackControlsView: View {
                 )) {
                     Text(localized(model.language, "Off", "Uit")).tag(DJConnectRepeatState.off)
                     Text(localized(model.language, "Track", "Track")).tag(DJConnectRepeatState.track)
-                    Text("Context").tag(DJConnectRepeatState.context)
+                    Text(localized(model.language, "Context", "Context")).tag(DJConnectRepeatState.context)
                 }
                 .pickerStyle(.segmented)
             }
@@ -650,11 +650,11 @@ struct QueueView: View {
     var body: some View {
         NavigationStack {
             List {
-                Section(localized(model.language, "Output", "Output")) {
+                Section(localized(model.language, "Output", "Uitvoer")) {
                     if model.availableOutputs.isEmpty {
                         Label(localizedOutputName(model.selectedOutput, language: model.language), systemImage: "speaker.wave.2")
                     } else {
-                        Picker(localized(model.language, "Output", "Output"), selection: Binding(
+                        Picker(localized(model.language, "Output", "Uitvoer"), selection: Binding(
                             get: { model.selectedOutput },
                             set: { selected in
                                 if let output = model.availableOutputs.first(where: { $0.name == selected || $0.id == selected }) {
@@ -671,7 +671,7 @@ struct QueueView: View {
                     Button {
                         model.loadOutputs()
                     } label: {
-                        Label(localized(model.language, "Reload Outputs", "Outputs herladen"), systemImage: "arrow.clockwise")
+                        Label(localized(model.language, "Reload Outputs", "Uitvoer herladen"), systemImage: "arrow.clockwise")
                     }
                 }
                 Section(localized(model.language, "Queue", "Wachtrij")) {
@@ -695,14 +695,14 @@ struct QueueView: View {
                         Label(localized(model.language, "Reload Queue", "Wachtrij herladen"), systemImage: "arrow.clockwise")
                     }
                 }
-                Section(localized(model.language, "Playlists", "Playlists")) {
+                Section(localized(model.language, "Playlists", "Afspeellijsten")) {
                     Button {
                         model.startLikedProxy()
                     } label: {
-                        Label(localized(model.language, "Start Liked Songs", "Start gelikete nummers"), systemImage: "heart.fill")
+                        Label(localized(model.language, "Start Liked Songs", "Gelikete nummers starten"), systemImage: "heart.fill")
                     }
                     if model.playlistItems.isEmpty {
-                        ContentUnavailableView(localized(model.language, "No Playlists", "Geen playlists"), systemImage: "rectangle.stack")
+                        ContentUnavailableView(localized(model.language, "No Playlists", "Geen afspeellijsten"), systemImage: "rectangle.stack")
                     } else {
                         ForEach(model.playlistItems) { playlist in
                             Button {
@@ -715,7 +715,7 @@ struct QueueView: View {
                     Button {
                         model.loadPlaylists()
                     } label: {
-                        Label(localized(model.language, "Reload Playlists", "Playlists herladen"), systemImage: "arrow.clockwise")
+                        Label(localized(model.language, "Reload Playlists", "Afspeellijsten herladen"), systemImage: "arrow.clockwise")
                     }
                 }
             }
@@ -774,7 +774,7 @@ struct SettingsView: View {
                                     model.rotatePairingTokenAndWait()
                                 }
                                 .disabled(model.pairingStatus == .paired)
-                                Button(localized(model.language, "Reset Pairing", "Reset pairing"), role: .destructive) {
+                                Button(localized(model.language, "Reset Pairing", "Pairing resetten"), role: .destructive) {
                                     model.resetPairing()
                                 }
                             }
@@ -826,11 +826,11 @@ struct SettingsView: View {
                             .labelsHidden()
                             .frame(maxWidth: 260, alignment: .leading)
                         }
-                        SettingsRow(label: localized(model.language, "Voice", "Voice")) {
+                        SettingsRow(label: localized(model.language, "Voice", "Spraak")) {
                             Toggle("", isOn: $model.voiceEnabled)
                                 .labelsHidden()
                         }
-                        SettingsRow(label: localized(model.language, "Local Response Audio", "Lokale response-audio")) {
+                        SettingsRow(label: localized(model.language, "Local Response Audio", "Lokale antwoord-audio")) {
                             Toggle("", isOn: $model.localResponseAudioEnabled)
                                 .labelsHidden()
                         }
@@ -915,7 +915,7 @@ private struct AboutView: View {
                     SettingsRow(label: localized(model.language, "Platform", "Platform")) {
                         SelectableValue(model.identity.platform.rawValue)
                     }
-                    SettingsRow(label: localized(model.language, "Device Name", "Device naam")) {
+                    SettingsRow(label: localized(model.language, "Device Name", "Apparaatnaam")) {
                         SelectableValue(model.identity.deviceName)
                     }
                     SettingsRow(label: localized(model.language, "Device ID", "Device ID")) {
@@ -927,7 +927,7 @@ private struct AboutView: View {
                 }
 
                 SettingsSection(title: localized(model.language, "Connection", "Verbinding")) {
-                    SettingsRow(label: localized(model.language, "Pairing", "Pairing")) {
+                    SettingsRow(label: localized(model.language, "Pairing", "Koppeling")) {
                         SelectableValue(model.pairingStatus.rawValue)
                     }
                     if let localDeviceAPIURL = model.localDeviceAPIURL, !localDeviceAPIURL.isEmpty {

@@ -42,6 +42,11 @@ All notable changes to DJConnect App are documented here.
   details.
 - Made iPadOS support explicit in the project template so the iOS target remains
   universal for iPhone and iPad after project regeneration.
+- Improved the iPad launch experience with a full-screen DJConnect hero layout
+  and a dedicated launch image asset instead of relying on the app icon catalog
+  entry at launch time.
+- Reviewed visible shared UI labels and tightened Dutch translations for
+  output, playlist, voice, pairing, reset, and diagnostics text.
 
 ## 3.1.0 - 2026-06-10
 

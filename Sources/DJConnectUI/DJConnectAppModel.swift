@@ -597,7 +597,7 @@ public final class DJConnectAppModel: ObservableObject {
             isConnected = false
             pairingMessage = localized(
                 english: "Missing DJConnect bearer token. Reset pairing to set up again.",
-                dutch: "DJConnect bearer-token ontbreekt. Reset pairing om opnieuw te koppelen."
+                dutch: "DJConnect bearer-token ontbreekt. Reset de pairing om opnieuw te koppelen."
             )
         default:
             break
