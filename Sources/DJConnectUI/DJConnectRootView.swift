@@ -111,6 +111,7 @@ struct NowPlayingView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 24) {
+                    AboutBanner()
                     VoiceResponseView(model: model)
                     SetupStatusView(model: model)
                     TrackSummaryView(playback: model.playback, language: model.language)
@@ -165,6 +166,7 @@ private struct IOSNowPlayingView: View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 16) {
+                    AboutBanner()
                     IOSVoiceCard(model: model)
                     IOSConnectionCard(model: model)
                     IOSTrackHero(model: model)
@@ -176,6 +178,7 @@ private struct IOSNowPlayingView: View {
             }
             .background(Color(uiColor: .systemGroupedBackground))
             .navigationTitle("DJConnect")
+            .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     RefreshButton(model: model)
@@ -428,32 +431,63 @@ private struct IOSPlaybackSurface: View {
 
 private struct IOSVoiceCard: View {
     @ObservedObject var model: DJConnectAppModel
+    private var isVoiceAvailable: Bool {
+        model.voiceEnabled && model.pairingStatus == .paired && model.backendAvailable && model.voiceStatus != .processing
+    }
+
+    private var announcementText: String {
+        switch model.voiceStatus {
+        case .listening:
+            return localized(model.language, "Listening...", "Luistert...")
+        case .processing:
+            return localized(model.language, "Processing...", "Verwerken...")
+        case .unavailable:
+            if !model.djResponseText.isEmpty {
+                return model.djResponseText
+            }
+            return localized(model.language, "DJ announcement is currently unavailable", "DJ aankondiging momenteel niet beschikbaar")
+        case .idle:
+            if !model.djResponseText.isEmpty {
+                return model.djResponseText
+            }
+            if !model.backendAvailable {
+                return localized(model.language, "DJ announcement is currently unavailable", "DJ aankondiging momenteel niet beschikbaar")
+            }
+            return localized(model.language, "Ready for voice response", "Klaar voor voice response")
+        }
+    }
+
+    private var announcementColor: Color {
+        switch model.voiceStatus {
+        case .listening:
+            .purple
+        case .processing:
+            .blue
+        case .unavailable:
+            .secondary
+        case .idle:
+            .secondary
+        }
+    }
 
     var body: some View {
         HStack(spacing: 12) {
             Image(systemName: "waveform")
                 .font(.title3)
-                .foregroundStyle(.purple)
+                .foregroundStyle(isVoiceAvailable ? .purple : .secondary)
                 .frame(width: 34, height: 34)
-                .background(Color.purple.opacity(0.12), in: Circle())
+                .background((isVoiceAvailable ? Color.purple : Color.secondary).opacity(0.12), in: Circle())
             VStack(alignment: .leading, spacing: 2) {
                 Text(localized(model.language, "DJ Announcement", "DJ aankondiging"))
                     .font(.headline)
-                Text(model.djResponseText.isEmpty ? localized(model.language, "Ready for voice response", "Klaar voor voice response") : model.djResponseText)
+                Text(announcementText)
                     .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(2)
+                    .foregroundStyle(announcementColor)
+                    .lineLimit(nil)
+                    .fixedSize(horizontal: false, vertical: true)
             }
             Spacer()
-            Button {
-                model.toggleVoiceRecording()
-            } label: {
-                Image(systemName: model.isRecordingVoice ? "stop.fill" : "mic.fill")
-                    .frame(width: 34, height: 34)
-            }
-            .buttonStyle(.bordered)
-            .disabled(!model.voiceEnabled || model.pairingStatus != .paired)
-            .accessibilityLabel(localized(model.language, "Push to talk", "Push-to-talk"))
+            PushToTalkButton(model: model, isEnabled: isVoiceAvailable, size: 46)
         }
         .padding(14)
         .background(Color(uiColor: .systemBackground), in: RoundedRectangle(cornerRadius: 8))
@@ -461,6 +495,58 @@ private struct IOSVoiceCard: View {
     }
 }
 #endif
+
+private struct PushToTalkButton: View {
+    @ObservedObject var model: DJConnectAppModel
+    let isEnabled: Bool
+    var size: CGFloat = 42
+    @State private var isPressing = false
+
+    var body: some View {
+        Image(systemName: model.isRecordingVoice ? "stop.fill" : "mic.fill")
+            .font(.title2.weight(.semibold))
+            .foregroundStyle(isEnabled ? .purple : .secondary)
+            .frame(width: size, height: size)
+            .background(
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .fill(Color.primary.opacity(0.06))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .stroke(Color.primary.opacity(0.12), lineWidth: 1)
+            )
+            .opacity(isEnabled ? 1 : 0.45)
+            .contentShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+            .gesture(
+                DragGesture(minimumDistance: 0)
+                    .onChanged { _ in
+                        guard isEnabled, !isPressing else {
+                            return
+                        }
+                        isPressing = true
+                        model.startVoiceRecording()
+                    }
+                    .onEnded { _ in
+                        guard isPressing else {
+                            return
+                        }
+                        isPressing = false
+                        model.stopVoiceRecordingAndUpload()
+                    }
+            )
+            .onDisappear {
+                if isPressing {
+                    isPressing = false
+                    model.stopVoiceRecordingAndUpload()
+                }
+            }
+            .accessibilityLabel(localized(model.language, "Push to talk", "Push-to-talk"))
+            .accessibilityAddTraits(.isButton)
+            .accessibilityAction {
+                model.toggleVoiceRecording()
+            }
+    }
+}
 
 struct SetupStatusView: View {
     @ObservedObject var model: DJConnectAppModel
@@ -624,6 +710,7 @@ struct PlaybackControlsView: View {
 
 private struct QueueItemRow: View {
     let item: DJConnectQueueItem
+    var isLoading = false
 
     var body: some View {
         HStack(spacing: 12) {
@@ -641,7 +728,10 @@ private struct QueueItemRow: View {
                 }
             }
             Spacer(minLength: 8)
-            if item.uri?.isEmpty == false {
+            if isLoading {
+                ProgressView()
+                    .controlSize(.small)
+            } else if item.uri?.isEmpty == false {
                 Image(systemName: "play.circle")
                     .foregroundStyle(.secondary)
             }
@@ -835,33 +925,48 @@ private extension DJConnectRepeatState {
 
 struct VoiceResponseView: View {
     @ObservedObject var model: DJConnectAppModel
+    private var isVoiceAvailable: Bool {
+        model.voiceEnabled && model.pairingStatus == .paired && model.backendAvailable && model.voiceStatus != .processing
+    }
+
+    private var announcementText: String {
+        switch model.voiceStatus {
+        case .listening:
+            return localized(model.language, "Listening...", "Luistert...")
+        case .processing:
+            return localized(model.language, "Processing...", "Verwerken...")
+        case .unavailable:
+            if !model.djResponseText.isEmpty {
+                return model.djResponseText
+            }
+            return localized(model.language, "DJ announcement is currently unavailable", "DJ aankondiging momenteel niet beschikbaar")
+        case .idle:
+            if !model.djResponseText.isEmpty {
+                return model.djResponseText
+            }
+            if !model.backendAvailable {
+                return localized(model.language, "DJ announcement is currently unavailable", "DJ aankondiging momenteel niet beschikbaar")
+            }
+            return localized(model.language, "Ready for a DJ response.", "Klaar voor een DJ-reactie.")
+        }
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Label(localized(model.language, "DJ", "DJ"), systemImage: "waveform")
+                    .foregroundStyle(isVoiceAvailable ? .primary : .secondary)
                 Spacer()
-                Button {
-                    model.toggleVoiceRecording()
-                } label: {
-                    Image(systemName: model.isRecordingVoice ? "stop.fill" : "mic.fill")
-                }
-                .buttonStyle(.bordered)
-                .disabled(!model.voiceEnabled || model.pairingStatus != .paired)
-                .help(localized(model.language, "Push to talk", "Push-to-talk"))
+                PushToTalkButton(model: model, isEnabled: isVoiceAvailable)
+                    .help(localized(model.language, "Push to talk", "Push-to-talk"))
             }
 
             if model.isRecordingVoice {
                 Label(localized(model.language, "Recording", "Neemt op"), systemImage: "record.circle")
                     .foregroundStyle(.red)
             }
-            if let voiceErrorMessage = model.voiceErrorMessage {
-                Text(voiceErrorMessage)
-                    .font(.callout)
-                    .foregroundStyle(.orange)
-            }
-            Text(model.djResponseText.isEmpty ? localized(model.language, "Ready for a DJ response.", "Klaar voor een DJ-reactie.") : model.djResponseText)
-                .foregroundStyle(model.djResponseText.isEmpty ? .secondary : .primary)
+            Text(announcementText)
+                .foregroundStyle(model.djResponseText.isEmpty || !model.backendAvailable || model.voiceStatus != .idle ? .secondary : .primary)
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
@@ -874,22 +979,26 @@ struct QueueView: View {
     var body: some View {
         NavigationStack {
             List {
-                Section(localized(model.language, "Queue", "Wachtrij")) {
-                    if model.queueItems.isEmpty {
-                        ContentUnavailableView(localized(model.language, "No Queue", "Geen wachtrij"), systemImage: "music.note.list")
-                    } else {
-                        ForEach(model.queueItems) { item in
-                            Button {
-                                model.startQueueItem(item)
-                            } label: {
-                                QueueItemRow(item: item)
-                            }
-                            .buttonStyle(.plain)
-                            .disabled(!isPaired || !model.canStartQueueItem(item))
-                            .accessibilityLabel(item.displayTitle)
+                if model.queueItems.isEmpty {
+                    ContentUnavailableView(localized(model.language, "No Queue", "Geen wachtrij"), systemImage: "music.note.list")
+                } else {
+                    ForEach(Array(model.queueItems.enumerated()), id: \.offset) { index, item in
+                        Button {
+                            model.startQueueItem(item, at: index)
+                        } label: {
+                            QueueItemRow(item: item, isLoading: model.loadingQueueItemIndex == index)
                         }
+                        .buttonStyle(.plain)
+                        .disabled(!isPaired || model.loadingQueueItemIndex != nil || !model.canStartQueueItem(item))
+                        .accessibilityLabel(item.displayTitle)
                     }
                 }
+            }
+            .refreshable {
+                guard isPaired else {
+                    return
+                }
+                await model.refreshQueue()
             }
             .navigationTitle(localized(model.language, "Queue", "Wachtrij"))
             .toolbar {
@@ -897,9 +1006,14 @@ struct QueueView: View {
                     Button {
                         model.loadQueue()
                     } label: {
-                        Image(systemName: "arrow.clockwise")
+                        if model.isLoadingQueue {
+                            ProgressView()
+                                .controlSize(.small)
+                        } else {
+                            Image(systemName: "arrow.clockwise")
+                        }
                     }
-                    .disabled(!isPaired)
+                    .disabled(!isPaired || model.isLoadingQueue)
                     .help(localized(model.language, "Reload Queue", "Wachtrij herladen"))
                     .accessibilityLabel(localized(model.language, "Reload Queue", "Wachtrij herladen"))
                 }
@@ -925,8 +1039,18 @@ struct PlaylistsView: View {
                     Button {
                         model.startLikedProxy()
                     } label: {
-                        Label(localized(model.language, "Start Liked Songs", "Gelikete nummers starten"), systemImage: "heart.fill")
+                        HStack(spacing: 12) {
+                            Image(systemName: "heart.fill")
+                                .foregroundStyle(.purple)
+                                .frame(width: 22)
+                            Text(localized(model.language, "Liked Songs", "Gelikete nummers"))
+                                .foregroundStyle(.primary)
+                            Spacer()
+                            Image(systemName: "play.fill")
+                                .foregroundStyle(.secondary)
+                        }
                     }
+                    .buttonStyle(.plain)
                     .disabled(!isPaired)
                 }
 
@@ -944,15 +1068,32 @@ struct PlaylistsView: View {
                             .disabled(!isPaired)
                         }
                     }
+                }
+            }
+            .refreshable {
+                guard isPaired else {
+                    return
+                }
+                await model.refreshPlaylists()
+            }
+            .navigationTitle(localized(model.language, "Playlists", "Afspeellijsten"))
+            .toolbar {
+                ToolbarItem {
                     Button {
                         model.loadPlaylists()
                     } label: {
-                        Label(localized(model.language, "Reload Playlists", "Afspeellijsten herladen"), systemImage: "arrow.clockwise")
+                        if model.isLoadingPlaylists {
+                            ProgressView()
+                                .controlSize(.small)
+                        } else {
+                            Image(systemName: "arrow.clockwise")
+                        }
                     }
-                    .disabled(!isPaired)
+                    .disabled(!isPaired || model.isLoadingPlaylists)
+                    .help(localized(model.language, "Reload Playlists", "Afspeellijsten herladen"))
+                    .accessibilityLabel(localized(model.language, "Reload Playlists", "Afspeellijsten herladen"))
                 }
             }
-            .navigationTitle(localized(model.language, "Playlists", "Afspeellijsten"))
             .task {
                 guard model.pairingStatus == .paired else {
                     return
@@ -1094,17 +1235,17 @@ struct SettingsView: View {
                         }
                     }
 
-                    HStack(spacing: 10) {
-                        Button(localized(model.language, "Clear Logs", "Logs wissen")) {
-                            model.clearDiagnosticLog()
-                        }
-                        .disabled(model.diagnosticLogLines.isEmpty)
-                        Button {
-                            copyText(model.diagnosticExportText())
-                        } label: {
-                            Label(localized(model.language, "Copy Logs", "Logs kopiëren"), systemImage: "doc.on.doc")
-                        }
+                    Button {
+                        copyText(model.diagnosticExportText())
+                    } label: {
+                        Label(localized(model.language, "Copy Logs", "Logs kopiëren"), systemImage: "doc.on.doc")
                     }
+                    .disabled(model.diagnosticLogLines.isEmpty)
+
+                    Button(localized(model.language, "Clear Logs", "Logs wissen"), role: .destructive) {
+                        model.clearDiagnosticLog()
+                    }
+                    .disabled(model.diagnosticLogLines.isEmpty)
                 }
             }
             #if os(iOS)
@@ -1273,9 +1414,6 @@ private struct SettingsSection<Content: View>: View {
                 .foregroundStyle(.secondary)
                 .textCase(.uppercase)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, 12)
-                .padding(.vertical, 7)
-                .background(Color.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
             VStack(alignment: .leading, spacing: 10) {
                 content
             }

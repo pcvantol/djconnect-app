@@ -41,6 +41,13 @@ public struct DJConnectDiagnosticLogLine: Identifiable, Equatable, Sendable {
     }
 }
 
+public enum DJConnectVoiceStatus: Equatable, Sendable {
+    case idle
+    case listening
+    case processing
+    case unavailable
+}
+
 @MainActor
 public final class DJConnectAppModel: ObservableObject {
     @Published public var homeAssistantURL = "" {
@@ -59,6 +66,8 @@ public final class DJConnectAppModel: ObservableObject {
     @Published public var isConnected = false
     @Published public var isPairing = false
     @Published public var isRefreshing = false
+    @Published public private(set) var isLoadingQueue = false
+    @Published public private(set) var isLoadingPlaylists = false
     @Published public var backendAvailable = true
     @Published public var updateRequiredMessage: String?
     @Published public var pairingMessage: String?
@@ -67,11 +76,14 @@ public final class DJConnectAppModel: ObservableObject {
     @Published public var playlists: [String] = []
     @Published public var availableOutputs: [DJConnectOutputDevice] = []
     @Published public var queueItems: [DJConnectQueueItem] = []
+    @Published public private(set) var loadingQueueItemID: String?
+    @Published public private(set) var loadingQueueItemIndex: Int?
     @Published public var queueContext: String?
     @Published public var playlistItems: [DJConnectPlaylist] = []
     @Published public var selectedOutput = "Not selected"
     @Published public var djResponseText = ""
     @Published public var isRecordingVoice = false
+    @Published public var voiceStatus: DJConnectVoiceStatus = .idle
     @Published public var voiceErrorMessage: String?
     @Published public var logLevel = "info" {
         didSet {
@@ -441,17 +453,41 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     public func loadQueue() {
-        log(.info, "Loading queue")
         Task {
-            await performCommand("queue")
+            await refreshQueue()
         }
     }
 
-    public func loadPlaylists() {
-        log(.info, "Loading playlists")
-        Task {
-            await performCommand("playlists")
+    @discardableResult
+    public func refreshQueue() async -> Bool {
+        guard !isLoadingQueue else {
+            return false
         }
+        isLoadingQueue = true
+        defer {
+            isLoadingQueue = false
+        }
+        log(.info, "Loading queue")
+        return await performCommand("queue")
+    }
+
+    public func loadPlaylists() {
+        Task {
+            await refreshPlaylists()
+        }
+    }
+
+    @discardableResult
+    public func refreshPlaylists() async -> Bool {
+        guard !isLoadingPlaylists else {
+            return false
+        }
+        isLoadingPlaylists = true
+        defer {
+            isLoadingPlaylists = false
+        }
+        log(.info, "Loading playlists")
+        return await performCommand("playlists")
     }
 
     public func selectOutput(_ output: DJConnectOutputDevice) {
@@ -480,7 +516,7 @@ public final class DJConnectAppModel: ObservableObject {
         item.uri?.isEmpty == false && resolvedQueueContext?.isEmpty == false
     }
 
-    public func startQueueItem(_ item: DJConnectQueueItem) {
+    public func startQueueItem(_ item: DJConnectQueueItem, at index: Int? = nil) {
         guard let uri = item.uri, !uri.isEmpty else {
             log(.warning, "Queue item \(item.title) cannot start because it has no URI")
             return
@@ -499,14 +535,34 @@ public final class DJConnectAppModel: ObservableObject {
             "title": item.title,
             "context_uri": contextURI
         ]
-        if let index = queueItems.firstIndex(where: { $0.id == item.id }) {
+        if let index {
+            payload["index"] = String(index)
+        } else if let index = queueItems.firstIndex(where: { $0.id == item.id }) {
             payload["index"] = String(index)
         }
         if let artist = item.artist, !artist.isEmpty {
             payload["artist"] = artist
         }
         log(.info, "Starting queue item \(item.title)")
-        sendPlaybackCommand("play_context_at", value: .object(payload), play: true)
+        loadingQueueItemID = item.id
+        loadingQueueItemIndex = index
+        Task {
+            let didStart = await performCommand("play_context_at", value: .object(payload), play: true)
+            guard didStart, pairingStatus == .paired else {
+                loadingQueueItemID = nil
+                loadingQueueItemIndex = nil
+                return
+            }
+            try? await Task.sleep(for: .milliseconds(1100))
+            guard pairingStatus == .paired else {
+                loadingQueueItemID = nil
+                loadingQueueItemIndex = nil
+                return
+            }
+            await runRefresh(reason: "Queue item Now Playing refresh completed")
+            loadingQueueItemID = nil
+            loadingQueueItemIndex = nil
+        }
     }
 
     private var resolvedQueueContext: String? {
@@ -526,11 +582,16 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     public func startVoiceRecording() {
+        guard !isRecordingVoice, voiceStatus != .processing else {
+            return
+        }
         guard voiceEnabled else {
+            voiceStatus = .unavailable
             log(.warning, "Voice recording ignored because voice is disabled")
             return
         }
         guard pairingStatus == .paired else {
+            voiceStatus = .unavailable
             voiceErrorMessage = localized(
                 english: "Pair with Home Assistant before using voice.",
                 dutch: "Koppel eerst met Home Assistant voordat je voice gebruikt."
@@ -542,6 +603,7 @@ public final class DJConnectAppModel: ObservableObject {
         Task { @MainActor in
             let granted = await requestMicrophoneAccess()
             guard granted else {
+                voiceStatus = .unavailable
                 voiceErrorMessage = localized(
                     english: "Microphone access is required for push-to-talk.",
                     dutch: "Microfoontoegang is nodig voor push-to-talk."
@@ -564,11 +626,13 @@ public final class DJConnectAppModel: ObservableObject {
         voiceRecorder = nil
         voiceRecordingURL = nil
         isRecordingVoice = false
+        voiceStatus = .processing
         #if os(iOS)
         try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
         #endif
 
         guard let url else {
+            voiceStatus = .unavailable
             log(.warning, "Voice upload skipped because recording URL is missing")
             return
         }
@@ -579,28 +643,37 @@ public final class DJConnectAppModel: ObservableObject {
                 try? FileManager.default.removeItem(at: url)
                 log(.info, "Uploading voice recording WAV (\(data.count) bytes)")
                 let response = try await sendVoiceWithFallback(wavData: data)
-                djResponseText = response.djText ?? response.text ?? localized(
+                djResponseText = userFacingDJResponseText(response.djText ?? response.text) ?? localized(
                     english: "Voice request completed.",
                     dutch: "Voice-request afgerond."
                 )
-                let audioURL = response.audioURL
                 Task {
-                    await playResponseAudioIfNeeded(audioURL)
+                    await playResponseAudioIfNeeded(resolvedAudioURL(from: response.audioURL))
                 }
                 await refreshAfterDJResponse()
                 voiceErrorMessage = nil
+                voiceStatus = .idle
                 log(.info, "Voice request completed")
             } catch let error as DJConnectError {
-                voiceErrorMessage = Self.describe(error)
-                log(.warning, "Voice upload failed: \(Self.describe(error))")
+                let describedError = Self.describe(error)
+                if let userFacingError = userFacingDJResponseText(describedError) {
+                    djResponseText = userFacingError
+                    voiceErrorMessage = userFacingError
+                } else {
+                    voiceErrorMessage = describedError
+                }
+                voiceStatus = .unavailable
+                log(.warning, "Voice upload failed: \(describedError)")
                 apply(error: error)
             } catch {
                 voiceErrorMessage = error.localizedDescription
+                voiceStatus = .unavailable
                 log(.error, "Voice upload failed unexpectedly: \(error.localizedDescription)")
             }
         }
         #else
         isRecordingVoice = false
+        voiceStatus = .unavailable
         voiceErrorMessage = localized(
             english: "Voice recording is not available on this platform.",
             dutch: "Voice-opname is niet beschikbaar op dit platform."
@@ -645,6 +718,9 @@ public final class DJConnectAppModel: ObservableObject {
             apply(playback: playback)
         }
         backendAvailable = response.backendAvailable ?? backendAvailable
+        if backendAvailable, voiceStatus == .unavailable, voiceErrorMessage == nil {
+            voiceStatus = .idle
+        }
         if let devices = response.devices {
             availableOutputs = devices
             if let active = devices.first(where: { $0.active == true }) {
@@ -670,7 +746,7 @@ public final class DJConnectAppModel: ObservableObject {
             playlists = responsePlaylists.map(\.name)
         }
         if let message = response.message, !message.isEmpty {
-            djResponseText = message
+            djResponseText = userFacingDJResponseText(message) ?? message
         }
     }
 
@@ -694,12 +770,12 @@ public final class DJConnectAppModel: ObservableObject {
 
     public func apply(localDJResponse response: DJConnectLocalDJResponseRequest) {
         if let text = response.djText ?? response.text, !text.isEmpty {
-            djResponseText = text
+            djResponseText = userFacingDJResponseText(text) ?? text
         }
         if let audioURL = response.audioURL, !audioURL.isEmpty {
             log(.info, "Received DJ response audio URL from Home Assistant")
             Task {
-                await playResponseAudioIfNeeded(Self.normalizedHomeAssistantURL(from: audioURL))
+                await playResponseAudioIfNeeded(resolvedAudioURL(from: URL(string: audioURL)))
             }
         }
         Task {
@@ -712,10 +788,10 @@ public final class DJConnectAppModel: ObservableObject {
         switch error {
         case let .backendUnavailable(message):
             backendAvailable = false
-            djResponseText = message ?? localized(
-                english: "Playback backend unavailable",
-                dutch: "Playback-backend niet beschikbaar"
-            )
+            voiceStatus = .unavailable
+            if let message, !message.isEmpty {
+                log(.warning, "Backend unavailable: \(message)")
+            }
         case let .versionMismatch(mismatch):
             updateRequiredMessage = mismatch.message ?? localized(
                 english: "DJConnect update required",
@@ -742,6 +818,10 @@ public final class DJConnectAppModel: ObservableObject {
                 english: "DJConnect is not configured in Home Assistant.",
                 dutch: "DJConnect is niet geconfigureerd in Home Assistant."
             )
+        case let .server(_, message):
+            if let userFacingError = userFacingDJResponseText(message ?? Self.describe(error)) {
+                djResponseText = userFacingError
+            }
         case .missingToken:
             pairingStatus = .stale
             isConnected = false
@@ -909,10 +989,15 @@ public final class DJConnectAppModel: ObservableObject {
         playlists = []
         availableOutputs = []
         queueItems = []
+        loadingQueueItemID = nil
+        loadingQueueItemIndex = nil
+        isLoadingQueue = false
+        isLoadingPlaylists = false
         queueContext = nil
         playlistItems = []
         selectedOutput = "Not selected"
         djResponseText = ""
+        voiceStatus = .idle
         backendAvailable = true
         updateRequiredMessage = nil
         isRefreshing = false
@@ -957,6 +1042,47 @@ public final class DJConnectAppModel: ObservableObject {
 
     private func sendVoiceWithFallback(wavData: Data) async throws -> DJConnectVoiceResponse {
         try await makeClient().sendVoice(wavData: wavData)
+    }
+
+    private func userFacingDJResponseText(_ text: String?) -> String? {
+        guard let text, !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            return nil
+        }
+        let normalized = text.lowercased()
+        if normalized.contains("did not return recognized text") {
+            log(.info, "HA Assist STT did not recognize the input")
+            return localized(english: "Input not recognized", dutch: "Invoer niet herkend")
+        }
+        if normalized.contains("not recognized") || normalized.contains("not_recognized") {
+            log(.info, "STT response was not recognized")
+            return localized(english: "Not recognized", dutch: "Niet herkend")
+        }
+        if normalized.contains("spotify authorization")
+            || normalized.contains("reauthorize djconnect")
+            || normalized.contains("start_spotify_oauth")
+            || normalized.contains("spotify oauth") {
+            log(.warning, "Spotify authorization needs refresh: \(text)")
+            return localized(
+                english: "Refresh the Spotify connection in Home Assistant",
+                dutch: "Ververs Spotify koppeling in Home Assistant"
+            )
+        }
+        return text
+    }
+
+    private func resolvedAudioURL(from audioURL: URL?) -> URL? {
+        guard let audioURL else {
+            log(.warning, "DJ response did not include an audio URL")
+            return nil
+        }
+        if audioURL.scheme?.isEmpty == false {
+            return audioURL
+        }
+        guard let baseURL = Self.normalizedHomeAssistantURL(from: localHomeAssistantURL()) else {
+            log(.warning, "DJ response audio URL is relative but Home Assistant URL is invalid")
+            return nil
+        }
+        return URL(string: audioURL.absoluteString, relativeTo: baseURL)?.absoluteURL
     }
 
     private func playResponseAudioIfNeeded(_ audioURL: URL?) async {
@@ -1499,13 +1625,16 @@ public final class DJConnectAppModel: ObservableObject {
             voiceRecordingURL = url
             voiceErrorMessage = nil
             isRecordingVoice = true
+            voiceStatus = .listening
             log(.info, "Voice recording started")
         } catch {
             isRecordingVoice = false
+            voiceStatus = .unavailable
             voiceErrorMessage = error.localizedDescription
             log(.error, "Voice recording failed: \(error.localizedDescription)")
         }
         #else
+        voiceStatus = .unavailable
         voiceErrorMessage = localized(
             english: "Voice recording is not available on this platform.",
             dutch: "Voice-opname is niet beschikbaar op dit platform."

@@ -828,7 +828,35 @@ public struct DJConnectVoiceResponse: Codable, Equatable, Sendable {
         case text
         case djText = "dj_text"
         case audioURL = "audio_url"
+        case audioUrl
+        case responseAudioURL = "response_audio_url"
+        case responseAudioUrl
+        case mediaURL = "media_url"
+        case mediaUrl
         case audioType = "audio_type"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        success = try container.decodeIfPresent(Bool.self, forKey: .success) ?? true
+        text = try container.decodeIfPresent(String.self, forKey: .text)
+        djText = try container.decodeIfPresent(String.self, forKey: .djText)
+        audioURL = try container.decodeIfPresent(URL.self, forKey: .audioURL)
+            ?? container.decodeIfPresentIgnoringErrors(URL.self, forKey: .audioUrl)
+            ?? container.decodeIfPresentIgnoringErrors(URL.self, forKey: .responseAudioURL)
+            ?? container.decodeIfPresentIgnoringErrors(URL.self, forKey: .responseAudioUrl)
+            ?? container.decodeIfPresentIgnoringErrors(URL.self, forKey: .mediaURL)
+            ?? container.decodeIfPresentIgnoringErrors(URL.self, forKey: .mediaUrl)
+        audioType = try container.decodeIfPresent(String.self, forKey: .audioType)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(success, forKey: .success)
+        try container.encodeIfPresent(text, forKey: .text)
+        try container.encodeIfPresent(djText, forKey: .djText)
+        try container.encodeIfPresent(audioURL, forKey: .audioURL)
+        try container.encodeIfPresent(audioType, forKey: .audioType)
     }
 }
 

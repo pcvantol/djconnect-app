@@ -106,10 +106,42 @@ All notable changes to DJConnect App are documented here.
   to `INF`, `DBG`, `WRN`, and `ERR`.
 - Constrained Now Playing album art to stable square bounds so long artwork
   never pushes title and artist text off screen.
+- Forced a full Now Playing refresh after selecting a queue item so the active
+  track and album art update after Home Assistant/Spotify settle.
+- Moved technical DJ announcement backend errors out of the UI and into logs,
+  with a friendly unavailable state and disabled purple microphone styling.
+- Added the DJConnect banner to Now Playing and made the iOS navigation title
+  appear inline while scrolling.
+- Added voice status steps for push-to-talk: listening while recording and
+  processing while the WAV upload/DJ response is pending.
+- Changed the microphone control to true press-to-hold PTT: press starts
+  recording, release stops and uploads the WAV immediately.
+- Removed the duplicate Queue section label and added pull-to-refresh for the
+  queue list.
+- Added a row-level loading spinner while a queue item is being started and the
+  Now Playing/queue refresh is still pending.
+- Added toolbar refresh spinners for Queue and Playlists, with pull-to-refresh
+  waiting for the actual backend refresh to finish.
+- Used queue row positions as SwiftUI identities so repeated Spotify tracks in
+  the queue no longer trigger duplicate-ID warnings.
+- Removed the background bands from About section headers.
+- Made the DJ announcement card grow vertically for longer responses instead
+  of truncating after two lines.
+- Resolved relative DJ response audio URLs against the Home Assistant local URL
+  and accepted common audio URL aliases in voice responses.
+- Translated Spotify OAuth/backend voice responses into a friendly prompt to
+  refresh the Spotify connection in Home Assistant, while keeping the technical
+  response in logs.
+- Translated STT not-recognized responses to a short user-facing "Niet
+  herkend" message.
+- Mapped the HA Assist "did not return recognized text" voice failure to the
+  friendly Dutch DJ announcement label "Invoer niet herkend".
 - Split playlists into a dedicated iOS/macOS page and added the About page to
   the iOS/iPadOS tab bar.
 - Restyled playlist rows with primary text and a purple play icon instead of
   default link-colored labels.
+- Reworked the default liked-songs playlist row to match queue/playlists rows
+  with white text and a trailing play icon.
 - Renamed the visible settings diagnostics section to Logs while keeping the
   redacted diagnostics export contract unchanged.
 - Normalized playback volume from the active playback device when top-level
