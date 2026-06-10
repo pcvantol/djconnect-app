@@ -433,7 +433,7 @@ private struct IOSVoiceCard: View {
                 .frame(width: 34, height: 34)
                 .background(Color.purple.opacity(0.12), in: Circle())
             VStack(alignment: .leading, spacing: 2) {
-                Text(localized(model.language, "DJ Response", "DJ Reactie"))
+                Text(localized(model.language, "DJ Announcement", "DJ aankondiging"))
                     .font(.headline)
                 Text(model.djResponseText.isEmpty ? localized(model.language, "Ready for voice response", "Klaar voor voice response") : model.djResponseText)
                     .font(.subheadline)
