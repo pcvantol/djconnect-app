@@ -136,6 +136,12 @@ All notable changes to DJConnect App are documented here.
   herkend" message.
 - Mapped the HA Assist "did not return recognized text" voice failure to the
   friendly Dutch DJ announcement label "Invoer niet herkend".
+- Mapped HA Assist `RecognitionStatus` voice failures to the same friendly
+  "Invoer niet herkend" DJ announcement label.
+- Pinned the Client API url used during pairing until pairing reset so Home
+  Assistant keeps calling the same local app endpoint after restarts.
+- Extracted the `message` field from JSON server errors before showing DJ
+  announcement text, preventing raw JSON from appearing in the UI.
 - Split playlists into a dedicated iOS/macOS page and added the About page to
   the iOS/iPadOS tab bar.
 - Restyled playlist rows with primary text and a purple play icon instead of

@@ -208,6 +208,7 @@ public final class DJConnectLocalDeviceAPI: @unchecked Sendable {
     private let forgetHandler: ForgetHandler
     private let urlHandler: URLHandler
     private let logHandler: LogHandler
+    private let preferredPort: UInt16?
     private let encoder = JSONEncoder()
     private let decoder = JSONDecoder()
     private let queue = DispatchQueue(label: "nl.pcvantol.djconnect.local-device-api")
@@ -222,7 +223,8 @@ public final class DJConnectLocalDeviceAPI: @unchecked Sendable {
         djResponseHandler: @escaping DJResponseHandler,
         forgetHandler: @escaping ForgetHandler,
         urlHandler: @escaping URLHandler,
-        logHandler: @escaping LogHandler
+        logHandler: @escaping LogHandler,
+        preferredPort: UInt16? = nil
     ) {
         self.infoProvider = infoProvider
         self.tokenProvider = tokenProvider
@@ -232,6 +234,7 @@ public final class DJConnectLocalDeviceAPI: @unchecked Sendable {
         self.forgetHandler = forgetHandler
         self.urlHandler = urlHandler
         self.logHandler = logHandler
+        self.preferredPort = preferredPort
     }
 
     public func start() {
@@ -240,7 +243,12 @@ public final class DJConnectLocalDeviceAPI: @unchecked Sendable {
         }
 
         do {
-            let listener = try NWListener(using: .tcp, on: .any)
+            let listener: NWListener
+            if let preferredPort, let port = NWEndpoint.Port(rawValue: preferredPort) {
+                listener = try NWListener(using: .tcp, on: port)
+            } else {
+                listener = try NWListener(using: .tcp, on: .any)
+            }
             listener.service = NWListener.Service(
                 name: nil,
                 type: "_djconnect._tcp",

@@ -573,6 +573,7 @@ private func waitForLocalDeviceAPIURL(_ model: DJConnectAppModel) async throws -
     #expect(httpResponse.statusCode == 200)
     #expect(try tokenStore.loadToken() == "device-secret")
     #expect(model.localDeviceAPIURL == clientAPIURL)
+    #expect(defaults.string(forKey: "DJConnectLocalDeviceAPIURL") == clientAPIURL)
 }
 
 @Test func pairSuccessStoresReturnedBearerToken() async throws {
@@ -797,4 +798,21 @@ private func waitForLocalDeviceAPIURL(_ model: DJConnectAppModel) async throws -
         statusCode: 500,
         message: #"{"error":"server_error","device_token":"[redacted]","detail":"entity setup failed"}"#
     ))
+}
+
+@MainActor
+@Test func djAnnouncementExtractsMessageFromServerJSON() throws {
+    let suiteName = "DJConnectTests-\(UUID().uuidString)"
+    let defaults = try #require(UserDefaults(suiteName: suiteName))
+    defaults.removePersistentDomain(forName: suiteName)
+    let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore())
+
+    model.apply(localDJResponse: DJConnectLocalDJResponseRequest(
+        text: #"Spotify API failed HTTP 400: {"error":{"status":400,"message":"Can't have offset for context type: ARTIST"}}"#,
+        djText: nil,
+        audioURL: nil,
+        audioType: nil
+    ))
+
+    #expect(model.djResponseText == "Can't have offset for context type: ARTIST")
 }

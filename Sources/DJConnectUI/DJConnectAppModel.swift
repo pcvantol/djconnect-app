@@ -124,6 +124,7 @@ public final class DJConnectAppModel: ObservableObject {
     private let haLocalURLKey = "DJConnectHALocalURL"
     private let assistPipelineIDKey = "DJConnectAssistPipelineID"
     private let pairingTokenKey = "DJConnectPairingToken"
+    private let localDeviceAPIURLKey = "DJConnectLocalDeviceAPIURL"
     private let languageKey = "DJConnectLanguage"
     private let logLevelKey = "DJConnectLogLevel"
     private let maxDiagnosticLogLines = 120
@@ -168,6 +169,7 @@ public final class DJConnectAppModel: ObservableObject {
         self.homeAssistantURL = defaults.string(forKey: homeAssistantURLKey) ?? ""
         self.haLocalURL = defaults.string(forKey: haLocalURLKey) ?? ""
         self.assistPipelineID = defaults.string(forKey: assistPipelineIDKey) ?? ""
+        self.localDeviceAPIURL = defaults.string(forKey: localDeviceAPIURLKey)
         self.pairingToken = defaults.string(forKey: pairingTokenKey) ?? Self.generatePairingToken()
         self.language = defaults.string(forKey: languageKey) ?? "nl"
         self.logLevel = defaults.string(forKey: logLevelKey) ?? "info"
@@ -315,6 +317,7 @@ public final class DJConnectAppModel: ObservableObject {
         pairingTask = nil
         try? tokenStore.clearToken()
         clearStoredHomeAssistantURLs()
+        clearPinnedLocalDeviceAPIURL()
         defaults.removeObject(forKey: installIDKey)
         identity = Self.makeIdentity(defaults: defaults)
         clearRuntimeState()
@@ -1048,8 +1051,12 @@ public final class DJConnectAppModel: ObservableObject {
         guard let text, !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             return nil
         }
+        if let message = Self.extractServerJSONMessage(from: text) {
+            return userFacingDJResponseText(message) ?? message
+        }
         let normalized = text.lowercased()
-        if normalized.contains("did not return recognized text") {
+        if normalized.contains("did not return recognized text")
+            || normalized.contains("recognitionstatus") {
             log(.info, "HA Assist STT did not recognize the input")
             return localized(english: "Input not recognized", dutch: "Invoer niet herkend")
         }
@@ -1068,6 +1075,38 @@ public final class DJConnectAppModel: ObservableObject {
             )
         }
         return text
+    }
+
+    private static func extractServerJSONMessage(from text: String) -> String? {
+        guard let jsonStart = text.firstIndex(of: "{") else {
+            return nil
+        }
+        let jsonText = String(text[jsonStart...])
+        guard let data = jsonText.data(using: .utf8),
+              let object = try? JSONSerialization.jsonObject(with: data) else {
+            return nil
+        }
+        return findMessage(in: object)
+    }
+
+    private static func findMessage(in object: Any) -> String? {
+        if let dictionary = object as? [String: Any] {
+            if let message = dictionary["message"] as? String, !message.isEmpty {
+                return message
+            }
+            for value in dictionary.values {
+                if let message = findMessage(in: value) {
+                    return message
+                }
+            }
+        } else if let array = object as? [Any] {
+            for value in array {
+                if let message = findMessage(in: value) {
+                    return message
+                }
+            }
+        }
+        return nil
     }
 
     private func resolvedAudioURL(from audioURL: URL?) -> URL? {
@@ -1248,14 +1287,15 @@ public final class DJConnectAppModel: ObservableObject {
             },
             urlHandler: { [weak self] url in
                 await MainActor.run {
-                    self?.localDeviceAPIURL = url
+                    self?.applyLocalDeviceAPIURL(url)
                 }
             },
             logHandler: { [weak self] message in
                 await MainActor.run {
                     self?.log(.info, message)
                 }
-            }
+            },
+            preferredPort: pinnedLocalDeviceAPIPort()
         )
         localDeviceAPI?.start()
     }
@@ -1320,6 +1360,9 @@ public final class DJConnectAppModel: ObservableObject {
             language: request.language,
             assistPipelineID: request.assistPipelineID
         ), fallbackBaseURL: fallbackURL)
+        if let localDeviceAPIURL, !localDeviceAPIURL.isEmpty {
+            pinLocalDeviceAPIURL(localDeviceAPIURL)
+        }
         pairingStatus = .paired
         isConnected = true
         isPairing = false
@@ -1407,6 +1450,40 @@ public final class DJConnectAppModel: ObservableObject {
         defaults.removeObject(forKey: "DJConnectHAActiveURL")
         assistPipelineID = ""
         defaults.removeObject(forKey: assistPipelineIDKey)
+    }
+
+    private func applyLocalDeviceAPIURL(_ url: String?) {
+        if let pinnedURL = defaults.string(forKey: localDeviceAPIURLKey), !pinnedURL.isEmpty {
+            localDeviceAPIURL = pinnedURL
+            return
+        }
+        localDeviceAPIURL = url
+        if pairingStatus == .paired, let url, !url.isEmpty {
+            pinLocalDeviceAPIURL(url)
+        }
+    }
+
+    private func pinLocalDeviceAPIURL(_ url: String) {
+        localDeviceAPIURL = url
+        defaults.set(url, forKey: localDeviceAPIURLKey)
+        log(.info, "Pinned Client API url for current pairing")
+    }
+
+    private func clearPinnedLocalDeviceAPIURL() {
+        localDeviceAPIURL = nil
+        defaults.removeObject(forKey: localDeviceAPIURLKey)
+    }
+
+    private func pinnedLocalDeviceAPIPort() -> UInt16? {
+        guard
+            let urlString = defaults.string(forKey: localDeviceAPIURLKey),
+            let port = URL(string: urlString)?.port,
+            port > 0,
+            port <= Int(UInt16.max)
+        else {
+            return nil
+        }
+        return UInt16(port)
     }
 
     public func clearDiagnosticLog() {
