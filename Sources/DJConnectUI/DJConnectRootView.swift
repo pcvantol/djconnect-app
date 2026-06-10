@@ -14,7 +14,7 @@ private func localized(_ language: String, _ english: String, _ dutch: String) -
 private func localizedOutputName(_ outputName: String, language: String) -> String {
     switch outputName {
     case "Not selected", "No output selected":
-        localized(language, "No output selected", "Geen output geselecteerd")
+        localized(language, "No output device selected", "Geen uitvoerapparaat geselecteerd")
     default:
         outputName
     }
@@ -206,10 +206,11 @@ private struct IOSConnectionCard: View {
                     Text(localized(model.language, "Code", "Code"))
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(.secondary)
-                    Text(model.pairingToken)
-                        .font(.system(.title3, design: .monospaced).weight(.bold))
-                        .textSelection(.enabled)
-                    Spacer()
+                    CopyableValue(
+                        text: model.pairingToken,
+                        copyLabel: localized(model.language, "Copy Pairing Code", "Pairingcode kopieren"),
+                        prominent: true
+                    )
                     if model.isPairing {
                         ProgressView()
                     }
@@ -325,7 +326,7 @@ private struct IOSTrackHero: View {
                 Text(playback?.trackName ?? localized(model.language, "Nothing Playing", "Niets speelt af"))
                     .font(.title2.weight(.bold))
                     .lineLimit(2)
-                Text(playback?.artistName ?? playback?.device?.name ?? localized(model.language, "Select a playback output", "Kies een playback-output"))
+                Text(playback?.artistName ?? playback?.device?.name ?? localized(model.language, "Select an output device", "Kies een uitvoerapparaat"))
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                     .lineLimit(2)
@@ -344,6 +345,7 @@ private struct IOSTrackHero: View {
 
 private struct IOSPlaybackSurface: View {
     @ObservedObject var model: DJConnectAppModel
+    private var isPaired: Bool { model.pairingStatus == .paired }
 
     var body: some View {
         VStack(spacing: 18) {
@@ -369,6 +371,7 @@ private struct IOSPlaybackSurface: View {
                         model.commitVolumeChange()
                     }
                 }
+                .disabled(!isPaired)
                 Text("\(Int(model.volume))")
                     .font(.caption.monospacedDigit())
                     .foregroundStyle(.secondary)
@@ -389,10 +392,14 @@ private struct IOSPlaybackSurface: View {
                 }
                 .toggleStyle(.button)
                 .tint(model.playback?.shuffle == true ? .accentColor : .secondary)
+                .disabled(!isPaired)
 
                 RepeatModeButton(model: model)
+                    .disabled(!isPaired)
             }
         }
+        .disabled(!isPaired)
+        .opacity(isPaired ? 1 : 0.55)
         .padding(14)
         .background(Color(uiColor: .systemBackground), in: RoundedRectangle(cornerRadius: 8))
     }
@@ -411,6 +418,7 @@ private struct IOSPlaybackSurface: View {
                 .background(prominent ? Color.purple : Color(uiColor: .secondarySystemGroupedBackground), in: Circle())
         }
         .buttonStyle(.plain)
+        .disabled(!isPaired)
     }
 }
 
@@ -440,7 +448,7 @@ private struct IOSVoiceCard: View {
                     .frame(width: 34, height: 34)
             }
             .buttonStyle(.bordered)
-            .disabled(!model.voiceEnabled)
+            .disabled(!model.voiceEnabled || model.pairingStatus != .paired)
             .accessibilityLabel(localized(model.language, "Push to talk", "Push-to-talk"))
         }
         .padding(14)
@@ -532,7 +540,7 @@ struct TrackSummaryView: View {
                 Text(playback?.trackName ?? localized(language, "Nothing playing", "Niets speelt af"))
                     .font(.title2.weight(.semibold))
                     .lineLimit(2)
-                Text(playback?.artistName ?? playback?.device?.name ?? localized(language, "Select a playback output", "Kies een playback-output"))
+                Text(playback?.artistName ?? playback?.device?.name ?? localized(language, "Select an output device", "Kies een uitvoerapparaat"))
                     .foregroundStyle(.secondary)
                     .lineLimit(2)
             }
@@ -547,6 +555,7 @@ struct TrackSummaryView: View {
 
 struct PlaybackControlsView: View {
     @ObservedObject var model: DJConnectAppModel
+    private var isPaired: Bool { model.pairingStatus == .paired }
 
     var body: some View {
         VStack(spacing: 18) {
@@ -558,6 +567,7 @@ struct PlaybackControlsView: View {
                 }
                 .buttonStyle(.bordered)
                 .help(localized(model.language, "Previous", "Vorige"))
+                .disabled(!isPaired)
 
                 Button {
                     model.togglePlayback()
@@ -567,6 +577,7 @@ struct PlaybackControlsView: View {
                 .buttonStyle(.borderedProminent)
                 .controlSize(.large)
                 .help(model.isPlaying ? localized(model.language, "Pause", "Pauze") : localized(model.language, "Play", "Afspelen"))
+                .disabled(!isPaired)
 
                 Button {
                     model.sendPlaybackCommand("next")
@@ -575,6 +586,7 @@ struct PlaybackControlsView: View {
                 }
                 .buttonStyle(.bordered)
                 .help(localized(model.language, "Next", "Volgende"))
+                .disabled(!isPaired)
             }
 
             HStack {
@@ -584,6 +596,7 @@ struct PlaybackControlsView: View {
                         model.commitVolumeChange()
                     }
                 }
+                .disabled(!isPaired)
                 Text("\(Int(model.volume))")
                     .monospacedDigit()
                     .frame(width: 32, alignment: .trailing)
@@ -602,10 +615,13 @@ struct PlaybackControlsView: View {
                     Label(localized(model.language, "Shuffle", "Shuffle"), systemImage: "shuffle")
                 }
                 .tint(model.playback?.shuffle == true ? .accentColor : .secondary)
+                .disabled(!isPaired)
 
                 RepeatModeButton(model: model)
+                    .disabled(!isPaired)
             }
         }
+        .opacity(isPaired ? 1 : 0.55)
     }
 }
 
@@ -664,11 +680,12 @@ private struct QueueArtworkView: View {
 
 private struct OutputSelectorView: View {
     @ObservedObject var model: DJConnectAppModel
+    private var isPaired: Bool { model.pairingStatus == .paired }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Label(localized(model.language, "Output", "Uitvoer"), systemImage: "speaker.wave.2")
+                Label(localized(model.language, "Output Device", "Uitvoerapparaat"), systemImage: "speaker.wave.2")
                     .font(.headline)
                 Spacer()
                 Button {
@@ -677,8 +694,9 @@ private struct OutputSelectorView: View {
                     Image(systemName: "arrow.clockwise")
                 }
                 .buttonStyle(.borderless)
-                .help(localized(model.language, "Reload Outputs", "Uitvoer herladen"))
-                .accessibilityLabel(localized(model.language, "Reload Outputs", "Uitvoer herladen"))
+                .disabled(!isPaired)
+                .help(localized(model.language, "Reload Output Devices", "Uitvoerapparaten herladen"))
+                .accessibilityLabel(localized(model.language, "Reload Output Devices", "Uitvoerapparaten herladen"))
             }
 
             if model.availableOutputs.isEmpty {
@@ -686,7 +704,7 @@ private struct OutputSelectorView: View {
                     .foregroundStyle(.secondary)
                     .textSelection(.enabled)
             } else {
-                Picker(localized(model.language, "Output", "Uitvoer"), selection: Binding(
+                Picker(localized(model.language, "Output Device", "Uitvoerapparaat"), selection: Binding(
                     get: { model.selectedOutput },
                     set: { selected in
                         if let output = model.availableOutputs.first(where: { $0.name == selected || $0.id == selected }) {
@@ -702,8 +720,10 @@ private struct OutputSelectorView: View {
                 #if os(iOS)
                 .pickerStyle(.menu)
                 #endif
+                .disabled(!isPaired)
             }
         }
+        .opacity(isPaired ? 1 : 0.55)
         .task {
             if model.pairingStatus == .paired, model.availableOutputs.isEmpty {
                 model.loadOutputs()
@@ -800,7 +820,7 @@ struct VoiceResponseView: View {
                     Image(systemName: model.isRecordingVoice ? "stop.fill" : "mic.fill")
                 }
                 .buttonStyle(.bordered)
-                .disabled(!model.voiceEnabled)
+                .disabled(!model.voiceEnabled || model.pairingStatus != .paired)
                 .help(localized(model.language, "Push to talk", "Push-to-talk"))
             }
 
@@ -822,6 +842,7 @@ struct VoiceResponseView: View {
 
 struct QueueView: View {
     @ObservedObject var model: DJConnectAppModel
+    private var isPaired: Bool { model.pairingStatus == .paired }
 
     var body: some View {
         NavigationStack {
@@ -837,7 +858,7 @@ struct QueueView: View {
                                 QueueItemRow(item: item)
                             }
                             .buttonStyle(.plain)
-                            .disabled(item.uri?.isEmpty != false)
+                            .disabled(!isPaired || item.uri?.isEmpty != false)
                             .accessibilityLabel(item.displayTitle)
                         }
                     }
@@ -846,6 +867,7 @@ struct QueueView: View {
                     } label: {
                         Label(localized(model.language, "Reload Queue", "Wachtrij herladen"), systemImage: "arrow.clockwise")
                     }
+                    .disabled(!isPaired)
                 }
             }
             .navigationTitle(localized(model.language, "Queue", "Wachtrij"))
@@ -861,6 +883,7 @@ struct QueueView: View {
 
 struct PlaylistsView: View {
     @ObservedObject var model: DJConnectAppModel
+    private var isPaired: Bool { model.pairingStatus == .paired }
 
     var body: some View {
         NavigationStack {
@@ -871,6 +894,7 @@ struct PlaylistsView: View {
                     } label: {
                         Label(localized(model.language, "Start Liked Songs", "Gelikete nummers starten"), systemImage: "heart.fill")
                     }
+                    .disabled(!isPaired)
                 }
 
                 Section(localized(model.language, "Playlists", "Afspeellijsten")) {
@@ -884,6 +908,7 @@ struct PlaylistsView: View {
                                 PlaylistRow(playlist: playlist)
                             }
                             .buttonStyle(.plain)
+                            .disabled(!isPaired)
                         }
                     }
                     Button {
@@ -891,6 +916,7 @@ struct PlaylistsView: View {
                     } label: {
                         Label(localized(model.language, "Reload Playlists", "Afspeellijsten herladen"), systemImage: "arrow.clockwise")
                     }
+                    .disabled(!isPaired)
                 }
             }
             .navigationTitle(localized(model.language, "Playlists", "Afspeellijsten"))
@@ -939,134 +965,117 @@ struct SettingsView: View {
 
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 28) {
-                    SettingsSection(title: "Home Assistant") {
-                        SettingsRow(label: localized(model.language, "URL", "URL")) {
-                            TextField(localized(model.language, "URL", "URL"), text: $model.homeAssistantURL)
-                                .textContentType(.URL)
-                        }
-                        SettingsRow(label: localized(model.language, "Pairing Code", "Pairingcode")) {
-                            CopyableValue(
-                                text: model.pairingToken,
-                                copyLabel: localized(model.language, "Copy Pairing Code", "Pairingcode kopieren"),
-                                prominent: true
-                            )
-                        }
-                        if model.isPairing {
-                            SettingsRow(label: localized(model.language, "Status", "Status")) {
-                                ProgressView(localized(model.language, "Waiting for Home Assistant", "Wachten op Home Assistant"))
-                            }
-                        }
-                        SettingsRow(label: localized(model.language, "Actions", "Acties")) {
-                            HStack(spacing: 10) {
-                                if model.pairingStatus == .paired {
-                                    Button(localized(model.language, "Reset Pairing", "Pairing resetten"), role: .destructive) {
-                                        showingResetPairingConfirmation = true
-                                    }
-                                } else {
-                                    Button(localized(model.language, "New Code", "Nieuwe code")) {
-                                        model.rotatePairingTokenAndWait()
-                                    }
-                                }
-                            }
-                        }
-                        SettingsRow(label: localized(model.language, "Device ID", "Device ID")) {
-                            SelectableValue(model.identity.deviceID)
-                        }
-                        SettingsRow(label: localized(model.language, "Client", "Client")) {
-                            SelectableValue(model.identity.clientType.rawValue)
-                        }
-                        if !model.haLocalURL.isEmpty {
-                            SettingsRow(label: localized(model.language, "Local URL", "Lokale URL")) {
-                                SelectableValue(model.haLocalURL)
-                            }
-                        }
-                        if let localDeviceAPIURL = model.localDeviceAPIURL, !localDeviceAPIURL.isEmpty {
-                            SettingsRow(label: localized(model.language, "Local API", "Lokale API")) {
-                                CopyableValue(
-                                    text: localDeviceAPIURL,
-                                    copyLabel: localized(model.language, "Copy Local API URL", "Lokale API URL kopieren")
-                                )
-                            }
+            List {
+                Section("Home Assistant") {
+                    LabeledContent(localized(model.language, "URL", "URL")) {
+                        TextField(localized(model.language, "URL", "URL"), text: $model.homeAssistantURL)
+                            .textContentType(.URL)
+                            .multilineTextAlignment(.trailing)
+                    }
+                    LabeledContent(localized(model.language, "Pairing Code", "Pairingcode")) {
+                        CopyableValue(
+                            text: model.pairingToken,
+                            copyLabel: localized(model.language, "Copy Pairing Code", "Pairingcode kopieren"),
+                            prominent: true
+                        )
+                    }
+                    if model.isPairing {
+                        LabeledContent(localized(model.language, "Status", "Status")) {
+                            ProgressView(localized(model.language, "Waiting for Home Assistant", "Wachten op Home Assistant"))
                         }
                     }
-
-                    SettingsSection(title: localized(model.language, "App", "App")) {
-                        NavigationLink {
-                            AboutView(model: model)
-                        } label: {
-                            Label(localized(model.language, "About DJConnect", "Over DJConnect"), systemImage: "info.circle")
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                        }
-                        .buttonStyle(.plain)
-                        SettingsRow(label: localized(model.language, "Language", "Taal")) {
-                            Picker("", selection: $model.language) {
-                                Text("Nederlands").tag("nl")
-                                Text("English").tag("en")
+                    LabeledContent(localized(model.language, "Actions", "Acties")) {
+                        if model.hasStoredPairingToken {
+                            Button(localized(model.language, "Reset Pairing", "Pairing resetten"), role: .destructive) {
+                                showingResetPairingConfirmation = true
                             }
-                            .labelsHidden()
-                            .frame(maxWidth: 260, alignment: .leading)
-                        }
-                        SettingsRow(label: localized(model.language, "Log Level", "Logniveau")) {
-                            Picker("", selection: $model.logLevel) {
-                                Text("Info").tag("info")
-                                Text("Debug").tag("debug")
-                                Text(localized(model.language, "Warning", "Waarschuwing")).tag("warning")
-                                Text(localized(model.language, "Error", "Fout")).tag("error")
-                            }
-                            .labelsHidden()
-                            .frame(maxWidth: 260, alignment: .leading)
-                        }
-                        SettingsRow(label: localized(model.language, "Voice", "Spraak")) {
-                            Toggle("", isOn: $model.voiceEnabled)
-                                .labelsHidden()
-                        }
-                        SettingsRow(label: localized(model.language, "Local Response Audio", "Lokale antwoord-audio")) {
-                            Toggle("", isOn: $model.localResponseAudioEnabled)
-                                .labelsHidden()
-                        }
-                    }
-
-                    SettingsSection(title: localized(model.language, "Logs", "Logs")) {
-                        if model.diagnosticLogLines.isEmpty {
-                            ContentUnavailableView(
-                                localized(model.language, "No Logs", "Geen logs"),
-                                systemImage: "doc.text.magnifyingglass"
-                            )
-                            .frame(minHeight: 120)
                         } else {
-                            ScrollView {
-                                VStack(alignment: .leading, spacing: 6) {
-                                    ForEach(model.diagnosticLogLines) { line in
-                                        Text(line.text)
-                                            .font(.system(.caption, design: .monospaced))
-                                            .textSelection(.enabled)
-                                            .frame(maxWidth: .infinity, alignment: .leading)
-                                    }
-                                }
-                                .padding(.vertical, 4)
+                            Button(localized(model.language, "New Code", "Nieuwe code")) {
+                                model.rotatePairingTokenAndWait()
                             }
-                            .frame(minHeight: 140, maxHeight: 260)
                         }
-
-                        HStack(spacing: 10) {
-                            Button(localized(model.language, "Clear Logs", "Logs wissen")) {
-                                model.clearDiagnosticLog()
-                            }
-                            .disabled(model.diagnosticLogLines.isEmpty)
-                            Button {
-                                copyText(model.diagnosticExportText())
-                            } label: {
-                                Label(localized(model.language, "Copy Logs Export", "Logs-export kopieren"), systemImage: "doc.on.doc")
-                            }
+                    }
+                    LabeledContent(localized(model.language, "Device ID", "Device ID")) {
+                        SelectableValue(model.identity.deviceID)
+                    }
+                    LabeledContent(localized(model.language, "Client", "Client")) {
+                        SelectableValue(model.identity.clientType.rawValue)
+                    }
+                    if !model.haLocalURL.isEmpty {
+                        LabeledContent(localized(model.language, "Local URL", "Lokale URL")) {
+                            SelectableValue(model.haLocalURL)
+                        }
+                    }
+                    if let localDeviceAPIURL = model.localDeviceAPIURL, !localDeviceAPIURL.isEmpty {
+                        LabeledContent(localized(model.language, "Local API", "Lokale API")) {
+                            CopyableValue(
+                                text: localDeviceAPIURL,
+                                copyLabel: localized(model.language, "Copy Local API URL", "Lokale API URL kopieren")
+                            )
                         }
                     }
                 }
-                .frame(maxWidth: 760, alignment: .leading)
-                .padding(.horizontal, 24)
-                .padding(.vertical, 20)
+
+                Section(localized(model.language, "App", "App")) {
+                    NavigationLink {
+                        AboutView(model: model)
+                    } label: {
+                        Label(localized(model.language, "About DJConnect", "Over DJConnect"), systemImage: "info.circle")
+                    }
+                    Picker(localized(model.language, "Language", "Taal"), selection: $model.language) {
+                        Text("Nederlands").tag("nl")
+                        Text("English").tag("en")
+                    }
+                    Picker(localized(model.language, "Log Level", "Logniveau"), selection: $model.logLevel) {
+                        Text("Info").tag("info")
+                        Text("Debug").tag("debug")
+                        Text(localized(model.language, "Warning", "Waarschuwing")).tag("warning")
+                        Text(localized(model.language, "Error", "Fout")).tag("error")
+                    }
+                    Toggle(localized(model.language, "Voice", "Spraak"), isOn: $model.voiceEnabled)
+                    Toggle(localized(model.language, "Local Response Audio", "Lokale antwoord-audio"), isOn: $model.localResponseAudioEnabled)
+                }
+
+                Section(localized(model.language, "Logs", "Logs")) {
+                    if model.diagnosticLogLines.isEmpty {
+                        ContentUnavailableView(
+                            localized(model.language, "No Logs", "Geen logs"),
+                            systemImage: "doc.text.magnifyingglass"
+                        )
+                        .frame(minHeight: 120)
+                    } else {
+                        ScrollView {
+                            VStack(alignment: .leading, spacing: 6) {
+                                ForEach(model.diagnosticLogLines) { line in
+                                    Text(line.text)
+                                        .font(.system(.caption, design: .monospaced))
+                                        .textSelection(.enabled)
+                                        .frame(maxWidth: .infinity, alignment: .leading)
+                                }
+                            }
+                            .padding(.vertical, 4)
+                        }
+                        .frame(minHeight: 140, maxHeight: 260)
+                    }
+
+                    HStack(spacing: 10) {
+                        Button(localized(model.language, "Clear Logs", "Logs wissen")) {
+                            model.clearDiagnosticLog()
+                        }
+                        .disabled(model.diagnosticLogLines.isEmpty)
+                        Button {
+                            copyText(model.diagnosticExportText())
+                        } label: {
+                            Label(localized(model.language, "Copy Logs Export", "Logs-export kopieren"), systemImage: "doc.on.doc")
+                        }
+                    }
+                }
             }
+            #if os(iOS)
+            .listStyle(.insetGrouped)
+            #else
+            .listStyle(.inset)
+            #endif
             .navigationTitle(localized(model.language, "Settings", "Instellingen"))
             .task {
                 model.startPairingWait()
@@ -1074,10 +1083,9 @@ struct SettingsView: View {
             .onChange(of: model.homeAssistantURL) {
                 model.schedulePairingWait()
             }
-            .confirmationDialog(
+            .alert(
                 localized(model.language, "Reset Pairing?", "Pairing resetten?"),
-                isPresented: $showingResetPairingConfirmation,
-                titleVisibility: .visible
+                isPresented: $showingResetPairingConfirmation
             ) {
                 Button(localized(model.language, "Reset Pairing", "Pairing resetten"), role: .destructive) {
                     model.resetPairing()
@@ -1086,8 +1094,8 @@ struct SettingsView: View {
             } message: {
                 Text(localized(
                     model.language,
-                    "This removes the Home Assistant pairing token from this app.",
-                    "Dit verwijdert de Home Assistant pairing-token uit deze app."
+                    "This removes the Home Assistant pairing token from this app and disables playback controls until you pair again.",
+                    "Dit verwijdert de Home Assistant pairing-token uit deze app en schakelt playback-bediening uit tot je opnieuw koppelt."
                 ))
             }
         }
@@ -1108,7 +1116,7 @@ private struct AboutView: View {
                     VStack(alignment: .leading, spacing: 6) {
                         Text("DJConnect")
                             .font(.system(.largeTitle, design: .default).weight(.bold))
-                        Text(localized(model.language, "Your personal music DJ", "Jouw persoonlijke muziek DJ"))
+                        Text("DJConnect. Jouw persoonlijke muziek DJ")
                             .foregroundStyle(.secondary)
                     }
                 }

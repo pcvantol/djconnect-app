@@ -53,8 +53,20 @@ All notable changes to DJConnect App are documented here.
   showing the accent color for both states.
 - Moved output selection from Queue to Now Playing and kept output selection
   optimistic until Home Assistant confirms the new active output.
-- Refreshed Now Playing and backend collections automatically on startup when
-  an existing Home Assistant pairing token is present.
+- Renamed the visible playback output label to output device/Uitvoerapparaat.
+- Cleared playback, output devices, queue, playlists, and DJ response state
+  when pairing is reset, and disabled playback controls while unpaired.
+- Refreshed Now Playing and backend collections automatically on startup and
+  whenever Home Assistant completes pairing.
+- Loaded Now Playing through the backend `status` command before falling back
+  to the lightweight status endpoint, preventing manual refresh from clearing
+  album art when the status payload is sparse.
+- Added a `play_uri` fallback for queue row taps when Home Assistant does not
+  support the structured `play_queue_item` command.
+- Changed pairing reset confirmation to an explicit alert and only show the
+  reset action when a pairing token is stored.
+- Updated the user-facing proposition to "DJConnect. Jouw persoonlijke muziek
+  DJ."
 - Fixed iPadOS simulator microphone permission handling by using the iOS 17+
   recording-permission API and returning permission callbacks to the MainActor.
 - Added album-art thumbnails to queue rows and made queue items playable when

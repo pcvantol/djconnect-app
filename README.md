@@ -1,6 +1,6 @@
 # DJConnect App
 
-Native Apple client foundation for DJConnect.
+DJConnect. Jouw persoonlijke muziek DJ.
 
 This repository contains a native iOS/macOS DJConnect client scaffold that talks
 to the Home Assistant `djconnect` custom integration. Home Assistant stays the

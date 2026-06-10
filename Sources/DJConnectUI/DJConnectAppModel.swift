@@ -49,7 +49,13 @@ public final class DJConnectAppModel: ObservableObject {
     @Published public private(set) var haLocalURL = ""
     @Published public private(set) var assistPipelineID = ""
     @Published public var pairingToken = ""
-    @Published public var pairingStatus: DJConnectPairingStatus = .unpaired
+    @Published public var pairingStatus: DJConnectPairingStatus = .unpaired {
+        didSet {
+            if oldValue != .paired, pairingStatus == .paired {
+                schedulePairedRefresh(reason: "Pairing became online")
+            }
+        }
+    }
     @Published public var isConnected = false
     @Published public var isPairing = false
     @Published public var isRefreshing = false
@@ -125,6 +131,10 @@ public final class DJConnectAppModel: ObservableObject {
         appVersion
     }
 
+    public var hasStoredPairingToken: Bool {
+        ((try? tokenStore.loadToken())?.isEmpty == false)
+    }
+
     public init(
         playback: DJConnectPlayback? = nil,
         defaults: UserDefaults = .standard,
@@ -150,7 +160,7 @@ public final class DJConnectAppModel: ObservableObject {
             pairingStatus = .paired
             isConnected = true
             log(.info, "App started with existing DJConnect bearer token for \(identity.clientType.rawValue)")
-            scheduleStartupRefresh()
+            schedulePairedRefresh(reason: "Refreshing initial Home Assistant state")
         } else {
             log(.info, "App started without DJConnect bearer token for \(identity.clientType.rawValue)")
         }
@@ -291,6 +301,7 @@ public final class DJConnectAppModel: ObservableObject {
         clearStoredHomeAssistantURLs()
         defaults.removeObject(forKey: installIDKey)
         identity = Self.makeIdentity(defaults: defaults)
+        clearRuntimeState()
         _ = newPairingToken()
         restartLocalDeviceAPI()
         pairingStatus = .unpaired
@@ -347,14 +358,14 @@ public final class DJConnectAppModel: ObservableObject {
         }
     }
 
-    private func scheduleStartupRefresh() {
+    private func schedulePairedRefresh(reason: String) {
         startupRefreshTask?.cancel()
         startupRefreshTask = Task { [weak self] in
             try? await Task.sleep(nanoseconds: 350_000_000)
             guard !Task.isCancelled else {
                 return
             }
-            self?.log(.info, "Refreshing initial Home Assistant state")
+            self?.log(.info, reason)
             self?.refresh()
         }
     }
@@ -457,7 +468,13 @@ public final class DJConnectAppModel: ObservableObject {
             payload["artist"] = artist
         }
         log(.info, "Starting queue item \(item.title)")
-        sendPlaybackCommand("play_queue_item", value: .object(payload), play: true)
+        Task {
+            let startedWithQueueContext = await performCommand("play_queue_item", value: .object(payload), play: true)
+            if !startedWithQueueContext {
+                log(.warning, "Queue context command failed; falling back to play_uri")
+                await performCommand("play_uri", value: .string(uri), play: true)
+            }
+        }
     }
 
     public func toggleVoiceRecording() {
@@ -757,7 +774,11 @@ public final class DJConnectAppModel: ObservableObject {
                     localURL: localDeviceAPIURL
                 )
             )
-            apply(playback: response.playback)
+            if let playback = response.playback {
+                apply(playback: playback)
+            } else {
+                log(.debug, "Status response did not include a playback snapshot")
+            }
             backendAvailable = response.backendAvailable ?? backendAvailable
             log(.debug, "Status refresh succeeded")
         } catch let error as DJConnectError {
@@ -779,7 +800,30 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     private func refreshStatusWithFallback() async throws {
-        try await refreshStatus(client: try makeClient())
+        let client = try makeClient()
+        try await refreshPlaybackSnapshot(client: client)
+    }
+
+    private func refreshPlaybackSnapshot(client: DJConnectClient) async throws {
+        do {
+            log(.debug, "Loading Now Playing snapshot")
+            let response = try await client.sendCommandResponse(
+                DJConnectCommandPayload(
+                    identity: identity,
+                    command: "status"
+                )
+            )
+            apply(commandResponse: response)
+            if response.playback == nil {
+                try await refreshStatus(client: client)
+            }
+        } catch let error as DJConnectError {
+            if case .routeMissing = error {
+                try await refreshStatus(client: client)
+            } else {
+                throw error
+            }
+        }
     }
 
     private func refreshAfterDJResponse() async {
@@ -797,6 +841,29 @@ public final class DJConnectAppModel: ObservableObject {
         } catch {
             log(.error, "DJ response refresh failed unexpectedly: \(error.localizedDescription)")
         }
+    }
+
+    private func clearRuntimeState() {
+        playbackProgressTask?.cancel()
+        playbackProgressTask = nil
+        volumeCommandTask?.cancel()
+        volumeCommandTask = nil
+        pendingSelectedOutput = nil
+        playback = nil
+        queue = []
+        playlists = []
+        availableOutputs = []
+        queueItems = []
+        playlistItems = []
+        selectedOutput = "Not selected"
+        djResponseText = ""
+        backendAvailable = true
+        updateRequiredMessage = nil
+        isRefreshing = false
+        #if canImport(AVFoundation)
+        responseAudioPlayer?.stop()
+        responseAudioPlayer = nil
+        #endif
     }
 
     private func updatePlaybackProgressTimer() {
@@ -869,14 +936,19 @@ public final class DJConnectAppModel: ObservableObject {
         #endif
     }
 
+    @discardableResult
     private func performCommand(
         _ command: String,
         value: DJConnectCommandValue? = nil,
         play: Bool? = nil
-    ) async {
+    ) async -> Bool {
+        guard pairingStatus == .paired else {
+            log(.warning, "Command \(command) skipped because app is not paired")
+            return false
+        }
         guard updateRequiredMessage == nil else {
             log(.warning, "Command \(command) skipped because update is required")
-            return
+            return false
         }
         do {
             let client = try makeClient()
@@ -891,15 +963,18 @@ public final class DJConnectAppModel: ObservableObject {
             )
             apply(commandResponse: response)
             if Self.shouldRefreshPlaybackAfterCommand(command), response.playback == nil {
-                try await refreshStatus(client: client)
+                try await refreshPlaybackSnapshot(client: client)
             }
             log(.debug, "Command \(command) succeeded")
+            return true
         } catch let error as DJConnectError {
             log(.warning, "Command \(command) failed: \(Self.describe(error))")
             apply(error: error)
+            return false
         } catch {
             log(.error, "Command \(command) failed unexpectedly: \(error.localizedDescription)")
             pairingMessage = error.localizedDescription
+            return false
         }
     }
 
