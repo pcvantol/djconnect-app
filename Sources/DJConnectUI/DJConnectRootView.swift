@@ -1108,7 +1108,7 @@ private struct AboutView: View {
                     VStack(alignment: .leading, spacing: 6) {
                         Text("DJConnect")
                             .font(.system(.largeTitle, design: .default).weight(.bold))
-                        Text(localized(model.language, "DJConnect: physical voice remote for your music.", "DJConnect: fysieke voice remote voor je muziek."))
+                        Text(localized(model.language, "Your personal music DJ", "Jouw persoonlijke muziek DJ"))
                             .foregroundStyle(.secondary)
                     }
                 }
