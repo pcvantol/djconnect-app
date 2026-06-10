@@ -370,6 +370,7 @@ private func waitForLocalDeviceAPIURL(_ model: DJConnectAppModel) async throws -
                   "progress_ms": 12000,
                   "duration_ms": 180000,
                   "volume_percent": 41,
+                  "queue_context": "spotify:playlist:abc",
                   "device": {"name":"Living Room","active":true,"volume_percent":41}
                 }
               }
@@ -382,6 +383,7 @@ private func waitForLocalDeviceAPIURL(_ model: DJConnectAppModel) async throws -
     #expect(response.playback?.isPlaying == false)
     #expect(response.playback?.trackName == "Track One")
     #expect(response.playback?.albumImageURL?.absoluteString == "https://example.test/art.jpg")
+    #expect(response.playback?.contextURI == "spotify:playlist:abc")
     #expect(response.playback?.device?.name == "Living Room")
 }
 

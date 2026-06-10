@@ -96,6 +96,7 @@ public final class DJConnectAppModel: ObservableObject {
     private var playbackProgressTask: Task<Void, Never>?
     private var startupRefreshTask: Task<Void, Never>?
     private var pendingSelectedOutput: String?
+    private var pendingVolumePercent: Int?
     private var localDeviceAPI: DJConnectLocalDeviceAPI?
     #if canImport(AVFoundation)
     private var voiceRecorder: AVAudioRecorder?
@@ -116,10 +117,12 @@ public final class DJConnectAppModel: ObservableObject {
     private let maxDiagnosticLogLines = 120
 
     public var volume: Double {
-        get { Double(playback?.volumePercent ?? 0) }
+        get { Double(pendingVolumePercent ?? playback?.volumePercent ?? 0) }
         set {
+            let value = Int(newValue.rounded())
+            pendingVolumePercent = value
             var updated = playback ?? DJConnectPlayback()
-            updated.volumePercent = Int(newValue.rounded())
+            updated.volumePercent = value
             playback = updated
         }
     }
@@ -337,25 +340,29 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     public func refresh() {
+        Task {
+            await runRefresh(reason: "Refresh completed")
+        }
+    }
+
+    private func runRefresh(reason: String) async {
         guard !isRefreshing else {
             log(.debug, "Refresh ignored because one is already running")
             return
         }
         log(.debug, "Manual refresh requested")
         isRefreshing = true
-        Task {
-            defer { isRefreshing = false }
-            do {
-                try await refreshStatusWithFallback()
-                await refreshBackendCollections()
-                log(.info, "Refresh completed")
-            } catch let error as DJConnectError {
-                log(.warning, "Refresh failed: \(Self.describe(error))")
-                apply(error: error)
-            } catch {
-                log(.error, "Refresh failed unexpectedly: \(error.localizedDescription)")
-                pairingMessage = error.localizedDescription
-            }
+        defer { isRefreshing = false }
+        do {
+            try await refreshStatusWithFallback()
+            await refreshBackendCollections()
+            log(.info, reason)
+        } catch let error as DJConnectError {
+            log(.warning, "Refresh failed: \(Self.describe(error))")
+            apply(error: error)
+        } catch {
+            log(.error, "Refresh failed unexpectedly: \(error.localizedDescription)")
+            pairingMessage = error.localizedDescription
         }
     }
 
@@ -366,8 +373,12 @@ public final class DJConnectAppModel: ObservableObject {
             guard !Task.isCancelled else {
                 return
             }
-            self?.log(.info, reason)
-            self?.refresh()
+            await self?.runRefresh(reason: reason)
+            try? await Task.sleep(for: .milliseconds(1_200))
+            guard !Task.isCancelled, self?.pairingStatus == .paired else {
+                return
+            }
+            await self?.runRefresh(reason: "Startup Now Playing refresh completed")
         }
     }
 
@@ -393,12 +404,24 @@ public final class DJConnectAppModel: ObservableObject {
     public func commitVolumeChange() {
         volumeCommandTask?.cancel()
         let value = Int(volume.rounded())
+        pendingVolumePercent = value
         volumeCommandTask = Task { [weak self] in
             try? await Task.sleep(for: .milliseconds(300))
             guard !Task.isCancelled else {
                 return
             }
-            await self?.performCommand("set_volume", value: .int(value))
+            guard let self else {
+                return
+            }
+            await self.performCommand("set_volume", value: .int(value))
+            try? await Task.sleep(for: .milliseconds(850))
+            guard !Task.isCancelled else {
+                return
+            }
+            await self.performCommand("status")
+            if self.pendingVolumePercent == value {
+                self.pendingVolumePercent = nil
+            }
         }
     }
 
@@ -453,19 +476,29 @@ public final class DJConnectAppModel: ObservableObject {
         sendPlaybackCommand("start_liked_proxy", play: true)
     }
 
+    public func canStartQueueItem(_ item: DJConnectQueueItem) -> Bool {
+        item.uri?.isEmpty == false && resolvedQueueContext?.isEmpty == false
+    }
+
     public func startQueueItem(_ item: DJConnectQueueItem) {
         guard let uri = item.uri, !uri.isEmpty else {
             log(.warning, "Queue item \(item.title) cannot start because it has no URI")
             return
         }
+        guard let contextURI = resolvedQueueContext, !contextURI.isEmpty else {
+            log(.warning, "Queue item \(item.title) cannot start because Home Assistant did not provide playback context")
+            pairingMessage = localized(
+                english: "Queue playback needs a playback context. Refresh Now Playing and queue, then try again.",
+                dutch: "Wachtrij afspelen heeft een playback-context nodig. Vernieuw Speelt Nu en de wachtrij en probeer opnieuw."
+            )
+            return
+        }
         var payload = [
             "uri": uri,
             "offset_uri": uri,
-            "title": item.title
+            "title": item.title,
+            "context_uri": contextURI
         ]
-        if let queueContext, !queueContext.isEmpty {
-            payload["context_uri"] = queueContext
-        }
         if let index = queueItems.firstIndex(where: { $0.id == item.id }) {
             payload["index"] = String(index)
         }
@@ -474,6 +507,18 @@ public final class DJConnectAppModel: ObservableObject {
         }
         log(.info, "Starting queue item \(item.title)")
         sendPlaybackCommand("play_context_at", value: .object(payload), play: true)
+    }
+
+    private var resolvedQueueContext: String? {
+        let queueContext = queueContext?.trimmingCharacters(in: .whitespacesAndNewlines)
+        if queueContext?.isEmpty == false {
+            return queueContext
+        }
+        let playbackContext = playback?.contextURI?.trimmingCharacters(in: .whitespacesAndNewlines)
+        if playbackContext?.isEmpty == false {
+            return playbackContext
+        }
+        return nil
     }
 
     public func toggleVoiceRecording() {
@@ -568,6 +613,13 @@ public final class DJConnectAppModel: ObservableObject {
         let deviceVolume = normalizedPlayback?.device?.volumePercent
         if normalizedPlayback?.volumePercent == nil, let deviceVolume {
             normalizedPlayback?.volumePercent = deviceVolume
+        }
+        if let pendingVolumePercent {
+            if normalizedPlayback?.volumePercent == pendingVolumePercent {
+                self.pendingVolumePercent = nil
+            } else {
+                normalizedPlayback?.volumePercent = pendingVolumePercent
+            }
         }
         self.playback = normalizedPlayback
         updatePlaybackProgressTimer()
@@ -851,6 +903,7 @@ public final class DJConnectAppModel: ObservableObject {
         volumeCommandTask?.cancel()
         volumeCommandTask = nil
         pendingSelectedOutput = nil
+        pendingVolumePercent = nil
         playback = nil
         queue = []
         playlists = []
@@ -967,6 +1020,13 @@ public final class DJConnectAppModel: ObservableObject {
             apply(commandResponse: response)
             if Self.shouldRefreshPlaybackAfterCommand(command) {
                 try await refreshPlaybackSnapshot(client: client)
+                if Self.shouldRefreshPlaybackAgainAfterCommand(command) {
+                    try? await Task.sleep(for: .milliseconds(850))
+                    guard pairingStatus == .paired else {
+                        return true
+                    }
+                    try await refreshPlaybackSnapshot(client: client)
+                }
             }
             log(.debug, "Command \(command) succeeded")
             return true
@@ -984,6 +1044,15 @@ public final class DJConnectAppModel: ObservableObject {
     private static func shouldRefreshPlaybackAfterCommand(_ command: String) -> Bool {
         switch command {
         case "play", "pause", "next", "previous", "set_output", "start_playlist", "start_liked_proxy", "play_context_at":
+            true
+        default:
+            false
+        }
+    }
+
+    private static func shouldRefreshPlaybackAgainAfterCommand(_ command: String) -> Bool {
+        switch command {
+        case "play", "pause", "next", "previous", "play_context_at":
             true
         default:
             false
@@ -1305,10 +1374,23 @@ public final class DJConnectAppModel: ObservableObject {
 
         let formatter = DateFormatter()
         formatter.dateFormat = "HH:mm:ss"
-        let line = "[\(formatter.string(from: Date()))] \(level.rawValue.uppercased()) \(message)"
+        let line = "[\(formatter.string(from: Date()))] \(Self.logAbbreviation(for: level)) \(message)"
         diagnosticLogLines.append(DJConnectDiagnosticLogLine(text: line))
         if diagnosticLogLines.count > maxDiagnosticLogLines {
             diagnosticLogLines.removeFirst(diagnosticLogLines.count - maxDiagnosticLogLines)
+        }
+    }
+
+    private static func logAbbreviation(for level: DJConnectAppLogLevel) -> String {
+        switch level {
+        case .debug:
+            "DBG"
+        case .info:
+            "INF"
+        case .warning:
+            "WRN"
+        case .error:
+            "ERR"
         }
     }
 

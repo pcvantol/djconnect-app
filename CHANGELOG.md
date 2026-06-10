@@ -81,9 +81,31 @@ All notable changes to DJConnect App are documented here.
   commands and onto Home Assistant's supported `play_context_at` command.
 - Accepted Home Assistant queue responses with top-level `context_uri` /
   `contextUri` so Up Next playback can preserve the active playback context.
+- Stored playback `context_uri` / `queue_context` from Now Playing snapshots
+  and require that context before enabling queue-item playback.
+- Kept volume slider changes optimistic while the backend command is pending
+  and added a delayed status refresh after volume commits.
 - Moved queue refresh out of the table body into a compact toolbar icon.
 - Moved the DJ announcement card to the top of Now Playing.
 - Moved output device selection to the bottom of Now Playing.
+- Added a delayed follow-up Now Playing refresh after playback-changing commands
+  so next/previous track changes update album art reliably.
+- Added a delayed follow-up startup/pairing refresh so initial Now Playing
+  metadata and album art are corrected after Home Assistant settles.
+- Made the output device refresh icon neutral white and increased the Now
+  Playing artist text size.
+- Added availability-gated Liquid Glass effects to primary card surfaces.
+- Reworked About rows so every label is shown above its value.
+- Gave settings/about section headers a subtle background band for clearer
+  visual separation.
+- Normalized About value typography so copyable rows use the same font family
+  as the rest of the screen.
+- Aligned About content with the ESP client by adding music/backend status and
+  legal/notices rows.
+- Kept Settings logs pinned to the newest entry and shortened log level labels
+  to `INF`, `DBG`, `WRN`, and `ERR`.
+- Constrained Now Playing album art to stable square bounds so long artwork
+  never pushes title and artist text off screen.
 - Split playlists into a dedicated iOS/macOS page and added the About page to
   the iOS/iPadOS tab bar.
 - Restyled playlist rows with primary text and a purple play icon instead of

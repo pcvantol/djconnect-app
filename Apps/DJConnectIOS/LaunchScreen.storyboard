@@ -17,15 +17,15 @@
                                 <rect key="frame" x="0.0" y="0.0" width="1024" height="1366"/>
                                 <subviews>
                                     <imageView clipsSubviews="YES" userInteractionEnabled="NO" contentMode="scaleAspectFit" image="LaunchIcon" translatesAutoresizingMaskIntoConstraints="NO" id="launch-icon">
-                                        <rect key="frame" x="392" y="488" width="240" height="240"/>
+                                        <rect key="frame" x="412" y="508" width="200" height="200"/>
                                         <constraints>
-                                            <constraint firstAttribute="width" constant="240" id="launch-icon-width"/>
-                                            <constraint firstAttribute="height" constant="240" id="launch-icon-height"/>
+                                            <constraint firstAttribute="width" constant="200" id="launch-icon-width"/>
+                                            <constraint firstAttribute="height" constant="200" id="launch-icon-height"/>
                                         </constraints>
                                     </imageView>
-                                    <label opaque="NO" userInteractionEnabled="NO" contentMode="left" text="DJConnect" textAlignment="center" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" minimumScaleFactor="0.75" translatesAutoresizingMaskIntoConstraints="NO" id="launch-title">
-                                        <rect key="frame" x="142" y="768" width="740" height="78"/>
-                                        <fontDescription key="fontDescription" type="boldSystem" pointSize="76"/>
+                                    <label opaque="NO" userInteractionEnabled="NO" contentMode="left" text="DJConnect" textAlignment="center" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" minimumScaleFactor="0.5" translatesAutoresizingMaskIntoConstraints="NO" id="launch-title">
+                                        <rect key="frame" x="40" y="736" width="944" height="51"/>
+                                        <fontDescription key="fontDescription" type="boldSystem" pointSize="48"/>
                                         <color key="textColor" white="1" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
                                         <nil key="highlightedColor"/>
                                     </label>
@@ -33,10 +33,10 @@
                                 <color key="backgroundColor" red="0.090196078431372548" green="0.070588235294117646" blue="0.12156862745098039" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
                                 <constraints>
                                     <constraint firstItem="launch-icon" firstAttribute="centerX" secondItem="hero-panel" secondAttribute="centerX" id="launch-icon-center-x"/>
-                                    <constraint firstItem="launch-icon" firstAttribute="centerY" secondItem="hero-panel" secondAttribute="centerY" constant="-195" id="launch-icon-center-y"/>
-                                    <constraint firstItem="launch-title" firstAttribute="top" secondItem="launch-icon" secondAttribute="bottom" constant="40" id="launch-title-top"/>
-                                    <constraint firstItem="launch-title" firstAttribute="leading" secondItem="hero-panel" secondAttribute="leading" constant="72" id="launch-title-leading"/>
-                                    <constraint firstAttribute="trailing" secondItem="launch-title" secondAttribute="trailing" constant="72" id="launch-title-trailing"/>
+                                    <constraint firstItem="launch-icon" firstAttribute="centerY" secondItem="hero-panel" secondAttribute="centerY" constant="-175" id="launch-icon-center-y"/>
+                                    <constraint firstItem="launch-title" firstAttribute="top" secondItem="launch-icon" secondAttribute="bottom" constant="28" id="launch-title-top"/>
+                                    <constraint firstItem="launch-title" firstAttribute="leading" secondItem="hero-panel" secondAttribute="leading" constant="40" id="launch-title-leading"/>
+                                    <constraint firstAttribute="trailing" secondItem="launch-title" secondAttribute="trailing" constant="40" id="launch-title-trailing"/>
                                 </constraints>
                             </view>
                         </subviews>

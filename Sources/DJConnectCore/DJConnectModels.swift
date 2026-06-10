@@ -368,6 +368,7 @@ public struct DJConnectPlayback: Codable, Equatable, Sendable {
     public var shuffle: Bool?
     public var repeatState: DJConnectRepeatState?
     public var device: DJConnectPlaybackDevice?
+    public var contextURI: String?
 
     public init(
         hasPlayback: Bool? = nil,
@@ -380,7 +381,8 @@ public struct DJConnectPlayback: Codable, Equatable, Sendable {
         volumePercent: Int? = nil,
         shuffle: Bool? = nil,
         repeatState: DJConnectRepeatState? = nil,
-        device: DJConnectPlaybackDevice? = nil
+        device: DJConnectPlaybackDevice? = nil,
+        contextURI: String? = nil
     ) {
         self.hasPlayback = hasPlayback
         self.isPlaying = isPlaying
@@ -393,6 +395,39 @@ public struct DJConnectPlayback: Codable, Equatable, Sendable {
         self.shuffle = shuffle
         self.repeatState = repeatState
         self.device = device
+        self.contextURI = contextURI
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        hasPlayback = try container.decodeIfPresent(Bool.self, forKey: .hasPlayback)
+        isPlaying = try container.decodeIfPresent(Bool.self, forKey: .isPlaying)
+        trackName = try container.decodeIfPresent(String.self, forKey: .trackName)
+        artistName = try container.decodeIfPresent(String.self, forKey: .artistName)
+        albumImageURL = try container.decodeIfPresent(URL.self, forKey: .albumImageURL)
+        progressMS = try container.decodeIfPresent(Int.self, forKey: .progressMS)
+        durationMS = try container.decodeIfPresent(Int.self, forKey: .durationMS)
+        volumePercent = try container.decodeIfPresent(Int.self, forKey: .volumePercent)
+        shuffle = try container.decodeIfPresent(Bool.self, forKey: .shuffle)
+        repeatState = try container.decodeIfPresent(DJConnectRepeatState.self, forKey: .repeatState)
+        device = try container.decodeIfPresent(DJConnectPlaybackDevice.self, forKey: .device)
+        contextURI = container.decodeStringAliasIfPresent(.contextURI, .contextUri, .queueContext)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encodeIfPresent(hasPlayback, forKey: .hasPlayback)
+        try container.encodeIfPresent(isPlaying, forKey: .isPlaying)
+        try container.encodeIfPresent(trackName, forKey: .trackName)
+        try container.encodeIfPresent(artistName, forKey: .artistName)
+        try container.encodeIfPresent(albumImageURL, forKey: .albumImageURL)
+        try container.encodeIfPresent(progressMS, forKey: .progressMS)
+        try container.encodeIfPresent(durationMS, forKey: .durationMS)
+        try container.encodeIfPresent(volumePercent, forKey: .volumePercent)
+        try container.encodeIfPresent(shuffle, forKey: .shuffle)
+        try container.encodeIfPresent(repeatState, forKey: .repeatState)
+        try container.encodeIfPresent(device, forKey: .device)
+        try container.encodeIfPresent(contextURI, forKey: .contextURI)
     }
 
     enum CodingKeys: String, CodingKey {
@@ -407,6 +442,20 @@ public struct DJConnectPlayback: Codable, Equatable, Sendable {
         case shuffle
         case repeatState = "repeat_state"
         case device
+        case contextURI = "context_uri"
+        case contextUri
+        case queueContext = "queue_context"
+    }
+}
+
+private extension KeyedDecodingContainer where Key == DJConnectPlayback.CodingKeys {
+    func decodeStringAliasIfPresent(_ keys: Key...) -> String? {
+        for key in keys {
+            if let value = try? decodeIfPresent(String.self, forKey: key), !value.isEmpty {
+                return value
+            }
+        }
+        return nil
     }
 }
 

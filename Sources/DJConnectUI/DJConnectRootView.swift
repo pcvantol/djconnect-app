@@ -20,6 +20,17 @@ private func localizedOutputName(_ outputName: String, language: String) -> Stri
     }
 }
 
+private extension View {
+    @ViewBuilder
+    func liquidGlassIfAvailable() -> some View {
+        if #available(iOS 26.0, macOS 26.0, *) {
+            self.glassEffect()
+        } else {
+            self
+        }
+    }
+}
+
 public struct DJConnectRootView: View {
     @ObservedObject private var model: DJConnectAppModel
 
@@ -236,6 +247,7 @@ private struct IOSConnectionCard: View {
         }
         .padding(14)
         .background(Color(uiColor: .systemBackground), in: RoundedRectangle(cornerRadius: 8))
+        .liquidGlassIfAvailable()
     }
 
     private var statusTitle: String {
@@ -319,7 +331,9 @@ private struct IOSTrackHero: View {
                         .foregroundStyle(.white.opacity(0.86))
                 }
             }
-            .aspectRatio(1, contentMode: .fit)
+            .aspectRatio(1, contentMode: .fill)
+            .frame(maxWidth: 300)
+            .frame(maxWidth: .infinity, alignment: .center)
             .clipShape(RoundedRectangle(cornerRadius: 8))
 
             VStack(alignment: .leading, spacing: 5) {
@@ -327,7 +341,7 @@ private struct IOSTrackHero: View {
                     .font(.title2.weight(.bold))
                     .lineLimit(2)
                 Text(playback?.artistName ?? playback?.device?.name ?? localized(model.language, "Select an output device", "Kies een uitvoerapparaat"))
-                    .font(.subheadline)
+                    .font(.headline)
                     .foregroundStyle(.secondary)
                     .lineLimit(2)
             }
@@ -340,6 +354,7 @@ private struct IOSTrackHero: View {
         }
         .padding(14)
         .background(Color(uiColor: .systemBackground), in: RoundedRectangle(cornerRadius: 8))
+        .liquidGlassIfAvailable()
     }
 }
 
@@ -390,6 +405,7 @@ private struct IOSPlaybackSurface: View {
         .opacity(isPaired ? 1 : 0.55)
         .padding(14)
         .background(Color(uiColor: .systemBackground), in: RoundedRectangle(cornerRadius: 8))
+        .liquidGlassIfAvailable()
     }
 
     private func playbackButton(
@@ -441,6 +457,7 @@ private struct IOSVoiceCard: View {
         }
         .padding(14)
         .background(Color(uiColor: .systemBackground), in: RoundedRectangle(cornerRadius: 8))
+        .liquidGlassIfAvailable()
     }
 }
 #endif
@@ -521,7 +538,9 @@ struct TrackSummaryView: View {
                         .foregroundStyle(.secondary)
                 }
             }
-            .frame(height: 280)
+            .aspectRatio(1, contentMode: .fill)
+            .frame(maxWidth: 320)
+            .frame(maxWidth: .infinity, alignment: .center)
             .clipShape(RoundedRectangle(cornerRadius: 8))
 
             VStack(alignment: .leading, spacing: 6) {
@@ -529,6 +548,7 @@ struct TrackSummaryView: View {
                     .font(.title2.weight(.semibold))
                     .lineLimit(2)
                 Text(playback?.artistName ?? playback?.device?.name ?? localized(language, "Select an output device", "Kies een uitvoerapparaat"))
+                    .font(.title3)
                     .foregroundStyle(.secondary)
                     .lineLimit(2)
             }
@@ -669,8 +689,10 @@ private struct OutputSelectorView: View {
                     model.loadOutputs()
                 } label: {
                     Image(systemName: "arrow.clockwise")
+                        .foregroundStyle(.white)
                 }
                 .buttonStyle(.borderless)
+                .tint(.white)
                 .disabled(!isPaired)
                 .help(localized(model.language, "Reload Output Devices", "Uitvoerapparaten herladen"))
                 .accessibilityLabel(localized(model.language, "Reload Output Devices", "Uitvoerapparaten herladen"))
@@ -709,6 +731,7 @@ private struct OutputSelectorView: View {
         #if os(iOS)
         .padding(14)
         .background(Color(uiColor: .systemBackground), in: RoundedRectangle(cornerRadius: 8))
+        .liquidGlassIfAvailable()
         #endif
     }
 }
@@ -862,7 +885,7 @@ struct QueueView: View {
                                 QueueItemRow(item: item)
                             }
                             .buttonStyle(.plain)
-                            .disabled(!isPaired || item.uri?.isEmpty != false)
+                            .disabled(!isPaired || !model.canStartQueueItem(item))
                             .accessibilityLabel(item.displayTitle)
                         }
                     }
@@ -985,8 +1008,7 @@ struct SettingsView: View {
                     LabeledContent(localized(model.language, "Pairing Code", "Pairingcode")) {
                         CopyableValue(
                             text: model.pairingToken,
-                            copyLabel: localized(model.language, "Copy Pairing Code", "Pairingcode kopieren"),
-                            prominent: true
+                            copyLabel: localized(model.language, "Copy Pairing Code", "Pairingcode kopieren")
                         )
                     }
                     if model.isPairing {
@@ -1049,18 +1071,27 @@ struct SettingsView: View {
                         )
                         .frame(minHeight: 120)
                     } else {
-                        ScrollView {
-                            VStack(alignment: .leading, spacing: 6) {
-                                ForEach(model.diagnosticLogLines) { line in
-                                    Text(line.text)
-                                        .font(.system(.caption, design: .monospaced))
-                                        .textSelection(.enabled)
-                                        .frame(maxWidth: .infinity, alignment: .leading)
+                        ScrollViewReader { proxy in
+                            ScrollView {
+                                VStack(alignment: .leading, spacing: 6) {
+                                    ForEach(model.diagnosticLogLines) { line in
+                                        Text(line.text)
+                                            .font(.system(.caption, design: .monospaced))
+                                            .textSelection(.enabled)
+                                            .frame(maxWidth: .infinity, alignment: .leading)
+                                            .id(line.id)
+                                    }
                                 }
+                                .padding(.vertical, 4)
                             }
-                            .padding(.vertical, 4)
+                            .frame(minHeight: 140, maxHeight: 260)
+                            .onAppear {
+                                scrollLogsToBottom(proxy)
+                            }
+                            .onChange(of: model.diagnosticLogLines.last?.id) {
+                                scrollLogsToBottom(proxy)
+                            }
                         }
-                        .frame(minHeight: 140, maxHeight: 260)
                     }
 
                     HStack(spacing: 10) {
@@ -1105,6 +1136,17 @@ struct SettingsView: View {
             }
         }
     }
+
+    private func scrollLogsToBottom(_ proxy: ScrollViewProxy) {
+        guard let lastLogID = model.diagnosticLogLines.last?.id else {
+            return
+        }
+        DispatchQueue.main.async {
+            withAnimation(.easeOut(duration: 0.2)) {
+                proxy.scrollTo(lastLogID, anchor: .bottom)
+            }
+        }
+    }
 }
 
 private struct AboutView: View {
@@ -1116,42 +1158,65 @@ private struct AboutView: View {
                 AboutBanner()
 
                 SettingsSection(title: localized(model.language, "App", "App")) {
-                    SettingsRow(label: localized(model.language, "Version", "Versie")) {
+                    AboutStackedRow(label: localized(model.language, "Version", "Versie")) {
                         SelectableValue(model.version)
                     }
-                    SettingsRow(label: localized(model.language, "Client", "Client")) {
+                    AboutStackedRow(label: localized(model.language, "Client", "Client")) {
                         SelectableValue(model.identity.clientType.rawValue)
                     }
-                    SettingsRow(label: localized(model.language, "Platform", "Platform")) {
+                    AboutStackedRow(label: localized(model.language, "Platform", "Platform")) {
                         SelectableValue(model.identity.platform.rawValue)
                     }
-                    SettingsRow(label: localized(model.language, "Device Name", "Apparaatnaam")) {
+                    AboutStackedRow(label: localized(model.language, "Device Name", "Apparaatnaam")) {
                         SelectableValue(model.identity.deviceName)
                     }
-                    SettingsRow(label: localized(model.language, "Device ID", "Device ID")) {
+                    AboutStackedRow(label: localized(model.language, "Device ID", "Device ID")) {
                         CopyableValue(
                             text: model.identity.deviceID,
-                            copyLabel: localized(model.language, "Copy Device ID", "Device ID kopieren")
+                            copyLabel: localized(model.language, "Copy Device ID", "Device ID kopieren"),
+                            monospaced: false
                         )
                     }
                 }
 
                 SettingsSection(title: localized(model.language, "Connection", "Verbinding")) {
-                    SettingsRow(label: localized(model.language, "Pairing", "Koppeling")) {
+                    AboutStackedRow(label: localized(model.language, "Pairing", "Koppeling")) {
                         SelectableValue(model.pairingStatus.rawValue)
                     }
+                    AboutStackedRow(label: localized(model.language, "Music", "Muziek")) {
+                        SelectableValue(model.backendAvailable ? localized(model.language, "Connected", "Verbonden") : localized(model.language, "Unavailable", "Niet beschikbaar"))
+                    }
                     if let localDeviceAPIURL = model.localDeviceAPIURL, !localDeviceAPIURL.isEmpty {
-                        SettingsRow(label: "Client API url") {
+                        AboutStackedRow(label: "Client API url") {
                             CopyableValue(
                                 text: localDeviceAPIURL,
-                                copyLabel: localized(model.language, "Copy Client API url", "Client API url kopiëren")
+                                copyLabel: localized(model.language, "Copy Client API url", "Client API url kopiëren"),
+                                monospaced: false
                             )
                         }
                     }
                     if !model.haLocalURL.isEmpty {
-                        SettingsRow(label: localized(model.language, "Home Assistant", "Home Assistant")) {
+                        AboutStackedRow(label: localized(model.language, "Home Assistant", "Home Assistant")) {
                             SelectableValue(model.haLocalURL)
                         }
+                    }
+                }
+
+                SettingsSection(title: localized(model.language, "Notices", "Notices")) {
+                    AboutStackedRow(label: "Copyright") {
+                        SelectableValue("2026 Peter van Tol")
+                    }
+                    AboutStackedRow(label: localized(model.language, "App", "App")) {
+                        SelectableValue("Proprietary")
+                    }
+                    AboutStackedRow(label: "Spotify") {
+                        SelectableValue("Trademark Spotify AB")
+                    }
+                    AboutStackedRow(label: "Notice") {
+                        SelectableValue(localized(model.language, "Not affiliated", "Niet gelieerd"))
+                    }
+                    AboutStackedRow(label: "OSS") {
+                        SelectableValue(localized(model.language, "See notices", "Zie notices"))
                     }
                 }
             }
@@ -1193,6 +1258,7 @@ private struct AboutBanner: View {
             RoundedRectangle(cornerRadius: 22, style: .continuous)
                 .stroke(.white.opacity(0.08), lineWidth: 1)
         )
+        .liquidGlassIfAvailable()
     }
 }
 
@@ -1203,7 +1269,13 @@ private struct SettingsSection<Content: View>: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text(title)
-                .font(.headline)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.secondary)
+                .textCase(.uppercase)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 7)
+                .background(Color.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
             VStack(alignment: .leading, spacing: 10) {
                 content
             }
@@ -1222,6 +1294,21 @@ private struct SettingsRow<Content: View>: View {
                 .font(.body.weight(.semibold))
                 .foregroundStyle(.secondary)
                 .frame(width: 150, alignment: .trailing)
+            content
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+}
+
+private struct AboutStackedRow<Content: View>: View {
+    let label: String
+    @ViewBuilder var content: Content
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(label)
+                .font(.body.weight(.semibold))
+                .foregroundStyle(.secondary)
             content
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
@@ -1247,11 +1334,12 @@ private struct CopyableValue: View {
     let text: String
     let copyLabel: String
     var prominent = false
+    var monospaced = true
 
     var body: some View {
         HStack(alignment: .firstTextBaseline, spacing: 8) {
             Text(text)
-                .font(prominent ? .system(.title3, design: .monospaced).weight(.semibold) : .system(.body, design: .monospaced))
+                .font(valueFont)
                 .textSelection(.enabled)
                 .lineLimit(nil)
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -1264,6 +1352,13 @@ private struct CopyableValue: View {
             .help(copyLabel)
             .accessibilityLabel(copyLabel)
         }
+    }
+
+    private var valueFont: Font {
+        if prominent {
+            return monospaced ? .system(.title3, design: .monospaced).weight(.semibold) : .title3.weight(.semibold)
+        }
+        return monospaced ? .system(.body, design: .monospaced) : .body
     }
 }
 
