@@ -1007,10 +1007,10 @@ struct SettingsView: View {
                         }
                     }
                     if let localDeviceAPIURL = model.localDeviceAPIURL, !localDeviceAPIURL.isEmpty {
-                        LabeledContent(localized(model.language, "Local API", "Lokale API")) {
+                        LabeledContent("Client API url") {
                             CopyableValue(
                                 text: localDeviceAPIURL,
-                                copyLabel: localized(model.language, "Copy Local API URL", "Lokale API URL kopieren")
+                                copyLabel: localized(model.language, "Copy Client API url", "Client API url kopiëren")
                             )
                         }
                     }
@@ -1142,10 +1142,10 @@ private struct AboutView: View {
                         SelectableValue(model.pairingStatus.rawValue)
                     }
                     if let localDeviceAPIURL = model.localDeviceAPIURL, !localDeviceAPIURL.isEmpty {
-                        SettingsRow(label: localized(model.language, "Local API", "Lokale API")) {
+                        SettingsRow(label: "Client API url") {
                             CopyableValue(
                                 text: localDeviceAPIURL,
-                                copyLabel: localized(model.language, "Copy Local API URL", "Lokale API URL kopieren")
+                                copyLabel: localized(model.language, "Copy Client API url", "Client API url kopiëren")
                             )
                         }
                     }
