@@ -72,8 +72,8 @@ Status: accepted
 
 The app does not automatically clear Keychain token state for backend
 unavailable, version mismatch, authenticated 401/403, or 404 responses. During
-unauthenticated pairing polling, temporary 401 responses keep the app in the
-pairing loop.
+unauthenticated pairing polling, 401/403 responses stop the polling loop and
+show code/setup mismatch recovery without rotating the device id automatically.
 
 Reasoning:
 

@@ -103,8 +103,45 @@ bearer token in Keychain and persists `ha_local_url`, optional `ha_remote_url`,
 URL. If the active local URL fails with a network error, the app switches to
 `ha_remote_url` when Home Assistant returned one. Do not use legacy `ha_url`.
 
-The iOS/macOS app does not expose or consume ESP local `/api/device/*` routes.
-Those routes are reserved for local ESP hardware.
+## Local App Web API
+
+The iOS/macOS app hosts a small local Web API for Home Assistant -> app
+traffic while the app is active/reachable. It advertises Bonjour/mDNS service
+`_djconnect._tcp` with TXT fields including `name`, `device_id`, `version`,
+`paired`, `api`, `model`, and `client_type`.
+
+Open endpoints:
+
+```http
+GET /api/device/info
+GET /api/device/pairing-info
+```
+
+Pairing callback:
+
+```http
+POST /api/device/pair
+```
+
+`POST /api/device/pair` accepts this app installation's `device_id`,
+`client_type`, visible app `pair_code`, returned `device_token`, HA URLs, and
+language metadata. It stores only the DJConnect bearer token and HA/app
+settings.
+
+Protected endpoints require:
+
+```http
+Authorization: Bearer <device_token>
+```
+
+```http
+POST /api/device/command
+POST /api/device/dj_response
+POST /api/device/forget
+```
+
+The Apple app does not implement ESP-only `/api/device/reboot` or
+`/api/device/ota` routes.
 
 ## Status
 

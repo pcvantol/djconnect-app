@@ -131,6 +131,32 @@ public struct DJConnectPairingResponse: Codable, Equatable, Sendable {
         deviceToken ?? bearerToken ?? token
     }
 
+    public init(
+        success: Bool,
+        deviceToken: String? = nil,
+        token: String? = nil,
+        bearerToken: String? = nil,
+        message: String? = nil,
+        deviceID: String? = nil,
+        clientType: DJConnectClientType? = nil,
+        haLocalURL: String? = nil,
+        haRemoteURL: String? = nil,
+        deviceLanguage: String? = nil,
+        language: String? = nil
+    ) {
+        self.success = success
+        self.deviceToken = deviceToken
+        self.token = token
+        self.bearerToken = bearerToken
+        self.message = message
+        self.deviceID = deviceID
+        self.clientType = clientType
+        self.haLocalURL = haLocalURL
+        self.haRemoteURL = haRemoteURL
+        self.deviceLanguage = deviceLanguage
+        self.language = language
+    }
+
     enum CodingKeys: String, CodingKey {
         case success
         case deviceToken = "device_token"

@@ -77,6 +77,7 @@ public final class DJConnectAppModel: ObservableObject {
     }
     @Published public var voiceEnabled = true
     @Published public var localResponseAudioEnabled = true
+    @Published public private(set) var localDeviceAPIURL: String?
     @Published public private(set) var diagnosticLogLines: [DJConnectDiagnosticLogLine] = []
 
     @Published public private(set) var identity: DJConnectIdentity
@@ -85,6 +86,7 @@ public final class DJConnectAppModel: ObservableObject {
     private var pairingTask: Task<Void, Never>?
     private var scheduledPairingTask: Task<Void, Never>?
     private var volumeCommandTask: Task<Void, Never>?
+    private var localDeviceAPI: DJConnectLocalDeviceAPI?
     #if canImport(AVFoundation)
     private var voiceRecorder: AVAudioRecorder?
     private var voiceRecordingURL: URL?
@@ -145,12 +147,14 @@ public final class DJConnectAppModel: ObservableObject {
         } else {
             log(.info, "App started without DJConnect bearer token for \(identity.clientType.rawValue)")
         }
+        startLocalDeviceAPI()
     }
 
     deinit {
         scheduledPairingTask?.cancel()
         pairingTask?.cancel()
         volumeCommandTask?.cancel()
+        localDeviceAPI?.stop()
     }
 
     public func schedulePairingWait() {
@@ -540,6 +544,15 @@ public final class DJConnectAppModel: ObservableObject {
         }
     }
 
+    public func apply(localDJResponse response: DJConnectLocalDJResponseRequest) {
+        if let text = response.djText ?? response.text, !text.isEmpty {
+            djResponseText = text
+        }
+        if let audioURL = response.audioURL, !audioURL.isEmpty {
+            log(.info, "Received DJ response audio URL from Home Assistant")
+        }
+    }
+
     public func apply(error: DJConnectError) {
         log(.warning, "Applying app error state: \(Self.describe(error))")
         switch error {
@@ -755,6 +768,186 @@ public final class DJConnectAppModel: ObservableObject {
         return DJConnectClient(baseURL: baseURL, identity: identity, tokenStore: tokenStore)
     }
 
+    private func startLocalDeviceAPI() {
+        localDeviceAPI = DJConnectLocalDeviceAPI(
+            infoProvider: { [weak self] in
+                if let self {
+                    return await self.localDeviceAPIInfo()
+                }
+                return DJConnectLocalDeviceAPIInfo(
+                    identity: DJConnectIdentity(
+                        deviceID: "djconnect-macos-unavailable",
+                        deviceName: "DJConnect",
+                        clientType: .macos,
+                        firmware: "3.1.0",
+                        appVersion: "3.1.0",
+                        platform: .macos
+                    ),
+                    pairingToken: "",
+                    pairingStatus: .unpaired
+                )
+            },
+            tokenProvider: { [weak self] in
+                await self?.loadDeviceToken()
+            },
+            pairHandler: { [weak self] request in
+                await self?.handleLocalPair(request) ?? DJConnectLocalDeviceAPIResponse(
+                    success: false,
+                    error: "unavailable",
+                    message: "DJConnect app model is unavailable."
+                )
+            },
+            commandHandler: { [weak self] request in
+                await self?.handleLocalCommand(request) ?? DJConnectLocalDeviceAPIResponse(
+                    success: false,
+                    error: "unavailable",
+                    message: "DJConnect app model is unavailable."
+                )
+            },
+            djResponseHandler: { [weak self] request in
+                await self?.handleLocalDJResponse(request) ?? DJConnectLocalDeviceAPIResponse(
+                    success: false,
+                    error: "unavailable",
+                    message: "DJConnect app model is unavailable."
+                )
+            },
+            forgetHandler: { [weak self] in
+                await self?.handleLocalForget() ?? DJConnectLocalDeviceAPIResponse(
+                    success: false,
+                    error: "unavailable",
+                    message: "DJConnect app model is unavailable."
+                )
+            },
+            urlHandler: { [weak self] url in
+                await MainActor.run {
+                    self?.localDeviceAPIURL = url
+                }
+            },
+            logHandler: { [weak self] message in
+                await MainActor.run {
+                    self?.log(.info, message)
+                }
+            }
+        )
+        localDeviceAPI?.start()
+    }
+
+    private func localDeviceAPIInfo() -> DJConnectLocalDeviceAPIInfo {
+        DJConnectLocalDeviceAPIInfo(
+            identity: identity,
+            pairingToken: pairingToken,
+            pairingStatus: pairingStatus,
+            localURL: localDeviceAPIURL
+        )
+    }
+
+    private func loadDeviceToken() -> String? {
+        try? tokenStore.loadToken()
+    }
+
+    private func handleLocalPair(_ request: DJConnectLocalPairRequest) -> DJConnectLocalDeviceAPIResponse {
+        guard request.deviceID == identity.deviceID else {
+            return DJConnectLocalDeviceAPIResponse(success: false, error: "wrong_device_id", message: "Pair request is for a different DJConnect device.")
+        }
+        guard request.clientType == identity.clientType else {
+            return DJConnectLocalDeviceAPIResponse(success: false, error: "wrong_client_type", message: "Pair request is for a different DJConnect client type.")
+        }
+        guard request.resolvedPairCode == pairingToken else {
+            return DJConnectLocalDeviceAPIResponse(success: false, error: "pair_code_mismatch", message: "Pairing code does not match this app.")
+        }
+        guard let token = request.resolvedDeviceToken, !token.isEmpty else {
+            return DJConnectLocalDeviceAPIResponse(success: false, error: "missing_token", message: "Pair request did not include a device token.")
+        }
+
+        do {
+            try tokenStore.saveToken(token)
+        } catch {
+            log(.error, "Local device API failed to store device token: \(error.localizedDescription)")
+            return DJConnectLocalDeviceAPIResponse(success: false, error: "token_store_failed", message: "Could not store device token.")
+        }
+
+        let fallbackURL = Self.normalizedHomeAssistantURL(from: request.haLocalURL ?? homeAssistantURL)
+            ?? URL(string: "http://homeassistant.local:8123")!
+        apply(pairingResponse: DJConnectPairingResponse(
+            success: true,
+            deviceToken: token,
+            token: nil,
+            bearerToken: nil,
+            message: nil,
+            deviceID: request.deviceID,
+            clientType: request.clientType,
+            haLocalURL: request.haLocalURL,
+            haRemoteURL: request.haRemoteURL,
+            deviceLanguage: request.deviceLanguage,
+            language: request.language
+        ), fallbackBaseURL: fallbackURL)
+        pairingStatus = .paired
+        isConnected = true
+        isPairing = false
+        pairingMessage = localized(english: "Paired with Home Assistant.", dutch: "Gekoppeld met Home Assistant.")
+        log(.info, "Local device API completed pairing from Home Assistant")
+        refresh()
+        return DJConnectLocalDeviceAPIResponse(success: true, message: "paired")
+    }
+
+    private func handleLocalCommand(_ request: DJConnectLocalCommandRequest) -> DJConnectLocalDeviceAPIResponse {
+        if let language = request.language, !language.isEmpty {
+            self.language = language
+        }
+        if let logLevel = request.logLevel, !logLevel.isEmpty {
+            self.logLevel = logLevel
+        }
+        if let voiceEnabled = request.voiceEnabled {
+            self.voiceEnabled = voiceEnabled
+        }
+        if let localResponseAudioEnabled = request.localResponseAudioEnabled {
+            self.localResponseAudioEnabled = localResponseAudioEnabled
+        }
+
+        guard let command = request.command, !command.isEmpty else {
+            return DJConnectLocalDeviceAPIResponse(success: true, message: "settings_applied")
+        }
+
+        switch command {
+        case "status":
+            refresh()
+        case "set_language":
+            if case let .string(value) = request.value {
+                language = value
+            }
+        case "set_log_level":
+            if case let .string(value) = request.value {
+                logLevel = value
+            }
+        case "set_voice_enabled":
+            if case let .bool(value) = request.value {
+                voiceEnabled = value
+            }
+        case "set_local_response_audio_enabled":
+            if case let .bool(value) = request.value {
+                localResponseAudioEnabled = value
+            }
+        case "diagnostics_export":
+            return DJConnectLocalDeviceAPIResponse(success: true, message: diagnosticExportText())
+        case "play", "pause", "next", "previous", "set_volume", "set_shuffle", "set_repeat", "start_liked_proxy", "start_playlist", "set_output":
+            sendPlaybackCommand(command, value: request.value, play: request.play)
+        default:
+            return DJConnectLocalDeviceAPIResponse(success: false, error: "unsupported_command", message: "Unsupported local app command.")
+        }
+        log(.info, "Local device API handled command \(command)")
+        return DJConnectLocalDeviceAPIResponse(success: true, message: "accepted")
+    }
+
+    private func handleLocalDJResponse(_ request: DJConnectLocalDJResponseRequest) -> DJConnectLocalDeviceAPIResponse {
+        apply(localDJResponse: request)
+        return DJConnectLocalDeviceAPIResponse(success: true, message: "accepted")
+    }
+
+    private func handleLocalForget() -> DJConnectLocalDeviceAPIResponse {
+        resetPairing()
+        return DJConnectLocalDeviceAPIResponse(success: true, message: "forgotten")
+    }
+
     private func activeHomeAssistantURL() -> String {
         if !haActiveURL.isEmpty {
             return haActiveURL
@@ -810,6 +1003,7 @@ public final class DJConnectAppModel: ObservableObject {
         ha_local_url: \(haLocalURL.isEmpty ? "missing" : Self.redactSensitive(haLocalURL))
         ha_remote_url: \(haRemoteURL.isEmpty ? "missing" : Self.redactSensitive(haRemoteURL))
         ha_active_url: \(haActiveURL.isEmpty ? "missing" : Self.redactSensitive(haActiveURL))
+        local_device_api_url: \(localDeviceAPIURL ?? "missing")
         backend_available: \(backendAvailable)
         selected_output: \(selectedOutput)
         language: \(language)

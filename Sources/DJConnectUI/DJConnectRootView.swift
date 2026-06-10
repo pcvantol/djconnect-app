@@ -776,6 +776,9 @@ struct SettingsView: View {
                     if !model.haRemoteURL.isEmpty {
                         LabeledContent(localized(model.language, "Remote URL", "Remote URL"), value: model.haRemoteURL)
                     }
+                    if let localDeviceAPIURL = model.localDeviceAPIURL, !localDeviceAPIURL.isEmpty {
+                        LabeledContent(localized(model.language, "Local API", "Lokale API"), value: localDeviceAPIURL)
+                    }
                 }
 
                 Section(localized(model.language, "App", "App")) {

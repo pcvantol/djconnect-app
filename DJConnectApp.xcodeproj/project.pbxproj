@@ -10,6 +10,7 @@
 		063D8AC13AF9C2D701CD378A /* DJConnectErrors.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AA78D455672D5B5BBD091CA /* DJConnectErrors.swift */; };
 		0C89473C3C2DADB567EFB639 /* DJConnectIOSApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 872A79FAE7E92E9EBB96CE3B /* DJConnectIOSApp.swift */; };
 		14C24A642398851F7208C2CF /* DJConnectRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A925089414284E0693A9FD97 /* DJConnectRootView.swift */; };
+		184B7AE9917A4C0C9186B8EC /* DJConnectLocalDeviceAPI.swift in Sources */ = {isa = PBXBuildFile; fileRef = E0F8A6D14E5E4F0A8C9DF2B1 /* DJConnectLocalDeviceAPI.swift */; };
 		1925925463C20A81C360C321 /* DJConnectCoreMac.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A3FBCBF6FC49FA0FB5B32850 /* DJConnectCoreMac.framework */; };
 		4293921BEF6B3C041AF4B407 /* DJConnectUIMac.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C659C3787E9F642A8E1AAFCB /* DJConnectUIMac.framework */; };
 		46E99FCD23D83A1863B00D0F /* DJConnectKeychain.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E3C709B1C49EF89F2A88DA2 /* DJConnectKeychain.swift */; };
@@ -25,6 +26,7 @@
 		B48EED24BBFA437FF0492AAB /* DJConnectAppModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B3838678C774C89F2046E061 /* DJConnectAppModel.swift */; };
 		BC4774802815A6A6F91720DE /* DJConnectCoreMac.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = A3FBCBF6FC49FA0FB5B32850 /* DJConnectCoreMac.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		C7D147EF5D688B9A4EA8B2DF /* DJConnectAppModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B3838678C774C89F2046E061 /* DJConnectAppModel.swift */; };
+		CBD26E1676F84E6DBCC61D9F /* DJConnectLocalDeviceAPI.swift in Sources */ = {isa = PBXBuildFile; fileRef = E0F8A6D14E5E4F0A8C9DF2B1 /* DJConnectLocalDeviceAPI.swift */; };
 		CF5D7468F43A5723274586BA /* DJConnectMacApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 732A99F815E33F6A2776DDFA /* DJConnectMacApp.swift */; };
 		CFC1ABCE87D4E965FC2943F5 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 93BE51ADEAE2C4D8EA9988F1 /* Assets.xcassets */; };
 		D910F48A8E3D0035A78E09C6 /* DJConnectClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = FBE907808268D4334CA5B184 /* DJConnectClient.swift */; };
@@ -137,6 +139,7 @@
 		B3838678C774C89F2046E061 /* DJConnectAppModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DJConnectAppModel.swift; sourceTree = "<group>"; };
 		C659C3787E9F642A8E1AAFCB /* DJConnectUIMac.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = DJConnectUIMac.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		DE473A51768FAF83BB87904A /* DJConnectCoreIOS.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = DJConnectCoreIOS.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		E0F8A6D14E5E4F0A8C9DF2B1 /* DJConnectLocalDeviceAPI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DJConnectLocalDeviceAPI.swift; sourceTree = "<group>"; };
 		FBE907808268D4334CA5B184 /* DJConnectClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DJConnectClient.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -266,6 +269,7 @@
 			isa = PBXGroup;
 			children = (
 				B3838678C774C89F2046E061 /* DJConnectAppModel.swift */,
+				E0F8A6D14E5E4F0A8C9DF2B1 /* DJConnectLocalDeviceAPI.swift */,
 				A925089414284E0693A9FD97 /* DJConnectRootView.swift */,
 			);
 			path = DJConnectUI;
@@ -555,6 +559,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				B48EED24BBFA437FF0492AAB /* DJConnectAppModel.swift in Sources */,
+				184B7AE9917A4C0C9186B8EC /* DJConnectLocalDeviceAPI.swift in Sources */,
 				14C24A642398851F7208C2CF /* DJConnectRootView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -564,6 +569,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				C7D147EF5D688B9A4EA8B2DF /* DJConnectAppModel.swift in Sources */,
+				CBD26E1676F84E6DBCC61D9F /* DJConnectLocalDeviceAPI.swift in Sources */,
 				65FB209AB918FFADAC61EF28 /* DJConnectRootView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

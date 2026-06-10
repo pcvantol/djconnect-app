@@ -57,10 +57,9 @@ token in Keychain, and validates the pairing by posting to
 Home Assistant integration builds.
 
 For iOS Simulator testing, use the polling flow above. Do not treat simulator
-mDNS/Bonjour reachability or inbound device checks as authoritative: the app
-does not expose an inbound pairing server, and Home Assistant should complete
-app pairing by accepting the app-generated code and returning a token to the
-polling request.
+mDNS/Bonjour reachability as authoritative. On real devices and macOS, the app
+also advertises `_djconnect._tcp` and hosts local `/api/device/*` endpoints for
+Home Assistant -> app callbacks while the app is active/reachable.
 
 Reset Pairing clears the DJConnect Keychain token, generates a new app code,
 and creates a fresh local `device_id` for a new DJConnect app client setup.

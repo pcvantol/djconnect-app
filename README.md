@@ -137,8 +137,22 @@ The app sends `device_id`, `device_name`, `client_type`, `firmware`,
 `pairing_code`, and `pairing_token`. The app keeps polling until Home Assistant
 accepts that code and returns a DJConnect bearer token plus HA local/remote URL
 metadata. The current preferred response field is `device_token`; `bearer_token`
-and `token` are accepted for compatibility. The iOS/macOS app does not expose
-or use ESP-local `/api/device/*` routes.
+and `token` are accepted for compatibility.
+
+The iOS/macOS app also hosts a Bonjour-advertised local Web API for
+Home Assistant -> app traffic:
+
+```http
+GET /api/device/info
+GET /api/device/pairing-info
+POST /api/device/pair
+POST /api/device/command
+POST /api/device/dj_response
+POST /api/device/forget
+```
+
+Protected local endpoints require `Authorization: Bearer <device_token>`.
+The Apple app does not implement ESP-only reboot or OTA routes.
 
 ## Version Contract
 

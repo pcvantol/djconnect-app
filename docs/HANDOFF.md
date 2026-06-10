@@ -137,8 +137,22 @@ Recommended user flow:
 8. App uses `ha_local_url` first and switches to `ha_remote_url` after a local
    Home Assistant network failure when a remote URL is available.
 
-The iOS/macOS app is an app client, not local ESP hardware. It must not expose
-or consume ESP-local `/api/device/*` routes.
+The iOS/macOS app is an app client, not ESP hardware, but it does expose a
+small local `/api/device/*` Web API for Home Assistant -> app traffic. It does
+not implement ESP-only reboot or OTA routes.
+
+Local app Web API:
+
+```http
+GET /api/device/info
+GET /api/device/pairing-info
+POST /api/device/pair
+POST /api/device/command
+POST /api/device/dj_response
+POST /api/device/forget
+```
+
+Protected endpoints require `Authorization: Bearer <device_token>`.
 
 Implemented initial app contract:
 

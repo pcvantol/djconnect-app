@@ -19,12 +19,13 @@ Requirements:
   device_token; bearer_token and token may also be returned.
 - Return ha_local_url, optional ha_remote_url, and language metadata during
   successful app pairing.
-- Keep /api/device/* reserved for ESP/local hardware clients.
+- Apple clients host local /api/device/* app endpoints for HA -> app traffic,
+  but must not implement ESP-only reboot or OTA routes.
 - Persist client_type as ios, macos, or esp32. Do not reintroduce device_type.
 - Authenticated status/command/voice routes must accept Authorization: Bearer
   plus X-DJConnect-Device-ID.
-- During app pairing, temporary 401 responses should not require the app to
-  regenerate its device_id.
+- During app pairing, 401/403 code mismatch responses stop polling, keep the
+  visible app code, and do not rotate device_id automatically.
 - Create native HA entities for paired app clients when status is received.
 ```
 
@@ -41,7 +42,8 @@ Requirements:
   pairing_token set to the same app-generated code.
 - Store only the returned DJConnect bearer token in Keychain and persist
   ha_local_url, optional ha_remote_url, device_id, and client_type.
-- Do not expose or call ESP-local /api/device/* routes.
+- Expose local /api/device/info, pairing-info, pair, command, dj_response, and
+  forget routes for HA -> app traffic; do not expose ESP-only reboot/OTA.
 - Send device_id, client_type, firmware, app_version, device_name, and HA URL
   metadata on status payloads. Send device_id and client_type on command
   payloads.
@@ -49,7 +51,7 @@ Requirements:
   clearing pairing.
 - Treat authenticated 401/403/404 as stale/setup recovery while keeping the
   token until explicit user reset.
-- Treat temporary 401 during unauthenticated pairing polling as pending setup
-  and keep polling.
+- Treat 401/403 during unauthenticated pairing polling as code/setup mismatch:
+  stop polling, keep the visible app code, and ask the user to re-enter it.
 - Do not log bearer tokens, HA tokens, Spotify secrets, or audio URLs.
 ```

@@ -17,6 +17,8 @@ All notable changes to DJConnect App are documented here.
   URL visibility in shared settings.
 - Fixed macOS/iOS pairing polling so a Home Assistant HTTP 401 code mismatch
   stops the wait loop and tells the user to re-enter the visible app code.
+- Added a local Bonjour-advertised `/api/device/*` Web API for HA -> Apple app
+  traffic, including info, pairing-info, pair, command, DJ response, and forget.
 
 ## 3.1.0 - 2026-06-10
 
