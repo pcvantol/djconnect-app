@@ -777,7 +777,23 @@ struct SettingsView: View {
                         LabeledContent(localized(model.language, "Remote URL", "Remote URL"), value: model.haRemoteURL)
                     }
                     if let localDeviceAPIURL = model.localDeviceAPIURL, !localDeviceAPIURL.isEmpty {
-                        LabeledContent(localized(model.language, "Local API", "Lokale API"), value: localDeviceAPIURL)
+                        LabeledContent(localized(model.language, "Local API", "Lokale API")) {
+                            HStack(spacing: 8) {
+                                Text(localDeviceAPIURL)
+                                    .font(.system(.body, design: .monospaced))
+                                    .textSelection(.enabled)
+                                    .lineLimit(nil)
+                                    .multilineTextAlignment(.trailing)
+                                Button {
+                                    copyText(localDeviceAPIURL)
+                                } label: {
+                                    Image(systemName: "doc.on.doc")
+                                }
+                                .buttonStyle(.borderless)
+                                .help(localized(model.language, "Copy Local API URL", "Lokale API URL kopieren"))
+                                .accessibilityLabel(localized(model.language, "Copy Local API URL", "Lokale API URL kopieren"))
+                            }
+                        }
                     }
                 }
 
@@ -822,7 +838,7 @@ struct SettingsView: View {
                     }
                     .disabled(model.diagnosticLogLines.isEmpty)
                     Button {
-                        copyDiagnostics(model.diagnosticExportText())
+                        copyText(model.diagnosticExportText())
                     } label: {
                         Label(localized(model.language, "Copy Diagnostics Export", "Diagnostics-export kopieren"), systemImage: "doc.on.doc")
                     }
@@ -841,7 +857,7 @@ struct SettingsView: View {
     }
 }
 
-private func copyDiagnostics(_ text: String) {
+private func copyText(_ text: String) {
     #if os(iOS)
     UIPasteboard.general.string = text
     #elseif os(macOS)
