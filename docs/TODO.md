@@ -9,25 +9,17 @@ This document tracks open implementation work and known project gaps.
   `pairing_token`.
 - Add a Home Assistant UI/deep-link path for accepting app-generated pairing
   codes.
-- Replace remaining preview/sample queue and playlist state with live backend
-  state.
-- Add diagnostics export with required redaction rules.
+- Validate live backend devices, queue, playlists, liked proxy, and voice flows
+  against a real Home Assistant `djconnect` setup.
 
 ## Playback
 
-- Implement output selection using the backend `devices` command.
-- Implement queue loading using the backend `queue` command.
-- Implement playlists and liked proxy start flows.
-- Add retry throttling for `backend_unavailable`.
+- Add retry throttling and user-facing recovery copy for `backend_unavailable`.
 - Expand command/status integration tests with URLProtocol-backed response
   fixtures.
 
 ## Voice/PTT
 
-- Add microphone permission strings and platform permission handling.
-- Implement mono PCM WAV recording.
-- Upload WAV audio to `/api/djconnect/voice`.
-- Display returned `text`/`dj_text`.
 - Optionally play returned WAV/MP3 response audio without logging `audio_url`.
 
 ## iOS
@@ -46,25 +38,28 @@ This document tracks open implementation work and known project gaps.
 
 ## Testing
 
-- Add URLProtocol-backed async tests for command, status, voice, network error,
-  and malformed response handling.
+- Add UI tests that run against a real or recorded Home Assistant pairing and
+  network flow.
+- Add URLProtocol-backed async tests for network error and malformed response
+  handling.
 - Add focused app-model tests for pairing retry state and stale authenticated
   auth recovery.
-- Add tests that token stores never expose tokens through diagnostics.
-- Add UI tests after real pairing and network state flows exist.
+- Add more diagnostics export tests for `audio_url`, `Authorization`, and
+  arbitrary token-like JSON fields.
 
 ## Release/Build
 
 - Configure Apple developer team and signing.
 - Add privacy manifests if required by release tooling.
 - Decide on CI provider and add build/test workflow.
-- Decide on TestFlight/notarization/release packaging.
+- Configure TestFlight and notarized macOS release packaging.
 
 ## Known Issues
 
 - Pairing depends on the HA integration accepting app-generated pairing codes
   and exposing `POST /api/djconnect/pair`.
-- Queue, playlist, output selection, and voice/PTT UI are still scaffolded.
+- Live queue, playlist, output selection, liked proxy, and voice/PTT are wired
+  in the Apple app, but still need validation against the matching HA backend.
 - The app icon now follows the shared DJConnect brand asset from
   `pcvantol/djconnect`.
 - `DJConnectCoreTests` currently run through Swift Package tests; Xcode test

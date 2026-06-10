@@ -19,6 +19,7 @@ credential is the DJConnect client bearer token issued by the integration.
 - [docs/ARCHITECTURE_DECISIONS.md](docs/ARCHITECTURE_DECISIONS.md): key decisions and rationale.
 - [docs/API_CONTRACT.md](docs/API_CONTRACT.md): Home Assistant endpoint contract.
 - [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md): local development, generation, build, and test commands.
+- [docs/RELEASE.md](docs/RELEASE.md): signing, TestFlight, notarization, and live HA validation checklist.
 - [docs/SYNC_PROMPTS.md](docs/SYNC_PROMPTS.md): copy/paste prompts for syncing the app and Home Assistant repos.
 - [docs/TODO.md](docs/TODO.md): open work, known issues, and next implementation steps.
 - [PRIVACY.md](PRIVACY.md): security, privacy, and diagnostics redaction rules.
@@ -106,6 +107,19 @@ Voice/PTT WAV audio, when implemented by an app target, is posted to:
 ```http
 POST /api/djconnect/voice
 Content-Type: audio/wav
+```
+
+The native app also uses command proxy flows for backend devices, queue,
+playlists, liked songs, and output selection:
+
+```http
+POST /api/djconnect/command
+{"command":"devices"}
+{"command":"queue"}
+{"command":"playlists"}
+{"command":"set_output","value":"<device id or name>"}
+{"command":"start_playlist","value":"spotify:playlist:...","play":true}
+{"command":"start_liked_proxy","play":true}
 ```
 
 All status and command payloads include `device_id`, `client_type`, and

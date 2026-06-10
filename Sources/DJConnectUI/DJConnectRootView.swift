@@ -3,6 +3,8 @@ import SwiftUI
 
 #if os(iOS)
 import UIKit
+#elseif os(macOS)
+import AppKit
 #endif
 
 private func localized(_ language: String, _ english: String, _ dutch: String) -> String {
@@ -400,8 +402,9 @@ private struct IOSVoiceCard: View {
             }
             Spacer()
             Button {
+                model.toggleVoiceRecording()
             } label: {
-                Image(systemName: "mic.fill")
+                Image(systemName: model.isRecordingVoice ? "stop.fill" : "mic.fill")
                     .frame(width: 34, height: 34)
             }
             .buttonStyle(.bordered)
@@ -594,14 +597,25 @@ struct VoiceResponseView: View {
             HStack {
                 Label(localized(model.language, "DJ", "DJ"), systemImage: "waveform")
                 Spacer()
-                Button(action: {}) {
-                    Image(systemName: "mic.fill")
+                Button {
+                    model.toggleVoiceRecording()
+                } label: {
+                    Image(systemName: model.isRecordingVoice ? "stop.fill" : "mic.fill")
                 }
                 .buttonStyle(.bordered)
                 .disabled(!model.voiceEnabled)
                 .help(localized(model.language, "Push to talk", "Push-to-talk"))
             }
 
+            if model.isRecordingVoice {
+                Label(localized(model.language, "Recording", "Neemt op"), systemImage: "record.circle")
+                    .foregroundStyle(.red)
+            }
+            if let voiceErrorMessage = model.voiceErrorMessage {
+                Text(voiceErrorMessage)
+                    .font(.callout)
+                    .foregroundStyle(.orange)
+            }
             Text(model.djResponseText.isEmpty ? localized(model.language, "Ready for a DJ response.", "Klaar voor een DJ-reactie.") : model.djResponseText)
                 .foregroundStyle(model.djResponseText.isEmpty ? .secondary : .primary)
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -616,28 +630,83 @@ struct QueueView: View {
         NavigationStack {
             List {
                 Section(localized(model.language, "Output", "Output")) {
-                    Label(localizedOutputName(model.selectedOutput, language: model.language), systemImage: "speaker.wave.2")
+                    if model.availableOutputs.isEmpty {
+                        Label(localizedOutputName(model.selectedOutput, language: model.language), systemImage: "speaker.wave.2")
+                    } else {
+                        Picker(localized(model.language, "Output", "Output"), selection: Binding(
+                            get: { model.selectedOutput },
+                            set: { selected in
+                                if let output = model.availableOutputs.first(where: { $0.name == selected || $0.id == selected }) {
+                                    model.selectOutput(output)
+                                }
+                            }
+                        )) {
+                            ForEach(model.availableOutputs) { output in
+                                Label(output.name, systemImage: output.active == true ? "speaker.wave.2.fill" : "speaker.wave.2")
+                                    .tag(output.name)
+                            }
+                        }
+                    }
+                    Button {
+                        model.loadOutputs()
+                    } label: {
+                        Label(localized(model.language, "Reload Outputs", "Outputs herladen"), systemImage: "arrow.clockwise")
+                    }
                 }
                 Section(localized(model.language, "Queue", "Wachtrij")) {
-                    if model.queue.isEmpty {
+                    if model.queueItems.isEmpty {
                         ContentUnavailableView(localized(model.language, "No Queue", "Geen wachtrij"), systemImage: "music.note.list")
                     } else {
-                        ForEach(model.queue, id: \.self) { item in
-                            Text(item)
+                        ForEach(model.queueItems) { item in
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text(item.title)
+                                if let artist = item.artist {
+                                    Text(artist)
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                            }
                         }
+                    }
+                    Button {
+                        model.loadQueue()
+                    } label: {
+                        Label(localized(model.language, "Reload Queue", "Wachtrij herladen"), systemImage: "arrow.clockwise")
                     }
                 }
                 Section(localized(model.language, "Playlists", "Playlists")) {
-                    if model.playlists.isEmpty {
+                    Button {
+                        model.startLikedProxy()
+                    } label: {
+                        Label(localized(model.language, "Start Liked Songs", "Start gelikete nummers"), systemImage: "heart.fill")
+                    }
+                    if model.playlistItems.isEmpty {
                         ContentUnavailableView(localized(model.language, "No Playlists", "Geen playlists"), systemImage: "rectangle.stack")
                     } else {
-                        ForEach(model.playlists, id: \.self) { playlist in
-                            Label(playlist, systemImage: "play.square")
+                        ForEach(model.playlistItems) { playlist in
+                            Button {
+                                model.startPlaylist(playlist)
+                            } label: {
+                                Label(playlist.name, systemImage: "play.square")
+                            }
                         }
+                    }
+                    Button {
+                        model.loadPlaylists()
+                    } label: {
+                        Label(localized(model.language, "Reload Playlists", "Playlists herladen"), systemImage: "arrow.clockwise")
                     }
                 }
             }
             .navigationTitle(localized(model.language, "Queue", "Wachtrij"))
+            .task {
+                guard model.pairingStatus == .paired else {
+                    return
+                }
+                model.loadOutputs()
+                model.loadQueue()
+                model.loadPlaylists()
+            }
         }
     }
 }
@@ -724,6 +793,11 @@ struct SettingsView: View {
                         model.clearDiagnosticLog()
                     }
                     .disabled(model.diagnosticLogLines.isEmpty)
+                    Button {
+                        copyDiagnostics(model.diagnosticExportText())
+                    } label: {
+                        Label(localized(model.language, "Copy Diagnostics Export", "Diagnostics-export kopieren"), systemImage: "doc.on.doc")
+                    }
                 } header: {
                     Text(localized(model.language, "Diagnostics", "Diagnostiek"))
                 }
@@ -737,4 +811,13 @@ struct SettingsView: View {
             }
         }
     }
+}
+
+private func copyDiagnostics(_ text: String) {
+    #if os(iOS)
+    UIPasteboard.general.string = text
+    #elseif os(macOS)
+    NSPasteboard.general.clearContents()
+    NSPasteboard.general.setString(text, forType: .string)
+    #endif
 }

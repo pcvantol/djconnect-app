@@ -432,7 +432,7 @@ Functional parity with the ESP device should include:
 - output selector;
 - queue view;
 - playlists/liked proxy start;
-- DJ/voice response view if PTT is implemented;
+- DJ/voice response view with PTT WAV upload;
 - backend unavailable and version mismatch states.
 
 iOS/macOS-specific UX may add:
@@ -505,6 +505,6 @@ Do not put SwiftUI view logic into the HTTP client.
 - Authenticated 401/403/404 show stale pairing/setup recovery and keep token
   until user reset.
 - Temporary 401 during unauthenticated pairing polling keeps the app waiting.
-- Voice/PTT, if implemented, uploads raw WAV to `/api/djconnect/voice`.
+- Voice/PTT uploads raw WAV to `/api/djconnect/voice`.
 - No secrets appear in logs or diagnostics.
 - iOS and macOS clients can coexist with ESP32 clients in the same HA backend.

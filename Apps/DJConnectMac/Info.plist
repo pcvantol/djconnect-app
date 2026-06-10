@@ -34,5 +34,7 @@
 	</array>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>DJConnect maakt verbinding met Home Assistant op je lokale netwerk.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>DJConnect neemt je stem op om een voice request naar Home Assistant te sturen.</string>
 </dict>
 </plist>

@@ -43,6 +43,11 @@ public final class DJConnectClient: Sendable {
         return try await decodedResponse(for: request)
     }
 
+    public func sendCommandResponse(_ payload: DJConnectCommandPayload) async throws -> DJConnectCommandResponse {
+        let request = try commandRequest(payload)
+        return try await decodedResponse(for: request)
+    }
+
     public func sendVoice(wavData: Data) async throws -> DJConnectVoiceResponse {
         let request = try voiceRequest(wavData: wavData)
         return try await decodedResponse(for: request)

@@ -3,6 +3,10 @@ import DJConnectCore
 import Foundation
 import OSLog
 
+#if canImport(AVFoundation)
+import AVFoundation
+#endif
+
 public enum DJConnectAppLogLevel: String, CaseIterable, Sendable {
     case debug
     case info
@@ -52,8 +56,13 @@ public final class DJConnectAppModel: ObservableObject {
     @Published public var playback: DJConnectPlayback?
     @Published public var queue: [String] = []
     @Published public var playlists: [String] = []
+    @Published public var availableOutputs: [DJConnectOutputDevice] = []
+    @Published public var queueItems: [DJConnectQueueItem] = []
+    @Published public var playlistItems: [DJConnectPlaylist] = []
     @Published public var selectedOutput = "Not selected"
     @Published public var djResponseText = ""
+    @Published public var isRecordingVoice = false
+    @Published public var voiceErrorMessage: String?
     @Published public var logLevel = "info" {
         didSet {
             defaults.set(logLevel, forKey: logLevelKey)
@@ -73,6 +82,10 @@ public final class DJConnectAppModel: ObservableObject {
     private var pairingTask: Task<Void, Never>?
     private var scheduledPairingTask: Task<Void, Never>?
     private var volumeCommandTask: Task<Void, Never>?
+    #if canImport(AVFoundation)
+    private var voiceRecorder: AVAudioRecorder?
+    private var voiceRecordingURL: URL?
+    #endif
     private let defaults: UserDefaults
     private let tokenStore: DJConnectTokenStore
     private static let protocolVersion = "3.0.25"
@@ -285,6 +298,7 @@ public final class DJConnectAppModel: ObservableObject {
         Task {
             do {
                 try await refreshStatus(client: try makeClient())
+                await refreshBackendCollections()
             } catch let error as DJConnectError {
                 log(.warning, "Refresh failed: \(Self.describe(error))")
                 apply(error: error)
@@ -334,6 +348,125 @@ public final class DJConnectAppModel: ObservableObject {
         sendPlaybackCommand("set_repeat", value: .string(value.rawValue))
     }
 
+    public func loadOutputs() {
+        log(.info, "Loading playback outputs")
+        Task {
+            await performCommand("devices")
+        }
+    }
+
+    public func loadQueue() {
+        log(.info, "Loading queue")
+        Task {
+            await performCommand("queue")
+        }
+    }
+
+    public func loadPlaylists() {
+        log(.info, "Loading playlists")
+        Task {
+            await performCommand("playlists")
+        }
+    }
+
+    public func selectOutput(_ output: DJConnectOutputDevice) {
+        selectedOutput = output.name
+        log(.info, "Selecting output \(output.name)")
+        sendPlaybackCommand("set_output", value: .string(output.id.isEmpty ? output.name : output.id))
+    }
+
+    public func startPlaylist(_ playlist: DJConnectPlaylist) {
+        log(.info, "Starting playlist \(playlist.name)")
+        sendPlaybackCommand("start_playlist", value: .string(playlist.commandValue), play: true)
+    }
+
+    public func startLikedProxy() {
+        log(.info, "Starting liked proxy flow")
+        sendPlaybackCommand("start_liked_proxy", play: true)
+    }
+
+    public func toggleVoiceRecording() {
+        isRecordingVoice ? stopVoiceRecordingAndUpload() : startVoiceRecording()
+    }
+
+    public func startVoiceRecording() {
+        guard voiceEnabled else {
+            log(.warning, "Voice recording ignored because voice is disabled")
+            return
+        }
+        guard pairingStatus == .paired else {
+            voiceErrorMessage = localized(
+                english: "Pair with Home Assistant before using voice.",
+                dutch: "Koppel eerst met Home Assistant voordat je voice gebruikt."
+            )
+            log(.warning, "Voice recording ignored because app is not paired")
+            return
+        }
+
+        Task {
+            let granted = await requestMicrophoneAccess()
+            guard granted else {
+                voiceErrorMessage = localized(
+                    english: "Microphone access is required for push-to-talk.",
+                    dutch: "Microfoontoegang is nodig voor push-to-talk."
+                )
+                log(.warning, "Microphone permission was not granted")
+                return
+            }
+            beginVoiceRecording()
+        }
+    }
+
+    public func stopVoiceRecordingAndUpload() {
+        guard isRecordingVoice else {
+            return
+        }
+
+        #if canImport(AVFoundation)
+        let url = voiceRecordingURL
+        voiceRecorder?.stop()
+        voiceRecorder = nil
+        voiceRecordingURL = nil
+        isRecordingVoice = false
+        #if os(iOS)
+        try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+        #endif
+
+        guard let url else {
+            log(.warning, "Voice upload skipped because recording URL is missing")
+            return
+        }
+
+        Task {
+            do {
+                let data = try Data(contentsOf: url)
+                try? FileManager.default.removeItem(at: url)
+                log(.info, "Uploading voice recording WAV (\(data.count) bytes)")
+                let response = try await makeClient().sendVoice(wavData: data)
+                djResponseText = response.djText ?? response.text ?? localized(
+                    english: "Voice request completed.",
+                    dutch: "Voice-request afgerond."
+                )
+                voiceErrorMessage = nil
+                log(.info, "Voice request completed")
+            } catch let error as DJConnectError {
+                voiceErrorMessage = Self.describe(error)
+                log(.warning, "Voice upload failed: \(Self.describe(error))")
+                apply(error: error)
+            } catch {
+                voiceErrorMessage = error.localizedDescription
+                log(.error, "Voice upload failed unexpectedly: \(error.localizedDescription)")
+            }
+        }
+        #else
+        isRecordingVoice = false
+        voiceErrorMessage = localized(
+            english: "Voice recording is not available on this platform.",
+            dutch: "Voice-opname is niet beschikbaar op dit platform."
+        )
+        #endif
+    }
+
     public func apply(playback: DJConnectPlayback?) {
         self.playback = playback
         selectedOutput = playback?.device?.name ?? selectedOutput
@@ -345,6 +478,32 @@ public final class DJConnectAppModel: ObservableObject {
             log(.debug, "Applied playback snapshot: playing=\(playing), volume=\(volume)")
         } else {
             log(.debug, "Applied empty playback snapshot")
+        }
+    }
+
+    public func apply(commandResponse response: DJConnectCommandResponse) {
+        if let playback = response.playback {
+            apply(playback: playback)
+        }
+        backendAvailable = response.backendAvailable ?? backendAvailable
+        if let devices = response.devices {
+            availableOutputs = devices
+            if let active = devices.first(where: { $0.active == true }) {
+                selectedOutput = active.name
+            } else if selectedOutput == "Not selected", let first = devices.first {
+                selectedOutput = first.name
+            }
+        }
+        if let responseQueue = response.queue {
+            queueItems = responseQueue
+            queue = responseQueue.map(\.displayTitle)
+        }
+        if let responsePlaylists = response.playlists {
+            playlistItems = responsePlaylists
+            playlists = responsePlaylists.map(\.name)
+        }
+        if let message = response.message, !message.isEmpty {
+            djResponseText = message
         }
     }
 
@@ -472,6 +631,12 @@ public final class DJConnectAppModel: ObservableObject {
         }
     }
 
+    private func refreshBackendCollections() async {
+        await performCommand("devices")
+        await performCommand("queue")
+        await performCommand("playlists")
+    }
+
     private func performCommand(
         _ command: String,
         value: DJConnectCommandValue? = nil,
@@ -484,7 +649,7 @@ public final class DJConnectAppModel: ObservableObject {
         do {
             let client = try makeClient()
             log(.debug, "Posting command \(command) to Home Assistant")
-            let response = try await client.sendCommand(
+            let response = try await client.sendCommandResponse(
                 DJConnectCommandPayload(
                     identity: identity,
                     command: command,
@@ -492,8 +657,7 @@ public final class DJConnectAppModel: ObservableObject {
                     play: play
                 )
             )
-            apply(playback: response.playback)
-            backendAvailable = response.backendAvailable ?? backendAvailable
+            apply(commandResponse: response)
             log(.debug, "Command \(command) succeeded")
         } catch let error as DJConnectError {
             log(.warning, "Command \(command) failed: \(Self.describe(error))")
@@ -518,6 +682,33 @@ public final class DJConnectAppModel: ObservableObject {
     public func clearDiagnosticLog() {
         diagnosticLogLines.removeAll()
         log(.info, "Diagnostic log cleared")
+    }
+
+    public func diagnosticExportText() -> String {
+        let tokenState = ((try? tokenStore.loadToken())?.isEmpty == false) ? "present" : "missing"
+        let url = Self.normalizedHomeAssistantURL(from: homeAssistantURL)
+            .map(Self.redactedURL)
+            ?? "invalid"
+        let lines = diagnosticLogLines.map { Self.redactSensitive($0.text) }.joined(separator: "\n")
+        return """
+        DJConnect Diagnostics
+        version: \(appVersion)
+        client_type: \(identity.clientType.rawValue)
+        client_id: \(identity.clientID)
+        device_id: \(identity.deviceID)
+        pairing_status: \(pairingStatus.rawValue)
+        bearer_token: \(tokenState)
+        home_assistant_url: \(url)
+        backend_available: \(backendAvailable)
+        selected_output: \(selectedOutput)
+        language: \(language)
+        log_level: \(logLevel)
+        voice_enabled: \(voiceEnabled)
+        local_response_audio_enabled: \(localResponseAudioEnabled)
+
+        Logs
+        \(lines.isEmpty ? "none" : lines)
+        """
     }
 
     public func localized(english: String, dutch: String) -> String {
@@ -621,6 +812,79 @@ public final class DJConnectAppModel: ObservableObject {
         components?.query = nil
         components?.fragment = nil
         return components?.string ?? "\(url.scheme ?? "http")://\(url.host ?? "unknown")"
+    }
+
+    private static func redactSensitive(_ value: String) -> String {
+        value
+            .replacingOccurrences(
+                of: #"Bearer\s+[A-Za-z0-9._~+/=-]+"#,
+                with: "Bearer [redacted]",
+                options: .regularExpression
+            )
+            .replacingOccurrences(
+                of: #"\b\d{6}\b"#,
+                with: "[pair-code]",
+                options: .regularExpression
+            )
+    }
+
+    private func requestMicrophoneAccess() async -> Bool {
+        #if canImport(AVFoundation)
+        #if os(iOS)
+        return await withCheckedContinuation { continuation in
+            AVAudioSession.sharedInstance().requestRecordPermission { granted in
+                continuation.resume(returning: granted)
+            }
+        }
+        #elseif os(macOS)
+        return await AVCaptureDevice.requestAccess(for: .audio)
+        #else
+        return false
+        #endif
+        #else
+        return false
+        #endif
+    }
+
+    private func beginVoiceRecording() {
+        #if canImport(AVFoundation)
+        do {
+            #if os(iOS)
+            let session = AVAudioSession.sharedInstance()
+            try session.setCategory(.playAndRecord, mode: .spokenAudio, options: [.defaultToSpeaker, .allowBluetooth])
+            try session.setActive(true)
+            #endif
+
+            let url = FileManager.default.temporaryDirectory
+                .appendingPathComponent("djconnect-voice-\(UUID().uuidString)")
+                .appendingPathExtension("wav")
+            let settings: [String: Any] = [
+                AVFormatIDKey: kAudioFormatLinearPCM,
+                AVSampleRateKey: 16_000,
+                AVNumberOfChannelsKey: 1,
+                AVLinearPCMBitDepthKey: 16,
+                AVLinearPCMIsFloatKey: false,
+                AVLinearPCMIsBigEndianKey: false
+            ]
+            let recorder = try AVAudioRecorder(url: url, settings: settings)
+            recorder.prepareToRecord()
+            recorder.record()
+            voiceRecorder = recorder
+            voiceRecordingURL = url
+            voiceErrorMessage = nil
+            isRecordingVoice = true
+            log(.info, "Voice recording started")
+        } catch {
+            isRecordingVoice = false
+            voiceErrorMessage = error.localizedDescription
+            log(.error, "Voice recording failed: \(error.localizedDescription)")
+        }
+        #else
+        voiceErrorMessage = localized(
+            english: "Voice recording is not available on this platform.",
+            dutch: "Voice-opname is niet beschikbaar op dit platform."
+        )
+        #endif
     }
 
     private static var keychainService: String {

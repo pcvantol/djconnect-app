@@ -89,6 +89,7 @@ targets:
           - UIInterfaceOrientationLandscapeLeft
           - UIInterfaceOrientationLandscapeRight
         NSLocalNetworkUsageDescription: DJConnect maakt verbinding met Home Assistant op je lokale netwerk.
+        NSMicrophoneUsageDescription: DJConnect neemt je stem op om een voice request naar Home Assistant te sturen.
         NSBonjourServices:
           - _home-assistant._tcp.
           - _djconnect._tcp.
@@ -115,6 +116,7 @@ targets:
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         LSApplicationCategoryType: public.app-category.music
         NSLocalNetworkUsageDescription: DJConnect maakt verbinding met Home Assistant op je lokale netwerk.
+        NSMicrophoneUsageDescription: DJConnect neemt je stem op om een voice request naar Home Assistant te sturen.
         NSBonjourServices:
           - _home-assistant._tcp.
           - _djconnect._tcp.

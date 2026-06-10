@@ -154,6 +154,41 @@ private func httpResponse(for request: URLRequest, statusCode: Int) throws -> HT
     #expect(json?["play"] as? Bool == true)
 }
 
+@Test func commandResponseDecodesBackendCollectionsFromDataEnvelope() throws {
+    let response = try JSONDecoder().decode(
+        DJConnectCommandResponse.self,
+        from: Data(
+            """
+            {
+              "success": true,
+              "backend_available": true,
+              "data": {
+                "devices": [
+                  {"id":"speaker-1","name":"Living Room","active":true,"supports_volume":true,"volume_percent":42},
+                  "Kitchen"
+                ],
+                "queue": [
+                  {"uri":"spotify:track:1","title":"Track One","artist":"Artist One"},
+                  "Track Two"
+                ],
+                "playlists": [
+                  {"id":"playlist-1","name":"Warmup","uri":"spotify:playlist:1"},
+                  "Liked Proxy"
+                ]
+              }
+            }
+            """.utf8
+        )
+    )
+
+    #expect(response.success)
+    #expect(response.backendAvailable == true)
+    #expect(response.devices?.map(\.name) == ["Living Room", "Kitchen"])
+    #expect(response.devices?.first?.supportsVolume == true)
+    #expect(response.queue?.map(\.displayTitle) == ["Track One - Artist One", "Track Two"])
+    #expect(response.playlists?.map(\.commandValue) == ["spotify:playlist:1", "Liked Proxy"])
+}
+
 @Test func pairingRequestUsesPairEndpointWithoutBearerToken() throws {
     let identity = DJConnectIdentity(
         deviceID: "djconnect-macos-8F3A2C91B45D",
@@ -271,6 +306,24 @@ private func httpResponse(for request: URLRequest, statusCode: Int) throws -> HT
         try await client.pair(DJConnectPairingPayload(identity: identity, pairingToken: "123456"))
     }
     #expect(try tokenStore.loadToken() == nil)
+}
+
+@MainActor
+@Test func diagnosticsExportRedactsPairingCodesAndTokenState() throws {
+    let suiteName = "DJConnectTests-\(UUID().uuidString)"
+    let defaults = try #require(UserDefaults(suiteName: suiteName))
+    defaults.removePersistentDomain(forName: suiteName)
+    defaults.set("123456", forKey: "DJConnectPairingToken")
+    defaults.set("http://user:password@homeassistant.local:8123/path?token=secret", forKey: "DJConnectHomeAssistantURL")
+    let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(token: "secret-token"))
+
+    let export = model.diagnosticExportText()
+
+    #expect(export.contains("bearer_token: present"))
+    #expect(!export.contains("secret-token"))
+    #expect(!export.contains("user:password"))
+    #expect(!export.contains("token=secret"))
+    #expect(!export.contains("123456"))
 }
 
 @Test func voiceRequestUsesRawWavContentType() throws {

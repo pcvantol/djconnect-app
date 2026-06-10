@@ -62,6 +62,15 @@ All notable changes to DJConnect App are documented here.
   bearer-token pairing contract.
 - Synced the Apple app contract with the DJConnect `3.0.25` Home Assistant
   handoff and made `device_id` the canonical HA identity field.
+- Added live backend command flows for output devices, queue loading,
+  playlists, liked proxy start, and output selection.
+- Added Push-to-Talk recording with mono PCM WAV upload to
+  `/api/djconnect/voice`.
+- Added redacted diagnostics export copy support.
+- Added release signing, TestFlight, notarization, and live HA validation
+  documentation.
+- Added command-response decoding tests for backend collections and diagnostics
+  redaction coverage.
 
 ### Changed
 
