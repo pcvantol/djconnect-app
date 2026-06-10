@@ -21,6 +21,8 @@ All notable changes to DJConnect App are documented here.
   traffic, including info, pairing-info, pair, command, DJ response, and forget.
 - Local API now prefers a reachable LAN IPv4 URL over a best-effort `.local`
   hostname so Home Assistant can call the app directly.
+- Local pairing-info now returns typed JSON and local pair failures are logged
+  with the exact reject reason for Home Assistant repair diagnostics.
 
 ## 3.1.0 - 2026-06-10
 

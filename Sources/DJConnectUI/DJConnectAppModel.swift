@@ -855,15 +855,19 @@ public final class DJConnectAppModel: ObservableObject {
 
     private func handleLocalPair(_ request: DJConnectLocalPairRequest) -> DJConnectLocalDeviceAPIResponse {
         guard request.deviceID == identity.deviceID else {
+            log(.warning, "Local pair rejected because device_id \(request.deviceID ?? "missing") does not match \(identity.deviceID)")
             return DJConnectLocalDeviceAPIResponse(success: false, error: "wrong_device_id", message: "Pair request is for a different DJConnect device.")
         }
         guard request.clientType == identity.clientType else {
+            log(.warning, "Local pair rejected because client_type \(request.clientType?.rawValue ?? "missing") does not match \(identity.clientType.rawValue)")
             return DJConnectLocalDeviceAPIResponse(success: false, error: "wrong_client_type", message: "Pair request is for a different DJConnect client type.")
         }
         guard request.resolvedPairCode == pairingToken else {
+            log(.warning, "Local pair rejected because pair_code does not match the visible app code")
             return DJConnectLocalDeviceAPIResponse(success: false, error: "pair_code_mismatch", message: "Pairing code does not match this app.")
         }
         guard let token = request.resolvedDeviceToken, !token.isEmpty else {
+            log(.warning, "Local pair rejected because Home Assistant did not send a device token")
             return DJConnectLocalDeviceAPIResponse(success: false, error: "missing_token", message: "Pair request did not include a device token.")
         }
 

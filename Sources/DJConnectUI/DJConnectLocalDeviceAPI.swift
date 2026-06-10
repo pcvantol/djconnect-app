@@ -58,6 +58,37 @@ public struct DJConnectLocalPairRequest: Decodable, Sendable {
         case deviceLanguage = "device_language"
         case language
     }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        pairCode = try Self.decodeStringIfPresent(from: container, forKey: .pairCode)
+        pairingCode = try Self.decodeStringIfPresent(from: container, forKey: .pairingCode)
+        pairingToken = try Self.decodeStringIfPresent(from: container, forKey: .pairingToken)
+        deviceID = try Self.decodeStringIfPresent(from: container, forKey: .deviceID)
+        if let rawClientType = try Self.decodeStringIfPresent(from: container, forKey: .clientType) {
+            clientType = DJConnectClientType(rawValue: rawClientType.lowercased())
+        }
+        deviceToken = try Self.decodeStringIfPresent(from: container, forKey: .deviceToken)
+        token = try Self.decodeStringIfPresent(from: container, forKey: .token)
+        bearerToken = try Self.decodeStringIfPresent(from: container, forKey: .bearerToken)
+        haLocalURL = try Self.decodeStringIfPresent(from: container, forKey: .haLocalURL)
+        haRemoteURL = try Self.decodeStringIfPresent(from: container, forKey: .haRemoteURL)
+        deviceLanguage = try Self.decodeStringIfPresent(from: container, forKey: .deviceLanguage)
+        language = try Self.decodeStringIfPresent(from: container, forKey: .language)
+    }
+
+    private static func decodeStringIfPresent(
+        from container: KeyedDecodingContainer<CodingKeys>,
+        forKey key: CodingKeys
+    ) throws -> String? {
+        if let value = try container.decodeIfPresent(String.self, forKey: key) {
+            return value
+        }
+        if let value = try container.decodeIfPresent(Int.self, forKey: key) {
+            return String(value)
+        }
+        return nil
+    }
 }
 
 public struct DJConnectLocalCommandRequest: Decodable, Sendable {
@@ -105,6 +136,30 @@ public struct DJConnectLocalDeviceAPIResponse: Encodable, Sendable {
         self.error = error
         self.message = message
         self.data = data
+    }
+}
+
+public struct DJConnectLocalDeviceInfoResponse: Encodable, Sendable {
+    public var deviceID: String
+    public var deviceName: String
+    public var clientType: String
+    public var firmware: String
+    public var appVersion: String
+    public var platform: String
+    public var paired: Bool
+    public var localURL: String
+    public var pairCode: String?
+
+    enum CodingKeys: String, CodingKey {
+        case deviceID = "device_id"
+        case deviceName = "device_name"
+        case clientType = "client_type"
+        case firmware
+        case appVersion = "app_version"
+        case platform
+        case paired
+        case localURL = "local_url"
+        case pairCode = "pair_code"
     }
 }
 
@@ -314,7 +369,9 @@ public final class DJConnectLocalDeviceAPI: @unchecked Sendable {
     }
 
     private func route(_ request: HTTPRequest) async -> Data {
-        switch (request.method, request.path) {
+        let path = normalizedPath(request.path)
+        await logHandler("Local device API \(request.method) \(path)")
+        switch (request.method, path) {
         case ("GET", "/api/device/info"):
             return response(await infoPayload(includePairingCode: false))
         case ("GET", "/api/device/pairing-info"):
@@ -350,8 +407,17 @@ public final class DJConnectLocalDeviceAPI: @unchecked Sendable {
             let value = try decoder.decode(type, from: body)
             return response(await handler(value))
         } catch {
+            let typeName = String(describing: type)
+            await logHandler("Local device API rejected invalid JSON for \(typeName): \(error.localizedDescription)")
             return response(DJConnectLocalDeviceAPIResponse(success: false, error: "bad_request", message: "Invalid JSON body."), statusCode: 400)
         }
+    }
+
+    private func normalizedPath(_ path: String) -> String {
+        guard path.count > 1, path.hasSuffix("/") else {
+            return path
+        }
+        return String(path.dropLast())
     }
 
     private func isAuthorized(_ request: HTTPRequest) async -> Bool {
@@ -364,22 +430,19 @@ public final class DJConnectLocalDeviceAPI: @unchecked Sendable {
         return header == "Bearer \(expected)"
     }
 
-    private func infoPayload(includePairingCode: Bool) async -> [String: String] {
+    private func infoPayload(includePairingCode: Bool) async -> DJConnectLocalDeviceInfoResponse {
         let info = await infoProvider()
-        var payload = [
-            "device_id": info.identity.deviceID,
-            "device_name": info.identity.deviceName,
-            "client_type": info.identity.clientType.rawValue,
-            "firmware": info.identity.firmware,
-            "app_version": info.identity.appVersion ?? info.identity.firmware,
-            "platform": info.identity.platform.rawValue,
-            "paired": info.pairingStatus == .paired ? "true" : "false",
-            "local_url": localURL ?? info.localURL ?? ""
-        ]
-        if includePairingCode {
-            payload["pair_code"] = info.pairingToken
-        }
-        return payload
+        return DJConnectLocalDeviceInfoResponse(
+            deviceID: info.identity.deviceID,
+            deviceName: info.identity.deviceName,
+            clientType: info.identity.clientType.rawValue,
+            firmware: info.identity.firmware,
+            appVersion: info.identity.appVersion ?? info.identity.firmware,
+            platform: info.identity.platform.rawValue,
+            paired: info.pairingStatus == .paired,
+            localURL: localURL ?? info.localURL ?? "",
+            pairCode: includePairingCode ? info.pairingToken : nil
+        )
     }
 
     private func response<T: Encodable>(_ value: T, statusCode: Int = 200) -> Data {
