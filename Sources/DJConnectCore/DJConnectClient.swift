@@ -88,7 +88,7 @@ public final class DJConnectClient: Sendable {
         }
 
         let envelope = body.flatMap { try? decoder.decode(DJConnectErrorEnvelope.self, from: $0) }
-        let message = envelope?.message
+        let message = envelope?.message ?? body.flatMap(Self.redactedResponseBodyMessage(from:))
 
         if statusCode == 426 || envelope?.error == "version_mismatch" {
             return .versionMismatch(
@@ -119,6 +119,26 @@ public final class DJConnectClient: Sendable {
         }
 
         return .server(statusCode: statusCode, message: message)
+    }
+
+    private static func redactedResponseBodyMessage(from body: Data) -> String? {
+        guard let rawBody = String(data: body, encoding: .utf8)?
+            .trimmingCharacters(in: .whitespacesAndNewlines),
+            !rawBody.isEmpty else {
+            return nil
+        }
+        let redacted = rawBody
+            .replacingOccurrences(
+                of: #"Bearer\s+[A-Za-z0-9._~+/=-]+"#,
+                with: "Bearer [redacted]",
+                options: .regularExpression
+            )
+            .replacingOccurrences(
+                of: #""(device_token|bearer_token|token|access_token|refresh_token|client_secret|password)"\s*:\s*"[^"]*""#,
+                with: #""$1":"[redacted]""#,
+                options: .regularExpression
+            )
+        return String(redacted.prefix(500))
     }
 
     private func decodedResponse<T: Decodable>(for request: URLRequest) async throws -> T {

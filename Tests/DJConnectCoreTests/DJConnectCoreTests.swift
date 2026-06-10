@@ -553,3 +553,27 @@ private func httpResponse(for request: URLRequest, statusCode: Int) throws -> HT
     #expect(unauthorized == .authStale(statusCode: 401, message: "Token expired"))
     #expect(missingRoute == .routeMissing(message: "Route missing"))
 }
+
+@Test func serverErrorsIncludeRedactedResponseBodyForDiagnostics() throws {
+    let client = DJConnectClient(
+        baseURL: try #require(URL(string: "http://homeassistant.local:8123")),
+        identity: DJConnectIdentity(
+            deviceID: "djconnect-macos-8F3A2C91B45D",
+            deviceName: "DJConnect Mac",
+            clientType: .macos,
+            firmware: "3.1.2",
+            platform: .macos
+        ),
+        tokenStore: DJConnectInMemoryTokenStore(token: "secret-token")
+    )
+
+    let error = client.classify(
+        statusCode: 500,
+        body: Data(#"{"error":"server_error","device_token":"secret-token","detail":"entity setup failed"}"#.utf8)
+    )
+
+    #expect(error == .server(
+        statusCode: 500,
+        message: #"{"error":"server_error","device_token":"[redacted]","detail":"entity setup failed"}"#
+    ))
+}

@@ -744,117 +744,134 @@ struct SettingsView: View {
 
     var body: some View {
         NavigationStack {
-            Form {
-                Section("Home Assistant") {
-                    TextField(localized(model.language, "URL", "URL"), text: $model.homeAssistantURL)
-                        .textContentType(.URL)
-                    LabeledContent(localized(model.language, "Pairing Code", "Pairingcode")) {
-                        HStack(spacing: 8) {
-                            Text(model.pairingToken)
-                                .font(.system(.title3, design: .monospaced).weight(.semibold))
-                                .textSelection(.enabled)
+            ScrollView {
+                VStack(alignment: .leading, spacing: 28) {
+                    SettingsSection(title: "Home Assistant") {
+                        SettingsRow(label: localized(model.language, "URL", "URL")) {
+                            TextField(localized(model.language, "URL", "URL"), text: $model.homeAssistantURL)
+                                .textContentType(.URL)
+                        }
+                        SettingsRow(label: localized(model.language, "Pairing Code", "Pairingcode")) {
+                            CopyableValue(
+                                text: model.pairingToken,
+                                copyLabel: localized(model.language, "Copy Pairing Code", "Pairingcode kopieren"),
+                                prominent: true
+                            )
+                        }
+                        if model.isPairing {
+                            SettingsRow(label: localized(model.language, "Status", "Status")) {
+                                ProgressView(localized(model.language, "Waiting for Home Assistant", "Wachten op Home Assistant"))
+                            }
+                        }
+                        SettingsRow(label: localized(model.language, "Actions", "Acties")) {
+                            HStack(spacing: 10) {
+                                Button(localized(model.language, "New Code", "Nieuwe code")) {
+                                    model.rotatePairingTokenAndWait()
+                                }
+                                .disabled(model.pairingStatus == .paired)
+                                Button(localized(model.language, "Reset Pairing", "Reset pairing"), role: .destructive) {
+                                    model.resetPairing()
+                                }
+                            }
+                        }
+                        SettingsRow(label: localized(model.language, "Device ID", "Device ID")) {
+                            SelectableValue(model.identity.deviceID)
+                        }
+                        SettingsRow(label: localized(model.language, "Client", "Client")) {
+                            SelectableValue(model.identity.clientType.rawValue)
+                        }
+                        if !model.haActiveURL.isEmpty {
+                            SettingsRow(label: localized(model.language, "Active URL", "Actieve URL")) {
+                                SelectableValue(model.haActiveURL)
+                            }
+                        }
+                        if !model.haLocalURL.isEmpty {
+                            SettingsRow(label: localized(model.language, "Local URL", "Lokale URL")) {
+                                SelectableValue(model.haLocalURL)
+                            }
+                        }
+                        if !model.haRemoteURL.isEmpty {
+                            SettingsRow(label: localized(model.language, "Remote URL", "Remote URL")) {
+                                SelectableValue(model.haRemoteURL)
+                            }
+                        }
+                        if let localDeviceAPIURL = model.localDeviceAPIURL, !localDeviceAPIURL.isEmpty {
+                            SettingsRow(label: localized(model.language, "Local API", "Lokale API")) {
+                                CopyableValue(
+                                    text: localDeviceAPIURL,
+                                    copyLabel: localized(model.language, "Copy Local API URL", "Lokale API URL kopieren")
+                                )
+                            }
+                        }
+                    }
+
+                    SettingsSection(title: localized(model.language, "App", "App")) {
+                        SettingsRow(label: localized(model.language, "Language", "Taal")) {
+                            Picker("", selection: $model.language) {
+                                Text("Nederlands").tag("nl")
+                                Text("English").tag("en")
+                            }
+                            .labelsHidden()
+                            .frame(maxWidth: 260, alignment: .leading)
+                        }
+                        SettingsRow(label: localized(model.language, "Log Level", "Logniveau")) {
+                            Picker("", selection: $model.logLevel) {
+                                Text("Info").tag("info")
+                                Text("Debug").tag("debug")
+                                Text(localized(model.language, "Warning", "Waarschuwing")).tag("warning")
+                                Text(localized(model.language, "Error", "Fout")).tag("error")
+                            }
+                            .labelsHidden()
+                            .frame(maxWidth: 260, alignment: .leading)
+                        }
+                        SettingsRow(label: localized(model.language, "Voice", "Voice")) {
+                            Toggle("", isOn: $model.voiceEnabled)
+                                .labelsHidden()
+                        }
+                        SettingsRow(label: localized(model.language, "Local Response Audio", "Lokale response-audio")) {
+                            Toggle("", isOn: $model.localResponseAudioEnabled)
+                                .labelsHidden()
+                        }
+                    }
+
+                    SettingsSection(title: localized(model.language, "Diagnostics", "Diagnostiek")) {
+                        if model.diagnosticLogLines.isEmpty {
+                            ContentUnavailableView(
+                                localized(model.language, "No Logs", "Geen logs"),
+                                systemImage: "doc.text.magnifyingglass"
+                            )
+                            .frame(minHeight: 120)
+                        } else {
+                            ScrollView {
+                                VStack(alignment: .leading, spacing: 6) {
+                                    ForEach(model.diagnosticLogLines) { line in
+                                        Text(line.text)
+                                            .font(.system(.caption, design: .monospaced))
+                                            .textSelection(.enabled)
+                                            .frame(maxWidth: .infinity, alignment: .leading)
+                                    }
+                                }
+                                .padding(.vertical, 4)
+                            }
+                            .frame(minHeight: 140, maxHeight: 260)
+                        }
+
+                        HStack(spacing: 10) {
+                            Button(localized(model.language, "Clear Logs", "Logs wissen")) {
+                                model.clearDiagnosticLog()
+                            }
+                            .disabled(model.diagnosticLogLines.isEmpty)
                             Button {
-                                copyText(model.pairingToken)
+                                copyText(model.diagnosticExportText())
                             } label: {
-                                Image(systemName: "doc.on.doc")
-                            }
-                            .buttonStyle(.borderless)
-                            .help(localized(model.language, "Copy Pairing Code", "Pairingcode kopieren"))
-                            .accessibilityLabel(localized(model.language, "Copy Pairing Code", "Pairingcode kopieren"))
-                        }
-                    }
-                    if model.isPairing {
-                        ProgressView(localized(model.language, "Waiting for Home Assistant", "Wachten op Home Assistant"))
-                    }
-                    HStack {
-                        Button(localized(model.language, "New Code", "Nieuwe code")) {
-                            model.rotatePairingTokenAndWait()
-                        }
-                        .disabled(model.pairingStatus == .paired)
-                        Button(localized(model.language, "Reset Pairing", "Reset pairing"), role: .destructive) {
-                            model.resetPairing()
-                        }
-                    }
-                    LabeledContent(localized(model.language, "Device ID", "Device ID"), value: model.identity.deviceID)
-                    LabeledContent(localized(model.language, "Client", "Client"), value: model.identity.clientType.rawValue)
-                    if !model.haActiveURL.isEmpty {
-                        LabeledContent(localized(model.language, "Active URL", "Actieve URL"), value: model.haActiveURL)
-                    }
-                    if !model.haLocalURL.isEmpty {
-                        LabeledContent(localized(model.language, "Local URL", "Lokale URL"), value: model.haLocalURL)
-                    }
-                    if !model.haRemoteURL.isEmpty {
-                        LabeledContent(localized(model.language, "Remote URL", "Remote URL"), value: model.haRemoteURL)
-                    }
-                    if let localDeviceAPIURL = model.localDeviceAPIURL, !localDeviceAPIURL.isEmpty {
-                        LabeledContent(localized(model.language, "Local API", "Lokale API")) {
-                            HStack(spacing: 8) {
-                                Text(localDeviceAPIURL)
-                                    .font(.system(.body, design: .monospaced))
-                                    .textSelection(.enabled)
-                                    .lineLimit(nil)
-                                    .multilineTextAlignment(.trailing)
-                                Button {
-                                    copyText(localDeviceAPIURL)
-                                } label: {
-                                    Image(systemName: "doc.on.doc")
-                                }
-                                .buttonStyle(.borderless)
-                                .help(localized(model.language, "Copy Local API URL", "Lokale API URL kopieren"))
-                                .accessibilityLabel(localized(model.language, "Copy Local API URL", "Lokale API URL kopieren"))
+                                Label(localized(model.language, "Copy Diagnostics Export", "Diagnostics-export kopieren"), systemImage: "doc.on.doc")
                             }
                         }
                     }
                 }
-
-                Section(localized(model.language, "App", "App")) {
-                    Picker(localized(model.language, "Language", "Taal"), selection: $model.language) {
-                        Text("Nederlands").tag("nl")
-                        Text("English").tag("en")
-                    }
-                    Picker(localized(model.language, "Log Level", "Logniveau"), selection: $model.logLevel) {
-                        Text("Info").tag("info")
-                        Text("Debug").tag("debug")
-                        Text(localized(model.language, "Warning", "Waarschuwing")).tag("warning")
-                        Text(localized(model.language, "Error", "Fout")).tag("error")
-                    }
-                    Toggle(localized(model.language, "Voice", "Voice"), isOn: $model.voiceEnabled)
-                    Toggle(localized(model.language, "Local Response Audio", "Lokale response-audio"), isOn: $model.localResponseAudioEnabled)
-                }
-
-                Section {
-                    if model.diagnosticLogLines.isEmpty {
-                        ContentUnavailableView(
-                            localized(model.language, "No Logs", "Geen logs"),
-                            systemImage: "doc.text.magnifyingglass"
-                        )
-                    } else {
-                        ScrollView {
-                            VStack(alignment: .leading, spacing: 6) {
-                                ForEach(model.diagnosticLogLines) { line in
-                                    Text(line.text)
-                                        .font(.system(.caption, design: .monospaced))
-                                        .textSelection(.enabled)
-                                        .frame(maxWidth: .infinity, alignment: .leading)
-                                }
-                            }
-                            .padding(.vertical, 4)
-                        }
-                        .frame(minHeight: 140, maxHeight: 260)
-                    }
-
-                    Button(localized(model.language, "Clear Logs", "Logs wissen")) {
-                        model.clearDiagnosticLog()
-                    }
-                    .disabled(model.diagnosticLogLines.isEmpty)
-                    Button {
-                        copyText(model.diagnosticExportText())
-                    } label: {
-                        Label(localized(model.language, "Copy Diagnostics Export", "Diagnostics-export kopieren"), systemImage: "doc.on.doc")
-                    }
-                } header: {
-                    Text(localized(model.language, "Diagnostics", "Diagnostiek"))
-                }
+                .frame(maxWidth: 760, alignment: .leading)
+                .padding(.horizontal, 24)
+                .padding(.vertical, 20)
             }
             .navigationTitle(localized(model.language, "Settings", "Instellingen"))
             .task {
@@ -863,6 +880,77 @@ struct SettingsView: View {
             .onChange(of: model.homeAssistantURL) {
                 model.schedulePairingWait()
             }
+        }
+    }
+}
+
+private struct SettingsSection<Content: View>: View {
+    let title: String
+    @ViewBuilder var content: Content
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text(title)
+                .font(.headline)
+            VStack(alignment: .leading, spacing: 10) {
+                content
+            }
+            Divider()
+        }
+    }
+}
+
+private struct SettingsRow<Content: View>: View {
+    let label: String
+    @ViewBuilder var content: Content
+
+    var body: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 18) {
+            Text(label)
+                .font(.body.weight(.semibold))
+                .foregroundStyle(.secondary)
+                .frame(width: 150, alignment: .trailing)
+            content
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+}
+
+private struct SelectableValue: View {
+    let text: String
+
+    init(_ text: String) {
+        self.text = text
+    }
+
+    var body: some View {
+        Text(text)
+            .textSelection(.enabled)
+            .lineLimit(nil)
+            .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+private struct CopyableValue: View {
+    let text: String
+    let copyLabel: String
+    var prominent = false
+
+    var body: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 8) {
+            Text(text)
+                .font(prominent ? .system(.title3, design: .monospaced).weight(.semibold) : .system(.body, design: .monospaced))
+                .textSelection(.enabled)
+                .lineLimit(nil)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            Button {
+                copyText(text)
+            } label: {
+                Image(systemName: "doc.on.doc")
+            }
+            .buttonStyle(.borderless)
+            .help(copyLabel)
+            .accessibilityLabel(copyLabel)
         }
     }
 }
