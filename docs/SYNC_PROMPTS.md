@@ -17,8 +17,9 @@ Requirements:
 - Accept the app-generated code as pair_code, pairing_code, or pairing_token.
 - Return a DJConnect bearer token on success. The current compatible field is
   device_token; bearer_token and token may also be returned.
-- Return ha_local_url, optional ha_remote_url, and language metadata during
-  successful app pairing.
+- Return ha_local_url and language metadata during successful app pairing.
+- Keep cloud/remote URLs out of Apple app runtime traffic; cloud URLs are only
+  needed by Home Assistant-owned Spotify OAuth config flows.
 - Apple clients host local /api/device/* app endpoints for HA -> app traffic,
   but must not implement ESP-only reboot or OTA routes.
 - Persist client_type as ios, macos, or esp32. Do not reintroduce device_type.
@@ -41,12 +42,12 @@ Requirements:
 - Pair by polling POST /api/djconnect/pair with pair_code, pairing_code, and
   pairing_token set to the same app-generated code.
 - Store only the returned DJConnect bearer token in Keychain and persist
-  ha_local_url, optional ha_remote_url, device_id, and client_type.
+  ha_local_url, device_id, and client_type.
 - Expose local /api/device/info, pairing-info, pair, command, dj_response, and
   forget routes for HA -> app traffic; do not expose ESP-only reboot/OTA.
-- Send device_id, client_type, firmware, app_version, device_name, and HA URL
-  metadata on status payloads. Send device_id and client_type on command
-  payloads.
+- Send device_id, client_type, firmware, app_version, device_name, ha_local_url,
+  and local_url on status payloads. Send device_id and client_type on command
+  payloads. Always use the local Home Assistant URL for app-to-HA traffic.
 - Treat backend_unavailable and version_mismatch as recoverable without
   clearing pairing.
 - Treat authenticated 401/403/404 as stale/setup recovery while keeping the

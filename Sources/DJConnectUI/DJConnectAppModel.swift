@@ -47,8 +47,6 @@ public final class DJConnectAppModel: ObservableObject {
         didSet { defaults.set(homeAssistantURL, forKey: homeAssistantURLKey) }
     }
     @Published public private(set) var haLocalURL = ""
-    @Published public private(set) var haRemoteURL = ""
-    @Published public private(set) var haActiveURL = ""
     @Published public private(set) var assistPipelineID = ""
     @Published public var pairingToken = ""
     @Published public var pairingStatus: DJConnectPairingStatus = .unpaired
@@ -99,8 +97,6 @@ public final class DJConnectAppModel: ObservableObject {
     private let installIDKey = "DJConnectInstallID"
     private let homeAssistantURLKey = "DJConnectHomeAssistantURL"
     private let haLocalURLKey = "DJConnectHALocalURL"
-    private let haRemoteURLKey = "DJConnectHARemoteURL"
-    private let haActiveURLKey = "DJConnectHAActiveURL"
     private let assistPipelineIDKey = "DJConnectAssistPipelineID"
     private let pairingTokenKey = "DJConnectPairingToken"
     private let languageKey = "DJConnectLanguage"
@@ -136,8 +132,6 @@ public final class DJConnectAppModel: ObservableObject {
         self.playback = playback
         self.homeAssistantURL = defaults.string(forKey: homeAssistantURLKey) ?? ""
         self.haLocalURL = defaults.string(forKey: haLocalURLKey) ?? ""
-        self.haRemoteURL = defaults.string(forKey: haRemoteURLKey) ?? ""
-        self.haActiveURL = defaults.string(forKey: haActiveURLKey) ?? ""
         self.assistPipelineID = defaults.string(forKey: assistPipelineIDKey) ?? ""
         self.pairingToken = defaults.string(forKey: pairingTokenKey) ?? Self.generatePairingToken()
         self.language = defaults.string(forKey: languageKey) ?? "nl"
@@ -536,14 +530,11 @@ public final class DJConnectAppModel: ObservableObject {
         let localURL = response.haLocalURL.flatMap(Self.normalizedHomeAssistantURL(from:))
             ?? Self.normalizedHomeAssistantURL(from: homeAssistantURL)
             ?? fallbackBaseURL
-        let remoteURL = response.haRemoteURL.flatMap(Self.normalizedHomeAssistantURL(from:))
         haLocalURL = Self.redactedURL(localURL)
-        haRemoteURL = remoteURL.map(Self.redactedURL) ?? ""
-        haActiveURL = haLocalURL
-        homeAssistantURL = haActiveURL
+        homeAssistantURL = haLocalURL
         defaults.set(haLocalURL, forKey: haLocalURLKey)
-        defaults.set(haRemoteURL, forKey: haRemoteURLKey)
-        defaults.set(haActiveURL, forKey: haActiveURLKey)
+        defaults.removeObject(forKey: "DJConnectHARemoteURL")
+        defaults.removeObject(forKey: "DJConnectHAActiveURL")
         if let pipelineID = response.assistPipelineID, !pipelineID.isEmpty {
             assistPipelineID = pipelineID
             defaults.set(pipelineID, forKey: assistPipelineIDKey)
@@ -680,8 +671,6 @@ public final class DJConnectAppModel: ObservableObject {
                     localAudioSupported: true,
                     voiceSupported: voiceEnabled,
                     haLocalURL: haLocalURL.isEmpty ? nil : haLocalURL,
-                    haRemoteURL: haRemoteURL.isEmpty ? nil : haRemoteURL,
-                    haActiveURL: haActiveURL.isEmpty ? nil : haActiveURL,
                     localURL: localDeviceAPIURL
                 )
             )
@@ -707,28 +696,11 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     private func refreshStatusWithFallback() async throws {
-        do {
-            try await refreshStatus(client: try makeClient())
-        } catch let error as DJConnectError {
-            if shouldRetryViaRemote(after: error) {
-                log(.info, "Retrying status refresh via remote Home Assistant URL")
-                try await refreshStatus(client: try makeClient())
-                return
-            }
-            throw error
-        }
+        try await refreshStatus(client: try makeClient())
     }
 
     private func sendVoiceWithFallback(wavData: Data) async throws -> DJConnectVoiceResponse {
-        do {
-            return try await makeClient().sendVoice(wavData: wavData)
-        } catch let error as DJConnectError {
-            if shouldRetryViaRemote(after: error) {
-                log(.info, "Retrying voice upload via remote Home Assistant URL")
-                return try await makeClient().sendVoice(wavData: wavData)
-            }
-            throw error
-        }
+        try await makeClient().sendVoice(wavData: wavData)
     }
 
     private func performCommand(
@@ -754,11 +726,6 @@ public final class DJConnectAppModel: ObservableObject {
             apply(commandResponse: response)
             log(.debug, "Command \(command) succeeded")
         } catch let error as DJConnectError {
-            if shouldRetryViaRemote(after: error) {
-                log(.info, "Retrying command \(command) via remote Home Assistant URL")
-                await performCommand(command, value: value, play: play)
-                return
-            }
             log(.warning, "Command \(command) failed: \(Self.describe(error))")
             apply(error: error)
         } catch {
@@ -768,7 +735,7 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     private func makeClient() throws -> DJConnectClient {
-        guard let baseURL = Self.normalizedHomeAssistantURL(from: activeHomeAssistantURL()) else {
+        guard let baseURL = Self.normalizedHomeAssistantURL(from: localHomeAssistantURL()) else {
             log(.warning, "Cannot create Home Assistant client because URL is invalid")
             throw DJConnectError.network(message: localized(
                 english: "Enter your Home Assistant URL, for example 192.168.1.10:8123.",
@@ -897,7 +864,7 @@ public final class DJConnectAppModel: ObservableObject {
             deviceID: request.deviceID,
             clientType: request.clientType,
             haLocalURL: request.haLocalURL,
-            haRemoteURL: request.haRemoteURL,
+            haRemoteURL: nil,
             deviceLanguage: request.deviceLanguage,
             language: request.language,
             assistPipelineID: request.assistPipelineID
@@ -976,37 +943,18 @@ public final class DJConnectAppModel: ObservableObject {
         return DJConnectLocalDeviceAPIResponse(success: true, message: "forgotten")
     }
 
-    private func activeHomeAssistantURL() -> String {
-        if !haActiveURL.isEmpty {
-            return haActiveURL
-        }
+    private func localHomeAssistantURL() -> String {
         if !haLocalURL.isEmpty {
             return haLocalURL
         }
         return homeAssistantURL
     }
 
-    private func shouldRetryViaRemote(after error: DJConnectError) -> Bool {
-        guard case .network = error else {
-            return false
-        }
-        guard !haRemoteURL.isEmpty, haActiveURL != haRemoteURL else {
-            return false
-        }
-        haActiveURL = haRemoteURL
-        homeAssistantURL = haRemoteURL
-        defaults.set(haActiveURL, forKey: haActiveURLKey)
-        log(.warning, "Local Home Assistant URL failed; switching to remote URL")
-        return true
-    }
-
     private func clearStoredHomeAssistantURLs() {
         haLocalURL = ""
-        haRemoteURL = ""
-        haActiveURL = ""
         defaults.removeObject(forKey: haLocalURLKey)
-        defaults.removeObject(forKey: haRemoteURLKey)
-        defaults.removeObject(forKey: haActiveURLKey)
+        defaults.removeObject(forKey: "DJConnectHARemoteURL")
+        defaults.removeObject(forKey: "DJConnectHAActiveURL")
         assistPipelineID = ""
         defaults.removeObject(forKey: assistPipelineIDKey)
     }
@@ -1031,8 +979,6 @@ public final class DJConnectAppModel: ObservableObject {
         bearer_token: \(tokenState)
         home_assistant_url: \(url)
         ha_local_url: \(haLocalURL.isEmpty ? "missing" : Self.redactSensitive(haLocalURL))
-        ha_remote_url: \(haRemoteURL.isEmpty ? "missing" : Self.redactSensitive(haRemoteURL))
-        ha_active_url: \(haActiveURL.isEmpty ? "missing" : Self.redactSensitive(haActiveURL))
         assist_pipeline_id: \(assistPipelineID.isEmpty ? "missing" : "present")
         local_device_api_url: \(localDeviceAPIURL ?? "missing")
         backend_available: \(backendAvailable)

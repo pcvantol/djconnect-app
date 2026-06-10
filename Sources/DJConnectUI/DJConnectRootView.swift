@@ -780,19 +780,9 @@ struct SettingsView: View {
                         SettingsRow(label: localized(model.language, "Client", "Client")) {
                             SelectableValue(model.identity.clientType.rawValue)
                         }
-                        if !model.haActiveURL.isEmpty {
-                            SettingsRow(label: localized(model.language, "Active URL", "Actieve URL")) {
-                                SelectableValue(model.haActiveURL)
-                            }
-                        }
                         if !model.haLocalURL.isEmpty {
                             SettingsRow(label: localized(model.language, "Local URL", "Lokale URL")) {
                                 SelectableValue(model.haLocalURL)
-                            }
-                        }
-                        if !model.haRemoteURL.isEmpty {
-                            SettingsRow(label: localized(model.language, "Remote URL", "Remote URL")) {
-                                SelectableValue(model.haRemoteURL)
                             }
                         }
                         if let localDeviceAPIURL = model.localDeviceAPIURL, !localDeviceAPIURL.isEmpty {

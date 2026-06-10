@@ -135,8 +135,6 @@ private func httpResponse(for request: URLRequest, statusCode: Int) throws -> HT
         theme: "dark",
         logLevel: "info",
         haLocalURL: "http://192.168.1.10:8123",
-        haRemoteURL: "https://example.ui.nabu.casa",
-        haActiveURL: "http://192.168.1.10:8123",
         localURL: "http://192.168.1.105:51193"
     )
 
@@ -156,8 +154,8 @@ private func httpResponse(for request: URLRequest, statusCode: Int) throws -> HT
     #expect(json?["firmware"] as? String == "3.1.2")
     #expect(json?["app_version"] as? String == "3.1.2")
     #expect(json?["ha_local_url"] as? String == "http://192.168.1.10:8123")
-    #expect(json?["ha_remote_url"] as? String == "https://example.ui.nabu.casa")
-    #expect(json?["ha_active_url"] as? String == "http://192.168.1.10:8123")
+    #expect(json?["ha_remote_url"] == nil)
+    #expect(json?["ha_active_url"] == nil)
     #expect(json?["local_url"] as? String == "http://192.168.1.105:51193")
 }
 
@@ -318,8 +316,6 @@ private func httpResponse(for request: URLRequest, statusCode: Int) throws -> HT
 
     #expect(model.homeAssistantURL == "http://192.168.1.13:8123")
     #expect(model.haLocalURL == "http://192.168.1.13:8123")
-    #expect(model.haRemoteURL == "https://remote.ui.nabu.casa")
-    #expect(model.haActiveURL == "http://192.168.1.13:8123")
     #expect(model.language == "nl")
     #expect(model.assistPipelineID == "preferred")
 }

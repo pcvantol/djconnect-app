@@ -89,7 +89,6 @@ Expected response:
   "device_id": "djconnect-macos-8F3A2C91B45D",
   "client_type": "macos",
   "ha_local_url": "http://192.168.1.13:8123",
-  "ha_remote_url": "https://example.ui.nabu.casa",
   "device_language": "nl",
   "language": "nl"
 }
@@ -98,10 +97,11 @@ Expected response:
 The app also accepts `bearer_token` or `token` for compatibility, but
 `device_token` is preferred while the Home Assistant route keeps that field
 name. After successful pairing, the app stores only the returned DJConnect
-bearer token in Keychain and persists `ha_local_url`, optional `ha_remote_url`,
-`device_id`, and `client_type`. `ha_local_url` is used as the primary active
-URL. If the active local URL fails with a network error, the app switches to
-`ha_remote_url` when Home Assistant returned one. Do not use legacy `ha_url`.
+bearer token in Keychain and persists `ha_local_url`, `device_id`, and
+`client_type`. App-to-HA runtime traffic must always use `ha_local_url`;
+cloud/remote URLs are reserved for Home Assistant-owned Spotify OAuth config
+flows and are not used for status, command, or voice requests. Do not use legacy
+`ha_url`.
 
 ## Local App Web API
 
@@ -141,7 +141,6 @@ Expected callback payload:
   "language": "nl",
   "device_token": "<djconnect bearer token>",
   "ha_local_url": "http://192.168.1.13:8123",
-  "ha_remote_url": "https://example.ui.nabu.casa",
   "assist_pipeline_id": "preferred"
 }
 ```
@@ -195,8 +194,6 @@ Minimum payload:
   "theme": "dark",
   "log_level": "info",
   "ha_local_url": "http://192.168.1.13:8123",
-  "ha_remote_url": "https://example.ui.nabu.casa",
-  "ha_active_url": "http://192.168.1.13:8123",
   "local_url": "http://192.168.1.105:51193"
 }
 ```

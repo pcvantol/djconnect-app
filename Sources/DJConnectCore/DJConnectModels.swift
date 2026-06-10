@@ -201,8 +201,6 @@ public struct DJConnectStatusPayload: Codable, Equatable, Sendable {
     public var screenState: String?
     public var networkType: String?
     public var haLocalURL: String?
-    public var haRemoteURL: String?
-    public var haActiveURL: String?
     public var localURL: String?
 
     public init(
@@ -221,8 +219,6 @@ public struct DJConnectStatusPayload: Codable, Equatable, Sendable {
         screenState: String? = nil,
         networkType: String? = nil,
         haLocalURL: String? = nil,
-        haRemoteURL: String? = nil,
-        haActiveURL: String? = nil,
         localURL: String? = nil
     ) {
         self.deviceID = identity.deviceID
@@ -245,8 +241,6 @@ public struct DJConnectStatusPayload: Codable, Equatable, Sendable {
         self.screenState = screenState
         self.networkType = networkType
         self.haLocalURL = haLocalURL
-        self.haRemoteURL = haRemoteURL
-        self.haActiveURL = haActiveURL
         self.localURL = localURL
     }
 
@@ -271,8 +265,6 @@ public struct DJConnectStatusPayload: Codable, Equatable, Sendable {
         case screenState = "screen_state"
         case networkType = "network_type"
         case haLocalURL = "ha_local_url"
-        case haRemoteURL = "ha_remote_url"
-        case haActiveURL = "ha_active_url"
         case localURL = "local_url"
     }
 }
