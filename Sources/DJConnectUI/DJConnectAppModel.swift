@@ -464,7 +464,7 @@ public final class DJConnectAppModel: ObservableObject {
             "title": item.title
         ]
         if let queueContext, !queueContext.isEmpty {
-            payload["context"] = queueContext
+            payload["context_uri"] = queueContext
         }
         if let index = queueItems.firstIndex(where: { $0.id == item.id }) {
             payload["index"] = String(index)
@@ -472,8 +472,8 @@ public final class DJConnectAppModel: ObservableObject {
         if let artist = item.artist, !artist.isEmpty {
             payload["artist"] = artist
         }
-        log(.info, "Starting queue item \(item.title) in queue context")
-        sendPlaybackCommand("start_playlist", value: .object(payload), play: true)
+        log(.info, "Starting queue item \(item.title)")
+        sendPlaybackCommand("play_context_at", value: .object(payload), play: true)
     }
 
     public func toggleVoiceRecording() {
@@ -983,7 +983,7 @@ public final class DJConnectAppModel: ObservableObject {
 
     private static func shouldRefreshPlaybackAfterCommand(_ command: String) -> Bool {
         switch command {
-        case "play", "pause", "next", "previous", "set_output", "start_playlist", "start_liked_proxy":
+        case "play", "pause", "next", "previous", "set_output", "start_playlist", "start_liked_proxy", "play_context_at":
             true
         default:
             false
@@ -1179,7 +1179,7 @@ public final class DJConnectAppModel: ObservableObject {
             }
         case "diagnostics_export":
             return DJConnectLocalDeviceAPIResponse(success: true, message: diagnosticExportText())
-        case "play", "pause", "next", "previous", "set_volume", "set_shuffle", "set_repeat", "start_liked_proxy", "start_playlist", "set_output":
+        case "play", "pause", "next", "previous", "set_volume", "set_shuffle", "set_repeat", "start_liked_proxy", "start_playlist", "play_context_at", "set_output":
             sendPlaybackCommand(command, value: request.value, play: request.play)
         default:
             return DJConnectLocalDeviceAPIResponse(success: false, error: "unsupported_command", message: "Unsupported local app command.")

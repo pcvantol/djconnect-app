@@ -719,6 +719,8 @@ public struct DJConnectCommandResponse: Codable, Equatable, Sendable {
         queue = queueResponse?.items
             ?? data?.decodeIfPresentIgnoringErrors([DJConnectQueueItem].self, forKey: .items)
         queueContext = queueResponse?.context
+            ?? container.decodeStringAliasIfPresent(.queueContext, .contextURI, .contextUri)
+            ?? data?.decodeStringAliasIfPresent(.queueContext, .contextURI, .contextUri)
         playlists = try container.decodeIfPresent([DJConnectPlaylist].self, forKey: .playlists)
             ?? data?.decodeIfPresentIgnoringErrors([DJConnectPlaylist].self, forKey: .playlists)
             ?? data?.decodeIfPresentIgnoringErrors([DJConnectPlaylist].self, forKey: .items)
@@ -747,8 +749,21 @@ public struct DJConnectCommandResponse: Codable, Equatable, Sendable {
         case devices
         case queue
         case queueContext = "queue_context"
+        case contextURI = "context_uri"
+        case contextUri
         case playlists
         case items
+    }
+}
+
+private extension KeyedDecodingContainer where Key == DJConnectCommandResponse.CodingKeys {
+    func decodeStringAliasIfPresent(_ keys: Key...) -> String? {
+        for key in keys {
+            if let value = try? decodeIfPresent(String.self, forKey: key), !value.isEmpty {
+                return value
+            }
+        }
+        return nil
     }
 }
 

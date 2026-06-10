@@ -225,6 +225,7 @@ Examples:
 {"device_id":"djconnect-ios-8F3A2C91B45D","client_type":"ios","command":"set_repeat","value":"context"}
 {"device_id":"djconnect-ios-8F3A2C91B45D","client_type":"ios","command":"start_liked_proxy","play":true}
 {"device_id":"djconnect-ios-8F3A2C91B45D","client_type":"ios","command":"start_playlist","value":"spotify:playlist:...","play":true}
+{"device_id":"djconnect-ios-8F3A2C91B45D","client_type":"ios","command":"play_context_at","value":{"context_uri":"spotify:playlist:...","offset_uri":"spotify:track:..."},"play":true}
 {"device_id":"djconnect-ios-8F3A2C91B45D","client_type":"ios","command":"set_output","value":"Living Room","play":true}
 ```
 
@@ -266,13 +267,17 @@ Preferred success shape:
 Compatibility rules:
 
 - `queue.items` may be empty and that is not an error.
-- Older/debug responses may return flat `items`; the app still accepts them.
+- Home Assistant may return `queue` as either `{ "items": [...] }` or a flat
+  array; older/debug responses may return flat `items`. The app accepts all
+  three forms.
+- Queue context may be returned as `queue.context`, top-level `context_uri`,
+  or top-level `contextUri`.
 - Album art may be returned as `album_image_url`, `media_image_url`,
   `image_url`, or `entity_picture`.
-- Queue row playback requires an item `uri`. When `queue.context` is present,
-  the app includes it so Home Assistant can preserve queue context; when it is
-  absent, the app still sends the item URI and does not fall back to unsupported
-  legacy commands.
+- Queue row playback sends `command:"play_context_at"` with `offset_uri` set to
+  the item URI. When queue context is present, the app includes it as
+  `context_uri`; when it is absent, the app still sends the item URI so Home
+  Assistant can fall back to its last playback context.
 
 ## Client API URL Stability
 

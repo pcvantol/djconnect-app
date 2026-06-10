@@ -243,7 +243,7 @@ private func waitForLocalDeviceAPIURL(_ model: DJConnectAppModel) async throws -
     }
 }
 
-@Test func commandRequestSupportsQueueContextObjectValues() throws {
+@Test func commandRequestSupportsPlayContextAtObjectValues() throws {
     let identity = DJConnectIdentity(
         deviceID: "djconnect-ios-8F3A2C91B45D",
         deviceName: "DJConnect iPhone",
@@ -261,9 +261,9 @@ private func waitForLocalDeviceAPIURL(_ model: DJConnectAppModel) async throws -
     let request = try client.commandRequest(
         DJConnectCommandPayload(
             identity: identity,
-            command: "start_playlist",
+            command: "play_context_at",
             value: .object([
-                "context": "spotify:playlist:context",
+                "context_uri": "spotify:playlist:context",
                 "uri": "spotify:track:1",
                 "offset_uri": "spotify:track:1",
                 "title": "Track One",
@@ -277,8 +277,8 @@ private func waitForLocalDeviceAPIURL(_ model: DJConnectAppModel) async throws -
     let json = try JSONSerialization.jsonObject(with: body) as? [String: Any]
     let value = json?["value"] as? [String: String]
 
-    #expect(json?["command"] as? String == "start_playlist")
-    #expect(value?["context"] == "spotify:playlist:context")
+    #expect(json?["command"] as? String == "play_context_at")
+    #expect(value?["context_uri"] == "spotify:playlist:context")
     #expect(value?["uri"] == "spotify:track:1")
     #expect(value?["offset_uri"] == "spotify:track:1")
     #expect(value?["title"] == "Track One")
@@ -323,6 +323,34 @@ private func waitForLocalDeviceAPIURL(_ model: DJConnectAppModel) async throws -
     #expect(response.queue?.first?.durationMS == 213000)
     #expect(response.queue?.first?.albumImageURL?.absoluteString == "https://example.test/media.jpg")
     #expect(response.queue?.last?.albumImageURL?.absoluteString == "https://example.test/entity.jpg")
+}
+
+@Test func queueContractDecodesFlatHAQueueContextURI() throws {
+    let response = try JSONDecoder().decode(
+        DJConnectCommandResponse.self,
+        from: Data(
+            """
+            {
+              "success": true,
+              "queue": [
+                {
+                  "title": "Next Song",
+                  "artist": "Artist name",
+                  "uri": "spotify:track:next",
+                  "album_image_url": "https://example.test/queue.jpg"
+                }
+              ],
+              "context_uri": "spotify:playlist:abc"
+            }
+            """.utf8
+        )
+    )
+
+    #expect(response.success)
+    #expect(response.queueContext == "spotify:playlist:abc")
+    #expect(response.queue?.count == 1)
+    #expect(response.queue?.first?.uri == "spotify:track:next")
+    #expect(response.queue?.first?.albumImageURL?.absoluteString == "https://example.test/queue.jpg")
 }
 
 @Test func statusCommandResponseDecodesRichPlaybackSnapshot() throws {

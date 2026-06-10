@@ -334,11 +334,13 @@ Queue loading uses `command:"queue"` and should return:
 ```
 
 The app accepts `response.queue.items` first and falls back to flat
-`response.items`. Queue album art aliases are `album_image_url`,
-`media_image_url`, `image_url`, and `entity_picture`. Empty queue items are not
-an error. Queue row playback requires an item `uri`; when `queue.context` is
-present, the app includes it so Home Assistant can preserve queue context. The
-app no longer sends unsupported legacy `play_queue_item` or `play_uri` commands.
+`response.queue` arrays and `response.items`. Queue context may be returned as
+`queue.context`, top-level `context_uri`, or top-level `contextUri`. Queue album
+art aliases are `album_image_url`, `media_image_url`, `image_url`, and
+`entity_picture`. Empty queue items are not an error. Queue row playback sends
+`command:"play_context_at"` with `offset_uri` set to the item URI and
+`context_uri` included when known. The app no longer sends unsupported legacy
+`play_queue_item` or `play_uri` commands.
 
 The Client API url shown by the app must remain stable after a successful
 `POST /api/device/pair`. Home Assistant has just called that endpoint and will

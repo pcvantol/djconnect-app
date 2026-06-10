@@ -119,12 +119,14 @@ POST /api/djconnect/command
 {"command":"playlists"}
 {"command":"set_output","value":"<device id or name>"}
 {"command":"start_playlist","value":"spotify:playlist:...","play":true}
+{"command":"play_context_at","value":{"context_uri":"spotify:playlist:...","offset_uri":"spotify:track:..."},"play":true}
 {"command":"start_liked_proxy","play":true}
 ```
 
-Queue responses should prefer `queue.items` plus `queue.context`; flat `items`
-is accepted for compatibility. The app supports album-art aliases
-`album_image_url`, `media_image_url`, `image_url`, and `entity_picture`.
+Queue responses may use `queue.items` plus `queue.context`, flat `queue` arrays,
+or flat `items` for compatibility. The app also accepts top-level `context_uri`
+and `contextUri` and supports album-art aliases `album_image_url`,
+`media_image_url`, `image_url`, and `entity_picture`.
 
 All status and command payloads include `device_id`, `client_type`, and
 `firmware`. The `firmware` value remains the protocol compatibility version,

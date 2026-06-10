@@ -78,7 +78,9 @@ All notable changes to DJConnect App are documented here.
 - Added album-art thumbnails to queue rows and made queue items playable when
   Home Assistant provides a queue item URI.
 - Switched queue item taps away from unsupported `play_queue_item`/`play_uri`
-  commands and toward the queue context supplied by Home Assistant when present.
+  commands and onto Home Assistant's supported `play_context_at` command.
+- Accepted Home Assistant queue responses with top-level `context_uri` /
+  `contextUri` so Up Next playback can preserve the active playback context.
 - Moved queue refresh out of the table body into a compact toolbar icon.
 - Moved the DJ announcement card to the top of Now Playing.
 - Moved output device selection to the bottom of Now Playing.
