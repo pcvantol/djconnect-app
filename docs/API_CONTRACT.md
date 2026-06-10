@@ -5,10 +5,9 @@ This document captures the app-to-Home Assistant DJConnect contract used by
 
 ## Identity
 
-Every app installation needs a stable `device_id`. The app also sends the same
-value as `client_id` while app-client support and Home Assistant route
-compatibility are being finalized. Home Assistant should treat the Apple client
-as an app client identified by `client_type`, not as an ESP emulator.
+Every app installation needs a stable `device_id`. Home Assistant should treat
+the Apple client as an app client identified by `client_type`, not as an ESP
+emulator.
 
 The suffix should stay stable across app launches. Explicit user pairing reset
 clears the bearer token, generates a new app code, and creates a fresh local
@@ -16,8 +15,6 @@ install identity.
 
 ```json
 {
-  "client_id": "djconnect-ios-8F3A2C91B45D",
-  "client_name": "DJConnect iPhone",
   "device_id": "djconnect-ios-8F3A2C91B45D",
   "device_name": "DJConnect iPhone",
   "client_type": "ios",
@@ -41,7 +38,6 @@ JSON requests:
 
 ```http
 Authorization: Bearer <djconnect_bearer_token>
-X-DJConnect-Client-ID: <client_id>
 X-DJConnect-Device-ID: <device_id>
 Content-Type: application/json
 ```
@@ -50,7 +46,6 @@ Voice upload:
 
 ```http
 Authorization: Bearer <djconnect_bearer_token>
-X-DJConnect-Client-ID: <client_id>
 X-DJConnect-Device-ID: <device_id>
 Content-Type: audio/wav
 ```
@@ -60,7 +55,6 @@ Content-Type: audio/wav
 ```http
 POST /api/djconnect/pair
 Content-Type: application/json
-X-DJConnect-Client-ID: <client_id>
 X-DJConnect-Device-ID: <device_id>
 ```
 
@@ -68,8 +62,6 @@ Payload:
 
 ```json
 {
-  "client_id": "djconnect-macos-8F3A2C91B45D",
-  "client_name": "DJConnect Mac",
   "device_id": "djconnect-macos-8F3A2C91B45D",
   "device_name": "DJConnect Mac",
   "client_type": "macos",
@@ -94,16 +86,22 @@ Expected response:
 {
   "success": true,
   "device_token": "<djconnect bearer token>",
-  "client_id": "djconnect-macos-8F3A2C91B45D",
   "device_id": "djconnect-macos-8F3A2C91B45D",
-  "client_type": "macos"
+  "client_type": "macos",
+  "ha_local_url": "http://192.168.1.13:8123",
+  "ha_remote_url": "https://example.ui.nabu.casa",
+  "device_language": "nl",
+  "language": "nl"
 }
 ```
 
 The app also accepts `bearer_token` or `token` for compatibility, but
 `device_token` is preferred while the Home Assistant route keeps that field
 name. After successful pairing, the app stores only the returned DJConnect
-bearer token in Keychain and posts status.
+bearer token in Keychain and persists `ha_local_url`, optional `ha_remote_url`,
+`device_id`, and `client_type`. `ha_local_url` is used as the primary active
+URL. If the active local URL fails with a network error, the app switches to
+`ha_remote_url` when Home Assistant returned one. Do not use legacy `ha_url`.
 
 The iOS/macOS app does not expose or consume ESP local `/api/device/*` routes.
 Those routes are reserved for local ESP hardware.
@@ -118,8 +116,8 @@ Minimum payload:
 
 ```json
 {
-  "client_id": "djconnect-ios-8F3A2C91B45D",
   "device_id": "djconnect-ios-8F3A2C91B45D",
+  "device_name": "DJConnect iPhone",
   "client_type": "ios",
   "ha_pairing_status": "paired",
   "firmware": "3.1.0",
@@ -129,7 +127,10 @@ Minimum payload:
   "battery_percent": 85,
   "language": "nl",
   "theme": "dark",
-  "log_level": "info"
+  "log_level": "info",
+  "ha_local_url": "http://192.168.1.13:8123",
+  "ha_remote_url": "https://example.ui.nabu.casa",
+  "ha_active_url": "http://192.168.1.13:8123"
 }
 ```
 
@@ -147,20 +148,20 @@ settings mirrored into Home Assistant entities.
 Examples:
 
 ```json
-{"client_id":"djconnect-ios-8F3A2C91B45D","device_id":"djconnect-ios-8F3A2C91B45D","client_type":"ios","command":"status"}
-{"client_id":"djconnect-ios-8F3A2C91B45D","device_id":"djconnect-ios-8F3A2C91B45D","client_type":"ios","command":"devices"}
-{"client_id":"djconnect-ios-8F3A2C91B45D","device_id":"djconnect-ios-8F3A2C91B45D","client_type":"ios","command":"queue"}
-{"client_id":"djconnect-ios-8F3A2C91B45D","device_id":"djconnect-ios-8F3A2C91B45D","client_type":"ios","command":"playlists"}
-{"client_id":"djconnect-ios-8F3A2C91B45D","device_id":"djconnect-ios-8F3A2C91B45D","client_type":"ios","command":"pause"}
-{"client_id":"djconnect-ios-8F3A2C91B45D","device_id":"djconnect-ios-8F3A2C91B45D","client_type":"ios","command":"play"}
-{"client_id":"djconnect-ios-8F3A2C91B45D","device_id":"djconnect-ios-8F3A2C91B45D","client_type":"ios","command":"next"}
-{"client_id":"djconnect-ios-8F3A2C91B45D","device_id":"djconnect-ios-8F3A2C91B45D","client_type":"ios","command":"previous"}
-{"client_id":"djconnect-ios-8F3A2C91B45D","device_id":"djconnect-ios-8F3A2C91B45D","client_type":"ios","command":"set_volume","value":35}
-{"client_id":"djconnect-ios-8F3A2C91B45D","device_id":"djconnect-ios-8F3A2C91B45D","client_type":"ios","command":"set_shuffle","value":true}
-{"client_id":"djconnect-ios-8F3A2C91B45D","device_id":"djconnect-ios-8F3A2C91B45D","client_type":"ios","command":"set_repeat","value":"context"}
-{"client_id":"djconnect-ios-8F3A2C91B45D","device_id":"djconnect-ios-8F3A2C91B45D","client_type":"ios","command":"start_liked_proxy","play":true}
-{"client_id":"djconnect-ios-8F3A2C91B45D","device_id":"djconnect-ios-8F3A2C91B45D","client_type":"ios","command":"start_playlist","value":"spotify:playlist:...","play":true}
-{"client_id":"djconnect-ios-8F3A2C91B45D","device_id":"djconnect-ios-8F3A2C91B45D","client_type":"ios","command":"set_output","value":"iPhone","play":true}
+{"device_id":"djconnect-ios-8F3A2C91B45D","client_type":"ios","command":"status"}
+{"device_id":"djconnect-ios-8F3A2C91B45D","client_type":"ios","command":"devices"}
+{"device_id":"djconnect-ios-8F3A2C91B45D","client_type":"ios","command":"queue"}
+{"device_id":"djconnect-ios-8F3A2C91B45D","client_type":"ios","command":"playlists"}
+{"device_id":"djconnect-ios-8F3A2C91B45D","client_type":"ios","command":"pause"}
+{"device_id":"djconnect-ios-8F3A2C91B45D","client_type":"ios","command":"play"}
+{"device_id":"djconnect-ios-8F3A2C91B45D","client_type":"ios","command":"next"}
+{"device_id":"djconnect-ios-8F3A2C91B45D","client_type":"ios","command":"previous"}
+{"device_id":"djconnect-ios-8F3A2C91B45D","client_type":"ios","command":"set_volume","value":35}
+{"device_id":"djconnect-ios-8F3A2C91B45D","client_type":"ios","command":"set_shuffle","value":true}
+{"device_id":"djconnect-ios-8F3A2C91B45D","client_type":"ios","command":"set_repeat","value":"context"}
+{"device_id":"djconnect-ios-8F3A2C91B45D","client_type":"ios","command":"start_liked_proxy","play":true}
+{"device_id":"djconnect-ios-8F3A2C91B45D","client_type":"ios","command":"start_playlist","value":"spotify:playlist:...","play":true}
+{"device_id":"djconnect-ios-8F3A2C91B45D","client_type":"ios","command":"set_output","value":"Living Room","play":true}
 ```
 
 ## Voice

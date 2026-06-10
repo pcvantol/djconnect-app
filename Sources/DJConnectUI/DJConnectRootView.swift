@@ -92,6 +92,22 @@ struct NowPlayingView: View {
                 .frame(maxWidth: .infinity)
             }
             .navigationTitle("DJConnect")
+            .toolbar {
+                ToolbarItem {
+                    Button {
+                        model.refresh()
+                    } label: {
+                        Image(systemName: "arrow.clockwise")
+                    }
+                    .disabled(model.pairingStatus != .paired)
+                    .help(localized(model.language, "Refresh", "Vernieuwen"))
+                }
+            }
+            .task {
+                if model.pairingStatus == .paired {
+                    model.refresh()
+                }
+            }
         }
         #endif
     }
@@ -751,6 +767,15 @@ struct SettingsView: View {
                     }
                     LabeledContent(localized(model.language, "Device ID", "Device ID"), value: model.identity.deviceID)
                     LabeledContent(localized(model.language, "Client", "Client"), value: model.identity.clientType.rawValue)
+                    if !model.haActiveURL.isEmpty {
+                        LabeledContent(localized(model.language, "Active URL", "Actieve URL"), value: model.haActiveURL)
+                    }
+                    if !model.haLocalURL.isEmpty {
+                        LabeledContent(localized(model.language, "Local URL", "Lokale URL"), value: model.haLocalURL)
+                    }
+                    if !model.haRemoteURL.isEmpty {
+                        LabeledContent(localized(model.language, "Remote URL", "Remote URL"), value: model.haRemoteURL)
+                    }
                 }
 
                 Section(localized(model.language, "App", "App")) {

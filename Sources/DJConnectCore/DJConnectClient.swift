@@ -61,7 +61,6 @@ public final class DJConnectClient: Sendable {
         var request = URLRequest(url: endpoint(path: "/api/djconnect/pair"))
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.setValue(payload.clientID, forHTTPHeaderField: "X-DJConnect-Client-ID")
         request.setValue(payload.deviceID, forHTTPHeaderField: "X-DJConnect-Device-ID")
         request.httpBody = try encoder.encode(payload)
         return request
@@ -156,7 +155,6 @@ public final class DJConnectClient: Sendable {
 
         var request = URLRequest(url: endpoint(path: path))
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-        request.setValue(identity.clientID, forHTTPHeaderField: "X-DJConnect-Client-ID")
         request.setValue(identity.deviceID, forHTTPHeaderField: "X-DJConnect-Device-ID")
         return request
     }

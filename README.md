@@ -123,9 +123,8 @@ POST /api/djconnect/command
 ```
 
 All status and command payloads include `device_id`, `client_type`, and
-`firmware`. During route compatibility with current Home Assistant builds, the
-same stable app id is also sent as `client_id`. The `firmware` value remains
-the protocol compatibility version, even for app clients.
+`firmware`. The `firmware` value remains the protocol compatibility version,
+even for app clients.
 
 Pairing is posted to:
 
@@ -134,12 +133,12 @@ POST /api/djconnect/pair
 ```
 
 The app sends `device_id`, `device_name`, `client_type`, `firmware`,
-`app_version`, `platform`, temporary `client_id`/`client_name` compatibility
-fields, and the app-generated code as `pair_code`, `pairing_code`, and
-`pairing_token`. The app keeps polling until Home Assistant accepts that code
-and returns a DJConnect bearer token. The current preferred response field is
-`device_token`; `bearer_token` and `token` are accepted for compatibility. The
-iOS/macOS app does not expose or use ESP-local `/api/device/*` routes.
+`app_version`, `platform`, and the app-generated code as `pair_code`,
+`pairing_code`, and `pairing_token`. The app keeps polling until Home Assistant
+accepts that code and returns a DJConnect bearer token plus HA local/remote URL
+metadata. The current preferred response field is `device_token`; `bearer_token`
+and `token` are accepted for compatibility. The iOS/macOS app does not expose
+or use ESP-local `/api/device/*` routes.
 
 ## Version Contract
 

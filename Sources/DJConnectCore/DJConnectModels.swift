@@ -30,7 +30,6 @@ public enum DJConnectRepeatState: String, Codable, Sendable {
 }
 
 public struct DJConnectIdentity: Codable, Equatable, Sendable {
-    public var clientID: String
     public var clientName: String
     public var deviceID: String
     public var deviceName: String
@@ -40,7 +39,6 @@ public struct DJConnectIdentity: Codable, Equatable, Sendable {
     public var platform: DJConnectPlatform
 
     public init(
-        clientID: String? = nil,
         clientName: String? = nil,
         deviceID: String,
         deviceName: String,
@@ -49,7 +47,6 @@ public struct DJConnectIdentity: Codable, Equatable, Sendable {
         appVersion: String? = nil,
         platform: DJConnectPlatform
     ) {
-        self.clientID = clientID ?? deviceID
         self.clientName = clientName ?? deviceName
         self.deviceID = deviceID
         self.deviceName = deviceName
@@ -60,7 +57,6 @@ public struct DJConnectIdentity: Codable, Equatable, Sendable {
     }
 
     enum CodingKeys: String, CodingKey {
-        case clientID = "client_id"
         case clientName = "client_name"
         case deviceID = "device_id"
         case deviceName = "device_name"
@@ -72,8 +68,6 @@ public struct DJConnectIdentity: Codable, Equatable, Sendable {
 }
 
 public struct DJConnectPairingPayload: Codable, Equatable, Sendable {
-    public var clientID: String
-    public var clientName: String
     public var deviceID: String
     public var deviceName: String
     public var clientType: DJConnectClientType
@@ -83,11 +77,15 @@ public struct DJConnectPairingPayload: Codable, Equatable, Sendable {
     public var pairingToken: String
     public var pairCode: String
     public var pairingCode: String
-    public var localURL: String?
+    public var haLocalURL: String?
+    public var haRemoteURL: String?
 
-    public init(identity: DJConnectIdentity, pairingToken: String, localURL: String? = nil) {
-        self.clientID = identity.clientID
-        self.clientName = identity.clientName
+    public init(
+        identity: DJConnectIdentity,
+        pairingToken: String,
+        haLocalURL: String? = nil,
+        haRemoteURL: String? = nil
+    ) {
         self.deviceID = identity.deviceID
         self.deviceName = identity.deviceName
         self.clientType = identity.clientType
@@ -97,12 +95,11 @@ public struct DJConnectPairingPayload: Codable, Equatable, Sendable {
         self.pairingToken = pairingToken
         self.pairCode = pairingToken
         self.pairingCode = pairingToken
-        self.localURL = localURL
+        self.haLocalURL = haLocalURL
+        self.haRemoteURL = haRemoteURL
     }
 
     enum CodingKeys: String, CodingKey {
-        case clientID = "client_id"
-        case clientName = "client_name"
         case deviceID = "device_id"
         case deviceName = "device_name"
         case clientType = "client_type"
@@ -112,7 +109,8 @@ public struct DJConnectPairingPayload: Codable, Equatable, Sendable {
         case pairingToken = "pairing_token"
         case pairCode = "pair_code"
         case pairingCode = "pairing_code"
-        case localURL = "local_url"
+        case haLocalURL = "ha_local_url"
+        case haRemoteURL = "ha_remote_url"
     }
 }
 
@@ -122,9 +120,12 @@ public struct DJConnectPairingResponse: Codable, Equatable, Sendable {
     public var token: String?
     public var bearerToken: String?
     public var message: String?
-    public var clientID: String?
     public var deviceID: String?
     public var clientType: DJConnectClientType?
+    public var haLocalURL: String?
+    public var haRemoteURL: String?
+    public var deviceLanguage: String?
+    public var language: String?
 
     public var resolvedDeviceToken: String? {
         deviceToken ?? bearerToken ?? token
@@ -136,15 +137,18 @@ public struct DJConnectPairingResponse: Codable, Equatable, Sendable {
         case token
         case bearerToken = "bearer_token"
         case message
-        case clientID = "client_id"
         case deviceID = "device_id"
         case clientType = "client_type"
+        case haLocalURL = "ha_local_url"
+        case haRemoteURL = "ha_remote_url"
+        case deviceLanguage = "device_language"
+        case language
     }
 }
 
 public struct DJConnectStatusPayload: Codable, Equatable, Sendable {
-    public var clientID: String
     public var deviceID: String
+    public var deviceName: String
     public var clientType: DJConnectClientType
     public var haPairingStatus: DJConnectPairingStatus
     public var firmware: String
@@ -162,7 +166,9 @@ public struct DJConnectStatusPayload: Codable, Equatable, Sendable {
     public var voiceSupported: Bool?
     public var screenState: String?
     public var networkType: String?
-    public var localURL: String?
+    public var haLocalURL: String?
+    public var haRemoteURL: String?
+    public var haActiveURL: String?
 
     public init(
         identity: DJConnectIdentity,
@@ -179,10 +185,12 @@ public struct DJConnectStatusPayload: Codable, Equatable, Sendable {
         voiceSupported: Bool? = nil,
         screenState: String? = nil,
         networkType: String? = nil,
-        localURL: String? = nil
+        haLocalURL: String? = nil,
+        haRemoteURL: String? = nil,
+        haActiveURL: String? = nil
     ) {
-        self.clientID = identity.clientID
         self.deviceID = identity.deviceID
+        self.deviceName = identity.deviceName
         self.clientType = identity.clientType
         self.haPairingStatus = haPairingStatus
         self.firmware = identity.firmware
@@ -200,12 +208,14 @@ public struct DJConnectStatusPayload: Codable, Equatable, Sendable {
         self.voiceSupported = voiceSupported
         self.screenState = screenState
         self.networkType = networkType
-        self.localURL = localURL
+        self.haLocalURL = haLocalURL
+        self.haRemoteURL = haRemoteURL
+        self.haActiveURL = haActiveURL
     }
 
     enum CodingKeys: String, CodingKey {
-        case clientID = "client_id"
         case deviceID = "device_id"
+        case deviceName = "device_name"
         case clientType = "client_type"
         case haPairingStatus = "ha_pairing_status"
         case firmware
@@ -223,12 +233,13 @@ public struct DJConnectStatusPayload: Codable, Equatable, Sendable {
         case voiceSupported = "voice_supported"
         case screenState = "screen_state"
         case networkType = "network_type"
-        case localURL = "local_url"
+        case haLocalURL = "ha_local_url"
+        case haRemoteURL = "ha_remote_url"
+        case haActiveURL = "ha_active_url"
     }
 }
 
 public struct DJConnectCommandPayload: Codable, Equatable, Sendable {
-    public var clientID: String
     public var deviceID: String
     public var clientType: DJConnectClientType
     public var command: String
@@ -241,7 +252,6 @@ public struct DJConnectCommandPayload: Codable, Equatable, Sendable {
         value: DJConnectCommandValue? = nil,
         play: Bool? = nil
     ) {
-        self.clientID = identity.clientID
         self.deviceID = identity.deviceID
         self.clientType = identity.clientType
         self.command = command
@@ -250,7 +260,6 @@ public struct DJConnectCommandPayload: Codable, Equatable, Sendable {
     }
 
     enum CodingKeys: String, CodingKey {
-        case clientID = "client_id"
         case deviceID = "device_id"
         case clientType = "client_type"
         case command

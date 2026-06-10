@@ -81,14 +81,12 @@ private func httpResponse(for request: URLRequest, statusCode: Int) throws -> HT
     let tokenStore = DJConnectInMemoryTokenStore(token: "secret-token")
     let model = DJConnectAppModel(defaults: defaults, tokenStore: tokenStore)
     let originalDeviceID = model.identity.deviceID
-    let originalClientID = model.identity.clientID
     let originalPairingToken = model.pairingToken
 
     model.resetPairing()
 
     #expect(model.identity.deviceID != originalDeviceID)
-    #expect(model.identity.clientID != originalClientID)
-    #expect(model.identity.clientID == model.identity.deviceID)
+    #expect(model.identity.deviceID.hasPrefix("djconnect-"))
     #expect(model.pairingToken != originalPairingToken)
     #expect(try tokenStore.loadToken() == nil)
 }
@@ -113,7 +111,10 @@ private func httpResponse(for request: URLRequest, statusCode: Int) throws -> HT
         batteryPercent: 85,
         language: "nl",
         theme: "dark",
-        logLevel: "info"
+        logLevel: "info",
+        haLocalURL: "http://192.168.1.10:8123",
+        haRemoteURL: "https://example.ui.nabu.casa",
+        haActiveURL: "http://192.168.1.10:8123"
     )
 
     let request = try client.statusRequest(payload)
@@ -122,14 +123,18 @@ private func httpResponse(for request: URLRequest, statusCode: Int) throws -> HT
 
     #expect(request.url?.path == "/api/djconnect/status")
     #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer secret-token")
-    #expect(request.value(forHTTPHeaderField: "X-DJConnect-Client-ID") == identity.clientID)
+    #expect(request.value(forHTTPHeaderField: "X-DJConnect-Client-ID") == nil)
     #expect(request.value(forHTTPHeaderField: "X-DJConnect-Device-ID") == identity.deviceID)
     #expect(request.value(forHTTPHeaderField: "Content-Type") == "application/json")
-    #expect(json?["client_id"] as? String == identity.clientID)
+    #expect(json?["client_id"] == nil)
     #expect(json?["device_id"] as? String == identity.deviceID)
+    #expect(json?["device_name"] as? String == identity.deviceName)
     #expect(json?["client_type"] as? String == "ios")
     #expect(json?["firmware"] as? String == "3.1.0")
     #expect(json?["app_version"] as? String == "3.1.0")
+    #expect(json?["ha_local_url"] as? String == "http://192.168.1.10:8123")
+    #expect(json?["ha_remote_url"] as? String == "https://example.ui.nabu.casa")
+    #expect(json?["ha_active_url"] as? String == "http://192.168.1.10:8123")
 }
 
 @Test func commandRequestSupportsTypedValues() throws {
@@ -160,10 +165,10 @@ private func httpResponse(for request: URLRequest, statusCode: Int) throws -> HT
 
     #expect(request.url?.path == "/api/djconnect/command")
     #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer secret-token")
-    #expect(request.value(forHTTPHeaderField: "X-DJConnect-Client-ID") == identity.clientID)
+    #expect(request.value(forHTTPHeaderField: "X-DJConnect-Client-ID") == nil)
     #expect(request.value(forHTTPHeaderField: "X-DJConnect-Device-ID") == identity.deviceID)
     #expect(request.value(forHTTPHeaderField: "Content-Type") == "application/json")
-    #expect(json?["client_id"] as? String == identity.clientID)
+    #expect(json?["client_id"] == nil)
     #expect(json?["device_id"] as? String == identity.deviceID)
     #expect(json?["client_type"] as? String == "macos")
     #expect(json?["command"] as? String == "set_volume")
@@ -230,11 +235,12 @@ private func httpResponse(for request: URLRequest, statusCode: Int) throws -> HT
     #expect(request.url?.path == "/api/djconnect/pair")
     #expect(request.value(forHTTPHeaderField: "Authorization") == nil)
     #expect(request.value(forHTTPHeaderField: "Content-Type") == "application/json")
-    #expect(request.value(forHTTPHeaderField: "X-DJConnect-Client-ID") == identity.clientID)
+    #expect(request.value(forHTTPHeaderField: "X-DJConnect-Client-ID") == nil)
     #expect(request.value(forHTTPHeaderField: "X-DJConnect-Device-ID") == identity.deviceID)
-    #expect(json?["client_id"] as? String == identity.clientID)
-    #expect(json?["client_name"] as? String == identity.clientName)
+    #expect(json?["client_id"] == nil)
+    #expect(json?["client_name"] == nil)
     #expect(json?["device_id"] as? String == identity.deviceID)
+    #expect(json?["device_name"] as? String == identity.deviceName)
     #expect(json?["client_type"] as? String == "macos")
     #expect(json?["pair_code"] as? String == "123456")
     #expect(json?["pairing_code"] as? String == "123456")
@@ -263,6 +269,35 @@ private func httpResponse(for request: URLRequest, statusCode: Int) throws -> HT
     #expect(token.resolvedDeviceToken == "plain-secret")
 }
 
+@MainActor
+@Test func pairingResponseStoresHALocalURLAndLanguage() throws {
+    let suiteName = "DJConnectTests-\(UUID().uuidString)"
+    let defaults = try #require(UserDefaults(suiteName: suiteName))
+    defaults.removePersistentDomain(forName: suiteName)
+    let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore())
+    let response = DJConnectPairingResponse(
+        success: true,
+        deviceToken: "device-secret",
+        token: nil,
+        bearerToken: nil,
+        message: nil,
+        deviceID: model.identity.deviceID,
+        clientType: model.identity.clientType,
+        haLocalURL: "http://192.168.1.13:8123",
+        haRemoteURL: "https://remote.ui.nabu.casa",
+        deviceLanguage: "nl",
+        language: "en"
+    )
+
+    model.apply(pairingResponse: response, fallbackBaseURL: try #require(URL(string: "http://fallback.local:8123")))
+
+    #expect(model.homeAssistantURL == "http://192.168.1.13:8123")
+    #expect(model.haLocalURL == "http://192.168.1.13:8123")
+    #expect(model.haRemoteURL == "https://remote.ui.nabu.casa")
+    #expect(model.haActiveURL == "http://192.168.1.13:8123")
+    #expect(model.language == "nl")
+}
+
 @Test func pairSuccessStoresReturnedBearerToken() async throws {
     let identity = DJConnectIdentity(
         deviceID: "djconnect-ios-8F3A2C91B45D",
@@ -277,9 +312,11 @@ private func httpResponse(for request: URLRequest, statusCode: Int) throws -> HT
     let session = mockSession(host: host) { request in
         #expect(request.url?.path == "/api/djconnect/pair")
         #expect(request.value(forHTTPHeaderField: "Authorization") == nil)
+        #expect(request.value(forHTTPHeaderField: "X-DJConnect-Client-ID") == nil)
+        #expect(request.value(forHTTPHeaderField: "X-DJConnect-Device-ID") == identity.deviceID)
         return (
             try httpResponse(for: request, statusCode: 200),
-            Data(#"{"success":true,"device_token":"client-secret"}"#.utf8)
+            Data(#"{"success":true,"device_token":"client-secret","ha_local_url":"http://192.168.1.13:8123","language":"nl"}"#.utf8)
         )
     }
     let client = DJConnectClient(
@@ -362,6 +399,8 @@ private func httpResponse(for request: URLRequest, statusCode: Int) throws -> HT
 
     #expect(request.url?.path == "/api/djconnect/voice")
     #expect(request.value(forHTTPHeaderField: "Content-Type") == "audio/wav")
+    #expect(request.value(forHTTPHeaderField: "X-DJConnect-Client-ID") == nil)
+    #expect(request.value(forHTTPHeaderField: "X-DJConnect-Device-ID") == identity.deviceID)
     #expect(request.httpBody == wav)
 }
 

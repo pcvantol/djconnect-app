@@ -46,6 +46,9 @@ public final class DJConnectAppModel: ObservableObject {
     @Published public var homeAssistantURL = "" {
         didSet { defaults.set(homeAssistantURL, forKey: homeAssistantURLKey) }
     }
+    @Published public private(set) var haLocalURL = ""
+    @Published public private(set) var haRemoteURL = ""
+    @Published public private(set) var haActiveURL = ""
     @Published public var pairingToken = ""
     @Published public var pairingStatus: DJConnectPairingStatus = .unpaired
     @Published public var isConnected = false
@@ -92,6 +95,9 @@ public final class DJConnectAppModel: ObservableObject {
     private let appVersion = DJConnectAppModel.protocolVersion
     private let installIDKey = "DJConnectInstallID"
     private let homeAssistantURLKey = "DJConnectHomeAssistantURL"
+    private let haLocalURLKey = "DJConnectHALocalURL"
+    private let haRemoteURLKey = "DJConnectHARemoteURL"
+    private let haActiveURLKey = "DJConnectHAActiveURL"
     private let pairingTokenKey = "DJConnectPairingToken"
     private let languageKey = "DJConnectLanguage"
     private let logLevelKey = "DJConnectLogLevel"
@@ -125,6 +131,9 @@ public final class DJConnectAppModel: ObservableObject {
         )
         self.playback = playback
         self.homeAssistantURL = defaults.string(forKey: homeAssistantURLKey) ?? ""
+        self.haLocalURL = defaults.string(forKey: haLocalURLKey) ?? ""
+        self.haRemoteURL = defaults.string(forKey: haRemoteURLKey) ?? ""
+        self.haActiveURL = defaults.string(forKey: haActiveURLKey) ?? ""
         self.pairingToken = defaults.string(forKey: pairingTokenKey) ?? Self.generatePairingToken()
         self.language = defaults.string(forKey: languageKey) ?? "nl"
         self.logLevel = defaults.string(forKey: logLevelKey) ?? "info"
@@ -225,10 +234,12 @@ public final class DJConnectAppModel: ObservableObject {
         while !Task.isCancelled && pairingStatus != .paired {
             let client = DJConnectClient(baseURL: baseURL, identity: identity, tokenStore: tokenStore)
             do {
-                _ = try await client.pair(DJConnectPairingPayload(
+                let response = try await client.pair(DJConnectPairingPayload(
                     identity: identity,
-                    pairingToken: pairingToken
+                    pairingToken: pairingToken,
+                    haLocalURL: Self.normalizedHomeAssistantURL(from: homeAssistantURL).map(Self.redactedURL)
                 ))
+                apply(pairingResponse: response, fallbackBaseURL: baseURL)
                 log(.info, "Pairing accepted by Home Assistant")
                 pairingStatus = .paired
                 isConnected = true
@@ -259,6 +270,7 @@ public final class DJConnectAppModel: ObservableObject {
         pairingTask?.cancel()
         pairingTask = nil
         try? tokenStore.clearToken()
+        clearStoredHomeAssistantURLs()
         defaults.removeObject(forKey: installIDKey)
         identity = Self.makeIdentity(defaults: defaults)
         _ = newPairingToken()
@@ -297,7 +309,7 @@ public final class DJConnectAppModel: ObservableObject {
         log(.debug, "Manual refresh requested")
         Task {
             do {
-                try await refreshStatus(client: try makeClient())
+                try await refreshStatusWithFallback()
                 await refreshBackendCollections()
             } catch let error as DJConnectError {
                 log(.warning, "Refresh failed: \(Self.describe(error))")
@@ -372,7 +384,7 @@ public final class DJConnectAppModel: ObservableObject {
     public func selectOutput(_ output: DJConnectOutputDevice) {
         selectedOutput = output.name
         log(.info, "Selecting output \(output.name)")
-        sendPlaybackCommand("set_output", value: .string(output.id.isEmpty ? output.name : output.id))
+        sendPlaybackCommand("set_output", value: .string(output.name), play: true)
     }
 
     public func startPlaylist(_ playlist: DJConnectPlaylist) {
@@ -442,7 +454,7 @@ public final class DJConnectAppModel: ObservableObject {
                 let data = try Data(contentsOf: url)
                 try? FileManager.default.removeItem(at: url)
                 log(.info, "Uploading voice recording WAV (\(data.count) bytes)")
-                let response = try await makeClient().sendVoice(wavData: data)
+                let response = try await sendVoiceWithFallback(wavData: data)
                 djResponseText = response.djText ?? response.text ?? localized(
                     english: "Voice request completed.",
                     dutch: "Voice-request afgerond."
@@ -504,6 +516,23 @@ public final class DJConnectAppModel: ObservableObject {
         }
         if let message = response.message, !message.isEmpty {
             djResponseText = message
+        }
+    }
+
+    public func apply(pairingResponse response: DJConnectPairingResponse, fallbackBaseURL: URL) {
+        let localURL = response.haLocalURL.flatMap(Self.normalizedHomeAssistantURL(from:))
+            ?? Self.normalizedHomeAssistantURL(from: homeAssistantURL)
+            ?? fallbackBaseURL
+        let remoteURL = response.haRemoteURL.flatMap(Self.normalizedHomeAssistantURL(from:))
+        haLocalURL = Self.redactedURL(localURL)
+        haRemoteURL = remoteURL.map(Self.redactedURL) ?? ""
+        haActiveURL = haLocalURL
+        homeAssistantURL = haActiveURL
+        defaults.set(haLocalURL, forKey: haLocalURLKey)
+        defaults.set(haRemoteURL, forKey: haRemoteURLKey)
+        defaults.set(haActiveURL, forKey: haActiveURLKey)
+        if let responseLanguage = response.deviceLanguage ?? response.language, !responseLanguage.isEmpty {
+            language = responseLanguage
         }
     }
 
@@ -613,7 +642,10 @@ public final class DJConnectAppModel: ObservableObject {
                     language: language,
                     logLevel: logLevel,
                     localAudioSupported: true,
-                    voiceSupported: voiceEnabled
+                    voiceSupported: voiceEnabled,
+                    haLocalURL: haLocalURL.isEmpty ? nil : haLocalURL,
+                    haRemoteURL: haRemoteURL.isEmpty ? nil : haRemoteURL,
+                    haActiveURL: haActiveURL.isEmpty ? nil : haActiveURL
                 )
             )
             apply(playback: response.playback)
@@ -635,6 +667,31 @@ public final class DJConnectAppModel: ObservableObject {
         await performCommand("devices")
         await performCommand("queue")
         await performCommand("playlists")
+    }
+
+    private func refreshStatusWithFallback() async throws {
+        do {
+            try await refreshStatus(client: try makeClient())
+        } catch let error as DJConnectError {
+            if shouldRetryViaRemote(after: error) {
+                log(.info, "Retrying status refresh via remote Home Assistant URL")
+                try await refreshStatus(client: try makeClient())
+                return
+            }
+            throw error
+        }
+    }
+
+    private func sendVoiceWithFallback(wavData: Data) async throws -> DJConnectVoiceResponse {
+        do {
+            return try await makeClient().sendVoice(wavData: wavData)
+        } catch let error as DJConnectError {
+            if shouldRetryViaRemote(after: error) {
+                log(.info, "Retrying voice upload via remote Home Assistant URL")
+                return try await makeClient().sendVoice(wavData: wavData)
+            }
+            throw error
+        }
     }
 
     private func performCommand(
@@ -660,6 +717,11 @@ public final class DJConnectAppModel: ObservableObject {
             apply(commandResponse: response)
             log(.debug, "Command \(command) succeeded")
         } catch let error as DJConnectError {
+            if shouldRetryViaRemote(after: error) {
+                log(.info, "Retrying command \(command) via remote Home Assistant URL")
+                await performCommand(command, value: value, play: play)
+                return
+            }
             log(.warning, "Command \(command) failed: \(Self.describe(error))")
             apply(error: error)
         } catch {
@@ -669,7 +731,7 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     private func makeClient() throws -> DJConnectClient {
-        guard let baseURL = Self.normalizedHomeAssistantURL(from: homeAssistantURL) else {
+        guard let baseURL = Self.normalizedHomeAssistantURL(from: activeHomeAssistantURL()) else {
             log(.warning, "Cannot create Home Assistant client because URL is invalid")
             throw DJConnectError.network(message: localized(
                 english: "Enter your Home Assistant URL, for example 192.168.1.10:8123.",
@@ -677,6 +739,39 @@ public final class DJConnectAppModel: ObservableObject {
             ))
         }
         return DJConnectClient(baseURL: baseURL, identity: identity, tokenStore: tokenStore)
+    }
+
+    private func activeHomeAssistantURL() -> String {
+        if !haActiveURL.isEmpty {
+            return haActiveURL
+        }
+        if !haLocalURL.isEmpty {
+            return haLocalURL
+        }
+        return homeAssistantURL
+    }
+
+    private func shouldRetryViaRemote(after error: DJConnectError) -> Bool {
+        guard case .network = error else {
+            return false
+        }
+        guard !haRemoteURL.isEmpty, haActiveURL != haRemoteURL else {
+            return false
+        }
+        haActiveURL = haRemoteURL
+        homeAssistantURL = haRemoteURL
+        defaults.set(haActiveURL, forKey: haActiveURLKey)
+        log(.warning, "Local Home Assistant URL failed; switching to remote URL")
+        return true
+    }
+
+    private func clearStoredHomeAssistantURLs() {
+        haLocalURL = ""
+        haRemoteURL = ""
+        haActiveURL = ""
+        defaults.removeObject(forKey: haLocalURLKey)
+        defaults.removeObject(forKey: haRemoteURLKey)
+        defaults.removeObject(forKey: haActiveURLKey)
     }
 
     public func clearDiagnosticLog() {
@@ -694,11 +789,13 @@ public final class DJConnectAppModel: ObservableObject {
         DJConnect Diagnostics
         version: \(appVersion)
         client_type: \(identity.clientType.rawValue)
-        client_id: \(identity.clientID)
         device_id: \(identity.deviceID)
         pairing_status: \(pairingStatus.rawValue)
         bearer_token: \(tokenState)
         home_assistant_url: \(url)
+        ha_local_url: \(haLocalURL.isEmpty ? "missing" : Self.redactSensitive(haLocalURL))
+        ha_remote_url: \(haRemoteURL.isEmpty ? "missing" : Self.redactSensitive(haRemoteURL))
+        ha_active_url: \(haActiveURL.isEmpty ? "missing" : Self.redactSensitive(haActiveURL))
         backend_available: \(backendAvailable)
         selected_output: \(selectedOutput)
         language: \(language)
@@ -903,7 +1000,6 @@ public final class DJConnectAppModel: ObservableObject {
 
         #if os(macOS)
         return DJConnectIdentity(
-            clientID: "djconnect-macos-\(installID.prefix(12))",
             clientName: "DJConnect Mac",
             deviceID: "djconnect-macos-\(installID.prefix(12))",
             deviceName: "DJConnect Mac",
@@ -914,7 +1010,6 @@ public final class DJConnectAppModel: ObservableObject {
         )
         #else
         return DJConnectIdentity(
-            clientID: "djconnect-ios-\(installID.prefix(12))",
             clientName: "DJConnect iPhone",
             deviceID: "djconnect-ios-\(installID.prefix(12))",
             deviceName: "DJConnect iPhone",

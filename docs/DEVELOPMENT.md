@@ -63,8 +63,7 @@ app pairing by accepting the app-generated code and returning a token to the
 polling request.
 
 Reset Pairing clears the DJConnect Keychain token, generates a new app code,
-and creates a fresh local `device_id`/`client_id` alias for a new DJConnect app
-client setup.
+and creates a fresh local `device_id` for a new DJConnect app client setup.
 
 ## Test
 
