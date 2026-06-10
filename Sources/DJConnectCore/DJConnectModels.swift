@@ -511,7 +511,9 @@ public struct DJConnectQueueItem: Codable, Equatable, Identifiable, Sendable {
     public var id: String
     public var title: String
     public var artist: String?
+    public var album: String?
     public var uri: String?
+    public var durationMS: Int?
     public var albumImageURL: URL?
 
     public var displayTitle: String {
@@ -522,13 +524,17 @@ public struct DJConnectQueueItem: Codable, Equatable, Identifiable, Sendable {
         id: String? = nil,
         title: String,
         artist: String? = nil,
+        album: String? = nil,
         uri: String? = nil,
+        durationMS: Int? = nil,
         albumImageURL: URL? = nil
     ) {
         self.id = id ?? uri ?? title
         self.title = title
         self.artist = artist
+        self.album = album
         self.uri = uri
+        self.durationMS = durationMS
         self.albumImageURL = albumImageURL
     }
 
@@ -548,8 +554,13 @@ public struct DJConnectQueueItem: Codable, Equatable, Identifiable, Sendable {
             id: id,
             title: title,
             artist: try container.decodeIfPresent(String.self, forKey: .artist),
+            album: try container.decodeIfPresent(String.self, forKey: .album),
             uri: uri,
+            durationMS: try container.decodeIfPresent(Int.self, forKey: .durationMS),
             albumImageURL: try container.decodeIfPresent(URL.self, forKey: .albumImageURL)
+                ?? container.decodeIfPresentIgnoringErrors(URL.self, forKey: .mediaImageURL)
+                ?? container.decodeIfPresentIgnoringErrors(URL.self, forKey: .imageURL)
+                ?? container.decodeIfPresentIgnoringErrors(URL.self, forKey: .entityPicture)
         )
     }
 
@@ -558,7 +569,9 @@ public struct DJConnectQueueItem: Codable, Equatable, Identifiable, Sendable {
         try container.encode(id, forKey: .id)
         try container.encode(title, forKey: .title)
         try container.encodeIfPresent(artist, forKey: .artist)
+        try container.encodeIfPresent(album, forKey: .album)
         try container.encodeIfPresent(uri, forKey: .uri)
+        try container.encodeIfPresent(durationMS, forKey: .durationMS)
         try container.encodeIfPresent(albumImageURL, forKey: .albumImageURL)
     }
 
@@ -567,8 +580,41 @@ public struct DJConnectQueueItem: Codable, Equatable, Identifiable, Sendable {
         case title
         case name
         case artist
+        case album
         case uri
+        case durationMS = "duration_ms"
         case albumImageURL = "album_image_url"
+        case mediaImageURL = "media_image_url"
+        case imageURL = "image_url"
+        case entityPicture = "entity_picture"
+    }
+}
+
+public struct DJConnectQueueResponse: Codable, Equatable, Sendable {
+    public var items: [DJConnectQueueItem]
+    public var context: String?
+
+    public init(items: [DJConnectQueueItem] = [], context: String? = nil) {
+        self.items = items
+        self.context = context
+    }
+
+    public init(from decoder: Decoder) throws {
+        if let items = try? decoder.singleValueContainer().decode([DJConnectQueueItem].self) {
+            self.init(items: items)
+            return
+        }
+
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.init(
+            items: try container.decodeIfPresent([DJConnectQueueItem].self, forKey: .items) ?? [],
+            context: try container.decodeIfPresent(String.self, forKey: .context)
+        )
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case items
+        case context
     }
 }
 
@@ -631,6 +677,7 @@ public struct DJConnectCommandResponse: Codable, Equatable, Sendable {
     public var playback: DJConnectPlayback?
     public var devices: [DJConnectOutputDevice]?
     public var queue: [DJConnectQueueItem]?
+    public var queueContext: String?
     public var playlists: [DJConnectPlaylist]?
 
     public init(
@@ -641,6 +688,7 @@ public struct DJConnectCommandResponse: Codable, Equatable, Sendable {
         playback: DJConnectPlayback? = nil,
         devices: [DJConnectOutputDevice]? = nil,
         queue: [DJConnectQueueItem]? = nil,
+        queueContext: String? = nil,
         playlists: [DJConnectPlaylist]? = nil
     ) {
         self.success = success
@@ -650,6 +698,7 @@ public struct DJConnectCommandResponse: Codable, Equatable, Sendable {
         self.playback = playback
         self.devices = devices
         self.queue = queue
+        self.queueContext = queueContext
         self.playlists = playlists
     }
 
@@ -665,9 +714,11 @@ public struct DJConnectCommandResponse: Codable, Equatable, Sendable {
             ?? data?.decodeIfPresentIgnoringErrors(DJConnectPlayback.self, forKey: .playback)
         devices = try container.decodeIfPresent([DJConnectOutputDevice].self, forKey: .devices)
             ?? data?.decodeIfPresentIgnoringErrors([DJConnectOutputDevice].self, forKey: .devices)
-        queue = try container.decodeIfPresent([DJConnectQueueItem].self, forKey: .queue)
-            ?? data?.decodeIfPresentIgnoringErrors([DJConnectQueueItem].self, forKey: .queue)
+        let queueResponse = try container.decodeIfPresent(DJConnectQueueResponse.self, forKey: .queue)
+            ?? data?.decodeIfPresentIgnoringErrors(DJConnectQueueResponse.self, forKey: .queue)
+        queue = queueResponse?.items
             ?? data?.decodeIfPresentIgnoringErrors([DJConnectQueueItem].self, forKey: .items)
+        queueContext = queueResponse?.context
         playlists = try container.decodeIfPresent([DJConnectPlaylist].self, forKey: .playlists)
             ?? data?.decodeIfPresentIgnoringErrors([DJConnectPlaylist].self, forKey: .playlists)
             ?? data?.decodeIfPresentIgnoringErrors([DJConnectPlaylist].self, forKey: .items)
@@ -682,6 +733,7 @@ public struct DJConnectCommandResponse: Codable, Equatable, Sendable {
         try container.encodeIfPresent(playback, forKey: .playback)
         try container.encodeIfPresent(devices, forKey: .devices)
         try container.encodeIfPresent(queue, forKey: .queue)
+        try container.encodeIfPresent(queueContext, forKey: .queueContext)
         try container.encodeIfPresent(playlists, forKey: .playlists)
     }
 
@@ -694,6 +746,7 @@ public struct DJConnectCommandResponse: Codable, Equatable, Sendable {
         case data
         case devices
         case queue
+        case queueContext = "queue_context"
         case playlists
         case items
     }

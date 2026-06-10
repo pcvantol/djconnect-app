@@ -198,7 +198,41 @@ private func httpResponse(for request: URLRequest, statusCode: Int) throws -> HT
     #expect(json?["play"] as? Bool == true)
 }
 
-@Test func commandRequestSupportsObjectValues() throws {
+@Test func playbackCommandRequestsUsePlaybackEndpointAndIdentity() throws {
+    let identity = DJConnectIdentity(
+        deviceID: "djconnect-ios-8F3A2C91B45D",
+        deviceName: "DJConnect iPhone",
+        clientType: .ios,
+        firmware: "3.1.3",
+        appVersion: "3.1.3",
+        platform: .ios
+    )
+    let client = DJConnectClient(
+        baseURL: try #require(URL(string: "http://homeassistant.local:8123")),
+        identity: identity,
+        tokenStore: DJConnectInMemoryTokenStore(token: "secret-token")
+    )
+
+    for command in ["play", "pause", "next", "previous"] {
+        let request = try client.commandRequest(
+            DJConnectCommandPayload(
+                identity: identity,
+                command: command
+            )
+        )
+        let body = try #require(request.httpBody)
+        let json = try JSONSerialization.jsonObject(with: body) as? [String: Any]
+
+        #expect(request.url?.path == "/api/djconnect/command")
+        #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer secret-token")
+        #expect(request.value(forHTTPHeaderField: "X-DJConnect-Device-ID") == identity.deviceID)
+        #expect(json?["device_id"] as? String == identity.deviceID)
+        #expect(json?["client_type"] as? String == "ios")
+        #expect(json?["command"] as? String == command)
+    }
+}
+
+@Test func commandRequestSupportsQueueContextObjectValues() throws {
     let identity = DJConnectIdentity(
         deviceID: "djconnect-ios-8F3A2C91B45D",
         deviceName: "DJConnect iPhone",
@@ -216,9 +250,11 @@ private func httpResponse(for request: URLRequest, statusCode: Int) throws -> HT
     let request = try client.commandRequest(
         DJConnectCommandPayload(
             identity: identity,
-            command: "play_queue_item",
+            command: "start_playlist",
             value: .object([
+                "context": "spotify:playlist:context",
                 "uri": "spotify:track:1",
+                "offset_uri": "spotify:track:1",
                 "title": "Track One",
                 "artist": "Artist One",
                 "index": "0"
@@ -230,12 +266,84 @@ private func httpResponse(for request: URLRequest, statusCode: Int) throws -> HT
     let json = try JSONSerialization.jsonObject(with: body) as? [String: Any]
     let value = json?["value"] as? [String: String]
 
-    #expect(json?["command"] as? String == "play_queue_item")
+    #expect(json?["command"] as? String == "start_playlist")
+    #expect(value?["context"] == "spotify:playlist:context")
     #expect(value?["uri"] == "spotify:track:1")
+    #expect(value?["offset_uri"] == "spotify:track:1")
     #expect(value?["title"] == "Track One")
     #expect(value?["artist"] == "Artist One")
     #expect(value?["index"] == "0")
     #expect(json?["play"] as? Bool == true)
+}
+
+@Test func queueContractDecodesItemsContextAndImageAliases() throws {
+    let response = try JSONDecoder().decode(
+        DJConnectCommandResponse.self,
+        from: Data(
+            """
+            {
+              "success": true,
+              "queue": {
+                "items": [
+                  {
+                    "title": "Song title",
+                    "artist": "Artist name",
+                    "album": "Album name",
+                    "uri": "spotify:track:1",
+                    "duration_ms": 213000,
+                    "media_image_url": "https://example.test/media.jpg"
+                  },
+                  {
+                    "title": "Song two",
+                    "entity_picture": "https://example.test/entity.jpg"
+                  }
+                ],
+                "context": "spotify:playlist:context"
+              }
+            }
+            """.utf8
+        )
+    )
+
+    #expect(response.success)
+    #expect(response.queueContext == "spotify:playlist:context")
+    #expect(response.queue?.count == 2)
+    #expect(response.queue?.first?.album == "Album name")
+    #expect(response.queue?.first?.durationMS == 213000)
+    #expect(response.queue?.first?.albumImageURL?.absoluteString == "https://example.test/media.jpg")
+    #expect(response.queue?.last?.albumImageURL?.absoluteString == "https://example.test/entity.jpg")
+}
+
+@Test func statusCommandResponseDecodesRichPlaybackSnapshot() throws {
+    let response = try JSONDecoder().decode(
+        DJConnectCommandResponse.self,
+        from: Data(
+            """
+            {
+              "success": true,
+              "data": {
+                "playback": {
+                  "has_playback": true,
+                  "is_playing": false,
+                  "track_name": "Track One",
+                  "artist_name": "Artist One",
+                  "album_image_url": "https://example.test/art.jpg",
+                  "progress_ms": 12000,
+                  "duration_ms": 180000,
+                  "volume_percent": 41,
+                  "device": {"name":"Living Room","active":true,"volume_percent":41}
+                }
+              }
+            }
+            """.utf8
+        )
+    )
+
+    #expect(response.success)
+    #expect(response.playback?.isPlaying == false)
+    #expect(response.playback?.trackName == "Track One")
+    #expect(response.playback?.albumImageURL?.absoluteString == "https://example.test/art.jpg")
+    #expect(response.playback?.device?.name == "Living Room")
 }
 
 @Test func commandResponseDecodesBackendCollectionsFromDataEnvelope() throws {

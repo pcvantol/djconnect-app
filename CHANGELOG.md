@@ -61,8 +61,9 @@ All notable changes to DJConnect App are documented here.
 - Loaded Now Playing through the backend `status` command before falling back
   to the lightweight status endpoint, preventing manual refresh from clearing
   album art when the status payload is sparse.
-- Added a `play_uri` fallback for queue row taps when Home Assistant does not
-  support the structured `play_queue_item` command.
+- Updated queue decoding to the Home Assistant `queue.items` contract, storing
+  `queue.context` and accepting album-art aliases including `media_image_url`,
+  `image_url`, and `entity_picture`.
 - Changed pairing reset confirmation to an explicit alert and only show the
   reset action when a pairing token is stored.
 - Updated the user-facing proposition to "DJConnect. Jouw persoonlijke muziek
@@ -71,9 +72,8 @@ All notable changes to DJConnect App are documented here.
   recording-permission API and returning permission callbacks to the MainActor.
 - Added album-art thumbnails to queue rows and made queue items playable when
   Home Assistant provides a queue item URI.
-- Switched queue item taps to a structured `play_queue_item` command payload
-  with URI, title, artist, and queue index so Home Assistant can preserve queue
-  context.
+- Switched queue item taps away from unsupported `play_queue_item`/`play_uri`
+  commands and toward the queue context supplied by Home Assistant.
 - Split playlists into a dedicated iOS/macOS page and added the About page to
   the iOS/iPadOS tab bar.
 - Restyled playlist rows with primary text and a purple play icon instead of
@@ -90,6 +90,14 @@ All notable changes to DJConnect App are documented here.
   so playback changes from voice commands appear immediately.
 - Added a visible refresh busy state and completion logging for the manual
   Now Playing refresh action.
+- Refreshed the rich Now Playing snapshot immediately after playback commands,
+  including play and pause, so button state and album art update right away.
+- Replaced previous/next transport icons with previous-track/next-track icons
+  to better match the actual command semantics.
+- Updated the About header to use a full-width DJConnect app banner and show
+  the proposition as "Jouw persoonlijke muziek DJ".
+- Renamed visible UI labels for the client API URL, DJ announcement, default
+  playlist, logs copy action, and related settings/about rows.
 
 ## 3.1.0 - 2026-06-10
 

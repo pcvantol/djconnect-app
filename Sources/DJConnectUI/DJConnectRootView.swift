@@ -350,7 +350,7 @@ private struct IOSPlaybackSurface: View {
     var body: some View {
         VStack(spacing: 18) {
             HStack(spacing: 30) {
-                playbackButton("backward.fill", size: 46) {
+                playbackButton("backward.end.fill", size: 46) {
                     model.sendPlaybackCommand("previous")
                 }
 
@@ -358,7 +358,7 @@ private struct IOSPlaybackSurface: View {
                     model.togglePlayback()
                 }
 
-                playbackButton("forward.fill", size: 46) {
+                playbackButton("forward.end.fill", size: 46) {
                     model.sendPlaybackCommand("next")
                 }
             }
@@ -563,7 +563,7 @@ struct PlaybackControlsView: View {
                 Button {
                     model.sendPlaybackCommand("previous")
                 } label: {
-                    Image(systemName: "backward.fill")
+                    Image(systemName: "backward.end.fill")
                 }
                 .buttonStyle(.bordered)
                 .help(localized(model.language, "Previous", "Vorige"))
@@ -582,7 +582,7 @@ struct PlaybackControlsView: View {
                 Button {
                     model.sendPlaybackCommand("next")
                 } label: {
-                    Image(systemName: "forward.fill")
+                    Image(systemName: "forward.end.fill")
                 }
                 .buttonStyle(.bordered)
                 .help(localized(model.language, "Next", "Volgende"))
@@ -858,7 +858,7 @@ struct QueueView: View {
                                 QueueItemRow(item: item)
                             }
                             .buttonStyle(.plain)
-                            .disabled(!isPaired || item.uri?.isEmpty != false)
+                            .disabled(!isPaired || item.uri?.isEmpty != false || model.queueContext?.isEmpty != false)
                             .accessibilityLabel(item.displayTitle)
                         }
                     }
@@ -1103,18 +1103,7 @@ private struct AboutView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 28) {
-                VStack(alignment: .leading, spacing: 18) {
-                    DJConnectAppIconView()
-                        .frame(width: 96, height: 96)
-                        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
-                        .shadow(color: .black.opacity(0.20), radius: 14, y: 8)
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text("DJConnect")
-                            .font(.system(.largeTitle, design: .default).weight(.bold))
-                        Text("DJConnect. Jouw persoonlijke muziek DJ")
-                            .foregroundStyle(.secondary)
-                    }
-                }
+                AboutBanner()
 
                 SettingsSection(title: localized(model.language, "App", "App")) {
                     SettingsRow(label: localized(model.language, "Version", "Versie")) {
@@ -1161,6 +1150,39 @@ private struct AboutView: View {
             .padding(.vertical, 28)
         }
         .navigationTitle(localized(model.language, "About", "Over"))
+    }
+}
+
+private struct AboutBanner: View {
+    var body: some View {
+        HStack(spacing: 18) {
+            DJConnectAppIconView()
+                .frame(width: 84, height: 84)
+                .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+                .shadow(color: .black.opacity(0.24), radius: 14, y: 8)
+            VStack(alignment: .leading, spacing: 6) {
+                Text("DJConnect")
+                    .font(.system(.largeTitle, design: .default).weight(.bold))
+                    .foregroundStyle(.white)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.72)
+                Text("Jouw persoonlijke muziek DJ")
+                    .font(.headline)
+                    .foregroundStyle(.white.opacity(0.72))
+                    .lineLimit(2)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(22)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .fill(Color(red: 0.09, green: 0.07, blue: 0.12))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .stroke(.white.opacity(0.08), lineWidth: 1)
+        )
     }
 }
 

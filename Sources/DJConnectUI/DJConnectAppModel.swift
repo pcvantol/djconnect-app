@@ -67,6 +67,7 @@ public final class DJConnectAppModel: ObservableObject {
     @Published public var playlists: [String] = []
     @Published public var availableOutputs: [DJConnectOutputDevice] = []
     @Published public var queueItems: [DJConnectQueueItem] = []
+    @Published public var queueContext: String?
     @Published public var playlistItems: [DJConnectPlaylist] = []
     @Published public var selectedOutput = "Not selected"
     @Published public var djResponseText = ""
@@ -457,8 +458,14 @@ public final class DJConnectAppModel: ObservableObject {
             log(.warning, "Queue item \(item.title) cannot start because it has no URI")
             return
         }
+        guard let queueContext, !queueContext.isEmpty else {
+            log(.warning, "Queue item \(item.title) cannot start because Home Assistant did not provide queue context")
+            return
+        }
         var payload = [
+            "context": queueContext,
             "uri": uri,
+            "offset_uri": uri,
             "title": item.title
         ]
         if let index = queueItems.firstIndex(where: { $0.id == item.id }) {
@@ -467,14 +474,8 @@ public final class DJConnectAppModel: ObservableObject {
         if let artist = item.artist, !artist.isEmpty {
             payload["artist"] = artist
         }
-        log(.info, "Starting queue item \(item.title)")
-        Task {
-            let startedWithQueueContext = await performCommand("play_queue_item", value: .object(payload), play: true)
-            if !startedWithQueueContext {
-                log(.warning, "Queue context command failed; falling back to play_uri")
-                await performCommand("play_uri", value: .string(uri), play: true)
-            }
-        }
+        log(.info, "Starting queue item \(item.title) in queue context")
+        sendPlaybackCommand("start_playlist", value: .object(payload), play: true)
     }
 
     public func toggleVoiceRecording() {
@@ -610,6 +611,9 @@ public final class DJConnectAppModel: ObservableObject {
         if let responseQueue = response.queue {
             queueItems = responseQueue
             queue = responseQueue.map(\.displayTitle)
+        }
+        if response.queueContext != nil || response.queue != nil {
+            queueContext = response.queueContext
         }
         if let responsePlaylists = response.playlists {
             playlistItems = responsePlaylists
@@ -854,6 +858,7 @@ public final class DJConnectAppModel: ObservableObject {
         playlists = []
         availableOutputs = []
         queueItems = []
+        queueContext = nil
         playlistItems = []
         selectedOutput = "Not selected"
         djResponseText = ""
@@ -962,7 +967,7 @@ public final class DJConnectAppModel: ObservableObject {
                 )
             )
             apply(commandResponse: response)
-            if Self.shouldRefreshPlaybackAfterCommand(command), response.playback == nil {
+            if Self.shouldRefreshPlaybackAfterCommand(command) {
                 try await refreshPlaybackSnapshot(client: client)
             }
             log(.debug, "Command \(command) succeeded")
@@ -980,7 +985,7 @@ public final class DJConnectAppModel: ObservableObject {
 
     private static func shouldRefreshPlaybackAfterCommand(_ command: String) -> Bool {
         switch command {
-        case "play", "pause", "next", "previous", "set_output", "start_playlist", "start_liked_proxy", "play_uri", "play_queue_item":
+        case "play", "pause", "next", "previous", "set_output", "start_playlist", "start_liked_proxy":
             true
         default:
             false
@@ -1177,7 +1182,7 @@ public final class DJConnectAppModel: ObservableObject {
             }
         case "diagnostics_export":
             return DJConnectLocalDeviceAPIResponse(success: true, message: diagnosticExportText())
-        case "play", "pause", "next", "previous", "set_volume", "set_shuffle", "set_repeat", "start_liked_proxy", "start_playlist", "play_uri", "play_queue_item", "set_output":
+        case "play", "pause", "next", "previous", "set_volume", "set_shuffle", "set_repeat", "start_liked_proxy", "start_playlist", "set_output":
             sendPlaybackCommand(command, value: request.value, play: request.play)
         default:
             return DJConnectLocalDeviceAPIResponse(success: false, error: "unsupported_command", message: "Unsupported local app command.")

@@ -307,6 +307,38 @@ Examples:
 {"device_id":"djconnect-ios-8F3A2C91B45D","client_type":"ios","command":"set_output","value":"Living Room","play":true}
 ```
 
+For playback-changing commands, the app refreshes the rich Now Playing snapshot
+immediately after the command returns. Home Assistant should continue returning
+the same playback shape for the `status` command so play/pause state, album art,
+progress, output, and volume can update without waiting for a later user action.
+
+Queue loading uses `command:"queue"` and should return:
+
+```json
+{
+  "success": true,
+  "queue": {
+    "items": [
+      {
+        "title": "Song title",
+        "artist": "Artist name",
+        "album": "Album name",
+        "uri": "spotify:track:...",
+        "duration_ms": 213000,
+        "album_image_url": "https://..."
+      }
+    ],
+    "context": "spotify:playlist:..."
+  }
+}
+```
+
+The app accepts `response.queue.items` first and falls back to flat
+`response.items`. Queue album art aliases are `album_image_url`,
+`media_image_url`, `image_url`, and `entity_picture`. Empty queue items are not
+an error. Queue row playback requires both `queue.context` and item `uri`; the
+app no longer sends unsupported legacy `play_queue_item` or `play_uri` commands.
+
 Expected success shape:
 
 ```json
@@ -434,7 +466,7 @@ Functional parity with the ESP device should include:
 - pairing/setup state;
 - Home Assistant connection state;
 - playback now-playing view;
-- play/pause, previous, next;
+- play/pause, previous-track, next-track;
 - volume 0-60;
 - shuffle toggle;
 - repeat triple state: `off`, `track`, `context`;
@@ -443,6 +475,8 @@ Functional parity with the ESP device should include:
 - playlists/liked proxy start;
 - DJ/voice response view with PTT WAV upload;
 - backend unavailable and version mismatch states.
+- About screen with a full-width DJConnect app banner, version, identity,
+  pairing state, and client API URL details.
 
 iOS/macOS-specific UX may add:
 
@@ -509,6 +543,7 @@ Do not put SwiftUI view logic into the HTTP client.
 - App status posts include `client_type` as `ios` or `macos`.
 - App command posts include `client_type` as `ios` or `macos`.
 - HA backend playback commands work without any Spotify credentials in the app.
+- Playback-changing commands trigger an immediate rich Now Playing refresh.
 - Backend unavailable does not reset pairing.
 - HTTP 426 version mismatch shows update-required UI and keeps pairing.
 - Authenticated 401/403/404 show stale pairing/setup recovery and keep token

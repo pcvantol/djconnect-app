@@ -228,6 +228,50 @@ Examples:
 {"device_id":"djconnect-ios-8F3A2C91B45D","client_type":"ios","command":"set_output","value":"Living Room","play":true}
 ```
 
+The Apple app treats playback-changing commands such as `play`, `pause`,
+`next`, `previous`, `set_output`, playlist starts, and queue context starts as
+state-changing. After posting them, it immediately refreshes the rich Now
+Playing snapshot through the `status` command so button state, album art,
+progress, output, and volume reflect the backend source of truth.
+
+## Queue
+
+The app loads queue data with:
+
+```json
+{"device_id":"djconnect-ios-8F3A2C91B45D","client_type":"ios","command":"queue"}
+```
+
+Preferred success shape:
+
+```json
+{
+  "success": true,
+  "queue": {
+    "items": [
+      {
+        "title": "Song title",
+        "artist": "Artist name",
+        "album": "Album name",
+        "uri": "spotify:track:...",
+        "duration_ms": 213000,
+        "album_image_url": "https://..."
+      }
+    ],
+    "context": "spotify:playlist:..."
+  }
+}
+```
+
+Compatibility rules:
+
+- `queue.items` may be empty and that is not an error.
+- Older/debug responses may return flat `items`; the app still accepts them.
+- Album art may be returned as `album_image_url`, `media_image_url`,
+  `image_url`, or `entity_picture`.
+- Queue row playback requires `queue.context` and item `uri`; without both, the
+  app will not send unsupported legacy commands.
+
 ## Voice
 
 ```http
