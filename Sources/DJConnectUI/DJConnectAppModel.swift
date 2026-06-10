@@ -88,7 +88,7 @@ public final class DJConnectAppModel: ObservableObject {
     #endif
     private let defaults: UserDefaults
     private let tokenStore: DJConnectTokenStore
-    private static let protocolVersion = "3.0.25"
+    private static let protocolVersion = "3.1.0"
     private let appVersion = DJConnectAppModel.protocolVersion
     private let installIDKey = "DJConnectInstallID"
     private let homeAssistantURLKey = "DJConnectHomeAssistantURL"

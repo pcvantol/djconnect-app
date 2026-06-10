@@ -2,85 +2,47 @@
 
 All notable changes to DJConnect App are documented here.
 
-## Unreleased
+## 3.1.0 - 2026-06-10
 
 ### Added
 
-- Added native Xcode project `DJConnectApp.xcodeproj` generated from
-  `project.yml`.
-- Added iOS app target `DJConnectIOS`.
-- Added macOS app target `DJConnectMac`.
-- Added shared SwiftUI module `DJConnectUI` for setup/status, now playing,
-  playback controls, queue, playlists, DJ response, and settings screens.
-- Added shared core module `DJConnectCore` for Home Assistant request building,
-  models, error classification, and token storage abstractions.
-- Added Keychain-backed and in-memory DJConnect token stores.
-- Added unit tests for status, command, voice, version mismatch, and backend
-  unavailable behavior.
-- Added privacy and diagnostics documentation.
-- Added handoff, architecture, API contract, and development documentation.
-- Added architecture decision record and todo/issues documentation.
-- Implemented macOS/iOS app-generated pairing code flow against
-  `POST /api/djconnect/pair` with Keychain bearer-token storage and status
-  validation.
-- Added official DJConnect app icon assets from `pcvantol/djconnect` for macOS
-  and iOS.
-- Replaced the manual Pair button with automatic waiting for Home Assistant to
-  accept the app-generated pairing code.
-- Wired native playback controls to `POST /api/djconnect/command` for
-  play/pause, previous, next, volume, shuffle, and repeat.
-- Added a richer native iOS now-playing interface with pairing status, album
-  artwork, playback controls, volume, repeat/shuffle, and DJ response panels.
-- Made the in-app language picker switch visible UI text between Dutch and
-  English, and persist the selected language.
-- Added the missing Error option to the Log Level picker.
-- Translated the empty playback output label in Dutch.
-- Added Local Network, Home Assistant Bonjour service, and local HTTP transport
-  declarations to the iOS/macOS app plists for local Home Assistant access.
-- Made Home Assistant URL entry accept bare local addresses like
-  `192.168.1.10:8123` and debounce pairing retries while editing.
-- Added app logging with log-level filtering, OSLog output, and an in-app
-  diagnostics log for pairing, status refresh, commands, and network errors.
-- Sent app pairing codes as `pair_code`, `pairing_code`, and `pairing_token`.
-- Kept app pairing polling active across temporary Home Assistant 401 responses
-  while the setup flow accepts the current app code.
-- Made Reset Pairing stop at a clean reset instead of immediately retrying with
-  a potentially stale Home Assistant code.
-- Made diagnostic log rows stable when identical messages are logged in the
-  same second.
-- Cancelled pending pairing retries and cleared active pairing state during
-  Reset Pairing.
-- Added `device_id`/`device_name` app identity fields alongside temporary
-  `client_id` route compatibility fields.
-- Removed the local app device API because `/api/device/*` routes are reserved
-  for ESP hardware clients.
-- Made explicit Reset Pairing clear the bearer token, generate a new app code,
-  and rotate the local `device_id`/`client_id` alias.
-- Added `pairing_code` as a pairing payload alias and kept polling when Home
-  Assistant returns a temporary 401 during app-code acceptance.
-- Refreshed tests, docs, handoff notes, and app logs around the app-client
-  bearer-token pairing contract.
-- Synced the Apple app contract with the DJConnect `3.0.25` Home Assistant
-  handoff and made `device_id` the canonical HA identity field.
-- Added live backend command flows for output devices, queue loading,
-  playlists, liked proxy start, and output selection.
+- Added a complete native iOS/macOS Xcode project with shared `DJConnectCore`
+  and `DJConnectUI` modules, app targets, generated app icons, Keychain token
+  storage, and Swift Package/Xcode test coverage.
+- Added Home Assistant pairing for Apple app clients with app-generated codes,
+  canonical `device_id` identity, bearer-token storage, stale auth handling,
+  version mismatch handling, and reset/recovery flows.
+- Added native playback controls for play/pause, previous, next, volume,
+  shuffle, repeat, output selection, queue loading, playlists, and liked proxy
+  through `/api/djconnect/command`.
 - Added Push-to-Talk recording with mono PCM WAV upload to
   `/api/djconnect/voice`.
-- Added redacted diagnostics export copy support.
-- Added release signing, TestFlight, notarization, and live HA validation
-  documentation.
-- Added command-response decoding tests for backend collections and diagnostics
-  redaction coverage.
+- Added native iOS/macOS UI for setup status, now playing, playback controls,
+  queue/playlists, DJ response, settings, language switching, log level, and
+  diagnostics.
+- Added app logging with log-level filtering, OSLog output, in-app diagnostics,
+  stable log row ids, and redacted diagnostics export copy support.
+- Added Local Network, Bonjour, local HTTP transport, and Microphone usage
+  declarations for Apple platforms.
+- Added README, handoff, API contract, architecture, architecture decisions,
+  sync prompts, TODO/issues, privacy, release signing, TestFlight,
+  notarization, and live HA validation documentation.
+- Added tests for status, command, pairing, voice requests, backend
+  unavailable, version mismatch, backend collection decoding, and diagnostics
+  redaction.
 
 ### Changed
 
-- Set app/protocol scaffold version examples to `3.0.25`.
-- Improved stale pairing and missing integration-route UI states without
-  clearing the Keychain token automatically.
+- Set app/protocol version to `3.1.0`.
+- Kept the Apple app on HA-owned backend routes and removed the local
+  `/api/device/*` app endpoint because those routes are reserved for ESP
+  hardware clients.
+- Improved pairing polling so temporary Home Assistant 401 responses keep the
+  app waiting while reset pairing stops cleanly and rotates local identity.
+- Improved stale pairing, missing integration-route, backend unavailable, and
+  update-required UI states without clearing the Keychain token automatically.
 - Expanded `.gitignore` with SwiftPM, Xcode, macOS, Fastlane, CocoaPods, and
   Carthage generated output rules.
-- Expanded README with Xcode, Swift Package, documentation, and integration
-  contract sections.
 
 ### Verified
 

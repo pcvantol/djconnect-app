@@ -5,6 +5,23 @@ import Testing
 
 private final class MockURLProtocol: URLProtocol, @unchecked Sendable {
     nonisolated(unsafe) static var handlers: [String: (URLRequest) throws -> (HTTPURLResponse, Data)] = [:]
+    private static let lock = NSLock()
+
+    static func setHandler(
+        for host: String,
+        handler: @escaping (URLRequest) throws -> (HTTPURLResponse, Data)
+    ) {
+        lock.lock()
+        handlers[host] = handler
+        lock.unlock()
+    }
+
+    static func handler(for host: String) -> ((URLRequest) throws -> (HTTPURLResponse, Data))? {
+        lock.lock()
+        let handler = handlers[host]
+        lock.unlock()
+        return handler
+    }
 
     override class func canInit(with request: URLRequest) -> Bool {
         true
@@ -15,7 +32,7 @@ private final class MockURLProtocol: URLProtocol, @unchecked Sendable {
     }
 
     override func startLoading() {
-        guard let host = request.url?.host, let handler = Self.handlers[host] else {
+        guard let host = request.url?.host, let handler = Self.handler(for: host) else {
             client?.urlProtocol(self, didFailWithError: URLError(.badServerResponse))
             return
         }
@@ -37,7 +54,7 @@ private func mockSession(
     host: String,
     handler: @escaping (URLRequest) throws -> (HTTPURLResponse, Data)
 ) -> URLSession {
-    MockURLProtocol.handlers[host] = handler
+    MockURLProtocol.setHandler(for: host, handler: handler)
     let configuration = URLSessionConfiguration.ephemeral
     configuration.protocolClasses = [MockURLProtocol.self]
     return URLSession(configuration: configuration)
@@ -81,8 +98,8 @@ private func httpResponse(for request: URLRequest, statusCode: Int) throws -> HT
         deviceID: "djconnect-ios-8F3A2C91B45D",
         deviceName: "DJConnect iPhone",
         clientType: .ios,
-        firmware: "3.0.25",
-        appVersion: "3.0.25",
+        firmware: "3.1.0",
+        appVersion: "3.1.0",
         platform: .ios
     )
     let client = DJConnectClient(
@@ -111,8 +128,8 @@ private func httpResponse(for request: URLRequest, statusCode: Int) throws -> HT
     #expect(json?["client_id"] as? String == identity.clientID)
     #expect(json?["device_id"] as? String == identity.deviceID)
     #expect(json?["client_type"] as? String == "ios")
-    #expect(json?["firmware"] as? String == "3.0.25")
-    #expect(json?["app_version"] as? String == "3.0.25")
+    #expect(json?["firmware"] as? String == "3.1.0")
+    #expect(json?["app_version"] as? String == "3.1.0")
 }
 
 @Test func commandRequestSupportsTypedValues() throws {
@@ -120,8 +137,8 @@ private func httpResponse(for request: URLRequest, statusCode: Int) throws -> HT
         deviceID: "djconnect-macos-8F3A2C91B45D",
         deviceName: "DJConnect Mac",
         clientType: .macos,
-        firmware: "3.0.25",
-        appVersion: "3.0.25",
+        firmware: "3.1.0",
+        appVersion: "3.1.0",
         platform: .macos
     )
     let client = DJConnectClient(
@@ -194,8 +211,8 @@ private func httpResponse(for request: URLRequest, statusCode: Int) throws -> HT
         deviceID: "djconnect-macos-8F3A2C91B45D",
         deviceName: "DJConnect Mac",
         clientType: .macos,
-        firmware: "3.0.25",
-        appVersion: "3.0.25",
+        firmware: "3.1.0",
+        appVersion: "3.1.0",
         platform: .macos
     )
     let client = DJConnectClient(
@@ -222,7 +239,7 @@ private func httpResponse(for request: URLRequest, statusCode: Int) throws -> HT
     #expect(json?["pair_code"] as? String == "123456")
     #expect(json?["pairing_code"] as? String == "123456")
     #expect(json?["pairing_token"] as? String == "123456")
-    #expect(json?["firmware"] as? String == "3.0.25")
+    #expect(json?["firmware"] as? String == "3.1.0")
 }
 
 @Test func pairingResponseAcceptsCommonTokenFieldNames() throws {
@@ -251,8 +268,8 @@ private func httpResponse(for request: URLRequest, statusCode: Int) throws -> HT
         deviceID: "djconnect-ios-8F3A2C91B45D",
         deviceName: "DJConnect iPhone",
         clientType: .ios,
-        firmware: "3.0.25",
-        appVersion: "3.0.25",
+        firmware: "3.1.0",
+        appVersion: "3.1.0",
         platform: .ios
     )
     let tokenStore = DJConnectInMemoryTokenStore()
@@ -283,8 +300,8 @@ private func httpResponse(for request: URLRequest, statusCode: Int) throws -> HT
         deviceID: "djconnect-macos-8F3A2C91B45D",
         deviceName: "DJConnect Mac",
         clientType: .macos,
-        firmware: "3.0.25",
-        appVersion: "3.0.25",
+        firmware: "3.1.0",
+        appVersion: "3.1.0",
         platform: .macos
     )
     let tokenStore = DJConnectInMemoryTokenStore()
@@ -331,7 +348,7 @@ private func httpResponse(for request: URLRequest, statusCode: Int) throws -> HT
         deviceID: "djconnect-ios-8F3A2C91B45D",
         deviceName: "DJConnect iPhone",
         clientType: .ios,
-        firmware: "3.0.25",
+        firmware: "3.1.0",
         platform: .ios
     )
     let client = DJConnectClient(
@@ -355,7 +372,7 @@ private func httpResponse(for request: URLRequest, statusCode: Int) throws -> HT
             deviceID: "djconnect-ios-8F3A2C91B45D",
             deviceName: "DJConnect iPhone",
             clientType: .ios,
-            firmware: "3.0.25",
+            firmware: "3.1.0",
             platform: .ios
         ),
         tokenStore: DJConnectInMemoryTokenStore(token: "secret-token")
@@ -368,7 +385,7 @@ private func httpResponse(for request: URLRequest, statusCode: Int) throws -> HT
           "message": "DJConnect Home Assistant integration and device firmware major.minor versions must match.",
           "ha_version": "3.1.0",
           "ha_major_minor": "3.1",
-          "firmware": "3.0.25",
+          "firmware": "3.1.0",
           "firmware_major_minor": "3.0"
         }
         """.utf8
@@ -381,7 +398,7 @@ private func httpResponse(for request: URLRequest, statusCode: Int) throws -> HT
             message: "DJConnect Home Assistant integration and device firmware major.minor versions must match.",
             haVersion: "3.1.0",
             haMajorMinor: "3.1",
-            firmware: "3.0.25",
+            firmware: "3.1.0",
             firmwareMajorMinor: "3.0"
         )
     ))
@@ -394,7 +411,7 @@ private func httpResponse(for request: URLRequest, statusCode: Int) throws -> HT
             deviceID: "djconnect-ios-8F3A2C91B45D",
             deviceName: "DJConnect iPhone",
             clientType: .ios,
-            firmware: "3.0.25",
+            firmware: "3.1.0",
             platform: .ios
         ),
         tokenStore: DJConnectInMemoryTokenStore(token: "secret-token")
@@ -423,7 +440,7 @@ private func httpResponse(for request: URLRequest, statusCode: Int) throws -> HT
             deviceID: "djconnect-macos-8F3A2C91B45D",
             deviceName: "DJConnect Mac",
             clientType: .macos,
-            firmware: "3.0.25",
+            firmware: "3.1.0",
             platform: .macos
         ),
         tokenStore: DJConnectInMemoryTokenStore(token: "secret-token")
