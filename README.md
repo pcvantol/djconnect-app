@@ -34,7 +34,7 @@ Website: [https://djconnect.pages.dev](https://djconnect.pages.dev)
 On first launch the app shows a one-time DJConnect welcome screen with the
 Home Assistant setup link:
 
-- [pcvantol/djconnect](https://github.com/pcvantol/djconnect)
+- [https://djconnect.pages.dev/start](https://djconnect.pages.dev/start)
 
 DJConnect playback requires a configured Home Assistant `djconnect`
 integration and a Spotify Premium account. The app does not ask for Spotify
@@ -109,6 +109,11 @@ xcodebuild -project DJConnectApp.xcodeproj -scheme DJConnectIOS -destination gen
 The latest verification was performed with Xcode 26.5 (`17F42`) against
 macOS 26.5 and iPhoneOS 26.5 SDKs, with code signing disabled for local build
 checks.
+
+Private GitHub Actions CI runs Swift tests plus unsigned iOS/macOS build
+checks. Public macOS binaries are produced locally with Developer ID signing
+and notarization, then uploaded to
+[pcvantol/djconnect-app-releases](https://github.com/pcvantol/djconnect-app-releases).
 
 ## Swift Package
 

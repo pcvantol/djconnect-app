@@ -34,6 +34,8 @@
 	</array>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>DJConnect maakt verbinding met Home Assistant op je lokale netwerk.</string>
+	<key>NSFaceIDUsageDescription</key>
+	<string>DJConnect gebruikt Face ID om je DJConnect-token in de sleutelhanger te beveiligen.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>DJConnect neemt je stem op om een voice request naar Home Assistant te sturen.</string>
 	<key>NSSpeechRecognitionUsageDescription</key>

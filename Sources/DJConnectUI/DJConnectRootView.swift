@@ -105,6 +105,10 @@ public struct DJConnectRootView: View {
         .sheet(isPresented: $model.isShowingCrashReportPrompt) {
             CrashReportPromptView(model: model)
         }
+        .sheet(isPresented: $model.isShowingKeychainAccessRequired) {
+            KeychainAccessRequiredView(model: model)
+                .interactiveDismissDisabled(true)
+        }
         .sheet(isPresented: Binding(
             get: { model.shouldShowPairingScreen },
             set: { isPresented in
@@ -171,17 +175,17 @@ private struct PairingSheetView: View {
 
             VStack(spacing: 12) {
                 PairingValueCard(
-                    title: "Client API url",
-                    value: model.localDeviceAPIURL ?? localized(model.language, "Starting Client API...", "Client API wordt gestart..."),
-                    copyLabel: localized(model.language, "Copy Client API url", "Client API url kopiëren"),
-                    prominent: false
-                )
-
-                PairingValueCard(
                     title: localized(model.language, "Pair Code", "Pairingcode"),
                     value: model.pairingToken,
                     copyLabel: localized(model.language, "Copy Pairing Code", "Pairingcode kopiëren"),
                     prominent: true
+                )
+
+                PairingValueCard(
+                    title: "Client API url",
+                    value: model.localDeviceAPIURL ?? localized(model.language, "Starting Client API...", "Client API wordt gestart..."),
+                    copyLabel: localized(model.language, "Copy Client API url", "Client API url kopiëren"),
+                    prominent: false
                 )
             }
 
@@ -214,6 +218,21 @@ private struct PairingSheetView: View {
             }
             .buttonStyle(.bordered)
             .controlSize(.large)
+
+            #if os(macOS)
+            Button(role: .cancel) {
+                NSApplication.shared.terminate(nil)
+            } label: {
+                Label(
+                    localized(model.language, "Quit App", "App afsluiten"),
+                    systemImage: "power"
+                )
+                .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.borderless)
+            .controlSize(.large)
+            .foregroundStyle(.secondary)
+            #endif
         }
     }
 
@@ -425,15 +444,11 @@ private struct WelcomeView: View {
             AboutBanner()
                 .frame(maxWidth: 520)
 
-            VStack(spacing: 10) {
-                Text("DJConnect")
-                    .font(.largeTitle.bold())
-                Text(localized(model.language, "Jouw persoonlijke muziek DJ", "Jouw persoonlijke muziek DJ"))
-                    .font(.title3)
-                    .foregroundStyle(.secondary)
-            }
-
-            Text(.init("Please setup in Home Assistant via [pcvantol/djconnect](https://github.com/pcvantol/djconnect)"))
+            Text(.init(localized(
+                model.language,
+                "Please setup in Home Assistant via [djconnect.pages.dev/start](https://djconnect.pages.dev/start)",
+                "Stel DJConnect in Home Assistant in via [djconnect.pages.dev/start](https://djconnect.pages.dev/start)"
+            )))
                 .font(.headline)
                 .foregroundStyle(.primary)
                 .multilineTextAlignment(.center)
@@ -469,6 +484,49 @@ private struct WelcomeView: View {
     }
 }
 
+private struct KeychainAccessRequiredView: View {
+    @ObservedObject var model: DJConnectAppModel
+
+    var body: some View {
+        VStack(spacing: 22) {
+            Image(systemName: "lock.shield.fill")
+                .font(.system(size: 64, weight: .semibold))
+                .foregroundStyle(.orange)
+                .accessibilityHidden(true)
+
+            VStack(spacing: 8) {
+                Text(localized(model.language, "Keychain access required", "Sleutelhanger-toegang nodig"))
+                    .font(.title.bold())
+                    .multilineTextAlignment(.center)
+
+                Text(localized(
+                    model.language,
+                    "DJConnect cannot work without access to the saved DJConnect token. Choose Allow in the Keychain prompt to continue.",
+                    "DJConnect werkt niet zonder toegang tot het opgeslagen DJConnect-token. Kies Sta toe in de sleutelhanger-vraag om door te gaan."
+                ))
+                .font(.body)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Button {
+                model.retryKeychainAccess()
+            } label: {
+                Label(
+                    localized(model.language, "Open Keychain Prompt Again", "Open sleutelhanger-vraag opnieuw"),
+                    systemImage: "key"
+                )
+                .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.borderedProminent)
+            .controlSize(.large)
+        }
+        .padding(28)
+        .frame(minWidth: 360, idealWidth: 460, maxWidth: 560)
+    }
+}
+
 struct NowPlayingView: View {
     @ObservedObject var model: DJConnectAppModel
 
@@ -482,7 +540,7 @@ struct NowPlayingView: View {
                     AboutBanner()
                     VoiceResponseView(model: model)
                     SetupStatusView(model: model)
-                    TrackSummaryView(playback: model.playback, language: model.language)
+                    TrackSummaryView(playback: model.playback, language: model.language, isDemoMode: model.isDemoMode)
                     PlaybackControlsView(model: model)
                     OutputSelectorView(model: model)
                 }
@@ -590,7 +648,7 @@ private struct IOSConnectionCard: View {
                         .foregroundStyle(.secondary)
                     CopyableValue(
                         text: model.pairingToken,
-                        copyLabel: localized(model.language, "Copy Pairing Code", "Pairingcode kopieren"),
+                        copyLabel: localized(model.language, "Copy Pairing Code", "Pairingcode kopiëren"),
                         prominent: true
                     )
                     if model.isPairing {
@@ -706,9 +764,14 @@ private struct IOSTrackHero: View {
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
                     )
-                    Image(systemName: "music.note")
-                        .font(.system(size: 54, weight: .semibold))
-                        .foregroundStyle(.white.opacity(0.86))
+                    if model.isDemoMode {
+                        DJConnectAppIconView()
+                            .frame(width: 128, height: 128)
+                    } else {
+                        Image(systemName: "music.note")
+                            .font(.system(size: 54, weight: .semibold))
+                            .foregroundStyle(.white.opacity(0.86))
+                    }
                 }
             }
             .aspectRatio(1, contentMode: .fill)
@@ -991,6 +1054,7 @@ struct SetupStatusView: View {
 struct TrackSummaryView: View {
     var playback: DJConnectPlayback?
     var language: String
+    var isDemoMode = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -1002,9 +1066,14 @@ struct TrackSummaryView: View {
                 ZStack {
                     Rectangle()
                         .fill(.quaternary)
-                    Image(systemName: "music.note")
-                        .font(.system(size: 48))
-                        .foregroundStyle(.secondary)
+                    if isDemoMode {
+                        DJConnectAppIconView()
+                            .frame(width: 132, height: 132)
+                    } else {
+                        Image(systemName: "music.note")
+                            .font(.system(size: 48))
+                            .foregroundStyle(.secondary)
+                    }
                 }
             }
             .aspectRatio(1, contentMode: .fill)
@@ -1532,7 +1601,7 @@ struct SettingsView: View {
                     LabeledContent(localized(model.language, "Pairing Code", "Pairingcode")) {
                         CopyableValue(
                             text: model.pairingToken,
-                            copyLabel: localized(model.language, "Copy Pairing Code", "Pairingcode kopieren")
+                            copyLabel: localized(model.language, "Copy Pairing Code", "Pairingcode kopiëren")
                         )
                     }
                     if model.isPairing {

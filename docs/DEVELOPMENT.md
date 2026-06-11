@@ -38,6 +38,10 @@ xcodebuild -project DJConnectApp.xcodeproj -scheme DJConnectIOS -destination gen
 The CLI build disables signing for local verification. Configure
 `DEVELOPMENT_TEAM` in Xcode or `project.yml` before running on devices.
 
+Private repository CI runs the same unsigned build checks through
+`.github/workflows/ci.yml`. It intentionally does not sign, notarize, or upload
+release binaries.
+
 ## Pairing The macOS App
 
 1. Open `DJConnectApp.xcodeproj` in Xcode.

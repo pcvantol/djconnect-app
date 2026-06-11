@@ -45,13 +45,12 @@ The Apple app shows a one-time welcome screen after installation. It must use
 DJConnect branding and link setup to:
 
 ```text
-https://github.com/pcvantol/djconnect
+https://djconnect.pages.dev/start
 ```
 
 User-facing copy must make two prerequisites clear:
 
-- setup is done in Home Assistant through the `pcvantol/djconnect`
-  integration;
+- setup is done in Home Assistant through the DJConnect integration;
 - a Spotify Premium account is required for Spotify playback.
 
 The app must not request Spotify credentials during onboarding. Spotify OAuth

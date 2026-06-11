@@ -22,8 +22,9 @@ Before an iOS/TestFlight release, make sure these are available:
 ## First-Run Welcome
 
 The first-launch welcome screen must show DJConnect branding, link setup to
-`pcvantol/djconnect`, and mention that Spotify Premium is required. It must not
-ask for Spotify credentials; Spotify OAuth is configured in Home Assistant.
+`https://djconnect.pages.dev/start`, and mention that Spotify Premium is
+required. It must not ask for Spotify credentials; Spotify OAuth is configured
+in Home Assistant.
 
 ## Pairing And Demo Mode
 
@@ -93,6 +94,18 @@ open a prefilled GitHub issue in `pcvantol/djconnect` and submit it manually.
 - Confirm bundle identifier `nl.pcvantol.djconnect.mac`.
 - Archive with automatic signing enabled for the selected Apple team.
 
+## Private CI
+
+The private source repo uses GitHub Actions only for deterministic checks:
+
+- `swift test --no-parallel`
+- unsigned macOS Debug build
+- unsigned iOS Debug generic build
+
+CI must not contain Developer ID certificates, notary credentials, App Store
+Connect keys, or public binary upload tokens until the signing pipeline is
+explicitly hardened.
+
 ## TestFlight
 
 - Archive the `DJConnectIOS` scheme in Release configuration.
@@ -121,6 +134,26 @@ device permission testing.
 - Export a Developer ID signed app or disk image.
 - Submit for notarization with `xcrun notarytool`.
 - Staple the accepted ticket and verify Gatekeeper launch on a clean Mac user.
+
+The local helper script packages and uploads public macOS releases:
+
+```sh
+PUBLIC_REPO=pcvantol/djconnect-app-releases \
+DEVELOPMENT_TEAM=<APPLE_TEAM_ID> \
+NOTARY_PROFILE=<notarytool-keychain-profile> \
+./Tools/release/release_macos_public.sh --version 3.1.7
+```
+
+Create the notary profile once with:
+
+```sh
+xcrun notarytool store-credentials <notarytool-keychain-profile>
+```
+
+The script performs a clean archive, Developer ID export, notarization, staple,
+Gatekeeper assessment, zip/checksum creation, and GitHub release upload to the
+public `pcvantol/djconnect-app-releases` repository. iOS binaries are not
+published this way; use TestFlight/App Store for iOS distribution.
 
 ## Release Cleanup
 

@@ -3,6 +3,10 @@ import DJConnectCore
 import Foundation
 import OSLog
 
+#if DEBUG && canImport(Darwin)
+import Darwin
+#endif
+
 #if canImport(AVFoundation)
 import AVFoundation
 #endif
@@ -140,6 +144,7 @@ public final class DJConnectAppModel: ObservableObject {
     @Published public var isShowingWelcome = false
     @Published public var isShowingCrashReportPrompt = false
     @Published public var isShowingWakeWordActivationPrompt = false
+    @Published public var isShowingKeychainAccessRequired = false
     @Published public private(set) var isShowingPairingSuccess = false
     @Published public private(set) var isPairingScreenDismissed = false
     @Published public private(set) var localDeviceAPIURL: String?
@@ -211,7 +216,10 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     public var hasStoredPairingToken: Bool {
-        ((try? tokenStore.loadToken())?.isEmpty == false)
+        if pairingStatus == .paired || isShowingKeychainAccessRequired {
+            return true
+        }
+        return (try? tokenStore.loadToken())?.isEmpty == false
     }
 
     public var isRuntimeCompatible: Bool {
@@ -226,6 +234,7 @@ public final class DJConnectAppModel: ObservableObject {
         !isDemoMode
             && !isShowingWelcome
             && !isShowingCrashReportPrompt
+            && !isShowingKeychainAccessRequired
             && !isPairingScreenDismissed
             && (pairingStatus != .paired || isShowingPairingSuccess)
     }
@@ -260,22 +269,27 @@ public final class DJConnectAppModel: ObservableObject {
         self.isShowingWelcome = !defaults.bool(forKey: welcomeSeenKey)
         let previousLaunchMayHaveCrashed = defaults.object(forKey: cleanShutdownKey) != nil
             && defaults.bool(forKey: cleanShutdownKey) == false
-        self.isShowingCrashReportPrompt = previousLaunchMayHaveCrashed || defaults.bool(forKey: crashPromptPendingKey)
+        self.isShowingCrashReportPrompt = !Self.isRunningUnderDebugger
+            && (previousLaunchMayHaveCrashed || defaults.bool(forKey: crashPromptPendingKey))
         defaults.set(false, forKey: cleanShutdownKey)
         defaults.set(isShowingCrashReportPrompt, forKey: crashPromptPendingKey)
         defaults.set(pairingToken, forKey: pairingTokenKey)
-        if let existingToken = try? resolvedTokenStore.loadToken(), !existingToken.isEmpty {
-            pairingStatus = .paired
-            isConnected = true
-            log(.info, "App started with existing DJConnect bearer token for \(identity.clientType.rawValue)")
-            if startBackgroundTasks {
-                schedulePairedRefresh(reason: "Refreshing initial Home Assistant state")
+        do {
+            if let existingToken = try resolvedTokenStore.loadToken(), !existingToken.isEmpty {
+                pairingStatus = .paired
+                isConnected = true
+                log(.info, "App started with existing DJConnect bearer token for \(identity.clientType.rawValue)")
+                if startBackgroundTasks {
+                    schedulePairedRefresh(reason: "Refreshing initial Home Assistant state")
+                }
+            } else if isDemoMode {
+                applyDemoState()
+                log(.info, "App started in demo mode")
+            } else {
+                log(.info, "App started without DJConnect bearer token for \(identity.clientType.rawValue)")
             }
-        } else if isDemoMode {
-            applyDemoState()
-            log(.info, "App started in demo mode")
-        } else {
-            log(.info, "App started without DJConnect bearer token for \(identity.clientType.rawValue)")
+        } catch {
+            applyKeychainAccessFailure(error)
         }
         refreshPermissionStatuses()
         if startLocalAPI {
@@ -286,6 +300,52 @@ public final class DJConnectAppModel: ObservableObject {
     public func dismissWelcome() {
         defaults.set(true, forKey: welcomeSeenKey)
         isShowingWelcome = false
+    }
+
+    public func retryKeychainAccess() {
+        do {
+            if let existingToken = try tokenStore.loadToken(), !existingToken.isEmpty {
+                isShowingKeychainAccessRequired = false
+                pairingStatus = .paired
+                isConnected = true
+                backendAvailable = true
+                pairingMessage = localized(
+                    english: "Keychain access restored.",
+                    dutch: "Sleutelhanger-toegang hersteld."
+                )
+                log(.info, "Keychain access restored")
+                if startBackgroundTasks {
+                    schedulePairedRefresh(reason: "Refreshing after Keychain access restore")
+                }
+            } else {
+                isShowingKeychainAccessRequired = false
+                pairingStatus = .unpaired
+                isConnected = false
+                pairingMessage = localized(
+                    english: "No DJConnect token found. Pair again to continue.",
+                    dutch: "Geen DJConnect-token gevonden. Koppel opnieuw om door te gaan."
+                )
+                log(.warning, "Keychain access restored but no DJConnect bearer token was found")
+            }
+        } catch {
+            applyKeychainAccessFailure(error)
+        }
+    }
+
+    private func applyKeychainAccessFailure(_ error: Error) {
+        isShowingKeychainAccessRequired = true
+        isConnected = false
+        pairingStatus = .stale
+        backendAvailable = false
+        pairingMessage = localized(
+            english: "Keychain access is required to read the DJConnect token.",
+            dutch: "Sleutelhanger-toegang is nodig om het DJConnect-token te lezen."
+        )
+        if let keychainError = error as? DJConnectKeychainError, keychainError.requiresUserAction {
+            log(.warning, "Keychain access was denied or cancelled")
+        } else {
+            log(.error, "Keychain access failed: \(error.localizedDescription)")
+        }
     }
 
     public func completePairingScreen() {
@@ -2263,6 +2323,11 @@ public final class DJConnectAppModel: ObservableObject {
             wakeWordStatus = .idle
             return
         }
+        guard !isDemoMode else {
+            wakeWordStatus = .unavailable
+            log(.info, "Wakeword is disabled in demo mode")
+            return
+        }
         guard voiceEnabled, pairingStatus == .paired, !isRecordingVoice, voiceStatus != .processing else {
             wakeWordStatus = .idle
             return
@@ -2323,6 +2388,10 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     private func resumeWakeWordListeningIfNeeded() {
+        guard !isDemoMode else {
+            wakeWordStatus = .unavailable
+            return
+        }
         guard wakeWordEnabled, pairingStatus == .paired else {
             return
         }
@@ -2341,7 +2410,7 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     private func triggerWakeWordCapture() {
-        guard wakeWordEnabled, pairingStatus == .paired, !isRecordingVoice else {
+        guard !isDemoMode, wakeWordEnabled, pairingStatus == .paired, !isRecordingVoice else {
             return
         }
         log(.info, "Wakeword detected")
@@ -2534,6 +2603,23 @@ public final class DJConnectAppModel: ObservableObject {
 
     private static func generatePairingToken() -> String {
         String(format: "%06d", Int.random(in: 0...999_999))
+    }
+
+    private static var isRunningUnderDebugger: Bool {
+        #if DEBUG && canImport(Darwin)
+        var info = kinfo_proc()
+        var size = MemoryLayout<kinfo_proc>.stride
+        var name: [Int32] = [CTL_KERN, KERN_PROC, KERN_PROC_PID, getpid()]
+        let result = name.withUnsafeMutableBufferPointer { pointer in
+            sysctl(pointer.baseAddress, u_int(pointer.count), &info, &size, nil, 0)
+        }
+        guard result == 0 else {
+            return false
+        }
+        return (info.kp_proc.p_flag & P_TRACED) != 0
+        #else
+        return false
+        #endif
     }
 }
 

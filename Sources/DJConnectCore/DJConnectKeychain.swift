@@ -35,13 +35,25 @@ public final class DJConnectInMemoryTokenStore: DJConnectTokenStore, @unchecked 
 public final class DJConnectKeychainTokenStore: DJConnectTokenStore, @unchecked Sendable {
     private let service: String
     private let account: String
+    private let requiresUserPresence: Bool
+    private let cacheLock = NSLock()
+    private var cachedToken: String?
 
-    public init(service: String, account: String = "device_token") {
+    public init(
+        service: String,
+        account: String = "device_token",
+        requiresUserPresence: Bool = true
+    ) {
         self.service = service
         self.account = account
+        self.requiresUserPresence = requiresUserPresence
     }
 
     public func loadToken() throws -> String? {
+        if let cachedToken = cacheLock.withLock({ cachedToken }) {
+            return cachedToken
+        }
+
         var query = baseQuery()
         query[kSecReturnData as String] = true
         query[kSecMatchLimit as String] = kSecMatchLimitOne
@@ -57,26 +69,52 @@ public final class DJConnectKeychainTokenStore: DJConnectTokenStore, @unchecked 
         guard let data = item as? Data else {
             return nil
         }
-        return String(data: data, encoding: .utf8)
+        let token = String(data: data, encoding: .utf8)
+        cacheLock.withLock {
+            cachedToken = token
+        }
+        return token
     }
 
     public func saveToken(_ token: String) throws {
         let data = Data(token.utf8)
         var query = baseQuery()
-        let attributes = [kSecValueData as String: data]
+        let attributes = tokenAttributes(data: data)
         let status = SecItemUpdate(query as CFDictionary, attributes as CFDictionary)
 
         if status == errSecItemNotFound {
-            query[kSecValueData as String] = data
+            tokenAttributes(data: data).forEach { key, value in
+                query[key] = value
+            }
             let addStatus = SecItemAdd(query as CFDictionary, nil)
             guard addStatus == errSecSuccess else {
                 throw DJConnectKeychainError.unhandledStatus(addStatus)
+            }
+            cacheLock.withLock {
+                cachedToken = token
+            }
+            return
+        }
+
+        if status == errSecParam, requiresUserPresence {
+            let fallbackStatus = SecItemUpdate(
+                query as CFDictionary,
+                [kSecValueData as String: data] as CFDictionary
+            )
+            guard fallbackStatus == errSecSuccess else {
+                throw DJConnectKeychainError.unhandledStatus(fallbackStatus)
+            }
+            cacheLock.withLock {
+                cachedToken = token
             }
             return
         }
 
         guard status == errSecSuccess else {
             throw DJConnectKeychainError.unhandledStatus(status)
+        }
+        cacheLock.withLock {
+            cachedToken = token
         }
     }
 
@@ -85,17 +123,48 @@ public final class DJConnectKeychainTokenStore: DJConnectTokenStore, @unchecked 
         guard status == errSecSuccess || status == errSecItemNotFound else {
             throw DJConnectKeychainError.unhandledStatus(status)
         }
+        cacheLock.withLock {
+            cachedToken = nil
+        }
     }
 
-    private func baseQuery() -> [String: Any] {
+    func baseQuery() -> [String: Any] {
         [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
             kSecAttrAccount as String: account
         ]
     }
+
+    func tokenAttributes(data: Data) -> [String: Any] {
+        var attributes: [String: Any] = [
+            kSecValueData as String: data
+        ]
+        if requiresUserPresence, let accessControl = Self.makeUserPresenceAccessControl() {
+            attributes[kSecAttrAccessControl as String] = accessControl
+        } else {
+            attributes[kSecAttrAccessible as String] = kSecAttrAccessibleWhenUnlockedThisDeviceOnly
+        }
+        return attributes
+    }
+
+    private static func makeUserPresenceAccessControl() -> SecAccessControl? {
+        SecAccessControlCreateWithFlags(
+            nil,
+            kSecAttrAccessibleWhenUnlockedThisDeviceOnly,
+            .userPresence,
+            nil
+        )
+    }
 }
 
 public enum DJConnectKeychainError: Error, Equatable, Sendable {
     case unhandledStatus(OSStatus)
+
+    public var requiresUserAction: Bool {
+        switch self {
+        case let .unhandledStatus(status):
+            status == errSecUserCanceled || status == errSecAuthFailed || status == errSecInteractionNotAllowed
+        }
+    }
 }

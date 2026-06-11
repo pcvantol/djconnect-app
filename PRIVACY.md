@@ -15,7 +15,9 @@ The app must not request, store, export, or log:
 
 The only credential the app may store is its DJConnect device bearer token,
 issued by the Home Assistant integration during pairing. iOS and macOS apps
-should store that token in Keychain scoped to the app bundle.
+store that token in Keychain scoped to the app bundle. New token items require
+user presence through Keychain access control: Touch ID on supported Macs,
+Face ID/Touch ID on supported iOS devices, or the platform password fallback.
 
 ## Diagnostics
 

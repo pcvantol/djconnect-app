@@ -1,0 +1,58 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test-and-unsigned-build:
+    name: Swift tests and unsigned Apple builds
+    runs-on: macos-15
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: |
+          set -euo pipefail
+          sudo xcode-select -s /Applications/Xcode.app
+          xcodebuild -version
+
+      - name: Clean local build output
+        run: |
+          set -euo pipefail
+          rm -rf .build .xcode-derived
+
+      - name: Swift tests
+        run: swift test --no-parallel
+
+      - name: macOS unsigned build
+        run: |
+          xcodebuild \
+            -project DJConnectApp.xcodeproj \
+            -scheme DJConnectMac \
+            -configuration Debug \
+            -destination platform=macOS \
+            -derivedDataPath .xcode-derived \
+            CODE_SIGNING_ALLOWED=NO \
+            build
+
+      - name: iOS unsigned build
+        run: |
+          xcodebuild \
+            -project DJConnectApp.xcodeproj \
+            -scheme DJConnectIOS \
+            -configuration Debug \
+            -destination generic/platform=iOS \
+            -derivedDataPath .xcode-derived \
+            CODE_SIGNING_ALLOWED=NO \
+            build

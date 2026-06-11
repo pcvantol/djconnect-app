@@ -131,22 +131,21 @@ Acceptance:
 
 ## Security Hardening
 
-### ISS-011: Harden Keychain Token Accessibility
+### ISS-011: Validate Keychain Biometry UX On Devices
 
-Priority: high
+Priority: medium
 
-The DJConnect bearer token is stored through the Keychain abstraction. Ensure
-the production Keychain store sets explicit accessibility such as
-`kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly` or
-`kSecAttrAccessibleWhenUnlockedThisDeviceOnly`, depending on the desired
-startup behavior.
+New DJConnect bearer token writes use Keychain user-presence access control.
+Validate the actual prompts and fallback behavior on supported Macs, iPhones,
+and iPads.
 
 Acceptance:
 
-- New token writes include an explicit accessibility class.
-- Existing token update paths preserve or migrate the accessibility class.
-- Unit or integration coverage verifies the production Keychain query includes
-  the expected attributes where practical.
+- macOS shows Touch ID where available and password fallback otherwise.
+- iOS shows Face ID/Touch ID where available and passcode fallback otherwise.
+- Denying Keychain access shows the app-level recovery sheet and retrying opens
+  the platform prompt again.
+- A successful unlock does not repeatedly prompt during the same app session.
 
 ### ISS-012: Bound Local API Request Size
 

@@ -4,6 +4,32 @@ All notable changes to DJConnect App are documented here.
 
 ## Unreleased
 
+### Added
+
+- Added private GitHub Actions CI for Swift tests and unsigned iOS/macOS build
+  checks.
+- Added a local signed/notarized macOS release helper that uploads zip and
+  checksum assets to the public `pcvantol/djconnect-app-releases` repository.
+
+### Changed
+
+- Protected newly saved DJConnect bearer tokens with Keychain user-presence
+  access control, enabling Touch ID on supported Macs and Face ID/Touch ID on
+  supported iOS devices with platform password fallback.
+- Removed duplicate welcome-screen title/subtitle below the DJConnect banner.
+- Localized the welcome-screen Home Assistant setup line in Dutch.
+- Changed the welcome-screen setup link to `https://djconnect.pages.dev/start`.
+- Added a macOS-only quit option to the blocking pairing sheet.
+- Moved the pairing code above the Client API url on the pairing sheet.
+- Added a Keychain access recovery sheet when token access is denied.
+- Cached a successfully unlocked Keychain token in memory for the app session
+  to avoid repeated system prompts.
+- Suppressed the possible-crash prompt while running under a debugger, reducing
+  false positives after stopping from Xcode.
+- Demo Mode now shows the DJConnect app icon as fallback Now Playing artwork.
+- Wakeword remains disabled in Demo Mode to avoid starting real Speech/audio
+  capture from sample state.
+
 ### Documentation
 
 - Updated README, development, release, handoff, architecture, sync prompts,
