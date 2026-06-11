@@ -2,11 +2,22 @@
 
 All notable changes to DJConnect App are documented here.
 
-## 3.1.3 - 2026-06-10
+## 3.1.4 - 2026-06-11
 
 ### Changed
 
-- Set app/protocol version to `3.1.3`.
+- Set app/protocol version to `3.1.4`.
+- Added an initial `DJConnectIOSUITests` target with deterministic
+  `--uitesting` launch mode, isolated defaults, in-memory token storage, mock
+  Home Assistant URL seeding, and coverage for primary iOS navigation and
+  Settings URL wiring.
+- Added iOS release/signing documentation covering Apple Developer Program
+  requirements, bundle identifiers, signing team setup, device testing,
+  archives, and TestFlight upload prerequisites.
+- Persisted Speech Recognition usage descriptions in `project.yml` so
+  wakeword permissions survive Xcode project regeneration.
+- Increased the default and minimum macOS main window size so the sidebar/menu
+  layout has more room by default.
 - Aligned iOS/macOS app-client pairing, status, command, and voice requests
   with the Home Assistant contract by using `device_id` as the only over-the-
   wire app identity and removing `client_id` headers/payload fields.

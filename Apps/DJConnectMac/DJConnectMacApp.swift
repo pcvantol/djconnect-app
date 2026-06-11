@@ -10,7 +10,7 @@ struct DJConnectMacApp: App {
             DJConnectLaunchContainer {
                 DJConnectRootView(model: model)
             }
-                .frame(minWidth: 820, minHeight: 560)
+                .frame(minWidth: 980, idealWidth: 1120, minHeight: 640, idealHeight: 760)
         }
 
         Settings {

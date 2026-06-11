@@ -78,6 +78,18 @@ Xcode project test scheme:
 xcodebuild -project DJConnectApp.xcodeproj -scheme DJConnectMac -destination platform=macOS -derivedDataPath .xcode-derived CODE_SIGNING_ALLOWED=NO test
 ```
 
+iOS UI tests:
+
+```sh
+xcodebuild -project DJConnectApp.xcodeproj -scheme DJConnectIOS -destination 'platform=iOS Simulator,name=iPhone 17 Pro' -derivedDataPath .xcode-derived CODE_SIGNING_ALLOWED=NO test
+```
+
+`DJConnectIOSUITests` launches the app with `--uitesting`, isolated
+`UserDefaults`, an in-memory token store, and `DJCONNECT_UITEST_HA_URL` pointing
+at a mock Home Assistant URL. The current tests verify deterministic launch,
+primary navigation, and Settings URL seeding. Add a local mock HA server fixture
+before asserting full pairing, queue, playlist, output, and voice flows.
+
 ## Repository Rules
 
 - Keep HTTP and protocol code in `DJConnectCore`.

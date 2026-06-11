@@ -10,7 +10,7 @@ settings:
   base:
     SWIFT_VERSION: "6.0"
     CURRENT_PROJECT_VERSION: "1"
-    MARKETING_VERSION: "3.1.3"
+    MARKETING_VERSION: "3.1.4"
     DEVELOPMENT_TEAM: ""
     CODE_SIGN_STYLE: Automatic
 packages: {}
@@ -90,6 +90,7 @@ targets:
           - UIInterfaceOrientationLandscapeRight
         NSLocalNetworkUsageDescription: DJConnect maakt verbinding met Home Assistant op je lokale netwerk.
         NSMicrophoneUsageDescription: DJConnect neemt je stem op om een voice request naar Home Assistant te sturen.
+        NSSpeechRecognitionUsageDescription: DJConnect gebruikt spraakherkenning om de wake-zin te herkennen.
         NSBonjourServices:
           - _home-assistant._tcp.
           - _djconnect._tcp.
@@ -119,6 +120,7 @@ targets:
         LSApplicationCategoryType: public.app-category.music
         NSLocalNetworkUsageDescription: DJConnect maakt verbinding met Home Assistant op je lokale netwerk.
         NSMicrophoneUsageDescription: DJConnect neemt je stem op om een voice request naar Home Assistant te sturen.
+        NSSpeechRecognitionUsageDescription: DJConnect gebruikt spraakherkenning om de wake-zin te herkennen.
         NSBonjourServices:
           - _home-assistant._tcp.
           - _djconnect._tcp.
@@ -142,6 +144,17 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: nl.pcvantol.djconnect.core.tests
         GENERATE_INFOPLIST_FILE: YES
+  DJConnectIOSUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - path: Tests/DJConnectIOSUITests
+    dependencies:
+      - target: DJConnectIOS
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: nl.pcvantol.djconnect.ios.uitests
+        GENERATE_INFOPLIST_FILE: YES
 schemes:
   DJConnectIOS:
     build:
@@ -149,6 +162,10 @@ schemes:
         DJConnectIOS: all
     run:
       config: Debug
+    test:
+      config: Debug
+      targets:
+        - DJConnectIOSUITests
     profile:
       config: Release
     archive:

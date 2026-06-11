@@ -2,13 +2,45 @@
 
 This checklist tracks work that cannot be completed by source changes alone.
 
-## Signing
+## iOS Signing Requirements
+
+Before an iOS/TestFlight release, make sure these are available:
+
+- An active Apple Developer Program membership.
+- Access to the Apple team that owns the app identifier.
+- Xcode signed in with that Apple ID.
+- Bundle identifier `nl.pcvantol.djconnect.ios` registered in Apple Developer
+  Certificates, Identifiers & Profiles.
+- App Store Connect app record for `DJConnect` using the same bundle
+  identifier.
+- A physical iPhone or iPad on the local network for Local Network,
+  Microphone, and Speech Recognition permission validation.
+
+## iOS Signing Steps
+
+1. Set `DEVELOPMENT_TEAM` for local release builds. Prefer an ignored local
+   Xcode config if multiple developers use different teams; otherwise set it in
+   `project.yml`.
+2. Run `xcodegen generate` after changing signing settings.
+3. Open `DJConnectApp.xcodeproj` in Xcode.
+4. Select the `DJConnectIOS` target.
+5. Confirm Signing & Capabilities uses automatic signing and the expected team.
+6. Confirm bundle identifier `nl.pcvantol.djconnect.ios`.
+7. Run the app on a physical iPhone/iPad and accept Local Network, Microphone,
+   and Speech Recognition prompts.
+8. Pair against a real Home Assistant `djconnect` setup and validate playback,
+   queue, playlists, output switching, and voice/PTT.
+9. Select Any iOS Device or a physical device destination.
+10. Archive with Product > Archive in Release configuration.
+11. Upload through Xcode Organizer or Transporter to TestFlight.
+12. In App Store Connect, wait for processing, complete beta compliance, and
+    assign internal or external testers.
+
+## macOS Signing
 
 - Set `DEVELOPMENT_TEAM` in `project.yml` or an ignored local Xcode config.
 - Regenerate `DJConnectApp.xcodeproj` with `xcodegen generate`.
-- Confirm bundle identifiers:
-  - `nl.pcvantol.djconnect.ios`
-  - `nl.pcvantol.djconnect.mac`
+- Confirm bundle identifier `nl.pcvantol.djconnect.mac`.
 - Archive with automatic signing enabled for the selected Apple team.
 
 ## TestFlight
@@ -52,5 +84,8 @@ For end-to-end UI tests, provide either:
   `/api/djconnect/status`, `/api/djconnect/command`, and
   `/api/djconnect/voice`.
 
-Once that fixture exists, add XCUITests for pairing, output selection, queue,
-playlist/liked proxy, voice upload, stale auth, and backend unavailable states.
+The `DJConnectIOSUITests` target now launches the iOS app in deterministic
+`--uitesting` mode with isolated defaults and a mock Home Assistant URL. Extend
+that target with a real mock server fixture for pairing, output selection,
+queue, playlist/liked proxy, voice upload, stale auth, and backend unavailable
+states.

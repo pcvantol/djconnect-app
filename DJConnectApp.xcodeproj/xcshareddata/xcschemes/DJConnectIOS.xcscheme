@@ -37,6 +37,16 @@
          </BuildableReference>
       </MacroExpansion>
       <Testables>
+         <TestableReference
+            skipped = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "F2059944048A7BA582738836"
+               BuildableName = "DJConnectIOSUITests.xctest"
+               BlueprintName = "DJConnectIOSUITests"
+               ReferencedContainer = "container:DJConnectApp.xcodeproj">
+            </BuildableReference>
+         </TestableReference>
       </Testables>
    </TestAction>
    <LaunchAction

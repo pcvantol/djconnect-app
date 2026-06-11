@@ -59,8 +59,8 @@ Recommended iOS fields:
   "device_id": "djconnect-ios-8F3A2C91B45D",
   "device_name": "DJConnect iPhone",
   "client_type": "ios",
-  "firmware": "3.1.3",
-  "app_version": "3.1.3",
+  "firmware": "3.1.4",
+  "app_version": "3.1.4",
   "platform": "ios"
 }
 ```
@@ -72,8 +72,8 @@ Recommended macOS fields:
   "device_id": "djconnect-macos-8F3A2C91B45D",
   "device_name": "DJConnect Mac",
   "client_type": "macos",
-  "firmware": "3.1.3",
-  "app_version": "3.1.3",
+  "firmware": "3.1.4",
+  "app_version": "3.1.4",
   "platform": "macos"
 }
 ```
@@ -103,9 +103,9 @@ Expected response:
   "success": false,
   "error": "version_mismatch",
   "message": "DJConnect Home Assistant integration and device firmware major.minor versions must match.",
-  "ha_version": "3.1.3",
+  "ha_version": "3.1.4",
   "ha_major_minor": "3.1",
-  "firmware": "3.1.3",
+  "firmware": "3.1.4",
   "firmware_major_minor": "3.0"
 }
 ```
@@ -168,8 +168,8 @@ X-DJConnect-Device-ID: <device_id>
 {  "device_id": "djconnect-macos-8F3A2C91B45D",
   "device_name": "DJConnect Mac",
   "client_type": "macos",
-  "firmware": "3.1.3",
-  "app_version": "3.1.3",
+  "firmware": "3.1.4",
+  "app_version": "3.1.4",
   "platform": "macos",
   "pair_code": "123456",
   "pairing_code": "123456",
@@ -232,8 +232,8 @@ Minimum payload:
   "device_id": "djconnect-ios-8F3A2C91B45D",
   "client_type": "ios",
   "ha_pairing_status": "paired",
-  "firmware": "3.1.3",
-  "app_version": "3.1.3",
+  "firmware": "3.1.4",
+  "app_version": "3.1.4",
   "state": "online",
   "status": "online",
   "battery_percent": 85,
@@ -546,6 +546,16 @@ Core module responsibilities:
 - store and clear bearer token via a platform abstraction.
 
 Do not put SwiftUI view logic into the HTTP client.
+
+## iOS UI Test Fixture
+
+`DJConnectIOSUITests` launches the iOS app with `--uitesting`. In that mode the
+app uses isolated `UserDefaults`, an in-memory token store, and
+`DJCONNECT_UITEST_HA_URL` for deterministic Home Assistant URL seeding. The
+current UI tests cover primary navigation and Settings URL wiring. Full
+pairing, output, queue, playlist, liked proxy, stale-auth, backend-unavailable,
+and voice/PTT UI tests should build on this target with a real or recorded mock
+Home Assistant server.
 
 ## Acceptance Criteria
 

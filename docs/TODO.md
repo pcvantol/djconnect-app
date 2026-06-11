@@ -38,8 +38,8 @@ This document tracks open implementation work and known project gaps.
 
 ## Testing
 
-- Add UI tests that run against a real or recorded Home Assistant pairing and
-  network flow.
+- Extend the initial `DJConnectIOSUITests` target with a real or recorded Home
+  Assistant pairing and network flow fixture.
 - Add URLProtocol-backed async tests for network error and malformed response
   handling.
 - Add focused app-model tests for pairing retry state and stale authenticated
