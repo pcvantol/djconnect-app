@@ -5,6 +5,7 @@ import SwiftUI
 import UIKit
 #elseif os(macOS)
 import AppKit
+import Darwin
 #endif
 
 private func localized(_ language: String, _ english: String, _ dutch: String) -> String {
@@ -294,7 +295,7 @@ private struct PairingSheetView: View {
                 Text(localized(
                     model.language,
                     "Use these values in Home Assistant to pair this app.",
-                    "Gebruik deze waarden in Home Assistant om deze app te koppelen."
+                    "Gebruik onderstaande gegevens voor koppeling met Home Assistant."
                 ))
                 .font(.headline)
                 .foregroundStyle(.secondary)
@@ -303,9 +304,9 @@ private struct PairingSheetView: View {
 
             VStack(spacing: 12) {
                 PairingValueCard(
-                    title: localized(model.language, "Pair Code", "Pairingcode"),
+                    title: localized(model.language, "Pair Code", "Koppelcode"),
                     value: model.pairingToken,
-                    copyLabel: localized(model.language, "Copy Pairing Code", "Pairingcode kopiëren"),
+                    copyLabel: localized(model.language, "Copy Pair Code", "Koppelcode kopiëren"),
                     prominent: true
                 )
 
@@ -365,9 +366,12 @@ private struct PairingSheetView: View {
 
     #if os(macOS)
     private func quitApplication() {
-        NSApplication.shared.sendAction(#selector(NSApplication.terminate(_:)), to: nil, from: nil)
+        NSApp.sendAction(#selector(NSApplication.terminate(_:)), to: nil, from: nil)
         DispatchQueue.main.async {
-            NSApplication.shared.terminate(nil)
+            NSApp.terminate(nil)
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+            exit(EXIT_SUCCESS)
         }
     }
     #endif
@@ -830,7 +834,7 @@ private struct IOSConnectionCard: View {
                         .foregroundStyle(.secondary)
                     CopyableValue(
                         text: model.pairingToken,
-                        copyLabel: localized(model.language, "Copy Pairing Code", "Pairingcode kopiëren"),
+                        copyLabel: localized(model.language, "Copy Pair Code", "Koppelcode kopiëren"),
                         prominent: true
                     )
                     if model.isPairing {
@@ -971,11 +975,7 @@ private struct IOSTrackHero: View {
                     .lineLimit(2)
             }
 
-            ProgressView(
-                value: Double(playback?.progressMS ?? 0),
-                total: Double(max(playback?.durationMS ?? 1, 1))
-            )
-            .tint(.purple)
+            ProgressScrubberView(model: model)
 
             SeekControlsView(model: model)
         }
@@ -1291,13 +1291,61 @@ struct TrackSummaryView: View {
                     .lineLimit(2)
             }
 
-            ProgressView(
-                value: Double(playback?.progressMS ?? 0),
-                total: Double(max(playback?.durationMS ?? 1, 1))
-            )
+            ProgressScrubberView(model: model)
 
             SeekControlsView(model: model)
         }
+    }
+}
+
+private struct ProgressScrubberView: View {
+    @ObservedObject var model: DJConnectAppModel
+    @State private var seekStartMS: Int?
+
+    private var durationMS: Int {
+        max(model.playback?.durationMS ?? 0, 0)
+    }
+
+    private var currentMS: Int {
+        min(max(model.playback?.progressMS ?? 0, 0), max(durationMS, 0))
+    }
+
+    private var canSeek: Bool {
+        model.canUsePlaybackFeatures && model.playback?.hasPlayback == true && durationMS > 0
+    }
+
+    var body: some View {
+        Slider(
+            value: Binding(
+                get: { Double(currentMS) },
+                set: { newValue in
+                    var updated = model.playback ?? DJConnectPlayback()
+                    updated.progressMS = min(max(Int(newValue.rounded()), 0), durationMS)
+                    model.playback = updated
+                }
+            ),
+            in: 0...Double(max(durationMS, 1)),
+            onEditingChanged: { isEditing in
+                if isEditing {
+                    if seekStartMS == nil {
+                        seekStartMS = currentMS
+                    }
+                } else {
+                    let start = seekStartMS ?? currentMS
+                    let delta = currentMS - start
+                    seekStartMS = nil
+                    guard abs(delta) >= 500 else {
+                        return
+                    }
+                    DJConnectHaptics.selection()
+                    model.seekRelative(milliseconds: delta)
+                }
+            }
+        )
+        .tint(.purple)
+        .disabled(!canSeek)
+        .opacity(canSeek ? 1 : 0.55)
+        .accessibilityLabel(localized(model.language, "Playback position", "Afspeelpositie"))
     }
 }
 
@@ -1928,10 +1976,10 @@ struct SettingsView: View {
                             .multilineTextAlignment(.trailing)
                     }
                     if !model.isDemoMode {
-                        LabeledContent(localized(model.language, "Pairing Code", "Pairingcode")) {
+                        LabeledContent(localized(model.language, "Pairing Code", "Koppelcode")) {
                             CopyableValue(
                                 text: model.pairingToken,
-                                copyLabel: localized(model.language, "Copy Pairing Code", "Pairingcode kopiëren")
+                                copyLabel: localized(model.language, "Copy Pair Code", "Koppelcode kopiëren")
                             )
                         }
                         if model.isPairing {
@@ -1983,7 +2031,17 @@ struct SettingsView: View {
                         Text(localized(model.language, "Warning", "Waarschuwing")).tag("warning")
                         Text(localized(model.language, "Error", "Fout")).tag("error")
                     }
-                    Toggle(localized(model.language, "Wakeword", "Stemactivatie"), isOn: $model.wakeWordEnabled)
+                    LabeledContent(localized(model.language, "Wakeword", "Stemactivatie")) {
+                        if model.wakeWordEnabled {
+                            Button(localized(model.language, "Stop Voice Activation", "Stemactivatie stoppen"), role: .destructive) {
+                                model.wakeWordEnabled = false
+                            }
+                        } else {
+                            Button(localized(model.language, "Activate Voice Activation", "Stemactivatie activeren")) {
+                                model.wakeWordEnabled = true
+                            }
+                        }
+                    }
                     wakeWordPhraseField(model)
                     LabeledContent(localized(model.language, "Wakeword status", "Stemactivatie-status")) {
                         Text(wakeWordStatusText(model))
