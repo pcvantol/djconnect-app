@@ -9,6 +9,7 @@ All notable changes to DJConnect App are documented here.
 - Set app/protocol version to `3.1.6`.
 - Added a one-time first-install welcome screen with a DJConnect hero and setup
   link to `pcvantol/djconnect` for Home Assistant setup.
+- Added Spotify Premium requirement copy to the first-install welcome screen.
 - Added a next-launch crash report prompt for suspected unclean exits, with
   redacted diagnostics copy and a prefilled GitHub issue link. The app never
   uploads logs automatically.

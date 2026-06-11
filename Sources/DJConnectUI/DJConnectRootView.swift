@@ -203,6 +203,18 @@ private struct WelcomeView: View {
                 .lineLimit(nil)
                 .fixedSize(horizontal: false, vertical: true)
 
+            Label(
+                localized(
+                    model.language,
+                    "A Spotify Premium account is required.",
+                    "Een Spotify Premium account is benodigd."
+                ),
+                systemImage: "music.note"
+            )
+            .font(.callout.weight(.semibold))
+            .foregroundStyle(.secondary)
+            .multilineTextAlignment(.center)
+
             Button {
                 model.dismissWelcome()
             } label: {
