@@ -107,3 +107,42 @@ Reasoning:
 - aligns with the DJConnect `3.0.z` integration contract;
 - leaves patch versioning for app releases;
 - keeps the initial repo baseline clear.
+
+## ADR-008: Permission UX Lives In `DJConnectUI`
+
+Status: accepted
+
+The app exposes Microphone, Speech Recognition, and Local Network permission
+state in Settings. Microphone and Speech Recognition can be requested before the
+user starts push-to-talk or foreground wakeword. Local Network remains
+informational because Apple does not provide a reliable preflight status API for
+that permission.
+
+Reasoning:
+
+- permission prompts are user-facing platform UX, not HTTP contract logic;
+- keeping permission presentation in `DJConnectUI` preserves the UI-free
+  `DJConnectCore` boundary;
+- preflight prompts avoid surprising users at the exact moment they press the
+  microphone or enable wakeword;
+- Local Network access is still declared in Info.plist and explained in the UI,
+  but the first real LAN/Bonjour use remains the system trigger.
+
+## ADR-009: Host A Local App API While Active
+
+Status: accepted
+
+The Apple app hosts local `/api/device/*` endpoints while active so Home
+Assistant can pair, send callbacks, and inspect the app client. The app reports
+a stable Client API url after successful local pairing and keeps that URL until
+pairing is reset.
+
+Reasoning:
+
+- Home Assistant needs a reachable callback target for app-client pairing and
+  two-way status updates;
+- the URL used by HA during pairing must remain stable or HA will call a stale
+  endpoint;
+- the local API belongs in `DJConnectUI` because it coordinates app state,
+  pairing lifecycle, and platform networking rather than reusable HTTP request
+  serialization.

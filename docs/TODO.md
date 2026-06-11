@@ -42,6 +42,8 @@ This document tracks open implementation work and known project gaps.
   Assistant pairing and network flow fixture.
 - Add URLProtocol-backed async tests for network error and malformed response
   handling.
+- Add focused app-model tests for permission status mapping once platform
+  authorization APIs are wrapped behind injectable adapters.
 - Add focused app-model tests for pairing retry state and stale authenticated
   auth recovery.
 - Add more diagnostics export tests for `audio_url`, `Authorization`, and

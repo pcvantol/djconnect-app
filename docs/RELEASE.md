@@ -16,6 +16,23 @@ Before an iOS/TestFlight release, make sure these are available:
 - A physical iPhone or iPad on the local network for Local Network,
   Microphone, and Speech Recognition permission validation.
 
+## App Permissions
+
+The app declares only the permissions it needs:
+
+- Local Network: required to reach Home Assistant on the LAN and expose the
+  local Client API url while the app is active.
+- Bonjour services `_home-assistant._tcp.` and `_djconnect._tcp.`: required for
+  local HA discovery and HA -> app callbacks.
+- Microphone: required for push-to-talk WAV uploads.
+- Speech Recognition: required for the foreground wake phrase.
+
+Settings includes a Permissions section where users can request Microphone and
+Speech Recognition before using voice or wakeword flows. Local Network does not
+have a reliable Apple preflight status API, so the app documents why it is
+needed and still relies on the system prompt when local network access is first
+used.
+
 ## iOS Signing Steps
 
 1. Set `DEVELOPMENT_TEAM` for local release builds. Prefer an ignored local
@@ -57,6 +74,25 @@ Before an iOS/TestFlight release, make sure these are available:
 - Export a Developer ID signed app or disk image.
 - Submit for notarization with `xcrun notarytool`.
 - Staple the accepted ticket and verify Gatekeeper launch on a clean Mac user.
+
+## Release Cleanup
+
+After a successful release, old semantic-version GitHub releases and tags can
+be cleaned up with the helper script. It is dry-run by default:
+
+```sh
+./cleanup_old_releases.sh --keep 1
+```
+
+When the dry-run list is correct, execute the cleanup:
+
+```sh
+./cleanup_old_releases.sh --keep 1 --execute
+```
+
+The script deletes matching old `vX.Y.Z` GitHub releases, remote tags, and
+local tags. It keeps the newest `--keep` versions and only deletes when
+`--execute` is passed.
 
 ## Live HA Validation
 

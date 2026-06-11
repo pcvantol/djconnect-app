@@ -2,6 +2,16 @@
 
 All notable changes to DJConnect App are documented here.
 
+## Unreleased
+
+### Changed
+
+- Added a Settings permissions section that shows Microphone, Speech
+  Recognition, and Local Network permission state and lets users request
+  Microphone/Speech permissions before using voice or wakeword flows.
+- Documented the app permission inventory, module-boundary rationale, and the
+  release cleanup helper.
+
 ## 3.1.4 - 2026-06-11
 
 ### Changed

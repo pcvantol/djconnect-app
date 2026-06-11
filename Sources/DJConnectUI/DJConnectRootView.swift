@@ -1210,6 +1210,52 @@ struct SettingsView: View {
                     }
                 }
 
+                Section(localized(model.language, "Permissions", "Toestemmingen")) {
+                    PermissionStatusRow(
+                        title: localized(model.language, "Microphone", "Microfoon"),
+                        detail: localized(
+                            model.language,
+                            "Needed for push-to-talk voice requests.",
+                            "Nodig voor push-to-talk voice requests."
+                        ),
+                        status: model.microphonePermissionStatus,
+                        language: model.language
+                    )
+                    PermissionStatusRow(
+                        title: localized(model.language, "Speech Recognition", "Spraakherkenning"),
+                        detail: localized(
+                            model.language,
+                            "Needed for the foreground wake phrase.",
+                            "Nodig voor de foreground wake-zin."
+                        ),
+                        status: model.speechPermissionStatus,
+                        language: model.language
+                    )
+                    PermissionStatusRow(
+                        title: localized(model.language, "Local Network", "Lokaal netwerk"),
+                        detail: localized(
+                            model.language,
+                            "Needed to reach Home Assistant and expose the Client API url.",
+                            "Nodig om Home Assistant te bereiken en de Client API url aan te bieden."
+                        ),
+                        status: model.localNetworkPermissionStatus,
+                        language: model.language
+                    )
+                    Button {
+                        model.requestAppPermissions()
+                    } label: {
+                        if model.isRequestingPermissions {
+                            ProgressView()
+                        } else {
+                            Label(
+                                localized(model.language, "Request Permissions", "Toestemmingen vragen"),
+                                systemImage: "checkmark.shield"
+                            )
+                        }
+                    }
+                    .disabled(model.isRequestingPermissions)
+                }
+
                 Section(localized(model.language, "Logs", "Logs")) {
                     if model.diagnosticLogLines.isEmpty {
                         ContentUnavailableView(
@@ -1515,6 +1561,28 @@ private func copyText(_ text: String) {
     #endif
 }
 
+private struct PermissionStatusRow: View {
+    let title: String
+    let detail: String
+    let status: DJConnectPermissionStatus
+    let language: String
+
+    var body: some View {
+        LabeledContent {
+            VStack(alignment: .trailing, spacing: 2) {
+                Label(permissionStatusText(status, language: language), systemImage: permissionStatusIcon(status))
+                    .foregroundStyle(permissionStatusColor(status))
+                Text(detail)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.trailing)
+            }
+        } label: {
+            Text(title)
+        }
+    }
+}
+
 @ViewBuilder
 @MainActor
 private func wakeWordPhraseField(_ model: DJConnectAppModel) -> some View {
@@ -1542,5 +1610,46 @@ private func wakeWordStatusText(_ model: DJConnectAppModel) -> String {
         return localized(model.language, "Wake phrase detected", "Wake-zin herkend")
     case .unavailable:
         return localized(model.language, "Not available", "Niet beschikbaar")
+    }
+}
+
+private func permissionStatusText(_ status: DJConnectPermissionStatus, language: String) -> String {
+    switch status {
+    case .unknown:
+        localized(language, "Ask when needed", "Vragen wanneer nodig")
+    case .granted:
+        localized(language, "Allowed", "Toegestaan")
+    case .denied:
+        localized(language, "Denied", "Geweigerd")
+    case .restricted:
+        localized(language, "Restricted", "Beperkt")
+    case .unavailable:
+        localized(language, "Not available", "Niet beschikbaar")
+    }
+}
+
+private func permissionStatusIcon(_ status: DJConnectPermissionStatus) -> String {
+    switch status {
+    case .granted:
+        "checkmark.circle.fill"
+    case .denied, .restricted:
+        "xmark.circle.fill"
+    case .unknown:
+        "questionmark.circle"
+    case .unavailable:
+        "slash.circle"
+    }
+}
+
+private func permissionStatusColor(_ status: DJConnectPermissionStatus) -> Color {
+    switch status {
+    case .granted:
+        .green
+    case .denied, .restricted:
+        .red
+    case .unknown:
+        .secondary
+    case .unavailable:
+        .orange
     }
 }

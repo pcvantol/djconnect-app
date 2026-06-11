@@ -21,6 +21,8 @@ The Apple app owns:
 - local Keychain storage for only the DJConnect bearer token;
 - local audio recording for push-to-talk, when implemented;
 - optional playback of returned DJ response audio.
+- user-facing permission status and preflight requests for Microphone and
+  Speech Recognition.
 
 The app must never store Spotify, Sonos, Home Assistant long-lived access
 tokens, OpenAI, or playback backend credentials.
@@ -36,7 +38,9 @@ classifies backend errors, and abstracts token storage.
 `DJConnectUI`
 
 Shared SwiftUI screens for iOS and macOS. This module depends on
-`DJConnectCore`, but the HTTP client does not depend on SwiftUI.
+`DJConnectCore`, but the HTTP client does not depend on SwiftUI. Platform
+permission state lives here because it directly controls voice/wakeword UX and
+requires Apple UI frameworks.
 
 `DJConnectIOS`
 

@@ -58,6 +58,14 @@ public enum DJConnectWakeWordStatus: Equatable, Sendable {
     case unavailable
 }
 
+public enum DJConnectPermissionStatus: String, Equatable, Sendable {
+    case unknown
+    case granted
+    case denied
+    case restricted
+    case unavailable
+}
+
 @MainActor
 public final class DJConnectAppModel: ObservableObject {
     @Published public var homeAssistantURL = "" {
@@ -122,6 +130,10 @@ public final class DJConnectAppModel: ObservableObject {
         }
     }
     @Published public private(set) var wakeWordStatus: DJConnectWakeWordStatus = .idle
+    @Published public private(set) var microphonePermissionStatus: DJConnectPermissionStatus = .unknown
+    @Published public private(set) var speechPermissionStatus: DJConnectPermissionStatus = .unknown
+    @Published public private(set) var localNetworkPermissionStatus: DJConnectPermissionStatus = .unknown
+    @Published public private(set) var isRequestingPermissions = false
     @Published public private(set) var localDeviceAPIURL: String?
     @Published public private(set) var diagnosticLogLines: [DJConnectDiagnosticLogLine] = []
 
@@ -219,6 +231,7 @@ public final class DJConnectAppModel: ObservableObject {
         } else {
             log(.info, "App started without DJConnect bearer token for \(identity.clientType.rawValue)")
         }
+        refreshPermissionStatuses()
         startLocalDeviceAPI()
     }
 
@@ -1706,6 +1719,68 @@ public final class DJConnectAppModel: ObservableObject {
             )
     }
 
+    public func refreshPermissionStatuses() {
+        microphonePermissionStatus = Self.currentMicrophonePermissionStatus()
+        speechPermissionStatus = Self.currentSpeechPermissionStatus()
+        localNetworkPermissionStatus = .unknown
+    }
+
+    public func requestAppPermissions() {
+        guard !isRequestingPermissions else {
+            return
+        }
+        isRequestingPermissions = true
+        Task { @MainActor in
+            let microphoneGranted = await requestMicrophoneAccess()
+            let speechGranted = await requestSpeechAccessIfAvailable()
+            refreshPermissionStatuses()
+            isRequestingPermissions = false
+            if microphoneGranted, speechGranted {
+                log(.info, "App permissions granted")
+            } else {
+                log(.warning, "App permissions are incomplete")
+            }
+        }
+    }
+
+    private static func currentMicrophonePermissionStatus() -> DJConnectPermissionStatus {
+        #if canImport(AVFoundation)
+        switch AVCaptureDevice.authorizationStatus(for: .audio) {
+        case .authorized:
+            .granted
+        case .denied:
+            .denied
+        case .restricted:
+            .restricted
+        case .notDetermined:
+            .unknown
+        @unknown default:
+            .unknown
+        }
+        #else
+        .unavailable
+        #endif
+    }
+
+    private static func currentSpeechPermissionStatus() -> DJConnectPermissionStatus {
+        #if canImport(Speech)
+        switch SFSpeechRecognizer.authorizationStatus() {
+        case .authorized:
+            .granted
+        case .denied:
+            .denied
+        case .restricted:
+            .restricted
+        case .notDetermined:
+            .unknown
+        @unknown default:
+            .unknown
+        }
+        #else
+        .unavailable
+        #endif
+    }
+
     private func requestMicrophoneAccess() async -> Bool {
         #if canImport(AVFoundation)
         #if os(iOS)
@@ -1728,6 +1803,14 @@ public final class DJConnectAppModel: ObservableObject {
         #endif
         #else
         return false
+        #endif
+    }
+
+    private func requestSpeechAccessIfAvailable() async -> Bool {
+        #if canImport(Speech) && canImport(AVFoundation)
+        await requestSpeechAccess()
+        #else
+        false
         #endif
     }
 
