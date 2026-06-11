@@ -59,8 +59,8 @@ Recommended iOS fields:
   "device_id": "djconnect-ios-8F3A2C91B45D",
   "device_name": "DJConnect iPhone",
   "client_type": "ios",
-  "firmware": "3.1.4",
-  "app_version": "3.1.4",
+  "firmware": "3.1.5",
+  "app_version": "3.1.5",
   "platform": "ios"
 }
 ```
@@ -72,8 +72,8 @@ Recommended macOS fields:
   "device_id": "djconnect-macos-8F3A2C91B45D",
   "device_name": "DJConnect Mac",
   "client_type": "macos",
-  "firmware": "3.1.4",
-  "app_version": "3.1.4",
+  "firmware": "3.1.5",
+  "app_version": "3.1.5",
   "platform": "macos"
 }
 ```
@@ -96,6 +96,13 @@ If HA returns HTTP `426` with `error: "version_mismatch"`, the app must not
 reset pairing or discard the token. Show an update-required state and pause
 command/voice retries until the user updates the app or integration.
 
+The Apple app also validates `ha_version` / `ha_major_minor` fields on normal
+status and command responses. App `3.1.x` requires HA integration `3.1.x`
+(`>=3.1.0`, `<3.2.0`). If HA is outside that range, the app must show a clear
+message to update the Home Assistant integration, disable playback/output/
+queue/playlist/liked/voice controls, and keep Settings plus pairing reset
+available.
+
 Expected response:
 
 ```json
@@ -103,9 +110,9 @@ Expected response:
   "success": false,
   "error": "version_mismatch",
   "message": "DJConnect Home Assistant integration and device firmware major.minor versions must match.",
-  "ha_version": "3.1.4",
+  "ha_version": "3.1.5",
   "ha_major_minor": "3.1",
-  "firmware": "3.1.4",
+  "firmware": "3.1.5",
   "firmware_major_minor": "3.0"
 }
 ```
@@ -168,8 +175,8 @@ X-DJConnect-Device-ID: <device_id>
 {  "device_id": "djconnect-macos-8F3A2C91B45D",
   "device_name": "DJConnect Mac",
   "client_type": "macos",
-  "firmware": "3.1.4",
-  "app_version": "3.1.4",
+  "firmware": "3.1.5",
+  "app_version": "3.1.5",
   "platform": "macos",
   "pair_code": "123456",
   "pairing_code": "123456",
@@ -232,8 +239,8 @@ Minimum payload:
   "device_id": "djconnect-ios-8F3A2C91B45D",
   "client_type": "ios",
   "ha_pairing_status": "paired",
-  "firmware": "3.1.4",
-  "app_version": "3.1.4",
+  "firmware": "3.1.5",
+  "app_version": "3.1.5",
   "state": "online",
   "status": "online",
   "battery_percent": 85,

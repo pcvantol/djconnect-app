@@ -57,7 +57,9 @@ scene and exposes a native settings scene.
 Pairing/auth failures are intentionally conservative:
 
 - `backend_unavailable`: keep pairing and token, show playback backend state.
-- HTTP `426` / `version_mismatch`: keep pairing and token, show update required.
+- HTTP `426` / `version_mismatch`, or successful responses with incompatible
+  `ha_version`: keep pairing and token, show that the HA integration must be
+  updated, and disable runtime playback/voice controls.
 - HTTP `401`/`403` on authenticated routes: mark pairing stale, keep token until
   user reset.
 - HTTP `401` during unauthenticated pairing polling: keep polling with the

@@ -2,10 +2,17 @@
 
 All notable changes to DJConnect App are documented here.
 
-## Unreleased
+## 3.1.5 - 2026-06-11
 
 ### Changed
 
+- Set app/protocol version to `3.1.5`.
+- Added a one-time first-install welcome screen with a DJConnect hero and setup
+  link to `pcvantol/djconnect` for Home Assistant setup.
+- Added app-side Home Assistant integration version gating: app `3.1.x`
+  accepts HA `3.1.x` only (`>=3.1.0`, `<3.2.0`), shows a clear HA integration
+  update message otherwise, and disables playback, output, queue, playlist,
+  liked proxy, and voice controls while leaving Settings/pairing available.
 - Added a Settings permissions section that shows Microphone, Speech
   Recognition, and Local Network permission state and lets users request
   Microphone/Speech permissions before using voice or wakeword flows.

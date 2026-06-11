@@ -98,6 +98,49 @@ public struct DJConnectRootView: View {
             }
             #endif
         }
+        .sheet(isPresented: $model.isShowingWelcome) {
+            WelcomeView(model: model)
+        }
+    }
+}
+
+private struct WelcomeView: View {
+    @ObservedObject var model: DJConnectAppModel
+
+    var body: some View {
+        VStack(spacing: 22) {
+            AboutBanner()
+                .frame(maxWidth: 520)
+
+            VStack(spacing: 10) {
+                Text("DJConnect")
+                    .font(.largeTitle.bold())
+                Text(localized(model.language, "Jouw persoonlijke muziek DJ", "Jouw persoonlijke muziek DJ"))
+                    .font(.title3)
+                    .foregroundStyle(.secondary)
+            }
+
+            Text(.init("Please setup in Home Assistant via [pcvantol/djconnect](https://github.com/pcvantol/djconnect)"))
+                .font(.headline)
+                .foregroundStyle(.primary)
+                .multilineTextAlignment(.center)
+                .lineLimit(nil)
+                .fixedSize(horizontal: false, vertical: true)
+
+            Button {
+                model.dismissWelcome()
+            } label: {
+                Text(localized(model.language, "Continue", "Doorgaan"))
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.borderedProminent)
+            .controlSize(.large)
+        }
+        .padding(28)
+        .frame(minWidth: 360, idealWidth: 520, maxWidth: 620)
+        #if os(macOS)
+        .frame(minHeight: 430)
+        #endif
     }
 }
 
@@ -363,7 +406,7 @@ private struct IOSTrackHero: View {
 
 private struct IOSPlaybackSurface: View {
     @ObservedObject var model: DJConnectAppModel
-    private var isPaired: Bool { model.pairingStatus == .paired }
+    private var canUsePlayback: Bool { model.canUsePlaybackFeatures }
 
     var body: some View {
         VStack(spacing: 18) {
@@ -389,7 +432,7 @@ private struct IOSPlaybackSurface: View {
                         model.commitVolumeChange()
                     }
                 }
-                .disabled(!isPaired)
+                .disabled(!canUsePlayback)
                 Text("\(Int(model.volume))")
                     .font(.caption.monospacedDigit())
                     .foregroundStyle(.secondary)
@@ -398,14 +441,14 @@ private struct IOSPlaybackSurface: View {
 
             HStack(spacing: 12) {
                 ShuffleModeButton(model: model)
-                    .disabled(!isPaired)
+                    .disabled(!canUsePlayback)
 
                 RepeatModeButton(model: model)
-                    .disabled(!isPaired)
+                    .disabled(!canUsePlayback)
             }
         }
-        .disabled(!isPaired)
-        .opacity(isPaired ? 1 : 0.55)
+        .disabled(!canUsePlayback)
+        .opacity(canUsePlayback ? 1 : 0.55)
         .padding(14)
         .background(Color(uiColor: .systemBackground), in: RoundedRectangle(cornerRadius: 8))
         .liquidGlassIfAvailable()
@@ -425,14 +468,14 @@ private struct IOSPlaybackSurface: View {
                 .background(prominent ? Color.purple : Color(uiColor: .secondarySystemGroupedBackground), in: Circle())
         }
         .buttonStyle(.plain)
-        .disabled(!isPaired)
+        .disabled(!canUsePlayback)
     }
 }
 
 private struct IOSVoiceCard: View {
     @ObservedObject var model: DJConnectAppModel
     private var isVoiceAvailable: Bool {
-        model.voiceEnabled && model.pairingStatus == .paired && model.backendAvailable && model.voiceStatus != .processing
+        model.voiceEnabled && model.canUsePlaybackFeatures && model.voiceStatus != .processing
     }
 
     private var announcementText: String {
@@ -649,7 +692,7 @@ struct TrackSummaryView: View {
 
 struct PlaybackControlsView: View {
     @ObservedObject var model: DJConnectAppModel
-    private var isPaired: Bool { model.pairingStatus == .paired }
+    private var canUsePlayback: Bool { model.canUsePlaybackFeatures }
 
     var body: some View {
         VStack(spacing: 18) {
@@ -661,7 +704,7 @@ struct PlaybackControlsView: View {
                 }
                 .buttonStyle(.bordered)
                 .help(localized(model.language, "Previous", "Vorige"))
-                .disabled(!isPaired)
+                .disabled(!canUsePlayback)
 
                 Button {
                     model.togglePlayback()
@@ -671,7 +714,7 @@ struct PlaybackControlsView: View {
                 .buttonStyle(.borderedProminent)
                 .controlSize(.large)
                 .help(model.isPlaying ? localized(model.language, "Pause", "Pauze") : localized(model.language, "Play", "Afspelen"))
-                .disabled(!isPaired)
+                .disabled(!canUsePlayback)
 
                 Button {
                     model.sendPlaybackCommand("next")
@@ -680,7 +723,7 @@ struct PlaybackControlsView: View {
                 }
                 .buttonStyle(.bordered)
                 .help(localized(model.language, "Next", "Volgende"))
-                .disabled(!isPaired)
+                .disabled(!canUsePlayback)
             }
 
             HStack {
@@ -690,7 +733,7 @@ struct PlaybackControlsView: View {
                         model.commitVolumeChange()
                     }
                 }
-                .disabled(!isPaired)
+                .disabled(!canUsePlayback)
                 Text("\(Int(model.volume))")
                     .monospacedDigit()
                     .frame(width: 32, alignment: .trailing)
@@ -698,13 +741,13 @@ struct PlaybackControlsView: View {
 
             HStack {
                 ShuffleModeButton(model: model)
-                    .disabled(!isPaired)
+                    .disabled(!canUsePlayback)
 
                 RepeatModeButton(model: model)
-                    .disabled(!isPaired)
+                    .disabled(!canUsePlayback)
             }
         }
-        .opacity(isPaired ? 1 : 0.55)
+        .opacity(canUsePlayback ? 1 : 0.55)
     }
 }
 
@@ -767,7 +810,7 @@ private struct QueueArtworkView: View {
 
 private struct OutputSelectorView: View {
     @ObservedObject var model: DJConnectAppModel
-    private var isPaired: Bool { model.pairingStatus == .paired }
+    private var canUsePlayback: Bool { model.canUsePlaybackFeatures }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -783,7 +826,7 @@ private struct OutputSelectorView: View {
                 }
                 .buttonStyle(.borderless)
                 .tint(.white)
-                .disabled(!isPaired)
+                .disabled(!canUsePlayback)
                 .help(localized(model.language, "Reload Output Devices", "Uitvoerapparaten herladen"))
                 .accessibilityLabel(localized(model.language, "Reload Output Devices", "Uitvoerapparaten herladen"))
             }
@@ -809,12 +852,12 @@ private struct OutputSelectorView: View {
                 #if os(iOS)
                 .pickerStyle(.menu)
                 #endif
-                .disabled(!isPaired)
+                .disabled(!canUsePlayback)
             }
         }
-        .opacity(isPaired ? 1 : 0.55)
+        .opacity(canUsePlayback ? 1 : 0.55)
         .task {
-            if model.pairingStatus == .paired, model.availableOutputs.isEmpty {
+            if model.canUsePlaybackFeatures, model.availableOutputs.isEmpty {
                 model.loadOutputs()
             }
         }
@@ -926,7 +969,7 @@ private extension DJConnectRepeatState {
 struct VoiceResponseView: View {
     @ObservedObject var model: DJConnectAppModel
     private var isVoiceAvailable: Bool {
-        model.voiceEnabled && model.pairingStatus == .paired && model.backendAvailable && model.voiceStatus != .processing
+        model.voiceEnabled && model.canUsePlaybackFeatures && model.voiceStatus != .processing
     }
 
     private var announcementText: String {
@@ -974,7 +1017,7 @@ struct VoiceResponseView: View {
 
 struct QueueView: View {
     @ObservedObject var model: DJConnectAppModel
-    private var isPaired: Bool { model.pairingStatus == .paired }
+    private var canUsePlayback: Bool { model.canUsePlaybackFeatures }
 
     var body: some View {
         NavigationStack {
@@ -989,13 +1032,13 @@ struct QueueView: View {
                             QueueItemRow(item: item, isLoading: model.loadingQueueItemIndex == index)
                         }
                         .buttonStyle(.plain)
-                        .disabled(!isPaired || model.loadingQueueItemIndex != nil || !model.canStartQueueItem(item))
+                        .disabled(!canUsePlayback || model.loadingQueueItemIndex != nil || !model.canStartQueueItem(item))
                         .accessibilityLabel(item.displayTitle)
                     }
                 }
             }
             .refreshable {
-                guard isPaired else {
+                guard canUsePlayback else {
                     return
                 }
                 await model.refreshQueue()
@@ -1013,13 +1056,13 @@ struct QueueView: View {
                             Image(systemName: "arrow.clockwise")
                         }
                     }
-                    .disabled(!isPaired || model.isLoadingQueue)
+                    .disabled(!canUsePlayback || model.isLoadingQueue)
                     .help(localized(model.language, "Reload Queue", "Wachtrij herladen"))
                     .accessibilityLabel(localized(model.language, "Reload Queue", "Wachtrij herladen"))
                 }
             }
             .task {
-                guard model.pairingStatus == .paired else {
+                guard model.canUsePlaybackFeatures else {
                     return
                 }
                 model.loadQueue()
@@ -1030,7 +1073,7 @@ struct QueueView: View {
 
 struct PlaylistsView: View {
     @ObservedObject var model: DJConnectAppModel
-    private var isPaired: Bool { model.pairingStatus == .paired }
+    private var canUsePlayback: Bool { model.canUsePlaybackFeatures }
 
     var body: some View {
         NavigationStack {
@@ -1051,7 +1094,7 @@ struct PlaylistsView: View {
                         }
                     }
                     .buttonStyle(.plain)
-                    .disabled(!isPaired)
+                    .disabled(!canUsePlayback)
                 }
 
                 Section(localized(model.language, "Playlists", "Afspeellijsten")) {
@@ -1065,13 +1108,13 @@ struct PlaylistsView: View {
                                 PlaylistRow(playlist: playlist)
                             }
                             .buttonStyle(.plain)
-                            .disabled(!isPaired)
+                            .disabled(!canUsePlayback)
                         }
                     }
                 }
             }
             .refreshable {
-                guard isPaired else {
+                guard canUsePlayback else {
                     return
                 }
                 await model.refreshPlaylists()
@@ -1089,13 +1132,13 @@ struct PlaylistsView: View {
                             Image(systemName: "arrow.clockwise")
                         }
                     }
-                    .disabled(!isPaired || model.isLoadingPlaylists)
+                    .disabled(!canUsePlayback || model.isLoadingPlaylists)
                     .help(localized(model.language, "Reload Playlists", "Afspeellijsten herladen"))
                     .accessibilityLabel(localized(model.language, "Reload Playlists", "Afspeellijsten herladen"))
                 }
             }
             .task {
-                guard model.pairingStatus == .paired else {
+                guard model.canUsePlaybackFeatures else {
                     return
                 }
                 model.loadPlaylists()

@@ -18,8 +18,8 @@ install identity.
   "device_id": "djconnect-ios-8F3A2C91B45D",
   "device_name": "DJConnect iPhone",
   "client_type": "ios",
-  "firmware": "3.1.4",
-  "app_version": "3.1.4",
+  "firmware": "3.1.5",
+  "app_version": "3.1.5",
   "platform": "ios"
 }
 ```
@@ -65,8 +65,8 @@ Payload:
   "device_id": "djconnect-macos-8F3A2C91B45D",
   "device_name": "DJConnect Mac",
   "client_type": "macos",
-  "firmware": "3.1.4",
-  "app_version": "3.1.4",
+  "firmware": "3.1.5",
+  "app_version": "3.1.5",
   "platform": "macos",
   "pair_code": "123456",
   "pairing_code": "123456",
@@ -185,8 +185,8 @@ Minimum payload:
   "device_name": "DJConnect iPhone",
   "client_type": "ios",
   "ha_pairing_status": "paired",
-  "firmware": "3.1.4",
-  "app_version": "3.1.4",
+  "firmware": "3.1.5",
+  "app_version": "3.1.5",
   "state": "online",
   "status": "online",
   "battery_percent": 85,
@@ -323,7 +323,12 @@ pairing failure. Keep token and pairing state.
 HTTP `426` / `version_mismatch`
 
 The app and Home Assistant integration do not share the same `major.minor`
-protocol version. Keep token and pairing state. Show update required.
+protocol version. Keep token and pairing state. Show that the Home Assistant
+integration must be updated. Disable playback/output/queue/playlist/liked/voice
+controls, but keep Settings and pairing reset available.
+
+The app also validates `ha_version` / `ha_major_minor` on successful status and
+command responses. App `3.1.x` accepts HA `3.1.x` only (`>=3.1.0`, `<3.2.0`).
 
 HTTP `401`/`403`
 

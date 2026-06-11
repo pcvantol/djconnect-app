@@ -134,6 +134,7 @@ public final class DJConnectAppModel: ObservableObject {
     @Published public private(set) var speechPermissionStatus: DJConnectPermissionStatus = .unknown
     @Published public private(set) var localNetworkPermissionStatus: DJConnectPermissionStatus = .unknown
     @Published public private(set) var isRequestingPermissions = false
+    @Published public var isShowingWelcome = false
     @Published public private(set) var localDeviceAPIURL: String?
     @Published public private(set) var diagnosticLogLines: [DJConnectDiagnosticLogLine] = []
 
@@ -163,7 +164,7 @@ public final class DJConnectAppModel: ObservableObject {
     #endif
     private let defaults: UserDefaults
     private let tokenStore: DJConnectTokenStore
-    private static let protocolVersion = "3.1.4"
+    private static let protocolVersion = "3.1.5"
     private let appVersion = DJConnectAppModel.protocolVersion
     private let installIDKey = "DJConnectInstallID"
     private let homeAssistantURLKey = "DJConnectHomeAssistantURL"
@@ -174,6 +175,7 @@ public final class DJConnectAppModel: ObservableObject {
     private let languageKey = "DJConnectLanguage"
     private let logLevelKey = "DJConnectLogLevel"
     private let wakeWordPhraseKey = "DJConnectWakeWordPhrase"
+    private let welcomeSeenKey = "DJConnectWelcomeSeen"
     private let maxDiagnosticLogLines = 120
 
     public var volume: Double {
@@ -199,6 +201,14 @@ public final class DJConnectAppModel: ObservableObject {
         ((try? tokenStore.loadToken())?.isEmpty == false)
     }
 
+    public var isRuntimeCompatible: Bool {
+        updateRequiredMessage == nil
+    }
+
+    public var canUsePlaybackFeatures: Bool {
+        pairingStatus == .paired && backendAvailable && isRuntimeCompatible
+    }
+
     public init(
         playback: DJConnectPlayback? = nil,
         defaults: UserDefaults = .standard,
@@ -222,6 +232,7 @@ public final class DJConnectAppModel: ObservableObject {
         self.logLevel = defaults.string(forKey: logLevelKey) ?? "info"
         self.wakeWordEnabled = false
         self.wakeWordPhrase = defaults.string(forKey: wakeWordPhraseKey) ?? "Hey DJ"
+        self.isShowingWelcome = !defaults.bool(forKey: welcomeSeenKey)
         defaults.set(pairingToken, forKey: pairingTokenKey)
         if let existingToken = try? resolvedTokenStore.loadToken(), !existingToken.isEmpty {
             pairingStatus = .paired
@@ -233,6 +244,11 @@ public final class DJConnectAppModel: ObservableObject {
         }
         refreshPermissionStatuses()
         startLocalDeviceAPI()
+    }
+
+    public func dismissWelcome() {
+        defaults.set(true, forKey: welcomeSeenKey)
+        isShowingWelcome = false
     }
 
     deinit {
@@ -452,7 +468,7 @@ public final class DJConnectAppModel: ObservableObject {
         value: DJConnectCommandValue? = nil,
         play: Bool? = nil
     ) {
-        guard updateRequiredMessage == nil else {
+        guard isRuntimeCompatible else {
             log(.warning, "Command \(command) blocked because an app/integration update is required")
             return
         }
@@ -751,6 +767,10 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     public func apply(playback: DJConnectPlayback?) {
+        guard isRuntimeCompatible else {
+            log(.debug, "Ignoring playback snapshot because Home Assistant integration version is incompatible")
+            return
+        }
         var normalizedPlayback = playback
         let deviceVolume = normalizedPlayback?.device?.volumePercent
         if normalizedPlayback?.volumePercent == nil, let deviceVolume {
@@ -783,6 +803,13 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     public func apply(commandResponse response: DJConnectCommandResponse) {
+        guard validateHomeAssistantVersion(
+            haVersion: response.haVersion,
+            haMajorMinor: response.haMajorMinor,
+            message: response.message
+        ) else {
+            return
+        }
         if let playback = response.playback {
             apply(playback: playback)
         }
@@ -862,9 +889,11 @@ public final class DJConnectAppModel: ObservableObject {
                 log(.warning, "Backend unavailable: \(message)")
             }
         case let .versionMismatch(mismatch):
+            clearRuntimeState()
+            backendAvailable = false
             updateRequiredMessage = mismatch.message ?? localized(
-                english: "DJConnect update required",
-                dutch: "DJConnect update vereist"
+                english: "Update the DJConnect Home Assistant integration.",
+                dutch: "Werk de DJConnect Home Assistant-integratie bij."
             )
         case let .authStale(_, message):
             pairingStatus = .stale
@@ -977,6 +1006,13 @@ public final class DJConnectAppModel: ObservableObject {
                     localURL: localDeviceAPIURL
                 )
             )
+            guard validateHomeAssistantVersion(
+                haVersion: response.haVersion,
+                haMajorMinor: response.haMajorMinor,
+                message: response.message
+            ) else {
+                return
+            }
             if let playback = response.playback {
                 apply(playback: playback)
             } else {
@@ -1074,6 +1110,67 @@ public final class DJConnectAppModel: ObservableObject {
         responseAudioPlayer?.stop()
         responseAudioPlayer = nil
         #endif
+    }
+
+    private func validateHomeAssistantVersion(
+        haVersion: String?,
+        haMajorMinor: String?,
+        message: String?
+    ) -> Bool {
+        let resolvedVersion = haVersion ?? haMajorMinor
+        guard let resolvedVersion, !resolvedVersion.isEmpty else {
+            return true
+        }
+        guard Self.isCompatibleHomeAssistantVersion(resolvedVersion) else {
+            let requiredRange = Self.requiredHomeAssistantVersionRangeDescription()
+            clearRuntimeState()
+            backendAvailable = false
+            updateRequiredMessage = message ?? localized(
+                english: "Update the DJConnect Home Assistant integration to \(requiredRange).",
+                dutch: "Werk de DJConnect Home Assistant-integratie bij naar \(requiredRange)."
+            )
+            log(.error, "Home Assistant integration version \(resolvedVersion) is incompatible with app \(appVersion); required \(requiredRange)")
+            return false
+        }
+        updateRequiredMessage = nil
+        return true
+    }
+
+    private static func isCompatibleHomeAssistantVersion(_ version: String) -> Bool {
+        guard let parsed = parsedVersion(version),
+              let app = parsedVersion(protocolVersion)
+        else {
+            return true
+        }
+        return parsed.major == app.major && parsed.minor == app.minor
+    }
+
+    private static func requiredHomeAssistantVersionRangeDescription() -> String {
+        guard let app = parsedVersion(protocolVersion) else {
+            return "the matching \(protocolVersion) release"
+        }
+        return "\(app.major).\(app.minor).x (>=\(app.major).\(app.minor).0, <\(app.major).\(app.minor + 1).0)"
+    }
+
+    private static func parsedVersion(_ version: String) -> (major: Int, minor: Int, patch: Int)? {
+        let cleanedVersion = version
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .trimmingPrefix("v")
+        guard let numericPrefix = cleanedVersion
+            .split(separator: "-", maxSplits: 1, omittingEmptySubsequences: true)
+            .first
+        else {
+            return nil
+        }
+        let parts = numericPrefix.split(separator: ".").compactMap { Int($0) }
+        guard parts.count >= 2 else {
+            return nil
+        }
+        return (
+            major: parts[0],
+            minor: parts[1],
+            patch: parts.count >= 3 ? parts[2] : 0
+        )
     }
 
     private func updatePlaybackProgressTimer() {
@@ -1233,7 +1330,7 @@ public final class DJConnectAppModel: ObservableObject {
             log(.warning, "Command \(command) skipped because app is not paired")
             return false
         }
-        guard updateRequiredMessage == nil else {
+        guard isRuntimeCompatible else {
             log(.warning, "Command \(command) skipped because update is required")
             return false
         }
@@ -1312,8 +1409,8 @@ public final class DJConnectAppModel: ObservableObject {
                         deviceID: "djconnect-macos-unavailable",
                         deviceName: "DJConnect",
                         clientType: .macos,
-                        firmware: "3.1.4",
-                        appVersion: "3.1.4",
+                        firmware: "3.1.5",
+                        appVersion: "3.1.5",
                         platform: .macos
                     ),
                     pairingToken: "",

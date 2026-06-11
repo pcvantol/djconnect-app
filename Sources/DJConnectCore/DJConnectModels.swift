@@ -337,6 +337,8 @@ public struct DJConnectEnvelope<T: Codable & Sendable>: Codable, Sendable {
     public var error: String?
     public var message: String?
     public var backendAvailable: Bool?
+    public var haVersion: String?
+    public var haMajorMinor: String?
     public var clientType: DJConnectClientType?
     public var deviceLanguage: String?
     public var language: String?
@@ -348,6 +350,8 @@ public struct DJConnectEnvelope<T: Codable & Sendable>: Codable, Sendable {
         case error
         case message
         case backendAvailable = "backend_available"
+        case haVersion = "ha_version"
+        case haMajorMinor = "ha_major_minor"
         case clientType = "client_type"
         case deviceLanguage = "device_language"
         case language
@@ -723,6 +727,8 @@ public struct DJConnectCommandResponse: Codable, Equatable, Sendable {
     public var error: String?
     public var message: String?
     public var backendAvailable: Bool?
+    public var haVersion: String?
+    public var haMajorMinor: String?
     public var playback: DJConnectPlayback?
     public var devices: [DJConnectOutputDevice]?
     public var queue: [DJConnectQueueItem]?
@@ -734,6 +740,8 @@ public struct DJConnectCommandResponse: Codable, Equatable, Sendable {
         error: String? = nil,
         message: String? = nil,
         backendAvailable: Bool? = nil,
+        haVersion: String? = nil,
+        haMajorMinor: String? = nil,
         playback: DJConnectPlayback? = nil,
         devices: [DJConnectOutputDevice]? = nil,
         queue: [DJConnectQueueItem]? = nil,
@@ -744,6 +752,8 @@ public struct DJConnectCommandResponse: Codable, Equatable, Sendable {
         self.error = error
         self.message = message
         self.backendAvailable = backendAvailable
+        self.haVersion = haVersion
+        self.haMajorMinor = haMajorMinor
         self.playback = playback
         self.devices = devices
         self.queue = queue
@@ -759,6 +769,10 @@ public struct DJConnectCommandResponse: Codable, Equatable, Sendable {
         error = try container.decodeIfPresent(String.self, forKey: .error)
         message = try container.decodeIfPresent(String.self, forKey: .message)
         backendAvailable = try container.decodeIfPresent(Bool.self, forKey: .backendAvailable)
+        haVersion = container.decodeStringAliasIfPresent(.haVersion)
+            ?? data?.decodeStringAliasIfPresent(.haVersion)
+        haMajorMinor = container.decodeStringAliasIfPresent(.haMajorMinor)
+            ?? data?.decodeStringAliasIfPresent(.haMajorMinor)
         playback = try container.decodeIfPresent(DJConnectPlayback.self, forKey: .playback)
             ?? data?.decodeIfPresentIgnoringErrors(DJConnectPlayback.self, forKey: .playback)
         devices = try container.decodeIfPresent([DJConnectOutputDevice].self, forKey: .devices)
@@ -781,6 +795,8 @@ public struct DJConnectCommandResponse: Codable, Equatable, Sendable {
         try container.encodeIfPresent(error, forKey: .error)
         try container.encodeIfPresent(message, forKey: .message)
         try container.encodeIfPresent(backendAvailable, forKey: .backendAvailable)
+        try container.encodeIfPresent(haVersion, forKey: .haVersion)
+        try container.encodeIfPresent(haMajorMinor, forKey: .haMajorMinor)
         try container.encodeIfPresent(playback, forKey: .playback)
         try container.encodeIfPresent(devices, forKey: .devices)
         try container.encodeIfPresent(queue, forKey: .queue)
@@ -793,6 +809,8 @@ public struct DJConnectCommandResponse: Codable, Equatable, Sendable {
         case error
         case message
         case backendAvailable = "backend_available"
+        case haVersion = "ha_version"
+        case haMajorMinor = "ha_major_minor"
         case playback
         case data
         case devices
