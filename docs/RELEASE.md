@@ -2,6 +2,136 @@
 
 This checklist tracks work that cannot be completed by source changes alone.
 
+## Release Checklist
+
+Use this checklist before publishing a new DJConnect App release. The private
+repo may publish source releases and unsigned CI builds automatically; signed
+App Store/TestFlight and notarized macOS binaries require local Apple signing
+credentials.
+
+### One-Time Apple Account Setup
+
+- Join the Apple Developer Program.
+- Add the signing Apple ID to Xcode.
+- Confirm access to the Apple team that owns DJConnect.
+- Register the iOS bundle identifier `nl.pcvantol.djconnect.ios`.
+- Register the macOS bundle identifier `nl.pcvantol.djconnect.mac`.
+- Create or confirm the App Store Connect app record for iOS/iPadOS.
+- Create or confirm the App Store Connect app record for macOS if macOS will
+  ship through the Mac App Store.
+- Configure app privacy details in App Store Connect for Local Network,
+  Microphone, Speech Recognition, diagnostics copied by the user, and no
+  automatic log upload.
+- Configure export compliance and content rights answers in App Store Connect.
+- Create a Developer ID Application certificate for public notarized macOS
+  releases outside the Mac App Store.
+- Create the notarytool keychain profile once:
+
+```sh
+xcrun notarytool store-credentials <notarytool-keychain-profile>
+```
+
+- Confirm `gh` can access both private source repo `pcvantol/djconnect-app`
+  and public binary repo `pcvantol/djconnect-app-releases`.
+- Keep Apple certificates, App Store Connect API keys, and notary credentials
+  out of the source repo.
+
+### One-Time Project Setup
+
+- Set `DEVELOPMENT_TEAM` locally for signed builds. Prefer an ignored local
+  Xcode config if team IDs differ per developer.
+- Confirm iOS signing uses automatic signing for `DJConnectIOS`.
+- Confirm macOS signing uses automatic signing for `DJConnectMac`.
+- Confirm iOS capabilities and Info.plist strings:
+  Local Network, Bonjour services, Microphone, Speech Recognition, Face ID.
+- Confirm macOS capabilities and Info.plist strings:
+  Local Network, Bonjour services, Microphone, Speech Recognition.
+- Confirm app icons, launch screen, welcome screen, About screen, and website
+  link match the current DJConnect branding.
+- Confirm the HA integration compatibility line is documented:
+  app `3.1.x` requires HA integration `3.1.x`.
+- Confirm the public macOS release helper works in dry/local mode before the
+  first public binary release.
+
+### Every Release: Source Repo
+
+- Choose the next semantic version.
+- Update `MARKETING_VERSION` in `project.yml`.
+- Update `DJConnectAppModel.protocolVersion`.
+- Update version examples in handoff/API/release/architecture docs.
+- Consolidate `CHANGELOG.md`: move finished Unreleased entries into the new
+  release section and leave a clean Unreleased placeholder.
+- Run local verification:
+
+```sh
+swift test --no-parallel
+xcodebuild -project DJConnectApp.xcodeproj -scheme DJConnectMac -configuration Debug -destination platform=macOS -derivedDataPath .xcode-derived CODE_SIGNING_ALLOWED=NO build
+xcodebuild -project DJConnectApp.xcodeproj -scheme DJConnectIOS -configuration Debug -destination generic/platform=iOS -derivedDataPath .xcode-derived CODE_SIGNING_ALLOWED=NO build
+```
+
+- Commit and push the release changes to `main`.
+- Create the GitHub source release/tag in `pcvantol/djconnect-app`.
+- Run release cleanup when the new release is confirmed:
+
+```sh
+./cleanup_old_releases.sh --keep 1 --execute
+```
+
+### Every Release: iOS/iPadOS App Store Or TestFlight
+
+- Open `DJConnectApp.xcodeproj` in Xcode.
+- Select `DJConnectIOS`.
+- Confirm bundle identifier `nl.pcvantol.djconnect.ios`.
+- Confirm Team, Signing Certificate, and Provisioning Profile are valid.
+- Confirm version/build number in Xcode match the intended release.
+- Build and run on a physical iPhone.
+- Build and run on a physical iPad.
+- Validate first-run welcome, pairing sheet, Demo Mode, Settings, About, Queue,
+  Playlists, Now Playing, Push-to-Talk, permissions, and logs.
+- Validate Local Network permission against a real Home Assistant instance.
+- Pair with a matching `pcvantol/djconnect` HA integration.
+- Validate playback commands, output switching, queue, playlists, liked songs,
+  voice/PTT WAV upload, diagnostics export, version mismatch UI, and pairing
+  reset recovery.
+- Archive `DJConnectIOS` in Release configuration.
+- Upload through Xcode Organizer or Transporter.
+- Wait for App Store Connect processing.
+- Complete beta/app review compliance prompts.
+- Assign TestFlight testers or submit for App Review.
+- Smoke-test the TestFlight build on a physical iPhone and iPad.
+
+### Every Release: macOS Public Notarized Binary
+
+- Confirm `DEVELOPMENT_TEAM` is available in the shell or local Xcode config.
+- Confirm `NOTARY_PROFILE` exists in the login keychain.
+- Confirm Developer ID Application certificate is installed.
+- Confirm `gh auth status` can publish to
+  `pcvantol/djconnect-app-releases`.
+- Run the public macOS release helper:
+
+```sh
+PUBLIC_REPO=pcvantol/djconnect-app-releases \
+DEVELOPMENT_TEAM=<APPLE_TEAM_ID> \
+NOTARY_PROFILE=<notarytool-keychain-profile> \
+./Tools/release/release_macos_public.sh --version <X.Y.Z>
+```
+
+- Confirm notarization succeeds and the ticket is stapled.
+- Confirm Gatekeeper assessment succeeds.
+- Download the public zip from `pcvantol/djconnect-app-releases` on a clean Mac
+  user account.
+- Launch the app, grant Keychain/Local Network/Microphone/Speech permissions as
+  needed, pair with Home Assistant, and validate playback/queue/playlists/PTT.
+
+### Every Release: Mac App Store, If Used
+
+- Confirm a Mac App Store app record exists in App Store Connect.
+- Confirm sandbox/capability choices match the production distribution plan.
+- Archive `DJConnectMac` with Mac App Store signing, not Developer ID export.
+- Upload through Xcode Organizer or Transporter.
+- Complete App Store Connect compliance and review metadata.
+- Smoke-test the processed TestFlight/Mac App Store build on a clean Mac user.
+
 ## iOS Signing Requirements
 
 Before an iOS/TestFlight release, make sure these are available:
