@@ -932,10 +932,7 @@ public final class DJConnectAppModel: ObservableObject {
         }
         if isDemoMode {
             voiceStatus = .processing
-            djResponseText = localized(
-                english: "Demo DJ: this is where your personal music DJ responds after your music request.",
-                dutch: "Demo DJ: hier reageert je persoonlijke muziek DJ na je muziek verzoek."
-            )
+            djResponseText = "Ja ja, daar is hij dan, de knaller van Pearl Jam, Alive!"
             voiceStatus = .idle
             log(.info, "Demo voice request completed")
             return

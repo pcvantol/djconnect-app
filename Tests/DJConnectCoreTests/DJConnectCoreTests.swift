@@ -475,7 +475,8 @@ private func waitForLocalDeviceAPIURL(_ model: DJConnectAppModel) async throws -
                   "Track Two"
                 ],
                 "playlists": [
-                  {"id":"playlist-1","name":"Warmup","uri":"spotify:playlist:1"},
+                  {"id":"playlist-1","name":"Warmup","uri":"spotify:playlist:1","image_url":"https://example.test/warmup.jpg"},
+                  {"id":"playlist-2","name":"Dinner","uri":"spotify:playlist:2","album_image_url":"https://example.test/dinner.jpg"},
                   "Liked Proxy"
                 ]
               }
@@ -490,7 +491,9 @@ private func waitForLocalDeviceAPIURL(_ model: DJConnectAppModel) async throws -
     #expect(response.devices?.first?.supportsVolume == true)
     #expect(response.queue?.map(\.displayTitle) == ["Track One - Artist One", "Track Two"])
     #expect(response.queue?.first?.albumImageURL?.absoluteString == "https://example.test/track-one.jpg")
-    #expect(response.playlists?.map(\.commandValue) == ["spotify:playlist:1", "Liked Proxy"])
+    #expect(response.playlists?.map(\.commandValue) == ["spotify:playlist:1", "spotify:playlist:2", "Liked Proxy"])
+    #expect(response.playlists?.first?.imageURL?.absoluteString == "https://example.test/warmup.jpg")
+    #expect(response.playlists?[1].imageURL?.absoluteString == "https://example.test/dinner.jpg")
 }
 
 @Test func pairingRequestUsesPairEndpointWithoutBearerToken() throws {

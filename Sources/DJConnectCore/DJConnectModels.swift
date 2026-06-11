@@ -703,6 +703,9 @@ public struct DJConnectPlaylist: Codable, Equatable, Identifiable, Sendable {
             name: name,
             uri: uri,
             imageURL: try container.decodeIfPresent(URL.self, forKey: .imageURL)
+                ?? container.decodeIfPresentIgnoringErrors(URL.self, forKey: .albumImageURL)
+                ?? container.decodeIfPresentIgnoringErrors(URL.self, forKey: .mediaImageURL)
+                ?? container.decodeIfPresentIgnoringErrors(URL.self, forKey: .entityPicture)
         )
     }
 
@@ -718,7 +721,10 @@ public struct DJConnectPlaylist: Codable, Equatable, Identifiable, Sendable {
         case id
         case name
         case uri
+        case albumImageURL = "album_image_url"
+        case mediaImageURL = "media_image_url"
         case imageURL = "image_url"
+        case entityPicture = "entity_picture"
     }
 }
 

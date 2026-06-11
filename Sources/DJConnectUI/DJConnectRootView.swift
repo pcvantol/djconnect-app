@@ -1486,6 +1486,7 @@ private struct QueueItemRow: View {
 
 private struct QueueArtworkView: View {
     let url: URL?
+    var fallbackSystemImage = "music.note"
 
     var body: some View {
         AsyncImage(url: url) { image in
@@ -1496,7 +1497,7 @@ private struct QueueArtworkView: View {
             ZStack {
                 RoundedRectangle(cornerRadius: 6)
                     .fill(Color.secondary.opacity(0.14))
-                Image(systemName: "music.note")
+                Image(systemName: fallbackSystemImage)
                     .font(.system(size: 18, weight: .semibold))
                     .foregroundStyle(.secondary)
             }
@@ -1935,16 +1936,19 @@ private struct PlaylistRow: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            Image(systemName: "play.square.fill")
-                .foregroundStyle(.purple)
-                .frame(width: 22)
-            Text(playlist.name)
-                .foregroundStyle(.primary)
-                .lineLimit(2)
-            Spacer()
+            QueueArtworkView(url: playlist.imageURL, fallbackSystemImage: "music.note.list")
+                .frame(width: 52, height: 52)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(playlist.name)
+                    .font(.body.weight(.medium))
+                    .foregroundStyle(.primary)
+                    .lineLimit(2)
+            }
+            Spacer(minLength: 8)
             Image(systemName: "play.circle")
                 .foregroundStyle(.secondary)
         }
+        .padding(.vertical, 3)
         .contentShape(Rectangle())
     }
 }
