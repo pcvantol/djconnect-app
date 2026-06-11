@@ -4,23 +4,46 @@ All notable changes to DJConnect App are documented here.
 
 ## Unreleased
 
+No unreleased changes yet.
+
+## 3.1.10 - 2026-06-11
+
 ### Added
 
 - Added a local Games menu on iOS and macOS with Pong, Asteroids and Fly,
-  including local highscores and touch/click controls.
+  including local highscores, touch/click controls, and keyboard arrow handling
+  that stays inside the game surface.
+- Added a startup spinner to the branded launch overlay.
+- Added a local Demo Mode DJ announcement response with spoken audio and
+  visible text for App Store review without Home Assistant.
 
 ### Documentation
 
 - Updated the App Store/macOS release checklist for renewed Apple Developer
   Program accounts and clarified the local signed/notarized public macOS
   release path.
-- Updated README, handoff, architecture, development, and issues documentation
-  for the local iOS/macOS Games menu.
+- Updated README, handoff, architecture, development, API contract, release,
+  TODO, and issues documentation for the local iOS/macOS Games menu, Demo Mode,
+  permission handling, default Home Assistant URL, and iOS/macOS visual polish.
 
 ### Tests
 
 - Added iOS UI-test coverage for the Games tab and local Pong, Asteroids, and
   Fly choices.
+
+### Changed
+
+- Applied the DJConnect blue/purple gradient canvas consistently across iOS
+  runtime screens.
+- Compact permission rows on iPhone and removed the fake Local Network
+  preflight action; Local Network remains declared and is requested by iOS when
+  the app actually touches the LAN.
+- Changed Dutch Demo Mode page titles to use `(demo)`.
+- Defaulted the Home Assistant URL field to `http://homeassistant.local:8123`
+  on fresh installs.
+- Updated Dutch pairing, voice, and wakeword labels, including
+  `Koppelcode`, `Koppelgegevens voor Home Assistant:`, and
+  `Stemactivatie inschakelen/uitschakelen`.
 
 ## 3.1.9 - 2026-06-11
 
@@ -60,7 +83,7 @@ All notable changes to DJConnect App are documented here.
 
 - Consolidated sync prompts to the canonical root `SYNC_PROMPTS.md` and removed
   the obsolete `docs/SYNC_PROMPTS.md` copy.
-- Updated app/protocol examples to `3.1.9`.
+- Updated app/protocol examples to `3.1.10`.
 
 ## 3.1.8 - 2026-06-11
 

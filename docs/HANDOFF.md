@@ -79,7 +79,9 @@ announcement state. It must not store a bearer token, create HA entities, or
 be treated as backend validation. Demo Mode is session-only: after app restart,
 an unpaired client returns to the pairing sheet. Exiting Demo Mode from
 Settings must return to the initial unpaired state with Now Playing behind the
-pairing sheet.
+pairing sheet. The Demo Mode microphone action may show and play a local sample
+DJ announcement. It must remain visibly local demo behavior and must not call
+Home Assistant.
 
 If the user resets pairing, the app should clear runtime playback/output/
 queue/playlist state, navigate back to Now Playing, and present the pairing
@@ -97,7 +99,9 @@ Games are local-only UI features. They must not call Home Assistant, create HA
 entities, affect pairing state, require Spotify playback, or send DJConnect
 status/command payloads. Highscores may be stored in app-local preferences and
 may be cleared by app reinstall or local app data reset. Games should remain
-available in Demo Mode because they are not backend validation.
+available in Demo Mode because they are not backend validation. When a game is
+active, keyboard arrows and space should be handled by the game surface and
+should not trigger sidebar, tab, or page navigation.
 
 ## Identity
 
@@ -119,8 +123,8 @@ Recommended iOS fields:
   "device_id": "djconnect-ios-8F3A2C91B45D",
   "device_name": "DJConnect iPhone",
   "client_type": "ios",
-  "firmware": "3.1.9",
-  "app_version": "3.1.9",
+  "firmware": "3.1.10",
+  "app_version": "3.1.10",
   "platform": "ios"
 }
 ```
@@ -132,8 +136,8 @@ Recommended macOS fields:
   "device_id": "djconnect-macos-8F3A2C91B45D",
   "device_name": "DJConnect Mac",
   "client_type": "macos",
-  "firmware": "3.1.9",
-  "app_version": "3.1.9",
+  "firmware": "3.1.10",
+  "app_version": "3.1.10",
   "platform": "macos"
 }
 ```
@@ -170,9 +174,9 @@ Expected response:
   "success": false,
   "error": "version_mismatch",
   "message": "DJConnect Home Assistant integration and device firmware major.minor versions must match.",
-  "ha_version": "3.1.9",
+  "ha_version": "3.1.10",
   "ha_major_minor": "3.1",
-  "firmware": "3.1.9",
+  "firmware": "3.1.10",
   "firmware_major_minor": "3.0"
 }
 ```
@@ -209,6 +213,14 @@ Recommended user flow:
    Cloud URLs are Home Assistant-owned and only belong in Spotify OAuth config
    flows.
 
+Fresh app installs should default the Home Assistant URL input to:
+
+```text
+http://homeassistant.local:8123
+```
+
+Users can replace it with an IP-based local URL when mDNS is unavailable.
+
 The iOS/macOS app is an app client, not ESP hardware, but it does expose a
 small local `/api/device/*` Web API for Home Assistant -> app traffic. It does
 not implement ESP-only reboot or OTA routes.
@@ -238,8 +250,8 @@ X-DJConnect-Device-ID: <device_id>
 {  "device_id": "djconnect-macos-8F3A2C91B45D",
   "device_name": "DJConnect Mac",
   "client_type": "macos",
-  "firmware": "3.1.9",
-  "app_version": "3.1.9",
+  "firmware": "3.1.10",
+  "app_version": "3.1.10",
   "platform": "macos",
   "pair_code": "123456",
   "pairing_code": "123456",
@@ -303,6 +315,16 @@ tokens, Home Assistant long-lived tokens, passwords, or raw request/response
 bodies that may contain secrets. Redacted response summaries are acceptable for
 diagnostics.
 
+Permission UX:
+
+- Microphone and Speech Recognition can be requested from Settings before
+  push-to-talk or foreground wakeword use.
+- Local Network is declared for LAN/Bonjour access, but Apple does not provide
+  a reliable explicit preflight API. The app should not fake a request button;
+  iOS/macOS show the system prompt when local network work first occurs.
+- iPhone permission rows should remain compact enough to scan without excessive
+  vertical whitespace.
+
 Auth headers for app to HA:
 
 ```http
@@ -334,8 +356,8 @@ Minimum payload:
   "device_id": "djconnect-ios-8F3A2C91B45D",
   "client_type": "ios",
   "ha_pairing_status": "paired",
-  "firmware": "3.1.9",
-  "app_version": "3.1.9",
+  "firmware": "3.1.10",
+  "app_version": "3.1.10",
   "state": "online",
   "status": "online",
   "battery_percent": 85,

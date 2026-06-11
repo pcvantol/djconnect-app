@@ -10,6 +10,9 @@ import Darwin
 #if canImport(AVFoundation)
 import AVFoundation
 #endif
+#if os(macOS) && canImport(AppKit)
+import AppKit
+#endif
 #if canImport(Speech)
 import Speech
 #endif
@@ -165,6 +168,10 @@ public final class DJConnectAppModel: ObservableObject {
     private var voiceRecorder: AVAudioRecorder?
     private var voiceRecordingURL: URL?
     private var responseAudioPlayer: AVAudioPlayer?
+    private var responseSpeechSynthesizer: AVSpeechSynthesizer?
+    #endif
+    #if os(macOS) && canImport(AppKit)
+    private var responseMacSpeechSynthesizer: NSSpeechSynthesizer?
     #endif
     #if canImport(Speech) && canImport(AVFoundation)
     private var wakeAudioEngine: AVAudioEngine?
@@ -177,7 +184,8 @@ public final class DJConnectAppModel: ObservableObject {
     private let defaults: UserDefaults
     private let tokenStore: DJConnectTokenStore
     private let startBackgroundTasks: Bool
-    private static let protocolVersion = "3.1.9"
+    private static let protocolVersion = "3.1.10"
+    private static let defaultHomeAssistantURL = "http://homeassistant.local:8123"
     private let appVersion = DJConnectAppModel.protocolVersion
     private let installIDKey = "DJConnectInstallID"
     private let homeAssistantURLKey = "DJConnectHomeAssistantURL"
@@ -255,7 +263,7 @@ public final class DJConnectAppModel: ObservableObject {
             category: "DJConnectApp"
         )
         self.playback = playback
-        self.homeAssistantURL = defaults.string(forKey: homeAssistantURLKey) ?? ""
+        self.homeAssistantURL = defaults.string(forKey: homeAssistantURLKey) ?? Self.defaultHomeAssistantURL
         self.haLocalURL = defaults.string(forKey: haLocalURLKey) ?? ""
         self.assistPipelineID = defaults.string(forKey: assistPipelineIDKey) ?? ""
         self.localDeviceAPIURL = defaults.string(forKey: localDeviceAPIURLKey)
@@ -932,7 +940,9 @@ public final class DJConnectAppModel: ObservableObject {
         }
         if isDemoMode {
             voiceStatus = .processing
-            djResponseText = "Ja ja, daar is hij dan, de knaller van Pearl Jam, Alive!"
+            let demoResponse = "Ja ja, daar is hij dan, de knaller van Pearl Jam, Alive!"
+            djResponseText = demoResponse
+            speakDemoResponse(demoResponse)
             voiceStatus = .idle
             log(.info, "Demo voice request completed")
             return
@@ -1387,6 +1397,45 @@ public final class DJConnectAppModel: ObservableObject {
         #if canImport(AVFoundation)
         responseAudioPlayer?.stop()
         responseAudioPlayer = nil
+        responseSpeechSynthesizer?.stopSpeaking(at: .immediate)
+        responseSpeechSynthesizer = nil
+        #endif
+        #if os(macOS) && canImport(AppKit)
+        responseMacSpeechSynthesizer?.stopSpeaking()
+        responseMacSpeechSynthesizer = nil
+        #endif
+    }
+
+    private func speakDemoResponse(_ text: String) {
+        guard localResponseAudioEnabled else {
+            log(.debug, "Skipping demo DJ response audio because local response audio is disabled")
+            return
+        }
+        #if os(macOS) && canImport(AppKit)
+        responseMacSpeechSynthesizer?.stopSpeaking()
+        let synthesizer = NSSpeechSynthesizer()
+        synthesizer.setVoice(NSSpeechSynthesizer.VoiceName(rawValue: language == "nl" ? "com.apple.voice.compact.nl-NL.Xander" : "com.apple.voice.compact.en-US.Samantha"))
+        responseMacSpeechSynthesizer = synthesizer
+        synthesizer.startSpeaking(text)
+        log(.info, "Playing demo DJ response audio")
+        #elseif canImport(AVFoundation)
+        #if os(iOS)
+        do {
+            try AVAudioSession.sharedInstance().setCategory(.playback, mode: .spokenAudio, options: [.duckOthers])
+            try AVAudioSession.sharedInstance().setActive(true)
+        } catch {
+            log(.warning, "Demo DJ response audio session could not be configured: \(error.localizedDescription)")
+        }
+        #endif
+        let synthesizer = AVSpeechSynthesizer()
+        let utterance = AVSpeechUtterance(string: text)
+        utterance.voice = AVSpeechSynthesisVoice(language: language == "nl" ? "nl-NL" : "en-US")
+        utterance.rate = AVSpeechUtteranceDefaultSpeechRate
+        responseSpeechSynthesizer = synthesizer
+        synthesizer.speak(utterance)
+        log(.info, "Playing demo DJ response audio")
+        #else
+        log(.warning, "Demo DJ response audio is not available on this platform")
         #endif
     }
 
@@ -1861,8 +1910,8 @@ public final class DJConnectAppModel: ObservableObject {
                         deviceID: "djconnect-macos-unavailable",
                         deviceName: "DJConnect",
                         clientType: .macos,
-                        firmware: "3.1.9",
-                        appVersion: "3.1.9",
+                        firmware: "3.1.10",
+                        appVersion: "3.1.10",
                         platform: .macos
                     ),
                     pairingToken: "",
@@ -2339,9 +2388,7 @@ public final class DJConnectAppModel: ObservableObject {
         #if canImport(AVFoundation)
         return await withCheckedContinuation { continuation in
             let resumeOnMainQueue: @Sendable (Bool) -> Void = { granted in
-                DispatchQueue.main.async {
-                    continuation.resume(returning: granted)
-                }
+                continuation.resume(returning: granted)
             }
             #if os(iOS)
             if #available(iOS 17.0, *) {
@@ -2483,9 +2530,7 @@ public final class DJConnectAppModel: ObservableObject {
     private func requestSpeechAccess() async -> Bool {
         await withCheckedContinuation { continuation in
             SFSpeechRecognizer.requestAuthorization { status in
-                DispatchQueue.main.async {
-                    continuation.resume(returning: status == .authorized)
-                }
+                continuation.resume(returning: status == .authorized)
             }
         }
     }

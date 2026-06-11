@@ -26,7 +26,7 @@ private func screenTitle(_ language: String, _ english: String, _ dutch: String,
     guard isDemoMode else {
         return title
     }
-    return "\(title) (\(localized(language, "Demo Mode", "Demo modus")))"
+    return "\(title) (demo)"
 }
 
 private enum DJConnectHaptics {
@@ -211,6 +211,9 @@ public struct DJConnectRootView: View {
                 }
                 #endif
             }
+            #if os(iOS)
+            .background(.clear)
+            #endif
         }
         .sheet(isPresented: $model.isShowingWelcome) {
             WelcomeView(model: model)
@@ -239,6 +242,11 @@ public struct DJConnectRootView: View {
         )) {
             PairingSheetView(model: model)
                 .interactiveDismissDisabled(true)
+        }
+        .onChange(of: model.shouldShowPairingScreen) {
+            if model.shouldShowPairingScreen {
+                selectedSection = .nowPlaying
+            }
         }
         .sheet(isPresented: $model.isShowingWakeWordActivationPrompt) {
             WakeWordActivationPromptView(model: model)
@@ -306,7 +314,7 @@ private struct PairingSheetView: View {
                 Text(localized(
                     model.language,
                     "Use these values in Home Assistant to pair this app.",
-                    "Gebruik onderstaande gegevens voor koppeling met Home Assistant."
+                    "Koppelgegevens voor Home Assistant:"
                 ))
                 .font(.headline)
                 .foregroundStyle(.secondary)
@@ -479,7 +487,7 @@ private struct WakeWordActivationPromptView: View {
                     .font(.system(size: 44, weight: .semibold))
                     .foregroundStyle(.purple)
                 VStack(alignment: .leading, spacing: 6) {
-                    Text(localized(model.language, "Activate Voice Activation?", "Stemactivatie activeren?"))
+                    Text(localized(model.language, "Enable Voice Activation?", "Stemactivatie inschakelen?"))
                         .font(.title2.bold())
                     Text(localized(
                         model.language,
@@ -512,7 +520,7 @@ private struct WakeWordActivationPromptView: View {
                 Button {
                     model.activateWakeWordFromPrompt()
                 } label: {
-                    Label(localized(model.language, "Activate Voice Activation", "Stemactivatie activeren"), systemImage: "waveform")
+                    Label(localized(model.language, "Enable Voice Activation", "Stemactivatie inschakelen"), systemImage: "waveform")
                 }
                 .buttonStyle(.borderedProminent)
             }
@@ -642,7 +650,7 @@ private struct WelcomeView: View {
             Text(.init(localized(
                 model.language,
                 "Please setup in Home Assistant via [djconnect.pages.dev/start](https://djconnect.pages.dev/start)",
-                "Stel DJConnect in Home Assistant in via [djconnect.pages.dev/start](https://djconnect.pages.dev/start)"
+                "Configureer DJConnect in Home Assistant"
             )))
                 .font(.headline)
                 .foregroundStyle(.primary)
@@ -1775,6 +1783,7 @@ struct QueueView: View {
             }
             .navigationTitle(screenTitle(model.language, "Queue", "Wachtrij", isDemoMode: model.isDemoMode))
             .scrollContentBackgroundIfAvailable(.hidden)
+            .background(DJConnectCanvasBackground())
             .overlay(alignment: .top) {
                 if let statusToast {
                     StatusToast(text: statusToast)
@@ -1879,6 +1888,7 @@ struct PlaylistsView: View {
             }
             .navigationTitle(screenTitle(model.language, "Playlists", "Afspeellijsten", isDemoMode: model.isDemoMode))
             .scrollContentBackgroundIfAvailable(.hidden)
+            .background(DJConnectCanvasBackground())
             .overlay(alignment: .top) {
                 if let statusToast {
                     StatusToast(text: statusToast)
@@ -2007,12 +2017,13 @@ private struct GamesView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
-                    Picker(localized(language, "Game", "Game"), selection: $selectedGame) {
+                    Picker("", selection: $selectedGame) {
                         ForEach(LocalGameMode.allCases) { game in
                             Text(game.title).tag(game)
                         }
                     }
                     .pickerStyle(.segmented)
+                    .labelsHidden()
                     .frame(maxWidth: 540)
 
                     LocalGameSurface(game: selectedGame, language: language)
@@ -2021,6 +2032,7 @@ private struct GamesView: View {
                 .frame(maxWidth: 760)
                 .frame(maxWidth: .infinity)
             }
+            .background(DJConnectCanvasBackground())
             .navigationTitle(screenTitle(language, "Games", "Games", isDemoMode: isDemoMode))
         }
     }
@@ -2050,6 +2062,7 @@ private struct LocalGameSurface: View {
     @State private var flyShotX: CGFloat = 58
     @State private var flyShotActive = false
     @State private var flashUntil = Date.distantPast
+    @FocusState private var isGameFocused: Bool
     private let tick = Timer.publish(every: 1.0 / 30.0, on: .main, in: .common).autoconnect()
 
     private var highScore: Int {
@@ -2153,9 +2166,27 @@ private struct LocalGameSurface: View {
         }
         .padding(18)
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 8))
-        .liquidGlassIfAvailable()
+        .focusable(true)
+        .focused($isGameFocused)
+        .onKeyPress(.upArrow) {
+            handleArrowKey(.up)
+        }
+        .onKeyPress(.downArrow) {
+            handleArrowKey(.down)
+        }
+        .onKeyPress(.leftArrow) {
+            handleArrowKey(.left)
+        }
+        .onKeyPress(.rightArrow) {
+            handleArrowKey(.right)
+        }
+        .onKeyPress(.space) {
+            fire()
+            return .handled
+        }
         .onAppear {
             reset()
+            isGameFocused = true
         }
     }
 
@@ -2249,6 +2280,25 @@ private struct LocalGameSurface: View {
         case .fly:
             planeY = min(max(planeY + direction * 12, 52), 138)
         }
+    }
+
+    private enum ArrowKey {
+        case up
+        case down
+        case left
+        case right
+    }
+
+    private func handleArrowKey(_ key: ArrowKey) -> KeyPress.Result {
+        switch (game, key) {
+        case (.pong, .up), (.fly, .up), (.asteroids, .left):
+            move(-1)
+        case (.pong, .down), (.fly, .down), (.asteroids, .right):
+            move(1)
+        default:
+            break
+        }
+        return .handled
     }
 
     private func handleDrag(_ location: CGPoint) {
@@ -2458,8 +2508,8 @@ struct SettingsView: View {
                     if model.isDemoMode {
                         LabeledContent(localized(model.language, "Demo Mode", "Demo modus")) {
                             Button(localized(model.language, "Stop Demo Mode", "Demo modus stoppen"), role: .destructive) {
-                                model.stopDemoMode()
                                 returnToNowPlaying()
+                                model.stopDemoMode()
                             }
                         }
                     }
@@ -2475,11 +2525,11 @@ struct SettingsView: View {
                     }
                     LabeledContent(localized(model.language, "Wakeword", "Stemactivatie")) {
                         if model.wakeWordEnabled {
-                            Button(localized(model.language, "Stop Voice Activation", "Stemactivatie stoppen"), role: .destructive) {
+                            Button(localized(model.language, "Disable Voice Activation", "Stemactivatie uitschakelen")) {
                                 model.wakeWordEnabled = false
                             }
                         } else {
-                            Button(localized(model.language, "Activate Voice Activation", "Stemactivatie activeren")) {
+                            Button(localized(model.language, "Enable Voice Activation", "Stemactivatie inschakelen")) {
                                 model.wakeWordEnabled = true
                             }
                         }
@@ -2510,16 +2560,6 @@ struct SettingsView: View {
                             "Nodig voor de foreground wake-zin."
                         ),
                         status: model.speechPermissionStatus,
-                        language: model.language
-                    )
-                    PermissionStatusRow(
-                        title: localized(model.language, "Local Network", "Lokaal netwerk"),
-                        detail: localized(
-                            model.language,
-                            "Needed to reach Home Assistant and expose the Client API url.",
-                            "Nodig om Home Assistant te bereiken en de Client API url aan te bieden."
-                        ),
-                        status: model.localNetworkPermissionStatus,
                         language: model.language
                     )
                     Button {
@@ -2587,6 +2627,7 @@ struct SettingsView: View {
             .listStyle(.inset)
             #endif
             .scrollContentBackgroundIfAvailable(.hidden)
+            .background(DJConnectCanvasBackground())
             .navigationTitle(screenTitle(model.language, "Settings", "Instellingen", isDemoMode: model.isDemoMode))
             .task {
                 model.startPairingWait()
@@ -2709,7 +2750,7 @@ private struct AboutView: View {
             .padding(.vertical, 28)
         }
         .navigationTitle(localized(model.language, "About", "Over"))
-        .background(.clear)
+        .background(DJConnectCanvasBackground())
         .sheet(isPresented: $showingLegalNotices) {
             LegalNoticesView(language: model.language)
         }
@@ -2918,18 +2959,22 @@ private struct PermissionStatusRow: View {
     let language: String
 
     var body: some View {
-        LabeledContent {
-            VStack(alignment: .trailing, spacing: 2) {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(alignment: .firstTextBaseline, spacing: 12) {
+                Text(title)
+                    .foregroundStyle(.primary)
+                Spacer(minLength: 12)
                 Label(permissionStatusText(status, language: language), systemImage: permissionStatusIcon(status))
                     .foregroundStyle(permissionStatusColor(status))
-                Text(detail)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.trailing)
+                    .labelStyle(.titleAndIcon)
+                    .lineLimit(1)
             }
-        } label: {
-            Text(title)
+            Text(detail)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
         }
+        .padding(.vertical, 4)
     }
 }
 

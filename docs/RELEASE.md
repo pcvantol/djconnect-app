@@ -110,6 +110,12 @@ xcodebuild -project DJConnectApp.xcodeproj -scheme DJConnectIOS -configuration D
 - Build and run on a physical iPad.
 - Validate first-run welcome, pairing sheet, Demo Mode, Settings, About, Queue,
   Playlists, Now Playing, Push-to-Talk, permissions, and logs.
+- Validate the DJConnect blue/purple gradient canvas is visible behind every
+  primary iPhone/iPad screen and that permission rows stay compact.
+- Validate Demo Mode microphone playback shows and speaks the local sample DJ
+  announcement.
+- Validate Games arrow keys/space control the focused game and do not switch
+  tabs/pages when a hardware keyboard is connected.
 - Validate Local Network permission against a real Home Assistant instance.
 - Pair with a matching `pcvantol/djconnect` HA integration.
 - Validate playback commands, output switching, queue, playlists, liked songs,
@@ -213,8 +219,9 @@ The app declares only the permissions it needs:
 Settings includes a Permissions section where users can request Microphone and
 Speech Recognition before using voice or wakeword flows. Local Network does not
 have a reliable Apple preflight status API, so the app documents why it is
-needed and still relies on the system prompt when local network access is first
-used.
+needed in release documentation and still relies on the system prompt when
+local network access is first used. Do not ship a fake Local Network request
+button.
 
 ## Crash Diagnostics
 
@@ -272,7 +279,7 @@ explicitly hardened.
 
 ## Current Local Verification
 
-For release `3.1.9`, local verification was completed with:
+For release `3.1.10`, local verification was completed with:
 
 ```sh
 swift test --no-parallel
@@ -297,7 +304,7 @@ The local helper script packages and uploads public macOS releases:
 PUBLIC_REPO=pcvantol/djconnect-app-releases \
 DEVELOPMENT_TEAM=<APPLE_TEAM_ID> \
 NOTARY_PROFILE=<notarytool-keychain-profile> \
-./Tools/release/release_macos_public.sh --version 3.1.9
+./Tools/release/release_macos_public.sh --version 3.1.10
 ```
 
 Create the notary profile once with:

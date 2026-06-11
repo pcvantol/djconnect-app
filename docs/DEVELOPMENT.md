@@ -74,7 +74,8 @@ Store review/auditing when a real Home Assistant backend is unavailable. Demo
 Mode does not validate HA entities, pairing callbacks, Spotify OAuth, or voice
 round trips. Demo Mode is session-only; restarting an unpaired app returns to
 the pairing sheet. Stopping Demo Mode from Settings returns to Now Playing with
-the pairing sheet on top.
+the pairing sheet on top. Pressing the microphone in Demo Mode plays and shows
+a local sample DJ announcement for UI review.
 
 Reset Pairing clears the DJConnect Keychain token, generates a new app code,
 and creates a fresh local `device_id` for a new DJConnect app client setup.
@@ -89,6 +90,28 @@ Assistant API calls, and local Client API calls. API log lines include HTTP
 status codes. Do not add logs that include bearer tokens, pairing codes,
 Authorization headers, Spotify/Home Assistant credentials, passwords, or raw
 secret-bearing request/response bodies.
+
+## Permissions During Development
+
+Settings can preflight Microphone and Speech Recognition. Local Network is not
+preflighted because Apple does not expose a reliable explicit request/status API
+for that permission. Validate Local Network on a real iPhone/iPad or Mac by
+pairing against Home Assistant and confirming the system prompt appears during
+actual LAN/Bonjour access.
+
+If permission prompts behave differently under an Xcode beta, first confirm the
+callbacks update SwiftUI state on the main actor and then retest on a physical
+device outside the debugger.
+
+## Visual QA
+
+The shared UI should use the DJConnect blue/purple gradient canvas behind Now
+Playing, Queue, Playlists, Games, Settings, Logs, and About on iOS, iPadOS, and
+macOS. Table/list rows may keep native material backgrounds, but the surrounding
+screen should not be plain black.
+
+Games should consume arrow keys and space while the game surface is focused.
+Verify this on macOS and on iPad/iPhone with a hardware keyboard.
 
 ## Test
 

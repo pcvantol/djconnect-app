@@ -50,11 +50,19 @@ For App Store review and local UI inspection, the pairing sheet also exposes
 Demo Mode. Demo Mode fills Now Playing, queue, playlists, output devices, and
 DJ announcement UI with local sample data without contacting Home Assistant.
 It is session-only, resets on app restart, and is not a replacement for live
-backend validation.
+backend validation. Pressing the microphone in Demo Mode shows and speaks a
+local sample DJ announcement so App Store review can inspect the voice response
+experience without a Home Assistant backend.
 
 The app also includes local Games with Pong, Asteroids, and Fly, mirroring the
 ESP client bonus games. Games are local-only, store highscores in app-local
-preferences, and do not call Home Assistant or create HA entities.
+preferences, and do not call Home Assistant or create HA entities. When a game
+surface has keyboard focus, arrow keys and space are consumed by the game and
+must not trigger app navigation.
+
+Fresh installs default the Home Assistant URL field to
+`http://homeassistant.local:8123`. Users can replace it with an IP-based local
+URL when multicast DNS is unavailable.
 
 ## Package Shape
 
@@ -87,7 +95,9 @@ Tests/
 
 `DJConnectUI` contains the shared native SwiftUI screens used by both Apple app
 targets. `Apps/DJConnectIOS` and `Apps/DJConnectMac` contain the platform app
-entrypoints.
+entrypoints. The shared UI uses the same DJConnect blue/purple gradient canvas
+on iOS, iPadOS, and macOS, while platform surfaces keep native table/list
+behavior where that is the expected Apple idiom.
 
 ## Xcode
 

@@ -18,8 +18,8 @@ install identity.
   "device_id": "djconnect-ios-8F3A2C91B45D",
   "device_name": "DJConnect iPhone",
   "client_type": "ios",
-  "firmware": "3.1.9",
-  "app_version": "3.1.9",
+  "firmware": "3.1.10",
+  "app_version": "3.1.10",
   "platform": "ios"
 }
 ```
@@ -65,8 +65,8 @@ Payload:
   "device_id": "djconnect-macos-8F3A2C91B45D",
   "device_name": "DJConnect Mac",
   "client_type": "macos",
-  "firmware": "3.1.9",
-  "app_version": "3.1.9",
+  "firmware": "3.1.10",
+  "app_version": "3.1.10",
   "platform": "macos",
   "pair_code": "123456",
   "pairing_code": "123456",
@@ -178,7 +178,9 @@ The Apple app does not implement ESP-only `/api/device/reboot` or
 
 Demo Mode is not part of the Home Assistant API contract. It is local sample
 state for App Store review and UI inspection, and must not create HA devices,
-entities, tokens, or backend traffic.
+entities, tokens, or backend traffic. Demo Mode may show and play a local sample
+DJ announcement, but that audio/text is not a backend response and must not be
+treated as successful HA voice validation.
 
 ## Status
 
@@ -194,8 +196,8 @@ Minimum payload:
   "device_name": "DJConnect iPhone",
   "client_type": "ios",
   "ha_pairing_status": "paired",
-  "firmware": "3.1.9",
-  "app_version": "3.1.9",
+  "firmware": "3.1.10",
+  "app_version": "3.1.10",
   "state": "online",
   "status": "online",
   "battery_percent": 85,
@@ -306,6 +308,10 @@ Home Assistant pairs by calling the URL shown by the app, then continues to use
 that same endpoint for app callbacks and status/control flows. The app may
 restart the local listener when pairing is reset or the install identity changes,
 but not as a side effect of accepting `/api/device/pair`.
+
+Fresh installs should present `http://homeassistant.local:8123` as the default
+Home Assistant URL. This is only a UI default; runtime app-to-HA requests must
+still use the paired `ha_local_url` returned by Home Assistant after pairing.
 
 ## Voice
 

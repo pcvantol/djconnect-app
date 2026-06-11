@@ -95,11 +95,11 @@ Reasoning:
 - lets macOS use native `Settings` scenes while iOS uses tab navigation;
 - leaves room for platform-specific UX without forking the full UI.
 
-## ADR-007: Current App/Protocol Version Is `3.1.9`
+## ADR-007: Current App/Protocol Version Is `3.1.10`
 
 Status: accepted
 
-The app uses version `3.1.9` for app/protocol examples and Xcode marketing
+The app uses version `3.1.10` for app/protocol examples and Xcode marketing
 version in this release.
 
 Reasoning:
@@ -212,3 +212,37 @@ Reasoning:
 - no HA devices/entities are created;
 - live HA validation remains mandatory for pairing, entities, Spotify OAuth,
   and voice round trips.
+
+## ADR-014: Shared Visual Canvas, Native Controls
+
+Status: accepted
+
+The app uses a shared DJConnect blue/purple gradient canvas across iOS, iPadOS,
+and macOS, but keeps native list/table rows, pickers, sheets, and platform
+permission prompts where Apple users expect them.
+
+Reasoning:
+
+- visual identity should be consistent across the Apple clients;
+- iPhone/iPad screens should not fall back to plain black backgrounds when
+  moving between Now Playing, Queue, Playlists, Games, Settings, Logs, and
+  About;
+- native controls keep accessibility, keyboard focus, pointer, and Dynamic Type
+  behavior predictable;
+- compact permission rows avoid the oversized iPhone layout that happens when
+  status/detail labels are laid out as tall table content.
+
+## ADR-015: Games Own Keyboard Input While Focused
+
+Status: accepted
+
+When the Games surface has focus, arrow keys and space are consumed by the game
+instead of being allowed to move around sidebars, tabs, segmented controls, or
+other page navigation.
+
+Reasoning:
+
+- keyboard controls are expected for Pong, Asteroids, and Fly on macOS and
+  hardware-keyboard iPad setups;
+- local games are self-contained and should not accidentally change app pages;
+- the app still preserves normal navigation when focus leaves the game surface.

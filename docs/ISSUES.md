@@ -126,8 +126,23 @@ Acceptance:
 
 - UI tests cover first-run welcome, settings URL entry, app-generated pairing
   code, Client API url copy, Demo Mode entry/exit, successful pairing, version
-  mismatch, stale auth, and the local Games menu.
+  mismatch, stale auth, compact permission rows, Demo Mode microphone response,
+  and the local Games menu.
 - Tests can run deterministically without a production Home Assistant instance.
+
+### ISS-014: Add Hardware Keyboard UI Coverage For Games
+
+Priority: medium
+
+Games now consume arrow keys and space while the game surface has focus. Add
+coverage where XCTest/automation can reliably send hardware-keyboard events on
+macOS or iPad simulator.
+
+Acceptance:
+
+- Arrow keys move/control the focused game.
+- Space triggers the game action where supported.
+- Keyboard input does not switch app tabs/pages while the game has focus.
 
 ## Security Hardening
 
@@ -188,6 +203,10 @@ Home Assistant integration.
 Acceptance:
 
 - Local Network, Microphone, and Speech Recognition prompts are verified.
+- Permission rows remain compact and readable on iPhone with normal and larger
+  Dynamic Type settings.
+- The shared DJConnect gradient canvas is visible behind every primary iOS/
+  iPadOS screen.
 - Queue/playlists/output/liked/voice flows are verified against real HA.
 - HA entity creation and status sync are verified for all app client types.
 

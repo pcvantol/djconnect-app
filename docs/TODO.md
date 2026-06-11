@@ -34,6 +34,8 @@ items with acceptance criteria live in [ISSUES.md](ISSUES.md).
 - Tune app icon presentation before release if App Store review or platform
   guidelines require changes.
 - Tune iPhone and iPad layouts with real device/simulator screenshots.
+- Re-check that every primary iPhone/iPad screen uses the DJConnect gradient
+  canvas and that compact permission rows stay readable with Dynamic Type.
 - Decide whether lock screen/live activity support belongs in the first release.
 - Decide whether Shortcuts integration should map to DJConnect commands.
 
@@ -47,6 +49,8 @@ items with acceptance criteria live in [ISSUES.md](ISSUES.md).
 
 - Extend the initial `DJConnectIOSUITests` target with a real or recorded Home
   Assistant pairing and network flow fixture.
+- Add UI tests for compact permission rows, Demo Mode microphone response, and
+  hardware-keyboard game input where XCTest can cover those surfaces reliably.
 - Add URLProtocol-backed async tests for network error and malformed response
   handling.
 - Add focused app-model tests for permission status mapping once platform
@@ -64,7 +68,6 @@ items with acceptance criteria live in [ISSUES.md](ISSUES.md).
 
 - Configure Apple developer team and signing.
 - Add privacy manifests if required by release tooling.
-- Decide on CI provider and add build/test workflow.
 - Configure TestFlight and notarized macOS release packaging.
 - Keep release notes aligned with the latest GitHub release and only add new
   work to an `Unreleased` changelog section after tags are published.

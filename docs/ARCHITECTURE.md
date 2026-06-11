@@ -17,6 +17,7 @@ Home Assistant owns:
 The Apple app owns:
 
 - native iOS/macOS UI;
+- the shared DJConnect blue/purple gradient canvas on iOS, iPadOS, and macOS;
 - local app state;
 - local bonus games with app-local highscores;
 - local Keychain storage for only the DJConnect bearer token;
@@ -85,6 +86,11 @@ restart, explicit pairing reset, or when the user stops Demo Mode from
 Settings. Stopping Demo Mode and resetting pairing both return the UI to Now
 Playing with the blocking pairing sheet on top.
 
+Fresh installs seed the Home Assistant URL field with
+`http://homeassistant.local:8123`. Once pairing succeeds, runtime traffic uses
+the `ha_local_url` returned by Home Assistant instead of this editable setup
+default.
+
 ## Local Client API
 
 The app hosts a small local HTTP API for Home Assistant -> app traffic while
@@ -112,8 +118,10 @@ bodies that may contain secrets.
 The Games menu is intentionally outside the Home Assistant protocol. Pong,
 Asteroids, and Fly run fully inside SwiftUI, store highscores in app-local
 preferences, and do not use `DJConnectCore`, bearer tokens, Client API routes,
-or HA command/status endpoints. This keeps the Apple app aligned with the ESP
-bonus games while preserving the integration trust boundary.
+or HA command/status endpoints. When focused, the game surface consumes arrow
+keys and space so keyboard input controls the game instead of app navigation.
+This keeps the Apple app aligned with the ESP bonus games while preserving the
+integration trust boundary.
 
 ## Project Generation
 

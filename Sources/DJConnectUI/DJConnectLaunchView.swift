@@ -53,6 +53,10 @@ private struct DJConnectLaunchView: View {
                         .multilineTextAlignment(.center)
                         .minimumScaleFactor(0.72)
                         .padding(.horizontal, 40)
+                    ProgressView()
+                        .controlSize(.regular)
+                        .tint(.white.opacity(0.86))
+                        .accessibilityLabel("Loading")
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .offset(y: -shortestSide * 0.04)
