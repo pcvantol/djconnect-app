@@ -6,6 +6,17 @@ All notable changes to DJConnect App are documented here.
 
 No unreleased changes yet.
 
+## 3.1.12 - 2026-06-11
+
+### Fixed
+
+- Avoided the unstable macOS speech-recognition permission prompt that could
+  crash when requesting permissions from Settings. The app now logs the current
+  speech permission status and keeps stemactivatie unavailable until macOS has
+  granted access.
+- Kept release metadata, handoff, API examples, and sync prompts aligned with
+  app/protocol version `3.1.12`.
+
 ## 3.1.11 - 2026-06-11
 
 ### Fixed

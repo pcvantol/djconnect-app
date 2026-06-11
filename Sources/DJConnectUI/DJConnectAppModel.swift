@@ -184,7 +184,7 @@ public final class DJConnectAppModel: ObservableObject {
     private let defaults: UserDefaults
     private let tokenStore: DJConnectTokenStore
     private let startBackgroundTasks: Bool
-    private static let protocolVersion = "3.1.11"
+    private static let protocolVersion = "3.1.12"
     private static let defaultHomeAssistantURL = "http://homeassistant.local:8123"
     private let appVersion = DJConnectAppModel.protocolVersion
     private let installIDKey = "DJConnectInstallID"
@@ -1910,8 +1910,8 @@ public final class DJConnectAppModel: ObservableObject {
                         deviceID: "djconnect-macos-unavailable",
                         deviceName: "DJConnect",
                         clientType: .macos,
-                        firmware: "3.1.11",
-                        appVersion: "3.1.11",
+                        firmware: "3.1.12",
+                        appVersion: "3.1.12",
                         platform: .macos
                     ),
                     pairingToken: "",
@@ -2545,6 +2545,14 @@ public final class DJConnectAppModel: ObservableObject {
 
     #if canImport(Speech) && canImport(AVFoundation)
     private func requestSpeechAccess() async -> Bool {
+        #if os(macOS)
+        let status = SFSpeechRecognizer.authorizationStatus()
+        log(.debug, "Skipping macOS speech permission prompt because SFSpeechRecognizer.requestAuthorization is unstable here; current_status=\(status.rawValue)")
+        if status != .authorized {
+            log(.warning, "Speech recognition permission is not granted; enable it in macOS System Settings for stemactivatie")
+        }
+        return status == .authorized
+        #else
         await withCheckedContinuation { continuation in
             log(.debug, "Requesting speech recognition permission")
             SFSpeechRecognizer.requestAuthorization { status in
@@ -2554,6 +2562,7 @@ public final class DJConnectAppModel: ObservableObject {
                 }
             }
         }
+        #endif
     }
 
     private func beginWakeWordListening() {
