@@ -135,6 +135,7 @@ public final class DJConnectAppModel: ObservableObject {
     @Published public private(set) var localNetworkPermissionStatus: DJConnectPermissionStatus = .unknown
     @Published public private(set) var isRequestingPermissions = false
     @Published public var isShowingWelcome = false
+    @Published public var isShowingCrashReportPrompt = false
     @Published public private(set) var localDeviceAPIURL: String?
     @Published public private(set) var diagnosticLogLines: [DJConnectDiagnosticLogLine] = []
 
@@ -164,7 +165,7 @@ public final class DJConnectAppModel: ObservableObject {
     #endif
     private let defaults: UserDefaults
     private let tokenStore: DJConnectTokenStore
-    private static let protocolVersion = "3.1.5"
+    private static let protocolVersion = "3.1.6"
     private let appVersion = DJConnectAppModel.protocolVersion
     private let installIDKey = "DJConnectInstallID"
     private let homeAssistantURLKey = "DJConnectHomeAssistantURL"
@@ -176,6 +177,8 @@ public final class DJConnectAppModel: ObservableObject {
     private let logLevelKey = "DJConnectLogLevel"
     private let wakeWordPhraseKey = "DJConnectWakeWordPhrase"
     private let welcomeSeenKey = "DJConnectWelcomeSeen"
+    private let cleanShutdownKey = "DJConnectCleanShutdown"
+    private let crashPromptPendingKey = "DJConnectCrashPromptPending"
     private let maxDiagnosticLogLines = 120
 
     public var volume: Double {
@@ -233,6 +236,11 @@ public final class DJConnectAppModel: ObservableObject {
         self.wakeWordEnabled = false
         self.wakeWordPhrase = defaults.string(forKey: wakeWordPhraseKey) ?? "Hey DJ"
         self.isShowingWelcome = !defaults.bool(forKey: welcomeSeenKey)
+        let previousLaunchMayHaveCrashed = defaults.object(forKey: cleanShutdownKey) != nil
+            && defaults.bool(forKey: cleanShutdownKey) == false
+        self.isShowingCrashReportPrompt = previousLaunchMayHaveCrashed || defaults.bool(forKey: crashPromptPendingKey)
+        defaults.set(false, forKey: cleanShutdownKey)
+        defaults.set(isShowingCrashReportPrompt, forKey: crashPromptPendingKey)
         defaults.set(pairingToken, forKey: pairingTokenKey)
         if let existingToken = try? resolvedTokenStore.loadToken(), !existingToken.isEmpty {
             pairingStatus = .paired
@@ -249,6 +257,44 @@ public final class DJConnectAppModel: ObservableObject {
     public func dismissWelcome() {
         defaults.set(true, forKey: welcomeSeenKey)
         isShowingWelcome = false
+    }
+
+    public func markCleanShutdown() {
+        defaults.set(true, forKey: cleanShutdownKey)
+    }
+
+    public func markActiveSession() {
+        defaults.set(false, forKey: cleanShutdownKey)
+    }
+
+    public func dismissCrashReportPrompt() {
+        defaults.set(false, forKey: crashPromptPendingKey)
+        defaults.set(true, forKey: cleanShutdownKey)
+        isShowingCrashReportPrompt = false
+    }
+
+    public func crashIssueURL() -> URL? {
+        var components = URLComponents(string: "https://github.com/pcvantol/djconnect/issues/new")
+        components?.queryItems = [
+            URLQueryItem(name: "title", value: "DJConnect app crash report"),
+            URLQueryItem(name: "body", value: crashIssueBody())
+        ]
+        return components?.url
+    }
+
+    public func crashIssueBody() -> String {
+        """
+        ## DJConnect app crash report
+
+        The app detected that the previous session may not have closed cleanly.
+
+        Please describe what you were doing before the crash:
+
+
+        ```text
+        \(diagnosticExportText())
+        ```
+        """
     }
 
     deinit {
@@ -1409,8 +1455,8 @@ public final class DJConnectAppModel: ObservableObject {
                         deviceID: "djconnect-macos-unavailable",
                         deviceName: "DJConnect",
                         clientType: .macos,
-                        firmware: "3.1.5",
-                        appVersion: "3.1.5",
+                        firmware: "3.1.6",
+                        appVersion: "3.1.6",
                         platform: .macos
                     ),
                     pairingToken: "",

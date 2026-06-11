@@ -2,13 +2,16 @@
 
 All notable changes to DJConnect App are documented here.
 
-## 3.1.5 - 2026-06-11
+## 3.1.6 - 2026-06-11
 
 ### Changed
 
-- Set app/protocol version to `3.1.5`.
+- Set app/protocol version to `3.1.6`.
 - Added a one-time first-install welcome screen with a DJConnect hero and setup
   link to `pcvantol/djconnect` for Home Assistant setup.
+- Added a next-launch crash report prompt for suspected unclean exits, with
+  redacted diagnostics copy and a prefilled GitHub issue link. The app never
+  uploads logs automatically.
 - Added app-side Home Assistant integration version gating: app `3.1.x`
   accepts HA `3.1.x` only (`>=3.1.0`, `<3.2.0`), shows a clear HA integration
   update message otherwise, and disables playback, output, queue, playlist,

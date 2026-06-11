@@ -33,6 +33,7 @@ private extension View {
 
 public struct DJConnectRootView: View {
     @ObservedObject private var model: DJConnectAppModel
+    @Environment(\.scenePhase) private var scenePhase
 
     public init(model: DJConnectAppModel) {
         self.model = model
@@ -101,6 +102,81 @@ public struct DJConnectRootView: View {
         .sheet(isPresented: $model.isShowingWelcome) {
             WelcomeView(model: model)
         }
+        .sheet(isPresented: $model.isShowingCrashReportPrompt) {
+            CrashReportPromptView(model: model)
+        }
+        .onChange(of: scenePhase) {
+            switch scenePhase {
+            case .active:
+                model.markActiveSession()
+            case .inactive, .background:
+                model.markCleanShutdown()
+            @unknown default:
+                break
+            }
+        }
+    }
+}
+
+private struct CrashReportPromptView: View {
+    @ObservedObject var model: DJConnectAppModel
+    @Environment(\.openURL) private var openURL
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            HStack(spacing: 14) {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .font(.title)
+                    .foregroundStyle(.orange)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(localized(model.language, "The app may have crashed", "De app is mogelijk gecrasht"))
+                        .font(.title2.bold())
+                    Text(localized(
+                        model.language,
+                        "You can share redacted diagnostics by opening a GitHub issue. Nothing is uploaded automatically.",
+                        "Je kunt geredigeerde diagnostiek delen via een GitHub issue. Er wordt niets automatisch geüpload."
+                    ))
+                    .foregroundStyle(.secondary)
+                }
+            }
+
+            Text(localized(
+                model.language,
+                "GitHub issue target: pcvantol/djconnect",
+                "GitHub issue doel: pcvantol/djconnect"
+            ))
+            .font(.callout)
+            .foregroundStyle(.secondary)
+
+            HStack {
+                Button {
+                    copyText(model.crashIssueBody())
+                } label: {
+                    Label(localized(model.language, "Copy Logs", "Logs kopiëren"), systemImage: "doc.on.doc")
+                }
+
+                Spacer()
+
+                Button(localized(model.language, "Not Now", "Niet nu")) {
+                    model.dismissCrashReportPrompt()
+                }
+
+                Button {
+                    if let url = model.crashIssueURL() {
+                        openURL(url)
+                    }
+                    model.dismissCrashReportPrompt()
+                } label: {
+                    Label(localized(model.language, "Open GitHub Issue", "Open GitHub issue"), systemImage: "arrow.up.forward.app")
+                }
+                .buttonStyle(.borderedProminent)
+            }
+        }
+        .padding(24)
+        .frame(minWidth: 380, idealWidth: 560, maxWidth: 640)
+        #if os(macOS)
+        .frame(minHeight: 280)
+        #endif
     }
 }
 

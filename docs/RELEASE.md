@@ -33,6 +33,13 @@ have a reliable Apple preflight status API, so the app documents why it is
 needed and still relies on the system prompt when local network access is first
 used.
 
+## Crash Diagnostics
+
+The app does not upload crash logs automatically and does not embed GitHub
+credentials. If the previous session appears to have ended uncleanly, the next
+launch shows a crash report prompt. The user can copy redacted diagnostics or
+open a prefilled GitHub issue in `pcvantol/djconnect` and submit it manually.
+
 ## iOS Signing Steps
 
 1. Set `DEVELOPMENT_TEAM` for local release builds. Prefer an ignored local

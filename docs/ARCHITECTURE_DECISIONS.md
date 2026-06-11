@@ -95,11 +95,11 @@ Reasoning:
 - lets macOS use native `Settings` scenes while iOS uses tab navigation;
 - leaves room for platform-specific UX without forking the full UI.
 
-## ADR-007: Current App/Protocol Version Is `3.1.5`
+## ADR-007: Current App/Protocol Version Is `3.1.6`
 
 Status: accepted
 
-The app uses version `3.1.5` for app/protocol examples and Xcode marketing
+The app uses version `3.1.6` for app/protocol examples and Xcode marketing
 version in this release.
 
 Reasoning:
@@ -146,3 +146,19 @@ Reasoning:
 - the local API belongs in `DJConnectUI` because it coordinates app state,
   pairing lifecycle, and platform networking rather than reusable HTTP request
   serialization.
+
+## ADR-010: User-Mediated Crash Reporting
+
+Status: accepted
+
+The app detects a likely previous unclean exit with a local clean-shutdown
+marker and shows a next-launch crash report prompt. It does not automatically
+upload logs to GitHub Issues.
+
+Reasoning:
+
+- GitHub issue creation from the app would require a token or backend service;
+- diagnostics may include local URLs or device metadata, so user review is
+  required;
+- a prefilled issue URL and copyable redacted diagnostics provide a useful
+  support path without adding third-party crash reporting or secret handling.

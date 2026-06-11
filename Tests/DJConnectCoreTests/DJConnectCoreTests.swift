@@ -129,8 +129,8 @@ private func waitForLocalDeviceAPIURL(_ model: DJConnectAppModel) async throws -
         deviceID: "djconnect-ios-8F3A2C91B45D",
         deviceName: "DJConnect iPhone",
         clientType: .ios,
-        firmware: "3.1.5",
-        appVersion: "3.1.5",
+        firmware: "3.1.6",
+        appVersion: "3.1.6",
         platform: .ios
     )
     let client = DJConnectClient(
@@ -162,8 +162,8 @@ private func waitForLocalDeviceAPIURL(_ model: DJConnectAppModel) async throws -
     #expect(json?["device_id"] as? String == identity.deviceID)
     #expect(json?["device_name"] as? String == identity.deviceName)
     #expect(json?["client_type"] as? String == "ios")
-    #expect(json?["firmware"] as? String == "3.1.5")
-    #expect(json?["app_version"] as? String == "3.1.5")
+    #expect(json?["firmware"] as? String == "3.1.6")
+    #expect(json?["app_version"] as? String == "3.1.6")
     #expect(json?["ha_local_url"] as? String == "http://192.168.1.10:8123")
     #expect(json?["ha_remote_url"] == nil)
     #expect(json?["ha_active_url"] == nil)
@@ -175,8 +175,8 @@ private func waitForLocalDeviceAPIURL(_ model: DJConnectAppModel) async throws -
         deviceID: "djconnect-macos-8F3A2C91B45D",
         deviceName: "DJConnect Mac",
         clientType: .macos,
-        firmware: "3.1.5",
-        appVersion: "3.1.5",
+        firmware: "3.1.6",
+        appVersion: "3.1.6",
         platform: .macos
     )
     let client = DJConnectClient(
@@ -214,8 +214,8 @@ private func waitForLocalDeviceAPIURL(_ model: DJConnectAppModel) async throws -
         deviceID: "djconnect-ios-8F3A2C91B45D",
         deviceName: "DJConnect iPhone",
         clientType: .ios,
-        firmware: "3.1.5",
-        appVersion: "3.1.5",
+        firmware: "3.1.6",
+        appVersion: "3.1.6",
         platform: .ios
     )
     let client = DJConnectClient(
@@ -248,8 +248,8 @@ private func waitForLocalDeviceAPIURL(_ model: DJConnectAppModel) async throws -
         deviceID: "djconnect-ios-8F3A2C91B45D",
         deviceName: "DJConnect iPhone",
         clientType: .ios,
-        firmware: "3.1.5",
-        appVersion: "3.1.5",
+        firmware: "3.1.6",
+        appVersion: "3.1.6",
         platform: .ios
     )
     let client = DJConnectClient(
@@ -428,8 +428,8 @@ private func waitForLocalDeviceAPIURL(_ model: DJConnectAppModel) async throws -
         deviceID: "djconnect-macos-8F3A2C91B45D",
         deviceName: "DJConnect Mac",
         clientType: .macos,
-        firmware: "3.1.5",
-        appVersion: "3.1.5",
+        firmware: "3.1.6",
+        appVersion: "3.1.6",
         platform: .macos
     )
     let client = DJConnectClient(
@@ -457,7 +457,7 @@ private func waitForLocalDeviceAPIURL(_ model: DJConnectAppModel) async throws -
     #expect(json?["pair_code"] as? String == "123456")
     #expect(json?["pairing_code"] as? String == "123456")
     #expect(json?["pairing_token"] as? String == "123456")
-    #expect(json?["firmware"] as? String == "3.1.5")
+    #expect(json?["firmware"] as? String == "3.1.6")
 }
 
 @Test func pairingResponseAcceptsCommonTokenFieldNames() throws {
@@ -581,8 +581,8 @@ private func waitForLocalDeviceAPIURL(_ model: DJConnectAppModel) async throws -
         deviceID: "djconnect-ios-8F3A2C91B45D",
         deviceName: "DJConnect iPhone",
         clientType: .ios,
-        firmware: "3.1.5",
-        appVersion: "3.1.5",
+        firmware: "3.1.6",
+        appVersion: "3.1.6",
         platform: .ios
     )
     let tokenStore = DJConnectInMemoryTokenStore()
@@ -615,8 +615,8 @@ private func waitForLocalDeviceAPIURL(_ model: DJConnectAppModel) async throws -
         deviceID: "djconnect-macos-8F3A2C91B45D",
         deviceName: "DJConnect Mac",
         clientType: .macos,
-        firmware: "3.1.5",
-        appVersion: "3.1.5",
+        firmware: "3.1.6",
+        appVersion: "3.1.6",
         platform: .macos
     )
     let tokenStore = DJConnectInMemoryTokenStore()
@@ -663,7 +663,7 @@ private func waitForLocalDeviceAPIURL(_ model: DJConnectAppModel) async throws -
         deviceID: "djconnect-ios-8F3A2C91B45D",
         deviceName: "DJConnect iPhone",
         clientType: .ios,
-        firmware: "3.1.5",
+        firmware: "3.1.6",
         platform: .ios
     )
     let client = DJConnectClient(
@@ -689,7 +689,7 @@ private func waitForLocalDeviceAPIURL(_ model: DJConnectAppModel) async throws -
             deviceID: "djconnect-ios-8F3A2C91B45D",
             deviceName: "DJConnect iPhone",
             clientType: .ios,
-            firmware: "3.1.5",
+            firmware: "3.1.6",
             platform: .ios
         ),
         tokenStore: DJConnectInMemoryTokenStore(token: "secret-token")
@@ -700,9 +700,9 @@ private func waitForLocalDeviceAPIURL(_ model: DJConnectAppModel) async throws -
           "success": false,
           "error": "version_mismatch",
           "message": "DJConnect Home Assistant integration and device firmware major.minor versions must match.",
-          "ha_version": "3.1.5",
+          "ha_version": "3.1.6",
           "ha_major_minor": "3.1",
-          "firmware": "3.1.5",
+          "firmware": "3.1.6",
           "firmware_major_minor": "3.0"
         }
         """.utf8
@@ -713,9 +713,9 @@ private func waitForLocalDeviceAPIURL(_ model: DJConnectAppModel) async throws -
     #expect(error == .versionMismatch(
         DJConnectVersionMismatch(
             message: "DJConnect Home Assistant integration and device firmware major.minor versions must match.",
-            haVersion: "3.1.5",
+            haVersion: "3.1.6",
             haMajorMinor: "3.1",
-            firmware: "3.1.5",
+            firmware: "3.1.6",
             firmwareMajorMinor: "3.0"
         )
     ))
@@ -728,7 +728,7 @@ private func waitForLocalDeviceAPIURL(_ model: DJConnectAppModel) async throws -
             deviceID: "djconnect-ios-8F3A2C91B45D",
             deviceName: "DJConnect iPhone",
             clientType: .ios,
-            firmware: "3.1.5",
+            firmware: "3.1.6",
             platform: .ios
         ),
         tokenStore: DJConnectInMemoryTokenStore(token: "secret-token")
@@ -757,7 +757,7 @@ private func waitForLocalDeviceAPIURL(_ model: DJConnectAppModel) async throws -
             deviceID: "djconnect-macos-8F3A2C91B45D",
             deviceName: "DJConnect Mac",
             clientType: .macos,
-            firmware: "3.1.5",
+            firmware: "3.1.6",
             platform: .macos
         ),
         tokenStore: DJConnectInMemoryTokenStore(token: "secret-token")
@@ -783,7 +783,7 @@ private func waitForLocalDeviceAPIURL(_ model: DJConnectAppModel) async throws -
             deviceID: "djconnect-macos-8F3A2C91B45D",
             deviceName: "DJConnect Mac",
             clientType: .macos,
-            firmware: "3.1.5",
+            firmware: "3.1.6",
             platform: .macos
         ),
         tokenStore: DJConnectInMemoryTokenStore(token: "secret-token")
@@ -884,4 +884,24 @@ private func waitForLocalDeviceAPIURL(_ model: DJConnectAppModel) async throws -
 
     let secondLaunch = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore())
     #expect(secondLaunch.isShowingWelcome == false)
+}
+
+@MainActor
+@Test func crashPromptAppearsAfterUncleanPreviousSession() throws {
+    let suiteName = "DJConnectTests-\(UUID().uuidString)"
+    let defaults = try #require(UserDefaults(suiteName: suiteName))
+    defaults.removePersistentDomain(forName: suiteName)
+
+    let firstLaunch = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore())
+    #expect(firstLaunch.isShowingCrashReportPrompt == false)
+    firstLaunch.markActiveSession()
+
+    let secondLaunch = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore())
+    #expect(secondLaunch.isShowingCrashReportPrompt == true)
+    #expect(secondLaunch.crashIssueURL()?.host == "github.com")
+    #expect(secondLaunch.crashIssueURL()?.path == "/pcvantol/djconnect/issues/new")
+
+    secondLaunch.dismissCrashReportPrompt()
+    let thirdLaunch = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore())
+    #expect(thirdLaunch.isShowingCrashReportPrompt == false)
 }
