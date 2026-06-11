@@ -21,6 +21,8 @@ All notable changes to DJConnect App are documented here.
   to "Hey DJ", using Apple Speech while the app is open. Wakeword is
   session-only, does not auto-start after launch, and is disabled on iOS
   Simulator because simulator speech/audio capture is unstable.
+- Added a post-pairing wakeword activation prompt when wakeword is still off,
+  with explicit activate and not-now actions.
 - Added local playback for returned DJ response audio URLs when local response
   audio is enabled.
 - Added a local backlog in `docs/ISSUES.md` with priorities and acceptance

@@ -105,6 +105,9 @@ public struct DJConnectRootView: View {
         .sheet(isPresented: $model.isShowingCrashReportPrompt) {
             CrashReportPromptView(model: model)
         }
+        .sheet(isPresented: $model.isShowingWakeWordActivationPrompt) {
+            WakeWordActivationPromptView(model: model)
+        }
         .onChange(of: scenePhase) {
             switch scenePhase {
             case .active:
@@ -115,6 +118,62 @@ public struct DJConnectRootView: View {
                 break
             }
         }
+    }
+}
+
+private struct WakeWordActivationPromptView: View {
+    @ObservedObject var model: DJConnectAppModel
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 20) {
+            HStack(alignment: .top, spacing: 14) {
+                Image(systemName: "waveform.circle.fill")
+                    .font(.system(size: 44, weight: .semibold))
+                    .foregroundStyle(.purple)
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(localized(model.language, "Wakeword activeren?", "Wakeword activeren?"))
+                        .font(.title2.bold())
+                    Text(localized(
+                        model.language,
+                        "DJConnect is gekoppeld. Wil je handsfree starten met \"Hey DJ\" terwijl de app open is?",
+                        "DJConnect is gekoppeld. Wil je handsfree starten met \"Hey DJ\" terwijl de app open is?"
+                    ))
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+
+            Label(
+                localized(
+                    model.language,
+                    "Microphone and Speech Recognition permission may be requested.",
+                    "Microfoon- en spraakherkenningstoestemming kunnen worden gevraagd."
+                ),
+                systemImage: "mic"
+            )
+            .font(.callout)
+            .foregroundStyle(.secondary)
+
+            HStack {
+                Button(localized(model.language, "Not Now", "Niet nu")) {
+                    model.dismissWakeWordActivationPrompt()
+                }
+
+                Spacer()
+
+                Button {
+                    model.activateWakeWordFromPrompt()
+                } label: {
+                    Label(localized(model.language, "Activate Wakeword", "Wakeword activeren"), systemImage: "waveform")
+                }
+                .buttonStyle(.borderedProminent)
+            }
+        }
+        .padding(24)
+        .frame(minWidth: 360, idealWidth: 520, maxWidth: 620)
+        #if os(macOS)
+        .frame(minHeight: 260)
+        #endif
     }
 }
 

@@ -905,3 +905,48 @@ private func waitForLocalDeviceAPIURL(_ model: DJConnectAppModel) async throws -
     let thirdLaunch = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore())
     #expect(thirdLaunch.isShowingCrashReportPrompt == false)
 }
+
+@MainActor
+@Test func wakeWordPromptAppearsAfterFreshPairingWhenDisabled() throws {
+    let suiteName = "DJConnectTests-\(UUID().uuidString)"
+    let defaults = try #require(UserDefaults(suiteName: suiteName))
+    defaults.removePersistentDomain(forName: suiteName)
+    let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore())
+
+    model.presentWakeWordActivationPromptAfterPairing()
+
+    #expect(model.isShowingWakeWordActivationPrompt == true)
+}
+
+@MainActor
+@Test func wakeWordPromptDismissalIsRememberedUntilPairingReset() throws {
+    let suiteName = "DJConnectTests-\(UUID().uuidString)"
+    let defaults = try #require(UserDefaults(suiteName: suiteName))
+    defaults.removePersistentDomain(forName: suiteName)
+    let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore())
+
+    model.presentWakeWordActivationPromptAfterPairing()
+    model.dismissWakeWordActivationPrompt()
+    model.presentWakeWordActivationPromptAfterPairing()
+
+    #expect(model.isShowingWakeWordActivationPrompt == false)
+
+    model.resetPairing()
+    model.presentWakeWordActivationPromptAfterPairing()
+
+    #expect(model.isShowingWakeWordActivationPrompt == true)
+}
+
+@MainActor
+@Test func wakeWordPromptActivationEnablesWakeWord() throws {
+    let suiteName = "DJConnectTests-\(UUID().uuidString)"
+    let defaults = try #require(UserDefaults(suiteName: suiteName))
+    defaults.removePersistentDomain(forName: suiteName)
+    let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore())
+
+    model.presentWakeWordActivationPromptAfterPairing()
+    model.activateWakeWordFromPrompt()
+
+    #expect(model.isShowingWakeWordActivationPrompt == false)
+    #expect(model.wakeWordEnabled == true)
+}

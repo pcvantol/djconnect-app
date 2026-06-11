@@ -136,6 +136,7 @@ public final class DJConnectAppModel: ObservableObject {
     @Published public private(set) var isRequestingPermissions = false
     @Published public var isShowingWelcome = false
     @Published public var isShowingCrashReportPrompt = false
+    @Published public var isShowingWakeWordActivationPrompt = false
     @Published public private(set) var localDeviceAPIURL: String?
     @Published public private(set) var diagnosticLogLines: [DJConnectDiagnosticLogLine] = []
 
@@ -176,6 +177,7 @@ public final class DJConnectAppModel: ObservableObject {
     private let languageKey = "DJConnectLanguage"
     private let logLevelKey = "DJConnectLogLevel"
     private let wakeWordPhraseKey = "DJConnectWakeWordPhrase"
+    private let wakeWordPromptDismissedKey = "DJConnectWakeWordPromptDismissed"
     private let welcomeSeenKey = "DJConnectWelcomeSeen"
     private let cleanShutdownKey = "DJConnectCleanShutdown"
     private let crashPromptPendingKey = "DJConnectCrashPromptPending"
@@ -271,6 +273,30 @@ public final class DJConnectAppModel: ObservableObject {
         defaults.set(false, forKey: crashPromptPendingKey)
         defaults.set(true, forKey: cleanShutdownKey)
         isShowingCrashReportPrompt = false
+    }
+
+    public func activateWakeWordFromPrompt() {
+        defaults.set(true, forKey: wakeWordPromptDismissedKey)
+        isShowingWakeWordActivationPrompt = false
+        wakeWordEnabled = true
+        log(.info, "Wakeword enabled from post-pairing prompt")
+    }
+
+    public func dismissWakeWordActivationPrompt() {
+        defaults.set(true, forKey: wakeWordPromptDismissedKey)
+        isShowingWakeWordActivationPrompt = false
+        log(.info, "Wakeword activation prompt dismissed")
+    }
+
+    func presentWakeWordActivationPromptAfterPairing() {
+        guard !wakeWordEnabled else {
+            return
+        }
+        guard !defaults.bool(forKey: wakeWordPromptDismissedKey) else {
+            return
+        }
+        isShowingWakeWordActivationPrompt = true
+        log(.info, "Showing post-pairing wakeword activation prompt")
     }
 
     public func crashIssueURL() -> URL? {
@@ -402,6 +428,7 @@ public final class DJConnectAppModel: ObservableObject {
                     english: "Paired with Home Assistant.",
                     dutch: "Gekoppeld met Home Assistant."
                 )
+                presentWakeWordActivationPromptAfterPairing()
                 try await refreshStatus(client: client)
                 return
             } catch let error as DJConnectError {
@@ -433,6 +460,8 @@ public final class DJConnectAppModel: ObservableObject {
         defaults.removeObject(forKey: installIDKey)
         identity = Self.makeIdentity(defaults: defaults)
         clearRuntimeState()
+        isShowingWakeWordActivationPrompt = false
+        defaults.set(false, forKey: wakeWordPromptDismissedKey)
         _ = newPairingToken()
         restartLocalDeviceAPI()
         pairingStatus = .unpaired
@@ -1577,6 +1606,7 @@ public final class DJConnectAppModel: ObservableObject {
         isPairing = false
         pairingMessage = localized(english: "Paired with Home Assistant.", dutch: "Gekoppeld met Home Assistant.")
         log(.info, "Local device API completed pairing from Home Assistant")
+        presentWakeWordActivationPromptAfterPairing()
         refresh()
         return DJConnectLocalDeviceAPIResponse(
             success: true,
