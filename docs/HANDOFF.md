@@ -104,8 +104,8 @@ Recommended iOS fields:
   "device_id": "djconnect-ios-8F3A2C91B45D",
   "device_name": "DJConnect iPhone",
   "client_type": "ios",
-  "firmware": "3.1.8",
-  "app_version": "3.1.8",
+  "firmware": "3.1.9",
+  "app_version": "3.1.9",
   "platform": "ios"
 }
 ```
@@ -117,8 +117,8 @@ Recommended macOS fields:
   "device_id": "djconnect-macos-8F3A2C91B45D",
   "device_name": "DJConnect Mac",
   "client_type": "macos",
-  "firmware": "3.1.8",
-  "app_version": "3.1.8",
+  "firmware": "3.1.9",
+  "app_version": "3.1.9",
   "platform": "macos"
 }
 ```
@@ -155,9 +155,9 @@ Expected response:
   "success": false,
   "error": "version_mismatch",
   "message": "DJConnect Home Assistant integration and device firmware major.minor versions must match.",
-  "ha_version": "3.1.8",
+  "ha_version": "3.1.9",
   "ha_major_minor": "3.1",
-  "firmware": "3.1.8",
+  "firmware": "3.1.9",
   "firmware_major_minor": "3.0"
 }
 ```
@@ -223,8 +223,8 @@ X-DJConnect-Device-ID: <device_id>
 {  "device_id": "djconnect-macos-8F3A2C91B45D",
   "device_name": "DJConnect Mac",
   "client_type": "macos",
-  "firmware": "3.1.8",
-  "app_version": "3.1.8",
+  "firmware": "3.1.9",
+  "app_version": "3.1.9",
   "platform": "macos",
   "pair_code": "123456",
   "pairing_code": "123456",
@@ -319,8 +319,8 @@ Minimum payload:
   "device_id": "djconnect-ios-8F3A2C91B45D",
   "client_type": "ios",
   "ha_pairing_status": "paired",
-  "firmware": "3.1.8",
-  "app_version": "3.1.8",
+  "firmware": "3.1.9",
+  "app_version": "3.1.9",
   "state": "online",
   "status": "online",
   "battery_percent": 85,
@@ -386,6 +386,8 @@ Examples:
 {"device_id":"djconnect-ios-8F3A2C91B45D","client_type":"ios","command":"play"}
 {"device_id":"djconnect-ios-8F3A2C91B45D","client_type":"ios","command":"next"}
 {"device_id":"djconnect-ios-8F3A2C91B45D","client_type":"ios","command":"previous"}
+{"device_id":"djconnect-ios-8F3A2C91B45D","client_type":"ios","command":"seek_relative","value":15000}
+{"device_id":"djconnect-ios-8F3A2C91B45D","client_type":"ios","command":"seek_relative","value":-15000}
 {"device_id":"djconnect-ios-8F3A2C91B45D","client_type":"ios","command":"set_volume","value":35}
 {"device_id":"djconnect-ios-8F3A2C91B45D","client_type":"ios","command":"set_shuffle","value":true}
 {"device_id":"djconnect-ios-8F3A2C91B45D","client_type":"ios","command":"set_repeat","value":"context"}
@@ -398,6 +400,12 @@ For playback-changing commands, the app refreshes the rich Now Playing snapshot
 immediately after the command returns. Home Assistant should continue returning
 the same playback shape for the `status` command so play/pause state, album art,
 progress, output, and volume can update without waiting for a later user action.
+
+Apple app clients may expose current-track seek controls. Use
+`command:"seek_relative"` with an integer `value` in milliseconds. Positive
+values seek forward and negative values seek backward. Home Assistant should
+clamp the resulting position to the current track and return the usual command
+response. ESP clients may skip this UI capability.
 
 Queue loading uses `command:"queue"` and should return:
 

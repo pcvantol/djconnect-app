@@ -23,7 +23,6 @@ Website: [https://djconnect.pages.dev](https://djconnect.pages.dev)
 - [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md): local development, generation, build, and test commands.
 - [docs/RELEASE.md](docs/RELEASE.md): signing, TestFlight, notarization, and live HA validation checklist.
 - [SYNC_PROMPTS.md](SYNC_PROMPTS.md): canonical copy/paste prompts for syncing the app, Home Assistant, and ESP repos.
-- [docs/SYNC_PROMPTS.md](docs/SYNC_PROMPTS.md): docs copy of the same sync prompts.
 - [docs/TODO.md](docs/TODO.md): open work, known issues, and next implementation steps.
 - [docs/ISSUES.md](docs/ISSUES.md): concrete local backlog with priorities and acceptance criteria.
 - [PRIVACY.md](PRIVACY.md): security, privacy, and diagnostics redaction rules.
@@ -155,6 +154,8 @@ POST /api/djconnect/command
 {"command":"devices"}
 {"command":"queue"}
 {"command":"playlists"}
+{"command":"seek_relative","value":15000}
+{"command":"seek_relative","value":-15000}
 {"command":"set_output","value":"<device id or name>"}
 {"command":"start_playlist","value":"spotify:playlist:...","play":true}
 {"command":"play_context_at","value":{"context_uri":"spotify:playlist:...","offset_uri":"spotify:track:..."},"play":true}
@@ -164,6 +165,11 @@ POST /api/djconnect/command
 Queue item playback includes `offset_uri` only for Spotify contexts that support
 offsets, such as playlist, album and show contexts. Artist contexts are sent
 without `offset_uri` to avoid Spotify API offset errors.
+
+The iOS/macOS app can expose seek controls for the current track. It sends
+`command:"seek_relative"` with `value` in milliseconds. Positive values seek
+forward, negative values seek backward. This is an Apple-app-only UI affordance;
+ESP clients may omit it.
 
 Foreground wakeword support is available from Settings. When enabled for the
 current app session, the app uses Apple Speech while the app is open to listen

@@ -6,6 +6,46 @@ All notable changes to DJConnect App are documented here.
 
 - No unreleased changes yet.
 
+## 3.1.9 - 2026-06-11
+
+### Added
+
+- Added iOS/macOS current-track seek controls that send `seek_relative` commands
+  to Home Assistant with millisecond offsets.
+- Added iPhone haptic feedback for push-to-talk, playback controls, queue and
+  playlist starts, output selection, volume commits, and received DJ responses.
+- Added a blocking update-required sheet when the app detects an incompatible
+  Home Assistant integration protocol version.
+
+### Fixed
+
+- Avoided a macOS startup crash in the launch container by passing the root view
+  as built content instead of executing a `@ViewBuilder` closure inside the
+  container initializer.
+- Fixed permission-request callbacks so microphone/speech authorization returns
+  through the main queue before updating SwiftUI state.
+- Made the macOS pairing-sheet Quit App action call the AppKit terminate action
+  directly.
+
+### Changed
+
+- Reworked the main canvas background into full-screen multi-corner fading
+  gradients without visible rectangular blocks.
+- Updated the pairing/about/settings polish: Demo Mode appears in screen titles,
+  About is compact on macOS, technical Client/Platform rows were removed, Device
+  ID no longer shows a copy button in About, and the DJConnect banner uses
+  consistent rounded corners.
+- Default app language now follows the device language on first launch.
+- Renamed Dutch wakeword settings labels to Stemactivatie.
+- Disabled all refresh affordances in Demo Mode and changed refresh buttons to
+  show spinners while their specific load action is running.
+
+### Documentation
+
+- Consolidated sync prompts to the canonical root `SYNC_PROMPTS.md` and removed
+  the obsolete `docs/SYNC_PROMPTS.md` copy.
+- Updated app/protocol examples to `3.1.9`.
+
 ## 3.1.8 - 2026-06-11
 
 ### Added

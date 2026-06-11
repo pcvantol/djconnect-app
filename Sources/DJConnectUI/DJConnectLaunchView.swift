@@ -10,8 +10,8 @@ public struct DJConnectLaunchContainer<Content: View>: View {
     @State private var showLaunch = true
     private let content: Content
 
-    public init(@ViewBuilder content: () -> Content) {
-        self.content = content()
+    public init(content: Content) {
+        self.content = content
     }
 
     public var body: some View {

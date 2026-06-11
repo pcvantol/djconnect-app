@@ -18,8 +18,8 @@ install identity.
   "device_id": "djconnect-ios-8F3A2C91B45D",
   "device_name": "DJConnect iPhone",
   "client_type": "ios",
-  "firmware": "3.1.8",
-  "app_version": "3.1.8",
+  "firmware": "3.1.9",
+  "app_version": "3.1.9",
   "platform": "ios"
 }
 ```
@@ -65,8 +65,8 @@ Payload:
   "device_id": "djconnect-macos-8F3A2C91B45D",
   "device_name": "DJConnect Mac",
   "client_type": "macos",
-  "firmware": "3.1.8",
-  "app_version": "3.1.8",
+  "firmware": "3.1.9",
+  "app_version": "3.1.9",
   "platform": "macos",
   "pair_code": "123456",
   "pairing_code": "123456",
@@ -194,8 +194,8 @@ Minimum payload:
   "device_name": "DJConnect iPhone",
   "client_type": "ios",
   "ha_pairing_status": "paired",
-  "firmware": "3.1.8",
-  "app_version": "3.1.8",
+  "firmware": "3.1.9",
+  "app_version": "3.1.9",
   "state": "online",
   "status": "online",
   "battery_percent": 85,
@@ -229,6 +229,8 @@ Examples:
 {"device_id":"djconnect-ios-8F3A2C91B45D","client_type":"ios","command":"play"}
 {"device_id":"djconnect-ios-8F3A2C91B45D","client_type":"ios","command":"next"}
 {"device_id":"djconnect-ios-8F3A2C91B45D","client_type":"ios","command":"previous"}
+{"device_id":"djconnect-ios-8F3A2C91B45D","client_type":"ios","command":"seek_relative","value":15000}
+{"device_id":"djconnect-ios-8F3A2C91B45D","client_type":"ios","command":"seek_relative","value":-15000}
 {"device_id":"djconnect-ios-8F3A2C91B45D","client_type":"ios","command":"set_volume","value":35}
 {"device_id":"djconnect-ios-8F3A2C91B45D","client_type":"ios","command":"set_shuffle","value":true}
 {"device_id":"djconnect-ios-8F3A2C91B45D","client_type":"ios","command":"set_repeat","value":"context"}
@@ -239,10 +241,15 @@ Examples:
 ```
 
 The Apple app treats playback-changing commands such as `play`, `pause`,
-`next`, `previous`, `set_output`, playlist starts, and queue context starts as
-state-changing. After posting them, it immediately refreshes the rich Now
-Playing snapshot through the `status` command so button state, album art,
-progress, output, and volume reflect the backend source of truth.
+`next`, `previous`, `seek_relative`, `set_output`, playlist starts, and queue
+context starts as state-changing. After posting them, it immediately refreshes
+the rich Now Playing snapshot through the `status` command so button state,
+album art, progress, output, and volume reflect the backend source of truth.
+
+`seek_relative` uses an integer `value` in milliseconds. Positive values seek
+forward in the current track; negative values seek backward. Home Assistant
+should clamp the target position to the current track duration and return a
+normal command/status response. ESP clients may omit this UI feature.
 
 ## Queue
 

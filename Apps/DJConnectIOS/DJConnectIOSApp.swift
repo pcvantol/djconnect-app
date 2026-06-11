@@ -8,9 +8,7 @@ struct DJConnectIOSApp: App {
 
     var body: some Scene {
         WindowGroup {
-            DJConnectLaunchContainer {
-                DJConnectRootView(model: model)
-            }
+            DJConnectLaunchContainer(content: DJConnectRootView(model: model))
         }
     }
 

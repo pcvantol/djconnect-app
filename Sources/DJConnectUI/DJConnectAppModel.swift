@@ -90,6 +90,7 @@ public final class DJConnectAppModel: ObservableObject {
     @Published public var isConnected = false
     @Published public var isPairing = false
     @Published public var isRefreshing = false
+    @Published public private(set) var isLoadingOutputs = false
     @Published public private(set) var isLoadingQueue = false
     @Published public private(set) var isLoadingPlaylists = false
     @Published public var backendAvailable = true
@@ -176,7 +177,7 @@ public final class DJConnectAppModel: ObservableObject {
     private let defaults: UserDefaults
     private let tokenStore: DJConnectTokenStore
     private let startBackgroundTasks: Bool
-    private static let protocolVersion = "3.1.8"
+    private static let protocolVersion = "3.1.9"
     private let appVersion = DJConnectAppModel.protocolVersion
     private let installIDKey = "DJConnectInstallID"
     private let homeAssistantURLKey = "DJConnectHomeAssistantURL"
@@ -259,7 +260,7 @@ public final class DJConnectAppModel: ObservableObject {
         self.assistPipelineID = defaults.string(forKey: assistPipelineIDKey) ?? ""
         self.localDeviceAPIURL = defaults.string(forKey: localDeviceAPIURLKey)
         self.pairingToken = defaults.string(forKey: pairingTokenKey) ?? Self.generatePairingToken()
-        self.language = defaults.string(forKey: languageKey) ?? "nl"
+        self.language = defaults.string(forKey: languageKey) ?? Self.defaultLanguage()
         self.logLevel = defaults.string(forKey: logLevelKey) ?? "info"
         defaults.removeObject(forKey: demoModeKey)
         self.isDemoMode = false
@@ -761,10 +762,22 @@ public final class DJConnectAppModel: ObservableObject {
         sendPlaybackCommand("set_repeat", value: .string(value.rawValue))
     }
 
+    public func seekRelative(milliseconds: Int) {
+        log(.debug, "User action: seek relative \(milliseconds)ms")
+        sendPlaybackCommand("seek_relative", value: .int(milliseconds))
+    }
+
     public func loadOutputs() {
         log(.debug, "User action: load outputs")
         log(.info, "Loading playback outputs")
         Task {
+            guard !isLoadingOutputs else {
+                return
+            }
+            isLoadingOutputs = true
+            defer {
+                isLoadingOutputs = false
+            }
             await performCommand("devices")
         }
     }
@@ -920,8 +933,8 @@ public final class DJConnectAppModel: ObservableObject {
         if isDemoMode {
             voiceStatus = .processing
             djResponseText = localized(
-                english: "Demo DJ: this is where your personal music DJ responds after a voice request.",
-                dutch: "Demo DJ: hier reageert je persoonlijke muziek DJ na een voice request."
+                english: "Demo DJ: this is where your personal music DJ responds after your music request.",
+                dutch: "Demo DJ: hier reageert je persoonlijke muziek DJ na je muziek verzoek."
             )
             voiceStatus = .idle
             log(.info, "Demo voice request completed")
@@ -1159,8 +1172,8 @@ public final class DJConnectAppModel: ObservableObject {
             clearRuntimeState()
             backendAvailable = false
             updateRequiredMessage = mismatch.message ?? localized(
-                english: "Update the DJConnect Home Assistant integration.",
-                dutch: "Werk de DJConnect Home Assistant-integratie bij."
+                english: "Update the DJConnect app or Home Assistant integration.",
+                dutch: "Werk de DJConnect app of Home Assistant-integratie bij."
             )
         case let .authStale(_, message):
             pairingStatus = .stale
@@ -1373,6 +1386,7 @@ public final class DJConnectAppModel: ObservableObject {
         backendAvailable = true
         updateRequiredMessage = nil
         isRefreshing = false
+        isLoadingOutputs = false
         #if canImport(AVFoundation)
         responseAudioPlayer?.stop()
         responseAudioPlayer = nil
@@ -1393,8 +1407,8 @@ public final class DJConnectAppModel: ObservableObject {
             clearRuntimeState()
             backendAvailable = false
             updateRequiredMessage = message ?? localized(
-                english: "Update the DJConnect Home Assistant integration to \(requiredRange).",
-                dutch: "Werk de DJConnect Home Assistant-integratie bij naar \(requiredRange)."
+                english: "Update the DJConnect app or Home Assistant integration to \(requiredRange).",
+                dutch: "Werk de DJConnect app of Home Assistant-integratie bij naar \(requiredRange)."
             )
             log(.error, "Home Assistant integration version \(resolvedVersion) is incompatible with app \(appVersion); required \(requiredRange)")
             return false
@@ -1417,6 +1431,11 @@ public final class DJConnectAppModel: ObservableObject {
             return "the matching \(protocolVersion) release"
         }
         return "\(app.major).\(app.minor).x (>=\(app.major).\(app.minor).0, <\(app.major).\(app.minor + 1).0)"
+    }
+
+    private static func defaultLanguage() -> String {
+        let preferredLanguage = Locale.preferredLanguages.first?.lowercased() ?? ""
+        return preferredLanguage.hasPrefix("nl") ? "nl" : "en"
     }
 
     private static func parsedVersion(_ version: String) -> (major: Int, minor: Int, patch: Int)? {
@@ -1744,6 +1763,12 @@ public final class DJConnectAppModel: ObservableObject {
             if case let .string(repeatValue) = value {
                 updated.repeatState = DJConnectRepeatState(rawValue: repeatValue) ?? .off
             }
+        case "seek_relative":
+            if case let .int(delta) = value {
+                let currentProgress = updated.progressMS ?? 0
+                let duration = updated.durationMS ?? max(currentProgress + delta, 0)
+                updated.progressMS = min(max(currentProgress + delta, 0), max(duration, 0))
+            }
         case "set_output":
             if case let .string(name) = value {
                 selectedOutput = name
@@ -1839,8 +1864,8 @@ public final class DJConnectAppModel: ObservableObject {
                         deviceID: "djconnect-macos-unavailable",
                         deviceName: "DJConnect",
                         clientType: .macos,
-                        firmware: "3.1.8",
-                        appVersion: "3.1.8",
+                        firmware: "3.1.9",
+                        appVersion: "3.1.9",
                         platform: .macos
                     ),
                     pairingToken: "",
@@ -2315,24 +2340,24 @@ public final class DJConnectAppModel: ObservableObject {
 
     private func requestMicrophoneAccess() async -> Bool {
         #if canImport(AVFoundation)
-        #if os(iOS)
         return await withCheckedContinuation { continuation in
-            let resumeOnMainActor: @Sendable (Bool) -> Void = { granted in
-                Task { @MainActor in
+            let resumeOnMainQueue: @Sendable (Bool) -> Void = { granted in
+                DispatchQueue.main.async {
                     continuation.resume(returning: granted)
                 }
             }
+            #if os(iOS)
             if #available(iOS 17.0, *) {
-                AVAudioApplication.requestRecordPermission(completionHandler: resumeOnMainActor)
+                AVAudioApplication.requestRecordPermission(completionHandler: resumeOnMainQueue)
             } else {
-                AVAudioSession.sharedInstance().requestRecordPermission(resumeOnMainActor)
+                AVAudioSession.sharedInstance().requestRecordPermission(resumeOnMainQueue)
             }
+            #elseif os(macOS)
+            AVCaptureDevice.requestAccess(for: .audio, completionHandler: resumeOnMainQueue)
+            #else
+            resumeOnMainQueue(false)
+            #endif
         }
-        #elseif os(macOS)
-        return await AVCaptureDevice.requestAccess(for: .audio)
-        #else
-        return false
-        #endif
         #else
         return false
         #endif
@@ -2461,7 +2486,7 @@ public final class DJConnectAppModel: ObservableObject {
     private func requestSpeechAccess() async -> Bool {
         await withCheckedContinuation { continuation in
             SFSpeechRecognizer.requestAuthorization { status in
-                Task { @MainActor in
+                DispatchQueue.main.async {
                     continuation.resume(returning: status == .authorized)
                 }
             }

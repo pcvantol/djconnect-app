@@ -248,7 +248,7 @@ explicitly hardened.
 
 ## Current Local Verification
 
-For release `3.1.8`, local verification was completed with:
+For release `3.1.9`, local verification was completed with:
 
 ```sh
 swift test --no-parallel
@@ -273,7 +273,7 @@ The local helper script packages and uploads public macOS releases:
 PUBLIC_REPO=pcvantol/djconnect-app-releases \
 DEVELOPMENT_TEAM=<APPLE_TEAM_ID> \
 NOTARY_PROFILE=<notarytool-keychain-profile> \
-./Tools/release/release_macos_public.sh --version 3.1.8
+./Tools/release/release_macos_public.sh --version 3.1.9
 ```
 
 Create the notary profile once with:
