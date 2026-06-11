@@ -105,6 +105,17 @@ public struct DJConnectRootView: View {
         .sheet(isPresented: $model.isShowingCrashReportPrompt) {
             CrashReportPromptView(model: model)
         }
+        .sheet(isPresented: Binding(
+            get: { model.shouldShowPairingScreen },
+            set: { isPresented in
+                if !isPresented {
+                    model.completePairingScreen()
+                }
+            }
+        )) {
+            PairingSheetView(model: model)
+                .interactiveDismissDisabled(true)
+        }
         .sheet(isPresented: $model.isShowingWakeWordActivationPrompt) {
             WakeWordActivationPromptView(model: model)
         }
@@ -118,6 +129,173 @@ public struct DJConnectRootView: View {
                 break
             }
         }
+    }
+}
+
+private struct PairingSheetView: View {
+    @ObservedObject var model: DJConnectAppModel
+
+    var body: some View {
+        VStack(spacing: 22) {
+            AboutBanner()
+                .frame(maxWidth: 520)
+
+            if model.isShowingPairingSuccess {
+                pairingSuccess
+            } else {
+                pairingPending
+            }
+        }
+        .padding(28)
+        .frame(minWidth: 360, idealWidth: 560, maxWidth: 680)
+        #if os(macOS)
+        .frame(minHeight: 560)
+        #endif
+    }
+
+    private var pairingPending: some View {
+        VStack(spacing: 20) {
+            VStack(spacing: 8) {
+                Text(localized(model.language, "Pair DJConnect", "DJConnect koppelen"))
+                    .font(.largeTitle.bold())
+                    .multilineTextAlignment(.center)
+                Text(localized(
+                    model.language,
+                    "Use these values in Home Assistant to pair this app.",
+                    "Gebruik deze waarden in Home Assistant om deze app te koppelen."
+                ))
+                .font(.headline)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+            }
+
+            VStack(spacing: 12) {
+                PairingValueCard(
+                    title: "Client API url",
+                    value: model.localDeviceAPIURL ?? localized(model.language, "Starting Client API...", "Client API wordt gestart..."),
+                    copyLabel: localized(model.language, "Copy Client API url", "Client API url kopiëren"),
+                    prominent: false
+                )
+
+                PairingValueCard(
+                    title: localized(model.language, "Pair Code", "Pairingcode"),
+                    value: model.pairingToken,
+                    copyLabel: localized(model.language, "Copy Pairing Code", "Pairingcode kopiëren"),
+                    prominent: true
+                )
+            }
+
+            HStack(spacing: 12) {
+                ProgressView()
+                    .controlSize(.regular)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(statusTitle)
+                        .font(.headline)
+                    if let pairingMessage = model.pairingMessage {
+                        Text(pairingMessage)
+                            .font(.callout)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(3)
+                    }
+                }
+                Spacer(minLength: 0)
+            }
+            .padding(14)
+            .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 8))
+
+            Button {
+                model.startDemoMode()
+            } label: {
+                Label(
+                    localized(model.language, "Start Demo Mode", "Demo modus starten"),
+                    systemImage: "play.circle"
+                )
+                .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.bordered)
+            .controlSize(.large)
+        }
+    }
+
+    private var pairingSuccess: some View {
+        VStack(spacing: 22) {
+            Image(systemName: "checkmark.circle.fill")
+                .font(.system(size: 86, weight: .bold))
+                .foregroundStyle(.green)
+                .accessibilityHidden(true)
+
+            VStack(spacing: 8) {
+                Text(localized(model.language, "Pairing successful", "Pairing succesvol"))
+                    .font(.largeTitle.bold())
+                    .multilineTextAlignment(.center)
+                Text(localized(
+                    model.language,
+                    "DJConnect is paired with Home Assistant.",
+                    "DJConnect is gekoppeld met Home Assistant."
+                ))
+                .font(.headline)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+            }
+
+            Button {
+                model.completePairingScreen()
+            } label: {
+                Text("Let's Start!")
+                    .font(.headline)
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.borderedProminent)
+            .controlSize(.large)
+        }
+    }
+
+    private var statusTitle: String {
+        if model.isDemoMode {
+            return localized(model.language, "Demo Mode", "Demo modus")
+        }
+        return switch model.pairingStatus {
+        case .pairing:
+            localized(model.language, "Pairing in progress", "Pairing bezig")
+        case .stale:
+            localized(model.language, "Pairing needs attention", "Pairing vraagt aandacht")
+        default:
+            localized(model.language, "Waiting for Home Assistant", "Wachten op Home Assistant")
+        }
+    }
+}
+
+private struct PairingValueCard: View {
+    let title: String
+    let value: String
+    let copyLabel: String
+    var prominent = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(title)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.secondary)
+            HStack(alignment: .firstTextBaseline, spacing: 10) {
+                Text(value)
+                    .font(prominent ? .system(.title, design: .monospaced).weight(.semibold) : .system(.body, design: .monospaced))
+                    .textSelection(.enabled)
+                    .lineLimit(nil)
+                    .fixedSize(horizontal: false, vertical: true)
+                Spacer(minLength: 0)
+                Button {
+                    copyText(value)
+                } label: {
+                    Image(systemName: "doc.on.doc")
+                }
+                .buttonStyle(.borderless)
+                .help(copyLabel)
+                .accessibilityLabel(copyLabel)
+            }
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 8))
     }
 }
 
@@ -444,7 +622,7 @@ private struct IOSConnectionCard: View {
     }
 
     private var statusTitle: String {
-        switch model.pairingStatus {
+        return switch model.pairingStatus {
         case .paired:
             localized(model.language, "Connected", "Verbonden")
         case .pairing:
@@ -457,7 +635,10 @@ private struct IOSConnectionCard: View {
     }
 
     private var statusSubtitle: String {
-        switch model.pairingStatus {
+        if model.isDemoMode {
+            return localized(model.language, "App Store preview without Home Assistant", "App Store preview zonder Home Assistant")
+        }
+        return switch model.pairingStatus {
         case .paired:
             model.selectedOutput == "Not selected" ? localized(model.language, "DJConnect is paired", "DJConnect is gekoppeld") : localizedOutputName(model.selectedOutput, language: model.language)
         case .pairing:
@@ -470,7 +651,10 @@ private struct IOSConnectionCard: View {
     }
 
     private var statusIcon: String {
-        switch model.pairingStatus {
+        if model.isDemoMode {
+            return "play.circle.fill"
+        }
+        return switch model.pairingStatus {
         case .paired:
             "checkmark.seal.fill"
         case .pairing:
@@ -483,7 +667,10 @@ private struct IOSConnectionCard: View {
     }
 
     private var statusColor: Color {
-        switch model.pairingStatus {
+        if model.isDemoMode {
+            return .purple
+        }
+        return switch model.pairingStatus {
         case .paired:
             .green
         case .pairing:
@@ -769,7 +956,10 @@ struct SetupStatusView: View {
     }
 
     private var statusIcon: String {
-        switch model.pairingStatus {
+        if model.isDemoMode {
+            return "play.circle"
+        }
+        return switch model.pairingStatus {
         case .paired:
             "checkmark.seal"
         case .pairing:
@@ -782,7 +972,10 @@ struct SetupStatusView: View {
     }
 
     private var statusTitle: String {
-        switch model.pairingStatus {
+        if model.isDemoMode {
+            return localized(model.language, "Demo Mode", "Demo modus")
+        }
+        return switch model.pairingStatus {
         case .paired:
             localized(model.language, "Paired", "Gekoppeld")
         case .pairing:
@@ -1380,6 +1573,13 @@ struct SettingsView: View {
                 }
 
                 Section(localized(model.language, "App", "App")) {
+                    if model.isDemoMode {
+                        LabeledContent(localized(model.language, "Demo Mode", "Demo modus")) {
+                            Button(localized(model.language, "Stop Demo Mode", "Demo modus stoppen"), role: .destructive) {
+                                model.stopDemoMode()
+                            }
+                        }
+                    }
                     Picker(localized(model.language, "Language", "Taal"), selection: $model.language) {
                         Text("Nederlands").tag("nl")
                         Text("English").tag("en")
@@ -1552,6 +1752,13 @@ private struct AboutView: View {
                     }
                     AboutStackedRow(label: localized(model.language, "Device Name", "Apparaatnaam")) {
                         SelectableValue(model.identity.deviceName)
+                    }
+                    AboutStackedRow(label: localized(model.language, "Website", "Website")) {
+                        CopyableValue(
+                            text: "https://djconnect.pages.dev",
+                            copyLabel: localized(model.language, "Copy Website", "Website kopiëren"),
+                            monospaced: false
+                        )
                     }
                     AboutStackedRow(label: localized(model.language, "Device ID", "Device ID")) {
                         CopyableValue(

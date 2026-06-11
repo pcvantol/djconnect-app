@@ -2,6 +2,25 @@
 
 All notable changes to DJConnect App are documented here.
 
+## 3.1.7 - 2026-06-11
+
+### Added
+
+- Added a blocking pairing sheet for unpaired clients with the DJConnect banner,
+  copyable Client API url, copyable pairing code, and pairing status/progress.
+- Added a post-pairing success state with a large green checkmark and a
+  prominent "Let's Start!" action before releasing the main UI.
+- Added a demo mode from the pairing sheet so App Store review/auditing can
+  inspect playback, queue, playlists, output, and voice UI without a live Home
+  Assistant backend.
+- Added the DJConnect website `https://djconnect.pages.dev` to the About page.
+
+### Changed
+
+- Set app/protocol version to `3.1.7`.
+- Delayed the wakeword activation prompt until after the user closes the
+  pairing success sheet.
+
 ## 3.1.6 - 2026-06-11
 
 ### Added

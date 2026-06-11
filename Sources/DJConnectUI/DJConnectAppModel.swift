@@ -76,7 +76,7 @@ public final class DJConnectAppModel: ObservableObject {
     @Published public var pairingToken = ""
     @Published public var pairingStatus: DJConnectPairingStatus = .unpaired {
         didSet {
-            if oldValue != .paired, pairingStatus == .paired {
+            if startBackgroundTasks, oldValue != .paired, pairingStatus == .paired {
                 schedulePairedRefresh(reason: "Pairing became online")
             } else if pairingStatus != .paired {
                 stopWakeWordListening()
@@ -116,6 +116,9 @@ public final class DJConnectAppModel: ObservableObject {
     }
     @Published public var voiceEnabled = true
     @Published public var localResponseAudioEnabled = true
+    @Published public var isDemoMode = false {
+        didSet { defaults.set(isDemoMode, forKey: demoModeKey) }
+    }
     @Published public var wakeWordEnabled = false {
         didSet {
             wakeWordEnabled ? startWakeWordListening() : stopWakeWordListening()
@@ -137,6 +140,8 @@ public final class DJConnectAppModel: ObservableObject {
     @Published public var isShowingWelcome = false
     @Published public var isShowingCrashReportPrompt = false
     @Published public var isShowingWakeWordActivationPrompt = false
+    @Published public private(set) var isShowingPairingSuccess = false
+    @Published public private(set) var isPairingScreenDismissed = false
     @Published public private(set) var localDeviceAPIURL: String?
     @Published public private(set) var diagnosticLogLines: [DJConnectDiagnosticLogLine] = []
 
@@ -151,6 +156,7 @@ public final class DJConnectAppModel: ObservableObject {
     private var pendingSelectedOutput: String?
     private var pendingVolumePercent: Int?
     private var localDeviceAPI: DJConnectLocalDeviceAPI?
+    private var shouldShowWakeWordPromptAfterPairingScreen = false
     #if canImport(AVFoundation)
     private var voiceRecorder: AVAudioRecorder?
     private var voiceRecordingURL: URL?
@@ -166,7 +172,8 @@ public final class DJConnectAppModel: ObservableObject {
     #endif
     private let defaults: UserDefaults
     private let tokenStore: DJConnectTokenStore
-    private static let protocolVersion = "3.1.6"
+    private let startBackgroundTasks: Bool
+    private static let protocolVersion = "3.1.7"
     private let appVersion = DJConnectAppModel.protocolVersion
     private let installIDKey = "DJConnectInstallID"
     private let homeAssistantURLKey = "DJConnectHomeAssistantURL"
@@ -176,6 +183,7 @@ public final class DJConnectAppModel: ObservableObject {
     private let localDeviceAPIURLKey = "DJConnectLocalDeviceAPIURL"
     private let languageKey = "DJConnectLanguage"
     private let logLevelKey = "DJConnectLogLevel"
+    private let demoModeKey = "DJConnectDemoMode"
     private let wakeWordPhraseKey = "DJConnectWakeWordPhrase"
     private let wakeWordPromptDismissedKey = "DJConnectWakeWordPromptDismissed"
     private let welcomeSeenKey = "DJConnectWelcomeSeen"
@@ -211,15 +219,26 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     public var canUsePlaybackFeatures: Bool {
-        pairingStatus == .paired && backendAvailable && isRuntimeCompatible
+        isDemoMode || (pairingStatus == .paired && backendAvailable && isRuntimeCompatible)
+    }
+
+    public var shouldShowPairingScreen: Bool {
+        !isDemoMode
+            && !isShowingWelcome
+            && !isShowingCrashReportPrompt
+            && !isPairingScreenDismissed
+            && (pairingStatus != .paired || isShowingPairingSuccess)
     }
 
     public init(
         playback: DJConnectPlayback? = nil,
         defaults: UserDefaults = .standard,
-        tokenStore: DJConnectTokenStore? = nil
+        tokenStore: DJConnectTokenStore? = nil,
+        startLocalAPI: Bool = true,
+        startBackgroundTasks: Bool = true
     ) {
         self.defaults = defaults
+        self.startBackgroundTasks = startBackgroundTasks
         let resolvedTokenStore = tokenStore ?? DJConnectKeychainTokenStore(service: Self.keychainService)
         self.tokenStore = resolvedTokenStore
         self.identity = Self.makeIdentity(defaults: defaults)
@@ -235,6 +254,7 @@ public final class DJConnectAppModel: ObservableObject {
         self.pairingToken = defaults.string(forKey: pairingTokenKey) ?? Self.generatePairingToken()
         self.language = defaults.string(forKey: languageKey) ?? "nl"
         self.logLevel = defaults.string(forKey: logLevelKey) ?? "info"
+        self.isDemoMode = defaults.bool(forKey: demoModeKey)
         self.wakeWordEnabled = false
         self.wakeWordPhrase = defaults.string(forKey: wakeWordPhraseKey) ?? "Hey DJ"
         self.isShowingWelcome = !defaults.bool(forKey: welcomeSeenKey)
@@ -248,17 +268,71 @@ public final class DJConnectAppModel: ObservableObject {
             pairingStatus = .paired
             isConnected = true
             log(.info, "App started with existing DJConnect bearer token for \(identity.clientType.rawValue)")
-            schedulePairedRefresh(reason: "Refreshing initial Home Assistant state")
+            if startBackgroundTasks {
+                schedulePairedRefresh(reason: "Refreshing initial Home Assistant state")
+            }
+        } else if isDemoMode {
+            applyDemoState()
+            log(.info, "App started in demo mode")
         } else {
             log(.info, "App started without DJConnect bearer token for \(identity.clientType.rawValue)")
         }
         refreshPermissionStatuses()
-        startLocalDeviceAPI()
+        if startLocalAPI {
+            startLocalDeviceAPI()
+        }
     }
 
     public func dismissWelcome() {
         defaults.set(true, forKey: welcomeSeenKey)
         isShowingWelcome = false
+    }
+
+    public func completePairingScreen() {
+        guard pairingStatus == .paired else {
+            return
+        }
+        isShowingPairingSuccess = false
+        isPairingScreenDismissed = true
+        if shouldShowWakeWordPromptAfterPairingScreen {
+            shouldShowWakeWordPromptAfterPairingScreen = false
+            presentWakeWordActivationPromptAfterPairing()
+        }
+    }
+
+    public func startDemoMode() {
+        stopPairingWait()
+        isDemoMode = true
+        isShowingPairingSuccess = false
+        isPairingScreenDismissed = true
+        shouldShowWakeWordPromptAfterPairingScreen = false
+        pairingStatus = .unpaired
+        isConnected = false
+        isPairing = false
+        backendAvailable = true
+        updateRequiredMessage = nil
+        pairingMessage = localized(
+            english: "Demo mode active. Home Assistant is not connected.",
+            dutch: "Demo modus actief. Home Assistant is niet gekoppeld."
+        )
+        applyDemoState()
+        log(.info, "Demo mode started")
+    }
+
+    public func stopDemoMode() {
+        isDemoMode = false
+        isPairingScreenDismissed = false
+        clearRuntimeState()
+        pairingMessage = localized(
+            english: "Demo mode stopped. Pair with Home Assistant to continue.",
+            dutch: "Demo modus gestopt. Koppel met Home Assistant om door te gaan."
+        )
+        log(.info, "Demo mode stopped")
+    }
+
+    func presentPairingSuccessScreenAfterPairing() {
+        isShowingPairingSuccess = true
+        isPairingScreenDismissed = false
     }
 
     public func markCleanShutdown() {
@@ -293,6 +367,10 @@ public final class DJConnectAppModel: ObservableObject {
             return
         }
         guard !defaults.bool(forKey: wakeWordPromptDismissedKey) else {
+            return
+        }
+        guard isPairingScreenDismissed else {
+            shouldShowWakeWordPromptAfterPairingScreen = true
             return
         }
         isShowingWakeWordActivationPrompt = true
@@ -332,6 +410,11 @@ public final class DJConnectAppModel: ObservableObject {
         localDeviceAPI?.stop()
     }
 
+    public func stopLocalDeviceAPI() {
+        localDeviceAPI?.stop()
+        localDeviceAPI = nil
+    }
+
     public func schedulePairingWait() {
         guard pairingStatus != .paired else {
             log(.debug, "Ignoring scheduled pairing because device is already paired")
@@ -350,6 +433,10 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     public func startPairingWait() {
+        guard !isDemoMode else {
+            log(.debug, "Ignoring pairing wait because demo mode is active")
+            return
+        }
         guard pairingStatus != .paired else {
             log(.debug, "Ignoring pairing wait because device is already paired")
             return
@@ -428,6 +515,7 @@ public final class DJConnectAppModel: ObservableObject {
                     english: "Paired with Home Assistant.",
                     dutch: "Gekoppeld met Home Assistant."
                 )
+                presentPairingSuccessScreenAfterPairing()
                 presentWakeWordActivationPromptAfterPairing()
                 try await refreshStatus(client: client)
                 return
@@ -455,12 +543,16 @@ public final class DJConnectAppModel: ObservableObject {
         pairingTask?.cancel()
         pairingTask = nil
         try? tokenStore.clearToken()
+        isDemoMode = false
         clearStoredHomeAssistantURLs()
         clearPinnedLocalDeviceAPIURL()
         defaults.removeObject(forKey: installIDKey)
         identity = Self.makeIdentity(defaults: defaults)
         clearRuntimeState()
         isShowingWakeWordActivationPrompt = false
+        isShowingPairingSuccess = false
+        isPairingScreenDismissed = false
+        shouldShowWakeWordPromptAfterPairingScreen = false
         defaults.set(false, forKey: wakeWordPromptDismissedKey)
         _ = newPairingToken()
         restartLocalDeviceAPI()
@@ -504,6 +596,14 @@ public final class DJConnectAppModel: ObservableObject {
     private func runRefresh(reason: String) async {
         guard !isRefreshing else {
             log(.debug, "Refresh ignored because one is already running")
+            return
+        }
+        if isDemoMode {
+            log(.debug, "Demo refresh requested")
+            isRefreshing = true
+            applyDemoState()
+            isRefreshing = false
+            log(.info, reason)
             return
         }
         log(.debug, "Manual refresh requested")
@@ -737,6 +837,16 @@ public final class DJConnectAppModel: ObservableObject {
         guard !isRecordingVoice, voiceStatus != .processing else {
             return
         }
+        if isDemoMode {
+            voiceStatus = .processing
+            djResponseText = localized(
+                english: "Demo DJ: this is where your personal music DJ responds after a voice request.",
+                dutch: "Demo DJ: hier reageert je persoonlijke muziek DJ na een voice request."
+            )
+            voiceStatus = .idle
+            log(.info, "Demo voice request completed")
+            return
+        }
         stopWakeWordListening()
         guard voiceEnabled else {
             voiceStatus = .unavailable
@@ -859,7 +969,9 @@ public final class DJConnectAppModel: ObservableObject {
             }
         }
         self.playback = normalizedPlayback
-        updatePlaybackProgressTimer()
+        if startBackgroundTasks {
+            updatePlaybackProgressTimer()
+        }
         if let deviceName = normalizedPlayback?.device?.name, !deviceName.isEmpty {
             if pendingSelectedOutput == nil || pendingSelectedOutput == deviceName {
                 selectedOutput = deviceName
@@ -1401,6 +1513,10 @@ public final class DJConnectAppModel: ObservableObject {
         value: DJConnectCommandValue? = nil,
         play: Bool? = nil
     ) async -> Bool {
+        if isDemoMode {
+            applyDemoCommand(command, value: value, play: play)
+            return true
+        }
         guard pairingStatus == .paired else {
             log(.warning, "Command \(command) skipped because app is not paired")
             return false
@@ -1444,6 +1560,157 @@ public final class DJConnectAppModel: ObservableObject {
         }
     }
 
+    private func applyDemoState() {
+        let output = DJConnectOutputDevice(
+            id: "demo-living-room",
+            name: localized(english: "Living Room", dutch: "Woonkamer"),
+            type: "speaker",
+            active: true,
+            supportsVolume: true,
+            volumePercent: 42
+        )
+        availableOutputs = [
+            output,
+            DJConnectOutputDevice(
+                id: "demo-kitchen",
+                name: localized(english: "Kitchen", dutch: "Keuken"),
+                type: "speaker",
+                active: false,
+                supportsVolume: true,
+                volumePercent: 35
+            )
+        ]
+        selectedOutput = output.name
+        playback = DJConnectPlayback(
+            hasPlayback: true,
+            isPlaying: true,
+            trackName: "Midnight City",
+            artistName: "M83",
+            albumImageURL: nil,
+            progressMS: 48_000,
+            durationMS: 244_000,
+            volumePercent: 42,
+            shuffle: false,
+            repeatState: .off,
+            device: DJConnectPlaybackDevice(
+                id: output.id,
+                name: output.name,
+                type: output.type,
+                active: true,
+                supportsVolume: true,
+                volumePercent: output.volumePercent
+            ),
+            contextURI: "spotify:playlist:djconnect-demo"
+        )
+        queueItems = [
+            DJConnectQueueItem(id: "demo-0", title: "Midnight City", artist: "M83", album: "Hurry Up, We're Dreaming", uri: "spotify:track:demo-0", durationMS: 244_000),
+            DJConnectQueueItem(id: "demo-1", title: "Sweet Disposition", artist: "The Temper Trap", album: "Conditions", uri: "spotify:track:demo-1", durationMS: 232_000),
+            DJConnectQueueItem(id: "demo-2", title: "Electric Feel", artist: "MGMT", album: "Oracular Spectacular", uri: "spotify:track:demo-2", durationMS: 229_000)
+        ]
+        queue = queueItems.map(\.displayTitle)
+        queueContext = "spotify:playlist:djconnect-demo"
+        playlistItems = [
+            DJConnectPlaylist(id: "demo-playlist-1", name: localized(english: "Friday Night", dutch: "Vrijdagavond"), uri: "spotify:playlist:djconnect-demo"),
+            DJConnectPlaylist(id: "demo-playlist-2", name: localized(english: "Dinner Vibes", dutch: "Dinner vibes"), uri: "spotify:playlist:djconnect-dinner")
+        ]
+        playlists = playlistItems.map(\.name)
+        djResponseText = localized(
+            english: "Demo mode is ready. Pair Home Assistant later for real playback.",
+            dutch: "Demo modus is klaar. Koppel later met Home Assistant voor echte playback."
+        )
+        backendAvailable = true
+        updateRequiredMessage = nil
+        if startBackgroundTasks {
+            updatePlaybackProgressTimer()
+        }
+    }
+
+    private func applyDemoCommand(_ command: String, value: DJConnectCommandValue? = nil, play: Bool? = nil) {
+        log(.info, "Demo command: \(command)")
+        var updated = playback ?? DJConnectPlayback()
+        switch command {
+        case "play", "start_playlist", "start_liked_proxy":
+            updated.isPlaying = true
+        case "play_context_at":
+            if case let .object(payload) = value, let rawIndex = payload["index"], let index = Int(rawIndex) {
+                applyDemoQueueItem(at: index)
+                return
+            }
+            updated.isPlaying = true
+        case "pause":
+            updated.isPlaying = false
+        case "next":
+            applyDemoQueueItem(at: 1)
+            return
+        case "previous":
+            applyDemoQueueItem(at: 0)
+            return
+        case "set_volume":
+            if case let .int(volume) = value {
+                updated.volumePercent = volume
+                availableOutputs = availableOutputs.map { device in
+                    var device = device
+                    if device.active == true {
+                        device.volumePercent = volume
+                    }
+                    return device
+                }
+            }
+        case "set_shuffle":
+            if case let .bool(shuffle) = value {
+                updated.shuffle = shuffle
+            }
+        case "set_repeat":
+            if case let .string(repeatValue) = value {
+                updated.repeatState = DJConnectRepeatState(rawValue: repeatValue) ?? .off
+            }
+        case "set_output":
+            if case let .string(name) = value {
+                selectedOutput = name
+                availableOutputs = availableOutputs.map { device in
+                    var device = device
+                    device.active = device.name == name || device.id == name
+                    return device
+                }
+                updated.device = availableOutputs.first(where: { $0.active == true }).map {
+                    DJConnectPlaybackDevice(id: $0.id, name: $0.name, type: $0.type, active: true, supportsVolume: $0.supportsVolume, volumePercent: $0.volumePercent)
+                }
+            }
+        case "queue", "playlists", "devices", "status":
+            break
+        default:
+            break
+        }
+        playback = updated
+        if startBackgroundTasks {
+            updatePlaybackProgressTimer()
+        }
+    }
+
+    private func applyDemoQueueItem(at index: Int) {
+        guard queueItems.indices.contains(index) else {
+            return
+        }
+        let item = queueItems[index]
+        playback = DJConnectPlayback(
+            hasPlayback: true,
+            isPlaying: true,
+            trackName: item.title,
+            artistName: item.artist,
+            albumImageURL: item.albumImageURL,
+            progressMS: 0,
+            durationMS: item.durationMS,
+            volumePercent: playback?.volumePercent ?? 42,
+            shuffle: playback?.shuffle ?? false,
+            repeatState: playback?.repeatState ?? .off,
+            device: playback?.device,
+            contextURI: queueContext
+        )
+        if startBackgroundTasks {
+            updatePlaybackProgressTimer()
+        }
+    }
+
     private static func shouldRefreshPlaybackAfterCommand(_ command: String) -> Bool {
         switch command {
         case "play", "pause", "next", "previous", "set_output", "start_playlist", "start_liked_proxy", "play_context_at":
@@ -1484,8 +1751,8 @@ public final class DJConnectAppModel: ObservableObject {
                         deviceID: "djconnect-macos-unavailable",
                         deviceName: "DJConnect",
                         clientType: .macos,
-                        firmware: "3.1.6",
-                        appVersion: "3.1.6",
+                        firmware: "3.1.7",
+                        appVersion: "3.1.7",
                         platform: .macos
                     ),
                     pairingToken: "",
@@ -1606,8 +1873,11 @@ public final class DJConnectAppModel: ObservableObject {
         isPairing = false
         pairingMessage = localized(english: "Paired with Home Assistant.", dutch: "Gekoppeld met Home Assistant.")
         log(.info, "Local device API completed pairing from Home Assistant")
+        presentPairingSuccessScreenAfterPairing()
         presentWakeWordActivationPromptAfterPairing()
-        refresh()
+        if startBackgroundTasks {
+            refresh()
+        }
         return DJConnectLocalDeviceAPIResponse(
             success: true,
             message: "paired",
@@ -1742,6 +2012,7 @@ public final class DJConnectAppModel: ObservableObject {
         client_type: \(identity.clientType.rawValue)
         device_id: \(identity.deviceID)
         pairing_status: \(pairingStatus.rawValue)
+        demo_mode: \(isDemoMode)
         bearer_token: \(tokenState)
         home_assistant_url: \(url)
         ha_local_url: \(haLocalURL.isEmpty ? "missing" : Self.redactSensitive(haLocalURL))
