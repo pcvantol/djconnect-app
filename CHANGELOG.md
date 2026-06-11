@@ -4,6 +4,10 @@ All notable changes to DJConnect App are documented here.
 
 ## Unreleased
 
+- No unreleased changes yet.
+
+## 3.1.8 - 2026-06-11
+
 ### Added
 
 - Added private GitHub Actions CI for Swift tests and unsigned iOS/macOS build
@@ -29,11 +33,12 @@ All notable changes to DJConnect App are documented here.
 - Demo Mode now shows the DJConnect app icon as fallback Now Playing artwork.
 - Wakeword remains disabled in Demo Mode to avoid starting real Speech/audio
   capture from sample state.
+- Set app/protocol version to `3.1.8`.
 
 ### Documentation
 
 - Updated README, development, release, handoff, architecture, sync prompts,
-  TODO, and issues documentation for the 3.1.7 pairing sheet, Demo Mode,
+  TODO, and issues documentation for the 3.1.8 pairing sheet, Demo Mode,
   Client API url stability, About website, Xcode 26.5 verification, and
   security-hardening backlog.
 
