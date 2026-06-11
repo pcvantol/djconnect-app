@@ -14,6 +14,13 @@ All notable changes to DJConnect App are documented here.
 - Updated the App Store/macOS release checklist for renewed Apple Developer
   Program accounts and clarified the local signed/notarized public macOS
   release path.
+- Updated README, handoff, architecture, development, and issues documentation
+  for the local iOS/macOS Games menu.
+
+### Tests
+
+- Added iOS UI-test coverage for the Games tab and local Pong, Asteroids, and
+  Fly choices.
 
 ## 3.1.9 - 2026-06-11
 

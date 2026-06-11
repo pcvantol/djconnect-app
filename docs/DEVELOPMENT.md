@@ -113,8 +113,9 @@ xcodebuild -project DJConnectApp.xcodeproj -scheme DJConnectIOS -destination 'pl
 `DJConnectIOSUITests` launches the app with `--uitesting`, isolated
 `UserDefaults`, an in-memory token store, and `DJCONNECT_UITEST_HA_URL` pointing
 at a mock Home Assistant URL. The current tests verify deterministic launch,
-primary navigation, and Settings URL seeding. Add a local mock HA server fixture
-before asserting full pairing, queue, playlist, output, and voice flows.
+primary navigation, Settings URL seeding, and local Games menu choices. Add a
+local mock HA server fixture before asserting full pairing, queue, playlist,
+output, and voice flows.
 
 ## Repository Rules
 

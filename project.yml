@@ -70,6 +70,7 @@ targets:
       - path: Apps/DJConnectIOS
       - path: Apps/Shared/Assets.xcassets
     dependencies:
+      - target: DJConnectCoreIOS
       - target: DJConnectUIIOS
     info:
       path: Apps/DJConnectIOS/Info.plist
@@ -110,6 +111,7 @@ targets:
       - path: Apps/DJConnectMac
       - path: Apps/Shared/Assets.xcassets
     dependencies:
+      - target: DJConnectCoreMac
       - target: DJConnectUIMac
     info:
       path: Apps/DJConnectMac/Info.plist

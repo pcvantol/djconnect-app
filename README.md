@@ -7,10 +7,11 @@ to the Home Assistant `djconnect` custom integration. Home Assistant stays the
 trusted backend for pairing, DJConnect bearer-token lifecycle, Spotify OAuth,
 playback commands, Assist/STT/TTS, and native HA entities.
 
-The app owns native UI, local app state, optional local voice recording, and
-optional playback of returned DJ response audio. It must not store Spotify,
-Home Assistant, Sonos, OpenAI, or other backend credentials. The only app-owned
-credential is the DJConnect client bearer token issued by the integration.
+The app owns native UI, local app state, local bonus games, optional local voice
+recording, and optional playback of returned DJ response audio. It must not
+store Spotify, Home Assistant, Sonos, OpenAI, or other backend credentials. The
+only app-owned credential is the DJConnect client bearer token issued by the
+integration.
 
 Website: [https://djconnect.pages.dev](https://djconnect.pages.dev)
 
@@ -50,6 +51,10 @@ Demo Mode. Demo Mode fills Now Playing, queue, playlists, output devices, and
 DJ announcement UI with local sample data without contacting Home Assistant.
 It is session-only, resets on app restart, and is not a replacement for live
 backend validation.
+
+The app also includes local Games with Pong, Asteroids, and Fly, mirroring the
+ESP client bonus games. Games are local-only, store highscores in app-local
+preferences, and do not call Home Assistant or create HA entities.
 
 ## Package Shape
 

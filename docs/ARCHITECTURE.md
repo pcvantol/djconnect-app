@@ -18,6 +18,7 @@ The Apple app owns:
 
 - native iOS/macOS UI;
 - local app state;
+- local bonus games with app-local highscores;
 - local Keychain storage for only the DJConnect bearer token;
 - a pinned Client API url after successful pairing, kept stable until explicit
   pairing reset;
@@ -105,6 +106,14 @@ Home Assistant API calls and local Client API calls log method/path plus HTTP
 status code. Logs must not include bearer tokens, pairing codes, Authorization
 headers, Spotify/Home Assistant credentials, passwords, or raw request/response
 bodies that may contain secrets.
+
+## Local Games
+
+The Games menu is intentionally outside the Home Assistant protocol. Pong,
+Asteroids, and Fly run fully inside SwiftUI, store highscores in app-local
+preferences, and do not use `DJConnectCore`, bearer tokens, Client API routes,
+or HA command/status endpoints. This keeps the Apple app aligned with the ESP
+bonus games while preserving the integration trust boundary.
 
 ## Project Generation
 

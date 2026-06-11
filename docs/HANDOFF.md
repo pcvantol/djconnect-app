@@ -30,6 +30,7 @@ The iOS/macOS app owns:
 
 - native UI;
 - local app state;
+- local bonus games and local highscores;
 - local audio recording if voice/PTT is implemented;
 - local playback of returned DJ response audio, if desired;
 - local notifications, menus, or widgets, if desired.
@@ -83,6 +84,20 @@ pairing sheet.
 If the user resets pairing, the app should clear runtime playback/output/
 queue/playlist state, navigate back to Now Playing, and present the pairing
 sheet over that initial state.
+
+## Local Games
+
+The Apple app may include the same local bonus games as the ESP client:
+
+- Pong
+- Asteroids
+- Fly
+
+Games are local-only UI features. They must not call Home Assistant, create HA
+entities, affect pairing state, require Spotify playback, or send DJConnect
+status/command payloads. Highscores may be stored in app-local preferences and
+may be cleared by app reinstall or local app data reset. Games should remain
+available in Demo Mode because they are not backend validation.
 
 ## Identity
 
@@ -647,10 +662,10 @@ Do not put SwiftUI view logic into the HTTP client.
 `DJConnectIOSUITests` launches the iOS app with `--uitesting`. In that mode the
 app uses isolated `UserDefaults`, an in-memory token store, and
 `DJCONNECT_UITEST_HA_URL` for deterministic Home Assistant URL seeding. The
-current UI tests cover primary navigation and Settings URL wiring. Full
-pairing, output, queue, playlist, liked proxy, stale-auth, backend-unavailable,
-and voice/PTT UI tests should build on this target with a real or recorded mock
-Home Assistant server.
+current UI tests cover primary navigation, Settings URL wiring, and the local
+Games menu choices. Full pairing, output, queue, playlist, liked proxy,
+stale-auth, backend-unavailable, and voice/PTT UI tests should build on this
+target with a real or recorded mock Home Assistant server.
 
 ## Acceptance Criteria
 
@@ -667,5 +682,6 @@ Home Assistant server.
 - 401/403 during unauthenticated pairing polling stops the wait loop and asks
   the user to re-enter the visible app code in Home Assistant.
 - Voice/PTT uploads raw WAV to `/api/djconnect/voice`.
+- Local Games show Pong, Asteroids and Fly without HA/backend traffic.
 - No secrets appear in logs or diagnostics.
 - iOS and macOS clients can coexist with ESP32 clients in the same HA backend.

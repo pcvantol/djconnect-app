@@ -126,7 +126,7 @@ Acceptance:
 
 - UI tests cover first-run welcome, settings URL entry, app-generated pairing
   code, Client API url copy, Demo Mode entry/exit, successful pairing, version
-  mismatch, and stale auth.
+  mismatch, stale auth, and the local Games menu.
 - Tests can run deterministically without a production Home Assistant instance.
 
 ## Security Hardening
