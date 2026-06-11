@@ -29,75 +29,135 @@ private extension View {
             self
         }
     }
+
+    @ViewBuilder
+    func scrollContentBackgroundIfAvailable(_ visibility: Visibility) -> some View {
+        if #available(iOS 16.0, macOS 13.0, *) {
+            self.scrollContentBackground(visibility)
+        } else {
+            self
+        }
+    }
+}
+
+private struct DJConnectCanvasBackground: View {
+    var body: some View {
+        LinearGradient(
+            colors: [
+                Color(red: 0.02, green: 0.04, blue: 0.11),
+                Color(red: 0.10, green: 0.06, blue: 0.18),
+                Color(red: 0.04, green: 0.12, blue: 0.24)
+            ],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
+        .overlay(alignment: .topTrailing) {
+            RadialGradient(
+                colors: [
+                    Color(red: 0.18, green: 0.42, blue: 0.96).opacity(0.32),
+                    .clear
+                ],
+                center: .center,
+                startRadius: 0,
+                endRadius: 360
+            )
+            .frame(width: 620, height: 620)
+            .offset(x: 180, y: -240)
+        }
+        .overlay(alignment: .bottomLeading) {
+            RadialGradient(
+                colors: [
+                    Color.purple.opacity(0.26),
+                    .clear
+                ],
+                center: .center,
+                startRadius: 0,
+                endRadius: 340
+            )
+            .frame(width: 560, height: 560)
+            .offset(x: -220, y: 220)
+        }
+        .ignoresSafeArea()
+    }
+}
+
+private enum DJConnectSection: Hashable {
+    case nowPlaying
+    case queue
+    case playlists
+    case settings
+    case about
 }
 
 public struct DJConnectRootView: View {
     @ObservedObject private var model: DJConnectAppModel
     @Environment(\.scenePhase) private var scenePhase
+    @State private var selectedSection = DJConnectSection.nowPlaying
 
     public init(model: DJConnectAppModel) {
         self.model = model
     }
 
     public var body: some View {
-        Group {
-            #if os(macOS)
-            NavigationSplitView {
-                List {
-                    NavigationLink {
-                        NowPlayingView(model: model)
-                    } label: {
-                        Label(localized(model.language, "Now Playing", "Speelt Nu"), systemImage: "music.note")
+        ZStack {
+            DJConnectCanvasBackground()
+            Group {
+                #if os(macOS)
+                NavigationSplitView {
+                    List(selection: $selectedSection) {
+                        NavigationLink(value: DJConnectSection.nowPlaying) {
+                            Label(localized(model.language, "Now Playing", "Speelt Nu"), systemImage: "music.note")
+                        }
+                        NavigationLink(value: DJConnectSection.queue) {
+                            Label(localized(model.language, "Queue", "Wachtrij"), systemImage: "text.line.first.and.arrowtriangle.forward")
+                        }
+                        NavigationLink(value: DJConnectSection.playlists) {
+                            Label(localized(model.language, "Playlists", "Afspeellijsten"), systemImage: "rectangle.stack")
+                        }
+                        NavigationLink(value: DJConnectSection.settings) {
+                            Label(localized(model.language, "Settings", "Instellingen"), systemImage: "gearshape")
+                        }
+                        NavigationLink(value: DJConnectSection.about) {
+                            Label(localized(model.language, "About", "Over"), systemImage: "info.circle")
+                        }
                     }
-                    NavigationLink {
-                        QueueView(model: model)
-                    } label: {
-                        Label(localized(model.language, "Queue", "Wachtrij"), systemImage: "text.line.first.and.arrowtriangle.forward")
-                    }
-                    NavigationLink {
-                        PlaylistsView(model: model)
-                    } label: {
-                        Label(localized(model.language, "Playlists", "Afspeellijsten"), systemImage: "rectangle.stack")
-                    }
-                    NavigationLink {
-                        SettingsView(model: model)
-                    } label: {
-                        Label(localized(model.language, "Settings", "Instellingen"), systemImage: "gearshape")
-                    }
-                    NavigationLink {
-                        AboutView(model: model)
-                    } label: {
-                        Label(localized(model.language, "About", "Over"), systemImage: "info.circle")
-                    }
+                    .navigationTitle("DJConnect")
+                    .scrollContentBackgroundIfAvailable(.hidden)
+                } detail: {
+                    selectedView
                 }
-                .navigationTitle("DJConnect")
-            } detail: {
-                NowPlayingView(model: model)
+                #else
+                TabView(selection: $selectedSection) {
+                    NowPlayingView(model: model)
+                        .tabItem {
+                            Label(localized(model.language, "Now Playing", "Speelt Nu"), systemImage: "music.note")
+                        }
+                        .tag(DJConnectSection.nowPlaying)
+                    QueueView(model: model)
+                        .tabItem {
+                            Label(localized(model.language, "Queue", "Wachtrij"), systemImage: "text.line.first.and.arrowtriangle.forward")
+                        }
+                        .tag(DJConnectSection.queue)
+                    PlaylistsView(model: model)
+                        .tabItem {
+                            Label(localized(model.language, "Playlists", "Afspeellijsten"), systemImage: "rectangle.stack")
+                        }
+                        .tag(DJConnectSection.playlists)
+                    SettingsView(model: model) {
+                        selectedSection = .nowPlaying
+                    }
+                        .tabItem {
+                            Label(localized(model.language, "Settings", "Instellingen"), systemImage: "gearshape")
+                        }
+                        .tag(DJConnectSection.settings)
+                    AboutView(model: model)
+                        .tabItem {
+                            Label(localized(model.language, "About", "Over"), systemImage: "info.circle")
+                        }
+                        .tag(DJConnectSection.about)
+                }
+                #endif
             }
-            #else
-            TabView {
-                NowPlayingView(model: model)
-                    .tabItem {
-                        Label(localized(model.language, "Now Playing", "Speelt Nu"), systemImage: "music.note")
-                    }
-                QueueView(model: model)
-                    .tabItem {
-                        Label(localized(model.language, "Queue", "Wachtrij"), systemImage: "text.line.first.and.arrowtriangle.forward")
-                    }
-                PlaylistsView(model: model)
-                    .tabItem {
-                        Label(localized(model.language, "Playlists", "Afspeellijsten"), systemImage: "rectangle.stack")
-                    }
-                SettingsView(model: model)
-                    .tabItem {
-                        Label(localized(model.language, "Settings", "Instellingen"), systemImage: "gearshape")
-                    }
-                AboutView(model: model)
-                    .tabItem {
-                        Label(localized(model.language, "About", "Over"), systemImage: "info.circle")
-                    }
-            }
-            #endif
         }
         .sheet(isPresented: $model.isShowingWelcome) {
             WelcomeView(model: model)
@@ -132,6 +192,24 @@ public struct DJConnectRootView: View {
             @unknown default:
                 break
             }
+        }
+    }
+
+    @ViewBuilder
+    private var selectedView: some View {
+        switch selectedSection {
+        case .nowPlaying:
+            NowPlayingView(model: model)
+        case .queue:
+            QueueView(model: model)
+        case .playlists:
+            PlaylistsView(model: model)
+        case .settings:
+            SettingsView(model: model) {
+                selectedSection = .nowPlaying
+            }
+        case .about:
+            AboutView(model: model)
         }
     }
 }
@@ -220,7 +298,7 @@ private struct PairingSheetView: View {
             .controlSize(.large)
 
             #if os(macOS)
-            Button(role: .cancel) {
+            Button {
                 NSApplication.shared.terminate(nil)
             } label: {
                 Label(
@@ -229,9 +307,8 @@ private struct PairingSheetView: View {
                 )
                 .frame(maxWidth: .infinity)
             }
-            .buttonStyle(.borderless)
+            .buttonStyle(.bordered)
             .controlSize(.large)
-            .foregroundStyle(.secondary)
             #endif
         }
     }
@@ -594,7 +671,9 @@ private struct IOSNowPlayingView: View {
                 VStack(spacing: 16) {
                     AboutBanner()
                     IOSVoiceCard(model: model)
-                    IOSConnectionCard(model: model)
+                    if !model.isDemoMode {
+                        IOSConnectionCard(model: model)
+                    }
                     IOSTrackHero(model: model)
                     IOSPlaybackSurface(model: model)
                     OutputSelectorView(model: model)
@@ -602,7 +681,7 @@ private struct IOSNowPlayingView: View {
                 .padding(.horizontal, 16)
                 .padding(.vertical, 12)
             }
-            .background(Color(uiColor: .systemGroupedBackground))
+            .background(.clear)
             .navigationTitle("DJConnect")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -992,28 +1071,30 @@ struct SetupStatusView: View {
     @ObservedObject var model: DJConnectAppModel
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Label(statusTitle, systemImage: statusIcon)
-                Spacer()
-                Circle()
-                    .fill(model.isConnected ? Color.green : Color.orange)
-                    .frame(width: 10, height: 10)
-                    .accessibilityLabel(model.isConnected ? localized(model.language, "Connected", "Verbonden") : localized(model.language, "Disconnected", "Niet verbonden"))
-            }
+        if !model.isDemoMode {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack {
+                    Label(statusTitle, systemImage: statusIcon)
+                    Spacer()
+                    Circle()
+                        .fill(model.isConnected ? Color.green : Color.orange)
+                        .frame(width: 10, height: 10)
+                        .accessibilityLabel(model.isConnected ? localized(model.language, "Connected", "Verbonden") : localized(model.language, "Disconnected", "Niet verbonden"))
+                }
 
-            if let updateRequiredMessage = model.updateRequiredMessage {
-                Label(updateRequiredMessage, systemImage: "arrow.down.app")
-                    .foregroundStyle(.orange)
-            } else if !model.backendAvailable {
-                Label(localized(model.language, "Playback backend unavailable", "Playback-backend niet beschikbaar"), systemImage: "exclamationmark.triangle")
-                    .foregroundStyle(.orange)
-            }
+                if let updateRequiredMessage = model.updateRequiredMessage {
+                    Label(updateRequiredMessage, systemImage: "arrow.down.app")
+                        .foregroundStyle(.orange)
+                } else if !model.backendAvailable {
+                    Label(localized(model.language, "Playback backend unavailable", "Playback-backend niet beschikbaar"), systemImage: "exclamationmark.triangle")
+                        .foregroundStyle(.orange)
+                }
 
-            if let pairingMessage = model.pairingMessage {
-                Text(pairingMessage)
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
+                if let pairingMessage = model.pairingMessage {
+                    Text(pairingMessage)
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                }
             }
         }
     }
@@ -1406,7 +1487,7 @@ struct VoiceResponseView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Label(localized(model.language, "DJ", "DJ"), systemImage: "waveform")
+                Label(localized(model.language, "DJ Request", "DJ verzoek"), systemImage: "waveform")
                     .foregroundStyle(isVoiceAvailable ? .primary : .secondary)
                 Spacer()
                 PushToTalkButton(model: model, isEnabled: isVoiceAvailable)
@@ -1426,6 +1507,7 @@ struct VoiceResponseView: View {
 
 struct QueueView: View {
     @ObservedObject var model: DJConnectAppModel
+    @State private var statusToast: String?
     private var canUsePlayback: Bool { model.canUsePlaybackFeatures }
 
     var body: some View {
@@ -1436,6 +1518,7 @@ struct QueueView: View {
                 } else {
                     ForEach(Array(model.queueItems.enumerated()), id: \.offset) { index, item in
                         Button {
+                            showStatusToast(localized(model.language, "Selected track is starting...", "Gekozen nummer wordt gestart..."))
                             model.startQueueItem(item, at: index)
                         } label: {
                             QueueItemRow(item: item, isLoading: model.loadingQueueItemIndex == index)
@@ -1453,6 +1536,14 @@ struct QueueView: View {
                 await model.refreshQueue()
             }
             .navigationTitle(localized(model.language, "Queue", "Wachtrij"))
+            .scrollContentBackgroundIfAvailable(.hidden)
+            .overlay(alignment: .top) {
+                if let statusToast {
+                    StatusToast(text: statusToast)
+                        .padding(.top, 8)
+                        .transition(.move(edge: .top).combined(with: .opacity))
+                }
+            }
             .toolbar {
                 ToolbarItem {
                     Button {
@@ -1478,10 +1569,26 @@ struct QueueView: View {
             }
         }
     }
+
+    private func showStatusToast(_ text: String) {
+        withAnimation(.easeOut(duration: 0.18)) {
+            statusToast = text
+        }
+        Task { @MainActor in
+            try? await Task.sleep(for: .seconds(2))
+            guard statusToast == text else {
+                return
+            }
+            withAnimation(.easeIn(duration: 0.18)) {
+                statusToast = nil
+            }
+        }
+    }
 }
 
 struct PlaylistsView: View {
     @ObservedObject var model: DJConnectAppModel
+    @State private var statusToast: String?
     private var canUsePlayback: Bool { model.canUsePlaybackFeatures }
 
     var body: some View {
@@ -1489,6 +1596,7 @@ struct PlaylistsView: View {
             List {
                 Section(localized(model.language, "Default playlist", "Standaard playlist")) {
                     Button {
+                        showStatusToast(localized(model.language, "Selected playlist is starting...", "Gekozen playlist wordt gestart..."))
                         model.startLikedProxy()
                     } label: {
                         HStack(spacing: 12) {
@@ -1512,6 +1620,7 @@ struct PlaylistsView: View {
                     } else {
                         ForEach(model.playlistItems) { playlist in
                             Button {
+                                showStatusToast(localized(model.language, "Selected playlist is starting...", "Gekozen playlist wordt gestart..."))
                                 model.startPlaylist(playlist)
                             } label: {
                                 PlaylistRow(playlist: playlist)
@@ -1529,6 +1638,14 @@ struct PlaylistsView: View {
                 await model.refreshPlaylists()
             }
             .navigationTitle(localized(model.language, "Playlists", "Afspeellijsten"))
+            .scrollContentBackgroundIfAvailable(.hidden)
+            .overlay(alignment: .top) {
+                if let statusToast {
+                    StatusToast(text: statusToast)
+                        .padding(.top, 8)
+                        .transition(.move(edge: .top).combined(with: .opacity))
+                }
+            }
             .toolbar {
                 ToolbarItem {
                     Button {
@@ -1554,6 +1671,35 @@ struct PlaylistsView: View {
             }
         }
     }
+
+    private func showStatusToast(_ text: String) {
+        withAnimation(.easeOut(duration: 0.18)) {
+            statusToast = text
+        }
+        Task { @MainActor in
+            try? await Task.sleep(for: .seconds(2))
+            guard statusToast == text else {
+                return
+            }
+            withAnimation(.easeIn(duration: 0.18)) {
+                statusToast = nil
+            }
+        }
+    }
+}
+
+private struct StatusToast: View {
+    let text: String
+
+    var body: some View {
+        Label(text, systemImage: "play.fill")
+            .font(.callout.weight(.semibold))
+            .padding(.horizontal, 14)
+            .padding(.vertical, 10)
+            .background(.regularMaterial, in: Capsule())
+            .shadow(color: .black.opacity(0.18), radius: 10, y: 5)
+            .accessibilityAddTraits(.isStaticText)
+    }
 }
 
 private struct PlaylistRow: View {
@@ -1567,7 +1713,9 @@ private struct PlaylistRow: View {
             Text(playlist.name)
                 .foregroundStyle(.primary)
                 .lineLimit(2)
-            Spacer(minLength: 0)
+            Spacer()
+            Image(systemName: "play.fill")
+                .foregroundStyle(.secondary)
         }
         .contentShape(Rectangle())
     }
@@ -1587,6 +1735,7 @@ public struct DJConnectSettingsView: View {
 
 struct SettingsView: View {
     @ObservedObject var model: DJConnectAppModel
+    var returnToNowPlaying: () -> Void = {}
     @State private var showingResetPairingConfirmation = false
 
     var body: some View {
@@ -1598,38 +1747,32 @@ struct SettingsView: View {
                             .textContentType(.URL)
                             .multilineTextAlignment(.trailing)
                     }
-                    LabeledContent(localized(model.language, "Pairing Code", "Pairingcode")) {
-                        CopyableValue(
-                            text: model.pairingToken,
-                            copyLabel: localized(model.language, "Copy Pairing Code", "Pairingcode kopiëren")
-                        )
-                    }
-                    if model.isPairing {
-                        LabeledContent(localized(model.language, "Status", "Status")) {
-                            ProgressView(localized(model.language, "Waiting for Home Assistant", "Wachten op Home Assistant"))
+                    if !model.isDemoMode {
+                        LabeledContent(localized(model.language, "Pairing Code", "Pairingcode")) {
+                            CopyableValue(
+                                text: model.pairingToken,
+                                copyLabel: localized(model.language, "Copy Pairing Code", "Pairingcode kopiëren")
+                            )
                         }
-                    }
-                    LabeledContent(localized(model.language, "Actions", "Acties")) {
-                        if model.hasStoredPairingToken {
-                            Button(localized(model.language, "Reset Pairing", "Pairing resetten"), role: .destructive) {
-                                showingResetPairingConfirmation = true
+                        if model.isPairing {
+                            LabeledContent(localized(model.language, "Status", "Status")) {
+                                ProgressView(localized(model.language, "Waiting for Home Assistant", "Wachten op Home Assistant"))
                             }
-                        } else {
-                            Button(localized(model.language, "New Code", "Nieuwe code")) {
-                                model.rotatePairingTokenAndWait()
+                        }
+                        LabeledContent(localized(model.language, "Actions", "Acties")) {
+                            if model.hasStoredPairingToken {
+                                Button(localized(model.language, "Reset Pairing", "Pairing resetten"), role: .destructive) {
+                                    showingResetPairingConfirmation = true
+                                }
+                            } else {
+                                Button(localized(model.language, "New Code", "Nieuwe code")) {
+                                    model.rotatePairingTokenAndWait()
+                                }
                             }
                         }
                     }
                     LabeledContent(localized(model.language, "Device ID", "Device ID")) {
                         SelectableValue(model.identity.deviceID)
-                    }
-                    LabeledContent(localized(model.language, "Client", "Client")) {
-                        SelectableValue(model.identity.clientType.rawValue)
-                    }
-                    if !model.haLocalURL.isEmpty {
-                        LabeledContent(localized(model.language, "Local URL", "Lokale URL")) {
-                            SelectableValue(model.haLocalURL)
-                        }
                     }
                     if let localDeviceAPIURL = model.localDeviceAPIURL, !localDeviceAPIURL.isEmpty {
                         LabeledContent("Client API url") {
@@ -1646,6 +1789,7 @@ struct SettingsView: View {
                         LabeledContent(localized(model.language, "Demo Mode", "Demo modus")) {
                             Button(localized(model.language, "Stop Demo Mode", "Demo modus stoppen"), role: .destructive) {
                                 model.stopDemoMode()
+                                returnToNowPlaying()
                             }
                         }
                     }
@@ -1659,8 +1803,6 @@ struct SettingsView: View {
                         Text(localized(model.language, "Warning", "Waarschuwing")).tag("warning")
                         Text(localized(model.language, "Error", "Fout")).tag("error")
                     }
-                    Toggle(localized(model.language, "Voice", "Spraak"), isOn: $model.voiceEnabled)
-                    Toggle(localized(model.language, "Local Response Audio", "Lokale antwoord-audio"), isOn: $model.localResponseAudioEnabled)
                     Toggle(localized(model.language, "Wakeword", "Wakeword"), isOn: $model.wakeWordEnabled)
                     wakeWordPhraseField(model)
                     LabeledContent(localized(model.language, "Wakeword status", "Wakeword-status")) {
@@ -1764,6 +1906,7 @@ struct SettingsView: View {
             #else
             .listStyle(.inset)
             #endif
+            .scrollContentBackgroundIfAvailable(.hidden)
             .navigationTitle(localized(model.language, "Settings", "Instellingen"))
             .task {
                 model.startPairingWait()
@@ -1777,6 +1920,7 @@ struct SettingsView: View {
             ) {
                 Button(localized(model.language, "Reset Pairing", "Pairing resetten"), role: .destructive) {
                     model.resetPairing()
+                    returnToNowPlaying()
                 }
                 Button(localized(model.language, "Cancel", "Annuleren"), role: .cancel) {}
             } message: {
@@ -1803,6 +1947,8 @@ struct SettingsView: View {
 
 private struct AboutView: View {
     @ObservedObject var model: DJConnectAppModel
+    @State private var showingLegalNotices = false
+    private let websiteURL = URL(string: "https://djconnect.pages.dev")!
 
     var body: some View {
         ScrollView {
@@ -1823,11 +1969,16 @@ private struct AboutView: View {
                         SelectableValue(model.identity.deviceName)
                     }
                     AboutStackedRow(label: localized(model.language, "Website", "Website")) {
-                        CopyableValue(
-                            text: "https://djconnect.pages.dev",
-                            copyLabel: localized(model.language, "Copy Website", "Website kopiëren"),
-                            monospaced: false
-                        )
+                        Link(destination: websiteURL) {
+                            HStack(spacing: 8) {
+                                Text("https://djconnect.pages.dev")
+                                    .font(.body)
+                                    .foregroundStyle(.primary)
+                                    .textSelection(.enabled)
+                                Image(systemName: "arrow.up.right.square")
+                                    .foregroundStyle(.blue)
+                            }
+                        }
                     }
                     AboutStackedRow(label: localized(model.language, "Device ID", "Device ID")) {
                         CopyableValue(
@@ -1865,17 +2016,21 @@ private struct AboutView: View {
                     AboutStackedRow(label: "Copyright") {
                         SelectableValue("2026 Peter van Tol")
                     }
-                    AboutStackedRow(label: localized(model.language, "App", "App")) {
-                        SelectableValue("Proprietary")
-                    }
                     AboutStackedRow(label: "Spotify") {
                         SelectableValue("Trademark Spotify AB")
                     }
                     AboutStackedRow(label: "Notice") {
-                        SelectableValue(localized(model.language, "Not affiliated", "Niet gelieerd"))
-                    }
-                    AboutStackedRow(label: "OSS") {
-                        SelectableValue(localized(model.language, "See notices", "Zie notices"))
+                        Button {
+                            showingLegalNotices = true
+                        } label: {
+                            HStack(spacing: 8) {
+                                Text(localized(model.language, "Not affiliated", "Niet gelieerd"))
+                                    .foregroundStyle(.primary)
+                                Image(systemName: "info.circle")
+                                    .foregroundStyle(.blue)
+                            }
+                        }
+                        .buttonStyle(.plain)
                     }
                 }
             }
@@ -1884,6 +2039,54 @@ private struct AboutView: View {
             .padding(.vertical, 28)
         }
         .navigationTitle(localized(model.language, "About", "Over"))
+        .background(.clear)
+        .sheet(isPresented: $showingLegalNotices) {
+            LegalNoticesView(language: model.language)
+        }
+    }
+}
+
+private struct LegalNoticesView: View {
+    let language: String
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 20) {
+                    SettingsSection(title: localized(language, "Legal", "Juridisch")) {
+                        SelectableValue(localized(
+                            language,
+                            "DJConnect is not affiliated with, endorsed by, or sponsored by Spotify AB, Apple, or Home Assistant.",
+                            "DJConnect is niet gelieerd aan, goedgekeurd door of gesponsord door Spotify AB, Apple of Home Assistant."
+                        ))
+                        SelectableValue(localized(
+                            language,
+                            "Spotify is a trademark of Spotify AB. Home Assistant is a trademark of the Open Home Foundation.",
+                            "Spotify is een handelsmerk van Spotify AB. Home Assistant is een handelsmerk van de Open Home Foundation."
+                        ))
+                    }
+
+                    SettingsSection(title: "OSS") {
+                        SelectableValue(localized(
+                            language,
+                            "DJConnect uses Apple platform frameworks and Swift Package Manager. Third-party notices are documented in the repository when dependencies are added.",
+                            "DJConnect gebruikt Apple platform-frameworks en Swift Package Manager. Third-party notices worden in de repository gedocumenteerd wanneer dependencies worden toegevoegd."
+                        ))
+                    }
+                }
+                .padding(24)
+                .frame(maxWidth: 640, alignment: .leading)
+            }
+            .navigationTitle(localized(language, "Notices", "Notices"))
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button(localized(language, "Done", "Gereed")) {
+                        dismiss()
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -2075,6 +2278,9 @@ private func wakeWordStatusText(_ model: DJConnectAppModel) -> String {
     case .detected:
         return localized(model.language, "Wake phrase detected", "Wake-zin herkend")
     case .unavailable:
+        if model.isDemoMode {
+            return localized(model.language, "Not available in Demo Mode", "Niet beschikbaar in demo modus")
+        }
         return localized(model.language, "Not available", "Niet beschikbaar")
     }
 }

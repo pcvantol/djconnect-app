@@ -8,12 +8,14 @@ public final class DJConnectClient: Sendable {
     private let session: URLSession
     private let encoder: JSONEncoder
     private let decoder: JSONDecoder
+    private let responseLogger: (@Sendable (_ requestSummary: String, _ statusCode: Int) -> Void)?
 
     public init(
         baseURL: URL,
         identity: DJConnectIdentity,
         tokenStore: DJConnectTokenStore,
-        session: URLSession = .shared
+        session: URLSession = .shared,
+        responseLogger: (@Sendable (_ requestSummary: String, _ statusCode: Int) -> Void)? = nil
     ) {
         self.baseURL = baseURL
         self.identity = identity
@@ -21,6 +23,7 @@ public final class DJConnectClient: Sendable {
         self.session = session
         self.encoder = JSONEncoder()
         self.decoder = JSONDecoder()
+        self.responseLogger = responseLogger
     }
 
     public func postStatus(_ payload: DJConnectStatusPayload) async throws -> DJConnectEnvelope<DJConnectPlayback> {
@@ -152,6 +155,7 @@ public final class DJConnectClient: Sendable {
         guard let httpResponse = response as? HTTPURLResponse else {
             throw DJConnectError.invalidResponse
         }
+        responseLogger?(Self.requestSummary(request), httpResponse.statusCode)
 
         if let error = classify(statusCode: httpResponse.statusCode, body: data) {
             throw error
@@ -181,5 +185,11 @@ public final class DJConnectClient: Sendable {
 
     private func endpoint(path: String) -> URL {
         baseURL.appendingPathComponent(path.trimmingCharacters(in: CharacterSet(charactersIn: "/")))
+    }
+
+    private static func requestSummary(_ request: URLRequest) -> String {
+        let method = request.httpMethod ?? "GET"
+        let path = request.url?.path.isEmpty == false ? request.url?.path ?? "/" : "/"
+        return "\(method) \(path)"
     }
 }

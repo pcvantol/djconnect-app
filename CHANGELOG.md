@@ -28,11 +28,32 @@ All notable changes to DJConnect App are documented here.
 - Added a Keychain access recovery sheet when token access is denied.
 - Cached a successfully unlocked Keychain token in memory for the app session
   to avoid repeated system prompts.
+- Added trailing play affordances to playlist rows on iOS and macOS.
+- Changed the About website row to open the DJConnect website directly.
+- Moved legal and OSS notices behind a Notice popover and removed redundant
+  About rows.
+- Removed Voice and Local Response Audio settings rows because those are now
+  standard app behavior.
+- Removed redundant Client and Local URL rows from Settings.
+- Hid pairing code/actions in Settings while Demo Mode is active.
+- Returning from Demo Mode or resetting pairing now navigates back to Now
+  Playing behind the pairing sheet.
+- Improved the macOS Quit App button on the pairing sheet so it is focusable and
+  behaves like a normal button.
+- Clarified wakeword status in Demo Mode.
+- Added DEBUG logging for user actions/navigation flows, Home Assistant API
+  calls, and local Client API calls with HTTP status codes and without tokens.
+- Added queue and playlist start status toasts that auto-dismiss.
+- Hid Demo Mode setup status from Now Playing and clarified DJ request demo
+  copy.
+- Added a DJConnect blue/purple canvas background with glass-friendly depth.
 - Suppressed the possible-crash prompt while running under a debugger, reducing
   false positives after stopping from Xcode.
 - Demo Mode now shows the DJConnect app icon as fallback Now Playing artwork.
 - Wakeword remains disabled in Demo Mode to avoid starting real Speech/audio
   capture from sample state.
+- Demo Mode is now session-only and resets on app restart, so unpaired clients
+  always return to the pairing sheet.
 - Set app/protocol version to `3.1.8`.
 
 ### Documentation

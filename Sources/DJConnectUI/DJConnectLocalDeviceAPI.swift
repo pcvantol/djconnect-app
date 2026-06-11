@@ -406,44 +406,52 @@ public final class DJConnectLocalDeviceAPI: @unchecked Sendable {
     private func route(_ request: HTTPRequest) async -> Data {
         let path = normalizedPath(request.path)
         await logHandler("Local device API \(request.method) \(path)")
+        func loggedResponse<T: Encodable>(_ value: T, statusCode: Int = 200) async -> Data {
+            await logHandler("Local device API \(request.method) \(path) -> HTTP \(statusCode)")
+            return response(value, statusCode: statusCode)
+        }
         switch (request.method, path) {
         case ("GET", "/api/device/info"):
-            return response(await infoPayload(includePairingCode: false))
+            return await loggedResponse(await infoPayload(includePairingCode: false))
         case ("GET", "/api/device/pairing-info"):
-            return response(await infoPayload(includePairingCode: true))
+            return await loggedResponse(await infoPayload(includePairingCode: true))
         case ("POST", "/api/device/pair"):
-            return await decodeAndRespond(request.body, as: DJConnectLocalPairRequest.self, handler: pairHandler)
+            return await decodeAndRespond(request.body, as: DJConnectLocalPairRequest.self, requestSummary: "\(request.method) \(path)", handler: pairHandler)
         case ("POST", "/api/device/command"):
             guard await isAuthorized(request) else {
-                return response(DJConnectLocalDeviceAPIResponse(success: false, error: "unauthorized", message: "Missing or invalid bearer token."), statusCode: 401)
+                return await loggedResponse(DJConnectLocalDeviceAPIResponse(success: false, error: "unauthorized", message: "Missing or invalid bearer token."), statusCode: 401)
             }
-            return await decodeAndRespond(request.body, as: DJConnectLocalCommandRequest.self, handler: commandHandler)
+            return await decodeAndRespond(request.body, as: DJConnectLocalCommandRequest.self, requestSummary: "\(request.method) \(path)", handler: commandHandler)
         case ("POST", "/api/device/dj_response"):
             guard await isAuthorized(request) else {
-                return response(DJConnectLocalDeviceAPIResponse(success: false, error: "unauthorized", message: "Missing or invalid bearer token."), statusCode: 401)
+                return await loggedResponse(DJConnectLocalDeviceAPIResponse(success: false, error: "unauthorized", message: "Missing or invalid bearer token."), statusCode: 401)
             }
-            return await decodeAndRespond(request.body, as: DJConnectLocalDJResponseRequest.self, handler: djResponseHandler)
+            return await decodeAndRespond(request.body, as: DJConnectLocalDJResponseRequest.self, requestSummary: "\(request.method) \(path)", handler: djResponseHandler)
         case ("POST", "/api/device/forget"):
             guard await isAuthorized(request) else {
-                return response(DJConnectLocalDeviceAPIResponse(success: false, error: "unauthorized", message: "Missing or invalid bearer token."), statusCode: 401)
+                return await loggedResponse(DJConnectLocalDeviceAPIResponse(success: false, error: "unauthorized", message: "Missing or invalid bearer token."), statusCode: 401)
             }
-            return response(await forgetHandler())
+            return await loggedResponse(await forgetHandler())
         default:
-            return response(DJConnectLocalDeviceAPIResponse(success: false, error: "not_found", message: "Unsupported local DJConnect endpoint."), statusCode: 404)
+            return await loggedResponse(DJConnectLocalDeviceAPIResponse(success: false, error: "not_found", message: "Unsupported local DJConnect endpoint."), statusCode: 404)
         }
     }
 
     private func decodeAndRespond<T: Decodable>(
         _ body: Data,
         as type: T.Type,
+        requestSummary: String,
         handler: (T) async -> DJConnectLocalDeviceAPIResponse
     ) async -> Data {
         do {
             let value = try decoder.decode(type, from: body)
-            return response(await handler(value))
+            let responseValue = await handler(value)
+            await logHandler("Local device API \(requestSummary) -> HTTP 200")
+            return response(responseValue)
         } catch {
             let typeName = String(describing: type)
             await logHandler("Local device API rejected invalid JSON for \(typeName): \(error.localizedDescription)")
+            await logHandler("Local device API \(requestSummary) -> HTTP 400")
             return response(DJConnectLocalDeviceAPIResponse(success: false, error: "bad_request", message: "Invalid JSON body."), statusCode: 400)
         }
     }

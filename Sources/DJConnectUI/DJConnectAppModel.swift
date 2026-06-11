@@ -120,9 +120,7 @@ public final class DJConnectAppModel: ObservableObject {
     }
     @Published public var voiceEnabled = true
     @Published public var localResponseAudioEnabled = true
-    @Published public var isDemoMode = false {
-        didSet { defaults.set(isDemoMode, forKey: demoModeKey) }
-    }
+    @Published public var isDemoMode = false
     @Published public var wakeWordEnabled = false {
         didSet {
             wakeWordEnabled ? startWakeWordListening() : stopWakeWordListening()
@@ -263,7 +261,8 @@ public final class DJConnectAppModel: ObservableObject {
         self.pairingToken = defaults.string(forKey: pairingTokenKey) ?? Self.generatePairingToken()
         self.language = defaults.string(forKey: languageKey) ?? "nl"
         self.logLevel = defaults.string(forKey: logLevelKey) ?? "info"
-        self.isDemoMode = defaults.bool(forKey: demoModeKey)
+        defaults.removeObject(forKey: demoModeKey)
+        self.isDemoMode = false
         self.wakeWordEnabled = false
         self.wakeWordPhrase = defaults.string(forKey: wakeWordPhraseKey) ?? "Hey DJ"
         self.isShowingWelcome = !defaults.bool(forKey: welcomeSeenKey)
@@ -352,6 +351,7 @@ public final class DJConnectAppModel: ObservableObject {
         guard pairingStatus == .paired else {
             return
         }
+        log(.debug, "User action: dismiss pairing success screen")
         isShowingPairingSuccess = false
         isPairingScreenDismissed = true
         if shouldShowWakeWordPromptAfterPairingScreen {
@@ -361,6 +361,7 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     public func startDemoMode() {
+        log(.debug, "User action: start demo mode")
         stopPairingWait()
         isDemoMode = true
         isShowingPairingSuccess = false
@@ -380,7 +381,9 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     public func stopDemoMode() {
+        log(.debug, "User action: stop demo mode")
         isDemoMode = false
+        defaults.removeObject(forKey: demoModeKey)
         isPairingScreenDismissed = false
         clearRuntimeState()
         pairingMessage = localized(
@@ -410,6 +413,7 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     public func activateWakeWordFromPrompt() {
+        log(.debug, "User action: activate wakeword from prompt")
         defaults.set(true, forKey: wakeWordPromptDismissedKey)
         isShowingWakeWordActivationPrompt = false
         wakeWordEnabled = true
@@ -417,6 +421,7 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     public func dismissWakeWordActivationPrompt() {
+        log(.debug, "User action: dismiss wakeword prompt")
         defaults.set(true, forKey: wakeWordPromptDismissedKey)
         isShowingWakeWordActivationPrompt = false
         log(.info, "Wakeword activation prompt dismissed")
@@ -558,7 +563,7 @@ public final class DJConnectAppModel: ObservableObject {
         }
 
         while !Task.isCancelled && pairingStatus != .paired {
-            let client = DJConnectClient(baseURL: baseURL, identity: identity, tokenStore: tokenStore)
+            let client = makeClient(baseURL: baseURL)
             do {
                 let response = try await client.pair(DJConnectPairingPayload(
                     identity: identity,
@@ -597,6 +602,7 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     public func resetPairing() {
+        log(.debug, "User action: reset pairing")
         log(.warning, "Resetting pairing and clearing local token")
         scheduledPairingTask?.cancel()
         scheduledPairingTask = nil
@@ -604,6 +610,7 @@ public final class DJConnectAppModel: ObservableObject {
         pairingTask = nil
         try? tokenStore.clearToken()
         isDemoMode = false
+        defaults.removeObject(forKey: demoModeKey)
         clearStoredHomeAssistantURLs()
         clearPinnedLocalDeviceAPIURL()
         defaults.removeObject(forKey: installIDKey)
@@ -648,6 +655,7 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     public func refresh() {
+        log(.debug, "User action: refresh")
         Task {
             await runRefresh(reason: "Refresh completed")
         }
@@ -714,12 +722,14 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     public func togglePlayback() {
+        log(.debug, "User action: toggle playback")
         sendPlaybackCommand(isPlaying ? "pause" : "play")
     }
 
     public func commitVolumeChange() {
         volumeCommandTask?.cancel()
         let value = Int(volume.rounded())
+        log(.debug, "User action: commit volume \(value)")
         pendingVolumePercent = value
         volumeCommandTask = Task { [weak self] in
             try? await Task.sleep(for: .milliseconds(300))
@@ -742,14 +752,17 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     public func setShuffle(_ value: Bool) {
+        log(.debug, "User action: set shuffle \(value)")
         sendPlaybackCommand("set_shuffle", value: .bool(value))
     }
 
     public func setRepeat(_ value: DJConnectRepeatState) {
+        log(.debug, "User action: set repeat \(value.rawValue)")
         sendPlaybackCommand("set_repeat", value: .string(value.rawValue))
     }
 
     public func loadOutputs() {
+        log(.debug, "User action: load outputs")
         log(.info, "Loading playback outputs")
         Task {
             await performCommand("devices")
@@ -757,6 +770,7 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     public func loadQueue() {
+        log(.debug, "User action: load queue")
         Task {
             await refreshQueue()
         }
@@ -776,6 +790,7 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     public func loadPlaylists() {
+        log(.debug, "User action: load playlists")
         Task {
             await refreshPlaylists()
         }
@@ -795,6 +810,7 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     public func selectOutput(_ output: DJConnectOutputDevice) {
+        log(.debug, "User action: select output")
         selectedOutput = output.name
         pendingSelectedOutput = output.name
         availableOutputs = availableOutputs.map { candidate in
@@ -807,11 +823,13 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     public func startPlaylist(_ playlist: DJConnectPlaylist) {
+        log(.debug, "User action: start playlist")
         log(.info, "Starting playlist \(playlist.name)")
         sendPlaybackCommand("start_playlist", value: .string(playlist.commandValue), play: true)
     }
 
     public func startLikedProxy() {
+        log(.debug, "User action: start liked songs")
         log(.info, "Starting liked proxy flow")
         sendPlaybackCommand("start_liked_proxy", play: true)
     }
@@ -821,6 +839,7 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     public func startQueueItem(_ item: DJConnectQueueItem, at index: Int? = nil) {
+        log(.debug, "User action: start queue item")
         guard let uri = item.uri, !uri.isEmpty else {
             log(.warning, "Queue item \(item.title) cannot start because it has no URI")
             return
@@ -890,6 +909,7 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     public func toggleVoiceRecording() {
+        log(.debug, "User action: toggle voice recording")
         isRecordingVoice ? stopVoiceRecordingAndUpload() : startVoiceRecording()
     }
 
@@ -1675,8 +1695,8 @@ public final class DJConnectAppModel: ObservableObject {
         ]
         playlists = playlistItems.map(\.name)
         djResponseText = localized(
-            english: "Demo mode is ready. Pair Home Assistant later for real playback.",
-            dutch: "Demo modus is klaar. Koppel later met Home Assistant voor echte playback."
+            english: "DJ request is not available in Demo Mode. Exit Demo Mode in Settings.",
+            dutch: "DJ verzoek is niet beschikbaar in demo modus. Verlaat demo mode via Instellingen."
         )
         backendAvailable = true
         updateRequiredMessage = nil
@@ -1797,7 +1817,15 @@ public final class DJConnectAppModel: ObservableObject {
                 dutch: "Vul je Home Assistant URL in, bijvoorbeeld 192.168.1.10:8123."
             ))
         }
-        return DJConnectClient(baseURL: baseURL, identity: identity, tokenStore: tokenStore)
+        return makeClient(baseURL: baseURL)
+    }
+
+    private func makeClient(baseURL: URL) -> DJConnectClient {
+        DJConnectClient(baseURL: baseURL, identity: identity, tokenStore: tokenStore) { [weak self] requestSummary, statusCode in
+            Task { @MainActor in
+                self?.log(.debug, "Home Assistant API \(requestSummary) -> HTTP \(statusCode)")
+            }
+        }
     }
 
     private func startLocalDeviceAPI() {
