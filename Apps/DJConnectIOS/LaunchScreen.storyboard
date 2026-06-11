@@ -29,6 +29,10 @@
                                         <color key="textColor" white="1" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
                                         <nil key="highlightedColor"/>
                                     </label>
+                                    <activityIndicatorView opaque="NO" userInteractionEnabled="NO" contentMode="scaleToFill" horizontalHuggingPriority="750" verticalHuggingPriority="750" style="medium" animating="YES" translatesAutoresizingMaskIntoConstraints="NO" id="launch-spinner">
+                                        <rect key="frame" x="502" y="815" width="20" height="20"/>
+                                        <color key="color" white="1" alpha="0.86" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+                                    </activityIndicatorView>
                                 </subviews>
                                 <color key="backgroundColor" red="0.090196078431372548" green="0.070588235294117646" blue="0.12156862745098039" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
                                 <constraints>
@@ -37,6 +41,8 @@
                                     <constraint firstItem="launch-title" firstAttribute="top" secondItem="launch-icon" secondAttribute="bottom" constant="28" id="launch-title-top"/>
                                     <constraint firstItem="launch-title" firstAttribute="leading" secondItem="hero-panel" secondAttribute="leading" constant="40" id="launch-title-leading"/>
                                     <constraint firstAttribute="trailing" secondItem="launch-title" secondAttribute="trailing" constant="40" id="launch-title-trailing"/>
+                                    <constraint firstItem="launch-spinner" firstAttribute="centerX" secondItem="hero-panel" secondAttribute="centerX" id="launch-spinner-center-x"/>
+                                    <constraint firstItem="launch-spinner" firstAttribute="top" secondItem="launch-title" secondAttribute="bottom" constant="28" id="launch-spinner-top"/>
                                 </constraints>
                             </view>
                         </subviews>

@@ -181,6 +181,152 @@ Before an iOS/TestFlight release, make sure these are available:
   protocol range as the app.
 - A Spotify Premium account configured through the Home Assistant integration.
 
+## App Store Submission Metadata
+
+Use the same core copy for iOS/iPadOS App Store and Mac App Store unless the
+platform-specific review notes need to mention TestFlight, notarization, or
+Mac-only behavior.
+
+### Required Store Listing Fields
+
+App name:
+
+```text
+DJConnect
+```
+
+Subtitle:
+
+```text
+Jouw persoonlijke muziek DJ
+```
+
+Short description / promotional text:
+
+```text
+Bedien je muziek via Home Assistant en vraag persoonlijke DJ aankondigingen aan.
+```
+
+Full description:
+
+```text
+DJConnect is je persoonlijke muziek DJ voor Home Assistant. Koppel de app met
+de DJConnect integratie, kies je uitvoerapparaat, bedien je muziek, bekijk de
+wachtrij en afspeellijsten, en gebruik push-to-talk voor persoonlijke DJ
+aankondigingen.
+
+DJConnect bewaart geen Spotify- of Home Assistant-wachtwoorden in de app.
+Spotify Premium en de DJConnect Home Assistant integratie zijn vereist voor
+echte playback. Demo modus is beschikbaar zodat je de app-interface kunt
+bekijken zonder actieve Home Assistant backend.
+```
+
+Keywords:
+
+```text
+Home Assistant,Spotify,muziek,DJ,remote,voice,smart home
+```
+
+Support URL:
+
+```text
+https://djconnect.pages.dev
+```
+
+Marketing URL:
+
+```text
+https://djconnect.pages.dev
+```
+
+Privacy Policy URL:
+
+```text
+https://djconnect.pages.dev/privacy
+```
+
+Copyright:
+
+```text
+Copyright © 2026 Peter van Tol. All rights reserved.
+```
+
+Category:
+
+```text
+Music
+```
+
+Secondary category:
+
+```text
+Utilities
+```
+
+Age rating:
+
+```text
+4+
+```
+
+### Review Notes
+
+```text
+DJConnect requires the DJConnect Home Assistant integration and a Spotify
+Premium account for live playback. For review, open the app and choose Demo
+modus starten from the pairing screen. Demo Mode shows local sample playback,
+queue, playlists, games, and a sample DJ announcement without requiring access
+to a private Home Assistant instance.
+
+Live setup instructions are available at https://djconnect.pages.dev/start.
+The app requests Local Network access to reach Home Assistant and expose the
+Client API url during pairing. Microphone is used for push-to-talk voice
+requests. Speech Recognition is used only for optional foreground
+Stemactivatie.
+```
+
+### App Privacy Labels
+
+Data linked to the user:
+
+```text
+None collected by the app developer.
+```
+
+Data not linked to the user:
+
+```text
+Diagnostics: only when the user explicitly copies logs or opens a GitHub issue.
+Device ID: a local DJConnect install identifier used for Home Assistant pairing.
+```
+
+Data used for tracking:
+
+```text
+None.
+```
+
+Permissions and purpose strings:
+
+```text
+Local Network: used to connect to Home Assistant on your local network and
+offer the Client API url while the app is active.
+
+Microphone: used to record push-to-talk DJ requests.
+
+Speech Recognition: used for optional foreground Stemactivatie.
+
+Face ID / Touch ID / Keychain user presence: used to protect the DJConnect
+bearer token stored in the system Keychain.
+```
+
+### macOS-Specific Notes
+
+For Mac App Store submission, use the same product copy. For public Developer
+ID distribution outside the Mac App Store, publish the notarized zip and
+checksum to `pcvantol/djconnect-app-releases` and link the public release from
+the website/download page.
+
 ## First-Run Welcome
 
 The first-launch welcome screen must show DJConnect branding, link setup to
@@ -279,7 +425,7 @@ explicitly hardened.
 
 ## Current Local Verification
 
-For release `3.1.10`, local verification was completed with:
+For release `3.1.11`, local verification was completed with:
 
 ```sh
 swift test --no-parallel
@@ -304,7 +450,7 @@ The local helper script packages and uploads public macOS releases:
 PUBLIC_REPO=pcvantol/djconnect-app-releases \
 DEVELOPMENT_TEAM=<APPLE_TEAM_ID> \
 NOTARY_PROFILE=<notarytool-keychain-profile> \
-./Tools/release/release_macos_public.sh --version 3.1.10
+./Tools/release/release_macos_public.sh --version 3.1.11
 ```
 
 Create the notary profile once with:

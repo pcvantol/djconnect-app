@@ -184,7 +184,7 @@ public final class DJConnectAppModel: ObservableObject {
     private let defaults: UserDefaults
     private let tokenStore: DJConnectTokenStore
     private let startBackgroundTasks: Bool
-    private static let protocolVersion = "3.1.10"
+    private static let protocolVersion = "3.1.11"
     private static let defaultHomeAssistantURL = "http://homeassistant.local:8123"
     private let appVersion = DJConnectAppModel.protocolVersion
     private let installIDKey = "DJConnectInstallID"
@@ -1760,8 +1760,8 @@ public final class DJConnectAppModel: ObservableObject {
         ]
         playlists = playlistItems.map(\.name)
         djResponseText = localized(
-            english: "DJ request is not available in Demo Mode. Exit Demo Mode in Settings.",
-            dutch: "DJ verzoek is niet beschikbaar in demo modus. Verlaat demo mode via Instellingen."
+            english: "Tap the microphone icon to hear a sample announcement.",
+            dutch: "Druk op het microfoon icoon om een voorbeeld aankondiging te beluisteren."
         )
         backendAvailable = true
         updateRequiredMessage = nil
@@ -1910,8 +1910,8 @@ public final class DJConnectAppModel: ObservableObject {
                         deviceID: "djconnect-macos-unavailable",
                         deviceName: "DJConnect",
                         clientType: .macos,
-                        firmware: "3.1.10",
-                        appVersion: "3.1.10",
+                        firmware: "3.1.11",
+                        appVersion: "3.1.11",
                         platform: .macos
                     ),
                     pairingToken: "",
@@ -2326,16 +2326,24 @@ public final class DJConnectAppModel: ObservableObject {
         microphonePermissionStatus = Self.currentMicrophonePermissionStatus()
         speechPermissionStatus = Self.currentSpeechPermissionStatus()
         localNetworkPermissionStatus = .unknown
+        log(.debug, "Permission status refreshed: microphone=\(microphonePermissionStatus.rawValue) speech=\(speechPermissionStatus.rawValue) local_network=\(localNetworkPermissionStatus.rawValue)")
     }
 
     public func requestAppPermissions() {
         guard !isRequestingPermissions else {
+            log(.debug, "Ignoring permission request because one is already running")
             return
         }
+        log(.debug, "User action: request app permissions")
         isRequestingPermissions = true
         Task { @MainActor in
+            log(.debug, "Permission request started: microphone_status=\(microphonePermissionStatus.rawValue) speech_status=\(speechPermissionStatus.rawValue)")
+            log(.debug, "Permission request step: microphone begin")
             let microphoneGranted = await requestMicrophoneAccess()
+            log(.debug, "Permission request step: microphone completed granted=\(microphoneGranted)")
+            log(.debug, "Permission request step: speech begin")
             let speechGranted = await requestSpeechAccessIfAvailable()
+            log(.debug, "Permission request step: speech completed granted=\(speechGranted)")
             refreshPermissionStatuses()
             isRequestingPermissions = false
             if microphoneGranted, speechGranted {
@@ -2388,21 +2396,29 @@ public final class DJConnectAppModel: ObservableObject {
         #if canImport(AVFoundation)
         return await withCheckedContinuation { continuation in
             let resumeOnMainQueue: @Sendable (Bool) -> Void = { granted in
-                continuation.resume(returning: granted)
+                Task { @MainActor in
+                    self.log(.debug, "Microphone permission callback resumed on MainActor granted=\(granted)")
+                    continuation.resume(returning: granted)
+                }
             }
             #if os(iOS)
             if #available(iOS 17.0, *) {
+                log(.debug, "Requesting microphone permission using AVAudioApplication")
                 AVAudioApplication.requestRecordPermission(completionHandler: resumeOnMainQueue)
             } else {
+                log(.debug, "Requesting microphone permission using AVAudioSession")
                 AVAudioSession.sharedInstance().requestRecordPermission(resumeOnMainQueue)
             }
             #elseif os(macOS)
+            log(.debug, "Requesting microphone permission using AVCaptureDevice")
             AVCaptureDevice.requestAccess(for: .audio, completionHandler: resumeOnMainQueue)
             #else
+            log(.debug, "Microphone permission unavailable on this platform")
             resumeOnMainQueue(false)
             #endif
         }
         #else
+        log(.debug, "Microphone permission unavailable because AVFoundation is missing")
         return false
         #endif
     }
@@ -2411,6 +2427,7 @@ public final class DJConnectAppModel: ObservableObject {
         #if canImport(Speech) && canImport(AVFoundation)
         await requestSpeechAccess()
         #else
+        log(.debug, "Speech permission unavailable on this platform")
         false
         #endif
     }
@@ -2529,8 +2546,12 @@ public final class DJConnectAppModel: ObservableObject {
     #if canImport(Speech) && canImport(AVFoundation)
     private func requestSpeechAccess() async -> Bool {
         await withCheckedContinuation { continuation in
+            log(.debug, "Requesting speech recognition permission")
             SFSpeechRecognizer.requestAuthorization { status in
-                continuation.resume(returning: status == .authorized)
+                Task { @MainActor in
+                    self.log(.debug, "Speech permission callback resumed on MainActor status=\(status.rawValue)")
+                    continuation.resume(returning: status == .authorized)
+                }
             }
         }
     }

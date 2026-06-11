@@ -6,6 +6,26 @@ All notable changes to DJConnect App are documented here.
 
 No unreleased changes yet.
 
+## 3.1.11 - 2026-06-11
+
+### Fixed
+
+- Added DEBUG logging around each permission request step and callback to
+  diagnose iOS/macOS permission crashes.
+- Routed permission callbacks back through the MainActor before resuming the
+  request flow.
+- Added the iOS native launch-screen spinner under the DJConnect title.
+- Applied the DJConnect gradient canvas to Now Playing and the pairing sheet.
+- Added consistent subtle rounded borders to album artwork on Now Playing,
+  queue, and playlist rows.
+- Updated Demo Mode DJ request copy and Dutch Settings translations for
+  push-to-talk, stemactivatie, and wake-word labels.
+
+### Documentation
+
+- Added App Store and Mac App Store submission metadata, required labels,
+  descriptions, privacy labels, permissions copy, and review notes.
+
 ## 3.1.10 - 2026-06-11
 
 ### Added
@@ -83,7 +103,7 @@ No unreleased changes yet.
 
 - Consolidated sync prompts to the canonical root `SYNC_PROMPTS.md` and removed
   the obsolete `docs/SYNC_PROMPTS.md` copy.
-- Updated app/protocol examples to `3.1.10`.
+- Updated app/protocol examples to `3.1.9`.
 
 ## 3.1.8 - 2026-06-11
 

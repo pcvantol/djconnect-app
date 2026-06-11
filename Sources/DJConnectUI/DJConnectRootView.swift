@@ -242,6 +242,9 @@ public struct DJConnectRootView: View {
         )) {
             PairingSheetView(model: model)
                 .interactiveDismissDisabled(true)
+                .presentationBackground {
+                    DJConnectCanvasBackground()
+                }
         }
         .onChange(of: model.shouldShowPairingScreen) {
             if model.shouldShowPairingScreen {
@@ -300,6 +303,7 @@ private struct PairingSheetView: View {
         }
         .padding(28)
         .frame(minWidth: 360, idealWidth: 560, maxWidth: 680)
+        .background(DJConnectCanvasBackground())
         #if os(macOS)
         .frame(minHeight: 560)
         #endif
@@ -793,21 +797,24 @@ private struct IOSNowPlayingView: View {
 
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(spacing: 16) {
-                    AboutBanner()
-                    IOSVoiceCard(model: model)
-                    if !model.isDemoMode {
-                        IOSConnectionCard(model: model)
+            ZStack {
+                DJConnectCanvasBackground()
+                ScrollView {
+                    VStack(spacing: 16) {
+                        AboutBanner()
+                        IOSVoiceCard(model: model)
+                        if !model.isDemoMode {
+                            IOSConnectionCard(model: model)
+                        }
+                        IOSTrackHero(model: model)
+                        IOSPlaybackSurface(model: model)
+                        OutputSelectorView(model: model)
                     }
-                    IOSTrackHero(model: model)
-                    IOSPlaybackSurface(model: model)
-                    OutputSelectorView(model: model)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 12)
                 }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 12)
+                .background(.clear)
             }
-            .background(.clear)
             .navigationTitle(screenTitle(model.language, "DJConnect", "DJConnect", isDemoMode: model.isDemoMode))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -982,7 +989,7 @@ private struct IOSTrackHero: View {
             .aspectRatio(1, contentMode: .fill)
             .frame(maxWidth: 300)
             .frame(maxWidth: .infinity, alignment: .center)
-            .clipShape(RoundedRectangle(cornerRadius: 8))
+            .djArtworkStyle(cornerRadius: 8)
 
             VStack(alignment: .leading, spacing: 5) {
                 Text(playback?.trackName ?? localized(model.language, "Nothing Playing", "Niets speelt af"))
@@ -1100,7 +1107,7 @@ private struct IOSVoiceCard: View {
             if !model.backendAvailable {
                 return localized(model.language, "DJ announcement is currently unavailable", "DJ aankondiging momenteel niet beschikbaar")
             }
-            return localized(model.language, "Ready for voice response", "Klaar voor voice response")
+            return localized(model.language, "Ready for DJ announcement", "Klaar voor DJ aankondiging")
         }
     }
 
@@ -1298,7 +1305,7 @@ struct TrackSummaryView: View {
             .aspectRatio(1, contentMode: .fill)
             .frame(maxWidth: 320)
             .frame(maxWidth: .infinity, alignment: .center)
-            .clipShape(RoundedRectangle(cornerRadius: 8))
+            .djArtworkStyle(cornerRadius: 8)
 
             VStack(alignment: .leading, spacing: 6) {
                 Text(playback?.trackName ?? localized(model.language, "Nothing playing", "Niets speelt af"))
@@ -1521,11 +1528,26 @@ private struct QueueArtworkView: View {
                     .foregroundStyle(.secondary)
             }
         }
-        .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: 6, style: .continuous)
-                .stroke(Color.secondary.opacity(0.12), lineWidth: 1)
-        }
+        .djArtworkStyle(cornerRadius: 6)
+    }
+}
+
+private struct DJConnectArtworkStyle: ViewModifier {
+    let cornerRadius: CGFloat
+
+    func body(content: Content) -> some View {
+        content
+            .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .stroke(Color.white.opacity(0.18), lineWidth: 1)
+            }
+    }
+}
+
+private extension View {
+    func djArtworkStyle(cornerRadius: CGFloat) -> some View {
+        modifier(DJConnectArtworkStyle(cornerRadius: cornerRadius))
     }
 }
 
@@ -2547,7 +2569,7 @@ struct SettingsView: View {
                         detail: localized(
                             model.language,
                             "Needed for push-to-talk voice requests.",
-                            "Nodig voor push-to-talk voice requests."
+                            "Nodig voor push-to-talk muziekverzoeken."
                         ),
                         status: model.microphonePermissionStatus,
                         language: model.language
@@ -2557,7 +2579,7 @@ struct SettingsView: View {
                         detail: localized(
                             model.language,
                             "Needed for the foreground wake phrase.",
-                            "Nodig voor de foreground wake-zin."
+                            "Nodig voor stemactivatie."
                         ),
                         status: model.speechPermissionStatus,
                         language: model.language
@@ -2986,11 +3008,17 @@ private func wakeWordPhraseField(_ model: DJConnectAppModel) -> some View {
         set: { model.wakeWordPhrase = $0 }
     )
     #if os(iOS)
-    TextField(localized(model.language, "Wake phrase", "Wake-zin"), text: phrase)
-        .textInputAutocapitalization(.never)
-        .autocorrectionDisabled()
+    LabeledContent(localized(model.language, "Wake word", "Wake word")) {
+        TextField(localized(model.language, "Wake word", "Wake word"), text: phrase)
+            .multilineTextAlignment(.trailing)
+            .textInputAutocapitalization(.never)
+            .autocorrectionDisabled()
+    }
     #else
-    TextField(localized(model.language, "Wake phrase", "Wake-zin"), text: phrase)
+    LabeledContent(localized(model.language, "Wake word", "Wake word")) {
+        TextField(localized(model.language, "Wake word", "Wake word"), text: phrase)
+            .multilineTextAlignment(.trailing)
+    }
     #endif
 }
 
@@ -3000,9 +3028,9 @@ private func wakeWordStatusText(_ model: DJConnectAppModel) -> String {
     case .idle:
         return localized(model.language, "Idle", "Inactief")
     case .listening:
-        return localized(model.language, "Listening for wake phrase", "Luistert naar wake-zin")
-    case .detected:
-        return localized(model.language, "Wake phrase detected", "Wake-zin herkend")
+            return localized(model.language, "Listening for wake word", "Luistert naar wake word")
+        case .detected:
+            return localized(model.language, "Wake word detected", "Wake word herkend")
     case .unavailable:
         if model.isDemoMode {
             return localized(model.language, "Not available in Demo Mode", "Niet beschikbaar in demo modus")
