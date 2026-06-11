@@ -9,6 +9,8 @@ items with acceptance criteria live in [ISSUES.md](ISSUES.md).
   against a real Home Assistant `djconnect` setup.
 - Validate HA entity creation and status sync for iOS, iPadOS, and macOS app
   clients after pairing.
+- Validate the blocking pairing sheet and Demo Mode on physical iPhone, iPad,
+  and Mac before App Store/TestFlight review.
 - Keep the Apple app and Home Assistant integration on the same `major.minor`
   protocol line; app `3.1.x` requires HA `3.1.x`.
 - Work through the high-priority local issues in [ISSUES.md](ISSUES.md),
@@ -53,6 +55,8 @@ items with acceptance criteria live in [ISSUES.md](ISSUES.md).
   auth recovery.
 - Add more diagnostics export tests for `audio_url`, `Authorization`, and
   arbitrary token-like JSON fields.
+- Add security hardening tests for local API request-size limits and Keychain
+  accessibility attributes.
 - Add performance regression checks for refresh coalescing and repeated artwork
   URLs once the cache/scheduler work lands.
 
@@ -62,6 +66,8 @@ items with acceptance criteria live in [ISSUES.md](ISSUES.md).
 - Add privacy manifests if required by release tooling.
 - Decide on CI provider and add build/test workflow.
 - Configure TestFlight and notarized macOS release packaging.
+- Keep release notes aligned with the latest GitHub release and only add new
+  work to an `Unreleased` changelog section after tags are published.
 
 ## Known Issues
 
@@ -69,6 +75,8 @@ items with acceptance criteria live in [ISSUES.md](ISSUES.md).
   in the Apple app, but still need validation against the matching HA backend.
 - The app icon now follows the shared DJConnect brand asset from
   `pcvantol/djconnect`.
+- The unpaired app now has Demo Mode for UI inspection, but Demo Mode does not
+  validate HA pairing, HA entity creation, Spotify OAuth, or voice round trips.
 - `DJConnectCoreTests` currently run through Swift Package tests; Xcode test
   integration should be expanded as the app targets mature.
 - `xcodebuild` may print simulator/cache warnings in the sandboxed Codex

@@ -2,7 +2,8 @@
 
 ## Requirements
 
-- Xcode 26 or newer.
+- Xcode 26 or newer. The latest verified local toolchain is Xcode 26.5
+  (`17F42`).
 - Swift 6.
 - XcodeGen, available as `xcodegen`.
 
@@ -42,13 +43,16 @@ The CLI build disables signing for local verification. Configure
 1. Open `DJConnectApp.xcodeproj` in Xcode.
 2. Select the `DJConnectMac` scheme.
 3. Run the app.
-4. Open Settings.
-5. Enter the Home Assistant base URL, for example
+4. If this is a fresh install, dismiss the one-time welcome screen.
+5. The blocking pairing sheet opens automatically while the app is unpaired.
+6. Enter or confirm the Home Assistant base URL, for example
    `http://homeassistant.local:8123`.
-6. Copy the app-generated Pairing Code into the Home Assistant `djconnect`
+7. Copy the app-generated Pairing Code into the Home Assistant `djconnect`
    integration setup/pairing flow.
-7. Leave the app open. It waits automatically until Home Assistant accepts the
+8. Copy the Client API url into Home Assistant when the HA flow asks for it.
+9. Leave the app open. It waits automatically until Home Assistant accepts the
    code and returns a DJConnect bearer token.
+10. When the green pairing success state appears, choose `Let's Start!`.
 
 The app polls `POST /api/djconnect/pair`, stores the returned DJConnect bearer
 token in Keychain, and validates the pairing by posting to
@@ -61,8 +65,14 @@ mDNS/Bonjour reachability as authoritative. On real devices and macOS, the app
 also advertises `_djconnect._tcp` and hosts local `/api/device/*` endpoints for
 Home Assistant -> app callbacks while the app is active/reachable.
 
+The pairing sheet also offers Demo Mode. Use it only for local UI work or App
+Store review/auditing when a real Home Assistant backend is unavailable. Demo
+Mode does not validate HA entities, pairing callbacks, Spotify OAuth, or voice
+round trips.
+
 Reset Pairing clears the DJConnect Keychain token, generates a new app code,
 and creates a fresh local `device_id` for a new DJConnect app client setup.
+It also clears Demo Mode and reopens the pairing sheet.
 
 ## Test
 

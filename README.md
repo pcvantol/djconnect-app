@@ -12,6 +12,8 @@ optional playback of returned DJ response audio. It must not store Spotify,
 Home Assistant, Sonos, OpenAI, or other backend credentials. The only app-owned
 credential is the DJConnect client bearer token issued by the integration.
 
+Website: [https://djconnect.pages.dev](https://djconnect.pages.dev)
+
 ## Documentation
 
 - [docs/HANDOFF.md](docs/HANDOFF.md): original product and integration handoff.
@@ -37,6 +39,17 @@ Home Assistant setup link:
 DJConnect playback requires a configured Home Assistant `djconnect`
 integration and a Spotify Premium account. The app does not ask for Spotify
 credentials; Spotify OAuth stays owned by Home Assistant.
+
+If the app is not paired yet, the main runtime UI is blocked by a pairing
+sheet. That sheet shows the DJConnect banner, copyable Client API url,
+copyable app-generated pairing code, and live pairing status. After Home
+Assistant completes pairing, the sheet shows a success state with a green
+checkmark and a `Let's Start!` action before the runtime UI is released.
+
+For App Store review and local UI inspection, the pairing sheet also exposes
+Demo Mode. Demo Mode fills Now Playing, queue, playlists, output devices, and
+DJ announcement UI with local sample data without contacting Home Assistant.
+It is not a replacement for live backend validation.
 
 ## Package Shape
 
@@ -92,6 +105,10 @@ Build checks used for this scaffold:
 xcodebuild -project DJConnectApp.xcodeproj -scheme DJConnectMac -destination platform=macOS -derivedDataPath .xcode-derived CODE_SIGNING_ALLOWED=NO build
 xcodebuild -project DJConnectApp.xcodeproj -scheme DJConnectIOS -destination generic/platform=iOS -derivedDataPath .xcode-derived CODE_SIGNING_ALLOWED=NO build
 ```
+
+The latest verification was performed with Xcode 26.5 (`17F42`) against
+macOS 26.5 and iPhoneOS 26.5 SDKs, with code signing disabled for local build
+checks.
 
 ## Swift Package
 
@@ -184,6 +201,10 @@ POST /api/device/forget
 
 Protected local endpoints require `Authorization: Bearer <device_token>`.
 The Apple app does not implement ESP-only reboot or OTA routes.
+
+The user-facing name for this local endpoint is `Client API url`. The URL shown
+during pairing is pinned after successful pairing and remains stable in app
+storage until the user explicitly resets pairing.
 
 ## Version Contract
 

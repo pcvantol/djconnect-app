@@ -179,3 +179,36 @@ Reasoning:
   playback controls;
 - keeping it one-time avoids adding friction after the user has already paired
   or intentionally skipped setup.
+
+## ADR-012: Unpaired Runtime Uses A Blocking Pairing Sheet
+
+Status: accepted
+
+The Apple app blocks playback, queue, playlists, output, and voice UI while no
+DJConnect bearer token is available. The pairing sheet owns Home Assistant URL
+entry, the copyable Client API url, the copyable app-generated pairing code,
+pairing progress, and the final success state.
+
+Reasoning:
+
+- prevents users from interacting with runtime controls that cannot work yet;
+- gives Home Assistant one clear callback URL and one visible app code;
+- keeps the wakeword activation prompt from competing with pairing success;
+- lets Settings remain available after pairing reset through the same recovery
+  path.
+
+## ADR-013: Demo Mode Is Local UI State Only
+
+Status: accepted
+
+Demo Mode is available from the unpaired pairing sheet for App Store review and
+UI inspection when no Home Assistant backend is available. It uses local sample
+playback, queue, playlist, output, and DJ announcement state.
+
+Reasoning:
+
+- App Store review can inspect the native UI without a private HA instance;
+- no DJConnect bearer token is created or stored;
+- no HA devices/entities are created;
+- live HA validation remains mandatory for pairing, entities, Spotify OAuth,
+  and voice round trips.

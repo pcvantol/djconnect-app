@@ -19,12 +19,16 @@ The Apple app owns:
 - native iOS/macOS UI;
 - local app state;
 - local Keychain storage for only the DJConnect bearer token;
+- a pinned Client API url after successful pairing, kept stable until explicit
+  pairing reset;
 - local audio recording for push-to-talk, when implemented;
 - optional playback of returned DJ response audio.
 - user-facing permission status and preflight requests for Microphone and
   Speech Recognition.
 - one-time first-run onboarding that points setup to Home Assistant and notes
   the Spotify Premium requirement.
+- local Demo Mode state for App Store review and UI inspection without a live
+  backend.
 
 The app must never store Spotify, Sonos, Home Assistant long-lived access
 tokens, OpenAI, or playback backend credentials.
@@ -70,6 +74,22 @@ Pairing/auth failures are intentionally conservative:
 - HTTP `404`: show integration/setup recovery, keep token until user reset.
 
 Only explicit user pairing reset should clear Keychain token state.
+
+When no bearer token exists, the UI shows a blocking pairing sheet instead of
+enabling playback. Pairing success is acknowledged with a dedicated success
+state before the main runtime UI is released. Demo Mode is the only unpaired
+path that unlocks runtime screens; it uses local sample data and must not
+contact Home Assistant.
+
+## Local Client API
+
+The app hosts a small local HTTP API for Home Assistant -> app traffic while
+the app is active. User-facing text calls this endpoint `Client API url`.
+
+The Client API url shown during pairing is pinned after successful pairing and
+stored locally so Home Assistant does not lose the callback target when the app
+refreshes its listener. It changes only when the user resets pairing or the app
+installation state is reset.
 
 ## Project Generation
 

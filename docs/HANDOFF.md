@@ -57,6 +57,27 @@ User-facing copy must make two prerequisites clear:
 The app must not request Spotify credentials during onboarding. Spotify OAuth
 belongs to the Home Assistant integration.
 
+## Unpaired Runtime UX
+
+When the Apple app has no valid DJConnect bearer token, the main runtime UI is
+blocked by a pairing sheet. The sheet must show:
+
+- DJConnect banner/branding.
+- Home Assistant setup context.
+- Copyable `Client API url`.
+- Copyable app-generated pairing code.
+- Pairing progress while Home Assistant calls the client API or while polling
+  is active.
+- A green success state after pairing, followed by a `Let's Start!` action.
+
+The wakeword activation prompt may be shown after the user leaves the pairing
+success sheet, not on top of it.
+
+For App Store review and UI auditing, the pairing sheet may expose Demo Mode.
+Demo Mode uses local sample playback, queue, playlist, output, and DJ
+announcement state. It must not store a bearer token, create HA entities, or
+be treated as backend validation.
+
 ## Identity
 
 Use a stable `device_id` per app installation.
@@ -155,12 +176,15 @@ Recommended user flow:
 1. User enters or selects their Home Assistant URL.
 2. App generates and displays a short DJConnect pairing code.
 3. User enters/confirms that code in the Home Assistant DJConnect setup flow.
-4. App waits/polls with the same code until the integration completes pairing.
-5. Integration creates or returns a DJConnect bearer token for the app runtime.
-6. App stores only the DJConnect bearer token in Keychain.
-7. App starts sending authenticated status and command payloads with
+4. User gives Home Assistant the app's `Client API url` when requested.
+5. App waits/polls with the same code until the integration completes pairing.
+6. Integration creates or returns a DJConnect bearer token for the app runtime.
+7. App stores only the DJConnect bearer token in Keychain.
+8. App pins the Client API url that was shown during pairing and keeps it
+   stable until explicit pairing reset.
+9. App starts sending authenticated status and command payloads with
    `device_id` and `client_type`.
-8. App always uses `ha_local_url` for status, command, and voice requests.
+10. App always uses `ha_local_url` for status, command, and voice requests.
    Cloud URLs are Home Assistant-owned and only belong in Spotify OAuth config
    flows.
 

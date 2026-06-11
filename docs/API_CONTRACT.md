@@ -110,6 +110,11 @@ traffic while the app is active/reachable. It advertises Bonjour/mDNS service
 `_djconnect._tcp` with TXT fields including `name`, `device_id`, `version`,
 `paired`, `api`, `model`, and `client_type`.
 
+User-facing app text calls this endpoint the `Client API url`. The URL shown
+in the pairing sheet must be the URL Home Assistant uses for the local
+callback. After successful local pairing, the app pins that URL in local state
+and keeps it stable until explicit pairing reset.
+
 Open endpoints:
 
 ```http
@@ -170,6 +175,10 @@ POST /api/device/forget
 
 The Apple app does not implement ESP-only `/api/device/reboot` or
 `/api/device/ota` routes.
+
+Demo Mode is not part of the Home Assistant API contract. It is local sample
+state for App Store review and UI inspection, and must not create HA devices,
+entities, tokens, or backend traffic.
 
 ## Status
 

@@ -125,8 +125,57 @@ need a mock Home Assistant server or a live test Home Assistant environment.
 Acceptance:
 
 - UI tests cover first-run welcome, settings URL entry, app-generated pairing
-  code, successful pairing, version mismatch, and stale auth.
+  code, Client API url copy, Demo Mode entry/exit, successful pairing, version
+  mismatch, and stale auth.
 - Tests can run deterministically without a production Home Assistant instance.
+
+## Security Hardening
+
+### ISS-011: Harden Keychain Token Accessibility
+
+Priority: high
+
+The DJConnect bearer token is stored through the Keychain abstraction. Ensure
+the production Keychain store sets explicit accessibility such as
+`kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly` or
+`kSecAttrAccessibleWhenUnlockedThisDeviceOnly`, depending on the desired
+startup behavior.
+
+Acceptance:
+
+- New token writes include an explicit accessibility class.
+- Existing token update paths preserve or migrate the accessibility class.
+- Unit or integration coverage verifies the production Keychain query includes
+  the expected attributes where practical.
+
+### ISS-012: Bound Local API Request Size
+
+Priority: high
+
+The local Client API should reject oversized headers and request bodies to
+avoid unnecessary memory growth from malformed LAN traffic.
+
+Acceptance:
+
+- Local API request headers have a maximum size.
+- Local API request bodies have a maximum size.
+- Oversized requests receive a clear `413` or equivalent failure response.
+- Normal pairing, command, DJ response, and forget requests still pass.
+
+### ISS-013: Centralize Runtime Log Redaction
+
+Priority: medium
+
+Diagnostics export redacts sensitive values, but runtime logging should also
+sanitize messages before they are appended to in-app logs or emitted through
+OSLog.
+
+Acceptance:
+
+- Token-like JSON keys, authorization headers, query tokens, and temporary
+  audio URLs are redacted before in-app log storage.
+- Existing user-facing diagnostic exports remain redacted.
+- Tests cover nested JSON and non-string token fields.
 
 ## Release And Platform Polish
 

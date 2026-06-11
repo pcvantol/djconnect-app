@@ -25,6 +25,23 @@ The first-launch welcome screen must show DJConnect branding, link setup to
 `pcvantol/djconnect`, and mention that Spotify Premium is required. It must not
 ask for Spotify credentials; Spotify OAuth is configured in Home Assistant.
 
+## Pairing And Demo Mode
+
+When the app is unpaired, the runtime UI must be blocked by the pairing sheet.
+The sheet must show:
+
+- DJConnect banner/branding.
+- Home Assistant setup context.
+- Copyable `Client API url`.
+- Copyable app-generated pairing code.
+- Pairing progress while Home Assistant calls back.
+- A green success state with `Let's Start!` after pairing completes.
+
+Demo Mode is allowed from the pairing sheet for App Store review and UI
+inspection without a live Home Assistant backend. It must be clearly local demo
+data and must not store a bearer token, create HA entities, or be described as
+real playback validation.
+
 ## App Permissions
 
 The app declares only the permissions it needs:
@@ -84,6 +101,20 @@ open a prefilled GitHub issue in `pcvantol/djconnect` and submit it manually.
 - Run pairing against a real Home Assistant `djconnect` setup before inviting
   external testers.
 
+## Current Local Verification
+
+For release `3.1.7`, local verification was completed with:
+
+```sh
+swift test --no-parallel
+xcodebuild -project DJConnectApp.xcodeproj -scheme DJConnectMac -configuration Debug -destination platform=macOS -derivedDataPath .xcode-derived CODE_SIGNING_ALLOWED=NO build
+xcodebuild -project DJConnectApp.xcodeproj -scheme DJConnectIOS -configuration Debug -destination generic/platform=iOS -derivedDataPath .xcode-derived CODE_SIGNING_ALLOWED=NO build
+```
+
+The Xcode toolchain was Xcode 26.5 (`17F42`). These checks do not replace
+signed archive validation, TestFlight processing, notarization, or physical
+device permission testing.
+
 ## macOS Notarization
 
 - Archive the `DJConnectMac` scheme in Release configuration.
@@ -115,6 +146,10 @@ local tags. It keeps the newest `--keep` versions and only deletes when
 Use a Home Assistant instance with the matching `djconnect` integration.
 
 - Pair from the app-generated code and confirm HA creates the app device.
+- Confirm the Client API url shown during pairing remains stable after pairing
+  and after app restart until explicit pairing reset.
+- Confirm Demo Mode can be entered from the unpaired pairing sheet and exited
+  from Settings without creating HA state.
 - Confirm the app accepts only matching `major.minor` HA integration versions
   and disables runtime controls with a clear update message on mismatch.
 - Confirm HA entities/status sync for paired, stale, backend unavailable, and

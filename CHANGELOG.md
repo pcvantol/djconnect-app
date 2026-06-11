@@ -2,6 +2,15 @@
 
 All notable changes to DJConnect App are documented here.
 
+## Unreleased
+
+### Documentation
+
+- Updated README, development, release, handoff, architecture, sync prompts,
+  TODO, and issues documentation for the 3.1.7 pairing sheet, Demo Mode,
+  Client API url stability, About website, Xcode 26.5 verification, and
+  security-hardening backlog.
+
 ## 3.1.7 - 2026-06-11
 
 ### Added
