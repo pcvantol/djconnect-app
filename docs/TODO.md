@@ -1,6 +1,7 @@
 # Todo And Known Issues
 
-This document tracks open implementation work and known project gaps.
+This document tracks the roadmap and known project gaps. Concrete backlog
+items with acceptance criteria live in [ISSUES.md](ISSUES.md).
 
 ## High Priority
 
@@ -10,16 +11,21 @@ This document tracks open implementation work and known project gaps.
   clients after pairing.
 - Keep the Apple app and Home Assistant integration on the same `major.minor`
   protocol line; app `3.1.x` requires HA `3.1.x`.
+- Work through the high-priority local issues in [ISSUES.md](ISSUES.md),
+  especially refresh latency, network fixtures, and physical-device validation.
 
 ## Playback
 
 - Add retry throttling and user-facing recovery copy for `backend_unavailable`.
+- Parallelize collection refreshes and centralize refresh debouncing.
+- Add bounded artwork caching for Now Playing and queue rows.
 - Expand command/status integration tests with URLProtocol-backed response
   fixtures.
 
 ## Voice/PTT
 
 - Optionally play returned WAV/MP3 response audio without logging `audio_url`.
+- Add response-audio size bounds or temporary-file playback for larger clips.
 
 ## iOS
 
@@ -47,6 +53,8 @@ This document tracks open implementation work and known project gaps.
   auth recovery.
 - Add more diagnostics export tests for `audio_url`, `Authorization`, and
   arbitrary token-like JSON fields.
+- Add performance regression checks for refresh coalescing and repeated artwork
+  URLs once the cache/scheduler work lands.
 
 ## Release/Build
 
