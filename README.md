@@ -20,7 +20,8 @@ credential is the DJConnect client bearer token issued by the integration.
 - [docs/API_CONTRACT.md](docs/API_CONTRACT.md): Home Assistant endpoint contract.
 - [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md): local development, generation, build, and test commands.
 - [docs/RELEASE.md](docs/RELEASE.md): signing, TestFlight, notarization, and live HA validation checklist.
-- [docs/SYNC_PROMPTS.md](docs/SYNC_PROMPTS.md): copy/paste prompts for syncing the app and Home Assistant repos.
+- [SYNC_PROMPTS.md](SYNC_PROMPTS.md): canonical copy/paste prompts for syncing the app, Home Assistant, and ESP repos.
+- [docs/SYNC_PROMPTS.md](docs/SYNC_PROMPTS.md): docs copy of the same sync prompts.
 - [docs/TODO.md](docs/TODO.md): open work, known issues, and next implementation steps.
 - [docs/ISSUES.md](docs/ISSUES.md): concrete local backlog with priorities and acceptance criteria.
 - [PRIVACY.md](PRIVACY.md): security, privacy, and diagnostics redaction rules.
