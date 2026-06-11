@@ -59,6 +59,8 @@ xcrun notarytool store-credentials <notarytool-keychain-profile>
 - Update `MARKETING_VERSION` in `project.yml`.
 - Update `DJConnectAppModel.protocolVersion`.
 - Update version examples in handoff/API/release/architecture docs.
+- Confirm handoff, README, architecture, development, sync prompts, TODO, and
+  issues docs reflect new runtime, logging, release, and pairing behavior.
 - Consolidate `CHANGELOG.md`: move finished Unreleased entries into the new
   release section and leave a clean Unreleased placeholder.
 - Run local verification:

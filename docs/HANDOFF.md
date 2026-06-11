@@ -75,7 +75,14 @@ success sheet, not on top of it.
 For App Store review and UI auditing, the pairing sheet may expose Demo Mode.
 Demo Mode uses local sample playback, queue, playlist, output, and DJ
 announcement state. It must not store a bearer token, create HA entities, or
-be treated as backend validation.
+be treated as backend validation. Demo Mode is session-only: after app restart,
+an unpaired client returns to the pairing sheet. Exiting Demo Mode from
+Settings must return to the initial unpaired state with Now Playing behind the
+pairing sheet.
+
+If the user resets pairing, the app should clear runtime playback/output/
+queue/playlist state, navigate back to Now Playing, and present the pairing
+sheet over that initial state.
 
 ## Identity
 
@@ -261,6 +268,25 @@ The app must not upload crash logs automatically, embed GitHub credentials, or
 send diagnostics without explicit user action. Diagnostics must redact bearer
 tokens, Home Assistant tokens, Spotify secrets, temporary audio URLs, and other
 token-like fields.
+
+## Debug Logging Contract
+
+The app should provide consistent DEBUG-level diagnostics for:
+
+- user actions, such as refresh, transport controls, output changes, queue item
+  starts, playlist starts, Demo Mode entry/exit, pairing reset, wakeword prompt
+  actions, and voice/PTT actions;
+- navigation/recovery flows, such as pairing success dismissal, Demo Mode exit,
+  pairing reset returning to Now Playing, and crash/keychain recovery prompts;
+- Home Assistant API calls, always including the HTTP method/path and status
+  code;
+- local Client API calls from Home Assistant, always including method/path and
+  response status code.
+
+Do not log Authorization headers, bearer tokens, pairing codes, Spotify
+tokens, Home Assistant long-lived tokens, passwords, or raw request/response
+bodies that may contain secrets. Redacted response summaries are acceptable for
+diagnostics.
 
 Auth headers for app to HA:
 

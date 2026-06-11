@@ -79,7 +79,10 @@ When no bearer token exists, the UI shows a blocking pairing sheet instead of
 enabling playback. Pairing success is acknowledged with a dedicated success
 state before the main runtime UI is released. Demo Mode is the only unpaired
 path that unlocks runtime screens; it uses local sample data and must not
-contact Home Assistant.
+contact Home Assistant. Demo Mode is session-only and is cleared on app
+restart, explicit pairing reset, or when the user stops Demo Mode from
+Settings. Stopping Demo Mode and resetting pairing both return the UI to Now
+Playing with the blocking pairing sheet on top.
 
 ## Local Client API
 
@@ -90,6 +93,18 @@ The Client API url shown during pairing is pinned after successful pairing and
 stored locally so Home Assistant does not lose the callback target when the app
 refreshes its listener. It changes only when the user resets pairing or the app
 installation state is reset.
+
+## Logging
+
+Debug logging is designed for support without leaking secrets. The app logs
+user actions and navigation/recovery flows at DEBUG level, including refresh,
+transport controls, queue/playlist starts, output changes, Demo Mode entry/
+exit, pairing reset, wakeword prompt decisions, and voice/PTT actions.
+
+Home Assistant API calls and local Client API calls log method/path plus HTTP
+status code. Logs must not include bearer tokens, pairing codes, Authorization
+headers, Spotify/Home Assistant credentials, passwords, or raw request/response
+bodies that may contain secrets.
 
 ## Project Generation
 

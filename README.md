@@ -49,7 +49,8 @@ checkmark and a `Let's Start!` action before the runtime UI is released.
 For App Store review and local UI inspection, the pairing sheet also exposes
 Demo Mode. Demo Mode fills Now Playing, queue, playlists, output devices, and
 DJ announcement UI with local sample data without contacting Home Assistant.
-It is not a replacement for live backend validation.
+It is session-only, resets on app restart, and is not a replacement for live
+backend validation.
 
 ## Package Shape
 
@@ -114,6 +115,8 @@ Private GitHub Actions CI runs Swift tests plus unsigned iOS/macOS build
 checks. Public macOS binaries are produced locally with Developer ID signing
 and notarization, then uploaded to
 [pcvantol/djconnect-app-releases](https://github.com/pcvantol/djconnect-app-releases).
+Use the one-time and per-release App Store/macOS checklist in
+[docs/RELEASE.md](docs/RELEASE.md) before publishing signed builds.
 
 ## Swift Package
 
@@ -231,6 +234,11 @@ Diagnostics are user-mediated. The app redacts tokens and does not upload logs
 automatically. If the previous session appears to have ended uncleanly, the
 next launch offers to copy redacted logs or open a prefilled GitHub issue in
 `pcvantol/djconnect` for manual submission.
+
+DEBUG logs include user actions, navigation/recovery flows, Home Assistant API
+calls, and local Client API calls. API log lines include HTTP status codes and
+must not include bearer tokens, pairing codes, Authorization headers, or raw
+secret-bearing bodies.
 
 ## Security
 
