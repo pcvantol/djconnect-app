@@ -15,6 +15,15 @@ Before an iOS/TestFlight release, make sure these are available:
   identifier.
 - A physical iPhone or iPad on the local network for Local Network,
   Microphone, and Speech Recognition permission validation.
+- A matching Home Assistant `djconnect` integration in the same `major.minor`
+  protocol range as the app.
+- A Spotify Premium account configured through the Home Assistant integration.
+
+## First-Run Welcome
+
+The first-launch welcome screen must show DJConnect branding, link setup to
+`pcvantol/djconnect`, and mention that Spotify Premium is required. It must not
+ask for Spotify credentials; Spotify OAuth is configured in Home Assistant.
 
 ## App Permissions
 
@@ -106,6 +115,8 @@ local tags. It keeps the newest `--keep` versions and only deletes when
 Use a Home Assistant instance with the matching `djconnect` integration.
 
 - Pair from the app-generated code and confirm HA creates the app device.
+- Confirm the app accepts only matching `major.minor` HA integration versions
+  and disables runtime controls with a clear update message on mismatch.
 - Confirm HA entities/status sync for paired, stale, backend unavailable, and
   update-required states.
 - Load backend devices through the `devices` command and switch output.

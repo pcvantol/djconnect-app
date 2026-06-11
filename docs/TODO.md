@@ -4,13 +4,12 @@ This document tracks open implementation work and known project gaps.
 
 ## High Priority
 
-- Confirm the Home Assistant integration accepts app pairing payloads with
-  `device_id`, `client_type`, `device_name`, `pair_code`, `pairing_code`, and
-  `pairing_token`.
-- Add a Home Assistant UI/deep-link path for accepting app-generated pairing
-  codes.
 - Validate live backend devices, queue, playlists, liked proxy, and voice flows
   against a real Home Assistant `djconnect` setup.
+- Validate HA entity creation and status sync for iOS, iPadOS, and macOS app
+  clients after pairing.
+- Keep the Apple app and Home Assistant integration on the same `major.minor`
+  protocol line; app `3.1.x` requires HA `3.1.x`.
 
 ## Playback
 
@@ -58,8 +57,6 @@ This document tracks open implementation work and known project gaps.
 
 ## Known Issues
 
-- Pairing depends on the HA integration accepting app-generated pairing codes
-  and exposing `POST /api/djconnect/pair`.
 - Live queue, playlist, output selection, liked proxy, and voice/PTT are wired
   in the Apple app, but still need validation against the matching HA backend.
 - The app icon now follows the shared DJConnect brand asset from

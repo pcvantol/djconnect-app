@@ -23,6 +23,8 @@ The Apple app owns:
 - optional playback of returned DJ response audio.
 - user-facing permission status and preflight requests for Microphone and
   Speech Recognition.
+- one-time first-run onboarding that points setup to Home Assistant and notes
+  the Spotify Premium requirement.
 
 The app must never store Spotify, Sonos, Home Assistant long-lived access
 tokens, OpenAI, or playback backend credentials.
@@ -62,8 +64,9 @@ Pairing/auth failures are intentionally conservative:
   updated, and disable runtime playback/voice controls.
 - HTTP `401`/`403` on authenticated routes: mark pairing stale, keep token until
   user reset.
-- HTTP `401` during unauthenticated pairing polling: keep polling with the
-  current app-generated code.
+- HTTP `401`/`403` during unauthenticated pairing polling: stop polling, keep
+  the current app-generated code visible, and ask the user to enter that same
+  code in Home Assistant.
 - HTTP `404`: show integration/setup recovery, keep token until user reset.
 
 Only explicit user pairing reset should clear Keychain token state.

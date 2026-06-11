@@ -104,7 +104,7 @@ version in this release.
 
 Reasoning:
 
-- aligns with the DJConnect `3.0.z` integration contract;
+- aligns with the DJConnect `3.1.z` integration contract;
 - leaves patch versioning for app releases;
 - keeps the initial repo baseline clear.
 
@@ -162,3 +162,20 @@ Reasoning:
   required;
 - a prefilled issue URL and copyable redacted diagnostics provide a useful
   support path without adding third-party crash reporting or secret handling.
+
+## ADR-011: One-Time Welcome Screen
+
+Status: accepted
+
+The app shows a branded first-run welcome screen once per installation. The
+screen points users to the Home Assistant setup repo and states that Spotify
+Premium is required.
+
+Reasoning:
+
+- pairing and Spotify OAuth are intentionally configured through Home
+  Assistant, not inside the app;
+- the first launch is the clearest place to set expectations before users see
+  playback controls;
+- keeping it one-time avoids adding friction after the user has already paired
+  or intentionally skipped setup.

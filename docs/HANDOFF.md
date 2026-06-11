@@ -39,6 +39,24 @@ secrets, Sonos credentials, Home Assistant long-lived access tokens, or playback
 backend credentials. The only DJConnect credential owned by the app is its
 DJConnect bearer token issued by the integration.
 
+## First-Run Onboarding
+
+The Apple app shows a one-time welcome screen after installation. It must use
+DJConnect branding and link setup to:
+
+```text
+https://github.com/pcvantol/djconnect
+```
+
+User-facing copy must make two prerequisites clear:
+
+- setup is done in Home Assistant through the `pcvantol/djconnect`
+  integration;
+- a Spotify Premium account is required for Spotify playback.
+
+The app must not request Spotify credentials during onboarding. Spotify OAuth
+belongs to the Home Assistant integration.
+
 ## Identity
 
 Use a stable `device_id` per app installation.
@@ -207,6 +225,19 @@ Bearer token storage:
 - macOS: Keychain item scoped to the app/bundle id.
 - Never log the token.
 - Never include the token in diagnostics exports.
+
+## Diagnostics And Crash Reports
+
+The app may detect that the previous session ended uncleanly. On the next
+launch it shows a user-mediated crash report prompt. The prompt may:
+
+- copy redacted diagnostics to the clipboard;
+- open a prefilled GitHub issue in `pcvantol/djconnect`.
+
+The app must not upload crash logs automatically, embed GitHub credentials, or
+send diagnostics without explicit user action. Diagnostics must redact bearer
+tokens, Home Assistant tokens, Spotify secrets, temporary audio URLs, and other
+token-like fields.
 
 Auth headers for app to HA:
 

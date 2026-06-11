@@ -20,6 +20,8 @@ Requirements:
 - Return ha_local_url and language metadata during successful app pairing.
 - Keep cloud/remote URLs out of Apple app runtime traffic; cloud URLs are only
   needed by Home Assistant-owned Spotify OAuth config flows.
+- Return ha_version or ha_major_minor on status/command responses so Apple
+  clients can enforce the matching major.minor contract.
 - Apple clients host local /api/device/* app endpoints for HA -> app traffic,
   but must not implement ESP-only reboot or OTA routes.
 - Persist client_type as ios, macos, or esp32. Do not reintroduce device_type.
@@ -54,5 +56,10 @@ Requirements:
   token until explicit user reset.
 - Treat 401/403 during unauthenticated pairing polling as code/setup mismatch:
   stop polling, keep the visible app code, and ask the user to re-enter it.
+- Show first-run onboarding once per installation with the Home Assistant setup
+  link and Spotify Premium requirement. Do not request Spotify credentials in
+  the app.
+- Detect likely unclean exits and offer only user-mediated crash reporting:
+  copy redacted diagnostics or open a prefilled `pcvantol/djconnect` issue.
 - Do not log bearer tokens, HA tokens, Spotify secrets, or audio URLs.
 ```

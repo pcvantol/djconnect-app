@@ -22,6 +22,9 @@ All notable changes to DJConnect App are documented here.
   Microphone/Speech permissions before using voice or wakeword flows.
 - Documented the app permission inventory, module-boundary rationale, and the
   release cleanup helper.
+- Updated README, handoff, sync prompts, release notes, and architecture docs
+  for onboarding, Spotify Premium, crash reporting, version gating, and current
+  live-validation expectations.
 
 ## 3.1.4 - 2026-06-11
 

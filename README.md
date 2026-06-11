@@ -25,6 +25,17 @@ credential is the DJConnect client bearer token issued by the integration.
 - [PRIVACY.md](PRIVACY.md): security, privacy, and diagnostics redaction rules.
 - [CHANGELOG.md](CHANGELOG.md): notable project changes.
 
+## First Run Requirements
+
+On first launch the app shows a one-time DJConnect welcome screen with the
+Home Assistant setup link:
+
+- [pcvantol/djconnect](https://github.com/pcvantol/djconnect)
+
+DJConnect playback requires a configured Home Assistant `djconnect`
+integration and a Spotify Premium account. The app does not ask for Spotify
+credentials; Spotify OAuth stays owned by Home Assistant.
+
 ## Package Shape
 
 ```text
@@ -180,6 +191,18 @@ DJConnect clients and the Home Assistant integration must share the same
 If Home Assistant returns HTTP `426` with `error: "version_mismatch"`, the app
 must keep pairing and token state, show an update-required state, and pause
 command/voice retries until the app or integration is updated.
+
+Successful status and command responses may also include `ha_version` or
+`ha_major_minor`. App `3.1.x` requires HA integration `3.1.x` and disables
+playback, queue, playlist, output, liked, and voice controls when the runtime
+contract is outside that range. Settings and pairing reset remain available.
+
+## Diagnostics And Crash Reports
+
+Diagnostics are user-mediated. The app redacts tokens and does not upload logs
+automatically. If the previous session appears to have ended uncleanly, the
+next launch offers to copy redacted logs or open a prefilled GitHub issue in
+`pcvantol/djconnect` for manual submission.
 
 ## Security
 
