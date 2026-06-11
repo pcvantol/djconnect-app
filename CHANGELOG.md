@@ -4,7 +4,16 @@ All notable changes to DJConnect App are documented here.
 
 ## Unreleased
 
-- No unreleased changes yet.
+### Added
+
+- Added a local Games menu on iOS and macOS with Pong, Asteroids and Fly,
+  including local highscores and touch/click controls.
+
+### Documentation
+
+- Updated the App Store/macOS release checklist for renewed Apple Developer
+  Program accounts and clarified the local signed/notarized public macOS
+  release path.
 
 ## 3.1.9 - 2026-06-11
 

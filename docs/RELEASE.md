@@ -11,7 +11,9 @@ credentials.
 
 ### One-Time Apple Account Setup
 
-- Join the Apple Developer Program.
+- Join or renew the Apple Developer Program. Current status for this repo:
+  renewed; confirm the Apple portal and Xcode both show the membership as
+  active before signing or uploading archives.
 - Add the signing Apple ID to Xcode.
 - Confirm access to the Apple team that owns DJConnect.
 - Register the iOS bundle identifier `nl.pcvantol.djconnect.ios`.
@@ -35,6 +37,24 @@ xcrun notarytool store-credentials <notarytool-keychain-profile>
   and public binary repo `pcvantol/djconnect-app-releases`.
 - Keep Apple certificates, App Store Connect API keys, and notary credentials
   out of the source repo.
+
+### Renewed Developer Account Follow-Up
+
+After renewing the Apple Developer Program membership:
+
+- Sign out and back in under Xcode > Settings > Accounts if Xcode still reports
+  an expired membership.
+- Re-open Certificates, Identifiers & Profiles and confirm the expected Team ID
+  is visible.
+- Refresh automatic signing for `DJConnectIOS` and `DJConnectMac`.
+- Recreate or download missing certificates and provisioning profiles if Xcode
+  marks them invalid after renewal.
+- Confirm Developer ID Application signing is available before publishing a
+  public macOS binary.
+- Re-run or create the notarytool keychain profile if notarization reports
+  invalid team, agreement, or credential errors.
+- In App Store Connect, accept any updated agreements in Business before
+  uploading TestFlight or Mac App Store builds.
 
 ### One-Time Project Setup
 
@@ -104,6 +124,10 @@ xcodebuild -project DJConnectApp.xcodeproj -scheme DJConnectIOS -configuration D
 
 ### Every Release: macOS Public Notarized Binary
 
+- This release path is local-only: GitHub Actions should run tests and unsigned
+  builds, while the signed archive, notarization, and upload to
+  `pcvantol/djconnect-app-releases` happen from a trusted Mac with Apple
+  certificates installed.
 - Confirm `DEVELOPMENT_TEAM` is available in the shell or local Xcode config.
 - Confirm `NOTARY_PROFILE` exists in the login keychain.
 - Confirm Developer ID Application certificate is installed.

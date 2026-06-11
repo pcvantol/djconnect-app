@@ -129,6 +129,7 @@ private enum DJConnectSection: Hashable {
     case nowPlaying
     case queue
     case playlists
+    case games
     case settings
     case about
 }
@@ -157,6 +158,9 @@ public struct DJConnectRootView: View {
                         }
                         NavigationLink(value: DJConnectSection.playlists) {
                             Label(localized(model.language, "Playlists", "Afspeellijsten"), systemImage: "rectangle.stack")
+                        }
+                        NavigationLink(value: DJConnectSection.games) {
+                            Label(localized(model.language, "Games", "Games"), systemImage: "gamecontroller")
                         }
                         NavigationLink(value: DJConnectSection.settings) {
                             Label(localized(model.language, "Settings", "Instellingen"), systemImage: "gearshape")
@@ -187,6 +191,11 @@ public struct DJConnectRootView: View {
                             Label(localized(model.language, "Playlists", "Afspeellijsten"), systemImage: "rectangle.stack")
                         }
                         .tag(DJConnectSection.playlists)
+                    GamesView(language: model.language, isDemoMode: model.isDemoMode)
+                        .tabItem {
+                            Label(localized(model.language, "Games", "Games"), systemImage: "gamecontroller")
+                        }
+                        .tag(DJConnectSection.games)
                     SettingsView(model: model) {
                         selectedSection = .nowPlaying
                     }
@@ -255,6 +264,8 @@ public struct DJConnectRootView: View {
             QueueView(model: model)
         case .playlists:
             PlaylistsView(model: model)
+        case .games:
+            GamesView(language: model.language, isDemoMode: model.isDemoMode)
         case .settings:
             SettingsView(model: model) {
                 selectedSection = .nowPlaying
@@ -1950,6 +1961,433 @@ private struct PlaylistRow: View {
         }
         .padding(.vertical, 3)
         .contentShape(Rectangle())
+    }
+}
+
+private enum LocalGameMode: String, CaseIterable, Identifiable {
+    case pong
+    case asteroids
+    case fly
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .pong:
+            "Pong"
+        case .asteroids:
+            "Asteroids"
+        case .fly:
+            "Fly"
+        }
+    }
+
+    var tint: Color {
+        switch self {
+        case .pong:
+            .orange
+        case .asteroids:
+            .blue
+        case .fly:
+            .cyan
+        }
+    }
+
+    var highScoreKey: String {
+        "djconnect.app.game.\(rawValue).high"
+    }
+}
+
+private struct GamesView: View {
+    let language: String
+    let isDemoMode: Bool
+    @State private var selectedGame = LocalGameMode.pong
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 18) {
+                    Picker(localized(language, "Game", "Game"), selection: $selectedGame) {
+                        ForEach(LocalGameMode.allCases) { game in
+                            Text(game.title).tag(game)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                    .frame(maxWidth: 540)
+
+                    LocalGameSurface(game: selectedGame, language: language)
+                }
+                .padding(24)
+                .frame(maxWidth: 760)
+                .frame(maxWidth: .infinity)
+            }
+            .navigationTitle(screenTitle(language, "Games", "Games", isDemoMode: isDemoMode))
+        }
+    }
+}
+
+private struct LocalGameSurface: View {
+    let game: LocalGameMode
+    let language: String
+    @AppStorage("djconnect.app.game.pong.high") private var pongHighScore = 0
+    @AppStorage("djconnect.app.game.asteroids.high") private var asteroidsHighScore = 0
+    @AppStorage("djconnect.app.game.fly.high") private var flyHighScore = 0
+    @State private var score = 0
+    @State private var paddleY: CGFloat = 86
+    @State private var ballX: CGFloat = 160
+    @State private var ballY: CGFloat = 86
+    @State private var ballVX: CGFloat = 3
+    @State private var ballVY: CGFloat = 2
+    @State private var shipX: CGFloat = 160
+    @State private var asteroidX: CGFloat = 80
+    @State private var asteroidY: CGFloat = 48
+    @State private var asteroidVX: CGFloat = 2
+    @State private var asteroidBulletY: CGFloat = 120
+    @State private var asteroidBulletActive = false
+    @State private var planeY: CGFloat = 86
+    @State private var obstacleX: CGFloat = 300
+    @State private var obstacleY: CGFloat = 90
+    @State private var flyShotX: CGFloat = 58
+    @State private var flyShotActive = false
+    @State private var flashUntil = Date.distantPast
+    private let tick = Timer.publish(every: 1.0 / 30.0, on: .main, in: .common).autoconnect()
+
+    private var highScore: Int {
+        switch game {
+        case .pong:
+            pongHighScore
+        case .asteroids:
+            asteroidsHighScore
+        case .fly:
+            flyHighScore
+        }
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack {
+                Label(game.title, systemImage: gameIcon)
+                    .font(.title2.bold())
+                    .foregroundStyle(game.tint)
+                Spacer()
+                Text("\(localized(language, "Score", "Score")) \(score)")
+                    .monospacedDigit()
+                Text("\(localized(language, "High", "High")) \(highScore)")
+                    .monospacedDigit()
+                    .foregroundStyle(.secondary)
+            }
+
+            Canvas { context, size in
+                let rect = CGRect(origin: .zero, size: size)
+                context.fill(Path(roundedRect: rect, cornerRadius: 8), with: .color(Color.black.opacity(0.62)))
+                context.stroke(Path(roundedRect: rect.insetBy(dx: 1, dy: 1), cornerRadius: 8), with: .color(.white.opacity(0.10)), lineWidth: 1)
+                drawGame(in: &context, size: size)
+                if Date() < flashUntil {
+                    context.stroke(Path(roundedRect: rect.insetBy(dx: 3, dy: 3), cornerRadius: 8), with: .color(.red), lineWidth: 3)
+                }
+            }
+            .aspectRatio(320.0 / 170.0, contentMode: .fit)
+            .frame(maxWidth: 640)
+            .background(.black.opacity(0.25), in: RoundedRectangle(cornerRadius: 8))
+            .gesture(
+                DragGesture(minimumDistance: 0)
+                    .onChanged { value in
+                        handleDrag(value.location)
+                    }
+                    .onEnded { _ in
+                        fire()
+                    }
+            )
+            .onReceive(tick) { _ in
+                update()
+            }
+            .onChange(of: game) {
+                reset()
+            }
+
+            HStack(spacing: 10) {
+                Button {
+                    DJConnectHaptics.impact()
+                    move(-1)
+                } label: {
+                    Label(primaryMoveLabel, systemImage: primaryMoveIcon)
+                        .labelStyle(.iconOnly)
+                }
+                .help(primaryMoveLabel)
+
+                Button {
+                    DJConnectHaptics.impact()
+                    move(1)
+                } label: {
+                    Label(secondaryMoveLabel, systemImage: secondaryMoveIcon)
+                        .labelStyle(.iconOnly)
+                }
+                .help(secondaryMoveLabel)
+
+                if game != .pong {
+                    Button {
+                        DJConnectHaptics.impact()
+                        fire()
+                    } label: {
+                        Label(localized(language, "Fire", "Schiet"), systemImage: "sparkle")
+                            .labelStyle(.iconOnly)
+                    }
+                    .help(localized(language, "Fire", "Schiet"))
+                }
+
+                Button {
+                    DJConnectHaptics.selection()
+                    reset()
+                } label: {
+                    Label(localized(language, "Reset", "Reset"), systemImage: "arrow.clockwise")
+                        .labelStyle(.iconOnly)
+                }
+                .help(localized(language, "Reset", "Reset"))
+            }
+            .buttonStyle(.bordered)
+            .controlSize(.large)
+
+            Text(helpText)
+                .font(.callout)
+                .foregroundStyle(.secondary)
+        }
+        .padding(18)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 8))
+        .liquidGlassIfAvailable()
+        .onAppear {
+            reset()
+        }
+    }
+
+    private var gameIcon: String {
+        switch game {
+        case .pong:
+            "circle.grid.cross"
+        case .asteroids:
+            "paperplane"
+        case .fly:
+            "airplane"
+        }
+    }
+
+    private var primaryMoveLabel: String {
+        game == .asteroids ? localized(language, "Left", "Links") : localized(language, "Up", "Omhoog")
+    }
+
+    private var secondaryMoveLabel: String {
+        game == .asteroids ? localized(language, "Right", "Rechts") : localized(language, "Down", "Omlaag")
+    }
+
+    private var primaryMoveIcon: String {
+        game == .asteroids ? "chevron.left" : "chevron.up"
+    }
+
+    private var secondaryMoveIcon: String {
+        game == .asteroids ? "chevron.right" : "chevron.down"
+    }
+
+    private var helpText: String {
+        switch game {
+        case .pong:
+            localized(language, "Move the paddle and keep the ball alive.", "Beweeg het batje en houd de bal in het spel.")
+        case .asteroids:
+            localized(language, "Move left and right. Fire to clear asteroids.", "Beweeg links en rechts. Schiet om asteroids te raken.")
+        case .fly:
+            localized(language, "Fly through the gaps. Fire clears an obstacle.", "Vlieg door de openingen. Schieten ruimt een obstakel op.")
+        }
+    }
+
+    private func drawGame(in context: inout GraphicsContext, size: CGSize) {
+        let scaleX = size.width / 320
+        let scaleY = size.height / 170
+
+        func rect(_ x: CGFloat, _ y: CGFloat, _ width: CGFloat, _ height: CGFloat) -> CGRect {
+            CGRect(x: x * scaleX, y: y * scaleY, width: width * scaleX, height: height * scaleY)
+        }
+
+        func point(_ x: CGFloat, _ y: CGFloat) -> CGPoint {
+            CGPoint(x: x * scaleX, y: y * scaleY)
+        }
+
+        context.draw(Text(game.title).font(.headline).foregroundColor(game.tint), at: point(12, 18), anchor: .leading)
+
+        switch game {
+        case .pong:
+            context.fill(Path(roundedRect: rect(18, paddleY - 17, 8, 34), cornerRadius: 3), with: .color(.orange))
+            context.fill(Path(ellipseIn: rect(ballX - 4, ballY - 4, 8, 8)), with: .color(.green))
+        case .asteroids:
+            var ship = Path()
+            ship.move(to: point(shipX, 128))
+            ship.addLine(to: point(shipX - 9, 146))
+            ship.addLine(to: point(shipX + 9, 146))
+            ship.closeSubpath()
+            context.stroke(ship, with: .color(.blue), lineWidth: 2)
+            context.stroke(Path(ellipseIn: rect(asteroidX - 10, asteroidY - 10, 20, 20)), with: .color(.pink), lineWidth: 2)
+            if asteroidBulletActive {
+                context.fill(Path(roundedRect: rect(shipX - 2, asteroidBulletY, 4, 10), cornerRadius: 2), with: .color(.cyan))
+            }
+        case .fly:
+            var plane = Path()
+            plane.move(to: point(62, planeY))
+            plane.addLine(to: point(30, planeY - 12))
+            plane.addLine(to: point(30, planeY + 12))
+            plane.closeSubpath()
+            context.fill(plane, with: .color(.cyan))
+            context.fill(Path(roundedRect: rect(obstacleX - 8, obstacleY - 18, 16, 36), cornerRadius: 3), with: .color(.brown))
+            if flyShotActive {
+                context.fill(Path(roundedRect: rect(flyShotX, planeY - 2, 14, 4), cornerRadius: 2), with: .color(.cyan))
+            }
+        }
+    }
+
+    private func move(_ direction: CGFloat) {
+        switch game {
+        case .pong:
+            paddleY = min(max(paddleY + direction * 12, 42), 126)
+        case .asteroids:
+            shipX = min(max(shipX + direction * 14, 24), 296)
+        case .fly:
+            planeY = min(max(planeY + direction * 12, 52), 138)
+        }
+    }
+
+    private func handleDrag(_ location: CGPoint) {
+        switch game {
+        case .pong:
+            paddleY = min(max(location.y / 1.0, 42), 126)
+        case .asteroids:
+            shipX = min(max(location.x / 1.0, 24), 296)
+        case .fly:
+            planeY = min(max(location.y / 1.0, 52), 138)
+        }
+    }
+
+    private func fire() {
+        switch game {
+        case .pong:
+            break
+        case .asteroids:
+            if !asteroidBulletActive {
+                asteroidBulletActive = true
+                asteroidBulletY = 120
+            }
+        case .fly:
+            if !flyShotActive {
+                flyShotActive = true
+                flyShotX = 58
+            }
+        }
+    }
+
+    private func update() {
+        switch game {
+        case .pong:
+            ballX += ballVX
+            ballY += ballVY
+            if ballY <= 42 || ballY >= 156 {
+                ballVY *= -1
+            }
+            if ballX >= 306 {
+                ballVX = -abs(ballVX)
+            }
+            if ballX <= 30 {
+                if ballY >= paddleY - 20 && ballY <= paddleY + 20 {
+                    ballVX = abs(ballVX)
+                    setScore(score + 1)
+                } else {
+                    flash()
+                    setScore(0)
+                    ballX = 160
+                    ballY = 86
+                    ballVX = 3
+                    ballVY = Bool.random() ? 2 : -2
+                }
+            }
+        case .asteroids:
+            asteroidX += asteroidVX
+            asteroidY += 2 + CGFloat(min(score / 5, 3))
+            if asteroidX < 24 || asteroidX > 296 {
+                asteroidVX *= -1
+            }
+            if asteroidBulletActive {
+                asteroidBulletY -= 8
+                if asteroidBulletY < 36 {
+                    asteroidBulletActive = false
+                } else if abs(asteroidX - shipX) < 16 && abs(asteroidY - asteroidBulletY) < 16 {
+                    asteroidBulletActive = false
+                    setScore(score + 1)
+                    resetAsteroid()
+                }
+            }
+            if asteroidY > 150 {
+                flash()
+                setScore(0)
+                resetAsteroid()
+            }
+        case .fly:
+            obstacleX -= 4 + CGFloat(min(score / 6, 4))
+            if flyShotActive {
+                flyShotX += 9
+                if flyShotX > 310 {
+                    flyShotActive = false
+                } else if abs(flyShotX - obstacleX) < 16 && abs(planeY - obstacleY) < 24 {
+                    flyShotActive = false
+                    setScore(score + 1)
+                    resetObstacle()
+                }
+            }
+            if obstacleX < 24 {
+                setScore(score + 1)
+                resetObstacle()
+            }
+            if obstacleX < 66 && obstacleX > 28 && abs(planeY - obstacleY) < 28 {
+                flash()
+                setScore(0)
+                resetObstacle()
+            }
+        }
+    }
+
+    private func reset() {
+        score = 0
+        paddleY = 86
+        ballX = 160
+        ballY = 86
+        ballVX = 3
+        ballVY = 2
+        shipX = 160
+        asteroidBulletActive = false
+        planeY = 86
+        flyShotActive = false
+        resetAsteroid()
+        resetObstacle()
+    }
+
+    private func resetAsteroid() {
+        asteroidX = CGFloat.random(in: 40...280)
+        asteroidY = 46
+        asteroidVX = Bool.random() ? 2 : -2
+    }
+
+    private func resetObstacle() {
+        obstacleX = 310
+        obstacleY = CGFloat.random(in: 52...138)
+    }
+
+    private func flash() {
+        flashUntil = Date().addingTimeInterval(0.35)
+    }
+
+    private func setScore(_ newScore: Int) {
+        score = newScore
+        switch game {
+        case .pong:
+            pongHighScore = max(pongHighScore, newScore)
+        case .asteroids:
+            asteroidsHighScore = max(asteroidsHighScore, newScore)
+        case .fly:
+            flyHighScore = max(flyHighScore, newScore)
+        }
     }
 }
 
