@@ -161,7 +161,15 @@ public final class DJConnectClient: Sendable {
             throw error
         }
 
-        return try decoder.decode(T.self, from: data)
+        do {
+            return try decoder.decode(T.self, from: data)
+        } catch {
+            throw DJConnectError.decodingFailed(
+                statusCode: httpResponse.statusCode,
+                endpoint: Self.requestSummary(request),
+                message: Self.decodingFailureMessage(error: error, body: data)
+            )
+        }
     }
 
     private func jsonRequest<T: Encodable>(path: String, payload: T) throws -> URLRequest {
@@ -191,5 +199,10 @@ public final class DJConnectClient: Sendable {
         let method = request.httpMethod ?? "GET"
         let path = request.url?.path.isEmpty == false ? request.url?.path ?? "/" : "/"
         return "\(method) \(path)"
+    }
+
+    private static func decodingFailureMessage(error: Error, body: Data) -> String {
+        let bodyMessage = redactedResponseBodyMessage(from: body) ?? "<empty response body>"
+        return "\(error.localizedDescription); response_body=\(bodyMessage)"
     }
 }

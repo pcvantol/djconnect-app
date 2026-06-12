@@ -91,6 +91,33 @@ status codes. Do not add logs that include bearer tokens, pairing codes,
 Authorization headers, Spotify/Home Assistant credentials, passwords, or raw
 secret-bearing request/response bodies.
 
+The Logs screen is backed by in-memory diagnostics plus a redacted rolling file
+in Application Support at `DJConnect/Logs/djconnect.log`. The file survives app
+restart/crash, is capped at 500 lines and 128 KB, and is deleted when the user
+chooses Logs wissen. Use this file for simulator or real-device debugging when
+the UI log buffer has been recreated.
+
+## Monkey Test Mode
+
+Use `--monkey-testing` for non-destructive UI stress tests. In Debug builds the
+iOS and macOS app start in local Demo Mode, skip first-run/pairing/crash
+blocking sheets, do not start the local Client API, and do not call Home
+Assistant. This mode is safe for random taps, tab navigation, game entry/exit,
+and basic controls, but it is not a backend or pairing validation path.
+
+The current iOS and macOS monkey-smoke tests can be run as short CI-friendly
+checks, or repeated for a longer local soak:
+
+```sh
+xcodebuild -quiet -project DJConnectApp.xcodeproj -scheme DJConnectIOS -configuration Debug -destination 'platform=iOS Simulator,name=iPhone 17 Pro' -derivedDataPath .xcode-derived-monkey -only-testing:DJConnectIOSUITests/DJConnectIOSUITests/testMonkeyModeSafeNavigationSmoke test
+xcodebuild -quiet -project DJConnectApp.xcodeproj -scheme DJConnectIOS -configuration Debug -destination 'platform=iOS Simulator,name=iPhone 17 Pro' -derivedDataPath .xcode-derived-monkey -only-testing:DJConnectIOSUITests/DJConnectIOSUITests/testMonkeyModeSafeNavigationSmoke -test-iterations 22 -test-repetition-relaunch-enabled YES test
+xcodebuild -quiet -project DJConnectApp.xcodeproj -scheme DJConnectMac -configuration Debug -destination platform=macOS -derivedDataPath .xcode-derived-mac-monkey -only-testing:DJConnectMacUITests/DJConnectMacUITests/testMonkeyModeSafeNavigationSmoke test
+xcodebuild -quiet -project DJConnectApp.xcodeproj -scheme DJConnectMac -configuration Debug -destination platform=macOS -derivedDataPath .xcode-derived-mac-monkey -only-testing:DJConnectMacUITests/DJConnectMacUITests/testMonkeyModeSafeNavigationSmoke -test-iterations 17 -test-repetition-relaunch-enabled YES test
+```
+
+Long monkey soaks should only be marked as release verification when they
+finish without interruption.
+
 ## Permissions During Development
 
 Settings can preflight Microphone and Speech Recognition. Local Network is not
@@ -99,9 +126,13 @@ for that permission. Validate Local Network on a real iPhone/iPad or Mac by
 pairing against Home Assistant and confirming the system prompt appears during
 actual LAN/Bonjour access.
 
-If permission prompts behave differently under an Xcode beta, first confirm the
-callbacks update SwiftUI state on the main actor and then retest on a physical
-device outside the debugger.
+The app intentionally avoids invoking the unstable Speech Recognition system
+prompt from the Settings permission button. If Speech Recognition is already
+granted, the app accepts it; otherwise it logs that stemactivatie is unavailable
+until the user enables speech access in system settings. If permission prompts
+behave differently under an Xcode beta, first confirm the callbacks update
+SwiftUI state on the main actor and then retest on a physical device outside the
+debugger.
 
 ## Visual QA
 
@@ -110,8 +141,10 @@ Playing, Queue, Playlists, Games, Settings, Logs, and About on iOS, iPadOS, and
 macOS. Table/list rows may keep native material backgrounds, but the surrounding
 screen should not be plain black.
 
-Games should consume arrow keys and space while the game surface is focused.
-Verify this on macOS and on iPad/iPhone with a hardware keyboard.
+Games should lazy start behind the tap-to-play overlay, reset to that overlay
+after leaving the screen, and consume arrow keys and space while the game
+surface is focused. Verify this on macOS and on iPad/iPhone with a hardware
+keyboard.
 
 ## Test
 

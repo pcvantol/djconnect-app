@@ -48,6 +48,16 @@
                ReferencedContainer = "container:DJConnectApp.xcodeproj">
             </BuildableReference>
          </TestableReference>
+         <TestableReference
+            skipped = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "A07771721F1C0FC921CF5A27"
+               BuildableName = "DJConnectMacUITests.xctest"
+               BlueprintName = "DJConnectMacUITests"
+               ReferencedContainer = "container:DJConnectApp.xcodeproj">
+            </BuildableReference>
+         </TestableReference>
       </Testables>
    </TestAction>
    <LaunchAction

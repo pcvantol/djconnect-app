@@ -99,9 +99,11 @@ Games are local-only UI features. They must not call Home Assistant, create HA
 entities, affect pairing state, require Spotify playback, or send DJConnect
 status/command payloads. Highscores may be stored in app-local preferences and
 may be cleared by app reinstall or local app data reset. Games should remain
-available in Demo Mode because they are not backend validation. When a game is
-active, keyboard arrows and space should be handled by the game surface and
-should not trigger sidebar, tab, or page navigation.
+available in Demo Mode because they are not backend validation. Games should
+lazy start behind a tap-to-play overlay, and leaving the Games page should stop
+the local loop and reset every game to its idle overlay. When a game is active,
+keyboard arrows and space should be handled by the game surface and should not
+trigger sidebar, tab, or page navigation.
 
 ## Identity
 
@@ -123,8 +125,8 @@ Recommended iOS fields:
   "device_id": "djconnect-ios-8F3A2C91B45D",
   "device_name": "DJConnect iPhone",
   "client_type": "ios",
-  "firmware": "3.1.12",
-  "app_version": "3.1.12",
+  "firmware": "3.1.14",
+  "app_version": "3.1.14",
   "platform": "ios"
 }
 ```
@@ -136,8 +138,8 @@ Recommended macOS fields:
   "device_id": "djconnect-macos-8F3A2C91B45D",
   "device_name": "DJConnect Mac",
   "client_type": "macos",
-  "firmware": "3.1.12",
-  "app_version": "3.1.12",
+  "firmware": "3.1.14",
+  "app_version": "3.1.14",
   "platform": "macos"
 }
 ```
@@ -174,9 +176,9 @@ Expected response:
   "success": false,
   "error": "version_mismatch",
   "message": "DJConnect Home Assistant integration and device firmware major.minor versions must match.",
-  "ha_version": "3.1.12",
+  "ha_version": "3.1.14",
   "ha_major_minor": "3.1",
-  "firmware": "3.1.12",
+  "firmware": "3.1.14",
   "firmware_major_minor": "3.0"
 }
 ```
@@ -250,8 +252,8 @@ X-DJConnect-Device-ID: <device_id>
 {  "device_id": "djconnect-macos-8F3A2C91B45D",
   "device_name": "DJConnect Mac",
   "client_type": "macos",
-  "firmware": "3.1.12",
-  "app_version": "3.1.12",
+  "firmware": "3.1.14",
+  "app_version": "3.1.14",
   "platform": "macos",
   "pair_code": "123456",
   "pairing_code": "123456",
@@ -296,6 +298,12 @@ send diagnostics without explicit user action. Diagnostics must redact bearer
 tokens, Home Assistant tokens, Spotify secrets, temporary audio URLs, and other
 token-like fields.
 
+The app may persist a local redacted rolling diagnostic logfile in Application
+Support, currently `DJConnect/Logs/djconnect.log`, so logs survive app restarts
+and crash investigation. The file must be bounded by retention and size limits,
+loaded into the Logs screen on restart, and deleted when the user clears logs.
+It must never be uploaded automatically.
+
 ## Debug Logging Contract
 
 The app should provide consistent DEBUG-level diagnostics for:
@@ -319,11 +327,31 @@ Permission UX:
 
 - Microphone and Speech Recognition can be requested from Settings before
   push-to-talk or foreground wakeword use.
+- Because current iOS/macOS beta builds have shown crashes when directly
+  invoking `SFSpeechRecognizer.requestAuthorization`, the Apple app should not
+  call the Speech Recognition system prompt from the generic Settings
+  permission button. If speech access is already granted, accept it; otherwise
+  log a non-secret diagnostic line and keep stemactivatie unavailable until the
+  user enables speech access in system settings.
 - Local Network is declared for LAN/Bonjour access, but Apple does not provide
   a reliable explicit preflight API. The app should not fake a request button;
   iOS/macOS show the system prompt when local network work first occurs.
 - iPhone permission rows should remain compact enough to scan without excessive
   vertical whitespace.
+
+## Monkey Test Mode
+
+Apple app Debug builds may support `--monkey-testing`. This mode is explicitly
+non-destructive: it starts in local Demo Mode, skips first-run/pairing/crash
+blocking sheets, avoids local Client API startup, avoids Home Assistant calls,
+and is intended only for random UI navigation/tap stress tests. It must not
+reset real pairing, alter Keychain tokens, call Spotify/Home Assistant, or be
+treated as backend validation.
+
+Current UI monkey coverage includes iOS and macOS smoke tests for navigation
+through Now Playing, Queue, Playlists, Games, Settings, and About. Long repeated
+soaks should only be recorded as release verification when they finish without
+interruption.
 
 Auth headers for app to HA:
 
@@ -356,8 +384,8 @@ Minimum payload:
   "device_id": "djconnect-ios-8F3A2C91B45D",
   "client_type": "ios",
   "ha_pairing_status": "paired",
-  "firmware": "3.1.12",
-  "app_version": "3.1.12",
+  "firmware": "3.1.14",
+  "app_version": "3.1.14",
   "state": "online",
   "status": "online",
   "battery_percent": 85,
@@ -417,7 +445,7 @@ Examples:
 ```json
 {"device_id":"djconnect-ios-8F3A2C91B45D","client_type":"ios","command":"status"}
 {"device_id":"djconnect-ios-8F3A2C91B45D","client_type":"ios","command":"devices"}
-{"device_id":"djconnect-ios-8F3A2C91B45D","client_type":"ios","command":"queue"}
+{"device_id":"djconnect-ios-8F3A2C91B45D","client_type":"ios","command":"queue","limit":100}
 {"device_id":"djconnect-ios-8F3A2C91B45D","client_type":"ios","command":"playlists"}
 {"device_id":"djconnect-ios-8F3A2C91B45D","client_type":"ios","command":"pause"}
 {"device_id":"djconnect-ios-8F3A2C91B45D","client_type":"ios","command":"play"}
@@ -444,7 +472,7 @@ values seek forward and negative values seek backward. Home Assistant should
 clamp the resulting position to the current track and return the usual command
 response. ESP clients may skip this UI capability.
 
-Queue loading uses `command:"queue"` and should return:
+Queue loading uses `command:"queue"` with `limit:100` and should return:
 
 ```json
 {
@@ -469,7 +497,9 @@ The app accepts `response.queue.items` first and falls back to flat
 `response.queue` arrays and `response.items`. Queue context may be returned as
 `queue.context`, top-level `context_uri`, or top-level `contextUri`. Queue album
 art aliases are `album_image_url`, `media_image_url`, `image_url`, and
-`entity_picture`. Empty queue items are not an error. Queue row playback sends
+`entity_picture`. Empty queue items are not an error. Home Assistant should
+return up to 100 real backend queue items and must not pad the queue with
+repeated current-track entries. Queue row playback sends
 `command:"play_context_at"` with `context_uri` included when known. The app only
 adds `offset_uri` for Spotify contexts that support offsets, such as playlists,
 albums, and shows; artist contexts are sent without `offset_uri` to avoid
@@ -508,6 +538,16 @@ Expected success shape:
   }
 }
 ```
+
+Command responses are transport/command success first and playback-state
+second. A response with `success:true` and `playback.has_playback:false` means
+the Home Assistant command route worked but Spotify has no active playback; it
+is not an app error state. In that case the playback snapshot is valid but
+empty, and playback fields may be `null` or empty strings, including
+`progress_ms`, `duration_ms`, `volume_percent`, `device.volume_percent`,
+`title`, `track_name`, `artist`, `album_name`, `uri`, `context_uri`,
+`queue_context`, and artwork URLs. Clients must keep those fields optional and
+must not fail decoding because no playback is active.
 
 Backend unavailable is not an auth failure:
 
@@ -704,6 +744,9 @@ target with a real or recorded mock Home Assistant server.
 - 401/403 during unauthenticated pairing polling stops the wait loop and asks
   the user to re-enter the visible app code in Home Assistant.
 - Voice/PTT uploads raw WAV to `/api/djconnect/voice`.
-- Local Games show Pong, Asteroids and Fly without HA/backend traffic.
+- Local Games show Pong, Asteroids and Fly without HA/backend traffic and reset
+  to tap-to-play when leaving the screen.
+- Monkey Test Mode can navigate the UI without destructive backend, pairing, or
+  token side effects.
 - No secrets appear in logs or diagnostics.
 - iOS and macOS clients can coexist with ESP32 clients in the same HA backend.

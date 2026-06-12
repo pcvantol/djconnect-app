@@ -446,8 +446,9 @@ public final class DJConnectLocalDeviceAPI: @unchecked Sendable {
         do {
             let value = try decoder.decode(type, from: body)
             let responseValue = await handler(value)
-            await logHandler("Local device API \(requestSummary) -> HTTP 200")
-            return response(responseValue)
+            let statusCode = statusCode(for: responseValue, requestSummary: requestSummary)
+            await logHandler("Local device API \(requestSummary) -> HTTP \(statusCode)")
+            return response(responseValue, statusCode: statusCode)
         } catch {
             let typeName = String(describing: type)
             await logHandler("Local device API rejected invalid JSON for \(typeName): \(error.localizedDescription)")
@@ -461,6 +462,16 @@ public final class DJConnectLocalDeviceAPI: @unchecked Sendable {
             return path
         }
         return String(path.dropLast())
+    }
+
+    private func statusCode(for response: DJConnectLocalDeviceAPIResponse, requestSummary: String) -> Int {
+        guard !response.success else {
+            return 200
+        }
+        if requestSummary == "POST /api/device/pair" {
+            return 500
+        }
+        return 200
     }
 
     private func isAuthorized(_ request: HTTPRequest) async -> Bool {

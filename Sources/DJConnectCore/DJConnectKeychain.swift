@@ -42,7 +42,7 @@ public final class DJConnectKeychainTokenStore: DJConnectTokenStore, @unchecked 
     public init(
         service: String,
         account: String = "device_token",
-        requiresUserPresence: Bool = true
+        requiresUserPresence: Bool = false
     ) {
         self.service = service
         self.account = account

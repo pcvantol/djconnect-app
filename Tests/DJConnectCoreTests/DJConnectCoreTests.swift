@@ -94,25 +94,25 @@ private func httpResponse(for request: URLRequest, statusCode: Int) throws -> HT
     return response
 }
 
-@Test func keychainTokenStoreUsesUserPresenceAccessControlByDefault() throws {
+@Test func keychainTokenStoreUsesWhenUnlockedAccessibilityByDefault() throws {
     let store = DJConnectKeychainTokenStore(service: "nl.pcvantol.djconnect.tests")
     let tokenData = Data("secret-token".utf8)
     let attributes = store.tokenAttributes(data: tokenData)
 
     #expect(attributes[kSecValueData as String] as? Data == tokenData)
-    #expect(attributes[kSecAttrAccessControl as String] != nil)
-    #expect(attributes[kSecAttrAccessible as String] == nil)
+    #expect(attributes[kSecAttrAccessControl as String] == nil)
+    #expect(attributes[kSecAttrAccessible as String] as? String == kSecAttrAccessibleWhenUnlockedThisDeviceOnly as String)
 }
 
-@Test func keychainTokenStoreCanDisableUserPresenceForTests() throws {
+@Test func keychainTokenStoreCanEnableUserPresenceWhenExplicitlyRequested() throws {
     let store = DJConnectKeychainTokenStore(
         service: "nl.pcvantol.djconnect.tests",
-        requiresUserPresence: false
+        requiresUserPresence: true
     )
     let attributes = store.tokenAttributes(data: Data("secret-token".utf8))
 
-    #expect(attributes[kSecAttrAccessControl as String] == nil)
-    #expect(attributes[kSecAttrAccessible as String] as? String == kSecAttrAccessibleWhenUnlockedThisDeviceOnly as String)
+    #expect(attributes[kSecAttrAccessControl as String] != nil)
+    #expect(attributes[kSecAttrAccessible as String] == nil)
 }
 
 @MainActor
@@ -313,6 +313,35 @@ private func waitForLocalDeviceAPIURL(_ model: DJConnectAppModel) async throws -
     }
 }
 
+@Test func queueCommandPayloadRequestsOneHundredItems() throws {
+    let identity = DJConnectIdentity(
+        deviceID: "djconnect-ios-8F3A2C91B45D",
+        deviceName: "DJConnect iPhone",
+        clientType: .ios,
+        firmware: "3.1.13",
+        appVersion: "3.1.13",
+        platform: .ios
+    )
+    let client = DJConnectClient(
+        baseURL: try #require(URL(string: "http://homeassistant.local:8123")),
+        identity: identity,
+        tokenStore: DJConnectInMemoryTokenStore(token: "secret-token")
+    )
+
+    let request = try client.commandRequest(
+        DJConnectCommandPayload(
+            identity: identity,
+            command: "queue",
+            limit: 100
+        )
+    )
+    let body = try #require(request.httpBody)
+    let json = try JSONSerialization.jsonObject(with: body) as? [String: Any]
+
+    #expect(json?["command"] as? String == "queue")
+    #expect(json?["limit"] as? Int == 100)
+}
+
 @Test func commandRequestSupportsPlayContextAtObjectValues() throws {
     let identity = DJConnectIdentity(
         deviceID: "djconnect-ios-8F3A2C91B45D",
@@ -355,6 +384,31 @@ private func waitForLocalDeviceAPIURL(_ model: DJConnectAppModel) async throws -
     #expect(value?["artist"] == "Artist One")
     #expect(value?["index"] == "0")
     #expect(json?["play"] as? Bool == true)
+}
+
+@MainActor
+@Test func outputDevicesIncludeLocalDefaultsBeforeBackendDevices() throws {
+    let suiteName = "DJConnectTests-\(UUID().uuidString)"
+    let defaults = try #require(UserDefaults(suiteName: suiteName))
+    defaults.removePersistentDomain(forName: suiteName)
+    let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startLocalAPI: false, startBackgroundTasks: false)
+    model.language = "nl"
+
+    model.apply(commandResponse: DJConnectCommandResponse(
+        success: true,
+        backendAvailable: true,
+        devices: [
+            DJConnectOutputDevice(id: "speaker", name: "Woonkamer", active: true)
+        ]
+    ))
+
+    #expect(model.availableOutputs.map(\.name).prefix(3) == ["Geen", "Mac standaard", "Woonkamer"])
+    #expect(model.selectedOutput == "Woonkamer")
+
+    model.selectOutput(model.availableOutputs[0])
+    #expect(model.selectedOutput == "Geen")
+    #expect(model.availableOutputs[0].active == true)
+    #expect(model.availableOutputs[2].active == false)
 }
 
 @Test func queueContractDecodesItemsContextAndImageAliases() throws {
@@ -423,6 +477,33 @@ private func waitForLocalDeviceAPIURL(_ model: DJConnectAppModel) async throws -
     #expect(response.queue?.first?.albumImageURL?.absoluteString == "https://example.test/queue.jpg")
 }
 
+@Test func playlistContractDecodesArtworkAliases() throws {
+    let response = try JSONDecoder().decode(
+        DJConnectCommandResponse.self,
+        from: Data(
+            """
+            {
+              "success": true,
+              "playlists": [
+                {"id":"playlist-1","name":"Image URL","uri":"spotify:playlist:1","image_url":"https://example.test/image.jpg"},
+                {"id":"playlist-2","name":"Album Image","uri":"spotify:playlist:2","album_image_url":"https://example.test/album.jpg"},
+                {"id":"playlist-3","name":"Media Image","uri":"spotify:playlist:3","media_image_url":"https://example.test/media.jpg"},
+                {"id":"playlist-4","name":"Entity Picture","uri":"spotify:playlist:4","entity_picture":"https://example.test/entity.jpg"}
+              ]
+            }
+            """.utf8
+        )
+    )
+
+    #expect(response.success)
+    #expect(response.playlists?.map { $0.imageURL?.absoluteString } == [
+        "https://example.test/image.jpg",
+        "https://example.test/album.jpg",
+        "https://example.test/media.jpg",
+        "https://example.test/entity.jpg"
+    ])
+}
+
 @Test func statusCommandResponseDecodesRichPlaybackSnapshot() throws {
     let response = try JSONDecoder().decode(
         DJConnectCommandResponse.self,
@@ -455,6 +536,55 @@ private func waitForLocalDeviceAPIURL(_ model: DJConnectAppModel) async throws -
     #expect(response.playback?.albumImageURL?.absoluteString == "https://example.test/art.jpg")
     #expect(response.playback?.contextURI == "spotify:playlist:abc")
     #expect(response.playback?.device?.name == "Living Room")
+}
+
+@Test func commandResponseDecodesEmptyPlaybackSnapshotWithNullFields() throws {
+    let response = try JSONDecoder().decode(
+        DJConnectCommandResponse.self,
+        from: Data(
+            """
+            {
+              "success": true,
+              "playback": {
+                "has_playback": false,
+                "is_playing": false,
+                "title": null,
+                "track_name": null,
+                "artist": "",
+                "artist_name": null,
+                "album_name": null,
+                "uri": null,
+                "context_uri": null,
+                "queue_context": null,
+                "album_image_url": null,
+                "media_image_url": null,
+                "image_url": null,
+                "entity_picture": null,
+                "progress_ms": null,
+                "duration_ms": null,
+                "volume_percent": null,
+                "device": {
+                  "name": "",
+                  "active": false,
+                  "volume_percent": null
+                }
+              }
+            }
+            """.utf8
+        )
+    )
+
+    #expect(response.success)
+    #expect(response.playback?.hasPlayback == false)
+    #expect(response.playback?.isPlaying == false)
+    #expect(response.playback?.trackName == nil)
+    #expect(response.playback?.artistName == nil)
+    #expect(response.playback?.albumImageURL == nil)
+    #expect(response.playback?.progressMS == nil)
+    #expect(response.playback?.durationMS == nil)
+    #expect(response.playback?.volumePercent == nil)
+    #expect(response.playback?.contextURI == nil)
+    #expect(response.playback?.device?.volumePercent == nil)
 }
 
 @Test func commandResponseDecodesBackendCollectionsFromDataEnvelope() throws {
@@ -732,6 +862,76 @@ private func waitForLocalDeviceAPIURL(_ model: DJConnectAppModel) async throws -
     #expect(!export.contains("123456"))
 }
 
+@MainActor
+@Test func diagnosticLogsPersistAcrossModelLaunches() throws {
+    let suiteName = "DJConnectTests-\(UUID().uuidString)"
+    let defaults = try #require(UserDefaults(suiteName: suiteName))
+    defaults.removePersistentDomain(forName: suiteName)
+    let logDirectory = FileManager.default.temporaryDirectory
+        .appendingPathComponent("DJConnectTests-\(UUID().uuidString)", isDirectory: true)
+    defer {
+        try? FileManager.default.removeItem(at: logDirectory)
+    }
+
+    _ = DJConnectAppModel(
+        defaults: defaults,
+        tokenStore: DJConnectInMemoryTokenStore(),
+        startLocalAPI: false,
+        startBackgroundTasks: false,
+        diagnosticLogDirectory: logDirectory
+    )
+
+    let logFile = logDirectory.appendingPathComponent("djconnect.log")
+    let persisted = try String(contentsOf: logFile, encoding: .utf8)
+    #expect(persisted.contains("App started without DJConnect bearer token"))
+
+    let relaunched = DJConnectAppModel(
+        defaults: defaults,
+        tokenStore: DJConnectInMemoryTokenStore(),
+        startLocalAPI: false,
+        startBackgroundTasks: false,
+        diagnosticLogDirectory: logDirectory
+    )
+
+    #expect(relaunched.diagnosticLogLines.contains { $0.text.contains("App started without DJConnect bearer token") })
+}
+
+@MainActor
+@Test func clearingDiagnosticLogsClearsPersistentLogHistory() throws {
+    let suiteName = "DJConnectTests-\(UUID().uuidString)"
+    let defaults = try #require(UserDefaults(suiteName: suiteName))
+    defaults.removePersistentDomain(forName: suiteName)
+    let logDirectory = FileManager.default.temporaryDirectory
+        .appendingPathComponent("DJConnectTests-\(UUID().uuidString)", isDirectory: true)
+    defer {
+        try? FileManager.default.removeItem(at: logDirectory)
+    }
+
+    let model = DJConnectAppModel(
+        defaults: defaults,
+        tokenStore: DJConnectInMemoryTokenStore(),
+        startLocalAPI: false,
+        startBackgroundTasks: false,
+        diagnosticLogDirectory: logDirectory
+    )
+    model.clearDiagnosticLog()
+
+    let logFile = logDirectory.appendingPathComponent("djconnect.log")
+    let clearedLog = try String(contentsOf: logFile, encoding: .utf8)
+    #expect(!clearedLog.contains("App started without DJConnect bearer token"))
+    #expect(clearedLog.contains("Diagnostic log cleared"))
+
+    let relaunched = DJConnectAppModel(
+        defaults: defaults,
+        tokenStore: DJConnectInMemoryTokenStore(),
+        startLocalAPI: false,
+        startBackgroundTasks: false,
+        diagnosticLogDirectory: logDirectory
+    )
+
+    #expect(relaunched.diagnosticLogLines.contains { $0.text.contains("Diagnostic log cleared") })
+}
+
 @Test func voiceRequestUsesRawWavContentType() throws {
     let identity = DJConnectIdentity(
         deviceID: "djconnect-ios-8F3A2C91B45D",
@@ -872,6 +1072,68 @@ private func waitForLocalDeviceAPIURL(_ model: DJConnectAppModel) async throws -
         statusCode: 500,
         message: #"{"error":"server_error","device_token":"[redacted]","detail":"entity setup failed"}"#
     ))
+}
+
+@Test func decodeFailuresIncludeRedactedResponseBodyForDiagnostics() async throws {
+    let identity = DJConnectIdentity(
+        deviceID: "djconnect-ios-5ECE7DF8D495",
+        deviceName: "DJConnect iPhone",
+        clientType: .ios,
+        firmware: "3.1.13",
+        platform: .ios
+    )
+    let host = "decode-failure.local"
+    let session = mockSession(host: host) { request in
+        (
+            try httpResponse(for: request, statusCode: 200),
+            Data(#"{"success":true,"playback":"not-an-object","device_token":"secret-token"}"#.utf8)
+        )
+    }
+    let client = DJConnectClient(
+        baseURL: try #require(URL(string: "http://\(host):8123")),
+        identity: identity,
+        tokenStore: DJConnectInMemoryTokenStore(token: "secret-token"),
+        session: session
+    )
+
+    do {
+        _ = try await client.sendCommandResponse(DJConnectCommandPayload(
+            identity: identity,
+            command: "next"
+        ))
+        Issue.record("Expected a decoding failure")
+    } catch let error as DJConnectError {
+        guard case let .decodingFailed(statusCode, endpoint, message) = error else {
+            Issue.record("Expected decodingFailed, got \(error)")
+            return
+        }
+        #expect(statusCode == 200)
+        #expect(endpoint == "POST /api/djconnect/command")
+        #expect(message?.contains("response_body=") == true)
+        #expect(message?.contains(#""device_token":"[redacted]""#) == true)
+        #expect(message?.contains("secret-token") == false)
+    } catch {
+        Issue.record("Expected DJConnectError.decodingFailed, got \(error)")
+    }
+}
+
+@MainActor
+@Test func userInitiatedBackendErrorsShowConnectionNotice() throws {
+    let suiteName = "DJConnectTests-\(UUID().uuidString)"
+    let defaults = try #require(UserDefaults(suiteName: suiteName))
+    defaults.removePersistentDomain(forName: suiteName)
+    let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startLocalAPI: false, startBackgroundTasks: false)
+
+    model.emitUserConnectionNotice(for: .decodingFailed(statusCode: 200, endpoint: "POST /api/djconnect/command", message: "bad shape"))
+    #expect(model.userNotice?.text == "Geen verbinding")
+
+    model.userNotice = nil
+    model.emitUserConnectionNotice(for: .network(message: "offline"))
+    #expect(model.userNotice?.text == "Geen verbinding")
+
+    model.userNotice = nil
+    model.emitUserConnectionNotice(for: .authStale(statusCode: 401, message: "stale"))
+    #expect(model.userNotice == nil)
 }
 
 @MainActor
@@ -1070,4 +1332,69 @@ private func waitForLocalDeviceAPIURL(_ model: DJConnectAppModel) async throws -
     #expect(model.isDemoMode == false)
     #expect(model.canUsePlaybackFeatures == false)
     #expect(model.shouldShowPairingScreen == true)
+}
+
+@MainActor
+@Test func monkeyTestingModeStartsSafeLocalDemoWithoutPairingOrLocalAPI() throws {
+    let suiteName = "DJConnectTests-\(UUID().uuidString)"
+    let defaults = try #require(UserDefaults(suiteName: suiteName))
+    defaults.removePersistentDomain(forName: suiteName)
+    let model = DJConnectAppModel(
+        defaults: defaults,
+        tokenStore: DJConnectInMemoryTokenStore(),
+        startLocalAPI: true,
+        startBackgroundTasks: true,
+        monkeyTestingMode: true
+    )
+
+    #expect(model.isMonkeyTestingMode == true)
+    #expect(model.isDemoMode == true)
+    #expect(model.shouldShowPairingScreen == false)
+    #expect(model.isShowingWelcome == false)
+    #expect(model.isShowingCrashReportPrompt == false)
+    #expect(model.localDeviceAPIURL == nil)
+    #expect(model.canUsePlaybackFeatures == true)
+    #expect(model.playback?.trackName == "Midnight City")
+    #expect(model.queueItems.isEmpty == false)
+    #expect(model.playlistItems.isEmpty == false)
+}
+
+@MainActor
+@Test func permissionRequestActionPromptsWhenPermissionsAreUnknown() {
+    #expect(DJConnectAppModel.permissionRequestAction(
+        microphone: .unknown,
+        speech: .unknown
+    ) == .requestSystemPrompt)
+}
+
+@MainActor
+@Test func permissionRequestActionSkipsWhenPermissionsAreAlreadyGranted() {
+    #expect(DJConnectAppModel.permissionRequestAction(
+        microphone: .granted,
+        speech: .granted
+    ) == .alreadyGranted)
+}
+
+@MainActor
+@Test func permissionRequestActionOpensSettingsWhenMicrophoneWasDenied() {
+    #expect(DJConnectAppModel.permissionRequestAction(
+        microphone: .denied,
+        speech: .granted
+    ) == .openSystemSettings)
+}
+
+@MainActor
+@Test func permissionRequestActionOpensSettingsWhenSpeechPermissionWasRevoked() {
+    #expect(DJConnectAppModel.permissionRequestAction(
+        microphone: .granted,
+        speech: .denied
+    ) == .openSystemSettings)
+}
+
+@MainActor
+@Test func permissionRequestActionOpensSettingsWhenPermissionIsRestricted() {
+    #expect(DJConnectAppModel.permissionRequestAction(
+        microphone: .restricted,
+        speech: .unknown
+    ) == .openSystemSettings)
 }

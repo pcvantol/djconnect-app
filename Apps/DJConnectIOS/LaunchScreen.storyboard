@@ -29,8 +29,14 @@
                                         <color key="textColor" white="1" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
                                         <nil key="highlightedColor"/>
                                     </label>
+                                    <label opaque="NO" userInteractionEnabled="NO" contentMode="left" text="Muziekbediening met karakter." textAlignment="center" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" minimumScaleFactor="0.7" translatesAutoresizingMaskIntoConstraints="NO" id="launch-tagline">
+                                        <rect key="frame" x="40" y="799" width="944" height="25"/>
+                                        <fontDescription key="fontDescription" type="boldSystem" pointSize="24"/>
+                                        <color key="textColor" white="1" alpha="0.72" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+                                        <nil key="highlightedColor"/>
+                                    </label>
                                     <activityIndicatorView opaque="NO" userInteractionEnabled="NO" contentMode="scaleToFill" horizontalHuggingPriority="750" verticalHuggingPriority="750" style="medium" animating="YES" translatesAutoresizingMaskIntoConstraints="NO" id="launch-spinner">
-                                        <rect key="frame" x="502" y="815" width="20" height="20"/>
+                                        <rect key="frame" x="502" y="852" width="20" height="20"/>
                                         <color key="color" white="1" alpha="0.86" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
                                     </activityIndicatorView>
                                 </subviews>
@@ -41,8 +47,11 @@
                                     <constraint firstItem="launch-title" firstAttribute="top" secondItem="launch-icon" secondAttribute="bottom" constant="28" id="launch-title-top"/>
                                     <constraint firstItem="launch-title" firstAttribute="leading" secondItem="hero-panel" secondAttribute="leading" constant="40" id="launch-title-leading"/>
                                     <constraint firstAttribute="trailing" secondItem="launch-title" secondAttribute="trailing" constant="40" id="launch-title-trailing"/>
+                                    <constraint firstItem="launch-tagline" firstAttribute="top" secondItem="launch-title" secondAttribute="bottom" constant="12" id="launch-tagline-top"/>
+                                    <constraint firstItem="launch-tagline" firstAttribute="leading" secondItem="hero-panel" secondAttribute="leading" constant="40" id="launch-tagline-leading"/>
+                                    <constraint firstAttribute="trailing" secondItem="launch-tagline" secondAttribute="trailing" constant="40" id="launch-tagline-trailing"/>
                                     <constraint firstItem="launch-spinner" firstAttribute="centerX" secondItem="hero-panel" secondAttribute="centerX" id="launch-spinner-center-x"/>
-                                    <constraint firstItem="launch-spinner" firstAttribute="top" secondItem="launch-title" secondAttribute="bottom" constant="28" id="launch-spinner-top"/>
+                                    <constraint firstItem="launch-spinner" firstAttribute="top" secondItem="launch-tagline" secondAttribute="bottom" constant="28" id="launch-spinner-top"/>
                                 </constraints>
                             </view>
                         </subviews>

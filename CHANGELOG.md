@@ -6,14 +6,64 @@ All notable changes to DJConnect App are documented here.
 
 No unreleased changes yet.
 
+## 3.1.14 - 2026-06-12
+
+### Added
+
+- Added a dedicated Logs screen on iOS and macOS and moved runtime logs out of
+  Settings.
+- Added redacted rolling diagnostic file logging in Application Support so Logs
+  can survive app restarts and crashes.
+- Added Pac-Man to the local Games menu alongside Pong, Asteroids, and Fly.
+- Added local output defaults (`Geen` and the platform default output) before
+  Home Assistant playback devices.
+
+### Changed
+
+- Queue requests now send `limit:100`; README, API contract, handoff, release
+  docs, and canonical sync prompts are aligned for Home Assistant support.
+- Improved macOS navigation by exposing More-menu screens directly in the
+  sidebar and letting content extend into the titlebar area.
+- Improved Settings rows, empty Queue layout, playlist/queue artwork sizing,
+  and backend-unavailable messaging.
+
+### Fixed
+
+- Prevented empty queues from rendering duplicate placeholder rows.
+- Improved output selection handling for synthetic local/default outputs.
+- Expanded unit coverage for queue limit and output default behavior.
+
 ## 3.1.12 - 2026-06-11
 
 ### Fixed
 
-- Avoided the unstable macOS speech-recognition permission prompt that could
-  crash when requesting permissions from Settings. The app now logs the current
-  speech permission status and keeps stemactivatie unavailable until macOS has
-  granted access.
+- Avoided the unstable iOS/macOS speech-recognition permission prompt that
+  could crash when requesting permissions from Settings. If speech access is
+  already granted the app accepts it; otherwise it logs a friendly unavailable
+  state instead of invoking the crash-prone system prompt.
+- Added a non-destructive `--monkey-testing` launch mode for automated UI
+  stress tests. It starts in local Demo Mode, hides blocking first-run/pairing
+  prompts, and avoids local API/backend traffic.
+- Lazy-started local Games behind a "Tap to play" overlay so first navigation
+  to the Games screen no longer starts Pong immediately. Leaving Games resets
+  all games back to the overlay state. Pong now keeps the center line visible
+  while hiding the ball until play starts.
+- Added "Muziekbediening met karakter." to the splash screen, kept the spinner
+  below it, and kept the launch storyboard compatible with Apple's launch
+  screen restrictions.
+- Removed the album-art border treatment and let macOS content extend into the
+  titlebar area so the DJConnect canvas no longer stops below a separate strip.
+- Replaced deprecated macOS demo speech playback with `AVSpeechSynthesizer` and
+  imported Combine explicitly for the local game timer publisher.
+- Improved accessibility labels for icon-only playback controls and enlarged
+  previous/next, seek, shuffle, and repeat controls. Active shuffle/repeat now
+  use purple, and seek buttons render white.
+- Made queue/playlist start toasts stand out with a brighter accent gradient
+  against the DJConnect dark canvas.
+- Added iOS and macOS UI monkey-smoke coverage for non-destructive navigation
+  through Now Playing, Queue, Playlists, Games, Settings, and About.
+- Added Dutch app localization resources so iOS system UI such as the overflow
+  tab can localize to "Meer".
 - Kept release metadata, handoff, API examples, and sync prompts aligned with
   app/protocol version `3.1.12`.
 

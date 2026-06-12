@@ -56,9 +56,14 @@ experience without a Home Assistant backend.
 
 The app also includes local Games with Pong, Asteroids, and Fly, mirroring the
 ESP client bonus games. Games are local-only, store highscores in app-local
-preferences, and do not call Home Assistant or create HA entities. When a game
-surface has keyboard focus, arrow keys and space are consumed by the game and
-must not trigger app navigation.
+preferences, and do not call Home Assistant or create HA entities. Games lazy
+start behind a tap-to-play overlay, and leaving the Games screen resets them
+back to that idle state. When a game surface has keyboard focus, arrow keys and
+space are consumed by the game and must not trigger app navigation.
+
+Debug and UI stress runs can launch with `--monkey-testing`. This starts a
+non-destructive local Demo Mode, hides first-run/pairing blockers, avoids local
+API/backend traffic, and is safe for random navigation/tap monkey tests.
 
 Fresh installs default the Home Assistant URL field to
 `http://homeassistant.local:8123`. Users can replace it with an IP-based local
@@ -194,10 +199,17 @@ run an always-on background wakeword listener and does not auto-start wakeword
 listening after launch. Wakeword listening is disabled on iOS Simulator because
 simulator speech/audio capture is unstable; test it on a real iPhone or iPad.
 
-Queue responses may use `queue.items` plus `queue.context`, flat `queue` arrays,
-or flat `items` for compatibility. The app also accepts top-level `context_uri`
-and `contextUri` and supports album-art aliases `album_image_url`,
-`media_image_url`, `image_url`, and `entity_picture`.
+Queue requests include `limit:100`. Responses may use `queue.items` plus
+`queue.context`, flat `queue` arrays, or flat `items` for compatibility. The
+app also accepts top-level `context_uri` and `contextUri` and supports album-art
+aliases `album_image_url`, `media_image_url`, `image_url`, and
+`entity_picture`. Home Assistant should return real queue items only, without
+padding repeated copies of the current track.
+
+Command responses are transport success first and playback-state second.
+`success:true` with `playback.has_playback:false` is a valid empty playback
+snapshot, not an error; playback fields such as progress, duration, volume,
+track metadata, context and artwork URLs may be `null`.
 
 All status and command payloads include `device_id`, `client_type`, and
 `firmware`. The `firmware` value remains the protocol compatibility version,
@@ -255,6 +267,11 @@ Diagnostics are user-mediated. The app redacts tokens and does not upload logs
 automatically. If the previous session appears to have ended uncleanly, the
 next launch offers to copy redacted logs or open a prefilled GitHub issue in
 `pcvantol/djconnect` for manual submission.
+
+The app also keeps a local redacted rolling diagnostic logfile in Application
+Support at `DJConnect/Logs/djconnect.log`. It is loaded back into the Logs
+screen on restart, capped at 500 lines and 128 KB, and cleared when the user
+clears logs in the app.
 
 DEBUG logs include user actions, navigation/recovery flows, Home Assistant API
 calls, and local Client API calls. API log lines include HTTP status codes and

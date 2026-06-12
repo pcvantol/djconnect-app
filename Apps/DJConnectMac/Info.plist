@@ -37,7 +37,7 @@
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>DJConnect maakt verbinding met Home Assistant op je lokale netwerk.</string>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>DJConnect neemt je stem op om een voice request naar Home Assistant te sturen.</string>
+	<string>DJConnect neemt je stem op voor push-to-talk muziekverzoeken aan Home Assistant.</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
 	<string>DJConnect gebruikt spraakherkenning om de wake-zin te herkennen.</string>
 </dict>

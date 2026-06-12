@@ -1,4 +1,5 @@
 import DJConnectCore
+import DJConnectCore
 import DJConnectUI
 import SwiftUI
 
@@ -15,7 +16,7 @@ struct DJConnectIOSApp: App {
     private static func makeModel() -> DJConnectAppModel {
         #if DEBUG
         let processInfo = ProcessInfo.processInfo
-        if processInfo.arguments.contains("--uitesting") {
+        if processInfo.arguments.contains("--uitesting") || processInfo.arguments.contains("--monkey-testing") {
             let suiteName = "nl.pcvantol.djconnect.uitests"
             let defaults = UserDefaults(suiteName: suiteName) ?? .standard
             defaults.removePersistentDomain(forName: suiteName)
@@ -24,7 +25,11 @@ struct DJConnectIOSApp: App {
             if let homeAssistantURL = processInfo.environment["DJCONNECT_UITEST_HA_URL"], !homeAssistantURL.isEmpty {
                 defaults.set(homeAssistantURL, forKey: "DJConnectHomeAssistantURL")
             }
-            return DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore())
+            return DJConnectAppModel(
+                defaults: defaults,
+                tokenStore: DJConnectInMemoryTokenStore(),
+                monkeyTestingMode: processInfo.arguments.contains("--monkey-testing")
+            )
         }
         #endif
         return DJConnectAppModel()

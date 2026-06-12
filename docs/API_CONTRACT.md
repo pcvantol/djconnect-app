@@ -18,8 +18,8 @@ install identity.
   "device_id": "djconnect-ios-8F3A2C91B45D",
   "device_name": "DJConnect iPhone",
   "client_type": "ios",
-  "firmware": "3.1.12",
-  "app_version": "3.1.12",
+  "firmware": "3.1.14",
+  "app_version": "3.1.14",
   "platform": "ios"
 }
 ```
@@ -65,8 +65,8 @@ Payload:
   "device_id": "djconnect-macos-8F3A2C91B45D",
   "device_name": "DJConnect Mac",
   "client_type": "macos",
-  "firmware": "3.1.12",
-  "app_version": "3.1.12",
+  "firmware": "3.1.14",
+  "app_version": "3.1.14",
   "platform": "macos",
   "pair_code": "123456",
   "pairing_code": "123456",
@@ -196,8 +196,8 @@ Minimum payload:
   "device_name": "DJConnect iPhone",
   "client_type": "ios",
   "ha_pairing_status": "paired",
-  "firmware": "3.1.12",
-  "app_version": "3.1.12",
+  "firmware": "3.1.14",
+  "app_version": "3.1.14",
   "state": "online",
   "status": "online",
   "battery_percent": 85,
@@ -225,7 +225,7 @@ Examples:
 ```json
 {"device_id":"djconnect-ios-8F3A2C91B45D","client_type":"ios","command":"status"}
 {"device_id":"djconnect-ios-8F3A2C91B45D","client_type":"ios","command":"devices"}
-{"device_id":"djconnect-ios-8F3A2C91B45D","client_type":"ios","command":"queue"}
+{"device_id":"djconnect-ios-8F3A2C91B45D","client_type":"ios","command":"queue","limit":100}
 {"device_id":"djconnect-ios-8F3A2C91B45D","client_type":"ios","command":"playlists"}
 {"device_id":"djconnect-ios-8F3A2C91B45D","client_type":"ios","command":"pause"}
 {"device_id":"djconnect-ios-8F3A2C91B45D","client_type":"ios","command":"play"}
@@ -248,6 +248,16 @@ context starts as state-changing. After posting them, it immediately refreshes
 the rich Now Playing snapshot through the `status` command so button state,
 album art, progress, output, and volume reflect the backend source of truth.
 
+Command responses are transport/command success first and playback-state
+second. A response with `success:true` and `playback.has_playback:false` means
+the Home Assistant command route worked but Spotify has no active playback; it
+is not an app error state. In that case the playback snapshot is valid but
+empty, and playback fields may be `null` or empty strings, including
+`progress_ms`, `duration_ms`, `volume_percent`, `device.volume_percent`,
+`title`, `track_name`, `artist`, `album_name`, `uri`, `context_uri`,
+`queue_context`, and artwork URLs. Clients must keep those fields optional and
+must not fail decoding because no playback is active.
+
 `seek_relative` uses an integer `value` in milliseconds. Positive values seek
 forward in the current track; negative values seek backward. Home Assistant
 should clamp the target position to the current track duration and return a
@@ -258,7 +268,7 @@ normal command/status response. ESP clients may omit this UI feature.
 The app loads queue data with:
 
 ```json
-{"device_id":"djconnect-ios-8F3A2C91B45D","client_type":"ios","command":"queue"}
+{"device_id":"djconnect-ios-8F3A2C91B45D","client_type":"ios","command":"queue","limit":100}
 ```
 
 Preferred success shape:
@@ -285,6 +295,9 @@ Preferred success shape:
 Compatibility rules:
 
 - `queue.items` may be empty and that is not an error.
+- The Apple app requests up to 100 queue items with `limit:100`. Home Assistant
+  should return up to that many real backend queue items and must not pad the
+  response with repeated copies of the current track.
 - Home Assistant may return `queue` as either `{ "items": [...] }` or a flat
   array; older/debug responses may return flat `items`. The app accepts all
   three forms.

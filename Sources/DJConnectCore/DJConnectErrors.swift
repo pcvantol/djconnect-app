@@ -7,6 +7,7 @@ public enum DJConnectError: Error, Equatable, Sendable {
     case versionMismatch(DJConnectVersionMismatch)
     case notConfigured(message: String?)
     case server(statusCode: Int, message: String?)
+    case decodingFailed(statusCode: Int, endpoint: String, message: String?)
     case network(message: String)
     case invalidResponse
     case invalidConfiguration(String)

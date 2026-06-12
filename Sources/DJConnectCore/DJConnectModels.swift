@@ -275,18 +275,21 @@ public struct DJConnectCommandPayload: Codable, Equatable, Sendable {
     public var command: String
     public var value: DJConnectCommandValue?
     public var play: Bool?
+    public var limit: Int?
 
     public init(
         identity: DJConnectIdentity,
         command: String,
         value: DJConnectCommandValue? = nil,
-        play: Bool? = nil
+        play: Bool? = nil,
+        limit: Int? = nil
     ) {
         self.deviceID = identity.deviceID
         self.clientType = identity.clientType
         self.command = command
         self.value = value
         self.play = play
+        self.limit = limit
     }
 
     enum CodingKeys: String, CodingKey {
@@ -295,6 +298,7 @@ public struct DJConnectCommandPayload: Codable, Equatable, Sendable {
         case command
         case value
         case play
+        case limit
     }
 }
 

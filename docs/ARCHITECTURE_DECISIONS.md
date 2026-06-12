@@ -95,11 +95,11 @@ Reasoning:
 - lets macOS use native `Settings` scenes while iOS uses tab navigation;
 - leaves room for platform-specific UX without forking the full UI.
 
-## ADR-007: Current App/Protocol Version Is `3.1.12`
+## ADR-007: Current App/Protocol Version Is `3.1.14`
 
 Status: accepted
 
-The app uses version `3.1.12` for app/protocol examples and Xcode marketing
+The app uses version `3.1.14` for app/protocol examples and Xcode marketing
 version in this release.
 
 Reasoning:
@@ -246,3 +246,20 @@ Reasoning:
   hardware-keyboard iPad setups;
 - local games are self-contained and should not accidentally change app pages;
 - the app still preserves normal navigation when focus leaves the game surface.
+
+## ADR-016: Monkey Test Mode Is Non-Destructive
+
+Status: accepted
+
+Debug builds may launch with `--monkey-testing` to support random UI
+navigation/tap stress tests. The app starts in local Demo Mode, skips
+first-run/pairing/crash blockers, avoids local Client API startup, and avoids
+Home Assistant calls.
+
+Reasoning:
+
+- monkey tests should never reset real pairing or mutate Keychain tokens;
+- random UI tapping should not create HA entities or send Spotify commands;
+- local sample data keeps the runtime UI inspectable without a backend;
+- Games lazy start behind a tap-to-play overlay so entering the Games screen is
+  cheap and deterministic, and leaving the screen stops the local loop.

@@ -114,8 +114,13 @@ xcodebuild -project DJConnectApp.xcodeproj -scheme DJConnectIOS -configuration D
   primary iPhone/iPad screen and that permission rows stay compact.
 - Validate Demo Mode microphone playback shows and speaks the local sample DJ
   announcement.
-- Validate Games arrow keys/space control the focused game and do not switch
-  tabs/pages when a hardware keyboard is connected.
+- Validate Games lazy start behind the tap-to-play overlay, reset to that
+  overlay after leaving the Games screen, and arrow keys/space control the
+  focused game without switching tabs/pages when a hardware keyboard is
+  connected.
+- Run a short Debug `--monkey-testing` session in an iPhone simulator to confirm
+  non-destructive navigation/tapping does not call Home Assistant, reset
+  pairing, or mutate Keychain tokens.
 - Validate Local Network permission against a real Home Assistant instance.
 - Pair with a matching `pcvantol/djconnect` HA integration.
 - Validate playback commands, output switching, queue, playlists, liked songs,
@@ -425,17 +430,22 @@ explicitly hardened.
 
 ## Current Local Verification
 
-For release `3.1.12`, local verification was completed with:
+For release `3.1.14`, local verification was completed with:
 
 ```sh
 swift test --no-parallel
-xcodebuild -project DJConnectApp.xcodeproj -scheme DJConnectMac -configuration Debug -destination platform=macOS -derivedDataPath .xcode-derived CODE_SIGNING_ALLOWED=NO build
-xcodebuild -project DJConnectApp.xcodeproj -scheme DJConnectIOS -configuration Debug -destination generic/platform=iOS -derivedDataPath .xcode-derived CODE_SIGNING_ALLOWED=NO build
+xcodebuild -project DJConnectApp.xcodeproj -scheme DJConnectMac -configuration Debug -destination platform=macOS -derivedDataPath .xcode-derived-mac CODE_SIGNING_ALLOWED=NO build
+xcodebuild -project DJConnectApp.xcodeproj -scheme DJConnectIOS -configuration Debug -destination generic/platform=iOS -derivedDataPath .xcode-derived-ios-generic CODE_SIGNING_ALLOWED=NO build
+xcodebuild -quiet -project DJConnectApp.xcodeproj -scheme DJConnectIOS -configuration Debug -destination 'platform=iOS Simulator,name=iPhone 17 Pro' -derivedDataPath .xcode-derived-monkey -only-testing:DJConnectIOSUITests/DJConnectIOSUITests/testMonkeyModeSafeNavigationSmoke -test-iterations 22 -test-repetition-relaunch-enabled YES test
+xcodebuild -quiet -project DJConnectApp.xcodeproj -scheme DJConnectMac -configuration Debug -destination platform=macOS -derivedDataPath .xcode-derived-mac-monkey -only-testing:DJConnectMacUITests/DJConnectMacUITests/testMonkeyModeSafeNavigationSmoke test
 ```
 
-The Xcode toolchain was Xcode 26.5 (`17F42`). These checks do not replace
-signed archive validation, TestFlight processing, notarization, or physical
-device permission testing.
+The Xcode toolchain was Xcode 26.5 (`17F42`). The repeated iPhone simulator
+monkey-smoke run completed successfully in 615 seconds. The short macOS
+monkey-smoke run completed successfully; the longer repeated macOS soak was
+started and then intentionally interrupted, so it is not counted as release
+verification. These checks do not replace signed archive validation, TestFlight
+processing, notarization, or physical device permission testing.
 
 ## macOS Notarization
 
@@ -450,7 +460,7 @@ The local helper script packages and uploads public macOS releases:
 PUBLIC_REPO=pcvantol/djconnect-app-releases \
 DEVELOPMENT_TEAM=<APPLE_TEAM_ID> \
 NOTARY_PROFILE=<notarytool-keychain-profile> \
-./Tools/release/release_macos_public.sh --version 3.1.12
+./Tools/release/release_macos_public.sh --version 3.1.14
 ```
 
 Create the notary profile once with:

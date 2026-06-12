@@ -113,6 +113,12 @@ status code. Logs must not include bearer tokens, pairing codes, Authorization
 headers, Spotify/Home Assistant credentials, passwords, or raw request/response
 bodies that may contain secrets.
 
+Runtime diagnostics are kept in memory for the Logs screen and mirrored to a
+redacted rolling logfile in Application Support:
+`DJConnect/Logs/djconnect.log`. The file is capped at 500 lines and 128 KB,
+loaded on app restart, and removed when the user clears logs. The app never
+uploads this file automatically.
+
 ## Local Games
 
 The Games menu is intentionally outside the Home Assistant protocol. Pong,

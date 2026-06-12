@@ -10,6 +10,14 @@ final class DJConnectIOSUITests: XCTestCase {
         return app
     }
 
+    private func launchMonkeyApp() -> XCUIApplication {
+        let app = XCUIApplication()
+        app.launchArguments.append("--monkey-testing")
+        app.launchEnvironment["DJCONNECT_UITEST_HA_URL"] = "http://127.0.0.1:8123"
+        app.launch()
+        return app
+    }
+
     private func enterDemoModeIfNeeded(_ app: XCUIApplication) {
         let demoButton = app.buttons["Demo modus starten"]
         if demoButton.waitForExistence(timeout: 2) {
@@ -28,7 +36,7 @@ final class DJConnectIOSUITests: XCTestCase {
             return
         }
 
-        let moreButton = app.tabBars.buttons["More"]
+        let moreButton = app.tabBars.buttons["Meer"].exists ? app.tabBars.buttons["Meer"] : app.tabBars.buttons["More"]
         XCTAssertTrue(moreButton.waitForExistence(timeout: 3))
         moreButton.tap()
 
@@ -45,9 +53,10 @@ final class DJConnectIOSUITests: XCTestCase {
         XCTAssertTrue(app.tabBars.buttons["Wachtrij"].exists)
         XCTAssertTrue(app.tabBars.buttons["Afspeellijsten"].exists)
         XCTAssertTrue(app.tabBars.buttons["Games"].exists)
-        XCTAssertTrue(app.tabBars.buttons["More"].exists)
+        XCTAssertTrue(app.tabBars.buttons["Meer"].exists || app.tabBars.buttons["More"].exists)
 
-        app.tabBars.buttons["More"].tap()
+        let moreButton = app.tabBars.buttons["Meer"].exists ? app.tabBars.buttons["Meer"] : app.tabBars.buttons["More"]
+        moreButton.tap()
         XCTAssertTrue(app.descendants(matching: .any)["Instellingen"].waitForExistence(timeout: 3))
         XCTAssertTrue(app.descendants(matching: .any)["Over"].exists)
     }
@@ -69,9 +78,70 @@ final class DJConnectIOSUITests: XCTestCase {
 
         app.tabBars.buttons["Games"].tap()
 
-        XCTAssertTrue(app.navigationBars["Games (Demo modus)"].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.navigationBars["Games (demo)"].waitForExistence(timeout: 3))
         XCTAssertTrue(app.buttons["Pong"].exists || app.staticTexts["Pong"].exists)
         XCTAssertTrue(app.buttons["Asteroids"].exists || app.staticTexts["Asteroids"].exists)
         XCTAssertTrue(app.buttons["Fly"].exists || app.staticTexts["Fly"].exists)
+        XCTAssertTrue(app.buttons["Tik om te spelen"].exists || app.staticTexts["Tik om te spelen"].exists)
+    }
+
+    func testMonkeyModeSafeNavigationSmoke() {
+        let app = launchMonkeyApp()
+        let argumentDuration = ProcessInfo.processInfo.arguments
+            .first { $0.hasPrefix("--monkey-seconds=") }?
+            .split(separator: "=", maxSplits: 1)
+            .last
+            .flatMap { TimeInterval($0) }
+        let duration = argumentDuration
+            ?? TimeInterval(ProcessInfo.processInfo.environment["DJCONNECT_MONKEY_SECONDS"] ?? "20")
+            ?? 20
+        let deadline = Date().addingTimeInterval(duration)
+        let tabs = ["Speelt Nu", "Wachtrij", "Afspeellijsten", "Games", "Meer"]
+        var index = 0
+
+        XCTAssertTrue(app.tabBars.firstMatch.waitForExistence(timeout: 8))
+
+        while Date() < deadline {
+            let title = tabs[index % tabs.count]
+            if app.tabBars.buttons[title].exists {
+                app.tabBars.buttons[title].tap()
+            }
+
+            switch title {
+            case "Speelt Nu":
+                app.buttons.matching(identifier: "Druk op het microfoon icoon om een voorbeeld aankondiging te beluisteren").firstMatch.tapIfExists()
+                app.buttons["Afspelen"].tapIfExists()
+                app.buttons["Volgend nummer"].tapIfExists()
+            case "Wachtrij":
+                app.buttons["Tik om te spelen"].tapIfExists()
+            case "Afspeellijsten":
+                app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "Gelikete nummers")).firstMatch.tapIfExists()
+            case "Games":
+                app.buttons["Tik om te spelen"].tapIfExists()
+                app.buttons["Fly"].tapIfExists()
+                app.buttons["Tik om te spelen"].tapIfExists()
+            case "Meer":
+                app.staticTexts["Instellingen"].tapIfExists()
+                app.buttons.firstMatch.tapIfExists()
+                app.tabBars.buttons["Meer"].tapIfExists()
+                app.staticTexts["Over"].tapIfExists()
+                app.buttons.firstMatch.tapIfExists()
+            default:
+                break
+            }
+
+            index += 1
+            RunLoop.current.run(until: Date().addingTimeInterval(0.25))
+        }
+
+        XCTAssertTrue(app.state == .runningForeground)
+    }
+}
+
+private extension XCUIElement {
+    func tapIfExists() {
+        if exists && isHittable {
+            tap()
+        }
     }
 }

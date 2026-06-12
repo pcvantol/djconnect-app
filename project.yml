@@ -10,7 +10,7 @@ settings:
   base:
     SWIFT_VERSION: "6.0"
     CURRENT_PROJECT_VERSION: "1"
-    MARKETING_VERSION: "3.1.12"
+    MARKETING_VERSION: "3.1.14"
     DEVELOPMENT_TEAM: ""
     CODE_SIGN_STYLE: Automatic
 packages: {}
@@ -90,8 +90,7 @@ targets:
           - UIInterfaceOrientationLandscapeLeft
           - UIInterfaceOrientationLandscapeRight
         NSLocalNetworkUsageDescription: DJConnect maakt verbinding met Home Assistant op je lokale netwerk.
-        NSFaceIDUsageDescription: DJConnect gebruikt Face ID om je DJConnect-token in de sleutelhanger te beveiligen.
-        NSMicrophoneUsageDescription: DJConnect neemt je stem op om een voice request naar Home Assistant te sturen.
+        NSMicrophoneUsageDescription: DJConnect neemt je stem op voor push-to-talk muziekverzoeken aan Home Assistant.
         NSSpeechRecognitionUsageDescription: DJConnect gebruikt spraakherkenning om de wake-zin te herkennen.
         NSBonjourServices:
           - _home-assistant._tcp.
@@ -122,7 +121,7 @@ targets:
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         LSApplicationCategoryType: public.app-category.music
         NSLocalNetworkUsageDescription: DJConnect maakt verbinding met Home Assistant op je lokale netwerk.
-        NSMicrophoneUsageDescription: DJConnect neemt je stem op om een voice request naar Home Assistant te sturen.
+        NSMicrophoneUsageDescription: DJConnect neemt je stem op voor push-to-talk muziekverzoeken aan Home Assistant.
         NSSpeechRecognitionUsageDescription: DJConnect gebruikt spraakherkenning om de wake-zin te herkennen.
         NSBonjourServices:
           - _home-assistant._tcp.
@@ -158,6 +157,17 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: nl.pcvantol.djconnect.ios.uitests
         GENERATE_INFOPLIST_FILE: YES
+  DJConnectMacUITests:
+    type: bundle.ui-testing
+    platform: macOS
+    sources:
+      - path: Tests/DJConnectMacUITests
+    dependencies:
+      - target: DJConnectMac
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: nl.pcvantol.djconnect.mac.uitests
+        GENERATE_INFOPLIST_FILE: YES
 schemes:
   DJConnectIOS:
     build:
@@ -183,6 +193,7 @@ schemes:
       config: Debug
       targets:
         - DJConnectCoreTests
+        - DJConnectMacUITests
     profile:
       config: Release
     archive:
