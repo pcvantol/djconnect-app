@@ -10,6 +10,7 @@ Canonical repo locations:
 - Apple app: `pcvantol/djconnect-app`
 - ESP firmware: `pcvantol/djconnect-esp32`
 - Website/docs: `pcvantol/djconnect-website`
+- Raspberry Pi client: `pcvantol/djconnect-pi`
 
 ## How To Sync This File
 
@@ -21,6 +22,7 @@ cp SYNC_PROMPTS.md ../djconnect/SYNC_PROMPTS.md
 cp SYNC_PROMPTS.md ../djconnect-app/SYNC_PROMPTS.md
 cp SYNC_PROMPTS.md ../djconnect-esp32/SYNC_PROMPTS.md
 cp SYNC_PROMPTS.md ../djconnect-website/SYNC_PROMPTS.md
+cp SYNC_PROMPTS.md ../djconnect-pi/SYNC_PROMPTS.md
 ```
 
 If a sibling repo is not present, or the destination is the current repo, skip
@@ -39,7 +41,7 @@ line are compatible with Home Assistant integration versions `>=3.1.0` and
 ## Cross-Repo Quick Prompts
 
 Use these prompts when handing work between the Home Assistant integration,
-Apple app, ESP firmware, and website/docs repos.
+Apple app, ESP firmware, Raspberry Pi client, and website/docs repos.
 
 Canonical repo locations:
 
@@ -47,6 +49,7 @@ Canonical repo locations:
 - Apple app: `pcvantol/djconnect-app`
 - ESP firmware: `pcvantol/djconnect-esp32`
 - Website/docs: `pcvantol/djconnect-website`
+- Raspberry Pi client: `pcvantol/djconnect-pi`
 
 ## Home Assistant Integration
 
@@ -74,8 +77,10 @@ Requirements:
   canonical callback target after pairing.
 - Return ha_version or ha_major_minor on status/command responses so Apple
   clients can enforce the matching major.minor contract.
-- Apple/Raspberry Pi clients host local /api/device/* endpoints for HA -> client traffic,
-  but must not implement ESP-only reboot or OTA routes.
+- Apple clients host local /api/device/* endpoints for HA -> client traffic,
+  but must not implement ESP-only reboot or OTA routes. Raspberry Pi display
+  clients may be outbound-only and must advertise capabilities so HA does not
+  require local voice, audio, or dj_response endpoints.
 - Persist client_type as ios, macos, raspberry_pi, or esp32. Do not
   reintroduce device_type.
 - Authenticated status/command/voice routes must accept Authorization: Bearer
@@ -155,6 +160,39 @@ Requirements:
 - Detect likely unclean exits and offer only user-mediated crash reporting:
   copy redacted diagnostics or open a prefilled `pcvantol/djconnect` issue.
 - Do not log bearer tokens, HA tokens, Spotify secrets, or audio URLs.
+```
+
+## Raspberry Pi Client
+
+```text
+Sync the DJConnect Raspberry Pi client with the Home Assistant integration contract.
+
+Requirements:
+- Keep one stable device_id per Pi installation across normal launches.
+- Use client_type raspberry_pi and device IDs shaped like
+  djconnect-raspberry-pi-XXXXXXXXXXXX.
+- Treat the Pi as an app-like display remote, not ESP firmware.
+- Pair through POST /api/djconnect/pair and store only the returned
+  DJConnect bearer token plus ha_local_url.
+- Send status to POST /api/djconnect/status with device_id, device_name,
+  client_type, version, firmware, ha_pairing_status and display-remote
+  capabilities.
+- Send playback commands to POST /api/djconnect/command. Supported first
+  version commands are status, play, pause, next, previous, set_volume,
+  set_shuffle and set_repeat.
+- Do not implement PTT, microphone capture, POST /api/djconnect/voice, local
+  DJ response audio playback, or local /api/device/dj_response in the initial
+  Pi client.
+- Do not expose ESP-only reboot, OTA, battery, Wi-Fi RSSI, screen brightness,
+  screen timeout, speaker volume, LED, log-level or firmware entities.
+- Keep the updater and OS maintenance daemon separate from the touch UI and
+  keep the touch UI runnable without root privileges.
+- Use unattended GitHub release updates only after verifying release assets with
+  SHA256 at minimum; prefer signed manifests when available.
+- Treat backend_unavailable and version_mismatch as recoverable without
+  clearing pairing.
+- Never log bearer tokens, HA tokens, Spotify secrets, Wi-Fi passwords or
+  temporary audio URLs.
 ```
 
 ## ESP Firmware
@@ -1481,7 +1519,7 @@ Do not put SwiftUI view logic into the HTTP client.
 # Sync Prompts
 
 Use these prompts when handing work between the Home Assistant integration,
-Apple app, ESP firmware, and website/docs repos.
+Apple app, ESP firmware, Raspberry Pi client, and website/docs repos.
 
 Canonical repo locations:
 
@@ -1489,6 +1527,7 @@ Canonical repo locations:
 - Apple app: `pcvantol/djconnect-app`
 - ESP firmware: `pcvantol/djconnect-esp32`
 - Website/docs: `pcvantol/djconnect-website`
+- Raspberry Pi client: `pcvantol/djconnect-pi`
 
 ## Home Assistant Integration
 
@@ -1516,8 +1555,10 @@ Requirements:
   canonical callback target after pairing.
 - Return ha_version or ha_major_minor on status/command responses so Apple
   clients can enforce the matching major.minor contract.
-- Apple/Raspberry Pi clients host local /api/device/* endpoints for HA -> client traffic,
-  but must not implement ESP-only reboot or OTA routes.
+- Apple clients host local /api/device/* endpoints for HA -> client traffic,
+  but must not implement ESP-only reboot or OTA routes. Raspberry Pi display
+  clients may be outbound-only and must advertise capabilities so HA does not
+  require local voice, audio, or dj_response endpoints.
 - Persist client_type as ios, macos, raspberry_pi, or esp32. Do not
   reintroduce device_type.
 - Authenticated status/command/voice routes must accept Authorization: Bearer
@@ -1591,6 +1632,39 @@ Requirements:
 - Detect likely unclean exits and offer only user-mediated crash reporting:
   copy redacted diagnostics or open a prefilled `pcvantol/djconnect` issue.
 - Do not log bearer tokens, HA tokens, Spotify secrets, or audio URLs.
+```
+
+## Raspberry Pi Client
+
+```text
+Sync the DJConnect Raspberry Pi client with the Home Assistant integration contract.
+
+Requirements:
+- Keep one stable device_id per Pi installation across normal launches.
+- Use client_type raspberry_pi and device IDs shaped like
+  djconnect-raspberry-pi-XXXXXXXXXXXX.
+- Treat the Pi as an app-like display remote, not ESP firmware.
+- Pair through POST /api/djconnect/pair and store only the returned
+  DJConnect bearer token plus ha_local_url.
+- Send status to POST /api/djconnect/status with device_id, device_name,
+  client_type, version, firmware, ha_pairing_status and display-remote
+  capabilities.
+- Send playback commands to POST /api/djconnect/command. Supported first
+  version commands are status, play, pause, next, previous, set_volume,
+  set_shuffle and set_repeat.
+- Do not implement PTT, microphone capture, POST /api/djconnect/voice, local
+  DJ response audio playback, or local /api/device/dj_response in the initial
+  Pi client.
+- Do not expose ESP-only reboot, OTA, battery, Wi-Fi RSSI, screen brightness,
+  screen timeout, speaker volume, LED, log-level or firmware entities.
+- Keep the updater and OS maintenance daemon separate from the touch UI and
+  keep the touch UI runnable without root privileges.
+- Use unattended GitHub release updates only after verifying release assets with
+  SHA256 at minimum; prefer signed manifests when available.
+- Treat backend_unavailable and version_mismatch as recoverable without
+  clearing pairing.
+- Never log bearer tokens, HA tokens, Spotify secrets, Wi-Fi passwords or
+  temporary audio URLs.
 ```
 
 ## ESP Firmware
