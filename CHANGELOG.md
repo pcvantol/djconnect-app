@@ -6,6 +6,65 @@ All notable changes to DJConnect App are documented here.
 
 No unreleased changes yet.
 
+## 3.1.16 - 2026-06-13
+
+### Changed
+
+- Removed the non-functional local `iPhone standaard` and `Mac standaard`
+  output choices. The selector now starts with `Geen`/`None` followed only by
+  real Home Assistant backend devices.
+- Polished iOS/macOS Logs, Settings, About, Queue, and Playlists styling so
+  actions use the DJConnect purple accent, logs render on the gradient canvas,
+  and queue rows use a subtle dark purple background.
+- Updated the splash and launch banner copy to use `Muziekbediening met
+  karakter.` consistently and keep the DJConnect title centered.
+- iOS now schedules a full playback refresh when the app returns to the
+  foreground.
+- Log level choices are ordered from most verbose to least verbose:
+  Debug, Info, Warning/Waarschuwing, Error/Fout.
+
+### Fixed
+
+- Mapped Home Assistant `Player command failed. No active device found` errors
+  to a localized user-facing message instead of exposing the raw backend text.
+- Improved the macOS Logs screen so mouse/trackpad scrolling works reliably and
+  scrollbars remain visible.
+- Kept copy/value rows readable by rendering user-facing values in white while
+  retaining purple action icons.
+
+### Tests
+
+- Updated output-device tests for the new `Geen` plus real-devices model.
+- Added regression coverage for localized no-active-device DJ response errors.
+
+## 3.1.15 - 2026-06-12
+
+### Changed
+
+- Refined iOS/macOS Now Playing so the connection card sits below the album
+  art/playback controls and above the output selector.
+- Replaced remaining system-blue action accents with the DJConnect purple
+  accent for copy buttons, website links, output/volume controls, logs, and
+  selected navigation states.
+- Added elapsed/total time below the current-track progress slider.
+- Improved queue and playlist row loading states with larger inline spinners.
+
+### Fixed
+
+- Backend-unavailable playback now shows a red playback-status dot while the
+  Home Assistant pairing state can remain correctly marked as connected.
+- Spotify authorization recovery now clears the stale DJ request warning and
+  restores the default microphone instruction once playback/backend status is
+  healthy again.
+- Logs clearing now asks for confirmation before removing visible and persisted
+  diagnostics.
+- Updated Dutch voice fallback copy from DJ announcements to DJ requests.
+
+### Documentation
+
+- Updated README, API contract, handoff, and sync prompts for backend recovery
+  UX, queue limit 100, nullable empty playback snapshots, and rolling logs.
+
 ## 3.1.14 - 2026-06-12
 
 ### Added

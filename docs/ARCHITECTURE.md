@@ -91,6 +91,11 @@ Fresh installs seed the Home Assistant URL field with
 the `ha_local_url` returned by Home Assistant instead of this editable setup
 default.
 
+The output selector exposes a local `Geen`/`None` state plus real backend
+devices returned by Home Assistant. It does not synthesize local platform
+outputs. When the no-output state is selected, playback-start commands are
+blocked locally so Spotify does not pick an arbitrary Connect device.
+
 ## Local Client API
 
 The app hosts a small local HTTP API for Home Assistant -> app traffic while
@@ -121,13 +126,13 @@ uploads this file automatically.
 
 ## Local Games
 
-The Games menu is intentionally outside the Home Assistant protocol. Pong,
-Asteroids, and Fly run fully inside SwiftUI, store highscores in app-local
-preferences, and do not use `DJConnectCore`, bearer tokens, Client API routes,
-or HA command/status endpoints. When focused, the game surface consumes arrow
-keys and space so keyboard input controls the game instead of app navigation.
-This keeps the Apple app aligned with the ESP bonus games while preserving the
-integration trust boundary.
+The Games menu is intentionally outside the Home Assistant protocol. Paddle
+Rally, Meteor Run, Sky Dash, and Maze Chase run fully inside SwiftUI, store
+highscores in app-local preferences, and do not use `DJConnectCore`, bearer
+tokens, Client API routes, or HA command/status endpoints. When focused, the
+game surface consumes arrow keys and space so keyboard input controls the game
+instead of app navigation. This keeps the Apple app aligned with the ESP bonus
+games while preserving the integration trust boundary.
 
 ## Project Generation
 

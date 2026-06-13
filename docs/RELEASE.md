@@ -203,19 +203,19 @@ DJConnect
 Subtitle:
 
 ```text
-Jouw persoonlijke muziek DJ
+Muziekbediening met karakter
 ```
 
 Short description / promotional text:
 
 ```text
-Bedien je muziek via Home Assistant en vraag persoonlijke DJ aankondigingen aan.
+Bedien je muziek via Home Assistant en vraag persoonlijke DJ verzoeken aan.
 ```
 
 Full description:
 
 ```text
-DJConnect is je persoonlijke muziek DJ voor Home Assistant. Koppel de app met
+DJConnect is je muziekbediening met karakter voor Home Assistant. Koppel de app met
 de DJConnect integratie, kies je uitvoerapparaat, bedien je muziek, bekijk de
 wachtrij en afspeellijsten, en gebruik push-to-talk voor persoonlijke DJ
 aankondigingen.
@@ -430,7 +430,7 @@ explicitly hardened.
 
 ## Current Local Verification
 
-For release `3.1.14`, local verification was completed with:
+For release `3.1.16`, local verification was completed with:
 
 ```sh
 swift test --no-parallel
@@ -460,7 +460,7 @@ The local helper script packages and uploads public macOS releases:
 PUBLIC_REPO=pcvantol/djconnect-app-releases \
 DEVELOPMENT_TEAM=<APPLE_TEAM_ID> \
 NOTARY_PROFILE=<notarytool-keychain-profile> \
-./Tools/release/release_macos_public.sh --version 3.1.14
+./Tools/release/release_macos_public.sh --version 3.1.16
 ```
 
 Create the notary profile once with:

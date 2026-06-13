@@ -91,9 +91,10 @@ sheet over that initial state.
 
 The Apple app may include the same local bonus games as the ESP client:
 
-- Pong
-- Asteroids
-- Fly
+- Paddle Rally
+- Meteor Run
+- Sky Dash
+- Maze Chase
 
 Games are local-only UI features. They must not call Home Assistant, create HA
 entities, affect pairing state, require Spotify playback, or send DJConnect
@@ -125,8 +126,8 @@ Recommended iOS fields:
   "device_id": "djconnect-ios-8F3A2C91B45D",
   "device_name": "DJConnect iPhone",
   "client_type": "ios",
-  "firmware": "3.1.14",
-  "app_version": "3.1.14",
+  "firmware": "3.1.15",
+  "app_version": "3.1.15",
   "platform": "ios"
 }
 ```
@@ -138,8 +139,8 @@ Recommended macOS fields:
   "device_id": "djconnect-macos-8F3A2C91B45D",
   "device_name": "DJConnect Mac",
   "client_type": "macos",
-  "firmware": "3.1.14",
-  "app_version": "3.1.14",
+  "firmware": "3.1.15",
+  "app_version": "3.1.15",
   "platform": "macos"
 }
 ```
@@ -176,9 +177,9 @@ Expected response:
   "success": false,
   "error": "version_mismatch",
   "message": "DJConnect Home Assistant integration and device firmware major.minor versions must match.",
-  "ha_version": "3.1.14",
+  "ha_version": "3.1.15",
   "ha_major_minor": "3.1",
-  "firmware": "3.1.14",
+  "firmware": "3.1.15",
   "firmware_major_minor": "3.0"
 }
 ```
@@ -252,8 +253,8 @@ X-DJConnect-Device-ID: <device_id>
 {  "device_id": "djconnect-macos-8F3A2C91B45D",
   "device_name": "DJConnect Mac",
   "client_type": "macos",
-  "firmware": "3.1.14",
-  "app_version": "3.1.14",
+  "firmware": "3.1.15",
+  "app_version": "3.1.15",
   "platform": "macos",
   "pair_code": "123456",
   "pairing_code": "123456",
@@ -384,8 +385,8 @@ Minimum payload:
   "device_id": "djconnect-ios-8F3A2C91B45D",
   "client_type": "ios",
   "ha_pairing_status": "paired",
-  "firmware": "3.1.14",
-  "app_version": "3.1.14",
+  "firmware": "3.1.15",
+  "app_version": "3.1.15",
   "state": "online",
   "status": "online",
   "battery_percent": 85,
@@ -465,6 +466,12 @@ For playback-changing commands, the app refreshes the rich Now Playing snapshot
 immediately after the command returns. Home Assistant should continue returning
 the same playback shape for the `status` command so play/pause state, album art,
 progress, output, and volume can update without waiting for a later user action.
+
+The Apple output selector should contain only a local `Geen`/`None` no-output
+choice plus real backend devices from Home Assistant. Do not expose synthetic
+`iPhone standaard` or `Mac standaard` output choices: they are not real
+playback targets and selecting `Geen` must block playback-start commands until
+a real backend device is selected.
 
 Apple app clients may expose current-track seek controls. Use
 `command:"seek_relative"` with an integer `value` in milliseconds. Positive
@@ -564,7 +571,11 @@ Backend unavailable is not an auth failure:
 When backend unavailable:
 
 - keep pairing/token;
-- show playback backend unavailable;
+- show playback unavailable and point the user to Spotify authorization in
+  Home Assistant;
+- if the backend later reports healthy/available again, clear recoverable
+  Spotify authorization DJ request text and restore the default microphone
+  instruction;
 - do not send the user through app pairing again;
 - throttle retries enough to avoid UI churn.
 
@@ -744,8 +755,8 @@ target with a real or recorded mock Home Assistant server.
 - 401/403 during unauthenticated pairing polling stops the wait loop and asks
   the user to re-enter the visible app code in Home Assistant.
 - Voice/PTT uploads raw WAV to `/api/djconnect/voice`.
-- Local Games show Pong, Asteroids and Fly without HA/backend traffic and reset
-  to tap-to-play when leaving the screen.
+- Local Games show Paddle Rally, Meteor Run, Sky Dash, and Maze Chase without
+  HA/backend traffic and reset to tap-to-play when leaving the screen.
 - Monkey Test Mode can navigate the UI without destructive backend, pairing, or
   token side effects.
 - No secrets appear in logs or diagnostics.

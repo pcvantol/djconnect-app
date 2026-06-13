@@ -412,7 +412,12 @@ public struct DJConnectPlayback: Codable, Equatable, Sendable {
         isPlaying = try container.decodeIfPresent(Bool.self, forKey: .isPlaying)
         trackName = try container.decodeIfPresent(String.self, forKey: .trackName)
         artistName = try container.decodeIfPresent(String.self, forKey: .artistName)
-        albumImageURL = try container.decodeIfPresent(URL.self, forKey: .albumImageURL)
+        albumImageURL = container.decodeURLAliasIfPresent(
+            .albumImageURL,
+            .mediaImageURL,
+            .imageURL,
+            .entityPicture
+        )
         progressMS = try container.decodeIfPresent(Int.self, forKey: .progressMS)
         durationMS = try container.decodeIfPresent(Int.self, forKey: .durationMS)
         volumePercent = try container.decodeIfPresent(Int.self, forKey: .volumePercent)
@@ -444,6 +449,9 @@ public struct DJConnectPlayback: Codable, Equatable, Sendable {
         case trackName = "track_name"
         case artistName = "artist_name"
         case albumImageURL = "album_image_url"
+        case mediaImageURL = "media_image_url"
+        case imageURL = "image_url"
+        case entityPicture = "entity_picture"
         case progressMS = "progress_ms"
         case durationMS = "duration_ms"
         case volumePercent = "volume_percent"
@@ -462,6 +470,20 @@ private extension KeyedDecodingContainer where Key == DJConnectPlayback.CodingKe
             if let value = try? decodeIfPresent(String.self, forKey: key), !value.isEmpty {
                 return value
             }
+        }
+        return nil
+    }
+
+    func decodeURLAliasIfPresent(_ keys: Key...) -> URL? {
+        for key in keys {
+            guard let rawValue = try? decodeIfPresent(String.self, forKey: key) else {
+                continue
+            }
+            let value = rawValue.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !value.isEmpty, let url = URL(string: value) else {
+                continue
+            }
+            return url
         }
         return nil
     }

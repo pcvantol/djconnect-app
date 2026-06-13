@@ -203,6 +203,30 @@ public final class DJConnectClient: Sendable {
 
     private static func decodingFailureMessage(error: Error, body: Data) -> String {
         let bodyMessage = redactedResponseBodyMessage(from: body) ?? "<empty response body>"
-        return "\(error.localizedDescription); response_body=\(bodyMessage)"
+        return "\(detailedDecodingMessage(for: error)); response_body=\(bodyMessage)"
+    }
+
+    private static func detailedDecodingMessage(for error: Error) -> String {
+        guard let decodingError = error as? DecodingError else {
+            return error.localizedDescription
+        }
+
+        func path(_ context: DecodingError.Context) -> String {
+            let value = context.codingPath.map(\.stringValue).joined(separator: ".")
+            return value.isEmpty ? "<root>" : value
+        }
+
+        switch decodingError {
+        case let .typeMismatch(type, context):
+            return "typeMismatch(\(type)) codingPath=\(path(context)) debug=\(context.debugDescription)"
+        case let .valueNotFound(type, context):
+            return "valueNotFound(\(type)) codingPath=\(path(context)) debug=\(context.debugDescription)"
+        case let .keyNotFound(key, context):
+            return "keyNotFound(\(key.stringValue)) codingPath=\(path(context)) debug=\(context.debugDescription)"
+        case let .dataCorrupted(context):
+            return "dataCorrupted codingPath=\(path(context)) debug=\(context.debugDescription)"
+        @unknown default:
+            return decodingError.localizedDescription
+        }
     }
 }

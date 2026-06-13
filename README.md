@@ -1,6 +1,6 @@
 # DJConnect App
 
-DJConnect. Jouw persoonlijke muziek DJ.
+DJConnect. Muziekbediening met karakter.
 
 This repository contains a native iOS/macOS DJConnect client scaffold that talks
 to the Home Assistant `djconnect` custom integration. Home Assistant stays the
@@ -47,15 +47,16 @@ Assistant completes pairing, the sheet shows a success state with a green
 checkmark and a `Let's Start!` action before the runtime UI is released.
 
 For App Store review and local UI inspection, the pairing sheet also exposes
-Demo Mode. Demo Mode fills Now Playing, queue, playlists, output devices, and
-DJ announcement UI with local sample data without contacting Home Assistant.
+Demo Mode. Demo Mode fills Now Playing, queue, playlists, and DJ announcement
+UI with local sample data without contacting Home Assistant.
 It is session-only, resets on app restart, and is not a replacement for live
 backend validation. Pressing the microphone in Demo Mode shows and speaks a
 local sample DJ announcement so App Store review can inspect the voice response
 experience without a Home Assistant backend.
 
-The app also includes local Games with Pong, Asteroids, and Fly, mirroring the
-ESP client bonus games. Games are local-only, store highscores in app-local
+The app also includes local Games with Paddle Rally, Meteor Run, Sky Dash, and
+Maze Chase, mirroring the ESP client bonus games. Games are local-only, store
+highscores in app-local
 preferences, and do not call Home Assistant or create HA entities. Games lazy
 start behind a tap-to-play overlay, and leaving the Games screen resets them
 back to that idle state. When a game surface has keyboard focus, arrow keys and
@@ -191,6 +192,11 @@ The iOS/macOS app can expose seek controls for the current track. It sends
 forward, negative values seek backward. This is an Apple-app-only UI affordance;
 ESP clients may omit it.
 
+The output selector shows a local `Geen`/`None` option followed by real backend
+devices returned by Home Assistant. The app does not add local `iPhone
+standaard` or `Mac standaard` choices. Selecting `Geen` blocks playback-start
+commands until the user chooses a real backend output.
+
 Foreground wakeword support is available from Settings. When enabled for the
 current app session, the app uses Apple Speech while the app is open to listen
 for the configured wake phrase (`Hey DJ` by default), then records a short WAV
@@ -277,6 +283,9 @@ DEBUG logs include user actions, navigation/recovery flows, Home Assistant API
 calls, and local Client API calls. API log lines include HTTP status codes and
 must not include bearer tokens, pairing codes, Authorization headers, or raw
 secret-bearing bodies.
+
+On iOS, returning from the Home screen or another app schedules a full playback
+refresh so Now Playing state catches up with changes made outside DJConnect.
 
 ## Security
 

@@ -16,42 +16,24 @@
                             <view userInteractionEnabled="NO" contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="hero-panel">
                                 <rect key="frame" x="0.0" y="0.0" width="1024" height="1366"/>
                                 <subviews>
-                                    <imageView clipsSubviews="YES" userInteractionEnabled="NO" contentMode="scaleAspectFit" image="LaunchIcon" translatesAutoresizingMaskIntoConstraints="NO" id="launch-icon">
-                                        <rect key="frame" x="412" y="508" width="200" height="200"/>
+                                    <imageView clipsSubviews="YES" userInteractionEnabled="NO" contentMode="scaleAspectFit" image="LaunchBanner" translatesAutoresizingMaskIntoConstraints="NO" id="launch-banner">
+                                        <rect key="frame" x="112" y="548" width="800" height="210"/>
                                         <constraints>
-                                            <constraint firstAttribute="width" constant="200" id="launch-icon-width"/>
-                                            <constraint firstAttribute="height" constant="200" id="launch-icon-height"/>
+                                            <constraint firstAttribute="width" constant="800" id="launch-banner-width"/>
+                                            <constraint firstAttribute="height" constant="210" id="launch-banner-height"/>
                                         </constraints>
                                     </imageView>
-                                    <label opaque="NO" userInteractionEnabled="NO" contentMode="left" text="DJConnect" textAlignment="center" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" minimumScaleFactor="0.5" translatesAutoresizingMaskIntoConstraints="NO" id="launch-title">
-                                        <rect key="frame" x="40" y="736" width="944" height="51"/>
-                                        <fontDescription key="fontDescription" type="boldSystem" pointSize="48"/>
-                                        <color key="textColor" white="1" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
-                                        <nil key="highlightedColor"/>
-                                    </label>
-                                    <label opaque="NO" userInteractionEnabled="NO" contentMode="left" text="Muziekbediening met karakter." textAlignment="center" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" minimumScaleFactor="0.7" translatesAutoresizingMaskIntoConstraints="NO" id="launch-tagline">
-                                        <rect key="frame" x="40" y="799" width="944" height="25"/>
-                                        <fontDescription key="fontDescription" type="boldSystem" pointSize="24"/>
-                                        <color key="textColor" white="1" alpha="0.72" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
-                                        <nil key="highlightedColor"/>
-                                    </label>
                                     <activityIndicatorView opaque="NO" userInteractionEnabled="NO" contentMode="scaleToFill" horizontalHuggingPriority="750" verticalHuggingPriority="750" style="medium" animating="YES" translatesAutoresizingMaskIntoConstraints="NO" id="launch-spinner">
-                                        <rect key="frame" x="502" y="852" width="20" height="20"/>
+                                        <rect key="frame" x="502" y="786" width="20" height="20"/>
                                         <color key="color" white="1" alpha="0.86" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
                                     </activityIndicatorView>
                                 </subviews>
                                 <color key="backgroundColor" red="0.090196078431372548" green="0.070588235294117646" blue="0.12156862745098039" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
                                 <constraints>
-                                    <constraint firstItem="launch-icon" firstAttribute="centerX" secondItem="hero-panel" secondAttribute="centerX" id="launch-icon-center-x"/>
-                                    <constraint firstItem="launch-icon" firstAttribute="centerY" secondItem="hero-panel" secondAttribute="centerY" constant="-175" id="launch-icon-center-y"/>
-                                    <constraint firstItem="launch-title" firstAttribute="top" secondItem="launch-icon" secondAttribute="bottom" constant="28" id="launch-title-top"/>
-                                    <constraint firstItem="launch-title" firstAttribute="leading" secondItem="hero-panel" secondAttribute="leading" constant="40" id="launch-title-leading"/>
-                                    <constraint firstAttribute="trailing" secondItem="launch-title" secondAttribute="trailing" constant="40" id="launch-title-trailing"/>
-                                    <constraint firstItem="launch-tagline" firstAttribute="top" secondItem="launch-title" secondAttribute="bottom" constant="12" id="launch-tagline-top"/>
-                                    <constraint firstItem="launch-tagline" firstAttribute="leading" secondItem="hero-panel" secondAttribute="leading" constant="40" id="launch-tagline-leading"/>
-                                    <constraint firstAttribute="trailing" secondItem="launch-tagline" secondAttribute="trailing" constant="40" id="launch-tagline-trailing"/>
+                                    <constraint firstItem="launch-banner" firstAttribute="centerX" secondItem="hero-panel" secondAttribute="centerX" id="launch-banner-center-x"/>
+                                    <constraint firstItem="launch-banner" firstAttribute="centerY" secondItem="hero-panel" secondAttribute="centerY" constant="-30" id="launch-banner-center-y"/>
                                     <constraint firstItem="launch-spinner" firstAttribute="centerX" secondItem="hero-panel" secondAttribute="centerX" id="launch-spinner-center-x"/>
-                                    <constraint firstItem="launch-spinner" firstAttribute="top" secondItem="launch-tagline" secondAttribute="bottom" constant="28" id="launch-spinner-top"/>
+                                    <constraint firstItem="launch-spinner" firstAttribute="top" secondItem="launch-banner" secondAttribute="bottom" constant="28" id="launch-spinner-top"/>
                                 </constraints>
                             </view>
                         </subviews>
@@ -70,6 +52,6 @@
         </scene>
     </scenes>
     <resources>
-        <image name="LaunchIcon" width="1024" height="1024"/>
+        <image name="LaunchBanner" width="1600" height="420"/>
     </resources>
 </document>

@@ -252,7 +252,11 @@ public final class DJConnectLocalDeviceAPI: @unchecked Sendable {
             listener.service = NWListener.Service(
                 name: nil,
                 type: "_djconnect._tcp",
-                txtRecord: NWTXTRecord(["api": "device"])
+                txtRecord: NWTXTRecord([
+                    "api": "device",
+                    "path": "/api/device/info",
+                    "pairing_path": "/api/device/pairing-info"
+                ])
             )
             listener.stateUpdateHandler = { [weak self] state in
                 guard let self else { return }
@@ -299,9 +303,14 @@ public final class DJConnectLocalDeviceAPI: @unchecked Sendable {
                 "name": info.identity.deviceName,
                 "device_id": info.identity.deviceID,
                 "version": info.identity.firmware,
+                "app_version": info.identity.appVersion ?? info.identity.firmware,
                 "paired": info.pairingStatus == .paired ? "true" : "false",
                 "api": "device",
+                "path": "/api/device/info",
+                "pairing_path": "/api/device/pairing-info",
+                "pair_path": "/api/device/pair",
                 "model": "apple-app",
+                "platform": info.identity.platform.rawValue,
                 "client_type": info.identity.clientType.rawValue
             ])
         )

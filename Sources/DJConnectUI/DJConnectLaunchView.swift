@@ -36,28 +36,14 @@ private struct DJConnectLaunchView: View {
     var body: some View {
         GeometryReader { proxy in
             let shortestSide = min(proxy.size.width, proxy.size.height)
-            let iconSize = min(max(shortestSide * 0.22, 132), 240)
-            let titleSize = min(max(shortestSide * 0.075, 44), 76)
+            let bannerWidth = min(max(proxy.size.width - 48, 300), 760)
 
             ZStack {
                 Color(red: 0.09, green: 0.07, blue: 0.12)
                     .ignoresSafeArea()
-                VStack(spacing: max(20, iconSize * 0.16)) {
-                    DJConnectAppIconView()
-                        .frame(width: iconSize, height: iconSize)
-                        .clipShape(RoundedRectangle(cornerRadius: iconSize * 0.22, style: .continuous))
-                        .shadow(color: .black.opacity(0.24), radius: iconSize * 0.13, y: iconSize * 0.07)
-                    Text("DJConnect")
-                        .font(.system(size: titleSize, weight: .bold, design: .default))
-                        .foregroundStyle(.white)
-                        .multilineTextAlignment(.center)
-                        .minimumScaleFactor(0.72)
-                        .padding(.horizontal, 40)
-                    Text("Muziekbediening met karakter.")
-                        .font(.system(size: min(max(shortestSide * 0.032, 18), 28), weight: .semibold, design: .default))
-                        .foregroundStyle(.white.opacity(0.72))
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal, 40)
+                VStack(spacing: 22) {
+                    DJConnectLaunchBanner()
+                        .frame(width: bannerWidth)
                     ProgressView()
                         .controlSize(.regular)
                         .tint(.white.opacity(0.86))
@@ -68,6 +54,45 @@ private struct DJConnectLaunchView: View {
                 .accessibilityElement(children: .combine)
             }
         }
+    }
+}
+
+private struct DJConnectLaunchBanner: View {
+    var body: some View {
+        HStack(spacing: 14) {
+            DJConnectAppIconView()
+                .frame(width: 76, height: 76)
+                .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                .shadow(color: .black.opacity(0.24), radius: 14, y: 8)
+            VStack(alignment: .center, spacing: 7) {
+                Text("DJConnect")
+                    .font(.system(size: 34, weight: .bold, design: .default))
+                    .foregroundStyle(.white)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.62)
+                    .multilineTextAlignment(.center)
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .layoutPriority(2)
+                Text("Muziekbediening met karakter.")
+                    .font(.headline.weight(.semibold))
+                    .foregroundStyle(.white.opacity(0.72))
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.78)
+                    .multilineTextAlignment(.center)
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .layoutPriority(1)
+            }
+        }
+        .padding(18)
+        .background(
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .fill(Color(red: 0.09, green: 0.07, blue: 0.12))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .stroke(.white.opacity(0.08), lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
     }
 }
 

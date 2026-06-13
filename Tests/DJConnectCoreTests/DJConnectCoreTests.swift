@@ -387,7 +387,7 @@ private func waitForLocalDeviceAPIURL(_ model: DJConnectAppModel) async throws -
 }
 
 @MainActor
-@Test func outputDevicesIncludeLocalDefaultsBeforeBackendDevices() throws {
+@Test func outputDevicesIncludeNoOutputBeforeBackendDevices() throws {
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
@@ -402,13 +402,55 @@ private func waitForLocalDeviceAPIURL(_ model: DJConnectAppModel) async throws -
         ]
     ))
 
-    #expect(model.availableOutputs.map(\.name).prefix(3) == ["Geen", "Mac standaard", "Woonkamer"])
+    #expect(model.availableOutputs.map(\.name).prefix(2) == ["Geen", "Woonkamer"])
     #expect(model.selectedOutput == "Woonkamer")
 
     model.selectOutput(model.availableOutputs[0])
     #expect(model.selectedOutput == "Geen")
     #expect(model.availableOutputs[0].active == true)
-    #expect(model.availableOutputs[2].active == false)
+    #expect(model.availableOutputs[1].active == false)
+}
+
+@MainActor
+@Test func appStartsWithNoOutputSelected() throws {
+    let suiteName = "DJConnectTests-\(UUID().uuidString)"
+    let defaults = try #require(UserDefaults(suiteName: suiteName))
+    defaults.removePersistentDomain(forName: suiteName)
+    defaults.set("nl", forKey: "DJConnectLanguage")
+
+    let model = DJConnectAppModel(
+        defaults: defaults,
+        tokenStore: DJConnectInMemoryTokenStore(),
+        startLocalAPI: false,
+        startBackgroundTasks: false
+    )
+
+    #expect(model.selectedOutput == "Geen")
+}
+
+@MainActor
+@Test func noOutputSelectionBlocksPlaybackStartCommands() throws {
+    let suiteName = "DJConnectTests-\(UUID().uuidString)"
+    let defaults = try #require(UserDefaults(suiteName: suiteName))
+    defaults.removePersistentDomain(forName: suiteName)
+    defaults.set("nl", forKey: "DJConnectLanguage")
+    let model = DJConnectAppModel(
+        defaults: defaults,
+        tokenStore: DJConnectInMemoryTokenStore(token: "secret-token"),
+        startLocalAPI: false,
+        startBackgroundTasks: false
+    )
+
+    model.apply(commandResponse: DJConnectCommandResponse(
+        success: true,
+        backendAvailable: true,
+        devices: [DJConnectOutputDevice(id: "speaker", name: "Woonkamer", active: false)]
+    ))
+    model.selectOutput(model.availableOutputs[0])
+    model.sendPlaybackCommand("play")
+
+    #expect(model.selectedOutput == "Geen")
+    #expect(model.userNotice?.text == "Kies eerst een uitvoerapparaat")
 }
 
 @Test func queueContractDecodesItemsContextAndImageAliases() throws {
@@ -1154,6 +1196,24 @@ private func waitForLocalDeviceAPIURL(_ model: DJConnectAppModel) async throws -
 }
 
 @MainActor
+@Test func djAnnouncementMapsNoActiveDeviceServerMessage() throws {
+    let suiteName = "DJConnectTests-\(UUID().uuidString)"
+    let defaults = try #require(UserDefaults(suiteName: suiteName))
+    defaults.removePersistentDomain(forName: suiteName)
+    defaults.set("nl", forKey: "DJConnectLanguage")
+    let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startLocalAPI: false)
+
+    model.apply(localDJResponse: DJConnectLocalDJResponseRequest(
+        text: "Player command failed. No active device found",
+        djText: nil,
+        audioURL: nil,
+        audioType: nil
+    ))
+
+    #expect(model.djResponseText == "Geen actief afspeelapparaat gevonden")
+}
+
+@MainActor
 @Test func haVersionOutsideAppMinorRangeDisablesRuntimeControls() throws {
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
@@ -1204,6 +1264,37 @@ private func waitForLocalDeviceAPIURL(_ model: DJConnectAppModel) async throws -
     #expect(model.updateRequiredMessage == nil)
     #expect(model.backendAvailable == true)
     #expect(model.playback?.trackName == "Compatible Track")
+}
+
+@MainActor
+@Test func recoverableSpotifyVoiceMessageClearsWhenBackendRecovers() throws {
+    let suiteName = "DJConnectTests-\(UUID().uuidString)"
+    let defaults = try #require(UserDefaults(suiteName: suiteName))
+    defaults.removePersistentDomain(forName: suiteName)
+    let model = DJConnectAppModel(
+        defaults: defaults,
+        tokenStore: DJConnectInMemoryTokenStore(token: "secret-token"),
+        startLocalAPI: false,
+        startBackgroundTasks: false
+    )
+
+    model.apply(localDJResponse: DJConnectLocalDJResponseRequest(
+        text: "Spotify authorization has expired or was revoked.",
+        djText: nil,
+        audioURL: nil,
+        audioType: nil
+    ))
+    #expect(model.djResponseText == "Ververs Spotify koppeling in Home Assistant")
+
+    model.apply(commandResponse: DJConnectCommandResponse(
+        success: true,
+        backendAvailable: true,
+        playback: DJConnectPlayback(hasPlayback: false, isPlaying: false)
+    ))
+
+    #expect(model.backendAvailable == true)
+    #expect(model.djResponseText.isEmpty)
+    #expect(model.voiceStatus == .idle)
 }
 
 @MainActor

@@ -120,6 +120,7 @@ public final class DJConnectAppModel: ObservableObject {
     @Published public var queueItems: [DJConnectQueueItem] = []
     @Published public private(set) var loadingQueueItemID: String?
     @Published public private(set) var loadingQueueItemIndex: Int?
+    @Published public private(set) var loadingPlaylistID: String?
     @Published public var queueContext: String?
     @Published public var playlistItems: [DJConnectPlaylist] = []
     @Published public var selectedOutput = "Not selected"
@@ -200,7 +201,7 @@ public final class DJConnectAppModel: ObservableObject {
     private let startBackgroundTasks: Bool
     private let monkeyTestingMode: Bool
     private let diagnosticLogFileURL: URL?
-    private static let protocolVersion = "3.1.14"
+    private static let protocolVersion = "3.1.16"
     private static let defaultHomeAssistantURL = "http://homeassistant.local:8123"
     private let appVersion = DJConnectAppModel.protocolVersion
     private let installIDKey = "DJConnectInstallID"
@@ -293,6 +294,7 @@ public final class DJConnectAppModel: ObservableObject {
         self.localDeviceAPIURL = defaults.string(forKey: localDeviceAPIURLKey)
         self.pairingToken = defaults.string(forKey: pairingTokenKey) ?? Self.generatePairingToken()
         self.language = defaults.string(forKey: languageKey) ?? Self.defaultLanguage()
+        self.selectedOutput = Self.noOutputName(for: language)
         self.logLevel = defaults.string(forKey: logLevelKey) ?? "info"
         loadPersistentDiagnosticLog()
         defaults.removeObject(forKey: demoModeKey)
@@ -451,6 +453,11 @@ public final class DJConnectAppModel: ObservableObject {
 
     public func markActiveSession() {
         defaults.set(false, forKey: cleanShutdownKey)
+        guard pairingStatus == .paired, !isDemoMode else {
+            return
+        }
+        log(.debug, "App became active; scheduling playback refresh")
+        schedulePairedRefresh(reason: "Resume Now Playing refresh completed")
     }
 
     public func dismissCrashReportPrompt() {
@@ -796,6 +803,14 @@ public final class DJConnectAppModel: ObservableObject {
             log(.warning, "Command \(command) blocked because an app/integration update is required")
             return
         }
+        if shouldBlockPlaybackStart(command: command, play: play) {
+            log(.warning, "Command \(command) blocked because no output device is selected")
+            userNotice = DJConnectUserNotice(text: localized(
+                english: "Select an output device first",
+                dutch: "Kies eerst een uitvoerapparaat"
+            ))
+            return
+        }
         log(.info, "Sending playback command: \(command)")
         if command == "next" || command == "previous" {
             pendingSeekTargetMS = nil
@@ -960,7 +975,21 @@ public final class DJConnectAppModel: ObservableObject {
     public func startPlaylist(_ playlist: DJConnectPlaylist) {
         log(.debug, "User action: start playlist")
         log(.info, "Starting playlist \(playlist.name)")
-        sendPlaybackCommand("start_playlist", value: .string(playlist.commandValue), play: true)
+        loadingPlaylistID = playlist.id
+        Task {
+            let didStart = await performCommand("start_playlist", value: .string(playlist.commandValue), play: true)
+            guard didStart, pairingStatus == .paired else {
+                loadingPlaylistID = nil
+                return
+            }
+            try? await Task.sleep(for: .milliseconds(1_100))
+            guard pairingStatus == .paired else {
+                loadingPlaylistID = nil
+                return
+            }
+            await runRefresh(reason: "Playlist Now Playing refresh completed")
+            loadingPlaylistID = nil
+        }
     }
 
     public func startLikedProxy() {
@@ -1200,6 +1229,7 @@ public final class DJConnectAppModel: ObservableObject {
             }
         }
         backendAvailable = true
+        clearRecoverableVoiceErrorIfNeeded()
         updateRequiredMessage = nil
         if let normalizedPlayback {
             let playing = normalizedPlayback.isPlaying.map(String.init) ?? "unknown"
@@ -1225,6 +1255,9 @@ public final class DJConnectAppModel: ObservableObject {
         if backendAvailable, voiceStatus == .unavailable, voiceErrorMessage == nil {
             voiceStatus = .idle
         }
+        if backendAvailable {
+            clearRecoverableVoiceErrorIfNeeded()
+        }
         if let devices = response.devices {
             let normalizedDevices = normalizedOutputDevices(devices)
             availableOutputs = normalizedDevices
@@ -1235,8 +1268,8 @@ public final class DJConnectAppModel: ObservableObject {
                 } else if let pendingSelectedOutput {
                     selectedOutput = pendingSelectedOutput
                 }
-            } else if selectedOutput == "Not selected", let first = normalizedDevices.first {
-                selectedOutput = first.name
+            } else if selectedOutput == "Not selected" {
+                selectedOutput = noOutputName()
             }
         }
         if let responseQueue = response.queue {
@@ -1256,35 +1289,50 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     private func normalizedOutputDevices(_ devices: [DJConnectOutputDevice]) -> [DJConnectOutputDevice] {
+        let backendDevices = devices.filter { $0.id != Self.syntheticNoOutputID && $0.name != noOutputName() }
+        let backendHasActiveDevice = backendDevices.contains { $0.active == true }
         var localNone = DJConnectOutputDevice(
             id: Self.syntheticNoOutputID,
-            name: localized(english: "None", dutch: "Geen"),
+            name: noOutputName(),
             type: "local",
-            active: selectedOutput == localized(english: "None", dutch: "Geen")
+            active: !backendHasActiveDevice && selectedOutput == noOutputName()
         )
         localNone.supportsVolume = false
 
-        let platformName = identity.platform == .ios
-            ? localized(english: "iPhone default", dutch: "iPhone standaard")
-            : localized(english: "Mac default", dutch: "Mac standaard")
-        var platformDefault = DJConnectOutputDevice(
-            id: Self.syntheticPlatformOutputID,
-            name: platformName,
-            type: "local",
-            active: selectedOutput == platformName
-        )
-        platformDefault.supportsVolume = false
-
-        let syntheticIDs = Set([Self.syntheticNoOutputID, Self.syntheticPlatformOutputID])
-        let backendDevices = devices.filter { !syntheticIDs.contains($0.id) }
-        return [localNone, platformDefault] + backendDevices
+        return [localNone] + backendDevices
     }
 
     private static let syntheticNoOutputID = "djconnect-output-none"
-    private static let syntheticPlatformOutputID = "djconnect-output-platform-default"
 
     private static func isSyntheticOutput(_ output: DJConnectOutputDevice) -> Bool {
-        output.id == syntheticNoOutputID || output.id == syntheticPlatformOutputID
+        output.id == syntheticNoOutputID
+    }
+
+    private func noOutputName() -> String {
+        Self.noOutputName(for: language)
+    }
+
+    private static func noOutputName(for language: String) -> String {
+        language == "nl" ? "Geen" : "None"
+    }
+
+    private var isNoOutputSelected: Bool {
+        selectedOutput == noOutputName()
+    }
+
+    private func shouldBlockPlaybackStart(command: String, play: Bool?) -> Bool {
+        guard isNoOutputSelected else {
+            return false
+        }
+        if play == true {
+            return true
+        }
+        return [
+            "play",
+            "start_playlist",
+            "start_liked_proxy",
+            "play_context_at"
+        ].contains(command)
     }
 
     public func apply(pairingResponse response: DJConnectPairingResponse, fallbackBaseURL: URL) {
@@ -1354,8 +1402,8 @@ public final class DJConnectAppModel: ObservableObject {
             pairingStatus = .stale
             isConnected = false
             pairingMessage = message ?? localized(
-                english: "DJConnect is not configured in Home Assistant.",
-                dutch: "DJConnect is niet geconfigureerd in Home Assistant."
+                english: "Not connected to Home Assistant.",
+                dutch: "Niet gekoppeld aan Home Assistant."
             )
         case let .server(_, message):
             if let userFacingError = userFacingDJResponseText(message ?? Self.describe(error)) {
@@ -1479,6 +1527,9 @@ public final class DJConnectAppModel: ObservableObject {
                 log(.debug, "Status response did not include a playback snapshot")
             }
             backendAvailable = response.backendAvailable ?? backendAvailable
+            if backendAvailable {
+                clearRecoverableVoiceErrorIfNeeded()
+            }
             log(.debug, "Status refresh succeeded")
         } catch let error as DJConnectError {
             log(.warning, "Status refresh failed: \(Self.describe(error))")
@@ -1556,11 +1607,12 @@ public final class DJConnectAppModel: ObservableObject {
         queueItems = []
         loadingQueueItemID = nil
         loadingQueueItemIndex = nil
+        loadingPlaylistID = nil
         isLoadingQueue = false
         isLoadingPlaylists = false
         queueContext = nil
         playlistItems = []
-        selectedOutput = "Not selected"
+        selectedOutput = noOutputName()
         djResponseText = ""
         voiceStatus = .idle
         backendAvailable = true
@@ -1756,7 +1808,33 @@ public final class DJConnectAppModel: ObservableObject {
                 dutch: "Ververs Spotify koppeling in Home Assistant"
             )
         }
+        if normalized.contains("player command failed")
+            && normalized.contains("no active device found") {
+            log(.warning, "Playback command failed because Spotify has no active device")
+            return localized(
+                english: "No active playback device found",
+                dutch: "Geen actief afspeelapparaat gevonden"
+            )
+        }
         return text
+    }
+
+    private func clearRecoverableVoiceErrorIfNeeded() {
+        guard isRecoverableVoiceErrorText(djResponseText) else {
+            return
+        }
+        djResponseText = ""
+        voiceErrorMessage = nil
+        if voiceStatus == .unavailable {
+            voiceStatus = .idle
+        }
+        log(.debug, "Cleared recoverable DJ request message after backend became available")
+    }
+
+    private func isRecoverableVoiceErrorText(_ text: String) -> Bool {
+        let normalized = text.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        return normalized == "refresh the spotify connection in home assistant"
+            || normalized == "ververs spotify koppeling in home assistant"
     }
 
     private static func extractServerJSONMessage(from text: String) -> String? {
@@ -2105,8 +2183,8 @@ public final class DJConnectAppModel: ObservableObject {
                         deviceID: "djconnect-macos-unavailable",
                         deviceName: "DJConnect",
                         clientType: .macos,
-                        firmware: "3.1.14",
-                        appVersion: "3.1.14",
+                        firmware: "3.1.16",
+                        appVersion: "3.1.16",
                         platform: .macos
                     ),
                     pairingToken: "",

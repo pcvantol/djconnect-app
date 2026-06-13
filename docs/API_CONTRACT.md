@@ -18,8 +18,8 @@ install identity.
   "device_id": "djconnect-ios-8F3A2C91B45D",
   "device_name": "DJConnect iPhone",
   "client_type": "ios",
-  "firmware": "3.1.14",
-  "app_version": "3.1.14",
+  "firmware": "3.1.15",
+  "app_version": "3.1.15",
   "platform": "ios"
 }
 ```
@@ -65,8 +65,8 @@ Payload:
   "device_id": "djconnect-macos-8F3A2C91B45D",
   "device_name": "DJConnect Mac",
   "client_type": "macos",
-  "firmware": "3.1.14",
-  "app_version": "3.1.14",
+  "firmware": "3.1.15",
+  "app_version": "3.1.15",
   "platform": "macos",
   "pair_code": "123456",
   "pairing_code": "123456",
@@ -196,8 +196,8 @@ Minimum payload:
   "device_name": "DJConnect iPhone",
   "client_type": "ios",
   "ha_pairing_status": "paired",
-  "firmware": "3.1.14",
-  "app_version": "3.1.14",
+  "firmware": "3.1.15",
+  "app_version": "3.1.15",
   "state": "online",
   "status": "online",
   "battery_percent": 85,
@@ -248,6 +248,12 @@ context starts as state-changing. After posting them, it immediately refreshes
 the rich Now Playing snapshot through the `status` command so button state,
 album art, progress, output, and volume reflect the backend source of truth.
 
+The Apple app output selector may prepend a local `Geen`/`None` no-output
+choice. It must not synthesize local `iPhone standaard` or `Mac standaard`
+outputs, because those are not backend playback devices. When `Geen` is
+selected, the app blocks playback-start commands until the user chooses a real
+backend output.
+
 Command responses are transport/command success first and playback-state
 second. A response with `success:true` and `playback.has_playback:false` means
 the Home Assistant command route worked but Spotify has no active playback; it
@@ -262,6 +268,12 @@ must not fail decoding because no playback is active.
 forward in the current track; negative values seek backward. Home Assistant
 should clamp the target position to the current track duration and return a
 normal command/status response. ESP clients may omit this UI feature.
+
+When the playback backend is unavailable, clients keep the pairing token and
+show playback as unavailable with guidance to refresh Spotify authorization in
+Home Assistant. When later status/command responses report the backend healthy
+again, clients should clear recoverable Spotify authorization messages and
+return the DJ request panel to its default microphone instruction.
 
 ## Queue
 

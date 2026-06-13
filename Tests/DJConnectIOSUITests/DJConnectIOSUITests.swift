@@ -79,9 +79,9 @@ final class DJConnectIOSUITests: XCTestCase {
         app.tabBars.buttons["Games"].tap()
 
         XCTAssertTrue(app.navigationBars["Games (demo)"].waitForExistence(timeout: 3))
-        XCTAssertTrue(app.buttons["Pong"].exists || app.staticTexts["Pong"].exists)
-        XCTAssertTrue(app.buttons["Asteroids"].exists || app.staticTexts["Asteroids"].exists)
-        XCTAssertTrue(app.buttons["Fly"].exists || app.staticTexts["Fly"].exists)
+        XCTAssertTrue(app.buttons["Paddle Rally"].exists || app.staticTexts["Paddle Rally"].exists)
+        XCTAssertTrue(app.buttons["Meteor Run"].exists || app.staticTexts["Meteor Run"].exists)
+        XCTAssertTrue(app.buttons["Sky Dash"].exists || app.staticTexts["Sky Dash"].exists)
         XCTAssertTrue(app.buttons["Tik om te spelen"].exists || app.staticTexts["Tik om te spelen"].exists)
     }
 
@@ -118,7 +118,7 @@ final class DJConnectIOSUITests: XCTestCase {
                 app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "Gelikete nummers")).firstMatch.tapIfExists()
             case "Games":
                 app.buttons["Tik om te spelen"].tapIfExists()
-                app.buttons["Fly"].tapIfExists()
+                app.buttons["Sky Dash"].tapIfExists()
                 app.buttons["Tik om te spelen"].tapIfExists()
             case "Meer":
                 app.staticTexts["Instellingen"].tapIfExists()

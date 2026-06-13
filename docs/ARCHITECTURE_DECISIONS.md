@@ -95,11 +95,11 @@ Reasoning:
 - lets macOS use native `Settings` scenes while iOS uses tab navigation;
 - leaves room for platform-specific UX without forking the full UI.
 
-## ADR-007: Current App/Protocol Version Is `3.1.14`
+## ADR-007: Current App/Protocol Version Is `3.1.15`
 
 Status: accepted
 
-The app uses version `3.1.14` for app/protocol examples and Xcode marketing
+The app uses version `3.1.15` for app/protocol examples and Xcode marketing
 version in this release.
 
 Reasoning:
@@ -242,8 +242,8 @@ other page navigation.
 
 Reasoning:
 
-- keyboard controls are expected for Pong, Asteroids, and Fly on macOS and
-  hardware-keyboard iPad setups;
+- keyboard controls are expected for Paddle Rally, Meteor Run, Sky Dash, and
+  Maze Chase on macOS and hardware-keyboard iPad setups;
 - local games are self-contained and should not accidentally change app pages;
 - the app still preserves normal navigation when focus leaves the game surface.
 
