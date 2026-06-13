@@ -93,6 +93,9 @@ xcodebuild -project DJConnectApp.xcodeproj -scheme DJConnectIOS -configuration D
 
 - Commit and push the release changes to `main`.
 - Create the GitHub source release/tag in `pcvantol/djconnect-app`.
+- Confirm the `Public unsigned release` GitHub Actions workflow succeeds. It
+  publishes unsigned macOS and iOS diagnostic zips plus checksums to
+  `pcvantol/djconnect-app-releases`.
 - Run release cleanup when the new release is confirmed:
 
 ```sh
@@ -159,6 +162,51 @@ NOTARY_PROFILE=<notarytool-keychain-profile> \
   user account.
 - Launch the app, grant Keychain/Local Network/Microphone/Speech permissions as
   needed, pair with Home Assistant, and validate playback/queue/playlists/PTT.
+
+## Public Unsigned CI Artifacts
+
+The private source repository contains `.github/workflows/public-unsigned-release.yml`.
+It runs on `vX.Y.Z` tags and through manual `workflow_dispatch`.
+
+The workflow:
+
+- runs the Swift unit test suite;
+- builds unsigned `DJConnectMac` and `DJConnectIOS` Debug artifacts with
+  `CODE_SIGNING_ALLOWED=NO`;
+- uploads `DJConnect-macOS-X.Y.Z-unsigned.zip`,
+  `DJConnect-iOS-X.Y.Z-unsigned.zip`, and `SHA256SUMS.txt` to
+  `pcvantol/djconnect-app-releases`;
+- uses the matching release section from `CHANGELOG.md` as the public release
+  notes.
+
+Required private repository secret:
+
+```text
+PUBLIC_RELEASES_TOKEN
+```
+
+The token must be able to create releases and upload assets in
+`pcvantol/djconnect-app-releases`. The default `GITHUB_TOKEN` for
+`pcvantol/djconnect-app` cannot write to a different repository.
+
+Unsigned artifacts are for diagnostics, CI validation, and release-note hosting.
+They are not a replacement for TestFlight/App Store iOS distribution or
+Developer ID notarized macOS distribution.
+
+## In-App What's New Notes
+
+The app stores the last seen version in app-local preferences. On a later
+startup, if the running app version differs, it opens a one-time `Wat is nieuw`
+/ `What's New` sheet.
+
+Release notes are fetched at runtime from:
+
+```text
+https://api.github.com/repos/pcvantol/djconnect-app-releases/releases/tags/vX.Y.Z
+```
+
+Only public release metadata is fetched. No DJConnect device token, Home
+Assistant URL, Spotify token, diagnostics, or user data is sent to GitHub.
 
 ### Every Release: Mac App Store, If Used
 

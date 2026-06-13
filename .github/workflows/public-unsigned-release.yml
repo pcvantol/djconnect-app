@@ -1,0 +1,145 @@
+name: Public unsigned release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Release version, for example 3.1.18"
+        required: true
+
+concurrency:
+  group: public-unsigned-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  unsigned-release:
+    name: Publish unsigned builds to public releases repo
+    runs-on: macos-15
+    timeout-minutes: 45
+    permissions:
+      contents: read
+
+    env:
+      PUBLIC_REPO: pcvantol/djconnect-app-releases
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Resolve version
+        id: version
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            version="${{ github.event.inputs.version }}"
+          else
+            version="${GITHUB_REF_NAME#v}"
+          fi
+          if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Invalid version: $version" >&2
+            exit 64
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "tag=v$version" >> "$GITHUB_OUTPUT"
+
+      - name: Select Xcode
+        run: |
+          set -euo pipefail
+          sudo xcode-select -s /Applications/Xcode.app
+          xcodebuild -version
+
+      - name: Swift tests
+        run: swift test --no-parallel
+
+      - name: Build unsigned macOS app
+        run: |
+          set -euo pipefail
+          rm -rf .public-release
+          mkdir -p .public-release/artifacts
+          xcodebuild \
+            -project DJConnectApp.xcodeproj \
+            -scheme DJConnectMac \
+            -configuration Debug \
+            -destination platform=macOS \
+            -derivedDataPath .public-release/DerivedData/mac \
+            CODE_SIGNING_ALLOWED=NO \
+            clean build
+          ditto -c -k --keepParent \
+            ".public-release/DerivedData/mac/Build/Products/Debug/DJConnect.app" \
+            ".public-release/artifacts/DJConnect-macOS-${{ steps.version.outputs.version }}-unsigned.zip"
+
+      - name: Build unsigned iOS app
+        run: |
+          set -euo pipefail
+          xcodebuild \
+            -project DJConnectApp.xcodeproj \
+            -scheme DJConnectIOS \
+            -configuration Debug \
+            -destination generic/platform=iOS \
+            -derivedDataPath .public-release/DerivedData/ios \
+            CODE_SIGNING_ALLOWED=NO \
+            clean build
+          ditto -c -k --keepParent \
+            ".public-release/DerivedData/ios/Build/Products/Debug-iphoneos/DJConnect.app" \
+            ".public-release/artifacts/DJConnect-iOS-${{ steps.version.outputs.version }}-unsigned.zip"
+
+      - name: Create checksums
+        run: |
+          set -euo pipefail
+          cd .public-release/artifacts
+          shasum -a 256 *.zip > SHA256SUMS.txt
+
+      - name: Extract public release notes
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="${{ steps.version.outputs.version }}"
+          notes=".public-release/release-notes.md"
+          awk -v version="$version" '
+            $0 ~ "^## " version "($| - )" { capture=1; next }
+            capture && /^## / { capture=0 }
+            capture { print }
+          ' CHANGELOG.md > "$notes"
+          if [[ ! -s "$notes" ]]; then
+            printf "DJConnect App %s\n" "$version" > "$notes"
+          fi
+          {
+            echo
+            echo "---"
+            echo
+            echo "Unsigned CI artifacts are intended for diagnostics and internal validation."
+            echo "For normal macOS distribution, prefer the notarized Developer ID build when attached."
+            echo "For iOS distribution, use TestFlight/App Store."
+          } >> "$notes"
+
+      - name: Publish to public releases repository
+        env:
+          GH_TOKEN: ${{ secrets.PUBLIC_RELEASES_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [[ -z "${GH_TOKEN:-}" ]]; then
+            echo "Configure repository secret PUBLIC_RELEASES_TOKEN with access to ${PUBLIC_REPO}." >&2
+            exit 1
+          fi
+          tag="${{ steps.version.outputs.tag }}"
+          if gh release view "$tag" --repo "$PUBLIC_REPO" >/dev/null 2>&1; then
+            gh release edit "$tag" \
+              --repo "$PUBLIC_REPO" \
+              --title "DJConnect App ${{ steps.version.outputs.version }}" \
+              --notes-file .public-release/release-notes.md
+          else
+            gh release create "$tag" \
+              --repo "$PUBLIC_REPO" \
+              --title "DJConnect App ${{ steps.version.outputs.version }}" \
+              --notes-file .public-release/release-notes.md
+          fi
+          gh release upload "$tag" \
+            .public-release/artifacts/DJConnect-macOS-${{ steps.version.outputs.version }}-unsigned.zip \
+            .public-release/artifacts/DJConnect-iOS-${{ steps.version.outputs.version }}-unsigned.zip \
+            .public-release/artifacts/SHA256SUMS.txt \
+            --repo "$PUBLIC_REPO" \
+            --clobber

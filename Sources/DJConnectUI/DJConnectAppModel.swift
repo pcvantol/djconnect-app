@@ -53,6 +53,11 @@ public struct DJConnectDiagnosticLogLine: Identifiable, Equatable, Sendable {
     }
 }
 
+private struct DJConnectGitHubRelease: Decodable {
+    let name: String?
+    let body: String?
+}
+
 public enum DJConnectVoiceStatus: Equatable, Sendable {
     case idle
     case listening
@@ -168,6 +173,10 @@ public final class DJConnectAppModel: ObservableObject {
     @Published public var isShowingCrashReportPrompt = false
     @Published public var isShowingWakeWordActivationPrompt = false
     @Published public var isShowingKeychainAccessRequired = false
+    @Published public var isShowingWhatsNew = false
+    @Published public private(set) var whatsNewTitle = ""
+    @Published public private(set) var whatsNewBody = ""
+    @Published public private(set) var isLoadingWhatsNew = false
     @Published public private(set) var isShowingPairingSuccess = false
     @Published public private(set) var isPairingScreenDismissed = false
     @Published public private(set) var localDeviceAPIURL: String?
@@ -224,6 +233,7 @@ public final class DJConnectAppModel: ObservableObject {
     private let wakeWordPhraseKey = "DJConnectWakeWordPhrase"
     private let wakeWordPromptDismissedKey = "DJConnectWakeWordPromptDismissed"
     private let welcomeSeenKey = "DJConnectWelcomeSeen"
+    private let lastSeenAppVersionKey = "DJConnectLastSeenAppVersion"
     private let cleanShutdownKey = "DJConnectCleanShutdown"
     private let crashPromptPendingKey = "DJConnectCrashPromptPending"
     private let maxDiagnosticLogLines = 120
@@ -320,6 +330,7 @@ public final class DJConnectAppModel: ObservableObject {
         if !monkeyTestingMode {
             self.isShowingWelcome = !defaults.bool(forKey: welcomeSeenKey)
         }
+        prepareWhatsNewPrompt()
         let previousLaunchMayHaveCrashed = defaults.object(forKey: cleanShutdownKey) != nil
             && defaults.bool(forKey: cleanShutdownKey) == false
         self.isShowingCrashReportPrompt = !Self.isRunningUnderDebugger
@@ -353,6 +364,85 @@ public final class DJConnectAppModel: ObservableObject {
         refreshPermissionStatuses()
         if startLocalAPI, !monkeyTestingMode {
             startLocalDeviceAPI()
+        }
+    }
+
+    private func prepareWhatsNewPrompt() {
+        guard !monkeyTestingMode else {
+            defaults.set(appVersion, forKey: lastSeenAppVersionKey)
+            return
+        }
+        guard defaults.bool(forKey: welcomeSeenKey) else {
+            defaults.set(appVersion, forKey: lastSeenAppVersionKey)
+            return
+        }
+        guard defaults.string(forKey: lastSeenAppVersionKey) != appVersion else {
+            return
+        }
+
+        whatsNewTitle = localized(english: "What's New in DJConnect \(appVersion)", dutch: "Wat is nieuw in DJConnect \(appVersion)")
+        whatsNewBody = localized(
+            english: "Loading release notes...",
+            dutch: "Release notes laden..."
+        )
+        isShowingWhatsNew = true
+        if startBackgroundTasks {
+            Task { [weak self] in
+                await self?.loadWhatsNewReleaseNotes()
+            }
+        }
+    }
+
+    public func dismissWhatsNew() {
+        defaults.set(appVersion, forKey: lastSeenAppVersionKey)
+        isShowingWhatsNew = false
+    }
+
+    public func loadWhatsNewReleaseNotes() async {
+        await MainActor.run {
+            isLoadingWhatsNew = true
+        }
+        let fallback = localized(
+            english: "Release notes could not be loaded. See https://djconnect.pages.dev for more information.",
+            dutch: "Release notes konden niet worden geladen. Bekijk https://djconnect.pages.dev voor meer informatie."
+        )
+
+        guard let url = URL(string: "https://api.github.com/repos/pcvantol/djconnect-app-releases/releases/tags/v\(appVersion)") else {
+            await MainActor.run {
+                whatsNewBody = fallback
+                isLoadingWhatsNew = false
+            }
+            return
+        }
+
+        do {
+            var request = URLRequest(url: url)
+            request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
+            request.timeoutInterval = 8
+            let (data, response) = try await URLSession.shared.data(for: request)
+            guard let httpResponse = response as? HTTPURLResponse else {
+                throw URLError(.badServerResponse)
+            }
+            log(.debug, "GitHub release notes GET /repos/pcvantol/djconnect-app-releases/releases/tags/v\(appVersion) -> HTTP \(httpResponse.statusCode)")
+            guard (200..<300).contains(httpResponse.statusCode) else {
+                throw DJConnectError.server(statusCode: httpResponse.statusCode, message: "release notes unavailable")
+            }
+            let release = try JSONDecoder().decode(DJConnectGitHubRelease.self, from: data)
+            let body = (release.body ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+            let title = (release.name ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+            await MainActor.run {
+                whatsNewTitle = title.isEmpty
+                    ? whatsNewTitle
+                    : title
+                whatsNewBody = body.isEmpty ? fallback : body
+                isLoadingWhatsNew = false
+            }
+        } catch {
+            log(.warning, "Release notes fetch failed: \(error.localizedDescription)")
+            await MainActor.run {
+                whatsNewBody = fallback
+                isLoadingWhatsNew = false
+            }
         }
     }
 

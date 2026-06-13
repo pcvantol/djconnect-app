@@ -658,6 +658,19 @@ If app settings should be mirrored into HA entities, post them in status under
 clear app-specific keys. Avoid reusing ESP-only settings like
 `screen_brightness` unless the app truly implements equivalent behavior.
 
+## Public Releases And What's New
+
+Release tags in the private app repo should publish unsigned macOS and iOS
+diagnostic builds to `pcvantol/djconnect-app-releases` through GitHub Actions.
+The workflow requires a private repo secret named `PUBLIC_RELEASES_TOKEN` with
+write access to that public releases repo.
+
+The Apple apps persist the last seen app version locally. When a newer app
+version starts, they fetch the public GitHub release for tag `vX.Y.Z` from
+`pcvantol/djconnect-app-releases` and show the release body once in a native
+`Wat is nieuw` / `What's New` sheet. This request sends no DJConnect token,
+Home Assistant URL, Spotify token, diagnostics, or user data.
+
 ## UI Parity Goals
 
 Functional parity with the ESP device should include:

@@ -266,6 +266,9 @@ public struct DJConnectRootView: View {
         .sheet(isPresented: $model.isShowingWelcome) {
             WelcomeView(model: model)
         }
+        .sheet(isPresented: $model.isShowingWhatsNew) {
+            WhatsNewView(model: model)
+        }
         .sheet(isPresented: $model.isShowingCrashReportPrompt) {
             CrashReportPromptView(model: model)
         }
@@ -775,6 +778,71 @@ private struct WelcomeView: View {
             .frame(minHeight: 430)
             #endif
         }
+    }
+}
+
+private struct WhatsNewView: View {
+    @ObservedObject var model: DJConnectAppModel
+
+    var body: some View {
+        ZStack {
+            DJConnectCanvasBackground()
+            VStack(alignment: .leading, spacing: 20) {
+                AboutBanner()
+                    .frame(maxWidth: 560)
+
+                HStack(spacing: 12) {
+                    Image(systemName: "sparkles")
+                        .foregroundStyle(.purple)
+                    Text(localized(model.language, "What's New", "Wat is nieuw"))
+                        .font(.title.bold())
+                }
+
+                Text(model.whatsNewTitle)
+                    .font(.headline)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                ZStack(alignment: .topLeading) {
+                    ScrollView {
+                        Text(model.whatsNewBody)
+                            .font(.body)
+                            .textSelection(.enabled)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.vertical, 2)
+                    }
+                    #if os(macOS)
+                    .frame(minHeight: 220)
+                    #else
+                    .frame(minHeight: 260)
+                    #endif
+
+                    if model.isLoadingWhatsNew {
+                        HStack(spacing: 10) {
+                            ProgressView()
+                            Text(localized(model.language, "Loading release notes...", "Release notes laden..."))
+                                .font(.callout)
+                        }
+                        .foregroundStyle(.secondary)
+                        .padding(.top, 4)
+                    }
+                }
+
+                Button {
+                    model.dismissWhatsNew()
+                } label: {
+                    Text(localized(model.language, "Continue", "Doorgaan"))
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.large)
+            }
+            .padding(28)
+        }
+        .frame(minWidth: 360, idealWidth: 560, maxWidth: 680)
+        #if os(macOS)
+        .frame(minHeight: 560)
+        #endif
     }
 }
 

@@ -1352,6 +1352,35 @@ private func waitForLocalDeviceAPIURL(_ model: DJConnectAppModel) async throws -
 }
 
 @MainActor
+@Test func whatsNewDoesNotAppearOnFirstInstall() throws {
+    let suiteName = "DJConnectTests-\(UUID().uuidString)"
+    let defaults = try #require(UserDefaults(suiteName: suiteName))
+    defaults.removePersistentDomain(forName: suiteName)
+
+    let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startLocalAPI: false, startBackgroundTasks: false)
+
+    #expect(model.isShowingWhatsNew == false)
+    #expect(defaults.string(forKey: "DJConnectLastSeenAppVersion") == model.version)
+}
+
+@MainActor
+@Test func whatsNewAppearsAfterInstalledVersionChanges() throws {
+    let suiteName = "DJConnectTests-\(UUID().uuidString)"
+    let defaults = try #require(UserDefaults(suiteName: suiteName))
+    defaults.removePersistentDomain(forName: suiteName)
+    defaults.set(true, forKey: "DJConnectWelcomeSeen")
+    defaults.set("3.1.17", forKey: "DJConnectLastSeenAppVersion")
+
+    let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startLocalAPI: false, startBackgroundTasks: false)
+
+    #expect(model.isShowingWhatsNew == true)
+    #expect(model.whatsNewTitle.contains(model.version))
+    model.dismissWhatsNew()
+    #expect(model.isShowingWhatsNew == false)
+    #expect(defaults.string(forKey: "DJConnectLastSeenAppVersion") == model.version)
+}
+
+@MainActor
 @Test func crashPromptAppearsAfterUncleanPreviousSession() throws {
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))

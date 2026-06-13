@@ -4,7 +4,19 @@ All notable changes to DJConnect App are documented here.
 
 ## Unreleased
 
-No unreleased changes yet.
+### Added
+
+- Added a GitHub Actions workflow that publishes unsigned macOS and iOS build
+  artifacts to `pcvantol/djconnect-app-releases` when a release tag is pushed
+  or the workflow is started manually.
+- Added a version-aware `Wat is nieuw` / `What's New` sheet. After an app
+  update, DJConnect fetches the release body for the current version from the
+  public releases repository and shows it once on startup.
+
+### Tests
+
+- Added coverage for first-install versus upgraded-version `Wat is nieuw`
+  behavior.
 
 ## 3.1.18 - 2026-06-13
 

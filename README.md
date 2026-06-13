@@ -132,11 +132,19 @@ macOS 26.5 and iPhoneOS 26.5 SDKs, with code signing disabled for local build
 checks.
 
 Private GitHub Actions CI runs Swift tests plus unsigned iOS/macOS build
-checks. Public macOS binaries are produced locally with Developer ID signing
-and notarization, then uploaded to
-[pcvantol/djconnect-app-releases](https://github.com/pcvantol/djconnect-app-releases).
+checks. Release tags also publish unsigned macOS and iOS diagnostic artifacts
+to [pcvantol/djconnect-app-releases](https://github.com/pcvantol/djconnect-app-releases)
+when the private repo has a `PUBLIC_RELEASES_TOKEN` secret with write access to
+that public repository. Public macOS binaries for end users are still produced
+locally with Developer ID signing and notarization, then uploaded to the same
+public releases repository.
 Use the one-time and per-release App Store/macOS checklist in
 [docs/RELEASE.md](docs/RELEASE.md) before publishing signed builds.
+
+On startup after an app update, DJConnect compares the running version with the
+last version seen on that device. If the version changed, the app shows a
+`Wat is nieuw` / `What's New` sheet and loads the current release notes from the
+public `pcvantol/djconnect-app-releases` GitHub release for tag `vX.Y.Z`.
 
 ## Swift Package
 
