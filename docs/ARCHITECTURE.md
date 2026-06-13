@@ -106,6 +106,31 @@ stored locally so Home Assistant does not lose the callback target when the app
 refreshes its listener. It changes only when the user resets pairing or the app
 installation state is reset.
 
+Bonjour/mDNS advertising is scoped to discovery. The app publishes
+`_djconnect._tcp` while it is unpaired/pairable, then disables that Bonjour
+service after successful pairing while keeping the HTTP listener alive for
+paired Home Assistant callbacks. This avoids unnecessary repeated publication
+and reduces network/battery cost on iOS and macOS.
+
+## Battery And Responsiveness
+
+The app treats Home Assistant as the source of truth but avoids polling when
+local state can stay responsive by itself. Explicit user refreshes still run
+immediately, while automatic startup/resume refreshes are throttled and backend
+collection refreshes are rate-limited. During playback, the progress bar
+advances locally once per second and only performs a low-frequency status check
+or refreshes when the expected track duration is reached.
+
+Foreground wakeword listening is lifecycle-bound. The app starts it only when
+the app is active, paired, not in Demo Mode, and the user enabled
+stemactivatie. It stops when the scene becomes inactive or backgrounded and
+resumes on the next active scene if the user setting still allows it.
+
+Album artwork uses a shared bounded 24-hour data cache across Now Playing,
+queue rows, playlist rows, and dominant-color tint sampling. This avoids
+duplicate downloads and repeated decode work during list scrolling and status
+refreshes.
+
 ## Logging
 
 Debug logging is designed for support without leaking secrets. The app logs

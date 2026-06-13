@@ -6,6 +6,29 @@ All notable changes to DJConnect App are documented here.
 
 No unreleased changes yet.
 
+## 3.1.18 - 2026-06-13
+
+### Changed
+
+- Scoped Bonjour/mDNS `_djconnect._tcp` advertising to the pairable state. The
+  app advertises while unpaired/pairing, keeps the local HTTP API alive after
+  pairing, and stops Bonjour publication to reduce network and battery impact.
+- Improved iOS/macOS battery behavior by pausing wakeword listening and local
+  progress timers outside the foreground, throttling automatic resume/startup
+  refreshes, and reducing background collection refresh churn.
+- Added a shared 24-hour artwork data cache for Now Playing, queue, playlists,
+  and dominant artwork tint sampling to reduce repeated downloads and decode
+  work while scrolling.
+- Matched playlist rows to the queue row style with dark purple gradient
+  cards, consistent padding, artwork, and play/loading indicators.
+- Polished Maze Chase visuals with a directional player mouth and ghost eyes,
+  and slowed the ghost movement so the game is more approachable.
+
+### Tests
+
+- Added coverage for Bonjour advertising preference across unpaired, Demo Mode,
+  and paired app states.
+
 ## 3.1.16 - 2026-06-13
 
 ### Changed

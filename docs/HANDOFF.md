@@ -126,8 +126,8 @@ Recommended iOS fields:
   "device_id": "djconnect-ios-8F3A2C91B45D",
   "device_name": "DJConnect iPhone",
   "client_type": "ios",
-  "firmware": "3.1.15",
-  "app_version": "3.1.15",
+  "firmware": "3.1.18",
+  "app_version": "3.1.18",
   "platform": "ios"
 }
 ```
@@ -139,8 +139,8 @@ Recommended macOS fields:
   "device_id": "djconnect-macos-8F3A2C91B45D",
   "device_name": "DJConnect Mac",
   "client_type": "macos",
-  "firmware": "3.1.15",
-  "app_version": "3.1.15",
+  "firmware": "3.1.18",
+  "app_version": "3.1.18",
   "platform": "macos"
 }
 ```
@@ -177,9 +177,9 @@ Expected response:
   "success": false,
   "error": "version_mismatch",
   "message": "DJConnect Home Assistant integration and device firmware major.minor versions must match.",
-  "ha_version": "3.1.15",
+  "ha_version": "3.1.18",
   "ha_major_minor": "3.1",
-  "firmware": "3.1.15",
+  "firmware": "3.1.18",
   "firmware_major_minor": "3.0"
 }
 ```
@@ -228,6 +228,12 @@ The iOS/macOS app is an app client, not ESP hardware, but it does expose a
 small local `/api/device/*` Web API for Home Assistant -> app traffic. It does
 not implement ESP-only reboot or OTA routes.
 
+The app advertises `_djconnect._tcp` with Bonjour/mDNS only while it is
+pairable, such as when the unpaired pairing sheet is visible. After successful
+pairing, the local HTTP API remains available while the app is running, but
+Bonjour advertising is stopped to reduce LAN chatter and battery impact.
+Explicit pairing reset makes the app pairable and discoverable again.
+
 Local app Web API:
 
 ```http
@@ -253,8 +259,8 @@ X-DJConnect-Device-ID: <device_id>
 {  "device_id": "djconnect-macos-8F3A2C91B45D",
   "device_name": "DJConnect Mac",
   "client_type": "macos",
-  "firmware": "3.1.15",
-  "app_version": "3.1.15",
+  "firmware": "3.1.18",
+  "app_version": "3.1.18",
   "platform": "macos",
   "pair_code": "123456",
   "pairing_code": "123456",
@@ -385,8 +391,8 @@ Minimum payload:
   "device_id": "djconnect-ios-8F3A2C91B45D",
   "client_type": "ios",
   "ha_pairing_status": "paired",
-  "firmware": "3.1.15",
-  "app_version": "3.1.15",
+  "firmware": "3.1.18",
+  "app_version": "3.1.18",
   "state": "online",
   "status": "online",
   "battery_percent": 85,
@@ -756,7 +762,16 @@ target with a real or recorded mock Home Assistant server.
   the user to re-enter the visible app code in Home Assistant.
 - Voice/PTT uploads raw WAV to `/api/djconnect/voice`.
 - Local Games show Paddle Rally, Meteor Run, Sky Dash, and Maze Chase without
-  HA/backend traffic and reset to tap-to-play when leaving the screen.
+  HA/backend traffic, render the Maze Chase player mouth and ghost eyes, and
+  reset to tap-to-play when leaving the screen.
+- Bonjour/mDNS advertises only while the app is unpaired/pairable; pairing
+  keeps the HTTP API alive but stops unnecessary Bonjour publication.
+- Wakeword listening and local progress timers stop when the app leaves the
+  foreground and resume only when the app becomes active again.
+- Automatic resume/startup refreshes and backend collection refreshes are
+  throttled; explicit user refreshes remain immediate.
+- Artwork loading reuses the shared 24-hour app cache for Now Playing, queue,
+  playlists, and dominant-color sampling.
 - Monkey Test Mode can navigate the UI without destructive backend, pairing, or
   token side effects.
 - No secrets appear in logs or diagnostics.

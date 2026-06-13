@@ -20,7 +20,6 @@ items with acceptance criteria live in [ISSUES.md](ISSUES.md).
 
 - Add retry throttling and user-facing recovery copy for `backend_unavailable`.
 - Parallelize collection refreshes and centralize refresh debouncing.
-- Add bounded artwork caching for Now Playing and queue rows.
 - Expand command/status integration tests with URLProtocol-backed response
   fixtures.
 
@@ -62,7 +61,7 @@ items with acceptance criteria live in [ISSUES.md](ISSUES.md).
 - Add security hardening tests for local API request-size limits and Keychain
   accessibility attributes.
 - Add performance regression checks for refresh coalescing and repeated artwork
-  URLs once the cache/scheduler work lands.
+  URLs.
 
 ## Release/Build
 

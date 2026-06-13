@@ -202,8 +202,10 @@ current app session, the app uses Apple Speech while the app is open to listen
 for the configured wake phrase (`Hey DJ` by default), then records a short WAV
 voice request through the normal `/api/djconnect/voice` flow. The app does not
 run an always-on background wakeword listener and does not auto-start wakeword
-listening after launch. Wakeword listening is disabled on iOS Simulator because
-simulator speech/audio capture is unstable; test it on a real iPhone or iPad.
+listening after launch. Wakeword and the local progress timer are paused when
+the app leaves the foreground and resume only when the app becomes active
+again. Wakeword listening is disabled on iOS Simulator because simulator
+speech/audio capture is unstable; test it on a real iPhone or iPad.
 
 Queue requests include `limit:100`. Responses may use `queue.items` plus
 `queue.context`, flat `queue` arrays, or flat `items` for compatibility. The
@@ -234,8 +236,7 @@ accepts that code and returns a DJConnect bearer token plus the HA local URL
 metadata. The current preferred response field is `device_token`; `bearer_token`
 and `token` are accepted for compatibility.
 
-The iOS/macOS app also hosts a Bonjour-advertised local Web API for
-Home Assistant -> app traffic:
+The iOS/macOS app also hosts a local Web API for Home Assistant -> app traffic:
 
 ```http
 GET /api/device/info
@@ -252,6 +253,12 @@ The Apple app does not implement ESP-only reboot or OTA routes.
 The user-facing name for this local endpoint is `Client API url`. The URL shown
 during pairing is pinned after successful pairing and remains stable in app
 storage until the user explicitly resets pairing.
+
+The app advertises `_djconnect._tcp` with Bonjour/mDNS only while it is
+pairable, such as when the unpaired pairing sheet is visible. After pairing,
+the local API remains available while the app is running, but Bonjour
+advertising is disabled to reduce LAN chatter and battery impact. Resetting the
+pairing enables discovery again.
 
 ## Version Contract
 
@@ -286,6 +293,15 @@ secret-bearing bodies.
 
 On iOS, returning from the Home screen or another app schedules a full playback
 refresh so Now Playing state catches up with changes made outside DJConnect.
+Automatic startup/resume refreshes are throttled to avoid repeated network
+bursts, while explicit user refreshes remain immediate. While a track is
+playing, the progress bar advances locally every second and only checks Home
+Assistant periodically or when the track reaches its expected end.
+
+Artwork loading uses a bounded 24-hour in-memory data cache shared by Now
+Playing, queue, playlists, and dominant artwork tint sampling. This avoids
+fetching and decoding the same album art repeatedly while scrolling or after
+short status refreshes.
 
 ## Security
 

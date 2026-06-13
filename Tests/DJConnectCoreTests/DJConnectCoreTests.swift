@@ -822,6 +822,44 @@ private func waitForLocalDeviceAPIURL(_ model: DJConnectAppModel) async throws -
     model.stopLocalDeviceAPI()
 }
 
+@MainActor
+@Test func bonjourAdvertisingIsOnlyPreferredWhilePairable() throws {
+    let suiteName = "DJConnectTests-\(UUID().uuidString)"
+    let defaults = try #require(UserDefaults(suiteName: suiteName))
+    defaults.removePersistentDomain(forName: suiteName)
+    let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startLocalAPI: false, startBackgroundTasks: false)
+
+    #expect(model.isBonjourAdvertisingPreferredForTests)
+
+    model.startDemoMode()
+    #expect(!model.isBonjourAdvertisingPreferredForTests)
+
+    model.stopDemoMode()
+    #expect(model.isBonjourAdvertisingPreferredForTests)
+
+    model.pairingStatus = DJConnectPairingStatus.paired
+    #expect(!model.isBonjourAdvertisingPreferredForTests)
+
+    model.pairingStatus = DJConnectPairingStatus.unpaired
+    #expect(model.isBonjourAdvertisingPreferredForTests)
+}
+
+@MainActor
+@Test func appLifecycleTracksForegroundStateForBatterySensitiveWork() throws {
+    let suiteName = "DJConnectTests-\(UUID().uuidString)"
+    let defaults = try #require(UserDefaults(suiteName: suiteName))
+    defaults.removePersistentDomain(forName: suiteName)
+    let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startLocalAPI: false, startBackgroundTasks: false)
+
+    #expect(model.isAppInForegroundForTests)
+
+    model.markInactiveSession()
+    #expect(!model.isAppInForegroundForTests)
+
+    model.markActiveSession()
+    #expect(model.isAppInForegroundForTests)
+}
+
 @Test func pairSuccessStoresReturnedBearerToken() async throws {
     let identity = DJConnectIdentity(
         deviceID: "djconnect-ios-8F3A2C91B45D",

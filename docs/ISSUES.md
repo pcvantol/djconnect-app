@@ -35,20 +35,7 @@ Acceptance:
 - Now Playing still updates immediately after successful playback commands.
 - Queue item selection clears its spinner after the scheduled refresh finishes.
 
-### ISS-003: Add Artwork Cache
-
-Priority: medium
-
-Now Playing and queue artwork use `AsyncImage` directly. Add a small shared
-image loader/cache to reduce repeated downloads, flicker, and memory churn.
-
-Acceptance:
-
-- Now Playing artwork is reused across refreshes when the URL is unchanged.
-- Queue artwork does not refetch the same URL repeatedly during list updates.
-- Cache size is bounded.
-
-### ISS-004: Bound DJ Response Audio Loading
+### ISS-003: Bound DJ Response Audio Loading
 
 Priority: medium
 
@@ -64,7 +51,7 @@ Acceptance:
 
 ## Architecture And Maintainability
 
-### ISS-005: Split DJConnectAppModel Into Services
+### ISS-004: Split DJConnectAppModel Into Services
 
 Priority: medium
 
@@ -87,7 +74,7 @@ Acceptance:
 - Network/audio orchestration can run outside the main actor where practical.
 - Existing Swift tests remain green.
 
-### ISS-006: Stabilize Queue Row Identity
+### ISS-005: Stabilize Queue Row Identity
 
 Priority: medium
 

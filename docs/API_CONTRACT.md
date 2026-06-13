@@ -18,8 +18,8 @@ install identity.
   "device_id": "djconnect-ios-8F3A2C91B45D",
   "device_name": "DJConnect iPhone",
   "client_type": "ios",
-  "firmware": "3.1.15",
-  "app_version": "3.1.15",
+  "firmware": "3.1.18",
+  "app_version": "3.1.18",
   "platform": "ios"
 }
 ```
@@ -65,8 +65,8 @@ Payload:
   "device_id": "djconnect-macos-8F3A2C91B45D",
   "device_name": "DJConnect Mac",
   "client_type": "macos",
-  "firmware": "3.1.15",
-  "app_version": "3.1.15",
+  "firmware": "3.1.18",
+  "app_version": "3.1.18",
   "platform": "macos",
   "pair_code": "123456",
   "pairing_code": "123456",
@@ -106,9 +106,12 @@ flows and are not used for status, command, or voice requests. Do not use legacy
 ## Local App Web API
 
 The iOS/macOS app hosts a small local Web API for Home Assistant -> app
-traffic while the app is active/reachable. It advertises Bonjour/mDNS service
-`_djconnect._tcp` with TXT fields including `name`, `device_id`, `version`,
-`paired`, `api`, `model`, and `client_type`.
+traffic while the app is active/reachable. While the app is pairable, it
+advertises Bonjour/mDNS service `_djconnect._tcp` with TXT fields including
+`name`, `device_id`, `version`, `paired`, `api`, `model`, and `client_type`.
+Once pairing is complete, the app keeps the local HTTP API available while it
+is running, but disables Bonjour advertising to reduce network and battery
+impact. Explicit pairing reset enables Bonjour advertising again.
 
 User-facing app text calls this endpoint the `Client API url`. The URL shown
 in the pairing sheet must be the URL Home Assistant uses for the local
@@ -196,8 +199,8 @@ Minimum payload:
   "device_name": "DJConnect iPhone",
   "client_type": "ios",
   "ha_pairing_status": "paired",
-  "firmware": "3.1.15",
-  "app_version": "3.1.15",
+  "firmware": "3.1.18",
+  "app_version": "3.1.18",
   "state": "online",
   "status": "online",
   "battery_percent": 85,

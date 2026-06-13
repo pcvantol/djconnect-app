@@ -214,6 +214,7 @@ public final class DJConnectLocalDeviceAPI: @unchecked Sendable {
     private let queue = DispatchQueue(label: "nl.pcvantol.djconnect.local-device-api")
     private var listener: NWListener?
     private var localURL: String?
+    private var isBonjourAdvertisingEnabled: Bool
 
     public init(
         infoProvider: @escaping InfoProvider,
@@ -224,7 +225,8 @@ public final class DJConnectLocalDeviceAPI: @unchecked Sendable {
         forgetHandler: @escaping ForgetHandler,
         urlHandler: @escaping URLHandler,
         logHandler: @escaping LogHandler,
-        preferredPort: UInt16? = nil
+        preferredPort: UInt16? = nil,
+        advertiseBonjour: Bool = true
     ) {
         self.infoProvider = infoProvider
         self.tokenProvider = tokenProvider
@@ -235,6 +237,7 @@ public final class DJConnectLocalDeviceAPI: @unchecked Sendable {
         self.urlHandler = urlHandler
         self.logHandler = logHandler
         self.preferredPort = preferredPort
+        self.isBonjourAdvertisingEnabled = advertiseBonjour
     }
 
     public func start() {
@@ -249,15 +252,7 @@ public final class DJConnectLocalDeviceAPI: @unchecked Sendable {
             } else {
                 listener = try NWListener(using: .tcp, on: .any)
             }
-            listener.service = NWListener.Service(
-                name: nil,
-                type: "_djconnect._tcp",
-                txtRecord: NWTXTRecord([
-                    "api": "device",
-                    "path": "/api/device/info",
-                    "pairing_path": "/api/device/pairing-info"
-                ])
-            )
+            listener.service = isBonjourAdvertisingEnabled ? placeholderBonjourService() : nil
             listener.stateUpdateHandler = { [weak self] state in
                 guard let self else { return }
                 switch state {
@@ -289,14 +284,56 @@ public final class DJConnectLocalDeviceAPI: @unchecked Sendable {
         Task { await urlHandler(nil) }
     }
 
-    private func publishReadyURL() async {
+    public func setBonjourAdvertisingEnabled(_ enabled: Bool) {
+        queue.async { [weak self] in
+            guard let self, self.isBonjourAdvertisingEnabled != enabled else {
+                return
+            }
+            self.isBonjourAdvertisingEnabled = enabled
+            guard let listener = self.listener else {
+                return
+            }
+            if enabled {
+                Task { await self.publishReadyURL(logStart: false) }
+            } else {
+                listener.service = nil
+                Task { await self.logHandler("Local device API mDNS advertising disabled") }
+            }
+        }
+    }
+
+    private func publishReadyURL(logStart: Bool = true) async {
         guard let listener, let port = listener.port else {
             return
         }
         let info = await infoProvider()
         let host = Self.localIPv4Address() ?? "\(info.identity.deviceID).local"
         localURL = "http://\(host):\(port.rawValue)"
-        listener.service = NWListener.Service(
+        if isBonjourAdvertisingEnabled {
+            listener.service = bonjourService(for: info)
+        }
+        await urlHandler(localURL)
+        if logStart {
+            await logHandler("Local device API started at \(localURL ?? "unknown")")
+        } else {
+            await logHandler("Local device API mDNS advertising enabled")
+        }
+    }
+
+    private func placeholderBonjourService() -> NWListener.Service {
+        NWListener.Service(
+            name: nil,
+            type: "_djconnect._tcp",
+            txtRecord: NWTXTRecord([
+                "api": "device",
+                "path": "/api/device/info",
+                "pairing_path": "/api/device/pairing-info"
+            ])
+        )
+    }
+
+    private func bonjourService(for info: DJConnectLocalDeviceAPIInfo) -> NWListener.Service {
+        NWListener.Service(
             name: info.identity.deviceID,
             type: "_djconnect._tcp",
             txtRecord: NWTXTRecord([
@@ -314,8 +351,6 @@ public final class DJConnectLocalDeviceAPI: @unchecked Sendable {
                 "client_type": info.identity.clientType.rawValue
             ])
         )
-        await urlHandler(localURL)
-        await logHandler("Local device API started at \(localURL ?? "unknown")")
     }
 
     private static func localIPv4Address() -> String? {

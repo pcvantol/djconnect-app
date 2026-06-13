@@ -315,7 +315,7 @@ public struct DJConnectRootView: View {
             case .active:
                 model.markActiveSession()
             case .inactive, .background:
-                model.markCleanShutdown()
+                model.markInactiveSession()
             @unknown default:
                 break
             }
@@ -932,50 +932,196 @@ private struct AnimatedAlbumArtworkView: View {
 
     @ViewBuilder
     private var artworkContent: some View {
-        AsyncImage(url: playback?.albumImageURL) { image in
-            image
-                .resizable()
-                .scaledToFit()
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-        } placeholder: {
-            ZStack {
-                LinearGradient(
-                    colors: [
-                        artworkTintColor(for: playback).opacity(0.52),
-                        Color(red: 0.02, green: 0.03, blue: 0.09)
-                    ],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-                if isDemoMode {
-                    VStack {
-                        DJConnectAppIconView()
-                            .frame(width: 132, height: 132)
-                            .clipShape(RoundedRectangle(cornerRadius: 30, style: .continuous))
-                            .shadow(color: Color.black.opacity(0.34), radius: 18, y: 10)
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 30, style: .continuous)
-                                    .stroke(.white.opacity(0.16), lineWidth: 1)
-                            )
-                    }
-                    .padding(22)
-                    .background(
-                        RoundedRectangle(cornerRadius: 36, style: .continuous)
-                            .fill(.white.opacity(0.08))
-                    )
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 36, style: .continuous)
-                            .stroke(.white.opacity(0.10), lineWidth: 1)
-                    )
-                } else {
-                    Image(systemName: "music.note")
-                        .font(.system(size: 54, weight: .semibold))
-                        .foregroundStyle(.white.opacity(0.86))
-                }
-            }
+        CachedArtworkImage(url: playback?.albumImageURL, mode: .fit) {
+            artworkPlaceholder
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color.black.opacity(0.22))
+    }
+
+    private var artworkPlaceholder: some View {
+        ZStack {
+            LinearGradient(
+                colors: [
+                    artworkTintColor(for: playback).opacity(0.52),
+                    Color(red: 0.02, green: 0.03, blue: 0.09)
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+            if isDemoMode {
+                VStack {
+                    DJConnectAppIconView()
+                        .frame(width: 132, height: 132)
+                        .clipShape(RoundedRectangle(cornerRadius: 30, style: .continuous))
+                        .shadow(color: Color.black.opacity(0.34), radius: 18, y: 10)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 30, style: .continuous)
+                                .stroke(.white.opacity(0.16), lineWidth: 1)
+                        )
+                }
+                .padding(22)
+                .background(
+                    RoundedRectangle(cornerRadius: 36, style: .continuous)
+                        .fill(.white.opacity(0.08))
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 36, style: .continuous)
+                        .stroke(.white.opacity(0.10), lineWidth: 1)
+                )
+            } else {
+                Image(systemName: "music.note")
+                    .font(.system(size: 54, weight: .semibold))
+                    .foregroundStyle(.white.opacity(0.86))
+            }
+        }
+    }
+}
+
+private enum CachedArtworkImageMode {
+    case fit
+    case fill
+}
+
+private struct CachedArtworkImage<Placeholder: View>: View {
+    let url: URL?
+    let mode: CachedArtworkImageMode
+    @ViewBuilder var placeholder: () -> Placeholder
+    @State private var loadedImage: Image?
+    @State private var loadedURL: URL?
+
+    var body: some View {
+        Group {
+            if let loadedImage, loadedURL == url {
+                loadedImage
+                    .resizable()
+                    .cachedArtworkContentMode(mode)
+            } else {
+                placeholder()
+            }
+        }
+        .task(id: url?.absoluteString) {
+            await loadImage()
+        }
+    }
+
+    @MainActor
+    private func loadImage() async {
+        guard let url else {
+            loadedURL = nil
+            loadedImage = nil
+            return
+        }
+        if loadedURL == url, loadedImage != nil {
+            return
+        }
+        do {
+            let data = try await DJConnectArtworkDataCache.shared.data(for: url)
+            guard let image = makeArtworkImage(from: data) else {
+                loadedURL = nil
+                loadedImage = nil
+                return
+            }
+            loadedURL = url
+            loadedImage = image
+        } catch {
+            loadedURL = nil
+            loadedImage = nil
+        }
+    }
+}
+
+private extension Image {
+    @ViewBuilder
+    func cachedArtworkContentMode(_ mode: CachedArtworkImageMode) -> some View {
+        switch mode {
+        case .fit:
+            self.scaledToFit()
+        case .fill:
+            self.scaledToFill()
+        }
+    }
+}
+
+@MainActor
+private func makeArtworkImage(from data: Data) -> Image? {
+    #if os(iOS)
+    guard let image = UIImage(data: data) else {
+        return nil
+    }
+    return Image(uiImage: image)
+    #elseif os(macOS)
+    guard let image = NSImage(data: data) else {
+        return nil
+    }
+    return Image(nsImage: image)
+    #else
+    return nil
+    #endif
+}
+
+private actor DJConnectArtworkDataCache {
+    static let shared = DJConnectArtworkDataCache()
+
+    private struct Entry {
+        var data: Data
+        var tint: Color?
+        var expiresAt: Date
+    }
+
+    private var entries: [URL: Entry] = [:]
+    private let ttl: TimeInterval = 24 * 60 * 60
+    private let maxEntries = 180
+
+    func data(for url: URL) async throws -> Data {
+        let now = Date()
+        if let entry = entries[url], entry.expiresAt > now {
+            return entry.data
+        }
+
+        var request = URLRequest(url: url)
+        request.cachePolicy = .returnCacheDataElseLoad
+        request.timeoutInterval = 10
+        let (data, response) = try await URLSession.shared.data(for: request)
+        if let httpResponse = response as? HTTPURLResponse, !(200...299).contains(httpResponse.statusCode) {
+            throw URLError(.badServerResponse)
+        }
+        entries[url] = Entry(data: data, tint: nil, expiresAt: now.addingTimeInterval(ttl))
+        trimIfNeeded()
+        return data
+    }
+
+    func tint(for url: URL, fallback: Color) async -> Color {
+        let now = Date()
+        if let entry = entries[url], entry.expiresAt > now, let tint = entry.tint {
+            return tint
+        }
+
+        do {
+            let data = try await data(for: url)
+            let tint = averageArtworkColor(from: data) ?? fallback
+            if var entry = entries[url] {
+                entry.tint = tint
+                entries[url] = entry
+            }
+            return tint
+        } catch {
+            return fallback
+        }
+    }
+
+    private func trimIfNeeded() {
+        guard entries.count > maxEntries else {
+            return
+        }
+        let overflow = entries.count - maxEntries
+        let expiredOrOldest = entries
+            .sorted { $0.value.expiresAt < $1.value.expiresAt }
+            .prefix(overflow)
+            .map(\.key)
+        for key in expiredOrOldest {
+            entries.removeValue(forKey: key)
+        }
     }
 }
 
@@ -1023,15 +1169,7 @@ private func sampledArtworkTint(for playback: DJConnectPlayback?) async -> Color
     guard let url = playback?.albumImageURL else {
         return fallback
     }
-    do {
-        let (data, response) = try await URLSession.shared.data(from: url)
-        if let httpResponse = response as? HTTPURLResponse, !(200...299).contains(httpResponse.statusCode) {
-            return fallback
-        }
-        return averageArtworkColor(from: data) ?? fallback
-    } catch {
-        return fallback
-    }
+    return await DJConnectArtworkDataCache.shared.tint(for: url, fallback: fallback)
 }
 
 private func averageArtworkColor(from data: Data) -> Color? {
@@ -1889,11 +2027,7 @@ private struct QueueArtworkView: View {
 
     var body: some View {
         GeometryReader { proxy in
-            AsyncImage(url: url) { image in
-                image
-                    .resizable()
-                    .scaledToFill()
-            } placeholder: {
+            CachedArtworkImage(url: url, mode: .fill) {
                 ZStack {
                     RoundedRectangle(cornerRadius: 6)
                         .fill(Color.secondary.opacity(0.14))
@@ -2452,7 +2586,23 @@ private struct PlaylistRow: View {
                 RowPlayIndicator()
             }
         }
-        .padding(.vertical, 3)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 9)
+        .background(
+            LinearGradient(
+                colors: [
+                    Color.black.opacity(0.72),
+                    Color(red: 0.20, green: 0.08, blue: 0.32).opacity(0.72)
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            ),
+            in: RoundedRectangle(cornerRadius: 12, style: .continuous)
+        )
+        .overlay {
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .stroke(djConnectAccent.opacity(0.12), lineWidth: 1)
+        }
         .contentShape(Rectangle())
     }
 }
@@ -2812,7 +2962,66 @@ private struct LocalGameSurface: View {
                 )
             }
             context.fill(Path(ellipseIn: rect(pacmanX - 8, pacmanY - 8, 16, 16)), with: .color(.yellow))
-            context.fill(Path(ellipseIn: rect(ghostX - 8, ghostY - 8, 16, 16)), with: .color(.pink))
+            drawPacmanMouth(in: &context, at: point(pacmanX, pacmanY), scaleX: scaleX, scaleY: scaleY)
+            drawGhost(in: &context, at: point(ghostX, ghostY), scaleX: scaleX, scaleY: scaleY)
+        }
+    }
+
+    private func drawPacmanMouth(in context: inout GraphicsContext, at center: CGPoint, scaleX: CGFloat, scaleY: CGFloat) {
+        let radius = 8 * min(scaleX, scaleY)
+        let mouthAngle: CGFloat
+        if abs(pacmanDX) >= abs(pacmanDY) {
+            mouthAngle = pacmanDX < 0 ? .pi : 0
+        } else {
+            mouthAngle = pacmanDY < 0 ? -.pi / 2 : .pi / 2
+        }
+        let spread = CGFloat.pi / 5
+        var mouth = Path()
+        mouth.move(to: center)
+        mouth.addArc(
+            center: center,
+            radius: radius + 1,
+            startAngle: .radians(Double(mouthAngle - spread)),
+            endAngle: .radians(Double(mouthAngle + spread)),
+            clockwise: false
+        )
+        mouth.closeSubpath()
+        context.fill(mouth, with: .color(.black.opacity(0.82)))
+    }
+
+    private func drawGhost(in context: inout GraphicsContext, at center: CGPoint, scaleX: CGFloat, scaleY: CGFloat) {
+        let width = 18 * scaleX
+        let height = 18 * scaleY
+        let left = center.x - width / 2
+        let right = center.x + width / 2
+        let top = center.y - height / 2
+        let bottom = center.y + height / 2
+        let midY = center.y - 1 * scaleY
+
+        var ghost = Path()
+        ghost.move(to: CGPoint(x: left, y: bottom))
+        ghost.addLine(to: CGPoint(x: left, y: midY))
+        ghost.addQuadCurve(to: CGPoint(x: center.x, y: top), control: CGPoint(x: left, y: top))
+        ghost.addQuadCurve(to: CGPoint(x: right, y: midY), control: CGPoint(x: right, y: top))
+        ghost.addLine(to: CGPoint(x: right, y: bottom))
+        ghost.addLine(to: CGPoint(x: center.x + width * 0.22, y: bottom - height * 0.18))
+        ghost.addLine(to: CGPoint(x: center.x, y: bottom))
+        ghost.addLine(to: CGPoint(x: center.x - width * 0.22, y: bottom - height * 0.18))
+        ghost.closeSubpath()
+        context.fill(ghost, with: .color(.pink))
+
+        let eyeSize = 4.3 * min(scaleX, scaleY)
+        let pupilSize = 1.8 * min(scaleX, scaleY)
+        for offset in [-3.4 * scaleX, 3.4 * scaleX] {
+            let eyeCenter = CGPoint(x: center.x + offset, y: center.y - 2.2 * scaleY)
+            context.fill(
+                Path(ellipseIn: CGRect(x: eyeCenter.x - eyeSize / 2, y: eyeCenter.y - eyeSize / 2, width: eyeSize, height: eyeSize)),
+                with: .color(.white)
+            )
+            context.fill(
+                Path(ellipseIn: CGRect(x: eyeCenter.x - pupilSize / 2, y: eyeCenter.y - pupilSize / 2, width: pupilSize, height: pupilSize)),
+                with: .color(.blue)
+            )
         }
     }
 
@@ -2980,7 +3189,7 @@ private struct LocalGameSurface: View {
         case .pacman:
             pacmanX = min(max(pacmanX + pacmanDX * 4, 28), 292)
             pacmanY = min(max(pacmanY + pacmanDY * 4, 44), 140)
-            let ghostStep: CGFloat = 2 + CGFloat(min(score / 8, 3))
+            let ghostStep: CGFloat = 1.25 + CGFloat(min(score / 10, 3)) * 0.35
             if abs(ghostX - pacmanX) > 2 {
                 ghostX += ghostX < pacmanX ? ghostStep : -ghostStep
             }

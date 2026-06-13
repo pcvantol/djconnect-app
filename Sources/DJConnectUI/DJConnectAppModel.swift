@@ -96,6 +96,7 @@ public final class DJConnectAppModel: ObservableObject {
     @Published public var pairingToken = ""
     @Published public var pairingStatus: DJConnectPairingStatus = .unpaired {
         didSet {
+            updateBonjourAdvertisingState()
             if startBackgroundTasks, oldValue != .paired, pairingStatus == .paired {
                 schedulePairedRefresh(reason: "Pairing became online")
             } else if pairingStatus != .paired {
@@ -104,7 +105,9 @@ public final class DJConnectAppModel: ObservableObject {
         }
     }
     @Published public var isConnected = false
-    @Published public var isPairing = false
+    @Published public var isPairing = false {
+        didSet { updateBonjourAdvertisingState() }
+    }
     @Published public var isRefreshing = false
     @Published public private(set) var isLoadingOutputs = false
     @Published public private(set) var isLoadingQueue = false
@@ -139,7 +142,9 @@ public final class DJConnectAppModel: ObservableObject {
     }
     @Published public var voiceEnabled = true
     @Published public var localResponseAudioEnabled = true
-    @Published public var isDemoMode = false
+    @Published public var isDemoMode = false {
+        didSet { updateBonjourAdvertisingState() }
+    }
     @Published public private(set) var isMonkeyTestingMode = false
     @Published public var wakeWordEnabled = false {
         didSet {
@@ -180,6 +185,9 @@ public final class DJConnectAppModel: ObservableObject {
     private var pendingVolumePercent: Int?
     private var pendingSeekTargetMS: Int?
     private var seekCommandTask: Task<Void, Never>?
+    private var isAppInForeground = true
+    private var lastFullRefreshAt: Date?
+    private var lastBackendCollectionsRefreshAt: Date?
     private var localDeviceAPI: DJConnectLocalDeviceAPI?
     private var shouldShowWakeWordPromptAfterPairingScreen = false
     #if canImport(AVFoundation)
@@ -201,7 +209,7 @@ public final class DJConnectAppModel: ObservableObject {
     private let startBackgroundTasks: Bool
     private let monkeyTestingMode: Bool
     private let diagnosticLogFileURL: URL?
-    private static let protocolVersion = "3.1.16"
+    private static let protocolVersion = "3.1.18"
     private static let defaultHomeAssistantURL = "http://homeassistant.local:8123"
     private let appVersion = DJConnectAppModel.protocolVersion
     private let installIDKey = "DJConnectInstallID"
@@ -221,6 +229,9 @@ public final class DJConnectAppModel: ObservableObject {
     private let maxDiagnosticLogLines = 120
     private let maxPersistentDiagnosticLogLines = 500
     private let maxPersistentDiagnosticLogFileBytes = 128 * 1024
+    private let minimumAutomaticRefreshInterval: TimeInterval = 8
+    private let backendCollectionsRefreshInterval: TimeInterval = 30
+    private let progressTimerNetworkRefreshInterval = 60
 
     public var volume: Double {
         get { Double(pendingVolumePercent ?? playback?.volumePercent ?? 0) }
@@ -452,12 +463,24 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     public func markActiveSession() {
+        isAppInForeground = true
         defaults.set(false, forKey: cleanShutdownKey)
+        resumeWakeWordListeningIfNeeded()
+        updatePlaybackProgressTimer()
         guard pairingStatus == .paired, !isDemoMode else {
             return
         }
         log(.debug, "App became active; scheduling playback refresh")
         schedulePairedRefresh(reason: "Resume Now Playing refresh completed")
+    }
+
+    public func markInactiveSession() {
+        isAppInForeground = false
+        playbackProgressTask?.cancel()
+        playbackProgressTask = nil
+        stopWakeWordListening()
+        markCleanShutdown()
+        log(.debug, "App left foreground; paused wakeword and local progress timer")
     }
 
     public func dismissCrashReportPrompt() {
@@ -739,13 +762,22 @@ public final class DJConnectAppModel: ObservableObject {
     public func refresh() {
         log(.debug, "User action: refresh")
         Task {
-            await runRefresh(reason: "Refresh completed", notifyUserOnError: true)
+            await runRefresh(reason: "Refresh completed", notifyUserOnError: true, forceCollections: true)
         }
     }
 
-    private func runRefresh(reason: String, notifyUserOnError: Bool = false) async {
+    private func runRefresh(
+        reason: String,
+        notifyUserOnError: Bool = false,
+        forceCollections: Bool = false,
+        allowThrottle: Bool = false
+    ) async {
         guard !isRefreshing else {
             log(.debug, "Refresh ignored because one is already running")
+            return
+        }
+        if allowThrottle, let lastFullRefreshAt, Date().timeIntervalSince(lastFullRefreshAt) < minimumAutomaticRefreshInterval {
+            log(.debug, "Automatic refresh throttled")
             return
         }
         if isDemoMode {
@@ -753,6 +785,7 @@ public final class DJConnectAppModel: ObservableObject {
             isRefreshing = true
             applyDemoState()
             isRefreshing = false
+            lastFullRefreshAt = Date()
             log(.info, reason)
             return
         }
@@ -761,7 +794,8 @@ public final class DJConnectAppModel: ObservableObject {
         defer { isRefreshing = false }
         do {
             try await refreshStatusWithFallback()
-            await refreshBackendCollections()
+            lastFullRefreshAt = Date()
+            await refreshBackendCollections(force: forceCollections)
             log(.info, reason)
         } catch let error as DJConnectError {
             log(.warning, "Refresh failed: \(Self.describe(error))")
@@ -785,12 +819,12 @@ public final class DJConnectAppModel: ObservableObject {
             guard !Task.isCancelled else {
                 return
             }
-            await self?.runRefresh(reason: reason)
+            await self?.runRefresh(reason: reason, allowThrottle: true)
             try? await Task.sleep(for: .milliseconds(1_200))
             guard !Task.isCancelled, self?.pairingStatus == .paired else {
                 return
             }
-            await self?.runRefresh(reason: "Startup Now Playing refresh completed")
+            await self?.runRefresh(reason: "Startup Now Playing refresh completed", allowThrottle: true)
         }
     }
 
@@ -1543,7 +1577,12 @@ public final class DJConnectAppModel: ObservableObject {
         }
     }
 
-    private func refreshBackendCollections() async {
+    private func refreshBackendCollections(force: Bool = false) async {
+        if !force, let lastBackendCollectionsRefreshAt, Date().timeIntervalSince(lastBackendCollectionsRefreshAt) < backendCollectionsRefreshInterval {
+            log(.debug, "Backend collection refresh throttled")
+            return
+        }
+        lastBackendCollectionsRefreshAt = Date()
         await performCommand("devices", notifyUserOnError: false)
         await performCommand("queue", notifyUserOnError: false)
         await performCommand("playlists", notifyUserOnError: false)
@@ -1584,7 +1623,7 @@ public final class DJConnectAppModel: ObservableObject {
         do {
             log(.debug, "Refreshing Home Assistant state after DJ response")
             try await refreshStatusWithFallback()
-            await refreshBackendCollections()
+            await refreshBackendCollections(force: true)
         } catch let error as DJConnectError {
             log(.warning, "DJ response refresh failed: \(Self.describe(error))")
             apply(error: error)
@@ -1721,7 +1760,7 @@ public final class DJConnectAppModel: ObservableObject {
 
     private func updatePlaybackProgressTimer() {
         playbackProgressTask?.cancel()
-        guard playback?.isPlaying == true else {
+        guard isAppInForeground, playback?.isPlaying == true else {
             return
         }
 
@@ -1734,7 +1773,7 @@ public final class DJConnectAppModel: ObservableObject {
                 }
                 tick += 1
                 let shouldRefresh = self?.advancePlaybackProgress() ?? false
-                if shouldRefresh || tick >= 15 {
+                if shouldRefresh || tick >= (self?.progressTimerNetworkRefreshInterval ?? 60) {
                     tick = 0
                     await self?.refreshNowPlayingFromProgressTimer()
                 }
@@ -2183,8 +2222,8 @@ public final class DJConnectAppModel: ObservableObject {
                         deviceID: "djconnect-macos-unavailable",
                         deviceName: "DJConnect",
                         clientType: .macos,
-                        firmware: "3.1.16",
-                        appVersion: "3.1.16",
+                        firmware: "3.1.18",
+                        appVersion: "3.1.18",
                         platform: .macos
                     ),
                     pairingToken: "",
@@ -2232,7 +2271,8 @@ public final class DJConnectAppModel: ObservableObject {
                     self?.log(.info, message)
                 }
             },
-            preferredPort: pinnedLocalDeviceAPIPort()
+            preferredPort: pinnedLocalDeviceAPIPort(),
+            advertiseBonjour: shouldAdvertiseBonjour
         )
         localDeviceAPI?.start()
     }
@@ -2241,6 +2281,22 @@ public final class DJConnectAppModel: ObservableObject {
         localDeviceAPI?.stop()
         localDeviceAPI = nil
         startLocalDeviceAPI()
+    }
+
+    private var shouldAdvertiseBonjour: Bool {
+        !isDemoMode && pairingStatus != .paired
+    }
+
+    var isBonjourAdvertisingPreferredForTests: Bool {
+        shouldAdvertiseBonjour
+    }
+
+    var isAppInForegroundForTests: Bool {
+        isAppInForeground
+    }
+
+    private func updateBonjourAdvertisingState() {
+        localDeviceAPI?.setBonjourAdvertisingEnabled(shouldAdvertiseBonjour)
     }
 
     private func localDeviceAPIInfo() -> DJConnectLocalDeviceAPIInfo {
@@ -2845,6 +2901,11 @@ public final class DJConnectAppModel: ObservableObject {
             wakeWordStatus = .idle
             return
         }
+        guard isAppInForeground else {
+            wakeWordStatus = .idle
+            log(.debug, "Wakeword listening deferred while app is not foreground")
+            return
+        }
         guard !isDemoMode else {
             wakeWordStatus = .unavailable
             log(.info, "Wakeword is disabled in demo mode")
@@ -2915,6 +2976,10 @@ public final class DJConnectAppModel: ObservableObject {
             return
         }
         guard wakeWordEnabled, pairingStatus == .paired else {
+            return
+        }
+        guard isAppInForeground else {
+            wakeWordStatus = .idle
             return
         }
         #if canImport(Speech) && canImport(AVFoundation)

@@ -66,8 +66,10 @@ Home Assistant integration builds.
 
 For iOS Simulator testing, use the polling flow above. Do not treat simulator
 mDNS/Bonjour reachability as authoritative. On real devices and macOS, the app
-also advertises `_djconnect._tcp` and hosts local `/api/device/*` endpoints for
-Home Assistant -> app callbacks while the app is active/reachable.
+advertises `_djconnect._tcp` only while it is unpaired/pairable and hosts local
+`/api/device/*` endpoints for Home Assistant -> app callbacks while the app is
+active/reachable. After pairing, the HTTP API remains available while Bonjour
+advertising is disabled until explicit pairing reset.
 
 The pairing sheet also offers Demo Mode. Use it only for local UI work or App
 Store review/auditing when a real Home Assistant backend is unavailable. Demo
