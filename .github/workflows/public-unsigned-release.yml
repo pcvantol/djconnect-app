@@ -91,6 +91,8 @@ jobs:
         run: |
           set -euo pipefail
           cd .public-release/artifacts
+          shasum -a 256 DJConnect-macOS-${{ steps.version.outputs.version }}-unsigned.zip > DJConnect-macOS-${{ steps.version.outputs.version }}-SHA256SUMS.txt
+          shasum -a 256 DJConnect-iOS-${{ steps.version.outputs.version }}-unsigned.zip > DJConnect-iOS-${{ steps.version.outputs.version }}-SHA256SUMS.txt
           shasum -a 256 *.zip > SHA256SUMS.txt
 
       - name: Extract public release notes
@@ -98,23 +100,32 @@ jobs:
         run: |
           set -euo pipefail
           version="${{ steps.version.outputs.version }}"
-          notes=".public-release/release-notes.md"
+          base_notes=".public-release/release-notes-base.md"
           awk -v version="$version" '
             $0 ~ "^## " version "($| - )" { capture=1; next }
             capture && /^## / { capture=0 }
             capture { print }
-          ' CHANGELOG.md > "$notes"
-          if [[ ! -s "$notes" ]]; then
-            printf "DJConnect App %s\n" "$version" > "$notes"
+          ' CHANGELOG.md > "$base_notes"
+          if [[ ! -s "$base_notes" ]]; then
+            printf "DJConnect App %s\n" "$version" > "$base_notes"
           fi
-          {
-            echo
-            echo "---"
-            echo
-            echo "Unsigned CI artifacts are intended for diagnostics and internal validation."
-            echo "For normal macOS distribution, prefer the notarized Developer ID build when attached."
-            echo "For iOS distribution, use TestFlight/App Store."
-          } >> "$notes"
+          for platform in macOS iOS; do
+            notes=".public-release/release-notes-${platform}.md"
+            {
+              cat "$base_notes"
+              echo
+              echo "---"
+              echo
+              echo "Platform: ${platform}"
+              echo
+              echo "Unsigned CI artifacts are intended for diagnostics and internal validation."
+              if [[ "$platform" == "macOS" ]]; then
+                echo "For normal macOS distribution, prefer the notarized Developer ID build when attached."
+              else
+                echo "For iOS distribution, use TestFlight/App Store."
+              fi
+            } > "$notes"
+          done
 
       - name: Publish to public releases repository
         env:
@@ -125,21 +136,40 @@ jobs:
             echo "Configure repository secret PUBLIC_RELEASES_TOKEN with access to ${PUBLIC_REPO}." >&2
             exit 1
           fi
-          tag="${{ steps.version.outputs.tag }}"
-          if gh release view "$tag" --repo "$PUBLIC_REPO" >/dev/null 2>&1; then
-            gh release edit "$tag" \
+          version="${{ steps.version.outputs.version }}"
+          mac_tag="macos/v${version}"
+          ios_tag="ios/v${version}"
+
+          if gh release view "$mac_tag" --repo "$PUBLIC_REPO" >/dev/null 2>&1; then
+            gh release edit "$mac_tag" \
               --repo "$PUBLIC_REPO" \
-              --title "DJConnect App ${{ steps.version.outputs.version }}" \
-              --notes-file .public-release/release-notes.md
+              --title "DJConnect macOS ${version}" \
+              --notes-file .public-release/release-notes-macOS.md
           else
-            gh release create "$tag" \
+            gh release create "$mac_tag" \
               --repo "$PUBLIC_REPO" \
-              --title "DJConnect App ${{ steps.version.outputs.version }}" \
-              --notes-file .public-release/release-notes.md
+              --title "DJConnect macOS ${version}" \
+              --notes-file .public-release/release-notes-macOS.md
           fi
-          gh release upload "$tag" \
-            .public-release/artifacts/DJConnect-macOS-${{ steps.version.outputs.version }}-unsigned.zip \
-            .public-release/artifacts/DJConnect-iOS-${{ steps.version.outputs.version }}-unsigned.zip \
-            .public-release/artifacts/SHA256SUMS.txt \
+          gh release upload "$mac_tag" \
+            .public-release/artifacts/DJConnect-macOS-${version}-unsigned.zip \
+            .public-release/artifacts/DJConnect-macOS-${version}-SHA256SUMS.txt \
+            --repo "$PUBLIC_REPO" \
+            --clobber
+
+          if gh release view "$ios_tag" --repo "$PUBLIC_REPO" >/dev/null 2>&1; then
+            gh release edit "$ios_tag" \
+              --repo "$PUBLIC_REPO" \
+              --title "DJConnect iOS ${version}" \
+              --notes-file .public-release/release-notes-iOS.md
+          else
+            gh release create "$ios_tag" \
+              --repo "$PUBLIC_REPO" \
+              --title "DJConnect iOS ${version}" \
+              --notes-file .public-release/release-notes-iOS.md
+          fi
+          gh release upload "$ios_tag" \
+            .public-release/artifacts/DJConnect-iOS-${version}-unsigned.zip \
+            .public-release/artifacts/DJConnect-iOS-${version}-SHA256SUMS.txt \
             --repo "$PUBLIC_REPO" \
             --clobber

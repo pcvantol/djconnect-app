@@ -1380,6 +1380,21 @@ private func waitForLocalDeviceAPIURL(_ model: DJConnectAppModel) async throws -
     #expect(defaults.string(forKey: "DJConnectLastSeenAppVersion") == model.version)
 }
 
+@Test func whatsNewReleaseTagsArePlatformSpecific() throws {
+    #expect(DJConnectAppModel.publicReleaseTag(version: "3.1.19", clientType: .ios) == "ios/v3.1.19")
+    #expect(DJConnectAppModel.publicReleaseTag(version: "3.1.19", clientType: .macos) == "macos/v3.1.19")
+}
+
+@Test func whatsNewReleaseURLsEncodePlatformTags() throws {
+    let iosURL = try #require(DJConnectAppModel.publicReleaseNotesURL(version: "3.1.19", clientType: .ios))
+    let macURL = try #require(DJConnectAppModel.publicReleaseNotesURL(version: "3.1.19", clientType: .macos))
+    let legacyURL = try #require(DJConnectAppModel.legacyPublicReleaseNotesURL(version: "3.1.19"))
+
+    #expect(iosURL.absoluteString.hasSuffix("/releases/tags/ios%2Fv3.1.19"))
+    #expect(macURL.absoluteString.hasSuffix("/releases/tags/macos%2Fv3.1.19"))
+    #expect(legacyURL.absoluteString.hasSuffix("/releases/tags/v3.1.19"))
+}
+
 @MainActor
 @Test func crashPromptAppearsAfterUncleanPreviousSession() throws {
     let suiteName = "DJConnectTests-\(UUID().uuidString)"

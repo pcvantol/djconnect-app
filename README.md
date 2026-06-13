@@ -135,16 +135,20 @@ Private GitHub Actions CI runs Swift tests plus unsigned iOS/macOS build
 checks. Release tags also publish unsigned macOS and iOS diagnostic artifacts
 to [pcvantol/djconnect-app-releases](https://github.com/pcvantol/djconnect-app-releases)
 when the private repo has a `PUBLIC_RELEASES_TOKEN` secret with write access to
-that public repository. Public macOS binaries for end users are still produced
-locally with Developer ID signing and notarization, then uploaded to the same
-public releases repository.
+that public repository. The public unsigned releases are platform-specific:
+`macos/vX.Y.Z` contains the unsigned macOS artifact and macOS release notes,
+while `ios/vX.Y.Z` contains the unsigned iOS artifact and iOS release notes.
+Public macOS binaries for end users are still produced locally with Developer ID
+signing and notarization, then uploaded to the same public releases repository.
 Use the one-time and per-release App Store/macOS checklist in
 [docs/RELEASE.md](docs/RELEASE.md) before publishing signed builds.
 
 On startup after an app update, DJConnect compares the running version with the
 last version seen on that device. If the version changed, the app shows a
 `Wat is nieuw` / `What's New` sheet and loads the current release notes from the
-public `pcvantol/djconnect-app-releases` GitHub release for tag `vX.Y.Z`.
+public `pcvantol/djconnect-app-releases` GitHub release for tag `ios/vX.Y.Z` on
+iOS or `macos/vX.Y.Z` on macOS. Older builds fall back to the legacy `vX.Y.Z`
+release tag when a platform-specific release is unavailable.
 
 ## Swift Package
 

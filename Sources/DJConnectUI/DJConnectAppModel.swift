@@ -58,6 +58,12 @@ private struct DJConnectGitHubRelease: Decodable {
     let body: String?
 }
 
+private struct DJConnectReleaseNotesFetchResult {
+    let release: DJConnectGitHubRelease
+    let url: URL
+    let statusCode: Int
+}
+
 public enum DJConnectVoiceStatus: Equatable, Sendable {
     case idle
     case listening
@@ -218,7 +224,7 @@ public final class DJConnectAppModel: ObservableObject {
     private let startBackgroundTasks: Bool
     private let monkeyTestingMode: Bool
     private let diagnosticLogFileURL: URL?
-    private static let protocolVersion = "3.1.18"
+    private static let protocolVersion = "3.1.19"
     private static let defaultHomeAssistantURL = "http://homeassistant.local:8123"
     private let appVersion = DJConnectAppModel.protocolVersion
     private let installIDKey = "DJConnectInstallID"
@@ -407,7 +413,12 @@ public final class DJConnectAppModel: ObservableObject {
             dutch: "Release notes konden niet worden geladen. Bekijk https://djconnect.pages.dev voor meer informatie."
         )
 
-        guard let url = URL(string: "https://api.github.com/repos/pcvantol/djconnect-app-releases/releases/tags/v\(appVersion)") else {
+        let candidateURLs = [
+            DJConnectAppModel.publicReleaseNotesURL(version: appVersion, clientType: identity.clientType),
+            DJConnectAppModel.legacyPublicReleaseNotesURL(version: appVersion)
+        ].compactMap { $0 }
+
+        guard !candidateURLs.isEmpty else {
             await MainActor.run {
                 whatsNewBody = fallback
                 isLoadingWhatsNew = false
@@ -416,20 +427,10 @@ public final class DJConnectAppModel: ObservableObject {
         }
 
         do {
-            var request = URLRequest(url: url)
-            request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
-            request.timeoutInterval = 8
-            let (data, response) = try await URLSession.shared.data(for: request)
-            guard let httpResponse = response as? HTTPURLResponse else {
-                throw URLError(.badServerResponse)
-            }
-            log(.debug, "GitHub release notes GET /repos/pcvantol/djconnect-app-releases/releases/tags/v\(appVersion) -> HTTP \(httpResponse.statusCode)")
-            guard (200..<300).contains(httpResponse.statusCode) else {
-                throw DJConnectError.server(statusCode: httpResponse.statusCode, message: "release notes unavailable")
-            }
-            let release = try JSONDecoder().decode(DJConnectGitHubRelease.self, from: data)
-            let body = (release.body ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
-            let title = (release.name ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+            let result = try await fetchReleaseNotes(from: candidateURLs)
+            log(.debug, "GitHub release notes loaded from \(result.url.lastPathComponent) -> HTTP \(result.statusCode)")
+            let body = (result.release.body ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+            let title = (result.release.name ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
             await MainActor.run {
                 whatsNewTitle = title.isEmpty
                     ? whatsNewTitle
@@ -444,6 +445,32 @@ public final class DJConnectAppModel: ObservableObject {
                 isLoadingWhatsNew = false
             }
         }
+    }
+
+    private func fetchReleaseNotes(from urls: [URL]) async throws -> DJConnectReleaseNotesFetchResult {
+        var lastError: Error?
+        for url in urls {
+            do {
+                var request = URLRequest(url: url)
+                request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
+                request.timeoutInterval = 8
+                let (data, response) = try await URLSession.shared.data(for: request)
+                guard let httpResponse = response as? HTTPURLResponse else {
+                    throw URLError(.badServerResponse)
+                }
+                let path = url.path.replacingOccurrences(of: "/repos/pcvantol/djconnect-app-releases/", with: "")
+                log(.debug, "GitHub release notes GET /repos/pcvantol/djconnect-app-releases/\(path) -> HTTP \(httpResponse.statusCode)")
+                guard (200..<300).contains(httpResponse.statusCode) else {
+                    throw DJConnectError.server(statusCode: httpResponse.statusCode, message: "release notes unavailable")
+                }
+                let release = try JSONDecoder().decode(DJConnectGitHubRelease.self, from: data)
+                return DJConnectReleaseNotesFetchResult(release: release, url: url, statusCode: httpResponse.statusCode)
+            } catch {
+                lastError = error
+                log(.debug, "Release notes candidate failed: \(url.absoluteString) - \(error.localizedDescription)")
+            }
+        }
+        throw lastError ?? DJConnectError.backendUnavailable(message: "release notes unavailable")
     }
 
     public func dismissWelcome() {
@@ -2312,8 +2339,8 @@ public final class DJConnectAppModel: ObservableObject {
                         deviceID: "djconnect-macos-unavailable",
                         deviceName: "DJConnect",
                         clientType: .macos,
-                        firmware: "3.1.18",
-                        appVersion: "3.1.18",
+                        firmware: "3.1.19",
+                        appVersion: "3.1.19",
                         platform: .macos
                     ),
                     pairingToken: "",
@@ -3258,6 +3285,20 @@ public final class DJConnectAppModel: ObservableObject {
 
     private static var keychainService: String {
         Bundle.main.bundleIdentifier.map { "\($0).djconnect" } ?? "nl.pcvantol.djconnect.djconnect"
+    }
+
+    nonisolated static func publicReleaseTag(version: String, clientType: DJConnectClientType) -> String {
+        "\(clientType.rawValue)/v\(version)"
+    }
+
+    nonisolated static func publicReleaseNotesURL(version: String, clientType: DJConnectClientType) -> URL? {
+        let encodedTag = publicReleaseTag(version: version, clientType: clientType)
+            .replacingOccurrences(of: "/", with: "%2F")
+        return URL(string: "https://api.github.com/repos/pcvantol/djconnect-app-releases/releases/tags/\(encodedTag)")
+    }
+
+    nonisolated static func legacyPublicReleaseNotesURL(version: String) -> URL? {
+        URL(string: "https://api.github.com/repos/pcvantol/djconnect-app-releases/releases/tags/v\(version)")
     }
 
     private static func makeIdentity(defaults: UserDefaults) -> DJConnectIdentity {

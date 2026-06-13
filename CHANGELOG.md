@@ -4,6 +4,8 @@ All notable changes to DJConnect App are documented here.
 
 ## Unreleased
 
+## 3.1.19 - 2026-06-13
+
 ### Added
 
 - Added a GitHub Actions workflow that publishes unsigned macOS and iOS build
@@ -12,11 +14,16 @@ All notable changes to DJConnect App are documented here.
 - Added a version-aware `Wat is nieuw` / `What's New` sheet. After an app
   update, DJConnect fetches the release body for the current version from the
   public releases repository and shows it once on startup.
+- Split public unsigned release publication into platform-specific GitHub
+  releases: `ios/vX.Y.Z` and `macos/vX.Y.Z`. iOS and macOS now fetch their own
+  `Wat is nieuw` notes so an iOS app can no longer show macOS release notes.
 
 ### Tests
 
 - Added coverage for first-install versus upgraded-version `Wat is nieuw`
   behavior.
+- Added coverage for platform-specific public release tags and encoded release
+  note URLs.
 
 ## 3.1.18 - 2026-06-13
 

@@ -173,11 +173,12 @@ The workflow:
 - runs the Swift unit test suite;
 - builds unsigned `DJConnectMac` and `DJConnectIOS` Debug artifacts with
   `CODE_SIGNING_ALLOWED=NO`;
-- uploads `DJConnect-macOS-X.Y.Z-unsigned.zip`,
-  `DJConnect-iOS-X.Y.Z-unsigned.zip`, and `SHA256SUMS.txt` to
-  `pcvantol/djconnect-app-releases`;
+- publishes `macos/vX.Y.Z` in `pcvantol/djconnect-app-releases` with
+  `DJConnect-macOS-X.Y.Z-unsigned.zip` and a macOS checksum file;
+- publishes `ios/vX.Y.Z` in `pcvantol/djconnect-app-releases` with
+  `DJConnect-iOS-X.Y.Z-unsigned.zip` and an iOS checksum file;
 - uses the matching release section from `CHANGELOG.md` as the public release
-  notes.
+  notes for both platform releases, with a platform footer.
 
 Required private repository secret:
 
@@ -202,8 +203,12 @@ startup, if the running app version differs, it opens a one-time `Wat is nieuw`
 Release notes are fetched at runtime from:
 
 ```text
-https://api.github.com/repos/pcvantol/djconnect-app-releases/releases/tags/vX.Y.Z
+https://api.github.com/repos/pcvantol/djconnect-app-releases/releases/tags/ios%2FvX.Y.Z
+https://api.github.com/repos/pcvantol/djconnect-app-releases/releases/tags/macos%2FvX.Y.Z
 ```
+
+Older builds may still use the legacy `vX.Y.Z` tag. Current builds try the
+platform-specific tag first and only fall back to the legacy tag when needed.
 
 Only public release metadata is fetched. No DJConnect device token, Home
 Assistant URL, Spotify token, diagnostics, or user data is sent to GitHub.
@@ -478,7 +483,7 @@ explicitly hardened.
 
 ## Current Local Verification
 
-For release `3.1.18`, local verification was completed with:
+For release `3.1.19`, local verification was completed with:
 
 ```sh
 swift test --no-parallel
@@ -508,7 +513,7 @@ The local helper script packages and uploads public macOS releases:
 PUBLIC_REPO=pcvantol/djconnect-app-releases \
 DEVELOPMENT_TEAM=<APPLE_TEAM_ID> \
 NOTARY_PROFILE=<notarytool-keychain-profile> \
-./Tools/release/release_macos_public.sh --version 3.1.18
+./Tools/release/release_macos_public.sh --version 3.1.19
 ```
 
 Create the notary profile once with:
