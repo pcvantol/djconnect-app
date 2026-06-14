@@ -8,7 +8,7 @@ SKIP_TESTS=0
 SKIP_BUILDS=0
 SKIP_SOURCE_RELEASE=0
 PUBLIC_MACOS=0
-CLEANUP=0
+CLEANUP=1
 KEEP_RELEASES=1
 DRY_RUN=0
 
@@ -21,13 +21,14 @@ Options:
   --skip-builds           Skip unsigned iOS/macOS build validation
   --skip-source-release   Do not create/push tag or private GitHub source release
   --public-macos          Build, notarize and upload the public macOS binary
-  --cleanup               Run cleanup_old_releases.sh after release
+  --cleanup               Run cleanup_old_releases.sh after release (default)
+  --no-cleanup            Skip release/tag/workflow cleanup
   --keep <n>              Number of releases/tags to keep during cleanup (default: 1)
   --dry-run               Print release actions without creating GitHub releases
 
 Examples:
   ./release.sh 3.1.15
-  ./release.sh 3.1.15 --public-macos --cleanup --keep 1
+  ./release.sh 3.1.15 --public-macos --keep 1
 USAGE
 }
 
@@ -44,6 +45,7 @@ shift_version() {
       --skip-source-release) SKIP_SOURCE_RELEASE=1 ;;
       --public-macos) PUBLIC_MACOS=1 ;;
       --cleanup) CLEANUP=1 ;;
+      --no-cleanup) CLEANUP=0 ;;
       --keep)
         KEEP_RELEASES="${2:-}"
         shift
@@ -134,7 +136,7 @@ if [[ "$PUBLIC_MACOS" -eq 1 ]]; then
 fi
 
 if [[ "$CLEANUP" -eq 1 ]]; then
-  run "$ROOT_DIR/cleanup_old_releases.sh" --keep "$KEEP_RELEASES"
+  run "$ROOT_DIR/cleanup_old_releases.sh" --keep "$KEEP_RELEASES" --execute
 fi
 
 echo "Release workflow completed for $VERSION"

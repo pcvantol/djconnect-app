@@ -1,6 +1,6 @@
 name: DJConnectApp
 options:
-  bundleIdPrefix: nl.pcvantol
+  bundleIdPrefix: dev
   deploymentTarget:
     iOS: "17.0"
     macOS: "14.0"
@@ -10,7 +10,7 @@ settings:
   base:
     SWIFT_VERSION: "6.0"
     CURRENT_PROJECT_VERSION: "1"
-    MARKETING_VERSION: "3.1.19"
+    MARKETING_VERSION: "3.1.20"
     DEVELOPMENT_TEAM: ""
     CODE_SIGN_STYLE: Automatic
 packages: {}
@@ -22,7 +22,7 @@ targets:
       - path: Sources/DJConnectCore
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: nl.pcvantol.djconnect.core.ios
+        PRODUCT_BUNDLE_IDENTIFIER: dev.djconnect.core.ios
         PRODUCT_NAME: DJConnectCore
         PRODUCT_MODULE_NAME: DJConnectCore
         GENERATE_INFOPLIST_FILE: YES
@@ -33,7 +33,7 @@ targets:
       - path: Sources/DJConnectCore
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: nl.pcvantol.djconnect.core.mac
+        PRODUCT_BUNDLE_IDENTIFIER: dev.djconnect.core.mac
         PRODUCT_NAME: DJConnectCore
         PRODUCT_MODULE_NAME: DJConnectCore
         GENERATE_INFOPLIST_FILE: YES
@@ -46,7 +46,7 @@ targets:
       - target: DJConnectCoreIOS
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: nl.pcvantol.djconnect.ui.ios
+        PRODUCT_BUNDLE_IDENTIFIER: dev.djconnect.ui.ios
         PRODUCT_NAME: DJConnectUI
         PRODUCT_MODULE_NAME: DJConnectUI
         GENERATE_INFOPLIST_FILE: YES
@@ -59,7 +59,7 @@ targets:
       - target: DJConnectCoreMac
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: nl.pcvantol.djconnect.ui.mac
+        PRODUCT_BUNDLE_IDENTIFIER: dev.djconnect.ui.mac
         PRODUCT_NAME: DJConnectUI
         PRODUCT_MODULE_NAME: DJConnectUI
         GENERATE_INFOPLIST_FILE: YES
@@ -99,7 +99,7 @@ targets:
           NSAllowsArbitraryLoadsInLocalNetworking: true
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: nl.pcvantol.djconnect.ios
+        PRODUCT_BUNDLE_IDENTIFIER: dev.djconnect.ios
         PRODUCT_NAME: DJConnect
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         TARGETED_DEVICE_FAMILY: "1,2"
@@ -130,7 +130,7 @@ targets:
           NSAllowsArbitraryLoadsInLocalNetworking: true
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: nl.pcvantol.djconnect.mac
+        PRODUCT_BUNDLE_IDENTIFIER: dev.djconnect.mac
         PRODUCT_NAME: DJConnect
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         ENABLE_HARDENED_RUNTIME: YES
@@ -144,7 +144,7 @@ targets:
       - target: DJConnectUIMac
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: nl.pcvantol.djconnect.core.tests
+        PRODUCT_BUNDLE_IDENTIFIER: dev.djconnect.core.tests
         GENERATE_INFOPLIST_FILE: YES
   DJConnectIOSUITests:
     type: bundle.ui-testing
@@ -155,7 +155,7 @@ targets:
       - target: DJConnectIOS
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: nl.pcvantol.djconnect.ios.uitests
+        PRODUCT_BUNDLE_IDENTIFIER: dev.djconnect.ios.uitests
         GENERATE_INFOPLIST_FILE: YES
   DJConnectMacUITests:
     type: bundle.ui-testing
@@ -166,7 +166,7 @@ targets:
       - target: DJConnectMac
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: nl.pcvantol.djconnect.mac.uitests
+        PRODUCT_BUNDLE_IDENTIFIER: dev.djconnect.mac.uitests
         GENERATE_INFOPLIST_FILE: YES
 schemes:
   DJConnectIOS:

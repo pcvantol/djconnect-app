@@ -4,6 +4,35 @@ All notable changes to DJConnect App are documented here.
 
 ## Unreleased
 
+## 3.1.20 - 2026-06-13
+
+### Added
+
+- Added a Postman collection for the local iOS/macOS Client API, covering
+  pairing info, Home Assistant pairing callback, authenticated command,
+  DJ-response, and forget callbacks.
+
+### Changed
+
+- Changed app bundle identifiers to the `dev.djconnect...` namespace.
+- Updated all in-app, release, and documentation website links to
+  `https://djconnect.dev`.
+- Polished macOS/iOS status and diagnostics surfaces: macOS pairing icons now
+  use status-dependent colors, the iOS Logs title collapses into a centered
+  navigation title, and the More menu table uses the DJConnect table styling.
+- Localized the Dutch What's New title to `Wat is er nieuw?`.
+- Replaced remaining system-blue action/link styling with the DJConnect lilac
+  accent across crash reporting, feedback, What's New, copy actions, settings,
+  website links, and pairing/wakeword prompts.
+- Matched the iOS Now Playing DJ request and output cards to the connected
+  status card styling.
+- Updated the public unsigned release workflow to keep iOS and macOS public
+  releases separated and clean up old platform releases/tags after publishing.
+
+### Tests
+
+- Updated version and localization coverage for the 3.1.20 app release.
+
 ## 3.1.19 - 2026-06-13
 
 ### Added
@@ -11,16 +40,16 @@ All notable changes to DJConnect App are documented here.
 - Added a GitHub Actions workflow that publishes unsigned macOS and iOS build
   artifacts to `pcvantol/djconnect-app-releases` when a release tag is pushed
   or the workflow is started manually.
-- Added a version-aware `Wat is nieuw` / `What's New` sheet. After an app
+- Added a version-aware `Wat is er nieuw` / `What's New` sheet. After an app
   update, DJConnect fetches the release body for the current version from the
   public releases repository and shows it once on startup.
 - Split public unsigned release publication into platform-specific GitHub
   releases: `ios/vX.Y.Z` and `macos/vX.Y.Z`. iOS and macOS now fetch their own
-  `Wat is nieuw` notes so an iOS app can no longer show macOS release notes.
+  `Wat is er nieuw` notes so an iOS app can no longer show macOS release notes.
 
 ### Tests
 
-- Added coverage for first-install versus upgraded-version `Wat is nieuw`
+- Added coverage for first-install versus upgraded-version `Wat is er nieuw`
   behavior.
 - Added coverage for platform-specific public release tags and encoded release
   note URLs.
@@ -283,7 +312,7 @@ All notable changes to DJConnect App are documented here.
   supported iOS devices with platform password fallback.
 - Removed duplicate welcome-screen title/subtitle below the DJConnect banner.
 - Localized the welcome-screen Home Assistant setup line in Dutch.
-- Changed the welcome-screen setup link to `https://djconnect.pages.dev/start`.
+- Changed the welcome-screen setup link to `https://djconnect.dev/start`.
 - Added a macOS-only quit option to the blocking pairing sheet.
 - Moved the pairing code above the Client API url on the pairing sheet.
 - Added a Keychain access recovery sheet when token access is denied.
@@ -335,7 +364,7 @@ All notable changes to DJConnect App are documented here.
 - Added a demo mode from the pairing sheet so App Store review/auditing can
   inspect playback, queue, playlists, output, and voice UI without a live Home
   Assistant backend.
-- Added the DJConnect website `https://djconnect.pages.dev` to the About page.
+- Added the DJConnect website `https://djconnect.dev` to the About page.
 
 ### Changed
 

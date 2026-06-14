@@ -46,7 +46,7 @@ The Apple app shows a one-time welcome screen after installation. It must use
 DJConnect branding and link setup to:
 
 ```text
-https://djconnect.pages.dev/start
+https://djconnect.dev/start
 ```
 
 User-facing copy must make two prerequisites clear:
@@ -126,8 +126,8 @@ Recommended iOS fields:
   "device_id": "djconnect-ios-8F3A2C91B45D",
   "device_name": "DJConnect iPhone",
   "client_type": "ios",
-  "firmware": "3.1.19",
-  "app_version": "3.1.19",
+  "firmware": "3.1.20",
+  "app_version": "3.1.20",
   "platform": "ios"
 }
 ```
@@ -139,8 +139,8 @@ Recommended macOS fields:
   "device_id": "djconnect-macos-8F3A2C91B45D",
   "device_name": "DJConnect Mac",
   "client_type": "macos",
-  "firmware": "3.1.19",
-  "app_version": "3.1.19",
+  "firmware": "3.1.20",
+  "app_version": "3.1.20",
   "platform": "macos"
 }
 ```
@@ -177,9 +177,9 @@ Expected response:
   "success": false,
   "error": "version_mismatch",
   "message": "DJConnect Home Assistant integration and device firmware major.minor versions must match.",
-  "ha_version": "3.1.19",
+  "ha_version": "3.1.20",
   "ha_major_minor": "3.1",
-  "firmware": "3.1.19",
+  "firmware": "3.1.20",
   "firmware_major_minor": "3.0"
 }
 ```
@@ -259,8 +259,8 @@ X-DJConnect-Device-ID: <device_id>
 {  "device_id": "djconnect-macos-8F3A2C91B45D",
   "device_name": "DJConnect Mac",
   "client_type": "macos",
-  "firmware": "3.1.19",
-  "app_version": "3.1.19",
+  "firmware": "3.1.20",
+  "app_version": "3.1.20",
   "platform": "macos",
   "pair_code": "123456",
   "pairing_code": "123456",
@@ -391,8 +391,8 @@ Minimum payload:
   "device_id": "djconnect-ios-8F3A2C91B45D",
   "client_type": "ios",
   "ha_pairing_status": "paired",
-  "firmware": "3.1.19",
-  "app_version": "3.1.19",
+  "firmware": "3.1.20",
+  "app_version": "3.1.20",
   "state": "online",
   "status": "online",
   "battery_percent": 85,
@@ -664,14 +664,33 @@ Release tags in the private app repo should publish unsigned macOS and iOS
 diagnostic builds to `pcvantol/djconnect-app-releases` through GitHub Actions.
 The workflow requires a private repo secret named `PUBLIC_RELEASES_TOKEN` with
 write access to that public releases repo.
+After publishing, the workflow keeps the newest platform-specific public iOS
+release and the newest platform-specific public macOS release, then removes
+older public app releases/tags for those platform namespaces.
 
 The Apple apps persist the last seen app version locally. When a newer app
 version starts, they fetch platform-specific public GitHub release notes from
 `pcvantol/djconnect-app-releases`: iOS reads `ios/vX.Y.Z`, macOS reads
 `macos/vX.Y.Z`. The legacy `vX.Y.Z` tag is only a fallback for older public
-release layouts. The release body is shown once in a native `Wat is nieuw` /
+release layouts. The release body is shown once in a native `Wat is er nieuw` /
 `What's New` sheet. This request sends no DJConnect token, Home Assistant URL,
 Spotify token, diagnostics, or user data.
+
+## Local Client API Postman Collection
+
+The repo includes a Postman collection at
+`docs/postman/djconnect-local-device-api.postman_collection.json`. It exercises
+the app-hosted local Client API:
+
+- `GET /api/device/info`;
+- `GET /api/device/pairing-info`;
+- `POST /api/device/pair`;
+- authenticated `POST /api/device/command`;
+- authenticated `POST /api/device/dj_response`;
+- authenticated `POST /api/device/forget`.
+
+Use the Client API URL shown by the app as the `client_api_url` collection
+variable. Do not save real `device_token` values in the collection file.
 
 ## UI Parity Goals
 

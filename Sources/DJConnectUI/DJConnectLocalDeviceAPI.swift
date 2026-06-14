@@ -211,7 +211,7 @@ public final class DJConnectLocalDeviceAPI: @unchecked Sendable {
     private let preferredPort: UInt16?
     private let encoder = JSONEncoder()
     private let decoder = JSONDecoder()
-    private let queue = DispatchQueue(label: "nl.pcvantol.djconnect.local-device-api")
+    private let queue = DispatchQueue(label: "dev.djconnect.local-device-api")
     private var listener: NWListener?
     private var localURL: String?
     private var isBonjourAdvertisingEnabled: Bool

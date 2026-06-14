@@ -13,7 +13,7 @@ store Spotify, Home Assistant, Sonos, OpenAI, or other backend credentials. The
 only app-owned credential is the DJConnect client bearer token issued by the
 integration.
 
-Website: [https://djconnect.pages.dev](https://djconnect.pages.dev)
+Website: [https://djconnect.dev](https://djconnect.dev)
 
 ## Documentation
 
@@ -23,6 +23,8 @@ Website: [https://djconnect.pages.dev](https://djconnect.pages.dev)
 - [docs/API_CONTRACT.md](docs/API_CONTRACT.md): Home Assistant endpoint contract.
 - [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md): local development, generation, build, and test commands.
 - [docs/RELEASE.md](docs/RELEASE.md): signing, TestFlight, notarization, and live HA validation checklist.
+- [docs/postman/djconnect-local-device-api.postman_collection.json](docs/postman/djconnect-local-device-api.postman_collection.json):
+  Postman collection for the local Client API hosted by the iOS/macOS app.
 - [SYNC_PROMPTS.md](SYNC_PROMPTS.md): canonical copy/paste prompts for syncing the app, Home Assistant, and ESP repos.
 - [docs/TODO.md](docs/TODO.md): open work, known issues, and next implementation steps.
 - [docs/ISSUES.md](docs/ISSUES.md): concrete local backlog with priorities and acceptance criteria.
@@ -34,7 +36,7 @@ Website: [https://djconnect.pages.dev](https://djconnect.pages.dev)
 On first launch the app shows a one-time DJConnect welcome screen with the
 Home Assistant setup link:
 
-- [https://djconnect.pages.dev/start](https://djconnect.pages.dev/start)
+- [https://djconnect.dev/start](https://djconnect.dev/start)
 
 DJConnect playback requires a configured Home Assistant `djconnect`
 integration and a Spotify Premium account. The app does not ask for Spotify
@@ -145,7 +147,7 @@ Use the one-time and per-release App Store/macOS checklist in
 
 On startup after an app update, DJConnect compares the running version with the
 last version seen on that device. If the version changed, the app shows a
-`Wat is nieuw` / `What's New` sheet and loads the current release notes from the
+`Wat is er nieuw` / `What's New` sheet and loads the current release notes from the
 public `pcvantol/djconnect-app-releases` GitHub release for tag `ios/vX.Y.Z` on
 iOS or `macos/vX.Y.Z` on macOS. Older builds fall back to the legacy `vX.Y.Z`
 release tag when a platform-specific release is unavailable.

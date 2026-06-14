@@ -25,7 +25,7 @@ struct DJConnectMacApp: App {
         #if DEBUG
         let processInfo = ProcessInfo.processInfo
         if processInfo.arguments.contains("--monkey-testing") {
-            let suiteName = "nl.pcvantol.djconnect.mac.monkeytests"
+            let suiteName = "dev.djconnect.mac.monkeytests"
             let defaults = UserDefaults(suiteName: suiteName) ?? .standard
             defaults.removePersistentDomain(forName: suiteName)
             defaults.set("nl", forKey: "DJConnectLanguage")

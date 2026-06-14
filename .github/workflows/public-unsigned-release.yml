@@ -173,3 +173,16 @@ jobs:
             .public-release/artifacts/DJConnect-iOS-${version}-SHA256SUMS.txt \
             --repo "$PUBLIC_REPO" \
             --clobber
+
+          for prefix in macos ios; do
+            mapfile -t old_tags < <(
+              gh release list --repo "$PUBLIC_REPO" --limit 100 --json tagName \
+                --jq ".[] | select(.tagName | startswith(\"${prefix}/v\")) | .tagName" \
+                | sort -t v -k2,2V -r \
+                | tail -n +2
+            )
+            for old_tag in "${old_tags[@]}"; do
+              gh release delete "$old_tag" --repo "$PUBLIC_REPO" --yes || true
+              git push "https://x-access-token:${GH_TOKEN}@github.com/${PUBLIC_REPO}.git" ":refs/tags/${old_tag}" || true
+            done
+          done

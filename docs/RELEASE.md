@@ -16,8 +16,8 @@ credentials.
   active before signing or uploading archives.
 - Add the signing Apple ID to Xcode.
 - Confirm access to the Apple team that owns DJConnect.
-- Register the iOS bundle identifier `nl.pcvantol.djconnect.ios`.
-- Register the macOS bundle identifier `nl.pcvantol.djconnect.mac`.
+- Register the iOS bundle identifier `dev.djconnect.ios`.
+- Register the macOS bundle identifier `dev.djconnect.mac`.
 - Create or confirm the App Store Connect app record for iOS/iPadOS.
 - Create or confirm the App Store Connect app record for macOS if macOS will
   ship through the Mac App Store.
@@ -106,7 +106,7 @@ xcodebuild -project DJConnectApp.xcodeproj -scheme DJConnectIOS -configuration D
 
 - Open `DJConnectApp.xcodeproj` in Xcode.
 - Select `DJConnectIOS`.
-- Confirm bundle identifier `nl.pcvantol.djconnect.ios`.
+- Confirm bundle identifier `dev.djconnect.ios`.
 - Confirm Team, Signing Certificate, and Provisioning Profile are valid.
 - Confirm version/build number in Xcode match the intended release.
 - Build and run on a physical iPhone.
@@ -179,6 +179,8 @@ The workflow:
   `DJConnect-iOS-X.Y.Z-unsigned.zip` and an iOS checksum file;
 - uses the matching release section from `CHANGELOG.md` as the public release
   notes for both platform releases, with a platform footer.
+- removes older platform-specific public releases and tags after successful
+  publication, keeping the newest iOS and newest macOS public release online.
 
 Required private repository secret:
 
@@ -194,10 +196,19 @@ Unsigned artifacts are for diagnostics, CI validation, and release-note hosting.
 They are not a replacement for TestFlight/App Store iOS distribution or
 Developer ID notarized macOS distribution.
 
+The public release repository should keep iOS and macOS releases separated by
+tag namespace. Use `ios/vX.Y.Z` for iOS release notes/assets and
+`macos/vX.Y.Z` for macOS release notes/assets, so each app target loads the
+matching What's New content at startup.
+
+Do not publish a shared `vX.Y.Z` public app release for current builds. Shared
+tags are only a legacy fallback and can make one platform show the other
+platform's What's New content.
+
 ## In-App What's New Notes
 
 The app stores the last seen version in app-local preferences. On a later
-startup, if the running app version differs, it opens a one-time `Wat is nieuw`
+startup, if the running app version differs, it opens a one-time `Wat is er nieuw`
 / `What's New` sheet.
 
 Release notes are fetched at runtime from:
@@ -229,7 +240,7 @@ Before an iOS/TestFlight release, make sure these are available:
 - An active Apple Developer Program membership.
 - Access to the Apple team that owns the app identifier.
 - Xcode signed in with that Apple ID.
-- Bundle identifier `nl.pcvantol.djconnect.ios` registered in Apple Developer
+- Bundle identifier `dev.djconnect.ios` registered in Apple Developer
   Certificates, Identifiers & Profiles.
 - App Store Connect app record for `DJConnect` using the same bundle
   identifier.
@@ -288,19 +299,19 @@ Home Assistant,Spotify,muziek,DJ,remote,voice,smart home
 Support URL:
 
 ```text
-https://djconnect.pages.dev
+https://djconnect.dev
 ```
 
 Marketing URL:
 
 ```text
-https://djconnect.pages.dev
+https://djconnect.dev
 ```
 
 Privacy Policy URL:
 
 ```text
-https://djconnect.pages.dev/privacy
+https://djconnect.dev/privacy
 ```
 
 Copyright:
@@ -336,7 +347,7 @@ modus starten from the pairing screen. Demo Mode shows local sample playback,
 queue, playlists, games, and a sample DJ announcement without requiring access
 to a private Home Assistant instance.
 
-Live setup instructions are available at https://djconnect.pages.dev/start.
+Live setup instructions are available at https://djconnect.dev/start.
 The app requests Local Network access to reach Home Assistant and expose the
 Client API url during pairing. Microphone is used for push-to-talk voice
 requests. Speech Recognition is used only for optional foreground
@@ -388,7 +399,7 @@ the website/download page.
 ## First-Run Welcome
 
 The first-launch welcome screen must show DJConnect branding, link setup to
-`https://djconnect.pages.dev/start`, and mention that Spotify Premium is
+`https://djconnect.dev/start`, and mention that Spotify Premium is
 required. It must not ask for Spotify credentials; Spotify OAuth is configured
 in Home Assistant.
 
@@ -443,7 +454,7 @@ open a prefilled GitHub issue in `pcvantol/djconnect` and submit it manually.
 3. Open `DJConnectApp.xcodeproj` in Xcode.
 4. Select the `DJConnectIOS` target.
 5. Confirm Signing & Capabilities uses automatic signing and the expected team.
-6. Confirm bundle identifier `nl.pcvantol.djconnect.ios`.
+6. Confirm bundle identifier `dev.djconnect.ios`.
 7. Run the app on a physical iPhone/iPad and accept Local Network, Microphone,
    and Speech Recognition prompts.
 8. Pair against a real Home Assistant `djconnect` setup and validate playback,
@@ -458,7 +469,7 @@ open a prefilled GitHub issue in `pcvantol/djconnect` and submit it manually.
 
 - Set `DEVELOPMENT_TEAM` in `project.yml` or an ignored local Xcode config.
 - Regenerate `DJConnectApp.xcodeproj` with `xcodegen generate`.
-- Confirm bundle identifier `nl.pcvantol.djconnect.mac`.
+- Confirm bundle identifier `dev.djconnect.mac`.
 - Archive with automatic signing enabled for the selected Apple team.
 
 ## Private CI
@@ -483,7 +494,7 @@ explicitly hardened.
 
 ## Current Local Verification
 
-For release `3.1.19`, local verification was completed with:
+For release `3.1.20`, local verification was completed with:
 
 ```sh
 swift test --no-parallel
@@ -513,7 +524,7 @@ The local helper script packages and uploads public macOS releases:
 PUBLIC_REPO=pcvantol/djconnect-app-releases \
 DEVELOPMENT_TEAM=<APPLE_TEAM_ID> \
 NOTARY_PROFILE=<notarytool-keychain-profile> \
-./Tools/release/release_macos_public.sh --version 3.1.19
+./Tools/release/release_macos_public.sh --version 3.1.20
 ```
 
 Create the notary profile once with:

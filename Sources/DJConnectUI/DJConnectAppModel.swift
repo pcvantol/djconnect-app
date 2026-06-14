@@ -224,7 +224,7 @@ public final class DJConnectAppModel: ObservableObject {
     private let startBackgroundTasks: Bool
     private let monkeyTestingMode: Bool
     private let diagnosticLogFileURL: URL?
-    private static let protocolVersion = "3.1.19"
+    private static let protocolVersion = "3.1.20"
     private static let defaultHomeAssistantURL = "http://homeassistant.local:8123"
     private let appVersion = DJConnectAppModel.protocolVersion
     private let installIDKey = "DJConnectInstallID"
@@ -311,7 +311,7 @@ public final class DJConnectAppModel: ObservableObject {
         self.tokenStore = resolvedTokenStore
         self.identity = Self.makeIdentity(defaults: defaults)
         self.logger = Logger(
-            subsystem: Bundle.main.bundleIdentifier ?? "nl.pcvantol.djconnect",
+            subsystem: Bundle.main.bundleIdentifier ?? "dev.djconnect",
             category: "DJConnectApp"
         )
         self.playback = playback
@@ -386,7 +386,7 @@ public final class DJConnectAppModel: ObservableObject {
             return
         }
 
-        whatsNewTitle = localized(english: "What's New in DJConnect \(appVersion)", dutch: "Wat is nieuw in DJConnect \(appVersion)")
+        whatsNewTitle = localized(english: "What's New in DJConnect \(appVersion)", dutch: "Wat is er nieuw in DJConnect \(appVersion)")
         whatsNewBody = localized(
             english: "Loading release notes...",
             dutch: "Release notes laden..."
@@ -409,8 +409,8 @@ public final class DJConnectAppModel: ObservableObject {
             isLoadingWhatsNew = true
         }
         let fallback = localized(
-            english: "Release notes could not be loaded. See https://djconnect.pages.dev for more information.",
-            dutch: "Release notes konden niet worden geladen. Bekijk https://djconnect.pages.dev voor meer informatie."
+            english: "Release notes could not be loaded. See https://djconnect.dev for more information.",
+            dutch: "Release notes konden niet worden geladen. Bekijk https://djconnect.dev voor meer informatie."
         )
 
         let candidateURLs = [
@@ -2339,8 +2339,8 @@ public final class DJConnectAppModel: ObservableObject {
                         deviceID: "djconnect-macos-unavailable",
                         deviceName: "DJConnect",
                         clientType: .macos,
-                        firmware: "3.1.19",
-                        appVersion: "3.1.19",
+                        firmware: "3.1.20",
+                        appVersion: "3.1.20",
                         platform: .macos
                     ),
                     pairingToken: "",
@@ -2890,10 +2890,20 @@ public final class DJConnectAppModel: ObservableObject {
         Task { @MainActor in
             log(.debug, "Permission request started: microphone_status=\(microphonePermissionStatus.rawValue) speech_status=\(speechPermissionStatus.rawValue)")
             log(.debug, "Permission request step: microphone begin")
-            let microphoneGranted = await requestMicrophoneAccess()
+            let microphoneGranted: Bool
+            if microphonePermissionStatus == .granted {
+                microphoneGranted = true
+            } else {
+                microphoneGranted = await requestMicrophoneAccess()
+            }
             log(.debug, "Permission request step: microphone completed granted=\(microphoneGranted)")
             log(.debug, "Permission request step: speech begin")
-            let speechGranted = await requestSpeechAccessIfAvailable()
+            let speechGranted: Bool
+            if speechPermissionStatus == .granted {
+                speechGranted = true
+            } else {
+                speechGranted = await requestSpeechAccessIfAvailable()
+            }
             log(.debug, "Permission request step: speech completed granted=\(speechGranted)")
             refreshPermissionStatuses()
             isRequestingPermissions = false
@@ -2975,6 +2985,20 @@ public final class DJConnectAppModel: ObservableObject {
 
     private func requestMicrophoneAccess() async -> Bool {
         #if canImport(AVFoundation)
+        switch Self.currentMicrophonePermissionStatus() {
+        case .granted:
+            log(.debug, "Microphone permission already granted; skipping system prompt")
+            return true
+        case .denied, .restricted:
+            log(.warning, "Microphone permission is denied or restricted; opening system settings")
+            openAppPermissionSettings()
+            return false
+        case .unavailable:
+            log(.debug, "Microphone permission unavailable on this platform")
+            return false
+        case .unknown:
+            break
+        }
         return await withCheckedContinuation { continuation in
             let resumeOnMainQueue: @Sendable (Bool) -> Void = { granted in
                 Task { @MainActor in
@@ -3042,8 +3066,18 @@ public final class DJConnectAppModel: ObservableObject {
             return
         }
         Task { @MainActor in
-            let microphoneGranted = await requestMicrophoneAccess()
-            let speechGranted = await requestSpeechAccess()
+            let microphoneGranted: Bool
+            if Self.currentMicrophonePermissionStatus() == .granted {
+                microphoneGranted = true
+            } else {
+                microphoneGranted = await requestMicrophoneAccess()
+            }
+            let speechGranted: Bool
+            if Self.currentSpeechPermissionStatus() == .granted {
+                speechGranted = true
+            } else {
+                speechGranted = await requestSpeechAccess()
+            }
             guard microphoneGranted, speechGranted else {
                 wakeWordStatus = .unavailable
                 log(.warning, "Wakeword listening unavailable because microphone or speech permission was not granted")
@@ -3136,23 +3170,35 @@ public final class DJConnectAppModel: ObservableObject {
     #if canImport(Speech) && canImport(AVFoundation)
     private func requestSpeechAccess() async -> Bool {
         let status = SFSpeechRecognizer.authorizationStatus()
-        if status == .authorized {
+        switch status {
+        case .authorized:
             log(.debug, "Speech recognition permission already granted; skipping system prompt")
             return true
+        case .denied, .restricted:
+            log(.warning, "Speech recognition permission is denied or restricted; opening system settings")
+            openAppPermissionSettings()
+            return false
+        case .notDetermined:
+            break
+        @unknown default:
+            log(.warning, "Speech recognition permission returned an unknown status: \(status.rawValue)")
+            return false
         }
 
         #if os(macOS)
-        log(.debug, "Skipping macOS speech permission prompt because SFSpeechRecognizer.requestAuthorization is unstable here; current_status=\(status.rawValue)")
-        log(.warning, "Speech recognition permission is not granted; enable it in macOS System Settings for stemactivatie")
-        return status == .authorized
+        log(.debug, "Opening macOS System Settings for initial speech recognition permission; current_status=\(status.rawValue)")
+        openAppPermissionSettings()
+        return false
         #else
         log(.debug, "Requesting iOS speech recognition permission; current_status=\(status.rawValue)")
         return await withCheckedContinuation { continuation in
-            SFSpeechRecognizer.requestAuthorization { authorizationStatus in
-                Task { @MainActor in
-                    let granted = authorizationStatus == .authorized
-                    self.log(.debug, "Speech recognition permission callback status=\(authorizationStatus.rawValue) granted=\(granted)")
-                    continuation.resume(returning: granted)
+            DispatchQueue.main.async {
+                SFSpeechRecognizer.requestAuthorization { authorizationStatus in
+                    Task { @MainActor in
+                        let granted = authorizationStatus == .authorized
+                        self.log(.debug, "Speech recognition permission callback status=\(authorizationStatus.rawValue) granted=\(granted)")
+                        continuation.resume(returning: granted)
+                    }
                 }
             }
         }
@@ -3284,7 +3330,7 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     private static var keychainService: String {
-        Bundle.main.bundleIdentifier.map { "\($0).djconnect" } ?? "nl.pcvantol.djconnect.djconnect"
+        Bundle.main.bundleIdentifier.map { "\($0).djconnect" } ?? "dev.djconnect.djconnect"
     }
 
     nonisolated static func publicReleaseTag(version: String, clientType: DJConnectClientType) -> String {

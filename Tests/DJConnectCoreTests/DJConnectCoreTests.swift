@@ -95,7 +95,7 @@ private func httpResponse(for request: URLRequest, statusCode: Int) throws -> HT
 }
 
 @Test func keychainTokenStoreUsesWhenUnlockedAccessibilityByDefault() throws {
-    let store = DJConnectKeychainTokenStore(service: "nl.pcvantol.djconnect.tests")
+    let store = DJConnectKeychainTokenStore(service: "dev.djconnect.tests")
     let tokenData = Data("secret-token".utf8)
     let attributes = store.tokenAttributes(data: tokenData)
 
@@ -106,7 +106,7 @@ private func httpResponse(for request: URLRequest, statusCode: Int) throws -> HT
 
 @Test func keychainTokenStoreCanEnableUserPresenceWhenExplicitlyRequested() throws {
     let store = DJConnectKeychainTokenStore(
-        service: "nl.pcvantol.djconnect.tests",
+        service: "dev.djconnect.tests",
         requiresUserPresence: true
     )
     let attributes = store.tokenAttributes(data: Data("secret-token".utf8))
@@ -177,6 +177,7 @@ private func waitForLocalDeviceAPIURL(_ model: DJConnectAppModel) async throws -
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
+    defaults.set("nl", forKey: "DJConnectLanguage")
     defaults.set("PAIR42", forKey: "DJConnectPairingToken")
     let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startLocalAPI: false, startBackgroundTasks: false)
 
@@ -391,6 +392,7 @@ private func waitForLocalDeviceAPIURL(_ model: DJConnectAppModel) async throws -
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
+    defaults.set("nl", forKey: "DJConnectLanguage")
     let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startLocalAPI: false, startBackgroundTasks: false)
     model.language = "nl"
 
@@ -1287,6 +1289,7 @@ private func waitForLocalDeviceAPIURL(_ model: DJConnectAppModel) async throws -
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
+    defaults.set("nl", forKey: "DJConnectLanguage")
     let model = DJConnectAppModel(
         defaults: defaults,
         tokenStore: DJConnectInMemoryTokenStore(token: "secret-token")
@@ -1309,6 +1312,7 @@ private func waitForLocalDeviceAPIURL(_ model: DJConnectAppModel) async throws -
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
+    defaults.set("nl", forKey: "DJConnectLanguage")
     let model = DJConnectAppModel(
         defaults: defaults,
         tokenStore: DJConnectInMemoryTokenStore(token: "secret-token"),
@@ -1381,18 +1385,18 @@ private func waitForLocalDeviceAPIURL(_ model: DJConnectAppModel) async throws -
 }
 
 @Test func whatsNewReleaseTagsArePlatformSpecific() throws {
-    #expect(DJConnectAppModel.publicReleaseTag(version: "3.1.19", clientType: .ios) == "ios/v3.1.19")
-    #expect(DJConnectAppModel.publicReleaseTag(version: "3.1.19", clientType: .macos) == "macos/v3.1.19")
+    #expect(DJConnectAppModel.publicReleaseTag(version: "3.1.20", clientType: .ios) == "ios/v3.1.20")
+    #expect(DJConnectAppModel.publicReleaseTag(version: "3.1.20", clientType: .macos) == "macos/v3.1.20")
 }
 
 @Test func whatsNewReleaseURLsEncodePlatformTags() throws {
-    let iosURL = try #require(DJConnectAppModel.publicReleaseNotesURL(version: "3.1.19", clientType: .ios))
-    let macURL = try #require(DJConnectAppModel.publicReleaseNotesURL(version: "3.1.19", clientType: .macos))
-    let legacyURL = try #require(DJConnectAppModel.legacyPublicReleaseNotesURL(version: "3.1.19"))
+    let iosURL = try #require(DJConnectAppModel.publicReleaseNotesURL(version: "3.1.20", clientType: .ios))
+    let macURL = try #require(DJConnectAppModel.publicReleaseNotesURL(version: "3.1.20", clientType: .macos))
+    let legacyURL = try #require(DJConnectAppModel.legacyPublicReleaseNotesURL(version: "3.1.20"))
 
-    #expect(iosURL.absoluteString.hasSuffix("/releases/tags/ios%2Fv3.1.19"))
-    #expect(macURL.absoluteString.hasSuffix("/releases/tags/macos%2Fv3.1.19"))
-    #expect(legacyURL.absoluteString.hasSuffix("/releases/tags/v3.1.19"))
+    #expect(iosURL.absoluteString.hasSuffix("/releases/tags/ios%2Fv3.1.20"))
+    #expect(macURL.absoluteString.hasSuffix("/releases/tags/macos%2Fv3.1.20"))
+    #expect(legacyURL.absoluteString.hasSuffix("/releases/tags/v3.1.20"))
 }
 
 @MainActor

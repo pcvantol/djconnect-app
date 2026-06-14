@@ -17,7 +17,7 @@ struct DJConnectIOSApp: App {
         #if DEBUG
         let processInfo = ProcessInfo.processInfo
         if processInfo.arguments.contains("--uitesting") || processInfo.arguments.contains("--monkey-testing") {
-            let suiteName = "nl.pcvantol.djconnect.uitests"
+            let suiteName = "dev.djconnect.uitests"
             let defaults = UserDefaults(suiteName: suiteName) ?? .standard
             defaults.removePersistentDomain(forName: suiteName)
             defaults.set("nl", forKey: "DJConnectLanguage")
