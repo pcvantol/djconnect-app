@@ -224,7 +224,7 @@ public final class DJConnectAppModel: ObservableObject {
     private let startBackgroundTasks: Bool
     private let monkeyTestingMode: Bool
     private let diagnosticLogFileURL: URL?
-    private static let protocolVersion = "3.1.21"
+    private static let protocolVersion = "3.1.22"
     private static let defaultHomeAssistantURL = "http://homeassistant.local:8123"
     private let appVersion = DJConnectAppModel.protocolVersion
     private let installIDKey = "DJConnectInstallID"
@@ -2339,8 +2339,8 @@ public final class DJConnectAppModel: ObservableObject {
                         deviceID: "djconnect-macos-unavailable",
                         deviceName: "DJConnect",
                         clientType: .macos,
-                        firmware: "3.1.21",
-                        appVersion: "3.1.21",
+                        firmware: "3.1.22",
+                        appVersion: "3.1.22",
                         platform: .macos
                     ),
                     pairingToken: "",
@@ -3221,7 +3221,7 @@ public final class DJConnectAppModel: ObservableObject {
         do {
             #if os(iOS)
             let session = AVAudioSession.sharedInstance()
-            try session.setCategory(.playAndRecord, mode: .measurement, options: [.defaultToSpeaker, .allowBluetoothHFP, .duckOthers])
+            try session.setCategory(.playAndRecord, mode: .measurement, options: [.defaultToSpeaker, .allowBluetooth, .duckOthers])
             try session.setActive(true, options: .notifyOthersOnDeactivation)
             #endif
 
@@ -3290,7 +3290,7 @@ public final class DJConnectAppModel: ObservableObject {
         do {
             #if os(iOS)
             let session = AVAudioSession.sharedInstance()
-            try session.setCategory(.playAndRecord, mode: .spokenAudio, options: [.defaultToSpeaker, .allowBluetoothHFP])
+            try session.setCategory(.playAndRecord, mode: .spokenAudio, options: [.defaultToSpeaker, .allowBluetooth])
             try session.setActive(true)
             #endif
 

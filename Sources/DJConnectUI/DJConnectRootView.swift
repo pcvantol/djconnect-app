@@ -1049,6 +1049,8 @@ private struct DJConnectLilacPillButtonStyle: ButtonStyle {
             .font(.headline)
             .foregroundStyle(djConnectAccent)
             .foregroundColor(djConnectAccent)
+            .tint(djConnectAccent)
+            .accentColor(djConnectAccent)
             .symbolRenderingMode(.monochrome)
             .padding(.vertical, 12)
             .padding(.horizontal, 16)

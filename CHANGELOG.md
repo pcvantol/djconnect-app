@@ -4,6 +4,22 @@ All notable changes to DJConnect App are documented here.
 
 ## Unreleased
 
+## 3.1.22 - 2026-06-14
+
+### Changed
+
+- Strengthened the shared DJConnect lilac button style so crash-report,
+  feedback, What's New, and other pill-style actions no longer fall back to
+  system-blue button tinting.
+- Adjusted the iOS audio session options used by voice recording and demo
+  response playback so the unsigned public iOS build remains compatible with
+  the GitHub Actions Xcode runner.
+
+### Tests
+
+- Verified the Swift test suite after the button-tint and iOS build
+  compatibility changes.
+
 ## 3.1.21 - 2026-06-13
 
 ### Added
