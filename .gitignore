@@ -9,6 +9,7 @@ dist/
 build/
 .next/
 DerivedData/
+.release/
 
 # Environment
 .env
