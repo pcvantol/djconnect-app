@@ -4,7 +4,7 @@ All notable changes to DJConnect App are documented here.
 
 ## Unreleased
 
-## 3.1.20 - 2026-06-13
+## 3.1.21 - 2026-06-13
 
 ### Added
 
@@ -31,7 +31,7 @@ All notable changes to DJConnect App are documented here.
 
 ### Tests
 
-- Updated version and localization coverage for the 3.1.20 app release.
+- Updated version and localization coverage for the 3.1.21 app release.
 
 ## 3.1.19 - 2026-06-13
 

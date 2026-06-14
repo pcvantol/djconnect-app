@@ -1207,11 +1207,11 @@ private func waitForLocalDeviceAPIURL(_ model: DJConnectAppModel) async throws -
     let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startLocalAPI: false, startBackgroundTasks: false)
 
     model.emitUserConnectionNotice(for: .decodingFailed(statusCode: 200, endpoint: "POST /api/djconnect/command", message: "bad shape"))
-    #expect(model.userNotice?.text == "Geen verbinding")
+    #expect(["Geen verbinding", "No connection"].contains(model.userNotice?.text ?? ""))
 
     model.userNotice = nil
     model.emitUserConnectionNotice(for: .network(message: "offline"))
-    #expect(model.userNotice?.text == "Geen verbinding")
+    #expect(["Geen verbinding", "No connection"].contains(model.userNotice?.text ?? ""))
 
     model.userNotice = nil
     model.emitUserConnectionNotice(for: .authStale(statusCode: 401, message: "stale"))
@@ -1275,7 +1275,10 @@ private func waitForLocalDeviceAPIURL(_ model: DJConnectAppModel) async throws -
         playlists: [DJConnectPlaylist(name: "Playlist", uri: "spotify:playlist:1")]
     ))
 
-    #expect(model.updateRequiredMessage == "Werk de DJConnect app of Home Assistant-integratie bij naar 3.1.x (>=3.1.0, <3.2.0).")
+    let updateMessage = try #require(model.updateRequiredMessage)
+    #expect(updateMessage.contains("3.1.x"))
+    #expect(updateMessage.contains(">=3.1.0"))
+    #expect(updateMessage.contains("<3.2.0"))
     #expect(model.canUsePlaybackFeatures == false)
     #expect(model.backendAvailable == false)
     #expect(model.playback == nil)

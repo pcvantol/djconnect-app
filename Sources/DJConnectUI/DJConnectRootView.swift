@@ -528,8 +528,7 @@ private struct PairingSheetView: View {
                 .foregroundStyle(djConnectAccent)
                 .frame(maxWidth: .infinity)
             }
-            .buttonStyle(.bordered)
-            .djConnectLilacButton()
+            .buttonStyle(DJConnectLilacPillButtonStyle())
             .controlSize(.large)
 
             #if os(macOS)
@@ -543,8 +542,7 @@ private struct PairingSheetView: View {
                 .foregroundStyle(djConnectAccent)
                 .frame(maxWidth: .infinity)
             }
-            .buttonStyle(.bordered)
-            .djConnectLilacButton()
+            .buttonStyle(DJConnectLilacPillButtonStyle())
             .controlSize(.large)
             #endif
         }
@@ -591,8 +589,7 @@ private struct PairingSheetView: View {
                     .foregroundStyle(djConnectAccent)
                     .frame(maxWidth: .infinity)
             }
-            .buttonStyle(.bordered)
-            .djConnectLilacButton()
+            .buttonStyle(DJConnectLilacPillButtonStyle())
             .controlSize(.large)
         }
     }
@@ -673,8 +670,7 @@ private struct WakeWordActivationPromptView: View {
                         .foregroundColor(djConnectAccent)
                         .frame(maxWidth: .infinity)
                 }
-                .buttonStyle(.bordered)
-                .djConnectLilacButton()
+                .buttonStyle(DJConnectLilacPillButtonStyle())
                 .controlSize(.large)
                 Button {
                     model.dismissWakeWordActivationPrompt()
@@ -684,8 +680,7 @@ private struct WakeWordActivationPromptView: View {
                         .foregroundColor(djConnectAccent)
                         .frame(maxWidth: .infinity)
                 }
-                .buttonStyle(.bordered)
-                .djConnectLilacButton()
+                .buttonStyle(DJConnectLilacPillButtonStyle())
                 .controlSize(.large)
             }
             .padding(28)
@@ -734,8 +729,7 @@ private struct UpdateRequiredView: View {
                     .foregroundStyle(djConnectAccent)
                     .frame(maxWidth: .infinity)
             }
-            .buttonStyle(.bordered)
-            .djConnectLilacButton()
+            .buttonStyle(DJConnectLilacPillButtonStyle())
             .controlSize(.large)
         }
         .padding(28)
@@ -772,8 +766,7 @@ private struct CrashReportPromptView: View {
                         .foregroundColor(djConnectAccent)
                         .frame(maxWidth: .infinity)
                 }
-                .buttonStyle(.bordered)
-                .djConnectLilacButton()
+                .buttonStyle(DJConnectLilacPillButtonStyle())
                 Button {
                     if let url = model.crashIssueURL() {
                         openURL(url)
@@ -785,8 +778,7 @@ private struct CrashReportPromptView: View {
                         .foregroundColor(djConnectAccent)
                         .frame(maxWidth: .infinity)
                 }
-                .buttonStyle(.bordered)
-                .djConnectLilacButton()
+                .buttonStyle(DJConnectLilacPillButtonStyle())
                 Button {
                     model.dismissCrashReportPrompt()
                 } label: {
@@ -795,8 +787,7 @@ private struct CrashReportPromptView: View {
                         .foregroundColor(djConnectAccent)
                         .frame(maxWidth: .infinity)
                 }
-                .buttonStyle(.bordered)
-                .djConnectLilacButton()
+                .buttonStyle(DJConnectLilacPillButtonStyle())
             }
             .padding(28)
         }
@@ -847,8 +838,7 @@ private struct WelcomeView: View {
                         .foregroundStyle(djConnectAccent)
                         .frame(maxWidth: .infinity)
                 }
-                .buttonStyle(.bordered)
-                .djConnectLilacButton()
+                .buttonStyle(DJConnectLilacPillButtonStyle())
                 .controlSize(.large)
             }
             .padding(28)
@@ -914,8 +904,7 @@ private struct WhatsNewView: View {
                         .foregroundStyle(djConnectAccent)
                         .frame(maxWidth: .infinity)
                 }
-                .buttonStyle(.bordered)
-                .djConnectLilacButton()
+                .buttonStyle(DJConnectLilacPillButtonStyle())
                 .controlSize(.large)
             }
             .padding(28)
@@ -963,8 +952,7 @@ private struct KeychainAccessRequiredView: View {
                 .foregroundStyle(djConnectAccent)
                 .frame(maxWidth: .infinity)
             }
-            .buttonStyle(.bordered)
-            .djConnectLilacButton()
+            .buttonStyle(DJConnectLilacPillButtonStyle())
             .controlSize(.large)
         }
         .padding(28)
@@ -1051,6 +1039,29 @@ private struct DJConnectPressedTintButtonStyle: ButtonStyle {
                 }
             }
             .scaleEffect(configuration.isPressed ? 0.96 : 1)
+            .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
+    }
+}
+
+private struct DJConnectLilacPillButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.headline)
+            .foregroundStyle(djConnectAccent)
+            .foregroundColor(djConnectAccent)
+            .symbolRenderingMode(.monochrome)
+            .padding(.vertical, 12)
+            .padding(.horizontal, 16)
+            .frame(maxWidth: .infinity)
+            .background(
+                djConnectAccent.opacity(configuration.isPressed ? 0.22 : 0.12),
+                in: Capsule()
+            )
+            .overlay {
+                Capsule()
+                    .stroke(djConnectAccent.opacity(configuration.isPressed ? 0.35 : 0.14), lineWidth: 1)
+            }
+            .scaleEffect(configuration.isPressed ? 0.98 : 1)
             .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
     }
 }
@@ -2981,8 +2992,7 @@ private struct LocalGameSurface: View {
                             .padding(.horizontal, 16)
                             .padding(.vertical, 10)
                     }
-                    .buttonStyle(.bordered)
-                    .djConnectLilacButton()
+                    .buttonStyle(DJConnectLilacPillButtonStyle())
                     .controlSize(.large)
                 }
             }
@@ -3048,8 +3058,7 @@ private struct LocalGameSurface: View {
                 }
                 .help(localized(language, "Reset", "Reset"))
             }
-            .buttonStyle(.bordered)
-            .djConnectLilacButton()
+            .buttonStyle(DJConnectLilacPillButtonStyle())
             .controlSize(.large)
 
             Text(helpText)
@@ -4097,8 +4106,7 @@ private struct FeedbackPromptView: View {
                             .foregroundColor(djConnectAccent)
                             .frame(maxWidth: .infinity)
                     }
-                    .buttonStyle(.bordered)
-                    .djConnectLilacButton()
+                    .buttonStyle(DJConnectLilacPillButtonStyle())
                     .controlSize(.large)
 
                     Button {
@@ -4109,8 +4117,7 @@ private struct FeedbackPromptView: View {
                             .foregroundColor(djConnectAccent)
                             .frame(maxWidth: .infinity)
                     }
-                    .buttonStyle(.bordered)
-                    .djConnectLilacButton()
+                    .buttonStyle(DJConnectLilacPillButtonStyle())
                     .controlSize(.large)
                 }
             }
