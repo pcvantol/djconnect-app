@@ -4686,11 +4686,22 @@ private func wakeWordPhraseField(_ model: DJConnectAppModel) -> some View {
 private func wakeWordStatusText(_ model: DJConnectAppModel) -> String {
     switch model.wakeWordStatus {
     case .idle:
+        if model.wakeWordEnabled {
+            if model.pairingStatus != .paired || !model.isConnected {
+                return localized(model.language, "Waiting for Home Assistant", "Wachten op Home Assistant")
+            }
+            if !model.backendAvailable {
+                return localized(model.language, "Playback backend unavailable", "Playback backend niet beschikbaar")
+            }
+            if !model.voiceEnabled {
+                return localized(model.language, "Voice requests unavailable", "Stemverzoeken niet beschikbaar")
+            }
+        }
         return localized(model.language, "Idle", "Inactief")
     case .listening:
-            return localized(model.language, "Listening for wake word", "Luistert naar wake word")
-        case .detected:
-            return localized(model.language, "Wake word detected", "Wake word herkend")
+        return localized(model.language, "Listening for wake word", "Luistert naar wake word")
+    case .detected:
+        return localized(model.language, "Wake word detected", "Wake word herkend")
     case .unavailable:
         if model.isDemoMode {
             return localized(model.language, "Not available in Demo Mode", "Niet beschikbaar in demo modus")
