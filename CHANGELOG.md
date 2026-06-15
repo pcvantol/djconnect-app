@@ -4,6 +4,34 @@ All notable changes to DJConnect App are documented here.
 
 ## Unreleased
 
+## 3.1.23 - 2026-06-15
+
+### Changed
+
+- Slowed Maze Chase ghost movement and added power-pellet behavior: eating the
+  white pellet now makes the ghost temporarily vulnerable with blinking feedback
+  and bonus scoring.
+- Polished iOS and macOS layout spacing so Now Playing, Queue, Playlists,
+  Games, Settings, More, About, Legal, and Privacy align more consistently.
+- Updated the DJConnect app banner, splash/crash surfaces, app-gradient
+  presentation, and visible version information.
+- Improved Home Assistant and playback-backend offline handling: refreshes time
+  out cleanly, controls disable during refresh, stale state is reset, and
+  wakeword listening pauses while Home Assistant or playback is unavailable.
+- Improved push-to-talk and wakeword permission handling, including macOS
+  Microphone and Speech Recognition status refreshes after returning from
+  System Settings.
+- Simplified Settings by keeping the pairing code on the Pairing screen only
+  and removing the reset-app-permissions action.
+- Added UI-only log line numbering and a copy confirmation toast for logs.
+- Added release hygiene preflight tooling for third-party dependency/tool
+  updates and documented third-party notices and technical design decisions.
+
+### Tests
+
+- Verified Swift tests and iOS/macOS debug builds during the 3.1.23 release
+  cycle.
+
 ## 3.1.22 - 2026-06-14
 
 ### Changed

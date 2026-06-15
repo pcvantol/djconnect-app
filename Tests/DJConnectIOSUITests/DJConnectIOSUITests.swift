@@ -52,11 +52,11 @@ final class DJConnectIOSUITests: XCTestCase {
         XCTAssertTrue(app.tabBars.buttons["Speelt Nu"].waitForExistence(timeout: 6))
         XCTAssertTrue(app.tabBars.buttons["Wachtrij"].exists)
         XCTAssertTrue(app.tabBars.buttons["Afspeellijsten"].exists)
-        XCTAssertTrue(app.tabBars.buttons["Games"].exists)
         XCTAssertTrue(app.tabBars.buttons["Meer"].exists || app.tabBars.buttons["More"].exists)
 
         let moreButton = app.tabBars.buttons["Meer"].exists ? app.tabBars.buttons["Meer"] : app.tabBars.buttons["More"]
         moreButton.tap()
+        XCTAssertTrue(app.descendants(matching: .any)["Games"].waitForExistence(timeout: 3))
         XCTAssertTrue(app.descendants(matching: .any)["Instellingen"].waitForExistence(timeout: 3))
         XCTAssertTrue(app.descendants(matching: .any)["Over"].exists)
     }
@@ -76,12 +76,13 @@ final class DJConnectIOSUITests: XCTestCase {
         let app = launchApp()
         enterDemoModeIfNeeded(app)
 
-        app.tabBars.buttons["Games"].tap()
+        tapTabOrMoreItem("Games", in: app)
 
-        XCTAssertTrue(app.navigationBars["Games (demo)"].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.navigationBars["Games"].waitForExistence(timeout: 3))
         XCTAssertTrue(app.buttons["Paddle Rally"].exists || app.staticTexts["Paddle Rally"].exists)
         XCTAssertTrue(app.buttons["Meteor Run"].exists || app.staticTexts["Meteor Run"].exists)
         XCTAssertTrue(app.buttons["Sky Dash"].exists || app.staticTexts["Sky Dash"].exists)
+        XCTAssertTrue(app.buttons["Maze Chase"].exists || app.staticTexts["Maze Chase"].exists)
         XCTAssertTrue(app.buttons["Tik om te spelen"].exists || app.staticTexts["Tik om te spelen"].exists)
     }
 
@@ -115,7 +116,7 @@ final class DJConnectIOSUITests: XCTestCase {
             case "Wachtrij":
                 app.buttons["Tik om te spelen"].tapIfExists()
             case "Afspeellijsten":
-                app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "Gelikete nummers")).firstMatch.tapIfExists()
+                app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "DJConnect")).firstMatch.tapIfExists()
             case "Games":
                 app.buttons["Tik om te spelen"].tapIfExists()
                 app.buttons["Sky Dash"].tapIfExists()

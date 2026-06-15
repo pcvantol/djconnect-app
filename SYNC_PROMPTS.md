@@ -32,9 +32,70 @@ commit the updated `SYNC_PROMPTS.md` there.
 ## Current Protocol Line
 
 The current shared protocol/release line is `3.1.x`; this bundle was last
-aligned after Raspberry Pi client release `v3.1.25`. DJConnect clients on the
+aligned after Home Assistant integration release `v3.1.32`. DJConnect clients on the
 `3.1.x` line are compatible with Home Assistant integration versions `>=3.1.0`
 and `<3.2.0`.
+
+## Shared Release Cycle
+
+Every DJConnect release in any repo must follow the shared release hygiene
+checklist. Apply the repo-specific commands and skip only steps that are truly
+not applicable for that repo.
+
+Before publishing:
+
+- Review `PRODUCT_ROADMAP.md`.
+- Keep `PRODUCT_ROADMAP.md` byte-for-byte identical across all DJConnect repos.
+- Check whether any roadmap item was implemented.
+- Mark implemented roadmap items as checked.
+- Add the implementing major.minor version in parentheses, for example
+  `[x] Queue supports up to 100 items (3.1)`.
+- If the implementation is client-specific, include the client after the
+  version, for example `[x] ESP32 screenshot endpoint (3.1, ESP32)`.
+- Do not delete recently implemented checked items during the release; keep
+  them as product memory until a later roadmap cleanup.
+- Update changelog with a new entry for the release. Do not collapse unrelated
+  historical entries into one version.
+- Update README, handoff, tests, design decisions, Postman collections,
+  third-party notices and repo-specific docs when product behavior, APIs,
+  release flow, dependencies or public contracts changed.
+- Review and update all user-facing translations for changed setup, options,
+  repair, entity and service strings in repos that ship localized UI.
+- Update this `SYNC_PROMPTS.md` when the cross-repo contract or release
+  checklist changes.
+- Sync the updated `PRODUCT_ROADMAP.md` and `SYNC_PROMPTS.md` to all sibling
+  DJConnect repos before finishing release hygiene.
+- Bump the repo version according to that repo's release mechanism.
+- Run build cleanup before release/build commands so stale assets do not leak
+  into published artifacts.
+- For repos with managed third-party build dependencies, update/upgrade
+  frameworks, libraries and build tools before compiling release artifacts. If
+  dependency versions changed, update third-party notices and dependency
+  inventory/design documentation before publishing.
+- Run the relevant automated tests for the repo.
+- Run build/package validation for every supported target.
+- Deploy to a connected app/device when the repo has a connected local target
+  available and the release/change calls for it.
+- Run smoke/monkey testing where the repo has an app, website, device or local
+  UI surface. For ESP/device clients, keep monkey tests non-destructive:
+  render/navigation only, no OTA, factory reset, WiFi changes, playback
+  mutations or credential changes.
+- Validate logs after smoke/monkey testing and explicitly check for crashes,
+  watchdogs, panics, assertions, unhandled exceptions, repeated HTTP failures,
+  memory allocation failures and secret leakage.
+
+Publishing and cleanup:
+
+- Publish the release through the repo's standard release script or workflow.
+- Verify published artifacts/assets are present and named according to the
+  current contract.
+- Delete old GitHub releases that should not be retained.
+- Delete old Git tags that should not be retained.
+- Delete old GitHub Actions workflow runs that should not be retained.
+- Keep only the agreed latest stable/beta releases for that repo.
+- Re-run or verify cleanup scripts where the repo provides them.
+- Confirm the final release state in docs/changelog/handoff and note any
+  skipped validation with the reason.
 
 ---
 
@@ -59,6 +120,10 @@ client contracts.
 
 Requirements:
 - Treat iOS/macOS/Raspberry Pi as app-like clients, not ESP hardware devices.
+- Before pairing, require that Home Assistant has the official Spotify
+  integration configured with at least one Spotify `media_player` entity; if
+  not, show a clear localized config-flow error telling the user to configure
+  Spotify first.
 - Pair app-like clients through POST /api/djconnect/pair. For Raspberry Pi, this is
   the primary pairing path; do not try to call a Pi-local /api/device/pair
   endpoint during initial pairing.
@@ -93,16 +158,17 @@ Requirements:
   default but still require user confirmation; if multiple clients are found,
   show a discovered-client selector with useful labels. Discovery is
   convenience only and must never mark a device paired by itself.
-- If Pi mDNS TXT is visible but `/api/device/pairing-info` fails, show the
-  discovered client as reachable-by-mDNS but not verified, keep manual Client
-  API URL entry available, and surface a clear pairing error instead of silently
-  falling back to `djconnect-{pair_code}`. Do not create a second HA entry when
-  the discovered Pi `device_id` is already configured; guide the user to reset
-  or re-pair that existing client.
+- If Pi mDNS TXT is visible but `/api/device/pairing-info` fails, treat it as a
+  stale/unreachable discovery record and hide it from the discovered-client
+  selector on the next scan. Keep manual Client API URL entry available and
+  surface a clear pairing error when the user-provided URL cannot be probed
+  instead of silently falling back to `djconnect-{pair_code}`. Do not create a
+  second HA entry when the discovered Pi `device_id` is already configured;
+  guide the user to reset or re-pair that existing client.
 - Add/keep HA tests for Raspberry Pi discovery: service TXT acceptance,
-  pairing-info override, config-flow prefill for one Pi, selector behavior for
-  multiple clients, duplicate `device_id` handling, pairing-info failure
-  fallback, and proof that Pi pairing uses the stable discovered
+  pairing-info override, stale/unreachable probe filtering, config-flow prefill
+  for one Pi, selector behavior for multiple clients, duplicate `device_id`
+  handling, manual Client API URL fallback, and proof that Pi pairing uses the stable discovered
   `djconnect-raspberry-pi-XXXXXXXXXXXX` instead of `djconnect-{pair_code}`.
 - Return ha_version or ha_major_minor on status/command responses so Apple
   clients can enforce the matching major.minor contract.
@@ -279,6 +345,9 @@ Requirements:
   language, log_level, and current device settings in status payloads.
 - Send raw WAV voice audio to POST /api/djconnect/voice with Authorization:
   Bearer <device_token> and X-DJConnect-Device-ID.
+- Keep Up Next queue capacity aligned with the shared contract: accept and
+  render up to 100 real queue items from Home Assistant, then truncate locally.
+  Do not pad short queues with repeated current-track entries.
 - Treat backend_unavailable and version_mismatch as recoverable without
   clearing pairing.
 - Treat authenticated 401/403/404 as stale/setup recovery while keeping
@@ -322,6 +391,8 @@ Regels:
 
 - `device_id` is model-specifiek: `djconnect-lilygo-t-embed-s3-XXXXXXXXXXXX` voor LilyGO en `djconnect-esp32-s3-box-3-XXXXXXXXXXXX` voor ESP32-S3-BOX-3.
 - De ESP mDNS hostname gebruikt exact dezelfde `device_id`, dus bijvoorbeeld `http://djconnect-esp32-s3-box-3-XXXXXXXXXXXX.local`.
+- ESP mDNS TXT bevat minimaal `name`, `device_id`, `client_type=esp32`,
+  `version`, `paired`, `api` en `model`.
 - Gebruik het mDNS TXT veld `model` of de status/API `model` om het device model te bepalen; parse niet op de oude `djconnect-lilygo-` prefix.
 - `ha_local_url` moet een echte LAN URL zijn.
 - `ha_local_url` mag nooit `.ui.nabu.casa` bevatten.
@@ -449,7 +520,8 @@ Voor `POST /api/djconnect/command` met `command:"queue"`:
 Regels:
 
 - App-clients mogen `limit:100` meesturen; HA retourneert maximaal 100 echte
-  backend queue-items.
+  backend queue-items. ESP firmware in de `3.1.x` lijn accepteert en toont
+  maximaal 100 items.
 - Retourneer de echte backend queue/context, niet dezelfde current track als padding.
 - Als er maar 1 queue-item is, retourneer 1 item.
 - `context_uri` blijft nodig voor ESP/web per-item play.
@@ -727,6 +799,16 @@ Command responses are transport/command success first, playback-state second.
 A command response with `success:true` and `playback.has_playback:false` is not
 an error state.
 
+`command:"playlists"` is browsing, not active playback. If Spotify credentials
+are valid and playlist browsing succeeds, HA must return HTTP 200 with
+`success:true`, `backend_available:true` and `playlists[]` items containing at
+least `name`, `uri`, `owner` and `image_url`, even when Spotify playback is
+idle. ESP32 clients may send `limit`; HA must cap the response to that limit
+and use a safe default of 20 when ESP omits it. App-like clients may request up
+to 100 playlists. Use `backend_available:false` only when the backend is
+genuinely unavailable or auth is invalid, and still return a non-empty JSON body
+with `success:false`, `error:"playback_backend_unavailable"` and `playlists:[]`.
+
 When `playback.has_playback == false`, clients must treat the playback snapshot
 as valid but empty. Playback fields may be `null` or empty strings, including
 `progress_ms`, `duration_ms`, `volume_percent`, `device.volume_percent`,
@@ -794,9 +876,16 @@ Physical PTT:
 
 ESP records WAV
 -> POST /api/djconnect/voice raw audio/wav
--> HA does STT/Assist/playback/TTS
+-> HA does STT
+-> HA may run a guarded HA Assist fuzzy-correction step on the recognized text
+-> HA does Spotify intent parsing/playback/TTS
 -> HA returns DJ text plus optional WAV/MP3 audio_url
 -> ESP displays text and plays local response audio
+The fuzzy-correction step is best-effort only: it corrects likely STT mistakes
+in artist, track, album and playlist names, never sends credentials to Assist,
+never controls Home Assistant devices, and must fall back to the original STT
+text when Assist returns a device-lookup error, prompt leak, URI/JSON or empty
+response.
 Expected HA response:
 
 {
@@ -878,7 +967,7 @@ Na succesvolle HA direct pair en eerste geaccepteerde HA command/status mag UI n
 Backend unavailable mag niet terug naar pairing-code scherm forceren.
 Pairing stale mag duidelijk tonen: reset/re-pair nodig.
 Soft reset/reboot moet local cue sound en felle witte LED-ring flash tonen vlak voor reboot.
-Bonus games Paddle Rally, Meteor Run, Sky Dash en Maze Chase mogen in UI blijven.
+Bonus games Pong, Asteroids, Fly en Pacman mogen in UI blijven.
 10. Tests
 Voeg/update host tests waar mogelijk:
 
@@ -1356,6 +1445,16 @@ Command responses are transport/command success first, playback-state second.
 A command response with `success:true` and `playback.has_playback:false` is not
 an error state.
 
+`command:"playlists"` is browsing, not active playback. If Spotify credentials
+are valid and playlist browsing succeeds, HA must return HTTP 200 with
+`success:true`, `backend_available:true` and `playlists[]` items containing at
+least `name`, `uri`, `owner` and `image_url`, even when Spotify playback is
+idle. ESP32 clients may send `limit`; HA must cap the response to that limit
+and use a safe default of 20 when ESP omits it. App-like clients may request up
+to 100 playlists. Use `backend_available:false` only when the backend is
+genuinely unavailable or auth is invalid, and still return a non-empty JSON body
+with `success:false`, `error:"playback_backend_unavailable"` and `playlists:[]`.
+
 When `playback.has_playback == false`, clients must treat the playback snapshot
 as valid but empty. Playback fields may be `null` or empty strings, including
 `progress_ms`, `duration_ms`, `volume_percent`, `device.volume_percent`,
@@ -1628,16 +1727,17 @@ Requirements:
   default but still require user confirmation; if multiple clients are found,
   show a discovered-client selector with useful labels. Discovery is
   convenience only and must never mark a device paired by itself.
-- If Pi mDNS TXT is visible but `/api/device/pairing-info` fails, show the
-  discovered client as reachable-by-mDNS but not verified, keep manual Client
-  API URL entry available, and surface a clear pairing error instead of silently
-  falling back to `djconnect-{pair_code}`. Do not create a second HA entry when
-  the discovered Pi `device_id` is already configured; guide the user to reset
-  or re-pair that existing client.
+- If Pi mDNS TXT is visible but `/api/device/pairing-info` fails, treat it as a
+  stale/unreachable discovery record and hide it from the discovered-client
+  selector on the next scan. Keep manual Client API URL entry available and
+  surface a clear pairing error when the user-provided URL cannot be probed
+  instead of silently falling back to `djconnect-{pair_code}`. Do not create a
+  second HA entry when the discovered Pi `device_id` is already configured;
+  guide the user to reset or re-pair that existing client.
 - Add/keep HA tests for Raspberry Pi discovery: service TXT acceptance,
-  pairing-info override, config-flow prefill for one Pi, selector behavior for
-  multiple clients, duplicate `device_id` handling, pairing-info failure
-  fallback, and proof that Pi pairing uses the stable discovered
+  pairing-info override, stale/unreachable probe filtering, config-flow prefill
+  for one Pi, selector behavior for multiple clients, duplicate `device_id`
+  handling, manual Client API URL fallback, and proof that Pi pairing uses the stable discovered
   `djconnect-raspberry-pi-XXXXXXXXXXXX` instead of `djconnect-{pair_code}`.
 - Return ha_version or ha_major_minor on status/command responses so Apple
   clients can enforce the matching major.minor contract.

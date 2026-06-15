@@ -83,6 +83,13 @@ if [[ ! -d ".git" || ! -d "DJConnectApp.xcodeproj" ]]; then
   exit 1
 fi
 
+if [[ "${DJCONNECT_SKIP_THIRDPARTY_UPDATE:-0}" != "1" && "${DJCONNECT_THIRDPARTY_PREFLIGHT_DONE:-0}" != "1" ]]; then
+  bash "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/update_thirdparty.sh"
+  export DJCONNECT_THIRDPARTY_PREFLIGHT_DONE=1
+elif [[ "${DJCONNECT_SKIP_THIRDPARTY_UPDATE:-0}" == "1" ]]; then
+  echo "Skipping third-party update preflight (DJCONNECT_SKIP_THIRDPARTY_UPDATE=1)."
+fi
+
 if [[ -z "${DEVELOPMENT_TEAM:-}" ]]; then
   echo "Set DEVELOPMENT_TEAM to your Apple Developer Team ID." >&2
   exit 1

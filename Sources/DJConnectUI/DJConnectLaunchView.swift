@@ -6,11 +6,23 @@ import UIKit
 import AppKit
 #endif
 
+enum DJConnectVersionInfo {
+    static var displayVersion: String {
+        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "3.1.23"
+    }
+}
+
 public struct DJConnectLaunchContainer<Content: View>: View {
     @State private var showLaunch = true
+    @State private var minimumLaunchTimeElapsed = false
+    @State private var maximumLaunchTimeElapsed = false
+    @State private var minimumLaunchTask: Task<Void, Never>?
+    @State private var maximumLaunchTask: Task<Void, Never>?
+    private let isBusy: Bool
     private let content: Content
 
-    public init(content: Content) {
+    public init(isBusy: Bool = false, content: Content) {
+        self.isBusy = isBusy
         self.content = content
     }
 
@@ -23,11 +35,46 @@ public struct DJConnectLaunchContainer<Content: View>: View {
                     .zIndex(1)
             }
         }
-        .task {
+        .onAppear {
+            showLaunchOverlay()
+        }
+        .onChange(of: isBusy) {
+            updateLaunchVisibility()
+        }
+        .onDisappear {
+            minimumLaunchTask?.cancel()
+            maximumLaunchTask?.cancel()
+        }
+    }
+
+    private func showLaunchOverlay() {
+        minimumLaunchTask?.cancel()
+        maximumLaunchTask?.cancel()
+        minimumLaunchTimeElapsed = false
+        maximumLaunchTimeElapsed = false
+        showLaunch = true
+
+        minimumLaunchTask = Task { @MainActor in
             try? await Task.sleep(for: .milliseconds(950))
-            withAnimation(.easeOut(duration: 0.28)) {
-                showLaunch = false
-            }
+            guard !Task.isCancelled else { return }
+            minimumLaunchTimeElapsed = true
+            updateLaunchVisibility()
+        }
+
+        maximumLaunchTask = Task { @MainActor in
+            try? await Task.sleep(for: .seconds(12))
+            guard !Task.isCancelled else { return }
+            maximumLaunchTimeElapsed = true
+            updateLaunchVisibility()
+        }
+    }
+
+    private func updateLaunchVisibility() {
+        guard showLaunch, minimumLaunchTimeElapsed, (!isBusy || maximumLaunchTimeElapsed) else {
+            return
+        }
+        withAnimation(.easeOut(duration: 0.28)) {
+            showLaunch = false
         }
     }
 }
@@ -39,11 +86,17 @@ private struct DJConnectLaunchView: View {
             let bannerWidth = min(max(proxy.size.width - 48, 300), 760)
 
             ZStack {
-                Color(red: 0.09, green: 0.07, blue: 0.12)
-                    .ignoresSafeArea()
+                DJConnectLaunchCanvasBackground()
                 VStack(spacing: 22) {
-                    DJConnectLaunchBanner()
-                        .frame(width: bannerWidth)
+                    VStack(spacing: 10) {
+                        DJConnectLaunchBanner()
+                            .frame(width: bannerWidth)
+                        Text("v\(DJConnectVersionInfo.displayVersion)")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(.white.opacity(0.58))
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.82)
+                    }
                     ProgressView()
                         .controlSize(.regular)
                         .tint(.white.opacity(0.86))
@@ -54,6 +107,50 @@ private struct DJConnectLaunchView: View {
                 .accessibilityElement(children: .combine)
             }
         }
+    }
+}
+
+private struct DJConnectLaunchCanvasBackground: View {
+    var body: some View {
+        ZStack {
+            LinearGradient(
+                colors: [
+                    Color(red: 0.02, green: 0.03, blue: 0.09),
+                    Color(red: 0.07, green: 0.04, blue: 0.15),
+                    Color(red: 0.03, green: 0.08, blue: 0.18)
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+            RadialGradient(
+                colors: [
+                    Color(red: 0.22, green: 0.43, blue: 0.98).opacity(0.42),
+                    .clear
+                ],
+                center: .topTrailing,
+                startRadius: 0,
+                endRadius: 880
+            )
+            RadialGradient(
+                colors: [
+                    Color(red: 0.64, green: 0.12, blue: 0.92).opacity(0.34),
+                    .clear
+                ],
+                center: .bottomLeading,
+                startRadius: 0,
+                endRadius: 820
+            )
+            LinearGradient(
+                colors: [
+                    .black.opacity(0.16),
+                    .clear,
+                    .black.opacity(0.26)
+                ],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+        }
+        .ignoresSafeArea()
     }
 }
 
@@ -85,12 +182,50 @@ private struct DJConnectLaunchBanner: View {
         }
         .padding(18)
         .background(
-            RoundedRectangle(cornerRadius: 24, style: .continuous)
-                .fill(Color(red: 0.09, green: 0.07, blue: 0.12))
+            LinearGradient(
+                colors: [
+                    Color(red: 0.06, green: 0.04, blue: 0.12),
+                    Color(red: 0.25, green: 0.08, blue: 0.42),
+                    Color(red: 0.39, green: 0.12, blue: 0.62),
+                    Color(red: 0.08, green: 0.10, blue: 0.23)
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
         )
+        .overlay {
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .fill(
+                    LinearGradient(
+                        colors: [
+                            .black.opacity(0.34),
+                            .clear,
+                            .black.opacity(0.30)
+                        ],
+                        startPoint: .leading,
+                        endPoint: .trailing
+                    )
+                )
+                .blendMode(.multiply)
+        }
+        .overlay {
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .fill(
+                    LinearGradient(
+                        colors: [
+                            .clear,
+                            .black.opacity(0.22)
+                        ],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                )
+                .blendMode(.multiply)
+        }
         .overlay(
             RoundedRectangle(cornerRadius: 24, style: .continuous)
-                .stroke(.white.opacity(0.08), lineWidth: 1)
+                .stroke(.white.opacity(0.12), lineWidth: 1)
         )
         .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
     }

@@ -62,6 +62,7 @@ public final class DJConnectClient: Sendable {
 
     public func pairingRequest(_ payload: DJConnectPairingPayload) throws -> URLRequest {
         var request = URLRequest(url: endpoint(path: "/api/djconnect/pair"))
+        request.timeoutInterval = 10
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue(payload.deviceID, forHTTPHeaderField: "X-DJConnect-Device-ID")
@@ -186,6 +187,7 @@ public final class DJConnectClient: Sendable {
         }
 
         var request = URLRequest(url: endpoint(path: path))
+        request.timeoutInterval = 10
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         request.setValue(identity.deviceID, forHTTPHeaderField: "X-DJConnect-Device-ID")
         return request

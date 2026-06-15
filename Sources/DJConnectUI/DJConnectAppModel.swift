@@ -113,9 +113,12 @@ public final class DJConnectAppModel: ObservableObject {
             } else if pairingStatus != .paired {
                 stopWakeWordListening()
             }
+            updateWakeWordListeningForAvailability()
         }
     }
-    @Published public var isConnected = false
+    @Published public var isConnected = false {
+        didSet { updateWakeWordListeningForAvailability() }
+    }
     @Published public var isPairing = false {
         didSet { updateBonjourAdvertisingState() }
     }
@@ -123,7 +126,9 @@ public final class DJConnectAppModel: ObservableObject {
     @Published public private(set) var isLoadingOutputs = false
     @Published public private(set) var isLoadingQueue = false
     @Published public private(set) var isLoadingPlaylists = false
-    @Published public var backendAvailable = true
+    @Published public var backendAvailable = true {
+        didSet { updateWakeWordListeningForAvailability() }
+    }
     @Published public var updateRequiredMessage: String?
     @Published public var pairingMessage: String?
     @Published public var userNotice: DJConnectUserNotice?
@@ -151,7 +156,9 @@ public final class DJConnectAppModel: ObservableObject {
     @Published public var language = "nl" {
         didSet { defaults.set(language, forKey: languageKey) }
     }
-    @Published public var voiceEnabled = true
+    @Published public var voiceEnabled = true {
+        didSet { updateWakeWordListeningForAvailability() }
+    }
     @Published public var localResponseAudioEnabled = true
     @Published public var isDemoMode = false {
         didSet { updateBonjourAdvertisingState() }
@@ -208,6 +215,7 @@ public final class DJConnectAppModel: ObservableObject {
     #if canImport(AVFoundation)
     private var voiceRecorder: AVAudioRecorder?
     private var voiceRecordingURL: URL?
+    private var voiceStartTask: Task<Void, Never>?
     private var responseAudioPlayer: AVAudioPlayer?
     private var responseSpeechSynthesizer: AVSpeechSynthesizer?
     #endif
@@ -224,7 +232,7 @@ public final class DJConnectAppModel: ObservableObject {
     private let startBackgroundTasks: Bool
     private let monkeyTestingMode: Bool
     private let diagnosticLogFileURL: URL?
-    private static let protocolVersion = "3.1.22"
+    private static let protocolVersion = "3.1.23"
     private static let defaultHomeAssistantURL = "http://homeassistant.local:8123"
     private let appVersion = DJConnectAppModel.protocolVersion
     private let installIDKey = "DJConnectInstallID"
@@ -922,7 +930,7 @@ public final class DJConnectAppModel: ObservableObject {
             }
         } catch {
             log(.error, "Refresh failed unexpectedly: \(error.localizedDescription)")
-            pairingMessage = error.localizedDescription
+            applyConnectionUnavailableState(message: error.localizedDescription)
             if notifyUserOnError {
                 emitUserConnectionNotice()
             }
@@ -1200,6 +1208,7 @@ public final class DJConnectAppModel: ObservableObject {
                 return
             }
             await runRefresh(reason: "Queue item Now Playing refresh completed")
+            await refreshQueue()
             loadingQueueItemID = nil
             loadingQueueItemIndex = nil
         }
@@ -1259,9 +1268,18 @@ public final class DJConnectAppModel: ObservableObject {
             return
         }
 
-        Task { @MainActor in
+        voiceStartTask?.cancel()
+        isRecordingVoice = true
+        voiceStatus = .listening
+        voiceErrorMessage = nil
+
+        voiceStartTask = Task { @MainActor in
             let granted = await requestMicrophoneAccess()
+            guard !Task.isCancelled, isRecordingVoice else {
+                return
+            }
             guard granted else {
+                isRecordingVoice = false
                 voiceStatus = .unavailable
                 voiceErrorMessage = localized(
                     english: "Microphone access is required for push-to-talk.",
@@ -1272,6 +1290,7 @@ public final class DJConnectAppModel: ObservableObject {
                 return
             }
             beginVoiceRecording()
+            voiceStartTask = nil
         }
     }
 
@@ -1281,6 +1300,8 @@ public final class DJConnectAppModel: ObservableObject {
         }
 
         #if canImport(AVFoundation)
+        voiceStartTask?.cancel()
+        voiceStartTask = nil
         let url = voiceRecordingURL
         voiceRecorder?.stop()
         voiceRecorder = nil
@@ -1292,8 +1313,8 @@ public final class DJConnectAppModel: ObservableObject {
         #endif
 
         guard let url else {
-            voiceStatus = .unavailable
-            log(.warning, "Voice upload skipped because recording URL is missing")
+            voiceStatus = .idle
+            log(.debug, "Voice recording stopped before the recorder was ready")
             resumeWakeWordListeningIfNeeded()
             return
         }
@@ -1326,7 +1347,11 @@ public final class DJConnectAppModel: ObservableObject {
                 }
                 voiceStatus = .unavailable
                 log(.warning, "Voice upload failed: \(describedError)")
-                apply(error: error)
+                if case .backendUnavailable = error {
+                    await refreshAfterDJResponse()
+                } else {
+                    apply(error: error)
+                }
                 resumeWakeWordListeningIfNeeded()
             } catch {
                 voiceErrorMessage = error.localizedDescription
@@ -1379,7 +1404,7 @@ public final class DJConnectAppModel: ObservableObject {
                 pendingSelectedOutput = nil
             }
         }
-        backendAvailable = true
+        markHomeAssistantReachable(backendAvailableAfterResponse: true)
         clearRecoverableVoiceErrorIfNeeded()
         updateRequiredMessage = nil
         if let normalizedPlayback {
@@ -1399,10 +1424,11 @@ public final class DJConnectAppModel: ObservableObject {
         ) else {
             return
         }
+        let hasPlaybackSnapshot = response.playback != nil
         if let playback = response.playback {
             apply(playback: playback)
         }
-        backendAvailable = response.backendAvailable ?? backendAvailable
+        markHomeAssistantReachable(backendAvailableAfterResponse: hasPlaybackSnapshot ? true : (response.backendAvailable ?? true))
         if backendAvailable, voiceStatus == .unavailable, voiceErrorMessage == nil {
             voiceStatus = .idle
         }
@@ -1528,6 +1554,8 @@ public final class DJConnectAppModel: ObservableObject {
             if let message, !message.isEmpty {
                 log(.warning, "Backend unavailable: \(message)")
             }
+        case let .network(message):
+            applyConnectionUnavailableState(message: message)
         case let .versionMismatch(mismatch):
             clearRuntimeState()
             backendAvailable = false
@@ -1577,9 +1605,30 @@ public final class DJConnectAppModel: ObservableObject {
             return
         }
         userNotice = DJConnectUserNotice(text: localized(
-            english: "No connection",
-            dutch: "Geen verbinding"
+            english: "No connection to Home Assistant",
+            dutch: "Geen verbinding met Home Assistant"
         ))
+    }
+
+    private func markHomeAssistantReachable(backendAvailableAfterResponse: Bool) {
+        pairingStatus = .paired
+        isConnected = true
+        backendAvailable = backendAvailableAfterResponse
+        pairingMessage = nil
+    }
+
+    private func applyConnectionUnavailableState(message: String? = nil) {
+        clearRuntimeState(backendAvailableAfterClear: false)
+        isConnected = false
+        if pairingStatus == .paired {
+            pairingMessage = localized(
+                english: "Home Assistant is unreachable.",
+                dutch: "Home Assistant is niet bereikbaar."
+            )
+        }
+        if let message, !message.isEmpty {
+            log(.warning, "Home Assistant unavailable: \(message)")
+        }
     }
 
     private static func shouldShowConnectionNotice(for error: DJConnectError) -> Bool {
@@ -1672,23 +1721,30 @@ public final class DJConnectAppModel: ObservableObject {
             ) else {
                 return
             }
+            let hasPlaybackSnapshot = response.playback != nil
             if let playback = response.playback {
                 apply(playback: playback)
             } else {
                 log(.debug, "Status response did not include a playback snapshot")
             }
-            backendAvailable = response.backendAvailable ?? backendAvailable
+            markHomeAssistantReachable(backendAvailableAfterResponse: hasPlaybackSnapshot ? true : (response.backendAvailable ?? true))
             if backendAvailable {
                 clearRecoverableVoiceErrorIfNeeded()
             }
             log(.debug, "Status refresh succeeded")
         } catch let error as DJConnectError {
             log(.warning, "Status refresh failed: \(Self.describe(error))")
-            apply(error: error)
-            if case .backendUnavailable = error {
+            switch error {
+            case .backendUnavailable:
+                apply(error: error)
                 pairingStatus = .paired
                 isConnected = true
-            } else {
+            case let .routeMissing(message):
+                applyConnectionUnavailableState(message: message ?? Self.describe(error))
+                pairingStatus = .paired
+                isConnected = false
+            default:
+                apply(error: error)
                 throw error
             }
         }
@@ -1700,14 +1756,15 @@ public final class DJConnectAppModel: ObservableObject {
             return
         }
         lastBackendCollectionsRefreshAt = Date()
-        await performCommand("devices", notifyUserOnError: false)
-        await performCommand("queue", notifyUserOnError: false)
-        await performCommand("playlists", notifyUserOnError: false)
+        await performCommand("devices", notifyUserOnError: false, applyErrorState: false)
+        await performCommand("queue", notifyUserOnError: false, applyErrorState: false)
+        await performCommand("playlists", notifyUserOnError: false, applyErrorState: false)
     }
 
     private func refreshStatusWithFallback() async throws {
-        let client = try makeClient()
-        try await refreshPlaybackSnapshot(client: client)
+        try await withHomeAssistantClient { client in
+            try await refreshPlaybackSnapshot(client: client)
+        }
     }
 
     private func refreshPlaybackSnapshot(client: DJConnectClient) async throws {
@@ -1749,7 +1806,7 @@ public final class DJConnectAppModel: ObservableObject {
         }
     }
 
-    private func clearRuntimeState() {
+    private func clearRuntimeState(backendAvailableAfterClear: Bool = true) {
         playbackProgressTask?.cancel()
         playbackProgressTask = nil
         volumeCommandTask?.cancel()
@@ -1771,7 +1828,7 @@ public final class DJConnectAppModel: ObservableObject {
         selectedOutput = noOutputName()
         djResponseText = ""
         voiceStatus = .idle
-        backendAvailable = true
+        backendAvailable = backendAvailableAfterClear
         updateRequiredMessage = nil
         isRefreshing = false
         isLoadingOutputs = false
@@ -1934,7 +1991,9 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     private func sendVoiceWithFallback(wavData: Data) async throws -> DJConnectVoiceResponse {
-        try await makeClient().sendVoice(wavData: wavData)
+        try await withHomeAssistantClient { client in
+            try await client.sendVoice(wavData: wavData)
+        }
     }
 
     private func userFacingDJResponseText(_ text: String?) -> String? {
@@ -1991,6 +2050,8 @@ public final class DJConnectAppModel: ObservableObject {
         let normalized = text.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         return normalized == "refresh the spotify connection in home assistant"
             || normalized == "ververs spotify koppeling in home assistant"
+            || normalized == "playback backend unavailable"
+            || normalized == "playback backend niet beschikbaar"
     }
 
     private static func extractServerJSONMessage(from text: String) -> String? {
@@ -2078,7 +2139,8 @@ public final class DJConnectAppModel: ObservableObject {
         _ command: String,
         value: DJConnectCommandValue? = nil,
         play: Bool? = nil,
-        notifyUserOnError: Bool = true
+        notifyUserOnError: Bool = true,
+        applyErrorState: Bool = true
     ) async -> Bool {
         if isDemoMode {
             applyDemoCommand(command, value: value, play: play)
@@ -2093,33 +2155,36 @@ public final class DJConnectAppModel: ObservableObject {
             return false
         }
         do {
-            let client = try makeClient()
-            log(.debug, "Posting command \(command) to Home Assistant")
-            let response = try await client.sendCommandResponse(
-                DJConnectCommandPayload(
-                    identity: identity,
-                    command: command,
-                    value: value,
-                    play: play,
-                    limit: command == "queue" ? 100 : nil
+            try await withHomeAssistantClient { client in
+                log(.debug, "Posting command \(command) to Home Assistant")
+                let response = try await client.sendCommandResponse(
+                    DJConnectCommandPayload(
+                        identity: identity,
+                        command: command,
+                        value: value,
+                        play: play,
+                        limit: command == "queue" ? 100 : nil
+                    )
                 )
-            )
-            apply(commandResponse: response)
-            if Self.shouldRefreshPlaybackAfterCommand(command) {
-                try await refreshPlaybackSnapshot(client: client)
-                if Self.shouldRefreshPlaybackAgainAfterCommand(command) {
-                    try? await Task.sleep(for: .milliseconds(850))
-                    guard pairingStatus == .paired else {
-                        return true
-                    }
+                apply(commandResponse: response)
+                if Self.shouldRefreshPlaybackAfterCommand(command) {
                     try await refreshPlaybackSnapshot(client: client)
+                    if Self.shouldRefreshPlaybackAgainAfterCommand(command) {
+                        try? await Task.sleep(for: .milliseconds(850))
+                        guard pairingStatus == .paired else {
+                            return
+                        }
+                        try await refreshPlaybackSnapshot(client: client)
+                    }
                 }
             }
             log(.debug, "Command \(command) succeeded")
             return true
         } catch let error as DJConnectError {
             log(.warning, "Command \(command) failed: \(Self.describe(error))")
-            apply(error: error)
+            if applyErrorState {
+                apply(error: error)
+            }
             if notifyUserOnError {
                 emitUserConnectionNotice(for: error)
             }
@@ -2310,7 +2375,7 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     private func makeClient() throws -> DJConnectClient {
-        guard let baseURL = Self.normalizedHomeAssistantURL(from: localHomeAssistantURL()) else {
+        guard let baseURL = homeAssistantBaseURLs().first else {
             log(.warning, "Cannot create Home Assistant client because URL is invalid")
             throw DJConnectError.network(message: localized(
                 english: "Enter your Home Assistant URL, for example 192.168.1.10:8123.",
@@ -2328,6 +2393,76 @@ public final class DJConnectAppModel: ObservableObject {
         }
     }
 
+    private func homeAssistantBaseURLs() -> [URL] {
+        var urls: [URL] = []
+        var seen: Set<String> = []
+        for rawURL in [localHomeAssistantURL(), homeAssistantURL, haLocalURL] {
+            guard let url = Self.normalizedHomeAssistantURL(from: rawURL) else {
+                continue
+            }
+            let key = Self.redactedURL(url).lowercased()
+            guard !seen.contains(key) else {
+                continue
+            }
+            seen.insert(key)
+            urls.append(url)
+        }
+        return urls
+    }
+
+    private func withHomeAssistantClient<T>(_ operation: (DJConnectClient) async throws -> T) async throws -> T {
+        let baseURLs = homeAssistantBaseURLs()
+        guard !baseURLs.isEmpty else {
+            throw DJConnectError.network(message: localized(
+                english: "Enter your Home Assistant URL, for example 192.168.1.10:8123.",
+                dutch: "Vul je Home Assistant URL in, bijvoorbeeld 192.168.1.10:8123."
+            ))
+        }
+
+        var lastError: Error?
+        for (index, baseURL) in baseURLs.enumerated() {
+            do {
+                let result = try await operation(makeClient(baseURL: baseURL))
+                if index > 0 {
+                    pinLocalDeviceAPIURLIfNeeded(baseURL)
+                    log(.info, "Recovered Home Assistant connection via fallback URL")
+                }
+                return result
+            } catch let error as DJConnectError {
+                lastError = error
+                guard index + 1 < baseURLs.count, Self.isRetryableHomeAssistantConnectionError(error) else {
+                    throw error
+                }
+                log(.warning, "Home Assistant URL \(Self.redactedURL(baseURL)) failed, trying fallback: \(Self.describe(error))")
+            } catch {
+                lastError = error
+                guard index + 1 < baseURLs.count else {
+                    throw error
+                }
+                log(.warning, "Home Assistant URL \(Self.redactedURL(baseURL)) failed unexpectedly, trying fallback: \(error.localizedDescription)")
+            }
+        }
+        throw lastError ?? DJConnectError.network(message: "Home Assistant unavailable")
+    }
+
+    private func pinLocalDeviceAPIURLIfNeeded(_ baseURL: URL) {
+        let url = Self.redactedURL(baseURL)
+        guard haLocalURL != url else {
+            return
+        }
+        haLocalURL = url
+        defaults.set(url, forKey: haLocalURLKey)
+    }
+
+    private static func isRetryableHomeAssistantConnectionError(_ error: DJConnectError) -> Bool {
+        switch error {
+        case .network, .invalidResponse:
+            true
+        default:
+            false
+        }
+    }
+
     private func startLocalDeviceAPI() {
         localDeviceAPI = DJConnectLocalDeviceAPI(
             infoProvider: { [weak self] in
@@ -2339,8 +2474,8 @@ public final class DJConnectAppModel: ObservableObject {
                         deviceID: "djconnect-macos-unavailable",
                         deviceName: "DJConnect",
                         clientType: .macos,
-                        firmware: "3.1.22",
-                        appVersion: "3.1.22",
+                        firmware: "3.1.23",
+                        appVersion: "3.1.23",
                         platform: .macos
                     ),
                     pairingToken: "",
@@ -2862,6 +2997,34 @@ public final class DJConnectAppModel: ObservableObject {
         speechPermissionStatus = Self.currentSpeechPermissionStatus()
         localNetworkPermissionStatus = .unknown
         log(.debug, "Permission status refreshed: microphone=\(microphonePermissionStatus.rawValue) speech=\(speechPermissionStatus.rawValue) local_network=\(localNetworkPermissionStatus.rawValue)")
+        if wakeWordEnabled, wakeWordStatus == .unavailable, microphonePermissionStatus == .granted, speechPermissionStatus == .granted {
+            log(.info, "Retrying wakeword listening after permission status refresh")
+            startWakeWordListening()
+        }
+    }
+
+    public func setWakeWordEnabled(_ enabled: Bool) {
+        refreshPermissionStatuses()
+        wakeWordEnabled = enabled
+    }
+
+    private var canListenForWakeWord: Bool {
+        wakeWordEnabled
+            && voiceEnabled
+            && pairingStatus == .paired
+            && isConnected
+            && backendAvailable
+    }
+
+    private func updateWakeWordListeningForAvailability() {
+        guard wakeWordEnabled else {
+            return
+        }
+        if canListenForWakeWord {
+            resumeWakeWordListeningIfNeeded()
+        } else {
+            stopWakeWordListening()
+        }
     }
 
     public func requestAppPermissions() {
@@ -2870,6 +3033,7 @@ public final class DJConnectAppModel: ObservableObject {
             return
         }
         log(.debug, "User action: request app permissions")
+        refreshPermissionStatuses()
         let action = Self.permissionRequestAction(
             microphone: microphonePermissionStatus,
             speech: speechPermissionStatus
@@ -2882,6 +3046,7 @@ public final class DJConnectAppModel: ObservableObject {
         case .openSystemSettings:
             log(.info, "Opening system settings because a permission was denied or restricted")
             openAppPermissionSettings()
+            schedulePermissionStatusRefreshes()
             return
         case .requestSystemPrompt:
             break
@@ -2943,6 +3108,15 @@ public final class DJConnectAppModel: ObservableObject {
             NSWorkspace.shared.open(url)
         }
         #endif
+    }
+
+    private func schedulePermissionStatusRefreshes() {
+        Task { @MainActor in
+            for delay in [500, 1_500, 3_000] {
+                try? await Task.sleep(for: .milliseconds(delay))
+                refreshPermissionStatuses()
+            }
+        }
     }
 
     private static func currentMicrophonePermissionStatus() -> DJConnectPermissionStatus {
@@ -3052,8 +3226,11 @@ public final class DJConnectAppModel: ObservableObject {
             log(.info, "Wakeword is disabled in demo mode")
             return
         }
-        guard voiceEnabled, pairingStatus == .paired, !isRecordingVoice, voiceStatus != .processing else {
+        guard canListenForWakeWord, !isRecordingVoice, voiceStatus != .processing else {
             wakeWordStatus = .idle
+            if wakeWordEnabled, pairingStatus == .paired, (!isConnected || !backendAvailable) {
+                log(.debug, "Wakeword listening paused while Home Assistant or playback backend is unavailable")
+            }
             return
         }
         #if canImport(Speech) && canImport(AVFoundation)
@@ -3126,7 +3303,7 @@ public final class DJConnectAppModel: ObservableObject {
             wakeWordStatus = .unavailable
             return
         }
-        guard wakeWordEnabled, pairingStatus == .paired else {
+        guard canListenForWakeWord else {
             return
         }
         guard isAppInForeground else {
@@ -3148,7 +3325,7 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     private func triggerWakeWordCapture() {
-        guard !isDemoMode, wakeWordEnabled, pairingStatus == .paired, !isRecordingVoice else {
+        guard !isDemoMode, canListenForWakeWord, !isRecordingVoice else {
             return
         }
         log(.info, "Wakeword detected")
@@ -3185,24 +3362,23 @@ public final class DJConnectAppModel: ObservableObject {
             return false
         }
 
-        #if os(macOS)
-        log(.debug, "Opening macOS System Settings for initial speech recognition permission; current_status=\(status.rawValue)")
-        openAppPermissionSettings()
-        return false
-        #else
-        log(.debug, "Requesting iOS speech recognition permission; current_status=\(status.rawValue)")
+        log(.debug, "Requesting speech recognition permission; current_status=\(status.rawValue)")
         return await withCheckedContinuation { continuation in
             DispatchQueue.main.async {
                 SFSpeechRecognizer.requestAuthorization { authorizationStatus in
                     Task { @MainActor in
                         let granted = authorizationStatus == .authorized
                         self.log(.debug, "Speech recognition permission callback status=\(authorizationStatus.rawValue) granted=\(granted)")
+                        self.refreshPermissionStatuses()
+                        if !granted, authorizationStatus == .denied || authorizationStatus == .restricted {
+                            self.openAppPermissionSettings()
+                            self.schedulePermissionStatusRefreshes()
+                        }
                         continuation.resume(returning: granted)
                     }
                 }
             }
         }
-        #endif
     }
 
     private func beginWakeWordListening() {
@@ -3221,7 +3397,7 @@ public final class DJConnectAppModel: ObservableObject {
         do {
             #if os(iOS)
             let session = AVAudioSession.sharedInstance()
-            try session.setCategory(.playAndRecord, mode: .measurement, options: [.defaultToSpeaker, .allowBluetooth, .duckOthers])
+            try session.setCategory(.playAndRecord, mode: .measurement, options: [.defaultToSpeaker, .allowBluetoothHFP, .duckOthers])
             try session.setActive(true, options: .notifyOthersOnDeactivation)
             #endif
 
@@ -3232,10 +3408,7 @@ public final class DJConnectAppModel: ObservableObject {
                 request.requiresOnDeviceRecognition = true
             }
             let inputNode = engine.inputNode
-            let format = inputNode.outputFormat(forBus: 0)
-            inputNode.installTap(onBus: 0, bufferSize: 1024, format: format) { buffer, _ in
-                request.append(buffer)
-            }
+            Self.installWakeWordAudioTap(on: inputNode, request: request)
             engine.prepare()
             try engine.start()
             wakeAudioEngine = engine
@@ -3265,6 +3438,16 @@ public final class DJConnectAppModel: ObservableObject {
             log(.error, "Wakeword listening could not start: \(error.localizedDescription)")
         }
     }
+
+    private nonisolated static func installWakeWordAudioTap(
+        on inputNode: AVAudioInputNode,
+        request: SFSpeechAudioBufferRecognitionRequest
+    ) {
+        let format = inputNode.outputFormat(forBus: 0)
+        inputNode.installTap(onBus: 0, bufferSize: 1024, format: format) { buffer, _ in
+            request.append(buffer)
+        }
+    }
     #endif
 
     private func transcriptContainsWakeWord(_ transcript: String) -> Bool {
@@ -3290,7 +3473,7 @@ public final class DJConnectAppModel: ObservableObject {
         do {
             #if os(iOS)
             let session = AVAudioSession.sharedInstance()
-            try session.setCategory(.playAndRecord, mode: .spokenAudio, options: [.defaultToSpeaker, .allowBluetooth])
+            try session.setCategory(.playAndRecord, mode: .spokenAudio, options: [.defaultToSpeaker, .allowBluetoothHFP])
             try session.setActive(true)
             #endif
 

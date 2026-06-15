@@ -81,6 +81,12 @@ After renewing the Apple Developer Program membership:
 - Update version examples in handoff/API/release/architecture docs.
 - Confirm handoff, README, architecture, development, sync prompts, TODO, and
   issues docs reflect new runtime, logging, release, and pairing behavior.
+- Run the standard release script so third-party libraries, frameworks and
+  installed release helper tools are updated/upgraded before build artifacts
+  are compiled.
+- Update `docs/THIRD_PARTY_NOTICES.md` and
+  `docs/TECHNICAL_DESIGN_DECISIONS.md` when architecture, code patterns,
+  platform versions, tooling, dependencies, or license/source metadata changed.
 - Consolidate `CHANGELOG.md`: move finished Unreleased entries into the new
   release section and leave a clean Unreleased placeholder.
 - Run local verification:
@@ -494,7 +500,7 @@ explicitly hardened.
 
 ## Current Local Verification
 
-For release `3.1.22`, local verification was completed with:
+For release `3.1.23`, local verification was completed with:
 
 ```sh
 swift test --no-parallel
@@ -524,7 +530,7 @@ The local helper script packages and uploads public macOS releases:
 PUBLIC_REPO=pcvantol/djconnect-app-releases \
 DEVELOPMENT_TEAM=<APPLE_TEAM_ID> \
 NOTARY_PROFILE=<notarytool-keychain-profile> \
-./Tools/release/release_macos_public.sh --version 3.1.22
+./Tools/release/release_macos_public.sh --version 3.1.23
 ```
 
 Create the notary profile once with:

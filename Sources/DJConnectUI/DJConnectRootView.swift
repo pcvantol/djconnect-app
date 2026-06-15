@@ -30,13 +30,32 @@ private func screenTitle(_ language: String, _ english: String, _ dutch: String,
     return "\(title) (demo)"
 }
 
+private func localizedPairingStatus(_ status: DJConnectPairingStatus, language: String) -> String {
+    switch status {
+    case .paired:
+        localized(language, "Paired", "Gekoppeld")
+    case .pairing:
+        localized(language, "Pairing", "Koppelen")
+    case .stale:
+        localized(language, "Stale", "Verlopen")
+    case .unpaired:
+        localized(language, "Unpaired", "Niet gekoppeld")
+    }
+}
+
 private let djConnectAccent = Color(red: 0.84, green: 0.22, blue: 0.96)
+private let djConnectScreenHorizontalPadding: CGFloat = 16
+private let djConnectScreenVerticalPadding: CGFloat = 12
+private let djConnectContentMaxWidth: CGFloat = 760
+private let djConnectCompactContentMaxWidth: CGFloat = 640
+private let djConnectMacDetailHorizontalPadding: CGFloat = djConnectScreenHorizontalPadding
+private let djConnectMacDetailVerticalPadding: CGFloat = djConnectScreenVerticalPadding
 
 private var djConnectListRowInsets: EdgeInsets {
     #if os(iOS)
-    EdgeInsets(top: 5, leading: 16, bottom: 5, trailing: 16)
+    EdgeInsets(top: 5, leading: djConnectScreenHorizontalPadding, bottom: 5, trailing: djConnectScreenHorizontalPadding)
     #else
-    EdgeInsets(top: 8, leading: 8, bottom: 8, trailing: 8)
+    EdgeInsets(top: 5, leading: 0, bottom: 5, trailing: 0)
     #endif
 }
 
@@ -54,6 +73,14 @@ private struct DJConnectTableRowBackground: View {
     }
 }
 
+private struct ScrollOffsetPreferenceKey: PreferenceKey {
+    static let defaultValue: CGFloat = 0
+
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = nextValue()
+    }
+}
+
 private struct DJConnectLilacButtonModifier: ViewModifier {
     func body(content: Content) -> some View {
         content
@@ -66,8 +93,37 @@ private struct DJConnectLilacButtonModifier: ViewModifier {
 }
 
 private extension View {
+    func djConnectScreenPadding() -> some View {
+        padding(.horizontal, djConnectScreenHorizontalPadding)
+            .padding(.vertical, djConnectScreenVerticalPadding)
+    }
+
     func djConnectLilacButton() -> some View {
         modifier(DJConnectLilacButtonModifier())
+    }
+
+    @ViewBuilder
+    func djConnectMacDetailContent(maxWidth: CGFloat = djConnectContentMaxWidth, alignment: Alignment = .top) -> some View {
+        #if os(macOS)
+        self
+            .frame(maxWidth: maxWidth, alignment: alignment)
+            .padding(.horizontal, djConnectMacDetailHorizontalPadding)
+            .padding(.vertical, djConnectMacDetailVerticalPadding)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: alignment)
+        #else
+        self
+        #endif
+    }
+
+    @ViewBuilder
+    func djSettingsListRowBackground() -> some View {
+        #if os(iOS)
+        self.listRowBackground(DJConnectTableRowBackground())
+        #else
+        self.listRowBackground(Color.clear)
+            .listRowSeparator(.hidden)
+            .listSectionSeparator(.hidden)
+        #endif
     }
 }
 
@@ -255,7 +311,7 @@ public struct DJConnectRootView: View {
                     }
                     .navigationTitle(screenTitle(model.language, "DJConnect", "DJConnect", isDemoMode: model.isDemoMode))
                     .scrollContentBackgroundIfAvailable(.hidden)
-                    .navigationSplitViewColumnWidth(min: 260, ideal: 300, max: 360)
+                    .navigationSplitViewColumnWidth(min: 220, ideal: 240, max: 280)
                 } detail: {
                     selectedView
                 }
@@ -364,6 +420,7 @@ public struct DJConnectRootView: View {
         .onChange(of: scenePhase) {
             switch scenePhase {
             case .active:
+                model.refreshPermissionStatuses()
                 model.markActiveSession()
             case .inactive, .background:
                 model.markInactiveSession()
@@ -758,6 +815,9 @@ private struct CrashReportPromptView: View {
                 Text(localized(model.language, "GitHub issue target: pcvantol/djconnect", "GitHub issue doel: pcvantol/djconnect"))
                     .font(.callout)
                     .foregroundStyle(.secondary)
+                Text(localized(model.language, "Version", "Versie") + " \(DJConnectVersionInfo.displayVersion)")
+                    .font(.callout.weight(.semibold))
+                    .foregroundStyle(.secondary)
                 Button {
                     copyText(model.crashIssueBody())
                 } label: {
@@ -976,11 +1036,13 @@ struct NowPlayingView: View {
                     SetupStatusView(model: model)
                     OutputSelectorView(model: model)
                 }
-                .padding()
-                .frame(maxWidth: 760)
+                .djConnectScreenPadding()
+                .disabled(model.isRefreshing)
+                .allowsHitTesting(!model.isRefreshing)
+                .frame(maxWidth: djConnectContentMaxWidth)
                 .frame(maxWidth: .infinity)
             }
-            .navigationTitle(screenTitle(model.language, "DJConnect", "DJConnect", isDemoMode: model.isDemoMode))
+            .navigationTitle(screenTitle(model.language, "Now Playing", "Speelt nu", isDemoMode: model.isDemoMode))
             .toolbar {
                 ToolbarItem {
                     RefreshButton(model: model)
@@ -1393,13 +1455,15 @@ private struct IOSNowPlayingView: View {
                     }
                     .padding(.horizontal, 16)
                     .padding(.vertical, 12)
+                    .disabled(model.isRefreshing)
+                    .allowsHitTesting(!model.isRefreshing)
                 }
                 .background(.clear)
                 .refreshable {
                     model.refresh()
                 }
             }
-            .navigationTitle(screenTitle(model.language, "DJConnect", "DJConnect", isDemoMode: model.isDemoMode))
+            .navigationTitle(screenTitle(model.language, "Now Playing", "Speelt nu", isDemoMode: model.isDemoMode))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
@@ -1499,9 +1563,9 @@ private struct IOSConnectionCard: View {
                 .accessibilityLabel(localized(model.language, "Playback available", "Afspelen beschikbaar"))
         } else {
             Circle()
-                .fill(Color.red)
+                .fill(Color.secondary.opacity(0.75))
                 .frame(width: 11, height: 11)
-                .shadow(color: Color.red.opacity(0.75), radius: 8)
+                .shadow(color: Color.secondary.opacity(0.35), radius: 8)
                 .frame(width: 22, height: 22)
                 .accessibilityLabel(localized(model.language, "Playback unavailable", "Afspelen niet beschikbaar"))
         }
@@ -1606,7 +1670,7 @@ private struct IOSTrackHero: View {
 
 private struct IOSPlaybackSurface: View {
     @ObservedObject var model: DJConnectAppModel
-    private var canUsePlayback: Bool { model.canUsePlaybackFeatures }
+    private var canUsePlayback: Bool { model.canUsePlaybackFeatures && !model.isRefreshing }
 
     var body: some View {
         VStack(spacing: 18) {
@@ -1693,7 +1757,7 @@ private struct IOSPlaybackSurface: View {
 private struct IOSVoiceCard: View {
     @ObservedObject var model: DJConnectAppModel
     private var isVoiceAvailable: Bool {
-        model.voiceEnabled && model.canUsePlaybackFeatures && model.voiceStatus != .processing
+        model.voiceEnabled && model.canUsePlaybackFeatures && !model.isRefreshing && model.voiceStatus != .processing
     }
 
     private var announcementText: String {
@@ -1706,13 +1770,13 @@ private struct IOSVoiceCard: View {
             if !model.djResponseText.isEmpty {
                 return model.djResponseText
             }
-            return localized(model.language, "DJ request is currently unavailable", "DJ verzoek momenteel niet beschikbaar")
+            return localized(model.language, "Unavailable", "Niet beschikbaar")
         case .idle:
             if !model.djResponseText.isEmpty {
                 return model.djResponseText
             }
             if !model.backendAvailable {
-                return localized(model.language, "DJ request is currently unavailable", "DJ verzoek momenteel niet beschikbaar")
+                return localized(model.language, "Unavailable", "Niet beschikbaar")
             }
             return localized(
                 model.language,
@@ -1888,9 +1952,9 @@ struct SetupStatusView: View {
 
     private var statusDotColor: Color {
         guard model.isConnected else {
-            return .orange
+            return .red
         }
-        return model.backendAvailable ? .green : .red
+        return model.backendAvailable ? .green : .secondary
     }
 
     private var pairingIconColor: Color {
@@ -1899,7 +1963,7 @@ struct SetupStatusView: View {
         }
         return switch model.pairingStatus {
         case .paired:
-            .green
+            model.isConnected && model.backendAvailable ? .green : .red
         case .pairing:
             djConnectAccent
         case .stale:
@@ -2075,7 +2139,7 @@ private struct SeekControlsView: View {
 
 struct PlaybackControlsView: View {
     @ObservedObject var model: DJConnectAppModel
-    private var canUsePlayback: Bool { model.canUsePlaybackFeatures }
+    private var canUsePlayback: Bool { model.canUsePlaybackFeatures && !model.isRefreshing }
 
     var body: some View {
         VStack(spacing: 18) {
@@ -2269,22 +2333,6 @@ private struct OutputSelectorView: View {
                 Text(localized(model.language, "Output Device", "Uitvoerapparaat"))
                     .font(.headline)
                 Spacer()
-                Button {
-                    model.loadOutputs()
-                } label: {
-                    if model.isLoadingOutputs {
-                        ProgressView()
-                            .controlSize(.small)
-                    } else {
-                        Image(systemName: "arrow.clockwise")
-                            .foregroundStyle(.white)
-                    }
-                }
-                .buttonStyle(.borderless)
-                .tint(.white)
-                .disabled(model.isDemoMode || !canUsePlayback || model.isLoadingOutputs)
-                .help(localized(model.language, "Reload Output Devices", "Uitvoerapparaten herladen"))
-                .accessibilityLabel(localized(model.language, "Reload Output Devices", "Uitvoerapparaten herladen"))
             }
 
             if model.availableOutputs.isEmpty {
@@ -2450,7 +2498,7 @@ private extension DJConnectRepeatState {
 struct VoiceResponseView: View {
     @ObservedObject var model: DJConnectAppModel
     private var isVoiceAvailable: Bool {
-        model.voiceEnabled && model.canUsePlaybackFeatures && model.voiceStatus != .processing
+        model.voiceEnabled && model.canUsePlaybackFeatures && !model.isRefreshing && model.voiceStatus != .processing
     }
 
     private var announcementText: String {
@@ -2463,13 +2511,13 @@ struct VoiceResponseView: View {
             if !model.djResponseText.isEmpty {
                 return model.djResponseText
             }
-            return localized(model.language, "DJ request is currently unavailable", "DJ verzoek momenteel niet beschikbaar")
+            return localized(model.language, "Unavailable", "Niet beschikbaar")
         case .idle:
             if !model.djResponseText.isEmpty {
                 return model.djResponseText
             }
             if !model.backendAvailable {
-                return localized(model.language, "DJ request is currently unavailable", "DJ verzoek momenteel niet beschikbaar")
+                return localized(model.language, "Unavailable", "Niet beschikbaar")
             }
             return localized(
                 model.language,
@@ -2509,11 +2557,30 @@ struct QueueView: View {
     @ObservedObject var model: DJConnectAppModel
     @State private var statusToast: String?
     private var canUsePlayback: Bool { model.canUsePlaybackFeatures }
+    private var areQueueItemsDisabled: Bool {
+        !canUsePlayback || model.isRefreshing || model.isLoadingQueue || model.loadingQueueItemIndex != nil
+    }
+    private var shouldShowEmptyQueueState: Bool {
+        guard !model.queueItems.isEmpty else {
+            return true
+        }
+        guard model.queueItems.count >= 4 else {
+            return false
+        }
+        let signatures = Set(model.queueItems.map { item in
+            [
+                item.uri ?? "",
+                item.title.trimmingCharacters(in: .whitespacesAndNewlines).lowercased(),
+                item.artist?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() ?? ""
+            ].joined(separator: "|")
+        })
+        return signatures.count == 1 && model.queueItems.allSatisfy { !model.canStartQueueItem($0) }
+    }
 
     var body: some View {
         NavigationStack {
             List {
-                if model.queueItems.isEmpty {
+                if shouldShowEmptyQueueState {
                     DJConnectEmptyState(
                         title: localized(model.language, "No Queue", "Geen wachtrij"),
                         systemImage: "music.note.list"
@@ -2525,20 +2592,23 @@ struct QueueView: View {
                     ForEach(Array(model.queueItems.enumerated()), id: \.offset) { index, item in
                         Button {
                             DJConnectHaptics.impact()
-                            showStatusToast(localized(model.language, "Selected track is starting...", "Gekozen nummer wordt gestart..."))
+                            showStatusToast(localized(model.language, "Track is starting", "Nummer wordt gestart"))
                             model.startQueueItem(item, at: index)
                         } label: {
                             QueueItemRow(item: item, isLoading: model.loadingQueueItemIndex == index)
+                                .opacity(areQueueItemsDisabled || !model.canStartQueueItem(item) ? 0.45 : 1)
                         }
                         .buttonStyle(.plain)
                         .listRowBackground(Color.clear)
                         .listRowSeparator(.hidden)
                         .listRowInsets(djConnectListRowInsets)
-                        .disabled(!canUsePlayback || model.loadingQueueItemIndex != nil || !model.canStartQueueItem(item))
+                        .disabled(areQueueItemsDisabled || !model.canStartQueueItem(item))
+                        .allowsHitTesting(!areQueueItemsDisabled && model.canStartQueueItem(item))
                         .accessibilityLabel(item.displayTitle)
                     }
                 }
             }
+            .listStyle(.plain)
             .refreshable {
                 guard !model.isDemoMode, canUsePlayback else {
                     return
@@ -2548,6 +2618,11 @@ struct QueueView: View {
             .navigationTitle(screenTitle(model.language, "Queue", "Wachtrij", isDemoMode: model.isDemoMode))
             .scrollContentBackgroundIfAvailable(.hidden)
             .background(DJConnectCanvasBackground())
+            #if os(iOS)
+            .contentMargins(.horizontal, 0, for: .scrollContent)
+            #else
+            .contentMargins(.horizontal, djConnectScreenHorizontalPadding, for: .scrollContent)
+            #endif
             .overlay(alignment: .top) {
                 if let statusToast {
                     StatusToast(text: statusToast)
@@ -2607,6 +2682,9 @@ struct PlaylistsView: View {
     @ObservedObject var model: DJConnectAppModel
     @State private var statusToast: String?
     private var canUsePlayback: Bool { model.canUsePlaybackFeatures }
+    private var arePlaylistItemsDisabled: Bool {
+        !canUsePlayback || model.isRefreshing || model.isLoadingPlaylists || model.loadingPlaylistID != nil
+    }
 
     var body: some View {
         NavigationStack {
@@ -2623,19 +2701,22 @@ struct PlaylistsView: View {
                     ForEach(model.playlistItems) { playlist in
                         Button {
                             DJConnectHaptics.impact()
-                            showStatusToast(localized(model.language, "Selected playlist is starting...", "Gekozen playlist wordt gestart..."))
+                            showStatusToast(localized(model.language, "Playlist is starting", "Afspeellijst wordt gestart"))
                             model.startPlaylist(playlist)
                         } label: {
                             PlaylistRow(playlist: playlist, isLoading: model.loadingPlaylistID == playlist.id)
+                                .opacity(arePlaylistItemsDisabled ? 0.45 : 1)
                         }
                         .buttonStyle(.plain)
                         .listRowBackground(Color.clear)
                         .listRowSeparator(.hidden)
                         .listRowInsets(djConnectListRowInsets)
-                        .disabled(!canUsePlayback || model.loadingPlaylistID != nil)
+                        .disabled(arePlaylistItemsDisabled)
+                        .allowsHitTesting(!arePlaylistItemsDisabled)
                     }
                 }
             }
+            .listStyle(.plain)
             .refreshable {
                 guard !model.isDemoMode, canUsePlayback else {
                     return
@@ -2645,6 +2726,11 @@ struct PlaylistsView: View {
             .navigationTitle(screenTitle(model.language, "Playlists", "Afspeellijsten", isDemoMode: model.isDemoMode))
             .scrollContentBackgroundIfAvailable(.hidden)
             .background(DJConnectCanvasBackground())
+            #if os(iOS)
+            .contentMargins(.horizontal, 0, for: .scrollContent)
+            #else
+            .contentMargins(.horizontal, djConnectScreenHorizontalPadding, for: .scrollContent)
+            #endif
             .overlay(alignment: .top) {
                 if let statusToast {
                     StatusToast(text: statusToast)
@@ -2720,9 +2806,10 @@ private struct DJConnectEmptyState: View {
 
 private struct StatusToast: View {
     let text: String
+    var systemImage = "play.fill"
 
     var body: some View {
-        Label(text, systemImage: "play.fill")
+        Label(text, systemImage: systemImage)
             .font(.callout.weight(.semibold))
             .foregroundStyle(.white)
             .labelStyle(.titleAndIcon)
@@ -2892,15 +2979,13 @@ private struct GamesView: View {
                     .pickerStyle(.segmented)
                     .labelsHidden()
                     .tint(djConnectAccent)
-                    .padding(.horizontal, 4)
-                    .padding(.vertical, 7)
-                    .background(Color.white.opacity(0.08), in: Capsule())
                     .frame(maxWidth: 540)
+                    .frame(maxWidth: .infinity, alignment: .center)
 
                     LocalGameSurface(game: selectedGame, language: language)
                 }
-                .padding(24)
-                .frame(maxWidth: 760)
+                .djConnectScreenPadding()
+                .frame(maxWidth: djConnectContentMaxWidth)
                 .frame(maxWidth: .infinity)
             }
             .background(DJConnectCanvasBackground())
@@ -2940,7 +3025,8 @@ private struct LocalGameSurface: View {
     @State private var pacmanDY: CGFloat = 0
     @State private var ghostX: CGFloat = 250
     @State private var ghostY: CGFloat = 86
-    @State private var pellets: Set<Int> = Set(0..<24)
+    @State private var ghostVulnerableTicks = 0
+    @State private var pellets: Set<Int> = Set(0..<32)
     @State private var flashUntil = Date.distantPast
     @State private var isPlaying = false
     @FocusState private var isGameFocused: Bool
@@ -2990,11 +3076,27 @@ private struct LocalGameSurface: View {
                     } label: {
                         Label(localized(language, "Tap to play", "Tik om te spelen"), systemImage: "play.fill")
                             .font(.headline)
+                            .foregroundStyle(.white)
                             .frame(minWidth: 180)
                             .padding(.horizontal, 16)
                             .padding(.vertical, 10)
+                            .background(
+                                LinearGradient(
+                                    colors: [
+                                        Color(red: 0.84, green: 0.18, blue: 1.0),
+                                        Color(red: 0.36, green: 0.32, blue: 1.0)
+                                    ],
+                                    startPoint: .leading,
+                                    endPoint: .trailing
+                                ),
+                                in: Capsule()
+                            )
+                            .overlay {
+                                Capsule()
+                                    .stroke(.white.opacity(0.28), lineWidth: 1)
+                            }
                     }
-                    .buttonStyle(DJConnectLilacPillButtonStyle())
+                    .buttonStyle(.plain)
                     .controlSize(.large)
                 }
             }
@@ -3139,6 +3241,13 @@ private struct LocalGameSurface: View {
         }
     }
 
+    private var pacmanPowerPellet: Int { 31 }
+    private var pacmanPowerTicks: Int { 150 }
+    private var isGhostVulnerable: Bool { ghostVulnerableTicks > 0 }
+    private var isGhostBlinking: Bool {
+        isGhostVulnerable && ghostVulnerableTicks < 55 && (ghostVulnerableTicks / 6).isMultiple(of: 2)
+    }
+
     private func drawGame(in context: inout GraphicsContext, size: CGSize, isPlaying: Bool) {
         let scaleX = size.width / 320
         let scaleY = size.height / 170
@@ -3189,14 +3298,16 @@ private struct LocalGameSurface: View {
             for pellet in pellets {
                 let column = pellet % 8
                 let row = pellet / 8
+                let isPowerPellet = pellet == pacmanPowerPellet
+                let pelletSize: CGFloat = isPowerPellet ? 8 : 4
                 context.fill(
-                    Path(ellipseIn: rect(CGFloat(48 + column * 28) - 2, CGFloat(52 + row * 28) - 2, 4, 4)),
-                    with: .color(.white.opacity(0.82))
+                    Path(ellipseIn: rect(CGFloat(48 + column * 28) - pelletSize / 2, CGFloat(52 + row * 28) - pelletSize / 2, pelletSize, pelletSize)),
+                    with: .color(.white.opacity(isPowerPellet ? 0.98 : 0.82))
                 )
             }
             context.fill(Path(ellipseIn: rect(pacmanX - 8, pacmanY - 8, 16, 16)), with: .color(.yellow))
             drawPacmanMouth(in: &context, at: point(pacmanX, pacmanY), scaleX: scaleX, scaleY: scaleY)
-            drawGhost(in: &context, at: point(ghostX, ghostY), scaleX: scaleX, scaleY: scaleY)
+            drawGhost(in: &context, at: point(ghostX, ghostY), scaleX: scaleX, scaleY: scaleY, isVulnerable: isGhostVulnerable, isBlinking: isGhostBlinking)
         }
     }
 
@@ -3222,7 +3333,7 @@ private struct LocalGameSurface: View {
         context.fill(mouth, with: .color(.black.opacity(0.82)))
     }
 
-    private func drawGhost(in context: inout GraphicsContext, at center: CGPoint, scaleX: CGFloat, scaleY: CGFloat) {
+    private func drawGhost(in context: inout GraphicsContext, at center: CGPoint, scaleX: CGFloat, scaleY: CGFloat, isVulnerable: Bool, isBlinking: Bool) {
         let width = 18 * scaleX
         let height = 18 * scaleY
         let left = center.x - width / 2
@@ -3241,7 +3352,12 @@ private struct LocalGameSurface: View {
         ghost.addLine(to: CGPoint(x: center.x, y: bottom))
         ghost.addLine(to: CGPoint(x: center.x - width * 0.22, y: bottom - height * 0.18))
         ghost.closeSubpath()
-        context.fill(ghost, with: .color(.pink))
+        let bodyColor: Color = if isVulnerable {
+            isBlinking ? .white.opacity(0.94) : .blue.opacity(0.95)
+        } else {
+            .pink
+        }
+        context.fill(ghost, with: .color(bodyColor))
 
         let eyeSize = 4.3 * min(scaleX, scaleY)
         let pupilSize = 1.8 * min(scaleX, scaleY)
@@ -3422,7 +3538,10 @@ private struct LocalGameSurface: View {
         case .pacman:
             pacmanX = min(max(pacmanX + pacmanDX * 4, 28), 292)
             pacmanY = min(max(pacmanY + pacmanDY * 4, 44), 140)
-            let ghostStep: CGFloat = 1.25 + CGFloat(min(score / 10, 3)) * 0.35
+            if ghostVulnerableTicks > 0 {
+                ghostVulnerableTicks -= 1
+            }
+            let ghostStep: CGFloat = (isGhostVulnerable ? 0.62 : 0.88) + CGFloat(min(score / 12, 3)) * 0.20
             if abs(ghostX - pacmanX) > 2 {
                 ghostX += ghostX < pacmanX ? ghostStep : -ghostStep
             }
@@ -3437,18 +3556,30 @@ private struct LocalGameSurface: View {
                 if abs(pelletX - pacmanX) < 10 && abs(pelletY - pacmanY) < 10 {
                     pellets.remove(pellet)
                     setScore(score + 1)
+                    if pellet == pacmanPowerPellet {
+                        ghostVulnerableTicks = pacmanPowerTicks
+                    }
                     break
                 }
             }
             if pellets.isEmpty {
-                pellets = Set(0..<24)
+                pellets = Set(0..<32)
                 ghostX = 250
                 ghostY = 86
+                ghostVulnerableTicks = 0
             }
             if abs(ghostX - pacmanX) < 14 && abs(ghostY - pacmanY) < 14 {
-                flash()
-                setScore(0)
-                resetPacman()
+                if isGhostVulnerable {
+                    flash()
+                    setScore(score + 5)
+                    ghostX = 250
+                    ghostY = 86
+                    ghostVulnerableTicks = max(ghostVulnerableTicks - 60, 0)
+                } else {
+                    flash()
+                    setScore(0)
+                    resetPacman()
+                }
             }
         }
     }
@@ -3476,7 +3607,8 @@ private struct LocalGameSurface: View {
         pacmanDY = 0
         ghostX = 250
         ghostY = 86
-        pellets = Set(0..<24)
+        ghostVulnerableTicks = 0
+        pellets = Set(0..<32)
     }
 
     private func resetAsteroid() {
@@ -3585,10 +3717,22 @@ private struct MoreView: View {
                     .buttonStyle(.plain)
                 }
                 .background {
-                    DJConnectTableRowBackground()
-                        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    LinearGradient(
+                        colors: [
+                            Color(red: 0.09, green: 0.07, blue: 0.14).opacity(0.98),
+                            Color(red: 0.20, green: 0.09, blue: 0.32).opacity(0.96),
+                            Color(red: 0.10, green: 0.14, blue: 0.28).opacity(0.90)
+                        ],
+                        startPoint: .leading,
+                        endPoint: .trailing
+                    )
+                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                 }
-                .padding(.horizontal)
+                .overlay {
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .stroke(.white.opacity(0.10), lineWidth: 1)
+                }
+                .padding(.horizontal, djConnectScreenHorizontalPadding)
                 .padding(.top, 12)
             }
             .background(DJConnectCanvasBackground())
@@ -3626,6 +3770,12 @@ private struct MoreNavigationRow<Destination: View>: View {
             .padding(.vertical, 14)
             .padding(.horizontal, 18)
             .contentShape(Rectangle())
+            .overlay(alignment: .bottom) {
+                Rectangle()
+                    .fill(.white.opacity(0.18))
+                    .frame(height: 1)
+                    .padding(.leading, 62)
+            }
         }
         .buttonStyle(.plain)
         .tint(djConnectAccent)
@@ -3635,6 +3785,7 @@ private struct MoreNavigationRow<Destination: View>: View {
 struct SettingsView: View {
     @ObservedObject var model: DJConnectAppModel
     var returnToNowPlaying: () -> Void = {}
+    @Environment(\.openURL) private var openURL
     @State private var showingResetPairingConfirmation = false
 
     var body: some View {
@@ -3647,13 +3798,6 @@ struct SettingsView: View {
                             .multilineTextAlignment(.trailing)
                     }
                     if !model.isDemoMode {
-                        LabeledContent(localized(model.language, "Pairing Code", "Koppelcode")) {
-                            CopyableValue(
-                                text: model.pairingToken,
-                                copyLabel: localized(model.language, "Copy Pair Code", "Koppelcode kopiëren"),
-                                alignment: .trailing
-                            )
-                        }
                         if model.isPairing {
                             LabeledContent(localized(model.language, "Status", "Status")) {
                                 ProgressView(localized(model.language, "Waiting for Home Assistant", "Wachten op Home Assistant"))
@@ -3687,7 +3831,7 @@ struct SettingsView: View {
                         }
                     }
                 }
-                .listRowBackground(DJConnectTableRowBackground())
+                .djSettingsListRowBackground()
 
                 Section(localized(model.language, "App", "App")) {
                     if model.isDemoMode {
@@ -3711,7 +3855,7 @@ struct SettingsView: View {
                     LabeledContent(localized(model.language, "Wakeword", "Stemactivatie")) {
                         if model.wakeWordEnabled {
                             Button {
-                                model.wakeWordEnabled = false
+                                model.setWakeWordEnabled(false)
                             } label: {
                                 Text(localized(model.language, "Disable Voice Activation", "Stemactivatie uitschakelen"))
                                     .foregroundStyle(djConnectAccent)
@@ -3720,7 +3864,7 @@ struct SettingsView: View {
                             .tint(djConnectAccent)
                         } else {
                             Button {
-                                model.wakeWordEnabled = true
+                                model.setWakeWordEnabled(true)
                             } label: {
                                 Text(localized(model.language, "Enable Voice Activation", "Stemactivatie inschakelen"))
                                     .foregroundStyle(djConnectAccent)
@@ -3735,7 +3879,7 @@ struct SettingsView: View {
                             .foregroundStyle(.secondary)
                     }
                 }
-                .listRowBackground(DJConnectTableRowBackground())
+                .djSettingsListRowBackground()
 
                 Section(localized(model.language, "Permissions", "Toestemmingen")) {
                     PermissionStatusRow(
@@ -3776,18 +3920,21 @@ struct SettingsView: View {
                     .tint(djConnectAccent)
                     .disabled(model.isRequestingPermissions)
                 }
-                .listRowBackground(DJConnectTableRowBackground())
+                .djSettingsListRowBackground()
 
             }
             #if os(iOS)
             .listStyle(.insetGrouped)
             #else
-            .listStyle(.inset)
+            .listStyle(.plain)
+            .contentMargins(.horizontal, 0, for: .scrollContent)
+            .contentMargins(.vertical, 0, for: .scrollContent)
             #endif
             .scrollContentBackgroundIfAvailable(.hidden)
             .background(.clear)
             .navigationTitle(localized(model.language, "Settings", "Instellingen"))
             .task {
+                model.refreshPermissionStatuses()
                 model.startPairingWait()
             }
             .onChange(of: model.homeAssistantURL) {
@@ -3809,14 +3956,20 @@ struct SettingsView: View {
                     "Dit verwijdert de Home Assistant koppeling uit deze app en schakelt playback-bediening uit tot je opnieuw koppelt."
                 ))
             }
+            #if os(macOS)
+            .djConnectMacDetailContent()
+            #endif
         }
         .background(DJConnectCanvasBackground())
     }
+
 }
 
 private struct LogsView: View {
     @ObservedObject var model: DJConnectAppModel
     @State private var showingClearConfirmation = false
+    @State private var statusToast: String?
+    @State private var showsCompactTitle = false
 
     var body: some View {
         NavigationStack {
@@ -3824,6 +3977,7 @@ private struct LogsView: View {
                 HStack {
                     Button {
                         copyText(model.diagnosticExportText())
+                        showStatusToast(localized(model.language, "Logs copied to clipboard", "Logs gekopieerd naar klembord"))
                     } label: {
                         Label(localized(model.language, "Copy Logs", "Logs kopiëren"), systemImage: "doc.on.doc")
                             .foregroundStyle(djConnectAccent)
@@ -3860,18 +4014,33 @@ private struct LogsView: View {
                 } else {
                     ScrollViewReader { proxy in
                         ScrollView {
+                            GeometryReader { geometry in
+                                Color.clear.preference(
+                                    key: ScrollOffsetPreferenceKey.self,
+                                    value: geometry.frame(in: .named("LogsScrollView")).minY
+                                )
+                            }
+                            .frame(height: 0)
                             VStack(alignment: .leading, spacing: 6) {
-                                ForEach(model.diagnosticLogLines) { line in
-                                    Text(line.text)
-                                        .font(.system(.caption, design: .monospaced))
-                                        .textSelection(.enabled)
-                                        .frame(maxWidth: .infinity, alignment: .leading)
-                                        .id(line.id)
+                                ForEach(Array(model.diagnosticLogLines.enumerated()), id: \.element.id) { index, line in
+                                    HStack(alignment: .firstTextBaseline, spacing: 8) {
+                                        Text(logLineNumber(index + 1, total: model.diagnosticLogLines.count))
+                                            .font(.system(.caption, design: .monospaced))
+                                            .foregroundStyle(.secondary)
+                                            .textSelection(.disabled)
+                                            .frame(width: logLineNumberWidth(total: model.diagnosticLogLines.count), alignment: .trailing)
+                                        Text(line.text)
+                                            .font(.system(.caption, design: .monospaced))
+                                            .textSelection(.enabled)
+                                            .frame(maxWidth: .infinity, alignment: .leading)
+                                    }
+                                    .id(line.id)
                                 }
                             }
                             .padding(.horizontal, 20)
                             .padding(.vertical, 8)
                         }
+                        .coordinateSpace(name: "LogsScrollView")
                         .scrollIndicators(.visible)
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                         #if os(macOS)
@@ -3883,20 +4052,42 @@ private struct LogsView: View {
                         .onChange(of: model.diagnosticLogLines.last?.id) {
                             scrollLogsToBottom(proxy)
                         }
+                        .onPreferenceChange(ScrollOffsetPreferenceKey.self) { offset in
+                            showsCompactTitle = offset < -36
+                        }
                     }
                 }
             }
             .padding(.top, 12)
             .background(DJConnectCanvasBackground())
             .navigationTitle(localized(model.language, "Logs", "Logs"))
+            #if os(macOS)
+            .djConnectMacDetailContent()
+            #endif
             #if os(iOS)
-            .toolbar {
-                ToolbarItem(placement: .principal) {
-                    Text(localized(model.language, "Logs", "Logs"))
-                        .font(.headline.weight(.semibold))
+            .navigationBarTitleDisplayMode(.large)
+            #endif
+            .overlay(alignment: .top) {
+                ZStack(alignment: .top) {
+                    #if os(iOS)
+                    if showsCompactTitle {
+                        Text(localized(model.language, "Logs", "Logs"))
+                            .font(.headline.weight(.semibold))
+                            .foregroundStyle(.white)
+                            .padding(.top, 2)
+                            .frame(maxWidth: .infinity)
+                            .allowsHitTesting(false)
+                            .transition(.opacity)
+                    }
+                    #endif
+
+                    if let statusToast {
+                        StatusToast(text: statusToast, systemImage: "doc.on.doc.fill")
+                            .padding(.top, 34)
+                            .transition(.move(edge: .top).combined(with: .opacity))
+                    }
                 }
             }
-            #endif
             .alert(localized(model.language, "Clear Logs?", "Logs wissen?"), isPresented: $showingClearConfirmation) {
                 Button(localized(model.language, "Clear Logs", "Logs wissen"), role: .destructive) {
                     model.clearDiagnosticLog()
@@ -3913,6 +4104,21 @@ private struct LogsView: View {
         .background(DJConnectCanvasBackground())
     }
 
+    private func showStatusToast(_ text: String) {
+        withAnimation(.easeOut(duration: 0.18)) {
+            statusToast = text
+        }
+        Task { @MainActor in
+            try? await Task.sleep(for: .seconds(2))
+            guard statusToast == text else {
+                return
+            }
+            withAnimation(.easeIn(duration: 0.18)) {
+                statusToast = nil
+            }
+        }
+    }
+
     private func scrollLogsToBottom(_ proxy: ScrollViewProxy) {
         guard let lastLogID = model.diagnosticLogLines.last?.id else {
             return
@@ -3922,6 +4128,18 @@ private struct LogsView: View {
                 proxy.scrollTo(lastLogID, anchor: .bottom)
             }
         }
+    }
+
+    private func logLineNumber(_ number: Int, total: Int) -> String {
+        String(format: "%0\(logLineNumberDigits(total: total))d", number)
+    }
+
+    private func logLineNumberDigits(total: Int) -> Int {
+        max(3, String(max(total, 1)).count)
+    }
+
+    private func logLineNumberWidth(total: Int) -> CGFloat {
+        CGFloat(logLineNumberDigits(total: total)) * 8
     }
 }
 
@@ -3962,11 +4180,16 @@ private struct AboutView: View {
                 }
 
                 SettingsSection(title: localized(model.language, "Connection", "Verbinding")) {
-                    AboutStackedRow(label: localized(model.language, "Pairing", "Koppeling")) {
-                        SelectableValue(model.pairingStatus.rawValue)
+                    AboutStackedRow(label: "Home Assistant") {
+                        SelectableValue(localizedPairingStatus(model.pairingStatus, language: model.language))
                     }
                     AboutStackedRow(label: localized(model.language, "Music", "Muziek")) {
-                        SelectableValue(model.backendAvailable ? localized(model.language, "Connected", "Verbonden") : localized(model.language, "Unavailable", "Niet beschikbaar"))
+                        SelectableValue(
+                            model.backendAvailable
+                                ? localized(model.language, "Available", "Beschikbaar")
+                                : localized(model.language, "Unavailable", "Niet beschikbaar"),
+                            foregroundStyle: model.backendAvailable ? .green : .red
+                        )
                     }
                     if let localDeviceAPIURL = model.localDeviceAPIURL, !localDeviceAPIURL.isEmpty {
                         AboutStackedRow(label: "Client API url") {
@@ -3993,9 +4216,13 @@ private struct AboutView: View {
                     }
                 }
             }
+            #if os(macOS)
+            .djConnectMacDetailContent(maxWidth: .infinity, alignment: .topLeading)
+            #else
             .frame(maxWidth: 760, alignment: .leading)
             .padding(.horizontal, 24)
             .padding(.vertical, 28)
+            #endif
         }
         .navigationTitle(localized(model.language, "About", "Over"))
         .background(DJConnectCanvasBackground())
@@ -4009,6 +4236,8 @@ private struct LegalNoticesView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
+                    AboutBanner()
+
                     SettingsSection(title: localized(language, "Legal", "Juridisch")) {
                         SelectableValue(localized(
                             language,
@@ -4030,8 +4259,12 @@ private struct LegalNoticesView: View {
                         ))
                     }
                 }
+                #if os(macOS)
+                .djConnectMacDetailContent(maxWidth: .infinity, alignment: .topLeading)
+                #else
                 .padding(24)
-                .frame(maxWidth: 640, alignment: .leading)
+                .frame(maxWidth: 760, alignment: .leading)
+                #endif
             }
             .navigationTitle(localized(language, "Legal", "Juridisch"))
             .background(DJConnectCanvasBackground())
@@ -4065,9 +4298,13 @@ private struct PrivacyView: View {
                     ))
                 }
             }
+            #if os(macOS)
+            .djConnectMacDetailContent(maxWidth: .infinity, alignment: .topLeading)
+            #else
             .frame(maxWidth: 760, alignment: .leading)
             .padding(.horizontal, 24)
             .padding(.vertical, 28)
+            #endif
         }
         .navigationTitle(localized(language, "Privacy", "Privacy"))
         .background(DJConnectCanvasBackground())
@@ -4152,12 +4389,50 @@ private struct AboutBanner: View {
         .padding(22)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
-            RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .fill(Color(red: 0.09, green: 0.07, blue: 0.12))
+            LinearGradient(
+                colors: [
+                    Color(red: 0.06, green: 0.04, blue: 0.12),
+                    Color(red: 0.25, green: 0.08, blue: 0.42),
+                    Color(red: 0.39, green: 0.12, blue: 0.62),
+                    Color(red: 0.08, green: 0.10, blue: 0.23)
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
         )
+        .overlay {
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .fill(
+                    LinearGradient(
+                        colors: [
+                            .black.opacity(0.34),
+                            .clear,
+                            .black.opacity(0.30)
+                        ],
+                        startPoint: .leading,
+                        endPoint: .trailing
+                    )
+                )
+                .blendMode(.multiply)
+        }
+        .overlay {
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .fill(
+                    LinearGradient(
+                        colors: [
+                            .clear,
+                            .black.opacity(0.22)
+                        ],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                )
+                .blendMode(.multiply)
+        }
         .overlay(
             RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .stroke(.white.opacity(0.08), lineWidth: 1)
+                .stroke(.white.opacity(0.12), lineWidth: 1)
         )
         .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
     }
@@ -4227,17 +4502,19 @@ private struct AboutStackedRow<Content: View>: View {
 private struct SelectableValue: View {
     let text: String
     var alignment: Alignment = .leading
+    var foregroundStyle: Color = .primary
 
-    init(_ text: String, alignment: Alignment = .leading) {
+    init(_ text: String, alignment: Alignment = .leading, foregroundStyle: Color = .primary) {
         self.text = text
         self.alignment = alignment
+        self.foregroundStyle = foregroundStyle
     }
 
     var body: some View {
         Text(text)
             .textSelection(.enabled)
             .lineLimit(nil)
-            .foregroundStyle(.primary)
+            .foregroundStyle(foregroundStyle)
             .multilineTextAlignment(alignment == .trailing ? .trailing : .leading)
             .frame(maxWidth: .infinity, alignment: alignment)
     }

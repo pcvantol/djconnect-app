@@ -20,6 +20,8 @@ Website: [https://djconnect.dev](https://djconnect.dev)
 - [docs/HANDOFF.md](docs/HANDOFF.md): original product and integration handoff.
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md): repository architecture and target responsibilities.
 - [docs/ARCHITECTURE_DECISIONS.md](docs/ARCHITECTURE_DECISIONS.md): key decisions and rationale.
+- [docs/TECHNICAL_DESIGN_DECISIONS.md](docs/TECHNICAL_DESIGN_DECISIONS.md):
+  reverse-engineered code-level design patterns, coding conventions, and dependency inventory.
 - [docs/API_CONTRACT.md](docs/API_CONTRACT.md): Home Assistant endpoint contract.
 - [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md): local development, generation, build, and test commands.
 - [docs/RELEASE.md](docs/RELEASE.md): signing, TestFlight, notarization, and live HA validation checklist.

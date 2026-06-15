@@ -1,6 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+if [[ "${DJCONNECT_SKIP_THIRDPARTY_UPDATE:-0}" != "1" ]]; then
+  bash "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/Tools/release/update_thirdparty.sh"
+  export DJCONNECT_THIRDPARTY_PREFLIGHT_DONE=1
+else
+  echo "Skipping third-party update preflight (DJCONNECT_SKIP_THIRDPARTY_UPDATE=1)."
+fi
+
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 VERSION="${1:-}"
 DERIVED_DATA="$ROOT_DIR/.release/DerivedData"

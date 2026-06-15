@@ -1207,11 +1207,11 @@ private func waitForLocalDeviceAPIURL(_ model: DJConnectAppModel) async throws -
     let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startLocalAPI: false, startBackgroundTasks: false)
 
     model.emitUserConnectionNotice(for: .decodingFailed(statusCode: 200, endpoint: "POST /api/djconnect/command", message: "bad shape"))
-    #expect(["Geen verbinding", "No connection"].contains(model.userNotice?.text ?? ""))
+    #expect(["Geen verbinding met Home Assistant", "No connection to Home Assistant"].contains(model.userNotice?.text ?? ""))
 
     model.userNotice = nil
     model.emitUserConnectionNotice(for: .network(message: "offline"))
-    #expect(["Geen verbinding", "No connection"].contains(model.userNotice?.text ?? ""))
+    #expect(["Geen verbinding met Home Assistant", "No connection to Home Assistant"].contains(model.userNotice?.text ?? ""))
 
     model.userNotice = nil
     model.emitUserConnectionNotice(for: .authStale(statusCode: 401, message: "stale"))

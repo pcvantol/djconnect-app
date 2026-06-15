@@ -9,7 +9,7 @@ struct DJConnectIOSApp: App {
 
     var body: some Scene {
         WindowGroup {
-            DJConnectLaunchContainer(content: DJConnectRootView(model: model))
+            DJConnectLaunchContainer(isBusy: model.isRefreshing, content: DJConnectRootView(model: model))
         }
     }
 

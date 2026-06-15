@@ -30,7 +30,7 @@ final class DJConnectMacUITests: XCTestCase {
             case "Wachtrij":
                 app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "Midnight City")).firstMatch.tapIfExists()
             case "Afspeellijsten":
-                app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "Gelikete nummers")).firstMatch.tapIfExists()
+                app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "DJConnect")).firstMatch.tapIfExists()
             case "Games":
                 app.buttons["Tik om te spelen"].tapIfExists()
                 app.buttons["Meteor Run"].tapIfExists()

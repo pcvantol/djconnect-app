@@ -40,6 +40,13 @@ secrets, Sonos credentials, Home Assistant long-lived access tokens, or playback
 backend credentials. The only DJConnect credential owned by the app is its
 DJConnect bearer token issued by the integration.
 
+## Technical Design Decisions
+
+Keep [TECHNICAL_DESIGN_DECISIONS.md](TECHNICAL_DESIGN_DECISIONS.md) updated for
+every release. It is the reverse-engineered source for code-level design
+patterns, coding conventions by language, and the framework/library/license
+inventory.
+
 ## First-Run Onboarding
 
 The Apple app shows a one-time welcome screen after installation. It must use
@@ -126,8 +133,8 @@ Recommended iOS fields:
   "device_id": "djconnect-ios-8F3A2C91B45D",
   "device_name": "DJConnect iPhone",
   "client_type": "ios",
-  "firmware": "3.1.22",
-  "app_version": "3.1.22",
+  "firmware": "3.1.23",
+  "app_version": "3.1.23",
   "platform": "ios"
 }
 ```
@@ -139,8 +146,8 @@ Recommended macOS fields:
   "device_id": "djconnect-macos-8F3A2C91B45D",
   "device_name": "DJConnect Mac",
   "client_type": "macos",
-  "firmware": "3.1.22",
-  "app_version": "3.1.22",
+  "firmware": "3.1.23",
+  "app_version": "3.1.23",
   "platform": "macos"
 }
 ```
@@ -177,9 +184,9 @@ Expected response:
   "success": false,
   "error": "version_mismatch",
   "message": "DJConnect Home Assistant integration and device firmware major.minor versions must match.",
-  "ha_version": "3.1.22",
+  "ha_version": "3.1.23",
   "ha_major_minor": "3.1",
-  "firmware": "3.1.22",
+  "firmware": "3.1.23",
   "firmware_major_minor": "3.0"
 }
 ```
@@ -259,8 +266,8 @@ X-DJConnect-Device-ID: <device_id>
 {  "device_id": "djconnect-macos-8F3A2C91B45D",
   "device_name": "DJConnect Mac",
   "client_type": "macos",
-  "firmware": "3.1.22",
-  "app_version": "3.1.22",
+  "firmware": "3.1.23",
+  "app_version": "3.1.23",
   "platform": "macos",
   "pair_code": "123456",
   "pairing_code": "123456",
@@ -391,8 +398,8 @@ Minimum payload:
   "device_id": "djconnect-ios-8F3A2C91B45D",
   "client_type": "ios",
   "ha_pairing_status": "paired",
-  "firmware": "3.1.22",
-  "app_version": "3.1.22",
+  "firmware": "3.1.23",
+  "app_version": "3.1.23",
   "state": "online",
   "status": "online",
   "battery_percent": 85,
