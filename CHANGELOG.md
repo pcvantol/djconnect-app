@@ -366,6 +366,9 @@ All notable changes to DJConnect App are documented here.
 
 - Consolidated sync prompts to the canonical source
   `pcvantol/djconnect/SYNC_PROMPTS.md` and removed obsolete local copies.
+- Moved the canonical product roadmap policy to
+  `pcvantol/djconnect/PRODUCT_ROADMAP.md`; this repo no longer keeps a local
+  roadmap copy.
 - Updated app/protocol examples to `3.1.9`.
 
 ## 3.1.8 - 2026-06-11

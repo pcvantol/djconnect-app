@@ -82,9 +82,10 @@ After renewing the Apple Developer Program membership:
 - Confirm handoff, README, architecture, development, TODO, and issues docs
   reflect new runtime, logging, release, and pairing behavior.
 - For cross-repo contract changes, update the canonical
-  `pcvantol/djconnect/SYNC_PROMPTS.md`; if the change originates here, create a
-  follow-up change/commit in `pcvantol/djconnect`. Do not keep a local
-  `SYNC_PROMPTS.md` copy in this repo.
+  `pcvantol/djconnect/SYNC_PROMPTS.md`. For product roadmap changes, update
+  `pcvantol/djconnect/PRODUCT_ROADMAP.md`. If either change originates here,
+  create a follow-up change/commit in `pcvantol/djconnect`. Do not keep local
+  `SYNC_PROMPTS.md` or `PRODUCT_ROADMAP.md` copies in this repo.
 - Run the standard release script so third-party libraries, frameworks and
   installed release helper tools are updated/upgraded before build artifacts
   are compiled.

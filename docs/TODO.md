@@ -1,7 +1,9 @@
 # Todo And Known Issues
 
-This document tracks the roadmap and known project gaps. Concrete backlog
-items with acceptance criteria live in [ISSUES.md](ISSUES.md).
+This document tracks app-local known project gaps. The canonical product
+roadmap lives in `pcvantol/djconnect/PRODUCT_ROADMAP.md`; if roadmap changes
+originate here, update `pcvantol/djconnect` separately. Concrete backlog items
+with acceptance criteria live in [ISSUES.md](ISSUES.md).
 
 ## High Priority
 

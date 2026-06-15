@@ -29,6 +29,7 @@ Website: [https://djconnect.dev](https://djconnect.dev)
   Postman collection for the local Client API hosted by the iOS/macOS app.
 - `pcvantol/djconnect/SYNC_PROMPTS.md`: canonical source for cross-repo DJConnect
   sync prompts and contract instructions.
+- `pcvantol/djconnect/PRODUCT_ROADMAP.md`: canonical DJConnect product roadmap.
 - [docs/TODO.md](docs/TODO.md): open work, known issues, and next implementation steps.
 - [docs/ISSUES.md](docs/ISSUES.md): concrete local backlog with priorities and acceptance criteria.
 - [PRIVACY.md](PRIVACY.md): security, privacy, and diagnostics redaction rules.

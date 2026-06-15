@@ -20,8 +20,8 @@ dependencies, tooling of conventies wijzigen.
 - `Tools/` en `.github/workflows/`: release-, icon-, CI- en publicatie-tooling.
 - `README.md`, `docs/ARCHITECTURE.md`, `docs/ARCHITECTURE_DECISIONS.md`,
   `docs/API_CONTRACT.md`, `docs/HANDOFF.md`, `docs/RELEASE.md` en
-  `pcvantol/djconnect/SYNC_PROMPTS.md`: product-, integratie- en
-  releasecontracten.
+  `pcvantol/djconnect/SYNC_PROMPTS.md`: integratie- en releasecontracten.
+- `pcvantol/djconnect/PRODUCT_ROADMAP.md`: canonical product roadmap.
 
 Niet aangetroffen in de repo op 2026-06-14:
 
@@ -79,9 +79,11 @@ app willen bekijken voordat Home Assistant gekoppeld is.
 ### Release- en contractdiscipline
 
 `pcvantol/djconnect/SYNC_PROMPTS.md` is de enige canonical cross-repo
-contractbron. Deze repo houdt geen lokale kopie van `SYNC_PROMPTS.md` bij.
-`docs/RELEASE.md` verplicht dat contractdocs, handoff, README, TODO/issues en
-dit technische ontwerpdocument bij releases worden bijgewerkt.
+contractbron. `pcvantol/djconnect/PRODUCT_ROADMAP.md` is de enige canonical
+product roadmap. Deze repo houdt geen lokale kopie van `SYNC_PROMPTS.md` of
+`PRODUCT_ROADMAP.md` bij. `docs/RELEASE.md` verplicht dat contractdocs, handoff,
+README, TODO/issues en dit technische ontwerpdocument bij releases worden
+bijgewerkt.
 
 ## Code-level design patterns
 
@@ -249,9 +251,12 @@ Bij iedere release moet deze checklist worden uitgevoerd:
   format/lint tooling wordt toegevoegd.
 - Bij cross-repo contractwijzigingen moet
   `pcvantol/djconnect/SYNC_PROMPTS.md` worden bijgewerkt.
+- Bij product roadmap-wijzigingen moet
+  `pcvantol/djconnect/PRODUCT_ROADMAP.md` worden bijgewerkt.
 - Als de wijziging vanuit deze repo komt, maak dan een follow-up
   wijziging/commit in `pcvantol/djconnect`.
-- Houd geen lokale kopie van `SYNC_PROMPTS.md` in deze repo.
+- Houd geen lokale kopie van `SYNC_PROMPTS.md` of `PRODUCT_ROADMAP.md` in deze
+  repo.
 - Oude losse promptbestanden blijven verboden.
 - Controleer dat `docs/HANDOFF.md`, `docs/RELEASE.md`,
   `docs/ARCHITECTURE_DECISIONS.md` en `CHANGELOG.md` dezelfde release- en
