@@ -422,6 +422,7 @@ public struct DJConnectRootView: View {
             case .active:
                 model.refreshPermissionStatuses()
                 model.markActiveSession()
+                model.recoverPairingClientAPIIfNeeded()
             case .inactive, .background:
                 model.markInactiveSession()
             @unknown default:
@@ -523,6 +524,12 @@ private struct PairingSheetView: View {
         #if os(macOS)
         .frame(minHeight: 560)
         #endif
+        .task {
+            model.recoverPairingClientAPIIfNeeded()
+        }
+        .onChange(of: model.homeAssistantURL) {
+            model.schedulePairingWait()
+        }
     }
 
     private var pairingPending: some View {
@@ -542,6 +549,12 @@ private struct PairingSheetView: View {
             }
 
             VStack(spacing: 12) {
+                PairingEditableURLCard(
+                    title: localized(model.language, "Home Assistant URL", "Home Assistant URL"),
+                    language: model.language,
+                    text: $model.homeAssistantURL
+                )
+
                 PairingValueCard(
                     title: localized(model.language, "Pair Code", "Koppelcode"),
                     value: model.pairingToken,
@@ -662,6 +675,56 @@ private struct PairingSheetView: View {
             localized(model.language, "Not connected to Home Assistant", "Niet gekoppeld aan Home Assistant")
         default:
             localized(model.language, "Waiting for Home Assistant", "Wachten op Home Assistant")
+        }
+    }
+}
+
+private struct PairingEditableURLCard: View {
+    let title: String
+    let language: String
+    @Binding var text: String
+
+    private var trimmedText: String {
+        text.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private var isValid: Bool {
+        DJConnectAppModel.normalizedHomeAssistantURL(from: trimmedText) != nil
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(title)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.secondary)
+            TextField(title, text: $text)
+                .font(.system(.body, design: .monospaced))
+                .textContentType(.URL)
+                #if os(iOS)
+                .keyboardType(.URL)
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+                #endif
+                .textFieldStyle(.plain)
+            if !trimmedText.isEmpty, !isValid {
+                Label(
+                    localized(
+                        language,
+                        "Enter a valid Home Assistant URL, for example http://homeassistant.local:8123.",
+                        "Vul een geldige Home Assistant URL in, bijvoorbeeld http://homeassistant.local:8123."
+                    ),
+                    systemImage: "exclamationmark.triangle"
+                )
+                .font(.caption)
+                .foregroundStyle(.orange)
+            }
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 8))
+        .overlay {
+            RoundedRectangle(cornerRadius: 8)
+                .stroke(!trimmedText.isEmpty && !isValid ? .orange.opacity(0.75) : .clear, lineWidth: 1)
         }
     }
 }
@@ -3800,9 +3863,7 @@ struct SettingsView: View {
             List {
                 Section("Home Assistant") {
                     LabeledContent(localized(model.language, "URL", "URL")) {
-                        TextField(localized(model.language, "URL", "URL"), text: $model.homeAssistantURL)
-                            .textContentType(.URL)
-                            .multilineTextAlignment(.trailing)
+                        SelectableValue(model.homeAssistantURL, alignment: .trailing)
                     }
                     if !model.isDemoMode {
                         if model.isPairing {
@@ -3943,9 +4004,6 @@ struct SettingsView: View {
             .task {
                 model.refreshPermissionStatuses()
                 model.startPairingWait()
-            }
-            .onChange(of: model.homeAssistantURL) {
-                model.schedulePairingWait()
             }
             .alert(
                 localized(model.language, "Reconnect?", "Opnieuw koppelen?"),

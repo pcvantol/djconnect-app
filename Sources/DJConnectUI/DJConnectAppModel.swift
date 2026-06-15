@@ -716,15 +716,32 @@ public final class DJConnectAppModel: ObservableObject {
             return
         }
 
-        log(.debug, "Scheduling pairing retry after URL edit")
+        log(.debug, "Scheduling pairing retry after Home Assistant URL edit")
         scheduledPairingTask?.cancel()
         scheduledPairingTask = Task { [weak self] in
             try? await Task.sleep(for: .milliseconds(600))
             guard !Task.isCancelled else {
                 return
             }
-            self?.startPairingWait()
+            await MainActor.run {
+                guard let self else { return }
+                self.restartLocalDeviceAPI()
+                self.startPairingWait()
+            }
         }
+    }
+
+    public func recoverPairingClientAPIIfNeeded() {
+        guard !isDemoMode, pairingStatus != .paired else {
+            return
+        }
+        guard localDeviceAPI == nil || localDeviceAPIURL?.isEmpty != false else {
+            startPairingWait()
+            return
+        }
+        log(.warning, "Recovering pairing screen because Client API URL is missing")
+        restartLocalDeviceAPI()
+        startPairingWait()
     }
 
     public func startPairingWait() {
