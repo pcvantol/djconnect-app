@@ -2410,7 +2410,7 @@ public final class DJConnectAppModel: ObservableObject {
         return urls
     }
 
-    private func withHomeAssistantClient<T>(_ operation: (DJConnectClient) async throws -> T) async throws -> T {
+    private func withHomeAssistantClient<T: Sendable>(_ operation: (DJConnectClient) async throws -> T) async throws -> T {
         let baseURLs = homeAssistantBaseURLs()
         guard !baseURLs.isEmpty else {
             throw DJConnectError.network(message: localized(
