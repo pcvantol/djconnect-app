@@ -683,6 +683,7 @@ private struct PairingEditableURLCard: View {
     let title: String
     let language: String
     @Binding var text: String
+    @FocusState private var isURLFocused: Bool
 
     private var trimmedText: String {
         text.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -700,6 +701,7 @@ private struct PairingEditableURLCard: View {
             TextField(title, text: $text)
                 .font(.system(.body, design: .monospaced))
                 .textContentType(.URL)
+                .focused($isURLFocused)
                 #if os(iOS)
                 .keyboardType(.URL)
                 .textInputAutocapitalization(.never)
@@ -725,6 +727,14 @@ private struct PairingEditableURLCard: View {
         .overlay {
             RoundedRectangle(cornerRadius: 8)
                 .stroke(!trimmedText.isEmpty && !isValid ? .orange.opacity(0.75) : .clear, lineWidth: 1)
+        }
+        .task {
+            isURLFocused = false
+            try? await Task.sleep(for: .milliseconds(120))
+            guard !Task.isCancelled else {
+                return
+            }
+            isURLFocused = false
         }
     }
 }
