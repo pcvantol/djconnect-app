@@ -3016,6 +3016,10 @@ public final class DJConnectAppModel: ObservableObject {
             && backendAvailable
     }
 
+    #if os(iOS) && canImport(AVFoundation)
+    private static let bluetoothAudioSessionOption = AVAudioSession.CategoryOptions(rawValue: 0x4)
+    #endif
+
     private func updateWakeWordListeningForAvailability() {
         guard wakeWordEnabled else {
             return
@@ -3175,10 +3179,7 @@ public final class DJConnectAppModel: ObservableObject {
         }
         return await withCheckedContinuation { continuation in
             let resumeOnMainQueue: @Sendable (Bool) -> Void = { granted in
-                Task { @MainActor in
-                    self.log(.debug, "Microphone permission callback resumed on MainActor granted=\(granted)")
-                    continuation.resume(returning: granted)
-                }
+                continuation.resume(returning: granted)
             }
             #if os(iOS)
             if #available(iOS 17.0, *) {
@@ -3363,22 +3364,19 @@ public final class DJConnectAppModel: ObservableObject {
         }
 
         log(.debug, "Requesting speech recognition permission; current_status=\(status.rawValue)")
-        return await withCheckedContinuation { continuation in
-            DispatchQueue.main.async {
-                SFSpeechRecognizer.requestAuthorization { authorizationStatus in
-                    Task { @MainActor in
-                        let granted = authorizationStatus == .authorized
-                        self.log(.debug, "Speech recognition permission callback status=\(authorizationStatus.rawValue) granted=\(granted)")
-                        self.refreshPermissionStatuses()
-                        if !granted, authorizationStatus == .denied || authorizationStatus == .restricted {
-                            self.openAppPermissionSettings()
-                            self.schedulePermissionStatusRefreshes()
-                        }
-                        continuation.resume(returning: granted)
-                    }
-                }
+        let authorizationStatus = await withCheckedContinuation { continuation in
+            SFSpeechRecognizer.requestAuthorization { authorizationStatus in
+                continuation.resume(returning: authorizationStatus)
             }
         }
+        let granted = authorizationStatus == .authorized
+        log(.debug, "Speech recognition permission callback status=\(authorizationStatus.rawValue) granted=\(granted)")
+        refreshPermissionStatuses()
+        if !granted, authorizationStatus == .denied || authorizationStatus == .restricted {
+            openAppPermissionSettings()
+            schedulePermissionStatusRefreshes()
+        }
+        return granted
     }
 
     private func beginWakeWordListening() {
@@ -3397,7 +3395,7 @@ public final class DJConnectAppModel: ObservableObject {
         do {
             #if os(iOS)
             let session = AVAudioSession.sharedInstance()
-            try session.setCategory(.playAndRecord, mode: .measurement, options: [.defaultToSpeaker, .allowBluetoothHFP, .duckOthers])
+            try session.setCategory(.playAndRecord, mode: .measurement, options: [.defaultToSpeaker, Self.bluetoothAudioSessionOption, .duckOthers])
             try session.setActive(true, options: .notifyOthersOnDeactivation)
             #endif
 
@@ -3473,7 +3471,7 @@ public final class DJConnectAppModel: ObservableObject {
         do {
             #if os(iOS)
             let session = AVAudioSession.sharedInstance()
-            try session.setCategory(.playAndRecord, mode: .spokenAudio, options: [.defaultToSpeaker, .allowBluetoothHFP])
+            try session.setCategory(.playAndRecord, mode: .spokenAudio, options: [.defaultToSpeaker, Self.bluetoothAudioSessionOption])
             try session.setActive(true)
             #endif
 

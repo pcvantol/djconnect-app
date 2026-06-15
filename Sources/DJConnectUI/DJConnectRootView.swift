@@ -860,6 +860,7 @@ private struct CrashReportPromptView: View {
 
 private struct WelcomeView: View {
     @ObservedObject var model: DJConnectAppModel
+    private let startURL = URL(string: "https://djconnect.dev/start")!
 
     var body: some View {
         ZStack {
@@ -868,16 +869,22 @@ private struct WelcomeView: View {
                 AboutBanner()
                     .frame(maxWidth: 520)
 
-                Text(.init(localized(
-                    model.language,
-                    "Please setup in Home Assistant via [djconnect.dev/start](https://djconnect.dev/start)",
-                    "Configureer DJConnect in Home Assistant"
-                )))
-                .font(.headline)
-                .foregroundStyle(.primary)
-                .multilineTextAlignment(.center)
-                .lineLimit(nil)
-                .fixedSize(horizontal: false, vertical: true)
+                VStack(spacing: 8) {
+                    Text(localized(
+                        model.language,
+                        "Configure DJConnect in Home Assistant",
+                        "Configureer DJConnect in Home Assistant"
+                    ))
+                    .font(.headline)
+                    .foregroundStyle(.primary)
+                    .multilineTextAlignment(.center)
+                    .lineLimit(nil)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                    Link("djconnect.dev/start", destination: startURL)
+                        .font(.callout.weight(.semibold))
+                        .foregroundStyle(djConnectAccent)
+                }
 
                 Label(
                     localized(
