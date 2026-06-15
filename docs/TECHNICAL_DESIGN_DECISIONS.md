@@ -20,7 +20,8 @@ dependencies, tooling of conventies wijzigen.
 - `Tools/` en `.github/workflows/`: release-, icon-, CI- en publicatie-tooling.
 - `README.md`, `docs/ARCHITECTURE.md`, `docs/ARCHITECTURE_DECISIONS.md`,
   `docs/API_CONTRACT.md`, `docs/HANDOFF.md`, `docs/RELEASE.md` en
-  `SYNC_PROMPTS.md`: product-, integratie- en releasecontracten.
+  `pcvantol/djconnect/SYNC_PROMPTS.md`: product-, integratie- en
+  releasecontracten.
 
 Niet aangetroffen in de repo op 2026-06-14:
 
@@ -77,9 +78,10 @@ app willen bekijken voordat Home Assistant gekoppeld is.
 
 ### Release- en contractdiscipline
 
-`SYNC_PROMPTS.md` is de canonical cross-repo contractbron. `docs/RELEASE.md`
-verplicht dat contractdocs, handoff, README, TODO/issues en dit technische
-ontwerpdocument bij releases worden bijgewerkt.
+`pcvantol/djconnect/SYNC_PROMPTS.md` is de enige canonical cross-repo
+contractbron. Deze repo houdt geen lokale kopie van `SYNC_PROMPTS.md` bij.
+`docs/RELEASE.md` verplicht dat contractdocs, handoff, README, TODO/issues en
+dit technische ontwerpdocument bij releases worden bijgewerkt.
 
 ## Code-level design patterns
 
@@ -182,13 +184,13 @@ Bronnen:
 
 - `README.md`
 - `CHANGELOG.md`
-- `SYNC_PROMPTS.md`
+- `pcvantol/djconnect/SYNC_PROMPTS.md`
 - `docs/*.md`
 
 Conventies:
 
 - Product- en handoffdocumentatie is primair Nederlandstalig.
-- Cross-repo contracten horen in `SYNC_PROMPTS.md`.
+- Cross-repo contracten horen in `pcvantol/djconnect/SYNC_PROMPTS.md`.
 - Release-informatie hoort per release behouden te blijven en niet tot één
   samengestelde sectie te worden samengevoegd.
 
@@ -245,6 +247,12 @@ Bij iedere release moet deze checklist worden uitgevoerd:
   worden toegevoegd.
 - Werk de coding-style secties bij als SwiftLint, SwiftFormat of andere
   format/lint tooling wordt toegevoegd.
-- Controleer dat `SYNC_PROMPTS.md`, `docs/HANDOFF.md`, `docs/RELEASE.md`,
+- Bij cross-repo contractwijzigingen moet
+  `pcvantol/djconnect/SYNC_PROMPTS.md` worden bijgewerkt.
+- Als de wijziging vanuit deze repo komt, maak dan een follow-up
+  wijziging/commit in `pcvantol/djconnect`.
+- Houd geen lokale kopie van `SYNC_PROMPTS.md` in deze repo.
+- Oude losse promptbestanden blijven verboden.
+- Controleer dat `docs/HANDOFF.md`, `docs/RELEASE.md`,
   `docs/ARCHITECTURE_DECISIONS.md` en `CHANGELOG.md` dezelfde release- en
   contractlijn beschrijven.

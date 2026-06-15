@@ -364,8 +364,8 @@ All notable changes to DJConnect App are documented here.
 
 ### Documentation
 
-- Consolidated sync prompts to the canonical root `SYNC_PROMPTS.md` and removed
-  the obsolete `docs/SYNC_PROMPTS.md` copy.
+- Consolidated sync prompts to the canonical source
+  `pcvantol/djconnect/SYNC_PROMPTS.md` and removed obsolete local copies.
 - Updated app/protocol examples to `3.1.9`.
 
 ## 3.1.8 - 2026-06-11

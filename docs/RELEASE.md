@@ -79,8 +79,12 @@ After renewing the Apple Developer Program membership:
 - Update `MARKETING_VERSION` in `project.yml`.
 - Update `DJConnectAppModel.protocolVersion`.
 - Update version examples in handoff/API/release/architecture docs.
-- Confirm handoff, README, architecture, development, sync prompts, TODO, and
-  issues docs reflect new runtime, logging, release, and pairing behavior.
+- Confirm handoff, README, architecture, development, TODO, and issues docs
+  reflect new runtime, logging, release, and pairing behavior.
+- For cross-repo contract changes, update the canonical
+  `pcvantol/djconnect/SYNC_PROMPTS.md`; if the change originates here, create a
+  follow-up change/commit in `pcvantol/djconnect`. Do not keep a local
+  `SYNC_PROMPTS.md` copy in this repo.
 - Run the standard release script so third-party libraries, frameworks and
   installed release helper tools are updated/upgraded before build artifacts
   are compiled.

@@ -27,7 +27,8 @@ Website: [https://djconnect.dev](https://djconnect.dev)
 - [docs/RELEASE.md](docs/RELEASE.md): signing, TestFlight, notarization, and live HA validation checklist.
 - [docs/postman/djconnect-local-device-api.postman_collection.json](docs/postman/djconnect-local-device-api.postman_collection.json):
   Postman collection for the local Client API hosted by the iOS/macOS app.
-- [SYNC_PROMPTS.md](SYNC_PROMPTS.md): canonical copy/paste prompts for syncing the app, Home Assistant, and ESP repos.
+- `pcvantol/djconnect/SYNC_PROMPTS.md`: canonical source for cross-repo DJConnect
+  sync prompts and contract instructions.
 - [docs/TODO.md](docs/TODO.md): open work, known issues, and next implementation steps.
 - [docs/ISSUES.md](docs/ISSUES.md): concrete local backlog with priorities and acceptance criteria.
 - [PRIVACY.md](PRIVACY.md): security, privacy, and diagnostics redaction rules.
