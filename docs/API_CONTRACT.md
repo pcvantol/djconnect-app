@@ -229,7 +229,7 @@ Examples:
 {"device_id":"djconnect-ios-8F3A2C91B45D","client_type":"ios","command":"status"}
 {"device_id":"djconnect-ios-8F3A2C91B45D","client_type":"ios","command":"devices"}
 {"device_id":"djconnect-ios-8F3A2C91B45D","client_type":"ios","command":"queue","limit":100}
-{"device_id":"djconnect-ios-8F3A2C91B45D","client_type":"ios","command":"playlists"}
+{"device_id":"djconnect-ios-8F3A2C91B45D","client_type":"ios","command":"playlists","limit":100}
 {"device_id":"djconnect-ios-8F3A2C91B45D","client_type":"ios","command":"pause"}
 {"device_id":"djconnect-ios-8F3A2C91B45D","client_type":"ios","command":"play"}
 {"device_id":"djconnect-ios-8F3A2C91B45D","client_type":"ios","command":"next"}

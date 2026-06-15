@@ -87,12 +87,20 @@ public final class DJConnectClient: Sendable {
             return .network(message: networkError.localizedDescription)
         }
 
-        guard !(200...299).contains(statusCode) else {
-            return nil
-        }
-
         let envelope = body.flatMap { try? decoder.decode(DJConnectErrorEnvelope.self, from: $0) }
         let message = envelope?.message ?? body.flatMap(Self.redactedResponseBodyMessage(from:))
+
+        if (200...299).contains(statusCode) {
+            guard let envelope else {
+                return nil
+            }
+            if envelope.error == "backend_unavailable"
+                || envelope.error == "playback_backend_unavailable"
+                || envelope.backendAvailable == false {
+                return .backendUnavailable(message: message)
+            }
+            return nil
+        }
 
         if statusCode == 426 || envelope?.error == "version_mismatch" {
             return .versionMismatch(
@@ -204,6 +212,9 @@ public final class DJConnectClient: Sendable {
     }
 
     private static func decodingFailureMessage(error: Error, body: Data) -> String {
+        if String(data: body, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty != false {
+            return "DJConnect contract error: playback command returned HTTP 2xx with an empty JSON body; response_body=<empty response body>"
+        }
         let bodyMessage = redactedResponseBodyMessage(from: body) ?? "<empty response body>"
         return "\(detailedDecodingMessage(for: error)); response_body=\(bodyMessage)"
     }

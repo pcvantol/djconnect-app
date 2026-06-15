@@ -308,13 +308,14 @@ public final class DJConnectLocalDeviceAPI: @unchecked Sendable {
         }
         let info = await infoProvider()
         let host = Self.localIPv4Address() ?? "\(info.identity.deviceID).local"
-        localURL = "http://\(host):\(port.rawValue)"
+        let readyURL = "http://\(host):\(port.rawValue)"
+        localURL = readyURL
         if isBonjourAdvertisingEnabled {
             listener.service = bonjourService(for: info)
         }
-        await urlHandler(localURL)
+        await urlHandler(readyURL)
         if logStart {
-            await logHandler("Local device API started at \(localURL ?? "unknown")")
+            await logHandler("Local device API started at \(readyURL)")
         } else {
             await logHandler("Local device API mDNS advertising enabled")
         }
@@ -333,7 +334,8 @@ public final class DJConnectLocalDeviceAPI: @unchecked Sendable {
     }
 
     private func bonjourService(for info: DJConnectLocalDeviceAPIInfo) -> NWListener.Service {
-        NWListener.Service(
+        let advertisedLocalURL = info.localURL ?? localURL ?? ""
+        return NWListener.Service(
             name: info.identity.deviceID,
             type: "_djconnect._tcp",
             txtRecord: NWTXTRecord([
@@ -342,6 +344,8 @@ public final class DJConnectLocalDeviceAPI: @unchecked Sendable {
                 "version": info.identity.firmware,
                 "app_version": info.identity.appVersion ?? info.identity.firmware,
                 "paired": info.pairingStatus == .paired ? "true" : "false",
+                "local_url": advertisedLocalURL,
+                "pair_code": info.pairingToken,
                 "api": "device",
                 "path": "/api/device/info",
                 "pairing_path": "/api/device/pairing-info",

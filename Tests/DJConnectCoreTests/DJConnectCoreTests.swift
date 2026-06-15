@@ -218,7 +218,11 @@ private func waitForLocalDeviceAPIURL(_ model: DJConnectAppModel) async throws -
         theme: "dark",
         logLevel: "info",
         haLocalURL: "http://192.168.1.10:8123",
-        localURL: "http://192.168.1.105:51193"
+        localURL: "http://192.168.1.105:51193",
+        voiceEnabled: true,
+        wakewordEnabled: true,
+        wakewordPhrase: "Okay Nabu",
+        wakewordStatus: "listening"
     )
 
     let request = try client.statusRequest(payload)
@@ -240,6 +244,10 @@ private func waitForLocalDeviceAPIURL(_ model: DJConnectAppModel) async throws -
     #expect(json?["ha_remote_url"] == nil)
     #expect(json?["ha_active_url"] == nil)
     #expect(json?["local_url"] as? String == "http://192.168.1.105:51193")
+    #expect(json?["voice_enabled"] as? Bool == true)
+    #expect(json?["wakeword_enabled"] as? Bool == true)
+    #expect(json?["wakeword_phrase"] as? String == "Okay Nabu")
+    #expect(json?["wakeword_status"] as? String == "listening")
 }
 
 @Test func commandRequestSupportsTypedValues() throws {
@@ -342,6 +350,31 @@ private func waitForLocalDeviceAPIURL(_ model: DJConnectAppModel) async throws -
 
     #expect(json?["command"] as? String == "queue")
     #expect(json?["limit"] as? Int == 100)
+}
+
+@MainActor
+@Test func appCommandsUseSpotifySafeCollectionLimits() {
+    #expect(DJConnectAppModel.commandLimit(for: "queue") == 100)
+    #expect(DJConnectAppModel.commandLimit(for: "playlists") == 100)
+    #expect(DJConnectAppModel.commandLimit(for: "status") == nil)
+    #expect(DJConnectAppModel.commandLimit(for: "play") == nil)
+}
+
+@MainActor
+@Test func wakeWordCandidatesIncludeCommonPronunciationVariants() {
+    let djCandidates = Set(DJConnectAppModel.normalizedWakeWordCandidates(for: "Hey DJ"))
+    #expect(djCandidates.contains("hey dj"))
+    #expect(djCandidates.contains("hey dee jay"))
+    #expect(djCandidates.contains("hey deejay"))
+    #expect(djCandidates.contains("hey d j"))
+
+    let nabuCandidates = Set(DJConnectAppModel.normalizedWakeWordCandidates(for: "Okay Nabu"))
+    #expect(nabuCandidates.contains("okay nabu"))
+    #expect(nabuCandidates.contains("ok nabu"))
+    #expect(nabuCandidates.contains("oke nabu"))
+    #expect(nabuCandidates.contains("okay naboo"))
+    #expect(nabuCandidates.contains("okay na boo"))
+    #expect(nabuCandidates.contains("okay nah boo"))
 }
 
 @Test func commandRequestSupportsPlayContextAtObjectValues() throws {
@@ -669,6 +702,145 @@ private func waitForLocalDeviceAPIURL(_ model: DJConnectAppModel) async throws -
     #expect(response.playlists?.map(\.commandValue) == ["spotify:playlist:1", "spotify:playlist:2", "Liked Proxy"])
     #expect(response.playlists?.first?.imageURL?.absoluteString == "https://example.test/warmup.jpg")
     #expect(response.playlists?[1].imageURL?.absoluteString == "https://example.test/dinner.jpg")
+}
+
+@Test func playlistCollectionsDecodeFromSupportedContractShapes() throws {
+    let shapes = [
+        #"{ "success": true, "playlists": [{"name":"Top","uri":"spotify:playlist:top"}] }"#,
+        #"{ "success": true, "items": [{"name":"Top","uri":"spotify:playlist:top"}] }"#,
+        #"{ "success": true, "data": { "playlists": [{"name":"Top","uri":"spotify:playlist:top"}] } }"#,
+        #"{ "success": true, "data": { "items": [{"name":"Top","uri":"spotify:playlist:top"}] } }"#,
+        #"{ "success": true, "result": { "playlists": [{"name":"Top","uri":"spotify:playlist:top"}] } }"#,
+        #"{ "success": true, "result": { "items": [{"name":"Top","uri":"spotify:playlist:top"}] } }"#
+    ]
+
+    for shape in shapes {
+        let response = try JSONDecoder().decode(DJConnectCommandResponse.self, from: Data(shape.utf8))
+        #expect(response.playlists?.map(\.commandValue) == ["spotify:playlist:top"])
+        #expect(response.playlists?.map(\.name) == ["Top"])
+        #expect(response.devices == nil)
+    }
+}
+
+@Test func playlistItemsDoNotDecodeAsOutputDevices() throws {
+    let response = try JSONDecoder().decode(
+        DJConnectCommandResponse.self,
+        from: Data(
+            """
+            {
+              "success": true,
+              "items": [
+                {"id":"playlist-1","name":"Acid Trip","uri":"spotify:playlist:1"},
+                {"id":"playlist-2","name":"Lucy","playlist_uri":"spotify:playlist:2"}
+              ]
+            }
+            """.utf8
+        )
+    )
+
+    #expect(response.playlists?.map(\.name) == ["Acid Trip", "Lucy"])
+    #expect(response.devices == nil)
+}
+
+@Test func playlistItemsDecodeAliasesForTitleValueSubtitleAndArtwork() throws {
+    let response = try JSONDecoder().decode(
+        DJConnectCommandResponse.self,
+        from: Data(
+            """
+            {
+              "success": true,
+              "playlists": [
+                {
+                  "title": "Title Alias",
+                  "value": "spotify:playlist:value",
+                  "owner_name": "Owner Alias",
+                  "imageUrl": "https://example.test/image-url.jpg"
+                },
+                {
+                  "display_title": "Display Alias",
+                  "playlist_uri": "spotify:playlist:playlist-uri",
+                  "artists": ["Artist One", "Artist Two"],
+                  "album_art_url": "https://example.test/album-art.jpg"
+                },
+                {
+                  "name": "Thumbnail Alias",
+                  "id": "playlist-id",
+                  "subtitle": "Subtitle Alias",
+                  "thumbnail_url": "https://example.test/thumb.jpg"
+                }
+              ]
+            }
+            """.utf8
+        )
+    )
+
+    #expect(response.playlists?.map(\.name) == ["Title Alias", "Display Alias", "Thumbnail Alias"])
+    #expect(response.playlists?.map(\.commandValue) == [
+        "spotify:playlist:value",
+        "spotify:playlist:playlist-uri",
+        "playlist-id"
+    ])
+    #expect(response.playlists?.map(\.subtitle) == ["Owner Alias", "Artist One, Artist Two", "Subtitle Alias"])
+    #expect(response.playlists?.map { $0.imageURL?.absoluteString } == [
+        "https://example.test/image-url.jpg",
+        "https://example.test/album-art.jpg",
+        "https://example.test/thumb.jpg"
+    ])
+}
+
+@Test func emptyPlaylistsResponseDecodesWithoutCrash() throws {
+    let response = try JSONDecoder().decode(
+        DJConnectCommandResponse.self,
+        from: Data(#"{ "success": true, "backend_available": true, "playlists": [] }"#.utf8)
+    )
+
+    #expect(response.success)
+    #expect(response.backendAvailable == true)
+    #expect(response.playlists == [])
+}
+
+@Test func playlistsDecodeAtMostOneHundredItems() throws {
+    let items = (0..<120)
+        .map { #"{"name":"Playlist \#($0)","uri":"spotify:playlist:\#($0)"}"# }
+        .joined(separator: ",")
+    let response = try JSONDecoder().decode(
+        DJConnectCommandResponse.self,
+        from: Data(#"{ "success": true, "playlists": [\#(items)] }"#.utf8)
+    )
+
+    #expect(response.playlists?.count == 100)
+    #expect(response.playlists?.first?.name == "Playlist 0")
+    #expect(response.playlists?.last?.name == "Playlist 99")
+}
+
+@Test func queueDecodesOneHundredItemsFromTopLevelItems() throws {
+    let items = (0..<100)
+        .map { #"{"title":"Track \#($0)","artist":"Artist","uri":"spotify:track:\#($0)"}"# }
+        .joined(separator: ",")
+    let response = try JSONDecoder().decode(
+        DJConnectCommandResponse.self,
+        from: Data(#"{ "success": true, "items": [\#(items)] }"#.utf8)
+    )
+
+    #expect(response.queue?.count == 100)
+    #expect(response.queue?.first?.displayTitle == "Track 0 - Artist")
+    #expect(response.queue?.last?.uri == "spotify:track:99")
+}
+
+@Test func devicesDecodeFromOutputsAndItemsWithOptionalFields() throws {
+    let outputsResponse = try JSONDecoder().decode(
+        DJConnectCommandResponse.self,
+        from: Data(#"{ "success": true, "outputs": [{ "name": "Living Room" }] }"#.utf8)
+    )
+    let itemsResponse = try JSONDecoder().decode(
+        DJConnectCommandResponse.self,
+        from: Data(#"{ "success": true, "items": [{ "id": "speaker-id", "type": "speaker", "active": false }] }"#.utf8)
+    )
+
+    #expect(outputsResponse.devices?.first?.name == "Living Room")
+    #expect(outputsResponse.devices?.first?.id == "Living Room")
+    #expect(itemsResponse.devices?.first?.id == "speaker-id")
+    #expect(itemsResponse.devices?.first?.name == "speaker-id")
 }
 
 @Test func pairingRequestUsesPairEndpointWithoutBearerToken() throws {
@@ -1107,6 +1279,35 @@ private func waitForLocalDeviceAPIURL(_ model: DJConnectAppModel) async throws -
     #expect(error == .backendUnavailable(message: "Spotify authorization has expired or was revoked."))
 }
 
+@Test func twoHundredBackendUnavailableIsNotAuthStale() throws {
+    let client = DJConnectClient(
+        baseURL: try #require(URL(string: "http://homeassistant.local:8123")),
+        identity: DJConnectIdentity(
+            deviceID: "djconnect-ios-8F3A2C91B45D",
+            deviceName: "DJConnect iPhone",
+            clientType: .ios,
+            firmware: "3.1.7",
+            platform: .ios
+        ),
+        tokenStore: DJConnectInMemoryTokenStore(token: "secret-token")
+    )
+    let body = Data(
+        """
+        {
+          "success": false,
+          "backend_available": false,
+          "error": "playback_backend_unavailable",
+          "message": "Playback backend unavailable",
+          "playlists": []
+        }
+        """.utf8
+    )
+
+    let error = client.classify(statusCode: 200, body: body)
+
+    #expect(error == .backendUnavailable(message: "Playback backend unavailable"))
+}
+
 @Test func authAndRouteErrorsAreClassifiedAsStaleSetupStates() throws {
     let client = DJConnectClient(
         baseURL: try #require(URL(string: "http://homeassistant.local:8123")),
@@ -1195,6 +1396,48 @@ private func waitForLocalDeviceAPIURL(_ model: DJConnectAppModel) async throws -
         #expect(message?.contains("response_body=") == true)
         #expect(message?.contains(#""device_token":"[redacted]""#) == true)
         #expect(message?.contains("secret-token") == false)
+    } catch {
+        Issue.record("Expected DJConnectError.decodingFailed, got \(error)")
+    }
+}
+
+@Test func emptySuccessfulCommandBodyIsReportedAsContractError() async throws {
+    let identity = DJConnectIdentity(
+        deviceID: "djconnect-ios-5ECE7DF8D495",
+        deviceName: "DJConnect iPhone",
+        clientType: .ios,
+        firmware: "3.1.13",
+        platform: .ios
+    )
+    let host = "empty-command-response.local"
+    let session = mockSession(host: host) { request in
+        (
+            try httpResponse(for: request, statusCode: 200),
+            Data()
+        )
+    }
+    let client = DJConnectClient(
+        baseURL: try #require(URL(string: "http://\(host):8123")),
+        identity: identity,
+        tokenStore: DJConnectInMemoryTokenStore(token: "secret-token"),
+        session: session
+    )
+
+    do {
+        _ = try await client.sendCommandResponse(DJConnectCommandPayload(
+            identity: identity,
+            command: "status"
+        ))
+        Issue.record("Expected a decoding failure")
+    } catch let error as DJConnectError {
+        guard case let .decodingFailed(statusCode, endpoint, message) = error else {
+            Issue.record("Expected decodingFailed, got \(error)")
+            return
+        }
+        #expect(statusCode == 200)
+        #expect(endpoint == "POST /api/djconnect/command")
+        #expect(message?.contains("contract error") == true)
+        #expect(message?.contains("<empty response body>") == true)
     } catch {
         Issue.record("Expected DJConnectError.decodingFailed, got \(error)")
     }

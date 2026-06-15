@@ -10,6 +10,9 @@ import Darwin
 #if canImport(AVFoundation)
 import AVFoundation
 #endif
+#if canImport(AudioToolbox)
+import AudioToolbox
+#endif
 #if canImport(Speech)
 import Speech
 #endif
@@ -179,7 +182,7 @@ public final class DJConnectAppModel: ObservableObject {
         didSet {
             defaults.set(wakeWordPhrase, forKey: wakeWordPhraseKey)
             if wakeWordEnabled, wakeWordStatus == .listening {
-                restartWakeWordListening()
+                scheduleWakeWordPhraseRestart()
             }
         }
     }
@@ -231,6 +234,7 @@ public final class DJConnectAppModel: ObservableObject {
     private var wakeRecognitionRequest: SFSpeechAudioBufferRecognitionRequest?
     private var wakeRecognitionTask: SFSpeechRecognitionTask?
     private var wakeWordRestartTask: Task<Void, Never>?
+    private var wakeWordPhraseRestartTask: Task<Void, Never>?
     private var wakeWordCaptureTask: Task<Void, Never>?
     private var isStoppingWakeWord = false
     #endif
@@ -1350,6 +1354,7 @@ public final class DJConnectAppModel: ObservableObject {
         }
 
         #if canImport(AVFoundation)
+        playVoiceCue(.stopListening)
         voiceStartTask?.cancel()
         voiceStartTask = nil
         let url = voiceRecordingURL
@@ -1763,7 +1768,11 @@ public final class DJConnectAppModel: ObservableObject {
                     localAudioSupported: true,
                     voiceSupported: voiceEnabled,
                     haLocalURL: haLocalURL.isEmpty ? nil : haLocalURL,
-                    localURL: localDeviceAPIURL
+                    localURL: localDeviceAPIURL,
+                    voiceEnabled: voiceEnabled,
+                    wakewordEnabled: wakeWordEnabled,
+                    wakewordPhrase: wakeWordPhrase,
+                    wakewordStatus: "\(wakeWordStatus)"
                 )
             )
             guard validateHomeAssistantVersion(
@@ -2247,7 +2256,7 @@ public final class DJConnectAppModel: ObservableObject {
                         command: command,
                         value: value,
                         play: play,
-                        limit: command == "queue" ? 100 : nil
+                        limit: Self.commandLimit(for: command)
                     )
                 )
                 apply(commandResponse: response)
@@ -2280,6 +2289,17 @@ public final class DJConnectAppModel: ObservableObject {
                 emitUserConnectionNotice()
             }
             return false
+        }
+    }
+
+    static func commandLimit(for command: String) -> Int? {
+        switch command {
+        case "queue":
+            return 100
+        case "playlists":
+            return 100
+        default:
+            return nil
         }
     }
 
@@ -3209,8 +3229,8 @@ public final class DJConnectAppModel: ObservableObject {
 
     private static func currentMicrophonePermissionStatus() -> DJConnectPermissionStatus {
         #if canImport(AVFoundation)
-        #if os(iOS) || os(macOS)
-        if #available(iOS 17.0, macOS 14.0, *) {
+        #if os(iOS)
+        if #available(iOS 17.0, *) {
             switch AVAudioApplication.shared.recordPermission {
             case .granted:
                 return .granted
@@ -3291,13 +3311,8 @@ public final class DJConnectAppModel: ObservableObject {
                 AVAudioSession.sharedInstance().requestRecordPermission(resumeOnMainQueue)
             }
             #elseif os(macOS)
-            if #available(iOS 17.0, macOS 14.0, *) {
-                log(.debug, "Requesting microphone permission using AVAudioApplication")
-                AVAudioApplication.requestRecordPermission(completionHandler: resumeOnMainQueue)
-            } else {
-                log(.debug, "Requesting microphone permission using AVCaptureDevice")
-                AVCaptureDevice.requestAccess(for: .audio, completionHandler: resumeOnMainQueue)
-            }
+            log(.debug, "Requesting microphone permission using AVCaptureDevice")
+            AVCaptureDevice.requestAccess(for: .audio, completionHandler: resumeOnMainQueue)
             #else
             log(.debug, "Microphone permission unavailable on this platform")
             resumeOnMainQueue(false)
@@ -3387,6 +3402,8 @@ public final class DJConnectAppModel: ObservableObject {
         }
         wakeWordRestartTask?.cancel()
         wakeWordRestartTask = nil
+        wakeWordPhraseRestartTask?.cancel()
+        wakeWordPhraseRestartTask = nil
         wakeRecognitionTask?.cancel()
         wakeRecognitionTask = nil
         wakeRecognitionRequest?.endAudio()
@@ -3405,7 +3422,22 @@ public final class DJConnectAppModel: ObservableObject {
         resumeWakeWordListeningIfNeeded()
     }
 
-    private func resumeWakeWordListeningIfNeeded() {
+    private func scheduleWakeWordPhraseRestart() {
+        #if canImport(Speech) && canImport(AVFoundation)
+        wakeWordPhraseRestartTask?.cancel()
+        wakeWordPhraseRestartTask = Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(750))
+            guard !Task.isCancelled else {
+                return
+            }
+            restartWakeWordListening()
+        }
+        #else
+        restartWakeWordListening()
+        #endif
+    }
+
+    private func resumeWakeWordListeningIfNeeded(after delay: Duration = .milliseconds(500)) {
         guard !isDemoMode else {
             wakeWordStatus = .unavailable
             return
@@ -3420,7 +3452,7 @@ public final class DJConnectAppModel: ObservableObject {
         #if canImport(Speech) && canImport(AVFoundation)
         wakeWordRestartTask?.cancel()
         wakeWordRestartTask = Task { @MainActor in
-            try? await Task.sleep(for: .milliseconds(500))
+            try? await Task.sleep(for: delay)
             guard !Task.isCancelled else {
                 return
             }
@@ -3510,9 +3542,6 @@ public final class DJConnectAppModel: ObservableObject {
             let engine = AVAudioEngine()
             let request = SFSpeechAudioBufferRecognitionRequest()
             request.shouldReportPartialResults = true
-            if recognizer.supportsOnDeviceRecognition {
-                request.requiresOnDeviceRecognition = true
-            }
             let inputNode = engine.inputNode
             Self.installWakeWordAudioTap(on: inputNode, request: request)
             engine.prepare()
@@ -3527,6 +3556,7 @@ public final class DJConnectAppModel: ObservableObject {
                     guard let self else { return }
                     if let result {
                         let transcript = result.bestTranscription.formattedString
+                        self.log(.debug, "Wakeword transcript: \(transcript)")
                         if self.transcriptContainsWakeWord(transcript) {
                             self.triggerWakeWordCapture()
                             return
@@ -3535,7 +3565,11 @@ public final class DJConnectAppModel: ObservableObject {
                     if let error {
                         self.log(.warning, "Wakeword listening failed: \(error.localizedDescription)")
                         self.stopWakeWordListening()
-                        self.resumeWakeWordListeningIfNeeded()
+                        if let retryDelay = self.wakeWordRetryDelay(after: error) {
+                            self.resumeWakeWordListeningIfNeeded(after: retryDelay)
+                        } else {
+                            self.wakeWordStatus = .unavailable
+                        }
                     }
                 }
             }
@@ -3554,15 +3588,70 @@ public final class DJConnectAppModel: ObservableObject {
             request.append(buffer)
         }
     }
+
+    private func wakeWordRetryDelay(after error: Error) -> Duration? {
+        let message = error.localizedDescription.lowercased()
+        if message.contains("siri and dictation are disabled") {
+            log(.warning, "Wakeword listening stopped because Siri and Dictation are disabled in macOS settings")
+            return nil
+        }
+        if message.contains("no speech detected") {
+            return .seconds(2)
+        }
+        return .milliseconds(500)
+    }
     #endif
 
     private func transcriptContainsWakeWord(_ transcript: String) -> Bool {
         let normalizedTranscript = Self.normalizedWakeWordText(transcript)
-        let normalizedWakeWord = Self.normalizedWakeWordText(wakeWordPhrase)
-        guard !normalizedWakeWord.isEmpty else {
+        let wakeWordCandidates = Self.normalizedWakeWordCandidates(for: wakeWordPhrase)
+        guard !wakeWordCandidates.isEmpty else {
             return false
         }
-        return normalizedTranscript.contains(normalizedWakeWord)
+        return wakeWordCandidates.contains { normalizedTranscript.contains($0) }
+    }
+
+    static func normalizedWakeWordCandidates(for phrase: String) -> [String] {
+        let normalizedPhrase = normalizedWakeWordText(phrase)
+        guard !normalizedPhrase.isEmpty else {
+            return []
+        }
+
+        var candidates = Set([normalizedPhrase])
+        if normalizedPhrase.contains("dj") {
+            candidates.insert(normalizedPhrase.replacingOccurrences(of: "dj", with: "dee jay"))
+            candidates.insert(normalizedPhrase.replacingOccurrences(of: "dj", with: "deejay"))
+            candidates.insert(normalizedPhrase.replacingOccurrences(of: "dj", with: "d j"))
+        }
+        if normalizedPhrase.contains("d j") {
+            candidates.insert(normalizedPhrase.replacingOccurrences(of: "d j", with: "dj"))
+            candidates.insert(normalizedPhrase.replacingOccurrences(of: "d j", with: "dee jay"))
+            candidates.insert(normalizedPhrase.replacingOccurrences(of: "d j", with: "deejay"))
+        }
+        candidates = expandWakeWordToken(candidates, token: "okay", replacements: ["ok", "oke"])
+        candidates = expandWakeWordToken(candidates, token: "ok", replacements: ["okay", "oke"])
+        candidates = expandWakeWordToken(candidates, token: "oke", replacements: ["ok", "okay"])
+        candidates = expandWakeWordToken(candidates, token: "nabu", replacements: ["naboo", "na boo", "nah boo"])
+        candidates = expandWakeWordToken(candidates, token: "naboo", replacements: ["nabu", "na boo", "nah boo"])
+        return candidates.sorted()
+    }
+
+    private static func expandWakeWordToken(
+        _ candidates: Set<String>,
+        token: String,
+        replacements: [String]
+    ) -> Set<String> {
+        var output = candidates
+        for candidate in candidates {
+            let words = candidate.split(separator: " ").map(String.init)
+            guard words.contains(token) else {
+                continue
+            }
+            for replacement in replacements {
+                output.insert(words.map { $0 == token ? replacement : $0 }.joined(separator: " "))
+            }
+        }
+        return output
     }
 
     private static func normalizedWakeWordText(_ text: String) -> String {
@@ -3602,6 +3691,7 @@ public final class DJConnectAppModel: ObservableObject {
             voiceErrorMessage = nil
             isRecordingVoice = true
             voiceStatus = .listening
+            playVoiceCue(.startListening)
             log(.info, "Voice recording started")
         } catch {
             isRecordingVoice = false
@@ -3615,6 +3705,39 @@ public final class DJConnectAppModel: ObservableObject {
             english: "Voice recording is not available on this platform.",
             dutch: "Voice-opname is niet beschikbaar op dit platform."
         )
+        #endif
+    }
+
+    private enum VoiceCue {
+        case startListening
+        case stopListening
+    }
+
+    private func playVoiceCue(_ cue: VoiceCue) {
+        #if canImport(AudioToolbox) && os(iOS)
+        let soundID: SystemSoundID
+        switch cue {
+        case .startListening:
+            soundID = 1113
+        case .stopListening:
+            soundID = 1114
+        }
+        AudioServicesPlaySystemSound(soundID)
+        #elseif canImport(AppKit) && os(macOS)
+        let soundName: NSSound.Name
+        switch cue {
+        case .startListening:
+            soundName = NSSound.Name("Pop")
+        case .stopListening:
+            soundName = NSSound.Name("Tink")
+        }
+        if let sound = NSSound(named: soundName) {
+            sound.play()
+        } else {
+            NSSound.beep()
+        }
+        #else
+        _ = cue
         #endif
     }
 

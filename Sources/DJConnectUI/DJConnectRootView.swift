@@ -2659,36 +2659,43 @@ struct QueueView: View {
 
     var body: some View {
         NavigationStack {
-            List {
-                if shouldShowEmptyQueueState {
-                    DJConnectEmptyState(
-                        title: localized(model.language, "No Queue", "Geen wachtrij"),
-                        systemImage: "music.note.list"
-                    )
-                    .frame(maxWidth: .infinity, minHeight: 360, alignment: .center)
-                    .listRowBackground(Color.clear)
-                    .listRowSeparator(.hidden)
-                } else {
-                    ForEach(Array(model.queueItems.enumerated()), id: \.offset) { index, item in
-                        Button {
-                            DJConnectHaptics.impact()
-                            showStatusToast(localized(model.language, "Track is starting", "Nummer wordt gestart"))
-                            model.startQueueItem(item, at: index)
-                        } label: {
-                            QueueItemRow(item: item, isLoading: model.loadingQueueItemIndex == index)
-                                .opacity(areQueueItemsDisabled || !model.canStartQueueItem(item) ? 0.45 : 1)
-                        }
-                        .buttonStyle(.plain)
+            Group {
+                #if os(macOS)
+                queueScrollContent
+                #else
+                List {
+                    if shouldShowEmptyQueueState {
+                        DJConnectEmptyState(
+                            title: localized(model.language, "No Queue", "Geen wachtrij"),
+                            systemImage: "music.note.list"
+                        )
+                        .frame(maxWidth: .infinity, minHeight: 360, alignment: .center)
                         .listRowBackground(Color.clear)
                         .listRowSeparator(.hidden)
-                        .listRowInsets(djConnectListRowInsets)
-                        .disabled(areQueueItemsDisabled || !model.canStartQueueItem(item))
-                        .allowsHitTesting(!areQueueItemsDisabled && model.canStartQueueItem(item))
-                        .accessibilityLabel(item.displayTitle)
+                    } else {
+                        ForEach(Array(model.queueItems.enumerated()), id: \.offset) { index, item in
+                            Button {
+                                DJConnectHaptics.impact()
+                                showStatusToast(localized(model.language, "Track is starting", "Nummer wordt gestart"))
+                                model.startQueueItem(item, at: index)
+                            } label: {
+                                QueueItemRow(item: item, isLoading: model.loadingQueueItemIndex == index)
+                                    .opacity(areQueueItemsDisabled || !model.canStartQueueItem(item) ? 0.45 : 1)
+                            }
+                            .buttonStyle(.plain)
+                            .listRowBackground(Color.clear)
+                            .listRowSeparator(.hidden)
+                            .listRowInsets(djConnectListRowInsets)
+                            .disabled(areQueueItemsDisabled || !model.canStartQueueItem(item))
+                            .allowsHitTesting(!areQueueItemsDisabled && model.canStartQueueItem(item))
+                            .accessibilityLabel(item.displayTitle)
+                        }
                     }
                 }
+                .listStyle(.plain)
+                .scrollIndicators(.visible)
+                #endif
             }
-            .listStyle(.plain)
             .refreshable {
                 guard !model.isDemoMode, canUsePlayback else {
                     return
@@ -2742,6 +2749,39 @@ struct QueueView: View {
         .background(DJConnectCanvasBackground())
     }
 
+    #if os(macOS)
+    private var queueScrollContent: some View {
+        ScrollView(.vertical, showsIndicators: true) {
+            LazyVStack(spacing: 10) {
+                if shouldShowEmptyQueueState {
+                    DJConnectEmptyState(
+                        title: localized(model.language, "No Queue", "Geen wachtrij"),
+                        systemImage: "music.note.list"
+                    )
+                    .frame(maxWidth: .infinity, minHeight: 360, alignment: .center)
+                } else {
+                    ForEach(Array(model.queueItems.enumerated()), id: \.offset) { index, item in
+                        Button {
+                            DJConnectHaptics.impact()
+                            showStatusToast(localized(model.language, "Track is starting", "Nummer wordt gestart"))
+                            model.startQueueItem(item, at: index)
+                        } label: {
+                            QueueItemRow(item: item, isLoading: model.loadingQueueItemIndex == index)
+                                .opacity(areQueueItemsDisabled || !model.canStartQueueItem(item) ? 0.45 : 1)
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(areQueueItemsDisabled || !model.canStartQueueItem(item))
+                        .allowsHitTesting(!areQueueItemsDisabled && model.canStartQueueItem(item))
+                        .accessibilityLabel(item.displayTitle)
+                    }
+                }
+            }
+            .padding(.horizontal, djConnectScreenHorizontalPadding)
+            .padding(.vertical, 6)
+        }
+    }
+    #endif
+
     private func showStatusToast(_ text: String) {
         withAnimation(.easeOut(duration: 0.18)) {
             statusToast = text
@@ -2768,35 +2808,42 @@ struct PlaylistsView: View {
 
     var body: some View {
         NavigationStack {
-            List {
-                if model.playlistItems.isEmpty {
-                    DJConnectEmptyState(
-                        title: localized(model.language, "No Playlists", "Geen afspeellijsten"),
-                        systemImage: "rectangle.stack"
-                    )
-                    .frame(maxWidth: .infinity, minHeight: 360, alignment: .center)
-                    .listRowBackground(Color.clear)
-                    .listRowSeparator(.hidden)
-                } else {
-                    ForEach(model.playlistItems) { playlist in
-                        Button {
-                            DJConnectHaptics.impact()
-                            showStatusToast(localized(model.language, "Playlist is starting", "Afspeellijst wordt gestart"))
-                            model.startPlaylist(playlist)
-                        } label: {
-                            PlaylistRow(playlist: playlist, isLoading: model.loadingPlaylistID == playlist.id)
-                                .opacity(arePlaylistItemsDisabled ? 0.45 : 1)
-                        }
-                        .buttonStyle(.plain)
+            Group {
+                #if os(macOS)
+                playlistsScrollContent
+                #else
+                List {
+                    if model.playlistItems.isEmpty {
+                        DJConnectEmptyState(
+                            title: localized(model.language, "No Playlists", "Geen afspeellijsten"),
+                            systemImage: "rectangle.stack"
+                        )
+                        .frame(maxWidth: .infinity, minHeight: 360, alignment: .center)
                         .listRowBackground(Color.clear)
                         .listRowSeparator(.hidden)
-                        .listRowInsets(djConnectListRowInsets)
-                        .disabled(arePlaylistItemsDisabled)
-                        .allowsHitTesting(!arePlaylistItemsDisabled)
+                    } else {
+                        ForEach(model.playlistItems) { playlist in
+                            Button {
+                                DJConnectHaptics.impact()
+                                showStatusToast(localized(model.language, "Playlist is starting", "Afspeellijst wordt gestart"))
+                                model.startPlaylist(playlist)
+                            } label: {
+                                PlaylistRow(playlist: playlist, isLoading: model.loadingPlaylistID == playlist.id)
+                                    .opacity(arePlaylistItemsDisabled ? 0.45 : 1)
+                            }
+                            .buttonStyle(.plain)
+                            .listRowBackground(Color.clear)
+                            .listRowSeparator(.hidden)
+                            .listRowInsets(djConnectListRowInsets)
+                            .disabled(arePlaylistItemsDisabled)
+                            .allowsHitTesting(!arePlaylistItemsDisabled)
+                        }
                     }
                 }
+                .listStyle(.plain)
+                .scrollIndicators(.visible)
+                #endif
             }
-            .listStyle(.plain)
             .refreshable {
                 guard !model.isDemoMode, canUsePlayback else {
                     return
@@ -2848,6 +2895,38 @@ struct PlaylistsView: View {
             }
         }
     }
+
+    #if os(macOS)
+    private var playlistsScrollContent: some View {
+        ScrollView(.vertical, showsIndicators: true) {
+            LazyVStack(spacing: 10) {
+                if model.playlistItems.isEmpty {
+                    DJConnectEmptyState(
+                        title: localized(model.language, "No Playlists", "Geen afspeellijsten"),
+                        systemImage: "rectangle.stack"
+                    )
+                    .frame(maxWidth: .infinity, minHeight: 360, alignment: .center)
+                } else {
+                    ForEach(model.playlistItems) { playlist in
+                        Button {
+                            DJConnectHaptics.impact()
+                            showStatusToast(localized(model.language, "Playlist is starting", "Afspeellijst wordt gestart"))
+                            model.startPlaylist(playlist)
+                        } label: {
+                            PlaylistRow(playlist: playlist, isLoading: model.loadingPlaylistID == playlist.id)
+                                .opacity(arePlaylistItemsDisabled ? 0.45 : 1)
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(arePlaylistItemsDisabled)
+                        .allowsHitTesting(!arePlaylistItemsDisabled)
+                    }
+                }
+            }
+            .padding(.horizontal, djConnectScreenHorizontalPadding)
+            .padding(.vertical, 6)
+        }
+    }
+    #endif
 
     private func showStatusToast(_ text: String) {
         withAnimation(.easeOut(duration: 0.18)) {
