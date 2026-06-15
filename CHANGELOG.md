@@ -4,6 +4,34 @@ All notable changes to DJConnect App are documented here.
 
 ## Unreleased
 
+## 3.1.24 - 2026-06-15
+
+### Changed
+
+- Added an editable Home Assistant URL field to the shared Pairing screen and
+  made the Settings URL display read-only.
+- Improved Pairing screen recovery so the local Client API and mDNS advertising
+  restart automatically after URL edits and app resume when pairing is still
+  pending.
+- Added immediate validation feedback for invalid Home Assistant URLs on the
+  Pairing screen.
+- Renamed the Pairing success action to "Let's Rock!".
+- Hid the permissions request button once Microphone and Speech Recognition
+  permissions are both granted.
+- Clarified the wakeword status when voice activation is enabled but paused
+  because Home Assistant, playback backend, or voice requests are unavailable.
+- Added automatic playback backend recovery refreshes while Home Assistant is
+  reachable but reports the playback backend as temporarily unavailable.
+- Replaced technical pairing backend errors with user-friendly recovery
+  instructions.
+- Refreshed macOS/iOS permission states when returning from System Settings and
+  resumed permission callbacks on the main actor.
+
+### Tests
+
+- Verified Swift tests and iOS/macOS debug builds during the 3.1.24 release
+  cycle.
+
 ## 3.1.23 - 2026-06-15
 
 ### Changed

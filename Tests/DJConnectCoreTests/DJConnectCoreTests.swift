@@ -192,7 +192,8 @@ private func waitForLocalDeviceAPIURL(_ model: DJConnectAppModel) async throws -
     #expect(model.pairingStatus == .stale)
     #expect(model.isPairing == false)
     #expect(model.isTerminalPairingError(.authStale(statusCode: 401, message: nil)))
-    #expect(model.pairingMessage?.contains("Vul de app-code die hier staat opnieuw in Home Assistant in.") == true)
+    #expect(model.pairingMessage?.contains("De app-code klopt niet.") == true)
+    #expect(model.pairingMessage?.contains("The pairing code does not match") == false)
 }
 
 @Test func statusRequestIncludesContractFieldsAndHeaders() throws {

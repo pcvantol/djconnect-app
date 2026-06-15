@@ -127,7 +127,13 @@ public final class DJConnectAppModel: ObservableObject {
     @Published public private(set) var isLoadingQueue = false
     @Published public private(set) var isLoadingPlaylists = false
     @Published public var backendAvailable = true {
-        didSet { updateWakeWordListeningForAvailability() }
+        didSet {
+            if backendAvailable {
+                backendRecoveryTask?.cancel()
+                backendRecoveryTask = nil
+            }
+            updateWakeWordListeningForAvailability()
+        }
     }
     @Published public var updateRequiredMessage: String?
     @Published public var pairingMessage: String?
@@ -203,6 +209,7 @@ public final class DJConnectAppModel: ObservableObject {
     private var volumeCommandTask: Task<Void, Never>?
     private var playbackProgressTask: Task<Void, Never>?
     private var startupRefreshTask: Task<Void, Never>?
+    private var backendRecoveryTask: Task<Void, Never>?
     private var pendingSelectedOutput: String?
     private var pendingVolumePercent: Int?
     private var pendingSeekTargetMS: Int?
@@ -590,6 +597,7 @@ public final class DJConnectAppModel: ObservableObject {
     public func markActiveSession() {
         isAppInForeground = true
         defaults.set(false, forKey: cleanShutdownKey)
+        refreshPermissionStatuses()
         resumeWakeWordListeningIfNeeded()
         updatePlaybackProgressTimer()
         guard pairingStatus == .paired, !isDemoMode else {
@@ -967,6 +975,31 @@ public final class DJConnectAppModel: ObservableObject {
                 return
             }
             await self?.runRefresh(reason: "Startup Now Playing refresh completed", allowThrottle: true)
+        }
+    }
+
+    private func scheduleBackendRecoveryRefresh(reason: String) {
+        guard startBackgroundTasks, !isDemoMode, pairingStatus == .paired, !backendAvailable else {
+            return
+        }
+        guard backendRecoveryTask == nil else {
+            return
+        }
+        backendRecoveryTask = Task { [weak self] in
+            var delay: UInt64 = 2_000_000_000
+            while !Task.isCancelled {
+                try? await Task.sleep(nanoseconds: delay)
+                guard !Task.isCancelled, let self else {
+                    return
+                }
+                guard self.pairingStatus == .paired, !self.isDemoMode, !self.backendAvailable else {
+                    self.backendRecoveryTask = nil
+                    return
+                }
+                self.log(.debug, reason)
+                await self.runRefresh(reason: "Playback backend recovery refresh completed")
+                delay = min(delay * 2, 10_000_000_000)
+            }
         }
     }
 
@@ -1571,6 +1604,7 @@ public final class DJConnectAppModel: ObservableObject {
             if let message, !message.isEmpty {
                 log(.warning, "Backend unavailable: \(message)")
             }
+            scheduleBackendRecoveryRefresh(reason: "Retrying playback backend while Home Assistant is reachable")
         case let .network(message):
             applyConnectionUnavailableState(message: message)
         case let .versionMismatch(mismatch):
@@ -1632,6 +1666,9 @@ public final class DJConnectAppModel: ObservableObject {
         isConnected = true
         backendAvailable = backendAvailableAfterResponse
         pairingMessage = nil
+        if !backendAvailableAfterResponse {
+            scheduleBackendRecoveryRefresh(reason: "Retrying playback backend after unavailable status")
+        }
     }
 
     private func applyConnectionUnavailableState(message: String? = nil) {
@@ -1681,18 +1718,16 @@ public final class DJConnectAppModel: ObservableObject {
             )
         case let .server(_, message):
             pairingStatus = .pairing
-            pairingMessage = message ?? localized(
+            pairingMessage = userFacingPairingMessage(from: message) ?? localized(
                 english: "Waiting for Home Assistant to finish pairing.",
                 dutch: "Wachten tot Home Assistant pairing afrondt."
             )
         case let .authStale(_, message):
             pairingStatus = .stale
             isPairing = false
-            pairingMessage = localized(
-                english: message.map { "\($0) Enter the app code shown here again in Home Assistant." }
-                    ?? "Home Assistant rejected this app code. Enter the code shown here again in Home Assistant.",
-                dutch: message.map { "\($0) Vul de app-code die hier staat opnieuw in Home Assistant in." }
-                    ?? "Home Assistant weigert deze app-code. Vul de code die hier staat opnieuw in Home Assistant in."
+            pairingMessage = userFacingPairingMessage(from: message) ?? localized(
+                english: "Home Assistant rejected this app code. Enter the code shown here again in Home Assistant.",
+                dutch: "Home Assistant weigert deze app-code. Vul de code die hier staat opnieuw in Home Assistant in."
             )
         case let .versionMismatch(mismatch):
             pairingStatus = .pairing
@@ -2049,6 +2084,38 @@ public final class DJConnectAppModel: ObservableObject {
             )
         }
         return text
+    }
+
+    private func userFacingPairingMessage(from text: String?) -> String? {
+        guard let text, !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            return nil
+        }
+        if let message = Self.extractServerJSONMessage(from: text) {
+            return userFacingPairingMessage(from: message)
+        }
+        let normalized = text.lowercased()
+        if normalized.contains("pairing code")
+            || normalized.contains("app code")
+            || normalized.contains("does not match")
+            || normalized.contains("invalid code") {
+            return localized(
+                english: "The app code does not match. Enter the current code from this screen in Home Assistant.",
+                dutch: "De app-code klopt niet. Vul de huidige code uit dit scherm in Home Assistant in."
+            )
+        }
+        if normalized.contains("token")
+            || normalized.contains("bearer")
+            || normalized.contains("unauthorized")
+            || normalized.contains("forbidden") {
+            return localized(
+                english: "Home Assistant rejected this app. Pair DJConnect again from Home Assistant.",
+                dutch: "Home Assistant weigert deze app. Koppel DJConnect opnieuw vanuit Home Assistant."
+            )
+        }
+        return localized(
+            english: "Pairing could not be completed. Check Home Assistant and enter the app code again.",
+            dutch: "Koppelen is niet gelukt. Controleer Home Assistant en vul de app-code opnieuw in."
+        )
     }
 
     private func clearRecoverableVoiceErrorIfNeeded() {
@@ -3187,6 +3254,7 @@ public final class DJConnectAppModel: ObservableObject {
         case .denied, .restricted:
             log(.warning, "Microphone permission is denied or restricted; opening system settings")
             openAppPermissionSettings()
+            schedulePermissionStatusRefreshes()
             return false
         case .unavailable:
             log(.debug, "Microphone permission unavailable on this platform")
@@ -3196,7 +3264,9 @@ public final class DJConnectAppModel: ObservableObject {
         }
         return await withCheckedContinuation { continuation in
             let resumeOnMainQueue: @Sendable (Bool) -> Void = { granted in
-                continuation.resume(returning: granted)
+                Task { @MainActor in
+                    continuation.resume(returning: granted)
+                }
             }
             #if os(iOS)
             if #available(iOS 17.0, *) {
@@ -3383,7 +3453,9 @@ public final class DJConnectAppModel: ObservableObject {
         log(.debug, "Requesting speech recognition permission; current_status=\(status.rawValue)")
         let authorizationStatus = await withCheckedContinuation { continuation in
             SFSpeechRecognizer.requestAuthorization { authorizationStatus in
-                continuation.resume(returning: authorizationStatus)
+                Task { @MainActor in
+                    continuation.resume(returning: authorizationStatus)
+                }
             }
         }
         let granted = authorizationStatus == .authorized
