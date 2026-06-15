@@ -654,7 +654,7 @@ private struct PairingSheetView: View {
             Button {
                 model.completePairingScreen()
             } label: {
-                Text(localized(model.language, "Let's Start!", "Start"))
+                Text("Let's Rock!")
                     .font(.headline)
                     .foregroundStyle(djConnectAccent)
                     .frame(maxWidth: .infinity)
@@ -3970,23 +3970,25 @@ struct SettingsView: View {
                         status: model.speechPermissionStatus,
                         language: model.language
                     )
-                    Button {
-                        model.requestAppPermissions()
-                    } label: {
-                        if model.isRequestingPermissions {
-                            ProgressView()
-                                .tint(djConnectAccent)
-                        } else {
-                            Label(
-                                localized(model.language, "Request Permissions", "Toestemmingen vragen"),
-                                systemImage: "checkmark.shield"
-                            )
-                            .foregroundStyle(djConnectAccent)
+                    if model.microphonePermissionStatus != .granted || model.speechPermissionStatus != .granted {
+                        Button {
+                            model.requestAppPermissions()
+                        } label: {
+                            if model.isRequestingPermissions {
+                                ProgressView()
+                                    .tint(djConnectAccent)
+                            } else {
+                                Label(
+                                    localized(model.language, "Request Permissions", "Toestemmingen vragen"),
+                                    systemImage: "checkmark.shield"
+                                )
+                                .foregroundStyle(djConnectAccent)
+                            }
                         }
+                        .foregroundStyle(djConnectAccent)
+                        .tint(djConnectAccent)
+                        .disabled(model.isRequestingPermissions)
                     }
-                    .foregroundStyle(djConnectAccent)
-                    .tint(djConnectAccent)
-                    .disabled(model.isRequestingPermissions)
                 }
                 .djSettingsListRowBackground()
 
