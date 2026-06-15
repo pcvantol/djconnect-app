@@ -3209,17 +3209,31 @@ public final class DJConnectAppModel: ObservableObject {
 
     private static func currentMicrophonePermissionStatus() -> DJConnectPermissionStatus {
         #if canImport(AVFoundation)
+        #if os(iOS) || os(macOS)
+        if #available(iOS 17.0, macOS 14.0, *) {
+            switch AVAudioApplication.shared.recordPermission {
+            case .granted:
+                return .granted
+            case .denied:
+                return .denied
+            case .undetermined:
+                return .unknown
+            @unknown default:
+                return .unknown
+            }
+        }
+        #endif
         switch AVCaptureDevice.authorizationStatus(for: .audio) {
         case .authorized:
-            .granted
+            return .granted
         case .denied:
-            .denied
+            return .denied
         case .restricted:
-            .restricted
+            return .restricted
         case .notDetermined:
-            .unknown
+            return .unknown
         @unknown default:
-            .unknown
+            return .unknown
         }
         #else
         .unavailable
@@ -3277,8 +3291,13 @@ public final class DJConnectAppModel: ObservableObject {
                 AVAudioSession.sharedInstance().requestRecordPermission(resumeOnMainQueue)
             }
             #elseif os(macOS)
-            log(.debug, "Requesting microphone permission using AVCaptureDevice")
-            AVCaptureDevice.requestAccess(for: .audio, completionHandler: resumeOnMainQueue)
+            if #available(iOS 17.0, macOS 14.0, *) {
+                log(.debug, "Requesting microphone permission using AVAudioApplication")
+                AVAudioApplication.requestRecordPermission(completionHandler: resumeOnMainQueue)
+            } else {
+                log(.debug, "Requesting microphone permission using AVCaptureDevice")
+                AVCaptureDevice.requestAccess(for: .audio, completionHandler: resumeOnMainQueue)
+            }
             #else
             log(.debug, "Microphone permission unavailable on this platform")
             resumeOnMainQueue(false)
