@@ -168,6 +168,26 @@ iOS UI tests:
 xcodebuild -project DJConnectApp.xcodeproj -scheme DJConnectIOS -destination 'platform=iOS Simulator,name=iPhone 17 Pro' -derivedDataPath .xcode-derived CODE_SIGNING_ALLOWED=NO test
 ```
 
+Local iOS/iPadOS simulator matrix:
+
+```sh
+Tools/test_ios_simulator_matrix.sh
+Tools/test_ios_simulator_matrix.sh --all-runtimes
+Tools/test_ios_simulator_matrix.sh --full-ui
+Tools/test_ios_simulator_matrix.sh --list
+```
+
+The matrix creates temporary simulators, runs the deterministic iOS UI smoke
+test by default, and deletes those simulators after the run. It covers compact
+iPhone, standard iPhone, large iPhone, and iPad form factors. By default it
+tests the latest installed stable iOS simulator runtime for each form factor and
+also runs the standard iPhone against the oldest installed stable runtime at or
+above the app deployment target. Install older iOS runtimes in Xcode when you
+want local coverage close to the minimum supported iOS/iPadOS version. Use
+`--all-runtimes` to run every installed supported runtime, `--full-ui` to run
+the complete iOS UI test target, and `--include-beta-runtimes` when validating
+against Xcode beta runtimes.
+
 `DJConnectIOSUITests` launches the app with `--uitesting`, isolated
 `UserDefaults`, an in-memory token store, and `DJCONNECT_UITEST_HA_URL` pointing
 at a mock Home Assistant URL. The current tests verify deterministic launch,

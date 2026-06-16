@@ -107,10 +107,12 @@ xcodebuild -project DJConnectApp.xcodeproj -scheme DJConnectIOS -configuration D
 - Confirm the `Public unsigned release` GitHub Actions workflow succeeds. It
   publishes unsigned macOS and iOS diagnostic zips plus checksums to
   `pcvantol/djconnect-app-releases`.
-- Run release cleanup when the new release is confirmed:
+- Release cleanup runs automatically from `release.sh` by default. It keeps the
+  newest source release/tag and newest GitHub Actions workflow run, and removes
+  older matching entries. To run the same cleanup manually:
 
 ```sh
-./cleanup_old_releases.sh --keep 1 --execute
+./cleanup_old_releases.sh --keep 1 --keep-workflow-runs 1 --execute
 ```
 
 ### Every Release: iOS/iPadOS App Store Or TestFlight
@@ -551,22 +553,25 @@ published this way; use TestFlight/App Store for iOS distribution.
 
 ## Release Cleanup
 
-After a successful release, old semantic-version GitHub releases and tags can
-be cleaned up with the helper script. It is dry-run by default:
+After a successful release, old semantic-version GitHub releases, tags, and
+GitHub Actions workflow runs can be cleaned up with the helper script. It is
+dry-run by default:
 
 ```sh
-./cleanup_old_releases.sh --keep 1
+./cleanup_old_releases.sh --keep 1 --keep-workflow-runs 1
 ```
 
 When the dry-run list is correct, execute the cleanup:
 
 ```sh
-./cleanup_old_releases.sh --keep 1 --execute
+./cleanup_old_releases.sh --keep 1 --keep-workflow-runs 1 --execute
 ```
 
 The script deletes matching old `vX.Y.Z` GitHub releases, remote tags, and
-local tags. It keeps the newest `--keep` versions and only deletes when
-`--execute` is passed.
+local tags, plus old GitHub Actions workflow runs. It keeps the newest `--keep`
+versions and the newest `--keep-workflow-runs` Actions runs, and only deletes
+when `--execute` is passed. `release.sh` runs this cleanup automatically after a
+successful release unless `--no-cleanup` is passed.
 
 ## Live HA Validation
 

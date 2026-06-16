@@ -174,15 +174,33 @@ jobs:
             --repo "$PUBLIC_REPO" \
             --clobber
 
+          sorted_platform_tags() {
+            python3 -c '
+import re
+import sys
+
+def version_key(tag):
+    match = re.search(r"/v([0-9]+)\.([0-9]+)\.([0-9]+)$", tag)
+    if not match:
+        return (-1, -1, -1)
+    return tuple(int(part) for part in match.groups())
+
+tags = [line.strip() for line in sys.stdin if line.strip()]
+for tag in sorted(tags, key=version_key, reverse=True):
+    print(tag)
+'
+          }
+
           for prefix in macos ios; do
-            mapfile -t old_tags < <(
+            old_tags="$(
               gh release list --repo "$PUBLIC_REPO" --limit 100 --json tagName \
                 --jq ".[] | select(.tagName | startswith(\"${prefix}/v\")) | .tagName" \
-                | sort -t v -k2,2V -r \
+                | sorted_platform_tags \
                 | tail -n +2
             )
-            for old_tag in "${old_tags[@]}"; do
+            while IFS= read -r old_tag; do
+              [[ -n "$old_tag" ]] || continue
               gh release delete "$old_tag" --repo "$PUBLIC_REPO" --yes || true
               git push "https://x-access-token:${GH_TOKEN}@github.com/${PUBLIC_REPO}.git" ":refs/tags/${old_tag}" || true
-            done
+            done <<< "$old_tags"
           done

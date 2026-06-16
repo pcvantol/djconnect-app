@@ -17,6 +17,7 @@ SKIP_SOURCE_RELEASE=0
 PUBLIC_MACOS=0
 CLEANUP=1
 KEEP_RELEASES=1
+KEEP_WORKFLOW_RUNS=1
 DRY_RUN=0
 
 usage() {
@@ -31,6 +32,8 @@ Options:
   --cleanup               Run cleanup_old_releases.sh after release (default)
   --no-cleanup            Skip release/tag/workflow cleanup
   --keep <n>              Number of releases/tags to keep during cleanup (default: 1)
+  --keep-workflow-runs <n>
+                          Number of GitHub Actions workflow runs to keep during cleanup (default: 1)
   --dry-run               Print release actions without creating GitHub releases
 
 Examples:
@@ -55,6 +58,10 @@ shift_version() {
       --no-cleanup) CLEANUP=0 ;;
       --keep)
         KEEP_RELEASES="${2:-}"
+        shift
+        ;;
+      --keep-workflow-runs)
+        KEEP_WORKFLOW_RUNS="${2:-}"
         shift
         ;;
       --dry-run) DRY_RUN=1 ;;
@@ -83,6 +90,16 @@ shift_version "$@"
 
 if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
   echo "Version must look like 3.1.15" >&2
+  exit 2
+fi
+
+if [[ ! "$KEEP_RELEASES" =~ ^[0-9]+$ || "$KEEP_RELEASES" -lt 1 ]]; then
+  echo "--keep requires a positive number." >&2
+  exit 2
+fi
+
+if [[ ! "$KEEP_WORKFLOW_RUNS" =~ ^[0-9]+$ || "$KEEP_WORKFLOW_RUNS" -lt 1 ]]; then
+  echo "--keep-workflow-runs requires a positive number." >&2
   exit 2
 fi
 
@@ -143,7 +160,7 @@ if [[ "$PUBLIC_MACOS" -eq 1 ]]; then
 fi
 
 if [[ "$CLEANUP" -eq 1 ]]; then
-  run "$ROOT_DIR/cleanup_old_releases.sh" --keep "$KEEP_RELEASES" --execute
+  run "$ROOT_DIR/cleanup_old_releases.sh" --keep "$KEEP_RELEASES" --keep-workflow-runs "$KEEP_WORKFLOW_RUNS" --execute
 fi
 
 echo "Release workflow completed for $VERSION"

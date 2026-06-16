@@ -111,8 +111,8 @@ Bronnen:
 
 - Swift tools-versie: `Package.swift` gebruikt `// swift-tools-version: 6.0`.
 - Projectconfiguratie: `project.yml` gebruikt `SWIFT_VERSION: "6.0"`.
-- Platform minima: `Package.swift` en `project.yml` targeten iOS 17.0 en macOS
-  14.0.
+- Platform minima: `Package.swift` en `project.yml` targeten iOS 26.0 en macOS
+  26.0.
 - Taalconventies zijn gebaseerd op de officiële Swift API Design Guidelines:
   <https://www.swift.org/documentation/api-design-guidelines/>
 
@@ -163,6 +163,10 @@ Conventies:
 
 - Release- en cleanup-scripts gebruiken shell scripting als automation layer rond
   `xcodebuild`, `gh`, notarization en artifactpublicatie.
+- `release.sh` voert na een geslaagde release standaard
+  `cleanup_old_releases.sh --keep 1 --keep-workflow-runs 1 --execute` uit,
+  zodat oude source releases/tags en oude GitHub Actions runs niet blijven
+  stapelen.
 - Scripts moeten idempotent zijn waar praktisch en duidelijke environment
   variables gebruiken voor signing/notarization.
 
@@ -208,8 +212,8 @@ vastlegt, staat "niet gepind".
 | DJConnect app code | iOS/macOS app, Core, UI en tooling | `MARKETING_VERSION` in `project.yml` | Proprietary; geen standalone `LICENSE` gevonden | <https://github.com/pcvantol/djconnect-app> |
 | Swift | Programmeertaal en standaardbibliotheek | Swift tools 6.0, `SWIFT_VERSION` 6.0 | Apache License 2.0 met Runtime Library Exception | <https://github.com/swiftlang/swift> |
 | Swift Package Manager | Module/build layout | Swift tools 6.0 | Apache License 2.0 | <https://www.swift.org/package-manager/> |
-| Foundation | Data, URL, JSON, filesystem, dates | Apple SDK, iOS 17+/macOS 14+ | Apple SDK terms | <https://developer.apple.com/documentation/foundation> |
-| SwiftUI | Gedeelde declaratieve UI | Apple SDK, iOS 17+/macOS 14+ | Apple SDK terms | <https://developer.apple.com/documentation/swiftui> |
+| Foundation | Data, URL, JSON, filesystem, dates | Apple SDK, iOS 26+/macOS 26+ | Apple SDK terms | <https://developer.apple.com/documentation/foundation> |
+| SwiftUI | Gedeelde declaratieve UI | Apple SDK, iOS 26+/macOS 26+ | Apple SDK terms | <https://developer.apple.com/documentation/swiftui> |
 | Combine | Publishers/subscriptions in appmodel/UI | Apple SDK | Apple SDK terms | <https://developer.apple.com/documentation/combine> |
 | UIKit | iOS platformbridges, haptics, pasteboard, app lifecycle | Apple SDK, iOS target | Apple SDK terms | <https://developer.apple.com/documentation/uikit> |
 | AppKit | macOS platformbridges, windows, clipboard, app lifecycle | Apple SDK, macOS target | Apple SDK terms | <https://developer.apple.com/documentation/appkit> |

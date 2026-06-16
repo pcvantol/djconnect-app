@@ -3230,17 +3230,15 @@ public final class DJConnectAppModel: ObservableObject {
     private static func currentMicrophonePermissionStatus() -> DJConnectPermissionStatus {
         #if canImport(AVFoundation)
         #if os(iOS)
-        if #available(iOS 17.0, *) {
-            switch AVAudioApplication.shared.recordPermission {
-            case .granted:
-                return .granted
-            case .denied:
-                return .denied
-            case .undetermined:
-                return .unknown
-            @unknown default:
-                return .unknown
-            }
+        switch AVAudioApplication.shared.recordPermission {
+        case .granted:
+            return .granted
+        case .denied:
+            return .denied
+        case .undetermined:
+            return .unknown
+        @unknown default:
+            return .unknown
         }
         #endif
         switch AVCaptureDevice.authorizationStatus(for: .audio) {
@@ -3303,13 +3301,8 @@ public final class DJConnectAppModel: ObservableObject {
                 }
             }
             #if os(iOS)
-            if #available(iOS 17.0, *) {
-                log(.debug, "Requesting microphone permission using AVAudioApplication")
-                AVAudioApplication.requestRecordPermission(completionHandler: resumeOnMainQueue)
-            } else {
-                log(.debug, "Requesting microphone permission using AVAudioSession")
-                AVAudioSession.sharedInstance().requestRecordPermission(resumeOnMainQueue)
-            }
+            log(.debug, "Requesting microphone permission using AVAudioApplication")
+            AVAudioApplication.requestRecordPermission(completionHandler: resumeOnMainQueue)
             #elseif os(macOS)
             log(.debug, "Requesting microphone permission using AVCaptureDevice")
             AVCaptureDevice.requestAccess(for: .audio, completionHandler: resumeOnMainQueue)

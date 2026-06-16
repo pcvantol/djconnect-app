@@ -11,14 +11,15 @@ Examples:
   ./cleanup_old_releases.sh --keep 1
   ./cleanup_old_releases.sh --keep 2 --execute
 
-By default this is a dry-run. It keeps the newest semantic-version tags/releases
-and deletes older matching vX.Y.Z GitHub releases, remote tags, local tags and
-old GitHub Actions workflow runs only when --execute is passed.
+By default this is a dry-run. It keeps the newest semantic-version tag/release
+and newest GitHub Actions workflow run, then deletes older matching vX.Y.Z
+GitHub releases, remote tags, local tags and old GitHub Actions workflow runs
+only when --execute is passed.
 EOF
 }
 
 KEEP=1
-KEEP_WORKFLOW_RUNS=30
+KEEP_WORKFLOW_RUNS=1
 SKIP_WORKFLOW_RUNS=false
 EXECUTE=false
 
@@ -81,7 +82,10 @@ run() {
   fi
 }
 
-mapfile -t TAGS < <(
+TAGS=()
+while IFS= read -r tag; do
+  [[ -n "$tag" ]] && TAGS+=("$tag")
+done < <(
   git ls-remote --tags --refs origin 'v*' \
     | awk '{print $2}' \
     | sed 's#refs/tags/##' \
@@ -138,7 +142,10 @@ if [[ "$SKIP_WORKFLOW_RUNS" == true ]]; then
   exit 0
 fi
 
-mapfile -t WORKFLOW_RUNS < <(
+WORKFLOW_RUNS=()
+while IFS= read -r run_id; do
+  [[ -n "$run_id" ]] && WORKFLOW_RUNS+=("$run_id")
+done < <(
   gh run list --repo pcvantol/djconnect-app --limit 200 --json databaseId \
     --jq ".[${KEEP_WORKFLOW_RUNS}:][].databaseId"
 )

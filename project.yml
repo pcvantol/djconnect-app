@@ -2,8 +2,8 @@ name: DJConnectApp
 options:
   bundleIdPrefix: dev
   deploymentTarget:
-    iOS: "17.0"
-    macOS: "14.0"
+    iOS: "26.0"
+    macOS: "26.0"
   createIntermediateGroups: true
   generateEmptyDirectories: true
 settings:
