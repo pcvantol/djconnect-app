@@ -12,7 +12,7 @@ on:
 
 concurrency:
   group: public-unsigned-release-${{ github.ref }}
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   unsigned-release:
@@ -175,20 +175,9 @@ jobs:
             --clobber
 
           sorted_platform_tags() {
-            python3 -c '
-import re
-import sys
-
-def version_key(tag):
-    match = re.search(r"/v([0-9]+)\.([0-9]+)\.([0-9]+)$", tag)
-    if not match:
-        return (-1, -1, -1)
-    return tuple(int(part) for part in match.groups())
-
-tags = [line.strip() for line in sys.stdin if line.strip()]
-for tag in sorted(tags, key=version_key, reverse=True):
-    print(tag)
-'
+            awk -F'[/.v]' 'NF >= 5 { printf "%09d.%09d.%09d %s\n", $(NF-2), $(NF-1), $NF, $0 }' \
+              | sort -r \
+              | sed 's/^[^ ]* //'
           }
 
           for prefix in macos ios; do
