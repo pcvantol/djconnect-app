@@ -1014,8 +1014,9 @@ private struct WhatsNewView: View {
 
                 ZStack(alignment: .topLeading) {
                     ScrollView {
-                        Text(model.whatsNewBody)
+                        Text(whatsNewBodyText)
                             .font(.body)
+                            .tint(djConnectAccent)
                             .textSelection(.enabled)
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .padding(.vertical, 2)
@@ -1053,6 +1054,16 @@ private struct WhatsNewView: View {
         #if os(macOS)
         .frame(minHeight: 560)
         #endif
+    }
+
+    private var whatsNewBodyText: AttributedString {
+        var text = AttributedString(model.whatsNewBody)
+        guard let websiteURL = URL(string: "https://djconnect.dev"),
+              let range = text.range(of: "https://djconnect.dev") else {
+            return text
+        }
+        text[range].link = websiteURL
+        return text
     }
 }
 

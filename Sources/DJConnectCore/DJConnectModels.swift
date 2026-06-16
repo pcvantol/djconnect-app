@@ -662,23 +662,45 @@ public struct DJConnectQueueItem: Codable, Equatable, Identifiable, Sendable {
         let id = try container.decodeIfPresent(String.self, forKey: .id)
         let decodedTitle = container.decodeStringAliasIfPresent(.title, .name, .displayTitle, .trackName)
         let title = decodedTitle ?? uri ?? id ?? "Unknown"
+        let artist = container.decodeStringAliasIfPresent(.artist, .artists)
+        let album = try container.decodeIfPresent(String.self, forKey: .album)
+        let durationMS = try container.decodeIfPresent(Int.self, forKey: .durationMS)
+        var albumImageURL = try container.decodeIfPresent(URL.self, forKey: .albumImageURL)
+        if albumImageURL == nil {
+            albumImageURL = container.decodeIfPresentIgnoringErrors(URL.self, forKey: .albumImageUrl)
+        }
+        if albumImageURL == nil {
+            albumImageURL = container.decodeIfPresentIgnoringErrors(URL.self, forKey: .albumArtURL)
+        }
+        if albumImageURL == nil {
+            albumImageURL = container.decodeIfPresentIgnoringErrors(URL.self, forKey: .albumArtUrl)
+        }
+        if albumImageURL == nil {
+            albumImageURL = container.decodeIfPresentIgnoringErrors(URL.self, forKey: .mediaImageURL)
+        }
+        if albumImageURL == nil {
+            albumImageURL = container.decodeIfPresentIgnoringErrors(URL.self, forKey: .mediaImageUrl)
+        }
+        if albumImageURL == nil {
+            albumImageURL = container.decodeIfPresentIgnoringErrors(URL.self, forKey: .imageURL)
+        }
+        if albumImageURL == nil {
+            albumImageURL = container.decodeIfPresentIgnoringErrors(URL.self, forKey: .imageUrl)
+        }
+        if albumImageURL == nil {
+            albumImageURL = container.decodeIfPresentIgnoringErrors(URL.self, forKey: .thumbnailURL)
+        }
+        if albumImageURL == nil {
+            albumImageURL = container.decodeIfPresentIgnoringErrors(URL.self, forKey: .entityPicture)
+        }
         self.init(
             id: id,
             title: title,
-            artist: container.decodeStringAliasIfPresent(.artist, .artists),
-            album: try container.decodeIfPresent(String.self, forKey: .album),
+            artist: artist,
+            album: album,
             uri: uri,
-            durationMS: try container.decodeIfPresent(Int.self, forKey: .durationMS),
-            albumImageURL: try container.decodeIfPresent(URL.self, forKey: .albumImageURL)
-                ?? container.decodeIfPresentIgnoringErrors(URL.self, forKey: .albumImageUrl)
-                ?? container.decodeIfPresentIgnoringErrors(URL.self, forKey: .albumArtURL)
-                ?? container.decodeIfPresentIgnoringErrors(URL.self, forKey: .albumArtUrl)
-                ?? container.decodeIfPresentIgnoringErrors(URL.self, forKey: .mediaImageURL)
-                ?? container.decodeIfPresentIgnoringErrors(URL.self, forKey: .mediaImageUrl)
-                ?? container.decodeIfPresentIgnoringErrors(URL.self, forKey: .imageURL)
-                ?? container.decodeIfPresentIgnoringErrors(URL.self, forKey: .imageUrl)
-                ?? container.decodeIfPresentIgnoringErrors(URL.self, forKey: .thumbnailURL)
-                ?? container.decodeIfPresentIgnoringErrors(URL.self, forKey: .entityPicture)
+            durationMS: durationMS,
+            albumImageURL: albumImageURL
         )
     }
 
@@ -950,15 +972,32 @@ public struct DJConnectCommandResponse: Codable, Equatable, Sendable {
         playback = try container.decodeIfPresent(DJConnectPlayback.self, forKey: .playback)
             ?? data?.decodeIfPresentIgnoringErrors(DJConnectPlayback.self, forKey: .playback)
             ?? result?.decodeIfPresentIgnoringErrors(DJConnectPlayback.self, forKey: .playback)
-        devices = container.decodeLossyArrayIfPresent(DJConnectOutputDevice.self, forKey: .devices)
-            ?? container.decodeLossyArrayIfPresent(DJConnectOutputDevice.self, forKey: .outputs)
-            ?? container.decodeOutputDeviceItemsIfPresent(forKey: .items)
-            ?? data?.decodeLossyArrayIfPresent(DJConnectOutputDevice.self, forKey: .devices)
-            ?? data?.decodeLossyArrayIfPresent(DJConnectOutputDevice.self, forKey: .outputs)
-            ?? data?.decodeOutputDeviceItemsIfPresent(forKey: .items)
-            ?? result?.decodeLossyArrayIfPresent(DJConnectOutputDevice.self, forKey: .devices)
-            ?? result?.decodeLossyArrayIfPresent(DJConnectOutputDevice.self, forKey: .outputs)
-            ?? result?.decodeOutputDeviceItemsIfPresent(forKey: .items)
+        var decodedDevices = container.decodeLossyArrayIfPresent(DJConnectOutputDevice.self, forKey: .devices)
+        if decodedDevices == nil {
+            decodedDevices = container.decodeLossyArrayIfPresent(DJConnectOutputDevice.self, forKey: .outputs)
+        }
+        if decodedDevices == nil {
+            decodedDevices = container.decodeOutputDeviceItemsIfPresent(forKey: .items)
+        }
+        if decodedDevices == nil {
+            decodedDevices = data?.decodeLossyArrayIfPresent(DJConnectOutputDevice.self, forKey: .devices)
+        }
+        if decodedDevices == nil {
+            decodedDevices = data?.decodeLossyArrayIfPresent(DJConnectOutputDevice.self, forKey: .outputs)
+        }
+        if decodedDevices == nil {
+            decodedDevices = data?.decodeOutputDeviceItemsIfPresent(forKey: .items)
+        }
+        if decodedDevices == nil {
+            decodedDevices = result?.decodeLossyArrayIfPresent(DJConnectOutputDevice.self, forKey: .devices)
+        }
+        if decodedDevices == nil {
+            decodedDevices = result?.decodeLossyArrayIfPresent(DJConnectOutputDevice.self, forKey: .outputs)
+        }
+        if decodedDevices == nil {
+            decodedDevices = result?.decodeOutputDeviceItemsIfPresent(forKey: .items)
+        }
+        devices = decodedDevices
         let queueResponse = try container.decodeIfPresent(DJConnectQueueResponse.self, forKey: .queue)
             ?? data?.decodeIfPresentIgnoringErrors(DJConnectQueueResponse.self, forKey: .queue)
             ?? result?.decodeIfPresentIgnoringErrors(DJConnectQueueResponse.self, forKey: .queue)
