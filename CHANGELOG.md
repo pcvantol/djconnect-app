@@ -4,6 +4,18 @@ All notable changes to DJConnect App are documented here.
 
 ## Unreleased
 
+### Changed
+
+- Load in-app What's New notes from static `djconnect.dev` JSON files first,
+  with GitHub release metadata retained only as a fallback.
+- Added public-release workflow publication of static platform-specific
+  release-note `.md` and `.json` files to the website repository.
+
+### Tests
+
+- Added coverage for the static What's New release-note URLs and GitHub
+  fallback URLs.
+
 ## 3.1.26 - 2026-06-16
 
 ### Changed

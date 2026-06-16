@@ -151,9 +151,10 @@ Use the one-time and per-release App Store/macOS checklist in
 
 On startup after an app update, DJConnect compares the running version with the
 last version seen on that device. If the version changed, the app shows a
-`Wat is er nieuw` / `What's New` sheet and loads the current release notes from the
-public `pcvantol/djconnect-app-releases` GitHub release for tag `ios/vX.Y.Z` on
-iOS or `macos/vX.Y.Z` on macOS.
+`Wat is er nieuw` / `What's New` sheet and loads the current release notes from
+static files on `djconnect.dev`: `/release-notes/ios/vX.Y.Z.json` on iOS or
+`/release-notes/macos/vX.Y.Z.json` on macOS. The GitHub release metadata API is
+kept only as a fallback.
 
 ## Swift Package
 

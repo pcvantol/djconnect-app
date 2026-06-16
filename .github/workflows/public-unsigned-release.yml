@@ -193,6 +193,52 @@ jobs:
             done
           done
 
+      - name: Publish static release notes to djconnect.dev
+        env:
+          GH_TOKEN: ${{ secrets.WEBSITE_RELEASE_NOTES_TOKEN }}
+          WEBSITE_REPO: pcvantol/djconnect-website
+        run: |
+          set -euo pipefail
+          if [[ -z "${GH_TOKEN:-}" ]]; then
+            echo "Configure repository secret WEBSITE_RELEASE_NOTES_TOKEN with write access to ${WEBSITE_REPO}." >&2
+            exit 1
+          fi
+          version="${{ steps.version.outputs.version }}"
+          website_dir=".public-release/website"
+          rm -rf "$website_dir"
+          git clone --depth 1 "https://x-access-token:${GH_TOKEN}@github.com/${WEBSITE_REPO}.git" "$website_dir"
+          for platform in ios macos; do
+            case "$platform" in
+              ios)
+                source_notes=".public-release/release-notes-iOS.md"
+                title="DJConnect iOS ${version}"
+                ;;
+              macos)
+                source_notes=".public-release/release-notes-macOS.md"
+                title="DJConnect macOS ${version}"
+                ;;
+            esac
+            target_dir="${website_dir}/wwwroot/release-notes/${platform}"
+            mkdir -p "$target_dir"
+            cp "$source_notes" "${target_dir}/v${version}.md"
+            RELEASE_VERSION="$version" \
+            RELEASE_PLATFORM="$platform" \
+            RELEASE_TITLE="$title" \
+            RELEASE_BODY_PATH="${target_dir}/v${version}.md" \
+            RELEASE_JSON_PATH="${target_dir}/v${version}.json" \
+              node -e 'const fs=require("fs"); const payload={version:process.env.RELEASE_VERSION, platform:process.env.RELEASE_PLATFORM, name:process.env.RELEASE_TITLE, body:fs.readFileSync(process.env.RELEASE_BODY_PATH, "utf8").trim()}; fs.writeFileSync(process.env.RELEASE_JSON_PATH, JSON.stringify(payload, null, 2) + "\n");'
+          done
+          cd "$website_dir"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add wwwroot/release-notes
+          if git diff --cached --quiet; then
+            echo "Static release notes already up to date."
+          else
+            git commit -m "chore: publish app release notes ${version}"
+            git push origin main
+          fi
+
       - name: Cleanup old workflow runs
         env:
           GH_TOKEN: ${{ github.token }}

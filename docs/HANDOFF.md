@@ -669,16 +669,18 @@ clear app-specific keys. Avoid reusing ESP-only settings like
 
 Release tags in the private app repo should publish unsigned macOS and iOS
 diagnostic builds to `pcvantol/djconnect-app-releases` through GitHub Actions.
-The workflow requires a private repo secret named `PUBLIC_RELEASES_TOKEN` with
-write access to that public releases repo.
+The workflow requires private repo secrets named `PUBLIC_RELEASES_TOKEN` with
+write access to that public releases repo and `WEBSITE_RELEASE_NOTES_TOKEN`
+with write access to `pcvantol/djconnect-website`.
 After publishing, the workflow keeps the newest platform-specific public iOS
 release and the newest platform-specific public macOS release, then removes
 older public app releases/tags for those platform namespaces.
 
 The Apple apps persist the last seen app version locally. When a newer app
-version starts, they fetch platform-specific public GitHub release notes from
-`pcvantol/djconnect-app-releases`: iOS reads `ios/vX.Y.Z`, macOS reads
-`macos/vX.Y.Z`. The release body is shown once in a native `Wat is er nieuw` /
+version starts, they fetch platform-specific static release notes from
+`djconnect.dev`: iOS reads `/release-notes/ios/vX.Y.Z.json`, macOS reads
+`/release-notes/macos/vX.Y.Z.json`. GitHub release metadata remains only a
+fallback. The release body is shown once in a native `Wat is er nieuw` /
 `What's New` sheet. This request sends no DJConnect token, Home Assistant URL,
 Spotify token, diagnostics, or user data.
 

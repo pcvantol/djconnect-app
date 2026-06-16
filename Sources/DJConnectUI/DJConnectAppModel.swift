@@ -56,13 +56,13 @@ public struct DJConnectDiagnosticLogLine: Identifiable, Equatable, Sendable {
     }
 }
 
-private struct DJConnectGitHubRelease: Decodable {
+private struct DJConnectReleaseNotes: Decodable {
     let name: String?
     let body: String?
 }
 
 private struct DJConnectReleaseNotesFetchResult {
-    let release: DJConnectGitHubRelease
+    let release: DJConnectReleaseNotes
     let url: URL
     let statusCode: Int
 }
@@ -433,7 +433,8 @@ public final class DJConnectAppModel: ObservableObject {
         )
 
         let candidateURLs = [
-            DJConnectAppModel.publicReleaseNotesURL(version: appVersion, clientType: identity.clientType)
+            DJConnectAppModel.publicReleaseNotesURL(version: appVersion, clientType: identity.clientType),
+            DJConnectAppModel.githubReleaseNotesURL(version: appVersion, clientType: identity.clientType)
         ].compactMap { $0 }
 
         guard !candidateURLs.isEmpty else {
@@ -446,7 +447,7 @@ public final class DJConnectAppModel: ObservableObject {
 
         do {
             let result = try await fetchReleaseNotes(from: candidateURLs)
-            log(.debug, "GitHub release notes loaded from \(result.url.lastPathComponent) -> HTTP \(result.statusCode)")
+            log(.debug, "Release notes loaded from \(result.url.host ?? "unknown host")\(result.url.path) -> HTTP \(result.statusCode)")
             let body = (result.release.body ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
             let title = (result.release.name ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
             await MainActor.run {
@@ -476,12 +477,11 @@ public final class DJConnectAppModel: ObservableObject {
                 guard let httpResponse = response as? HTTPURLResponse else {
                     throw URLError(.badServerResponse)
                 }
-                let path = url.path.replacingOccurrences(of: "/repos/pcvantol/djconnect-app-releases/", with: "")
-                log(.debug, "GitHub release notes GET /repos/pcvantol/djconnect-app-releases/\(path) -> HTTP \(httpResponse.statusCode)")
+                log(.debug, "Release notes GET \(url.path) -> HTTP \(httpResponse.statusCode)")
                 guard (200..<300).contains(httpResponse.statusCode) else {
                     throw DJConnectError.server(statusCode: httpResponse.statusCode, message: "release notes unavailable")
                 }
-                let release = try JSONDecoder().decode(DJConnectGitHubRelease.self, from: data)
+                let release = try JSONDecoder().decode(DJConnectReleaseNotes.self, from: data)
                 return DJConnectReleaseNotesFetchResult(release: release, url: url, statusCode: httpResponse.statusCode)
             } catch {
                 lastError = error
@@ -3750,6 +3750,10 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     nonisolated static func publicReleaseNotesURL(version: String, clientType: DJConnectClientType) -> URL? {
+        URL(string: "https://djconnect.dev/release-notes/\(clientType.rawValue)/v\(version).json")
+    }
+
+    nonisolated static func githubReleaseNotesURL(version: String, clientType: DJConnectClientType) -> URL? {
         let encodedTag = publicReleaseTag(version: version, clientType: clientType)
             .replacingOccurrences(of: "/", with: "%2F")
         return URL(string: "https://api.github.com/repos/pcvantol/djconnect-app-releases/releases/tags/\(encodedTag)")

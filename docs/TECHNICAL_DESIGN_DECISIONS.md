@@ -150,6 +150,10 @@ Conventies:
   primaire bron in het Xcode project onderhouden.
 - Workflowstappen zijn expliciet benoemd en scheiden CI van public unsigned
   releasepublicatie.
+- De public unsigned releaseflow publiceert app-release-notes ook als statische
+  `.md` en `.json` bestanden naar `pcvantol/djconnect-website`, zodat de app
+  `djconnect.dev/release-notes/{ios|macos}/vX.Y.Z.json` kan lezen zonder
+  afhankelijk te zijn van anonieme GitHub API rate limits.
 
 ### Shell
 

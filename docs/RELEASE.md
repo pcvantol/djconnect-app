@@ -193,7 +193,10 @@ The workflow:
 - publishes `ios/vX.Y.Z` in `pcvantol/djconnect-app-releases` with
   `DJConnect-iOS-X.Y.Z-unsigned.zip` and an iOS checksum file;
 - uses the matching release section from `CHANGELOG.md` as the public release
-  notes for both platform releases, with a platform footer.
+  notes for both platform releases, with a platform footer;
+- publishes static `.md` and `.json` release-note files into
+  `pcvantol/djconnect-website` at
+  `wwwroot/release-notes/{ios|macos}/vX.Y.Z.{md,json}`;
 - removes older platform-specific public releases and tags after successful
   publication, keeping the newest iOS and newest macOS public release online.
 
@@ -201,11 +204,15 @@ Required private repository secret:
 
 ```text
 PUBLIC_RELEASES_TOKEN
+WEBSITE_RELEASE_NOTES_TOKEN
 ```
 
 The token must be able to create releases and upload assets in
 `pcvantol/djconnect-app-releases`. The default `GITHUB_TOKEN` for
 `pcvantol/djconnect-app` cannot write to a different repository.
+`WEBSITE_RELEASE_NOTES_TOKEN` must be able to push to
+`pcvantol/djconnect-website`; the website repo deploys those static files to
+Cloudflare Pages for `djconnect.dev`.
 
 Unsigned artifacts are for diagnostics, CI validation, internal validation, and
 release-note hosting. The public release workflow publishes unsigned iOS and
@@ -226,14 +233,20 @@ The app stores the last seen version in app-local preferences. On a later
 startup, if the running app version differs, it opens a one-time `Wat is er nieuw`
 / `What's New` sheet.
 
-Release notes are fetched at runtime from:
+Release notes are fetched at runtime from static `djconnect.dev` files:
+
+```text
+https://djconnect.dev/release-notes/ios/vX.Y.Z.json
+https://djconnect.dev/release-notes/macos/vX.Y.Z.json
+```
+
+Current builds only read the matching platform-specific static file. The GitHub
+release metadata API is retained only as a fallback:
 
 ```text
 https://api.github.com/repos/pcvantol/djconnect-app-releases/releases/tags/ios%2FvX.Y.Z
 https://api.github.com/repos/pcvantol/djconnect-app-releases/releases/tags/macos%2FvX.Y.Z
 ```
-
-Current builds only read the matching platform-specific release tag.
 
 Only public release metadata is fetched. No DJConnect device token, Home
 Assistant URL, Spotify token, diagnostics, or user data is sent to GitHub.
