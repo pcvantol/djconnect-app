@@ -1058,7 +1058,7 @@ private struct WhatsNewView: View {
 
     private var whatsNewBodyText: AttributedString {
         var text = AttributedString(model.whatsNewBody)
-        guard let websiteURL = URL(string: "https://djconnect.dev"),
+        guard let websiteURL = DJConnectAppModel.publicDownloadsURL(clientType: model.identity.clientType),
               let range = text.range(of: "https://djconnect.dev") else {
             return text
         }
@@ -1124,8 +1124,8 @@ struct NowPlayingView: View {
                     AboutBanner()
                     VoiceResponseView(model: model)
                     TrackSummaryView(model: model)
-                    SetupStatusView(model: model)
                     OutputSelectorView(model: model)
+                    SetupStatusView(model: model)
                 }
                 .djConnectScreenPadding()
                 .disabled(model.isRefreshing)
@@ -1539,10 +1539,10 @@ private struct IOSNowPlayingView: View {
                         AboutBanner()
                         IOSVoiceCard(model: model)
                         IOSTrackHero(model: model)
+                        OutputSelectorView(model: model)
                         if !model.isDemoMode {
                             IOSConnectionCard(model: model)
                         }
-                        OutputSelectorView(model: model)
                     }
                     .padding(.horizontal, 16)
                     .padding(.vertical, 12)

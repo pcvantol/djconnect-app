@@ -20,6 +20,7 @@ jobs:
     runs-on: macos-15
     timeout-minutes: 45
     permissions:
+      actions: write
       contents: read
 
     env:
@@ -122,7 +123,7 @@ jobs:
               if [[ "$platform" == "macOS" ]]; then
                 echo "For normal macOS distribution, prefer the notarized Developer ID build when attached."
               else
-                echo "For iOS distribution, use TestFlight/App Store."
+                echo "Unsigned iOS binaries are published here for diagnostics and internal validation. For normal iOS distribution, use TestFlight/App Store."
               fi
             } > "$notes"
           done
@@ -140,33 +141,18 @@ jobs:
           mac_tag="macos/v${version}"
           ios_tag="ios/v${version}"
 
-          if gh release view "$mac_tag" --repo "$PUBLIC_REPO" >/dev/null 2>&1; then
-            gh release edit "$mac_tag" \
-              --repo "$PUBLIC_REPO" \
-              --title "DJConnect macOS ${version}" \
-              --notes-file .public-release/release-notes-macOS.md
-          else
-            gh release create "$mac_tag" \
-              --repo "$PUBLIC_REPO" \
-              --title "DJConnect macOS ${version}" \
-              --notes-file .public-release/release-notes-macOS.md
-          fi
-          gh release upload "$mac_tag" \
-            .public-release/artifacts/DJConnect-macOS-${version}-unsigned.zip \
-            .public-release/artifacts/DJConnect-macOS-${version}-SHA256SUMS.txt \
-            --repo "$PUBLIC_REPO" \
-            --clobber
-
           if gh release view "$ios_tag" --repo "$PUBLIC_REPO" >/dev/null 2>&1; then
             gh release edit "$ios_tag" \
               --repo "$PUBLIC_REPO" \
               --title "DJConnect iOS ${version}" \
-              --notes-file .public-release/release-notes-iOS.md
+              --notes-file .public-release/release-notes-iOS.md \
+              --latest=false
           else
             gh release create "$ios_tag" \
               --repo "$PUBLIC_REPO" \
               --title "DJConnect iOS ${version}" \
-              --notes-file .public-release/release-notes-iOS.md
+              --notes-file .public-release/release-notes-iOS.md \
+              --latest=false
           fi
           gh release upload "$ios_tag" \
             .public-release/artifacts/DJConnect-iOS-${version}-unsigned.zip \
@@ -174,22 +160,48 @@ jobs:
             --repo "$PUBLIC_REPO" \
             --clobber
 
-          sorted_platform_tags() {
-            awk -F'[/.v]' 'NF >= 5 { printf "%09d.%09d.%09d %s\n", $(NF-2), $(NF-1), $NF, $0 }' \
-              | sort -r \
-              | sed 's/^[^ ]* //'
-          }
+          if gh release view "$mac_tag" --repo "$PUBLIC_REPO" >/dev/null 2>&1; then
+            gh release edit "$mac_tag" \
+              --repo "$PUBLIC_REPO" \
+              --title "DJConnect macOS ${version}" \
+              --notes-file .public-release/release-notes-macOS.md \
+              --latest
+          else
+            gh release create "$mac_tag" \
+              --repo "$PUBLIC_REPO" \
+              --title "DJConnect macOS ${version}" \
+              --notes-file .public-release/release-notes-macOS.md \
+              --latest
+          fi
+          gh release upload "$mac_tag" \
+            .public-release/artifacts/DJConnect-macOS-${version}-unsigned.zip \
+            .public-release/artifacts/DJConnect-macOS-${version}-SHA256SUMS.txt \
+            --repo "$PUBLIC_REPO" \
+            --clobber
 
           for prefix in macos ios; do
-            old_tags="$(
-              gh release list --repo "$PUBLIC_REPO" --limit 100 --json tagName \
-                --jq ".[] | select(.tagName | startswith(\"${prefix}/v\")) | .tagName" \
-                | sorted_platform_tags \
-                | tail -n +2
-            )
-            while IFS= read -r old_tag; do
-              [[ -n "$old_tag" ]] || continue
+            keep_seen=0
+            gh release list --repo "$PUBLIC_REPO" --limit 100 --json tagName \
+              --jq ".[] | select(.tagName | startswith(\"${prefix}/v\")) | .tagName" \
+              | while IFS= read -r old_tag; do
+              if [[ "$keep_seen" -eq 0 ]]; then
+                keep_seen=1
+                continue
+              fi
               gh release delete "$old_tag" --repo "$PUBLIC_REPO" --yes || true
               git push "https://x-access-token:${GH_TOKEN}@github.com/${PUBLIC_REPO}.git" ":refs/tags/${old_tag}" || true
-            done <<< "$old_tags"
+            done
           done
+
+      - name: Cleanup old workflow runs
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh run list --repo "$GITHUB_REPOSITORY" --limit 200 --json databaseId \
+            --jq ".[].databaseId" \
+            | while IFS= read -r old_run_id; do
+              [[ -n "$old_run_id" ]] || continue
+              [[ "$old_run_id" != "$GITHUB_RUN_ID" ]] || continue
+              gh run delete "$old_run_id" --repo "$GITHUB_REPOSITORY" || true
+            done

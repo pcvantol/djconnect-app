@@ -1639,11 +1639,17 @@ private func waitForLocalDeviceAPIURL(_ model: DJConnectAppModel) async throws -
 @Test func whatsNewReleaseURLsEncodePlatformTags() throws {
     let iosURL = try #require(DJConnectAppModel.publicReleaseNotesURL(version: "3.1.20", clientType: .ios))
     let macURL = try #require(DJConnectAppModel.publicReleaseNotesURL(version: "3.1.20", clientType: .macos))
-    let legacyURL = try #require(DJConnectAppModel.legacyPublicReleaseNotesURL(version: "3.1.20"))
 
     #expect(iosURL.absoluteString.hasSuffix("/releases/tags/ios%2Fv3.1.20"))
     #expect(macURL.absoluteString.hasSuffix("/releases/tags/macos%2Fv3.1.20"))
-    #expect(legacyURL.absoluteString.hasSuffix("/releases/tags/v3.1.20"))
+}
+
+@Test func whatsNewFallbackDownloadLinksArePlatformSpecific() throws {
+    let iosURL = try #require(DJConnectAppModel.publicDownloadsURL(clientType: .ios))
+    let macURL = try #require(DJConnectAppModel.publicDownloadsURL(clientType: .macos))
+
+    #expect(iosURL.absoluteString == "https://djconnect.dev/ios#downloads")
+    #expect(macURL.absoluteString == "https://djconnect.dev/macos#downloads")
 }
 
 @MainActor

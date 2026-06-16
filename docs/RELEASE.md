@@ -108,8 +108,10 @@ xcodebuild -project DJConnectApp.xcodeproj -scheme DJConnectIOS -configuration D
   publishes unsigned macOS and iOS diagnostic zips plus checksums to
   `pcvantol/djconnect-app-releases`.
 - Release cleanup runs automatically from `release.sh` by default. It keeps the
-  newest source release/tag and newest GitHub Actions workflow run, and removes
-  older matching entries. To run the same cleanup manually:
+  newest source release/tag and removes older matching entries. The public
+  unsigned release workflow also removes older GitHub Actions runs after a
+  successful publication so the Actions page only keeps the current run. To run
+  the same release/tag cleanup manually:
 
 ```sh
 ./cleanup_old_releases.sh --keep 1 --keep-workflow-runs 1 --execute
@@ -205,9 +207,10 @@ The token must be able to create releases and upload assets in
 `pcvantol/djconnect-app-releases`. The default `GITHUB_TOKEN` for
 `pcvantol/djconnect-app` cannot write to a different repository.
 
-Unsigned artifacts are for diagnostics, CI validation, and release-note hosting.
-They are not a replacement for TestFlight/App Store iOS distribution or
-Developer ID notarized macOS distribution.
+Unsigned artifacts are for diagnostics, CI validation, internal validation, and
+release-note hosting. The public release workflow publishes unsigned iOS and
+macOS artifacts, but they are not a replacement for TestFlight/App Store iOS
+distribution or Developer ID notarized macOS distribution.
 
 The public release repository should keep iOS and macOS releases separated by
 tag namespace. Use `ios/vX.Y.Z` for iOS release notes/assets and
@@ -215,8 +218,7 @@ tag namespace. Use `ios/vX.Y.Z` for iOS release notes/assets and
 matching What's New content at startup.
 
 Do not publish a shared `vX.Y.Z` public app release for current builds. Shared
-tags are only a legacy fallback and can make one platform show the other
-platform's What's New content.
+tags can make one platform show the other platform's What's New content.
 
 ## In-App What's New Notes
 
@@ -231,8 +233,7 @@ https://api.github.com/repos/pcvantol/djconnect-app-releases/releases/tags/ios%2
 https://api.github.com/repos/pcvantol/djconnect-app-releases/releases/tags/macos%2FvX.Y.Z
 ```
 
-Older builds may still use the legacy `vX.Y.Z` tag. Current builds try the
-platform-specific tag first and only fall back to the legacy tag when needed.
+Current builds only read the matching platform-specific release tag.
 
 Only public release metadata is fetched. No DJConnect device token, Home
 Assistant URL, Spotify token, diagnostics, or user data is sent to GitHub.
@@ -548,14 +549,17 @@ xcrun notarytool store-credentials <notarytool-keychain-profile>
 
 The script performs a clean archive, Developer ID export, notarization, staple,
 Gatekeeper assessment, zip/checksum creation, and GitHub release upload to the
-public `pcvantol/djconnect-app-releases` repository. iOS binaries are not
-published this way; use TestFlight/App Store for iOS distribution.
+public `pcvantol/djconnect-app-releases` repository. This macOS-only script does
+not build iOS artifacts; unsigned iOS diagnostics are published by the GitHub
+Actions public release workflow, while normal iOS distribution should still use
+TestFlight/App Store.
 
 ## Release Cleanup
 
 After a successful release, old semantic-version GitHub releases, tags, and
 GitHub Actions workflow runs can be cleaned up with the helper script. It is
-dry-run by default:
+dry-run by default. The public unsigned release workflow performs workflow-run
+cleanup automatically after a successful publication.
 
 ```sh
 ./cleanup_old_releases.sh --keep 1 --keep-workflow-runs 1

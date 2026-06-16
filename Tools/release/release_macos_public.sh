@@ -28,8 +28,9 @@ Environment:
                            Tools/release/ExportOptions-macOS.plist
 
 This script archives, exports, notarizes, staples, zips, checksums, and uploads
-a public macOS binary release. It intentionally does not build iOS; iOS public
-distribution should go through TestFlight/App Store.
+a public macOS binary release. It intentionally does not build iOS; unsigned iOS
+diagnostics are published by the GitHub Actions public release workflow, while
+normal iOS distribution should go through TestFlight/App Store.
 EOF
 }
 

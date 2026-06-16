@@ -153,8 +153,7 @@ On startup after an app update, DJConnect compares the running version with the
 last version seen on that device. If the version changed, the app shows a
 `Wat is er nieuw` / `What's New` sheet and loads the current release notes from the
 public `pcvantol/djconnect-app-releases` GitHub release for tag `ios/vX.Y.Z` on
-iOS or `macos/vX.Y.Z` on macOS. Older builds fall back to the legacy `vX.Y.Z`
-release tag when a platform-specific release is unavailable.
+iOS or `macos/vX.Y.Z` on macOS.
 
 ## Swift Package
 

@@ -433,8 +433,7 @@ public final class DJConnectAppModel: ObservableObject {
         )
 
         let candidateURLs = [
-            DJConnectAppModel.publicReleaseNotesURL(version: appVersion, clientType: identity.clientType),
-            DJConnectAppModel.legacyPublicReleaseNotesURL(version: appVersion)
+            DJConnectAppModel.publicReleaseNotesURL(version: appVersion, clientType: identity.clientType)
         ].compactMap { $0 }
 
         guard !candidateURLs.isEmpty else {
@@ -3748,8 +3747,15 @@ public final class DJConnectAppModel: ObservableObject {
         return URL(string: "https://api.github.com/repos/pcvantol/djconnect-app-releases/releases/tags/\(encodedTag)")
     }
 
-    nonisolated static func legacyPublicReleaseNotesURL(version: String) -> URL? {
-        URL(string: "https://api.github.com/repos/pcvantol/djconnect-app-releases/releases/tags/v\(version)")
+    nonisolated static func publicDownloadsURL(clientType: DJConnectClientType) -> URL? {
+        switch clientType {
+        case .ios:
+            URL(string: "https://djconnect.dev/ios#downloads")
+        case .macos:
+            URL(string: "https://djconnect.dev/macos#downloads")
+        case .esp32:
+            URL(string: "https://djconnect.dev")
+        }
     }
 
     private static func makeIdentity(defaults: UserDefaults) -> DJConnectIdentity {

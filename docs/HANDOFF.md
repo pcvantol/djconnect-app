@@ -678,8 +678,7 @@ older public app releases/tags for those platform namespaces.
 The Apple apps persist the last seen app version locally. When a newer app
 version starts, they fetch platform-specific public GitHub release notes from
 `pcvantol/djconnect-app-releases`: iOS reads `ios/vX.Y.Z`, macOS reads
-`macos/vX.Y.Z`. The legacy `vX.Y.Z` tag is only a fallback for older public
-release layouts. The release body is shown once in a native `Wat is er nieuw` /
+`macos/vX.Y.Z`. The release body is shown once in a native `Wat is er nieuw` /
 `What's New` sheet. This request sends no DJConnect token, Home Assistant URL,
 Spotify token, diagnostics, or user data.
 
