@@ -4,6 +4,21 @@ All notable changes to DJConnect App are documented here.
 
 ## Unreleased
 
+## 3.1.25 - 2026-06-16
+
+### Changed
+
+- Aligned the Apple app playback contract with the canonical Home Assistant
+  sync prompt, including playlist aliases, 100-item app limits, recoverable
+  backend states, local Client API/mDNS metadata, and wakeword status payloads.
+- Added start/stop microphone audio cues for push-to-talk and wakeword-triggered
+  voice requests.
+
+### Tests
+
+- Verified Swift tests and iOS/macOS debug builds during the 3.1.25 release
+  cycle.
+
 ## 3.1.24 - 2026-06-15
 
 ### Changed
@@ -20,11 +35,6 @@ All notable changes to DJConnect App are documented here.
   permissions are both granted.
 - Clarified the wakeword status when voice activation is enabled but paused
   because Home Assistant, playback backend, or voice requests are unavailable.
-- Aligned the Apple app playback contract with the canonical Home Assistant
-  sync prompt, including playlist aliases, 100-item app limits, recoverable
-  backend states, local Client API/mDNS metadata, and wakeword status payloads.
-- Added start/stop microphone audio cues for push-to-talk and wakeword-triggered
-  voice requests.
 - Added automatic playback backend recovery refreshes while Home Assistant is
   reachable but reports the playback backend as temporarily unavailable.
 - Replaced technical pairing backend errors with user-friendly recovery
