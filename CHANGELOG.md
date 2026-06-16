@@ -4,12 +4,16 @@ All notable changes to DJConnect App are documented here.
 
 ## Unreleased
 
+## 3.1.27 - 2026-06-16
+
 ### Changed
 
 - Load in-app What's New notes from static `djconnect.dev` JSON files first,
   with GitHub release metadata retained only as a fallback.
 - Added public-release workflow publication of static platform-specific
   release-note `.md` and `.json` files to the website repository.
+- Removed the sticky compact app banner from the Now Playing flow on iPhone and
+  Mac, keeping only the regular in-page banner.
 
 ### Tests
 

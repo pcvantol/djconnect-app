@@ -1120,16 +1120,12 @@ struct NowPlayingView: View {
         #else
         NavigationStack {
             ScrollView {
-                LazyVStack(alignment: .leading, spacing: 24, pinnedViews: [.sectionHeaders]) {
+                VStack(alignment: .leading, spacing: 24) {
                     AboutBanner()
-                    Section {
-                        VoiceResponseView(model: model)
-                        TrackSummaryView(model: model)
-                        OutputSelectorView(model: model)
-                        SetupStatusView(model: model)
-                    } header: {
-                        AboutBanner(compact: true)
-                    }
+                    VoiceResponseView(model: model)
+                    TrackSummaryView(model: model)
+                    OutputSelectorView(model: model)
+                    SetupStatusView(model: model)
                 }
                 .djConnectScreenPadding()
                 .disabled(model.isRefreshing)
@@ -1539,17 +1535,13 @@ private struct IOSNowPlayingView: View {
             ZStack {
                 DJConnectCanvasBackground()
                 ScrollView {
-                    LazyVStack(spacing: 16, pinnedViews: [.sectionHeaders]) {
+                    VStack(spacing: 16) {
                         AboutBanner()
-                        Section {
-                            IOSVoiceCard(model: model)
-                            IOSTrackHero(model: model)
-                            OutputSelectorView(model: model)
-                            if !model.isDemoMode {
-                                IOSConnectionCard(model: model)
-                            }
-                        } header: {
-                            AboutBanner(compact: true)
+                        IOSVoiceCard(model: model)
+                        IOSTrackHero(model: model)
+                        OutputSelectorView(model: model)
+                        if !model.isDemoMode {
+                            IOSConnectionCard(model: model)
                         }
                     }
                     .padding(.horizontal, 16)
@@ -4551,30 +4543,26 @@ private struct FeedbackPromptView: View {
 }
 
 private struct AboutBanner: View {
-    var compact = false
-
     var body: some View {
-        HStack(spacing: compact ? 10 : 18) {
+        HStack(spacing: 18) {
             DJConnectAppIconView()
-                .frame(width: compact ? 36 : 84, height: compact ? 36 : 84)
-                .clipShape(RoundedRectangle(cornerRadius: compact ? 9 : 20, style: .continuous))
-                .shadow(color: .black.opacity(0.24), radius: compact ? 8 : 14, y: compact ? 4 : 8)
-            VStack(alignment: .leading, spacing: compact ? 0 : 6) {
+                .frame(width: 84, height: 84)
+                .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+                .shadow(color: .black.opacity(0.24), radius: 14, y: 8)
+            VStack(alignment: .leading, spacing: 6) {
                 Text("DJConnect")
-                    .font(compact ? .headline.weight(.bold) : .system(.largeTitle, design: .default).weight(.bold))
+                    .font(.system(.largeTitle, design: .default).weight(.bold))
                     .foregroundStyle(.white)
                     .lineLimit(1)
                     .minimumScaleFactor(0.72)
-                if !compact {
-                    Text("Muziekbediening met karakter")
-                        .font(.headline)
-                        .foregroundStyle(.white.opacity(0.72))
-                        .lineLimit(2)
-                }
+                Text("Muziekbediening met karakter")
+                    .font(.headline)
+                    .foregroundStyle(.white.opacity(0.72))
+                    .lineLimit(2)
             }
             Spacer(minLength: 0)
         }
-        .padding(compact ? 10 : 22)
+        .padding(22)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
             LinearGradient(
@@ -4587,10 +4575,10 @@ private struct AboutBanner: View {
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             )
-            .clipShape(RoundedRectangle(cornerRadius: compact ? 12 : 22, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
         )
         .overlay {
-            RoundedRectangle(cornerRadius: compact ? 12 : 22, style: .continuous)
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
                 .fill(
                     LinearGradient(
                         colors: [
@@ -4605,7 +4593,7 @@ private struct AboutBanner: View {
                 .blendMode(.multiply)
         }
         .overlay {
-            RoundedRectangle(cornerRadius: compact ? 12 : 22, style: .continuous)
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
                 .fill(
                     LinearGradient(
                         colors: [
@@ -4619,10 +4607,10 @@ private struct AboutBanner: View {
                 .blendMode(.multiply)
         }
         .overlay(
-            RoundedRectangle(cornerRadius: compact ? 12 : 22, style: .continuous)
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
                 .stroke(.white.opacity(0.12), lineWidth: 1)
         )
-        .clipShape(RoundedRectangle(cornerRadius: compact ? 12 : 22, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
     }
 }
 
