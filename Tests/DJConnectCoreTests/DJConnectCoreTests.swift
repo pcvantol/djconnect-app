@@ -1587,6 +1587,24 @@ private func waitForLocalDeviceAPIURL(_ model: DJConnectAppModel) async throws -
 }
 
 @MainActor
+@Test func startingVoiceRecordingClearsExistingDJResponseImmediately() throws {
+    let suiteName = "DJConnectTests-\(UUID().uuidString)"
+    let defaults = try #require(UserDefaults(suiteName: suiteName))
+    defaults.removePersistentDomain(forName: suiteName)
+    let model = DJConnectAppModel(
+        defaults: defaults,
+        tokenStore: DJConnectInMemoryTokenStore(token: "secret-token"),
+        startLocalAPI: false,
+        startBackgroundTasks: false
+    )
+
+    model.djResponseText = "Nog bezig met praten"
+    model.startVoiceRecording()
+
+    #expect(model.djResponseText.isEmpty)
+}
+
+@MainActor
 @Test func welcomeScreenIsShownOncePerInstall() throws {
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))

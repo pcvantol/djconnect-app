@@ -1120,12 +1120,16 @@ struct NowPlayingView: View {
         #else
         NavigationStack {
             ScrollView {
-                VStack(alignment: .leading, spacing: 24) {
+                LazyVStack(alignment: .leading, spacing: 24, pinnedViews: [.sectionHeaders]) {
                     AboutBanner()
-                    VoiceResponseView(model: model)
-                    TrackSummaryView(model: model)
-                    OutputSelectorView(model: model)
-                    SetupStatusView(model: model)
+                    Section {
+                        VoiceResponseView(model: model)
+                        TrackSummaryView(model: model)
+                        OutputSelectorView(model: model)
+                        SetupStatusView(model: model)
+                    } header: {
+                        AboutBanner(compact: true)
+                    }
                 }
                 .djConnectScreenPadding()
                 .disabled(model.isRefreshing)
@@ -1535,13 +1539,17 @@ private struct IOSNowPlayingView: View {
             ZStack {
                 DJConnectCanvasBackground()
                 ScrollView {
-                    VStack(spacing: 16) {
+                    LazyVStack(spacing: 16, pinnedViews: [.sectionHeaders]) {
                         AboutBanner()
-                        IOSVoiceCard(model: model)
-                        IOSTrackHero(model: model)
-                        OutputSelectorView(model: model)
-                        if !model.isDemoMode {
-                            IOSConnectionCard(model: model)
+                        Section {
+                            IOSVoiceCard(model: model)
+                            IOSTrackHero(model: model)
+                            OutputSelectorView(model: model)
+                            if !model.isDemoMode {
+                                IOSConnectionCard(model: model)
+                            }
+                        } header: {
+                            AboutBanner(compact: true)
                         }
                     }
                     .padding(.horizontal, 16)
@@ -1851,6 +1859,10 @@ private struct IOSVoiceCard: View {
         model.voiceEnabled && model.canUsePlaybackFeatures && !model.isRefreshing && model.voiceStatus != .processing
     }
 
+    private var isShowingDJResponse: Bool {
+        !model.djResponseText.isEmpty
+    }
+
     private var announcementText: String {
         switch model.voiceStatus {
         case .listening:
@@ -1901,8 +1913,8 @@ private struct IOSVoiceCard: View {
                 Text(localized(model.language, "DJ Request", "DJ verzoek"))
                     .font(.headline)
                 Text(announcementText)
-                    .font(.subheadline)
-                    .foregroundStyle(announcementColor)
+                    .font(isShowingDJResponse ? .body.weight(.semibold) : .subheadline)
+                    .foregroundStyle(isShowingDJResponse ? .white.opacity(0.92) : announcementColor)
                     .lineLimit(nil)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -2592,6 +2604,10 @@ struct VoiceResponseView: View {
         model.voiceEnabled && model.canUsePlaybackFeatures && !model.isRefreshing && model.voiceStatus != .processing
     }
 
+    private var isShowingDJResponse: Bool {
+        !model.djResponseText.isEmpty
+    }
+
     private var announcementText: String {
         switch model.voiceStatus {
         case .listening:
@@ -2633,7 +2649,8 @@ struct VoiceResponseView: View {
                     .foregroundStyle(.red)
             }
             Text(announcementText)
-                .foregroundStyle(model.djResponseText.isEmpty || !model.backendAvailable || model.voiceStatus != .idle ? .secondary : .primary)
+                .font(isShowingDJResponse ? .title3.weight(.semibold) : .body)
+                .foregroundStyle(isShowingDJResponse ? .white.opacity(0.92) : .secondary)
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
         .onChange(of: model.djResponseText) { _, newValue in
@@ -4534,26 +4551,30 @@ private struct FeedbackPromptView: View {
 }
 
 private struct AboutBanner: View {
+    var compact = false
+
     var body: some View {
-        HStack(spacing: 18) {
+        HStack(spacing: compact ? 10 : 18) {
             DJConnectAppIconView()
-                .frame(width: 84, height: 84)
-                .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
-                .shadow(color: .black.opacity(0.24), radius: 14, y: 8)
-            VStack(alignment: .leading, spacing: 6) {
+                .frame(width: compact ? 36 : 84, height: compact ? 36 : 84)
+                .clipShape(RoundedRectangle(cornerRadius: compact ? 9 : 20, style: .continuous))
+                .shadow(color: .black.opacity(0.24), radius: compact ? 8 : 14, y: compact ? 4 : 8)
+            VStack(alignment: .leading, spacing: compact ? 0 : 6) {
                 Text("DJConnect")
-                    .font(.system(.largeTitle, design: .default).weight(.bold))
+                    .font(compact ? .headline.weight(.bold) : .system(.largeTitle, design: .default).weight(.bold))
                     .foregroundStyle(.white)
                     .lineLimit(1)
                     .minimumScaleFactor(0.72)
-                Text("Muziekbediening met karakter")
-                    .font(.headline)
-                    .foregroundStyle(.white.opacity(0.72))
-                    .lineLimit(2)
+                if !compact {
+                    Text("Muziekbediening met karakter")
+                        .font(.headline)
+                        .foregroundStyle(.white.opacity(0.72))
+                        .lineLimit(2)
+                }
             }
             Spacer(minLength: 0)
         }
-        .padding(22)
+        .padding(compact ? 10 : 22)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
             LinearGradient(
@@ -4566,10 +4587,10 @@ private struct AboutBanner: View {
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             )
-            .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: compact ? 12 : 22, style: .continuous))
         )
         .overlay {
-            RoundedRectangle(cornerRadius: 22, style: .continuous)
+            RoundedRectangle(cornerRadius: compact ? 12 : 22, style: .continuous)
                 .fill(
                     LinearGradient(
                         colors: [
@@ -4584,7 +4605,7 @@ private struct AboutBanner: View {
                 .blendMode(.multiply)
         }
         .overlay {
-            RoundedRectangle(cornerRadius: 22, style: .continuous)
+            RoundedRectangle(cornerRadius: compact ? 12 : 22, style: .continuous)
                 .fill(
                     LinearGradient(
                         colors: [
@@ -4598,10 +4619,10 @@ private struct AboutBanner: View {
                 .blendMode(.multiply)
         }
         .overlay(
-            RoundedRectangle(cornerRadius: 22, style: .continuous)
+            RoundedRectangle(cornerRadius: compact ? 12 : 22, style: .continuous)
                 .stroke(.white.opacity(0.12), lineWidth: 1)
         )
-        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: compact ? 12 : 22, style: .continuous))
     }
 }
 

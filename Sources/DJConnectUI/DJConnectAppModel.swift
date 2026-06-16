@@ -1294,6 +1294,7 @@ public final class DJConnectAppModel: ObservableObject {
         guard !isRecordingVoice, voiceStatus != .processing else {
             return
         }
+        stopResponsePlayback(clearText: true)
         if isDemoMode {
             voiceStatus = .processing
             let demoResponse = "Ja ja, daar is hij dan, de knaller van Pearl Jam, Alive!"
@@ -1892,6 +1893,13 @@ public final class DJConnectAppModel: ObservableObject {
         updateRequiredMessage = nil
         isRefreshing = false
         isLoadingOutputs = false
+        stopResponsePlayback(clearText: false)
+    }
+
+    private func stopResponsePlayback(clearText: Bool) {
+        if clearText {
+            djResponseText = ""
+        }
         #if canImport(AVFoundation)
         responseAudioPlayer?.stop()
         responseAudioPlayer = nil
