@@ -10,6 +10,7 @@ build/
 .next/
 DerivedData/
 .release/
+.public-release/
 
 # Environment
 .env

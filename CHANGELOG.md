@@ -4,6 +4,17 @@ All notable changes to DJConnect App are documented here.
 
 ## Unreleased
 
+## 3.1.26 - 2026-06-16
+
+### Changed
+
+- Polished Now Playing DJ response presentation and local response audio
+  recovery after voice requests.
+
+### Tests
+
+- Added coverage for DJ response audio URL redaction.
+
 ## 3.1.25 - 2026-06-16
 
 ### Changed
