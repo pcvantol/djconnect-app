@@ -113,7 +113,10 @@ public final class DJConnectAppModel: ObservableObject {
             updateBonjourAdvertisingState()
             if startBackgroundTasks, oldValue != .paired, pairingStatus == .paired {
                 schedulePairedRefresh(reason: "Pairing became online")
+                updateNowPlayingPollTimer()
             } else if pairingStatus != .paired {
+                nowPlayingPollTask?.cancel()
+                nowPlayingPollTask = nil
                 stopWakeWordListening()
             }
             updateWakeWordListeningForAvailability()
@@ -211,6 +214,7 @@ public final class DJConnectAppModel: ObservableObject {
     private var scheduledPairingTask: Task<Void, Never>?
     private var volumeCommandTask: Task<Void, Never>?
     private var playbackProgressTask: Task<Void, Never>?
+    private var nowPlayingPollTask: Task<Void, Never>?
     private var startupRefreshTask: Task<Void, Never>?
     private var backendRecoveryTask: Task<Void, Never>?
     private var pendingSelectedOutput: String?
@@ -243,7 +247,7 @@ public final class DJConnectAppModel: ObservableObject {
     private let startBackgroundTasks: Bool
     private let monkeyTestingMode: Bool
     private let diagnosticLogFileURL: URL?
-    private static let protocolVersion = "3.1.30"
+    private static let protocolVersion = "3.1.31"
     private static let defaultHomeAssistantURL = "http://homeassistant.local:8123"
     private let appVersion = DJConnectAppModel.protocolVersion
     private let installIDKey = "DJConnectInstallID"
@@ -266,6 +270,7 @@ public final class DJConnectAppModel: ObservableObject {
     private let maxPersistentDiagnosticLogFileBytes = 128 * 1024
     private let minimumAutomaticRefreshInterval: TimeInterval = 8
     private let backendCollectionsRefreshInterval: TimeInterval = 30
+    private let nowPlayingPollInterval: UInt64 = 10
     private let progressTimerNetworkRefreshInterval = 60
 
     public var volume: Double {
@@ -455,11 +460,12 @@ public final class DJConnectAppModel: ObservableObject {
             log(.debug, "Release notes loaded from \(result.url.host ?? "unknown host")\(result.url.path) -> HTTP \(result.statusCode)")
             let body = (result.release.body ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
             let title = (result.release.name ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+            let localizedBody = localizedReleaseNotesBody(body)
             await MainActor.run {
                 whatsNewTitle = title.isEmpty
                     ? whatsNewTitle
                     : title
-                whatsNewBody = body.isEmpty ? fallback : body
+                whatsNewBody = localizedBody.isEmpty ? fallback : localizedBody
                 isLoadingWhatsNew = false
             }
         } catch {
@@ -494,6 +500,25 @@ public final class DJConnectAppModel: ObservableObject {
             }
         }
         throw lastError ?? DJConnectError.backendUnavailable(message: "release notes unavailable")
+    }
+
+    private func localizedReleaseNotesBody(_ body: String) -> String {
+        guard releaseNotesLanguageCode == "nl", appVersion == "3.1.30" else {
+            return body
+        }
+        let normalizedBody = body.lowercased()
+        guard normalizedBody.contains("### changed")
+            || normalizedBody.contains("added community documentation")
+            || normalizedBody.contains("renamed the chat bootstrap") else {
+            return body
+        }
+        return """
+        ### Gewijzigd
+
+        - Community-documentatie toegevoegd met een Code of Conduct en een privé beveiligingsmeldpunt via `security@djconnect.dev`.
+        - De releasecyclus aangescherpt: de Codex chat-bootstrap moet bij iedere release actueel blijven.
+        - De chat-bootstrap hernoemd naar `CHAT_BOOTSTRAP.md`, zodat nieuwe repo-sessies duidelijker starten.
+        """
     }
 
     public func dismissWelcome() {
@@ -608,6 +633,7 @@ public final class DJConnectAppModel: ObservableObject {
         refreshPermissionStatuses()
         resumeWakeWordListeningIfNeeded()
         updatePlaybackProgressTimer()
+        updateNowPlayingPollTimer()
         guard pairingStatus == .paired, !isDemoMode else {
             return
         }
@@ -619,9 +645,11 @@ public final class DJConnectAppModel: ObservableObject {
         isAppInForeground = false
         playbackProgressTask?.cancel()
         playbackProgressTask = nil
+        nowPlayingPollTask?.cancel()
+        nowPlayingPollTask = nil
         stopWakeWordListening()
         markCleanShutdown()
-        log(.debug, "App left foreground; paused wakeword and local progress timer")
+        log(.debug, "App left foreground; paused wakeword, local progress timer, and Now Playing poll")
     }
 
     public func dismissCrashReportPrompt() {
@@ -2037,6 +2065,23 @@ public final class DJConnectAppModel: ObservableObject {
         }
     }
 
+    private func updateNowPlayingPollTimer() {
+        nowPlayingPollTask?.cancel()
+        guard startBackgroundTasks, isAppInForeground, pairingStatus == .paired, !isDemoMode else {
+            return
+        }
+
+        nowPlayingPollTask = Task { [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(self?.nowPlayingPollInterval ?? 10))
+                guard !Task.isCancelled else {
+                    return
+                }
+                await self?.refreshNowPlayingFromPollTimer()
+            }
+        }
+    }
+
     @discardableResult
     private func advancePlaybackProgress() -> Bool {
         guard var currentPlayback = playback, currentPlayback.isPlaying == true else {
@@ -2069,6 +2114,21 @@ public final class DJConnectAppModel: ObservableObject {
             log(.debug, "Playback timer refresh skipped: \(Self.describe(error))")
         } catch {
             log(.debug, "Playback timer refresh skipped: \(error.localizedDescription)")
+        }
+    }
+
+    private func refreshNowPlayingFromPollTimer() async {
+        guard pairingStatus == .paired, !isDemoMode, !isRefreshing, isRuntimeCompatible else {
+            return
+        }
+        do {
+            let client = try makeClient()
+            try await refreshPlaybackSnapshot(client: client)
+            log(.debug, "Now Playing poll refreshed playback controls")
+        } catch let error as DJConnectError {
+            log(.debug, "Now Playing poll skipped: \(Self.describe(error))")
+        } catch {
+            log(.debug, "Now Playing poll skipped: \(error.localizedDescription)")
         }
     }
 
@@ -2616,8 +2676,8 @@ public final class DJConnectAppModel: ObservableObject {
                         deviceID: "djconnect-macos-unavailable",
                         deviceName: "DJConnect",
                         clientType: .macos,
-                        firmware: "3.1.30",
-                        appVersion: "3.1.30",
+                        firmware: "3.1.31",
+                        appVersion: "3.1.31",
                         platform: .macos
                     ),
                     pairingToken: "",

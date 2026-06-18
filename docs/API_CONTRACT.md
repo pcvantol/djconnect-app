@@ -358,6 +358,16 @@ Content-Type: audio/wav
 The app uploads raw mono PCM WAV. Home Assistant owns STT, Assist, playback
 action, and TTS.
 
+The app does not parse spoken intent families locally and does not need Spotify
+credentials or local Spotify Web API calls for voice commands. Home Assistant
+handles canonical `current_track` examples such as `Welk nummer draait er nu?`,
+`Wat speelt er?`, and `What song is playing?` by reading current playback state
+and returning a DJ response. Home Assistant handles canonical
+`playback_control` examples such as `Stop muziek`, `Start muziek`,
+`Zet harder`, `Zet zachter`, `Volgende nummer`, `Vorig nummer`, `Stop music`,
+`Start music`, `Turn it up`, `Turn it down`, `Next song`, and
+`Previous song` by mapping them to backend playback commands.
+
 Expected response:
 
 ```json

@@ -25,15 +25,15 @@ Context:
 - Secrets/tokens/wachtwoorden/private URLs mogen nooit in commits, logs, screenshots, diagnostics of test fixtures.
 
 Huidige status om te controleren:
-- Release `3.1.30` is gepubliceerd en gepusht naar GitHub.
-- Laatste repo-hygiene bevat community/security docs en een handmatige,
-  protected TestFlight beta workflow.
+- Release `3.1.31` is de actuele source release met repo-hygiene,
+  TestFlight-voorbereiding, What's New fixes, AI/Assist disclaimer, Speelt Nu
+  auto-refresh en canonical voice intent docs.
 - Lokale branch hoort gelijk te lopen met `origin/main`; controleer dat bij
   start van iedere sessie.
 - Check direct:
   - `git status --short --branch`
   - `gh run list --repo pcvantol/djconnect-app --limit 5`
-  - public release tags in `pcvantol/djconnect-app-releases` voor `ios/v3.1.30` en `macos/v3.1.30` indien release/publicatie geraakt wordt.
+  - public release tags in `pcvantol/djconnect-app-releases` voor `ios/v3.1.31` en `macos/v3.1.31` indien release/publicatie geraakt wordt.
 
 Werkstijl:
 - Gebruik `rg` voor zoeken.

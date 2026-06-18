@@ -8,7 +8,7 @@ import AppKit
 
 enum DJConnectVersionInfo {
     static var displayVersion: String {
-        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "3.1.30"
+        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "3.1.31"
     }
 }
 

@@ -13,6 +13,9 @@ store Spotify, Home Assistant, Sonos, OpenAI, or other backend credentials. The
 only app-owned credential is the DJConnect client bearer token issued by the
 integration.
 
+AI and Assist answers can be incorrect and depend on your own Home Assistant
+and Assist configuration.
+
 Website: [https://djconnect.dev](https://djconnect.dev)
 
 ## Documentation
@@ -190,6 +193,16 @@ Voice/PTT WAV audio, when implemented by an app target, is posted to:
 POST /api/djconnect/voice
 Content-Type: audio/wav
 ```
+
+Home Assistant owns STT, Assist, intent parsing, Spotify status/commands, and
+DJ response generation. The app does not need Spotify credentials or local
+Spotify Web API calls for voice commands. Canonical examples from
+`pcvantol/djconnect/examples/voice_intents.json` include:
+
+| Family | NL examples | EN examples | Client behavior |
+| --- | --- | --- | --- |
+| `current_track` | `Welk nummer draait er nu?`, `Welk nummer speelt er nu?`, `Wat draait er?`, `Wat speelt er?`, `Wat is dit?` | `What song is playing?`, `What track is playing now?`, `What's playing?`, `Which song is this?` | Upload voice audio; HA reads current playback state and returns a DJ response without starting playback. |
+| `playback_control` | `Stop muziek`, `Start muziek`, `Zet harder`, `Zet zachter`, `Volgende nummer`, `Vorig nummer` | `Stop music`, `Start music`, `Turn it up`, `Turn it down`, `Next song`, `Previous song` | Upload voice audio; HA maps the phrase to backend playback commands such as `pause`, `play`, `set_volume`, `next`, or `previous`. |
 
 The native app also uses command proxy flows for backend devices, queue,
 playlists, liked songs, and output selection:

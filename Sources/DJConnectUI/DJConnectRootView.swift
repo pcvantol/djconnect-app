@@ -1245,11 +1245,7 @@ private struct WhatsNewView: View {
 
                 ZStack(alignment: .topLeading) {
                     ScrollView {
-                        Text(whatsNewBodyText)
-                            .font(.body)
-                            .tint(djConnectAccent)
-                            .textSelection(.enabled)
-                            .frame(maxWidth: .infinity, alignment: .leading)
+                        WhatsNewMarkdownBody(text: model.whatsNewBody, clientType: model.identity.clientType)
                             .padding(.vertical, 2)
                     }
                     #if os(macOS)
@@ -1287,14 +1283,81 @@ private struct WhatsNewView: View {
         #endif
     }
 
-    private var whatsNewBodyText: AttributedString {
-        var text = AttributedString(model.whatsNewBody)
-        guard let websiteURL = DJConnectAppModel.publicDownloadsURL(clientType: model.identity.clientType),
-              let range = text.range(of: "https://djconnect.dev") else {
-            return text
+}
+
+private struct WhatsNewMarkdownBody: View {
+    let text: String
+    let clientType: DJConnectClientType
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            ForEach(Array(blocks.enumerated()), id: \.offset) { _, block in
+                switch block {
+                case let .heading(value):
+                    Text(value)
+                        .font(.headline.weight(.semibold))
+                        .foregroundStyle(.primary)
+                        .textSelection(.enabled)
+                case let .bullet(value):
+                    HStack(alignment: .firstTextBaseline, spacing: 8) {
+                        Text("•")
+                            .font(.body.weight(.semibold))
+                        formattedText(value)
+                            .font(.body)
+                            .textSelection(.enabled)
+                    }
+                    .foregroundStyle(.primary)
+                case let .paragraph(value):
+                    formattedText(value)
+                        .font(.body)
+                        .foregroundStyle(.primary)
+                        .textSelection(.enabled)
+                case .separator:
+                    Divider()
+                        .overlay(.white.opacity(0.35))
+                        .padding(.vertical, 4)
+                }
+            }
         }
-        text[range].link = websiteURL
-        return text
+        .tint(djConnectAccent)
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var blocks: [Block] {
+        text
+            .components(separatedBy: .newlines)
+            .compactMap { rawLine in
+                let line = rawLine.trimmingCharacters(in: .whitespaces)
+                guard !line.isEmpty else {
+                    return nil
+                }
+                if line == "---" {
+                    return .separator
+                }
+                if line.hasPrefix("### ") {
+                    return .heading(String(line.dropFirst(4)))
+                }
+                if line.hasPrefix("- ") {
+                    return .bullet(String(line.dropFirst(2)))
+                }
+                return .paragraph(line)
+            }
+    }
+
+    private func formattedText(_ value: String) -> Text {
+        var attributed = (try? AttributedString(markdown: value)) ?? AttributedString(value)
+        if let websiteURL = DJConnectAppModel.publicDownloadsURL(clientType: clientType),
+           let range = attributed.range(of: "https://djconnect.dev") {
+            attributed[range].link = websiteURL
+        }
+        return Text(attributed)
+    }
+
+    private enum Block {
+        case heading(String)
+        case bullet(String)
+        case paragraph(String)
+        case separator
     }
 }
 
@@ -5188,6 +5251,11 @@ private struct PrivacyView: View {
                         language,
                         "Music, playback, and voice requests are handled through your own Home Assistant DJConnect integration.",
                         "Muziek, playback en stemverzoeken lopen via je eigen Home Assistant DJConnect-integratie."
+                    ))
+                    SelectableValue(localized(
+                        language,
+                        "AI and Assist answers can be incorrect and depend on your own Home Assistant and Assist configuration.",
+                        "AI- en Assist-antwoorden kunnen onjuist zijn en hangen af van je eigen Home Assistant- en Assist-configuratie."
                     ))
                 }
             }

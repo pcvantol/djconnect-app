@@ -4,6 +4,8 @@ All notable changes to DJConnect App are documented here.
 
 ## Unreleased
 
+## 3.1.31 - 2026-06-18
+
 ### Added
 
 - Prepared a manual-only GitHub Actions TestFlight beta workflow with explicit
@@ -13,6 +15,21 @@ All notable changes to DJConnect App are documented here.
   state.
 - Added `DEVELOPMENT_ENVIRONMENT.md` for local machine, toolchain, simulator,
   signing, and hygiene setup.
+- Added Dutch `v3.1.30` What's New release notes so localized iOS/macOS update
+  screens do not fall back to English text.
+- Added a foreground Now Playing poll so playback controls stay refreshed even
+  when playback is paused or changed outside the app.
+- Added an AI/Assist disclaimer noting that answers can be incorrect and depend
+  on the user's own Home Assistant and Assist configuration.
+- Fixed Dutch What's New display for app version `3.1.30` when stale public
+  release-note JSON still contains English changelog text, and render What's
+  New Markdown instead of showing raw Markdown markers.
+- Fixed What's New layout so Markdown headings and bullet lines keep their
+  intended spacing on macOS and iOS.
+- Documented canonical Home Assistant voice intent examples for
+  `current_track` and `playback_control`, including that the app only uploads
+  voice audio and does not need Spotify credentials or local playback logic for
+  those intents.
 
 ## 3.1.30 - 2026-06-18
 

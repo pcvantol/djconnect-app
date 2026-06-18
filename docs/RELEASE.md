@@ -94,6 +94,8 @@ After renewing the Apple Developer Program membership:
   platform versions, tooling, dependencies, or license/source metadata changed.
 - Update `CHAT_BOOTSTRAP.md` so fresh Codex chats start with current release,
   handoff, workflow, and repository-status instructions.
+- Add/update `docs/release-notes/nl/vX.Y.Z.md` for Dutch What's New content
+  before publishing; otherwise the public workflow falls back to English text.
 - Review repository hygiene docs (`CONTRIBUTING.md`, `SECURITY.md`,
   `CODE_OF_CONDUCT.md`, `docs/BUILD_RELEASE_HYGIENE.md`, `docs/TODO.md`, and
   `docs/TECHNICAL_DESIGN_DECISIONS.md`) whenever contribution, security,

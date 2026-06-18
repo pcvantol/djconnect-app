@@ -2,6 +2,8 @@
 
 DJConnect Apple clients use Home Assistant as the trusted backend for pairing,
 Spotify OAuth, playback credentials, Assist/STT/TTS, and DJ response generation.
+AI and Assist answers can be incorrect and depend on the user's own Home
+Assistant and Assist configuration.
 
 The app must not request, store, export, or log:
 

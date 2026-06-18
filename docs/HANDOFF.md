@@ -631,6 +631,23 @@ X-DJConnect-Device-ID: <device_id>
 4. HA returns DJ text and optional audio URL.
 5. App displays text and may play returned WAV/MP3 audio locally.
 
+Canonical voice examples live in
+`pcvantol/djconnect/examples/voice_intents.json` and
+`pcvantol/djconnect/VOICE_INTENT_DATA.md`. Current HA-handled families include:
+
+- `current_track`: `Welk nummer draait er nu?`, `Welk nummer speelt er nu?`,
+  `Wat draait er?`, `Wat speelt er?`, `Wat is dit?`, `What song is playing?`,
+  `What track is playing now?`, `What's playing?`, `Which song is this?`
+- `playback_control`: `Stop muziek`, `Start muziek`, `Zet harder`,
+  `Zet zachter`, `Volgende nummer`, `Vorig nummer`, `Stop music`,
+  `Start music`, `Turn it up`, `Turn it down`, `Next song`,
+  `Previous song`
+
+The app does not hardcode these intent families or validate spoken text
+client-side. It records/uploads voice audio and lets Home Assistant handle STT,
+Assist correction, current playback lookup, direct playback controls, Spotify
+credentials, and DJ response generation.
+
 Expected response:
 
 ```json
