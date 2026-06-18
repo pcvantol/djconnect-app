@@ -851,8 +851,8 @@ public final class DJConnectAppModel: ObservableObject {
         pairingStatus = .pairing
         log(.info, "Polling Home Assistant pairing endpoint")
         pairingMessage = localized(
-            english: "Waiting for Home Assistant to accept code \(pairingToken).",
-            dutch: "Wachten tot Home Assistant code \(pairingToken) accepteert."
+            english: "Waiting for Home Assistant to accept code \(pairingToken). If the client is not discovered, allow incoming local network connections for DJConnect in macOS firewall or security software.",
+            dutch: "Wachten tot Home Assistant code \(pairingToken) accepteert. Wordt de client niet gevonden, sta inkomende lokale netwerkverbindingen voor DJConnect toe in macOS firewall of beveiligingssoftware."
         )
         defer {
             if pairingStatus != .paired {
@@ -1742,8 +1742,8 @@ public final class DJConnectAppModel: ObservableObject {
         case .pairingFailed:
             pairingStatus = .pairing
             pairingMessage = localized(
-                english: "Waiting for Home Assistant to accept code \(pairingToken).",
-                dutch: "Wachten tot Home Assistant code \(pairingToken) accepteert."
+                english: "Waiting for Home Assistant to accept code \(pairingToken). If the client is not discovered, allow incoming local network connections for DJConnect in macOS firewall or security software.",
+                dutch: "Wachten tot Home Assistant code \(pairingToken) accepteert. Wordt de client niet gevonden, sta inkomende lokale netwerkverbindingen voor DJConnect toe in macOS firewall of beveiligingssoftware."
             )
         case let .network(message):
             pairingStatus = .pairing
@@ -1755,7 +1755,7 @@ public final class DJConnectAppModel: ObservableObject {
             pairingStatus = .pairing
             pairingMessage = localized(
                 english: "Waiting for the DJConnect pairing route in Home Assistant.",
-                dutch: "Wachten op de DJConnect pairing-route in Home Assistant."
+                dutch: "Wachten op koppeling."
             )
         case let .server(_, message):
             pairingStatus = .pairing
@@ -2904,7 +2904,7 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     private func applyLocalDeviceAPIURL(_ url: String?) {
-        if let pinnedURL = defaults.string(forKey: localDeviceAPIURLKey), !pinnedURL.isEmpty {
+        if pairingStatus == .paired, let pinnedURL = defaults.string(forKey: localDeviceAPIURLKey), !pinnedURL.isEmpty {
             localDeviceAPIURL = pinnedURL
             return
         }
@@ -2926,6 +2926,9 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     private func pinnedLocalDeviceAPIPort() -> UInt16? {
+        guard pairingStatus == .paired else {
+            return nil
+        }
         guard
             let urlString = defaults.string(forKey: localDeviceAPIURLKey),
             let port = URL(string: urlString)?.port,

@@ -133,6 +133,7 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: dev.djconnect.mac
         PRODUCT_NAME: DJConnect
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        CODE_SIGN_ENTITLEMENTS: Apps/DJConnectMac/DJConnectMac.entitlements
         ENABLE_HARDENED_RUNTIME: YES
   DJConnectCoreTests:
     type: bundle.unit-test

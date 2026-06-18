@@ -195,6 +195,41 @@ primary navigation, Settings URL seeding, and local Games menu choices. Add a
 local mock HA server fixture before asserting full pairing, queue, playlist,
 output, and voice flows.
 
+## Local Device API LAN Check
+
+The macOS app advertises `_djconnect._tcp.local` with `local_url` pointing at
+`http://<lan-ip>:<port>`. Home Assistant should fetch
+`/api/device/pairing-info` and `/api/device/info` from that exact URL.
+
+For a manual LAN/Docker regression check:
+
+```sh
+swift test --filter localDeviceAPIAdvertisesLANURLAndServesDeviceJSON
+DJCONNECT_RUN_LAN_LOCAL_API_TEST=1 swift test --filter localDeviceAPIAdvertisesLANURLAndServesDeviceJSON
+```
+
+The opt-in LAN probe should be run from an environment that can actually reach
+the Mac via its LAN address, such as the production Home Assistant host or
+another LAN host. Curling the Mac's own LAN IP from the same macOS host can
+return an empty reply because of macOS self-hairpin socket behavior; verify from
+another LAN host before treating that as an app HTTP failure.
+
+If mDNS discovery works but Home Assistant filters the client away, test from
+the Home Assistant host:
+
+```sh
+curl -i http://<mac-lan-ip>:<port>/api/device/pairing-info
+curl -i http://<mac-lan-ip>:<port>/api/device/info
+```
+
+`Connection reset by peer` after TCP connect usually means macOS firewall or
+third-party security software, such as ESET, Little Snitch, or LuLu, is blocking
+inbound local HTTP. Do not add automatic firewall exclusions in the app; keep the
+macOS network server entitlement, log the inbound request details, and document
+that users should allow inbound local-network connections for DJConnect. Prefer
+an application-based allow rule because the local API port can change when the
+pairing server restarts.
+
 ## Repository Rules
 
 - Keep HTTP and protocol code in `DJConnectCore`.

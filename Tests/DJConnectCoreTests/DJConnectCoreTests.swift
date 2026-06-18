@@ -153,6 +153,15 @@ private func waitForLocalDeviceAPIURL(_ model: DJConnectAppModel) async throws -
     throw URLError(.timedOut)
 }
 
+private func localDeviceJSON(from urlString: String) async throws -> [String: Any] {
+    let url = try #require(URL(string: urlString))
+    let (data, response) = try await URLSession.shared.data(from: url)
+    let httpResponse = try #require(response as? HTTPURLResponse)
+    #expect(httpResponse.statusCode == 200)
+    let json = try JSONSerialization.jsonObject(with: data)
+    return try #require(json as? [String: Any])
+}
+
 @MainActor
 @Test func resetPairingRotatesLocalIdentityAndCode() throws {
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
@@ -1031,7 +1040,9 @@ private func waitForLocalDeviceAPIURL(_ model: DJConnectAppModel) async throws -
     let tokenStore = DJConnectInMemoryTokenStore()
     let model = DJConnectAppModel(defaults: defaults, tokenStore: tokenStore, startBackgroundTasks: false)
     let clientAPIURL = try await waitForLocalDeviceAPIURL(model)
-    let pairURL = try #require(URL(string: "\(clientAPIURL)/api/device/pair"))
+    let advertisedURL = try #require(URL(string: clientAPIURL))
+    let advertisedPort = try #require(advertisedURL.port)
+    let pairURL = try #require(URL(string: "http://127.0.0.1:\(advertisedPort)/api/device/pair"))
     var request = URLRequest(url: pairURL)
     request.httpMethod = "POST"
     request.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -1058,6 +1069,50 @@ private func waitForLocalDeviceAPIURL(_ model: DJConnectAppModel) async throws -
     #expect(model.localDeviceAPIURL == clientAPIURL)
     #expect(defaults.string(forKey: "DJConnectLocalDeviceAPIURL") == clientAPIURL)
     model.stopLocalDeviceAPI()
+}
+
+@MainActor
+@Test func localDeviceAPIAdvertisesLANURLAndServesDeviceJSON() async throws {
+    let suiteName = "DJConnectTests-\(UUID().uuidString)"
+    let defaults = try #require(UserDefaults(suiteName: suiteName))
+    defaults.removePersistentDomain(forName: suiteName)
+    let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startBackgroundTasks: false)
+    defer { model.stopLocalDeviceAPI() }
+
+    let lanBaseURL = try await waitForLocalDeviceAPIURL(model)
+    let lanURL = try #require(URL(string: lanBaseURL))
+    let port = try #require(lanURL.port)
+    let loopbackBaseURL = "http://127.0.0.1:\(port)"
+
+    #expect(lanURL.host != "127.0.0.1")
+    #expect(lanURL.host != "localhost")
+
+    let shouldRunLANProbe = ProcessInfo.processInfo.environment["DJCONNECT_RUN_LAN_LOCAL_API_TEST"] == "1"
+    for path in ["/api/device/pairing-info", "/api/device/info"] {
+        let loopbackPayload = try await localDeviceJSON(from: "\(loopbackBaseURL)\(path)")
+
+        #expect(loopbackPayload["device_id"] as? String == model.identity.deviceID)
+        #expect(loopbackPayload["client_type"] as? String == model.identity.clientType.rawValue)
+        #expect(loopbackPayload["platform"] as? String == model.identity.platform.rawValue)
+        #expect(loopbackPayload["local_url"] as? String == lanBaseURL)
+        if path == "/api/device/pairing-info" {
+            #expect(loopbackPayload["pair_code"] as? String == model.pairingToken)
+        }
+
+        if shouldRunLANProbe {
+            let lanPayload: [String: Any]
+            do {
+                lanPayload = try await localDeviceJSON(from: "\(lanBaseURL)\(path)")
+            } catch {
+                Issue.record("LAN local device API request failed for \(path): \(error)\n\(model.diagnosticExportText())")
+                throw error
+            }
+            #expect(lanPayload["device_id"] as? String == loopbackPayload["device_id"] as? String)
+            #expect(lanPayload["client_type"] as? String == loopbackPayload["client_type"] as? String)
+            #expect(lanPayload["platform"] as? String == loopbackPayload["platform"] as? String)
+            #expect(lanPayload["local_url"] as? String == lanBaseURL)
+        }
+    }
 }
 
 @MainActor
