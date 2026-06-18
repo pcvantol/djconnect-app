@@ -565,6 +565,8 @@ public struct DJConnectRootView: View {
                 break
             }
         }
+        .environment(\.colorScheme, .dark)
+        .preferredColorScheme(.dark)
     }
 
     @ViewBuilder
@@ -3502,16 +3504,9 @@ private struct GamesView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
-                    Picker("", selection: $selectedGame) {
-                        ForEach(LocalGameMode.allCases) { game in
-                            Text(game.title).tag(game)
-                        }
-                    }
-                    .pickerStyle(.segmented)
-                    .labelsHidden()
-                    .tint(djConnectAccent)
-                    .frame(maxWidth: 540)
-                    .frame(maxWidth: .infinity, alignment: .center)
+                    GameModePicker(selection: $selectedGame)
+                        .frame(maxWidth: 540)
+                        .frame(maxWidth: .infinity, alignment: .center)
 
                     LocalGameSurface(game: selectedGame, language: language)
                 }
@@ -3523,6 +3518,64 @@ private struct GamesView: View {
             .navigationTitle(localized(language, "Games", "Games"))
         }
         .id("games-\(isDemoMode)-\(language)")
+    }
+}
+
+private struct GameModePicker: View {
+    @Binding var selection: LocalGameMode
+
+    var body: some View {
+        HStack(spacing: 8) {
+            ForEach(LocalGameMode.allCases) { game in
+                Button {
+                    DJConnectHaptics.selection()
+                    selection = game
+                } label: {
+                    Text(game.title)
+                        .font(.system(size: 16, weight: .semibold, design: .default))
+                        .foregroundStyle(selection == game ? .white : .white.opacity(0.70))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.74)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 44)
+                        .background {
+                            if selection == game {
+                                LinearGradient(
+                                    colors: [
+                                        Color(red: 0.98, green: 0.49, blue: 0.27),
+                                        Color(red: 0.74, green: 0.20, blue: 0.77)
+                                    ],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                            } else {
+                                Color.clear
+                            }
+                        }
+                        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                }
+                .buttonStyle(.plain)
+                .contentShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                .accessibilityAddTraits(selection == game ? [.isSelected] : [])
+            }
+        }
+        .padding(8)
+        .frame(minHeight: 60)
+        .background(
+            LinearGradient(
+                colors: [
+                    Color(red: 0.04, green: 0.03, blue: 0.13).opacity(0.96),
+                    Color(red: 0.11, green: 0.05, blue: 0.24).opacity(0.96)
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            ),
+            in: RoundedRectangle(cornerRadius: 12, style: .continuous)
+        )
+        .overlay {
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .stroke(.white.opacity(0.16), lineWidth: 1.5)
+        }
     }
 }
 
@@ -3682,7 +3735,22 @@ private struct LocalGameSurface: View {
                 .foregroundStyle(.secondary)
         }
         .padding(18)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 8))
+        .background(
+            LinearGradient(
+                colors: [
+                    Color.black.opacity(0.62),
+                    Color(red: 0.13, green: 0.06, blue: 0.24).opacity(0.88),
+                    Color(red: 0.06, green: 0.10, blue: 0.22).opacity(0.72)
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            ),
+            in: RoundedRectangle(cornerRadius: 8)
+        )
+        .overlay {
+            RoundedRectangle(cornerRadius: 8)
+                .stroke(.white.opacity(0.12), lineWidth: 1)
+        }
         .focusable(true)
         .focused($isGameFocused)
         .onKeyPress(.upArrow) {
@@ -4824,9 +4892,9 @@ struct SettingsView: View {
                             }
                         }
                     }
-                    Picker(localized(model.language, "Language", "Taal"), selection: $model.language) {
-                        Text("Nederlands").tag("nl")
-                        Text("English").tag("en")
+                    LabeledContent(localized(model.language, "Language", "Taal")) {
+                        Text(localized(model.language, "Device language", "Apparaattaal"))
+                            .foregroundStyle(.secondary)
                     }
                     Picker(localized(model.language, "Log Level", "Logniveau"), selection: $model.logLevel) {
                         Text("Debug").tag("debug")
@@ -5328,6 +5396,10 @@ private struct FeedbackPromptView: View {
 }
 
 private struct AboutBanner: View {
+    private var language: String {
+        Locale.preferredLanguages.first?.lowercased().hasPrefix("nl") == true ? "nl" : "en"
+    }
+
     var body: some View {
         HStack(spacing: 18) {
             DJConnectAppIconView()
@@ -5340,7 +5412,7 @@ private struct AboutBanner: View {
                     .foregroundStyle(.white)
                     .lineLimit(1)
                     .minimumScaleFactor(0.72)
-                Text("Muziekbediening met karakter")
+                Text(localized(language, "Music control with character", "Muziekbediening met karakter"))
                     .font(.headline)
                     .foregroundStyle(.white.opacity(0.72))
                     .lineLimit(2)

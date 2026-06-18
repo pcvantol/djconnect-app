@@ -4,7 +4,7 @@ import XCTest
 final class DJConnectIOSUITests: XCTestCase {
     private func launchApp() -> XCUIApplication {
         let app = XCUIApplication()
-        app.launchArguments.append("--uitesting")
+        app.launchArguments.append(contentsOf: ["--uitesting", "-AppleLanguages", "(nl)", "-AppleLocale", "nl_NL"])
         app.launchEnvironment["DJCONNECT_UITEST_HA_URL"] = "http://127.0.0.1:8123"
         app.launch()
         return app
@@ -12,16 +12,27 @@ final class DJConnectIOSUITests: XCTestCase {
 
     private func launchMonkeyApp() -> XCUIApplication {
         let app = XCUIApplication()
-        app.launchArguments.append("--monkey-testing")
+        app.launchArguments.append(contentsOf: ["--monkey-testing", "-AppleLanguages", "(nl)", "-AppleLocale", "nl_NL"])
+        app.launchEnvironment["DJCONNECT_UITEST_HA_URL"] = "http://127.0.0.1:8123"
+        app.launch()
+        return app
+    }
+
+    private func launchEnglishApp() -> XCUIApplication {
+        let app = XCUIApplication()
+        app.launchArguments.append(contentsOf: ["--monkey-testing", "-AppleLanguages", "(en)", "-AppleLocale", "en_US"])
         app.launchEnvironment["DJCONNECT_UITEST_HA_URL"] = "http://127.0.0.1:8123"
         app.launch()
         return app
     }
 
     private func enterDemoModeIfNeeded(_ app: XCUIApplication) {
-        let demoButton = app.buttons["Demo modus starten"]
-        if demoButton.waitForExistence(timeout: 2) {
-            demoButton.tap()
+        for title in ["Demo modus starten", "Start Demo Mode"] {
+            let demoButton = app.buttons[title]
+            if demoButton.waitForExistence(timeout: 3) {
+                demoButton.tap()
+                return
+            }
         }
     }
 
@@ -40,7 +51,7 @@ final class DJConnectIOSUITests: XCTestCase {
         XCTAssertTrue(moreButton.waitForExistence(timeout: 3))
         moreButton.tap()
 
-        let moreItem = app.descendants(matching: .any)[title]
+        let moreItem = app.buttons[title].exists ? app.buttons[title] : app.staticTexts[title]
         XCTAssertTrue(moreItem.waitForExistence(timeout: 3))
         moreItem.tap()
     }
@@ -59,6 +70,19 @@ final class DJConnectIOSUITests: XCTestCase {
         XCTAssertTrue(app.descendants(matching: .any)["Games"].waitForExistence(timeout: 3))
         XCTAssertTrue(app.descendants(matching: .any)["Instellingen"].waitForExistence(timeout: 3))
         XCTAssertTrue(app.descendants(matching: .any)["Over"].exists)
+    }
+
+    func testEnglishDeviceLanguageUsesEnglishNavigationAndSettingsCopy() {
+        let app = launchEnglishApp()
+
+        XCTAssertTrue(app.tabBars.buttons["Now Playing"].waitForExistence(timeout: 6))
+        XCTAssertTrue(app.tabBars.buttons["Queue"].exists)
+        XCTAssertTrue(app.tabBars.buttons["Playlists"].exists)
+        XCTAssertTrue(app.tabBars.buttons["More"].exists)
+
+        tapTabOrMoreItem("Settings", in: app)
+        XCTAssertTrue(app.navigationBars["Settings"].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.staticTexts["Language"].exists)
     }
 
     func testSettingsUsesMockHomeAssistantURLFixture() {

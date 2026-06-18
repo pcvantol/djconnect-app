@@ -177,9 +177,9 @@ private func waitForLocalDeviceAPIURL(_ model: DJConnectAppModel) async throws -
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
-    defaults.set("nl", forKey: "DJConnectLanguage")
     defaults.set("PAIR42", forKey: "DJConnectPairingToken")
     let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startLocalAPI: false, startBackgroundTasks: false)
+    model.language = "nl"
 
     model.applyPairingWait(
         error: .authStale(
@@ -455,7 +455,6 @@ private func waitForLocalDeviceAPIURL(_ model: DJConnectAppModel) async throws -
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
-    defaults.set("nl", forKey: "DJConnectLanguage")
     let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startLocalAPI: false, startBackgroundTasks: false)
     model.language = "nl"
 
@@ -481,6 +480,23 @@ private func waitForLocalDeviceAPIURL(_ model: DJConnectAppModel) async throws -
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
+
+    let model = DJConnectAppModel(
+        defaults: defaults,
+        tokenStore: DJConnectInMemoryTokenStore(),
+        startLocalAPI: false,
+        startBackgroundTasks: false
+    )
+    model.language = "nl"
+
+    #expect(model.selectedOutput == "Geen")
+}
+
+@MainActor
+@Test func storedLanguagePreferenceDoesNotOverrideDeviceLanguage() throws {
+    let suiteName = "DJConnectTests-\(UUID().uuidString)"
+    let defaults = try #require(UserDefaults(suiteName: suiteName))
+    defaults.removePersistentDomain(forName: suiteName)
     defaults.set("nl", forKey: "DJConnectLanguage")
 
     let model = DJConnectAppModel(
@@ -490,7 +506,7 @@ private func waitForLocalDeviceAPIURL(_ model: DJConnectAppModel) async throws -
         startBackgroundTasks: false
     )
 
-    #expect(model.selectedOutput == "Geen")
+    #expect(model.language == DJConnectAppModel.normalizedReleaseNotesLanguageCode(Locale.preferredLanguages.first ?? "en"))
 }
 
 @MainActor
@@ -498,13 +514,13 @@ private func waitForLocalDeviceAPIURL(_ model: DJConnectAppModel) async throws -
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
-    defaults.set("nl", forKey: "DJConnectLanguage")
     let model = DJConnectAppModel(
         defaults: defaults,
         tokenStore: DJConnectInMemoryTokenStore(token: "secret-token"),
         startLocalAPI: false,
         startBackgroundTasks: false
     )
+    model.language = "nl"
 
     model.apply(commandResponse: DJConnectCommandResponse(
         success: true,
@@ -946,11 +962,12 @@ private func waitForLocalDeviceAPIURL(_ model: DJConnectAppModel) async throws -
 }
 
 @MainActor
-@Test func pairingResponseStoresHALocalURLAndLanguage() throws {
+@Test func pairingResponseStoresHALocalURLAndKeepsDeviceLanguage() throws {
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
     let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startLocalAPI: false, startBackgroundTasks: false)
+    model.language = "en"
     let response = DJConnectPairingResponse(
         success: true,
         deviceToken: "device-secret",
@@ -970,7 +987,7 @@ private func waitForLocalDeviceAPIURL(_ model: DJConnectAppModel) async throws -
 
     #expect(model.homeAssistantURL == "http://192.168.1.13:8123")
     #expect(model.haLocalURL == "http://192.168.1.13:8123")
-    #expect(model.language == "nl")
+    #expect(model.language == "en")
     #expect(model.assistPipelineID == "preferred")
 }
 
@@ -1512,6 +1529,7 @@ private func waitForLocalDeviceAPIURL(_ model: DJConnectAppModel) async throws -
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
     let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startLocalAPI: false)
+    model.language = "nl"
 
     model.apply(localDJResponse: DJConnectLocalDJResponseRequest(
         text: #"Spotify API failed HTTP 400: {"error":{"status":400,"message":"Can't have offset for context type: ARTIST"}}"#,
@@ -1528,8 +1546,8 @@ private func waitForLocalDeviceAPIURL(_ model: DJConnectAppModel) async throws -
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
-    defaults.set("nl", forKey: "DJConnectLanguage")
     let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startLocalAPI: false)
+    model.language = "nl"
 
     model.apply(localDJResponse: DJConnectLocalDJResponseRequest(
         text: "Player command failed. No active device found",
@@ -1546,8 +1564,8 @@ private func waitForLocalDeviceAPIURL(_ model: DJConnectAppModel) async throws -
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
-    defaults.set("nl", forKey: "DJConnectLanguage")
     let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startLocalAPI: false)
+    model.language = "nl"
 
     model.apply(localDJResponse: DJConnectLocalDJResponseRequest(
         text: """
@@ -1604,7 +1622,6 @@ private func waitForLocalDeviceAPIURL(_ model: DJConnectAppModel) async throws -
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
-    defaults.set("nl", forKey: "DJConnectLanguage")
     let model = DJConnectAppModel(
         defaults: defaults,
         tokenStore: DJConnectInMemoryTokenStore(token: "secret-token")
@@ -1627,13 +1644,13 @@ private func waitForLocalDeviceAPIURL(_ model: DJConnectAppModel) async throws -
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
-    defaults.set("nl", forKey: "DJConnectLanguage")
     let model = DJConnectAppModel(
         defaults: defaults,
         tokenStore: DJConnectInMemoryTokenStore(token: "secret-token"),
         startLocalAPI: false,
         startBackgroundTasks: false
     )
+    model.language = "nl"
 
     model.apply(localDJResponse: DJConnectLocalDJResponseRequest(
         text: "Spotify authorization has expired or was revoked.",

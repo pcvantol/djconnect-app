@@ -4,6 +4,26 @@ All notable changes to DJConnect App are documented here.
 
 ## Unreleased
 
+## 3.1.32 - 2026-06-18
+
+### Changed
+
+- App UI language now follows the device language instead of a stored app
+  preference or Home Assistant pairing response, and What's New release notes
+  use the same resolved language.
+- Settings now shows the app language as device-driven rather than offering a
+  separate in-app language picker.
+- Localized the launch/about tagline for English devices.
+- Matched the macOS game selector to the iOS segmented pill style.
+- Kept the app's dark DJConnect surfaces, text, and game backgrounds stable
+  when the device is in light mode.
+
+### Tests
+
+- Added an English iPhone UI regression test for device-language navigation.
+- Verified iPhone screenshots in English demo mode, plus iOS and macOS debug
+  builds.
+
 ## 3.1.31 - 2026-06-18
 
 ### Added

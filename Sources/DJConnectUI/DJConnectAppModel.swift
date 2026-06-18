@@ -165,9 +165,7 @@ public final class DJConnectAppModel: ObservableObject {
             log(.info, "Log level changed to \(logLevel)")
         }
     }
-    @Published public var language = "nl" {
-        didSet { defaults.set(language, forKey: languageKey) }
-    }
+    @Published public var language = "en"
     @Published public var voiceEnabled = true {
         didSet { updateWakeWordListeningForAvailability() }
     }
@@ -247,7 +245,7 @@ public final class DJConnectAppModel: ObservableObject {
     private let startBackgroundTasks: Bool
     private let monkeyTestingMode: Bool
     private let diagnosticLogFileURL: URL?
-    private static let protocolVersion = "3.1.31"
+    private static let protocolVersion = "3.1.32"
     private static let defaultHomeAssistantURL = "http://homeassistant.local:8123"
     private let appVersion = DJConnectAppModel.protocolVersion
     private let installIDKey = "DJConnectInstallID"
@@ -256,7 +254,6 @@ public final class DJConnectAppModel: ObservableObject {
     private let assistPipelineIDKey = "DJConnectAssistPipelineID"
     private let pairingTokenKey = "DJConnectPairingToken"
     private let localDeviceAPIURLKey = "DJConnectLocalDeviceAPIURL"
-    private let languageKey = "DJConnectLanguage"
     private let logLevelKey = "DJConnectLogLevel"
     private let demoModeKey = "DJConnectDemoMode"
     private let wakeWordPhraseKey = "DJConnectWakeWordPhrase"
@@ -348,7 +345,7 @@ public final class DJConnectAppModel: ObservableObject {
         self.assistPipelineID = defaults.string(forKey: assistPipelineIDKey) ?? ""
         self.localDeviceAPIURL = defaults.string(forKey: localDeviceAPIURLKey)
         self.pairingToken = defaults.string(forKey: pairingTokenKey) ?? Self.generatePairingToken()
-        self.language = defaults.string(forKey: languageKey) ?? Self.defaultLanguage()
+        self.language = Self.defaultLanguage()
         self.selectedOutput = Self.noOutputName(for: language)
         self.logLevel = defaults.string(forKey: logLevelKey) ?? "info"
         loadPersistentDiagnosticLog()
@@ -1622,9 +1619,6 @@ public final class DJConnectAppModel: ObservableObject {
             assistPipelineID = pipelineID
             defaults.set(pipelineID, forKey: assistPipelineIDKey)
         }
-        if let responseLanguage = response.deviceLanguage ?? response.language, !responseLanguage.isEmpty {
-            language = responseLanguage
-        }
     }
 
     public func apply(localDJResponse response: DJConnectLocalDJResponseRequest) {
@@ -2676,8 +2670,8 @@ public final class DJConnectAppModel: ObservableObject {
                         deviceID: "djconnect-macos-unavailable",
                         deviceName: "DJConnect",
                         clientType: .macos,
-                        firmware: "3.1.31",
-                        appVersion: "3.1.31",
+                        firmware: "3.1.32",
+                        appVersion: "3.1.32",
                         platform: .macos
                     ),
                     pairingToken: "",
@@ -2839,9 +2833,6 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     private func handleLocalCommand(_ request: DJConnectLocalCommandRequest) -> DJConnectLocalDeviceAPIResponse {
-        if let language = request.language, !language.isEmpty {
-            self.language = language
-        }
         if let logLevel = request.logLevel, !logLevel.isEmpty {
             self.logLevel = logLevel
         }

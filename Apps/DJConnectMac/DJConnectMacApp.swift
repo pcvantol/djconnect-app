@@ -28,7 +28,6 @@ struct DJConnectMacApp: App {
             let suiteName = "dev.djconnect.mac.monkeytests"
             let defaults = UserDefaults(suiteName: suiteName) ?? .standard
             defaults.removePersistentDomain(forName: suiteName)
-            defaults.set("nl", forKey: "DJConnectLanguage")
             defaults.set(true, forKey: "DJConnectWelcomeSeen")
             return DJConnectAppModel(
                 defaults: defaults,

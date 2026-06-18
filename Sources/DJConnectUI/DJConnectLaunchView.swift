@@ -6,9 +6,13 @@ import UIKit
 import AppKit
 #endif
 
+private func launchLocalized(english: String, dutch: String) -> String {
+    Locale.preferredLanguages.first?.lowercased().hasPrefix("nl") == true ? dutch : english
+}
+
 enum DJConnectVersionInfo {
     static var displayVersion: String {
-        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "3.1.31"
+        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "3.1.32"
     }
 }
 
@@ -170,7 +174,7 @@ private struct DJConnectLaunchBanner: View {
                     .multilineTextAlignment(.center)
                     .frame(maxWidth: .infinity, alignment: .center)
                     .layoutPriority(2)
-                Text("Muziekbediening met karakter.")
+                Text(launchLocalized(english: "Music control with character.", dutch: "Muziekbediening met karakter."))
                     .font(.headline.weight(.semibold))
                     .foregroundStyle(.white.opacity(0.72))
                     .lineLimit(2)
