@@ -1,7 +1,6 @@
 import DJConnectCore
 import Darwin
 import Foundation
-import Network
 
 public struct DJConnectLocalDeviceAPIInfo: Sendable {
     public var identity: DJConnectIdentity
@@ -212,7 +211,10 @@ public final class DJConnectLocalDeviceAPI: @unchecked Sendable {
     private let encoder = JSONEncoder()
     private let decoder = JSONDecoder()
     private let queue = DispatchQueue(label: "dev.djconnect.local-device-api")
-    private var listener: NWListener?
+    private var listenSocket: Int32 = -1
+    private var activeConnections: Set<Int32> = []
+    private var bonjourService: NetService?
+    private var port: UInt16?
     private var localURL: String?
     private var isBonjourAdvertisingEnabled: Bool
 
@@ -241,45 +243,73 @@ public final class DJConnectLocalDeviceAPI: @unchecked Sendable {
     }
 
     public func start() {
-        guard listener == nil else {
+        guard listenSocket < 0 else {
             return
         }
 
-        do {
-            let listener: NWListener
-            if let preferredPort, let port = NWEndpoint.Port(rawValue: preferredPort) {
-                listener = try NWListener(using: .tcp, on: port)
-            } else {
-                listener = try NWListener(using: .tcp, on: .any)
+        let socketFD = socket(AF_INET, SOCK_STREAM, 0)
+        guard socketFD >= 0 else {
+            Task { await logHandler("Local device API could not create socket: errno \(errno)") }
+            return
+        }
+
+        var yes: Int32 = 1
+        setsockopt(socketFD, SOL_SOCKET, SO_REUSEADDR, &yes, socklen_t(MemoryLayout<Int32>.size))
+        setsockopt(socketFD, SOL_SOCKET, SO_REUSEPORT, &yes, socklen_t(MemoryLayout<Int32>.size))
+
+        var address = sockaddr_in()
+        address.sin_len = UInt8(MemoryLayout<sockaddr_in>.size)
+        address.sin_family = sa_family_t(AF_INET)
+        address.sin_port = in_port_t(preferredPort ?? 0).bigEndian
+        address.sin_addr = in_addr(s_addr: INADDR_ANY.bigEndian)
+
+        let bindResult = withUnsafePointer(to: &address) { pointer in
+            pointer.withMemoryRebound(to: sockaddr.self, capacity: 1) { sockaddrPointer in
+                bind(socketFD, sockaddrPointer, socklen_t(MemoryLayout<sockaddr_in>.size))
             }
-            listener.service = isBonjourAdvertisingEnabled ? placeholderBonjourService() : nil
-            listener.stateUpdateHandler = { [weak self] state in
-                guard let self else { return }
-                switch state {
-                case .ready:
-                    Task { await self.publishReadyURL() }
-                case let .failed(error):
-                    Task { await self.logHandler("Local device API failed: \(error.localizedDescription)") }
-                    self.stop()
-                case .cancelled:
-                    Task { await self.urlHandler(nil) }
-                default:
-                    break
-                }
-            }
-            listener.newConnectionHandler = { [weak self] connection in
-                self?.handle(connection: connection)
-            }
-            self.listener = listener
-            listener.start(queue: queue)
-        } catch {
-            Task { await logHandler("Local device API could not start: \(error.localizedDescription)") }
+        }
+        guard bindResult == 0 else {
+            let bindErrno = errno
+            close(socketFD)
+            Task { await logHandler("Local device API could not bind socket: errno \(bindErrno)") }
+            return
+        }
+
+        guard listen(socketFD, SOMAXCONN) == 0 else {
+            let listenErrno = errno
+            close(socketFD)
+            Task { await logHandler("Local device API could not listen on socket: errno \(listenErrno)") }
+            return
+        }
+
+        guard let boundPort = Self.boundPort(for: socketFD) else {
+            close(socketFD)
+            Task { await logHandler("Local device API could not resolve bound port") }
+            return
+        }
+
+        listenSocket = socketFD
+        port = boundPort
+        Task { await publishReadyURL() }
+        queue.async { [weak self] in
+            self?.acceptLoop(socketFD: socketFD)
         }
     }
 
     public func stop() {
-        listener?.cancel()
-        listener = nil
+        let socketFD = listenSocket
+        listenSocket = -1
+        port = nil
+        stopBonjourService()
+        for connection in activeConnections {
+            shutdown(connection, SHUT_RDWR)
+            close(connection)
+        }
+        activeConnections.removeAll()
+        if socketFD >= 0 {
+            shutdown(socketFD, SHUT_RDWR)
+            close(socketFD)
+        }
         localURL = nil
         Task { await urlHandler(nil) }
     }
@@ -290,28 +320,25 @@ public final class DJConnectLocalDeviceAPI: @unchecked Sendable {
                 return
             }
             self.isBonjourAdvertisingEnabled = enabled
-            guard let listener = self.listener else {
-                return
-            }
             if enabled {
                 Task { await self.publishReadyURL(logStart: false) }
             } else {
-                listener.service = nil
+                self.stopBonjourService()
                 Task { await self.logHandler("Local device API mDNS advertising disabled") }
             }
         }
     }
 
     private func publishReadyURL(logStart: Bool = true) async {
-        guard let listener, let port = listener.port else {
+        guard let port else {
             return
         }
         let info = await infoProvider()
         let host = Self.localIPv4Address() ?? "\(info.identity.deviceID).local"
-        let readyURL = "http://\(host):\(port.rawValue)"
+        let readyURL = "http://\(host):\(port)"
         localURL = readyURL
         if isBonjourAdvertisingEnabled {
-            listener.service = bonjourService(for: info)
+            publishBonjourService(for: info)
         }
         await urlHandler(readyURL)
         if logStart {
@@ -321,40 +348,35 @@ public final class DJConnectLocalDeviceAPI: @unchecked Sendable {
         }
     }
 
-    private func placeholderBonjourService() -> NWListener.Service {
-        NWListener.Service(
-            name: nil,
-            type: "_djconnect._tcp",
-            txtRecord: NWTXTRecord([
-                "api": "device",
-                "path": "/api/device/info",
-                "pairing_path": "/api/device/pairing-info"
-            ])
-        )
+    private func publishBonjourService(for info: DJConnectLocalDeviceAPIInfo) {
+        guard let port else { return }
+        let advertisedLocalURL = info.localURL ?? localURL ?? ""
+        let txtRecord = [
+            "name": info.identity.deviceName,
+            "device_id": info.identity.deviceID,
+            "version": info.identity.firmware,
+            "app_version": info.identity.appVersion ?? info.identity.firmware,
+            "paired": info.pairingStatus == .paired ? "true" : "false",
+            "local_url": advertisedLocalURL,
+            "pair_code": info.pairingToken,
+            "api": "device",
+            "path": "/api/device/info",
+            "pairing_path": "/api/device/pairing-info",
+            "pair_path": "/api/device/pair",
+            "model": "apple-app",
+            "platform": info.identity.platform.rawValue,
+            "client_type": info.identity.clientType.rawValue
+        ].mapValues { Data($0.utf8) }
+        stopBonjourService()
+        let service = NetService(domain: "local.", type: "_djconnect._tcp.", name: info.identity.deviceID, port: Int32(port))
+        service.setTXTRecord(NetService.data(fromTXTRecord: txtRecord))
+        service.publish()
+        bonjourService = service
     }
 
-    private func bonjourService(for info: DJConnectLocalDeviceAPIInfo) -> NWListener.Service {
-        let advertisedLocalURL = info.localURL ?? localURL ?? ""
-        return NWListener.Service(
-            name: info.identity.deviceID,
-            type: "_djconnect._tcp",
-            txtRecord: NWTXTRecord([
-                "name": info.identity.deviceName,
-                "device_id": info.identity.deviceID,
-                "version": info.identity.firmware,
-                "app_version": info.identity.appVersion ?? info.identity.firmware,
-                "paired": info.pairingStatus == .paired ? "true" : "false",
-                "local_url": advertisedLocalURL,
-                "pair_code": info.pairingToken,
-                "api": "device",
-                "path": "/api/device/info",
-                "pairing_path": "/api/device/pairing-info",
-                "pair_path": "/api/device/pair",
-                "model": "apple-app",
-                "platform": info.identity.platform.rawValue,
-                "client_type": info.identity.clientType.rawValue
-            ])
-        )
+    private func stopBonjourService() {
+        bonjourService?.stop()
+        bonjourService = nil
     }
 
     private static func localIPv4Address() -> String? {
@@ -413,49 +435,134 @@ public final class DJConnectLocalDeviceAPI: @unchecked Sendable {
         return fallback
     }
 
-    private func handle(connection: NWConnection) {
-        connection.start(queue: queue)
-        receive(on: connection, data: Data())
+    private static func boundPort(for socketFD: Int32) -> UInt16? {
+        var address = sockaddr_in()
+        var addressLength = socklen_t(MemoryLayout<sockaddr_in>.size)
+        let result = withUnsafeMutablePointer(to: &address) { pointer in
+            pointer.withMemoryRebound(to: sockaddr.self, capacity: 1) { sockaddrPointer in
+                getsockname(socketFD, sockaddrPointer, &addressLength)
+            }
+        }
+        guard result == 0 else {
+            return nil
+        }
+        return UInt16(bigEndian: address.sin_port)
     }
 
-    private func receive(on connection: NWConnection, data: Data) {
-        connection.receive(minimumIncompleteLength: 1, maximumLength: 65536) { [weak self] chunk, _, isComplete, error in
-            guard let self else { return }
-            if let error {
-                Task { await self.logHandler("Local device API connection failed: \(error.localizedDescription)") }
-                connection.cancel()
-                return
+    private static func remoteDescription(_ storage: sockaddr_storage, length: socklen_t) -> String {
+        var storage = storage
+        var host = [CChar](repeating: 0, count: Int(NI_MAXHOST))
+        var service = [CChar](repeating: 0, count: Int(NI_MAXSERV))
+        let result = withUnsafePointer(to: &storage) { pointer in
+            pointer.withMemoryRebound(to: sockaddr.self, capacity: 1) { sockaddrPointer in
+                getnameinfo(
+                    sockaddrPointer,
+                    length,
+                    &host,
+                    socklen_t(host.count),
+                    &service,
+                    socklen_t(service.count),
+                    NI_NUMERICHOST | NI_NUMERICSERV
+                )
             }
+        }
+        guard result == 0 else {
+            return "unknown"
+        }
+        let hostString = host.withUnsafeBufferPointer { buffer in
+            String(decoding: buffer.prefix { $0 != 0 }.map { UInt8(bitPattern: $0) }, as: UTF8.self)
+        }
+        let serviceString = service.withUnsafeBufferPointer { buffer in
+            String(decoding: buffer.prefix { $0 != 0 }.map { UInt8(bitPattern: $0) }, as: UTF8.self)
+        }
+        return "\(hostString):\(serviceString)"
+    }
 
-            var buffer = data
-            if let chunk {
-                buffer.append(chunk)
-            }
-
-            if let request = Self.parseRequest(buffer) {
-                Task {
-                    let response = await self.route(request)
-                    connection.send(content: response, completion: .contentProcessed { _ in
-                        connection.cancel()
-                    })
+    private func acceptLoop(socketFD: Int32) {
+        while listenSocket == socketFD {
+            var remoteAddress = sockaddr_storage()
+            var remoteAddressLength = socklen_t(MemoryLayout<sockaddr_storage>.size)
+            let connection = withUnsafeMutablePointer(to: &remoteAddress) { pointer in
+                pointer.withMemoryRebound(to: sockaddr.self, capacity: 1) { sockaddrPointer in
+                    accept(socketFD, sockaddrPointer, &remoteAddressLength)
                 }
-                return
             }
 
-            if isComplete {
-                connection.cancel()
-                return
+            guard connection >= 0 else {
+                if listenSocket == socketFD {
+                    let acceptErrno = errno
+                    Task { await logHandler("Local device API accept failed: errno \(acceptErrno)") }
+                }
+                continue
             }
 
-            self.receive(on: connection, data: buffer)
+            activeConnections.insert(connection)
+            let remote = Self.remoteDescription(remoteAddress, length: remoteAddressLength)
+            Task { await logHandler("Local device API accepted connection remote=\(remote)") }
+            handleAcceptedSocket(connection, remote: remote)
         }
     }
 
-    private func route(_ request: HTTPRequest) async -> Data {
+    private func handleAcceptedSocket(_ connection: Int32, remote: String) {
+        var yes: Int32 = 1
+        setsockopt(connection, SOL_SOCKET, SO_NOSIGPIPE, &yes, socklen_t(MemoryLayout<Int32>.size))
+
+        var buffer = Data()
+        var scratch = [UInt8](repeating: 0, count: 16_384)
+
+        while true {
+            let count = recv(connection, &scratch, scratch.count, 0)
+            if count > 0 {
+                buffer.append(contentsOf: scratch.prefix(count))
+                if let request = Self.parseRequest(buffer) {
+                    Task {
+                        let response = await self.route(request, remote: remote)
+                        self.write(response, to: connection)
+                        self.close(connection)
+                    }
+                    return
+                }
+                continue
+            }
+
+            if count == 0 {
+                Task { await logHandler("Local device API connection closed before a complete HTTP request was received remote=\(remote)") }
+            } else {
+                let readErrno = errno
+                Task { await logHandler("Local device API connection read failed remote=\(remote) errno=\(readErrno)") }
+            }
+            close(connection)
+            return
+        }
+    }
+
+    private func write(_ data: Data, to connection: Int32) {
+        data.withUnsafeBytes { rawBuffer in
+            guard let baseAddress = rawBuffer.baseAddress else { return }
+            var offset = 0
+            while offset < data.count {
+                let sent = send(connection, baseAddress.advanced(by: offset), data.count - offset, 0)
+                guard sent > 0 else {
+                    let writeErrno = errno
+                    Task { await logHandler("Local device API connection write failed: errno \(writeErrno)") }
+                    return
+                }
+                offset += sent
+            }
+        }
+    }
+
+    private func close(_ connection: Int32) {
+        Darwin.close(connection)
+        activeConnections.remove(connection)
+    }
+
+    private func route(_ request: HTTPRequest, remote: String) async -> Data {
         let path = normalizedPath(request.path)
-        await logHandler("Local device API \(request.method) \(path)")
+        let host = request.headers["host"] ?? "missing"
+        await logHandler("Local device API request remote=\(remote) method=\(request.method) path=\(path) host=\(host)")
         func loggedResponse<T: Encodable>(_ value: T, statusCode: Int = 200) async -> Data {
-            await logHandler("Local device API \(request.method) \(path) -> HTTP \(statusCode)")
+            await logHandler("Local device API response remote=\(remote) method=\(request.method) path=\(path) host=\(host) status=\(statusCode)")
             return response(value, statusCode: statusCode)
         }
         switch (request.method, path) {

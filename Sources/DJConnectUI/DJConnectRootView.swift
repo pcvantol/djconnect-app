@@ -679,7 +679,7 @@ private struct PairingSheetView: View {
                 Text(localized(
                     model.language,
                     "Use these values in Home Assistant to pair this app.",
-                    "Koppelgegevens voor Home Assistant:"
+                    "Koppelgegevens voor Home Assistant"
                 ))
                 .font(.headline)
                 .foregroundStyle(.secondary)
@@ -5224,19 +5224,11 @@ private struct AboutView: View {
                             SelectableValue(localDeviceAPIURL)
                         }
                     }
-                    if !model.haLocalURL.isEmpty {
-                        AboutStackedRow(label: localized(model.language, "Home Assistant", "Home Assistant")) {
-                            SelectableValue(model.haLocalURL)
-                        }
-                    }
                 }
 
                 SettingsSection(title: localized(model.language, "Notices", "Notices")) {
                     AboutStackedRow(label: "Copyright") {
                         SelectableValue("2026 Peter van Tol")
-                    }
-                    AboutStackedRow(label: "Spotify") {
-                        SelectableValue("Trademark Spotify AB")
                     }
                 }
             }
