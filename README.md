@@ -33,6 +33,8 @@ Website: [https://djconnect.dev](https://djconnect.dev)
 - [docs/TODO.md](docs/TODO.md): open work, known issues, and next implementation steps.
 - [docs/ISSUES.md](docs/ISSUES.md): concrete local backlog with priorities and acceptance criteria.
 - [PRIVACY.md](PRIVACY.md): security, privacy, and diagnostics redaction rules.
+- [SECURITY.md](SECURITY.md): private vulnerability reporting via security@djconnect.dev.
+- [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md): community standards and reporting guidance.
 - [CHANGELOG.md](CHANGELOG.md): notable project changes.
 - [LICENSE](LICENSE): MIT license for the DJConnect app source.
 

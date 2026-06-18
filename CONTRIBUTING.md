@@ -7,6 +7,9 @@ DJConnect repositories are also MIT-licensed unless their own repository
 metadata or a third-party dependency states otherwise. See the local
 [LICENSE](LICENSE) file for the full license text.
 
+Please follow the community standards in [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)
+when participating in DJConnect project spaces.
+
 ## What Belongs Here
 
 This repository contains the native Apple DJConnect app client for iOS, iPadOS,
@@ -23,6 +26,9 @@ Do not commit secrets, bearer tokens, Home Assistant tokens, Spotify OAuth
 credentials, WiFi passwords, private Home Assistant URLs, private user data, or
 raw diagnostics that contain sensitive values. Keep secrets out of commits,
 logs, screenshots, test fixtures, release notes, and diagnostic exports.
+
+Report suspected vulnerabilities privately through [SECURITY.md](SECURITY.md)
+instead of public issues or pull request comments.
 
 ## Development Setup
 
