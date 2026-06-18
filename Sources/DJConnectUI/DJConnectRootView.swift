@@ -902,8 +902,8 @@ private struct PairingEditableURLCard: View {
                 Label(
                     localized(
                         language,
-                        "Address set. Open the DJConnect integration in Home Assistant to pair the app.",
-                        "Adres ingesteld. Open de DJConnect integratie in Home Assistant om de app te koppelen"
+                        "Open the DJConnect integration in Home Assistant to pair the app.",
+                        "Open de DJConnect integratie in Home Assistant om de app te koppelen"
                     ),
                     systemImage: "checkmark.circle"
                 )

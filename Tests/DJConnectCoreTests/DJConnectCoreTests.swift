@@ -476,7 +476,7 @@ private func waitForLocalDeviceAPIURL(_ model: DJConnectAppModel) async throws -
 }
 
 @MainActor
-@Test func appStartsWithNoOutputSelected() throws {
+@Test func appStartsWithNoOutputSelected() async throws {
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
@@ -488,6 +488,8 @@ private func waitForLocalDeviceAPIURL(_ model: DJConnectAppModel) async throws -
         startBackgroundTasks: false
     )
     model.language = "nl"
+
+    await Task.yield()
 
     #expect(model.selectedOutput == "Geen")
 }

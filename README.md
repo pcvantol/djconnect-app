@@ -145,6 +145,11 @@ The latest verification was performed with Xcode 26.5 (`17F42`) against
 macOS 26.5 and iPhoneOS 26.5 SDKs, with code signing disabled for local build
 checks.
 
+The public GitHub repository has secret scanning, push protection, Dependabot
+alerts/security updates, and branch protection enabled for `main`. Required
+status checks must be green before protected-branch changes are merged or
+pushed without an explicit maintainer bypass.
+
 Private GitHub Actions CI runs Swift tests plus unsigned iOS/macOS build
 checks. Release tags also publish unsigned macOS and iOS diagnostic artifacts
 to [pcvantol/djconnect-app-releases](https://github.com/pcvantol/djconnect-app-releases)
@@ -156,6 +161,10 @@ Public macOS binaries for end users are still produced locally with Developer ID
 signing and notarization, then uploaded to the same public releases repository.
 Use the one-time and per-release App Store/macOS checklist in
 [docs/RELEASE.md](docs/RELEASE.md) before publishing signed builds.
+If the public unsigned workflow fails before its website publication step,
+static What's New files on `djconnect.dev` may be missing even when the source
+GitHub release exists; verify the live release-note JSON URLs for each shipped
+version.
 
 On startup after an app update, DJConnect compares the running version with the
 last version seen on that device. If the version changed, the app shows a

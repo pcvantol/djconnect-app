@@ -698,6 +698,10 @@ with write access to `pcvantol/djconnect-website`.
 After publishing, the workflow keeps the newest platform-specific public iOS
 release and the newest platform-specific public macOS release, then removes
 older public app releases/tags for those platform namespaces.
+The workflow runs Swift tests before it publishes either unsigned artifacts or
+static What's New files. If that job fails, the source GitHub release can exist
+while `djconnect.dev/release-notes/.../vX.Y.Z.json` and the public
+`ios/vX.Y.Z` / `macos/vX.Y.Z` releases are still missing.
 
 The Apple apps persist the last seen app version locally. When a newer app
 version starts, they fetch platform-specific static release notes from

@@ -58,6 +58,11 @@ Before release, beta distribution, or a maintainer-facing workflow change:
   prompt, and proprietary-material handling;
 - confirm GitHub Actions workflows that can publish artifacts remain
   manual-only or explicitly gated when they require maintainer approval;
+- verify the public unsigned release workflow is green after a source release,
+  because static What's New publication happens after its Swift test step;
+- keep Swift tests that assert localized strings deterministic by setting the
+  intended app language and waiting for any UI/model language update before
+  asserting translated output;
 - document any required GitHub Environment protections and repository secrets
   without committing secret values;
 - run `git diff --check` for docs-only hygiene changes, plus the relevant build

@@ -118,6 +118,10 @@ xcodebuild -project DJConnectApp.xcodeproj -scheme DJConnectIOS -configuration D
 - Confirm the `Public unsigned release` GitHub Actions workflow succeeds. It
   publishes unsigned macOS and iOS diagnostic zips plus checksums to
   `pcvantol/djconnect-app-releases`.
+- The workflow runs `swift test --no-parallel` before building artifacts or
+  publishing static release notes. Keep tests locale-independent or explicitly
+  set/test the intended app language before asserting localized strings, so a
+  runner's default language cannot block release-note publication.
 - Release cleanup runs automatically from `release.sh` by default. It keeps the
   newest source release/tag and removes older matching entries. The public
   unsigned release workflow also removes older GitHub Actions runs after a
@@ -239,6 +243,14 @@ matching What's New content at startup.
 
 Do not publish a shared `vX.Y.Z` public app release for current builds. Shared
 tags can make one platform show the other platform's What's New content.
+
+If the public workflow fails before `Publish static release notes to
+djconnect.dev`, the app will show the fallback "release notes could not be
+loaded" message for that version. Fix the blocking workflow issue and rerun the
+workflow for the version, or publish the missing static files directly to
+`pcvantol/djconnect-website` using the same paths and JSON shape listed below.
+Then verify the live URLs on `https://djconnect.dev` before considering What's
+New publication complete.
 
 ## In-App What's New Notes
 
