@@ -262,11 +262,20 @@ Bij iedere release moet deze checklist worden uitgevoerd:
   Apple frameworks of third-party libraries.
 - Controleer `.github/workflows/`, `Tools/` en release scripts op nieuwe
   toolingdependencies.
+- Controleer dat publicatieflows die signed builds, TestFlight uploads,
+  notarization of publieke artifacts maken handmatig of expliciet gated blijven
+  en hun vereiste GitHub Environment/secrets documenteren zonder secretwaarden.
 - Werk de dependencytabel bij met versie/pin, licentie en source URL.
 - Werk de design-patternsectie bij als nieuwe architectuur- of statepatronen
   worden toegevoegd.
 - Werk de coding-style secties bij als SwiftLint, SwiftFormat of andere
   format/lint tooling wordt toegevoegd.
+- Werk `CHAT_BOOTSTRAP.md` bij met de actuele release-, workflow- en
+  repository-status.
+- Controleer AI-assisted development/security hygiene: geen secrets,
+  private data, private URLs, raw diagnostics, screenshots met gevoelige inhoud
+  of proprietary third-party materiaal in prompts, logs, issues, fixtures,
+  release notes of commits.
 - Bij cross-repo contractwijzigingen moet
   `pcvantol/djconnect/SYNC_PROMPTS.md` worden bijgewerkt.
 - Bij product roadmap-wijzigingen moet

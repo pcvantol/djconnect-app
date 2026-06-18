@@ -16,6 +16,7 @@ Lees eerst:
 
 Context:
 - Dit is de native DJConnect app repo voor iOS/iPadOS/macOS.
+- DJConnect wordt ontwikkeld en onderhouden met AI-assisted/agentic engineering workflows, inclusief Codex; accepted changes blijven maintainer-reviewed en prompts/logs/issues mogen geen secrets of private data bevatten.
 - Project is MIT-licensed; zie `LICENSE`.
 - User-facing term is `Client adres`, niet `Client API URL`.
 - Clients mogen geen `spotify_source` / "Spotify source override" of `liked_proxy_playlist_uri` / "Standaard playlist override" meer tonen, documenteren of verwachten.
@@ -24,14 +25,15 @@ Context:
 - Secrets/tokens/wachtwoorden/private URLs mogen nooit in commits, logs, screenshots, diagnostics of test fixtures.
 
 Huidige status om te controleren:
-- Release `3.1.30` is voorbereid met community/security docs en moet worden
-  gepubliceerd via `./release.sh 3.1.30`.
-- Lokale branch kan release commits voor `3.1.30` bevatten die nog gepusht
-  moeten worden.
+- Release `3.1.30` is gepubliceerd en gepusht naar GitHub.
+- Laatste repo-hygiene bevat community/security docs en een handmatige,
+  protected TestFlight beta workflow.
+- Lokale branch hoort gelijk te lopen met `origin/main`; controleer dat bij
+  start van iedere sessie.
 - Check direct:
   - `git status --short --branch`
   - `gh run list --repo pcvantol/djconnect-app --limit 5`
-  - eventueel public release tags in `pcvantol/djconnect-app-releases` voor `ios/v3.1.30` en `macos/v3.1.30`.
+  - public release tags in `pcvantol/djconnect-app-releases` voor `ios/v3.1.30` en `macos/v3.1.30` indien release/publicatie geraakt wordt.
 
 Werkstijl:
 - Gebruik `rg` voor zoeken.

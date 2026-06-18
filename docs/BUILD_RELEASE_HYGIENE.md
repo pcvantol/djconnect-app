@@ -42,6 +42,25 @@ Only set that variable after updating:
 
 This keeps shipped binaries, localized release notes, and legal notices in sync.
 
+## Repository Hygiene
+
+Before release, beta distribution, or a maintainer-facing workflow change:
+
+- update `CHAT_BOOTSTRAP.md` with the current release, workflow, and repository
+  status assumptions;
+- keep `CONTRIBUTING.md`, `SECURITY.md`, `CODE_OF_CONDUCT.md`,
+  `docs/RELEASE.md`, `docs/TODO.md`, and `docs/TECHNICAL_DESIGN_DECISIONS.md`
+  aligned when contribution, security, CI, signing, or release behavior changes;
+- check AI-assisted workflow notes for secret, private-data, screenshot, log,
+  prompt, and proprietary-material handling;
+- confirm GitHub Actions workflows that can publish artifacts remain
+  manual-only or explicitly gated when they require maintainer approval;
+- document any required GitHub Environment protections and repository secrets
+  without committing secret values;
+- run `git diff --check` for docs-only hygiene changes, plus the relevant build
+  or test command when behavior, tooling, signing, or workflow execution
+  changes.
+
 ## Emergency Skip
 
 `DJCONNECT_SKIP_THIRDPARTY_UPDATE=1` may be used only when the package registry or local toolchain is unavailable. Add a follow-up issue before publishing a production release.

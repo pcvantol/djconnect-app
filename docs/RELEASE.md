@@ -94,6 +94,13 @@ After renewing the Apple Developer Program membership:
   platform versions, tooling, dependencies, or license/source metadata changed.
 - Update `CHAT_BOOTSTRAP.md` so fresh Codex chats start with current release,
   handoff, workflow, and repository-status instructions.
+- Review repository hygiene docs (`CONTRIBUTING.md`, `SECURITY.md`,
+  `CODE_OF_CONDUCT.md`, `docs/BUILD_RELEASE_HYGIENE.md`, `docs/TODO.md`, and
+  `docs/TECHNICAL_DESIGN_DECISIONS.md`) whenever contribution, security,
+  signing, CI, TestFlight, or release publication behavior changes.
+- Confirm AI-assisted workflow material contains no secrets, private URLs,
+  private data, raw diagnostics, sensitive screenshots, or proprietary
+  third-party content.
 - Consolidate `CHANGELOG.md`: move finished Unreleased entries into the new
   release section and leave a clean Unreleased placeholder.
 - Run local verification:

@@ -20,6 +20,8 @@ Useful report details include:
 
 Please do not include real Spotify OAuth credentials, Home Assistant tokens, DJConnect bearer tokens, WiFi passwords, private network URLs, raw diagnostics or other secrets in the report. Redacted examples are preferred.
 
+Do not include secrets, private data, private URLs, raw diagnostics or proprietary third-party material in AI prompts, agent logs, screenshots, issues, release notes or test fixtures.
+
 ## What To Expect
 
 The project maintainer will review security reports as soon as practical. DJConnect is a small community project, so response times may vary, but reports sent to `security@djconnect.dev` are the preferred path and will be handled with care.

@@ -8,6 +8,11 @@ All notable changes to DJConnect App are documented here.
 
 - Prepared a manual-only GitHub Actions TestFlight beta workflow with explicit
   version/tag confirmation and protected-environment signing requirements.
+- Updated repository hygiene guidance for AI-assisted development, security
+  handling, release docs, TestFlight gating, and fresh Codex chat bootstrap
+  state.
+- Added `DEVELOPMENT_ENVIRONMENT.md` for local machine, toolchain, simulator,
+  signing, and hygiene setup.
 
 ## 3.1.30 - 2026-06-18
 

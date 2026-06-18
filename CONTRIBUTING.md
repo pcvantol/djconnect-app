@@ -39,6 +39,9 @@ Requirements:
 - GitHub CLI (`gh`) for release validation and GitHub release work;
 - XcodeGen when regenerating `DJConnectApp.xcodeproj` from `project.yml`.
 
+See [DEVELOPMENT_ENVIRONMENT.md](DEVELOPMENT_ENVIRONMENT.md) for the expected
+local machine, toolchain, simulator, signing, and hygiene setup.
+
 Useful commands:
 
 ```sh
@@ -82,6 +85,22 @@ Home Assistant integration contract and any affected client implementations.
 - Keep app clients sending generic playback commands through Home Assistant;
   do not reintroduce removed client-side Spotify source or default playlist
   override settings.
+
+## AI-Assisted Development
+
+DJConnect is developed and maintained with AI-assisted and agentic engineering
+workflows, including Codex. AI assistance may be used for code changes,
+documentation, tests, release preparation and cross-repo consistency checks.
+
+All accepted changes remain maintainer-reviewed. Contributors are responsible
+for ensuring their changes are correct, testable, license-compatible and free of
+secrets or private data. Do not include tokens, passwords, private URLs,
+personal data or proprietary third-party material in prompts, issues, logs,
+screenshots or test fixtures.
+
+Before committing AI-assisted changes, review generated code and documentation
+against the same tests, release hygiene, licensing, and security expectations as
+hand-written changes.
 
 ## Pull Requests
 

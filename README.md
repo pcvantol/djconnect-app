@@ -23,6 +23,8 @@ Website: [https://djconnect.dev](https://djconnect.dev)
 - [docs/TECHNICAL_DESIGN_DECISIONS.md](docs/TECHNICAL_DESIGN_DECISIONS.md):
   reverse-engineered code-level design patterns, coding conventions, and dependency inventory.
 - [docs/API_CONTRACT.md](docs/API_CONTRACT.md): Home Assistant endpoint contract.
+- [DEVELOPMENT_ENVIRONMENT.md](DEVELOPMENT_ENVIRONMENT.md): local machine,
+  toolchain, simulator, signing, and hygiene setup.
 - [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md): local development, generation, build, and test commands.
 - [docs/RELEASE.md](docs/RELEASE.md): signing, TestFlight, notarization, and live HA validation checklist.
 - [docs/postman/djconnect-local-device-api.postman_collection.json](docs/postman/djconnect-local-device-api.postman_collection.json):
