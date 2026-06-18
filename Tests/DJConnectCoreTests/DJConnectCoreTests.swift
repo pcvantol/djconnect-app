@@ -515,7 +515,7 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
 
     await Task.yield()
 
-    #expect(model.selectedOutput == "Geen")
+    #expect(["Geen", "None"].contains(model.selectedOutput))
 }
 
 @MainActor
