@@ -13,7 +13,7 @@ concurrency:
 
 jobs:
   test-and-unsigned-build:
-    name: Swift tests and unsigned Apple builds
+    name: CI
     runs-on: macos-15
     timeout-minutes: 30
 
