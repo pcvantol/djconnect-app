@@ -24,12 +24,14 @@ Context:
 - Secrets/tokens/wachtwoorden/private URLs mogen nooit in commits, logs, screenshots, diagnostics of test fixtures.
 
 Huidige status om te controleren:
-- Release `3.1.29` is gemaakt en gepusht naar GitHub.
-- `CONTRIBUTING.md` is toegevoegd maar mogelijk nog uncommitted.
+- Release `3.1.30` is voorbereid met community/security docs en moet worden
+  gepubliceerd via `./release.sh 3.1.30`.
+- Lokale branch kan release commits voor `3.1.30` bevatten die nog gepusht
+  moeten worden.
 - Check direct:
   - `git status --short --branch`
   - `gh run list --repo pcvantol/djconnect-app --limit 5`
-  - eventueel public release tags in `pcvantol/djconnect-app-releases` voor `ios/v3.1.29` en `macos/v3.1.29`.
+  - eventueel public release tags in `pcvantol/djconnect-app-releases` voor `ios/v3.1.30` en `macos/v3.1.30`.
 
 Werkstijl:
 - Gebruik `rg` voor zoeken.

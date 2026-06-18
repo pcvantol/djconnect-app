@@ -4,6 +4,17 @@ All notable changes to DJConnect App are documented here.
 
 ## Unreleased
 
+## 3.1.30 - 2026-06-18
+
+### Changed
+
+- Added community documentation with a Code of Conduct and private security
+  reporting policy for `security@djconnect.dev`.
+- Documented the release-cycle requirement to keep the Codex chat bootstrap
+  prompt current for each release.
+- Renamed the chat bootstrap prompt to `CHAT_BOOTSTRAP.md` for clearer repo
+  onboarding.
+
 ## 3.1.29 - 2026-06-18
 
 ### Changed
