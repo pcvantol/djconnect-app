@@ -92,7 +92,7 @@ After renewing the Apple Developer Program membership:
 - Update `docs/THIRD_PARTY_NOTICES.md` and
   `docs/TECHNICAL_DESIGN_DECISIONS.md` when architecture, code patterns,
   platform versions, tooling, dependencies, or license/source metadata changed.
-- Update `CHAT_INIT_PROMPT.md` so fresh Codex chats start with current release,
+- Update `CHAT_BOOTSTRAP.md` so fresh Codex chats start with current release,
   handoff, workflow, and repository-status instructions.
 - Consolidate `CHANGELOG.md`: move finished Unreleased entries into the new
   release section and leave a clean Unreleased placeholder.

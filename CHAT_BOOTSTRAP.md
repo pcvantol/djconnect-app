@@ -1,4 +1,4 @@
-# DJConnect App Chat Init Prompt
+# DJConnect App Chat Bootstrap Prompt
 
 Use this prompt to initialize a fresh Codex chat for this repository:
 
