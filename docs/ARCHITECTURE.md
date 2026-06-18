@@ -21,7 +21,7 @@ The Apple app owns:
 - local app state;
 - local bonus games with app-local highscores;
 - local Keychain storage for only the DJConnect bearer token;
-- a pinned Client API url after successful pairing, kept stable until explicit
+- a pinned Client adres after successful pairing, kept stable until explicit
   pairing reset;
 - local audio recording for push-to-talk, when implemented;
 - optional playback of returned DJ response audio.
@@ -99,9 +99,9 @@ blocked locally so Spotify does not pick an arbitrary Connect device.
 ## Local Client API
 
 The app hosts a small local HTTP API for Home Assistant -> app traffic while
-the app is active. User-facing text calls this endpoint `Client API url`.
+the app is active. User-facing text calls this endpoint `Client adres`.
 
-The Client API url shown during pairing is pinned after successful pairing and
+The Client adres shown during pairing is pinned after successful pairing and
 stored locally so Home Assistant does not lose the callback target when the app
 refreshes its listener. It changes only when the user resets pairing or the app
 installation state is reset.

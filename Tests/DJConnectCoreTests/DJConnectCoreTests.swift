@@ -555,6 +555,21 @@ private func waitForLocalDeviceAPIURL(_ model: DJConnectAppModel) async throws -
     #expect(response.queue?.first?.albumImageURL?.absoluteString == "https://example.test/queue.jpg")
 }
 
+@MainActor
+@Test func queueEpisodeItemsCanStartWithoutPlaybackContext() throws {
+    let suiteName = "DJConnectTests-\(UUID().uuidString)"
+    let defaults = try #require(UserDefaults(suiteName: suiteName))
+    defaults.removePersistentDomain(forName: suiteName)
+    let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startLocalAPI: false, startBackgroundTasks: false)
+    let episode = DJConnectQueueItem(
+        title: "Podcast Episode",
+        artist: "Podcast",
+        uri: "spotify:episode:episode-id"
+    )
+
+    #expect(model.canStartQueueItem(episode))
+}
+
 @Test func playlistContractDecodesArtworkAliases() throws {
     let response = try JSONDecoder().decode(
         DJConnectCommandResponse.self,
@@ -1495,6 +1510,30 @@ private func waitForLocalDeviceAPIURL(_ model: DJConnectAppModel) async throws -
     ))
 
     #expect(model.djResponseText == "Geen actief afspeelapparaat gevonden")
+}
+
+@MainActor
+@Test func djAnnouncementSuppressesHTMLBackendErrorPages() throws {
+    let suiteName = "DJConnectTests-\(UUID().uuidString)"
+    let defaults = try #require(UserDefaults(suiteName: suiteName))
+    defaults.removePersistentDomain(forName: suiteName)
+    defaults.set("nl", forKey: "DJConnectLanguage")
+    let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startLocalAPI: false)
+
+    model.apply(localDJResponse: DJConnectLocalDJResponseRequest(
+        text: """
+        <!DOCTYPE html>
+        <html class="h-full" lang="en-US" dir="ltr">
+        <head><link rel="preload" href="https://assets.ngrok.com/fonts/euclid-square/EuclidSquare-Regular-WebS.woff"></head>
+        <body>Home Assistant tunnel unavailable</body>
+        </html>
+        """,
+        djText: nil,
+        audioURL: nil,
+        audioType: nil
+    ))
+
+    #expect(model.djResponseText == "Geen verbinding met Home Assistant")
 }
 
 @MainActor

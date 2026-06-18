@@ -134,7 +134,7 @@ Status: accepted
 
 The Apple app hosts local `/api/device/*` endpoints while active so Home
 Assistant can pair, send callbacks, and inspect the app client. The app reports
-a stable Client API url after successful local pairing and keeps that URL until
+a stable Client adres after successful local pairing and keeps that URL until
 pairing is reset.
 
 Reasoning:
@@ -186,7 +186,7 @@ Status: accepted
 
 The Apple app blocks playback, queue, playlists, output, and voice UI while no
 DJConnect bearer token is available. The pairing sheet owns Home Assistant URL
-entry, the copyable Client API url, the copyable app-generated pairing code,
+entry, the copyable Client adres, the copyable app-generated pairing code,
 pairing progress, and the final success state.
 
 Reasoning:

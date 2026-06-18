@@ -4,6 +4,33 @@ All notable changes to DJConnect App are documented here.
 
 ## Unreleased
 
+## 3.1.28 - 2026-06-18
+
+### Changed
+
+- Polished the pairing flow with a confirmed Home Assistant address state,
+  clearer Home Assistant setup guidance, copy feedback, and wrapping status
+  text on iOS and macOS.
+- Moved the Home Assistant address display into About > Connection, removed
+  duplicate connection rows from Settings/About, and renamed user-facing
+  Client API wording to `Client adres`.
+- Improved DJ response presentation, listening indicators, voice audio cues,
+  and recovery from HTML/backend error pages.
+- Expanded local games with richer animations, power pellets, varied
+  obstacles, 8-bit sounds, haptics, slower Meteor Run pacing, and clearer
+  controls.
+- Allowed podcast/queue items to start by URI when no Spotify queue context is
+  available.
+- Updated release automation to publish static platform-specific release note
+  files and moved GitHub Actions checkout usage to the current action version.
+
+### Tests
+
+- Added coverage for podcast queue item starts without playback context and
+  suppression of HTML backend error pages in DJ responses.
+- Verified Swift build compilation during the release cycle; one local network
+  stability test remains flaky with `NSURLErrorDomain -1005`.
+
 ## 3.1.27 - 2026-06-16
 
 ### Changed
@@ -431,7 +458,7 @@ All notable changes to DJConnect App are documented here.
 - Localized the welcome-screen Home Assistant setup line in Dutch.
 - Changed the welcome-screen setup link to `https://djconnect.dev/start`.
 - Added a macOS-only quit option to the blocking pairing sheet.
-- Moved the pairing code above the Client API url on the pairing sheet.
+- Moved the pairing code above the Client adres on the pairing sheet.
 - Added a Keychain access recovery sheet when token access is denied.
 - Cached a successfully unlocked Keychain token in memory for the app session
   to avoid repeated system prompts.
@@ -467,7 +494,7 @@ All notable changes to DJConnect App are documented here.
 
 - Updated README, development, release, handoff, architecture, sync prompts,
   TODO, and issues documentation for the 3.1.8 pairing sheet, Demo Mode,
-  Client API url stability, About website, Xcode 26.5 verification, and
+  Client adres stability, About website, Xcode 26.5 verification, and
   security-hardening backlog.
 
 ## 3.1.7 - 2026-06-11
@@ -475,7 +502,7 @@ All notable changes to DJConnect App are documented here.
 ### Added
 
 - Added a blocking pairing sheet for unpaired clients with the DJConnect banner,
-  copyable Client API url, copyable pairing code, and pairing status/progress.
+  copyable Client adres, copyable pairing code, and pairing status/progress.
 - Added a post-pairing success state with a large green checkmark and a
   prominent "Let's Start!" action before releasing the main UI.
 - Added a demo mode from the pairing sheet so App Store review/auditing can
@@ -526,7 +553,7 @@ All notable changes to DJConnect App are documented here.
   `device_id` plus `client_type`, keep app-generated pairing codes stable
   during mismatch recovery, persist `ha_local_url`, and keep cloud URLs out of
   app-to-HA runtime traffic.
-- Kept the Client API url used during pairing stable until explicit pairing
+- Kept the Client adres used during pairing stable until explicit pairing
   reset so Home Assistant can continue calling the same local app endpoint
   after restarts.
 - Expanded the local `/api/device/*` Apple app API for Home Assistant -> app

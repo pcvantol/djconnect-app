@@ -113,7 +113,7 @@ Once pairing is complete, the app keeps the local HTTP API available while it
 is running, but disables Bonjour advertising to reduce network and battery
 impact. Explicit pairing reset enables Bonjour advertising again.
 
-User-facing app text calls this endpoint the `Client API url`. The URL shown
+User-facing app text calls this endpoint the `Client adres`. The URL shown
 in the pairing sheet must be the URL Home Assistant uses for the local
 callback. After successful local pairing, the app pins that URL in local state
 and keeps it stable until explicit pairing reset.
@@ -329,9 +329,9 @@ Compatibility rules:
   refresh Now Playing and the queue; Home Assistant should return a queue
   context whenever queue row playback is supported.
 
-## Client API URL Stability
+## Client adres Stability
 
-The app must keep the local Client API url stable across successful pairing.
+The app must keep the local Client adres stable across successful pairing.
 Home Assistant pairs by calling the URL shown by the app, then continues to use
 that same endpoint for app callbacks and status/control flows. The app may
 restart the local listener when pairing is reset or the install identity changes,

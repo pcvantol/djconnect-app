@@ -47,7 +47,7 @@ integration and a Spotify Premium account. The app does not ask for Spotify
 credentials; Spotify OAuth stays owned by Home Assistant.
 
 If the app is not paired yet, the main runtime UI is blocked by a pairing
-sheet. That sheet shows the DJConnect banner, copyable Client API url,
+sheet. That sheet shows the DJConnect banner, copyable Client adres,
 copyable app-generated pairing code, and live pairing status. After Home
 Assistant completes pairing, the sheet shows a success state with a green
 checkmark and a `Let's Start!` action before the runtime UI is released.
@@ -268,7 +268,7 @@ POST /api/device/forget
 Protected local endpoints require `Authorization: Bearer <device_token>`.
 The Apple app does not implement ESP-only reboot or OTA routes.
 
-The user-facing name for this local endpoint is `Client API url`. The URL shown
+The user-facing name for this local endpoint is `Client adres`. The URL shown
 during pairing is pinned after successful pairing and remains stable in app
 storage until the user explicitly resets pairing.
 

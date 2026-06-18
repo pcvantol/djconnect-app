@@ -243,7 +243,7 @@ public final class DJConnectAppModel: ObservableObject {
     private let startBackgroundTasks: Bool
     private let monkeyTestingMode: Bool
     private let diagnosticLogFileURL: URL?
-    private static let protocolVersion = "3.1.27"
+    private static let protocolVersion = "3.1.28"
     private static let defaultHomeAssistantURL = "http://homeassistant.local:8123"
     private let appVersion = DJConnectAppModel.protocolVersion
     private let installIDKey = "DJConnectInstallID"
@@ -742,6 +742,16 @@ public final class DJConnectAppModel: ObservableObject {
         }
     }
 
+    public func confirmPairingHomeAssistantURL() {
+        guard pairingStatus != .paired else {
+            log(.debug, "Ignoring Home Assistant URL confirmation because device is already paired")
+            return
+        }
+        log(.info, "User action: confirm Home Assistant URL for pairing")
+        restartLocalDeviceAPI()
+        startPairingWait()
+    }
+
     public func recoverPairingClientAPIIfNeeded() {
         guard !isDemoMode, pairingStatus != .paired else {
             return
@@ -750,7 +760,7 @@ public final class DJConnectAppModel: ObservableObject {
             startPairingWait()
             return
         }
-        log(.warning, "Recovering pairing screen because Client API URL is missing")
+        log(.warning, "Recovering pairing screen because Client address is missing")
         restartLocalDeviceAPI()
         startPairingWait()
     }
@@ -1211,7 +1221,7 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     public func canStartQueueItem(_ item: DJConnectQueueItem) -> Bool {
-        item.uri?.isEmpty == false && resolvedQueueContext?.isEmpty == false
+        item.uri?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
     }
 
     public func startQueueItem(_ item: DJConnectQueueItem, at index: Int? = nil) {
@@ -1220,21 +1230,15 @@ public final class DJConnectAppModel: ObservableObject {
             log(.warning, "Queue item \(item.title) cannot start because it has no URI")
             return
         }
-        guard let contextURI = resolvedQueueContext, !contextURI.isEmpty else {
-            log(.warning, "Queue item \(item.title) cannot start because Home Assistant did not provide playback context")
-            pairingMessage = localized(
-                english: "Queue playback needs a playback context. Refresh Now Playing and queue, then try again.",
-                dutch: "Wachtrij afspelen heeft een playback-context nodig. Vernieuw Speelt Nu en de wachtrij en probeer opnieuw."
-            )
-            return
-        }
         var payload = [
             "uri": uri,
-            "title": item.title,
-            "context_uri": contextURI
+            "title": item.title
         ]
-        if Self.queueContextSupportsOffset(contextURI) {
-            payload["offset_uri"] = uri
+        if let contextURI = resolvedQueueContext, !contextURI.isEmpty {
+            payload["context_uri"] = contextURI
+            if Self.queueContextSupportsOffset(contextURI) {
+                payload["offset_uri"] = uri
+            }
         }
         if let index {
             payload["index"] = String(index)
@@ -1343,6 +1347,11 @@ public final class DJConnectAppModel: ObservableObject {
                 resumeWakeWordListeningIfNeeded()
                 return
             }
+            playVoiceCue(.startListening)
+            try? await Task.sleep(for: .milliseconds(180))
+            guard !Task.isCancelled, isRecordingVoice else {
+                return
+            }
             beginVoiceRecording()
             voiceStartTask = nil
         }
@@ -1354,7 +1363,6 @@ public final class DJConnectAppModel: ObservableObject {
         }
 
         #if canImport(AVFoundation)
-        playVoiceCue(.stopListening)
         voiceStartTask?.cancel()
         voiceStartTask = nil
         let url = voiceRecordingURL
@@ -1366,6 +1374,7 @@ public final class DJConnectAppModel: ObservableObject {
         #if os(iOS)
         try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
         #endif
+        playVoiceCue(.stopListening)
 
         guard let url else {
             voiceStatus = .idle
@@ -2072,6 +2081,13 @@ public final class DJConnectAppModel: ObservableObject {
             return userFacingDJResponseText(message) ?? message
         }
         let normalized = text.lowercased()
+        if Self.looksLikeHTMLDocument(normalized) {
+            log(.warning, "Suppressed HTML response in DJ request message")
+            return localized(
+                english: "No connection to Home Assistant",
+                dutch: "Geen verbinding met Home Assistant"
+            )
+        }
         if normalized.contains("did not return recognized text")
             || normalized.contains("recognitionstatus") {
             log(.info, "HA Assist STT did not recognize the input")
@@ -2100,6 +2116,16 @@ public final class DJConnectAppModel: ObservableObject {
             )
         }
         return text
+    }
+
+    private static func looksLikeHTMLDocument(_ normalizedText: String) -> Bool {
+        normalizedText.contains("<!doctype html")
+            || normalizedText.contains("<html")
+            || normalizedText.contains("<head")
+            || normalizedText.contains("<body")
+            || normalizedText.contains("</html>")
+            || normalizedText.contains("text/html")
+            || normalizedText.contains("assets.ngrok.com")
     }
 
     private func userFacingPairingMessage(from text: String?) -> String? {
@@ -2585,8 +2611,8 @@ public final class DJConnectAppModel: ObservableObject {
                         deviceID: "djconnect-macos-unavailable",
                         deviceName: "DJConnect",
                         clientType: .macos,
-                        firmware: "3.1.27",
-                        appVersion: "3.1.27",
+                        firmware: "3.1.28",
+                        appVersion: "3.1.28",
                         platform: .macos
                     ),
                     pairingToken: "",
@@ -2835,7 +2861,7 @@ public final class DJConnectAppModel: ObservableObject {
     private func pinLocalDeviceAPIURL(_ url: String) {
         localDeviceAPIURL = url
         defaults.set(url, forKey: localDeviceAPIURLKey)
-        log(.info, "Pinned Client API url for current pairing")
+        log(.info, "Pinned Client address for current pairing")
     }
 
     private func clearPinnedLocalDeviceAPIURL() {
@@ -3691,7 +3717,6 @@ public final class DJConnectAppModel: ObservableObject {
             voiceErrorMessage = nil
             isRecordingVoice = true
             voiceStatus = .listening
-            playVoiceCue(.startListening)
             log(.info, "Voice recording started")
         } catch {
             isRecordingVoice = false

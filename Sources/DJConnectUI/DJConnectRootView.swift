@@ -2,6 +2,9 @@ import DJConnectCore
 import Combine
 import SwiftUI
 
+#if canImport(AVFoundation)
+import AVFoundation
+#endif
 #if os(iOS)
 import UIKit
 #elseif os(macOS)
@@ -147,6 +150,139 @@ private enum DJConnectHaptics {
         #if os(iOS)
         UINotificationFeedbackGenerator().notificationOccurred(.success)
         #endif
+    }
+
+    @MainActor
+    static func warning() {
+        #if os(iOS)
+        UINotificationFeedbackGenerator().notificationOccurred(.warning)
+        #endif
+    }
+
+    @MainActor
+    static func error() {
+        #if os(iOS)
+        UINotificationFeedbackGenerator().notificationOccurred(.error)
+        #endif
+    }
+}
+
+private enum DJConnectGameSoundEffect: Hashable {
+    case start
+    case move
+    case fire
+    case bounce
+    case hit
+    case collect
+    case power
+    case explosion
+    case crash
+    case gameOver
+}
+
+@MainActor
+private enum DJConnectGameSounds {
+    #if canImport(AVFoundation)
+    private static var players: [DJConnectGameSoundEffect: AVAudioPlayer] = [:]
+    #endif
+
+    static func play(_ effect: DJConnectGameSoundEffect) {
+        #if canImport(AVFoundation)
+        do {
+            let player: AVAudioPlayer
+            if let cached = players[effect] {
+                player = cached
+            } else {
+                let data = wavData(for: effect)
+                let created = try AVAudioPlayer(data: data)
+                created.prepareToPlay()
+                created.volume = 0.24
+                players[effect] = created
+                player = created
+            }
+            player.currentTime = 0
+            player.play()
+        } catch {
+            #if os(iOS)
+            DJConnectHaptics.impact()
+            #endif
+        }
+        #else
+        _ = effect
+        #endif
+    }
+
+    #if canImport(AVFoundation)
+    private static func wavData(for effect: DJConnectGameSoundEffect) -> Data {
+        let notes: [(Double, Double)] = switch effect {
+        case .start:
+            [(523, 0.05), (784, 0.07)]
+        case .move:
+            [(392, 0.035)]
+        case .fire:
+            [(880, 0.045), (660, 0.035)]
+        case .bounce:
+            [(330, 0.04)]
+        case .hit:
+            [(660, 0.035), (880, 0.045)]
+        case .collect:
+            [(740, 0.035)]
+        case .power:
+            [(523, 0.04), (659, 0.04), (784, 0.06)]
+        case .explosion:
+            [(160, 0.04), (110, 0.04), (82, 0.06)]
+        case .crash:
+            [(196, 0.04), (130, 0.05), (92, 0.08)]
+        case .gameOver:
+            [(330, 0.06), (247, 0.07), (165, 0.10)]
+        }
+        return makeSquareWaveWAV(notes: notes)
+    }
+
+    private static func makeSquareWaveWAV(notes: [(frequency: Double, duration: Double)]) -> Data {
+        let sampleRate = 22_050
+        var samples: [Int16] = []
+        for note in notes {
+            let count = max(1, Int(note.duration * Double(sampleRate)))
+            for index in 0..<count {
+                let phase = (Double(index) * note.frequency / Double(sampleRate)).truncatingRemainder(dividingBy: 1)
+                let envelope = min(1, Double(count - index) / Double(max(1, count / 4)))
+                let amplitude = Int16(8_500 * envelope)
+                samples.append(phase < 0.5 ? amplitude : -amplitude)
+            }
+            samples.append(contentsOf: Array(repeating: 0, count: sampleRate / 200))
+        }
+
+        var data = Data()
+        data.append("RIFF".data(using: .ascii)!)
+        data.appendLittleEndian(UInt32(36 + samples.count * 2))
+        data.append("WAVEfmt ".data(using: .ascii)!)
+        data.appendLittleEndian(UInt32(16))
+        data.appendLittleEndian(UInt16(1))
+        data.appendLittleEndian(UInt16(1))
+        data.appendLittleEndian(UInt32(sampleRate))
+        data.appendLittleEndian(UInt32(sampleRate * 2))
+        data.appendLittleEndian(UInt16(2))
+        data.appendLittleEndian(UInt16(16))
+        data.append("data".data(using: .ascii)!)
+        data.appendLittleEndian(UInt32(samples.count * 2))
+        for sample in samples {
+            data.appendLittleEndian(UInt16(bitPattern: sample))
+        }
+        return data
+    }
+    #endif
+}
+
+private extension Data {
+    mutating func appendLittleEndian(_ value: UInt16) {
+        var littleEndian = value.littleEndian
+        Swift.withUnsafeBytes(of: &littleEndian) { append(contentsOf: $0) }
+    }
+
+    mutating func appendLittleEndian(_ value: UInt32) {
+        var littleEndian = value.littleEndian
+        Swift.withUnsafeBytes(of: &littleEndian) { append(contentsOf: $0) }
     }
 }
 
@@ -553,19 +689,23 @@ private struct PairingSheetView: View {
                     title: localized(model.language, "Home Assistant URL", "Home Assistant URL"),
                     language: model.language,
                     text: $model.homeAssistantURL
-                )
+                ) {
+                    model.confirmPairingHomeAssistantURL()
+                }
 
                 PairingValueCard(
                     title: localized(model.language, "Pair Code", "Koppelcode"),
+                    language: model.language,
                     value: model.pairingToken,
                     copyLabel: localized(model.language, "Copy Pair Code", "Koppelcode kopiëren"),
                     prominent: true
                 )
 
                 PairingValueCard(
-                    title: "Client API url",
-                    value: model.localDeviceAPIURL ?? localized(model.language, "Starting Client API...", "Client API wordt gestart..."),
-                    copyLabel: localized(model.language, "Copy Client API url", "Client API url kopiëren"),
+                    title: "Client adres",
+                    language: model.language,
+                    value: model.localDeviceAPIURL ?? localized(model.language, "Starting Client address...", "Client adres wordt gestart..."),
+                    copyLabel: localized(model.language, "Copy Client address", "Client adres kopiëren"),
                     prominent: false
                 )
             }
@@ -576,13 +716,17 @@ private struct PairingSheetView: View {
                 VStack(alignment: .leading, spacing: 3) {
                     Text(statusTitle)
                         .font(.headline)
+                        .lineLimit(nil)
+                        .fixedSize(horizontal: false, vertical: true)
                     if let pairingMessage = model.pairingMessage {
                         Text(pairingMessage)
                             .font(.callout)
                             .foregroundStyle(.secondary)
-                            .lineLimit(3)
+                            .lineLimit(nil)
+                            .fixedSize(horizontal: false, vertical: true)
                     }
                 }
+                .layoutPriority(1)
                 Spacer(minLength: 0)
             }
             .padding(14)
@@ -670,7 +814,7 @@ private struct PairingSheetView: View {
         }
         return switch model.pairingStatus {
         case .pairing:
-            localized(model.language, "Pairing in progress", "Pairing bezig")
+            localized(model.language, "Pairing in progress", "Wacht op koppeling in Home Assistant")
         case .stale:
             localized(model.language, "Not connected to Home Assistant", "Niet gekoppeld aan Home Assistant")
         default:
@@ -683,7 +827,9 @@ private struct PairingEditableURLCard: View {
     let title: String
     let language: String
     @Binding var text: String
+    let onConfirm: () -> Void
     @FocusState private var isURLFocused: Bool
+    @State private var didConfirm = false
 
     private var trimmedText: String {
         text.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -698,16 +844,47 @@ private struct PairingEditableURLCard: View {
             Text(title)
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(.secondary)
-            TextField(title, text: $text)
-                .font(.system(.body, design: .monospaced))
-                .textContentType(.URL)
-                .focused($isURLFocused)
-                #if os(iOS)
-                .keyboardType(.URL)
-                .textInputAutocapitalization(.never)
-                .autocorrectionDisabled()
-                #endif
-                .textFieldStyle(.plain)
+            HStack(spacing: 8) {
+                TextField(title, text: $text)
+                    .font(.system(.body, design: .monospaced))
+                    .textContentType(.URL)
+                    .focused($isURLFocused)
+                    #if os(iOS)
+                    .keyboardType(.URL)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+                    .submitLabel(.done)
+                    #endif
+                    .textFieldStyle(.plain)
+                    .onSubmit {
+                        confirmURL()
+                    }
+
+                if !text.isEmpty {
+                    Button {
+                        text = ""
+                        didConfirm = false
+                        isURLFocused = true
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.body)
+                            .foregroundStyle(.secondary)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(localized(language, "Clear Home Assistant URL", "Home Assistant URL wissen"))
+                }
+
+                Button {
+                    confirmURL()
+                } label: {
+                    Image(systemName: didConfirm ? "checkmark.circle.fill" : "checkmark.circle")
+                        .font(.body.weight(.semibold))
+                        .foregroundStyle(isValid ? .green : .secondary)
+                }
+                .buttonStyle(.plain)
+                .disabled(!isValid)
+                .accessibilityLabel(localized(language, "Confirm Home Assistant URL", "Home Assistant URL bevestigen"))
+            }
             if !trimmedText.isEmpty, !isValid {
                 Label(
                     localized(
@@ -719,6 +896,17 @@ private struct PairingEditableURLCard: View {
                 )
                 .font(.caption)
                 .foregroundStyle(.orange)
+            } else if didConfirm {
+                Label(
+                    localized(
+                        language,
+                        "Address set. Open the DJConnect integration in Home Assistant to pair the app.",
+                        "Adres ingesteld. Open de DJConnect integratie in Home Assistant om de app te koppelen"
+                    ),
+                    systemImage: "checkmark.circle"
+                )
+                .font(.caption)
+                .foregroundStyle(.green)
             }
         }
         .padding(14)
@@ -736,14 +924,30 @@ private struct PairingEditableURLCard: View {
             }
             isURLFocused = false
         }
+        .onChange(of: text) {
+            didConfirm = false
+        }
+    }
+
+    private func confirmURL() {
+        guard isValid else {
+            didConfirm = false
+            return
+        }
+        didConfirm = true
+        isURLFocused = false
+        onConfirm()
     }
 }
 
 private struct PairingValueCard: View {
     let title: String
+    let language: String
     let value: String
     let copyLabel: String
     var prominent = false
+    @State private var didCopy = false
+    @State private var copyFeedbackToken = UUID()
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -759,19 +963,46 @@ private struct PairingValueCard: View {
                 Spacer(minLength: 0)
                 Button {
                     copyText(value)
+                    showCopiedFeedback()
                 } label: {
-                    Image(systemName: "doc.on.doc")
+                    Image(systemName: didCopy ? "checkmark.circle.fill" : "doc.on.doc")
                 }
                 .buttonStyle(.borderless)
-                .foregroundStyle(djConnectAccent)
+                .foregroundStyle(didCopy ? .green : djConnectAccent)
                 .tint(djConnectAccent)
                 .help(copyLabel)
                 .accessibilityLabel(copyLabel)
+            }
+            if didCopy {
+                Label(
+                    localized(language, "Copied to clipboard", "Gekopieerd naar klembord"),
+                    systemImage: "checkmark.circle"
+                )
+                .font(.caption)
+                .foregroundStyle(.green)
+                .transition(.opacity.combined(with: .move(edge: .top)))
             }
         }
         .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 8))
+    }
+
+    private func showCopiedFeedback() {
+        let token = UUID()
+        copyFeedbackToken = token
+        withAnimation(.easeOut(duration: 0.16)) {
+            didCopy = true
+        }
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(1_100))
+            guard copyFeedbackToken == token else {
+                return
+            }
+            withAnimation(.easeOut(duration: 0.18)) {
+                didCopy = false
+            }
+        }
     }
 }
 
@@ -1585,13 +1816,16 @@ private struct IOSConnectionCard: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(statusTitle)
                         .font(.headline)
+                        .fixedSize(horizontal: false, vertical: true)
                     if let statusSubtitle {
                         Text(statusSubtitle)
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(2)
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(nil)
+                            .fixedSize(horizontal: false, vertical: true)
                     }
                 }
+                .layoutPriority(1)
                 Spacer()
                 if model.pairingStatus == .paired, !model.isDemoMode {
                     playbackAvailabilityDot
@@ -1620,6 +1854,8 @@ private struct IOSConnectionCard: View {
                 Label(updateRequiredMessage, systemImage: "arrow.down.app")
                     .font(.footnote)
                     .foregroundStyle(.orange)
+                    .lineLimit(nil)
+                    .fixedSize(horizontal: false, vertical: true)
             } else if !model.backendAvailable {
                 Label(
                     localized(
@@ -1631,12 +1867,14 @@ private struct IOSConnectionCard: View {
                 )
                     .font(.footnote)
                     .foregroundStyle(.orange)
-                    .lineLimit(2)
+                    .lineLimit(nil)
+                    .fixedSize(horizontal: false, vertical: true)
             } else if let pairingMessage = model.pairingMessage {
                 Text(pairingMessage)
                     .font(.footnote)
                     .foregroundStyle(.secondary)
-                    .lineLimit(3)
+                    .lineLimit(nil)
+                    .fixedSize(horizontal: false, vertical: true)
             }
         }
         .padding(14)
@@ -1831,6 +2069,7 @@ private struct IOSPlaybackSurface: View {
     ) -> some View {
         Button {
             DJConnectHaptics.impact()
+            DJConnectGameSounds.play(.move)
             action()
         } label: {
             Image(systemName: systemImage)
@@ -1896,17 +2135,22 @@ private struct IOSVoiceCard: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            Image(systemName: "waveform")
-                .font(.title3)
-                .foregroundStyle(isVoiceAvailable ? .purple : .secondary)
-                .frame(width: 34, height: 34)
-                .background((isVoiceAvailable ? Color.purple : Color.secondary).opacity(0.12), in: Circle())
-            VStack(alignment: .leading, spacing: 2) {
+            if model.voiceStatus == .listening {
+                AnimatedListeningMic()
+                    .frame(width: 34, height: 34)
+            } else {
+                Image(systemName: "waveform")
+                    .font(.title3)
+                    .foregroundStyle(isVoiceAvailable ? .purple : .secondary)
+                    .frame(width: 34, height: 34)
+                    .background((isVoiceAvailable ? Color.purple : Color.secondary).opacity(0.12), in: Circle())
+            }
+            VStack(alignment: .leading, spacing: isShowingDJResponse ? 8 : 2) {
                 Text(localized(model.language, "DJ Request", "DJ verzoek"))
                     .font(.headline)
                 Text(announcementText)
                     .font(isShowingDJResponse ? .body.weight(.semibold) : .subheadline)
-                    .foregroundStyle(isShowingDJResponse ? .white.opacity(0.92) : announcementColor)
+                    .foregroundStyle(isShowingDJResponse ? .white.opacity(0.74) : announcementColor)
                     .lineLimit(nil)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -1926,6 +2170,33 @@ private struct IOSVoiceCard: View {
     }
 }
 #endif
+
+private struct AnimatedListeningMic: View {
+    @State private var isPulsing = false
+
+    var body: some View {
+        ZStack {
+            Circle()
+                .fill(djConnectAccent.opacity(isPulsing ? 0.07 : 0.18))
+                .scaleEffect(isPulsing ? 1.28 : 0.82)
+            Circle()
+                .fill(djConnectAccent.opacity(0.16))
+            Image(systemName: "mic.fill")
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundStyle(djConnectAccent)
+                .scaleEffect(isPulsing ? 1.06 : 0.94)
+        }
+        .accessibilityHidden(true)
+        .onAppear {
+            withAnimation(.easeInOut(duration: 0.85).repeatForever(autoreverses: true)) {
+                isPulsing = true
+            }
+        }
+        .onDisappear {
+            isPulsing = false
+        }
+    }
+}
 
 private struct PushToTalkButton: View {
     @ObservedObject var model: DJConnectAppModel
@@ -1992,10 +2263,13 @@ struct SetupStatusView: View {
                     Label {
                         Text(statusTitle)
                             .foregroundStyle(.primary)
+                            .lineLimit(nil)
+                            .fixedSize(horizontal: false, vertical: true)
                     } icon: {
                         Image(systemName: statusIcon)
                             .foregroundStyle(pairingIconColor)
                     }
+                    .layoutPriority(1)
                     Spacer()
                     Circle()
                         .fill(statusDotColor)
@@ -2007,6 +2281,8 @@ struct SetupStatusView: View {
                 if let updateRequiredMessage = model.updateRequiredMessage {
                     Label(updateRequiredMessage, systemImage: "arrow.down.app")
                         .foregroundStyle(.orange)
+                        .lineLimit(nil)
+                        .fixedSize(horizontal: false, vertical: true)
                 } else if !model.backendAvailable {
                     Label(
                         localized(
@@ -2017,13 +2293,16 @@ struct SetupStatusView: View {
                         systemImage: "exclamationmark.triangle"
                     )
                         .foregroundStyle(.orange)
-                        .lineLimit(2)
+                        .lineLimit(nil)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
 
                 if let pairingMessage = model.pairingMessage {
                     Text(pairingMessage)
                         .font(.callout)
                         .foregroundStyle(.secondary)
+                        .lineLimit(nil)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
             }
         }
@@ -2629,8 +2908,17 @@ struct VoiceResponseView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Label(localized(model.language, "DJ Request", "DJ verzoek"), systemImage: "waveform")
-                    .foregroundStyle(isVoiceAvailable ? .primary : .secondary)
+                HStack(spacing: 8) {
+                    if model.voiceStatus == .listening {
+                        AnimatedListeningMic()
+                            .frame(width: 28, height: 28)
+                    } else {
+                        Image(systemName: "waveform")
+                            .frame(width: 28, height: 28)
+                    }
+                    Text(localized(model.language, "DJ Request", "DJ verzoek"))
+                }
+                .foregroundStyle(isVoiceAvailable ? .primary : .secondary)
                 Spacer()
                 PushToTalkButton(model: model, isEnabled: isVoiceAvailable)
                     .help(localized(model.language, "Push to talk", "Push-to-talk"))
@@ -2642,7 +2930,8 @@ struct VoiceResponseView: View {
             }
             Text(announcementText)
                 .font(isShowingDJResponse ? .title3.weight(.semibold) : .body)
-                .foregroundStyle(isShowingDJResponse ? .white.opacity(0.92) : .secondary)
+                .foregroundStyle(isShowingDJResponse ? .white.opacity(0.74) : .secondary)
+                .padding(.top, isShowingDJResponse ? 4 : 0)
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
         .onChange(of: model.djResponseText) { _, newValue in
@@ -3187,15 +3476,33 @@ private struct LocalGameSurface: View {
     @State private var ballY: CGFloat = 86
     @State private var ballVX: CGFloat = 3
     @State private var ballVY: CGFloat = 2
+    @State private var paddleHitTicks = 0
+    @State private var ballWallBounceTicks = 0
+    @State private var paddleMissTicks = 0
     @State private var shipX: CGFloat = 160
     @State private var asteroidX: CGFloat = 80
     @State private var asteroidY: CGFloat = 48
-    @State private var asteroidVX: CGFloat = 2
+    @State private var asteroidSpeed: CGFloat = 1.35
+    @State private var asteroidSize: CGFloat = 14
+    @State private var asteroidKind = 0
+    @State private var meteorStarPhase: CGFloat = 0
     @State private var asteroidBulletY: CGFloat = 120
     @State private var asteroidBulletActive = false
+    @State private var asteroidExplosionX: CGFloat = 80
+    @State private var asteroidExplosionY: CGFloat = 48
+    @State private var asteroidExplosionTicks = 0
     @State private var planeY: CGFloat = 86
     @State private var obstacleX: CGFloat = 300
     @State private var obstacleY: CGFloat = 90
+    @State private var obstacleKind = 0
+    @State private var spaceScroll: CGFloat = 0
+    @State private var skyCrashX: CGFloat = 58
+    @State private var skyCrashY: CGFloat = 86
+    @State private var skyCrashTicks = 0
+    @State private var skyObstacleExplosionX: CGFloat = 300
+    @State private var skyObstacleExplosionY: CGFloat = 90
+    @State private var skyObstacleExplosionKind = 0
+    @State private var skyObstacleExplosionTicks = 0
     @State private var flyShotX: CGFloat = 58
     @State private var flyShotActive = false
     @State private var pacmanX: CGFloat = 46
@@ -3205,6 +3512,9 @@ private struct LocalGameSurface: View {
     @State private var ghostX: CGFloat = 250
     @State private var ghostY: CGFloat = 86
     @State private var ghostVulnerableTicks = 0
+    @State private var pacmanDeathX: CGFloat = 46
+    @State private var pacmanDeathY: CGFloat = 86
+    @State private var pacmanDeathTicks = 0
     @State private var pellets: Set<Int> = Set(0..<32)
     @State private var flashUntil = Date.distantPast
     @State private var isPlaying = false
@@ -3302,47 +3612,7 @@ private struct LocalGameSurface: View {
                 isPlaying = false
             }
 
-            HStack(spacing: 10) {
-                Button {
-                    DJConnectHaptics.impact()
-                    move(-1)
-                } label: {
-                    Label(primaryMoveLabel, systemImage: primaryMoveIcon)
-                        .labelStyle(.iconOnly)
-                }
-                .help(primaryMoveLabel)
-
-                Button {
-                    DJConnectHaptics.impact()
-                    move(1)
-                } label: {
-                    Label(secondaryMoveLabel, systemImage: secondaryMoveIcon)
-                        .labelStyle(.iconOnly)
-                }
-                .help(secondaryMoveLabel)
-
-                if game != .pong && game != .pacman {
-                    Button {
-                        DJConnectHaptics.impact()
-                        fire()
-                    } label: {
-                        Label(localized(language, "Fire", "Schiet"), systemImage: "sparkle")
-                            .labelStyle(.iconOnly)
-                    }
-                    .help(localized(language, "Fire", "Schiet"))
-                }
-
-                Button {
-                    DJConnectHaptics.selection()
-                    reset()
-                } label: {
-                    Label(localized(language, "Reset", "Reset"), systemImage: "arrow.clockwise")
-                        .labelStyle(.iconOnly)
-                }
-                .help(localized(language, "Reset", "Reset"))
-            }
-            .buttonStyle(DJConnectLilacPillButtonStyle())
-            .controlSize(.large)
+            controlsView
 
             Text(helpText)
                 .font(.callout)
@@ -3412,7 +3682,7 @@ private struct LocalGameSurface: View {
         case .pong:
             localized(language, "Move the paddle and keep the ball alive.", "Beweeg het batje en houd de bal in het spel.")
         case .asteroids:
-            localized(language, "Move left and right. Fire to clear asteroids.", "Beweeg links en rechts. Schiet om asteroids te raken.")
+            localized(language, "Move left and right. Fire to hit meteors.", "Beweeg links en rechts. Schiet om meteorieten te raken.")
         case .fly:
             localized(language, "Fly through the gaps. Fire clears an obstacle.", "Vlieg door de openingen. Schieten ruimt een obstakel op.")
         case .pacman:
@@ -3420,7 +3690,79 @@ private struct LocalGameSurface: View {
         }
     }
 
-    private var pacmanPowerPellet: Int { 31 }
+    @ViewBuilder
+    private var controlsView: some View {
+        if game == .pacman {
+            HStack(spacing: 10) {
+                directionButton(localized(language, "Up", "Omhoog"), icon: "chevron.up") {
+                    setPacmanDirection(dx: 0, dy: -1)
+                }
+                directionButton(localized(language, "Down", "Omlaag"), icon: "chevron.down") {
+                    setPacmanDirection(dx: 0, dy: 1)
+                }
+                directionButton(localized(language, "Left", "Links"), icon: "chevron.left") {
+                    setPacmanDirection(dx: -1, dy: 0)
+                }
+                directionButton(localized(language, "Right", "Rechts"), icon: "chevron.right") {
+                    setPacmanDirection(dx: 1, dy: 0)
+                }
+                resetButton
+            }
+            .buttonStyle(DJConnectLilacPillButtonStyle())
+            .controlSize(.large)
+        } else {
+            HStack(spacing: 10) {
+                directionButton(primaryMoveLabel, icon: primaryMoveIcon) {
+                    move(-1)
+                }
+                directionButton(secondaryMoveLabel, icon: secondaryMoveIcon) {
+                    move(1)
+                }
+
+                if game != .pong {
+                    Button {
+                        DJConnectHaptics.impact()
+                        fire()
+                    } label: {
+                        Label(localized(language, "Fire", "Schiet"), systemImage: "sparkle")
+                            .labelStyle(.iconOnly)
+                            .frame(height: 24)
+                    }
+                    .help(localized(language, "Fire", "Schiet"))
+                }
+
+                resetButton
+            }
+            .buttonStyle(DJConnectLilacPillButtonStyle())
+            .controlSize(.large)
+        }
+    }
+
+    private func directionButton(_ label: String, icon: String, action: @escaping () -> Void) -> some View {
+        Button {
+            DJConnectHaptics.impact()
+            action()
+        } label: {
+            Label(label, systemImage: icon)
+                .labelStyle(.iconOnly)
+                .frame(height: 24)
+        }
+        .help(label)
+    }
+
+    private var resetButton: some View {
+        Button {
+            DJConnectHaptics.selection()
+            reset()
+        } label: {
+            Label(localized(language, "Reset", "Reset"), systemImage: "arrow.clockwise")
+                .labelStyle(.iconOnly)
+                .frame(height: 24)
+        }
+        .help(localized(language, "Reset", "Reset"))
+    }
+
+    private var pacmanPowerPellets: Set<Int> { [0, 7, 24, 31] }
     private var pacmanPowerTicks: Int { 150 }
     private var isGhostVulnerable: Bool { ghostVulnerableTicks > 0 }
     private var isGhostBlinking: Bool {
@@ -3448,28 +3790,35 @@ private struct LocalGameSurface: View {
             centerLine.addLine(to: point(160, 148))
             context.stroke(centerLine, with: .color(.white.opacity(0.22)), style: StrokeStyle(lineWidth: 1.5, dash: [5, 7]))
             context.fill(Path(roundedRect: rect(18, paddleY - 17, 8, 34), cornerRadius: 3), with: .color(.orange))
+            drawPaddleHit(in: &context, rect: rect)
             if isPlaying {
+                drawBallWallBounce(in: &context, rect: rect)
                 context.fill(Path(ellipseIn: rect(ballX - 4, ballY - 4, 8, 8)), with: .color(.green))
             }
         case .asteroids:
+            drawMeteorRunBackground(in: &context, scaleX: scaleX, scaleY: scaleY)
             var ship = Path()
             ship.move(to: point(shipX, 128))
             ship.addLine(to: point(shipX - 9, 146))
             ship.addLine(to: point(shipX + 9, 146))
             ship.closeSubpath()
             context.stroke(ship, with: .color(djConnectAccent), lineWidth: 2)
-            context.stroke(Path(ellipseIn: rect(asteroidX - 10, asteroidY - 10, 20, 20)), with: .color(.pink), lineWidth: 2)
+            drawMeteor(in: &context, rect: rect, point: point)
+            drawMeteorExplosion(in: &context, rect: rect, point: point, scaleX: scaleX, scaleY: scaleY)
             if asteroidBulletActive {
                 context.fill(Path(roundedRect: rect(shipX - 2, asteroidBulletY, 4, 10), cornerRadius: 2), with: .color(.cyan))
             }
         case .fly:
+            drawSpaceFlightBackground(in: &context, scaleX: scaleX, scaleY: scaleY)
             var plane = Path()
             plane.move(to: point(62, planeY))
             plane.addLine(to: point(30, planeY - 12))
             plane.addLine(to: point(30, planeY + 12))
             plane.closeSubpath()
             context.fill(plane, with: .color(.cyan))
-            context.fill(Path(roundedRect: rect(obstacleX - 8, obstacleY - 18, 16, 36), cornerRadius: 3), with: .color(.brown))
+            drawSkyDashObstacle(in: &context, rect: rect, point: point)
+            drawSkyDashCrash(in: &context, rect: rect, point: point, scaleX: scaleX, scaleY: scaleY)
+            drawSkyDashObstacleExplosion(in: &context, rect: rect, point: point, scaleX: scaleX, scaleY: scaleY)
             if flyShotActive {
                 context.fill(Path(roundedRect: rect(flyShotX, planeY - 2, 14, 4), cornerRadius: 2), with: .color(.cyan))
             }
@@ -3477,7 +3826,7 @@ private struct LocalGameSurface: View {
             for pellet in pellets {
                 let column = pellet % 8
                 let row = pellet / 8
-                let isPowerPellet = pellet == pacmanPowerPellet
+                let isPowerPellet = pacmanPowerPellets.contains(pellet)
                 let pelletSize: CGFloat = isPowerPellet ? 8 : 4
                 context.fill(
                     Path(ellipseIn: rect(CGFloat(48 + column * 28) - pelletSize / 2, CGFloat(52 + row * 28) - pelletSize / 2, pelletSize, pelletSize)),
@@ -3486,7 +3835,305 @@ private struct LocalGameSurface: View {
             }
             context.fill(Path(ellipseIn: rect(pacmanX - 8, pacmanY - 8, 16, 16)), with: .color(.yellow))
             drawPacmanMouth(in: &context, at: point(pacmanX, pacmanY), scaleX: scaleX, scaleY: scaleY)
+            drawPacmanEye(in: &context, at: point(pacmanX, pacmanY), scaleX: scaleX, scaleY: scaleY)
             drawGhost(in: &context, at: point(ghostX, ghostY), scaleX: scaleX, scaleY: scaleY, isVulnerable: isGhostVulnerable, isBlinking: isGhostBlinking)
+            drawPacmanDeath(in: &context, rect: rect, point: point, scaleX: scaleX, scaleY: scaleY)
+        }
+    }
+
+    private func drawPaddleHit(in context: inout GraphicsContext, rect: (CGFloat, CGFloat, CGFloat, CGFloat) -> CGRect) {
+        guard paddleHitTicks > 0 else {
+            return
+        }
+        let progress = CGFloat(10 - paddleHitTicks) / 10
+        let opacity = Double(max(0, 1 - progress))
+        context.fill(Path(roundedRect: rect(28, paddleY - 22, 4 + progress * 22, 44), cornerRadius: 4), with: .color(.yellow.opacity(opacity * 0.55)))
+        context.stroke(Path(ellipseIn: rect(22, paddleY - 17 - progress * 8, 20 + progress * 22, 34 + progress * 16)), with: .color(.green.opacity(opacity)), lineWidth: 2)
+    }
+
+    private func drawBallWallBounce(in context: inout GraphicsContext, rect: (CGFloat, CGFloat, CGFloat, CGFloat) -> CGRect) {
+        guard ballWallBounceTicks > 0 else {
+            return
+        }
+        let progress = CGFloat(8 - ballWallBounceTicks) / 8
+        let opacity = Double(max(0, 1 - progress))
+        let size = 10 + progress * 12
+        context.stroke(
+            Path(ellipseIn: rect(ballX - size / 2, ballY - size / 2, size, size)),
+            with: .color(.green.opacity(opacity * 0.55)),
+            lineWidth: 1.5
+        )
+    }
+
+    private func drawMeteorRunBackground(in context: inout GraphicsContext, scaleX: CGFloat, scaleY: CGFloat) {
+        let stars: [(x: CGFloat, y: CGFloat, size: CGFloat, phase: CGFloat)] = [
+            (46, 44, 1.8, 0.0),
+            (86, 92, 1.3, 1.2),
+            (128, 58, 1.6, 2.4),
+            (176, 126, 1.2, 0.8),
+            (218, 74, 1.9, 1.8),
+            (264, 112, 1.4, 2.8),
+            (292, 48, 1.1, 0.4)
+        ]
+        for star in stars {
+            let twinkle = 0.35 + 0.45 * (sin(Double(meteorStarPhase + star.phase)) + 1) / 2
+            context.fill(
+                Path(ellipseIn: CGRect(x: (star.x - star.size / 2) * scaleX, y: (star.y - star.size / 2) * scaleY, width: star.size * scaleX, height: star.size * scaleY)),
+                with: .color(.white.opacity(twinkle))
+            )
+        }
+    }
+
+    private func drawMeteor(
+        in context: inout GraphicsContext,
+        rect: (CGFloat, CGFloat, CGFloat, CGFloat) -> CGRect,
+        point: (CGFloat, CGFloat) -> CGPoint
+    ) {
+        let half = asteroidSize / 2
+        switch asteroidKind {
+        case 0:
+            context.stroke(Path(ellipseIn: rect(asteroidX - half, asteroidY - half, asteroidSize, asteroidSize)), with: .color(.pink), lineWidth: 2)
+        case 1:
+            var rock = Path()
+            rock.move(to: point(asteroidX - half * 0.7, asteroidY - half))
+            rock.addLine(to: point(asteroidX + half * 0.8, asteroidY - half * 0.6))
+            rock.addLine(to: point(asteroidX + half, asteroidY + half * 0.35))
+            rock.addLine(to: point(asteroidX + half * 0.2, asteroidY + half))
+            rock.addLine(to: point(asteroidX - half, asteroidY + half * 0.45))
+            rock.closeSubpath()
+            context.stroke(rock, with: .color(.orange), lineWidth: 2)
+        case 2:
+            var diamond = Path()
+            diamond.move(to: point(asteroidX, asteroidY - half))
+            diamond.addLine(to: point(asteroidX + half, asteroidY))
+            diamond.addLine(to: point(asteroidX, asteroidY + half))
+            diamond.addLine(to: point(asteroidX - half, asteroidY))
+            diamond.closeSubpath()
+            context.stroke(diamond, with: .color(.purple), lineWidth: 2)
+        default:
+            context.stroke(Path(roundedRect: rect(asteroidX - half, asteroidY - half * 0.75, asteroidSize, asteroidSize * 1.5), cornerRadius: 4), with: .color(.mint), lineWidth: 2)
+        }
+    }
+
+    private func drawMeteorExplosion(
+        in context: inout GraphicsContext,
+        rect: (CGFloat, CGFloat, CGFloat, CGFloat) -> CGRect,
+        point: (CGFloat, CGFloat) -> CGPoint,
+        scaleX: CGFloat,
+        scaleY: CGFloat
+    ) {
+        guard asteroidExplosionTicks > 0 else {
+            return
+        }
+        let progress = CGFloat(18 - asteroidExplosionTicks) / 18
+        let opacity = Double(max(0, 1 - progress))
+        let radius = 8 + progress * 18
+        context.stroke(
+            Path(ellipseIn: rect(asteroidExplosionX - radius / 2, asteroidExplosionY - radius / 2, radius, radius)),
+            with: .color(.orange.opacity(opacity)),
+            lineWidth: 2
+        )
+
+        let sparks: [(CGFloat, CGFloat)] = [(1, 0), (-1, 0), (0, 1), (0, -1), (0.72, 0.72), (-0.72, 0.72), (0.72, -0.72), (-0.72, -0.72)]
+        for spark in sparks {
+            let distance = 6 + progress * 18
+            let sparkCenter = point(asteroidExplosionX + spark.0 * distance, asteroidExplosionY + spark.1 * distance)
+            context.fill(
+                Path(ellipseIn: CGRect(x: sparkCenter.x - 2 * scaleX, y: sparkCenter.y - 2 * scaleY, width: 4 * scaleX, height: 4 * scaleY)),
+                with: .color(.yellow.opacity(opacity))
+            )
+        }
+    }
+
+    private func drawSpaceFlightBackground(in context: inout GraphicsContext, scaleX: CGFloat, scaleY: CGFloat) {
+        let stars: [(x: CGFloat, y: CGFloat, speed: CGFloat, length: CGFloat, opacity: Double)] = [
+            (294, 44, 0.55, 13, 0.50),
+            (246, 72, 0.82, 18, 0.72),
+            (196, 132, 0.48, 10, 0.44),
+            (154, 54, 1.05, 22, 0.80),
+            (112, 118, 0.68, 15, 0.60),
+            (72, 38, 0.40, 9, 0.38),
+            (42, 148, 0.92, 20, 0.76)
+        ]
+        for star in stars {
+            let wrappedX = 18 + (star.x - spaceScroll * star.speed).truncatingRemainder(dividingBy: 302)
+            let x = wrappedX < 18 ? wrappedX + 302 : wrappedX
+            let y = star.y
+            context.fill(
+                Path(roundedRect: CGRect(x: (x - star.length) * scaleX, y: y * scaleY, width: star.length * scaleX, height: 1.6 * scaleY), cornerRadius: 1),
+                with: .color(.white.opacity(star.opacity))
+            )
+        }
+    }
+
+    private func drawSkyDashObstacle(
+        in context: inout GraphicsContext,
+        rect: (CGFloat, CGFloat, CGFloat, CGFloat) -> CGRect,
+        point: (CGFloat, CGFloat) -> CGPoint
+    ) {
+        let color = skyDashObstacleColor
+        switch obstacleKind {
+        case 0:
+            context.fill(Path(roundedRect: rect(obstacleX - 9, obstacleY - 19, 18, 38), cornerRadius: 3), with: .color(color))
+            context.stroke(Path(roundedRect: rect(obstacleX - 9, obstacleY - 19, 18, 38), cornerRadius: 3), with: .color(.white.opacity(0.28)), lineWidth: 1)
+        case 1:
+            var diamond = Path()
+            diamond.move(to: point(obstacleX, obstacleY - 22))
+            diamond.addLine(to: point(obstacleX + 16, obstacleY))
+            diamond.addLine(to: point(obstacleX, obstacleY + 22))
+            diamond.addLine(to: point(obstacleX - 16, obstacleY))
+            diamond.closeSubpath()
+            context.fill(diamond, with: .color(color))
+            context.stroke(diamond, with: .color(.white.opacity(0.25)), lineWidth: 1)
+        case 2:
+            context.fill(Path(roundedRect: rect(obstacleX - 12, obstacleY - 17, 24, 34), cornerRadius: 10), with: .color(color))
+            context.fill(Path(ellipseIn: rect(obstacleX - 5, obstacleY - 5, 10, 10)), with: .color(.black.opacity(0.30)))
+        case 3:
+            context.fill(Path(roundedRect: rect(obstacleX - 6, obstacleY - 22, 12, 44), cornerRadius: 3), with: .color(color))
+            context.fill(Path(roundedRect: rect(obstacleX - 18, obstacleY - 6, 36, 12), cornerRadius: 3), with: .color(color.opacity(0.88)))
+        default:
+            context.fill(Path(roundedRect: rect(obstacleX - 15, obstacleY - 20, 13, 18), cornerRadius: 3), with: .color(color))
+            context.fill(Path(roundedRect: rect(obstacleX + 2, obstacleY + 2, 13, 18), cornerRadius: 3), with: .color(color.opacity(0.82)))
+            context.stroke(Path(roundedRect: rect(obstacleX - 16, obstacleY - 21, 32, 42), cornerRadius: 5), with: .color(.white.opacity(0.18)), lineWidth: 1)
+        }
+    }
+
+    private var skyDashObstacleColor: Color {
+        switch obstacleKind {
+        case 0:
+            .orange
+        case 1:
+            .pink
+        case 2:
+            .mint
+        case 3:
+            .purple
+        default:
+            .yellow
+        }
+    }
+
+    private func drawSkyDashCrash(
+        in context: inout GraphicsContext,
+        rect: (CGFloat, CGFloat, CGFloat, CGFloat) -> CGRect,
+        point: (CGFloat, CGFloat) -> CGPoint,
+        scaleX: CGFloat,
+        scaleY: CGFloat
+    ) {
+        guard skyCrashTicks > 0 else {
+            return
+        }
+        drawBurst(
+            in: &context,
+            rect: rect,
+            point: point,
+            centerX: skyCrashX,
+            centerY: skyCrashY,
+            remainingTicks: skyCrashTicks,
+            totalTicks: 26,
+            primaryColor: .red,
+            secondaryColor: .orange,
+            scaleX: scaleX,
+            scaleY: scaleY
+        )
+    }
+
+    private func drawSkyDashObstacleExplosion(
+        in context: inout GraphicsContext,
+        rect: (CGFloat, CGFloat, CGFloat, CGFloat) -> CGRect,
+        point: (CGFloat, CGFloat) -> CGPoint,
+        scaleX: CGFloat,
+        scaleY: CGFloat
+    ) {
+        guard skyObstacleExplosionTicks > 0 else {
+            return
+        }
+        let primary = skyDashColor(for: skyObstacleExplosionKind)
+        drawBurst(
+            in: &context,
+            rect: rect,
+            point: point,
+            centerX: skyObstacleExplosionX,
+            centerY: skyObstacleExplosionY,
+            remainingTicks: skyObstacleExplosionTicks,
+            totalTicks: 18,
+            primaryColor: primary,
+            secondaryColor: .white,
+            scaleX: scaleX,
+            scaleY: scaleY
+        )
+    }
+
+    private func drawPacmanDeath(
+        in context: inout GraphicsContext,
+        rect: (CGFloat, CGFloat, CGFloat, CGFloat) -> CGRect,
+        point: (CGFloat, CGFloat) -> CGPoint,
+        scaleX: CGFloat,
+        scaleY: CGFloat
+    ) {
+        guard pacmanDeathTicks > 0 else {
+            return
+        }
+        drawBurst(
+            in: &context,
+            rect: rect,
+            point: point,
+            centerX: pacmanDeathX,
+            centerY: pacmanDeathY,
+            remainingTicks: pacmanDeathTicks,
+            totalTicks: 34,
+            primaryColor: .yellow,
+            secondaryColor: .pink,
+            scaleX: scaleX,
+            scaleY: scaleY
+        )
+    }
+
+    private func drawBurst(
+        in context: inout GraphicsContext,
+        rect: (CGFloat, CGFloat, CGFloat, CGFloat) -> CGRect,
+        point: (CGFloat, CGFloat) -> CGPoint,
+        centerX: CGFloat,
+        centerY: CGFloat,
+        remainingTicks: Int,
+        totalTicks: Int,
+        primaryColor: Color,
+        secondaryColor: Color,
+        scaleX: CGFloat,
+        scaleY: CGFloat
+    ) {
+        let progress = CGFloat(totalTicks - remainingTicks) / CGFloat(totalTicks)
+        let opacity = Double(max(0, 1 - progress))
+        let radius = 10 + progress * 28
+        context.stroke(
+            Path(ellipseIn: rect(centerX - radius / 2, centerY - radius / 2, radius, radius)),
+            with: .color(primaryColor.opacity(opacity)),
+            lineWidth: 2
+        )
+
+        let sparks: [(CGFloat, CGFloat)] = [(1, 0), (-1, 0), (0, 1), (0, -1), (0.72, 0.72), (-0.72, 0.72), (0.72, -0.72), (-0.72, -0.72)]
+        for spark in sparks {
+            let distance = 6 + progress * 24
+            let sparkCenter = point(centerX + spark.0 * distance, centerY + spark.1 * distance)
+            context.fill(
+                Path(ellipseIn: CGRect(x: sparkCenter.x - 2 * scaleX, y: sparkCenter.y - 2 * scaleY, width: 4 * scaleX, height: 4 * scaleY)),
+                with: .color(secondaryColor.opacity(opacity))
+            )
+        }
+    }
+
+    private func skyDashColor(for kind: Int) -> Color {
+        switch kind {
+        case 0:
+            .orange
+        case 1:
+            .pink
+        case 2:
+            .mint
+        case 3:
+            .purple
+        default:
+            .yellow
         }
     }
 
@@ -3510,6 +4157,24 @@ private struct LocalGameSurface: View {
         )
         mouth.closeSubpath()
         context.fill(mouth, with: .color(.black.opacity(0.82)))
+    }
+
+    private func drawPacmanEye(in context: inout GraphicsContext, at center: CGPoint, scaleX: CGFloat, scaleY: CGFloat) {
+        let eyeOffsetX: CGFloat
+        let eyeOffsetY: CGFloat
+        if abs(pacmanDX) >= abs(pacmanDY) {
+            eyeOffsetX = pacmanDX < 0 ? -2.6 : 2.6
+            eyeOffsetY = -4.2
+        } else {
+            eyeOffsetX = pacmanDX < 0 ? -2.4 : 2.4
+            eyeOffsetY = pacmanDY < 0 ? -3.2 : 3.2
+        }
+        let eyeSize = 2.4 * min(scaleX, scaleY)
+        let eyeCenter = CGPoint(x: center.x + eyeOffsetX * scaleX, y: center.y + eyeOffsetY * scaleY)
+        context.fill(
+            Path(ellipseIn: CGRect(x: eyeCenter.x - eyeSize / 2, y: eyeCenter.y - eyeSize / 2, width: eyeSize, height: eyeSize)),
+            with: .color(.black.opacity(0.82))
+        )
     }
 
     private func drawGhost(in context: inout GraphicsContext, at center: CGPoint, scaleX: CGFloat, scaleY: CGFloat, isVulnerable: Bool, isBlinking: Bool) {
@@ -3584,11 +4249,9 @@ private struct LocalGameSurface: View {
         case (.pong, .down), (.fly, .down), (.asteroids, .right), (.pacman, .down):
             move(1)
         case (.pacman, .left):
-            pacmanDX = -1
-            pacmanDY = 0
+            setPacmanDirection(dx: -1, dy: 0)
         case (.pacman, .right):
-            pacmanDX = 1
-            pacmanDY = 0
+            setPacmanDirection(dx: 1, dy: 0)
         default:
             break
         }
@@ -3629,11 +4292,13 @@ private struct LocalGameSurface: View {
             break
         case .asteroids:
             if !asteroidBulletActive {
+                DJConnectGameSounds.play(.fire)
                 asteroidBulletActive = true
                 asteroidBulletY = 120
             }
         case .fly:
             if !flyShotActive {
+                DJConnectGameSounds.play(.fire)
                 flyShotActive = true
                 flyShotX = 58
             }
@@ -3644,6 +4309,7 @@ private struct LocalGameSurface: View {
 
     private func startGame() {
         DJConnectHaptics.selection()
+        DJConnectGameSounds.play(.start)
         isPlaying = true
         isGameFocused = true
     }
@@ -3651,56 +4317,98 @@ private struct LocalGameSurface: View {
     private func update() {
         switch game {
         case .pong:
+            if paddleMissTicks > 0 {
+                paddleMissTicks -= 1
+                if paddleMissTicks == 0 {
+                    resetPaddleBall()
+                }
+                return
+            }
+            if paddleHitTicks > 0 {
+                paddleHitTicks -= 1
+            }
+            if ballWallBounceTicks > 0 {
+                ballWallBounceTicks -= 1
+            }
             ballX += ballVX
             ballY += ballVY
             if ballY <= 42 || ballY >= 156 {
                 ballVY *= -1
+                ballWallBounceTicks = 8
+                DJConnectHaptics.selection()
+                DJConnectGameSounds.play(.bounce)
             }
             if ballX >= 306 {
                 ballVX = -abs(ballVX)
+                ballWallBounceTicks = 8
+                DJConnectHaptics.selection()
+                DJConnectGameSounds.play(.bounce)
             }
             if ballX <= 30 {
                 if ballY >= paddleY - 20 && ballY <= paddleY + 20 {
                     ballVX = abs(ballVX)
+                    paddleHitTicks = 10
+                    DJConnectHaptics.impact()
+                    DJConnectGameSounds.play(.hit)
                     setScore(score + 1)
                 } else {
                     flash()
+                    DJConnectHaptics.error()
+                    DJConnectGameSounds.play(.gameOver)
                     setScore(0)
-                    ballX = 160
-                    ballY = 86
-                    ballVX = 3
-                    ballVY = Bool.random() ? 2 : -2
+                    paddleMissTicks = 24
+                    ballVX = 0
+                    ballVY = 0
                 }
             }
         case .asteroids:
-            asteroidX += asteroidVX
-            asteroidY += 2 + CGFloat(min(score / 5, 3))
-            if asteroidX < 24 || asteroidX > 296 {
-                asteroidVX *= -1
+            if asteroidExplosionTicks > 0 {
+                asteroidExplosionTicks -= 1
             }
+            meteorStarPhase = (meteorStarPhase + 0.08).truncatingRemainder(dividingBy: CGFloat.pi * 2)
+            asteroidY += asteroidSpeed + CGFloat(min(score / 8, 3)) * 0.18
             if asteroidBulletActive {
                 asteroidBulletY -= 8
                 if asteroidBulletY < 36 {
                     asteroidBulletActive = false
-                } else if abs(asteroidX - shipX) < 16 && abs(asteroidY - asteroidBulletY) < 16 {
+                } else if abs(asteroidX - shipX) < max(14, asteroidSize) && abs(asteroidY - asteroidBulletY) < max(14, asteroidSize) {
                     asteroidBulletActive = false
+                    startMeteorExplosion()
+                    DJConnectHaptics.success()
+                    DJConnectGameSounds.play(.explosion)
                     setScore(score + 1)
                     resetAsteroid()
                 }
             }
             if asteroidY > 150 {
                 flash()
+                DJConnectHaptics.warning()
+                DJConnectGameSounds.play(.gameOver)
                 setScore(0)
                 resetAsteroid()
             }
         case .fly:
+            if skyCrashTicks > 0 {
+                skyCrashTicks -= 1
+                if skyCrashTicks == 0 {
+                    resetObstacle()
+                }
+                return
+            }
+            if skyObstacleExplosionTicks > 0 {
+                skyObstacleExplosionTicks -= 1
+            }
+            spaceScroll = (spaceScroll + 4 + CGFloat(min(score / 8, 4))).truncatingRemainder(dividingBy: 302)
             obstacleX -= 4 + CGFloat(min(score / 6, 4))
             if flyShotActive {
                 flyShotX += 9
                 if flyShotX > 310 {
                     flyShotActive = false
-                } else if abs(flyShotX - obstacleX) < 16 && abs(planeY - obstacleY) < 24 {
+                } else if abs(flyShotX - obstacleX) < 22 && abs(planeY - obstacleY) < 26 {
                     flyShotActive = false
+                    startSkyObstacleExplosion()
+                    DJConnectHaptics.success()
+                    DJConnectGameSounds.play(.explosion)
                     setScore(score + 1)
                     resetObstacle()
                 }
@@ -3709,12 +4417,21 @@ private struct LocalGameSurface: View {
                 setScore(score + 1)
                 resetObstacle()
             }
-            if obstacleX < 66 && obstacleX > 28 && abs(planeY - obstacleY) < 28 {
+            if obstacleX < 70 && obstacleX > 28 && abs(planeY - obstacleY) < 30 {
                 flash()
+                startSkyCrash()
+                DJConnectHaptics.error()
+                DJConnectGameSounds.play(.crash)
                 setScore(0)
-                resetObstacle()
             }
         case .pacman:
+            if pacmanDeathTicks > 0 {
+                pacmanDeathTicks -= 1
+                if pacmanDeathTicks == 0 {
+                    resetPacman()
+                }
+                return
+            }
             pacmanX = min(max(pacmanX + pacmanDX * 4, 28), 292)
             pacmanY = min(max(pacmanY + pacmanDY * 4, 44), 140)
             if ghostVulnerableTicks > 0 {
@@ -3735,8 +4452,13 @@ private struct LocalGameSurface: View {
                 if abs(pelletX - pacmanX) < 10 && abs(pelletY - pacmanY) < 10 {
                     pellets.remove(pellet)
                     setScore(score + 1)
-                    if pellet == pacmanPowerPellet {
+                    if pacmanPowerPellets.contains(pellet) {
+                        DJConnectHaptics.success()
+                        DJConnectGameSounds.play(.power)
                         ghostVulnerableTicks = pacmanPowerTicks
+                    } else {
+                        DJConnectHaptics.selection()
+                        DJConnectGameSounds.play(.collect)
                     }
                     break
                 }
@@ -3750,14 +4472,18 @@ private struct LocalGameSurface: View {
             if abs(ghostX - pacmanX) < 14 && abs(ghostY - pacmanY) < 14 {
                 if isGhostVulnerable {
                     flash()
+                    DJConnectHaptics.success()
+                    DJConnectGameSounds.play(.explosion)
                     setScore(score + 5)
                     ghostX = 250
                     ghostY = 86
                     ghostVulnerableTicks = max(ghostVulnerableTicks - 60, 0)
                 } else {
                     flash()
+                    startPacmanDeath()
+                    DJConnectHaptics.error()
+                    DJConnectGameSounds.play(.gameOver)
                     setScore(0)
-                    resetPacman()
                 }
             }
         }
@@ -3770,9 +4496,17 @@ private struct LocalGameSurface: View {
         ballY = 86
         ballVX = 3
         ballVY = 2
+        paddleHitTicks = 0
+        ballWallBounceTicks = 0
+        paddleMissTicks = 0
         shipX = 160
         asteroidBulletActive = false
+        asteroidExplosionTicks = 0
+        meteorStarPhase = 0
         planeY = 86
+        spaceScroll = 0
+        skyCrashTicks = 0
+        skyObstacleExplosionTicks = 0
         flyShotActive = false
         resetPacman()
         resetAsteroid()
@@ -3787,18 +4521,67 @@ private struct LocalGameSurface: View {
         ghostX = 250
         ghostY = 86
         ghostVulnerableTicks = 0
+        pacmanDeathTicks = 0
         pellets = Set(0..<32)
+    }
+
+    private func resetPaddleBall() {
+        ballX = 160
+        ballY = 86
+        ballVX = 3
+        ballVY = Bool.random() ? 2 : -2
+        paddleHitTicks = 0
+        ballWallBounceTicks = 0
+    }
+
+    private func setPacmanDirection(dx: CGFloat, dy: CGFloat) {
+        if !isPlaying {
+            startGame()
+        }
+        pacmanDX = dx
+        pacmanDY = dy
     }
 
     private func resetAsteroid() {
         asteroidX = CGFloat.random(in: 40...280)
-        asteroidY = 46
-        asteroidVX = Bool.random() ? 2 : -2
+        asteroidY = 42
+        asteroidKind = Int.random(in: 0...3)
+        asteroidSize = CGFloat.random(in: 10...18)
+        asteroidSpeed = CGFloat.random(in: 1.05...1.85)
+    }
+
+    private func startMeteorExplosion() {
+        asteroidExplosionX = asteroidX
+        asteroidExplosionY = asteroidY
+        asteroidExplosionTicks = 18
+    }
+
+    private func startSkyCrash() {
+        skyCrashX = 54
+        skyCrashY = planeY
+        skyCrashTicks = 26
+        flyShotActive = false
+    }
+
+    private func startSkyObstacleExplosion() {
+        skyObstacleExplosionX = obstacleX
+        skyObstacleExplosionY = obstacleY
+        skyObstacleExplosionKind = obstacleKind
+        skyObstacleExplosionTicks = 18
     }
 
     private func resetObstacle() {
         obstacleX = 310
         obstacleY = CGFloat.random(in: 52...138)
+        obstacleKind = Int.random(in: 0...4)
+    }
+
+    private func startPacmanDeath() {
+        pacmanDeathX = pacmanX
+        pacmanDeathY = pacmanY
+        pacmanDeathTicks = 34
+        pacmanDX = 0
+        pacmanDY = 0
     }
 
     private func flash() {
@@ -3965,51 +4748,10 @@ struct SettingsView: View {
     @ObservedObject var model: DJConnectAppModel
     var returnToNowPlaying: () -> Void = {}
     @Environment(\.openURL) private var openURL
-    @State private var showingResetPairingConfirmation = false
 
     var body: some View {
         NavigationStack {
             List {
-                Section("Home Assistant") {
-                    LabeledContent(localized(model.language, "URL", "URL")) {
-                        SelectableValue(model.homeAssistantURL, alignment: .trailing)
-                    }
-                    if !model.isDemoMode {
-                        if model.isPairing {
-                            LabeledContent(localized(model.language, "Status", "Status")) {
-                                ProgressView(localized(model.language, "Waiting for Home Assistant", "Wachten op Home Assistant"))
-                            }
-                        }
-                        LabeledContent(localized(model.language, "Actions", "Acties")) {
-                            if model.hasStoredPairingToken {
-                                Button(localized(model.language, "Reconnect", "Opnieuw koppelen"), role: .destructive) {
-                                    showingResetPairingConfirmation = true
-                                }
-                            } else {
-                                Button {
-                                    model.rotatePairingTokenAndWait()
-                                } label: {
-                                    Text(localized(model.language, "New Code", "Nieuwe code"))
-                                        .foregroundStyle(djConnectAccent)
-                                }
-                            }
-                        }
-                    }
-                    LabeledContent(localized(model.language, "Device ID", "Device ID")) {
-                        SelectableValue(model.identity.deviceID, alignment: .trailing)
-                    }
-                    if let localDeviceAPIURL = model.localDeviceAPIURL, !localDeviceAPIURL.isEmpty {
-                        LabeledContent("Client API url") {
-                            CopyableValue(
-                                text: localDeviceAPIURL,
-                                copyLabel: localized(model.language, "Copy Client API url", "Client API url kopiëren"),
-                                alignment: .trailing
-                            )
-                        }
-                    }
-                }
-                .djSettingsListRowBackground()
-
                 Section(localized(model.language, "App", "App")) {
                     if model.isDemoMode {
                         LabeledContent(localized(model.language, "Demo Mode", "Demo modus")) {
@@ -4115,22 +4857,6 @@ struct SettingsView: View {
             .task {
                 model.refreshPermissionStatuses()
                 model.startPairingWait()
-            }
-            .alert(
-                localized(model.language, "Reconnect?", "Opnieuw koppelen?"),
-                isPresented: $showingResetPairingConfirmation
-            ) {
-                Button(localized(model.language, "Reconnect", "Opnieuw koppelen"), role: .destructive) {
-                    model.resetPairing()
-                    returnToNowPlaying()
-                }
-                Button(localized(model.language, "Cancel", "Annuleren"), role: .cancel) {}
-            } message: {
-                Text(localized(
-                    model.language,
-                    "This removes the Home Assistant pairing from this app and disables playback controls until you pair again.",
-                    "Dit verwijdert de Home Assistant koppeling uit deze app en schakelt playback-bediening uit tot je opnieuw koppelt."
-                ))
             }
             #if os(macOS)
             .djConnectMacDetailContent()
@@ -4337,16 +5063,11 @@ private struct AboutView: View {
                     }
                     AboutStackedRow(label: localized(model.language, "Website", "Website")) {
                         Link(destination: websiteURL) {
-                            HStack(spacing: 8) {
-                                Text("https://djconnect.dev")
-                                    .font(.body)
-                                    .foregroundStyle(djConnectAccent)
-                                    .foregroundColor(djConnectAccent)
-                                    .textSelection(.enabled)
-                                Image(systemName: "arrow.up.right.square")
-                                    .foregroundStyle(djConnectAccent)
-                                    .foregroundColor(djConnectAccent)
-                            }
+                            Text("https://djconnect.dev")
+                                .font(.body)
+                                .foregroundStyle(djConnectAccent)
+                                .foregroundColor(djConnectAccent)
+                                .textSelection(.enabled)
                         }
                         .djConnectLilacButton()
                     }
@@ -4356,8 +5077,8 @@ private struct AboutView: View {
                 }
 
                 SettingsSection(title: localized(model.language, "Connection", "Verbinding")) {
-                    AboutStackedRow(label: "Home Assistant") {
-                        SelectableValue(localizedPairingStatus(model.pairingStatus, language: model.language))
+                    AboutStackedRow(label: localized(model.language, "Home Assistant address", "Home Assistant adres")) {
+                        SelectableValue(model.homeAssistantURL)
                     }
                     AboutStackedRow(label: localized(model.language, "Music", "Muziek")) {
                         SelectableValue(
@@ -4368,12 +5089,8 @@ private struct AboutView: View {
                         )
                     }
                     if let localDeviceAPIURL = model.localDeviceAPIURL, !localDeviceAPIURL.isEmpty {
-                        AboutStackedRow(label: "Client API url") {
-                            CopyableValue(
-                                text: localDeviceAPIURL,
-                                copyLabel: localized(model.language, "Copy Client API url", "Client API url kopiëren"),
-                                monospaced: false
-                            )
+                        AboutStackedRow(label: "Client adres") {
+                            SelectableValue(localDeviceAPIURL)
                         }
                     }
                     if !model.haLocalURL.isEmpty {
@@ -4702,6 +5419,7 @@ private struct CopyableValue: View {
     var prominent = false
     var monospaced = true
     var alignment: Alignment = .leading
+    var showsIcon = true
 
     var body: some View {
         HStack(alignment: .firstTextBaseline, spacing: 8) {
@@ -4715,7 +5433,12 @@ private struct CopyableValue: View {
             Button {
                 copyText(text)
             } label: {
-                Image(systemName: "doc.on.doc")
+                if showsIcon {
+                    Image(systemName: "doc.on.doc")
+                } else {
+                    Text(copyLabel)
+                        .font(.caption.weight(.semibold))
+                }
             }
             .buttonStyle(.borderless)
             .tint(djConnectAccent)

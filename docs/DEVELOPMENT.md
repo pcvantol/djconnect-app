@@ -53,7 +53,7 @@ release binaries.
    `http://homeassistant.local:8123`.
 7. Copy the app-generated Pairing Code into the Home Assistant `djconnect`
    integration setup/pairing flow.
-8. Copy the Client API url into Home Assistant when the HA flow asks for it.
+8. Copy the Client adres into Home Assistant when the HA flow asks for it.
 9. Leave the app open. It waits automatically until Home Assistant accepts the
    code and returns a DJConnect bearer token.
 10. When the green pairing success state appears, choose `Let's Start!`.

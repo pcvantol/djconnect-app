@@ -71,7 +71,7 @@ blocked by a pairing sheet. The sheet must show:
 
 - DJConnect banner/branding.
 - Home Assistant setup context.
-- Copyable `Client API url`.
+- Copyable `Client adres`.
 - Copyable app-generated pairing code.
 - Pairing progress while Home Assistant calls the client API or while polling
   is active.
@@ -211,11 +211,11 @@ Recommended user flow:
 1. User enters or selects their Home Assistant URL.
 2. App generates and displays a short DJConnect pairing code.
 3. User enters/confirms that code in the Home Assistant DJConnect setup flow.
-4. User gives Home Assistant the app's `Client API url` when requested.
+4. User gives Home Assistant the app's `Client adres` when requested.
 5. App waits/polls with the same code until the integration completes pairing.
 6. Integration creates or returns a DJConnect bearer token for the app runtime.
 7. App stores only the DJConnect bearer token in Keychain.
-8. App pins the Client API url that was shown during pairing and keeps it
+8. App pins the Client adres that was shown during pairing and keeps it
    stable until explicit pairing reset.
 9. App starts sending authenticated status and command payloads with
    `device_id` and `client_type`.
@@ -526,7 +526,7 @@ albums, and shows; artist contexts are sent without `offset_uri` to avoid
 Spotify API offset errors. The app no longer sends unsupported legacy
 `play_queue_item` or `play_uri` commands.
 
-The Client API url shown by the app must remain stable after a successful
+The Client adres shown by the app must remain stable after a successful
 `POST /api/device/pair`. Home Assistant has just called that endpoint and will
 continue using it for app callbacks; the app should only restart the local
 listener when pairing is reset or the install identity changes.
@@ -697,7 +697,7 @@ the app-hosted local Client API:
 - authenticated `POST /api/device/dj_response`;
 - authenticated `POST /api/device/forget`.
 
-Use the Client API URL shown by the app as the `client_api_url` collection
+Use the Client adres shown by the app as the `client_api_url` collection
 variable. Do not save real `device_token` values in the collection file.
 
 ## UI Parity Goals
@@ -795,7 +795,7 @@ target with a real or recorded mock Home Assistant server.
 - App command posts include `client_type` as `ios` or `macos`.
 - HA backend playback commands work without any Spotify credentials in the app.
 - Playback-changing commands trigger an immediate rich Now Playing refresh.
-- Successful local pairing keeps the Client API url unchanged.
+- Successful local pairing keeps the Client adres unchanged.
 - Backend unavailable does not reset pairing.
 - HTTP 426 version mismatch shows update-required UI and keeps pairing.
 - Authenticated 401/403/404 show stale pairing/setup recovery and keep token

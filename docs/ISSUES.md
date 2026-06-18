@@ -112,7 +112,7 @@ need a mock Home Assistant server or a live test Home Assistant environment.
 Acceptance:
 
 - UI tests cover first-run welcome, settings URL entry, app-generated pairing
-  code, Client API url copy, Demo Mode entry/exit, successful pairing, version
+  code, Client adres copy, Demo Mode entry/exit, successful pairing, version
   mismatch, stale auth, compact permission rows, Demo Mode microphone response,
   and the local Games menu.
 - Tests can run deterministically without a production Home Assistant instance.

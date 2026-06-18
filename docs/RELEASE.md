@@ -376,7 +376,7 @@ to a private Home Assistant instance.
 
 Live setup instructions are available at https://djconnect.dev/start.
 The app requests Local Network access to reach Home Assistant and expose the
-Client API url during pairing. Microphone is used for push-to-talk voice
+Client adres during pairing. Microphone is used for push-to-talk voice
 requests. Speech Recognition is used only for optional foreground
 Stemactivatie.
 ```
@@ -406,7 +406,7 @@ Permissions and purpose strings:
 
 ```text
 Local Network: used to connect to Home Assistant on your local network and
-offer the Client API url while the app is active.
+offer the Client adres while the app is active.
 
 Microphone: used to record push-to-talk DJ requests.
 
@@ -437,7 +437,7 @@ The sheet must show:
 
 - DJConnect banner/branding.
 - Home Assistant setup context.
-- Copyable `Client API url`.
+- Copyable `Client adres`.
 - Copyable app-generated pairing code.
 - Pairing progress while Home Assistant calls back.
 - A green success state with `Let's Start!` after pairing completes.
@@ -452,7 +452,7 @@ real playback validation.
 The app declares only the permissions it needs:
 
 - Local Network: required to reach Home Assistant on the LAN and expose the
-  local Client API url while the app is active.
+  local Client adres while the app is active.
 - Bonjour services `_home-assistant._tcp.` and `_djconnect._tcp.`: required for
   local HA discovery and HA -> app callbacks.
 - Microphone: required for push-to-talk WAV uploads.
@@ -595,7 +595,7 @@ successful release unless `--no-cleanup` is passed.
 Use a Home Assistant instance with the matching `djconnect` integration.
 
 - Pair from the app-generated code and confirm HA creates the app device.
-- Confirm the Client API url shown during pairing remains stable after pairing
+- Confirm the Client adres shown during pairing remains stable after pairing
   and after app restart until explicit pairing reset.
 - Confirm Demo Mode can be entered from the unpaired pairing sheet and exited
   from Settings without creating HA state.
