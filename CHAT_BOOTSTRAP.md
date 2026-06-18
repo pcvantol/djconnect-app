@@ -25,20 +25,20 @@ Context:
 - Secrets/tokens/wachtwoorden/private URLs mogen nooit in commits, logs, screenshots, diagnostics of test fixtures.
 
 Huidige status om te controleren:
-- Release `3.1.33` is de actuele source release met GitHub security hardening
-  voor secret scanning, push protection, Dependabot alerts/security updates en
-  branch protection op `main`.
-- De statische What's New release-notes voor `3.1.33` zijn handmatig
-  gepubliceerd naar `pcvantol/djconnect-website` en live op `djconnect.dev`.
-  De public unsigned artifact releases `ios/v3.1.33` en `macos/v3.1.33`
-  ontbreken nog zolang de `Public unsigned release` workflow niet groen is.
+- Release `3.1.34` is de actuele source release met macOS local device API
+  pairing fixes, firewall/security-software troubleshooting en CI checknaam
+  alignment met branch protection op `main`.
+- De statische What's New release-notes voor `3.1.34` worden door de
+  `Public unsigned release` workflow gepubliceerd naar `pcvantol/djconnect-website`
+  en `djconnect.dev`. Controleer de workflowstatus als release/publicatie
+  geraakt wordt.
 - Lokale branch hoort gelijk te lopen met `origin/main`; controleer dat bij
   start van iedere sessie.
 - Check direct:
   - `git status --short --branch`
   - `gh run list --repo pcvantol/djconnect-app --limit 5`
-  - public release tags in `pcvantol/djconnect-app-releases` voor `ios/v3.1.33` en `macos/v3.1.33` indien release/publicatie geraakt wordt.
-  - `https://djconnect.dev/release-notes/ios/nl/v3.1.33.json` en het macOS
+  - public release tags in `pcvantol/djconnect-app-releases` voor `ios/v3.1.34` en `macos/v3.1.34` indien release/publicatie geraakt wordt.
+  - `https://djconnect.dev/release-notes/ios/nl/v3.1.34.json` en het macOS
     equivalent indien What's New release-notes geraakt worden.
 
 Werkstijl:
