@@ -4,6 +4,14 @@ All notable changes to DJConnect App are documented here.
 
 ## Unreleased
 
+## 3.1.33 - 2026-06-18
+
+### Changed
+
+- Hardened the public GitHub repository settings by enabling secret scanning,
+  push protection, Dependabot alerts, Dependabot security updates, and main
+  branch protection.
+
 ## 3.1.32 - 2026-06-18
 
 ### Changed

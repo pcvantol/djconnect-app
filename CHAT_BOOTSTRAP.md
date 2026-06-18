@@ -25,15 +25,15 @@ Context:
 - Secrets/tokens/wachtwoorden/private URLs mogen nooit in commits, logs, screenshots, diagnostics of test fixtures.
 
 Huidige status om te controleren:
-- Release `3.1.32` is de actuele source release met device-taalgestuurde UI en
-  What's New release-notes, vaste donkere appkleuren in light mode en een
-  macOS game-selector in dezelfde iOS-stijl.
+- Release `3.1.33` is de actuele source release met GitHub security hardening
+  voor secret scanning, push protection, Dependabot alerts/security updates en
+  branch protection op `main`.
 - Lokale branch hoort gelijk te lopen met `origin/main`; controleer dat bij
   start van iedere sessie.
 - Check direct:
   - `git status --short --branch`
   - `gh run list --repo pcvantol/djconnect-app --limit 5`
-  - public release tags in `pcvantol/djconnect-app-releases` voor `ios/v3.1.32` en `macos/v3.1.32` indien release/publicatie geraakt wordt.
+  - public release tags in `pcvantol/djconnect-app-releases` voor `ios/v3.1.33` en `macos/v3.1.33` indien release/publicatie geraakt wordt.
 
 Werkstijl:
 - Gebruik `rg` voor zoeken.
