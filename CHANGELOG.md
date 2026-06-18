@@ -4,6 +4,29 @@ All notable changes to DJConnect App are documented here.
 
 ## Unreleased
 
+## 3.1.34 - 2026-06-18
+
+### Fixed
+
+- Fixed macOS mDNS pairing discovery by serving the local device API on the LAN
+  address advertised in `local_url` and enabling the macOS network server
+  entitlement.
+- Added local device API request logging for remote address, path, Host header,
+  and response status to make firewall and Home Assistant discovery issues
+  diagnosable.
+- Avoided showing stale pinned Client address values while the app is still
+  unpaired or waiting for pairing.
+- Documented macOS firewall and third-party security software troubleshooting
+  for Home Assistant discovery, including ESET-style connection resets.
+
+### Changed
+
+- Removed duplicate Home Assistant and Spotify notice rows from About because
+  the same information already exists in the dedicated connection and legal
+  screens.
+- Aligned the CI job name with branch protection and made release-blocking tests
+  locale independent.
+
 ## 3.1.33 - 2026-06-18
 
 ### Changed
