@@ -454,6 +454,12 @@ send partial device-status snapshots in `/api/djconnect/command`; use
 `/api/djconnect/status` as the authoritative source for client status and
 settings mirrored into Home Assistant entities.
 
+Do not expose or send Home Assistant's removed Spotify override settings in
+new client UI or setup flows. `spotify_source` / "Spotify source override" and
+`liked_proxy_playlist_uri` / "Standaard playlist override" are no longer
+client-configurable. Backend playback remains owned by the HA DJConnect
+integration; clients continue to send generic playback commands only.
+
 Examples:
 
 ```json
@@ -678,11 +684,13 @@ older public app releases/tags for those platform namespaces.
 
 The Apple apps persist the last seen app version locally. When a newer app
 version starts, they fetch platform-specific static release notes from
-`djconnect.dev`: iOS reads `/release-notes/ios/vX.Y.Z.json`, macOS reads
-`/release-notes/macos/vX.Y.Z.json`. GitHub release metadata remains only a
-fallback. The release body is shown once in a native `Wat is er nieuw` /
-`What's New` sheet. This request sends no DJConnect token, Home Assistant URL,
-Spotify token, diagnostics, or user data.
+`djconnect.dev` using the current app language first: iOS reads
+`/release-notes/ios/{en|nl}/vX.Y.Z.json`, macOS reads
+`/release-notes/macos/{en|nl}/vX.Y.Z.json`. The legacy
+`/release-notes/{ios|macos}/vX.Y.Z.json` path and GitHub release metadata
+remain fallbacks. The release body is shown once in a native
+`Wat is er nieuw` / `What's New` sheet. This request sends no DJConnect token,
+Home Assistant URL, Spotify token, diagnostics, or user data.
 
 ## Local Client API Postman Collection
 

@@ -5,13 +5,17 @@ SDK frameworks. The repository currently does not declare external runtime
 Swift package dependencies in `Package.swift` or external Xcode package
 dependencies in `project.yml`.
 
+The DJConnect app source in this repository is distributed under the MIT
+License. See [LICENSE](../LICENSE).
+
 Release builds still run the third-party update preflight before compiling
 artifacts. If that preflight upgrades or resolves dependency versions, update
 this file in the same change as:
 
 - `docs/TECHNICAL_DESIGN_DECISIONS.md`
 - `CHANGELOG.md`
-- release notes for the shipped version
+- English and Dutch release notes for the shipped version, if maintained
+  separately from `CHANGELOG.md`
 
 ## Runtime Libraries And Frameworks
 
@@ -35,4 +39,5 @@ this file in the same change as:
 `Tools/release/update_thirdparty.sh` records the tool versions used for the
 release in `build/release/thirdparty-update-report.txt`. When dependency
 versions change, the release preflight exits before publishing unless the
-notices and release documentation have been reviewed and updated.
+notices, localized release notes, and release documentation have been reviewed
+and updated.

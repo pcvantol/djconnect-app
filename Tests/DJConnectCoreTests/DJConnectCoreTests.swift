@@ -360,6 +360,35 @@ private func waitForLocalDeviceAPIURL(_ model: DJConnectAppModel) async throws -
     #expect(DJConnectAppModel.commandLimit(for: "play") == nil)
 }
 
+@Test func commandPayloadsDoNotSendRemovedHAOverrideOptions() throws {
+    let identity = DJConnectIdentity(
+        deviceID: "djconnect-ios-test",
+        deviceName: "Test iPhone",
+        clientType: .ios,
+        firmware: "3.1.28",
+        appVersion: "3.1.28",
+        platform: .ios
+    )
+    let client = DJConnectClient(
+        baseURL: try #require(URL(string: "http://homeassistant.local:8123")),
+        identity: identity,
+        tokenStore: DJConnectInMemoryTokenStore(token: "secret-token")
+    )
+
+    let request = try client.commandRequest(
+        DJConnectCommandPayload(
+            identity: identity,
+            command: "start_liked_proxy",
+            play: true
+        )
+    )
+    let body = try #require(request.httpBody)
+    let json = try #require(JSONSerialization.jsonObject(with: body) as? [String: Any])
+
+    #expect(json["spotify_source"] == nil)
+    #expect(json["liked_proxy_playlist_uri"] == nil)
+}
+
 @MainActor
 @Test func wakeWordCandidatesIncludeCommonPronunciationVariants() {
     let djCandidates = Set(DJConnectAppModel.normalizedWakeWordCandidates(for: "Hey DJ"))
@@ -1696,9 +1725,15 @@ private func waitForLocalDeviceAPIURL(_ model: DJConnectAppModel) async throws -
 @Test func whatsNewReleaseURLsEncodePlatformTags() throws {
     let iosURL = try #require(DJConnectAppModel.publicReleaseNotesURL(version: "3.1.20", clientType: .ios))
     let macURL = try #require(DJConnectAppModel.publicReleaseNotesURL(version: "3.1.20", clientType: .macos))
+    let iosDutchURL = try #require(DJConnectAppModel.publicReleaseNotesURL(version: "3.1.20", clientType: .ios, language: "nl"))
+    let macEnglishURL = try #require(DJConnectAppModel.publicReleaseNotesURL(version: "3.1.20", clientType: .macos, language: "en-US"))
 
     #expect(iosURL.absoluteString == "https://djconnect.dev/release-notes/ios/v3.1.20.json")
     #expect(macURL.absoluteString == "https://djconnect.dev/release-notes/macos/v3.1.20.json")
+    #expect(iosDutchURL.absoluteString == "https://djconnect.dev/release-notes/ios/nl/v3.1.20.json")
+    #expect(macEnglishURL.absoluteString == "https://djconnect.dev/release-notes/macos/en/v3.1.20.json")
+    #expect(DJConnectAppModel.normalizedReleaseNotesLanguageCode("nl-NL") == "nl")
+    #expect(DJConnectAppModel.normalizedReleaseNotesLanguageCode("de") == "en")
 }
 
 @Test func whatsNewGitHubFallbackReleaseURLsEncodePlatformTags() throws {

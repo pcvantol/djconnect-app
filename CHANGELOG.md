@@ -4,6 +4,21 @@ All notable changes to DJConnect App are documented here.
 
 ## Unreleased
 
+## 3.1.29 - 2026-06-18
+
+### Changed
+
+- Documented and implemented language-specific static What's New release notes
+  so the app can load Dutch or English changelog JSON from `djconnect.dev`
+  based on the selected app language.
+- Updated release documentation and hygiene notes for maintaining localized
+  release-note Markdown/JSON alongside the existing public GitHub releases.
+- Documented the Home Assistant integration removal of `spotify_source` and
+  `liked_proxy_playlist_uri` user settings; clients keep sending generic
+  backend-mediated playback commands and no longer expose those overrides.
+- Added a standalone MIT `LICENSE` file and updated repository license
+  documentation.
+
 ## 3.1.28 - 2026-06-18
 
 ### Changed

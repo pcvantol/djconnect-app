@@ -243,7 +243,7 @@ public final class DJConnectAppModel: ObservableObject {
     private let startBackgroundTasks: Bool
     private let monkeyTestingMode: Bool
     private let diagnosticLogFileURL: URL?
-    private static let protocolVersion = "3.1.28"
+    private static let protocolVersion = "3.1.29"
     private static let defaultHomeAssistantURL = "http://homeassistant.local:8123"
     private let appVersion = DJConnectAppModel.protocolVersion
     private let installIDKey = "DJConnectInstallID"
@@ -285,6 +285,10 @@ public final class DJConnectAppModel: ObservableObject {
 
     public var version: String {
         appVersion
+    }
+
+    private var releaseNotesLanguageCode: String {
+        Self.normalizedReleaseNotesLanguageCode(language)
     }
 
     public var hasStoredPairingToken: Bool {
@@ -433,6 +437,7 @@ public final class DJConnectAppModel: ObservableObject {
         )
 
         let candidateURLs = [
+            DJConnectAppModel.publicReleaseNotesURL(version: appVersion, clientType: identity.clientType, language: releaseNotesLanguageCode),
             DJConnectAppModel.publicReleaseNotesURL(version: appVersion, clientType: identity.clientType),
             DJConnectAppModel.githubReleaseNotesURL(version: appVersion, clientType: identity.clientType)
         ].compactMap { $0 }
@@ -2611,8 +2616,8 @@ public final class DJConnectAppModel: ObservableObject {
                         deviceID: "djconnect-macos-unavailable",
                         deviceName: "DJConnect",
                         clientType: .macos,
-                        firmware: "3.1.28",
-                        appVersion: "3.1.28",
+                        firmware: "3.1.29",
+                        appVersion: "3.1.29",
                         platform: .macos
                     ),
                     pairingToken: "",
@@ -3776,6 +3781,15 @@ public final class DJConnectAppModel: ObservableObject {
 
     nonisolated static func publicReleaseNotesURL(version: String, clientType: DJConnectClientType) -> URL? {
         URL(string: "https://djconnect.dev/release-notes/\(clientType.rawValue)/v\(version).json")
+    }
+
+    nonisolated static func publicReleaseNotesURL(version: String, clientType: DJConnectClientType, language: String) -> URL? {
+        let normalizedLanguage = normalizedReleaseNotesLanguageCode(language)
+        return URL(string: "https://djconnect.dev/release-notes/\(clientType.rawValue)/\(normalizedLanguage)/v\(version).json")
+    }
+
+    nonisolated static func normalizedReleaseNotesLanguageCode(_ language: String) -> String {
+        language.lowercased().hasPrefix("nl") ? "nl" : "en"
     }
 
     nonisolated static func githubReleaseNotesURL(version: String, clientType: DJConnectClientType) -> URL? {

@@ -96,6 +96,12 @@ devices returned by Home Assistant. It does not synthesize local platform
 outputs. When the no-output state is selected, playback-start commands are
 blocked locally so Spotify does not pick an arbitrary Connect device.
 
+Spotify source and liked/default playlist overrides are Home Assistant
+integration internals, not client settings. New Apple app setup, Settings, and
+onboarding flows must not ask for `spotify_source`, `liked_proxy_playlist_uri`,
+"Spotify source override", or "Standaard playlist override"; playback continues
+through generic commands sent to Home Assistant.
+
 ## Local Client API
 
 The app hosts a small local HTTP API for Home Assistant -> app traffic while

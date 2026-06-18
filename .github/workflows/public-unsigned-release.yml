@@ -101,31 +101,72 @@ jobs:
         run: |
           set -euo pipefail
           version="${{ steps.version.outputs.version }}"
-          base_notes=".public-release/release-notes-base.md"
-          awk -v version="$version" '
-            $0 ~ "^## " version "($| - )" { capture=1; next }
-            capture && /^## / { capture=0 }
-            capture { print }
-          ' CHANGELOG.md > "$base_notes"
-          if [[ ! -s "$base_notes" ]]; then
-            printf "DJConnect App %s\n" "$version" > "$base_notes"
+          mkdir -p .public-release/release-notes
+
+          extract_changelog_notes() {
+            local source_file="$1"
+            local target_file="$2"
+            if [[ -f "$source_file" ]]; then
+              awk -v version="$version" '
+                $0 ~ "^## " version "($| - )" { capture=1; next }
+                capture && /^## / { capture=0 }
+                capture { print }
+              ' "$source_file" > "$target_file"
+            fi
+          }
+
+          en_base=".public-release/release-notes/base-en.md"
+          nl_base=".public-release/release-notes/base-nl.md"
+          : > "$en_base"
+          : > "$nl_base"
+
+          if [[ -f "docs/release-notes/en/v${version}.md" ]]; then
+            cp "docs/release-notes/en/v${version}.md" "$en_base"
+          else
+            extract_changelog_notes "CHANGELOG.md" "$en_base"
           fi
+          if [[ ! -s "$en_base" ]]; then
+            printf "DJConnect App %s\n" "$version" > "$en_base"
+          fi
+
+          if [[ -f "docs/release-notes/nl/v${version}.md" ]]; then
+            cp "docs/release-notes/nl/v${version}.md" "$nl_base"
+          else
+            extract_changelog_notes "CHANGELOG.nl.md" "$nl_base"
+          fi
+          if [[ ! -s "$nl_base" ]]; then
+            cp "$en_base" "$nl_base"
+          fi
+
           for platform in macOS iOS; do
-            notes=".public-release/release-notes-${platform}.md"
-            {
-              cat "$base_notes"
-              echo
-              echo "---"
-              echo
-              echo "Platform: ${platform}"
-              echo
-              echo "Unsigned CI artifacts are intended for diagnostics and internal validation."
-              if [[ "$platform" == "macOS" ]]; then
-                echo "For normal macOS distribution, prefer the notarized Developer ID build when attached."
-              else
-                echo "Unsigned iOS binaries are published here for diagnostics and internal validation. For normal iOS distribution, use TestFlight/App Store."
-              fi
-            } > "$notes"
+            for lang in en nl; do
+              notes=".public-release/release-notes-${platform}-${lang}.md"
+              base=".public-release/release-notes/base-${lang}.md"
+              {
+                cat "$base"
+                echo
+                echo "---"
+                echo
+                echo "Platform: ${platform}"
+                echo
+                if [[ "$lang" == "nl" ]]; then
+                  echo "Niet-ondertekende CI-artifacts zijn bedoeld voor diagnostics en interne validatie."
+                  if [[ "$platform" == "macOS" ]]; then
+                    echo "Voor normale macOS-distributie heeft de genotariseerde Developer ID-build de voorkeur wanneer die is bijgevoegd."
+                  else
+                    echo "Niet-ondertekende iOS-binaries worden hier gepubliceerd voor diagnostics en interne validatie. Gebruik voor normale iOS-distributie TestFlight/App Store."
+                  fi
+                else
+                  echo "Unsigned CI artifacts are intended for diagnostics and internal validation."
+                  if [[ "$platform" == "macOS" ]]; then
+                    echo "For normal macOS distribution, prefer the notarized Developer ID build when attached."
+                  else
+                    echo "Unsigned iOS binaries are published here for diagnostics and internal validation. For normal iOS distribution, use TestFlight/App Store."
+                  fi
+                fi
+              } > "$notes"
+            done
+            cp ".public-release/release-notes-${platform}-en.md" ".public-release/release-notes-${platform}.md"
           done
 
       - name: Publish to public releases repository
@@ -210,23 +251,32 @@ jobs:
           for platform in ios macos; do
             case "$platform" in
               ios)
-                source_notes=".public-release/release-notes-iOS.md"
+                platform_name="iOS"
                 title="DJConnect iOS ${version}"
                 ;;
               macos)
-                source_notes=".public-release/release-notes-macOS.md"
+                platform_name="macOS"
                 title="DJConnect macOS ${version}"
                 ;;
             esac
             target_dir="${website_dir}/wwwroot/release-notes/${platform}"
             mkdir -p "$target_dir"
-            cp "$source_notes" "${target_dir}/v${version}.md"
-            RELEASE_VERSION="$version" \
-            RELEASE_PLATFORM="$platform" \
-            RELEASE_TITLE="$title" \
-            RELEASE_BODY_PATH="${target_dir}/v${version}.md" \
-            RELEASE_JSON_PATH="${target_dir}/v${version}.json" \
-              node -e 'const fs=require("fs"); const payload={version:process.env.RELEASE_VERSION, platform:process.env.RELEASE_PLATFORM, name:process.env.RELEASE_TITLE, body:fs.readFileSync(process.env.RELEASE_BODY_PATH, "utf8").trim()}; fs.writeFileSync(process.env.RELEASE_JSON_PATH, JSON.stringify(payload, null, 2) + "\n");'
+            for lang in en nl; do
+              localized_dir="${target_dir}/${lang}"
+              mkdir -p "$localized_dir"
+              source_notes=".public-release/release-notes-${platform_name}-${lang}.md"
+              cp "$source_notes" "${localized_dir}/v${version}.md"
+              RELEASE_VERSION="$version" \
+              RELEASE_PLATFORM="$platform" \
+              RELEASE_LANGUAGE="$lang" \
+              RELEASE_TITLE="$title" \
+              RELEASE_BODY_PATH="${localized_dir}/v${version}.md" \
+              RELEASE_JSON_PATH="${localized_dir}/v${version}.json" \
+                node -e 'const fs=require("fs"); const payload={version:process.env.RELEASE_VERSION, platform:process.env.RELEASE_PLATFORM, language:process.env.RELEASE_LANGUAGE, name:process.env.RELEASE_TITLE, body:fs.readFileSync(process.env.RELEASE_BODY_PATH, "utf8").trim()}; fs.writeFileSync(process.env.RELEASE_JSON_PATH, JSON.stringify(payload, null, 2) + "\n");'
+            done
+
+            cp "${target_dir}/en/v${version}.md" "${target_dir}/v${version}.md"
+            cp "${target_dir}/en/v${version}.json" "${target_dir}/v${version}.json"
           done
           cd "$website_dir"
           git config user.name "github-actions[bot]"

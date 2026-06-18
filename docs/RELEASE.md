@@ -192,11 +192,13 @@ The workflow:
   `DJConnect-macOS-X.Y.Z-unsigned.zip` and a macOS checksum file;
 - publishes `ios/vX.Y.Z` in `pcvantol/djconnect-app-releases` with
   `DJConnect-iOS-X.Y.Z-unsigned.zip` and an iOS checksum file;
-- uses the matching release section from `CHANGELOG.md` as the public release
-  notes for both platform releases, with a platform footer;
+- uses the matching release section from `CHANGELOG.md` as the English public
+  release notes and optionally `docs/release-notes/nl/vX.Y.Z.md` or
+  `CHANGELOG.nl.md` as the Dutch release notes;
 - publishes static `.md` and `.json` release-note files into
   `pcvantol/djconnect-website` at
-  `wwwroot/release-notes/{ios|macos}/vX.Y.Z.{md,json}`;
+  `wwwroot/release-notes/{ios|macos}/{en|nl}/vX.Y.Z.{md,json}` plus a legacy
+  English fallback at `wwwroot/release-notes/{ios|macos}/vX.Y.Z.{md,json}`;
 - removes older platform-specific public releases and tags after successful
   publication, keeping the newest iOS and newest macOS public release online.
 
@@ -236,12 +238,17 @@ startup, if the running app version differs, it opens a one-time `Wat is er nieu
 Release notes are fetched at runtime from static `djconnect.dev` files:
 
 ```text
+https://djconnect.dev/release-notes/ios/nl/vX.Y.Z.json
+https://djconnect.dev/release-notes/macos/nl/vX.Y.Z.json
+https://djconnect.dev/release-notes/ios/en/vX.Y.Z.json
+https://djconnect.dev/release-notes/macos/en/vX.Y.Z.json
 https://djconnect.dev/release-notes/ios/vX.Y.Z.json
 https://djconnect.dev/release-notes/macos/vX.Y.Z.json
 ```
 
-Current builds only read the matching platform-specific static file. The GitHub
-release metadata API is retained only as a fallback:
+Current builds first read the matching platform and language-specific static
+file, then the legacy English platform-specific static file. The GitHub release
+metadata API is retained only as a final fallback:
 
 ```text
 https://api.github.com/repos/pcvantol/djconnect-app-releases/releases/tags/ios%2FvX.Y.Z
@@ -344,7 +351,7 @@ https://djconnect.dev/privacy
 Copyright:
 
 ```text
-Copyright © 2026 Peter van Tol. All rights reserved.
+Copyright © 2026 Peter van Tol
 ```
 
 Category:
@@ -608,6 +615,8 @@ Use a Home Assistant instance with the matching `djconnect` integration.
 - Load playlists through the `playlists` command.
 - Start a playlist through `start_playlist`.
 - Start liked songs through `start_liked_proxy`.
+- Confirm setup, Settings, onboarding, and command payloads do not expose or
+  send legacy `spotify_source` or `liked_proxy_playlist_uri` overrides.
 - Record Push-to-Talk and verify WAV upload to `/api/djconnect/voice`.
 - Copy diagnostics export and confirm no bearer token, pairing code, or query
   token appears.

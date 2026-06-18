@@ -36,9 +36,11 @@ Only set that variable after updating:
 - `docs/THIRD_PARTY_NOTICES.md`
 - `docs/TECHNICAL_DESIGN_DECISIONS.md`
 - `CHANGELOG.md`
+- English and Dutch release-note Markdown for the exact app version, when the
+  public What's New copy differs from `CHANGELOG.md`
 - GitHub release notes for the exact app version
 
-This keeps shipped binaries, release notes, and legal notices in sync.
+This keeps shipped binaries, localized release notes, and legal notices in sync.
 
 ## Emergency Skip
 

@@ -28,7 +28,7 @@ Niet aangetroffen in de repo op 2026-06-14:
 - `Package.resolved`, `Podfile`, `Cartfile`, `Package-lock`/`pnpm-lock` of
   vergelijkbare externe dependency lockfiles.
 - `.swiftlint.yml` of `.swiftformat`.
-- Een standalone `LICENSE`-bestand.
+- Een standalone `LICENSE`-bestand met de MIT License.
 
 ## Architectuurkeuzes
 
@@ -62,6 +62,11 @@ iOS en macOS hosten een kleine lokale HTTP API voor pairing en statuscallbacks.
 De app adverteert deze lokaal en Home Assistant gebruikt de URL om pairing af te
 ronden. Runtime-verkeer van app naar Home Assistant blijft token-based en gebruikt
 de lokale Home Assistant URL.
+
+Spotify source/default playlist overrides (`spotify_source` en
+`liked_proxy_playlist_uri`) zijn geen clientinstellingen meer. De app toont deze
+velden niet in setup, Settings of onboarding en blijft generieke playback-
+commands naar Home Assistant sturen.
 
 ### Native SwiftUI-first UI
 
@@ -152,8 +157,9 @@ Conventies:
   releasepublicatie.
 - De public unsigned releaseflow publiceert app-release-notes ook als statische
   `.md` en `.json` bestanden naar `pcvantol/djconnect-website`, zodat de app
-  `djconnect.dev/release-notes/{ios|macos}/vX.Y.Z.json` kan lezen zonder
-  afhankelijk te zijn van anonieme GitHub API rate limits.
+  `djconnect.dev/release-notes/{ios|macos}/{en|nl}/vX.Y.Z.json` kan lezen op
+  basis van de gekozen app-taal, met de oude platform-only URL als fallback en
+  zonder afhankelijk te zijn van anonieme GitHub API rate limits.
 
 ### Shell
 
@@ -213,7 +219,7 @@ vastlegt, staat "niet gepind".
 
 | Component | Gebruik | Versie / pin in repo | Licentie / voorwaarden | Source |
 | --- | --- | --- | --- | --- |
-| DJConnect app code | iOS/macOS app, Core, UI en tooling | `MARKETING_VERSION` in `project.yml` | Proprietary; geen standalone `LICENSE` gevonden | <https://github.com/pcvantol/djconnect-app> |
+| DJConnect app code | iOS/macOS app, Core, UI en tooling | `MARKETING_VERSION` in `project.yml` | MIT License | <https://github.com/pcvantol/djconnect-app> |
 | Swift | Programmeertaal en standaardbibliotheek | Swift tools 6.0, `SWIFT_VERSION` 6.0 | Apache License 2.0 met Runtime Library Exception | <https://github.com/swiftlang/swift> |
 | Swift Package Manager | Module/build layout | Swift tools 6.0 | Apache License 2.0 | <https://www.swift.org/package-manager/> |
 | Foundation | Data, URL, JSON, filesystem, dates | Apple SDK, iOS 26+/macOS 26+ | Apple SDK terms | <https://developer.apple.com/documentation/foundation> |

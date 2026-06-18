@@ -257,6 +257,13 @@ outputs, because those are not backend playback devices. When `Geen` is
 selected, the app blocks playback-start commands until the user chooses a real
 backend output.
 
+Home Assistant owns Spotify source and liked/default playlist configuration.
+Clients must not show, document, or send user-configurable `spotify_source` or
+`liked_proxy_playlist_uri` options in new setup, settings, or command flows.
+Playback remains backend-mediated through generic DJConnect commands; older
+Home Assistant integrations may defensively tolerate legacy values, but current
+clients should not rely on them.
+
 Command responses are transport/command success first and playback-state
 second. A response with `success:true` and `playback.has_playback:false` means
 the Home Assistant command route worked but Spotify has no active playback; it

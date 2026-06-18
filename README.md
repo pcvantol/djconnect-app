@@ -34,6 +34,7 @@ Website: [https://djconnect.dev](https://djconnect.dev)
 - [docs/ISSUES.md](docs/ISSUES.md): concrete local backlog with priorities and acceptance criteria.
 - [PRIVACY.md](PRIVACY.md): security, privacy, and diagnostics redaction rules.
 - [CHANGELOG.md](CHANGELOG.md): notable project changes.
+- [LICENSE](LICENSE): MIT license for the DJConnect app source.
 
 ## First Run Requirements
 
@@ -152,9 +153,10 @@ Use the one-time and per-release App Store/macOS checklist in
 On startup after an app update, DJConnect compares the running version with the
 last version seen on that device. If the version changed, the app shows a
 `Wat is er nieuw` / `What's New` sheet and loads the current release notes from
-static files on `djconnect.dev`: `/release-notes/ios/vX.Y.Z.json` on iOS or
-`/release-notes/macos/vX.Y.Z.json` on macOS. The GitHub release metadata API is
-kept only as a fallback.
+static files on `djconnect.dev`. The app tries the selected language first,
+for example `/release-notes/ios/nl/vX.Y.Z.json` or
+`/release-notes/macos/en/vX.Y.Z.json`, then falls back to the legacy
+platform-only JSON path and finally the GitHub release metadata API.
 
 ## Swift Package
 
@@ -204,6 +206,11 @@ POST /api/djconnect/command
 Queue item playback includes `offset_uri` only for Spotify contexts that support
 offsets, such as playlist, album and show contexts. Artist contexts are sent
 without `offset_uri` to avoid Spotify API offset errors.
+
+Spotify source and liked/default playlist overrides are not client settings.
+Setup, Settings, onboarding, and command payloads must not expose or send
+`spotify_source` or `liked_proxy_playlist_uri`; playback remains mediated by
+the Home Assistant DJConnect integration through generic commands.
 
 The iOS/macOS app can expose seek controls for the current track. It sends
 `command:"seek_relative"` with `value` in milliseconds. Positive values seek
