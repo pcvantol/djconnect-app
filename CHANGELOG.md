@@ -4,6 +4,11 @@ All notable changes to DJConnect App are documented here.
 
 ## Unreleased
 
+### Added
+
+- Prepared a manual-only GitHub Actions TestFlight beta workflow with explicit
+  version/tag confirmation and protected-environment signing requirements.
+
 ## 3.1.30 - 2026-06-18
 
 ### Changed

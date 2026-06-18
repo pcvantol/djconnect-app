@@ -516,14 +516,47 @@ The private source repo uses GitHub Actions only for deterministic checks:
 - unsigned macOS Debug build
 - unsigned iOS Debug generic build
 
-CI must not contain Developer ID certificates, notary credentials, App Store
-Connect keys, or public binary upload tokens until the signing pipeline is
-explicitly hardened.
+The `TestFlight beta` workflow is intentionally manual-only. It has no push or
+tag trigger and must never be used without explicit maintainer approval, an
+explicit semantic version, and an explicit matching source tag. To run it,
+choose **Run workflow** and provide:
+
+- `version`: for example `3.1.31`;
+- `tag`: the exact matching source tag, for example `v3.1.31`;
+- `confirm_upload`: exactly `UPLOAD_TESTFLIGHT`.
+
+The workflow uses the protected `testflight-beta` GitHub Environment, checks out
+the requested tag, confirms `project.yml` `MARKETING_VERSION` matches the
+requested version, runs Swift tests, archives `DJConnectIOS`, exports an App
+Store Connect IPA, and uploads it to TestFlight. It does not submit for App
+Review, assign testers, promote a build, or retain the signed IPA as an
+artifact. The export sets `testFlightInternalTestingOnly` so CI-created beta
+builds cannot be used for external TestFlight or App Store distribution.
+
+Required GitHub Actions secrets for TestFlight beta upload:
+
+```text
+APPLE_TEAM_ID
+IOS_DISTRIBUTION_CERTIFICATE_BASE64
+IOS_DISTRIBUTION_CERTIFICATE_PASSWORD
+IOS_APP_STORE_PROFILE_BASE64
+IOS_APP_STORE_PROFILE_NAME
+APP_STORE_CONNECT_API_KEY_ID
+APP_STORE_CONNECT_API_ISSUER_ID
+APP_STORE_CONNECT_API_KEY_BASE64
+```
+
+Keep Developer ID certificates, notary credentials, App Store Connect API keys,
+private signing certificates, and provisioning profiles restricted to protected
+repository environments/secrets. Configure required reviewers on the
+`testflight-beta` environment. Do not add automatic TestFlight triggers.
 
 ## TestFlight
 
-- Archive the `DJConnectIOS` scheme in Release configuration.
-- Upload through Xcode Organizer or `xcrun altool`/Transporter.
+- Prefer the manual `TestFlight beta` workflow only after the version and tag
+  are explicitly chosen. Otherwise archive the `DJConnectIOS` scheme locally in
+  Release configuration.
+- Upload through the manual workflow, Xcode Organizer, or Transporter.
 - Verify Local Network and Microphone permission prompts on a physical iPhone.
 - Run pairing against a real Home Assistant `djconnect` setup before inviting
   external testers.

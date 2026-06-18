@@ -155,6 +155,10 @@ Conventies:
   primaire bron in het Xcode project onderhouden.
 - Workflowstappen zijn expliciet benoemd en scheiden CI van public unsigned
   releasepublicatie.
+- De TestFlight beta workflow is `workflow_dispatch`-only, gebruikt de
+  beschermde GitHub Environment `testflight-beta`, vereist expliciete
+  `version`/`tag`/`UPLOAD_TESTFLIGHT` invoer, en mag geen automatische
+  push/tag-trigger krijgen.
 - De public unsigned releaseflow publiceert app-release-notes ook als statische
   `.md` en `.json` bestanden naar `pcvantol/djconnect-website`, zodat de app
   `djconnect.dev/release-notes/{ios|macos}/{en|nl}/vX.Y.Z.json` kan lezen op

@@ -69,7 +69,8 @@ with acceptance criteria live in [ISSUES.md](ISSUES.md).
 
 - Configure Apple developer team and signing.
 - Add privacy manifests if required by release tooling.
-- Configure TestFlight and notarized macOS release packaging.
+- Configure required reviewers and secrets for the protected `testflight-beta`
+  GitHub Environment, plus notarized macOS release packaging.
 - Keep English and Dutch What's New release notes aligned with the latest
   GitHub release and only add new work to an `Unreleased` changelog section
   after tags are published.
