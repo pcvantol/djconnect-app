@@ -153,13 +153,28 @@ private func waitForLocalDeviceAPIURL(_ model: DJConnectAppModel) async throws -
     throw URLError(.timedOut)
 }
 
-private func localDeviceJSON(from urlString: String) async throws -> [String: Any] {
+private struct LocalDeviceJSON: Decodable, Sendable {
+    var deviceID: String
+    var clientType: String
+    var platform: String
+    var localURL: String
+    var pairCode: String?
+
+    enum CodingKeys: String, CodingKey {
+        case deviceID = "device_id"
+        case clientType = "client_type"
+        case platform
+        case localURL = "local_url"
+        case pairCode = "pair_code"
+    }
+}
+
+private func localDeviceJSON(from urlString: String) async throws -> LocalDeviceJSON {
     let url = try #require(URL(string: urlString))
     let (data, response) = try await URLSession.shared.data(from: url)
     let httpResponse = try #require(response as? HTTPURLResponse)
     #expect(httpResponse.statusCode == 200)
-    let json = try JSONSerialization.jsonObject(with: data)
-    return try #require(json as? [String: Any])
+    return try JSONDecoder().decode(LocalDeviceJSON.self, from: data)
 }
 
 @MainActor
@@ -1091,26 +1106,26 @@ private func localDeviceJSON(from urlString: String) async throws -> [String: An
     for path in ["/api/device/pairing-info", "/api/device/info"] {
         let loopbackPayload = try await localDeviceJSON(from: "\(loopbackBaseURL)\(path)")
 
-        #expect(loopbackPayload["device_id"] as? String == model.identity.deviceID)
-        #expect(loopbackPayload["client_type"] as? String == model.identity.clientType.rawValue)
-        #expect(loopbackPayload["platform"] as? String == model.identity.platform.rawValue)
-        #expect(loopbackPayload["local_url"] as? String == lanBaseURL)
+        #expect(loopbackPayload.deviceID == model.identity.deviceID)
+        #expect(loopbackPayload.clientType == model.identity.clientType.rawValue)
+        #expect(loopbackPayload.platform == model.identity.platform.rawValue)
+        #expect(loopbackPayload.localURL == lanBaseURL)
         if path == "/api/device/pairing-info" {
-            #expect(loopbackPayload["pair_code"] as? String == model.pairingToken)
+            #expect(loopbackPayload.pairCode == model.pairingToken)
         }
 
         if shouldRunLANProbe {
-            let lanPayload: [String: Any]
+            let lanPayload: LocalDeviceJSON
             do {
                 lanPayload = try await localDeviceJSON(from: "\(lanBaseURL)\(path)")
             } catch {
                 Issue.record("LAN local device API request failed for \(path): \(error)\n\(model.diagnosticExportText())")
                 throw error
             }
-            #expect(lanPayload["device_id"] as? String == loopbackPayload["device_id"] as? String)
-            #expect(lanPayload["client_type"] as? String == loopbackPayload["client_type"] as? String)
-            #expect(lanPayload["platform"] as? String == loopbackPayload["platform"] as? String)
-            #expect(lanPayload["local_url"] as? String == lanBaseURL)
+            #expect(lanPayload.deviceID == loopbackPayload.deviceID)
+            #expect(lanPayload.clientType == loopbackPayload.clientType)
+            #expect(lanPayload.platform == loopbackPayload.platform)
+            #expect(lanPayload.localURL == lanBaseURL)
         }
     }
 }
