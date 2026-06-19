@@ -4050,52 +4050,71 @@ private struct AskDJInputBar: View {
     let canUseVoiceInput: Bool
     var isInputFocused: FocusState<Bool>.Binding
 
+    @ViewBuilder private var placeholderView: some View {
+        HStack(spacing: 0) {
+            if model.language.lowercased().hasPrefix("nl") {
+                Text("Vraag ")
+            }
+            Text("Ask DJ").bold()
+            Text("...")
+        }
+    }
+
     var body: some View {
         HStack(spacing: 10) {
-            TextField(localized(model.language, "Ask DJ...", "Vraag Ask DJ..."), text: $model.askDJDraft, axis: .vertical)
-                .lineLimit(1...4)
-                .textFieldStyle(.plain)
-                .focused(isInputFocused)
-                .foregroundStyle(.white)
-                .padding(.horizontal, 14)
-                .padding(.vertical, 11)
-                .background {
-                    RoundedRectangle(cornerRadius: 18, style: .continuous)
-                        .fill(.white.opacity(0.12))
-                        .background {
-                            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                                .fill(
-                                    LinearGradient(
-                                        colors: [
-                                            Color(red: 0.06, green: 0.43, blue: 1.00).opacity(0.16),
-                                            Color(red: 0.84, green: 0.22, blue: 0.96).opacity(0.12)
-                                        ],
-                                        startPoint: .leading,
-                                        endPoint: .trailing
-                                    )
-                                )
-                        }
+            ZStack(alignment: .leading) {
+                if model.askDJDraft.isEmpty {
+                    placeholderView
+                        .foregroundStyle(.white.opacity(0.58))
+                        .padding(.horizontal, 14)
+                        .allowsHitTesting(false)
                 }
-                .overlay {
-                    RoundedRectangle(cornerRadius: 18, style: .continuous)
-                        .stroke(.white.opacity(0.20), lineWidth: 1)
-                }
-                .onSubmit {
-                    if canSend {
-                        isInputFocused.wrappedValue = false
-                        model.sendAskDJText()
-                    }
-                }
-                #if os(iOS)
-                .toolbar {
-                    ToolbarItemGroup(placement: .keyboard) {
-                        Spacer()
-                        Button(localized(model.language, "Done", "Gereed")) {
+
+                TextField("", text: $model.askDJDraft, axis: .vertical)
+                    .lineLimit(1...4)
+                    .textFieldStyle(.plain)
+                    .focused(isInputFocused)
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 11)
+                    .onSubmit {
+                        if canSend {
                             isInputFocused.wrappedValue = false
+                            model.sendAskDJText()
                         }
                     }
-                }
-                #endif
+                    #if os(iOS)
+                    .toolbar {
+                        ToolbarItemGroup(placement: .keyboard) {
+                            Spacer()
+                            Button(localized(model.language, "Done", "Gereed")) {
+                                isInputFocused.wrappedValue = false
+                            }
+                        }
+                    }
+                    #endif
+            }
+            .background {
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .fill(.white.opacity(0.12))
+                    .background {
+                        RoundedRectangle(cornerRadius: 18, style: .continuous)
+                            .fill(
+                                LinearGradient(
+                                    colors: [
+                                        Color(red: 0.06, green: 0.43, blue: 1.00).opacity(0.16),
+                                        Color(red: 0.84, green: 0.22, blue: 0.96).opacity(0.12)
+                                    ],
+                                    startPoint: .leading,
+                                    endPoint: .trailing
+                                )
+                            )
+                    }
+            }
+            .overlay {
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .stroke(.white.opacity(0.20), lineWidth: 1)
+            }
 
             AskDJVoiceInputButton(model: model, isEnabled: canUseVoiceInput)
 
