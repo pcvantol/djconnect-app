@@ -103,7 +103,7 @@ Sources/
   DJConnectCore/
     DJConnectClient.swift
     DJConnectErrors.swift
-    DJConnectKeychain.swift
+    DJConnectKeychain.swift  # token-store abstraction; legacy filename
     DJConnectModels.swift
 Tests/
   DJConnectCoreTests/
@@ -118,12 +118,12 @@ Tests/
 - playback and voice response decoding;
 - error classification for auth stale, backend unavailable, version mismatch,
   missing routes, and network failures;
-- token storage through a small abstraction ready for Keychain-backed apps.
+- token storage through a small abstraction backed by app-private storage.
 
 `DJConnectUI` contains the shared native SwiftUI screens used by the iOS and
 macOS app targets. `Apps/DJConnectIOS`, `Apps/DJConnectMac`, and
 `Apps/DJConnectWatch` contain the platform app entrypoints. The Watch app is a
-standalone watchOS client with its own compact SwiftUI surface, Keychain token
+standalone watchOS client with its own compact SwiftUI surface, app-local token
 storage, Home Assistant pairing, playback controls, and push-to-talk voice
 upload through the `Ask DJ` action. The Watch also sends an `Ask DJ` mood value
 and DJ Memory key to Home Assistant so the backend can build shared DJ context
@@ -326,6 +326,10 @@ The Apple app does not implement ESP-only reboot or OTA routes.
 The user-facing name for this local endpoint is `Client adres`. The URL shown
 during pairing is pinned after successful pairing and remains stable in app
 storage until the user explicitly resets pairing.
+
+Users can choose `App opnieuw koppelen` / `Pair App Again` in Settings to clear
+the locally stored DJConnect token, generate a fresh app code, and reopen the
+pairing sheet.
 
 The app advertises `_djconnect._tcp` with Bonjour/mDNS only while it is
 pairable, such as when the unpaired pairing sheet is visible. After pairing,

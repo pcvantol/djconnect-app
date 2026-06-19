@@ -20,7 +20,7 @@ The Apple app owns:
 - the shared DJConnect blue/purple gradient canvas on iOS, iPadOS, and macOS;
 - local app state;
 - local bonus games with app-local highscores;
-- local Keychain storage for only the DJConnect bearer token;
+- local app-private storage for only the DJConnect bearer token;
 - a pinned Client adres after successful pairing, kept stable until explicit
   pairing reset;
 - local audio recording for push-to-talk, when implemented;
@@ -63,7 +63,7 @@ scene and exposes a native settings scene.
 `DJConnectWatch`
 
 Native standalone watchOS app target. It depends on `DJConnectCore` directly,
-stores its DJConnect bearer token in the watch Keychain, pairs with Home
+stores its DJConnect bearer token in app-private storage, pairs with Home
 Assistant using the same app-generated code flow, posts status and playback
 commands, exposes `Ask DJ` push-to-talk, uploads WAV audio to
 `/api/djconnect/voice`, and plays returned DJ response audio or speech on the
@@ -113,6 +113,20 @@ speakers zijn er?", "ik voel me moe en geprikkeld", "wat luister ik de laatste
 tijd veel?", "geef me een leuke aankondiging voor het volgende nummer", "waarom
 koos je dit nummer?", or "analyseer dit nummer muzikaal" locally.
 
+Ask DJ history is synchronized from Home Assistant and cached locally for
+performance. Clients merge returned history messages into the local cache so a
+bounded server response window does not make older cached messages disappear.
+Backend `clear_revision` is the full-clear signal. Backend
+`history_trimmed_before` metadata is the retention signal clients may use to
+prune old local cache entries. Assistant-only `message_kind: system` messages,
+including ambient music facts and history-retention notices, render in the same
+timeline with distinct styling.
+
+Ask DJ UI must never show raw backend, proxy, HTML, or decode error bodies.
+Technical details belong in redacted diagnostics logs; visible errors stay short
+and localized, such as `Ask DJ niet bereikbaar` or `Home Assistant gaf geen
+antwoord`.
+
 ## State Handling
 
 Pairing/auth failures are intentionally conservative:
@@ -128,7 +142,7 @@ Pairing/auth failures are intentionally conservative:
   code in Home Assistant.
 - HTTP `404`: show integration/setup recovery, keep token until user reset.
 
-Only explicit user pairing reset should clear Keychain token state.
+Only explicit user pairing reset should clear locally stored token state.
 
 When no bearer token exists, the UI shows a blocking pairing sheet instead of
 enabling playback. Pairing success is acknowledged with a dedicated success

@@ -182,6 +182,19 @@ For `Ask DJ`, the Watch may send mood, DJ style, and a memory key hint, but DJ
 Memory itself belongs to the Home Assistant integration. This lets a user ask
 for a calmer track on Watch and later ask from Mac why that track was chosen.
 
+Ask DJ history is backend-synchronized and locally cached. Clients must merge
+server history into the cache instead of replacing it with a bounded response
+window. Backend `clear_revision` clears the local chat; backend
+`history_trimmed_before` lets clients prune old cached messages when the
+server-side history limit is reached. Assistant-only `message_kind: system`
+messages such as ambient music facts and history-retention notices must render
+without requiring a preceding user bubble.
+
+Raw backend/proxy/decode bodies, including HTML error pages, must never appear
+in the Ask DJ chat UI. Keep the details in diagnostics logs and show only
+localized user-facing messages such as `Ask DJ niet bereikbaar` or `Home
+Assistant gaf geen antwoord`.
+
 The HA integration currently uses `firmware` as the common client version field
 for protocol compatibility checks. App clients may also send `app_version`, but
 must keep `firmware` populated unless the backend contract is changed.
@@ -244,7 +257,7 @@ Recommended user flow:
 4. User gives Home Assistant the app's `Client adres` when requested.
 5. App waits/polls with the same code until the integration completes pairing.
 6. Integration creates or returns a DJConnect bearer token for the app runtime.
-7. App stores only the DJConnect bearer token in Keychain.
+7. App stores only the DJConnect bearer token in app-private storage.
 8. App pins the Client adres that was shown during pairing and keeps it
    stable until explicit pairing reset.
 9. App starts sending authenticated status and command payloads with
@@ -324,8 +337,9 @@ Assistant. Do not rotate the code automatically.
 
 Bearer token storage:
 
-- iOS: Keychain item scoped to the app.
-- macOS: Keychain item scoped to the app/bundle id.
+- iOS: app-private storage scoped to the app container.
+- macOS: app-private storage scoped to the app container.
+- watchOS: app-private storage scoped to the Watch app container.
 - Never log the token.
 - Never include the token in diagnostics exports.
 
@@ -356,7 +370,7 @@ The app should provide consistent DEBUG-level diagnostics for:
   starts, playlist starts, Demo Mode entry/exit, pairing reset, wakeword prompt
   actions, and voice/PTT actions;
 - navigation/recovery flows, such as pairing success dismissal, Demo Mode exit,
-  pairing reset returning to Now Playing, and crash/keychain recovery prompts;
+  pairing reset returning to Now Playing, and crash recovery prompts;
 - Home Assistant API calls, always including the HTTP method/path and status
   code;
 - local Client API calls from Home Assistant, always including method/path and
@@ -389,7 +403,7 @@ Apple app Debug builds may support `--monkey-testing`. This mode is explicitly
 non-destructive: it starts in local Demo Mode, skips first-run/pairing/crash
 blocking sheets, avoids local Client API startup, avoids Home Assistant calls,
 and is intended only for random UI navigation/tap stress tests. It must not
-reset real pairing, alter Keychain tokens, call Spotify/Home Assistant, or be
+reset real pairing, alter locally stored tokens, call Spotify/Home Assistant, or be
 treated as backend validation.
 
 Current UI monkey coverage includes iOS and macOS smoke tests for navigation
@@ -640,7 +654,7 @@ messages stop polling and show code-mismatch recovery guidance.
 When HA returns 404:
 
 - treat as integration route missing or stale pairing;
-- do not erase Keychain automatically;
+- do not erase the locally stored token automatically;
 - show integration/setup recovery.
 
 ## Voice/PTT
@@ -900,7 +914,7 @@ DJConnectApple/
       DJConnectClient.swift
       DJConnectModels.swift
       DJConnectPairing.swift
-      DJConnectKeychain.swift
+      DJConnectKeychain.swift  # token-store abstraction; legacy filename
       DJConnectVoice.swift
     DJConnectIOS/
     DJConnectMac/
@@ -917,7 +931,7 @@ Core module responsibilities:
 - parse playback responses;
 - classify errors: backend unavailable, auth stale, version mismatch, not
   configured, network;
-- store and clear bearer token via a platform abstraction.
+- store and clear bearer token via an app-storage abstraction.
 
 Do not put SwiftUI view logic into the HTTP client.
 

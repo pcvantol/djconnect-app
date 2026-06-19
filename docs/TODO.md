@@ -60,8 +60,8 @@ with acceptance criteria live in [ISSUES.md](ISSUES.md).
   auth recovery.
 - Add more diagnostics export tests for `audio_url`, `Authorization`, and
   arbitrary token-like JSON fields.
-- Add security hardening tests for local API request-size limits and Keychain
-  accessibility attributes.
+- Add security hardening tests for local API request-size limits and app-storage
+  token reset behavior.
 - Add performance regression checks for refresh coalescing and repeated artwork
   URLs.
 

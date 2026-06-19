@@ -133,21 +133,21 @@ Acceptance:
 
 ## Security Hardening
 
-### ISS-011: Validate Keychain Biometry UX On Devices
+### ISS-011: Validate App-Storage Token Reset UX
 
 Priority: medium
 
-New DJConnect bearer token writes use Keychain user-presence access control.
-Validate the actual prompts and fallback behavior on supported Macs, iPhones,
-and iPads.
+DJConnect bearer tokens now live in app-private storage instead of Keychain.
+Validate that pairing, relaunch, reset, and stale-auth recovery behave
+predictably on supported Macs, iPhones, iPads, and Apple Watch.
 
 Acceptance:
 
-- macOS shows Touch ID where available and password fallback otherwise.
-- iOS shows Face ID/Touch ID where available and passcode fallback otherwise.
-- Denying Keychain access shows the app-level recovery sheet and retrying opens
-  the platform prompt again.
-- A successful unlock does not repeatedly prompt during the same app session.
+- Pairing never triggers a Keychain access prompt.
+- App relaunch keeps the stored DJConnect token and stays paired.
+- `App opnieuw koppelen` clears the locally stored token and opens the pairing
+  sheet.
+- Stale auth and backend errors do not clear the token until explicit reset.
 
 ### ISS-012: Bound Local API Request Size
 

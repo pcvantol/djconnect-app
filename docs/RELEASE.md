@@ -63,7 +63,7 @@ After renewing the Apple Developer Program membership:
 - Confirm iOS signing uses automatic signing for `DJConnectIOS`.
 - Confirm macOS signing uses automatic signing for `DJConnectMac`.
 - Confirm iOS capabilities and Info.plist strings:
-  Local Network, Bonjour services, Microphone, Speech Recognition, Face ID.
+  Local Network, Bonjour services, Microphone, Speech Recognition.
 - Confirm macOS capabilities and Info.plist strings:
   Local Network, Bonjour services, Microphone, Speech Recognition.
 - Confirm app icons, launch screen, welcome screen, About screen, and website
@@ -153,7 +153,7 @@ xcodebuild -project DJConnectApp.xcodeproj -scheme DJConnectIOS -configuration D
   connected.
 - Run a short Debug `--monkey-testing` session in an iPhone simulator to confirm
   non-destructive navigation/tapping does not call Home Assistant, reset
-  pairing, or mutate Keychain tokens.
+  pairing, or mutate locally stored DJConnect tokens.
 - Validate Local Network permission against a real Home Assistant instance.
 - Pair with a matching `pcvantol/djconnect` HA integration.
 - Validate playback commands, output switching, queue, playlists, liked songs,
@@ -190,7 +190,7 @@ NOTARY_PROFILE=<notarytool-keychain-profile> \
 - Confirm Gatekeeper assessment succeeds.
 - Download the public zip from `pcvantol/djconnect-app-releases` on a clean Mac
   user account.
-- Launch the app, grant Keychain/Local Network/Microphone/Speech permissions as
+- Launch the app, grant Local Network/Microphone/Speech permissions as
   needed, pair with Home Assistant, and validate playback/queue/playlists/PTT.
 
 ## Public Unsigned CI Artifacts
@@ -442,8 +442,8 @@ Microphone: used to record push-to-talk DJ requests.
 
 Speech Recognition: used for optional foreground Stemactivatie.
 
-Face ID / Touch ID / Keychain user presence: used to protect the DJConnect
-bearer token stored in the system Keychain.
+DJConnect device token: stored locally in app-private storage and cleared when
+the user chooses to pair the app again.
 ```
 
 ### macOS-Specific Notes

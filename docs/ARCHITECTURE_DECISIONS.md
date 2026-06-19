@@ -70,7 +70,7 @@ xcodegen generate
 
 Status: accepted
 
-The app does not automatically clear Keychain token state for backend
+The app does not automatically clear locally stored token state for backend
 unavailable, version mismatch, authenticated 401/403, or 404 responses. During
 unauthenticated pairing polling, 401/403 responses stop the polling loop and
 show code/setup mismatch recovery without rotating the device id automatically.
@@ -258,7 +258,7 @@ Home Assistant calls.
 
 Reasoning:
 
-- monkey tests should never reset real pairing or mutate Keychain tokens;
+- monkey tests should never reset real pairing or mutate locally stored tokens;
 - random UI tapping should not create HA entities or send Spotify commands;
 - local sample data keeps the runtime UI inspectable without a backend;
 - Games lazy start behind a tap-to-play overlay so entering the Games screen is

@@ -18,11 +18,17 @@ All notable changes to DJConnect App are documented here.
 - Removed raw inline Ask DJ error text above the prompt; failures are surfaced
   through the existing snackbar/toast.
 - Added a microphone icon to Ask DJ voice-request chat bubbles.
+- Replaced Keychain-backed DJConnect device-token storage with app-private
+  storage on iOS, macOS, and watchOS to avoid platform Keychain prompts.
+- Added an `App opnieuw koppelen` Settings action that resets pairing and opens
+  the pairing sheet again.
 
 ### Fixed
 
 - Ignored cancelled Ask DJ history refresh tasks so pull-to-refresh does not
   show a spurious network-cancelled error.
+- Prevented raw backend/HTML error bodies from appearing in Ask DJ chat or
+  inline error UI; technical details remain in diagnostics logs only.
 
 ## 3.1.36 - 2026-06-19
 

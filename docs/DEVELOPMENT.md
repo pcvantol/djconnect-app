@@ -59,7 +59,7 @@ release binaries.
 10. When the green pairing success state appears, choose `Let's Start!`.
 
 The app polls `POST /api/djconnect/pair`, stores the returned DJConnect bearer
-token in Keychain, and validates the pairing by posting to
+token in app-private storage, and validates the pairing by posting to
 `/api/djconnect/status`. The pairing request sends the app code as
 `pair_code`, `pairing_code`, and `pairing_token` for compatibility with current
 Home Assistant integration builds.
@@ -79,7 +79,7 @@ the pairing sheet. Stopping Demo Mode from Settings returns to Now Playing with
 the pairing sheet on top. Pressing the microphone in Demo Mode plays and shows
 a local sample DJ announcement for UI review.
 
-Reset Pairing clears the DJConnect Keychain token, generates a new app code,
+Reset Pairing clears the locally stored DJConnect token, generates a new app code,
 and creates a fresh local `device_id` for a new DJConnect app client setup.
 It also clears Demo Mode, returns to Now Playing, and reopens the pairing
 sheet.

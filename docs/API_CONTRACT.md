@@ -115,7 +115,7 @@ Expected response:
 The app also accepts `bearer_token` or `token` for compatibility, but
 `device_token` is preferred while the Home Assistant route keeps that field
 name. After successful pairing, the app stores only the returned DJConnect
-bearer token in Keychain and persists `ha_local_url`, `device_id`, and
+bearer token in app-private storage and persists `ha_local_url`, `device_id`, and
 `client_type`. App-to-HA runtime traffic must always use `ha_local_url`;
 cloud/remote URLs are reserved for Home Assistant-owned Spotify OAuth config
 flows and are not used for status, command, or voice requests. Do not use legacy
@@ -761,6 +761,84 @@ Expected successful musical analysis response:
   "dj_text": "Muzikaal werkt dit nummer door de langzame spanningsopbouw: eerst een minimale puls, daarna laag voor laag synthpads, percussie en basdruk. De producer gebruikt filtering, herhaling en subtiele automatisering om de drop onvermijdelijk te laten voelen. Zonder audio-stemanalyse zou ik de exacte akkoorden voorzichtig formuleren, maar de harmonie voelt duidelijk gebouwd rond langdurige spanning en release."
 }
 ```
+
+## Ask DJ History Sync
+
+```http
+GET /api/djconnect/ask_dj/history
+POST /api/djconnect/ask_dj/clear
+```
+
+iOS, macOS, and watchOS sync Ask DJ chat history from Home Assistant. The
+backend is the cross-device source of truth for delivered messages, clear
+revisions, ambient/system messages, and retention. Clients may keep a local
+cache for performance, but must merge server messages into that cache instead
+of replacing the full local list with a bounded response window.
+
+History messages may be normal user/assistant messages or assistant-only system
+messages. System messages are rendered as subtle DJ/system bubbles and do not
+require a preceding user bubble.
+
+```json
+{
+  "id": "server-...",
+  "role": "assistant",
+  "message_kind": "system",
+  "origin": "spotify_playback_context",
+  "text": "Leuk feitje over OK Computer.",
+  "intent": {
+    "category": "informational",
+    "intent": "ambient_music_fact"
+  },
+  "action": "none",
+  "audio_url": null
+}
+```
+
+Missing `message_kind` defaults to `assistant`.
+`origin: spotify_playback_context` represents backend-generated ambient music facts.
+`audio_url` is optional; replay UI appears only when an audio URL is present.
+
+The backend should bound history per Home Assistant user/memory key. When a
+history limit is reached, the backend should add an assistant-only system
+message and return explicit trim metadata so clients can prune their local
+cache without parsing display text:
+
+```json
+{
+  "success": true,
+  "user_id": "peter",
+  "history_revision": 42,
+  "clear_revision": 0,
+  "history_limit": 200,
+  "history_trimmed_before": "2026-06-20T12:34:56Z",
+  "history_trimmed_count": 12,
+  "messages": [
+    {
+      "id": "server-retention-...",
+      "role": "assistant",
+      "message_kind": "system",
+      "origin": "history_retention",
+      "text": "Ask DJ heeft de limiet van 200 berichten bereikt. Oudste berichten worden verwijderd.",
+      "intent": {
+        "category": "system",
+        "intent": "history_limit_reached"
+      },
+      "action": "none",
+      "audio_url": null
+    }
+  ]
+}
+```
+
+Clients may remove local cached messages older than `history_trimmed_before`.
+`clear_revision` remains the authoritative full-clear signal; if it advances,
+clients clear local Ask DJ history before applying returned messages.
+
+Backend or proxy error bodies must never be shown raw in Ask DJ UI. Clients log
+technical details for diagnostics, but user-facing Ask DJ errors are limited to
+short localized messages such as `Ask DJ niet bereikbaar` or `Home Assistant
+gaf geen antwoord`.
 
 ## Voice
 
