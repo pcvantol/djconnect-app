@@ -1,7 +1,8 @@
-# DJConnect iOS/macOS App Handoff
+# DJConnect iOS/macOS/watchOS App Handoff
 
-This handoff is for building a new native iOS/macOS DJConnect client that uses
-the same Home Assistant custom integration backend as the ESP32 firmware.
+This handoff is for building native iOS, macOS, and watchOS DJConnect clients
+that use the same Home Assistant custom integration backend as the ESP32
+firmware.
 
 The app should be functionally comparable to the ESP device at the integration
 contract level, but it is not an ESP emulator. Use `client_type` to identify the
@@ -27,7 +28,7 @@ Home Assistant is the trusted DJConnect backend for:
 - OTA/update offers for device clients where applicable;
 - native Home Assistant entities.
 
-The iOS/macOS app owns:
+The Apple app owns:
 
 - native UI;
 - local app state;
@@ -170,6 +171,12 @@ The watchOS client may run standalone. It should use the same Home Assistant
 pairing/token/status/command/voice contract as iOS and macOS, store only the
 DJConnect bearer token locally, expose voice through `Ask DJ`, and keep wake
 phrase detection foreground-only.
+
+Ask DJ is the single Apple-client DJ interaction surface. iOS, macOS, and
+watchOS expose DJ requests through Ask DJ chat/PTT and synced Ask DJ history;
+Now Playing should not reintroduce a separate `DJ verzoek` block. rbpi did not
+have that separate UI block, and ESP32 remains a firmware/device client without
+the Apple Ask DJ rich chat UI.
 
 For `Ask DJ`, the Watch may send mood, DJ style, and a memory key hint, but DJ
 Memory itself belongs to the Home Assistant integration. This lets a user ask
@@ -680,6 +687,11 @@ Canonical voice examples live in
   `Zet iets op waar ik rustig van word`, `Ik wil even kalme muziek zonder
   vocals`, `I am tired and overstimulated, play relaxing music I will enjoy`,
   `play something calming that I usually like`, `put on something low energy`
+- `change_music_context`: `Ik wil wat anders horen`, `Doe maar iets anders`,
+  `Zet iets anders op`, `Verras me met iets heel anders`, `Ik ben dit zat,
+  draai wat anders`, `I want to hear something else`, `play something
+  different`, `put on something else`, `surprise me with something completely
+  different`
 - `personal_music_profile_analysis`: `Omschrijf eens waar ik zoal naar
   luisterde de afgelopen maand`, `Wat zegt mijn muziek van de laatste twee
   weken over mijn stemming?`, `Welke genres luister ik de laatste tijd veel?`,

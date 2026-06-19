@@ -4,6 +4,41 @@ All notable changes to DJConnect App are documented here.
 
 ## Unreleased
 
+## 3.1.36 - 2026-06-19
+
+### Added
+
+- Added Watch-side Home Assistant pairing through the same mDNS/local device API
+  flow used by iOS and macOS, including a pairing success screen after Home
+  Assistant completes the pairing request.
+- Added Watch demo mode with local demo playback controls and a sample Ask DJ
+  voice response.
+
+### Changed
+
+- Moved the local device API into the shared Core module so iOS, macOS, and
+  watchOS can use the same pairing contract.
+- Updated Ask DJ text chat to request `audio_response: auto`, treat missing
+  `audio_url` as normal for informational answers, and use top-level audio URLs
+  as fallback for assistant message replay.
+- Added pull-to-refresh to the Ask DJ chat so users can manually sync chat
+  history with Home Assistant.
+- Added a long-press context menu on Ask DJ chat bubbles to place an existing
+  message back into the prompt for editing or resending.
+- Removed the redundant Now Playing DJ request block so voice and text music
+  requests live in the richer Ask DJ screen.
+- Updated handoff, API contract, architecture, release, and bootstrap prompts
+  to reflect Ask DJ as the single rich Apple-client DJ request surface.
+- Documented the Ask DJ `change_music_context` intent for requests such as
+  `Ik wil wat anders horen`.
+
+### Fixed
+
+- Fixed macOS stale-token recovery so a rejected device token clears locally and
+  re-enables Bonjour pairing discovery for Home Assistant.
+- Fixed iPhone Ask DJ keyboard handling so tapping or scrolling the chat closes
+  the keyboard, and added a keyboard `Done` control.
+
 ## 3.1.35 - 2026-06-19
 
 ### Added

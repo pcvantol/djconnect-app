@@ -330,7 +330,7 @@ Muziekbediening met karakter
 Short description / promotional text:
 
 ```text
-Bedien je muziek via Home Assistant en vraag persoonlijke DJ verzoeken aan.
+Bedien je muziek via Home Assistant en praat met Ask DJ voor persoonlijke muziekvragen en verzoeken.
 ```
 
 Full description:

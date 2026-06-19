@@ -1457,7 +1457,6 @@ struct NowPlayingView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 24) {
                     AboutBanner()
-                    VoiceResponseView(model: model)
                     TrackSummaryView(model: model)
                     OutputSelectorView(model: model)
                     SetupStatusView(model: model)
@@ -1872,7 +1871,6 @@ private struct IOSNowPlayingView: View {
                 ScrollView {
                     VStack(spacing: 16) {
                         AboutBanner()
-                        IOSVoiceCard(model: model)
                         IOSTrackHero(model: model)
                         OutputSelectorView(model: model)
                         if !model.isDemoMode {
@@ -2188,174 +2186,7 @@ private struct IOSPlaybackSurface: View {
     }
 }
 
-private struct IOSVoiceCard: View {
-    @ObservedObject var model: DJConnectAppModel
-    private var isVoiceAvailable: Bool {
-        model.voiceEnabled && model.canUsePlaybackFeatures && !model.isRefreshing && model.voiceStatus != .processing
-    }
-
-    private var isShowingDJResponse: Bool {
-        !model.djResponseText.isEmpty
-    }
-
-    private var announcementText: String {
-        switch model.voiceStatus {
-        case .listening:
-            return localized(model.language, "Listening...", "Luistert...")
-        case .processing:
-            return localized(model.language, "Processing...", "Verwerken...")
-        case .unavailable:
-            if !model.djResponseText.isEmpty {
-                return model.djResponseText
-            }
-            return localized(model.language, "Unavailable", "Niet beschikbaar")
-        case .idle:
-            if !model.djResponseText.isEmpty {
-                return model.djResponseText
-            }
-            if !model.backendAvailable {
-                return localized(model.language, "Unavailable", "Niet beschikbaar")
-            }
-            return localized(
-                model.language,
-                "Hold the microphone to request music",
-                "Houd de microfoon ingedrukt om muziek aan te vragen"
-            )
-        }
-    }
-
-    private var announcementColor: Color {
-        switch model.voiceStatus {
-        case .listening:
-            djConnectAccent
-        case .processing:
-            djConnectAccent.opacity(0.82)
-        case .unavailable:
-            .secondary
-        case .idle:
-            .secondary
-        }
-    }
-
-    var body: some View {
-        HStack(spacing: 12) {
-            if model.voiceStatus == .listening {
-                AnimatedListeningMic()
-                    .frame(width: 34, height: 34)
-            } else {
-                Image(systemName: "waveform")
-                    .font(.title3)
-                    .foregroundStyle(isVoiceAvailable ? .purple : .secondary)
-                    .frame(width: 34, height: 34)
-                    .background((isVoiceAvailable ? Color.purple : Color.secondary).opacity(0.12), in: Circle())
-            }
-            VStack(alignment: .leading, spacing: isShowingDJResponse ? 8 : 2) {
-                Text(localized(model.language, "DJ Request", "DJ verzoek"))
-                    .font(.headline)
-                Text(announcementText)
-                    .font(isShowingDJResponse ? .body.weight(.semibold) : .subheadline)
-                    .foregroundStyle(isShowingDJResponse ? .white.opacity(0.74) : announcementColor)
-                    .lineLimit(nil)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-            Spacer()
-            PushToTalkButton(model: model, isEnabled: isVoiceAvailable, size: 46)
-        }
-        .padding(14)
-        .background {
-            DJConnectTableRowBackground()
-                .clipShape(RoundedRectangle(cornerRadius: 8))
-        }
-        .onChange(of: model.djResponseText) { _, newValue in
-            if !newValue.isEmpty {
-                DJConnectHaptics.success()
-            }
-        }
-    }
-}
 #endif
-
-private struct AnimatedListeningMic: View {
-    @State private var isPulsing = false
-
-    var body: some View {
-        ZStack {
-            Circle()
-                .fill(djConnectAccent.opacity(isPulsing ? 0.07 : 0.18))
-                .scaleEffect(isPulsing ? 1.28 : 0.82)
-            Circle()
-                .fill(djConnectAccent.opacity(0.16))
-            Image(systemName: "mic.fill")
-                .font(.system(size: 16, weight: .semibold))
-                .foregroundStyle(djConnectAccent)
-                .scaleEffect(isPulsing ? 1.06 : 0.94)
-        }
-        .accessibilityHidden(true)
-        .onAppear {
-            withAnimation(.easeInOut(duration: 0.85).repeatForever(autoreverses: true)) {
-                isPulsing = true
-            }
-        }
-        .onDisappear {
-            isPulsing = false
-        }
-    }
-}
-
-private struct PushToTalkButton: View {
-    @ObservedObject var model: DJConnectAppModel
-    let isEnabled: Bool
-    var size: CGFloat = 42
-    @State private var isPressing = false
-
-    var body: some View {
-        Image(systemName: model.isRecordingVoice ? "stop.fill" : "mic.fill")
-            .font(.title2.weight(.semibold))
-            .foregroundStyle(isEnabled ? .purple : .secondary)
-            .frame(width: size, height: size)
-            .background(
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .fill(Color.primary.opacity(0.06))
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .stroke(Color.primary.opacity(0.12), lineWidth: 1)
-            )
-            .opacity(isEnabled ? 1 : 0.45)
-            .contentShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-            .gesture(
-                DragGesture(minimumDistance: 0)
-                    .onChanged { _ in
-                        guard isEnabled, !isPressing else {
-                            return
-                        }
-                        isPressing = true
-                        DJConnectHaptics.impact()
-                        model.startVoiceRecording()
-                    }
-                    .onEnded { _ in
-                        guard isPressing else {
-                            return
-                        }
-                        isPressing = false
-                        DJConnectHaptics.selection()
-                        model.stopVoiceRecordingAndUpload()
-                    }
-            )
-            .onDisappear {
-                if isPressing {
-                    isPressing = false
-                    model.stopVoiceRecordingAndUpload()
-                }
-            }
-            .accessibilityLabel(localized(model.language, "Push to talk", "Push-to-talk"))
-            .accessibilityAddTraits(.isButton)
-            .accessibilityAction {
-                DJConnectHaptics.impact()
-                model.toggleVoiceRecording()
-            }
-    }
-}
 
 struct SetupStatusView: View {
     @ObservedObject var model: DJConnectAppModel
@@ -2973,79 +2804,6 @@ private extension DJConnectRepeatState {
     }
 }
 
-struct VoiceResponseView: View {
-    @ObservedObject var model: DJConnectAppModel
-    private var isVoiceAvailable: Bool {
-        model.voiceEnabled && model.canUsePlaybackFeatures && !model.isRefreshing && model.voiceStatus != .processing
-    }
-
-    private var isShowingDJResponse: Bool {
-        !model.djResponseText.isEmpty
-    }
-
-    private var announcementText: String {
-        switch model.voiceStatus {
-        case .listening:
-            return localized(model.language, "Listening...", "Luistert...")
-        case .processing:
-            return localized(model.language, "Processing...", "Verwerken...")
-        case .unavailable:
-            if !model.djResponseText.isEmpty {
-                return model.djResponseText
-            }
-            return localized(model.language, "Unavailable", "Niet beschikbaar")
-        case .idle:
-            if !model.djResponseText.isEmpty {
-                return model.djResponseText
-            }
-            if !model.backendAvailable {
-                return localized(model.language, "Unavailable", "Niet beschikbaar")
-            }
-            return localized(
-                model.language,
-                "Hold the microphone to request music",
-                "Houd de microfoon ingedrukt om muziek aan te vragen"
-            )
-        }
-    }
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                HStack(spacing: 8) {
-                    if model.voiceStatus == .listening {
-                        AnimatedListeningMic()
-                            .frame(width: 28, height: 28)
-                    } else {
-                        Image(systemName: "waveform")
-                            .frame(width: 28, height: 28)
-                    }
-                    Text(localized(model.language, "DJ Request", "DJ verzoek"))
-                }
-                .foregroundStyle(isVoiceAvailable ? .primary : .secondary)
-                Spacer()
-                PushToTalkButton(model: model, isEnabled: isVoiceAvailable)
-                    .help(localized(model.language, "Push to talk", "Push-to-talk"))
-            }
-
-            if model.isRecordingVoice {
-                Label(localized(model.language, "Recording", "Neemt op"), systemImage: "record.circle")
-                    .foregroundStyle(.red)
-            }
-            Text(announcementText)
-                .font(isShowingDJResponse ? .title3.weight(.semibold) : .body)
-                .foregroundStyle(isShowingDJResponse ? .white.opacity(0.74) : .secondary)
-                .padding(.top, isShowingDJResponse ? 4 : 0)
-                .frame(maxWidth: .infinity, alignment: .leading)
-        }
-        .onChange(of: model.djResponseText) { _, newValue in
-            if !newValue.isEmpty {
-                DJConnectHaptics.success()
-            }
-        }
-    }
-}
-
 private struct AskDJView: View {
     @ObservedObject var model: DJConnectAppModel
     @State private var showingClearConfirmation = false
@@ -3080,12 +2838,13 @@ private struct AskDJView: View {
                             } else if model.askDJMessages.isEmpty {
                                 AskDJEmptyState(
                                     language: model.language,
+                                    isRequestingIdleSuggestion: model.isRequestingAskDJIdleSuggestion,
                                     selectExample: { example in
                                         model.askDJDraft = example
                                         isInputFocused = true
                                     }
                                 )
-                                    .padding(.top, 48)
+                                .padding(.top, 48)
                             } else {
                                 ForEach(model.askDJMessages) { message in
                                     AskDJMessageBubble(
@@ -3104,7 +2863,11 @@ private struct AskDJView: View {
                                                 model.replayAskDJAudio(message.audioURL)
                                             }
                                         },
-                                        openLink: { selectedWebLink = $0 }
+                                        openLink: { selectedWebLink = $0 },
+                                        setPromptAction: { text in
+                                            model.askDJDraft = text
+                                            isInputFocused = true
+                                        }
                                     )
                                     .id(message.id)
                                 }
@@ -3112,10 +2875,25 @@ private struct AskDJView: View {
                         }
                         .padding(.horizontal, djConnectScreenHorizontalPadding)
                         .padding(.vertical, 16)
+                        .contentShape(Rectangle())
+                        .onTapGesture {
+                            isInputFocused = false
+                        }
                     }
+                    .refreshable {
+                        isInputFocused = false
+                        await model.refreshAskDJHistory()
+                    }
+                    .scrollDismissesKeyboard(.interactively)
+                    .simultaneousGesture(
+                        DragGesture(minimumDistance: 8).onChanged { _ in
+                            isInputFocused = false
+                        }
+                    )
                     .overlay(alignment: .bottomTrailing) {
                         if model.askDJMessages.count > 8, let lastID = model.askDJMessages.last?.id {
                             Button {
+                                isInputFocused = false
                                 withAnimation(.easeOut(duration: 0.22)) {
                                     proxy.scrollTo(lastID, anchor: .bottom)
                                 }
@@ -3172,6 +2950,7 @@ private struct AskDJView: View {
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
                     Button {
+                        isInputFocused = false
                         showingClearConfirmation = true
                     } label: {
                         Image(systemName: model.isClearingAskDJHistory ? "hourglass" : "trash")
@@ -3186,6 +2965,7 @@ private struct AskDJView: View {
                 titleVisibility: .visible
             ) {
                 Button(localized(model.language, "Clear Chat", "Chat wissen"), role: .destructive) {
+                    isInputFocused = false
                     model.clearAskDJHistory()
                 }
                 Button(localized(model.language, "Cancel", "Annuleren"), role: .cancel) {}
@@ -3193,15 +2973,15 @@ private struct AskDJView: View {
         }
         .background(DJConnectCanvasBackground())
         .task {
-            model.prepareAskDJHistoryForDisplay()
+            await model.runAskDJHistorySyncLoop()
         }
         .sheet(item: $selectedWebLink) { link in
             AskDJWebPreview(link: link, language: model.language)
         }
-        .onChange(of: model.askDJToast?.id) { _, _ in
-            guard let text = model.askDJToast?.text else {
-                return
-            }
+            .onChange(of: model.askDJToast?.id) { _, _ in
+                guard let text = model.askDJToast?.text else {
+                    return
+                }
             showToast(text)
         }
     }
@@ -3224,6 +3004,7 @@ private struct AskDJView: View {
 
 private struct AskDJEmptyState: View {
     let language: String
+    let isRequestingIdleSuggestion: Bool
     let selectExample: (String) -> Void
 
     private var examples: [String] {
@@ -3312,6 +3093,17 @@ private struct AskDJEmptyState: View {
                 .foregroundStyle(.white.opacity(0.48))
                 .multilineTextAlignment(.center)
                 .frame(maxWidth: 340)
+            if isRequestingIdleSuggestion {
+                HStack(spacing: 7) {
+                    ProgressView()
+                        .controlSize(.small)
+                        .tint(.white)
+                    Text(localized(language, "Finding something to play...", "Iets om af te spelen zoeken..."))
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(.white.opacity(0.58))
+                }
+                .padding(.top, 2)
+            }
         }
         .frame(maxWidth: .infinity)
     }
@@ -3328,9 +3120,18 @@ private struct AskDJMessageBubble: View {
     let playAction: (DJConnectAskDJPlaybackAction) -> Void
     let audioAction: () -> Void
     let openLink: (DJConnectResponseLink) -> Void
+    let setPromptAction: (String) -> Void
 
     private var isUser: Bool {
         message.role == .user
+    }
+
+    private var promptText: String {
+        message.text.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private var canSetPrompt: Bool {
+        !promptText.isEmpty
     }
 
     private var regularLinks: [DJConnectResponseLink] {
@@ -3408,6 +3209,25 @@ private struct AskDJMessageBubble: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: isUser ? .trailing : .leading)
+        .contentShape(Rectangle())
+        .simultaneousGesture(
+            LongPressGesture(minimumDuration: 0.35)
+                .onEnded { _ in
+                    if canSetPrompt {
+                        DJConnectHaptics.selection()
+                    }
+                }
+        )
+        .contextMenu {
+            if canSetPrompt {
+                Button {
+                    DJConnectHaptics.selection()
+                    setPromptAction(promptText)
+                } label: {
+                    Label(localized(language, "Set in prompt", "Zet in prompt"), systemImage: "text.cursor")
+                }
+            }
+        }
     }
 
     private var messageMetadataText: String {
@@ -3965,13 +3785,25 @@ private struct AskDJInputBar: View {
                 }
                 .onSubmit {
                     if canSend {
+                        isInputFocused.wrappedValue = false
                         model.sendAskDJText()
                     }
                 }
+                #if os(iOS)
+                .toolbar {
+                    ToolbarItemGroup(placement: .keyboard) {
+                        Spacer()
+                        Button(localized(model.language, "Done", "Gereed")) {
+                            isInputFocused.wrappedValue = false
+                        }
+                    }
+                }
+                #endif
 
             AskDJVoiceInputButton(model: model, isEnabled: canUseVoiceInput)
 
             Button {
+                isInputFocused.wrappedValue = false
                 model.sendAskDJText()
             } label: {
                 if model.isSendingAskDJText {

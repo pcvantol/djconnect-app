@@ -13,6 +13,11 @@ store Spotify, Home Assistant, Sonos, OpenAI, or other backend credentials. The
 only app-owned credential is the DJConnect client bearer token issued by the
 integration.
 
+Ask DJ is the Apple clients' rich DJ interaction surface on iOS, macOS, and
+watchOS. Text chat, push-to-talk voice requests, replayable DJ response audio,
+images, links, sources, synced history, and Play Now recommendation actions live
+there; Now Playing no longer has a separate DJ request block.
+
 AI and Assist answers can be incorrect and depend on your own Home Assistant
 and Assist configuration.
 
@@ -223,6 +228,7 @@ Spotify Web API calls for voice commands. Canonical examples from
 | `favorite_current_track` | `Voeg dit nummer toe aan mijn favorieten`, `like dit nummer`, `sla deze track op` | `Add this song to my favorites`, `like this track`, `save this song` | HA likes/saves the current playback item and returns a DJ confirmation. |
 | `output_devices_info` / `current_output_info` | `Welke speakers zijn er?`, `Waarop wordt nu muziek gespeeld?`, `Op welke speaker speelt dit?` | `Which speakers are available?`, `Where is music playing now?`, `Which speaker is active?` | HA reads DJConnect output devices/current playback output and returns an informational DJ response without changing playback. |
 | `personalized_mood_playback` | `Ik voel me moe en geprikkeld, zet wat rustige muziek op die ik fijn vind`, `Doe iets ontspannends, ik ben overprikkeld` | `I am tired and overstimulated, play relaxing music I will enjoy`, `play something calming that I usually like` | HA combines the mood request with DJ Memory/user preferences and starts or queues a suitable playback context. |
+| `change_music_context` | `Ik wil wat anders horen`, `Doe maar iets anders`, `Zet iets heel anders op` | `I want to hear something else`, `play something different`, `put on something completely different` | HA treats this as a playback-changing request, picks a different suitable track/album/playlist from current playback context and user taste, and starts or queues it. |
 | `personal_music_profile_analysis` | `Omschrijf eens waar ik zoal naar luisterde de afgelopen maand`, `Wat zegt mijn muziek van de laatste twee weken over mijn stemming?` | `Describe what I have been listening to over the last month`, `what does my music from the last two weeks say about my mood?` | HA summarizes listening patterns, genres, moods, energy, artists, and taste shifts from DJ Memory for the requested period without changing playback. |
 | `personal_music_recommendations` | `Geef me muziek aanbevelingen op basis van mijn luisterprofiel`, `Wat zou ik nu leuk vinden om te luisteren?`, `Raad me iets nieuws aan dat past bij mijn smaak` | `Recommend music based on my listening profile`, `what should I listen to now?`, `recommend something new that fits my taste` | HA recommends concrete tracks, albums, artists, or playlists from DJ Memory and Spotify profile data without changing playback unless the user explicitly asks to play or queue them. |
 | `dj_announcement_request` | `Geef me een leuke aankondiging voor het volgende nummer`, `Doe een radio intro voor wat er nu speelt` | `Give me a fun announcement for the next song`, `do a radio-style intro for what is playing now` | HA generates DJ text and optional `audio_url` without changing playback. |

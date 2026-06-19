@@ -119,6 +119,8 @@ public enum DJConnectAskDJAudioPlaybackState: Equatable, Sendable {
 
 public struct DJConnectAskDJMessage: Identifiable, Codable, Equatable, Sendable {
     public var id: UUID
+    public var serverID: String?
+    public var clientMessageID: String?
     public var role: DJConnectAskDJMessageRole
     public var text: String
     public var images: [DJConnectResponseImage]
@@ -130,6 +132,8 @@ public struct DJConnectAskDJMessage: Identifiable, Codable, Equatable, Sendable 
 
     public init(
         id: UUID = UUID(),
+        serverID: String? = nil,
+        clientMessageID: String? = nil,
         role: DJConnectAskDJMessageRole,
         text: String,
         images: [DJConnectResponseImage] = [],
@@ -140,6 +144,8 @@ public struct DJConnectAskDJMessage: Identifiable, Codable, Equatable, Sendable 
         createdAt: Date = Date()
     ) {
         self.id = id
+        self.serverID = serverID
+        self.clientMessageID = clientMessageID
         self.role = role
         self.text = text
         self.images = images
@@ -152,6 +158,8 @@ public struct DJConnectAskDJMessage: Identifiable, Codable, Equatable, Sendable 
 
     enum CodingKeys: String, CodingKey {
         case id
+        case serverID = "server_id"
+        case clientMessageID = "client_message_id"
         case role
         case text
         case images
@@ -165,6 +173,8 @@ public struct DJConnectAskDJMessage: Identifiable, Codable, Equatable, Sendable 
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         id = try container.decodeIfPresent(UUID.self, forKey: .id) ?? UUID()
+        serverID = try container.decodeIfPresent(String.self, forKey: .serverID)
+        clientMessageID = try container.decodeIfPresent(String.self, forKey: .clientMessageID)
         role = try container.decode(DJConnectAskDJMessageRole.self, forKey: .role)
         text = try container.decodeIfPresent(String.self, forKey: .text) ?? ""
         images = try container.decodeIfPresent([DJConnectResponseImage].self, forKey: .images) ?? []
@@ -178,6 +188,8 @@ public struct DJConnectAskDJMessage: Identifiable, Codable, Equatable, Sendable 
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(id, forKey: .id)
+        try container.encodeIfPresent(serverID, forKey: .serverID)
+        try container.encodeIfPresent(clientMessageID, forKey: .clientMessageID)
         try container.encode(role, forKey: .role)
         try container.encode(text, forKey: .text)
         try container.encode(images, forKey: .images)
@@ -249,6 +261,7 @@ public final class DJConnectAppModel: ObservableObject {
     @Published public private(set) var askDJMessages: [DJConnectAskDJMessage] = []
     @Published public var askDJDraft = ""
     @Published public private(set) var isSendingAskDJText = false
+    @Published public private(set) var isRequestingAskDJIdleSuggestion = false
     @Published public private(set) var playingAskDJActionID: String?
     @Published public private(set) var isClearingAskDJHistory = false
     @Published public private(set) var isCheckingAskDJHistoryState = true
@@ -346,7 +359,7 @@ public final class DJConnectAppModel: ObservableObject {
     private let startBackgroundTasks: Bool
     private let monkeyTestingMode: Bool
     private let diagnosticLogFileURL: URL?
-    private static let protocolVersion = "3.1.35"
+    private static let protocolVersion = "3.1.36"
     private static let defaultHomeAssistantURL = "http://homeassistant.local:8123"
     private let appVersion = DJConnectAppModel.protocolVersion
     private let installIDKey = "DJConnectInstallID"
@@ -359,6 +372,9 @@ public final class DJConnectAppModel: ObservableObject {
     private let demoModeKey = "DJConnectDemoMode"
     private let wakeWordPhraseKey = "DJConnectWakeWordPhrase"
     private let askDJMessagesKey = "DJConnectAskDJMessages"
+    private let askDJHistoryRevisionKey = "DJConnectAskDJHistoryRevision"
+    private let askDJClearRevisionKey = "DJConnectAskDJClearRevision"
+    private let askDJAudioResponseModeKey = "DJConnectAskDJAudioResponseMode"
     private let wakeWordPromptDismissedKey = "DJConnectWakeWordPromptDismissed"
     private let welcomeSeenKey = "DJConnectWelcomeSeen"
     private let lastSeenAppVersionKey = "DJConnectLastSeenAppVersion"
@@ -371,6 +387,8 @@ public final class DJConnectAppModel: ObservableObject {
     private let backendCollectionsRefreshInterval: TimeInterval = 30
     private let nowPlayingPollInterval: UInt64 = 10
     private let progressTimerNetworkRefreshInterval = 60
+    private let askDJHistorySyncInterval: UInt64 = 8_000_000_000
+    private var hasRequestedAskDJIdleSuggestion = false
 
     public var volume: Double {
         get { Double(pendingVolumePercent ?? playback?.volumePercent ?? 0) }
@@ -385,6 +403,12 @@ public final class DJConnectAppModel: ObservableObject {
 
     public var isPlaying: Bool {
         playback?.isPlaying ?? false
+    }
+
+    private var hasActiveNowPlaying: Bool {
+        playback?.hasPlayback == true
+            || playback?.isPlaying == true
+            || playback?.trackName?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
     }
 
     public var version: String {
@@ -1500,8 +1524,9 @@ public final class DJConnectAppModel: ObservableObject {
 
         askDJDraft = ""
         askDJErrorMessage = nil
-        let messageID = appendAskDJMessage(role: .user, text: text, status: .sending)
-        submitAskDJText(text, userMessageID: messageID)
+        let clientMessageID = UUID().uuidString
+        let messageID = appendAskDJMessage(role: .user, text: text, clientMessageID: clientMessageID, status: .sending)
+        submitAskDJText(text, userMessageID: messageID, clientMessageID: clientMessageID)
     }
 
     public func retryAskDJMessage(_ message: DJConnectAskDJMessage) {
@@ -1514,7 +1539,7 @@ public final class DJConnectAppModel: ObservableObject {
         }
         askDJErrorMessage = nil
         updateAskDJMessageStatus(id: message.id, status: .sending)
-        submitAskDJText(text, userMessageID: message.id)
+        submitAskDJText(text, userMessageID: message.id, clientMessageID: message.clientMessageID ?? UUID().uuidString)
     }
 
     public func playAskDJRecommendation(_ action: DJConnectAskDJPlaybackAction) {
@@ -1560,7 +1585,7 @@ public final class DJConnectAppModel: ObservableObject {
         }
     }
 
-    private func submitAskDJText(_ text: String, userMessageID: UUID?) {
+    private func submitAskDJText(_ text: String, userMessageID: UUID?, clientMessageID: String) {
         guard !text.isEmpty else {
             return
         }
@@ -1570,24 +1595,16 @@ public final class DJConnectAppModel: ObservableObject {
         Task {
             defer { isSendingAskDJText = false }
             do {
-                let response = try await sendAskDJTextWithFallback(text)
-                let responseText = userFacingDJResponseText(response.djText ?? response.text ?? response.message)
+                let response = try await sendAskDJTextWithFallback(text, clientMessageID: clientMessageID)
+                applyAskDJMessageResponse(response, fallbackUserMessageID: userMessageID)
+                let assistant = response.assistantMessage
+                let responseText = userFacingDJResponseText(assistant?.text)
                     ?? localized(english: "Ask DJ completed.", dutch: "Ask DJ afgerond.")
                 djResponseText = responseText
-                if let userMessageID {
-                    updateAskDJMessageStatus(id: userMessageID, status: .sent)
-                }
-                appendAskDJMessage(
-                    role: .dj,
-                    text: responseText,
-                    images: proxiedResponseImages(response.images),
-                    links: safeResponseLinks(response.links),
-                    playbackActions: response.playbackActions ?? [],
-                    audioURL: resolvedAudioURL(from: response.audioURL)
-                )
                 Task {
-                    await playResponseAudioIfNeeded(resolvedAudioURL(from: response.audioURL))
+                    await playResponseAudioIfNeeded(resolvedAudioURL(from: assistant?.audioURL ?? response.audioURL))
                 }
+                await syncAskDJHistory(showErrors: false)
                 await refreshAfterDJResponse()
                 log(.info, "Ask DJ text request completed")
             } catch let error as DJConnectError {
@@ -1626,8 +1643,8 @@ public final class DJConnectAppModel: ObservableObject {
         Task {
             defer { isClearingAskDJHistory = false }
             do {
-                try await clearAskDJHistoryWithFallback()
-                clearAskDJHistoryLocally()
+                let response = try await clearAskDJHistoryWithFallback()
+                applyAskDJHistory(response)
             } catch let error as DJConnectError {
                 askDJErrorMessage = Self.describe(error)
                 showAskDJToast(for: error)
@@ -1650,24 +1667,41 @@ public final class DJConnectAppModel: ObservableObject {
         }
         isCheckingAskDJHistoryState = true
         askDJErrorMessage = nil
-        log(.debug, "Checking Ask DJ history state before display")
+        log(.debug, "Syncing Ask DJ history before display")
 
         Task {
             defer { isCheckingAskDJHistoryState = false }
-            do {
-                if try await askDJHistoryClearRequiredWithFallback() {
-                    clearAskDJHistoryLocally()
-                }
-            } catch let error as DJConnectError {
-                askDJErrorMessage = Self.describe(error)
-                showAskDJToast(for: error)
-                log(.warning, "Ask DJ history state check failed: \(Self.describe(error))")
-            } catch {
-                askDJErrorMessage = error.localizedDescription
-                showAskDJToast(localized(english: "Ask DJ is unreachable", dutch: "Ask DJ niet bereikbaar"))
-                log(.error, "Ask DJ history state check failed unexpectedly: \(error.localizedDescription)")
-            }
+            await syncAskDJHistory(showErrors: true)
         }
+    }
+
+    public func runAskDJHistorySyncLoop() async {
+        guard canUsePlaybackFeatures else {
+            isCheckingAskDJHistoryState = false
+            return
+        }
+        isCheckingAskDJHistoryState = true
+        askDJErrorMessage = nil
+        await syncAskDJHistory(showErrors: true)
+        isCheckingAskDJHistoryState = false
+        await requestAskDJIdleSuggestionIfNeeded()
+        while !Task.isCancelled {
+            try? await Task.sleep(nanoseconds: askDJHistorySyncInterval)
+            if Task.isCancelled {
+                return
+            }
+            await syncAskDJHistory(showErrors: false)
+        }
+    }
+
+    public func refreshAskDJHistory() async {
+        guard canUsePlaybackFeatures else {
+            return
+        }
+        askDJErrorMessage = nil
+        log(.debug, "Refreshing Ask DJ history from pull-to-refresh")
+        await syncAskDJHistory(showErrors: true)
+        await requestAskDJIdleSuggestionIfNeeded()
     }
 
     public func startVoiceRecording() {
@@ -1783,6 +1817,7 @@ public final class DJConnectAppModel: ObservableObject {
                 Task {
                     await playResponseAudioIfNeeded(resolvedAudioURL(from: response.audioURL))
                 }
+                await syncAskDJHistory(showErrors: false)
                 await refreshAfterDJResponse()
                 voiceErrorMessage = nil
                 voiceStatus = .idle
@@ -2042,12 +2077,7 @@ public final class DJConnectAppModel: ObservableObject {
                 dutch: "Werk de DJConnect app of Home Assistant-integratie bij."
             )
         case let .authStale(_, message):
-            pairingStatus = .stale
-            isConnected = false
-            pairingMessage = message ?? localized(
-                english: "Pairing is stale. Open Home Assistant setup or reset pairing.",
-                dutch: "Pairing is verlopen. Open Home Assistant setup of reset pairing."
-            )
+            recoverFromStalePairing(message: message)
         case let .routeMissing(message):
             pairingStatus = .stale
             isConnected = false
@@ -2067,15 +2097,33 @@ public final class DJConnectAppModel: ObservableObject {
                 djResponseText = userFacingError
             }
         case .missingToken:
-            pairingStatus = .stale
-            isConnected = false
-            pairingMessage = localized(
+            recoverFromStalePairing(message: localized(
                 english: "Missing DJConnect bearer token. Reset pairing to set up again.",
                 dutch: "DJConnect bearer-token ontbreekt. Reset de pairing om opnieuw te koppelen."
-            )
+            ))
         default:
             break
         }
+    }
+
+    private func recoverFromStalePairing(message: String?) {
+        pairingTask?.cancel()
+        pairingTask = nil
+        scheduledPairingTask?.cancel()
+        scheduledPairingTask = nil
+        try? tokenStore.clearToken()
+        pairingStatus = .stale
+        isConnected = false
+        isPairing = false
+        isPairingScreenDismissed = false
+        isShowingPairingSuccess = false
+        pairingMessage = message ?? localized(
+            english: "Pairing is stale. Open Home Assistant setup and use the code shown here.",
+            dutch: "Pairing is verlopen. Open Home Assistant setup en gebruik de code die hier staat."
+        )
+        restartLocalDeviceAPI()
+        updateBonjourAdvertisingState()
+        startPairingWait()
     }
 
     public func emitUserConnectionNotice(for error: DJConnectError? = nil) {
@@ -2525,62 +2573,47 @@ public final class DJConnectAppModel: ObservableObject {
         "djconnect_\(identity.clientType.rawValue)_\(identity.deviceID)"
     }
 
-    private func sendAskDJTextWithFallback(_ text: String) async throws -> DJConnectAskDJResponse {
+    private var askDJAudioResponseMode: DJConnectAskDJRequest.AudioResponse {
+        guard let rawValue = defaults.string(forKey: askDJAudioResponseModeKey) else {
+            return .auto
+        }
+        return DJConnectAskDJRequest.AudioResponse(rawValue: rawValue) ?? .auto
+    }
+
+    private func sendAskDJTextWithFallback(_ text: String, clientMessageID: String) async throws -> DJConnectAskDJMessageResponse {
         try await withHomeAssistantClient { client in
-            do {
-                return try await client.sendAskDJ(DJConnectAskDJRequest(
-                    identity: identity,
-                    text: text,
-                    djStyle: "warm_radio_dj",
-                    memoryKey: askDJMemoryKey
-                ))
-            } catch let error as DJConnectError {
-                guard case .routeMissing = error else {
-                    throw error
-                }
-                let response = try await client.sendCommandResponse(DJConnectCommandPayload(
-                    identity: identity,
-                    command: "ask_dj",
-                    value: .object([
-                        "text": text,
-                        "dj_style": "warm_radio_dj",
-                        "memory_key": askDJMemoryKey
-                    ])
-                ))
-                return DJConnectAskDJResponse(
-                    success: response.success,
-                    text: response.message,
-                    djText: response.message,
-                    message: response.message
-                )
-            }
+            try await client.sendAskDJMessage(DJConnectAskDJRequest(
+                identity: identity,
+                text: text,
+                clientMessageID: clientMessageID,
+                inputType: "text",
+                djStyle: "warm_radio_dj",
+                memoryKey: askDJMemoryKey,
+                audioResponse: askDJAudioResponseMode
+            ))
         }
     }
 
-    private func clearAskDJHistoryWithFallback() async throws {
+    private func clearAskDJHistoryWithFallback() async throws -> DJConnectAskDJHistoryResponse {
         try await withHomeAssistantClient { client in
-            let response = try await client.sendCommandResponse(DJConnectCommandPayload(
-                identity: identity,
-                command: "clear_ask_dj_history",
-                value: .object(["memory_key": askDJMemoryKey])
-            ))
-            guard response.success else {
-                throw DJConnectError.backendUnavailable(message: response.error ?? response.message)
-            }
+            try await client.clearAskDJHistory(memoryKey: askDJMemoryKey)
         }
     }
 
-    private func askDJHistoryClearRequiredWithFallback() async throws -> Bool {
+    private func fetchAskDJHistory(sinceRevision: Int?) async throws -> DJConnectAskDJHistoryResponse {
         try await withHomeAssistantClient { client in
-            let response = try await client.sendCommandResponse(DJConnectCommandPayload(
+            try await client.askDJHistory(sinceRevision: sinceRevision)
+        }
+    }
+
+    private func requestAskDJIdleSuggestion() async throws -> DJConnectAskDJMessageResponse {
+        try await withHomeAssistantClient { client in
+            try await client.askDJIdleSuggestion(DJConnectAskDJIdleSuggestionRequest(
                 identity: identity,
-                command: "ask_dj_history_state",
-                value: .object(["memory_key": askDJMemoryKey])
+                clientMessageID: UUID().uuidString,
+                djStyle: "warm_radio_dj",
+                memoryKey: askDJMemoryKey
             ))
-            guard response.success else {
-                throw DJConnectError.backendUnavailable(message: response.error ?? response.message)
-            }
-            return response.askDJClearRequired == true
         }
     }
 
@@ -2622,6 +2655,8 @@ public final class DJConnectAppModel: ObservableObject {
     private func appendAskDJMessage(
         role: DJConnectAskDJMessageRole,
         text: String,
+        serverID: String? = nil,
+        clientMessageID: String? = nil,
         images: [DJConnectResponseImage] = [],
         links: [DJConnectResponseLink] = [],
         playbackActions: [DJConnectAskDJPlaybackAction] = [],
@@ -2633,6 +2668,8 @@ public final class DJConnectAppModel: ObservableObject {
             return nil
         }
         let message = DJConnectAskDJMessage(
+            serverID: serverID,
+            clientMessageID: clientMessageID,
             role: role,
             text: trimmed,
             images: images,
@@ -2652,6 +2689,124 @@ public final class DJConnectAppModel: ObservableObject {
         }
         askDJMessages[index].status = status
         saveAskDJMessages()
+    }
+
+    private func syncAskDJHistory(showErrors: Bool) async {
+        guard canUsePlaybackFeatures else {
+            return
+        }
+        do {
+            let response = try await fetchAskDJHistory(sinceRevision: nil)
+            applyAskDJHistory(response)
+            log(.debug, "Ask DJ history synced to revision \(response.historyRevision)")
+        } catch let error as DJConnectError {
+            if showErrors {
+                askDJErrorMessage = Self.describe(error)
+                showAskDJToast(for: error)
+            }
+            log(.warning, "Ask DJ history sync failed: \(Self.describe(error))")
+        } catch {
+            if showErrors {
+                askDJErrorMessage = error.localizedDescription
+                showAskDJToast(localized(english: "Ask DJ is unreachable", dutch: "Ask DJ niet bereikbaar"))
+            }
+            log(.error, "Ask DJ history sync failed unexpectedly: \(error.localizedDescription)")
+        }
+    }
+
+    private func requestAskDJIdleSuggestionIfNeeded() async {
+        guard canUsePlaybackFeatures,
+              !hasRequestedAskDJIdleSuggestion,
+              !isRequestingAskDJIdleSuggestion,
+              !hasActiveNowPlaying else {
+            return
+        }
+        hasRequestedAskDJIdleSuggestion = true
+        isRequestingAskDJIdleSuggestion = true
+        defer { isRequestingAskDJIdleSuggestion = false }
+        do {
+            let response = try await requestAskDJIdleSuggestion()
+            applyAskDJMessageResponse(response, fallbackUserMessageID: nil)
+            log(.info, "Ask DJ idle suggestion loaded")
+        } catch let error as DJConnectError {
+            log(.warning, "Ask DJ idle suggestion failed: \(Self.describe(error))")
+        } catch {
+            log(.debug, "Ask DJ idle suggestion failed unexpectedly: \(error.localizedDescription)")
+        }
+    }
+
+    private func applyAskDJMessageResponse(_ response: DJConnectAskDJMessageResponse, fallbackUserMessageID: UUID?) {
+        var nextMessages = askDJMessages
+        if let userMessage = response.userMessage {
+            upsertAskDJHistoryMessage(userMessage, into: &nextMessages, fallbackID: fallbackUserMessageID)
+        } else if let fallbackUserMessageID {
+            updateAskDJMessageStatus(id: fallbackUserMessageID, status: .sent)
+        }
+        if let assistantMessage = response.assistantMessage {
+            upsertAskDJHistoryMessage(assistantMessage, into: &nextMessages, fallbackID: nil)
+        }
+        askDJMessages = nextMessages.sorted { $0.createdAt < $1.createdAt }
+        persistAskDJRevisions(historyRevision: response.historyRevision, clearRevision: response.clearRevision)
+        saveAskDJMessages()
+    }
+
+    private func applyAskDJHistory(_ response: DJConnectAskDJHistoryResponse) {
+        let localClearRevision = defaults.integer(forKey: askDJClearRevisionKey)
+        if response.clearRevision > localClearRevision {
+            askDJMessages = []
+        }
+        var nextMessages = askDJMessages.filter { $0.status == .sending || $0.status == .failed }
+        for message in response.messages {
+            upsertAskDJHistoryMessage(message, into: &nextMessages, fallbackID: nil)
+        }
+        askDJMessages = nextMessages.sorted { $0.createdAt < $1.createdAt }
+        persistAskDJRevisions(historyRevision: response.historyRevision, clearRevision: response.clearRevision)
+        saveAskDJMessages()
+    }
+
+    private func upsertAskDJHistoryMessage(
+        _ historyMessage: DJConnectAskDJHistoryMessage,
+        into messages: inout [DJConnectAskDJMessage],
+        fallbackID: UUID?
+    ) {
+        let existingIndex = messages.firstIndex { localMessage in
+            localMessage.serverID == historyMessage.id
+                || (historyMessage.clientMessageID != nil && localMessage.clientMessageID == historyMessage.clientMessageID)
+        }
+        let existing = existingIndex.map { messages[$0] }
+        let mapped = makeAskDJMessage(from: historyMessage, existing: existing, fallbackID: fallbackID)
+        if let existingIndex {
+            messages[existingIndex] = mapped
+        } else {
+            messages.append(mapped)
+        }
+    }
+
+    private func makeAskDJMessage(
+        from historyMessage: DJConnectAskDJHistoryMessage,
+        existing: DJConnectAskDJMessage?,
+        fallbackID: UUID?
+    ) -> DJConnectAskDJMessage {
+        let role: DJConnectAskDJMessageRole = historyMessage.role == .user ? .user : .dj
+        let status: DJConnectAskDJMessageStatus? = role == .user ? .sent : nil
+        return DJConnectAskDJMessage(
+            id: existing?.id ?? fallbackID ?? UUID(uuidString: historyMessage.id) ?? UUID(),
+            serverID: historyMessage.id,
+            clientMessageID: historyMessage.clientMessageID,
+            role: role,
+            text: historyMessage.text,
+            images: proxiedResponseImages(historyMessage.images),
+            links: safeResponseLinks(historyMessage.links),
+            playbackActions: historyMessage.playbackActions,
+            audioURL: resolvedAudioURL(from: historyMessage.audioURL),
+            status: status,
+            createdAt: historyMessage.createdAt
+        )
+    }
+
+    private func persistAskDJRevisions(historyRevision: Int, clearRevision: Int) {
+        defaults.set(historyRevision, forKey: askDJHistoryRevisionKey)
+        defaults.set(clearRevision, forKey: askDJClearRevisionKey)
     }
 
     private func proxiedResponseImages(_ images: [DJConnectResponseImage]?) -> [DJConnectResponseImage] {
@@ -2711,6 +2866,8 @@ public final class DJConnectAppModel: ObservableObject {
     private func clearAskDJHistoryLocally() {
         askDJMessages = []
         defaults.removeObject(forKey: askDJMessagesKey)
+        defaults.removeObject(forKey: askDJHistoryRevisionKey)
+        defaults.removeObject(forKey: askDJClearRevisionKey)
     }
 
     private func saveAskDJMessages() {
@@ -3345,8 +3502,8 @@ public final class DJConnectAppModel: ObservableObject {
                         deviceID: "djconnect-macos-unavailable",
                         deviceName: "DJConnect",
                         clientType: .macos,
-                        firmware: "3.1.35",
-                        appVersion: "3.1.35",
+                        firmware: "3.1.36",
+                        appVersion: "3.1.36",
                         platform: .macos
                     ),
                     pairingToken: "",

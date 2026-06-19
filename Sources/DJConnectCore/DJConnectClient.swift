@@ -56,6 +56,26 @@ public final class DJConnectClient: Sendable {
         return try await decodedResponse(for: request)
     }
 
+    public func sendAskDJMessage(_ payload: DJConnectAskDJRequest) async throws -> DJConnectAskDJMessageResponse {
+        let request = try askDJMessageRequest(payload)
+        return try await decodedResponse(for: request)
+    }
+
+    public func askDJHistory(sinceRevision: Int? = nil) async throws -> DJConnectAskDJHistoryResponse {
+        let request = try askDJHistoryRequest(sinceRevision: sinceRevision)
+        return try await decodedResponse(for: request)
+    }
+
+    public func clearAskDJHistory(memoryKey: String? = nil) async throws -> DJConnectAskDJHistoryResponse {
+        let request = try clearAskDJHistoryRequest(memoryKey: memoryKey)
+        return try await decodedResponse(for: request)
+    }
+
+    public func askDJIdleSuggestion(_ payload: DJConnectAskDJIdleSuggestionRequest) async throws -> DJConnectAskDJMessageResponse {
+        let request = try askDJIdleSuggestionRequest(payload)
+        return try await decodedResponse(for: request)
+    }
+
     public func sendVoice(
         wavData: Data,
         mood: Int? = nil,
@@ -86,6 +106,35 @@ public final class DJConnectClient: Sendable {
 
     public func askDJRequest(_ payload: DJConnectAskDJRequest) throws -> URLRequest {
         try jsonRequest(path: "/api/djconnect/ask", payload: payload)
+    }
+
+    public func askDJMessageRequest(_ payload: DJConnectAskDJRequest) throws -> URLRequest {
+        try jsonRequest(path: "/api/djconnect/ask_dj/message", payload: payload)
+    }
+
+    public func askDJHistoryRequest(sinceRevision: Int? = nil) throws -> URLRequest {
+        var components = URLComponents(url: endpoint(path: "/api/djconnect/ask_dj/history"), resolvingAgainstBaseURL: false)
+        if let sinceRevision {
+            components?.queryItems = [URLQueryItem(name: "since_revision", value: "\(sinceRevision)")]
+        }
+        guard let url = components?.url else {
+            throw DJConnectError.invalidConfiguration("Invalid Ask DJ history endpoint")
+        }
+        var request = try authenticatedRequest(url: url)
+        request.httpMethod = "GET"
+        return request
+    }
+
+    public func clearAskDJHistoryRequest(memoryKey: String? = nil) throws -> URLRequest {
+        var request = try authenticatedRequest(path: "/api/djconnect/ask_dj/history/clear")
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try encoder.encode(DJConnectAskDJClearHistoryRequest(identity: identity, memoryKey: memoryKey))
+        return request
+    }
+
+    public func askDJIdleSuggestionRequest(_ payload: DJConnectAskDJIdleSuggestionRequest) throws -> URLRequest {
+        try jsonRequest(path: "/api/djconnect/ask_dj/idle_suggestion", payload: payload)
     }
 
     public func voiceRequest(
@@ -218,11 +267,15 @@ public final class DJConnectClient: Sendable {
     }
 
     private func authenticatedRequest(path: String) throws -> URLRequest {
+        try authenticatedRequest(url: endpoint(path: path))
+    }
+
+    private func authenticatedRequest(url: URL) throws -> URLRequest {
         guard let token = try tokenStore.loadToken(), !token.isEmpty else {
             throw DJConnectError.missingToken
         }
 
-        var request = URLRequest(url: endpoint(path: path))
+        var request = URLRequest(url: url)
         request.timeoutInterval = 10
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         request.setValue(identity.deviceID, forHTTPHeaderField: "X-DJConnect-Device-ID")

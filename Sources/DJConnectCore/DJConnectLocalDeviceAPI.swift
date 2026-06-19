@@ -1,6 +1,8 @@
-import DJConnectCore
 import Darwin
 import Foundation
+#if os(watchOS)
+import Network
+#endif
 
 public struct DJConnectLocalDeviceAPIInfo: Sendable {
     public var identity: DJConnectIdentity
@@ -213,7 +215,11 @@ public final class DJConnectLocalDeviceAPI: @unchecked Sendable {
     private let queue = DispatchQueue(label: "dev.djconnect.local-device-api")
     private var listenSocket: Int32 = -1
     private var activeConnections: Set<Int32> = []
+    #if os(watchOS)
+    private var networkListener: NWListener?
+    #else
     private var bonjourService: NetService?
+    #endif
     private var port: UInt16?
     private var localURL: String?
     private var isBonjourAdvertisingEnabled: Bool
@@ -247,6 +253,10 @@ public final class DJConnectLocalDeviceAPI: @unchecked Sendable {
             return
         }
 
+        #if os(watchOS)
+        Task { await startNetworkListener() }
+        return
+        #else
         let socketFD = socket(AF_INET, SOCK_STREAM, 0)
         guard socketFD >= 0 else {
             Task { await logHandler("Local device API could not create socket: errno \(errno)") }
@@ -294,9 +304,19 @@ public final class DJConnectLocalDeviceAPI: @unchecked Sendable {
         queue.async { [weak self] in
             self?.acceptLoop(socketFD: socketFD)
         }
+        #endif
     }
 
     public func stop() {
+        #if os(watchOS)
+        networkListener?.cancel()
+        networkListener = nil
+        listenSocket = -1
+        port = nil
+        localURL = nil
+        Task { await urlHandler(nil) }
+        return
+        #else
         let socketFD = listenSocket
         listenSocket = -1
         port = nil
@@ -312,6 +332,7 @@ public final class DJConnectLocalDeviceAPI: @unchecked Sendable {
         }
         localURL = nil
         Task { await urlHandler(nil) }
+        #endif
     }
 
     public func setBonjourAdvertisingEnabled(_ enabled: Bool) {
@@ -351,13 +372,30 @@ public final class DJConnectLocalDeviceAPI: @unchecked Sendable {
     private func publishBonjourService(for info: DJConnectLocalDeviceAPIInfo) {
         guard let port else { return }
         let advertisedLocalURL = info.localURL ?? localURL ?? ""
-        let txtRecord = [
+        let txtRecord = Self.bonjourTXTRecord(for: info, localURL: advertisedLocalURL)
+        #if os(watchOS)
+        networkListener?.service = NWListener.Service(
+            name: info.identity.deviceID,
+            type: "_djconnect._tcp",
+            txtRecord: NWTXTRecord(txtRecord.mapValues { String(decoding: $0, as: UTF8.self) })
+        )
+        #else
+        stopBonjourService()
+        let service = NetService(domain: "local.", type: "_djconnect._tcp.", name: info.identity.deviceID, port: Int32(port))
+        service.setTXTRecord(NetService.data(fromTXTRecord: txtRecord))
+        service.publish()
+        bonjourService = service
+        #endif
+    }
+
+    private static func bonjourTXTRecord(for info: DJConnectLocalDeviceAPIInfo, localURL: String) -> [String: Data] {
+        [
             "name": info.identity.deviceName,
             "device_id": info.identity.deviceID,
             "version": info.identity.firmware,
             "app_version": info.identity.appVersion ?? info.identity.firmware,
             "paired": info.pairingStatus == .paired ? "true" : "false",
-            "local_url": advertisedLocalURL,
+            "local_url": localURL,
             "pair_code": info.pairingToken,
             "api": "device",
             "path": "/api/device/info",
@@ -367,17 +405,99 @@ public final class DJConnectLocalDeviceAPI: @unchecked Sendable {
             "platform": info.identity.platform.rawValue,
             "client_type": info.identity.clientType.rawValue
         ].mapValues { Data($0.utf8) }
-        stopBonjourService()
-        let service = NetService(domain: "local.", type: "_djconnect._tcp.", name: info.identity.deviceID, port: Int32(port))
-        service.setTXTRecord(NetService.data(fromTXTRecord: txtRecord))
-        service.publish()
-        bonjourService = service
     }
 
     private func stopBonjourService() {
+        #if os(watchOS)
+        networkListener?.service = nil
+        #else
         bonjourService?.stop()
         bonjourService = nil
+        #endif
     }
+
+    #if os(watchOS)
+    private func startNetworkListener() async {
+        guard networkListener == nil else {
+            return
+        }
+        do {
+            let info = await infoProvider()
+            let listenerPort = NWEndpoint.Port(rawValue: preferredPort ?? 0) ?? .any
+            let listener = try NWListener(using: .tcp, on: listenerPort)
+            listener.newConnectionHandler = { [weak self] connection in
+                self?.handleNetworkConnection(connection)
+            }
+            listener.stateUpdateHandler = { [weak self] state in
+                guard let self else { return }
+                switch state {
+                case .ready:
+                    guard let port = listener.port else {
+                        Task { await self.logHandler("Local device API listener ready without a port") }
+                        return
+                    }
+                    self.listenSocket = 0
+                    self.port = UInt16(port.rawValue)
+                    let host = Self.localIPv4Address() ?? "\(info.identity.deviceID).local"
+                    let readyURL = "http://\(host):\(port.rawValue)"
+                    self.localURL = readyURL
+                    if self.isBonjourAdvertisingEnabled {
+                        self.publishBonjourService(for: info)
+                    }
+                    Task {
+                        await self.urlHandler(readyURL)
+                        await self.logHandler("Local device API started at \(readyURL)")
+                    }
+                case let .failed(error):
+                    Task { await self.logHandler("Local device API listener failed: \(error.localizedDescription)") }
+                case .cancelled:
+                    self.listenSocket = -1
+                    self.port = nil
+                    self.localURL = nil
+                    Task { await self.urlHandler(nil) }
+                default:
+                    break
+                }
+            }
+            networkListener = listener
+            listener.start(queue: queue)
+        } catch {
+            await logHandler("Local device API could not start Network listener: \(error.localizedDescription)")
+        }
+    }
+
+    private func handleNetworkConnection(_ connection: NWConnection) {
+        connection.start(queue: queue)
+        receiveNetworkRequest(from: connection, buffer: Data())
+    }
+
+    private func receiveNetworkRequest(from connection: NWConnection, buffer: Data) {
+        connection.receive(minimumIncompleteLength: 1, maximumLength: 16_384) { [weak self] data, _, isComplete, error in
+            guard let self else {
+                connection.cancel()
+                return
+            }
+            var nextBuffer = buffer
+            if let data, !data.isEmpty {
+                nextBuffer.append(data)
+                if let request = Self.parseRequest(nextBuffer) {
+                    Task {
+                        let response = await self.route(request, remote: "network-framework")
+                        connection.send(content: response, completion: .contentProcessed { _ in
+                            connection.cancel()
+                        })
+                    }
+                    return
+                }
+            }
+            if isComplete || error != nil {
+                connection.cancel()
+                return
+            }
+            self.receiveNetworkRequest(from: connection, buffer: nextBuffer)
+        }
+    }
+    #endif
 
     private static func localIPv4Address() -> String? {
         var interfaces: UnsafeMutablePointer<ifaddrs>?
