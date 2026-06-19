@@ -333,23 +333,307 @@ public struct DJConnectCommandPayload: Codable, Equatable, Sendable {
 }
 
 public struct DJConnectAskDJRequest: Codable, Equatable, Sendable {
+    public enum AudioResponse: String, Codable, Equatable, Sendable {
+        case auto
+        case always
+        case never
+    }
+
     public var deviceID: String
     public var clientType: DJConnectClientType
+    public var clientMessageID: String?
     public var text: String
+    public var inputType: String?
+    public var mood: Int?
+    public var djStyle: String?
+    public var memoryKey: String?
+    public var audioResponse: AudioResponse?
+
+    public init(
+        identity: DJConnectIdentity,
+        text: String,
+        clientMessageID: String? = nil,
+        inputType: String? = nil,
+        mood: Int? = nil,
+        djStyle: String? = nil,
+        memoryKey: String? = nil,
+        audioResponse: AudioResponse? = nil
+    ) {
+        self.deviceID = identity.deviceID
+        self.clientType = identity.clientType
+        self.clientMessageID = clientMessageID
+        self.text = text
+        self.inputType = inputType
+        self.mood = mood.map { max(0, min(100, $0)) }
+        self.djStyle = djStyle
+        self.memoryKey = memoryKey
+        self.audioResponse = audioResponse
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case deviceID = "device_id"
+        case clientType = "client_type"
+        case clientMessageID = "client_message_id"
+        case text
+        case inputType = "input_type"
+        case mood
+        case djStyle = "dj_style"
+        case memoryKey = "memory_key"
+        case audioResponse = "audio_response"
+    }
+}
+
+public enum DJConnectAskDJHistoryRole: String, Codable, Equatable, Sendable {
+    case user
+    case assistant
+    case dj
+}
+
+public struct DJConnectAskDJHistoryMessage: Codable, Equatable, Identifiable, Sendable {
+    public var id: String
+    public var clientMessageID: String?
+    public var role: DJConnectAskDJHistoryRole
+    public var text: String
+    public var createdAt: Date
+    public var clientID: String?
+    public var clientType: DJConnectClientType?
+    public var status: String?
+    public var images: [DJConnectResponseImage]
+    public var links: [DJConnectResponseLink]
+    public var sources: [DJConnectResponseLink]
+    public var audioURL: URL?
+    public var playbackActions: [DJConnectAskDJPlaybackAction]
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case clientMessageID = "client_message_id"
+        case role
+        case text
+        case createdAt = "created_at"
+        case clientID = "client_id"
+        case clientType = "client_type"
+        case status
+        case images
+        case links
+        case sources
+        case audioURL = "audio_url"
+        case audioUrl
+        case playbackActions = "playback_actions"
+        case recommendationActions = "recommendation_actions"
+        case recommendations
+    }
+
+    public init(
+        id: String,
+        clientMessageID: String? = nil,
+        role: DJConnectAskDJHistoryRole,
+        text: String,
+        createdAt: Date,
+        clientID: String? = nil,
+        clientType: DJConnectClientType? = nil,
+        status: String? = nil,
+        images: [DJConnectResponseImage] = [],
+        links: [DJConnectResponseLink] = [],
+        sources: [DJConnectResponseLink] = [],
+        audioURL: URL? = nil,
+        playbackActions: [DJConnectAskDJPlaybackAction] = []
+    ) {
+        self.id = id
+        self.clientMessageID = clientMessageID
+        self.role = role
+        self.text = text
+        self.createdAt = createdAt
+        self.clientID = clientID
+        self.clientType = clientType
+        self.status = status
+        self.images = images
+        self.links = links
+        self.sources = sources
+        self.audioURL = audioURL
+        self.playbackActions = playbackActions
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decodeIfPresent(String.self, forKey: .id) ?? UUID().uuidString
+        clientMessageID = try container.decodeIfPresent(String.self, forKey: .clientMessageID)
+        role = try container.decodeIfPresent(DJConnectAskDJHistoryRole.self, forKey: .role) ?? .assistant
+        text = try container.decodeIfPresent(String.self, forKey: .text) ?? ""
+        createdAt = Self.decodeDate(container, key: .createdAt) ?? Date()
+        clientID = try container.decodeIfPresent(String.self, forKey: .clientID)
+        clientType = try container.decodeIfPresent(DJConnectClientType.self, forKey: .clientType)
+        status = try container.decodeIfPresent(String.self, forKey: .status)
+        images = container.decodeLossyArrayIfPresent(DJConnectResponseImage.self, forKey: .images) ?? []
+        let regularLinks = container.decodeLossyArrayIfPresent(DJConnectResponseLink.self, forKey: .links) ?? []
+        let sourceLinks = container.decodeLossyArrayIfPresent(DJConnectResponseLink.self, forKey: .sources) ?? []
+        links = regularLinks + sourceLinks
+        sources = sourceLinks
+        audioURL = try container.decodeIfPresent(URL.self, forKey: .audioURL)
+            ?? container.decodeIfPresentIgnoringErrors(URL.self, forKey: .audioUrl)
+        playbackActions = container.decodeLossyArrayIfPresent(DJConnectAskDJPlaybackAction.self, forKey: .playbackActions)
+            ?? container.decodeLossyArrayIfPresent(DJConnectAskDJPlaybackAction.self, forKey: .recommendationActions)
+            ?? container.decodeLossyArrayIfPresent(DJConnectAskDJPlaybackAction.self, forKey: .recommendations)
+            ?? []
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(id, forKey: .id)
+        try container.encodeIfPresent(clientMessageID, forKey: .clientMessageID)
+        try container.encode(role, forKey: .role)
+        try container.encode(text, forKey: .text)
+        try container.encode(createdAt, forKey: .createdAt)
+        try container.encodeIfPresent(clientID, forKey: .clientID)
+        try container.encodeIfPresent(clientType, forKey: .clientType)
+        try container.encodeIfPresent(status, forKey: .status)
+        try container.encode(images, forKey: .images)
+        try container.encode(links, forKey: .links)
+        try container.encode(sources, forKey: .sources)
+        try container.encodeIfPresent(audioURL, forKey: .audioURL)
+        try container.encode(playbackActions, forKey: .playbackActions)
+    }
+
+    private static func decodeDate<K: CodingKey>(_ container: KeyedDecodingContainer<K>, key: K) -> Date? {
+        if let date = try? container.decode(Date.self, forKey: key) {
+            return date
+        }
+        guard let value = try? container.decode(String.self, forKey: key) else {
+            return nil
+        }
+        let isoFormatter = ISO8601DateFormatter()
+        isoFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        if let date = isoFormatter.date(from: value) {
+            return date
+        }
+        isoFormatter.formatOptions = [.withInternetDateTime]
+        return isoFormatter.date(from: value)
+    }
+}
+
+public struct DJConnectAskDJHistoryResponse: Codable, Equatable, Sendable {
+    public var userID: String?
+    public var historyRevision: Int
+    public var clearRevision: Int
+    public var messages: [DJConnectAskDJHistoryMessage]
+    public var serverTime: Date?
+
+    enum CodingKeys: String, CodingKey {
+        case userID = "user_id"
+        case historyRevision = "history_revision"
+        case clearRevision = "clear_revision"
+        case messages
+        case serverTime = "server_time"
+    }
+
+    public init(userID: String? = nil, historyRevision: Int = 0, clearRevision: Int = 0, messages: [DJConnectAskDJHistoryMessage] = [], serverTime: Date? = nil) {
+        self.userID = userID
+        self.historyRevision = historyRevision
+        self.clearRevision = clearRevision
+        self.messages = messages
+        self.serverTime = serverTime
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        userID = try container.decodeIfPresent(String.self, forKey: .userID)
+        historyRevision = try container.decodeIfPresent(Int.self, forKey: .historyRevision) ?? 0
+        clearRevision = try container.decodeIfPresent(Int.self, forKey: .clearRevision) ?? 0
+        messages = try container.decodeIfPresent([DJConnectAskDJHistoryMessage].self, forKey: .messages) ?? []
+        serverTime = Self.decodeDate(container, key: .serverTime)
+    }
+
+    private static func decodeDate<K: CodingKey>(_ container: KeyedDecodingContainer<K>, key: K) -> Date? {
+        if let date = try? container.decode(Date.self, forKey: key) {
+            return date
+        }
+        guard let value = try? container.decode(String.self, forKey: key) else {
+            return nil
+        }
+        let isoFormatter = ISO8601DateFormatter()
+        isoFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        if let date = isoFormatter.date(from: value) {
+            return date
+        }
+        isoFormatter.formatOptions = [.withInternetDateTime]
+        return isoFormatter.date(from: value)
+    }
+}
+
+public struct DJConnectAskDJMessageResponse: Codable, Equatable, Sendable {
+    public var userMessage: DJConnectAskDJHistoryMessage?
+    public var assistantMessage: DJConnectAskDJHistoryMessage?
+    public var historyRevision: Int
+    public var clearRevision: Int
+    public var audioURL: URL?
+
+    enum CodingKeys: String, CodingKey {
+        case userMessage = "user_message"
+        case assistantMessage = "assistant_message"
+        case historyRevision = "history_revision"
+        case clearRevision = "clear_revision"
+        case audioURL = "audio_url"
+        case audioUrl
+        case responseAudioURL = "response_audio_url"
+        case responseAudioUrl
+    }
+
+    public init(
+        userMessage: DJConnectAskDJHistoryMessage? = nil,
+        assistantMessage: DJConnectAskDJHistoryMessage? = nil,
+        historyRevision: Int = 0,
+        clearRevision: Int = 0,
+        audioURL: URL? = nil
+    ) {
+        self.userMessage = userMessage
+        self.assistantMessage = assistantMessage
+        self.historyRevision = historyRevision
+        self.clearRevision = clearRevision
+        self.audioURL = audioURL
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        userMessage = try container.decodeIfPresent(DJConnectAskDJHistoryMessage.self, forKey: .userMessage)
+        assistantMessage = try container.decodeIfPresent(DJConnectAskDJHistoryMessage.self, forKey: .assistantMessage)
+        historyRevision = try container.decodeIfPresent(Int.self, forKey: .historyRevision) ?? 0
+        clearRevision = try container.decodeIfPresent(Int.self, forKey: .clearRevision) ?? 0
+        audioURL = try container.decodeIfPresent(URL.self, forKey: .audioURL)
+            ?? container.decodeIfPresentIgnoringErrors(URL.self, forKey: .audioUrl)
+            ?? container.decodeIfPresentIgnoringErrors(URL.self, forKey: .responseAudioURL)
+            ?? container.decodeIfPresentIgnoringErrors(URL.self, forKey: .responseAudioUrl)
+        if assistantMessage?.audioURL == nil, let audioURL {
+            assistantMessage?.audioURL = audioURL
+        }
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encodeIfPresent(userMessage, forKey: .userMessage)
+        try container.encodeIfPresent(assistantMessage, forKey: .assistantMessage)
+        try container.encode(historyRevision, forKey: .historyRevision)
+        try container.encode(clearRevision, forKey: .clearRevision)
+        try container.encodeIfPresent(audioURL, forKey: .audioURL)
+    }
+}
+
+public struct DJConnectAskDJIdleSuggestionRequest: Codable, Equatable, Sendable {
+    public var deviceID: String
+    public var clientType: DJConnectClientType
+    public var clientMessageID: String
     public var mood: Int?
     public var djStyle: String?
     public var memoryKey: String?
 
     public init(
         identity: DJConnectIdentity,
-        text: String,
+        clientMessageID: String,
         mood: Int? = nil,
         djStyle: String? = nil,
         memoryKey: String? = nil
     ) {
         self.deviceID = identity.deviceID
         self.clientType = identity.clientType
-        self.text = text
+        self.clientMessageID = clientMessageID
         self.mood = mood.map { max(0, min(100, $0)) }
         self.djStyle = djStyle
         self.memoryKey = memoryKey
@@ -358,7 +642,7 @@ public struct DJConnectAskDJRequest: Codable, Equatable, Sendable {
     enum CodingKeys: String, CodingKey {
         case deviceID = "device_id"
         case clientType = "client_type"
-        case text
+        case clientMessageID = "client_message_id"
         case mood
         case djStyle = "dj_style"
         case memoryKey = "memory_key"
