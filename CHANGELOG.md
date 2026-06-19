@@ -6,6 +6,9 @@ All notable changes to DJConnect App are documented here.
 
 ### Changed
 
+- Added Ask DJ support for backend-generated ambient/system messages, including
+  Spotify playback-context DJ facts with distinct chat styling across Apple
+  clients.
 - Changed the Ask DJ clear-history confirmation from a popover-style
   confirmation dialog to a standard modal alert with explicit cancel and
   destructive actions.

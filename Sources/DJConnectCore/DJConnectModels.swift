@@ -389,10 +389,17 @@ public enum DJConnectAskDJHistoryRole: String, Codable, Equatable, Sendable {
     case dj
 }
 
+public enum DJConnectAskDJMessageKind: String, Codable, Equatable, Sendable {
+    case assistant
+    case system
+}
+
 public struct DJConnectAskDJHistoryMessage: Codable, Equatable, Identifiable, Sendable {
     public var id: String
     public var clientMessageID: String?
     public var role: DJConnectAskDJHistoryRole
+    public var messageKind: DJConnectAskDJMessageKind
+    public var origin: String?
     public var text: String
     public var createdAt: Date
     public var clientID: String?
@@ -408,6 +415,8 @@ public struct DJConnectAskDJHistoryMessage: Codable, Equatable, Identifiable, Se
         case id
         case clientMessageID = "client_message_id"
         case role
+        case messageKind = "message_kind"
+        case origin
         case text
         case createdAt = "created_at"
         case clientID = "client_id"
@@ -427,6 +436,8 @@ public struct DJConnectAskDJHistoryMessage: Codable, Equatable, Identifiable, Se
         id: String,
         clientMessageID: String? = nil,
         role: DJConnectAskDJHistoryRole,
+        messageKind: DJConnectAskDJMessageKind = .assistant,
+        origin: String? = nil,
         text: String,
         createdAt: Date,
         clientID: String? = nil,
@@ -441,6 +452,8 @@ public struct DJConnectAskDJHistoryMessage: Codable, Equatable, Identifiable, Se
         self.id = id
         self.clientMessageID = clientMessageID
         self.role = role
+        self.messageKind = messageKind
+        self.origin = origin
         self.text = text
         self.createdAt = createdAt
         self.clientID = clientID
@@ -458,6 +471,8 @@ public struct DJConnectAskDJHistoryMessage: Codable, Equatable, Identifiable, Se
         id = try container.decodeIfPresent(String.self, forKey: .id) ?? UUID().uuidString
         clientMessageID = try container.decodeIfPresent(String.self, forKey: .clientMessageID)
         role = try container.decodeIfPresent(DJConnectAskDJHistoryRole.self, forKey: .role) ?? .assistant
+        messageKind = try container.decodeIfPresent(DJConnectAskDJMessageKind.self, forKey: .messageKind) ?? .assistant
+        origin = try container.decodeIfPresent(String.self, forKey: .origin)
         text = try container.decodeIfPresent(String.self, forKey: .text) ?? ""
         createdAt = Self.decodeDate(container, key: .createdAt) ?? Date()
         clientID = try container.decodeIfPresent(String.self, forKey: .clientID)
@@ -481,6 +496,8 @@ public struct DJConnectAskDJHistoryMessage: Codable, Equatable, Identifiable, Se
         try container.encode(id, forKey: .id)
         try container.encodeIfPresent(clientMessageID, forKey: .clientMessageID)
         try container.encode(role, forKey: .role)
+        try container.encode(messageKind, forKey: .messageKind)
+        try container.encodeIfPresent(origin, forKey: .origin)
         try container.encode(text, forKey: .text)
         try container.encode(createdAt, forKey: .createdAt)
         try container.encodeIfPresent(clientID, forKey: .clientID)

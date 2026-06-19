@@ -522,12 +522,25 @@ private struct DJConnectWatchAskDJBubble: View {
         message.role == .user
     }
 
+    private var isSystemMessage: Bool {
+        !isUser && message.messageKind == .system
+    }
+
     var body: some View {
         HStack {
             if isUser {
                 Spacer(minLength: 18)
             }
             VStack(alignment: .leading, spacing: 6) {
+                if isSystemMessage {
+                    HStack(spacing: 4) {
+                        Image(systemName: "sparkles")
+                        Text(message.origin == "spotify_playback_context" ? "DJ feitje" : "DJ notitie")
+                    }
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(.white.opacity(0.66))
+                    .lineLimit(1)
+                }
                 if !message.text.isEmpty {
                     Text(message.text)
                         .font(.caption)
@@ -590,6 +603,19 @@ private struct DJConnectWatchAskDJBubble: View {
                 if isUser {
                     RoundedRectangle(cornerRadius: 14, style: .continuous)
                         .fill(watchAccentBlue)
+                } else if isSystemMessage {
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .fill(
+                            LinearGradient(
+                                colors: [
+                                    watchAccentBlue.opacity(0.34),
+                                    watchAccentPurple.opacity(0.24),
+                                    .white.opacity(0.10)
+                                ],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
                 } else {
                     RoundedRectangle(cornerRadius: 14, style: .continuous)
                         .fill(

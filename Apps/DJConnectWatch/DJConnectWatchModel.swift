@@ -9,6 +9,21 @@ struct DJConnectWatchAskDJMessage: Identifiable, Codable, Equatable {
         case dj
     }
 
+    enum CodingKeys: String, CodingKey {
+        case id
+        case serverID
+        case clientMessageID
+        case role
+        case text
+        case images
+        case links
+        case playbackActions
+        case audioURL
+        case messageKind = "message_kind"
+        case origin
+        case createdAt
+    }
+
     var id: UUID
     var serverID: String?
     var clientMessageID: String?
@@ -18,6 +33,8 @@ struct DJConnectWatchAskDJMessage: Identifiable, Codable, Equatable {
     var links: [DJConnectResponseLink]
     var playbackActions: [DJConnectAskDJPlaybackAction]
     var audioURL: URL?
+    var messageKind: DJConnectAskDJMessageKind
+    var origin: String?
     var createdAt: Date
 
     init(
@@ -30,6 +47,8 @@ struct DJConnectWatchAskDJMessage: Identifiable, Codable, Equatable {
         links: [DJConnectResponseLink] = [],
         playbackActions: [DJConnectAskDJPlaybackAction] = [],
         audioURL: URL? = nil,
+        messageKind: DJConnectAskDJMessageKind = .assistant,
+        origin: String? = nil,
         createdAt: Date = Date()
     ) {
         self.id = id
@@ -41,7 +60,41 @@ struct DJConnectWatchAskDJMessage: Identifiable, Codable, Equatable {
         self.links = links
         self.playbackActions = playbackActions
         self.audioURL = audioURL
+        self.messageKind = messageKind
+        self.origin = origin
         self.createdAt = createdAt
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decodeIfPresent(UUID.self, forKey: .id) ?? UUID()
+        serverID = try container.decodeIfPresent(String.self, forKey: .serverID)
+        clientMessageID = try container.decodeIfPresent(String.self, forKey: .clientMessageID)
+        role = try container.decode(Role.self, forKey: .role)
+        text = try container.decode(String.self, forKey: .text)
+        images = try container.decodeIfPresent([DJConnectResponseImage].self, forKey: .images) ?? []
+        links = try container.decodeIfPresent([DJConnectResponseLink].self, forKey: .links) ?? []
+        playbackActions = try container.decodeIfPresent([DJConnectAskDJPlaybackAction].self, forKey: .playbackActions) ?? []
+        audioURL = try container.decodeIfPresent(URL.self, forKey: .audioURL)
+        messageKind = try container.decodeIfPresent(DJConnectAskDJMessageKind.self, forKey: .messageKind) ?? .assistant
+        origin = try container.decodeIfPresent(String.self, forKey: .origin)
+        createdAt = try container.decodeIfPresent(Date.self, forKey: .createdAt) ?? Date()
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(id, forKey: .id)
+        try container.encodeIfPresent(serverID, forKey: .serverID)
+        try container.encodeIfPresent(clientMessageID, forKey: .clientMessageID)
+        try container.encode(role, forKey: .role)
+        try container.encode(text, forKey: .text)
+        try container.encode(images, forKey: .images)
+        try container.encode(links, forKey: .links)
+        try container.encode(playbackActions, forKey: .playbackActions)
+        try container.encodeIfPresent(audioURL, forKey: .audioURL)
+        try container.encode(messageKind, forKey: .messageKind)
+        try container.encodeIfPresent(origin, forKey: .origin)
+        try container.encode(createdAt, forKey: .createdAt)
     }
 
 }
@@ -478,6 +531,8 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
             links: safeResponseLinks(historyMessage.links),
             playbackActions: historyMessage.playbackActions,
             audioURL: resolvedAudioURL(historyMessage.audioURL),
+            messageKind: historyMessage.role == .user ? .assistant : historyMessage.messageKind,
+            origin: historyMessage.role == .user ? nil : historyMessage.origin,
             createdAt: historyMessage.createdAt
         )
         if let existingIndex {

@@ -541,13 +541,63 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
     #expect(response.serverTime != nil)
     #expect(userMessage.clientMessageID == "client-message-1")
     #expect(userMessage.role == .user)
+    #expect(userMessage.messageKind == .assistant)
+    #expect(userMessage.origin == nil)
     #expect(userMessage.clientType == .ios)
     #expect(assistantMessage.role == .assistant)
+    #expect(assistantMessage.messageKind == .assistant)
+    #expect(assistantMessage.origin == nil)
     #expect(assistantMessage.images.count == 1)
     #expect(assistantMessage.links.count == 2)
     #expect(assistantMessage.sources.count == 1)
     #expect(assistantMessage.audioURL?.path == "/api/djconnect/audio/response-123.mp3")
     #expect(assistantMessage.playbackActions.first?.contextURI == "spotify:album:123")
+}
+
+@Test func askDJHistoryResponseDecodesSystemAmbientMessageWithoutUser() throws {
+    let json = """
+    {
+      "history_revision": 50,
+      "clear_revision": 8,
+      "messages": [
+        {
+          "id": "ambient-1",
+          "role": "assistant",
+          "message_kind": "system",
+          "origin": "spotify_playback_context",
+          "text": "Leuk feitje over OK Computer.",
+          "created_at": "2026-06-19T12:40:00Z",
+          "audio_url": null
+        }
+      ]
+    }
+    """.data(using: .utf8)!
+
+    let response = try JSONDecoder().decode(DJConnectAskDJHistoryResponse.self, from: json)
+    let message = try #require(response.messages.first)
+
+    #expect(response.historyRevision == 50)
+    #expect(response.clearRevision == 8)
+    #expect(message.role == .assistant)
+    #expect(message.messageKind == .system)
+    #expect(message.origin == "spotify_playback_context")
+    #expect(message.audioURL == nil)
+}
+
+@Test func askDJLocalMessageDefaultsMissingMessageKindToAssistant() throws {
+    let json = """
+    {
+      "role": "dj",
+      "text": "Normaal antwoord zonder expliciete message_kind."
+    }
+    """.data(using: .utf8)!
+
+    let message = try JSONDecoder().decode(DJConnectAskDJMessage.self, from: json)
+
+    #expect(message.role == .dj)
+    #expect(message.messageKind == .assistant)
+    #expect(message.origin == nil)
+    #expect(message.audioURL == nil)
 }
 
 @Test func askDJMessageResponseAcceptsInformationalTextWithoutAudioURL() throws {
@@ -569,6 +619,7 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
     #expect(response.historyRevision == 43)
     #expect(response.clearRevision == 7)
     #expect(response.audioURL == nil)
+    #expect(response.assistantMessage?.messageKind == .assistant)
     #expect(response.assistantMessage?.text == "M83 is een Franse elektronische band uit Antibes.")
     #expect(response.assistantMessage?.audioURL == nil)
 }

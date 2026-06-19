@@ -3122,6 +3122,20 @@ private struct AskDJMessageBubble: View {
         message.role == .user
     }
 
+    private var isSystemMessage: Bool {
+        !isUser && message.messageKind == .system
+    }
+
+    private var systemMessageLabel: String? {
+        guard isSystemMessage else {
+            return nil
+        }
+        if message.origin == "spotify_playback_context" {
+            return localized(language, "DJ fact", "DJ feitje")
+        }
+        return localized(language, "DJ note", "DJ notitie")
+    }
+
     private var promptText: String {
         message.text.trimmingCharacters(in: .whitespacesAndNewlines)
     }
@@ -3153,6 +3167,12 @@ private struct AskDJMessageBubble: View {
             }
             VStack(alignment: isUser ? .trailing : .leading, spacing: 4) {
                 VStack(alignment: .leading, spacing: 10) {
+                    if let systemMessageLabel {
+                        Label(systemMessageLabel, systemImage: "sparkles")
+                            .font(.caption2.weight(.semibold))
+                            .foregroundStyle(.white.opacity(0.66))
+                            .lineLimit(1)
+                    }
                     if !message.text.isEmpty {
                         if isVoiceRequestMessage {
                             HStack(spacing: 8) {
@@ -3198,7 +3218,7 @@ private struct AskDJMessageBubble: View {
                 }
                 .overlay {
                     RoundedRectangle(cornerRadius: 18, style: .continuous)
-                        .stroke(.white.opacity(isUser ? 0.12 : 0.18), lineWidth: 1)
+                        .stroke(.white.opacity(isUser ? 0.12 : isSystemMessage ? 0.14 : 0.18), lineWidth: 1)
                 }
                 HStack(spacing: 8) {
                     Text(messageMetadataText)
@@ -3265,6 +3285,19 @@ private struct AskDJMessageBubble: View {
         if isUser {
             RoundedRectangle(cornerRadius: 18, style: .continuous)
                 .fill(Color(red: 0.06, green: 0.43, blue: 1.00))
+        } else if isSystemMessage {
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .fill(
+                    LinearGradient(
+                        colors: [
+                            Color(red: 0.12, green: 0.45, blue: 1.00).opacity(0.34),
+                            Color(red: 0.47, green: 0.30, blue: 0.98).opacity(0.26),
+                            Color.white.opacity(0.10)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
         } else {
             RoundedRectangle(cornerRadius: 18, style: .continuous)
                 .fill(

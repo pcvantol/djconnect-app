@@ -111,6 +111,11 @@ public enum DJConnectAskDJMessageStatus: String, Codable, Equatable, Sendable {
     case failed
 }
 
+public enum DJConnectAskDJLocalMessageKind: String, Codable, Equatable, Sendable {
+    case assistant
+    case system
+}
+
 public enum DJConnectAskDJAudioPlaybackState: Equatable, Sendable {
     case idle
     case loading(URL)
@@ -122,6 +127,8 @@ public struct DJConnectAskDJMessage: Identifiable, Codable, Equatable, Sendable 
     public var serverID: String?
     public var clientMessageID: String?
     public var role: DJConnectAskDJMessageRole
+    public var messageKind: DJConnectAskDJLocalMessageKind
+    public var origin: String?
     public var text: String
     public var images: [DJConnectResponseImage]
     public var links: [DJConnectResponseLink]
@@ -135,6 +142,8 @@ public struct DJConnectAskDJMessage: Identifiable, Codable, Equatable, Sendable 
         serverID: String? = nil,
         clientMessageID: String? = nil,
         role: DJConnectAskDJMessageRole,
+        messageKind: DJConnectAskDJLocalMessageKind = .assistant,
+        origin: String? = nil,
         text: String,
         images: [DJConnectResponseImage] = [],
         links: [DJConnectResponseLink] = [],
@@ -147,6 +156,8 @@ public struct DJConnectAskDJMessage: Identifiable, Codable, Equatable, Sendable 
         self.serverID = serverID
         self.clientMessageID = clientMessageID
         self.role = role
+        self.messageKind = messageKind
+        self.origin = origin
         self.text = text
         self.images = images
         self.links = links
@@ -161,6 +172,8 @@ public struct DJConnectAskDJMessage: Identifiable, Codable, Equatable, Sendable 
         case serverID = "server_id"
         case clientMessageID = "client_message_id"
         case role
+        case messageKind = "message_kind"
+        case origin
         case text
         case images
         case links
@@ -176,6 +189,8 @@ public struct DJConnectAskDJMessage: Identifiable, Codable, Equatable, Sendable 
         serverID = try container.decodeIfPresent(String.self, forKey: .serverID)
         clientMessageID = try container.decodeIfPresent(String.self, forKey: .clientMessageID)
         role = try container.decode(DJConnectAskDJMessageRole.self, forKey: .role)
+        messageKind = try container.decodeIfPresent(DJConnectAskDJLocalMessageKind.self, forKey: .messageKind) ?? .assistant
+        origin = try container.decodeIfPresent(String.self, forKey: .origin)
         text = try container.decodeIfPresent(String.self, forKey: .text) ?? ""
         images = try container.decodeIfPresent([DJConnectResponseImage].self, forKey: .images) ?? []
         links = try container.decodeIfPresent([DJConnectResponseLink].self, forKey: .links) ?? []
@@ -191,6 +206,8 @@ public struct DJConnectAskDJMessage: Identifiable, Codable, Equatable, Sendable 
         try container.encodeIfPresent(serverID, forKey: .serverID)
         try container.encodeIfPresent(clientMessageID, forKey: .clientMessageID)
         try container.encode(role, forKey: .role)
+        try container.encode(messageKind, forKey: .messageKind)
+        try container.encodeIfPresent(origin, forKey: .origin)
         try container.encode(text, forKey: .text)
         try container.encode(images, forKey: .images)
         try container.encode(links, forKey: .links)
@@ -2694,6 +2711,8 @@ public final class DJConnectAppModel: ObservableObject {
         text: String,
         serverID: String? = nil,
         clientMessageID: String? = nil,
+        messageKind: DJConnectAskDJLocalMessageKind = .assistant,
+        origin: String? = nil,
         images: [DJConnectResponseImage] = [],
         links: [DJConnectResponseLink] = [],
         playbackActions: [DJConnectAskDJPlaybackAction] = [],
@@ -2708,6 +2727,8 @@ public final class DJConnectAppModel: ObservableObject {
             serverID: serverID,
             clientMessageID: clientMessageID,
             role: role,
+            messageKind: role == .user ? .assistant : messageKind,
+            origin: role == .user ? nil : origin,
             text: trimmed,
             images: images,
             links: links,
@@ -2834,11 +2855,14 @@ public final class DJConnectAppModel: ObservableObject {
     ) -> DJConnectAskDJMessage {
         let role: DJConnectAskDJMessageRole = historyMessage.role == .user ? .user : .dj
         let status: DJConnectAskDJMessageStatus? = role == .user ? .sent : nil
+        let messageKind: DJConnectAskDJLocalMessageKind = historyMessage.messageKind == .system ? .system : .assistant
         return DJConnectAskDJMessage(
             id: existing?.id ?? fallbackID ?? UUID(uuidString: historyMessage.id) ?? UUID(),
             serverID: historyMessage.id,
             clientMessageID: historyMessage.clientMessageID,
             role: role,
+            messageKind: role == .user ? .assistant : messageKind,
+            origin: role == .user ? nil : historyMessage.origin,
             text: historyMessage.text,
             images: proxiedResponseImages(historyMessage.images),
             links: safeResponseLinks(historyMessage.links),
