@@ -3188,12 +3188,14 @@ public final class DJConnectAppModel: ObservableObject {
             #endif
             let player = try AVAudioPlayer(data: data)
             player.prepareToPlay()
+            let duration = max(0, player.duration)
             responseAudioPlayer = player
             player.play()
             askDJAudioPlaybackState = .playing(audioURL)
-            let duration = max(0.2, player.duration)
+            log(.info, "Playing DJ response audio (\(data.count) bytes, \(String(format: "%.2f", duration))s)")
+            let fallbackDuration = max(2.0, duration + 2.0)
             responseAudioPlaybackTask = Task { @MainActor [weak self] in
-                try? await Task.sleep(for: .seconds(duration))
+                try? await Task.sleep(for: .seconds(fallbackDuration))
                 guard !Task.isCancelled else {
                     return
                 }
@@ -3201,9 +3203,9 @@ public final class DJConnectAppModel: ObservableObject {
                     self?.askDJAudioPlaybackState = .idle
                     self?.responseAudioPlayer = nil
                     self?.responseAudioPlaybackTask = nil
+                    self?.log(.info, "DJ response audio cleanup after expected duration")
                 }
             }
-            log(.info, "Playing DJ response audio")
         } catch {
             askDJAudioPlaybackState = .idle
             log(.warning, "DJ response audio could not be played: \(error.localizedDescription)")
