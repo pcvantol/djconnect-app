@@ -5,12 +5,23 @@ node_modules/
 .build/
 .xcode-derived/
 .xcode-derived*/
+.xcode-derived-screenshots/
 dist/
 build/
 .next/
 DerivedData/
 .release/
 .public-release/
+
+# Generated simulator screenshots
+screenshots/
+Screenshots/
+*-screenshot*.png
+*-screenshot*.jpg
+*-screenshot*.jpeg
+*Screenshot*.png
+*Screenshot*.jpg
+*Screenshot*.jpeg
 
 # Environment
 .env

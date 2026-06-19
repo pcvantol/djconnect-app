@@ -246,7 +246,10 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
         voiceEnabled: true,
         wakewordEnabled: true,
         wakewordPhrase: "Okay Nabu",
-        wakewordStatus: "listening"
+        wakewordStatus: "listening",
+        mood: 75,
+        djStyle: "warm_radio_dj",
+        memoryKey: "user:peter"
     )
 
     let request = try client.statusRequest(payload)
@@ -272,6 +275,9 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
     #expect(json?["wakeword_enabled"] as? Bool == true)
     #expect(json?["wakeword_phrase"] as? String == "Okay Nabu")
     #expect(json?["wakeword_status"] as? String == "listening")
+    #expect(json?["mood"] as? Int == 75)
+    #expect(json?["dj_style"] as? String == "warm_radio_dj")
+    #expect(json?["memory_key"] as? String == "user:peter")
 }
 
 @Test func commandRequestSupportsTypedValues() throws {
@@ -311,6 +317,152 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
     #expect(json?["command"] as? String == "set_volume")
     #expect(json?["value"] as? Int == 35)
     #expect(json?["play"] as? Bool == true)
+}
+
+@Test func askDJRequestUsesAskEndpointAndMemoryContext() throws {
+    let identity = DJConnectIdentity(
+        deviceID: "djconnect-ios-8F3A2C91B45D",
+        deviceName: "DJConnect iPhone",
+        clientType: .ios,
+        firmware: "3.1.7",
+        appVersion: "3.1.7",
+        platform: .ios
+    )
+    let client = DJConnectClient(
+        baseURL: try #require(URL(string: "http://homeassistant.local:8123")),
+        identity: identity,
+        tokenStore: DJConnectInMemoryTokenStore(token: "secret-token")
+    )
+
+    let request = try client.askDJRequest(DJConnectAskDJRequest(
+        identity: identity,
+        text: "Speel iets rustigers",
+        mood: 20,
+        djStyle: "warm_radio_dj",
+        memoryKey: "djconnect_ios_8F3A2C91B45D"
+    ))
+    let body = try #require(request.httpBody)
+    let json = try JSONSerialization.jsonObject(with: body) as? [String: Any]
+
+    #expect(request.url?.path == "/api/djconnect/ask")
+    #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer secret-token")
+    #expect(request.value(forHTTPHeaderField: "X-DJConnect-Device-ID") == identity.deviceID)
+    #expect(request.value(forHTTPHeaderField: "Content-Type") == "application/json")
+    #expect(json?["device_id"] as? String == identity.deviceID)
+    #expect(json?["client_type"] as? String == "ios")
+    #expect(json?["text"] as? String == "Speel iets rustigers")
+    #expect(json?["mood"] as? Int == 20)
+    #expect(json?["dj_style"] as? String == "warm_radio_dj")
+    #expect(json?["memory_key"] as? String == "djconnect_ios_8F3A2C91B45D")
+}
+
+@Test func askDJResponseDecodesImageAttachments() throws {
+    let json = """
+    {
+      "success": true,
+      "dj_text": "Dit zijn albums uit die periode.",
+      "audio_url": "http://homeassistant.local:8123/api/djconnect/audio/response-123.mp3",
+      "intent": "info",
+      "action": "none",
+      "images": [
+        {
+          "url": "http://homeassistant.local:8123/api/djconnect/image_proxy/album/123",
+          "thumbnail_url": "http://homeassistant.local:8123/api/djconnect/image_proxy/album/123/thumb",
+          "title": "Album Title",
+          "subtitle": "Artist Name",
+          "kind": "album_art",
+          "source": "spotify"
+        },
+        {
+          "url": "http://homeassistant.local:8123/api/djconnect/image_proxy/album/456",
+          "title": "Second Album",
+          "subtitle": "Artist Name",
+          "kind": "album_art",
+          "source": "spotify"
+        }
+      ],
+      "links": [
+        {
+          "url": "https://www.songkick.com/artists/123-artist",
+          "title": "Concert data",
+          "subtitle": "Bekijk komende concerten",
+          "kind": "concerts",
+          "source": "songkick"
+        },
+        {
+          "url": "https://www.discogs.com/artist/123",
+          "label": "Discografie",
+          "description": "Albums en releases"
+        }
+      ]
+    }
+    """.data(using: .utf8)!
+
+    let response = try JSONDecoder().decode(DJConnectAskDJResponse.self, from: json)
+
+    #expect(response.images?.count == 2)
+    #expect(response.audioURL?.path == "/api/djconnect/audio/response-123.mp3")
+    #expect(response.images?.first?.title == "Album Title")
+    #expect(response.images?.first?.kind == "album_art")
+    #expect(response.images?.first?.thumbnailURL?.path == "/api/djconnect/image_proxy/album/123/thumb")
+    #expect(response.images?.last?.title == "Second Album")
+    #expect(response.links?.count == 2)
+    #expect(response.links?.first?.title == "Concert data")
+    #expect(response.links?.first?.kind == "concerts")
+    #expect(response.links?.last?.title == "Discografie")
+    #expect(response.links?.last?.subtitle == "Albums en releases")
+}
+
+@Test func askDJResponseDecodesPlaybackActions() throws {
+    let json = """
+    {
+      "success": true,
+      "intent": "personal_music_recommendations",
+      "dj_text": "Deze passen goed bij je profiel.",
+      "playback_actions": [
+        {
+          "id": "spotify:track:123",
+          "title": "Track Title",
+          "subtitle": "Artist Name",
+          "uri": "spotify:track:123",
+          "context_uri": "spotify:album:456",
+          "offset_uri": "spotify:track:123",
+          "kind": "track",
+          "image_url": "http://homeassistant.local:8123/api/djconnect/image_proxy/album/456",
+          "reason": "Past bij je recente melodic house profiel."
+        }
+      ]
+    }
+    """.data(using: .utf8)!
+
+    let response = try JSONDecoder().decode(DJConnectAskDJResponse.self, from: json)
+    let action = try #require(response.playbackActions?.first)
+
+    #expect(response.playbackActions?.count == 1)
+    #expect(action.id == "spotify:track:123")
+    #expect(action.title == "Track Title")
+    #expect(action.subtitle == "Artist Name")
+    #expect(action.uri == "spotify:track:123")
+    #expect(action.contextURI == "spotify:album:456")
+    #expect(action.offsetURI == "spotify:track:123")
+    #expect(action.kind == "track")
+    #expect(action.imageURL?.path == "/api/djconnect/image_proxy/album/456")
+    #expect(action.reason == "Past bij je recente melodic house profiel.")
+}
+
+@Test func commandResponseDecodesAskDJClearFlagFromEnvelope() throws {
+    let json = """
+    {
+      "success": true,
+      "data": {
+        "ask_dj_clear_required": true
+      }
+    }
+    """.data(using: .utf8)!
+
+    let response = try JSONDecoder().decode(DJConnectCommandResponse.self, from: json)
+
+    #expect(response.askDJClearRequired == true)
 }
 
 @Test func playbackCommandRequestsUsePlaybackEndpointAndIdentity() throws {
@@ -624,6 +776,50 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
     #expect(response.queue?.count == 1)
     #expect(response.queue?.first?.uri == "spotify:track:next")
     #expect(response.queue?.first?.albumImageURL?.absoluteString == "https://example.test/queue.jpg")
+}
+
+@MainActor
+@Test func emptyBackendQueueClearsRenderedQueueItems() throws {
+    let suiteName = "DJConnectTests-\(UUID().uuidString)"
+    let defaults = try #require(UserDefaults(suiteName: suiteName))
+    defaults.removePersistentDomain(forName: suiteName)
+    let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startLocalAPI: false, startBackgroundTasks: false)
+
+    model.apply(commandResponse: DJConnectCommandResponse(
+        success: true,
+        queue: [DJConnectQueueItem(title: "Old queued track", uri: "spotify:track:old")]
+    ))
+    #expect(model.queueItems.count == 1)
+
+    model.apply(commandResponse: DJConnectCommandResponse(success: true, queue: []))
+
+    #expect(model.queueItems.isEmpty)
+    #expect(model.queue.isEmpty)
+}
+
+@MainActor
+@Test func repeatedBackendQueueItemsAreRenderedOnce() throws {
+    let suiteName = "DJConnectTests-\(UUID().uuidString)"
+    let defaults = try #require(UserDefaults(suiteName: suiteName))
+    defaults.removePersistentDomain(forName: suiteName)
+    let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startLocalAPI: false, startBackgroundTasks: false)
+    let repeatedItem = DJConnectQueueItem(
+        title: "Summer Of 69",
+        artist: "Bryan Adams",
+        album: "Reckless",
+        uri: "spotify:track:summer-of-69",
+        durationMS: 216_000,
+        albumImageURL: URL(string: "https://example.test/summer.jpg")
+    )
+
+    model.apply(commandResponse: DJConnectCommandResponse(
+        success: true,
+        queue: Array(repeating: repeatedItem, count: 8)
+    ))
+
+    #expect(model.queueItems.count == 1)
+    #expect(model.queueItems.first?.title == "Summer Of 69")
+    #expect(model.queue == ["Summer Of 69 - Bryan Adams"])
 }
 
 @MainActor
@@ -1168,6 +1364,27 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
     #expect(model.isAppInForegroundForTests)
 }
 
+@MainActor
+@Test func iOSLifecyclePausesLocalDeviceAPIInBackground() throws {
+    let suiteName = "DJConnectTests-\(UUID().uuidString)"
+    let defaults = try #require(UserDefaults(suiteName: suiteName))
+    defaults.removePersistentDomain(forName: suiteName)
+    let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startLocalAPI: true, startBackgroundTasks: false)
+    defer { model.stopLocalDeviceAPI() }
+
+    #expect(model.isLocalDeviceAPIRunningForTests)
+
+    model.markInactiveSession()
+    #if os(iOS)
+    #expect(!model.isLocalDeviceAPIRunningForTests)
+    #else
+    #expect(model.isLocalDeviceAPIRunningForTests)
+    #endif
+
+    model.markActiveSession()
+    #expect(model.isLocalDeviceAPIRunningForTests)
+}
+
 @Test func pairSuccessStoresReturnedBearerToken() async throws {
     let identity = DJConnectIdentity(
         deviceID: "djconnect-ios-8F3A2C91B45D",
@@ -1335,12 +1552,20 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
     )
     let wav = Data([0x52, 0x49, 0x46, 0x46])
 
-    let request = try client.voiceRequest(wavData: wav)
+    let request = try client.voiceRequest(
+        wavData: wav,
+        mood: 120,
+        djStyle: "warm_radio_dj",
+        memoryKey: "djconnect-watchos-8F3A2C91B45D"
+    )
 
     #expect(request.url?.path == "/api/djconnect/voice")
     #expect(request.value(forHTTPHeaderField: "Content-Type") == "audio/wav")
     #expect(request.value(forHTTPHeaderField: "X-DJConnect-Client-ID") == nil)
     #expect(request.value(forHTTPHeaderField: "X-DJConnect-Device-ID") == identity.deviceID)
+    #expect(request.value(forHTTPHeaderField: "X-DJConnect-Mood") == "100")
+    #expect(request.value(forHTTPHeaderField: "X-DJConnect-DJ-Style") == "warm_radio_dj")
+    #expect(request.value(forHTTPHeaderField: "X-DJConnect-Memory-Key") == "djconnect-watchos-8F3A2C91B45D")
     #expect(request.httpBody == wav)
 }
 

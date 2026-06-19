@@ -2,8 +2,8 @@
 
 DJConnect. Muziekbediening met karakter.
 
-This repository contains a native iOS/macOS DJConnect client scaffold that talks
-to the Home Assistant `djconnect` custom integration. Home Assistant stays the
+This repository contains native iOS, macOS, and watchOS DJConnect clients that
+talk to the Home Assistant `djconnect` custom integration. Home Assistant stays the
 trusted backend for pairing, DJConnect bearer-token lifecycle, Spotify OAuth,
 playback commands, Assist/STT/TTS, and native HA entities.
 
@@ -92,6 +92,7 @@ project.yml
 Apps/
   DJConnectIOS/
   DJConnectMac/
+  DJConnectWatch/
 docs/
 Sources/
   DJConnectCore/
@@ -105,7 +106,8 @@ Tests/
 
 `DJConnectCore` is intentionally UI-free. It handles:
 
-- stable client identity payloads with `client_type` set to `ios` or `macos`;
+- stable client identity payloads with `client_type` set to `ios`, `macos`, or
+  `watchos`;
 - authenticated Home Assistant requests;
 - status, command, and raw WAV voice request serialization;
 - playback and voice response decoding;
@@ -113,11 +115,15 @@ Tests/
   missing routes, and network failures;
 - token storage through a small abstraction ready for Keychain-backed apps.
 
-`DJConnectUI` contains the shared native SwiftUI screens used by both Apple app
-targets. `Apps/DJConnectIOS` and `Apps/DJConnectMac` contain the platform app
-entrypoints. The shared UI uses the same DJConnect blue/purple gradient canvas
-on iOS, iPadOS, and macOS, while platform surfaces keep native table/list
-behavior where that is the expected Apple idiom.
+`DJConnectUI` contains the shared native SwiftUI screens used by the iOS and
+macOS app targets. `Apps/DJConnectIOS`, `Apps/DJConnectMac`, and
+`Apps/DJConnectWatch` contain the platform app entrypoints. The Watch app is a
+standalone watchOS client with its own compact SwiftUI surface, Keychain token
+storage, Home Assistant pairing, playback controls, and push-to-talk voice
+upload through the `Ask DJ` action. The Watch also sends an `Ask DJ` mood value
+and DJ Memory key to Home Assistant so the backend can build shared DJ context
+across Watch, iOS, and macOS. Foreground wake phrase support may be added later,
+but the Watch target must not promise always-on background wakeword listening.
 
 ## Xcode
 
@@ -127,6 +133,7 @@ Schemes:
 
 - `DJConnectIOS`: native iOS app target.
 - `DJConnectMac`: native macOS app target.
+- `DJConnectWatch`: native standalone watchOS app target.
 
 The project is generated from [project.yml](project.yml) with XcodeGen:
 
@@ -139,11 +146,12 @@ Build checks used for this scaffold:
 ```sh
 xcodebuild -project DJConnectApp.xcodeproj -scheme DJConnectMac -destination platform=macOS -derivedDataPath .xcode-derived CODE_SIGNING_ALLOWED=NO build
 xcodebuild -project DJConnectApp.xcodeproj -scheme DJConnectIOS -destination generic/platform=iOS -derivedDataPath .xcode-derived CODE_SIGNING_ALLOWED=NO build
+xcodebuild -project DJConnectApp.xcodeproj -scheme DJConnectWatch -destination generic/platform=watchOS CODE_SIGNING_ALLOWED=NO build
 ```
 
 The latest verification was performed with Xcode 26.5 (`17F42`) against
-macOS 26.5 and iPhoneOS 26.5 SDKs, with code signing disabled for local build
-checks.
+macOS 26.5, iPhoneOS 26.5, and WatchOS 26.5 SDKs, with code signing disabled
+for local build checks.
 
 The public GitHub repository has secret scanning, push protection, Dependabot
 alerts/security updates, and branch protection enabled for `main`. Required
@@ -212,6 +220,14 @@ Spotify Web API calls for voice commands. Canonical examples from
 | --- | --- | --- | --- |
 | `current_track` | `Welk nummer draait er nu?`, `Welk nummer speelt er nu?`, `Wat draait er?`, `Wat speelt er?`, `Wat is dit?` | `What song is playing?`, `What track is playing now?`, `What's playing?`, `Which song is this?` | Upload voice audio; HA reads current playback state and returns a DJ response without starting playback. |
 | `playback_control` | `Stop muziek`, `Start muziek`, `Zet harder`, `Zet zachter`, `Volgende nummer`, `Vorig nummer` | `Stop music`, `Start music`, `Turn it up`, `Turn it down`, `Next song`, `Previous song` | Upload voice audio; HA maps the phrase to backend playback commands such as `pause`, `play`, `set_volume`, `next`, or `previous`. |
+| `favorite_current_track` | `Voeg dit nummer toe aan mijn favorieten`, `like dit nummer`, `sla deze track op` | `Add this song to my favorites`, `like this track`, `save this song` | HA likes/saves the current playback item and returns a DJ confirmation. |
+| `output_devices_info` / `current_output_info` | `Welke speakers zijn er?`, `Waarop wordt nu muziek gespeeld?`, `Op welke speaker speelt dit?` | `Which speakers are available?`, `Where is music playing now?`, `Which speaker is active?` | HA reads DJConnect output devices/current playback output and returns an informational DJ response without changing playback. |
+| `personalized_mood_playback` | `Ik voel me moe en geprikkeld, zet wat rustige muziek op die ik fijn vind`, `Doe iets ontspannends, ik ben overprikkeld` | `I am tired and overstimulated, play relaxing music I will enjoy`, `play something calming that I usually like` | HA combines the mood request with DJ Memory/user preferences and starts or queues a suitable playback context. |
+| `personal_music_profile_analysis` | `Omschrijf eens waar ik zoal naar luisterde de afgelopen maand`, `Wat zegt mijn muziek van de laatste twee weken over mijn stemming?` | `Describe what I have been listening to over the last month`, `what does my music from the last two weeks say about my mood?` | HA summarizes listening patterns, genres, moods, energy, artists, and taste shifts from DJ Memory for the requested period without changing playback. |
+| `personal_music_recommendations` | `Geef me muziek aanbevelingen op basis van mijn luisterprofiel`, `Wat zou ik nu leuk vinden om te luisteren?`, `Raad me iets nieuws aan dat past bij mijn smaak` | `Recommend music based on my listening profile`, `what should I listen to now?`, `recommend something new that fits my taste` | HA recommends concrete tracks, albums, artists, or playlists from DJ Memory and Spotify profile data without changing playback unless the user explicitly asks to play or queue them. |
+| `dj_announcement_request` | `Geef me een leuke aankondiging voor het volgende nummer`, `Doe een radio intro voor wat er nu speelt` | `Give me a fun announcement for the next song`, `do a radio-style intro for what is playing now` | HA generates DJ text and optional `audio_url` without changing playback. |
+| `track_context_info` | `Vertel iets over dit nummer`, `Wanneer kwam dit uit?`, `Waarom koos je dit nummer?`, `Heeft deze artiest concerten in Nederland?` | `Tell me about this song`, `what year was this released?`, `why did you choose this track?` | HA enriches current playback with release, genre, commentary, trivia, samples, concerts, releases, and musical connections without changing playback. |
+| `track_musical_analysis` | `Analyseer dit nummer muzikaal`, `Welke instrumenten hoor ik?`, `Hoe is dit nummer opgebouwd?`, `Welke trucjes gebruikt de producer hier?` | `Analyze this track musically`, `what instruments are used here?`, `how is this song structured?` | HA explains instrumentation, arrangement, groove, harmony, sound design, production, and mix details without changing playback, while avoiding unsupported exact audio-analysis claims. |
 
 The native app also uses command proxy flows for backend devices, queue,
 playlists, liked songs, and output selection:

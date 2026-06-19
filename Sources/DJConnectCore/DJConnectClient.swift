@@ -51,8 +51,18 @@ public final class DJConnectClient: Sendable {
         return try await decodedResponse(for: request)
     }
 
-    public func sendVoice(wavData: Data) async throws -> DJConnectVoiceResponse {
-        let request = try voiceRequest(wavData: wavData)
+    public func sendAskDJ(_ payload: DJConnectAskDJRequest) async throws -> DJConnectAskDJResponse {
+        let request = try askDJRequest(payload)
+        return try await decodedResponse(for: request)
+    }
+
+    public func sendVoice(
+        wavData: Data,
+        mood: Int? = nil,
+        djStyle: String? = nil,
+        memoryKey: String? = nil
+    ) async throws -> DJConnectVoiceResponse {
+        let request = try voiceRequest(wavData: wavData, mood: mood, djStyle: djStyle, memoryKey: memoryKey)
         return try await decodedResponse(for: request)
     }
 
@@ -74,10 +84,28 @@ public final class DJConnectClient: Sendable {
         try jsonRequest(path: "/api/djconnect/command", payload: payload)
     }
 
-    public func voiceRequest(wavData: Data) throws -> URLRequest {
+    public func askDJRequest(_ payload: DJConnectAskDJRequest) throws -> URLRequest {
+        try jsonRequest(path: "/api/djconnect/ask", payload: payload)
+    }
+
+    public func voiceRequest(
+        wavData: Data,
+        mood: Int? = nil,
+        djStyle: String? = nil,
+        memoryKey: String? = nil
+    ) throws -> URLRequest {
         var request = try authenticatedRequest(path: "/api/djconnect/voice")
         request.httpMethod = "POST"
         request.setValue("audio/wav", forHTTPHeaderField: "Content-Type")
+        if let mood {
+            request.setValue("\(max(0, min(100, mood)))", forHTTPHeaderField: "X-DJConnect-Mood")
+        }
+        if let djStyle, !djStyle.isEmpty {
+            request.setValue(djStyle, forHTTPHeaderField: "X-DJConnect-DJ-Style")
+        }
+        if let memoryKey, !memoryKey.isEmpty {
+            request.setValue(memoryKey, forHTTPHeaderField: "X-DJConnect-Memory-Key")
+        }
         request.httpBody = wavData
         return request
     }

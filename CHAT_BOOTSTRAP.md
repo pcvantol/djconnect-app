@@ -25,10 +25,10 @@ Context:
 - Secrets/tokens/wachtwoorden/private URLs mogen nooit in commits, logs, screenshots, diagnostics of test fixtures.
 
 Huidige status om te controleren:
-- Release `3.1.34` is de actuele source release met macOS local device API
-  pairing fixes, firewall/security-software troubleshooting en CI checknaam
-  alignment met branch protection op `main`.
-- De statische What's New release-notes voor `3.1.34` worden door de
+- Release `3.1.35` is de actuele source release met de native watchOS client,
+  Ask DJ chat op iOS/macOS/watchOS, rijke Ask DJ media/actions en backend
+  contracten voor DJ Memory, Spotify profieldata en Play Now aanbevelingen.
+- De statische What's New release-notes voor `3.1.35` worden door de
   `Public unsigned release` workflow gepubliceerd naar `pcvantol/djconnect-website`
   en `djconnect.dev`. Controleer de workflowstatus als release/publicatie
   geraakt wordt.
@@ -37,8 +37,8 @@ Huidige status om te controleren:
 - Check direct:
   - `git status --short --branch`
   - `gh run list --repo pcvantol/djconnect-app --limit 5`
-  - public release tags in `pcvantol/djconnect-app-releases` voor `ios/v3.1.34` en `macos/v3.1.34` indien release/publicatie geraakt wordt.
-  - `https://djconnect.dev/release-notes/ios/nl/v3.1.34.json` en het macOS
+  - public release tags in `pcvantol/djconnect-app-releases` voor `ios/v3.1.35` en `macos/v3.1.35` indien release/publicatie geraakt wordt.
+  - `https://djconnect.dev/release-notes/ios/nl/v3.1.35.json` en het macOS
     equivalent indien What's New release-notes geraakt worden.
 
 Werkstijl:
