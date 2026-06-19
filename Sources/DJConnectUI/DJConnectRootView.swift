@@ -3463,14 +3463,6 @@ private struct AskDJMessageBubble: View {
         }
         .frame(maxWidth: .infinity, alignment: isUser ? .trailing : .leading)
         .contentShape(Rectangle())
-        .simultaneousGesture(
-            LongPressGesture(minimumDuration: 0.35)
-                .onEnded { _ in
-                    if canSetPrompt {
-                        DJConnectHaptics.selection()
-                    }
-                }
-        )
         .contextMenu {
             if canSetPrompt {
                 Button {
