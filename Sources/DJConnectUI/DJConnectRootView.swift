@@ -2807,7 +2807,28 @@ private struct AskDJView: View {
     @State private var showingClearConfirmation = false
     @State private var selectedWebLink: DJConnectResponseLink?
     @State private var toast: String?
+    @State private var isSearchVisible = false
+    @State private var askDJSearchText = ""
+    @State private var selectedSearchResultIndex = 0
     @FocusState private var isInputFocused: Bool
+    @FocusState private var isSearchFocused: Bool
+
+    private var searchResultIDs: [UUID] {
+        let query = askDJSearchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !query.isEmpty else {
+            return []
+        }
+        return model.askDJMessages.compactMap { message in
+            message.text.localizedCaseInsensitiveContains(query) ? message.id : nil
+        }
+    }
+
+    private var activeSearchResultID: UUID? {
+        guard searchResultIDs.indices.contains(selectedSearchResultIndex) else {
+            return nil
+        }
+        return searchResultIDs[selectedSearchResultIndex]
+    }
 
     private var canSend: Bool {
         !model.askDJDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
@@ -2827,95 +2848,147 @@ private struct AskDJView: View {
         NavigationStack {
             VStack(spacing: 0) {
                 ScrollViewReader { proxy in
-                    ScrollView {
-                        LazyVStack(spacing: 12) {
-                            if model.isCheckingAskDJHistoryState {
-                                ProgressView()
-                                    .tint(.white)
-                                    .padding(.top, 56)
-                            } else if model.askDJMessages.isEmpty {
-                                AskDJEmptyState(
-                                    language: model.language,
-                                    isRequestingIdleSuggestion: model.isRequestingAskDJIdleSuggestion,
-                                    selectExample: { example in
-                                        model.askDJDraft = example
-                                        isInputFocused = true
-                                    }
-                                )
-                                .padding(.top, 48)
-                            } else {
-                                ForEach(model.askDJMessages) { message in
-                                    AskDJMessageBubble(
-                                        message: message,
+                    ZStack(alignment: .top) {
+                        ScrollView {
+                            LazyVStack(spacing: 12) {
+                                GeometryReader { geometry in
+                                    Color.clear
+                                        .preference(
+                                            key: AskDJSearchPullOffsetPreferenceKey.self,
+                                            value: geometry.frame(in: .named("askDJScroll")).minY
+                                        )
+                                }
+                                .frame(height: 1)
+
+                                if model.isCheckingAskDJHistoryState {
+                                    ProgressView()
+                                        .tint(.white)
+                                        .padding(.top, 56)
+                                } else if model.askDJMessages.isEmpty {
+                                    AskDJEmptyState(
                                         language: model.language,
-                                        isAudioLoading: model.isLoadingAskDJAudio(message.audioURL),
-                                        isAudioPlaying: model.isPlayingAskDJAudio(message.audioURL),
-                                        isRetryDisabled: model.isSendingAskDJText,
-                                        playingActionID: model.playingAskDJActionID,
-                                        retryAction: { model.retryAskDJMessage(message) },
-                                        playAction: { model.playAskDJRecommendation($0) },
-                                        audioAction: {
-                                            if model.isPlayingAskDJAudio(message.audioURL) {
-                                                model.stopAskDJAudio()
-                                            } else {
-                                                model.replayAskDJAudio(message.audioURL)
-                                            }
-                                        },
-                                        openLink: { selectedWebLink = $0 },
-                                        setPromptAction: { text in
-                                            model.askDJDraft = text
+                                        isRequestingIdleSuggestion: model.isRequestingAskDJIdleSuggestion,
+                                        selectExample: { example in
+                                            model.askDJDraft = example
                                             isInputFocused = true
                                         }
                                     )
-                                    .id(message.id)
+                                    .padding(.top, 48)
+                                } else {
+                                    ForEach(model.askDJMessages) { message in
+                                        AskDJMessageBubble(
+                                            message: message,
+                                            language: model.language,
+                                            isAudioLoading: model.isLoadingAskDJAudio(message.audioURL),
+                                            isAudioPlaying: model.isPlayingAskDJAudio(message.audioURL),
+                                            isRetryDisabled: model.isSendingAskDJText,
+                                            playingActionID: model.playingAskDJActionID,
+                                            isSearchResult: searchResultIDs.contains(message.id),
+                                            isActiveSearchResult: activeSearchResultID == message.id,
+                                            retryAction: { model.retryAskDJMessage(message) },
+                                            playAction: { model.playAskDJRecommendation($0) },
+                                            audioAction: {
+                                                if model.isPlayingAskDJAudio(message.audioURL) {
+                                                    model.stopAskDJAudio()
+                                                } else {
+                                                    model.replayAskDJAudio(message.audioURL)
+                                                }
+                                            },
+                                            openLink: { selectedWebLink = $0 },
+                                            setPromptAction: { text in
+                                                model.askDJDraft = text
+                                                isInputFocused = true
+                                            }
+                                        )
+                                        .id(message.id)
+                                    }
                                 }
                             }
-                        }
-                        .padding(.horizontal, djConnectScreenHorizontalPadding)
-                        .padding(.vertical, 16)
-                        .contentShape(Rectangle())
-                        .onTapGesture {
-                            isInputFocused = false
-                        }
-                    }
-                    .refreshable {
-                        isInputFocused = false
-                        await model.refreshAskDJHistory()
-                    }
-                    .scrollDismissesKeyboard(.interactively)
-                    .simultaneousGesture(
-                        DragGesture(minimumDistance: 8).onChanged { _ in
-                            isInputFocused = false
-                        }
-                    )
-                    .overlay(alignment: .bottomTrailing) {
-                        if model.askDJMessages.count > 8, let lastID = model.askDJMessages.last?.id {
-                            Button {
+                            .padding(.horizontal, djConnectScreenHorizontalPadding)
+                            .padding(.top, isSearchVisible ? 64 : 16)
+                            .padding(.bottom, 16)
+                            .contentShape(Rectangle())
+                            .onTapGesture {
                                 isInputFocused = false
-                                withAnimation(.easeOut(duration: 0.22)) {
-                                    proxy.scrollTo(lastID, anchor: .bottom)
-                                }
-                            } label: {
-                                Image(systemName: "arrow.down.circle.fill")
-                                    .font(.title2.weight(.semibold))
-                                    .foregroundStyle(.white)
-                                    .frame(width: 42, height: 42)
-                                    .background(Circle().fill(Color.black.opacity(0.34)))
-                                    .overlay(Circle().stroke(.white.opacity(0.18), lineWidth: 1))
+                                isSearchFocused = false
                             }
-                            .buttonStyle(.plain)
-                            .padding(.trailing, djConnectScreenHorizontalPadding)
-                            .padding(.bottom, 12)
-                            .help(localized(model.language, "Scroll to bottom", "Naar beneden"))
+                        }
+                        .coordinateSpace(name: "askDJScroll")
+                        .onPreferenceChange(AskDJSearchPullOffsetPreferenceKey.self) { offset in
+                            guard !isSearchVisible, !model.isCheckingAskDJHistoryState, offset > 26 else {
+                                return
+                            }
+                            withAnimation(.spring(response: 0.28, dampingFraction: 0.86)) {
+                                isSearchVisible = true
+                            }
+                            isInputFocused = false
+                            isSearchFocused = true
+                        }
+                        .refreshable {
+                            isInputFocused = false
+                            isSearchFocused = false
+                            await model.refreshAskDJHistory()
+                        }
+                        .scrollDismissesKeyboard(.interactively)
+                        .simultaneousGesture(
+                            DragGesture(minimumDistance: 8).onChanged { _ in
+                                isInputFocused = false
+                            }
+                        )
+                        .overlay(alignment: .bottomTrailing) {
+                            if model.askDJMessages.count > 8, let lastID = model.askDJMessages.last?.id {
+                                Button {
+                                    isInputFocused = false
+                                    isSearchFocused = false
+                                    withAnimation(.easeOut(duration: 0.22)) {
+                                        proxy.scrollTo(lastID, anchor: .bottom)
+                                    }
+                                } label: {
+                                    Image(systemName: "arrow.down.circle.fill")
+                                        .font(.title2.weight(.semibold))
+                                        .foregroundStyle(.white)
+                                        .frame(width: 42, height: 42)
+                                        .background(Circle().fill(Color.black.opacity(0.34)))
+                                        .overlay(Circle().stroke(.white.opacity(0.18), lineWidth: 1))
+                                }
+                                .buttonStyle(.plain)
+                                .padding(.trailing, djConnectScreenHorizontalPadding)
+                                .padding(.bottom, 12)
+                                .help(localized(model.language, "Scroll to bottom", "Naar beneden"))
+                            }
+                        }
+
+                        if isSearchVisible {
+                            AskDJSearchBar(
+                                language: model.language,
+                                text: $askDJSearchText,
+                                isFocused: $isSearchFocused,
+                                resultCount: searchResultIDs.count,
+                                selectedIndex: selectedSearchResultIndex,
+                                previousAction: { moveAskDJSearchSelection(by: -1, proxy: proxy) },
+                                nextAction: { moveAskDJSearchSelection(by: 1, proxy: proxy) },
+                                closeAction: { dismissAskDJSearch() }
+                            )
+                            .padding(.horizontal, djConnectScreenHorizontalPadding)
+                            .padding(.top, 10)
+                            .transition(.move(edge: .top).combined(with: .opacity))
                         }
                     }
                     .onChange(of: model.askDJMessages) {
+                        normalizeAskDJSearchSelection()
+                        guard !isSearchVisible else {
+                            return
+                        }
                         guard let lastID = model.askDJMessages.last?.id else {
                             return
                         }
                         withAnimation(.easeOut(duration: 0.22)) {
                             proxy.scrollTo(lastID, anchor: .bottom)
                         }
+                    }
+                    .onChange(of: askDJSearchText) {
+                        selectedSearchResultIndex = 0
+                        scrollToActiveAskDJSearchResult(proxy: proxy)
                     }
                 }
 
@@ -3006,6 +3079,42 @@ private struct AskDJView: View {
         }
     }
 
+    private func dismissAskDJSearch() {
+        withAnimation(.easeOut(duration: 0.18)) {
+            isSearchVisible = false
+        }
+        askDJSearchText = ""
+        selectedSearchResultIndex = 0
+        isSearchFocused = false
+    }
+
+    private func normalizeAskDJSearchSelection() {
+        guard !searchResultIDs.isEmpty else {
+            selectedSearchResultIndex = 0
+            return
+        }
+        selectedSearchResultIndex = min(max(selectedSearchResultIndex, 0), searchResultIDs.count - 1)
+    }
+
+    private func moveAskDJSearchSelection(by delta: Int, proxy: ScrollViewProxy) {
+        guard !searchResultIDs.isEmpty else {
+            return
+        }
+        let count = searchResultIDs.count
+        selectedSearchResultIndex = (selectedSearchResultIndex + delta + count) % count
+        scrollToActiveAskDJSearchResult(proxy: proxy)
+    }
+
+    private func scrollToActiveAskDJSearchResult(proxy: ScrollViewProxy) {
+        normalizeAskDJSearchSelection()
+        guard let activeSearchResultID else {
+            return
+        }
+        withAnimation(.easeOut(duration: 0.22)) {
+            proxy.scrollTo(activeSearchResultID, anchor: .center)
+        }
+    }
+
     private func showToast(_ text: String) {
         withAnimation(.easeOut(duration: 0.18)) {
             toast = text
@@ -3019,6 +3128,91 @@ private struct AskDJView: View {
                 toast = nil
             }
         }
+    }
+}
+
+private struct AskDJSearchPullOffsetPreferenceKey: PreferenceKey {
+    static let defaultValue: CGFloat = 0
+
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = max(value, nextValue())
+    }
+}
+
+private struct AskDJSearchBar: View {
+    let language: String
+    @Binding var text: String
+    var isFocused: FocusState<Bool>.Binding
+    let resultCount: Int
+    let selectedIndex: Int
+    let previousAction: () -> Void
+    let nextAction: () -> Void
+    let closeAction: () -> Void
+
+    var body: some View {
+        HStack(spacing: 9) {
+            Image(systemName: "magnifyingglass")
+                .font(.callout.weight(.semibold))
+                .foregroundStyle(.white.opacity(0.62))
+            TextField(localized(language, "Search Ask DJ", "Zoek in Ask DJ"), text: $text)
+                .textFieldStyle(.plain)
+                .foregroundStyle(.white)
+                .font(.callout.weight(.semibold))
+                .submitLabel(.search)
+                .focused(isFocused)
+            Text(resultLabel)
+                .font(.caption2.weight(.semibold))
+                .foregroundStyle(.white.opacity(0.54))
+                .frame(minWidth: 44, alignment: .trailing)
+            Button(action: previousAction) {
+                Image(systemName: "chevron.up")
+            }
+            .disabled(resultCount == 0)
+            .help(localized(language, "Previous result", "Vorig resultaat"))
+            Button(action: nextAction) {
+                Image(systemName: "chevron.down")
+            }
+            .disabled(resultCount == 0)
+            .help(localized(language, "Next result", "Volgend resultaat"))
+            Button(action: closeAction) {
+                Image(systemName: "xmark")
+            }
+            .help(localized(language, "Close search", "Zoeken sluiten"))
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(.white.opacity(0.86))
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .background {
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .fill(Color(red: 0.05, green: 0.05, blue: 0.13).opacity(0.82))
+        }
+        .overlay {
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .stroke(
+                    LinearGradient(
+                        colors: [
+                            Color(red: 0.08, green: 0.43, blue: 1.0).opacity(0.55),
+                            Color(red: 0.84, green: 0.22, blue: 0.96).opacity(0.45)
+                        ],
+                        startPoint: .leading,
+                        endPoint: .trailing
+                    ),
+                    lineWidth: 1
+                )
+        }
+        .shadow(color: .black.opacity(0.24), radius: 16, y: 8)
+    }
+
+    private var resultLabel: String {
+        let query = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !query.isEmpty else {
+            return ""
+        }
+        guard resultCount > 0 else {
+            return localized(language, "0", "0")
+        }
+        return "\(selectedIndex + 1)/\(resultCount)"
     }
 }
 
@@ -3136,6 +3330,8 @@ private struct AskDJMessageBubble: View {
     let isAudioPlaying: Bool
     let isRetryDisabled: Bool
     let playingActionID: String?
+    let isSearchResult: Bool
+    let isActiveSearchResult: Bool
     let retryAction: () -> Void
     let playAction: (DJConnectAskDJPlaybackAction) -> Void
     let audioAction: () -> Void
@@ -3242,7 +3438,7 @@ private struct AskDJMessageBubble: View {
                 }
                 .overlay {
                     RoundedRectangle(cornerRadius: 18, style: .continuous)
-                        .stroke(.white.opacity(isUser ? 0.12 : isSystemMessage ? 0.14 : 0.18), lineWidth: 1)
+                        .stroke(bubbleStrokeStyle, lineWidth: isActiveSearchResult ? 2 : 1)
                 }
                 HStack(spacing: 8) {
                     Text(messageMetadataText)
@@ -3302,6 +3498,23 @@ private struct AskDJMessageBubble: View {
             statusText = localized(language, "failed", "mislukt")
         }
         return "\(timestamp) · \(statusText)"
+    }
+
+    private var bubbleStrokeStyle: AnyShapeStyle {
+        if isActiveSearchResult {
+            AnyShapeStyle(LinearGradient(
+                colors: [
+                    Color.white.opacity(0.92),
+                    Color(red: 0.84, green: 0.22, blue: 0.96).opacity(0.92)
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            ))
+        } else if isSearchResult {
+            AnyShapeStyle(Color.white.opacity(0.36))
+        } else {
+            AnyShapeStyle(Color.white.opacity(isUser ? 0.12 : isSystemMessage ? 0.14 : 0.18))
+        }
     }
 
     @ViewBuilder
