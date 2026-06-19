@@ -52,6 +52,8 @@ with acceptance criteria live in [ISSUES.md](ISSUES.md).
   Assistant pairing and network flow fixture.
 - Add UI tests for compact permission rows, Demo Mode microphone response, and
   hardware-keyboard game input where XCTest can cover those surfaces reliably.
+- Add UI tests for Ask DJ search, bubble context menus, replay controls, and
+  server-synced system/retention messages once a mock HA fixture exists.
 - Add URLProtocol-backed async tests for network error and malformed response
   handling.
 - Add focused app-model tests for permission status mapping once platform
@@ -60,8 +62,8 @@ with acceptance criteria live in [ISSUES.md](ISSUES.md).
   auth recovery.
 - Add more diagnostics export tests for `audio_url`, `Authorization`, and
   arbitrary token-like JSON fields.
-- Add security hardening tests for local API request-size limits and app-storage
-  token reset behavior.
+- Add security hardening tests for local API request-size limits and deeper
+  app-storage token reset/re-pair behavior.
 - Add performance regression checks for refresh coalescing and repeated artwork
   URLs.
 

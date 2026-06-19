@@ -114,7 +114,7 @@ Acceptance:
 - UI tests cover first-run welcome, settings URL entry, app-generated pairing
   code, Client adres copy, Demo Mode entry/exit, successful pairing, version
   mismatch, stale auth, compact permission rows, Demo Mode microphone response,
-  and the local Games menu.
+  `App opnieuw koppelen`, Ask DJ error sanitizing, and the local Games menu.
 - Tests can run deterministically without a production Home Assistant instance.
 
 ### ISS-014: Add Hardware Keyboard UI Coverage For Games

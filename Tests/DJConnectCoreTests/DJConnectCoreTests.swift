@@ -1,5 +1,4 @@
 import Foundation
-import Security
 import Testing
 @testable import DJConnectCore
 @testable import DJConnectUI
@@ -72,6 +71,10 @@ private final class SequenceTokenStore: DJConnectTokenStore, @unchecked Sendable
     func clearToken() throws {}
 }
 
+private enum TokenStoreTestError: Error {
+    case denied
+}
+
 private func mockSession(
     host: String,
     handler: @escaping (URLRequest) throws -> (HTTPURLResponse, Data)
@@ -94,34 +97,29 @@ private func httpResponse(for request: URLRequest, statusCode: Int) throws -> HT
     return response
 }
 
-@Test func keychainTokenStoreUsesWhenUnlockedAccessibilityByDefault() throws {
-    let store = DJConnectKeychainTokenStore(service: "dev.djconnect.tests")
-    let tokenData = Data("secret-token".utf8)
-    let attributes = store.tokenAttributes(data: tokenData)
+@Test func userDefaultsTokenStorePersistsAndClearsToken() throws {
+    let suiteName = "DJConnectTests-\(UUID().uuidString)"
+    let defaults = try #require(UserDefaults(suiteName: suiteName))
+    defaults.removePersistentDomain(forName: suiteName)
+    let store = DJConnectUserDefaultsTokenStore(defaults: defaults, key: "DJConnectTestDeviceToken")
 
-    #expect(attributes[kSecValueData as String] as? Data == tokenData)
-    #expect(attributes[kSecAttrAccessControl as String] == nil)
-    #expect(attributes[kSecAttrAccessible as String] as? String == kSecAttrAccessibleWhenUnlockedThisDeviceOnly as String)
-}
+    #expect(try store.loadToken() == nil)
 
-@Test func keychainTokenStoreCanEnableUserPresenceWhenExplicitlyRequested() throws {
-    let store = DJConnectKeychainTokenStore(
-        service: "dev.djconnect.tests",
-        requiresUserPresence: true
-    )
-    let attributes = store.tokenAttributes(data: Data("secret-token".utf8))
+    try store.saveToken("secret-token")
+    #expect(defaults.string(forKey: "DJConnectTestDeviceToken") == "secret-token")
+    #expect(try store.loadToken() == "secret-token")
 
-    #expect(attributes[kSecAttrAccessControl as String] != nil)
-    #expect(attributes[kSecAttrAccessible as String] == nil)
+    try store.clearToken()
+    #expect(try store.loadToken() == nil)
 }
 
 @MainActor
-@Test func keychainAccessFailureShowsRecoverySheetAndRetryRestoresPairing() throws {
+@Test func tokenStorageFailureShowsPairingRecoveryWithoutKeychainPrompt() throws {
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
     let tokenStore = SequenceTokenStore(loadResults: [
-        .failure(DJConnectKeychainError.unhandledStatus(errSecUserCanceled)),
+        .failure(TokenStoreTestError.denied),
         .success("secret-token")
     ])
     let model = DJConnectAppModel(
@@ -131,13 +129,13 @@ private func httpResponse(for request: URLRequest, statusCode: Int) throws -> HT
         startBackgroundTasks: false
     )
 
-    #expect(model.isShowingKeychainAccessRequired == true)
+    #expect(model.isShowingTokenStorageError == true)
     #expect(model.shouldShowPairingScreen == false)
     #expect(model.canUsePlaybackFeatures == false)
 
-    model.retryKeychainAccess()
+    model.retryTokenStorageAccess()
 
-    #expect(model.isShowingKeychainAccessRequired == false)
+    #expect(model.isShowingTokenStorageError == false)
     #expect(model.pairingStatus == .paired)
     #expect(model.isConnected == true)
 }

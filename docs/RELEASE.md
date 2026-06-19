@@ -159,6 +159,11 @@ xcodebuild -project DJConnectApp.xcodeproj -scheme DJConnectIOS -configuration D
 - Validate playback commands, output switching, queue, playlists, liked songs,
   voice/PTT WAV upload, diagnostics export, version mismatch UI, and pairing
   reset recovery.
+- Validate `App opnieuw koppelen` clears the local token, generates a fresh app
+  code, reopens the pairing sheet, and makes the app discoverable/pairable
+  again.
+- Validate Ask DJ route/proxy/backend failures show only localized user-facing
+  messages and never raw HTML or response bodies.
 - Archive `DJConnectIOS` in Release configuration.
 - Upload through Xcode Organizer or Transporter.
 - Wait for App Store Connect processing.
@@ -688,7 +693,10 @@ For end-to-end UI tests, provide either:
   `/api/djconnect/voice`.
 
 The `DJConnectIOSUITests` target now launches the iOS app in deterministic
-`--uitesting` mode with isolated defaults and a mock Home Assistant URL. Extend
-that target with a real mock server fixture for pairing, output selection,
-queue, playlist/liked proxy, voice upload, stale auth, and backend unavailable
-states.
+`--uitesting` mode with isolated defaults and a mock Home Assistant URL. The
+iOS and macOS UI tests include smoke coverage for primary navigation, local
+Demo Mode, Games entry, Settings, and the `App opnieuw koppelen` action.
+Extend those targets with a real mock server fixture for pairing, output
+selection, queue, playlist/liked proxy, Ask DJ history sync, voice upload,
+stale auth, backend unavailable states, and sanitized backend/HTML error
+responses.

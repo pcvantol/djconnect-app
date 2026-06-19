@@ -120,6 +120,32 @@ xcodebuild -quiet -project DJConnectApp.xcodeproj -scheme DJConnectMac -configur
 Long monkey soaks should only be marked as release verification when they
 finish without interruption.
 
+## Automated Tests
+
+Use `build-for-testing` as the fast sanity check after changing shared models,
+token storage, or UI test sources:
+
+```sh
+xcodebuild -quiet -project DJConnectApp.xcodeproj -scheme DJConnectMac -configuration Debug -destination platform=macOS -derivedDataPath .xcode-derived-mac CODE_SIGNING_ALLOWED=NO build-for-testing
+```
+
+`DJConnectCoreTests` cover request/response contracts, diagnostics redaction,
+app-private token storage, reset-pairing state, version mismatch handling,
+HTML/backend error suppression, Ask DJ Demo Mode behavior, and local app-model
+state transitions. Keep these tests free of live Home Assistant dependencies.
+
+The iOS and macOS UI test targets cover deterministic navigation smoke checks
+and Settings affordances, including the `App opnieuw koppelen` / `Pair App
+Again` action. UI tests should use `--uitesting` or `--monkey-testing`,
+isolated `UserDefaults`, and local/demo data unless a dedicated mock Home
+Assistant server fixture is introduced.
+
+If `xcodebuild test` hangs or reports a UI runner bootstrap/finalization issue
+locally, rerun the affected target with `build-for-testing` to distinguish
+compile/test-source failures from Xcode runner infrastructure failures. Do not
+mark a release as fully tested until a real `test` invocation completes on a
+healthy local Xcode/simulator setup.
+
 ## Permissions During Development
 
 Settings can preflight Microphone and Speech Recognition. Local Network is not
