@@ -2939,6 +2939,31 @@ private struct AskDJView: View {
             }
             .navigationTitle(screenTitle(model.language, "Ask DJ", "Ask DJ", isDemoMode: model.isDemoMode))
             .toolbar {
+                #if os(macOS)
+                ToolbarItem(placement: .primaryAction) {
+                    Button {
+                        isInputFocused = false
+                        Task {
+                            await model.refreshAskDJHistory()
+                        }
+                    } label: {
+                        Image(systemName: "arrow.clockwise")
+                    }
+                    .disabled(model.isClearingAskDJHistory)
+                    .help(localized(model.language, "Refresh Ask DJ", "Ask DJ vernieuwen"))
+                    .accessibilityLabel(localized(model.language, "Refresh Ask DJ", "Ask DJ vernieuwen"))
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button {
+                        isInputFocused = false
+                        showingClearConfirmation = true
+                    } label: {
+                        Image(systemName: model.isClearingAskDJHistory ? "hourglass" : "trash")
+                    }
+                    .disabled(model.askDJMessages.isEmpty || model.isClearingAskDJHistory)
+                    .help(localized(model.language, "Clear chat", "Chat wissen"))
+                }
+                #else
                 ToolbarItem(placement: .primaryAction) {
                     Button {
                         isInputFocused = false
@@ -2949,6 +2974,7 @@ private struct AskDJView: View {
                     .disabled(model.askDJMessages.isEmpty || model.isClearingAskDJHistory)
                     .help(localized(model.language, "Clear chat", "Chat wissen"))
                 }
+                #endif
             }
             .alert(
                 localized(model.language, "Clear Ask DJ chat?", "Ask DJ chat wissen?"),
