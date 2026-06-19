@@ -1456,7 +1456,6 @@ struct NowPlayingView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 24) {
-                    AboutBanner()
                     TrackSummaryView(model: model)
                     OutputSelectorView(model: model)
                     SetupStatusView(model: model)
@@ -1870,7 +1869,6 @@ private struct IOSNowPlayingView: View {
                 DJConnectCanvasBackground()
                 ScrollView {
                     VStack(spacing: 16) {
-                        AboutBanner()
                         IOSTrackHero(model: model)
                         OutputSelectorView(model: model)
                         if !model.isDemoMode {
