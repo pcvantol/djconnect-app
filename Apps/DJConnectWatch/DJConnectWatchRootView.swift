@@ -331,7 +331,6 @@ struct DJConnectWatchRootView: View {
 private struct DJConnectWatchAskDJChatView: View {
     @EnvironmentObject private var model: DJConnectWatchModel
     @State private var toast: String?
-    @State private var lastAskDJLastMessageID: UUID?
 
     var body: some View {
         ZStack {
@@ -417,14 +416,8 @@ private struct DJConnectWatchAskDJChatView: View {
                     .padding(.vertical, 8)
                     .padding(.horizontal, 4)
                 }
-                .onChange(of: model.askDJMessages) {
+                .onChange(of: model.askDJScrollRequestID) {
                     guard let lastID = model.askDJMessages.last?.id else {
-                        lastAskDJLastMessageID = nil
-                        return
-                    }
-                    let shouldScroll = lastAskDJLastMessageID == nil || lastAskDJLastMessageID != lastID
-                    lastAskDJLastMessageID = lastID
-                    guard shouldScroll else {
                         return
                     }
                     withAnimation(.easeOut(duration: 0.2)) {

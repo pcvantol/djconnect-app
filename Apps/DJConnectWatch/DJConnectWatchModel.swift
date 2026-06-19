@@ -140,6 +140,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
     @Published private(set) var playback: DJConnectPlayback?
     @Published private(set) var responseImages: [DJConnectResponseImage] = []
     @Published private(set) var askDJMessages: [DJConnectWatchAskDJMessage] = []
+    @Published private(set) var askDJScrollRequestID: UUID?
     @Published private(set) var isCheckingAskDJHistoryState = true
     @Published private(set) var isClearingAskDJHistory = false
     @Published private(set) var isRequestingAskDJIdleSuggestion = false
@@ -870,6 +871,11 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
             audioURL: audioURL
         ))
         saveAskDJMessages()
+        requestAskDJScrollToBottom()
+    }
+
+    private func requestAskDJScrollToBottom() {
+        askDJScrollRequestID = UUID()
     }
 
     private func saveAskDJMessages() {

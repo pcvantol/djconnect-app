@@ -276,6 +276,7 @@ public final class DJConnectAppModel: ObservableObject {
     @Published public var selectedOutput = "Not selected"
     @Published public var djResponseText = ""
     @Published public private(set) var askDJMessages: [DJConnectAskDJMessage] = []
+    @Published public private(set) var askDJScrollRequestID: UUID?
     @Published public var askDJDraft = ""
     @Published public private(set) var isSendingAskDJText = false
     @Published public private(set) var isRequestingAskDJIdleSuggestion = false
@@ -2739,7 +2740,12 @@ public final class DJConnectAppModel: ObservableObject {
         )
         askDJMessages.append(message)
         saveAskDJMessages()
+        requestAskDJScrollToBottom()
         return message.id
+    }
+
+    private func requestAskDJScrollToBottom() {
+        askDJScrollRequestID = UUID()
     }
 
     private func updateAskDJMessageStatus(id: UUID, status: DJConnectAskDJMessageStatus) {
@@ -2819,6 +2825,9 @@ public final class DJConnectAppModel: ObservableObject {
         askDJMessages = nextMessages.sorted { $0.createdAt < $1.createdAt }
         persistAskDJRevisions(historyRevision: response.historyRevision, clearRevision: response.clearRevision)
         saveAskDJMessages()
+        if fallbackUserMessageID != nil {
+            requestAskDJScrollToBottom()
+        }
     }
 
     private func applyAskDJHistory(_ response: DJConnectAskDJHistoryResponse) {

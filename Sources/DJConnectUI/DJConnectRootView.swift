@@ -2810,7 +2810,6 @@ private struct AskDJView: View {
     @State private var isSearchVisible = false
     @State private var askDJSearchText = ""
     @State private var selectedSearchResultIndex = 0
-    @State private var lastAskDJLastMessageID: UUID?
     @FocusState private var isInputFocused: Bool
     @FocusState private var isSearchFocused: Bool
 
@@ -2977,17 +2976,12 @@ private struct AskDJView: View {
                     }
                     .onChange(of: model.askDJMessages) {
                         normalizeAskDJSearchSelection()
+                    }
+                    .onChange(of: model.askDJScrollRequestID) {
                         guard !isSearchVisible else {
-                            lastAskDJLastMessageID = model.askDJMessages.last?.id
                             return
                         }
                         guard let lastID = model.askDJMessages.last?.id else {
-                            lastAskDJLastMessageID = nil
-                            return
-                        }
-                        let shouldScroll = lastAskDJLastMessageID == nil || lastAskDJLastMessageID != lastID
-                        lastAskDJLastMessageID = lastID
-                        guard shouldScroll else {
                             return
                         }
                         withAnimation(.easeOut(duration: 0.22)) {
