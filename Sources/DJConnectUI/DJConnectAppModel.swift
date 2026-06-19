@@ -1602,11 +1602,11 @@ public final class DJConnectAppModel: ObservableObject {
                 await refreshAfterDJResponse()
                 log(.info, "Ask DJ recommendation playback started")
             } catch let error as DJConnectError {
-                askDJErrorMessage = Self.describe(error)
+                askDJErrorMessage = askDJErrorText(for: error)
                 showAskDJToast(for: error)
                 log(.warning, "Ask DJ recommendation playback failed: \(Self.describe(error))")
             } catch {
-                askDJErrorMessage = error.localizedDescription
+                askDJErrorMessage = askDJUnavailableText()
                 showAskDJToast(localized(english: "Ask DJ is unreachable", dutch: "Ask DJ niet bereikbaar"))
                 log(.error, "Ask DJ recommendation playback failed unexpectedly: \(error.localizedDescription)")
             }
@@ -1637,8 +1637,7 @@ public final class DJConnectAppModel: ObservableObject {
                 log(.info, "Ask DJ text request completed")
             } catch let error as DJConnectError {
                 let describedError = Self.describe(error)
-                let responseText = userFacingDJResponseText(describedError) ?? describedError
-                askDJErrorMessage = responseText
+                askDJErrorMessage = askDJErrorText(for: error)
                 showAskDJToast(for: error)
                 if let userMessageID {
                     updateAskDJMessageStatus(id: userMessageID, status: .failed)
@@ -1650,7 +1649,7 @@ public final class DJConnectAppModel: ObservableObject {
                     apply(error: error)
                 }
             } catch {
-                askDJErrorMessage = error.localizedDescription
+                askDJErrorMessage = askDJUnavailableText()
                 showAskDJToast(localized(english: "Ask DJ is unreachable", dutch: "Ask DJ niet bereikbaar"))
                 if let userMessageID {
                     updateAskDJMessageStatus(id: userMessageID, status: .failed)
@@ -1678,11 +1677,11 @@ public final class DJConnectAppModel: ObservableObject {
                 let response = try await clearAskDJHistoryWithFallback()
                 applyAskDJHistory(response)
             } catch let error as DJConnectError {
-                askDJErrorMessage = Self.describe(error)
+                askDJErrorMessage = askDJErrorText(for: error)
                 showAskDJToast(for: error)
                 log(.warning, "Ask DJ clear request failed: \(Self.describe(error))")
             } catch {
-                askDJErrorMessage = error.localizedDescription
+                askDJErrorMessage = askDJUnavailableText()
                 showAskDJToast(localized(english: "Ask DJ is unreachable", dutch: "Ask DJ niet bereikbaar"))
                 log(.error, "Ask DJ clear request failed unexpectedly: \(error.localizedDescription)")
             }
@@ -2766,7 +2765,7 @@ public final class DJConnectAppModel: ObservableObject {
                 return
             }
             if showErrors {
-                askDJErrorMessage = Self.describe(error)
+                askDJErrorMessage = askDJErrorText(for: error)
                 showAskDJToast(for: error)
             }
             log(.warning, "Ask DJ history sync failed: \(Self.describe(error))")
@@ -2776,7 +2775,7 @@ public final class DJConnectAppModel: ObservableObject {
                 return
             }
             if showErrors {
-                askDJErrorMessage = error.localizedDescription
+                askDJErrorMessage = askDJUnavailableText()
                 showAskDJToast(localized(english: "Ask DJ is unreachable", dutch: "Ask DJ niet bereikbaar"))
             }
             log(.error, "Ask DJ history sync failed unexpectedly: \(error.localizedDescription)")
@@ -2938,6 +2937,29 @@ public final class DJConnectAppModel: ObservableObject {
 
     private func showAskDJToast(_ text: String) {
         askDJToast = DJConnectUserNotice(text: text)
+    }
+
+    private func askDJErrorText(for error: DJConnectError) -> String {
+        switch error {
+        case .backendUnavailable, .server, .decodingFailed, .invalidResponse:
+            localized(
+                english: "Home Assistant did not respond",
+                dutch: "Home Assistant gaf geen antwoord"
+            )
+        case .network,
+             .routeMissing,
+             .notConfigured,
+             .invalidConfiguration,
+             .missingToken,
+             .pairingFailed,
+             .authStale,
+             .versionMismatch:
+            askDJUnavailableText()
+        }
+    }
+
+    private func askDJUnavailableText() -> String {
+        localized(english: "Ask DJ is unreachable", dutch: "Ask DJ niet bereikbaar")
     }
 
     private func clearAskDJHistoryLocally() {

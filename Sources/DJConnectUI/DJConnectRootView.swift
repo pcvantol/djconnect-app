@@ -6155,6 +6155,14 @@ struct SettingsView: View {
                         Text(localized(model.language, "Warning", "Waarschuwing")).tag("warning")
                         Text(localized(model.language, "Error", "Fout")).tag("error")
                     }
+                    LabeledContent(localized(model.language, "Pairing", "Koppeling")) {
+                        Button(role: .destructive) {
+                            returnToNowPlaying()
+                            model.resetPairing()
+                        } label: {
+                            Text(localized(model.language, "Pair App Again", "App opnieuw koppelen"))
+                        }
+                    }
                     LabeledContent(localized(model.language, "Wakeword", "Stemactivatie")) {
                         if model.wakeWordEnabled {
                             Button {

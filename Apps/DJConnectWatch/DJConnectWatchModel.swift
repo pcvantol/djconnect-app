@@ -1046,21 +1046,16 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
             switch error {
             case .missingToken:
                 return "Koppel eerst met Home Assistant."
-            case let .network(message):
-                return message
-            case let .authStale(_, message),
-                 let .backendUnavailable(message),
-                 let .notConfigured(message),
-                 let .pairingFailed(message),
-                 let .routeMissing(message),
-                 let .server(_, message):
-                return message ?? "Home Assistant is niet bereikbaar."
+            case .backendUnavailable, .server, .decodingFailed, .invalidResponse:
+                return "Home Assistant gaf geen antwoord."
+            case .network,
+                 .authStale,
+                 .notConfigured,
+                 .pairingFailed,
+                 .routeMissing:
+                return "Ask DJ niet bereikbaar."
             case let .versionMismatch(mismatch):
                 return mismatch.message ?? "Werk DJConnect bij."
-            case let .decodingFailed(_, _, message):
-                return message ?? "Onverwacht antwoord."
-            case .invalidResponse:
-                return "Ongeldig antwoord."
             case let .invalidConfiguration(message):
                 return message
             }
