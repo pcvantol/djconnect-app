@@ -3160,6 +3160,11 @@ private struct AskDJSearchBar: View {
                 .font(.callout.weight(.semibold))
                 .submitLabel(.search)
                 .focused(isFocused)
+                .onSubmit {
+                    if resultCount > 0 {
+                        nextAction()
+                    }
+                }
             Text(resultLabel)
                 .font(.caption2.weight(.semibold))
                 .foregroundStyle(.white.opacity(0.54))
@@ -3202,6 +3207,33 @@ private struct AskDJSearchBar: View {
                 )
         }
         .shadow(color: .black.opacity(0.24), radius: 16, y: 8)
+        .focusable(true)
+        .focused(isFocused)
+        .onKeyPress(.return) {
+            guard resultCount > 0 else {
+                return .ignored
+            }
+            nextAction()
+            return .handled
+        }
+        .onKeyPress(.downArrow) {
+            guard resultCount > 0 else {
+                return .ignored
+            }
+            nextAction()
+            return .handled
+        }
+        .onKeyPress(.upArrow) {
+            guard resultCount > 0 else {
+                return .ignored
+            }
+            previousAction()
+            return .handled
+        }
+        .onKeyPress(.escape) {
+            closeAction()
+            return .handled
+        }
     }
 
     private var resultLabel: String {
