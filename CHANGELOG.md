@@ -4,6 +4,24 @@ All notable changes to DJConnect App are documented here.
 
 ## Unreleased
 
+## 3.1.36 - 2026-06-19
+
+### Added
+
+- Added Watch-side Home Assistant pairing through the same mDNS/local device API
+  flow used by iOS and macOS, including a pairing success screen after Home
+  Assistant completes the pairing request.
+- Added Watch demo mode with local demo playback controls and a sample Ask DJ
+  voice response.
+
+### Changed
+
+- Moved the local device API into the shared Core module so iOS, macOS, and
+  watchOS can use the same pairing contract.
+- Updated Ask DJ text chat to request `audio_response: auto`, treat missing
+  `audio_url` as normal for informational answers, and use top-level audio URLs
+  as fallback for assistant message replay.
+
 ## 3.1.35 - 2026-06-19
 
 ### Added

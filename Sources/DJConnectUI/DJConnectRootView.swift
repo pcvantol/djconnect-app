@@ -3080,6 +3080,7 @@ private struct AskDJView: View {
                             } else if model.askDJMessages.isEmpty {
                                 AskDJEmptyState(
                                     language: model.language,
+                                    isRequestingIdleSuggestion: model.isRequestingAskDJIdleSuggestion,
                                     selectExample: { example in
                                         model.askDJDraft = example
                                         isInputFocused = true
@@ -3193,7 +3194,7 @@ private struct AskDJView: View {
         }
         .background(DJConnectCanvasBackground())
         .task {
-            model.prepareAskDJHistoryForDisplay()
+            await model.runAskDJHistorySyncLoop()
         }
         .sheet(item: $selectedWebLink) { link in
             AskDJWebPreview(link: link, language: model.language)
@@ -3224,6 +3225,7 @@ private struct AskDJView: View {
 
 private struct AskDJEmptyState: View {
     let language: String
+    let isRequestingIdleSuggestion: Bool
     let selectExample: (String) -> Void
 
     private var examples: [String] {
@@ -3312,6 +3314,17 @@ private struct AskDJEmptyState: View {
                 .foregroundStyle(.white.opacity(0.48))
                 .multilineTextAlignment(.center)
                 .frame(maxWidth: 340)
+            if isRequestingIdleSuggestion {
+                HStack(spacing: 7) {
+                    ProgressView()
+                        .controlSize(.small)
+                        .tint(.white)
+                    Text(localized(language, "Finding something to play...", "Iets om af te spelen zoeken..."))
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(.white.opacity(0.58))
+                }
+                .padding(.top, 2)
+            }
         }
         .frame(maxWidth: .infinity)
     }

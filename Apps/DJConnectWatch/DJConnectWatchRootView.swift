@@ -58,13 +58,13 @@ struct DJConnectWatchRootView: View {
     private var content: some View {
         switch model.connectionState {
         case .paired:
-            pairedView
-        case .pairing:
-            ZStack {
-                DJConnectWatchCanvas()
-                ProgressView("Koppelen")
-                    .tint(watchAccentPurple)
+            if model.isShowingPairingSuccess {
+                pairingSuccessView
+            } else {
+                pairedView
             }
+        case .pairing:
+            pairingView(message: "Wachten tot Home Assistant de code accepteert.")
         case let .failed(message):
             pairingView(message: message)
         case .unpaired:
@@ -117,13 +117,23 @@ struct DJConnectWatchRootView: View {
                     }
                     .buttonStyle(DJConnectWatchGradientButtonStyle(kind: .primary))
 
-                    Button(role: .destructive) {
-                        model.resetPairing()
-                    } label: {
-                        Label("Reset", systemImage: "xmark.circle")
+                    if model.isDemoMode {
+                        Button {
+                            model.stopDemoMode()
+                        } label: {
+                            Label("Stop demo", systemImage: "xmark.circle")
+                        }
+                        .font(.footnote)
+                        .foregroundStyle(.white.opacity(0.74))
+                    } else {
+                        Button(role: .destructive) {
+                            model.resetPairing()
+                        } label: {
+                            Label("Reset", systemImage: "xmark.circle")
+                        }
+                        .font(.footnote)
+                        .foregroundStyle(.white.opacity(0.74))
                     }
-                    .font(.footnote)
-                    .foregroundStyle(.white.opacity(0.74))
                 }
                 .padding(.vertical, 8)
                 .padding(.horizontal, 4)
@@ -131,6 +141,39 @@ struct DJConnectWatchRootView: View {
         }
         .task {
             await model.refreshStatus()
+        }
+    }
+
+    private var pairingSuccessView: some View {
+        ZStack {
+            DJConnectWatchCanvas()
+            VStack(spacing: 12) {
+                Image(systemName: "checkmark.circle.fill")
+                    .font(.system(size: 38, weight: .semibold))
+                    .foregroundStyle(
+                        LinearGradient(
+                            colors: [watchAccentBlue, watchAccentPurple],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                Text("Succesvol gekoppeld")
+                    .font(.headline)
+                    .foregroundStyle(.white)
+                    .multilineTextAlignment(.center)
+                Text("DJConnect is verbonden met Home Assistant.")
+                    .font(.caption2)
+                    .foregroundStyle(.white.opacity(0.68))
+                    .multilineTextAlignment(.center)
+                Button {
+                    model.dismissPairingSuccess()
+                } label: {
+                    Text("Doorgaan")
+                        .frame(maxWidth: .infinity, minHeight: 34)
+                }
+                .buttonStyle(DJConnectWatchGradientButtonStyle(kind: .primary))
+            }
+            .padding(.horizontal, 10)
         }
     }
 
@@ -195,14 +238,6 @@ struct DJConnectWatchRootView: View {
                         .foregroundStyle(.white)
                         .lineLimit(2)
 
-                    TextField("Client adres", text: $model.haBaseURL)
-                        .textInputAutocapitalization(.never)
-                        .foregroundStyle(.white)
-                        .tint(watchAccentBlue)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 7)
-                        .background(DJConnectWatchPanel(cornerRadius: 10))
-
                     VStack(alignment: .leading, spacing: 3) {
                         Text("Code")
                             .font(.caption)
@@ -227,10 +262,18 @@ struct DJConnectWatchRootView: View {
                     Button {
                         Task { await model.pair() }
                     } label: {
-                        Label("Koppel", systemImage: "link")
+                        Label("Wacht op koppeling", systemImage: "antenna.radiowaves.left.and.right")
                             .frame(maxWidth: .infinity, minHeight: 36)
                     }
                     .buttonStyle(DJConnectWatchGradientButtonStyle(kind: .primary))
+
+                    Button {
+                        model.startDemoMode()
+                    } label: {
+                        Label("Demo modus", systemImage: "sparkles")
+                            .frame(maxWidth: .infinity, minHeight: 34)
+                    }
+                    .buttonStyle(DJConnectWatchGradientButtonStyle(kind: .secondary))
                 }
                 .padding(.vertical, 8)
                 .padding(.horizontal, 4)
@@ -331,6 +374,16 @@ private struct DJConnectWatchAskDJChatView: View {
                                     .font(.caption2)
                                     .foregroundStyle(.white.opacity(0.48))
                                     .multilineTextAlignment(.center)
+                                if model.isRequestingAskDJIdleSuggestion {
+                                    HStack(spacing: 5) {
+                                        ProgressView()
+                                            .controlSize(.mini)
+                                            .tint(.white)
+                                        Text("Iets zoeken...")
+                                            .font(.caption2.weight(.semibold))
+                                            .foregroundStyle(.white.opacity(0.58))
+                                    }
+                                }
                             }
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 16)
@@ -400,7 +453,7 @@ private struct DJConnectWatchAskDJChatView: View {
         }
         .navigationTitle("Ask DJ")
         .task {
-            await model.prepareAskDJHistoryForDisplay()
+            await model.runAskDJHistorySyncLoop()
         }
         .onChange(of: model.askDJToast?.id) { _, _ in
             guard let text = model.askDJToast?.text else {
@@ -487,6 +540,15 @@ private struct DJConnectWatchAskDJBubble: View {
                 if !message.links.isEmpty {
                     AskDJWatchLinkStack(links: message.links)
                 }
+                if !isUser, !message.playbackActions.isEmpty {
+                    AskDJWatchPlaybackActionStack(
+                        actions: message.playbackActions,
+                        playingActionID: model.playingAskDJActionID,
+                        playAction: { action in
+                            Task { await model.playAskDJRecommendation(action) }
+                        }
+                    )
+                }
                 if !isUser, message.audioURL != nil {
                     Button {
                         if model.isPlayingAskDJAudio(message.audioURL) {
@@ -544,6 +606,81 @@ private struct DJConnectWatchAskDJBubble: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: isUser ? .trailing : .leading)
+    }
+}
+
+private struct AskDJWatchPlaybackActionStack: View {
+    let actions: [DJConnectAskDJPlaybackAction]
+    let playingActionID: String?
+    let playAction: (DJConnectAskDJPlaybackAction) -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            ForEach(actions) { action in
+                Button {
+                    playAction(action)
+                } label: {
+                    HStack(spacing: 7) {
+                        if let imageURL = action.imageURL {
+                            AsyncImage(url: imageURL) { phase in
+                                switch phase {
+                                case let .success(image):
+                                    image
+                                        .resizable()
+                                        .scaledToFill()
+                                default:
+                                    fallbackIcon
+                                }
+                            }
+                            .frame(width: 28, height: 28)
+                            .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
+                        } else {
+                            fallbackIcon
+                                .frame(width: 28, height: 28)
+                        }
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text(action.title)
+                                .font(.caption2.weight(.semibold))
+                                .lineLimit(1)
+                            if let subtitle = action.subtitle, !subtitle.isEmpty {
+                                Text(subtitle)
+                                    .font(.caption2)
+                                    .foregroundStyle(.white.opacity(0.66))
+                                    .lineLimit(1)
+                            }
+                        }
+                        Spacer(minLength: 4)
+                        if playingActionID == action.id {
+                            ProgressView()
+                                .controlSize(.mini)
+                                .tint(.white)
+                        } else {
+                            Image(systemName: "play.fill")
+                                .font(.caption2.weight(.bold))
+                        }
+                    }
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 7)
+                    .padding(.vertical, 6)
+                    .background {
+                        RoundedRectangle(cornerRadius: 9, style: .continuous)
+                            .fill(.white.opacity(0.13))
+                    }
+                }
+                .buttonStyle(.plain)
+                .disabled(playingActionID != nil)
+            }
+        }
+    }
+
+    private var fallbackIcon: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 7, style: .continuous)
+                .fill(.white.opacity(0.14))
+            Image(systemName: "music.note")
+                .font(.caption2.weight(.bold))
+                .foregroundStyle(.white.opacity(0.72))
+        }
     }
 }
 
@@ -724,6 +861,7 @@ private struct DJConnectWatchRoundButtonStyle: ButtonStyle {
 private struct DJConnectWatchGradientButtonStyle: ButtonStyle {
     enum Kind {
         case primary
+        case secondary
         case recording
         case processing
     }
@@ -753,6 +891,8 @@ private struct DJConnectWatchGradientButtonStyle: ButtonStyle {
         switch kind {
         case .primary:
             return [watchAccentBlue, watchAccentPurple]
+        case .secondary:
+            return [watchAccentBlue.opacity(0.42), watchAccentPurple.opacity(0.56)]
         case .recording:
             return [Color(red: 1.0, green: 0.18, blue: 0.38), watchAccentPurple]
         case .processing:
@@ -762,7 +902,7 @@ private struct DJConnectWatchGradientButtonStyle: ButtonStyle {
 
     private var shadowColor: Color {
         switch kind {
-        case .primary:
+        case .primary, .secondary:
             return watchAccentBlue
         case .recording:
             return Color(red: 1.0, green: 0.18, blue: 0.38)
