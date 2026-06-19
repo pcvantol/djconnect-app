@@ -2851,15 +2851,6 @@ private struct AskDJView: View {
                     ZStack(alignment: .top) {
                         ScrollView {
                             LazyVStack(spacing: 12) {
-                                GeometryReader { geometry in
-                                    Color.clear
-                                        .preference(
-                                            key: AskDJSearchPullOffsetPreferenceKey.self,
-                                            value: geometry.frame(in: .named("askDJScroll")).minY
-                                        )
-                                }
-                                .frame(height: 1)
-
                                 if model.isCheckingAskDJHistoryState {
                                     ProgressView()
                                         .tint(.white)
@@ -2914,16 +2905,6 @@ private struct AskDJView: View {
                             }
                         }
                         .coordinateSpace(name: "askDJScroll")
-                        .onPreferenceChange(AskDJSearchPullOffsetPreferenceKey.self) { offset in
-                            guard !isSearchVisible, !model.isCheckingAskDJHistoryState, offset > 26 else {
-                                return
-                            }
-                            withAnimation(.spring(response: 0.28, dampingFraction: 0.86)) {
-                                isSearchVisible = true
-                            }
-                            isInputFocused = false
-                            isSearchFocused = true
-                        }
                         .refreshable {
                             isInputFocused = false
                             isSearchFocused = false
@@ -3049,7 +3030,20 @@ private struct AskDJView: View {
                     .help(localized(model.language, "Clear chat", "Chat wissen"))
                 }
                 #else
-                ToolbarItem(placement: .primaryAction) {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button {
+                        isInputFocused = false
+                        withAnimation(.spring(response: 0.28, dampingFraction: 0.86)) {
+                            isSearchVisible = true
+                        }
+                        isSearchFocused = true
+                    } label: {
+                        Image(systemName: "magnifyingglass")
+                    }
+                    .help(localized(model.language, "Search Ask DJ", "Zoek in Ask DJ"))
+                    .accessibilityLabel(localized(model.language, "Search Ask DJ", "Zoek in Ask DJ"))
+                }
+                ToolbarItem(placement: .topBarTrailing) {
                     Button {
                         isInputFocused = false
                         showingClearConfirmation = true
@@ -3142,14 +3136,6 @@ private struct AskDJView: View {
                 toast = nil
             }
         }
-    }
-}
-
-private struct AskDJSearchPullOffsetPreferenceKey: PreferenceKey {
-    static let defaultValue: CGFloat = 0
-
-    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
-        value = max(value, nextValue())
     }
 }
 
