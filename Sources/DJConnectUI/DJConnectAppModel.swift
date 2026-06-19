@@ -2796,7 +2796,11 @@ public final class DJConnectAppModel: ObservableObject {
             applyAskDJMessageResponse(response, fallbackUserMessageID: nil)
             log(.info, "Ask DJ idle suggestion loaded")
         } catch let error as DJConnectError {
-            log(.warning, "Ask DJ idle suggestion failed: \(Self.describe(error))")
+            if case .routeMissing = error {
+                log(.debug, "Ask DJ idle suggestion skipped because Home Assistant does not support the route yet")
+            } else {
+                log(.warning, "Ask DJ idle suggestion failed: \(Self.describe(error))")
+            }
         } catch {
             log(.debug, "Ask DJ idle suggestion failed unexpectedly: \(error.localizedDescription)")
         }
@@ -2889,7 +2893,6 @@ public final class DJConnectAppModel: ObservableObject {
         }
         return images.filter { image in
             guard let host = image.url.host?.lowercased(), allowedHosts.contains(host) else {
-                log(.warning, "Suppressed non-proxied Ask DJ image URL")
                 return false
             }
             return true
@@ -2902,7 +2905,6 @@ public final class DJConnectAppModel: ObservableObject {
         }
         return links.filter { link in
             guard let scheme = link.url.scheme?.lowercased(), scheme == "https" || scheme == "http" else {
-                log(.warning, "Suppressed unsupported Ask DJ link URL")
                 return false
             }
             return true
@@ -3097,7 +3099,6 @@ public final class DJConnectAppModel: ObservableObject {
 
     private func resolvedAudioURL(from audioURL: URL?) -> URL? {
         guard let audioURL else {
-            log(.warning, "DJ response did not include an audio URL")
             return nil
         }
         if audioURL.scheme?.isEmpty == false {
