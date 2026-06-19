@@ -3013,7 +3013,19 @@ private struct AskDJView: View {
             .navigationTitle(screenTitle(model.language, "Ask DJ", "Ask DJ", isDemoMode: model.isDemoMode))
             .toolbar {
                 #if os(macOS)
-                ToolbarItem(placement: .primaryAction) {
+                ToolbarItemGroup(placement: .primaryAction) {
+                    Button {
+                        isInputFocused = false
+                        withAnimation(.spring(response: 0.28, dampingFraction: 0.86)) {
+                            isSearchVisible = true
+                        }
+                        isSearchFocused = true
+                    } label: {
+                        Image(systemName: "magnifyingglass")
+                    }
+                    .help(localized(model.language, "Search Ask DJ", "Zoek in Ask DJ"))
+                    .accessibilityLabel(localized(model.language, "Search Ask DJ", "Zoek in Ask DJ"))
+
                     Button {
                         isInputFocused = false
                         Task {
