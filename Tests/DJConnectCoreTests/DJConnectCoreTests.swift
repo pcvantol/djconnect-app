@@ -225,6 +225,7 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
+    defaults.set("http://192.168.1.104:55046", forKey: "DJConnectLocalDeviceAPIURL")
     let tokenStore = DJConnectInMemoryTokenStore(token: "stale-token")
     let model = DJConnectAppModel(defaults: defaults, tokenStore: tokenStore, startLocalAPI: false, startBackgroundTasks: false)
     defer {
@@ -240,6 +241,8 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
     #expect(model.pairingStatus == .pairing || model.pairingStatus == .stale)
     #expect(model.isPairingScreenDismissed == false)
     #expect(model.isBonjourAdvertisingPreferredForTests == true)
+    #expect(model.localDeviceAPIURL == nil)
+    #expect(defaults.string(forKey: "DJConnectLocalDeviceAPIURL") == nil)
     #expect(try tokenStore.loadToken() == nil)
 }
 

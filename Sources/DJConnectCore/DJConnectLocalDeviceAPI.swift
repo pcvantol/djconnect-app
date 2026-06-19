@@ -371,7 +371,7 @@ public final class DJConnectLocalDeviceAPI: @unchecked Sendable {
 
     private func publishBonjourService(for info: DJConnectLocalDeviceAPIInfo) {
         guard let port else { return }
-        let advertisedLocalURL = info.localURL ?? localURL ?? ""
+        let advertisedLocalURL = localURL ?? info.localURL ?? ""
         let txtRecord = Self.bonjourTXTRecord(for: info, localURL: advertisedLocalURL)
         #if os(watchOS)
         networkListener?.service = NWListener.Service(

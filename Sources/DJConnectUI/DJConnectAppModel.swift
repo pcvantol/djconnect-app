@@ -2159,6 +2159,7 @@ public final class DJConnectAppModel: ObservableObject {
         scheduledPairingTask?.cancel()
         scheduledPairingTask = nil
         try? tokenStore.clearToken()
+        clearPinnedLocalDeviceAPIURL()
         pairingStatus = .stale
         isConnected = false
         isPairing = false
