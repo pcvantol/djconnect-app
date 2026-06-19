@@ -2835,7 +2835,7 @@ public final class DJConnectAppModel: ObservableObject {
         if response.clearRevision > localClearRevision {
             askDJMessages = []
         }
-        var nextMessages = askDJMessages.filter { $0.status == .sending || $0.status == .failed }
+        var nextMessages = askDJMessages
         for message in response.messages {
             upsertAskDJHistoryMessage(message, into: &nextMessages, fallbackID: nil)
         }

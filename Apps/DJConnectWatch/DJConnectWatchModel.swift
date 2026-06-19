@@ -503,7 +503,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         if response.clearRevision > askDJClearRevision {
             askDJMessages = []
         }
-        var nextMessages: [DJConnectWatchAskDJMessage] = []
+        var nextMessages = askDJMessages
         for message in response.messages {
             upsertAskDJHistoryMessage(message, into: &nextMessages)
         }
