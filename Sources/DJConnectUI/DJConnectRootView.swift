@@ -2921,15 +2921,6 @@ private struct AskDJView: View {
                     }
                 }
 
-                if let error = model.askDJErrorMessage, !error.isEmpty {
-                    Text(error)
-                        .font(.footnote)
-                        .foregroundStyle(.red.opacity(0.92))
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.horizontal, djConnectScreenHorizontalPadding)
-                        .padding(.bottom, 8)
-                }
-
                 AskDJInputBar(
                     model: model,
                     canSend: canSend,
@@ -2959,16 +2950,21 @@ private struct AskDJView: View {
                     .help(localized(model.language, "Clear chat", "Chat wissen"))
                 }
             }
-            .confirmationDialog(
+            .alert(
                 localized(model.language, "Clear Ask DJ chat?", "Ask DJ chat wissen?"),
-                isPresented: $showingClearConfirmation,
-                titleVisibility: .visible
+                isPresented: $showingClearConfirmation
             ) {
                 Button(localized(model.language, "Clear Chat", "Chat wissen"), role: .destructive) {
                     isInputFocused = false
                     model.clearAskDJHistory()
                 }
                 Button(localized(model.language, "Cancel", "Annuleren"), role: .cancel) {}
+            } message: {
+                Text(localized(
+                    model.language,
+                    "This clears the Ask DJ chat history on this Home Assistant account.",
+                    "Dit wist de Ask DJ chatgeschiedenis voor dit Home Assistant-account."
+                ))
             }
         }
         .background(DJConnectCanvasBackground())
@@ -3134,6 +3130,14 @@ private struct AskDJMessageBubble: View {
         !promptText.isEmpty
     }
 
+    private var isVoiceRequestMessage: Bool {
+        guard isUser else {
+            return false
+        }
+        let normalizedText = promptText.lowercased()
+        return normalizedText == "stemverzoek" || normalizedText == "voice request"
+    }
+
     private var regularLinks: [DJConnectResponseLink] {
         message.links.filter { !$0.isSourceLike }
     }
@@ -3150,7 +3154,16 @@ private struct AskDJMessageBubble: View {
             VStack(alignment: isUser ? .trailing : .leading, spacing: 4) {
                 VStack(alignment: .leading, spacing: 10) {
                     if !message.text.isEmpty {
-                        AskDJMarkdownText(text: message.text)
+                        if isVoiceRequestMessage {
+                            HStack(spacing: 8) {
+                                Image(systemName: "mic.fill")
+                                    .font(.caption.weight(.bold))
+                                    .foregroundStyle(.white.opacity(0.88))
+                                AskDJMarkdownText(text: message.text)
+                            }
+                        } else {
+                            AskDJMarkdownText(text: message.text)
+                        }
                     }
                     if !message.images.isEmpty {
                         AskDJImageStrip(images: message.images)

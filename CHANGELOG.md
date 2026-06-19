@@ -4,6 +4,23 @@ All notable changes to DJConnect App are documented here.
 
 ## Unreleased
 
+### Changed
+
+- Changed the Ask DJ clear-history confirmation from a popover-style
+  confirmation dialog to a standard modal alert with explicit cancel and
+  destructive actions.
+- Changed Ask DJ Demo Mode to stay fully client-side: it shows the starter
+  prompts, avoids backend history sync, and answers locally until Home
+  Assistant is paired.
+- Removed raw inline Ask DJ error text above the prompt; failures are surfaced
+  through the existing snackbar/toast.
+- Added a microphone icon to Ask DJ voice-request chat bubbles.
+
+### Fixed
+
+- Ignored cancelled Ask DJ history refresh tasks so pull-to-refresh does not
+  show a spurious network-cancelled error.
+
 ## 3.1.36 - 2026-06-19
 
 ### Added

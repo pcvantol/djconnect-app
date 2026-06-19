@@ -2417,6 +2417,30 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
 }
 
 @MainActor
+@Test func demoModeAskDJTextStaysLocalUntilPaired() throws {
+    let suiteName = "DJConnectTests-\(UUID().uuidString)"
+    let defaults = try #require(UserDefaults(suiteName: suiteName))
+    defaults.removePersistentDomain(forName: suiteName)
+    let model = DJConnectAppModel(
+        defaults: defaults,
+        tokenStore: DJConnectInMemoryTokenStore(),
+        startLocalAPI: false,
+        startBackgroundTasks: false
+    )
+
+    model.startDemoMode()
+    model.askDJDraft = "Waarom koos je dit nummer?"
+    model.sendAskDJText()
+
+    #expect(model.askDJDraft.isEmpty)
+    #expect(model.askDJMessages.count == 2)
+    #expect(model.askDJMessages[0].role == .user)
+    #expect(model.askDJMessages[0].status == .sent)
+    #expect(model.askDJMessages[1].role == .dj)
+    #expect(model.askDJMessages[1].text.contains("Home Assistant"))
+}
+
+@MainActor
 @Test func monkeyTestingModeStartsSafeLocalDemoWithoutPairingOrLocalAPI() throws {
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
