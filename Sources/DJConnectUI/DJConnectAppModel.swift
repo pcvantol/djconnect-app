@@ -325,7 +325,7 @@ public final class DJConnectAppModel: ObservableObject {
     @Published public var isShowingWelcome = false
     @Published public var isShowingCrashReportPrompt = false
     @Published public var isShowingWakeWordActivationPrompt = false
-    @Published public var isShowingKeychainAccessRequired = false
+    @Published public var isShowingTokenStorageError = false
     @Published public var isShowingWhatsNew = false
     @Published public private(set) var whatsNewTitle = ""
     @Published public private(set) var whatsNewBody = ""
@@ -438,7 +438,7 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     public var hasStoredPairingToken: Bool {
-        if pairingStatus == .paired || isShowingKeychainAccessRequired {
+        if pairingStatus == .paired || isShowingTokenStorageError {
             return true
         }
         return (try? tokenStore.loadToken())?.isEmpty == false
@@ -456,7 +456,7 @@ public final class DJConnectAppModel: ObservableObject {
         !isDemoMode
             && !isShowingWelcome
             && !isShowingCrashReportPrompt
-            && !isShowingKeychainAccessRequired
+            && !isShowingTokenStorageError
             && !isPairingScreenDismissed
             && (pairingStatus != .paired || isShowingPairingSuccess)
     }
@@ -477,7 +477,7 @@ public final class DJConnectAppModel: ObservableObject {
         self.isMonkeyTestingMode = monkeyTestingMode
         self.diagnosticLogFileURL = (diagnosticLogDirectory ?? Self.defaultDiagnosticLogDirectory())?
             .appendingPathComponent("djconnect.log")
-        let resolvedTokenStore = tokenStore ?? DJConnectKeychainTokenStore(service: Self.keychainService)
+        let resolvedTokenStore = tokenStore ?? DJConnectUserDefaultsTokenStore()
         self.tokenStore = resolvedTokenStore
         self.identity = Self.makeIdentity(defaults: defaults)
         self.logger = Logger(
@@ -537,7 +537,7 @@ public final class DJConnectAppModel: ObservableObject {
                 log(.info, "App started without DJConnect bearer token for \(identity.clientType.rawValue)")
             }
         } catch {
-            applyKeychainAccessFailure(error)
+            applyTokenStorageFailure(error)
         }
         refreshPermissionStatuses()
         if startLocalAPI, !monkeyTestingMode {
@@ -670,50 +670,46 @@ public final class DJConnectAppModel: ObservableObject {
         isShowingWelcome = false
     }
 
-    public func retryKeychainAccess() {
+    public func retryTokenStorageAccess() {
         do {
             if let existingToken = try tokenStore.loadToken(), !existingToken.isEmpty {
-                isShowingKeychainAccessRequired = false
+                isShowingTokenStorageError = false
                 pairingStatus = .paired
                 isConnected = true
                 backendAvailable = true
                 pairingMessage = localized(
-                    english: "Keychain access restored.",
-                    dutch: "Sleutelhanger-toegang hersteld."
+                    english: "DJConnect token restored.",
+                    dutch: "DJConnect-token hersteld."
                 )
-                log(.info, "Keychain access restored")
+                log(.info, "Token storage access restored")
                 if startBackgroundTasks {
-                    schedulePairedRefresh(reason: "Refreshing after Keychain access restore")
+                    schedulePairedRefresh(reason: "Refreshing after token storage restore")
                 }
             } else {
-                isShowingKeychainAccessRequired = false
+                isShowingTokenStorageError = false
                 pairingStatus = .unpaired
                 isConnected = false
                 pairingMessage = localized(
                     english: "No DJConnect token found. Pair again to continue.",
                     dutch: "Geen DJConnect-token gevonden. Koppel opnieuw om door te gaan."
                 )
-                log(.warning, "Keychain access restored but no DJConnect bearer token was found")
+                log(.warning, "Token storage access restored but no DJConnect bearer token was found")
             }
         } catch {
-            applyKeychainAccessFailure(error)
+            applyTokenStorageFailure(error)
         }
     }
 
-    private func applyKeychainAccessFailure(_ error: Error) {
-        isShowingKeychainAccessRequired = true
+    private func applyTokenStorageFailure(_ error: Error) {
+        isShowingTokenStorageError = true
         isConnected = false
         pairingStatus = .stale
         backendAvailable = false
         pairingMessage = localized(
-            english: "Keychain access is required to read the DJConnect token.",
-            dutch: "Sleutelhanger-toegang is nodig om het DJConnect-token te lezen."
+            english: "DJConnect could not read the saved device token.",
+            dutch: "DJConnect kon het opgeslagen device-token niet lezen."
         )
-        if let keychainError = error as? DJConnectKeychainError, keychainError.requiresUserAction {
-            log(.warning, "Keychain access was denied or cancelled")
-        } else {
-            log(.error, "Keychain access failed: \(error.localizedDescription)")
-        }
+        log(.error, "Token storage failed: \(error.localizedDescription)")
     }
 
     public func completePairingScreen() {
@@ -3700,15 +3696,15 @@ public final class DJConnectAppModel: ObservableObject {
             try tokenStore.saveToken(token)
         } catch {
             log(.error, "Local device API failed to store device token: \(error.localizedDescription)")
-            applyKeychainAccessFailure(error)
+            applyTokenStorageFailure(error)
             pairingMessage = localized(
-                english: "Keychain access is required to complete pairing.",
-                dutch: "Sleutelhanger-toegang is nodig om koppeling af te ronden."
+                english: "DJConnect could not save the device token.",
+                dutch: "DJConnect kon het device-token niet opslaan."
             )
             return DJConnectLocalDeviceAPIResponse(
                 success: false,
                 error: "token_store_failed",
-                message: "Could not store device token. Keychain access is required to complete pairing."
+                message: "Could not store device token."
             )
         }
 
@@ -4758,10 +4754,6 @@ public final class DJConnectAppModel: ObservableObject {
         #else
         _ = cue
         #endif
-    }
-
-    private static var keychainService: String {
-        Bundle.main.bundleIdentifier.map { "\($0).djconnect" } ?? "dev.djconnect.djconnect"
     }
 
     nonisolated static func publicReleaseTag(version: String, clientType: DJConnectClientType) -> String {

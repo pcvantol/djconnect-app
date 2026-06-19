@@ -1,5 +1,4 @@
 import DJConnectCore
-import DJConnectCore
 import DJConnectUI
 import SwiftUI
 
@@ -31,6 +30,8 @@ struct DJConnectIOSApp: App {
             )
         }
         #endif
-        return DJConnectAppModel()
+        return DJConnectAppModel(
+            tokenStore: DJConnectUserDefaultsTokenStore(key: "DJConnectIOSDeviceToken")
+        )
     }
 }

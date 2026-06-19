@@ -152,7 +152,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
     @Published var statusMessage = "Niet gekoppeld"
 
     private let askDJMessagesKey = "DJConnectWatchAskDJMessages"
-    private let tokenStore = DJConnectKeychainTokenStore(service: "dev.djconnect.watch")
+    private let tokenStore = DJConnectUserDefaultsTokenStore(key: "DJConnectWatchDeviceToken")
     private let monkeyTestingMode: Bool
     private var localDeviceAPI: DJConnectLocalDeviceAPI?
     private var localDeviceAPIURL: String?

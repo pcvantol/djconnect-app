@@ -539,12 +539,6 @@ public struct DJConnectRootView: View {
                 .tint(djConnectAccent)
                 .accentColor(djConnectAccent)
         }
-        .sheet(isPresented: $model.isShowingKeychainAccessRequired) {
-            KeychainAccessRequiredView(model: model)
-                .tint(djConnectAccent)
-                .accentColor(djConnectAccent)
-                .interactiveDismissDisabled(true)
-        }
         .sheet(isPresented: Binding(
             get: { model.updateRequiredMessage != nil },
             set: { _ in }
@@ -1399,50 +1393,6 @@ private struct WhatsNewMarkdownBody: View {
         case bullet(String)
         case paragraph(String)
         case separator
-    }
-}
-
-private struct KeychainAccessRequiredView: View {
-    @ObservedObject var model: DJConnectAppModel
-
-    var body: some View {
-        VStack(spacing: 22) {
-            Image(systemName: "lock.shield.fill")
-                .font(.system(size: 64, weight: .semibold))
-                .foregroundStyle(.orange)
-                .accessibilityHidden(true)
-
-            VStack(spacing: 8) {
-                Text(localized(model.language, "Keychain access required", "Sleutelhanger-toegang nodig"))
-                    .font(.title.bold())
-                    .multilineTextAlignment(.center)
-
-                Text(localized(
-                    model.language,
-                    "DJConnect cannot work without access to the saved DJConnect token. Choose Allow in the Keychain prompt to continue.",
-                    "DJConnect werkt niet zonder toegang tot het opgeslagen DJConnect-token. Kies Sta toe in de sleutelhanger-vraag om door te gaan."
-                ))
-                .font(.body)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
-                .fixedSize(horizontal: false, vertical: true)
-            }
-
-            Button {
-                model.retryKeychainAccess()
-            } label: {
-                Label(
-                    localized(model.language, "Open Keychain Prompt Again", "Open sleutelhanger-vraag opnieuw"),
-                    systemImage: "key"
-                )
-                .foregroundStyle(djConnectAccent)
-                .frame(maxWidth: .infinity)
-            }
-            .buttonStyle(DJConnectLilacPillButtonStyle())
-            .controlSize(.large)
-        }
-        .padding(28)
-        .frame(minWidth: 360, idealWidth: 460, maxWidth: 560)
     }
 }
 
@@ -6607,8 +6557,8 @@ private struct PrivacyView: View {
                     ))
                     SelectableValue(localized(
                         language,
-                        "Device tokens are stored locally in the platform Keychain. Diagnostics are only shared when you copy them or open a GitHub issue yourself.",
-                        "Device-tokens worden lokaal in de platform-sleutelhanger bewaard. Diagnostiek wordt alleen gedeeld wanneer je die zelf kopieert of een GitHub issue opent."
+                        "Device tokens are stored locally in the app's private storage. Diagnostics are only shared when you copy them or open a GitHub issue yourself.",
+                        "Device-tokens worden lokaal in de private app-opslag bewaard. Diagnostiek wordt alleen gedeeld wanneer je die zelf kopieert of een GitHub issue opent."
                     ))
                     SelectableValue(localized(
                         language,

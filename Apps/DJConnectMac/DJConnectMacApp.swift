@@ -36,7 +36,9 @@ struct DJConnectMacApp: App {
             )
         }
         #endif
-        return DJConnectAppModel()
+        return DJConnectAppModel(
+            tokenStore: DJConnectUserDefaultsTokenStore(key: "DJConnectMacDeviceToken")
+        )
     }
 }
 
