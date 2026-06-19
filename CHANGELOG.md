@@ -4,6 +4,39 @@ All notable changes to DJConnect App are documented here.
 
 ## Unreleased
 
+## 3.1.35 - 2026-06-19
+
+### Added
+
+- Added a standalone native watchOS DJConnect client target with Home Assistant
+  pairing, playback controls, `Ask DJ` push-to-talk WAV voice upload, and Watch
+  speaker DJ response playback.
+- Added Watch-side `Ask DJ` mood and DJ Memory context hints for future
+  server-side DJ Memory support in the Home Assistant integration.
+- Added `Ask DJ` as a first-class iOS/macOS chat screen with local chat
+  history, text input, clickable starter prompts, timestamps, clear-history
+  coordination, retry states, toast errors, markdown, sources, links, images,
+  and replayable DJ response audio.
+- Added Ask DJ voice input on iOS/macOS through a push-to-talk microphone in
+  the chat input bar.
+- Added Ask DJ support for image attachments, multiple images, hyperlinks,
+  embedded link previews, rich sources, and audio replay/stop controls across
+  Apple clients.
+- Added backend contract documentation for DJ Memory, personal listening
+  profile analysis, personal recommendations, Spotify recently played/top
+  profile usage, voice Ask DJ, and explicit `Play Now` recommendation actions.
+- Added client-side `Play Now` buttons for structured Ask DJ recommendation
+  actions, with backend-owned Spotify playback via
+  `ask_dj_play_recommendation`.
+
+### Changed
+
+- Styled Ask DJ chat bubbles and input controls with the DJConnect blue/purple
+  visual language and replaced the empty-state starter prompt with
+  `Verras me met nieuwe muziek`.
+- Moved generated simulator screenshots and screenshot folders into `.gitignore`
+  so local iOS/macOS/watchOS captures do not enter the repository.
+
 ## 3.1.34 - 2026-06-18
 
 ### Fixed

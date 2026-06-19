@@ -5,6 +5,9 @@ import SwiftUI
 #if canImport(AVFoundation)
 import AVFoundation
 #endif
+#if canImport(WebKit)
+import WebKit
+#endif
 #if os(iOS)
 import UIKit
 #elseif os(macOS)
@@ -31,6 +34,34 @@ private func screenTitle(_ language: String, _ english: String, _ dutch: String,
         return title
     }
     return "\(title) (demo)"
+}
+
+private func askDJTimestamp(_ date: Date, language: String, now: Date = Date()) -> String {
+    let elapsed = max(0, now.timeIntervalSince(date))
+    if elapsed < 3_600 {
+        let minutes = max(1, Int(elapsed / 60))
+        return localized(language, "\(minutes) min ago", "\(minutes) minuten geleden")
+    }
+    if Calendar.current.isDate(date, inSameDayAs: now) {
+        return date.formatted(date: .omitted, time: .shortened)
+    }
+    let days = max(1, Calendar.current.dateComponents([.day], from: date, to: now).day ?? 1)
+    switch days {
+    case 1:
+        return localized(language, "Yesterday", "Gisteren")
+    case 2...6:
+        return localized(language, "\(days) days ago", "\(days) dagen geleden")
+    case 7...13:
+        return localized(language, "Last week", "Vorige week")
+    case 14...30:
+        let weeks = max(2, days / 7)
+        return localized(language, "\(weeks) weeks ago", "\(weeks) weken geleden")
+    case 31...61:
+        return localized(language, "Last month", "Vorige maand")
+    default:
+        let months = max(2, days / 30)
+        return localized(language, "\(months) months ago", "\(months) maanden geleden")
+    }
 }
 
 private func localizedPairingStatus(_ status: DJConnectPairingStatus, language: String) -> String {
@@ -365,6 +396,7 @@ private struct DJConnectCanvasBackground: View {
 
 private enum DJConnectSection: Hashable {
     case nowPlaying
+    case askDJ
     case queue
     case playlists
     case games
@@ -398,6 +430,11 @@ public struct DJConnectRootView: View {
                             systemImage: "music.note",
                             isSelected: selectedSection == .nowPlaying
                         ) { selectedSection = .nowPlaying }
+                        SidebarItem(
+                            title: "Ask DJ",
+                            systemImage: "bubble.left.and.bubble.right.fill",
+                            isSelected: selectedSection == .askDJ
+                        ) { selectedSection = .askDJ }
                         SidebarItem(
                             title: localized(model.language, "Queue", "Wachtrij"),
                             systemImage: "text.line.first.and.arrowtriangle.forward",
@@ -460,16 +497,16 @@ public struct DJConnectRootView: View {
                             Label(localized(model.language, "Now Playing", "Speelt Nu"), systemImage: "music.note")
                         }
                         .tag(DJConnectSection.nowPlaying)
+                    AskDJView(model: model)
+                        .tabItem {
+                            Label("Ask DJ", systemImage: "bubble.left.and.bubble.right.fill")
+                        }
+                        .tag(DJConnectSection.askDJ)
                     QueueView(model: model)
                         .tabItem {
                             Label(localized(model.language, "Queue", "Wachtrij"), systemImage: "text.line.first.and.arrowtriangle.forward")
                         }
                         .tag(DJConnectSection.queue)
-                    PlaylistsView(model: model)
-                        .tabItem {
-                            Label(localized(model.language, "Playlists", "Afspeellijsten"), systemImage: "rectangle.stack")
-                        }
-                        .tag(DJConnectSection.playlists)
                     MoreView(model: model) {
                         selectedSection = .nowPlaying
                     }
@@ -574,6 +611,8 @@ public struct DJConnectRootView: View {
         switch selectedSection {
         case .nowPlaying:
             NowPlayingView(model: model)
+        case .askDJ:
+            AskDJView(model: model)
         case .queue:
             QueueView(model: model)
         case .playlists:
@@ -3007,6 +3046,1106 @@ struct VoiceResponseView: View {
     }
 }
 
+private struct AskDJView: View {
+    @ObservedObject var model: DJConnectAppModel
+    @State private var showingClearConfirmation = false
+    @State private var selectedWebLink: DJConnectResponseLink?
+    @State private var toast: String?
+    @FocusState private var isInputFocused: Bool
+
+    private var canSend: Bool {
+        !model.askDJDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            && !model.isSendingAskDJText
+            && model.canUsePlaybackFeatures
+    }
+
+    private var canUseVoiceInput: Bool {
+        model.voiceEnabled
+            && model.canUsePlaybackFeatures
+            && !model.isRefreshing
+            && !model.isSendingAskDJText
+            && model.voiceStatus != .processing
+    }
+
+    var body: some View {
+        NavigationStack {
+            VStack(spacing: 0) {
+                ScrollViewReader { proxy in
+                    ScrollView {
+                        LazyVStack(spacing: 12) {
+                            if model.isCheckingAskDJHistoryState {
+                                ProgressView()
+                                    .tint(.white)
+                                    .padding(.top, 56)
+                            } else if model.askDJMessages.isEmpty {
+                                AskDJEmptyState(
+                                    language: model.language,
+                                    selectExample: { example in
+                                        model.askDJDraft = example
+                                        isInputFocused = true
+                                    }
+                                )
+                                    .padding(.top, 48)
+                            } else {
+                                ForEach(model.askDJMessages) { message in
+                                    AskDJMessageBubble(
+                                        message: message,
+                                        language: model.language,
+                                        isAudioLoading: model.isLoadingAskDJAudio(message.audioURL),
+                                        isAudioPlaying: model.isPlayingAskDJAudio(message.audioURL),
+                                        isRetryDisabled: model.isSendingAskDJText,
+                                        playingActionID: model.playingAskDJActionID,
+                                        retryAction: { model.retryAskDJMessage(message) },
+                                        playAction: { model.playAskDJRecommendation($0) },
+                                        audioAction: {
+                                            if model.isPlayingAskDJAudio(message.audioURL) {
+                                                model.stopAskDJAudio()
+                                            } else {
+                                                model.replayAskDJAudio(message.audioURL)
+                                            }
+                                        },
+                                        openLink: { selectedWebLink = $0 }
+                                    )
+                                    .id(message.id)
+                                }
+                            }
+                        }
+                        .padding(.horizontal, djConnectScreenHorizontalPadding)
+                        .padding(.vertical, 16)
+                    }
+                    .overlay(alignment: .bottomTrailing) {
+                        if model.askDJMessages.count > 8, let lastID = model.askDJMessages.last?.id {
+                            Button {
+                                withAnimation(.easeOut(duration: 0.22)) {
+                                    proxy.scrollTo(lastID, anchor: .bottom)
+                                }
+                            } label: {
+                                Image(systemName: "arrow.down.circle.fill")
+                                    .font(.title2.weight(.semibold))
+                                    .foregroundStyle(.white)
+                                    .frame(width: 42, height: 42)
+                                    .background(Circle().fill(Color.black.opacity(0.34)))
+                                    .overlay(Circle().stroke(.white.opacity(0.18), lineWidth: 1))
+                            }
+                            .buttonStyle(.plain)
+                            .padding(.trailing, djConnectScreenHorizontalPadding)
+                            .padding(.bottom, 12)
+                            .help(localized(model.language, "Scroll to bottom", "Naar beneden"))
+                        }
+                    }
+                    .onChange(of: model.askDJMessages) {
+                        guard let lastID = model.askDJMessages.last?.id else {
+                            return
+                        }
+                        withAnimation(.easeOut(duration: 0.22)) {
+                            proxy.scrollTo(lastID, anchor: .bottom)
+                        }
+                    }
+                }
+
+                if let error = model.askDJErrorMessage, !error.isEmpty {
+                    Text(error)
+                        .font(.footnote)
+                        .foregroundStyle(.red.opacity(0.92))
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, djConnectScreenHorizontalPadding)
+                        .padding(.bottom, 8)
+                }
+
+                AskDJInputBar(
+                    model: model,
+                    canSend: canSend,
+                    canUseVoiceInput: canUseVoiceInput,
+                    isInputFocused: $isInputFocused
+                )
+            }
+            .background(DJConnectCanvasBackground())
+            .overlay(alignment: .bottom) {
+                if let toast {
+                    StatusToast(text: toast, systemImage: "exclamationmark.triangle.fill")
+                        .padding(.bottom, 76)
+                        .padding(.horizontal, djConnectScreenHorizontalPadding)
+                        .transition(.move(edge: .bottom).combined(with: .opacity))
+                }
+            }
+            .navigationTitle(screenTitle(model.language, "Ask DJ", "Ask DJ", isDemoMode: model.isDemoMode))
+            .toolbar {
+                ToolbarItem(placement: .primaryAction) {
+                    Button {
+                        showingClearConfirmation = true
+                    } label: {
+                        Image(systemName: model.isClearingAskDJHistory ? "hourglass" : "trash")
+                    }
+                    .disabled(model.askDJMessages.isEmpty || model.isClearingAskDJHistory)
+                    .help(localized(model.language, "Clear chat", "Chat wissen"))
+                }
+            }
+            .confirmationDialog(
+                localized(model.language, "Clear Ask DJ chat?", "Ask DJ chat wissen?"),
+                isPresented: $showingClearConfirmation,
+                titleVisibility: .visible
+            ) {
+                Button(localized(model.language, "Clear Chat", "Chat wissen"), role: .destructive) {
+                    model.clearAskDJHistory()
+                }
+                Button(localized(model.language, "Cancel", "Annuleren"), role: .cancel) {}
+            }
+        }
+        .background(DJConnectCanvasBackground())
+        .task {
+            model.prepareAskDJHistoryForDisplay()
+        }
+        .sheet(item: $selectedWebLink) { link in
+            AskDJWebPreview(link: link, language: model.language)
+        }
+        .onChange(of: model.askDJToast?.id) { _, _ in
+            guard let text = model.askDJToast?.text else {
+                return
+            }
+            showToast(text)
+        }
+    }
+
+    private func showToast(_ text: String) {
+        withAnimation(.easeOut(duration: 0.18)) {
+            toast = text
+        }
+        Task { @MainActor in
+            try? await Task.sleep(for: .seconds(2.4))
+            guard toast == text else {
+                return
+            }
+            withAnimation(.easeIn(duration: 0.18)) {
+                toast = nil
+            }
+        }
+    }
+}
+
+private struct AskDJEmptyState: View {
+    let language: String
+    let selectExample: (String) -> Void
+
+    private var examples: [String] {
+        [
+            localized(
+                language,
+                "Describe what I have been listening to over the last month",
+                "Omschrijf eens waar ik zoal naar luisterde de afgelopen maand"
+            ),
+            localized(language, "Surprise me with new music", "Verras me met nieuwe muziek"),
+            localized(language, "Which albums did this artist release?", "Welke albums bracht deze artiest uit?"),
+            localized(language, "Play something for cooking", "Speel iets dat past bij koken")
+        ]
+    }
+
+    var body: some View {
+        VStack(spacing: 14) {
+            Image(systemName: "sparkles")
+                .font(.system(size: 36, weight: .semibold))
+                .foregroundStyle(
+                    LinearGradient(
+                        colors: [
+                            Color(red: 0.12, green: 0.45, blue: 1.00),
+                            Color(red: 0.84, green: 0.22, blue: 0.96)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+            Text(localized(language, "Ask DJ", "Ask DJ"))
+                .font(.title3.weight(.semibold))
+                .foregroundStyle(.white)
+            Text(localized(
+                language,
+                "Ask about the music or give your DJ a request.",
+                "Vraag iets over de muziek of geef je DJ een opdracht."
+            ))
+                .font(.callout)
+                .foregroundStyle(.white.opacity(0.62))
+                .multilineTextAlignment(.center)
+                .frame(maxWidth: 360)
+
+            VStack(alignment: .leading, spacing: 8) {
+                ForEach(examples, id: \.self) { example in
+                    Button {
+                        selectExample(example)
+                    } label: {
+                        HStack(spacing: 8) {
+                            Image(systemName: "quote.opening")
+                                .font(.caption2.weight(.bold))
+                                .foregroundStyle(.white.opacity(0.54))
+                                .frame(width: 18)
+                            Text(example)
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(.white.opacity(0.86))
+                                .lineLimit(2)
+                                .fixedSize(horizontal: false, vertical: true)
+                            Spacer(minLength: 4)
+                            Image(systemName: "plus")
+                                .font(.caption2.weight(.bold))
+                                .foregroundStyle(.white.opacity(0.50))
+                        }
+                        .padding(.horizontal, 11)
+                        .padding(.vertical, 8)
+                        .frame(maxWidth: 360, alignment: .leading)
+                        .background {
+                            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                .fill(.white.opacity(0.09))
+                        }
+                        .overlay {
+                            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                .stroke(.white.opacity(0.12), lineWidth: 1)
+                        }
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(.top, 2)
+
+            Text(localized(
+                language,
+                "Ask DJ can change the music when you ask for it.",
+                "Ask DJ kan muziek aanpassen als je daarom vraagt."
+            ))
+                .font(.caption2.weight(.medium))
+                .foregroundStyle(.white.opacity(0.48))
+                .multilineTextAlignment(.center)
+                .frame(maxWidth: 340)
+        }
+        .frame(maxWidth: .infinity)
+    }
+}
+
+private struct AskDJMessageBubble: View {
+    let message: DJConnectAskDJMessage
+    let language: String
+    let isAudioLoading: Bool
+    let isAudioPlaying: Bool
+    let isRetryDisabled: Bool
+    let playingActionID: String?
+    let retryAction: () -> Void
+    let playAction: (DJConnectAskDJPlaybackAction) -> Void
+    let audioAction: () -> Void
+    let openLink: (DJConnectResponseLink) -> Void
+
+    private var isUser: Bool {
+        message.role == .user
+    }
+
+    private var regularLinks: [DJConnectResponseLink] {
+        message.links.filter { !$0.isSourceLike }
+    }
+
+    private var sourceLinks: [DJConnectResponseLink] {
+        message.links.filter(\.isSourceLike)
+    }
+
+    var body: some View {
+        HStack(alignment: .bottom, spacing: 8) {
+            if isUser {
+                Spacer(minLength: 42)
+            }
+            VStack(alignment: isUser ? .trailing : .leading, spacing: 4) {
+                VStack(alignment: .leading, spacing: 10) {
+                    if !message.text.isEmpty {
+                        AskDJMarkdownText(text: message.text)
+                    }
+                    if !message.images.isEmpty {
+                        AskDJImageStrip(images: message.images)
+                    }
+                    if !regularLinks.isEmpty {
+                        AskDJLinkStack(links: regularLinks, openLink: openLink)
+                    }
+                    if !sourceLinks.isEmpty {
+                        AskDJSourcesStack(links: sourceLinks, language: language, openLink: openLink)
+                    }
+                    if !isUser, !message.playbackActions.isEmpty {
+                        AskDJPlaybackActionStack(
+                            actions: message.playbackActions,
+                            language: language,
+                            playingActionID: playingActionID,
+                            playAction: playAction
+                        )
+                    }
+                    if !isUser, message.audioURL != nil {
+                        AskDJAudioReplayButton(
+                            language: language,
+                            isLoading: isAudioLoading,
+                            isPlaying: isAudioPlaying,
+                            action: audioAction
+                        )
+                    }
+                }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 10)
+                .background {
+                    bubbleBackground
+                }
+                .overlay {
+                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                        .stroke(.white.opacity(isUser ? 0.12 : 0.18), lineWidth: 1)
+                }
+                HStack(spacing: 8) {
+                    Text(messageMetadataText)
+                        .font(.caption2.weight(.medium))
+                        .foregroundStyle(.white.opacity(0.46))
+                    if isUser, message.status == .failed {
+                        Button(action: retryAction) {
+                            Label(localized(language, "Retry", "Opnieuw"), systemImage: "arrow.clockwise")
+                                .font(.caption2.weight(.semibold))
+                        }
+                        .buttonStyle(.plain)
+                        .foregroundStyle(.white.opacity(0.82))
+                        .disabled(isRetryDisabled)
+                    }
+                }
+                .padding(.horizontal, 6)
+            }
+            .frame(maxWidth: 560, alignment: isUser ? .trailing : .leading)
+            if !isUser {
+                Spacer(minLength: 42)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: isUser ? .trailing : .leading)
+    }
+
+    private var messageMetadataText: String {
+        let timestamp = askDJTimestamp(message.createdAt, language: language)
+        guard isUser, let status = message.status else {
+            return timestamp
+        }
+        let statusText: String
+        switch status {
+        case .sending:
+            statusText = localized(language, "sending...", "bezig...")
+        case .sent:
+            statusText = localized(language, "sent", "verzonden")
+        case .failed:
+            statusText = localized(language, "failed", "mislukt")
+        }
+        return "\(timestamp) · \(statusText)"
+    }
+
+    @ViewBuilder
+    private var bubbleBackground: some View {
+        if isUser {
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .fill(Color(red: 0.06, green: 0.43, blue: 1.00))
+        } else {
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .fill(
+                    LinearGradient(
+                        colors: [
+                            Color(red: 0.05, green: 0.42, blue: 1.00),
+                            Color(red: 0.40, green: 0.25, blue: 0.98),
+                            Color(red: 0.84, green: 0.22, blue: 0.96)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+        }
+    }
+}
+
+private struct AskDJAudioReplayButton: View {
+    let language: String
+    let isLoading: Bool
+    let isPlaying: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 9) {
+                ZStack {
+                    Circle().fill(.white.opacity(0.18))
+                    if isLoading {
+                        ProgressView()
+                            .controlSize(.small)
+                            .tint(.white)
+                    } else {
+                        Image(systemName: isPlaying ? "stop.fill" : "play.fill")
+                            .font(.caption.weight(.bold))
+                            .foregroundStyle(.white)
+                    }
+                }
+                .frame(width: 28, height: 28)
+                Text(buttonText)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.white)
+                    .lineLimit(1)
+                Spacer(minLength: 4)
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 9)
+            .frame(maxWidth: 260, alignment: .leading)
+            .background {
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(.white.opacity(0.12))
+            }
+            .overlay {
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .stroke(.white.opacity(0.18), lineWidth: 1)
+            }
+        }
+        .buttonStyle(.plain)
+        .disabled(isLoading)
+    }
+
+    private var buttonText: String {
+        if isLoading {
+            return localized(language, "Loading audio...", "Audio laden...")
+        }
+        if isPlaying {
+            return localized(language, "Stop DJ response", "DJ antwoord stoppen")
+        }
+        return localized(language, "Play DJ response", "DJ antwoord afspelen")
+    }
+}
+
+private struct AskDJPlaybackActionStack: View {
+    let actions: [DJConnectAskDJPlaybackAction]
+    let language: String
+    let playingActionID: String?
+    let playAction: (DJConnectAskDJPlaybackAction) -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            ForEach(actions) { action in
+                Button {
+                    playAction(action)
+                } label: {
+                    HStack(spacing: 10) {
+                        AsyncImage(url: action.imageURL) { phase in
+                            switch phase {
+                            case let .success(image):
+                                image
+                                    .resizable()
+                                    .scaledToFill()
+                            case .failure:
+                                fallbackIcon
+                            case .empty:
+                                fallbackIcon
+                            @unknown default:
+                                fallbackIcon
+                            }
+                        }
+                        .frame(width: 34, height: 34)
+                        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(action.title)
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(.white)
+                                .lineLimit(1)
+                            if let subtitle = action.subtitle, !subtitle.isEmpty {
+                                Text(subtitle)
+                                    .font(.caption2)
+                                    .foregroundStyle(.white.opacity(0.70))
+                                    .lineLimit(1)
+                            }
+                        }
+
+                        Spacer(minLength: 6)
+
+                        HStack(spacing: 6) {
+                            if playingActionID == action.id {
+                                ProgressView()
+                                    .controlSize(.small)
+                                    .tint(.white)
+                            } else {
+                                Image(systemName: "play.fill")
+                                    .font(.caption2.weight(.bold))
+                            }
+                            Text(localized(language, "Play Now", "Speel nu"))
+                                .font(.caption.weight(.bold))
+                                .lineLimit(1)
+                        }
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 7)
+                        .background {
+                            Capsule()
+                                .fill(
+                                    LinearGradient(
+                                        colors: [
+                                            Color(red: 0.06, green: 0.43, blue: 1.00),
+                                            Color(red: 0.84, green: 0.22, blue: 0.96)
+                                        ],
+                                        startPoint: .leading,
+                                        endPoint: .trailing
+                                    )
+                                )
+                        }
+                    }
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 9)
+                    .frame(maxWidth: 520, alignment: .leading)
+                    .background {
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .fill(.white.opacity(0.12))
+                    }
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .stroke(.white.opacity(0.18), lineWidth: 1)
+                    }
+                }
+                .buttonStyle(.plain)
+                .disabled(playingActionID != nil)
+            }
+        }
+    }
+
+    private var fallbackIcon: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .fill(.white.opacity(0.16))
+            Image(systemName: "music.note")
+                .font(.caption.weight(.bold))
+                .foregroundStyle(.white.opacity(0.82))
+        }
+    }
+}
+
+private struct AskDJLinkStack: View {
+    let links: [DJConnectResponseLink]
+    let openLink: (DJConnectResponseLink) -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            ForEach(links) { link in
+                Button {
+                    openLink(link)
+                } label: {
+                    HStack(spacing: 10) {
+                        Image(systemName: "link")
+                            .font(.caption.weight(.bold))
+                            .foregroundStyle(.white)
+                            .frame(width: 28, height: 28)
+                            .background(Circle().fill(.white.opacity(0.16)))
+
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(link.title?.isEmpty == false ? link.title! : link.url.host ?? link.url.absoluteString)
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(.white)
+                                .lineLimit(2)
+                            if let subtitle = link.subtitle, !subtitle.isEmpty {
+                                Text(subtitle)
+                                    .font(.caption2)
+                                    .foregroundStyle(.white.opacity(0.70))
+                                    .lineLimit(2)
+                            } else if let host = link.url.host {
+                                Text(host)
+                                    .font(.caption2)
+                                    .foregroundStyle(.white.opacity(0.70))
+                                    .lineLimit(1)
+                            }
+                        }
+
+                        Spacer(minLength: 4)
+
+                        Image(systemName: "arrow.up.forward")
+                            .font(.caption.weight(.bold))
+                            .foregroundStyle(.white.opacity(0.78))
+                    }
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 9)
+                    .frame(maxWidth: 520, alignment: .leading)
+                    .background {
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .fill(.white.opacity(0.12))
+                    }
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .stroke(.white.opacity(0.18), lineWidth: 1)
+                    }
+                }
+                .buttonStyle(.plain)
+            }
+        }
+    }
+}
+
+private struct AskDJSourcesStack: View {
+    let links: [DJConnectResponseLink]
+    let language: String
+    let openLink: (DJConnectResponseLink) -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 7) {
+            Text(localized(language, "Sources", "Bronnen"))
+                .font(.caption2.weight(.bold))
+                .foregroundStyle(.white.opacity(0.76))
+                .textCase(.uppercase)
+
+            ForEach(links) { link in
+                Button {
+                    openLink(link)
+                } label: {
+                    HStack(spacing: 8) {
+                        Image(systemName: "doc.text.magnifyingglass")
+                            .font(.caption2.weight(.bold))
+                            .foregroundStyle(.white.opacity(0.82))
+                            .frame(width: 22, height: 22)
+                            .background(Circle().fill(.white.opacity(0.12)))
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text(link.title?.isEmpty == false ? link.title! : link.url.host ?? link.url.absoluteString)
+                                .font(.caption2.weight(.semibold))
+                                .foregroundStyle(.white)
+                                .lineLimit(2)
+                            if let host = link.url.host {
+                                Text(host)
+                                    .font(.caption2)
+                                    .foregroundStyle(.white.opacity(0.62))
+                                    .lineLimit(1)
+                            }
+                        }
+                        Spacer(minLength: 4)
+                        Image(systemName: "chevron.right")
+                            .font(.caption2.weight(.bold))
+                            .foregroundStyle(.white.opacity(0.62))
+                    }
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 8)
+                    .frame(maxWidth: 520, alignment: .leading)
+                    .background {
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .fill(.white.opacity(0.09))
+                    }
+                }
+                .buttonStyle(.plain)
+            }
+        }
+    }
+}
+
+private struct AskDJMarkdownText: View {
+    let text: String
+    @State private var attributedText: AttributedString
+
+    init(text: String) {
+        self.text = text
+        _attributedText = State(initialValue: Self.makeAttributedText(from: text))
+    }
+
+    var body: some View {
+        Text(attributedText)
+            .font(.body)
+            .foregroundStyle(.white)
+            .tint(.white)
+            .fixedSize(horizontal: false, vertical: true)
+            .onChange(of: text) { _, newValue in
+                attributedText = Self.makeAttributedText(from: newValue)
+            }
+    }
+
+    private static func makeAttributedText(from text: String) -> AttributedString {
+        (try? AttributedString(
+            markdown: text,
+            options: AttributedString.MarkdownParsingOptions(interpretedSyntax: .full)
+        )) ?? AttributedString(text)
+    }
+}
+
+private struct AskDJWebPreview: View {
+    let link: DJConnectResponseLink
+    let language: String
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.openURL) private var openURL
+
+    private var title: String {
+        link.title?.isEmpty == false ? link.title! : link.url.host ?? localized(language, "Link", "Link")
+    }
+
+    var body: some View {
+        NavigationStack {
+            Group {
+                #if canImport(WebKit)
+                AskDJWebView(url: link.url)
+                #else
+                VStack(spacing: 14) {
+                    Image(systemName: "safari")
+                        .font(.largeTitle)
+                        .foregroundStyle(.white)
+                    Text(link.url.absoluteString)
+                        .font(.callout)
+                        .foregroundStyle(.white.opacity(0.72))
+                        .multilineTextAlignment(.center)
+                        .textSelection(.enabled)
+                    Button(localized(language, "Open in Browser", "Open in browser")) {
+                        openURL(link.url)
+                    }
+                    .buttonStyle(.borderedProminent)
+                }
+                .padding(24)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(DJConnectCanvasBackground())
+                #endif
+            }
+            .navigationTitle(title)
+            #if os(iOS)
+            .navigationBarTitleDisplayMode(.inline)
+            #endif
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button(localized(language, "Done", "Gereed")) {
+                        dismiss()
+                    }
+                }
+                ToolbarItem(placement: .primaryAction) {
+                    Button {
+                        openURL(link.url)
+                    } label: {
+                        Label(localized(language, "Open in Browser", "Open in browser"), systemImage: "safari")
+                    }
+                }
+            }
+        }
+    }
+}
+
+#if canImport(WebKit)
+#if os(macOS)
+private struct AskDJWebView: NSViewRepresentable {
+    let url: URL
+
+    func makeNSView(context: Context) -> WKWebView {
+        let view = WKWebView()
+        view.load(URLRequest(url: url))
+        return view
+    }
+
+    func updateNSView(_ nsView: WKWebView, context: Context) {
+        guard nsView.url != url else {
+            return
+        }
+        nsView.load(URLRequest(url: url))
+    }
+}
+#else
+private struct AskDJWebView: UIViewRepresentable {
+    let url: URL
+
+    func makeUIView(context: Context) -> WKWebView {
+        let view = WKWebView()
+        view.load(URLRequest(url: url))
+        return view
+    }
+
+    func updateUIView(_ uiView: WKWebView, context: Context) {
+        guard uiView.url != url else {
+            return
+        }
+        uiView.load(URLRequest(url: url))
+    }
+}
+#endif
+#endif
+
+private extension DJConnectResponseLink {
+    var isSourceLike: Bool {
+        let values = [kind, source]
+            .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() }
+        return values.contains { value in
+            ["source", "sources", "citation", "citations", "reference", "references", "bron", "bronnen"].contains(value)
+        }
+    }
+}
+
+private struct AskDJImageStrip: View {
+    let images: [DJConnectResponseImage]
+
+    var body: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            LazyHStack(alignment: .top, spacing: 10) {
+                ForEach(images) { image in
+                    AskDJImageCard(image: image)
+                }
+            }
+            .padding(.vertical, 1)
+        }
+        .frame(maxWidth: 520, alignment: .leading)
+        .scrollClipDisabled()
+    }
+}
+
+private struct AskDJImageCard: View {
+    let image: DJConnectResponseImage
+
+    private var displayURL: URL {
+        image.thumbnailURL ?? image.url
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 7) {
+            AsyncImage(url: displayURL) { phase in
+                switch phase {
+                case let .success(image):
+                    image
+                        .resizable()
+                        .scaledToFill()
+                case .failure:
+                    Image(systemName: "photo")
+                        .font(.title2)
+                        .foregroundStyle(.white.opacity(0.78))
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                case .empty:
+                    ProgressView()
+                        .tint(.white)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                @unknown default:
+                    Color.white.opacity(0.10)
+                }
+            }
+            .frame(width: 190, height: 190)
+            .clipped()
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .stroke(.white.opacity(0.18), lineWidth: 1)
+            }
+
+            if image.title?.isEmpty == false || image.subtitle?.isEmpty == false {
+                VStack(alignment: .leading, spacing: 2) {
+                    if let title = image.title, !title.isEmpty {
+                        Text(title)
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(.white)
+                            .lineLimit(2)
+                    }
+                    if let subtitle = image.subtitle, !subtitle.isEmpty {
+                        Text(subtitle)
+                            .font(.caption2)
+                            .foregroundStyle(.white.opacity(0.70))
+                            .lineLimit(2)
+                    }
+                }
+                .frame(width: 190, alignment: .leading)
+            }
+        }
+    }
+}
+
+private struct AskDJInputBar: View {
+    @ObservedObject var model: DJConnectAppModel
+    let canSend: Bool
+    let canUseVoiceInput: Bool
+    var isInputFocused: FocusState<Bool>.Binding
+
+    var body: some View {
+        HStack(spacing: 10) {
+            TextField(localized(model.language, "Ask DJ...", "Vraag Ask DJ..."), text: $model.askDJDraft, axis: .vertical)
+                .lineLimit(1...4)
+                .textFieldStyle(.plain)
+                .focused(isInputFocused)
+                .foregroundStyle(.white)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 11)
+                .background {
+                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                        .fill(.white.opacity(0.12))
+                        .background {
+                            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                                .fill(
+                                    LinearGradient(
+                                        colors: [
+                                            Color(red: 0.06, green: 0.43, blue: 1.00).opacity(0.16),
+                                            Color(red: 0.84, green: 0.22, blue: 0.96).opacity(0.12)
+                                        ],
+                                        startPoint: .leading,
+                                        endPoint: .trailing
+                                    )
+                                )
+                        }
+                }
+                .overlay {
+                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                        .stroke(.white.opacity(0.20), lineWidth: 1)
+                }
+                .onSubmit {
+                    if canSend {
+                        model.sendAskDJText()
+                    }
+                }
+
+            AskDJVoiceInputButton(model: model, isEnabled: canUseVoiceInput)
+
+            Button {
+                model.sendAskDJText()
+            } label: {
+                if model.isSendingAskDJText {
+                    ProgressView()
+                        .controlSize(.small)
+                        .tint(.white)
+                } else {
+                    Image(systemName: "paperplane.fill")
+                        .font(.headline.weight(.semibold))
+                }
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(.white)
+            .frame(width: 44, height: 44)
+            .background {
+                Circle()
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                Color(red: 0.06, green: 0.43, blue: 1.00),
+                                Color(red: 0.84, green: 0.22, blue: 0.96)
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .opacity(canSend || model.isSendingAskDJText ? 1 : 0.38)
+            }
+            .disabled(!canSend)
+            .help(localized(model.language, "Send", "Verstuur"))
+        }
+        .padding(.horizontal, djConnectScreenHorizontalPadding)
+        .padding(.top, 10)
+        .padding(.bottom, 12)
+        .background {
+            ZStack(alignment: .top) {
+                Rectangle()
+                    .fill(.ultraThinMaterial)
+                LinearGradient(
+                    colors: [
+                        Color(red: 0.06, green: 0.43, blue: 1.00).opacity(0.22),
+                        Color(red: 0.40, green: 0.25, blue: 0.98).opacity(0.18),
+                        Color(red: 0.84, green: 0.22, blue: 0.96).opacity(0.24)
+                    ],
+                    startPoint: .leading,
+                    endPoint: .trailing
+                )
+                Rectangle()
+                    .fill(.white.opacity(0.12))
+                    .frame(height: 1)
+            }
+            .background {
+                Rectangle()
+                    .fill(Color(red: 0.08, green: 0.06, blue: 0.14).opacity(0.70))
+            }
+        }
+        .overlay(alignment: .top) {
+            LinearGradient(
+                colors: [
+                    Color(red: 0.06, green: 0.43, blue: 1.00).opacity(0.36),
+                    Color(red: 0.84, green: 0.22, blue: 0.96).opacity(0.38)
+                ],
+                startPoint: .leading,
+                endPoint: .trailing
+            )
+            .frame(height: 1)
+        }
+    }
+}
+
+private struct AskDJVoiceInputButton: View {
+    @ObservedObject var model: DJConnectAppModel
+    let isEnabled: Bool
+    @State private var isPressing = false
+
+    private var isActive: Bool {
+        model.isRecordingVoice || model.voiceStatus == .listening
+    }
+
+    private var isProcessing: Bool {
+        model.voiceStatus == .processing
+    }
+
+    var body: some View {
+        Button {} label: {
+            ZStack {
+                Circle()
+                    .fill(buttonBackground)
+                    .opacity(isEnabled || isActive || isProcessing ? 1 : 0.38)
+                if isProcessing {
+                    ProgressView()
+                        .controlSize(.small)
+                        .tint(.white)
+                } else {
+                    Image(systemName: isActive ? "stop.fill" : "mic.fill")
+                        .font(.headline.weight(.semibold))
+                        .foregroundStyle(.white)
+                        .symbolEffect(.pulse, isActive: isActive)
+                }
+            }
+            .frame(width: 44, height: 44)
+            .overlay {
+                Circle()
+                    .stroke(.white.opacity(isActive ? 0.34 : 0.16), lineWidth: 1)
+            }
+        }
+        .buttonStyle(.plain)
+        .disabled(!isEnabled && !isActive)
+        .simultaneousGesture(
+            DragGesture(minimumDistance: 0)
+                .onChanged { _ in
+                    guard isEnabled, !isPressing else {
+                        return
+                    }
+                    isPressing = true
+                    DJConnectHaptics.impact()
+                    model.startVoiceRecording()
+                }
+                .onEnded { _ in
+                    guard isPressing else {
+                        return
+                    }
+                    isPressing = false
+                    DJConnectHaptics.selection()
+                    model.stopVoiceRecordingAndUpload()
+                }
+        )
+        .onDisappear {
+            if isPressing {
+                isPressing = false
+                model.stopVoiceRecordingAndUpload()
+            }
+        }
+        .help(helpText)
+        .accessibilityLabel(helpText)
+        .accessibilityHint(localized(
+            model.language,
+            "Hold to record a voice request for Ask DJ.",
+            "Houd ingedrukt om een stemverzoek voor Ask DJ op te nemen."
+        ))
+        .accessibilityAction {
+            DJConnectHaptics.impact()
+            model.toggleVoiceRecording()
+        }
+    }
+
+    private var buttonBackground: LinearGradient {
+        let colors: [Color]
+        if isActive {
+            colors = [
+                Color(red: 1.00, green: 0.18, blue: 0.34),
+                Color(red: 0.84, green: 0.22, blue: 0.96)
+            ]
+        } else {
+            colors = [
+                Color(red: 0.06, green: 0.43, blue: 1.00),
+                Color(red: 0.40, green: 0.25, blue: 0.98),
+                Color(red: 0.84, green: 0.22, blue: 0.96)
+            ]
+        }
+        return LinearGradient(colors: colors, startPoint: .topLeading, endPoint: .bottomTrailing)
+    }
+
+    private var helpText: String {
+        if isProcessing {
+            return localized(model.language, "Processing voice request", "Stemverzoek verwerken")
+        }
+        if isActive {
+            return localized(model.language, "Release to send", "Laat los om te verzenden")
+        }
+        return localized(model.language, "Hold to talk", "Houd ingedrukt om te praten")
+    }
+}
+
 struct QueueView: View {
     @ObservedObject var model: DJConnectAppModel
     @State private var statusToast: String?
@@ -4755,6 +5894,12 @@ private struct MoreView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
+                    MoreNavigationRow(
+                        title: localized(model.language, "Playlists", "Afspeellijsten"),
+                        systemImage: "rectangle.stack"
+                    ) {
+                        PlaylistsView(model: model)
+                    }
                     MoreNavigationRow(
                         title: localized(model.language, "Games", "Games"),
                         systemImage: "gamecontroller"

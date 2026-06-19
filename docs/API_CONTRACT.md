@@ -28,6 +28,7 @@ Use `client_type` for DJConnect client identity:
 
 - `ios`
 - `macos`
+- `watchos`
 - `esp32`
 
 Do not use `device_type` for client identity.
@@ -49,6 +50,19 @@ Authorization: Bearer <djconnect_bearer_token>
 X-DJConnect-Device-ID: <device_id>
 Content-Type: audio/wav
 ```
+
+Ask DJ clients may include optional context hints on status payloads and raw
+voice uploads:
+
+```http
+X-DJConnect-Mood: 0-100
+X-DJConnect-DJ-Style: warm_radio_dj
+X-DJConnect-Memory-Key: <backend-normalized memory key hint>
+```
+
+The same values may appear in JSON status payloads as `mood`, `dj_style`, and
+`memory_key`. Home Assistant owns DJ Memory and may normalize or ignore the
+client-provided memory key. Clients must not store long-term DJ Memory locally.
 
 ## Pairing
 
@@ -73,6 +87,10 @@ Payload:
   "pairing_token": "123456"
 }
 ```
+
+Standalone watchOS clients use the same pairing endpoint and token contract,
+with `device_id` such as `djconnect-watchos-8F3A2C91B45D`,
+`client_type: "watchos"`, and `platform: "watchos"`.
 
 The app-generated code is sent as `pair_code`, `pairing_code`, and
 `pairing_token` for compatibility with current Home Assistant integration
@@ -348,6 +366,372 @@ Fresh installs should present `http://homeassistant.local:8123` as the default
 Home Assistant URL. This is only a UI default; runtime app-to-HA requests must
 still use the paired `ha_local_url` returned by Home Assistant after pairing.
 
+## Ask DJ Text
+
+```http
+POST /api/djconnect/ask
+Content-Type: application/json
+```
+
+The Apple clients send free-form Ask DJ text to Home Assistant. Home Assistant
+owns intent classification, current playback lookup, output-device lookup,
+Spotify mutations, DJ response generation, and optional TTS. The app must not
+hardcode Ask DJ intent families client-side.
+
+Minimum payload:
+
+```json
+{
+  "device_id": "djconnect-ios-8F3A2C91B45D",
+  "client_type": "ios",
+  "text": "Voeg dit nummer toe aan mijn favorieten",
+  "dj_style": "warm_radio_dj",
+  "memory_key": "djconnect_ios_djconnect-ios-8F3A2C91B45D"
+}
+```
+
+The Home Assistant integration should support at least these Ask DJ intent
+families in addition to general informational questions and playback control:
+
+- `favorite_current_track`: like/save the current track. Dutch examples:
+  `Voeg dit nummer toe aan mijn favorieten`, `zet dit nummer bij mijn
+  favorieten`, `like dit nummer`, `sla deze track op`, `bewaar dit nummer`.
+  English examples: `add this song to my favorites`, `like this track`,
+  `save this song`, `add the current track to liked songs`.
+- `output_devices_info`: answer questions about known playback outputs without
+  changing playback. Dutch examples: `Welke speakers zijn er?`, `Welke
+  output devices zijn beschikbaar?`, `Waar kan ik muziek afspelen?`. English
+  examples: `which speakers are available?`, `what output devices do I have?`.
+- `current_output_info`: answer where music is currently playing without
+  changing playback. Dutch examples: `Waarop wordt nu muziek gespeeld?`,
+  `Op welke speaker speelt dit?`, `Waar speelt de muziek nu?`. English
+  examples: `where is music playing now?`, `which speaker is active?`.
+- `personalized_mood_playback`: interpret fuzzy mood/energy requests and start
+  or queue music that matches the user's current state and known preferences.
+  Dutch examples: `Ik voel me moe en geprikkeld, zet wat rustige muziek op die
+  ik fijn vind`, `Doe iets ontspannends, ik ben overprikkeld`, `Zet iets op
+  waar ik rustig van word`, `Ik wil even kalme muziek zonder vocals`. English
+  examples: `I am tired and overstimulated, play relaxing music I will enjoy`,
+  `play something calming that I usually like`, `put on something low energy`.
+- `personal_music_profile_analysis`: describe the user's listening profile over
+  a requested period without changing playback. Dutch examples: `Omschrijf eens
+  waar ik zoal naar luisterde de afgelopen maand`, `Wat zegt mijn muziek van de
+  laatste twee weken over mijn stemming?`, `Welke genres luister ik de laatste
+  tijd veel?`, `Maak een profiel van mijn muzieksmaak dit jaar`. English
+  examples: `describe what I have been listening to over the last month`,
+  `what does my music from the last two weeks say about my mood?`, `which
+  genres have I been listening to lately?`, `make a profile of my music taste
+  this year`.
+- `personal_music_recommendations`: recommend music from the user's known
+  listening profile without changing playback unless the user explicitly asks
+  to play, queue, or save something. Dutch examples: `Geef me muziek
+  aanbevelingen op basis van mijn luisterprofiel`, `Wat zou ik nu leuk vinden
+  om te luisteren?`, `Raad me iets nieuws aan dat past bij mijn smaak`,
+  `Welke artiesten of albums moet ik eens proberen?`, `Geef me vijf nummers
+  die passen bij wat ik de laatste tijd luister`. English examples:
+  `recommend music based on my listening profile`, `what should I listen to
+  now?`, `recommend something new that fits my taste`, `which artists or
+  albums should I try?`, `give me five tracks that match what I have been
+  listening to lately`.
+- `dj_announcement_request`: generate a radio-style DJ announcement for the
+  current or next track without changing playback. Dutch examples: `Geef me een
+  leuke aankondiging voor het volgende nummer`, `Kondig het volgende nummer
+  alvast aan`, `Doe een radio intro voor wat er nu speelt`, `Zeg iets leuks
+  over dit nummer`. English examples: `give me a fun announcement for the next
+  song`, `do a radio-style intro for what is playing now`, `say something fun
+  about this track`.
+- `track_context_info`: answer rich informational questions about the current
+  track, artist, release, genre, trivia, samples, concerts, releases, or musical
+  connections without changing playback. Dutch examples: `Vertel iets over dit
+  nummer`, `Wanneer kwam dit uit?`, `Waar komt deze artiest vandaan?`, `Welke
+  samples hoor ik?`, `Heeft deze artiest binnenkort concerten in Nederland?`,
+  `Waarom koos je dit nummer?`, `Wat is de connectie met het vorige nummer?`.
+  English examples: `tell me about this song`, `what year was this released?`,
+  `where is this artist from?`, `what samples are used?`, `does this artist
+  have concerts in the Netherlands?`, `why did you choose this track?`.
+- `track_musical_analysis`: answer musicological or production-analysis
+  questions about the current track without changing playback. Dutch examples:
+  `Analyseer dit nummer muzikaal`, `Welke instrumenten hoor ik?`, `Hoe is dit
+  nummer opgebouwd?`, `Wat maakt deze productie zo goed?`, `Welke trucjes
+  gebruikt de producer hier?`, `Waarom werkt deze drop zo goed?`, `Leg de
+  akkoorden en opbouw uit`. English examples: `analyze this track musically`,
+  `what instruments are used here?`, `how is this song structured?`, `what
+  production tricks are used?`, `why does this drop work?`.
+
+For `favorite_current_track`, Home Assistant should use the current playback
+context if the request uses deictic language such as `dit nummer`, `deze track`,
+`this song`, or `current track`. It should return a normal DJ text response
+after the mutation succeeds. If no current track exists, return `success:false`
+or a clear `dj_text` explaining that nothing is playing.
+
+For output-device information, Home Assistant should return a textual summary
+in `dj_text` and may include structured `devices` on the response in the
+future, but current Apple clients only require text. Do not treat output-info
+questions as playback-transfer commands.
+
+For `personalized_mood_playback`, Home Assistant should combine the user's
+described mood, current time/context, playback history, likes/skips, DJ Memory,
+and available output device. This intent may start playback or add to the queue.
+It should avoid brittle keyword-only routing: phrases such as `moe`,
+`geprikkeld`, `overprikkeld`, `rustig`, `ontspannen`, `calming`,
+`overstimulated`, and `low energy` should be interpreted semantically. If no
+preferred output is active, use the current/preferred DJConnect output or return
+a clear DJ response asking the user to choose a speaker.
+
+For `personal_music_profile_analysis`, Home Assistant should answer questions
+about the user's listening patterns over a user-provided or inferred period
+without mutating playback. It should use DJ Memory, stored recent tracks,
+likes/skips where available, playlist/queue choices, timestamps, moods, and
+current playback context. If the user asks `afgelopen x periode`, parse periods
+such as `vandaag`, `deze week`, `afgelopen twee weken`, `afgelopen maand`,
+`laatste 90 dagen`, or `dit jaar`; if no period is given, default to a recent
+window such as the last 30 days and mention that choice.
+
+Useful response material includes:
+
+- most-listened genres, artists, albums, labels, eras, or track clusters;
+- recurring moods and listening contexts such as focus, cooking, late evening,
+  workouts, background listening, or high-energy sessions;
+- energy profile, such as chill versus party, vocal versus instrumental,
+  melodic versus rhythmic, familiar versus exploratory;
+- notable changes compared with earlier memory, if enough data exists;
+- concrete examples from recent listening, while avoiding an exhaustive dump of
+  history;
+- a short DJ-style summary of what the user's music taste currently says about
+  their vibe.
+
+If there is not enough local DJ Memory or playback history for the requested
+period, return an honest DJ response explaining the gap and summarize what is
+available. Do not invent listening history. This intent should return text and
+may include optional source links or images, but it should not start, queue,
+like, skip, transfer, or otherwise change playback.
+
+For `personal_music_recommendations`, Home Assistant should combine DJ Memory,
+Spotify recently played, Spotify top artists/tracks, liked tracks, skips,
+explicit Ask DJ preferences, mood/energy settings, current playback context,
+and time/context signals where available. The result should be concrete,
+personalized recommendations rather than only a broad genre label.
+
+Useful response material includes:
+
+- recommended tracks, albums, artists, playlists, labels, or eras;
+- why each recommendation fits the user's known profile;
+- a balance of familiar picks and discovery picks;
+- mood/energy fit such as focus, cooking, chill, party, or late-evening
+  listening;
+- optional images such as album art and optional source links where available.
+
+This intent is informational by default. It should not start playback, queue
+tracks, save tracks, like tracks, transfer output, or alter playback unless the
+user explicitly asks for an action, for example `speel deze aanbevelingen`,
+`zet de eerste op`, `voeg ze toe aan de wachtrij`, or `maak hier een playlist
+van`. If the user asks for immediate playback with a fuzzy recommendation such
+as `zet iets op dat bij mijn smaak past`, Home Assistant may route to a
+playback-capable recommendation flow and should return the executed action in
+the response metadata.
+
+When the response contains concrete playable recommendations, Home Assistant
+should also return `playback_actions`. Apple clients render these as explicit
+`Play Now` buttons. Tapping such a button sends a follow-up command to Home
+Assistant, so recommendations remain informational until the user explicitly
+chooses one.
+
+```json
+{
+  "intent": "personal_music_recommendations",
+  "action": "none",
+  "dj_text": "Ik denk dat deze drie goed passen bij je recente progressive en melodic house profiel.",
+  "playback_actions": [
+    {
+      "id": "spotify:track:123",
+      "title": "Track Title",
+      "subtitle": "Artist Name",
+      "uri": "spotify:track:123",
+      "context_uri": "spotify:album:456",
+      "offset_uri": "spotify:track:123",
+      "kind": "track",
+      "image_url": "/api/djconnect/proxy/image/album-456.jpg",
+      "reason": "Past bij je recente voorkeur voor melodische opbouw."
+    },
+    {
+      "id": "spotify:album:789",
+      "title": "Album Title",
+      "subtitle": "Artist Name",
+      "uri": "spotify:album:789",
+      "kind": "album"
+    }
+  ]
+}
+```
+
+The follow-up command is:
+
+```json
+{
+  "device_id": "djconnect-ios-8F3A2C91B45D",
+  "client_type": "ios",
+  "command": "ask_dj_play_recommendation",
+  "play": true,
+  "value": {
+    "title": "Track Title",
+    "subtitle": "Artist Name",
+    "uri": "spotify:track:123",
+    "context_uri": "spotify:album:456",
+    "offset_uri": "spotify:track:123",
+    "kind": "track",
+    "memory_key": "djconnect_ios_djconnect-ios-8F3A2C91B45D"
+  }
+}
+```
+
+Home Assistant owns the final Spotify playback decision. It may start a track,
+album, artist, or playlist directly from `uri`, or use `context_uri` plus
+`offset_uri` when Spotify requires contextual playback.
+
+For `dj_announcement_request`, Home Assistant should not mutate playback. It
+should read current playback and, when available, queue/next-track context,
+then generate a short DJ-style announcement using the configured DJ personality.
+It may return `audio_url` so Apple clients can play or replay the announcement
+from the Ask DJ chat.
+
+For `track_context_info`, Home Assistant should enrich current playback context
+without mutating playback. Useful response material includes:
+
+- now-playing metadata: album art, title, artist, release year, genre, album,
+  label, producer, and track/album links;
+- DJ commentary: a short, personality-rich explanation such as why the track is
+  notable, what era it belongs to, or why it fits the current set;
+- background information: artist origin, trivia, samples used, related artists,
+  producer/label connections, or notable remixes;
+- concert and release information: upcoming Netherlands shows, relevant
+  festivals, recent or upcoming album/single releases, and authoritative links;
+- musical connections: why the track was chosen, relation to the previous track,
+  BPM/energy transition, shared producer, shared label, genre lineage, or mood
+  continuity.
+
+Home Assistant may return this as a concise `dj_text` plus optional `images`
+and `links`. Apple clients already support multiple proxied images, multiple
+links, and replayable `audio_url`; current clients do not require a separate
+structured metadata object. If external artwork, concert pages, artist pages, or
+release pages are included, images should be proxied by Home Assistant and links
+should be normal `http`/`https` URLs.
+
+For `track_musical_analysis`, Home Assistant should give a musical/production
+commentary based on current playback metadata, known facts, available analysis
+sources, Spotify audio features if available, and/or carefully phrased audible
+inferences. It should not claim exact stem separation, exact chords, exact
+instrument lists, or a full transcription unless a real audio-analysis pipeline
+or trusted source is available. Useful response material includes:
+
+- instrumentation and sound palette;
+- arrangement and song structure, such as intro, build, verse, chorus, break,
+  drop, outro, or gradual layering;
+- rhythm, groove, BPM/tempo feel, energy curve, and transition qualities;
+- harmony, key, chords, melody, motifs, or tension/release when known or safely
+  inferable;
+- sound design and production techniques such as filtering, sidechain, reverb,
+  delay, automation, sampling, layering, risers, or call-and-response;
+- mix/mastering impressions such as stereo width, low-end handling, dynamics,
+  vocal placement, or how elements leave space for one another;
+- why the composition or production works emotionally or functionally in the
+  current DJ set.
+
+The response should distinguish known documented facts from likely audible
+interpretation. Prefer language such as `waarschijnlijk`, `hoorbaar`, or `lijkt`
+when the backend is inferring from metadata/LLM knowledge rather than analyzing
+the audio directly.
+
+Expected successful favorite response:
+
+```json
+{
+  "success": true,
+  "intent": "favorite_current_track",
+  "action": "spotify_like_current_track",
+  "text": "Ik heb Strobe toegevoegd aan je favorieten.",
+  "dj_text": "Ik heb Strobe toegevoegd aan je favorieten."
+}
+```
+
+Expected successful output-info response:
+
+```json
+{
+  "success": true,
+  "intent": "output_devices_info",
+  "action": "none",
+  "text": "Je kunt afspelen op Marantz Cinema 60, Keuken en Tuin. Marantz Cinema 60 is nu actief.",
+  "dj_text": "Je kunt afspelen op Marantz Cinema 60, Keuken en Tuin. Marantz Cinema 60 is nu actief."
+}
+```
+
+Expected successful personalized mood response:
+
+```json
+{
+  "success": true,
+  "intent": "personalized_mood_playback",
+  "action": "spotify_start_personalized_context",
+  "text": "Ik zet iets rustigs op met warme, bekende sounds. Geen harde drops, gewoon even landen.",
+  "dj_text": "Ik zet iets rustigs op met warme, bekende sounds. Geen harde drops, gewoon even landen."
+}
+```
+
+Expected successful DJ announcement response:
+
+```json
+{
+  "success": true,
+  "intent": "dj_announcement_request",
+  "action": "none",
+  "text": "En daar komt-ie aan: een warme, hypnotische plaat die precies tussen focus en zweven in hangt.",
+  "dj_text": "En daar komt-ie aan: een warme, hypnotische plaat die precies tussen focus en zweven in hangt.",
+  "audio_url": "http://homeassistant.local:8123/api/djconnect/tts/announcement-123.mp3",
+  "audio_type": "mp3"
+}
+```
+
+Expected successful track context response:
+
+```json
+{
+  "success": true,
+  "intent": "track_context_info",
+  "action": "none",
+  "text": "Strobe kwam uit in 2009 op het album For Lack of a Better Name. De lange opbouw en warme synthlijn maken het een progressive-house klassieker; ik koos hem omdat hij mooi aansluit op de rustige energie van de vorige track.",
+  "dj_text": "Strobe kwam uit in 2009 op het album For Lack of a Better Name. De lange opbouw en warme synthlijn maken het een progressive-house klassieker; ik koos hem omdat hij mooi aansluit op de rustige energie van de vorige track.",
+  "images": [
+    {
+      "url": "http://homeassistant.local:8123/api/djconnect/image_proxy/album/strobe",
+      "title": "For Lack of a Better Name",
+      "subtitle": "deadmau5",
+      "kind": "album_art",
+      "source": "spotify"
+    }
+  ],
+  "links": [
+    {
+      "url": "https://example.com/artist/deadmau5/concerts",
+      "title": "Concertdata",
+      "subtitle": "Komende shows en festivals",
+      "kind": "concerts"
+    }
+  ]
+}
+```
+
+Expected successful musical analysis response:
+
+```json
+{
+  "success": true,
+  "intent": "track_musical_analysis",
+  "action": "none",
+  "text": "Muzikaal werkt dit nummer door de langzame spanningsopbouw: eerst een minimale puls, daarna laag voor laag synthpads, percussie en basdruk. De producer gebruikt filtering, herhaling en subtiele automatisering om de drop onvermijdelijk te laten voelen. Zonder audio-stemanalyse zou ik de exacte akkoorden voorzichtig formuleren, maar de harmonie voelt duidelijk gebouwd rond langdurige spanning en release.",
+  "dj_text": "Muzikaal werkt dit nummer door de langzame spanningsopbouw: eerst een minimale puls, daarna laag voor laag synthpads, percussie en basdruk. De producer gebruikt filtering, herhaling en subtiele automatisering om de drop onvermijdelijk te laten voelen. Zonder audio-stemanalyse zou ik de exacte akkoorden voorzichtig formuleren, maar de harmonie voelt duidelijk gebouwd rond langdurige spanning en release."
+}
+```
+
 ## Voice
 
 ```http
@@ -367,6 +751,11 @@ and returning a DJ response. Home Assistant handles canonical
 `Zet harder`, `Zet zachter`, `Volgende nummer`, `Vorig nummer`, `Stop music`,
 `Start music`, `Turn it up`, `Turn it down`, `Next song`, and
 `Previous song` by mapping them to backend playback commands.
+
+Home Assistant should route STT results into the same Ask DJ intent families as
+text requests, including `favorite_current_track`, `output_devices_info`, and
+`current_output_info`, `personalized_mood_playback`, and
+`dj_announcement_request`, `track_context_info`, and `track_musical_analysis`.
 
 Expected response:
 

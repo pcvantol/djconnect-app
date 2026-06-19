@@ -9,6 +9,7 @@ client family:
 
 - iOS app: `ios`
 - macOS app: `macos`
+- watchOS app: `watchos`
 - ESP firmware remains: `esp32`
 
 Do not use `device_type` for DJConnect client identity. `device_type` may only
@@ -151,6 +152,28 @@ Recommended macOS fields:
   "platform": "macos"
 }
 ```
+
+Recommended watchOS fields:
+
+```json
+{
+  "device_id": "djconnect-watchos-8F3A2C91B45D",
+  "device_name": "DJConnect Watch",
+  "client_type": "watchos",
+  "firmware": "3.1.23",
+  "app_version": "3.1.23",
+  "platform": "watchos"
+}
+```
+
+The watchOS client may run standalone. It should use the same Home Assistant
+pairing/token/status/command/voice contract as iOS and macOS, store only the
+DJConnect bearer token locally, expose voice through `Ask DJ`, and keep wake
+phrase detection foreground-only.
+
+For `Ask DJ`, the Watch may send mood, DJ style, and a memory key hint, but DJ
+Memory itself belongs to the Home Assistant integration. This lets a user ask
+for a calmer track on Watch and later ask from Mac why that track was chosen.
 
 The HA integration currently uses `firmware` as the common client version field
 for protocol compatibility checks. App clients may also send `app_version`, but
@@ -642,11 +665,90 @@ Canonical voice examples live in
   `Zet zachter`, `Volgende nummer`, `Vorig nummer`, `Stop music`,
   `Start music`, `Turn it up`, `Turn it down`, `Next song`,
   `Previous song`
+- `favorite_current_track`: `Voeg dit nummer toe aan mijn favorieten`,
+  `zet dit nummer bij mijn favorieten`, `like dit nummer`, `sla deze track op`,
+  `bewaar dit nummer`, `add this song to my favorites`, `like this track`,
+  `save this song`, `add the current track to liked songs`
+- `output_devices_info`: `Welke speakers zijn er?`, `Welke output devices
+  zijn beschikbaar?`, `Waar kan ik muziek afspelen?`, `which speakers are
+  available?`, `what output devices do I have?`
+- `current_output_info`: `Waarop wordt nu muziek gespeeld?`, `Op welke
+  speaker speelt dit?`, `Waar speelt de muziek nu?`, `where is music playing
+  now?`, `which speaker is active?`
+- `personalized_mood_playback`: `Ik voel me moe en geprikkeld, zet wat rustige
+  muziek op die ik fijn vind`, `Doe iets ontspannends, ik ben overprikkeld`,
+  `Zet iets op waar ik rustig van word`, `Ik wil even kalme muziek zonder
+  vocals`, `I am tired and overstimulated, play relaxing music I will enjoy`,
+  `play something calming that I usually like`, `put on something low energy`
+- `personal_music_profile_analysis`: `Omschrijf eens waar ik zoal naar
+  luisterde de afgelopen maand`, `Wat zegt mijn muziek van de laatste twee
+  weken over mijn stemming?`, `Welke genres luister ik de laatste tijd veel?`,
+  `Maak een profiel van mijn muzieksmaak dit jaar`, `describe what I have been
+  listening to over the last month`, `what does my music from the last two
+  weeks say about my mood?`, `which genres have I been listening to lately?`
+- `personal_music_recommendations`: `Geef me muziek aanbevelingen op basis van
+  mijn luisterprofiel`, `Wat zou ik nu leuk vinden om te luisteren?`, `Raad me
+  iets nieuws aan dat past bij mijn smaak`, `Welke artiesten of albums moet ik
+  eens proberen?`, `Geef me vijf nummers die passen bij wat ik de laatste tijd
+  luister`, `recommend music based on my listening profile`, `what should I
+  listen to now?`, `recommend something new that fits my taste`, `which artists
+  or albums should I try?`
+- `dj_announcement_request`: `Geef me een leuke aankondiging voor het volgende
+  nummer`, `Kondig het volgende nummer alvast aan`, `Doe een radio intro voor
+  wat er nu speelt`, `Zeg iets leuks over dit nummer`, `give me a fun
+  announcement for the next song`, `do a radio-style intro for what is playing
+  now`, `say something fun about this track`
+- `track_context_info`: `Vertel iets over dit nummer`, `Wanneer kwam dit uit?`,
+  `Waar komt deze artiest vandaan?`, `Welke samples hoor ik?`, `Heeft deze
+  artiest binnenkort concerten in Nederland?`, `Waarom koos je dit nummer?`,
+  `Wat is de connectie met het vorige nummer?`, `tell me about this song`,
+  `what year was this released?`, `where is this artist from?`, `what samples
+  are used?`, `does this artist have concerts in the Netherlands?`, `why did
+  you choose this track?`
+- `track_musical_analysis`: `Analyseer dit nummer muzikaal`, `Welke
+  instrumenten hoor ik?`, `Hoe is dit nummer opgebouwd?`, `Wat maakt deze
+  productie zo goed?`, `Welke trucjes gebruikt de producer hier?`, `Waarom
+  werkt deze drop zo goed?`, `Leg de akkoorden en opbouw uit`, `analyze this
+  track musically`, `what instruments are used here?`, `how is this song
+  structured?`, `what production tricks are used?`, `why does this drop work?`
 
 The app does not hardcode these intent families or validate spoken text
 client-side. It records/uploads voice audio and lets Home Assistant handle STT,
 Assist correction, current playback lookup, direct playback controls, Spotify
-credentials, and DJ response generation.
+credentials, output-device lookup, current-speaker lookup, favorite-track
+mutations, personalized mood playback, DJ announcement generation, and DJ
+response generation.
+
+For `personal_music_profile_analysis`, Home Assistant should summarize the
+user's listening profile over the requested or inferred period without changing
+playback. It should use DJ Memory, recent tracks, likes/skips where available,
+timestamps, mood values, playlist choices, and current playback context to
+describe recurring genres, artists, energy, moods, listening situations, and
+notable taste shifts. If no period is given, default to a recent window such as
+the last 30 days and say so. If memory is too sparse for the requested period,
+return an honest DJ response instead of inventing history.
+
+For `personal_music_recommendations`, Home Assistant should recommend concrete
+tracks, albums, artists, or playlists from DJ Memory plus Spotify recently
+played/top data where available. It should explain why recommendations fit the
+user's known taste, mood, energy, and recent listening. This intent is
+informational by default: do not change playback unless the user explicitly asks
+to play, queue, save, or create something from the recommendations.
+
+For `track_context_info`, Home Assistant should enrich the current playback
+context with album art, title, artist, release year, genre, DJ commentary,
+artist origin, trivia, samples, related artists, upcoming Netherlands concerts,
+festival appearances, new releases, why the track was chosen, relation to the
+previous track, BPM/energy transition, and shared producer or label connections
+when those details are available.
+
+For `track_musical_analysis`, Home Assistant should explain instrumentation,
+arrangement, rhythm/groove, harmony/key/chords when known, sound design,
+production techniques, mix/mastering impressions, and why the composition works.
+Unless the backend adds a real audio-analysis pipeline or uses a trusted source,
+it must avoid claiming exact stem separation, exact chord transcription, or
+definitive instrument lists. Clearly separate documented facts from likely
+audible interpretation.
 
 Expected response:
 

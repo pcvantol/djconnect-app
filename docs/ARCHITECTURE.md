@@ -1,7 +1,7 @@
 # Architecture
 
-DJConnect App is a native Apple client for the Home Assistant `djconnect`
-integration. The app is not an ESP32 emulator; it is a first-class app client
+DJConnect App contains native Apple clients for the Home Assistant `djconnect`
+integration. The apps are not ESP32 emulators; they are first-class app clients
 identified by `client_type`.
 
 ## Trust Boundary
@@ -16,7 +16,7 @@ Home Assistant owns:
 
 The Apple app owns:
 
-- native iOS/macOS UI;
+- native iOS/macOS/watchOS UI;
 - the shared DJConnect blue/purple gradient canvas on iOS, iPadOS, and macOS;
 - local app state;
 - local bonus games with app-local highscores;
@@ -59,6 +59,53 @@ scene.
 
 Native macOS app target. It hosts the shared SwiftUI root view in a macOS app
 scene and exposes a native settings scene.
+
+`DJConnectWatch`
+
+Native standalone watchOS app target. It depends on `DJConnectCore` directly,
+stores its DJConnect bearer token in the watch Keychain, pairs with Home
+Assistant using the same app-generated code flow, posts status and playback
+commands, exposes `Ask DJ` push-to-talk, uploads WAV audio to
+`/api/djconnect/voice`, and plays returned DJ response audio or speech on the
+Watch. Wake phrase work on watchOS is foreground-only by design; the app must
+not run an always-on background microphone listener.
+
+## Ask DJ And DJ Memory
+
+`Ask DJ` is the user-facing voice/chat feature name. Apple clients may send
+lightweight context hints such as mood, DJ style, and a memory key hint with
+status or voice requests. Long-term DJ Memory remains server-side in the Home
+Assistant DJConnect integration so Watch, iOS, and macOS can share context. A
+client may remember local UI preferences such as the current mood slider value,
+but it must not be the source of truth for conversation history, music profile,
+or cross-device follow-up context.
+
+Ask DJ intent interpretation remains backend-owned. In addition to music
+questions and playback controls, the integration should handle liking/saving
+the current track (`favorite_current_track`) and output-device information
+questions (`output_devices_info`, `current_output_info`), fuzzy personalized
+mood playback (`personalized_mood_playback`), and DJ announcement requests
+(`dj_announcement_request`). Personal listening-profile questions such as
+"waar luisterde ik de afgelopen maand naar?" are handled as
+`personal_music_profile_analysis`; the backend should summarize genres, moods,
+energy, artists, contexts, and taste shifts from DJ Memory for the requested
+period without changing playback. Personal recommendation questions such as
+"wat zou ik leuk vinden om nu te luisteren?" are handled as
+`personal_music_recommendations`; the backend should recommend concrete tracks,
+albums, artists, or playlists from DJ Memory and Spotify profile data without
+changing playback unless the user explicitly asks to play or queue them. Rich
+now-playing and artist questions are handled as `track_context_info`, including
+release year, genre, DJ commentary, artist origin, trivia, samples, related
+artists, concerts, releases, and musical connections such as BPM transition or
+shared producer/label. Musical and production-analysis questions are handled as
+`track_musical_analysis`; the
+backend should distinguish documented facts from likely audible interpretation
+unless real audio analysis is available. Apple clients send the user's text or
+voice audio and render the returned DJ text, images, links, and audio; they do
+not inspect phrases such as "voeg dit nummer toe aan mijn favorieten", "welke
+speakers zijn er?", "ik voel me moe en geprikkeld", "wat luister ik de laatste
+tijd veel?", "geef me een leuke aankondiging voor het volgende nummer", "waarom
+koos je dit nummer?", or "analyseer dit nummer muzikaal" locally.
 
 ## State Handling
 

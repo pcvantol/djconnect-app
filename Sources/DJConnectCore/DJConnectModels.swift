@@ -3,12 +3,14 @@ import Foundation
 public enum DJConnectClientType: String, Codable, Sendable {
     case ios
     case macos
+    case watchos
     case esp32
 }
 
 public enum DJConnectPlatform: String, Codable, Sendable {
     case ios
     case macos
+    case watchos
 }
 
 public enum DJConnectPairingStatus: String, Codable, Sendable {
@@ -206,6 +208,9 @@ public struct DJConnectStatusPayload: Codable, Equatable, Sendable {
     public var wakewordEnabled: Bool?
     public var wakewordPhrase: String?
     public var wakewordStatus: String?
+    public var mood: Int?
+    public var djStyle: String?
+    public var memoryKey: String?
 
     public init(
         identity: DJConnectIdentity,
@@ -227,7 +232,10 @@ public struct DJConnectStatusPayload: Codable, Equatable, Sendable {
         voiceEnabled: Bool? = nil,
         wakewordEnabled: Bool? = nil,
         wakewordPhrase: String? = nil,
-        wakewordStatus: String? = nil
+        wakewordStatus: String? = nil,
+        mood: Int? = nil,
+        djStyle: String? = nil,
+        memoryKey: String? = nil
     ) {
         self.deviceID = identity.deviceID
         self.deviceName = identity.deviceName
@@ -254,6 +262,9 @@ public struct DJConnectStatusPayload: Codable, Equatable, Sendable {
         self.wakewordEnabled = wakewordEnabled
         self.wakewordPhrase = wakewordPhrase
         self.wakewordStatus = wakewordStatus
+        self.mood = mood.map { max(0, min(100, $0)) }
+        self.djStyle = djStyle
+        self.memoryKey = memoryKey
     }
 
     enum CodingKeys: String, CodingKey {
@@ -282,6 +293,9 @@ public struct DJConnectStatusPayload: Codable, Equatable, Sendable {
         case wakewordEnabled = "wakeword_enabled"
         case wakewordPhrase = "wakeword_phrase"
         case wakewordStatus = "wakeword_status"
+        case mood
+        case djStyle = "dj_style"
+        case memoryKey = "memory_key"
     }
 }
 
@@ -315,6 +329,349 @@ public struct DJConnectCommandPayload: Codable, Equatable, Sendable {
         case value
         case play
         case limit
+    }
+}
+
+public struct DJConnectAskDJRequest: Codable, Equatable, Sendable {
+    public var deviceID: String
+    public var clientType: DJConnectClientType
+    public var text: String
+    public var mood: Int?
+    public var djStyle: String?
+    public var memoryKey: String?
+
+    public init(
+        identity: DJConnectIdentity,
+        text: String,
+        mood: Int? = nil,
+        djStyle: String? = nil,
+        memoryKey: String? = nil
+    ) {
+        self.deviceID = identity.deviceID
+        self.clientType = identity.clientType
+        self.text = text
+        self.mood = mood.map { max(0, min(100, $0)) }
+        self.djStyle = djStyle
+        self.memoryKey = memoryKey
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case deviceID = "device_id"
+        case clientType = "client_type"
+        case text
+        case mood
+        case djStyle = "dj_style"
+        case memoryKey = "memory_key"
+    }
+}
+
+public struct DJConnectResponseImage: Codable, Equatable, Sendable, Identifiable {
+    public var id: String { url.absoluteString }
+    public var url: URL
+    public var title: String?
+    public var subtitle: String?
+    public var kind: String?
+    public var source: String?
+    public var thumbnailURL: URL?
+
+    public init(
+        url: URL,
+        title: String? = nil,
+        subtitle: String? = nil,
+        kind: String? = nil,
+        source: String? = nil,
+        thumbnailURL: URL? = nil
+    ) {
+        self.url = url
+        self.title = title
+        self.subtitle = subtitle
+        self.kind = kind
+        self.source = source
+        self.thumbnailURL = thumbnailURL
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case url
+        case title
+        case subtitle
+        case kind
+        case source
+        case thumbnailURL = "thumbnail_url"
+        case thumbnailUrl
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        url = try container.decode(URL.self, forKey: .url)
+        title = try container.decodeIfPresent(String.self, forKey: .title)
+        subtitle = try container.decodeIfPresent(String.self, forKey: .subtitle)
+        kind = try container.decodeIfPresent(String.self, forKey: .kind)
+        source = try container.decodeIfPresent(String.self, forKey: .source)
+        thumbnailURL = try container.decodeIfPresent(URL.self, forKey: .thumbnailURL)
+            ?? container.decodeIfPresentIgnoringErrors(URL.self, forKey: .thumbnailUrl)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(url, forKey: .url)
+        try container.encodeIfPresent(title, forKey: .title)
+        try container.encodeIfPresent(subtitle, forKey: .subtitle)
+        try container.encodeIfPresent(kind, forKey: .kind)
+        try container.encodeIfPresent(source, forKey: .source)
+        try container.encodeIfPresent(thumbnailURL, forKey: .thumbnailURL)
+    }
+}
+
+public struct DJConnectResponseLink: Codable, Equatable, Sendable, Identifiable {
+    public var id: String { url.absoluteString }
+    public var url: URL
+    public var title: String?
+    public var subtitle: String?
+    public var kind: String?
+    public var source: String?
+
+    public init(
+        url: URL,
+        title: String? = nil,
+        subtitle: String? = nil,
+        kind: String? = nil,
+        source: String? = nil
+    ) {
+        self.url = url
+        self.title = title
+        self.subtitle = subtitle
+        self.kind = kind
+        self.source = source
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case url
+        case title
+        case label
+        case subtitle
+        case description
+        case kind
+        case source
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        url = try container.decode(URL.self, forKey: .url)
+        title = try container.decodeIfPresent(String.self, forKey: .title)
+            ?? container.decodeIfPresentIgnoringErrors(String.self, forKey: .label)
+        subtitle = try container.decodeIfPresent(String.self, forKey: .subtitle)
+            ?? container.decodeIfPresentIgnoringErrors(String.self, forKey: .description)
+        kind = try container.decodeIfPresent(String.self, forKey: .kind)
+        source = try container.decodeIfPresent(String.self, forKey: .source)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(url, forKey: .url)
+        try container.encodeIfPresent(title, forKey: .title)
+        try container.encodeIfPresent(subtitle, forKey: .subtitle)
+        try container.encodeIfPresent(kind, forKey: .kind)
+        try container.encodeIfPresent(source, forKey: .source)
+    }
+}
+
+public struct DJConnectAskDJResponse: Codable, Equatable, Sendable {
+    public var success: Bool
+    public var text: String?
+    public var djText: String?
+    public var message: String?
+    public var audioURL: URL?
+    public var images: [DJConnectResponseImage]?
+    public var links: [DJConnectResponseLink]?
+    public var playbackActions: [DJConnectAskDJPlaybackAction]?
+    public var intent: String?
+    public var action: String?
+    public var memoryKey: String?
+
+    enum CodingKeys: String, CodingKey {
+        case success
+        case text
+        case djText = "dj_text"
+        case message
+        case audioURL = "audio_url"
+        case audioUrl
+        case responseAudioURL = "response_audio_url"
+        case responseAudioUrl
+        case mediaURL = "media_url"
+        case mediaUrl
+        case images
+        case links
+        case playbackActions = "playback_actions"
+        case recommendationActions = "recommendation_actions"
+        case recommendations
+        case intent
+        case action
+        case memoryKey = "memory_key"
+    }
+
+    public init(
+        success: Bool = true,
+        text: String? = nil,
+        djText: String? = nil,
+        message: String? = nil,
+        audioURL: URL? = nil,
+        images: [DJConnectResponseImage]? = nil,
+        links: [DJConnectResponseLink]? = nil,
+        playbackActions: [DJConnectAskDJPlaybackAction]? = nil,
+        intent: String? = nil,
+        action: String? = nil,
+        memoryKey: String? = nil
+    ) {
+        self.success = success
+        self.text = text
+        self.djText = djText
+        self.message = message
+        self.audioURL = audioURL
+        self.images = images
+        self.links = links
+        self.playbackActions = playbackActions
+        self.intent = intent
+        self.action = action
+        self.memoryKey = memoryKey
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        success = try container.decodeIfPresent(Bool.self, forKey: .success) ?? true
+        text = try container.decodeIfPresent(String.self, forKey: .text)
+        djText = try container.decodeIfPresent(String.self, forKey: .djText)
+        message = try container.decodeIfPresent(String.self, forKey: .message)
+        audioURL = try container.decodeIfPresent(URL.self, forKey: .audioURL)
+            ?? container.decodeIfPresentIgnoringErrors(URL.self, forKey: .audioUrl)
+            ?? container.decodeIfPresentIgnoringErrors(URL.self, forKey: .responseAudioURL)
+            ?? container.decodeIfPresentIgnoringErrors(URL.self, forKey: .responseAudioUrl)
+            ?? container.decodeIfPresentIgnoringErrors(URL.self, forKey: .mediaURL)
+            ?? container.decodeIfPresentIgnoringErrors(URL.self, forKey: .mediaUrl)
+        images = container.decodeLossyArrayIfPresent(DJConnectResponseImage.self, forKey: .images)
+        links = container.decodeLossyArrayIfPresent(DJConnectResponseLink.self, forKey: .links)
+        playbackActions = container.decodeLossyArrayIfPresent(DJConnectAskDJPlaybackAction.self, forKey: .playbackActions)
+            ?? container.decodeLossyArrayIfPresent(DJConnectAskDJPlaybackAction.self, forKey: .recommendationActions)
+            ?? container.decodeLossyArrayIfPresent(DJConnectAskDJPlaybackAction.self, forKey: .recommendations)
+        intent = try container.decodeIfPresent(String.self, forKey: .intent)
+        action = try container.decodeIfPresent(String.self, forKey: .action)
+        memoryKey = try container.decodeIfPresent(String.self, forKey: .memoryKey)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(success, forKey: .success)
+        try container.encodeIfPresent(text, forKey: .text)
+        try container.encodeIfPresent(djText, forKey: .djText)
+        try container.encodeIfPresent(message, forKey: .message)
+        try container.encodeIfPresent(audioURL, forKey: .audioURL)
+        try container.encodeIfPresent(images, forKey: .images)
+        try container.encodeIfPresent(links, forKey: .links)
+        try container.encodeIfPresent(playbackActions, forKey: .playbackActions)
+        try container.encodeIfPresent(intent, forKey: .intent)
+        try container.encodeIfPresent(action, forKey: .action)
+        try container.encodeIfPresent(memoryKey, forKey: .memoryKey)
+    }
+}
+
+public struct DJConnectAskDJPlaybackAction: Codable, Equatable, Identifiable, Sendable {
+    public var id: String
+    public var title: String
+    public var subtitle: String?
+    public var uri: String?
+    public var contextURI: String?
+    public var offsetURI: String?
+    public var imageURL: URL?
+    public var kind: String?
+    public var command: String?
+    public var reason: String?
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case title
+        case name
+        case label
+        case subtitle
+        case description
+        case artist
+        case uri
+        case spotifyURI = "spotify_uri"
+        case contextURI = "context_uri"
+        case contextUri
+        case offsetURI = "offset_uri"
+        case offsetUri
+        case imageURL = "image_url"
+        case imageUrl
+        case thumbnailURL = "thumbnail_url"
+        case thumbnailUrl
+        case kind
+        case type
+        case command
+        case reason
+    }
+
+    public init(
+        id: String? = nil,
+        title: String,
+        subtitle: String? = nil,
+        uri: String? = nil,
+        contextURI: String? = nil,
+        offsetURI: String? = nil,
+        imageURL: URL? = nil,
+        kind: String? = nil,
+        command: String? = nil,
+        reason: String? = nil
+    ) {
+        self.title = title
+        self.subtitle = subtitle
+        self.uri = uri
+        self.contextURI = contextURI
+        self.offsetURI = offsetURI
+        self.imageURL = imageURL
+        self.kind = kind
+        self.command = command
+        self.reason = reason
+        self.id = id ?? [uri, contextURI, title].compactMap { $0 }.joined(separator: "|")
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        title = try container.decodeIfPresent(String.self, forKey: .title)
+            ?? container.decodeIfPresentIgnoringErrors(String.self, forKey: .name)
+            ?? container.decodeIfPresentIgnoringErrors(String.self, forKey: .label)
+            ?? ""
+        subtitle = try container.decodeIfPresent(String.self, forKey: .subtitle)
+            ?? container.decodeIfPresentIgnoringErrors(String.self, forKey: .description)
+            ?? container.decodeIfPresentIgnoringErrors(String.self, forKey: .artist)
+        uri = try container.decodeIfPresent(String.self, forKey: .uri)
+            ?? container.decodeIfPresentIgnoringErrors(String.self, forKey: .spotifyURI)
+        contextURI = try container.decodeIfPresent(String.self, forKey: .contextURI)
+            ?? container.decodeIfPresentIgnoringErrors(String.self, forKey: .contextUri)
+        offsetURI = try container.decodeIfPresent(String.self, forKey: .offsetURI)
+            ?? container.decodeIfPresentIgnoringErrors(String.self, forKey: .offsetUri)
+        imageURL = try container.decodeIfPresent(URL.self, forKey: .imageURL)
+            ?? container.decodeIfPresentIgnoringErrors(URL.self, forKey: .imageUrl)
+            ?? container.decodeIfPresentIgnoringErrors(URL.self, forKey: .thumbnailURL)
+            ?? container.decodeIfPresentIgnoringErrors(URL.self, forKey: .thumbnailUrl)
+        kind = try container.decodeIfPresent(String.self, forKey: .kind)
+            ?? container.decodeIfPresentIgnoringErrors(String.self, forKey: .type)
+        command = try container.decodeIfPresent(String.self, forKey: .command)
+        reason = try container.decodeIfPresent(String.self, forKey: .reason)
+        let decodedID = try container.decodeIfPresent(String.self, forKey: .id)
+        id = decodedID ?? [uri, contextURI, title].compactMap { $0 }.joined(separator: "|")
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(id, forKey: .id)
+        try container.encode(title, forKey: .title)
+        try container.encodeIfPresent(subtitle, forKey: .subtitle)
+        try container.encodeIfPresent(uri, forKey: .uri)
+        try container.encodeIfPresent(contextURI, forKey: .contextURI)
+        try container.encodeIfPresent(offsetURI, forKey: .offsetURI)
+        try container.encodeIfPresent(imageURL, forKey: .imageURL)
+        try container.encodeIfPresent(kind, forKey: .kind)
+        try container.encodeIfPresent(command, forKey: .command)
+        try container.encodeIfPresent(reason, forKey: .reason)
     }
 }
 
@@ -927,6 +1284,7 @@ public struct DJConnectCommandResponse: Codable, Equatable, Sendable {
     public var queue: [DJConnectQueueItem]?
     public var queueContext: String?
     public var playlists: [DJConnectPlaylist]?
+    public var askDJClearRequired: Bool?
 
     public init(
         success: Bool,
@@ -939,7 +1297,8 @@ public struct DJConnectCommandResponse: Codable, Equatable, Sendable {
         devices: [DJConnectOutputDevice]? = nil,
         queue: [DJConnectQueueItem]? = nil,
         queueContext: String? = nil,
-        playlists: [DJConnectPlaylist]? = nil
+        playlists: [DJConnectPlaylist]? = nil,
+        askDJClearRequired: Bool? = nil
     ) {
         self.success = success
         self.error = error
@@ -952,6 +1311,7 @@ public struct DJConnectCommandResponse: Codable, Equatable, Sendable {
         self.queue = queue
         self.queueContext = queueContext
         self.playlists = playlists
+        self.askDJClearRequired = askDJClearRequired
     }
 
     public init(from decoder: Decoder) throws {
@@ -963,6 +1323,9 @@ public struct DJConnectCommandResponse: Codable, Equatable, Sendable {
         error = try container.decodeIfPresent(String.self, forKey: .error)
         message = try container.decodeIfPresent(String.self, forKey: .message)
         backendAvailable = try container.decodeIfPresent(Bool.self, forKey: .backendAvailable)
+        askDJClearRequired = container.decodeBoolAliasIfPresent(.askDJClearRequired, .clearRequired)
+            ?? data?.decodeBoolAliasIfPresent(.askDJClearRequired, .clearRequired)
+            ?? result?.decodeBoolAliasIfPresent(.askDJClearRequired, .clearRequired)
         haVersion = container.decodeStringAliasIfPresent(.haVersion)
             ?? data?.decodeStringAliasIfPresent(.haVersion)
             ?? result?.decodeStringAliasIfPresent(.haVersion)
@@ -1033,6 +1396,7 @@ public struct DJConnectCommandResponse: Codable, Equatable, Sendable {
         try container.encodeIfPresent(queue, forKey: .queue)
         try container.encodeIfPresent(queueContext, forKey: .queueContext)
         try container.encodeIfPresent(playlists, forKey: .playlists)
+        try container.encodeIfPresent(askDJClearRequired, forKey: .askDJClearRequired)
     }
 
     enum CodingKeys: String, CodingKey {
@@ -1053,10 +1417,21 @@ public struct DJConnectCommandResponse: Codable, Equatable, Sendable {
         case contextUri
         case playlists
         case items
+        case askDJClearRequired = "ask_dj_clear_required"
+        case clearRequired = "clear_required"
     }
 }
 
 private extension KeyedDecodingContainer where Key == DJConnectCommandResponse.CodingKeys {
+    func decodeBoolAliasIfPresent(_ keys: Key...) -> Bool? {
+        for key in keys {
+            if let value = try? decodeIfPresent(Bool.self, forKey: key) {
+                return value
+            }
+        }
+        return nil
+    }
+
     func decodeStringAliasIfPresent(_ keys: Key...) -> String? {
         for key in keys {
             if let value = try? decodeIfPresent(String.self, forKey: key), !value.isEmpty {
@@ -1126,6 +1501,9 @@ public struct DJConnectVoiceResponse: Codable, Equatable, Sendable {
     public var djText: String?
     public var audioURL: URL?
     public var audioType: String?
+    public var images: [DJConnectResponseImage]?
+    public var links: [DJConnectResponseLink]?
+    public var playbackActions: [DJConnectAskDJPlaybackAction]?
 
     enum CodingKeys: String, CodingKey {
         case success
@@ -1138,6 +1516,11 @@ public struct DJConnectVoiceResponse: Codable, Equatable, Sendable {
         case mediaURL = "media_url"
         case mediaUrl
         case audioType = "audio_type"
+        case images
+        case links
+        case playbackActions = "playback_actions"
+        case recommendationActions = "recommendation_actions"
+        case recommendations
     }
 
     public init(from decoder: Decoder) throws {
@@ -1152,6 +1535,11 @@ public struct DJConnectVoiceResponse: Codable, Equatable, Sendable {
             ?? container.decodeIfPresentIgnoringErrors(URL.self, forKey: .mediaURL)
             ?? container.decodeIfPresentIgnoringErrors(URL.self, forKey: .mediaUrl)
         audioType = try container.decodeIfPresent(String.self, forKey: .audioType)
+        images = container.decodeLossyArrayIfPresent(DJConnectResponseImage.self, forKey: .images)
+        links = container.decodeLossyArrayIfPresent(DJConnectResponseLink.self, forKey: .links)
+        playbackActions = container.decodeLossyArrayIfPresent(DJConnectAskDJPlaybackAction.self, forKey: .playbackActions)
+            ?? container.decodeLossyArrayIfPresent(DJConnectAskDJPlaybackAction.self, forKey: .recommendationActions)
+            ?? container.decodeLossyArrayIfPresent(DJConnectAskDJPlaybackAction.self, forKey: .recommendations)
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -1161,6 +1549,9 @@ public struct DJConnectVoiceResponse: Codable, Equatable, Sendable {
         try container.encodeIfPresent(djText, forKey: .djText)
         try container.encodeIfPresent(audioURL, forKey: .audioURL)
         try container.encodeIfPresent(audioType, forKey: .audioType)
+        try container.encodeIfPresent(images, forKey: .images)
+        try container.encodeIfPresent(links, forKey: .links)
+        try container.encodeIfPresent(playbackActions, forKey: .playbackActions)
     }
 }
 

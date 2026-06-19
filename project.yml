@@ -4,13 +4,14 @@ options:
   deploymentTarget:
     iOS: "26.0"
     macOS: "26.0"
+    watchOS: "26.0"
   createIntermediateGroups: true
   generateEmptyDirectories: true
 settings:
   base:
     SWIFT_VERSION: "6.0"
     CURRENT_PROJECT_VERSION: "1"
-    MARKETING_VERSION: "3.1.34"
+    MARKETING_VERSION: "3.1.35"
     DEVELOPMENT_TEAM: ""
     CODE_SIGN_STYLE: Automatic
 packages: {}
@@ -34,6 +35,17 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: dev.djconnect.core.mac
+        PRODUCT_NAME: DJConnectCore
+        PRODUCT_MODULE_NAME: DJConnectCore
+        GENERATE_INFOPLIST_FILE: YES
+  DJConnectCoreWatch:
+    type: framework.static
+    platform: watchOS
+    sources:
+      - path: Sources/DJConnectCore
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: dev.djconnect.core.watch
         PRODUCT_NAME: DJConnectCore
         PRODUCT_MODULE_NAME: DJConnectCore
         GENERATE_INFOPLIST_FILE: YES
@@ -135,6 +147,33 @@ targets:
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         CODE_SIGN_ENTITLEMENTS: Apps/DJConnectMac/DJConnectMac.entitlements
         ENABLE_HARDENED_RUNTIME: YES
+  DJConnectWatch:
+    type: application
+    platform: watchOS
+    sources:
+      - path: Apps/DJConnectWatch
+      - path: Apps/Shared/Assets.xcassets
+    dependencies:
+      - target: DJConnectCoreWatch
+    info:
+      path: Apps/DJConnectWatch/Info.plist
+      properties:
+        CFBundleDisplayName: DJConnect
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        WKApplication: true
+        WKWatchOnly: true
+        NSLocalNetworkUsageDescription: DJConnect maakt verbinding met Home Assistant op je lokale netwerk.
+        NSMicrophoneUsageDescription: DJConnect neemt je stem op voor push-to-talk muziekverzoeken aan Home Assistant.
+        NSBonjourServices:
+          - _home-assistant._tcp.
+        NSAppTransportSecurity:
+          NSAllowsArbitraryLoadsInLocalNetworking: true
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: dev.djconnect.watch
+        PRODUCT_NAME: DJConnect
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
   DJConnectCoreTests:
     type: bundle.unit-test
     platform: macOS
@@ -195,6 +234,16 @@ schemes:
       targets:
         - DJConnectCoreTests
         - DJConnectMacUITests
+    profile:
+      config: Release
+    archive:
+      config: Release
+  DJConnectWatch:
+    build:
+      targets:
+        DJConnectWatch: all
+    run:
+      config: Debug
     profile:
       config: Release
     archive:
