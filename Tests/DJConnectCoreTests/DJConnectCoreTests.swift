@@ -557,6 +557,30 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
     #expect(assistantMessage.playbackActions.first?.contextURI == "spotify:album:123")
 }
 
+@Test func askDJHistoryResponseDecodesRaspberryPiClientType() throws {
+    let json = """
+    {
+      "history_revision": 35,
+      "messages": [
+        {
+          "id": "server-rpi-message-id",
+          "role": "user",
+          "text": "Stemverzoek",
+          "created_at": "2026-06-19T21:38:00Z",
+          "client_id": "djconnect-rpi-livingroom",
+          "client_type": "raspberry_pi",
+          "status": "delivered"
+        }
+      ]
+    }
+    """.data(using: .utf8)!
+
+    let response = try JSONDecoder().decode(DJConnectAskDJHistoryResponse.self, from: json)
+    let message = try #require(response.messages.first)
+
+    #expect(message.clientType == .raspberryPi)
+}
+
 @Test func askDJHistoryResponseDecodesSystemAmbientMessageWithoutUser() throws {
     let json = """
     {

@@ -4788,6 +4788,8 @@ public final class DJConnectAppModel: ObservableObject {
             nil
         case .esp32:
             URL(string: "https://djconnect.dev")
+        case .raspberryPi:
+            nil
         }
     }
 

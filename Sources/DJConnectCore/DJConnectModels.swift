@@ -5,6 +5,7 @@ public enum DJConnectClientType: String, Codable, Sendable {
     case macos
     case watchos
     case esp32
+    case raspberryPi = "raspberry_pi"
 }
 
 public enum DJConnectPlatform: String, Codable, Sendable {
