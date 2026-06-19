@@ -95,11 +95,11 @@ Reasoning:
 - lets macOS use native `Settings` scenes while iOS uses tab navigation;
 - leaves room for platform-specific UX without forking the full UI.
 
-## ADR-007: Current App/Protocol Version Is `3.1.35`
+## ADR-007: Current App/Protocol Version Is `3.1.36`
 
 Status: accepted
 
-The app uses version `3.1.35` for app/protocol examples and Xcode marketing
+The app uses version `3.1.36` for app/protocol examples and Xcode marketing
 version in this release.
 
 Reasoning:

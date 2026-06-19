@@ -369,7 +369,7 @@ still use the paired `ha_local_url` returned by Home Assistant after pairing.
 ## Ask DJ Text
 
 ```http
-POST /api/djconnect/ask
+POST /api/djconnect/ask_dj/message
 Content-Type: application/json
 ```
 
@@ -378,6 +378,11 @@ owns intent classification, current playback lookup, output-device lookup,
 Spotify mutations, DJ response generation, and optional TTS. The app must not
 hardcode Ask DJ intent families client-side.
 
+iOS, macOS, and watchOS surface DJ requests through Ask DJ. Now Playing does
+not expose a separate `DJ verzoek` block on Apple clients. rbpi does not have a
+separate rich DJ request UI, and ESP32 remains outside this Ask DJ rich chat UI
+contract.
+
 Minimum payload:
 
 ```json
@@ -385,10 +390,16 @@ Minimum payload:
   "device_id": "djconnect-ios-8F3A2C91B45D",
   "client_type": "ios",
   "text": "Voeg dit nummer toe aan mijn favorieten",
+  "audio_response": "auto",
   "dj_style": "warm_radio_dj",
   "memory_key": "djconnect_ios_djconnect-ios-8F3A2C91B45D"
 }
 ```
+
+`audio_response` may be `auto`, `always`, or `never`; Apple text chat defaults
+to `auto`. Missing `audio_url` is a normal successful response for
+informational text answers. Replay UI is shown only when
+`assistant_message.audio_url` or top-level `audio_url` is present.
 
 The Home Assistant integration should support at least these Ask DJ intent
 families in addition to general informational questions and playback control:
@@ -413,6 +424,13 @@ families in addition to general informational questions and playback control:
   waar ik rustig van word`, `Ik wil even kalme muziek zonder vocals`. English
   examples: `I am tired and overstimulated, play relaxing music I will enjoy`,
   `play something calming that I usually like`, `put on something low energy`.
+- `change_music_context`: interpret broad requests to hear something else as a
+  playback-changing intent. Dutch examples: `Ik wil wat anders horen`, `Doe
+  maar iets anders`, `Zet iets anders op`, `Verras me met iets heel anders`,
+  `Ik ben dit zat, draai wat anders`. English examples: `I want to hear
+  something else`, `play something different`, `put on something else`,
+  `surprise me with something completely different`, `I am tired of this, play
+  something else`.
 - `personal_music_profile_analysis`: describe the user's listening profile over
   a requested period without changing playback. Dutch examples: `Omschrijf eens
   waar ik zoal naar luisterde de afgelopen maand`, `Wat zegt mijn muziek van de
@@ -477,6 +495,18 @@ It should avoid brittle keyword-only routing: phrases such as `moe`,
 `overstimulated`, and `low energy` should be interpreted semantically. If no
 preferred output is active, use the current/preferred DJConnect output or return
 a clear DJ response asking the user to choose a speaker.
+
+For `change_music_context`, Home Assistant should treat broad phrases like `Ik
+wil wat anders horen` as an explicit request to change playback, not merely as
+an informational recommendation question. It should use current playback,
+recent listening, skips/likes, DJ Memory, mood, and output context to pick
+something meaningfully different while still fitting the user. "Different" may
+mean a different artist, genre, era, energy level, playlist, or album context;
+avoid simply restarting the same track, replaying the current artist by default,
+or making a tiny queue-only change unless that is clearly requested. If no
+output is active, use the current/preferred DJConnect output or ask the user to
+choose one. Return DJ text explaining the switch and include playback metadata
+or `audio_url` when available.
 
 For `personal_music_profile_analysis`, Home Assistant should answer questions
 about the user's listening patterns over a user-provided or inferred period

@@ -4,6 +4,23 @@ All notable changes to DJConnect App are documented here.
 
 ## Unreleased
 
+### Changed
+
+- Changed the Ask DJ clear-history confirmation from a popover-style
+  confirmation dialog to a standard modal alert with explicit cancel and
+  destructive actions.
+- Changed Ask DJ Demo Mode to stay fully client-side: it shows the starter
+  prompts, avoids backend history sync, and answers locally until Home
+  Assistant is paired.
+- Removed raw inline Ask DJ error text above the prompt; failures are surfaced
+  through the existing snackbar/toast.
+- Added a microphone icon to Ask DJ voice-request chat bubbles.
+
+### Fixed
+
+- Ignored cancelled Ask DJ history refresh tasks so pull-to-refresh does not
+  show a spurious network-cancelled error.
+
 ## 3.1.36 - 2026-06-19
 
 ### Added
@@ -21,6 +38,23 @@ All notable changes to DJConnect App are documented here.
 - Updated Ask DJ text chat to request `audio_response: auto`, treat missing
   `audio_url` as normal for informational answers, and use top-level audio URLs
   as fallback for assistant message replay.
+- Added pull-to-refresh to the Ask DJ chat so users can manually sync chat
+  history with Home Assistant.
+- Added a long-press context menu on Ask DJ chat bubbles to place an existing
+  message back into the prompt for editing or resending.
+- Removed the redundant Now Playing DJ request block so voice and text music
+  requests live in the richer Ask DJ screen.
+- Updated handoff, API contract, architecture, release, and bootstrap prompts
+  to reflect Ask DJ as the single rich Apple-client DJ request surface.
+- Documented the Ask DJ `change_music_context` intent for requests such as
+  `Ik wil wat anders horen`.
+
+### Fixed
+
+- Fixed macOS stale-token recovery so a rejected device token clears locally and
+  re-enables Bonjour pairing discovery for Home Assistant.
+- Fixed iPhone Ask DJ keyboard handling so tapping or scrolling the chat closes
+  the keyboard, and added a keyboard `Done` control.
 
 ## 3.1.35 - 2026-06-19
 

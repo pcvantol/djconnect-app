@@ -502,6 +502,7 @@ public final class DJConnectAppModel: ObservableObject {
         defaults.set(pairingToken, forKey: pairingTokenKey)
         do {
             if monkeyTestingMode {
+                clearAskDJHistoryLocally()
                 applyDemoState()
                 log(.info, "App started in non-destructive monkey test mode")
             } else if let existingToken = try resolvedTokenStore.loadToken(), !existingToken.isEmpty {
@@ -726,6 +727,7 @@ public final class DJConnectAppModel: ObservableObject {
             english: "Demo mode active. Home Assistant is not connected.",
             dutch: "Demo modus actief. Home Assistant is niet gekoppeld."
         )
+        clearAskDJHistoryLocally()
         applyDemoState()
         log(.info, "Demo mode started")
     }
@@ -1514,6 +1516,13 @@ public final class DJConnectAppModel: ObservableObject {
         guard !text.isEmpty, !isSendingAskDJText else {
             return
         }
+        if isDemoMode {
+            askDJDraft = ""
+            askDJErrorMessage = nil
+            appendAskDJMessage(role: .user, text: text, status: .sent)
+            appendAskDJMessage(role: .dj, text: demoAskDJResponse)
+            return
+        }
         guard canUsePlaybackFeatures else {
             askDJErrorMessage = localized(
                 english: "Pair with Home Assistant before using Ask DJ.",
@@ -1535,6 +1544,11 @@ public final class DJConnectAppModel: ObservableObject {
         }
         let text = message.text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else {
+            return
+        }
+        if isDemoMode {
+            updateAskDJMessageStatus(id: message.id, status: .sent)
+            appendAskDJMessage(role: .dj, text: demoAskDJResponse)
             return
         }
         askDJErrorMessage = nil
@@ -1636,6 +1650,10 @@ public final class DJConnectAppModel: ObservableObject {
         guard !isClearingAskDJHistory else {
             return
         }
+        if isDemoMode {
+            clearAskDJHistoryLocally()
+            return
+        }
         isClearingAskDJHistory = true
         askDJErrorMessage = nil
         log(.info, "Clearing Ask DJ chat history")
@@ -1661,6 +1679,10 @@ public final class DJConnectAppModel: ObservableObject {
         guard !isClearingAskDJHistory else {
             return
         }
+        if isDemoMode {
+            isCheckingAskDJHistoryState = false
+            return
+        }
         guard canUsePlaybackFeatures else {
             isCheckingAskDJHistoryState = false
             return
@@ -1676,6 +1698,10 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     public func runAskDJHistorySyncLoop() async {
+        guard !isDemoMode else {
+            isCheckingAskDJHistoryState = false
+            return
+        }
         guard canUsePlaybackFeatures else {
             isCheckingAskDJHistoryState = false
             return
@@ -1692,6 +1718,20 @@ public final class DJConnectAppModel: ObservableObject {
             }
             await syncAskDJHistory(showErrors: false)
         }
+    }
+
+    public func refreshAskDJHistory() async {
+        guard !isDemoMode else {
+            askDJErrorMessage = nil
+            return
+        }
+        guard canUsePlaybackFeatures else {
+            return
+        }
+        askDJErrorMessage = nil
+        log(.debug, "Refreshing Ask DJ history from pull-to-refresh")
+        await syncAskDJHistory(showErrors: true)
+        await requestAskDJIdleSuggestionIfNeeded()
     }
 
     public func startVoiceRecording() {
@@ -2067,12 +2107,7 @@ public final class DJConnectAppModel: ObservableObject {
                 dutch: "Werk de DJConnect app of Home Assistant-integratie bij."
             )
         case let .authStale(_, message):
-            pairingStatus = .stale
-            isConnected = false
-            pairingMessage = message ?? localized(
-                english: "Pairing is stale. Open Home Assistant setup or reset pairing.",
-                dutch: "Pairing is verlopen. Open Home Assistant setup of reset pairing."
-            )
+            recoverFromStalePairing(message: message)
         case let .routeMissing(message):
             pairingStatus = .stale
             isConnected = false
@@ -2092,15 +2127,33 @@ public final class DJConnectAppModel: ObservableObject {
                 djResponseText = userFacingError
             }
         case .missingToken:
-            pairingStatus = .stale
-            isConnected = false
-            pairingMessage = localized(
+            recoverFromStalePairing(message: localized(
                 english: "Missing DJConnect bearer token. Reset pairing to set up again.",
                 dutch: "DJConnect bearer-token ontbreekt. Reset de pairing om opnieuw te koppelen."
-            )
+            ))
         default:
             break
         }
+    }
+
+    private func recoverFromStalePairing(message: String?) {
+        pairingTask?.cancel()
+        pairingTask = nil
+        scheduledPairingTask?.cancel()
+        scheduledPairingTask = nil
+        try? tokenStore.clearToken()
+        pairingStatus = .stale
+        isConnected = false
+        isPairing = false
+        isPairingScreenDismissed = false
+        isShowingPairingSuccess = false
+        pairingMessage = message ?? localized(
+            english: "Pairing is stale. Open Home Assistant setup and use the code shown here.",
+            dutch: "Pairing is verlopen. Open Home Assistant setup en gebruik de code die hier staat."
+        )
+        restartLocalDeviceAPI()
+        updateBonjourAdvertisingState()
+        startPairingWait()
     }
 
     public func emitUserConnectionNotice(for error: DJConnectError? = nil) {
@@ -2550,6 +2603,13 @@ public final class DJConnectAppModel: ObservableObject {
         "djconnect_\(identity.clientType.rawValue)_\(identity.deviceID)"
     }
 
+    private var demoAskDJResponse: String {
+        localized(
+            english: "Ask DJ gives real answers as soon as DJConnect is paired with Home Assistant.",
+            dutch: "Ask DJ geeft echte antwoorden zodra DJConnect is gekoppeld met Home Assistant."
+        )
+    }
+
     private var askDJAudioResponseMode: DJConnectAskDJRequest.AudioResponse {
         guard let rawValue = defaults.string(forKey: askDJAudioResponseModeKey) else {
             return .auto
@@ -2677,12 +2737,20 @@ public final class DJConnectAppModel: ObservableObject {
             applyAskDJHistory(response)
             log(.debug, "Ask DJ history synced to revision \(response.historyRevision)")
         } catch let error as DJConnectError {
+            guard !Self.isCancellation(error) else {
+                log(.debug, "Ask DJ history sync cancelled")
+                return
+            }
             if showErrors {
                 askDJErrorMessage = Self.describe(error)
                 showAskDJToast(for: error)
             }
             log(.warning, "Ask DJ history sync failed: \(Self.describe(error))")
         } catch {
+            guard !Self.isCancellation(error) else {
+                log(.debug, "Ask DJ history sync cancelled")
+                return
+            }
             if showErrors {
                 askDJErrorMessage = error.localizedDescription
                 showAskDJToast(localized(english: "Ask DJ is unreachable", dutch: "Ask DJ niet bereikbaar"))
@@ -3960,6 +4028,23 @@ public final class DJConnectAppModel: ObservableObject {
         case let .pairingFailed(message):
             "pairing pending\(message.map { ": \($0)" } ?? "")"
         }
+    }
+
+    private static func isCancellation(_ error: Error) -> Bool {
+        if error is CancellationError {
+            return true
+        }
+        if let urlError = error as? URLError, urlError.code == .cancelled {
+            return true
+        }
+        if let djConnectError = error as? DJConnectError,
+           case let .network(message) = djConnectError {
+            let lowercasedMessage = message.lowercased()
+            return lowercasedMessage.contains("cancelled")
+                || lowercasedMessage.contains("canceled")
+                || lowercasedMessage.contains("geannuleerd")
+        }
+        return false
     }
 
     private static func redactedURL(_ url: URL) -> String {

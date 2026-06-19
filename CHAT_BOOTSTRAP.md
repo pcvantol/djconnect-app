@@ -21,14 +21,15 @@ Context:
 - User-facing term is `Client adres`, niet `Client API URL`.
 - Clients mogen geen `spotify_source` / "Spotify source override" of `liked_proxy_playlist_uri` / "Standaard playlist override" meer tonen, documenteren of verwachten.
 - Backend playback loopt via de Home Assistant DJConnect integration; clients sturen generieke playback commands.
-- Houd cross-repo contracten actueel met `pcvantol/djconnect`, client/firmware repos, `SYNC_PROMPTS.md` en `PRODUCT_ROADMAP.md` indien protocol/roadmap geraakt wordt.
+- Houd cross-repo contracten actueel met `pcvantol/djconnect`, client/firmware repos, `SYNC_PROMPTS.md` en `PRODUCT_ROADMAP.md` indien protocol/roadmap geraakt wordt. Apple clients gebruiken Ask DJ als rijke chat/PTT-functie; er is geen losse Now Playing `DJ verzoek` ingang meer. rbpi had die losse ingang al niet; ESP32 krijgt geen Ask DJ rich UI en blijft buiten Apple UI-sync.
 - Secrets/tokens/wachtwoorden/private URLs mogen nooit in commits, logs, screenshots, diagnostics of test fixtures.
 
 Huidige status om te controleren:
-- Release `3.1.35` is de actuele source release met de native watchOS client,
-  Ask DJ chat op iOS/macOS/watchOS, rijke Ask DJ media/actions en backend
-  contracten voor DJ Memory, Spotify profieldata en Play Now aanbevelingen.
-- De statische What's New release-notes voor `3.1.35` worden door de
+- Release `3.1.36` is de actuele source release met de native watchOS client,
+  Ask DJ chat op iOS/macOS/watchOS, rijke Ask DJ media/actions, Watch pairing
+  via mDNS/local device API, Ask DJ `audio_response: auto`, en geen losse
+  Now Playing `DJ verzoek` UI meer op Apple clients.
+- De statische What's New release-notes voor `3.1.36` worden door de
   `Public unsigned release` workflow gepubliceerd naar `pcvantol/djconnect-website`
   en `djconnect.dev`. Controleer de workflowstatus als release/publicatie
   geraakt wordt.
@@ -37,8 +38,8 @@ Huidige status om te controleren:
 - Check direct:
   - `git status --short --branch`
   - `gh run list --repo pcvantol/djconnect-app --limit 5`
-  - public release tags in `pcvantol/djconnect-app-releases` voor `ios/v3.1.35` en `macos/v3.1.35` indien release/publicatie geraakt wordt.
-  - `https://djconnect.dev/release-notes/ios/nl/v3.1.35.json` en het macOS
+  - public release tags in `pcvantol/djconnect-app-releases` voor `ios/v3.1.36` en `macos/v3.1.36` indien release/publicatie geraakt wordt.
+  - `https://djconnect.dev/release-notes/ios/nl/v3.1.36.json` en het macOS
     equivalent indien What's New release-notes geraakt worden.
 
 Werkstijl:

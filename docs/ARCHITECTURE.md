@@ -80,11 +80,17 @@ client may remember local UI preferences such as the current mood slider value,
 but it must not be the source of truth for conversation history, music profile,
 or cross-device follow-up context.
 
+Ask DJ is also the only Apple-client DJ request surface. Now Playing focuses on
+playback status and controls; it must not carry a separate `DJ verzoek` card.
+rbpi had no separate rich DJ request UI, and ESP32 remains a firmware/device
+surface without the Apple Ask DJ chat UI.
+
 Ask DJ intent interpretation remains backend-owned. In addition to music
 questions and playback controls, the integration should handle liking/saving
 the current track (`favorite_current_track`) and output-device information
 questions (`output_devices_info`, `current_output_info`), fuzzy personalized
-mood playback (`personalized_mood_playback`), and DJ announcement requests
+mood playback (`personalized_mood_playback`), broad "play something else"
+requests (`change_music_context`), and DJ announcement requests
 (`dj_announcement_request`). Personal listening-profile questions such as
 "waar luisterde ik de afgelopen maand naar?" are handled as
 `personal_music_profile_analysis`; the backend should summarize genres, moods,

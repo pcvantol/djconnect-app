@@ -220,6 +220,29 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
     #expect(model.pairingMessage?.contains("The pairing code does not match") == false)
 }
 
+@MainActor
+@Test func authStaleClearsTokenAndReEnablesBonjourPairing() throws {
+    let suiteName = "DJConnectTests-\(UUID().uuidString)"
+    let defaults = try #require(UserDefaults(suiteName: suiteName))
+    defaults.removePersistentDomain(forName: suiteName)
+    let tokenStore = DJConnectInMemoryTokenStore(token: "stale-token")
+    let model = DJConnectAppModel(defaults: defaults, tokenStore: tokenStore, startLocalAPI: false, startBackgroundTasks: false)
+    defer {
+        model.stopPairingWait()
+        model.stopLocalDeviceAPI()
+    }
+
+    #expect(model.pairingStatus == .paired)
+    #expect(model.isBonjourAdvertisingPreferredForTests == false)
+
+    model.apply(error: .authStale(statusCode: 401, message: "The DJConnect device token is missing or invalid."))
+
+    #expect(model.pairingStatus == .pairing || model.pairingStatus == .stale)
+    #expect(model.isPairingScreenDismissed == false)
+    #expect(model.isBonjourAdvertisingPreferredForTests == true)
+    #expect(try tokenStore.loadToken() == nil)
+}
+
 @Test func statusRequestIncludesContractFieldsAndHeaders() throws {
     let identity = DJConnectIdentity(
         deviceID: "djconnect-ios-8F3A2C91B45D",
@@ -2391,6 +2414,30 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
     #expect(model.isDemoMode == false)
     #expect(model.canUsePlaybackFeatures == false)
     #expect(model.shouldShowPairingScreen == true)
+}
+
+@MainActor
+@Test func demoModeAskDJTextStaysLocalUntilPaired() throws {
+    let suiteName = "DJConnectTests-\(UUID().uuidString)"
+    let defaults = try #require(UserDefaults(suiteName: suiteName))
+    defaults.removePersistentDomain(forName: suiteName)
+    let model = DJConnectAppModel(
+        defaults: defaults,
+        tokenStore: DJConnectInMemoryTokenStore(),
+        startLocalAPI: false,
+        startBackgroundTasks: false
+    )
+
+    model.startDemoMode()
+    model.askDJDraft = "Waarom koos je dit nummer?"
+    model.sendAskDJText()
+
+    #expect(model.askDJDraft.isEmpty)
+    #expect(model.askDJMessages.count == 2)
+    #expect(model.askDJMessages[0].role == .user)
+    #expect(model.askDJMessages[0].status == .sent)
+    #expect(model.askDJMessages[1].role == .dj)
+    #expect(model.askDJMessages[1].text.contains("Home Assistant"))
 }
 
 @MainActor
