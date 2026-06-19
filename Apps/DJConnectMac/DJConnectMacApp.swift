@@ -10,7 +10,7 @@ struct DJConnectMacApp: App {
     var body: some Scene {
         WindowGroup {
             DJConnectLaunchContainer(isBusy: model.isRefreshing, content: DJConnectRootView(model: model))
-                .frame(minWidth: 1120, idealWidth: 1280, minHeight: 820, idealHeight: 980)
+                .frame(minWidth: 1120, idealWidth: 1280, minHeight: 880, idealHeight: 1060)
                 .background(WindowConfigurator())
         }
         .windowStyle(.hiddenTitleBar)
