@@ -1310,7 +1310,8 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
             upsertAskDJHistoryMessage(assistantMessage, into: &nextMessages)
         }
         applyAskDJTrim(response.historyTrimmedBefore, to: &nextMessages)
-        askDJMessages = nextMessages.sorted { $0.createdAt < $1.createdAt }
+        coalesceAskDJMessages(&nextMessages)
+        askDJMessages = sortedAskDJMessages(nextMessages)
         askDJHistoryRevision = response.historyRevision
         askDJClearRevision = response.clearRevision
         saveAskDJMessages()
@@ -1332,7 +1333,8 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
             upsertAskDJHistoryMessage(message, into: &nextMessages)
         }
         applyAskDJTrim(response.historyTrimmedBefore, to: &nextMessages)
-        askDJMessages = nextMessages.sorted { $0.createdAt < $1.createdAt }
+        coalesceAskDJMessages(&nextMessages)
+        askDJMessages = sortedAskDJMessages(nextMessages)
         askDJHistoryRevision = response.historyRevision
         askDJClearRevision = response.clearRevision
         saveAskDJMessages()
@@ -1342,17 +1344,24 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         _ historyMessage: DJConnectAskDJHistoryMessage,
         into messages: inout [DJConnectWatchAskDJMessage]
     ) {
+        let role: DJConnectWatchAskDJMessage.Role = historyMessage.role == .user ? .user : .dj
         let existingIndex = messages.firstIndex { localMessage in
             localMessage.serverID == historyMessage.id
-                || (historyMessage.clientMessageID != nil && localMessage.clientMessageID == historyMessage.clientMessageID)
+                || (
+                    localMessage.role == role
+                        && historyMessage.clientMessageID != nil
+                        && localMessage.clientMessageID == historyMessage.clientMessageID
+                )
         }
         let existing = existingIndex.map { messages[$0] }
+        let serverText = historyMessage.text.trimmingCharacters(in: .whitespacesAndNewlines)
+        let existingText = existing?.text.trimmingCharacters(in: .whitespacesAndNewlines)
         let mapped = DJConnectWatchAskDJMessage(
             id: existing?.id ?? UUID(uuidString: historyMessage.id) ?? UUID(),
             serverID: historyMessage.id,
             clientMessageID: historyMessage.clientMessageID,
-            role: historyMessage.role == .user ? .user : .dj,
-            text: historyMessage.text,
+            role: role,
+            text: serverText.isEmpty ? (existingText ?? "") : historyMessage.text,
             images: proxiedResponseImages(historyMessage.images),
             links: safeResponseLinks(historyMessage.links),
             playbackActions: historyMessage.playbackActions + historyMessage.confirmationActions,
@@ -1821,7 +1830,92 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         guard let trimmedBefore else {
             return
         }
-        messages.removeAll { $0.createdAt < trimmedBefore }
+        messages.removeAll { message in
+            guard message.createdAt < trimmedBefore else {
+                return false
+            }
+            return !Self.isClientAskDJExchangeMessage(message)
+        }
+    }
+
+    private static func isClientAskDJExchangeMessage(_ message: DJConnectWatchAskDJMessage) -> Bool {
+        message.clientMessageID?.isEmpty == false
+    }
+
+    private func coalesceAskDJMessages(_ messages: inout [DJConnectWatchAskDJMessage]) {
+        var coalesced: [DJConnectWatchAskDJMessage] = []
+        for message in sortedAskDJMessages(messages) {
+            if let existingIndex = coalesced.firstIndex(where: { existing in
+                Self.askDJMessagesRepresentSameBubble(existing, message)
+            }) {
+                coalesced[existingIndex] = mergedAskDJMessage(preferred: message, fallback: coalesced[existingIndex])
+            } else {
+                coalesced.append(message)
+            }
+        }
+        messages = coalesced
+    }
+
+    private static func askDJMessagesRepresentSameBubble(
+        _ lhs: DJConnectWatchAskDJMessage,
+        _ rhs: DJConnectWatchAskDJMessage
+    ) -> Bool {
+        if let lhsServerID = lhs.serverID, let rhsServerID = rhs.serverID, lhsServerID == rhsServerID {
+            return true
+        }
+        guard lhs.role == rhs.role,
+              let lhsClientID = lhs.clientMessageID,
+              let rhsClientID = rhs.clientMessageID,
+              !lhsClientID.isEmpty,
+              lhsClientID == rhsClientID else {
+            return false
+        }
+        return true
+    }
+
+    private func mergedAskDJMessage(
+        preferred: DJConnectWatchAskDJMessage,
+        fallback: DJConnectWatchAskDJMessage
+    ) -> DJConnectWatchAskDJMessage {
+        var merged = preferred
+        if merged.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            merged.text = fallback.text
+        }
+        if merged.serverID == nil {
+            merged.serverID = fallback.serverID
+        }
+        if merged.clientMessageID == nil {
+            merged.clientMessageID = fallback.clientMessageID
+        }
+        if merged.images.isEmpty {
+            merged.images = fallback.images
+        }
+        if merged.links.isEmpty {
+            merged.links = fallback.links
+        }
+        if merged.playbackActions.isEmpty {
+            merged.playbackActions = fallback.playbackActions
+        }
+        if merged.audioURL == nil {
+            merged.audioURL = fallback.audioURL
+        }
+        merged.createdAt = min(preferred.createdAt, fallback.createdAt)
+        return merged
+    }
+
+    private func sortedAskDJMessages(_ messages: [DJConnectWatchAskDJMessage]) -> [DJConnectWatchAskDJMessage] {
+        messages.sorted { lhs, rhs in
+            if lhs.createdAt != rhs.createdAt {
+                return lhs.createdAt < rhs.createdAt
+            }
+            if lhs.clientMessageID != rhs.clientMessageID {
+                return (lhs.clientMessageID ?? "") < (rhs.clientMessageID ?? "")
+            }
+            if lhs.role != rhs.role {
+                return lhs.role == .user
+            }
+            return lhs.id.uuidString < rhs.id.uuidString
+        }
     }
 
     private func appendAskDJMessage(

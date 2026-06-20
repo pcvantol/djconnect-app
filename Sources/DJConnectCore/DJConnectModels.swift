@@ -642,6 +642,7 @@ public struct DJConnectAskDJMessageResponse: Codable, Equatable, Sendable {
     public var historyTrimmedBefore: Date?
     public var historyTrimmedCount: Int?
     public var serverTime: Date?
+    public var deduplicated: Bool?
 
     enum CodingKeys: String, CodingKey {
         case userMessage = "user_message"
@@ -657,6 +658,7 @@ public struct DJConnectAskDJMessageResponse: Codable, Equatable, Sendable {
         case historyTrimmedBefore = "history_trimmed_before"
         case historyTrimmedCount = "history_trimmed_count"
         case serverTime = "server_time"
+        case deduplicated
     }
 
     public init(
@@ -669,7 +671,8 @@ public struct DJConnectAskDJMessageResponse: Codable, Equatable, Sendable {
         historyLimit: Int? = nil,
         historyTrimmedBefore: Date? = nil,
         historyTrimmedCount: Int? = nil,
-        serverTime: Date? = nil
+        serverTime: Date? = nil,
+        deduplicated: Bool? = nil
     ) {
         self.userMessage = userMessage
         self.assistantMessage = assistantMessage
@@ -681,6 +684,7 @@ public struct DJConnectAskDJMessageResponse: Codable, Equatable, Sendable {
         self.historyTrimmedBefore = historyTrimmedBefore
         self.historyTrimmedCount = historyTrimmedCount
         self.serverTime = serverTime
+        self.deduplicated = deduplicated
     }
 
     public init(from decoder: Decoder) throws {
@@ -698,6 +702,7 @@ public struct DJConnectAskDJMessageResponse: Codable, Equatable, Sendable {
         historyTrimmedBefore = DJConnectAskDJHistoryResponse.decodeDate(container, key: .historyTrimmedBefore)
         historyTrimmedCount = try container.decodeIfPresent(Int.self, forKey: .historyTrimmedCount)
         serverTime = DJConnectAskDJHistoryResponse.decodeDate(container, key: .serverTime)
+        deduplicated = try container.decodeIfPresent(Bool.self, forKey: .deduplicated)
         if assistantMessage?.audioURL == nil, let audioURL {
             assistantMessage?.audioURL = audioURL
         }
@@ -718,6 +723,7 @@ public struct DJConnectAskDJMessageResponse: Codable, Equatable, Sendable {
         try container.encodeIfPresent(historyTrimmedBefore, forKey: .historyTrimmedBefore)
         try container.encodeIfPresent(historyTrimmedCount, forKey: .historyTrimmedCount)
         try container.encodeIfPresent(serverTime, forKey: .serverTime)
+        try container.encodeIfPresent(deduplicated, forKey: .deduplicated)
     }
 }
 

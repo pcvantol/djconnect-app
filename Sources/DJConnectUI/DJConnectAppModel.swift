@@ -117,6 +117,7 @@ public enum DJConnectAskDJMessageRole: String, Codable, Equatable, Sendable {
 public enum DJConnectAskDJMessageStatus: String, Codable, Equatable, Sendable {
     case sending
     case sent
+    case delivered
     case failed
 }
 
@@ -3080,18 +3081,19 @@ public final class DJConnectAppModel: ObservableObject {
         }
     }
 
-    private func applyAskDJMessageResponse(_ response: DJConnectAskDJMessageResponse, fallbackUserMessageID: UUID?) {
+    func applyAskDJMessageResponse(_ response: DJConnectAskDJMessageResponse, fallbackUserMessageID: UUID?) {
         var nextMessages = askDJMessages
         if let userMessage = response.userMessage {
             upsertAskDJHistoryMessage(userMessage, into: &nextMessages, fallbackID: fallbackUserMessageID)
         } else if let fallbackUserMessageID {
-            updateAskDJMessageStatus(id: fallbackUserMessageID, status: .sent)
+            updateAskDJMessageStatus(id: fallbackUserMessageID, status: .delivered, in: &nextMessages)
         }
         if let assistantMessage = response.assistantMessage {
             upsertAskDJHistoryMessage(assistantMessage, into: &nextMessages, fallbackID: nil)
         }
         applyAskDJTrim(response.historyTrimmedBefore, to: &nextMessages)
-        askDJMessages = nextMessages.sorted { $0.createdAt < $1.createdAt }
+        coalesceAskDJMessages(&nextMessages)
+        askDJMessages = sortedAskDJMessages(nextMessages)
         persistAskDJRevisions(historyRevision: response.historyRevision, clearRevision: response.clearRevision)
         saveAskDJMessages()
         if fallbackUserMessageID != nil {
@@ -3099,7 +3101,7 @@ public final class DJConnectAppModel: ObservableObject {
         }
     }
 
-    private func applyAskDJHistory(_ response: DJConnectAskDJHistoryResponse) {
+    func applyAskDJHistory(_ response: DJConnectAskDJHistoryResponse) {
         let localClearRevision = defaults.integer(forKey: askDJClearRevisionKey)
         if response.clearRevision > localClearRevision {
             askDJMessages = []
@@ -3109,7 +3111,8 @@ public final class DJConnectAppModel: ObservableObject {
             upsertAskDJHistoryMessage(message, into: &nextMessages, fallbackID: nil)
         }
         applyAskDJTrim(response.historyTrimmedBefore, to: &nextMessages)
-        askDJMessages = nextMessages.sorted { $0.createdAt < $1.createdAt }
+        coalesceAskDJMessages(&nextMessages)
+        askDJMessages = sortedAskDJMessages(nextMessages)
         persistAskDJRevisions(historyRevision: response.historyRevision, clearRevision: response.clearRevision)
         saveAskDJMessages()
     }
@@ -3119,9 +3122,14 @@ public final class DJConnectAppModel: ObservableObject {
         into messages: inout [DJConnectAskDJMessage],
         fallbackID: UUID?
     ) {
+        let role: DJConnectAskDJMessageRole = historyMessage.role == .user ? .user : .dj
         let existingIndex = messages.firstIndex { localMessage in
             localMessage.serverID == historyMessage.id
-                || (historyMessage.clientMessageID != nil && localMessage.clientMessageID == historyMessage.clientMessageID)
+                || (
+                    localMessage.role == role
+                        && historyMessage.clientMessageID != nil
+                        && localMessage.clientMessageID == historyMessage.clientMessageID
+                )
         }
         let existing = existingIndex.map { messages[$0] }
         let mapped = makeAskDJMessage(from: historyMessage, existing: existing, fallbackID: fallbackID)
@@ -3138,8 +3146,10 @@ public final class DJConnectAppModel: ObservableObject {
         fallbackID: UUID?
     ) -> DJConnectAskDJMessage {
         let role: DJConnectAskDJMessageRole = historyMessage.role == .user ? .user : .dj
-        let status: DJConnectAskDJMessageStatus? = role == .user ? .sent : nil
+        let status: DJConnectAskDJMessageStatus? = role == .user ? .delivered : nil
         let messageKind: DJConnectAskDJLocalMessageKind = historyMessage.messageKind == .system ? .system : .assistant
+        let serverText = historyMessage.text.trimmingCharacters(in: .whitespacesAndNewlines)
+        let existingText = existing?.text.trimmingCharacters(in: .whitespacesAndNewlines)
         return DJConnectAskDJMessage(
             id: existing?.id ?? fallbackID ?? UUID(uuidString: historyMessage.id) ?? UUID(),
             serverID: historyMessage.id,
@@ -3147,7 +3157,7 @@ public final class DJConnectAppModel: ObservableObject {
             role: role,
             messageKind: role == .user ? .assistant : messageKind,
             origin: role == .user ? nil : historyMessage.origin,
-            text: historyMessage.text,
+            text: serverText.isEmpty ? (existingText ?? "") : historyMessage.text,
             images: proxiedResponseImages(historyMessage.images),
             links: safeResponseLinks(historyMessage.links),
             playbackActions: historyMessage.playbackActions + historyMessage.confirmationActions,
@@ -3166,7 +3176,103 @@ public final class DJConnectAppModel: ObservableObject {
         guard let trimmedBefore else {
             return
         }
-        messages.removeAll { $0.createdAt < trimmedBefore }
+        messages.removeAll { message in
+            guard message.createdAt < trimmedBefore else {
+                return false
+            }
+            return !Self.isClientAskDJExchangeMessage(message)
+        }
+    }
+
+    private func updateAskDJMessageStatus(
+        id: UUID,
+        status: DJConnectAskDJMessageStatus,
+        in messages: inout [DJConnectAskDJMessage]
+    ) {
+        guard let index = messages.firstIndex(where: { $0.id == id }) else {
+            return
+        }
+        messages[index].status = status
+    }
+
+    private static func isClientAskDJExchangeMessage(_ message: DJConnectAskDJMessage) -> Bool {
+        message.clientMessageID?.isEmpty == false
+    }
+
+    private func coalesceAskDJMessages(_ messages: inout [DJConnectAskDJMessage]) {
+        var coalesced: [DJConnectAskDJMessage] = []
+        for message in sortedAskDJMessages(messages) {
+            if let existingIndex = coalesced.firstIndex(where: { existing in
+                Self.askDJMessagesRepresentSameBubble(existing, message)
+            }) {
+                coalesced[existingIndex] = mergedAskDJMessage(preferred: message, fallback: coalesced[existingIndex])
+            } else {
+                coalesced.append(message)
+            }
+        }
+        messages = coalesced
+    }
+
+    private static func askDJMessagesRepresentSameBubble(_ lhs: DJConnectAskDJMessage, _ rhs: DJConnectAskDJMessage) -> Bool {
+        if let lhsServerID = lhs.serverID, let rhsServerID = rhs.serverID, lhsServerID == rhsServerID {
+            return true
+        }
+        guard lhs.role == rhs.role,
+              let lhsClientID = lhs.clientMessageID,
+              let rhsClientID = rhs.clientMessageID,
+              !lhsClientID.isEmpty,
+              lhsClientID == rhsClientID else {
+            return false
+        }
+        return true
+    }
+
+    private func mergedAskDJMessage(
+        preferred: DJConnectAskDJMessage,
+        fallback: DJConnectAskDJMessage
+    ) -> DJConnectAskDJMessage {
+        var merged = preferred
+        if merged.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            merged.text = fallback.text
+        }
+        if merged.serverID == nil {
+            merged.serverID = fallback.serverID
+        }
+        if merged.clientMessageID == nil {
+            merged.clientMessageID = fallback.clientMessageID
+        }
+        if merged.images.isEmpty {
+            merged.images = fallback.images
+        }
+        if merged.links.isEmpty {
+            merged.links = fallback.links
+        }
+        if merged.playbackActions.isEmpty {
+            merged.playbackActions = fallback.playbackActions
+        }
+        if merged.audioURL == nil {
+            merged.audioURL = fallback.audioURL
+        }
+        if merged.status == nil {
+            merged.status = fallback.status
+        }
+        merged.createdAt = min(preferred.createdAt, fallback.createdAt)
+        return merged
+    }
+
+    private func sortedAskDJMessages(_ messages: [DJConnectAskDJMessage]) -> [DJConnectAskDJMessage] {
+        messages.sorted { lhs, rhs in
+            if lhs.createdAt != rhs.createdAt {
+                return lhs.createdAt < rhs.createdAt
+            }
+            if lhs.clientMessageID != rhs.clientMessageID {
+                return (lhs.clientMessageID ?? "") < (rhs.clientMessageID ?? "")
+            }
+            if lhs.role != rhs.role {
+                return lhs.role == .user
+            }
+            return lhs.id.uuidString < rhs.id.uuidString
+        }
     }
 
     private func notifyAskDJResponse(_ text: String) {

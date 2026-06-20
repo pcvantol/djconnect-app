@@ -3452,6 +3452,11 @@ private final class AskDJOnAirVideoStreamer: ObservableObject {
                 snapshotProvider: { [weak self] in
                     self?.snapshot() ?? AskDJOnAirVideoSnapshot(language: "en", messages: [], trackName: nil, artistName: nil)
                 },
+                eventHandler: { message in
+                    Task { @MainActor in
+                        model.logAskDJOnAirStream(message)
+                    }
+                },
                 firstSegmentHandler: {
                     Task { @MainActor in
                         self.isPreparing = false
@@ -3502,6 +3507,7 @@ private final class AskDJOnAirHLSStream: NSObject, AVAssetWriterDelegate, @unche
 
     private let directory: URL
     private let snapshotProvider: @Sendable () -> AskDJOnAirVideoSnapshot
+    private let eventHandler: @Sendable (String) -> Void
     private let firstSegmentHandler: @Sendable () -> Void
     private let queue = DispatchQueue(label: "nl.djconnect.onair.hls")
     private let segmentDuration: Double = 0.5
@@ -3510,14 +3516,20 @@ private final class AskDJOnAirHLSStream: NSObject, AVAssetWriterDelegate, @unche
     private var segments: [Segment] = []
     private var nextSequence = 0
     private var wroteFirstSegment = false
+    private var hasInitializationSegment = false
 
-    init(directory: URL, snapshotProvider: @escaping @Sendable () -> AskDJOnAirVideoSnapshot, firstSegmentHandler: @escaping @Sendable () -> Void) throws {
+    init(
+        directory: URL,
+        snapshotProvider: @escaping @Sendable () -> AskDJOnAirVideoSnapshot,
+        eventHandler: @escaping @Sendable (String) -> Void,
+        firstSegmentHandler: @escaping @Sendable () -> Void
+    ) throws {
         self.directory = directory
         self.snapshotProvider = snapshotProvider
+        self.eventHandler = eventHandler
         self.firstSegmentHandler = firstSegmentHandler
         super.init()
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-        try writePlaylist()
     }
 
     func runUntilCancelled() throws {
@@ -3534,7 +3546,9 @@ private final class AskDJOnAirHLSStream: NSObject, AVAssetWriterDelegate, @unche
             AVVideoCompressionPropertiesKey: [
                 AVVideoAverageBitRateKey: 2_800_000,
                 AVVideoExpectedSourceFrameRateKey: frameRate,
-                AVVideoMaxKeyFrameIntervalKey: Int(frameRate / 2)
+                AVVideoMaxKeyFrameIntervalKey: Int(frameRate / 2),
+                AVVideoAllowFrameReorderingKey: false,
+                AVVideoProfileLevelKey: AVVideoProfileLevelH264BaselineAutoLevel
             ]
         ]
         let input = AVAssetWriterInput(mediaType: .video, outputSettings: settings)
@@ -3584,47 +3598,64 @@ private final class AskDJOnAirHLSStream: NSObject, AVAssetWriterDelegate, @unche
         writer.finishWriting {}
     }
 
-    nonisolated func assetWriter(_ writer: AVAssetWriter, didOutputSegmentData segmentData: Data, segmentType: AVAssetSegmentType) {
+    nonisolated func assetWriter(
+        _ writer: AVAssetWriter,
+        didOutputSegmentData segmentData: Data,
+        segmentType: AVAssetSegmentType,
+        segmentReport: AVAssetSegmentReport?
+    ) {
         queue.async { [weak self] in
-            self?.writeSegment(segmentData: segmentData, segmentType: segmentType)
+            self?.writeSegment(segmentData: segmentData, segmentType: segmentType, segmentReport: segmentReport)
         }
     }
 
-    private func writeSegment(segmentData: Data, segmentType: AVAssetSegmentType) {
+    private func writeSegment(segmentData: Data, segmentType: AVAssetSegmentType, segmentReport: AVAssetSegmentReport?) {
         do {
             if segmentType == .initialization {
                 try segmentData.write(to: directory.appendingPathComponent("init.mp4"), options: .atomic)
+                hasInitializationSegment = true
                 try writePlaylist()
+                eventHandler("wrote init.mp4 (\(segmentData.count) bytes)")
                 return
             }
             let sequence = nextSequence
             nextSequence += 1
             let filename = String(format: "segment-%06d.m4s", sequence)
+            let duration = segmentReport?.trackReports
+                .first(where: { $0.mediaType == .video })?
+                .duration
+                .seconds
+            let resolvedDuration = duration?.isFinite == true && (duration ?? 0) > 0 ? duration! : segmentDuration
             try segmentData.write(to: directory.appendingPathComponent(filename), options: .atomic)
-            segments.append(Segment(sequence: sequence, filename: filename, duration: segmentDuration))
+            segments.append(Segment(sequence: sequence, filename: filename, duration: resolvedDuration))
             while segments.count > playlistWindow {
                 let removed = segments.removeFirst()
                 try? FileManager.default.removeItem(at: directory.appendingPathComponent(removed.filename))
             }
             try writePlaylist()
+            eventHandler("wrote \(filename) (\(segmentData.count) bytes, duration \(String(format: "%.3f", resolvedDuration))s)")
             if !wroteFirstSegment {
                 wroteFirstSegment = true
                 firstSegmentHandler()
             }
         } catch {
-            // The player will keep waiting for the next playlist update.
+            eventHandler("could not write segment: \(error.localizedDescription)")
         }
     }
 
     private func writePlaylist() throws {
         let mediaSequence = segments.first?.sequence ?? nextSequence
+        let targetDuration = max(1, Int(ceil(segments.map(\.duration).max() ?? segmentDuration)))
         var lines = [
             "#EXTM3U",
             "#EXT-X-VERSION:7",
-            "#EXT-X-TARGETDURATION:1",
-            "#EXT-X-MEDIA-SEQUENCE:\(mediaSequence)",
-            "#EXT-X-MAP:URI=\"init.mp4\""
+            "#EXT-X-INDEPENDENT-SEGMENTS",
+            "#EXT-X-TARGETDURATION:\(targetDuration)",
+            "#EXT-X-MEDIA-SEQUENCE:\(mediaSequence)"
         ]
+        if hasInitializationSegment {
+            lines.append("#EXT-X-MAP:URI=\"init.mp4\"")
+        }
         for segment in segments {
             lines.append(String(format: "#EXTINF:%.3f,", segment.duration))
             lines.append(segment.filename)
@@ -4431,6 +4462,8 @@ private struct AskDJMessageBubble: View {
         case .sending:
             statusText = localized(language, "sending...", "bezig...")
         case .sent:
+            statusText = localized(language, "sent", "verzonden")
+        case .delivered:
             statusText = localized(language, "sent", "verzonden")
         case .failed:
             statusText = localized(language, "failed", "mislukt")

@@ -926,6 +926,7 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
     {
       "history_revision": 45,
       "clear_revision": 9,
+      "deduplicated": true,
       "history_limit": 50,
       "history_trimmed_before": "2026-06-19T12:00:00Z",
       "history_trimmed_count": 12,
@@ -961,6 +962,7 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
 
     #expect(response.historyRevision == 45)
     #expect(response.clearRevision == 9)
+    #expect(response.deduplicated == true)
     #expect(response.historyLimit == 50)
     #expect(response.historyTrimmedBefore != nil)
     #expect(response.historyTrimmedCount == 12)
@@ -2955,6 +2957,71 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
     #expect(model.askDJMessages[0].status == .sent)
     #expect(model.askDJMessages[1].role == .dj)
     #expect(model.askDJMessages[1].text.contains("Home Assistant"))
+}
+
+@MainActor
+@Test func askDJResponseWithoutUserMessageKeepsLocalUserBubble() throws {
+    let suiteName = "DJConnectTests-\(UUID().uuidString)"
+    let defaults = try #require(UserDefaults(suiteName: suiteName))
+    defaults.removePersistentDomain(forName: suiteName)
+    let clientMessageID = "client-message-\(UUID().uuidString)"
+    let userMessageID = UUID()
+    let localUserMessage = DJConnectAskDJMessage(
+        id: userMessageID,
+        serverID: nil,
+        clientMessageID: clientMessageID,
+        role: .user,
+        text: "speel metallica, one.",
+        status: .sending,
+        createdAt: Date(timeIntervalSince1970: 10)
+    )
+    let encodedMessages = try JSONEncoder().encode([localUserMessage])
+    defaults.set(encodedMessages, forKey: "DJConnectAskDJMessages")
+    let model = DJConnectAppModel(
+        defaults: defaults,
+        tokenStore: DJConnectInMemoryTokenStore(),
+        startLocalAPI: false,
+        startBackgroundTasks: false
+    )
+    let serverUserMessage = DJConnectAskDJHistoryMessage(
+        id: "user-1",
+        clientMessageID: clientMessageID,
+        role: .user,
+        text: "",
+        createdAt: Date(timeIntervalSince1970: 11)
+    )
+    let assistantMessage = DJConnectAskDJHistoryMessage(
+        id: "assistant-1",
+        clientMessageID: clientMessageID,
+        role: .assistant,
+        text: "Ik zet Metallica - One voor je klaar.",
+        createdAt: Date(timeIntervalSince1970: 20)
+    )
+    let trimmedBeforeLocalMessage = Date(timeIntervalSince1970: 15)
+
+    model.applyAskDJMessageResponse(DJConnectAskDJMessageResponse(
+        userMessage: serverUserMessage,
+        assistantMessage: assistantMessage,
+        historyRevision: 1,
+        historyTrimmedBefore: trimmedBeforeLocalMessage,
+        deduplicated: true
+    ), fallbackUserMessageID: userMessageID)
+    model.applyAskDJHistory(DJConnectAskDJHistoryResponse(
+        historyRevision: 2,
+        messages: [serverUserMessage, assistantMessage, serverUserMessage, assistantMessage],
+        historyTrimmedBefore: trimmedBeforeLocalMessage
+    ))
+
+    #expect(model.askDJMessages.count == 2)
+    #expect(model.askDJMessages[0].id == userMessageID)
+    #expect(model.askDJMessages[0].serverID == "user-1")
+    #expect(model.askDJMessages[0].clientMessageID == clientMessageID)
+    #expect(model.askDJMessages[0].role == .user)
+    #expect(model.askDJMessages[0].text == "speel metallica, one.")
+    #expect(model.askDJMessages[0].status == .delivered)
+    #expect(model.askDJMessages[1].clientMessageID == clientMessageID)
+    #expect(model.askDJMessages[1].role == .dj)
+    #expect(model.askDJMessages[1].text == "Ik zet Metallica - One voor je klaar.")
 }
 
 @MainActor
