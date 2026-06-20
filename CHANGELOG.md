@@ -4,6 +4,10 @@ All notable changes to DJConnect App are documented here.
 
 ## Unreleased
 
+No unreleased changes.
+
+## 3.1.38 - 2026-06-20
+
 ### Changed
 
 - Added Ask DJ support for backend-generated ambient/system messages, including
