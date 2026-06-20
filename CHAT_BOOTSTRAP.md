@@ -28,11 +28,15 @@ Context:
 - History retention gebruikt backendmetadata zoals `history_limit`, `history_trimmed_before` en `history_trimmed_count`; clients mogen lokale cache ouder dan `history_trimmed_before` opschonen zonder displaytekst te parsen.
 - Ask DJ tekstchat stuurt standaard `audio_response: "auto"`. Ontbrekende `audio_url` is normaal; replay/audio UI verschijnt alleen als `assistant_message.audio_url` of top-level `audio_url` aanwezig is.
 - Ask DJ mag informatieve vragen, contextuele vervolgreacties, playback-intents, persoonlijke muziekanalyse, aanbevelingen, Play Now-acties, afbeeldingen, links, bronnen en DJ-audio bevatten. Intentinterpretatie blijft backend-owned; clients hardcoden geen intentfamilies behalve UI-weergave van teruggegeven media/actions.
+- Ask DJ request payloads mogen optionele `metadata` bevatten voor backend-owned context triggers. De geplande ochtend-start gebruikt `metadata.trigger == "morning_startup"` met tekst `Goedemorgen`/`Good morning` als de app 's ochtends start zonder actieve playback; Home Assistant hoort daarop een normale Ask DJ response/follow-up te maken en niet client-side automatisch muziek te starten.
+- Backend follow-up/confirmatievragen worden als Ask DJ `playback_actions` gerenderd. Voor algemene ja/nee verduidelijking gebruikt de backend acties met bijvoorbeeld `kind: "confirmation"`, `action_style: "confirmation"`, `response_value: "yes"|"no"` en `command: "ask_dj_followup_response"`. Clients tonen dan klikbare Ja/Nee knoppen; de pending follow-up state en uiteindelijke intentuitvoering blijven server-side.
 - Raw backend/proxy/decode/HTML-fouten mogen nooit in de Ask DJ chat UI verschijnen. Toon korte gelokaliseerde meldingen zoals `Ask DJ niet bereikbaar` of `Home Assistant gaf geen antwoord`; technische details blijven in diagnostics/logs.
 - Secrets/tokens/wachtwoorden/private URLs mogen nooit in commits, logs, screenshots, diagnostics of test fixtures.
 
 Huidige status om te controleren:
-- Release `3.1.38` is de actuele source release met backend-generated
+- Release `3.1.39` is de actuele source release met Ask DJ Party demo support,
+  Ask DJ request metadata parsing voor komende backend triggers, en alle
+  `3.1.38` wijzigingen zoals backend-generated
   Ask DJ system/ambient messages, app-private tokenopslag zonder Keychain,
   `App opnieuw koppelen`, gesaneerde Ask DJ foutmeldingen, en client-side
   Ask DJ Demo Mode zonder Home Assistant interactie.
@@ -45,7 +49,7 @@ Huidige status om te controleren:
 - Demo Mode is volledig lokaal en non-interacting met Home Assistant. Ask DJ
   toont de vaste voorbeelden en geeft client-side demobubbles terug die
   uitleggen dat Ask DJ echt antwoordt zodra Home Assistant gekoppeld is.
-- De statische What's New release-notes voor `3.1.38` worden door de
+- De statische What's New release-notes voor `3.1.39` worden door de
   `Public unsigned release` workflow gepubliceerd naar `pcvantol/djconnect-website`
   en `djconnect.dev`. Controleer de workflowstatus als release/publicatie
   geraakt wordt.
@@ -54,8 +58,8 @@ Huidige status om te controleren:
 - Check direct:
   - `git status --short --branch`
   - `gh run list --repo pcvantol/djconnect-app --limit 5`
-  - public release tags in `pcvantol/djconnect-app-releases` voor `ios/v3.1.38` en `macos/v3.1.38` indien release/publicatie geraakt wordt.
-  - `https://djconnect.dev/release-notes/ios/nl/v3.1.38.json` en het macOS
+  - public release tags in `pcvantol/djconnect-app-releases` voor `ios/v3.1.39` en `macos/v3.1.39` indien release/publicatie geraakt wordt.
+  - `https://djconnect.dev/release-notes/ios/nl/v3.1.39.json` en het macOS
     equivalent indien What's New release-notes geraakt worden.
 
 Werkstijl:
