@@ -309,8 +309,8 @@ struct DJConnectWatchRootView: View {
                         setMoodStep(index)
                     } label: {
                         VStack(spacing: 3) {
-                            Image(systemName: isSelected ? "music.note" : "circle.fill")
-                                .font(.system(size: isSelected ? 11 : 5, weight: .bold))
+                            Image(systemName: moodIcon(for: index))
+                                .font(.system(size: 11, weight: .bold))
                             Text(step.label)
                                 .font(.system(size: 9, weight: .semibold))
                                 .lineLimit(1)
@@ -390,6 +390,19 @@ struct DJConnectWatchRootView: View {
         moodCrownValue = Double(model.askDJMoodStepIndex)
         isMoodControlFocused = false
         WKInterfaceDevice.current().play(.click)
+    }
+
+    private func moodIcon(for index: Int) -> String {
+        switch index {
+        case 0:
+            return "moon.zzz.fill"
+        case 1:
+            return "waveform"
+        case 2:
+            return "bolt.fill"
+        default:
+            return "sparkles"
+        }
     }
 
     private var volumeControl: some View {
@@ -777,10 +790,6 @@ private struct DJConnectWatchAboutView: View {
                     .padding(10)
                     .background(DJConnectWatchPanel(cornerRadius: 12))
 
-                    Text("Home Assistant beheert pairing, playback en Ask DJ. De Watch bewaart alleen het DJConnect device-token lokaal.")
-                        .font(.caption2)
-                        .foregroundStyle(.white.opacity(0.58))
-                        .multilineTextAlignment(.center)
                 }
                 .padding(.vertical, 10)
                 .padding(.horizontal, 6)
@@ -1640,7 +1649,7 @@ private struct DJConnectWatchAskDJChatView: View {
                             ProgressView()
                                 .tint(.white)
                                 .padding(.vertical, 18)
-                        } else if model.askDJMessages.isEmpty {
+                        } else if model.askDJMessages.isEmpty && model.transientAskDJMoodMessage == nil {
                             VStack(spacing: 8) {
                                 Image(systemName: "bubble.left.and.bubble.right.fill")
                                     .font(.title2)
@@ -1691,6 +1700,11 @@ private struct DJConnectWatchAskDJChatView: View {
                                     .id(message.id)
                             }
                         }
+                        if let transientMessage = model.transientAskDJMoodMessage {
+                            DJConnectWatchAskDJBubble(message: transientMessage)
+                                .id(transientMessage.id)
+                                .transition(.move(edge: .bottom).combined(with: .opacity))
+                        }
 
                         Button {
                             model.toggleRecording()
@@ -1715,7 +1729,7 @@ private struct DJConnectWatchAskDJChatView: View {
                     .padding(.horizontal, 4)
                 }
                 .onChange(of: model.askDJScrollRequestID) {
-                    guard let lastID = model.askDJMessages.last?.id else {
+                    guard let lastID = model.transientAskDJMoodMessage?.id ?? model.askDJMessages.last?.id else {
                         return
                     }
                     withAnimation(.easeOut(duration: 0.2)) {
@@ -1940,12 +1954,15 @@ private struct AskDJWatchPlaybackActionStack: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            ForEach(actions) { action in
+            ForEach(actions.filter(Self.isSupportedAction)) { action in
                 Button {
                     playAction(action)
                 } label: {
                     HStack(spacing: 7) {
-                        if let imageURL = action.imageURL {
+                        if action.isOutputAction {
+                            outputIcon(isActive: action.isActiveOutputAction)
+                                .frame(width: 28, height: 28)
+                        } else if let imageURL = action.imageURL {
                             AsyncImage(url: imageURL) { phase in
                                 switch phase {
                                 case let .success(image):
@@ -1978,8 +1995,11 @@ private struct AskDJWatchPlaybackActionStack: View {
                             ProgressView()
                                 .controlSize(.mini)
                                 .tint(.white)
+                        } else if action.isActiveOutputAction {
+                            Image(systemName: "checkmark")
+                                .font(.caption2.weight(.bold))
                         } else {
-                            Image(systemName: "play.fill")
+                            Image(systemName: action.isOutputAction ? "speaker.wave.2.fill" : "play.fill")
                                 .font(.caption2.weight(.bold))
                         }
                     }
@@ -1997,6 +2017,16 @@ private struct AskDJWatchPlaybackActionStack: View {
         }
     }
 
+    private static func isSupportedAction(_ action: DJConnectAskDJPlaybackAction) -> Bool {
+        if action.isOutputAction {
+            return action.outputDeviceID != nil
+        }
+        return action.uri?.isEmpty == false
+            || action.contextURI?.isEmpty == false
+            || !action.uris.isEmpty
+            || action.responseValue?.isEmpty == false
+    }
+
     private var fallbackIcon: some View {
         ZStack {
             RoundedRectangle(cornerRadius: 7, style: .continuous)
@@ -2004,6 +2034,16 @@ private struct AskDJWatchPlaybackActionStack: View {
             Image(systemName: "music.note")
                 .font(.caption2.weight(.bold))
                 .foregroundStyle(.white.opacity(0.72))
+        }
+    }
+
+    private func outputIcon(isActive: Bool) -> some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 7, style: .continuous)
+                .fill(isActive ? .white.opacity(0.24) : .white.opacity(0.14))
+            Image(systemName: isActive ? "checkmark.circle.fill" : "speaker.wave.2.fill")
+                .font(.caption2.weight(.bold))
+                .foregroundStyle(.white.opacity(isActive ? 0.95 : 0.72))
         }
     }
 }

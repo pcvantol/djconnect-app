@@ -295,6 +295,8 @@ public final class DJConnectAppModel: ObservableObject {
     @Published public var askDJErrorMessage: String?
     @Published public private(set) var askDJToast: DJConnectUserNotice?
     @Published public private(set) var askDJAudioPlaybackState: DJConnectAskDJAudioPlaybackState = .idle
+    @Published public private(set) var transientAskDJListeningMessage: DJConnectAskDJMessage?
+    @Published public private(set) var transientAskDJMoodMessage: DJConnectAskDJMessage?
     @Published public var askDJMood = 50.0 {
         didSet { defaults.set(askDJMood, forKey: askDJMoodKey) }
     }
@@ -369,6 +371,7 @@ public final class DJConnectAppModel: ObservableObject {
     private var lastFullRefreshAt: Date?
     private var lastBackendCollectionsRefreshAt: Date?
     private var localDeviceAPI: DJConnectLocalDeviceAPI?
+    private var askDJOnAirHLSDirectory: URL?
     private let networkMonitor = NWPathMonitor()
     private let networkMonitorQueue = DispatchQueue(label: "dev.djconnect.app.network")
     private var shouldShowWakeWordPromptAfterPairingScreen = false
@@ -376,7 +379,7 @@ public final class DJConnectAppModel: ObservableObject {
     private var voiceRecorder: AVAudioRecorder?
     private var voiceRecordingURL: URL?
     private var voiceStartTask: Task<Void, Never>?
-    private var responseAudioPlayer: AVAudioPlayer?
+    private var responseAudioPlayer: AVPlayer?
     private var responseAudioPlaybackTask: Task<Void, Never>?
     private var responseSpeechSynthesizer: AVSpeechSynthesizer?
     #endif
@@ -480,7 +483,11 @@ public final class DJConnectAppModel: ObservableObject {
 
     public func setAskDJMoodStep(_ index: Int) {
         let clampedIndex = max(0, min(askDJMoodSteps.count - 1, index))
+        guard clampedIndex != askDJMoodStepIndex else {
+            return
+        }
         askDJMood = Double(askDJMoodSteps[clampedIndex].value)
+        showMoodChangedMessage()
     }
 
     private var hasActiveNowPlaying: Bool {
@@ -1664,6 +1671,10 @@ public final class DJConnectAppModel: ObservableObject {
         guard playingAskDJActionID == nil else {
             return
         }
+        if action.isOutputAction {
+            switchAskDJOutput(action)
+            return
+        }
         guard canUsePlaybackFeatures else {
             askDJErrorMessage = localized(
                 english: "Pair with Home Assistant before playing recommendations.",
@@ -1702,6 +1713,64 @@ public final class DJConnectAppModel: ObservableObject {
                 askDJErrorMessage = askDJUnavailableText()
                 showAskDJToast(localized(english: "Ask DJ is unreachable", dutch: "Ask DJ niet bereikbaar"))
                 log(.error, "Ask DJ recommendation playback failed unexpectedly: \(error.localizedDescription)")
+            }
+        }
+    }
+
+    private func switchAskDJOutput(_ action: DJConnectAskDJPlaybackAction) {
+        guard let outputDeviceID = action.outputDeviceID else {
+            showAskDJToast(localized(
+                english: "This output cannot be selected yet",
+                dutch: "Deze uitvoer kan nog niet worden geselecteerd"
+            ))
+            return
+        }
+        guard canUsePlaybackFeatures else {
+            askDJErrorMessage = localized(
+                english: "Pair with Home Assistant before changing output.",
+                dutch: "Koppel eerst met Home Assistant om de uitvoer te wijzigen."
+            )
+            return
+        }
+
+        playingAskDJActionID = action.id
+        askDJErrorMessage = nil
+        log(.info, "Sending Ask DJ output switch action")
+
+        Task {
+            defer { playingAskDJActionID = nil }
+            do {
+                let response = try await withHomeAssistantClient { client in
+                    try await client.sendCommandResponse(DJConnectCommandPayload(
+                        identity: identity,
+                        command: "set_output",
+                        value: .string(outputDeviceID)
+                    ))
+                }
+                guard response.success else {
+                    showAskDJToast(response.error ?? response.message ?? localized(
+                        english: "Output could not be changed",
+                        dutch: "Uitvoer kon niet worden gewijzigd"
+                    ))
+                    log(.warning, "Ask DJ output switch was rejected by Home Assistant")
+                    return
+                }
+                apply(commandResponse: response)
+                markAskDJOutputActionActive(outputDeviceID)
+                showAskDJToast(localized(
+                    english: "Output changed",
+                    dutch: "Uitvoer gewijzigd"
+                ))
+                await refreshAfterDJResponse()
+                log(.info, "Ask DJ output switch completed")
+            } catch let error as DJConnectError {
+                askDJErrorMessage = askDJErrorText(for: error)
+                showAskDJToast(for: error)
+                log(.warning, "Ask DJ output switch failed: \(Self.describe(error))")
+            } catch {
+                askDJErrorMessage = askDJUnavailableText()
+                showAskDJToast(localized(english: "Output could not be changed", dutch: "Uitvoer kon niet worden gewijzigd"))
+                log(.error, "Ask DJ output switch failed unexpectedly: \(error.localizedDescription)")
             }
         }
     }
@@ -1860,6 +1929,7 @@ public final class DJConnectAppModel: ObservableObject {
         }
         stopWakeWordListening()
         guard voiceEnabled else {
+            dismissWakeWordListeningMessage()
             voiceStatus = .unavailable
             log(.warning, "Voice recording ignored because voice is disabled")
             resumeWakeWordListeningIfNeeded()
@@ -1867,6 +1937,7 @@ public final class DJConnectAppModel: ObservableObject {
         }
         refreshPermissionStatuses()
         if microphonePermissionStatus == .unknown, !shouldBypassPermissionExplanationOnce {
+            dismissWakeWordListeningMessage()
             pendingPermissionRequest = .voiceRecording
             isShowingPermissionExplanation = true
             log(.debug, "Showing microphone permission explanation before voice recording")
@@ -1874,6 +1945,7 @@ public final class DJConnectAppModel: ObservableObject {
         }
         shouldBypassPermissionExplanationOnce = false
         guard pairingStatus == .paired else {
+            dismissWakeWordListeningMessage()
             voiceStatus = .unavailable
             voiceErrorMessage = localized(
                 english: "Pair with Home Assistant before using voice.",
@@ -1896,6 +1968,7 @@ public final class DJConnectAppModel: ObservableObject {
             }
             guard granted else {
                 isRecordingVoice = false
+                dismissWakeWordListeningMessage()
                 voiceStatus = .unavailable
                 voiceErrorMessage = localized(
                     english: "Microphone access is required for push-to-talk.",
@@ -1906,6 +1979,7 @@ public final class DJConnectAppModel: ObservableObject {
                 return
             }
             playVoiceCue(.startListening)
+            playVoiceHaptic(.startListening)
             try? await Task.sleep(for: .milliseconds(180))
             guard !Task.isCancelled, isRecordingVoice else {
                 return
@@ -1913,6 +1987,53 @@ public final class DJConnectAppModel: ObservableObject {
             beginVoiceRecording()
             voiceStartTask = nil
         }
+    }
+
+    private func showWakeWordListeningMessage() {
+        transientAskDJListeningMessage = DJConnectAskDJMessage(
+            role: .dj,
+            origin: "wakeword_listening",
+            text: localized(english: "I'm listening", dutch: "Ik luister")
+        )
+        askDJScrollRequestID = UUID()
+    }
+
+    private func dismissWakeWordListeningMessage() {
+        transientAskDJListeningMessage = nil
+    }
+
+    private func showMoodChangedMessage() {
+        transientAskDJMoodMessage = DJConnectAskDJMessage(
+            role: .dj,
+            origin: "local_mood_change",
+            text: localized(
+                english: "Mood set to \(askDJMoodLabel).",
+                dutch: "Mood ingesteld op \(askDJMoodLabel)."
+            )
+        )
+        askDJScrollRequestID = UUID()
+    }
+
+    private func cancelWakeWordVoiceRecordingAfterSilence() {
+        #if canImport(AVFoundation)
+        voiceStartTask?.cancel()
+        voiceStartTask = nil
+        let url = voiceRecordingURL
+        voiceRecorder?.stop()
+        voiceRecorder = nil
+        voiceRecordingURL = nil
+        if let url {
+            try? FileManager.default.removeItem(at: url)
+        }
+        isRecordingVoice = false
+        voiceStatus = .idle
+        dismissWakeWordListeningMessage()
+        #if os(iOS)
+        try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+        #endif
+        log(.info, "Wakeword voice capture dismissed after silence")
+        resumeWakeWordListeningIfNeeded()
+        #endif
     }
 
     public func stopVoiceRecordingAndUpload() {
@@ -1929,10 +2050,12 @@ public final class DJConnectAppModel: ObservableObject {
         voiceRecordingURL = nil
         isRecordingVoice = false
         voiceStatus = .processing
+        dismissWakeWordListeningMessage()
         #if os(iOS)
         try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
         #endif
         playVoiceCue(.stopListening)
+        playVoiceHaptic(.stopListening)
 
         guard let url else {
             voiceStatus = .idle
@@ -1998,6 +2121,7 @@ public final class DJConnectAppModel: ObservableObject {
         #else
         isRecordingVoice = false
         voiceStatus = .unavailable
+        dismissWakeWordListeningMessage()
         voiceErrorMessage = localized(
             english: "Voice recording is not available on this platform.",
             dutch: "Voice-opname is niet beschikbaar op dit platform."
@@ -2523,7 +2647,7 @@ public final class DJConnectAppModel: ObservableObject {
         #if canImport(AVFoundation)
         responseAudioPlaybackTask?.cancel()
         responseAudioPlaybackTask = nil
-        responseAudioPlayer?.stop()
+        responseAudioPlayer?.pause()
         responseAudioPlayer = nil
         askDJAudioPlaybackState = .idle
         responseSpeechSynthesizer?.stopSpeaking(at: .immediate)
@@ -2818,12 +2942,37 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     private static func defaultAskDJCommand(for action: DJConnectAskDJPlaybackAction) -> String {
+        if action.isOutputAction {
+            return "set_output"
+        }
         if action.responseValue?.isEmpty == false
             || action.kind?.localizedCaseInsensitiveContains("confirmation") == true
             || action.actionStyle?.localizedCaseInsensitiveContains("confirmation") == true {
             return "ask_dj_followup_response"
         }
         return "ask_dj_play_recommendation"
+    }
+
+    private func markAskDJOutputActionActive(_ outputDeviceID: String) {
+        askDJMessages = askDJMessages.map { message in
+            var updatedMessage = message
+            updatedMessage.playbackActions = message.playbackActions.map { action in
+                guard action.isOutputAction else {
+                    return action
+                }
+                var updatedAction = action
+                updatedAction.active = action.outputDeviceID == outputDeviceID
+                return updatedAction
+            }
+            return updatedMessage
+        }
+        availableOutputs = availableOutputs.map { output in
+            var updatedOutput = output
+            updatedOutput.active = output.id == outputDeviceID || output.name == outputDeviceID
+            return updatedOutput
+        }
+        selectedOutput = availableOutputs.first { $0.active == true }?.name ?? selectedOutput
+        saveAskDJMessages()
     }
 
     @discardableResult
@@ -3021,6 +3170,7 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     private func notifyAskDJResponse(_ text: String) {
+        playVoiceHaptic(.response)
         #if canImport(UserNotifications)
         guard !Self.isRunningUnderSwiftPMTests else {
             return
@@ -3186,16 +3336,35 @@ public final class DJConnectAppModel: ObservableObject {
         guard let images, !images.isEmpty else {
             return []
         }
-        let allowedHosts = Set(homeAssistantBaseURLs().compactMap { $0.host?.lowercased() })
-        guard !allowedHosts.isEmpty else {
+        let baseURLs = homeAssistantBaseURLs()
+        let allowedHosts = Set(baseURLs.compactMap { $0.host?.lowercased() })
+        guard let primaryBaseURL = baseURLs.first, !allowedHosts.isEmpty else {
             return []
         }
-        return images.filter { image in
-            guard let host = image.url.host?.lowercased(), allowedHosts.contains(host) else {
-                return false
+        return images.compactMap { image in
+            guard let resolvedURL = resolvedResponseImageURL(image.url, baseURL: primaryBaseURL, allowedHosts: allowedHosts) else {
+                return nil
             }
-            return true
+            var updatedImage = image
+            updatedImage.url = resolvedURL
+            if let thumbnailURL = image.thumbnailURL {
+                updatedImage.thumbnailURL = resolvedResponseImageURL(thumbnailURL, baseURL: primaryBaseURL, allowedHosts: allowedHosts)
+            }
+            return updatedImage
         }
+    }
+
+    private func resolvedResponseImageURL(_ url: URL, baseURL: URL, allowedHosts: Set<String>) -> URL? {
+        if let scheme = url.scheme?.lowercased(), scheme == "http" || scheme == "https" {
+            guard let host = url.host?.lowercased(), allowedHosts.contains(host) else {
+                return nil
+            }
+            return url
+        }
+        guard url.host == nil else {
+            return nil
+        }
+        return URL(string: url.relativeString, relativeTo: baseURL)?.absoluteURL
     }
 
     private func safeResponseLinks(_ links: [DJConnectResponseLink]?) -> [DJConnectResponseLink] {
@@ -3292,6 +3461,23 @@ public final class DJConnectAppModel: ObservableObject {
             dutch: "Ask DJ kon de On Air-videostream niet starten. Probeer AirPlay zo opnieuw."
         )
         appendAskDJStatusMessageIfNeeded(text: text, origin: "airplay_display_unavailable")
+    }
+
+    public func prepareAskDJOnAirStream(directory: URL) -> URL? {
+        askDJOnAirHLSDirectory = directory
+        guard let localDeviceAPIURL, let baseURL = URL(string: localDeviceAPIURL) else {
+            log(.warning, "On Air HLS stream cannot use HTTP because the local device API URL is missing")
+            return nil
+        }
+        let playlistURL = baseURL
+            .appendingPathComponent("on-air")
+            .appendingPathComponent("index.m3u8")
+        log(.info, "On Air HLS stream prepared at \(playlistURL.absoluteString)")
+        return playlistURL
+    }
+
+    public func logAskDJOnAirStream(_ message: String) {
+        log(.info, "On Air HLS: \(message)")
     }
 
     private func appendAskDJStatusMessageIfNeeded(text: String, origin: String) {
@@ -3631,41 +3817,51 @@ public final class DJConnectAppModel: ObservableObject {
         #if canImport(AVFoundation)
         do {
             responseAudioPlaybackTask?.cancel()
-            responseAudioPlayer?.stop()
+            responseAudioPlayer?.pause()
             askDJAudioPlaybackState = .loading(audioURL)
             log(.info, "Loading DJ response audio from Home Assistant")
-            let (data, response) = try await URLSession.shared.data(from: audioURL)
-            if let httpResponse = response as? HTTPURLResponse, !(200...299).contains(httpResponse.statusCode) {
-                log(.warning, "DJ response audio failed with HTTP \(httpResponse.statusCode)")
-                askDJAudioPlaybackState = .idle
-                showAskDJToast(localized(
-                    english: "Audio could not be played again",
-                    dutch: "Audio kon niet opnieuw worden afgespeeld"
-                ))
-                return
-            }
             #if os(iOS)
             try AVAudioSession.sharedInstance().setCategory(.playback, mode: .spokenAudio, options: [.duckOthers])
             try AVAudioSession.sharedInstance().setActive(true)
             #endif
-            let player = try AVAudioPlayer(data: data)
-            player.prepareToPlay()
-            let duration = max(0, player.duration)
+            let item = AVPlayerItem(url: audioURL)
+            let player = AVPlayer(playerItem: item)
             responseAudioPlayer = player
             player.play()
             askDJAudioPlaybackState = .playing(audioURL)
-            log(.info, "Playing DJ response audio (\(data.count) bytes, \(String(format: "%.2f", duration))s)")
-            let fallbackDuration = max(2.0, duration + 2.0)
+            log(.info, "Playing DJ response audio from Home Assistant")
             responseAudioPlaybackTask = Task { @MainActor [weak self] in
-                try? await Task.sleep(for: .seconds(fallbackDuration))
-                guard !Task.isCancelled else {
-                    return
+                let endNotifications = NotificationCenter.default.notifications(
+                    named: .AVPlayerItemDidPlayToEndTime,
+                    object: item
+                )
+                let failedNotifications = NotificationCenter.default.notifications(
+                    named: .AVPlayerItemFailedToPlayToEndTime,
+                    object: item
+                )
+                await withTaskGroup(of: Void.self) { group in
+                    group.addTask {
+                        for await _ in endNotifications {
+                            break
+                        }
+                    }
+                    group.addTask {
+                        for await _ in failedNotifications {
+                            break
+                        }
+                    }
+                    group.addTask {
+                        try? await Task.sleep(for: .seconds(120))
+                    }
+                    await group.next()
+                    group.cancelAll()
                 }
                 if case let .playing(currentURL) = self?.askDJAudioPlaybackState, currentURL == audioURL {
                     self?.askDJAudioPlaybackState = .idle
+                    self?.responseAudioPlayer?.pause()
                     self?.responseAudioPlayer = nil
                     self?.responseAudioPlaybackTask = nil
-                    self?.log(.info, "DJ response audio cleanup after expected duration")
+                    self?.log(.info, "DJ response audio playback ended")
                 }
             }
         } catch {
@@ -4108,6 +4304,11 @@ public final class DJConnectAppModel: ObservableObject {
                     message: "DJConnect app model is unavailable."
                 )
             },
+            fileHandler: { [weak self] path in
+                await MainActor.run {
+                    self?.localOnAirFileResponse(path: path)
+                }
+            },
             urlHandler: { [weak self] url in
                 await MainActor.run {
                     self?.applyLocalDeviceAPIURL(url)
@@ -4122,6 +4323,32 @@ public final class DJConnectAppModel: ObservableObject {
             advertiseBonjour: shouldAdvertiseBonjour
         )
         localDeviceAPI?.start()
+    }
+
+    private func localOnAirFileResponse(path: String) -> DJConnectLocalDeviceAPI.FileResponse? {
+        guard path.hasPrefix("/on-air/"), let askDJOnAirHLSDirectory else {
+            return nil
+        }
+        let filename = String(path.dropFirst("/on-air/".count))
+        guard !filename.isEmpty,
+              !filename.contains("/"),
+              !filename.contains("..") else {
+            return nil
+        }
+        let fileURL = askDJOnAirHLSDirectory.appendingPathComponent(filename)
+        guard let data = try? Data(contentsOf: fileURL) else {
+            return nil
+        }
+        let contentType: String
+        switch fileURL.pathExtension.lowercased() {
+        case "m3u8":
+            contentType = "application/vnd.apple.mpegurl"
+        case "mp4", "m4s":
+            contentType = "video/mp4"
+        default:
+            contentType = "application/octet-stream"
+        }
+        return DJConnectLocalDeviceAPI.FileResponse(data: data, contentType: contentType)
     }
 
     private func restartLocalDeviceAPI() {
@@ -5044,18 +5271,62 @@ public final class DJConnectAppModel: ObservableObject {
         log(.info, "Wakeword detected")
         wakeWordStatus = .detected
         stopWakeWordListening()
+        showWakeWordListeningMessage()
         startVoiceRecording()
         #if canImport(Speech) && canImport(AVFoundation)
         wakeWordCaptureTask?.cancel()
         wakeWordCaptureTask = Task { @MainActor in
-            try? await Task.sleep(for: .seconds(4))
-            guard !Task.isCancelled, isRecordingVoice else {
-                return
-            }
-            stopVoiceRecordingAndUpload()
+            await stopWakeWordCaptureAfterSilence()
         }
         #endif
     }
+
+    #if canImport(Speech) && canImport(AVFoundation)
+    private func stopWakeWordCaptureAfterSilence() async {
+        let startedAt = Date()
+        var heardSpeech = false
+        var silentSince: Date?
+        while !Task.isCancelled, isRecordingVoice {
+            try? await Task.sleep(for: .milliseconds(180))
+            guard !Task.isCancelled, isRecordingVoice else {
+                return
+            }
+            guard let recorder = voiceRecorder else {
+                if Date().timeIntervalSince(startedAt) > 6 {
+                    cancelWakeWordVoiceRecordingAfterSilence()
+                    return
+                }
+                continue
+            }
+            recorder.updateMeters()
+            let level = recorder.averagePower(forChannel: 0)
+            let now = Date()
+            if level > -42 {
+                heardSpeech = true
+                silentSince = nil
+            } else if silentSince == nil {
+                silentSince = now
+            }
+            let elapsed = now.timeIntervalSince(startedAt)
+            if heardSpeech, let silentSince, now.timeIntervalSince(silentSince) >= 1.0, elapsed >= 1.0 {
+                stopVoiceRecordingAndUpload()
+                return
+            }
+            if !heardSpeech, elapsed >= 1.8 {
+                cancelWakeWordVoiceRecordingAfterSilence()
+                return
+            }
+            if elapsed >= 6.0 {
+                if heardSpeech {
+                    stopVoiceRecordingAndUpload()
+                } else {
+                    cancelWakeWordVoiceRecordingAfterSilence()
+                }
+                return
+            }
+        }
+    }
+    #endif
 
     #if canImport(Speech) && canImport(AVFoundation)
     private func requestSpeechAccess() async -> Bool {
@@ -5258,6 +5529,7 @@ public final class DJConnectAppModel: ObservableObject {
                 AVLinearPCMIsBigEndianKey: false
             ]
             let recorder = try AVAudioRecorder(url: url, settings: settings)
+            recorder.isMeteringEnabled = true
             recorder.prepareToRecord()
             recorder.record()
             voiceRecorder = recorder
@@ -5268,6 +5540,7 @@ public final class DJConnectAppModel: ObservableObject {
             log(.info, "Voice recording started")
         } catch {
             isRecordingVoice = false
+            dismissWakeWordListeningMessage()
             voiceStatus = .unavailable
             voiceErrorMessage = error.localizedDescription
             log(.error, "Voice recording failed: \(error.localizedDescription)")
@@ -5284,6 +5557,12 @@ public final class DJConnectAppModel: ObservableObject {
     private enum VoiceCue {
         case startListening
         case stopListening
+    }
+
+    private enum VoiceHaptic {
+        case startListening
+        case stopListening
+        case response
     }
 
     private func playVoiceCue(_ cue: VoiceCue) {
@@ -5311,6 +5590,21 @@ public final class DJConnectAppModel: ObservableObject {
         }
         #else
         _ = cue
+        #endif
+    }
+
+    private func playVoiceHaptic(_ haptic: VoiceHaptic) {
+        #if canImport(UIKit) && os(iOS)
+        switch haptic {
+        case .startListening:
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        case .stopListening:
+            UISelectionFeedbackGenerator().selectionChanged()
+        case .response:
+            UINotificationFeedbackGenerator().notificationOccurred(.success)
+        }
+        #else
+        _ = haptic
         #endif
     }
 

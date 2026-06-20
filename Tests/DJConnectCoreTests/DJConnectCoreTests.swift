@@ -849,6 +849,78 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
     #expect(action.reason == "Past bij je recente melodic house profiel.")
 }
 
+@Test func askDJPlaybackActionsDecodeAlbumArtAliases() throws {
+    let json = """
+    {
+      "success": true,
+      "playback_actions": [
+        {
+          "title": "Track met art",
+          "subtitle": "Artist",
+          "uri": "spotify:track:123",
+          "kind": "track",
+          "album_art_url": "https://example.test/album-art.jpg"
+        },
+        {
+          "title": "Track met media art",
+          "uri": "spotify:track:456",
+          "kind": "track",
+          "media_image_url": "https://example.test/media-art.jpg"
+        },
+        {
+          "title": "Track met entity picture",
+          "uri": "spotify:track:789",
+          "kind": "track",
+          "entity_picture": "https://example.test/entity-picture.jpg"
+        }
+      ]
+    }
+    """.data(using: .utf8)!
+
+    let response = try JSONDecoder().decode(DJConnectAskDJResponse.self, from: json)
+    let actions = try #require(response.playbackActions)
+
+    #expect(actions.map { $0.imageURL?.absoluteString } == [
+        "https://example.test/album-art.jpg",
+        "https://example.test/media-art.jpg",
+        "https://example.test/entity-picture.jpg"
+    ])
+}
+
+@Test func askDJResponseDecodesOutputPlaybackActions() throws {
+    let json = """
+    {
+      "success": true,
+      "dj_text": "Kies een uitvoer.",
+      "playback_actions": [
+        {
+          "kind": "output",
+          "command": "set_output",
+          "value": "spotify-device-1",
+          "device_id": "spotify-device-1",
+          "device_name": "Woonkamer",
+          "title": "Woonkamer",
+          "subtitle": "Actieve uitvoer",
+          "active": true,
+          "reason": "Spotify Connect uitvoer wijzigen vanuit Ask DJ."
+        }
+      ]
+    }
+    """.data(using: .utf8)!
+
+    let response = try JSONDecoder().decode(DJConnectAskDJResponse.self, from: json)
+    let action = try #require(response.playbackActions?.first)
+
+    #expect(action.isOutputAction == true)
+    #expect(action.command == "set_output")
+    #expect(action.outputDeviceID == "spotify-device-1")
+    #expect(action.deviceID == "spotify-device-1")
+    #expect(action.deviceName == "Woonkamer")
+    #expect(action.title == "Woonkamer")
+    #expect(action.subtitle == "Actieve uitvoer")
+    #expect(action.isActiveOutputAction == true)
+}
+
 @Test func askDJMessageResponseDecodesTrimMetadataAndConfirmationActions() throws {
     let json = """
     {
@@ -897,6 +969,87 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
     #expect(yesAction.command == "ask_dj_followup_response")
     #expect(yesAction.responseValue == "yes")
     #expect(yesAction.actionStyle == "primary_confirmation")
+}
+
+@Test func askDJMessageResponsePrefersAssistantMessageImages() throws {
+    let json = """
+    {
+      "history_revision": 46,
+      "clear_revision": 3,
+      "images": [
+        {
+          "url": "/api/djconnect/image_proxy/top",
+          "thumbnail_url": "/api/djconnect/image_proxy/top/thumb",
+          "title": "Top Level",
+          "kind": "album_art"
+        }
+      ],
+      "assistant_message": {
+        "id": "assistant-image-message",
+        "role": "assistant",
+        "text": "Dit speelt nu.",
+        "images": [
+          {
+            "url": "/api/djconnect/image_proxy/assistant",
+            "thumbnail_url": "/api/djconnect/image_proxy/assistant/thumb",
+            "title": "FORZ4",
+            "subtitle": "t e s t p r e s s",
+            "kind": "album_art",
+            "source": "spotify"
+          }
+        ],
+        "links": [],
+        "sources": [],
+        "playback_actions": []
+      }
+    }
+    """.data(using: .utf8)!
+
+    let response = try JSONDecoder().decode(DJConnectAskDJMessageResponse.self, from: json)
+    let image = try #require(response.assistantMessage?.images.first)
+
+    #expect(response.images?.first?.title == "Top Level")
+    #expect(image.url.path == "/api/djconnect/image_proxy/assistant")
+    #expect(image.thumbnailURL?.path == "/api/djconnect/image_proxy/assistant/thumb")
+    #expect(image.title == "FORZ4")
+    #expect(image.subtitle == "t e s t p r e s s")
+    #expect(image.kind == "album_art")
+    #expect(image.source == "spotify")
+}
+
+@Test func askDJMessageResponseFallsBackToTopLevelImages() throws {
+    let json = """
+    {
+      "history_revision": 47,
+      "clear_revision": 3,
+      "images": [
+        {
+          "url": "/api/djconnect/image_proxy/top",
+          "thumbnail_url": "/api/djconnect/image_proxy/top/thumb",
+          "title": "FORZ4",
+          "subtitle": "t e s t p r e s s",
+          "kind": "album_art",
+          "source": "spotify"
+        }
+      ],
+      "assistant_message": {
+        "id": "assistant-image-fallback-message",
+        "role": "assistant",
+        "text": "Dit speelt nu.",
+        "images": [],
+        "links": [],
+        "sources": [],
+        "playback_actions": []
+      }
+    }
+    """.data(using: .utf8)!
+
+    let response = try JSONDecoder().decode(DJConnectAskDJMessageResponse.self, from: json)
+    let image = try #require(response.assistantMessage?.images.first)
+
+    #expect(image.url.path == "/api/djconnect/image_proxy/top")
+    #expect(image.thumbnailURL?.path == "/api/djconnect/image_proxy/top/thumb")
+    #expect(image.kind == "album_art")
 }
 
 @Test func askDJHistoryResponseDecodesTrackMixUrisAndTrimMetadata() throws {
@@ -1193,6 +1346,39 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
     #expect(json["command"] as? String == "ask_dj_followup_response")
     #expect(value["response_value"] as? String == "yes")
     #expect(json["play"] as? Bool == false)
+}
+
+@Test func commandRequestSupportsAskDJOutputSwitchValue() throws {
+    let identity = DJConnectIdentity(
+        deviceID: "djconnect-ios-8F3A2C91B45D",
+        deviceName: "DJConnect iPhone",
+        clientType: .ios,
+        firmware: "3.1.66",
+        appVersion: "3.1.66",
+        platform: .ios
+    )
+    let client = DJConnectClient(
+        baseURL: try #require(URL(string: "http://homeassistant.local:8123")),
+        identity: identity,
+        tokenStore: DJConnectInMemoryTokenStore(token: "secret-token")
+    )
+
+    let request = try client.commandRequest(
+        DJConnectCommandPayload(
+            identity: identity,
+            command: "set_output",
+            value: .string("spotify-device-1")
+        )
+    )
+    let body = try #require(request.httpBody)
+    let json = try #require(JSONSerialization.jsonObject(with: body) as? [String: Any])
+
+    #expect(request.url?.path == "/api/djconnect/command")
+    #expect(json["command"] as? String == "set_output")
+    #expect(json["value"] as? String == "spotify-device-1")
+    #expect(json["device_id"] as? String == identity.deviceID)
+    #expect(json["client_type"] as? String == "ios")
+    #expect(json["play"] == nil)
 }
 
 @MainActor

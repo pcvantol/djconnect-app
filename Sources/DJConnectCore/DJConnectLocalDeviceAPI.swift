@@ -192,12 +192,23 @@ public struct DJConnectLocalDeviceInfoResponse: Encodable, Sendable {
 }
 
 public final class DJConnectLocalDeviceAPI: @unchecked Sendable {
+    public struct FileResponse: Sendable {
+        public var data: Data
+        public var contentType: String
+
+        public init(data: Data, contentType: String) {
+            self.data = data
+            self.contentType = contentType
+        }
+    }
+
     public typealias InfoProvider = @Sendable () async -> DJConnectLocalDeviceAPIInfo
     public typealias TokenProvider = @Sendable () async -> String?
     public typealias PairHandler = @Sendable (DJConnectLocalPairRequest) async -> DJConnectLocalDeviceAPIResponse
     public typealias CommandHandler = @Sendable (DJConnectLocalCommandRequest) async -> DJConnectLocalDeviceAPIResponse
     public typealias DJResponseHandler = @Sendable (DJConnectLocalDJResponseRequest) async -> DJConnectLocalDeviceAPIResponse
     public typealias ForgetHandler = @Sendable () async -> DJConnectLocalDeviceAPIResponse
+    public typealias FileHandler = @Sendable (String) async -> FileResponse?
     public typealias URLHandler = @Sendable (String?) async -> Void
     public typealias LogHandler = @Sendable (String) async -> Void
 
@@ -207,6 +218,7 @@ public final class DJConnectLocalDeviceAPI: @unchecked Sendable {
     private let commandHandler: CommandHandler
     private let djResponseHandler: DJResponseHandler
     private let forgetHandler: ForgetHandler
+    private let fileHandler: FileHandler?
     private let urlHandler: URLHandler
     private let logHandler: LogHandler
     private let preferredPort: UInt16?
@@ -231,6 +243,7 @@ public final class DJConnectLocalDeviceAPI: @unchecked Sendable {
         commandHandler: @escaping CommandHandler,
         djResponseHandler: @escaping DJResponseHandler,
         forgetHandler: @escaping ForgetHandler,
+        fileHandler: FileHandler? = nil,
         urlHandler: @escaping URLHandler,
         logHandler: @escaping LogHandler,
         preferredPort: UInt16? = nil,
@@ -242,6 +255,7 @@ public final class DJConnectLocalDeviceAPI: @unchecked Sendable {
         self.commandHandler = commandHandler
         self.djResponseHandler = djResponseHandler
         self.forgetHandler = forgetHandler
+        self.fileHandler = fileHandler
         self.urlHandler = urlHandler
         self.logHandler = logHandler
         self.preferredPort = preferredPort
@@ -699,6 +713,12 @@ public final class DJConnectLocalDeviceAPI: @unchecked Sendable {
             return response(value, statusCode: statusCode)
         }
         switch (request.method, path) {
+        case ("GET", _) where path.hasPrefix("/on-air/"):
+            if let fileHandler, let file = await fileHandler(path) {
+                await logHandler("Local device API response remote=\(remote) method=\(request.method) path=\(path) host=\(host) status=200")
+                return fileResponse(file.data, contentType: file.contentType)
+            }
+            return await loggedResponse(DJConnectLocalDeviceAPIResponse(success: false, error: "not_found", message: "On Air stream file not found."), statusCode: 404)
         case ("GET", "/api/device/info"):
             return await loggedResponse(await infoPayload(includePairingCode: false))
         case ("GET", "/api/device/pairing-info"):
@@ -793,6 +813,16 @@ public final class DJConnectLocalDeviceAPI: @unchecked Sendable {
         var headers = "HTTP/1.1 \(statusCode) \(reason)\r\n"
         headers += "Content-Type: application/json\r\n"
         headers += "Content-Length: \(body.count)\r\n"
+        headers += "Connection: close\r\n\r\n"
+        return Data(headers.utf8) + body
+    }
+
+    private func fileResponse(_ body: Data, contentType: String) -> Data {
+        var headers = "HTTP/1.1 200 OK\r\n"
+        headers += "Content-Type: \(contentType)\r\n"
+        headers += "Content-Length: \(body.count)\r\n"
+        headers += "Cache-Control: no-store\r\n"
+        headers += "Access-Control-Allow-Origin: *\r\n"
         headers += "Connection: close\r\n\r\n"
         return Data(headers.utf8) + body
     }

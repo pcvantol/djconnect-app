@@ -656,68 +656,77 @@ private struct PermissionExplanationView: View {
     @ObservedObject var model: DJConnectAppModel
 
     var body: some View {
-        VStack(spacing: 18) {
-            Image(systemName: "bell.badge.circle.fill")
-                .font(.system(size: 54, weight: .semibold))
-                .foregroundStyle(
-                    LinearGradient(
-                        colors: [djConnectAccent, Color(red: 0.12, green: 0.55, blue: 1.0)],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
+        ZStack {
+            DJConnectCanvasBackground()
+
+            VStack(spacing: 18) {
+                Image(systemName: "bell.badge.circle.fill")
+                    .font(.system(size: 54, weight: .semibold))
+                    .foregroundStyle(
+                        LinearGradient(
+                            colors: [djConnectAccent, Color(red: 0.12, green: 0.55, blue: 1.0)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
                     )
-                )
 
-            VStack(spacing: 8) {
-                Text(localized(model.language, "App permissions", "App-toestemmingen"))
-                    .font(.title2.bold())
+                VStack(spacing: 8) {
+                    Text(localized(model.language, "App permissions", "App-toestemmingen"))
+                        .font(.title2.bold())
+                        .multilineTextAlignment(.center)
+                    Text(localized(
+                        model.language,
+                        "DJConnect asks for microphone access for voice requests and notifications for Ask DJ responses.",
+                        "DJConnect vraagt microfoontoegang voor stemverzoeken en meldingen voor Ask DJ-antwoorden."
+                    ))
+                    .font(.body)
+                    .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
-                Text(localized(
-                    model.language,
-                    "DJConnect asks for microphone access for voice requests and notifications for Ask DJ responses.",
-                    "DJConnect vraagt microfoontoegang voor stemverzoeken en meldingen voor Ask DJ-antwoorden."
-                ))
-                .font(.body)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
-                Text(localized(
-                    model.language,
-                    "Server push notifications use Apple APNs and contain only a small wake-up message; the app syncs the real Ask DJ history after opening.",
-                    "Server-pushmeldingen gebruiken Apple APNs en bevatten alleen een korte melding; de app synchroniseert de echte Ask DJ-geschiedenis na openen."
-                ))
-                .font(.callout)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
-                Text(localized(
-                    model.language,
-                    "After this screen, Apple will ask for permission. You can change this later in Settings.",
-                    "Na dit scherm vraagt Apple om toestemming. Je kunt dit later aanpassen in Instellingen."
-                ))
-                .font(.callout)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
-            }
-
-            HStack(spacing: 12) {
-                Button {
-                    model.cancelPermissionExplanation()
-                } label: {
-                    Text(localized(model.language, "Not now", "Niet nu"))
-                        .frame(maxWidth: .infinity)
+                    Text(localized(
+                        model.language,
+                        "Server push notifications use Apple APNs and contain only a small wake-up message; the app syncs the real Ask DJ history after opening.",
+                        "Server-pushmeldingen gebruiken Apple APNs en bevatten alleen een korte melding; de app synchroniseert de echte Ask DJ-geschiedenis na openen."
+                    ))
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                    Text(localized(
+                        model.language,
+                        "After this screen, Apple will ask for permission. You can change this later in Settings.",
+                        "Na dit scherm vraagt Apple om toestemming. Je kunt dit later aanpassen in Instellingen."
+                    ))
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
                 }
-                .buttonStyle(DJConnectLilacPillButtonStyle())
 
-                Button {
-                    model.continueAfterPermissionExplanation()
-                } label: {
-                    Text(localized(model.language, "Continue", "Doorgaan"))
-                        .frame(maxWidth: .infinity)
+                HStack(spacing: 12) {
+                    Button {
+                        model.cancelPermissionExplanation()
+                    } label: {
+                        Text(localized(model.language, "Not now", "Niet nu"))
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(DJConnectLilacPillButtonStyle())
+
+                    Button {
+                        model.continueAfterPermissionExplanation()
+                    } label: {
+                        Text(localized(model.language, "Continue", "Doorgaan"))
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(DJConnectLilacPillButtonStyle())
                 }
-                .buttonStyle(DJConnectLilacPillButtonStyle())
             }
+            .padding(24)
+            .frame(minWidth: 320, idealWidth: 420, maxWidth: 460)
+            .background(Color.black.opacity(0.20), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .stroke(Color.white.opacity(0.10), lineWidth: 1)
+            )
         }
-        .padding(28)
-        .frame(minWidth: 320, idealWidth: 420, maxWidth: 460)
-        .background(DJConnectCanvasBackground())
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
 
@@ -2880,6 +2889,7 @@ private struct AskDJView: View {
     @State private var selectedWebLink: DJConnectResponseLink?
     @State private var toast: String?
     @State private var isSearchVisible = false
+    @State private var isMoodVisible = false
     @State private var askDJSearchText = ""
     @State private var selectedSearchResultIndex = 0
     @FocusState private var isInputFocused: Bool
@@ -2916,6 +2926,12 @@ private struct AskDJView: View {
             && model.voiceStatus != .processing
     }
 
+    private var chatTopPadding: CGFloat {
+        16
+            + (isSearchVisible ? 56 : 0)
+            + (isMoodVisible ? 150 : 0)
+    }
+
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
@@ -2927,7 +2943,7 @@ private struct AskDJView: View {
                                     ProgressView()
                                         .tint(.white)
                                         .padding(.top, 56)
-                                } else if model.askDJMessages.isEmpty {
+                                } else if model.askDJMessages.isEmpty && model.transientAskDJListeningMessage == nil && model.transientAskDJMoodMessage == nil {
                                     AskDJEmptyState(
                                         language: model.language,
                                         isRequestingIdleSuggestion: model.isRequestingAskDJIdleSuggestion,
@@ -2966,9 +2982,47 @@ private struct AskDJView: View {
                                         .id(message.id)
                                     }
                                 }
+                                if let transientMessage = model.transientAskDJListeningMessage {
+                                    AskDJMessageBubble(
+                                        message: transientMessage,
+                                        language: model.language,
+                                        isAudioLoading: false,
+                                        isAudioPlaying: false,
+                                        isRetryDisabled: true,
+                                        playingActionID: model.playingAskDJActionID,
+                                        isSearchResult: false,
+                                        isActiveSearchResult: false,
+                                        retryAction: {},
+                                        playAction: { _ in },
+                                        audioAction: {},
+                                        openLink: { _ in },
+                                        setPromptAction: { _ in }
+                                    )
+                                    .id(transientMessage.id)
+                                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                                }
+                                if let transientMessage = model.transientAskDJMoodMessage {
+                                    AskDJMessageBubble(
+                                        message: transientMessage,
+                                        language: model.language,
+                                        isAudioLoading: false,
+                                        isAudioPlaying: false,
+                                        isRetryDisabled: true,
+                                        playingActionID: model.playingAskDJActionID,
+                                        isSearchResult: false,
+                                        isActiveSearchResult: false,
+                                        retryAction: {},
+                                        playAction: { _ in },
+                                        audioAction: {},
+                                        openLink: { _ in },
+                                        setPromptAction: { _ in }
+                                    )
+                                    .id(transientMessage.id)
+                                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                                }
                             }
                             .padding(.horizontal, djConnectScreenHorizontalPadding)
-                            .padding(.top, isSearchVisible ? 64 : 16)
+                            .padding(.top, chatTopPadding)
                             .padding(.bottom, 16)
                             .contentShape(Rectangle())
                             .onTapGesture {
@@ -3026,6 +3080,20 @@ private struct AskDJView: View {
                             .padding(.top, 10)
                             .transition(.move(edge: .top).combined(with: .opacity))
                         }
+
+                        if isMoodVisible {
+                            AskDJMoodModeControl(
+                                model: model,
+                                closeAction: {
+                                    withAnimation(.spring(response: 0.28, dampingFraction: 0.86)) {
+                                        isMoodVisible = false
+                                    }
+                                }
+                            )
+                            .padding(.horizontal, djConnectScreenHorizontalPadding)
+                            .padding(.top, isSearchVisible ? 72 : 10)
+                            .transition(.move(edge: .top).combined(with: .opacity))
+                        }
                     }
                     .onChange(of: model.askDJMessages) {
                         normalizeAskDJSearchSelection()
@@ -3034,7 +3102,7 @@ private struct AskDJView: View {
                         guard !isSearchVisible else {
                             return
                         }
-                        guard let lastID = model.askDJMessages.last?.id else {
+                        guard let lastID = model.transientAskDJMoodMessage?.id ?? model.transientAskDJListeningMessage?.id ?? model.askDJMessages.last?.id else {
                             return
                         }
                         withAnimation(.easeOut(duration: 0.22)) {
@@ -3046,10 +3114,6 @@ private struct AskDJView: View {
                         scrollToActiveAskDJSearchResult(proxy: proxy)
                     }
                 }
-
-                AskDJMoodModeControl(model: model)
-                    .padding(.horizontal, djConnectScreenHorizontalPadding)
-                    .padding(.bottom, 8)
 
                 AskDJInputBar(
                     model: model,
@@ -3094,6 +3158,8 @@ private struct AskDJView: View {
                     .help(localized(model.language, "Search Ask DJ", "Zoek in Ask DJ"))
                     .accessibilityLabel(localized(model.language, "Search Ask DJ", "Zoek in Ask DJ"))
 
+                    askDJMoodToolbarButton
+
                     Button {
                         isInputFocused = false
                         Task {
@@ -3117,7 +3183,7 @@ private struct AskDJView: View {
                     .help(localized(model.language, "Clear chat", "Chat wissen"))
                 }
                 #else
-                ToolbarItem(placement: .topBarLeading) {
+                ToolbarItemGroup(placement: .topBarLeading) {
                     Button {
                         isInputFocused = false
                         withAnimation(.spring(response: 0.28, dampingFraction: 0.86)) {
@@ -3129,6 +3195,8 @@ private struct AskDJView: View {
                     }
                     .help(localized(model.language, "Search Ask DJ", "Zoek in Ask DJ"))
                     .accessibilityLabel(localized(model.language, "Search Ask DJ", "Zoek in Ask DJ"))
+
+                    askDJMoodToolbarButton
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     askDJAirPlayToolbarButton
@@ -3183,6 +3251,21 @@ private struct AskDJView: View {
                 }
             showToast(text)
         }
+    }
+
+    @ViewBuilder
+    private var askDJMoodToolbarButton: some View {
+        Button {
+            isInputFocused = false
+            withAnimation(.spring(response: 0.28, dampingFraction: 0.86)) {
+                isMoodVisible.toggle()
+            }
+        } label: {
+            Image(systemName: "slider.horizontal.3")
+                .foregroundStyle(isMoodVisible ? djConnectAccent : .primary)
+        }
+        .help(localized(model.language, "Mood", "Mood"))
+        .accessibilityLabel(localized(model.language, "Mood", "Mood"))
     }
 
     @ViewBuilder
@@ -3304,7 +3387,10 @@ private final class AskDJOnAirVideoStreamer: ObservableObject {
         let directory = FileManager.default.temporaryDirectory
             .appendingPathComponent("djconnect-on-air-hls-\(UUID().uuidString)", isDirectory: true)
         streamDirectory = directory
-        configurePlayer(playlistURL: directory.appendingPathComponent("index.m3u8"))
+        writeInitialPlaylist(in: directory)
+        let playlistURL = model.prepareAskDJOnAirStream(directory: directory) ?? directory.appendingPathComponent("index.m3u8")
+        model.logAskDJOnAirStream("configuring player with \(playlistURL.absoluteString)")
+        configurePlayer(playlistURL: playlistURL)
         streamTask = Task.detached(priority: .userInitiated) { [weak self] in
             await self?.runStream(directory: directory, model: model)
         }
@@ -3315,6 +3401,22 @@ private final class AskDJOnAirVideoStreamer: ObservableObject {
             return
         }
         updateSnapshot(model: model)
+    }
+
+    private func writeInitialPlaylist(in directory: URL) {
+        do {
+            try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+            let playlist = [
+                "#EXTM3U",
+                "#EXT-X-VERSION:7",
+                "#EXT-X-TARGETDURATION:1",
+                "#EXT-X-MEDIA-SEQUENCE:0",
+                ""
+            ].joined(separator: "\n")
+            try playlist.write(to: directory.appendingPathComponent("index.m3u8"), atomically: true, encoding: .utf8)
+        } catch {
+            // The writer startup path reports the user-visible failure if this remains unavailable.
+        }
     }
 
     private func updateSnapshot(model: DJConnectAppModel) {
@@ -3342,6 +3444,9 @@ private final class AskDJOnAirVideoStreamer: ObservableObject {
 
     private nonisolated func runStream(directory: URL, model: DJConnectAppModel) async {
         do {
+            await MainActor.run {
+                model.logAskDJOnAirStream("starting writer in \(directory.path)")
+            }
             let stream = try AskDJOnAirHLSStream(
                 directory: directory,
                 snapshotProvider: { [weak self] in
@@ -3350,6 +3455,7 @@ private final class AskDJOnAirVideoStreamer: ObservableObject {
                 firstSegmentHandler: {
                     Task { @MainActor in
                         self.isPreparing = false
+                        model.logAskDJOnAirStream("first segment is ready")
                         model.showAskDJOnAirStatusIfNeeded()
                     }
                 }
@@ -3358,6 +3464,7 @@ private final class AskDJOnAirVideoStreamer: ObservableObject {
         } catch {
             await MainActor.run {
                 self.isPreparing = false
+                model.logAskDJOnAirStream("failed to start writer: \(error.localizedDescription)")
                 model.showAskDJOnAirNeedsDisplayNoticeIfNeeded()
             }
         }
@@ -4446,27 +4553,31 @@ private struct AskDJPlaybackActionStack: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            ForEach(actions) { action in
+            ForEach(actions.filter(Self.isSupportedAction)) { action in
                 Button {
                     playAction(action)
                 } label: {
                     HStack(spacing: 10) {
-                        AsyncImage(url: action.imageURL) { phase in
-                            switch phase {
-                            case let .success(image):
-                                image
-                                    .resizable()
-                                    .scaledToFill()
-                            case .failure:
-                                fallbackIcon
-                            case .empty:
-                                fallbackIcon
-                            @unknown default:
-                                fallbackIcon
+                        if action.isOutputAction {
+                            outputIcon(isActive: action.isActiveOutputAction)
+                        } else {
+                            AsyncImage(url: action.imageURL) { phase in
+                                switch phase {
+                                case let .success(image):
+                                    image
+                                        .resizable()
+                                        .scaledToFill()
+                                case .failure:
+                                    fallbackIcon
+                                case .empty:
+                                    fallbackIcon
+                                @unknown default:
+                                    fallbackIcon
+                                }
                             }
+                            .frame(width: 34, height: 34)
+                            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
                         }
-                        .frame(width: 34, height: 34)
-                        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
 
                         VStack(alignment: .leading, spacing: 2) {
                             Text(action.title)
@@ -4488,11 +4599,14 @@ private struct AskDJPlaybackActionStack: View {
                                 ProgressView()
                                     .controlSize(.small)
                                     .tint(.white)
+                            } else if action.isActiveOutputAction {
+                                Image(systemName: "checkmark")
+                                    .font(.caption2.weight(.bold))
                             } else {
-                                Image(systemName: "play.fill")
+                                Image(systemName: action.isOutputAction ? "speaker.wave.2.fill" : "play.fill")
                                     .font(.caption2.weight(.bold))
                             }
-                            Text(localized(language, "Play Now", "Speel nu"))
+                            Text(action.isOutputAction ? localized(language, "Choose", "Kies") : localized(language, "Play Now", "Speel nu"))
                                 .font(.caption.weight(.bold))
                                 .lineLimit(1)
                         }
@@ -4522,13 +4636,23 @@ private struct AskDJPlaybackActionStack: View {
                     }
                     .overlay {
                         RoundedRectangle(cornerRadius: 12, style: .continuous)
-                            .stroke(.white.opacity(0.18), lineWidth: 1)
+                            .stroke(action.isActiveOutputAction ? Color.white.opacity(0.46) : .white.opacity(0.18), lineWidth: 1)
                     }
                 }
                 .buttonStyle(.plain)
                 .disabled(playingActionID != nil)
             }
         }
+    }
+
+    private static func isSupportedAction(_ action: DJConnectAskDJPlaybackAction) -> Bool {
+        if action.isOutputAction {
+            return action.outputDeviceID != nil
+        }
+        return action.uri?.isEmpty == false
+            || action.contextURI?.isEmpty == false
+            || !action.uris.isEmpty
+            || action.responseValue?.isEmpty == false
     }
 
     private var fallbackIcon: some View {
@@ -4539,6 +4663,17 @@ private struct AskDJPlaybackActionStack: View {
                 .font(.caption.weight(.bold))
                 .foregroundStyle(.white.opacity(0.82))
         }
+    }
+
+    private func outputIcon(isActive: Bool) -> some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .fill(isActive ? .white.opacity(0.24) : .white.opacity(0.16))
+            Image(systemName: isActive ? "checkmark.circle.fill" : "speaker.wave.2.fill")
+                .font(.caption.weight(.bold))
+                .foregroundStyle(.white.opacity(isActive ? 0.95 : 0.82))
+        }
+        .frame(width: 34, height: 34)
     }
 }
 
@@ -4863,11 +4998,12 @@ private struct AskDJImageCard: View {
 
 private struct AskDJMoodModeControl: View {
     @ObservedObject var model: DJConnectAppModel
+    var closeAction: (() -> Void)?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 9) {
             HStack(spacing: 8) {
-                Image(systemName: "music.note")
+                Image(systemName: moodIcon(for: model.askDJMoodStepIndex))
                     .font(.caption.weight(.bold))
                     .foregroundStyle(djConnectAccent)
                 Text(localized(model.language, "Mood", "Mood"))
@@ -4877,6 +5013,16 @@ private struct AskDJMoodModeControl: View {
                 Text(model.askDJMoodLabel)
                     .font(.caption.weight(.bold))
                     .foregroundStyle(djConnectAccent)
+                if let closeAction {
+                    Button(action: closeAction) {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.caption.weight(.bold))
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(.secondary)
+                    .help(localized(model.language, "Close", "Sluiten"))
+                    .accessibilityLabel(localized(model.language, "Close", "Sluiten"))
+                }
             }
 
             GeometryReader { geometry in
@@ -4904,7 +5050,7 @@ private struct AskDJMoodModeControl: View {
                     }
                     .padding(.horizontal, 8)
 
-                    Image(systemName: "music.note")
+                    Image(systemName: moodIcon(for: selectedIndex))
                         .font(.system(size: 15, weight: .black))
                         .foregroundStyle(.white)
                         .frame(width: 28, height: 28)
@@ -4928,11 +5074,16 @@ private struct AskDJMoodModeControl: View {
 
             HStack(spacing: 0) {
                 ForEach(model.askDJMoodSteps.indices, id: \.self) { index in
-                    Text(model.askDJMoodSteps[index].label)
-                        .font(.caption2.weight(model.askDJMoodStepIndex == index ? .bold : .semibold))
-                        .foregroundStyle(model.askDJMoodStepIndex == index ? djConnectAccent : .secondary)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.78)
+                    VStack(spacing: 3) {
+                        Image(systemName: moodIcon(for: index))
+                            .font(.caption2.weight(.bold))
+                        Text(model.askDJMoodSteps[index].label)
+                            .font(.caption2.weight(model.askDJMoodStepIndex == index ? .bold : .semibold))
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.78)
+                    }
+                    .foregroundStyle(model.askDJMoodStepIndex == index ? djConnectAccent : .secondary)
+                    .frame(minHeight: 30)
                         .frame(maxWidth: .infinity, alignment: alignment(forMoodStep: index))
                 }
             }
@@ -4976,6 +5127,19 @@ private struct AskDJMoodModeControl: View {
             return .trailing
         default:
             return .center
+        }
+    }
+
+    private func moodIcon(for index: Int) -> String {
+        switch index {
+        case 0:
+            return "moon.zzz.fill"
+        case 1:
+            return "waveform"
+        case 2:
+            return "bolt.fill"
+        default:
+            return "sparkles"
         }
     }
 }
@@ -7121,10 +7285,6 @@ struct SettingsView: View {
                                 model.stopDemoMode()
                             }
                         }
-                    }
-                    LabeledContent(localized(model.language, "Language", "Taal")) {
-                        Text(localized(model.language, "Device language", "Apparaattaal"))
-                            .foregroundStyle(.secondary)
                     }
                     if !model.isDemoMode {
                         LabeledContent(localized(model.language, "Pairing", "Koppeling")) {
