@@ -38,7 +38,8 @@ Context:
 - Secrets/tokens/wachtwoorden/private URLs mogen nooit in commits, logs, screenshots, diagnostics of test fixtures.
 
 Huidige status om te controleren:
-- Release `3.1.39` is de actuele source release met On Air demo support,
+- Release `3.1.40` is de actuele source release met On Air AirPlay/TV-oriented
+  Ask DJ presentation support,
   Ask DJ request metadata parsing voor komende backend triggers, en alle
   `3.1.38` wijzigingen zoals backend-generated
   Ask DJ system/ambient messages, app-private tokenopslag zonder Keychain,
@@ -53,7 +54,7 @@ Huidige status om te controleren:
 - Demo Mode is volledig lokaal en non-interacting met Home Assistant. Ask DJ
   toont de vaste voorbeelden en geeft client-side demobubbles terug die
   uitleggen dat Ask DJ echt antwoordt zodra Home Assistant gekoppeld is.
-- De statische What's New release-notes voor `3.1.39` worden door de
+- De statische What's New release-notes voor `3.1.40` worden door de
   `Public unsigned release` workflow gepubliceerd naar `pcvantol/djconnect-website`
   en `djconnect.dev`. Controleer de workflowstatus als release/publicatie
   geraakt wordt.
@@ -62,8 +63,8 @@ Huidige status om te controleren:
 - Check direct:
   - `git status --short --branch`
   - `gh run list --repo pcvantol/djconnect-app --limit 5`
-  - public release tags in `pcvantol/djconnect-app-releases` voor `ios/v3.1.39` en `macos/v3.1.39` indien release/publicatie geraakt wordt.
-  - `https://djconnect.dev/release-notes/ios/nl/v3.1.39.json` en het macOS
+  - public release tags in `pcvantol/djconnect-app-releases` voor `ios/v3.1.40` en `macos/v3.1.40` indien release/publicatie geraakt wordt.
+  - `https://djconnect.dev/release-notes/ios/nl/v3.1.40.json` en het macOS
     equivalent indien What's New release-notes geraakt worden.
 
 Werkstijl:
