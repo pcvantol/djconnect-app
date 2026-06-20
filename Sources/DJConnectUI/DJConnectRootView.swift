@@ -2,6 +2,7 @@ import DJConnectCore
 import Combine
 import SwiftUI
 import CoreText
+import AudioToolbox
 
 #if canImport(AVFoundation)
 import AVFoundation
@@ -121,6 +122,22 @@ private struct DJConnectTableRowBackground: View {
 }
 
 private struct ScrollOffsetPreferenceKey: PreferenceKey {
+    static let defaultValue: CGFloat = 0
+
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = nextValue()
+    }
+}
+
+private struct AskDJBottomPreferenceKey: PreferenceKey {
+    static let defaultValue = CGFloat.greatestFiniteMagnitude
+
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = nextValue()
+    }
+}
+
+private struct AskDJViewportHeightPreferenceKey: PreferenceKey {
     static let defaultValue: CGFloat = 0
 
     static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
@@ -2892,6 +2909,8 @@ private struct AskDJView: View {
     @State private var isMoodVisible = false
     @State private var askDJSearchText = ""
     @State private var selectedSearchResultIndex = 0
+    @State private var isAskDJAtBottom = true
+    @State private var askDJViewportHeight: CGFloat = 0
     @FocusState private var isInputFocused: Bool
     @FocusState private var isSearchFocused: Bool
 
@@ -2930,6 +2949,10 @@ private struct AskDJView: View {
         16
             + (isSearchVisible ? 56 : 0)
             + (isMoodVisible ? 150 : 0)
+    }
+
+    private var shouldShowAskDJScrollToBottomButton: Bool {
+        model.askDJMessages.count > 8 && !isAskDJAtBottom
     }
 
     var body: some View {
@@ -3020,6 +3043,16 @@ private struct AskDJView: View {
                                     .id(transientMessage.id)
                                     .transition(.move(edge: .bottom).combined(with: .opacity))
                                 }
+                                Color.clear
+                                    .frame(height: 1)
+                                    .background(
+                                        GeometryReader { geometry in
+                                            Color.clear.preference(
+                                                key: AskDJBottomPreferenceKey.self,
+                                                value: geometry.frame(in: .named("askDJScroll")).maxY
+                                            )
+                                        }
+                                    )
                             }
                             .padding(.horizontal, djConnectScreenHorizontalPadding)
                             .padding(.top, chatTopPadding)
@@ -3031,6 +3064,20 @@ private struct AskDJView: View {
                             }
                         }
                         .coordinateSpace(name: "askDJScroll")
+                        .background(
+                            GeometryReader { geometry in
+                                Color.clear.preference(
+                                    key: AskDJViewportHeightPreferenceKey.self,
+                                    value: geometry.size.height
+                                )
+                            }
+                        )
+                        .onPreferenceChange(AskDJViewportHeightPreferenceKey.self) { height in
+                            askDJViewportHeight = height
+                        }
+                        .onPreferenceChange(AskDJBottomPreferenceKey.self) { bottomMaxY in
+                            isAskDJAtBottom = bottomMaxY <= askDJViewportHeight + 140
+                        }
                         .refreshable {
                             isInputFocused = false
                             isSearchFocused = false
@@ -3043,11 +3090,12 @@ private struct AskDJView: View {
                             }
                         )
                         .overlay(alignment: .bottomTrailing) {
-                            if model.askDJMessages.count > 8, let lastID = model.askDJMessages.last?.id {
+                            if shouldShowAskDJScrollToBottomButton, let lastID = model.askDJMessages.last?.id {
                                 Button {
                                     isInputFocused = false
                                     isSearchFocused = false
                                     withAnimation(.easeOut(duration: 0.22)) {
+                                        isAskDJAtBottom = true
                                         proxy.scrollTo(lastID, anchor: .bottom)
                                     }
                                 } label: {
@@ -3125,7 +3173,7 @@ private struct AskDJView: View {
             .background(DJConnectCanvasBackground())
             .overlay(alignment: .bottom) {
                 if let toast {
-                    StatusToast(text: toast, systemImage: "exclamationmark.triangle.fill")
+                    StatusToast(text: toast)
                         .padding(.bottom, 76)
                         .padding(.horizontal, djConnectScreenHorizontalPadding)
                         .transition(.move(edge: .bottom).combined(with: .opacity))
@@ -3154,6 +3202,7 @@ private struct AskDJView: View {
                         isSearchFocused = true
                     } label: {
                         Image(systemName: "magnifyingglass")
+                            .foregroundStyle(isSearchVisible ? djConnectAccent : .primary)
                     }
                     .help(localized(model.language, "Search Ask DJ", "Zoek in Ask DJ"))
                     .accessibilityLabel(localized(model.language, "Search Ask DJ", "Zoek in Ask DJ"))
@@ -3192,6 +3241,7 @@ private struct AskDJView: View {
                         isSearchFocused = true
                     } label: {
                         Image(systemName: "magnifyingglass")
+                            .foregroundStyle(isSearchVisible ? djConnectAccent : .primary)
                     }
                     .help(localized(model.language, "Search Ask DJ", "Zoek in Ask DJ"))
                     .accessibilityLabel(localized(model.language, "Search Ask DJ", "Zoek in Ask DJ"))
@@ -3371,6 +3421,7 @@ private final class AskDJOnAirVideoStreamer: ObservableObject {
     private var streamTask: Task<Void, Never>?
     nonisolated(unsafe) private var currentSnapshot: AskDJOnAirVideoSnapshot?
     private var streamDirectory: URL?
+    private var isStreamReady = false
 
     deinit {
         streamTask?.cancel()
@@ -3380,19 +3431,24 @@ private final class AskDJOnAirVideoStreamer: ObservableObject {
         updateSnapshot(model: model)
         guard !isRunning else {
             player?.play()
+            if isStreamReady {
+                model.showAskDJOnAirStatusIfNeeded()
+            }
             return
         }
         isRunning = true
         isPreparing = true
+        ensurePlayer()
         let directory = FileManager.default.temporaryDirectory
             .appendingPathComponent("djconnect-on-air-hls-\(UUID().uuidString)", isDirectory: true)
         streamDirectory = directory
         writeInitialPlaylist(in: directory)
-        let playlistURL = model.prepareAskDJOnAirStream(directory: directory) ?? directory.appendingPathComponent("index.m3u8")
-        model.logAskDJOnAirStream("configuring player with \(playlistURL.absoluteString)")
-        configurePlayer(playlistURL: playlistURL)
         streamTask = Task.detached(priority: .userInitiated) { [weak self] in
-            await self?.runStream(directory: directory, model: model)
+            try? await Task.sleep(for: .milliseconds(900))
+            let playlistURL = await MainActor.run {
+                model.prepareAskDJOnAirStream(directory: directory) ?? directory.appendingPathComponent("index.m3u8")
+            }
+            await self?.runStream(directory: directory, playlistURL: playlistURL, model: model)
         }
     }
 
@@ -3409,7 +3465,7 @@ private final class AskDJOnAirVideoStreamer: ObservableObject {
             let playlist = [
                 "#EXTM3U",
                 "#EXT-X-VERSION:7",
-                "#EXT-X-TARGETDURATION:1",
+                "#EXT-X-TARGETDURATION:2",
                 "#EXT-X-MEDIA-SEQUENCE:0",
                 ""
             ].joined(separator: "\n")
@@ -3442,7 +3498,7 @@ private final class AskDJOnAirVideoStreamer: ObservableObject {
         )
     }
 
-    private nonisolated func runStream(directory: URL, model: DJConnectAppModel) async {
+    private nonisolated func runStream(directory: URL, playlistURL: URL, model: DJConnectAppModel) async {
         do {
             await MainActor.run {
                 model.logAskDJOnAirStream("starting writer in \(directory.path)")
@@ -3460,6 +3516,9 @@ private final class AskDJOnAirVideoStreamer: ObservableObject {
                 firstSegmentHandler: {
                     Task { @MainActor in
                         self.isPreparing = false
+                        self.isStreamReady = true
+                        model.logAskDJOnAirStream("configuring player with ready playlist \(playlistURL.absoluteString)")
+                        self.configurePlayer(playlistURL: playlistURL)
                         model.logAskDJOnAirStream("first segment is ready")
                         model.showAskDJOnAirStatusIfNeeded()
                     }
@@ -3475,14 +3534,28 @@ private final class AskDJOnAirVideoStreamer: ObservableObject {
         }
     }
 
+    private func ensurePlayer() {
+        guard player == nil else {
+            return
+        }
+        let nextPlayer = AVPlayer()
+        nextPlayer.isMuted = true
+        nextPlayer.allowsExternalPlayback = true
+        nextPlayer.automaticallyWaitsToMinimizeStalling = true
+        #if os(iOS)
+        nextPlayer.usesExternalPlaybackWhileExternalScreenIsActive = true
+        #endif
+        player = nextPlayer
+    }
+
     private func configurePlayer(playlistURL: URL) {
         let item = AVPlayerItem(url: playlistURL)
-        item.preferredForwardBufferDuration = 1
+        item.preferredForwardBufferDuration = 4
         let nextPlayer = player ?? AVPlayer()
         nextPlayer.replaceCurrentItem(with: item)
         nextPlayer.isMuted = true
         nextPlayer.allowsExternalPlayback = true
-        nextPlayer.automaticallyWaitsToMinimizeStalling = false
+        nextPlayer.automaticallyWaitsToMinimizeStalling = true
         #if os(iOS)
         nextPlayer.usesExternalPlaybackWhileExternalScreenIsActive = true
         #endif
@@ -3510,9 +3583,9 @@ private final class AskDJOnAirHLSStream: NSObject, AVAssetWriterDelegate, @unche
     private let eventHandler: @Sendable (String) -> Void
     private let firstSegmentHandler: @Sendable () -> Void
     private let queue = DispatchQueue(label: "nl.djconnect.onair.hls")
-    private let segmentDuration: Double = 0.5
-    private let frameRate: Int32 = 10
-    private let playlistWindow = 8
+    private let segmentDuration: Double = 2
+    private let frameRate: Int32 = 5
+    private let playlistWindow = 6
     private var segments: [Segment] = []
     private var nextSequence = 0
     private var wroteFirstSegment = false
@@ -3544,11 +3617,11 @@ private final class AskDJOnAirHLSStream: NSObject, AVAssetWriterDelegate, @unche
             AVVideoWidthKey: Int(AskDJOnAirVideoRenderer.size.width),
             AVVideoHeightKey: Int(AskDJOnAirVideoRenderer.size.height),
             AVVideoCompressionPropertiesKey: [
-                AVVideoAverageBitRateKey: 2_800_000,
+                AVVideoAverageBitRateKey: 1_400_000,
                 AVVideoExpectedSourceFrameRateKey: frameRate,
-                AVVideoMaxKeyFrameIntervalKey: Int(frameRate / 2),
+                AVVideoMaxKeyFrameIntervalKey: Int(frameRate * 2),
                 AVVideoAllowFrameReorderingKey: false,
-                AVVideoProfileLevelKey: AVVideoProfileLevelH264BaselineAutoLevel
+                AVVideoProfileLevelKey: AVVideoProfileLevelH264Baseline31
             ]
         ]
         let input = AVAssetWriterInput(mediaType: .video, outputSettings: settings)
@@ -3565,6 +3638,23 @@ private final class AskDJOnAirHLSStream: NSObject, AVAssetWriterDelegate, @unche
             throw NSError(domain: "DJConnectOnAir", code: 11)
         }
         writer.add(input)
+        let audioInput = AVAssetWriterInput(
+            mediaType: .audio,
+            outputSettings: [
+                AVFormatIDKey: kAudioFormatMPEG4AAC,
+                AVSampleRateKey: 44_100,
+                AVNumberOfChannelsKey: 1,
+                AVEncoderBitRateKey: 64_000
+            ]
+        )
+        audioInput.expectsMediaDataInRealTime = true
+        guard writer.canAdd(audioInput) else {
+            throw NSError(domain: "DJConnectOnAir", code: 14)
+        }
+        writer.add(audioInput)
+        guard let audioFormatDescription = Self.makeSilentAudioFormatDescription() else {
+            throw NSError(domain: "DJConnectOnAir", code: 15)
+        }
         guard writer.startWriting() else {
             throw writer.error ?? NSError(domain: "DJConnectOnAir", code: 12)
         }
@@ -3575,9 +3665,11 @@ private final class AskDJOnAirHLSStream: NSObject, AVAssetWriterDelegate, @unche
 
         var frameIndex: Int64 = 0
         let frameDuration = CMTime(value: 1, timescale: frameRate)
+        let audioSampleRate: Int32 = 44_100
+        let audioSamplesPerFrame = Int(audioSampleRate / frameRate)
         while !Task.isCancelled {
             autoreleasepool {
-                while !input.isReadyForMoreMediaData && !Task.isCancelled {
+                while (!input.isReadyForMoreMediaData || !audioInput.isReadyForMoreMediaData) && !Task.isCancelled {
                     Thread.sleep(forTimeInterval: 0.003)
                 }
                 guard !Task.isCancelled, let image = AskDJOnAirVideoRenderer.makeFrame(snapshot: snapshotProvider()) else {
@@ -3589,13 +3681,92 @@ private final class AskDJOnAirHLSStream: NSObject, AVAssetWriterDelegate, @unche
                     return
                 }
                 AskDJOnAirVideoRenderer.draw(image: image, into: pixelBuffer)
-                adaptor.append(pixelBuffer, withPresentationTime: CMTimeMultiply(frameDuration, multiplier: Int32(frameIndex)))
+                let presentationTime = CMTimeMultiply(frameDuration, multiplier: Int32(frameIndex))
+                adaptor.append(pixelBuffer, withPresentationTime: presentationTime)
+                if let audioBuffer = Self.makeSilentAudioSampleBuffer(
+                    formatDescription: audioFormatDescription,
+                    sampleCount: audioSamplesPerFrame,
+                    sampleRate: audioSampleRate,
+                    presentationTime: presentationTime
+                ) {
+                    audioInput.append(audioBuffer)
+                }
                 frameIndex += 1
                 Thread.sleep(forTimeInterval: 1 / Double(frameRate))
             }
         }
         input.markAsFinished()
+        audioInput.markAsFinished()
         writer.finishWriting {}
+    }
+
+    private static func makeSilentAudioFormatDescription() -> CMAudioFormatDescription? {
+        var description = AudioStreamBasicDescription(
+            mSampleRate: 44_100,
+            mFormatID: kAudioFormatLinearPCM,
+            mFormatFlags: kLinearPCMFormatFlagIsSignedInteger | kLinearPCMFormatFlagIsPacked,
+            mBytesPerPacket: 2,
+            mFramesPerPacket: 1,
+            mBytesPerFrame: 2,
+            mChannelsPerFrame: 1,
+            mBitsPerChannel: 16,
+            mReserved: 0
+        )
+        var formatDescription: CMAudioFormatDescription?
+        CMAudioFormatDescriptionCreate(
+            allocator: kCFAllocatorDefault,
+            asbd: &description,
+            layoutSize: 0,
+            layout: nil,
+            magicCookieSize: 0,
+            magicCookie: nil,
+            extensions: nil,
+            formatDescriptionOut: &formatDescription
+        )
+        return formatDescription
+    }
+
+    private static func makeSilentAudioSampleBuffer(
+        formatDescription: CMAudioFormatDescription,
+        sampleCount: Int,
+        sampleRate: Int32,
+        presentationTime: CMTime
+    ) -> CMSampleBuffer? {
+        let byteCount = sampleCount * 2
+        var blockBuffer: CMBlockBuffer?
+        guard CMBlockBufferCreateWithMemoryBlock(
+            allocator: kCFAllocatorDefault,
+            memoryBlock: nil,
+            blockLength: byteCount,
+            blockAllocator: kCFAllocatorDefault,
+            customBlockSource: nil,
+            offsetToData: 0,
+            dataLength: byteCount,
+            flags: 0,
+            blockBufferOut: &blockBuffer
+        ) == kCMBlockBufferNoErr, let blockBuffer else {
+            return nil
+        }
+        CMBlockBufferFillDataBytes(with: 0, blockBuffer: blockBuffer, offsetIntoDestination: 0, dataLength: byteCount)
+        var timing = CMSampleTimingInfo(
+            duration: CMTime(value: 1, timescale: sampleRate),
+            presentationTimeStamp: presentationTime,
+            decodeTimeStamp: .invalid
+        )
+        var sampleSize = 2
+        var sampleBuffer: CMSampleBuffer?
+        let status = CMSampleBufferCreateReady(
+            allocator: kCFAllocatorDefault,
+            dataBuffer: blockBuffer,
+            formatDescription: formatDescription,
+            sampleCount: sampleCount,
+            sampleTimingEntryCount: 1,
+            sampleTimingArray: &timing,
+            sampleSizeEntryCount: 1,
+            sampleSizeArray: &sampleSize,
+            sampleBufferOut: &sampleBuffer
+        )
+        return status == noErr ? sampleBuffer : nil
     }
 
     nonisolated func assetWriter(
@@ -3634,7 +3805,7 @@ private final class AskDJOnAirHLSStream: NSObject, AVAssetWriterDelegate, @unche
             }
             try writePlaylist()
             eventHandler("wrote \(filename) (\(segmentData.count) bytes, duration \(String(format: "%.3f", resolvedDuration))s)")
-            if !wroteFirstSegment {
+            if !wroteFirstSegment && segments.count >= 3 {
                 wroteFirstSegment = true
                 firstSegmentHandler()
             }
@@ -3670,7 +3841,7 @@ private final class AskDJOnAirHLSStream: NSObject, AVAssetWriterDelegate, @unche
 }
 
 private enum AskDJOnAirVideoRenderer {
-    fileprivate static let size = CGSize(width: 1920, height: 1080)
+    fileprivate static let size = CGSize(width: 1280, height: 720)
 
     fileprivate static func makeFrame(snapshot: AskDJOnAirVideoSnapshot) -> CGImage? {
         let colorSpace = CGColorSpaceCreateDeviceRGB()
@@ -3689,39 +3860,39 @@ private enum AskDJOnAirVideoRenderer {
         drawBackground(in: context)
         drawText(
             "Ask DJ",
-            in: CGRect(x: 90, y: 70, width: 620, height: 72),
-            fontSize: 58,
+            in: CGRect(x: 60, y: 46, width: 420, height: 52),
+            fontSize: 40,
             fontName: "HelveticaNeue-CondensedBlack",
             color: CGColor(red: 1, green: 1, blue: 1, alpha: 1),
             context: context
         )
         let nowPlaying = snapshot.trackName?.isEmpty == false ? snapshot.trackName! : localized(snapshot.language, "Live feed", "Live feed")
         let artist = snapshot.artistName?.isEmpty == false ? snapshot.artistName! : localized(snapshot.language, "Ask DJ is On Air!", "Ask DJ is On Air!")
-        drawText(nowPlaying, in: CGRect(x: 90, y: 150, width: 900, height: 44), fontSize: 34, fontName: "HelveticaNeue-Bold", color: CGColor(red: 1, green: 1, blue: 1, alpha: 0.84), context: context)
-        drawText(artist, in: CGRect(x: 90, y: 198, width: 900, height: 38), fontSize: 28, fontName: "HelveticaNeue", color: CGColor(red: 1, green: 1, blue: 1, alpha: 0.62), context: context)
+        drawText(nowPlaying, in: CGRect(x: 60, y: 104, width: 620, height: 34), fontSize: 24, fontName: "HelveticaNeue-Bold", color: CGColor(red: 1, green: 1, blue: 1, alpha: 0.84), context: context)
+        drawText(artist, in: CGRect(x: 60, y: 140, width: 620, height: 30), fontSize: 20, fontName: "HelveticaNeue", color: CGColor(red: 1, green: 1, blue: 1, alpha: 0.62), context: context)
 
-        var y: CGFloat = 300
+        var y: CGFloat = 210
         let messages = snapshot.messages.isEmpty ? [
             DJConnectAskDJMessage(role: .dj, text: localized(snapshot.language, "Ask DJ messages appear here live.", "Ask DJ-berichten verschijnen hier live."))
         ] : snapshot.messages
         for message in messages {
             let isUser = message.role == .user
-            let maxWidth: CGFloat = isUser ? 1040 : 1260
-            let x: CGFloat = isUser ? size.width - maxWidth - 90 : 90
-            let textHeight = measuredTextHeight(message.text, width: maxWidth - 88, fontSize: isUser ? 42 : 46)
-            let bubbleHeight = min(max(textHeight + 72, 118), 260)
+            let maxWidth: CGFloat = isUser ? 700 : 840
+            let x: CGFloat = isUser ? size.width - maxWidth - 60 : 60
+            let textHeight = measuredTextHeight(message.text, width: maxWidth - 60, fontSize: isUser ? 28 : 30)
+            let bubbleHeight = min(max(textHeight + 48, 78), 172)
             let rect = CGRect(x: x, y: y, width: maxWidth, height: bubbleHeight)
             drawBubble(rect: rect, isUser: isUser, context: context)
             drawText(
                 message.text,
-                in: rect.insetBy(dx: 44, dy: 30),
-                fontSize: isUser ? 42 : 46,
+                in: rect.insetBy(dx: 30, dy: 20),
+                fontSize: isUser ? 28 : 30,
                 fontName: "HelveticaNeue-Bold",
                 color: CGColor(red: 1, green: 1, blue: 1, alpha: 1),
                 context: context
             )
-            y += bubbleHeight + 28
-            if y > size.height - 120 {
+            y += bubbleHeight + 20
+            if y > size.height - 80 {
                 break
             }
         }
@@ -3806,18 +3977,21 @@ private struct AirPlayRoutePickerButton: UIViewRepresentable {
     var player: AVPlayer?
     var onPickerWillBegin: () -> Void = {}
     var onPickerDidEnd: () -> Void = {}
+    private let accent = UIColor(red: 0.84, green: 0.22, blue: 0.96, alpha: 1)
 
     func makeUIView(context: Context) -> AVRoutePickerView {
         let view = AVRoutePickerView()
         view.prioritizesVideoDevices = true
-        let accent = UIColor(red: 0.84, green: 0.22, blue: 0.96, alpha: 1)
-        view.tintColor = accent
+        view.tintColor = .label
         view.activeTintColor = accent
         view.delegate = context.coordinator
         return view
     }
 
-    func updateUIView(_ uiView: AVRoutePickerView, context: Context) {}
+    func updateUIView(_ uiView: AVRoutePickerView, context: Context) {
+        uiView.tintColor = .label
+        uiView.activeTintColor = accent
+    }
 
     func makeCoordinator() -> Coordinator {
         Coordinator(onPickerWillBegin: onPickerWillBegin, onPickerDidEnd: onPickerDidEnd)
@@ -3848,15 +4022,16 @@ private struct AirPlayRoutePickerButton: NSViewRepresentable {
     var player: AVPlayer?
     var onPickerWillBegin: () -> Void = {}
     var onPickerDidEnd: () -> Void = {}
+    private let accent = NSColor(red: 0.84, green: 0.22, blue: 0.96, alpha: 1)
+    private let normal = NSColor.labelColor
 
     func makeNSView(context: Context) -> AVRoutePickerView {
         let view = AVRoutePickerView()
-        let accent = NSColor(red: 0.84, green: 0.22, blue: 0.96, alpha: 1)
         view.delegate = context.coordinator
         view.player = player
         view.isRoutePickerButtonBordered = false
-        view.setRoutePickerButtonColor(accent, for: .normal)
-        view.setRoutePickerButtonColor(accent, for: .normalHighlighted)
+        view.setRoutePickerButtonColor(normal, for: .normal)
+        view.setRoutePickerButtonColor(normal, for: .normalHighlighted)
         view.setRoutePickerButtonColor(accent, for: .active)
         view.setRoutePickerButtonColor(accent, for: .activeHighlighted)
         return view
@@ -3864,6 +4039,10 @@ private struct AirPlayRoutePickerButton: NSViewRepresentable {
 
     func updateNSView(_ nsView: AVRoutePickerView, context: Context) {
         nsView.player = player
+        nsView.setRoutePickerButtonColor(normal, for: .normal)
+        nsView.setRoutePickerButtonColor(normal, for: .normalHighlighted)
+        nsView.setRoutePickerButtonColor(accent, for: .active)
+        nsView.setRoutePickerButtonColor(accent, for: .activeHighlighted)
     }
 
     func makeCoordinator() -> Coordinator {
@@ -4202,8 +4381,8 @@ private struct AskDJEmptyState: View {
         [
             localized(
                 language,
-                "Describe what I have been listening to over the last month",
-                "Omschrijf eens waar ik zoal naar luisterde de afgelopen maand"
+                "What did I listen to last week?",
+                "Waar heb ik afgelopen week naar geluisterd?"
             ),
             localized(language, "Surprise me with new music", "Verras me met nieuwe muziek"),
             localized(language, "Which albums did this artist release?", "Welke albums bracht deze artiest uit?"),
@@ -4357,6 +4536,10 @@ private struct AskDJMessageBubble: View {
         message.links.filter(\.isSourceLike)
     }
 
+    private var shouldAttachImagesToPlaybackActions: Bool {
+        false
+    }
+
     var body: some View {
         HStack(alignment: .bottom, spacing: 8) {
             if isUser {
@@ -4382,7 +4565,7 @@ private struct AskDJMessageBubble: View {
                             AskDJMarkdownText(text: message.text)
                         }
                     }
-                    if !message.images.isEmpty {
+                    if !message.images.isEmpty && !shouldAttachImagesToPlaybackActions {
                         AskDJImageStrip(images: message.images)
                     }
                     if !regularLinks.isEmpty {
@@ -4584,9 +4767,13 @@ private struct AskDJPlaybackActionStack: View {
     let playingActionID: String?
     let playAction: (DJConnectAskDJPlaybackAction) -> Void
 
+    private var supportedActions: [DJConnectAskDJPlaybackAction] {
+        actions.filter(Self.isSupportedAction)
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            ForEach(actions.filter(Self.isSupportedAction)) { action in
+            ForEach(supportedActions) { action in
                 Button {
                     playAction(action)
                 } label: {
@@ -4594,35 +4781,21 @@ private struct AskDJPlaybackActionStack: View {
                         if action.isOutputAction {
                             outputIcon(isActive: action.isActiveOutputAction)
                         } else {
-                            AsyncImage(url: action.imageURL) { phase in
-                                switch phase {
-                                case let .success(image):
-                                    image
-                                        .resizable()
-                                        .scaledToFill()
-                                case .failure:
-                                    fallbackIcon
-                                case .empty:
-                                    fallbackIcon
-                                @unknown default:
-                                    fallbackIcon
-                                }
-                            }
-                            .frame(width: 34, height: 34)
-                            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                            artwork(url: action.imageURL, action: action)
                         }
 
-                        VStack(alignment: .leading, spacing: 2) {
+                        VStack(alignment: .leading, spacing: 4) {
                             Text(action.title)
                                 .font(.caption.weight(.semibold))
                                 .foregroundStyle(.white)
                                 .lineLimit(1)
-                            if let subtitle = action.subtitle, !subtitle.isEmpty {
-                                Text(subtitle)
+                            if let secondaryText = secondaryText(for: action) {
+                                Text(secondaryText)
                                     .font(.caption2)
                                     .foregroundStyle(.white.opacity(0.70))
-                                    .lineLimit(1)
+                                    .lineLimit(2)
                             }
+                            mediaTypeBadge(for: action)
                         }
 
                         Spacer(minLength: 6)
@@ -4639,7 +4812,7 @@ private struct AskDJPlaybackActionStack: View {
                                 Image(systemName: action.isOutputAction ? "speaker.wave.2.fill" : "play.fill")
                                     .font(.caption2.weight(.bold))
                             }
-                            Text(action.isOutputAction ? localized(language, "Choose", "Kies") : localized(language, "Play Now", "Speel nu"))
+                            Text(buttonLabel(for: action))
                                 .font(.caption.weight(.bold))
                                 .lineLimit(1)
                         }
@@ -4678,7 +4851,10 @@ private struct AskDJPlaybackActionStack: View {
         }
     }
 
-    private static func isSupportedAction(_ action: DJConnectAskDJPlaybackAction) -> Bool {
+    static func isSupportedAction(_ action: DJConnectAskDJPlaybackAction) -> Bool {
+        if action.isRecommendationAction {
+            return true
+        }
         if action.isOutputAction {
             return action.outputDeviceID != nil
         }
@@ -4688,14 +4864,83 @@ private struct AskDJPlaybackActionStack: View {
             || action.responseValue?.isEmpty == false
     }
 
-    private var fallbackIcon: some View {
-        ZStack {
+    private func secondaryText(for action: DJConnectAskDJPlaybackAction) -> String? {
+        let candidate = action.subtitle?.isEmpty == false ? action.subtitle : action.reason
+        let trimmed = candidate?.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed?.isEmpty == false ? trimmed : nil
+    }
+
+    private func buttonLabel(for action: DJConnectAskDJPlaybackAction) -> String {
+        for candidate in [action.buttonLabel, action.title] {
+            if let trimmed = candidate?.trimmingCharacters(in: .whitespacesAndNewlines), !trimmed.isEmpty {
+                return trimmed
+            }
+        }
+        if action.isOutputAction {
+            return localized(language, "Activate", "Activeer")
+        }
+        return "Play Now"
+    }
+
+    @ViewBuilder
+    private func artwork(url: URL?, action: DJConnectAskDJPlaybackAction) -> some View {
+        if let url {
+            AsyncImage(url: url) { phase in
+                switch phase {
+                case let .success(image):
+                    image
+                        .resizable()
+                        .scaledToFill()
+                case .failure:
+                    fallbackIcon(for: action)
+                case .empty:
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                            .fill(.white.opacity(0.14))
+                        ProgressView()
+                            .controlSize(.small)
+                            .tint(.white)
+                    }
+                @unknown default:
+                    fallbackIcon(for: action)
+                }
+            }
+            .frame(width: 42, height: 42)
+            .clipped()
+            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+        } else {
+            fallbackIcon(for: action)
+                .frame(width: 42, height: 42)
+        }
+    }
+
+    private func mediaTypeBadge(for action: DJConnectAskDJPlaybackAction) -> some View {
+        let type = mediaType(for: action)
+        return Label(type.label(language: language), systemImage: type.systemImage)
+            .font(.caption2.weight(.bold))
+            .foregroundStyle(.white.opacity(0.82))
+            .lineLimit(1)
+            .padding(.horizontal, 7)
+            .padding(.vertical, 3)
+            .background {
+                Capsule()
+                    .fill(.white.opacity(0.14))
+            }
+    }
+
+    private func fallbackIcon(for action: DJConnectAskDJPlaybackAction?) -> some View {
+        let type = action.map(mediaType(for:)) ?? .track
+        return ZStack {
             RoundedRectangle(cornerRadius: 8, style: .continuous)
                 .fill(.white.opacity(0.16))
-            Image(systemName: "music.note")
+            Image(systemName: type.systemImage)
                 .font(.caption.weight(.bold))
                 .foregroundStyle(.white.opacity(0.82))
         }
+    }
+
+    private func mediaType(for action: DJConnectAskDJPlaybackAction) -> AskDJPlaybackMediaType {
+        AskDJPlaybackMediaType(action: action)
     }
 
     private func outputIcon(isActive: Bool) -> some View {
@@ -4707,6 +4952,77 @@ private struct AskDJPlaybackActionStack: View {
                 .foregroundStyle(.white.opacity(isActive ? 0.95 : 0.82))
         }
         .frame(width: 34, height: 34)
+    }
+}
+
+private enum AskDJPlaybackMediaType {
+    case track
+    case album
+    case playlist
+    case podcast
+    case artist
+
+    init(action: DJConnectAskDJPlaybackAction) {
+        let candidates = [
+            action.kind,
+            action.command,
+            action.uri,
+            action.contextURI,
+            action.responseValue,
+            action.uris.first
+        ]
+        let normalized = candidates
+            .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() }
+            .joined(separator: " ")
+
+        if normalized.contains("artist") {
+            self = .artist
+        } else if normalized.contains("playlist") {
+            self = .playlist
+        } else if normalized.contains("album") {
+            self = .album
+        } else if normalized.contains("podcast") || normalized.contains("show") || normalized.contains("episode") {
+            self = .podcast
+        } else {
+            self = .track
+        }
+    }
+
+    var systemImage: String {
+        switch self {
+        case .track:
+            return "music.note"
+        case .album:
+            return "square.stack.fill"
+        case .playlist:
+            return "music.note.list"
+        case .podcast:
+            return "dot.radiowaves.left.and.right"
+        case .artist:
+            return "person.crop.circle"
+        }
+    }
+
+    func label(language: String) -> String {
+        switch self {
+        case .track:
+            return localized(language, "Track", "Nummer")
+        case .album:
+            return localized(language, "Album", "Album")
+        case .playlist:
+            return localized(language, "Playlist", "Playlist")
+        case .podcast:
+            return localized(language, "Podcast", "Podcast")
+        case .artist:
+            return localized(language, "Artist", "Artiest")
+        }
+    }
+}
+
+private extension DJConnectAskDJPlaybackAction {
+    var isRecommendationAction: Bool {
+        let normalizedKind = kind?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        return ["playlist", "album", "track", "artist", "recommendation", "recommendations", "output"].contains(normalizedKind ?? "")
     }
 }
 
@@ -4824,29 +5140,69 @@ private struct AskDJSourcesStack: View {
 
 private struct AskDJMarkdownText: View {
     let text: String
-    @State private var attributedText: AttributedString
-
-    init(text: String) {
-        self.text = text
-        _attributedText = State(initialValue: Self.makeAttributedText(from: text))
-    }
 
     var body: some View {
-        Text(attributedText)
-            .font(.body)
-            .foregroundStyle(.white)
-            .tint(.white)
-            .fixedSize(horizontal: false, vertical: true)
-            .onChange(of: text) { _, newValue in
-                attributedText = Self.makeAttributedText(from: newValue)
+        VStack(alignment: .leading, spacing: 0) {
+            ForEach(Array(Self.blocks(from: text).enumerated()), id: \.offset) { _, block in
+                switch block {
+                case let .heading(level, value):
+                    Text(value)
+                        .font(level == 1 ? .headline.weight(.black) : .subheadline.weight(.bold))
+                        .foregroundStyle(.white)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .padding(.top, level == 1 ? 2 : 8)
+                        .padding(.bottom, 5)
+                case let .paragraph(value):
+                    Text(value)
+                        .font(.body)
+                        .foregroundStyle(.white)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .padding(.bottom, 6)
+                case let .bullet(value):
+                    HStack(alignment: .firstTextBaseline, spacing: 8) {
+                        Text("•")
+                            .font(.body.weight(.bold))
+                            .foregroundStyle(.white.opacity(0.86))
+                        Text(value)
+                            .font(.body)
+                            .foregroundStyle(.white)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    .padding(.leading, 8)
+                    .padding(.bottom, 5)
+                case .blank:
+                    Spacer(minLength: 8)
+                }
             }
+        }
+        .fixedSize(horizontal: false, vertical: true)
     }
 
-    private static func makeAttributedText(from text: String) -> AttributedString {
-        (try? AttributedString(
-            markdown: text,
-            options: AttributedString.MarkdownParsingOptions(interpretedSyntax: .full)
-        )) ?? AttributedString(text)
+    private enum Block {
+        case heading(Int, String)
+        case paragraph(String)
+        case bullet(String)
+        case blank
+    }
+
+    private static func blocks(from text: String) -> [Block] {
+        let lines = text.components(separatedBy: .newlines)
+        let blocks = lines.map { line -> Block in
+            if line.isEmpty {
+                return .blank
+            }
+            if line.hasPrefix("## ") {
+                return .heading(2, String(line.dropFirst(3)))
+            }
+            if line.hasPrefix("# ") {
+                return .heading(1, String(line.dropFirst(2)))
+            }
+            if line.hasPrefix("- ") {
+                return .bullet(String(line.dropFirst(2)))
+            }
+            return .paragraph(line)
+        }
+        return blocks.isEmpty ? [.paragraph(text)] : blocks
     }
 }
 
@@ -5036,7 +5392,7 @@ private struct AskDJMoodModeControl: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 9) {
             HStack(spacing: 8) {
-                Image(systemName: moodIcon(for: model.askDJMoodStepIndex))
+                Image(systemName: askDJMoodIcon(for: model.askDJMoodStepIndex))
                     .font(.caption.weight(.bold))
                     .foregroundStyle(djConnectAccent)
                 Text(localized(model.language, "Mood", "Mood"))
@@ -5062,14 +5418,16 @@ private struct AskDJMoodModeControl: View {
                 let steps = model.askDJMoodSteps
                 let selectedIndex = model.askDJMoodStepIndex
                 let width = max(1, geometry.size.width)
-                let slotWidth = width / CGFloat(max(steps.count - 1, 1))
-                let markerX = CGFloat(selectedIndex) * slotWidth
+                let horizontalInset: CGFloat = 8
+                let usableWidth = max(1, width - horizontalInset * 2)
+                let slotWidth = usableWidth / CGFloat(max(steps.count - 1, 1))
+                let markerX = horizontalInset + CGFloat(selectedIndex) * slotWidth
 
                 ZStack(alignment: .leading) {
                     Capsule()
                         .fill(Color.primary.opacity(0.14))
                         .frame(height: 4)
-                        .padding(.horizontal, 8)
+                        .padding(.horizontal, horizontalInset)
 
                     HStack {
                         ForEach(steps.indices, id: \.self) { index in
@@ -5081,9 +5439,9 @@ private struct AskDJMoodModeControl: View {
                             }
                         }
                     }
-                    .padding(.horizontal, 8)
+                    .padding(.horizontal, horizontalInset)
 
-                    Image(systemName: moodIcon(for: selectedIndex))
+                    Image(systemName: askDJMoodIcon(for: selectedIndex))
                         .font(.system(size: 15, weight: .black))
                         .foregroundStyle(.white)
                         .frame(width: 28, height: 28)
@@ -5105,22 +5463,7 @@ private struct AskDJMoodModeControl: View {
             }
             .frame(height: 28)
 
-            HStack(spacing: 0) {
-                ForEach(model.askDJMoodSteps.indices, id: \.self) { index in
-                    VStack(spacing: 3) {
-                        Image(systemName: moodIcon(for: index))
-                            .font(.caption2.weight(.bold))
-                        Text(model.askDJMoodSteps[index].label)
-                            .font(.caption2.weight(model.askDJMoodStepIndex == index ? .bold : .semibold))
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.78)
-                    }
-                    .foregroundStyle(model.askDJMoodStepIndex == index ? djConnectAccent : .secondary)
-                    .frame(minHeight: 30)
-                        .frame(maxWidth: .infinity, alignment: alignment(forMoodStep: index))
-                }
-            }
-            .accessibilityHidden(true)
+            AskDJMoodLabelsView(steps: model.askDJMoodSteps, selectedIndex: model.askDJMoodStepIndex)
 
             Text(localized(
                 model.language,
@@ -5151,29 +5494,66 @@ private struct AskDJMoodModeControl: View {
         let index = Int((ratio * CGFloat(stepCount - 1)).rounded())
         model.setAskDJMoodStep(index)
     }
+}
 
-    private func alignment(forMoodStep index: Int) -> Alignment {
-        switch index {
-        case 0:
-            return .leading
-        case model.askDJMoodSteps.count - 1:
-            return .trailing
-        default:
-            return .center
+private struct AskDJMoodLabelsView: View {
+    let steps: [(label: String, value: Int)]
+    let selectedIndex: Int
+
+    var body: some View {
+        GeometryReader { geometry in
+            let width = max(CGFloat(1), geometry.size.width)
+            let horizontalInset = CGFloat(8)
+            let usableWidth = max(CGFloat(1), width - horizontalInset * 2)
+            let slotWidth = usableWidth / CGFloat(max(steps.count - 1, 1))
+            let labelWidth = CGFloat(80)
+
+            ZStack(alignment: .topLeading) {
+                ForEach(Array(steps.enumerated()), id: \.offset) { item in
+                    label(for: item.element, index: item.offset, width: width, slotWidth: slotWidth, horizontalInset: horizontalInset, labelWidth: labelWidth)
+                }
+            }
         }
+        .frame(height: 34)
+        .accessibilityHidden(true)
     }
 
-    private func moodIcon(for index: Int) -> String {
-        switch index {
-        case 0:
-            return "moon.zzz.fill"
-        case 1:
-            return "waveform"
-        case 2:
-            return "bolt.fill"
-        default:
-            return "sparkles"
+    private func label(
+        for step: (label: String, value: Int),
+        index: Int,
+        width: CGFloat,
+        slotWidth: CGFloat,
+        horizontalInset: CGFloat,
+        labelWidth: CGFloat
+    ) -> some View {
+        let isSelected = selectedIndex == index
+        let markerX = horizontalInset + CGFloat(index) * slotWidth
+        let labelX = max(labelWidth / 2, min(width - labelWidth / 2, markerX))
+
+        return VStack(spacing: 3) {
+            Image(systemName: askDJMoodIcon(for: index))
+                .font(.caption2.weight(.bold))
+            Text(step.label)
+                .font(.caption2.weight(isSelected ? .bold : .semibold))
+                .lineLimit(1)
+                .minimumScaleFactor(0.78)
         }
+        .foregroundStyle(isSelected ? djConnectAccent : .secondary)
+        .frame(width: labelWidth, height: 30)
+        .position(x: labelX, y: 16)
+    }
+}
+
+private func askDJMoodIcon(for index: Int) -> String {
+    switch index {
+    case 0:
+        return "moon.zzz.fill"
+    case 1:
+        return "waveform"
+    case 2:
+        return "bolt.fill"
+    default:
+        return "sparkles"
     }
 }
 

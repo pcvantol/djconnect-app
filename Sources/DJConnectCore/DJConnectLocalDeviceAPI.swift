@@ -314,7 +314,13 @@ public final class DJConnectLocalDeviceAPI: @unchecked Sendable {
 
         listenSocket = socketFD
         port = boundPort
-        Task { await publishReadyURL() }
+        let host = Self.localIPv4Address() ?? "127.0.0.1"
+        let readyURL = "http://\(host):\(boundPort)"
+        localURL = readyURL
+        Task {
+            await urlHandler(readyURL)
+            await publishReadyURL()
+        }
         queue.async { [weak self] in
             self?.acceptLoop(socketFD: socketFD)
         }
@@ -715,8 +721,9 @@ public final class DJConnectLocalDeviceAPI: @unchecked Sendable {
         switch (request.method, path) {
         case ("GET", _) where path.hasPrefix("/on-air/"):
             if let fileHandler, let file = await fileHandler(path) {
-                await logHandler("Local device API response remote=\(remote) method=\(request.method) path=\(path) host=\(host) status=200")
-                return fileResponse(file.data, contentType: file.contentType)
+                let response = fileResponse(file.data, contentType: file.contentType, rangeHeader: request.headers["range"])
+                await logHandler("Local device API response remote=\(remote) method=\(request.method) path=\(path) host=\(host) status=\(response.statusCode)")
+                return response.data
             }
             return await loggedResponse(DJConnectLocalDeviceAPIResponse(success: false, error: "not_found", message: "On Air stream file not found."), statusCode: 404)
         case ("GET", "/api/device/info"):
@@ -817,14 +824,54 @@ public final class DJConnectLocalDeviceAPI: @unchecked Sendable {
         return Data(headers.utf8) + body
     }
 
-    private func fileResponse(_ body: Data, contentType: String) -> Data {
+    private func fileResponse(_ body: Data, contentType: String, rangeHeader: String?) -> (data: Data, statusCode: Int) {
+        if let range = byteRange(from: rangeHeader, contentLength: body.count) {
+            let partialBody = body[range.lowerBound..<range.upperBound]
+            var headers = "HTTP/1.1 206 Partial Content\r\n"
+            headers += "Content-Type: \(contentType)\r\n"
+            headers += "Content-Length: \(partialBody.count)\r\n"
+            headers += "Content-Range: bytes \(range.lowerBound)-\(range.upperBound - 1)/\(body.count)\r\n"
+            headers += "Accept-Ranges: bytes\r\n"
+            headers += "Cache-Control: no-store\r\n"
+            headers += "Access-Control-Allow-Origin: *\r\n"
+            headers += "Connection: close\r\n\r\n"
+            return (Data(headers.utf8) + Data(partialBody), 206)
+        }
+
         var headers = "HTTP/1.1 200 OK\r\n"
         headers += "Content-Type: \(contentType)\r\n"
         headers += "Content-Length: \(body.count)\r\n"
+        headers += "Accept-Ranges: bytes\r\n"
         headers += "Cache-Control: no-store\r\n"
         headers += "Access-Control-Allow-Origin: *\r\n"
         headers += "Connection: close\r\n\r\n"
-        return Data(headers.utf8) + body
+        return (Data(headers.utf8) + body, 200)
+    }
+
+    private func byteRange(from header: String?, contentLength: Int) -> Range<Int>? {
+        guard contentLength > 0,
+              let header,
+              header.lowercased().hasPrefix("bytes=") else {
+            return nil
+        }
+        let value = String(header.dropFirst("bytes=".count))
+        guard let dash = value.firstIndex(of: "-") else {
+            return nil
+        }
+        let startText = value[..<dash].trimmingCharacters(in: .whitespaces)
+        let endText = value[value.index(after: dash)...].trimmingCharacters(in: .whitespaces)
+        if startText.isEmpty, let suffixLength = Int(endText), suffixLength > 0 {
+            let start = max(contentLength - suffixLength, 0)
+            return start..<contentLength
+        }
+        guard let start = Int(startText), start >= 0, start < contentLength else {
+            return nil
+        }
+        let end = min(Int(endText) ?? (contentLength - 1), contentLength - 1)
+        guard end >= start else {
+            return nil
+        }
+        return start..<(end + 1)
     }
 
     private struct HTTPRequest: Sendable {

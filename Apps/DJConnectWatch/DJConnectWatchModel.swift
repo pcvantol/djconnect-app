@@ -1,6 +1,7 @@
 @preconcurrency import AVFoundation
 import DJConnectCore
 import Network
+import OSLog
 #if canImport(Speech)
 import Speech
 #endif
@@ -157,6 +158,8 @@ enum DJConnectWatchLogLevel: String, CaseIterable, Identifiable {
 
 @MainActor
 final class DJConnectWatchModel: NSObject, ObservableObject {
+    private static let logger = Logger(subsystem: "dev.djconnect.watch", category: "runtime")
+
     enum ConnectionState: Equatable {
         case unpaired
         case pairing
@@ -248,12 +251,13 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
     private let monkeyTestingMode: Bool
     private var localDeviceAPI: DJConnectLocalDeviceAPI?
     private var pairingTask: Task<Void, Never>?
-    private let networkMonitor = NWPathMonitor()
+    private var networkMonitor: NWPathMonitor?
     private let networkMonitorQueue = DispatchQueue(label: "dev.djconnect.watch.network")
     private var recorder: AVAudioRecorder?
     private var recordingURL: URL?
     private var player: AVPlayer?
     private var audioPlaybackTask: Task<Void, Never>?
+    private var runtimeDiagnosticsTask: Task<Void, Never>?
     private var speechSynthesizer: AVSpeechSynthesizer?
     private let askDJHistorySyncInterval: UInt64 = 20_000_000_000
     private var hasRequestedAskDJIdleSuggestion = false
@@ -264,6 +268,10 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
     private var shouldBypassVoiceActivationPermissionExplanationOnce = false
     private var voiceActivationAudioEngine: AVAudioEngine?
     private var voiceActivationCaptureTask: Task<Void, Never>?
+    private var voiceActivationRestartTask: Task<Void, Never>?
+    private var voiceActivationListenTimeoutTask: Task<Void, Never>?
+    private var lastRuntimeMemoryLogBucket = -1
+    private var hasAppliedDemoState = false
     #if canImport(Speech)
     private var voiceActivationRecognitionRequest: SFSpeechAudioBufferRecognitionRequest?
     private var voiceActivationRecognitionTask: SFSpeechRecognitionTask?
@@ -288,15 +296,23 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         } else {
             connectionState = paired ? .paired : .unpaired
             statusMessage = paired ? "Gereed" : "Niet gekoppeld"
-            startLocalDeviceAPI()
+            if !paired {
+                startLocalDeviceAPI()
+            }
             appendDiagnosticLog(paired ? "Watch gestart met bestaande koppeling" : "Watch gestart zonder koppeling")
         }
-        startNetworkMonitor()
+        if !isDemoMode {
+            startNetworkMonitor()
+        }
+        startRuntimeDiagnosticsMonitor()
     }
 
     deinit {
-        networkMonitor.cancel()
+        networkMonitor?.cancel()
+        runtimeDiagnosticsTask?.cancel()
         voiceActivationCaptureTask?.cancel()
+        voiceActivationRestartTask?.cancel()
+        voiceActivationListenTimeoutTask?.cancel()
         localDeviceAPI?.stop()
     }
 
@@ -308,7 +324,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
                 appendDiagnosticLog("Push toestemming niet gegeven", level: .warning)
                 return
             }
-            WKExtension.shared().registerForRemoteNotifications()
+            WKApplication.shared().registerForRemoteNotifications()
         }
     }
 
@@ -375,6 +391,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         } else {
             storedVoiceActivationEnabled = false
             shouldBypassVoiceActivationPermissionExplanationOnce = false
+            cancelVoiceActivationScheduledTasks()
             stopVoiceActivationListening(status: .paused)
             appendDiagnosticLog("Stemactivatie uitgeschakeld")
         }
@@ -385,12 +402,24 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         if foreground {
             updateVoiceActivationListening()
         } else {
+            cancelVoiceActivationScheduledTasks()
             stopVoiceActivationListening(status: .paused)
             cancelRecording(reason: "Opname gestopt omdat de Watch app niet meer zichtbaar is")
         }
     }
 
     private func appendDiagnosticLog(_ message: String, level: DJConnectWatchLogLevel = .info) {
+        switch level {
+        case .debug:
+            Self.logger.debug("\(message, privacy: .public)")
+        case .info:
+            Self.logger.info("\(message, privacy: .public)")
+        case .warning:
+            Self.logger.warning("\(message, privacy: .public)")
+        case .error:
+            Self.logger.error("\(message, privacy: .public)")
+        }
+
         let configuredLevel = DJConnectWatchLogLevel(rawValue: watchLogLevel) ?? .info
         guard level.priority >= configuredLevel.priority else {
             return
@@ -402,7 +431,60 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         }
     }
 
+    private func startRuntimeDiagnosticsMonitor() {
+        runtimeDiagnosticsTask?.cancel()
+        runtimeDiagnosticsTask = Task { @MainActor [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(5))
+                guard !Task.isCancelled else {
+                    return
+                }
+                self?.sampleRuntimeDiagnostics()
+            }
+        }
+    }
+
+    private func sampleRuntimeDiagnostics() {
+        guard let memoryMB = Self.currentMemoryFootprintMB() else {
+            return
+        }
+        let bucket = Int(memoryMB / 10)
+        if bucket != lastRuntimeMemoryLogBucket || memoryMB >= 80 {
+            lastRuntimeMemoryLogBucket = bucket
+            appendDiagnosticLog(
+                "Runtime geheugen: \(Int(memoryMB.rounded())) MB; wakeword=\(storedVoiceActivationEnabled ? "aan" : "uit"); voice=\(voiceActivationStatusText); paired=\(canUseBackend ? "ja" : "nee"); askdj=\(askDJMessages.count); logs=\(diagnosticLogLines.count); api=\(localDeviceAPIURL == nil ? "uit" : "aan")",
+                level: memoryMB >= 80 ? .warning : .debug
+            )
+        }
+        guard memoryMB >= 80, voiceActivationAudioEngine != nil else {
+            return
+        }
+        storedVoiceActivationEnabled = false
+        cancelVoiceActivationScheduledTasks()
+        stopVoiceActivationListening(status: .paused)
+        appendDiagnosticLog("Stemactivatie automatisch gestopt door hoge geheugendruk", level: .warning)
+    }
+
+    private static func currentMemoryFootprintMB() -> Double? {
+        var info = task_vm_info_data_t()
+        var count = mach_msg_type_number_t(MemoryLayout<task_vm_info_data_t>.size / MemoryLayout<natural_t>.size)
+        let result = withUnsafeMutablePointer(to: &info) { pointer in
+            pointer.withMemoryRebound(to: integer_t.self, capacity: Int(count)) { reboundPointer in
+                task_info(mach_task_self_, task_flavor_t(TASK_VM_INFO), reboundPointer, &count)
+            }
+        }
+        guard result == KERN_SUCCESS else {
+            return nil
+        }
+        return Double(info.phys_footprint) / 1_048_576
+    }
+
     private func startNetworkMonitor() {
+        guard networkMonitor == nil else {
+            return
+        }
+        let networkMonitor = NWPathMonitor()
+        self.networkMonitor = networkMonitor
         networkMonitor.pathUpdateHandler = { [weak self] path in
             let isLocalNetworkReachable = path.status == .satisfied && !path.usesInterfaceType(.cellular)
             Task { @MainActor in
@@ -425,6 +507,11 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
             }
         }
         networkMonitor.start(queue: networkMonitorQueue)
+    }
+
+    private func stopNetworkMonitor() {
+        networkMonitor?.cancel()
+        networkMonitor = nil
     }
 
     var identity: DJConnectIdentity {
@@ -531,6 +618,11 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
     }
 
     func pair() async {
+        guard !isDemoMode else {
+            stopLocalDeviceAPI()
+            appendDiagnosticLog("Koppelen overgeslagen: demo modus actief", level: .debug)
+            return
+        }
         guard isWiFiAvailable else {
             connectionState = .unpaired
             statusMessage = "Lokaal netwerk vereist voor koppelen"
@@ -539,8 +631,10 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         }
         guard !paired else {
             connectionState = .paired
+            stopLocalDeviceAPI()
             return
         }
+        startLocalDeviceAPI()
         connectionState = .pairing
         isShowingPairingSuccess = false
         statusMessage = "Wachten op Home Assistant..."
@@ -557,9 +651,10 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         appendDiagnosticLog("Demo modus starten")
         pairingTask?.cancel()
         pairingTask = nil
+        cancelVoiceActivationScheduledTasks()
         stopVoiceActivationListening(status: .paused)
-        localDeviceAPI?.stop()
-        localDeviceAPI = nil
+        stopLocalDeviceAPI()
+        stopNetworkMonitor()
         storedDemoMode = true
         isDemoMode = true
         paired = false
@@ -572,9 +667,11 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         appendDiagnosticLog("Demo modus stoppen")
         pairingTask?.cancel()
         pairingTask = nil
+        cancelVoiceActivationScheduledTasks()
         stopVoiceActivationListening(status: .paused)
         storedDemoMode = false
         isDemoMode = false
+        hasAppliedDemoState = false
         playback = nil
         playbackBeatSignature = nil
         responseImages = []
@@ -583,13 +680,16 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         isShowingPairingSuccess = false
         connectionState = .unpaired
         statusMessage = "Demo modus gestopt"
+        startNetworkMonitor()
         startLocalDeviceAPI()
     }
 
     func refreshStatus(confirmAskDJBeat: Bool = false) async {
         guard !isDemoMode else {
-            applyDemoState()
-            appendDiagnosticLog("Demo status bijgewerkt")
+            if !hasAppliedDemoState {
+                applyDemoState()
+            }
+            appendDiagnosticLog("Demo status bijgewerkt", level: .debug)
             return
         }
         guard let client, canUseBackend else {
@@ -881,6 +981,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         appendDiagnosticLog("Koppeling resetten")
         pairingTask?.cancel()
         pairingTask = nil
+        cancelVoiceActivationScheduledTasks()
         stopVoiceActivationListening(status: .paused)
         try? tokenStore.clearToken()
         UserDefaults.standard.removeObject(forKey: pushTokenKey)
@@ -960,7 +1061,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         statusMessage = "Succesvol gekoppeld"
         pairingTask?.cancel()
         pairingTask = nil
-        localDeviceAPI?.setBonjourAdvertisingEnabled(false)
+        stopLocalDeviceAPI()
         requestRemoteNotificationRegistration()
         Task { await refreshStatus() }
     }
@@ -1156,35 +1257,9 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         playingAskDJActionID = action.id
         defer { playingAskDJActionID = nil }
         do {
-            var value: [String: DJConnectJSONValue] = [
-                "title": .string(action.title),
-                "memory_key": .string(memoryKey)
-            ]
-            if let subtitle = action.subtitle, !subtitle.isEmpty {
-                value["subtitle"] = .string(subtitle)
-            }
-            if let uri = action.uri, !uri.isEmpty {
-                value["uri"] = .string(uri)
-            }
-            if !action.uris.isEmpty {
-                value["uris"] = .array(action.uris.map { .string($0) })
-            }
-            if let contextURI = action.contextURI, !contextURI.isEmpty {
-                value["context_uri"] = .string(contextURI)
-            }
-            if let offsetURI = action.offsetURI, !offsetURI.isEmpty {
-                value["offset_uri"] = .string(offsetURI)
-            }
-            if let kind = action.kind, !kind.isEmpty {
-                value["kind"] = .string(kind)
-            }
-            if let reason = action.reason, !reason.isEmpty {
-                value["reason"] = .string(reason)
-            }
-            if let responseValue = action.responseValue, !responseValue.isEmpty {
-                value["response_value"] = .string(responseValue)
-            }
             let command = action.command?.isEmpty == false ? action.command! : Self.defaultAskDJCommand(for: action)
+            var value = Self.askDJActionValue(action)
+            value["memory_key"] = .string(memoryKey)
             let response = try await client.sendCommandResponse(DJConnectCommandPayload(
                 identity: identity,
                 command: command,
@@ -1200,6 +1275,40 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         } catch {
             showAskDJToast(Self.askDJToastText(for: error))
         }
+    }
+
+    private static func askDJActionValue(_ action: DJConnectAskDJPlaybackAction) -> [String: DJConnectJSONValue] {
+        var value: [String: DJConnectJSONValue] = [
+            "id": .string(action.id),
+            "title": .string(action.title)
+        ]
+        add(action.subtitle, as: "subtitle", to: &value)
+        add(action.deviceID, as: "device_id", to: &value)
+        add(action.deviceName, as: "device_name", to: &value)
+        if let active = action.active {
+            value["active"] = .bool(active)
+        }
+        add(action.uri, as: "uri", to: &value)
+        if !action.uris.isEmpty {
+            value["uris"] = .array(action.uris.map { .string($0) })
+        }
+        add(action.contextURI, as: "context_uri", to: &value)
+        add(action.offsetURI, as: "offset_uri", to: &value)
+        add(action.imageURL?.absoluteString, as: "image_url", to: &value)
+        add(action.kind, as: "kind", to: &value)
+        add(action.command, as: "command", to: &value)
+        add(action.reason, as: "reason", to: &value)
+        add(action.actionStyle, as: "action_style", to: &value)
+        add(action.responseValue, as: "response_value", to: &value)
+        add(action.buttonLabel, as: "button_label", to: &value)
+        return value
+    }
+
+    private static func add(_ string: String?, as key: String, to value: inout [String: DJConnectJSONValue]) {
+        guard let trimmed = string?.trimmingCharacters(in: .whitespacesAndNewlines), !trimmed.isEmpty else {
+            return
+        }
+        value[key] = .string(trimmed)
     }
 
     private func switchAskDJOutput(_ action: DJConnectAskDJPlaybackAction, client: DJConnectClient) async {
@@ -1454,7 +1563,20 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         localDeviceAPI?.start()
     }
 
+    private func stopLocalDeviceAPI() {
+        localDeviceAPI?.stop()
+        localDeviceAPI = nil
+        localDeviceAPIURL = nil
+    }
+
     private func applyDemoState() {
+        guard !hasAppliedDemoState else {
+            connectionState = .paired
+            isShowingPairingSuccess = false
+            statusMessage = "Demo modus actief"
+            return
+        }
+        hasAppliedDemoState = true
         connectionState = .paired
         isShowingPairingSuccess = false
         playback = DJConnectPlayback(
@@ -1630,7 +1752,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         connectionState = .paired
         isShowingPairingSuccess = true
         statusMessage = "Succesvol gekoppeld"
-        localDeviceAPI?.setBonjourAdvertisingEnabled(false)
+        stopLocalDeviceAPI()
         await refreshStatus()
         requestRemoteNotificationRegistration()
         return DJConnectLocalDeviceAPIResponse(
@@ -1678,6 +1800,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
     }
 
     private func startRecording() {
+        cancelVoiceActivationScheduledTasks()
         stopVoiceActivationListening(status: .paused)
         if isDemoMode {
             sendDemoVoiceResponse()
@@ -1886,15 +2009,6 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         }
         if merged.clientMessageID == nil {
             merged.clientMessageID = fallback.clientMessageID
-        }
-        if merged.images.isEmpty {
-            merged.images = fallback.images
-        }
-        if merged.links.isEmpty {
-            merged.links = fallback.links
-        }
-        if merged.playbackActions.isEmpty {
-            merged.playbackActions = fallback.playbackActions
         }
         if merged.audioURL == nil {
             merged.audioURL = fallback.audioURL
@@ -2317,11 +2431,17 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
     }
 
     private func updateVoiceActivationListening() {
+        voiceActivationRestartTask?.cancel()
+        voiceActivationRestartTask = nil
         guard storedVoiceActivationEnabled else {
+            voiceActivationListenTimeoutTask?.cancel()
+            voiceActivationListenTimeoutTask = nil
             stopVoiceActivationListening(status: .paused)
             return
         }
         guard isAppForeground, canUseBackend, voiceState == .idle else {
+            voiceActivationListenTimeoutTask?.cancel()
+            voiceActivationListenTimeoutTask = nil
             stopVoiceActivationListening(status: .paused)
             return
         }
@@ -2383,31 +2503,71 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
                     }
                     if error != nil {
                         self.stopVoiceActivationListening(status: .paused)
-                        self.updateVoiceActivationListening()
+                        self.scheduleVoiceActivationRestart()
                     }
                 }
             }
+            scheduleVoiceActivationListenTimeout()
         } catch {
             voiceActivationStatus = .unavailable
             appendDiagnosticLog("Stemactivatie start mislukt: \(error.localizedDescription)", level: .error)
+            stopVoiceActivationListening(status: .unavailable)
         }
         #else
         voiceActivationStatus = .unavailable
         #endif
     }
 
+    private func scheduleVoiceActivationRestart(after delay: TimeInterval = 3) {
+        voiceActivationRestartTask?.cancel()
+        guard storedVoiceActivationEnabled, isAppForeground, canUseBackend, voiceState == .idle else {
+            return
+        }
+        voiceActivationRestartTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .seconds(delay))
+            guard !Task.isCancelled else {
+                return
+            }
+            self?.voiceActivationRestartTask = nil
+            self?.updateVoiceActivationListening()
+        }
+    }
+
+    private func scheduleVoiceActivationListenTimeout() {
+        voiceActivationListenTimeoutTask?.cancel()
+        voiceActivationListenTimeoutTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .seconds(12))
+            guard !Task.isCancelled, let self, self.voiceActivationAudioEngine != nil else {
+                return
+            }
+            self.appendDiagnosticLog("Stemactivatie luistervenster gepauzeerd", level: .debug)
+            self.stopVoiceActivationListening(status: .paused)
+            self.scheduleVoiceActivationRestart(after: 18)
+        }
+    }
+
+    private func cancelVoiceActivationScheduledTasks() {
+        voiceActivationRestartTask?.cancel()
+        voiceActivationRestartTask = nil
+        voiceActivationListenTimeoutTask?.cancel()
+        voiceActivationListenTimeoutTask = nil
+    }
+
     private func stopVoiceActivationListening(status: VoiceActivationStatus) {
+        voiceActivationListenTimeoutTask?.cancel()
+        voiceActivationListenTimeoutTask = nil
         #if canImport(Speech)
-        voiceActivationRecognitionTask?.cancel()
-        voiceActivationRecognitionTask = nil
-        voiceActivationRecognitionRequest?.endAudio()
-        voiceActivationRecognitionRequest = nil
-        #endif
         if let voiceActivationAudioEngine {
             voiceActivationAudioEngine.inputNode.removeTap(onBus: 0)
             voiceActivationAudioEngine.stop()
         }
         voiceActivationAudioEngine = nil
+        voiceActivationRecognitionRequest?.endAudio()
+        voiceActivationRecognitionRequest = nil
+        voiceActivationRecognitionTask?.cancel()
+        voiceActivationRecognitionTask = nil
+        #endif
+        try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
         voiceActivationStatus = status
     }
 

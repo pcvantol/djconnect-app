@@ -3,7 +3,7 @@ import WatchKit
 
 @main
 struct DJConnectWatchApp: App {
-    @WKExtensionDelegateAdaptor(DJConnectWatchExtensionDelegate.self) private var extensionDelegate
+    @WKApplicationDelegateAdaptor(DJConnectWatchApplicationDelegate.self) private var applicationDelegate
     @StateObject private var model = DJConnectWatchApp.makeModel()
 
     var body: some Scene {
@@ -11,7 +11,7 @@ struct DJConnectWatchApp: App {
             DJConnectWatchRootView()
                 .environmentObject(model)
                 .onAppear {
-                    extensionDelegate.model = model
+                    applicationDelegate.model = model
                 }
         }
     }
@@ -26,7 +26,7 @@ struct DJConnectWatchApp: App {
     }
 }
 
-final class DJConnectWatchExtensionDelegate: NSObject, WKExtensionDelegate {
+final class DJConnectWatchApplicationDelegate: NSObject, WKApplicationDelegate {
     weak var model: DJConnectWatchModel?
 
     func didRegisterForRemoteNotifications(withDeviceToken deviceToken: Data) {

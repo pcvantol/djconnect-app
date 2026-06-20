@@ -6,6 +6,23 @@ All notable changes to DJConnect App are documented here.
 
 No notable unreleased changes yet.
 
+## 3.1.43 - 2026-06-20
+
+### Changed
+
+- Render Ask DJ assistant answers as rich chat content with preserved headings,
+  blank lines, paragraphs, bullets, links, sources, images, audio replay, and
+  structured playback/action rows across Apple clients.
+- Send the full known Ask DJ action object back to Home Assistant command
+  handling, including labels, reasons, artwork URLs, output state, and
+  confirmation response values.
+- Avoid reusing images, links, or action rows from older Ask DJ bubbles when a
+  refreshed server message omits them or sends empty arrays.
+- Added range-request support for On Air stream files served by the local
+  device API.
+- Improved watchOS runtime behavior for pairing, local API lifecycle, demo
+  mode, wakeword scheduling, diagnostics, and notification delegate handling.
+
 ## 3.1.42 - 2026-06-20
 
 ### Changed

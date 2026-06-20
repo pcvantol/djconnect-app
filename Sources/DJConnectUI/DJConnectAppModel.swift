@@ -5,7 +5,7 @@ import Network
 import OSLog
 
 #if canImport(UserNotifications)
-import UserNotifications
+@preconcurrency import UserNotifications
 #endif
 #if DEBUG && canImport(Darwin)
 import Darwin
@@ -399,7 +399,7 @@ public final class DJConnectAppModel: ObservableObject {
     private let startBackgroundTasks: Bool
     private let monkeyTestingMode: Bool
     private let diagnosticLogFileURL: URL?
-    private static let protocolVersion = "3.1.42"
+    private static let protocolVersion = "3.1.43"
     private static let defaultHomeAssistantURL = "http://homeassistant.local:8123"
     private let appVersion = DJConnectAppModel.protocolVersion
     private let installIDKey = "DJConnectInstallID"
@@ -604,8 +604,7 @@ public final class DJConnectAppModel: ObservableObject {
                 applyDemoState()
                 log(.info, "App started in non-destructive monkey test mode")
             } else if let existingToken = try resolvedTokenStore.loadToken(), !existingToken.isEmpty {
-                pairingStatus = .paired
-                isConnected = true
+                beginStoredPairingValidation()
                 log(.info, "App started with existing DJConnect bearer token for \(identity.clientType.rawValue)")
                 if startBackgroundTasks {
                     schedulePairedRefresh(reason: "Refreshing initial Home Assistant state")
@@ -756,12 +755,10 @@ public final class DJConnectAppModel: ObservableObject {
         do {
             if let existingToken = try tokenStore.loadToken(), !existingToken.isEmpty {
                 isShowingTokenStorageError = false
-                pairingStatus = .paired
-                isConnected = true
-                backendAvailable = true
+                beginStoredPairingValidation()
                 pairingMessage = localized(
-                    english: "DJConnect token restored.",
-                    dutch: "DJConnect-token hersteld."
+                    english: "DJConnect token restored. Checking Home Assistant pairing...",
+                    dutch: "DJConnect-token hersteld. Home Assistant-koppeling controleren..."
                 )
                 log(.info, "Token storage access restored")
                 if startBackgroundTasks {
@@ -792,6 +789,18 @@ public final class DJConnectAppModel: ObservableObject {
             dutch: "DJConnect kon het opgeslagen device-token niet lezen."
         )
         log(.error, "Token storage failed: \(error.localizedDescription)")
+    }
+
+    private func beginStoredPairingValidation() {
+        pairingStatus = .paired
+        isConnected = true
+        isPairing = false
+        backendAvailable = true
+        isShowingPairingSuccess = false
+        pairingMessage = localized(
+            english: "Checking saved Home Assistant pairing...",
+            dutch: "Opgeslagen Home Assistant-koppeling controleren..."
+        )
     }
 
     public func completePairingScreen() {
@@ -2081,7 +2090,7 @@ public final class DJConnectAppModel: ObservableObject {
                     text: djResponseText,
                     images: proxiedResponseImages(response.images),
                     links: safeResponseLinks(response.links),
-                    playbackActions: response.playbackActions ?? [],
+                    playbackActions: proxiedPlaybackActions(response.playbackActions ?? []),
                     audioURL: resolvedAudioURL(from: response.audioURL)
                 )
                 notifyAskDJResponse(djResponseText)
@@ -2902,36 +2911,9 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     private func playAskDJRecommendationWithFallback(_ action: DJConnectAskDJPlaybackAction) async throws -> DJConnectCommandResponse {
-        var value: [String: DJConnectJSONValue] = [
-            "title": .string(action.title),
-            "memory_key": .string(askDJMemoryKey)
-        ]
-        if let subtitle = action.subtitle, !subtitle.isEmpty {
-            value["subtitle"] = .string(subtitle)
-        }
-        if let uri = action.uri, !uri.isEmpty {
-            value["uri"] = .string(uri)
-        }
-        if !action.uris.isEmpty {
-            value["uris"] = .array(action.uris.map { .string($0) })
-        }
-        if let contextURI = action.contextURI, !contextURI.isEmpty {
-            value["context_uri"] = .string(contextURI)
-        }
-        if let offsetURI = action.offsetURI, !offsetURI.isEmpty {
-            value["offset_uri"] = .string(offsetURI)
-        }
-        if let kind = action.kind, !kind.isEmpty {
-            value["kind"] = .string(kind)
-        }
-        if let reason = action.reason, !reason.isEmpty {
-            value["reason"] = .string(reason)
-        }
-        if let responseValue = action.responseValue, !responseValue.isEmpty {
-            value["response_value"] = .string(responseValue)
-        }
-
         let command = action.command?.isEmpty == false ? action.command! : Self.defaultAskDJCommand(for: action)
+        var value = Self.askDJActionValue(action)
+        value["memory_key"] = .string(askDJMemoryKey)
         return try await withHomeAssistantClient { client in
             try await client.sendCommandResponse(DJConnectCommandPayload(
                 identity: identity,
@@ -2940,6 +2922,40 @@ public final class DJConnectAppModel: ObservableObject {
                 play: command == "ask_dj_play_recommendation"
             ))
         }
+    }
+
+    private static func askDJActionValue(_ action: DJConnectAskDJPlaybackAction) -> [String: DJConnectJSONValue] {
+        var value: [String: DJConnectJSONValue] = [
+            "id": .string(action.id),
+            "title": .string(action.title)
+        ]
+        add(action.subtitle, as: "subtitle", to: &value)
+        add(action.deviceID, as: "device_id", to: &value)
+        add(action.deviceName, as: "device_name", to: &value)
+        if let active = action.active {
+            value["active"] = .bool(active)
+        }
+        add(action.uri, as: "uri", to: &value)
+        if !action.uris.isEmpty {
+            value["uris"] = .array(action.uris.map { .string($0) })
+        }
+        add(action.contextURI, as: "context_uri", to: &value)
+        add(action.offsetURI, as: "offset_uri", to: &value)
+        add(action.imageURL?.absoluteString, as: "image_url", to: &value)
+        add(action.kind, as: "kind", to: &value)
+        add(action.command, as: "command", to: &value)
+        add(action.reason, as: "reason", to: &value)
+        add(action.actionStyle, as: "action_style", to: &value)
+        add(action.responseValue, as: "response_value", to: &value)
+        add(action.buttonLabel, as: "button_label", to: &value)
+        return value
+    }
+
+    private static func add(_ string: String?, as key: String, to value: inout [String: DJConnectJSONValue]) {
+        guard let trimmed = string?.trimmingCharacters(in: .whitespacesAndNewlines), !trimmed.isEmpty else {
+            return
+        }
+        value[key] = .string(trimmed)
     }
 
     private static func defaultAskDJCommand(for action: DJConnectAskDJPlaybackAction) -> String {
@@ -3003,7 +3019,7 @@ public final class DJConnectAppModel: ObservableObject {
             text: trimmed,
             images: images,
             links: links,
-            playbackActions: playbackActions,
+            playbackActions: proxiedPlaybackActions(playbackActions),
             audioURL: audioURL,
             status: status
         )
@@ -3160,11 +3176,18 @@ public final class DJConnectAppModel: ObservableObject {
             text: serverText.isEmpty ? (existingText ?? "") : historyMessage.text,
             images: proxiedResponseImages(historyMessage.images),
             links: safeResponseLinks(historyMessage.links),
-            playbackActions: historyMessage.playbackActions + historyMessage.confirmationActions,
+            playbackActions: proxiedPlaybackActions(historyMessage.playbackActions + historyMessage.confirmationActions),
             audioURL: resolvedAudioURL(from: historyMessage.audioURL),
             status: status,
             createdAt: historyMessage.createdAt
         )
+    }
+
+    private func combinedResponseLinks(
+        _ links: [DJConnectResponseLink]?,
+        _ sources: [DJConnectResponseLink]?
+    ) -> [DJConnectResponseLink] {
+        safeResponseLinks((links ?? []) + (sources ?? []))
     }
 
     private func persistAskDJRevisions(historyRevision: Int, clearRevision: Int) {
@@ -3240,15 +3263,6 @@ public final class DJConnectAppModel: ObservableObject {
         }
         if merged.clientMessageID == nil {
             merged.clientMessageID = fallback.clientMessageID
-        }
-        if merged.images.isEmpty {
-            merged.images = fallback.images
-        }
-        if merged.links.isEmpty {
-            merged.links = fallback.links
-        }
-        if merged.playbackActions.isEmpty {
-            merged.playbackActions = fallback.playbackActions
         }
         if merged.audioURL == nil {
             merged.audioURL = fallback.audioURL
@@ -3460,6 +3474,26 @@ public final class DJConnectAppModel: ObservableObject {
         }
     }
 
+    private func proxiedPlaybackActions(_ actions: [DJConnectAskDJPlaybackAction]) -> [DJConnectAskDJPlaybackAction] {
+        guard !actions.isEmpty else {
+            return []
+        }
+        let baseURLs = homeAssistantBaseURLs()
+        let allowedHosts = Set(baseURLs.compactMap { $0.host?.lowercased() })
+        guard let primaryBaseURL = baseURLs.first, !allowedHosts.isEmpty else {
+            return actions
+        }
+        return actions.map { action in
+            guard let imageURL = action.imageURL,
+                  let resolvedURL = resolvedResponseImageURL(imageURL, baseURL: primaryBaseURL, allowedHosts: allowedHosts) else {
+                return action
+            }
+            var updatedAction = action
+            updatedAction.imageURL = resolvedURL
+            return updatedAction
+        }
+    }
+
     private func resolvedResponseImageURL(_ url: URL, baseURL: URL, allowedHosts: Set<String>) -> URL? {
         if let scheme = url.scheme?.lowercased(), scheme == "http" || scheme == "https" {
             guard let host = url.host?.lowercased(), allowedHosts.contains(host) else {
@@ -3578,7 +3612,7 @@ public final class DJConnectAppModel: ObservableObject {
         let playlistURL = baseURL
             .appendingPathComponent("on-air")
             .appendingPathComponent("index.m3u8")
-        log(.info, "On Air HLS stream prepared at \(playlistURL.absoluteString)")
+        log(.info, "On Air HLS stream prepared at \(playlistURL.absoluteString) using local API \(localDeviceAPIURL)")
         return playlistURL
     }
 
@@ -4371,8 +4405,8 @@ public final class DJConnectAppModel: ObservableObject {
                         deviceID: "djconnect-macos-unavailable",
                         deviceName: "DJConnect",
                         clientType: .macos,
-                        firmware: "3.1.42",
-                        appVersion: "3.1.42",
+                        firmware: "3.1.43",
+                        appVersion: "3.1.43",
                         platform: .macos
                     ),
                     pairingToken: "",
@@ -4451,6 +4485,8 @@ public final class DJConnectAppModel: ObservableObject {
             contentType = "application/vnd.apple.mpegurl"
         case "mp4", "m4s":
             contentType = "video/mp4"
+        case "ts":
+            contentType = "video/mp2t"
         default:
             contentType = "application/octet-stream"
         }

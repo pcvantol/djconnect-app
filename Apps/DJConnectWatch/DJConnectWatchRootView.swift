@@ -300,7 +300,7 @@ struct DJConnectWatchRootView: View {
                     .foregroundStyle(watchAccentBlue.opacity(0.92))
             }
 
-            HStack(spacing: 5) {
+            HStack(spacing: 8) {
                 ForEach(model.askDJMoodSteps.indices, id: \.self) { index in
                     let step = model.askDJMoodSteps[index]
                     let isSelected = index == model.askDJMoodStepIndex
@@ -308,29 +308,22 @@ struct DJConnectWatchRootView: View {
                     Button {
                         setMoodStep(index)
                     } label: {
-                        VStack(spacing: 3) {
+                        ZStack {
+                            Circle()
+                                .fill(isSelected ? watchAccentPurple.opacity(0.46) : Color.white.opacity(0.09))
+                            Circle()
+                                .stroke(isSelected ? watchAccentBlue.opacity(0.82) : Color.white.opacity(0.14), lineWidth: 1)
                             Image(systemName: moodIcon(for: index))
-                                .font(.system(size: 11, weight: .bold))
-                            Text(step.label)
-                                .font(.system(size: 9, weight: .semibold))
-                                .lineLimit(1)
-                                .minimumScaleFactor(0.74)
+                                .font(.system(size: 15, weight: .bold))
+                                .foregroundStyle(isSelected ? .white : .white.opacity(0.68))
                         }
-                        .foregroundStyle(isSelected ? .white : .white.opacity(0.68))
-                        .frame(maxWidth: .infinity, minHeight: 36)
-                        .background {
-                            RoundedRectangle(cornerRadius: 9, style: .continuous)
-                                .fill(isSelected ? watchAccentPurple.opacity(0.36) : Color.white.opacity(0.08))
-                        }
-                        .overlay {
-                            RoundedRectangle(cornerRadius: 9, style: .continuous)
-                                .stroke(isSelected ? watchAccentBlue.opacity(0.7) : Color.white.opacity(0.1), lineWidth: 1)
-                        }
-                        .contentShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
+                        .frame(width: 36, height: 36)
+                        .contentShape(Circle())
                     }
                     .buttonStyle(.plain)
                     .accessibilityLabel(step.label)
                     .accessibilityAddTraits(isSelected ? .isSelected : [])
+                    .frame(maxWidth: .infinity)
                 }
             }
         }
@@ -474,7 +467,6 @@ struct DJConnectWatchRootView: View {
                             .scaledToFit()
                             .frame(width: 34, height: 34)
                             .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-                            .shadow(color: watchAccentPurple.opacity(0.26), radius: 8, y: 3)
                             .accessibilityHidden(true)
 
                         VStack(alignment: .leading, spacing: 3) {
@@ -631,7 +623,6 @@ private struct DJConnectWatchWelcomeView: View {
                         .scaledToFit()
                         .frame(width: 44, height: 44)
                         .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-                        .shadow(color: watchAccentPurple.opacity(0.28), radius: 10, y: 4)
                         .accessibilityHidden(true)
 
                     Text("Welkom bij DJConnect")
@@ -769,7 +760,6 @@ private struct DJConnectWatchAboutView: View {
                         .scaledToFit()
                         .frame(width: 44, height: 44)
                         .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-                        .shadow(color: watchAccentPurple.opacity(0.28), radius: 10, y: 4)
                         .accessibilityHidden(true)
 
                     Text("DJConnect")
@@ -1129,9 +1119,9 @@ private struct DJConnectWatchLogsView: View {
     var body: some View {
         ZStack {
             DJConnectWatchCanvas()
-            VStack(spacing: 6) {
+            VStack(spacing: 8) {
                 if model.diagnosticLogLines.isEmpty {
-                    Spacer(minLength: 10)
+                    Spacer(minLength: 22)
                     VStack(spacing: 8) {
                         Image(systemName: "doc.text.magnifyingglass")
                             .font(.title2)
@@ -1151,7 +1141,7 @@ private struct DJConnectWatchLogsView: View {
                             .multilineTextAlignment(.center)
                     }
                     .padding(10)
-                    Spacer(minLength: 10)
+                    Spacer(minLength: 18)
                 } else {
                     ScrollViewReader { proxy in
                         ScrollView {
@@ -1175,6 +1165,7 @@ private struct DJConnectWatchLogsView: View {
                             .padding(.horizontal, 4)
                         }
                         .frame(maxHeight: .infinity)
+                        .padding(.top, 18)
                         .onAppear {
                             scrollToBottom(proxy)
                         }
@@ -1196,8 +1187,8 @@ private struct DJConnectWatchLogsView: View {
                 .buttonStyle(DJConnectWatchGradientButtonStyle(kind: .secondary))
                 .disabled(model.diagnosticLogLines.isEmpty)
                 .padding(.horizontal, 4)
+                .padding(.bottom, 8)
             }
-            .padding(.bottom, 2)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .navigationTitle("Logs")
@@ -1854,10 +1845,7 @@ private struct DJConnectWatchAskDJBubble: View {
                     .lineLimit(1)
                 }
                 if !message.text.isEmpty {
-                    Text(message.text)
-                        .font(.caption)
-                        .foregroundStyle(.white)
-                        .fixedSize(horizontal: false, vertical: true)
+                    AskDJWatchRichText(text: message.text)
                 }
                 if !message.images.isEmpty {
                     AskDJWatchImageStack(images: message.images)
@@ -1988,6 +1976,11 @@ private struct AskDJWatchPlaybackActionStack: View {
                                     .font(.caption2)
                                     .foregroundStyle(.white.opacity(0.66))
                                     .lineLimit(1)
+                            } else if let reason = action.reason, !reason.isEmpty {
+                                Text(reason)
+                                    .font(.caption2)
+                                    .foregroundStyle(.white.opacity(0.66))
+                                    .lineLimit(2)
                             }
                         }
                         Spacer(minLength: 4)
@@ -2002,6 +1995,9 @@ private struct AskDJWatchPlaybackActionStack: View {
                             Image(systemName: action.isOutputAction ? "speaker.wave.2.fill" : "play.fill")
                                 .font(.caption2.weight(.bold))
                         }
+                        Text(buttonLabel(for: action))
+                            .font(.caption2.weight(.bold))
+                            .lineLimit(1)
                     }
                     .foregroundStyle(.white)
                     .padding(.horizontal, 7)
@@ -2018,6 +2014,9 @@ private struct AskDJWatchPlaybackActionStack: View {
     }
 
     private static func isSupportedAction(_ action: DJConnectAskDJPlaybackAction) -> Bool {
+        if action.isWatchRecommendationAction {
+            return true
+        }
         if action.isOutputAction {
             return action.outputDeviceID != nil
         }
@@ -2037,6 +2036,15 @@ private struct AskDJWatchPlaybackActionStack: View {
         }
     }
 
+    private func buttonLabel(for action: DJConnectAskDJPlaybackAction) -> String {
+        for candidate in [action.buttonLabel, action.title] {
+            if let trimmed = candidate?.trimmingCharacters(in: .whitespacesAndNewlines), !trimmed.isEmpty {
+                return trimmed
+            }
+        }
+        return action.isOutputAction ? "Activeer" : "Play Now"
+    }
+
     private func outputIcon(isActive: Bool) -> some View {
         ZStack {
             RoundedRectangle(cornerRadius: 7, style: .continuous)
@@ -2045,6 +2053,79 @@ private struct AskDJWatchPlaybackActionStack: View {
                 .font(.caption2.weight(.bold))
                 .foregroundStyle(.white.opacity(isActive ? 0.95 : 0.72))
         }
+    }
+}
+
+private struct AskDJWatchRichText: View {
+    let text: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            ForEach(Array(Self.blocks(from: text).enumerated()), id: \.offset) { _, block in
+                switch block {
+                case let .heading(level, value):
+                    Text(value)
+                        .font(level == 1 ? .caption.weight(.black) : .caption2.weight(.bold))
+                        .foregroundStyle(.white)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .padding(.top, level == 1 ? 1 : 5)
+                        .padding(.bottom, 3)
+                case let .paragraph(value):
+                    Text(value)
+                        .font(.caption)
+                        .foregroundStyle(.white)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .padding(.bottom, 4)
+                case let .bullet(value):
+                    HStack(alignment: .firstTextBaseline, spacing: 5) {
+                        Text("•")
+                            .font(.caption.weight(.bold))
+                        Text(value)
+                            .font(.caption)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    .foregroundStyle(.white)
+                    .padding(.leading, 5)
+                    .padding(.bottom, 4)
+                case .blank:
+                    Spacer(minLength: 6)
+                }
+            }
+        }
+        .fixedSize(horizontal: false, vertical: true)
+    }
+
+    private enum Block {
+        case heading(Int, String)
+        case paragraph(String)
+        case bullet(String)
+        case blank
+    }
+
+    private static func blocks(from text: String) -> [Block] {
+        let blocks = text.components(separatedBy: .newlines).map { line -> Block in
+            if line.isEmpty {
+                return .blank
+            }
+            if line.hasPrefix("## ") {
+                return .heading(2, String(line.dropFirst(3)))
+            }
+            if line.hasPrefix("# ") {
+                return .heading(1, String(line.dropFirst(2)))
+            }
+            if line.hasPrefix("- ") {
+                return .bullet(String(line.dropFirst(2)))
+            }
+            return .paragraph(line)
+        }
+        return blocks.isEmpty ? [.paragraph(text)] : blocks
+    }
+}
+
+private extension DJConnectAskDJPlaybackAction {
+    var isWatchRecommendationAction: Bool {
+        let normalizedKind = kind?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        return ["playlist", "album", "track", "artist", "recommendation", "recommendations", "output"].contains(normalizedKind ?? "")
     }
 }
 
@@ -2152,27 +2233,15 @@ private struct AskDJWatchImageCard: View {
 
 private struct DJConnectWatchCanvas: View {
     var body: some View {
-        ZStack {
-            LinearGradient(
-                colors: [
-                    watchDeepNavy,
-                    Color(red: 0.07, green: 0.04, blue: 0.15),
-                    Color(red: 0.03, green: 0.08, blue: 0.18)
-                ],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-            Circle()
-                .fill(watchAccentBlue.opacity(0.34))
-                .frame(width: 116, height: 116)
-                .blur(radius: 26)
-                .offset(x: -70, y: -64)
-            Circle()
-                .fill(watchAccentPurple.opacity(0.32))
-                .frame(width: 126, height: 126)
-                .blur(radius: 30)
-                .offset(x: 78, y: 72)
-        }
+        LinearGradient(
+            colors: [
+                watchDeepNavy,
+                Color(red: 0.06, green: 0.04, blue: 0.13),
+                Color(red: 0.03, green: 0.07, blue: 0.15)
+            ],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
         .ignoresSafeArea()
     }
 }
@@ -2217,7 +2286,6 @@ private struct DJConnectWatchRoundButtonStyle: ButtonStyle {
                         )
                     )
             )
-            .shadow(color: watchAccentPurple.opacity(0.28), radius: 8, y: 3)
             .scaleEffect(configuration.isPressed ? 0.94 : 1.0)
     }
 }
@@ -2238,7 +2306,6 @@ private struct DJConnectWatchGradientButtonStyle: ButtonStyle {
             .padding(.horizontal, 8)
             .background(background(isPressed: configuration.isPressed))
             .clipShape(Capsule())
-            .shadow(color: shadowColor.opacity(0.34), radius: 10, y: 4)
             .scaleEffect(configuration.isPressed ? 0.97 : 1.0)
     }
 
