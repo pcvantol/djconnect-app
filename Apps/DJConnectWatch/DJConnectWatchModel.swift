@@ -246,6 +246,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
     private let tokenStore = DJConnectUserDefaultsTokenStore(key: "DJConnectWatchDeviceToken")
     private let monkeyTestingMode: Bool
     private var localDeviceAPI: DJConnectLocalDeviceAPI?
+    private var pairingTask: Task<Void, Never>?
     private let networkMonitor = NWPathMonitor()
     private let networkMonitorQueue = DispatchQueue(label: "dev.djconnect.watch.network")
     private var recorder: AVAudioRecorder?
@@ -530,6 +531,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         isShowingPairingSuccess = false
         statusMessage = "Wachten op Home Assistant..."
         localDeviceAPI?.setBonjourAdvertisingEnabled(true)
+        startPairingPoll()
     }
 
     func dismissPairingSuccess() {
@@ -539,6 +541,8 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
 
     func startDemoMode() {
         appendDiagnosticLog("Demo modus starten")
+        pairingTask?.cancel()
+        pairingTask = nil
         stopVoiceActivationListening(status: .paused)
         localDeviceAPI?.stop()
         localDeviceAPI = nil
@@ -552,6 +556,8 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
 
     func stopDemoMode() {
         appendDiagnosticLog("Demo modus stoppen")
+        pairingTask?.cancel()
+        pairingTask = nil
         stopVoiceActivationListening(status: .paused)
         storedDemoMode = false
         isDemoMode = false
@@ -859,6 +865,8 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
 
     func resetPairing() {
         appendDiagnosticLog("Koppeling resetten")
+        pairingTask?.cancel()
+        pairingTask = nil
         stopVoiceActivationListening(status: .paused)
         try? tokenStore.clearToken()
         UserDefaults.standard.removeObject(forKey: pushTokenKey)
@@ -888,6 +896,59 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         isShowingPairingSuccess = false
         statusMessage = "Niet gekoppeld"
         localDeviceAPI?.setBonjourAdvertisingEnabled(true)
+    }
+
+    private func startPairingPoll() {
+        pairingTask?.cancel()
+        let code = pairingCode
+        pairingTask = Task { [weak self] in
+            await self?.pollPairing(code: code)
+        }
+    }
+
+    private func pollPairing(code: String) async {
+        appendDiagnosticLog("Polling Home Assistant pairing endpoint")
+        while !Task.isCancelled && !paired {
+            guard let client else {
+                statusMessage = "Home Assistant URL ongeldig"
+                appendDiagnosticLog("Koppelen mislukt: Home Assistant URL ongeldig", level: .warning)
+                return
+            }
+
+            do {
+                let response = try await client.pair(DJConnectPairingPayload(
+                    identity: identity,
+                    pairingToken: code,
+                    haLocalURL: haBaseURL
+                ))
+                applyPairingResponse(response)
+                appendDiagnosticLog("Koppeling geaccepteerd door Home Assistant")
+                return
+            } catch let error as DJConnectError {
+                statusMessage = Self.userMessage(for: error)
+                appendDiagnosticLog("Koppelen wacht: \(statusMessage)", level: .debug)
+            } catch {
+                statusMessage = error.localizedDescription
+                appendDiagnosticLog("Koppelen wacht: \(error.localizedDescription)", level: .debug)
+            }
+
+            try? await Task.sleep(for: .seconds(2))
+        }
+    }
+
+    private func applyPairingResponse(_ response: DJConnectPairingResponse) {
+        if let returnedURL = response.haLocalURL, !returnedURL.isEmpty {
+            haBaseURL = returnedURL
+        }
+        paired = true
+        connectionState = .paired
+        isShowingPairingSuccess = true
+        statusMessage = "Succesvol gekoppeld"
+        pairingTask?.cancel()
+        pairingTask = nil
+        localDeviceAPI?.setBonjourAdvertisingEnabled(false)
+        requestRemoteNotificationRegistration()
+        Task { await refreshStatus() }
     }
 
     private func applyOutputs(_ devices: [DJConnectOutputDevice]) {

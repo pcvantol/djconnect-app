@@ -424,8 +424,19 @@ public final class DJConnectLocalDeviceAPI: @unchecked Sendable {
         do {
             let info = await infoProvider()
             let listenerPort = NWEndpoint.Port(rawValue: preferredPort ?? 0) ?? .any
-            let listener = try NWListener(using: .tcp, on: listenerPort)
+            let parameters = NWParameters.tcp
+            parameters.allowLocalEndpointReuse = true
+            parameters.includePeerToPeer = true
+            let listener = try NWListener(using: parameters, on: listenerPort)
+            if isBonjourAdvertisingEnabled {
+                listener.service = NWListener.Service(
+                    name: info.identity.deviceID,
+                    type: "_djconnect._tcp",
+                    txtRecord: NWTXTRecord(Self.bonjourTXTRecord(for: info, localURL: "").mapValues { String(decoding: $0, as: UTF8.self) })
+                )
+            }
             listener.newConnectionHandler = { [weak self] connection in
+                Task { await self?.logHandler("Local device API accepted network connection") }
                 self?.handleNetworkConnection(connection)
             }
             listener.stateUpdateHandler = { [weak self] state in
@@ -450,6 +461,8 @@ public final class DJConnectLocalDeviceAPI: @unchecked Sendable {
                     }
                 case let .failed(error):
                     Task { await self.logHandler("Local device API listener failed: \(error.localizedDescription)") }
+                case let .waiting(error):
+                    Task { await self.logHandler("Local device API listener waiting: \(error.localizedDescription)") }
                 case .cancelled:
                     self.listenSocket = -1
                     self.port = nil

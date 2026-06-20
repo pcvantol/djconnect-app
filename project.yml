@@ -175,6 +175,7 @@ targets:
           - wifi
         NSBonjourServices:
           - _home-assistant._tcp.
+          - _djconnect._tcp.
         NSAppTransportSecurity:
           NSAllowsArbitraryLoadsInLocalNetworking: true
     settings:
