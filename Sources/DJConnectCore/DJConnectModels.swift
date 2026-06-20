@@ -349,6 +349,7 @@ public struct DJConnectAskDJRequest: Codable, Equatable, Sendable {
     public var djStyle: String?
     public var memoryKey: String?
     public var audioResponse: AudioResponse?
+    public var metadata: [String: String]?
 
     public init(
         identity: DJConnectIdentity,
@@ -358,7 +359,8 @@ public struct DJConnectAskDJRequest: Codable, Equatable, Sendable {
         mood: Int? = nil,
         djStyle: String? = nil,
         memoryKey: String? = nil,
-        audioResponse: AudioResponse? = nil
+        audioResponse: AudioResponse? = nil,
+        metadata: [String: String]? = nil
     ) {
         self.deviceID = identity.deviceID
         self.clientType = identity.clientType
@@ -369,6 +371,7 @@ public struct DJConnectAskDJRequest: Codable, Equatable, Sendable {
         self.djStyle = djStyle
         self.memoryKey = memoryKey
         self.audioResponse = audioResponse
+        self.metadata = metadata
     }
 
     enum CodingKeys: String, CodingKey {
@@ -381,6 +384,7 @@ public struct DJConnectAskDJRequest: Codable, Equatable, Sendable {
         case djStyle = "dj_style"
         case memoryKey = "memory_key"
         case audioResponse = "audio_response"
+        case metadata
     }
 }
 
@@ -904,6 +908,8 @@ public struct DJConnectAskDJPlaybackAction: Codable, Equatable, Identifiable, Se
     public var kind: String?
     public var command: String?
     public var reason: String?
+    public var actionStyle: String?
+    public var responseValue: String?
 
     enum CodingKeys: String, CodingKey {
         case id
@@ -927,6 +933,11 @@ public struct DJConnectAskDJPlaybackAction: Codable, Equatable, Identifiable, Se
         case type
         case command
         case reason
+        case actionStyle = "action_style"
+        case actionStyleCamel = "actionStyle"
+        case responseValue = "response_value"
+        case responseValueCamel = "responseValue"
+        case value
     }
 
     public init(
@@ -939,7 +950,9 @@ public struct DJConnectAskDJPlaybackAction: Codable, Equatable, Identifiable, Se
         imageURL: URL? = nil,
         kind: String? = nil,
         command: String? = nil,
-        reason: String? = nil
+        reason: String? = nil,
+        actionStyle: String? = nil,
+        responseValue: String? = nil
     ) {
         self.title = title
         self.subtitle = subtitle
@@ -950,6 +963,8 @@ public struct DJConnectAskDJPlaybackAction: Codable, Equatable, Identifiable, Se
         self.kind = kind
         self.command = command
         self.reason = reason
+        self.actionStyle = actionStyle
+        self.responseValue = responseValue
         self.id = id ?? [uri, contextURI, title].compactMap { $0 }.joined(separator: "|")
     }
 
@@ -976,6 +991,11 @@ public struct DJConnectAskDJPlaybackAction: Codable, Equatable, Identifiable, Se
             ?? container.decodeIfPresentIgnoringErrors(String.self, forKey: .type)
         command = try container.decodeIfPresent(String.self, forKey: .command)
         reason = try container.decodeIfPresent(String.self, forKey: .reason)
+        actionStyle = try container.decodeIfPresent(String.self, forKey: .actionStyle)
+            ?? container.decodeIfPresentIgnoringErrors(String.self, forKey: .actionStyleCamel)
+        responseValue = try container.decodeIfPresent(String.self, forKey: .responseValue)
+            ?? container.decodeIfPresentIgnoringErrors(String.self, forKey: .responseValueCamel)
+            ?? container.decodeIfPresentIgnoringErrors(String.self, forKey: .value)
         let decodedID = try container.decodeIfPresent(String.self, forKey: .id)
         id = decodedID ?? [uri, contextURI, title].compactMap { $0 }.joined(separator: "|")
     }

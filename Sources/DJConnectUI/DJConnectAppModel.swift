@@ -2969,6 +2969,23 @@ public final class DJConnectAppModel: ObservableObject {
         defaults.removeObject(forKey: askDJClearRevisionKey)
     }
 
+
+    public func seedAskDJPartyDemoMessagesForTesting() {
+        clearAskDJHistoryLocally()
+        appendAskDJMessage(
+            role: .user,
+            text: localized(english: "Surprise the living room with a track", dutch: "Verras de woonkamer met een track"),
+            status: .sent
+        )
+        appendAskDJMessage(
+            role: .dj,
+            text: localized(
+                english: "Party mode is live. Midnight City is playing in the living room and Ask DJ is ready for the next request.",
+                dutch: "Party-modus staat live. Midnight City speelt in de woonkamer en Ask DJ is klaar voor het volgende verzoek."
+            )
+        )
+    }
+
     private func saveAskDJMessages() {
         do {
             let data = try JSONEncoder().encode(askDJMessages)
@@ -3142,6 +3159,23 @@ public final class DJConnectAppModel: ObservableObject {
         let resolvedURL = resolvedAudioURL(from: audioURL)
         Task {
             await playResponseAudio(resolvedURL)
+        }
+    }
+
+
+    public func playAskDJPartyAudioIfNeeded(for message: DJConnectAskDJMessage?) {
+        guard let message, message.role != .user else {
+            return
+        }
+        let resolvedURL = resolvedAudioURL(from: message.audioURL)
+        guard let resolvedURL else {
+            return
+        }
+        if isLoadingAskDJAudio(resolvedURL) || isPlayingAskDJAudio(resolvedURL) {
+            return
+        }
+        Task {
+            await playResponseAudioIfNeeded(resolvedURL)
         }
     }
 

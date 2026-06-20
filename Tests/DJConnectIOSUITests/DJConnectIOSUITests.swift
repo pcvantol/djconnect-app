@@ -18,6 +18,21 @@ final class DJConnectIOSUITests: XCTestCase {
         return app
     }
 
+    private func launchAskDJPartyDemoApp() -> XCUIApplication {
+        let app = XCUIApplication()
+        app.launchArguments.append(contentsOf: [
+            "--monkey-testing",
+            "--ask-dj-party-demo-feed",
+            "-AppleLanguages",
+            "(nl)",
+            "-AppleLocale",
+            "nl_NL"
+        ])
+        app.launchEnvironment["DJCONNECT_UITEST_HA_URL"] = "http://127.0.0.1:8123"
+        app.launch()
+        return app
+    }
+
     private func launchEnglishApp() -> XCUIApplication {
         let app = XCUIApplication()
         app.launchArguments.append(contentsOf: ["--monkey-testing", "-AppleLanguages", "(en)", "-AppleLocale", "en_US"])
@@ -110,6 +125,22 @@ final class DJConnectIOSUITests: XCTestCase {
         XCTAssertTrue(app.buttons["Tik om te spelen"].exists || app.staticTexts["Tik om te spelen"].exists)
     }
 
+    func testAskDJPartyAirPlayOutputInDemoModeScreenshots() throws {
+        XCUIDevice.shared.orientation = .portrait
+        let app = launchAskDJPartyDemoApp()
+
+        XCTAssertTrue(app.tabBars.firstMatch.waitForExistence(timeout: 8))
+        tapTabOrMoreItem("Ask DJ - Party!", in: app)
+
+        XCTAssertTrue(app.descendants(matching: .any)["AskDJPartyNowPlaying"].waitForExistence(timeout: 4))
+        XCTAssertTrue(app.descendants(matching: .any)["AskDJPartyFeed"].waitForExistence(timeout: 4))
+        XCTAssertTrue(app.descendants(matching: .any)["AskDJPartyUserBubble"].waitForExistence(timeout: 4))
+        XCTAssertTrue(app.descendants(matching: .any)["AskDJPartyDJBubble"].waitForExistence(timeout: 4))
+
+        try attachAndWriteScreenshot(app.screenshot(), named: "ask-dj-party-airplay-demo-landscape")
+        try attachAndWriteScreenshot(app.screenshot(), named: "ask-dj-party-airplay-demo-live-feed")
+    }
+
     func testMonkeyModeSafeNavigationSmoke() {
         let app = launchMonkeyApp()
         let argumentDuration = ProcessInfo.processInfo.arguments
@@ -161,6 +192,30 @@ final class DJConnectIOSUITests: XCTestCase {
 
         XCTAssertTrue(app.state == .runningForeground)
     }
+}
+
+private func attachAndWriteScreenshot(_ screenshot: XCUIScreenshot, named name: String) throws {
+    let attachment = XCTAttachment(screenshot: screenshot)
+    attachment.name = name
+    attachment.lifetime = .keepAlways
+    XCTContext.runActivity(named: name) { activity in
+        activity.add(attachment)
+    }
+
+    let directory = ProcessInfo.processInfo.environment["DJCONNECT_SCREENSHOT_DIR"]
+        .map(URL.init(fileURLWithPath:))
+        ?? defaultScreenshotDirectory
+    try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+    try screenshot.pngRepresentation.write(to: directory.appendingPathComponent("\(name).png"))
+}
+
+private var defaultScreenshotDirectory: URL {
+    URL(fileURLWithPath: #filePath)
+        .deletingLastPathComponent()
+        .deletingLastPathComponent()
+        .deletingLastPathComponent()
+        .appendingPathComponent("tmp")
+        .appendingPathComponent("ask-dj-party-screenshots")
 }
 
 private extension XCUIElement {

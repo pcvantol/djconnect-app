@@ -5,6 +5,9 @@ import SwiftUI
 #if canImport(AVFoundation)
 import AVFoundation
 #endif
+#if canImport(AVKit)
+import AVKit
+#endif
 #if canImport(WebKit)
 import WebKit
 #endif
@@ -397,6 +400,7 @@ private struct DJConnectCanvasBackground: View {
 private enum DJConnectSection: Hashable {
     case nowPlaying
     case askDJ
+    case askDJParty
     case queue
     case playlists
     case games
@@ -435,6 +439,11 @@ public struct DJConnectRootView: View {
                             systemImage: "bubble.left.and.bubble.right.fill",
                             isSelected: selectedSection == .askDJ
                         ) { selectedSection = .askDJ }
+                        SidebarItem(
+                            title: "Ask DJ - Party!",
+                            systemImage: "airplayvideo",
+                            isSelected: selectedSection == .askDJParty
+                        ) { selectedSection = .askDJParty }
                         SidebarItem(
                             title: localized(model.language, "Queue", "Wachtrij"),
                             systemImage: "text.line.first.and.arrowtriangle.forward",
@@ -502,6 +511,11 @@ public struct DJConnectRootView: View {
                             Label("Ask DJ", systemImage: "bubble.left.and.bubble.right.fill")
                         }
                         .tag(DJConnectSection.askDJ)
+                    AskDJPartyView(model: model)
+                        .tabItem {
+                            Label("Ask DJ - Party!", systemImage: "airplayvideo")
+                        }
+                        .tag(DJConnectSection.askDJParty)
                     QueueView(model: model)
                         .tabItem {
                             Label(localized(model.language, "Queue", "Wachtrij"), systemImage: "text.line.first.and.arrowtriangle.forward")
@@ -607,6 +621,8 @@ public struct DJConnectRootView: View {
             NowPlayingView(model: model)
         case .askDJ:
             AskDJView(model: model)
+        case .askDJParty:
+            AskDJPartyView(model: model)
         case .queue:
             QueueView(model: model)
         case .playlists:
@@ -3085,6 +3101,119 @@ private struct AskDJView: View {
             withAnimation(.easeIn(duration: 0.18)) {
                 toast = nil
             }
+        }
+    }
+}
+
+
+#if os(iOS) && canImport(AVKit)
+private struct AirPlayRoutePickerButton: UIViewRepresentable {
+    func makeUIView(context: Context) -> AVRoutePickerView {
+        let view = AVRoutePickerView()
+        view.prioritizesVideoDevices = true
+        view.tintColor = .white
+        view.activeTintColor = UIColor(red: 0.84, green: 0.22, blue: 0.96, alpha: 1)
+        return view
+    }
+
+    func updateUIView(_ uiView: AVRoutePickerView, context: Context) {}
+}
+#endif
+
+private struct AskDJPartyView: View {
+    @ObservedObject var model: DJConnectAppModel
+    private var messages: [DJConnectAskDJMessage] { Array(model.askDJMessages.suffix(8)) }
+
+    var body: some View {
+        NavigationStack {
+            VStack(spacing: 18) {
+                HStack {
+                    Text(screenTitle(model.language, "Ask DJ - Party!", "Ask DJ - Party!", isDemoMode: model.isDemoMode))
+                        .font(.system(size: 32, weight: .black, design: .rounded))
+                        .foregroundStyle(.white)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
+                    Spacer()
+                    airPlayControl.frame(width: 64, height: 48)
+                }
+                ScrollViewReader { proxy in
+                    ScrollView {
+                        LazyVStack(spacing: 18) {
+                            if messages.isEmpty {
+                                AskDJPartyEmptyState(language: model.language)
+                            } else {
+                                ForEach(messages) { message in
+                                    AskDJPartyBubble(message: message, language: model.language).id(message.id)
+                                }
+                            }
+                        }
+                    }
+                    .scrollIndicators(.hidden)
+                    .accessibilityIdentifier("AskDJPartyFeed")
+                    .onAppear { model.playAskDJPartyAudioIfNeeded(for: model.askDJMessages.last) }
+                    .onChange(of: model.askDJMessages) {
+                        guard let last = model.askDJMessages.last else { return }
+                        withAnimation(.easeOut(duration: 0.24)) { proxy.scrollTo(last.id, anchor: .bottom) }
+                        model.playAskDJPartyAudioIfNeeded(for: last)
+                    }
+                }
+                HStack(spacing: 14) {
+                    CachedArtworkImage(url: model.playback?.albumImageURL, mode: .fill) {
+                        Image(systemName: "music.note").font(.system(size: 34, weight: .bold)).frame(maxWidth: .infinity, maxHeight: .infinity).background(djConnectAccent.opacity(0.45))
+                    }
+                    .frame(width: 88, height: 88)
+                    .clipped()
+                    .djArtworkStyle(cornerRadius: 8)
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(model.playback?.trackName ?? localized(model.language, "Nothing playing", "Niets speelt af")).font(.title2.weight(.black)).foregroundStyle(.white).lineLimit(1)
+                        Text(model.playback?.artistName ?? localized(model.language, "Select an AirPlay TV", "Kies een AirPlay-tv")).font(.headline.weight(.semibold)).foregroundStyle(.white.opacity(0.66)).lineLimit(1)
+                    }
+                    Spacer()
+                }
+                .accessibilityIdentifier("AskDJPartyNowPlaying")
+            }
+            .padding(.horizontal, 34)
+            .padding(.vertical, 24)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(DJConnectCanvasBackground())
+        }
+        .background(DJConnectCanvasBackground())
+        .task { await model.runAskDJHistorySyncLoop() }
+    }
+
+    @ViewBuilder private var airPlayControl: some View {
+        #if os(iOS) && canImport(AVKit)
+        AirPlayRoutePickerButton().accessibilityLabel(localized(model.language, "Choose AirPlay TV", "Kies AirPlay-tv"))
+        #else
+        Image(systemName: "airplayvideo").foregroundStyle(.white)
+        #endif
+    }
+}
+
+private struct AskDJPartyEmptyState: View {
+    let language: String
+    var body: some View {
+        Text(localized(language, "Ask DJ messages appear here live.", "Ask DJ-berichten verschijnen hier live."))
+            .font(.title.weight(.black)).foregroundStyle(.white).frame(maxWidth: .infinity, minHeight: 260).accessibilityIdentifier("AskDJPartyEmptyState")
+    }
+}
+
+private struct AskDJPartyBubble: View {
+    let message: DJConnectAskDJMessage
+    let language: String
+    private var isUser: Bool { message.role == .user }
+    var body: some View {
+        HStack {
+            if isUser { Spacer(minLength: 80) }
+            VStack(alignment: isUser ? .trailing : .leading, spacing: 8) {
+                Text(isUser ? localized(language, "Guest", "Gast") : "Ask DJ").font(.headline.weight(.black)).foregroundStyle(.white.opacity(0.62)).textCase(.uppercase)
+                Text(message.text).font(.system(size: isUser ? 30 : 34, weight: .black, design: .rounded)).foregroundStyle(.white).multilineTextAlignment(isUser ? .trailing : .leading)
+            }
+            .padding(.horizontal, 28).padding(.vertical, 22).frame(maxWidth: 980, alignment: isUser ? .trailing : .leading)
+            .background(LinearGradient(colors: isUser ? [Color(red: 0.04, green: 0.48, blue: 1), Color(red: 0, green: 0.35, blue: 0.95)] : [Color(red: 0.02, green: 0.46, blue: 1), Color(red: 0.90, green: 0.16, blue: 0.96)], startPoint: .topLeading, endPoint: .bottomTrailing))
+            .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
+            .accessibilityIdentifier(isUser ? "AskDJPartyUserBubble" : "AskDJPartyDJBubble")
+            if !isUser { Spacer(minLength: 80) }
         }
     }
 }
@@ -6007,6 +6136,12 @@ private struct MoreView: View {
                         systemImage: "rectangle.stack"
                     ) {
                         PlaylistsView(model: model)
+                    }
+                    MoreNavigationRow(
+                        title: "Ask DJ - Party!",
+                        systemImage: "airplayvideo"
+                    ) {
+                        AskDJPartyView(model: model)
                     }
                     MoreNavigationRow(
                         title: localized(model.language, "Games", "Games"),

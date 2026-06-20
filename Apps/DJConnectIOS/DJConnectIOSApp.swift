@@ -23,11 +23,15 @@ struct DJConnectIOSApp: App {
             if let homeAssistantURL = processInfo.environment["DJCONNECT_UITEST_HA_URL"], !homeAssistantURL.isEmpty {
                 defaults.set(homeAssistantURL, forKey: "DJConnectHomeAssistantURL")
             }
-            return DJConnectAppModel(
+            let model = DJConnectAppModel(
                 defaults: defaults,
                 tokenStore: DJConnectInMemoryTokenStore(),
                 monkeyTestingMode: processInfo.arguments.contains("--monkey-testing")
             )
+            if processInfo.arguments.contains("--ask-dj-party-demo-feed") {
+                model.seedAskDJPartyDemoMessagesForTesting()
+            }
+            return model
         }
         #endif
         return DJConnectAppModel(
