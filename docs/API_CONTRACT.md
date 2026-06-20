@@ -383,12 +383,12 @@ not expose a separate `DJ verzoek` block on Apple clients. rbpi does not have a
 separate rich DJ request UI, and ESP32 remains outside this Ask DJ rich chat UI
 contract.
 
-On Air is a client-side AirPlay/TV output for the same Ask DJ history and
-response contract. It is launched from the existing iOS Ask DJ screen and does
-not require a separate app destination, endpoint, or message shape. Assistant
+On Air is a client-side AirPlay/TV video output for the same Ask DJ history and
+response contract. It is launched from the existing Ask DJ screen and does not
+require a separate app destination, endpoint, or message shape. Assistant
 `audio_url` values returned through Ask DJ are still the source for
-replay/local response audio; iOS routes that playback to AirPlay when the user
-has selected an AirPlay route.
+replay/local response audio; system audio routing sends playback to AirPlay when
+the user has selected an AirPlay route.
 
 Minimum payload:
 

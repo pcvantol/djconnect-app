@@ -76,6 +76,16 @@ public final class DJConnectClient: Sendable {
         return try await decodedResponse(for: request)
     }
 
+    public func registerPushNotifications(_ payload: DJConnectPushRegistrationRequest) async throws -> DJConnectCommandResponse {
+        let request = try pushRegisterRequest(payload)
+        return try await decodedResponse(for: request)
+    }
+
+    public func unregisterPushNotifications(_ payload: DJConnectPushUnregistrationRequest) async throws -> DJConnectCommandResponse {
+        let request = try pushUnregisterRequest(payload)
+        return try await decodedResponse(for: request)
+    }
+
     public func sendVoice(
         wavData: Data,
         mood: Int? = nil,
@@ -135,6 +145,14 @@ public final class DJConnectClient: Sendable {
 
     public func askDJIdleSuggestionRequest(_ payload: DJConnectAskDJIdleSuggestionRequest) throws -> URLRequest {
         try jsonRequest(path: "/api/djconnect/ask_dj/idle_suggestion", payload: payload)
+    }
+
+    public func pushRegisterRequest(_ payload: DJConnectPushRegistrationRequest) throws -> URLRequest {
+        try jsonRequest(path: "/api/djconnect/push/register", payload: payload)
+    }
+
+    public func pushUnregisterRequest(_ payload: DJConnectPushUnregistrationRequest) throws -> URLRequest {
+        try jsonRequest(path: "/api/djconnect/push/unregister", payload: payload)
     }
 
     public func voiceRequest(
@@ -223,7 +241,7 @@ public final class DJConnectClient: Sendable {
                 options: .regularExpression
             )
             .replacingOccurrences(
-                of: #""(device_token|bearer_token|token|access_token|refresh_token|client_secret|password)"\s*:\s*"[^"]*""#,
+                of: #""(device_token|push_token|bearer_token|token|access_token|refresh_token|client_secret|password)"\s*:\s*"[^"]*""#,
                 with: #""$1":"[redacted]""#,
                 options: .regularExpression
             )

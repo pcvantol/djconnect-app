@@ -33,6 +33,7 @@ private func watchAskDJTimestamp(_ date: Date, now: Date = Date()) -> String {
 }
 
 struct DJConnectWatchRootView: View {
+    @Environment(\.scenePhase) private var scenePhase
     @EnvironmentObject private var model: DJConnectWatchModel
     @State private var moodCrownValue = 0.0
 
@@ -54,6 +55,24 @@ struct DJConnectWatchRootView: View {
                 }
         }
         .tint(watchAccentPurple)
+        .sheet(isPresented: $model.isShowingMicrophonePermissionExplanation) {
+            DJConnectWatchMicrophonePermissionView(kind: .pushToTalk)
+                .environmentObject(model)
+        }
+        .sheet(isPresented: $model.isShowingVoiceActivationPermissionExplanation) {
+            DJConnectWatchMicrophonePermissionView(kind: .voiceActivation)
+                .environmentObject(model)
+        }
+        .sheet(isPresented: $model.isShowingWelcome) {
+            DJConnectWatchWelcomeView()
+                .environmentObject(model)
+        }
+        .onChange(of: scenePhase) { _, phase in
+            model.handleAppForegroundChange(phase == .active)
+        }
+        .onAppear {
+            model.handleAppForegroundChange(scenePhase == .active)
+        }
     }
 
     @ViewBuilder
@@ -94,6 +113,34 @@ struct DJConnectWatchRootView: View {
 
                     volumeControl
 
+                    NavigationLink {
+                        DJConnectWatchOutputsView()
+                    } label: {
+                        HStack(spacing: 8) {
+                            Image(systemName: "speaker.wave.2")
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundStyle(watchAccentBlue.opacity(0.94))
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Uitvoer")
+                                    .font(.caption2.weight(.semibold))
+                                    .foregroundStyle(.white.opacity(0.62))
+                                Text(model.selectedOutput)
+                                    .font(.caption.weight(.bold))
+                                    .foregroundStyle(.white)
+                                    .lineLimit(1)
+                            }
+                            Spacer(minLength: 4)
+                            Image(systemName: "chevron.right")
+                                .font(.system(size: 10, weight: .bold))
+                                .foregroundStyle(.white.opacity(0.46))
+                        }
+                        .frame(maxWidth: .infinity, minHeight: 34)
+                        .padding(.horizontal, 9)
+                        .padding(.vertical, 6)
+                        .background(DJConnectWatchPanel(cornerRadius: 12))
+                    }
+                    .buttonStyle(.plain)
+
                     Button {
                         model.toggleRecording()
                     } label: {
@@ -110,18 +157,20 @@ struct DJConnectWatchRootView: View {
                         .foregroundStyle(.white.opacity(0.72))
                         .multilineTextAlignment(.center)
 
+                    if model.isDemoMode {
+                        Button {
+                            model.stopDemoMode()
+                        } label: {
+                            Label("Stop demo", systemImage: "xmark.circle")
+                                .font(.footnote.weight(.semibold))
+                                .frame(maxWidth: .infinity, minHeight: 34)
+                        }
+                        .buttonStyle(DJConnectWatchGradientButtonStyle(kind: .secondary))
+                    }
+
                     if !model.responseImages.isEmpty {
                         AskDJWatchImageStack(images: model.responseImages)
                     }
-
-                    NavigationLink {
-                        DJConnectWatchAskDJChatView()
-                    } label: {
-                        Label("Ask DJ Chat", systemImage: "bubble.left.and.bubble.right.fill")
-                            .font(.footnote.weight(.semibold))
-                            .frame(maxWidth: .infinity, minHeight: 34)
-                    }
-                    .buttonStyle(DJConnectWatchGradientButtonStyle(kind: .primary))
 
                     NavigationLink {
                         DJConnectWatchQueueView()
@@ -160,9 +209,9 @@ struct DJConnectWatchRootView: View {
                     .buttonStyle(DJConnectWatchGradientButtonStyle(kind: .secondary))
 
                     NavigationLink {
-                        DJConnectWatchAboutView()
+                        DJConnectWatchSettingsView()
                     } label: {
-                        Label("Over", systemImage: "info.circle")
+                        Label("Instellingen", systemImage: "gearshape")
                             .font(.footnote.weight(.semibold))
                             .frame(maxWidth: .infinity, minHeight: 32)
                     }
@@ -178,9 +227,9 @@ struct DJConnectWatchRootView: View {
                     .buttonStyle(DJConnectWatchGradientButtonStyle(kind: .secondary))
 
                     NavigationLink {
-                        DJConnectWatchSettingsView()
+                        DJConnectWatchAboutView()
                     } label: {
-                        Label("Instellingen", systemImage: "gearshape")
+                        Label("Over", systemImage: "info.circle")
                             .font(.footnote.weight(.semibold))
                             .frame(maxWidth: .infinity, minHeight: 32)
                     }
@@ -199,6 +248,15 @@ struct DJConnectWatchRootView: View {
                         DJConnectWatchPrivacyView()
                     } label: {
                         Label("Privacy", systemImage: "hand.raised")
+                            .font(.footnote.weight(.semibold))
+                            .frame(maxWidth: .infinity, minHeight: 32)
+                    }
+                    .buttonStyle(DJConnectWatchGradientButtonStyle(kind: .secondary))
+
+                    NavigationLink {
+                        DJConnectWatchFeedbackView()
+                    } label: {
+                        Label("Feedback delen", systemImage: "bubble.left.and.bubble.right")
                             .font(.footnote.weight(.semibold))
                             .frame(maxWidth: .infinity, minHeight: 32)
                     }
@@ -298,28 +356,6 @@ struct DJConnectWatchRootView: View {
             }
             .frame(height: 32)
             .accessibilityHidden(true)
-
-            HStack(spacing: 4) {
-                ForEach(model.askDJMoodSteps.indices, id: \.self) { index in
-                    Button {
-                        model.setAskDJMoodStep(index)
-                    } label: {
-                        Text(model.askDJMoodSteps[index].label)
-                            .font(.system(size: 9, weight: model.askDJMoodStepIndex == index ? .bold : .semibold))
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.78)
-                            .frame(maxWidth: .infinity, minHeight: 24)
-                    }
-                    .buttonStyle(.plain)
-                    .foregroundStyle(model.askDJMoodStepIndex == index ? .white : .white.opacity(0.56))
-                    .background(
-                        Capsule()
-                            .fill(model.askDJMoodStepIndex == index ? watchAccentPurple.opacity(0.42) : Color.white.opacity(0.07))
-                    )
-                    .accessibilityLabel("Mood \(model.askDJMoodSteps[index].label)")
-                    .accessibilityAddTraits(model.askDJMoodStepIndex == index ? .isSelected : [])
-                }
-            }
         }
         .padding(.vertical, 8)
         .padding(.horizontal, 9)
@@ -388,25 +424,35 @@ struct DJConnectWatchRootView: View {
     }
 
     private var nowPlaying: some View {
-        VStack(spacing: 5) {
-            Text(model.playback?.trackName ?? "Geen track")
-                .font(.headline)
-                .foregroundStyle(.white)
-                .multilineTextAlignment(.center)
-                .lineLimit(3)
-            Text(model.playback?.artistName ?? "DJConnect")
-                .font(.caption)
-                .foregroundStyle(.white.opacity(0.68))
-                .lineLimit(2)
-            if let volume = model.playback?.volumePercent {
-                Label("\(volume)%", systemImage: "speaker.wave.2.fill")
-                    .font(.caption2)
-                    .foregroundStyle(watchAccentBlue.opacity(0.92))
+        HStack(spacing: 9) {
+            DJConnectWatchArtwork(
+                url: model.playback?.albumImageURL,
+                fallbackSystemImage: "music.note"
+            )
+            .frame(width: 54, height: 54)
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(model.playback?.trackName ?? "Geen track")
+                    .font(.headline)
+                    .foregroundStyle(.white)
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.82)
+                Text(model.playback?.artistName ?? "DJConnect")
+                    .font(.caption)
+                    .foregroundStyle(.white.opacity(0.68))
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.82)
+                if let volume = model.playback?.volumePercent {
+                    Label("\(volume)%", systemImage: "speaker.wave.2.fill")
+                        .font(.caption2)
+                        .foregroundStyle(watchAccentBlue.opacity(0.92))
+                        .lineLimit(1)
+                }
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
         .frame(maxWidth: .infinity)
-        .padding(.vertical, 10)
-        .padding(.horizontal, 8)
+        .padding(8)
         .background(DJConnectWatchPanel())
     }
 
@@ -415,25 +461,78 @@ struct DJConnectWatchRootView: View {
             DJConnectWatchCanvas()
             ScrollView {
                 VStack(alignment: .leading, spacing: 11) {
-                    Text("Koppel met Home Assistant")
-                        .font(.headline)
-                        .foregroundStyle(.white)
-                        .lineLimit(2)
+                    HStack(alignment: .center, spacing: 9) {
+                        Image("LaunchIcon")
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: 34, height: 34)
+                            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                            .shadow(color: watchAccentPurple.opacity(0.26), radius: 8, y: 3)
+                            .accessibilityHidden(true)
 
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text("Code")
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text("DJConnect koppelen")
+                                .font(.headline)
+                                .foregroundStyle(.white)
+                                .lineLimit(2)
+                            Text("Koppelgegevens voor Home Assistant")
+                                .font(.caption2.weight(.semibold))
+                                .foregroundStyle(.white.opacity(0.58))
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                    }
+
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("Home Assistant URL")
                             .font(.caption)
                             .foregroundStyle(.white.opacity(0.66))
-                        Text(model.pairingCode)
-                            .font(.title2.monospacedDigit())
-                            .foregroundStyle(
-                                LinearGradient(
-                                    colors: [watchAccentBlue, watchAccentPurple],
-                                    startPoint: .leading,
-                                    endPoint: .trailing
-                                )
+                        TextField("Home Assistant URL", text: $model.haBaseURL)
+                            .font(.caption2.monospaced())
+                            .textInputAutocapitalization(.never)
+                            .disableAutocorrection(true)
+                            .lineLimit(2)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 7)
+                            .background(
+                                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                    .fill(Color.white.opacity(0.08))
                             )
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                    .stroke(Color.white.opacity(0.12), lineWidth: 1)
+                            )
+                            .accessibilityLabel("Home Assistant URL")
+                            .accessibilityHint("Home Assistant URL voor deze Watch")
+                        Text("WiFi is vereist. Gebruik hetzelfde lokale netwerk als Home Assistant.")
+                            .font(.caption2)
+                            .foregroundStyle(.white.opacity(0.54))
+                            .fixedSize(horizontal: false, vertical: true)
                     }
+                    .padding(9)
+                    .background(DJConnectWatchPanel(cornerRadius: 12))
+
+                    if let networkRequirementMessage = model.networkRequirementMessage {
+                        Label(networkRequirementMessage, systemImage: "wifi.exclamationmark")
+                            .font(.caption2.weight(.semibold))
+                            .foregroundStyle(Color(red: 1.0, green: 0.62, blue: 0.28))
+                            .fixedSize(horizontal: false, vertical: true)
+                            .padding(9)
+                            .background(DJConnectWatchPanel(cornerRadius: 12))
+                    }
+
+                    pairingValueCard(
+                        title: "Koppelcode",
+                        value: model.pairingCode,
+                        systemImage: "number",
+                        prominent: true
+                    )
+
+                    pairingValueCard(
+                        title: "Client adres",
+                        value: model.localDeviceAPIURL ?? "Client adres wordt gestart...",
+                        systemImage: "network",
+                        prominent: false
+                    )
 
                     if let message {
                         Text(message)
@@ -448,6 +547,7 @@ struct DJConnectWatchRootView: View {
                             .frame(maxWidth: .infinity, minHeight: 36)
                     }
                     .buttonStyle(DJConnectWatchGradientButtonStyle(kind: .primary))
+                    .disabled(!model.isWiFiAvailable)
 
                     Button {
                         model.startDemoMode()
@@ -461,6 +561,34 @@ struct DJConnectWatchRootView: View {
                 .padding(.horizontal, 4)
             }
         }
+    }
+
+    private func pairingValueCard(
+        title: String,
+        value: String,
+        systemImage: String,
+        prominent: Bool
+    ) -> some View {
+        HStack(alignment: .center, spacing: 8) {
+            VStack(alignment: .leading, spacing: 5) {
+                Text(title)
+                    .font(.caption)
+                    .foregroundStyle(.white.opacity(0.66))
+                Text(value)
+                    .font(prominent ? .title3.monospacedDigit().weight(.bold) : .caption2.monospaced())
+                    .foregroundStyle(prominent ? .white : .white.opacity(0.88))
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.72)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer(minLength: 4)
+            Image(systemName: systemImage)
+                .font(.system(size: prominent ? 16 : 13, weight: .semibold))
+                .foregroundStyle(watchAccentPurple.opacity(0.92))
+        }
+        .padding(9)
+        .background(DJConnectWatchPanel(cornerRadius: 12))
+        .accessibilityElement(children: .combine)
     }
 
     private func commandButton(
@@ -517,6 +645,140 @@ struct DJConnectWatchRootView: View {
     }
 }
 
+private struct DJConnectWatchWelcomeView: View {
+    @EnvironmentObject private var model: DJConnectWatchModel
+
+    var body: some View {
+        ZStack {
+            DJConnectWatchCanvas()
+            ScrollView {
+                VStack(spacing: 11) {
+                    Image("LaunchIcon")
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 44, height: 44)
+                        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                        .shadow(color: watchAccentPurple.opacity(0.28), radius: 10, y: 4)
+                        .accessibilityHidden(true)
+
+                    Text("Welkom bij DJConnect")
+                        .font(.headline.weight(.bold))
+                        .foregroundStyle(.white)
+                        .multilineTextAlignment(.center)
+
+                    Text("Configureer DJConnect in Home Assistant en koppel daarna deze Watch.")
+                        .font(.caption2)
+                        .foregroundStyle(.white.opacity(0.72))
+                        .multilineTextAlignment(.center)
+                        .fixedSize(horizontal: false, vertical: true)
+
+                    Label("Spotify Premium is benodigd.", systemImage: "music.note")
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(.white.opacity(0.62))
+                        .multilineTextAlignment(.center)
+
+                    Button {
+                        model.dismissWelcome()
+                    } label: {
+                        Text("Doorgaan")
+                            .frame(maxWidth: .infinity, minHeight: 34)
+                    }
+                    .buttonStyle(DJConnectWatchGradientButtonStyle(kind: .primary))
+                }
+                .padding(.vertical, 10)
+                .padding(.horizontal, 8)
+            }
+        }
+    }
+}
+
+private struct DJConnectWatchMicrophonePermissionView: View {
+    enum Kind {
+        case pushToTalk
+        case voiceActivation
+    }
+
+    @EnvironmentObject private var model: DJConnectWatchModel
+    let kind: Kind
+
+    var body: some View {
+        ZStack {
+            DJConnectWatchCanvas()
+            VStack(spacing: 10) {
+                Image(systemName: "mic.circle.fill")
+                    .font(.system(size: 36, weight: .semibold))
+                    .foregroundStyle(
+                        LinearGradient(
+                            colors: [watchAccentBlue, watchAccentPurple],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+
+                Text("Microfoon")
+                    .font(.headline.weight(.bold))
+                    .foregroundStyle(.white)
+
+                Text(bodyText)
+                    .font(.caption2)
+                    .foregroundStyle(.white.opacity(0.72))
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                Text(secondaryText)
+                    .font(.caption2)
+                    .foregroundStyle(.white.opacity(0.56))
+                    .multilineTextAlignment(.center)
+
+                Button {
+                    switch kind {
+                    case .pushToTalk:
+                        model.continueAfterMicrophonePermissionExplanation()
+                    case .voiceActivation:
+                        model.continueAfterVoiceActivationPermissionExplanation()
+                    }
+                } label: {
+                    Text("Doorgaan")
+                        .frame(maxWidth: .infinity, minHeight: 32)
+                }
+                .buttonStyle(DJConnectWatchGradientButtonStyle(kind: .primary))
+
+                Button {
+                    switch kind {
+                    case .pushToTalk:
+                        model.cancelMicrophonePermissionExplanation()
+                    case .voiceActivation:
+                        model.cancelVoiceActivationPermissionExplanation()
+                    }
+                } label: {
+                    Text("Niet nu")
+                        .frame(maxWidth: .infinity, minHeight: 30)
+                }
+                .buttonStyle(DJConnectWatchGradientButtonStyle(kind: .secondary))
+            }
+            .padding(.horizontal, 8)
+        }
+    }
+
+    private var bodyText: String {
+        switch kind {
+        case .pushToTalk:
+            return "DJConnect gebruikt de microfoon alleen wanneer je zelf een stemverzoek aan Ask DJ start."
+        case .voiceActivation:
+            return "Stemactivatie luistert alleen naar Hey DJ zolang de Watch app zichtbaar en open is."
+        }
+    }
+
+    private var secondaryText: String {
+        switch kind {
+        case .pushToTalk:
+            return "Hierna vraagt Apple om toestemming."
+        case .voiceActivation:
+            return "Geen wake word buiten de app. Hierna vraagt Apple om microfoon- en spraakherkenningstoestemming."
+        }
+    }
+}
+
 private struct DJConnectWatchAboutView: View {
     @EnvironmentObject private var model: DJConnectWatchModel
 
@@ -529,15 +791,13 @@ private struct DJConnectWatchAboutView: View {
             DJConnectWatchCanvas()
             ScrollView {
                 VStack(spacing: 10) {
-                    Image(systemName: "music.note.house.fill")
-                        .font(.system(size: 32, weight: .semibold))
-                        .foregroundStyle(
-                            LinearGradient(
-                                colors: [watchAccentBlue, watchAccentPurple],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                        )
+                    Image("LaunchIcon")
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 44, height: 44)
+                        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                        .shadow(color: watchAccentPurple.opacity(0.28), radius: 10, y: 4)
+                        .accessibilityHidden(true)
 
                     Text("DJConnect")
                         .font(.headline.weight(.bold))
@@ -639,6 +899,7 @@ private struct DJConnectWatchPrivacyView: View {
                     DJConnectWatchLegalSection(title: "Privacy") {
                         Text("DJConnect verzamelt, verkoopt of verwerkt zelf geen persoonsgegevens in de app.")
                         Text("Device-tokens worden lokaal in de private app-opslag bewaard.")
+                        Text("Pushnotificaties worden alleen gebruikt voor DJConnect-meldingen, zoals Ask DJ-reacties. DJConnect bewaart hiervoor een Apple push-token lokaal en deelt dit met je eigen Home Assistant DJConnect-integratie zodat notificaties via Apple Push Notification service kunnen worden bezorgd. Push-tokens worden niet gebruikt voor tracking, advertenties of verkoop.")
                         Text("Diagnostiek wordt alleen gedeeld wanneer je die zelf kopieert of een GitHub issue opent.")
                         Text("Muziek, playback en stemverzoeken lopen via je eigen Home Assistant DJConnect-integratie.")
                         Text("AI- en Assist-antwoorden kunnen onjuist zijn en hangen af van je eigen Home Assistant- en Assist-configuratie.")
@@ -651,6 +912,87 @@ private struct DJConnectWatchPrivacyView: View {
             }
         }
         .navigationTitle("Privacy")
+    }
+}
+
+private struct DJConnectWatchFeedbackView: View {
+    @Environment(\.openURL) private var openURL
+
+    private var feedbackURL: URL {
+        var components = URLComponents(string: "https://github.com/pcvantol/djconnect/issues/new")
+        components?.queryItems = [
+            URLQueryItem(name: "title", value: "DJConnect watchOS feedback"),
+            URLQueryItem(name: "body", value: """
+            ## DJConnect watchOS feedback
+
+            Please describe your feedback or feature request:
+
+
+            ```text
+            client_type: watchos
+            ```
+            """)
+        ]
+        return components?.url ?? URL(string: "https://github.com/pcvantol/djconnect/issues/new")!
+    }
+
+    var body: some View {
+        ZStack {
+            DJConnectWatchCanvas()
+            ScrollView {
+                VStack(spacing: 10) {
+                    Image(systemName: "bubble.left.and.bubble.right.fill")
+                        .font(.system(size: 32, weight: .semibold))
+                        .foregroundStyle(
+                            LinearGradient(
+                                colors: [watchAccentBlue, watchAccentPurple],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+
+                    Text("Feedback delen")
+                        .font(.headline.weight(.bold))
+                        .foregroundStyle(.white)
+                        .multilineTextAlignment(.center)
+
+                    Text("Open een GitHub issue met app-context. Er wordt niets automatisch geüpload.")
+                        .font(.caption2)
+                        .foregroundStyle(.white.opacity(0.68))
+                        .multilineTextAlignment(.center)
+                        .fixedSize(horizontal: false, vertical: true)
+
+                    Button {
+                        openURL(feedbackURL)
+                    } label: {
+                        Label("Open GitHub issue", systemImage: "arrow.up.right.square")
+                            .font(.caption2.weight(.semibold))
+                            .frame(maxWidth: .infinity, minHeight: 32)
+                    }
+                    .buttonStyle(DJConnectWatchGradientButtonStyle(kind: .primary))
+
+                    VStack(alignment: .leading, spacing: 5) {
+                        Text("Werkt openen niet op de Watch?")
+                            .font(.caption2.weight(.bold))
+                            .foregroundStyle(.white)
+                        Text("Gebruik dan deze link op iPhone of Mac:")
+                            .font(.caption2)
+                            .foregroundStyle(.white.opacity(0.62))
+                        Text("github.com/pcvantol/djconnect/issues/new")
+                            .font(.system(size: 9, weight: .semibold, design: .monospaced))
+                            .foregroundStyle(watchAccentBlue.opacity(0.92))
+                            .lineLimit(3)
+                            .minimumScaleFactor(0.78)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(10)
+                    .background(DJConnectWatchPanel(cornerRadius: 12))
+                }
+                .padding(.vertical, 10)
+                .padding(.horizontal, 6)
+            }
+        }
+        .navigationTitle("Feedback")
     }
 }
 
@@ -680,45 +1022,105 @@ private enum DJConnectWatchGameMode: String, CaseIterable, Identifiable {
 }
 
 private struct DJConnectWatchGamesView: View {
-    @State private var selectedGame = DJConnectWatchGameMode.pong
+    @State private var activeGame: DJConnectWatchGameMode?
 
     var body: some View {
         ZStack {
             DJConnectWatchCanvas()
-            VStack(spacing: 8) {
-                HStack(spacing: 5) {
+            ScrollView {
+                LazyVStack(spacing: 8) {
                     ForEach(DJConnectWatchGameMode.allCases) { game in
                         Button {
-                            selectedGame = game
+                            activeGame = game
                         } label: {
-                            Label(game.title, systemImage: game.icon)
-                                .labelStyle(.iconOnly)
-                                .font(.system(size: 14, weight: .bold))
-                                .frame(maxWidth: .infinity, minHeight: 30)
+                            HStack(spacing: 9) {
+                                Image(systemName: game.icon)
+                                    .font(.system(size: 18, weight: .bold))
+                                    .foregroundStyle(watchAccentBlue)
+                                    .frame(width: 34, height: 34)
+                                    .background(
+                                        Circle()
+                                            .fill(watchAccentBlue.opacity(0.16))
+                                    )
+
+                                Text(game.title)
+                                    .font(.caption.weight(.bold))
+                                    .foregroundStyle(.white)
+                                    .lineLimit(2)
+
+                                Spacer(minLength: 4)
+
+                                Image(systemName: "play.fill")
+                                    .font(.system(size: 14, weight: .bold))
+                                    .foregroundStyle(.white)
+                                    .frame(width: 32, height: 32)
+                                    .background(
+                                        Circle()
+                                            .fill(
+                                                LinearGradient(
+                                                    colors: [watchAccentPurple, watchAccentBlue],
+                                                    startPoint: .topLeading,
+                                                    endPoint: .bottomTrailing
+                                                )
+                                            )
+                                    )
+                            }
+                            .padding(9)
+                            .background(DJConnectWatchPanel(cornerRadius: 12))
                         }
                         .buttonStyle(.plain)
-                        .foregroundStyle(selectedGame == game ? .white : .white.opacity(0.62))
-                        .background(
-                            Capsule()
-                                .fill(selectedGame == game ? watchAccentPurple.opacity(0.44) : Color.white.opacity(0.08))
-                        )
-                        .accessibilityLabel(game.title)
-                        .accessibilityAddTraits(selectedGame == game ? .isSelected : [])
+                        .accessibilityLabel("Speel \(game.title)")
                     }
                 }
+                .padding(.vertical, 8)
                 .padding(.horizontal, 4)
-
-                DJConnectWatchGameSurface(game: selectedGame)
-                    .id(selectedGame)
             }
-            .padding(.vertical, 8)
         }
         .navigationTitle("Games")
+        .fullScreenCover(item: $activeGame) { game in
+            DJConnectWatchFullscreenGameView(game: game) {
+                activeGame = nil
+            }
+        }
+    }
+}
+
+private struct DJConnectWatchFullscreenGameView: View {
+    let game: DJConnectWatchGameMode
+    let close: () -> Void
+
+    var body: some View {
+        ZStack(alignment: .topLeading) {
+            DJConnectWatchCanvas()
+            DJConnectWatchGameSurface(game: game, isFullscreen: true)
+                .id(game)
+                .padding(.top, 30)
+                .padding(.horizontal, 4)
+                .padding(.bottom, 4)
+
+            Button {
+                close()
+            } label: {
+                Image(systemName: "chevron.left")
+                    .font(.system(size: 13, weight: .bold))
+                    .foregroundStyle(.white)
+                    .frame(width: 28, height: 28)
+                    .background(
+                        Circle()
+                            .fill(Color.black.opacity(0.32))
+                    )
+            }
+            .buttonStyle(.plain)
+            .padding(.leading, 4)
+            .padding(.top, 2)
+            .accessibilityLabel("Terug naar game selectie")
+        }
     }
 }
 
 private struct DJConnectWatchGameSurface: View {
     let game: DJConnectWatchGameMode
+    var isFullscreen = false
 
     @AppStorage("djconnect.watch.game.pong.high") private var pongHighScore = 0
     @AppStorage("djconnect.watch.game.fly.high") private var flyHighScore = 0
@@ -747,7 +1149,7 @@ private struct DJConnectWatchGameSurface: View {
     }
 
     var body: some View {
-        VStack(spacing: 7) {
+        VStack(spacing: isFullscreen ? 5 : 7) {
             HStack(spacing: 8) {
                 Text("\(game.title)")
                     .font(.caption.weight(.bold))
@@ -760,39 +1162,9 @@ private struct DJConnectWatchGameSurface: View {
                     .font(.caption2.monospacedDigit().weight(.semibold))
                     .foregroundStyle(.white.opacity(0.58))
             }
-            .padding(.horizontal, 8)
+            .padding(.horizontal, isFullscreen ? 6 : 8)
 
-            TimelineView(.animation(minimumInterval: 1.0 / 30.0)) { timeline in
-                Canvas { context, size in
-                    draw(in: &context, size: size)
-                }
-                .frame(maxWidth: .infinity)
-                .aspectRatio(1.28, contentMode: .fit)
-                .background(
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .fill(Color.black.opacity(0.34))
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .stroke(Color.white.opacity(0.12), lineWidth: 1)
-                )
-                .focusable(true)
-                .digitalCrownRotation(
-                    $crownValue,
-                    from: 0,
-                    through: 1,
-                    by: 0.01,
-                    sensitivity: .medium,
-                    isContinuous: false,
-                    isHapticFeedbackEnabled: true
-                )
-                .onChange(of: crownValue) {
-                    handleCrownChange()
-                }
-                .onChange(of: timeline.date) {
-                    update(now: timeline.date)
-                }
-            }
+            gameCanvas
 
             HStack(spacing: 7) {
                 Button {
@@ -818,10 +1190,49 @@ private struct DJConnectWatchGameSurface: View {
             }
             .padding(.horizontal, 4)
         }
-        .padding(.vertical, 8)
-        .background(DJConnectWatchPanel(cornerRadius: 12))
+        .frame(maxHeight: isFullscreen ? .infinity : nil)
+        .padding(.vertical, isFullscreen ? 0 : 8)
+        .background {
+            if !isFullscreen {
+                DJConnectWatchPanel(cornerRadius: 12)
+            }
+        }
         .onAppear {
             reset()
+        }
+    }
+
+    private var gameCanvas: some View {
+        TimelineView(.animation(minimumInterval: 1.0 / 30.0)) { timeline in
+            Canvas { context, size in
+                draw(in: &context, size: size)
+            }
+            .frame(maxWidth: .infinity, maxHeight: isFullscreen ? .infinity : nil)
+            .aspectRatio(isFullscreen ? nil : 1.28, contentMode: .fit)
+            .background(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(Color.black.opacity(0.34))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .stroke(Color.white.opacity(0.12), lineWidth: 1)
+            )
+            .focusable(true)
+            .digitalCrownRotation(
+                $crownValue,
+                from: 0,
+                through: 1,
+                by: 0.01,
+                sensitivity: .medium,
+                isContinuous: false,
+                isHapticFeedbackEnabled: true
+            )
+            .onChange(of: crownValue) {
+                handleCrownChange()
+            }
+            .onChange(of: timeline.date) {
+                update(now: timeline.date)
+            }
         }
     }
 
@@ -1017,6 +1428,71 @@ private struct DJConnectWatchSettingsView: View {
             DJConnectWatchCanvas()
             ScrollView {
                 VStack(alignment: .leading, spacing: 10) {
+                    DJConnectWatchSettingsSection(title: "Modus") {
+                        Text(model.isDemoMode ? "Demo modus actief" : "Normale modus")
+                            .font(.caption2)
+                            .foregroundStyle(.white.opacity(0.72))
+                        if model.isDemoMode {
+                            Button {
+                                model.stopDemoMode()
+                            } label: {
+                                Label("Stop demo", systemImage: "xmark.circle")
+                                    .font(.caption2.weight(.semibold))
+                                    .frame(maxWidth: .infinity, minHeight: 30)
+                            }
+                            .buttonStyle(DJConnectWatchGradientButtonStyle(kind: .secondary))
+                        }
+                    }
+
+                    if !model.isDemoMode {
+                        DJConnectWatchSettingsSection(title: "Koppeling") {
+                            Text("Reset de Watch-koppeling en koppel opnieuw via Home Assistant.")
+                                .font(.caption2)
+                                .foregroundStyle(.white.opacity(0.72))
+                                .fixedSize(horizontal: false, vertical: true)
+                            Button(role: .destructive) {
+                                model.resetPairing()
+                            } label: {
+                                Label("Opnieuw koppelen", systemImage: "arrow.triangle.2.circlepath")
+                                    .font(.caption2.weight(.semibold))
+                                    .frame(maxWidth: .infinity, minHeight: 30)
+                            }
+                            .buttonStyle(DJConnectWatchGradientButtonStyle(kind: .secondary))
+                        }
+                    }
+
+                    DJConnectWatchSettingsSection(title: "Stemactivatie") {
+                        Toggle(isOn: Binding(
+                            get: { model.isVoiceActivationEnabled },
+                            set: { model.setVoiceActivationEnabled($0) }
+                        )) {
+                            Label("Hey DJ", systemImage: "waveform")
+                                .font(.caption2.weight(.semibold))
+                                .foregroundStyle(.white)
+                        }
+                        .tint(watchAccentPurple)
+
+                        HStack(spacing: 7) {
+                            Image(systemName: voiceActivationIcon)
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundStyle(voiceActivationColor)
+                            Text(model.voiceActivationStatusText)
+                                .font(.caption2.weight(.bold))
+                                .foregroundStyle(.white)
+                            Spacer(minLength: 0)
+                        }
+
+                        Text(model.voiceActivationDetailText)
+                            .font(.caption2)
+                            .foregroundStyle(.white.opacity(0.68))
+                            .fixedSize(horizontal: false, vertical: true)
+
+                        Text("Stop automatisch bij achtergrond of slapen.")
+                            .font(.caption2.weight(.semibold))
+                            .foregroundStyle(.white.opacity(0.52))
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+
                     DJConnectWatchSettingsSection(title: "Logs") {
                         VStack(spacing: 6) {
                             ForEach(DJConnectWatchLogLevel.allCases) { level in
@@ -1038,43 +1514,36 @@ private struct DJConnectWatchSettingsView: View {
                             }
                         }
                     }
-
-                    DJConnectWatchSettingsSection(title: "Modus") {
-                        Text(model.isDemoMode ? "Demo modus actief" : "Normale modus")
-                            .font(.caption2)
-                            .foregroundStyle(.white.opacity(0.72))
-                        if model.isDemoMode {
-                            Button {
-                                model.stopDemoMode()
-                            } label: {
-                                Label("Stop demo", systemImage: "xmark.circle")
-                                    .font(.caption2.weight(.semibold))
-                                    .frame(maxWidth: .infinity, minHeight: 30)
-                            }
-                            .buttonStyle(DJConnectWatchGradientButtonStyle(kind: .secondary))
-                        }
-                    }
-
-                    DJConnectWatchSettingsSection(title: "Koppeling") {
-                        Text("Reset de Watch-koppeling en koppel opnieuw via Home Assistant.")
-                            .font(.caption2)
-                            .foregroundStyle(.white.opacity(0.72))
-                            .fixedSize(horizontal: false, vertical: true)
-                        Button(role: .destructive) {
-                            model.resetPairing()
-                        } label: {
-                            Label("Opnieuw koppelen", systemImage: "arrow.triangle.2.circlepath")
-                                .font(.caption2.weight(.semibold))
-                                .frame(maxWidth: .infinity, minHeight: 30)
-                        }
-                        .buttonStyle(DJConnectWatchGradientButtonStyle(kind: .secondary))
-                    }
                 }
                 .padding(.vertical, 8)
                 .padding(.horizontal, 4)
             }
         }
         .navigationTitle("Instellingen")
+    }
+
+    private var voiceActivationIcon: String {
+        switch model.voiceActivationStatus {
+        case .listening:
+            return "waveform.circle.fill"
+        case .paused:
+            return "pause.circle"
+        case .microphoneRequired:
+            return "mic.badge.xmark"
+        case .unavailable:
+            return "exclamationmark.triangle"
+        }
+    }
+
+    private var voiceActivationColor: Color {
+        switch model.voiceActivationStatus {
+        case .listening:
+            return .green
+        case .paused:
+            return .white.opacity(0.58)
+        case .microphoneRequired, .unavailable:
+            return Color(red: 1.0, green: 0.62, blue: 0.28)
+        }
     }
 }
 
@@ -1146,6 +1615,7 @@ private struct DJConnectWatchLogsView: View {
                             .padding(.vertical, 8)
                             .padding(.horizontal, 4)
                         }
+                        .frame(maxHeight: .infinity)
                         .onAppear {
                             scrollToBottom(proxy)
                         }
@@ -1167,6 +1637,7 @@ private struct DJConnectWatchLogsView: View {
                 .padding(.horizontal, 4)
                 .padding(.bottom, 6)
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .navigationTitle("Logs")
     }
@@ -1748,7 +2219,7 @@ private struct DJConnectWatchAskDJChatView: View {
     private var voiceButtonTitle: String {
         switch model.voiceState {
         case .idle:
-            return "Praat"
+            return "DJ verzoek"
         case .recording:
             return "Stop"
         case .processing:

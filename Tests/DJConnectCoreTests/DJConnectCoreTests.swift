@@ -195,6 +195,22 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
 }
 
 @MainActor
+@Test func freshInstallIgnoresOrphanedPersistentDeviceToken() throws {
+    let suiteName = "DJConnectTests-\(UUID().uuidString)"
+    let defaults = try #require(UserDefaults(suiteName: suiteName))
+    defaults.removePersistentDomain(forName: suiteName)
+    let tokenStore = DJConnectUserDefaultsTokenStore(defaults: defaults, key: "DJConnectTestDeviceToken")
+    try tokenStore.saveToken("orphaned-token")
+
+    let model = DJConnectAppModel(defaults: defaults, tokenStore: tokenStore, startLocalAPI: false, startBackgroundTasks: false)
+
+    #expect(model.pairingStatus == .unpaired)
+    #expect(model.isConnected == false)
+    #expect(try tokenStore.loadToken() == nil)
+    #expect(defaults.string(forKey: "DJConnectInstallID")?.isEmpty == false)
+}
+
+@MainActor
 @Test func pairingAuthStaleStopsPollingWithSetupGuidance() throws {
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
@@ -401,6 +417,7 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
         text: "Verras me met nieuwe muziek",
         clientMessageID: "client-message-1",
         inputType: "text",
+        mood: 70,
         djStyle: "warm_radio_dj",
         memoryKey: "djconnect_ios_8F3A2C91B45D",
         audioResponse: .auto
@@ -414,6 +431,7 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
     #expect(json?["client_message_id"] as? String == "client-message-1")
     #expect(json?["input_type"] as? String == "text")
     #expect(json?["text"] as? String == "Verras me met nieuwe muziek")
+    #expect(json?["mood"] as? Int == 70)
     #expect(json?["audio_response"] as? String == "auto")
 }
 
@@ -476,6 +494,72 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
     #expect(json?["client_type"] as? String == "watchos")
     #expect(json?["mood"] as? Int == 72)
     #expect(json?["dj_style"] as? String == "warm_radio_dj")
+}
+
+@Test func pushRegisterRequestUsesAuthenticatedEndpointAndSandboxEnvironment() throws {
+    let identity = DJConnectIdentity(
+        deviceID: "djconnect-ios-8F3A2C91B45D",
+        deviceName: "DJConnect iPhone",
+        clientType: .ios,
+        firmware: "3.1.66",
+        appVersion: "3.1.66",
+        platform: .ios
+    )
+    let client = DJConnectClient(
+        baseURL: try #require(URL(string: "http://homeassistant.local:8123")),
+        identity: identity,
+        tokenStore: DJConnectInMemoryTokenStore(token: "secret-token")
+    )
+
+    let request = try client.pushRegisterRequest(DJConnectPushRegistrationRequest(
+        identity: identity,
+        pushToken: "abcdef123456",
+        pushEnvironment: .sandbox,
+        appBundleID: "dev.djconnect.ios",
+        locale: "nl-NL"
+    ))
+    let body = try #require(request.httpBody)
+    let json = try #require(JSONSerialization.jsonObject(with: body) as? [String: Any])
+
+    #expect(request.url?.path == "/api/djconnect/push/register")
+    #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer secret-token")
+    #expect(request.value(forHTTPHeaderField: "X-DJConnect-Device-ID") == identity.deviceID)
+    #expect(json["device_id"] as? String == identity.deviceID)
+    #expect(json["client_type"] as? String == "ios")
+    #expect(json["push_token"] as? String == "abcdef123456")
+    #expect(json["push_environment"] as? String == "sandbox")
+    #expect(json["app_bundle_id"] as? String == "dev.djconnect.ios")
+    #expect(json["locale"] as? String == "nl-NL")
+    #expect((json["notification_categories"] as? [String])?.contains("ask_dj_response") == true)
+}
+
+@Test func pushUnregisterRequestUsesAuthenticatedEndpoint() throws {
+    let identity = DJConnectIdentity(
+        deviceID: "djconnect-macos-8F3A2C91B45D",
+        deviceName: "DJConnect Mac",
+        clientType: .macos,
+        firmware: "3.1.66",
+        appVersion: "3.1.66",
+        platform: .macos
+    )
+    let client = DJConnectClient(
+        baseURL: try #require(URL(string: "http://homeassistant.local:8123")),
+        identity: identity,
+        tokenStore: DJConnectInMemoryTokenStore(token: "secret-token")
+    )
+
+    let request = try client.pushUnregisterRequest(DJConnectPushUnregistrationRequest(
+        identity: identity,
+        pushToken: "abcdef123456"
+    ))
+    let body = try #require(request.httpBody)
+    let json = try #require(JSONSerialization.jsonObject(with: body) as? [String: Any])
+
+    #expect(request.url?.path == "/api/djconnect/push/unregister")
+    #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer secret-token")
+    #expect(json["device_id"] as? String == identity.deviceID)
+    #expect(json["client_type"] as? String == "macos")
+    #expect(json["push_token"] as? String == "abcdef123456")
 }
 
 @Test func askDJHistoryResponseDecodesRevisionAndRichMessages() throws {
@@ -765,6 +849,98 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
     #expect(action.reason == "Past bij je recente melodic house profiel.")
 }
 
+@Test func askDJMessageResponseDecodesTrimMetadataAndConfirmationActions() throws {
+    let json = """
+    {
+      "history_revision": 45,
+      "clear_revision": 9,
+      "history_limit": 50,
+      "history_trimmed_before": "2026-06-19T12:00:00Z",
+      "history_trimmed_count": 12,
+      "server_time": "2026-06-19T12:37:00Z",
+      "assistant_message": {
+        "id": "server-assistant-confirm",
+        "role": "assistant",
+        "text": "Wil je dat ik deze trackmix nu start?",
+        "created_at": "2026-06-19T12:36:30Z",
+        "confirmation_actions": [
+          {
+            "title": "Ja",
+            "kind": "confirmation",
+            "action_style": "primary_confirmation",
+            "command": "ask_dj_followup_response",
+            "response_value": "yes"
+          },
+          {
+            "title": "Nee",
+            "kind": "confirmation",
+            "action_style": "secondary_confirmation",
+            "command": "ask_dj_followup_response",
+            "response_value": "no"
+          }
+        ]
+      }
+    }
+    """.data(using: .utf8)!
+
+    let response = try JSONDecoder().decode(DJConnectAskDJMessageResponse.self, from: json)
+    let message = try #require(response.assistantMessage)
+    let yesAction = try #require(message.confirmationActions.first)
+
+    #expect(response.historyRevision == 45)
+    #expect(response.clearRevision == 9)
+    #expect(response.historyLimit == 50)
+    #expect(response.historyTrimmedBefore != nil)
+    #expect(response.historyTrimmedCount == 12)
+    #expect(response.serverTime != nil)
+    #expect(message.confirmationActions.count == 2)
+    #expect(yesAction.command == "ask_dj_followup_response")
+    #expect(yesAction.responseValue == "yes")
+    #expect(yesAction.actionStyle == "primary_confirmation")
+}
+
+@Test func askDJHistoryResponseDecodesTrackMixUrisAndTrimMetadata() throws {
+    let json = """
+    {
+      "history_revision": 46,
+      "history_limit": 50,
+      "history_trimmed_before": "2026-06-19T12:00:00Z",
+      "history_trimmed_count": 3,
+      "messages": [
+        {
+          "id": "track-mix-message",
+          "role": "assistant",
+          "text": "Ik heb een korte mix voor je.",
+          "created_at": "2026-06-19T12:38:00Z",
+          "playback_actions": [
+            {
+              "title": "Late night track mix",
+              "kind": "track_mix",
+              "uris": [
+                "spotify:track:1",
+                "spotify:track:2",
+                "spotify:track:3"
+              ],
+              "reason": "Drie tracks die bij deze vibe passen."
+            }
+          ]
+        }
+      ]
+    }
+    """.data(using: .utf8)!
+
+    let response = try JSONDecoder().decode(DJConnectAskDJHistoryResponse.self, from: json)
+    let action = try #require(response.messages.first?.playbackActions.first)
+
+    #expect(response.historyLimit == 50)
+    #expect(response.historyTrimmedBefore != nil)
+    #expect(response.historyTrimmedCount == 3)
+    #expect(action.kind == "track_mix")
+    #expect(action.uris == ["spotify:track:1", "spotify:track:2", "spotify:track:3"])
+    #expect(action.uri == nil)
+    #expect(action.contextURI == nil)
+}
+
 @Test func commandResponseDecodesAskDJClearFlagFromEnvelope() throws {
     let json = """
     {
@@ -939,6 +1115,84 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
     #expect(value?["artist"] == "Artist One")
     #expect(value?["index"] == "0")
     #expect(json?["play"] as? Bool == true)
+}
+
+@Test func commandRequestSupportsAskDJJsonObjectValues() throws {
+    let identity = DJConnectIdentity(
+        deviceID: "djconnect-ios-8F3A2C91B45D",
+        deviceName: "DJConnect iPhone",
+        clientType: .ios,
+        firmware: "3.1.66",
+        appVersion: "3.1.66",
+        platform: .ios
+    )
+    let client = DJConnectClient(
+        baseURL: try #require(URL(string: "http://homeassistant.local:8123")),
+        identity: identity,
+        tokenStore: DJConnectInMemoryTokenStore(token: "secret-token")
+    )
+
+    let request = try client.commandRequest(
+        DJConnectCommandPayload(
+            identity: identity,
+            command: "ask_dj_play_recommendation",
+            value: .jsonObject([
+                "title": .string("Late night track mix"),
+                "kind": .string("track_mix"),
+                "uris": .array([
+                    .string("spotify:track:1"),
+                    .string("spotify:track:2")
+                ]),
+                "memory_key": .string("djconnect_ios_8F3A2C91B45D")
+            ]),
+            play: true
+        )
+    )
+    let body = try #require(request.httpBody)
+    let json = try #require(JSONSerialization.jsonObject(with: body) as? [String: Any])
+    let value = try #require(json["value"] as? [String: Any])
+    let uris = try #require(value["uris"] as? [String])
+
+    #expect(json["command"] as? String == "ask_dj_play_recommendation")
+    #expect(value["kind"] as? String == "track_mix")
+    #expect(uris == ["spotify:track:1", "spotify:track:2"])
+    #expect(json["play"] as? Bool == true)
+}
+
+@Test func commandRequestSupportsAskDJFollowupResponseValues() throws {
+    let identity = DJConnectIdentity(
+        deviceID: "djconnect-watchos-8F3A2C91B45D",
+        deviceName: "Apple Watch",
+        clientType: .watchos,
+        firmware: "3.1.66",
+        appVersion: "3.1.66",
+        platform: .watchos
+    )
+    let client = DJConnectClient(
+        baseURL: try #require(URL(string: "http://homeassistant.local:8123")),
+        identity: identity,
+        tokenStore: DJConnectInMemoryTokenStore(token: "secret-token")
+    )
+
+    let request = try client.commandRequest(
+        DJConnectCommandPayload(
+            identity: identity,
+            command: "ask_dj_followup_response",
+            value: .jsonObject([
+                "title": .string("Ja"),
+                "response_value": .string("yes"),
+                "memory_key": .string("djconnect_watchos_8F3A2C91B45D")
+            ]),
+            play: false
+        )
+    )
+    let body = try #require(request.httpBody)
+    let json = try #require(JSONSerialization.jsonObject(with: body) as? [String: Any])
+    let value = try #require(json["value"] as? [String: Any])
+
+    #expect(json["command"] as? String == "ask_dj_followup_response")
+    #expect(value["response_value"] as? String == "yes")
+    #expect(json["play"] as? Bool == false)
 }
 
 @MainActor

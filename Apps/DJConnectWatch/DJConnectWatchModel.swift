@@ -1,5 +1,9 @@
-import AVFoundation
+@preconcurrency import AVFoundation
 import DJConnectCore
+import Network
+#if canImport(Speech)
+import Speech
+#endif
 import SwiftUI
 import UserNotifications
 import WatchKit
@@ -167,6 +171,26 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         case failed(String)
     }
 
+    enum VoiceActivationStatus: Equatable {
+        case paused
+        case listening
+        case microphoneRequired
+        case unavailable
+
+        var title: String {
+            switch self {
+            case .paused:
+                return "Gepauzeerd"
+            case .listening:
+                return "Luistert"
+            case .microphoneRequired:
+                return "Microfoon vereist"
+            case .unavailable:
+                return "Niet beschikbaar"
+            }
+        }
+    }
+
     @AppStorage("haBaseURL") var haBaseURL = "http://homeassistant.local:8123"
     @AppStorage("pairingCode") var pairingCode = DJConnectWatchModel.makePairingCode()
     @AppStorage("stableInstallID") private var stableInstallID = DJConnectWatchModel.makeStableInstallID()
@@ -176,6 +200,8 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
     @AppStorage("watchLogLevel") var watchLogLevel = DJConnectWatchLogLevel.info.rawValue
     @AppStorage("askDJHistoryRevision") private var askDJHistoryRevision = 0
     @AppStorage("askDJClearRevision") private var askDJClearRevision = 0
+    @AppStorage("DJConnectWatchWelcomeSeen") private var welcomeSeen = false
+    @AppStorage("watchVoiceActivationEnabled") private var storedVoiceActivationEnabled = false
 
     @Published private(set) var connectionState: ConnectionState = .unpaired
     @Published private(set) var voiceState: VoiceState = .idle
@@ -203,14 +229,25 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
     @Published private(set) var isShowingPairingSuccess = false
     @Published private(set) var isDemoMode = false
     @Published private(set) var diagnosticLogLines: [DJConnectWatchLogLine] = []
+    @Published private(set) var localDeviceAPIURL: String?
+    @Published private(set) var isWiFiAvailable = false
+    @Published var isShowingMicrophonePermissionExplanation = false
+    @Published var isShowingVoiceActivationPermissionExplanation = false
+    @Published var isShowingWelcome = false
     @Published var statusMessage = "Niet gekoppeld"
+    @Published private(set) var voiceActivationStatus: VoiceActivationStatus = .paused
+    @Published private(set) var isAppForeground = true
 
     private let askDJMessagesKey = "DJConnectWatchAskDJMessages"
+    private let pushTokenKey = "DJConnectWatchPushToken"
+    private let registeredPushTokenKey = "DJConnectWatchRegisteredPushToken"
+    private let registeredPushEnvironmentKey = "DJConnectWatchRegisteredPushEnvironment"
     private let maxDiagnosticLogLines = 80
     private let tokenStore = DJConnectUserDefaultsTokenStore(key: "DJConnectWatchDeviceToken")
     private let monkeyTestingMode: Bool
     private var localDeviceAPI: DJConnectLocalDeviceAPI?
-    private var localDeviceAPIURL: String?
+    private let networkMonitor = NWPathMonitor()
+    private let networkMonitorQueue = DispatchQueue(label: "dev.djconnect.watch.network")
     private var recorder: AVAudioRecorder?
     private var recordingURL: URL?
     private var player: AVAudioPlayer?
@@ -221,14 +258,25 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
     private var volumeCommandTask: Task<Void, Never>?
     private var playbackBeatSignature: String?
     private var hasRequestedAskDJNotificationPermission = false
+    private var shouldBypassMicrophonePermissionExplanationOnce = false
+    private var shouldBypassVoiceActivationPermissionExplanationOnce = false
+    private var voiceActivationAudioEngine: AVAudioEngine?
+    private var voiceActivationCaptureTask: Task<Void, Never>?
+    #if canImport(Speech)
+    private var voiceActivationRecognitionRequest: SFSpeechAudioBufferRecognitionRequest?
+    private var voiceActivationRecognitionTask: SFSpeechRecognitionTask?
+    #endif
 
     init(monkeyTestingMode: Bool = false) {
         self.monkeyTestingMode = monkeyTestingMode
         super.init()
         askDJMessages = Self.loadAskDJMessages(key: askDJMessagesKey)
+        isShowingWelcome = !welcomeSeen && !monkeyTestingMode
         if monkeyTestingMode {
             storedDemoMode = false
             isDemoMode = true
+            welcomeSeen = true
+            isShowingWelcome = false
             applyDemoState()
             appendDiagnosticLog("Watch gestart in monkey test demo modus")
         } else if storedDemoMode {
@@ -241,10 +289,39 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
             startLocalDeviceAPI()
             appendDiagnosticLog(paired ? "Watch gestart met bestaande koppeling" : "Watch gestart zonder koppeling")
         }
+        startNetworkMonitor()
     }
 
     deinit {
+        networkMonitor.cancel()
+        voiceActivationCaptureTask?.cancel()
         localDeviceAPI?.stop()
+    }
+
+    func requestRemoteNotificationRegistration() {
+        Task { @MainActor in
+            let center = UNUserNotificationCenter.current()
+            let authorized = await requestRemoteNotificationAuthorizationIfNeeded(center: center)
+            guard authorized else {
+                appendDiagnosticLog("Push toestemming niet gegeven", level: .warning)
+                return
+            }
+            WKExtension.shared().registerForRemoteNotifications()
+        }
+    }
+
+    func handleRemoteNotificationDeviceToken(_ deviceToken: Data) {
+        let token = deviceToken.map { String(format: "%02x", $0) }.joined()
+        guard !token.isEmpty else {
+            return
+        }
+        UserDefaults.standard.set(token, forKey: pushTokenKey)
+        appendDiagnosticLog("APNs token ontvangen \(Self.redactedPushToken(token))")
+        registerStoredPushTokenIfPossible()
+    }
+
+    func handleRemoteNotificationRegistrationError(_ error: Error) {
+        appendDiagnosticLog("Push registratie mislukt: \(error.localizedDescription)", level: .warning)
     }
 
     func clearDiagnosticLog() {
@@ -252,9 +329,63 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         appendDiagnosticLog("Logs gewist")
     }
 
+    func dismissWelcome() {
+        welcomeSeen = true
+        isShowingWelcome = false
+        appendDiagnosticLog("Welkom scherm gesloten", level: .debug)
+    }
+
     func setWatchLogLevel(_ level: DJConnectWatchLogLevel) {
         watchLogLevel = level.rawValue
         appendDiagnosticLog("Logniveau ingesteld: \(level.title)", level: .info)
+    }
+
+    var isVoiceActivationEnabled: Bool {
+        storedVoiceActivationEnabled
+    }
+
+    var voiceActivationStatusText: String {
+        guard storedVoiceActivationEnabled else {
+            return "Gepauzeerd"
+        }
+        return voiceActivationStatus.title
+    }
+
+    var voiceActivationDetailText: String {
+        if !storedVoiceActivationEnabled {
+            return "Geen wake word buiten de app. Zet stemactivatie aan om in de open Watch app met Hey DJ te starten."
+        }
+        switch voiceActivationStatus {
+        case .listening:
+            return "Alleen actief zolang DJConnect zichtbaar is."
+        case .paused:
+            return isAppForeground ? "Gepauzeerd tijdens opname, verwerking of wanneer Home Assistant niet beschikbaar is." : "Gepauzeerd omdat DJConnect niet zichtbaar is."
+        case .microphoneRequired:
+            return "Microfoon- en spraakherkenningstoestemming zijn nodig."
+        case .unavailable:
+            return "Stemactivatie is op deze Watch niet beschikbaar."
+        }
+    }
+
+    func setVoiceActivationEnabled(_ enabled: Bool) {
+        if enabled {
+            enableVoiceActivation()
+        } else {
+            storedVoiceActivationEnabled = false
+            shouldBypassVoiceActivationPermissionExplanationOnce = false
+            stopVoiceActivationListening(status: .paused)
+            appendDiagnosticLog("Stemactivatie uitgeschakeld")
+        }
+    }
+
+    func handleAppForegroundChange(_ foreground: Bool) {
+        isAppForeground = foreground
+        if foreground {
+            updateVoiceActivationListening()
+        } else {
+            stopVoiceActivationListening(status: .paused)
+            cancelRecording(reason: "Opname gestopt omdat de Watch app niet meer zichtbaar is")
+        }
     }
 
     private func appendDiagnosticLog(_ message: String, level: DJConnectWatchLogLevel = .info) {
@@ -267,6 +398,31 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         if diagnosticLogLines.count > maxDiagnosticLogLines {
             diagnosticLogLines.removeFirst(diagnosticLogLines.count - maxDiagnosticLogLines)
         }
+    }
+
+    private func startNetworkMonitor() {
+        networkMonitor.pathUpdateHandler = { [weak self] path in
+            let isLocalNetworkReachable = path.status == .satisfied && !path.usesInterfaceType(.cellular)
+            Task { @MainActor in
+                guard let self, self.isWiFiAvailable != isLocalNetworkReachable else {
+                    return
+                }
+                self.isWiFiAvailable = isLocalNetworkReachable
+                if isLocalNetworkReachable {
+                    self.appendDiagnosticLog("Lokaal netwerk beschikbaar")
+                    if self.statusMessage == "Lokaal netwerk vereist voor koppelen"
+                        || self.statusMessage == "WiFi vereist voor koppelen" {
+                        self.statusMessage = self.paired ? "Gereed" : "Niet gekoppeld"
+                    }
+                } else {
+                    self.appendDiagnosticLog("Lokaal netwerk niet beschikbaar", level: .warning)
+                    if !self.isDemoMode {
+                        self.statusMessage = "Lokaal netwerk vereist"
+                    }
+                }
+            }
+        }
+        networkMonitor.start(queue: networkMonitorQueue)
     }
 
     var identity: DJConnectIdentity {
@@ -285,10 +441,17 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         guard !isDemoMode else {
             return false
         }
+        guard isWiFiAvailable else {
+            return false
+        }
         if case .paired = connectionState {
             return true
         }
         return false
+    }
+
+    var networkRequirementMessage: String? {
+        isWiFiAvailable ? nil : "Lokaal netwerk vereist. Verbind deze Watch met hetzelfde WiFi-netwerk als Home Assistant."
     }
 
     var volume: Double {
@@ -353,6 +516,12 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
     }
 
     func pair() async {
+        guard isWiFiAvailable else {
+            connectionState = .unpaired
+            statusMessage = "Lokaal netwerk vereist voor koppelen"
+            appendDiagnosticLog("Koppelen overgeslagen: lokaal netwerk vereist", level: .warning)
+            return
+        }
         guard !paired else {
             connectionState = .paired
             return
@@ -370,6 +539,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
 
     func startDemoMode() {
         appendDiagnosticLog("Demo modus starten")
+        stopVoiceActivationListening(status: .paused)
         localDeviceAPI?.stop()
         localDeviceAPI = nil
         storedDemoMode = true
@@ -382,17 +552,18 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
 
     func stopDemoMode() {
         appendDiagnosticLog("Demo modus stoppen")
+        stopVoiceActivationListening(status: .paused)
         storedDemoMode = false
         isDemoMode = false
         playback = nil
         playbackBeatSignature = nil
         responseImages = []
         voiceState = .idle
-        connectionState = paired ? .paired : .unpaired
-        statusMessage = paired ? "Gereed" : "Demo modus gestopt"
-        if !paired {
-            startLocalDeviceAPI()
-        }
+        paired = false
+        isShowingPairingSuccess = false
+        connectionState = .unpaired
+        statusMessage = "Demo modus gestopt"
+        startLocalDeviceAPI()
     }
 
     func refreshStatus(confirmAskDJBeat: Bool = false) async {
@@ -411,6 +582,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
             applyPlayback(response.data ?? response.playback, confirmAskDJBeat: confirmAskDJBeat)
             statusMessage = "Bijgewerkt"
             appendDiagnosticLog("Status vernieuwd")
+            registerStoredPushTokenIfPossible()
         } catch {
             statusMessage = Self.userMessage(for: error)
             appendDiagnosticLog("Status vernieuwen mislukt: \(statusMessage)", level: .error)
@@ -687,7 +859,11 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
 
     func resetPairing() {
         appendDiagnosticLog("Koppeling resetten")
+        stopVoiceActivationListening(status: .paused)
         try? tokenStore.clearToken()
+        UserDefaults.standard.removeObject(forKey: pushTokenKey)
+        UserDefaults.standard.removeObject(forKey: registeredPushTokenKey)
+        UserDefaults.standard.removeObject(forKey: registeredPushEnvironmentKey)
         paired = false
         storedDemoMode = false
         isDemoMode = false
@@ -863,44 +1039,61 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         }
     }
 
+    func syncAskDJHistoryFromPush() async {
+        guard client != nil, canUseBackend else {
+            return
+        }
+        await syncAskDJHistory(showErrors: false)
+    }
+
     func playAskDJRecommendation(_ action: DJConnectAskDJPlaybackAction) async {
         guard playingAskDJActionID == nil, let client, canUseBackend else {
             return
         }
-        guard action.uri?.isEmpty == false || action.contextURI?.isEmpty == false else {
+        guard action.uri?.isEmpty == false
+            || action.contextURI?.isEmpty == false
+            || !action.uris.isEmpty
+            || action.responseValue?.isEmpty == false else {
             showAskDJToast("Deze aanbeveling kan nog niet worden afgespeeld")
             return
         }
         playingAskDJActionID = action.id
         defer { playingAskDJActionID = nil }
         do {
-            var value = [
-                "title": action.title,
-                "memory_key": memoryKey
+            var value: [String: DJConnectJSONValue] = [
+                "title": .string(action.title),
+                "memory_key": .string(memoryKey)
             ]
             if let subtitle = action.subtitle, !subtitle.isEmpty {
-                value["subtitle"] = subtitle
+                value["subtitle"] = .string(subtitle)
             }
             if let uri = action.uri, !uri.isEmpty {
-                value["uri"] = uri
+                value["uri"] = .string(uri)
+            }
+            if !action.uris.isEmpty {
+                value["uris"] = .array(action.uris.map { .string($0) })
             }
             if let contextURI = action.contextURI, !contextURI.isEmpty {
-                value["context_uri"] = contextURI
+                value["context_uri"] = .string(contextURI)
             }
             if let offsetURI = action.offsetURI, !offsetURI.isEmpty {
-                value["offset_uri"] = offsetURI
+                value["offset_uri"] = .string(offsetURI)
             }
             if let kind = action.kind, !kind.isEmpty {
-                value["kind"] = kind
+                value["kind"] = .string(kind)
             }
             if let reason = action.reason, !reason.isEmpty {
-                value["reason"] = reason
+                value["reason"] = .string(reason)
             }
+            if let responseValue = action.responseValue, !responseValue.isEmpty {
+                value["response_value"] = .string(responseValue)
+            }
+            let command = action.command?.isEmpty == false ? action.command! : Self.defaultAskDJCommand(for: action)
             let response = try await client.sendCommandResponse(DJConnectCommandPayload(
                 identity: identity,
-                command: action.command?.isEmpty == false ? action.command! : "ask_dj_play_recommendation",
-                value: .object(value),
-                play: true
+                command: command,
+                value: .jsonObject(value),
+                play: command == "ask_dj_play_recommendation"
             ))
             if response.success {
                 showAskDJToast("Aanbeveling afspelen")
@@ -911,6 +1104,15 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         } catch {
             showAskDJToast(Self.askDJToastText(for: error))
         }
+    }
+
+    private static func defaultAskDJCommand(for action: DJConnectAskDJPlaybackAction) -> String {
+        if action.responseValue?.isEmpty == false
+            || action.kind?.localizedCaseInsensitiveContains("confirmation") == true
+            || action.actionStyle?.localizedCaseInsensitiveContains("confirmation") == true {
+            return "ask_dj_followup_response"
+        }
+        return "ask_dj_play_recommendation"
     }
 
     private func syncAskDJHistory(showErrors: Bool) async {
@@ -960,6 +1162,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         if let assistantMessage = response.assistantMessage {
             upsertAskDJHistoryMessage(assistantMessage, into: &nextMessages)
         }
+        applyAskDJTrim(response.historyTrimmedBefore, to: &nextMessages)
         askDJMessages = nextMessages.sorted { $0.createdAt < $1.createdAt }
         askDJHistoryRevision = response.historyRevision
         askDJClearRevision = response.clearRevision
@@ -981,6 +1184,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         for message in response.messages {
             upsertAskDJHistoryMessage(message, into: &nextMessages)
         }
+        applyAskDJTrim(response.historyTrimmedBefore, to: &nextMessages)
         askDJMessages = nextMessages.sorted { $0.createdAt < $1.createdAt }
         askDJHistoryRevision = response.historyRevision
         askDJClearRevision = response.clearRevision
@@ -1004,7 +1208,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
             text: historyMessage.text,
             images: proxiedResponseImages(historyMessage.images),
             links: safeResponseLinks(historyMessage.links),
-            playbackActions: historyMessage.playbackActions,
+            playbackActions: historyMessage.playbackActions + historyMessage.confirmationActions,
             audioURL: resolvedAudioURL(historyMessage.audioURL),
             messageKind: historyMessage.role == .user ? .assistant : historyMessage.messageKind,
             origin: historyMessage.role == .user ? nil : historyMessage.origin,
@@ -1272,6 +1476,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         statusMessage = "Succesvol gekoppeld"
         localDeviceAPI?.setBonjourAdvertisingEnabled(false)
         await refreshStatus()
+        requestRemoteNotificationRegistration()
         return DJConnectLocalDeviceAPIResponse(
             success: true,
             message: "paired",
@@ -1304,12 +1509,12 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
             localAudioSupported: true,
             voiceSupported: true,
             screenState: screenState,
-            networkType: "watch",
+            networkType: "wifi",
             haLocalURL: haBaseURL,
             voiceEnabled: true,
-            wakewordEnabled: false,
+            wakewordEnabled: storedVoiceActivationEnabled,
             wakewordPhrase: "Hey DJ",
-            wakewordStatus: "foreground_only_not_enabled",
+            wakewordStatus: "foreground_only_\(voiceActivationStatusText.lowercased().replacingOccurrences(of: " ", with: "_"))",
             mood: askDJMoodInt,
             djStyle: djStyle,
             memoryKey: memoryKey
@@ -1317,6 +1522,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
     }
 
     private func startRecording() {
+        stopVoiceActivationListening(status: .paused)
         if isDemoMode {
             sendDemoVoiceResponse()
             return
@@ -1325,10 +1531,18 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
             voiceState = .failed("Koppel eerst met Home Assistant.")
             return
         }
+        if Self.microphonePermissionNeedsPrompt,
+           !shouldBypassMicrophonePermissionExplanationOnce {
+            isShowingMicrophonePermissionExplanation = true
+            appendDiagnosticLog("Microfoon uitleg getoond", level: .debug)
+            return
+        }
+        shouldBypassMicrophonePermissionExplanationOnce = false
         Task {
             let granted = await requestMicrophoneAccess()
             guard granted else {
                 voiceState = .failed("Microfoontoegang is nodig.")
+                updateVoiceActivationListening()
                 return
             }
             do {
@@ -1355,8 +1569,34 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
                 self.statusMessage = "Luistert"
             } catch {
                 self.voiceState = .failed(Self.userMessage(for: error))
+                self.updateVoiceActivationListening()
             }
         }
+    }
+
+    private func startVoiceActivationCapture() {
+        shouldBypassMicrophonePermissionExplanationOnce = true
+        startRecording()
+        voiceActivationCaptureTask?.cancel()
+        voiceActivationCaptureTask = Task { @MainActor in
+            try? await Task.sleep(for: .seconds(6))
+            guard !Task.isCancelled, voiceState == .recording else {
+                return
+            }
+            stopRecordingAndSend()
+        }
+    }
+
+    func continueAfterMicrophonePermissionExplanation() {
+        isShowingMicrophonePermissionExplanation = false
+        shouldBypassMicrophonePermissionExplanationOnce = true
+        startRecording()
+    }
+
+    func cancelMicrophonePermissionExplanation() {
+        isShowingMicrophonePermissionExplanation = false
+        shouldBypassMicrophonePermissionExplanationOnce = false
+        appendDiagnosticLog("Microfoon uitleg geannuleerd", level: .debug)
     }
 
     private func stopRecordingAndSend() {
@@ -1376,6 +1616,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
             }
             guard let url, let client else {
                 voiceState = .idle
+                updateVoiceActivationListening()
                 return
             }
             do {
@@ -1401,12 +1642,37 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
                 await playVoiceResponse(response)
                 await syncAskDJHistory(showErrors: false)
                 await refreshStatus(confirmAskDJBeat: true)
+                updateVoiceActivationListening()
             } catch {
                 voiceState = .failed(Self.userMessage(for: error))
                 showAskDJToast(Self.askDJToastText(for: error))
                 appendAskDJMessage(role: .dj, text: Self.userMessage(for: error))
+                updateVoiceActivationListening()
             }
         }
+    }
+
+    private func cancelRecording(reason: String) {
+        voiceActivationCaptureTask?.cancel()
+        voiceActivationCaptureTask = nil
+        recorder?.stop()
+        recorder = nil
+        if let recordingURL {
+            try? FileManager.default.removeItem(at: recordingURL)
+        }
+        recordingURL = nil
+        if voiceState == .recording || voiceState == .processing {
+            voiceState = .idle
+            statusMessage = reason
+        }
+        try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+    }
+
+    private func applyAskDJTrim(_ trimmedBefore: Date?, to messages: inout [DJConnectWatchAskDJMessage]) {
+        guard let trimmedBefore else {
+            return
+        }
+        messages.removeAll { $0.createdAt < trimmedBefore }
     }
 
     private func appendAskDJMessage(
@@ -1492,6 +1758,78 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         @unknown default:
             return false
         }
+    }
+
+    private func requestRemoteNotificationAuthorizationIfNeeded(center: UNUserNotificationCenter) async -> Bool {
+        let settings = await center.notificationSettings()
+        switch settings.authorizationStatus {
+        case .authorized, .provisional, .ephemeral:
+            return true
+        case .notDetermined:
+            do {
+                return try await center.requestAuthorization(options: [.alert, .sound])
+            } catch {
+                appendDiagnosticLog("Push toestemming mislukt: \(error.localizedDescription)", level: .warning)
+                return false
+            }
+        case .denied:
+            return false
+        @unknown default:
+            return false
+        }
+    }
+
+    private func registerStoredPushTokenIfPossible() {
+        guard !isDemoMode,
+              paired,
+              let client,
+              let token = UserDefaults.standard.string(forKey: pushTokenKey),
+              !token.isEmpty else {
+            return
+        }
+        let environment = Self.pushEnvironment
+        if UserDefaults.standard.string(forKey: registeredPushTokenKey) == token,
+           UserDefaults.standard.string(forKey: registeredPushEnvironmentKey) == environment.rawValue {
+            return
+        }
+        Task { @MainActor in
+            do {
+                _ = try await client.registerPushNotifications(DJConnectPushRegistrationRequest(
+                    identity: identity,
+                    pushToken: token,
+                    pushEnvironment: environment,
+                    appBundleID: Bundle.main.bundleIdentifier ?? "dev.djconnect.watchos",
+                    appVersion: identity.appVersion,
+                    locale: Locale.current.identifier
+                ))
+                UserDefaults.standard.set(token, forKey: registeredPushTokenKey)
+                UserDefaults.standard.set(environment.rawValue, forKey: registeredPushEnvironmentKey)
+                appendDiagnosticLog("APNs token geregistreerd bij Home Assistant (\(environment.rawValue))")
+            } catch let error as DJConnectError {
+                if case .routeMissing = error {
+                    appendDiagnosticLog("Push route ontbreekt in Home Assistant", level: .debug)
+                } else {
+                    appendDiagnosticLog("Push registratie mislukt: \(Self.userMessage(for: error))", level: .warning)
+                }
+            } catch {
+                appendDiagnosticLog("Push registratie mislukt: \(error.localizedDescription)", level: .warning)
+            }
+        }
+    }
+
+    private static var pushEnvironment: DJConnectPushEnvironment {
+        #if DEBUG
+        .sandbox
+        #else
+        .production
+        #endif
+    }
+
+    private static func redactedPushToken(_ token: String) -> String {
+        guard token.count > 12 else {
+            return "[redacted]"
+        }
+        return "\(token.prefix(6))...\(token.suffix(6))"
     }
 
     private static func notificationPreview(from text: String) -> String {
@@ -1642,11 +1980,208 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         }
     }
 
+    private func enableVoiceActivation() {
+        guard canUseBackend else {
+            voiceActivationStatus = .paused
+            statusMessage = "Koppel eerst met Home Assistant."
+            appendDiagnosticLog("Stemactivatie niet gestart: niet gekoppeld", level: .warning)
+            return
+        }
+        guard isAppForeground else {
+            storedVoiceActivationEnabled = true
+            voiceActivationStatus = .paused
+            return
+        }
+        if Self.microphonePermissionNeedsPrompt,
+           !shouldBypassVoiceActivationPermissionExplanationOnce {
+            isShowingVoiceActivationPermissionExplanation = true
+            appendDiagnosticLog("Stemactivatie uitleg getoond", level: .debug)
+            return
+        }
+        shouldBypassVoiceActivationPermissionExplanationOnce = false
+        Task {
+            let microphoneGranted = await requestMicrophoneAccess()
+            let speechGranted = await requestVoiceActivationSpeechAccessIfAvailable()
+            guard microphoneGranted else {
+                storedVoiceActivationEnabled = false
+                voiceActivationStatus = .microphoneRequired
+                appendDiagnosticLog("Stemactivatie toestemming ontbreekt", level: .warning)
+                return
+            }
+            guard speechGranted else {
+                storedVoiceActivationEnabled = false
+                voiceActivationStatus = .unavailable
+                return
+            }
+            storedVoiceActivationEnabled = true
+            appendDiagnosticLog("Stemactivatie ingeschakeld")
+            updateVoiceActivationListening()
+        }
+    }
+
+    func continueAfterVoiceActivationPermissionExplanation() {
+        isShowingVoiceActivationPermissionExplanation = false
+        shouldBypassVoiceActivationPermissionExplanationOnce = true
+        enableVoiceActivation()
+    }
+
+    func cancelVoiceActivationPermissionExplanation() {
+        isShowingVoiceActivationPermissionExplanation = false
+        shouldBypassVoiceActivationPermissionExplanationOnce = false
+        appendDiagnosticLog("Stemactivatie uitleg geannuleerd", level: .debug)
+    }
+
+    private func updateVoiceActivationListening() {
+        guard storedVoiceActivationEnabled else {
+            stopVoiceActivationListening(status: .paused)
+            return
+        }
+        guard isAppForeground, canUseBackend, voiceState == .idle else {
+            stopVoiceActivationListening(status: .paused)
+            return
+        }
+        startVoiceActivationListening()
+    }
+
+    private func startVoiceActivationListening() {
+        #if canImport(Speech)
+        guard voiceActivationAudioEngine == nil else {
+            voiceActivationStatus = .listening
+            return
+        }
+        guard AVAudioApplication.shared.recordPermission == .granted,
+              SFSpeechRecognizer.authorizationStatus() == .authorized else {
+            voiceActivationStatus = .microphoneRequired
+            return
+        }
+        guard let recognizer = SFSpeechRecognizer(locale: Locale(identifier: "nl_NL")), recognizer.isAvailable else {
+            voiceActivationStatus = .unavailable
+            appendDiagnosticLog("Stemactivatie spraakherkenning niet beschikbaar", level: .warning)
+            return
+        }
+        do {
+            let session = AVAudioSession.sharedInstance()
+            try session.setCategory(.record, mode: .measurement)
+            try session.setActive(true)
+
+            let engine = AVAudioEngine()
+            let request = SFSpeechAudioBufferRecognitionRequest()
+            request.shouldReportPartialResults = true
+
+            let inputNode = engine.inputNode
+            let format = inputNode.outputFormat(forBus: 0)
+            inputNode.removeTap(onBus: 0)
+            inputNode.installTap(onBus: 0, bufferSize: 1_024, format: format) { buffer, _ in
+                request.append(buffer)
+            }
+
+            engine.prepare()
+            try engine.start()
+
+            voiceActivationAudioEngine = engine
+            voiceActivationRecognitionRequest = request
+            voiceActivationStatus = .listening
+            statusMessage = "Stemactivatie luistert"
+            appendDiagnosticLog("Stemactivatie luistert")
+
+            voiceActivationRecognitionTask = recognizer.recognitionTask(with: request) { [weak self] result, error in
+                Task { @MainActor in
+                    guard let self else {
+                        return
+                    }
+                    if let transcript = result?.bestTranscription.formattedString,
+                       self.transcriptContainsWakePhrase(transcript) {
+                        self.appendDiagnosticLog("Stemactivatie wake word herkend")
+                        self.stopVoiceActivationListening(status: .paused)
+                        self.startVoiceActivationCapture()
+                        return
+                    }
+                    if error != nil {
+                        self.stopVoiceActivationListening(status: .paused)
+                        self.updateVoiceActivationListening()
+                    }
+                }
+            }
+        } catch {
+            voiceActivationStatus = .unavailable
+            appendDiagnosticLog("Stemactivatie start mislukt: \(error.localizedDescription)", level: .error)
+        }
+        #else
+        voiceActivationStatus = .unavailable
+        #endif
+    }
+
+    private func stopVoiceActivationListening(status: VoiceActivationStatus) {
+        #if canImport(Speech)
+        voiceActivationRecognitionTask?.cancel()
+        voiceActivationRecognitionTask = nil
+        voiceActivationRecognitionRequest?.endAudio()
+        voiceActivationRecognitionRequest = nil
+        #endif
+        if let voiceActivationAudioEngine {
+            voiceActivationAudioEngine.inputNode.removeTap(onBus: 0)
+            voiceActivationAudioEngine.stop()
+        }
+        voiceActivationAudioEngine = nil
+        voiceActivationStatus = status
+    }
+
+    private func requestVoiceActivationSpeechAccessIfAvailable() async -> Bool {
+        #if canImport(Speech)
+        switch SFSpeechRecognizer.authorizationStatus() {
+        case .authorized:
+            return true
+        case .denied, .restricted:
+            return false
+        case .notDetermined:
+            return await withCheckedContinuation { continuation in
+                SFSpeechRecognizer.requestAuthorization { status in
+                    continuation.resume(returning: status == .authorized)
+                }
+            }
+        @unknown default:
+            return false
+        }
+        #else
+        voiceActivationStatus = .unavailable
+        appendDiagnosticLog("Stemactivatie niet beschikbaar: spraakherkenning ontbreekt op deze Watch", level: .warning)
+        return false
+        #endif
+    }
+
+    private func transcriptContainsWakePhrase(_ transcript: String) -> Bool {
+        let normalized = Self.normalizedVoiceActivationText(transcript)
+        return normalized.contains("hey dj")
+            || normalized.contains("hey dee jay")
+            || normalized.contains("hey deejay")
+            || normalized.contains("hey d j")
+    }
+
+    private static func normalizedVoiceActivationText(_ text: String) -> String {
+        text
+            .folding(options: [.diacriticInsensitive, .caseInsensitive], locale: .current)
+            .lowercased()
+            .replacingOccurrences(of: #"[^a-z0-9\s]"#, with: " ", options: .regularExpression)
+            .replacingOccurrences(of: #"\s+"#, with: " ", options: .regularExpression)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
     private func requestMicrophoneAccess() async -> Bool {
         await withCheckedContinuation { continuation in
             AVAudioApplication.requestRecordPermission { granted in
                 continuation.resume(returning: granted)
             }
+        }
+    }
+
+    private static var microphonePermissionNeedsPrompt: Bool {
+        switch AVAudioApplication.shared.recordPermission {
+        case .undetermined:
+            return true
+        case .granted, .denied:
+            return false
+        @unknown default:
+            return true
         }
     }
 

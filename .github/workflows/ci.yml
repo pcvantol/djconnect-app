@@ -32,6 +32,9 @@ jobs:
           set -euo pipefail
           rm -rf .build .xcode-derived
 
+      - name: Validate Postman collection
+        run: node Tools/validate_postman_collection.js docs/postman/djconnect-local-device-api.postman_collection.json
+
       - name: Swift tests
         run: swift test --no-parallel
 

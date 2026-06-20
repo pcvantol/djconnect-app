@@ -1,14 +1,19 @@
 import DJConnectCore
 import DJConnectUI
 import SwiftUI
+import UIKit
 
 @main
 struct DJConnectIOSApp: App {
+    @UIApplicationDelegateAdaptor(DJConnectIOSAppDelegate.self) private var appDelegate
     @StateObject private var model = DJConnectIOSApp.makeModel()
 
     var body: some Scene {
         WindowGroup {
             DJConnectLaunchContainer(isBusy: model.isRefreshing, content: DJConnectRootView(model: model))
+                .onAppear {
+                    appDelegate.model = model
+                }
         }
     }
 
@@ -37,5 +42,34 @@ struct DJConnectIOSApp: App {
         return DJConnectAppModel(
             tokenStore: DJConnectUserDefaultsTokenStore(key: "DJConnectIOSDeviceToken")
         )
+    }
+}
+
+final class DJConnectIOSAppDelegate: NSObject, UIApplicationDelegate {
+    weak var model: DJConnectAppModel?
+
+    func application(
+        _ application: UIApplication,
+        didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data
+    ) {
+        model?.handleRemoteNotificationDeviceToken(deviceToken)
+    }
+
+    func application(
+        _ application: UIApplication,
+        didFailToRegisterForRemoteNotificationsWithError error: Error
+    ) {
+        model?.handleRemoteNotificationRegistrationError(error)
+    }
+
+    func application(
+        _ application: UIApplication,
+        didReceiveRemoteNotification userInfo: [AnyHashable: Any],
+        fetchCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void
+    ) {
+        Task { @MainActor in
+            await model?.refreshAskDJHistory()
+            completionHandler(.newData)
+        }
     }
 }

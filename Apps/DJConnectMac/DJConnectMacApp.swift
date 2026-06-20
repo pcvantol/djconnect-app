@@ -5,6 +5,7 @@ import SwiftUI
 
 @main
 struct DJConnectMacApp: App {
+    @NSApplicationDelegateAdaptor(DJConnectMacAppDelegate.self) private var appDelegate
     @StateObject private var model = DJConnectMacApp.makeModel()
 
     var body: some Scene {
@@ -12,6 +13,9 @@ struct DJConnectMacApp: App {
             DJConnectLaunchContainer(isBusy: model.isRefreshing, content: DJConnectRootView(model: model))
                 .frame(minWidth: 1120, idealWidth: 1280, minHeight: 880, idealHeight: 1060)
                 .background(WindowConfigurator())
+                .onAppear {
+                    appDelegate.model = model
+                }
         }
         .windowStyle(.hiddenTitleBar)
 
@@ -39,6 +43,33 @@ struct DJConnectMacApp: App {
         return DJConnectAppModel(
             tokenStore: DJConnectUserDefaultsTokenStore(key: "DJConnectMacDeviceToken")
         )
+    }
+}
+
+final class DJConnectMacAppDelegate: NSObject, NSApplicationDelegate {
+    weak var model: DJConnectAppModel?
+
+    func application(
+        _ application: NSApplication,
+        didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data
+    ) {
+        model?.handleRemoteNotificationDeviceToken(deviceToken)
+    }
+
+    func application(
+        _ application: NSApplication,
+        didFailToRegisterForRemoteNotificationsWithError error: Error
+    ) {
+        model?.handleRemoteNotificationRegistrationError(error)
+    }
+
+    func application(
+        _ application: NSApplication,
+        didReceiveRemoteNotification userInfo: [String: Any]
+    ) {
+        Task { @MainActor in
+            await model?.refreshAskDJHistory()
+        }
     }
 }
 

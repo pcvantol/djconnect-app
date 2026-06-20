@@ -179,10 +179,10 @@ have that separate UI block, and ESP32 remains a firmware/device client without
 the Apple Ask DJ rich chat UI.
 
 On Air is the Apple living-room TV output for that same Ask DJ surface. It
-starts from the AirPlay picker inside the existing iOS Ask DJ screen, then
-renders Ask DJ history/playback state on the connected external display with
-large bubbles and now-playing artwork while the app remains usable. Do not add
-a separate On Air app destination, fork Ask DJ history, intent handling, or
+starts from the AirPlay picker inside the existing Ask DJ screen, then starts an
+`AVPlayer` video output generated from Ask DJ history/playback state with large
+bubbles and now-playing context while the app remains usable. Do not add a
+separate On Air app destination, fork Ask DJ history, intent handling, or
 backend contracts for On Air.
 
 For `Ask DJ`, the Watch may send mood, DJ style, and a memory key hint, but DJ

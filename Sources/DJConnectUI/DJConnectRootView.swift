@@ -1,6 +1,7 @@
 import DJConnectCore
 import Combine
 import SwiftUI
+import CoreText
 
 #if canImport(AVFoundation)
 import AVFoundation
@@ -16,6 +17,12 @@ import UIKit
 #elseif os(macOS)
 import AppKit
 import Darwin
+#endif
+
+#if os(iOS) || os(macOS)
+private extension Notification.Name {
+    static let askDJOnAirRequested = Notification.Name("DJConnectAskDJOnAirRequested")
+}
 #endif
 
 private func localized(_ language: String, _ english: String, _ dutch: String) -> String {
@@ -81,6 +88,8 @@ private func localizedPairingStatus(_ status: DJConnectPairingStatus, language: 
 }
 
 private let djConnectAccent = Color(red: 0.84, green: 0.22, blue: 0.96)
+private let djConnectButtonBlue = Color(red: 0.16, green: 0.56, blue: 1.0)
+private let djConnectButtonPurple = Color(red: 0.84, green: 0.18, blue: 1.0)
 private let djConnectScreenHorizontalPadding: CGFloat = 16
 private let djConnectScreenVerticalPadding: CGFloat = 12
 private let djConnectContentMaxWidth: CGFloat = 760
@@ -121,10 +130,10 @@ private struct ScrollOffsetPreferenceKey: PreferenceKey {
 private struct DJConnectLilacButtonModifier: ViewModifier {
     func body(content: Content) -> some View {
         content
-            .tint(djConnectAccent)
-            .accentColor(djConnectAccent)
-            .foregroundStyle(djConnectAccent)
-            .foregroundColor(djConnectAccent)
+            .tint(.white)
+            .accentColor(.white)
+            .foregroundStyle(.white)
+            .foregroundColor(.white)
             .symbolRenderingMode(.monochrome)
     }
 }
@@ -604,6 +613,9 @@ public struct DJConnectRootView: View {
         }
         .environment(\.colorScheme, .dark)
         .preferredColorScheme(.dark)
+        .sheet(isPresented: $model.isShowingPermissionExplanation) {
+            PermissionExplanationView(model: model)
+        }
         #if os(iOS)
         .onAppear { askDJExternalDisplayController.start(model: model) }
         .onDisappear { askDJExternalDisplayController.stop() }
@@ -636,6 +648,75 @@ public struct DJConnectRootView: View {
         case .privacy:
             PrivacyView(language: model.language)
         }
+    }
+}
+
+private struct PermissionExplanationView: View {
+    @ObservedObject var model: DJConnectAppModel
+
+    var body: some View {
+        VStack(spacing: 18) {
+            Image(systemName: "bell.badge.circle.fill")
+                .font(.system(size: 54, weight: .semibold))
+                .foregroundStyle(
+                    LinearGradient(
+                        colors: [djConnectAccent, Color(red: 0.12, green: 0.55, blue: 1.0)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+
+            VStack(spacing: 8) {
+                Text(localized(model.language, "App permissions", "App-toestemmingen"))
+                    .font(.title2.bold())
+                    .multilineTextAlignment(.center)
+                Text(localized(
+                    model.language,
+                    "DJConnect asks for microphone access for voice requests and notifications for Ask DJ responses.",
+                    "DJConnect vraagt microfoontoegang voor stemverzoeken en meldingen voor Ask DJ-antwoorden."
+                ))
+                .font(.body)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                Text(localized(
+                    model.language,
+                    "Server push notifications use Apple APNs and contain only a small wake-up message; the app syncs the real Ask DJ history after opening.",
+                    "Server-pushmeldingen gebruiken Apple APNs en bevatten alleen een korte melding; de app synchroniseert de echte Ask DJ-geschiedenis na openen."
+                ))
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                Text(localized(
+                    model.language,
+                    "After this screen, Apple will ask for permission. You can change this later in Settings.",
+                    "Na dit scherm vraagt Apple om toestemming. Je kunt dit later aanpassen in Instellingen."
+                ))
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+            }
+
+            HStack(spacing: 12) {
+                Button {
+                    model.cancelPermissionExplanation()
+                } label: {
+                    Text(localized(model.language, "Not now", "Niet nu"))
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(DJConnectLilacPillButtonStyle())
+
+                Button {
+                    model.continueAfterPermissionExplanation()
+                } label: {
+                    Text(localized(model.language, "Continue", "Doorgaan"))
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(DJConnectLilacPillButtonStyle())
+            }
+        }
+        .padding(28)
+        .frame(minWidth: 320, idealWidth: 420, maxWidth: 460)
+        .background(DJConnectCanvasBackground())
     }
 }
 
@@ -730,6 +811,11 @@ private struct PairingSheetView: View {
             }
 
             VStack(spacing: 12) {
+                PairingNetworkNotice(
+                    language: model.language,
+                    warning: model.localNetworkRequirementMessage
+                )
+
                 PairingEditableURLCard(
                     title: localized(model.language, "Home Assistant URL", "Home Assistant URL"),
                     language: model.language,
@@ -784,7 +870,6 @@ private struct PairingSheetView: View {
                     localized(model.language, "Start Demo Mode", "Demo modus starten"),
                     systemImage: "play.circle"
                 )
-                .foregroundStyle(djConnectAccent)
                 .frame(maxWidth: .infinity)
             }
             .buttonStyle(DJConnectLilacPillButtonStyle())
@@ -798,7 +883,6 @@ private struct PairingSheetView: View {
                     localized(model.language, "Quit App", "App afsluiten"),
                     systemImage: "power"
                 )
-                .foregroundStyle(djConnectAccent)
                 .frame(maxWidth: .infinity)
             }
             .buttonStyle(DJConnectLilacPillButtonStyle())
@@ -845,7 +929,6 @@ private struct PairingSheetView: View {
             } label: {
                 Text("Let's Rock!")
                     .font(.headline)
-                    .foregroundStyle(djConnectAccent)
                     .frame(maxWidth: .infinity)
             }
             .buttonStyle(DJConnectLilacPillButtonStyle())
@@ -865,6 +948,38 @@ private struct PairingSheetView: View {
         default:
             localized(model.language, "Waiting for Home Assistant", "Wachten op Home Assistant")
         }
+    }
+}
+
+private struct PairingNetworkNotice: View {
+    let language: String
+    let warning: String?
+
+    var body: some View {
+        Label {
+            Text(warning ?? localized(
+                    language,
+                    "DJConnect works on the local network where Home Assistant is running. Keep this device and Home Assistant on the same Wi-Fi/LAN while pairing.",
+                    "DJConnect werkt op het lokale netwerk waar Home Assistant draait. Houd dit apparaat en Home Assistant tijdens koppelen op hetzelfde WiFi/LAN-netwerk."
+                ))
+            .fixedSize(horizontal: false, vertical: true)
+        } icon: {
+            Image(systemName: warning == nil ? "network" : "wifi.exclamationmark")
+                .foregroundStyle(warning == nil ? djConnectAccent : .orange)
+        }
+        .font(.callout.weight(.semibold))
+        .foregroundStyle(.secondary)
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(Color.primary.opacity(0.06))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .stroke(Color.primary.opacity(0.08), lineWidth: 1)
+        )
+        .accessibilityElement(children: .combine)
     }
 }
 
@@ -1072,8 +1187,6 @@ private struct WakeWordActivationPromptView: View {
                     model.activateWakeWordFromPrompt()
                 } label: {
                     Label(localized(model.language, "Enable Voice Activation", "Stemactivatie inschakelen"), systemImage: "waveform")
-                        .foregroundStyle(djConnectAccent)
-                        .foregroundColor(djConnectAccent)
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(DJConnectLilacPillButtonStyle())
@@ -1082,8 +1195,6 @@ private struct WakeWordActivationPromptView: View {
                     model.dismissWakeWordActivationPrompt()
                 } label: {
                     Text(localized(model.language, "Not Now", "Niet nu"))
-                        .foregroundStyle(djConnectAccent)
-                        .foregroundColor(djConnectAccent)
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(DJConnectLilacPillButtonStyle())
@@ -1132,7 +1243,6 @@ private struct UpdateRequiredView: View {
 
             Link(destination: websiteURL) {
                 Label(localized(model.language, "Open DJConnect Update Page", "Open DJConnect updatepagina"), systemImage: "safari")
-                    .foregroundStyle(djConnectAccent)
                     .frame(maxWidth: .infinity)
             }
             .buttonStyle(DJConnectLilacPillButtonStyle())
@@ -1171,8 +1281,6 @@ private struct CrashReportPromptView: View {
                     copyText(model.crashIssueBody())
                 } label: {
                     Label(localized(model.language, "Copy Logs", "Logs kopiëren"), systemImage: "doc.on.doc")
-                        .foregroundStyle(djConnectAccent)
-                        .foregroundColor(djConnectAccent)
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(DJConnectLilacPillButtonStyle())
@@ -1183,8 +1291,6 @@ private struct CrashReportPromptView: View {
                     model.dismissCrashReportPrompt()
                 } label: {
                     Label(localized(model.language, "Open GitHub Issue", "Open GitHub issue"), systemImage: "arrow.up.forward.app")
-                        .foregroundStyle(djConnectAccent)
-                        .foregroundColor(djConnectAccent)
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(DJConnectLilacPillButtonStyle())
@@ -1192,8 +1298,6 @@ private struct CrashReportPromptView: View {
                     model.dismissCrashReportPrompt()
                 } label: {
                     Text(localized(model.language, "Not Now", "Niet nu"))
-                        .foregroundStyle(djConnectAccent)
-                        .foregroundColor(djConnectAccent)
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(DJConnectLilacPillButtonStyle())
@@ -1251,7 +1355,6 @@ private struct WelcomeView: View {
                     model.dismissWelcome()
                 } label: {
                     Text(localized(model.language, "Continue", "Doorgaan"))
-                        .foregroundStyle(djConnectAccent)
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(DJConnectLilacPillButtonStyle())
@@ -1314,7 +1417,6 @@ private struct WhatsNewView: View {
                     model.dismissWhatsNew()
                 } label: {
                 Text(localized(model.language, "Continue", "Doorgaan"))
-                        .foregroundStyle(djConnectAccent)
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(DJConnectLilacPillButtonStyle())
@@ -1493,22 +1595,30 @@ private struct DJConnectLilacPillButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(.headline)
-            .foregroundStyle(djConnectAccent)
-            .foregroundColor(djConnectAccent)
-            .tint(djConnectAccent)
-            .accentColor(djConnectAccent)
+            .foregroundStyle(.white)
+            .foregroundColor(.white)
+            .tint(.white)
+            .accentColor(.white)
             .symbolRenderingMode(.monochrome)
             .padding(.vertical, 12)
             .padding(.horizontal, 16)
             .frame(maxWidth: .infinity)
             .background(
-                djConnectAccent.opacity(configuration.isPressed ? 0.22 : 0.12),
+                LinearGradient(
+                    colors: [
+                        djConnectButtonBlue.opacity(configuration.isPressed ? 0.82 : 1.0),
+                        djConnectButtonPurple.opacity(configuration.isPressed ? 0.82 : 1.0)
+                    ],
+                    startPoint: .leading,
+                    endPoint: .trailing
+                ),
                 in: Capsule()
             )
             .overlay {
                 Capsule()
-                    .stroke(djConnectAccent.opacity(configuration.isPressed ? 0.35 : 0.14), lineWidth: 1)
+                    .stroke(.white.opacity(configuration.isPressed ? 0.18 : 0.12), lineWidth: 1)
             }
+            .shadow(color: djConnectButtonPurple.opacity(0.26), radius: 10, y: 4)
             .scaleEffect(configuration.isPressed ? 0.98 : 1)
             .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
     }
@@ -2764,6 +2874,7 @@ private extension DJConnectRepeatState {
 
 private struct AskDJView: View {
     @ObservedObject var model: DJConnectAppModel
+    @StateObject private var onAirVideoStreamer = AskDJOnAirVideoStreamer()
     @State private var showingClearConfirmation = false
     @State private var selectedWebLink: DJConnectResponseLink?
     @State private var toast: String?
@@ -2935,6 +3046,10 @@ private struct AskDJView: View {
                     }
                 }
 
+                AskDJMoodModeControl(model: model)
+                    .padding(.horizontal, djConnectScreenHorizontalPadding)
+                    .padding(.bottom, 8)
+
                 AskDJInputBar(
                     model: model,
                     canSend: canSend,
@@ -2951,10 +3066,21 @@ private struct AskDJView: View {
                         .transition(.move(edge: .bottom).combined(with: .opacity))
                 }
             }
+            .overlay(alignment: .topLeading) {
+                if let player = onAirVideoStreamer.player {
+                    VideoPlayer(player: player)
+                        .frame(width: 1, height: 1)
+                        .opacity(0.01)
+                        .allowsHitTesting(false)
+                        .accessibilityHidden(true)
+                }
+            }
             .navigationTitle(screenTitle(model.language, "Ask DJ", "Ask DJ", isDemoMode: model.isDemoMode))
             .toolbar {
                 #if os(macOS)
                 ToolbarItemGroup(placement: .primaryAction) {
+                    askDJAirPlayToolbarButton
+
                     Button {
                         isInputFocused = false
                         withAnimation(.spring(response: 0.28, dampingFraction: 0.86)) {
@@ -3003,17 +3129,20 @@ private struct AskDJView: View {
                     .help(localized(model.language, "Search Ask DJ", "Zoek in Ask DJ"))
                     .accessibilityLabel(localized(model.language, "Search Ask DJ", "Zoek in Ask DJ"))
                 }
-                ToolbarItemGroup(placement: .topBarTrailing) {
+                ToolbarItem(placement: .topBarTrailing) {
                     askDJAirPlayToolbarButton
-
+                }
+                ToolbarItem(placement: .topBarTrailing) {
                     Button {
                         isInputFocused = false
                         showingClearConfirmation = true
                     } label: {
                         Image(systemName: model.isClearingAskDJHistory ? "hourglass" : "trash")
                     }
+                    .tint(.red)
                     .disabled(model.askDJMessages.isEmpty || model.isClearingAskDJHistory)
                     .help(localized(model.language, "Clear chat", "Chat wissen"))
+                    .accessibilityLabel(localized(model.language, "Clear chat", "Chat wissen"))
                 }
                 #endif
             }
@@ -3038,6 +3167,12 @@ private struct AskDJView: View {
         .task {
             await model.runAskDJHistorySyncLoop()
         }
+        .onChange(of: model.askDJMessages) {
+            onAirVideoStreamer.refreshIfRunning(model: model)
+        }
+        .onChange(of: model.playback) {
+            onAirVideoStreamer.refreshIfRunning(model: model)
+        }
         .sheet(item: $selectedWebLink) { link in
             AskDJWebPreview(link: link, language: model.language)
         }
@@ -3052,12 +3187,39 @@ private struct AskDJView: View {
     @ViewBuilder
     private var askDJAirPlayToolbarButton: some View {
         #if os(iOS) && canImport(AVKit)
-        AirPlayRoutePickerButton()
+        AirPlayRoutePickerButton(
+            player: onAirVideoStreamer.player,
+            onPickerWillBegin: {
+                onAirVideoStreamer.start(model: model)
+            },
+            onPickerDidEnd: {
+                requestAskDJOnAir()
+            }
+        )
+            .frame(width: 34, height: 28)
+            .accessibilityLabel(localized(model.language, "Choose AirPlay TV", "Kies AirPlay-tv"))
+            .accessibilityIdentifier("AskDJAirPlayButton")
+        #elseif os(macOS) && canImport(AVKit)
+        AirPlayRoutePickerButton(
+            player: onAirVideoStreamer.player,
+            onPickerWillBegin: {
+                onAirVideoStreamer.start(model: model)
+            },
+            onPickerDidEnd: {}
+        )
             .frame(width: 34, height: 28)
             .accessibilityLabel(localized(model.language, "Choose AirPlay TV", "Kies AirPlay-tv"))
             .accessibilityIdentifier("AskDJAirPlayButton")
         #else
         EmptyView()
+        #endif
+    }
+
+    private func requestAskDJOnAir() {
+        #if os(iOS) || os(macOS)
+        NotificationCenter.default.post(name: .askDJOnAirRequested, object: nil)
+        #else
+        model.showAskDJOnAirStatusIfNeeded()
         #endif
     }
 
@@ -3114,18 +3276,375 @@ private struct AskDJView: View {
 }
 
 
+#if canImport(AVKit)
+@MainActor
+private final class AskDJOnAirVideoStreamer: ObservableObject {
+    @Published private(set) var player: AVPlayer?
+    @Published private(set) var isPreparing = false
+
+    private var isRunning = false
+    private var generation = 0
+    private var loopObserver: NSObjectProtocol?
+
+    func start(model: DJConnectAppModel) {
+        isRunning = true
+        renderAndPlay(model: model, announceWhenReady: true)
+    }
+
+    func refreshIfRunning(model: DJConnectAppModel) {
+        guard isRunning else {
+            return
+        }
+        renderAndPlay(model: model, announceWhenReady: false)
+    }
+
+    private func renderAndPlay(model: DJConnectAppModel, announceWhenReady: Bool) {
+        generation += 1
+        let currentGeneration = generation
+        isPreparing = true
+        let snapshot = AskDJOnAirVideoSnapshot(
+            language: model.language,
+            messages: Array(model.askDJMessages.suffix(7)),
+            trackName: model.playback?.trackName,
+            artistName: model.playback?.artistName
+        )
+
+        Task.detached(priority: .userInitiated) {
+            do {
+                let url = try AskDJOnAirVideoRenderer.render(snapshot: snapshot)
+                await MainActor.run {
+                    guard self.generation == currentGeneration else {
+                        return
+                    }
+                    self.replacePlayerItem(url: url)
+                    self.isPreparing = false
+                    if announceWhenReady {
+                        model.showAskDJOnAirStatusIfNeeded()
+                    }
+                }
+            } catch {
+                await MainActor.run {
+                    guard self.generation == currentGeneration else {
+                        return
+                    }
+                    self.isPreparing = false
+                    model.showAskDJOnAirNeedsDisplayNoticeIfNeeded()
+                }
+            }
+        }
+    }
+
+    private func replacePlayerItem(url: URL) {
+        if let loopObserver {
+            NotificationCenter.default.removeObserver(loopObserver)
+            self.loopObserver = nil
+        }
+        let item = AVPlayerItem(url: url)
+        let nextPlayer = player ?? AVPlayer()
+        nextPlayer.replaceCurrentItem(with: item)
+        nextPlayer.isMuted = true
+        nextPlayer.allowsExternalPlayback = true
+        #if os(iOS)
+        nextPlayer.usesExternalPlaybackWhileExternalScreenIsActive = true
+        #endif
+        loopObserver = NotificationCenter.default.addObserver(
+            forName: .AVPlayerItemDidPlayToEndTime,
+            object: item,
+            queue: .main
+        ) { [weak nextPlayer] _ in
+            nextPlayer?.seek(to: .zero)
+            nextPlayer?.play()
+        }
+        player = nextPlayer
+        nextPlayer.play()
+    }
+}
+
+private struct AskDJOnAirVideoSnapshot {
+    var language: String
+    var messages: [DJConnectAskDJMessage]
+    var trackName: String?
+    var artistName: String?
+}
+
+private enum AskDJOnAirVideoRenderer {
+    private static let size = CGSize(width: 1920, height: 1080)
+    private static let frameCount = 60
+    private static let frameDuration = CMTime(value: 1, timescale: 30)
+
+    static func render(snapshot: AskDJOnAirVideoSnapshot) throws -> URL {
+        let outputURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("djconnect-on-air-\(UUID().uuidString).mp4")
+        let writer = try AVAssetWriter(outputURL: outputURL, fileType: .mp4)
+        let settings: [String: Any] = [
+            AVVideoCodecKey: AVVideoCodecType.h264,
+            AVVideoWidthKey: Int(size.width),
+            AVVideoHeightKey: Int(size.height)
+        ]
+        let input = AVAssetWriterInput(mediaType: .video, outputSettings: settings)
+        input.expectsMediaDataInRealTime = false
+        let adaptor = AVAssetWriterInputPixelBufferAdaptor(
+            assetWriterInput: input,
+            sourcePixelBufferAttributes: [
+                kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA,
+                kCVPixelBufferWidthKey as String: Int(size.width),
+                kCVPixelBufferHeightKey as String: Int(size.height)
+            ]
+        )
+        guard writer.canAdd(input) else {
+            throw NSError(domain: "DJConnectOnAir", code: 1)
+        }
+        writer.add(input)
+        guard writer.startWriting() else {
+            throw writer.error ?? NSError(domain: "DJConnectOnAir", code: 2)
+        }
+        writer.startSession(atSourceTime: .zero)
+        guard let pool = adaptor.pixelBufferPool else {
+            throw NSError(domain: "DJConnectOnAir", code: 3)
+        }
+        guard let image = makeFrame(snapshot: snapshot) else {
+            throw NSError(domain: "DJConnectOnAir", code: 4)
+        }
+
+        for index in 0..<frameCount {
+            while !input.isReadyForMoreMediaData {
+                Thread.sleep(forTimeInterval: 0.004)
+            }
+            var pixelBuffer: CVPixelBuffer?
+            CVPixelBufferPoolCreatePixelBuffer(nil, pool, &pixelBuffer)
+            guard let pixelBuffer else {
+                continue
+            }
+            draw(image: image, into: pixelBuffer)
+            adaptor.append(pixelBuffer, withPresentationTime: CMTimeMultiply(frameDuration, multiplier: Int32(index)))
+        }
+        input.markAsFinished()
+        let semaphore = DispatchSemaphore(value: 0)
+        writer.finishWriting {
+            semaphore.signal()
+        }
+        semaphore.wait()
+        if let error = writer.error {
+            throw error
+        }
+        return outputURL
+    }
+
+    private static func makeFrame(snapshot: AskDJOnAirVideoSnapshot) -> CGImage? {
+        let colorSpace = CGColorSpaceCreateDeviceRGB()
+        guard let context = CGContext(
+            data: nil,
+            width: Int(size.width),
+            height: Int(size.height),
+            bitsPerComponent: 8,
+            bytesPerRow: 0,
+            space: colorSpace,
+            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+        ) else {
+            return nil
+        }
+
+        drawBackground(in: context)
+        drawText(
+            "Ask DJ",
+            in: CGRect(x: 90, y: 70, width: 620, height: 72),
+            fontSize: 58,
+            fontName: "HelveticaNeue-CondensedBlack",
+            color: CGColor(red: 1, green: 1, blue: 1, alpha: 1),
+            context: context
+        )
+        let nowPlaying = snapshot.trackName?.isEmpty == false ? snapshot.trackName! : localized(snapshot.language, "Live feed", "Live feed")
+        let artist = snapshot.artistName?.isEmpty == false ? snapshot.artistName! : localized(snapshot.language, "Ask DJ is On Air!", "Ask DJ is On Air!")
+        drawText(nowPlaying, in: CGRect(x: 90, y: 150, width: 900, height: 44), fontSize: 34, fontName: "HelveticaNeue-Bold", color: CGColor(red: 1, green: 1, blue: 1, alpha: 0.84), context: context)
+        drawText(artist, in: CGRect(x: 90, y: 198, width: 900, height: 38), fontSize: 28, fontName: "HelveticaNeue", color: CGColor(red: 1, green: 1, blue: 1, alpha: 0.62), context: context)
+
+        var y: CGFloat = 300
+        let messages = snapshot.messages.isEmpty ? [
+            DJConnectAskDJMessage(role: .dj, text: localized(snapshot.language, "Ask DJ messages appear here live.", "Ask DJ-berichten verschijnen hier live."))
+        ] : snapshot.messages
+        for message in messages {
+            let isUser = message.role == .user
+            let maxWidth: CGFloat = isUser ? 1040 : 1260
+            let x: CGFloat = isUser ? size.width - maxWidth - 90 : 90
+            let textHeight = measuredTextHeight(message.text, width: maxWidth - 88, fontSize: isUser ? 42 : 46)
+            let bubbleHeight = min(max(textHeight + 72, 118), 260)
+            let rect = CGRect(x: x, y: y, width: maxWidth, height: bubbleHeight)
+            drawBubble(rect: rect, isUser: isUser, context: context)
+            drawText(
+                message.text,
+                in: rect.insetBy(dx: 44, dy: 30),
+                fontSize: isUser ? 42 : 46,
+                fontName: "HelveticaNeue-Bold",
+                color: CGColor(red: 1, green: 1, blue: 1, alpha: 1),
+                context: context
+            )
+            y += bubbleHeight + 28
+            if y > size.height - 120 {
+                break
+            }
+        }
+        return context.makeImage()
+    }
+
+    private static func drawBackground(in context: CGContext) {
+        let colors = [
+            CGColor(red: 0.02, green: 0.03, blue: 0.09, alpha: 1),
+            CGColor(red: 0.06, green: 0.04, blue: 0.18, alpha: 1),
+            CGColor(red: 0.04, green: 0.12, blue: 0.32, alpha: 1)
+        ] as CFArray
+        let gradient = CGGradient(colorsSpace: CGColorSpaceCreateDeviceRGB(), colors: colors, locations: [0, 0.54, 1])!
+        context.drawLinearGradient(gradient, start: CGPoint(x: 0, y: 0), end: CGPoint(x: size.width, y: size.height), options: [])
+    }
+
+    private static func drawBubble(rect: CGRect, isUser: Bool, context: CGContext) {
+        context.saveGState()
+        let path = CGPath(roundedRect: rect, cornerWidth: 34, cornerHeight: 34, transform: nil)
+        context.addPath(path)
+        context.clip()
+        let colors = isUser
+            ? [CGColor(red: 0.04, green: 0.48, blue: 1, alpha: 1), CGColor(red: 0, green: 0.35, blue: 0.95, alpha: 1)]
+            : [CGColor(red: 0.02, green: 0.46, blue: 1, alpha: 1), CGColor(red: 0.90, green: 0.16, blue: 0.96, alpha: 1)]
+        let gradient = CGGradient(colorsSpace: CGColorSpaceCreateDeviceRGB(), colors: colors as CFArray, locations: [0, 1])!
+        context.drawLinearGradient(gradient, start: rect.origin, end: CGPoint(x: rect.maxX, y: rect.maxY), options: [])
+        context.restoreGState()
+    }
+
+    private static func drawText(_ text: String, in rect: CGRect, fontSize: CGFloat, fontName: String, color: CGColor, context: CGContext) {
+        let font = CTFontCreateWithName(fontName as CFString, fontSize, nil)
+        let paragraph = NSMutableParagraphStyle()
+        paragraph.lineBreakMode = .byWordWrapping
+        let attributed = NSAttributedString(string: text, attributes: [
+            .font: font,
+            .foregroundColor: color,
+            .paragraphStyle: paragraph
+        ])
+        let framesetter = CTFramesetterCreateWithAttributedString(attributed)
+        let path = CGPath(rect: CGRect(x: rect.minX, y: size.height - rect.maxY, width: rect.width, height: rect.height), transform: nil)
+        context.saveGState()
+        context.textMatrix = .identity
+        CTFrameDraw(CTFramesetterCreateFrame(framesetter, CFRangeMake(0, attributed.length), path, nil), context)
+        context.restoreGState()
+    }
+
+    private static func measuredTextHeight(_ text: String, width: CGFloat, fontSize: CGFloat) -> CGFloat {
+        let font = CTFontCreateWithName("HelveticaNeue-Bold" as CFString, fontSize, nil)
+        let attributed = NSAttributedString(string: text, attributes: [.font: font])
+        let size = CTFramesetterSuggestFrameSizeWithConstraints(
+            CTFramesetterCreateWithAttributedString(attributed),
+            CFRangeMake(0, attributed.length),
+            nil,
+            CGSize(width: width, height: 1_000),
+            nil
+        )
+        return ceil(size.height)
+    }
+
+    private static func draw(image: CGImage, into pixelBuffer: CVPixelBuffer) {
+        CVPixelBufferLockBaseAddress(pixelBuffer, [])
+        defer { CVPixelBufferUnlockBaseAddress(pixelBuffer, []) }
+        guard let baseAddress = CVPixelBufferGetBaseAddress(pixelBuffer) else {
+            return
+        }
+        let context = CGContext(
+            data: baseAddress,
+            width: CVPixelBufferGetWidth(pixelBuffer),
+            height: CVPixelBufferGetHeight(pixelBuffer),
+            bitsPerComponent: 8,
+            bytesPerRow: CVPixelBufferGetBytesPerRow(pixelBuffer),
+            space: CGColorSpaceCreateDeviceRGB(),
+            bitmapInfo: CGImageAlphaInfo.premultipliedFirst.rawValue | CGBitmapInfo.byteOrder32Little.rawValue
+        )
+        context?.draw(image, in: CGRect(origin: .zero, size: size))
+    }
+}
+#endif
+
 #if os(iOS) && canImport(AVKit)
 private struct AirPlayRoutePickerButton: UIViewRepresentable {
+    var player: AVPlayer?
+    var onPickerWillBegin: () -> Void = {}
+    var onPickerDidEnd: () -> Void = {}
+
     func makeUIView(context: Context) -> AVRoutePickerView {
         let view = AVRoutePickerView()
         view.prioritizesVideoDevices = true
         let accent = UIColor(red: 0.84, green: 0.22, blue: 0.96, alpha: 1)
         view.tintColor = accent
         view.activeTintColor = accent
+        view.delegate = context.coordinator
         return view
     }
 
     func updateUIView(_ uiView: AVRoutePickerView, context: Context) {}
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(onPickerWillBegin: onPickerWillBegin, onPickerDidEnd: onPickerDidEnd)
+    }
+
+    final class Coordinator: NSObject, AVRoutePickerViewDelegate {
+        private let onPickerWillBegin: () -> Void
+        private let onPickerDidEnd: () -> Void
+
+        init(onPickerWillBegin: @escaping () -> Void, onPickerDidEnd: @escaping () -> Void) {
+            self.onPickerWillBegin = onPickerWillBegin
+            self.onPickerDidEnd = onPickerDidEnd
+        }
+
+        func routePickerViewWillBeginPresentingRoutes(_ routePickerView: AVRoutePickerView) {
+            onPickerWillBegin()
+        }
+
+        func routePickerViewDidEndPresentingRoutes(_ routePickerView: AVRoutePickerView) {
+            onPickerDidEnd()
+        }
+    }
+}
+#endif
+
+#if os(macOS) && canImport(AVKit)
+private struct AirPlayRoutePickerButton: NSViewRepresentable {
+    var player: AVPlayer?
+    var onPickerWillBegin: () -> Void = {}
+    var onPickerDidEnd: () -> Void = {}
+
+    func makeNSView(context: Context) -> AVRoutePickerView {
+        let view = AVRoutePickerView()
+        let accent = NSColor(red: 0.84, green: 0.22, blue: 0.96, alpha: 1)
+        view.delegate = context.coordinator
+        view.player = player
+        view.isRoutePickerButtonBordered = false
+        view.setRoutePickerButtonColor(accent, for: .normal)
+        view.setRoutePickerButtonColor(accent, for: .normalHighlighted)
+        view.setRoutePickerButtonColor(accent, for: .active)
+        view.setRoutePickerButtonColor(accent, for: .activeHighlighted)
+        return view
+    }
+
+    func updateNSView(_ nsView: AVRoutePickerView, context: Context) {
+        nsView.player = player
+    }
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(onPickerWillBegin: onPickerWillBegin, onPickerDidEnd: onPickerDidEnd)
+    }
+
+    final class Coordinator: NSObject, AVRoutePickerViewDelegate {
+        private let onPickerWillBegin: () -> Void
+        private let onPickerDidEnd: () -> Void
+
+        init(onPickerWillBegin: @escaping () -> Void, onPickerDidEnd: @escaping () -> Void) {
+            self.onPickerWillBegin = onPickerWillBegin
+            self.onPickerDidEnd = onPickerDidEnd
+        }
+
+        func routePickerViewWillBeginPresentingRoutes(_ routePickerView: AVRoutePickerView) {
+            onPickerWillBegin()
+        }
+
+        func routePickerViewDidEndPresentingRoutes(_ routePickerView: AVRoutePickerView) {
+            onPickerDidEnd()
+        }
+    }
 }
 #endif
 
@@ -3143,6 +3662,13 @@ private final class AskDJExternalDisplayController: ObservableObject {
             return
         }
         observers = [
+            NotificationCenter.default.addObserver(
+                forName: .askDJOnAirRequested,
+                object: nil,
+                queue: .main
+            ) { [weak self] _ in
+                Task { @MainActor in self?.handleOnAirRequest() }
+            },
             NotificationCenter.default.addObserver(
                 forName: UIScreen.didConnectNotification,
                 object: nil,
@@ -3180,6 +3706,16 @@ private final class AskDJExternalDisplayController: ObservableObject {
         UIScreen.screens.dropFirst().forEach { attach(screen: $0) }
     }
 
+    private func handleOnAirRequest() {
+        attachAvailableScreens()
+        guard let model else {
+            return
+        }
+        if externalWindows.isEmpty {
+            model.showAskDJOnAirNeedsDisplayNoticeIfNeeded()
+        }
+    }
+
     private func attach(screen: UIScreen) {
         guard let model else {
             return
@@ -3192,6 +3728,7 @@ private final class AskDJExternalDisplayController: ObservableObject {
         window.rootViewController = UIHostingController(rootView: AskDJExternalDisplayView(model: model))
         window.isHidden = false
         externalWindows.append((screen, window))
+        model.showAskDJOnAirStatusIfNeeded()
     }
 
     private func detach(screen: UIScreen) {
@@ -3202,7 +3739,9 @@ private final class AskDJExternalDisplayController: ObservableObject {
         externalWindows.remove(at: index)
     }
 }
+#endif
 
+#if os(iOS) || os(macOS)
 private struct AskDJExternalDisplayView: View {
     @ObservedObject var model: DJConnectAppModel
     private var messages: [DJConnectAskDJMessage] { Array(model.askDJMessages.suffix(8)) }
@@ -4067,7 +4606,7 @@ private struct AskDJWebPreview: View {
                     Button(localized(language, "Open in Browser", "Open in browser")) {
                         openURL(link.url)
                     }
-                    .buttonStyle(.borderedProminent)
+                    .buttonStyle(DJConnectLilacPillButtonStyle())
                 }
                 .padding(24)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -4214,6 +4753,125 @@ private struct AskDJImageCard: View {
                 }
                 .frame(width: 190, alignment: .leading)
             }
+        }
+    }
+}
+
+private struct AskDJMoodModeControl: View {
+    @ObservedObject var model: DJConnectAppModel
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 9) {
+            HStack(spacing: 8) {
+                Image(systemName: "music.note")
+                    .font(.caption.weight(.bold))
+                    .foregroundStyle(djConnectAccent)
+                Text(localized(model.language, "Mood", "Mood"))
+                    .font(.caption.weight(.bold))
+                    .foregroundStyle(.primary)
+                Spacer()
+                Text(model.askDJMoodLabel)
+                    .font(.caption.weight(.bold))
+                    .foregroundStyle(djConnectAccent)
+            }
+
+            GeometryReader { geometry in
+                let steps = model.askDJMoodSteps
+                let selectedIndex = model.askDJMoodStepIndex
+                let width = max(1, geometry.size.width)
+                let slotWidth = width / CGFloat(max(steps.count - 1, 1))
+                let markerX = CGFloat(selectedIndex) * slotWidth
+
+                ZStack(alignment: .leading) {
+                    Capsule()
+                        .fill(Color.primary.opacity(0.14))
+                        .frame(height: 4)
+                        .padding(.horizontal, 8)
+
+                    HStack {
+                        ForEach(steps.indices, id: \.self) { index in
+                            Circle()
+                                .fill(index == selectedIndex ? djConnectAccent : Color.primary.opacity(0.24))
+                                .frame(width: 8, height: 8)
+                            if index < steps.count - 1 {
+                                Spacer()
+                            }
+                        }
+                    }
+                    .padding(.horizontal, 8)
+
+                    Image(systemName: "music.note")
+                        .font(.system(size: 15, weight: .black))
+                        .foregroundStyle(.white)
+                        .frame(width: 28, height: 28)
+                        .background(Circle().fill(djConnectAccent))
+                        .shadow(color: djConnectAccent.opacity(0.28), radius: 8, y: 3)
+                        .offset(x: max(0, min(width - 28, markerX - 14)))
+                        .animation(.spring(response: 0.28, dampingFraction: 0.82), value: selectedIndex)
+                }
+                .contentShape(Rectangle())
+                .gesture(
+                    DragGesture(minimumDistance: 0)
+                        .onChanged { value in
+                            updateMood(from: value.location.x, width: width)
+                        }
+                        .onEnded { value in
+                            updateMood(from: value.location.x, width: width)
+                        }
+                )
+            }
+            .frame(height: 28)
+
+            HStack(spacing: 0) {
+                ForEach(model.askDJMoodSteps.indices, id: \.self) { index in
+                    Text(model.askDJMoodSteps[index].label)
+                        .font(.caption2.weight(model.askDJMoodStepIndex == index ? .bold : .semibold))
+                        .foregroundStyle(model.askDJMoodStepIndex == index ? djConnectAccent : .secondary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.78)
+                        .frame(maxWidth: .infinity, alignment: alignment(forMoodStep: index))
+                }
+            }
+            .accessibilityHidden(true)
+
+            Text(localized(
+                model.language,
+                "Mood guides Ask DJ's recommendations, from calmer tracks to higher-energy picks.",
+                "Mood stuurt Ask DJ's aanbevelingen, van rustigere tracks tot energiekere keuzes."
+            ))
+            .font(.caption2)
+            .foregroundStyle(.secondary)
+            .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(12)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .stroke(Color.primary.opacity(0.10), lineWidth: 1)
+        )
+        .accessibilityElement(children: .contain)
+    }
+
+    private func updateMood(from xPosition: CGFloat, width: CGFloat) {
+        let stepCount = max(model.askDJMoodSteps.count, 1)
+        guard stepCount > 1 else {
+            model.setAskDJMoodStep(0)
+            return
+        }
+        let clampedX = max(0, min(width, xPosition))
+        let ratio = clampedX / max(width, 1)
+        let index = Int((ratio * CGFloat(stepCount - 1)).rounded())
+        model.setAskDJMoodStep(index)
+    }
+
+    private func alignment(forMoodStep index: Int) -> Alignment {
+        switch index {
+        case 0:
+            return .leading
+        case model.askDJMoodSteps.count - 1:
+            return .trailing
+        default:
+            return .center
         }
     }
 }
@@ -6369,12 +7027,14 @@ struct SettingsView: View {
                         Text(localized(model.language, "Warning", "Waarschuwing")).tag("warning")
                         Text(localized(model.language, "Error", "Fout")).tag("error")
                     }
-                    LabeledContent(localized(model.language, "Pairing", "Koppeling")) {
-                        Button(role: .destructive) {
-                            returnToNowPlaying()
-                            model.resetPairing()
-                        } label: {
-                            Text(localized(model.language, "Pair App Again", "App opnieuw koppelen"))
+                    if !model.isDemoMode {
+                        LabeledContent(localized(model.language, "Pairing", "Koppeling")) {
+                            Button(role: .destructive) {
+                                returnToNowPlaying()
+                                model.resetPairing()
+                            } label: {
+                                Text(localized(model.language, "Pair App Again", "App opnieuw koppelen"))
+                            }
                         }
                     }
                     LabeledContent(localized(model.language, "Wakeword", "Stemactivatie")) {
@@ -6427,7 +7087,19 @@ struct SettingsView: View {
                         status: model.speechPermissionStatus,
                         language: model.language
                     )
-                    if model.microphonePermissionStatus != .granted || model.speechPermissionStatus != .granted {
+                    PermissionStatusRow(
+                        title: localized(model.language, "Notifications", "Meldingen"),
+                        detail: localized(
+                            model.language,
+                            "Needed for server push notifications when Ask DJ answers.",
+                            "Nodig voor server-pushmeldingen wanneer Ask DJ antwoordt."
+                        ),
+                        status: model.notificationPermissionStatus,
+                        language: model.language
+                    )
+                    if model.microphonePermissionStatus != .granted
+                        || model.speechPermissionStatus != .granted
+                        || model.notificationPermissionStatus != .granted {
                         Button {
                             model.requestAppPermissions()
                         } label: {
@@ -6784,6 +7456,11 @@ private struct PrivacyView: View {
                     ))
                     SelectableValue(localized(
                         language,
+                        "Push notifications are only used for DJConnect notifications, such as Ask DJ responses. DJConnect stores an Apple push token locally and shares it with your own Home Assistant DJConnect integration so notifications can be delivered through Apple Push Notification service. Push tokens are not used for tracking, advertising, or sale.",
+                        "Pushnotificaties worden alleen gebruikt voor DJConnect-meldingen, zoals Ask DJ-reacties. DJConnect bewaart hiervoor een Apple push-token lokaal en deelt dit met je eigen Home Assistant DJConnect-integratie zodat notificaties via Apple Push Notification service kunnen worden bezorgd. Push-tokens worden niet gebruikt voor tracking, advertenties of verkoop."
+                    ))
+                    SelectableValue(localized(
+                        language,
                         "Music, playback, and voice requests are handled through your own Home Assistant DJConnect integration.",
                         "Muziek, playback en stemverzoeken lopen via je eigen Home Assistant DJConnect-integratie."
                     ))
@@ -6837,8 +7514,6 @@ private struct FeedbackPromptView: View {
                         dismiss()
                     } label: {
                         Label(localized(model.language, "Open GitHub Issue", "Open GitHub issue"), systemImage: "arrow.up.right.square")
-                            .foregroundStyle(djConnectAccent)
-                            .foregroundColor(djConnectAccent)
                             .frame(maxWidth: .infinity)
                     }
                     .buttonStyle(DJConnectLilacPillButtonStyle())
@@ -6848,8 +7523,6 @@ private struct FeedbackPromptView: View {
                         dismiss()
                     } label: {
                         Text(localized(model.language, "Not Now", "Niet nu"))
-                            .foregroundStyle(djConnectAccent)
-                            .foregroundColor(djConnectAccent)
                             .frame(maxWidth: .infinity)
                     }
                     .buttonStyle(DJConnectLilacPillButtonStyle())
