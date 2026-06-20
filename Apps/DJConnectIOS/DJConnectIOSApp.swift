@@ -28,7 +28,7 @@ struct DJConnectIOSApp: App {
                 tokenStore: DJConnectInMemoryTokenStore(),
                 monkeyTestingMode: processInfo.arguments.contains("--monkey-testing")
             )
-            if processInfo.arguments.contains("--ask-dj-party-demo-feed") {
+            if processInfo.arguments.contains("--on-air-demo-feed") {
                 model.seedAskDJPartyDemoMessagesForTesting()
             }
             return model

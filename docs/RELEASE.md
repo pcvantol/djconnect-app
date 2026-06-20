@@ -696,6 +696,9 @@ The `DJConnectIOSUITests` target now launches the iOS app in deterministic
 `--uitesting` mode with isolated defaults and a mock Home Assistant URL. The
 iOS and macOS UI tests include smoke coverage for primary navigation, local
 Demo Mode, Games entry, Settings, and the `App opnieuw koppelen` action.
+The iOS On Air screenshot test uses `--on-air-demo-feed` and writes local
+artifacts to `tmp/on-air-screenshots`, or to `DJCONNECT_SCREENSHOT_DIR` when
+that environment variable is set.
 Extend those targets with a real mock server fixture for pairing, output
 selection, queue, playlist/liked proxy, Ask DJ history sync, voice upload,
 stale auth, backend unavailable states, and sanitized backend/HTML error

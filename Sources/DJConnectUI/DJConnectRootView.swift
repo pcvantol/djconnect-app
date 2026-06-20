@@ -440,7 +440,7 @@ public struct DJConnectRootView: View {
                             isSelected: selectedSection == .askDJ
                         ) { selectedSection = .askDJ }
                         SidebarItem(
-                            title: "Ask DJ - Party!",
+                            title: "On Air",
                             systemImage: "airplayvideo",
                             isSelected: selectedSection == .askDJParty
                         ) { selectedSection = .askDJParty }
@@ -513,7 +513,7 @@ public struct DJConnectRootView: View {
                         .tag(DJConnectSection.askDJ)
                     AskDJPartyView(model: model)
                         .tabItem {
-                            Label("Ask DJ - Party!", systemImage: "airplayvideo")
+                            Label("On Air", systemImage: "airplayvideo")
                         }
                         .tag(DJConnectSection.askDJParty)
                     QueueView(model: model)
@@ -3128,7 +3128,7 @@ private struct AskDJPartyView: View {
         NavigationStack {
             VStack(spacing: 18) {
                 HStack {
-                    Text(screenTitle(model.language, "Ask DJ - Party!", "Ask DJ - Party!", isDemoMode: model.isDemoMode))
+                    Text(screenTitle(model.language, "On Air", "On Air", isDemoMode: model.isDemoMode))
                         .font(.system(size: 32, weight: .black, design: .rounded))
                         .foregroundStyle(.white)
                         .lineLimit(1)
@@ -6138,7 +6138,7 @@ private struct MoreView: View {
                         PlaylistsView(model: model)
                     }
                     MoreNavigationRow(
-                        title: "Ask DJ - Party!",
+                        title: "On Air",
                         systemImage: "airplayvideo"
                     ) {
                         AskDJPartyView(model: model)

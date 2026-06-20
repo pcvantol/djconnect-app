@@ -4,7 +4,11 @@ All notable changes to DJConnect App are documented here.
 
 ## Unreleased
 
-No unreleased changes.
+### Added
+
+- Added On Air, an AirPlay/TV-oriented Ask DJ presentation with large live chat
+  bubbles, now-playing artwork, an AirPlay route picker, and automated iOS demo
+  screenshot coverage.
 
 ## 3.1.38 - 2026-06-20
 

@@ -22,7 +22,7 @@ final class DJConnectIOSUITests: XCTestCase {
         let app = XCUIApplication()
         app.launchArguments.append(contentsOf: [
             "--monkey-testing",
-            "--ask-dj-party-demo-feed",
+            "--on-air-demo-feed",
             "-AppleLanguages",
             "(nl)",
             "-AppleLocale",
@@ -125,20 +125,20 @@ final class DJConnectIOSUITests: XCTestCase {
         XCTAssertTrue(app.buttons["Tik om te spelen"].exists || app.staticTexts["Tik om te spelen"].exists)
     }
 
-    func testAskDJPartyAirPlayOutputInDemoModeScreenshots() throws {
+    func testOnAirAirPlayOutputInDemoModeScreenshots() throws {
         XCUIDevice.shared.orientation = .portrait
         let app = launchAskDJPartyDemoApp()
 
         XCTAssertTrue(app.tabBars.firstMatch.waitForExistence(timeout: 8))
-        tapTabOrMoreItem("Ask DJ - Party!", in: app)
+        tapTabOrMoreItem("On Air", in: app)
 
         XCTAssertTrue(app.descendants(matching: .any)["AskDJPartyNowPlaying"].waitForExistence(timeout: 4))
         XCTAssertTrue(app.descendants(matching: .any)["AskDJPartyFeed"].waitForExistence(timeout: 4))
         XCTAssertTrue(app.descendants(matching: .any)["AskDJPartyUserBubble"].waitForExistence(timeout: 4))
         XCTAssertTrue(app.descendants(matching: .any)["AskDJPartyDJBubble"].waitForExistence(timeout: 4))
 
-        try attachAndWriteScreenshot(app.screenshot(), named: "ask-dj-party-airplay-demo-landscape")
-        try attachAndWriteScreenshot(app.screenshot(), named: "ask-dj-party-airplay-demo-live-feed")
+        try attachAndWriteScreenshot(app.screenshot(), named: "on-air-airplay-demo")
+        try attachAndWriteScreenshot(app.screenshot(), named: "on-air-live-feed")
     }
 
     func testMonkeyModeSafeNavigationSmoke() {
@@ -215,7 +215,7 @@ private var defaultScreenshotDirectory: URL {
         .deletingLastPathComponent()
         .deletingLastPathComponent()
         .appendingPathComponent("tmp")
-        .appendingPathComponent("ask-dj-party-screenshots")
+        .appendingPathComponent("on-air-screenshots")
 }
 
 private extension XCUIElement {

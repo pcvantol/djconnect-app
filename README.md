@@ -18,6 +18,12 @@ watchOS. Text chat, push-to-talk voice requests, replayable DJ response audio,
 images, links, sources, synced history, and Play Now recommendation actions live
 there; Now Playing no longer has a separate DJ request block.
 
+On Air is the iOS/macOS living-room view for Ask DJ. It presents the Ask DJ
+feed with TV-sized chat bubbles, prominent now-playing artwork, and an AirPlay
+route picker so the screen can be shown on an AirPlay TV. Returned DJ response
+audio URLs use the same local response-audio pipeline and follow the selected
+iOS audio route, including AirPlay when the user has selected it.
+
 AI and Assist answers can be incorrect and depend on your own Home Assistant
 and Assist configuration.
 
