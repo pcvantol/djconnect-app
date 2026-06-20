@@ -7004,6 +7004,7 @@ struct SettingsView: View {
     @ObservedObject var model: DJConnectAppModel
     var returnToNowPlaying: () -> Void = {}
     @Environment(\.openURL) private var openURL
+    @State private var isShowingResetPairingConfirmation = false
 
     var body: some View {
         NavigationStack {
@@ -7030,8 +7031,7 @@ struct SettingsView: View {
                     if !model.isDemoMode {
                         LabeledContent(localized(model.language, "Pairing", "Koppeling")) {
                             Button(role: .destructive) {
-                                returnToNowPlaying()
-                                model.resetPairing()
+                                isShowingResetPairingConfirmation = true
                             } label: {
                                 Text(localized(model.language, "Pair App Again", "App opnieuw koppelen"))
                             }
@@ -7132,6 +7132,22 @@ struct SettingsView: View {
             .scrollContentBackgroundIfAvailable(.hidden)
             .background(.clear)
             .navigationTitle(localized(model.language, "Settings", "Instellingen"))
+            .alert(
+                localized(model.language, "Pair App Again?", "App opnieuw koppelen?"),
+                isPresented: $isShowingResetPairingConfirmation
+            ) {
+                Button(localized(model.language, "Cancel", "Annuleer"), role: .cancel) {}
+                Button(localized(model.language, "Pair App Again", "App opnieuw koppelen"), role: .destructive) {
+                    returnToNowPlaying()
+                    model.resetPairing()
+                }
+            } message: {
+                Text(localized(
+                    model.language,
+                    "This clears the local DJConnect pairing and opens pairing setup again.",
+                    "Dit wist de lokale DJConnect-koppeling en opent het koppelscherm opnieuw."
+                ))
+            }
             .task {
                 model.refreshPermissionStatuses()
                 model.startPairingWait()

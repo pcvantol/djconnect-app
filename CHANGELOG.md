@@ -6,6 +6,13 @@ All notable changes to DJConnect App are documented here.
 
 No notable unreleased changes yet.
 
+## 3.1.42 - 2026-06-20
+
+### Changed
+
+- Added a confirmation dialog before resetting the app pairing from Settings on
+  iOS, macOS, and watchOS.
+
 ## 3.1.41 - 2026-06-20
 
 ### Added

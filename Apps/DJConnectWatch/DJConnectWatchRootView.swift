@@ -1418,6 +1418,7 @@ private struct DJConnectWatchGameSurface: View {
 
 private struct DJConnectWatchSettingsView: View {
     @EnvironmentObject private var model: DJConnectWatchModel
+    @State private var isShowingResetPairingConfirmation = false
 
     private var selectedLogLevel: DJConnectWatchLogLevel {
         DJConnectWatchLogLevel(rawValue: model.watchLogLevel) ?? .info
@@ -1451,7 +1452,7 @@ private struct DJConnectWatchSettingsView: View {
                                 .foregroundStyle(.white.opacity(0.72))
                                 .fixedSize(horizontal: false, vertical: true)
                             Button(role: .destructive) {
-                                model.resetPairing()
+                                isShowingResetPairingConfirmation = true
                             } label: {
                                 Label("Opnieuw koppelen", systemImage: "arrow.triangle.2.circlepath")
                                     .font(.caption2.weight(.semibold))
@@ -1520,6 +1521,14 @@ private struct DJConnectWatchSettingsView: View {
             }
         }
         .navigationTitle("Instellingen")
+        .alert("Opnieuw koppelen?", isPresented: $isShowingResetPairingConfirmation) {
+            Button("Annuleer", role: .cancel) {}
+            Button("Opnieuw koppelen", role: .destructive) {
+                model.resetPairing()
+            }
+        } message: {
+            Text("Dit wist de lokale Watch-koppeling en opent het koppelscherm opnieuw.")
+        }
     }
 
     private var voiceActivationIcon: String {
