@@ -3,6 +3,9 @@ import DJConnectCore
 import Foundation
 import OSLog
 
+#if canImport(UserNotifications)
+import UserNotifications
+#endif
 #if DEBUG && canImport(Darwin)
 import Darwin
 #endif
@@ -407,6 +410,7 @@ public final class DJConnectAppModel: ObservableObject {
     private let progressTimerNetworkRefreshInterval = 60
     private let askDJHistorySyncInterval: UInt64 = 8_000_000_000
     private var hasRequestedAskDJIdleSuggestion = false
+    private var hasRequestedAskDJNotificationPermission = false
 
     public var volume: Double {
         get { Double(pendingVolumePercent ?? playback?.volumePercent ?? 0) }
@@ -1535,6 +1539,7 @@ public final class DJConnectAppModel: ObservableObject {
             askDJErrorMessage = nil
             appendAskDJMessage(role: .user, text: text, status: .sent)
             appendAskDJMessage(role: .dj, text: demoAskDJResponse)
+            notifyAskDJResponse(demoAskDJResponse)
             return
         }
         guard canUsePlaybackFeatures else {
@@ -1563,6 +1568,7 @@ public final class DJConnectAppModel: ObservableObject {
         if isDemoMode {
             updateAskDJMessageStatus(id: message.id, status: .sent)
             appendAskDJMessage(role: .dj, text: demoAskDJResponse)
+            notifyAskDJResponse(demoAskDJResponse)
             return
         }
         askDJErrorMessage = nil
@@ -1629,6 +1635,7 @@ public final class DJConnectAppModel: ObservableObject {
                 let responseText = userFacingDJResponseText(assistant?.text)
                     ?? localized(english: "Ask DJ completed.", dutch: "Ask DJ afgerond.")
                 djResponseText = responseText
+                notifyAskDJResponse(responseText)
                 Task {
                     await playResponseAudioIfNeeded(resolvedAudioURL(from: assistant?.audioURL ?? response.audioURL))
                 }
@@ -1758,6 +1765,7 @@ public final class DJConnectAppModel: ObservableObject {
             djResponseText = demoResponse
             appendAskDJMessage(role: .user, text: localized(english: "Voice request", dutch: "Stemverzoek"))
             appendAskDJMessage(role: .dj, text: demoResponse)
+            notifyAskDJResponse(demoResponse)
             speakDemoResponse(demoResponse)
             voiceStatus = .idle
             log(.info, "Demo voice request completed")
@@ -1857,6 +1865,7 @@ public final class DJConnectAppModel: ObservableObject {
                     playbackActions: response.playbackActions ?? [],
                     audioURL: resolvedAudioURL(from: response.audioURL)
                 )
+                notifyAskDJResponse(djResponseText)
                 Task {
                     await playResponseAudioIfNeeded(resolvedAudioURL(from: response.audioURL))
                 }
@@ -2245,8 +2254,8 @@ public final class DJConnectAppModel: ObservableObject {
             pairingStatus = .stale
             isPairing = false
             pairingMessage = userFacingPairingMessage(from: message) ?? localized(
-                english: "Home Assistant rejected this app code. Enter the code shown here again in Home Assistant.",
-                dutch: "Home Assistant weigert deze app-code. Vul de code die hier staat opnieuw in Home Assistant in."
+                english: "Not paired yet. Open DJConnect in Home Assistant and enter the current code from this screen.",
+                dutch: "Nog niet gekoppeld. Open DJConnect in Home Assistant en vul de huidige code uit dit scherm in."
             )
         case let .versionMismatch(mismatch):
             pairingStatus = .pairing
@@ -2887,6 +2896,73 @@ public final class DJConnectAppModel: ObservableObject {
         defaults.set(clearRevision, forKey: askDJClearRevisionKey)
     }
 
+    private func notifyAskDJResponse(_ text: String) {
+        #if canImport(UserNotifications)
+        let preview = Self.notificationPreview(from: text)
+        Task {
+            let center = UNUserNotificationCenter.current()
+            guard await requestAskDJNotificationAuthorizationIfNeeded(center: center) else {
+                log(.debug, "Ask DJ notification skipped because notifications are not authorized")
+                return
+            }
+
+            let content = UNMutableNotificationContent()
+            content.title = localized(english: "Ask DJ answered", dutch: "Ask DJ heeft geantwoord")
+            content.body = preview.isEmpty ? localized(english: "Your DJ response is ready.", dutch: "Je DJ-antwoord staat klaar.") : preview
+            content.sound = .default
+            content.threadIdentifier = "djconnect.askdj"
+            content.categoryIdentifier = "DJCONNECT_ASK_DJ_RESPONSE"
+
+            let request = UNNotificationRequest(
+                identifier: "djconnect.askdj.\(UUID().uuidString)",
+                content: content,
+                trigger: UNTimeIntervalNotificationTrigger(timeInterval: 1, repeats: false)
+            )
+            do {
+                try await center.add(request)
+                log(.debug, "Ask DJ local notification scheduled")
+            } catch {
+                log(.warning, "Ask DJ local notification failed: \(error.localizedDescription)")
+            }
+        }
+        #endif
+    }
+
+    #if canImport(UserNotifications)
+    private func requestAskDJNotificationAuthorizationIfNeeded(center: UNUserNotificationCenter) async -> Bool {
+        let settings = await center.notificationSettings()
+        switch settings.authorizationStatus {
+        case .authorized, .provisional, .ephemeral:
+            return true
+        case .notDetermined:
+            guard !hasRequestedAskDJNotificationPermission else {
+                return false
+            }
+            hasRequestedAskDJNotificationPermission = true
+            do {
+                return try await center.requestAuthorization(options: [.alert, .sound])
+            } catch {
+                log(.warning, "Ask DJ notification permission failed: \(error.localizedDescription)")
+                return false
+            }
+        case .denied:
+            return false
+        @unknown default:
+            return false
+        }
+    }
+    #endif
+
+    private static func notificationPreview(from text: String) -> String {
+        let compact = text
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .replacingOccurrences(of: #"\s+"#, with: " ", options: .regularExpression)
+        guard compact.count > 120 else {
+            return compact
+        }
+        return String(compact.prefix(117)) + "..."
+    }
+
     private func proxiedResponseImages(_ images: [DJConnectResponseImage]?) -> [DJConnectResponseImage] {
         guard let images, !images.isEmpty else {
             return []
@@ -2970,7 +3046,7 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
 
-    public func seedAskDJPartyDemoMessagesForTesting() {
+    public func seedAskDJOnAirDemoMessagesForTesting() {
         clearAskDJHistoryLocally()
         appendAskDJMessage(
             role: .user,
@@ -2980,8 +3056,8 @@ public final class DJConnectAppModel: ObservableObject {
         appendAskDJMessage(
             role: .dj,
             text: localized(
-                english: "Party mode is live. Midnight City is playing in the living room and Ask DJ is ready for the next request.",
-                dutch: "Party-modus staat live. Midnight City speelt in de woonkamer en Ask DJ is klaar voor het volgende verzoek."
+                english: "Ask DJ is On Air! Midnight City is playing in the living room and Ask DJ is ready for the next request.",
+                dutch: "Ask DJ is On Air! Midnight City speelt in de woonkamer en Ask DJ is klaar voor het volgende verzoek."
             )
         )
     }
@@ -3070,8 +3146,8 @@ public final class DJConnectAppModel: ObservableObject {
             || normalized.contains("does not match")
             || normalized.contains("invalid code") {
             return localized(
-                english: "The app code does not match. Enter the current code from this screen in Home Assistant.",
-                dutch: "De app-code klopt niet. Vul de huidige code uit dit scherm in Home Assistant in."
+                english: "Not paired yet. Open DJConnect in Home Assistant and enter the current code from this screen.",
+                dutch: "Nog niet gekoppeld. Open DJConnect in Home Assistant en vul de huidige code uit dit scherm in."
             )
         }
         if normalized.contains("token")
@@ -3163,7 +3239,7 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
 
-    public func playAskDJPartyAudioIfNeeded(for message: DJConnectAskDJMessage?) {
+    public func playAskDJOnAirAudioIfNeeded(for message: DJConnectAskDJMessage?) {
         guard let message, message.role != .user else {
             return
         }

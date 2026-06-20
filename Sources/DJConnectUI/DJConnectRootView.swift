@@ -400,7 +400,6 @@ private struct DJConnectCanvasBackground: View {
 private enum DJConnectSection: Hashable {
     case nowPlaying
     case askDJ
-    case askDJParty
     case queue
     case playlists
     case games
@@ -417,6 +416,9 @@ public struct DJConnectRootView: View {
     @State private var selectedSection = DJConnectSection.nowPlaying
     @State private var moreResetID = UUID()
     @State private var showingFeedback = false
+    #if os(iOS)
+    @StateObject private var askDJExternalDisplayController = AskDJExternalDisplayController()
+    #endif
 
     public init(model: DJConnectAppModel) {
         self.model = model
@@ -439,11 +441,6 @@ public struct DJConnectRootView: View {
                             systemImage: "bubble.left.and.bubble.right.fill",
                             isSelected: selectedSection == .askDJ
                         ) { selectedSection = .askDJ }
-                        SidebarItem(
-                            title: "On Air",
-                            systemImage: "airplayvideo",
-                            isSelected: selectedSection == .askDJParty
-                        ) { selectedSection = .askDJParty }
                         SidebarItem(
                             title: localized(model.language, "Queue", "Wachtrij"),
                             systemImage: "text.line.first.and.arrowtriangle.forward",
@@ -511,11 +508,6 @@ public struct DJConnectRootView: View {
                             Label("Ask DJ", systemImage: "bubble.left.and.bubble.right.fill")
                         }
                         .tag(DJConnectSection.askDJ)
-                    AskDJPartyView(model: model)
-                        .tabItem {
-                            Label("On Air", systemImage: "airplayvideo")
-                        }
-                        .tag(DJConnectSection.askDJParty)
                     QueueView(model: model)
                         .tabItem {
                             Label(localized(model.language, "Queue", "Wachtrij"), systemImage: "text.line.first.and.arrowtriangle.forward")
@@ -612,6 +604,10 @@ public struct DJConnectRootView: View {
         }
         .environment(\.colorScheme, .dark)
         .preferredColorScheme(.dark)
+        #if os(iOS)
+        .onAppear { askDJExternalDisplayController.start(model: model) }
+        .onDisappear { askDJExternalDisplayController.stop() }
+        #endif
     }
 
     @ViewBuilder
@@ -621,8 +617,6 @@ public struct DJConnectRootView: View {
             NowPlayingView(model: model)
         case .askDJ:
             AskDJView(model: model)
-        case .askDJParty:
-            AskDJPartyView(model: model)
         case .queue:
             QueueView(model: model)
         case .playlists:
@@ -3009,7 +3003,9 @@ private struct AskDJView: View {
                     .help(localized(model.language, "Search Ask DJ", "Zoek in Ask DJ"))
                     .accessibilityLabel(localized(model.language, "Search Ask DJ", "Zoek in Ask DJ"))
                 }
-                ToolbarItem(placement: .topBarTrailing) {
+                ToolbarItemGroup(placement: .topBarTrailing) {
+                    askDJAirPlayToolbarButton
+
                     Button {
                         isInputFocused = false
                         showingClearConfirmation = true
@@ -3051,6 +3047,18 @@ private struct AskDJView: View {
                 }
             showToast(text)
         }
+    }
+
+    @ViewBuilder
+    private var askDJAirPlayToolbarButton: some View {
+        #if os(iOS) && canImport(AVKit)
+        AirPlayRoutePickerButton()
+            .frame(width: 34, height: 28)
+            .accessibilityLabel(localized(model.language, "Choose AirPlay TV", "Kies AirPlay-tv"))
+            .accessibilityIdentifier("AskDJAirPlayButton")
+        #else
+        EmptyView()
+        #endif
     }
 
     private func dismissAskDJSearch() {
@@ -3111,8 +3119,9 @@ private struct AirPlayRoutePickerButton: UIViewRepresentable {
     func makeUIView(context: Context) -> AVRoutePickerView {
         let view = AVRoutePickerView()
         view.prioritizesVideoDevices = true
-        view.tintColor = .white
-        view.activeTintColor = UIColor(red: 0.84, green: 0.22, blue: 0.96, alpha: 1)
+        let accent = UIColor(red: 0.84, green: 0.22, blue: 0.96, alpha: 1)
+        view.tintColor = accent
+        view.activeTintColor = accent
         return view
     }
 
@@ -3120,85 +3129,160 @@ private struct AirPlayRoutePickerButton: UIViewRepresentable {
 }
 #endif
 
-private struct AskDJPartyView: View {
+#if os(iOS)
+@MainActor
+private final class AskDJExternalDisplayController: ObservableObject {
+    private weak var model: DJConnectAppModel?
+    private var externalWindows: [(screen: UIScreen, window: UIWindow)] = []
+    private var observers: [NSObjectProtocol] = []
+
+    func start(model: DJConnectAppModel) {
+        self.model = model
+        attachAvailableScreens()
+        guard observers.isEmpty else {
+            return
+        }
+        observers = [
+            NotificationCenter.default.addObserver(
+                forName: UIScreen.didConnectNotification,
+                object: nil,
+                queue: .main
+            ) { [weak self] notification in
+                guard let screen = notification.object as? UIScreen else {
+                    return
+                }
+                Task { @MainActor in self?.attach(screen: screen) }
+            },
+            NotificationCenter.default.addObserver(
+                forName: UIScreen.didDisconnectNotification,
+                object: nil,
+                queue: .main
+            ) { [weak self] notification in
+                guard let screen = notification.object as? UIScreen else {
+                    return
+                }
+                Task { @MainActor in self?.detach(screen: screen) }
+            }
+        ]
+    }
+
+    func stop() {
+        for observer in observers {
+            NotificationCenter.default.removeObserver(observer)
+        }
+        observers = []
+        externalWindows.forEach { $0.window.isHidden = true }
+        externalWindows = []
+        model = nil
+    }
+
+    private func attachAvailableScreens() {
+        UIScreen.screens.dropFirst().forEach { attach(screen: $0) }
+    }
+
+    private func attach(screen: UIScreen) {
+        guard let model else {
+            return
+        }
+        guard !externalWindows.contains(where: { $0.screen === screen }) else {
+            return
+        }
+        let window = UIWindow(frame: screen.bounds)
+        window.screen = screen
+        window.rootViewController = UIHostingController(rootView: AskDJExternalDisplayView(model: model))
+        window.isHidden = false
+        externalWindows.append((screen, window))
+    }
+
+    private func detach(screen: UIScreen) {
+        guard let index = externalWindows.firstIndex(where: { $0.screen === screen }) else {
+            return
+        }
+        externalWindows[index].window.isHidden = true
+        externalWindows.remove(at: index)
+    }
+}
+
+private struct AskDJExternalDisplayView: View {
     @ObservedObject var model: DJConnectAppModel
     private var messages: [DJConnectAskDJMessage] { Array(model.askDJMessages.suffix(8)) }
 
     var body: some View {
-        NavigationStack {
-            VStack(spacing: 18) {
-                HStack {
-                    Text(screenTitle(model.language, "On Air", "On Air", isDemoMode: model.isDemoMode))
-                        .font(.system(size: 32, weight: .black, design: .rounded))
-                        .foregroundStyle(.white)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.7)
-                    Spacer()
-                    airPlayControl.frame(width: 64, height: 48)
+        VStack(spacing: 26) {
+            HStack(spacing: 22) {
+                CachedArtworkImage(url: model.playback?.albumImageURL, mode: .fill) {
+                    Image(systemName: "music.note")
+                        .font(.system(size: 46, weight: .bold))
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .background(djConnectAccent.opacity(0.45))
                 }
-                ScrollViewReader { proxy in
-                    ScrollView {
-                        LazyVStack(spacing: 18) {
-                            if messages.isEmpty {
-                                AskDJPartyEmptyState(language: model.language)
-                            } else {
-                                ForEach(messages) { message in
-                                    AskDJPartyBubble(message: message, language: model.language).id(message.id)
-                                }
+                .frame(width: 116, height: 116)
+                .clipped()
+                .djArtworkStyle(cornerRadius: 10)
+
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Ask DJ")
+                        .font(.system(size: 34, weight: .black, design: .rounded))
+                        .foregroundStyle(.white)
+                    Text(model.playback?.trackName ?? localized(model.language, "Nothing playing", "Niets speelt af"))
+                        .font(.system(size: 26, weight: .black, design: .rounded))
+                        .foregroundStyle(.white.opacity(0.84))
+                        .lineLimit(1)
+                    Text(model.playback?.artistName ?? localized(model.language, "Live on the TV", "Live op tv"))
+                        .font(.system(size: 22, weight: .semibold, design: .rounded))
+                        .foregroundStyle(.white.opacity(0.62))
+                        .lineLimit(1)
+                }
+                Spacer()
+            }
+            .accessibilityIdentifier("AskDJExternalNowPlaying")
+
+            ScrollViewReader { proxy in
+                ScrollView {
+                    LazyVStack(spacing: 18) {
+                        if messages.isEmpty {
+                            AskDJExternalEmptyState(language: model.language)
+                        } else {
+                            ForEach(messages) { message in
+                                AskDJExternalBubble(message: message, language: model.language).id(message.id)
                             }
                         }
                     }
-                    .scrollIndicators(.hidden)
-                    .accessibilityIdentifier("AskDJPartyFeed")
-                    .onAppear { model.playAskDJPartyAudioIfNeeded(for: model.askDJMessages.last) }
-                    .onChange(of: model.askDJMessages) {
-                        guard let last = model.askDJMessages.last else { return }
-                        withAnimation(.easeOut(duration: 0.24)) { proxy.scrollTo(last.id, anchor: .bottom) }
-                        model.playAskDJPartyAudioIfNeeded(for: last)
-                    }
                 }
-                HStack(spacing: 14) {
-                    CachedArtworkImage(url: model.playback?.albumImageURL, mode: .fill) {
-                        Image(systemName: "music.note").font(.system(size: 34, weight: .bold)).frame(maxWidth: .infinity, maxHeight: .infinity).background(djConnectAccent.opacity(0.45))
-                    }
-                    .frame(width: 88, height: 88)
-                    .clipped()
-                    .djArtworkStyle(cornerRadius: 8)
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(model.playback?.trackName ?? localized(model.language, "Nothing playing", "Niets speelt af")).font(.title2.weight(.black)).foregroundStyle(.white).lineLimit(1)
-                        Text(model.playback?.artistName ?? localized(model.language, "Select an AirPlay TV", "Kies een AirPlay-tv")).font(.headline.weight(.semibold)).foregroundStyle(.white.opacity(0.66)).lineLimit(1)
-                    }
-                    Spacer()
+                .scrollIndicators(.hidden)
+                .accessibilityIdentifier("AskDJExternalFeed")
+                .onAppear {
+                    model.playAskDJOnAirAudioIfNeeded(for: model.askDJMessages.last)
                 }
-                .accessibilityIdentifier("AskDJPartyNowPlaying")
+                .onChange(of: model.askDJMessages) {
+                    guard let last = model.askDJMessages.last else { return }
+                    withAnimation(.easeOut(duration: 0.24)) {
+                        proxy.scrollTo(last.id, anchor: .bottom)
+                    }
+                    model.playAskDJOnAirAudioIfNeeded(for: last)
+                }
             }
-            .padding(.horizontal, 34)
-            .padding(.vertical, 24)
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(DJConnectCanvasBackground())
         }
+        .padding(.horizontal, 44)
+        .padding(.vertical, 34)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(DJConnectCanvasBackground())
         .task { await model.runAskDJHistorySyncLoop() }
     }
-
-    @ViewBuilder private var airPlayControl: some View {
-        #if os(iOS) && canImport(AVKit)
-        AirPlayRoutePickerButton().accessibilityLabel(localized(model.language, "Choose AirPlay TV", "Kies AirPlay-tv"))
-        #else
-        Image(systemName: "airplayvideo").foregroundStyle(.white)
-        #endif
-    }
 }
 
-private struct AskDJPartyEmptyState: View {
+private struct AskDJExternalEmptyState: View {
     let language: String
     var body: some View {
         Text(localized(language, "Ask DJ messages appear here live.", "Ask DJ-berichten verschijnen hier live."))
-            .font(.title.weight(.black)).foregroundStyle(.white).frame(maxWidth: .infinity, minHeight: 260).accessibilityIdentifier("AskDJPartyEmptyState")
+            .font(.system(size: 36, weight: .black, design: .rounded))
+            .foregroundStyle(.white)
+            .frame(maxWidth: .infinity, minHeight: 300)
+            .accessibilityIdentifier("AskDJExternalEmptyState")
     }
 }
 
-private struct AskDJPartyBubble: View {
+private struct AskDJExternalBubble: View {
     let message: DJConnectAskDJMessage
     let language: String
     private var isUser: Bool { message.role == .user }
@@ -3212,11 +3296,12 @@ private struct AskDJPartyBubble: View {
             .padding(.horizontal, 28).padding(.vertical, 22).frame(maxWidth: 980, alignment: isUser ? .trailing : .leading)
             .background(LinearGradient(colors: isUser ? [Color(red: 0.04, green: 0.48, blue: 1), Color(red: 0, green: 0.35, blue: 0.95)] : [Color(red: 0.02, green: 0.46, blue: 1), Color(red: 0.90, green: 0.16, blue: 0.96)], startPoint: .topLeading, endPoint: .bottomTrailing))
             .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
-            .accessibilityIdentifier(isUser ? "AskDJPartyUserBubble" : "AskDJPartyDJBubble")
+            .accessibilityIdentifier(isUser ? "AskDJExternalUserBubble" : "AskDJExternalDJBubble")
             if !isUser { Spacer(minLength: 80) }
         }
     }
 }
+#endif
 
 private struct AskDJSearchBar: View {
     let language: String
@@ -6136,12 +6221,6 @@ private struct MoreView: View {
                         systemImage: "rectangle.stack"
                     ) {
                         PlaylistsView(model: model)
-                    }
-                    MoreNavigationRow(
-                        title: "On Air",
-                        systemImage: "airplayvideo"
-                    ) {
-                        AskDJPartyView(model: model)
                     }
                     MoreNavigationRow(
                         title: localized(model.language, "Games", "Games"),

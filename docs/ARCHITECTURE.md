@@ -85,12 +85,14 @@ playback status and controls; it must not carry a separate `DJ verzoek` card.
 rbpi had no separate rich DJ request UI, and ESP32 remains a firmware/device
 surface without the Apple Ask DJ chat UI.
 
-`On Air` is an iOS/macOS presentation mode for the same Ask DJ history and
-playback state. It is intended for AirPlay/TV use in the living room: clients
-render large chat bubbles, now-playing artwork, and an AirPlay route picker,
-but they do not create a second conversation model or backend API. DJ response
-`audio_url` playback is still local app playback; when the user selects an
-AirPlay route, iOS routes that audio to the selected device.
+`On Air` is the AirPlay/TV output launched from the existing iOS Ask DJ screen,
+not a separate app destination. Ask DJ owns the AirPlay route picker in its
+toolbar; when iOS exposes a connected TV as an external display, the client
+renders the same Ask DJ history and playback state there with large chat
+bubbles and now-playing artwork while the app stays usable. It does not create
+a second conversation model or backend API. DJ response `audio_url` playback is
+still local app playback; when the user selects an AirPlay route, iOS routes
+that audio to the selected device.
 
 Ask DJ intent interpretation remains backend-owned. In addition to music
 questions and playback controls, the integration should handle liking/saving

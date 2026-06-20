@@ -18,7 +18,7 @@ final class DJConnectIOSUITests: XCTestCase {
         return app
     }
 
-    private func launchAskDJPartyDemoApp() -> XCUIApplication {
+    private func launchAskDJAirPlayDemoApp() -> XCUIApplication {
         let app = XCUIApplication()
         app.launchArguments.append(contentsOf: [
             "--monkey-testing",
@@ -125,20 +125,20 @@ final class DJConnectIOSUITests: XCTestCase {
         XCTAssertTrue(app.buttons["Tik om te spelen"].exists || app.staticTexts["Tik om te spelen"].exists)
     }
 
-    func testOnAirAirPlayOutputInDemoModeScreenshots() throws {
+    func testAskDJAirPlayOutputInDemoModeScreenshots() throws {
         XCUIDevice.shared.orientation = .portrait
-        let app = launchAskDJPartyDemoApp()
+        let app = launchAskDJAirPlayDemoApp()
 
         XCTAssertTrue(app.tabBars.firstMatch.waitForExistence(timeout: 8))
-        tapTabOrMoreItem("On Air", in: app)
+        tapTabOrMoreItem("Ask DJ", in: app)
 
-        XCTAssertTrue(app.descendants(matching: .any)["AskDJPartyNowPlaying"].waitForExistence(timeout: 4))
-        XCTAssertTrue(app.descendants(matching: .any)["AskDJPartyFeed"].waitForExistence(timeout: 4))
-        XCTAssertTrue(app.descendants(matching: .any)["AskDJPartyUserBubble"].waitForExistence(timeout: 4))
-        XCTAssertTrue(app.descendants(matching: .any)["AskDJPartyDJBubble"].waitForExistence(timeout: 4))
+        XCTAssertTrue(app.navigationBars["Ask DJ (demo)"].waitForExistence(timeout: 4))
+        XCTAssertTrue(app.descendants(matching: .any)["AskDJAirPlayButton"].waitForExistence(timeout: 4))
+        XCTAssertTrue(app.staticTexts["Verras de woonkamer met een track"].waitForExistence(timeout: 4))
+        XCTAssertTrue(app.staticTexts["Ask DJ is On Air! Midnight City speelt in de woonkamer en Ask DJ is klaar voor het volgende verzoek."].waitForExistence(timeout: 4))
 
-        try attachAndWriteScreenshot(app.screenshot(), named: "on-air-airplay-demo")
-        try attachAndWriteScreenshot(app.screenshot(), named: "on-air-live-feed")
+        try attachAndWriteScreenshot(app.screenshot(), named: "ask-dj-airplay-button")
+        try attachAndWriteScreenshot(app.screenshot(), named: "ask-dj-live-feed")
     }
 
     func testMonkeyModeSafeNavigationSmoke() {
@@ -215,7 +215,7 @@ private var defaultScreenshotDirectory: URL {
         .deletingLastPathComponent()
         .deletingLastPathComponent()
         .appendingPathComponent("tmp")
-        .appendingPathComponent("on-air-screenshots")
+        .appendingPathComponent("ask-dj-airplay-screenshots")
 }
 
 private extension XCUIElement {

@@ -195,7 +195,7 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
 }
 
 @MainActor
-@Test func pairingAuthStaleStopsPollingWithCodeMismatchMessage() throws {
+@Test func pairingAuthStaleStopsPollingWithSetupGuidance() throws {
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
@@ -214,7 +214,8 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
     #expect(model.pairingStatus == .stale)
     #expect(model.isPairing == false)
     #expect(model.isTerminalPairingError(.authStale(statusCode: 401, message: nil)))
-    #expect(model.pairingMessage?.contains("De app-code klopt niet.") == true)
+    #expect(model.pairingMessage?.contains("Nog niet gekoppeld.") == true)
+    #expect(model.pairingMessage?.contains("Open DJConnect in Home Assistant") == true)
     #expect(model.pairingMessage?.contains("The pairing code does not match") == false)
 }
 

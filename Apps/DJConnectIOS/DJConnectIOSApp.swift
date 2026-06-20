@@ -29,7 +29,7 @@ struct DJConnectIOSApp: App {
                 monkeyTestingMode: processInfo.arguments.contains("--monkey-testing")
             )
             if processInfo.arguments.contains("--on-air-demo-feed") {
-                model.seedAskDJPartyDemoMessagesForTesting()
+                model.seedAskDJOnAirDemoMessagesForTesting()
             }
             return model
         }

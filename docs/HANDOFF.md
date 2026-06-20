@@ -178,11 +178,12 @@ Now Playing should not reintroduce a separate `DJ verzoek` block. rbpi did not
 have that separate UI block, and ESP32 remains a firmware/device client without
 the Apple Ask DJ rich chat UI.
 
-On Air is the Apple living-room display for that same Ask DJ surface. It should
-remain a presentation layer over Ask DJ history/playback state, optimized for
-AirPlay to a TV with large bubbles, now-playing artwork, and the system AirPlay
-route picker. Do not fork Ask DJ history, intent handling, or backend contracts
-for On Air.
+On Air is the Apple living-room TV output for that same Ask DJ surface. It
+starts from the AirPlay picker inside the existing iOS Ask DJ screen, then
+renders Ask DJ history/playback state on the connected external display with
+large bubbles and now-playing artwork while the app remains usable. Do not add
+a separate On Air app destination, fork Ask DJ history, intent handling, or
+backend contracts for On Air.
 
 For `Ask DJ`, the Watch may send mood, DJ style, and a memory key hint, but DJ
 Memory itself belongs to the Home Assistant integration. This lets a user ask

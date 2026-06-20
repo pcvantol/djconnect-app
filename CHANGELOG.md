@@ -10,9 +10,9 @@ No notable unreleased changes yet.
 
 ### Added
 
-- Added On Air, an AirPlay/TV-oriented Ask DJ presentation with large live chat
-  bubbles, now-playing artwork, an AirPlay route picker, and automated iOS demo
-  screenshot coverage.
+- Added On Air as AirPlay/TV output from the existing Ask DJ screen, with an
+  Ask DJ toolbar route picker, large external-display chat bubbles,
+  now-playing artwork, and automated iOS demo screenshot coverage.
 
 ## 3.1.38 - 2026-06-20
 

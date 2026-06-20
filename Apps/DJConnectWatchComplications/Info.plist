@@ -15,27 +15,15 @@
 	<key>CFBundleName</key>
 	<string>$(PRODUCT_NAME)</string>
 	<key>CFBundlePackageType</key>
-	<string>APPL</string>
+	<string>XPC!</string>
 	<key>CFBundleShortVersionString</key>
 	<string>$(MARKETING_VERSION)</string>
 	<key>CFBundleVersion</key>
 	<string>$(CURRENT_PROJECT_VERSION)</string>
-	<key>NSAppTransportSecurity</key>
+	<key>NSExtension</key>
 	<dict>
-		<key>NSAllowsArbitraryLoadsInLocalNetworking</key>
-		<true/>
+		<key>NSExtensionPointIdentifier</key>
+		<string>com.apple.widgetkit-extension</string>
 	</dict>
-	<key>NSBonjourServices</key>
-	<array>
-		<string>_home-assistant._tcp.</string>
-	</array>
-	<key>NSLocalNetworkUsageDescription</key>
-	<string>DJConnect maakt verbinding met Home Assistant op je lokale netwerk.</string>
-	<key>NSMicrophoneUsageDescription</key>
-	<string>DJConnect neemt je stem op voor push-to-talk muziekverzoeken aan Home Assistant.</string>
-	<key>WKApplication</key>
-	<true/>
-	<key>WKWatchOnly</key>
-	<true/>
 </dict>
 </plist>
