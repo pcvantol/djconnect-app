@@ -6,6 +6,27 @@ All notable changes to DJConnect App are documented here.
 
 No notable unreleased changes yet.
 
+## 3.1.41 - 2026-06-20
+
+### Added
+
+- Added APNs push registration on iOS, macOS, and watchOS, including privacy
+  disclosure text and Home Assistant registration/unregistration calls.
+- Added a much richer watchOS experience with welcome/pairing/about/legal/
+  privacy/logs/settings screens, output selection, playlists, queue, games,
+  complications, volume control, foreground-only voice activation, haptics, and
+  Crown mood scrubbing.
+- Added CI validation for the committed Postman collection.
+
+### Changed
+
+- Updated iOS/macOS button styling to use readable blue-purple gradient pills
+  with white text, matching the watchOS visual language.
+- Made pairing stricter on fresh iOS/macOS installs by ignoring orphaned
+  persistent device tokens without a matching install identity.
+- Improved Watch pairing copy, WiFi/local-network handling, demo-mode exit
+  behavior, and Now Playing artwork/output layout.
+
 ## 3.1.40 - 2026-06-20
 
 ### Added
