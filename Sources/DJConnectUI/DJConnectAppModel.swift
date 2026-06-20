@@ -3288,8 +3288,8 @@ public final class DJConnectAppModel: ObservableObject {
 
     public func showAskDJOnAirNeedsDisplayNoticeIfNeeded() {
         let text = localized(
-            english: "Ask DJ is ready, but AirPlay is only available as a media route here. On Air needs a real video stream before the TV can show the Ask DJ feed.",
-            dutch: "Ask DJ staat klaar, maar AirPlay is hier alleen beschikbaar als mediaroute. On Air heeft een echte videostream nodig voordat de tv de Ask DJ-feed kan tonen."
+            english: "Ask DJ could not start the On Air video stream. Try AirPlay again in a moment.",
+            dutch: "Ask DJ kon de On Air-videostream niet starten. Probeer AirPlay zo opnieuw."
         )
         appendAskDJStatusMessageIfNeeded(text: text, origin: "airplay_display_unavailable")
     }

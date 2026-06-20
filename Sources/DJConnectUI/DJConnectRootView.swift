@@ -5,6 +5,7 @@ import CoreText
 
 #if canImport(AVFoundation)
 import AVFoundation
+import UniformTypeIdentifiers
 #endif
 #if canImport(AVKit)
 import AVKit
@@ -3282,79 +3283,97 @@ private final class AskDJOnAirVideoStreamer: ObservableObject {
     @Published private(set) var player: AVPlayer?
     @Published private(set) var isPreparing = false
 
+    private let snapshotLock = NSLock()
     private var isRunning = false
-    private var generation = 0
-    private var loopObserver: NSObjectProtocol?
+    private var streamTask: Task<Void, Never>?
+    nonisolated(unsafe) private var currentSnapshot: AskDJOnAirVideoSnapshot?
+    private var streamDirectory: URL?
+
+    deinit {
+        streamTask?.cancel()
+    }
 
     func start(model: DJConnectAppModel) {
+        updateSnapshot(model: model)
+        guard !isRunning else {
+            player?.play()
+            return
+        }
         isRunning = true
-        renderAndPlay(model: model, announceWhenReady: true)
+        isPreparing = true
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("djconnect-on-air-hls-\(UUID().uuidString)", isDirectory: true)
+        streamDirectory = directory
+        configurePlayer(playlistURL: directory.appendingPathComponent("index.m3u8"))
+        streamTask = Task.detached(priority: .userInitiated) { [weak self] in
+            await self?.runStream(directory: directory, model: model)
+        }
     }
 
     func refreshIfRunning(model: DJConnectAppModel) {
         guard isRunning else {
             return
         }
-        renderAndPlay(model: model, announceWhenReady: false)
+        updateSnapshot(model: model)
     }
 
-    private func renderAndPlay(model: DJConnectAppModel, announceWhenReady: Bool) {
-        generation += 1
-        let currentGeneration = generation
-        isPreparing = true
+    private func updateSnapshot(model: DJConnectAppModel) {
         let snapshot = AskDJOnAirVideoSnapshot(
             language: model.language,
             messages: Array(model.askDJMessages.suffix(7)),
             trackName: model.playback?.trackName,
             artistName: model.playback?.artistName
         )
+        snapshotLock.lock()
+        currentSnapshot = snapshot
+        snapshotLock.unlock()
+    }
 
-        Task.detached(priority: .userInitiated) {
-            do {
-                let url = try AskDJOnAirVideoRenderer.render(snapshot: snapshot)
-                await MainActor.run {
-                    guard self.generation == currentGeneration else {
-                        return
-                    }
-                    self.replacePlayerItem(url: url)
-                    self.isPreparing = false
-                    if announceWhenReady {
+    nonisolated private func snapshot() -> AskDJOnAirVideoSnapshot {
+        snapshotLock.lock()
+        defer { snapshotLock.unlock() }
+        return currentSnapshot ?? AskDJOnAirVideoSnapshot(
+            language: "en",
+            messages: [],
+            trackName: nil,
+            artistName: nil
+        )
+    }
+
+    private nonisolated func runStream(directory: URL, model: DJConnectAppModel) async {
+        do {
+            let stream = try AskDJOnAirHLSStream(
+                directory: directory,
+                snapshotProvider: { [weak self] in
+                    self?.snapshot() ?? AskDJOnAirVideoSnapshot(language: "en", messages: [], trackName: nil, artistName: nil)
+                },
+                firstSegmentHandler: {
+                    Task { @MainActor in
+                        self.isPreparing = false
                         model.showAskDJOnAirStatusIfNeeded()
                     }
                 }
-            } catch {
-                await MainActor.run {
-                    guard self.generation == currentGeneration else {
-                        return
-                    }
-                    self.isPreparing = false
-                    model.showAskDJOnAirNeedsDisplayNoticeIfNeeded()
-                }
+            )
+            try stream.runUntilCancelled()
+        } catch {
+            await MainActor.run {
+                self.isPreparing = false
+                model.showAskDJOnAirNeedsDisplayNoticeIfNeeded()
             }
         }
     }
 
-    private func replacePlayerItem(url: URL) {
-        if let loopObserver {
-            NotificationCenter.default.removeObserver(loopObserver)
-            self.loopObserver = nil
-        }
-        let item = AVPlayerItem(url: url)
+    private func configurePlayer(playlistURL: URL) {
+        let item = AVPlayerItem(url: playlistURL)
+        item.preferredForwardBufferDuration = 1
         let nextPlayer = player ?? AVPlayer()
         nextPlayer.replaceCurrentItem(with: item)
         nextPlayer.isMuted = true
         nextPlayer.allowsExternalPlayback = true
+        nextPlayer.automaticallyWaitsToMinimizeStalling = false
         #if os(iOS)
         nextPlayer.usesExternalPlaybackWhileExternalScreenIsActive = true
         #endif
-        loopObserver = NotificationCenter.default.addObserver(
-            forName: .AVPlayerItemDidPlayToEndTime,
-            object: item,
-            queue: .main
-        ) { [weak nextPlayer] _ in
-            nextPlayer?.seek(to: .zero)
-            nextPlayer?.play()
-        }
         player = nextPlayer
         nextPlayer.play()
     }
@@ -3367,70 +3386,155 @@ private struct AskDJOnAirVideoSnapshot {
     var artistName: String?
 }
 
-private enum AskDJOnAirVideoRenderer {
-    private static let size = CGSize(width: 1920, height: 1080)
-    private static let frameCount = 60
-    private static let frameDuration = CMTime(value: 1, timescale: 30)
+private final class AskDJOnAirHLSStream: NSObject, AVAssetWriterDelegate, @unchecked Sendable {
+    private struct Segment {
+        var sequence: Int
+        var filename: String
+        var duration: Double
+    }
 
-    static func render(snapshot: AskDJOnAirVideoSnapshot) throws -> URL {
-        let outputURL = FileManager.default.temporaryDirectory
-            .appendingPathComponent("djconnect-on-air-\(UUID().uuidString).mp4")
-        let writer = try AVAssetWriter(outputURL: outputURL, fileType: .mp4)
+    private let directory: URL
+    private let snapshotProvider: @Sendable () -> AskDJOnAirVideoSnapshot
+    private let firstSegmentHandler: @Sendable () -> Void
+    private let queue = DispatchQueue(label: "nl.djconnect.onair.hls")
+    private let segmentDuration: Double = 0.5
+    private let frameRate: Int32 = 10
+    private let playlistWindow = 8
+    private var segments: [Segment] = []
+    private var nextSequence = 0
+    private var wroteFirstSegment = false
+
+    init(directory: URL, snapshotProvider: @escaping @Sendable () -> AskDJOnAirVideoSnapshot, firstSegmentHandler: @escaping @Sendable () -> Void) throws {
+        self.directory = directory
+        self.snapshotProvider = snapshotProvider
+        self.firstSegmentHandler = firstSegmentHandler
+        super.init()
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        try writePlaylist()
+    }
+
+    func runUntilCancelled() throws {
+        let writer = AVAssetWriter(contentType: .mpeg4Movie)
+        writer.outputFileTypeProfile = AVFileTypeProfile.mpeg4AppleHLS
+        writer.preferredOutputSegmentInterval = CMTime(seconds: segmentDuration, preferredTimescale: 600)
+        writer.initialSegmentStartTime = .zero
+        writer.delegate = self
+
         let settings: [String: Any] = [
             AVVideoCodecKey: AVVideoCodecType.h264,
-            AVVideoWidthKey: Int(size.width),
-            AVVideoHeightKey: Int(size.height)
+            AVVideoWidthKey: Int(AskDJOnAirVideoRenderer.size.width),
+            AVVideoHeightKey: Int(AskDJOnAirVideoRenderer.size.height),
+            AVVideoCompressionPropertiesKey: [
+                AVVideoAverageBitRateKey: 2_800_000,
+                AVVideoExpectedSourceFrameRateKey: frameRate,
+                AVVideoMaxKeyFrameIntervalKey: Int(frameRate / 2)
+            ]
         ]
         let input = AVAssetWriterInput(mediaType: .video, outputSettings: settings)
-        input.expectsMediaDataInRealTime = false
+        input.expectsMediaDataInRealTime = true
         let adaptor = AVAssetWriterInputPixelBufferAdaptor(
             assetWriterInput: input,
             sourcePixelBufferAttributes: [
                 kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA,
-                kCVPixelBufferWidthKey as String: Int(size.width),
-                kCVPixelBufferHeightKey as String: Int(size.height)
+                kCVPixelBufferWidthKey as String: Int(AskDJOnAirVideoRenderer.size.width),
+                kCVPixelBufferHeightKey as String: Int(AskDJOnAirVideoRenderer.size.height)
             ]
         )
         guard writer.canAdd(input) else {
-            throw NSError(domain: "DJConnectOnAir", code: 1)
+            throw NSError(domain: "DJConnectOnAir", code: 11)
         }
         writer.add(input)
         guard writer.startWriting() else {
-            throw writer.error ?? NSError(domain: "DJConnectOnAir", code: 2)
+            throw writer.error ?? NSError(domain: "DJConnectOnAir", code: 12)
         }
         writer.startSession(atSourceTime: .zero)
         guard let pool = adaptor.pixelBufferPool else {
-            throw NSError(domain: "DJConnectOnAir", code: 3)
-        }
-        guard let image = makeFrame(snapshot: snapshot) else {
-            throw NSError(domain: "DJConnectOnAir", code: 4)
+            throw NSError(domain: "DJConnectOnAir", code: 13)
         }
 
-        for index in 0..<frameCount {
-            while !input.isReadyForMoreMediaData {
-                Thread.sleep(forTimeInterval: 0.004)
+        var frameIndex: Int64 = 0
+        let frameDuration = CMTime(value: 1, timescale: frameRate)
+        while !Task.isCancelled {
+            autoreleasepool {
+                while !input.isReadyForMoreMediaData && !Task.isCancelled {
+                    Thread.sleep(forTimeInterval: 0.003)
+                }
+                guard !Task.isCancelled, let image = AskDJOnAirVideoRenderer.makeFrame(snapshot: snapshotProvider()) else {
+                    return
+                }
+                var pixelBuffer: CVPixelBuffer?
+                CVPixelBufferPoolCreatePixelBuffer(nil, pool, &pixelBuffer)
+                guard let pixelBuffer else {
+                    return
+                }
+                AskDJOnAirVideoRenderer.draw(image: image, into: pixelBuffer)
+                adaptor.append(pixelBuffer, withPresentationTime: CMTimeMultiply(frameDuration, multiplier: Int32(frameIndex)))
+                frameIndex += 1
+                Thread.sleep(forTimeInterval: 1 / Double(frameRate))
             }
-            var pixelBuffer: CVPixelBuffer?
-            CVPixelBufferPoolCreatePixelBuffer(nil, pool, &pixelBuffer)
-            guard let pixelBuffer else {
-                continue
-            }
-            draw(image: image, into: pixelBuffer)
-            adaptor.append(pixelBuffer, withPresentationTime: CMTimeMultiply(frameDuration, multiplier: Int32(index)))
         }
         input.markAsFinished()
-        let semaphore = DispatchSemaphore(value: 0)
-        writer.finishWriting {
-            semaphore.signal()
-        }
-        semaphore.wait()
-        if let error = writer.error {
-            throw error
-        }
-        return outputURL
+        writer.finishWriting {}
     }
 
-    private static func makeFrame(snapshot: AskDJOnAirVideoSnapshot) -> CGImage? {
+    nonisolated func assetWriter(_ writer: AVAssetWriter, didOutputSegmentData segmentData: Data, segmentType: AVAssetSegmentType) {
+        queue.async { [weak self] in
+            self?.writeSegment(segmentData: segmentData, segmentType: segmentType)
+        }
+    }
+
+    private func writeSegment(segmentData: Data, segmentType: AVAssetSegmentType) {
+        do {
+            if segmentType == .initialization {
+                try segmentData.write(to: directory.appendingPathComponent("init.mp4"), options: .atomic)
+                try writePlaylist()
+                return
+            }
+            let sequence = nextSequence
+            nextSequence += 1
+            let filename = String(format: "segment-%06d.m4s", sequence)
+            try segmentData.write(to: directory.appendingPathComponent(filename), options: .atomic)
+            segments.append(Segment(sequence: sequence, filename: filename, duration: segmentDuration))
+            while segments.count > playlistWindow {
+                let removed = segments.removeFirst()
+                try? FileManager.default.removeItem(at: directory.appendingPathComponent(removed.filename))
+            }
+            try writePlaylist()
+            if !wroteFirstSegment {
+                wroteFirstSegment = true
+                firstSegmentHandler()
+            }
+        } catch {
+            // The player will keep waiting for the next playlist update.
+        }
+    }
+
+    private func writePlaylist() throws {
+        let mediaSequence = segments.first?.sequence ?? nextSequence
+        var lines = [
+            "#EXTM3U",
+            "#EXT-X-VERSION:7",
+            "#EXT-X-TARGETDURATION:1",
+            "#EXT-X-MEDIA-SEQUENCE:\(mediaSequence)",
+            "#EXT-X-MAP:URI=\"init.mp4\""
+        ]
+        for segment in segments {
+            lines.append(String(format: "#EXTINF:%.3f,", segment.duration))
+            lines.append(segment.filename)
+        }
+        lines.append("")
+        try lines.joined(separator: "\n").write(
+            to: directory.appendingPathComponent("index.m3u8"),
+            atomically: true,
+            encoding: .utf8
+        )
+    }
+}
+
+private enum AskDJOnAirVideoRenderer {
+    fileprivate static let size = CGSize(width: 1920, height: 1080)
+
+    fileprivate static func makeFrame(snapshot: AskDJOnAirVideoSnapshot) -> CGImage? {
         let colorSpace = CGColorSpaceCreateDeviceRGB()
         guard let context = CGContext(
             data: nil,
@@ -3539,7 +3643,7 @@ private enum AskDJOnAirVideoRenderer {
         return ceil(size.height)
     }
 
-    private static func draw(image: CGImage, into pixelBuffer: CVPixelBuffer) {
+    fileprivate static func draw(image: CGImage, into pixelBuffer: CVPixelBuffer) {
         CVPixelBufferLockBaseAddress(pixelBuffer, [])
         defer { CVPixelBufferUnlockBaseAddress(pixelBuffer, []) }
         guard let baseAddress = CVPixelBufferGetBaseAddress(pixelBuffer) else {
@@ -7022,12 +7126,6 @@ struct SettingsView: View {
                         Text(localized(model.language, "Device language", "Apparaattaal"))
                             .foregroundStyle(.secondary)
                     }
-                    Picker(localized(model.language, "Log Level", "Logniveau"), selection: $model.logLevel) {
-                        Text("Debug").tag("debug")
-                        Text("Info").tag("info")
-                        Text(localized(model.language, "Warning", "Waarschuwing")).tag("warning")
-                        Text(localized(model.language, "Error", "Fout")).tag("error")
-                    }
                     if !model.isDemoMode {
                         LabeledContent(localized(model.language, "Pairing", "Koppeling")) {
                             Button(role: .destructive) {
@@ -7062,6 +7160,12 @@ struct SettingsView: View {
                     LabeledContent(localized(model.language, "Wakeword status", "Stemactivatie-status")) {
                         Text(wakeWordStatusText(model))
                             .foregroundStyle(.secondary)
+                    }
+                    Picker(localized(model.language, "Log Level", "Logniveau"), selection: $model.logLevel) {
+                        Text("Debug").tag("debug")
+                        Text("Info").tag("info")
+                        Text(localized(model.language, "Warning", "Waarschuwing")).tag("warning")
+                        Text(localized(model.language, "Error", "Fout")).tag("error")
                     }
                 }
                 .djSettingsListRowBackground()

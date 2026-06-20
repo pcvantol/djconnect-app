@@ -36,6 +36,7 @@ struct DJConnectWatchRootView: View {
     @Environment(\.scenePhase) private var scenePhase
     @EnvironmentObject private var model: DJConnectWatchModel
     @State private var moodCrownValue = 0.0
+    @FocusState private var isMoodControlFocused: Bool
 
     var body: some View {
         NavigationStack {
@@ -141,14 +142,14 @@ struct DJConnectWatchRootView: View {
                     }
                     .buttonStyle(.plain)
 
-                    Button {
-                        model.toggleRecording()
+                    NavigationLink {
+                        DJConnectWatchAskDJChatView()
                     } label: {
-                        Label(voiceButtonTitle, systemImage: voiceButtonIcon)
+                        Label("Ask DJ", systemImage: "bubble.left.and.bubble.right.fill")
                             .font(.headline)
                             .frame(maxWidth: .infinity, minHeight: 38)
                     }
-                    .buttonStyle(DJConnectWatchGradientButtonStyle(kind: voiceButtonKind))
+                    .buttonStyle(DJConnectWatchGradientButtonStyle(kind: .primary))
 
                     askDJMoodControl
 
@@ -185,24 +186,6 @@ struct DJConnectWatchRootView: View {
                         DJConnectWatchPlaylistsView()
                     } label: {
                         Label("Afspeellijsten", systemImage: "music.note.list")
-                            .font(.footnote.weight(.semibold))
-                            .frame(maxWidth: .infinity, minHeight: 34)
-                    }
-                    .buttonStyle(DJConnectWatchGradientButtonStyle(kind: .secondary))
-
-                    NavigationLink {
-                        DJConnectWatchOutputsView()
-                    } label: {
-                        Label("Uitvoer", systemImage: "speaker.wave.2")
-                            .font(.footnote.weight(.semibold))
-                            .frame(maxWidth: .infinity, minHeight: 34)
-                    }
-                    .buttonStyle(DJConnectWatchGradientButtonStyle(kind: .secondary))
-
-                    NavigationLink {
-                        DJConnectWatchGamesView()
-                    } label: {
-                        Label("Games", systemImage: "gamecontroller")
                             .font(.footnote.weight(.semibold))
                             .frame(maxWidth: .infinity, minHeight: 34)
                     }
@@ -304,8 +287,9 @@ struct DJConnectWatchRootView: View {
         }
     }
 
+    @ViewBuilder
     private var askDJMoodControl: some View {
-        VStack(spacing: 8) {
+        let content = VStack(spacing: 8) {
             HStack {
                 Text("Mood")
                     .font(.caption2.weight(.semibold))
@@ -316,46 +300,39 @@ struct DJConnectWatchRootView: View {
                     .foregroundStyle(watchAccentBlue.opacity(0.92))
             }
 
-            GeometryReader { proxy in
-                let steps = model.askDJMoodSteps
-                let selectedIndex = model.askDJMoodStepIndex
-                let availableWidth = max(1, proxy.size.width - 26)
-                let stepWidth = availableWidth / CGFloat(max(steps.count - 1, 1))
-                let thumbX = 13 + stepWidth * CGFloat(selectedIndex)
+            HStack(spacing: 5) {
+                ForEach(model.askDJMoodSteps.indices, id: \.self) { index in
+                    let step = model.askDJMoodSteps[index]
+                    let isSelected = index == model.askDJMoodStepIndex
 
-                ZStack(alignment: .leading) {
-                    Capsule()
-                        .fill(Color.white.opacity(0.14))
-                        .frame(height: 4)
-                        .padding(.horizontal, 13)
-
-                    ForEach(steps.indices, id: \.self) { index in
-                        Circle()
-                            .fill(index == selectedIndex ? watchAccentBlue : Color.white.opacity(0.42))
-                            .frame(width: 7, height: 7)
-                            .position(x: 13 + stepWidth * CGFloat(index), y: 16)
+                    Button {
+                        setMoodStep(index)
+                    } label: {
+                        VStack(spacing: 3) {
+                            Image(systemName: isSelected ? "music.note" : "circle.fill")
+                                .font(.system(size: isSelected ? 11 : 5, weight: .bold))
+                            Text(step.label)
+                                .font(.system(size: 9, weight: .semibold))
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.74)
+                        }
+                        .foregroundStyle(isSelected ? .white : .white.opacity(0.68))
+                        .frame(maxWidth: .infinity, minHeight: 36)
+                        .background {
+                            RoundedRectangle(cornerRadius: 9, style: .continuous)
+                                .fill(isSelected ? watchAccentPurple.opacity(0.36) : Color.white.opacity(0.08))
+                        }
+                        .overlay {
+                            RoundedRectangle(cornerRadius: 9, style: .continuous)
+                                .stroke(isSelected ? watchAccentBlue.opacity(0.7) : Color.white.opacity(0.1), lineWidth: 1)
+                        }
+                        .contentShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
                     }
-
-                    Image(systemName: "music.note")
-                        .font(.system(size: 13, weight: .bold))
-                        .foregroundStyle(.white)
-                        .frame(width: 26, height: 26)
-                        .background(
-                            Circle()
-                                .fill(
-                                    LinearGradient(
-                                        colors: [watchAccentPurple, watchAccentBlue],
-                                        startPoint: .topLeading,
-                                        endPoint: .bottomTrailing
-                                    )
-                                )
-                        )
-                        .shadow(color: watchAccentPurple.opacity(0.34), radius: 8, y: 3)
-                        .position(x: thumbX, y: 16)
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(step.label)
+                    .accessibilityAddTraits(isSelected ? .isSelected : [])
                 }
             }
-            .frame(height: 32)
-            .accessibilityHidden(true)
         }
         .padding(.vertical, 8)
         .padding(.horizontal, 9)
@@ -365,15 +342,7 @@ struct DJConnectWatchRootView: View {
                 .stroke(watchAccentPurple.opacity(0.18), lineWidth: 1)
         )
         .focusable(true)
-        .digitalCrownRotation(
-            $moodCrownValue,
-            from: 0,
-            through: 3,
-            by: 1,
-            sensitivity: .medium,
-            isContinuous: false,
-            isHapticFeedbackEnabled: false
-        )
+        .focused($isMoodControlFocused)
         .onAppear {
             moodCrownValue = Double(model.askDJMoodStepIndex)
         }
@@ -385,6 +354,20 @@ struct DJConnectWatchRootView: View {
         }
         .accessibilityLabel("Mood")
         .accessibilityValue(model.askDJMoodLabel)
+
+        if isMoodControlFocused {
+            content.digitalCrownRotation(
+                $moodCrownValue,
+                from: 0,
+                through: 3,
+                by: 1,
+                sensitivity: .medium,
+                isContinuous: false,
+                isHapticFeedbackEnabled: false
+            )
+        } else {
+            content
+        }
     }
 
     private func updateMoodFromCrown() {
@@ -395,6 +378,17 @@ struct DJConnectWatchRootView: View {
         }
         model.setAskDJMoodStep(nextIndex)
         moodCrownValue = Double(nextIndex)
+        WKInterfaceDevice.current().play(.click)
+    }
+
+    private func setMoodStep(_ index: Int) {
+        guard index != model.askDJMoodStepIndex else {
+            isMoodControlFocused = false
+            return
+        }
+        model.setAskDJMoodStep(index)
+        moodCrownValue = Double(model.askDJMoodStepIndex)
+        isMoodControlFocused = false
         WKInterfaceDevice.current().play(.click)
     }
 
@@ -609,40 +603,6 @@ struct DJConnectWatchRootView: View {
         .accessibilityLabel(accessibilityLabel)
     }
 
-    private var voiceButtonTitle: String {
-        switch model.voiceState {
-        case .idle:
-            return "Ask DJ"
-        case .recording:
-            return "Stop"
-        case .processing:
-            return "Bezig"
-        case .failed:
-            return "Opnieuw"
-        }
-    }
-
-    private var voiceButtonIcon: String {
-        switch model.voiceState {
-        case .recording:
-            return "stop.fill"
-        case .processing:
-            return "hourglass"
-        case .idle, .failed:
-            return "mic.fill"
-        }
-    }
-
-    private var voiceButtonKind: DJConnectWatchGradientButtonStyle.Kind {
-        switch model.voiceState {
-        case .recording:
-            return .recording
-        case .processing:
-            return .processing
-        case .idle, .failed:
-            return .primary
-        }
-    }
 }
 
 private struct DJConnectWatchWelcomeView: View {
@@ -996,426 +956,6 @@ private struct DJConnectWatchFeedbackView: View {
     }
 }
 
-private enum DJConnectWatchGameMode: String, CaseIterable, Identifiable {
-    case pong
-    case fly
-
-    var id: String { rawValue }
-
-    var title: String {
-        switch self {
-        case .pong:
-            return "Paddle Rally"
-        case .fly:
-            return "Fly"
-        }
-    }
-
-    var icon: String {
-        switch self {
-        case .pong:
-            return "circle.grid.cross"
-        case .fly:
-            return "paperplane.fill"
-        }
-    }
-}
-
-private struct DJConnectWatchGamesView: View {
-    @State private var activeGame: DJConnectWatchGameMode?
-
-    var body: some View {
-        ZStack {
-            DJConnectWatchCanvas()
-            ScrollView {
-                LazyVStack(spacing: 8) {
-                    ForEach(DJConnectWatchGameMode.allCases) { game in
-                        Button {
-                            activeGame = game
-                        } label: {
-                            HStack(spacing: 9) {
-                                Image(systemName: game.icon)
-                                    .font(.system(size: 18, weight: .bold))
-                                    .foregroundStyle(watchAccentBlue)
-                                    .frame(width: 34, height: 34)
-                                    .background(
-                                        Circle()
-                                            .fill(watchAccentBlue.opacity(0.16))
-                                    )
-
-                                Text(game.title)
-                                    .font(.caption.weight(.bold))
-                                    .foregroundStyle(.white)
-                                    .lineLimit(2)
-
-                                Spacer(minLength: 4)
-
-                                Image(systemName: "play.fill")
-                                    .font(.system(size: 14, weight: .bold))
-                                    .foregroundStyle(.white)
-                                    .frame(width: 32, height: 32)
-                                    .background(
-                                        Circle()
-                                            .fill(
-                                                LinearGradient(
-                                                    colors: [watchAccentPurple, watchAccentBlue],
-                                                    startPoint: .topLeading,
-                                                    endPoint: .bottomTrailing
-                                                )
-                                            )
-                                    )
-                            }
-                            .padding(9)
-                            .background(DJConnectWatchPanel(cornerRadius: 12))
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityLabel("Speel \(game.title)")
-                    }
-                }
-                .padding(.vertical, 8)
-                .padding(.horizontal, 4)
-            }
-        }
-        .navigationTitle("Games")
-        .fullScreenCover(item: $activeGame) { game in
-            DJConnectWatchFullscreenGameView(game: game) {
-                activeGame = nil
-            }
-        }
-    }
-}
-
-private struct DJConnectWatchFullscreenGameView: View {
-    let game: DJConnectWatchGameMode
-    let close: () -> Void
-
-    var body: some View {
-        ZStack(alignment: .topLeading) {
-            DJConnectWatchCanvas()
-            DJConnectWatchGameSurface(game: game, isFullscreen: true)
-                .id(game)
-                .padding(.top, 30)
-                .padding(.horizontal, 4)
-                .padding(.bottom, 4)
-
-            Button {
-                close()
-            } label: {
-                Image(systemName: "chevron.left")
-                    .font(.system(size: 13, weight: .bold))
-                    .foregroundStyle(.white)
-                    .frame(width: 28, height: 28)
-                    .background(
-                        Circle()
-                            .fill(Color.black.opacity(0.32))
-                    )
-            }
-            .buttonStyle(.plain)
-            .padding(.leading, 4)
-            .padding(.top, 2)
-            .accessibilityLabel("Terug naar game selectie")
-        }
-    }
-}
-
-private struct DJConnectWatchGameSurface: View {
-    let game: DJConnectWatchGameMode
-    var isFullscreen = false
-
-    @AppStorage("djconnect.watch.game.pong.high") private var pongHighScore = 0
-    @AppStorage("djconnect.watch.game.fly.high") private var flyHighScore = 0
-    @State private var isPlaying = false
-    @State private var score = 0
-    @State private var crownValue = 0.5
-    @State private var paddleY: CGFloat = 0.5
-    @State private var ballX: CGFloat = 0.55
-    @State private var ballY: CGFloat = 0.48
-    @State private var ballVX: CGFloat = 0.012
-    @State private var ballVY: CGFloat = 0.010
-    @State private var planeY: CGFloat = 0.5
-    @State private var obstacleX: CGFloat = 1.05
-    @State private var obstacleY: CGFloat = 0.45
-    @State private var shotX: CGFloat = 0.0
-    @State private var shotActive = false
-    @State private var lastTick = Date()
-
-    private var highScore: Int {
-        switch game {
-        case .pong:
-            return pongHighScore
-        case .fly:
-            return flyHighScore
-        }
-    }
-
-    var body: some View {
-        VStack(spacing: isFullscreen ? 5 : 7) {
-            HStack(spacing: 8) {
-                Text("\(game.title)")
-                    .font(.caption.weight(.bold))
-                    .foregroundStyle(.white)
-                Spacer()
-                Text("\(score)")
-                    .font(.caption2.monospacedDigit().weight(.bold))
-                    .foregroundStyle(watchAccentBlue)
-                Text("HI \(highScore)")
-                    .font(.caption2.monospacedDigit().weight(.semibold))
-                    .foregroundStyle(.white.opacity(0.58))
-            }
-            .padding(.horizontal, isFullscreen ? 6 : 8)
-
-            gameCanvas
-
-            HStack(spacing: 7) {
-                Button {
-                    reset()
-                    isPlaying = true
-                } label: {
-                    Label(isPlaying ? "Reset" : "Start", systemImage: isPlaying ? "arrow.clockwise" : "play.fill")
-                        .labelStyle(.iconOnly)
-                        .frame(maxWidth: .infinity, minHeight: 34)
-                }
-                .buttonStyle(DJConnectWatchGradientButtonStyle(kind: .secondary))
-
-                if game == .fly {
-                    Button {
-                        fire()
-                    } label: {
-                        Label("Schiet", systemImage: "sparkle")
-                            .labelStyle(.iconOnly)
-                            .frame(maxWidth: .infinity, minHeight: 34)
-                    }
-                    .buttonStyle(DJConnectWatchGradientButtonStyle(kind: .primary))
-                }
-            }
-            .padding(.horizontal, 4)
-        }
-        .frame(maxHeight: isFullscreen ? .infinity : nil)
-        .padding(.vertical, isFullscreen ? 0 : 8)
-        .background {
-            if !isFullscreen {
-                DJConnectWatchPanel(cornerRadius: 12)
-            }
-        }
-        .onAppear {
-            reset()
-        }
-    }
-
-    private var gameCanvas: some View {
-        TimelineView(.animation(minimumInterval: 1.0 / 30.0)) { timeline in
-            Canvas { context, size in
-                draw(in: &context, size: size)
-            }
-            .frame(maxWidth: .infinity, maxHeight: isFullscreen ? .infinity : nil)
-            .aspectRatio(isFullscreen ? nil : 1.28, contentMode: .fit)
-            .background(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .fill(Color.black.opacity(0.34))
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .stroke(Color.white.opacity(0.12), lineWidth: 1)
-            )
-            .focusable(true)
-            .digitalCrownRotation(
-                $crownValue,
-                from: 0,
-                through: 1,
-                by: 0.01,
-                sensitivity: .medium,
-                isContinuous: false,
-                isHapticFeedbackEnabled: true
-            )
-            .onChange(of: crownValue) {
-                handleCrownChange()
-            }
-            .onChange(of: timeline.date) {
-                update(now: timeline.date)
-            }
-        }
-    }
-
-    private func handleCrownChange() {
-        let clamped = min(max(crownValue, 0.08), 0.92)
-        crownValue = clamped
-        switch game {
-        case .pong:
-            paddleY = clamped
-        case .fly:
-            planeY = clamped
-        }
-    }
-
-    private func update(now: Date) {
-        guard isPlaying else {
-            lastTick = now
-            return
-        }
-        let elapsed = min(0.05, max(0.0, now.timeIntervalSince(lastTick)))
-        lastTick = now
-        let scale = CGFloat(elapsed / (1.0 / 30.0))
-        switch game {
-        case .pong:
-            updatePong(scale: scale)
-        case .fly:
-            updateFly(scale: scale)
-        }
-    }
-
-    private func updatePong(scale: CGFloat) {
-        ballX += ballVX * scale
-        ballY += ballVY * scale
-        if ballY < 0.12 || ballY > 0.88 {
-            ballVY *= -1
-            ballY = min(max(ballY, 0.12), 0.88)
-        }
-        if ballX > 0.94 {
-            ballVX = -abs(ballVX)
-        }
-        if ballX < 0.12 {
-            if abs(ballY - paddleY) < 0.16 {
-                ballVX = abs(ballVX) * 1.035
-                ballVY += (ballY - paddleY) * 0.018
-                score += 1
-                pongHighScore = max(pongHighScore, score)
-            } else {
-                score = 0
-                resetBall()
-            }
-        }
-    }
-
-    private func updateFly(scale: CGFloat) {
-        obstacleX -= (0.014 + CGFloat(min(score, 18)) * 0.0008) * scale
-        if shotActive {
-            shotX += 0.045 * scale
-            if shotX > 1.05 {
-                shotActive = false
-            }
-            if abs(shotX - obstacleX) < 0.07 && abs(planeY - obstacleY) < 0.14 {
-                shotActive = false
-                score += 2
-                flyHighScore = max(flyHighScore, score)
-                resetObstacle()
-            }
-        }
-        if obstacleX < 0.10 {
-            score += 1
-            flyHighScore = max(flyHighScore, score)
-            resetObstacle()
-        }
-        if obstacleX < 0.28 && obstacleX > 0.13 && abs(planeY - obstacleY) < 0.15 {
-            score = 0
-            resetObstacle()
-        }
-    }
-
-    private func fire() {
-        guard game == .fly else {
-            return
-        }
-        if !isPlaying {
-            isPlaying = true
-        }
-        guard !shotActive else {
-            return
-        }
-        shotActive = true
-        shotX = 0.26
-    }
-
-    private func reset() {
-        score = 0
-        crownValue = 0.5
-        paddleY = 0.5
-        planeY = 0.5
-        shotActive = false
-        resetBall()
-        resetObstacle()
-        lastTick = Date()
-    }
-
-    private func resetBall() {
-        ballX = 0.56
-        ballY = 0.50
-        ballVX = Bool.random() ? -0.012 : 0.012
-        ballVY = Bool.random() ? 0.010 : -0.010
-    }
-
-    private func resetObstacle() {
-        obstacleX = 1.05
-        obstacleY = CGFloat.random(in: 0.22...0.80)
-    }
-
-    private func draw(in context: inout GraphicsContext, size: CGSize) {
-        let rect = CGRect(origin: .zero, size: size)
-        context.fill(Path(roundedRect: rect, cornerRadius: 12), with: .linearGradient(
-            Gradient(colors: [watchDeepNavy, Color(red: 0.12, green: 0.05, blue: 0.18)]),
-            startPoint: .zero,
-            endPoint: CGPoint(x: size.width, y: size.height)
-        ))
-        switch game {
-        case .pong:
-            drawPong(in: &context, size: size)
-        case .fly:
-            drawFly(in: &context, size: size)
-        }
-        if !isPlaying {
-            context.draw(
-                Text("Tik start")
-                    .font(.caption.weight(.bold))
-                    .foregroundColor(.white.opacity(0.82)),
-                at: CGPoint(x: size.width / 2, y: size.height / 2),
-                anchor: .center
-            )
-        }
-    }
-
-    private func drawPong(in context: inout GraphicsContext, size: CGSize) {
-        let paddleHeight = size.height * 0.26
-        let paddleRect = CGRect(
-            x: size.width * 0.10,
-            y: size.height * paddleY - paddleHeight / 2,
-            width: 7,
-            height: paddleHeight
-        )
-        context.fill(Path(roundedRect: paddleRect, cornerRadius: 3), with: .color(watchAccentPurple))
-        context.fill(
-            Path(ellipseIn: CGRect(x: size.width * ballX - 4, y: size.height * ballY - 4, width: 8, height: 8)),
-            with: .color(watchAccentBlue)
-        )
-        var mid = Path()
-        mid.move(to: CGPoint(x: size.width / 2, y: size.height * 0.12))
-        mid.addLine(to: CGPoint(x: size.width / 2, y: size.height * 0.88))
-        context.stroke(mid, with: .color(.white.opacity(0.18)), style: StrokeStyle(lineWidth: 1, dash: [4, 5]))
-    }
-
-    private func drawFly(in context: inout GraphicsContext, size: CGSize) {
-        for index in 0..<8 {
-            let x = size.width * CGFloat(index) / 7
-            let y = size.height * (0.18 + CGFloat((index * 37) % 62) / 100)
-            context.fill(Path(ellipseIn: CGRect(x: x, y: y, width: 2, height: 2)), with: .color(.white.opacity(0.42)))
-        }
-        var plane = Path()
-        plane.move(to: CGPoint(x: size.width * 0.25, y: size.height * planeY))
-        plane.addLine(to: CGPoint(x: size.width * 0.12, y: size.height * planeY - 10))
-        plane.addLine(to: CGPoint(x: size.width * 0.12, y: size.height * planeY + 10))
-        plane.closeSubpath()
-        context.fill(plane, with: .color(watchAccentBlue))
-
-        let obstacleRect = CGRect(x: size.width * obstacleX - 8, y: size.height * obstacleY - 16, width: 16, height: 32)
-        context.fill(Path(roundedRect: obstacleRect, cornerRadius: 5), with: .color(watchAccentPurple))
-
-        if shotActive {
-            context.fill(
-                Path(roundedRect: CGRect(x: size.width * shotX, y: size.height * planeY - 2, width: 16, height: 4), cornerRadius: 2),
-                with: .color(.white.opacity(0.92))
-            )
-        }
-    }
-}
-
 private struct DJConnectWatchSettingsView: View {
     @EnvironmentObject private var model: DJConnectWatchModel
     @State private var isShowingResetPairingConfirmation = false
@@ -1575,11 +1115,12 @@ private struct DJConnectWatchSettingsSection<Content: View>: View {
 
 private struct DJConnectWatchLogsView: View {
     @EnvironmentObject private var model: DJConnectWatchModel
+    @State private var isShowingClearConfirmation = false
 
     var body: some View {
         ZStack {
             DJConnectWatchCanvas()
-            VStack(spacing: 8) {
+            VStack(spacing: 6) {
                 if model.diagnosticLogLines.isEmpty {
                     Spacer(minLength: 10)
                     VStack(spacing: 8) {
@@ -1632,10 +1173,12 @@ private struct DJConnectWatchLogsView: View {
                             scrollToBottom(proxy)
                         }
                     }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                    .layoutPriority(1)
                 }
 
                 Button(role: .destructive) {
-                    model.clearDiagnosticLog()
+                    isShowingClearConfirmation = true
                 } label: {
                     Label("Wis logs", systemImage: "trash")
                         .font(.caption2.weight(.semibold))
@@ -1644,11 +1187,19 @@ private struct DJConnectWatchLogsView: View {
                 .buttonStyle(DJConnectWatchGradientButtonStyle(kind: .secondary))
                 .disabled(model.diagnosticLogLines.isEmpty)
                 .padding(.horizontal, 4)
-                .padding(.bottom, 6)
             }
+            .padding(.bottom, 2)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .navigationTitle("Logs")
+        .alert("Logs wissen?", isPresented: $isShowingClearConfirmation) {
+            Button("Annuleer", role: .cancel) {}
+            Button("Wis logs", role: .destructive) {
+                model.clearDiagnosticLog()
+            }
+        } message: {
+            Text("Dit verwijdert de diagnostische logs op deze Watch.")
+        }
     }
 
     private func scrollToBottom(_ proxy: ScrollViewProxy) {
