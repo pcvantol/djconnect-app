@@ -23,11 +23,13 @@ struct DJConnectMacApp: App {
         Settings {
             DJConnectSettingsView(model: model)
                 .frame(width: 520, height: 640)
+                .background(MenuWindowCenteringConfigurator())
         }
 
         Window(localizedAboutTitle(for: model.language), id: "about") {
             DJConnectAboutView(model: model)
                 .frame(width: 520, height: 620)
+                .background(MenuWindowCenteringConfigurator())
         }
         .defaultSize(width: 520, height: 620)
         .windowResizability(.contentSize)
@@ -68,6 +70,8 @@ private func localizedAboutTitle(for language: String) -> String {
 private func localizedAboutMenuTitle(for language: String) -> String {
     language == "nl" ? "Over DJConnect" : "About DJConnect"
 }
+
+private let mainWindowIdentifier = NSUserInterfaceItemIdentifier("DJConnectMainWindow")
 
 final class DJConnectMacAppDelegate: NSObject, NSApplicationDelegate {
     weak var model: DJConnectAppModel?
@@ -121,5 +125,57 @@ private struct WindowConfigurator: NSViewRepresentable {
         window.isMovableByWindowBackground = true
         window.backgroundColor = .clear
         window.toolbarStyle = .unifiedCompact
+        window.identifier = mainWindowIdentifier
+    }
+}
+
+private struct MenuWindowCenteringConfigurator: NSViewRepresentable {
+    func makeCoordinator() -> Coordinator {
+        Coordinator()
+    }
+
+    func makeNSView(context: Context) -> NSView {
+        let view = NSView()
+        DispatchQueue.main.async {
+            context.coordinator.center(window: view.window)
+        }
+        return view
+    }
+
+    func updateNSView(_ nsView: NSView, context: Context) {
+        DispatchQueue.main.async {
+            context.coordinator.center(window: nsView.window)
+        }
+    }
+
+    @MainActor
+    final class Coordinator {
+        private weak var centeredWindow: NSWindow?
+
+        func center(window: NSWindow?) {
+            guard let window, centeredWindow !== window else {
+                return
+            }
+
+            DispatchQueue.main.async {
+                guard let parentWindow = NSApp.windows.first(where: { $0.identifier == mainWindowIdentifier }) else {
+                    return
+                }
+                window.center(in: parentWindow)
+                self.centeredWindow = window
+            }
+        }
+    }
+}
+
+private extension NSWindow {
+    func center(in parentWindow: NSWindow) {
+        let parentFrame = parentWindow.frame
+        let ownFrame = frame
+        let origin = NSPoint(
+            x: parentFrame.midX - ownFrame.width / 2,
+            y: parentFrame.midY - ownFrame.height / 2
+        )
+        setFrameOrigin(origin)
     }
 }

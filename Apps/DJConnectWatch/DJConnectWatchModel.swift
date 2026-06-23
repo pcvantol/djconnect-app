@@ -315,7 +315,9 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         if !isDemoMode {
             startNetworkMonitor()
         }
-        startRuntimeDiagnosticsMonitor()
+        if !isDemoMode {
+            startRuntimeDiagnosticsMonitor()
+        }
     }
 
     deinit {
@@ -412,11 +414,13 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
     func handleAppForegroundChange(_ foreground: Bool) {
         isAppForeground = foreground
         if foreground {
+            ensureLocalDeviceAPIAdvertisingIfNeeded(reason: "foreground")
             updateVoiceActivationListening()
         } else {
             cancelVoiceActivationScheduledTasks()
             stopVoiceActivationListening(status: .paused)
             cancelRecording(reason: "Opname gestopt omdat de Watch app niet meer zichtbaar is")
+            stopLocalDeviceAPIForBackgroundIfNeeded()
         }
     }
 
@@ -510,11 +514,13 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
                         || self.statusMessage == "WiFi vereist voor koppelen" {
                         self.statusMessage = self.paired ? "Gereed" : "Niet gekoppeld"
                     }
+                    self.ensureLocalDeviceAPIAdvertisingIfNeeded(reason: "network available")
                 } else {
                     self.appendDiagnosticLog("Lokaal netwerk niet beschikbaar", level: .warning)
                     if !self.isDemoMode {
                         self.statusMessage = "Lokaal netwerk vereist"
                     }
+                    self.stopLocalDeviceAPIForBackgroundIfNeeded()
                 }
             }
         }
@@ -646,11 +652,11 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
             stopLocalDeviceAPI()
             return
         }
-        startLocalDeviceAPI()
+        ensureLocalDeviceAPIAdvertisingIfNeeded(reason: "pairing started")
         connectionState = .pairing
         isShowingPairingSuccess = false
         statusMessage = "Wachten op Home Assistant..."
-        localDeviceAPI?.setBonjourAdvertisingEnabled(true)
+        updateBonjourAdvertisingState()
         startPairingPoll()
     }
 
@@ -669,6 +675,9 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         stopNetworkMonitor()
         storedDemoMode = true
         isDemoMode = true
+        runtimeDiagnosticsTask?.cancel()
+        runtimeDiagnosticsTask = nil
+        lastRuntimeMemoryLogBucket = -1
         paired = false
         isShowingPairingSuccess = false
         voiceState = .idle
@@ -692,6 +701,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         isShowingPairingSuccess = false
         connectionState = .unpaired
         statusMessage = "Demo modus gestopt"
+        startRuntimeDiagnosticsMonitor()
         startNetworkMonitor()
         startLocalDeviceAPI()
     }
@@ -701,7 +711,6 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
             if !hasAppliedDemoState {
                 applyDemoState()
             }
-            appendDiagnosticLog("Demo status bijgewerkt", level: .debug)
             return
         }
         guard let client, canUseBackend else {
@@ -1029,7 +1038,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         voiceState = .idle
         isShowingPairingSuccess = false
         statusMessage = "Niet gekoppeld"
-        localDeviceAPI?.setBonjourAdvertisingEnabled(true)
+        ensureLocalDeviceAPIAdvertisingIfNeeded(reason: "pairing reset")
     }
 
     private func startPairingPoll() {
@@ -1161,18 +1170,29 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
     }
 
     private func playAskDJBeatConfirmHaptic() {
-        WKInterfaceDevice.current().play(.click)
+        playWatchHaptic(.click)
     }
 
     private func playVoiceHaptic(_ haptic: VoiceHaptic) {
         switch haptic {
         case .startListening:
-            WKInterfaceDevice.current().play(.start)
+            playWatchHaptic(.start)
         case .stopListening:
-            WKInterfaceDevice.current().play(.stop)
+            playWatchHaptic(.stop)
         case .response:
-            WKInterfaceDevice.current().play(.success)
+            playWatchHaptic(.success)
         }
+    }
+
+    private func playWatchHaptic(_ haptic: WKHapticType) {
+        guard !isDemoMode else {
+            return
+        }
+        #if targetEnvironment(simulator)
+        return
+        #else
+        WKInterfaceDevice.current().play(haptic)
+        #endif
     }
 
     private enum VoiceHaptic {
@@ -1523,7 +1543,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
                     return await DJConnectLocalDeviceAPIInfo(
                         identity: self.identity,
                         pairingToken: self.pairingCode,
-                        pairingStatus: self.canUseBackend ? .paired : .unpaired,
+                        pairingStatus: self.localDeviceAPIPairingStatus,
                         localURL: self.localDeviceAPIURL
                     )
                 }
@@ -1577,15 +1597,68 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
                     self?.appendDiagnosticLog(message)
                 }
             },
-            advertiseBonjour: !paired
+            advertiseBonjour: shouldAdvertiseBonjour
         )
         localDeviceAPI?.start()
+        updateBonjourAdvertisingState()
     }
 
     private func stopLocalDeviceAPI() {
         localDeviceAPI?.stop()
         localDeviceAPI = nil
         localDeviceAPIURL = nil
+    }
+
+    private var shouldAdvertiseBonjour: Bool {
+        !isDemoMode && !monkeyTestingMode && !paired
+    }
+
+    private var shouldRunLocalDeviceAPIForPairing: Bool {
+        shouldAdvertiseBonjour && isAppForeground
+    }
+
+    private var localDeviceAPIPairingStatus: DJConnectPairingStatus {
+        if paired {
+            return .paired
+        }
+        if case .pairing = connectionState {
+            return .pairing
+        }
+        return .unpaired
+    }
+
+    private func updateBonjourAdvertisingState() {
+        localDeviceAPI?.setBonjourAdvertisingEnabled(shouldAdvertiseBonjour)
+    }
+
+    private func ensureLocalDeviceAPIAdvertisingIfNeeded(reason: String) {
+        guard shouldRunLocalDeviceAPIForPairing else {
+            updateBonjourAdvertisingState()
+            return
+        }
+        if localDeviceAPI == nil {
+            startLocalDeviceAPI()
+        } else {
+            updateBonjourAdvertisingState()
+        }
+        appendDiagnosticLog(
+            "Watch mDNS discovery \(shouldAdvertiseBonjour ? "aan" : "uit") (\(reason)): service=_djconnect._tcp client_type=watchos device_id=\(Self.redactedDeviceID(identity.deviceID)) pairing_status=\(localDeviceAPIPairingStatus.rawValue)",
+            level: .debug
+        )
+    }
+
+    private func stopLocalDeviceAPIForBackgroundIfNeeded() {
+        guard shouldAdvertiseBonjour else {
+            return
+        }
+        stopLocalDeviceAPI()
+    }
+
+    private static func redactedDeviceID(_ deviceID: String) -> String {
+        guard deviceID.count > 6 else {
+            return "..."
+        }
+        return "...\(deviceID.suffix(6))"
     }
 
     private func applyDemoState() {

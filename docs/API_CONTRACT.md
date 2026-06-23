@@ -126,7 +126,11 @@ flows and are not used for status, command, or voice requests. Do not use legacy
 The iOS/macOS app hosts a small local Web API for Home Assistant -> app
 traffic while the app is active/reachable. While the app is pairable, it
 advertises Bonjour/mDNS service `_djconnect._tcp` with TXT fields including
-`name`, `device_id`, `version`, `paired`, `api`, `model`, and `client_type`.
+`name`, `device_id`, `version`, `paired`, `pairing_status`, `api`, `model`,
+`client_type`, `local_url`, `pair_code`, `pairing_code`, `pairing_token`, and
+the `/api/device/*` paths. Standalone watchOS discovery uses the same service
+with `client_type: "watchos"` and a `djconnect-watchos-...` device ID while the
+Watch app is open and pairable.
 Once pairing is complete, the app keeps the local HTTP API available while it
 is running, but disables Bonjour advertising to reduce network and battery
 impact. Explicit pairing reset enables Bonjour advertising again.
@@ -219,7 +223,7 @@ Expected macOS payload:
   "push_token": "<apns-device-token>",
   "push_environment": "sandbox",
   "app_bundle_id": "dev.djconnect.mac",
-  "app_version": "3.1.45",
+  "app_version": "3.1.46",
   "locale": "nl-NL",
   "notification_categories": ["ask_dj"],
   "bootstrap_proof": "<short-lived proof when available>"

@@ -248,6 +248,16 @@ curl -i http://<mac-lan-ip>:<port>/api/device/pairing-info
 curl -i http://<mac-lan-ip>:<port>/api/device/info
 ```
 
+For standalone Apple Watch pairing, keep the Watch app open on the pairing
+screen and on the same WiFi/LAN as Home Assistant. The watchOS client advertises
+the same `_djconnect._tcp.local` service while it is unpaired or actively
+pairing, with `client_type=watchos` and a `device_id` prefixed with
+`djconnect-watchos-`. iPhone companion discovery is not a substitute for this:
+Home Assistant must discover or reach the Watch app's own local device API. If
+Home Assistant does not show the Watch, verify from the Home Assistant host with
+an mDNS browser or `dns-sd -B _djconnect._tcp local`, then fetch the advertised
+Watch `local_url` plus `/api/device/pairing-info`.
+
 `Connection reset by peer` after TCP connect usually means macOS firewall or
 third-party security software, such as ESET, Little Snitch, or LuLu, is blocking
 inbound local HTTP. Do not add automatic firewall exclusions in the app; keep the

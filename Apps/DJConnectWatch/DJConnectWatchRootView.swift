@@ -32,6 +32,17 @@ private func watchAskDJTimestamp(_ date: Date, now: Date = Date()) -> String {
     }
 }
 
+private func playWatchHaptic(_ haptic: WKHapticType, enabled: Bool) {
+    guard enabled else {
+        return
+    }
+    #if targetEnvironment(simulator)
+    return
+    #else
+    WKInterfaceDevice.current().play(haptic)
+    #endif
+}
+
 struct DJConnectWatchRootView: View {
     @Environment(\.scenePhase) private var scenePhase
     @EnvironmentObject private var model: DJConnectWatchModel
@@ -43,17 +54,6 @@ struct DJConnectWatchRootView: View {
             content
                 .navigationTitle("DJConnect")
                 .navigationBarTitleDisplayMode(.inline)
-                .toolbar {
-                    ToolbarItem(placement: .automatic) {
-                        Button {
-                            Task { await model.refreshStatus() }
-                        } label: {
-                            Image(systemName: "arrow.clockwise")
-                        }
-                        .tint(watchAccentPurple)
-                        .disabled(!model.canUseBackend)
-                    }
-                }
         }
         .tint(watchAccentPurple)
         .sheet(isPresented: $model.isShowingMicrophonePermissionExplanation) {
@@ -98,7 +98,7 @@ struct DJConnectWatchRootView: View {
         ZStack {
             DJConnectWatchCanvas()
             ScrollView {
-                VStack(spacing: 12) {
+                LazyVStack(spacing: 12) {
                     nowPlaying
 
                     HStack(spacing: 12) {
@@ -249,7 +249,10 @@ struct DJConnectWatchRootView: View {
                 .padding(.horizontal, 4)
             }
         }
-        .task {
+        .task(id: model.canUseBackend) {
+            guard model.canUseBackend else {
+                return
+            }
             await model.refreshStatus()
         }
     }
@@ -334,7 +337,7 @@ struct DJConnectWatchRootView: View {
             RoundedRectangle(cornerRadius: 12, style: .continuous)
                 .stroke(watchAccentPurple.opacity(0.18), lineWidth: 1)
         )
-        .focusable(true)
+        .focusable(!model.isDemoMode)
         .focused($isMoodControlFocused)
         .onAppear {
             moodCrownValue = Double(model.askDJMoodStepIndex)
@@ -348,7 +351,7 @@ struct DJConnectWatchRootView: View {
         .accessibilityLabel("Mood")
         .accessibilityValue(model.askDJMoodLabel)
 
-        if isMoodControlFocused {
+        if !model.isDemoMode, isMoodControlFocused {
             content.digitalCrownRotation(
                 $moodCrownValue,
                 from: 0,
@@ -371,7 +374,7 @@ struct DJConnectWatchRootView: View {
         }
         model.setAskDJMoodStep(nextIndex)
         moodCrownValue = Double(nextIndex)
-        WKInterfaceDevice.current().play(.click)
+        playWatchHaptic(.click, enabled: !model.isDemoMode)
     }
 
     private func setMoodStep(_ index: Int) {
@@ -382,7 +385,7 @@ struct DJConnectWatchRootView: View {
         model.setAskDJMoodStep(index)
         moodCrownValue = Double(model.askDJMoodStepIndex)
         isMoodControlFocused = false
-        WKInterfaceDevice.current().play(.click)
+        playWatchHaptic(.click, enabled: !model.isDemoMode)
     }
 
     private func moodIcon(for index: Int) -> String {
@@ -1176,7 +1179,12 @@ private struct DJConnectWatchLogsView: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
                     .layoutPriority(1)
                 }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .padding(.bottom, 42)
 
+            VStack {
+                Spacer(minLength: 0)
                 Button(role: .destructive) {
                     isShowingClearConfirmation = true
                 } label: {
@@ -1187,9 +1195,8 @@ private struct DJConnectWatchLogsView: View {
                 .buttonStyle(DJConnectWatchGradientButtonStyle(kind: .secondary))
                 .disabled(model.diagnosticLogLines.isEmpty)
                 .padding(.horizontal, 4)
-                .padding(.bottom, 8)
+                .padding(.bottom, 2)
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .navigationTitle("Logs")
         .alert("Logs wissen?", isPresented: $isShowingClearConfirmation) {

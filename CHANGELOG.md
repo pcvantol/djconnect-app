@@ -4,6 +4,31 @@ All notable changes to DJConnect App are documented here.
 
 ## Unreleased
 
+## 3.1.46 - 2026-06-23
+
+### Changed
+
+- Documented the expanded Bonjour/mDNS discovery TXT contract, including
+  `pairing_status`, pairing-code aliases, local device API paths, and
+  standalone watchOS troubleshooting.
+- Made iOS fallback local-device identity platform-correct if the local API info
+  provider is invoked after the app model is gone.
+
+### Fixed
+
+- Fixed standalone watchOS mDNS discovery by advertising the Watch as
+  `client_type=watchos` with the `djconnect-watchos-` device ID, the reachable
+  local URL, pairing metadata, and `/api/device/*` paths.
+- Prevented stale watchOS Network.framework listeners from leaving duplicate
+  `_djconnect._tcp` services on different ports.
+- Restarted watchOS local discovery when the app returns to foreground, pairing
+  starts or resets, or WiFi becomes available again.
+- Reduced watchOS demo-mode CPU and memory churn by lazily rendering the Now
+  Playing page, disabling demo Crown focus churn, and stopping demo diagnostics
+  publishers.
+- Removed the oversized watchOS top refresh button and suppressed demo haptics
+  that could produce noisy OSStatus logs on Apple Watch.
+
 ## 3.1.45 - 2026-06-23
 
 ### Changed

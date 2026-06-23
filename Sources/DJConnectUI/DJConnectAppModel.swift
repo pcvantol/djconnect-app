@@ -412,7 +412,7 @@ public final class DJConnectAppModel: ObservableObject {
     private let startBackgroundTasks: Bool
     private let monkeyTestingMode: Bool
     private let diagnosticLogFileURL: URL?
-    private static let protocolVersion = "3.1.45"
+    private static let protocolVersion = "3.1.46"
     private static let defaultHomeAssistantURL = "http://homeassistant.local:8123"
     private let appVersion = DJConnectAppModel.protocolVersion
     private let installIDKey = "DJConnectInstallID"
@@ -1176,10 +1176,7 @@ public final class DJConnectAppModel: ObservableObject {
         isPairing = true
         try? await Task.sleep(nanoseconds: 750_000_000)
         log(.info, "Polling Home Assistant pairing endpoint")
-        pairingMessage = localized(
-            english: "Waiting for Home Assistant to accept code \(pairingToken). If the client is not discovered, allow incoming local network connections for DJConnect in macOS firewall or security software.",
-            dutch: "Wachten tot Home Assistant code \(pairingToken) accepteert. Wordt de client niet gevonden, sta inkomende lokale netwerkverbindingen voor DJConnect toe in macOS firewall of beveiligingssoftware."
-        )
+        pairingMessage = pairingWaitMessage(pairingToken: pairingToken)
         defer {
             if pairingStatus != .paired {
                 isPairing = false
@@ -1959,7 +1956,7 @@ public final class DJConnectAppModel: ObservableObject {
         stopResponsePlayback(clearText: true)
         if isDemoMode {
             voiceStatus = .processing
-            let demoResponse = "Ja ja, daar is hij dan, de knaller van Pearl Jam, Alive!"
+            let demoResponse = "Ja ja, daar is hij dan, de knaller van Luna Vale, Neonregen!"
             djResponseText = demoResponse
             appendAskDJMessage(role: .user, text: localized(english: "Voice request", dutch: "Stemverzoek"))
             appendAskDJMessage(role: .dj, text: demoResponse)
@@ -2490,10 +2487,7 @@ public final class DJConnectAppModel: ObservableObject {
         switch error {
         case .pairingFailed:
             pairingStatus = .pairing
-            pairingMessage = localized(
-                english: "Waiting for Home Assistant to accept code \(pairingToken). If the client is not discovered, allow incoming local network connections for DJConnect in macOS firewall or security software.",
-                dutch: "Wachten tot Home Assistant code \(pairingToken) accepteert. Wordt de client niet gevonden, sta inkomende lokale netwerkverbindingen voor DJConnect toe in macOS firewall of beveiligingssoftware."
-            )
+            pairingMessage = pairingWaitMessage(pairingToken: pairingToken)
         case let .network(message):
             pairingStatus = .pairing
             pairingMessage = localized(
@@ -2536,6 +2530,20 @@ public final class DJConnectAppModel: ObservableObject {
                 dutch: "Wachten tot Home Assistant pairing afrondt."
             )
         }
+    }
+
+    private func pairingWaitMessage(pairingToken: String) -> String {
+        #if os(macOS)
+        localized(
+            english: "Waiting for Home Assistant to accept code \(pairingToken). If the client is not discovered, allow incoming local network connections for DJConnect in macOS firewall or security software.",
+            dutch: "Wachten tot Home Assistant code \(pairingToken) accepteert. Wordt de client niet gevonden, sta inkomende lokale netwerkverbindingen voor DJConnect toe in macOS firewall of beveiligingssoftware."
+        )
+        #else
+        localized(
+            english: "Waiting for Home Assistant to accept code \(pairingToken). Keep this device on the same Wi-Fi/LAN as Home Assistant and leave DJConnect open while pairing.",
+            dutch: "Wachten tot Home Assistant code \(pairingToken) accepteert. Houd dit apparaat op hetzelfde WiFi/LAN-netwerk als Home Assistant en laat DJConnect open tijdens koppelen."
+        )
+        #endif
     }
 
     func isTerminalPairingError(_ error: DJConnectError) -> Bool {
@@ -4477,18 +4485,7 @@ public final class DJConnectAppModel: ObservableObject {
                 if let self {
                     return await self.localDeviceAPIInfo()
                 }
-                return DJConnectLocalDeviceAPIInfo(
-                    identity: DJConnectIdentity(
-                        deviceID: "djconnect-macos-unavailable",
-                        deviceName: "DJConnect",
-                        clientType: .macos,
-                        firmware: "3.1.45",
-                        appVersion: "3.1.45",
-                        platform: .macos
-                    ),
-                    pairingToken: "",
-                    pairingStatus: .unpaired
-                )
+                return Self.unavailableLocalDeviceAPIInfo()
             },
             tokenProvider: { [weak self] in
                 await self?.loadDeviceToken()
@@ -4575,6 +4572,33 @@ public final class DJConnectAppModel: ObservableObject {
             pairingToken: pairingToken,
             pairingStatus: pairingStatus,
             localURL: localDeviceAPIURL
+        )
+    }
+
+    nonisolated private static func unavailableLocalDeviceAPIInfo() -> DJConnectLocalDeviceAPIInfo {
+        #if os(macOS)
+        let identity = DJConnectIdentity(
+            deviceID: "djconnect-macos-unavailable",
+            deviceName: "DJConnect Mac",
+            clientType: .macos,
+            firmware: "3.1.46",
+            appVersion: "3.1.46",
+            platform: .macos
+        )
+        #else
+        let identity = DJConnectIdentity(
+            deviceID: "djconnect-ios-unavailable",
+            deviceName: "DJConnect iPhone",
+            clientType: .ios,
+            firmware: "3.1.46",
+            appVersion: "3.1.46",
+            platform: .ios
+        )
+        #endif
+        return DJConnectLocalDeviceAPIInfo(
+            identity: identity,
+            pairingToken: "",
+            pairingStatus: .unpaired
         )
     }
 

@@ -2227,6 +2227,69 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
     }
 }
 
+@Test func bonjourTXTRecordIncludesWatchOSDiscoveryContract() throws {
+    let identity = DJConnectIdentity(
+        deviceID: "djconnect-watchos-8F3A2C91B45D",
+        deviceName: "DJConnect Watch",
+        clientType: .watchos,
+        firmware: "3.1.46",
+        appVersion: "3.1.46",
+        platform: .watchos
+    )
+    let info = DJConnectLocalDeviceAPIInfo(
+        identity: identity,
+        pairingToken: "123456",
+        pairingStatus: .pairing
+    )
+    let txtRecord = DJConnectLocalDeviceAPI.bonjourTXTRecord(
+        for: info,
+        localURL: "http://192.168.1.105:55805"
+    ).mapValues { String(decoding: $0, as: UTF8.self) }
+
+    #expect(txtRecord["device_id"] == "djconnect-watchos-8F3A2C91B45D")
+    #expect(txtRecord["device_id"]?.hasPrefix("djconnect-watchos-") == true)
+    #expect(txtRecord["client_type"] == "watchos")
+    #expect(txtRecord["platform"] == "watchos")
+    #expect(txtRecord["pairing_status"] == "pairing")
+    #expect(txtRecord["paired"] == "false")
+    #expect(txtRecord["pair_code"] == "123456")
+    #expect(txtRecord["pairing_code"] == "123456")
+    #expect(txtRecord["pairing_token"] == "123456")
+    #expect(txtRecord["local_url"] == "http://192.168.1.105:55805")
+    #expect(txtRecord["path"] == "/api/device/info")
+    #expect(txtRecord["pairing_path"] == "/api/device/pairing-info")
+    #expect(txtRecord["pair_path"] == "/api/device/pair")
+}
+
+@Test func bonjourTXTRecordIncludesIOSDiscoveryContract() throws {
+    let identity = DJConnectIdentity(
+        deviceID: "djconnect-ios-8F3A2C91B45D",
+        deviceName: "DJConnect iPhone",
+        clientType: .ios,
+        firmware: "3.1.46",
+        appVersion: "3.1.46",
+        platform: .ios
+    )
+    let info = DJConnectLocalDeviceAPIInfo(
+        identity: identity,
+        pairingToken: "654321",
+        pairingStatus: .unpaired
+    )
+    let txtRecord = DJConnectLocalDeviceAPI.bonjourTXTRecord(
+        for: info,
+        localURL: "http://192.168.1.106:55806"
+    ).mapValues { String(decoding: $0, as: UTF8.self) }
+
+    #expect(txtRecord["device_id"] == "djconnect-ios-8F3A2C91B45D")
+    #expect(txtRecord["device_id"]?.hasPrefix("djconnect-ios-") == true)
+    #expect(txtRecord["client_type"] == "ios")
+    #expect(txtRecord["platform"] == "ios")
+    #expect(txtRecord["pairing_status"] == "unpaired")
+    #expect(txtRecord["paired"] == "false")
+    #expect(txtRecord["pair_code"] == "654321")
+    #expect(txtRecord["local_url"] == "http://192.168.1.106:55806")
+}
+
 @MainActor
 @Test func bonjourAdvertisingIsOnlyPreferredWhilePairable() throws {
     let suiteName = "DJConnectTests-\(UUID().uuidString)"

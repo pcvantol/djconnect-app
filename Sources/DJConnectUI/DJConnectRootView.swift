@@ -809,18 +809,24 @@ private struct PairingSheetView: View {
     @ObservedObject var model: DJConnectAppModel
 
     var body: some View {
-        VStack(spacing: 22) {
-            AboutBanner()
-                .frame(maxWidth: 520)
+        ScrollView(.vertical) {
+            VStack(spacing: 22) {
+                AboutBanner()
+                    .frame(maxWidth: 520)
 
-            if model.isShowingPairingSuccess {
-                pairingSuccess
-            } else {
-                pairingPending
+                if model.isShowingPairingSuccess {
+                    pairingSuccess
+                } else {
+                    pairingPending
+                }
             }
+            .padding(28)
+            #if !os(macOS)
+            .padding(.bottom, 18)
+            #endif
+            .frame(minWidth: 360, idealWidth: 560, maxWidth: 680)
+            .frame(maxWidth: .infinity)
         }
-        .padding(28)
-        .frame(minWidth: 360, idealWidth: 560, maxWidth: 680)
         .background(DJConnectCanvasBackground())
         #if os(macOS)
         .frame(minHeight: 560)
@@ -2991,6 +2997,10 @@ private struct AskDJView: View {
             && model.voiceStatus != .processing
     }
 
+    private var isAskDJHistoryStale: Bool {
+        !model.isDemoMode && !model.canUsePlaybackFeatures
+    }
+
     private var chatTopPadding: CGFloat {
         16
             + (isSearchVisible ? 56 : 0)
@@ -3007,6 +3017,10 @@ private struct AskDJView: View {
                     ZStack(alignment: .top) {
                         ScrollView {
                             LazyVStack(spacing: 12) {
+                                if isAskDJHistoryStale {
+                                    AskDJOfflineNotice(language: model.language)
+                                        .padding(.top, 12)
+                                }
                                 if model.isCheckingAskDJHistoryState {
                                     ProgressView()
                                         .tint(.white)
@@ -3027,23 +3041,24 @@ private struct AskDJView: View {
                                         AskDJMessageBubble(
                                             message: message,
                                             language: model.language,
+                                            isStaleHistory: isAskDJHistoryStale && !isTransientMessage,
                                             isAudioLoading: isTransientMessage ? false : model.isLoadingAskDJAudio(message.audioURL),
                                             isAudioPlaying: isTransientMessage ? false : model.isPlayingAskDJAudio(message.audioURL),
-                                            isRetryDisabled: isTransientMessage || model.isSendingAskDJText,
+                                            isRetryDisabled: isTransientMessage || isAskDJHistoryStale || model.isSendingAskDJText,
                                             playingActionID: model.playingAskDJActionID,
                                             isSearchResult: searchResultIDs.contains(message.id),
                                             isActiveSearchResult: activeSearchResultID == message.id,
                                             searchText: askDJSearchText,
                                             retryAction: {
-                                                guard !isTransientMessage else { return }
+                                                guard !isTransientMessage, !isAskDJHistoryStale else { return }
                                                 model.retryAskDJMessage(message)
                                             },
                                             playAction: {
-                                                guard !isTransientMessage else { return }
+                                                guard !isTransientMessage, !isAskDJHistoryStale else { return }
                                                 model.playAskDJRecommendation($0)
                                             },
                                             audioAction: {
-                                                guard !isTransientMessage else { return }
+                                                guard !isTransientMessage, !isAskDJHistoryStale else { return }
                                                 if model.isPlayingAskDJAudio(message.audioURL) {
                                                     model.stopAskDJAudio()
                                                 } else {
@@ -3052,6 +3067,7 @@ private struct AskDJView: View {
                                             },
                                             openLink: { selectedWebLink = $0 },
                                             setPromptAction: { text in
+                                                guard !isAskDJHistoryStale else { return }
                                                 model.askDJDraft = text
                                                 isInputFocused = true
                                             }
@@ -3595,9 +3611,47 @@ private struct AskDJEmptyState: View {
     }
 }
 
+private struct AskDJOfflineNotice: View {
+    let language: String
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "wifi.slash")
+                .font(.headline.weight(.semibold))
+                .foregroundStyle(.white.opacity(0.82))
+            VStack(alignment: .leading, spacing: 2) {
+                Text(localized(language, "Ask DJ offline", "Ask DJ offline"))
+                    .font(.subheadline.weight(.bold))
+                    .foregroundStyle(.white)
+                Text(localized(
+                    language,
+                    "Shown messages may be stale until DJConnect is paired with Home Assistant again.",
+                    "Getoonde berichten kunnen verouderd zijn totdat DJConnect weer met Home Assistant is gekoppeld."
+                ))
+                .font(.caption.weight(.medium))
+                .foregroundStyle(.white.opacity(0.66))
+                .fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
+        .background {
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .fill(Color.white.opacity(0.10))
+        }
+        .overlay {
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .stroke(Color.white.opacity(0.14), lineWidth: 1)
+        }
+        .padding(.horizontal, 4)
+    }
+}
+
 private struct AskDJMessageBubble: View {
     let message: DJConnectAskDJMessage
     let language: String
+    let isStaleHistory: Bool
     let isAudioLoading: Bool
     let isAudioPlaying: Bool
     let isRetryDisabled: Bool
@@ -3706,7 +3760,7 @@ private struct AskDJMessageBubble: View {
                     if !sourceLinks.isEmpty {
                         AskDJSourcesStack(links: sourceLinks, language: language, openLink: openLink)
                     }
-                    if !isUser, !message.playbackActions.isEmpty {
+                    if !isStaleHistory, !isUser, !message.playbackActions.isEmpty {
                         AskDJPlaybackActionStack(
                             actions: message.playbackActions,
                             language: language,
@@ -3714,7 +3768,7 @@ private struct AskDJMessageBubble: View {
                             playAction: playAction
                         )
                     }
-                    if !isUser, message.audioURL != nil {
+                    if !isStaleHistory, !isUser, message.audioURL != nil {
                         AskDJAudioReplayButton(
                             language: language,
                             isLoading: isAudioLoading,
@@ -3756,7 +3810,7 @@ private struct AskDJMessageBubble: View {
         .frame(maxWidth: .infinity, alignment: isUser ? .trailing : .leading)
         .contentShape(Rectangle())
         .contextMenu {
-            if canSetPrompt {
+            if canSetPrompt && !isStaleHistory {
                 Button {
                     DJConnectHaptics.selection()
                     setPromptAction(promptText)
@@ -3798,6 +3852,8 @@ private struct AskDJMessageBubble: View {
             ))
         } else if isSearchResult {
             AnyShapeStyle(Color.white.opacity(0.36))
+        } else if isStaleHistory {
+            AnyShapeStyle(Color.white.opacity(0.16))
         } else {
             AnyShapeStyle(Color.white.opacity(isUser ? 0.12 : isSystemMessage ? 0.14 : 0.18))
         }
@@ -3805,7 +3861,19 @@ private struct AskDJMessageBubble: View {
 
     @ViewBuilder
     private var bubbleBackground: some View {
-        if isUser {
+        if isStaleHistory {
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .fill(
+                    LinearGradient(
+                        colors: [
+                            Color.white.opacity(0.18),
+                            Color.white.opacity(0.09)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+        } else if isUser {
             RoundedRectangle(cornerRadius: 18, style: .continuous)
                 .fill(Color(red: 0.06, green: 0.43, blue: 1.00))
         } else if isSystemMessage {
