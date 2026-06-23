@@ -274,7 +274,7 @@ http://homeassistant.local:8123
 
 Users can replace it with an IP-based local URL when mDNS is unavailable.
 
-The iOS/macOS app is an app client, not ESP hardware, but it does expose a
+The iOS/macOS/watchOS app is an app client, not ESP hardware, but it does expose a
 small local `/api/device/*` Web API for Home Assistant -> app traffic. It does
 not implement ESP-only reboot or OTA routes.
 
@@ -799,7 +799,7 @@ Rules:
 ## App Settings
 
 The ESP has device settings such as screen brightness, LED and speaker cue
-volume. The iOS/macOS app should not copy those settings blindly.
+volume. The iOS/macOS/watchOS app should not copy those settings blindly.
 
 Suggested app-owned settings:
 

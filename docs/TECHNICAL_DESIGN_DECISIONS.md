@@ -223,7 +223,7 @@ vastlegt, staat "niet gepind".
 
 | Component | Gebruik | Versie / pin in repo | Licentie / voorwaarden | Source |
 | --- | --- | --- | --- | --- |
-| DJConnect app code | iOS/macOS app, Core, UI en tooling | `MARKETING_VERSION` in `project.yml` | MIT License | <https://github.com/pcvantol/djconnect-app> |
+| DJConnect app code | iOS/macOS/watchOS app, Core, UI en tooling | `MARKETING_VERSION` in `project.yml` | MIT License | <https://github.com/pcvantol/djconnect-app> |
 | Swift | Programmeertaal en standaardbibliotheek | Swift tools 6.0, `SWIFT_VERSION` 6.0 | Apache License 2.0 met Runtime Library Exception | <https://github.com/swiftlang/swift> |
 | Swift Package Manager | Module/build layout | Swift tools 6.0 | Apache License 2.0 | <https://www.swift.org/package-manager/> |
 | Foundation | Data, URL, JSON, filesystem, dates | Apple SDK, iOS 26+/macOS 26+ | Apple SDK terms | <https://developer.apple.com/documentation/foundation> |

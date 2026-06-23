@@ -39,7 +39,7 @@ Website: [https://djconnect.dev](https://djconnect.dev)
 - [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md): local development, generation, build, and test commands.
 - [docs/RELEASE.md](docs/RELEASE.md): signing, TestFlight, notarization, and live HA validation checklist.
 - [docs/postman/djconnect-local-device-api.postman_collection.json](docs/postman/djconnect-local-device-api.postman_collection.json):
-  Postman collection for the local Client API hosted by the iOS/macOS app.
+  Postman collection for the local Client API hosted by the iOS/macOS/watchOS app.
 - `pcvantol/djconnect/SYNC_PROMPTS.md`: canonical source for cross-repo DJConnect
   sync prompts and contract instructions.
 - `pcvantol/djconnect/PRODUCT_ROADMAP.md`: canonical DJConnect product roadmap.
@@ -274,7 +274,7 @@ Setup, Settings, onboarding, and command payloads must not expose or send
 `spotify_source` or `liked_proxy_playlist_uri`; playback remains mediated by
 the Home Assistant DJConnect integration through generic commands.
 
-The iOS/macOS app can expose seek controls for the current track. It sends
+The iOS/macOS/watchOS app can expose seek controls for the current track. It sends
 `command:"seek_relative"` with `value` in milliseconds. Positive values seek
 forward, negative values seek backward. This is an Apple-app-only UI affordance;
 ESP clients may omit it.
@@ -323,7 +323,7 @@ accepts that code and returns a DJConnect bearer token plus the HA local URL
 metadata. The current preferred response field is `device_token`; `bearer_token`
 and `token` are accepted for compatibility.
 
-The iOS/macOS app also hosts a local Web API for Home Assistant -> app traffic:
+The iOS/macOS/watchOS app also hosts a local Web API for Home Assistant -> app traffic:
 
 ```http
 GET /api/device/info

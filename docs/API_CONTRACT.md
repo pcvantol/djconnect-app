@@ -123,7 +123,7 @@ flows and are not used for status, command, or voice requests. Do not use legacy
 
 ## Local App Web API
 
-The iOS/macOS app hosts a small local Web API for Home Assistant -> app
+The iOS/macOS/watchOS app hosts a small local Web API for Home Assistant -> app
 traffic while the app is active/reachable. While the app is pairable, it
 advertises Bonjour/mDNS service `_djconnect._tcp` with TXT fields including
 `name`, `device_id`, `version`, `paired`, `pairing_status`, `api`, `model`,

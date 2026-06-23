@@ -14,7 +14,7 @@ backend command execution.
 
 Reasoning:
 
-- keeps secrets out of the iOS/macOS app;
+- keeps secrets out of the iOS/macOS/watchOS app;
 - preserves the existing ESP32 integration contract;
 - lets iOS, macOS, and ESP32 clients coexist against one backend;
 - keeps future backend changes behind the Home Assistant integration.
