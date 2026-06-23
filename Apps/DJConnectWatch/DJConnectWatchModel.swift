@@ -1,4 +1,5 @@
 @preconcurrency import AVFoundation
+import CryptoKit
 import DJConnectCore
 import Network
 import OSLog
@@ -243,9 +244,15 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
     @Published private(set) var isAppForeground = true
 
     private let askDJMessagesKey = "DJConnectWatchAskDJMessages"
-    private let pushTokenKey = "DJConnectWatchPushToken"
+    private let legacyPushTokenKey = "DJConnectWatchPushToken"
     private let registeredPushTokenKey = "DJConnectWatchRegisteredPushToken"
+    private let registeredPushTokenHashKey = "DJConnectWatchRegisteredPushTokenHash"
     private let registeredPushEnvironmentKey = "DJConnectWatchRegisteredPushEnvironment"
+    private let registeredPushSignatureKey = "DJConnectWatchRegisteredPushSignature"
+    private let pushSupportedKey = "DJConnectWatchPushSupported"
+    private let pushRegisteredKey = "DJConnectWatchPushRegistered"
+    private let pushEnvironmentStatusKey = "DJConnectWatchPushEnvironmentStatus"
+    private let lastPushErrorKey = "DJConnectWatchLastPushError"
     private let maxDiagnosticLogLines = 80
     private let tokenStore = DJConnectUserDefaultsTokenStore(key: "DJConnectWatchDeviceToken")
     private let monkeyTestingMode: Bool
@@ -264,6 +271,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
     private var volumeCommandTask: Task<Void, Never>?
     private var playbackBeatSignature: String?
     private var hasRequestedAskDJNotificationPermission = false
+    private var currentAPNsPushToken: String?
     private var shouldBypassMicrophonePermissionExplanationOnce = false
     private var shouldBypassVoiceActivationPermissionExplanationOnce = false
     private var voiceActivationAudioEngine: AVAudioEngine?
@@ -300,6 +308,9 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
                 startLocalDeviceAPI()
             }
             appendDiagnosticLog(paired ? "Watch gestart met bestaande koppeling" : "Watch gestart zonder koppeling")
+            if paired {
+                requestRemoteNotificationRegistration()
+            }
         }
         if !isDemoMode {
             startNetworkMonitor()
@@ -333,7 +344,8 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         guard !token.isEmpty else {
             return
         }
-        UserDefaults.standard.set(token, forKey: pushTokenKey)
+        currentAPNsPushToken = token
+        UserDefaults.standard.removeObject(forKey: legacyPushTokenKey)
         appendDiagnosticLog("APNs token ontvangen \(Self.redactedPushToken(token))")
         registerStoredPushTokenIfPossible()
     }
@@ -983,10 +995,17 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         pairingTask = nil
         cancelVoiceActivationScheduledTasks()
         stopVoiceActivationListening(status: .paused)
+        unregisterPushNotifications()
         try? tokenStore.clearToken()
-        UserDefaults.standard.removeObject(forKey: pushTokenKey)
+        currentAPNsPushToken = nil
+        UserDefaults.standard.removeObject(forKey: legacyPushTokenKey)
         UserDefaults.standard.removeObject(forKey: registeredPushTokenKey)
+        UserDefaults.standard.removeObject(forKey: registeredPushTokenHashKey)
         UserDefaults.standard.removeObject(forKey: registeredPushEnvironmentKey)
+        UserDefaults.standard.removeObject(forKey: registeredPushSignatureKey)
+        UserDefaults.standard.removeObject(forKey: pushRegisteredKey)
+        UserDefaults.standard.removeObject(forKey: pushEnvironmentStatusKey)
+        UserDefaults.standard.removeObject(forKey: lastPushErrorKey)
         paired = false
         storedDemoMode = false
         isDemoMode = false
@@ -2141,27 +2160,52 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         guard !isDemoMode,
               paired,
               let client,
-              let token = UserDefaults.standard.string(forKey: pushTokenKey),
+              let token = currentAPNsPushToken ?? UserDefaults.standard.string(forKey: legacyPushTokenKey),
               !token.isEmpty else {
             return
         }
+        currentAPNsPushToken = token
+        UserDefaults.standard.removeObject(forKey: legacyPushTokenKey)
         let environment = Self.pushEnvironment
-        if UserDefaults.standard.string(forKey: registeredPushTokenKey) == token,
-           UserDefaults.standard.string(forKey: registeredPushEnvironmentKey) == environment.rawValue {
+        let tokenHash = Self.pushTokenHash(token)
+        let appBundleID = Bundle.main.bundleIdentifier ?? "dev.djconnect.watch"
+        let locale = Locale.current.identifier
+        let registrationSignature = pushRegistrationSignature(
+            pushToken: token,
+            pushEnvironment: environment,
+            appBundleID: appBundleID,
+            locale: locale
+        )
+        if UserDefaults.standard.string(forKey: registeredPushTokenHashKey) == tokenHash,
+           UserDefaults.standard.string(forKey: registeredPushEnvironmentKey) == environment.rawValue,
+           UserDefaults.standard.string(forKey: registeredPushSignatureKey) == registrationSignature,
+           UserDefaults.standard.bool(forKey: pushRegisteredKey) {
             return
         }
         Task { @MainActor in
             do {
-                _ = try await client.registerPushNotifications(DJConnectPushRegistrationRequest(
+                let response = try await client.registerPushNotifications(DJConnectPushRegistrationRequest(
                     identity: identity,
                     pushToken: token,
                     pushEnvironment: environment,
-                    appBundleID: Bundle.main.bundleIdentifier ?? "dev.djconnect.watchos",
+                    appBundleID: appBundleID,
                     appVersion: identity.appVersion,
-                    locale: Locale.current.identifier
+                    locale: locale
                 ))
-                UserDefaults.standard.set(token, forKey: registeredPushTokenKey)
+                applyPushRegistrationStatus(from: response)
+                guard response.success, response.pushRegistered != false else {
+                    let reason = response.error ?? response.lastPushError ?? response.message ?? "onbekend"
+                    UserDefaults.standard.set(false, forKey: pushRegisteredKey)
+                    UserDefaults.standard.removeObject(forKey: registeredPushSignatureKey)
+                    appendDiagnosticLog("Push registratie niet geaccepteerd door Home Assistant: \(Self.redactedPushFailureReason(reason))", level: .warning)
+                    return
+                }
+                UserDefaults.standard.removeObject(forKey: registeredPushTokenKey)
+                UserDefaults.standard.set(tokenHash, forKey: registeredPushTokenHashKey)
                 UserDefaults.standard.set(environment.rawValue, forKey: registeredPushEnvironmentKey)
+                UserDefaults.standard.set(registrationSignature, forKey: registeredPushSignatureKey)
+                UserDefaults.standard.set(true, forKey: pushRegisteredKey)
+                UserDefaults.standard.removeObject(forKey: lastPushErrorKey)
                 appendDiagnosticLog("APNs token geregistreerd bij Home Assistant (\(environment.rawValue))")
             } catch let error as DJConnectError {
                 if case .routeMissing = error {
@@ -2175,6 +2219,77 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         }
     }
 
+    private func unregisterPushNotifications() {
+        guard let token = currentAPNsPushToken ?? UserDefaults.standard.string(forKey: legacyPushTokenKey),
+              !token.isEmpty,
+              let client else {
+            return
+        }
+        currentAPNsPushToken = nil
+        UserDefaults.standard.removeObject(forKey: legacyPushTokenKey)
+        UserDefaults.standard.removeObject(forKey: registeredPushTokenKey)
+        UserDefaults.standard.removeObject(forKey: registeredPushTokenHashKey)
+        UserDefaults.standard.removeObject(forKey: registeredPushEnvironmentKey)
+        UserDefaults.standard.removeObject(forKey: registeredPushSignatureKey)
+        UserDefaults.standard.removeObject(forKey: pushRegisteredKey)
+        UserDefaults.standard.removeObject(forKey: pushEnvironmentStatusKey)
+        Task { @MainActor in
+            do {
+                _ = try await client.unregisterPushNotifications(DJConnectPushUnregistrationRequest(
+                    identity: identity,
+                    pushToken: token
+                ))
+                appendDiagnosticLog("APNs token afgemeld bij Home Assistant")
+            } catch let error as DJConnectError {
+                if case .routeMissing = error {
+                    appendDiagnosticLog("Push afmelden overgeslagen: route ontbreekt in Home Assistant", level: .debug)
+                } else {
+                    appendDiagnosticLog("Push afmelden mislukt: \(Self.userMessage(for: error))", level: .warning)
+                }
+            } catch {
+                appendDiagnosticLog("Push afmelden mislukt: \(Self.redactedPushFailureReason(error.localizedDescription))", level: .warning)
+            }
+        }
+    }
+
+    private func pushRegistrationSignature(
+        pushToken: String,
+        pushEnvironment: DJConnectPushEnvironment,
+        appBundleID: String,
+        locale: String
+    ) -> String {
+        [
+            identity.deviceID,
+            identity.clientType.rawValue,
+            Self.pushTokenHash(pushToken),
+            pushEnvironment.rawValue,
+            appBundleID,
+            identity.appVersion ?? "",
+            locale,
+            haBaseURL
+        ].joined(separator: "|")
+    }
+
+    private func applyPushRegistrationStatus(from response: DJConnectCommandResponse) {
+        if let pushSupported = response.pushSupported {
+            UserDefaults.standard.set(pushSupported, forKey: pushSupportedKey)
+        }
+        if let pushRegistered = response.pushRegistered {
+            UserDefaults.standard.set(pushRegistered, forKey: pushRegisteredKey)
+            if !pushRegistered {
+                UserDefaults.standard.removeObject(forKey: registeredPushSignatureKey)
+            }
+        }
+        if let pushEnvironment = response.pushEnvironment {
+            UserDefaults.standard.set(pushEnvironment.rawValue, forKey: pushEnvironmentStatusKey)
+        }
+        if let lastPushError = response.lastPushError, !lastPushError.isEmpty {
+            UserDefaults.standard.set(Self.redactedPushFailureReason(lastPushError), forKey: lastPushErrorKey)
+        } else if response.pushRegistered == true {
+            UserDefaults.standard.removeObject(forKey: lastPushErrorKey)
+        }
+    }
+
     private static var pushEnvironment: DJConnectPushEnvironment {
         #if DEBUG
         .sandbox
@@ -2184,10 +2299,27 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
     }
 
     private static func redactedPushToken(_ token: String) -> String {
-        guard token.count > 12 else {
-            return "[redacted]"
-        }
-        return "\(token.prefix(6))...\(token.suffix(6))"
+        "[redacted]"
+    }
+
+    private static func pushTokenHash(_ token: String) -> String {
+        SHA256.hash(data: Data(token.utf8))
+            .map { String(format: "%02x", $0) }
+            .joined()
+    }
+
+    private static func redactedPushFailureReason(_ reason: String) -> String {
+        reason
+            .replacingOccurrences(
+                of: #"Bearer\s+[A-Za-z0-9._~+/=-]+"#,
+                with: "Bearer [redacted]",
+                options: .regularExpression
+            )
+            .replacingOccurrences(
+                of: #"(djci_[A-Za-z0-9._~+/=-]+|[A-Fa-f0-9]{32,}|[A-Za-z0-9_-]{80,})"#,
+                with: "[redacted]",
+                options: .regularExpression
+            )
     }
 
     private static func notificationPreview(from text: String) -> String {

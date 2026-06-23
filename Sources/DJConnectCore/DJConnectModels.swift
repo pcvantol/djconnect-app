@@ -88,13 +88,15 @@ public struct DJConnectPairingPayload: Codable, Equatable, Sendable {
     public var haLocalURL: String?
     public var haRemoteURL: String?
     public var assistPipelineID: String?
+    public var bootstrapProof: String?
 
     public init(
         identity: DJConnectIdentity,
         pairingToken: String,
         haLocalURL: String? = nil,
         haRemoteURL: String? = nil,
-        assistPipelineID: String? = nil
+        assistPipelineID: String? = nil,
+        bootstrapProof: String? = nil
     ) {
         self.deviceID = identity.deviceID
         self.deviceName = identity.deviceName
@@ -108,6 +110,7 @@ public struct DJConnectPairingPayload: Codable, Equatable, Sendable {
         self.haLocalURL = haLocalURL
         self.haRemoteURL = haRemoteURL
         self.assistPipelineID = assistPipelineID
+        self.bootstrapProof = bootstrapProof
     }
 
     enum CodingKeys: String, CodingKey {
@@ -123,6 +126,7 @@ public struct DJConnectPairingPayload: Codable, Equatable, Sendable {
         case haLocalURL = "ha_local_url"
         case haRemoteURL = "ha_remote_url"
         case assistPipelineID = "assist_pipeline_id"
+        case bootstrapProof = "bootstrap_proof"
     }
 }
 
@@ -217,6 +221,7 @@ public struct DJConnectStatusPayload: Codable, Equatable, Sendable {
     public var mood: Int?
     public var djStyle: String?
     public var memoryKey: String?
+    public var bootstrapProof: String?
 
     public init(
         identity: DJConnectIdentity,
@@ -241,7 +246,8 @@ public struct DJConnectStatusPayload: Codable, Equatable, Sendable {
         wakewordStatus: String? = nil,
         mood: Int? = nil,
         djStyle: String? = nil,
-        memoryKey: String? = nil
+        memoryKey: String? = nil,
+        bootstrapProof: String? = nil
     ) {
         self.deviceID = identity.deviceID
         self.deviceName = identity.deviceName
@@ -271,6 +277,7 @@ public struct DJConnectStatusPayload: Codable, Equatable, Sendable {
         self.mood = mood.map { max(0, min(100, $0)) }
         self.djStyle = djStyle
         self.memoryKey = memoryKey
+        self.bootstrapProof = bootstrapProof
     }
 
     enum CodingKeys: String, CodingKey {
@@ -302,6 +309,7 @@ public struct DJConnectStatusPayload: Codable, Equatable, Sendable {
         case mood
         case djStyle = "dj_style"
         case memoryKey = "memory_key"
+        case bootstrapProof = "bootstrap_proof"
     }
 }
 
@@ -1019,6 +1027,7 @@ public struct DJConnectPushRegistrationRequest: Codable, Equatable, Sendable {
     public var appVersion: String?
     public var locale: String?
     public var notificationCategories: [String]
+    public var bootstrapProof: String?
 
     public init(
         identity: DJConnectIdentity,
@@ -1027,7 +1036,8 @@ public struct DJConnectPushRegistrationRequest: Codable, Equatable, Sendable {
         appBundleID: String,
         appVersion: String? = nil,
         locale: String? = nil,
-        notificationCategories: [String] = ["ask_dj_response", "ask_dj_confirm"]
+        notificationCategories: [String] = ["ask_dj"],
+        bootstrapProof: String? = nil
     ) {
         self.deviceID = identity.deviceID
         self.clientType = identity.clientType
@@ -1037,6 +1047,7 @@ public struct DJConnectPushRegistrationRequest: Codable, Equatable, Sendable {
         self.appVersion = appVersion ?? identity.appVersion
         self.locale = locale
         self.notificationCategories = notificationCategories
+        self.bootstrapProof = bootstrapProof
     }
 
     enum CodingKeys: String, CodingKey {
@@ -1048,6 +1059,7 @@ public struct DJConnectPushRegistrationRequest: Codable, Equatable, Sendable {
         case appVersion = "app_version"
         case locale
         case notificationCategories = "notification_categories"
+        case bootstrapProof = "bootstrap_proof"
     }
 }
 
@@ -2162,6 +2174,10 @@ public struct DJConnectCommandResponse: Codable, Equatable, Sendable {
     public var queueContext: String?
     public var playlists: [DJConnectPlaylist]?
     public var askDJClearRequired: Bool?
+    public var pushSupported: Bool?
+    public var pushRegistered: Bool?
+    public var pushEnvironment: DJConnectPushEnvironment?
+    public var lastPushError: String?
 
     public init(
         success: Bool,
@@ -2175,7 +2191,11 @@ public struct DJConnectCommandResponse: Codable, Equatable, Sendable {
         queue: [DJConnectQueueItem]? = nil,
         queueContext: String? = nil,
         playlists: [DJConnectPlaylist]? = nil,
-        askDJClearRequired: Bool? = nil
+        askDJClearRequired: Bool? = nil,
+        pushSupported: Bool? = nil,
+        pushRegistered: Bool? = nil,
+        pushEnvironment: DJConnectPushEnvironment? = nil,
+        lastPushError: String? = nil
     ) {
         self.success = success
         self.error = error
@@ -2189,6 +2209,10 @@ public struct DJConnectCommandResponse: Codable, Equatable, Sendable {
         self.queueContext = queueContext
         self.playlists = playlists
         self.askDJClearRequired = askDJClearRequired
+        self.pushSupported = pushSupported
+        self.pushRegistered = pushRegistered
+        self.pushEnvironment = pushEnvironment
+        self.lastPushError = lastPushError
     }
 
     public init(from decoder: Decoder) throws {
@@ -2203,6 +2227,18 @@ public struct DJConnectCommandResponse: Codable, Equatable, Sendable {
         askDJClearRequired = container.decodeBoolAliasIfPresent(.askDJClearRequired, .clearRequired)
             ?? data?.decodeBoolAliasIfPresent(.askDJClearRequired, .clearRequired)
             ?? result?.decodeBoolAliasIfPresent(.askDJClearRequired, .clearRequired)
+        pushSupported = container.decodeBoolAliasIfPresent(.pushSupported)
+            ?? data?.decodeBoolAliasIfPresent(.pushSupported)
+            ?? result?.decodeBoolAliasIfPresent(.pushSupported)
+        pushRegistered = container.decodeBoolAliasIfPresent(.pushRegistered)
+            ?? data?.decodeBoolAliasIfPresent(.pushRegistered)
+            ?? result?.decodeBoolAliasIfPresent(.pushRegistered)
+        pushEnvironment = try container.decodeIfPresent(DJConnectPushEnvironment.self, forKey: .pushEnvironment)
+            ?? data?.decodeIfPresentIgnoringErrors(DJConnectPushEnvironment.self, forKey: .pushEnvironment)
+            ?? result?.decodeIfPresentIgnoringErrors(DJConnectPushEnvironment.self, forKey: .pushEnvironment)
+        lastPushError = container.decodeStringAliasIfPresent(.lastPushError)
+            ?? data?.decodeStringAliasIfPresent(.lastPushError)
+            ?? result?.decodeStringAliasIfPresent(.lastPushError)
         haVersion = container.decodeStringAliasIfPresent(.haVersion)
             ?? data?.decodeStringAliasIfPresent(.haVersion)
             ?? result?.decodeStringAliasIfPresent(.haVersion)
@@ -2274,6 +2310,10 @@ public struct DJConnectCommandResponse: Codable, Equatable, Sendable {
         try container.encodeIfPresent(queueContext, forKey: .queueContext)
         try container.encodeIfPresent(playlists, forKey: .playlists)
         try container.encodeIfPresent(askDJClearRequired, forKey: .askDJClearRequired)
+        try container.encodeIfPresent(pushSupported, forKey: .pushSupported)
+        try container.encodeIfPresent(pushRegistered, forKey: .pushRegistered)
+        try container.encodeIfPresent(pushEnvironment, forKey: .pushEnvironment)
+        try container.encodeIfPresent(lastPushError, forKey: .lastPushError)
     }
 
     enum CodingKeys: String, CodingKey {
@@ -2296,6 +2336,10 @@ public struct DJConnectCommandResponse: Codable, Equatable, Sendable {
         case items
         case askDJClearRequired = "ask_dj_clear_required"
         case clearRequired = "clear_required"
+        case pushSupported = "push_supported"
+        case pushRegistered = "push_registered"
+        case pushEnvironment = "push_environment"
+        case lastPushError = "last_push_error"
     }
 }
 

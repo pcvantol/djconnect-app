@@ -7,6 +7,7 @@ import SwiftUI
 struct DJConnectMacApp: App {
     @NSApplicationDelegateAdaptor(DJConnectMacAppDelegate.self) private var appDelegate
     @StateObject private var model = DJConnectMacApp.makeModel()
+    @Environment(\.openWindow) private var openWindow
 
     var body: some Scene {
         WindowGroup {
@@ -21,7 +22,21 @@ struct DJConnectMacApp: App {
 
         Settings {
             DJConnectSettingsView(model: model)
-                .frame(width: 460, height: 360)
+                .frame(width: 520, height: 640)
+        }
+
+        Window(localizedAboutTitle(for: model.language), id: "about") {
+            DJConnectAboutView(model: model)
+                .frame(width: 520, height: 620)
+        }
+        .defaultSize(width: 520, height: 620)
+        .windowResizability(.contentSize)
+        .commands {
+            CommandGroup(replacing: .appInfo) {
+                Button(localizedAboutMenuTitle(for: model.language)) {
+                    openWindow(id: "about")
+                }
+            }
         }
     }
 
@@ -44,6 +59,14 @@ struct DJConnectMacApp: App {
             tokenStore: DJConnectUserDefaultsTokenStore(key: "DJConnectMacDeviceToken")
         )
     }
+}
+
+private func localizedAboutTitle(for language: String) -> String {
+    language == "nl" ? "Over" : "About"
+}
+
+private func localizedAboutMenuTitle(for language: String) -> String {
+    language == "nl" ? "Over DJConnect" : "About DJConnect"
 }
 
 final class DJConnectMacAppDelegate: NSObject, NSApplicationDelegate {

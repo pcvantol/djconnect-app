@@ -194,6 +194,57 @@ POST /api/device/dj_response
 POST /api/device/forget
 ```
 
+## APNs Push Registration
+
+Apple clients register APNs device tokens with Home Assistant through the
+authenticated Home Assistant endpoint:
+
+```http
+POST /api/djconnect/push/register
+Authorization: Bearer <device_token>
+Content-Type: application/json
+```
+
+macOS clients must send `client_type: "macos"` and a matching `device_id` in
+the form `djconnect-macos-XXXXXXXXXXXX`, where the suffix is the first 12
+alphanumeric characters of the stable app install/client ID. iOS and watchOS use
+the same contract with their own `client_type` and device ID prefixes.
+
+Expected macOS payload:
+
+```json
+{
+  "client_type": "macos",
+  "device_id": "djconnect-macos-8F3A2C91B45D",
+  "push_token": "<apns-device-token>",
+  "push_environment": "sandbox",
+  "app_bundle_id": "dev.djconnect.mac",
+  "app_version": "3.1.45",
+  "locale": "nl-NL",
+  "notification_categories": ["ask_dj"],
+  "bootstrap_proof": "<short-lived proof when available>"
+}
+```
+
+The app registers after APNs returns a device token and Home Assistant auth is
+available. It retries registration when the APNs token, environment, bundle ID,
+app version, locale, Home Assistant pairing, or local registration state
+changes. Registration failures must be logged without bearer tokens, APNs
+tokens, or `bootstrap_proof` values.
+
+Home Assistant may respond with `push_supported`, `push_registered`,
+`push_environment`, and `last_push_error`. Expected recoverable failures include
+`missing_bootstrap_proof`, `missing_install_token`, and
+`push_relay_unavailable`; normal Ask DJ traffic must continue even when push is
+disabled or best-effort.
+
+Unpairing or logout calls:
+
+```http
+POST /api/djconnect/push/unregister
+Authorization: Bearer <device_token>
+```
+
 The Apple app does not implement ESP-only `/api/device/reboot` or
 `/api/device/ota` routes.
 
@@ -392,7 +443,10 @@ Minimum payload:
   "text": "Voeg dit nummer toe aan mijn favorieten",
   "audio_response": "auto",
   "dj_style": "warm_radio_dj",
-  "memory_key": "djconnect_ios_djconnect-ios-8F3A2C91B45D"
+  "memory_key": "djconnect_ios_djconnect-ios-8F3A2C91B45D",
+  "metadata": {
+    "trigger": "manual"
+  }
 }
 ```
 
@@ -400,6 +454,14 @@ Minimum payload:
 to `auto`. Missing `audio_url` is a normal successful response for
 informational text answers. Replay UI is shown only when
 `assistant_message.audio_url` or top-level `audio_url` is present.
+
+`metadata` is optional and backend-owned. Clients may use it to signal context
+triggers without adding client-side intent logic. The planned morning startup
+flow sends `metadata.trigger == "morning_startup"` with text such as
+`Goedemorgen` or `Good morning` when the app starts in the morning and no active
+playback is known. Home Assistant should treat this as a normal Ask DJ request
+and may answer with text, media, audio, recommendations, or follow-up actions.
+Clients must not automatically start music solely because this trigger is sent.
 
 The Home Assistant integration should support at least these Ask DJ intent
 families in addition to general informational questions and playback control:
@@ -617,6 +679,56 @@ The follow-up command is:
 Home Assistant owns the final Spotify playback decision. It may start a track,
 album, artist, or playlist directly from `uri`, or use `context_uri` plus
 `offset_uri` when Spotify requires contextual playback.
+
+Backend follow-up and confirmation questions are also returned as
+`playback_actions`. Apple clients render them as buttons and send the selected
+action back to Home Assistant; the backend owns pending follow-up state,
+validation, and final intent execution. A generic yes/no clarification can use
+the same action shape:
+
+```json
+{
+  "intent": "change_music_context",
+  "action": "needs_confirmation",
+  "dj_text": "Wil je dat ik nu iets anders opzet?",
+  "playback_actions": [
+    {
+      "id": "yes",
+      "title": "Ja",
+      "kind": "confirmation",
+      "action_style": "confirmation",
+      "response_value": "yes",
+      "command": "ask_dj_followup_response"
+    },
+    {
+      "id": "no",
+      "title": "Nee",
+      "kind": "confirmation",
+      "action_style": "confirmation",
+      "response_value": "no",
+      "command": "ask_dj_followup_response"
+    }
+  ]
+}
+```
+
+The follow-up command should preserve the returned action object where
+possible:
+
+```json
+{
+  "device_id": "djconnect-ios-8F3A2C91B45D",
+  "client_type": "ios",
+  "command": "ask_dj_followup_response",
+  "value": {
+    "id": "yes",
+    "title": "Ja",
+    "kind": "confirmation",
+    "action_style": "confirmation",
+    "response_value": "yes"
+  }
+}
+```
 
 For `dj_announcement_request`, Home Assistant should not mutate playback. It
 should read current playback and, when available, queue/next-track context,

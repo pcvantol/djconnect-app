@@ -113,6 +113,21 @@ speakers zijn er?", "ik voel me moe en geprikkeld", "wat luister ik de laatste
 tijd veel?", "geef me een leuke aankondiging voor het volgende nummer", "waarom
 koos je dit nummer?", or "analyseer dit nummer muzikaal" locally.
 
+Ask DJ request payloads may include optional backend-owned `metadata` for
+context triggers. The planned morning startup flow sends
+`metadata.trigger == "morning_startup"` with `Goedemorgen` or `Good morning`
+when the app opens in the morning without active playback. Home Assistant
+should answer through the normal Ask DJ response/follow-up path; Apple clients
+must not start music automatically for this trigger.
+
+Backend follow-up and confirmation prompts are rendered as Ask DJ
+`playback_actions`. For general clarification, Home Assistant can return
+actions such as `kind: "confirmation"`, `action_style: "confirmation"`,
+`response_value: "yes"` or `"no"`, and
+`command: "ask_dj_followup_response"`. Apple clients show the buttons and send
+the selected action back; pending follow-up state and final intent execution
+remain server-side.
+
 Ask DJ history is synchronized from Home Assistant and cached locally for
 performance. Clients merge returned history messages into the local cache so a
 bounded server response window does not make older cached messages disappear.

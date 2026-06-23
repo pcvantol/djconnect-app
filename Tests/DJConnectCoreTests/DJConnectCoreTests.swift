@@ -530,7 +530,127 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
     #expect(json["push_environment"] as? String == "sandbox")
     #expect(json["app_bundle_id"] as? String == "dev.djconnect.ios")
     #expect(json["locale"] as? String == "nl-NL")
-    #expect((json["notification_categories"] as? [String])?.contains("ask_dj_response") == true)
+    #expect(json["notification_categories"] as? [String] == ["ask_dj"])
+}
+
+@Test func iOSPushRegisterRequestUsesCanonicalIdentityAndBootstrapProofWhenProvided() throws {
+    let identity = DJConnectIdentity(
+        deviceID: "djconnect-ios-8F3A2C91B45D",
+        deviceName: "DJConnect iPhone",
+        clientType: .ios,
+        firmware: "3.1.66",
+        appVersion: "3.1.66",
+        platform: .ios
+    )
+    let client = DJConnectClient(
+        baseURL: try #require(URL(string: "http://homeassistant.local:8123")),
+        identity: identity,
+        tokenStore: DJConnectInMemoryTokenStore(token: "secret-token")
+    )
+
+    let request = try client.pushRegisterRequest(DJConnectPushRegistrationRequest(
+        identity: identity,
+        pushToken: "abcdef123456",
+        pushEnvironment: .sandbox,
+        appBundleID: "dev.djconnect.ios",
+        locale: "nl-NL",
+        bootstrapProof: "short-lived-proof"
+    ))
+    let body = try #require(request.httpBody)
+    let json = try #require(JSONSerialization.jsonObject(with: body) as? [String: Any])
+
+    #expect(request.url?.path == "/api/djconnect/push/register")
+    #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer secret-token")
+    #expect(request.value(forHTTPHeaderField: "X-DJConnect-Device-ID") == identity.deviceID)
+    #expect(json["device_id"] as? String == "djconnect-ios-8F3A2C91B45D")
+    #expect(json["client_type"] as? String == "ios")
+    #expect(json["push_token"] as? String == "abcdef123456")
+    #expect(json["push_environment"] as? String == "sandbox")
+    #expect(json["app_bundle_id"] as? String == "dev.djconnect.ios")
+    #expect(json["app_version"] as? String == "3.1.66")
+    #expect(json["locale"] as? String == "nl-NL")
+    #expect(json["notification_categories"] as? [String] == ["ask_dj"])
+    #expect(json["bootstrap_proof"] as? String == "short-lived-proof")
+}
+
+@Test func macOSPushRegisterRequestUsesCanonicalIdentityAndBootstrapProofWhenProvided() throws {
+    let identity = DJConnectIdentity(
+        deviceID: "djconnect-macos-8F3A2C91B45D",
+        deviceName: "DJConnect Mac",
+        clientType: .macos,
+        firmware: "3.1.66",
+        appVersion: "3.1.66",
+        platform: .macos
+    )
+    let client = DJConnectClient(
+        baseURL: try #require(URL(string: "http://homeassistant.local:8123")),
+        identity: identity,
+        tokenStore: DJConnectInMemoryTokenStore(token: "secret-token")
+    )
+
+    let request = try client.pushRegisterRequest(DJConnectPushRegistrationRequest(
+        identity: identity,
+        pushToken: "abcdef123456",
+        pushEnvironment: .sandbox,
+        appBundleID: "dev.djconnect.mac",
+        locale: "nl-NL",
+        bootstrapProof: "short-lived-proof"
+    ))
+    let body = try #require(request.httpBody)
+    let json = try #require(JSONSerialization.jsonObject(with: body) as? [String: Any])
+
+    #expect(request.url?.path == "/api/djconnect/push/register")
+    #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer secret-token")
+    #expect(request.value(forHTTPHeaderField: "X-DJConnect-Device-ID") == identity.deviceID)
+    #expect(json["device_id"] as? String == "djconnect-macos-8F3A2C91B45D")
+    #expect(json["client_type"] as? String == "macos")
+    #expect(json["push_token"] as? String == "abcdef123456")
+    #expect(json["push_environment"] as? String == "sandbox")
+    #expect(json["app_bundle_id"] as? String == "dev.djconnect.mac")
+    #expect(json["app_version"] as? String == "3.1.66")
+    #expect(json["locale"] as? String == "nl-NL")
+    #expect(json["notification_categories"] as? [String] == ["ask_dj"])
+    #expect(json["bootstrap_proof"] as? String == "short-lived-proof")
+}
+
+@Test func watchOSPushRegisterRequestUsesCanonicalIdentityAndBootstrapProofWhenProvided() throws {
+    let identity = DJConnectIdentity(
+        deviceID: "djconnect-watchos-8F3A2C91B45D",
+        deviceName: "DJConnect Watch",
+        clientType: .watchos,
+        firmware: "3.1.66",
+        appVersion: "3.1.66",
+        platform: .watchos
+    )
+    let client = DJConnectClient(
+        baseURL: try #require(URL(string: "http://homeassistant.local:8123")),
+        identity: identity,
+        tokenStore: DJConnectInMemoryTokenStore(token: "secret-token")
+    )
+
+    let request = try client.pushRegisterRequest(DJConnectPushRegistrationRequest(
+        identity: identity,
+        pushToken: "abcdef123456",
+        pushEnvironment: .sandbox,
+        appBundleID: "dev.djconnect.watch",
+        locale: "nl-NL",
+        bootstrapProof: "short-lived-proof"
+    ))
+    let body = try #require(request.httpBody)
+    let json = try #require(JSONSerialization.jsonObject(with: body) as? [String: Any])
+
+    #expect(request.url?.path == "/api/djconnect/push/register")
+    #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer secret-token")
+    #expect(request.value(forHTTPHeaderField: "X-DJConnect-Device-ID") == identity.deviceID)
+    #expect(json["device_id"] as? String == "djconnect-watchos-8F3A2C91B45D")
+    #expect(json["client_type"] as? String == "watchos")
+    #expect(json["push_token"] as? String == "abcdef123456")
+    #expect(json["push_environment"] as? String == "sandbox")
+    #expect(json["app_bundle_id"] as? String == "dev.djconnect.watch")
+    #expect(json["app_version"] as? String == "3.1.66")
+    #expect(json["locale"] as? String == "nl-NL")
+    #expect(json["notification_categories"] as? [String] == ["ask_dj"])
+    #expect(json["bootstrap_proof"] as? String == "short-lived-proof")
 }
 
 @Test func pushUnregisterRequestUsesAuthenticatedEndpoint() throws {
@@ -560,6 +680,30 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
     #expect(json["device_id"] as? String == identity.deviceID)
     #expect(json["client_type"] as? String == "macos")
     #expect(json["push_token"] as? String == "abcdef123456")
+}
+
+@Test func commandResponseDecodesPushRegistrationStatusFields() throws {
+    let json = """
+    {
+      "success": false,
+      "error": "missing_bootstrap_proof",
+      "data": {
+        "push_supported": true,
+        "push_registered": false,
+        "push_environment": "sandbox",
+        "last_push_error": "missing_bootstrap_proof"
+      }
+    }
+    """.data(using: .utf8)!
+
+    let response = try JSONDecoder().decode(DJConnectCommandResponse.self, from: json)
+
+    #expect(response.success == false)
+    #expect(response.error == "missing_bootstrap_proof")
+    #expect(response.pushSupported == true)
+    #expect(response.pushRegistered == false)
+    #expect(response.pushEnvironment == .sandbox)
+    #expect(response.lastPushError == "missing_bootstrap_proof")
 }
 
 @Test func askDJHistoryResponseDecodesRevisionAndRichMessages() throws {

@@ -110,6 +110,36 @@ private struct DJConnectTableRowBackground: View {
     }
 }
 
+private struct DJConnectGradientCardStyle: ViewModifier {
+    var cornerRadius: CGFloat = 12
+    var strokeOpacity: Double = 0.16
+
+    func body(content: Content) -> some View {
+        content
+            .background(
+                LinearGradient(
+                    colors: [
+                        Color(red: 0.04, green: 0.03, blue: 0.13).opacity(0.96),
+                        Color(red: 0.11, green: 0.05, blue: 0.24).opacity(0.96)
+                    ],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                ),
+                in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+            )
+            .overlay {
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .stroke(.white.opacity(strokeOpacity), lineWidth: 1.5)
+            }
+    }
+}
+
+private extension View {
+    func djConnectGradientCard(cornerRadius: CGFloat = 12, strokeOpacity: Double = 0.16) -> some View {
+        modifier(DJConnectGradientCardStyle(cornerRadius: cornerRadius, strokeOpacity: strokeOpacity))
+    }
+}
+
 private struct ScrollOffsetPreferenceKey: PreferenceKey {
     static let defaultValue: CGFloat = 0
 
@@ -870,7 +900,7 @@ private struct PairingSheetView: View {
                 Spacer(minLength: 0)
             }
             .padding(14)
-            .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 8))
+            .djConnectGradientCard()
 
             Button {
                 model.startDemoMode()
@@ -1012,7 +1042,7 @@ private struct PairingEditableURLCard: View {
         VStack(alignment: .leading, spacing: 8) {
             Text(title)
                 .font(.caption.weight(.semibold))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(.white.opacity(0.62))
             HStack(spacing: 8) {
                 TextField(title, text: $text)
                     .font(.system(.body, design: .monospaced))
@@ -1080,9 +1110,9 @@ private struct PairingEditableURLCard: View {
         }
         .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 8))
+        .djConnectGradientCard(strokeOpacity: !trimmedText.isEmpty && !isValid ? 0.0 : 0.16)
         .overlay {
-            RoundedRectangle(cornerRadius: 8)
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
                 .stroke(!trimmedText.isEmpty && !isValid ? .orange.opacity(0.75) : .clear, lineWidth: 1)
         }
         .task {
@@ -1122,7 +1152,7 @@ private struct PairingValueCard: View {
         VStack(alignment: .leading, spacing: 8) {
             Text(title)
                 .font(.caption.weight(.semibold))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(.white.opacity(0.62))
             HStack(alignment: .firstTextBaseline, spacing: 10) {
                 Text(value)
                     .font(prominent ? .system(.title, design: .monospaced).weight(.semibold) : .system(.body, design: .monospaced))
@@ -1154,7 +1184,7 @@ private struct PairingValueCard: View {
         }
         .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 8))
+        .djConnectGradientCard()
     }
 
     private func showCopiedFeedback() {
@@ -1799,7 +1829,9 @@ private actor DJConnectArtworkDataCache {
     }
 
     private var entries: [URL: Entry] = [:]
+    private var failedUntil: [URL: Date] = [:]
     private let ttl: TimeInterval = 24 * 60 * 60
+    private let failureTTL: TimeInterval = 60
     private let maxEntries = 180
 
     func data(for url: URL) async throws -> Data {
@@ -1807,17 +1839,27 @@ private actor DJConnectArtworkDataCache {
         if let entry = entries[url], entry.expiresAt > now {
             return entry.data
         }
+        if let retryAt = failedUntil[url], retryAt > now {
+            throw URLError(.cannotConnectToHost)
+        }
 
         var request = URLRequest(url: url)
         request.cachePolicy = .returnCacheDataElseLoad
         request.timeoutInterval = 10
-        let (data, response) = try await URLSession.shared.data(for: request)
-        if let httpResponse = response as? HTTPURLResponse, !(200...299).contains(httpResponse.statusCode) {
-            throw URLError(.badServerResponse)
+        do {
+            let (data, response) = try await URLSession.shared.data(for: request)
+            if let httpResponse = response as? HTTPURLResponse, !(200...299).contains(httpResponse.statusCode) {
+                failedUntil[url] = now.addingTimeInterval(failureTTL)
+                throw URLError(.badServerResponse)
+            }
+            entries[url] = Entry(data: data, tint: nil, expiresAt: now.addingTimeInterval(ttl))
+            failedUntil.removeValue(forKey: url)
+            trimIfNeeded()
+            return data
+        } catch {
+            failedUntil[url] = now.addingTimeInterval(failureTTL)
+            throw error
         }
-        entries[url] = Entry(data: data, tint: nil, expiresAt: now.addingTimeInterval(ttl))
-        trimIfNeeded()
-        return data
     }
 
     func tint(for url: URL, fallback: Color) async -> Color {
@@ -1851,6 +1893,8 @@ private actor DJConnectArtworkDataCache {
         for key in expiredOrOldest {
             entries.removeValue(forKey: key)
         }
+        let now = Date()
+        failedUntil = failedUntil.filter { $0.value > now }
     }
 }
 
@@ -2026,7 +2070,7 @@ private struct IOSConnectionCard: View {
                     }
                 }
                 .padding(10)
-                .background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 8))
+                .djConnectGradientCard(cornerRadius: 10)
             }
 
             if let updateRequiredMessage = model.updateRequiredMessage {
@@ -2989,6 +3033,7 @@ private struct AskDJView: View {
                                             playingActionID: model.playingAskDJActionID,
                                             isSearchResult: searchResultIDs.contains(message.id),
                                             isActiveSearchResult: activeSearchResultID == message.id,
+                                            searchText: askDJSearchText,
                                             retryAction: {
                                                 guard !isTransientMessage else { return }
                                                 model.retryAskDJMessage(message)
@@ -3156,11 +3201,7 @@ private struct AskDJView: View {
                 #if os(macOS)
                 ToolbarItemGroup(placement: .primaryAction) {
                     Button {
-                        isInputFocused = false
-                        withAnimation(.spring(response: 0.28, dampingFraction: 0.86)) {
-                            isSearchVisible = true
-                        }
-                        isSearchFocused = true
+                        toggleAskDJSearch()
                     } label: {
                         Image(systemName: "magnifyingglass")
                             .foregroundStyle(isSearchVisible ? djConnectAccent : .primary)
@@ -3195,11 +3236,7 @@ private struct AskDJView: View {
                 #else
                 ToolbarItemGroup(placement: .topBarLeading) {
                     Button {
-                        isInputFocused = false
-                        withAnimation(.spring(response: 0.28, dampingFraction: 0.86)) {
-                            isSearchVisible = true
-                        }
-                        isSearchFocused = true
+                        toggleAskDJSearch()
                     } label: {
                         Image(systemName: "magnifyingglass")
                             .foregroundStyle(isSearchVisible ? djConnectAccent : .primary)
@@ -3279,6 +3316,18 @@ private struct AskDJView: View {
         isSearchFocused = false
     }
 
+    private func toggleAskDJSearch() {
+        isInputFocused = false
+        if isSearchVisible {
+            dismissAskDJSearch()
+        } else {
+            withAnimation(.spring(response: 0.28, dampingFraction: 0.86)) {
+                isSearchVisible = true
+            }
+            isSearchFocused = true
+        }
+    }
+
     private func normalizeAskDJSearchSelection() {
         guard !searchResultIDs.isEmpty else {
             selectedSearchResultIndex = 0
@@ -3338,7 +3387,9 @@ private struct AskDJSearchBar: View {
             Image(systemName: "magnifyingglass")
                 .font(.callout.weight(.semibold))
                 .foregroundStyle(.white.opacity(0.62))
-            TextField(localized(language, "Search Ask DJ", "Zoek in Ask DJ"), text: $text)
+            TextField(text: $text, prompt: searchPrompt) {
+                EmptyView()
+            }
                 .textFieldStyle(.plain)
                 .foregroundStyle(.white)
                 .font(.callout.weight(.semibold))
@@ -3391,8 +3442,6 @@ private struct AskDJSearchBar: View {
                 )
         }
         .shadow(color: .black.opacity(0.24), radius: 16, y: 8)
-        .focusable(true)
-        .focused(isFocused)
         .onKeyPress(.return) {
             guard resultCount > 0 else {
                 return .ignored
@@ -3429,6 +3478,13 @@ private struct AskDJSearchBar: View {
             return localized(language, "0", "0")
         }
         return "\(selectedIndex + 1)/\(resultCount)"
+    }
+
+    private var searchPrompt: Text {
+        if language == "nl" {
+            return Text("Zoek in ") + Text("Ask DJ").bold()
+        }
+        return Text("Search ") + Text("Ask DJ").bold()
     }
 }
 
@@ -3548,6 +3604,7 @@ private struct AskDJMessageBubble: View {
     let playingActionID: String?
     let isSearchResult: Bool
     let isActiveSearchResult: Bool
+    let searchText: String
     let retryAction: () -> Void
     let playAction: (DJConnectAskDJPlaybackAction) -> Void
     let audioAction: () -> Void
@@ -3631,10 +3688,10 @@ private struct AskDJMessageBubble: View {
                                 Image(systemName: "mic.fill")
                                     .font(.caption.weight(.bold))
                                     .foregroundStyle(.white.opacity(0.88))
-                                AskDJMarkdownText(text: message.text)
+                                AskDJMarkdownText(text: message.text, highlight: searchText)
                             }
                         } else {
-                            AskDJMarkdownText(text: message.text)
+                            AskDJMarkdownText(text: message.text, highlight: searchText)
                         }
                     }
                     if isRecentlyPlayedHistoryMessage, !message.items.isEmpty {
@@ -3769,9 +3826,8 @@ private struct AskDJMessageBubble: View {
                 .fill(
                     LinearGradient(
                         colors: [
-                            Color(red: 0.05, green: 0.42, blue: 1.00),
-                            Color(red: 0.40, green: 0.25, blue: 0.98),
-                            Color(red: 0.84, green: 0.22, blue: 0.96)
+                            Color(red: 0.98, green: 0.49, blue: 0.27),
+                            Color(red: 0.74, green: 0.20, blue: 0.77)
                         ],
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
@@ -4322,20 +4378,21 @@ private struct AskDJSourcesStack: View {
 
 private struct AskDJMarkdownText: View {
     let text: String
+    var highlight: String = ""
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             ForEach(Array(Self.blocks(from: text).enumerated()), id: \.offset) { _, block in
                 switch block {
                 case let .heading(level, value):
-                    Text(value)
+                    highlightedText(value)
                         .font(level == 1 ? .headline.weight(.black) : .subheadline.weight(.bold))
                         .foregroundStyle(.white)
                         .fixedSize(horizontal: false, vertical: true)
                         .padding(.top, level == 1 ? 2 : 8)
                         .padding(.bottom, 5)
                 case let .paragraph(value):
-                    Text(value)
+                    highlightedText(value)
                         .font(.body)
                         .foregroundStyle(.white)
                         .fixedSize(horizontal: false, vertical: true)
@@ -4345,7 +4402,7 @@ private struct AskDJMarkdownText: View {
                         Text("•")
                             .font(.body.weight(.bold))
                             .foregroundStyle(.white.opacity(0.86))
-                        Text(value)
+                        highlightedText(value)
                             .font(.body)
                             .foregroundStyle(.white)
                             .fixedSize(horizontal: false, vertical: true)
@@ -4358,6 +4415,24 @@ private struct AskDJMarkdownText: View {
             }
         }
         .fixedSize(horizontal: false, vertical: true)
+    }
+
+    private func highlightedText(_ value: String) -> Text {
+        let query = highlight.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !query.isEmpty else {
+            return Text(value)
+        }
+
+        var attributed = AttributedString(value)
+        var searchRange = attributed.startIndex..<attributed.endIndex
+        while let matchRange = attributed[searchRange].range(
+            of: query,
+            options: [.caseInsensitive, .diacriticInsensitive]
+        ) {
+            attributed[matchRange].backgroundColor = Color.white.opacity(0.24)
+            searchRange = matchRange.upperBound..<attributed.endIndex
+        }
+        return Text(attributed)
     }
 
     private enum Block {
@@ -6743,6 +6818,20 @@ public struct DJConnectSettingsView: View {
 
     public var body: some View {
         SettingsView(model: model)
+    }
+}
+
+public struct DJConnectAboutView: View {
+    @ObservedObject private var model: DJConnectAppModel
+
+    public init(model: DJConnectAppModel) {
+        self.model = model
+    }
+
+    public var body: some View {
+        AboutView(model: model)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(DJConnectCanvasBackground())
     }
 }
 

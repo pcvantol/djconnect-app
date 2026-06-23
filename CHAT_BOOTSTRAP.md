@@ -34,10 +34,10 @@ Context:
 - Secrets/tokens/wachtwoorden/private URLs mogen nooit in commits, logs, screenshots, diagnostics of test fixtures.
 
 Huidige status om te controleren:
-- Release `3.1.44` is de actuele source release met rijke Ask DJ assistant
-  message rendering, recent-played history lists, gestructureerde
-  playback/action-lijsten zonder stale artwork, macOS mDNS pairing-fixes,
-  macOS mood layout-fixes en de verwijderde Apple display-functie.
+- Release `3.1.45` is de actuele source release met Ask DJ zoek/highlight
+  verbeteringen, warmere gradient styling, macOS About/Settings polish,
+  privacy-safe APNs push-registratie voor iOS/macOS/watchOS, en logging-fixes
+  rond onbereikbare Home Assistant/image endpoints.
 - watchOS volgt dezelfde pairingrichting als iOS/macOS: de Watch adverteert de
   lokale client API via mDNS, Home Assistant vult de koppelcode in de config
   flow in, de gebruiker bevestigt in Home Assistant, en de Watch toont daarna
@@ -47,7 +47,7 @@ Huidige status om te controleren:
 - Demo Mode is volledig lokaal en non-interacting met Home Assistant. Ask DJ
   toont de vaste voorbeelden en geeft client-side demobubbles terug die
   uitleggen dat Ask DJ echt antwoordt zodra Home Assistant gekoppeld is.
-- De statische What's New release-notes voor `3.1.44` worden door de
+- De statische What's New release-notes voor `3.1.45` worden door de
   `Public unsigned release` workflow gepubliceerd naar `pcvantol/djconnect-website`
   en `djconnect.dev`. Controleer de workflowstatus als release/publicatie
   geraakt wordt.
@@ -56,8 +56,8 @@ Huidige status om te controleren:
 - Check direct:
   - `git status --short --branch`
   - `gh run list --repo pcvantol/djconnect-app --limit 5`
-  - public release tags in `pcvantol/djconnect-app-releases` voor `ios/v3.1.44` en `macos/v3.1.44` indien release/publicatie geraakt wordt.
-  - `https://djconnect.dev/release-notes/ios/nl/v3.1.44.json` en het macOS
+  - public release tags in `pcvantol/djconnect-app-releases` voor `ios/v3.1.45` en `macos/v3.1.45` indien release/publicatie geraakt wordt.
+  - `https://djconnect.dev/release-notes/ios/nl/v3.1.45.json` en het macOS
     equivalent indien What's New release-notes geraakt worden.
 
 Werkstijl:

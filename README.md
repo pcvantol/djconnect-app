@@ -16,7 +16,10 @@ integration.
 Ask DJ is the Apple clients' rich DJ interaction surface on iOS, macOS, and
 watchOS. Text chat, push-to-talk voice requests, replayable DJ response audio,
 images, links, sources, synced history, and Play Now recommendation actions live
-there; Now Playing no longer has a separate DJ request block.
+there; Now Playing no longer has a separate DJ request block. Home Assistant
+owns Ask DJ intent interpretation, follow-up/confirmation state, morning-start
+context, and playback execution; Apple clients render the returned messages,
+media, and actions.
 
 AI and Assist answers can be incorrect and depend on your own Home Assistant
 and Assist configuration.
@@ -129,6 +132,17 @@ upload through the `Ask DJ` action. The Watch also sends an `Ask DJ` mood value
 and DJ Memory key to Home Assistant so the backend can build shared DJ context
 across Watch, iOS, and macOS. Foreground wake phrase support may be added later,
 but the Watch target must not promise always-on background wakeword listening.
+
+APNs push registration is supported for iOS, macOS, and watchOS clients. iOS
+uses `client_type: "ios"` and `device_id` values shaped like
+`djconnect-ios-XXXXXXXXXXXX`; macOS and watchOS use their own matching prefixes.
+The watchOS client uses its own stable Watch install ID and registers the Watch
+APNs token as `client_type: "watchos"`, never the companion iPhone identity.
+The app registers with Home Assistant after APNs returns a token and Home
+Assistant auth is available, and retries when the token fingerprint, APNs
+environment, bundle ID, app version, locale, or pairing target changes. Debug
+logs must stay privacy-safe: do not print bearer tokens, APNs tokens,
+`bootstrap_proof` values, or central `djci_` install tokens.
 
 ## Xcode
 

@@ -4,6 +4,31 @@ All notable changes to DJConnect App are documented here.
 
 ## Unreleased
 
+## 3.1.45 - 2026-06-23
+
+### Changed
+
+- Documented Ask DJ morning-start metadata and backend-owned follow-up/
+  confirmation actions in the README, architecture notes, and API contract.
+- Hardened Apple APNs push registration for iOS, macOS, and watchOS by using a
+  full registration fingerprint, decoding Home Assistant push status fields,
+  avoiding raw APNs token storage, and keeping push troubleshooting logs
+  privacy-safe.
+- Matched Ask DJ assistant response bubbles and setup/status blocks to the
+  warmer Games gradient styling.
+
+### Fixed
+
+- Removed the blue selected focus ring from the Ask DJ search bar, made the
+  toolbar search button toggle the search field closed again, and highlighted
+  matches while typing.
+- Made the Ask DJ search placeholder emphasize `Ask DJ`.
+- Replaced the default macOS About popup with the in-app About view, fixed the
+  transparent/wide About window edges, and made the Settings window tall enough
+  to avoid immediate scrolling.
+- Reduced repeated Home Assistant connection noise by suppressing unavailable
+  image retries and avoiding playback polling while the backend is unavailable.
+
 ## 3.1.44 - 2026-06-23
 
 ### Added

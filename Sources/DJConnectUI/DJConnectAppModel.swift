@@ -1,4 +1,5 @@
 import Combine
+import CryptoKit
 import DJConnectCore
 import Foundation
 import Network
@@ -387,6 +388,7 @@ public final class DJConnectAppModel: ObservableObject {
     private let networkMonitor = NWPathMonitor()
     private let networkMonitorQueue = DispatchQueue(label: "dev.djconnect.app.network")
     private var shouldShowWakeWordPromptAfterPairingScreen = false
+    private var currentAPNsPushToken: String?
     #if canImport(AVFoundation)
     private var voiceRecorder: AVAudioRecorder?
     private var voiceRecordingURL: URL?
@@ -410,7 +412,7 @@ public final class DJConnectAppModel: ObservableObject {
     private let startBackgroundTasks: Bool
     private let monkeyTestingMode: Bool
     private let diagnosticLogFileURL: URL?
-    private static let protocolVersion = "3.1.44"
+    private static let protocolVersion = "3.1.45"
     private static let defaultHomeAssistantURL = "http://homeassistant.local:8123"
     private let appVersion = DJConnectAppModel.protocolVersion
     private let installIDKey = "DJConnectInstallID"
@@ -427,9 +429,15 @@ public final class DJConnectAppModel: ObservableObject {
     private let askDJHistoryRevisionKey = "DJConnectAskDJHistoryRevision"
     private let askDJClearRevisionKey = "DJConnectAskDJClearRevision"
     private let askDJAudioResponseModeKey = "DJConnectAskDJAudioResponseMode"
-    private let pushTokenKey = "DJConnectPushToken"
+    private let legacyPushTokenKey = "DJConnectPushToken"
     private let registeredPushTokenKey = "DJConnectRegisteredPushToken"
+    private let registeredPushTokenHashKey = "DJConnectRegisteredPushTokenHash"
     private let registeredPushEnvironmentKey = "DJConnectRegisteredPushEnvironment"
+    private let registeredPushSignatureKey = "DJConnectRegisteredPushSignature"
+    private let pushSupportedKey = "DJConnectPushSupported"
+    private let pushRegisteredKey = "DJConnectPushRegistered"
+    private let pushEnvironmentStatusKey = "DJConnectPushEnvironmentStatus"
+    private let lastPushErrorKey = "DJConnectLastPushError"
     private let wakeWordPromptDismissedKey = "DJConnectWakeWordPromptDismissed"
     private let welcomeSeenKey = "DJConnectWelcomeSeen"
     private let lastSeenAppVersionKey = "DJConnectLastSeenAppVersion"
@@ -619,6 +627,9 @@ public final class DJConnectAppModel: ObservableObject {
                 log(.info, "App started with existing DJConnect bearer token for \(identity.clientType.rawValue)")
                 if startBackgroundTasks {
                     schedulePairedRefresh(reason: "Refreshing initial Home Assistant state")
+                }
+                if !Self.isRunningUnderSwiftPMTests {
+                    requestRemoteNotificationRegistration()
                 }
             } else if isDemoMode {
                 applyDemoState()
@@ -1229,9 +1240,15 @@ public final class DJConnectAppModel: ObservableObject {
         clearStoredHomeAssistantURLs()
         clearPinnedLocalDeviceAPIURL()
         defaults.removeObject(forKey: installIDKey)
-        defaults.removeObject(forKey: pushTokenKey)
+        currentAPNsPushToken = nil
+        defaults.removeObject(forKey: legacyPushTokenKey)
         defaults.removeObject(forKey: registeredPushTokenKey)
+        defaults.removeObject(forKey: registeredPushTokenHashKey)
         defaults.removeObject(forKey: registeredPushEnvironmentKey)
+        defaults.removeObject(forKey: registeredPushSignatureKey)
+        defaults.removeObject(forKey: pushRegisteredKey)
+        defaults.removeObject(forKey: pushEnvironmentStatusKey)
+        defaults.removeObject(forKey: lastPushErrorKey)
         identity = Self.makeIdentity(defaults: defaults)
         clearRuntimeState()
         clearAskDJHistoryLocally()
@@ -1474,11 +1491,11 @@ public final class DJConnectAppModel: ObservableObject {
 
     public func loadOutputs() {
         log(.debug, "User action: load outputs")
-        log(.info, "Loading playback outputs")
         Task {
             guard !isLoadingOutputs else {
                 return
             }
+            log(.info, "Loading playback outputs")
             isLoadingOutputs = true
             defer {
                 isLoadingOutputs = false
@@ -2208,6 +2225,7 @@ public final class DJConnectAppModel: ObservableObject {
         ) else {
             return
         }
+        applyPushRegistrationStatus(from: response)
         let hasPlaybackSnapshot = response.playback != nil
         if let playback = response.playback {
             apply(playback: playback)
@@ -2834,7 +2852,7 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     private func refreshNowPlayingFromProgressTimer() async {
-        guard pairingStatus == .paired, !isDemoMode, !isRefreshing, isRuntimeCompatible else {
+        guard pairingStatus == .paired, !isDemoMode, !isRefreshing, isRuntimeCompatible, isConnected, backendAvailable else {
             return
         }
         do {
@@ -2849,7 +2867,7 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     private func refreshNowPlayingFromPollTimer() async {
-        guard pairingStatus == .paired, !isDemoMode, !isRefreshing, isRuntimeCompatible else {
+        guard pairingStatus == .paired, !isDemoMode, !isRefreshing, isRuntimeCompatible, isConnected, backendAvailable else {
             return
         }
         do {
@@ -3407,20 +3425,31 @@ public final class DJConnectAppModel: ObservableObject {
     private func registerStoredPushTokenIfPossible() {
         guard !isDemoMode,
               pairingStatus == .paired,
-              let token = defaults.string(forKey: pushTokenKey),
+              let token = currentAPNsPushToken ?? defaults.string(forKey: legacyPushTokenKey),
               !token.isEmpty else {
             return
         }
+        currentAPNsPushToken = token
+        defaults.removeObject(forKey: legacyPushTokenKey)
         let environment = Self.pushEnvironment
-        if defaults.string(forKey: registeredPushTokenKey) == token,
-           defaults.string(forKey: registeredPushEnvironmentKey) == environment.rawValue {
+        let tokenHash = Self.pushTokenHash(token)
+        let appBundleID = Bundle.main.bundleIdentifier ?? "dev.djconnect.\(identity.clientType.rawValue)"
+        let locale = Locale.current.identifier
+        let registrationSignature = pushRegistrationSignature(
+            pushToken: token,
+            pushEnvironment: environment,
+            appBundleID: appBundleID,
+            locale: locale
+        )
+        if defaults.string(forKey: registeredPushTokenHashKey) == tokenHash,
+           defaults.string(forKey: registeredPushEnvironmentKey) == environment.rawValue,
+           defaults.string(forKey: registeredPushSignatureKey) == registrationSignature,
+           defaults.bool(forKey: pushRegisteredKey) {
             return
         }
         Task { @MainActor in
             do {
-                let appBundleID = Bundle.main.bundleIdentifier ?? "dev.djconnect.\(identity.clientType.rawValue)"
-                let locale = Locale.current.identifier
-                _ = try await withHomeAssistantClient { client in
+                let response = try await withHomeAssistantClient { client in
                     try await client.registerPushNotifications(DJConnectPushRegistrationRequest(
                         identity: identity,
                         pushToken: token,
@@ -3430,9 +3459,21 @@ public final class DJConnectAppModel: ObservableObject {
                         locale: locale
                     ))
                 }
-                defaults.set(token, forKey: registeredPushTokenKey)
+                applyPushRegistrationStatus(from: response)
+                guard response.success, response.pushRegistered != false else {
+                    let reason = response.error ?? response.lastPushError ?? response.message ?? "unknown"
+                    defaults.set(false, forKey: pushRegisteredKey)
+                    defaults.removeObject(forKey: registeredPushSignatureKey)
+                    log(.warning, "Push registration was not accepted by Home Assistant: \(Self.redactedPushFailureReason(reason))")
+                    return
+                }
+                defaults.removeObject(forKey: registeredPushTokenKey)
+                defaults.set(tokenHash, forKey: registeredPushTokenHashKey)
                 defaults.set(environment.rawValue, forKey: registeredPushEnvironmentKey)
-                log(.info, "Registered APNs token \(Self.redactedPushToken(token)) with Home Assistant (\(environment.rawValue))")
+                defaults.set(registrationSignature, forKey: registeredPushSignatureKey)
+                defaults.set(true, forKey: pushRegisteredKey)
+                defaults.removeObject(forKey: lastPushErrorKey)
+                log(.info, "Registered APNs token with Home Assistant (\(environment.rawValue))")
             } catch let error as DJConnectError {
                 if case .routeMissing = error {
                     log(.debug, "Push registration skipped because Home Assistant does not support the route yet")
@@ -3445,6 +3486,50 @@ public final class DJConnectAppModel: ObservableObject {
         }
     }
 
+    private func pushRegistrationSignature(
+        pushToken: String,
+        pushEnvironment: DJConnectPushEnvironment,
+        appBundleID: String,
+        locale: String
+    ) -> String {
+        [
+            identity.deviceID,
+            identity.clientType.rawValue,
+            Self.pushTokenHash(pushToken),
+            pushEnvironment.rawValue,
+            appBundleID,
+            appVersion,
+            locale,
+            localHomeAssistantURL()
+        ].joined(separator: "|")
+    }
+
+    private static func pushTokenHash(_ token: String) -> String {
+        SHA256.hash(data: Data(token.utf8))
+            .map { String(format: "%02x", $0) }
+            .joined()
+    }
+
+    private func applyPushRegistrationStatus(from response: DJConnectCommandResponse) {
+        if let pushSupported = response.pushSupported {
+            defaults.set(pushSupported, forKey: pushSupportedKey)
+        }
+        if let pushRegistered = response.pushRegistered {
+            defaults.set(pushRegistered, forKey: pushRegisteredKey)
+            if !pushRegistered {
+                defaults.removeObject(forKey: registeredPushSignatureKey)
+            }
+        }
+        if let pushEnvironment = response.pushEnvironment {
+            defaults.set(pushEnvironment.rawValue, forKey: pushEnvironmentStatusKey)
+        }
+        if let lastPushError = response.lastPushError, !lastPushError.isEmpty {
+            defaults.set(Self.redactedPushFailureReason(lastPushError), forKey: lastPushErrorKey)
+        } else if response.pushRegistered == true {
+            defaults.removeObject(forKey: lastPushErrorKey)
+        }
+    }
+
     private static var pushEnvironment: DJConnectPushEnvironment {
         #if DEBUG
         .sandbox
@@ -3454,10 +3539,21 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     private static func redactedPushToken(_ token: String) -> String {
-        guard token.count > 12 else {
-            return "[redacted]"
-        }
-        return "\(token.prefix(6))...\(token.suffix(6))"
+        "[redacted]"
+    }
+
+    private static func redactedPushFailureReason(_ reason: String) -> String {
+        reason
+            .replacingOccurrences(
+                of: #"Bearer\s+[A-Za-z0-9._~+/=-]+"#,
+                with: "Bearer [redacted]",
+                options: .regularExpression
+            )
+            .replacingOccurrences(
+                of: #"(djci_[A-Za-z0-9._~+/=-]+|[A-Fa-f0-9]{32,}|[A-Za-z0-9_-]{80,})"#,
+                with: "[redacted]",
+                options: .regularExpression
+            )
     }
 
     private static func notificationPreview(from text: String) -> String {
@@ -3825,7 +3921,8 @@ public final class DJConnectAppModel: ObservableObject {
         guard !token.isEmpty else {
             return
         }
-        defaults.set(token, forKey: pushTokenKey)
+        currentAPNsPushToken = token
+        defaults.removeObject(forKey: legacyPushTokenKey)
         log(.info, "Received APNs token \(Self.redactedPushToken(token))")
         registerStoredPushTokenIfPossible()
     }
@@ -3835,15 +3932,20 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     public func unregisterPushNotifications() {
-        guard let token = defaults.string(forKey: pushTokenKey), !token.isEmpty else {
+        guard let token = currentAPNsPushToken ?? defaults.string(forKey: legacyPushTokenKey), !token.isEmpty else {
             return
         }
         guard let bearerToken = try? tokenStore.loadToken(), !bearerToken.isEmpty else {
             return
         }
-        defaults.removeObject(forKey: pushTokenKey)
+        currentAPNsPushToken = nil
+        defaults.removeObject(forKey: legacyPushTokenKey)
         defaults.removeObject(forKey: registeredPushTokenKey)
+        defaults.removeObject(forKey: registeredPushTokenHashKey)
         defaults.removeObject(forKey: registeredPushEnvironmentKey)
+        defaults.removeObject(forKey: registeredPushSignatureKey)
+        defaults.removeObject(forKey: pushRegisteredKey)
+        defaults.removeObject(forKey: pushEnvironmentStatusKey)
         let authStore = DJConnectInMemoryTokenStore(token: bearerToken)
         let baseURLs = homeAssistantBaseURLs()
         Task { @MainActor in
@@ -3859,7 +3961,7 @@ public final class DJConnectAppModel: ObservableObject {
                             identity: identity,
                             pushToken: token
                         ))
-                        log(.info, "Unregistered APNs token \(Self.redactedPushToken(token))")
+                        log(.info, "Unregistered APNs token")
                         return
                     } catch {
                         lastError = error
@@ -4380,8 +4482,8 @@ public final class DJConnectAppModel: ObservableObject {
                         deviceID: "djconnect-macos-unavailable",
                         deviceName: "DJConnect",
                         clientType: .macos,
-                        firmware: "3.1.44",
-                        appVersion: "3.1.44",
+                        firmware: "3.1.45",
+                        appVersion: "3.1.45",
                         platform: .macos
                     ),
                     pairingToken: "",
