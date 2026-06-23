@@ -18,13 +18,6 @@ watchOS. Text chat, push-to-talk voice requests, replayable DJ response audio,
 images, links, sources, synced history, and Play Now recommendation actions live
 there; Now Playing no longer has a separate DJ request block.
 
-On Air is the AirPlay/TV output from the existing Ask DJ screen. The Ask DJ
-toolbar exposes the AirPlay picker and starts an On Air video player generated
-from the current Ask DJ feed, so AirPlay receives real video media instead of
-requiring the TV to appear as an external display. Returned DJ response audio
-URLs use the same local response-audio pipeline and follow the selected audio
-route, including AirPlay when the user has selected it.
-
 AI and Assist answers can be incorrect and depend on your own Home Assistant
 and Assist configuration.
 

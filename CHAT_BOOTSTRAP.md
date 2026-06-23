@@ -27,11 +27,6 @@ Context:
 - Ask DJ history ondersteunt assistant-only systeemmeldingen met `message_kind: "system"`, onder andere `origin: "spotify_playback_context"` voor DJ-feitjes en `origin: "history_retention"` voor limietmeldingen. Deze berichten hebben geen voorafgaande user bubble nodig en zijn niet retrybaar.
 - History retention gebruikt backendmetadata zoals `history_limit`, `history_trimmed_before` en `history_trimmed_count`; clients mogen lokale cache ouder dan `history_trimmed_before` opschonen zonder displaytekst te parsen.
 - Ask DJ tekstchat stuurt standaard `audio_response: "auto"`. Ontbrekende `audio_url` is normaal; replay/audio UI verschijnt alleen als `assistant_message.audio_url` of top-level `audio_url` aanwezig is.
-- On Air is de Apple woonkamer/AirPlay-uitvoer vanuit het bestaande Ask DJ
-  scherm. Het is geen aparte app-route of backendcontract: de Ask DJ toolbar
-  toont de AirPlay route picker, de tv krijgt grote chatbubbles en now-playing
-  artwork, en automatische DJ `audio_url` playback volgt dezelfde
-  Ask DJ/audio-pipeline.
 - Ask DJ mag informatieve vragen, contextuele vervolgreacties, playback-intents, persoonlijke muziekanalyse, aanbevelingen, Play Now-acties, afbeeldingen, links, bronnen en DJ-audio bevatten. Intentinterpretatie blijft backend-owned; clients hardcoden geen intentfamilies behalve UI-weergave van teruggegeven media/actions.
 - Ask DJ request payloads mogen optionele `metadata` bevatten voor backend-owned context triggers. De geplande ochtend-start gebruikt `metadata.trigger == "morning_startup"` met tekst `Goedemorgen`/`Good morning` als de app 's ochtends start zonder actieve playback; Home Assistant hoort daarop een normale Ask DJ response/follow-up te maken en niet client-side automatisch muziek te starten.
 - Backend follow-up/confirmatievragen worden als Ask DJ `playback_actions` gerenderd. Voor algemene ja/nee verduidelijking gebruikt de backend acties met bijvoorbeeld `kind: "confirmation"`, `action_style: "confirmation"`, `response_value: "yes"|"no"` en `command: "ask_dj_followup_response"`. Clients tonen dan klikbare Ja/Nee knoppen; de pending follow-up state en uiteindelijke intentuitvoering blijven server-side.
@@ -39,11 +34,10 @@ Context:
 - Secrets/tokens/wachtwoorden/private URLs mogen nooit in commits, logs, screenshots, diagnostics of test fixtures.
 
 Huidige status om te controleren:
-- Release `3.1.43` is de actuele source release met rijke Ask DJ assistant
-  message rendering, gestructureerde playback/action-lijsten zonder stale
-  artwork, On Air range-request support, watchOS runtimeverbeteringen,
-  `3.1.42` reset-confirmatie, `3.1.41` push/watchOS-uitbreidingen en alle
-  `3.1.40` On Air wijzigingen.
+- Release `3.1.44` is de actuele source release met rijke Ask DJ assistant
+  message rendering, recent-played history lists, gestructureerde
+  playback/action-lijsten zonder stale artwork, macOS mDNS pairing-fixes,
+  macOS mood layout-fixes en de verwijderde Apple display-functie.
 - watchOS volgt dezelfde pairingrichting als iOS/macOS: de Watch adverteert de
   lokale client API via mDNS, Home Assistant vult de koppelcode in de config
   flow in, de gebruiker bevestigt in Home Assistant, en de Watch toont daarna
@@ -53,7 +47,7 @@ Huidige status om te controleren:
 - Demo Mode is volledig lokaal en non-interacting met Home Assistant. Ask DJ
   toont de vaste voorbeelden en geeft client-side demobubbles terug die
   uitleggen dat Ask DJ echt antwoordt zodra Home Assistant gekoppeld is.
-- De statische What's New release-notes voor `3.1.43` worden door de
+- De statische What's New release-notes voor `3.1.44` worden door de
   `Public unsigned release` workflow gepubliceerd naar `pcvantol/djconnect-website`
   en `djconnect.dev`. Controleer de workflowstatus als release/publicatie
   geraakt wordt.
@@ -62,8 +56,8 @@ Huidige status om te controleren:
 - Check direct:
   - `git status --short --branch`
   - `gh run list --repo pcvantol/djconnect-app --limit 5`
-  - public release tags in `pcvantol/djconnect-app-releases` voor `ios/v3.1.43` en `macos/v3.1.43` indien release/publicatie geraakt wordt.
-  - `https://djconnect.dev/release-notes/ios/nl/v3.1.43.json` en het macOS
+  - public release tags in `pcvantol/djconnect-app-releases` voor `ios/v3.1.44` en `macos/v3.1.44` indien release/publicatie geraakt wordt.
+  - `https://djconnect.dev/release-notes/ios/nl/v3.1.44.json` en het macOS
     equivalent indien What's New release-notes geraakt worden.
 
 Werkstijl:

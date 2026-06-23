@@ -146,6 +146,8 @@ public struct DJConnectAskDJMessage: Identifiable, Codable, Equatable, Sendable 
     public var audioURL: URL?
     public var status: DJConnectAskDJMessageStatus?
     public var createdAt: Date
+    public var intentInfo: DJConnectAskDJIntentInfo?
+    public var items: [DJConnectAskDJHistoryItem]
 
     public init(
         id: UUID = UUID(),
@@ -160,7 +162,9 @@ public struct DJConnectAskDJMessage: Identifiable, Codable, Equatable, Sendable 
         playbackActions: [DJConnectAskDJPlaybackAction] = [],
         audioURL: URL? = nil,
         status: DJConnectAskDJMessageStatus? = nil,
-        createdAt: Date = Date()
+        createdAt: Date = Date(),
+        intentInfo: DJConnectAskDJIntentInfo? = nil,
+        items: [DJConnectAskDJHistoryItem] = []
     ) {
         self.id = id
         self.serverID = serverID
@@ -175,6 +179,8 @@ public struct DJConnectAskDJMessage: Identifiable, Codable, Equatable, Sendable 
         self.audioURL = audioURL
         self.status = status
         self.createdAt = createdAt
+        self.intentInfo = intentInfo
+        self.items = items
     }
 
     enum CodingKeys: String, CodingKey {
@@ -191,6 +197,8 @@ public struct DJConnectAskDJMessage: Identifiable, Codable, Equatable, Sendable 
         case audioURL = "audio_url"
         case status
         case createdAt = "created_at"
+        case intentInfo = "intent"
+        case items
     }
 
     public init(from decoder: Decoder) throws {
@@ -208,6 +216,8 @@ public struct DJConnectAskDJMessage: Identifiable, Codable, Equatable, Sendable 
         audioURL = try container.decodeIfPresent(URL.self, forKey: .audioURL)
         status = try container.decodeIfPresent(DJConnectAskDJMessageStatus.self, forKey: .status)
         createdAt = try container.decodeIfPresent(Date.self, forKey: .createdAt) ?? Date()
+        intentInfo = try container.decodeIfPresent(DJConnectAskDJIntentInfo.self, forKey: .intentInfo)
+        items = try container.decodeIfPresent([DJConnectAskDJHistoryItem].self, forKey: .items) ?? []
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -225,6 +235,8 @@ public struct DJConnectAskDJMessage: Identifiable, Codable, Equatable, Sendable 
         try container.encodeIfPresent(audioURL, forKey: .audioURL)
         try container.encodeIfPresent(status, forKey: .status)
         try container.encode(createdAt, forKey: .createdAt)
+        try container.encodeIfPresent(intentInfo, forKey: .intentInfo)
+        try container.encode(items, forKey: .items)
     }
 
 }
@@ -372,7 +384,6 @@ public final class DJConnectAppModel: ObservableObject {
     private var lastFullRefreshAt: Date?
     private var lastBackendCollectionsRefreshAt: Date?
     private var localDeviceAPI: DJConnectLocalDeviceAPI?
-    private var askDJOnAirHLSDirectory: URL?
     private let networkMonitor = NWPathMonitor()
     private let networkMonitorQueue = DispatchQueue(label: "dev.djconnect.app.network")
     private var shouldShowWakeWordPromptAfterPairingScreen = false
@@ -399,7 +410,7 @@ public final class DJConnectAppModel: ObservableObject {
     private let startBackgroundTasks: Bool
     private let monkeyTestingMode: Bool
     private let diagnosticLogFileURL: URL?
-    private static let protocolVersion = "3.1.43"
+    private static let protocolVersion = "3.1.44"
     private static let defaultHomeAssistantURL = "http://homeassistant.local:8123"
     private let appVersion = DJConnectAppModel.protocolVersion
     private let installIDKey = "DJConnectInstallID"
@@ -613,6 +624,7 @@ public final class DJConnectAppModel: ObservableObject {
                 applyDemoState()
                 log(.info, "App started in demo mode")
             } else {
+                _ = newPairingToken()
                 log(.info, "App started without DJConnect bearer token for \(identity.clientType.rawValue)")
             }
         } catch {
@@ -1125,6 +1137,9 @@ public final class DJConnectAppModel: ObservableObject {
         let appPairingToken = trimmedPairingToken.isEmpty ? newPairingToken() : trimmedPairingToken
 
         log(.info, "Starting pairing wait against \(Self.redactedURL(baseURL))")
+        pairingStatus = .pairing
+        isPairing = true
+        ensureLocalDeviceAPIAdvertising()
         pairingTask = Task { [weak self] in
             await self?.waitForHomeAssistantPairing(baseURL: baseURL, pairingToken: appPairingToken)
         }
@@ -1148,7 +1163,7 @@ public final class DJConnectAppModel: ObservableObject {
 
     private func waitForHomeAssistantPairing(baseURL: URL, pairingToken: String) async {
         isPairing = true
-        pairingStatus = .pairing
+        try? await Task.sleep(nanoseconds: 750_000_000)
         log(.info, "Polling Home Assistant pairing endpoint")
         pairingMessage = localized(
             english: "Waiting for Home Assistant to accept code \(pairingToken). If the client is not discovered, allow incoming local network connections for DJConnect in macOS firewall or security software.",
@@ -2480,12 +2495,16 @@ public final class DJConnectAppModel: ObservableObject {
                 dutch: "Wachten tot Home Assistant pairing afrondt."
             )
         case let .authStale(_, message):
-            pairingStatus = .stale
-            isPairing = false
-            pairingMessage = userFacingPairingMessage(from: message) ?? localized(
-                english: "Not paired yet. Open DJConnect in Home Assistant and enter the current code from this screen.",
-                dutch: "Nog niet gekoppeld. Open DJConnect in Home Assistant en vul de huidige code uit dit scherm in."
+            pairingStatus = .pairing
+            isPairing = true
+            updateBonjourAdvertisingState()
+            pairingMessage = localized(
+                english: "Keeping local discovery active. Open DJConnect in Home Assistant and enter code \(pairingToken).",
+                dutch: "Lokale discovery blijft actief. Open DJConnect in Home Assistant en vul code \(pairingToken) in."
             )
+            if let message, !message.isEmpty {
+                log(.debug, "Home Assistant rejected stale pairing code while local discovery remains active: \(message)")
+            }
         case let .versionMismatch(mismatch):
             pairingStatus = .pairing
             updateRequiredMessage = mismatch.message ?? localized(
@@ -2502,9 +2521,6 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     func isTerminalPairingError(_ error: DJConnectError) -> Bool {
-        if case .authStale = error {
-            return true
-        }
         return false
     }
 
@@ -3179,7 +3195,9 @@ public final class DJConnectAppModel: ObservableObject {
             playbackActions: proxiedPlaybackActions(historyMessage.playbackActions + historyMessage.confirmationActions),
             audioURL: resolvedAudioURL(from: historyMessage.audioURL),
             status: status,
-            createdAt: historyMessage.createdAt
+            createdAt: historyMessage.createdAt,
+            intentInfo: historyMessage.intentInfo,
+            items: proxiedAskDJHistoryItems(historyMessage.items)
         )
     }
 
@@ -3474,6 +3492,27 @@ public final class DJConnectAppModel: ObservableObject {
         }
     }
 
+    private func proxiedAskDJHistoryItems(_ items: [DJConnectAskDJHistoryItem]) -> [DJConnectAskDJHistoryItem] {
+        guard !items.isEmpty else {
+            return []
+        }
+        let baseURLs = homeAssistantBaseURLs()
+        let allowedHosts = Set(baseURLs.compactMap { $0.host?.lowercased() })
+        guard let primaryBaseURL = baseURLs.first, !allowedHosts.isEmpty else {
+            return items
+        }
+        return items.map { item in
+            var updatedItem = item
+            if let imageURL = item.imageURL {
+                updatedItem.imageURL = resolvedResponseImageURL(imageURL, baseURL: primaryBaseURL, allowedHosts: allowedHosts)
+            }
+            if let thumbnailURL = item.thumbnailURL {
+                updatedItem.thumbnailURL = resolvedResponseImageURL(thumbnailURL, baseURL: primaryBaseURL, allowedHosts: allowedHosts)
+            }
+            return updatedItem
+        }
+    }
+
     private func proxiedPlaybackActions(_ actions: [DJConnectAskDJPlaybackAction]) -> [DJConnectAskDJPlaybackAction] {
         guard !actions.isEmpty else {
             return []
@@ -3571,53 +3610,6 @@ public final class DJConnectAppModel: ObservableObject {
         defaults.removeObject(forKey: askDJMessagesKey)
         defaults.removeObject(forKey: askDJHistoryRevisionKey)
         defaults.removeObject(forKey: askDJClearRevisionKey)
-    }
-
-
-    public func seedAskDJOnAirDemoMessagesForTesting() {
-        clearAskDJHistoryLocally()
-        appendAskDJMessage(
-            role: .user,
-            text: localized(english: "Surprise the living room with a track", dutch: "Verras de woonkamer met een track"),
-            status: .sent
-        )
-        appendAskDJMessage(
-            role: .dj,
-            text: localized(
-                english: "Ask DJ is On Air! Midnight City is playing in the living room and Ask DJ is ready for the next request.",
-                dutch: "Ask DJ is On Air! Midnight City speelt in de woonkamer en Ask DJ is klaar voor het volgende verzoek."
-            )
-        )
-    }
-
-    public func showAskDJOnAirStatusIfNeeded() {
-        let text = "Ask DJ is On Air!"
-        appendAskDJStatusMessageIfNeeded(text: text, origin: "airplay_route")
-    }
-
-    public func showAskDJOnAirNeedsDisplayNoticeIfNeeded() {
-        let text = localized(
-            english: "Ask DJ could not start the On Air video stream. Try AirPlay again in a moment.",
-            dutch: "Ask DJ kon de On Air-videostream niet starten. Probeer AirPlay zo opnieuw."
-        )
-        appendAskDJStatusMessageIfNeeded(text: text, origin: "airplay_display_unavailable")
-    }
-
-    public func prepareAskDJOnAirStream(directory: URL) -> URL? {
-        askDJOnAirHLSDirectory = directory
-        guard let localDeviceAPIURL, let baseURL = URL(string: localDeviceAPIURL) else {
-            log(.warning, "On Air HLS stream cannot use HTTP because the local device API URL is missing")
-            return nil
-        }
-        let playlistURL = baseURL
-            .appendingPathComponent("on-air")
-            .appendingPathComponent("index.m3u8")
-        log(.info, "On Air HLS stream prepared at \(playlistURL.absoluteString) using local API \(localDeviceAPIURL)")
-        return playlistURL
-    }
-
-    public func logAskDJOnAirStream(_ message: String) {
-        log(.info, "On Air HLS: \(message)")
     }
 
     private func appendAskDJStatusMessageIfNeeded(text: String, origin: String) {
@@ -3885,23 +3877,6 @@ public final class DJConnectAppModel: ObservableObject {
             } catch {
                 log(.warning, "Push unregister failed: \(error.localizedDescription)")
             }
-        }
-    }
-
-
-    public func playAskDJOnAirAudioIfNeeded(for message: DJConnectAskDJMessage?) {
-        guard let message, message.role != .user else {
-            return
-        }
-        let resolvedURL = resolvedAudioURL(from: message.audioURL)
-        guard let resolvedURL else {
-            return
-        }
-        if isLoadingAskDJAudio(resolvedURL) || isPlayingAskDJAudio(resolvedURL) {
-            return
-        }
-        Task {
-            await playResponseAudioIfNeeded(resolvedURL)
         }
     }
 
@@ -4405,8 +4380,8 @@ public final class DJConnectAppModel: ObservableObject {
                         deviceID: "djconnect-macos-unavailable",
                         deviceName: "DJConnect",
                         clientType: .macos,
-                        firmware: "3.1.43",
-                        appVersion: "3.1.43",
+                        firmware: "3.1.44",
+                        appVersion: "3.1.44",
                         platform: .macos
                     ),
                     pairingToken: "",
@@ -4444,11 +4419,6 @@ public final class DJConnectAppModel: ObservableObject {
                     message: "DJConnect app model is unavailable."
                 )
             },
-            fileHandler: { [weak self] path in
-                await MainActor.run {
-                    self?.localOnAirFileResponse(path: path)
-                }
-            },
             urlHandler: { [weak self] url in
                 await MainActor.run {
                     self?.applyLocalDeviceAPIURL(url)
@@ -4463,34 +4433,6 @@ public final class DJConnectAppModel: ObservableObject {
             advertiseBonjour: shouldAdvertiseBonjour
         )
         localDeviceAPI?.start()
-    }
-
-    private func localOnAirFileResponse(path: String) -> DJConnectLocalDeviceAPI.FileResponse? {
-        guard path.hasPrefix("/on-air/"), let askDJOnAirHLSDirectory else {
-            return nil
-        }
-        let filename = String(path.dropFirst("/on-air/".count))
-        guard !filename.isEmpty,
-              !filename.contains("/"),
-              !filename.contains("..") else {
-            return nil
-        }
-        let fileURL = askDJOnAirHLSDirectory.appendingPathComponent(filename)
-        guard let data = try? Data(contentsOf: fileURL) else {
-            return nil
-        }
-        let contentType: String
-        switch fileURL.pathExtension.lowercased() {
-        case "m3u8":
-            contentType = "application/vnd.apple.mpegurl"
-        case "mp4", "m4s":
-            contentType = "video/mp4"
-        case "ts":
-            contentType = "video/mp2t"
-        default:
-            contentType = "application/octet-stream"
-        }
-        return DJConnectLocalDeviceAPI.FileResponse(data: data, contentType: contentType)
     }
 
     private func restartLocalDeviceAPI() {
@@ -4517,6 +4459,12 @@ public final class DJConnectAppModel: ObservableObject {
 
     private func updateBonjourAdvertisingState() {
         localDeviceAPI?.setBonjourAdvertisingEnabled(shouldAdvertiseBonjour)
+    }
+
+    private func ensureLocalDeviceAPIAdvertising() {
+        restartLocalDeviceAPI()
+        updateBonjourAdvertisingState()
+        log(.debug, "Local device API advertising preference is \(shouldAdvertiseBonjour ? "enabled" : "disabled") for pairing_status=\(pairingStatus.rawValue) demo_mode=\(isDemoMode)")
     }
 
     private func localDeviceAPIInfo() -> DJConnectLocalDeviceAPIInfo {

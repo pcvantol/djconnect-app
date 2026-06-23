@@ -4,7 +4,33 @@ All notable changes to DJConnect App are documented here.
 
 ## Unreleased
 
-No notable unreleased changes yet.
+## 3.1.44 - 2026-06-23
+
+### Added
+
+- Render Ask DJ recently played history for tracks, albums, artists, and
+  playlists as compact informational lists without reconstructing playback
+  actions client-side.
+
+### Changed
+
+- Improved Ask DJ rich chat rendering for mood/status messages, playlist and
+  album action rows, and album artwork sizing across iOS and macOS.
+- Kept macOS mood controls aligned and prevented the expanded mood panel from
+  shifting the sidebar or Ask DJ chat layout.
+
+### Fixed
+
+- Fixed macOS Home Assistant pairing discovery by keeping the local mDNS
+  advertisement alive during pairing and regenerating stale local pairing codes
+  without stopping the pairing flow too early.
+- Prevented Ask DJ text-only and recent-history responses from showing stale
+  artwork from previous chat bubbles.
+
+### Removed
+
+- Removed the discontinued Apple display feature from the Apple apps, including
+  its UI, local serving path, demo launch flag, and screenshot coverage.
 
 ## 3.1.43 - 2026-06-20
 
@@ -18,8 +44,6 @@ No notable unreleased changes yet.
   confirmation response values.
 - Avoid reusing images, links, or action rows from older Ask DJ bubbles when a
   refreshed server message omits them or sends empty arrays.
-- Added range-request support for On Air stream files served by the local
-  device API.
 - Improved watchOS runtime behavior for pairing, local API lifecycle, demo
   mode, wakeword scheduling, diagnostics, and notification delegate handling.
 
@@ -54,10 +78,6 @@ No notable unreleased changes yet.
 ## 3.1.40 - 2026-06-20
 
 ### Added
-
-- Added On Air as AirPlay/TV output from the existing Ask DJ screen, with an
-  Ask DJ toolbar route picker, generated video-player output for AirPlay,
-  now-playing context, and automated iOS demo screenshot coverage.
 
 ## 3.1.38 - 2026-06-20
 

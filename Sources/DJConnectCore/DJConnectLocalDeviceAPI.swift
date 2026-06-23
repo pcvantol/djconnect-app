@@ -192,23 +192,12 @@ public struct DJConnectLocalDeviceInfoResponse: Encodable, Sendable {
 }
 
 public final class DJConnectLocalDeviceAPI: @unchecked Sendable {
-    public struct FileResponse: Sendable {
-        public var data: Data
-        public var contentType: String
-
-        public init(data: Data, contentType: String) {
-            self.data = data
-            self.contentType = contentType
-        }
-    }
-
     public typealias InfoProvider = @Sendable () async -> DJConnectLocalDeviceAPIInfo
     public typealias TokenProvider = @Sendable () async -> String?
     public typealias PairHandler = @Sendable (DJConnectLocalPairRequest) async -> DJConnectLocalDeviceAPIResponse
     public typealias CommandHandler = @Sendable (DJConnectLocalCommandRequest) async -> DJConnectLocalDeviceAPIResponse
     public typealias DJResponseHandler = @Sendable (DJConnectLocalDJResponseRequest) async -> DJConnectLocalDeviceAPIResponse
     public typealias ForgetHandler = @Sendable () async -> DJConnectLocalDeviceAPIResponse
-    public typealias FileHandler = @Sendable (String) async -> FileResponse?
     public typealias URLHandler = @Sendable (String?) async -> Void
     public typealias LogHandler = @Sendable (String) async -> Void
 
@@ -218,7 +207,6 @@ public final class DJConnectLocalDeviceAPI: @unchecked Sendable {
     private let commandHandler: CommandHandler
     private let djResponseHandler: DJResponseHandler
     private let forgetHandler: ForgetHandler
-    private let fileHandler: FileHandler?
     private let urlHandler: URLHandler
     private let logHandler: LogHandler
     private let preferredPort: UInt16?
@@ -231,6 +219,7 @@ public final class DJConnectLocalDeviceAPI: @unchecked Sendable {
     private var networkListener: NWListener?
     #else
     private var bonjourService: NetService?
+    private lazy var bonjourDelegate = DJConnectLocalDeviceAPIBonjourDelegate(logHandler: logHandler)
     #endif
     private var port: UInt16?
     private var localURL: String?
@@ -243,7 +232,6 @@ public final class DJConnectLocalDeviceAPI: @unchecked Sendable {
         commandHandler: @escaping CommandHandler,
         djResponseHandler: @escaping DJResponseHandler,
         forgetHandler: @escaping ForgetHandler,
-        fileHandler: FileHandler? = nil,
         urlHandler: @escaping URLHandler,
         logHandler: @escaping LogHandler,
         preferredPort: UInt16? = nil,
@@ -255,7 +243,6 @@ public final class DJConnectLocalDeviceAPI: @unchecked Sendable {
         self.commandHandler = commandHandler
         self.djResponseHandler = djResponseHandler
         self.forgetHandler = forgetHandler
-        self.fileHandler = fileHandler
         self.urlHandler = urlHandler
         self.logHandler = logHandler
         self.preferredPort = preferredPort
@@ -357,13 +344,14 @@ public final class DJConnectLocalDeviceAPI: @unchecked Sendable {
 
     public func setBonjourAdvertisingEnabled(_ enabled: Bool) {
         queue.async { [weak self] in
-            guard let self, self.isBonjourAdvertisingEnabled != enabled else {
+            guard let self else {
                 return
             }
+            let didChange = self.isBonjourAdvertisingEnabled != enabled
             self.isBonjourAdvertisingEnabled = enabled
             if enabled {
                 Task { await self.publishReadyURL(logStart: false) }
-            } else {
+            } else if didChange {
                 self.stopBonjourService()
                 Task { await self.logHandler("Local device API mDNS advertising disabled") }
             }
@@ -403,6 +391,8 @@ public final class DJConnectLocalDeviceAPI: @unchecked Sendable {
         stopBonjourService()
         let service = NetService(domain: "local.", type: "_djconnect._tcp.", name: info.identity.deviceID, port: Int32(port))
         service.setTXTRecord(NetService.data(fromTXTRecord: txtRecord))
+        service.delegate = bonjourDelegate
+        service.schedule(in: .main, forMode: .default)
         service.publish()
         bonjourService = service
         #endif
@@ -411,8 +401,10 @@ public final class DJConnectLocalDeviceAPI: @unchecked Sendable {
     private static func bonjourTXTRecord(for info: DJConnectLocalDeviceAPIInfo, localURL: String) -> [String: Data] {
         [
             "name": info.identity.deviceName,
+            "device_name": info.identity.deviceName,
             "device_id": info.identity.deviceID,
             "version": info.identity.firmware,
+            "firmware": info.identity.firmware,
             "app_version": info.identity.appVersion ?? info.identity.firmware,
             "paired": info.pairingStatus == .paired ? "true" : "false",
             "local_url": localURL,
@@ -432,6 +424,8 @@ public final class DJConnectLocalDeviceAPI: @unchecked Sendable {
         networkListener?.service = nil
         #else
         bonjourService?.stop()
+        bonjourService?.remove(from: .main, forMode: .default)
+        bonjourService?.delegate = nil
         bonjourService = nil
         #endif
     }
@@ -719,13 +713,6 @@ public final class DJConnectLocalDeviceAPI: @unchecked Sendable {
             return response(value, statusCode: statusCode)
         }
         switch (request.method, path) {
-        case ("GET", _) where path.hasPrefix("/on-air/"):
-            if let fileHandler, let file = await fileHandler(path) {
-                let response = fileResponse(file.data, contentType: file.contentType, rangeHeader: request.headers["range"])
-                await logHandler("Local device API response remote=\(remote) method=\(request.method) path=\(path) host=\(host) status=\(response.statusCode)")
-                return response.data
-            }
-            return await loggedResponse(DJConnectLocalDeviceAPIResponse(success: false, error: "not_found", message: "On Air stream file not found."), statusCode: 404)
         case ("GET", "/api/device/info"):
             return await loggedResponse(await infoPayload(includePairingCode: false))
         case ("GET", "/api/device/pairing-info"):
@@ -824,56 +811,6 @@ public final class DJConnectLocalDeviceAPI: @unchecked Sendable {
         return Data(headers.utf8) + body
     }
 
-    private func fileResponse(_ body: Data, contentType: String, rangeHeader: String?) -> (data: Data, statusCode: Int) {
-        if let range = byteRange(from: rangeHeader, contentLength: body.count) {
-            let partialBody = body[range.lowerBound..<range.upperBound]
-            var headers = "HTTP/1.1 206 Partial Content\r\n"
-            headers += "Content-Type: \(contentType)\r\n"
-            headers += "Content-Length: \(partialBody.count)\r\n"
-            headers += "Content-Range: bytes \(range.lowerBound)-\(range.upperBound - 1)/\(body.count)\r\n"
-            headers += "Accept-Ranges: bytes\r\n"
-            headers += "Cache-Control: no-store\r\n"
-            headers += "Access-Control-Allow-Origin: *\r\n"
-            headers += "Connection: close\r\n\r\n"
-            return (Data(headers.utf8) + Data(partialBody), 206)
-        }
-
-        var headers = "HTTP/1.1 200 OK\r\n"
-        headers += "Content-Type: \(contentType)\r\n"
-        headers += "Content-Length: \(body.count)\r\n"
-        headers += "Accept-Ranges: bytes\r\n"
-        headers += "Cache-Control: no-store\r\n"
-        headers += "Access-Control-Allow-Origin: *\r\n"
-        headers += "Connection: close\r\n\r\n"
-        return (Data(headers.utf8) + body, 200)
-    }
-
-    private func byteRange(from header: String?, contentLength: Int) -> Range<Int>? {
-        guard contentLength > 0,
-              let header,
-              header.lowercased().hasPrefix("bytes=") else {
-            return nil
-        }
-        let value = String(header.dropFirst("bytes=".count))
-        guard let dash = value.firstIndex(of: "-") else {
-            return nil
-        }
-        let startText = value[..<dash].trimmingCharacters(in: .whitespaces)
-        let endText = value[value.index(after: dash)...].trimmingCharacters(in: .whitespaces)
-        if startText.isEmpty, let suffixLength = Int(endText), suffixLength > 0 {
-            let start = max(contentLength - suffixLength, 0)
-            return start..<contentLength
-        }
-        guard let start = Int(startText), start >= 0, start < contentLength else {
-            return nil
-        }
-        let end = min(Int(endText) ?? (contentLength - 1), contentLength - 1)
-        guard end >= start else {
-            return nil
-        }
-        return start..<(end + 1)
-    }
-
     private struct HTTPRequest: Sendable {
         var method: String
         var path: String
@@ -918,6 +855,40 @@ public final class DJConnectLocalDeviceAPI: @unchecked Sendable {
         return HTTPRequest(method: String(requestParts[0]), path: path, headers: headers, body: body)
     }
 }
+
+#if !os(watchOS)
+private final class DJConnectLocalDeviceAPIBonjourDelegate: NSObject, NetServiceDelegate {
+    private let logHandler: DJConnectLocalDeviceAPI.LogHandler
+
+    init(logHandler: @escaping DJConnectLocalDeviceAPI.LogHandler) {
+        self.logHandler = logHandler
+    }
+
+    func netServiceDidPublish(_ sender: NetService) {
+        let message = "Local device API mDNS published name=\(sender.name) type=\(sender.type) domain=\(sender.domain) port=\(sender.port)"
+        let logHandler = logHandler
+        Task {
+            await logHandler(message)
+        }
+    }
+
+    func netService(_ sender: NetService, didNotPublish errorDict: [String: NSNumber]) {
+        let message = "Local device API mDNS publish failed name=\(sender.name) type=\(sender.type) errors=\(errorDict)"
+        let logHandler = logHandler
+        Task {
+            await logHandler(message)
+        }
+    }
+
+    func netServiceDidStop(_ sender: NetService) {
+        let message = "Local device API mDNS stopped name=\(sender.name) type=\(sender.type)"
+        let logHandler = logHandler
+        Task {
+            await logHandler(message)
+        }
+    }
+}
+#endif
 
 private extension Data {
     static func + (lhs: Data, rhs: Data) -> Data {

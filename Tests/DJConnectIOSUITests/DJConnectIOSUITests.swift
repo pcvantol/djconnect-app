@@ -18,21 +18,6 @@ final class DJConnectIOSUITests: XCTestCase {
         return app
     }
 
-    private func launchAskDJAirPlayDemoApp() -> XCUIApplication {
-        let app = XCUIApplication()
-        app.launchArguments.append(contentsOf: [
-            "--monkey-testing",
-            "--on-air-demo-feed",
-            "-AppleLanguages",
-            "(nl)",
-            "-AppleLocale",
-            "nl_NL"
-        ])
-        app.launchEnvironment["DJCONNECT_UITEST_HA_URL"] = "http://127.0.0.1:8123"
-        app.launch()
-        return app
-    }
-
     private func launchEnglishApp() -> XCUIApplication {
         let app = XCUIApplication()
         app.launchArguments.append(contentsOf: ["--monkey-testing", "-AppleLanguages", "(en)", "-AppleLocale", "en_US"])
@@ -123,22 +108,6 @@ final class DJConnectIOSUITests: XCTestCase {
         XCTAssertTrue(app.buttons["Sky Dash"].exists || app.staticTexts["Sky Dash"].exists)
         XCTAssertTrue(app.buttons["Maze Chase"].exists || app.staticTexts["Maze Chase"].exists)
         XCTAssertTrue(app.buttons["Tik om te spelen"].exists || app.staticTexts["Tik om te spelen"].exists)
-    }
-
-    func testAskDJAirPlayOutputInDemoModeScreenshots() throws {
-        XCUIDevice.shared.orientation = .portrait
-        let app = launchAskDJAirPlayDemoApp()
-
-        XCTAssertTrue(app.tabBars.firstMatch.waitForExistence(timeout: 8))
-        tapTabOrMoreItem("Ask DJ", in: app)
-
-        XCTAssertTrue(app.navigationBars["Ask DJ (demo)"].waitForExistence(timeout: 4))
-        XCTAssertTrue(app.descendants(matching: .any)["AskDJAirPlayButton"].waitForExistence(timeout: 4))
-        XCTAssertTrue(app.staticTexts["Verras de woonkamer met een track"].waitForExistence(timeout: 4))
-        XCTAssertTrue(app.staticTexts["Ask DJ is On Air! Midnight City speelt in de woonkamer en Ask DJ is klaar voor het volgende verzoek."].waitForExistence(timeout: 4))
-
-        try attachAndWriteScreenshot(app.screenshot(), named: "ask-dj-airplay-button")
-        try attachAndWriteScreenshot(app.screenshot(), named: "ask-dj-live-feed")
     }
 
     func testMonkeyModeSafeNavigationSmoke() {

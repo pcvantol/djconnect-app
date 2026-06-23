@@ -140,13 +140,6 @@ Again` action. UI tests should use `--uitesting` or `--monkey-testing`,
 isolated `UserDefaults`, and local/demo data unless a dedicated mock Home
 Assistant server fixture is introduced.
 
-On Air has deterministic iOS UI coverage through
-`testAskDJAirPlayOutputInDemoModeScreenshots`, which launches with
-`--on-air-demo-feed`, verifies the AirPlay picker inside the existing Ask DJ
-screen in demo mode, and writes screenshots to `tmp/ask-dj-airplay-screenshots`
-by default. Override the output directory with `DJCONNECT_SCREENSHOT_DIR` when
-collecting artifacts in CI.
-
 If `xcodebuild test` hangs or reports a UI runner bootstrap/finalization issue
 locally, rerun the affected target with `build-for-testing` to distinguish
 compile/test-source failures from Xcode runner infrastructure failures. Do not

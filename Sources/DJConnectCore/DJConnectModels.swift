@@ -404,6 +404,124 @@ public enum DJConnectAskDJMessageKind: String, Codable, Equatable, Sendable {
     case system
 }
 
+public struct DJConnectAskDJIntentInfo: Codable, Equatable, Sendable {
+    public var intent: String?
+    public var action: String?
+    public var itemType: String?
+
+    enum CodingKeys: String, CodingKey {
+        case intent
+        case action
+        case itemType = "item_type"
+        case itemTypeCamel = "itemType"
+    }
+
+    public init(intent: String? = nil, action: String? = nil, itemType: String? = nil) {
+        self.intent = intent
+        self.action = action
+        self.itemType = itemType
+    }
+
+    public init(from decoder: Decoder) throws {
+        if let value = try? decoder.singleValueContainer().decode(String.self) {
+            self.init(intent: value)
+            return
+        }
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.init(
+            intent: try container.decodeIfPresent(String.self, forKey: .intent),
+            action: try container.decodeIfPresent(String.self, forKey: .action),
+            itemType: try container.decodeIfPresent(String.self, forKey: .itemType)
+                ?? container.decodeIfPresentIgnoringErrors(String.self, forKey: .itemTypeCamel)
+        )
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encodeIfPresent(intent, forKey: .intent)
+        try container.encodeIfPresent(action, forKey: .action)
+        try container.encodeIfPresent(itemType, forKey: .itemType)
+    }
+}
+
+public struct DJConnectAskDJHistoryItem: Codable, Equatable, Sendable, Identifiable {
+    public var id: String {
+        uri ?? "\(kind ?? "item")|\(title)|\(subtitle ?? "")|\(playedAtLabel ?? playedAt ?? "")"
+    }
+
+    public var kind: String?
+    public var title: String
+    public var subtitle: String?
+    public var uri: String?
+    public var imageURL: URL?
+    public var thumbnailURL: URL?
+    public var playedAt: String?
+    public var playedAtLabel: String?
+
+    enum CodingKeys: String, CodingKey {
+        case kind
+        case title
+        case subtitle
+        case uri
+        case imageURL = "image_url"
+        case imageUrl
+        case thumbnailURL = "thumbnail_url"
+        case thumbnailUrl
+        case playedAt = "played_at"
+        case playedAtCamel = "playedAt"
+        case playedAtLabel = "played_at_label"
+        case playedAtLabelCamel = "playedAtLabel"
+    }
+
+    public init(
+        kind: String? = nil,
+        title: String,
+        subtitle: String? = nil,
+        uri: String? = nil,
+        imageURL: URL? = nil,
+        thumbnailURL: URL? = nil,
+        playedAt: String? = nil,
+        playedAtLabel: String? = nil
+    ) {
+        self.kind = kind
+        self.title = title
+        self.subtitle = subtitle
+        self.uri = uri
+        self.imageURL = imageURL
+        self.thumbnailURL = thumbnailURL
+        self.playedAt = playedAt
+        self.playedAtLabel = playedAtLabel
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        kind = try container.decodeIfPresent(String.self, forKey: .kind)
+        title = try container.decodeIfPresent(String.self, forKey: .title) ?? ""
+        subtitle = try container.decodeIfPresent(String.self, forKey: .subtitle)
+        uri = try container.decodeIfPresent(String.self, forKey: .uri)
+        imageURL = try container.decodeIfPresent(URL.self, forKey: .imageURL)
+            ?? container.decodeIfPresentIgnoringErrors(URL.self, forKey: .imageUrl)
+        thumbnailURL = try container.decodeIfPresent(URL.self, forKey: .thumbnailURL)
+            ?? container.decodeIfPresentIgnoringErrors(URL.self, forKey: .thumbnailUrl)
+        playedAt = try container.decodeIfPresent(String.self, forKey: .playedAt)
+            ?? container.decodeIfPresentIgnoringErrors(String.self, forKey: .playedAtCamel)
+        playedAtLabel = try container.decodeIfPresent(String.self, forKey: .playedAtLabel)
+            ?? container.decodeIfPresentIgnoringErrors(String.self, forKey: .playedAtLabelCamel)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encodeIfPresent(kind, forKey: .kind)
+        try container.encode(title, forKey: .title)
+        try container.encodeIfPresent(subtitle, forKey: .subtitle)
+        try container.encodeIfPresent(uri, forKey: .uri)
+        try container.encodeIfPresent(imageURL, forKey: .imageURL)
+        try container.encodeIfPresent(thumbnailURL, forKey: .thumbnailURL)
+        try container.encodeIfPresent(playedAt, forKey: .playedAt)
+        try container.encodeIfPresent(playedAtLabel, forKey: .playedAtLabel)
+    }
+}
+
 public struct DJConnectAskDJHistoryMessage: Codable, Equatable, Identifiable, Sendable {
     public var id: String
     public var clientMessageID: String?
@@ -421,6 +539,8 @@ public struct DJConnectAskDJHistoryMessage: Codable, Equatable, Identifiable, Se
     public var audioURL: URL?
     public var playbackActions: [DJConnectAskDJPlaybackAction]
     public var confirmationActions: [DJConnectAskDJPlaybackAction]
+    public var intentInfo: DJConnectAskDJIntentInfo?
+    public var items: [DJConnectAskDJHistoryItem]
 
     enum CodingKeys: String, CodingKey {
         case id
@@ -444,6 +564,8 @@ public struct DJConnectAskDJHistoryMessage: Codable, Equatable, Identifiable, Se
         case confirmationActions = "confirmation_actions"
         case recommendationActions = "recommendation_actions"
         case recommendations
+        case intentInfo = "intent"
+        case items
     }
 
     public init(
@@ -462,7 +584,9 @@ public struct DJConnectAskDJHistoryMessage: Codable, Equatable, Identifiable, Se
         sources: [DJConnectResponseLink] = [],
         audioURL: URL? = nil,
         playbackActions: [DJConnectAskDJPlaybackAction] = [],
-        confirmationActions: [DJConnectAskDJPlaybackAction] = []
+        confirmationActions: [DJConnectAskDJPlaybackAction] = [],
+        intentInfo: DJConnectAskDJIntentInfo? = nil,
+        items: [DJConnectAskDJHistoryItem] = []
     ) {
         self.id = id
         self.clientMessageID = clientMessageID
@@ -480,6 +604,8 @@ public struct DJConnectAskDJHistoryMessage: Codable, Equatable, Identifiable, Se
         self.audioURL = audioURL
         self.playbackActions = playbackActions
         self.confirmationActions = confirmationActions
+        self.intentInfo = intentInfo
+        self.items = items
     }
 
     public init(from decoder: Decoder) throws {
@@ -509,6 +635,8 @@ public struct DJConnectAskDJHistoryMessage: Codable, Equatable, Identifiable, Se
             ?? container.decodeLossyArrayIfPresent(DJConnectAskDJPlaybackAction.self, forKey: .recommendations)
             ?? []
         confirmationActions = container.decodeLossyArrayIfPresent(DJConnectAskDJPlaybackAction.self, forKey: .confirmationActions) ?? []
+        intentInfo = try container.decodeIfPresent(DJConnectAskDJIntentInfo.self, forKey: .intentInfo)
+        items = container.decodeLossyArrayIfPresent(DJConnectAskDJHistoryItem.self, forKey: .items) ?? []
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -529,6 +657,8 @@ public struct DJConnectAskDJHistoryMessage: Codable, Equatable, Identifiable, Se
         try container.encodeIfPresent(audioURL, forKey: .audioURL)
         try container.encode(playbackActions, forKey: .playbackActions)
         try container.encode(confirmationActions, forKey: .confirmationActions)
+        try container.encodeIfPresent(intentInfo, forKey: .intentInfo)
+        try container.encode(items, forKey: .items)
     }
 
     static func decodeDate<K: CodingKey>(_ container: KeyedDecodingContainer<K>, key: K) -> Date? {
@@ -655,6 +785,10 @@ public struct DJConnectAskDJMessageResponse: Codable, Equatable, Sendable {
     public var historyTrimmedCount: Int?
     public var serverTime: Date?
     public var deduplicated: Bool?
+    public var intentInfo: DJConnectAskDJIntentInfo?
+    public var action: String?
+    public var itemType: String?
+    public var items: [DJConnectAskDJHistoryItem]?
 
     enum CodingKeys: String, CodingKey {
         case userMessage = "user_message"
@@ -680,6 +814,11 @@ public struct DJConnectAskDJMessageResponse: Codable, Equatable, Sendable {
         case historyTrimmedCount = "history_trimmed_count"
         case serverTime = "server_time"
         case deduplicated
+        case intentInfo = "intent"
+        case action
+        case itemType = "item_type"
+        case itemTypeCamel = "itemType"
+        case items
     }
 
     public init(
@@ -700,7 +839,11 @@ public struct DJConnectAskDJMessageResponse: Codable, Equatable, Sendable {
         historyTrimmedBefore: Date? = nil,
         historyTrimmedCount: Int? = nil,
         serverTime: Date? = nil,
-        deduplicated: Bool? = nil
+        deduplicated: Bool? = nil,
+        intentInfo: DJConnectAskDJIntentInfo? = nil,
+        action: String? = nil,
+        itemType: String? = nil,
+        items: [DJConnectAskDJHistoryItem]? = nil
     ) {
         self.userMessage = userMessage
         self.assistantMessage = assistantMessage
@@ -720,6 +863,10 @@ public struct DJConnectAskDJMessageResponse: Codable, Equatable, Sendable {
         self.historyTrimmedCount = historyTrimmedCount
         self.serverTime = serverTime
         self.deduplicated = deduplicated
+        self.intentInfo = intentInfo
+        self.action = action
+        self.itemType = itemType
+        self.items = items
     }
 
     public init(from decoder: Decoder) throws {
@@ -747,8 +894,28 @@ public struct DJConnectAskDJMessageResponse: Codable, Equatable, Sendable {
         historyTrimmedCount = try container.decodeIfPresent(Int.self, forKey: .historyTrimmedCount)
         serverTime = DJConnectAskDJHistoryResponse.decodeDate(container, key: .serverTime)
         deduplicated = try container.decodeIfPresent(Bool.self, forKey: .deduplicated)
+        intentInfo = try container.decodeIfPresent(DJConnectAskDJIntentInfo.self, forKey: .intentInfo)
+        action = try container.decodeIfPresent(String.self, forKey: .action)
+        itemType = try container.decodeIfPresent(String.self, forKey: .itemType)
+            ?? container.decodeIfPresentIgnoringErrors(String.self, forKey: .itemTypeCamel)
+        if intentInfo != nil, (intentInfo?.action == nil || intentInfo?.itemType == nil) {
+            intentInfo = DJConnectAskDJIntentInfo(
+                intent: intentInfo?.intent,
+                action: intentInfo?.action ?? action,
+                itemType: intentInfo?.itemType ?? itemType
+            )
+        } else if intentInfo == nil, action != nil || itemType != nil {
+            intentInfo = DJConnectAskDJIntentInfo(intent: nil, action: action, itemType: itemType)
+        }
+        items = container.decodeLossyArrayIfPresent(DJConnectAskDJHistoryItem.self, forKey: .items)
         if assistantMessage?.audioURL == nil, let audioURL {
             assistantMessage?.audioURL = audioURL
+        }
+        if assistantMessage?.intentInfo == nil, let intentInfo {
+            assistantMessage?.intentInfo = intentInfo
+        }
+        if assistantMessage?.items.isEmpty != false, let items, !items.isEmpty {
+            assistantMessage?.items = items
         }
         if assistantMessage?.images.isEmpty != false, let images, !images.isEmpty {
             assistantMessage?.images = images
@@ -776,7 +943,9 @@ public struct DJConnectAskDJMessageResponse: Codable, Equatable, Sendable {
                 sources: sources ?? [],
                 audioURL: audioURL,
                 playbackActions: playbackActions ?? [],
-                confirmationActions: confirmationActions ?? []
+                confirmationActions: confirmationActions ?? [],
+                intentInfo: intentInfo,
+                items: items ?? []
             )
         }
     }
@@ -801,6 +970,10 @@ public struct DJConnectAskDJMessageResponse: Codable, Equatable, Sendable {
         try container.encodeIfPresent(historyTrimmedCount, forKey: .historyTrimmedCount)
         try container.encodeIfPresent(serverTime, forKey: .serverTime)
         try container.encodeIfPresent(deduplicated, forKey: .deduplicated)
+        try container.encodeIfPresent(intentInfo, forKey: .intentInfo)
+        try container.encodeIfPresent(action, forKey: .action)
+        try container.encodeIfPresent(itemType, forKey: .itemType)
+        try container.encodeIfPresent(items, forKey: .items)
     }
 }
 
