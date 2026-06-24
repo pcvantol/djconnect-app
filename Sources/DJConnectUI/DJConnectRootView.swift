@@ -3390,6 +3390,7 @@ private struct AskDJView: View {
 
 private struct AskDJSearchBar: View {
     let language: String
+    var scopeName: String = "Ask DJ"
     @Binding var text: String
     var isFocused: FocusState<Bool>.Binding
     let resultCount: Int
@@ -3497,10 +3498,7 @@ private struct AskDJSearchBar: View {
     }
 
     private var searchPrompt: Text {
-        if language == "nl" {
-            return Text("Zoek in ") + Text("Ask DJ").bold()
-        }
-        return Text("Search ") + Text("Ask DJ").bold()
+        Text(localized(language, "Search \(scopeName)", "Zoek in \(scopeName)"))
     }
 }
 
@@ -7200,6 +7198,27 @@ private struct LogsView: View {
     @State private var showingClearConfirmation = false
     @State private var statusToast: String?
     @State private var showsCompactTitle = false
+    @State private var isSearchVisible = false
+    @State private var logSearchText = ""
+    @State private var selectedSearchResultIndex = 0
+    @FocusState private var isSearchFocused: Bool
+
+    private var logSearchResultIDs: [UUID] {
+        let query = logSearchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !query.isEmpty else {
+            return []
+        }
+        return model.diagnosticLogLines.compactMap { line in
+            line.text.localizedCaseInsensitiveContains(query) ? line.id : nil
+        }
+    }
+
+    private var activeLogSearchResultID: UUID? {
+        guard logSearchResultIDs.indices.contains(selectedSearchResultIndex) else {
+            return nil
+        }
+        return logSearchResultIDs[selectedSearchResultIndex]
+    }
 
     var body: some View {
         NavigationStack {
@@ -7217,6 +7236,19 @@ private struct LogsView: View {
                     .disabled(model.diagnosticLogLines.isEmpty)
 
                     Spacer()
+
+                    Button {
+                        showLogSearch()
+                    } label: {
+                        Label(localized(model.language, "Search Logs", "Logs zoeken"), systemImage: "magnifyingglass")
+                            .labelStyle(.iconOnly)
+                            .foregroundStyle(djConnectAccent)
+                    }
+                    .tint(djConnectAccent)
+                    .foregroundStyle(djConnectAccent)
+                    .help(localized(model.language, "Search Logs", "Logs zoeken"))
+                    .accessibilityLabel(localized(model.language, "Search Logs", "Logs zoeken"))
+                    .disabled(model.diagnosticLogLines.isEmpty)
 
                     Button {
                         showingClearConfirmation = true
@@ -7243,47 +7275,92 @@ private struct LogsView: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else {
                     ScrollViewReader { proxy in
-                        ScrollView {
-                            GeometryReader { geometry in
-                                Color.clear.preference(
-                                    key: ScrollOffsetPreferenceKey.self,
-                                    value: geometry.frame(in: .named("LogsScrollView")).minY
+                        VStack(alignment: .leading, spacing: 10) {
+                            if isSearchVisible {
+                                AskDJSearchBar(
+                                    language: model.language,
+                                    scopeName: localized(model.language, "logs", "logs"),
+                                    text: $logSearchText,
+                                    isFocused: $isSearchFocused,
+                                    resultCount: logSearchResultIDs.count,
+                                    selectedIndex: selectedSearchResultIndex,
+                                    previousAction: { moveLogSearchSelection(by: -1, proxy: proxy) },
+                                    nextAction: { moveLogSearchSelection(by: 1, proxy: proxy) },
+                                    closeAction: { dismissLogSearch() }
                                 )
+                                .padding(.horizontal, 20)
+                                .transition(.move(edge: .top).combined(with: .opacity))
                             }
-                            .frame(height: 0)
-                            VStack(alignment: .leading, spacing: 6) {
-                                ForEach(Array(model.diagnosticLogLines.enumerated()), id: \.element.id) { index, line in
-                                    HStack(alignment: .firstTextBaseline, spacing: 8) {
-                                        Text(logLineNumber(index + 1, total: model.diagnosticLogLines.count))
-                                            .font(.system(.caption, design: .monospaced))
-                                            .foregroundStyle(.secondary)
-                                            .textSelection(.disabled)
-                                            .frame(width: logLineNumberWidth(total: model.diagnosticLogLines.count), alignment: .trailing)
-                                        Text(line.text)
+
+                            ScrollView {
+                                GeometryReader { geometry in
+                                    Color.clear.preference(
+                                        key: ScrollOffsetPreferenceKey.self,
+                                        value: geometry.frame(in: .named("LogsScrollView")).minY
+                                    )
+                                }
+                                .frame(height: 0)
+                                VStack(alignment: .leading, spacing: 6) {
+                                    ForEach(Array(model.diagnosticLogLines.enumerated()), id: \.element.id) { index, line in
+                                        let isSearchResult = logSearchResultIDs.contains(line.id)
+                                        let isActiveSearchResult = activeLogSearchResultID == line.id
+                                        HStack(alignment: .firstTextBaseline, spacing: 8) {
+                                            Text(logLineNumber(index + 1, total: model.diagnosticLogLines.count))
+                                                .font(.system(.caption, design: .monospaced))
+                                                .foregroundStyle(isActiveSearchResult ? Color.white : .secondary)
+                                                .textSelection(.disabled)
+                                                .frame(width: logLineNumberWidth(total: model.diagnosticLogLines.count), alignment: .trailing)
+                                            LogSearchText(
+                                                text: line.text,
+                                                highlight: logSearchText,
+                                                isSearchResult: isSearchResult
+                                            )
                                             .font(.system(.caption, design: .monospaced))
                                             .textSelection(.enabled)
                                             .frame(maxWidth: .infinity, alignment: .leading)
+                                        }
+                                        .padding(.vertical, 2)
+                                        .padding(.horizontal, 8)
+                                        .background {
+                                            if isActiveSearchResult {
+                                                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                                    .fill(djConnectAccent.opacity(0.22))
+                                            } else if isSearchResult {
+                                                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                                    .fill(Color.white.opacity(0.07))
+                                            }
+                                        }
+                                        .id(line.id)
                                     }
-                                    .id(line.id)
+                                }
+                                .padding(.horizontal, 20)
+                                .padding(.vertical, 8)
+                            }
+                            .coordinateSpace(name: "LogsScrollView")
+                            .scrollIndicators(.visible)
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                            #if os(macOS)
+                            .focusable()
+                            #endif
+                            .onAppear {
+                                scrollLogsToBottom(proxy)
+                            }
+                            .onChange(of: model.diagnosticLogLines.last?.id) {
+                                if logSearchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                                    scrollLogsToBottom(proxy)
                                 }
                             }
-                            .padding(.horizontal, 20)
-                            .padding(.vertical, 8)
+                            .onPreferenceChange(ScrollOffsetPreferenceKey.self) { offset in
+                                showsCompactTitle = offset < -36
+                            }
                         }
-                        .coordinateSpace(name: "LogsScrollView")
-                        .scrollIndicators(.visible)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                        #if os(macOS)
-                        .focusable()
-                        #endif
-                        .onAppear {
-                            scrollLogsToBottom(proxy)
+                        .onChange(of: logSearchText) {
+                            selectedSearchResultIndex = 0
+                            scrollToActiveLogSearchResult(proxy)
                         }
-                        .onChange(of: model.diagnosticLogLines.last?.id) {
-                            scrollLogsToBottom(proxy)
-                        }
-                        .onPreferenceChange(ScrollOffsetPreferenceKey.self) { offset in
-                            showsCompactTitle = offset < -36
+                        .onChange(of: logSearchResultIDs) {
+                            selectedSearchResultIndex = min(selectedSearchResultIndex, max(logSearchResultIDs.count - 1, 0))
+                            scrollToActiveLogSearchResult(proxy)
                         }
                     }
                 }
@@ -7330,6 +7407,19 @@ private struct LogsView: View {
                     "Dit verwijdert de zichtbare en opgeslagen diagnostische logs."
                 ))
             }
+            .background {
+                Button("") {
+                    showLogSearch()
+                }
+                .keyboardShortcut("f", modifiers: .command)
+                .hidden()
+
+                Button("") {
+                    showLogSearch()
+                }
+                .keyboardShortcut("f", modifiers: .control)
+                .hidden()
+            }
         }
         .background(DJConnectCanvasBackground())
     }
@@ -7345,6 +7435,46 @@ private struct LogsView: View {
             }
             withAnimation(.easeIn(duration: 0.18)) {
                 statusToast = nil
+            }
+        }
+    }
+
+    private func showLogSearch() {
+        guard !model.diagnosticLogLines.isEmpty else {
+            return
+        }
+        withAnimation(.spring(response: 0.24, dampingFraction: 0.86)) {
+            isSearchVisible = true
+        }
+        DispatchQueue.main.async {
+            isSearchFocused = true
+        }
+    }
+
+    private func dismissLogSearch() {
+        withAnimation(.spring(response: 0.24, dampingFraction: 0.86)) {
+            isSearchVisible = false
+        }
+        logSearchText = ""
+        selectedSearchResultIndex = 0
+        isSearchFocused = false
+    }
+
+    private func moveLogSearchSelection(by offset: Int, proxy: ScrollViewProxy) {
+        guard !logSearchResultIDs.isEmpty else {
+            return
+        }
+        selectedSearchResultIndex = (selectedSearchResultIndex + offset + logSearchResultIDs.count) % logSearchResultIDs.count
+        scrollToActiveLogSearchResult(proxy)
+    }
+
+    private func scrollToActiveLogSearchResult(_ proxy: ScrollViewProxy) {
+        guard let activeLogSearchResultID else {
+            return
+        }
+        DispatchQueue.main.async {
+            withAnimation(.easeOut(duration: 0.18)) {
+                proxy.scrollTo(activeLogSearchResultID, anchor: .center)
             }
         }
     }
@@ -7370,6 +7500,36 @@ private struct LogsView: View {
 
     private func logLineNumberWidth(total: Int) -> CGFloat {
         CGFloat(logLineNumberDigits(total: total)) * 8
+    }
+}
+
+private struct LogSearchText: View {
+    let text: String
+    let highlight: String
+    let isSearchResult: Bool
+
+    var body: some View {
+        Text(highlightedText)
+            .foregroundStyle(isSearchResult ? Color.white : Color.white.opacity(0.88))
+    }
+
+    private var highlightedText: AttributedString {
+        let query = highlight.trimmingCharacters(in: .whitespacesAndNewlines)
+        var attributed = AttributedString(text)
+        guard !query.isEmpty else {
+            return attributed
+        }
+
+        var searchRange = attributed.startIndex..<attributed.endIndex
+        while let matchRange = attributed[searchRange].range(
+            of: query,
+            options: [.caseInsensitive, .diacriticInsensitive]
+        ) {
+            attributed[matchRange].backgroundColor = Color.yellow.opacity(0.34)
+            attributed[matchRange].foregroundColor = Color.white
+            searchRange = matchRange.upperBound..<attributed.endIndex
+        }
+        return attributed
     }
 }
 
