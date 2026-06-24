@@ -270,6 +270,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
     private var hasRequestedAskDJIdleSuggestion = false
     private var volumeCommandTask: Task<Void, Never>?
     private var playbackBeatSignature: String?
+    private var lastMainScreenRefreshAt: Date?
     private var hasRequestedAskDJNotificationPermission = false
     private var currentAPNsPushToken: String?
     private var shouldBypassMicrophonePermissionExplanationOnce = false
@@ -368,8 +369,10 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
     }
 
     func setWatchLogLevel(_ level: DJConnectWatchLogLevel) {
+        guard watchLogLevel != level.rawValue else {
+            return
+        }
         watchLogLevel = level.rawValue
-        appendDiagnosticLog("Logniveau ingesteld: \(level.title)", level: .info)
     }
 
     var isVoiceActivationEnabled: Bool {
@@ -412,6 +415,9 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
     }
 
     func handleAppForegroundChange(_ foreground: Bool) {
+        guard isAppForeground != foreground else {
+            return
+        }
         isAppForeground = foreground
         if foreground {
             ensureLocalDeviceAPIAdvertisingIfNeeded(reason: "foreground")
@@ -720,7 +726,12 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         appendDiagnosticLog("Status vernieuwen")
         do {
             let response = try await client.postStatus(statusPayload(screenState: "now_playing"))
-            applyPlayback(response.data ?? response.playback, confirmAskDJBeat: confirmAskDJBeat)
+            if let playback = response.playback ?? response.data,
+               Self.hasMeaningfulPlaybackSnapshot(playback) {
+                applyPlayback(playback, confirmAskDJBeat: confirmAskDJBeat)
+            } else {
+                appendDiagnosticLog("Status response bevatte geen playback snapshot", level: .debug)
+            }
             statusMessage = "Bijgewerkt"
             appendDiagnosticLog("Status vernieuwd")
             registerStoredPushTokenIfPossible()
@@ -728,6 +739,19 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
             statusMessage = Self.userMessage(for: error)
             appendDiagnosticLog("Status vernieuwen mislukt: \(statusMessage)", level: .error)
         }
+    }
+
+    func refreshMainScreenStatusIfNeeded() async {
+        guard canUseBackend else {
+            return
+        }
+        let now = Date()
+        if let lastMainScreenRefreshAt,
+           now.timeIntervalSince(lastMainScreenRefreshAt) < 5 {
+            return
+        }
+        lastMainScreenRefreshAt = now
+        await refreshStatus()
     }
 
     func sendCommand(_ command: String) async {
@@ -742,12 +766,24 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         }
         appendDiagnosticLog("Opdracht verzenden: \(command)")
         do {
-            let response = try await client.sendCommand(
+            let response = try await client.sendCommandResponse(
                 DJConnectCommandPayload(identity: identity, command: command)
             )
-            applyPlayback(response.data ?? response.playback)
+            if !Self.shouldDeferPlaybackSnapshotUntilRefresh(command) {
+                applyPlayback(response.playback)
+            }
             statusMessage = "Verzonden"
             appendDiagnosticLog("Opdracht gelukt: \(command)")
+            if Self.shouldRefreshPlaybackAfterCommand(command) {
+                await refreshStatus()
+                if Self.shouldRefreshPlaybackAgainAfterCommand(command) {
+                    try? await Task.sleep(nanoseconds: 850_000_000)
+                    guard !Task.isCancelled else {
+                        return
+                    }
+                    await refreshStatus()
+                }
+            }
         } catch {
             statusMessage = Self.userMessage(for: error)
             appendDiagnosticLog("Opdracht mislukt: \(command) - \(statusMessage)", level: .error)
@@ -777,15 +813,20 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         }
         appendDiagnosticLog("Volume instellen: \(value)%")
         do {
-            let response = try await client.sendCommand(
-                DJConnectCommandPayload(identity: identity, command: "set_volume", value: .int(value))
+            let response = try await client.sendCommandResponse(
+                DJConnectCommandPayload(identity: identity, command: "set_volume", value: .int(value), play: true)
             )
-            applyPlayback(response.data ?? response.playback)
+            applyPlayback(response.playback)
             if playback?.volumePercent == nil {
                 playback?.volumePercent = value
             }
             statusMessage = "Volume \(value)%"
             appendDiagnosticLog("Volume ingesteld: \(value)%")
+            try? await Task.sleep(nanoseconds: 850_000_000)
+            guard !Task.isCancelled else {
+                return
+            }
+            await refreshStatus()
         } catch {
             statusMessage = Self.userMessage(for: error)
             appendDiagnosticLog("Volume instellen mislukt: \(statusMessage)", level: .error)
@@ -800,6 +841,9 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         }
         guard let client, canUseBackend else {
             appendDiagnosticLog("Afspeellijsten laden overgeslagen: niet gekoppeld", level: .warning)
+            return
+        }
+        guard !isLoadingPlaylists else {
             return
         }
         appendDiagnosticLog("Afspeellijsten laden")
@@ -828,6 +872,9 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
             appendDiagnosticLog("Wachtrij laden overgeslagen: niet gekoppeld", level: .warning)
             return
         }
+        guard !isLoadingQueue else {
+            return
+        }
         appendDiagnosticLog("Wachtrij laden")
         isLoadingQueue = true
         defer { isLoadingQueue = false }
@@ -836,7 +883,10 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
                 DJConnectCommandPayload(identity: identity, command: "queue", limit: 100)
             )
             queueItems = response.queue ?? []
-            queueContext = response.queueContext
+            if let responseQueueContext = response.queueContext?.trimmingCharacters(in: .whitespacesAndNewlines),
+               !responseQueueContext.isEmpty {
+                queueContext = responseQueueContext
+            }
             statusMessage = queueItems.isEmpty ? "Geen wachtrij" : "Wachtrij bijgewerkt"
             appendDiagnosticLog("Wachtrij bijgewerkt: \(queueItems.count) items")
         } catch {
@@ -853,6 +903,9 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         }
         guard let client, canUseBackend else {
             appendDiagnosticLog("Uitvoerapparaten laden overgeslagen: niet gekoppeld", level: .warning)
+            return
+        }
+        guard !isLoadingOutputs else {
             return
         }
         appendDiagnosticLog("Uitvoerapparaten laden")
@@ -925,6 +978,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         if isDemoMode {
             loadingQueueItemIndex = index
             applyDemoCommand("play_context_at", value: .object(queueStartPayload(for: item, uri: uri, index: index)))
+            removeStartedQueueItem(item, at: index)
             loadingQueueItemIndex = nil
             appendDiagnosticLog("Demo wachtrij-item gestart: \(item.title)")
             return
@@ -946,7 +1000,9 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
                 )
             )
             applyPlayback(response.data ?? response.playback)
+            removeStartedQueueItem(item, at: index)
             statusMessage = "Nummer gestart"
+            try? await Task.sleep(nanoseconds: 650_000_000)
             await loadQueue()
         } catch {
             statusMessage = Self.userMessage(for: error)
@@ -1142,6 +1198,14 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         return payload
     }
 
+    private func removeStartedQueueItem(_ item: DJConnectQueueItem, at index: Int) {
+        if queueItems.indices.contains(index), queueItems[index].id == item.id {
+            queueItems.remove(at: index)
+            return
+        }
+        queueItems.removeAll { $0.id == item.id }
+    }
+
     private var resolvedQueueContext: String? {
         let queueContext = queueContext?.trimmingCharacters(in: .whitespacesAndNewlines)
         if queueContext?.isEmpty == false {
@@ -1167,6 +1231,48 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         }
         playAskDJBeatConfirmHaptic()
         appendDiagnosticLog("Ask DJ beat confirm")
+    }
+
+    private static func hasMeaningfulPlaybackSnapshot(_ playback: DJConnectPlayback) -> Bool {
+        playback.hasPlayback != nil
+            || playback.isPlaying != nil
+            || playback.trackName?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
+            || playback.artistName?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
+            || playback.albumImageURL != nil
+            || playback.progressMS != nil
+            || playback.durationMS != nil
+            || playback.volumePercent != nil
+            || playback.shuffle != nil
+            || playback.repeatState != nil
+            || playback.device != nil
+            || playback.contextURI?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
+    }
+
+    private static func shouldRefreshPlaybackAfterCommand(_ command: String) -> Bool {
+        switch command {
+        case "play", "pause", "next", "previous", "set_output", "start_playlist", "start_liked_proxy", "play_context_at":
+            true
+        default:
+            false
+        }
+    }
+
+    private static func shouldRefreshPlaybackAgainAfterCommand(_ command: String) -> Bool {
+        switch command {
+        case "play", "pause", "next", "previous", "play_context_at":
+            true
+        default:
+            false
+        }
+    }
+
+    private static func shouldDeferPlaybackSnapshotUntilRefresh(_ command: String) -> Bool {
+        switch command {
+        case "next", "previous":
+            true
+        default:
+            false
+        }
     }
 
     private func playAskDJBeatConfirmHaptic() {
@@ -1536,7 +1642,10 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         guard !isDemoMode, !monkeyTestingMode else {
             return
         }
-        localDeviceAPI?.stop()
+        if localDeviceAPI != nil {
+            updateBonjourAdvertisingState()
+            return
+        }
         localDeviceAPI = DJConnectLocalDeviceAPI(
             infoProvider: { [weak self] in
                 if let self {
@@ -1917,9 +2026,11 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
                 return
             }
             do {
+                #if !targetEnvironment(simulator)
                 let session = AVAudioSession.sharedInstance()
                 try session.setCategory(.playAndRecord, mode: .spokenAudio)
                 try session.setActive(true)
+                #endif
 
                 let url = FileManager.default.temporaryDirectory
                     .appendingPathComponent("djconnect-watch-\(UUID().uuidString)")
@@ -1976,13 +2087,16 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         recorder = nil
         let url = recordingURL
         recordingURL = nil
-        voiceState = .processing
-        statusMessage = "Verwerken..."
         playVoiceHaptic(.stopListening)
 
         Task {
+            await Task.yield()
+            voiceState = .processing
+            statusMessage = "Verwerken..."
             defer {
+                #if !targetEnvironment(simulator)
                 try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+                #endif
                 if let url {
                     try? FileManager.default.removeItem(at: url)
                 }
@@ -2038,7 +2152,9 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
             voiceState = .idle
             statusMessage = reason
         }
+        #if !targetEnvironment(simulator)
         try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+        #endif
     }
 
     private func applyAskDJTrim(_ trimmedBefore: Date?, to messages: inout [DJConnectWatchAskDJMessage]) {

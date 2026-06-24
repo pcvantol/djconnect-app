@@ -240,6 +240,7 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
+    defaults.set(true, forKey: "DJConnectWelcomeSeen")
     defaults.set("http://192.168.1.104:55046", forKey: "DJConnectLocalDeviceAPIURL")
     let tokenStore = DJConnectInMemoryTokenStore(token: "stale-token")
     let model = DJConnectAppModel(defaults: defaults, tokenStore: tokenStore, startLocalAPI: false, startBackgroundTasks: false)
@@ -717,6 +718,8 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
         {
           "id": "server-user-message-id",
           "client_message_id": "client-message-1",
+          "exchange_id": "exchange-1",
+          "exchange_order": 0,
           "role": "user",
           "text": "Welke albums bracht deze artiest uit?",
           "created_at": "2026-06-19T12:34:56Z",
@@ -726,6 +729,8 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
         },
         {
           "id": "server-assistant-message-id",
+          "exchange_id": "exchange-1",
+          "exchange_order": 1,
           "role": "assistant",
           "text": "Hier zijn een paar albums.",
           "created_at": "2026-06-19T12:34:58Z",
@@ -770,11 +775,15 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
     #expect(response.clearRevision == 7)
     #expect(response.serverTime != nil)
     #expect(userMessage.clientMessageID == "client-message-1")
+    #expect(userMessage.exchangeID == "exchange-1")
+    #expect(userMessage.exchangeOrder == 0)
     #expect(userMessage.role == .user)
     #expect(userMessage.messageKind == .assistant)
     #expect(userMessage.origin == nil)
     #expect(userMessage.clientType == .ios)
     #expect(assistantMessage.role == .assistant)
+    #expect(assistantMessage.exchangeID == "exchange-1")
+    #expect(assistantMessage.exchangeOrder == 1)
     #expect(assistantMessage.messageKind == .assistant)
     #expect(assistantMessage.origin == nil)
     #expect(assistantMessage.images.count == 1)
@@ -2232,8 +2241,8 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
         deviceID: "djconnect-watchos-8F3A2C91B45D",
         deviceName: "DJConnect Watch",
         clientType: .watchos,
-        firmware: "3.1.46",
-        appVersion: "3.1.46",
+        firmware: "3.1.47",
+        appVersion: "3.1.47",
         platform: .watchos
     )
     let info = DJConnectLocalDeviceAPIInfo(
@@ -2266,8 +2275,8 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
         deviceID: "djconnect-ios-8F3A2C91B45D",
         deviceName: "DJConnect iPhone",
         clientType: .ios,
-        firmware: "3.1.46",
-        appVersion: "3.1.46",
+        firmware: "3.1.47",
+        appVersion: "3.1.47",
         platform: .ios
     )
     let info = DJConnectLocalDeviceAPIInfo(
@@ -2297,6 +2306,9 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
     defaults.removePersistentDomain(forName: suiteName)
     let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startLocalAPI: false, startBackgroundTasks: false)
 
+    #expect(!model.isBonjourAdvertisingPreferredForTests)
+
+    model.dismissWelcome()
     #expect(model.isBonjourAdvertisingPreferredForTests)
 
     model.startDemoMode()
@@ -3229,6 +3241,67 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
     #expect(model.askDJMessages[1].clientMessageID == clientMessageID)
     #expect(model.askDJMessages[1].role == .dj)
     #expect(model.askDJMessages[1].text == "Ik zet Metallica - One voor je klaar.")
+}
+
+@MainActor
+@Test func askDJMessageExchangeOrderKeepsUserQuestionAboveAssistantAnswer() throws {
+    let suiteName = "DJConnectTests-\(UUID().uuidString)"
+    let defaults = try #require(UserDefaults(suiteName: suiteName))
+    defaults.removePersistentDomain(forName: suiteName)
+    let clientMessageID = "client-message-\(UUID().uuidString)"
+    let localUserID = UUID()
+    let localUserMessage = DJConnectAskDJMessage(
+        id: localUserID,
+        clientMessageID: clientMessageID,
+        role: .user,
+        text: "heb je playlists van snowpatrol",
+        status: .sending,
+        createdAt: Date(timeIntervalSince1970: 100)
+    )
+    let encodedMessages = try JSONEncoder().encode([localUserMessage])
+    defaults.set(encodedMessages, forKey: "DJConnectAskDJMessages")
+    let hydratedModel = DJConnectAppModel(
+        defaults: defaults,
+        tokenStore: DJConnectInMemoryTokenStore(),
+        startLocalAPI: false,
+        startBackgroundTasks: false
+    )
+    let serverUserMessage = DJConnectAskDJHistoryMessage(
+        id: "server-user-snowpatrol",
+        clientMessageID: clientMessageID,
+        exchangeID: "exchange-snowpatrol",
+        exchangeOrder: 0,
+        role: .user,
+        text: "heb je playlists van snowpatrol",
+        createdAt: Date(timeIntervalSince1970: 200)
+    )
+    let serverAssistantMessage = DJConnectAskDJHistoryMessage(
+        id: "server-assistant-snowpatrol",
+        clientMessageID: clientMessageID,
+        exchangeID: "exchange-snowpatrol",
+        exchangeOrder: 1,
+        role: .assistant,
+        text: "Zeker, ik kan een paar Snow Patrol playlists voorstellen.",
+        createdAt: Date(timeIntervalSince1970: 150)
+    )
+
+    hydratedModel.applyAskDJMessageResponse(DJConnectAskDJMessageResponse(
+        messages: [serverUserMessage, serverAssistantMessage],
+        historyRevision: 10
+    ), fallbackUserMessageID: localUserID)
+    hydratedModel.applyAskDJHistory(DJConnectAskDJHistoryResponse(
+        historyRevision: 11,
+        messages: [serverAssistantMessage, serverUserMessage]
+    ))
+
+    #expect(hydratedModel.askDJMessages.count == 2)
+    #expect(hydratedModel.askDJMessages[0].id == localUserID)
+    #expect(hydratedModel.askDJMessages[0].role == .user)
+    #expect(hydratedModel.askDJMessages[0].serverID == "server-user-snowpatrol")
+    #expect(hydratedModel.askDJMessages[0].exchangeOrder == 0)
+    #expect(hydratedModel.askDJMessages[1].role == .dj)
+    #expect(hydratedModel.askDJMessages[1].serverID == "server-assistant-snowpatrol")
+    #expect(hydratedModel.askDJMessages[1].exchangeOrder == 1)
 }
 
 @MainActor

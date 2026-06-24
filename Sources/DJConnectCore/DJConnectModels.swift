@@ -533,6 +533,8 @@ public struct DJConnectAskDJHistoryItem: Codable, Equatable, Sendable, Identifia
 public struct DJConnectAskDJHistoryMessage: Codable, Equatable, Identifiable, Sendable {
     public var id: String
     public var clientMessageID: String?
+    public var exchangeID: String?
+    public var exchangeOrder: Int?
     public var role: DJConnectAskDJHistoryRole
     public var messageKind: DJConnectAskDJMessageKind
     public var origin: String?
@@ -553,6 +555,8 @@ public struct DJConnectAskDJHistoryMessage: Codable, Equatable, Identifiable, Se
     enum CodingKeys: String, CodingKey {
         case id
         case clientMessageID = "client_message_id"
+        case exchangeID = "exchange_id"
+        case exchangeOrder = "exchange_order"
         case role
         case messageKind = "message_kind"
         case origin
@@ -579,6 +583,8 @@ public struct DJConnectAskDJHistoryMessage: Codable, Equatable, Identifiable, Se
     public init(
         id: String,
         clientMessageID: String? = nil,
+        exchangeID: String? = nil,
+        exchangeOrder: Int? = nil,
         role: DJConnectAskDJHistoryRole,
         messageKind: DJConnectAskDJMessageKind = .assistant,
         origin: String? = nil,
@@ -598,6 +604,8 @@ public struct DJConnectAskDJHistoryMessage: Codable, Equatable, Identifiable, Se
     ) {
         self.id = id
         self.clientMessageID = clientMessageID
+        self.exchangeID = exchangeID
+        self.exchangeOrder = exchangeOrder
         self.role = role
         self.messageKind = messageKind
         self.origin = origin
@@ -620,6 +628,8 @@ public struct DJConnectAskDJHistoryMessage: Codable, Equatable, Identifiable, Se
         let container = try decoder.container(keyedBy: CodingKeys.self)
         id = try container.decodeIfPresent(String.self, forKey: .id) ?? UUID().uuidString
         clientMessageID = try container.decodeIfPresent(String.self, forKey: .clientMessageID)
+        exchangeID = try container.decodeIfPresent(String.self, forKey: .exchangeID)
+        exchangeOrder = try container.decodeIfPresent(Int.self, forKey: .exchangeOrder)
         role = try container.decodeIfPresent(DJConnectAskDJHistoryRole.self, forKey: .role) ?? .assistant
         messageKind = try container.decodeIfPresent(DJConnectAskDJMessageKind.self, forKey: .messageKind) ?? .assistant
         origin = try container.decodeIfPresent(String.self, forKey: .origin)
@@ -651,6 +661,8 @@ public struct DJConnectAskDJHistoryMessage: Codable, Equatable, Identifiable, Se
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(id, forKey: .id)
         try container.encodeIfPresent(clientMessageID, forKey: .clientMessageID)
+        try container.encodeIfPresent(exchangeID, forKey: .exchangeID)
+        try container.encodeIfPresent(exchangeOrder, forKey: .exchangeOrder)
         try container.encode(role, forKey: .role)
         try container.encode(messageKind, forKey: .messageKind)
         try container.encodeIfPresent(origin, forKey: .origin)
@@ -777,6 +789,7 @@ public struct DJConnectAskDJClearHistoryRequest: Codable, Equatable, Sendable {
 public struct DJConnectAskDJMessageResponse: Codable, Equatable, Sendable {
     public var userMessage: DJConnectAskDJHistoryMessage?
     public var assistantMessage: DJConnectAskDJHistoryMessage?
+    public var messages: [DJConnectAskDJHistoryMessage]
     public var text: String?
     public var djText: String?
     public var message: String?
@@ -801,6 +814,7 @@ public struct DJConnectAskDJMessageResponse: Codable, Equatable, Sendable {
     enum CodingKeys: String, CodingKey {
         case userMessage = "user_message"
         case assistantMessage = "assistant_message"
+        case messages
         case text
         case djText = "dj_text"
         case message
@@ -832,6 +846,7 @@ public struct DJConnectAskDJMessageResponse: Codable, Equatable, Sendable {
     public init(
         userMessage: DJConnectAskDJHistoryMessage? = nil,
         assistantMessage: DJConnectAskDJHistoryMessage? = nil,
+        messages: [DJConnectAskDJHistoryMessage] = [],
         text: String? = nil,
         djText: String? = nil,
         message: String? = nil,
@@ -855,6 +870,7 @@ public struct DJConnectAskDJMessageResponse: Codable, Equatable, Sendable {
     ) {
         self.userMessage = userMessage
         self.assistantMessage = assistantMessage
+        self.messages = messages
         self.text = text
         self.djText = djText
         self.message = message
@@ -881,6 +897,7 @@ public struct DJConnectAskDJMessageResponse: Codable, Equatable, Sendable {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         userMessage = try container.decodeIfPresent(DJConnectAskDJHistoryMessage.self, forKey: .userMessage)
         assistantMessage = try container.decodeIfPresent(DJConnectAskDJHistoryMessage.self, forKey: .assistantMessage)
+        messages = try container.decodeIfPresent([DJConnectAskDJHistoryMessage].self, forKey: .messages) ?? []
         text = try container.decodeIfPresent(String.self, forKey: .text)
         djText = try container.decodeIfPresent(String.self, forKey: .djText)
         message = try container.decodeIfPresent(String.self, forKey: .message)
@@ -956,12 +973,16 @@ public struct DJConnectAskDJMessageResponse: Codable, Equatable, Sendable {
                 items: items ?? []
             )
         }
+        if messages.isEmpty {
+            messages = [userMessage, assistantMessage].compactMap { $0 }
+        }
     }
 
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encodeIfPresent(userMessage, forKey: .userMessage)
         try container.encodeIfPresent(assistantMessage, forKey: .assistantMessage)
+        try container.encode(messages, forKey: .messages)
         try container.encodeIfPresent(text, forKey: .text)
         try container.encodeIfPresent(djText, forKey: .djText)
         try container.encodeIfPresent(message, forKey: .message)

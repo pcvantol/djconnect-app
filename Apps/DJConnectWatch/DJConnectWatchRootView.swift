@@ -99,6 +99,16 @@ struct DJConnectWatchRootView: View {
             DJConnectWatchCanvas()
             ScrollView {
                 LazyVStack(spacing: 12) {
+                    Button {
+                        Task { await model.refreshStatus() }
+                    } label: {
+                        Label("Ververs", systemImage: "arrow.clockwise")
+                            .font(.caption2.weight(.semibold))
+                            .frame(maxWidth: .infinity, minHeight: 30)
+                    }
+                    .buttonStyle(DJConnectWatchGradientButtonStyle(kind: .secondary))
+                    .disabled(!model.canUseBackend)
+
                     nowPlaying
 
                     HStack(spacing: 12) {
@@ -249,11 +259,11 @@ struct DJConnectWatchRootView: View {
                 .padding(.horizontal, 4)
             }
         }
-        .task(id: model.canUseBackend) {
-            guard model.canUseBackend else {
-                return
-            }
-            await model.refreshStatus()
+        .task {
+            await model.refreshMainScreenStatusIfNeeded()
+        }
+        .onAppear {
+            Task { await model.refreshMainScreenStatusIfNeeded() }
         }
     }
 
@@ -343,7 +353,11 @@ struct DJConnectWatchRootView: View {
             moodCrownValue = Double(model.askDJMoodStepIndex)
         }
         .onChange(of: model.askDJMoodStepIndex) {
-            moodCrownValue = Double(model.askDJMoodStepIndex)
+            let nextValue = Double(model.askDJMoodStepIndex)
+            guard moodCrownValue != nextValue else {
+                return
+            }
+            moodCrownValue = nextValue
         }
         .onChange(of: moodCrownValue) {
             updateMoodFromCrown()
@@ -351,8 +365,8 @@ struct DJConnectWatchRootView: View {
         .accessibilityLabel("Mood")
         .accessibilityValue(model.askDJMoodLabel)
 
-        if !model.isDemoMode, isMoodControlFocused {
-            content.digitalCrownRotation(
+        content
+            .digitalCrownRotation(
                 $moodCrownValue,
                 from: 0,
                 through: 3,
@@ -361,15 +375,11 @@ struct DJConnectWatchRootView: View {
                 isContinuous: false,
                 isHapticFeedbackEnabled: false
             )
-        } else {
-            content
-        }
     }
 
     private func updateMoodFromCrown() {
         let nextIndex = max(0, min(model.askDJMoodSteps.count - 1, Int(moodCrownValue.rounded())))
         guard nextIndex != model.askDJMoodStepIndex else {
-            moodCrownValue = Double(nextIndex)
             return
         }
         model.setAskDJMoodStep(nextIndex)
@@ -757,32 +767,48 @@ private struct DJConnectWatchAboutView: View {
         ZStack {
             DJConnectWatchCanvas()
             ScrollView {
-                VStack(spacing: 10) {
+                VStack(alignment: .leading, spacing: 10) {
                     Image("LaunchIcon")
                         .resizable()
                         .scaledToFit()
                         .frame(width: 44, height: 44)
                         .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
                         .accessibilityHidden(true)
+                        .frame(maxWidth: .infinity)
 
                     Text("DJConnect")
                         .font(.headline.weight(.bold))
                         .foregroundStyle(.white)
+                        .frame(maxWidth: .infinity)
 
                     Text("Muziekbediening met karakter.")
                         .font(.caption2)
                         .foregroundStyle(.white.opacity(0.68))
                         .multilineTextAlignment(.center)
+                        .frame(maxWidth: .infinity)
 
-                    VStack(spacing: 7) {
+                    DJConnectWatchSettingsSection(title: "App") {
                         aboutRow("Versie", appVersion)
-                        aboutRow("Platform", "watchOS")
-                        aboutRow("Status", model.isDemoMode ? "Demo modus" : model.statusMessage)
-                        aboutRow("Website", "djconnect.dev")
+                        aboutRow("Apparaatnaam", model.identity.deviceName)
+                        aboutRow("Website", "https://djconnect.dev")
+                        aboutRow("Device ID", model.identity.deviceID)
                     }
-                    .padding(10)
-                    .background(DJConnectWatchPanel(cornerRadius: 12))
 
+                    DJConnectWatchSettingsSection(title: "Verbinding") {
+                        aboutRow("Home Assistant adres", model.haBaseURL)
+                        aboutRow(
+                            "Muziek",
+                            model.canUseBackend ? "Beschikbaar" : "Niet beschikbaar",
+                            foregroundStyle: model.canUseBackend ? Color.green : Color.red
+                        )
+                        if let localDeviceAPIURL = model.localDeviceAPIURL, !localDeviceAPIURL.isEmpty {
+                            aboutRow("Client adres", localDeviceAPIURL)
+                        }
+                    }
+
+                    DJConnectWatchSettingsSection(title: "Notices") {
+                        aboutRow("Copyright", "2026 Peter van Tol")
+                    }
                 }
                 .padding(.vertical, 10)
                 .padding(.horizontal, 6)
@@ -791,19 +817,21 @@ private struct DJConnectWatchAboutView: View {
         .navigationTitle("Over")
     }
 
-    private func aboutRow(_ title: String, _ value: String) -> some View {
-        HStack(alignment: .firstTextBaseline) {
+    private func aboutRow(_ title: String, _ value: String, foregroundStyle: Color = .white) -> some View {
+        VStack(alignment: .leading, spacing: 3) {
             Text(title)
                 .font(.caption2.weight(.semibold))
                 .foregroundStyle(.white.opacity(0.58))
-            Spacer(minLength: 8)
             Text(value)
                 .font(.caption2.weight(.semibold))
-                .foregroundStyle(.white)
-                .multilineTextAlignment(.trailing)
-                .lineLimit(2)
+                .foregroundStyle(foregroundStyle)
+                .multilineTextAlignment(.leading)
+                .lineLimit(3)
+                .fixedSize(horizontal: false, vertical: true)
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
+
 }
 
 private struct DJConnectWatchLegalView: View {
@@ -971,11 +999,11 @@ private struct DJConnectWatchSettingsView: View {
             DJConnectWatchCanvas()
             ScrollView {
                 VStack(alignment: .leading, spacing: 10) {
-                    DJConnectWatchSettingsSection(title: "Modus") {
-                        Text(model.isDemoMode ? "Demo modus actief" : "Normale modus")
-                            .font(.caption2)
-                            .foregroundStyle(.white.opacity(0.72))
-                        if model.isDemoMode {
+                    if model.isDemoMode {
+                        DJConnectWatchSettingsSection(title: "Modus") {
+                            Text("Demo modus actief")
+                                .font(.caption2)
+                                .foregroundStyle(.white.opacity(0.72))
                             Button {
                                 model.stopDemoMode()
                             } label: {
@@ -1040,12 +1068,15 @@ private struct DJConnectWatchSettingsView: View {
                         VStack(spacing: 6) {
                             ForEach(DJConnectWatchLogLevel.allCases) { level in
                                 Button {
-                                    model.setWatchLogLevel(level)
+                                    Task { @MainActor in
+                                        model.setWatchLogLevel(level)
+                                    }
                                 } label: {
                                     HStack(spacing: 8) {
-                                        Image(systemName: selectedLogLevel == level ? "checkmark.circle.fill" : "circle")
-                                            .font(.system(size: 14, weight: .semibold))
-                                            .foregroundStyle(selectedLogLevel == level ? watchAccentPurple : .white.opacity(0.46))
+                                        Text(selectedLogLevel == level ? "✓" : "")
+                                            .font(.caption2.weight(.bold))
+                                            .foregroundStyle(watchAccentPurple)
+                                            .frame(width: 14, alignment: .center)
                                         Text(level.title)
                                             .font(.caption2.weight(.semibold))
                                             .foregroundStyle(.white)
@@ -1120,7 +1151,7 @@ private struct DJConnectWatchLogsView: View {
     @State private var isShowingClearConfirmation = false
 
     var body: some View {
-        ZStack {
+        ZStack(alignment: .bottom) {
             DJConnectWatchCanvas()
             VStack(spacing: 8) {
                 if model.diagnosticLogLines.isEmpty {
@@ -1166,6 +1197,7 @@ private struct DJConnectWatchLogsView: View {
                             }
                             .padding(.vertical, 8)
                             .padding(.horizontal, 4)
+                            .padding(.bottom, 34)
                         }
                         .frame(maxHeight: .infinity)
                         .padding(.top, 18)
@@ -1181,22 +1213,19 @@ private struct DJConnectWatchLogsView: View {
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .padding(.bottom, 42)
+            .padding(.bottom, model.diagnosticLogLines.isEmpty ? 34 : 0)
 
-            VStack {
-                Spacer(minLength: 0)
-                Button(role: .destructive) {
-                    isShowingClearConfirmation = true
-                } label: {
-                    Label("Wis logs", systemImage: "trash")
-                        .font(.caption2.weight(.semibold))
-                        .frame(maxWidth: .infinity, minHeight: 30)
-                }
-                .buttonStyle(DJConnectWatchGradientButtonStyle(kind: .secondary))
-                .disabled(model.diagnosticLogLines.isEmpty)
-                .padding(.horizontal, 4)
-                .padding(.bottom, 2)
+            Button(role: .destructive) {
+                isShowingClearConfirmation = true
+            } label: {
+                Label("Wis logs", systemImage: "trash")
+                    .font(.caption2.weight(.semibold))
+                    .frame(maxWidth: .infinity, minHeight: 28)
             }
+            .buttonStyle(DJConnectWatchGradientButtonStyle(kind: .secondary))
+            .disabled(model.diagnosticLogLines.isEmpty)
+            .padding(.horizontal, 4)
+            .padding(.bottom, 0)
         }
         .navigationTitle("Logs")
         .alert("Logs wissen?", isPresented: $isShowingClearConfirmation) {
@@ -1229,6 +1258,16 @@ private struct DJConnectWatchOutputsView: View {
             DJConnectWatchCanvas()
             ScrollView {
                 LazyVStack(spacing: 8) {
+                    Button {
+                        Task { await model.loadOutputs() }
+                    } label: {
+                        Label(model.isLoadingOutputs ? "Ververs..." : "Ververs", systemImage: "arrow.clockwise")
+                            .font(.caption2.weight(.semibold))
+                            .frame(maxWidth: .infinity, minHeight: 30)
+                    }
+                    .buttonStyle(DJConnectWatchGradientButtonStyle(kind: .secondary))
+                    .disabled(model.isLoadingOutputs)
+
                     if model.isLoadingOutputs && model.availableOutputs.isEmpty {
                         ProgressView()
                             .tint(.white)
@@ -1264,16 +1303,6 @@ private struct DJConnectWatchOutputsView: View {
                             .disabled(model.isLoadingOutputs || model.loadingOutputID != nil)
                         }
                     }
-
-                    Button {
-                        Task { await model.loadOutputs() }
-                    } label: {
-                        Label(model.isLoadingOutputs ? "Ververs..." : "Ververs", systemImage: "arrow.clockwise")
-                            .font(.caption2.weight(.semibold))
-                            .frame(maxWidth: .infinity, minHeight: 30)
-                    }
-                    .buttonStyle(DJConnectWatchGradientButtonStyle(kind: .secondary))
-                    .disabled(model.isLoadingOutputs)
                 }
                 .padding(.vertical, 8)
                 .padding(.horizontal, 4)
@@ -1281,9 +1310,7 @@ private struct DJConnectWatchOutputsView: View {
         }
         .navigationTitle("Uitvoer")
         .task {
-            if model.availableOutputs.isEmpty {
-                await model.loadOutputs()
-            }
+            await model.loadOutputs()
         }
     }
 }
@@ -1365,6 +1392,16 @@ private struct DJConnectWatchPlaylistsView: View {
             DJConnectWatchCanvas()
             ScrollView {
                 LazyVStack(spacing: 8) {
+                    Button {
+                        Task { await model.loadPlaylists() }
+                    } label: {
+                        Label(model.isLoadingPlaylists ? "Ververs..." : "Ververs", systemImage: "arrow.clockwise")
+                            .font(.caption2.weight(.semibold))
+                            .frame(maxWidth: .infinity, minHeight: 30)
+                    }
+                    .buttonStyle(DJConnectWatchGradientButtonStyle(kind: .secondary))
+                    .disabled(model.isLoadingPlaylists)
+
                     if model.isLoadingPlaylists && model.playlistItems.isEmpty {
                         ProgressView()
                             .tint(.white)
@@ -1399,16 +1436,6 @@ private struct DJConnectWatchPlaylistsView: View {
                             .buttonStyle(.plain)
                         }
                     }
-
-                    Button {
-                        Task { await model.loadPlaylists() }
-                    } label: {
-                        Label(model.isLoadingPlaylists ? "Ververs..." : "Ververs", systemImage: "arrow.clockwise")
-                            .font(.caption2.weight(.semibold))
-                            .frame(maxWidth: .infinity, minHeight: 30)
-                    }
-                    .buttonStyle(DJConnectWatchGradientButtonStyle(kind: .secondary))
-                    .disabled(model.isLoadingPlaylists)
                 }
                 .padding(.vertical, 8)
                 .padding(.horizontal, 4)
@@ -1416,9 +1443,7 @@ private struct DJConnectWatchPlaylistsView: View {
         }
         .navigationTitle("Afspeellijsten")
         .task {
-            if model.playlistItems.isEmpty {
-                await model.loadPlaylists()
-            }
+            await model.loadPlaylists()
         }
     }
 }
@@ -1431,6 +1456,16 @@ private struct DJConnectWatchQueueView: View {
             DJConnectWatchCanvas()
             ScrollView {
                 LazyVStack(spacing: 8) {
+                    Button {
+                        Task { await model.loadQueue() }
+                    } label: {
+                        Label(model.isLoadingQueue ? "Ververs..." : "Ververs", systemImage: "arrow.clockwise")
+                            .font(.caption2.weight(.semibold))
+                            .frame(maxWidth: .infinity, minHeight: 30)
+                    }
+                    .buttonStyle(DJConnectWatchGradientButtonStyle(kind: .secondary))
+                    .disabled(model.isLoadingQueue)
+
                     if model.isLoadingQueue && model.queueItems.isEmpty {
                         ProgressView()
                             .tint(.white)
@@ -1467,16 +1502,6 @@ private struct DJConnectWatchQueueView: View {
                             .disabled(model.isLoadingQueue || model.loadingQueueItemIndex != nil || !model.canStartQueueItem(item))
                         }
                     }
-
-                    Button {
-                        Task { await model.loadQueue() }
-                    } label: {
-                        Label(model.isLoadingQueue ? "Ververs..." : "Ververs", systemImage: "arrow.clockwise")
-                            .font(.caption2.weight(.semibold))
-                            .frame(maxWidth: .infinity, minHeight: 30)
-                    }
-                    .buttonStyle(DJConnectWatchGradientButtonStyle(kind: .secondary))
-                    .disabled(model.isLoadingQueue)
                 }
                 .padding(.vertical, 8)
                 .padding(.horizontal, 4)
@@ -1484,9 +1509,7 @@ private struct DJConnectWatchQueueView: View {
         }
         .navigationTitle("Wachtrij")
         .task {
-            if model.queueItems.isEmpty {
-                await model.loadQueue()
-            }
+            await model.loadQueue()
         }
     }
 }
@@ -1636,6 +1659,7 @@ private struct DJConnectWatchArtwork: View {
 private struct DJConnectWatchAskDJChatView: View {
     @EnvironmentObject private var model: DJConnectWatchModel
     @State private var toast: String?
+    @State private var didInitialScrollToLatest = false
 
     var body: some View {
         ZStack {
@@ -1727,11 +1751,20 @@ private struct DJConnectWatchAskDJChatView: View {
                     .padding(.horizontal, 4)
                 }
                 .onChange(of: model.askDJScrollRequestID) {
-                    guard let lastID = model.transientAskDJMoodMessage?.id ?? model.askDJMessages.last?.id else {
+                    scrollToLatest(proxy, animated: true)
+                }
+                .onChange(of: model.isCheckingAskDJHistoryState) { _, isChecking in
+                    guard !isChecking else {
                         return
                     }
-                    withAnimation(.easeOut(duration: 0.2)) {
-                        proxy.scrollTo(lastID, anchor: .bottom)
+                    scrollToLatestOnce(proxy)
+                }
+                .onAppear {
+                    scrollToLatestOnce(proxy)
+                }
+                .onChange(of: model.askDJMessages.last?.id) {
+                    if !didInitialScrollToLatest {
+                        scrollToLatestOnce(proxy)
                     }
                 }
             }
@@ -1773,6 +1806,30 @@ private struct DJConnectWatchAskDJChatView: View {
         }
     }
 
+    private func scrollToLatestOnce(_ proxy: ScrollViewProxy) {
+        guard !didInitialScrollToLatest else {
+            return
+        }
+        didInitialScrollToLatest = true
+        scrollToLatest(proxy, animated: false)
+    }
+
+    private func scrollToLatest(_ proxy: ScrollViewProxy, animated: Bool) {
+        guard let lastID = model.transientAskDJMoodMessage?.id ?? model.askDJMessages.last?.id else {
+            didInitialScrollToLatest = false
+            return
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) {
+            if animated {
+                withAnimation(.easeOut(duration: 0.2)) {
+                    proxy.scrollTo(lastID, anchor: .bottom)
+                }
+            } else {
+                proxy.scrollTo(lastID, anchor: .bottom)
+            }
+        }
+    }
+
     private func showToast(_ text: String) {
         withAnimation(.easeOut(duration: 0.18)) {
             toast = text
@@ -1806,7 +1863,7 @@ private struct DJConnectWatchAskDJChatView: View {
         case .recording:
             return "stop.fill"
         case .processing:
-            return "hourglass"
+            return "mic.fill"
         case .idle, .failed:
             return "mic.fill"
         }
@@ -1817,7 +1874,7 @@ private struct DJConnectWatchAskDJChatView: View {
         case .recording:
             return .recording
         case .processing:
-            return .processing
+            return .primary
         case .idle, .failed:
             return .primary
         }
@@ -1839,106 +1896,136 @@ private struct DJConnectWatchAskDJBubble: View {
     var body: some View {
         HStack {
             if isUser {
-                Spacer(minLength: 18)
+                Spacer(minLength: bubbleHorizontalInset)
             }
-            VStack(alignment: .leading, spacing: 6) {
-                if isSystemMessage {
-                    HStack(spacing: 4) {
-                        Image(systemName: "sparkles")
-                        Text(message.origin == "spotify_playback_context" ? "DJ feitje" : "DJ notitie")
-                    }
-                    .font(.caption2.weight(.semibold))
-                    .foregroundStyle(.white.opacity(0.66))
-                    .lineLimit(1)
-                }
-                if !message.text.isEmpty {
-                    AskDJWatchRichText(text: message.text)
-                }
-                if !message.images.isEmpty {
-                    AskDJWatchImageStack(images: message.images)
-                }
-                if !message.links.isEmpty {
-                    AskDJWatchLinkStack(links: message.links)
-                }
-                if !isUser, !message.playbackActions.isEmpty {
-                    AskDJWatchPlaybackActionStack(
-                        actions: message.playbackActions,
-                        playingActionID: model.playingAskDJActionID,
-                        playAction: { action in
-                            Task { await model.playAskDJRecommendation(action) }
-                        }
-                    )
-                }
-                if !isUser, message.audioURL != nil {
-                    Button {
-                        if model.isPlayingAskDJAudio(message.audioURL) {
-                            model.stopAskDJAudio()
-                        } else {
-                            model.replayAskDJAudio(message.audioURL)
-                        }
-                    } label: {
-                        HStack(spacing: 5) {
-                            if model.isLoadingAskDJAudio(message.audioURL) {
-                                ProgressView()
-                                    .controlSize(.mini)
-                                    .tint(.white)
-                            } else {
-                                Image(systemName: model.isPlayingAskDJAudio(message.audioURL) ? "stop.fill" : "play.fill")
-                            }
-                            Text(model.isPlayingAskDJAudio(message.audioURL) ? "Stop audio" : "Speel audio")
-                        }
-                        .font(.caption2.weight(.semibold))
-                        .foregroundStyle(.white)
-                        .lineLimit(1)
-                    }
-                    .buttonStyle(.plain)
-                    .disabled(model.isLoadingAskDJAudio(message.audioURL))
-                    .padding(.horizontal, 7)
-                    .padding(.vertical, 6)
-                    .background {
-                        RoundedRectangle(cornerRadius: 9, style: .continuous)
-                            .fill(.white.opacity(0.13))
-                    }
-                }
-                Text(watchAskDJTimestamp(message.createdAt))
-                    .font(.caption2)
-                    .foregroundStyle(.white.opacity(0.48))
-            }
-            .padding(.horizontal, 9)
-            .padding(.vertical, 8)
-            .background {
-                if isUser {
-                    RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .fill(watchAccentBlue)
-                } else if isSystemMessage {
-                    RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .fill(
-                            LinearGradient(
-                                colors: [
-                                    watchAccentBlue.opacity(0.34),
-                                    watchAccentPurple.opacity(0.24),
-                                    .white.opacity(0.10)
-                                ],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                        )
-                } else {
-                    RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .fill(
-                            LinearGradient(
-                                colors: [watchAccentBlue, watchAccentPurple],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                        )
-                }
-            }
+            bubbleContent
+                .frame(maxWidth: bubbleMaxWidth, alignment: .leading)
             if !isUser {
-                Spacer(minLength: 18)
+                Spacer(minLength: bubbleHorizontalInset)
             }
         }
         .frame(maxWidth: .infinity, alignment: isUser ? .trailing : .leading)
+    }
+
+    private var bubbleContent: some View {
+        VStack(alignment: .leading, spacing: isSystemMessage ? 5 : 6) {
+            if isSystemMessage {
+                HStack(spacing: 4) {
+                    Image(systemName: "sparkles")
+                    Text(message.origin == "spotify_playback_context" ? "DJ feitje" : "DJ notitie")
+                }
+                .font(.caption2.weight(.semibold))
+                .foregroundStyle(.white.opacity(0.66))
+                .lineLimit(1)
+            }
+            if !message.text.isEmpty {
+                AskDJWatchRichText(text: message.text, compact: isSystemMessage)
+            }
+            if !message.images.isEmpty {
+                AskDJWatchImageStack(images: message.images)
+            }
+            if !message.links.isEmpty {
+                AskDJWatchLinkStack(links: message.links)
+            }
+            if !isUser, !message.playbackActions.isEmpty {
+                AskDJWatchPlaybackActionStack(
+                    actions: message.playbackActions,
+                    playingActionID: model.playingAskDJActionID,
+                    playAction: { action in
+                        Task { await model.playAskDJRecommendation(action) }
+                    }
+                )
+            }
+            if !isUser, message.audioURL != nil {
+                audioButton
+            }
+            Text(watchAskDJTimestamp(message.createdAt))
+                .font(.caption2)
+                .foregroundStyle(.white.opacity(0.48))
+        }
+        .padding(.horizontal, isSystemMessage ? 8 : 9)
+        .padding(.vertical, isSystemMessage ? 7 : 8)
+        .background {
+            bubbleBackground
+        }
+    }
+
+    private var audioButton: some View {
+        Button {
+            if model.isPlayingAskDJAudio(message.audioURL) {
+                model.stopAskDJAudio()
+            } else {
+                model.replayAskDJAudio(message.audioURL)
+            }
+        } label: {
+            HStack(spacing: 5) {
+                if model.isLoadingAskDJAudio(message.audioURL) {
+                    ProgressView()
+                        .controlSize(.mini)
+                        .tint(.white)
+                } else {
+                    Image(systemName: model.isPlayingAskDJAudio(message.audioURL) ? "stop.fill" : "play.fill")
+                }
+                Text(model.isPlayingAskDJAudio(message.audioURL) ? "Stop audio" : "Speel audio")
+            }
+            .font(.caption2.weight(.semibold))
+            .foregroundStyle(.white)
+            .lineLimit(1)
+        }
+        .buttonStyle(.plain)
+        .disabled(model.isLoadingAskDJAudio(message.audioURL))
+        .padding(.horizontal, 7)
+        .padding(.vertical, 6)
+        .background {
+            RoundedRectangle(cornerRadius: 9, style: .continuous)
+                .fill(.white.opacity(0.13))
+        }
+    }
+
+    @ViewBuilder
+    private var bubbleBackground: some View {
+        if isUser {
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .fill(watchAccentBlue)
+        } else if isSystemMessage {
+            RoundedRectangle(cornerRadius: 13, style: .continuous)
+                .fill(
+                    LinearGradient(
+                        colors: [
+                            watchAccentBlue.opacity(0.34),
+                            watchAccentPurple.opacity(0.24),
+                            .white.opacity(0.10)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+        } else {
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .fill(
+                    LinearGradient(
+                        colors: [watchAccentBlue, watchAccentPurple],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+        }
+    }
+
+    private var bubbleHorizontalInset: CGFloat {
+        let width = WKInterfaceDevice.current().screenBounds.width
+        if isSystemMessage {
+            return max(14, min(26, width * 0.10))
+        }
+        return max(14, min(22, width * 0.08))
+    }
+
+    private var bubbleMaxWidth: CGFloat {
+        let width = WKInterfaceDevice.current().screenBounds.width
+        if isSystemMessage {
+            return max(116, width - (bubbleHorizontalInset * 2) - 12)
+        }
+        return max(124, width - bubbleHorizontalInset - 10)
     }
 }
 
@@ -2065,41 +2152,49 @@ private struct AskDJWatchPlaybackActionStack: View {
 
 private struct AskDJWatchRichText: View {
     let text: String
+    var compact = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
+        VStack(alignment: .leading, spacing: compact ? 1 : 0) {
             ForEach(Array(Self.blocks(from: text).enumerated()), id: \.offset) { _, block in
                 switch block {
                 case let .heading(level, value):
                     Text(value)
-                        .font(level == 1 ? .caption.weight(.black) : .caption2.weight(.bold))
+                        .font(headingFont(level: level))
                         .foregroundStyle(.white)
                         .fixedSize(horizontal: false, vertical: true)
-                        .padding(.top, level == 1 ? 1 : 5)
-                        .padding(.bottom, 3)
+                        .padding(.top, compact ? 0 : (level == 1 ? 1 : 5))
+                        .padding(.bottom, compact ? 2 : 3)
                 case let .paragraph(value):
                     Text(value)
-                        .font(.caption)
+                        .font(compact ? .caption2 : .caption)
                         .foregroundStyle(.white)
                         .fixedSize(horizontal: false, vertical: true)
-                        .padding(.bottom, 4)
+                        .padding(.bottom, compact ? 3 : 4)
                 case let .bullet(value):
                     HStack(alignment: .firstTextBaseline, spacing: 5) {
                         Text("•")
-                            .font(.caption.weight(.bold))
+                            .font((compact ? Font.caption2 : Font.caption).weight(.bold))
                         Text(value)
-                            .font(.caption)
+                            .font(compact ? .caption2 : .caption)
                             .fixedSize(horizontal: false, vertical: true)
                     }
                     .foregroundStyle(.white)
                     .padding(.leading, 5)
-                    .padding(.bottom, 4)
+                    .padding(.bottom, compact ? 3 : 4)
                 case .blank:
-                    Spacer(minLength: 6)
+                    Spacer(minLength: compact ? 4 : 6)
                 }
             }
         }
         .fixedSize(horizontal: false, vertical: true)
+    }
+
+    private func headingFont(level: Int) -> Font {
+        if compact {
+            return level == 1 ? .caption2.weight(.black) : .caption2.weight(.bold)
+        }
+        return level == 1 ? .caption.weight(.black) : .caption2.weight(.bold)
     }
 
     private enum Block {

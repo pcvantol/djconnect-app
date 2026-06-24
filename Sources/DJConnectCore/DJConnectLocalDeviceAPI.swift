@@ -217,6 +217,7 @@ public final class DJConnectLocalDeviceAPI: @unchecked Sendable {
     private var activeConnections: Set<Int32> = []
     #if os(watchOS)
     private var networkListener: NWListener?
+    private var isNetworkListenerStarting = false
     #else
     private var bonjourService: NetService?
     private lazy var bonjourDelegate = DJConnectLocalDeviceAPIBonjourDelegate(logHandler: logHandler)
@@ -258,6 +259,10 @@ public final class DJConnectLocalDeviceAPI: @unchecked Sendable {
         #if os(watchOS)
         queue.async { [weak self] in
             guard let self else { return }
+            guard self.networkListener == nil, !self.isNetworkListenerStarting else {
+                return
+            }
+            self.isNetworkListenerStarting = true
             self.listenerGeneration += 1
             let generation = self.listenerGeneration
             Task { await self.startNetworkListener(generation: generation) }
@@ -325,8 +330,10 @@ public final class DJConnectLocalDeviceAPI: @unchecked Sendable {
         queue.async { [weak self] in
             guard let self else { return }
             self.listenerGeneration += 1
+            self.stopBonjourService()
             self.networkListener?.cancel()
             self.networkListener = nil
+            self.isNetworkListenerStarting = false
             self.listenSocket = -1
             self.port = nil
             self.localURL = nil
@@ -442,11 +449,13 @@ public final class DJConnectLocalDeviceAPI: @unchecked Sendable {
     #if os(watchOS)
     private func startNetworkListener(generation: Int) async {
         guard networkListener == nil else {
+            isNetworkListenerStarting = false
             return
         }
         do {
             let info = await infoProvider()
             guard generation == listenerGeneration else {
+                isNetworkListenerStarting = false
                 return
             }
             let listenerPort = NWEndpoint.Port(rawValue: preferredPort ?? 0) ?? .any
@@ -455,6 +464,7 @@ public final class DJConnectLocalDeviceAPI: @unchecked Sendable {
             parameters.includePeerToPeer = true
             let listener = try NWListener(using: parameters, on: listenerPort)
             guard generation == listenerGeneration else {
+                isNetworkListenerStarting = false
                 listener.cancel()
                 return
             }
@@ -506,8 +516,10 @@ public final class DJConnectLocalDeviceAPI: @unchecked Sendable {
                 }
             }
             networkListener = listener
+            isNetworkListenerStarting = false
             listener.start(queue: queue)
         } catch {
+            isNetworkListenerStarting = false
             await logHandler("Local device API could not start Network listener: \(error.localizedDescription)")
         }
     }

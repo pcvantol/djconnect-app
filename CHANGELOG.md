@@ -4,6 +4,40 @@ All notable changes to DJConnect App are documented here.
 
 ## Unreleased
 
+## 3.1.47 - 2026-06-24
+
+### Added
+
+- Added the interactive first-run onboarding tour across iOS, macOS, and
+  watchOS with tappable feature highlights for Now Playing, Ask DJ, Queue,
+  settings, and Mini-games.
+- Added watchOS top refresh controls for Now Playing, output devices, playlists,
+  and queue, with automatic refresh when opening those screens.
+
+### Changed
+
+- Updated watchOS Now Playing, queue, playlist, output, logs, About, settings,
+  and Ask DJ layouts for smaller watch screens and more reliable navigation.
+- Made watchOS playback commands refresh their playback snapshot after commands
+  so next/previous, queue item starts, output changes, and volume updates stay in
+  sync with Spotify/Home Assistant.
+- Simplified Ask DJ confirmation actions to direct "Ja graag" and "Nee dank je"
+  buttons without media-card styling.
+
+### Fixed
+
+- Fixed Ask DJ chat ordering for the server-side message exchange contract by
+  respecting `exchange_id` and `exchange_order` while deduplicating HTTP,
+  push, and history sync updates.
+- Fixed watchOS mDNS/local API lifecycle churn that could leave duplicate
+  listeners or drive high CPU and memory usage.
+- Fixed watchOS queue context retention and automatic queue refresh after
+  starting an item from the queue.
+- Fixed watchOS voice recording and log level crashes on simulator/watchOS by
+  avoiding unstable render/audio state transitions.
+- Fixed log rendering, selection, search dismissal, and focus styling so logs
+  remain selectable and easier to inspect.
+
 ## 3.1.46 - 2026-06-23
 
 ### Changed

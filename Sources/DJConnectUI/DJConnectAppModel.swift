@@ -137,6 +137,8 @@ public struct DJConnectAskDJMessage: Identifiable, Codable, Equatable, Sendable 
     public var id: UUID
     public var serverID: String?
     public var clientMessageID: String?
+    public var exchangeID: String?
+    public var exchangeOrder: Int?
     public var role: DJConnectAskDJMessageRole
     public var messageKind: DJConnectAskDJLocalMessageKind
     public var origin: String?
@@ -154,6 +156,8 @@ public struct DJConnectAskDJMessage: Identifiable, Codable, Equatable, Sendable 
         id: UUID = UUID(),
         serverID: String? = nil,
         clientMessageID: String? = nil,
+        exchangeID: String? = nil,
+        exchangeOrder: Int? = nil,
         role: DJConnectAskDJMessageRole,
         messageKind: DJConnectAskDJLocalMessageKind = .assistant,
         origin: String? = nil,
@@ -170,6 +174,8 @@ public struct DJConnectAskDJMessage: Identifiable, Codable, Equatable, Sendable 
         self.id = id
         self.serverID = serverID
         self.clientMessageID = clientMessageID
+        self.exchangeID = exchangeID
+        self.exchangeOrder = exchangeOrder
         self.role = role
         self.messageKind = messageKind
         self.origin = origin
@@ -188,6 +194,8 @@ public struct DJConnectAskDJMessage: Identifiable, Codable, Equatable, Sendable 
         case id
         case serverID = "server_id"
         case clientMessageID = "client_message_id"
+        case exchangeID = "exchange_id"
+        case exchangeOrder = "exchange_order"
         case role
         case messageKind = "message_kind"
         case origin
@@ -207,6 +215,8 @@ public struct DJConnectAskDJMessage: Identifiable, Codable, Equatable, Sendable 
         id = try container.decodeIfPresent(UUID.self, forKey: .id) ?? UUID()
         serverID = try container.decodeIfPresent(String.self, forKey: .serverID)
         clientMessageID = try container.decodeIfPresent(String.self, forKey: .clientMessageID)
+        exchangeID = try container.decodeIfPresent(String.self, forKey: .exchangeID)
+        exchangeOrder = try container.decodeIfPresent(Int.self, forKey: .exchangeOrder)
         role = try container.decode(DJConnectAskDJMessageRole.self, forKey: .role)
         messageKind = try container.decodeIfPresent(DJConnectAskDJLocalMessageKind.self, forKey: .messageKind) ?? .assistant
         origin = try container.decodeIfPresent(String.self, forKey: .origin)
@@ -226,6 +236,8 @@ public struct DJConnectAskDJMessage: Identifiable, Codable, Equatable, Sendable 
         try container.encode(id, forKey: .id)
         try container.encodeIfPresent(serverID, forKey: .serverID)
         try container.encodeIfPresent(clientMessageID, forKey: .clientMessageID)
+        try container.encodeIfPresent(exchangeID, forKey: .exchangeID)
+        try container.encodeIfPresent(exchangeOrder, forKey: .exchangeOrder)
         try container.encode(role, forKey: .role)
         try container.encode(messageKind, forKey: .messageKind)
         try container.encodeIfPresent(origin, forKey: .origin)
@@ -352,7 +364,9 @@ public final class DJConnectAppModel: ObservableObject {
     @Published public private(set) var localNetworkPermissionStatus: DJConnectPermissionStatus = .unknown
     @Published public private(set) var isRequestingPermissions = false
     @Published public var isShowingPermissionExplanation = false
-    @Published public var isShowingWelcome = false
+    @Published public var isShowingWelcome = false {
+        didSet { updateBonjourAdvertisingState() }
+    }
     @Published public var isShowingCrashReportPrompt = false
     @Published public var isShowingWakeWordActivationPrompt = false
     @Published public var isShowingTokenStorageError = false
@@ -412,7 +426,7 @@ public final class DJConnectAppModel: ObservableObject {
     private let startBackgroundTasks: Bool
     private let monkeyTestingMode: Bool
     private let diagnosticLogFileURL: URL?
-    private static let protocolVersion = "3.1.46"
+    private static let protocolVersion = "3.1.47"
     private static let defaultHomeAssistantURL = "http://homeassistant.local:8123"
     private let appVersion = DJConnectAppModel.protocolVersion
     private let installIDKey = "DJConnectInstallID"
@@ -3040,6 +3054,8 @@ public final class DJConnectAppModel: ObservableObject {
         text: String,
         serverID: String? = nil,
         clientMessageID: String? = nil,
+        exchangeID: String? = nil,
+        exchangeOrder: Int? = nil,
         messageKind: DJConnectAskDJLocalMessageKind = .assistant,
         origin: String? = nil,
         images: [DJConnectResponseImage] = [],
@@ -3055,6 +3071,8 @@ public final class DJConnectAppModel: ObservableObject {
         let message = DJConnectAskDJMessage(
             serverID: serverID,
             clientMessageID: clientMessageID,
+            exchangeID: exchangeID,
+            exchangeOrder: exchangeOrder ?? (role == .user && clientMessageID != nil ? 0 : nil),
             role: role,
             messageKind: role == .user ? .assistant : messageKind,
             origin: role == .user ? nil : origin,
@@ -3141,13 +3159,28 @@ public final class DJConnectAppModel: ObservableObject {
 
     func applyAskDJMessageResponse(_ response: DJConnectAskDJMessageResponse, fallbackUserMessageID: UUID?) {
         var nextMessages = askDJMessages
-        if let userMessage = response.userMessage {
-            upsertAskDJHistoryMessage(userMessage, into: &nextMessages, fallbackID: fallbackUserMessageID)
-        } else if let fallbackUserMessageID {
-            updateAskDJMessageStatus(id: fallbackUserMessageID, status: .delivered, in: &nextMessages)
-        }
-        if let assistantMessage = response.assistantMessage {
-            upsertAskDJHistoryMessage(assistantMessage, into: &nextMessages, fallbackID: nil)
+        if response.messages.isEmpty {
+            if let userMessage = response.userMessage {
+                upsertAskDJHistoryMessage(userMessage, into: &nextMessages, fallbackID: fallbackUserMessageID)
+            } else if let fallbackUserMessageID {
+                updateAskDJMessageStatus(id: fallbackUserMessageID, status: .delivered, in: &nextMessages)
+            }
+            if let assistantMessage = response.assistantMessage {
+                upsertAskDJHistoryMessage(assistantMessage, into: &nextMessages, fallbackID: nil)
+            }
+        } else {
+            var usedFallbackUserID = false
+            for message in response.messages {
+                let role: DJConnectAskDJMessageRole = message.role == .user ? .user : .dj
+                let fallbackID = !usedFallbackUserID && role == .user ? fallbackUserMessageID : nil
+                upsertAskDJHistoryMessage(message, into: &nextMessages, fallbackID: fallbackID)
+                if fallbackID != nil {
+                    usedFallbackUserID = true
+                }
+            }
+            if !usedFallbackUserID, let fallbackUserMessageID {
+                updateAskDJMessageStatus(id: fallbackUserMessageID, status: .delivered, in: &nextMessages)
+            }
         }
         applyAskDJTrim(response.historyTrimmedBefore, to: &nextMessages)
         coalesceAskDJMessages(&nextMessages)
@@ -3188,6 +3221,13 @@ public final class DJConnectAppModel: ObservableObject {
                         && historyMessage.clientMessageID != nil
                         && localMessage.clientMessageID == historyMessage.clientMessageID
                 )
+                || (
+                    localMessage.role == role
+                        && historyMessage.exchangeID != nil
+                        && historyMessage.exchangeOrder != nil
+                        && localMessage.exchangeID == historyMessage.exchangeID
+                        && localMessage.exchangeOrder == historyMessage.exchangeOrder
+                )
         }
         let existing = existingIndex.map { messages[$0] }
         let mapped = makeAskDJMessage(from: historyMessage, existing: existing, fallbackID: fallbackID)
@@ -3212,6 +3252,8 @@ public final class DJConnectAppModel: ObservableObject {
             id: existing?.id ?? fallbackID ?? UUID(uuidString: historyMessage.id) ?? UUID(),
             serverID: historyMessage.id,
             clientMessageID: historyMessage.clientMessageID,
+            exchangeID: historyMessage.exchangeID,
+            exchangeOrder: historyMessage.exchangeOrder,
             role: role,
             messageKind: role == .user ? .assistant : messageKind,
             origin: role == .user ? nil : historyMessage.origin,
@@ -3308,6 +3350,12 @@ public final class DJConnectAppModel: ObservableObject {
         if merged.clientMessageID == nil {
             merged.clientMessageID = fallback.clientMessageID
         }
+        if merged.exchangeID == nil {
+            merged.exchangeID = fallback.exchangeID
+        }
+        if merged.exchangeOrder == nil {
+            merged.exchangeOrder = fallback.exchangeOrder
+        }
         if merged.audioURL == nil {
             merged.audioURL = fallback.audioURL
         }
@@ -3320,17 +3368,35 @@ public final class DJConnectAppModel: ObservableObject {
 
     private func sortedAskDJMessages(_ messages: [DJConnectAskDJMessage]) -> [DJConnectAskDJMessage] {
         messages.sorted { lhs, rhs in
+            if let lhsExchangeID = lhs.exchangeID,
+               let rhsExchangeID = rhs.exchangeID,
+               lhsExchangeID == rhsExchangeID {
+                if lhs.exchangeOrder != rhs.exchangeOrder {
+                    return (lhs.exchangeOrder ?? roleFallbackExchangeOrder(lhs)) < (rhs.exchangeOrder ?? roleFallbackExchangeOrder(rhs))
+                }
+                if lhs.role != rhs.role {
+                    return lhs.role == .user
+                }
+            }
+            if let lhsClientID = lhs.clientMessageID,
+               let rhsClientID = rhs.clientMessageID,
+               !lhsClientID.isEmpty,
+               lhsClientID == rhsClientID,
+               lhs.role != rhs.role {
+                return lhs.role == .user
+            }
             if lhs.createdAt != rhs.createdAt {
                 return lhs.createdAt < rhs.createdAt
             }
             if lhs.clientMessageID != rhs.clientMessageID {
                 return (lhs.clientMessageID ?? "") < (rhs.clientMessageID ?? "")
             }
-            if lhs.role != rhs.role {
-                return lhs.role == .user
-            }
             return lhs.id.uuidString < rhs.id.uuidString
         }
+    }
+
+    private func roleFallbackExchangeOrder(_ message: DJConnectAskDJMessage) -> Int {
+        message.role == .user ? 0 : 1
     }
 
     private func notifyAskDJResponse(_ text: String) {
@@ -4541,7 +4607,7 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     private var shouldAdvertiseBonjour: Bool {
-        !isDemoMode && pairingStatus != .paired
+        !isDemoMode && !isShowingWelcome && pairingStatus != .paired
     }
 
     var isBonjourAdvertisingPreferredForTests: Bool {
@@ -4581,8 +4647,8 @@ public final class DJConnectAppModel: ObservableObject {
             deviceID: "djconnect-macos-unavailable",
             deviceName: "DJConnect Mac",
             clientType: .macos,
-            firmware: "3.1.46",
-            appVersion: "3.1.46",
+            firmware: "3.1.47",
+            appVersion: "3.1.47",
             platform: .macos
         )
         #else
@@ -4590,8 +4656,8 @@ public final class DJConnectAppModel: ObservableObject {
             deviceID: "djconnect-ios-unavailable",
             deviceName: "DJConnect iPhone",
             clientType: .ios,
-            firmware: "3.1.46",
-            appVersion: "3.1.46",
+            firmware: "3.1.47",
+            appVersion: "3.1.47",
             platform: .ios
         )
         #endif
