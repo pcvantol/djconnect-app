@@ -3595,7 +3595,7 @@ private struct AskDJView: View {
 
                     askDJMoodToolbarButton
                 }
-                ToolbarItem(placement: .topBarTrailing) {
+                ToolbarItemGroup(placement: .topBarTrailing) {
                     Button {
                         isInputFocused = false
                         showingClearConfirmation = true
@@ -3606,6 +3606,18 @@ private struct AskDJView: View {
                     .disabled(model.askDJMessages.isEmpty || model.isClearingAskDJHistory)
                     .help(localized(model.language, "Clear chat", "Chat wissen"))
                     .accessibilityLabel(localized(model.language, "Clear chat", "Chat wissen"))
+
+                    Button {
+                        isInputFocused = false
+                        Task {
+                            await model.refreshAskDJHistory()
+                        }
+                    } label: {
+                        Image(systemName: "arrow.clockwise")
+                    }
+                    .disabled(model.isClearingAskDJHistory)
+                    .help(localized(model.language, "Refresh Ask DJ", "Ask DJ vernieuwen"))
+                    .accessibilityLabel(localized(model.language, "Refresh Ask DJ", "Ask DJ vernieuwen"))
                 }
                 #endif
             }
@@ -4126,8 +4138,8 @@ private struct AskDJMessageBubble: View {
                             AskDJMarkdownText(text: displayText, highlight: searchText)
                         }
                     }
-                    if isRecentlyPlayedHistoryMessage, !message.items.isEmpty {
-                        AskDJRecentHistoryList(items: message.items)
+                    if !isUser, !message.items.isEmpty {
+                        AskDJItemList(items: message.items)
                     }
                     if !message.images.isEmpty && !shouldAttachImagesToPlaybackActions && !isRecentlyPlayedHistoryMessage {
                         AskDJImageStrip(images: message.images)
@@ -4338,7 +4350,7 @@ private struct AskDJAudioReplayButton: View {
     }
 }
 
-private struct AskDJRecentHistoryList: View {
+private struct AskDJItemList: View {
     let items: [DJConnectAskDJHistoryItem]
 
     var body: some View {

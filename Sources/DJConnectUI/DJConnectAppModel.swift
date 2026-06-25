@@ -1724,10 +1724,6 @@ public final class DJConnectAppModel: ObservableObject {
         guard playingAskDJActionID == nil else {
             return
         }
-        if action.isOutputAction {
-            switchAskDJOutput(action)
-            return
-        }
         guard canUsePlaybackFeatures else {
             askDJErrorMessage = localized(
                 english: "Pair with Home Assistant before playing recommendations.",
@@ -1735,7 +1731,9 @@ public final class DJConnectAppModel: ObservableObject {
             )
             return
         }
-        guard action.uri?.isEmpty == false
+        guard action.command?.isEmpty == false
+            || action.isOutputAction
+            || action.uri?.isEmpty == false
             || action.contextURI?.isEmpty == false
             || !action.uris.isEmpty
             || action.responseValue?.isEmpty == false else {
@@ -1755,75 +1753,33 @@ public final class DJConnectAppModel: ObservableObject {
             do {
                 let response = try await playAskDJRecommendationWithFallback(action)
                 apply(commandResponse: response)
-                showAskDJToast(localized(english: "Playing recommendation", dutch: "Aanbeveling afspelen"))
+                guard response.success else {
+                    showAskDJToast(response.error ?? response.message ?? localized(
+                        english: "Action could not be completed",
+                        dutch: "Actie kon niet worden uitgevoerd"
+                    ))
+                    log(.warning, "Ask DJ action was rejected by Home Assistant")
+                    return
+                }
+                if action.isOutputAction, let outputDeviceID = action.outputDeviceID {
+                    markAskDJOutputActionActive(outputDeviceID)
+                    showAskDJToast(localized(
+                        english: "Output changed",
+                        dutch: "Uitvoer gewijzigd"
+                    ))
+                } else {
+                    showAskDJToast(localized(english: "Playing recommendation", dutch: "Aanbeveling afspelen"))
+                }
                 await refreshAfterDJResponse()
-                log(.info, "Ask DJ recommendation playback started")
+                log(.info, "Ask DJ action completed")
             } catch let error as DJConnectError {
                 askDJErrorMessage = askDJErrorText(for: error)
                 showAskDJToast(for: error)
-                log(.warning, "Ask DJ recommendation playback failed: \(Self.describe(error))")
+                log(.warning, "Ask DJ action failed: \(Self.describe(error))")
             } catch {
                 askDJErrorMessage = askDJUnavailableText()
                 showAskDJToast(localized(english: "Ask DJ is unreachable", dutch: "Ask DJ niet bereikbaar"))
-                log(.error, "Ask DJ recommendation playback failed unexpectedly: \(error.localizedDescription)")
-            }
-        }
-    }
-
-    private func switchAskDJOutput(_ action: DJConnectAskDJPlaybackAction) {
-        guard let outputDeviceID = action.outputDeviceID else {
-            showAskDJToast(localized(
-                english: "This output cannot be selected yet",
-                dutch: "Deze uitvoer kan nog niet worden geselecteerd"
-            ))
-            return
-        }
-        guard canUsePlaybackFeatures else {
-            askDJErrorMessage = localized(
-                english: "Pair with Home Assistant before changing output.",
-                dutch: "Koppel eerst met Home Assistant om de uitvoer te wijzigen."
-            )
-            return
-        }
-
-        playingAskDJActionID = action.id
-        askDJErrorMessage = nil
-        log(.info, "Sending Ask DJ output switch action")
-
-        Task {
-            defer { playingAskDJActionID = nil }
-            do {
-                let response = try await withHomeAssistantClient { client in
-                    try await client.sendCommandResponse(DJConnectCommandPayload(
-                        identity: identity,
-                        command: "set_output",
-                        value: .string(outputDeviceID)
-                    ))
-                }
-                guard response.success else {
-                    showAskDJToast(response.error ?? response.message ?? localized(
-                        english: "Output could not be changed",
-                        dutch: "Uitvoer kon niet worden gewijzigd"
-                    ))
-                    log(.warning, "Ask DJ output switch was rejected by Home Assistant")
-                    return
-                }
-                apply(commandResponse: response)
-                markAskDJOutputActionActive(outputDeviceID)
-                showAskDJToast(localized(
-                    english: "Output changed",
-                    dutch: "Uitvoer gewijzigd"
-                ))
-                await refreshAfterDJResponse()
-                log(.info, "Ask DJ output switch completed")
-            } catch let error as DJConnectError {
-                askDJErrorMessage = askDJErrorText(for: error)
-                showAskDJToast(for: error)
-                log(.warning, "Ask DJ output switch failed: \(Self.describe(error))")
-            } catch {
-                askDJErrorMessage = askDJUnavailableText()
-                showAskDJToast(localized(english: "Output could not be changed", dutch: "Uitvoer kon niet worden gewijzigd"))
-                log(.error, "Ask DJ output switch failed unexpectedly: \(error.localizedDescription)")
+                log(.error, "Ask DJ action failed unexpectedly: \(error.localizedDescription)")
             }
         }
     }
@@ -3008,6 +2964,9 @@ public final class DJConnectAppModel: ObservableObject {
         add(action.actionStyle, as: "action_style", to: &value)
         add(action.responseValue, as: "response_value", to: &value)
         add(action.buttonLabel, as: "button_label", to: &value)
+        if let actionValue = action.value {
+            value["value"] = actionValue
+        }
         return value
     }
 

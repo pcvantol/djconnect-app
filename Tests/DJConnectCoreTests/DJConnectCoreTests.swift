@@ -363,8 +363,9 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
     #expect(request.value(forHTTPHeaderField: "X-DJConnect-Client-ID") == nil)
     #expect(request.value(forHTTPHeaderField: "X-DJConnect-Device-ID") == identity.deviceID)
     #expect(request.value(forHTTPHeaderField: "Content-Type") == "application/json")
-    #expect(json?["client_id"] == nil)
+    #expect(json?["client_id"] as? String == identity.deviceID)
     #expect(json?["device_id"] as? String == identity.deviceID)
+    #expect(json?["device_name"] as? String == identity.deviceName)
     #expect(json?["client_type"] as? String == "macos")
     #expect(json?["command"] as? String == "set_volume")
     #expect(json?["value"] as? Int == 35)
@@ -401,7 +402,9 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
     #expect(request.value(forHTTPHeaderField: "X-DJConnect-Device-ID") == identity.deviceID)
     #expect(request.value(forHTTPHeaderField: "Content-Type") == "application/json")
     #expect(json?["device_id"] as? String == identity.deviceID)
+    #expect(json?["device_name"] as? String == identity.deviceName)
     #expect(json?["client_type"] as? String == "ios")
+    #expect(json?["client_id"] as? String == identity.deviceID)
     #expect(json?["text"] as? String == "Speel iets rustigers")
     #expect(json?["mood"] as? Int == 20)
     #expect(json?["dj_style"] as? String == "warm_radio_dj")
@@ -439,6 +442,10 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
     #expect(request.url?.path == "/api/djconnect/ask_dj/message")
     #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer secret-token")
     #expect(request.value(forHTTPHeaderField: "X-DJConnect-Device-ID") == identity.deviceID)
+    #expect(json?["device_id"] as? String == identity.deviceID)
+    #expect(json?["device_name"] as? String == identity.deviceName)
+    #expect(json?["client_type"] as? String == "ios")
+    #expect(json?["client_id"] as? String == identity.deviceID)
     #expect(json?["client_message_id"] as? String == "client-message-1")
     #expect(json?["input_type"] as? String == "text")
     #expect(json?["text"] as? String == "Verras me met nieuwe muziek")
@@ -1162,6 +1169,42 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
     #expect(yesAction.actionStyle == "primary_confirmation")
 }
 
+@Test func askDJActionDecodesAndPreservesObjectValue() throws {
+    let json = """
+    {
+      "history_revision": 47,
+      "assistant_message": {
+        "id": "server-assistant-more-artist",
+        "role": "assistant",
+        "text": "Meer van Kebu?",
+        "created_at": "2026-06-19T12:36:30Z",
+        "playback_actions": [
+          {
+            "id": "more-kebu",
+            "title": "Meer van Kebu",
+            "kind": "artist",
+            "command": "ask_dj_message",
+            "value": {
+              "text": "Meer van Kebu",
+              "artist": "Kebu"
+            }
+          }
+        ]
+      }
+    }
+    """.data(using: .utf8)!
+
+    let response = try JSONDecoder().decode(DJConnectAskDJMessageResponse.self, from: json)
+    let action = try #require(response.assistantMessage?.playbackActions.first)
+
+    #expect(action.command == "ask_dj_message")
+    #expect(action.responseValue == "Meer van Kebu")
+    #expect(action.value == .object([
+        "text": .string("Meer van Kebu"),
+        "artist": .string("Kebu")
+    ]))
+}
+
 @Test func askDJMessageResponsePrefersAssistantMessageImages() throws {
     let json = """
     {
@@ -1539,7 +1582,7 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
     #expect(json["play"] as? Bool == false)
 }
 
-@Test func commandRequestSupportsAskDJOutputSwitchValue() throws {
+@Test func commandRequestForwardsAskDJOutputActionPayload() throws {
     let identity = DJConnectIdentity(
         deviceID: "djconnect-ios-8F3A2C91B45D",
         deviceName: "DJConnect iPhone",
@@ -1558,17 +1601,31 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
         DJConnectCommandPayload(
             identity: identity,
             command: "set_output",
-            value: .string("spotify-device-1")
+            value: .jsonObject([
+                "id": .string("output-action-1"),
+                "title": .string("Woonkamer"),
+                "kind": .string("output"),
+                "device_id": .string("spotify-device-1"),
+                "device_name": .string("Woonkamer"),
+                "command": .string("set_output"),
+                "response_value": .string("spotify-device-1"),
+                "memory_key": .string("djconnect_ios_8F3A2C91B45D")
+            ])
         )
     )
     let body = try #require(request.httpBody)
     let json = try #require(JSONSerialization.jsonObject(with: body) as? [String: Any])
+    let value = try #require(json["value"] as? [String: Any])
 
     #expect(request.url?.path == "/api/djconnect/command")
     #expect(json["command"] as? String == "set_output")
-    #expect(json["value"] as? String == "spotify-device-1")
+    #expect(value["kind"] as? String == "output")
+    #expect(value["device_id"] as? String == "spotify-device-1")
+    #expect(value["response_value"] as? String == "spotify-device-1")
     #expect(json["device_id"] as? String == identity.deviceID)
+    #expect(json["device_name"] as? String == identity.deviceName)
     #expect(json["client_type"] as? String == "ios")
+    #expect(json["client_id"] as? String == identity.deviceID)
     #expect(json["play"] == nil)
 }
 
@@ -2583,8 +2640,10 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
 
     #expect(request.url?.path == "/api/djconnect/voice")
     #expect(request.value(forHTTPHeaderField: "Content-Type") == "audio/wav")
-    #expect(request.value(forHTTPHeaderField: "X-DJConnect-Client-ID") == nil)
+    #expect(request.value(forHTTPHeaderField: "X-DJConnect-Client-ID") == identity.deviceID)
     #expect(request.value(forHTTPHeaderField: "X-DJConnect-Device-ID") == identity.deviceID)
+    #expect(request.value(forHTTPHeaderField: "X-DJConnect-Device-Name") == identity.deviceName)
+    #expect(request.value(forHTTPHeaderField: "X-DJConnect-Client-Type") == "ios")
     #expect(request.value(forHTTPHeaderField: "X-DJConnect-Mood") == "100")
     #expect(request.value(forHTTPHeaderField: "X-DJConnect-DJ-Style") == "warm_radio_dj")
     #expect(request.value(forHTTPHeaderField: "X-DJConnect-Memory-Key") == "djconnect-watchos-8F3A2C91B45D")

@@ -315,7 +315,9 @@ public struct DJConnectStatusPayload: Codable, Equatable, Sendable {
 
 public struct DJConnectCommandPayload: Codable, Equatable, Sendable {
     public var deviceID: String
+    public var deviceName: String
     public var clientType: DJConnectClientType
+    public var clientID: String
     public var command: String
     public var value: DJConnectCommandValue?
     public var play: Bool?
@@ -329,7 +331,9 @@ public struct DJConnectCommandPayload: Codable, Equatable, Sendable {
         limit: Int? = nil
     ) {
         self.deviceID = identity.deviceID
+        self.deviceName = identity.deviceName
         self.clientType = identity.clientType
+        self.clientID = identity.deviceID
         self.command = command
         self.value = value
         self.play = play
@@ -338,7 +342,9 @@ public struct DJConnectCommandPayload: Codable, Equatable, Sendable {
 
     enum CodingKeys: String, CodingKey {
         case deviceID = "device_id"
+        case deviceName = "device_name"
         case clientType = "client_type"
+        case clientID = "client_id"
         case command
         case value
         case play
@@ -354,7 +360,9 @@ public struct DJConnectAskDJRequest: Codable, Equatable, Sendable {
     }
 
     public var deviceID: String
+    public var deviceName: String
     public var clientType: DJConnectClientType
+    public var clientID: String
     public var clientMessageID: String?
     public var text: String
     public var inputType: String?
@@ -376,7 +384,9 @@ public struct DJConnectAskDJRequest: Codable, Equatable, Sendable {
         metadata: [String: String]? = nil
     ) {
         self.deviceID = identity.deviceID
+        self.deviceName = identity.deviceName
         self.clientType = identity.clientType
+        self.clientID = identity.deviceID
         self.clientMessageID = clientMessageID
         self.text = text
         self.inputType = inputType
@@ -389,7 +399,9 @@ public struct DJConnectAskDJRequest: Codable, Equatable, Sendable {
 
     enum CodingKeys: String, CodingKey {
         case deviceID = "device_id"
+        case deviceName = "device_name"
         case clientType = "client_type"
+        case clientID = "client_id"
         case clientMessageID = "client_message_id"
         case text
         case inputType = "input_type"
@@ -1345,6 +1357,7 @@ public struct DJConnectAskDJPlaybackAction: Codable, Equatable, Identifiable, Se
     public var actionStyle: String?
     public var responseValue: String?
     public var buttonLabel: String?
+    public var value: DJConnectJSONValue?
 
     enum CodingKeys: String, CodingKey {
         case id
@@ -1407,7 +1420,8 @@ public struct DJConnectAskDJPlaybackAction: Codable, Equatable, Identifiable, Se
         reason: String? = nil,
         actionStyle: String? = nil,
         responseValue: String? = nil,
-        buttonLabel: String? = nil
+        buttonLabel: String? = nil,
+        value: DJConnectJSONValue? = nil
     ) {
         self.title = title
         self.subtitle = subtitle
@@ -1425,6 +1439,7 @@ public struct DJConnectAskDJPlaybackAction: Codable, Equatable, Identifiable, Se
         self.actionStyle = actionStyle
         self.responseValue = responseValue
         self.buttonLabel = buttonLabel
+        self.value = value
         self.id = id ?? [deviceID, uri, contextURI, title].compactMap { $0 }.joined(separator: "|")
     }
 
@@ -1470,9 +1485,11 @@ public struct DJConnectAskDJPlaybackAction: Codable, Equatable, Identifiable, Se
         reason = try container.decodeIfPresent(String.self, forKey: .reason)
         actionStyle = try container.decodeIfPresent(String.self, forKey: .actionStyle)
             ?? container.decodeIfPresentIgnoringErrors(String.self, forKey: .actionStyleCamel)
+        value = try container.decodeIfPresent(DJConnectJSONValue.self, forKey: .value)
         responseValue = try container.decodeIfPresent(String.self, forKey: .responseValue)
             ?? container.decodeIfPresentIgnoringErrors(String.self, forKey: .responseValueCamel)
             ?? container.decodeIfPresentIgnoringErrors(String.self, forKey: .value)
+            ?? Self.stringValue(from: value, keys: ["response_value", "responseValue", "text", "prompt", "value"])
         buttonLabel = try container.decodeIfPresent(String.self, forKey: .buttonLabel)
             ?? container.decodeIfPresentIgnoringErrors(String.self, forKey: .buttonLabelCamel)
             ?? container.decodeIfPresentIgnoringErrors(String.self, forKey: .label)
@@ -1501,6 +1518,22 @@ public struct DJConnectAskDJPlaybackAction: Codable, Equatable, Identifiable, Se
         try container.encodeIfPresent(actionStyle, forKey: .actionStyle)
         try container.encodeIfPresent(responseValue, forKey: .responseValue)
         try container.encodeIfPresent(buttonLabel, forKey: .buttonLabel)
+        try container.encodeIfPresent(value, forKey: .value)
+    }
+
+    private static func stringValue(from value: DJConnectJSONValue?, keys: [String]) -> String? {
+        guard case let .object(object) = value else {
+            return nil
+        }
+        for key in keys {
+            if case let .string(candidate)? = object[key] {
+                let trimmed = candidate.trimmingCharacters(in: .whitespacesAndNewlines)
+                if !trimmed.isEmpty {
+                    return trimmed
+                }
+            }
+        }
+        return nil
     }
 
     public var isOutputAction: Bool {

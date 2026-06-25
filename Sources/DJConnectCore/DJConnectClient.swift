@@ -164,6 +164,9 @@ public final class DJConnectClient: Sendable {
         var request = try authenticatedRequest(path: "/api/djconnect/voice")
         request.httpMethod = "POST"
         request.setValue("audio/wav", forHTTPHeaderField: "Content-Type")
+        request.setValue(identity.clientType.rawValue, forHTTPHeaderField: "X-DJConnect-Client-Type")
+        request.setValue(identity.deviceName, forHTTPHeaderField: "X-DJConnect-Device-Name")
+        request.setValue(identity.deviceID, forHTTPHeaderField: "X-DJConnect-Client-ID")
         if let mood {
             request.setValue("\(max(0, min(100, mood)))", forHTTPHeaderField: "X-DJConnect-Mood")
         }
