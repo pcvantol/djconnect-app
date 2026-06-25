@@ -3209,6 +3209,7 @@ private struct AskDJView: View {
     @State private var selectedSearchResultIndex = 0
     @State private var isAskDJAtBottom = true
     @State private var askDJViewportHeight: CGFloat = 0
+    @State private var didScrollAskDJToInitialBottom = false
     @FocusState private var isInputFocused: Bool
     @FocusState private var isSearchFocused: Bool
 
@@ -3470,6 +3471,14 @@ private struct AskDJView: View {
                     }
                     .onChange(of: model.askDJMessages) {
                         normalizeAskDJSearchSelection()
+                        scrollAskDJToInitialBottomIfNeeded(proxy: proxy)
+                    }
+                    .onAppear {
+                        didScrollAskDJToInitialBottom = false
+                        scrollAskDJToInitialBottomIfNeeded(proxy: proxy)
+                    }
+                    .onDisappear {
+                        didScrollAskDJToInitialBottom = false
                     }
                     .onChange(of: model.askDJScrollRequestID) {
                         guard !isSearchVisible else {
@@ -3660,6 +3669,20 @@ private struct AskDJView: View {
         }
         withAnimation(.easeOut(duration: 0.22)) {
             proxy.scrollTo(activeSearchResultID, anchor: .center)
+        }
+    }
+
+    private func scrollAskDJToInitialBottomIfNeeded(proxy: ScrollViewProxy) {
+        guard !didScrollAskDJToInitialBottom else {
+            return
+        }
+        guard !isSearchVisible, let lastID = askDJTimelineMessages.last?.id else {
+            return
+        }
+        didScrollAskDJToInitialBottom = true
+        DispatchQueue.main.async {
+            isAskDJAtBottom = true
+            proxy.scrollTo(lastID, anchor: .bottom)
         }
     }
 
@@ -4397,7 +4420,9 @@ private struct AskDJPlaybackActionStack: View {
     }
 
     var body: some View {
-        if supportedActions.allSatisfy(\.isConfirmationAction) {
+        if supportedActions.allSatisfy(\.isOutputAction) {
+            outputActionRows
+        } else if supportedActions.allSatisfy(\.isConfirmationAction) {
             confirmationButtons
         } else {
             mediaActionCards
@@ -4446,6 +4471,80 @@ private struct AskDJPlaybackActionStack: View {
         VStack(alignment: .leading, spacing: 8) {
             ForEach(supportedActions) { action in
                 mediaActionCard(for: action)
+            }
+        }
+    }
+
+    private var outputActionRows: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            ForEach(supportedActions) { action in
+                HStack(spacing: 10) {
+                    outputIcon(isActive: action.isActiveOutputAction)
+                        .frame(width: 34, height: 34)
+
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(outputDisplayName(for: action))
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(.white)
+                            .lineLimit(2)
+                            .fixedSize(horizontal: false, vertical: true)
+                        Text(localized(language, "Speaker", "Speaker"))
+                            .font(.caption2.weight(.bold))
+                            .foregroundStyle(.white.opacity(0.62))
+                            .lineLimit(1)
+                    }
+                    .layoutPriority(1)
+
+                    Spacer(minLength: 8)
+
+                    Button {
+                        playAction(action)
+                    } label: {
+                        HStack(spacing: 6) {
+                            if playingActionID == action.id {
+                                ProgressView()
+                                    .controlSize(.small)
+                                    .tint(.white)
+                            } else if action.isActiveOutputAction {
+                                Image(systemName: "checkmark")
+                                    .font(.caption2.weight(.bold))
+                            }
+                            Text(buttonLabel(for: action))
+                                .font(.caption.weight(.bold))
+                                .lineLimit(1)
+                        }
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 11)
+                        .padding(.vertical, 7)
+                        .frame(minWidth: 82)
+                        .background {
+                            Capsule()
+                                .fill(
+                                    LinearGradient(
+                                        colors: [
+                                            Color(red: 0.06, green: 0.43, blue: 1.00),
+                                            Color(red: 0.84, green: 0.22, blue: 0.96)
+                                        ],
+                                        startPoint: .leading,
+                                        endPoint: .trailing
+                                    )
+                                )
+                        }
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(playingActionID != nil || action.isActiveOutputAction)
+                }
+                .padding(.horizontal, 10)
+                .padding(.vertical, 9)
+                .frame(maxWidth: 520, alignment: .leading)
+                .background {
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .fill(.white.opacity(0.10))
+                }
+                .overlay {
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .stroke(action.isActiveOutputAction ? Color.white.opacity(0.46) : .white.opacity(0.18), lineWidth: 1)
+                }
             }
         }
     }
@@ -4550,6 +4649,15 @@ private struct AskDJPlaybackActionStack: View {
         let candidate = action.subtitle?.isEmpty == false ? action.subtitle : action.reason
         let trimmed = candidate?.trimmingCharacters(in: .whitespacesAndNewlines)
         return trimmed?.isEmpty == false ? trimmed : nil
+    }
+
+    private func outputDisplayName(for action: DJConnectAskDJPlaybackAction) -> String {
+        for candidate in [action.deviceName, action.title, action.subtitle, action.outputDeviceID] {
+            if let trimmed = candidate?.trimmingCharacters(in: .whitespacesAndNewlines), !trimmed.isEmpty {
+                return trimmed
+            }
+        }
+        return localized(language, "Speaker", "Speaker")
     }
 
     private func buttonLabel(for action: DJConnectAskDJPlaybackAction) -> String {

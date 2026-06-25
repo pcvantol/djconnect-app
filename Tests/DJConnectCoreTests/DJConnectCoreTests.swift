@@ -2261,8 +2261,8 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
         deviceID: "djconnect-watchos-8F3A2C91B45D",
         deviceName: "DJConnect Watch",
         clientType: .watchos,
-        firmware: "3.1.48",
-        appVersion: "3.1.48",
+        firmware: "3.1.49",
+        appVersion: "3.1.49",
         platform: .watchos
     )
     let info = DJConnectLocalDeviceAPIInfo(
@@ -2295,8 +2295,8 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
         deviceID: "djconnect-ios-8F3A2C91B45D",
         deviceName: "DJConnect iPhone",
         clientType: .ios,
-        firmware: "3.1.48",
-        appVersion: "3.1.48",
+        firmware: "3.1.49",
+        appVersion: "3.1.49",
         platform: .ios
     )
     let info = DJConnectLocalDeviceAPIInfo(

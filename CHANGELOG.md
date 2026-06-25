@@ -4,6 +4,15 @@ All notable changes to DJConnect App are documented here.
 
 ## Unreleased
 
+## 3.1.49 - 2026-06-25
+
+### Changed
+
+- Ask DJ speaker/output responses now render as vertical rows with the speaker
+  name on the left and the active/activate button on the right.
+- Ask DJ now scrolls to the bottom when opening the chat history, including
+  after the first async history load.
+
 ## 3.1.48 - 2026-06-25
 
 ### Added
