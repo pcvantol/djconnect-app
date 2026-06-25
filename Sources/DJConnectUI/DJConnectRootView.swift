@@ -2557,7 +2557,7 @@ private struct IOSPlaybackSurface: View {
             HStack(spacing: 12) {
                 Image(systemName: "speaker.wave.1.fill")
                     .foregroundStyle(.secondary)
-                Slider(value: $model.volume, in: 0...60, step: 1) { editing in
+                Slider(value: $model.volume, in: 0...100, step: 1) { editing in
                     if !editing {
                         DJConnectHaptics.selection()
                         model.commitVolumeChange()
@@ -2573,6 +2573,22 @@ private struct IOSPlaybackSurface: View {
             HStack(spacing: 12) {
                 ShuffleModeButton(model: model)
                     .disabled(!canUsePlayback)
+
+                Button {
+                    DJConnectHaptics.selection()
+                    model.saveCurrentTrack()
+                } label: {
+                    if model.isSavingCurrentTrack {
+                        ProgressView()
+                            .controlSize(.small)
+                    } else {
+                        Image(systemName: "heart.fill")
+                    }
+                }
+                .buttonStyle(.bordered)
+                .help(localized(model.language, "Add to favorites", "Zet in favorieten"))
+                .accessibilityLabel(localized(model.language, "Add to favorites", "Zet in favorieten"))
+                .disabled(!canUsePlayback || model.isSavingCurrentTrack)
 
                 RepeatModeButton(model: model)
                     .disabled(!canUsePlayback)
@@ -2921,7 +2937,7 @@ struct PlaybackControlsView: View {
 
             HStack {
                 Image(systemName: "speaker.wave.1")
-                Slider(value: $model.volume, in: 0...60, step: 1) { editing in
+                Slider(value: $model.volume, in: 0...100, step: 1) { editing in
                     if !editing {
                         DJConnectHaptics.selection()
                         model.commitVolumeChange()
@@ -2937,6 +2953,22 @@ struct PlaybackControlsView: View {
             HStack {
                 ShuffleModeButton(model: model)
                     .disabled(!canUsePlayback)
+
+                Button {
+                    DJConnectHaptics.selection()
+                    model.saveCurrentTrack()
+                } label: {
+                    if model.isSavingCurrentTrack {
+                        ProgressView()
+                            .controlSize(.small)
+                    } else {
+                        Image(systemName: "heart.fill")
+                    }
+                }
+                .buttonStyle(.bordered)
+                .help(localized(model.language, "Add to favorites", "Zet in favorieten"))
+                .accessibilityLabel(localized(model.language, "Add to favorites", "Zet in favorieten"))
+                .disabled(!canUsePlayback || model.isSavingCurrentTrack)
 
                 RepeatModeButton(model: model)
                     .disabled(!canUsePlayback)
@@ -3230,6 +3262,7 @@ private struct AskDJView: View {
     @ObservedObject var model: DJConnectAppModel
     @State private var showingClearConfirmation = false
     @State private var selectedWebLink: DJConnectResponseLink?
+    @State private var feedbackMessage: DJConnectAskDJMessage?
     @State private var toast: String?
     @State private var isSearchVisible = false
     @State private var isMoodVisible = false
@@ -3387,6 +3420,7 @@ private struct AskDJView: View {
                                                 }
                                             },
                                             openLink: { selectedWebLink = $0 },
+                                            feedbackAction: { feedbackMessage = $0 },
                                             setPromptAction: { text in
                                                 guard !isAskDJHistoryStale else { return }
                                                 model.askDJDraft = text
@@ -3644,6 +3678,9 @@ private struct AskDJView: View {
         }
         .sheet(item: $selectedWebLink) { link in
             AskDJWebPreview(link: link, language: model.language)
+        }
+        .sheet(item: $feedbackMessage) { message in
+            AskDJFeedbackPromptView(model: model, message: message)
         }
             .onChange(of: model.askDJToast?.id) { _, _ in
                 guard let text = model.askDJToast?.text else {
@@ -4024,6 +4061,7 @@ private struct AskDJMessageBubble: View {
     let playAction: (DJConnectAskDJPlaybackAction) -> Void
     let audioAction: () -> Void
     let openLink: (DJConnectResponseLink) -> Void
+    let feedbackAction: (DJConnectAskDJMessage) -> Void
     let setPromptAction: (String) -> Void
 
     private var isUser: Bool {
@@ -4050,6 +4088,10 @@ private struct AskDJMessageBubble: View {
 
     private var canSetPrompt: Bool {
         !promptText.isEmpty
+    }
+
+    private var canReportFeedback: Bool {
+        !isUser && !isSystemMessage && !isStaleHistory
     }
 
     private var isVoiceRequestMessage: Bool {
@@ -4189,6 +4231,19 @@ private struct AskDJMessageBubble: View {
                         .foregroundStyle(.white.opacity(0.82))
                         .disabled(isRetryDisabled)
                     }
+                    if canReportFeedback {
+                        Button {
+                            DJConnectHaptics.selection()
+                            feedbackAction(message)
+                        } label: {
+                            Label(localized(language, "Feedback", "Feedback"), systemImage: "exclamationmark.bubble")
+                                .font(.caption2.weight(.semibold))
+                        }
+                        .buttonStyle(.plain)
+                        .foregroundStyle(.white.opacity(0.58))
+                        .help(localized(language, "Report this Ask DJ answer", "Meld dit Ask DJ antwoord"))
+                        .accessibilityLabel(localized(language, "Report this Ask DJ answer", "Meld dit Ask DJ antwoord"))
+                    }
                 }
                 .padding(.horizontal, 6)
             }
@@ -4206,6 +4261,14 @@ private struct AskDJMessageBubble: View {
                     setPromptAction(promptText)
                 } label: {
                     Label(localized(language, "Set in prompt", "Zet in prompt"), systemImage: "text.cursor")
+                }
+            }
+            if canReportFeedback {
+                Button {
+                    DJConnectHaptics.selection()
+                    feedbackAction(message)
+                } label: {
+                    Label(localized(language, "Report answer", "Meld antwoord"), systemImage: "exclamationmark.bubble")
                 }
             }
         }
@@ -4472,8 +4535,18 @@ private struct AskDJPlaybackActionStack: View {
             outputActionRows
         } else if supportedActions.allSatisfy(\.isConfirmationAction) {
             confirmationButtons
+        } else if supportedActions.allSatisfy(\.isSaveCurrentTrackControlAction) {
+            controlButtons
         } else {
             mediaActionCards
+        }
+    }
+
+    private var controlButtons: some View {
+        HStack(spacing: 10) {
+            ForEach(supportedActions) { action in
+                controlButton(for: action)
+            }
         }
     }
 
@@ -4518,9 +4591,56 @@ private struct AskDJPlaybackActionStack: View {
     private var mediaActionCards: some View {
         VStack(alignment: .leading, spacing: 8) {
             ForEach(supportedActions) { action in
-                mediaActionCard(for: action)
+                if action.isSaveCurrentTrackControlAction {
+                    controlButton(for: action)
+                } else {
+                    mediaActionCard(for: action)
+                }
             }
         }
+    }
+
+    private func controlButton(for action: DJConnectAskDJPlaybackAction) -> some View {
+        Button {
+            playAction(action)
+        } label: {
+            HStack(spacing: 7) {
+                if playingActionID == action.id {
+                    ProgressView()
+                        .controlSize(.small)
+                        .tint(.white)
+                } else if action.active == true {
+                    Image(systemName: "checkmark")
+                        .font(.caption2.weight(.bold))
+                } else {
+                    Image(systemName: "heart.fill")
+                        .font(.caption2.weight(.bold))
+                }
+                Text(buttonLabel(for: action))
+                    .font(.caption.weight(.bold))
+                    .lineLimit(1)
+            }
+            .foregroundStyle(.white)
+            .foregroundColor(.white)
+            .padding(.horizontal, 15)
+            .padding(.vertical, 9)
+            .frame(minWidth: 132)
+            .background {
+                Capsule()
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                Color(red: 0.06, green: 0.43, blue: 1.00),
+                                Color(red: 0.84, green: 0.22, blue: 0.96)
+                            ],
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        )
+                    )
+            }
+        }
+        .buttonStyle(.plain)
+        .disabled(playingActionID != nil || action.active == true)
     }
 
     private var outputActionRows: some View {
@@ -4681,6 +4801,9 @@ private struct AskDJPlaybackActionStack: View {
     }
 
     static func isSupportedAction(_ action: DJConnectAskDJPlaybackAction) -> Bool {
+        if action.isSaveCurrentTrackControlAction {
+            return true
+        }
         if action.isRecommendationAction {
             return true
         }
@@ -8263,6 +8386,118 @@ private struct PrivacyView: View {
         }
         .navigationTitle(localized(language, "Privacy", "Privacy"))
         .background(DJConnectCanvasBackground())
+    }
+}
+
+private struct AskDJFeedbackPromptView: View {
+    @ObservedObject var model: DJConnectAppModel
+    let message: DJConnectAskDJMessage
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.openURL) private var openURL
+    @State private var userNote = ""
+    @State private var issueBody = ""
+
+    var body: some View {
+        ZStack {
+            DJConnectCanvasBackground()
+            ScrollView {
+                VStack(alignment: .leading, spacing: 18) {
+                    AboutBanner()
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text(localized(model.language, "Report Ask DJ answer", "Ask DJ antwoord melden"))
+                            .font(.title.bold())
+                        Text(localized(
+                            model.language,
+                            "Create a GitHub issue draft with redacted Ask DJ context. Nothing is sent automatically.",
+                            "Maak een GitHub issue-concept met geredigeerde Ask DJ-context. Er wordt niets automatisch verstuurd."
+                        ))
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                    }
+
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text(localized(model.language, "What was wrong or missing?", "Wat klopte er niet of wat miste er?"))
+                            .font(.headline)
+                        TextEditor(text: $userNote)
+                            .font(.body)
+                            .frame(minHeight: 96)
+                            .scrollContentBackground(.hidden)
+                            .padding(10)
+                            .background(Color.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                            .overlay {
+                                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                    .stroke(Color.white.opacity(0.14), lineWidth: 1)
+                            }
+                    }
+
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            Text(localized(model.language, "GitHub draft context", "GitHub conceptcontext"))
+                                .font(.headline)
+                            Spacer()
+                            Button {
+                                refreshIssueBody()
+                            } label: {
+                                Label(localized(model.language, "Update", "Bijwerken"), systemImage: "arrow.clockwise")
+                                    .labelStyle(.iconOnly)
+                            }
+                            .buttonStyle(.borderless)
+                            .help(localized(model.language, "Update draft context", "Werk conceptcontext bij"))
+                        }
+                        Text(localized(
+                            model.language,
+                            "Review this text before opening GitHub. Remove anything you do not want to share.",
+                            "Controleer deze tekst voordat GitHub opent. Verwijder alles wat je niet wilt delen."
+                        ))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        TextEditor(text: $issueBody)
+                            .font(.system(.caption, design: .monospaced))
+                            .frame(minHeight: 260)
+                            .scrollContentBackground(.hidden)
+                            .padding(10)
+                            .background(Color.black.opacity(0.20), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                            .overlay {
+                                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                    .stroke(Color.white.opacity(0.12), lineWidth: 1)
+                            }
+                    }
+
+                    HStack(spacing: 12) {
+                        Button {
+                            if let url = model.askDJFeedbackIssueURL(for: message, body: issueBody) {
+                                openURL(url)
+                            }
+                            dismiss()
+                        } label: {
+                            Label(localized(model.language, "Open GitHub Draft", "Open GitHub concept"), systemImage: "arrow.up.right.square")
+                                .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(DJConnectLilacPillButtonStyle())
+                        .controlSize(.large)
+
+                        Button {
+                            dismiss()
+                        } label: {
+                            Text(localized(model.language, "Cancel", "Annuleren"))
+                                .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(DJConnectLilacPillButtonStyle())
+                        .controlSize(.large)
+                    }
+                }
+                .padding(28)
+                .frame(minWidth: 360, idealWidth: 960, maxWidth: 1_080)
+            }
+        }
+        .frame(minWidth: 760, idealWidth: 1_020, maxWidth: 1_160)
+        .onAppear {
+            refreshIssueBody()
+        }
+    }
+
+    private func refreshIssueBody() {
+        issueBody = model.askDJFeedbackIssueBody(for: message, userNote: userNote)
     }
 }
 

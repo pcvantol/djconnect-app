@@ -124,6 +124,19 @@ struct DJConnectWatchRootView: View {
 
                     volumeControl
 
+                    Button {
+                        Task { await model.saveCurrentTrack() }
+                    } label: {
+                        Label(
+                            model.isSavingCurrentTrack ? "Opslaan..." : "Zet in favorieten",
+                            systemImage: model.isSavingCurrentTrack ? "hourglass" : "heart.fill"
+                        )
+                        .font(.caption.weight(.semibold))
+                        .frame(maxWidth: .infinity, minHeight: 34)
+                    }
+                    .buttonStyle(DJConnectWatchGradientButtonStyle(kind: .secondary))
+                    .disabled(!model.canUseBackend || model.isSavingCurrentTrack)
+
                     NavigationLink {
                         DJConnectWatchOutputsView()
                     } label: {
@@ -412,19 +425,20 @@ struct DJConnectWatchRootView: View {
     }
 
     private var volumeControl: some View {
-        VStack(spacing: 5) {
+        let volumePercent = model.currentPlaybackVolumePercent
+        return VStack(spacing: 5) {
             HStack(spacing: 6) {
                 Image(systemName: "speaker.wave.2.fill")
                     .font(.caption2.weight(.bold))
                     .foregroundStyle(watchAccentBlue.opacity(0.92))
-                Slider(value: $model.volume, in: 0...60, step: 1) { editing in
+                Slider(value: $model.volume, in: 0...1, step: 0.01) { editing in
                     if !editing {
                         model.commitVolume()
                     }
                 }
                 .tint(watchAccentPurple)
-                .disabled(!model.canUseBackend || model.isRefreshingStatus)
-                Text("\(Int(model.volume.rounded()))%")
+                .disabled(!model.canUseBackend || model.isRefreshingStatus || volumePercent == nil)
+                Text(volumePercent.map { "\($0)%" } ?? "--")
                     .font(.caption2.monospacedDigit().weight(.semibold))
                     .foregroundStyle(.white.opacity(0.72))
                     .frame(width: 34, alignment: .trailing)
@@ -434,7 +448,7 @@ struct DJConnectWatchRootView: View {
         .padding(.horizontal, 9)
         .background(DJConnectWatchPanel(cornerRadius: 12))
         .accessibilityLabel("Volume")
-        .accessibilityValue("\(Int(model.volume.rounded())) procent")
+        .accessibilityValue(volumePercent.map { "\($0) procent" } ?? "Onbekend")
     }
 
     private var nowPlaying: some View {
@@ -989,6 +1003,7 @@ private struct DJConnectWatchFeedbackView: View {
 }
 
 private struct DJConnectWatchSettingsView: View {
+    @Environment(\.dismiss) private var dismiss
     @EnvironmentObject private var model: DJConnectWatchModel
     @State private var isShowingResetPairingConfirmation = false
 
@@ -1100,6 +1115,7 @@ private struct DJConnectWatchSettingsView: View {
             Button("Annuleer", role: .cancel) {}
             Button("Opnieuw koppelen", role: .destructive) {
                 model.resetPairing()
+                dismiss()
             }
         } message: {
             Text("Dit wist de lokale Watch-koppeling en opent het koppelscherm opnieuw.")
@@ -2056,7 +2072,10 @@ private struct AskDJWatchPlaybackActionStack: View {
                     playAction(action)
                 } label: {
                     HStack(spacing: 7) {
-                        if action.isOutputAction {
+                        if action.isSaveCurrentTrackControlAction {
+                            saveControlIcon(isComplete: action.active == true)
+                                .frame(width: 28, height: 28)
+                        } else if action.isOutputAction {
                             outputIcon(isActive: action.isActiveOutputAction)
                                 .frame(width: 28, height: 28)
                         } else if let imageURL = action.imageURL {
@@ -2097,11 +2116,14 @@ private struct AskDJWatchPlaybackActionStack: View {
                             ProgressView()
                                 .controlSize(.mini)
                                 .tint(.white)
+                        } else if action.isSaveCurrentTrackControlAction, action.active == true {
+                            Image(systemName: "checkmark")
+                                .font(.caption2.weight(.bold))
                         } else if action.isActiveOutputAction {
                             Image(systemName: "checkmark")
                                 .font(.caption2.weight(.bold))
                         } else {
-                            Image(systemName: action.isOutputAction ? "speaker.wave.2.fill" : "play.fill")
+                            Image(systemName: action.isSaveCurrentTrackControlAction ? "heart.fill" : (action.isOutputAction ? "speaker.wave.2.fill" : "play.fill"))
                                 .font(.caption2.weight(.bold))
                         }
                         Text(buttonLabel(for: action))
@@ -2117,12 +2139,15 @@ private struct AskDJWatchPlaybackActionStack: View {
                     }
                 }
                 .buttonStyle(.plain)
-                .disabled(playingActionID != nil)
+                .disabled(playingActionID != nil || action.active == true)
             }
         }
     }
 
     private static func isSupportedAction(_ action: DJConnectAskDJPlaybackAction) -> Bool {
+        if action.isSaveCurrentTrackControlAction {
+            return true
+        }
         if action.isWatchRecommendationAction {
             return true
         }
@@ -2161,6 +2186,16 @@ private struct AskDJWatchPlaybackActionStack: View {
             Image(systemName: isActive ? "checkmark.circle.fill" : "speaker.wave.2.fill")
                 .font(.caption2.weight(.bold))
                 .foregroundStyle(.white.opacity(isActive ? 0.95 : 0.72))
+        }
+    }
+
+    private func saveControlIcon(isComplete: Bool) -> some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 7, style: .continuous)
+                .fill(isComplete ? .white.opacity(0.24) : .white.opacity(0.14))
+            Image(systemName: isComplete ? "checkmark.circle.fill" : "heart.fill")
+                .font(.caption2.weight(.bold))
+                .foregroundStyle(.white.opacity(isComplete ? 0.95 : 0.72))
         }
     }
 }

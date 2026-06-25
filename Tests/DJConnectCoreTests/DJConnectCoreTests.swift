@@ -1406,6 +1406,109 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
     #expect(json?["limit"] as? Int == 100)
 }
 
+@Test func volumeNormalizerMapsNormalizedSliderToBackendPercent() {
+    #expect(DJConnectVolumeNormalizer.backendPercent(fromNormalized: 0.0) == 0)
+    #expect(DJConnectVolumeNormalizer.backendPercent(fromNormalized: 0.5) == 50)
+    #expect(DJConnectVolumeNormalizer.backendPercent(fromNormalized: 1.0) == 100)
+    #expect(DJConnectVolumeNormalizer.backendPercent(fromNormalized: -0.25) == 0)
+    #expect(DJConnectVolumeNormalizer.backendPercent(fromNormalized: 1.25) == 100)
+    #expect(DJConnectVolumeNormalizer.normalized(fromBackendPercent: 50) == 0.5)
+}
+
+@Test func invalidBackendVolumeIsUnavailable() {
+    #expect(DJConnectVolumeNormalizer.normalized(fromBackendPercent: nil) == nil)
+    #expect(DJConnectVolumeNormalizer.normalized(fromBackendPercent: -1) == nil)
+    #expect(DJConnectVolumeNormalizer.normalized(fromBackendPercent: 101) == nil)
+
+    let playback = DJConnectPlayback(
+        volumePercent: -1,
+        device: DJConnectPlaybackDevice(name: "Spotify", volumePercent: 150)
+    )
+    let sanitized = DJConnectVolumeNormalizer.sanitizedPlayback(playback)
+    #expect(sanitized?.volumePercent == nil)
+    #expect(sanitized?.device?.volumePercent == nil)
+}
+
+@Test func watchVolumeCommandUsesBackendSpotifyPercent() throws {
+    let identity = DJConnectIdentity(
+        deviceID: "djconnect-watchos-8F3A2C91B45D",
+        deviceName: "DJConnect Watch",
+        clientType: .watchos,
+        firmware: "3.1.50",
+        appVersion: "3.1.50",
+        platform: .watchos
+    )
+    let client = DJConnectClient(
+        baseURL: try #require(URL(string: "http://homeassistant.local:8123")),
+        identity: identity,
+        tokenStore: DJConnectInMemoryTokenStore(token: "secret-token")
+    )
+    let request = try client.commandRequest(
+        DJConnectCommandPayload(
+            identity: identity,
+            command: "set_volume",
+            value: .int(DJConnectVolumeNormalizer.backendPercent(fromNormalized: 0.5)),
+            play: true
+        )
+    )
+    let body = try #require(request.httpBody)
+    let json = try JSONSerialization.jsonObject(with: body) as? [String: Any]
+
+    #expect(json?["client_id"] as? String == identity.deviceID)
+    #expect(json?["device_id"] as? String == identity.deviceID)
+    #expect(json?["client_type"] as? String == "watchos")
+    #expect(json?["command"] as? String == "set_volume")
+    #expect(json?["value"] as? Int == 50)
+    #expect(json?["play"] as? Bool == true)
+}
+
+@Test func saveCurrentTrackCommandUsesDirectCommandPayload() throws {
+    let identity = DJConnectIdentity(
+        deviceID: "djconnect-watchos-8F3A2C91B45D",
+        deviceName: "DJConnect Watch",
+        clientType: .watchos,
+        firmware: "3.1.50",
+        appVersion: "3.1.50",
+        platform: .watchos
+    )
+    let client = DJConnectClient(
+        baseURL: try #require(URL(string: "http://homeassistant.local:8123")),
+        identity: identity,
+        tokenStore: DJConnectInMemoryTokenStore(token: "secret-token")
+    )
+    let request = try client.commandRequest(DJConnectCommandPayload(
+        identity: identity,
+        command: "save_current_track"
+    ))
+    let body = try #require(request.httpBody)
+    let json = try JSONSerialization.jsonObject(with: body) as? [String: Any]
+
+    #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer secret-token")
+    #expect(request.value(forHTTPHeaderField: "X-DJConnect-Device-ID") == identity.deviceID)
+    #expect(json?["device_id"] as? String == identity.deviceID)
+    #expect(json?["client_type"] as? String == "watchos")
+    #expect(json?["command"] as? String == "save_current_track")
+    #expect(json?["value"] == nil)
+}
+
+@Test func askDJSaveCurrentTrackControlActionIsRecognized() throws {
+    let json = """
+    {
+      "id": "fav-current",
+      "kind": "control",
+      "command": "save_current_track",
+      "title": "Favoriet",
+      "button_label": "Zet in favorieten"
+    }
+    """.data(using: .utf8)!
+
+    let action = try JSONDecoder().decode(DJConnectAskDJPlaybackAction.self, from: json)
+
+    #expect(action.isSaveCurrentTrackControlAction)
+    #expect(action.buttonLabel == "Zet in favorieten")
+    #expect(action.imageURL == nil)
+}
+
 @MainActor
 @Test func appCommandsUseSpotifySafeCollectionLimits() {
     #expect(DJConnectAppModel.commandLimit(for: "queue") == 100)

@@ -316,6 +316,7 @@ public final class DJConnectAppModel: ObservableObject {
     @Published public private(set) var isSendingAskDJText = false
     @Published public private(set) var isRequestingAskDJIdleSuggestion = false
     @Published public private(set) var playingAskDJActionID: String?
+    @Published public private(set) var isSavingCurrentTrack = false
     @Published public private(set) var isClearingAskDJHistory = false
     @Published public private(set) var isCheckingAskDJHistoryState = true
     @Published public var askDJErrorMessage: String?
@@ -473,7 +474,7 @@ public final class DJConnectAppModel: ObservableObject {
     public var volume: Double {
         get { Double(pendingVolumePercent ?? playback?.volumePercent ?? 0) }
         set {
-            let value = Int(newValue.rounded())
+            let value = DJConnectVolumeNormalizer.clampBackendPercent(Int(newValue.rounded()))
             pendingVolumePercent = value
             var updated = playback ?? DJConnectPlayback()
             updated.volumePercent = value
@@ -908,7 +909,12 @@ public final class DJConnectAppModel: ObservableObject {
             return
         }
         log(.debug, "App became active; scheduling playback refresh")
-        schedulePairedRefresh(reason: "Resume Now Playing refresh completed")
+        schedulePairedRefresh(
+            reason: "Resume Now Playing refresh completed",
+            allowThrottle: false,
+            refreshCollections: false,
+            runFollowUpRefresh: false
+        )
     }
 
     public func markInactiveSession() {
@@ -919,6 +925,12 @@ public final class DJConnectAppModel: ObservableObject {
         startupRefreshTask = nil
         backendRecoveryTask?.cancel()
         backendRecoveryTask = nil
+        volumeCommandTask?.cancel()
+        volumeCommandTask = nil
+        seekCommandTask?.cancel()
+        seekCommandTask = nil
+        pendingVolumePercent = nil
+        pendingSeekTargetMS = nil
         pausePairingWaitForBackgroundIfNeeded()
         playbackProgressTask?.cancel()
         playbackProgressTask = nil
@@ -927,7 +939,7 @@ public final class DJConnectAppModel: ObservableObject {
         stopWakeWordListening()
         stopLocalDeviceAPIForBackgroundIfNeeded()
         markCleanShutdown()
-        log(.debug, "App left foreground; paused wakeword, refresh tasks, local progress timer, Now Playing poll, and iOS local API when applicable")
+        log(.debug, "App left foreground; paused wakeword, pending refresh tasks, local progress timer, Now Playing poll, and iOS local API when applicable")
     }
 
     public func dismissCrashReportPrompt() {
@@ -1016,6 +1028,359 @@ public final class DJConnectAppModel: ObservableObject {
         ```
         """
     }
+
+    public func askDJFeedbackIssueURL(for message: DJConnectAskDJMessage, body: String? = nil) -> URL? {
+        var components = URLComponents(string: "https://github.com/pcvantol/djconnect/issues/new")
+        components?.queryItems = [
+            URLQueryItem(name: "title", value: askDJFeedbackIssueTitle(for: message)),
+            URLQueryItem(name: "body", value: body ?? askDJFeedbackIssueBody(for: message))
+        ]
+        return components?.url
+    }
+
+    public func askDJFeedbackIssueTitle(for message: DJConnectAskDJMessage) -> String {
+        let question = askDJFeedbackQuestion(for: message)?.text
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        let summary = question?.isEmpty == false
+            ? Self.truncateIssueText(question ?? "", limit: 72)
+            : Self.truncateIssueText(message.text, limit: 72)
+        return "Ask DJ feedback: \(summary.isEmpty ? "unexpected answer" : summary)"
+    }
+
+    public func askDJFeedbackIssueBody(for message: DJConnectAskDJMessage, userNote: String = "") -> String {
+        let question = askDJFeedbackQuestion(for: message)
+        let relatedMessages = askDJFeedbackRelatedMessages(for: message, question: question)
+        let payload = askDJFeedbackPayload(for: message, question: question, relatedMessages: relatedMessages)
+        let note = userNote.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        return """
+        ## Ask DJ antwoord-feedback
+
+        Wat voldeed niet aan de verwachting?
+        \(note.isEmpty ? "_Vul hier kort in wat er miste, verkeerd was of onverwacht gebeurde._" : note)
+
+        Privacy:
+        - Deze draft is lokaal gegenereerd en wordt pas verstuurd als je hem zelf indient.
+        - Tokens, client/device-id's, lokale adressen en Home Assistant URL's zijn weggelaten of geredigeerd.
+        - Controleer de tekst nog even op persoonlijke informatie voordat je de issue verstuurt.
+
+        ```json
+        \(Self.prettyIssueJSON(payload))
+        ```
+        """
+    }
+
+    private func askDJFeedbackQuestion(for message: DJConnectAskDJMessage) -> DJConnectAskDJMessage? {
+        let messages = askDJMessages.sorted(by: askDJFeedbackMessagePrecedes)
+        if let exchangeID = message.exchangeID, !exchangeID.isEmpty,
+           let question = messages.last(where: { candidate in
+               candidate.role == .user
+                   && candidate.exchangeID == exchangeID
+                   && askDJFeedbackMessagePrecedes(candidate, message)
+           }) {
+            return question
+        }
+        if let clientMessageID = message.clientMessageID, !clientMessageID.isEmpty,
+           let question = messages.last(where: { candidate in
+               candidate.role == .user
+                   && candidate.clientMessageID == clientMessageID
+                   && askDJFeedbackMessagePrecedes(candidate, message)
+           }) {
+            return question
+        }
+        return messages.last(where: { candidate in
+            candidate.role == .user && askDJFeedbackMessagePrecedes(candidate, message)
+        })
+    }
+
+    private func askDJFeedbackRelatedMessages(
+        for message: DJConnectAskDJMessage,
+        question: DJConnectAskDJMessage?
+    ) -> [DJConnectAskDJMessage] {
+        let messages = askDJMessages.sorted(by: askDJFeedbackMessagePrecedes)
+        let anchors = Set([message.id, question?.id].compactMap { $0 })
+        let matchingExchange = message.exchangeID?.isEmpty == false ? message.exchangeID : nil
+        let matchingClientID = message.clientMessageID?.isEmpty == false ? message.clientMessageID : nil
+        let exchangeMessages = messages.filter { candidate in
+            guard !anchors.contains(candidate.id) else {
+                return false
+            }
+            return (matchingExchange != nil && candidate.exchangeID == matchingExchange)
+                || (matchingClientID != nil && candidate.clientMessageID == matchingClientID)
+        }
+        if !exchangeMessages.isEmpty {
+            return Array(exchangeMessages.prefix(6))
+        }
+        guard let currentIndex = messages.firstIndex(where: { $0.id == message.id }) else {
+            return []
+        }
+        let lowerBound = max(messages.startIndex, currentIndex - 2)
+        let upperBound = min(messages.endIndex, currentIndex + 3)
+        return messages[lowerBound..<upperBound].filter { !anchors.contains($0.id) }
+    }
+
+    private func askDJFeedbackPayload(
+        for message: DJConnectAskDJMessage,
+        question: DJConnectAskDJMessage?,
+        relatedMessages: [DJConnectAskDJMessage]
+    ) -> [String: Any] {
+        [
+            "app": [
+                "version": appVersion,
+                "client_type": identity.clientType.rawValue,
+                "platform": Self.platformName,
+                "pairing_status": pairingStatus.rawValue,
+                "demo_mode": isDemoMode,
+                "language": language
+            ],
+            "ask_dj": [
+                "question": askDJFeedbackMessageSummary(question),
+                "answer": askDJFeedbackMessageSummary(message),
+                "follow_up_context": relatedMessages.map(askDJFeedbackMessageSummary(_:)),
+                "intent": askDJFeedbackIntentSummary(message.intentInfo),
+                "actions": message.playbackActions.map(Self.askDJFeedbackActionSummary(_:)),
+                "items": message.items.map(Self.askDJFeedbackItemSummary(_:)),
+                "images": message.images.map(Self.askDJFeedbackImageSummary(_:)),
+                "links": message.links.map(Self.askDJFeedbackLinkSummary(_:))
+            ],
+            "playback_snapshot": Self.askDJFeedbackPlaybackSummary(playback)
+        ]
+    }
+
+    private func askDJFeedbackMessageSummary(_ message: DJConnectAskDJMessage?) -> [String: Any] {
+        guard let message else {
+            return ["available": false]
+        }
+        return [
+            "available": true,
+            "role": message.role.rawValue,
+            "kind": message.messageKind.rawValue,
+            "origin": message.origin ?? NSNull(),
+            "created_at": Self.issueDateFormatter.string(from: message.createdAt),
+            "text": Self.truncateIssueText(message.text, limit: 2_500),
+            "intent": askDJFeedbackIntentSummary(message.intentInfo),
+            "item_count": message.items.count,
+            "action_count": message.playbackActions.count,
+            "has_audio": message.audioURL != nil
+        ]
+    }
+
+    private func askDJFeedbackIntentSummary(_ intentInfo: DJConnectAskDJIntentInfo?) -> [String: Any] {
+        [
+            "intent": intentInfo?.intent ?? NSNull(),
+            "action": intentInfo?.action ?? NSNull(),
+            "item_type": intentInfo?.itemType ?? NSNull()
+        ]
+    }
+
+    private func askDJFeedbackMessagePrecedes(_ lhs: DJConnectAskDJMessage, _ rhs: DJConnectAskDJMessage) -> Bool {
+        if let lhsExchangeID = lhs.exchangeID,
+           let rhsExchangeID = rhs.exchangeID,
+           lhsExchangeID == rhsExchangeID {
+            let lhsOrder = lhs.exchangeOrder ?? (lhs.role == .user ? 0 : 1)
+            let rhsOrder = rhs.exchangeOrder ?? (rhs.role == .user ? 0 : 1)
+            if lhsOrder != rhsOrder {
+                return lhsOrder < rhsOrder
+            }
+            if lhs.role != rhs.role {
+                return lhs.role == .user
+            }
+        }
+        if lhs.createdAt != rhs.createdAt {
+            return lhs.createdAt < rhs.createdAt
+        }
+        return lhs.id.uuidString < rhs.id.uuidString
+    }
+
+    private static func askDJFeedbackActionSummary(_ action: DJConnectAskDJPlaybackAction) -> [String: Any] {
+        [
+            "id": truncateIssueText(action.id, limit: 160),
+            "kind": action.kind ?? NSNull(),
+            "command": action.command ?? NSNull(),
+            "title": truncateIssueText(action.title, limit: 220),
+            "subtitle": truncateOptionalIssueText(action.subtitle, limit: 220) as Any,
+            "button_label": truncateOptionalIssueText(action.buttonLabel, limit: 120) as Any,
+            "active": action.active as Any? ?? NSNull(),
+            "uri": redactIssueURI(action.uri) as Any,
+            "uris": action.uris.map { redactIssueURI($0) },
+            "context_uri": redactIssueURI(action.contextURI) as Any,
+            "offset_uri": redactIssueURI(action.offsetURI) as Any,
+            "has_device_name": action.deviceName?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false,
+            "reason": truncateOptionalIssueText(action.reason, limit: 360) as Any,
+            "response_value": truncateOptionalIssueText(action.responseValue, limit: 240) as Any,
+            "value": issueJSONValue(action.value)
+        ]
+    }
+
+    private static func askDJFeedbackItemSummary(_ item: DJConnectAskDJHistoryItem) -> [String: Any] {
+        [
+            "kind": item.kind ?? NSNull(),
+            "title": truncateIssueText(item.title, limit: 220),
+            "subtitle": truncateOptionalIssueText(item.subtitle, limit: 220) as Any,
+            "uri": redactIssueURI(item.uri) as Any,
+            "played_at_label": truncateOptionalIssueText(item.playedAtLabel, limit: 120) as Any,
+            "has_image": item.imageURL != nil || item.thumbnailURL != nil
+        ]
+    }
+
+    private static func askDJFeedbackImageSummary(_ image: DJConnectResponseImage) -> [String: Any] {
+        [
+            "kind": image.kind ?? NSNull(),
+            "source": image.source ?? NSNull(),
+            "title": truncateOptionalIssueText(image.title, limit: 180) as Any,
+            "subtitle": truncateOptionalIssueText(image.subtitle, limit: 180) as Any,
+            "url": safeIssueURLDescription(image.url),
+            "thumbnail_url": safeIssueURLDescription(image.thumbnailURL) as Any
+        ]
+    }
+
+    private static func askDJFeedbackLinkSummary(_ link: DJConnectResponseLink) -> [String: Any] {
+        [
+            "kind": link.kind ?? NSNull(),
+            "source": link.source ?? NSNull(),
+            "title": truncateOptionalIssueText(link.title, limit: 180) as Any,
+            "subtitle": truncateOptionalIssueText(link.subtitle, limit: 180) as Any,
+            "url": safeIssueURLDescription(link.url)
+        ]
+    }
+
+    private static func askDJFeedbackPlaybackSummary(_ playback: DJConnectPlayback?) -> [String: Any] {
+        guard let playback else {
+            return ["available": false]
+        }
+        return [
+            "available": true,
+            "has_playback": playback.hasPlayback as Any? ?? NSNull(),
+            "is_playing": playback.isPlaying as Any? ?? NSNull(),
+            "track_name": truncateOptionalIssueText(playback.trackName, limit: 220) as Any,
+            "artist_name": truncateOptionalIssueText(playback.artistName, limit: 220) as Any,
+            "progress_ms": playback.progressMS as Any? ?? NSNull(),
+            "duration_ms": playback.durationMS as Any? ?? NSNull(),
+            "volume_percent_known": DJConnectVolumeNormalizer.validBackendPercent(playback.volumePercent) != nil,
+            "shuffle": playback.shuffle as Any? ?? NSNull(),
+            "repeat_state": playback.repeatState?.rawValue ?? NSNull(),
+            "context_uri": redactIssueURI(playback.contextURI) as Any,
+            "device": [
+                "has_name": playback.device?.name?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false,
+                "type": playback.device?.type ?? NSNull(),
+                "active": optionalIssueBool(playback.device?.active),
+                "supports_volume": optionalIssueBool(playback.device?.supportsVolume)
+            ]
+        ]
+    }
+
+    private static func optionalIssueBool(_ value: Bool?) -> Any {
+        value ?? NSNull()
+    }
+
+    private static func issueJSONValue(_ value: DJConnectJSONValue?) -> Any {
+        guard let value else {
+            return NSNull()
+        }
+        switch value {
+        case let .bool(value):
+            return value
+        case let .int(value):
+            return value
+        case let .double(value):
+            return value
+        case let .string(value):
+            return truncateIssueText(value, limit: 500)
+        case let .array(values):
+            return values.prefix(20).map(issueJSONValue(_:))
+        case let .object(object):
+            return object.reduce(into: [String: Any]()) { result, pair in
+                result[pair.key] = issueJSONValue(pair.value)
+            }
+        case .null:
+            return NSNull()
+        }
+    }
+
+    private static func prettyIssueJSON(_ value: Any) -> String {
+        guard JSONSerialization.isValidJSONObject(value),
+              let data = try? JSONSerialization.data(withJSONObject: value, options: [.prettyPrinted, .sortedKeys]),
+              let text = String(data: data, encoding: .utf8) else {
+            return "{}"
+        }
+        return text
+    }
+
+    private static func truncateIssueText(_ value: String, limit: Int) -> String {
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed.count > limit else {
+            return trimmed
+        }
+        let index = trimmed.index(trimmed.startIndex, offsetBy: limit)
+        return String(trimmed[..<index]) + "..."
+    }
+
+    private static func truncateOptionalIssueText(_ value: String?, limit: Int) -> Any {
+        guard let value else {
+            return NSNull()
+        }
+        return truncateIssueText(value, limit: limit)
+    }
+
+    private static func redactIssueURI(_ value: String?) -> Any {
+        guard let value = value?.trimmingCharacters(in: .whitespacesAndNewlines), !value.isEmpty else {
+            return NSNull()
+        }
+        if value.lowercased().hasPrefix("spotify:") {
+            return value
+        }
+        if let url = URL(string: value) {
+            return safeIssueURLDescription(url)
+        }
+        return truncateIssueText(value, limit: 240)
+    }
+
+    private static func safeIssueURLDescription(_ url: URL?) -> Any {
+        guard let url else {
+            return NSNull()
+        }
+        guard let host = url.host, !host.isEmpty else {
+            return truncateIssueText(url.absoluteString, limit: 240)
+        }
+        if isPrivateIssueHost(host) {
+            return "[redacted local URL]"
+        }
+        var components = URLComponents()
+        components.scheme = url.scheme
+        components.host = host
+        components.path = url.path
+        return truncateIssueText(components.string ?? host, limit: 240)
+    }
+
+    private static func isPrivateIssueHost(_ host: String) -> Bool {
+        let lowered = host.lowercased()
+        if lowered == "localhost" || lowered.hasSuffix(".local") {
+            return true
+        }
+        if lowered.hasPrefix("10.") || lowered.hasPrefix("192.168.") || lowered.hasPrefix("127.") {
+            return true
+        }
+        let parts = lowered.split(separator: ".").compactMap { Int($0) }
+        return parts.count == 4 && parts[0] == 172 && (16...31).contains(parts[1])
+    }
+
+    private static var platformName: String {
+        #if os(macOS)
+        "macOS"
+        #elseif os(watchOS)
+        "watchOS"
+        #elseif os(iOS)
+        "iOS"
+        #else
+        "unknown"
+        #endif
+    }
+
+    private static let issueDateFormatter: ISO8601DateFormatter = {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return formatter
+    }()
 
     deinit {
         networkMonitor.cancel()
@@ -1312,7 +1677,8 @@ public final class DJConnectAppModel: ObservableObject {
         reason: String,
         notifyUserOnError: Bool = false,
         forceCollections: Bool = false,
-        allowThrottle: Bool = false
+        allowThrottle: Bool = false,
+        refreshCollections: Bool = true
     ) async {
         guard !isRefreshing else {
             log(.debug, "Refresh ignored because one is already running")
@@ -1337,7 +1703,9 @@ public final class DJConnectAppModel: ObservableObject {
         do {
             try await refreshStatusWithFallback()
             lastFullRefreshAt = Date()
-            await refreshBackendCollections(force: forceCollections)
+            if refreshCollections {
+                await refreshBackendCollections(force: forceCollections)
+            }
             log(.info, reason)
         } catch let error as DJConnectError {
             log(.warning, "Refresh failed: \(Self.describe(error))")
@@ -1354,14 +1722,26 @@ public final class DJConnectAppModel: ObservableObject {
         }
     }
 
-    private func schedulePairedRefresh(reason: String) {
+    private func schedulePairedRefresh(
+        reason: String,
+        allowThrottle: Bool = true,
+        refreshCollections: Bool = true,
+        runFollowUpRefresh: Bool = true
+    ) {
         startupRefreshTask?.cancel()
         startupRefreshTask = Task { [weak self] in
             try? await Task.sleep(nanoseconds: 350_000_000)
             guard !Task.isCancelled else {
                 return
             }
-            await self?.runRefresh(reason: reason, allowThrottle: true)
+            await self?.runRefresh(
+                reason: reason,
+                allowThrottle: allowThrottle,
+                refreshCollections: refreshCollections
+            )
+            guard runFollowUpRefresh else {
+                return
+            }
             try? await Task.sleep(for: .milliseconds(1_200))
             guard !Task.isCancelled, self?.pairingStatus == .paired else {
                 return
@@ -1432,7 +1812,7 @@ public final class DJConnectAppModel: ObservableObject {
 
     public func commitVolumeChange() {
         volumeCommandTask?.cancel()
-        let value = Int(volume.rounded())
+        let value = DJConnectVolumeNormalizer.clampBackendPercent(Int(volume.rounded()))
         log(.debug, "User action: commit volume \(value)")
         pendingVolumePercent = value
         volumeCommandTask = Task { [weak self] in
@@ -1446,6 +1826,12 @@ public final class DJConnectAppModel: ObservableObject {
             await self.performCommand("set_volume", value: .int(value))
             try? await Task.sleep(for: .milliseconds(850))
             guard !Task.isCancelled else {
+                return
+            }
+            guard self.isAppInForeground else {
+                if self.pendingVolumePercent == value {
+                    self.pendingVolumePercent = nil
+                }
                 return
             }
             await self.performCommand("status")
@@ -1491,6 +1877,12 @@ public final class DJConnectAppModel: ObservableObject {
             await self.performCommand("seek_relative", value: .int(delta))
             try? await Task.sleep(for: .milliseconds(850))
             guard !Task.isCancelled else {
+                return
+            }
+            guard self.isAppInForeground else {
+                if self.pendingSeekTargetMS == target {
+                    self.pendingSeekTargetMS = nil
+                }
                 return
             }
             await self.performCommand("status")
@@ -1584,7 +1976,7 @@ public final class DJConnectAppModel: ObservableObject {
                 return
             }
             try? await Task.sleep(for: .milliseconds(1_100))
-            guard pairingStatus == .paired else {
+            guard pairingStatus == .paired, isAppInForeground else {
                 loadingPlaylistID = nil
                 return
             }
@@ -1597,6 +1989,32 @@ public final class DJConnectAppModel: ObservableObject {
         log(.debug, "User action: start liked songs")
         log(.info, "Starting liked proxy flow")
         sendPlaybackCommand("start_liked_proxy", play: true)
+    }
+
+    public func saveCurrentTrack() {
+        guard !isSavingCurrentTrack else {
+            return
+        }
+        guard canUsePlaybackFeatures else {
+            userNotice = DJConnectUserNotice(text: localized(
+                english: "Pair with Home Assistant before saving tracks.",
+                dutch: "Koppel eerst met Home Assistant om nummers op te slaan."
+            ))
+            return
+        }
+        isSavingCurrentTrack = true
+        log(.info, "Saving current track to favorites")
+        Task {
+            defer { isSavingCurrentTrack = false }
+            let didSave = await sendSaveCurrentTrackCommand()
+            userNotice = DJConnectUserNotice(text: didSave ? localized(
+                english: "Saved to favorites",
+                dutch: "Toegevoegd aan favorieten"
+            ) : localized(
+                english: "Track could not be saved",
+                dutch: "Nummer kon niet worden opgeslagen"
+            ))
+        }
     }
 
     public func canStartQueueItem(_ item: DJConnectQueueItem) -> Bool {
@@ -1638,7 +2056,7 @@ public final class DJConnectAppModel: ObservableObject {
                 return
             }
             try? await Task.sleep(for: .milliseconds(1100))
-            guard pairingStatus == .paired else {
+            guard pairingStatus == .paired, isAppInForeground else {
                 loadingQueueItemID = nil
                 loadingQueueItemIndex = nil
                 return
@@ -1724,6 +2142,10 @@ public final class DJConnectAppModel: ObservableObject {
         guard playingAskDJActionID == nil else {
             return
         }
+        if action.isSaveCurrentTrackControlAction {
+            saveCurrentTrackFromAskDJ(action)
+            return
+        }
         guard canUsePlaybackFeatures else {
             askDJErrorMessage = localized(
                 english: "Pair with Home Assistant before playing recommendations.",
@@ -1780,6 +2202,35 @@ public final class DJConnectAppModel: ObservableObject {
                 askDJErrorMessage = askDJUnavailableText()
                 showAskDJToast(localized(english: "Ask DJ is unreachable", dutch: "Ask DJ niet bereikbaar"))
                 log(.error, "Ask DJ action failed unexpectedly: \(error.localizedDescription)")
+            }
+        }
+    }
+
+    private func saveCurrentTrackFromAskDJ(_ action: DJConnectAskDJPlaybackAction) {
+        guard canUsePlaybackFeatures else {
+            askDJErrorMessage = localized(
+                english: "Pair with Home Assistant before saving tracks.",
+                dutch: "Koppel eerst met Home Assistant om nummers op te slaan."
+            )
+            return
+        }
+        playingAskDJActionID = action.id
+        askDJErrorMessage = nil
+        log(.info, "Sending Ask DJ save-current-track control action")
+        Task {
+            defer { playingAskDJActionID = nil }
+            let didSave = await sendSaveCurrentTrackCommand()
+            if didSave {
+                markAskDJActionCompleted(action.id)
+                showAskDJToast(localized(
+                    english: "Saved to favorites",
+                    dutch: "Toegevoegd aan favorieten"
+                ))
+            } else {
+                showAskDJToast(localized(
+                    english: "Track could not be saved",
+                    dutch: "Nummer kon niet worden opgeslagen"
+                ))
             }
         }
     }
@@ -1891,15 +2342,22 @@ public final class DJConnectAppModel: ObservableObject {
             isCheckingAskDJHistoryState = false
             return
         }
-        isCheckingAskDJHistoryState = true
-        askDJErrorMessage = nil
-        await syncAskDJHistory(showErrors: true)
-        isCheckingAskDJHistoryState = false
-        await requestAskDJIdleSuggestionIfNeeded()
+        if isAppInForeground {
+            isCheckingAskDJHistoryState = true
+            askDJErrorMessage = nil
+            await syncAskDJHistory(showErrors: true)
+            isCheckingAskDJHistoryState = false
+            await requestAskDJIdleSuggestionIfNeeded()
+        } else {
+            isCheckingAskDJHistoryState = false
+        }
         while !Task.isCancelled {
             try? await Task.sleep(nanoseconds: askDJHistorySyncInterval)
             if Task.isCancelled {
                 return
+            }
+            guard isAppInForeground else {
+                continue
             }
             await syncAskDJHistory(showErrors: false)
         }
@@ -1911,6 +2369,9 @@ public final class DJConnectAppModel: ObservableObject {
             return
         }
         guard canUsePlaybackFeatures else {
+            return
+        }
+        guard isAppInForeground else {
             return
         }
         askDJErrorMessage = nil
@@ -2143,8 +2604,8 @@ public final class DJConnectAppModel: ObservableObject {
             log(.debug, "Ignoring playback snapshot because Home Assistant integration version is incompatible")
             return
         }
-        var normalizedPlayback = playback
-        let deviceVolume = normalizedPlayback?.device?.volumePercent
+        var normalizedPlayback = DJConnectVolumeNormalizer.sanitizedPlayback(playback)
+        let deviceVolume = DJConnectVolumeNormalizer.validBackendPercent(normalizedPlayback?.device?.volumePercent)
         if normalizedPlayback?.volumePercent == nil, let deviceVolume {
             normalizedPlayback?.volumePercent = deviceVolume
         }
@@ -2185,6 +2646,10 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     public func apply(commandResponse response: DJConnectCommandResponse) {
+        apply(commandResponse: response, command: nil)
+    }
+
+    private func apply(commandResponse response: DJConnectCommandResponse, command: String?) {
         guard validateHomeAssistantVersion(
             haVersion: response.haVersion,
             haMajorMinor: response.haMajorMinor,
@@ -2218,15 +2683,17 @@ public final class DJConnectAppModel: ObservableObject {
                 selectedOutput = noOutputName()
             }
         }
-        if let responseQueue = response.queue {
+        let shouldApplyQueue = command == nil || command == "queue"
+        let shouldApplyPlaylists = command == nil || command == "playlists"
+        if shouldApplyQueue, let responseQueue = response.queue {
             let normalizedQueue = normalizedQueueItems(responseQueue)
             queueItems = normalizedQueue
             queue = normalizedQueue.map(\.displayTitle)
         }
-        if response.queueContext != nil || response.queue != nil {
+        if shouldApplyQueue, response.queueContext != nil || response.queue != nil {
             queueContext = response.queueContext
         }
-        if let responsePlaylists = response.playlists {
+        if shouldApplyPlaylists, let responsePlaylists = response.playlists {
             playlistItems = responsePlaylists
             playlists = responsePlaylists.map(\.name)
         }
@@ -2940,6 +3407,40 @@ public final class DJConnectAppModel: ObservableObject {
         }
     }
 
+    @discardableResult
+    private func sendSaveCurrentTrackCommand() async -> Bool {
+        if isDemoMode {
+            applyDemoCommand("save_current_track", value: nil, play: nil)
+            return true
+        }
+        guard pairingStatus == .paired, isRuntimeCompatible else {
+            return false
+        }
+        do {
+            let response = try await withHomeAssistantClient { client in
+                try await client.sendCommandResponse(DJConnectCommandPayload(
+                    identity: identity,
+                    command: "save_current_track"
+                ))
+            }
+            apply(commandResponse: response, command: "save_current_track")
+            guard response.success else {
+                log(.warning, "Save current track was rejected by Home Assistant")
+                return false
+            }
+            log(.info, "Current track saved to favorites")
+            return true
+        } catch let error as DJConnectError {
+            log(.warning, "Save current track failed: \(Self.describe(error))")
+            apply(error: error)
+            return false
+        } catch {
+            log(.error, "Save current track failed unexpectedly: \(error.localizedDescription)")
+            pairingMessage = error.localizedDescription
+            return false
+        }
+    }
+
     private static func askDJActionValue(_ action: DJConnectAskDJPlaybackAction) -> [String: DJConnectJSONValue] {
         var value: [String: DJConnectJSONValue] = [
             "id": .string(action.id),
@@ -3008,6 +3509,22 @@ public final class DJConnectAppModel: ObservableObject {
             return updatedOutput
         }
         selectedOutput = availableOutputs.first { $0.active == true }?.name ?? selectedOutput
+        saveAskDJMessages()
+    }
+
+    private func markAskDJActionCompleted(_ actionID: String) {
+        askDJMessages = askDJMessages.map { message in
+            var updatedMessage = message
+            updatedMessage.playbackActions = message.playbackActions.map { action in
+                guard action.id == actionID else {
+                    return action
+                }
+                var updatedAction = action
+                updatedAction.active = true
+                return updatedAction
+            }
+            return updatedMessage
+        }
         saveAskDJMessages()
     }
 

@@ -1540,6 +1540,15 @@ public struct DJConnectAskDJPlaybackAction: Codable, Equatable, Identifiable, Se
         kind?.localizedCaseInsensitiveCompare("output") == .orderedSame
     }
 
+    public var isSaveCurrentTrackControlAction: Bool {
+        let normalizedCommand = command?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard normalizedCommand == "save_current_track" else {
+            return false
+        }
+        let normalizedKind = kind?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        return normalizedKind == nil || normalizedKind == "control"
+    }
+
     public var outputDeviceID: String? {
         guard isOutputAction else {
             return nil
@@ -1797,6 +1806,46 @@ public struct DJConnectPlayback: Codable, Equatable, Sendable {
         case contextURI = "context_uri"
         case contextUri
         case queueContext = "queue_context"
+    }
+}
+
+public enum DJConnectVolumeNormalizer {
+    public static func clampNormalized(_ value: Double) -> Double {
+        min(1.0, max(0.0, value))
+    }
+
+    public static func clampBackendPercent(_ value: Int) -> Int {
+        min(100, max(0, value))
+    }
+
+    public static func backendPercent(fromNormalized value: Double) -> Int {
+        clampBackendPercent(Int(round(clampNormalized(value) * 100)))
+    }
+
+    public static func normalized(fromBackendPercent value: Int?) -> Double? {
+        guard let value = validBackendPercent(value) else {
+            return nil
+        }
+        return Double(value) / 100.0
+    }
+
+    public static func validBackendPercent(_ value: Int?) -> Int? {
+        guard let value, (0...100).contains(value) else {
+            return nil
+        }
+        return value
+    }
+
+    public static func sanitizedPlayback(_ playback: DJConnectPlayback?) -> DJConnectPlayback? {
+        guard var playback else {
+            return nil
+        }
+        playback.volumePercent = validBackendPercent(playback.volumePercent)
+        if var device = playback.device {
+            device.volumePercent = validBackendPercent(device.volumePercent)
+            playback.device = device
+        }
+        return playback
     }
 }
 

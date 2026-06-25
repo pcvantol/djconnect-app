@@ -231,6 +231,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
     @Published private(set) var isClearingAskDJHistory = false
     @Published private(set) var isRequestingAskDJIdleSuggestion = false
     @Published private(set) var playingAskDJActionID: String?
+    @Published private(set) var isSavingCurrentTrack = false
     @Published private(set) var askDJToast: DJConnectWatchToast?
     @Published private(set) var askDJAudioPlaybackState: DJConnectWatchAudioPlaybackState = .idle
     @Published private(set) var isShowingPairingSuccess = false
@@ -421,13 +422,26 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
 
     func handleAppForegroundChange(_ foreground: Bool) {
         guard isAppForeground != foreground else {
+            if foreground {
+                Task { await refreshStatus() }
+            }
             return
         }
         isAppForeground = foreground
         if foreground {
+            if !isDemoMode {
+                startNetworkMonitor()
+                startRuntimeDiagnosticsMonitor()
+            }
             ensureLocalDeviceAPIAdvertisingIfNeeded(reason: "foreground")
             updateVoiceActivationListening()
+            Task { await refreshStatus() }
         } else {
+            runtimeDiagnosticsTask?.cancel()
+            runtimeDiagnosticsTask = nil
+            stopNetworkMonitor()
+            volumeCommandTask?.cancel()
+            volumeCommandTask = nil
             cancelVoiceActivationScheduledTasks()
             stopVoiceActivationListening(status: .paused)
             cancelRecording(reason: "Opname gestopt omdat de Watch app niet meer zichtbaar is")
@@ -577,15 +591,24 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
     }
 
     var volume: Double {
-        get { Double(playback?.volumePercent ?? playback?.device?.volumePercent ?? 0) }
+        get {
+            DJConnectVolumeNormalizer.normalized(fromBackendPercent: currentPlaybackVolumePercent) ?? 0
+        }
         set {
-            let value = max(0, min(60, Int(newValue.rounded())))
+            let value = DJConnectVolumeNormalizer.backendPercent(fromNormalized: newValue)
             if playback == nil {
                 playback = DJConnectPlayback()
             }
             playback?.volumePercent = value
-            playback?.device?.volumePercent = value
+            if playback?.device != nil {
+                playback?.device?.volumePercent = value
+            }
         }
+    }
+
+    var currentPlaybackVolumePercent: Int? {
+        DJConnectVolumeNormalizer.validBackendPercent(playback?.volumePercent)
+            ?? DJConnectVolumeNormalizer.validBackendPercent(playback?.device?.volumePercent)
     }
 
     var askDJMoodInt: Int {
@@ -728,6 +751,10 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
             }
             return
         }
+        guard isAppForeground else {
+            appendDiagnosticLog("Status vernieuwen overgeslagen: app niet zichtbaar", level: .debug)
+            return
+        }
         guard let client, canUseBackend else {
             appendDiagnosticLog("Status vernieuwen overgeslagen: niet gekoppeld", level: .warning)
             return
@@ -805,8 +832,46 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         }
     }
 
+    func saveCurrentTrack() async {
+        guard !isSavingCurrentTrack else {
+            return
+        }
+        if isDemoMode {
+            applyDemoCommand("save_current_track", value: nil)
+            statusMessage = "Toegevoegd aan favorieten"
+            appendDiagnosticLog("Demo favoriet opgeslagen")
+            return
+        }
+        guard let client, canUseBackend else {
+            statusMessage = "Koppel eerst met Home Assistant."
+            appendDiagnosticLog("Favoriet opslaan overgeslagen: niet gekoppeld", level: .warning)
+            return
+        }
+        isSavingCurrentTrack = true
+        defer { isSavingCurrentTrack = false }
+        appendDiagnosticLog("Favoriet opslaan")
+        do {
+            let response = try await client.sendCommandResponse(
+                DJConnectCommandPayload(identity: identity, command: "save_current_track")
+            )
+            if !Self.shouldDeferPlaybackSnapshotUntilRefresh("save_current_track") {
+                applyPlayback(response.playback)
+            }
+            if response.success {
+                statusMessage = "Toegevoegd aan favorieten"
+                appendDiagnosticLog("Favoriet opgeslagen")
+            } else {
+                statusMessage = "Nummer kon niet worden opgeslagen"
+                appendDiagnosticLog("Favoriet opslaan geweigerd: \(response.error ?? response.message ?? "onbekend")", level: .warning)
+            }
+        } catch {
+            statusMessage = Self.userMessage(for: error)
+            appendDiagnosticLog("Favoriet opslaan mislukt: \(statusMessage)", level: .error)
+        }
+    }
+
     func commitVolume() {
-        let value = max(0, min(60, Int(volume.rounded())))
+        let value = DJConnectVolumeNormalizer.backendPercent(fromNormalized: volume)
         volumeCommandTask?.cancel()
         volumeCommandTask = Task { [weak self] in
             await self?.sendVolume(value)
@@ -814,9 +879,10 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
     }
 
     private func sendVolume(_ value: Int) async {
+        let value = DJConnectVolumeNormalizer.clampBackendPercent(value)
         if isDemoMode {
             await MainActor.run {
-                self.volume = Double(value)
+                self.volume = Double(value) / 100.0
                 self.statusMessage = "Volume \(value)%"
                 self.appendDiagnosticLog("Demo volume ingesteld: \(value)%")
             }
@@ -1236,8 +1302,9 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
 
     private func applyPlayback(_ nextPlayback: DJConnectPlayback?, confirmAskDJBeat: Bool = false) {
         let previousSignature = playbackBeatSignature ?? Self.playbackBeatSignature(for: playback)
-        playback = nextPlayback
-        let nextSignature = Self.playbackBeatSignature(for: nextPlayback)
+        let sanitizedPlayback = DJConnectVolumeNormalizer.sanitizedPlayback(nextPlayback)
+        playback = sanitizedPlayback
+        let nextSignature = Self.playbackBeatSignature(for: sanitizedPlayback)
         playbackBeatSignature = nextSignature
 
         guard confirmAskDJBeat,
@@ -1380,14 +1447,21 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
             isCheckingAskDJHistoryState = false
             return
         }
-        isCheckingAskDJHistoryState = true
-        await syncAskDJHistory(showErrors: true)
-        isCheckingAskDJHistoryState = false
-        await requestAskDJIdleSuggestionIfNeeded()
+        if isAppForeground {
+            isCheckingAskDJHistoryState = true
+            await syncAskDJHistory(showErrors: true)
+            isCheckingAskDJHistoryState = false
+            await requestAskDJIdleSuggestionIfNeeded()
+        } else {
+            isCheckingAskDJHistoryState = false
+        }
         while !Task.isCancelled {
             try? await Task.sleep(nanoseconds: askDJHistorySyncInterval)
             if Task.isCancelled {
                 return
+            }
+            guard isAppForeground else {
+                continue
             }
             await syncAskDJHistory(showErrors: false)
         }
@@ -1402,6 +1476,10 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
 
     func playAskDJRecommendation(_ action: DJConnectAskDJPlaybackAction) async {
         guard playingAskDJActionID == nil, let client, canUseBackend else {
+            return
+        }
+        if action.isSaveCurrentTrackControlAction {
+            await saveCurrentTrackFromAskDJ(action, client: client)
             return
         }
         if action.isOutputAction {
@@ -1432,6 +1510,25 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
                 await refreshStatus(confirmAskDJBeat: true)
             } else {
                 showAskDJToast(response.error ?? response.message ?? "Afspelen mislukt")
+            }
+        } catch {
+            showAskDJToast(Self.askDJToastText(for: error))
+        }
+    }
+
+    private func saveCurrentTrackFromAskDJ(_ action: DJConnectAskDJPlaybackAction, client: DJConnectClient) async {
+        playingAskDJActionID = action.id
+        defer { playingAskDJActionID = nil }
+        do {
+            let response = try await client.sendCommandResponse(
+                DJConnectCommandPayload(identity: identity, command: "save_current_track")
+            )
+            if response.success {
+                applyPlayback(response.playback)
+                markAskDJActionCompleted(action.id)
+                showAskDJToast("Toegevoegd aan favorieten")
+            } else {
+                showAskDJToast(response.error ?? response.message ?? "Nummer kon niet worden opgeslagen")
             }
         } catch {
             showAskDJToast(Self.askDJToastText(for: error))
@@ -1529,6 +1626,22 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
             return updatedOutput
         }
         selectedOutput = availableOutputs.first { $0.active == true }?.name ?? selectedOutput
+        saveAskDJMessages()
+    }
+
+    private func markAskDJActionCompleted(_ actionID: String) {
+        askDJMessages = askDJMessages.map { message in
+            var updatedMessage = message
+            updatedMessage.playbackActions = message.playbackActions.map { action in
+                guard action.id == actionID else {
+                    return action
+                }
+                var updatedAction = action
+                updatedAction.active = true
+                return updatedAction
+            }
+            return updatedMessage
+        }
         saveAskDJMessages()
     }
 

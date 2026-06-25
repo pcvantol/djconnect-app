@@ -386,19 +386,7 @@ public final class DJConnectLocalDeviceAPI: @unchecked Sendable {
             return
         }
         let info = await infoProvider()
-        #if os(watchOS)
-        guard let host = Self.localIPv4Address() else {
-            localURL = nil
-            if isBonjourAdvertisingEnabled {
-                publishBonjourService(for: info)
-            }
-            await urlHandler(nil)
-            await logHandler("Local device API listener ready on port \(port), but no usable LAN IPv4 address was found; \(Self.localIPv4DiagnosticSummary())")
-            return
-        }
-        #else
-        let host = Self.localIPv4Address() ?? "\(info.identity.deviceID).local"
-        #endif
+        let host = Self.localIPv4Address() ?? Self.localDNSFallbackHost(for: info)
         let readyURL = "http://\(host):\(port)"
         localURL = readyURL
         if isBonjourAdvertisingEnabled {
@@ -407,6 +395,9 @@ public final class DJConnectLocalDeviceAPI: @unchecked Sendable {
         await urlHandler(readyURL)
         if logStart {
             await logHandler("Local device API started at \(readyURL)")
+            if Self.localIPv4Address() == nil {
+                await logHandler("Local device API using local DNS fallback because no usable LAN IPv4 address was found; \(Self.localIPv4DiagnosticSummary())")
+            }
         } else {
             await logHandler("Local device API mDNS advertising enabled")
         }
@@ -480,9 +471,6 @@ public final class DJConnectLocalDeviceAPI: @unchecked Sendable {
             let parameters = NWParameters.tcp
             parameters.allowLocalEndpointReuse = true
             parameters.includePeerToPeer = true
-            if let anyIPv4 = IPv4Address("0.0.0.0") {
-                parameters.requiredLocalEndpoint = .hostPort(host: .ipv4(anyIPv4), port: listenerPort)
-            }
             let listener = try NWListener(using: parameters, on: listenerPort)
             guard generation == listenerGeneration else {
                 isNetworkListenerStarting = false
@@ -507,17 +495,8 @@ public final class DJConnectLocalDeviceAPI: @unchecked Sendable {
                     }
                     self.listenSocket = 0
                     self.port = UInt16(port.rawValue)
-                    guard let host = Self.localIPv4Address() else {
-                        self.localURL = nil
-                        if self.isBonjourAdvertisingEnabled {
-                            self.publishBonjourService(for: info)
-                        }
-                        Task {
-                            await self.urlHandler(nil)
-                            await self.logHandler("Local device API listener ready on port \(port.rawValue), but no usable LAN IPv4 address was found; \(Self.localIPv4DiagnosticSummary())")
-                        }
-                        return
-                    }
+                    let ipv4Host = Self.localIPv4Address()
+                    let host = ipv4Host ?? Self.localDNSFallbackHost(for: info)
                     let readyURL = "http://\(host):\(port.rawValue)"
                     self.localURL = readyURL
                     if self.isBonjourAdvertisingEnabled {
@@ -526,6 +505,9 @@ public final class DJConnectLocalDeviceAPI: @unchecked Sendable {
                     Task {
                         await self.urlHandler(readyURL)
                         await self.logHandler("Local device API started at \(readyURL)")
+                        if ipv4Host == nil {
+                            await self.logHandler("Local device API using local DNS fallback because no usable LAN IPv4 address was found; \(Self.localIPv4DiagnosticSummary())")
+                        }
                         if self.isBonjourAdvertisingEnabled {
                             await self.logHandler("Local device API mDNS advertising ready service=_djconnect._tcp client_type=\(info.identity.clientType.rawValue) port=\(port.rawValue) pairing_status=\(info.pairingStatus.rawValue)")
                         }
@@ -658,6 +640,21 @@ public final class DJConnectLocalDeviceAPI: @unchecked Sendable {
             }
         }
         return bestCandidate?.address
+    }
+
+    private static func localDNSFallbackHost(for info: DJConnectLocalDeviceAPIInfo) -> String {
+        #if targetEnvironment(simulator)
+        var name = [CChar](repeating: 0, count: Int(NI_MAXHOST))
+        if gethostname(&name, name.count) == 0 {
+            let hostname = String(cString: name)
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+                .trimmingCharacters(in: CharacterSet(charactersIn: "."))
+            if !hostname.isEmpty {
+                return hostname.lowercased().hasSuffix(".local") ? hostname : "\(hostname).local"
+            }
+        }
+        #endif
+        return "\(info.identity.deviceID).local"
     }
 
     private static func localIPv4DiagnosticSummary() -> String {
