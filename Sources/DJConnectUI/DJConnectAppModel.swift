@@ -426,7 +426,7 @@ public final class DJConnectAppModel: ObservableObject {
     private let startBackgroundTasks: Bool
     private let monkeyTestingMode: Bool
     private let diagnosticLogFileURL: URL?
-    private static let protocolVersion = "3.1.47"
+    private static let protocolVersion = "3.1.48"
     private static let defaultHomeAssistantURL = "http://homeassistant.local:8123"
     private let appVersion = DJConnectAppModel.protocolVersion
     private let installIDKey = "DJConnectInstallID"
@@ -2626,10 +2626,14 @@ public final class DJConnectAppModel: ObservableObject {
             log(.debug, "Backend collection refresh throttled")
             return
         }
-        lastBackendCollectionsRefreshAt = Date()
-        await performCommand("devices", notifyUserOnError: false, applyErrorState: false)
-        await performCommand("queue", notifyUserOnError: false, applyErrorState: false)
-        await performCommand("playlists", notifyUserOnError: false, applyErrorState: false)
+        let didLoadDevices = await performCommand("devices", notifyUserOnError: false, applyErrorState: false)
+        let didLoadQueue = await performCommand("queue", notifyUserOnError: false, applyErrorState: false)
+        let didLoadPlaylists = await performCommand("playlists", notifyUserOnError: false, applyErrorState: false)
+        if didLoadDevices || didLoadQueue || didLoadPlaylists {
+            lastBackendCollectionsRefreshAt = Date()
+        } else {
+            log(.debug, "Backend collection refresh did not update throttle because all collection commands failed")
+        }
     }
 
     private func refreshStatusWithFallback() async throws {
@@ -4647,8 +4651,8 @@ public final class DJConnectAppModel: ObservableObject {
             deviceID: "djconnect-macos-unavailable",
             deviceName: "DJConnect Mac",
             clientType: .macos,
-            firmware: "3.1.47",
-            appVersion: "3.1.47",
+            firmware: "3.1.48",
+            appVersion: "3.1.48",
             platform: .macos
         )
         #else
@@ -4656,8 +4660,8 @@ public final class DJConnectAppModel: ObservableObject {
             deviceID: "djconnect-ios-unavailable",
             deviceName: "DJConnect iPhone",
             clientType: .ios,
-            firmware: "3.1.47",
-            appVersion: "3.1.47",
+            firmware: "3.1.48",
+            appVersion: "3.1.48",
             platform: .ios
         )
         #endif

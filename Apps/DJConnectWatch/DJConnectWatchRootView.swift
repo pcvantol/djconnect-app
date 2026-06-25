@@ -102,12 +102,12 @@ struct DJConnectWatchRootView: View {
                     Button {
                         Task { await model.refreshStatus() }
                     } label: {
-                        Label("Ververs", systemImage: "arrow.clockwise")
+                        Label(model.isRefreshingStatus ? "Ververs..." : "Ververs", systemImage: "arrow.clockwise")
                             .font(.caption2.weight(.semibold))
                             .frame(maxWidth: .infinity, minHeight: 30)
                     }
                     .buttonStyle(DJConnectWatchGradientButtonStyle(kind: .secondary))
-                    .disabled(!model.canUseBackend)
+                    .disabled(!model.canUseBackend || model.isRefreshingStatus)
 
                     nowPlaying
 
@@ -423,6 +423,7 @@ struct DJConnectWatchRootView: View {
                     }
                 }
                 .tint(watchAccentPurple)
+                .disabled(!model.canUseBackend || model.isRefreshingStatus)
                 Text("\(Int(model.volume.rounded()))%")
                     .font(.caption2.monospacedDigit().weight(.semibold))
                     .foregroundStyle(.white.opacity(0.72))
@@ -559,7 +560,7 @@ struct DJConnectWatchRootView: View {
                             .frame(maxWidth: .infinity, minHeight: 36)
                     }
                     .buttonStyle(DJConnectWatchGradientButtonStyle(kind: .primary))
-                    .disabled(!model.isWiFiAvailable)
+                    .disabled(!model.canUseLocalPairingAPI)
 
                     Button {
                         model.startDemoMode()
@@ -617,6 +618,7 @@ struct DJConnectWatchRootView: View {
                 .frame(width: isPrimary ? 54 : 44, height: isPrimary ? 54 : 44)
         }
         .buttonStyle(DJConnectWatchRoundButtonStyle())
+        .disabled(!model.canUseBackend || model.isRefreshingStatus)
         .focusable(false)
         .accessibilityLabel(accessibilityLabel)
     }

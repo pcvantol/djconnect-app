@@ -171,9 +171,12 @@ public struct DJConnectLocalDeviceInfoResponse: Encodable, Sendable {
     public var deviceID: String
     public var deviceName: String
     public var clientType: String
+    public var version: String
     public var firmware: String
     public var appVersion: String
     public var platform: String
+    public var status: String
+    public var pairingStatus: String
     public var paired: Bool
     public var localURL: String
     public var pairCode: String?
@@ -182,9 +185,12 @@ public struct DJConnectLocalDeviceInfoResponse: Encodable, Sendable {
         case deviceID = "device_id"
         case deviceName = "device_name"
         case clientType = "client_type"
+        case version
         case firmware
         case appVersion = "app_version"
         case platform
+        case status
+        case pairingStatus = "pairing_status"
         case paired
         case localURL = "local_url"
         case pairCode = "pair_code"
@@ -380,7 +386,19 @@ public final class DJConnectLocalDeviceAPI: @unchecked Sendable {
             return
         }
         let info = await infoProvider()
+        #if os(watchOS)
+        guard let host = Self.localIPv4Address() else {
+            localURL = nil
+            if isBonjourAdvertisingEnabled {
+                publishBonjourService(for: info)
+            }
+            await urlHandler(nil)
+            await logHandler("Local device API listener ready on port \(port), but no usable LAN IPv4 address was found")
+            return
+        }
+        #else
         let host = Self.localIPv4Address() ?? "\(info.identity.deviceID).local"
+        #endif
         let readyURL = "http://\(host):\(port)"
         localURL = readyURL
         if isBonjourAdvertisingEnabled {
@@ -489,7 +507,17 @@ public final class DJConnectLocalDeviceAPI: @unchecked Sendable {
                     }
                     self.listenSocket = 0
                     self.port = UInt16(port.rawValue)
-                    let host = Self.localIPv4Address() ?? "\(info.identity.deviceID).local"
+                    guard let host = Self.localIPv4Address() else {
+                        self.localURL = nil
+                        if self.isBonjourAdvertisingEnabled {
+                            self.publishBonjourService(for: info)
+                        }
+                        Task {
+                            await self.urlHandler(nil)
+                            await self.logHandler("Local device API listener ready on port \(port.rawValue), but no usable LAN IPv4 address was found")
+                        }
+                        return
+                    }
                     let readyURL = "http://\(host):\(port.rawValue)"
                     self.localURL = readyURL
                     if self.isBonjourAdvertisingEnabled {
@@ -575,7 +603,7 @@ public final class DJConnectLocalDeviceAPI: @unchecked Sendable {
         }
         defer { freeifaddrs(interfaces) }
 
-        var fallback: String?
+        var bestCandidate: (address: String, score: Int)?
         var interface = firstInterface
         while true {
             defer {
@@ -612,16 +640,60 @@ public final class DJConnectLocalDeviceAPI: @unchecked Sendable {
                 let bytes = buffer.prefix { $0 != 0 }.map { UInt8(bitPattern: $0) }
                 return String(decoding: bytes, as: UTF8.self)
             }
-            if name == "en0" || name == "en1" {
-                return ipAddress
+            guard isUsableLANIPv4Address(ipAddress) else {
+                if interface.pointee.ifa_next == nil { break }
+                continue
             }
-            fallback = fallback ?? ipAddress
+            let score = localIPv4AddressScore(ipAddress, interfaceName: name)
+            if bestCandidate == nil || score > bestCandidate!.score {
+                bestCandidate = (ipAddress, score)
+            }
 
             if interface.pointee.ifa_next == nil {
                 break
             }
         }
-        return fallback
+        return bestCandidate?.address
+    }
+
+    private static func isUsableLANIPv4Address(_ ipAddress: String) -> Bool {
+        let octets = ipAddress.split(separator: ".").compactMap { UInt8($0) }
+        guard octets.count == 4 else {
+            return false
+        }
+        if octets[0] == 10 {
+            return true
+        }
+        if octets[0] == 172 && (16...31).contains(octets[1]) {
+            return true
+        }
+        if octets[0] == 192 && octets[1] == 168 {
+            return true
+        }
+        if octets[0] == 169 && octets[1] == 254 {
+            return true
+        }
+        return false
+    }
+
+    private static func localIPv4AddressScore(_ ipAddress: String, interfaceName: String) -> Int {
+        let octets = ipAddress.split(separator: ".").compactMap { UInt8($0) }
+        var score = 0
+        if interfaceName == "en0" || interfaceName == "en1" {
+            score += 100
+        }
+        if octets.count == 4, octets[0] == 192, octets[1] == 168, octets[2] == 1 {
+            score += 1_000
+        } else if octets.count == 4, octets[0] == 192, octets[1] == 168 {
+            score += 500
+        } else if octets.count == 4, octets[0] == 10 {
+            score += 300
+        } else if octets.count == 4, octets[0] == 172, (16...31).contains(octets[1]) {
+            score += 250
+        } else if octets.count == 4, octets[0] == 169, octets[1] == 254 {
+            score += 100
+        }
+        return score
     }
 
     private static func boundPort(for socketFD: Int32) -> UInt16? {
@@ -834,9 +906,12 @@ public final class DJConnectLocalDeviceAPI: @unchecked Sendable {
             deviceID: info.identity.deviceID,
             deviceName: info.identity.deviceName,
             clientType: info.identity.clientType.rawValue,
+            version: info.identity.firmware,
             firmware: info.identity.firmware,
             appVersion: info.identity.appVersion ?? info.identity.firmware,
             platform: info.identity.platform.rawValue,
+            status: "ready",
+            pairingStatus: info.pairingStatus.rawValue,
             paired: info.pairingStatus == .paired,
             localURL: localURL ?? info.localURL ?? "",
             pairCode: includePairingCode ? info.pairingToken : nil

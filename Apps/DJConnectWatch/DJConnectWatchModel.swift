@@ -210,6 +210,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
     @Published private(set) var connectionState: ConnectionState = .unpaired
     @Published private(set) var voiceState: VoiceState = .idle
     @Published private(set) var playback: DJConnectPlayback?
+    @Published private(set) var isRefreshingStatus = false
     @Published private(set) var queueItems: [DJConnectQueueItem] = []
     @Published private(set) var queueContext: String?
     @Published private(set) var isLoadingQueue = false
@@ -563,8 +564,12 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         return false
     }
 
+    var canUseLocalPairingAPI: Bool {
+        isWiFiAvailable || localDeviceAPIURL?.isEmpty == false
+    }
+
     var networkRequirementMessage: String? {
-        isWiFiAvailable ? nil : "Lokaal netwerk vereist. Verbind deze Watch met hetzelfde WiFi-netwerk als Home Assistant."
+        canUseLocalPairingAPI ? nil : "Lokaal netwerk vereist. Verbind deze Watch met hetzelfde WiFi-netwerk als Home Assistant."
     }
 
     var volume: Double {
@@ -647,7 +652,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
             appendDiagnosticLog("Koppelen overgeslagen: demo modus actief", level: .debug)
             return
         }
-        guard isWiFiAvailable else {
+        guard canUseLocalPairingAPI else {
             connectionState = .unpaired
             statusMessage = "Lokaal netwerk vereist voor koppelen"
             appendDiagnosticLog("Koppelen overgeslagen: lokaal netwerk vereist", level: .warning)
@@ -723,6 +728,12 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
             appendDiagnosticLog("Status vernieuwen overgeslagen: niet gekoppeld", level: .warning)
             return
         }
+        guard !isRefreshingStatus else {
+            appendDiagnosticLog("Status vernieuwen overgeslagen: refresh loopt al", level: .debug)
+            return
+        }
+        isRefreshingStatus = true
+        defer { isRefreshingStatus = false }
         appendDiagnosticLog("Status vernieuwen")
         do {
             let response = try await client.postStatus(statusPayload(screenState: "now_playing"))
@@ -1077,6 +1088,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         pairingCode = Self.makePairingCode()
         playback = nil
         playbackBeatSignature = nil
+        isRefreshingStatus = false
         queueItems = []
         queueContext = nil
         loadingQueueItemIndex = nil

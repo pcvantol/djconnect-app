@@ -4001,6 +4001,35 @@ private struct AskDJMessageBubble: View {
         false
     }
 
+    private var outputPlaybackActions: [DJConnectAskDJPlaybackAction] {
+        message.playbackActions.filter(\.isOutputAction)
+    }
+
+    private var shouldRenderOutputActionsAsList: Bool {
+        !isUser
+            && !outputPlaybackActions.isEmpty
+            && outputPlaybackActions.count == message.playbackActions.count
+    }
+
+    private var displayText: String {
+        guard shouldRenderOutputActionsAsList else {
+            return message.text
+        }
+        let outputTitles = Set(outputPlaybackActions.map { $0.title.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() })
+        let lines = message.text.components(separatedBy: .newlines).filter { line in
+            let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard trimmed.hasPrefix("-") || trimmed.hasPrefix("•") else {
+                return true
+            }
+            let title = trimmed
+                .dropFirst()
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+                .lowercased()
+            return !outputTitles.contains(title)
+        }
+        return lines.joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
     private var isRecentlyPlayedHistoryMessage: Bool {
         guard !isUser else {
             return false
@@ -4026,16 +4055,16 @@ private struct AskDJMessageBubble: View {
                             .foregroundStyle(.white.opacity(0.66))
                             .lineLimit(1)
                     }
-                    if !message.text.isEmpty {
+                    if !displayText.isEmpty {
                         if isVoiceRequestMessage {
                             HStack(spacing: 8) {
                                 Image(systemName: "mic.fill")
                                     .font(.caption.weight(.bold))
                                     .foregroundStyle(.white.opacity(0.88))
-                                AskDJMarkdownText(text: message.text, highlight: searchText)
+                                AskDJMarkdownText(text: displayText, highlight: searchText)
                             }
                         } else {
-                            AskDJMarkdownText(text: message.text, highlight: searchText)
+                            AskDJMarkdownText(text: displayText, highlight: searchText)
                         }
                     }
                     if isRecentlyPlayedHistoryMessage, !message.items.isEmpty {
@@ -4443,7 +4472,14 @@ private struct AskDJPlaybackActionStack: View {
                             .foregroundStyle(.white.opacity(0.70))
                             .lineLimit(2)
                     }
-                    mediaTypeBadge(for: action)
+                    if action.isOutputAction {
+                        Text(localized(language, "Speaker", "Speaker"))
+                            .font(.caption2.weight(.bold))
+                            .foregroundStyle(.white.opacity(0.72))
+                            .lineLimit(1)
+                    } else {
+                        mediaTypeBadge(for: action)
+                    }
                 }
 
                 Spacer(minLength: 6)
@@ -4486,7 +4522,7 @@ private struct AskDJPlaybackActionStack: View {
             .frame(maxWidth: 520, alignment: .leading)
             .background {
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .fill(.white.opacity(0.12))
+                    .fill(action.isOutputAction ? .white.opacity(0.10) : .white.opacity(0.12))
             }
             .overlay {
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
@@ -4517,13 +4553,16 @@ private struct AskDJPlaybackActionStack: View {
     }
 
     private func buttonLabel(for action: DJConnectAskDJPlaybackAction) -> String {
+        if action.isActiveOutputAction {
+            return localized(language, "Active", "Actief")
+        }
+        if action.isOutputAction {
+            return localized(language, "Activate", "Activeer")
+        }
         for candidate in [action.buttonLabel, action.title] {
             if let trimmed = candidate?.trimmingCharacters(in: .whitespacesAndNewlines), !trimmed.isEmpty {
                 return trimmed
             }
-        }
-        if action.isOutputAction {
-            return localized(language, "Activate", "Activeer")
         }
         return "Play Now"
     }

@@ -154,14 +154,24 @@ private func waitForLocalDeviceAPIURL(_ model: DJConnectAppModel) async throws -
 private struct LocalDeviceJSON: Decodable, Sendable {
     var deviceID: String
     var clientType: String
+    var version: String
+    var firmware: String
+    var appVersion: String
     var platform: String
+    var status: String
+    var pairingStatus: String
     var localURL: String
     var pairCode: String?
 
     enum CodingKeys: String, CodingKey {
         case deviceID = "device_id"
         case clientType = "client_type"
+        case version
+        case firmware
+        case appVersion = "app_version"
         case platform
+        case status
+        case pairingStatus = "pairing_status"
         case localURL = "local_url"
         case pairCode = "pair_code"
     }
@@ -2214,7 +2224,12 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
 
         #expect(loopbackPayload.deviceID == model.identity.deviceID)
         #expect(loopbackPayload.clientType == model.identity.clientType.rawValue)
+        #expect(loopbackPayload.version == model.identity.firmware)
+        #expect(loopbackPayload.firmware == model.identity.firmware)
+        #expect(loopbackPayload.appVersion == model.identity.appVersion)
         #expect(loopbackPayload.platform == model.identity.platform.rawValue)
+        #expect(loopbackPayload.status == "ready")
+        #expect(loopbackPayload.pairingStatus == model.pairingStatus.rawValue)
         #expect(loopbackPayload.localURL == lanBaseURL)
         if path == "/api/device/pairing-info" {
             #expect(loopbackPayload.pairCode == model.pairingToken)
@@ -2230,7 +2245,12 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
             }
             #expect(lanPayload.deviceID == loopbackPayload.deviceID)
             #expect(lanPayload.clientType == loopbackPayload.clientType)
+            #expect(lanPayload.version == loopbackPayload.version)
+            #expect(lanPayload.firmware == loopbackPayload.firmware)
+            #expect(lanPayload.appVersion == loopbackPayload.appVersion)
             #expect(lanPayload.platform == loopbackPayload.platform)
+            #expect(lanPayload.status == loopbackPayload.status)
+            #expect(lanPayload.pairingStatus == loopbackPayload.pairingStatus)
             #expect(lanPayload.localURL == lanBaseURL)
         }
     }
@@ -2241,8 +2261,8 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
         deviceID: "djconnect-watchos-8F3A2C91B45D",
         deviceName: "DJConnect Watch",
         clientType: .watchos,
-        firmware: "3.1.47",
-        appVersion: "3.1.47",
+        firmware: "3.1.48",
+        appVersion: "3.1.48",
         platform: .watchos
     )
     let info = DJConnectLocalDeviceAPIInfo(
@@ -2275,8 +2295,8 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
         deviceID: "djconnect-ios-8F3A2C91B45D",
         deviceName: "DJConnect iPhone",
         clientType: .ios,
-        firmware: "3.1.47",
-        appVersion: "3.1.47",
+        firmware: "3.1.48",
+        appVersion: "3.1.48",
         platform: .ios
     )
     let info = DJConnectLocalDeviceAPIInfo(

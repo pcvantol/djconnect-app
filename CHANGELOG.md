@@ -4,6 +4,32 @@ All notable changes to DJConnect App are documented here.
 
 ## Unreleased
 
+## 3.1.48 - 2026-06-25
+
+### Added
+
+- Added app, status, and pairing fields to the local device API so Home
+  Assistant can show iPhone and Watch sensors with concrete values instead of
+  unknown placeholders.
+
+### Changed
+
+- Made Apple Watch Now Playing refresh show a busy state, prevent duplicate
+  refreshes, and temporarily disable transport and volume controls while the
+  status request is running.
+- Rendered Ask DJ speaker/output responses as list rows with a right-aligned
+  activate button, matching playlist and album action cards.
+- Prefer usable LAN IPv4 addresses for local pairing and hide unusable Watch
+  fallback addresses when no reachable local network address is available.
+- Only throttle backend collection refreshes after at least one devices, queue,
+  or playlist refresh succeeds.
+
+### Fixed
+
+- Fixed Dutch What's New publication by adding localized release-note source
+  files for this release so the public workflow no longer falls back to English
+  content for `nl` URLs.
+
 ## 3.1.47 - 2026-06-24
 
 ### Added

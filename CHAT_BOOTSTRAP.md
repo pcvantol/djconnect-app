@@ -34,10 +34,10 @@ Context:
 - Secrets/tokens/wachtwoorden/private URLs mogen nooit in commits, logs, screenshots, diagnostics of test fixtures.
 
 Huidige status om te controleren:
-- Release `3.1.46` is de actuele source release met standalone watchOS
-  mDNS/Bonjour discovery-fixes, dubbele Watch-service preventie, Watch demo
-  runtime-stabiliteit, verwijderde Watch top-refreshknop, en expliciete
-  iOS/watchOS discovery contracttests.
+- Release `3.1.48` is de actuele source release met lokale device-API
+  sensorvelden voor Home Assistant, Watch Now Playing busy-state tijdens
+  verversen, Ask DJ speakeracties als lijstregels, LAN IPv4-selectie voor
+  lokale pairing, en expliciete Nederlandse What's New bronbestanden.
 - watchOS volgt dezelfde pairingrichting als iOS/macOS: de Watch adverteert de
   lokale client API via mDNS, Home Assistant vult de koppelcode in de config
   flow in, de gebruiker bevestigt in Home Assistant, en de Watch toont daarna
@@ -47,17 +47,17 @@ Huidige status om te controleren:
 - Demo Mode is volledig lokaal en non-interacting met Home Assistant. Ask DJ
   toont de vaste voorbeelden en geeft client-side demobubbles terug die
   uitleggen dat Ask DJ echt antwoordt zodra Home Assistant gekoppeld is.
-- De statische What's New release-notes voor `3.1.46` worden door de
+- De statische What's New release-notes voor `3.1.48` worden door de
   `Public unsigned release` workflow gepubliceerd naar `pcvantol/djconnect-website`
-  en `djconnect.dev`. Controleer de workflowstatus als release/publicatie
-  geraakt wordt.
+  en `djconnect.dev`. Controleer specifiek dat de `nl` JSON echte Nederlandse
+  inhoud bevat en niet de Engelse fallback.
 - Lokale branch hoort gelijk te lopen met `origin/main`; controleer dat bij
   start van iedere sessie.
 - Check direct:
   - `git status --short --branch`
   - `gh run list --repo pcvantol/djconnect-app --limit 5`
-  - public release tags in `pcvantol/djconnect-app-releases` voor `ios/v3.1.46` en `macos/v3.1.46` indien release/publicatie geraakt wordt.
-  - `https://djconnect.dev/release-notes/ios/nl/v3.1.46.json` en het macOS
+  - public release tags in `pcvantol/djconnect-app-releases` voor `ios/v3.1.48` en `macos/v3.1.48` indien release/publicatie geraakt wordt.
+  - `https://djconnect.dev/release-notes/ios/nl/v3.1.48.json` en het macOS
     equivalent indien What's New release-notes geraakt worden.
 
 Werkstijl:
