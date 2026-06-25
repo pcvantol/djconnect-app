@@ -1040,6 +1040,8 @@ public struct DJConnectAskDJIdleSuggestionRequest: Codable, Equatable, Sendable 
 }
 
 public struct DJConnectPushRegistrationRequest: Codable, Equatable, Sendable {
+    public static let defaultNotificationCategories = ["ask_dj_response", "ask_dj_confirm"]
+
     public var deviceID: String
     public var clientType: DJConnectClientType
     public var pushToken: String
@@ -1057,7 +1059,7 @@ public struct DJConnectPushRegistrationRequest: Codable, Equatable, Sendable {
         appBundleID: String,
         appVersion: String? = nil,
         locale: String? = nil,
-        notificationCategories: [String] = ["ask_dj"],
+        notificationCategories: [String] = Self.defaultNotificationCategories,
         bootstrapProof: String? = nil
     ) {
         self.deviceID = identity.deviceID

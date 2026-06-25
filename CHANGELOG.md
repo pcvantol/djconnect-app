@@ -4,6 +4,26 @@ All notable changes to DJConnect App are documented here.
 
 ## Unreleased
 
+## 3.1.50 - 2026-06-25
+
+### Changed
+
+- Ask DJ now scrolls to the newest message every time the chat opens on iOS,
+  macOS, and watchOS, including after async history loading settles.
+- Restyled the Ask DJ scroll-to-bottom affordance to match the DJConnect
+  gradient button language.
+- Added privacy-safe diagnostics for APNs push registration and backend push
+  status on Apple clients.
+
+### Fixed
+
+- Hardened standalone watchOS pairing by keeping the local device API on a
+  stable stored port, publishing mDNS only after the listener is ready, binding
+  the listener to IPv4 LAN interfaces, keeping it alive during active pairing,
+  and logging listener state transitions.
+- Added watchOS LAN IPv4 diagnostics when the Watch is connected through
+  iPhone/Bluetooth relay or another non-LAN path.
+
 ## 3.1.49 - 2026-06-25
 
 ### Changed

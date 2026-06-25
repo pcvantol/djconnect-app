@@ -34,7 +34,7 @@ Context:
 - Secrets/tokens/wachtwoorden/private URLs mogen nooit in commits, logs, screenshots, diagnostics of test fixtures.
 
 Huidige status om te controleren:
-- Release `3.1.49` is de actuele source release met Ask DJ speakeracties als
+- Release `3.1.50` is de actuele source release met Ask DJ speakeracties als
   verticale lijstregels met namen en rechts uitgelijnde activeerknoppen, plus
   standaard naar beneden scrollen wanneer de Ask DJ chatgeschiedenis opent.
 - watchOS volgt dezelfde pairingrichting als iOS/macOS: de Watch adverteert de
@@ -43,10 +43,19 @@ Huidige status om te controleren:
   `Succesvol gekoppeld`. De Watch heeft Ask DJ PTT/voice input, tekstuele
   history, optionele replay van `audio_url`, en ontvangt dezelfde backend
   system/ambient historyberichten.
+- watchOS pairing-lifecycle om direct live te valideren: op echte Watch werkt het
+  `Client adres` pas wanneer de iPhone-Bluetoothrelay uit is en de Watch een
+  echt WiFi/LAN IPv4-adres heeft. mDNS is vanaf de Mac zichtbaar met correcte
+  `_djconnect._tcp` TXT (`client_type=watchos`, `pairing_status=unpaired`,
+  `local_url=http://192.168.1.119:<poort>`). De watchOS local API is daarna
+  gehard: opgeslagen/stabiele poort, geen pre-ready mDNS-publicatie, local API
+  blijft actief tijdens pairing, en extra logs bij `NWListener.cancelled`/
+  `waiting`/`failed`. Valideer op echte Watch dat de poort niet meer flapt en
+  `/api/device/info` vanaf Home Assistant bereikbaar is.
 - Demo Mode is volledig lokaal en non-interacting met Home Assistant. Ask DJ
   toont de vaste voorbeelden en geeft client-side demobubbles terug die
   uitleggen dat Ask DJ echt antwoordt zodra Home Assistant gekoppeld is.
-- De statische What's New release-notes voor `3.1.49` worden door de
+- De statische What's New release-notes voor `3.1.50` worden door de
   `Public unsigned release` workflow gepubliceerd naar `pcvantol/djconnect-website`
   en `djconnect.dev`. Controleer specifiek dat de `nl` JSON echte Nederlandse
   inhoud bevat en niet de Engelse fallback.
@@ -55,8 +64,8 @@ Huidige status om te controleren:
 - Check direct:
   - `git status --short --branch`
   - `gh run list --repo pcvantol/djconnect-app --limit 5`
-  - public release tags in `pcvantol/djconnect-app-releases` voor `ios/v3.1.49` en `macos/v3.1.49` indien release/publicatie geraakt wordt.
-  - `https://djconnect.dev/release-notes/ios/nl/v3.1.49.json` en het macOS
+  - public release tags in `pcvantol/djconnect-app-releases` voor `ios/v3.1.50` en `macos/v3.1.50` indien release/publicatie geraakt wordt.
+  - `https://djconnect.dev/release-notes/ios/nl/v3.1.50.json` en het macOS
     equivalent indien What's New release-notes geraakt worden.
 
 Werkstijl:

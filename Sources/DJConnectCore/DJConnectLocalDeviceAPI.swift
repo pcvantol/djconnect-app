@@ -393,7 +393,7 @@ public final class DJConnectLocalDeviceAPI: @unchecked Sendable {
                 publishBonjourService(for: info)
             }
             await urlHandler(nil)
-            await logHandler("Local device API listener ready on port \(port), but no usable LAN IPv4 address was found")
+            await logHandler("Local device API listener ready on port \(port), but no usable LAN IPv4 address was found; \(Self.localIPv4DiagnosticSummary())")
             return
         }
         #else
@@ -480,14 +480,14 @@ public final class DJConnectLocalDeviceAPI: @unchecked Sendable {
             let parameters = NWParameters.tcp
             parameters.allowLocalEndpointReuse = true
             parameters.includePeerToPeer = true
+            if let anyIPv4 = IPv4Address("0.0.0.0") {
+                parameters.requiredLocalEndpoint = .hostPort(host: .ipv4(anyIPv4), port: listenerPort)
+            }
             let listener = try NWListener(using: parameters, on: listenerPort)
             guard generation == listenerGeneration else {
                 isNetworkListenerStarting = false
                 listener.cancel()
                 return
-            }
-            if isBonjourAdvertisingEnabled {
-                listener.service = Self.networkService(for: info, localURL: info.localURL ?? "")
             }
             listener.newConnectionHandler = { [weak self] connection in
                 Task { await self?.logHandler("Local device API accepted network connection") }
@@ -514,7 +514,7 @@ public final class DJConnectLocalDeviceAPI: @unchecked Sendable {
                         }
                         Task {
                             await self.urlHandler(nil)
-                            await self.logHandler("Local device API listener ready on port \(port.rawValue), but no usable LAN IPv4 address was found")
+                            await self.logHandler("Local device API listener ready on port \(port.rawValue), but no usable LAN IPv4 address was found; \(Self.localIPv4DiagnosticSummary())")
                         }
                         return
                     }
@@ -531,14 +531,18 @@ public final class DJConnectLocalDeviceAPI: @unchecked Sendable {
                         }
                     }
                 case let .failed(error):
-                    Task { await self.logHandler("Local device API listener failed: \(error.localizedDescription)") }
+                    Task { await self.logHandler("Local device API listener failed on port \(self.port.map(String.init) ?? "<none>"): \(error.localizedDescription)") }
                 case let .waiting(error):
-                    Task { await self.logHandler("Local device API listener waiting: \(error.localizedDescription)") }
+                    Task { await self.logHandler("Local device API listener waiting on port \(self.port.map(String.init) ?? "<none>"): \(error.localizedDescription)") }
                 case .cancelled:
+                    let previousPort = self.port.map(String.init) ?? "<none>"
                     self.listenSocket = -1
                     self.port = nil
                     self.localURL = nil
-                    Task { await self.urlHandler(nil) }
+                    Task {
+                        await self.urlHandler(nil)
+                        await self.logHandler("Local device API listener cancelled on port \(previousPort)")
+                    }
                 default:
                     break
                 }
@@ -654,6 +658,76 @@ public final class DJConnectLocalDeviceAPI: @unchecked Sendable {
             }
         }
         return bestCandidate?.address
+    }
+
+    private static func localIPv4DiagnosticSummary() -> String {
+        var interfaces: UnsafeMutablePointer<ifaddrs>?
+        guard getifaddrs(&interfaces) == 0, let firstInterface = interfaces else {
+            return "IPv4 diagnostics unavailable: getifaddrs failed"
+        }
+        defer { freeifaddrs(interfaces) }
+
+        var entries: [String] = []
+        var interface = firstInterface
+        while true {
+            defer {
+                if let next = interface.pointee.ifa_next {
+                    interface = next
+                }
+            }
+
+            let name = String(cString: interface.pointee.ifa_name)
+            let flags = Int32(interface.pointee.ifa_flags)
+            let isUp = (flags & IFF_UP) == IFF_UP
+            let isLoopback = (flags & IFF_LOOPBACK) == IFF_LOOPBACK
+            guard let address = interface.pointee.ifa_addr, address.pointee.sa_family == UInt8(AF_INET) else {
+                if interface.pointee.ifa_next == nil { break }
+                continue
+            }
+
+            var hostname = [CChar](repeating: 0, count: Int(NI_MAXHOST))
+            let result = getnameinfo(
+                address,
+                socklen_t(address.pointee.sa_len),
+                &hostname,
+                socklen_t(hostname.count),
+                nil,
+                0,
+                NI_NUMERICHOST
+            )
+            let ipAddress: String
+            if result == 0 {
+                ipAddress = hostname.withUnsafeBufferPointer { buffer in
+                    let bytes = buffer.prefix { $0 != 0 }.map { UInt8(bitPattern: $0) }
+                    return String(decoding: bytes, as: UTF8.self)
+                }
+            } else {
+                ipAddress = "unresolved"
+            }
+
+            let verdict: String
+            if !isUp {
+                verdict = "down"
+            } else if isLoopback {
+                verdict = "loopback"
+            } else if result != 0 {
+                verdict = "unresolved"
+            } else if isUsableLANIPv4Address(ipAddress) {
+                verdict = "usable"
+            } else {
+                verdict = "not-lan"
+            }
+            entries.append("\(name)=\(ipAddress)(\(verdict))")
+
+            if interface.pointee.ifa_next == nil {
+                break
+            }
+        }
+
+        if entries.isEmpty {
+            return "IPv4 interfaces: none"
+        }
+        return "IPv4 interfaces: \(entries.joined(separator: ", "))"
     }
 
     private static func isUsableLANIPv4Address(_ ipAddress: String) -> Bool {

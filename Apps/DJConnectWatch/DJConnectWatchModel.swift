@@ -206,6 +206,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
     @AppStorage("askDJClearRevision") private var askDJClearRevision = 0
     @AppStorage("DJConnectWatchWelcomeSeen") private var welcomeSeen = false
     @AppStorage("watchVoiceActivationEnabled") private var storedVoiceActivationEnabled = false
+    @AppStorage("watchLocalDeviceAPIPort") private var storedLocalDeviceAPIPort = DJConnectWatchModel.makeLocalDeviceAPIPort()
 
     @Published private(set) var connectionState: ConnectionState = .unpaired
     @Published private(set) var voiceState: VoiceState = .idle
@@ -334,11 +335,13 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
     func requestRemoteNotificationRegistration() {
         Task { @MainActor in
             let center = UNUserNotificationCenter.current()
+            logPush("init platform=\(identity.platform.rawValue) client_type=\(identity.clientType.rawValue) bundle_id=\(Bundle.main.bundleIdentifier ?? "<missing>") app_version=\(identity.appVersion ?? "<missing>") app_build=\(Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "<missing>") env=\(Self.pushEnvironment.rawValue)")
             let authorized = await requestRemoteNotificationAuthorizationIfNeeded(center: center)
             guard authorized else {
-                appendDiagnosticLog("Push toestemming niet gegeven", level: .warning)
+                logPush("remote notification registration not started permission_granted=false", level: .warning)
                 return
             }
+            logPush("starting system remote notification registration")
             WKApplication.shared().registerForRemoteNotifications()
         }
     }
@@ -346,16 +349,17 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
     func handleRemoteNotificationDeviceToken(_ deviceToken: Data) {
         let token = deviceToken.map { String(format: "%02x", $0) }.joined()
         guard !token.isEmpty else {
+            logPush("received empty APNs token", level: .warning)
             return
         }
         currentAPNsPushToken = token
         UserDefaults.standard.removeObject(forKey: legacyPushTokenKey)
-        appendDiagnosticLog("APNs token ontvangen \(Self.redactedPushToken(token))")
+        logPush("received APNs token bytes=\(deviceToken.count) hex_length=\(token.count) token=\(Self.redactedPushToken(token))", level: .info)
         registerStoredPushTokenIfPossible()
     }
 
     func handleRemoteNotificationRegistrationError(_ error: Error) {
-        appendDiagnosticLog("Push registratie mislukt: \(error.localizedDescription)", level: .warning)
+        logPush("system remote notification registration failed error=\(error.localizedDescription)", level: .warning)
     }
 
     func clearDiagnosticLog() {
@@ -1718,6 +1722,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
                     self?.appendDiagnosticLog(message)
                 }
             },
+            preferredPort: UInt16(storedLocalDeviceAPIPort),
             advertiseBonjour: shouldAdvertiseBonjour
         )
         localDeviceAPI?.start()
@@ -1770,6 +1775,10 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
 
     private func stopLocalDeviceAPIForBackgroundIfNeeded() {
         guard shouldAdvertiseBonjour else {
+            return
+        }
+        if case .pairing = connectionState {
+            appendDiagnosticLog("Watch local API blijft actief tijdens pairing", level: .debug)
             return
         }
         stopLocalDeviceAPI()
@@ -2340,14 +2349,18 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
 
     private func requestRemoteNotificationAuthorizationIfNeeded(center: UNUserNotificationCenter) async -> Bool {
         let settings = await center.notificationSettings()
+        logPush("notification permission status=\(Self.notificationAuthorizationStatusName(settings.authorizationStatus))")
         switch settings.authorizationStatus {
         case .authorized, .provisional, .ephemeral:
             return true
         case .notDetermined:
             do {
-                return try await center.requestAuthorization(options: [.alert, .sound])
+                let granted = try await center.requestAuthorization(options: [.alert, .sound])
+                let updatedSettings = await center.notificationSettings()
+                logPush("notification permission requested granted=\(granted) status=\(Self.notificationAuthorizationStatusName(updatedSettings.authorizationStatus))")
+                return granted
             } catch {
-                appendDiagnosticLog("Push toestemming mislukt: \(error.localizedDescription)", level: .warning)
+                logPush("notification permission failed error=\(error.localizedDescription)", level: .warning)
                 return false
             }
         case .denied:
@@ -2371,11 +2384,14 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         let tokenHash = Self.pushTokenHash(token)
         let appBundleID = Bundle.main.bundleIdentifier ?? "dev.djconnect.watch"
         let locale = Locale.current.identifier
+        let bootstrapProof = currentBootstrapProofForPushRegistration()
+        let categories = DJConnectPushRegistrationRequest.defaultNotificationCategories
         let registrationSignature = pushRegistrationSignature(
             pushToken: token,
             pushEnvironment: environment,
             appBundleID: appBundleID,
-            locale: locale
+            locale: locale,
+            bootstrapProof: bootstrapProof
         )
         if UserDefaults.standard.string(forKey: registeredPushTokenHashKey) == tokenHash,
            UserDefaults.standard.string(forKey: registeredPushEnvironmentKey) == environment.rawValue,
@@ -2385,15 +2401,21 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         }
         Task { @MainActor in
             do {
+                let authPresent = (try? tokenStore.loadToken())?.isEmpty == false
+                logPush("register payload endpoint=/api/djconnect/push/register ha_host=\(Self.hostForLog(from: haBaseURL)) device_id=\(identity.deviceID) client_type=\(identity.clientType.rawValue) env=\(environment.rawValue) app_bundle_id=\(appBundleID) app_version=\(identity.appVersion ?? "<missing>") locale=\(locale) categories=\(categories) push_token_present=\(!token.isEmpty) token=\(DJConnectLogRedactor.redactSecret(token)) bootstrap_proof_present=\(bootstrapProof?.isEmpty == false) bootstrap_proof=\(DJConnectLogRedactor.redactSecret(bootstrapProof)) auth_present=\(authPresent)")
                 let response = try await client.registerPushNotifications(DJConnectPushRegistrationRequest(
                     identity: identity,
                     pushToken: token,
                     pushEnvironment: environment,
                     appBundleID: appBundleID,
                     appVersion: identity.appVersion,
-                    locale: locale
+                    locale: locale,
+                    notificationCategories: categories,
+                    bootstrapProof: bootstrapProof
                 ))
                 applyPushRegistrationStatus(from: response)
+                let responseError = Self.redactedPushFailureReason(response.lastPushError ?? response.error ?? "<missing>")
+                logPush("register response http_status=decoded success=\(response.success) push_supported=\(Self.optionalBoolForLog(response.pushSupported)) push_registered=\(Self.optionalBoolForLog(response.pushRegistered)) push_environment=\(response.pushEnvironment?.rawValue ?? "<missing>") last_push_error=\(responseError)")
                 guard response.success, response.pushRegistered != false else {
                     let reason = response.error ?? response.lastPushError ?? response.message ?? "onbekend"
                     UserDefaults.standard.set(false, forKey: pushRegisteredKey)
@@ -2407,15 +2429,15 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
                 UserDefaults.standard.set(registrationSignature, forKey: registeredPushSignatureKey)
                 UserDefaults.standard.set(true, forKey: pushRegisteredKey)
                 UserDefaults.standard.removeObject(forKey: lastPushErrorKey)
-                appendDiagnosticLog("APNs token geregistreerd bij Home Assistant (\(environment.rawValue))")
+                logPush("registered with Home Assistant env=\(environment.rawValue)", level: .info)
             } catch let error as DJConnectError {
                 if case .routeMissing = error {
-                    appendDiagnosticLog("Push route ontbreekt in Home Assistant", level: .debug)
+                    logPush("registration skipped route_missing=true")
                 } else {
-                    appendDiagnosticLog("Push registratie mislukt: \(Self.userMessage(for: error))", level: .warning)
+                    logPush("registration failed error=\(Self.userMessage(for: error))", level: .warning)
                 }
             } catch {
-                appendDiagnosticLog("Push registratie mislukt: \(error.localizedDescription)", level: .warning)
+                logPush("registration failed error=\(error.localizedDescription)", level: .warning)
             }
         }
     }
@@ -2457,7 +2479,8 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         pushToken: String,
         pushEnvironment: DJConnectPushEnvironment,
         appBundleID: String,
-        locale: String
+        locale: String,
+        bootstrapProof: String?
     ) -> String {
         [
             identity.deviceID,
@@ -2467,6 +2490,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
             appBundleID,
             identity.appVersion ?? "",
             locale,
+            bootstrapProof ?? "",
             haBaseURL
         ].joined(separator: "|")
     }
@@ -2489,6 +2513,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         } else if response.pushRegistered == true {
             UserDefaults.standard.removeObject(forKey: lastPushErrorKey)
         }
+        logPush("status push_supported=\(Self.optionalBoolForLog(response.pushSupported)) push_registered=\(Self.optionalBoolForLog(response.pushRegistered)) push_environment=\(response.pushEnvironment?.rawValue ?? "<missing>") last_push_error=\(Self.redactedPushFailureReason(response.lastPushError ?? "<missing>"))")
     }
 
     private static var pushEnvironment: DJConnectPushEnvironment {
@@ -2499,14 +2524,50 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         #endif
     }
 
+    private func currentBootstrapProofForPushRegistration() -> String? {
+        pairingCode.isEmpty ? nil : pairingCode
+    }
+
+    private func logPush(_ message: String, level: DJConnectWatchLogLevel = .debug) {
+        appendDiagnosticLog("[DJConnectPush] \(message)", level: level)
+    }
+
     private static func redactedPushToken(_ token: String) -> String {
-        "[redacted]"
+        DJConnectLogRedactor.redactSecret(token)
     }
 
     private static func pushTokenHash(_ token: String) -> String {
         SHA256.hash(data: Data(token.utf8))
             .map { String(format: "%02x", $0) }
             .joined()
+    }
+
+    private static func hostForLog(from urlString: String) -> String {
+        guard let url = URL(string: urlString), let host = url.host, !host.isEmpty else {
+            return "<missing>"
+        }
+        return host
+    }
+
+    private static func optionalBoolForLog(_ value: Bool?) -> String {
+        value.map(String.init) ?? "<missing>"
+    }
+
+    private static func notificationAuthorizationStatusName(_ status: UNAuthorizationStatus) -> String {
+        switch status {
+        case .notDetermined:
+            "not_determined"
+        case .denied:
+            "denied"
+        case .authorized:
+            "authorized"
+        case .provisional:
+            "provisional"
+        case .ephemeral:
+            "ephemeral"
+        @unknown default:
+            "unknown"
+        }
     }
 
     private static func redactedPushFailureReason(_ reason: String) -> String {
@@ -2972,6 +3033,10 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
             .replacingOccurrences(of: "-", with: "")
             .prefix(12)
             .uppercased()
+    }
+
+    private static func makeLocalDeviceAPIPort() -> Int {
+        Int.random(in: 52_000...52_999)
     }
 
     private static func userMessage(for error: Error) -> String {

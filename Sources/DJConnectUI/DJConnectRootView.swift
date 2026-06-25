@@ -1936,6 +1936,34 @@ private struct DJConnectLilacPillButtonStyle: ButtonStyle {
     }
 }
 
+private struct DJConnectFloatingCircleButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .background(
+                Circle()
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                djConnectButtonBlue.opacity(configuration.isPressed ? 0.86 : 1.0),
+                                djConnectButtonPurple.opacity(configuration.isPressed ? 0.86 : 1.0),
+                                Color(red: 1.0, green: 0.56, blue: 0.22).opacity(configuration.isPressed ? 0.78 : 0.92)
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+            )
+            .overlay {
+                Circle()
+                    .stroke(.white.opacity(configuration.isPressed ? 0.24 : 0.18), lineWidth: 1)
+            }
+            .shadow(color: djConnectButtonPurple.opacity(0.38), radius: 14, y: 6)
+            .shadow(color: Color.black.opacity(0.26), radius: 10, y: 4)
+            .scaleEffect(configuration.isPressed ? 0.94 : 1)
+            .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
+    }
+}
+
 private struct AnimatedAlbumArtworkView: View {
     let playback: DJConnectPlayback?
     let isDemoMode: Bool
@@ -3424,14 +3452,12 @@ private struct AskDJView: View {
                                         proxy.scrollTo(lastID, anchor: .bottom)
                                     }
                                 } label: {
-                                    Image(systemName: "arrow.down.circle.fill")
-                                        .font(.title2.weight(.semibold))
+                                    Image(systemName: "arrow.down")
+                                        .font(.system(size: 18, weight: .bold))
                                         .foregroundStyle(.white)
-                                        .frame(width: 42, height: 42)
-                                        .background(Circle().fill(Color.black.opacity(0.34)))
-                                        .overlay(Circle().stroke(.white.opacity(0.18), lineWidth: 1))
+                                        .frame(width: 48, height: 48)
                                 }
-                                .buttonStyle(.plain)
+                                .buttonStyle(DJConnectFloatingCircleButtonStyle())
                                 .padding(.trailing, djConnectScreenHorizontalPadding)
                                 .padding(.bottom, 12)
                                 .help(localized(model.language, "Scroll to bottom", "Naar beneden"))
@@ -3475,6 +3501,12 @@ private struct AskDJView: View {
                     }
                     .onAppear {
                         didScrollAskDJToInitialBottom = false
+                        scrollAskDJToInitialBottomIfNeeded(proxy: proxy)
+                    }
+                    .onChange(of: model.isCheckingAskDJHistoryState) { _, isChecking in
+                        guard !isChecking else {
+                            return
+                        }
                         scrollAskDJToInitialBottomIfNeeded(proxy: proxy)
                     }
                     .onDisappear {
@@ -3681,6 +3713,10 @@ private struct AskDJView: View {
         }
         didScrollAskDJToInitialBottom = true
         DispatchQueue.main.async {
+            isAskDJAtBottom = true
+            proxy.scrollTo(lastID, anchor: .bottom)
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.16) {
             isAskDJAtBottom = true
             proxy.scrollTo(lastID, anchor: .bottom)
         }

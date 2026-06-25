@@ -426,7 +426,7 @@ public final class DJConnectAppModel: ObservableObject {
     private let startBackgroundTasks: Bool
     private let monkeyTestingMode: Bool
     private let diagnosticLogFileURL: URL?
-    private static let protocolVersion = "3.1.49"
+    private static let protocolVersion = "3.1.50"
     private static let defaultHomeAssistantURL = "http://homeassistant.local:8123"
     private let appVersion = DJConnectAppModel.protocolVersion
     private let installIDKey = "DJConnectInstallID"
@@ -3472,14 +3472,18 @@ public final class DJConnectAppModel: ObservableObject {
 
     private func requestRemoteNotificationAuthorizationIfNeeded(center: UNUserNotificationCenter) async -> Bool {
         let settings = await center.notificationSettings()
+        logPush("notification permission status=\(Self.notificationAuthorizationStatusName(settings.authorizationStatus))")
         switch settings.authorizationStatus {
         case .authorized, .provisional, .ephemeral:
             return true
         case .notDetermined:
             do {
-                return try await center.requestAuthorization(options: [.alert, .sound, .badge])
+                let granted = try await center.requestAuthorization(options: [.alert, .sound, .badge])
+                let updatedSettings = await center.notificationSettings()
+                logPush("notification permission requested granted=\(granted) status=\(Self.notificationAuthorizationStatusName(updatedSettings.authorizationStatus))")
+                return granted
             } catch {
-                log(.warning, "Remote notification permission failed: \(error.localizedDescription)")
+                logPush("notification permission failed error=\(error.localizedDescription)", level: .warning)
                 return false
             }
         case .denied:
@@ -3491,12 +3495,13 @@ public final class DJConnectAppModel: ObservableObject {
     #endif
 
     private func registerForSystemRemoteNotifications() {
+        logPush("starting system remote notification registration")
         #if os(iOS) && canImport(UIKit)
         UIApplication.shared.registerForRemoteNotifications()
         #elseif os(macOS) && canImport(AppKit)
         NSApplication.shared.registerForRemoteNotifications()
         #else
-        log(.debug, "System remote notification registration is not available on this platform")
+        logPush("system remote notification registration unavailable on this platform")
         #endif
     }
 
@@ -3513,11 +3518,14 @@ public final class DJConnectAppModel: ObservableObject {
         let tokenHash = Self.pushTokenHash(token)
         let appBundleID = Bundle.main.bundleIdentifier ?? "dev.djconnect.\(identity.clientType.rawValue)"
         let locale = Locale.current.identifier
+        let bootstrapProof = currentBootstrapProofForPushRegistration()
+        let categories = DJConnectPushRegistrationRequest.defaultNotificationCategories
         let registrationSignature = pushRegistrationSignature(
             pushToken: token,
             pushEnvironment: environment,
             appBundleID: appBundleID,
-            locale: locale
+            locale: locale,
+            bootstrapProof: bootstrapProof
         )
         if defaults.string(forKey: registeredPushTokenHashKey) == tokenHash,
            defaults.string(forKey: registeredPushEnvironmentKey) == environment.rawValue,
@@ -3527,6 +3535,10 @@ public final class DJConnectAppModel: ObservableObject {
         }
         Task { @MainActor in
             do {
+                let authPresent = (try? tokenStore.loadToken())?.isEmpty == false
+                logPush(
+                    "register payload endpoint=/api/djconnect/push/register ha_host=\(Self.hostForLog(from: localHomeAssistantURL())) device_id=\(identity.deviceID) client_type=\(identity.clientType.rawValue) env=\(environment.rawValue) app_bundle_id=\(appBundleID) app_version=\(appVersion) locale=\(locale) categories=\(categories) push_token_present=\(!token.isEmpty) token=\(DJConnectLogRedactor.redactSecret(token)) bootstrap_proof_present=\(bootstrapProof?.isEmpty == false) bootstrap_proof=\(DJConnectLogRedactor.redactSecret(bootstrapProof)) auth_present=\(authPresent)"
+                )
                 let response = try await withHomeAssistantClient { client in
                     try await client.registerPushNotifications(DJConnectPushRegistrationRequest(
                         identity: identity,
@@ -3534,10 +3546,14 @@ public final class DJConnectAppModel: ObservableObject {
                         pushEnvironment: environment,
                         appBundleID: appBundleID,
                         appVersion: appVersion,
-                        locale: locale
+                        locale: locale,
+                        notificationCategories: categories,
+                        bootstrapProof: bootstrapProof
                     ))
                 }
                 applyPushRegistrationStatus(from: response)
+                let responseError = Self.redactedPushFailureReason(response.lastPushError ?? response.error ?? "<missing>")
+                logPush("register response http_status=decoded success=\(response.success) push_supported=\(Self.optionalBoolForLog(response.pushSupported)) push_registered=\(Self.optionalBoolForLog(response.pushRegistered)) push_environment=\(response.pushEnvironment?.rawValue ?? "<missing>") last_push_error=\(responseError)")
                 guard response.success, response.pushRegistered != false else {
                     let reason = response.error ?? response.lastPushError ?? response.message ?? "unknown"
                     defaults.set(false, forKey: pushRegisteredKey)
@@ -3551,15 +3567,15 @@ public final class DJConnectAppModel: ObservableObject {
                 defaults.set(registrationSignature, forKey: registeredPushSignatureKey)
                 defaults.set(true, forKey: pushRegisteredKey)
                 defaults.removeObject(forKey: lastPushErrorKey)
-                log(.info, "Registered APNs token with Home Assistant (\(environment.rawValue))")
+                logPush("registered with Home Assistant env=\(environment.rawValue)", level: .info)
             } catch let error as DJConnectError {
                 if case .routeMissing = error {
-                    log(.debug, "Push registration skipped because Home Assistant does not support the route yet")
+                    logPush("registration skipped route_missing=true")
                 } else {
-                    log(.warning, "Push registration failed: \(Self.describe(error))")
+                    logPush("registration failed error=\(Self.describe(error))", level: .warning)
                 }
             } catch {
-                log(.warning, "Push registration failed: \(error.localizedDescription)")
+                logPush("registration failed error=\(error.localizedDescription)", level: .warning)
             }
         }
     }
@@ -3568,7 +3584,8 @@ public final class DJConnectAppModel: ObservableObject {
         pushToken: String,
         pushEnvironment: DJConnectPushEnvironment,
         appBundleID: String,
-        locale: String
+        locale: String,
+        bootstrapProof: String?
     ) -> String {
         [
             identity.deviceID,
@@ -3578,6 +3595,7 @@ public final class DJConnectAppModel: ObservableObject {
             appBundleID,
             appVersion,
             locale,
+            bootstrapProof ?? "",
             localHomeAssistantURL()
         ].joined(separator: "|")
     }
@@ -3606,6 +3624,7 @@ public final class DJConnectAppModel: ObservableObject {
         } else if response.pushRegistered == true {
             defaults.removeObject(forKey: lastPushErrorKey)
         }
+        logPush("status push_supported=\(Self.optionalBoolForLog(response.pushSupported)) push_registered=\(Self.optionalBoolForLog(response.pushRegistered)) push_environment=\(response.pushEnvironment?.rawValue ?? "<missing>") last_push_error=\(Self.redactedPushFailureReason(response.lastPushError ?? "<missing>"))")
     }
 
     private static var pushEnvironment: DJConnectPushEnvironment {
@@ -3616,9 +3635,47 @@ public final class DJConnectAppModel: ObservableObject {
         #endif
     }
 
-    private static func redactedPushToken(_ token: String) -> String {
-        "[redacted]"
+    private func currentBootstrapProofForPushRegistration() -> String? {
+        pairingToken.isEmpty ? nil : pairingToken
     }
+
+    private func logPush(_ message: String, level: DJConnectAppLogLevel = .debug) {
+        log(level, "[DJConnectPush] \(message)")
+    }
+
+    private static func redactedPushToken(_ token: String) -> String {
+        DJConnectLogRedactor.redactSecret(token)
+    }
+
+    private static func hostForLog(from urlString: String) -> String {
+        guard let url = normalizedHomeAssistantURL(from: urlString), let host = url.host, !host.isEmpty else {
+            return "<missing>"
+        }
+        return host
+    }
+
+    private static func optionalBoolForLog(_ value: Bool?) -> String {
+        value.map(String.init) ?? "<missing>"
+    }
+
+    #if canImport(UserNotifications)
+    private static func notificationAuthorizationStatusName(_ status: UNAuthorizationStatus) -> String {
+        switch status {
+        case .notDetermined:
+            "not_determined"
+        case .denied:
+            "denied"
+        case .authorized:
+            "authorized"
+        case .provisional:
+            "provisional"
+        case .ephemeral:
+            "ephemeral"
+        @unknown default:
+            "unknown"
+        }
+    }
+    #endif
 
     private static func redactedPushFailureReason(_ reason: String) -> String {
         reason
@@ -3981,10 +4038,11 @@ public final class DJConnectAppModel: ObservableObject {
         #if canImport(UserNotifications)
         Task { @MainActor in
             let center = UNUserNotificationCenter.current()
+            logPush("init platform=\(identity.platform.rawValue) client_type=\(identity.clientType.rawValue) bundle_id=\(Bundle.main.bundleIdentifier ?? "<missing>") app_version=\(appVersion) app_build=\(Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "<missing>") env=\(Self.pushEnvironment.rawValue)")
             let authorized = await requestRemoteNotificationAuthorizationIfNeeded(center: center)
             refreshPermissionStatuses()
             guard authorized else {
-                log(.warning, "Remote notification permission was not granted")
+                logPush("remote notification registration not started permission_granted=false", level: .warning)
                 return
             }
             registerForSystemRemoteNotifications()
@@ -3997,16 +4055,17 @@ public final class DJConnectAppModel: ObservableObject {
     public func handleRemoteNotificationDeviceToken(_ deviceToken: Data) {
         let token = deviceToken.map { String(format: "%02x", $0) }.joined()
         guard !token.isEmpty else {
+            logPush("received empty APNs token", level: .warning)
             return
         }
         currentAPNsPushToken = token
         defaults.removeObject(forKey: legacyPushTokenKey)
-        log(.info, "Received APNs token \(Self.redactedPushToken(token))")
+        logPush("received APNs token bytes=\(deviceToken.count) hex_length=\(token.count) token=\(Self.redactedPushToken(token))", level: .info)
         registerStoredPushTokenIfPossible()
     }
 
     public func handleRemoteNotificationRegistrationError(_ error: Error) {
-        log(.warning, "Remote notification registration failed: \(error.localizedDescription)")
+        logPush("system remote notification registration failed error=\(error.localizedDescription)", level: .warning)
     }
 
     public func unregisterPushNotifications() {
@@ -4651,8 +4710,8 @@ public final class DJConnectAppModel: ObservableObject {
             deviceID: "djconnect-macos-unavailable",
             deviceName: "DJConnect Mac",
             clientType: .macos,
-            firmware: "3.1.49",
-            appVersion: "3.1.49",
+            firmware: "3.1.50",
+            appVersion: "3.1.50",
             platform: .macos
         )
         #else
@@ -4660,8 +4719,8 @@ public final class DJConnectAppModel: ObservableObject {
             deviceID: "djconnect-ios-unavailable",
             deviceName: "DJConnect iPhone",
             clientType: .ios,
-            firmware: "3.1.49",
-            appVersion: "3.1.49",
+            firmware: "3.1.50",
+            appVersion: "3.1.50",
             platform: .ios
         )
         #endif

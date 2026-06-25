@@ -1762,7 +1762,11 @@ private struct DJConnectWatchAskDJChatView: View {
                     scrollToLatestOnce(proxy)
                 }
                 .onAppear {
+                    didInitialScrollToLatest = false
                     scrollToLatestOnce(proxy)
+                }
+                .onDisappear {
+                    didInitialScrollToLatest = false
                 }
                 .onChange(of: model.askDJMessages.last?.id) {
                     if !didInitialScrollToLatest {
@@ -1822,6 +1826,15 @@ private struct DJConnectWatchAskDJChatView: View {
             return
         }
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) {
+            if animated {
+                withAnimation(.easeOut(duration: 0.2)) {
+                    proxy.scrollTo(lastID, anchor: .bottom)
+                }
+            } else {
+                proxy.scrollTo(lastID, anchor: .bottom)
+            }
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.28) {
             if animated {
                 withAnimation(.easeOut(duration: 0.2)) {
                     proxy.scrollTo(lastID, anchor: .bottom)

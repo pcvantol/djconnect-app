@@ -541,7 +541,7 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
     #expect(json["push_environment"] as? String == "sandbox")
     #expect(json["app_bundle_id"] as? String == "dev.djconnect.ios")
     #expect(json["locale"] as? String == "nl-NL")
-    #expect(json["notification_categories"] as? [String] == ["ask_dj"])
+    #expect(json["notification_categories"] as? [String] == ["ask_dj_response", "ask_dj_confirm"])
 }
 
 @Test func iOSPushRegisterRequestUsesCanonicalIdentityAndBootstrapProofWhenProvided() throws {
@@ -580,7 +580,7 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
     #expect(json["app_bundle_id"] as? String == "dev.djconnect.ios")
     #expect(json["app_version"] as? String == "3.1.66")
     #expect(json["locale"] as? String == "nl-NL")
-    #expect(json["notification_categories"] as? [String] == ["ask_dj"])
+    #expect(json["notification_categories"] as? [String] == ["ask_dj_response", "ask_dj_confirm"])
     #expect(json["bootstrap_proof"] as? String == "short-lived-proof")
 }
 
@@ -620,7 +620,7 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
     #expect(json["app_bundle_id"] as? String == "dev.djconnect.mac")
     #expect(json["app_version"] as? String == "3.1.66")
     #expect(json["locale"] as? String == "nl-NL")
-    #expect(json["notification_categories"] as? [String] == ["ask_dj"])
+    #expect(json["notification_categories"] as? [String] == ["ask_dj_response", "ask_dj_confirm"])
     #expect(json["bootstrap_proof"] as? String == "short-lived-proof")
 }
 
@@ -660,8 +660,34 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
     #expect(json["app_bundle_id"] as? String == "dev.djconnect.watch")
     #expect(json["app_version"] as? String == "3.1.66")
     #expect(json["locale"] as? String == "nl-NL")
-    #expect(json["notification_categories"] as? [String] == ["ask_dj"])
+    #expect(json["notification_categories"] as? [String] == ["ask_dj_response", "ask_dj_confirm"])
     #expect(json["bootstrap_proof"] as? String == "short-lived-proof")
+}
+
+@Test func pushLogRedactionRedactsSecretsRecursively() throws {
+    let sanitized = DJConnectLogRedactor.sanitizeForLog([
+        "push_token": "abcdef1234567890",
+        "bootstrap_proof": "djcbootstrapproof1234567890",
+        "Authorization": "Bearer secret-token-value",
+        "nested": [
+            "password": "super-secret-password",
+            "safe": "visible"
+        ]
+    ]) as? [String: Any]
+
+    #expect(sanitized?["push_token"] as? String == "abcdef...567890 (len=16)")
+    #expect(sanitized?["bootstrap_proof"] as? String == "djcboo...567890 (len=27)")
+    #expect(sanitized?["Authorization"] as? String == "Bearer...-value (len=25)")
+    let nested = try #require(sanitized?["nested"] as? [String: Any])
+    #expect(nested["password"] as? String == "super-...ssword (len=21)")
+    #expect(nested["safe"] as? String == "visible")
+
+    let rendered = DJConnectLogRedactor.sanitizedJSONString([
+        "push_token": "abcdef1234567890",
+        "Authorization": "Bearer secret-token-value"
+    ])
+    #expect(!rendered.contains("abcdef1234567890"))
+    #expect(!rendered.contains("secret-token-value"))
 }
 
 @Test func pushUnregisterRequestUsesAuthenticatedEndpoint() throws {
