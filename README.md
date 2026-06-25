@@ -20,7 +20,10 @@ speaker/output action rows live there; Now Playing no longer has a separate DJ
 request block. Home Assistant owns Ask DJ intent interpretation,
 follow-up/confirmation state, morning-start context, output switching, and
 playback execution; Apple clients render the returned messages, media, and
-actions.
+actions. Ask DJ message and command payloads include `device_id`,
+`device_name`, `client_id`, and `client_type`; action taps send the
+backend-returned action object back where possible so Home Assistant keeps
+ownership of follow-up and output metadata.
 
 AI and Assist answers can be incorrect and depend on your own Home Assistant
 and Assist configuration.
@@ -254,7 +257,9 @@ Ask DJ output-device responses may include structured output `playback_actions`.
 Apple clients render those vertically, with the speaker name on the left and an
 `Actief`/`Activeer` button on the right. Opening Ask DJ scrolls the synced chat
 history to the newest message by default, including after the first async
-history load.
+history load. Clearing Ask DJ history calls
+`POST /api/djconnect/ask_dj/history/clear`; the returned `clear_revision` is
+the authoritative full-clear signal for local cached history.
 
 The native app also uses command proxy flows for backend devices, queue,
 playlists, liked songs, and output selection:

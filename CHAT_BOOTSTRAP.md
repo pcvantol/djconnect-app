@@ -29,7 +29,10 @@ Context:
 - Ask DJ tekstchat stuurt standaard `audio_response: "auto"`. Ontbrekende `audio_url` is normaal; replay/audio UI verschijnt alleen als `assistant_message.audio_url` of top-level `audio_url` aanwezig is.
 - Ask DJ mag informatieve vragen, contextuele vervolgreacties, playback-intents, persoonlijke muziekanalyse, aanbevelingen, Play Now-acties, afbeeldingen, links, bronnen en DJ-audio bevatten. Intentinterpretatie blijft backend-owned; clients hardcoden geen intentfamilies behalve UI-weergave van teruggegeven media/actions.
 - Ask DJ request payloads mogen optionele `metadata` bevatten voor backend-owned context triggers. De geplande ochtend-start gebruikt `metadata.trigger == "morning_startup"` met tekst `Goedemorgen`/`Good morning` als de app 's ochtends start zonder actieve playback; Home Assistant hoort daarop een normale Ask DJ response/follow-up te maken en niet client-side automatisch muziek te starten.
+- Ask DJ tekst- en command-payloads sturen expliciet `device_id`, `device_name`, `client_id` en `client_type`; `client_id` is nu gelijk aan `device_id` voor backendcompatibiliteit.
 - Backend follow-up/confirmatievragen worden als Ask DJ `playback_actions` gerenderd. Voor algemene ja/nee verduidelijking gebruikt de backend acties met bijvoorbeeld `kind: "confirmation"`, `action_style: "confirmation"`, `response_value: "yes"|"no"` en `command: "ask_dj_followup_response"`. Clients tonen dan klikbare Ja/Nee knoppen; de pending follow-up state en uiteindelijke intentuitvoering blijven server-side.
+- Clients sturen bij action-taps waar mogelijk het volledige door de backend teruggegeven action-object terug, inclusief object-valued `value`; output-actions worden dus niet meer gereduceerd tot alleen een device-id tenzij legacy fallback nodig is.
+- Ask DJ clear-history gebruikt `POST /api/djconnect/ask_dj/history/clear`; de backend moet `clear_revision` verhogen en blijven teruggeven, want dat is de authoritative full-clear marker voor lokale caches.
 - Raw backend/proxy/decode/HTML-fouten mogen nooit in de Ask DJ chat UI verschijnen. Toon korte gelokaliseerde meldingen zoals `Ask DJ niet bereikbaar` of `Home Assistant gaf geen antwoord`; technische details blijven in diagnostics/logs.
 - Secrets/tokens/wachtwoorden/private URLs mogen nooit in commits, logs, screenshots, diagnostics of test fixtures.
 
@@ -37,6 +40,9 @@ Huidige status om te controleren:
 - Release `3.1.50` is de actuele source release met Ask DJ speakeracties als
   verticale lijstregels met namen en rechts uitgelijnde activeerknoppen, plus
   standaard naar beneden scrollen wanneer de Ask DJ chatgeschiedenis opent.
+- Bovenop `3.1.50` staat lokaal vervolgwerk voor expliciete Ask DJ
+  client-identiteit, behoud van action `value` payloads, structured output
+  command forwarding en documentatie van `/ask_dj/history/clear`.
 - watchOS volgt dezelfde pairingrichting als iOS/macOS: de Watch adverteert de
   lokale client API via mDNS, Home Assistant vult de koppelcode in de config
   flow in, de gebruiker bevestigt in Home Assistant, en de Watch toont daarna

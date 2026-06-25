@@ -195,7 +195,16 @@ including after the first async history response.
 Ask DJ output-device responses may include output `playback_actions`. Apple
 clients render them as vertical speaker rows with the name on the left and an
 `Actief`/`Activeer` button on the right. Tapping a row sends the backend-owned
-output command; clients do not infer speaker switching from free text.
+output command and preserves the backend-returned action object where possible;
+clients do not infer speaker switching from free text. Ask DJ message and
+command payloads include `device_id`, `device_name`, `client_id`, and
+`client_type`, with `client_id` currently matching `device_id`.
+
+The Apple clear-history action calls
+`POST /api/djconnect/ask_dj/history/clear`. Home Assistant should scope the
+clear to the relevant user/client/history namespace, increment
+`clear_revision`, and keep returning that revision on later history/message
+responses so all Apple clients can clear their local caches deterministically.
 
 Raw backend/proxy/decode bodies, including HTML error pages, must never appear
 in the Ask DJ chat UI. Keep the details in diagnostics logs and show only

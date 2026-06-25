@@ -142,6 +142,19 @@ timeline with distinct styling. When the Ask DJ screen opens, clients scroll to
 the newest timeline message by default, including after the first async history
 load.
 
+The clear-history command is a backend call to
+`POST /api/djconnect/ask_dj/history/clear`. Clients clear local cached history
+only when the backend returns an advanced `clear_revision`; this keeps
+cross-device clears authoritative and avoids treating a bounded history window
+as a deletion signal.
+
+Ask DJ text and command payloads carry explicit app identity fields:
+`device_id`, `device_name`, `client_id`, and `client_type`. `client_id`
+currently mirrors `device_id`. When users tap backend-provided
+`playback_actions`, clients prefer sending the returned action object back,
+including nested object `value` payloads, so follow-up state and output
+selection remain backend-owned.
+
 Ask DJ UI must never show raw backend, proxy, HTML, or decode error bodies.
 Technical details belong in redacted diagnostics logs; visible errors stay short
 and localized, such as `Ask DJ niet bereikbaar` or `Home Assistant gaf geen

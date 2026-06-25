@@ -4,6 +4,18 @@ All notable changes to DJConnect App are documented here.
 
 ## Unreleased
 
+### Changed
+
+- Documented the Ask DJ history-clear endpoint as
+  `/api/djconnect/ask_dj/history/clear`, with `clear_revision` as the
+  authoritative full-clear signal for cached Apple-client history.
+- Updated the Ask DJ action contract so Apple clients preserve backend-returned
+  action objects, including object-valued `value` payloads, when sending
+  follow-up, recommendation, confirmation, or output commands back to Home
+  Assistant.
+- Included explicit `client_id`, `device_id`, `device_name`, and `client_type`
+  identity fields in Ask DJ text and command payload documentation.
+
 ## 3.1.50 - 2026-06-25
 
 ### Changed

@@ -443,6 +443,8 @@ Minimum payload:
 ```json
 {
   "device_id": "djconnect-ios-8F3A2C91B45D",
+  "device_name": "Peter's iPhone",
+  "client_id": "djconnect-ios-8F3A2C91B45D",
   "client_type": "ios",
   "text": "Voeg dit nummer toe aan mijn favorieten",
   "audio_response": "auto",
@@ -458,6 +460,11 @@ Minimum payload:
 to `auto`. Missing `audio_url` is a normal successful response for
 informational text answers. Replay UI is shown only when
 `assistant_message.audio_url` or top-level `audio_url` is present.
+
+Apple clients include stable identity fields in Ask DJ message and command
+payloads: `device_id`, `device_name`, `client_id`, and `client_type`.
+`client_id` currently matches `device_id` and is included for compatibility
+with backends that key history, follow-up state, or diagnostics by client.
 
 `metadata` is optional and backend-owned. Clients may use it to signal context
 triggers without adding client-side intent logic. The planned morning startup
@@ -720,11 +727,16 @@ the same action shape:
 ```
 
 The follow-up command should preserve the returned action object where
-possible:
+possible. If the backend returned an object-valued action `value`, Apple
+clients preserve it and can derive a textual response from `response_value`,
+`text`, `prompt`, or `value` inside that object when needed for display or
+confirmation routing:
 
 ```json
 {
   "device_id": "djconnect-ios-8F3A2C91B45D",
+  "device_name": "Peter's iPhone",
+  "client_id": "djconnect-ios-8F3A2C91B45D",
   "client_type": "ios",
   "command": "ask_dj_followup_response",
   "value": {
@@ -732,7 +744,11 @@ possible:
     "title": "Ja",
     "kind": "confirmation",
     "action_style": "confirmation",
-    "response_value": "yes"
+    "response_value": "yes",
+    "value": {
+      "text": "Ja",
+      "response_value": "yes"
+    }
   }
 }
 ```
@@ -775,11 +791,27 @@ When the user taps an output action, Apple clients send:
 ```json
 {
   "device_id": "djconnect-ios-8F3A2C91B45D",
+  "device_name": "Peter's iPhone",
+  "client_id": "djconnect-ios-8F3A2C91B45D",
   "client_type": "ios",
   "command": "set_output",
-  "value": "spotify-device-keuken"
+  "value": {
+    "id": "output-keuken",
+    "kind": "output",
+    "title": "Keuken",
+    "device_id": "spotify-device-keuken",
+    "device_name": "Keuken",
+    "active": false,
+    "command": "set_output",
+    "response_value": "spotify-device-keuken"
+  }
 }
 ```
+
+Backends should accept either legacy scalar output values or the structured
+action object. New Apple clients prefer the structured object so Home Assistant
+can retain context such as `kind`, speaker name, `memory_key`, and
+backend-owned follow-up metadata.
 
 For `dj_announcement_request`, Home Assistant should not mutate playback. It
 should read current playback and, when available, queue/next-track context,
@@ -947,7 +979,7 @@ Expected successful musical analysis response:
 
 ```http
 GET /api/djconnect/ask_dj/history
-POST /api/djconnect/ask_dj/clear
+POST /api/djconnect/ask_dj/history/clear
 ```
 
 iOS, macOS, and watchOS sync Ask DJ chat history from Home Assistant. When Ask
@@ -1017,6 +1049,36 @@ cache without parsing display text:
 Clients may remove local cached messages older than `history_trimmed_before`.
 `clear_revision` remains the authoritative full-clear signal; if it advances,
 clients clear local Ask DJ history before applying returned messages.
+
+When the user clears Ask DJ history, Apple clients call
+`POST /api/djconnect/ask_dj/history/clear`. The request uses the same bearer
+auth and client identity as other Ask DJ endpoints, and may include
+`memory_key` when the client is using a scoped DJ Memory/history namespace:
+
+```json
+{
+  "device_id": "djconnect-ios-8F3A2C91B45D",
+  "device_name": "Peter's iPhone",
+  "client_id": "djconnect-ios-8F3A2C91B45D",
+  "client_type": "ios",
+  "memory_key": "djconnect_ios_djconnect-ios-8F3A2C91B45D"
+}
+```
+
+Expected successful clear response:
+
+```json
+{
+  "success": true,
+  "history_revision": 43,
+  "clear_revision": 7,
+  "messages": []
+}
+```
+
+After a clear, older messages must not reappear in later history responses for
+the same scope. New messages after the clear should use normal
+`history_revision` advancement and include the latest `clear_revision`.
 
 Backend or proxy error bodies must never be shown raw in Ask DJ UI. Clients log
 technical details for diagnostics, but user-facing Ask DJ errors are limited to
