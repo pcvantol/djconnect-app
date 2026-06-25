@@ -930,6 +930,144 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
     #expect(response.assistantMessage?.audioURL == nil)
 }
 
+@Test func askDJMessageResponseDecodesTechnicalTrackAnalysisContract() throws {
+    let json = """
+    {
+      "history_revision": 44,
+      "clear_revision": 7,
+      "text": "Deze track werkt door de strakke 128 BPM puls en geleidelijke laag-opbouw.",
+      "dj_text": "Deze track werkt door de strakke 128 BPM puls en geleidelijke laag-opbouw.",
+      "action": "track_analysis",
+      "intent": {
+        "category": "informational",
+        "intent": "technical_track_analysis",
+        "action": "track_analysis"
+      },
+      "analysis": {
+        "mode": "measured_plus_knowledge",
+        "confidence": "high",
+        "track": {
+          "title": "Strobe",
+          "artist": "deadmau5",
+          "album": "For Lack of a Better Name",
+          "uri": "spotify:track:123"
+        },
+        "measured": {
+          "bpm": 128,
+          "key": "C minor",
+          "time_signature": 4,
+          "sections": [
+            {
+              "label": "intro",
+              "start_ms": 0,
+              "duration_ms": 32000,
+              "confidence": 0.7
+            }
+          ],
+          "features": {
+            "energy": 0.82,
+            "danceability": 0.71
+          }
+        },
+        "inferred": {
+          "structure": "Lange intro, laag-opbouw, climax/drop en outro.",
+          "instrumentation": "Synthpads, basdruk en subtiele percussie.",
+          "melodic_build": "Herhaling bouwt spanning op.",
+          "energy_curve": "Geleidelijk stijgend.",
+          "mix_notes": "Brede pads met ruimte voor de kick."
+        },
+        "limitations": [
+          "Exact section labels are inferred, not measured."
+        ],
+        "sources": [
+          "spotify_playback_context",
+          "spotify_audio_features"
+        ]
+      },
+      "items": [
+        {
+          "kind": "technical_metric",
+          "title": "BPM",
+          "value": "128",
+          "source": "spotify_audio_features"
+        },
+        {
+          "kind": "arrangement",
+          "title": "Opbouw",
+          "value": "Lange intro, geleidelijke laag-opbouw, climax/drop, outro",
+          "source": "ha_conversation"
+        }
+      ],
+      "images": [],
+      "links": [],
+      "sources": [
+        {
+          "url": "https://example.test/source",
+          "title": "Spotify playback context",
+          "kind": "source"
+        }
+      ],
+      "playback_actions": [],
+      "confirmation_actions": []
+    }
+    """.data(using: .utf8)!
+
+    let response = try JSONDecoder().decode(DJConnectAskDJMessageResponse.self, from: json)
+    let assistantMessage = try #require(response.assistantMessage)
+
+    #expect(response.intentInfo?.category == "informational")
+    #expect(response.intentInfo?.intent == "technical_track_analysis")
+    #expect(response.intentInfo?.action == "track_analysis")
+    #expect(response.analysis?.mode == "measured_plus_knowledge")
+    #expect(response.analysis?.measured?.bpm == 128)
+    #expect(response.analysis?.measured?.key == "C minor")
+    #expect(response.analysis?.measured?.sections.first?.label == "intro")
+    #expect(response.analysis?.inferred?.mixNotes == "Brede pads met ruimte voor de kick.")
+    #expect(response.analysis?.sources == ["spotify_playback_context", "spotify_audio_features"])
+    #expect(response.items?.first?.kind == "technical_metric")
+    #expect(response.items?.first?.value == "128")
+    #expect(response.items?.first?.source == "spotify_audio_features")
+    #expect(response.playbackActions?.isEmpty == true)
+    #expect(response.confirmationActions?.isEmpty == true)
+    #expect(assistantMessage.intentInfo?.intent == "technical_track_analysis")
+    #expect(assistantMessage.analysis?.confidence == "high")
+    #expect(assistantMessage.items.count == 2)
+    #expect(assistantMessage.playbackActions.isEmpty)
+    #expect(assistantMessage.confirmationActions.isEmpty)
+    #expect(assistantMessage.images.isEmpty)
+}
+
+@Test func askDJResponseDecodesObjectIntentForTechnicalTrackAnalysis() throws {
+    let json = """
+    {
+      "success": true,
+      "dj_text": "Er speelt nu geen track die ik kan analyseren.",
+      "action": "track_analysis",
+      "intent": {
+        "category": "informational",
+        "intent": "technical_track_analysis",
+        "action": "track_analysis"
+      },
+      "analysis": {
+        "mode": "unavailable",
+        "confidence": "low",
+        "limitations": ["No current track is available."],
+        "sources": ["spotify_playback_context"]
+      },
+      "playback_actions": []
+    }
+    """.data(using: .utf8)!
+
+    let response = try JSONDecoder().decode(DJConnectAskDJResponse.self, from: json)
+
+    #expect(response.success)
+    #expect(response.intent == "technical_track_analysis")
+    #expect(response.intentInfo?.category == "informational")
+    #expect(response.action == "track_analysis")
+    #expect(response.analysis?.mode == "unavailable")
+    #expect(response.playbackActions?.isEmpty == true)
+}
+
 @Test func askDJMessageResponseFallsBackToTopLevelAudioURL() throws {
     let json = """
     {
@@ -1434,8 +1572,8 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
         deviceID: "djconnect-watchos-8F3A2C91B45D",
         deviceName: "DJConnect Watch",
         clientType: .watchos,
-        firmware: "3.1.50",
-        appVersion: "3.1.50",
+        firmware: "3.1.51",
+        appVersion: "3.1.51",
         platform: .watchos
     )
     let client = DJConnectClient(
@@ -1467,8 +1605,8 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
         deviceID: "djconnect-watchos-8F3A2C91B45D",
         deviceName: "DJConnect Watch",
         clientType: .watchos,
-        firmware: "3.1.50",
-        appVersion: "3.1.50",
+        firmware: "3.1.51",
+        appVersion: "3.1.51",
         platform: .watchos
     )
     let client = DJConnectClient(

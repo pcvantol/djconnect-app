@@ -425,18 +425,21 @@ public enum DJConnectAskDJMessageKind: String, Codable, Equatable, Sendable {
 }
 
 public struct DJConnectAskDJIntentInfo: Codable, Equatable, Sendable {
+    public var category: String?
     public var intent: String?
     public var action: String?
     public var itemType: String?
 
     enum CodingKeys: String, CodingKey {
+        case category
         case intent
         case action
         case itemType = "item_type"
         case itemTypeCamel = "itemType"
     }
 
-    public init(intent: String? = nil, action: String? = nil, itemType: String? = nil) {
+    public init(category: String? = nil, intent: String? = nil, action: String? = nil, itemType: String? = nil) {
+        self.category = category
         self.intent = intent
         self.action = action
         self.itemType = itemType
@@ -449,6 +452,7 @@ public struct DJConnectAskDJIntentInfo: Codable, Equatable, Sendable {
         }
         let container = try decoder.container(keyedBy: CodingKeys.self)
         self.init(
+            category: try container.decodeIfPresent(String.self, forKey: .category),
             intent: try container.decodeIfPresent(String.self, forKey: .intent),
             action: try container.decodeIfPresent(String.self, forKey: .action),
             itemType: try container.decodeIfPresent(String.self, forKey: .itemType)
@@ -458,9 +462,103 @@ public struct DJConnectAskDJIntentInfo: Codable, Equatable, Sendable {
 
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encodeIfPresent(category, forKey: .category)
         try container.encodeIfPresent(intent, forKey: .intent)
         try container.encodeIfPresent(action, forKey: .action)
         try container.encodeIfPresent(itemType, forKey: .itemType)
+    }
+}
+
+public struct DJConnectAskDJTrackAnalysis: Codable, Equatable, Sendable {
+    public var mode: String?
+    public var confidence: String?
+    public var track: Track?
+    public var measured: Measured?
+    public var inferred: Inferred?
+    public var limitations: [String]
+    public var sources: [String]
+
+    public struct Track: Codable, Equatable, Sendable {
+        public var title: String?
+        public var artist: String?
+        public var album: String?
+        public var uri: String?
+    }
+
+    public struct Measured: Codable, Equatable, Sendable {
+        public var bpm: Double?
+        public var key: String?
+        public var timeSignature: Int?
+        public var sections: [Section]
+        public var features: [String: Double]
+
+        enum CodingKeys: String, CodingKey {
+            case bpm
+            case key
+            case timeSignature = "time_signature"
+            case sections
+            case features
+        }
+
+        public init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            bpm = try container.decodeIfPresent(Double.self, forKey: .bpm)
+            key = try container.decodeIfPresent(String.self, forKey: .key)
+            timeSignature = try container.decodeIfPresent(Int.self, forKey: .timeSignature)
+            sections = container.decodeLossyArrayIfPresent(Section.self, forKey: .sections) ?? []
+            features = (try? container.decode([String: Double].self, forKey: .features)) ?? [:]
+        }
+    }
+
+    public struct Section: Codable, Equatable, Sendable {
+        public var label: String?
+        public var startMS: Int?
+        public var durationMS: Int?
+        public var confidence: Double?
+
+        enum CodingKeys: String, CodingKey {
+            case label
+            case startMS = "start_ms"
+            case durationMS = "duration_ms"
+            case confidence
+        }
+    }
+
+    public struct Inferred: Codable, Equatable, Sendable {
+        public var structure: String?
+        public var instrumentation: String?
+        public var melodicBuild: String?
+        public var energyCurve: String?
+        public var mixNotes: String?
+
+        enum CodingKeys: String, CodingKey {
+            case structure
+            case instrumentation
+            case melodicBuild = "melodic_build"
+            case energyCurve = "energy_curve"
+            case mixNotes = "mix_notes"
+        }
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case mode
+        case confidence
+        case track
+        case measured
+        case inferred
+        case limitations
+        case sources
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        mode = try container.decodeIfPresent(String.self, forKey: .mode)
+        confidence = try container.decodeIfPresent(String.self, forKey: .confidence)
+        track = try container.decodeIfPresent(Track.self, forKey: .track)
+        measured = try container.decodeIfPresent(Measured.self, forKey: .measured)
+        inferred = try container.decodeIfPresent(Inferred.self, forKey: .inferred)
+        limitations = container.decodeLossyArrayIfPresent(String.self, forKey: .limitations) ?? []
+        sources = container.decodeLossyArrayIfPresent(String.self, forKey: .sources) ?? []
     }
 }
 
@@ -477,11 +575,15 @@ public struct DJConnectAskDJHistoryItem: Codable, Equatable, Sendable, Identifia
     public var thumbnailURL: URL?
     public var playedAt: String?
     public var playedAtLabel: String?
+    public var value: String?
+    public var source: String?
 
     enum CodingKeys: String, CodingKey {
         case kind
         case title
         case subtitle
+        case value
+        case source
         case uri
         case imageURL = "image_url"
         case imageUrl
@@ -501,7 +603,9 @@ public struct DJConnectAskDJHistoryItem: Codable, Equatable, Sendable, Identifia
         imageURL: URL? = nil,
         thumbnailURL: URL? = nil,
         playedAt: String? = nil,
-        playedAtLabel: String? = nil
+        playedAtLabel: String? = nil,
+        value: String? = nil,
+        source: String? = nil
     ) {
         self.kind = kind
         self.title = title
@@ -511,6 +615,8 @@ public struct DJConnectAskDJHistoryItem: Codable, Equatable, Sendable, Identifia
         self.thumbnailURL = thumbnailURL
         self.playedAt = playedAt
         self.playedAtLabel = playedAtLabel
+        self.value = value
+        self.source = source
     }
 
     public init(from decoder: Decoder) throws {
@@ -518,6 +624,8 @@ public struct DJConnectAskDJHistoryItem: Codable, Equatable, Sendable, Identifia
         kind = try container.decodeIfPresent(String.self, forKey: .kind)
         title = try container.decodeIfPresent(String.self, forKey: .title) ?? ""
         subtitle = try container.decodeIfPresent(String.self, forKey: .subtitle)
+        value = try container.decodeIfPresent(String.self, forKey: .value)
+        source = try container.decodeIfPresent(String.self, forKey: .source)
         uri = try container.decodeIfPresent(String.self, forKey: .uri)
         imageURL = try container.decodeIfPresent(URL.self, forKey: .imageURL)
             ?? container.decodeIfPresentIgnoringErrors(URL.self, forKey: .imageUrl)
@@ -534,6 +642,8 @@ public struct DJConnectAskDJHistoryItem: Codable, Equatable, Sendable, Identifia
         try container.encodeIfPresent(kind, forKey: .kind)
         try container.encode(title, forKey: .title)
         try container.encodeIfPresent(subtitle, forKey: .subtitle)
+        try container.encodeIfPresent(value, forKey: .value)
+        try container.encodeIfPresent(source, forKey: .source)
         try container.encodeIfPresent(uri, forKey: .uri)
         try container.encodeIfPresent(imageURL, forKey: .imageURL)
         try container.encodeIfPresent(thumbnailURL, forKey: .thumbnailURL)
@@ -562,6 +672,7 @@ public struct DJConnectAskDJHistoryMessage: Codable, Equatable, Identifiable, Se
     public var playbackActions: [DJConnectAskDJPlaybackAction]
     public var confirmationActions: [DJConnectAskDJPlaybackAction]
     public var intentInfo: DJConnectAskDJIntentInfo?
+    public var analysis: DJConnectAskDJTrackAnalysis?
     public var items: [DJConnectAskDJHistoryItem]
 
     enum CodingKeys: String, CodingKey {
@@ -589,6 +700,7 @@ public struct DJConnectAskDJHistoryMessage: Codable, Equatable, Identifiable, Se
         case recommendationActions = "recommendation_actions"
         case recommendations
         case intentInfo = "intent"
+        case analysis
         case items
     }
 
@@ -612,6 +724,7 @@ public struct DJConnectAskDJHistoryMessage: Codable, Equatable, Identifiable, Se
         playbackActions: [DJConnectAskDJPlaybackAction] = [],
         confirmationActions: [DJConnectAskDJPlaybackAction] = [],
         intentInfo: DJConnectAskDJIntentInfo? = nil,
+        analysis: DJConnectAskDJTrackAnalysis? = nil,
         items: [DJConnectAskDJHistoryItem] = []
     ) {
         self.id = id
@@ -633,6 +746,7 @@ public struct DJConnectAskDJHistoryMessage: Codable, Equatable, Identifiable, Se
         self.playbackActions = playbackActions
         self.confirmationActions = confirmationActions
         self.intentInfo = intentInfo
+        self.analysis = analysis
         self.items = items
     }
 
@@ -666,6 +780,7 @@ public struct DJConnectAskDJHistoryMessage: Codable, Equatable, Identifiable, Se
             ?? []
         confirmationActions = container.decodeLossyArrayIfPresent(DJConnectAskDJPlaybackAction.self, forKey: .confirmationActions) ?? []
         intentInfo = try container.decodeIfPresent(DJConnectAskDJIntentInfo.self, forKey: .intentInfo)
+        analysis = try container.decodeIfPresent(DJConnectAskDJTrackAnalysis.self, forKey: .analysis)
         items = container.decodeLossyArrayIfPresent(DJConnectAskDJHistoryItem.self, forKey: .items) ?? []
     }
 
@@ -690,6 +805,7 @@ public struct DJConnectAskDJHistoryMessage: Codable, Equatable, Identifiable, Se
         try container.encode(playbackActions, forKey: .playbackActions)
         try container.encode(confirmationActions, forKey: .confirmationActions)
         try container.encodeIfPresent(intentInfo, forKey: .intentInfo)
+        try container.encodeIfPresent(analysis, forKey: .analysis)
         try container.encode(items, forKey: .items)
     }
 
@@ -821,6 +937,7 @@ public struct DJConnectAskDJMessageResponse: Codable, Equatable, Sendable {
     public var intentInfo: DJConnectAskDJIntentInfo?
     public var action: String?
     public var itemType: String?
+    public var analysis: DJConnectAskDJTrackAnalysis?
     public var items: [DJConnectAskDJHistoryItem]?
 
     enum CodingKeys: String, CodingKey {
@@ -852,6 +969,7 @@ public struct DJConnectAskDJMessageResponse: Codable, Equatable, Sendable {
         case action
         case itemType = "item_type"
         case itemTypeCamel = "itemType"
+        case analysis
         case items
     }
 
@@ -878,6 +996,7 @@ public struct DJConnectAskDJMessageResponse: Codable, Equatable, Sendable {
         intentInfo: DJConnectAskDJIntentInfo? = nil,
         action: String? = nil,
         itemType: String? = nil,
+        analysis: DJConnectAskDJTrackAnalysis? = nil,
         items: [DJConnectAskDJHistoryItem]? = nil
     ) {
         self.userMessage = userMessage
@@ -902,6 +1021,7 @@ public struct DJConnectAskDJMessageResponse: Codable, Equatable, Sendable {
         self.intentInfo = intentInfo
         self.action = action
         self.itemType = itemType
+        self.analysis = analysis
         self.items = items
     }
 
@@ -937,6 +1057,7 @@ public struct DJConnectAskDJMessageResponse: Codable, Equatable, Sendable {
             ?? container.decodeIfPresentIgnoringErrors(String.self, forKey: .itemTypeCamel)
         if intentInfo != nil, (intentInfo?.action == nil || intentInfo?.itemType == nil) {
             intentInfo = DJConnectAskDJIntentInfo(
+                category: intentInfo?.category,
                 intent: intentInfo?.intent,
                 action: intentInfo?.action ?? action,
                 itemType: intentInfo?.itemType ?? itemType
@@ -944,12 +1065,16 @@ public struct DJConnectAskDJMessageResponse: Codable, Equatable, Sendable {
         } else if intentInfo == nil, action != nil || itemType != nil {
             intentInfo = DJConnectAskDJIntentInfo(intent: nil, action: action, itemType: itemType)
         }
+        analysis = try container.decodeIfPresent(DJConnectAskDJTrackAnalysis.self, forKey: .analysis)
         items = container.decodeLossyArrayIfPresent(DJConnectAskDJHistoryItem.self, forKey: .items)
         if assistantMessage?.audioURL == nil, let audioURL {
             assistantMessage?.audioURL = audioURL
         }
         if assistantMessage?.intentInfo == nil, let intentInfo {
             assistantMessage?.intentInfo = intentInfo
+        }
+        if assistantMessage?.analysis == nil, let analysis {
+            assistantMessage?.analysis = analysis
         }
         if assistantMessage?.items.isEmpty != false, let items, !items.isEmpty {
             assistantMessage?.items = items
@@ -982,6 +1107,7 @@ public struct DJConnectAskDJMessageResponse: Codable, Equatable, Sendable {
                 playbackActions: playbackActions ?? [],
                 confirmationActions: confirmationActions ?? [],
                 intentInfo: intentInfo,
+                analysis: analysis,
                 items: items ?? []
             )
         }
@@ -1014,6 +1140,7 @@ public struct DJConnectAskDJMessageResponse: Codable, Equatable, Sendable {
         try container.encodeIfPresent(intentInfo, forKey: .intentInfo)
         try container.encodeIfPresent(action, forKey: .action)
         try container.encodeIfPresent(itemType, forKey: .itemType)
+        try container.encodeIfPresent(analysis, forKey: .analysis)
         try container.encodeIfPresent(items, forKey: .items)
     }
 }
@@ -1241,7 +1368,10 @@ public struct DJConnectAskDJResponse: Codable, Equatable, Sendable {
     public var playbackActions: [DJConnectAskDJPlaybackAction]?
     public var confirmationActions: [DJConnectAskDJPlaybackAction]?
     public var intent: String?
+    public var intentInfo: DJConnectAskDJIntentInfo?
     public var action: String?
+    public var analysis: DJConnectAskDJTrackAnalysis?
+    public var items: [DJConnectAskDJHistoryItem]?
     public var memoryKey: String?
 
     enum CodingKeys: String, CodingKey {
@@ -1264,6 +1394,8 @@ public struct DJConnectAskDJResponse: Codable, Equatable, Sendable {
         case recommendations
         case intent
         case action
+        case analysis
+        case items
         case memoryKey = "memory_key"
     }
 
@@ -1279,7 +1411,10 @@ public struct DJConnectAskDJResponse: Codable, Equatable, Sendable {
         playbackActions: [DJConnectAskDJPlaybackAction]? = nil,
         confirmationActions: [DJConnectAskDJPlaybackAction]? = nil,
         intent: String? = nil,
+        intentInfo: DJConnectAskDJIntentInfo? = nil,
         action: String? = nil,
+        analysis: DJConnectAskDJTrackAnalysis? = nil,
+        items: [DJConnectAskDJHistoryItem]? = nil,
         memoryKey: String? = nil
     ) {
         self.success = success
@@ -1293,7 +1428,10 @@ public struct DJConnectAskDJResponse: Codable, Equatable, Sendable {
         self.playbackActions = playbackActions
         self.confirmationActions = confirmationActions
         self.intent = intent
+        self.intentInfo = intentInfo ?? intent.map { DJConnectAskDJIntentInfo(intent: $0, action: action) }
         self.action = action
+        self.analysis = analysis
+        self.items = items
         self.memoryKey = memoryKey
     }
 
@@ -1316,8 +1454,19 @@ public struct DJConnectAskDJResponse: Codable, Equatable, Sendable {
             ?? container.decodeLossyArrayIfPresent(DJConnectAskDJPlaybackAction.self, forKey: .recommendationActions)
             ?? container.decodeLossyArrayIfPresent(DJConnectAskDJPlaybackAction.self, forKey: .recommendations)
         confirmationActions = container.decodeLossyArrayIfPresent(DJConnectAskDJPlaybackAction.self, forKey: .confirmationActions)
-        intent = try container.decodeIfPresent(String.self, forKey: .intent)
+        intentInfo = try container.decodeIfPresent(DJConnectAskDJIntentInfo.self, forKey: .intent)
+        intent = intentInfo?.intent
         action = try container.decodeIfPresent(String.self, forKey: .action)
+        if intentInfo != nil, intentInfo?.action == nil, action != nil {
+            intentInfo = DJConnectAskDJIntentInfo(
+                category: intentInfo?.category,
+                intent: intentInfo?.intent,
+                action: action,
+                itemType: intentInfo?.itemType
+            )
+        }
+        analysis = try container.decodeIfPresent(DJConnectAskDJTrackAnalysis.self, forKey: .analysis)
+        items = container.decodeLossyArrayIfPresent(DJConnectAskDJHistoryItem.self, forKey: .items)
         memoryKey = try container.decodeIfPresent(String.self, forKey: .memoryKey)
     }
 
@@ -1333,8 +1482,10 @@ public struct DJConnectAskDJResponse: Codable, Equatable, Sendable {
         try container.encodeIfPresent(sources, forKey: .sources)
         try container.encodeIfPresent(playbackActions, forKey: .playbackActions)
         try container.encodeIfPresent(confirmationActions, forKey: .confirmationActions)
-        try container.encodeIfPresent(intent, forKey: .intent)
+        try container.encodeIfPresent(intentInfo ?? intent.map { DJConnectAskDJIntentInfo(intent: $0, action: action) }, forKey: .intent)
         try container.encodeIfPresent(action, forKey: .action)
+        try container.encodeIfPresent(analysis, forKey: .analysis)
+        try container.encodeIfPresent(items, forKey: .items)
         try container.encodeIfPresent(memoryKey, forKey: .memoryKey)
     }
 }

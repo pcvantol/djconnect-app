@@ -223,7 +223,7 @@ Expected macOS payload:
   "push_token": "<apns-device-token>",
   "push_environment": "sandbox",
   "app_bundle_id": "dev.djconnect.mac",
-  "app_version": "3.1.50",
+  "app_version": "3.1.51",
   "locale": "nl-NL",
   "notification_categories": ["ask_dj"],
   "bootstrap_proof": "<short-lived proof when available>"
@@ -540,14 +540,13 @@ families in addition to general informational questions and playback control:
   English examples: `tell me about this song`, `what year was this released?`,
   `where is this artist from?`, `what samples are used?`, `does this artist
   have concerts in the Netherlands?`, `why did you choose this track?`.
-- `track_musical_analysis`: answer musicological or production-analysis
-  questions about the current track without changing playback. Dutch examples:
-  `Analyseer dit nummer muzikaal`, `Welke instrumenten hoor ik?`, `Hoe is dit
-  nummer opgebouwd?`, `Wat maakt deze productie zo goed?`, `Welke trucjes
-  gebruikt de producer hier?`, `Waarom werkt deze drop zo goed?`, `Leg de
-  akkoorden en opbouw uit`. English examples: `analyze this track musically`,
-  `what instruments are used here?`, `how is this song structured?`, `what
-  production tricks are used?`, `why does this drop work?`.
+- `technical_track_analysis`: answer technical/musical analysis questions about
+  the current track without changing playback. Dutch examples: `Geef een
+  technische track analyse van dit nummer`, `Analyseer deze track`, `Wat is de
+  bpm en opbouw van deze track?`, `Welke instrumenten hoor je hierin?`, `Hoe
+  zit intro, couplet, refrein en breakdown in elkaar?`. English examples:
+  `Give me a technical analysis of this song`, `What is the BPM, key and
+  structure of this track?`, `Why does this track work so well?`.
 
 For `favorite_current_track`, Home Assistant should use the current playback
 context if the request uses deictic language such as `dit nummer`, `deze track`,
@@ -841,12 +840,32 @@ structured metadata object. If external artwork, concert pages, artist pages, or
 release pages are included, images should be proxied by Home Assistant and links
 should be normal `http`/`https` URLs.
 
-For `track_musical_analysis`, Home Assistant should give a musical/production
-commentary based on current playback metadata, known facts, available analysis
-sources, Spotify audio features if available, and/or carefully phrased audible
-inferences. It should not claim exact stem separation, exact chords, exact
-instrument lists, or a full transcription unless a real audio-analysis pipeline
-or trusted source is available. Useful response material includes:
+For `technical_track_analysis`, Home Assistant should give a technical/musical
+analysis based on current playback metadata, known facts, available provider
+metadata, audio features/analysis if available, and/or carefully phrased
+knowledge-based inferences. This intent is informational/read-only for iOS,
+macOS, watchOS, Raspberry Pi, and Windows Ask DJ clients. It must never start,
+pause, skip, queue, save, like, transfer output, or otherwise mutate playback.
+ESP32 remains outside the Ask DJ chat/history UI.
+
+Zero-conf setups must work without a central DJConnect backend. Use only
+Home Assistant-local config and user-provided provider keys. Possible providers
+include `spotify_playback_context`, `ha_conversation`,
+`spotify_audio_features`, `spotify_audio_analysis`, `getsongbpm`,
+`acousticbrainz`, and `local_audio_analyzer`. Spotify audio feature/analysis
+endpoints may be unavailable for some apps; treat them as optional. Never store
+OAuth tokens, API keys, raw prompts, or raw audio in Ask DJ history or DJ
+Memory. History may keep only compact response metadata.
+
+The response should distinguish `measured` values, such as provider-backed
+BPM/key/sections/features, from `inferred` musical commentary. Do not invent
+exact BPM, key, timestamps, section labels, stem separation, exact chords,
+exact instrument lists, or a full transcription unless a real audio-analysis
+pipeline or trusted source supplies enough confidence. If no current track is
+available, return friendly text such as `er speelt nu geen track die ik kan
+analyseren`.
+
+Useful response material includes:
 
 - instrumentation and sound palette;
 - arrangement and song structure, such as intro, build, verse, chorus, break,
@@ -861,10 +880,97 @@ or trusted source is available. Useful response material includes:
 - why the composition or production works emotionally or functionally in the
   current DJ set.
 
-The response should distinguish known documented facts from likely audible
-interpretation. Prefer language such as `waarschijnlijk`, `hoorbaar`, or `lijkt`
-when the backend is inferring from metadata/LLM knowledge rather than analyzing
-the audio directly.
+Clients render this as a text-first Ask DJ answer. Optional `items[]` may be
+shown as compact technical metrics/lists, for example `kind:
+"technical_metric"` for BPM/key or `kind: "arrangement"` for structure. Clients
+must not add Play Now buttons for this intent and should not parse text content;
+use `intent.intent`, `action`, `analysis.mode`, `analysis.sources`, and
+`items[].kind` where structured behavior is needed. `analysis.mode:
+"unavailable"` and `limitations[]` are normal response metadata, not an error
+state.
+
+Expected successful technical analysis response:
+
+```json
+{
+  "success": true,
+  "text": "De track werkt door een strakke 128 BPM puls, een geleidelijke laag-opbouw en een drop die de opgebouwde spanning loslaat.",
+  "dj_text": "De track werkt door een strakke 128 BPM puls, een geleidelijke laag-opbouw en een drop die de opgebouwde spanning loslaat.",
+  "message": "De track werkt door een strakke 128 BPM puls, een geleidelijke laag-opbouw en een drop die de opgebouwde spanning loslaat.",
+  "action": "track_analysis",
+  "intent": {
+    "category": "informational",
+    "intent": "technical_track_analysis",
+    "action": "track_analysis"
+  },
+  "analysis": {
+    "mode": "measured_plus_knowledge",
+    "confidence": "high",
+    "track": {
+      "title": "Track Title",
+      "artist": "Artist Name",
+      "album": "Album Title",
+      "uri": "spotify:track:123"
+    },
+    "measured": {
+      "bpm": 128,
+      "key": "C minor",
+      "time_signature": 4,
+      "sections": [
+        {
+          "label": "intro",
+          "start_ms": 0,
+          "duration_ms": 32000,
+          "confidence": 0.7
+        }
+      ],
+      "features": {
+        "energy": 0.82,
+        "danceability": 0.71
+      }
+    },
+    "inferred": {
+      "structure": "Lange intro, geleidelijke laag-opbouw, climax/drop en outro.",
+      "instrumentation": "Synthpads, basdruk en subtiele percussie.",
+      "melodic_build": "Herhaling bouwt spanning op.",
+      "energy_curve": "Geleidelijk stijgend.",
+      "mix_notes": "Brede pads met ruimte voor de kick."
+    },
+    "limitations": [
+      "Exact section labels are inferred, not measured."
+    ],
+    "sources": [
+      "spotify_playback_context",
+      "spotify_audio_features"
+    ]
+  },
+  "items": [
+    {
+      "kind": "technical_metric",
+      "title": "BPM",
+      "value": "128",
+      "source": "spotify_audio_features"
+    },
+    {
+      "kind": "arrangement",
+      "title": "Opbouw",
+      "value": "Lange intro, geleidelijke laag-opbouw, climax/drop, outro",
+      "source": "ha_conversation"
+    }
+  ],
+  "images": [],
+  "links": [],
+  "sources": [
+    {
+      "source": "spotify_playback_context",
+      "title": "Spotify playback context",
+      "kind": "source"
+    }
+  ],
+  "playback_actions": [],
+  "confirmation_actions": []
+}
+```
 
 Expected successful favorite response:
 
@@ -963,15 +1069,32 @@ Expected successful track context response:
 }
 ```
 
-Expected successful musical analysis response:
+Expected successful technical analysis response:
 
 ```json
 {
   "success": true,
-  "intent": "track_musical_analysis",
-  "action": "none",
-  "text": "Muzikaal werkt dit nummer door de langzame spanningsopbouw: eerst een minimale puls, daarna laag voor laag synthpads, percussie en basdruk. De producer gebruikt filtering, herhaling en subtiele automatisering om de drop onvermijdelijk te laten voelen. Zonder audio-stemanalyse zou ik de exacte akkoorden voorzichtig formuleren, maar de harmonie voelt duidelijk gebouwd rond langdurige spanning en release.",
-  "dj_text": "Muzikaal werkt dit nummer door de langzame spanningsopbouw: eerst een minimale puls, daarna laag voor laag synthpads, percussie en basdruk. De producer gebruikt filtering, herhaling en subtiele automatisering om de drop onvermijdelijk te laten voelen. Zonder audio-stemanalyse zou ik de exacte akkoorden voorzichtig formuleren, maar de harmonie voelt duidelijk gebouwd rond langdurige spanning en release."
+  "intent": {
+    "category": "informational",
+    "intent": "technical_track_analysis",
+    "action": "track_analysis"
+  },
+  "action": "track_analysis",
+  "text": "Muzikaal werkt dit nummer door de langzame spanningsopbouw: eerst een minimale puls, daarna laag voor laag synthpads, percussie en basdruk.",
+  "dj_text": "Muzikaal werkt dit nummer door de langzame spanningsopbouw: eerst een minimale puls, daarna laag voor laag synthpads, percussie en basdruk.",
+  "analysis": {
+    "mode": "knowledge_plus_metadata",
+    "confidence": "medium",
+    "limitations": [
+      "Exact BPM and section timestamps are unavailable."
+    ],
+    "sources": [
+      "spotify_playback_context",
+      "ha_conversation"
+    ]
+  },
+  "playback_actions": [],
+  "confirmation_actions": []
 }
 ```
 
@@ -1108,7 +1231,8 @@ and returning a DJ response. Home Assistant handles canonical
 Home Assistant should route STT results into the same Ask DJ intent families as
 text requests, including `favorite_current_track`, `output_devices_info`, and
 `current_output_info`, `personalized_mood_playback`, and
-`dj_announcement_request`, `track_context_info`, and `track_musical_analysis`.
+`dj_announcement_request`, `track_context_info`, and
+`technical_track_analysis`.
 
 Expected response:
 

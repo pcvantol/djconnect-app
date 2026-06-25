@@ -747,12 +747,12 @@ Canonical voice examples live in
   `what year was this released?`, `where is this artist from?`, `what samples
   are used?`, `does this artist have concerts in the Netherlands?`, `why did
   you choose this track?`
-- `track_musical_analysis`: `Analyseer dit nummer muzikaal`, `Welke
-  instrumenten hoor ik?`, `Hoe is dit nummer opgebouwd?`, `Wat maakt deze
-  productie zo goed?`, `Welke trucjes gebruikt de producer hier?`, `Waarom
-  werkt deze drop zo goed?`, `Leg de akkoorden en opbouw uit`, `analyze this
-  track musically`, `what instruments are used here?`, `how is this song
-  structured?`, `what production tricks are used?`, `why does this drop work?`
+- `technical_track_analysis`: `Geef een technische track analyse van dit
+  nummer`, `Analyseer deze track`, `Wat is de bpm en opbouw van deze track?`,
+  `Welke instrumenten hoor je hierin?`, `Hoe zit intro, couplet, refrein en
+  breakdown in elkaar?`, `Give me a technical analysis of this song`, `What is
+  the BPM, key and structure of this track?`, `Why does this track work so
+  well?`
 
 The app does not hardcode these intent families or validate spoken text
 client-side. It records/uploads voice audio and lets Home Assistant handle STT,
@@ -784,13 +784,22 @@ festival appearances, new releases, why the track was chosen, relation to the
 previous track, BPM/energy transition, and shared producer or label connections
 when those details are available.
 
-For `track_musical_analysis`, Home Assistant should explain instrumentation,
-arrangement, rhythm/groove, harmony/key/chords when known, sound design,
-production techniques, mix/mastering impressions, and why the composition works.
-Unless the backend adds a real audio-analysis pipeline or uses a trusted source,
-it must avoid claiming exact stem separation, exact chord transcription, or
-definitive instrument lists. Clearly separate documented facts from likely
-audible interpretation.
+For `technical_track_analysis`, Home Assistant should explain instrumentation,
+arrangement, rhythm/groove, BPM/key/sections when measured or sourced,
+harmony/chords when known, sound design, production techniques, mix/mastering
+impressions, and why the composition works. This is an informational/read-only
+intent for iOS, macOS, watchOS, Raspberry Pi, and Windows Ask DJ clients: never
+start, pause, skip, queue, save, like, transfer output, or otherwise mutate
+playback from this intent. ESP32 remains outside the Ask DJ chat/history UI.
+
+The response may include `analysis` metadata with `mode`, `confidence`,
+`measured`, `inferred`, `limitations`, and `sources`, plus optional compact
+`items[]` such as `kind: "technical_metric"` for BPM/key or `kind:
+"arrangement"` for structure notes. Clearly separate measured/provider-backed
+facts from inferred musical commentary. Unless the backend adds a real
+audio-analysis pipeline or uses a trusted source, it must avoid claiming exact
+BPM/key, timestamps, stem separation, exact chord transcription, or definitive
+instrument lists.
 
 Expected response:
 

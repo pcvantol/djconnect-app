@@ -103,9 +103,9 @@ changing playback unless the user explicitly asks to play or queue them. Rich
 now-playing and artist questions are handled as `track_context_info`, including
 release year, genre, DJ commentary, artist origin, trivia, samples, related
 artists, concerts, releases, and musical connections such as BPM transition or
-shared producer/label. Musical and production-analysis questions are handled as
-`track_musical_analysis`; the
-backend should distinguish documented facts from likely audible interpretation
+shared producer/label. Technical and production-analysis questions are handled
+as `technical_track_analysis`; the backend should distinguish measured/provider
+metadata from inferred musical commentary and must keep the intent read-only
 unless real audio analysis is available. Apple clients send the user's text or
 voice audio and render the returned DJ text, images, links, and audio; they do
 not inspect phrases such as "voeg dit nummer toe aan mijn favorieten", "welke

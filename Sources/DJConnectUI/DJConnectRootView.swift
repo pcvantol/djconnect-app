@@ -3915,6 +3915,11 @@ private struct AskDJEmptyState: View {
                 "Waar heb ik afgelopen week naar geluisterd?"
             ),
             localized(language, "Surprise me with new music", "Verras me met nieuwe muziek"),
+            localized(
+                language,
+                "Give me a technical analysis of this song",
+                "Geef een technische track analyse van dit nummer"
+            ),
             localized(language, "Which albums did this artist release?", "Welke albums bracht deze artiest uit?"),
             localized(language, "Play something for cooking", "Speel iets dat past bij koken")
         ]
@@ -4427,10 +4432,22 @@ private struct AskDJItemList: View {
                             .font(.caption.weight(.semibold))
                             .foregroundStyle(.white)
                             .lineLimit(1)
+                        if let value = item.value, !value.isEmpty {
+                            Text(value)
+                                .font(.caption2.weight(.medium))
+                                .foregroundStyle(.white.opacity(0.82))
+                                .lineLimit(2)
+                        }
                         if let subtitle = item.subtitle, !subtitle.isEmpty {
                             Text(subtitle)
                                 .font(.caption2)
                                 .foregroundStyle(.white.opacity(0.72))
+                                .lineLimit(1)
+                        }
+                        if let source = item.source, !source.isEmpty {
+                            Text(source)
+                                .font(.caption2.weight(.medium))
+                                .foregroundStyle(.white.opacity(0.48))
                                 .lineLimit(1)
                         }
                         if let playedAtText = playedAtText(for: item) {
@@ -4502,6 +4519,10 @@ private struct AskDJItemList: View {
 
     private func iconName(for item: DJConnectAskDJHistoryItem) -> String {
         switch item.kind?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() {
+        case "technical_metric":
+            return "metronome.fill"
+        case "arrangement", "section", "structure":
+            return "waveform.path.ecg"
         case "album", "albums":
             return "opticaldisc.fill"
         case "artist", "artists":

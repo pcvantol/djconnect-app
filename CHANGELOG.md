@@ -4,6 +4,8 @@ All notable changes to DJConnect App are documented here.
 
 ## Unreleased
 
+## 3.1.51 - 2026-06-25
+
 ### Changed
 
 - Documented the Ask DJ history-clear endpoint as
@@ -15,6 +17,8 @@ All notable changes to DJConnect App are documented here.
   Assistant.
 - Included explicit `client_id`, `device_id`, `device_name`, and `client_type`
   identity fields in Ask DJ text and command payload documentation.
+- Added the Ask DJ `technical_track_analysis` read-only intent contract and
+  client decoding for structured analysis metadata and technical metric items.
 
 ## 3.1.50 - 2026-06-25
 
