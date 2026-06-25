@@ -112,6 +112,9 @@ not inspect phrases such as "voeg dit nummer toe aan mijn favorieten", "welke
 speakers zijn er?", "ik voel me moe en geprikkeld", "wat luister ik de laatste
 tijd veel?", "geef me een leuke aankondiging voor het volgende nummer", "waarom
 koos je dit nummer?", or "analyseer dit nummer muzikaal" locally.
+Structured output `playback_actions` are rendered as vertical speaker rows with
+the speaker name on the left and the `Actief`/`Activeer` button on the right;
+selecting a row sends the backend-owned output switch command.
 
 Ask DJ request payloads may include optional backend-owned `metadata` for
 context triggers. The planned morning startup flow sends
@@ -135,7 +138,9 @@ Backend `clear_revision` is the full-clear signal. Backend
 `history_trimmed_before` metadata is the retention signal clients may use to
 prune old local cache entries. Assistant-only `message_kind: system` messages,
 including ambient music facts and history-retention notices, render in the same
-timeline with distinct styling.
+timeline with distinct styling. When the Ask DJ screen opens, clients scroll to
+the newest timeline message by default, including after the first async history
+load.
 
 Ask DJ UI must never show raw backend, proxy, HTML, or decode error bodies.
 Technical details belong in redacted diagnostics logs; visible errors stay short

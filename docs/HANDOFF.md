@@ -188,7 +188,14 @@ window. Backend `clear_revision` clears the local chat; backend
 `history_trimmed_before` lets clients prune old cached messages when the
 server-side history limit is reached. Assistant-only `message_kind: system`
 messages such as ambient music facts and history-retention notices must render
-without requiring a preceding user bubble.
+without requiring a preceding user bubble. When the Ask DJ screen opens,
+clients should scroll the loaded timeline to the newest message by default,
+including after the first async history response.
+
+Ask DJ output-device responses may include output `playback_actions`. Apple
+clients render them as vertical speaker rows with the name on the left and an
+`Actief`/`Activeer` button on the right. Tapping a row sends the backend-owned
+output command; clients do not infer speaker switching from free text.
 
 Raw backend/proxy/decode bodies, including HTML error pages, must never appear
 in the Ask DJ chat UI. Keep the details in diagnostics logs and show only

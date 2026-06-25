@@ -76,9 +76,6 @@ with acceptance criteria live in [ISSUES.md](ISSUES.md).
 - Keep English and Dutch What's New release notes aligned with the latest
   GitHub release and only add new work to an `Unreleased` changelog section
   after tags are published.
-- Restore a green public unsigned release for `3.1.33` or the next patch so
-  `ios/vX.Y.Z` and `macos/vX.Y.Z` diagnostic artifact releases are published
-  again; `3.1.33` static What's New files are already live on `djconnect.dev`.
 
 ## Known Issues
 

@@ -549,9 +549,12 @@ after the mutation succeeds. If no current track exists, return `success:false`
 or a clear `dj_text` explaining that nothing is playing.
 
 For output-device information, Home Assistant should return a textual summary
-in `dj_text` and may include structured `devices` on the response in the
-future, but current Apple clients only require text. Do not treat output-info
-questions as playback-transfer commands.
+in `dj_text` and may include structured output `playback_actions` when it wants
+Apple clients to offer direct speaker activation from Ask DJ. Clients render
+output actions as vertical rows with the speaker name on the left and an
+`Actief`/`Activeer` button on the right. Do not treat output-info questions as
+playback-transfer commands unless the user selects an explicit output action or
+otherwise asks to switch speakers.
 
 For `personalized_mood_playback`, Home Assistant should combine the user's
 described mood, current time/context, playback history, likes/skips, DJ Memory,
@@ -734,6 +737,50 @@ possible:
 }
 ```
 
+Output-switch actions also use `playback_actions`. Use `kind: "output"` and
+provide `device_id` or `response_value`; `device_name`, `title`, or `subtitle`
+should contain the human-readable speaker name. `active: true` marks the
+currently active output.
+
+```json
+{
+  "intent": "output_devices_info",
+  "action": "none",
+  "dj_text": "Dit zijn de beschikbare speakers.",
+  "playback_actions": [
+    {
+      "id": "output-tuin",
+      "kind": "output",
+      "title": "Tuin",
+      "device_id": "spotify-device-tuin",
+      "device_name": "Tuin",
+      "active": true,
+      "command": "set_output"
+    },
+    {
+      "id": "output-keuken",
+      "kind": "output",
+      "title": "Keuken",
+      "device_id": "spotify-device-keuken",
+      "device_name": "Keuken",
+      "active": false,
+      "command": "set_output"
+    }
+  ]
+}
+```
+
+When the user taps an output action, Apple clients send:
+
+```json
+{
+  "device_id": "djconnect-ios-8F3A2C91B45D",
+  "client_type": "ios",
+  "command": "set_output",
+  "value": "spotify-device-keuken"
+}
+```
+
 For `dj_announcement_request`, Home Assistant should not mutate playback. It
 should read current playback and, when available, queue/next-track context,
 then generate a short DJ-style announcement using the configured DJ personality.
@@ -807,7 +854,25 @@ Expected successful output-info response:
   "intent": "output_devices_info",
   "action": "none",
   "text": "Je kunt afspelen op Marantz Cinema 60, Keuken en Tuin. Marantz Cinema 60 is nu actief.",
-  "dj_text": "Je kunt afspelen op Marantz Cinema 60, Keuken en Tuin. Marantz Cinema 60 is nu actief."
+  "dj_text": "Je kunt afspelen op Marantz Cinema 60, Keuken en Tuin. Marantz Cinema 60 is nu actief.",
+  "playback_actions": [
+    {
+      "id": "output-marantz",
+      "title": "Marantz Cinema 60",
+      "kind": "output",
+      "device_id": "marantz-cinema-60",
+      "active": true,
+      "command": "set_output"
+    },
+    {
+      "id": "output-keuken",
+      "title": "Keuken",
+      "kind": "output",
+      "device_id": "keuken",
+      "active": false,
+      "command": "set_output"
+    }
+  ]
 }
 ```
 
@@ -885,11 +950,13 @@ GET /api/djconnect/ask_dj/history
 POST /api/djconnect/ask_dj/clear
 ```
 
-iOS, macOS, and watchOS sync Ask DJ chat history from Home Assistant. The
-backend is the cross-device source of truth for delivered messages, clear
-revisions, ambient/system messages, and retention. Clients may keep a local
-cache for performance, but must merge server messages into that cache instead
-of replacing the full local list with a bounded response window.
+iOS, macOS, and watchOS sync Ask DJ chat history from Home Assistant. When Ask
+DJ opens, Apple clients scroll the loaded timeline to the newest message by
+default, including after the first async history response. The backend is the
+cross-device source of truth for delivered messages, clear revisions,
+ambient/system messages, and retention. Clients may keep a local cache for
+performance, but must merge server messages into that cache instead of
+replacing the full local list with a bounded response window.
 
 History messages may be normal user/assistant messages or assistant-only system
 messages. System messages are rendered as subtle DJ/system bubbles and do not

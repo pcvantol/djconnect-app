@@ -15,11 +15,12 @@ integration.
 
 Ask DJ is the Apple clients' rich DJ interaction surface on iOS, macOS, and
 watchOS. Text chat, push-to-talk voice requests, replayable DJ response audio,
-images, links, sources, synced history, and Play Now recommendation actions live
-there; Now Playing no longer has a separate DJ request block. Home Assistant
-owns Ask DJ intent interpretation, follow-up/confirmation state, morning-start
-context, and playback execution; Apple clients render the returned messages,
-media, and actions.
+images, links, sources, synced history, Play Now recommendation actions, and
+speaker/output action rows live there; Now Playing no longer has a separate DJ
+request block. Home Assistant owns Ask DJ intent interpretation,
+follow-up/confirmation state, morning-start context, output switching, and
+playback execution; Apple clients render the returned messages, media, and
+actions.
 
 AI and Assist answers can be incorrect and depend on your own Home Assistant
 and Assist configuration.
@@ -248,6 +249,12 @@ Spotify Web API calls for voice commands. Canonical examples from
 | `dj_announcement_request` | `Geef me een leuke aankondiging voor het volgende nummer`, `Doe een radio intro voor wat er nu speelt` | `Give me a fun announcement for the next song`, `do a radio-style intro for what is playing now` | HA generates DJ text and optional `audio_url` without changing playback. |
 | `track_context_info` | `Vertel iets over dit nummer`, `Wanneer kwam dit uit?`, `Waarom koos je dit nummer?`, `Heeft deze artiest concerten in Nederland?` | `Tell me about this song`, `what year was this released?`, `why did you choose this track?` | HA enriches current playback with release, genre, commentary, trivia, samples, concerts, releases, and musical connections without changing playback. |
 | `track_musical_analysis` | `Analyseer dit nummer muzikaal`, `Welke instrumenten hoor ik?`, `Hoe is dit nummer opgebouwd?`, `Welke trucjes gebruikt de producer hier?` | `Analyze this track musically`, `what instruments are used here?`, `how is this song structured?` | HA explains instrumentation, arrangement, groove, harmony, sound design, production, and mix details without changing playback, while avoiding unsupported exact audio-analysis claims. |
+
+Ask DJ output-device responses may include structured output `playback_actions`.
+Apple clients render those vertically, with the speaker name on the left and an
+`Actief`/`Activeer` button on the right. Opening Ask DJ scrolls the synced chat
+history to the newest message by default, including after the first async
+history load.
 
 The native app also uses command proxy flows for backend devices, queue,
 playlists, liked songs, and output selection:
