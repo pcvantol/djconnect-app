@@ -479,6 +479,7 @@ public struct DJConnectAskDJTrackAnalysis: Codable, Equatable, Sendable {
     public var djTips: [DJTip]
     public var measured: Measured?
     public var inferred: Inferred?
+    public var metadata: Metadata?
     public var limitations: [String]
     public var sources: [String]
     public var providers: [ProviderStatus]
@@ -657,6 +658,50 @@ public struct DJConnectAskDJTrackAnalysis: Codable, Equatable, Sendable {
         }
     }
 
+    public struct Metadata: Codable, Equatable, Sendable {
+        public var musicBrainzRecordingID: String?
+        public var matchScore: Int?
+        public var recordingTitle: String?
+        public var artist: String?
+        public var firstReleaseDate: String?
+        public var release: MetadataRelease?
+        public var genres: [String]
+        public var tags: [String]
+        public var listenBrainzListenCount: Int?
+
+        enum CodingKeys: String, CodingKey {
+            case musicBrainzRecordingID = "musicbrainz_recording_id"
+            case matchScore = "match_score"
+            case recordingTitle = "recording_title"
+            case artist
+            case firstReleaseDate = "first_release_date"
+            case release
+            case genres
+            case tags
+            case listenBrainzListenCount = "listenbrainz_listen_count"
+        }
+
+        public init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            musicBrainzRecordingID = try container.decodeIfPresent(String.self, forKey: .musicBrainzRecordingID)
+            matchScore = try container.decodeIfPresent(Int.self, forKey: .matchScore)
+            recordingTitle = try container.decodeIfPresent(String.self, forKey: .recordingTitle)
+            artist = try container.decodeIfPresent(String.self, forKey: .artist)
+            firstReleaseDate = try container.decodeIfPresent(String.self, forKey: .firstReleaseDate)
+            release = try container.decodeIfPresent(MetadataRelease.self, forKey: .release)
+            genres = container.decodeLossyArrayIfPresent(String.self, forKey: .genres) ?? []
+            tags = container.decodeLossyArrayIfPresent(String.self, forKey: .tags) ?? []
+            listenBrainzListenCount = try container.decodeIfPresent(Int.self, forKey: .listenBrainzListenCount)
+        }
+    }
+
+    public struct MetadataRelease: Codable, Equatable, Sendable {
+        public var title: String?
+        public var date: String?
+        public var country: String?
+        public var status: String?
+    }
+
     public struct ProviderStatus: Codable, Equatable, Sendable, Identifiable {
         public var providerID: String
         public var displayName: String?
@@ -687,6 +732,7 @@ public struct DJConnectAskDJTrackAnalysis: Codable, Equatable, Sendable {
         case djTips = "dj_tips"
         case measured
         case inferred
+        case metadata
         case limitations
         case sources
         case providers
@@ -703,6 +749,7 @@ public struct DJConnectAskDJTrackAnalysis: Codable, Equatable, Sendable {
         djTips = container.decodeLossyArrayIfPresent(DJTip.self, forKey: .djTips) ?? []
         measured = try container.decodeIfPresent(Measured.self, forKey: .measured)
         inferred = try container.decodeIfPresent(Inferred.self, forKey: .inferred)
+        metadata = try container.decodeIfPresent(Metadata.self, forKey: .metadata)
         limitations = container.decodeLossyArrayIfPresent(String.self, forKey: .limitations) ?? []
         sources = container.decodeLossyArrayIfPresent(String.self, forKey: .sources) ?? []
         providers = container.decodeLossyArrayIfPresent(ProviderStatus.self, forKey: .providers) ?? []
@@ -719,6 +766,7 @@ public struct DJConnectAskDJTrackAnalysis: Codable, Equatable, Sendable {
         try container.encode(djTips, forKey: .djTips)
         try container.encodeIfPresent(measured, forKey: .measured)
         try container.encodeIfPresent(inferred, forKey: .inferred)
+        try container.encodeIfPresent(metadata, forKey: .metadata)
         try container.encode(limitations, forKey: .limitations)
         try container.encode(sources, forKey: .sources)
         try container.encode(providers, forKey: .providers)

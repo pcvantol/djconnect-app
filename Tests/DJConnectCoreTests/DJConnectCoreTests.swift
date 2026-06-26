@@ -1270,6 +1270,231 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
     #expect(response.analysis?.providers.isEmpty == true)
 }
 
+@Test func askDJMessageResponseDecodesTechnicalTrackAnalysisMetaBrainzMetadataContext() throws {
+    let json = """
+    {
+      "text": "Technische analyse met open metadata-context.",
+      "intent": {
+        "intent": "technical_track_analysis",
+        "action": "track_analysis"
+      },
+      "analysis": {
+        "contract_version": 2,
+        "mode": "measured_plus_knowledge",
+        "confidence": "medium",
+        "sections": [
+          {
+            "id": "rhythm_bpm",
+            "kind": "technical_metric",
+            "title": "Rhythm / BPM",
+            "value": "126 BPM",
+            "source": "spotify_audio_features",
+            "confidence": "high"
+          },
+          {
+            "id": "metadata_context",
+            "kind": "metadata_context",
+            "title": "Open metadata",
+            "summary": "Public MusicBrainz and ListenBrainz context, not DSP analysis.",
+            "source": "metabrainz_metadata",
+            "confidence": "medium"
+          }
+        ],
+        "timeline": [
+          {
+            "id": "measured_segment_1",
+            "label": "Segment 1",
+            "start_ms": 0,
+            "source": "spotify_audio_analysis"
+          }
+        ],
+        "dj_tips": [
+          {
+            "id": "mix_tip",
+            "text": "Use the measured BPM for beat matching.",
+            "source": "spotify_audio_features"
+          }
+        ],
+        "metadata": {
+          "musicbrainz_recording_id": "mb-recording-123",
+          "match_score": 93,
+          "recording_title": "Example Track",
+          "artist": "Example Artist",
+          "first_release_date": "1999-04-01",
+          "release": {
+            "title": "Example Release",
+            "date": "1999",
+            "country": "NL",
+            "status": "official"
+          },
+          "genres": ["house", "techno"],
+          "tags": ["club", "classic"],
+          "listenbrainz_listen_count": 12345,
+          "future_metadata_field": "ignored"
+        },
+        "providers": [
+          {
+            "provider_id": "spotify_measured",
+            "display_name": "Spotify measured",
+            "status": "used"
+          },
+          {
+            "provider_id": "metabrainz_metadata",
+            "display_name": "MusicBrainz / ListenBrainz",
+            "status": "used"
+          }
+        ],
+        "limitations": [
+          "MusicBrainz and ListenBrainz metadata is contextual and is not audio DSP analysis."
+        ],
+        "sources": [
+          "spotify_playback_context",
+          "spotify_audio_features",
+          "spotify_audio_analysis",
+          "metabrainz_metadata"
+        ]
+      },
+      "playback_actions": []
+    }
+    """.data(using: .utf8)!
+
+    let response = try JSONDecoder().decode(DJConnectAskDJMessageResponse.self, from: json)
+    let analysis = try #require(response.analysis)
+    let metadata = try #require(analysis.metadata)
+
+    #expect(analysis.sections.count == 2)
+    #expect(analysis.sections[0].id == "rhythm_bpm")
+    #expect(analysis.sections[1].id == "metadata_context")
+    #expect(analysis.sections[1].source == "metabrainz_metadata")
+    #expect(analysis.timeline.count == 1)
+    #expect(analysis.timeline.first?.label == "Segment 1")
+    #expect(metadata.musicBrainzRecordingID == "mb-recording-123")
+    #expect(metadata.matchScore == 93)
+    #expect(metadata.recordingTitle == "Example Track")
+    #expect(metadata.artist == "Example Artist")
+    #expect(metadata.firstReleaseDate == "1999-04-01")
+    #expect(metadata.release?.title == "Example Release")
+    #expect(metadata.release?.country == "NL")
+    #expect(metadata.genres == ["house", "techno"])
+    #expect(metadata.tags == ["club", "classic"])
+    #expect(metadata.listenBrainzListenCount == 12345)
+    #expect(analysis.providers.contains { $0.providerID == "metabrainz_metadata" && $0.status == "used" })
+    #expect(analysis.sources.contains("metabrainz_metadata"))
+    #expect(analysis.limitations.first?.contains("contextual") == true)
+    #expect(response.assistantMessage?.playbackActions.isEmpty == true)
+}
+
+@Test func askDJMessageResponseDecodesMetaBrainzProviderSkippedRateLimited() throws {
+    let json = """
+    {
+      "text": "Analyse zonder externe metadata.",
+      "intent": {
+        "intent": "technical_track_analysis"
+      },
+      "analysis": {
+        "contract_version": 2,
+        "sections": [
+          {
+            "id": "rhythm_bpm",
+            "value": "126 BPM"
+          }
+        ],
+        "providers": [
+          {
+            "provider_id": "metabrainz_metadata",
+            "display_name": "MusicBrainz / ListenBrainz",
+            "status": "skipped",
+            "reason": "rate_limited"
+          }
+        ]
+      }
+    }
+    """.data(using: .utf8)!
+
+    let response = try JSONDecoder().decode(DJConnectAskDJMessageResponse.self, from: json)
+    let provider = try #require(response.analysis?.providers.first)
+
+    #expect(response.analysis?.metadata == nil)
+    #expect(response.analysis?.sections.first?.id == "rhythm_bpm")
+    #expect(provider.providerID == "metabrainz_metadata")
+    #expect(provider.status == "skipped")
+    #expect(provider.reason == "rate_limited")
+}
+
+@Test func askDJMessageResponseDecodesMetaBrainzProviderErrorWithoutBreakingAnalysis() throws {
+    let json = """
+    {
+      "text": "Analyse met providerfout.",
+      "intent": {
+        "intent": "technical_track_analysis"
+      },
+      "analysis": {
+        "contract_version": 2,
+        "sections": [
+          {
+            "id": "energy_curve",
+            "summary": "Energy still comes from the normal analysis payload."
+          }
+        ],
+        "providers": [
+          {
+            "provider_id": "metabrainz_metadata",
+            "status": "error",
+            "reason": "lookup_failed"
+          }
+        ]
+      },
+      "playback_actions": []
+    }
+    """.data(using: .utf8)!
+
+    let response = try JSONDecoder().decode(DJConnectAskDJMessageResponse.self, from: json)
+
+    #expect(response.analysis?.sections.first?.id == "energy_curve")
+    #expect(response.analysis?.providers.first?.providerID == "metabrainz_metadata")
+    #expect(response.analysis?.providers.first?.status == "error")
+    #expect(response.analysis?.providers.first?.reason == "lookup_failed")
+    #expect(response.assistantMessage?.playbackActions.isEmpty == true)
+}
+
+@Test func askDJTechnicalTrackAnalysisMetadataContextDoesNotCreateFakeTimelineLabels() throws {
+    let json = """
+    {
+      "text": "Metadata-context beschrijft release-informatie.",
+      "intent": {
+        "intent": "technical_track_analysis"
+      },
+      "analysis": {
+        "contract_version": 2,
+        "sections": [
+          {
+            "id": "metadata_context",
+            "kind": "metadata_context",
+            "title": "Open metadata",
+            "summary": "Known public metadata mentions intro and club tags, but no measured arrangement was returned.",
+            "source": "metabrainz_metadata"
+          }
+        ],
+        "metadata": {
+          "musicbrainz_recording_id": "mb-recording-456",
+          "tags": ["intro", "club"]
+        },
+        "sources": ["metabrainz_metadata"]
+      },
+      "playback_actions": []
+    }
+    """.data(using: .utf8)!
+
+    let response = try JSONDecoder().decode(DJConnectAskDJMessageResponse.self, from: json)
+    let analysis = try #require(response.analysis)
+
+    #expect(analysis.sections.first?.id == "metadata_context")
+    #expect(analysis.metadata?.tags == ["intro", "club"])
+    #expect(analysis.timeline.isEmpty)
+    #expect(analysis.measured?.sections.isEmpty != false)
+    #expect(response.assistantMessage?.playbackActions.isEmpty == true)
+}
+
 @Test func askDJMessageResponseDecodesUnknownTechnicalTrackAnalysisProviders() throws {
     let json = """
     {

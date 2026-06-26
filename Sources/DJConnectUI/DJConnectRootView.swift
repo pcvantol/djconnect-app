@@ -4524,7 +4524,11 @@ private struct AskDJAnalysisSummary: View {
             }
             if analysis.mode?.lowercased() != "unavailable" {
                 ForEach(analysis.sections, id: \.stableID) { section in
-                    sectionRow(section)
+                    if section.isMetadataContext {
+                        metadataContextRow(section)
+                    } else {
+                        sectionRow(section)
+                    }
                 }
                 if !analysis.timeline.isEmpty {
                     timelineList
@@ -4671,6 +4675,88 @@ private struct AskDJAnalysisSummary: View {
         }
     }
 
+    private func metadataContextRow(_ section: DJConnectAskDJTrackAnalysis.AnalysisSection) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                Text(localized(language, "MusicBrainz / ListenBrainz", "MusicBrainz / ListenBrainz"))
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(.white.opacity(0.84))
+                    .lineLimit(1)
+                if let title = section.title, !title.isEmpty {
+                    Text(displayLabel(title))
+                        .font(.caption2.weight(.medium))
+                        .foregroundStyle(.white.opacity(0.58))
+                        .lineLimit(1)
+                }
+            }
+            if let summary = section.summary, !summary.isEmpty {
+                Text(summary)
+                    .font(.caption2)
+                    .foregroundStyle(.white.opacity(0.62))
+                    .lineLimit(3)
+            }
+            if let metadata = analysis.metadata {
+                metadataRows(metadata)
+            } else if !section.items.isEmpty {
+                metadataItemChips(section.items)
+            }
+            if let meta = metaText(source: section.source ?? "metabrainz_metadata", confidence: section.confidence) {
+                Text(meta)
+                    .font(.caption2)
+                    .foregroundStyle(.white.opacity(0.46))
+                    .lineLimit(1)
+            }
+        }
+        .padding(.horizontal, 7)
+        .padding(.vertical, 6)
+        .background {
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .fill(.white.opacity(0.055))
+        }
+    }
+
+    private func metadataRows(_ metadata: DJConnectAskDJTrackAnalysis.Metadata) -> some View {
+        VStack(alignment: .leading, spacing: 3) {
+            compactRow(title: localized(language, "Recording", "Opname"), value: metadata.recordingTitle, meta: metadata.artist)
+            compactRow(title: localized(language, "MusicBrainz ID", "MusicBrainz ID"), value: metadata.musicBrainzRecordingID, meta: nil)
+            compactRow(title: localized(language, "First release", "Eerste release"), value: metadata.firstReleaseDate, meta: metadata.release?.title)
+            compactRow(title: localized(language, "Release", "Release"), value: metadata.release?.title, meta: metadata.release?.date)
+            compactRow(title: localized(language, "Genres", "Genres"), value: metadata.genres.prefix(5).joined(separator: ", "), meta: nil)
+            compactRow(title: localized(language, "Tags", "Tags"), value: metadata.tags.prefix(5).joined(separator: ", "), meta: nil)
+            if let listenCount = metadata.listenBrainzListenCount {
+                compactRow(
+                    title: localized(language, "Public listens", "Publieke listens"),
+                    value: listenCount.formatted(.number),
+                    meta: "ListenBrainz"
+                )
+            }
+            if let matchScore = metadata.matchScore {
+                compactRow(
+                    title: localized(language, "Metadata confidence", "Metadata-confidence"),
+                    value: "\(matchScore)%",
+                    meta: "MetaBrainz"
+                )
+            }
+        }
+    }
+
+    private func metadataItemChips(_ items: [DJConnectAskDJHistoryItem]) -> some View {
+        HStack(spacing: 5) {
+            ForEach(items.prefix(4)) { item in
+                Text([item.title, item.value].compactMap { value in
+                    let trimmed = value?.trimmingCharacters(in: .whitespacesAndNewlines)
+                    return trimmed?.isEmpty == false ? trimmed : nil
+                }.joined(separator: " "))
+                    .font(.caption2.weight(.medium))
+                    .foregroundStyle(.white.opacity(0.70))
+                    .lineLimit(1)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 3)
+                    .background(Capsule().fill(.white.opacity(0.08)))
+            }
+        }
+    }
+
     private func tipRow(_ tip: DJConnectAskDJTrackAnalysis.DJTip) -> some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(displayLabel(tip.displayTitle))
@@ -4748,6 +4834,12 @@ private struct AskDJAnalysisSummary: View {
 
     private func isLowConfidence(_ value: String?) -> Bool {
         value?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == "low"
+    }
+}
+
+private extension DJConnectAskDJTrackAnalysis.AnalysisSection {
+    var isMetadataContext: Bool {
+        id?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == "metadata_context"
     }
 }
 
