@@ -4462,6 +4462,10 @@ private struct AskDJAnalysisSummary: View {
             || !measured.features.isEmpty
     }
 
+    private var shouldRenderV1Fallback: Bool {
+        analysis.sections.isEmpty && analysis.timeline.isEmpty && analysis.djTips.isEmpty
+    }
+
     private var hasInferredData: Bool {
         guard let inferred = analysis.inferred else {
             return false
@@ -4518,11 +4522,29 @@ private struct AskDJAnalysisSummary: View {
                     .foregroundStyle(.white.opacity(0.44))
                     .lineLimit(2)
             }
-            ForEach(analysis.limitations, id: \.self) { limitation in
-                Text(limitation)
-                    .font(.caption2)
-                    .foregroundStyle(.white.opacity(0.48))
-                    .lineLimit(3)
+            if analysis.mode?.lowercased() != "unavailable" {
+                ForEach(analysis.sections, id: \.stableID) { section in
+                    sectionRow(section)
+                }
+                if !analysis.timeline.isEmpty {
+                    timelineList
+                }
+                ForEach(analysis.djTips, id: \.stableID) { tip in
+                    tipRow(tip)
+                }
+                if shouldRenderV1Fallback {
+                    v1FallbackRows
+                }
+            }
+            if !analysis.limitations.isEmpty {
+                VStack(alignment: .leading, spacing: 4) {
+                    ForEach(analysis.limitations, id: \.self) { limitation in
+                        Text(limitation)
+                            .font(.caption2)
+                            .foregroundStyle(.white.opacity(0.50))
+                            .lineLimit(3)
+                    }
+                }
             }
         }
         .padding(.horizontal, 9)
@@ -4536,6 +4558,196 @@ private struct AskDJAnalysisSummary: View {
             RoundedRectangle(cornerRadius: 12, style: .continuous)
                 .stroke(.white.opacity(0.12), lineWidth: 1)
         }
+    }
+
+    private var timelineList: some View {
+        VStack(alignment: .leading, spacing: 5) {
+            Text(localized(language, "Timeline", "Tijdlijn"))
+                .font(.caption2.weight(.semibold))
+                .foregroundStyle(.white.opacity(0.68))
+            ForEach(analysis.timeline, id: \.stableID) { entry in
+                HStack(alignment: .firstTextBaseline, spacing: 7) {
+                    Text(timestampText(for: entry))
+                        .font(.caption2.monospacedDigit().weight(.medium))
+                        .foregroundStyle(.white.opacity(0.58))
+                        .frame(minWidth: 42, alignment: .leading)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(displayLabel(entry.label ?? entry.kind ?? "Segment"))
+                            .font(.caption2.weight(.semibold))
+                            .foregroundStyle(.white.opacity(isLowConfidence(entry.confidence) ? 0.72 : 0.86))
+                            .lineLimit(1)
+                        if let summary = entry.summary, !summary.isEmpty {
+                            Text(summary)
+                                .font(.caption2)
+                                .foregroundStyle(.white.opacity(0.62))
+                                .lineLimit(2)
+                        }
+                        if let meta = metaText(source: entry.source, confidence: entry.confidence) {
+                            Text(meta)
+                                .font(.caption2)
+                                .foregroundStyle(.white.opacity(0.46))
+                                .lineLimit(1)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private var v1FallbackRows: some View {
+        VStack(alignment: .leading, spacing: 5) {
+            if let measured = analysis.measured {
+                if let bpm = measured.bpm {
+                    compactRow(title: "BPM", value: bpm.formatted(.number.precision(.fractionLength(0...1))), meta: nil)
+                }
+                if let key = measured.key, !key.isEmpty {
+                    compactRow(title: localized(language, "Key", "Toonsoort"), value: key, meta: nil)
+                }
+                ForEach(measured.sections, id: \.stableID) { section in
+                    compactRow(
+                        title: displayLabel(section.label ?? localized(language, "Section", "Sectie")),
+                        value: measuredSectionTime(section),
+                        meta: section.confidence.map { localized(language, "confidence \($0)", "confidence \($0)") }
+                    )
+                }
+            }
+            if let inferred = analysis.inferred {
+                compactRow(title: localized(language, "Structure", "Structuur"), value: inferred.structure, meta: inferred.provider)
+                compactRow(title: localized(language, "Instrumentation", "Instrumentatie"), value: inferred.instrumentation, meta: inferred.provider)
+                compactRow(title: localized(language, "Energy curve", "Energy curve"), value: inferred.energyCurve, meta: inferred.provider)
+                compactRow(title: localized(language, "Mix notes", "Mix-notities"), value: inferred.mixNotes, meta: inferred.provider)
+            }
+        }
+    }
+
+    private func sectionRow(_ section: DJConnectAskDJTrackAnalysis.AnalysisSection) -> some View {
+        VStack(alignment: .leading, spacing: 3) {
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                Text(displayLabel(section.displayTitle))
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(.white.opacity(isLowConfidence(section.confidence) ? 0.72 : 0.88))
+                    .lineLimit(2)
+                if let value = section.value, !value.isEmpty {
+                    Text(value)
+                        .font(.caption2.weight(.medium))
+                        .foregroundStyle(.white.opacity(0.76))
+                        .lineLimit(2)
+                }
+            }
+            if let summary = section.summary, !summary.isEmpty {
+                Text(summary)
+                    .font(.caption2)
+                    .foregroundStyle(.white.opacity(0.62))
+                    .lineLimit(3)
+            }
+            if !section.items.isEmpty {
+                HStack(spacing: 5) {
+                    ForEach(section.items.prefix(4)) { item in
+                        Text([item.title, item.value].compactMap { value in
+                            let trimmed = value?.trimmingCharacters(in: .whitespacesAndNewlines)
+                            return trimmed?.isEmpty == false ? trimmed : nil
+                        }.joined(separator: " "))
+                            .font(.caption2.weight(.medium))
+                            .foregroundStyle(.white.opacity(0.76))
+                            .lineLimit(1)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 3)
+                            .background(Capsule().fill(.white.opacity(0.10)))
+                    }
+                }
+            }
+            if let meta = metaText(source: section.source, confidence: section.confidence) {
+                Text(meta)
+                    .font(.caption2)
+                    .foregroundStyle(.white.opacity(0.46))
+                    .lineLimit(1)
+            }
+        }
+        .padding(.horizontal, 7)
+        .padding(.vertical, 6)
+        .background {
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .fill(.white.opacity(0.07))
+        }
+    }
+
+    private func tipRow(_ tip: DJConnectAskDJTrackAnalysis.DJTip) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(displayLabel(tip.displayTitle))
+                .font(.caption2.weight(.semibold))
+                .foregroundStyle(.white.opacity(isLowConfidence(tip.confidence) ? 0.72 : 0.86))
+            if let text = tip.text, !text.isEmpty {
+                Text(text)
+                    .font(.caption2)
+                    .foregroundStyle(.white.opacity(0.64))
+                    .lineLimit(3)
+            }
+            if let meta = metaText(source: tip.source, confidence: tip.confidence) {
+                Text(meta)
+                    .font(.caption2)
+                    .foregroundStyle(.white.opacity(0.46))
+                    .lineLimit(1)
+            }
+        }
+    }
+
+    private func compactRow(title: String, value: String?, meta: String?) -> some View {
+        Group {
+            if let value, !value.isEmpty {
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack(alignment: .firstTextBaseline, spacing: 6) {
+                        Text(title)
+                            .font(.caption2.weight(.semibold))
+                            .foregroundStyle(.white.opacity(0.78))
+                        Text(value)
+                            .font(.caption2)
+                            .foregroundStyle(.white.opacity(0.64))
+                    }
+                    if let meta, !meta.isEmpty {
+                        Text(meta)
+                            .font(.caption2)
+                            .foregroundStyle(.white.opacity(0.46))
+                    }
+                }
+            }
+        }
+    }
+
+    private func measuredSectionTime(_ section: DJConnectAskDJTrackAnalysis.Section) -> String? {
+        guard let start = section.startMS else {
+            return nil
+        }
+        if let duration = section.durationMS {
+            return "\(formatMilliseconds(start)) · \(formatMilliseconds(duration))"
+        }
+        return formatMilliseconds(start)
+    }
+
+    private func timestampText(for entry: DJConnectAskDJTrackAnalysis.TimelineEntry) -> String {
+        if let start = entry.startMS {
+            return formatMilliseconds(start)
+        }
+        return "--:--"
+    }
+
+    private func formatMilliseconds(_ value: Int) -> String {
+        let totalSeconds = max(0, value / 1000)
+        return String(format: "%d:%02d", totalSeconds / 60, totalSeconds % 60)
+    }
+
+    private func displayLabel(_ value: String) -> String {
+        value.replacingOccurrences(of: "_", with: " ")
+    }
+
+    private func metaText(source: String?, confidence: String?) -> String? {
+        let parts = [source, confidence]
+            .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+        return parts.isEmpty ? nil : parts.joined(separator: " · ")
+    }
+
+    private func isLowConfidence(_ value: String?) -> Bool {
+        value?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == "low"
     }
 }
 

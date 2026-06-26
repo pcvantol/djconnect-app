@@ -1046,7 +1046,7 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
     #expect(assistantMessage.images.isEmpty)
 }
 
-@Test func localAskDJTechnicalTrackAnalysisPreservesResponseButHidesRenderableActions() throws {
+@Test func localAskDJTechnicalTrackAnalysisPreservesExplicitRenderableActions() throws {
     let message = DJConnectAskDJMessage(
         role: .dj,
         text: "Technische trackanalyse.",
@@ -1092,10 +1092,279 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
 
     #expect(decoded.isTechnicalTrackAnalysis)
     #expect(decoded.playbackActions.count == 1)
-    #expect(decoded.renderablePlaybackActions.isEmpty)
+    #expect(decoded.renderablePlaybackActions.count == 1)
     #expect(decoded.analysis?.mode == "knowledge_plus_metadata")
     #expect(decoded.analysis?.limitations.first == "Exact intro, verse, chorus, drop or outro timestamps were not measured.")
     #expect(decoded.items.first?.confidence == "high")
+}
+
+@Test func askDJMessageResponseDecodesTechnicalTrackAnalysisV2SectionsTimelineAndTips() throws {
+    let json = """
+    {
+      "text": "Technische analyse, zonder timestamps in prose.",
+      "action": "track_analysis",
+      "intent": {
+        "intent": "technical_track_analysis",
+        "action": "track_analysis"
+      },
+      "analysis": {
+        "contract_version": 2,
+        "mode": "measured_plus_knowledge",
+        "confidence": "medium",
+        "sections": [
+          {
+            "id": "rhythm_bpm",
+            "kind": "technical_metric",
+            "title": "Rhythm / BPM",
+            "value": "128 BPM",
+            "summary": "Steady four-on-the-floor pulse.",
+            "source": "measured",
+            "confidence": "high",
+            "items": [
+              {
+                "kind": "technical_metric",
+                "title": "BPM",
+                "value": "128",
+                "source": "measured",
+                "confidence": "high"
+              }
+            ]
+          },
+          {
+            "id": "energy_curve",
+            "kind": "shape",
+            "title": "Energy curve",
+            "summary": "Builds gradually into a brighter peak.",
+            "source": "inferred",
+            "confidence": "low"
+          }
+        ],
+        "timeline": [
+          {
+            "id": "intro",
+            "label": "Intro",
+            "kind": "intro",
+            "start_ms": 0,
+            "end_ms": 32000,
+            "summary": "Filtered opening.",
+            "source": "measured",
+            "confidence": "medium"
+          }
+        ],
+        "dj_tips": [
+          {
+            "id": "mix_in",
+            "kind": "transition",
+            "title": "Mix in",
+            "text": "Start mixing over the first 16 bars.",
+            "source": "inferred",
+            "confidence": "low"
+          }
+        ],
+        "limitations": [
+          "Energy labels are inferred."
+        ],
+        "sources": ["spotify_audio_features", "inferred"]
+      },
+      "items": [
+        {
+          "kind": "technical_metric",
+          "title": "Energy",
+          "value": "0.82",
+          "source": "measured",
+          "confidence": "medium"
+        }
+      ],
+      "images": []
+    }
+    """.data(using: .utf8)!
+
+    let response = try JSONDecoder().decode(DJConnectAskDJMessageResponse.self, from: json)
+    let analysis = try #require(response.analysis)
+    let assistantMessage = try #require(response.assistantMessage)
+
+    #expect(response.intentInfo?.intent == "technical_track_analysis")
+    #expect(response.action == "track_analysis")
+    #expect(analysis.contractVersion == 2)
+    #expect(analysis.sections.count == 2)
+    #expect(analysis.sections.first?.id == "rhythm_bpm")
+    #expect(analysis.sections.first?.items.first?.title == "BPM")
+    #expect(analysis.sections.last?.source == "inferred")
+    #expect(analysis.sections.last?.confidence == "low")
+    #expect(analysis.timeline.first?.startMS == 0)
+    #expect(analysis.timeline.first?.endMS == 32000)
+    #expect(analysis.djTips.first?.kind == "transition")
+    #expect(analysis.limitations == ["Energy labels are inferred."])
+    #expect(assistantMessage.analysis?.contractVersion == 2)
+    #expect(assistantMessage.items.first?.title == "Energy")
+    #expect(assistantMessage.images.isEmpty)
+    #expect(assistantMessage.playbackActions.isEmpty)
+}
+
+@Test func askDJMessageResponseDecodesTechnicalTrackAnalysisV2WithoutTimeline() throws {
+    let json = """
+    {
+      "dj_text": "Technische analyse zonder timeline.",
+      "intent": {
+        "intent": "technical_track_analysis"
+      },
+      "analysis": {
+        "contract_version": 2,
+        "mode": "knowledge_plus_metadata",
+        "sections": [
+          {
+            "id": "instrumentation",
+            "kind": "description",
+            "title": "Instrumentation",
+            "summary": "Pads and restrained percussion.",
+            "source": "inferred",
+            "confidence": "medium"
+          }
+        ],
+        "dj_tips": [
+          {
+            "kind": "cueing",
+            "text": "Use the pad tail for a smooth transition.",
+            "source": "inferred"
+          }
+        ]
+      }
+    }
+    """.data(using: .utf8)!
+
+    let response = try JSONDecoder().decode(DJConnectAskDJMessageResponse.self, from: json)
+
+    #expect(response.analysis?.contractVersion == 2)
+    #expect(response.analysis?.sections.first?.id == "instrumentation")
+    #expect(response.analysis?.timeline.isEmpty == true)
+    #expect(response.analysis?.djTips.first?.text == "Use the pad tail for a smooth transition.")
+}
+
+@Test func askDJMessageResponseDecodesUnavailableTechnicalTrackAnalysisV2() throws {
+    let json = """
+    {
+      "text": "Ik kan nu geen track analyseren.",
+      "action": "track_analysis",
+      "intent": {
+        "intent": "technical_track_analysis",
+        "action": "track_analysis"
+      },
+      "analysis": {
+        "contract_version": 2,
+        "mode": "unavailable",
+        "confidence": "low",
+        "limitations": [
+          "No active Spotify playback context is available."
+        ],
+        "sources": ["unavailable"]
+      }
+    }
+    """.data(using: .utf8)!
+
+    let response = try JSONDecoder().decode(DJConnectAskDJMessageResponse.self, from: json)
+
+    #expect(response.analysis?.contractVersion == 2)
+    #expect(response.analysis?.mode == "unavailable")
+    #expect(response.analysis?.confidence == "low")
+    #expect(response.analysis?.sections.isEmpty == true)
+    #expect(response.analysis?.limitations.first == "No active Spotify playback context is available.")
+}
+
+@Test func askDJMessageResponseDecodesUnknownTechnicalTrackAnalysisV2Values() throws {
+    let json = """
+    {
+      "text": "Future analysis payload.",
+      "intent": {
+        "intent": "technical_track_analysis"
+      },
+      "analysis": {
+        "contract_version": 2,
+        "sections": [
+          {
+            "id": "future_section",
+            "kind": "spectral_flux",
+            "title": "Spectral Flux",
+            "value": "Wide",
+            "source": "local_fallback",
+            "confidence": "low"
+          }
+        ],
+        "timeline": [
+          {
+            "kind": "mystery_segment",
+            "label": "Unknown part",
+            "start_ms": 64000,
+            "source": "future_source"
+          }
+        ],
+        "dj_tips": [
+          {
+            "kind": "future_tip",
+            "text": "Treat this as a generic tip.",
+            "source": "local_fallback"
+          }
+        ]
+      }
+    }
+    """.data(using: .utf8)!
+
+    let response = try JSONDecoder().decode(DJConnectAskDJMessageResponse.self, from: json)
+
+    #expect(response.analysis?.sections.first?.id == "future_section")
+    #expect(response.analysis?.sections.first?.kind == "spectral_flux")
+    #expect(response.analysis?.sections.first?.source == "local_fallback")
+    #expect(response.analysis?.timeline.first?.kind == "mystery_segment")
+    #expect(response.analysis?.timeline.first?.source == "future_source")
+    #expect(response.analysis?.djTips.first?.kind == "future_tip")
+}
+
+@Test func askDJMessageResponseWithoutPlaybackActionsDoesNotReusePreviousActions() throws {
+    let previous = DJConnectAskDJMessage(
+        serverID: "same-server-id",
+        role: .dj,
+        text: "Previous answer",
+        playbackActions: [
+            DJConnectAskDJPlaybackAction(title: "Play previous", uri: "spotify:track:previous", kind: "track")
+        ]
+    )
+    let json = """
+    {
+      "assistant_message": {
+        "id": "same-server-id",
+        "role": "assistant",
+        "text": "Read-only analysis.",
+        "intent": {
+          "intent": "technical_track_analysis",
+          "action": "track_analysis"
+        },
+        "analysis": {
+          "contract_version": 2,
+          "mode": "measured",
+          "sections": [
+            {
+              "id": "rhythm_bpm",
+              "value": "128 BPM"
+            }
+          ]
+        }
+      }
+    }
+    """.data(using: .utf8)!
+
+    let response = try JSONDecoder().decode(DJConnectAskDJMessageResponse.self, from: json)
+    let message = DJConnectAskDJMessage(
+        serverID: response.assistantMessage?.id,
+        role: .dj,
+        text: response.assistantMessage?.text ?? "",
+        playbackActions: response.assistantMessage?.playbackActions ?? [],
+        intentInfo: response.assistantMessage?.intentInfo,
+        analysis: response.assistantMessage?.analysis
+    )
+
+    #expect(previous.playbackActions.count == 1)
+    #expect(message.isTechnicalTrackAnalysis)
+    #expect(message.playbackActions.isEmpty)
+    #expect(message.renderablePlaybackActions.isEmpty)
 }
 
 @Test func askDJResponseDecodesObjectIntentForTechnicalTrackAnalysis() throws {

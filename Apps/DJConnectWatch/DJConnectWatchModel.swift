@@ -58,7 +58,7 @@ struct DJConnectWatchAskDJMessage: Identifiable, Codable, Equatable {
     }
 
     var renderablePlaybackActions: [DJConnectAskDJPlaybackAction] {
-        isTechnicalTrackAnalysis ? [] : playbackActions
+        playbackActions
     }
 
     init(

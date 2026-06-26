@@ -2054,6 +2054,9 @@ private struct AskDJWatchAnalysisSummary: View {
     }
 
     private var availabilityText: String? {
+        if !analysis.sections.isEmpty || !analysis.timeline.isEmpty || !analysis.djTips.isEmpty {
+            return nil
+        }
         var parts: [String] = []
         if analysis.measured != nil {
             parts.append("Gemeten")
@@ -2062,6 +2065,10 @@ private struct AskDJWatchAnalysisSummary: View {
             parts.append("Duiding")
         }
         return parts.isEmpty ? nil : parts.joined(separator: " + ")
+    }
+
+    private var shouldRenderV1Fallback: Bool {
+        analysis.sections.isEmpty && analysis.timeline.isEmpty && analysis.djTips.isEmpty
     }
 
     var body: some View {
@@ -2087,6 +2094,32 @@ private struct AskDJWatchAnalysisSummary: View {
                     .foregroundStyle(.white.opacity(0.58))
                     .lineLimit(2)
             }
+            if analysis.mode != "unavailable" {
+                ForEach(analysis.sections, id: \.stableID) { section in
+                    detailRow(
+                        title: section.displayTitle,
+                        value: section.value ?? section.summary,
+                        detail: metaText(source: section.source, confidence: section.confidence)
+                    )
+                }
+                ForEach(analysis.timeline, id: \.stableID) { entry in
+                    detailRow(
+                        title: "\(formatMilliseconds(entry.startMS)) \(entry.label ?? entry.kind ?? "segment")",
+                        value: entry.summary,
+                        detail: metaText(source: entry.source, confidence: entry.confidence)
+                    )
+                }
+                ForEach(analysis.djTips, id: \.stableID) { tip in
+                    detailRow(
+                        title: tip.displayTitle,
+                        value: tip.text,
+                        detail: metaText(source: tip.source, confidence: tip.confidence)
+                    )
+                }
+                if shouldRenderV1Fallback {
+                    v1FallbackRows
+                }
+            }
             if !analysis.limitations.isEmpty {
                 Text(analysis.limitations.joined(separator: " · "))
                     .font(.caption2)
@@ -2100,6 +2133,75 @@ private struct AskDJWatchAnalysisSummary: View {
             RoundedRectangle(cornerRadius: 8, style: .continuous)
                 .fill(.white.opacity(0.10))
         }
+    }
+
+    private var v1FallbackRows: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            if let measured = analysis.measured {
+                if let bpm = measured.bpm {
+                    detailRow(title: "BPM", value: bpm.formatted(.number.precision(.fractionLength(0...1))), detail: nil)
+                }
+                if let key = measured.key, !key.isEmpty {
+                    detailRow(title: "Toonsoort", value: key, detail: nil)
+                }
+                ForEach(measured.sections, id: \.stableID) { section in
+                    detailRow(
+                        title: section.label ?? "Sectie",
+                        value: formatMeasuredSection(section),
+                        detail: section.confidence.map { "confidence \($0)" }
+                    )
+                }
+            }
+            if let inferred = analysis.inferred {
+                detailRow(title: "Structuur", value: inferred.structure, detail: inferred.provider)
+                detailRow(title: "Instrumentatie", value: inferred.instrumentation, detail: inferred.provider)
+                detailRow(title: "Energy", value: inferred.energyCurve, detail: inferred.provider)
+                detailRow(title: "Mix", value: inferred.mixNotes, detail: inferred.provider)
+            }
+        }
+    }
+
+    private func detailRow(title: String, value: String?, detail: String?) -> some View {
+        VStack(alignment: .leading, spacing: 1) {
+            Text(title.replacingOccurrences(of: "_", with: " "))
+                .font(.caption2.weight(.semibold))
+                .foregroundStyle(.white.opacity(0.78))
+                .lineLimit(2)
+            if let value, !value.isEmpty {
+                Text(value)
+                    .font(.caption2)
+                    .foregroundStyle(.white.opacity(0.62))
+                    .lineLimit(3)
+            }
+            if let detail, !detail.isEmpty {
+                Text(detail)
+                    .font(.caption2)
+                    .foregroundStyle(.white.opacity(0.48))
+                    .lineLimit(1)
+            }
+        }
+    }
+
+    private func metaText(source: String?, confidence: String?) -> String? {
+        let parts = [source, confidence]
+            .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+        return parts.isEmpty ? nil : parts.joined(separator: " · ")
+    }
+
+    private func formatMeasuredSection(_ section: DJConnectAskDJTrackAnalysis.Section) -> String? {
+        guard let start = section.startMS else {
+            return nil
+        }
+        return formatMilliseconds(start)
+    }
+
+    private func formatMilliseconds(_ value: Int?) -> String {
+        guard let value else {
+            return "--:--"
+        }
+        let totalSeconds = max(0, value / 1000)
+        return String(format: "%d:%02d", totalSeconds / 60, totalSeconds % 60)
     }
 }
 
