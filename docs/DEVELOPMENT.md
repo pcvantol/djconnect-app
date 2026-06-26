@@ -53,10 +53,9 @@ release binaries.
    `http://homeassistant.local:8123`.
 7. Copy the app-generated Pairing Code into the Home Assistant `djconnect`
    integration setup/pairing flow.
-8. Copy the Client adres into Home Assistant when the HA flow asks for it.
-9. Leave the app open. It waits automatically until Home Assistant accepts the
+8. Leave the app open. It waits automatically until Home Assistant accepts the
    code and returns a DJConnect bearer token.
-10. When the green pairing success state appears, choose `Let's Start!`.
+9. When the green pairing success state appears, choose `Let's Start!`.
 
 The app polls `POST /api/djconnect/pair`, stores the returned DJConnect bearer
 token in app-private storage, and validates the pairing by posting to
@@ -66,10 +65,8 @@ Home Assistant integration builds.
 
 For iOS Simulator testing, use the polling flow above. Do not treat simulator
 mDNS/Bonjour reachability as authoritative. On real devices and macOS, the app
-advertises `_djconnect._tcp` only while it is unpaired/pairable and hosts local
-`/api/device/*` endpoints for Home Assistant -> app callbacks while the app is
-active/reachable. After pairing, the HTTP API remains available while Bonjour
-advertising is disabled until explicit pairing reset.
+may browse `_home-assistant._tcp` for local HA discovery, but it does not
+advertise `_djconnect._tcp` or host `/api/device/*` callbacks.
 
 The pairing sheet also offers Demo Mode. Use it only for local UI work or App
 Store review/auditing when a real Home Assistant backend is unavailable. Demo
@@ -88,8 +85,8 @@ sheet.
 
 Set Log Level to Debug in Settings when validating pairing or backend flows.
 Expected debug coverage includes user actions, navigation/recovery flows, Home
-Assistant API calls, and local Client API calls. API log lines include HTTP
-status codes. Do not add logs that include bearer tokens, pairing codes,
+Assistant API calls, and iPhone-mediated Watch proxy actions. API log lines
+include HTTP status codes. Do not add logs that include bearer tokens, pairing codes,
 Authorization headers, Spotify/Home Assistant credentials, passwords, or raw
 secret-bearing request/response bodies.
 
@@ -103,7 +100,7 @@ the UI log buffer has been recreated.
 
 Use `--monkey-testing` for non-destructive UI stress tests. In Debug builds the
 iOS and macOS app start in local Demo Mode, skip first-run/pairing/crash
-blocking sheets, do not start the local Client API, and do not call Home
+blocking sheets, do not call Home
 Assistant. This mode is safe for random taps, tab navigation, game entry/exit,
 and basic controls, but it is not a backend or pairing validation path.
 
@@ -221,42 +218,18 @@ primary navigation, Settings URL seeding, and local Games menu choices. Add a
 local mock HA server fixture before asserting full pairing, queue, playlist,
 output, and voice flows.
 
-## Local Device API LAN Check
+## Home Assistant Transport Check
 
-The macOS app advertises `_djconnect._tcp.local` with `local_url` pointing at
-`http://<lan-ip>:<port>`. Home Assistant should fetch
-`/api/device/pairing-info` and `/api/device/info` from that exact URL.
+For a manual regression check, pair iOS/macOS through the local
+`/api/djconnect/pair` flow, then validate that status and command calls use the
+stored `ha_local_url`, fall back to `ha_remote_url` when local access fails and
+remote is supported, and report offline when neither URL works.
 
-For a manual LAN/Docker regression check:
-
-```sh
-swift test --filter localDeviceAPIAdvertisesLANURLAndServesDeviceJSON
-DJCONNECT_RUN_LAN_LOCAL_API_TEST=1 swift test --filter localDeviceAPIAdvertisesLANURLAndServesDeviceJSON
-```
-
-The opt-in LAN probe should be run from an environment that can actually reach
-the Mac via its LAN address, such as the production Home Assistant host or
-another LAN host. Curling the Mac's own LAN IP from the same macOS host can
-return an empty reply because of macOS self-hairpin socket behavior; verify from
-another LAN host before treating that as an app HTTP failure.
-
-If mDNS discovery works but Home Assistant filters the client away, test from
-the Home Assistant host:
-
-```sh
-curl -i http://<mac-lan-ip>:<port>/api/device/pairing-info
-curl -i http://<mac-lan-ip>:<port>/api/device/info
-```
-
-For standalone Apple Watch pairing, keep the Watch app open on the pairing
-screen and on the same WiFi/LAN as Home Assistant. The watchOS client advertises
-the same `_djconnect._tcp.local` service while it is unpaired or actively
-pairing, with `client_type=watchos` and a `device_id` prefixed with
-`djconnect-watchos-`. iPhone companion discovery is not a substitute for this:
-Home Assistant must discover or reach the Watch app's own local device API. If
-Home Assistant does not show the Watch, verify from the Home Assistant host with
-an mDNS browser or `dns-sd -B _djconnect._tcp local`, then fetch the advertised
-Watch `local_url` plus `/api/device/pairing-info`.
+For Apple Watch, keep DJConnect open on the paired iPhone. The Watch should show
+the iPhone companion status and send pairing, status, Ask DJ history, playback
+actions, voice/PTT, and push registration through WatchConnectivity. The Watch
+must not advertise `_djconnect._tcp`, expose `/api/device/*`, or store/use
+`ha_remote_url` directly.
 
 `Connection reset by peer` after TCP connect usually means macOS firewall or
 third-party security software, such as ESET, Little Snitch, or LuLu, is blocking

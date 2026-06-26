@@ -9,7 +9,7 @@ identified by `client_type`.
 Home Assistant owns:
 
 - pairing and DJConnect bearer-token lifecycle;
-- Spotify OAuth and future playback backend credentials;
+- Spotify Direct, Music Assistant, and future playback backend credentials;
 - playback commands;
 - Assist/STT/TTS;
 - native Home Assistant entities.
@@ -21,14 +21,14 @@ The Apple app owns:
 - local app state;
 - local bonus games with app-local highscores;
 - local app-private storage for only the DJConnect bearer token;
-- a pinned Client adres after successful pairing, kept stable until explicit
-  pairing reset;
+- iOS/macOS Home Assistant URL state after local pairing, including local URL,
+  optional remote URL, and local/remote/offline diagnostics;
 - local audio recording for push-to-talk, when implemented;
 - optional playback of returned DJ response audio.
 - user-facing permission status and preflight requests for Microphone and
   Speech Recognition.
 - one-time first-run onboarding that points setup to Home Assistant and notes
-  the Spotify Premium requirement.
+  the Home Assistant-owned music backend requirement.
 - local Demo Mode state for App Store review and UI inspection without a live
   backend.
 
@@ -62,13 +62,16 @@ scene and exposes a native settings scene.
 
 `DJConnectWatch`
 
-Native standalone watchOS app target. It depends on `DJConnectCore` directly,
-stores its DJConnect bearer token in app-private storage, pairs with Home
-Assistant using the same app-generated code flow, posts status and playback
-commands, exposes `Ask DJ` push-to-talk, uploads WAV audio to
-`/api/djconnect/voice`, and plays returned DJ response audio or speech on the
-Watch. Wake phrase work on watchOS is foreground-only by design; the app must
-not run an always-on background microphone listener.
+Native companion-only watchOS app target. It depends on `DJConnectCore`
+directly for shared models and serialization, but it does not own Home
+Assistant transport. The Watch keeps its own `client_type:"watchos"` identity
+and compact UI cache; the paired iPhone owns HA pairing, token storage,
+local/remote/offline selection, APNs registration, status refresh, Ask DJ
+history sync, playback action forwarding, clear history, idle suggestions, and
+voice upload. The Watch does not store `ha_remote_url`, does not host a local
+Web API, and does not advertise Bonjour/mDNS. Wake phrase work on watchOS is
+foreground-only by design; the app must not run an always-on background
+microphone listener.
 
 ## Ask DJ And DJ Memory
 
@@ -99,7 +102,10 @@ period without changing playback. Personal recommendation questions such as
 "wat zou ik leuk vinden om nu te luisteren?" are handled as
 `personal_music_recommendations`; the backend should recommend concrete tracks,
 albums, artists, or playlists from DJ Memory and Spotify profile data without
-changing playback unless the user explicitly asks to play or queue them. Rich
+changing playback unless the user explicitly asks to play or queue them. The
+selected backend can be Spotify Direct, Music Assistant, or a future HA-side
+backend; Apple clients render backend summaries and action payloads without
+requiring Spotify URIs. Rich
 now-playing and artist questions are handled as `track_context_info`, including
 release year, genre, DJ commentary, artist origin, trivia, samples, related
 artists, concerts, releases, and musical connections such as BPM transition or
@@ -202,21 +208,22 @@ onboarding flows must not ask for `spotify_source`, `liked_proxy_playlist_uri`,
 "Spotify source override", or "Standaard playlist override"; playback continues
 through generic commands sent to Home Assistant.
 
-## Local Client API
+## Home Assistant Transport
 
-The app hosts a small local HTTP API for Home Assistant -> app traffic while
-the app is active. User-facing text calls this endpoint `Client adres`.
+iOS and macOS call Home Assistant directly after local pairing. Pairing uses the
+local `/api/djconnect/pair` endpoint only. Runtime traffic uses the stored
+`ha_local_url` first, falls back to the optional `ha_remote_url` when remote is
+supported and local access fails, and reports `offline` when neither route
+works.
 
-The Client adres shown during pairing is pinned after successful pairing and
-stored locally so Home Assistant does not lose the callback target when the app
-refreshes its listener. It changes only when the user resets pairing or the app
-installation state is reset.
+watchOS does not own Home Assistant transport. The Watch sends typed
+WatchConnectivity requests to the paired iPhone; the iPhone performs HA pairing,
+status, commands, Ask DJ history, clear history, idle suggestions, voice upload,
+and push registration on behalf of the Watch while preserving
+`client_type:"watchos"` metadata.
 
-Bonjour/mDNS advertising is scoped to discovery. The app publishes
-`_djconnect._tcp` while it is unpaired/pairable, then disables that Bonjour
-service after successful pairing while keeping the HTTP listener alive for
-paired Home Assistant callbacks. This avoids unnecessary repeated publication
-and reduces network/battery cost on iOS and macOS.
+No Apple target hosts a Home Assistant-callable `/api/device/*` Client API,
+shows a Client adres, or advertises `_djconnect._tcp`.
 
 ## Battery And Responsiveness
 
@@ -244,10 +251,10 @@ user actions and navigation/recovery flows at DEBUG level, including refresh,
 transport controls, queue/playlist starts, output changes, Demo Mode entry/
 exit, pairing reset, wakeword prompt decisions, and voice/PTT actions.
 
-Home Assistant API calls and local Client API calls log method/path plus HTTP
-status code. Logs must not include bearer tokens, pairing codes, Authorization
-headers, Spotify/Home Assistant credentials, passwords, or raw request/response
-bodies that may contain secrets.
+Home Assistant API calls log method/path plus HTTP status code. Logs must not
+include bearer tokens, pairing codes, Authorization headers, Spotify/Home
+Assistant credentials, passwords, or raw request/response bodies that may
+contain secrets.
 
 Runtime diagnostics are kept in memory for the Logs screen and mirrored to a
 redacted rolling logfile in Application Support:

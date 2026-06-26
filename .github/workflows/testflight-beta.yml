@@ -4,10 +4,10 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: "Exact app version to upload, for example 3.1.31"
+        description: "Exact app version to upload, for example 3.2.0"
         required: true
       tag:
-        description: "Exact source tag to build, for example v3.1.31"
+        description: "Exact source tag to build, for example v3.2.0"
         required: true
       confirm_upload:
         description: "Type UPLOAD_TESTFLIGHT to explicitly allow this beta upload"

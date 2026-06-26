@@ -14,7 +14,7 @@ with acceptance criteria live in [ISSUES.md](ISSUES.md).
 - Validate the blocking pairing sheet and Demo Mode on physical iPhone, iPad,
   and Mac before App Store/TestFlight review.
 - Keep the Apple app and Home Assistant integration on the same `major.minor`
-  protocol line; app `3.1.x` requires HA `3.1.x`.
+  protocol line; app `3.2.x` requires HA `3.2.x`.
 - Work through the high-priority local issues in [ISSUES.md](ISSUES.md),
   especially refresh latency, network fixtures, and physical-device validation.
 

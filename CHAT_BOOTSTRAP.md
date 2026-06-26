@@ -18,7 +18,8 @@ Context:
 - Dit is de native DJConnect app repo voor iOS/iPadOS/macOS/watchOS.
 - DJConnect wordt ontwikkeld en onderhouden met AI-assisted/agentic engineering workflows, inclusief Codex; accepted changes blijven maintainer-reviewed en prompts/logs/issues mogen geen secrets of private data bevatten.
 - Project is MIT-licensed; zie `LICENSE`.
-- User-facing term is `Client adres`, niet `Client API URL`.
+- Apple app clients tonen geen `Client adres` meer; iOS/macOS pairen lokaal
+  met Home Assistant en watchOS loopt via de iPhone companion.
 - Clients mogen geen `spotify_source` / "Spotify source override" of `liked_proxy_playlist_uri` / "Standaard playlist override" meer tonen, documenteren of verwachten.
 - Backend playback loopt via de Home Assistant DJConnect integration; clients sturen generieke playback commands.
 - Apple clients bewaren alleen het door Home Assistant uitgegeven DJConnect device-token in app-private storage. Gebruik geen Keychain en toon geen Keychain-permissie of fallback-popup. `App opnieuw koppelen` wist lokale pairing/token-state, roteert de lokale clientidentiteit/koppelcode waar nodig en opent opnieuw de pairingflow.
@@ -37,32 +38,29 @@ Context:
 - Secrets/tokens/wachtwoorden/private URLs mogen nooit in commits, logs, screenshots, diagnostics of test fixtures.
 
 Huidige status om te controleren:
-- Release `3.1.53` is de actuele source release met volledig companion-only
-  watchOS pairing, iPhone-proxy voor Watch local callbacks, expliciete Ask DJ
-  client-identiteit, behoud van action `value` payloads, structured output
-  command forwarding, documentatie van `/ask_dj/history/clear`, het read-only
-  Ask DJ `technical_track_analysis` contract met technische metrics, en
-  forward-compatible decoding voor optionele `analysis.providers[]`
-  providerstatusmetadata.
+- Release `3.2.0` is de actuele source release/protocollijn. iOS/macOS pairen
+  lokaal via `/api/djconnect/pair`, bewaren `ha_local_url` plus optioneel
+  `ha_remote_url`, kiezen runtime local -> remote -> offline, en hosten geen
+  client `/api/device/*` API of `_djconnect._tcp` service.
 - Ask DJ toont in het lege scherm een voorbeeldvraag voor technische
   trackanalyse. Backend/providerdata voor `technical_track_analysis` blijft
   read-only: geen playback starten, pauzeren, skippen, queuen, saven of output
   wijzigen.
-- watchOS is volledig companion-only. De Watch host geen lokale Web API en
-  adverteert geen mDNS/Bonjour. De gekoppelde iPhone publiceert namens de Watch
-  een bestaande DJConnect local API-shape met `client_type=watchos`, het stabiele
-  Watch `device_id`, de Watch-koppelcode en een iPhone-hosted `local_url`.
-  Home Assistant paart en stuurt latere `/api/device/*` callbacks naar die
-  iPhone URL; de iPhone proxyt command-, DJ response- en forget-callbacks naar
-  de Watch via WatchConnectivity.
-- watchOS behoudt een eigen Watch-identiteit, tokenopslag, Ask DJ PTT/voice
-  input, tekstuele history, optionele replay van `audio_url`, en dezelfde
-  backend system/ambient historyberichten. Pairing UI op Watch toont alleen de
-  koppelcode en iPhone companion-status; geen HA-url veld en geen `Client adres`.
+- watchOS is volledig companion-only. De Watch host geen lokale Web API,
+  adverteert geen mDNS/Bonjour, bewaart geen `ha_remote_url`, en kiest geen
+  directe HA local/remote transport. De gekoppelde iPhone is eigenaar van HA
+  pairing, Watch-tokenopslag, APNs registratie, runtime transport, status,
+  Ask DJ history/clear/idle suggestion, playback actions, follow-up yes/no en
+  voice/PTT upload. De iPhone behoudt `client_type:"watchos"` metadata richting
+  HA.
+- Apple clients renderen de 3.2 music-backend summary (`music_backend`,
+  `music_backend_name`, availability, revision, capabilities, target player,
+  error) zonder Spotify-only aannames. Backend-owned action `value` payloads
+  voor Spotify Direct en Music Assistant blijven intact.
 - Demo Mode is volledig lokaal en non-interacting met Home Assistant. Ask DJ
   toont de vaste voorbeelden en geeft client-side demobubbles terug die
   uitleggen dat Ask DJ echt antwoordt zodra Home Assistant gekoppeld is.
-- De statische What's New release-notes voor `3.1.53` worden door de
+- De statische What's New release-notes voor `3.2.0` worden door de
   `Public unsigned release` workflow gepubliceerd naar `pcvantol/djconnect-website`
   en `djconnect.dev`. Controleer specifiek dat de `nl` JSON echte Nederlandse
   inhoud bevat en niet de Engelse fallback.
@@ -71,8 +69,8 @@ Huidige status om te controleren:
 - Check direct:
   - `git status --short --branch`
   - `gh run list --repo pcvantol/djconnect-app --limit 5`
-  - public release tags in `pcvantol/djconnect-app-releases` voor `ios/v3.1.53` en `macos/v3.1.53` indien release/publicatie geraakt wordt.
-  - `https://djconnect.dev/release-notes/ios/nl/v3.1.53.json` en het macOS
+  - public release tags in `pcvantol/djconnect-app-releases` voor `ios/v3.2.0` en `macos/v3.2.0` indien release/publicatie geraakt wordt.
+  - `https://djconnect.dev/release-notes/ios/nl/v3.2.0.json` en het macOS
     equivalent indien What's New release-notes geraakt worden.
 
 Werkstijl:

@@ -4,6 +4,28 @@ All notable changes to DJConnect App are documented here.
 
 ## Unreleased
 
+### Changed
+
+- Nothing yet.
+
+## 3.2.0 - 2026-06-26
+
+### Changed
+
+- Bumped the Apple client protocol/app version line to `3.2.0`.
+- Added Home Assistant local/remote transport selection for iOS and macOS after
+  successful local pairing, with `local`, `remote`, and `offline` diagnostics.
+- Parsed and surfaced the 3.2 music-backend summary fields for pairing,
+  status, command, and Ask DJ responses.
+- Disabled Apple client-hosted local `/api/device/*` pairing/callback API and
+  `_djconnect._tcp` advertising for iOS/macOS/watchOS.
+- Moved watchOS runtime HA traffic to the paired iPhone proxy for status,
+  commands, Ask DJ history, clear history, idle suggestions, voice upload, and
+  push registration; the Watch now shows compact iPhone connection/backend
+  state and no longer uses direct HA networking.
+- Preserved backend-owned Ask DJ action payloads for Spotify Direct and Music
+  Assistant and forwarded `music_backend_revision` with action commands.
+
 ## 3.1.53 - 2026-06-26
 
 ### Changed

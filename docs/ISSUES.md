@@ -111,10 +111,11 @@ need a mock Home Assistant server or a live test Home Assistant environment.
 
 Acceptance:
 
-- UI tests cover first-run welcome, settings URL entry, app-generated pairing
-  code, Client adres copy, Demo Mode entry/exit, successful pairing, version
-  mismatch, stale auth, compact permission rows, Demo Mode microphone response,
-  `App opnieuw koppelen`, Ask DJ error sanitizing, and the local Games menu.
+- UI tests cover first-run welcome, local Home Assistant URL/code entry,
+  Watch/iPhone companion pairing status, Demo Mode entry/exit, successful
+  pairing, version mismatch, stale auth, compact permission rows, Demo Mode
+  microphone response, `App opnieuw koppelen`, Ask DJ error sanitizing, and the
+  local Games menu.
 - Tests can run deterministically without a production Home Assistant instance.
 
 ### ISS-014: Add Hardware Keyboard UI Coverage For Games
@@ -149,19 +150,20 @@ Acceptance:
   sheet.
 - Stale auth and backend errors do not clear the token until explicit reset.
 
-### ISS-012: Bound Local API Request Size
+### ISS-012: Bound Incoming Payload Size
 
 Priority: high
 
-The local Client API should reject oversized headers and request bodies to
-avoid unnecessary memory growth from malformed LAN traffic.
+Home Assistant responses, iPhone-mediated Watch proxy payloads, and local
+diagnostics imports should reject oversized payloads to avoid unnecessary memory
+growth from malformed traffic or fixtures.
 
 Acceptance:
 
-- Local API request headers have a maximum size.
-- Local API request bodies have a maximum size.
-- Oversized requests receive a clear `413` or equivalent failure response.
-- Normal pairing, command, DJ response, and forget requests still pass.
+- HTTP response bodies and Watch proxy payloads have a maximum size.
+- Oversized payloads receive a clear user-facing failure without token loss.
+- Normal pairing, command, Ask DJ history, voice, and push registration flows
+  still pass.
 
 ### ISS-013: Centralize Runtime Log Redaction
 

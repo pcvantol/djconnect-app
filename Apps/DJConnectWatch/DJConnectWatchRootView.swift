@@ -636,7 +636,7 @@ private struct DJConnectWatchWelcomeView: View {
                         .multilineTextAlignment(.center)
                         .fixedSize(horizontal: false, vertical: true)
 
-                    Label("Spotify Premium is benodigd.", systemImage: "music.note")
+                    Label("Muziekbackend loopt via Home Assistant.", systemImage: "music.note")
                         .font(.caption2.weight(.semibold))
                         .foregroundStyle(.white.opacity(0.62))
                         .multilineTextAlignment(.center)
@@ -776,18 +776,26 @@ private struct DJConnectWatchAboutView: View {
 
                     DJConnectWatchSettingsSection(title: "App") {
                         aboutRow("Versie", appVersion)
+                        aboutRow("Protocol", model.identity.firmware)
                         aboutRow("Apparaatnaam", model.identity.deviceName)
                         aboutRow("Website", "https://djconnect.dev")
                         aboutRow("Device ID", model.identity.deviceID)
                     }
 
                     DJConnectWatchSettingsSection(title: "Verbinding") {
-                        aboutRow("Home Assistant adres", model.haBaseURL)
+                        aboutRow("iPhone", model.companionPairingStatus)
+                        aboutRow("Connectie", "via iPhone, \(connectionModeTitle(model.iPhoneConnectionMode))")
                         aboutRow(
-                            "Muziek",
-                            model.canUseBackend ? "Beschikbaar" : "Niet beschikbaar",
-                            foregroundStyle: model.canUseBackend ? Color.green : Color.red
+                            "Backend",
+                            backendTitle,
+                            foregroundStyle: model.musicBackendSummary.musicBackendAvailable == false ? Color.red : Color.green
                         )
+                        if let target = model.musicBackendSummary.musicTargetPlayer?.name ?? model.musicBackendSummary.musicTargetPlayer?.id {
+                            aboutRow("Target", target)
+                        }
+                        if let error = model.musicBackendSummary.musicBackendError {
+                            aboutRow("Backend fout", error, foregroundStyle: .red)
+                        }
                     }
 
                     DJConnectWatchSettingsSection(title: "Notices") {
@@ -799,6 +807,28 @@ private struct DJConnectWatchAboutView: View {
             }
         }
         .navigationTitle("Over")
+    }
+
+    private var backendTitle: String {
+        let name = model.musicBackendSummary.displayName
+        if model.musicBackendSummary.musicBackendAvailable == false {
+            return "\(name) niet beschikbaar"
+        }
+        if let revision = model.musicBackendSummary.musicBackendRevision {
+            return "\(name) rev \(revision)"
+        }
+        return name
+    }
+
+    private func connectionModeTitle(_ mode: DJConnectHAConnectionMode) -> String {
+        switch mode {
+        case .local:
+            return "Lokaal"
+        case .remote:
+            return "Remote"
+        case .offline:
+            return "Offline"
+        }
     }
 
     private func aboutRow(_ title: String, _ value: String, foregroundStyle: Color = .white) -> some View {

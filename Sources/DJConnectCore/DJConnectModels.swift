@@ -14,6 +14,55 @@ public enum DJConnectPlatform: String, Codable, Sendable {
     case watchos
 }
 
+public enum DJConnectWatchProxyOperation: String, Codable, Sendable {
+    case status
+    case command
+    case askDJHistory = "ask_dj_history"
+    case clearAskDJHistory = "clear_ask_dj_history"
+    case askDJIdleSuggestion = "ask_dj_idle_suggestion"
+    case voice
+    case pushRegister = "push_register"
+    case pushUnregister = "push_unregister"
+}
+
+public struct DJConnectWatchProxyRequest: Codable, Sendable {
+    public var operation: DJConnectWatchProxyOperation
+    public var payload: Data?
+
+    public init(operation: DJConnectWatchProxyOperation, payload: Data? = nil) {
+        self.operation = operation
+        self.payload = payload
+    }
+}
+
+public struct DJConnectWatchProxyResponse: Codable, Sendable {
+    public var success: Bool
+    public var payload: Data?
+    public var error: String?
+    public var message: String?
+
+    public init(success: Bool, payload: Data? = nil, error: String? = nil, message: String? = nil) {
+        self.success = success
+        self.payload = payload
+        self.error = error
+        self.message = message
+    }
+}
+
+public struct DJConnectWatchProxyVoicePayload: Codable, Sendable {
+    public var wavData: Data
+    public var mood: Int?
+    public var djStyle: String?
+    public var memoryKey: String?
+
+    public init(wavData: Data, mood: Int? = nil, djStyle: String? = nil, memoryKey: String? = nil) {
+        self.wavData = wavData
+        self.mood = mood
+        self.djStyle = djStyle
+        self.memoryKey = memoryKey
+    }
+}
+
 public enum DJConnectPushEnvironment: String, Codable, Sendable {
     case sandbox
     case production
@@ -140,12 +189,32 @@ public struct DJConnectPairingResponse: Codable, Equatable, Sendable {
     public var clientType: DJConnectClientType?
     public var haLocalURL: String?
     public var haRemoteURL: String?
+    public var remoteSupported: Bool?
+    public var musicBackend: String?
+    public var musicBackendName: String?
+    public var musicBackendAvailable: Bool?
+    public var musicBackendRevision: Int?
+    public var musicBackendCapabilities: DJConnectMusicBackendCapabilities?
+    public var musicTargetPlayer: DJConnectMusicTargetPlayer?
+    public var musicBackendError: String?
     public var deviceLanguage: String?
     public var language: String?
     public var assistPipelineID: String?
 
     public var resolvedDeviceToken: String? {
         deviceToken ?? bearerToken ?? token
+    }
+
+    public var musicBackendSummary: DJConnectMusicBackendSummary {
+        DJConnectMusicBackendSummary(
+            musicBackend: musicBackend,
+            musicBackendName: musicBackendName,
+            musicBackendAvailable: musicBackendAvailable,
+            musicBackendRevision: musicBackendRevision,
+            musicBackendCapabilities: musicBackendCapabilities,
+            musicTargetPlayer: musicTargetPlayer,
+            musicBackendError: musicBackendError
+        )
     }
 
     public init(
@@ -158,6 +227,14 @@ public struct DJConnectPairingResponse: Codable, Equatable, Sendable {
         clientType: DJConnectClientType? = nil,
         haLocalURL: String? = nil,
         haRemoteURL: String? = nil,
+        remoteSupported: Bool? = nil,
+        musicBackend: String? = nil,
+        musicBackendName: String? = nil,
+        musicBackendAvailable: Bool? = nil,
+        musicBackendRevision: Int? = nil,
+        musicBackendCapabilities: DJConnectMusicBackendCapabilities? = nil,
+        musicTargetPlayer: DJConnectMusicTargetPlayer? = nil,
+        musicBackendError: String? = nil,
         deviceLanguage: String? = nil,
         language: String? = nil,
         assistPipelineID: String? = nil
@@ -171,6 +248,14 @@ public struct DJConnectPairingResponse: Codable, Equatable, Sendable {
         self.clientType = clientType
         self.haLocalURL = haLocalURL
         self.haRemoteURL = haRemoteURL
+        self.remoteSupported = remoteSupported
+        self.musicBackend = musicBackend
+        self.musicBackendName = musicBackendName
+        self.musicBackendAvailable = musicBackendAvailable
+        self.musicBackendRevision = musicBackendRevision
+        self.musicBackendCapabilities = musicBackendCapabilities
+        self.musicTargetPlayer = musicTargetPlayer
+        self.musicBackendError = musicBackendError
         self.deviceLanguage = deviceLanguage
         self.language = language
         self.assistPipelineID = assistPipelineID
@@ -186,9 +271,107 @@ public struct DJConnectPairingResponse: Codable, Equatable, Sendable {
         case clientType = "client_type"
         case haLocalURL = "ha_local_url"
         case haRemoteURL = "ha_remote_url"
+        case remoteSupported = "remote_supported"
+        case musicBackend = "music_backend"
+        case musicBackendName = "music_backend_name"
+        case musicBackendAvailable = "music_backend_available"
+        case musicBackendRevision = "music_backend_revision"
+        case musicBackendCapabilities = "music_backend_capabilities"
+        case musicTargetPlayer = "music_target_player"
+        case musicBackendError = "music_backend_error"
         case deviceLanguage = "device_language"
         case language
         case assistPipelineID = "assist_pipeline_id"
+    }
+}
+
+public struct DJConnectMusicBackendCapabilities: Codable, Equatable, Sendable {
+    public var supportsSearch: Bool?
+    public var supportsQueue: Bool?
+    public var supportsOutputs: Bool?
+    public var supportsFavorites: Bool?
+    public var supportsRecentlyPlayed: Bool?
+    public var supportsTopItems: Bool?
+
+    public init(
+        supportsSearch: Bool? = nil,
+        supportsQueue: Bool? = nil,
+        supportsOutputs: Bool? = nil,
+        supportsFavorites: Bool? = nil,
+        supportsRecentlyPlayed: Bool? = nil,
+        supportsTopItems: Bool? = nil
+    ) {
+        self.supportsSearch = supportsSearch
+        self.supportsQueue = supportsQueue
+        self.supportsOutputs = supportsOutputs
+        self.supportsFavorites = supportsFavorites
+        self.supportsRecentlyPlayed = supportsRecentlyPlayed
+        self.supportsTopItems = supportsTopItems
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case supportsSearch = "supports_search"
+        case supportsQueue = "supports_queue"
+        case supportsOutputs = "supports_outputs"
+        case supportsFavorites = "supports_favorites"
+        case supportsRecentlyPlayed = "supports_recently_played"
+        case supportsTopItems = "supports_top_items"
+    }
+}
+
+public struct DJConnectMusicTargetPlayer: Codable, Equatable, Sendable {
+    public var id: String?
+    public var name: String?
+
+    public init(id: String? = nil, name: String? = nil) {
+        self.id = id
+        self.name = name
+    }
+}
+
+public struct DJConnectMusicBackendSummary: Codable, Equatable, Sendable {
+    public var remoteSupported: Bool?
+    public var musicBackend: String?
+    public var musicBackendName: String?
+    public var musicBackendAvailable: Bool?
+    public var musicBackendRevision: Int?
+    public var musicBackendCapabilities: DJConnectMusicBackendCapabilities?
+    public var musicTargetPlayer: DJConnectMusicTargetPlayer?
+    public var musicBackendError: String?
+
+    public init(
+        remoteSupported: Bool? = nil,
+        musicBackend: String? = nil,
+        musicBackendName: String? = nil,
+        musicBackendAvailable: Bool? = nil,
+        musicBackendRevision: Int? = nil,
+        musicBackendCapabilities: DJConnectMusicBackendCapabilities? = nil,
+        musicTargetPlayer: DJConnectMusicTargetPlayer? = nil,
+        musicBackendError: String? = nil
+    ) {
+        self.remoteSupported = remoteSupported
+        self.musicBackend = musicBackend
+        self.musicBackendName = musicBackendName
+        self.musicBackendAvailable = musicBackendAvailable
+        self.musicBackendRevision = musicBackendRevision
+        self.musicBackendCapabilities = musicBackendCapabilities
+        self.musicTargetPlayer = musicTargetPlayer
+        self.musicBackendError = musicBackendError
+    }
+
+    public var displayName: String {
+        musicBackendName ?? musicBackend ?? "Unknown"
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case remoteSupported = "remote_supported"
+        case musicBackend = "music_backend"
+        case musicBackendName = "music_backend_name"
+        case musicBackendAvailable = "music_backend_available"
+        case musicBackendRevision = "music_backend_revision"
+        case musicBackendCapabilities = "music_backend_capabilities"
+        case musicTargetPlayer = "music_target_player"
+        case musicBackendError = "music_backend_error"
     }
 }
 
@@ -322,13 +505,15 @@ public struct DJConnectCommandPayload: Codable, Equatable, Sendable {
     public var value: DJConnectCommandValue?
     public var play: Bool?
     public var limit: Int?
+    public var musicBackendRevision: Int?
 
     public init(
         identity: DJConnectIdentity,
         command: String,
         value: DJConnectCommandValue? = nil,
         play: Bool? = nil,
-        limit: Int? = nil
+        limit: Int? = nil,
+        musicBackendRevision: Int? = nil
     ) {
         self.deviceID = identity.deviceID
         self.deviceName = identity.deviceName
@@ -338,6 +523,7 @@ public struct DJConnectCommandPayload: Codable, Equatable, Sendable {
         self.value = value
         self.play = play
         self.limit = limit
+        self.musicBackendRevision = musicBackendRevision
     }
 
     enum CodingKeys: String, CodingKey {
@@ -349,6 +535,7 @@ public struct DJConnectCommandPayload: Codable, Equatable, Sendable {
         case value
         case play
         case limit
+        case musicBackendRevision = "music_backend_revision"
     }
 }
 
@@ -1737,6 +1924,7 @@ public struct DJConnectAskDJPlaybackAction: Codable, Equatable, Identifiable, Se
     public var toggleState: Bool?
     public var favoriteStatus: Bool?
     public var clientPrompt: String?
+    public var musicBackendRevision: Int?
 
     enum CodingKeys: String, CodingKey {
         case id
@@ -1787,6 +1975,7 @@ public struct DJConnectAskDJPlaybackAction: Codable, Equatable, Identifiable, Se
         case favoriteStatusCamel = "favoriteStatus"
         case clientPrompt = "client_prompt"
         case clientPromptCamel = "clientPrompt"
+        case musicBackendRevision = "music_backend_revision"
     }
 
     public init(
@@ -1811,7 +2000,8 @@ public struct DJConnectAskDJPlaybackAction: Codable, Equatable, Identifiable, Se
         toggle: Bool? = nil,
         toggleState: Bool? = nil,
         favoriteStatus: Bool? = nil,
-        clientPrompt: String? = nil
+        clientPrompt: String? = nil,
+        musicBackendRevision: Int? = nil
     ) {
         self.title = title
         self.subtitle = subtitle
@@ -1834,6 +2024,7 @@ public struct DJConnectAskDJPlaybackAction: Codable, Equatable, Identifiable, Se
         self.toggleState = toggleState
         self.favoriteStatus = favoriteStatus
         self.clientPrompt = clientPrompt
+        self.musicBackendRevision = musicBackendRevision
         self.id = id ?? [deviceID, uri, contextURI, title].compactMap { $0 }.joined(separator: "|")
     }
 
@@ -1894,6 +2085,7 @@ public struct DJConnectAskDJPlaybackAction: Codable, Equatable, Identifiable, Se
             ?? container.decodeIfPresentIgnoringErrors(Bool.self, forKey: .favoriteStatusCamel)
         clientPrompt = try container.decodeIfPresent(String.self, forKey: .clientPrompt)
             ?? container.decodeIfPresentIgnoringErrors(String.self, forKey: .clientPromptCamel)
+        musicBackendRevision = try container.decodeIfPresent(Int.self, forKey: .musicBackendRevision)
         let decodedID = try container.decodeIfPresent(String.self, forKey: .id)
         id = decodedID ?? [deviceID, responseValue, uri, contextURI, title].compactMap { $0 }.joined(separator: "|")
     }
@@ -1924,6 +2116,7 @@ public struct DJConnectAskDJPlaybackAction: Codable, Equatable, Identifiable, Se
         try container.encodeIfPresent(toggleState, forKey: .toggleState)
         try container.encodeIfPresent(favoriteStatus, forKey: .favoriteStatus)
         try container.encodeIfPresent(clientPrompt, forKey: .clientPrompt)
+        try container.encodeIfPresent(musicBackendRevision, forKey: .musicBackendRevision)
     }
 
     public var isOutputAction: Bool {
@@ -2170,6 +2363,14 @@ public struct DJConnectEnvelope<T: Codable & Sendable>: Codable, Sendable {
     public var backendAvailable: Bool?
     public var haVersion: String?
     public var haMajorMinor: String?
+    public var remoteSupported: Bool?
+    public var musicBackend: String?
+    public var musicBackendName: String?
+    public var musicBackendAvailable: Bool?
+    public var musicBackendRevision: Int?
+    public var musicBackendCapabilities: DJConnectMusicBackendCapabilities?
+    public var musicTargetPlayer: DJConnectMusicTargetPlayer?
+    public var musicBackendError: String?
     public var clientType: DJConnectClientType?
     public var deviceLanguage: String?
     public var language: String?
@@ -2183,11 +2384,34 @@ public struct DJConnectEnvelope<T: Codable & Sendable>: Codable, Sendable {
         case backendAvailable = "backend_available"
         case haVersion = "ha_version"
         case haMajorMinor = "ha_major_minor"
+        case remoteSupported = "remote_supported"
+        case musicBackend = "music_backend"
+        case musicBackendName = "music_backend_name"
+        case musicBackendAvailable = "music_backend_available"
+        case musicBackendRevision = "music_backend_revision"
+        case musicBackendCapabilities = "music_backend_capabilities"
+        case musicTargetPlayer = "music_target_player"
+        case musicBackendError = "music_backend_error"
         case clientType = "client_type"
         case deviceLanguage = "device_language"
         case language
         case playback
         case data
+    }
+}
+
+public extension DJConnectEnvelope {
+    var musicBackendSummary: DJConnectMusicBackendSummary {
+        DJConnectMusicBackendSummary(
+            remoteSupported: remoteSupported,
+            musicBackend: musicBackend,
+            musicBackendName: musicBackendName,
+            musicBackendAvailable: musicBackendAvailable,
+            musicBackendRevision: musicBackendRevision,
+            musicBackendCapabilities: musicBackendCapabilities,
+            musicTargetPlayer: musicTargetPlayer,
+            musicBackendError: musicBackendError
+        )
     }
 }
 
@@ -2800,6 +3024,14 @@ public struct DJConnectCommandResponse: Codable, Equatable, Sendable {
     public var backendAvailable: Bool?
     public var haVersion: String?
     public var haMajorMinor: String?
+    public var remoteSupported: Bool?
+    public var musicBackend: String?
+    public var musicBackendName: String?
+    public var musicBackendAvailable: Bool?
+    public var musicBackendRevision: Int?
+    public var musicBackendCapabilities: DJConnectMusicBackendCapabilities?
+    public var musicTargetPlayer: DJConnectMusicTargetPlayer?
+    public var musicBackendError: String?
     public var playback: DJConnectPlayback?
     public var devices: [DJConnectOutputDevice]?
     public var queue: [DJConnectQueueItem]?
@@ -2812,6 +3044,18 @@ public struct DJConnectCommandResponse: Codable, Equatable, Sendable {
     public var pushEnvironment: DJConnectPushEnvironment?
     public var lastPushError: String?
 
+    public var musicBackendSummary: DJConnectMusicBackendSummary {
+        DJConnectMusicBackendSummary(
+            musicBackend: musicBackend,
+            musicBackendName: musicBackendName,
+            musicBackendAvailable: musicBackendAvailable,
+            musicBackendRevision: musicBackendRevision,
+            musicBackendCapabilities: musicBackendCapabilities,
+            musicTargetPlayer: musicTargetPlayer,
+            musicBackendError: musicBackendError
+        )
+    }
+
     public init(
         success: Bool,
         error: String? = nil,
@@ -2819,6 +3063,14 @@ public struct DJConnectCommandResponse: Codable, Equatable, Sendable {
         backendAvailable: Bool? = nil,
         haVersion: String? = nil,
         haMajorMinor: String? = nil,
+        remoteSupported: Bool? = nil,
+        musicBackend: String? = nil,
+        musicBackendName: String? = nil,
+        musicBackendAvailable: Bool? = nil,
+        musicBackendRevision: Int? = nil,
+        musicBackendCapabilities: DJConnectMusicBackendCapabilities? = nil,
+        musicTargetPlayer: DJConnectMusicTargetPlayer? = nil,
+        musicBackendError: String? = nil,
         playback: DJConnectPlayback? = nil,
         devices: [DJConnectOutputDevice]? = nil,
         queue: [DJConnectQueueItem]? = nil,
@@ -2837,6 +3089,14 @@ public struct DJConnectCommandResponse: Codable, Equatable, Sendable {
         self.backendAvailable = backendAvailable
         self.haVersion = haVersion
         self.haMajorMinor = haMajorMinor
+        self.remoteSupported = remoteSupported
+        self.musicBackend = musicBackend
+        self.musicBackendName = musicBackendName
+        self.musicBackendAvailable = musicBackendAvailable
+        self.musicBackendRevision = musicBackendRevision
+        self.musicBackendCapabilities = musicBackendCapabilities
+        self.musicTargetPlayer = musicTargetPlayer
+        self.musicBackendError = musicBackendError
         self.playback = playback
         self.devices = devices
         self.queue = queue
@@ -2880,6 +3140,30 @@ public struct DJConnectCommandResponse: Codable, Equatable, Sendable {
         haMajorMinor = container.decodeStringAliasIfPresent(.haMajorMinor)
             ?? data?.decodeStringAliasIfPresent(.haMajorMinor)
             ?? result?.decodeStringAliasIfPresent(.haMajorMinor)
+        remoteSupported = try container.decodeIfPresent(Bool.self, forKey: .remoteSupported)
+            ?? data?.decodeIfPresentIgnoringErrors(Bool.self, forKey: .remoteSupported)
+            ?? result?.decodeIfPresentIgnoringErrors(Bool.self, forKey: .remoteSupported)
+        musicBackend = container.decodeStringAliasIfPresent(.musicBackend)
+            ?? data?.decodeStringAliasIfPresent(.musicBackend)
+            ?? result?.decodeStringAliasIfPresent(.musicBackend)
+        musicBackendName = container.decodeStringAliasIfPresent(.musicBackendName)
+            ?? data?.decodeStringAliasIfPresent(.musicBackendName)
+            ?? result?.decodeStringAliasIfPresent(.musicBackendName)
+        musicBackendAvailable = try container.decodeIfPresent(Bool.self, forKey: .musicBackendAvailable)
+            ?? data?.decodeIfPresentIgnoringErrors(Bool.self, forKey: .musicBackendAvailable)
+            ?? result?.decodeIfPresentIgnoringErrors(Bool.self, forKey: .musicBackendAvailable)
+        musicBackendRevision = try container.decodeIfPresent(Int.self, forKey: .musicBackendRevision)
+            ?? data?.decodeIfPresentIgnoringErrors(Int.self, forKey: .musicBackendRevision)
+            ?? result?.decodeIfPresentIgnoringErrors(Int.self, forKey: .musicBackendRevision)
+        musicBackendCapabilities = try container.decodeIfPresent(DJConnectMusicBackendCapabilities.self, forKey: .musicBackendCapabilities)
+            ?? data?.decodeIfPresentIgnoringErrors(DJConnectMusicBackendCapabilities.self, forKey: .musicBackendCapabilities)
+            ?? result?.decodeIfPresentIgnoringErrors(DJConnectMusicBackendCapabilities.self, forKey: .musicBackendCapabilities)
+        musicTargetPlayer = try container.decodeIfPresent(DJConnectMusicTargetPlayer.self, forKey: .musicTargetPlayer)
+            ?? data?.decodeIfPresentIgnoringErrors(DJConnectMusicTargetPlayer.self, forKey: .musicTargetPlayer)
+            ?? result?.decodeIfPresentIgnoringErrors(DJConnectMusicTargetPlayer.self, forKey: .musicTargetPlayer)
+        musicBackendError = container.decodeStringAliasIfPresent(.musicBackendError)
+            ?? data?.decodeStringAliasIfPresent(.musicBackendError)
+            ?? result?.decodeStringAliasIfPresent(.musicBackendError)
         playback = try container.decodeIfPresent(DJConnectPlayback.self, forKey: .playback)
             ?? data?.decodeIfPresentIgnoringErrors(DJConnectPlayback.self, forKey: .playback)
             ?? result?.decodeIfPresentIgnoringErrors(DJConnectPlayback.self, forKey: .playback)
@@ -2942,6 +3226,14 @@ public struct DJConnectCommandResponse: Codable, Equatable, Sendable {
         try container.encodeIfPresent(backendAvailable, forKey: .backendAvailable)
         try container.encodeIfPresent(haVersion, forKey: .haVersion)
         try container.encodeIfPresent(haMajorMinor, forKey: .haMajorMinor)
+        try container.encodeIfPresent(remoteSupported, forKey: .remoteSupported)
+        try container.encodeIfPresent(musicBackend, forKey: .musicBackend)
+        try container.encodeIfPresent(musicBackendName, forKey: .musicBackendName)
+        try container.encodeIfPresent(musicBackendAvailable, forKey: .musicBackendAvailable)
+        try container.encodeIfPresent(musicBackendRevision, forKey: .musicBackendRevision)
+        try container.encodeIfPresent(musicBackendCapabilities, forKey: .musicBackendCapabilities)
+        try container.encodeIfPresent(musicTargetPlayer, forKey: .musicTargetPlayer)
+        try container.encodeIfPresent(musicBackendError, forKey: .musicBackendError)
         try container.encodeIfPresent(playback, forKey: .playback)
         try container.encodeIfPresent(devices, forKey: .devices)
         try container.encodeIfPresent(queue, forKey: .queue)
@@ -2962,6 +3254,14 @@ public struct DJConnectCommandResponse: Codable, Equatable, Sendable {
         case backendAvailable = "backend_available"
         case haVersion = "ha_version"
         case haMajorMinor = "ha_major_minor"
+        case remoteSupported = "remote_supported"
+        case musicBackend = "music_backend"
+        case musicBackendName = "music_backend_name"
+        case musicBackendAvailable = "music_backend_available"
+        case musicBackendRevision = "music_backend_revision"
+        case musicBackendCapabilities = "music_backend_capabilities"
+        case musicTargetPlayer = "music_target_player"
+        case musicBackendError = "music_backend_error"
         case playback
         case data
         case result

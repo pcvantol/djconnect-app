@@ -847,8 +847,8 @@ private struct PairingSheetView: View {
                     .multilineTextAlignment(.center)
                 Text(localized(
                     model.language,
-                    "Use these values in Home Assistant to pair this app.",
-                    "Koppelgegevens voor Home Assistant"
+                    "Enter or scan the code shown by Home Assistant while this device is on the same local network.",
+                    "Vul of scan de code uit Home Assistant terwijl dit apparaat op hetzelfde lokale netwerk zit."
                 ))
                 .font(.headline)
                 .foregroundStyle(.secondary)
@@ -875,14 +875,6 @@ private struct PairingSheetView: View {
                     value: model.pairingToken,
                     copyLabel: localized(model.language, "Copy Pair Code", "Koppelcode kopiëren"),
                     prominent: true
-                )
-
-                PairingValueCard(
-                    title: "Client adres",
-                    language: model.language,
-                    value: model.localDeviceAPIURL ?? localized(model.language, "Starting Client address...", "Client adres wordt gestart..."),
-                    copyLabel: localized(model.language, "Copy Client address", "Client adres kopiëren"),
-                    prominent: false
                 )
             }
 
@@ -8733,11 +8725,6 @@ private struct AboutView: View {
                                 : localized(model.language, "Unavailable", "Niet beschikbaar"),
                             foregroundStyle: model.backendAvailable ? .green : .red
                         )
-                    }
-                    if let localDeviceAPIURL = model.localDeviceAPIURL, !localDeviceAPIURL.isEmpty {
-                        AboutStackedRow(label: "Client adres") {
-                            SelectableValue(localDeviceAPIURL)
-                        }
                     }
                 }
 

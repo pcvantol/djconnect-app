@@ -18,8 +18,8 @@ install identity.
   "device_id": "djconnect-ios-8F3A2C91B45D",
   "device_name": "DJConnect iPhone",
   "client_type": "ios",
-  "firmware": "3.1.23",
-  "app_version": "3.1.23",
+  "firmware": "3.2.0",
+  "app_version": "3.2.0",
   "platform": "ios"
 }
 ```
@@ -79,8 +79,8 @@ Payload:
   "device_id": "djconnect-macos-8F3A2C91B45D",
   "device_name": "DJConnect Mac",
   "client_type": "macos",
-  "firmware": "3.1.23",
-  "app_version": "3.1.23",
+  "firmware": "3.2.0",
+  "app_version": "3.2.0",
   "platform": "macos",
   "pair_code": "123456",
   "pairing_code": "123456",
@@ -90,8 +90,9 @@ Payload:
 
 watchOS is a companion-only client. The Watch uses a stable Watch identity such
 as `djconnect-watchos-8F3A2C91B45D` with `client_type: "watchos"` and
-`platform: "watchos"`, but pairing and Home Assistant local callbacks are
-mediated by the paired iPhone companion.
+`platform: "watchos"`, but pairing, token ownership, transport selection,
+status, commands, Ask DJ history, voice upload, and push registration are
+mediated by the paired iPhone companion over WatchConnectivity.
 
 The app-generated code is sent as `pair_code`, `pairing_code`, and
 `pairing_token` for compatibility with current Home Assistant integration
@@ -108,6 +109,8 @@ Expected response:
   "device_id": "djconnect-macos-8F3A2C91B45D",
   "client_type": "macos",
   "ha_local_url": "http://192.168.1.13:8123",
+  "ha_remote_url": "https://example.ui.nabu.casa",
+  "remote_supported": true,
   "device_language": "nl",
   "language": "nl"
 }
@@ -116,99 +119,24 @@ Expected response:
 The app also accepts `bearer_token` or `token` for compatibility, but
 `device_token` is preferred while the Home Assistant route keeps that field
 name. After successful pairing, the app stores only the returned DJConnect
-bearer token in app-private storage and persists `ha_local_url`, `device_id`, and
-`client_type`. App-to-HA runtime traffic must always use `ha_local_url`;
-cloud/remote URLs are reserved for Home Assistant-owned Spotify OAuth config
-flows and are not used for status, command, or voice requests. Do not use legacy
-`ha_url`.
+bearer token in app-private storage and persists `ha_local_url`, optional
+`ha_remote_url`, `device_id`, and `client_type`. App-to-HA runtime traffic uses
+`ha_local_url` first after local pairing, then `ha_remote_url` when local access
+is unavailable and remote is supported. Do not use legacy `ha_url`.
 
 ## Local App Web API
 
-The iOS/macOS app hosts a small local Web API for Home Assistant -> app
-traffic while the app is active/reachable. While the app is pairable, it
-advertises Bonjour/mDNS service `_djconnect._tcp` with TXT fields including
-`name`, `device_id`, `version`, `paired`, `pairing_status`, `api`, `model`,
-`client_type`, `local_url`, `pair_code`, `pairing_code`, `pairing_token`, and
-the `/api/device/*` paths.
+iOS and macOS no longer host a Home Assistant-callable local Web API and no
+longer advertise `_djconnect._tcp`. These Apple clients must not expose
+`/api/device/info`, `/api/device/pairing-info`, `/api/device/pair`,
+`/api/device/command`, `/api/device/dj_response`, or `/api/device/forget` as HA
+callback routes.
 
-watchOS never hosts its own local Web API and never advertises Bonjour directly.
-For Watch pairing, the iPhone companion permanently proxies the existing local
-API shape using the Watch identity. Home Assistant discovers an iPhone-hosted
-`_djconnect._tcp` service whose pairing-info response is authoritative for
-`client_type: "watchos"`, the Watch `device_id`, Watch pair code, and an
-iPhone-hosted `local_url`. Home Assistant should continue to POST later
-`/api/device/*` callbacks to that stored iPhone `local_url`; the iPhone forwards
-commands, DJ responses, and forget callbacks to the Watch over WatchConnectivity.
-Once pairing is complete, the app keeps the local HTTP API available while it
-is running, but disables Bonjour advertising to reduce network and battery
-impact. For the Watch proxy, the iPhone keeps Bonjour/service availability tied
-to the proxied Watch registration so Home Assistant can rediscover the Watch
-identity by `device_id`.
-
-User-facing iOS/macOS text calls this endpoint the `Client adres`. The URL shown
-in the pairing sheet must be the URL Home Assistant uses for the local callback.
-After successful local pairing, the app pins that URL in local state and keeps
-it stable until explicit pairing reset. The Watch UI does not show or edit a
-local client address because the local callback endpoint belongs to the iPhone
-companion proxy.
-
-Open endpoints:
-
-```http
-GET /api/device/info
-GET /api/device/pairing-info
-```
-
-Pairing callback:
-
-```http
-POST /api/device/pair
-Content-Type: application/json
-```
-
-`POST /api/device/pair` accepts this app installation's `device_id`,
-`client_type`, visible app `pair_code`, returned `device_token`, HA URLs, and
-language metadata. It stores only the DJConnect bearer token and HA/app
-settings.
-
-Expected callback payload:
-
-```json
-{
-  "pair_code": "555293",
-  "device_id": "djconnect-macos-8F3A2C91B45D",
-  "device_name": "DJConnect Mac",
-  "client_type": "macos",
-  "device_language": "nl",
-  "language": "nl",
-  "device_token": "<djconnect bearer token>",
-  "ha_local_url": "http://192.168.1.13:8123",
-  "assist_pipeline_id": "preferred"
-}
-```
-
-Success response:
-
-```json
-{
-  "success": true,
-  "device_id": "djconnect-macos-8F3A2C91B45D",
-  "client_type": "macos",
-  "paired": true
-}
-```
-
-Protected endpoints require:
-
-```http
-Authorization: Bearer <device_token>
-```
-
-```http
-POST /api/device/command
-POST /api/device/dj_response
-POST /api/device/forget
-```
+watchOS remains iPhone-mediated. The Watch itself never exposes a LAN endpoint
+or direct HA remote/local contract; when Watch identity metadata is needed it
+keeps `client_type: "watchos"` and the paired iPhone handles transport. The
+active Watch runtime is not a Home Assistant callback endpoint; it is a
+WatchConnectivity request proxy from Watch to iPhone to Home Assistant.
 
 ## APNs Push Registration
 
@@ -235,7 +163,7 @@ Expected macOS payload:
   "push_token": "<apns-device-token>",
   "push_environment": "sandbox",
   "app_bundle_id": "dev.djconnect.mac",
-  "app_version": "3.1.53",
+  "app_version": "3.2.0",
   "locale": "nl-NL",
   "notification_categories": ["ask_dj"],
   "bootstrap_proof": "<short-lived proof when available>"
@@ -262,7 +190,9 @@ Authorization: Bearer <device_token>
 ```
 
 The Apple app does not implement ESP-only `/api/device/reboot` or
-`/api/device/ota` routes.
+`/api/device/ota` routes. Starting with protocol 3.2, iOS and macOS also do not
+host Home Assistant-callable `/api/device/*` pairing, command, DJ response, or
+forget callbacks and do not advertise themselves through `_djconnect._tcp`.
 
 Demo Mode is not part of the Home Assistant API contract. It is local sample
 state for App Store review and UI inspection, and must not create HA devices,
@@ -284,18 +214,49 @@ Minimum payload:
   "device_name": "DJConnect iPhone",
   "client_type": "ios",
   "ha_pairing_status": "paired",
-  "firmware": "3.1.23",
-  "app_version": "3.1.23",
+  "firmware": "3.2.0",
+  "app_version": "3.2.0",
   "state": "online",
   "status": "online",
   "battery_percent": 85,
   "language": "nl",
   "theme": "dark",
   "log_level": "info",
-  "ha_local_url": "http://192.168.1.13:8123",
-  "local_url": "http://192.168.1.105:51193"
+  "ha_local_url": "http://192.168.1.13:8123"
 }
 ```
+
+Pairing, status, command, and Ask DJ responses may include the 3.2 backend and
+transport summary:
+
+```json
+{
+  "ha_local_url": "http://192.168.1.13:8123",
+  "ha_remote_url": "https://example.ui.nabu.casa",
+  "remote_supported": true,
+  "music_backend": "music_assistant",
+  "music_backend_name": "Music Assistant",
+  "music_backend_available": true,
+  "music_backend_revision": 4,
+  "music_backend_capabilities": {
+    "supports_search": true,
+    "supports_queue": true,
+    "supports_outputs": true,
+    "supports_favorites": false,
+    "supports_recently_played": true,
+    "supports_top_items": false
+  },
+  "music_target_player": {
+    "id": "media_player.mass_woonkamer",
+    "name": "Woonkamer"
+  },
+  "music_backend_error": null
+}
+```
+
+iOS/macOS use `ha_local_url` first after successful local pairing, then
+`ha_remote_url` when local access is unreachable and remote is supported.
+watchOS requests remain mediated by iPhone.
 
 ## Commands
 
@@ -421,13 +382,14 @@ Compatibility rules:
   refresh Now Playing and the queue; Home Assistant should return a queue
   context whenever queue row playback is supported.
 
-## Client adres Stability
+## Home Assistant URL Stability
 
-The app must keep the local Client adres stable across successful pairing.
-Home Assistant pairs by calling the URL shown by the app, then continues to use
-that same endpoint for app callbacks and status/control flows. The app may
-restart the local listener when pairing is reset or the install identity changes,
-but not as a side effect of accepting `/api/device/pair`.
+After successful local pairing, the app stores the Home Assistant installation
+metadata returned by the integration: `ha_local_url`, optional `ha_remote_url`,
+remote support, client identity, protocol version, and music-backend summary.
+The app must not use `ha_remote_url` for first pairing. Runtime calls use local
+first, remote second for iOS/macOS, and offline when neither endpoint is
+reachable.
 
 Fresh installs should present `http://homeassistant.local:8123` as the default
 Home Assistant URL. This is only a UI default; runtime app-to-HA requests must
@@ -1313,7 +1275,7 @@ integration must be updated. Disable playback/output/queue/playlist/liked/voice
 controls, but keep Settings and pairing reset available.
 
 The app also validates `ha_version` / `ha_major_minor` on successful status and
-command responses. App `3.1.x` accepts HA `3.1.x` only (`>=3.1.0`, `<3.2.0`).
+command responses. App `3.2.x` accepts HA `3.2.x` only (`>=3.2.0`, `<3.3.0`).
 
 HTTP `401`/`403`
 
