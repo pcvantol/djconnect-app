@@ -2574,21 +2574,8 @@ private struct IOSPlaybackSurface: View {
                 ShuffleModeButton(model: model)
                     .disabled(!canUsePlayback)
 
-                Button {
-                    DJConnectHaptics.selection()
-                    model.saveCurrentTrack()
-                } label: {
-                    if model.isSavingCurrentTrack {
-                        ProgressView()
-                            .controlSize(.small)
-                    } else {
-                        Image(systemName: "heart.fill")
-                    }
-                }
-                .buttonStyle(.bordered)
-                .help(localized(model.language, "Add to favorites", "Zet in favorieten"))
-                .accessibilityLabel(localized(model.language, "Add to favorites", "Zet in favorieten"))
-                .disabled(!canUsePlayback || model.isSavingCurrentTrack)
+                FavoriteTrackButton(model: model)
+                    .disabled(!canUsePlayback)
 
                 RepeatModeButton(model: model)
                     .disabled(!canUsePlayback)
@@ -2954,27 +2941,47 @@ struct PlaybackControlsView: View {
                 ShuffleModeButton(model: model)
                     .disabled(!canUsePlayback)
 
-                Button {
-                    DJConnectHaptics.selection()
-                    model.saveCurrentTrack()
-                } label: {
-                    if model.isSavingCurrentTrack {
-                        ProgressView()
-                            .controlSize(.small)
-                    } else {
-                        Image(systemName: "heart.fill")
-                    }
-                }
-                .buttonStyle(.bordered)
-                .help(localized(model.language, "Add to favorites", "Zet in favorieten"))
-                .accessibilityLabel(localized(model.language, "Add to favorites", "Zet in favorieten"))
-                .disabled(!canUsePlayback || model.isSavingCurrentTrack)
+                FavoriteTrackButton(model: model)
+                    .disabled(!canUsePlayback)
 
                 RepeatModeButton(model: model)
                     .disabled(!canUsePlayback)
             }
         }
         .opacity(canUsePlayback ? 1 : 0.55)
+    }
+}
+
+private struct FavoriteTrackButton: View {
+    @ObservedObject var model: DJConnectAppModel
+
+    private var isFavorite: Bool {
+        model.playback?.currentTrackFavoriteStatus == true
+    }
+
+    private var label: String {
+        isFavorite
+            ? localized(model.language, "Remove from favorites", "Haal uit favorieten")
+            : localized(model.language, "Add to favorites", "Zet in favorieten")
+    }
+
+    var body: some View {
+        Button {
+            DJConnectHaptics.selection()
+            model.toggleCurrentTrackFavorite()
+        } label: {
+            if model.isSavingCurrentTrack {
+                ProgressView()
+                    .controlSize(.small)
+            } else {
+                Image(systemName: isFavorite ? "heart.fill" : "heart")
+            }
+        }
+        .buttonStyle(.bordered)
+        .tint(isFavorite ? .pink : nil)
+        .help(label)
+        .accessibilityLabel(label)
+        .disabled(model.isSavingCurrentTrack)
     }
 }
 
@@ -4160,6 +4167,10 @@ private struct AskDJMessageBubble: View {
             && ["tracks", "albums", "artists", "playlists"].contains(itemType ?? "")
     }
 
+    private var renderablePlaybackActions: [DJConnectAskDJPlaybackAction] {
+        message.renderablePlaybackActions
+    }
+
     var body: some View {
         HStack(alignment: .bottom, spacing: 8) {
             if isUser {
@@ -4185,6 +4196,9 @@ private struct AskDJMessageBubble: View {
                             AskDJMarkdownText(text: displayText, highlight: searchText)
                         }
                     }
+                    if !isUser, let analysis = message.analysis {
+                        AskDJAnalysisSummary(analysis: analysis, language: language)
+                    }
                     if !isUser, !message.items.isEmpty {
                         AskDJItemList(items: message.items)
                     }
@@ -4197,9 +4211,9 @@ private struct AskDJMessageBubble: View {
                     if !sourceLinks.isEmpty {
                         AskDJSourcesStack(links: sourceLinks, language: language, openLink: openLink)
                     }
-                    if !isStaleHistory, !isUser, !message.playbackActions.isEmpty {
+                    if !isStaleHistory, !isUser, !renderablePlaybackActions.isEmpty {
                         AskDJPlaybackActionStack(
-                            actions: message.playbackActions,
+                            actions: renderablePlaybackActions,
                             language: language,
                             playingActionID: playingActionID,
                             playAction: playAction
@@ -4418,6 +4432,113 @@ private struct AskDJAudioReplayButton: View {
     }
 }
 
+private struct AskDJAnalysisSummary: View {
+    let analysis: DJConnectAskDJTrackAnalysis
+    let language: String
+
+    private var modeText: String? {
+        switch analysis.mode?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() {
+        case "measured_plus_knowledge":
+            return localized(language, "Measured + context", "Gemeten + duiding")
+        case "measured":
+            return localized(language, "Measured", "Gemeten")
+        case "knowledge_plus_metadata":
+            return localized(language, "Context", "Duiding")
+        case "unavailable":
+            return localized(language, "Not available", "Niet beschikbaar")
+        default:
+            return nil
+        }
+    }
+
+    private var hasMeasuredData: Bool {
+        guard let measured = analysis.measured else {
+            return false
+        }
+        return measured.bpm != nil
+            || measured.key?.isEmpty == false
+            || measured.timeSignature != nil
+            || !measured.sections.isEmpty
+            || !measured.features.isEmpty
+    }
+
+    private var hasInferredData: Bool {
+        guard let inferred = analysis.inferred else {
+            return false
+        }
+        return inferred.provider?.isEmpty == false
+            || inferred.structure?.isEmpty == false
+            || inferred.instrumentation?.isEmpty == false
+            || inferred.melodicBuild?.isEmpty == false
+            || inferred.energyCurve?.isEmpty == false
+            || inferred.mixNotes?.isEmpty == false
+    }
+
+    private var sourceText: String? {
+        let sources = analysis.sources
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+        guard !sources.isEmpty else {
+            return nil
+        }
+        return sources.joined(separator: " · ")
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 6) {
+                if let modeText {
+                    Label(modeText, systemImage: "waveform.path.ecg")
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(.white.opacity(0.76))
+                        .lineLimit(1)
+                }
+                if let confidence = analysis.confidence, !confidence.isEmpty {
+                    Text(confidence)
+                        .font(.caption2.weight(.medium))
+                        .foregroundStyle(.white.opacity(0.54))
+                        .lineLimit(1)
+                }
+            }
+            HStack(spacing: 6) {
+                if hasMeasuredData {
+                    Text(localized(language, "Measured", "Gemeten"))
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(.white.opacity(0.62))
+                }
+                if hasInferredData {
+                    Text(localized(language, "Context", "Duiding"))
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(.white.opacity(0.62))
+                }
+            }
+            if let sourceText {
+                Text(sourceText)
+                    .font(.caption2)
+                    .foregroundStyle(.white.opacity(0.44))
+                    .lineLimit(2)
+            }
+            ForEach(analysis.limitations, id: \.self) { limitation in
+                Text(limitation)
+                    .font(.caption2)
+                    .foregroundStyle(.white.opacity(0.48))
+                    .lineLimit(3)
+            }
+        }
+        .padding(.horizontal, 9)
+        .padding(.vertical, 7)
+        .frame(maxWidth: 520, alignment: .leading)
+        .background {
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(.white.opacity(0.08))
+        }
+        .overlay {
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .stroke(.white.opacity(0.12), lineWidth: 1)
+        }
+    }
+}
+
 private struct AskDJItemList: View {
     let items: [DJConnectAskDJHistoryItem]
 
@@ -4445,7 +4566,12 @@ private struct AskDJItemList: View {
                                 .lineLimit(1)
                         }
                         if let source = item.source, !source.isEmpty {
-                            Text(source)
+                            Text(itemDetailText(source: source, confidence: item.confidence))
+                                .font(.caption2.weight(.medium))
+                                .foregroundStyle(.white.opacity(0.48))
+                                .lineLimit(1)
+                        } else if let confidence = item.confidence, !confidence.isEmpty {
+                            Text(confidence)
                                 .font(.caption2.weight(.medium))
                                 .foregroundStyle(.white.opacity(0.48))
                                 .lineLimit(1)
@@ -4532,6 +4658,13 @@ private struct AskDJItemList: View {
         default:
             return "music.note"
         }
+    }
+
+    private func itemDetailText(source: String, confidence: String?) -> String {
+        guard let confidence, !confidence.isEmpty else {
+            return source
+        }
+        return "\(source) · \(confidence)"
     }
 
     private func playedAtText(for item: DJConnectAskDJHistoryItem) -> String? {
@@ -4831,10 +4964,10 @@ private struct AskDJPlaybackActionStack: View {
         if action.isOutputAction {
             return action.outputDeviceID != nil
         }
-        return action.uri?.isEmpty == false
-            || action.contextURI?.isEmpty == false
-            || !action.uris.isEmpty
-            || action.responseValue?.isEmpty == false
+        if action.isConfirmationAction {
+            return true
+        }
+        return false
     }
 
     private func secondaryText(for action: DJConnectAskDJPlaybackAction) -> String? {
@@ -5029,20 +5162,6 @@ private enum AskDJPlaybackMediaType {
     }
 }
 
-private extension DJConnectAskDJPlaybackAction {
-    var isRecommendationAction: Bool {
-        let normalizedKind = kind?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        return ["playlist", "album", "track", "artist", "recommendation", "recommendations", "output"].contains(normalizedKind ?? "")
-    }
-
-    var isConfirmationAction: Bool {
-        let candidates = [kind, actionStyle, command]
-            .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() }
-        return responseValue?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
-            || candidates.contains { $0.contains("confirmation") || $0.contains("followup") }
-    }
-}
-
 private struct AskDJLinkStack: View {
     let links: [DJConnectResponseLink]
     let openLink: (DJConnectResponseLink) -> Void
@@ -5115,42 +5234,57 @@ private struct AskDJSourcesStack: View {
                 .textCase(.uppercase)
 
             ForEach(links) { link in
-                Button {
-                    openLink(link)
-                } label: {
-                    HStack(spacing: 8) {
-                        Image(systemName: "doc.text.magnifyingglass")
-                            .font(.caption2.weight(.bold))
-                            .foregroundStyle(.white.opacity(0.82))
-                            .frame(width: 22, height: 22)
-                            .background(Circle().fill(.white.opacity(0.12)))
-                        VStack(alignment: .leading, spacing: 1) {
-                            Text(link.title?.isEmpty == false ? link.title! : link.url.host ?? link.url.absoluteString)
-                                .font(.caption2.weight(.semibold))
-                                .foregroundStyle(.white)
-                                .lineLimit(2)
-                            if let host = link.url.host {
-                                Text(host)
-                                    .font(.caption2)
-                                    .foregroundStyle(.white.opacity(0.62))
-                                    .lineLimit(1)
-                            }
-                        }
-                        Spacer(minLength: 4)
-                        Image(systemName: "chevron.right")
-                            .font(.caption2.weight(.bold))
-                            .foregroundStyle(.white.opacity(0.62))
+                if link.isPlaceholderSource {
+                    sourceRow(link: link, isInteractive: false)
+                } else {
+                    Button {
+                        openLink(link)
+                    } label: {
+                        sourceRow(link: link, isInteractive: true)
                     }
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 8)
-                    .frame(maxWidth: 520, alignment: .leading)
-                    .background {
-                        RoundedRectangle(cornerRadius: 12, style: .continuous)
-                            .fill(.white.opacity(0.09))
-                    }
+                    .buttonStyle(.plain)
                 }
-                .buttonStyle(.plain)
             }
+        }
+    }
+
+    private func sourceRow(link: DJConnectResponseLink, isInteractive: Bool) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: "doc.text.magnifyingglass")
+                .font(.caption2.weight(.bold))
+                .foregroundStyle(.white.opacity(0.82))
+                .frame(width: 22, height: 22)
+                .background(Circle().fill(.white.opacity(0.12)))
+            VStack(alignment: .leading, spacing: 1) {
+                Text(link.title?.isEmpty == false ? link.title! : link.source ?? link.url.host ?? link.url.absoluteString)
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(.white)
+                    .lineLimit(2)
+                if let source = link.source, !source.isEmpty {
+                    Text(source)
+                        .font(.caption2)
+                        .foregroundStyle(.white.opacity(0.62))
+                        .lineLimit(1)
+                } else if let host = link.url.host {
+                    Text(host)
+                        .font(.caption2)
+                        .foregroundStyle(.white.opacity(0.62))
+                        .lineLimit(1)
+                }
+            }
+            Spacer(minLength: 4)
+            if isInteractive {
+                Image(systemName: "chevron.right")
+                    .font(.caption2.weight(.bold))
+                    .foregroundStyle(.white.opacity(0.62))
+            }
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
+        .frame(maxWidth: 520, alignment: .leading)
+        .background {
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(.white.opacity(0.09))
         }
     }
 }
@@ -5344,6 +5478,10 @@ private extension DJConnectResponseLink {
         return values.contains { value in
             ["source", "sources", "citation", "citations", "reference", "references", "bron", "bronnen"].contains(value)
         }
+    }
+
+    var isPlaceholderSource: Bool {
+        url.scheme?.localizedCaseInsensitiveCompare("djconnect-source") == .orderedSame
     }
 }
 

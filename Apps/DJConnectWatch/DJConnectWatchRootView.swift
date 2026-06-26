@@ -502,44 +502,15 @@ struct DJConnectWatchRootView: View {
                                 .font(.headline)
                                 .foregroundStyle(.white)
                                 .lineLimit(2)
-                            Text("Koppelgegevens voor Home Assistant")
+                            Text("Koppelen loopt via je iPhone")
                                 .font(.caption2.weight(.semibold))
                                 .foregroundStyle(.white.opacity(0.58))
                                 .fixedSize(horizontal: false, vertical: true)
                         }
                     }
 
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text("Home Assistant URL")
-                            .font(.caption)
-                            .foregroundStyle(.white.opacity(0.66))
-                        TextField("Home Assistant URL", text: $model.haBaseURL)
-                            .font(.caption2.monospaced())
-                            .textInputAutocapitalization(.never)
-                            .disableAutocorrection(true)
-                            .lineLimit(2)
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 7)
-                            .background(
-                                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                    .fill(Color.white.opacity(0.08))
-                            )
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                    .stroke(Color.white.opacity(0.12), lineWidth: 1)
-                            )
-                            .accessibilityLabel("Home Assistant URL")
-                            .accessibilityHint("Home Assistant URL voor deze Watch")
-                        Text("WiFi is vereist. Gebruik hetzelfde lokale netwerk als Home Assistant.")
-                            .font(.caption2)
-                            .foregroundStyle(.white.opacity(0.54))
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-                    .padding(9)
-                    .background(DJConnectWatchPanel(cornerRadius: 12))
-
                     if let networkRequirementMessage = model.networkRequirementMessage {
-                        Label(networkRequirementMessage, systemImage: "wifi.exclamationmark")
+                        Label(networkRequirementMessage, systemImage: "iphone")
                             .font(.caption2.weight(.semibold))
                             .foregroundStyle(Color(red: 1.0, green: 0.62, blue: 0.28))
                             .fixedSize(horizontal: false, vertical: true)
@@ -555,9 +526,9 @@ struct DJConnectWatchRootView: View {
                     )
 
                     pairingValueCard(
-                        title: "Client adres",
-                        value: model.localDeviceAPIURL ?? "Client adres wordt gestart...",
-                        systemImage: "network",
+                        title: "iPhone companion",
+                        value: model.companionPairingStatus,
+                        systemImage: "iphone",
                         prominent: false
                     )
 
@@ -570,7 +541,7 @@ struct DJConnectWatchRootView: View {
                     Button {
                         Task { await model.pair() }
                     } label: {
-                        Label("Wacht op koppeling", systemImage: "antenna.radiowaves.left.and.right")
+                        Label("Koppel via iPhone", systemImage: "iphone.and.arrow.forward")
                             .frame(maxWidth: .infinity, minHeight: 36)
                     }
                     .buttonStyle(DJConnectWatchGradientButtonStyle(kind: .primary))
@@ -817,9 +788,6 @@ private struct DJConnectWatchAboutView: View {
                             model.canUseBackend ? "Beschikbaar" : "Niet beschikbaar",
                             foregroundStyle: model.canUseBackend ? Color.green : Color.red
                         )
-                        if let localDeviceAPIURL = model.localDeviceAPIURL, !localDeviceAPIURL.isEmpty {
-                            aboutRow("Client adres", localDeviceAPIURL)
-                        }
                     }
 
                     DJConnectWatchSettingsSection(title: "Notices") {
@@ -1034,7 +1002,7 @@ private struct DJConnectWatchSettingsView: View {
 
                     if !model.isDemoMode {
                         DJConnectWatchSettingsSection(title: "Koppeling") {
-                            Text("Reset de Watch-koppeling en koppel opnieuw via Home Assistant.")
+                            Text("Reset de Watch-koppeling en koppel opnieuw via de iPhone companion.")
                                 .font(.caption2)
                                 .foregroundStyle(.white.opacity(0.72))
                                 .fixedSize(horizontal: false, vertical: true)
@@ -1707,6 +1675,7 @@ private struct DJConnectWatchAskDJChatView: View {
                                 VStack(alignment: .leading, spacing: 5) {
                                     Text("Waarom dit nummer?")
                                     Text("Verras me met nieuwe muziek")
+                                    Text("Geef een technische track analyse")
                                     Text("Speel iets voor koken")
                                 }
                                 .font(.caption2.weight(.semibold))
@@ -1952,15 +1921,21 @@ private struct DJConnectWatchAskDJBubble: View {
             if !message.text.isEmpty {
                 AskDJWatchRichText(text: message.text, compact: isSystemMessage)
             }
+            if !isUser, let analysis = message.analysis {
+                AskDJWatchAnalysisSummary(analysis: analysis)
+            }
+            if !isUser, !message.items.isEmpty {
+                AskDJWatchItemList(items: message.items)
+            }
             if !message.images.isEmpty {
                 AskDJWatchImageStack(images: message.images)
             }
             if !message.links.isEmpty {
                 AskDJWatchLinkStack(links: message.links)
             }
-            if !isUser, !message.playbackActions.isEmpty {
+            if !isUser, !message.renderablePlaybackActions.isEmpty {
                 AskDJWatchPlaybackActionStack(
-                    actions: message.playbackActions,
+                    actions: message.renderablePlaybackActions,
                     playingActionID: model.playingAskDJActionID,
                     playAction: { action in
                         Task { await model.playAskDJRecommendation(action) }
@@ -2060,6 +2035,118 @@ private struct DJConnectWatchAskDJBubble: View {
     }
 }
 
+private struct AskDJWatchAnalysisSummary: View {
+    let analysis: DJConnectAskDJTrackAnalysis
+
+    private var modeText: String {
+        switch analysis.mode {
+        case "measured_plus_knowledge":
+            return "Gemeten + duiding"
+        case "measured":
+            return "Gemeten"
+        case "knowledge_plus_metadata":
+            return "Duiding"
+        case "unavailable":
+            return "Niet beschikbaar"
+        default:
+            return analysis.mode.replacingOccurrences(of: "_", with: " ")
+        }
+    }
+
+    private var availabilityText: String? {
+        var parts: [String] = []
+        if analysis.measured != nil {
+            parts.append("Gemeten")
+        }
+        if analysis.inferred != nil {
+            parts.append("Duiding")
+        }
+        return parts.isEmpty ? nil : parts.joined(separator: " + ")
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: 5) {
+                Image(systemName: analysis.mode == "unavailable" ? "exclamationmark.circle" : "waveform.path.ecg")
+                    .font(.caption2.weight(.bold))
+                Text(modeText)
+                    .font(.caption2.weight(.semibold))
+                    .lineLimit(1)
+            }
+            .foregroundStyle(.white.opacity(0.82))
+
+            if let availabilityText {
+                Text(availabilityText)
+                    .font(.caption2)
+                    .foregroundStyle(.white.opacity(0.62))
+                    .lineLimit(1)
+            }
+            if !analysis.sources.isEmpty {
+                Text(analysis.sources.joined(separator: " · "))
+                    .font(.caption2)
+                    .foregroundStyle(.white.opacity(0.58))
+                    .lineLimit(2)
+            }
+            if !analysis.limitations.isEmpty {
+                Text(analysis.limitations.joined(separator: " · "))
+                    .font(.caption2)
+                    .foregroundStyle(.white.opacity(0.52))
+                    .lineLimit(3)
+            }
+        }
+        .padding(.horizontal, 7)
+        .padding(.vertical, 6)
+        .background {
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .fill(.white.opacity(0.10))
+        }
+    }
+}
+
+private struct AskDJWatchItemList: View {
+    let items: [DJConnectAskDJHistoryItem]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 5) {
+            ForEach(items) { item in
+                VStack(alignment: .leading, spacing: 1) {
+                    HStack(alignment: .firstTextBaseline, spacing: 5) {
+                        Text(item.title)
+                            .font(.caption2.weight(.semibold))
+                            .lineLimit(2)
+                        if let value = item.value, !value.isEmpty {
+                            Text(value)
+                                .font(.caption2)
+                                .foregroundStyle(.white.opacity(0.82))
+                                .lineLimit(2)
+                        }
+                    }
+                    if let detail = detailText(for: item) {
+                        Text(detail)
+                            .font(.caption2)
+                            .foregroundStyle(.white.opacity(0.56))
+                            .lineLimit(2)
+                    }
+                }
+                .padding(.horizontal, 7)
+                .padding(.vertical, 5)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background {
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .fill(.white.opacity(0.09))
+                }
+            }
+        }
+    }
+
+    private func detailText(for item: DJConnectAskDJHistoryItem) -> String? {
+        let parts = [item.source, item.confidence]
+            .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+        return parts.isEmpty ? nil : parts.joined(separator: " · ")
+    }
+}
+
 private struct AskDJWatchPlaybackActionStack: View {
     let actions: [DJConnectAskDJPlaybackAction]
     let playingActionID: String?
@@ -2148,16 +2235,16 @@ private struct AskDJWatchPlaybackActionStack: View {
         if action.isSaveCurrentTrackControlAction {
             return true
         }
-        if action.isWatchRecommendationAction {
+        if action.isRecommendationAction {
             return true
         }
         if action.isOutputAction {
             return action.outputDeviceID != nil
         }
-        return action.uri?.isEmpty == false
-            || action.contextURI?.isEmpty == false
-            || !action.uris.isEmpty
-            || action.responseValue?.isEmpty == false
+        if action.isConfirmationAction {
+            return true
+        }
+        return false
     }
 
     private var fallbackIcon: some View {
@@ -2274,49 +2361,58 @@ private struct AskDJWatchRichText: View {
     }
 }
 
-private extension DJConnectAskDJPlaybackAction {
-    var isWatchRecommendationAction: Bool {
-        let normalizedKind = kind?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        return ["playlist", "album", "track", "artist", "recommendation", "recommendations", "output"].contains(normalizedKind ?? "")
-    }
-}
-
 private struct AskDJWatchLinkStack: View {
     let links: [DJConnectResponseLink]
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             ForEach(links) { link in
-                Link(destination: link.url) {
-                    HStack(spacing: 6) {
-                        Image(systemName: "link")
-                            .font(.caption2.weight(.bold))
-                        VStack(alignment: .leading, spacing: 1) {
-                            Text(link.title?.isEmpty == false ? link.title! : link.url.host ?? link.url.absoluteString)
-                                .font(.caption2.weight(.semibold))
-                                .lineLimit(2)
-                            if let subtitle = link.subtitle, !subtitle.isEmpty {
-                                Text(subtitle)
-                                    .font(.caption2)
-                                    .foregroundStyle(.white.opacity(0.66))
-                                    .lineLimit(2)
-                            }
-                        }
-                        Image(systemName: "arrow.up.forward")
-                            .font(.caption2.weight(.bold))
-                            .foregroundStyle(.white.opacity(0.72))
+                if link.isPlaceholderSource {
+                    row(for: link, showsArrow: false)
+                } else {
+                    Link(destination: link.url) {
+                        row(for: link, showsArrow: true)
                     }
-                    .foregroundStyle(.white)
-                    .padding(.horizontal, 7)
-                    .padding(.vertical, 6)
-                    .background {
-                        RoundedRectangle(cornerRadius: 9, style: .continuous)
-                            .fill(.white.opacity(0.13))
-                    }
+                    .buttonStyle(.plain)
                 }
-                .buttonStyle(.plain)
             }
         }
+    }
+
+    private func row(for link: DJConnectResponseLink, showsArrow: Bool) -> some View {
+        HStack(spacing: 6) {
+            Image(systemName: showsArrow ? "link" : "doc.text.magnifyingglass")
+                .font(.caption2.weight(.bold))
+            VStack(alignment: .leading, spacing: 1) {
+                Text(link.title?.isEmpty == false ? link.title! : link.url.host ?? link.url.absoluteString)
+                    .font(.caption2.weight(.semibold))
+                    .lineLimit(2)
+                if let subtitle = link.subtitle, !subtitle.isEmpty {
+                    Text(subtitle)
+                        .font(.caption2)
+                        .foregroundStyle(.white.opacity(0.66))
+                        .lineLimit(2)
+                }
+            }
+            if showsArrow {
+                Image(systemName: "arrow.up.forward")
+                    .font(.caption2.weight(.bold))
+                    .foregroundStyle(.white.opacity(0.72))
+            }
+        }
+        .foregroundStyle(.white)
+        .padding(.horizontal, 7)
+        .padding(.vertical, 6)
+        .background {
+            RoundedRectangle(cornerRadius: 9, style: .continuous)
+                .fill(.white.opacity(0.13))
+        }
+    }
+}
+
+private extension DJConnectResponseLink {
+    var isPlaceholderSource: Bool {
+        url.scheme == "djconnect-source"
     }
 }
 

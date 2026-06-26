@@ -959,6 +959,7 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
           "sections": [
             {
               "label": "intro",
+              "index": 1,
               "start_ms": 0,
               "duration_ms": 32000,
               "confidence": 0.7
@@ -970,6 +971,7 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
           }
         },
         "inferred": {
+          "provider": "ha_conversation",
           "structure": "Lange intro, laag-opbouw, climax/drop en outro.",
           "instrumentation": "Synthpads, basdruk en subtiele percussie.",
           "melodic_build": "Herhaling bouwt spanning op.",
@@ -989,7 +991,8 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
           "kind": "technical_metric",
           "title": "BPM",
           "value": "128",
-          "source": "spotify_audio_features"
+          "source": "spotify_audio_features",
+          "confidence": "high"
         },
         {
           "kind": "arrangement",
@@ -1002,7 +1005,7 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
       "links": [],
       "sources": [
         {
-          "url": "https://example.test/source",
+          "source": "spotify_playback_context",
           "title": "Spotify playback context",
           "kind": "source"
         }
@@ -1022,19 +1025,77 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
     #expect(response.analysis?.measured?.bpm == 128)
     #expect(response.analysis?.measured?.key == "C minor")
     #expect(response.analysis?.measured?.sections.first?.label == "intro")
+    #expect(response.analysis?.measured?.sections.first?.index == 1)
+    #expect(response.analysis?.inferred?.provider == "ha_conversation")
     #expect(response.analysis?.inferred?.mixNotes == "Brede pads met ruimte voor de kick.")
     #expect(response.analysis?.sources == ["spotify_playback_context", "spotify_audio_features"])
     #expect(response.items?.first?.kind == "technical_metric")
     #expect(response.items?.first?.value == "128")
     #expect(response.items?.first?.source == "spotify_audio_features")
+    #expect(response.items?.first?.confidence == "high")
+    #expect(response.sources?.first?.url.scheme == "djconnect-source")
+    #expect(response.sources?.first?.source == "spotify_playback_context")
     #expect(response.playbackActions?.isEmpty == true)
     #expect(response.confirmationActions?.isEmpty == true)
     #expect(assistantMessage.intentInfo?.intent == "technical_track_analysis")
     #expect(assistantMessage.analysis?.confidence == "high")
     #expect(assistantMessage.items.count == 2)
+    #expect(assistantMessage.sources.first?.url.scheme == "djconnect-source")
     #expect(assistantMessage.playbackActions.isEmpty)
     #expect(assistantMessage.confirmationActions.isEmpty)
     #expect(assistantMessage.images.isEmpty)
+}
+
+@Test func localAskDJTechnicalTrackAnalysisPreservesResponseButHidesRenderableActions() throws {
+    let message = DJConnectAskDJMessage(
+        role: .dj,
+        text: "Technische trackanalyse.",
+        playbackActions: [
+            DJConnectAskDJPlaybackAction(
+                title: "Unexpected Play",
+                uri: "spotify:track:unexpected",
+                kind: "track"
+            )
+        ],
+        intentInfo: DJConnectAskDJIntentInfo(
+            category: "informational",
+            intent: "technical_track_analysis",
+            action: "track_analysis"
+        ),
+        analysis: try JSONDecoder().decode(
+            DJConnectAskDJTrackAnalysis.self,
+            from: Data(
+                #"""
+                {
+                  "mode": "knowledge_plus_metadata",
+                  "confidence": "low",
+                  "limitations": [
+                    "Exact intro, verse, chorus, drop or outro timestamps were not measured."
+                  ]
+                }
+                """#.utf8
+            )
+        ),
+        items: [
+            DJConnectAskDJHistoryItem(
+                kind: "technical_metric",
+                title: "Energy",
+                value: "0.82",
+                source: "spotify_audio_features",
+                confidence: "high"
+            )
+        ]
+    )
+
+    let encoded = try JSONEncoder().encode(message)
+    let decoded = try JSONDecoder().decode(DJConnectAskDJMessage.self, from: encoded)
+
+    #expect(decoded.isTechnicalTrackAnalysis)
+    #expect(decoded.playbackActions.count == 1)
+    #expect(decoded.renderablePlaybackActions.isEmpty)
+    #expect(decoded.analysis?.mode == "knowledge_plus_metadata")
+    #expect(decoded.analysis?.limitations.first == "Exact intro, verse, chorus, drop or outro timestamps were not measured.")
+    #expect(decoded.items.first?.confidence == "high")
 }
 
 @Test func askDJResponseDecodesObjectIntentForTechnicalTrackAnalysis() throws {
@@ -1629,6 +1690,33 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
     #expect(json?["value"] == nil)
 }
 
+@Test func setCurrentTrackFavoriteCommandUsesBooleanValuePayload() throws {
+    let identity = DJConnectIdentity(
+        deviceID: "djconnect-ios-8F3A2C91B45D",
+        deviceName: "DJConnect iPhone",
+        clientType: .ios,
+        firmware: "3.1.51",
+        appVersion: "3.1.51",
+        platform: .ios
+    )
+    let client = DJConnectClient(
+        baseURL: try #require(URL(string: "http://homeassistant.local:8123")),
+        identity: identity,
+        tokenStore: DJConnectInMemoryTokenStore(token: "secret-token")
+    )
+    let request = try client.commandRequest(DJConnectCommandPayload(
+        identity: identity,
+        command: "set_current_track_favorite",
+        value: .bool(false)
+    ))
+    let body = try #require(request.httpBody)
+    let json = try JSONSerialization.jsonObject(with: body) as? [String: Any]
+
+    #expect(request.url?.path == "/api/djconnect/command")
+    #expect(json?["command"] as? String == "set_current_track_favorite")
+    #expect(json?["value"] as? Bool == false)
+}
+
 @Test func askDJSaveCurrentTrackControlActionIsRecognized() throws {
     let json = """
     {
@@ -1645,6 +1733,134 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
     #expect(action.isSaveCurrentTrackControlAction)
     #expect(action.buttonLabel == "Zet in favorieten")
     #expect(action.imageURL == nil)
+}
+
+@Test func askDJFavoriteControlActionDecodesToggleMetadata() throws {
+    let json = """
+    {
+      "id": "fav-current",
+      "kind": "control",
+      "command": "set_current_track_favorite",
+      "title": "Haal uit favorieten",
+      "toggle": true,
+      "toggle_state": true,
+      "favorite_status": true,
+      "value": false,
+      "client_prompt": "haal huidig nummer uit favorieten"
+    }
+    """.data(using: .utf8)!
+
+    let action = try JSONDecoder().decode(DJConnectAskDJPlaybackAction.self, from: json)
+
+    #expect(action.isFavoriteCurrentTrackControlAction)
+    #expect(action.toggle == true)
+    #expect(action.toggleState == true)
+    #expect(action.favoriteStatus == true)
+    #expect(action.value == .bool(false))
+    #expect(action.clientPrompt == "haal huidig nummer uit favorieten")
+}
+
+@Test func askDJRecommendationActionUsesOnlySupportedPlaybackKinds() throws {
+    let track = DJConnectAskDJPlaybackAction(
+        title: "Lithium",
+        uri: "spotify:track:lithium",
+        kind: "track"
+    )
+    let textOnlyLink = DJConnectAskDJPlaybackAction(
+        title: "Artist website",
+        uri: "https://example.com",
+        kind: "link"
+    )
+
+    #expect(track.isRecommendationAction)
+    #expect(!textOnlyLink.isRecommendationAction)
+}
+
+@Test func askDJActionFullValuePreservesBackendMetadata() throws {
+    let action = DJConnectAskDJPlaybackAction(
+        id: "mix-1",
+        title: "Pearl Jam x Metallica",
+        uris: ["spotify:track:1", "spotify:track:2"],
+        kind: "track_mix",
+        command: "ask_dj_play_recommendation",
+        reason: "Backend-built mix",
+        value: .object([
+            "server_context_id": .string("ctx-123"),
+            "original_request": .string("maak een mix van Pearl Jam en Metallica")
+        ])
+    )
+
+    guard case let .jsonObject(value) = action.fullActionCommandValue else {
+        Issue.record("Expected full action object")
+        return
+    }
+
+    #expect(value["id"] == .string("mix-1"))
+    #expect(value["kind"] == .string("track_mix"))
+    #expect(value["command"] == .string("ask_dj_play_recommendation"))
+    #expect(value["uris"] == .array([.string("spotify:track:1"), .string("spotify:track:2")]))
+    #expect(value["value"] == .object([
+        "server_context_id": .string("ctx-123"),
+        "original_request": .string("maak een mix van Pearl Jam en Metallica")
+    ]))
+}
+
+@Test func commandResponseDecodesNoActiveOutputPlaybackActions() throws {
+    let json = """
+    {
+      "success": false,
+      "error": "no_active_output",
+      "action": "select_output",
+      "message": "Kies een speaker.",
+      "playback_actions": [
+        {
+          "id": "speaker-living",
+          "title": "Woonkamer",
+          "kind": "output",
+          "command": "ask_dj_play_recommendation_on_output",
+          "value": {
+            "device_id": "woonkamer",
+            "request_id": "req-123"
+          }
+        }
+      ]
+    }
+    """.data(using: .utf8)!
+
+    let response = try JSONDecoder().decode(DJConnectCommandResponse.self, from: json)
+    let action = try #require(response.playbackActions?.first)
+
+    #expect(response.success == false)
+    #expect(response.error == "no_active_output")
+    #expect(action.isOutputAction)
+    #expect(action.outputDeviceID == "woonkamer")
+    #expect(action.commandValue == .jsonObject([
+        "device_id": .string("woonkamer"),
+        "request_id": .string("req-123")
+    ]))
+}
+
+@Test func playbackDecodesFavoriteStatusAliases() throws {
+    let favoriteJSON = """
+    {
+      "has_playback": true,
+      "track_name": "Midnight City",
+      "favorite_status": true
+    }
+    """.data(using: .utf8)!
+    let likedJSON = """
+    {
+      "has_playback": true,
+      "track_name": "Electric Feel",
+      "is_liked": false
+    }
+    """.data(using: .utf8)!
+
+    let favoritePlayback = try JSONDecoder().decode(DJConnectPlayback.self, from: favoriteJSON)
+    let likedPlayback = try JSONDecoder().decode(DJConnectPlayback.self, from: likedJSON)
+
+    #expect(favoritePlayback.currentTrackFavoriteStatus == true)
+    #expect(likedPlayback.currentTrackFavoriteStatus == false)
 }
 
 @MainActor

@@ -512,12 +512,14 @@ public struct DJConnectAskDJTrackAnalysis: Codable, Equatable, Sendable {
 
     public struct Section: Codable, Equatable, Sendable {
         public var label: String?
+        public var index: Int?
         public var startMS: Int?
         public var durationMS: Int?
         public var confidence: Double?
 
         enum CodingKeys: String, CodingKey {
             case label
+            case index
             case startMS = "start_ms"
             case durationMS = "duration_ms"
             case confidence
@@ -525,6 +527,7 @@ public struct DJConnectAskDJTrackAnalysis: Codable, Equatable, Sendable {
     }
 
     public struct Inferred: Codable, Equatable, Sendable {
+        public var provider: String?
         public var structure: String?
         public var instrumentation: String?
         public var melodicBuild: String?
@@ -532,6 +535,7 @@ public struct DJConnectAskDJTrackAnalysis: Codable, Equatable, Sendable {
         public var mixNotes: String?
 
         enum CodingKeys: String, CodingKey {
+            case provider
             case structure
             case instrumentation
             case melodicBuild = "melodic_build"
@@ -577,6 +581,7 @@ public struct DJConnectAskDJHistoryItem: Codable, Equatable, Sendable, Identifia
     public var playedAtLabel: String?
     public var value: String?
     public var source: String?
+    public var confidence: String?
 
     enum CodingKeys: String, CodingKey {
         case kind
@@ -584,6 +589,7 @@ public struct DJConnectAskDJHistoryItem: Codable, Equatable, Sendable, Identifia
         case subtitle
         case value
         case source
+        case confidence
         case uri
         case imageURL = "image_url"
         case imageUrl
@@ -605,7 +611,8 @@ public struct DJConnectAskDJHistoryItem: Codable, Equatable, Sendable, Identifia
         playedAt: String? = nil,
         playedAtLabel: String? = nil,
         value: String? = nil,
-        source: String? = nil
+        source: String? = nil,
+        confidence: String? = nil
     ) {
         self.kind = kind
         self.title = title
@@ -617,6 +624,7 @@ public struct DJConnectAskDJHistoryItem: Codable, Equatable, Sendable, Identifia
         self.playedAtLabel = playedAtLabel
         self.value = value
         self.source = source
+        self.confidence = confidence
     }
 
     public init(from decoder: Decoder) throws {
@@ -626,6 +634,7 @@ public struct DJConnectAskDJHistoryItem: Codable, Equatable, Sendable, Identifia
         subtitle = try container.decodeIfPresent(String.self, forKey: .subtitle)
         value = try container.decodeIfPresent(String.self, forKey: .value)
         source = try container.decodeIfPresent(String.self, forKey: .source)
+        confidence = try container.decodeIfPresent(String.self, forKey: .confidence)
         uri = try container.decodeIfPresent(String.self, forKey: .uri)
         imageURL = try container.decodeIfPresent(URL.self, forKey: .imageURL)
             ?? container.decodeIfPresentIgnoringErrors(URL.self, forKey: .imageUrl)
@@ -644,6 +653,7 @@ public struct DJConnectAskDJHistoryItem: Codable, Equatable, Sendable, Identifia
         try container.encodeIfPresent(subtitle, forKey: .subtitle)
         try container.encodeIfPresent(value, forKey: .value)
         try container.encodeIfPresent(source, forKey: .source)
+        try container.encodeIfPresent(confidence, forKey: .confidence)
         try container.encodeIfPresent(uri, forKey: .uri)
         try container.encodeIfPresent(imageURL, forKey: .imageURL)
         try container.encodeIfPresent(thumbnailURL, forKey: .thumbnailURL)
@@ -1337,13 +1347,20 @@ public struct DJConnectResponseLink: Codable, Equatable, Sendable, Identifiable 
 
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        url = try container.decode(URL.self, forKey: .url)
         title = try container.decodeIfPresent(String.self, forKey: .title)
             ?? container.decodeIfPresentIgnoringErrors(String.self, forKey: .label)
         subtitle = try container.decodeIfPresent(String.self, forKey: .subtitle)
             ?? container.decodeIfPresentIgnoringErrors(String.self, forKey: .description)
         kind = try container.decodeIfPresent(String.self, forKey: .kind)
         source = try container.decodeIfPresent(String.self, forKey: .source)
+        if let decodedURL = try container.decodeIfPresent(URL.self, forKey: .url) {
+            url = decodedURL
+        } else {
+            let fallbackID = (source ?? title ?? kind ?? "source")
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+                .addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? "source"
+            url = URL(string: "djconnect-source:///\(fallbackID)")!
+        }
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -1509,6 +1526,10 @@ public struct DJConnectAskDJPlaybackAction: Codable, Equatable, Identifiable, Se
     public var responseValue: String?
     public var buttonLabel: String?
     public var value: DJConnectJSONValue?
+    public var toggle: Bool?
+    public var toggleState: Bool?
+    public var favoriteStatus: Bool?
+    public var clientPrompt: String?
 
     enum CodingKeys: String, CodingKey {
         case id
@@ -1552,6 +1573,13 @@ public struct DJConnectAskDJPlaybackAction: Codable, Equatable, Identifiable, Se
         case buttonLabel = "button_label"
         case buttonLabelCamel = "buttonLabel"
         case value
+        case toggle
+        case toggleState = "toggle_state"
+        case toggleStateCamel = "toggleState"
+        case favoriteStatus = "favorite_status"
+        case favoriteStatusCamel = "favoriteStatus"
+        case clientPrompt = "client_prompt"
+        case clientPromptCamel = "clientPrompt"
     }
 
     public init(
@@ -1572,7 +1600,11 @@ public struct DJConnectAskDJPlaybackAction: Codable, Equatable, Identifiable, Se
         actionStyle: String? = nil,
         responseValue: String? = nil,
         buttonLabel: String? = nil,
-        value: DJConnectJSONValue? = nil
+        value: DJConnectJSONValue? = nil,
+        toggle: Bool? = nil,
+        toggleState: Bool? = nil,
+        favoriteStatus: Bool? = nil,
+        clientPrompt: String? = nil
     ) {
         self.title = title
         self.subtitle = subtitle
@@ -1591,6 +1623,10 @@ public struct DJConnectAskDJPlaybackAction: Codable, Equatable, Identifiable, Se
         self.responseValue = responseValue
         self.buttonLabel = buttonLabel
         self.value = value
+        self.toggle = toggle
+        self.toggleState = toggleState
+        self.favoriteStatus = favoriteStatus
+        self.clientPrompt = clientPrompt
         self.id = id ?? [deviceID, uri, contextURI, title].compactMap { $0 }.joined(separator: "|")
     }
 
@@ -1644,6 +1680,13 @@ public struct DJConnectAskDJPlaybackAction: Codable, Equatable, Identifiable, Se
         buttonLabel = try container.decodeIfPresent(String.self, forKey: .buttonLabel)
             ?? container.decodeIfPresentIgnoringErrors(String.self, forKey: .buttonLabelCamel)
             ?? container.decodeIfPresentIgnoringErrors(String.self, forKey: .label)
+        toggle = try container.decodeIfPresent(Bool.self, forKey: .toggle)
+        toggleState = try container.decodeIfPresent(Bool.self, forKey: .toggleState)
+            ?? container.decodeIfPresentIgnoringErrors(Bool.self, forKey: .toggleStateCamel)
+        favoriteStatus = try container.decodeIfPresent(Bool.self, forKey: .favoriteStatus)
+            ?? container.decodeIfPresentIgnoringErrors(Bool.self, forKey: .favoriteStatusCamel)
+        clientPrompt = try container.decodeIfPresent(String.self, forKey: .clientPrompt)
+            ?? container.decodeIfPresentIgnoringErrors(String.self, forKey: .clientPromptCamel)
         let decodedID = try container.decodeIfPresent(String.self, forKey: .id)
         id = decodedID ?? [deviceID, responseValue, uri, contextURI, title].compactMap { $0 }.joined(separator: "|")
     }
@@ -1670,6 +1713,127 @@ public struct DJConnectAskDJPlaybackAction: Codable, Equatable, Identifiable, Se
         try container.encodeIfPresent(responseValue, forKey: .responseValue)
         try container.encodeIfPresent(buttonLabel, forKey: .buttonLabel)
         try container.encodeIfPresent(value, forKey: .value)
+        try container.encodeIfPresent(toggle, forKey: .toggle)
+        try container.encodeIfPresent(toggleState, forKey: .toggleState)
+        try container.encodeIfPresent(favoriteStatus, forKey: .favoriteStatus)
+        try container.encodeIfPresent(clientPrompt, forKey: .clientPrompt)
+    }
+
+    public var isOutputAction: Bool {
+        kind?.localizedCaseInsensitiveCompare("output") == .orderedSame
+    }
+
+    public var isFavoriteCurrentTrackControlAction: Bool {
+        let normalizedCommand = command?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard normalizedCommand == "set_current_track_favorite" || normalizedCommand == "save_current_track" else {
+            return false
+        }
+        let normalizedKind = kind?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        return normalizedKind == nil || normalizedKind == "control"
+    }
+
+    public var isSaveCurrentTrackControlAction: Bool {
+        isFavoriteCurrentTrackControlAction
+    }
+
+    public var outputDeviceID: String? {
+        guard isOutputAction else {
+            return nil
+        }
+        let candidate = responseValue ?? deviceID ?? Self.stringValue(from: value, keys: ["device_id", "deviceId", "id", "value"])
+        if let candidate {
+            let trimmed = candidate.trimmingCharacters(in: .whitespacesAndNewlines)
+            return trimmed.isEmpty ? nil : trimmed
+        }
+        if case let .string(value) = value {
+            let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+            return trimmed.isEmpty ? nil : trimmed
+        }
+        return nil
+    }
+
+    public var isRecommendationAction: Bool {
+        let normalizedKind = kind?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        return ["track", "album", "playlist", "artist", "track_mix"].contains(normalizedKind ?? "")
+    }
+
+    public var isConfirmationAction: Bool {
+        let candidates = [kind, actionStyle, command]
+            .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() }
+        return responseValue?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
+            || candidates.contains { $0.contains("confirmation") || $0.contains("followup") }
+    }
+
+    public var commandValue: DJConnectCommandValue? {
+        Self.commandValue(from: value)
+    }
+
+    public var fullActionCommandValue: DJConnectCommandValue {
+        .jsonObject(jsonObjectValue)
+    }
+
+    public var jsonObjectValue: [String: DJConnectJSONValue] {
+        var value: [String: DJConnectJSONValue] = [
+            "id": .string(id),
+            "title": .string(title)
+        ]
+        Self.add(subtitle, as: "subtitle", to: &value)
+        Self.add(deviceID, as: "device_id", to: &value)
+        Self.add(deviceName, as: "device_name", to: &value)
+        if let active {
+            value["active"] = .bool(active)
+        }
+        Self.add(uri, as: "uri", to: &value)
+        if !uris.isEmpty {
+            value["uris"] = .array(uris.map { .string($0) })
+        }
+        Self.add(contextURI, as: "context_uri", to: &value)
+        Self.add(offsetURI, as: "offset_uri", to: &value)
+        Self.add(imageURL?.absoluteString, as: "image_url", to: &value)
+        Self.add(kind, as: "kind", to: &value)
+        Self.add(command, as: "command", to: &value)
+        Self.add(reason, as: "reason", to: &value)
+        Self.add(actionStyle, as: "action_style", to: &value)
+        Self.add(responseValue, as: "response_value", to: &value)
+        Self.add(buttonLabel, as: "button_label", to: &value)
+        Self.add(clientPrompt, as: "client_prompt", to: &value)
+        if let toggle {
+            value["toggle"] = .bool(toggle)
+        }
+        if let toggleState {
+            value["toggle_state"] = .bool(toggleState)
+        }
+        if let favoriteStatus {
+            value["favorite_status"] = .bool(favoriteStatus)
+        }
+        if let actionValue = self.value {
+            value["value"] = actionValue
+        }
+        return value
+    }
+
+    private static func add(_ string: String?, as key: String, to value: inout [String: DJConnectJSONValue]) {
+        guard let trimmed = string?.trimmingCharacters(in: .whitespacesAndNewlines), !trimmed.isEmpty else {
+            return
+        }
+        value[key] = .string(trimmed)
+    }
+
+    private static func commandValue(from value: DJConnectJSONValue?) -> DJConnectCommandValue? {
+        switch value {
+        case let .bool(value):
+            .bool(value)
+        case let .int(value):
+            .int(value)
+        case let .double(value) where value.rounded() == value:
+            .int(Int(value))
+        case let .string(value):
+            .string(value)
+        case let .object(value):
+            .jsonObject(value)
+        default:
+            nil
+        }
     }
 
     private static func stringValue(from value: DJConnectJSONValue?, keys: [String]) -> String? {
@@ -1685,28 +1849,6 @@ public struct DJConnectAskDJPlaybackAction: Codable, Equatable, Identifiable, Se
             }
         }
         return nil
-    }
-
-    public var isOutputAction: Bool {
-        kind?.localizedCaseInsensitiveCompare("output") == .orderedSame
-    }
-
-    public var isSaveCurrentTrackControlAction: Bool {
-        let normalizedCommand = command?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        guard normalizedCommand == "save_current_track" else {
-            return false
-        }
-        let normalizedKind = kind?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        return normalizedKind == nil || normalizedKind == "control"
-    }
-
-    public var outputDeviceID: String? {
-        guard isOutputAction else {
-            return nil
-        }
-        let candidate = responseValue ?? deviceID
-        let trimmed = candidate?.trimmingCharacters(in: .whitespacesAndNewlines)
-        return trimmed?.isEmpty == false ? trimmed : nil
     }
 
     public var isActiveOutputAction: Bool {
@@ -1855,6 +1997,8 @@ public struct DJConnectPlayback: Codable, Equatable, Sendable {
     public var repeatState: DJConnectRepeatState?
     public var device: DJConnectPlaybackDevice?
     public var contextURI: String?
+    public var isLiked: Bool?
+    public var favoriteStatus: Bool?
 
     public init(
         hasPlayback: Bool? = nil,
@@ -1868,7 +2012,9 @@ public struct DJConnectPlayback: Codable, Equatable, Sendable {
         shuffle: Bool? = nil,
         repeatState: DJConnectRepeatState? = nil,
         device: DJConnectPlaybackDevice? = nil,
-        contextURI: String? = nil
+        contextURI: String? = nil,
+        isLiked: Bool? = nil,
+        favoriteStatus: Bool? = nil
     ) {
         self.hasPlayback = hasPlayback
         self.isPlaying = isPlaying
@@ -1882,6 +2028,8 @@ public struct DJConnectPlayback: Codable, Equatable, Sendable {
         self.repeatState = repeatState
         self.device = device
         self.contextURI = contextURI
+        self.isLiked = isLiked
+        self.favoriteStatus = favoriteStatus
     }
 
     public init(from decoder: Decoder) throws {
@@ -1910,6 +2058,8 @@ public struct DJConnectPlayback: Codable, Equatable, Sendable {
         repeatState = try container.decodeIfPresent(DJConnectRepeatState.self, forKey: .repeatState)
         device = try container.decodeIfPresent(DJConnectPlaybackDevice.self, forKey: .device)
         contextURI = container.decodeStringAliasIfPresent(.contextURI, .contextUri, .queueContext)
+        isLiked = container.decodeBoolAliasIfPresent(.isLiked, .liked)
+        favoriteStatus = container.decodeBoolAliasIfPresent(.favoriteStatus, .favoriteStatusCamel)
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -1926,6 +2076,8 @@ public struct DJConnectPlayback: Codable, Equatable, Sendable {
         try container.encodeIfPresent(repeatState, forKey: .repeatState)
         try container.encodeIfPresent(device, forKey: .device)
         try container.encodeIfPresent(contextURI, forKey: .contextURI)
+        try container.encodeIfPresent(isLiked, forKey: .isLiked)
+        try container.encodeIfPresent(favoriteStatus, forKey: .favoriteStatus)
     }
 
     enum CodingKeys: String, CodingKey {
@@ -1957,6 +2109,14 @@ public struct DJConnectPlayback: Codable, Equatable, Sendable {
         case contextURI = "context_uri"
         case contextUri
         case queueContext = "queue_context"
+        case isLiked = "is_liked"
+        case liked
+        case favoriteStatus = "favorite_status"
+        case favoriteStatusCamel = "favoriteStatus"
+    }
+
+    public var currentTrackFavoriteStatus: Bool? {
+        favoriteStatus ?? isLiked
     }
 }
 
@@ -2001,6 +2161,15 @@ public enum DJConnectVolumeNormalizer {
 }
 
 private extension KeyedDecodingContainer where Key == DJConnectPlayback.CodingKeys {
+    func decodeBoolAliasIfPresent(_ keys: Key...) -> Bool? {
+        for key in keys {
+            if let value = try? decodeIfPresent(Bool.self, forKey: key) {
+                return value
+            }
+        }
+        return nil
+    }
+
     func decodeStringAliasIfPresent(_ keys: Key...) -> String? {
         for key in keys {
             if let value = try? decodeIfPresent(String.self, forKey: key), !value.isEmpty {
@@ -2429,6 +2598,7 @@ public struct DJConnectCommandResponse: Codable, Equatable, Sendable {
     public var queue: [DJConnectQueueItem]?
     public var queueContext: String?
     public var playlists: [DJConnectPlaylist]?
+    public var playbackActions: [DJConnectAskDJPlaybackAction]?
     public var askDJClearRequired: Bool?
     public var pushSupported: Bool?
     public var pushRegistered: Bool?
@@ -2447,6 +2617,7 @@ public struct DJConnectCommandResponse: Codable, Equatable, Sendable {
         queue: [DJConnectQueueItem]? = nil,
         queueContext: String? = nil,
         playlists: [DJConnectPlaylist]? = nil,
+        playbackActions: [DJConnectAskDJPlaybackAction]? = nil,
         askDJClearRequired: Bool? = nil,
         pushSupported: Bool? = nil,
         pushRegistered: Bool? = nil,
@@ -2464,6 +2635,7 @@ public struct DJConnectCommandResponse: Codable, Equatable, Sendable {
         self.queue = queue
         self.queueContext = queueContext
         self.playlists = playlists
+        self.playbackActions = playbackActions
         self.askDJClearRequired = askDJClearRequired
         self.pushSupported = pushSupported
         self.pushRegistered = pushRegistered
@@ -2550,6 +2722,9 @@ public struct DJConnectCommandResponse: Codable, Equatable, Sendable {
         if let decodedPlaylists = playlists {
             playlists = Array(decodedPlaylists.prefix(100))
         }
+        playbackActions = container.decodeLossyArrayIfPresent(DJConnectAskDJPlaybackAction.self, forKey: .playbackActions)
+            ?? data?.decodeLossyArrayIfPresent(DJConnectAskDJPlaybackAction.self, forKey: .playbackActions)
+            ?? result?.decodeLossyArrayIfPresent(DJConnectAskDJPlaybackAction.self, forKey: .playbackActions)
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -2565,6 +2740,7 @@ public struct DJConnectCommandResponse: Codable, Equatable, Sendable {
         try container.encodeIfPresent(queue, forKey: .queue)
         try container.encodeIfPresent(queueContext, forKey: .queueContext)
         try container.encodeIfPresent(playlists, forKey: .playlists)
+        try container.encodeIfPresent(playbackActions, forKey: .playbackActions)
         try container.encodeIfPresent(askDJClearRequired, forKey: .askDJClearRequired)
         try container.encodeIfPresent(pushSupported, forKey: .pushSupported)
         try container.encodeIfPresent(pushRegistered, forKey: .pushRegistered)
@@ -2589,6 +2765,7 @@ public struct DJConnectCommandResponse: Codable, Equatable, Sendable {
         case contextURI = "context_uri"
         case contextUri
         case playlists
+        case playbackActions = "playback_actions"
         case items
         case askDJClearRequired = "ask_dj_clear_required"
         case clearRequired = "clear_required"

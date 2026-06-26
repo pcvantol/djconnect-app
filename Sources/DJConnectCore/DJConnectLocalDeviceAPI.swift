@@ -95,7 +95,7 @@ public struct DJConnectLocalPairRequest: Decodable, Sendable {
     }
 }
 
-public struct DJConnectLocalCommandRequest: Decodable, Sendable {
+public struct DJConnectLocalCommandRequest: Codable, Sendable {
     public var command: String?
     public var value: DJConnectCommandValue?
     public var play: Bool?
@@ -115,7 +115,7 @@ public struct DJConnectLocalCommandRequest: Decodable, Sendable {
     }
 }
 
-public struct DJConnectLocalDJResponseRequest: Decodable, Sendable {
+public struct DJConnectLocalDJResponseRequest: Codable, Sendable {
     public var text: String?
     public var djText: String?
     public var audioURL: String?
@@ -129,7 +129,7 @@ public struct DJConnectLocalDJResponseRequest: Decodable, Sendable {
     }
 }
 
-public struct DJConnectLocalDeviceAPIResponse: Encodable, Sendable {
+public struct DJConnectLocalDeviceAPIResponse: Codable, Sendable {
     public var success: Bool
     public var error: String?
     public var message: String?

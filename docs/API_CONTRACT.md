@@ -431,7 +431,10 @@ Content-Type: application/json
 The Apple clients send free-form Ask DJ text to Home Assistant. Home Assistant
 owns intent classification, current playback lookup, output-device lookup,
 Spotify mutations, DJ response generation, and optional TTS. The app must not
-hardcode Ask DJ intent families client-side.
+hardcode Ask DJ intent families client-side, parse visible response text to
+infer actions, or attach artwork/media from previous bubbles. Clients render
+only the text, messages, images, links, sources, audio, items, and actions
+returned by the current backend response.
 
 iOS, macOS, and watchOS surface DJ requests through Ask DJ. Now Playing does
 not expose a separate `DJ verzoek` block on Apple clients. rbpi does not have a
@@ -550,9 +553,17 @@ families in addition to general informational questions and playback control:
 
 For `favorite_current_track`, Home Assistant should use the current playback
 context if the request uses deictic language such as `dit nummer`, `deze track`,
-`this song`, or `current track`. It should return a normal DJ text response
-after the mutation succeeds. If no current track exists, return `success:false`
-or a clear `dj_text` explaining that nothing is playing.
+`this song`, or `current track`. It should support adding and removing the
+current Spotify track from liked songs. Current favorite state is backend-owned:
+clients may display `playback.is_liked`, `playback.favorite_status`, or Ask DJ
+action metadata, but must show an inactive neutral favorite button when status
+is unknown. Direct clients use `POST /api/djconnect/command` with
+`{"command":"set_current_track_favorite","value":true}` to add and
+`{"command":"set_current_track_favorite","value":false}` to remove. Legacy
+`save_current_track` may still work, but new clients should use
+`set_current_track_favorite`. It should return a normal DJ text response after
+the mutation succeeds. If no current track exists, return `success:false` or a
+clear `dj_text` explaining that nothing is playing.
 
 For output-device information, Home Assistant should return a textual summary
 in `dj_text` and may include structured output `playback_actions` when it wants
@@ -639,7 +650,8 @@ When the response contains concrete playable recommendations, Home Assistant
 should also return `playback_actions`. Apple clients render these as explicit
 `Play Now` buttons. Tapping such a button sends a follow-up command to Home
 Assistant, so recommendations remain informational until the user explicitly
-chooses one.
+chooses one. Clients render `Play Now` only for `playback_actions` with
+`kind` equal to `track`, `album`, `playlist`, `artist`, or `track_mix`.
 
 ```json
 {
@@ -678,16 +690,30 @@ The follow-up command is:
   "command": "ask_dj_play_recommendation",
   "play": true,
   "value": {
+    "id": "spotify:track:123",
     "title": "Track Title",
     "subtitle": "Artist Name",
     "uri": "spotify:track:123",
     "context_uri": "spotify:album:456",
     "offset_uri": "spotify:track:123",
     "kind": "track",
-    "memory_key": "djconnect_ios_djconnect-ios-8F3A2C91B45D"
+    "image_url": "/api/djconnect/proxy/image/album-456.jpg",
+    "reason": "Past bij je recente voorkeur voor melodische opbouw."
   }
 }
 ```
+
+The `value` is the full selected `playback_action` object returned by Home
+Assistant. Clients must not reconstruct original prompts or add local memory
+fields to the action payload.
+
+If the command response returns `error:"no_active_output"` and
+`action:"select_output"` with speaker `playback_actions`, clients render those
+speaker actions in Ask DJ. When the user taps a speaker action whose command is
+`ask_dj_play_request_on_output` or `ask_dj_play_recommendation_on_output`, the
+client posts that action's `command` and full returned `value` unchanged to
+`POST /api/djconnect/command`. The backend then sets output and replays the
+original request server-side.
 
 Home Assistant owns the final Spotify playback decision. It may start a track,
 album, artist, or playlist directly from `uri`, or use `context_uri` plus
@@ -753,9 +779,10 @@ confirmation routing:
 ```
 
 Output-switch actions also use `playback_actions`. Use `kind: "output"` and
-provide `device_id` or `response_value`; `device_name`, `title`, or `subtitle`
-should contain the human-readable speaker name. `active: true` marks the
-currently active output.
+provide `value`, `device_id`, or `response_value`; `device_name`, `title`, or
+`subtitle` should contain the human-readable speaker name. `active: true` marks
+the currently active output. For plain speaker-list output actions with
+`command:"set_output"`, clients call `set_output` with the returned `value`.
 
 ```json
 {
@@ -980,7 +1007,20 @@ Expected successful favorite response:
   "intent": "favorite_current_track",
   "action": "spotify_like_current_track",
   "text": "Ik heb Strobe toegevoegd aan je favorieten.",
-  "dj_text": "Ik heb Strobe toegevoegd aan je favorieten."
+  "dj_text": "Ik heb Strobe toegevoegd aan je favorieten.",
+  "playback_actions": [
+    {
+      "id": "favorite-current-track",
+      "title": "Haal uit favorieten",
+      "kind": "control",
+      "command": "set_current_track_favorite",
+      "toggle": true,
+      "toggle_state": true,
+      "favorite_status": true,
+      "value": false,
+      "client_prompt": "haal huidig nummer uit favorieten"
+    }
+  ]
 }
 ```
 
