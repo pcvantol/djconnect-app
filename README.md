@@ -73,6 +73,12 @@ pairing code/QR. On watchOS it shows the Watch pairing code and iPhone
 companion status. After Home Assistant completes pairing, the sheet shows a
 success state before the runtime UI is released.
 
+Pairing is always LAN-first and local-only. Use `http://homeassistant.local:8123`
+or the Home Assistant LAN IP address while the Apple device is on the same
+Wi-Fi/LAN. Remote Home Assistant URLs are accepted only from the successful
+pairing response and are used later as fallback for runtime status/playback
+traffic when local access is unavailable.
+
 For App Store review and local UI inspection, the pairing sheet also exposes
 Demo Mode. Demo Mode fills Now Playing, queue, playlists, and DJ announcement
 UI with local sample data without contacting Home Assistant.
@@ -355,6 +361,9 @@ After successful local pairing, iOS and macOS choose the local HA URL when it is
 reachable, fall back to `ha_remote_url` when local access fails and remote is
 supported, and mark the app offline when neither URL works. watchOS remains
 iPhone-mediated and does not use a direct Home Assistant remote/local contract.
+The status surface reports the active route, music backend availability, and
+whether playback controls are available, paused, playing, or waiting for an
+active playback snapshot.
 The iPhone syncs a compact summary to the Watch for About/status UI:
 connection mode (`local`, `remote`, `offline`), backend id/name/availability,
 backend revision, target player, and backend error. Watch playback actions keep
@@ -386,6 +395,12 @@ The app also keeps a local redacted rolling diagnostic logfile in Application
 Support at `DJConnect/Logs/djconnect.log`. It is loaded back into the Logs
 screen on restart, capped at 500 lines and 128 KB, and cleared when the user
 clears logs in the app.
+
+Diagnostics export includes redacted route, backend, output, permission,
+bundle, locale, Demo Mode, and playback snapshot fields so TestFlight/App Store
+review and support can verify readiness without receiving tokens, pairing
+codes, Authorization headers, raw secret-bearing bodies, or unredacted private
+URLs.
 
 DEBUG logs include user actions, navigation/recovery flows, and Home Assistant
 API calls. API log lines include HTTP status codes and must not include bearer

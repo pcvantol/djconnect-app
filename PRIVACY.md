@@ -31,6 +31,14 @@ Diagnostics exports must redact:
 - temporary `audio_url` query strings;
 - private Home Assistant URLs when the user chooses anonymized export.
 
+Exports may include non-secret readiness metadata such as app version, bundle
+identifier, locale, client type, pairing state, connection mode, remote support
+flag, backend availability, selected output, playback snapshot state, and
+permission statuses. These fields are included so users can share useful
+TestFlight/App Store or support diagnostics without exposing bearer tokens,
+pairing codes, Authorization headers, raw request bodies, or playback/backend
+credentials.
+
 Backend unavailable, stale auth, missing integration routes, and version
 mismatch states must not automatically erase the stored token. The user must
 explicitly reset pairing before the app clears token state.

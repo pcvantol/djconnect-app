@@ -847,8 +847,8 @@ private struct PairingSheetView: View {
                     .multilineTextAlignment(.center)
                 Text(localized(
                     model.language,
-                    "Enter or scan the code shown by Home Assistant while this device is on the same local network.",
-                    "Vul of scan de code uit Home Assistant terwijl dit apparaat op hetzelfde lokale netwerk zit."
+                    "Enter or scan the code shown by Home Assistant while this device and Home Assistant are on the same LAN.",
+                    "Vul of scan de code uit Home Assistant terwijl dit apparaat en Home Assistant op hetzelfde LAN zitten."
                 ))
                 .font(.headline)
                 .foregroundStyle(.secondary)
@@ -862,7 +862,7 @@ private struct PairingSheetView: View {
                 )
 
                 PairingEditableURLCard(
-                    title: localized(model.language, "Home Assistant URL", "Home Assistant URL"),
+                    title: localized(model.language, "Local Home Assistant URL", "Lokale Home Assistant URL"),
                     language: model.language,
                     text: $model.homeAssistantURL
                 ) {
@@ -953,8 +953,8 @@ private struct PairingSheetView: View {
                     .multilineTextAlignment(.center)
                 Text(localized(
                     model.language,
-                    "DJConnect is paired with Home Assistant.",
-                    "DJConnect is gekoppeld met Home Assistant."
+                    "DJConnect is paired with Home Assistant. Remote access, if configured in Home Assistant, is used only after this local pairing.",
+                    "DJConnect is gekoppeld met Home Assistant. Remote toegang wordt alleen na deze lokale koppeling gebruikt, als Home Assistant die heeft meegegeven."
                 ))
                 .font(.headline)
                 .foregroundStyle(.secondary)
@@ -996,8 +996,8 @@ private struct PairingNetworkNotice: View {
         Label {
             Text(warning ?? localized(
                     language,
-                    "DJConnect works on the local network where Home Assistant is running. Keep this device and Home Assistant on the same Wi-Fi/LAN while pairing.",
-                    "DJConnect werkt op het lokale netwerk waar Home Assistant draait. Houd dit apparaat en Home Assistant tijdens koppelen op hetzelfde WiFi/LAN-netwerk."
+                    "Pairing is local-only. Use the LAN address of Home Assistant, such as http://homeassistant.local:8123 or http://192.168.x.x:8123. Remote URLs are saved only after local pairing succeeds.",
+                    "Koppelen kan alleen lokaal. Gebruik het LAN-adres van Home Assistant, zoals http://homeassistant.local:8123 of http://192.168.x.x:8123. Remote URL's worden pas bewaard nadat lokale koppeling is gelukt."
                 ))
             .fixedSize(horizontal: false, vertical: true)
         } icon: {
@@ -1086,8 +1086,8 @@ private struct PairingEditableURLCard: View {
                 Label(
                     localized(
                         language,
-                        "Enter a valid Home Assistant URL, for example http://homeassistant.local:8123.",
-                        "Vul een geldige Home Assistant URL in, bijvoorbeeld http://homeassistant.local:8123."
+                        "Enter a valid local Home Assistant URL, for example http://homeassistant.local:8123.",
+                        "Vul een geldige lokale Home Assistant URL in, bijvoorbeeld http://homeassistant.local:8123."
                     ),
                     systemImage: "exclamationmark.triangle"
                 )
@@ -1097,8 +1097,8 @@ private struct PairingEditableURLCard: View {
                 Label(
                     localized(
                         language,
-                        "Open the DJConnect integration in Home Assistant to pair the app.",
-                        "Open de DJConnect integratie in Home Assistant om de app te koppelen"
+                        "Open the DJConnect integration in Home Assistant on this LAN and enter the app code.",
+                        "Open de DJConnect integratie in Home Assistant op dit LAN en vul de app-code in."
                     ),
                     systemImage: "checkmark.circle"
                 )
@@ -2656,7 +2656,36 @@ struct SetupStatusView: View {
                         .lineLimit(nil)
                         .fixedSize(horizontal: false, vertical: true)
                 }
+
+                VStack(alignment: .leading, spacing: 6) {
+                    setupDetailRow(
+                        localized(model.language, "Route", "Route"),
+                        connectionModeTitle
+                    )
+                    setupDetailRow(
+                        localized(model.language, "Backend", "Backend"),
+                        backendTitle
+                    )
+                    setupDetailRow(
+                        localized(model.language, "Playback", "Afspelen"),
+                        playbackTitle
+                    )
+                }
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .accessibilityElement(children: .combine)
             }
+        }
+    }
+
+    private func setupDetailRow(_ label: String, _ value: String) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 8) {
+            Text(label)
+                .fontWeight(.semibold)
+            Spacer(minLength: 8)
+            Text(value)
+                .multilineTextAlignment(.trailing)
+                .lineLimit(2)
         }
     }
 
@@ -2723,6 +2752,47 @@ struct SetupStatusView: View {
         case .unpaired:
             localized(model.language, "Unpaired", "Niet gekoppeld")
         }
+    }
+
+    private var connectionModeTitle: String {
+        if model.isDemoMode {
+            return localized(model.language, "Local Demo Mode", "Lokale demo modus")
+        }
+        return switch model.haConnectionMode {
+        case .local:
+            localized(model.language, "Local Home Assistant", "Lokale Home Assistant")
+        case .remote:
+            localized(model.language, "Remote Home Assistant", "Remote Home Assistant")
+        case .offline:
+            localized(model.language, "Offline", "Offline")
+        }
+    }
+
+    private var backendTitle: String {
+        let name = model.musicBackendSummary.musicBackendName
+            ?? model.musicBackendSummary.musicBackend
+            ?? localized(model.language, "Not reported", "Niet gemeld")
+        guard let available = model.musicBackendSummary.musicBackendAvailable else {
+            return name
+        }
+        return available
+            ? localized(model.language, "\(name) available", "\(name) beschikbaar")
+            : localized(model.language, "\(name) unavailable", "\(name) niet beschikbaar")
+    }
+
+    private var playbackTitle: String {
+        guard model.pairingStatus == .paired || model.isDemoMode else {
+            return localized(model.language, "Locked until pairing", "Geblokkeerd tot koppeling")
+        }
+        guard model.canUsePlaybackFeatures else {
+            return localized(model.language, "Unavailable", "Niet beschikbaar")
+        }
+        if model.playback?.hasPlayback == true {
+            return model.isPlaying
+                ? localized(model.language, "Playing", "Speelt")
+                : localized(model.language, "Paused", "Gepauzeerd")
+        }
+        return localized(model.language, "No active playback", "Geen actieve playback")
     }
 }
 

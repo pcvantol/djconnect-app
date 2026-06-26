@@ -6,7 +6,12 @@ All notable changes to DJConnect App are documented here.
 
 ### Changed
 
-- Nothing yet.
+- Clarified LAN-only pairing and post-pairing remote URL fallback guidance in
+  the iOS/macOS pairing sheet and watchOS companion pairing view.
+- Added route, backend, and playback-state details to the runtime status
+  surface.
+- Expanded diagnostics export and release docs with TestFlight/App Store
+  readiness fields and redaction expectations.
 
 ## 3.2.0 - 2026-06-26
 

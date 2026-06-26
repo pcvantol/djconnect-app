@@ -502,12 +502,22 @@ struct DJConnectWatchRootView: View {
                                 .font(.headline)
                                 .foregroundStyle(.white)
                                 .lineLimit(2)
-                            Text("Koppelen loopt via je iPhone")
+                            Text("LAN-koppeling loopt via je iPhone")
                                 .font(.caption2.weight(.semibold))
                                 .foregroundStyle(.white.opacity(0.58))
                                 .fixedSize(horizontal: false, vertical: true)
                         }
                     }
+
+                    Label(
+                        "Open DJConnect op je iPhone. De iPhone koppelt lokaal met Home Assistant en stuurt daarna status, playback en stemverzoeken door naar deze Watch.",
+                        systemImage: "network"
+                    )
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(.white.opacity(0.72))
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(9)
+                    .background(DJConnectWatchPanel(cornerRadius: 12))
 
                     if let networkRequirementMessage = model.networkRequirementMessage {
                         Label(networkRequirementMessage, systemImage: "iphone")

@@ -111,6 +111,8 @@ After renewing the Apple Developer Program membership:
 swift test --no-parallel
 xcodebuild -project DJConnectApp.xcodeproj -scheme DJConnectMac -configuration Debug -destination platform=macOS -derivedDataPath .xcode-derived CODE_SIGNING_ALLOWED=NO build
 xcodebuild -project DJConnectApp.xcodeproj -scheme DJConnectIOS -configuration Debug -destination generic/platform=iOS -derivedDataPath .xcode-derived CODE_SIGNING_ALLOWED=NO build
+xcodebuild -project DJConnectApp.xcodeproj -scheme DJConnectWatch -configuration Debug -destination generic/platform=watchOS -derivedDataPath .xcode-derived CODE_SIGNING_ALLOWED=NO build
+git diff --check
 ```
 
 - Commit and push the release changes to `main`.
@@ -143,6 +145,11 @@ xcodebuild -project DJConnectApp.xcodeproj -scheme DJConnectIOS -configuration D
 - Build and run on a physical iPad.
 - Validate first-run welcome, pairing sheet, Demo Mode, Settings, About, Queue,
   Playlists, Now Playing, Push-to-Talk, permissions, and logs.
+- Validate pairing guidance uses a local Home Assistant LAN URL and does not
+  suggest remote pairing. Confirm remote fallback is only shown/used after a
+  successful local pairing response provides `ha_remote_url`.
+- Validate the runtime status surface shows Home Assistant route
+  (`local`/`remote`/`offline`), music backend availability, and playback state.
 - Validate the DJConnect blue/purple gradient canvas is visible behind every
   primary iPhone/iPad screen and that permission rows stay compact.
 - Validate Demo Mode microphone playback shows and speaks the local sample DJ
@@ -159,6 +166,10 @@ xcodebuild -project DJConnectApp.xcodeproj -scheme DJConnectIOS -configuration D
 - Validate playback commands, output switching, queue, playlists, liked songs,
   voice/PTT WAV upload, diagnostics export, version mismatch UI, and pairing
   reset recovery.
+- Validate diagnostics export redacts bearer tokens, pairing codes,
+  Authorization headers, secret-bearing URLs, and private HA details while
+  retaining bundle, locale, permission, route, backend, output, and playback
+  readiness fields.
 - Validate `App opnieuw koppelen` clears the local token, generates a fresh app
   code, reopens the pairing sheet, and makes the app discoverable/pairable
   again.
@@ -170,6 +181,10 @@ xcodebuild -project DJConnectApp.xcodeproj -scheme DJConnectIOS -configuration D
 - Complete beta/app review compliance prompts.
 - Assign TestFlight testers or submit for App Review.
 - Smoke-test the TestFlight build on a physical iPhone and iPad.
+- For App Review notes, mention that Demo Mode is available from the unpaired
+  pairing sheet for UI inspection without a private Home Assistant instance,
+  while full playback/voice validation requires the matching Home Assistant
+  DJConnect integration on the same LAN for first pairing.
 
 ### Every Release: macOS Public Notarized Binary
 
