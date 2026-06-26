@@ -481,6 +481,7 @@ public struct DJConnectAskDJTrackAnalysis: Codable, Equatable, Sendable {
     public var inferred: Inferred?
     public var limitations: [String]
     public var sources: [String]
+    public var providers: [ProviderStatus]
 
     public struct Track: Codable, Equatable, Sendable {
         public var title: String?
@@ -656,6 +657,26 @@ public struct DJConnectAskDJTrackAnalysis: Codable, Equatable, Sendable {
         }
     }
 
+    public struct ProviderStatus: Codable, Equatable, Sendable, Identifiable {
+        public var providerID: String
+        public var displayName: String?
+        public var status: String
+        public var requiresConfig: Bool?
+        public var reason: String?
+
+        public var id: String {
+            providerID
+        }
+
+        enum CodingKeys: String, CodingKey {
+            case providerID = "provider_id"
+            case displayName = "display_name"
+            case status
+            case requiresConfig = "requires_config"
+            case reason
+        }
+    }
+
     enum CodingKeys: String, CodingKey {
         case contractVersion = "contract_version"
         case mode
@@ -668,6 +689,7 @@ public struct DJConnectAskDJTrackAnalysis: Codable, Equatable, Sendable {
         case inferred
         case limitations
         case sources
+        case providers
     }
 
     public init(from decoder: Decoder) throws {
@@ -683,6 +705,7 @@ public struct DJConnectAskDJTrackAnalysis: Codable, Equatable, Sendable {
         inferred = try container.decodeIfPresent(Inferred.self, forKey: .inferred)
         limitations = container.decodeLossyArrayIfPresent(String.self, forKey: .limitations) ?? []
         sources = container.decodeLossyArrayIfPresent(String.self, forKey: .sources) ?? []
+        providers = container.decodeLossyArrayIfPresent(ProviderStatus.self, forKey: .providers) ?? []
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -698,6 +721,7 @@ public struct DJConnectAskDJTrackAnalysis: Codable, Equatable, Sendable {
         try container.encodeIfPresent(inferred, forKey: .inferred)
         try container.encode(limitations, forKey: .limitations)
         try container.encode(sources, forKey: .sources)
+        try container.encode(providers, forKey: .providers)
     }
 }
 

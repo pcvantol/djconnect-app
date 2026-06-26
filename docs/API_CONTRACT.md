@@ -235,7 +235,7 @@ Expected macOS payload:
   "push_token": "<apns-device-token>",
   "push_environment": "sandbox",
   "app_bundle_id": "dev.djconnect.mac",
-  "app_version": "3.1.52",
+  "app_version": "3.1.53",
   "locale": "nl-NL",
   "notification_categories": ["ask_dj"],
   "bootstrap_proof": "<short-lived proof when available>"

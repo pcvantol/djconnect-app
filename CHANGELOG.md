@@ -4,6 +4,17 @@ All notable changes to DJConnect App are documented here.
 
 ## Unreleased
 
+## 3.1.53 - 2026-06-26
+
+### Changed
+
+- Added forward-compatible client decoding for Ask DJ technical track analysis
+  provider status metadata via optional `analysis.providers[]`, while keeping
+  `sections[]`, `timeline[]`, and `dj_tips[]` authoritative for the normal
+  analysis UI.
+- Added coverage for provider status fixtures with known, missing, unavailable,
+  and future/unknown provider values.
+
 ## 3.1.52 - 2026-06-26
 
 ### Changed

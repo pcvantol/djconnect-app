@@ -1161,6 +1161,25 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
             "confidence": "low"
           }
         ],
+        "providers": [
+          {
+            "provider_id": "spotify_measured",
+            "display_name": "Spotify measured",
+            "status": "used",
+            "requires_config": false
+          },
+          {
+            "provider_id": "ha_conversation",
+            "display_name": "Home Assistant conversation",
+            "status": "skipped",
+            "reason": "Not needed for measured fields."
+          },
+          {
+            "provider_id": "local_fallback",
+            "display_name": "Local fallback",
+            "status": "used"
+          }
+        ],
         "limitations": [
           "Energy labels are inferred."
         ],
@@ -1194,8 +1213,18 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
     #expect(analysis.timeline.first?.startMS == 0)
     #expect(analysis.timeline.first?.endMS == 32000)
     #expect(analysis.djTips.first?.kind == "transition")
+    #expect(analysis.providers.count == 3)
+    #expect(analysis.providers.first?.providerID == "spotify_measured")
+    #expect(analysis.providers.first?.status == "used")
+    #expect(analysis.providers.first?.requiresConfig == false)
+    #expect(analysis.providers[1].providerID == "ha_conversation")
+    #expect(analysis.providers[1].status == "skipped")
+    #expect(analysis.providers[1].reason == "Not needed for measured fields.")
+    #expect(analysis.providers[2].providerID == "local_fallback")
     #expect(analysis.limitations == ["Energy labels are inferred."])
     #expect(assistantMessage.analysis?.contractVersion == 2)
+    #expect(assistantMessage.analysis?.sections.count == 2)
+    #expect(assistantMessage.analysis?.providers.count == 3)
     #expect(assistantMessage.items.first?.title == "Energy")
     #expect(assistantMessage.images.isEmpty)
     #expect(assistantMessage.playbackActions.isEmpty)
@@ -1238,6 +1267,68 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
     #expect(response.analysis?.sections.first?.id == "instrumentation")
     #expect(response.analysis?.timeline.isEmpty == true)
     #expect(response.analysis?.djTips.first?.text == "Use the pad tail for a smooth transition.")
+    #expect(response.analysis?.providers.isEmpty == true)
+}
+
+@Test func askDJMessageResponseDecodesUnknownTechnicalTrackAnalysisProviders() throws {
+    let json = """
+    {
+      "text": "Future provider analysis.",
+      "intent": {
+        "intent": "technical_track_analysis"
+      },
+      "analysis": {
+        "contract_version": 2,
+        "mode": "measured_plus_knowledge",
+        "sections": [
+          {
+            "id": "rhythm_bpm",
+            "kind": "technical_metric",
+            "title": "Rhythm / BPM",
+            "value": "128 BPM"
+          }
+        ],
+        "timeline": [
+          {
+            "id": "intro",
+            "label": "Intro",
+            "start_ms": 0
+          }
+        ],
+        "dj_tips": [
+          {
+            "id": "mix_in",
+            "text": "Keep the intro clean."
+          }
+        ],
+        "providers": [
+          {
+            "provider_id": "future_provider",
+            "display_name": "Future provider",
+            "status": "warming_up",
+            "requires_config": true,
+            "reason": "future_reason",
+            "ignored_field": "ignored"
+          }
+        ]
+      },
+      "playback_actions": []
+    }
+    """.data(using: .utf8)!
+
+    let response = try JSONDecoder().decode(DJConnectAskDJMessageResponse.self, from: json)
+    let analysis = try #require(response.analysis)
+
+    #expect(analysis.sections.first?.value == "128 BPM")
+    #expect(analysis.timeline.first?.label == "Intro")
+    #expect(analysis.djTips.first?.text == "Keep the intro clean.")
+    #expect(analysis.providers.count == 1)
+    #expect(analysis.providers.first?.providerID == "future_provider")
+    #expect(analysis.providers.first?.displayName == "Future provider")
+    #expect(analysis.providers.first?.status == "warming_up")
+    #expect(analysis.providers.first?.requiresConfig == true)
+    #expect(analysis.providers.first?.reason == "future_reason")
+    #expect(response.assistantMessage?.playbackActions.isEmpty == true)
 }
 
 @Test func askDJMessageResponseDecodesUnavailableTechnicalTrackAnalysisV2() throws {
@@ -1256,7 +1347,19 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
         "limitations": [
           "No active Spotify playback context is available."
         ],
-        "sources": ["unavailable"]
+        "sources": ["unavailable"],
+        "providers": [
+          {
+            "provider_id": "spotify_measured",
+            "status": "skipped",
+            "reason": "No active playback context."
+          },
+          {
+            "provider_id": "ha_conversation",
+            "status": "skipped",
+            "reason": "No track metadata available."
+          }
+        ]
       }
     }
     """.data(using: .utf8)!
@@ -1268,6 +1371,7 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
     #expect(response.analysis?.confidence == "low")
     #expect(response.analysis?.sections.isEmpty == true)
     #expect(response.analysis?.limitations.first == "No active Spotify playback context is available.")
+    #expect(response.analysis?.providers.allSatisfy { $0.status == "skipped" } == true)
 }
 
 @Test func askDJMessageResponseDecodesUnknownTechnicalTrackAnalysisV2Values() throws {

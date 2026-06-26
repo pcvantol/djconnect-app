@@ -37,11 +37,13 @@ Context:
 - Secrets/tokens/wachtwoorden/private URLs mogen nooit in commits, logs, screenshots, diagnostics of test fixtures.
 
 Huidige status om te controleren:
-- Release `3.1.52` is de actuele source release met volledig companion-only
+- Release `3.1.53` is de actuele source release met volledig companion-only
   watchOS pairing, iPhone-proxy voor Watch local callbacks, expliciete Ask DJ
   client-identiteit, behoud van action `value` payloads, structured output
-  command forwarding, documentatie van `/ask_dj/history/clear`, en het
-  read-only Ask DJ `technical_track_analysis` contract met technische metrics.
+  command forwarding, documentatie van `/ask_dj/history/clear`, het read-only
+  Ask DJ `technical_track_analysis` contract met technische metrics, en
+  forward-compatible decoding voor optionele `analysis.providers[]`
+  providerstatusmetadata.
 - Ask DJ toont in het lege scherm een voorbeeldvraag voor technische
   trackanalyse. Backend/providerdata voor `technical_track_analysis` blijft
   read-only: geen playback starten, pauzeren, skippen, queuen, saven of output
@@ -60,7 +62,7 @@ Huidige status om te controleren:
 - Demo Mode is volledig lokaal en non-interacting met Home Assistant. Ask DJ
   toont de vaste voorbeelden en geeft client-side demobubbles terug die
   uitleggen dat Ask DJ echt antwoordt zodra Home Assistant gekoppeld is.
-- De statische What's New release-notes voor `3.1.52` worden door de
+- De statische What's New release-notes voor `3.1.53` worden door de
   `Public unsigned release` workflow gepubliceerd naar `pcvantol/djconnect-website`
   en `djconnect.dev`. Controleer specifiek dat de `nl` JSON echte Nederlandse
   inhoud bevat en niet de Engelse fallback.
@@ -69,8 +71,8 @@ Huidige status om te controleren:
 - Check direct:
   - `git status --short --branch`
   - `gh run list --repo pcvantol/djconnect-app --limit 5`
-  - public release tags in `pcvantol/djconnect-app-releases` voor `ios/v3.1.52` en `macos/v3.1.52` indien release/publicatie geraakt wordt.
-  - `https://djconnect.dev/release-notes/ios/nl/v3.1.52.json` en het macOS
+  - public release tags in `pcvantol/djconnect-app-releases` voor `ios/v3.1.53` en `macos/v3.1.53` indien release/publicatie geraakt wordt.
+  - `https://djconnect.dev/release-notes/ios/nl/v3.1.53.json` en het macOS
     equivalent indien What's New release-notes geraakt worden.
 
 Werkstijl:
