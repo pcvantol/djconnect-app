@@ -37,7 +37,8 @@ Context:
 - Secrets/tokens/wachtwoorden/private URLs mogen nooit in commits, logs, screenshots, diagnostics of test fixtures.
 
 Huidige status om te controleren:
-- Release `3.1.51` is de actuele source release met expliciete Ask DJ
+- Release `3.1.52` is de actuele source release met volledig companion-only
+  watchOS pairing, iPhone-proxy voor Watch local callbacks, expliciete Ask DJ
   client-identiteit, behoud van action `value` payloads, structured output
   command forwarding, documentatie van `/ask_dj/history/clear`, en het
   read-only Ask DJ `technical_track_analysis` contract met technische metrics.
@@ -45,25 +46,21 @@ Huidige status om te controleren:
   trackanalyse. Backend/providerdata voor `technical_track_analysis` blijft
   read-only: geen playback starten, pauzeren, skippen, queuen, saven of output
   wijzigen.
-- watchOS volgt dezelfde pairingrichting als iOS/macOS: de Watch adverteert de
-  lokale client API via mDNS, Home Assistant vult de koppelcode in de config
-  flow in, de gebruiker bevestigt in Home Assistant, en de Watch toont daarna
-  `Succesvol gekoppeld`. De Watch heeft Ask DJ PTT/voice input, tekstuele
-  history, optionele replay van `audio_url`, en ontvangt dezelfde backend
-  system/ambient historyberichten.
-- watchOS pairing-lifecycle om direct live te valideren: op echte Watch werkt het
-  `Client adres` pas wanneer de iPhone-Bluetoothrelay uit is en de Watch een
-  echt WiFi/LAN IPv4-adres heeft. mDNS is vanaf de Mac zichtbaar met correcte
-  `_djconnect._tcp` TXT (`client_type=watchos`, `pairing_status=unpaired`,
-  `local_url=http://192.168.1.119:<poort>`). De watchOS local API is daarna
-  gehard: opgeslagen/stabiele poort, geen pre-ready mDNS-publicatie, local API
-  blijft actief tijdens pairing, en extra logs bij `NWListener.cancelled`/
-  `waiting`/`failed`. Valideer op echte Watch dat de poort niet meer flapt en
-  `/api/device/info` vanaf Home Assistant bereikbaar is.
+- watchOS is volledig companion-only. De Watch host geen lokale Web API en
+  adverteert geen mDNS/Bonjour. De gekoppelde iPhone publiceert namens de Watch
+  een bestaande DJConnect local API-shape met `client_type=watchos`, het stabiele
+  Watch `device_id`, de Watch-koppelcode en een iPhone-hosted `local_url`.
+  Home Assistant paart en stuurt latere `/api/device/*` callbacks naar die
+  iPhone URL; de iPhone proxyt command-, DJ response- en forget-callbacks naar
+  de Watch via WatchConnectivity.
+- watchOS behoudt een eigen Watch-identiteit, tokenopslag, Ask DJ PTT/voice
+  input, tekstuele history, optionele replay van `audio_url`, en dezelfde
+  backend system/ambient historyberichten. Pairing UI op Watch toont alleen de
+  koppelcode en iPhone companion-status; geen HA-url veld en geen `Client adres`.
 - Demo Mode is volledig lokaal en non-interacting met Home Assistant. Ask DJ
   toont de vaste voorbeelden en geeft client-side demobubbles terug die
   uitleggen dat Ask DJ echt antwoordt zodra Home Assistant gekoppeld is.
-- De statische What's New release-notes voor `3.1.51` worden door de
+- De statische What's New release-notes voor `3.1.52` worden door de
   `Public unsigned release` workflow gepubliceerd naar `pcvantol/djconnect-website`
   en `djconnect.dev`. Controleer specifiek dat de `nl` JSON echte Nederlandse
   inhoud bevat en niet de Engelse fallback.
@@ -72,8 +69,8 @@ Huidige status om te controleren:
 - Check direct:
   - `git status --short --branch`
   - `gh run list --repo pcvantol/djconnect-app --limit 5`
-  - public release tags in `pcvantol/djconnect-app-releases` voor `ios/v3.1.51` en `macos/v3.1.51` indien release/publicatie geraakt wordt.
-  - `https://djconnect.dev/release-notes/ios/nl/v3.1.51.json` en het macOS
+  - public release tags in `pcvantol/djconnect-app-releases` voor `ios/v3.1.52` en `macos/v3.1.52` indien release/publicatie geraakt wordt.
+  - `https://djconnect.dev/release-notes/ios/nl/v3.1.52.json` en het macOS
     equivalent indien What's New release-notes geraakt worden.
 
 Werkstijl:

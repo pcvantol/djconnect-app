@@ -10,7 +10,7 @@ import SwiftUI
 import UserNotifications
 import WatchKit
 #if canImport(WatchConnectivity)
-import WatchConnectivity
+@preconcurrency import WatchConnectivity
 #endif
 
 struct DJConnectWatchAskDJMessage: Identifiable, Codable, Equatable {
@@ -214,15 +214,38 @@ extension DJConnectWatchModel: WCSessionDelegate {
     }
 
     nonisolated func session(_ session: WCSession, didReceiveMessage message: [String: Any]) {
+        guard let data = try? NSKeyedArchiver.archivedData(withRootObject: message, requiringSecureCoding: false) else {
+            return
+        }
         Task { @MainActor in
+            guard let message = Self.unarchiveCompanionMessage(data) else {
+                return
+            }
             handleCompanionMessage(message)
         }
     }
 
     nonisolated func session(_ session: WCSession, didReceiveUserInfo userInfo: [String: Any]) {
+        guard let data = try? NSKeyedArchiver.archivedData(withRootObject: userInfo, requiringSecureCoding: false) else {
+            return
+        }
         Task { @MainActor in
+            guard let userInfo = Self.unarchiveCompanionMessage(data) else {
+                return
+            }
             handleCompanionMessage(userInfo)
         }
+    }
+
+    private static func unarchiveCompanionMessage(_ data: Data) -> [String: Any]? {
+        let classes: [AnyClass] = [
+            NSDictionary.self,
+            NSArray.self,
+            NSString.self,
+            NSNumber.self,
+            NSData.self
+        ]
+        return try? NSKeyedUnarchiver.unarchivedObject(ofClasses: classes, from: data) as? [String: Any]
     }
 }
 #endif
@@ -329,7 +352,6 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
     private let maxDiagnosticLogLines = 80
     private let tokenStore = DJConnectUserDefaultsTokenStore(key: "DJConnectWatchDeviceToken")
     private let monkeyTestingMode: Bool
-    private var pairingTask: Task<Void, Never>?
     private var networkMonitor: NWPathMonitor?
     private let networkMonitorQueue = DispatchQueue(label: "dev.djconnect.watch.network")
     private var recorder: AVAudioRecorder?
@@ -930,8 +952,6 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
 
     func startDemoMode() {
         appendDiagnosticLog("Demo modus starten")
-        pairingTask?.cancel()
-        pairingTask = nil
         cancelVoiceActivationScheduledTasks()
         stopVoiceActivationListening(status: .paused)
         stopNetworkMonitor()
@@ -948,8 +968,6 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
 
     func stopDemoMode() {
         appendDiagnosticLog("Demo modus stoppen")
-        pairingTask?.cancel()
-        pairingTask = nil
         cancelVoiceActivationScheduledTasks()
         stopVoiceActivationListening(status: .paused)
         storedDemoMode = false
@@ -1367,8 +1385,6 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
 
     func resetPairing() {
         appendDiagnosticLog("Koppeling resetten")
-        pairingTask?.cancel()
-        pairingTask = nil
         cancelVoiceActivationScheduledTasks()
         stopVoiceActivationListening(status: .paused)
         unregisterPushNotifications()
@@ -1410,58 +1426,6 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         companionPairingStatus = "iPhone companion zoeken..."
         activateCompanionSession()
         sendCompanionPairingRegistration()
-    }
-
-    private func startPairingPoll() {
-        pairingTask?.cancel()
-        let code = pairingCode
-        pairingTask = Task { [weak self] in
-            await self?.pollPairing(code: code)
-        }
-    }
-
-    private func pollPairing(code: String) async {
-        appendDiagnosticLog("Polling Home Assistant pairing endpoint")
-        while !Task.isCancelled && !paired {
-            guard let client else {
-                statusMessage = "Home Assistant URL ongeldig"
-                appendDiagnosticLog("Koppelen mislukt: Home Assistant URL ongeldig", level: .warning)
-                return
-            }
-
-            do {
-                let response = try await client.pair(DJConnectPairingPayload(
-                    identity: identity,
-                    pairingToken: code,
-                    haLocalURL: haBaseURL
-                ))
-                applyPairingResponse(response)
-                appendDiagnosticLog("Koppeling geaccepteerd door Home Assistant")
-                return
-            } catch let error as DJConnectError {
-                statusMessage = Self.userMessage(for: error)
-                appendDiagnosticLog("Koppelen wacht: \(statusMessage)", level: .debug)
-            } catch {
-                statusMessage = error.localizedDescription
-                appendDiagnosticLog("Koppelen wacht: \(error.localizedDescription)", level: .debug)
-            }
-
-            try? await Task.sleep(for: .seconds(2))
-        }
-    }
-
-    private func applyPairingResponse(_ response: DJConnectPairingResponse) {
-        if let returnedURL = response.haLocalURL, !returnedURL.isEmpty {
-            haBaseURL = returnedURL
-        }
-        paired = true
-        connectionState = .paired
-        isShowingPairingSuccess = true
-        statusMessage = "Succesvol gekoppeld"
-        pairingTask?.cancel()
-        pairingTask = nil
-        requestRemoteNotificationRegistration()
-        Task { await refreshStatus() }
     }
 
     private func applyOutputs(_ devices: [DJConnectOutputDevice]) {

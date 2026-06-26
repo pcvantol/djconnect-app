@@ -470,9 +470,13 @@ public struct DJConnectAskDJIntentInfo: Codable, Equatable, Sendable {
 }
 
 public struct DJConnectAskDJTrackAnalysis: Codable, Equatable, Sendable {
+    public var contractVersion: Int?
     public var mode: String?
     public var confidence: String?
     public var track: Track?
+    public var sections: [AnalysisSection]
+    public var timeline: [TimelineEntry]
+    public var djTips: [DJTip]
     public var measured: Measured?
     public var inferred: Inferred?
     public var limitations: [String]
@@ -483,6 +487,108 @@ public struct DJConnectAskDJTrackAnalysis: Codable, Equatable, Sendable {
         public var artist: String?
         public var album: String?
         public var uri: String?
+    }
+
+    public struct AnalysisSection: Codable, Equatable, Sendable, Identifiable {
+        public var id: String?
+        public var kind: String?
+        public var title: String?
+        public var value: String?
+        public var summary: String?
+        public var source: String?
+        public var confidence: String?
+        public var items: [DJConnectAskDJHistoryItem]
+
+        public var stableID: String {
+            id ?? "\(kind ?? "section")|\(title ?? "")|\(value ?? "")|\(summary ?? "")"
+        }
+
+        public var displayTitle: String {
+            let candidate = title ?? id ?? kind ?? "Analysis"
+            return candidate.replacingOccurrences(of: "_", with: " ")
+        }
+
+        public var idValue: String {
+            stableID
+        }
+
+        enum CodingKeys: String, CodingKey {
+            case id
+            case kind
+            case title
+            case value
+            case summary
+            case source
+            case confidence
+            case items
+        }
+
+        public init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            id = try container.decodeIfPresent(String.self, forKey: .id)
+            kind = try container.decodeIfPresent(String.self, forKey: .kind)
+            title = try container.decodeIfPresent(String.self, forKey: .title)
+            value = try container.decodeIfPresent(String.self, forKey: .value)
+            summary = try container.decodeIfPresent(String.self, forKey: .summary)
+            source = try container.decodeIfPresent(String.self, forKey: .source)
+            confidence = try container.decodeIfPresent(String.self, forKey: .confidence)
+            items = container.decodeLossyArrayIfPresent(DJConnectAskDJHistoryItem.self, forKey: .items) ?? []
+        }
+    }
+
+    public struct TimelineEntry: Codable, Equatable, Sendable, Identifiable {
+        public var id: String?
+        public var label: String?
+        public var kind: String?
+        public var startMS: Int?
+        public var endMS: Int?
+        public var durationMS: Int?
+        public var summary: String?
+        public var source: String?
+        public var confidence: String?
+
+        public var stableID: String {
+            id ?? "\(kind ?? "timeline")|\(label ?? "")|\(startMS ?? -1)|\(endMS ?? -1)|\(durationMS ?? -1)"
+        }
+
+        enum CodingKeys: String, CodingKey {
+            case id
+            case label
+            case kind
+            case startMS = "start_ms"
+            case endMS = "end_ms"
+            case durationMS = "duration_ms"
+            case summary
+            case source
+            case confidence
+        }
+    }
+
+    public struct DJTip: Codable, Equatable, Sendable, Identifiable {
+        public var id: String?
+        public var kind: String?
+        public var title: String?
+        public var text: String?
+        public var source: String?
+        public var confidence: String?
+
+        public var stableID: String {
+            id ?? "\(kind ?? "tip")|\(title ?? "")|\(text ?? "")"
+        }
+
+        public var displayTitle: String {
+            let candidate = title ?? kind ?? "DJ tip"
+            return candidate.replacingOccurrences(of: "_", with: " ")
+        }
+
+        enum CodingKeys: String, CodingKey {
+            case id
+            case kind
+            case title
+            case text
+            case source
+            case confidence
+        }
     }
 
     public struct Measured: Codable, Equatable, Sendable {
@@ -510,14 +616,20 @@ public struct DJConnectAskDJTrackAnalysis: Codable, Equatable, Sendable {
         }
     }
 
-    public struct Section: Codable, Equatable, Sendable {
+    public struct Section: Codable, Equatable, Sendable, Identifiable {
+        public var id: String?
         public var label: String?
         public var index: Int?
         public var startMS: Int?
         public var durationMS: Int?
         public var confidence: Double?
 
+        public var stableID: String {
+            id ?? "\(index ?? -1)|\(label ?? "section")|\(startMS ?? -1)|\(durationMS ?? -1)"
+        }
+
         enum CodingKeys: String, CodingKey {
+            case id
             case label
             case index
             case startMS = "start_ms"
@@ -545,9 +657,13 @@ public struct DJConnectAskDJTrackAnalysis: Codable, Equatable, Sendable {
     }
 
     enum CodingKeys: String, CodingKey {
+        case contractVersion = "contract_version"
         case mode
         case confidence
         case track
+        case sections
+        case timeline
+        case djTips = "dj_tips"
         case measured
         case inferred
         case limitations
@@ -556,13 +672,32 @@ public struct DJConnectAskDJTrackAnalysis: Codable, Equatable, Sendable {
 
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
+        contractVersion = try container.decodeIfPresent(Int.self, forKey: .contractVersion)
         mode = try container.decodeIfPresent(String.self, forKey: .mode)
         confidence = try container.decodeIfPresent(String.self, forKey: .confidence)
         track = try container.decodeIfPresent(Track.self, forKey: .track)
+        sections = container.decodeLossyArrayIfPresent(AnalysisSection.self, forKey: .sections) ?? []
+        timeline = container.decodeLossyArrayIfPresent(TimelineEntry.self, forKey: .timeline) ?? []
+        djTips = container.decodeLossyArrayIfPresent(DJTip.self, forKey: .djTips) ?? []
         measured = try container.decodeIfPresent(Measured.self, forKey: .measured)
         inferred = try container.decodeIfPresent(Inferred.self, forKey: .inferred)
         limitations = container.decodeLossyArrayIfPresent(String.self, forKey: .limitations) ?? []
         sources = container.decodeLossyArrayIfPresent(String.self, forKey: .sources) ?? []
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encodeIfPresent(contractVersion, forKey: .contractVersion)
+        try container.encodeIfPresent(mode, forKey: .mode)
+        try container.encodeIfPresent(confidence, forKey: .confidence)
+        try container.encodeIfPresent(track, forKey: .track)
+        try container.encode(sections, forKey: .sections)
+        try container.encode(timeline, forKey: .timeline)
+        try container.encode(djTips, forKey: .djTips)
+        try container.encodeIfPresent(measured, forKey: .measured)
+        try container.encodeIfPresent(inferred, forKey: .inferred)
+        try container.encode(limitations, forKey: .limitations)
+        try container.encode(sources, forKey: .sources)
     }
 }
 

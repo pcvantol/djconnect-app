@@ -2049,7 +2049,7 @@ private struct AskDJWatchAnalysisSummary: View {
         case "unavailable":
             return "Niet beschikbaar"
         default:
-            return analysis.mode.replacingOccurrences(of: "_", with: " ")
+            return analysis.mode?.replacingOccurrences(of: "_", with: " ") ?? "Onbekend"
         }
     }
 

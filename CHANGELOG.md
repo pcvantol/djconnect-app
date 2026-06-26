@@ -4,6 +4,23 @@ All notable changes to DJConnect App are documented here.
 
 ## Unreleased
 
+## 3.1.52 - 2026-06-26
+
+### Changed
+
+- Reworked watchOS pairing to be fully companion-only: the Watch no longer hosts
+  a local Web API, no longer advertises Bonjour/mDNS, and no longer runs a
+  direct Home Assistant pairing poll.
+- Added the iPhone-mediated Watch proxy contract: the iPhone publishes the Watch
+  identity, handles Home Assistant local callbacks, and forwards commands, DJ
+  responses, pairing results, and forget requests to the Watch over
+  WatchConnectivity.
+- Updated Watch pairing UI to show only the Watch pairing code and iPhone
+  companion status, removing the Watch-side Home Assistant URL and Client adres
+  controls.
+- Updated Watch companion-only documentation across the API contract, handoff,
+  README, and chat bootstrap.
+
 ## 3.1.51 - 2026-06-25
 
 ### Changed

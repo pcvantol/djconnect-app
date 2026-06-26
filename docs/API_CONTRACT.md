@@ -88,9 +88,10 @@ Payload:
 }
 ```
 
-Standalone watchOS clients use the same pairing endpoint and token contract,
-with `device_id` such as `djconnect-watchos-8F3A2C91B45D`,
-`client_type: "watchos"`, and `platform: "watchos"`.
+watchOS is a companion-only client. The Watch uses a stable Watch identity such
+as `djconnect-watchos-8F3A2C91B45D` with `client_type: "watchos"` and
+`platform: "watchos"`, but pairing and Home Assistant local callbacks are
+mediated by the paired iPhone companion.
 
 The app-generated code is sent as `pair_code`, `pairing_code`, and
 `pairing_token` for compatibility with current Home Assistant integration
@@ -123,22 +124,33 @@ flows and are not used for status, command, or voice requests. Do not use legacy
 
 ## Local App Web API
 
-The iOS/macOS/watchOS app hosts a small local Web API for Home Assistant -> app
+The iOS/macOS app hosts a small local Web API for Home Assistant -> app
 traffic while the app is active/reachable. While the app is pairable, it
 advertises Bonjour/mDNS service `_djconnect._tcp` with TXT fields including
 `name`, `device_id`, `version`, `paired`, `pairing_status`, `api`, `model`,
 `client_type`, `local_url`, `pair_code`, `pairing_code`, `pairing_token`, and
-the `/api/device/*` paths. Standalone watchOS discovery uses the same service
-with `client_type: "watchos"` and a `djconnect-watchos-...` device ID while the
-Watch app is open and pairable.
+the `/api/device/*` paths.
+
+watchOS never hosts its own local Web API and never advertises Bonjour directly.
+For Watch pairing, the iPhone companion permanently proxies the existing local
+API shape using the Watch identity. Home Assistant discovers an iPhone-hosted
+`_djconnect._tcp` service whose pairing-info response is authoritative for
+`client_type: "watchos"`, the Watch `device_id`, Watch pair code, and an
+iPhone-hosted `local_url`. Home Assistant should continue to POST later
+`/api/device/*` callbacks to that stored iPhone `local_url`; the iPhone forwards
+commands, DJ responses, and forget callbacks to the Watch over WatchConnectivity.
 Once pairing is complete, the app keeps the local HTTP API available while it
 is running, but disables Bonjour advertising to reduce network and battery
-impact. Explicit pairing reset enables Bonjour advertising again.
+impact. For the Watch proxy, the iPhone keeps Bonjour/service availability tied
+to the proxied Watch registration so Home Assistant can rediscover the Watch
+identity by `device_id`.
 
-User-facing app text calls this endpoint the `Client adres`. The URL shown
-in the pairing sheet must be the URL Home Assistant uses for the local
-callback. After successful local pairing, the app pins that URL in local state
-and keeps it stable until explicit pairing reset.
+User-facing iOS/macOS text calls this endpoint the `Client adres`. The URL shown
+in the pairing sheet must be the URL Home Assistant uses for the local callback.
+After successful local pairing, the app pins that URL in local state and keeps
+it stable until explicit pairing reset. The Watch UI does not show or edit a
+local client address because the local callback endpoint belongs to the iPhone
+companion proxy.
 
 Open endpoints:
 
@@ -223,7 +235,7 @@ Expected macOS payload:
   "push_token": "<apns-device-token>",
   "push_environment": "sandbox",
   "app_bundle_id": "dev.djconnect.mac",
-  "app_version": "3.1.51",
+  "app_version": "3.1.52",
   "locale": "nl-NL",
   "notification_categories": ["ask_dj"],
   "bootstrap_proof": "<short-lived proof when available>"

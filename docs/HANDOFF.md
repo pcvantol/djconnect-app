@@ -73,7 +73,8 @@ blocked by a pairing sheet. The sheet must show:
 
 - DJConnect banner/branding.
 - Home Assistant setup context.
-- Copyable `Client adres`.
+- Copyable `Client adres` on iOS/macOS; Watch pairing shows iPhone companion
+  status instead.
 - Copyable app-generated pairing code.
 - Pairing progress while Home Assistant calls the client API or while polling
   is active.
@@ -167,10 +168,11 @@ Recommended watchOS fields:
 }
 ```
 
-The watchOS client may run standalone. It should use the same Home Assistant
-pairing/token/status/command/voice contract as iOS and macOS, store only the
-DJConnect bearer token locally, expose voice through `Ask DJ`, and keep wake
-phrase detection foreground-only.
+The watchOS client is companion-only. It keeps its own Watch identity and
+app-local DJConnect bearer token, but pairing and Home Assistant local callbacks
+are permanently mediated by the paired iPhone. The Watch does not host a local
+Web API, does not advertise Bonjour/mDNS, exposes voice through `Ask DJ`, and
+keeps wake phrase detection foreground-only.
 
 Ask DJ is the single Apple-client DJ interaction surface. iOS, macOS, and
 watchOS expose DJ requests through Ask DJ chat/PTT and synced Ask DJ history;
@@ -290,15 +292,20 @@ http://homeassistant.local:8123
 
 Users can replace it with an IP-based local URL when mDNS is unavailable.
 
-The iOS/macOS/watchOS app is an app client, not ESP hardware, but it does expose a
-small local `/api/device/*` Web API for Home Assistant -> app traffic. It does
-not implement ESP-only reboot or OTA routes.
+The iOS/macOS app is an app client, not ESP hardware, but it does expose a small
+local `/api/device/*` Web API for Home Assistant -> app traffic. For watchOS,
+the paired iPhone exposes the same API shape as a permanent proxy using the
+Watch `device_id`, `client_type: "watchos"`, pair code, and an iPhone-hosted
+`local_url`. The Watch itself never exposes a LAN endpoint. The app does not
+implement ESP-only reboot or OTA routes.
 
-The app advertises `_djconnect._tcp` with Bonjour/mDNS only while it is
-pairable, such as when the unpaired pairing sheet is visible. After successful
-pairing, the local HTTP API remains available while the app is running, but
-Bonjour advertising is stopped to reduce LAN chatter and battery impact.
-Explicit pairing reset makes the app pairable and discoverable again.
+The iOS/macOS app advertises `_djconnect._tcp` with Bonjour/mDNS only while it
+is pairable, such as when the unpaired pairing sheet is visible. After
+successful pairing, the local HTTP API remains available while the app is
+running, but Bonjour advertising is stopped to reduce LAN chatter and battery
+impact. Explicit pairing reset makes the app pairable and discoverable again.
+For watchOS, Bonjour/mDNS publication is done by the iPhone companion proxy, not
+by the Watch.
 
 Local app Web API:
 

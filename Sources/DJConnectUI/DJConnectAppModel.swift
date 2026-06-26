@@ -27,7 +27,7 @@ import UIKit
 import AppKit
 #endif
 #if os(iOS) && canImport(WatchConnectivity)
-import WatchConnectivity
+@preconcurrency import WatchConnectivity
 #endif
 
 public enum DJConnectAppLogLevel: String, CaseIterable, Sendable {
@@ -82,7 +82,7 @@ private struct DJConnectWatchProxyRegistration: Sendable {
     var paired: Bool
 }
 
-private final class DJConnectWatchProxySessionDelegate: NSObject, WCSessionDelegate {
+private final class DJConnectWatchProxySessionDelegate: NSObject, WCSessionDelegate, @unchecked Sendable {
     weak var model: DJConnectAppModel?
 
     init(model: DJConnectAppModel) {
@@ -112,15 +112,38 @@ private final class DJConnectWatchProxySessionDelegate: NSObject, WCSessionDeleg
     }
 
     nonisolated func session(_ session: WCSession, didReceiveMessage message: [String: Any]) {
+        guard let data = try? NSKeyedArchiver.archivedData(withRootObject: message, requiringSecureCoding: false) else {
+            return
+        }
         Task { @MainActor [weak self] in
+            guard let message = Self.unarchiveWatchProxyMessage(data) else {
+                return
+            }
             self?.model?.handleWatchProxyMessage(message)
         }
     }
 
     nonisolated func session(_ session: WCSession, didReceiveUserInfo userInfo: [String: Any]) {
+        guard let data = try? NSKeyedArchiver.archivedData(withRootObject: userInfo, requiringSecureCoding: false) else {
+            return
+        }
         Task { @MainActor [weak self] in
+            guard let userInfo = Self.unarchiveWatchProxyMessage(data) else {
+                return
+            }
             self?.model?.handleWatchProxyMessage(userInfo)
         }
+    }
+
+    private static func unarchiveWatchProxyMessage(_ data: Data) -> [String: Any]? {
+        let classes: [AnyClass] = [
+            NSDictionary.self,
+            NSArray.self,
+            NSString.self,
+            NSNumber.self,
+            NSData.self
+        ]
+        return try? NSKeyedUnarchiver.unarchivedObject(ofClasses: classes, from: data) as? [String: Any]
     }
 }
 #endif
@@ -253,7 +276,7 @@ public struct DJConnectAskDJMessage: Identifiable, Codable, Equatable, Sendable 
     }
 
     public var renderablePlaybackActions: [DJConnectAskDJPlaybackAction] {
-        isTechnicalTrackAnalysis ? [] : playbackActions
+        playbackActions
     }
 
     enum CodingKeys: String, CodingKey {
@@ -501,7 +524,7 @@ public final class DJConnectAppModel: ObservableObject {
     private let startBackgroundTasks: Bool
     private let monkeyTestingMode: Bool
     private let diagnosticLogFileURL: URL?
-    private static let protocolVersion = "3.1.51"
+    nonisolated private static let protocolVersion = "3.1.52"
     private static let defaultHomeAssistantURL = "http://homeassistant.local:8123"
     private let appVersion = DJConnectAppModel.protocolVersion
     private let installIDKey = "DJConnectInstallID"
@@ -5338,8 +5361,8 @@ public final class DJConnectAppModel: ObservableObject {
             deviceID: "djconnect-macos-unavailable",
             deviceName: "DJConnect Mac",
             clientType: .macos,
-            firmware: "3.1.51",
-            appVersion: "3.1.51",
+            firmware: "3.1.52",
+            appVersion: "3.1.52",
             platform: .macos
         )
         #else
@@ -5347,8 +5370,8 @@ public final class DJConnectAppModel: ObservableObject {
             deviceID: "djconnect-ios-unavailable",
             deviceName: "DJConnect iPhone",
             clientType: .ios,
-            firmware: "3.1.51",
-            appVersion: "3.1.51",
+            firmware: "3.1.52",
+            appVersion: "3.1.52",
             platform: .ios
         )
         #endif
@@ -5431,7 +5454,7 @@ public final class DJConnectAppModel: ObservableObject {
         persistWatchProxyRegistration()
         startWatchProxyLocalDeviceAPIIfNeeded()
         sendWatchProxyReady()
-        log(.info, "Watch proxy registered \(Self.redactedDeviceID(deviceID))")
+        log(.info, "Watch proxy registered \(Self.redactedDJConnectDeviceID(deviceID))")
     }
 
     private func restoreWatchProxyRegistration() {
@@ -5497,10 +5520,12 @@ public final class DJConnectAppModel: ObservableObject {
                 await self?.watchProxyLocalDeviceAPIInfo() ?? Self.unavailableWatchProxyLocalDeviceAPIInfo()
             },
             tokenProvider: { [weak self] in
-                guard let self else {
-                    return nil
+                await MainActor.run {
+                    guard let self else {
+                        return nil
+                    }
+                    return self.defaults.string(forKey: self.watchProxyDeviceTokenKey)
                 }
-                return self.defaults.string(forKey: self.watchProxyDeviceTokenKey)
             },
             pairHandler: { [weak self] request in
                 await self?.handleWatchProxyPair(request) ?? DJConnectLocalDeviceAPIResponse(
@@ -5610,7 +5635,7 @@ public final class DJConnectAppModel: ObservableObject {
             "local_url": localURL ?? "",
             "assist_pipeline_id": request.assistPipelineID ?? ""
         ])
-        log(.info, "Watch proxy completed pairing for \(Self.redactedDeviceID(registration.identity.deviceID))")
+        log(.info, "Watch proxy completed pairing for \(Self.redactedDJConnectDeviceID(registration.identity.deviceID))")
         return DJConnectLocalDeviceAPIResponse(
             success: true,
             message: "paired",
@@ -5674,6 +5699,13 @@ public final class DJConnectAppModel: ObservableObject {
         } else {
             WCSession.default.transferUserInfo(message)
         }
+    }
+
+    nonisolated private static func redactedDJConnectDeviceID(_ deviceID: String) -> String {
+        guard deviceID.count > 6 else {
+            return "..."
+        }
+        return "...\(deviceID.suffix(6))"
     }
     #endif
 

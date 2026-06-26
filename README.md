@@ -43,7 +43,8 @@ Website: [https://djconnect.dev](https://djconnect.dev)
 - [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md): local development, generation, build, and test commands.
 - [docs/RELEASE.md](docs/RELEASE.md): signing, TestFlight, notarization, and live HA validation checklist.
 - [docs/postman/djconnect-local-device-api.postman_collection.json](docs/postman/djconnect-local-device-api.postman_collection.json):
-  Postman collection for the local Client API hosted by the iOS/macOS/watchOS app.
+  Postman collection for the local Client API hosted by the iOS/macOS app and
+  the iPhone-hosted watchOS companion proxy.
 - `pcvantol/djconnect/SYNC_PROMPTS.md`: canonical source for cross-repo DJConnect
   sync prompts and contract instructions.
 - `pcvantol/djconnect/PRODUCT_ROADMAP.md`: canonical DJConnect product roadmap.
@@ -67,10 +68,11 @@ integration and a Spotify Premium account. The app does not ask for Spotify
 credentials; Spotify OAuth stays owned by Home Assistant.
 
 If the app is not paired yet, the main runtime UI is blocked by a pairing
-sheet. That sheet shows the DJConnect banner, copyable Client adres,
-copyable app-generated pairing code, and live pairing status. After Home
-Assistant completes pairing, the sheet shows a success state with a green
-checkmark and a `Let's Start!` action before the runtime UI is released.
+sheet. On iOS/macOS that sheet shows the DJConnect banner, copyable Client
+adres, copyable app-generated pairing code, and live pairing status. On watchOS
+it shows the Watch pairing code and iPhone companion status. After Home
+Assistant completes pairing, the sheet shows a success state before the runtime
+UI is released.
 
 For App Store review and local UI inspection, the pairing sheet also exposes
 Demo Mode. Demo Mode fills Now Playing, queue, playlists, and DJ announcement
@@ -130,12 +132,14 @@ Tests/
 `DJConnectUI` contains the shared native SwiftUI screens used by the iOS and
 macOS app targets. `Apps/DJConnectIOS`, `Apps/DJConnectMac`, and
 `Apps/DJConnectWatch` contain the platform app entrypoints. The Watch app is a
-standalone watchOS client with its own compact SwiftUI surface, app-local token
-storage, Home Assistant pairing, playback controls, and push-to-talk voice
-upload through the `Ask DJ` action. The Watch also sends an `Ask DJ` mood value
-and DJ Memory key to Home Assistant so the backend can build shared DJ context
-across Watch, iOS, and macOS. Foreground wake phrase support may be added later,
-but the Watch target must not promise always-on background wakeword listening.
+companion-only watchOS client with its own compact SwiftUI surface, app-local
+token storage, playback controls, and push-to-talk voice upload through the
+`Ask DJ` action. Pairing and Home Assistant local callbacks are permanently
+proxied by the paired iPhone; the Watch does not host a local Web API and does
+not advertise Bonjour/mDNS. The Watch also sends an `Ask DJ` mood value and DJ
+Memory key to Home Assistant so the backend can build shared DJ context across
+Watch, iOS, and macOS. Foreground wake phrase support may be added later, but
+the Watch target must not promise always-on background wakeword listening.
 
 APNs push registration is supported for iOS, macOS, and watchOS clients. iOS
 uses `client_type: "ios"` and `device_id` values shaped like
@@ -156,7 +160,7 @@ Schemes:
 
 - `DJConnectIOS`: native iOS app target.
 - `DJConnectMac`: native macOS app target.
-- `DJConnectWatch`: native standalone watchOS app target.
+- `DJConnectWatch`: native companion-only watchOS app target.
 
 The project is generated from [project.yml](project.yml) with XcodeGen:
 
@@ -335,7 +339,9 @@ accepts that code and returns a DJConnect bearer token plus the HA local URL
 metadata. The current preferred response field is `device_token`; `bearer_token`
 and `token` are accepted for compatibility.
 
-The iOS/macOS/watchOS app also hosts a local Web API for Home Assistant -> app traffic:
+The iOS/macOS app also hosts a local Web API for Home Assistant -> app traffic.
+For watchOS, the paired iPhone hosts the same API shape as a permanent proxy for
+the Watch identity:
 
 ```http
 GET /api/device/info
@@ -349,19 +355,23 @@ POST /api/device/forget
 Protected local endpoints require `Authorization: Bearer <device_token>`.
 The Apple app does not implement ESP-only reboot or OTA routes.
 
-The user-facing name for this local endpoint is `Client adres`. The URL shown
-during pairing is pinned after successful pairing and remains stable in app
-storage until the user explicitly resets pairing.
+The user-facing name for this local endpoint is `Client adres` on iOS/macOS.
+The URL shown during pairing is pinned after successful pairing and remains
+stable in app storage until the user explicitly resets pairing. The Watch UI
+does not expose a client address because the callback endpoint is the iPhone
+companion proxy.
 
 Users can choose `App opnieuw koppelen` / `Pair App Again` in Settings to clear
 the locally stored DJConnect token, generate a fresh app code, and reopen the
 pairing sheet.
 
-The app advertises `_djconnect._tcp` with Bonjour/mDNS only while it is
-pairable, such as when the unpaired pairing sheet is visible. After pairing,
+The iOS/macOS app advertises `_djconnect._tcp` with Bonjour/mDNS only while it
+is pairable, such as when the unpaired pairing sheet is visible. After pairing,
 the local API remains available while the app is running, but Bonjour
 advertising is disabled to reduce LAN chatter and battery impact. Resetting the
-pairing enables discovery again.
+pairing enables discovery again. watchOS discovery is always iPhone-mediated:
+the iPhone advertises a Watch identity and iPhone-hosted `local_url`; the Watch
+never exposes its own LAN endpoint.
 
 ## Version Contract
 
