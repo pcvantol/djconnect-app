@@ -12,6 +12,9 @@ All notable changes to DJConnect App are documented here.
   surface.
 - Expanded diagnostics export and release docs with TestFlight/App Store
   readiness fields and redaction expectations.
+- Synced the Apple client contract with Home Assistant `3.2.x` backend error
+  shapes by accepting object-form `music_backend_error` and the shared
+  `windows` client type in core models.
 
 ## 3.2.0 - 2026-06-26
 

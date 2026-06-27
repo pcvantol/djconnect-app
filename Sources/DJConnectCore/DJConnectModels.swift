@@ -6,6 +6,7 @@ public enum DJConnectClientType: String, Codable, Sendable {
     case watchos
     case esp32
     case raspberryPi = "raspberry_pi"
+    case windows
 }
 
 public enum DJConnectPlatform: String, Codable, Sendable {
@@ -3161,9 +3162,9 @@ public struct DJConnectCommandResponse: Codable, Equatable, Sendable {
         musicTargetPlayer = try container.decodeIfPresent(DJConnectMusicTargetPlayer.self, forKey: .musicTargetPlayer)
             ?? data?.decodeIfPresentIgnoringErrors(DJConnectMusicTargetPlayer.self, forKey: .musicTargetPlayer)
             ?? result?.decodeIfPresentIgnoringErrors(DJConnectMusicTargetPlayer.self, forKey: .musicTargetPlayer)
-        musicBackendError = container.decodeStringAliasIfPresent(.musicBackendError)
-            ?? data?.decodeStringAliasIfPresent(.musicBackendError)
-            ?? result?.decodeStringAliasIfPresent(.musicBackendError)
+        musicBackendError = container.decodeMusicBackendErrorIfPresent(.musicBackendError)
+            ?? data?.decodeMusicBackendErrorIfPresent(.musicBackendError)
+            ?? result?.decodeMusicBackendErrorIfPresent(.musicBackendError)
         playback = try container.decodeIfPresent(DJConnectPlayback.self, forKey: .playback)
             ?? data?.decodeIfPresentIgnoringErrors(DJConnectPlayback.self, forKey: .playback)
             ?? result?.decodeIfPresentIgnoringErrors(DJConnectPlayback.self, forKey: .playback)
@@ -3302,6 +3303,23 @@ private extension KeyedDecodingContainer where Key == DJConnectCommandResponse.C
         return nil
     }
 
+    func decodeMusicBackendErrorIfPresent(_ keys: Key...) -> String? {
+        for key in keys {
+            if let value = try? decodeIfPresent(String.self, forKey: key), !value.isEmpty {
+                return value
+            }
+            if let value = try? decodeIfPresent(DJConnectMusicBackendErrorPayload.self, forKey: key) {
+                if let message = value.message?.trimmingCharacters(in: .whitespacesAndNewlines), !message.isEmpty {
+                    return message
+                }
+                if let code = value.code?.trimmingCharacters(in: .whitespacesAndNewlines), !code.isEmpty {
+                    return code
+                }
+            }
+        }
+        return nil
+    }
+
     func decodeOutputDeviceItemsIfPresent(forKey key: Key) -> [DJConnectOutputDevice]? {
         guard let items = decodeLossyArrayIfPresent(DJConnectOutputDeviceCandidate.self, forKey: key) else {
             return nil
@@ -3414,6 +3432,11 @@ public struct DJConnectVoiceResponse: Codable, Equatable, Sendable {
         try container.encodeIfPresent(links, forKey: .links)
         try container.encodeIfPresent(playbackActions, forKey: .playbackActions)
     }
+}
+
+private struct DJConnectMusicBackendErrorPayload: Codable, Equatable, Sendable {
+    var code: String?
+    var message: String?
 }
 
 private extension KeyedDecodingContainer {

@@ -366,9 +366,10 @@ whether playback controls are available, paused, playing, or waiting for an
 active playback snapshot.
 The iPhone syncs a compact summary to the Watch for About/status UI:
 connection mode (`local`, `remote`, `offline`), backend id/name/availability,
-backend revision, target player, and backend error. Watch playback actions keep
-the complete backend-owned action `value`, so Spotify Direct URI actions and
-Music Assistant object actions are both forwarded unchanged through iPhone.
+backend revision, target player, capabilities, and safe backend error messages
+or codes. Watch playback actions keep the complete backend-owned action
+`value`, so Spotify Direct URI actions and Music Assistant object actions are
+both forwarded unchanged through iPhone.
 
 ## Version Contract
 

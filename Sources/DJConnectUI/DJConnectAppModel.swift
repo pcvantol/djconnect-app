@@ -7206,6 +7206,8 @@ public final class DJConnectAppModel: ObservableObject {
             URL(string: "https://djconnect.dev")
         case .raspberryPi:
             nil
+        case .windows:
+            URL(string: "https://djconnect.dev/windows#downloads")
         }
     }
 

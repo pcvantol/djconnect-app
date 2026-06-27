@@ -4739,3 +4739,57 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
     #expect(summary.musicTargetPlayer?.name == "Woonkamer")
     #expect(response.remoteSupported == true)
 }
+
+@Test func commandResponseDecodesObjectMusicBackendError() throws {
+    let json = """
+    {
+      "success": false,
+      "error": "unsupported_backend_capability",
+      "music_backend": "music_assistant",
+      "music_backend_error": {
+        "code": "supports_recently_played",
+        "message": "The selected music backend does not provide recent listening history."
+      }
+    }
+    """.data(using: .utf8)!
+
+    let response = try JSONDecoder().decode(DJConnectCommandResponse.self, from: json)
+
+    #expect(response.error == "unsupported_backend_capability")
+    #expect(response.musicBackend == "music_assistant")
+    #expect(response.musicBackendError == "The selected music backend does not provide recent listening history.")
+    #expect(response.musicBackendSummary.musicBackendError == response.musicBackendError)
+}
+
+@Test func commandResponseDecodesNestedMusicBackendErrorObjectFallbackCode() throws {
+    let json = """
+    {
+      "success": false,
+      "data": {
+        "music_backend_error": {
+          "code": "music_assistant_unavailable"
+        }
+      }
+    }
+    """.data(using: .utf8)!
+
+    let response = try JSONDecoder().decode(DJConnectCommandResponse.self, from: json)
+
+    #expect(response.musicBackendError == "music_assistant_unavailable")
+}
+
+@Test func sharedClientTypeDecodesWindowsForCrossRepoContract() throws {
+    let json = """
+    {
+      "success": true,
+      "device_token": "device-token",
+      "client_type": "windows",
+      "device_id": "djconnect-windows-ABCDEF123456"
+    }
+    """.data(using: .utf8)!
+
+    let response = try JSONDecoder().decode(DJConnectPairingResponse.self, from: json)
+
+    #expect(response.clientType == .windows)
+    #expect(response.deviceID == "djconnect-windows-ABCDEF123456")
+}

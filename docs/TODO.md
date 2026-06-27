@@ -9,6 +9,15 @@ with acceptance criteria live in [ISSUES.md](ISSUES.md).
 
 - Validate live backend devices, queue, playlists, liked proxy, and voice flows
   against a real Home Assistant `djconnect` setup.
+- Field-test both Spotify Direct and Music Assistant against HA `3.2.x`,
+  including `music_backend_capabilities`, `unsupported_backend_capability`,
+  stale `music_backend_revision` Ask DJ actions, and backend switch recovery.
+- Field-test LAN pairing plus post-pairing `ha_remote_url` fallback on physical
+  iPhone/iPad and Mac using the canonical
+  `pcvantol/djconnect/FIELD_TEST_APP_CLIENTS.md` checklist.
+- Field-test APNs wake/sync hints for iOS/macOS/watchOS with central
+  `djconnect-api`, confirming push never carries raw prompts, raw audio,
+  Ask DJ history, DJ Memory, Spotify tokens, HA tokens, or bearer tokens.
 - Validate HA entity creation and status sync for iOS, iPadOS, and macOS app
   clients after pairing.
 - Validate the blocking pairing sheet and Demo Mode on physical iPhone, iPad,

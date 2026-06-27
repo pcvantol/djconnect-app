@@ -254,6 +254,12 @@ transport summary:
 }
 ```
 
+`music_backend_error` may also be a safe object from Home Assistant, for
+example `{"code":"supports_recently_played","message":"The selected music
+backend does not provide recent listening history."}`. Apple clients display
+the user-facing `message` when present and keep the compact `code` as fallback
+diagnostic context.
+
 iOS/macOS use `ha_local_url` first after successful local pairing, then
 `ha_remote_url` when local access is unreachable and remote is supported.
 watchOS requests remain mediated by iPhone.
