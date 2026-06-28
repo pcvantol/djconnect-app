@@ -5,6 +5,9 @@ import Foundation
 import Network
 import OSLog
 
+#if os(iOS) && canImport(ActivityKit)
+import ActivityKit
+#endif
 #if canImport(UserNotifications)
 @preconcurrency import UserNotifications
 #endif
@@ -181,6 +184,24 @@ private enum DJConnectPendingPermissionRequest {
     case voiceRecording
 }
 
+public enum DJConnectHomeScreenAction: String, Equatable, Sendable {
+    case askDJ = "dev.djconnect.action.ask-dj"
+    case trackInsight = "dev.djconnect.action.track-insight"
+}
+
+private extension DJConnectAskDJMessageResponse {
+    var shouldOpenTrackInsight: Bool {
+        let openTarget = openScreen?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        let type = responseType?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        let intent = intentInfo?.intent?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        let action = intentInfo?.action?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        return openTarget == "track_insight"
+            || type == "track_insight"
+            || intent == "track_insight"
+            || action == "track_insight"
+    }
+}
+
 public struct DJConnectUserNotice: Identifiable, Equatable, Sendable {
     public let id = UUID()
     public var text: String
@@ -226,7 +247,7 @@ public struct DJConnectAskDJMessage: Identifiable, Codable, Equatable, Sendable 
     public var status: DJConnectAskDJMessageStatus?
     public var createdAt: Date
     public var intentInfo: DJConnectAskDJIntentInfo?
-    public var analysis: DJConnectAskDJTrackAnalysis?
+    public var trackInsight: TrackInsight?
     public var items: [DJConnectAskDJHistoryItem]
 
     public init(
@@ -246,7 +267,7 @@ public struct DJConnectAskDJMessage: Identifiable, Codable, Equatable, Sendable 
         status: DJConnectAskDJMessageStatus? = nil,
         createdAt: Date = Date(),
         intentInfo: DJConnectAskDJIntentInfo? = nil,
-        analysis: DJConnectAskDJTrackAnalysis? = nil,
+        trackInsight: TrackInsight? = nil,
         items: [DJConnectAskDJHistoryItem] = []
     ) {
         self.id = id
@@ -265,14 +286,8 @@ public struct DJConnectAskDJMessage: Identifiable, Codable, Equatable, Sendable 
         self.status = status
         self.createdAt = createdAt
         self.intentInfo = intentInfo
-        self.analysis = analysis
+        self.trackInsight = trackInsight
         self.items = items
-    }
-
-    public var isTechnicalTrackAnalysis: Bool {
-        let intent = intentInfo?.intent?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        let action = intentInfo?.action?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        return intent == "technical_track_analysis" || action == "track_analysis"
     }
 
     public var renderablePlaybackActions: [DJConnectAskDJPlaybackAction] {
@@ -296,7 +311,7 @@ public struct DJConnectAskDJMessage: Identifiable, Codable, Equatable, Sendable 
         case status
         case createdAt = "created_at"
         case intentInfo = "intent"
-        case analysis
+        case trackInsight = "track_insight"
         case items
     }
 
@@ -318,7 +333,7 @@ public struct DJConnectAskDJMessage: Identifiable, Codable, Equatable, Sendable 
         status = try container.decodeIfPresent(DJConnectAskDJMessageStatus.self, forKey: .status)
         createdAt = try container.decodeIfPresent(Date.self, forKey: .createdAt) ?? Date()
         intentInfo = try container.decodeIfPresent(DJConnectAskDJIntentInfo.self, forKey: .intentInfo)
-        analysis = try container.decodeIfPresent(DJConnectAskDJTrackAnalysis.self, forKey: .analysis)
+        trackInsight = try container.decodeIfPresent(TrackInsight.self, forKey: .trackInsight)
         items = try container.decodeIfPresent([DJConnectAskDJHistoryItem].self, forKey: .items) ?? []
     }
 
@@ -340,7 +355,7 @@ public struct DJConnectAskDJMessage: Identifiable, Codable, Equatable, Sendable 
         try container.encodeIfPresent(status, forKey: .status)
         try container.encode(createdAt, forKey: .createdAt)
         try container.encodeIfPresent(intentInfo, forKey: .intentInfo)
-        try container.encodeIfPresent(analysis, forKey: .analysis)
+        try container.encodeIfPresent(trackInsight, forKey: .trackInsight)
         try container.encode(items, forKey: .items)
     }
 
@@ -395,6 +410,18 @@ public final class DJConnectAppModel: ObservableObject {
     @Published public var pairingMessage: String?
     @Published public var userNotice: DJConnectUserNotice?
     @Published public var playback: DJConnectPlayback?
+    @Published public private(set) var currentTrackInsight: TrackInsight?
+    @Published public private(set) var trackInsightHistory: [TrackInsight] = []
+    @Published public private(set) var isLoadingTrackInsight = false
+    @Published public private(set) var trackInsightErrorMessage: String?
+    @Published public var autoTrackInsightEnabled = false {
+        didSet { defaults.set(autoTrackInsightEnabled, forKey: autoTrackInsightEnabledKey) }
+    }
+    @Published public var showVisualizerOnAirPlay = false {
+        didSet { defaults.set(showVisualizerOnAirPlay, forKey: showVisualizerOnAirPlayKey) }
+    }
+    @Published public private(set) var trackInsightNavigationRequestID: UUID?
+    @Published public private(set) var homeScreenActionRequest: DJConnectHomeScreenAction?
     @Published public var queue: [String] = []
     @Published public var playlists: [String] = []
     @Published public var availableOutputs: [DJConnectOutputDevice] = []
@@ -527,7 +554,7 @@ public final class DJConnectAppModel: ObservableObject {
     private let startBackgroundTasks: Bool
     private let monkeyTestingMode: Bool
     private let diagnosticLogFileURL: URL?
-    nonisolated private static let protocolVersion = "3.2.0"
+    nonisolated private static let protocolVersion = "3.2.2"
     private static let defaultHomeAssistantURL = "http://homeassistant.local:8123"
     private let appVersion = DJConnectAppModel.protocolVersion
     private let installIDKey = "DJConnectInstallID"
@@ -554,6 +581,8 @@ public final class DJConnectAppModel: ObservableObject {
     private let askDJHistoryRevisionKey = "DJConnectAskDJHistoryRevision"
     private let askDJClearRevisionKey = "DJConnectAskDJClearRevision"
     private let askDJAudioResponseModeKey = "DJConnectAskDJAudioResponseMode"
+    private let autoTrackInsightEnabledKey = "DJConnectAutoTrackInsightEnabled"
+    private let showVisualizerOnAirPlayKey = "DJConnectShowVisualizerOnAirPlay"
     private let legacyPushTokenKey = "DJConnectPushToken"
     private let registeredPushTokenKey = "DJConnectRegisteredPushToken"
     private let registeredPushTokenHashKey = "DJConnectRegisteredPushTokenHash"
@@ -580,6 +609,7 @@ public final class DJConnectAppModel: ObservableObject {
     private var hasRequestedAskDJNotificationPermission = false
     private var pendingPermissionRequest: DJConnectPendingPermissionRequest?
     private var shouldBypassPermissionExplanationOnce = false
+    private let demoTrackInsightService = DemoTrackInsightService()
 
     public var volume: Double {
         get { Double(pendingVolumePercent ?? playback?.volumePercent ?? 0) }
@@ -664,6 +694,10 @@ public final class DJConnectAppModel: ObservableObject {
         isDemoMode || (pairingStatus == .paired && backendAvailable && isRuntimeCompatible && haConnectionMode != .offline)
     }
 
+    public var canStartTrackInsightAnalysis: Bool {
+        isDemoMode || (canUsePlaybackFeatures && hasActiveNowPlaying)
+    }
+
     public var localNetworkRequirementMessage: String? {
         (!hasEvaluatedLocalNetwork || isLocalNetworkAvailable) ? nil : localized(
             english: "Local Wi-Fi/LAN is required. Connect this device to the same local network as Home Assistant.",
@@ -721,6 +755,8 @@ public final class DJConnectAppModel: ObservableObject {
         self.selectedOutput = Self.noOutputName(for: language)
         self.logLevel = defaults.string(forKey: logLevelKey) ?? "info"
         self.askDJMood = defaults.object(forKey: askDJMoodKey) == nil ? 50.0 : defaults.double(forKey: askDJMoodKey)
+        self.autoTrackInsightEnabled = defaults.bool(forKey: autoTrackInsightEnabledKey)
+        self.showVisualizerOnAirPlay = defaults.bool(forKey: showVisualizerOnAirPlayKey)
         self.askDJMessages = Self.loadAskDJMessages(defaults: defaults, key: askDJMessagesKey)
         loadPersistentDiagnosticLog()
         defaults.removeObject(forKey: demoModeKey)
@@ -2235,6 +2271,52 @@ public final class DJConnectAppModel: ObservableObject {
         submitAskDJText(text, userMessageID: messageID, clientMessageID: clientMessageID)
     }
 
+    public func analyzeCurrentTrack(open: Bool = true, forceRefresh: Bool = false) {
+        guard !isLoadingTrackInsight else {
+            if open {
+                trackInsightNavigationRequestID = UUID()
+            }
+            return
+        }
+        isLoadingTrackInsight = true
+        trackInsightErrorMessage = nil
+
+        Task {
+            defer { isLoadingTrackInsight = false }
+            do {
+                let insight: TrackInsight
+                if isDemoMode {
+                    insight = try await demoTrackInsightService.insight(for: playback)
+                } else {
+                    guard canUsePlaybackFeatures else {
+                        throw DJConnectError.invalidConfiguration("Pair with Home Assistant before using Track Insight.")
+                    }
+                    let payload = DJConnectTrackInsightRequest(
+                        title: playback?.trackName,
+                        artist: playback?.artistName,
+                        entityID: nil,
+                        playerID: playback?.device?.id,
+                        musicBackend: musicBackendSummary.musicBackend,
+                        forceRefresh: forceRefresh,
+                        locale: language,
+                        includeVisualProfile: true,
+                        includeRawResponse: true
+                    )
+                    insight = try await withHomeAssistantClient { client in
+                        try await client.trackInsight(payload)
+                    }
+                }
+                applyTrackInsight(insight, open: open)
+            } catch let error as DJConnectError {
+                trackInsightErrorMessage = trackInsightErrorMessage(for: error)
+                log(.warning, "Track Insight failed: \(error.localizedDescription)")
+            } catch {
+                trackInsightErrorMessage = trackInsightErrorMessage(for: error)
+                log(.warning, "Track Insight failed: \(error.localizedDescription)")
+            }
+        }
+    }
+
     public func retryAskDJMessage(_ message: DJConnectAskDJMessage) {
         guard message.role == .user, message.status == .failed, !isSendingAskDJText else {
             return
@@ -2252,6 +2334,30 @@ public final class DJConnectAppModel: ObservableObject {
         askDJErrorMessage = nil
         updateAskDJMessageStatus(id: message.id, status: .sending)
         submitAskDJText(text, userMessageID: message.id, clientMessageID: message.clientMessageID ?? UUID().uuidString)
+    }
+
+    public func openTrackInsight() {
+        if currentTrackInsight == nil {
+            analyzeCurrentTrack(open: true)
+        } else {
+            trackInsightNavigationRequestID = UUID()
+        }
+    }
+
+    public func performHomeScreenAction(_ action: DJConnectHomeScreenAction) {
+        homeScreenActionRequest = action
+        switch action {
+        case .askDJ:
+            prepareAskDJHistoryForDisplay()
+        case .trackInsight:
+            openTrackInsight()
+        }
+    }
+
+    public func clearHomeScreenActionRequest(_ action: DJConnectHomeScreenAction) {
+        if homeScreenActionRequest == action {
+            homeScreenActionRequest = nil
+        }
     }
 
     public func playAskDJRecommendation(_ action: DJConnectAskDJPlaybackAction) {
@@ -2385,6 +2491,7 @@ public final class DJConnectAppModel: ObservableObject {
             do {
                 let response = try await sendAskDJTextWithFallback(text, clientMessageID: clientMessageID)
                 applyAskDJMessageResponse(response, fallbackUserMessageID: userMessageID)
+                applyTrackInsightIfNeeded(from: response, open: true)
                 let assistant = response.assistantMessage
                 let responseText = userFacingDJResponseText(assistant?.text)
                     ?? localized(english: "Ask DJ completed.", dutch: "Ask DJ afgerond.")
@@ -3105,7 +3212,7 @@ public final class DJConnectAppModel: ObservableObject {
         switch error {
         case .backendUnavailable, .server, .network, .decodingFailed, .invalidResponse, .routeMissing:
             true
-        case .authStale, .versionMismatch, .notConfigured, .invalidConfiguration, .missingToken, .pairingFailed:
+        case .authStale, .versionMismatch, .notConfigured, .invalidConfiguration, .missingToken, .pairingFailed, .trackInsightUnavailable:
             false
         }
     }
@@ -3525,11 +3632,11 @@ public final class DJConnectAppModel: ObservableObject {
 
     private func sendVoiceWithFallback(wavData: Data) async throws -> DJConnectVoiceResponse {
         try await withHomeAssistantClient { client in
-            try await client.sendVoice(wavData: wavData, mood: askDJMoodInt, djStyle: "warm_radio_dj", memoryKey: askDJMemoryKey)
+            try await client.sendVoice(wavData: wavData, mood: askDJMoodInt, djStyle: "warm_radio_dj", musicDNAKey: askDJMusicDNAKey)
         }
     }
 
-    private var askDJMemoryKey: String {
+    private var askDJMusicDNAKey: String {
         "djconnect_\(identity.clientType.rawValue)_\(identity.deviceID)"
     }
 
@@ -3556,7 +3663,7 @@ public final class DJConnectAppModel: ObservableObject {
                 inputType: "text",
                 mood: askDJMoodInt,
                 djStyle: "warm_radio_dj",
-                memoryKey: askDJMemoryKey,
+                musicDNAKey: askDJMusicDNAKey,
                 audioResponse: askDJAudioResponseMode
             ))
         }
@@ -3564,7 +3671,7 @@ public final class DJConnectAppModel: ObservableObject {
 
     private func clearAskDJHistoryWithFallback() async throws -> DJConnectAskDJHistoryResponse {
         try await withHomeAssistantClient { client in
-            try await client.clearAskDJHistory(memoryKey: askDJMemoryKey)
+            try await client.clearAskDJHistory(musicDNAKey: askDJMusicDNAKey)
         }
     }
 
@@ -3581,7 +3688,7 @@ public final class DJConnectAppModel: ObservableObject {
                 clientMessageID: UUID().uuidString,
                 mood: askDJMoodInt,
                 djStyle: "warm_radio_dj",
-                memoryKey: askDJMemoryKey
+                musicDNAKey: askDJMusicDNAKey
             ))
         }
     }
@@ -3882,6 +3989,7 @@ public final class DJConnectAppModel: ObservableObject {
         if fallbackUserMessageID != nil {
             requestAskDJScrollToBottom()
         }
+        applyTrackInsightIfNeeded(from: response, open: false)
     }
 
     func applyAskDJHistory(_ response: DJConnectAskDJHistoryResponse) {
@@ -3898,6 +4006,60 @@ public final class DJConnectAppModel: ObservableObject {
         askDJMessages = sortedAskDJMessages(nextMessages)
         persistAskDJRevisions(historyRevision: response.historyRevision, clearRevision: response.clearRevision)
         saveAskDJMessages()
+        if let newestInsight = askDJMessages.last(where: { $0.trackInsight != nil })?.trackInsight {
+            applyTrackInsight(newestInsight, open: false)
+        }
+    }
+
+    private func applyTrackInsightIfNeeded(from response: DJConnectAskDJMessageResponse, open: Bool) {
+        guard let insight = response.trackInsight ?? response.assistantMessage?.trackInsight else {
+            return
+        }
+        applyTrackInsight(insight, open: open || response.shouldOpenTrackInsight)
+    }
+
+    private func applyTrackInsight(_ insight: TrackInsight, open: Bool) {
+        currentTrackInsight = insight
+        updateTrackInsightLiveActivity(for: insight)
+        trackInsightHistory.removeAll { $0.id == insight.id }
+        trackInsightHistory.insert(insight, at: 0)
+        if trackInsightHistory.count > 25 {
+            trackInsightHistory.removeLast(trackInsightHistory.count - 25)
+        }
+        trackInsightErrorMessage = nil
+        if open {
+            trackInsightNavigationRequestID = UUID()
+        }
+    }
+
+    private func updateTrackInsightLiveActivity(for insight: TrackInsight) {
+        #if os(iOS) && canImport(ActivityKit)
+        guard #available(iOS 16.1, *) else {
+            return
+        }
+        Task {
+            await TrackInsightLiveActivityController.update(with: insight)
+        }
+        #endif
+    }
+
+    private func trackInsightErrorMessage(for error: Error) -> String {
+        if case let DJConnectError.trackInsightUnavailable(code, message) = error {
+            let normalizedCode = code?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+            if normalizedCode == "no_track_playing" {
+                return localized(
+                    english: "Start playback before opening Track Insight.",
+                    dutch: "Start eerst een nummer voordat je Track Insight opent."
+                )
+            }
+            if let message, !message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                return message
+            }
+        }
+        return localized(
+            english: "Track Insight is unavailable for this track.",
+            dutch: "Track Insight is niet beschikbaar voor dit nummer."
+        )
     }
 
     private func upsertAskDJHistoryMessage(
@@ -3957,7 +4119,7 @@ public final class DJConnectAppModel: ObservableObject {
             status: status,
             createdAt: historyMessage.createdAt,
             intentInfo: historyMessage.intentInfo,
-            analysis: historyMessage.analysis,
+            trackInsight: historyMessage.trackInsight,
             items: proxiedAskDJHistoryItems(historyMessage.items)
         )
     }
@@ -4058,8 +4220,8 @@ public final class DJConnectAppModel: ObservableObject {
         if merged.intentInfo == nil {
             merged.intentInfo = fallback.intentInfo
         }
-        if merged.analysis == nil {
-            merged.analysis = fallback.analysis
+        if merged.trackInsight == nil {
+            merged.trackInsight = fallback.trackInsight
         }
         if merged.items.isEmpty {
             merged.items = fallback.items
@@ -4499,7 +4661,7 @@ public final class DJConnectAppModel: ObservableObject {
                 english: "Ask DJ is unreachable",
                 dutch: "Ask DJ niet bereikbaar"
             ))
-        case .authStale, .versionMismatch:
+        case .authStale, .versionMismatch, .trackInsightUnavailable:
             showAskDJToast(localized(
                 english: "Ask DJ is unreachable",
                 dutch: "Ask DJ niet bereikbaar"
@@ -4525,7 +4687,8 @@ public final class DJConnectAppModel: ObservableObject {
              .missingToken,
              .pairingFailed,
              .authStale,
-             .versionMismatch:
+             .versionMismatch,
+             .trackInsightUnavailable:
             askDJUnavailableText()
         }
     }
@@ -5067,6 +5230,7 @@ public final class DJConnectAppModel: ObservableObject {
             english: "Tap the microphone icon to hear a sample announcement.",
             dutch: "Druk op het microfoon icoon om een voorbeeld aankondiging te beluisteren."
         )
+        applyDemoTrackInsightForCurrentPlayback(open: false)
         backendAvailable = true
         updateRequiredMessage = nil
         if startBackgroundTasks {
@@ -5169,8 +5333,20 @@ public final class DJConnectAppModel: ObservableObject {
             device: playback?.device,
             contextURI: queueContext
         )
+        applyDemoTrackInsightForCurrentPlayback(open: false)
         if startBackgroundTasks {
             updatePlaybackProgressTimer()
+        }
+    }
+
+    private func applyDemoTrackInsightForCurrentPlayback(open: Bool) {
+        let playback = playback
+        Task {
+            let insight = try? await demoTrackInsightService.insight(for: playback)
+            guard let insight else {
+                return
+            }
+            applyTrackInsight(insight, open: open)
         }
     }
 
@@ -5204,11 +5380,30 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     private func makeClient(baseURL: URL) -> DJConnectClient {
-        DJConnectClient(baseURL: baseURL, identity: identity, tokenStore: tokenStore) { [weak self] requestSummary, statusCode in
+        DJConnectClient(
+            baseURL: baseURL,
+            identity: identity,
+            tokenStore: tokenStore,
+            webSocketFastPath: webSocketFastPathIfLocal(baseURL)
+        ) { [weak self] requestSummary, statusCode in
             Task { @MainActor in
                 self?.log(.debug, "Home Assistant API \(requestSummary) -> HTTP \(statusCode)")
             }
         }
+    }
+
+    private func webSocketFastPathIfLocal(_ baseURL: URL) -> (any DJConnectWebSocketFastPathTransport)? {
+        let localURL = Self.normalizedHomeAssistantURL(from: localHomeAssistantURL())
+            ?? Self.normalizedHomeAssistantURL(from: homeAssistantURL)
+            ?? Self.normalizedHomeAssistantURL(from: haLocalURL)
+        return Self.webSocketFastPathIfLocal(baseURL, localURL: localURL)
+    }
+
+    nonisolated private static func webSocketFastPathIfLocal(_ baseURL: URL, localURL: URL?) -> (any DJConnectWebSocketFastPathTransport)? {
+        guard let localURL, localURL.absoluteString.lowercased() == baseURL.absoluteString.lowercased() else {
+            return nil
+        }
+        return DJConnectHomeAssistantWebSocketFastPath(baseURL: baseURL)
     }
 
     private func homeAssistantBaseURLs() -> [URL] {
@@ -5243,8 +5438,13 @@ public final class DJConnectAppModel: ObservableObject {
             localURL: localURL,
             remoteURL: remoteURL,
             allowsRemoteFallback: identity.clientType != .watchos,
-            clientFactory: { [identity, tokenStore] baseURL in
-                DJConnectClient(baseURL: baseURL, identity: identity, tokenStore: tokenStore)
+            clientFactory: { [identity, tokenStore, localURL] baseURL in
+                DJConnectClient(
+                    baseURL: baseURL,
+                    identity: identity,
+                    tokenStore: tokenStore,
+                    webSocketFastPath: Self.webSocketFastPathIfLocal(baseURL, localURL: localURL)
+                )
             },
             modeReporter: { [weak self] mode, baseURL in
                 Task { @MainActor in
@@ -5419,8 +5619,8 @@ public final class DJConnectAppModel: ObservableObject {
             deviceID: "djconnect-macos-unavailable",
             deviceName: "DJConnect Mac",
             clientType: .macos,
-            firmware: "3.2.0",
-            appVersion: "3.2.0",
+            firmware: "3.2.2",
+            appVersion: "3.2.2",
             platform: .macos
         )
         #else
@@ -5428,8 +5628,8 @@ public final class DJConnectAppModel: ObservableObject {
             deviceID: "djconnect-ios-unavailable",
             deviceName: "DJConnect iPhone",
             clientType: .ios,
-            firmware: "3.2.0",
-            appVersion: "3.2.0",
+            firmware: "3.2.2",
+            appVersion: "3.2.2",
             platform: .ios
         )
         #endif
@@ -5787,7 +5987,7 @@ public final class DJConnectAppModel: ObservableObject {
             return try encoder.encode(response)
         case .clearAskDJHistory:
             let payload = try decoder.decode(DJConnectAskDJClearHistoryRequest.self, from: request.payload ?? Data())
-            let response = try await client.clearAskDJHistory(memoryKey: payload.memoryKey)
+            let response = try await client.clearAskDJHistory(musicDNAKey: payload.musicDNAKey)
             return try encoder.encode(response)
         case .askDJIdleSuggestion:
             let payload = try decoder.decode(DJConnectAskDJIdleSuggestionRequest.self, from: request.payload ?? Data())
@@ -5799,7 +5999,7 @@ public final class DJConnectAppModel: ObservableObject {
                 wavData: payload.wavData,
                 mood: payload.mood,
                 djStyle: payload.djStyle,
-                memoryKey: payload.memoryKey
+                musicDNAKey: payload.musicDNAKey
             )
             return try encoder.encode(response)
         case .pushRegister:
@@ -5826,8 +6026,13 @@ public final class DJConnectAppModel: ObservableObject {
             localURL: localURL,
             remoteURL: remoteURL,
             allowsRemoteFallback: true,
-            clientFactory: { baseURL in
-                DJConnectClient(baseURL: baseURL, identity: identity, tokenStore: tokenStore)
+            clientFactory: { [localURL] baseURL in
+                DJConnectClient(
+                    baseURL: baseURL,
+                    identity: identity,
+                    tokenStore: tokenStore,
+                    webSocketFastPath: Self.webSocketFastPathIfLocal(baseURL, localURL: localURL)
+                )
             },
             modeReporter: { [weak self] mode, baseURL in
                 Task { @MainActor in
@@ -5874,6 +6079,8 @@ public final class DJConnectAppModel: ObservableObject {
             return "invalid_configuration"
         case .pairingFailed:
             return "pairing_failed"
+        case .trackInsightUnavailable:
+            return "track_insight_unavailable"
         case .server, .decodingFailed, .invalidResponse:
             return "server"
         }
@@ -6302,6 +6509,8 @@ public final class DJConnectAppModel: ObservableObject {
             return mismatch.message ?? "Werk DJConnect bij."
         case .backendUnavailable, .server, .decodingFailed, .invalidResponse:
             return "Home Assistant gaf geen antwoord."
+        case .trackInsightUnavailable:
+            return "Track Insight is niet beschikbaar voor dit nummer."
         case .network, .routeMissing, .notConfigured:
             return "Ask DJ niet bereikbaar."
         case .authStale, .missingToken:
@@ -6339,6 +6548,8 @@ public final class DJConnectAppModel: ObservableObject {
             "missing DJConnect bearer token"
         case let .pairingFailed(message):
             "pairing pending\(message.map { ": \($0)" } ?? "")"
+        case let .trackInsightUnavailable(code, message):
+            "track insight unavailable\(code.map { " \($0)" } ?? "")\(message.map { ": \($0)" } ?? "")"
         }
     }
 

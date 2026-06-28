@@ -13,6 +13,7 @@ public enum DJConnectError: Error, Equatable, Sendable {
     case invalidConfiguration(String)
     case missingToken
     case pairingFailed(message: String?)
+    case trackInsightUnavailable(code: String?, message: String?)
 }
 
 public struct DJConnectVersionMismatch: Codable, Equatable, Sendable {

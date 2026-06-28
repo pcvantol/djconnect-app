@@ -54,13 +54,13 @@ public struct DJConnectWatchProxyVoicePayload: Codable, Sendable {
     public var wavData: Data
     public var mood: Int?
     public var djStyle: String?
-    public var memoryKey: String?
+    public var musicDNAKey: String?
 
-    public init(wavData: Data, mood: Int? = nil, djStyle: String? = nil, memoryKey: String? = nil) {
+    public init(wavData: Data, mood: Int? = nil, djStyle: String? = nil, musicDNAKey: String? = nil) {
         self.wavData = wavData
         self.mood = mood
         self.djStyle = djStyle
-        self.memoryKey = memoryKey
+        self.musicDNAKey = musicDNAKey
     }
 }
 
@@ -404,7 +404,7 @@ public struct DJConnectStatusPayload: Codable, Equatable, Sendable {
     public var wakewordStatus: String?
     public var mood: Int?
     public var djStyle: String?
-    public var memoryKey: String?
+    public var musicDNAKey: String?
     public var bootstrapProof: String?
 
     public init(
@@ -430,7 +430,7 @@ public struct DJConnectStatusPayload: Codable, Equatable, Sendable {
         wakewordStatus: String? = nil,
         mood: Int? = nil,
         djStyle: String? = nil,
-        memoryKey: String? = nil,
+        musicDNAKey: String? = nil,
         bootstrapProof: String? = nil
     ) {
         self.deviceID = identity.deviceID
@@ -460,7 +460,7 @@ public struct DJConnectStatusPayload: Codable, Equatable, Sendable {
         self.wakewordStatus = wakewordStatus
         self.mood = mood.map { max(0, min(100, $0)) }
         self.djStyle = djStyle
-        self.memoryKey = memoryKey
+        self.musicDNAKey = musicDNAKey
         self.bootstrapProof = bootstrapProof
     }
 
@@ -492,7 +492,7 @@ public struct DJConnectStatusPayload: Codable, Equatable, Sendable {
         case wakewordStatus = "wakeword_status"
         case mood
         case djStyle = "dj_style"
-        case memoryKey = "memory_key"
+        case musicDNAKey = "music_dna_key"
         case bootstrapProof = "bootstrap_proof"
     }
 }
@@ -556,7 +556,7 @@ public struct DJConnectAskDJRequest: Codable, Equatable, Sendable {
     public var inputType: String?
     public var mood: Int?
     public var djStyle: String?
-    public var memoryKey: String?
+    public var musicDNAKey: String?
     public var audioResponse: AudioResponse?
     public var metadata: [String: String]?
 
@@ -567,7 +567,7 @@ public struct DJConnectAskDJRequest: Codable, Equatable, Sendable {
         inputType: String? = nil,
         mood: Int? = nil,
         djStyle: String? = nil,
-        memoryKey: String? = nil,
+        musicDNAKey: String? = nil,
         audioResponse: AudioResponse? = nil,
         metadata: [String: String]? = nil
     ) {
@@ -580,7 +580,7 @@ public struct DJConnectAskDJRequest: Codable, Equatable, Sendable {
         self.inputType = inputType
         self.mood = mood.map { max(0, min(100, $0)) }
         self.djStyle = djStyle
-        self.memoryKey = memoryKey
+        self.musicDNAKey = musicDNAKey
         self.audioResponse = audioResponse
         self.metadata = metadata
     }
@@ -595,7 +595,7 @@ public struct DJConnectAskDJRequest: Codable, Equatable, Sendable {
         case inputType = "input_type"
         case mood
         case djStyle = "dj_style"
-        case memoryKey = "memory_key"
+        case musicDNAKey = "music_dna_key"
         case audioResponse = "audio_response"
         case metadata
     }
@@ -657,308 +657,763 @@ public struct DJConnectAskDJIntentInfo: Codable, Equatable, Sendable {
     }
 }
 
-public struct DJConnectAskDJTrackAnalysis: Codable, Equatable, Sendable {
-    public var contractVersion: Int?
-    public var mode: String?
-    public var confidence: String?
-    public var track: Track?
-    public var sections: [AnalysisSection]
-    public var timeline: [TimelineEntry]
-    public var djTips: [DJTip]
-    public var measured: Measured?
-    public var inferred: Inferred?
-    public var metadata: Metadata?
-    public var limitations: [String]
-    public var sources: [String]
-    public var providers: [ProviderStatus]
-
-    public struct Track: Codable, Equatable, Sendable {
-        public var title: String?
-        public var artist: String?
-        public var album: String?
-        public var uri: String?
+public struct TrackInsight: Codable, Equatable, Sendable, Identifiable {
+    public enum MusicDNALabel: String, Codable, Equatable, Sendable {
+        case matchesMusicDNA = "matches_music_dna"
+        case expandsMusicDNA = "expands_music_dna"
+        case outsideMusicDNA = "outside_music_dna"
     }
 
-    public struct AnalysisSection: Codable, Equatable, Sendable, Identifiable {
-        public var id: String?
-        public var kind: String?
-        public var title: String?
-        public var value: String?
-        public var summary: String?
-        public var source: String?
-        public var confidence: String?
-        public var items: [DJConnectAskDJHistoryItem]
+    public var id: String
+    public var timestamp: Date
+    public var source: String?
+    public var title: String
+    public var artist: String
+    public var album: String?
+    public var artwork: URL?
+    public var duration: TimeInterval?
+    public var progress: TimeInterval?
+    public var isPlaying: Bool?
+    public var playerID: String?
+    public var entityID: String?
+    public var backend: String?
+    public var bpm: Double?
+    public var key: String?
+    public var genre: String?
+    public var subgenre: String?
+    public var energy: Double?
+    public var danceability: Double?
+    public var intensity: Double?
+    public var mood: String?
+    public var vibe: String?
+    public var texture: String?
+    public var emotionalTone: String?
+    public var confidence: Double?
+    public var confidenceLabel: String?
+    public var summary: String
+    public var rawAnalysisText: String
+    public var productionNotes: [String]
+    public var instrumentation: [String]
+    public var arrangementNotes: [String]
+    public var listeningCues: [String]
+    public var similarTracks: [TrackInsightSimilarTrack]
+    public var musicDNAMatchPercent: Int?
+    public var musicDNALabel: MusicDNALabel?
+    public var musicDNASummary: String?
+    public var visualProfile: TrackInsightVisualProfile?
+    public var sections: [TrackInsightSection]
 
-        public var stableID: String {
-            id ?? "\(kind ?? "section")|\(title ?? "")|\(value ?? "")|\(summary ?? "")"
-        }
+    public init(
+        id: String? = nil,
+        timestamp: Date = Date(),
+        source: String? = nil,
+        title: String,
+        artist: String,
+        album: String? = nil,
+        artwork: URL? = nil,
+        duration: TimeInterval? = nil,
+        progress: TimeInterval? = nil,
+        isPlaying: Bool? = nil,
+        playerID: String? = nil,
+        entityID: String? = nil,
+        backend: String? = nil,
+        bpm: Double? = nil,
+        key: String? = nil,
+        genre: String? = nil,
+        subgenre: String? = nil,
+        energy: Double? = nil,
+        danceability: Double? = nil,
+        intensity: Double? = nil,
+        mood: String? = nil,
+        vibe: String? = nil,
+        texture: String? = nil,
+        emotionalTone: String? = nil,
+        confidence: Double? = nil,
+        confidenceLabel: String? = nil,
+        summary: String,
+        rawAnalysisText: String,
+        productionNotes: [String] = [],
+        instrumentation: [String] = [],
+        arrangementNotes: [String] = [],
+        listeningCues: [String] = [],
+        similarTracks: [TrackInsightSimilarTrack] = [],
+        musicDNAMatchPercent: Int? = nil,
+        musicDNALabel: MusicDNALabel? = nil,
+        musicDNASummary: String? = nil,
+        visualProfile: TrackInsightVisualProfile? = nil,
+        sections: [TrackInsightSection] = []
+    ) {
+        self.id = id ?? Self.makeStableID(title: title, artist: artist, album: album)
+        self.timestamp = timestamp
+        self.source = source
+        self.title = title
+        self.artist = artist
+        self.album = album
+        self.artwork = artwork
+        self.duration = duration
+        self.progress = progress
+        self.isPlaying = isPlaying
+        self.playerID = playerID
+        self.entityID = entityID
+        self.backend = backend
+        self.bpm = bpm
+        self.key = key
+        self.genre = genre
+        self.subgenre = subgenre
+        self.energy = energy
+        self.danceability = danceability
+        self.intensity = intensity
+        self.mood = mood
+        self.vibe = vibe
+        self.texture = texture
+        self.emotionalTone = emotionalTone
+        self.confidence = confidence
+        self.confidenceLabel = confidenceLabel
+        self.summary = summary
+        self.rawAnalysisText = rawAnalysisText
+        self.productionNotes = productionNotes
+        self.instrumentation = instrumentation
+        self.arrangementNotes = arrangementNotes
+        self.listeningCues = listeningCues
+        self.similarTracks = similarTracks
+        self.musicDNAMatchPercent = musicDNAMatchPercent
+        self.musicDNALabel = musicDNALabel
+        self.musicDNASummary = musicDNASummary
+        self.visualProfile = visualProfile
+        self.sections = sections
+    }
 
-        public var displayTitle: String {
-            let candidate = title ?? id ?? kind ?? "Analysis"
-            return candidate.replacingOccurrences(of: "_", with: " ")
-        }
+    private static func makeStableID(title: String, artist: String, album: String?) -> String {
+        [title, artist, album ?? ""]
+            .joined(separator: "|")
+            .lowercased()
+            .unicodeScalars
+            .reduce(into: 0) { value, scalar in
+                value = ((value &* 31) &+ Int(scalar.value)) & 0x7fffffff
+            }
+            .description
+    }
+}
 
-        public var idValue: String {
-            stableID
+public struct TrackInsightSimilarTrack: Codable, Equatable, Sendable, Identifiable {
+    public var id: String { "\(title)|\(artist)|\(reason ?? "")" }
+    public var title: String
+    public var artist: String
+    public var reason: String?
+
+    public init(title: String, artist: String, reason: String? = nil) {
+        self.title = title
+        self.artist = artist
+        self.reason = reason
+    }
+}
+
+public struct TrackInsightVisualProfile: Codable, Equatable, Sendable {
+    public enum MotionStyle: String, Codable, Equatable, Sendable {
+        case flowing
+        case pulsing
+        case sharp
+        case minimal
+        case organic
+        case cinematic
+    }
+
+    public enum SpectrumBias: String, Codable, Equatable, Sendable {
+        case low
+        case mid
+        case high
+        case balanced
+    }
+
+    public var palette: [String]
+    public var motionStyle: MotionStyle?
+    public var pulseSpeed: Double?
+    public var waveAmplitude: Double?
+    public var particleDensity: Double?
+    public var glowStrength: Double?
+    public var spectrumBias: SpectrumBias?
+    public var seed: String?
+
+    public init(
+        palette: [String] = [],
+        motionStyle: MotionStyle? = nil,
+        pulseSpeed: Double? = nil,
+        waveAmplitude: Double? = nil,
+        particleDensity: Double? = nil,
+        glowStrength: Double? = nil,
+        spectrumBias: SpectrumBias? = nil,
+        seed: String? = nil
+    ) {
+        self.palette = palette
+        self.motionStyle = motionStyle
+        self.pulseSpeed = pulseSpeed
+        self.waveAmplitude = waveAmplitude
+        self.particleDensity = particleDensity
+        self.glowStrength = glowStrength
+        self.spectrumBias = spectrumBias
+        self.seed = seed
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case palette
+        case motionStyle = "motion_style"
+        case pulseSpeed = "pulse_speed"
+        case waveAmplitude = "wave_amplitude"
+        case particleDensity = "particle_density"
+        case glowStrength = "glow_strength"
+        case spectrumBias = "spectrum_bias"
+        case seed
+    }
+}
+
+public struct TrackInsightSection: Codable, Equatable, Sendable, Identifiable {
+    public var id: String
+    public var title: String
+    public var value: String?
+    public var summary: String?
+
+    public init(id: String, title: String, value: String? = nil, summary: String? = nil) {
+        self.id = id
+        self.title = title
+        self.value = value
+        self.summary = summary
+    }
+}
+
+public struct TrackVibeProfile: Codable, Equatable, Sendable {
+    public enum MotionStyle: String, Codable, Equatable, Sendable {
+        case dreamy
+        case energetic
+        case organic
+        case dark
+        case balanced
+    }
+
+    public var palette: [String]
+    public var glow: Double
+    public var pulseSpeed: Double
+    public var waveform: Double
+    public var particleDensity: Double
+    public var particleVelocity: Double
+    public var animationSpeed: Double
+    public var terrainShape: Double
+    public var motionStyle: MotionStyle
+    public var spectrumProfile: [Double]
+
+    public static func make(for insight: TrackInsight) -> TrackVibeProfile {
+        let seed = stableSeed(for: insight)
+        let mood = [insight.mood, insight.vibe, insight.genre, insight.texture]
+            .compactMap { $0?.lowercased() }
+            .joined(separator: " ")
+        let energy = clamp(insight.energy ?? normalized(seed, offset: 3), min: 0.05, max: 1.0)
+        let danceability = clamp(insight.danceability ?? normalized(seed, offset: 7), min: 0.05, max: 1.0)
+        let intensity = clamp(insight.intensity ?? ((energy + danceability) / 2), min: 0.05, max: 1.0)
+
+        let style = motionStyle(for: insight.visualProfile?.motionStyle, mood: mood, energy: energy)
+        let visualProfile = insight.visualProfile
+        let palette = visualProfile?.palette.filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+
+        return TrackVibeProfile(
+            palette: palette?.isEmpty == false ? palette! : Self.palette(for: style),
+            glow: clamp(visualProfile?.glowStrength ?? (0.28 + intensity * 0.58), min: 0.2, max: 0.95),
+            pulseSpeed: clamp(visualProfile?.pulseSpeed ?? (0.45 + energy * 1.55), min: 0.35, max: 2.2),
+            waveform: clamp(visualProfile?.waveAmplitude ?? (0.25 + intensity * 0.75), min: 0.2, max: 1.0),
+            particleDensity: clamp(visualProfile?.particleDensity ?? (0.16 + danceability * 0.72), min: 0.12, max: 0.92),
+            particleVelocity: clamp(0.25 + energy * 0.88, min: 0.18, max: 1.18),
+            animationSpeed: clamp(0.55 + ((energy + intensity) / 2) * 1.15, min: 0.45, max: 1.9),
+            terrainShape: normalized(seed, offset: 11),
+            motionStyle: style,
+            spectrumProfile: spectrumProfile(seed: seed, intensity: intensity, bias: visualProfile?.spectrumBias)
+        )
+    }
+
+    private static func motionStyle(for hint: TrackInsightVisualProfile.MotionStyle?, mood: String, energy: Double) -> MotionStyle {
+        switch hint {
+        case .cinematic, .flowing:
+            return .dreamy
+        case .sharp, .pulsing:
+            return .energetic
+        case .organic:
+            return .organic
+        case .minimal:
+            return .balanced
+        case nil:
+            break
         }
+        if mood.contains("dream") || mood.contains("ambient") || mood.contains("soft") {
+            return .dreamy
+        } else if mood.contains("dark") || mood.contains("minor") || mood.contains("shadow") {
+            return .dark
+        } else if mood.contains("organic") || mood.contains("acoustic") || mood.contains("warm") {
+            return .organic
+        } else if energy > 0.72 || mood.contains("energetic") || mood.contains("club") {
+            return .energetic
+        }
+        return .balanced
+    }
+
+    private static func spectrumProfile(seed: Int, intensity: Double, bias: TrackInsightVisualProfile.SpectrumBias?) -> [Double] {
+        (0..<12).map { index in
+            let position = Double(index) / 11.0
+            let biasBoost: Double
+            switch bias {
+            case .low:
+                biasBoost = 1.2 - position * 0.45
+            case .mid:
+                biasBoost = 0.82 + (1.0 - abs(position - 0.5) * 2.0) * 0.45
+            case .high:
+                biasBoost = 0.78 + position * 0.5
+            case .balanced, nil:
+                biasBoost = 1.0
+            }
+            return clamp(
+                clamp(0.18 + normalized(seed, offset: index + 17) * 0.82 * (0.55 + intensity * 0.45), min: 0.12, max: 1.0)
+                    * biasBoost,
+                min: 0.12,
+                max: 1.0
+            )
+        }
+    }
+
+    private static func palette(for style: MotionStyle) -> [String] {
+        switch style {
+        case .dreamy:
+            ["#4DA3FF", "#7B61FF", "#D184FF"]
+        case .energetic:
+            ["#FF6A3D", "#FF2E63", "#FFD166"]
+        case .organic:
+            ["#2EC4B6", "#8AC926", "#F4A261"]
+        case .dark:
+            ["#111827", "#4338CA", "#06B6D4"]
+        case .balanced:
+            ["#2563EB", "#A855F7", "#14B8A6"]
+        }
+    }
+
+    private static func stableSeed(for insight: TrackInsight) -> Int {
+        [insight.title, insight.artist, insight.album ?? "", insight.vibe ?? "", insight.mood ?? ""]
+            .joined(separator: "|")
+            .unicodeScalars
+            .reduce(into: 17) { value, scalar in
+                value = ((value &* 33) &+ Int(scalar.value)) & 0x7fffffff
+            }
+    }
+
+    private static func normalized(_ seed: Int, offset: Int) -> Double {
+        let value = (seed &+ offset &* 1103515245) & 0x7fffffff
+        return Double(value % 10_000) / 10_000.0
+    }
+
+    private static func clamp(_ value: Double, min minValue: Double, max maxValue: Double) -> Double {
+        Swift.max(minValue, Swift.min(maxValue, value))
+    }
+}
+
+public enum TrackInsightParser {
+    public static func parse(
+        data: Data,
+        fallbackTitle: String? = nil,
+        fallbackArtist: String? = nil,
+        fallbackArtwork: URL? = nil
+    ) -> TrackInsight? {
+        if let payload = try? JSONDecoder().decode(TrackInsightPayload.self, from: data) {
+            return makeInsight(from: payload, rawText: String(data: data, encoding: .utf8) ?? "", fallbackTitle: fallbackTitle, fallbackArtist: fallbackArtist, fallbackArtwork: fallbackArtwork)
+        }
+        return nil
+    }
+
+    static func makeInsight(
+        from payload: TrackInsightPayload,
+        rawText: String,
+        fallbackTitle: String?,
+        fallbackArtist: String?,
+        fallbackArtwork: URL?
+    ) -> TrackInsight {
+        let track = payload.track
+        let analysis = payload.analysis
+        let musicDNA = payload.musicDNA
+        return TrackInsight(
+            id: payload.id,
+            timestamp: payload.createdAt ?? Date(),
+            source: payload.source,
+            title: payload.title ?? fallbackTitle ?? track?.title ?? "Current Track",
+            artist: payload.artist ?? fallbackArtist ?? track?.artist ?? "Unknown Artist",
+            album: payload.album ?? track?.album,
+            artwork: payload.artwork ?? track?.artworkURL ?? fallbackArtwork,
+            duration: seconds(fromMilliseconds: payload.durationMS ?? track?.durationMS) ?? payload.duration,
+            progress: seconds(fromMilliseconds: track?.progressMS),
+            isPlaying: track?.isPlaying,
+            playerID: track?.playerID,
+            entityID: track?.entityID,
+            backend: track?.backend,
+            bpm: analysis?.bpm ?? payload.bpm,
+            key: analysis?.key ?? payload.key,
+            genre: analysis?.genre ?? payload.genre,
+            subgenre: analysis?.subgenre,
+            energy: normalizedMetric(analysis?.energy ?? payload.energy),
+            danceability: normalizedMetric(analysis?.danceability ?? payload.danceability),
+            intensity: normalizedMetric(analysis?.intensity ?? payload.intensity),
+            mood: analysis?.mood ?? payload.mood,
+            vibe: analysis?.vibe ?? payload.vibe,
+            texture: analysis?.texture ?? payload.texture,
+            emotionalTone: analysis?.emotionalTone,
+            confidence: normalizedMetric(analysis?.confidence ?? payload.confidence),
+            summary: analysis?.summary ?? payload.summary ?? "Track Insight is ready.",
+            rawAnalysisText: analysis?.fullText ?? payload.rawAnalysisText ?? rawText,
+            productionNotes: analysis?.productionNotes ?? [],
+            instrumentation: analysis?.instrumentation ?? [],
+            arrangementNotes: analysis?.arrangementNotes ?? [],
+            listeningCues: analysis?.listeningCues ?? [],
+            similarTracks: analysis?.similarTracks ?? [],
+            musicDNAMatchPercent: musicDNA?.matchPercent,
+            musicDNALabel: musicDNA?.label,
+            musicDNASummary: musicDNA?.summary,
+            visualProfile: payload.visualProfile,
+            sections: []
+        )
+    }
+
+    private static func seconds(fromMilliseconds value: Int?) -> TimeInterval? {
+        value.map { TimeInterval($0) / 1000.0 }
+    }
+
+    private static func normalizedMetric(_ value: Double?) -> Double? {
+        guard let value else {
+            return nil
+        }
+        if value > 1 {
+            return max(0, min(1, value / 100))
+        }
+        return max(0, min(1, value))
+    }
+}
+
+struct TrackInsightPayload: Decodable {
+    var id: String?
+    var createdAt: Date?
+    var source: String?
+    var title: String?
+    var artist: String?
+    var album: String?
+    var artwork: URL?
+    var duration: TimeInterval?
+    var durationMS: Int?
+    var bpm: Double?
+    var key: String?
+    var genre: String?
+    var energy: Double?
+    var danceability: Double?
+    var intensity: Double?
+    var mood: String?
+    var vibe: String?
+    var texture: String?
+    var confidence: Double?
+    var summary: String?
+    var rawAnalysisText: String?
+    var track: Track?
+    var analysis: Analysis?
+    var musicDNA: MusicDNA?
+    var visualProfile: TrackInsightVisualProfile?
+
+    struct Track: Codable {
+        var title: String?
+        var artist: String?
+        var album: String?
+        var artworkURL: URL?
+        var durationMS: Int?
+        var progressMS: Int?
+        var isPlaying: Bool?
+        var playerID: String?
+        var entityID: String?
+        var backend: String?
 
         enum CodingKeys: String, CodingKey {
-            case id
-            case kind
             case title
-            case value
-            case summary
-            case source
-            case confidence
-            case items
-        }
-
-        public init(from decoder: Decoder) throws {
-            let container = try decoder.container(keyedBy: CodingKeys.self)
-            id = try container.decodeIfPresent(String.self, forKey: .id)
-            kind = try container.decodeIfPresent(String.self, forKey: .kind)
-            title = try container.decodeIfPresent(String.self, forKey: .title)
-            value = try container.decodeIfPresent(String.self, forKey: .value)
-            summary = try container.decodeIfPresent(String.self, forKey: .summary)
-            source = try container.decodeIfPresent(String.self, forKey: .source)
-            confidence = try container.decodeIfPresent(String.self, forKey: .confidence)
-            items = container.decodeLossyArrayIfPresent(DJConnectAskDJHistoryItem.self, forKey: .items) ?? []
-        }
-    }
-
-    public struct TimelineEntry: Codable, Equatable, Sendable, Identifiable {
-        public var id: String?
-        public var label: String?
-        public var kind: String?
-        public var startMS: Int?
-        public var endMS: Int?
-        public var durationMS: Int?
-        public var summary: String?
-        public var source: String?
-        public var confidence: String?
-
-        public var stableID: String {
-            id ?? "\(kind ?? "timeline")|\(label ?? "")|\(startMS ?? -1)|\(endMS ?? -1)|\(durationMS ?? -1)"
-        }
-
-        enum CodingKeys: String, CodingKey {
-            case id
-            case label
-            case kind
-            case startMS = "start_ms"
-            case endMS = "end_ms"
+            case artist
+            case album
+            case artworkURL = "artwork_url"
             case durationMS = "duration_ms"
+            case progressMS = "progress_ms"
+            case isPlaying = "is_playing"
+            case playerID = "player_id"
+            case entityID = "entity_id"
+            case backend
+        }
+    }
+
+    struct Analysis: Codable {
+        var summary: String?
+        var fullText: String?
+        var bpm: Double?
+        var key: String?
+        var genre: String?
+        var subgenre: String?
+        var mood: String?
+        var vibe: String?
+        var texture: String?
+        var emotionalTone: String?
+        var energy: Double?
+        var danceability: Double?
+        var intensity: Double?
+        var confidence: Double?
+        var productionNotes: [String]
+        var instrumentation: [String]
+        var arrangementNotes: [String]
+        var listeningCues: [String]
+        var similarTracks: [TrackInsightSimilarTrack]
+
+        enum CodingKeys: String, CodingKey {
             case summary
-            case source
-            case confidence
-        }
-    }
-
-    public struct DJTip: Codable, Equatable, Sendable, Identifiable {
-        public var id: String?
-        public var kind: String?
-        public var title: String?
-        public var text: String?
-        public var source: String?
-        public var confidence: String?
-
-        public var stableID: String {
-            id ?? "\(kind ?? "tip")|\(title ?? "")|\(text ?? "")"
-        }
-
-        public var displayTitle: String {
-            let candidate = title ?? kind ?? "DJ tip"
-            return candidate.replacingOccurrences(of: "_", with: " ")
-        }
-
-        enum CodingKeys: String, CodingKey {
-            case id
-            case kind
-            case title
-            case text
-            case source
-            case confidence
-        }
-    }
-
-    public struct Measured: Codable, Equatable, Sendable {
-        public var bpm: Double?
-        public var key: String?
-        public var timeSignature: Int?
-        public var sections: [Section]
-        public var features: [String: Double]
-
-        enum CodingKeys: String, CodingKey {
+            case fullText = "full_text"
             case bpm
             case key
-            case timeSignature = "time_signature"
-            case sections
-            case features
+            case genre
+            case subgenre
+            case mood
+            case vibe
+            case texture
+            case emotionalTone = "emotional_tone"
+            case energy
+            case danceability
+            case intensity
+            case confidence
+            case productionNotes = "production_notes"
+            case instrumentation
+            case arrangementNotes = "arrangement_notes"
+            case listeningCues = "listening_cues"
+            case similarTracks = "similar_tracks"
         }
 
-        public init(from decoder: Decoder) throws {
+        init(from decoder: Decoder) throws {
             let container = try decoder.container(keyedBy: CodingKeys.self)
+            summary = try container.decodeIfPresent(String.self, forKey: .summary)
+            fullText = try container.decodeIfPresent(String.self, forKey: .fullText)
             bpm = try container.decodeIfPresent(Double.self, forKey: .bpm)
             key = try container.decodeIfPresent(String.self, forKey: .key)
-            timeSignature = try container.decodeIfPresent(Int.self, forKey: .timeSignature)
-            sections = container.decodeLossyArrayIfPresent(Section.self, forKey: .sections) ?? []
-            features = (try? container.decode([String: Double].self, forKey: .features)) ?? [:]
+            genre = try container.decodeIfPresent(String.self, forKey: .genre)
+            subgenre = try container.decodeIfPresent(String.self, forKey: .subgenre)
+            mood = try container.decodeIfPresent(String.self, forKey: .mood)
+            vibe = try container.decodeIfPresent(String.self, forKey: .vibe)
+            texture = try container.decodeIfPresent(String.self, forKey: .texture)
+            emotionalTone = try container.decodeIfPresent(String.self, forKey: .emotionalTone)
+            energy = try container.decodeIfPresent(Double.self, forKey: .energy)
+            danceability = try container.decodeIfPresent(Double.self, forKey: .danceability)
+            intensity = try container.decodeIfPresent(Double.self, forKey: .intensity)
+            confidence = try container.decodeIfPresent(Double.self, forKey: .confidence)
+            productionNotes = try container.decodeIfPresent([String].self, forKey: .productionNotes) ?? []
+            instrumentation = try container.decodeIfPresent([String].self, forKey: .instrumentation) ?? []
+            arrangementNotes = try container.decodeIfPresent([String].self, forKey: .arrangementNotes) ?? []
+            listeningCues = try container.decodeIfPresent([String].self, forKey: .listeningCues) ?? []
+            similarTracks = try container.decodeIfPresent([TrackInsightSimilarTrack].self, forKey: .similarTracks) ?? []
         }
     }
 
-    public struct Section: Codable, Equatable, Sendable, Identifiable {
-        public var id: String?
-        public var label: String?
-        public var index: Int?
-        public var startMS: Int?
-        public var durationMS: Int?
-        public var confidence: Double?
-
-        public var stableID: String {
-            id ?? "\(index ?? -1)|\(label ?? "section")|\(startMS ?? -1)|\(durationMS ?? -1)"
-        }
+    struct MusicDNA: Codable {
+        var matchPercent: Int?
+        var label: TrackInsight.MusicDNALabel?
+        var summary: String?
 
         enum CodingKeys: String, CodingKey {
-            case id
+            case matchPercent = "match_percent"
             case label
-            case index
-            case startMS = "start_ms"
-            case durationMS = "duration_ms"
-            case confidence
-        }
-    }
-
-    public struct Inferred: Codable, Equatable, Sendable {
-        public var provider: String?
-        public var structure: String?
-        public var instrumentation: String?
-        public var melodicBuild: String?
-        public var energyCurve: String?
-        public var mixNotes: String?
-
-        enum CodingKeys: String, CodingKey {
-            case provider
-            case structure
-            case instrumentation
-            case melodicBuild = "melodic_build"
-            case energyCurve = "energy_curve"
-            case mixNotes = "mix_notes"
-        }
-    }
-
-    public struct Metadata: Codable, Equatable, Sendable {
-        public var musicBrainzRecordingID: String?
-        public var matchScore: Int?
-        public var recordingTitle: String?
-        public var artist: String?
-        public var firstReleaseDate: String?
-        public var release: MetadataRelease?
-        public var genres: [String]
-        public var tags: [String]
-        public var listenBrainzListenCount: Int?
-
-        enum CodingKeys: String, CodingKey {
-            case musicBrainzRecordingID = "musicbrainz_recording_id"
-            case matchScore = "match_score"
-            case recordingTitle = "recording_title"
-            case artist
-            case firstReleaseDate = "first_release_date"
-            case release
-            case genres
-            case tags
-            case listenBrainzListenCount = "listenbrainz_listen_count"
-        }
-
-        public init(from decoder: Decoder) throws {
-            let container = try decoder.container(keyedBy: CodingKeys.self)
-            musicBrainzRecordingID = try container.decodeIfPresent(String.self, forKey: .musicBrainzRecordingID)
-            matchScore = try container.decodeIfPresent(Int.self, forKey: .matchScore)
-            recordingTitle = try container.decodeIfPresent(String.self, forKey: .recordingTitle)
-            artist = try container.decodeIfPresent(String.self, forKey: .artist)
-            firstReleaseDate = try container.decodeIfPresent(String.self, forKey: .firstReleaseDate)
-            release = try container.decodeIfPresent(MetadataRelease.self, forKey: .release)
-            genres = container.decodeLossyArrayIfPresent(String.self, forKey: .genres) ?? []
-            tags = container.decodeLossyArrayIfPresent(String.self, forKey: .tags) ?? []
-            listenBrainzListenCount = try container.decodeIfPresent(Int.self, forKey: .listenBrainzListenCount)
-        }
-    }
-
-    public struct MetadataRelease: Codable, Equatable, Sendable {
-        public var title: String?
-        public var date: String?
-        public var country: String?
-        public var status: String?
-    }
-
-    public struct ProviderStatus: Codable, Equatable, Sendable, Identifiable {
-        public var providerID: String
-        public var displayName: String?
-        public var status: String
-        public var requiresConfig: Bool?
-        public var reason: String?
-
-        public var id: String {
-            providerID
-        }
-
-        enum CodingKeys: String, CodingKey {
-            case providerID = "provider_id"
-            case displayName = "display_name"
-            case status
-            case requiresConfig = "requires_config"
-            case reason
+            case summary
         }
     }
 
     enum CodingKeys: String, CodingKey {
-        case contractVersion = "contract_version"
-        case mode
+        case id
+        case createdAt = "created_at"
+        case source
+        case title
+        case artist
+        case album
+        case artwork
+        case duration
+        case durationMS = "duration_ms"
+        case bpm
+        case key
+        case genre
+        case energy
+        case danceability
+        case intensity
+        case mood
+        case vibe
+        case texture
         case confidence
+        case summary
+        case analysis
+        case rawAnalysisText = "raw_analysis_text"
         case track
-        case sections
-        case timeline
-        case djTips = "dj_tips"
-        case measured
-        case inferred
-        case metadata
-        case limitations
-        case sources
-        case providers
+        case musicDNA = "music_dna"
+        case visualProfile = "visual_profile"
+        case trackInsight = "track_insight"
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        if let nested = try container.decodeIfPresent(TrackInsightPayload.self, forKey: .trackInsight) {
+            self = nested
+            return
+        }
+        id = try container.decodeIfPresent(String.self, forKey: .id)
+        createdAt = Self.decodeDate(container, key: .createdAt)
+        source = try container.decodeIfPresent(String.self, forKey: .source)
+        title = try container.decodeIfPresent(String.self, forKey: .title)
+        artist = try container.decodeIfPresent(String.self, forKey: .artist)
+        album = try container.decodeIfPresent(String.self, forKey: .album)
+        artwork = try container.decodeIfPresent(URL.self, forKey: .artwork)
+        duration = try container.decodeIfPresent(TimeInterval.self, forKey: .duration)
+        durationMS = try container.decodeIfPresent(Int.self, forKey: .durationMS)
+        bpm = try container.decodeIfPresent(Double.self, forKey: .bpm)
+        key = try container.decodeIfPresent(String.self, forKey: .key)
+        genre = try container.decodeIfPresent(String.self, forKey: .genre)
+        energy = try container.decodeIfPresent(Double.self, forKey: .energy)
+        danceability = try container.decodeIfPresent(Double.self, forKey: .danceability)
+        intensity = try container.decodeIfPresent(Double.self, forKey: .intensity)
+        mood = try container.decodeIfPresent(String.self, forKey: .mood)
+        vibe = try container.decodeIfPresent(String.self, forKey: .vibe)
+        texture = try container.decodeIfPresent(String.self, forKey: .texture)
+        confidence = try container.decodeIfPresent(Double.self, forKey: .confidence)
+        summary = try container.decodeIfPresent(String.self, forKey: .summary)
+        rawAnalysisText = try container.decodeIfPresent(String.self, forKey: .rawAnalysisText)
+        track = try container.decodeIfPresent(Track.self, forKey: .track)
+        analysis = try container.decodeIfPresent(Analysis.self, forKey: .analysis)
+        musicDNA = try container.decodeIfPresent(MusicDNA.self, forKey: .musicDNA)
+        visualProfile = try container.decodeIfPresent(TrackInsightVisualProfile.self, forKey: .visualProfile)
+    }
+
+    private static func decodeDate<K: CodingKey>(_ container: KeyedDecodingContainer<K>, key: K) -> Date? {
+        if let date = try? container.decode(Date.self, forKey: key) {
+            return date
+        }
+        guard let value = try? container.decode(String.self, forKey: key) else {
+            return nil
+        }
+        let iso = ISO8601DateFormatter()
+        iso.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        if let date = iso.date(from: value) {
+            return date
+        }
+        iso.formatOptions = [.withInternetDateTime]
+        return iso.date(from: value)
+    }
+}
+
+public protocol TrackInsightService: Sendable {
+    func insight(for playback: DJConnectPlayback?) async throws -> TrackInsight
+}
+
+public struct DJConnectTrackInsightRequest: Codable, Equatable, Sendable {
+    public var title: String?
+    public var artist: String?
+    public var album: String?
+    public var entityID: String?
+    public var playerID: String?
+    public var musicBackend: String?
+    public var forceRefresh: Bool
+    public var locale: String?
+    public var includeVisualProfile: Bool
+    public var includeRawResponse: Bool
+
+    public init(
+        title: String? = nil,
+        artist: String? = nil,
+        album: String? = nil,
+        entityID: String? = nil,
+        playerID: String? = nil,
+        musicBackend: String? = nil,
+        forceRefresh: Bool = false,
+        locale: String? = nil,
+        includeVisualProfile: Bool = true,
+        includeRawResponse: Bool = true
+    ) {
+        self.title = title
+        self.artist = artist
+        self.album = album
+        self.entityID = entityID
+        self.playerID = playerID
+        self.musicBackend = musicBackend
+        self.forceRefresh = forceRefresh
+        self.locale = locale
+        self.includeVisualProfile = includeVisualProfile
+        self.includeRawResponse = includeRawResponse
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case title
+        case artist
+        case album
+        case entityID = "entity_id"
+        case playerID = "player_id"
+        case musicBackend = "music_backend"
+        case forceRefresh = "force_refresh"
+        case locale
+        case includeVisualProfile = "include_visual_profile"
+        case includeRawResponse = "include_raw_response"
+    }
+}
+
+public struct TrackInsightEndpointResponse: Decodable, Sendable {
+    public var success: Bool?
+    public var error: String?
+    public var message: String?
+    private var trackInsightPayload: TrackInsightPayload?
+
+    public var trackInsightValue: TrackInsight? {
+        if let trackInsightPayload {
+            return TrackInsightParser.makeInsight(from: trackInsightPayload, rawText: "", fallbackTitle: nil, fallbackArtist: nil, fallbackArtwork: nil)
+        }
+        return nil
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case success
+        case error
+        case message
+        case trackInsight = "track_insight"
     }
 
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        contractVersion = try container.decodeIfPresent(Int.self, forKey: .contractVersion)
-        mode = try container.decodeIfPresent(String.self, forKey: .mode)
-        confidence = try container.decodeIfPresent(String.self, forKey: .confidence)
-        track = try container.decodeIfPresent(Track.self, forKey: .track)
-        sections = container.decodeLossyArrayIfPresent(AnalysisSection.self, forKey: .sections) ?? []
-        timeline = container.decodeLossyArrayIfPresent(TimelineEntry.self, forKey: .timeline) ?? []
-        djTips = container.decodeLossyArrayIfPresent(DJTip.self, forKey: .djTips) ?? []
-        measured = try container.decodeIfPresent(Measured.self, forKey: .measured)
-        inferred = try container.decodeIfPresent(Inferred.self, forKey: .inferred)
-        metadata = try container.decodeIfPresent(Metadata.self, forKey: .metadata)
-        limitations = container.decodeLossyArrayIfPresent(String.self, forKey: .limitations) ?? []
-        sources = container.decodeLossyArrayIfPresent(String.self, forKey: .sources) ?? []
-        providers = container.decodeLossyArrayIfPresent(ProviderStatus.self, forKey: .providers) ?? []
+        success = try container.decodeIfPresent(Bool.self, forKey: .success)
+        error = try container.decodeIfPresent(String.self, forKey: .error)
+        message = try container.decodeIfPresent(String.self, forKey: .message)
+        trackInsightPayload = try container.decodeIfPresent(TrackInsightPayload.self, forKey: .trackInsight)
+    }
+}
+
+public struct DemoTrackInsightService: TrackInsightService {
+    public var tracks: [TrackInsight]
+
+    public init(tracks: [TrackInsight] = DemoTrackInsightService.defaultTracks) {
+        self.tracks = tracks
     }
 
-    public func encode(to encoder: Encoder) throws {
-        var container = encoder.container(keyedBy: CodingKeys.self)
-        try container.encodeIfPresent(contractVersion, forKey: .contractVersion)
-        try container.encodeIfPresent(mode, forKey: .mode)
-        try container.encodeIfPresent(confidence, forKey: .confidence)
-        try container.encodeIfPresent(track, forKey: .track)
-        try container.encode(sections, forKey: .sections)
-        try container.encode(timeline, forKey: .timeline)
-        try container.encode(djTips, forKey: .djTips)
-        try container.encodeIfPresent(measured, forKey: .measured)
-        try container.encodeIfPresent(inferred, forKey: .inferred)
-        try container.encodeIfPresent(metadata, forKey: .metadata)
-        try container.encode(limitations, forKey: .limitations)
-        try container.encode(sources, forKey: .sources)
-        try container.encode(providers, forKey: .providers)
+    public func insight(for playback: DJConnectPlayback?) async throws -> TrackInsight {
+        guard let playback, let title = playback.trackName?.lowercased(), !title.isEmpty else {
+            return tracks[0]
+        }
+        let index = title.unicodeScalars.reduce(into: 0) { value, scalar in
+            value = ((value &* 31) &+ Int(scalar.value)) & 0x7fffffff
+        } % tracks.count
+        return tracks.first { $0.title.lowercased() == title } ?? tracks[index]
     }
+
+    public static let defaultTracks: [TrackInsight] = [
+        TrackInsight(title: "Midnight City", artist: "M83", album: "Hurry Up, We're Dreaming", bpm: 105, key: "B minor", genre: "Synthpop", energy: 0.76, danceability: 0.66, intensity: 0.72, mood: "Nostalgic", vibe: "Nocturnal", texture: "Neon synth leads and gated drums", confidenceLabel: "demo", summary: "A glowing night-drive anthem with a bright synth hook, wide pads and a cinematic rush.", rawAnalysisText: "Demo Track Insight for Midnight City."),
+        TrackInsight(title: "Sweet Disposition", artist: "The Temper Trap", album: "Conditions", bpm: 129, key: "D major", genre: "Indie rock", energy: 0.82, danceability: 0.58, intensity: 0.76, mood: "Uplifting", vibe: "Anthemic", texture: "Chiming guitars and open-air vocal lift", confidenceLabel: "demo", summary: "An expansive indie build that feels weightless, optimistic and made for big emotional release.", rawAnalysisText: "Demo Track Insight for Sweet Disposition."),
+        TrackInsight(title: "Electric Feel", artist: "MGMT", album: "Oracular Spectacular", bpm: 103, key: "A minor", genre: "Psychedelic pop", energy: 0.70, danceability: 0.86, intensity: 0.54, mood: "Playful", vibe: "Funky", texture: "Rubbery bass, loose percussion and shimmering synth color", confidenceLabel: "demo", summary: "A sly psychedelic groove with elastic bass, playful motion and a warm electric shimmer.", rawAnalysisText: "Demo Track Insight for Electric Feel."),
+        TrackInsight(title: "Innerbloom", artist: "RUFUS DU SOL", album: "Bloom", bpm: 122, key: "D minor", genre: "Melodic house", energy: 0.64, danceability: 0.62, intensity: 0.70, mood: "Dreamy", vibe: "Expansive", texture: "Wide pads and patient percussion", confidenceLabel: "demo", summary: "A slow-blooming electronic piece where restraint makes the emotional release feel huge.", rawAnalysisText: "Demo Track Insight for Innerbloom."),
+        TrackInsight(title: "Strobe", artist: "deadmau5", album: "For Lack of a Better Name", bpm: 128, key: "C# minor", genre: "Progressive house", energy: 0.78, danceability: 0.66, intensity: 0.82, mood: "Dreamy", vibe: "Euphoric", texture: "Arpeggiated synths and long-build dynamics", confidenceLabel: "demo", summary: "A progressive build that turns repetition into anticipation and payoff.", rawAnalysisText: "Demo Track Insight for Strobe."),
+        TrackInsight(title: "Sun & Moon", artist: "Above & Beyond", bpm: 132, key: "A major", genre: "Trance", energy: 0.86, danceability: 0.72, intensity: 0.84, mood: "Energetic", vibe: "Anthemic", texture: "Bright supersaws and vocal lift", confidenceLabel: "demo", summary: "A peak-time anthem shaped around lift, release and communal emotion.", rawAnalysisText: "Demo Track Insight for Above & Beyond."),
+        TrackInsight(title: "Beyond Beliefs", artist: "Ben Bohmer", bpm: 123, key: "F minor", genre: "Melodic techno", energy: 0.58, danceability: 0.60, intensity: 0.52, mood: "Organic", vibe: "Warm", texture: "Soft plucks and rounded low end", confidenceLabel: "demo", summary: "A warm melodic groove that feels detailed without overcrowding the mix.", rawAnalysisText: "Demo Track Insight for Ben Bohmer."),
+        TrackInsight(title: "Marea", artist: "Fred again..", bpm: 126, key: "G minor", genre: "House", energy: 0.80, danceability: 0.88, intensity: 0.72, mood: "Energetic", vibe: "Human", texture: "Vocal chops and kinetic drums", confidenceLabel: "demo", summary: "A club record with an intimate human center, built from voice, rhythm and momentum.", rawAnalysisText: "Demo Track Insight for Fred again."),
+        TrackInsight(title: "Hey Now", artist: "London Grammar", bpm: 120, key: "E minor", genre: "Electronic pop", energy: 0.46, danceability: 0.40, intensity: 0.62, mood: "Dark", vibe: "Haunting", texture: "Sparse percussion and spacious vocal reverb", confidenceLabel: "demo", summary: "A spacious, shadowed production where silence frames the vocal emotion.", rawAnalysisText: "Demo Track Insight for London Grammar."),
+        TrackInsight(title: "Giorgio by Moroder", artist: "Daft Punk", bpm: 113, key: "A minor", genre: "Disco", energy: 0.76, danceability: 0.78, intensity: 0.74, mood: "Organic", vibe: "Cinematic", texture: "Live bass, synth layers and narrative arc", confidenceLabel: "demo", summary: "A history lesson disguised as a groove, expanding from spoken memory into full-band motion.", rawAnalysisText: "Demo Track Insight for Daft Punk."),
+        TrackInsight(title: "Sultans of Swing", artist: "Dire Straits", bpm: 149, key: "D minor", genre: "Rock", energy: 0.65, danceability: 0.56, intensity: 0.58, mood: "Organic", vibe: "Loose", texture: "Clean guitar phrasing and dry rhythmic pocket", confidenceLabel: "demo", summary: "A guitar-led track whose character lives in touch, timing and conversational phrasing.", rawAnalysisText: "Demo Track Insight for Dire Straits."),
+        TrackInsight(title: "Master of Puppets", artist: "Metallica", bpm: 220, key: "E minor", genre: "Metal", energy: 0.96, danceability: 0.42, intensity: 0.98, mood: "Dark", vibe: "Aggressive", texture: "Palm-muted riffs and sharp rhythmic attacks", confidenceLabel: "demo", summary: "A high-intensity metal architecture built from precision, contrast and relentless forward drive.", rawAnalysisText: "Demo Track Insight for Metallica."),
+        TrackInsight(title: "Adagio for Strings", artist: "Samuel Barber", bpm: 72, key: "B-flat minor", genre: "Classical", energy: 0.32, danceability: 0.10, intensity: 0.68, mood: "Dreamy", vibe: "Lamenting", texture: "Slow string suspensions and rising harmonic pressure", confidenceLabel: "demo", summary: "A patient orchestral ascent where tension comes from harmony, breath and restraint.", rawAnalysisText: "Demo Track Insight for orchestral music.")
+    ]
 }
 
 public struct DJConnectAskDJHistoryItem: Codable, Equatable, Sendable, Identifiable {
@@ -1077,7 +1532,7 @@ public struct DJConnectAskDJHistoryMessage: Codable, Equatable, Identifiable, Se
     public var playbackActions: [DJConnectAskDJPlaybackAction]
     public var confirmationActions: [DJConnectAskDJPlaybackAction]
     public var intentInfo: DJConnectAskDJIntentInfo?
-    public var analysis: DJConnectAskDJTrackAnalysis?
+    public var trackInsight: TrackInsight?
     public var items: [DJConnectAskDJHistoryItem]
 
     enum CodingKeys: String, CodingKey {
@@ -1105,7 +1560,7 @@ public struct DJConnectAskDJHistoryMessage: Codable, Equatable, Identifiable, Se
         case recommendationActions = "recommendation_actions"
         case recommendations
         case intentInfo = "intent"
-        case analysis
+        case trackInsight = "track_insight"
         case items
     }
 
@@ -1129,7 +1584,7 @@ public struct DJConnectAskDJHistoryMessage: Codable, Equatable, Identifiable, Se
         playbackActions: [DJConnectAskDJPlaybackAction] = [],
         confirmationActions: [DJConnectAskDJPlaybackAction] = [],
         intentInfo: DJConnectAskDJIntentInfo? = nil,
-        analysis: DJConnectAskDJTrackAnalysis? = nil,
+        trackInsight: TrackInsight? = nil,
         items: [DJConnectAskDJHistoryItem] = []
     ) {
         self.id = id
@@ -1151,7 +1606,7 @@ public struct DJConnectAskDJHistoryMessage: Codable, Equatable, Identifiable, Se
         self.playbackActions = playbackActions
         self.confirmationActions = confirmationActions
         self.intentInfo = intentInfo
-        self.analysis = analysis
+        self.trackInsight = trackInsight
         self.items = items
     }
 
@@ -1185,7 +1640,11 @@ public struct DJConnectAskDJHistoryMessage: Codable, Equatable, Identifiable, Se
             ?? []
         confirmationActions = container.decodeLossyArrayIfPresent(DJConnectAskDJPlaybackAction.self, forKey: .confirmationActions) ?? []
         intentInfo = try container.decodeIfPresent(DJConnectAskDJIntentInfo.self, forKey: .intentInfo)
-        analysis = try container.decodeIfPresent(DJConnectAskDJTrackAnalysis.self, forKey: .analysis)
+        if let payload = try container.decodeIfPresent(TrackInsightPayload.self, forKey: .trackInsight) {
+            trackInsight = TrackInsightParser.makeInsight(from: payload, rawText: text, fallbackTitle: nil, fallbackArtist: nil, fallbackArtwork: nil)
+        } else {
+            trackInsight = nil
+        }
         items = container.decodeLossyArrayIfPresent(DJConnectAskDJHistoryItem.self, forKey: .items) ?? []
     }
 
@@ -1210,7 +1669,7 @@ public struct DJConnectAskDJHistoryMessage: Codable, Equatable, Identifiable, Se
         try container.encode(playbackActions, forKey: .playbackActions)
         try container.encode(confirmationActions, forKey: .confirmationActions)
         try container.encodeIfPresent(intentInfo, forKey: .intentInfo)
-        try container.encodeIfPresent(analysis, forKey: .analysis)
+        try container.encodeIfPresent(trackInsight, forKey: .trackInsight)
         try container.encode(items, forKey: .items)
     }
 
@@ -1304,18 +1763,18 @@ public struct DJConnectAskDJHistoryResponse: Codable, Equatable, Sendable {
 public struct DJConnectAskDJClearHistoryRequest: Codable, Equatable, Sendable {
     public var deviceID: String
     public var clientType: DJConnectClientType
-    public var memoryKey: String?
+    public var musicDNAKey: String?
 
     enum CodingKeys: String, CodingKey {
         case deviceID = "device_id"
         case clientType = "client_type"
-        case memoryKey = "memory_key"
+        case musicDNAKey = "music_dna_key"
     }
 
-    public init(identity: DJConnectIdentity, memoryKey: String? = nil) {
+    public init(identity: DJConnectIdentity, musicDNAKey: String? = nil) {
         self.deviceID = identity.deviceID
         self.clientType = identity.clientType
-        self.memoryKey = memoryKey
+        self.musicDNAKey = musicDNAKey
     }
 }
 
@@ -1342,7 +1801,9 @@ public struct DJConnectAskDJMessageResponse: Codable, Equatable, Sendable {
     public var intentInfo: DJConnectAskDJIntentInfo?
     public var action: String?
     public var itemType: String?
-    public var analysis: DJConnectAskDJTrackAnalysis?
+    public var openScreen: String?
+    public var responseType: String?
+    public var trackInsight: TrackInsight?
     public var items: [DJConnectAskDJHistoryItem]?
 
     enum CodingKeys: String, CodingKey {
@@ -1374,7 +1835,9 @@ public struct DJConnectAskDJMessageResponse: Codable, Equatable, Sendable {
         case action
         case itemType = "item_type"
         case itemTypeCamel = "itemType"
-        case analysis
+        case openScreen = "open_screen"
+        case responseType = "type"
+        case trackInsight = "track_insight"
         case items
     }
 
@@ -1401,7 +1864,9 @@ public struct DJConnectAskDJMessageResponse: Codable, Equatable, Sendable {
         intentInfo: DJConnectAskDJIntentInfo? = nil,
         action: String? = nil,
         itemType: String? = nil,
-        analysis: DJConnectAskDJTrackAnalysis? = nil,
+        openScreen: String? = nil,
+        responseType: String? = nil,
+        trackInsight: TrackInsight? = nil,
         items: [DJConnectAskDJHistoryItem]? = nil
     ) {
         self.userMessage = userMessage
@@ -1426,7 +1891,9 @@ public struct DJConnectAskDJMessageResponse: Codable, Equatable, Sendable {
         self.intentInfo = intentInfo
         self.action = action
         self.itemType = itemType
-        self.analysis = analysis
+        self.openScreen = openScreen
+        self.responseType = responseType
+        self.trackInsight = trackInsight
         self.items = items
     }
 
@@ -1470,7 +1937,13 @@ public struct DJConnectAskDJMessageResponse: Codable, Equatable, Sendable {
         } else if intentInfo == nil, action != nil || itemType != nil {
             intentInfo = DJConnectAskDJIntentInfo(intent: nil, action: action, itemType: itemType)
         }
-        analysis = try container.decodeIfPresent(DJConnectAskDJTrackAnalysis.self, forKey: .analysis)
+        openScreen = try container.decodeIfPresent(String.self, forKey: .openScreen)
+        responseType = try container.decodeIfPresent(String.self, forKey: .responseType)
+        if let payload = try container.decodeIfPresent(TrackInsightPayload.self, forKey: .trackInsight) {
+            trackInsight = TrackInsightParser.makeInsight(from: payload, rawText: text ?? djText ?? message ?? "", fallbackTitle: nil, fallbackArtist: nil, fallbackArtwork: nil)
+        } else {
+            trackInsight = nil
+        }
         items = container.decodeLossyArrayIfPresent(DJConnectAskDJHistoryItem.self, forKey: .items)
         if assistantMessage?.audioURL == nil, let audioURL {
             assistantMessage?.audioURL = audioURL
@@ -1478,8 +1951,8 @@ public struct DJConnectAskDJMessageResponse: Codable, Equatable, Sendable {
         if assistantMessage?.intentInfo == nil, let intentInfo {
             assistantMessage?.intentInfo = intentInfo
         }
-        if assistantMessage?.analysis == nil, let analysis {
-            assistantMessage?.analysis = analysis
+        if assistantMessage?.trackInsight == nil, let trackInsight {
+            assistantMessage?.trackInsight = trackInsight
         }
         if assistantMessage?.items.isEmpty != false, let items, !items.isEmpty {
             assistantMessage?.items = items
@@ -1512,7 +1985,7 @@ public struct DJConnectAskDJMessageResponse: Codable, Equatable, Sendable {
                 playbackActions: playbackActions ?? [],
                 confirmationActions: confirmationActions ?? [],
                 intentInfo: intentInfo,
-                analysis: analysis,
+                trackInsight: trackInsight,
                 items: items ?? []
             )
         }
@@ -1545,7 +2018,9 @@ public struct DJConnectAskDJMessageResponse: Codable, Equatable, Sendable {
         try container.encodeIfPresent(intentInfo, forKey: .intentInfo)
         try container.encodeIfPresent(action, forKey: .action)
         try container.encodeIfPresent(itemType, forKey: .itemType)
-        try container.encodeIfPresent(analysis, forKey: .analysis)
+        try container.encodeIfPresent(openScreen, forKey: .openScreen)
+        try container.encodeIfPresent(responseType, forKey: .responseType)
+        try container.encodeIfPresent(trackInsight, forKey: .trackInsight)
         try container.encodeIfPresent(items, forKey: .items)
     }
 }
@@ -1556,21 +2031,21 @@ public struct DJConnectAskDJIdleSuggestionRequest: Codable, Equatable, Sendable 
     public var clientMessageID: String
     public var mood: Int?
     public var djStyle: String?
-    public var memoryKey: String?
+    public var musicDNAKey: String?
 
     public init(
         identity: DJConnectIdentity,
         clientMessageID: String,
         mood: Int? = nil,
         djStyle: String? = nil,
-        memoryKey: String? = nil
+        musicDNAKey: String? = nil
     ) {
         self.deviceID = identity.deviceID
         self.clientType = identity.clientType
         self.clientMessageID = clientMessageID
         self.mood = mood.map { max(0, min(100, $0)) }
         self.djStyle = djStyle
-        self.memoryKey = memoryKey
+        self.musicDNAKey = musicDNAKey
     }
 
     enum CodingKeys: String, CodingKey {
@@ -1579,7 +2054,7 @@ public struct DJConnectAskDJIdleSuggestionRequest: Codable, Equatable, Sendable 
         case clientMessageID = "client_message_id"
         case mood
         case djStyle = "dj_style"
-        case memoryKey = "memory_key"
+        case musicDNAKey = "music_dna_key"
     }
 }
 
@@ -1782,9 +2257,8 @@ public struct DJConnectAskDJResponse: Codable, Equatable, Sendable {
     public var intent: String?
     public var intentInfo: DJConnectAskDJIntentInfo?
     public var action: String?
-    public var analysis: DJConnectAskDJTrackAnalysis?
     public var items: [DJConnectAskDJHistoryItem]?
-    public var memoryKey: String?
+    public var musicDNAKey: String?
 
     enum CodingKeys: String, CodingKey {
         case success
@@ -1806,9 +2280,8 @@ public struct DJConnectAskDJResponse: Codable, Equatable, Sendable {
         case recommendations
         case intent
         case action
-        case analysis
         case items
-        case memoryKey = "memory_key"
+        case musicDNAKey = "music_dna_key"
     }
 
     public init(
@@ -1825,9 +2298,8 @@ public struct DJConnectAskDJResponse: Codable, Equatable, Sendable {
         intent: String? = nil,
         intentInfo: DJConnectAskDJIntentInfo? = nil,
         action: String? = nil,
-        analysis: DJConnectAskDJTrackAnalysis? = nil,
         items: [DJConnectAskDJHistoryItem]? = nil,
-        memoryKey: String? = nil
+        musicDNAKey: String? = nil
     ) {
         self.success = success
         self.text = text
@@ -1842,9 +2314,8 @@ public struct DJConnectAskDJResponse: Codable, Equatable, Sendable {
         self.intent = intent
         self.intentInfo = intentInfo ?? intent.map { DJConnectAskDJIntentInfo(intent: $0, action: action) }
         self.action = action
-        self.analysis = analysis
         self.items = items
-        self.memoryKey = memoryKey
+        self.musicDNAKey = musicDNAKey
     }
 
     public init(from decoder: Decoder) throws {
@@ -1877,9 +2348,8 @@ public struct DJConnectAskDJResponse: Codable, Equatable, Sendable {
                 itemType: intentInfo?.itemType
             )
         }
-        analysis = try container.decodeIfPresent(DJConnectAskDJTrackAnalysis.self, forKey: .analysis)
         items = container.decodeLossyArrayIfPresent(DJConnectAskDJHistoryItem.self, forKey: .items)
-        memoryKey = try container.decodeIfPresent(String.self, forKey: .memoryKey)
+        musicDNAKey = try container.decodeIfPresent(String.self, forKey: .musicDNAKey)
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -1896,9 +2366,8 @@ public struct DJConnectAskDJResponse: Codable, Equatable, Sendable {
         try container.encodeIfPresent(confirmationActions, forKey: .confirmationActions)
         try container.encodeIfPresent(intentInfo ?? intent.map { DJConnectAskDJIntentInfo(intent: $0, action: action) }, forKey: .intent)
         try container.encodeIfPresent(action, forKey: .action)
-        try container.encodeIfPresent(analysis, forKey: .analysis)
         try container.encodeIfPresent(items, forKey: .items)
-        try container.encodeIfPresent(memoryKey, forKey: .memoryKey)
+        try container.encodeIfPresent(musicDNAKey, forKey: .musicDNAKey)
     }
 }
 

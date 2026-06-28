@@ -4,6 +4,39 @@ All notable changes to DJConnect App are documented here.
 
 ## Unreleased
 
+## 3.2.2 - 2026-06-28
+
+### Added
+
+- Added Track Insight and Ask DJ widgets for iOS and macOS, plus Track Insight
+  Live Activity/Dynamic Island rendering on iPhone.
+- Added on-device Track Insight sharing with static and animated formats for
+  story, square, and landscape cards.
+- Added an optional local Home Assistant native `/api/websocket` fast path for
+  latency-sensitive command, Ask DJ message, and Track Insight actions, with
+  HTTP remaining the canonical fallback.
+- Added iOS Home Screen quick actions for Ask DJ and Track Insight.
+
+### Changed
+
+- Aligned the Apple clients with the Home Assistant 3.2.2 Ask DJ and Track
+  Insight contract, including Music DNA terminology and `music_dna_key`
+  payloads.
+- Reworked Track Insight navigation and toolbar actions so Share, Refresh, and
+  VibeCast/AirPlay live in the Track Insight toolbar instead of a separate
+  VibeCast screen.
+- Updated Demo Mode Track Insight visualizations to map demo playback to
+  distinct local insights.
+
+### Removed
+
+- Removed user-facing and code-facing DJ Memory terminology from the active
+  client contract.
+- Removed legacy Ask DJ technical track-analysis rendering and local
+  Track Insight prompt classification.
+
+## 3.2.0 - 2026-06-26
+
 ### Changed
 
 - Clarified LAN-only pairing and post-pairing remote URL fallback guidance in
@@ -15,10 +48,6 @@ All notable changes to DJConnect App are documented here.
 - Synced the Apple client contract with Home Assistant `3.2.x` backend error
   shapes by accepting object-form `music_backend_error` and the shared
   `windows` client type in core models.
-
-## 3.2.0 - 2026-06-26
-
-### Changed
 
 - Bumped the Apple client protocol/app version line to `3.2.0`.
 - Added Home Assistant local/remote transport selection for iOS and macOS after

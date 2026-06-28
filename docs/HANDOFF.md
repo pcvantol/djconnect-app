@@ -136,8 +136,8 @@ Recommended iOS fields:
   "device_id": "djconnect-ios-8F3A2C91B45D",
   "device_name": "DJConnect iPhone",
   "client_type": "ios",
-  "firmware": "3.2.0",
-  "app_version": "3.2.0",
+  "firmware": "3.2.2",
+  "app_version": "3.2.2",
   "platform": "ios"
 }
 ```
@@ -149,8 +149,8 @@ Recommended macOS fields:
   "device_id": "djconnect-macos-8F3A2C91B45D",
   "device_name": "DJConnect Mac",
   "client_type": "macos",
-  "firmware": "3.2.0",
-  "app_version": "3.2.0",
+  "firmware": "3.2.2",
+  "app_version": "3.2.2",
   "platform": "macos"
 }
 ```
@@ -162,8 +162,8 @@ Recommended watchOS fields:
   "device_id": "djconnect-watchos-8F3A2C91B45D",
   "device_name": "DJConnect Watch",
   "client_type": "watchos",
-  "firmware": "3.2.0",
-  "app_version": "3.2.0",
+  "firmware": "3.2.2",
+  "app_version": "3.2.2",
   "platform": "watchos"
 }
 ```
@@ -185,7 +185,7 @@ Now Playing should not reintroduce a separate `DJ verzoek` block. rbpi did not
 have that separate UI block, and ESP32 remains a firmware/device client without
 the Apple Ask DJ rich chat UI.
 
-For `Ask DJ`, the Watch may send mood, DJ style, and a memory key hint, but DJ
+For `Ask DJ`, the Watch may send mood, DJ style, and a Music DNA key hint, but DJ
 Memory itself belongs to the Home Assistant integration. This lets a user ask
 for a calmer track on Watch and later ask from Mac why that track was chosen.
 
@@ -251,9 +251,9 @@ Expected response:
   "success": false,
   "error": "version_mismatch",
   "message": "DJConnect Home Assistant integration and device firmware major.minor versions must match.",
-  "ha_version": "3.2.0",
+  "ha_version": "3.2.2",
   "ha_major_minor": "3.2",
-  "firmware": "3.2.0",
+  "firmware": "3.2.2",
   "firmware_major_minor": "3.1"
 }
 ```
@@ -324,8 +324,8 @@ X-DJConnect-Device-ID: <device_id>
 {  "device_id": "djconnect-macos-8F3A2C91B45D",
   "device_name": "DJConnect Mac",
   "client_type": "macos",
-  "firmware": "3.2.0",
-  "app_version": "3.2.0",
+  "firmware": "3.2.2",
+  "app_version": "3.2.2",
   "platform": "macos",
   "pair_code": "123456",
   "pairing_code": "123456",
@@ -457,8 +457,8 @@ Minimum payload:
   "device_id": "djconnect-ios-8F3A2C91B45D",
   "client_type": "ios",
   "ha_pairing_status": "paired",
-  "firmware": "3.2.0",
-  "app_version": "3.2.0",
+  "firmware": "3.2.2",
+  "app_version": "3.2.2",
   "state": "online",
   "status": "online",
   "battery_percent": 85,
@@ -745,10 +745,10 @@ Canonical voice examples live in
   `what year was this released?`, `where is this artist from?`, `what samples
   are used?`, `does this artist have concerts in the Netherlands?`, `why did
   you choose this track?`
-- `technical_track_analysis`: `Geef een technische track analyse van dit
+- `track_insight`: `Geef een technische track analyse van dit
   nummer`, `Analyseer deze track`, `Wat is de bpm en opbouw van deze track?`,
   `Welke instrumenten hoor je hierin?`, `Hoe zit intro, couplet, refrein en
-  breakdown in elkaar?`, `Give me a technical analysis of this song`, `What is
+  breakdown in elkaar?`, `Give me a Track Insight of this song`, `What is
   the BPM, key and structure of this track?`, `Why does this track work so
   well?`
 
@@ -761,7 +761,7 @@ response generation.
 
 For `personal_music_profile_analysis`, Home Assistant should summarize the
 user's listening profile over the requested or inferred period without changing
-playback. It should use DJ Memory, recent tracks, likes/skips where available,
+playback. It should use Music DNA, recent tracks, likes/skips where available,
 timestamps, mood values, playlist choices, and current playback context to
 describe recurring genres, artists, energy, moods, listening situations, and
 notable taste shifts. If no period is given, default to a recent window such as
@@ -769,7 +769,7 @@ the last 30 days and say so. If memory is too sparse for the requested period,
 return an honest DJ response instead of inventing history.
 
 For `personal_music_recommendations`, Home Assistant should recommend concrete
-tracks, albums, artists, or playlists from DJ Memory plus Spotify recently
+tracks, albums, artists, or playlists from Music DNA plus Spotify recently
 played/top data where available. It should explain why recommendations fit the
 user's known taste, mood, energy, and recent listening. This intent is
 informational by default: do not change playback unless the user explicitly asks
@@ -782,7 +782,7 @@ festival appearances, new releases, why the track was chosen, relation to the
 previous track, BPM/energy transition, and shared producer or label connections
 when those details are available.
 
-For `technical_track_analysis`, Home Assistant should explain instrumentation,
+For `track_insight`, Home Assistant should explain instrumentation,
 arrangement, rhythm/groove, BPM/key/sections when measured or sourced,
 harmony/chords when known, sound design, production techniques, mix/mastering
 impressions, and why the composition works. This is an informational/read-only

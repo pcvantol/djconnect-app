@@ -43,7 +43,12 @@ struct DJConnectIOSApp: App {
 }
 
 final class DJConnectIOSAppDelegate: NSObject, UIApplicationDelegate {
-    weak var model: DJConnectAppModel?
+    weak var model: DJConnectAppModel? {
+        didSet {
+            flushPendingHomeScreenAction()
+        }
+    }
+    private var pendingHomeScreenAction: DJConnectHomeScreenAction?
 
     func application(
         _ application: UIApplication,
@@ -67,6 +72,45 @@ final class DJConnectIOSAppDelegate: NSObject, UIApplicationDelegate {
         Task { @MainActor in
             await model?.refreshAskDJHistory()
             completionHandler(.newData)
+        }
+    }
+
+    func application(
+        _ application: UIApplication,
+        configurationForConnecting connectingSceneSession: UISceneSession,
+        options: UIScene.ConnectionOptions
+    ) -> UISceneConfiguration {
+        if let shortcutItem = options.shortcutItem {
+            handle(shortcutItem)
+        }
+        return UISceneConfiguration(name: nil, sessionRole: connectingSceneSession.role)
+    }
+
+    func application(
+        _ application: UIApplication,
+        performActionFor shortcutItem: UIApplicationShortcutItem,
+        completionHandler: @escaping (Bool) -> Void
+    ) {
+        completionHandler(handle(shortcutItem))
+    }
+
+    @discardableResult
+    private func handle(_ shortcutItem: UIApplicationShortcutItem) -> Bool {
+        guard let action = DJConnectHomeScreenAction(rawValue: shortcutItem.type) else {
+            return false
+        }
+        pendingHomeScreenAction = action
+        flushPendingHomeScreenAction()
+        return true
+    }
+
+    private func flushPendingHomeScreenAction() {
+        guard let action = pendingHomeScreenAction, let model else {
+            return
+        }
+        pendingHomeScreenAction = nil
+        Task { @MainActor in
+            model.performHomeScreenAction(action)
         }
     }
 }

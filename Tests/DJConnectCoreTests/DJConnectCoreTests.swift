@@ -68,6 +68,19 @@ private final class ConnectionModeRecorder: @unchecked Sendable {
     }
 }
 
+private final class RequestCounter: @unchecked Sendable {
+    private let lock = NSLock()
+    private var value = 0
+
+    func increment() {
+        lock.withLock { value += 1 }
+    }
+
+    var count: Int {
+        lock.withLock { value }
+    }
+}
+
 private final class SequenceTokenStore: DJConnectTokenStore, @unchecked Sendable {
     private let lock = NSLock()
     private var loadResults: [Result<String?, Error>]
@@ -87,6 +100,92 @@ private final class SequenceTokenStore: DJConnectTokenStore, @unchecked Sendable
 
     func saveToken(_ token: String) throws {}
     func clearToken() throws {}
+}
+
+private actor MockWebSocketFastPathTransport: DJConnectWebSocketFastPathTransport {
+    var supportedRoutes: Set<DJConnectFastPathRoute>
+    var commandError: Error?
+    var askDJError: Error?
+    var trackInsightError: Error?
+    var commandCalls = 0
+    var askDJCalls = 0
+    var trackInsightCalls = 0
+    var receivedTokens: [String] = []
+    var receivedCommandPayload: DJConnectCommandPayload?
+    var receivedAskPayload: DJConnectAskDJRequest?
+    var receivedTrackPayload: DJConnectTrackInsightRequest?
+
+    init(supportedRoutes: Set<DJConnectFastPathRoute>) {
+        self.supportedRoutes = supportedRoutes
+    }
+
+    func setAskDJError(_ error: Error?) {
+        askDJError = error
+    }
+
+    var diagnostics: DJConnectFastPathDiagnostics {
+        DJConnectFastPathDiagnostics(
+            fastPathTransport: "websocket",
+            websocketConnected: true,
+            websocketCommands: supportedRoutes.map(\.rawValue).sorted()
+        )
+    }
+
+    func supports(_ route: DJConnectFastPathRoute) async -> Bool {
+        supportedRoutes.contains(route)
+    }
+
+    func command<T>(_ payload: DJConnectCommandPayload, token: String, responseType: T.Type) async throws -> T where T: Decodable, T: Sendable {
+        commandCalls += 1
+        receivedTokens.append(token)
+        receivedCommandPayload = payload
+        if let commandError {
+            throw commandError
+        }
+        guard supportedRoutes.contains(.command) else {
+            throw DJConnectError.routeMissing(message: "missing websocket command capability")
+        }
+        let response = DJConnectCommandResponse(success: true, playback: DJConnectPlayback(hasPlayback: true, isPlaying: true, trackName: "WebSocket Track"))
+        let data = try JSONEncoder().encode(response)
+        return try JSONDecoder().decode(T.self, from: data)
+    }
+
+    func askDJMessage(_ payload: DJConnectAskDJRequest, token: String) async throws -> DJConnectAskDJMessageResponse {
+        askDJCalls += 1
+        receivedTokens.append(token)
+        receivedAskPayload = payload
+        if let askDJError {
+            throw askDJError
+        }
+        guard supportedRoutes.contains(.askDJMessage) else {
+            throw DJConnectError.routeMissing(message: "missing websocket ask dj capability")
+        }
+        return DJConnectAskDJMessageResponse(
+            assistantMessage: DJConnectAskDJHistoryMessage(id: "fast-assistant", role: .assistant, text: "Fast answer", createdAt: Date()),
+            text: "Fast answer",
+            historyRevision: 12,
+            clearRevision: 3
+        )
+    }
+
+    func trackInsight(_ payload: DJConnectTrackInsightRequest, identity: DJConnectIdentity, token: String) async throws -> TrackInsight {
+        trackInsightCalls += 1
+        receivedTokens.append(token)
+        receivedTrackPayload = payload
+        if let trackInsightError {
+            throw trackInsightError
+        }
+        guard supportedRoutes.contains(.trackInsight) else {
+            throw DJConnectError.routeMissing(message: "missing websocket track insight capability")
+        }
+        return TrackInsight(
+            title: payload.title ?? "Fast Track",
+            artist: payload.artist ?? "Fast Artist",
+            genre: "House",
+            summary: "Fast insight",
+            rawAnalysisText: "Fast insight"
+        )
+    }
 }
 
 private enum TokenStoreTestError: Error {
@@ -113,6 +212,17 @@ private func httpResponse(for request: URLRequest, statusCode: Int) throws -> HT
         throw URLError(.badURL)
     }
     return response
+}
+
+private func testIOSIdentity(deviceID: String = "device-1", deviceName: String = "iPhone") -> DJConnectIdentity {
+    DJConnectIdentity(
+        deviceID: deviceID,
+        deviceName: deviceName,
+        clientType: .ios,
+        firmware: "3.2.2",
+        appVersion: "3.2.2",
+        platform: .ios
+    )
 }
 
 @Test func userDefaultsTokenStorePersistsAndClearsToken() throws {
@@ -319,7 +429,7 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
         wakewordStatus: "listening",
         mood: 75,
         djStyle: "warm_radio_dj",
-        memoryKey: "user:peter"
+        musicDNAKey: "user:peter"
     )
 
     let request = try client.statusRequest(payload)
@@ -347,7 +457,7 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
     #expect(json?["wakeword_status"] as? String == "listening")
     #expect(json?["mood"] as? Int == 75)
     #expect(json?["dj_style"] as? String == "warm_radio_dj")
-    #expect(json?["memory_key"] as? String == "user:peter")
+    #expect(json?["music_dna_key"] as? String == "user:peter")
 }
 
 @Test func commandRequestSupportsTypedValues() throws {
@@ -410,7 +520,7 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
         text: "Speel iets rustigers",
         mood: 20,
         djStyle: "warm_radio_dj",
-        memoryKey: "djconnect_ios_8F3A2C91B45D"
+        musicDNAKey: "djconnect_ios_8F3A2C91B45D"
     ))
     let body = try #require(request.httpBody)
     let json = try JSONSerialization.jsonObject(with: body) as? [String: Any]
@@ -426,7 +536,7 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
     #expect(json?["text"] as? String == "Speel iets rustigers")
     #expect(json?["mood"] as? Int == 20)
     #expect(json?["dj_style"] as? String == "warm_radio_dj")
-    #expect(json?["memory_key"] as? String == "djconnect_ios_8F3A2C91B45D")
+    #expect(json?["music_dna_key"] as? String == "djconnect_ios_8F3A2C91B45D")
 }
 
 @Test func askDJMessageRequestUsesSyncedHistoryEndpointAndClientMessageID() throws {
@@ -451,7 +561,7 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
         inputType: "text",
         mood: 70,
         djStyle: "warm_radio_dj",
-        memoryKey: "djconnect_ios_8F3A2C91B45D",
+        musicDNAKey: "djconnect_ios_8F3A2C91B45D",
         audioResponse: .auto
     ))
     let body = try #require(request.httpBody)
@@ -471,7 +581,7 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
     #expect(json?["audio_response"] as? String == "auto")
 }
 
-@Test func clearAskDJHistoryRequestIncludesClientIdentityAndMemoryKey() throws {
+@Test func clearAskDJHistoryRequestIncludesClientIdentityAndMusicDNAKey() throws {
     let identity = DJConnectIdentity(
         deviceID: "djconnect-ios-8F3A2C91B45D",
         deviceName: "DJConnect iPhone",
@@ -486,7 +596,7 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
         tokenStore: DJConnectInMemoryTokenStore(token: "secret-token")
     )
 
-    let request = try client.clearAskDJHistoryRequest(memoryKey: "djconnect_ios_8F3A2C91B45D")
+    let request = try client.clearAskDJHistoryRequest(musicDNAKey: "djconnect_ios_8F3A2C91B45D")
     let body = try #require(request.httpBody)
     let json = try JSONSerialization.jsonObject(with: body) as? [String: Any]
 
@@ -496,7 +606,7 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
     #expect(request.value(forHTTPHeaderField: "X-DJConnect-Device-ID") == identity.deviceID)
     #expect(json?["device_id"] as? String == identity.deviceID)
     #expect(json?["client_type"] as? String == "ios")
-    #expect(json?["memory_key"] as? String == "djconnect_ios_8F3A2C91B45D")
+    #expect(json?["music_dna_key"] as? String == "djconnect_ios_8F3A2C91B45D")
 }
 
 @Test func askDJIdleSuggestionRequestUsesDedicatedEndpoint() throws {
@@ -519,7 +629,7 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
         clientMessageID: "idle-suggestion-1",
         mood: 72,
         djStyle: "warm_radio_dj",
-        memoryKey: "djconnect_watchos_8F3A2C91B45D"
+        musicDNAKey: "djconnect_watchos_8F3A2C91B45D"
     ))
     let body = try #require(request.httpBody)
     let json = try JSONSerialization.jsonObject(with: body) as? [String: Any]
@@ -948,801 +1058,343 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
     #expect(response.assistantMessage?.audioURL == nil)
 }
 
-@Test func askDJMessageResponseDecodesTechnicalTrackAnalysisContract() throws {
+@Test func trackInsightRequestUsesDirectEndpointAndPayload() throws {
+    let client = DJConnectClient(
+        baseURL: URL(string: "http://homeassistant.local:8123")!,
+        identity: DJConnectIdentity(
+            deviceID: "device-1",
+            deviceName: "iPhone",
+            clientType: .ios,
+            firmware: "3.2.0",
+            appVersion: "3.2.0",
+            platform: .ios
+        ),
+        tokenStore: DJConnectInMemoryTokenStore(token: "token")
+    )
+
+    let request = try client.trackInsightRequest(DJConnectTrackInsightRequest(
+        title: "Innerbloom",
+        artist: "RUFUS DU SOL",
+        entityID: "media_player.living_room",
+        playerID: "spotify-player",
+        musicBackend: "spotify",
+        forceRefresh: true,
+        locale: "nl",
+        includeVisualProfile: true,
+        includeRawResponse: true
+    ))
+    let body = try #require(request.httpBody)
+    let object = try JSONSerialization.jsonObject(with: body) as? [String: Any]
+
+    #expect(request.httpMethod == "POST")
+    #expect(request.url?.path == "/api/djconnect/track_insight")
+    #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer token")
+    #expect((object?["title"] as? String) == "Innerbloom")
+    #expect((object?["artist"] as? String) == "RUFUS DU SOL")
+    #expect((object?["entity_id"] as? String) == "media_player.living_room")
+    #expect((object?["player_id"] as? String) == "spotify-player")
+    #expect((object?["music_backend"] as? String) == "spotify")
+    #expect((object?["force_refresh"] as? Bool) == true)
+    #expect((object?["include_visual_profile"] as? Bool) == true)
+}
+
+@Test func commandWebSocketFastPathSucceedsWithoutHTTP() async throws {
+    let fastPath = MockWebSocketFastPathTransport(supportedRoutes: [.command])
+    let client = DJConnectClient(
+        baseURL: URL(string: "http://fast-path.local:8123")!,
+        identity: testIOSIdentity(),
+        tokenStore: DJConnectInMemoryTokenStore(token: "device-token"),
+        session: mockSession(host: "fast-path.local") { request in
+            Issue.record("HTTP should not be used when WebSocket command succeeds")
+            return (try httpResponse(for: request, statusCode: 500), Data(#"{"success":false}"#.utf8))
+        },
+        webSocketFastPath: fastPath
+    )
+
+    let response = try await client.sendCommandResponse(DJConnectCommandPayload(
+        identity: testIOSIdentity(),
+        command: "play"
+    ))
+
+    #expect(response.success == true)
+    #expect(response.playback?.trackName == "WebSocket Track")
+    #expect(await fastPath.commandCalls == 1)
+    #expect(await fastPath.receivedTokens == ["device-token"])
+    #expect(await fastPath.receivedCommandPayload?.clientType == .ios)
+    #expect(await fastPath.receivedCommandPayload?.deviceID == "device-1")
+}
+
+@Test func homeAssistantWebSocketURLUsesNativeAPIPath() throws {
+    let local = try DJConnectHomeAssistantWebSocketFastPath.websocketURL(from: #require(URL(string: "http://homeassistant.local:8123")))
+    let secure = try DJConnectHomeAssistantWebSocketFastPath.websocketURL(from: #require(URL(string: "https://ha.example.com/lovelace?x=1")))
+
+    #expect(local.absoluteString == "ws://homeassistant.local:8123/api/websocket")
+    #expect(secure.absoluteString == "wss://ha.example.com/api/websocket")
+}
+
+@Test func missingWebSocketCapabilityFallsBackToHTTPCommand() async throws {
+    let fastPath = MockWebSocketFastPathTransport(supportedRoutes: [])
+    final class Counter: @unchecked Sendable {
+        let lock = NSLock()
+        var value = 0
+        func increment() { lock.withLock { value += 1 } }
+        var count: Int { lock.withLock { value } }
+    }
+    let counter = Counter()
+    let client = DJConnectClient(
+        baseURL: URL(string: "http://fallback.local:8123")!,
+        identity: testIOSIdentity(),
+        tokenStore: DJConnectInMemoryTokenStore(token: "device-token"),
+        session: mockSession(host: "fallback.local") { request in
+            counter.increment()
+            #expect(request.url?.path == "/api/djconnect/command")
+            return (try httpResponse(for: request, statusCode: 200), Data(#"{"success":true,"playback":{"has_playback":true,"is_playing":false,"track_name":"HTTP Track"}}"#.utf8))
+        },
+        webSocketFastPath: fastPath
+    )
+
+    let response = try await client.sendCommandResponse(DJConnectCommandPayload(
+        identity: testIOSIdentity(),
+        command: "pause"
+    ))
+
+    #expect(response.playback?.trackName == "HTTP Track")
+    #expect(await fastPath.commandCalls == 1)
+    #expect(counter.count == 1)
+}
+
+@Test func askDJMessageWebSocketFastPathDecodesMessagesAndRevisions() async throws {
+    let fastPath = MockWebSocketFastPathTransport(supportedRoutes: [.askDJMessage])
+    let client = DJConnectClient(
+        baseURL: URL(string: "http://ask-fast.local:8123")!,
+        identity: testIOSIdentity(),
+        tokenStore: DJConnectInMemoryTokenStore(token: "device-token"),
+        session: mockSession(host: "ask-fast.local") { request in
+            Issue.record("HTTP should not be used when WebSocket Ask DJ succeeds")
+            return (try httpResponse(for: request, statusCode: 500), Data())
+        },
+        webSocketFastPath: fastPath
+    )
+
+    let response = try await client.sendAskDJMessage(DJConnectAskDJRequest(
+        identity: testIOSIdentity(),
+        text: "Tell me about this track",
+        clientMessageID: "client-message-1",
+        mood: 72,
+        musicDNAKey: "music-dna",
+        audioResponse: .auto
+    ))
+
+    #expect(response.historyRevision == 12)
+    #expect(response.clearRevision == 3)
+    #expect(response.assistantMessage?.text == "Fast answer")
+    #expect(await fastPath.askDJCalls == 1)
+    #expect(await fastPath.receivedAskPayload?.musicDNAKey == "music-dna")
+    #expect(await fastPath.receivedTokens == ["device-token"])
+}
+
+@Test func trackInsightWebSocketFastPathSucceeds() async throws {
+    let fastPath = MockWebSocketFastPathTransport(supportedRoutes: [.trackInsight])
+    let client = DJConnectClient(
+        baseURL: URL(string: "http://insight-fast.local:8123")!,
+        identity: testIOSIdentity(),
+        tokenStore: DJConnectInMemoryTokenStore(token: "device-token"),
+        session: mockSession(host: "insight-fast.local") { request in
+            Issue.record("HTTP should not be used when WebSocket Track Insight succeeds")
+            return (try httpResponse(for: request, statusCode: 500), Data())
+        },
+        webSocketFastPath: fastPath
+    )
+
+    let insight = try await client.trackInsight(DJConnectTrackInsightRequest(title: "Innerbloom", artist: "RUFUS DU SOL"))
+
+    #expect(insight.title == "Innerbloom")
+    #expect(insight.artist == "RUFUS DU SOL")
+    #expect(await fastPath.trackInsightCalls == 1)
+    #expect(await fastPath.receivedTrackPayload?.title == "Innerbloom")
+    #expect(await fastPath.receivedTokens == ["device-token"])
+}
+
+@Test func webSocketFailureFallsBackToHTTPExactlyOnce() async throws {
+    let fastPath = MockWebSocketFastPathTransport(supportedRoutes: [.askDJMessage])
+    await fastPath.setAskDJError(DJConnectError.network(message: "timeout"))
+    final class Counter: @unchecked Sendable {
+        let lock = NSLock()
+        var value = 0
+        func increment() { lock.withLock { value += 1 } }
+        var count: Int { lock.withLock { value } }
+    }
+    let counter = Counter()
+    let client = DJConnectClient(
+        baseURL: URL(string: "http://ask-fallback.local:8123")!,
+        identity: testIOSIdentity(),
+        tokenStore: DJConnectInMemoryTokenStore(token: "device-token"),
+        session: mockSession(host: "ask-fallback.local") { request in
+            counter.increment()
+            #expect(request.url?.path == "/api/djconnect/ask_dj/message")
+            return (try httpResponse(for: request, statusCode: 200), Data(#"{"history_revision":9,"clear_revision":1,"assistant_message":{"role":"assistant","text":"HTTP answer"}}"#.utf8))
+        },
+        webSocketFastPath: fastPath
+    )
+
+    let response = try await client.sendAskDJMessage(DJConnectAskDJRequest(
+        identity: testIOSIdentity(),
+        text: "hidden prompt"
+    ))
+
+    #expect(response.assistantMessage?.text == "HTTP answer")
+    #expect(await fastPath.askDJCalls == 1)
+    #expect(counter.count == 1)
+}
+
+@Test func remoteOnlyClientStaysHTTPWithoutFastPath() async throws {
+    final class Counter: @unchecked Sendable {
+        let lock = NSLock()
+        var value = 0
+        func increment() { lock.withLock { value += 1 } }
+        var count: Int { lock.withLock { value } }
+    }
+    let counter = Counter()
+    let client = DJConnectClient(
+        baseURL: URL(string: "https://remote.ui.nabu.casa")!,
+        identity: testIOSIdentity(),
+        tokenStore: DJConnectInMemoryTokenStore(token: "device-token"),
+        session: mockSession(host: "remote.ui.nabu.casa") { request in
+            counter.increment()
+            return (try httpResponse(for: request, statusCode: 200), Data(#"{"success":true,"playback":{"has_playback":false,"is_playing":false}}"#.utf8))
+        }
+    )
+
+    _ = try await client.sendCommandResponse(DJConnectCommandPayload(
+        identity: testIOSIdentity(),
+        command: "status"
+    ))
+
+    #expect(counter.count == 1)
+}
+
+@Test func trackInsightEndpointResponseDecodesNormalizedBackendContract() throws {
+    let json = """
+    {
+      "success": true,
+      "track_insight": {
+        "id": "insight-innerbloom",
+        "source": "track_insight",
+        "track": {
+          "title": "Innerbloom",
+          "artist": "RUFUS DU SOL",
+          "album": "Bloom",
+          "duration_ms": 596000,
+          "progress_ms": 120000,
+          "is_playing": true,
+          "player_id": "spotify-player",
+          "entity_id": "media_player.living_room",
+          "backend": "spotify"
+        },
+        "analysis": {
+          "summary": "A slow-blooming electronic journey.",
+          "full_text": "Full Track Insight text.",
+          "bpm": 122,
+          "key": "F# minor",
+          "genre": "Deep House",
+          "subgenre": "Melodic House",
+          "mood": "Dreamy",
+          "vibe": "Cinematic",
+          "texture": "Glowing synth textures",
+          "emotional_tone": "Euphoric",
+          "energy": 0.65,
+          "danceability": 0.72,
+          "intensity": 0.58,
+          "confidence": 0.91,
+          "production_notes": ["Wide pads"],
+          "instrumentation": ["Synth arpeggio"],
+          "arrangement_notes": ["Slow build"],
+          "listening_cues": ["Wait for the lift"],
+          "similar_tracks": [
+            { "title": "Underwater", "artist": "RUFUS DU SOL", "reason": "Shared atmosphere" }
+          ]
+        },
+        "music_dna": {
+          "match_percent": 96,
+          "label": "matches_music_dna",
+          "summary": "This matches your Music DNA."
+        },
+        "visual_profile": {
+          "palette": ["#4DA3FF", "#D184FF"],
+          "motion_style": "cinematic",
+          "pulse_speed": 0.8,
+          "wave_amplitude": 0.7,
+          "particle_density": 0.6,
+          "glow_strength": 0.9,
+          "spectrum_bias": "mid",
+          "seed": "innerbloom"
+        }
+      }
+    }
+    """.data(using: .utf8)!
+
+    let response = try JSONDecoder().decode(TrackInsightEndpointResponse.self, from: json)
+    let insight = try #require(response.trackInsightValue)
+
+    #expect(insight.id == "insight-innerbloom")
+    #expect(insight.title == "Innerbloom")
+    #expect(insight.artist == "RUFUS DU SOL")
+    #expect(insight.duration == 596)
+    #expect(insight.progress == 120)
+    #expect(insight.isPlaying == true)
+    #expect(insight.playerID == "spotify-player")
+    #expect(insight.entityID == "media_player.living_room")
+    #expect(insight.bpm == 122)
+    #expect(insight.key == "F# minor")
+    #expect(insight.genre == "Deep House")
+    #expect(insight.subgenre == "Melodic House")
+    #expect(insight.emotionalTone == "Euphoric")
+    #expect(insight.confidence == 0.91)
+    #expect(insight.productionNotes == ["Wide pads"])
+    #expect(insight.similarTracks.first?.title == "Underwater")
+    #expect(insight.musicDNAMatchPercent == 96)
+    #expect(insight.musicDNALabel == .matchesMusicDNA)
+    #expect(insight.visualProfile?.motionStyle == .cinematic)
+    #expect(insight.visualProfile?.spectrumBias == .mid)
+}
+
+@Test func askDJMessageResponseDecodesTrackInsightMetadataAndOpenScreen() throws {
     let json = """
     {
       "history_revision": 44,
       "clear_revision": 7,
-      "text": "Deze track werkt door de strakke 128 BPM puls en geleidelijke laag-opbouw.",
-      "dj_text": "Deze track werkt door de strakke 128 BPM puls en geleidelijke laag-opbouw.",
-      "action": "track_analysis",
+      "text": "Ik heb Track Insight geopend.",
+      "open_screen": "track_insight",
+      "type": "track_insight",
       "intent": {
         "category": "informational",
-        "intent": "technical_track_analysis",
-        "action": "track_analysis"
+        "intent": "track_insight",
+        "action": "track_insight"
       },
-      "analysis": {
-        "mode": "measured_plus_knowledge",
-        "confidence": "high",
-        "track": {
-          "title": "Strobe",
-          "artist": "deadmau5",
-          "album": "For Lack of a Better Name",
-          "uri": "spotify:track:123"
-        },
-        "measured": {
-          "bpm": 128,
-          "key": "C minor",
-          "time_signature": 4,
-          "sections": [
-            {
-              "label": "intro",
-              "index": 1,
-              "start_ms": 0,
-              "duration_ms": 32000,
-              "confidence": 0.7
-            }
-          ],
-          "features": {
-            "energy": 0.82,
-            "danceability": 0.71
-          }
-        },
-        "inferred": {
-          "provider": "ha_conversation",
-          "structure": "Lange intro, laag-opbouw, climax/drop en outro.",
-          "instrumentation": "Synthpads, basdruk en subtiele percussie.",
-          "melodic_build": "Herhaling bouwt spanning op.",
-          "energy_curve": "Geleidelijk stijgend.",
-          "mix_notes": "Brede pads met ruimte voor de kick."
-        },
-        "limitations": [
-          "Exact section labels are inferred, not measured."
-        ],
-        "sources": [
-          "spotify_playback_context",
-          "spotify_audio_features"
-        ]
-      },
-      "items": [
-        {
-          "kind": "technical_metric",
-          "title": "BPM",
-          "value": "128",
-          "source": "spotify_audio_features",
-          "confidence": "high"
-        },
-        {
-          "kind": "arrangement",
-          "title": "Opbouw",
-          "value": "Lange intro, geleidelijke laag-opbouw, climax/drop, outro",
-          "source": "ha_conversation"
-        }
-      ],
-      "images": [],
-      "links": [],
-      "sources": [
-        {
-          "source": "spotify_playback_context",
-          "title": "Spotify playback context",
-          "kind": "source"
-        }
-      ],
-      "playback_actions": [],
-      "confirmation_actions": []
-    }
-    """.data(using: .utf8)!
-
-    let response = try JSONDecoder().decode(DJConnectAskDJMessageResponse.self, from: json)
-    let assistantMessage = try #require(response.assistantMessage)
-
-    #expect(response.intentInfo?.category == "informational")
-    #expect(response.intentInfo?.intent == "technical_track_analysis")
-    #expect(response.intentInfo?.action == "track_analysis")
-    #expect(response.analysis?.mode == "measured_plus_knowledge")
-    #expect(response.analysis?.measured?.bpm == 128)
-    #expect(response.analysis?.measured?.key == "C minor")
-    #expect(response.analysis?.measured?.sections.first?.label == "intro")
-    #expect(response.analysis?.measured?.sections.first?.index == 1)
-    #expect(response.analysis?.inferred?.provider == "ha_conversation")
-    #expect(response.analysis?.inferred?.mixNotes == "Brede pads met ruimte voor de kick.")
-    #expect(response.analysis?.sources == ["spotify_playback_context", "spotify_audio_features"])
-    #expect(response.items?.first?.kind == "technical_metric")
-    #expect(response.items?.first?.value == "128")
-    #expect(response.items?.first?.source == "spotify_audio_features")
-    #expect(response.items?.first?.confidence == "high")
-    #expect(response.sources?.first?.url.scheme == "djconnect-source")
-    #expect(response.sources?.first?.source == "spotify_playback_context")
-    #expect(response.playbackActions?.isEmpty == true)
-    #expect(response.confirmationActions?.isEmpty == true)
-    #expect(assistantMessage.intentInfo?.intent == "technical_track_analysis")
-    #expect(assistantMessage.analysis?.confidence == "high")
-    #expect(assistantMessage.items.count == 2)
-    #expect(assistantMessage.sources.first?.url.scheme == "djconnect-source")
-    #expect(assistantMessage.playbackActions.isEmpty)
-    #expect(assistantMessage.confirmationActions.isEmpty)
-    #expect(assistantMessage.images.isEmpty)
-}
-
-@Test func localAskDJTechnicalTrackAnalysisPreservesExplicitRenderableActions() throws {
-    let message = DJConnectAskDJMessage(
-        role: .dj,
-        text: "Technische trackanalyse.",
-        playbackActions: [
-            DJConnectAskDJPlaybackAction(
-                title: "Unexpected Play",
-                uri: "spotify:track:unexpected",
-                kind: "track"
-            )
-        ],
-        intentInfo: DJConnectAskDJIntentInfo(
-            category: "informational",
-            intent: "technical_track_analysis",
-            action: "track_analysis"
-        ),
-        analysis: try JSONDecoder().decode(
-            DJConnectAskDJTrackAnalysis.self,
-            from: Data(
-                #"""
-                {
-                  "mode": "knowledge_plus_metadata",
-                  "confidence": "low",
-                  "limitations": [
-                    "Exact intro, verse, chorus, drop or outro timestamps were not measured."
-                  ]
-                }
-                """#.utf8
-            )
-        ),
-        items: [
-            DJConnectAskDJHistoryItem(
-                kind: "technical_metric",
-                title: "Energy",
-                value: "0.82",
-                source: "spotify_audio_features",
-                confidence: "high"
-            )
-        ]
-    )
-
-    let encoded = try JSONEncoder().encode(message)
-    let decoded = try JSONDecoder().decode(DJConnectAskDJMessage.self, from: encoded)
-
-    #expect(decoded.isTechnicalTrackAnalysis)
-    #expect(decoded.playbackActions.count == 1)
-    #expect(decoded.renderablePlaybackActions.count == 1)
-    #expect(decoded.analysis?.mode == "knowledge_plus_metadata")
-    #expect(decoded.analysis?.limitations.first == "Exact intro, verse, chorus, drop or outro timestamps were not measured.")
-    #expect(decoded.items.first?.confidence == "high")
-}
-
-@Test func askDJMessageResponseDecodesTechnicalTrackAnalysisV2SectionsTimelineAndTips() throws {
-    let json = """
-    {
-      "text": "Technische analyse, zonder timestamps in prose.",
-      "action": "track_analysis",
-      "intent": {
-        "intent": "technical_track_analysis",
-        "action": "track_analysis"
-      },
-      "analysis": {
-        "contract_version": 2,
-        "mode": "measured_plus_knowledge",
-        "confidence": "medium",
-        "sections": [
-          {
-            "id": "rhythm_bpm",
-            "kind": "technical_metric",
-            "title": "Rhythm / BPM",
-            "value": "128 BPM",
-            "summary": "Steady four-on-the-floor pulse.",
-            "source": "measured",
-            "confidence": "high",
-            "items": [
-              {
-                "kind": "technical_metric",
-                "title": "BPM",
-                "value": "128",
-                "source": "measured",
-                "confidence": "high"
-              }
-            ]
-          },
-          {
-            "id": "energy_curve",
-            "kind": "shape",
-            "title": "Energy curve",
-            "summary": "Builds gradually into a brighter peak.",
-            "source": "inferred",
-            "confidence": "low"
-          }
-        ],
-        "timeline": [
-          {
-            "id": "intro",
-            "label": "Intro",
-            "kind": "intro",
-            "start_ms": 0,
-            "end_ms": 32000,
-            "summary": "Filtered opening.",
-            "source": "measured",
-            "confidence": "medium"
-          }
-        ],
-        "dj_tips": [
-          {
-            "id": "mix_in",
-            "kind": "transition",
-            "title": "Mix in",
-            "text": "Start mixing over the first 16 bars.",
-            "source": "inferred",
-            "confidence": "low"
-          }
-        ],
-        "providers": [
-          {
-            "provider_id": "spotify_measured",
-            "display_name": "Spotify measured",
-            "status": "used",
-            "requires_config": false
-          },
-          {
-            "provider_id": "ha_conversation",
-            "display_name": "Home Assistant conversation",
-            "status": "skipped",
-            "reason": "Not needed for measured fields."
-          },
-          {
-            "provider_id": "local_fallback",
-            "display_name": "Local fallback",
-            "status": "used"
-          }
-        ],
-        "limitations": [
-          "Energy labels are inferred."
-        ],
-        "sources": ["spotify_audio_features", "inferred"]
-      },
-      "items": [
-        {
-          "kind": "technical_metric",
-          "title": "Energy",
-          "value": "0.82",
-          "source": "measured",
-          "confidence": "medium"
-        }
-      ],
-      "images": []
-    }
-    """.data(using: .utf8)!
-
-    let response = try JSONDecoder().decode(DJConnectAskDJMessageResponse.self, from: json)
-    let analysis = try #require(response.analysis)
-    let assistantMessage = try #require(response.assistantMessage)
-
-    #expect(response.intentInfo?.intent == "technical_track_analysis")
-    #expect(response.action == "track_analysis")
-    #expect(analysis.contractVersion == 2)
-    #expect(analysis.sections.count == 2)
-    #expect(analysis.sections.first?.id == "rhythm_bpm")
-    #expect(analysis.sections.first?.items.first?.title == "BPM")
-    #expect(analysis.sections.last?.source == "inferred")
-    #expect(analysis.sections.last?.confidence == "low")
-    #expect(analysis.timeline.first?.startMS == 0)
-    #expect(analysis.timeline.first?.endMS == 32000)
-    #expect(analysis.djTips.first?.kind == "transition")
-    #expect(analysis.providers.count == 3)
-    #expect(analysis.providers.first?.providerID == "spotify_measured")
-    #expect(analysis.providers.first?.status == "used")
-    #expect(analysis.providers.first?.requiresConfig == false)
-    #expect(analysis.providers[1].providerID == "ha_conversation")
-    #expect(analysis.providers[1].status == "skipped")
-    #expect(analysis.providers[1].reason == "Not needed for measured fields.")
-    #expect(analysis.providers[2].providerID == "local_fallback")
-    #expect(analysis.limitations == ["Energy labels are inferred."])
-    #expect(assistantMessage.analysis?.contractVersion == 2)
-    #expect(assistantMessage.analysis?.sections.count == 2)
-    #expect(assistantMessage.analysis?.providers.count == 3)
-    #expect(assistantMessage.items.first?.title == "Energy")
-    #expect(assistantMessage.images.isEmpty)
-    #expect(assistantMessage.playbackActions.isEmpty)
-}
-
-@Test func askDJMessageResponseDecodesTechnicalTrackAnalysisV2WithoutTimeline() throws {
-    let json = """
-    {
-      "dj_text": "Technische analyse zonder timeline.",
-      "intent": {
-        "intent": "technical_track_analysis"
-      },
-      "analysis": {
-        "contract_version": 2,
-        "mode": "knowledge_plus_metadata",
-        "sections": [
-          {
-            "id": "instrumentation",
-            "kind": "description",
-            "title": "Instrumentation",
-            "summary": "Pads and restrained percussion.",
-            "source": "inferred",
-            "confidence": "medium"
-          }
-        ],
-        "dj_tips": [
-          {
-            "kind": "cueing",
-            "text": "Use the pad tail for a smooth transition.",
-            "source": "inferred"
-          }
-        ]
-      }
-    }
-    """.data(using: .utf8)!
-
-    let response = try JSONDecoder().decode(DJConnectAskDJMessageResponse.self, from: json)
-
-    #expect(response.analysis?.contractVersion == 2)
-    #expect(response.analysis?.sections.first?.id == "instrumentation")
-    #expect(response.analysis?.timeline.isEmpty == true)
-    #expect(response.analysis?.djTips.first?.text == "Use the pad tail for a smooth transition.")
-    #expect(response.analysis?.providers.isEmpty == true)
-}
-
-@Test func askDJMessageResponseDecodesTechnicalTrackAnalysisMetaBrainzMetadataContext() throws {
-    let json = """
-    {
-      "text": "Technische analyse met open metadata-context.",
-      "intent": {
-        "intent": "technical_track_analysis",
-        "action": "track_analysis"
-      },
-      "analysis": {
-        "contract_version": 2,
-        "mode": "measured_plus_knowledge",
-        "confidence": "medium",
-        "sections": [
-          {
-            "id": "rhythm_bpm",
-            "kind": "technical_metric",
-            "title": "Rhythm / BPM",
-            "value": "126 BPM",
-            "source": "spotify_audio_features",
-            "confidence": "high"
-          },
-          {
-            "id": "metadata_context",
-            "kind": "metadata_context",
-            "title": "Open metadata",
-            "summary": "Public MusicBrainz and ListenBrainz context, not DSP analysis.",
-            "source": "metabrainz_metadata",
-            "confidence": "medium"
-          }
-        ],
-        "timeline": [
-          {
-            "id": "measured_segment_1",
-            "label": "Segment 1",
-            "start_ms": 0,
-            "source": "spotify_audio_analysis"
-          }
-        ],
-        "dj_tips": [
-          {
-            "id": "mix_tip",
-            "text": "Use the measured BPM for beat matching.",
-            "source": "spotify_audio_features"
-          }
-        ],
-        "metadata": {
-          "musicbrainz_recording_id": "mb-recording-123",
-          "match_score": 93,
-          "recording_title": "Example Track",
-          "artist": "Example Artist",
-          "first_release_date": "1999-04-01",
-          "release": {
-            "title": "Example Release",
-            "date": "1999",
-            "country": "NL",
-            "status": "official"
-          },
-          "genres": ["house", "techno"],
-          "tags": ["club", "classic"],
-          "listenbrainz_listen_count": 12345,
-          "future_metadata_field": "ignored"
-        },
-        "providers": [
-          {
-            "provider_id": "spotify_measured",
-            "display_name": "Spotify measured",
-            "status": "used"
-          },
-          {
-            "provider_id": "metabrainz_metadata",
-            "display_name": "MusicBrainz / ListenBrainz",
-            "status": "used"
-          }
-        ],
-        "limitations": [
-          "MusicBrainz and ListenBrainz metadata is contextual and is not audio DSP analysis."
-        ],
-        "sources": [
-          "spotify_playback_context",
-          "spotify_audio_features",
-          "spotify_audio_analysis",
-          "metabrainz_metadata"
-        ]
-      },
-      "playback_actions": []
-    }
-    """.data(using: .utf8)!
-
-    let response = try JSONDecoder().decode(DJConnectAskDJMessageResponse.self, from: json)
-    let analysis = try #require(response.analysis)
-    let metadata = try #require(analysis.metadata)
-
-    #expect(analysis.sections.count == 2)
-    #expect(analysis.sections[0].id == "rhythm_bpm")
-    #expect(analysis.sections[1].id == "metadata_context")
-    #expect(analysis.sections[1].source == "metabrainz_metadata")
-    #expect(analysis.timeline.count == 1)
-    #expect(analysis.timeline.first?.label == "Segment 1")
-    #expect(metadata.musicBrainzRecordingID == "mb-recording-123")
-    #expect(metadata.matchScore == 93)
-    #expect(metadata.recordingTitle == "Example Track")
-    #expect(metadata.artist == "Example Artist")
-    #expect(metadata.firstReleaseDate == "1999-04-01")
-    #expect(metadata.release?.title == "Example Release")
-    #expect(metadata.release?.country == "NL")
-    #expect(metadata.genres == ["house", "techno"])
-    #expect(metadata.tags == ["club", "classic"])
-    #expect(metadata.listenBrainzListenCount == 12345)
-    #expect(analysis.providers.contains { $0.providerID == "metabrainz_metadata" && $0.status == "used" })
-    #expect(analysis.sources.contains("metabrainz_metadata"))
-    #expect(analysis.limitations.first?.contains("contextual") == true)
-    #expect(response.assistantMessage?.playbackActions.isEmpty == true)
-}
-
-@Test func askDJMessageResponseDecodesMetaBrainzProviderSkippedRateLimited() throws {
-    let json = """
-    {
-      "text": "Analyse zonder externe metadata.",
-      "intent": {
-        "intent": "technical_track_analysis"
-      },
-      "analysis": {
-        "contract_version": 2,
-        "sections": [
-          {
-            "id": "rhythm_bpm",
-            "value": "126 BPM"
-          }
-        ],
-        "providers": [
-          {
-            "provider_id": "metabrainz_metadata",
-            "display_name": "MusicBrainz / ListenBrainz",
-            "status": "skipped",
-            "reason": "rate_limited"
-          }
-        ]
-      }
-    }
-    """.data(using: .utf8)!
-
-    let response = try JSONDecoder().decode(DJConnectAskDJMessageResponse.self, from: json)
-    let provider = try #require(response.analysis?.providers.first)
-
-    #expect(response.analysis?.metadata == nil)
-    #expect(response.analysis?.sections.first?.id == "rhythm_bpm")
-    #expect(provider.providerID == "metabrainz_metadata")
-    #expect(provider.status == "skipped")
-    #expect(provider.reason == "rate_limited")
-}
-
-@Test func askDJMessageResponseDecodesMetaBrainzProviderErrorWithoutBreakingAnalysis() throws {
-    let json = """
-    {
-      "text": "Analyse met providerfout.",
-      "intent": {
-        "intent": "technical_track_analysis"
-      },
-      "analysis": {
-        "contract_version": 2,
-        "sections": [
-          {
-            "id": "energy_curve",
-            "summary": "Energy still comes from the normal analysis payload."
-          }
-        ],
-        "providers": [
-          {
-            "provider_id": "metabrainz_metadata",
-            "status": "error",
-            "reason": "lookup_failed"
-          }
-        ]
-      },
-      "playback_actions": []
-    }
-    """.data(using: .utf8)!
-
-    let response = try JSONDecoder().decode(DJConnectAskDJMessageResponse.self, from: json)
-
-    #expect(response.analysis?.sections.first?.id == "energy_curve")
-    #expect(response.analysis?.providers.first?.providerID == "metabrainz_metadata")
-    #expect(response.analysis?.providers.first?.status == "error")
-    #expect(response.analysis?.providers.first?.reason == "lookup_failed")
-    #expect(response.assistantMessage?.playbackActions.isEmpty == true)
-}
-
-@Test func askDJTechnicalTrackAnalysisMetadataContextDoesNotCreateFakeTimelineLabels() throws {
-    let json = """
-    {
-      "text": "Metadata-context beschrijft release-informatie.",
-      "intent": {
-        "intent": "technical_track_analysis"
-      },
-      "analysis": {
-        "contract_version": 2,
-        "sections": [
-          {
-            "id": "metadata_context",
-            "kind": "metadata_context",
-            "title": "Open metadata",
-            "summary": "Known public metadata mentions intro and club tags, but no measured arrangement was returned.",
-            "source": "metabrainz_metadata"
-          }
-        ],
-        "metadata": {
-          "musicbrainz_recording_id": "mb-recording-456",
-          "tags": ["intro", "club"]
-        },
-        "sources": ["metabrainz_metadata"]
-      },
-      "playback_actions": []
-    }
-    """.data(using: .utf8)!
-
-    let response = try JSONDecoder().decode(DJConnectAskDJMessageResponse.self, from: json)
-    let analysis = try #require(response.analysis)
-
-    #expect(analysis.sections.first?.id == "metadata_context")
-    #expect(analysis.metadata?.tags == ["intro", "club"])
-    #expect(analysis.timeline.isEmpty)
-    #expect(analysis.measured?.sections.isEmpty != false)
-    #expect(response.assistantMessage?.playbackActions.isEmpty == true)
-}
-
-@Test func askDJMessageResponseDecodesUnknownTechnicalTrackAnalysisProviders() throws {
-    let json = """
-    {
-      "text": "Future provider analysis.",
-      "intent": {
-        "intent": "technical_track_analysis"
-      },
-      "analysis": {
-        "contract_version": 2,
-        "mode": "measured_plus_knowledge",
-        "sections": [
-          {
-            "id": "rhythm_bpm",
-            "kind": "technical_metric",
-            "title": "Rhythm / BPM",
-            "value": "128 BPM"
-          }
-        ],
-        "timeline": [
-          {
-            "id": "intro",
-            "label": "Intro",
-            "start_ms": 0
-          }
-        ],
-        "dj_tips": [
-          {
-            "id": "mix_in",
-            "text": "Keep the intro clean."
-          }
-        ],
-        "providers": [
-          {
-            "provider_id": "future_provider",
-            "display_name": "Future provider",
-            "status": "warming_up",
-            "requires_config": true,
-            "reason": "future_reason",
-            "ignored_field": "ignored"
-          }
-        ]
-      },
-      "playback_actions": []
-    }
-    """.data(using: .utf8)!
-
-    let response = try JSONDecoder().decode(DJConnectAskDJMessageResponse.self, from: json)
-    let analysis = try #require(response.analysis)
-
-    #expect(analysis.sections.first?.value == "128 BPM")
-    #expect(analysis.timeline.first?.label == "Intro")
-    #expect(analysis.djTips.first?.text == "Keep the intro clean.")
-    #expect(analysis.providers.count == 1)
-    #expect(analysis.providers.first?.providerID == "future_provider")
-    #expect(analysis.providers.first?.displayName == "Future provider")
-    #expect(analysis.providers.first?.status == "warming_up")
-    #expect(analysis.providers.first?.requiresConfig == true)
-    #expect(analysis.providers.first?.reason == "future_reason")
-    #expect(response.assistantMessage?.playbackActions.isEmpty == true)
-}
-
-@Test func askDJMessageResponseDecodesUnavailableTechnicalTrackAnalysisV2() throws {
-    let json = """
-    {
-      "text": "Ik kan nu geen track analyseren.",
-      "action": "track_analysis",
-      "intent": {
-        "intent": "technical_track_analysis",
-        "action": "track_analysis"
-      },
-      "analysis": {
-        "contract_version": 2,
-        "mode": "unavailable",
-        "confidence": "low",
-        "limitations": [
-          "No active Spotify playback context is available."
-        ],
-        "sources": ["unavailable"],
-        "providers": [
-          {
-            "provider_id": "spotify_measured",
-            "status": "skipped",
-            "reason": "No active playback context."
-          },
-          {
-            "provider_id": "ha_conversation",
-            "status": "skipped",
-            "reason": "No track metadata available."
-          }
-        ]
-      }
-    }
-    """.data(using: .utf8)!
-
-    let response = try JSONDecoder().decode(DJConnectAskDJMessageResponse.self, from: json)
-
-    #expect(response.analysis?.contractVersion == 2)
-    #expect(response.analysis?.mode == "unavailable")
-    #expect(response.analysis?.confidence == "low")
-    #expect(response.analysis?.sections.isEmpty == true)
-    #expect(response.analysis?.limitations.first == "No active Spotify playback context is available.")
-    #expect(response.analysis?.providers.allSatisfy { $0.status == "skipped" } == true)
-}
-
-@Test func askDJMessageResponseDecodesUnknownTechnicalTrackAnalysisV2Values() throws {
-    let json = """
-    {
-      "text": "Future analysis payload.",
-      "intent": {
-        "intent": "technical_track_analysis"
-      },
-      "analysis": {
-        "contract_version": 2,
-        "sections": [
-          {
-            "id": "future_section",
-            "kind": "spectral_flux",
-            "title": "Spectral Flux",
-            "value": "Wide",
-            "source": "local_fallback",
-            "confidence": "low"
-          }
-        ],
-        "timeline": [
-          {
-            "kind": "mystery_segment",
-            "label": "Unknown part",
-            "start_ms": 64000,
-            "source": "future_source"
-          }
-        ],
-        "dj_tips": [
-          {
-            "kind": "future_tip",
-            "text": "Treat this as a generic tip.",
-            "source": "local_fallback"
-          }
-        ]
-      }
-    }
-    """.data(using: .utf8)!
-
-    let response = try JSONDecoder().decode(DJConnectAskDJMessageResponse.self, from: json)
-
-    #expect(response.analysis?.sections.first?.id == "future_section")
-    #expect(response.analysis?.sections.first?.kind == "spectral_flux")
-    #expect(response.analysis?.sections.first?.source == "local_fallback")
-    #expect(response.analysis?.timeline.first?.kind == "mystery_segment")
-    #expect(response.analysis?.timeline.first?.source == "future_source")
-    #expect(response.analysis?.djTips.first?.kind == "future_tip")
-}
-
-@Test func askDJMessageResponseWithoutPlaybackActionsDoesNotReusePreviousActions() throws {
-    let previous = DJConnectAskDJMessage(
-        serverID: "same-server-id",
-        role: .dj,
-        text: "Previous answer",
-        playbackActions: [
-            DJConnectAskDJPlaybackAction(title: "Play previous", uri: "spotify:track:previous", kind: "track")
-        ]
-    )
-    let json = """
-    {
-      "assistant_message": {
-        "id": "same-server-id",
-        "role": "assistant",
-        "text": "Read-only analysis.",
-        "intent": {
-          "intent": "technical_track_analysis",
-          "action": "track_analysis"
-        },
+      "track_insight": {
+        "track": { "title": "Adagio for Strings", "artist": "Samuel Barber" },
         "analysis": {
-          "contract_version": 2,
-          "mode": "measured",
-          "sections": [
-            {
-              "id": "rhythm_bpm",
-              "value": "128 BPM"
-            }
-          ]
-        }
+          "summary": "A patient orchestral ascent.",
+          "genre": "Classical",
+          "mood": "Lamenting",
+          "vibe": "Slow string suspense",
+          "energy": 0.32
+        },
+        "music_dna": { "match_percent": 74, "label": "expands_music_dna" }
       }
     }
     """.data(using: .utf8)!
 
     let response = try JSONDecoder().decode(DJConnectAskDJMessageResponse.self, from: json)
-    let message = DJConnectAskDJMessage(
-        serverID: response.assistantMessage?.id,
-        role: .dj,
-        text: response.assistantMessage?.text ?? "",
-        playbackActions: response.assistantMessage?.playbackActions ?? [],
-        intentInfo: response.assistantMessage?.intentInfo,
-        analysis: response.assistantMessage?.analysis
-    )
+    let assistantMessage = try #require(response.assistantMessage)
+    let insight = try #require(response.trackInsight)
 
-    #expect(previous.playbackActions.count == 1)
-    #expect(message.isTechnicalTrackAnalysis)
-    #expect(message.playbackActions.isEmpty)
-    #expect(message.renderablePlaybackActions.isEmpty)
-}
-
-@Test func askDJResponseDecodesObjectIntentForTechnicalTrackAnalysis() throws {
-    let json = """
-    {
-      "success": true,
-      "dj_text": "Er speelt nu geen track die ik kan analyseren.",
-      "action": "track_analysis",
-      "intent": {
-        "category": "informational",
-        "intent": "technical_track_analysis",
-        "action": "track_analysis"
-      },
-      "analysis": {
-        "mode": "unavailable",
-        "confidence": "low",
-        "limitations": ["No current track is available."],
-        "sources": ["spotify_playback_context"]
-      },
-      "playback_actions": []
-    }
-    """.data(using: .utf8)!
-
-    let response = try JSONDecoder().decode(DJConnectAskDJResponse.self, from: json)
-
-    #expect(response.success)
-    #expect(response.intent == "technical_track_analysis")
-    #expect(response.intentInfo?.category == "informational")
-    #expect(response.action == "track_analysis")
-    #expect(response.analysis?.mode == "unavailable")
-    #expect(response.playbackActions?.isEmpty == true)
+    #expect(response.openScreen == "track_insight")
+    #expect(response.responseType == "track_insight")
+    #expect(response.intentInfo?.intent == "track_insight")
+    #expect(insight.title == "Adagio for Strings")
+    #expect(insight.musicDNAMatchPercent == 74)
+    #expect(assistantMessage.trackInsight?.artist == "Samuel Barber")
 }
 
 @Test func askDJMessageResponseFallsBackToTopLevelAudioURL() throws {
@@ -2603,7 +2255,7 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
                     .string("spotify:track:1"),
                     .string("spotify:track:2")
                 ]),
-                "memory_key": .string("djconnect_ios_8F3A2C91B45D")
+                "music_dna_key": .string("djconnect_ios_8F3A2C91B45D")
             ]),
             play: true
         )
@@ -2641,7 +2293,7 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
             value: .jsonObject([
                 "title": .string("Ja"),
                 "response_value": .string("yes"),
-                "memory_key": .string("djconnect_watchos_8F3A2C91B45D")
+                "music_dna_key": .string("djconnect_watchos_8F3A2C91B45D")
             ]),
             play: false
         )
@@ -2682,7 +2334,7 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
                 "device_name": .string("Woonkamer"),
                 "command": .string("set_output"),
                 "response_value": .string("spotify-device-1"),
-                "memory_key": .string("djconnect_ios_8F3A2C91B45D")
+                "music_dna_key": .string("djconnect_ios_8F3A2C91B45D")
             ])
         )
     )
@@ -3811,7 +3463,7 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
         wavData: wav,
         mood: 120,
         djStyle: "warm_radio_dj",
-        memoryKey: "djconnect-watchos-8F3A2C91B45D"
+        musicDNAKey: "djconnect-watchos-8F3A2C91B45D"
     )
 
     #expect(request.url?.path == "/api/djconnect/voice")
@@ -3822,7 +3474,7 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
     #expect(request.value(forHTTPHeaderField: "X-DJConnect-Client-Type") == "ios")
     #expect(request.value(forHTTPHeaderField: "X-DJConnect-Mood") == "100")
     #expect(request.value(forHTTPHeaderField: "X-DJConnect-DJ-Style") == "warm_radio_dj")
-    #expect(request.value(forHTTPHeaderField: "X-DJConnect-Memory-Key") == "djconnect-watchos-8F3A2C91B45D")
+    #expect(request.value(forHTTPHeaderField: "X-DJConnect-Music-DNA-Key") == "djconnect-watchos-8F3A2C91B45D")
     #expect(request.httpBody == wav)
 }
 
@@ -4696,7 +4348,7 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
         wavData: Data([0x52, 0x49, 0x46, 0x46]),
         mood: 70,
         djStyle: "warm_radio_dj",
-        memoryKey: "djconnect-watchos-ABC123"
+        musicDNAKey: "djconnect-watchos-ABC123"
     )
     let request = DJConnectWatchProxyRequest(operation: .voice, payload: try JSONEncoder().encode(payload))
     let decodedRequest = try JSONDecoder().decode(DJConnectWatchProxyRequest.self, from: JSONEncoder().encode(request))
@@ -4792,4 +4444,73 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
 
     #expect(response.clientType == .windows)
     #expect(response.deviceID == "djconnect-windows-ABCDEF123456")
+}
+
+@Test func trackInsightParserDecodesStructuredJSON() throws {
+    let json = """
+    {
+      "title": "Innerbloom",
+      "artist": "RUFUS DU SOL",
+      "album": "Bloom",
+      "bpm": 122,
+      "key": "D minor",
+      "genre": "Melodic house",
+      "energy": 0.64,
+      "danceability": 0.62,
+      "intensity": 0.70,
+      "mood": "Dreamy",
+      "vibe": "Expansive",
+      "texture": "Wide pads",
+      "confidence": 0.95,
+      "summary": "A slow-blooming electronic piece."
+    }
+    """.data(using: .utf8)!
+
+    let insight = try #require(TrackInsightParser.parse(data: json))
+
+    #expect(insight.title == "Innerbloom")
+    #expect(insight.artist == "RUFUS DU SOL")
+    #expect(insight.bpm == 122)
+    #expect(insight.energy == 0.64)
+    #expect(insight.summary == "A slow-blooming electronic piece.")
+}
+
+@Test func trackVibeProfileIsDeterministicForSameInsight() {
+    let insight = TrackInsight(
+        title: "Marea",
+        artist: "Fred again..",
+        bpm: 126,
+        genre: "House",
+        energy: 0.8,
+        danceability: 0.88,
+        intensity: 0.72,
+        mood: "Energetic",
+        vibe: "Human",
+        texture: "Vocal chops",
+        summary: "A club record with an intimate human center.",
+        rawAnalysisText: "Demo"
+    )
+
+    #expect(TrackVibeProfile.make(for: insight) == TrackVibeProfile.make(for: insight))
+}
+
+@Test func demoTrackInsightServiceMapsDemoQueueTracksToDistinctInsights() async throws {
+    let service = DemoTrackInsightService()
+    let demoTracks = [
+        DJConnectPlayback(trackName: "Midnight City", artistName: "M83"),
+        DJConnectPlayback(trackName: "Sweet Disposition", artistName: "The Temper Trap"),
+        DJConnectPlayback(trackName: "Electric Feel", artistName: "MGMT")
+    ]
+
+    var insights: [TrackInsight] = []
+    for playback in demoTracks {
+        insights.append(try await service.insight(for: playback))
+    }
+
+    #expect(insights.map(\.title) == ["Midnight City", "Sweet Disposition", "Electric Feel"])
+    #expect(Set(insights.map(\.genre)).count == 3)
+    let profiles = insights.map { TrackVibeProfile.make(for: $0) }
+    #expect(profiles[0] != profiles[1])
+    #expect(profiles[1] != profiles[2])
+    #expect(profiles[0] != profiles[2])
 }

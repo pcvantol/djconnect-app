@@ -9,12 +9,14 @@ public final class DJConnectClient: Sendable {
     private let encoder: JSONEncoder
     private let decoder: JSONDecoder
     private let responseLogger: (@Sendable (_ requestSummary: String, _ statusCode: Int) -> Void)?
+    private let webSocketFastPath: (any DJConnectWebSocketFastPathTransport)?
 
     public init(
         baseURL: URL,
         identity: DJConnectIdentity,
         tokenStore: DJConnectTokenStore,
         session: URLSession = .shared,
+        webSocketFastPath: (any DJConnectWebSocketFastPathTransport)? = nil,
         responseLogger: (@Sendable (_ requestSummary: String, _ statusCode: Int) -> Void)? = nil
     ) {
         self.baseURL = baseURL
@@ -23,6 +25,7 @@ public final class DJConnectClient: Sendable {
         self.session = session
         self.encoder = JSONEncoder()
         self.decoder = JSONDecoder()
+        self.webSocketFastPath = webSocketFastPath
         self.responseLogger = responseLogger
     }
 
@@ -42,11 +45,17 @@ public final class DJConnectClient: Sendable {
     }
 
     public func sendCommand(_ payload: DJConnectCommandPayload) async throws -> DJConnectEnvelope<DJConnectPlayback> {
+        if let response: DJConnectEnvelope<DJConnectPlayback> = try await webSocketResultIfSupported(.command, payload: payload) {
+            return response
+        }
         let request = try commandRequest(payload)
         return try await decodedResponse(for: request)
     }
 
     public func sendCommandResponse(_ payload: DJConnectCommandPayload) async throws -> DJConnectCommandResponse {
+        if let response: DJConnectCommandResponse = try await webSocketResultIfSupported(.command, payload: payload) {
+            return response
+        }
         let request = try commandRequest(payload)
         return try await decodedResponse(for: request)
     }
@@ -57,6 +66,9 @@ public final class DJConnectClient: Sendable {
     }
 
     public func sendAskDJMessage(_ payload: DJConnectAskDJRequest) async throws -> DJConnectAskDJMessageResponse {
+        if let response = try await webSocketAskDJMessageIfSupported(payload) {
+            return response
+        }
         let request = try askDJMessageRequest(payload)
         return try await decodedResponse(for: request)
     }
@@ -66,14 +78,32 @@ public final class DJConnectClient: Sendable {
         return try await decodedResponse(for: request)
     }
 
-    public func clearAskDJHistory(memoryKey: String? = nil) async throws -> DJConnectAskDJHistoryResponse {
-        let request = try clearAskDJHistoryRequest(memoryKey: memoryKey)
+    public func clearAskDJHistory(musicDNAKey: String? = nil) async throws -> DJConnectAskDJHistoryResponse {
+        let request = try clearAskDJHistoryRequest(musicDNAKey: musicDNAKey)
         return try await decodedResponse(for: request)
     }
 
     public func askDJIdleSuggestion(_ payload: DJConnectAskDJIdleSuggestionRequest) async throws -> DJConnectAskDJMessageResponse {
         let request = try askDJIdleSuggestionRequest(payload)
         return try await decodedResponse(for: request)
+    }
+
+    public func trackInsight(_ payload: DJConnectTrackInsightRequest) async throws -> TrackInsight {
+        if let insight = try await webSocketTrackInsightIfSupported(payload) {
+            return insight
+        }
+        let request = try trackInsightRequest(payload)
+        let data: TrackInsightEndpointResponse = try await decodedResponse(for: request)
+        guard data.success != false, let insight = data.trackInsightValue else {
+            throw DJConnectError.trackInsightUnavailable(code: data.error, message: data.message)
+        }
+        return insight
+    }
+
+    public var fastPathDiagnostics: DJConnectFastPathDiagnostics {
+        get async {
+            await webSocketFastPath?.diagnostics ?? DJConnectFastPathDiagnostics()
+        }
     }
 
     public func registerPushNotifications(_ payload: DJConnectPushRegistrationRequest) async throws -> DJConnectCommandResponse {
@@ -90,9 +120,9 @@ public final class DJConnectClient: Sendable {
         wavData: Data,
         mood: Int? = nil,
         djStyle: String? = nil,
-        memoryKey: String? = nil
+        musicDNAKey: String? = nil
     ) async throws -> DJConnectVoiceResponse {
-        let request = try voiceRequest(wavData: wavData, mood: mood, djStyle: djStyle, memoryKey: memoryKey)
+        let request = try voiceRequest(wavData: wavData, mood: mood, djStyle: djStyle, musicDNAKey: musicDNAKey)
         return try await decodedResponse(for: request)
     }
 
@@ -135,16 +165,20 @@ public final class DJConnectClient: Sendable {
         return request
     }
 
-    public func clearAskDJHistoryRequest(memoryKey: String? = nil) throws -> URLRequest {
+    public func clearAskDJHistoryRequest(musicDNAKey: String? = nil) throws -> URLRequest {
         var request = try authenticatedRequest(path: "/api/djconnect/ask_dj/history/clear")
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.httpBody = try encoder.encode(DJConnectAskDJClearHistoryRequest(identity: identity, memoryKey: memoryKey))
+        request.httpBody = try encoder.encode(DJConnectAskDJClearHistoryRequest(identity: identity, musicDNAKey: musicDNAKey))
         return request
     }
 
     public func askDJIdleSuggestionRequest(_ payload: DJConnectAskDJIdleSuggestionRequest) throws -> URLRequest {
         try jsonRequest(path: "/api/djconnect/ask_dj/idle_suggestion", payload: payload)
+    }
+
+    public func trackInsightRequest(_ payload: DJConnectTrackInsightRequest) throws -> URLRequest {
+        try jsonRequest(path: "/api/djconnect/track_insight", payload: payload)
     }
 
     public func pushRegisterRequest(_ payload: DJConnectPushRegistrationRequest) throws -> URLRequest {
@@ -159,7 +193,7 @@ public final class DJConnectClient: Sendable {
         wavData: Data,
         mood: Int? = nil,
         djStyle: String? = nil,
-        memoryKey: String? = nil
+        musicDNAKey: String? = nil
     ) throws -> URLRequest {
         var request = try authenticatedRequest(path: "/api/djconnect/voice")
         request.httpMethod = "POST"
@@ -173,8 +207,8 @@ public final class DJConnectClient: Sendable {
         if let djStyle, !djStyle.isEmpty {
             request.setValue(djStyle, forHTTPHeaderField: "X-DJConnect-DJ-Style")
         }
-        if let memoryKey, !memoryKey.isEmpty {
-            request.setValue(memoryKey, forHTTPHeaderField: "X-DJConnect-Memory-Key")
+        if let musicDNAKey, !musicDNAKey.isEmpty {
+            request.setValue(musicDNAKey, forHTTPHeaderField: "X-DJConnect-Music-DNA-Key")
         }
         request.httpBody = wavData
         return request
@@ -279,6 +313,45 @@ public final class DJConnectClient: Sendable {
         }
     }
 
+    private func webSocketResultIfSupported<T: Decodable & Sendable>(
+        _ route: DJConnectFastPathRoute,
+        payload: DJConnectCommandPayload
+    ) async throws -> T? {
+        guard let webSocketFastPath else {
+            return nil
+        }
+        do {
+            let token = try loadedToken()
+            return try await webSocketFastPath.command(payload, token: token, responseType: T.self)
+        } catch {
+            return nil
+        }
+    }
+
+    private func webSocketAskDJMessageIfSupported(_ payload: DJConnectAskDJRequest) async throws -> DJConnectAskDJMessageResponse? {
+        guard let webSocketFastPath else {
+            return nil
+        }
+        do {
+            let token = try loadedToken()
+            return try await webSocketFastPath.askDJMessage(payload, token: token)
+        } catch {
+            return nil
+        }
+    }
+
+    private func webSocketTrackInsightIfSupported(_ payload: DJConnectTrackInsightRequest) async throws -> TrackInsight? {
+        guard let webSocketFastPath else {
+            return nil
+        }
+        do {
+            let token = try loadedToken()
+            return try await webSocketFastPath.trackInsight(payload, identity: identity, token: token)
+        } catch {
+            return nil
+        }
+    }
+
     private func jsonRequest<T: Encodable>(path: String, payload: T) throws -> URLRequest {
         var request = try authenticatedRequest(path: path)
         request.httpMethod = "POST"
@@ -292,15 +365,20 @@ public final class DJConnectClient: Sendable {
     }
 
     private func authenticatedRequest(url: URL) throws -> URLRequest {
-        guard let token = try tokenStore.loadToken(), !token.isEmpty else {
-            throw DJConnectError.missingToken
-        }
+        let token = try loadedToken()
 
         var request = URLRequest(url: url)
         request.timeoutInterval = 10
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         request.setValue(identity.deviceID, forHTTPHeaderField: "X-DJConnect-Device-ID")
         return request
+    }
+
+    private func loadedToken() throws -> String {
+        guard let token = try tokenStore.loadToken(), !token.isEmpty else {
+            throw DJConnectError.missingToken
+        }
+        return token
     }
 
     private func endpoint(path: String) -> URL {

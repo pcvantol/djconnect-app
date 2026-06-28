@@ -29,7 +29,6 @@ struct DJConnectWatchAskDJMessage: Identifiable, Codable, Equatable {
         case links
         case playbackActions
         case intentInfo = "intent"
-        case analysis
         case items
         case audioURL
         case messageKind = "message_kind"
@@ -46,16 +45,11 @@ struct DJConnectWatchAskDJMessage: Identifiable, Codable, Equatable {
     var links: [DJConnectResponseLink]
     var playbackActions: [DJConnectAskDJPlaybackAction]
     var intentInfo: DJConnectAskDJIntentInfo?
-    var analysis: DJConnectAskDJTrackAnalysis?
     var items: [DJConnectAskDJHistoryItem]
     var audioURL: URL?
     var messageKind: DJConnectAskDJMessageKind
     var origin: String?
     var createdAt: Date
-
-    var isTechnicalTrackAnalysis: Bool {
-        intentInfo?.intent == "technical_track_analysis" || intentInfo?.action == "track_analysis"
-    }
 
     var renderablePlaybackActions: [DJConnectAskDJPlaybackAction] {
         playbackActions
@@ -71,7 +65,6 @@ struct DJConnectWatchAskDJMessage: Identifiable, Codable, Equatable {
         links: [DJConnectResponseLink] = [],
         playbackActions: [DJConnectAskDJPlaybackAction] = [],
         intentInfo: DJConnectAskDJIntentInfo? = nil,
-        analysis: DJConnectAskDJTrackAnalysis? = nil,
         items: [DJConnectAskDJHistoryItem] = [],
         audioURL: URL? = nil,
         messageKind: DJConnectAskDJMessageKind = .assistant,
@@ -87,7 +80,6 @@ struct DJConnectWatchAskDJMessage: Identifiable, Codable, Equatable {
         self.links = links
         self.playbackActions = playbackActions
         self.intentInfo = intentInfo
-        self.analysis = analysis
         self.items = items
         self.audioURL = audioURL
         self.messageKind = messageKind
@@ -106,7 +98,6 @@ struct DJConnectWatchAskDJMessage: Identifiable, Codable, Equatable {
         links = try container.decodeIfPresent([DJConnectResponseLink].self, forKey: .links) ?? []
         playbackActions = try container.decodeIfPresent([DJConnectAskDJPlaybackAction].self, forKey: .playbackActions) ?? []
         intentInfo = try container.decodeIfPresent(DJConnectAskDJIntentInfo.self, forKey: .intentInfo)
-        analysis = try container.decodeIfPresent(DJConnectAskDJTrackAnalysis.self, forKey: .analysis)
         items = try container.decodeIfPresent([DJConnectAskDJHistoryItem].self, forKey: .items) ?? []
         audioURL = try container.decodeIfPresent(URL.self, forKey: .audioURL)
         messageKind = try container.decodeIfPresent(DJConnectAskDJMessageKind.self, forKey: .messageKind) ?? .assistant
@@ -125,7 +116,6 @@ struct DJConnectWatchAskDJMessage: Identifiable, Codable, Equatable {
         try container.encode(links, forKey: .links)
         try container.encode(playbackActions, forKey: .playbackActions)
         try container.encodeIfPresent(intentInfo, forKey: .intentInfo)
-        try container.encodeIfPresent(analysis, forKey: .analysis)
         try container.encode(items, forKey: .items)
         try container.encodeIfPresent(audioURL, forKey: .audioURL)
         try container.encode(messageKind, forKey: .messageKind)
@@ -763,7 +753,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         "warm_radio_dj"
     }
 
-    var memoryKey: String {
+    var musicDNAKey: String {
         identity.deviceID
     }
 
@@ -1773,7 +1763,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         do {
             let response: DJConnectAskDJHistoryResponse = try await sendCompanionHARequest(
                 .clearAskDJHistory,
-                payload: DJConnectAskDJClearHistoryRequest(identity: identity, memoryKey: memoryKey)
+                payload: DJConnectAskDJClearHistoryRequest(identity: identity, musicDNAKey: musicDNAKey)
             )
             applyAskDJHistory(response)
         } catch {
@@ -2075,7 +2065,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
                     clientMessageID: UUID().uuidString,
                     mood: askDJMoodInt,
                     djStyle: djStyle,
-                    memoryKey: memoryKey
+                    musicDNAKey: musicDNAKey
                 )
             )
             applyAskDJMessageResponse(response)
@@ -2149,7 +2139,6 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
             links: safeResponseLinks(historyMessage.links),
             playbackActions: historyMessage.playbackActions + historyMessage.confirmationActions,
             intentInfo: historyMessage.intentInfo,
-            analysis: historyMessage.analysis,
             items: historyMessage.items,
             audioURL: resolvedAudioURL(historyMessage.audioURL),
             messageKind: historyMessage.role == .user ? .assistant : historyMessage.messageKind,
@@ -2364,7 +2353,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
             wakewordStatus: "foreground_only_\(voiceActivationStatusText.lowercased().replacingOccurrences(of: " ", with: "_"))",
             mood: askDJMoodInt,
             djStyle: djStyle,
-            memoryKey: memoryKey
+            musicDNAKey: musicDNAKey
         )
     }
 
@@ -2483,7 +2472,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
                         wavData: data,
                         mood: askDJMoodInt,
                         djStyle: djStyle,
-                        memoryKey: memoryKey
+                        musicDNAKey: musicDNAKey
                     )
                 )
                 voiceState = .idle
@@ -2594,9 +2583,6 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         }
         if merged.intentInfo == nil {
             merged.intentInfo = fallback.intentInfo
-        }
-        if merged.analysis == nil {
-            merged.analysis = fallback.analysis
         }
         if merged.items.isEmpty {
             merged.items = fallback.items
@@ -3135,6 +3121,8 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         switch error {
         case .backendUnavailable, .server, .decodingFailed, .invalidResponse:
             return "Home Assistant gaf geen antwoord"
+        case .trackInsightUnavailable:
+            return "Track Insight niet beschikbaar"
         case .network, .routeMissing, .notConfigured, .invalidConfiguration, .missingToken, .pairingFailed, .authStale, .versionMismatch:
             return "Ask DJ niet bereikbaar"
         }
@@ -3409,6 +3397,8 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
                 return "Koppel eerst met Home Assistant."
             case .backendUnavailable, .server, .decodingFailed, .invalidResponse:
                 return "Home Assistant gaf geen antwoord."
+            case .trackInsightUnavailable:
+                return "Track Insight niet beschikbaar."
             case .network,
                  .authStale,
                  .notConfigured,

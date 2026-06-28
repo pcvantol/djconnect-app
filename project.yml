@@ -11,7 +11,7 @@ settings:
   base:
     SWIFT_VERSION: "6.0"
     CURRENT_PROJECT_VERSION: "1"
-    MARKETING_VERSION: "3.2.0"
+    MARKETING_VERSION: "3.2.2"
     DEVELOPMENT_TEAM: ""
     CODE_SIGN_STYLE: Automatic
 packages: {}
@@ -84,6 +84,8 @@ targets:
     dependencies:
       - target: DJConnectCoreIOS
       - target: DJConnectUIIOS
+      - target: DJConnectTrackInsightWidgetsIOS
+        embed: true
     info:
       path: Apps/DJConnectIOS/Info.plist
       properties:
@@ -92,6 +94,14 @@ targets:
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         LSApplicationCategoryType: public.app-category.music
         UILaunchStoryboardName: LaunchScreen
+        UIApplicationShortcutItems:
+          - UIApplicationShortcutItemIconType: UIApplicationShortcutIconTypeMessage
+            UIApplicationShortcutItemTitle: Ask DJ
+            UIApplicationShortcutItemType: dev.djconnect.action.ask-dj
+          - UIApplicationShortcutItemIconType: UIApplicationShortcutIconTypeAudio
+            UIApplicationShortcutItemSubtitle: Analyseer huidig nummer
+            UIApplicationShortcutItemTitle: Track Insight
+            UIApplicationShortcutItemType: dev.djconnect.action.track-insight
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
           - UIInterfaceOrientationLandscapeLeft
@@ -104,6 +114,7 @@ targets:
         NSLocalNetworkUsageDescription: DJConnect maakt verbinding met Home Assistant op je lokale netwerk.
         NSMicrophoneUsageDescription: DJConnect neemt je stem op voor push-to-talk muziekverzoeken aan Home Assistant.
         NSSpeechRecognitionUsageDescription: DJConnect gebruikt spraakherkenning om de wake-zin te herkennen.
+        NSSupportsLiveActivities: true
         UIRequiredDeviceCapabilities:
           - wifi
         NSBonjourServices:
@@ -126,6 +137,8 @@ targets:
     dependencies:
       - target: DJConnectCoreMac
       - target: DJConnectUIMac
+      - target: DJConnectTrackInsightWidgetsMac
+        embed: true
     info:
       path: Apps/DJConnectMac/Info.plist
       properties:
@@ -196,6 +209,44 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: dev.djconnect.watch.complications
         PRODUCT_NAME: DJConnectComplications
+        SKIP_INSTALL: YES
+  DJConnectTrackInsightWidgetsIOS:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: Apps/DJConnectTrackInsightWidgets
+    dependencies:
+      - target: DJConnectCoreIOS
+    info:
+      path: Apps/DJConnectTrackInsightWidgets/Info.plist
+      properties:
+        CFBundleDisplayName: Track Insight
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: dev.djconnect.ios.track-insight-widget
+        PRODUCT_NAME: TrackInsightWidget
+        SKIP_INSTALL: YES
+  DJConnectTrackInsightWidgetsMac:
+    type: app-extension
+    platform: macOS
+    sources:
+      - path: Apps/DJConnectTrackInsightWidgets
+    info:
+      path: Apps/DJConnectTrackInsightWidgets/Info.plist
+      properties:
+        CFBundleDisplayName: Track Insight
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: dev.djconnect.mac.track-insight-widget
+        PRODUCT_NAME: TrackInsightWidget
         SKIP_INSTALL: YES
   DJConnectCoreTests:
     type: bundle.unit-test

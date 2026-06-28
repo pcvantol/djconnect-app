@@ -18,8 +18,8 @@ install identity.
   "device_id": "djconnect-ios-8F3A2C91B45D",
   "device_name": "DJConnect iPhone",
   "client_type": "ios",
-  "firmware": "3.2.0",
-  "app_version": "3.2.0",
+  "firmware": "3.2.2",
+  "app_version": "3.2.2",
   "platform": "ios"
 }
 ```
@@ -57,12 +57,12 @@ voice uploads:
 ```http
 X-DJConnect-Mood: 0-100
 X-DJConnect-DJ-Style: warm_radio_dj
-X-DJConnect-Memory-Key: <backend-normalized memory key hint>
+X-DJConnect-Music-DNA-Key: <backend-normalized Music DNA key hint>
 ```
 
 The same values may appear in JSON status payloads as `mood`, `dj_style`, and
-`memory_key`. Home Assistant owns DJ Memory and may normalize or ignore the
-client-provided memory key. Clients must not store long-term DJ Memory locally.
+`music_dna_key`. Home Assistant owns Music DNA and may normalize or ignore the
+client-provided Music DNA key. Clients must not store long-term Music DNA locally.
 
 ## Pairing
 
@@ -79,8 +79,8 @@ Payload:
   "device_id": "djconnect-macos-8F3A2C91B45D",
   "device_name": "DJConnect Mac",
   "client_type": "macos",
-  "firmware": "3.2.0",
-  "app_version": "3.2.0",
+  "firmware": "3.2.2",
+  "app_version": "3.2.2",
   "platform": "macos",
   "pair_code": "123456",
   "pairing_code": "123456",
@@ -163,7 +163,7 @@ Expected macOS payload:
   "push_token": "<apns-device-token>",
   "push_environment": "sandbox",
   "app_bundle_id": "dev.djconnect.mac",
-  "app_version": "3.2.0",
+  "app_version": "3.2.2",
   "locale": "nl-NL",
   "notification_categories": ["ask_dj"],
   "bootstrap_proof": "<short-lived proof when available>"
@@ -214,8 +214,8 @@ Minimum payload:
   "device_name": "DJConnect iPhone",
   "client_type": "ios",
   "ha_pairing_status": "paired",
-  "firmware": "3.2.0",
-  "app_version": "3.2.0",
+  "firmware": "3.2.2",
+  "app_version": "3.2.2",
   "state": "online",
   "status": "online",
   "battery_percent": 85,
@@ -432,7 +432,7 @@ Minimum payload:
   "text": "Voeg dit nummer toe aan mijn favorieten",
   "audio_response": "auto",
   "dj_style": "warm_radio_dj",
-  "memory_key": "djconnect_ios_djconnect-ios-8F3A2C91B45D",
+  "music_dna_key": "djconnect_ios_djconnect-ios-8F3A2C91B45D",
   "metadata": {
     "trigger": "manual"
   }
@@ -523,12 +523,12 @@ families in addition to general informational questions and playback control:
   English examples: `tell me about this song`, `what year was this released?`,
   `where is this artist from?`, `what samples are used?`, `does this artist
   have concerts in the Netherlands?`, `why did you choose this track?`.
-- `technical_track_analysis`: answer technical/musical analysis questions about
+- `track_insight`: answer Track Insight questions about
   the current track without changing playback. Dutch examples: `Geef een
   technische track analyse van dit nummer`, `Analyseer deze track`, `Wat is de
   bpm en opbouw van deze track?`, `Welke instrumenten hoor je hierin?`, `Hoe
   zit intro, couplet, refrein en breakdown in elkaar?`. English examples:
-  `Give me a technical analysis of this song`, `What is the BPM, key and
+  `Give me a Track Insight of this song`, `What is the BPM, key and
   structure of this track?`, `Why does this track work so well?`.
 
 For `favorite_current_track`, Home Assistant should use the current playback
@@ -554,7 +554,7 @@ playback-transfer commands unless the user selects an explicit output action or
 otherwise asks to switch speakers.
 
 For `personalized_mood_playback`, Home Assistant should combine the user's
-described mood, current time/context, playback history, likes/skips, DJ Memory,
+described mood, current time/context, playback history, likes/skips, Music DNA,
 and available output device. This intent may start playback or add to the queue.
 It should avoid brittle keyword-only routing: phrases such as `moe`,
 `geprikkeld`, `overprikkeld`, `rustig`, `ontspannen`, `calming`,
@@ -565,7 +565,7 @@ a clear DJ response asking the user to choose a speaker.
 For `change_music_context`, Home Assistant should treat broad phrases like `Ik
 wil wat anders horen` as an explicit request to change playback, not merely as
 an informational recommendation question. It should use current playback,
-recent listening, skips/likes, DJ Memory, mood, and output context to pick
+recent listening, skips/likes, Music DNA, mood, and output context to pick
 something meaningfully different while still fitting the user. "Different" may
 mean a different artist, genre, era, energy level, playlist, or album context;
 avoid simply restarting the same track, replaying the current artist by default,
@@ -576,7 +576,7 @@ or `audio_url` when available.
 
 For `personal_music_profile_analysis`, Home Assistant should answer questions
 about the user's listening patterns over a user-provided or inferred period
-without mutating playback. It should use DJ Memory, stored recent tracks,
+without mutating playback. It should use Music DNA, stored recent tracks,
 likes/skips where available, playlist/queue choices, timestamps, moods, and
 current playback context. If the user asks `afgelopen x periode`, parse periods
 such as `vandaag`, `deze week`, `afgelopen twee weken`, `afgelopen maand`,
@@ -596,13 +596,13 @@ Useful response material includes:
 - a short DJ-style summary of what the user's music taste currently says about
   their vibe.
 
-If there is not enough local DJ Memory or playback history for the requested
+If there is not enough local Music DNA or playback history for the requested
 period, return an honest DJ response explaining the gap and summarize what is
 available. Do not invent listening history. This intent should return text and
 may include optional source links or images, but it should not start, queue,
 like, skip, transfer, or otherwise change playback.
 
-For `personal_music_recommendations`, Home Assistant should combine DJ Memory,
+For `personal_music_recommendations`, Home Assistant should combine Music DNA,
 Spotify recently played, Spotify top artists/tracks, liked tracks, skips,
 explicit Ask DJ preferences, mood/energy settings, current playback context,
 and time/context signals where available. The result should be concrete,
@@ -816,7 +816,7 @@ When the user taps an output action, Apple clients send:
 
 Backends should accept either legacy scalar output values or the structured
 action object. New Apple clients prefer the structured object so Home Assistant
-can retain context such as `kind`, speaker name, `memory_key`, and
+can retain context such as `kind`, speaker name, `music_dna_key`, and
 backend-owned follow-up metadata.
 
 For `dj_announcement_request`, Home Assistant should not mutate playback. It
@@ -847,7 +847,7 @@ structured metadata object. If external artwork, concert pages, artist pages, or
 release pages are included, images should be proxied by Home Assistant and links
 should be normal `http`/`https` URLs.
 
-For `technical_track_analysis`, Home Assistant should give a technical/musical
+For `track_insight`, Home Assistant should give a Track Insight
 analysis based on current playback metadata, known facts, available provider
 metadata, audio features/analysis if available, and/or carefully phrased
 knowledge-based inferences. This intent is informational/read-only for iOS,
@@ -896,7 +896,7 @@ use `intent.intent`, `action`, `analysis.mode`, `analysis.sources`, and
 "unavailable"` and `limitations[]` are normal response metadata, not an error
 state.
 
-Expected successful technical analysis response:
+Expected successful Track Insight response:
 
 ```json
 {
@@ -904,11 +904,11 @@ Expected successful technical analysis response:
   "text": "De track werkt door een strakke 128 BPM puls, een geleidelijke laag-opbouw en een drop die de opgebouwde spanning loslaat.",
   "dj_text": "De track werkt door een strakke 128 BPM puls, een geleidelijke laag-opbouw en een drop die de opgebouwde spanning loslaat.",
   "message": "De track werkt door een strakke 128 BPM puls, een geleidelijke laag-opbouw en een drop die de opgebouwde spanning loslaat.",
-  "action": "track_analysis",
+  "action": "track_insight",
   "intent": {
     "category": "informational",
-    "intent": "technical_track_analysis",
-    "action": "track_analysis"
+    "intent": "track_insight",
+    "action": "track_insight"
   },
   "analysis": {
     "mode": "measured_plus_knowledge",
@@ -1089,17 +1089,17 @@ Expected successful track context response:
 }
 ```
 
-Expected successful technical analysis response:
+Expected successful Track Insight response:
 
 ```json
 {
   "success": true,
   "intent": {
     "category": "informational",
-    "intent": "technical_track_analysis",
-    "action": "track_analysis"
+    "intent": "track_insight",
+    "action": "track_insight"
   },
-  "action": "track_analysis",
+  "action": "track_insight",
   "text": "Muzikaal werkt dit nummer door de langzame spanningsopbouw: eerst een minimale puls, daarna laag voor laag synthpads, percussie en basdruk.",
   "dj_text": "Muzikaal werkt dit nummer door de langzame spanningsopbouw: eerst een minimale puls, daarna laag voor laag synthpads, percussie en basdruk.",
   "analysis": {
@@ -1157,7 +1157,7 @@ Missing `message_kind` defaults to `assistant`.
 `origin: spotify_playback_context` represents backend-generated ambient music facts.
 `audio_url` is optional; replay UI appears only when an audio URL is present.
 
-The backend should bound history per Home Assistant user/memory key. When a
+The backend should bound history per Home Assistant user/Music DNA key. When a
 history limit is reached, the backend should add an assistant-only system
 message and return explicit trim metadata so clients can prune their local
 cache without parsing display text:
@@ -1196,7 +1196,7 @@ clients clear local Ask DJ history before applying returned messages.
 When the user clears Ask DJ history, Apple clients call
 `POST /api/djconnect/ask_dj/history/clear`. The request uses the same bearer
 auth and client identity as other Ask DJ endpoints, and may include
-`memory_key` when the client is using a scoped DJ Memory/history namespace:
+`music_dna_key` when the client is using a scoped Music DNA/history namespace:
 
 ```json
 {
@@ -1204,7 +1204,7 @@ auth and client identity as other Ask DJ endpoints, and may include
   "device_name": "Peter's iPhone",
   "client_id": "djconnect-ios-8F3A2C91B45D",
   "client_type": "ios",
-  "memory_key": "djconnect_ios_djconnect-ios-8F3A2C91B45D"
+  "music_dna_key": "djconnect_ios_djconnect-ios-8F3A2C91B45D"
 }
 ```
 
@@ -1252,7 +1252,7 @@ Home Assistant should route STT results into the same Ask DJ intent families as
 text requests, including `favorite_current_track`, `output_devices_info`, and
 `current_output_info`, `personalized_mood_playback`, and
 `dj_announcement_request`, `track_context_info`, and
-`technical_track_analysis`.
+`track_insight`.
 
 Expected response:
 

@@ -12,7 +12,7 @@ private func launchLocalized(english: String, dutch: String) -> String {
 
 enum DJConnectVersionInfo {
     static var displayVersion: String {
-        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "3.2.0"
+        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "3.2.2"
     }
 }
 

@@ -6,6 +6,9 @@ import SwiftUI
 import AVFoundation
 import UniformTypeIdentifiers
 #endif
+#if canImport(AVKit)
+import AVKit
+#endif
 #if canImport(WebKit)
 import WebKit
 #endif
@@ -445,6 +448,8 @@ private struct DJConnectCanvasBackground: View {
 
 private enum DJConnectSection: Hashable {
     case nowPlaying
+    case trackInsight
+    case musicDNA
     case askDJ
     case queue
     case playlists
@@ -484,6 +489,16 @@ public struct DJConnectRootView: View {
                             systemImage: "bubble.left.and.bubble.right.fill",
                             isSelected: selectedSection == .askDJ
                         ) { selectedSection = .askDJ }
+                        SidebarItem(
+                            title: "Track Insight",
+                            systemImage: "waveform.path.ecg",
+                            isSelected: selectedSection == .trackInsight
+                        ) { selectedSection = .trackInsight }
+                        SidebarItem(
+                            title: "Music DNA",
+                            systemImage: "waveform",
+                            isSelected: selectedSection == .musicDNA
+                        ) { selectedSection = .musicDNA }
                         SidebarItem(
                             title: localized(model.language, "Queue", "Wachtrij"),
                             systemImage: "text.line.first.and.arrowtriangle.forward",
@@ -551,6 +566,11 @@ public struct DJConnectRootView: View {
                             Label("Ask DJ", systemImage: "bubble.left.and.bubble.right.fill")
                         }
                         .tag(DJConnectSection.askDJ)
+                    TrackInsightView(model: model)
+                        .tabItem {
+                            Label("Track Insight", systemImage: "waveform.path.ecg")
+                        }
+                        .tag(DJConnectSection.trackInsight)
                     QueueView(model: model)
                         .tabItem {
                             Label(localized(model.language, "Queue", "Wachtrij"), systemImage: "text.line.first.and.arrowtriangle.forward")
@@ -618,6 +638,21 @@ public struct DJConnectRootView: View {
                 selectedSection = .nowPlaying
             }
         }
+        .onChange(of: model.trackInsightNavigationRequestID) {
+            selectedSection = .trackInsight
+        }
+        .onChange(of: model.homeScreenActionRequest) {
+            guard let action = model.homeScreenActionRequest else {
+                return
+            }
+            switch action {
+            case .askDJ:
+                selectedSection = .askDJ
+            case .trackInsight:
+                selectedSection = .trackInsight
+            }
+            model.clearHomeScreenActionRequest(action)
+        }
         .onChange(of: selectedSection) {
             if selectedSection == .settings {
                 moreResetID = UUID()
@@ -657,6 +692,10 @@ public struct DJConnectRootView: View {
         switch selectedSection {
         case .nowPlaying:
             NowPlayingView(model: model)
+        case .trackInsight:
+            TrackInsightView(model: model)
+        case .musicDNA:
+            MusicDNAView(model: model)
         case .askDJ:
             AskDJView(model: model)
         case .queue:
@@ -2275,6 +2314,1461 @@ private func averageArtworkColor(from data: Data) -> Color? {
     )
 }
 
+private struct TrackInsightView: View {
+    @ObservedObject var model: DJConnectAppModel
+    @State private var isShowingShare = false
+
+    private var insight: TrackInsight? {
+        model.currentTrackInsight
+    }
+
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                DJConnectCanvasBackground()
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 16) {
+                        if let insight {
+                            TrackInsightHero(model: model, insight: insight)
+                            MusicDNAMatchCard(insight: insight, language: model.language)
+                            TrackInsightMetricsGrid(insight: insight, language: model.language)
+                            TrackInsightAnalysisCard(insight: insight, language: model.language)
+                        } else {
+                            TrackInsightEmptyState(model: model)
+                        }
+                    }
+                    .padding(.horizontal, djConnectScreenHorizontalPadding)
+                    .padding(.vertical, djConnectScreenVerticalPadding)
+                    .frame(maxWidth: djConnectContentMaxWidth, alignment: .topLeading)
+                    .frame(maxWidth: .infinity, alignment: .top)
+                }
+            }
+            .navigationTitle("Track Insight")
+            #if os(iOS)
+            .navigationBarTitleDisplayMode(.inline)
+            #endif
+            .toolbar {
+                ToolbarItemGroup(placement: .primaryAction) {
+                    AirPlayToolbarButton(language: model.language)
+
+                    if insight != nil {
+                        Button {
+                            isShowingShare = true
+                        } label: {
+                            Image(systemName: "square.and.arrow.up")
+                        }
+                        .help(localized(model.language, "Share Insight", "Insight delen"))
+                    }
+                }
+                ToolbarItem(placement: .primaryAction) {
+                    Button {
+                        model.analyzeCurrentTrack(open: false)
+                    } label: {
+                        Image(systemName: "sparkles")
+                    }
+                    .disabled(model.isLoadingTrackInsight)
+                    .help(localized(model.language, "Analyze Track", "Analyseer nummer"))
+                }
+            }
+            .sheet(isPresented: $isShowingShare) {
+                if let insight {
+                    TrackInsightSharePreviewView(insight: insight, language: model.language)
+                }
+            }
+            .djUserNoticeToast(model: model)
+        }
+    }
+}
+
+private struct MusicDNAView: View {
+    @ObservedObject var model: DJConnectAppModel
+
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                DJConnectCanvasBackground()
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 16) {
+                        MusicDNAHeroView(model: model)
+                        MusicDNASectionGrid(model: model)
+                        MusicDNATimelinePreview(language: model.language)
+                    }
+                    .padding(.horizontal, djConnectScreenHorizontalPadding)
+                    .padding(.vertical, djConnectScreenVerticalPadding)
+                    .frame(maxWidth: djConnectContentMaxWidth, alignment: .topLeading)
+                    .frame(maxWidth: .infinity, alignment: .top)
+                }
+            }
+            .navigationTitle("Music DNA")
+            #if os(iOS)
+            .navigationBarTitleDisplayMode(.inline)
+            #endif
+        }
+    }
+}
+
+private struct MusicDNAHeroView: View {
+    @ObservedObject var model: DJConnectAppModel
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            MusicDNAHelixView()
+                .frame(height: 180)
+                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+
+            Text("Music DNA")
+                .font(.title.weight(.bold))
+                .foregroundStyle(.white)
+            Text(localized(
+                model.language,
+                "The more you listen and chat with Ask DJ, the better DJConnect understands your unique musical taste.",
+                "Hoe meer je luistert en met Ask DJ praat, hoe beter DJConnect jouw unieke muzieksmaak begrijpt."
+            ))
+            .font(.callout)
+            .foregroundStyle(.white.opacity(0.72))
+            .fixedSize(horizontal: false, vertical: true)
+
+            if model.trackInsightHistory.isEmpty {
+                Text(localized(
+                    model.language,
+                    "Nothing has been learned yet. Start exploring music with Ask DJ or Track Insight.",
+                    "Er is nog niets geleerd. Verken muziek met Ask DJ of Track Insight om te beginnen."
+                ))
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.white.opacity(0.62))
+                .fixedSize(horizontal: false, vertical: true)
+            } else {
+                Label(
+                    localized(model.language, "Your Music DNA just evolved.", "Je Music DNA is net geevolueerd."),
+                    systemImage: "sparkles"
+                )
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(djConnectAccent)
+            }
+        }
+        .padding(16)
+        .djConnectGradientCard(cornerRadius: 8)
+    }
+}
+
+private struct MusicDNASectionGrid: View {
+    @ObservedObject var model: DJConnectAppModel
+
+    private var insights: [TrackInsight] {
+        var values = model.trackInsightHistory
+        if let current = model.currentTrackInsight, !values.contains(where: { $0.id == current.id }) {
+            values.insert(current, at: 0)
+        }
+        return values
+    }
+
+    var body: some View {
+        LazyVGrid(columns: [GridItem(.adaptive(minimum: 160), spacing: 10)], spacing: 10) {
+            MusicDNAPanel(title: localized(model.language, "Your Taste", "Jouw smaak"), value: tasteSummary, icon: "waveform")
+            MusicDNAPanel(title: localized(model.language, "Favorite Genres", "Favoriete genres"), value: topValue(\.genre), icon: "music.quarternote.3")
+            MusicDNAPanel(title: localized(model.language, "Favorite Artists", "Favoriete artiesten"), value: topArtist, icon: "person.wave.2")
+            MusicDNAPanel(title: localized(model.language, "Favorite Moods", "Favoriete moods"), value: topValue(\.mood), icon: "sparkles")
+            MusicDNAPanel(title: localized(model.language, "Energy Profile", "Energieprofiel"), value: energyProfile, icon: "bolt.fill")
+            MusicDNAPanel(title: localized(model.language, "Listening Habits", "Luistergewoontes"), value: localized(model.language, "Evolving with every session", "Groeit met elke luistersessie"), icon: "clock.arrow.circlepath")
+            MusicDNAPanel(title: localized(model.language, "Discovery Profile", "Discovery-profiel"), value: localized(model.language, "Open to nearby surprises", "Open voor nabije verrassingen"), icon: "safari")
+            MusicDNAPanel(title: localized(model.language, "Recently Learned", "Recent geleerd"), value: recentlyLearned, icon: "plus.circle")
+        }
+    }
+
+    private var tasteSummary: String {
+        guard !insights.isEmpty else {
+            return localized(model.language, "Waiting for signals", "Wacht op signalen")
+        }
+        return localized(model.language, "Every track shapes your Music DNA.", "Elke track vormt je Music DNA.")
+    }
+
+    private var topArtist: String {
+        topString(insights.map(\.artist))
+    }
+
+    private var energyProfile: String {
+        let values = insights.compactMap(\.energy)
+        guard !values.isEmpty else {
+            return localized(model.language, "Not enough signals", "Nog niet genoeg signalen")
+        }
+        let average = values.reduce(0, +) / Double(values.count)
+        if average >= 0.72 {
+            return localized(model.language, "High-energy leaning", "Neigt naar hoge energie")
+        }
+        if average <= 0.42 {
+            return localized(model.language, "Calm and spacious", "Rustig en ruimtelijk")
+        }
+        return localized(model.language, "Balanced energy", "Gebalanceerde energie")
+    }
+
+    private var recentlyLearned: String {
+        guard let latest = insights.first else {
+            return localized(model.language, "Start with Ask DJ or Track Insight", "Begin met Ask DJ of Track Insight")
+        }
+        return [latest.genre, latest.mood, latest.vibe]
+            .compactMap { $0 }
+            .filter { !$0.isEmpty }
+            .prefix(2)
+            .joined(separator: " - ")
+    }
+
+    private func topValue(_ keyPath: KeyPath<TrackInsight, String?>) -> String {
+        topString(insights.compactMap { $0[keyPath: keyPath] })
+    }
+
+    private func topString(_ values: [String]) -> String {
+        let trimmed = values
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+        guard let best = Dictionary(grouping: trimmed, by: { $0 })
+            .max(by: { $0.value.count < $1.value.count })?.key else {
+            return localized(model.language, "Not enough signals", "Nog niet genoeg signalen")
+        }
+        return best
+    }
+}
+
+private struct MusicDNAPanel: View {
+    let title: String
+    let value: String
+    let icon: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Image(systemName: icon)
+                .font(.title3.weight(.semibold))
+                .foregroundStyle(djConnectAccent)
+            Text(title)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.white.opacity(0.58))
+            Text(value.isEmpty ? "-" : value)
+                .font(.headline.weight(.semibold))
+                .foregroundStyle(.white)
+                .lineLimit(2)
+                .minimumScaleFactor(0.72)
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, minHeight: 128, alignment: .topLeading)
+        .background(.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .stroke(.white.opacity(0.10), lineWidth: 1)
+        }
+    }
+}
+
+private struct MusicDNATimelinePreview: View {
+    let language: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Label("Music DNA Evolution", systemImage: "point.3.connected.trianglepath.dotted")
+                .font(.headline.weight(.semibold))
+            Text(localized(
+                language,
+                "Future timeline: taste evolution, artist affinity, mood shifts, Year in Music and compatibility scores.",
+                "Toekomstige tijdlijn: smaakontwikkeling, artiest-affiniteit, mood-verschuivingen, Year in Music en compatibility scores."
+            ))
+            .font(.callout)
+            .foregroundStyle(.white.opacity(0.68))
+            .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(14)
+        .djConnectGradientCard(cornerRadius: 8)
+    }
+}
+
+private struct MusicDNAHelixView: View {
+    var body: some View {
+        TimelineView(.animation) { timeline in
+            Canvas { context, size in
+                let time = timeline.date.timeIntervalSinceReferenceDate
+                let rect = CGRect(origin: .zero, size: size)
+                context.fill(Path(rect), with: .linearGradient(
+                    Gradient(colors: [
+                        Color(red: 0.04, green: 0.06, blue: 0.12),
+                        Color(red: 0.18, green: 0.09, blue: 0.32),
+                        Color(red: 0.02, green: 0.25, blue: 0.30)
+                    ]),
+                    startPoint: .zero,
+                    endPoint: CGPoint(x: size.width, y: size.height)
+                ))
+
+                let strandCount = 28
+                for index in 0..<strandCount {
+                    let progress = CGFloat(index) / CGFloat(max(strandCount - 1, 1))
+                    let y = size.height * (0.12 + progress * 0.76)
+                    let phase = Double(progress) * .pi * 4 + time * 0.9
+                    let leftX = size.width * (0.50 + CGFloat(sin(phase)) * 0.24)
+                    let rightX = size.width * (0.50 + CGFloat(sin(phase + .pi)) * 0.24)
+                    let color = Color(hue: 0.58 + Double(progress) * 0.22, saturation: 0.78, brightness: 1.0)
+
+                    var connector = Path()
+                    connector.move(to: CGPoint(x: leftX, y: y))
+                    connector.addLine(to: CGPoint(x: rightX, y: y))
+                    context.stroke(connector, with: .color(.white.opacity(0.10)), lineWidth: 1)
+                    context.fill(Path(ellipseIn: CGRect(x: leftX - 4, y: y - 4, width: 8, height: 8)), with: .color(color.opacity(0.92)))
+                    context.fill(Path(ellipseIn: CGRect(x: rightX - 3, y: y - 3, width: 6, height: 6)), with: .color(.white.opacity(0.68)))
+                }
+            }
+        }
+    }
+}
+
+private struct MusicDNAMatchCard: View {
+    let insight: TrackInsight
+    let language: String
+
+    private var score: Int {
+        insight.musicDNAMatchPercent ?? MusicDNAMatch.score(for: insight)
+    }
+
+    var body: some View {
+        HStack(spacing: 14) {
+            ZStack {
+                Circle()
+                    .stroke(.white.opacity(0.14), lineWidth: 8)
+                Circle()
+                    .trim(from: 0, to: CGFloat(score) / 100)
+                    .stroke(djConnectAccent, style: StrokeStyle(lineWidth: 8, lineCap: .round))
+                    .rotationEffect(.degrees(-90))
+                Text("\(score)%")
+                    .font(.headline.weight(.bold))
+                    .foregroundStyle(.white)
+            }
+            .frame(width: 74, height: 74)
+
+            VStack(alignment: .leading, spacing: 5) {
+                Text("Music DNA Match")
+                    .font(.headline.weight(.semibold))
+                    .foregroundStyle(.white)
+                Text(insight.musicDNASummary?.isEmpty == false ? insight.musicDNASummary! : matchCopy)
+                    .font(.callout)
+                    .foregroundStyle(.white.opacity(0.68))
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(14)
+        .djConnectGradientCard(cornerRadius: 8)
+    }
+
+    private var matchCopy: String {
+        if score >= 88 {
+            return localized(language, "This track fits your Music DNA beautifully.", "Deze track past prachtig bij je Music DNA.")
+        }
+        if score >= 68 {
+            return localized(language, "This track expands your Music DNA with nearby colors.", "Deze track breidt je Music DNA uit met verwante kleuren.")
+        }
+        return localized(language, "This track sits outside your usual Music DNA.", "Deze track ligt buiten je gebruikelijke Music DNA.")
+    }
+}
+
+private enum MusicDNAMatch {
+    static func score(for insight: TrackInsight) -> Int {
+        let seed = insight.id.unicodeScalars.reduce(into: 0) { value, scalar in
+            value = ((value &* 31) &+ Int(scalar.value)) & 0x7fffffff
+        }
+        let musicalSignals = [insight.genre, insight.mood, insight.vibe, insight.texture]
+            .compactMap { $0?.isEmpty == false ? $0 : nil }
+            .count
+        let metricSignals = [insight.energy, insight.danceability, insight.intensity, insight.bpm].compactMap { $0 }.count
+        let base = 58 + (seed % 24)
+        return min(99, base + musicalSignals * 3 + metricSignals * 2)
+    }
+}
+
+private struct TrackInsightHero: View {
+    @ObservedObject var model: DJConnectAppModel
+    let insight: TrackInsight
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.colorScheme) private var colorScheme
+
+    private var profile: TrackVibeProfile {
+        TrackVibeProfile.make(for: insight)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(alignment: .center, spacing: 10) {
+                Label("Track Insight Visualizer", systemImage: "sparkles")
+                    .font(.headline.weight(.semibold))
+                    .foregroundStyle(.white)
+                Spacer(minLength: 0)
+                Text("\(insight.title) - \(insight.artist)")
+                    .font(.subheadline.weight(.medium))
+                    .foregroundStyle(.white.opacity(0.62))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+            }
+
+            TrackVibeVisualizerView(profile: profile, reduceMotion: reduceMotion || ProcessInfo.processInfo.isLowPowerModeEnabled)
+                .frame(height: 330)
+
+            HStack(alignment: .top, spacing: 14) {
+                CachedArtworkImage(url: insight.artwork, mode: .fill) {
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .fill(profile.gradient)
+                        .overlay {
+                            Image(systemName: "waveform.path.ecg")
+                                .font(.largeTitle.weight(.semibold))
+                                .foregroundStyle(.white.opacity(0.72))
+                        }
+                }
+                .frame(width: 96, height: 96)
+                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(insight.title)
+                        .font(.title2.weight(.bold))
+                        .foregroundStyle(.white)
+                        .lineLimit(2)
+                    Text(insight.artist)
+                        .font(.headline)
+                        .foregroundStyle(.white.opacity(0.72))
+                        .lineLimit(2)
+                    if let album = insight.album, !album.isEmpty {
+                        Text(album)
+                            .font(.subheadline)
+                            .foregroundStyle(.white.opacity(0.54))
+                            .lineLimit(2)
+                    }
+                    Label(localized(model.language, "Rendered privately on your device", "Privé gerenderd op je apparaat"), systemImage: "lock.shield")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.white.opacity(0.64))
+                }
+                Spacer(minLength: 0)
+            }
+
+        }
+        .padding(14)
+        .background(profile.gradient, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .stroke(.white.opacity(colorScheme == .dark ? 0.16 : 0.22), lineWidth: 1)
+        }
+    }
+}
+
+private struct AirPlayToolbarButton: View {
+    let language: String
+
+    var body: some View {
+        #if canImport(AVKit) && (os(iOS) || os(macOS))
+        NativeAirPlayRoutePicker()
+            .frame(width: 30, height: 30)
+            .accessibilityLabel(localized(language, "AirPlay", "AirPlay"))
+            .help(airPlayHelpText)
+        #else
+        Button {} label: {
+            Image(systemName: "airplayvideo")
+        }
+        .disabled(true)
+        .help(localized(language, "VibeCast unavailable", "VibeCast niet beschikbaar"))
+        #endif
+    }
+
+    private var airPlayHelpText: String {
+        #if os(macOS)
+        localized(language, "VibeCast", "VibeCast")
+        #else
+        localized(language, "AirPlay", "AirPlay")
+        #endif
+    }
+}
+
+#if canImport(AVKit) && os(iOS)
+private struct NativeAirPlayRoutePicker: UIViewRepresentable {
+    func makeUIView(context: Context) -> AVRoutePickerView {
+        let picker = AVRoutePickerView(frame: .zero)
+        picker.backgroundColor = .clear
+        picker.tintColor = .white
+        picker.activeTintColor = UIColor(red: 0.72, green: 0.28, blue: 1.0, alpha: 1.0)
+        picker.prioritizesVideoDevices = true
+        return picker
+    }
+
+    func updateUIView(_ uiView: AVRoutePickerView, context: Context) {}
+}
+#elseif canImport(AVKit) && os(macOS)
+private struct NativeAirPlayRoutePicker: NSViewRepresentable {
+    func makeNSView(context: Context) -> AVRoutePickerView {
+        let picker = AVRoutePickerView(frame: .zero)
+        picker.setFrameSize(NSSize(width: 30, height: 30))
+        return picker
+    }
+
+    func updateNSView(_ nsView: AVRoutePickerView, context: Context) {}
+}
+#endif
+
+public enum TrackInsightShareFormat: String, CaseIterable, Identifiable, Sendable {
+    case story
+    case square
+    case linkPreview
+
+    public var id: String { rawValue }
+
+    func title(language: String) -> String {
+        switch self {
+        case .story:
+            localized(language, "Story", "Story")
+        case .square:
+            localized(language, "Square", "Square")
+        case .linkPreview:
+            localized(language, "Landscape", "Landscape")
+        }
+    }
+
+    var size: CGSize {
+        switch self {
+        case .story:
+            CGSize(width: 1080, height: 1920)
+        case .square:
+            CGSize(width: 1080, height: 1080)
+        case .linkPreview:
+            CGSize(width: 1200, height: 628)
+        }
+    }
+}
+
+public enum TrackInsightShareMediaKind: String, CaseIterable, Identifiable, Sendable {
+    case staticImage
+    case animatedVideo
+
+    public var id: String { rawValue }
+
+    func title(language: String) -> String {
+        switch self {
+        case .staticImage:
+            localized(language, "Static", "Static")
+        case .animatedVideo:
+            localized(language, "Animated", "Animated")
+        }
+    }
+}
+
+public struct TrackInsightSharePayload: Identifiable, Equatable, Sendable {
+    public var id = UUID()
+    public var format: TrackInsightShareFormat
+    public var mediaKind: TrackInsightShareMediaKind
+    public var mediaURL: URL
+    public var text: String
+}
+
+@MainActor
+public enum TrackInsightShareService {
+    public static func shareText(for insight: TrackInsight) -> String {
+        let descriptors = [insight.mood, insight.vibe, insight.genre]
+            .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+            .prefix(3)
+            .joined(separator: ", ")
+        let descriptorText = descriptors.isEmpty ? "Track Insight" : descriptors.lowercased()
+        return """
+        Currently vibing to \(insight.title) by \(insight.artist).
+
+        DJConnect says: \(descriptorText) - \(insight.summary)
+
+        Inspired by your Music DNA.
+
+        #DJConnect #TrackInsight
+        """
+    }
+
+    public static func makePayload(
+        for insight: TrackInsight,
+        format: TrackInsightShareFormat,
+        mediaKind: TrackInsightShareMediaKind,
+        language: String
+    ) throws -> TrackInsightSharePayload {
+        let mediaURL: URL
+        switch mediaKind {
+        case .staticImage:
+            mediaURL = try TrackInsightShareRenderer.renderImage(insight: insight, format: format, language: language)
+        case .animatedVideo:
+            mediaURL = try TrackInsightShareRenderer.renderVideo(insight: insight, format: format, language: language)
+        }
+        return TrackInsightSharePayload(
+            format: format,
+            mediaKind: mediaKind,
+            mediaURL: mediaURL,
+            text: shareText(for: insight)
+        )
+    }
+}
+
+@MainActor
+public enum TrackInsightShareRenderer {
+    public static func renderImage(
+        insight: TrackInsight,
+        format: TrackInsightShareFormat,
+        language: String
+    ) throws -> URL {
+        let view = TrackInsightShareCardView(insight: insight, format: format, language: language, animationPhase: 0)
+            .frame(width: format.size.width, height: format.size.height)
+        let renderer = ImageRenderer(content: view)
+        renderer.proposedSize = ProposedViewSize(format.size)
+        renderer.scale = 1
+
+        guard let data = try pngData(from: renderer) else {
+            throw CocoaError(.fileWriteUnknown)
+        }
+
+        let fileURL = try makeOutputURL(insight: insight, format: format, mediaKind: .staticImage, extension: "png")
+        try data.write(to: fileURL, options: .atomic)
+        return fileURL
+    }
+
+    public static func renderVideo(
+        insight: TrackInsight,
+        format: TrackInsightShareFormat,
+        language: String
+    ) throws -> URL {
+        #if canImport(AVFoundation)
+        let fileURL = try makeOutputURL(insight: insight, format: format, mediaKind: .animatedVideo, extension: "mp4")
+        try? FileManager.default.removeItem(at: fileURL)
+
+        let size = normalizedVideoSize(format.size)
+        let writer = try AVAssetWriter(outputURL: fileURL, fileType: .mp4)
+        let settings: [String: Any] = [
+            AVVideoCodecKey: AVVideoCodecType.h264,
+            AVVideoWidthKey: Int(size.width),
+            AVVideoHeightKey: Int(size.height)
+        ]
+        let input = AVAssetWriterInput(mediaType: .video, outputSettings: settings)
+        input.expectsMediaDataInRealTime = false
+        let adaptor = AVAssetWriterInputPixelBufferAdaptor(
+            assetWriterInput: input,
+            sourcePixelBufferAttributes: [
+                kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32ARGB,
+                kCVPixelBufferWidthKey as String: Int(size.width),
+                kCVPixelBufferHeightKey as String: Int(size.height)
+            ]
+        )
+        guard writer.canAdd(input) else {
+            throw CocoaError(.fileWriteUnknown)
+        }
+        writer.add(input)
+        guard writer.startWriting() else {
+            throw writer.error ?? CocoaError(.fileWriteUnknown)
+        }
+        writer.startSession(atSourceTime: .zero)
+
+        let frameRate = 24
+        let durationSeconds = 6
+        let frameCount = frameRate * durationSeconds
+        for frame in 0..<frameCount {
+            while !input.isReadyForMoreMediaData {
+                Thread.sleep(forTimeInterval: 0.01)
+            }
+            let phase = Double(frame) / Double(frameRate)
+            guard let pixelBuffer = try pixelBuffer(for: insight, format: format, language: language, size: size, animationPhase: phase) else {
+                throw CocoaError(.fileWriteUnknown)
+            }
+            let time = CMTime(value: CMTimeValue(frame), timescale: CMTimeScale(frameRate))
+            guard adaptor.append(pixelBuffer, withPresentationTime: time) else {
+                throw writer.error ?? CocoaError(.fileWriteUnknown)
+            }
+        }
+        input.markAsFinished()
+        let semaphore = DispatchSemaphore(value: 0)
+        writer.finishWriting {
+            semaphore.signal()
+        }
+        semaphore.wait()
+        guard writer.status == .completed else {
+            throw writer.error ?? CocoaError(.fileWriteUnknown)
+        }
+        return fileURL
+        #else
+        throw CocoaError(.fileWriteUnsupportedScheme)
+        #endif
+    }
+
+    private static func makeOutputURL(
+        insight: TrackInsight,
+        format: TrackInsightShareFormat,
+        mediaKind: TrackInsightShareMediaKind,
+        extension pathExtension: String
+    ) throws -> URL {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("DJConnectTrackInsightShare", isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let safeTitle = insight.title
+            .components(separatedBy: CharacterSet.alphanumerics.inverted)
+            .filter { !$0.isEmpty }
+            .prefix(4)
+            .joined(separator: "-")
+        return directory.appendingPathComponent("DJConnect-\(safeTitle)-\(format.rawValue)-\(mediaKind.rawValue)-\(UUID().uuidString).\(pathExtension)")
+    }
+
+    private static func normalizedVideoSize(_ size: CGSize) -> CGSize {
+        CGSize(width: Int(size.width) / 2 * 2, height: Int(size.height) / 2 * 2)
+    }
+
+    private static func pngData<Content: View>(from renderer: ImageRenderer<Content>) throws -> Data? {
+        #if os(iOS)
+        return renderer.uiImage?.pngData()
+        #elseif os(macOS)
+        guard let image = renderer.nsImage,
+              let tiff = image.tiffRepresentation,
+              let bitmap = NSBitmapImageRep(data: tiff) else {
+            return nil
+        }
+        return bitmap.representation(using: .png, properties: [:])
+        #else
+        return nil
+        #endif
+    }
+
+    #if canImport(AVFoundation)
+    private static func pixelBuffer(
+        for insight: TrackInsight,
+        format: TrackInsightShareFormat,
+        language: String,
+        size: CGSize,
+        animationPhase: Double
+    ) throws -> CVPixelBuffer? {
+        let view = TrackInsightShareCardView(insight: insight, format: format, language: language, animationPhase: animationPhase)
+            .frame(width: size.width, height: size.height)
+        let renderer = ImageRenderer(content: view)
+        renderer.proposedSize = ProposedViewSize(size)
+        renderer.scale = 1
+
+        #if os(iOS)
+        guard let cgImage = renderer.uiImage?.cgImage else {
+            return nil
+        }
+        #elseif os(macOS)
+        guard let image = renderer.nsImage else {
+            return nil
+        }
+        var rect = CGRect(origin: .zero, size: size)
+        guard let cgImage = image.cgImage(forProposedRect: &rect, context: nil, hints: nil) else {
+            return nil
+        }
+        #else
+        return nil
+        #endif
+
+        var pixelBuffer: CVPixelBuffer?
+        let status = CVPixelBufferCreate(
+            kCFAllocatorDefault,
+            Int(size.width),
+            Int(size.height),
+            kCVPixelFormatType_32ARGB,
+            [
+                kCVPixelBufferCGImageCompatibilityKey: true,
+                kCVPixelBufferCGBitmapContextCompatibilityKey: true
+            ] as CFDictionary,
+            &pixelBuffer
+        )
+        guard status == kCVReturnSuccess, let pixelBuffer else {
+            return nil
+        }
+
+        CVPixelBufferLockBaseAddress(pixelBuffer, [])
+        defer { CVPixelBufferUnlockBaseAddress(pixelBuffer, []) }
+        guard let context = CGContext(
+            data: CVPixelBufferGetBaseAddress(pixelBuffer),
+            width: Int(size.width),
+            height: Int(size.height),
+            bitsPerComponent: 8,
+            bytesPerRow: CVPixelBufferGetBytesPerRow(pixelBuffer),
+            space: CGColorSpaceCreateDeviceRGB(),
+            bitmapInfo: CGImageAlphaInfo.noneSkipFirst.rawValue
+        ) else {
+            return nil
+        }
+        context.draw(cgImage, in: CGRect(origin: .zero, size: size))
+        return pixelBuffer
+    }
+    #endif
+}
+
+private struct TrackInsightSharePreviewView: View {
+    let insight: TrackInsight
+    let language: String
+    @Environment(\.dismiss) private var dismiss
+    @State private var format: TrackInsightShareFormat = .story
+    @State private var mediaKind: TrackInsightShareMediaKind = .staticImage
+    @State private var payload: TrackInsightSharePayload?
+    @State private var errorText: String?
+
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                DJConnectCanvasBackground()
+                VStack(spacing: 14) {
+                    Picker(localized(language, "Media", "Media"), selection: $mediaKind) {
+                        ForEach(TrackInsightShareMediaKind.allCases) { mediaKind in
+                            Text(mediaKind.title(language: language)).tag(mediaKind)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+
+                    Picker(localized(language, "Format", "Formaat"), selection: $format) {
+                        ForEach(TrackInsightShareFormat.allCases) { format in
+                            Text(format.title(language: language)).tag(format)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+
+                    previewCard
+
+                    if let payload {
+                        ShareLink(
+                            item: payload.mediaURL,
+                            subject: Text("\(insight.title) - \(insight.artist)"),
+                            message: Text(payload.text)
+                        ) {
+                            Label(shareButtonTitle, systemImage: "square.and.arrow.up")
+                                .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(.borderedProminent)
+                    } else {
+                        ProgressView()
+                    }
+
+                    if let errorText {
+                        Text(errorText)
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(.orange)
+                    }
+                }
+                .padding(16)
+                .frame(maxWidth: 560)
+            }
+            .navigationTitle(localized(language, "Share Vibe", "Vibe delen"))
+            #if os(iOS)
+            .navigationBarTitleDisplayMode(.inline)
+            #endif
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button {
+                        dismiss()
+                    } label: {
+                        Image(systemName: "xmark")
+                    }
+                }
+            }
+        }
+        #if os(iOS)
+        .presentationDetents([.large])
+        .presentationDragIndicator(.visible)
+        #endif
+        .task(id: renderID) {
+            await renderPayload()
+        }
+    }
+
+    private var renderID: String {
+        "\(format.rawValue)-\(mediaKind.rawValue)"
+    }
+
+    private var shareButtonTitle: String {
+        switch mediaKind {
+        case .staticImage:
+            localized(language, "Share Vibe Card", "Vibe-kaart delen")
+        case .animatedVideo:
+            localized(language, "Share Animated Vibe", "Animated vibe delen")
+        }
+    }
+
+    @ViewBuilder
+    private var previewCard: some View {
+        if mediaKind == .animatedVideo {
+            TimelineView(.animation) { timeline in
+                TrackInsightShareCardView(
+                    insight: insight,
+                    format: format,
+                    language: language,
+                    animationPhase: timeline.date.timeIntervalSinceReferenceDate
+                )
+            }
+            .aspectRatio(format.size.width / format.size.height, contentMode: .fit)
+            .frame(maxHeight: 460)
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .stroke(.white.opacity(0.14), lineWidth: 1)
+            }
+        } else {
+            TrackInsightShareCardView(insight: insight, format: format, language: language, animationPhase: 0)
+                .aspectRatio(format.size.width / format.size.height, contentMode: .fit)
+                .frame(maxHeight: 460)
+                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .overlay {
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .stroke(.white.opacity(0.14), lineWidth: 1)
+                }
+        }
+    }
+
+    @MainActor
+    private func renderPayload() async {
+        do {
+            payload = nil
+            payload = try TrackInsightShareService.makePayload(for: insight, format: format, mediaKind: mediaKind, language: language)
+            errorText = nil
+        } catch {
+            payload = nil
+            errorText = localized(language, "Share media could not be generated.", "Deelmedia kon niet worden gemaakt.")
+        }
+    }
+}
+
+private struct TrackInsightShareCardView: View {
+    let insight: TrackInsight
+    let format: TrackInsightShareFormat
+    let language: String
+    let animationPhase: Double
+
+    private var profile: TrackVibeProfile {
+        TrackVibeProfile.make(for: insight)
+    }
+
+    var body: some View {
+        ZStack {
+            TrackInsightShareBackground(profile: profile, animationPhase: animationPhase)
+            VStack(spacing: cardSpacing) {
+                Label("DJCONNECT", systemImage: "circle.hexagongrid.fill")
+                    .font(.caption.weight(.bold))
+                    .foregroundStyle(.white.opacity(0.88))
+                Text(localized(language, "Now Playing", "Speelt nu"))
+                    .font(.caption)
+                    .foregroundStyle(.white.opacity(0.62))
+                artwork
+                VStack(spacing: 5) {
+                    Text(insight.title)
+                        .font(titleFont)
+                        .foregroundStyle(.white)
+                        .lineLimit(2)
+                        .minimumScaleFactor(0.72)
+                        .multilineTextAlignment(.center)
+                    Text(insight.artist)
+                        .font(.headline.weight(.semibold))
+                        .foregroundStyle(.white.opacity(0.78))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.72)
+                }
+                Text(metricLine)
+                    .font(.subheadline.weight(.medium))
+                    .foregroundStyle(.white.opacity(0.70))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+                if let vibeLine {
+                    Text(vibeLine)
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(profile.colors.last ?? djConnectAccent)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 7)
+                        .background(.black.opacity(0.24), in: Capsule())
+                }
+                TrackInsightShareMeters(insight: insight, profile: profile, language: language)
+                Text(insight.summary)
+                    .font(summaryFont)
+                    .foregroundStyle(.white.opacity(0.78))
+                    .multilineTextAlignment(.center)
+                    .lineLimit(format == .linkPreview ? 2 : 4)
+                    .minimumScaleFactor(0.76)
+                Spacer(minLength: 0)
+                Label(localized(language, "Rendered privately on your device", "Privé gerenderd op je apparaat"), systemImage: "lock.fill")
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(.white.opacity(0.58))
+                Text(localized(language, "Track Insight powered by Music DNA", "Track Insight powered by Music DNA"))
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(.white.opacity(0.58))
+                Text("#DJConnect #TrackInsight")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.white.opacity(0.66))
+            }
+            .padding(cardPadding)
+        }
+    }
+
+    @ViewBuilder
+    private var artwork: some View {
+        CachedArtworkImage(url: insight.artwork, mode: .fill) {
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .fill(profile.gradient)
+                .overlay {
+                    Image(systemName: "waveform.path.ecg")
+                        .font(.system(size: artworkSize * 0.28, weight: .semibold))
+                        .foregroundStyle(.white.opacity(0.70))
+                }
+        }
+        .frame(width: artworkSize, height: artworkSize)
+        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .stroke(profile.colors.last?.opacity(0.72) ?? .white.opacity(0.28), lineWidth: 2)
+        }
+        .shadow(color: (profile.colors.last ?? djConnectAccent).opacity(0.46), radius: 26)
+    }
+
+    private var titleFont: Font {
+        format == .linkPreview ? .title2.weight(.bold) : .title.weight(.bold)
+    }
+
+    private var summaryFont: Font {
+        format == .linkPreview ? .caption.weight(.medium) : .callout.weight(.medium)
+    }
+
+    private var cardSpacing: CGFloat {
+        format == .linkPreview ? 7 : 12
+    }
+
+    private var cardPadding: CGFloat {
+        format == .linkPreview ? 22 : 28
+    }
+
+    private var artworkSize: CGFloat {
+        switch format {
+        case .story:
+            166
+        case .square:
+            132
+        case .linkPreview:
+            112
+        }
+    }
+
+    private var metricLine: String {
+        [
+            insight.genre,
+            insight.bpm.map { "\(Int($0.rounded())) BPM" },
+            insight.key
+        ]
+        .compactMap { $0 }
+        .filter { !$0.isEmpty }
+        .joined(separator: "  -  ")
+    }
+
+    private var vibeLine: String? {
+        let parts = [insight.mood, insight.vibe, insight.texture]
+            .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+            .prefix(3)
+        return parts.isEmpty ? nil : parts.joined(separator: " - ")
+    }
+}
+
+private struct TrackInsightShareBackground: View {
+    let profile: TrackVibeProfile
+    let animationPhase: Double
+
+    var body: some View {
+        Canvas { context, size in
+            let rect = CGRect(origin: .zero, size: size)
+            context.fill(Path(rect), with: .linearGradient(
+                Gradient(colors: profile.colors),
+                startPoint: CGPoint(x: 0, y: 0),
+                endPoint: CGPoint(x: size.width, y: size.height)
+            ))
+            for index in 0..<5 {
+                var path = Path()
+                let baseY = size.height * (0.42 + CGFloat(index) * 0.08)
+                path.move(to: CGPoint(x: -40, y: baseY))
+                for step in 0...18 {
+                    let x = size.width * CGFloat(step) / 18
+                    let y = baseY + sin(CGFloat(step) * 0.8 + CGFloat(index) + CGFloat(animationPhase) * 1.4) * 22 * profile.waveform
+                    path.addLine(to: CGPoint(x: x, y: y))
+                }
+                context.stroke(path, with: .color(.white.opacity(0.05 + Double(index) * 0.018)), lineWidth: 2)
+            }
+            let pulse = sin(animationPhase * profile.pulseSpeed) * 0.5 + 0.5
+            context.fill(
+                Path(ellipseIn: CGRect(
+                    x: size.width * (0.50 + CGFloat(sin(animationPhase * 0.7)) * 0.06) - size.width * 0.16,
+                    y: size.height * 0.20 - size.width * 0.16,
+                    width: size.width * (0.28 + CGFloat(pulse) * 0.08),
+                    height: size.width * (0.28 + CGFloat(pulse) * 0.08)
+                )),
+                with: .color((profile.colors.last ?? djConnectAccent).opacity(0.14 + pulse * 0.10))
+            )
+            context.fill(Path(rect), with: .color(.black.opacity(0.30)))
+        }
+    }
+}
+
+private struct TrackInsightShareMeters: View {
+    let insight: TrackInsight
+    let profile: TrackVibeProfile
+    let language: String
+
+    var body: some View {
+        HStack(spacing: 18) {
+            meter(localized(language, "Energy", "Energie"), insight.energy)
+            meter(localized(language, "Danceability", "Dansbaarheid"), insight.danceability)
+            meter(localized(language, "Intensity", "Intensiteit"), insight.intensity)
+        }
+    }
+
+    private func meter(_ title: String, _ value: Double?) -> some View {
+        let value = value ?? 0
+        return VStack(spacing: 5) {
+            ZStack {
+                Circle()
+                    .stroke(.white.opacity(0.16), lineWidth: 6)
+                Circle()
+                    .trim(from: 0, to: CGFloat(max(0.04, min(1, value))))
+                    .stroke(
+                        AngularGradient(colors: profile.colors, center: .center),
+                        style: StrokeStyle(lineWidth: 6, lineCap: .round)
+                    )
+                    .rotationEffect(.degrees(-90))
+                Text(String(format: "%.2f", value))
+                    .font(.caption.weight(.bold))
+                    .foregroundStyle(.white)
+            }
+            .frame(width: 52, height: 52)
+            Text(title)
+                .font(.caption2.weight(.semibold))
+                .foregroundStyle(.white.opacity(0.62))
+                .lineLimit(1)
+                .minimumScaleFactor(0.65)
+        }
+        .frame(width: 74)
+    }
+}
+
+
+private struct TrackVibeVisualizerView: View {
+    let profile: TrackVibeProfile
+    let reduceMotion: Bool
+
+    var body: some View {
+        Group {
+            if reduceMotion {
+                TimelineView(.periodic(from: .now, by: 60)) { _ in
+                    TrackVibeCanvas(profile: profile, time: 0)
+                }
+            } else {
+                TimelineView(.animation) { timeline in
+                    TrackVibeCanvas(profile: profile, time: timeline.date.timeIntervalSinceReferenceDate)
+                }
+            }
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .overlay(alignment: .topLeading) {
+            Label("Visualize the vibe", systemImage: "sparkles")
+                .font(.caption.weight(.bold))
+                .foregroundStyle(.white.opacity(0.78))
+                .padding(12)
+        }
+        .overlay(alignment: .bottom) {
+            TrackVibePhaseSpectrum(profile: profile)
+                .padding(.horizontal, 14)
+                .padding(.bottom, 10)
+        }
+    }
+}
+
+private struct TrackVibeCanvas: View {
+    let profile: TrackVibeProfile
+    let time: TimeInterval
+
+    var body: some View {
+        Canvas { context, size in
+            let colors = profile.colors
+            let rect = CGRect(origin: .zero, size: size)
+            context.fill(Path(rect), with: .linearGradient(
+                Gradient(colors: [
+                    Color(red: 0.015, green: 0.018, blue: 0.045),
+                    colors.first?.opacity(0.34) ?? djConnectAccent.opacity(0.34),
+                    Color.black
+                ]),
+                startPoint: CGPoint(x: 0, y: 0),
+                endPoint: CGPoint(x: size.width, y: size.height)
+            ))
+
+            let pulse = sin(time * profile.pulseSpeed) * 0.5 + 0.5
+            let horizonY = size.height * 0.54
+            let orbRadius = min(size.width, size.height) * (0.18 + pulse * 0.04)
+            let orbCenter = CGPoint(
+                x: size.width * (0.50 + sin(time * 0.23) * 0.08),
+                y: size.height * (0.40 + cos(time * 0.19) * 0.04)
+            )
+            context.addFilter(.blur(radius: 22 + profile.glow * 14))
+            context.fill(
+                Path(ellipseIn: CGRect(x: orbCenter.x - orbRadius, y: orbCenter.y - orbRadius, width: orbRadius * 2, height: orbRadius * 2)),
+                with: .color((colors.last ?? djConnectAccent).opacity(0.24 + pulse * 0.20))
+            )
+            context.addFilter(.blur(radius: 0))
+            for ring in 0..<4 {
+                let radius = orbRadius * (0.78 + CGFloat(ring) * 0.18)
+                context.stroke(
+                    Path(ellipseIn: CGRect(x: orbCenter.x - radius, y: orbCenter.y - radius, width: radius * 2, height: radius * 2)),
+                    with: .color((colors[safe: ring] ?? djConnectAccent).opacity(0.40 - Double(ring) * 0.06)),
+                    lineWidth: 1.3
+                )
+            }
+
+            for layer in 0..<9 {
+                var path = Path()
+                let layerProgress = CGFloat(layer) / 8
+                let baseY = horizonY + layerProgress * size.height * 0.34
+                path.move(to: CGPoint(x: -20, y: baseY))
+                let steps = 72
+                for index in 0...steps {
+                    let progress = CGFloat(index) / CGFloat(steps)
+                    let x = size.width * progress
+                    let depth = 1 + layerProgress * 2.4
+                    let waveA = sin(Double(index) * 0.28 + time * profile.animationSpeed + Double(layer) * 0.58)
+                    let waveB = cos(Double(index) * 0.13 + time * 0.42 + Double(layer))
+                    let y = baseY + CGFloat(waveA) * 18 * profile.waveform * depth + CGFloat(waveB) * 8
+                    path.addLine(to: CGPoint(x: x, y: y))
+                }
+                let hueColor = colors[safe: layer % max(colors.count, 1)] ?? djConnectAccent
+                context.stroke(path, with: .color(hueColor.opacity(0.18 + Double(layer) * 0.045)), lineWidth: 1.1 + layerProgress * 1.6)
+            }
+
+            for column in stride(from: 0, through: Int(size.width), by: 7) {
+                let x = CGFloat(column)
+                let seed = Double(column + 17)
+                let normalized = (sin(seed * 0.21 + time * 1.3) + 1) / 2
+                let height = CGFloat(12 + normalized * 72 * profile.waveform)
+                let top = horizonY - height * 0.55
+                var bar = Path()
+                bar.move(to: CGPoint(x: x, y: horizonY))
+                bar.addLine(to: CGPoint(x: x, y: top))
+                context.stroke(bar, with: .color((colors.last ?? djConnectAccent).opacity(0.10 + normalized * 0.16)), lineWidth: 2)
+            }
+
+            let particleCount = max(10, Int(28 * profile.particleDensity))
+            for index in 0..<particleCount {
+                let seed = Double(index + 1)
+                let x = size.width * CGFloat((sin(seed * 12.989 + time * profile.particleVelocity) + 1) / 2)
+                let y = size.height * CGFloat((cos(seed * 7.233 + time * 0.37) + 1) / 2)
+                let radius = CGFloat(1.5 + (seed.truncatingRemainder(dividingBy: 4)))
+                context.fill(
+                    Path(ellipseIn: CGRect(x: x, y: y, width: radius, height: radius)),
+                    with: .color(.white.opacity(0.16 + profile.glow * 0.24))
+                )
+            }
+
+            context.fill(Path(rect), with: .linearGradient(
+                Gradient(colors: [.clear, .black.opacity(0.72)]),
+                startPoint: CGPoint(x: size.width / 2, y: size.height * 0.58),
+                endPoint: CGPoint(x: size.width / 2, y: size.height)
+            ))
+        }
+    }
+}
+
+private struct TrackVibePhaseSpectrum: View {
+    let profile: TrackVibeProfile
+
+    private let phases = ["Intro", "Build", "Drop", "Break", "Outro"]
+
+    var body: some View {
+        VStack(spacing: 7) {
+            HStack(alignment: .bottom, spacing: 2) {
+                ForEach(0..<64, id: \.self) { index in
+                    let base = profile.spectrumProfile[index % profile.spectrumProfile.count]
+                    let lift = sin(Double(index) * 0.31) * 0.5 + 0.5
+                    Capsule()
+                        .fill(Color(hue: 0.60 + Double(index) / 170, saturation: 0.85, brightness: 1.0).opacity(0.84))
+                        .frame(width: 3, height: 5 + CGFloat(base * (0.55 + lift * 0.55)) * 36)
+                }
+            }
+            HStack {
+                ForEach(phases, id: \.self) { phase in
+                    Text(phase)
+                        .font(.caption2.weight(.medium))
+                        .foregroundStyle(.white.opacity(0.55))
+                    if phase != phases.last {
+                        Spacer(minLength: 0)
+                    }
+                }
+            }
+        }
+    }
+}
+
+private extension Array {
+    subscript(safe index: Int) -> Element? {
+        indices.contains(index) ? self[index] : nil
+    }
+}
+
+private struct TrackInsightMetricsGrid: View {
+    let insight: TrackInsight
+    let language: String
+
+    var body: some View {
+        LazyVGrid(columns: [GridItem(.adaptive(minimum: 118), spacing: 8)], spacing: 8) {
+            TrackInsightMetricPill(title: "BPM", value: insight.bpm.map { String(Int($0.rounded())) })
+            TrackInsightMetricPill(title: localized(language, "Key", "Toonsoort"), value: insight.key)
+            TrackInsightMetricPill(title: localized(language, "Genre", "Genre"), value: insight.genre)
+            TrackInsightMetricPill(title: localized(language, "Mood", "Mood"), value: insight.mood)
+            TrackInsightMetricPill(title: localized(language, "Energy", "Energie"), value: percent(insight.energy))
+            TrackInsightMetricPill(title: localized(language, "Dance", "Dans"), value: percent(insight.danceability))
+            TrackInsightMetricPill(title: localized(language, "Intensity", "Intensiteit"), value: percent(insight.intensity))
+            TrackInsightMetricPill(title: localized(language, "Vibe", "Vibe"), value: insight.vibe)
+            TrackInsightMetricPill(title: localized(language, "Texture", "Textuur"), value: insight.texture)
+        }
+    }
+
+    private func percent(_ value: Double?) -> String? {
+        value.map { "\(Int(($0 * 100).rounded()))%" }
+    }
+}
+
+private struct TrackInsightMetricPill: View {
+    let title: String
+    let value: String?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(title)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.white.opacity(0.56))
+            Text(value?.isEmpty == false ? value! : "-")
+                .font(.headline.weight(.semibold))
+                .foregroundStyle(.white)
+                .lineLimit(1)
+                .minimumScaleFactor(0.72)
+        }
+        .padding(.horizontal, 11)
+        .padding(.vertical, 9)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(.white.opacity(0.10), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+    }
+}
+
+private struct TrackInsightAnalysisCard: View {
+    let insight: TrackInsight
+    let language: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text(localized(language, "AI summary", "AI-samenvatting"))
+                .font(.headline.weight(.semibold))
+            Text(insight.summary)
+                .font(.body)
+                .foregroundStyle(.white.opacity(0.78))
+                .fixedSize(horizontal: false, vertical: true)
+
+            let groups = insight.structuredAnalysisGroups(language: language)
+            if !groups.isEmpty {
+                Divider().overlay(.white.opacity(0.16))
+                ForEach(groups.prefix(8)) { section in
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(section.title)
+                            .font(.subheadline.weight(.semibold))
+                        ForEach(section.values.prefix(5), id: \.self) { value in
+                            Text(value)
+                                .font(.caption)
+                                .foregroundStyle(.white.opacity(0.62))
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                    }
+                }
+            }
+        }
+        .padding(14)
+        .djConnectGradientCard(cornerRadius: 8)
+    }
+}
+
+private struct TrackInsightStructuredGroup: Identifiable {
+    let id: String
+    let title: String
+    let values: [String]
+}
+
+private extension TrackInsight {
+    func structuredAnalysisGroups(language: String) -> [TrackInsightStructuredGroup] {
+        [
+            TrackInsightStructuredGroup(id: "production", title: localized(language, "Production", "Productie"), values: productionNotes),
+            TrackInsightStructuredGroup(id: "instrumentation", title: localized(language, "Instrumentation", "Instrumentatie"), values: instrumentation),
+            TrackInsightStructuredGroup(id: "arrangement", title: localized(language, "Arrangement", "Arrangement"), values: arrangementNotes),
+            TrackInsightStructuredGroup(id: "listening", title: localized(language, "Listening cues", "Luisterpunten"), values: listeningCues),
+            TrackInsightStructuredGroup(
+                id: "similar",
+                title: localized(language, "Similar tracks", "Vergelijkbare tracks"),
+                values: similarTracks.map { track in
+                    if let reason = track.reason, !reason.isEmpty {
+                        return "\(track.title) - \(track.artist): \(reason)"
+                    }
+                    return "\(track.title) - \(track.artist)"
+                }
+            )
+        ].filter { !$0.values.isEmpty }
+    }
+}
+
+private struct TrackInsightEmptyState: View {
+    @ObservedObject var model: DJConnectAppModel
+
+    var body: some View {
+        VStack(spacing: 16) {
+            Image(systemName: "waveform.path.ecg")
+                .font(.system(size: 50, weight: .semibold))
+                .foregroundStyle(djConnectAccent)
+            Text("Track Insight")
+                .font(.title2.weight(.bold))
+            Text(localized(
+                model.language,
+                "Open an AI-powered analysis of the current track with a deterministic on-device visualizer.",
+                "Open een AI-analyse van het huidige nummer met een deterministische visualizer op je apparaat."
+            ))
+                .font(.callout)
+                .foregroundStyle(.white.opacity(0.68))
+                .multilineTextAlignment(.center)
+                .frame(maxWidth: 420)
+            if let error = model.trackInsightErrorMessage {
+                Text(error)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.orange)
+            }
+            Button {
+                model.analyzeCurrentTrack(open: false)
+            } label: {
+                Label(localized(model.language, "Analyze Track", "Analyseer nummer"), systemImage: "sparkles")
+            }
+            .buttonStyle(.borderedProminent)
+            .disabled(model.isLoadingTrackInsight)
+            if model.isLoadingTrackInsight {
+                ProgressView()
+            }
+        }
+        .padding(24)
+        .frame(maxWidth: .infinity)
+        .djConnectGradientCard(cornerRadius: 8)
+    }
+}
+
+private extension TrackVibeProfile {
+    var colors: [Color] {
+        palette.map { Color(hex: $0) ?? djConnectAccent }
+    }
+
+    var gradient: LinearGradient {
+        LinearGradient(colors: colors, startPoint: .topLeading, endPoint: .bottomTrailing)
+    }
+}
+
+private extension Color {
+    init?(hex: String) {
+        var raw = hex.trimmingCharacters(in: .whitespacesAndNewlines)
+        if raw.hasPrefix("#") {
+            raw.removeFirst()
+        }
+        guard raw.count == 6, let value = Int(raw, radix: 16) else {
+            return nil
+        }
+        self.init(
+            red: Double((value >> 16) & 0xff) / 255.0,
+            green: Double((value >> 8) & 0xff) / 255.0,
+            blue: Double(value & 0xff) / 255.0
+        )
+    }
+}
+
 #if os(iOS)
 private struct IOSNowPlayingView: View {
     @ObservedObject var model: DJConnectAppModel
@@ -2481,6 +3975,7 @@ private struct IOSConnectionCard: View {
 private struct IOSTrackHero: View {
     @ObservedObject var model: DJConnectAppModel
     @State private var cardTint = Color(red: 0.22, green: 0.52, blue: 0.92)
+    @State private var isShowingTrackInsightShare = false
 
     private var playback: DJConnectPlayback? {
         model.playback
@@ -2491,16 +3986,36 @@ private struct IOSTrackHero: View {
             AnimatedAlbumArtworkView(playback: playback, isDemoMode: model.isDemoMode, maxWidth: 300)
 
             VStack(alignment: .leading, spacing: 5) {
-                Text(playback?.trackName ?? localized(model.language, "Nothing Playing", "Niets speelt af"))
-                    .font(.title2.weight(.bold))
-                    .lineLimit(2)
-                Text(playback?.artistName ?? playback?.device?.name ?? localized(model.language, "Select an output device", "Kies een uitvoerapparaat"))
-                    .font(.headline)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(2)
+                HStack(alignment: .top, spacing: 12) {
+                    VStack(alignment: .leading, spacing: 5) {
+                        Text(playback?.trackName ?? localized(model.language, "Nothing Playing", "Niets speelt af"))
+                            .font(.title2.weight(.bold))
+                            .lineLimit(2)
+                        Text(playback?.artistName ?? playback?.device?.name ?? localized(model.language, "Select an output device", "Kies een uitvoerapparaat"))
+                            .font(.headline)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(2)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+
+                    TrackInsightIconButton(model: model)
+                }
             }
 
             ProgressScrubberView(model: model)
+
+            if let insight = model.currentTrackInsight {
+                Button {
+                    isShowingTrackInsightShare = true
+                } label: {
+                    Label(localized(model.language, "Share Insight", "Insight delen"), systemImage: "square.and.arrow.up")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.bordered)
+                .sheet(isPresented: $isShowingTrackInsightShare) {
+                    TrackInsightSharePreviewView(insight: insight, language: model.language)
+                }
+            }
 
             SeekControlsView(model: model)
             IOSPlaybackSurface(model: model)
@@ -2510,6 +4025,75 @@ private struct IOSTrackHero: View {
         .task(id: nowPlayingTrackKey(for: playback)) {
             cardTint = await sampledArtworkTint(for: playback)
         }
+    }
+}
+
+private struct TrackInsightIconButton: View {
+    @ObservedObject var model: DJConnectAppModel
+
+    var body: some View {
+        Button {
+            model.analyzeCurrentTrack(open: true)
+        } label: {
+            ZStack {
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                Color(red: 0.34, green: 0.42, blue: 1.0),
+                                Color(red: 0.68, green: 0.34, blue: 1.0)
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                            .stroke(.white.opacity(0.22), lineWidth: 1)
+                    }
+                    .shadow(color: Color(red: 0.56, green: 0.30, blue: 1.0).opacity(0.42), radius: 14)
+
+                if model.isLoadingTrackInsight {
+                    ProgressView()
+                        .controlSize(.small)
+                        .tint(.white)
+                } else {
+                    TrackInsightPulseIcon()
+                        .stroke(.white.opacity(0.92), style: StrokeStyle(lineWidth: 3.6, lineCap: .round, lineJoin: .round))
+                        .frame(width: 28, height: 24)
+                        .foregroundStyle(.white)
+                }
+            }
+            .frame(width: 46, height: 46)
+            .contentShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .disabled(model.isLoadingTrackInsight || !model.canStartTrackInsightAnalysis)
+        .opacity(model.canStartTrackInsightAnalysis ? 1 : 0.45)
+        .accessibilityLabel(localized(model.language, "Open Track Insight", "Open Track Insight"))
+        .accessibilityHint(localized(
+            model.language,
+            "Sends the current track to the backend for analysis and opens Track Insight.",
+            "Stuurt het huidige nummer naar de backend voor analyse en opent Track Insight."
+        ))
+        .help(localized(model.language, "Track Insight", "Track Insight"))
+    }
+}
+
+private struct TrackInsightPulseIcon: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let midY = rect.midY
+        let width = rect.width
+        let height = rect.height
+        path.move(to: CGPoint(x: rect.minX + width * 0.02, y: midY))
+        path.addLine(to: CGPoint(x: rect.minX + width * 0.24, y: midY))
+        path.addLine(to: CGPoint(x: rect.minX + width * 0.34, y: rect.minY + height * 0.26))
+        path.addLine(to: CGPoint(x: rect.minX + width * 0.46, y: rect.maxY - height * 0.18))
+        path.addLine(to: CGPoint(x: rect.minX + width * 0.56, y: rect.minY + height * 0.38))
+        path.addLine(to: CGPoint(x: rect.minX + width * 0.66, y: midY))
+        path.addLine(to: CGPoint(x: rect.minX + width * 0.98, y: midY))
+        return path
     }
 }
 
@@ -4258,8 +5842,8 @@ private struct AskDJMessageBubble: View {
                             AskDJMarkdownText(text: displayText, highlight: searchText)
                         }
                     }
-                    if !isUser, let analysis = message.analysis {
-                        AskDJAnalysisSummary(analysis: analysis, language: language)
+                    if !isUser, let trackInsight = message.trackInsight {
+                        AskDJTrackInsightSummary(insight: trackInsight, language: language)
                     }
                     if !isUser, !message.items.isEmpty {
                         AskDJItemList(items: message.items)
@@ -4494,414 +6078,44 @@ private struct AskDJAudioReplayButton: View {
     }
 }
 
-private struct AskDJAnalysisSummary: View {
-    let analysis: DJConnectAskDJTrackAnalysis
+private struct AskDJTrackInsightSummary: View {
+    let insight: TrackInsight
     let language: String
 
-    private var modeText: String? {
-        switch analysis.mode?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() {
-        case "measured_plus_knowledge":
-            return localized(language, "Measured + context", "Gemeten + duiding")
-        case "measured":
-            return localized(language, "Measured", "Gemeten")
-        case "knowledge_plus_metadata":
-            return localized(language, "Context", "Duiding")
-        case "unavailable":
-            return localized(language, "Not available", "Niet beschikbaar")
-        default:
-            return nil
-        }
-    }
-
-    private var hasMeasuredData: Bool {
-        guard let measured = analysis.measured else {
-            return false
-        }
-        return measured.bpm != nil
-            || measured.key?.isEmpty == false
-            || measured.timeSignature != nil
-            || !measured.sections.isEmpty
-            || !measured.features.isEmpty
-    }
-
-    private var shouldRenderV1Fallback: Bool {
-        analysis.sections.isEmpty && analysis.timeline.isEmpty && analysis.djTips.isEmpty
-    }
-
-    private var hasInferredData: Bool {
-        guard let inferred = analysis.inferred else {
-            return false
-        }
-        return inferred.provider?.isEmpty == false
-            || inferred.structure?.isEmpty == false
-            || inferred.instrumentation?.isEmpty == false
-            || inferred.melodicBuild?.isEmpty == false
-            || inferred.energyCurve?.isEmpty == false
-            || inferred.mixNotes?.isEmpty == false
-    }
-
-    private var sourceText: String? {
-        let sources = analysis.sources
-            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-            .filter { !$0.isEmpty }
-        guard !sources.isEmpty else {
-            return nil
-        }
-        return sources.joined(separator: " · ")
-    }
-
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack(spacing: 6) {
-                if let modeText {
-                    Label(modeText, systemImage: "waveform.path.ecg")
-                        .font(.caption2.weight(.semibold))
-                        .foregroundStyle(.white.opacity(0.76))
-                        .lineLimit(1)
+        VStack(alignment: .leading, spacing: 8) {
+            Label("Track Insight", systemImage: "waveform.path.ecg")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(djConnectAccent)
+            Text(insight.title)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.white)
+                .lineLimit(1)
+            Text(insight.summary)
+                .font(.caption)
+                .foregroundStyle(.white.opacity(0.68))
+                .lineLimit(3)
+            HStack(spacing: 8) {
+                if let genre = insight.genre {
+                    Text(genre)
                 }
-                if let confidence = analysis.confidence, !confidence.isEmpty {
-                    Text(confidence)
-                        .font(.caption2.weight(.medium))
-                        .foregroundStyle(.white.opacity(0.54))
-                        .lineLimit(1)
+                if let bpm = insight.bpm {
+                    Text("\(Int(bpm.rounded())) BPM")
                 }
-            }
-            HStack(spacing: 6) {
-                if hasMeasuredData {
-                    Text(localized(language, "Measured", "Gemeten"))
-                        .font(.caption2.weight(.semibold))
-                        .foregroundStyle(.white.opacity(0.62))
-                }
-                if hasInferredData {
-                    Text(localized(language, "Context", "Duiding"))
-                        .font(.caption2.weight(.semibold))
-                        .foregroundStyle(.white.opacity(0.62))
+                if let key = insight.key {
+                    Text(key)
                 }
             }
-            if let sourceText {
-                Text(sourceText)
-                    .font(.caption2)
-                    .foregroundStyle(.white.opacity(0.44))
-                    .lineLimit(2)
-            }
-            if analysis.mode?.lowercased() != "unavailable" {
-                ForEach(analysis.sections, id: \.stableID) { section in
-                    if section.isMetadataContext {
-                        metadataContextRow(section)
-                    } else {
-                        sectionRow(section)
-                    }
-                }
-                if !analysis.timeline.isEmpty {
-                    timelineList
-                }
-                ForEach(analysis.djTips, id: \.stableID) { tip in
-                    tipRow(tip)
-                }
-                if shouldRenderV1Fallback {
-                    v1FallbackRows
-                }
-            }
-            if !analysis.limitations.isEmpty {
-                VStack(alignment: .leading, spacing: 4) {
-                    ForEach(analysis.limitations, id: \.self) { limitation in
-                        Text(limitation)
-                            .font(.caption2)
-                            .foregroundStyle(.white.opacity(0.50))
-                            .lineLimit(3)
-                    }
-                }
-            }
+            .font(.caption2.weight(.semibold))
+            .foregroundStyle(.white.opacity(0.58))
         }
-        .padding(.horizontal, 9)
-        .padding(.vertical, 7)
-        .frame(maxWidth: 520, alignment: .leading)
-        .background {
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(.white.opacity(0.08))
-        }
+        .padding(10)
+        .background(.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
         .overlay {
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
                 .stroke(.white.opacity(0.12), lineWidth: 1)
         }
-    }
-
-    private var timelineList: some View {
-        VStack(alignment: .leading, spacing: 5) {
-            Text(localized(language, "Timeline", "Tijdlijn"))
-                .font(.caption2.weight(.semibold))
-                .foregroundStyle(.white.opacity(0.68))
-            ForEach(analysis.timeline, id: \.stableID) { entry in
-                HStack(alignment: .firstTextBaseline, spacing: 7) {
-                    Text(timestampText(for: entry))
-                        .font(.caption2.monospacedDigit().weight(.medium))
-                        .foregroundStyle(.white.opacity(0.58))
-                        .frame(minWidth: 42, alignment: .leading)
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(displayLabel(entry.label ?? entry.kind ?? "Segment"))
-                            .font(.caption2.weight(.semibold))
-                            .foregroundStyle(.white.opacity(isLowConfidence(entry.confidence) ? 0.72 : 0.86))
-                            .lineLimit(1)
-                        if let summary = entry.summary, !summary.isEmpty {
-                            Text(summary)
-                                .font(.caption2)
-                                .foregroundStyle(.white.opacity(0.62))
-                                .lineLimit(2)
-                        }
-                        if let meta = metaText(source: entry.source, confidence: entry.confidence) {
-                            Text(meta)
-                                .font(.caption2)
-                                .foregroundStyle(.white.opacity(0.46))
-                                .lineLimit(1)
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    private var v1FallbackRows: some View {
-        VStack(alignment: .leading, spacing: 5) {
-            if let measured = analysis.measured {
-                if let bpm = measured.bpm {
-                    compactRow(title: "BPM", value: bpm.formatted(.number.precision(.fractionLength(0...1))), meta: nil)
-                }
-                if let key = measured.key, !key.isEmpty {
-                    compactRow(title: localized(language, "Key", "Toonsoort"), value: key, meta: nil)
-                }
-                ForEach(measured.sections, id: \.stableID) { section in
-                    compactRow(
-                        title: displayLabel(section.label ?? localized(language, "Section", "Sectie")),
-                        value: measuredSectionTime(section),
-                        meta: section.confidence.map { localized(language, "confidence \($0)", "confidence \($0)") }
-                    )
-                }
-            }
-            if let inferred = analysis.inferred {
-                compactRow(title: localized(language, "Structure", "Structuur"), value: inferred.structure, meta: inferred.provider)
-                compactRow(title: localized(language, "Instrumentation", "Instrumentatie"), value: inferred.instrumentation, meta: inferred.provider)
-                compactRow(title: localized(language, "Energy curve", "Energy curve"), value: inferred.energyCurve, meta: inferred.provider)
-                compactRow(title: localized(language, "Mix notes", "Mix-notities"), value: inferred.mixNotes, meta: inferred.provider)
-            }
-        }
-    }
-
-    private func sectionRow(_ section: DJConnectAskDJTrackAnalysis.AnalysisSection) -> some View {
-        VStack(alignment: .leading, spacing: 3) {
-            HStack(alignment: .firstTextBaseline, spacing: 6) {
-                Text(displayLabel(section.displayTitle))
-                    .font(.caption2.weight(.semibold))
-                    .foregroundStyle(.white.opacity(isLowConfidence(section.confidence) ? 0.72 : 0.88))
-                    .lineLimit(2)
-                if let value = section.value, !value.isEmpty {
-                    Text(value)
-                        .font(.caption2.weight(.medium))
-                        .foregroundStyle(.white.opacity(0.76))
-                        .lineLimit(2)
-                }
-            }
-            if let summary = section.summary, !summary.isEmpty {
-                Text(summary)
-                    .font(.caption2)
-                    .foregroundStyle(.white.opacity(0.62))
-                    .lineLimit(3)
-            }
-            if !section.items.isEmpty {
-                HStack(spacing: 5) {
-                    ForEach(section.items.prefix(4)) { item in
-                        Text([item.title, item.value].compactMap { value in
-                            let trimmed = value?.trimmingCharacters(in: .whitespacesAndNewlines)
-                            return trimmed?.isEmpty == false ? trimmed : nil
-                        }.joined(separator: " "))
-                            .font(.caption2.weight(.medium))
-                            .foregroundStyle(.white.opacity(0.76))
-                            .lineLimit(1)
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 3)
-                            .background(Capsule().fill(.white.opacity(0.10)))
-                    }
-                }
-            }
-            if let meta = metaText(source: section.source, confidence: section.confidence) {
-                Text(meta)
-                    .font(.caption2)
-                    .foregroundStyle(.white.opacity(0.46))
-                    .lineLimit(1)
-            }
-        }
-        .padding(.horizontal, 7)
-        .padding(.vertical, 6)
-        .background {
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .fill(.white.opacity(0.07))
-        }
-    }
-
-    private func metadataContextRow(_ section: DJConnectAskDJTrackAnalysis.AnalysisSection) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            HStack(alignment: .firstTextBaseline, spacing: 6) {
-                Text(localized(language, "MusicBrainz / ListenBrainz", "MusicBrainz / ListenBrainz"))
-                    .font(.caption2.weight(.semibold))
-                    .foregroundStyle(.white.opacity(0.84))
-                    .lineLimit(1)
-                if let title = section.title, !title.isEmpty {
-                    Text(displayLabel(title))
-                        .font(.caption2.weight(.medium))
-                        .foregroundStyle(.white.opacity(0.58))
-                        .lineLimit(1)
-                }
-            }
-            if let summary = section.summary, !summary.isEmpty {
-                Text(summary)
-                    .font(.caption2)
-                    .foregroundStyle(.white.opacity(0.62))
-                    .lineLimit(3)
-            }
-            if let metadata = analysis.metadata {
-                metadataRows(metadata)
-            } else if !section.items.isEmpty {
-                metadataItemChips(section.items)
-            }
-            if let meta = metaText(source: section.source ?? "metabrainz_metadata", confidence: section.confidence) {
-                Text(meta)
-                    .font(.caption2)
-                    .foregroundStyle(.white.opacity(0.46))
-                    .lineLimit(1)
-            }
-        }
-        .padding(.horizontal, 7)
-        .padding(.vertical, 6)
-        .background {
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .fill(.white.opacity(0.055))
-        }
-    }
-
-    private func metadataRows(_ metadata: DJConnectAskDJTrackAnalysis.Metadata) -> some View {
-        VStack(alignment: .leading, spacing: 3) {
-            compactRow(title: localized(language, "Recording", "Opname"), value: metadata.recordingTitle, meta: metadata.artist)
-            compactRow(title: localized(language, "MusicBrainz ID", "MusicBrainz ID"), value: metadata.musicBrainzRecordingID, meta: nil)
-            compactRow(title: localized(language, "First release", "Eerste release"), value: metadata.firstReleaseDate, meta: metadata.release?.title)
-            compactRow(title: localized(language, "Release", "Release"), value: metadata.release?.title, meta: metadata.release?.date)
-            compactRow(title: localized(language, "Genres", "Genres"), value: metadata.genres.prefix(5).joined(separator: ", "), meta: nil)
-            compactRow(title: localized(language, "Tags", "Tags"), value: metadata.tags.prefix(5).joined(separator: ", "), meta: nil)
-            if let listenCount = metadata.listenBrainzListenCount {
-                compactRow(
-                    title: localized(language, "Public listens", "Publieke listens"),
-                    value: listenCount.formatted(.number),
-                    meta: "ListenBrainz"
-                )
-            }
-            if let matchScore = metadata.matchScore {
-                compactRow(
-                    title: localized(language, "Metadata confidence", "Metadata-confidence"),
-                    value: "\(matchScore)%",
-                    meta: "MetaBrainz"
-                )
-            }
-        }
-    }
-
-    private func metadataItemChips(_ items: [DJConnectAskDJHistoryItem]) -> some View {
-        HStack(spacing: 5) {
-            ForEach(items.prefix(4)) { item in
-                Text([item.title, item.value].compactMap { value in
-                    let trimmed = value?.trimmingCharacters(in: .whitespacesAndNewlines)
-                    return trimmed?.isEmpty == false ? trimmed : nil
-                }.joined(separator: " "))
-                    .font(.caption2.weight(.medium))
-                    .foregroundStyle(.white.opacity(0.70))
-                    .lineLimit(1)
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 3)
-                    .background(Capsule().fill(.white.opacity(0.08)))
-            }
-        }
-    }
-
-    private func tipRow(_ tip: DJConnectAskDJTrackAnalysis.DJTip) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(displayLabel(tip.displayTitle))
-                .font(.caption2.weight(.semibold))
-                .foregroundStyle(.white.opacity(isLowConfidence(tip.confidence) ? 0.72 : 0.86))
-            if let text = tip.text, !text.isEmpty {
-                Text(text)
-                    .font(.caption2)
-                    .foregroundStyle(.white.opacity(0.64))
-                    .lineLimit(3)
-            }
-            if let meta = metaText(source: tip.source, confidence: tip.confidence) {
-                Text(meta)
-                    .font(.caption2)
-                    .foregroundStyle(.white.opacity(0.46))
-                    .lineLimit(1)
-            }
-        }
-    }
-
-    private func compactRow(title: String, value: String?, meta: String?) -> some View {
-        Group {
-            if let value, !value.isEmpty {
-                VStack(alignment: .leading, spacing: 2) {
-                    HStack(alignment: .firstTextBaseline, spacing: 6) {
-                        Text(title)
-                            .font(.caption2.weight(.semibold))
-                            .foregroundStyle(.white.opacity(0.78))
-                        Text(value)
-                            .font(.caption2)
-                            .foregroundStyle(.white.opacity(0.64))
-                    }
-                    if let meta, !meta.isEmpty {
-                        Text(meta)
-                            .font(.caption2)
-                            .foregroundStyle(.white.opacity(0.46))
-                    }
-                }
-            }
-        }
-    }
-
-    private func measuredSectionTime(_ section: DJConnectAskDJTrackAnalysis.Section) -> String? {
-        guard let start = section.startMS else {
-            return nil
-        }
-        if let duration = section.durationMS {
-            return "\(formatMilliseconds(start)) · \(formatMilliseconds(duration))"
-        }
-        return formatMilliseconds(start)
-    }
-
-    private func timestampText(for entry: DJConnectAskDJTrackAnalysis.TimelineEntry) -> String {
-        if let start = entry.startMS {
-            return formatMilliseconds(start)
-        }
-        return "--:--"
-    }
-
-    private func formatMilliseconds(_ value: Int) -> String {
-        let totalSeconds = max(0, value / 1000)
-        return String(format: "%d:%02d", totalSeconds / 60, totalSeconds % 60)
-    }
-
-    private func displayLabel(_ value: String) -> String {
-        value.replacingOccurrences(of: "_", with: " ")
-    }
-
-    private func metaText(source: String?, confidence: String?) -> String? {
-        let parts = [source, confidence]
-            .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
-            .filter { !$0.isEmpty }
-        return parts.isEmpty ? nil : parts.joined(separator: " · ")
-    }
-
-    private func isLowConfidence(_ value: String?) -> Bool {
-        value?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == "low"
-    }
-}
-
-private extension DJConnectAskDJTrackAnalysis.AnalysisSection {
-    var isMetadataContext: Bool {
-        id?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == "metadata_context"
+        .accessibilityLabel(localized(language, "Track Insight preview", "Track Insight voorbeeld"))
     }
 }
 
@@ -8140,6 +9354,12 @@ private struct MoreView: View {
                         GamesView(language: model.language, isDemoMode: model.isDemoMode)
                     }
                     MoreNavigationRow(
+                        title: "Music DNA",
+                        systemImage: "waveform"
+                    ) {
+                        MusicDNAView(model: model)
+                    }
+                    MoreNavigationRow(
                         title: localized(model.language, "Settings", "Instellingen"),
                         systemImage: "gearshape"
                     ) {
@@ -8258,6 +9478,11 @@ struct SettingsView: View {
     var returnToNowPlaying: () -> Void = {}
     @Environment(\.openURL) private var openURL
     @State private var isShowingResetPairingConfirmation = false
+    @AppStorage("DJConnectMusicDNALearnFromTrackInsights") private var learnFromTrackInsights = true
+    @AppStorage("DJConnectMusicDNALearnFromAskDJ") private var learnFromAskDJ = true
+    @AppStorage("DJConnectMusicDNALearnFromLikes") private var learnFromLikes = true
+    @AppStorage("DJConnectMusicDNALearnFromSkips") private var learnFromSkips = false
+    @AppStorage("DJConnectMusicDNALearnFromListeningHistory") private var learnFromListeningHistory = true
 
     var body: some View {
         NavigationStack {
@@ -8312,6 +9537,45 @@ struct SettingsView: View {
                         Text(localized(model.language, "Warning", "Waarschuwing")).tag("warning")
                         Text(localized(model.language, "Error", "Fout")).tag("error")
                     }
+                }
+                .djSettingsListRowBackground()
+
+                Section("Music DNA") {
+                    Toggle(isOn: $learnFromTrackInsights) {
+                        Text(localized(model.language, "Learn from Track Insights", "Leer van Track Insights"))
+                    }
+                    Toggle(isOn: $learnFromAskDJ) {
+                        Text(localized(model.language, "Learn from Ask DJ conversations", "Leer van Ask DJ-gesprekken"))
+                    }
+                    Toggle(isOn: $learnFromLikes) {
+                        Text(localized(model.language, "Learn from likes", "Leer van likes"))
+                    }
+                    Toggle(isOn: $learnFromSkips) {
+                        Text(localized(model.language, "Learn from skips", "Leer van skips"))
+                    }
+                    Toggle(isOn: $learnFromListeningHistory) {
+                        Text(localized(model.language, "Learn from listening history", "Leer van luistergeschiedenis"))
+                    }
+                    Button(role: .destructive) {
+                    } label: {
+                        Label(localized(model.language, "Reset Music DNA", "Reset Music DNA"), systemImage: "arrow.counterclockwise")
+                    }
+                    .disabled(true)
+                    LabeledContent(localized(model.language, "Export Music DNA", "Exporteer Music DNA")) {
+                        Text(localized(model.language, "Future", "Toekomstig"))
+                            .foregroundStyle(.secondary)
+                    }
+                    LabeledContent(localized(model.language, "Import Music DNA", "Importeer Music DNA")) {
+                        Text(localized(model.language, "Future", "Toekomstig"))
+                            .foregroundStyle(.secondary)
+                    }
+                    Text(localized(
+                        model.language,
+                        "Music DNA is stored privately and belongs to you.",
+                        "Music DNA wordt prive opgeslagen en is van jou."
+                    ))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
                 }
                 .djSettingsListRowBackground()
 

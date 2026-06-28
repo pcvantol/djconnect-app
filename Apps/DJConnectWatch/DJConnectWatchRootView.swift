@@ -43,6 +43,29 @@ private func playWatchHaptic(_ haptic: WKHapticType, enabled: Bool) {
     #endif
 }
 
+private extension Color {
+    init?(watchHex: String) {
+        var raw = watchHex.trimmingCharacters(in: .whitespacesAndNewlines)
+        if raw.hasPrefix("#") {
+            raw.removeFirst()
+        }
+        guard raw.count == 6, let value = Int(raw, radix: 16) else {
+            return nil
+        }
+        self.init(
+            red: Double((value >> 16) & 0xff) / 255.0,
+            green: Double((value >> 8) & 0xff) / 255.0,
+            blue: Double(value & 0xff) / 255.0
+        )
+    }
+}
+
+private extension Array {
+    subscript(safe index: Int) -> Element? {
+        indices.contains(index) ? self[index] : nil
+    }
+}
+
 struct DJConnectWatchRootView: View {
     @Environment(\.scenePhase) private var scenePhase
     @EnvironmentObject private var model: DJConnectWatchModel
@@ -173,6 +196,15 @@ struct DJConnectWatchRootView: View {
                             .frame(maxWidth: .infinity, minHeight: 38)
                     }
                     .buttonStyle(DJConnectWatchGradientButtonStyle(kind: .primary))
+
+                    NavigationLink {
+                        DJConnectWatchTrackInsightView()
+                    } label: {
+                        Label("Track Insight", systemImage: "waveform.path.ecg")
+                            .font(.footnote.weight(.semibold))
+                            .frame(maxWidth: .infinity, minHeight: 34)
+                    }
+                    .buttonStyle(DJConnectWatchGradientButtonStyle(kind: .secondary))
 
                     askDJMoodControl
 
@@ -482,6 +514,125 @@ struct DJConnectWatchRootView: View {
         .frame(maxWidth: .infinity)
         .padding(8)
         .background(DJConnectWatchPanel())
+    }
+
+    private struct DJConnectWatchTrackInsightView: View {
+        @EnvironmentObject private var model: DJConnectWatchModel
+
+        private var insight: TrackInsight {
+            TrackInsight(
+                title: model.playback?.trackName ?? "Track Insight",
+                artist: model.playback?.artistName ?? "DJConnect",
+                artwork: model.playback?.albumImageURL,
+                bpm: 122,
+                key: "6A",
+                genre: "Deep House",
+                energy: 0.80,
+                danceability: 0.70,
+                intensity: 0.74,
+                mood: "Dreamy",
+                vibe: "Uplifting",
+                texture: "Neon wave textures",
+                summary: "Visualize the vibe. Feel the music.",
+                rawAnalysisText: "Watch Track Insight preview"
+            )
+        }
+
+        var body: some View {
+            ZStack {
+                DJConnectWatchCanvas()
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text("Ask DJ")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(watchAccentPurple)
+                        Text("Track Insight")
+                            .font(.footnote.weight(.semibold))
+                            .foregroundStyle(watchAccentPurple.opacity(0.92))
+                        HStack(alignment: .top, spacing: 8) {
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text(insight.title)
+                                    .font(.headline.weight(.semibold))
+                                    .foregroundStyle(.white)
+                                    .lineLimit(2)
+                                    .minimumScaleFactor(0.72)
+                                Text(insight.artist)
+                                    .font(.caption)
+                                    .foregroundStyle(.white.opacity(0.68))
+                                    .lineLimit(1)
+                            }
+                            Spacer(minLength: 0)
+                            Image(systemName: "waveform")
+                                .foregroundStyle(watchAccentPurple)
+                        }
+
+                        DJConnectWatchTrackInsightVisualizer(profile: TrackVibeProfile.make(for: insight))
+                            .frame(height: 118)
+                            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+
+                        Text("Vibe: \(insight.mood ?? "Dreamy") & \(insight.vibe ?? "Uplifting")")
+                            .font(.caption)
+                            .foregroundStyle(.white.opacity(0.76))
+                        Text("Energy: \(Int(((insight.energy ?? 0.8) * 10).rounded()))/10")
+                            .font(.caption)
+                            .foregroundStyle(.white.opacity(0.76))
+                    }
+                    .padding(.vertical, 8)
+                }
+            }
+            .navigationTitle("Track Insight")
+        }
+    }
+
+    private struct DJConnectWatchTrackInsightVisualizer: View {
+        let profile: TrackVibeProfile
+
+        var body: some View {
+            TimelineView(.animation) { timeline in
+                Canvas { context, size in
+                    let time = timeline.date.timeIntervalSinceReferenceDate
+                    let colors = profile.palette.compactMap { Color(watchHex: $0) }
+                    let rect = CGRect(origin: .zero, size: size)
+                    context.fill(Path(rect), with: .radialGradient(
+                        Gradient(colors: [watchAccentPurple.opacity(0.34), watchDeepNavy, .black]),
+                        center: CGPoint(x: size.width * 0.50, y: size.height * 0.50),
+                        startRadius: 4,
+                        endRadius: max(size.width, size.height)
+                    ))
+                    let pulse = sin(time * profile.pulseSpeed) * 0.5 + 0.5
+                    let center = CGPoint(x: size.width * 0.52, y: size.height * 0.46)
+                    let radius = min(size.width, size.height) * (0.24 + CGFloat(pulse) * 0.04)
+                    for ring in 0..<4 {
+                        let ringRadius = radius * (0.82 + CGFloat(ring) * 0.24)
+                        context.stroke(
+                            Path(ellipseIn: CGRect(x: center.x - ringRadius, y: center.y - ringRadius, width: ringRadius * 2, height: ringRadius * 2)),
+                            with: .color((colors[safe: ring] ?? watchAccentPurple).opacity(0.58 - Double(ring) * 0.09)),
+                            lineWidth: 1.4
+                        )
+                    }
+                    for index in 0..<80 {
+                        let angle = Double(index) / 80 * .pi * 2
+                        let wave = sin(angle * 5 + time * profile.animationSpeed) * 0.5 + 0.5
+                        let distance = radius * (1.05 + CGFloat(wave) * 0.42)
+                        let x = center.x + cos(angle) * distance
+                        let y = center.y + sin(angle) * distance
+                        context.fill(
+                            Path(ellipseIn: CGRect(x: x - 1.2, y: y - 1.2, width: 2.4, height: 2.4)),
+                            with: .color((colors[safe: index % max(colors.count, 1)] ?? watchAccentPurple).opacity(0.72))
+                        )
+                    }
+                    for index in 0..<24 {
+                        let base = profile.spectrumProfile[index % profile.spectrumProfile.count]
+                        let x = size.width * CGFloat(index) / 23
+                        let height = CGFloat(base) * 28 + 5
+                        context.fill(
+                            Path(roundedRect: CGRect(x: x, y: size.height - height - 6, width: 2.2, height: height), cornerRadius: 1.1),
+                            with: .color(Color(hue: 0.60 + Double(index) / 90, saturation: 0.85, brightness: 1.0).opacity(0.78))
+                        )
+                    }
+                }
+            }
+        }
     }
 
     private func pairingView(message: String?) -> some View {
@@ -1961,9 +2112,6 @@ private struct DJConnectWatchAskDJBubble: View {
             if !message.text.isEmpty {
                 AskDJWatchRichText(text: message.text, compact: isSystemMessage)
             }
-            if !isUser, let analysis = message.analysis {
-                AskDJWatchAnalysisSummary(analysis: analysis)
-            }
             if !isUser, !message.items.isEmpty {
                 AskDJWatchItemList(items: message.items)
             }
@@ -2072,176 +2220,6 @@ private struct DJConnectWatchAskDJBubble: View {
             return max(116, width - (bubbleHorizontalInset * 2) - 12)
         }
         return max(124, width - bubbleHorizontalInset - 10)
-    }
-}
-
-private struct AskDJWatchAnalysisSummary: View {
-    let analysis: DJConnectAskDJTrackAnalysis
-
-    private var modeText: String {
-        switch analysis.mode {
-        case "measured_plus_knowledge":
-            return "Gemeten + duiding"
-        case "measured":
-            return "Gemeten"
-        case "knowledge_plus_metadata":
-            return "Duiding"
-        case "unavailable":
-            return "Niet beschikbaar"
-        default:
-            return analysis.mode?.replacingOccurrences(of: "_", with: " ") ?? "Onbekend"
-        }
-    }
-
-    private var availabilityText: String? {
-        if !analysis.sections.isEmpty || !analysis.timeline.isEmpty || !analysis.djTips.isEmpty {
-            return nil
-        }
-        var parts: [String] = []
-        if analysis.measured != nil {
-            parts.append("Gemeten")
-        }
-        if analysis.inferred != nil {
-            parts.append("Duiding")
-        }
-        return parts.isEmpty ? nil : parts.joined(separator: " + ")
-    }
-
-    private var shouldRenderV1Fallback: Bool {
-        analysis.sections.isEmpty && analysis.timeline.isEmpty && analysis.djTips.isEmpty
-    }
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            HStack(spacing: 5) {
-                Image(systemName: analysis.mode == "unavailable" ? "exclamationmark.circle" : "waveform.path.ecg")
-                    .font(.caption2.weight(.bold))
-                Text(modeText)
-                    .font(.caption2.weight(.semibold))
-                    .lineLimit(1)
-            }
-            .foregroundStyle(.white.opacity(0.82))
-
-            if let availabilityText {
-                Text(availabilityText)
-                    .font(.caption2)
-                    .foregroundStyle(.white.opacity(0.62))
-                    .lineLimit(1)
-            }
-            if !analysis.sources.isEmpty {
-                Text(analysis.sources.joined(separator: " · "))
-                    .font(.caption2)
-                    .foregroundStyle(.white.opacity(0.58))
-                    .lineLimit(2)
-            }
-            if analysis.mode != "unavailable" {
-                ForEach(analysis.sections, id: \.stableID) { section in
-                    detailRow(
-                        title: section.displayTitle,
-                        value: section.value ?? section.summary,
-                        detail: metaText(source: section.source, confidence: section.confidence)
-                    )
-                }
-                ForEach(analysis.timeline, id: \.stableID) { entry in
-                    detailRow(
-                        title: "\(formatMilliseconds(entry.startMS)) \(entry.label ?? entry.kind ?? "segment")",
-                        value: entry.summary,
-                        detail: metaText(source: entry.source, confidence: entry.confidence)
-                    )
-                }
-                ForEach(analysis.djTips, id: \.stableID) { tip in
-                    detailRow(
-                        title: tip.displayTitle,
-                        value: tip.text,
-                        detail: metaText(source: tip.source, confidence: tip.confidence)
-                    )
-                }
-                if shouldRenderV1Fallback {
-                    v1FallbackRows
-                }
-            }
-            if !analysis.limitations.isEmpty {
-                Text(analysis.limitations.joined(separator: " · "))
-                    .font(.caption2)
-                    .foregroundStyle(.white.opacity(0.52))
-                    .lineLimit(3)
-            }
-        }
-        .padding(.horizontal, 7)
-        .padding(.vertical, 6)
-        .background {
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .fill(.white.opacity(0.10))
-        }
-    }
-
-    private var v1FallbackRows: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            if let measured = analysis.measured {
-                if let bpm = measured.bpm {
-                    detailRow(title: "BPM", value: bpm.formatted(.number.precision(.fractionLength(0...1))), detail: nil)
-                }
-                if let key = measured.key, !key.isEmpty {
-                    detailRow(title: "Toonsoort", value: key, detail: nil)
-                }
-                ForEach(measured.sections, id: \.stableID) { section in
-                    detailRow(
-                        title: section.label ?? "Sectie",
-                        value: formatMeasuredSection(section),
-                        detail: section.confidence.map { "confidence \($0)" }
-                    )
-                }
-            }
-            if let inferred = analysis.inferred {
-                detailRow(title: "Structuur", value: inferred.structure, detail: inferred.provider)
-                detailRow(title: "Instrumentatie", value: inferred.instrumentation, detail: inferred.provider)
-                detailRow(title: "Energy", value: inferred.energyCurve, detail: inferred.provider)
-                detailRow(title: "Mix", value: inferred.mixNotes, detail: inferred.provider)
-            }
-        }
-    }
-
-    private func detailRow(title: String, value: String?, detail: String?) -> some View {
-        VStack(alignment: .leading, spacing: 1) {
-            Text(title.replacingOccurrences(of: "_", with: " "))
-                .font(.caption2.weight(.semibold))
-                .foregroundStyle(.white.opacity(0.78))
-                .lineLimit(2)
-            if let value, !value.isEmpty {
-                Text(value)
-                    .font(.caption2)
-                    .foregroundStyle(.white.opacity(0.62))
-                    .lineLimit(3)
-            }
-            if let detail, !detail.isEmpty {
-                Text(detail)
-                    .font(.caption2)
-                    .foregroundStyle(.white.opacity(0.48))
-                    .lineLimit(1)
-            }
-        }
-    }
-
-    private func metaText(source: String?, confidence: String?) -> String? {
-        let parts = [source, confidence]
-            .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
-            .filter { !$0.isEmpty }
-        return parts.isEmpty ? nil : parts.joined(separator: " · ")
-    }
-
-    private func formatMeasuredSection(_ section: DJConnectAskDJTrackAnalysis.Section) -> String? {
-        guard let start = section.startMS else {
-            return nil
-        }
-        return formatMilliseconds(start)
-    }
-
-    private func formatMilliseconds(_ value: Int?) -> String {
-        guard let value else {
-            return "--:--"
-        }
-        let totalSeconds = max(0, value / 1000)
-        return String(format: "%d:%02d", totalSeconds / 60, totalSeconds % 60)
     }
 }
 

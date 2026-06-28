@@ -128,6 +128,8 @@ Tests/
 - stable client identity payloads with `client_type` set to `ios`, `macos`, or
   `watchos`;
 - authenticated Home Assistant requests;
+- optional local Home Assistant native `/api/websocket` fast-path transport for
+  latency-sensitive DJConnect actions;
 - status, command, and raw WAV voice request serialization;
 - playback and voice response decoding;
 - error classification for auth stale, backend unavailable, version mismatch,
@@ -257,13 +259,13 @@ Spotify Web API calls for voice commands. Canonical examples from
 | `playback_control` | `Stop muziek`, `Start muziek`, `Zet harder`, `Zet zachter`, `Volgende nummer`, `Vorig nummer` | `Stop music`, `Start music`, `Turn it up`, `Turn it down`, `Next song`, `Previous song` | Upload voice audio; HA maps the phrase to backend playback commands such as `pause`, `play`, `set_volume`, `next`, or `previous`. |
 | `favorite_current_track` | `Voeg dit nummer toe aan mijn favorieten`, `like dit nummer`, `sla deze track op` | `Add this song to my favorites`, `like this track`, `save this song` | HA likes/saves the current playback item and returns a DJ confirmation. |
 | `output_devices_info` / `current_output_info` | `Welke speakers zijn er?`, `Waarop wordt nu muziek gespeeld?`, `Op welke speaker speelt dit?` | `Which speakers are available?`, `Where is music playing now?`, `Which speaker is active?` | HA reads DJConnect output devices/current playback output and returns an informational DJ response without changing playback. |
-| `personalized_mood_playback` | `Ik voel me moe en geprikkeld, zet wat rustige muziek op die ik fijn vind`, `Doe iets ontspannends, ik ben overprikkeld` | `I am tired and overstimulated, play relaxing music I will enjoy`, `play something calming that I usually like` | HA combines the mood request with DJ Memory/user preferences and starts or queues a suitable playback context. |
+| `personalized_mood_playback` | `Ik voel me moe en geprikkeld, zet wat rustige muziek op die ik fijn vind`, `Doe iets ontspannends, ik ben overprikkeld` | `I am tired and overstimulated, play relaxing music I will enjoy`, `play something calming that I usually like` | HA combines the mood request with Music DNA/user preferences and starts or queues a suitable playback context. |
 | `change_music_context` | `Ik wil wat anders horen`, `Doe maar iets anders`, `Zet iets heel anders op` | `I want to hear something else`, `play something different`, `put on something completely different` | HA treats this as a playback-changing request, picks a different suitable track/album/playlist from current playback context and user taste, and starts or queues it. |
-| `personal_music_profile_analysis` | `Omschrijf eens waar ik zoal naar luisterde de afgelopen maand`, `Wat zegt mijn muziek van de laatste twee weken over mijn stemming?` | `Describe what I have been listening to over the last month`, `what does my music from the last two weeks say about my mood?` | HA summarizes listening patterns, genres, moods, energy, artists, and taste shifts from DJ Memory for the requested period without changing playback. |
-| `personal_music_recommendations` | `Geef me muziek aanbevelingen op basis van mijn luisterprofiel`, `Wat zou ik nu leuk vinden om te luisteren?`, `Raad me iets nieuws aan dat past bij mijn smaak` | `Recommend music based on my listening profile`, `what should I listen to now?`, `recommend something new that fits my taste` | HA recommends concrete tracks, albums, artists, or playlists from DJ Memory and Spotify profile data without changing playback unless the user explicitly asks to play or queue them. |
+| `personal_music_profile_analysis` | `Omschrijf eens waar ik zoal naar luisterde de afgelopen maand`, `Wat zegt mijn muziek van de laatste twee weken over mijn stemming?` | `Describe what I have been listening to over the last month`, `what does my music from the last two weeks say about my mood?` | HA summarizes listening patterns, genres, moods, energy, artists, and taste shifts from Music DNA for the requested period without changing playback. |
+| `personal_music_recommendations` | `Geef me muziek aanbevelingen op basis van mijn luisterprofiel`, `Wat zou ik nu leuk vinden om te luisteren?`, `Raad me iets nieuws aan dat past bij mijn smaak` | `Recommend music based on my listening profile`, `what should I listen to now?`, `recommend something new that fits my taste` | HA recommends concrete tracks, albums, artists, or playlists from Music DNA and Spotify profile data without changing playback unless the user explicitly asks to play or queue them. |
 | `dj_announcement_request` | `Geef me een leuke aankondiging voor het volgende nummer`, `Doe een radio intro voor wat er nu speelt` | `Give me a fun announcement for the next song`, `do a radio-style intro for what is playing now` | HA generates DJ text and optional `audio_url` without changing playback. |
 | `track_context_info` | `Vertel iets over dit nummer`, `Wanneer kwam dit uit?`, `Waarom koos je dit nummer?`, `Heeft deze artiest concerten in Nederland?` | `Tell me about this song`, `what year was this released?`, `why did you choose this track?` | HA enriches current playback with release, genre, commentary, trivia, samples, concerts, releases, and musical connections without changing playback. |
-| `technical_track_analysis` | `Geef een technische track analyse van dit nummer`, `Analyseer deze track`, `Wat is de bpm en opbouw van deze track?`, `Welke instrumenten hoor je hierin?` | `Give me a technical analysis of this song`, `What is the BPM, key and structure of this track?`, `Why does this track work so well?` | HA gives a read-only technical/musical analysis of the current track, distinguishing measured BPM/key/sections from inferred musical commentary and never changing playback. |
+| `track_insight` | `Geef een technische track analyse van dit nummer`, `Analyseer deze track`, `Wat is de bpm en opbouw van deze track?`, `Welke instrumenten hoor je hierin?` | `Give me a Track Insight of this song`, `What is the BPM, key and structure of this track?`, `Why does this track work so well?` | HA gives a read-only Track Insight of the current track, distinguishing measured BPM/key/sections from inferred musical commentary and never changing playback. |
 
 Ask DJ output-device responses may include structured output `playback_actions`.
 Apple clients render those vertically, with the speaker name on the left and an
@@ -329,6 +331,14 @@ Command responses are transport success first and playback-state second.
 `success:true` with `playback.has_playback:false` is a valid empty playback
 snapshot, not an error; playback fields such as progress, duration, volume,
 track metadata, context and artwork URLs may be `null`.
+
+When the app has a reachable local Home Assistant URL, it may use the native
+Home Assistant `/api/websocket` API as an optional fast path for supported
+DJConnect command, Ask DJ message, and Track Insight actions. HTTP remains the
+canonical transport and all remote/Nabu Casa sessions stay HTTP-only. Any
+WebSocket auth, timeout, disconnect, protocol, or capability failure falls back
+to the existing HTTP request once without clearing pairing or exposing tokens in
+logs.
 
 All status and command payloads include `device_id`, `client_type`, and
 `firmware`. The `firmware` value remains the protocol compatibility version,
