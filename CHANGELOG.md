@@ -30,10 +30,10 @@ All notable changes to DJConnect App are documented here.
 
 ### Removed
 
-- Removed user-facing and code-facing DJ Memory terminology from the active
-  client contract.
-- Removed legacy Ask DJ technical track-analysis rendering and local
-  Track Insight prompt classification.
+- Removed old memory terminology from the active client contract; Music DNA is
+  now the visible and code-facing label.
+- Removed old Ask DJ non-Track Insight analysis rendering and local Track
+  Insight prompt classification.
 
 ## 3.2.0 - 2026-06-26
 
@@ -104,8 +104,8 @@ All notable changes to DJConnect App are documented here.
   Assistant.
 - Included explicit `client_id`, `device_id`, `device_name`, and `client_type`
   identity fields in Ask DJ text and command payload documentation.
-- Added the Ask DJ `technical_track_analysis` read-only intent contract and
-  client decoding for structured analysis metadata and technical metric items.
+- Added the Ask DJ `track_insight` read-only intent contract and client
+  decoding for structured Track Insight metadata and metric items.
 
 ## 3.1.50 - 2026-06-25
 
@@ -391,8 +391,8 @@ All notable changes to DJConnect App are documented here.
 - Added a standalone native watchOS DJConnect client target with Home Assistant
   pairing, playback controls, `Ask DJ` push-to-talk WAV voice upload, and Watch
   speaker DJ response playback.
-- Added Watch-side `Ask DJ` mood and DJ Memory context hints for future
-  server-side DJ Memory support in the Home Assistant integration.
+- Added Watch-side `Ask DJ` mood and Music DNA context hints for future
+  server-side Music DNA support in the Home Assistant integration.
 - Added `Ask DJ` as a first-class iOS/macOS chat screen with local chat
   history, text input, clickable starter prompts, timestamps, clear-history
   coordination, retry states, toast errors, markdown, sources, links, images,
@@ -402,7 +402,7 @@ All notable changes to DJConnect App are documented here.
 - Added Ask DJ support for image attachments, multiple images, hyperlinks,
   embedded link previews, rich sources, and audio replay/stop controls across
   Apple clients.
-- Added backend contract documentation for DJ Memory, personal listening
+- Added backend contract documentation for Music DNA, personal listening
   profile analysis, personal recommendations, Spotify recently played/top
   profile usage, voice Ask DJ, and explicit `Play Now` recommendation actions.
 - Added client-side `Play Now` buttons for structured Ask DJ recommendation

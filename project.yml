@@ -229,12 +229,15 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: dev.djconnect.ios.track-insight-widget
         PRODUCT_NAME: TrackInsightWidget
+        CODE_SIGN_ENTITLEMENTS: Apps/DJConnectTrackInsightWidgets/DJConnectTrackInsightWidgets.entitlements
         SKIP_INSTALL: YES
   DJConnectTrackInsightWidgetsMac:
     type: app-extension
     platform: macOS
     sources:
       - path: Apps/DJConnectTrackInsightWidgets
+    dependencies:
+      - target: DJConnectCoreMac
     info:
       path: Apps/DJConnectTrackInsightWidgets/Info.plist
       properties:
@@ -247,6 +250,7 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: dev.djconnect.mac.track-insight-widget
         PRODUCT_NAME: TrackInsightWidget
+        CODE_SIGN_ENTITLEMENTS: Apps/DJConnectTrackInsightWidgets/DJConnectTrackInsightWidgets.entitlements
         SKIP_INSTALL: YES
   DJConnectCoreTests:
     type: bundle.unit-test

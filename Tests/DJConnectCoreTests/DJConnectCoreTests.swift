@@ -123,6 +123,14 @@ private actor MockWebSocketFastPathTransport: DJConnectWebSocketFastPathTranspor
         askDJError = error
     }
 
+    func setCommandError(_ error: Error?) {
+        commandError = error
+    }
+
+    func setTrackInsightError(_ error: Error?) {
+        trackInsightError = error
+    }
+
     var diagnostics: DJConnectFastPathDiagnostics {
         DJConnectFastPathDiagnostics(
             fastPathTransport: "websocket",
@@ -500,7 +508,7 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
     #expect(json?["play"] as? Bool == true)
 }
 
-@Test func askDJRequestUsesAskEndpointAndMemoryContext() throws {
+@Test func askDJRequestUsesAskEndpointAndMusicDNAContext() throws {
     let identity = DJConnectIdentity(
         deviceID: "djconnect-ios-8F3A2C91B45D",
         deviceName: "DJConnect iPhone",
@@ -1163,6 +1171,38 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
     #expect(counter.count == 1)
 }
 
+@Test func commandWebSocketFailureFallsBackToHTTPExactlyOnce() async throws {
+    let fastPath = MockWebSocketFastPathTransport(supportedRoutes: [.command])
+    await fastPath.setCommandError(DJConnectError.network(message: "timeout"))
+    final class Counter: @unchecked Sendable {
+        let lock = NSLock()
+        var value = 0
+        func increment() { lock.withLock { value += 1 } }
+        var count: Int { lock.withLock { value } }
+    }
+    let counter = Counter()
+    let client = DJConnectClient(
+        baseURL: URL(string: "http://command-fallback.local:8123")!,
+        identity: testIOSIdentity(),
+        tokenStore: DJConnectInMemoryTokenStore(token: "device-token"),
+        session: mockSession(host: "command-fallback.local") { request in
+            counter.increment()
+            #expect(request.url?.path == "/api/djconnect/command")
+            return (try httpResponse(for: request, statusCode: 200), Data(#"{"success":true,"playback":{"has_playback":true,"is_playing":false,"track_name":"HTTP Command Track"}}"#.utf8))
+        },
+        webSocketFastPath: fastPath
+    )
+
+    let response = try await client.sendCommandResponse(DJConnectCommandPayload(
+        identity: testIOSIdentity(),
+        command: "pause"
+    ))
+
+    #expect(response.playback?.trackName == "HTTP Command Track")
+    #expect(await fastPath.commandCalls == 1)
+    #expect(counter.count == 1)
+}
+
 @Test func askDJMessageWebSocketFastPathDecodesMessagesAndRevisions() async throws {
     let fastPath = MockWebSocketFastPathTransport(supportedRoutes: [.askDJMessage])
     let client = DJConnectClient(
@@ -1213,6 +1253,52 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
     #expect(await fastPath.trackInsightCalls == 1)
     #expect(await fastPath.receivedTrackPayload?.title == "Innerbloom")
     #expect(await fastPath.receivedTokens == ["device-token"])
+}
+
+@Test func trackInsightWebSocketFailureFallsBackToHTTPExactlyOnce() async throws {
+    let fastPath = MockWebSocketFastPathTransport(supportedRoutes: [.trackInsight])
+    await fastPath.setTrackInsightError(DJConnectError.network(message: "timeout"))
+    final class Counter: @unchecked Sendable {
+        let lock = NSLock()
+        var value = 0
+        func increment() { lock.withLock { value += 1 } }
+        var count: Int { lock.withLock { value } }
+    }
+    let counter = Counter()
+    let client = DJConnectClient(
+        baseURL: URL(string: "http://insight-fallback.local:8123")!,
+        identity: testIOSIdentity(),
+        tokenStore: DJConnectInMemoryTokenStore(token: "device-token"),
+        session: mockSession(host: "insight-fallback.local") { request in
+            counter.increment()
+            #expect(request.url?.path == "/api/djconnect/track_insight")
+            return (try httpResponse(for: request, statusCode: 200), Data(#"{"track_insight":{"track":{"title":"HTTP Insight","artist":"HTTP Artist"},"analysis":{"summary":"Fallback insight"}}}"#.utf8))
+        },
+        webSocketFastPath: fastPath
+    )
+
+    let insight = try await client.trackInsight(DJConnectTrackInsightRequest(title: "Innerbloom", artist: "RUFUS DU SOL"))
+
+    #expect(insight.title == "HTTP Insight")
+    #expect(insight.artist == "HTTP Artist")
+    #expect(await fastPath.trackInsightCalls == 1)
+    #expect(counter.count == 1)
+}
+
+@Test func fastPathDiagnosticsExposeAdvertisedCapabilities() async throws {
+    let fastPath = MockWebSocketFastPathTransport(supportedRoutes: [.askDJMessage, .trackInsight])
+    let client = DJConnectClient(
+        baseURL: URL(string: "http://diagnostics-fast.local:8123")!,
+        identity: testIOSIdentity(),
+        tokenStore: DJConnectInMemoryTokenStore(token: "device-token"),
+        webSocketFastPath: fastPath
+    )
+
+    let diagnostics = await client.fastPathDiagnostics
+
+    #expect(diagnostics.fastPathTransport == "websocket")
+    #expect(diagnostics.websocketConnected)
+    #expect(diagnostics.websocketCommands == ["djconnect/ask_dj/message", "djconnect/track_insight"])
 }
 
 @Test func webSocketFailureFallsBackToHTTPExactlyOnce() async throws {
@@ -3363,6 +3449,10 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
     #expect(export.contains("app_store_review_demo_available: true"))
     #expect(export.contains("ha_connection_mode: offline"))
     #expect(export.contains("playback_features_enabled:"))
+    #expect(export.contains("fast_path_transport:"))
+    #expect(export.contains("fast_path_websocket_connected:"))
+    #expect(export.contains("fast_path_websocket_commands:"))
+    #expect(export.contains("fast_path_last_error:"))
     #expect(export.contains("output_count:"))
     #expect(export.contains("microphone_permission:"))
     #expect(export.contains("speech_permission:"))
@@ -4473,6 +4563,134 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
     #expect(insight.bpm == 122)
     #expect(insight.energy == 0.64)
     #expect(insight.summary == "A slow-blooming electronic piece.")
+}
+
+@Test func trackInsightWidgetSnapshotKeepsOnlySafeVisibleFields() throws {
+    let insight = TrackInsight(
+        title: "  Innerbloom\n",
+        artist: "RUFUS DU SOL",
+        bpm: 122.4,
+        key: "F# minor",
+        genre: "Deep House",
+        energy: 1.4,
+        danceability: -0.2,
+        intensity: 0.58,
+        mood: "Dreamy",
+        vibe: "Euphoric",
+        summary: String(repeating: "glow ", count: 80),
+        rawAnalysisText: "raw backend details should not be copied",
+        musicDNAMatchPercent: 140
+    )
+
+    let snapshot = DJConnectTrackInsightWidgetSnapshot(insight: insight)
+
+    #expect(snapshot.title == "Innerbloom")
+    #expect(snapshot.artist == "RUFUS DU SOL")
+    #expect(snapshot.bpm == 122)
+    #expect(snapshot.energy == 1)
+    #expect(snapshot.danceability == 0)
+    #expect(snapshot.intensity == 0.58)
+    #expect(snapshot.musicDNAMatchPercent == 100)
+    #expect(snapshot.summary.count <= 180)
+    #expect(!snapshot.summary.contains("\n"))
+}
+
+@Test func trackInsightWidgetSnapshotStoresAndLoadsFromSharedDefaults() throws {
+    let suiteName = "DJConnectWidgetSnapshotTests-\(UUID().uuidString)"
+    let defaults = try #require(UserDefaults(suiteName: suiteName))
+    defaults.removePersistentDomain(forName: suiteName)
+    let snapshot = DJConnectTrackInsightWidgetSnapshot(
+        title: "Adagio for Strings",
+        artist: "Samuel Barber",
+        genre: "Classical",
+        mood: "Dreamy",
+        vibe: "Lamenting",
+        bpm: 72,
+        key: "B-flat minor",
+        energy: 0.32,
+        danceability: 0.10,
+        intensity: 0.68,
+        musicDNAMatchPercent: 84,
+        summary: "A patient orchestral ascent."
+    )
+
+    try snapshot.save(to: defaults)
+    let loaded = try #require(DJConnectTrackInsightWidgetSnapshot.load(from: defaults))
+
+    #expect(loaded == snapshot)
+}
+
+@Test func askDJWidgetSnapshotStoresOnlyCompactVisibleText() throws {
+    let suiteName = "DJConnectAskDJWidgetSnapshotTests-\(UUID().uuidString)"
+    let defaults = try #require(UserDefaults(suiteName: suiteName))
+    defaults.removePersistentDomain(forName: suiteName)
+    let snapshot = DJConnectAskDJWidgetSnapshot(
+        prompt: "  Tell me about this track\n",
+        response: String(repeating: "warm ", count: 80),
+        context: "Innerbloom - RUFUS DU SOL",
+        trackTitle: "Innerbloom",
+        artist: "RUFUS DU SOL"
+    )
+
+    try snapshot.save(to: defaults)
+    let loaded = try #require(DJConnectAskDJWidgetSnapshot.load(from: defaults))
+
+    #expect(loaded.prompt == "Tell me about this track")
+    #expect(loaded.response.count <= 180)
+    #expect(!loaded.response.contains("\n"))
+    #expect(loaded.context == "Innerbloom - RUFUS DU SOL")
+    #expect(loaded.trackTitle == "Innerbloom")
+    #expect(loaded.artist == "RUFUS DU SOL")
+}
+
+@Test func localizationNormalizesDutchLanguageVariants() {
+    #expect(DJConnectLocalization.localized(language: "nl", english: "About", dutch: "Over") == "Over")
+    #expect(DJConnectLocalization.localized(language: "nl-NL", english: "About", dutch: "Over") == "Over")
+    #expect(DJConnectLocalization.localized(language: "NL", english: "About", dutch: "Over") == "Over")
+    #expect(DJConnectLocalization.localized(language: "en", english: "About", dutch: "Over") == "About")
+    #expect(DJConnectLocalization.localized(language: "", english: "About", dutch: "Over") == "About")
+}
+
+@MainActor
+@Test func trackInsightShareTextStaysCompactAndPublic() {
+    let insight = TrackInsight(
+        title: "Innerbloom",
+        artist: "RUFUS DU SOL",
+        genre: "Deep House",
+        mood: "Dreamy",
+        vibe: "Euphoric",
+        summary: "A slow-building journey with glowing synth textures.",
+        rawAnalysisText: "Visible summary only.",
+        musicDNAMatchPercent: 96
+    )
+
+    let text = TrackInsightShareService.shareText(for: insight)
+
+    #expect(text.contains("Currently vibing to Innerbloom by RUFUS DU SOL."))
+    #expect(text.contains("Inspired by your Music DNA."))
+    #expect(text.contains("#DJConnect #TrackInsight"))
+    #expect(!text.localizedCaseInsensitiveContains("token"))
+    #expect(!text.localizedCaseInsensitiveContains("entity_id"))
+    #expect(!text.localizedCaseInsensitiveContains("home assistant"))
+}
+
+@MainActor
+@Test func trackInsightShareCleanupKeepsRecentExportsAndRemovesOldExports() throws {
+    let directory = TrackInsightShareRenderer.temporaryOutputDirectory()
+    try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+    let oldURL = directory.appendingPathComponent("old-\(UUID().uuidString).mp4")
+    let recentURL = directory.appendingPathComponent("recent-\(UUID().uuidString).mp4")
+    try Data("old".utf8).write(to: oldURL)
+    try Data("recent".utf8).write(to: recentURL)
+    let now = Date()
+    try FileManager.default.setAttributes([.modificationDate: now.addingTimeInterval(-3_600)], ofItemAtPath: oldURL.path)
+    try FileManager.default.setAttributes([.modificationDate: now], ofItemAtPath: recentURL.path)
+
+    try TrackInsightShareRenderer.cleanupTemporaryExports(olderThan: 60, now: now)
+
+    #expect(!FileManager.default.fileExists(atPath: oldURL.path))
+    #expect(FileManager.default.fileExists(atPath: recentURL.path))
+    try? FileManager.default.removeItem(at: recentURL)
 }
 
 @Test func trackVibeProfileIsDeterministicForSameInsight() {

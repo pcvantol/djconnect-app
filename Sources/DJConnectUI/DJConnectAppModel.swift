@@ -29,6 +29,9 @@ import UIKit
 #elseif canImport(AppKit)
 import AppKit
 #endif
+#if canImport(WidgetKit)
+import WidgetKit
+#endif
 #if os(iOS) && canImport(WatchConnectivity)
 @preconcurrency import WatchConnectivity
 #endif
@@ -531,6 +534,8 @@ public final class DJConnectAppModel: ObservableObject {
     private let networkMonitorQueue = DispatchQueue(label: "dev.djconnect.app.network")
     private var shouldShowWakeWordPromptAfterPairingScreen = false
     private var currentAPNsPushToken: String?
+    private var webSocketFastPathCache: [String: any DJConnectWebSocketFastPathTransport] = [:]
+    private var lastFastPathDiagnostics = DJConnectFastPathDiagnostics()
     #if canImport(AVFoundation)
     private var voiceRecorder: AVAudioRecorder?
     private var voiceRecordingURL: URL?
@@ -4020,6 +4025,7 @@ public final class DJConnectAppModel: ObservableObject {
 
     private func applyTrackInsight(_ insight: TrackInsight, open: Bool) {
         currentTrackInsight = insight
+        saveTrackInsightWidgetSnapshot(for: insight)
         updateTrackInsightLiveActivity(for: insight)
         trackInsightHistory.removeAll { $0.id == insight.id }
         trackInsightHistory.insert(insight, at: 0)
@@ -4029,6 +4035,21 @@ public final class DJConnectAppModel: ObservableObject {
         trackInsightErrorMessage = nil
         if open {
             trackInsightNavigationRequestID = UUID()
+        }
+    }
+
+    private func saveTrackInsightWidgetSnapshot(for insight: TrackInsight) {
+        guard let defaults = UserDefaults(suiteName: DJConnectTrackInsightWidgetSnapshot.appGroupIdentifier) else {
+            log(.warning, "Track Insight widget snapshot skipped: App Group storage is unavailable.")
+            return
+        }
+        do {
+            try DJConnectTrackInsightWidgetSnapshot(insight: insight).save(to: defaults)
+            #if canImport(WidgetKit)
+            WidgetCenter.shared.reloadTimelines(ofKind: DJConnectTrackInsightWidgetSnapshot.widgetKind)
+            #endif
+        } catch {
+            log(.warning, "Track Insight widget snapshot failed: \(error.localizedDescription)")
         }
     }
 
@@ -4723,8 +4744,46 @@ public final class DJConnectAppModel: ObservableObject {
         do {
             let data = try JSONEncoder().encode(askDJMessages)
             defaults.set(data, forKey: askDJMessagesKey)
+            saveAskDJWidgetSnapshot()
         } catch {
             log(.warning, "Ask DJ chat cache could not be saved: \(error.localizedDescription)")
+        }
+    }
+
+    private func saveAskDJWidgetSnapshot() {
+        let latestPrompt = askDJMessages.last(where: { $0.role == .user })?.text
+        let latestResponse = askDJMessages.last(where: { $0.role == .dj && !$0.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty })?.text
+        guard latestPrompt != nil || latestResponse != nil else {
+            return
+        }
+        let trackTitle = currentTrackInsight?.title ?? playback?.trackName
+        let artist = currentTrackInsight?.artist ?? playback?.artistName
+        let context: String
+        if let trackTitle, !trackTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            context = artist?.isEmpty == false ? "\(trackTitle) - \(artist ?? "")" : trackTitle
+        } else {
+            context = localized(
+                english: "Private Music DNA context",
+                dutch: "Privé Music DNA-context"
+            )
+        }
+        guard let defaults = UserDefaults(suiteName: DJConnectTrackInsightWidgetSnapshot.appGroupIdentifier) else {
+            log(.warning, "Ask DJ widget snapshot skipped: App Group storage is unavailable.")
+            return
+        }
+        do {
+            try DJConnectAskDJWidgetSnapshot(
+                prompt: latestPrompt ?? localized(english: "Ask DJ", dutch: "Vraag Ask DJ"),
+                response: latestResponse ?? localized(english: "Ask DJ is ready.", dutch: "Ask DJ staat klaar."),
+                context: context,
+                trackTitle: trackTitle,
+                artist: artist
+            ).save(to: defaults)
+            #if canImport(WidgetKit)
+            WidgetCenter.shared.reloadTimelines(ofKind: DJConnectAskDJWidgetSnapshot.widgetKind)
+            #endif
+        } catch {
+            log(.warning, "Ask DJ widget snapshot failed: \(error.localizedDescription)")
         }
     }
 
@@ -5396,14 +5455,42 @@ public final class DJConnectAppModel: ObservableObject {
         let localURL = Self.normalizedHomeAssistantURL(from: localHomeAssistantURL())
             ?? Self.normalizedHomeAssistantURL(from: homeAssistantURL)
             ?? Self.normalizedHomeAssistantURL(from: haLocalURL)
-        return Self.webSocketFastPathIfLocal(baseURL, localURL: localURL)
+        guard Self.isWebSocketFastPathEligible(baseURL, localURL: localURL) else {
+            return nil
+        }
+        let key = Self.fastPathCacheKey(for: baseURL)
+        if let cached = webSocketFastPathCache[key] {
+            return cached
+        }
+        let fastPath = DJConnectHomeAssistantWebSocketFastPath(baseURL: baseURL)
+        webSocketFastPathCache[key] = fastPath
+        return fastPath
     }
 
     nonisolated private static func webSocketFastPathIfLocal(_ baseURL: URL, localURL: URL?) -> (any DJConnectWebSocketFastPathTransport)? {
-        guard let localURL, localURL.absoluteString.lowercased() == baseURL.absoluteString.lowercased() else {
-            return nil
-        }
+        guard isWebSocketFastPathEligible(baseURL, localURL: localURL) else { return nil }
         return DJConnectHomeAssistantWebSocketFastPath(baseURL: baseURL)
+    }
+
+    nonisolated private static func isWebSocketFastPathEligible(_ baseURL: URL, localURL: URL?) -> Bool {
+        guard let localURL else { return false }
+        return fastPathCacheKey(for: localURL) == fastPathCacheKey(for: baseURL)
+    }
+
+    nonisolated private static func fastPathCacheKey(for url: URL) -> String {
+        var components = URLComponents(url: url, resolvingAgainstBaseURL: false)
+        components?.query = nil
+        components?.fragment = nil
+        var path = components?.path ?? ""
+        while path.count > 1, path.hasSuffix("/") {
+            path.removeLast()
+        }
+        components?.path = path
+        return (components?.url?.absoluteString ?? url.absoluteString).lowercased()
+    }
+
+    private func updateFastPathDiagnostics(from client: DJConnectClient) async {
+        lastFastPathDiagnostics = await client.fastPathDiagnostics
     }
 
     private func homeAssistantBaseURLs() -> [URL] {
@@ -5434,16 +5521,18 @@ public final class DJConnectAppModel: ObservableObject {
             ))
         }
 
+        let localFastPath = localURL.flatMap { webSocketFastPathIfLocal($0) }
         let transport = DJConnectHATransportManager(
             localURL: localURL,
             remoteURL: remoteURL,
             allowsRemoteFallback: identity.clientType != .watchos,
-            clientFactory: { [identity, tokenStore, localURL] baseURL in
-                DJConnectClient(
+            clientFactory: { [identity, tokenStore, localURL, localFastPath] baseURL in
+                let fastPath = Self.isWebSocketFastPathEligible(baseURL, localURL: localURL) ? localFastPath : nil
+                return DJConnectClient(
                     baseURL: baseURL,
                     identity: identity,
                     tokenStore: tokenStore,
-                    webSocketFastPath: Self.webSocketFastPathIfLocal(baseURL, localURL: localURL)
+                    webSocketFastPath: fastPath
                 )
             },
             modeReporter: { [weak self] mode, baseURL in
@@ -5452,7 +5541,16 @@ public final class DJConnectAppModel: ObservableObject {
                 }
             }
         )
-        return try await transport.perform(operation)
+        return try await transport.perform { client in
+            do {
+                let result = try await operation(client)
+                await updateFastPathDiagnostics(from: client)
+                return result
+            } catch {
+                await updateFastPathDiagnostics(from: client)
+                throw error
+            }
+        }
     }
 
     private func recordConnectionMode(_ mode: DJConnectHAConnectionMode, baseURL: URL?) {
@@ -6353,6 +6451,11 @@ public final class DJConnectAppModel: ObservableObject {
         wakeword_phrase: \(wakeWordPhrase)
         wakeword_status: \(wakeWordStatus)
         local_response_audio_enabled: \(localResponseAudioEnabled)
+        fast_path_transport: \(lastFastPathDiagnostics.fastPathTransport)
+        fast_path_websocket_connected: \(lastFastPathDiagnostics.websocketConnected)
+        fast_path_last_capability_refresh: \(lastFastPathDiagnostics.lastCapabilityRefresh?.description ?? "missing")
+        fast_path_websocket_commands: \(lastFastPathDiagnostics.websocketCommands.isEmpty ? "none" : lastFastPathDiagnostics.websocketCommands.joined(separator: ","))
+        fast_path_last_error: \(lastFastPathDiagnostics.lastWebSocketError ?? "none")
 
         Logs
         \(lines.isEmpty ? "none" : lines)
@@ -6360,7 +6463,7 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     public func localized(english: String, dutch: String) -> String {
-        language == "nl" ? dutch : english
+        DJConnectLocalization.localized(language: language, english: english, dutch: dutch)
     }
 
     public static func normalizedHomeAssistantURL(from rawValue: String) -> URL? {

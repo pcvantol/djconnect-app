@@ -13,6 +13,10 @@ struct DJConnectIOSApp: App {
             DJConnectLaunchContainer(isBusy: model.isRefreshing, content: DJConnectRootView(model: model))
                 .onAppear {
                     appDelegate.model = model
+                    appDelegate.updateVibeCastSignal()
+                }
+                .onChange(of: model.currentTrackInsight) {
+                    appDelegate.updateVibeCastSignal()
                 }
         }
     }
@@ -43,12 +47,21 @@ struct DJConnectIOSApp: App {
 }
 
 final class DJConnectIOSAppDelegate: NSObject, UIApplicationDelegate {
+    private let vibeCastOutputController = VibeCastExternalDisplayController()
+
     weak var model: DJConnectAppModel? {
         didSet {
             flushPendingHomeScreenAction()
+            vibeCastOutputController.model = model
+            updateVibeCastSignal()
         }
     }
     private var pendingHomeScreenAction: DJConnectHomeScreenAction?
+
+    override init() {
+        super.init()
+        vibeCastOutputController.start()
+    }
 
     func application(
         _ application: UIApplication,
@@ -113,4 +126,57 @@ final class DJConnectIOSAppDelegate: NSObject, UIApplicationDelegate {
             model.performHomeScreenAction(action)
         }
     }
+
+    func updateVibeCastSignal() {
+        vibeCastOutputController.update()
+    }
+}
+
+@MainActor
+private final class VibeCastExternalDisplayController {
+    weak var model: DJConnectAppModel?
+    private var outputWindow: UIWindow?
+    private var outputScreen: UIScreen?
+    private var observers: [NSObjectProtocol] = []
+
+    func start() {
+        guard observers.isEmpty else {
+            return
+        }
+        let center = NotificationCenter.default
+        observers.append(center.addObserver(forName: UIScreen.didConnectNotification, object: nil, queue: .main) { [weak self] _ in
+            Task { @MainActor in self?.update() }
+        })
+        observers.append(center.addObserver(forName: UIScreen.didDisconnectNotification, object: nil, queue: .main) { [weak self] _ in
+            Task { @MainActor in self?.update() }
+        })
+        update()
+    }
+
+    func update() {
+        guard let model, model.currentTrackInsight != nil, let screen = externalScreen else {
+            clear()
+            return
+        }
+        if outputWindow == nil || outputScreen !== screen {
+            let window = UIWindow(frame: screen.bounds)
+            window.screen = screen
+            window.windowLevel = .normal
+            outputWindow = window
+            outputScreen = screen
+        }
+        outputWindow?.rootViewController = UIHostingController(rootView: VibeCastOutputView(model: model))
+        outputWindow?.isHidden = false
+    }
+
+    private var externalScreen: UIScreen? {
+        UIScreen.screens.first { $0 !== UIScreen.main }
+    }
+
+    private func clear() {
+        outputWindow?.isHidden = true
+        outputWindow = nil
+        outputScreen = nil
+    }
+
 }

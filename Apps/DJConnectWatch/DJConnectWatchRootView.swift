@@ -1866,7 +1866,7 @@ private struct DJConnectWatchAskDJChatView: View {
                                 VStack(alignment: .leading, spacing: 5) {
                                     Text("Waarom dit nummer?")
                                     Text("Verras me met nieuwe muziek")
-                                    Text("Geef een technische track analyse")
+                                    Text("Geef Track Insight")
                                     Text("Speel iets voor koken")
                                 }
                                 .font(.caption2.weight(.semibold))

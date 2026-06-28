@@ -122,7 +122,28 @@ name. After successful pairing, the app stores only the returned DJConnect
 bearer token in app-private storage and persists `ha_local_url`, optional
 `ha_remote_url`, `device_id`, and `client_type`. App-to-HA runtime traffic uses
 `ha_local_url` first after local pairing, then `ha_remote_url` when local access
-is unavailable and remote is supported. Do not use legacy `ha_url`.
+is unavailable and remote is supported. Do not use the older `ha_url` field.
+
+## Local WebSocket Fast Path
+
+Apple clients may use Home Assistant's native `/api/websocket` only as a local
+latency optimization for DJConnect actions. HTTP remains the canonical
+transport, and remote/Nabu Casa sessions stay HTTP-only.
+
+Clients must authenticate with the stored DJConnect bearer token, request
+`djconnect/capabilities`, and only send routes advertised by the server. Current
+fast-path route names are `djconnect/command`, `djconnect/ask_dj/message`, and
+`djconnect/track_insight`. If capability detection is missing, stale, refused,
+or does not list the needed route, the client must make the normal HTTP request
+instead.
+
+Any WebSocket auth failure, timeout, disconnect, protocol error, decoding error,
+or route failure falls back to exactly one HTTP request for the same user
+action. Clients must not clear pairing or surface scary transport errors when
+HTTP succeeds. Diagnostics may include the selected transport, connection state,
+last capability refresh time, advertised route names, and a redacted last error;
+they must not include tokens, private Home Assistant URLs, entity IDs, player
+IDs, prompts, raw Track Insight JSON, or internal backend URLs.
 
 ## Local App Web API
 
@@ -313,7 +334,7 @@ Home Assistant owns Spotify source and liked/default playlist configuration.
 Clients must not show, document, or send user-configurable `spotify_source` or
 `liked_proxy_playlist_uri` options in new setup, settings, or command flows.
 Playback remains backend-mediated through generic DJConnect commands; older
-Home Assistant integrations may defensively tolerate legacy values, but current
+Home Assistant integrations may defensively tolerate previous values, but current
 clients should not rely on them.
 
 Command responses are transport/command success first and playback-state
@@ -524,8 +545,8 @@ families in addition to general informational questions and playback control:
   `where is this artist from?`, `what samples are used?`, `does this artist
   have concerts in the Netherlands?`, `why did you choose this track?`.
 - `track_insight`: answer Track Insight questions about
-  the current track without changing playback. Dutch examples: `Geef een
-  technische track analyse van dit nummer`, `Analyseer deze track`, `Wat is de
+  the current track without changing playback. Dutch examples: `Geef Track
+  Insight voor dit nummer`, `Analyseer deze track`, `Wat is de
   bpm en opbouw van deze track?`, `Welke instrumenten hoor je hierin?`, `Hoe
   zit intro, couplet, refrein en breakdown in elkaar?`. English examples:
   `Give me a Track Insight of this song`, `What is the BPM, key and
@@ -539,7 +560,7 @@ clients may display `playback.is_liked`, `playback.favorite_status`, or Ask DJ
 action metadata, but must show an inactive neutral favorite button when status
 is unknown. Direct clients use `POST /api/djconnect/command` with
 `{"command":"set_current_track_favorite","value":true}` to add and
-`{"command":"set_current_track_favorite","value":false}` to remove. Legacy
+`{"command":"set_current_track_favorite","value":false}` to remove. Older
 `save_current_track` may still work, but new clients should use
 `set_current_track_favorite`. It should return a normal DJ text response after
 the mutation succeeds. If no current track exists, return `success:false` or a
@@ -814,7 +835,7 @@ When the user taps an output action, Apple clients send:
 }
 ```
 
-Backends should accept either legacy scalar output values or the structured
+Backends should accept either previous scalar output values or the structured
 action object. New Apple clients prefer the structured object so Home Assistant
 can retain context such as `kind`, speaker name, `music_dna_key`, and
 backend-owned follow-up metadata.
@@ -861,8 +882,8 @@ include `spotify_playback_context`, `ha_conversation`,
 `spotify_audio_features`, `spotify_audio_analysis`, `getsongbpm`,
 `acousticbrainz`, and `local_audio_analyzer`. Spotify audio feature/analysis
 endpoints may be unavailable for some apps; treat them as optional. Never store
-OAuth tokens, API keys, raw prompts, or raw audio in Ask DJ history or DJ
-Memory. History may keep only compact response metadata.
+OAuth tokens, API keys, raw prompts, or raw audio in Ask DJ history or Music
+DNA. History may keep only compact response metadata.
 
 The response should distinguish `measured` values, such as provider-backed
 BPM/key/sections/features, from `inferred` musical commentary. Do not invent

@@ -3,7 +3,7 @@ import WidgetKit
 #if canImport(ActivityKit)
 import ActivityKit
 #endif
-#if os(iOS)
+#if canImport(DJConnectCore)
 import DJConnectCore
 #endif
 
@@ -19,7 +19,38 @@ struct DJConnectTrackInsightWidgetEntry: TimelineEntry {
     let energy: Double
     let danceability: Double
     let intensity: Double
+    let musicDNAMatchPercent: Int?
     let summary: String
+
+    init(
+        date: Date,
+        title: String,
+        artist: String,
+        genre: String,
+        mood: String,
+        vibe: String,
+        bpm: Int,
+        key: String,
+        energy: Double,
+        danceability: Double,
+        intensity: Double,
+        musicDNAMatchPercent: Int?,
+        summary: String
+    ) {
+        self.date = date
+        self.title = title
+        self.artist = artist
+        self.genre = genre
+        self.mood = mood
+        self.vibe = vibe
+        self.bpm = bpm
+        self.key = key
+        self.energy = energy
+        self.danceability = danceability
+        self.intensity = intensity
+        self.musicDNAMatchPercent = musicDNAMatchPercent
+        self.summary = summary
+    }
 
     static let placeholder = DJConnectTrackInsightWidgetEntry(
         date: Date(),
@@ -33,8 +64,27 @@ struct DJConnectTrackInsightWidgetEntry: TimelineEntry {
         energy: 0.65,
         danceability: 0.72,
         intensity: 0.58,
+        musicDNAMatchPercent: 96,
         summary: "A slow-building journey with glowing synth textures and a hypnotic groove."
     )
+
+#if canImport(DJConnectCore)
+    init(snapshot: DJConnectTrackInsightWidgetSnapshot) {
+        date = snapshot.updatedAt
+        title = snapshot.title
+        artist = snapshot.artist
+        genre = snapshot.genre ?? DJConnectLocalization.localized(english: "Unknown genre", dutch: "Onbekend genre")
+        mood = snapshot.mood ?? DJConnectLocalization.localized(english: "Evolving", dutch: "In beweging")
+        vibe = snapshot.vibe ?? DJConnectLocalization.localized(english: "Fresh", dutch: "Fris")
+        bpm = snapshot.bpm ?? 0
+        key = snapshot.key ?? "-"
+        energy = snapshot.energy ?? 0.5
+        danceability = snapshot.danceability ?? 0.5
+        intensity = snapshot.intensity ?? 0.5
+        musicDNAMatchPercent = snapshot.musicDNAMatchPercent
+        summary = snapshot.summary
+    }
+#endif
 }
 
 struct DJConnectTrackInsightWidgetProvider: TimelineProvider {
@@ -43,13 +93,23 @@ struct DJConnectTrackInsightWidgetProvider: TimelineProvider {
     }
 
     func getSnapshot(in context: Context, completion: @escaping (DJConnectTrackInsightWidgetEntry) -> Void) {
-        completion(.placeholder)
+        completion(Self.currentEntry())
     }
 
     func getTimeline(in context: Context, completion: @escaping (Timeline<DJConnectTrackInsightWidgetEntry>) -> Void) {
-        let entry = DJConnectTrackInsightWidgetEntry.placeholder
+        let entry = Self.currentEntry()
         let refreshDate = Calendar.current.date(byAdding: .minute, value: 30, to: entry.date) ?? entry.date
         completion(Timeline(entries: [entry], policy: .after(refreshDate)))
+    }
+
+    private static func currentEntry() -> DJConnectTrackInsightWidgetEntry {
+#if canImport(DJConnectCore)
+        if let defaults = UserDefaults(suiteName: DJConnectTrackInsightWidgetSnapshot.appGroupIdentifier),
+           let snapshot = DJConnectTrackInsightWidgetSnapshot.load(from: defaults) {
+            return DJConnectTrackInsightWidgetEntry(snapshot: snapshot)
+        }
+#endif
+        return .placeholder
     }
 }
 
@@ -109,6 +169,7 @@ struct DJConnectTrackInsightWidgetView: View {
                     .font(.caption)
                     .foregroundStyle(.white.opacity(0.70))
                     .lineLimit(2)
+                musicDNAMatchChip
                 metricRow
             }
             Spacer(minLength: 0)
@@ -128,11 +189,12 @@ struct DJConnectTrackInsightWidgetView: View {
                         .font(.callout)
                         .foregroundStyle(.white.opacity(0.72))
                         .lineLimit(3)
+                    musicDNAMatchChip
                 }
             }
             DJConnectTrackInsightMeterRow(entry: entry)
             Spacer(minLength: 0)
-            Text("Rendered privately on device")
+            Text(DJConnectLocalization.localized(english: "Rendered privately on device", dutch: "Privé gerenderd op apparaat"))
                 .font(.caption2.weight(.semibold))
                 .foregroundStyle(.white.opacity(0.58))
         }
@@ -190,10 +252,26 @@ struct DJConnectTrackInsightWidgetView: View {
     }
 
     private var metricRow: some View {
-        Text("\(entry.genre) - \(entry.bpm) BPM - \(entry.key)")
+        Text([entry.genre, bpmLabel, entry.key].filter { !$0.isEmpty }.joined(separator: " - "))
             .font(.caption2.weight(.semibold))
             .foregroundStyle(.white.opacity(0.70))
             .lineLimit(1)
+    }
+
+    private var bpmLabel: String {
+        entry.bpm > 0 ? "\(entry.bpm) BPM" : ""
+    }
+
+    @ViewBuilder
+    private var musicDNAMatchChip: some View {
+        if let match = entry.musicDNAMatchPercent {
+            Text("\(DJConnectLocalization.localized(english: "Music DNA", dutch: "Music DNA")) \(match)%")
+                .font(.caption2.weight(.bold))
+                .foregroundStyle(.white.opacity(0.86))
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .background(.white.opacity(0.13), in: Capsule())
+        }
     }
 }
 
@@ -320,9 +398,9 @@ private struct DJConnectTrackInsightMeterRow: View {
 
     var body: some View {
         HStack(spacing: 10) {
-            meter(title: "Energy", value: entry.energy)
-            meter(title: "Dance", value: entry.danceability)
-            meter(title: "Intensity", value: entry.intensity)
+            meter(title: DJConnectLocalization.localized(english: "Energy", dutch: "Energie"), value: entry.energy)
+            meter(title: DJConnectLocalization.localized(english: "Dance", dutch: "Dans"), value: entry.danceability)
+            meter(title: DJConnectLocalization.localized(english: "Intensity", dutch: "Intensiteit"), value: entry.intensity)
         }
     }
 
@@ -363,7 +441,7 @@ struct DJConnectTrackInsightWidget: Widget {
             DJConnectTrackInsightWidgetView(entry: entry)
         }
         .configurationDisplayName("Track Insight")
-        .description("DJConnect Track Insight visualisatie voor je huidige vibe.")
+        .description(DJConnectLocalization.localized(english: "DJConnect Track Insight visualization for your current vibe.", dutch: "DJConnect Track Insight visualisatie voor je huidige vibe."))
         .supportedFamilies(supportedFamilies)
     }
 
@@ -396,6 +474,15 @@ struct DJConnectAskDJWidgetEntry: TimelineEntry {
     let trackTitle: String
     let artist: String
 
+    init(date: Date, prompt: String, response: String, mood: String, trackTitle: String, artist: String) {
+        self.date = date
+        self.prompt = prompt
+        self.response = response
+        self.mood = mood
+        self.trackTitle = trackTitle
+        self.artist = artist
+    }
+
     static let placeholder = DJConnectAskDJWidgetEntry(
         date: Date(),
         prompt: "Ask DJ",
@@ -404,6 +491,17 @@ struct DJConnectAskDJWidgetEntry: TimelineEntry {
         trackTitle: "Innerbloom",
         artist: "RUFUS DU SOL"
     )
+
+#if canImport(DJConnectCore)
+    init(snapshot: DJConnectAskDJWidgetSnapshot) {
+        date = snapshot.updatedAt
+        prompt = snapshot.prompt
+        response = snapshot.response
+        mood = snapshot.context
+        trackTitle = snapshot.trackTitle ?? DJConnectLocalization.localized(english: "Ask DJ", dutch: "Ask DJ")
+        artist = snapshot.artist ?? DJConnectLocalization.localized(english: "Ready", dutch: "Klaar")
+    }
+#endif
 }
 
 struct DJConnectAskDJWidgetProvider: TimelineProvider {
@@ -412,13 +510,23 @@ struct DJConnectAskDJWidgetProvider: TimelineProvider {
     }
 
     func getSnapshot(in context: Context, completion: @escaping (DJConnectAskDJWidgetEntry) -> Void) {
-        completion(.placeholder)
+        completion(Self.currentEntry())
     }
 
     func getTimeline(in context: Context, completion: @escaping (Timeline<DJConnectAskDJWidgetEntry>) -> Void) {
-        let entry = DJConnectAskDJWidgetEntry.placeholder
+        let entry = Self.currentEntry()
         let refreshDate = Calendar.current.date(byAdding: .minute, value: 30, to: entry.date) ?? entry.date
         completion(Timeline(entries: [entry], policy: .after(refreshDate)))
+    }
+
+    private static func currentEntry() -> DJConnectAskDJWidgetEntry {
+#if canImport(DJConnectCore)
+        if let defaults = UserDefaults(suiteName: DJConnectTrackInsightWidgetSnapshot.appGroupIdentifier),
+           let snapshot = DJConnectAskDJWidgetSnapshot.load(from: defaults) {
+            return DJConnectAskDJWidgetEntry(snapshot: snapshot)
+        }
+#endif
+        return .placeholder
     }
 }
 
@@ -465,7 +573,7 @@ struct DJConnectAskDJWidgetView: View {
                 .font(.headline.weight(.bold))
                 .foregroundStyle(.white)
                 .lineLimit(1)
-            Text(entry.trackTitle)
+            Text(entry.prompt)
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(.white.opacity(0.70))
                 .lineLimit(1)
@@ -483,7 +591,7 @@ struct DJConnectAskDJWidgetView: View {
                     .font(.callout.weight(.semibold))
                     .foregroundStyle(.white)
                     .lineLimit(3)
-                Text("\(entry.trackTitle) - \(entry.artist)")
+                Text(entry.mood)
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(.white.opacity(0.68))
                     .lineLimit(1)
@@ -500,7 +608,7 @@ struct DJConnectAskDJWidgetView: View {
                 DJConnectAskDJOrb()
                     .frame(width: 124, height: 124)
                 VStack(alignment: .leading, spacing: 7) {
-                    Text("Ask anything about the music")
+                    Text(entry.prompt)
                         .font(.title3.weight(.bold))
                         .foregroundStyle(.white)
                         .lineLimit(2)
@@ -528,7 +636,7 @@ struct DJConnectAskDJWidgetView: View {
                 Text("Ask DJ")
                     .font(.headline)
                     .lineLimit(1)
-                Text(entry.trackTitle)
+                Text(entry.prompt)
                     .font(.caption2)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
@@ -666,7 +774,7 @@ struct DJConnectAskDJWidget: Widget {
             DJConnectAskDJWidgetView(entry: entry)
         }
         .configurationDisplayName("Ask DJ")
-        .description("DJConnect Ask DJ widget voor snelle muziekvragen en vibe-context.")
+        .description(DJConnectLocalization.localized(english: "DJConnect Ask DJ widget for quick music questions and vibe context.", dutch: "DJConnect Ask DJ widget voor snelle muziekvragen en vibe-context."))
         .supportedFamilies(supportedFamilies)
     }
 
@@ -824,7 +932,7 @@ private struct DJConnectTrackInsightLiveActivityMetricStack: View {
                 Text(energy.formatted(.number.precision(.fractionLength(2))))
                     .font(.title3.weight(.bold))
                     .monospacedDigit()
-                Text("Energy")
+                Text(DJConnectLocalization.localized(english: "Energy", dutch: "Energie"))
                     .font(.caption2.weight(.semibold))
                     .foregroundStyle(.secondary)
             }

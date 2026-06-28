@@ -185,9 +185,10 @@ Now Playing should not reintroduce a separate `DJ verzoek` block. rbpi did not
 have that separate UI block, and ESP32 remains a firmware/device client without
 the Apple Ask DJ rich chat UI.
 
-For `Ask DJ`, the Watch may send mood, DJ style, and a Music DNA key hint, but DJ
-Memory itself belongs to the Home Assistant integration. This lets a user ask
-for a calmer track on Watch and later ask from Mac why that track was chosen.
+For `Ask DJ`, the Watch may send mood, DJ style, and a Music DNA key hint, but
+Music DNA itself belongs to the Home Assistant integration. This lets a user
+ask for a calmer track on Watch and later ask from Mac why that track was
+chosen.
 
 Ask DJ history is backend-synchronized and locally cached. Clients must merge
 server history into the cache instead of replacing it with a bounded response
@@ -587,7 +588,7 @@ repeated current-track entries. Queue row playback sends
 `command:"play_context_at"` with `context_uri` included when known. The app only
 adds `offset_uri` for Spotify contexts that support offsets, such as playlists,
 albums, and shows; artist contexts are sent without `offset_uri` to avoid
-Spotify API offset errors. The app no longer sends unsupported legacy
+Spotify API offset errors. The app no longer sends unsupported older
 `play_queue_item` or `play_uri` commands.
 
 The app no longer exposes a Client adres or receives Home Assistant callbacks
@@ -745,8 +746,8 @@ Canonical voice examples live in
   `what year was this released?`, `where is this artist from?`, `what samples
   are used?`, `does this artist have concerts in the Netherlands?`, `why did
   you choose this track?`
-- `track_insight`: `Geef een technische track analyse van dit
-  nummer`, `Analyseer deze track`, `Wat is de bpm en opbouw van deze track?`,
+- `track_insight`: `Geef Track Insight voor dit nummer`, `Analyseer deze track`,
+  `Wat is de bpm en opbouw van deze track?`,
   `Welke instrumenten hoor je hierin?`, `Hoe zit intro, couplet, refrein en
   breakdown in elkaar?`, `Give me a Track Insight of this song`, `What is
   the BPM, key and structure of this track?`, `Why does this track work so
@@ -813,6 +814,11 @@ Expected response:
 
 Rules:
 
+- For local latency wins, use only the DJConnect WebSocket fast path on Home
+  Assistant `/api/websocket`: authenticate, request `djconnect/capabilities`,
+  and send only advertised `djconnect/command`, `djconnect/ask_dj/message`, or
+  `djconnect/track_insight` actions. Missing capabilities or any WebSocket
+  failure must fall back to the canonical HTTP route once.
 - Do not connect directly to Home Assistant Assist WebSocket from the app for
   DJConnect PTT unless the backend contract is explicitly changed.
 - Do not call OpenAI or Spotify directly from the app for DJConnect commands.
@@ -858,7 +864,7 @@ The Apple apps persist the last seen app version locally. When a newer app
 version starts, they fetch platform-specific static release notes from
 `djconnect.dev` using the current app language first: iOS reads
 `/release-notes/ios/{en|nl}/vX.Y.Z.json`, macOS reads
-`/release-notes/macos/{en|nl}/vX.Y.Z.json`. The legacy
+`/release-notes/macos/{en|nl}/vX.Y.Z.json`. The older
 `/release-notes/{ios|macos}/vX.Y.Z.json` path and GitHub release metadata
 remain fallbacks. The release body is shown once in a native
 `Wat is er nieuw` / `What's New` sheet. This request sends no DJConnect token,
@@ -866,7 +872,7 @@ Home Assistant URL, Spotify token, diagnostics, or user data.
 
 ## Local Client API Postman Collection
 
-The legacy Apple app-hosted `/api/device/*` Postman collection is retained only
+The older Apple app-hosted `/api/device/*` Postman collection is retained only
 as historical reference for older 3.1 clients and must not be used as the 3.2
 iOS/macOS contract. Current Apple clients call Home Assistant
 `/api/djconnect/*` endpoints directly.
@@ -928,7 +934,7 @@ DJConnectApple/
       DJConnectClient.swift
       DJConnectModels.swift
       DJConnectPairing.swift
-      DJConnectKeychain.swift  # token-store abstraction; legacy filename
+      DJConnectKeychain.swift  # token-store abstraction; retained filename
       DJConnectVoice.swift
     DJConnectIOS/
     DJConnectMac/

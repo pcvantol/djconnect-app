@@ -795,6 +795,150 @@ public struct TrackInsight: Codable, Equatable, Sendable, Identifiable {
     }
 }
 
+public struct DJConnectTrackInsightWidgetSnapshot: Codable, Equatable, Sendable {
+    public static let appGroupIdentifier = "group.dev.djconnect"
+    public static let storageKey = "DJConnectTrackInsightWidgetSnapshot"
+    public static let widgetKind = "DJConnectTrackInsightWidget"
+
+    public var updatedAt: Date
+    public var title: String
+    public var artist: String
+    public var genre: String?
+    public var mood: String?
+    public var vibe: String?
+    public var bpm: Int?
+    public var key: String?
+    public var energy: Double?
+    public var danceability: Double?
+    public var intensity: Double?
+    public var musicDNAMatchPercent: Int?
+    public var summary: String
+
+    public init(
+        updatedAt: Date = Date(),
+        title: String,
+        artist: String,
+        genre: String? = nil,
+        mood: String? = nil,
+        vibe: String? = nil,
+        bpm: Int? = nil,
+        key: String? = nil,
+        energy: Double? = nil,
+        danceability: Double? = nil,
+        intensity: Double? = nil,
+        musicDNAMatchPercent: Int? = nil,
+        summary: String
+    ) {
+        self.updatedAt = updatedAt
+        self.title = Self.sanitizedPublic(title, maxLength: 96) ?? ""
+        self.artist = Self.sanitizedPublic(artist, maxLength: 96) ?? ""
+        self.genre = Self.sanitizedPublic(genre, maxLength: 48)
+        self.mood = Self.sanitizedPublic(mood, maxLength: 48)
+        self.vibe = Self.sanitizedPublic(vibe, maxLength: 48)
+        self.bpm = bpm.map { max(0, min(320, $0)) }
+        self.key = Self.sanitizedPublic(key, maxLength: 32)
+        self.energy = Self.normalizedMetric(energy)
+        self.danceability = Self.normalizedMetric(danceability)
+        self.intensity = Self.normalizedMetric(intensity)
+        self.musicDNAMatchPercent = musicDNAMatchPercent.map { max(0, min(100, $0)) }
+        self.summary = Self.sanitizedPublic(summary, maxLength: 180) ?? ""
+    }
+
+    public init(insight: TrackInsight, updatedAt: Date = Date()) {
+        self.init(
+            updatedAt: updatedAt,
+            title: insight.title,
+            artist: insight.artist,
+            genre: insight.genre,
+            mood: insight.mood,
+            vibe: insight.vibe,
+            bpm: insight.bpm.map { Int($0.rounded()) },
+            key: insight.key,
+            energy: insight.energy,
+            danceability: insight.danceability,
+            intensity: insight.intensity,
+            musicDNAMatchPercent: insight.musicDNAMatchPercent,
+            summary: insight.summary
+        )
+    }
+
+    public func save(to defaults: UserDefaults) throws {
+        let data = try JSONEncoder().encode(self)
+        defaults.set(data, forKey: Self.storageKey)
+    }
+
+    public static func load(from defaults: UserDefaults) -> DJConnectTrackInsightWidgetSnapshot? {
+        guard let data = defaults.data(forKey: storageKey) else {
+            return nil
+        }
+        return try? JSONDecoder().decode(DJConnectTrackInsightWidgetSnapshot.self, from: data)
+    }
+
+    private static func normalizedMetric(_ value: Double?) -> Double? {
+        value.map { max(0, min(1, $0)) }
+    }
+
+    public static func sanitizedPublic(_ value: String?, maxLength: Int) -> String? {
+        guard let value else {
+            return nil
+        }
+        let collapsed = value
+            .replacingOccurrences(of: "\n", with: " ")
+            .replacingOccurrences(of: "\r", with: " ")
+            .split(whereSeparator: { $0.isWhitespace })
+            .joined(separator: " ")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !collapsed.isEmpty else {
+            return nil
+        }
+        if collapsed.count <= maxLength {
+            return collapsed
+        }
+        let end = collapsed.index(collapsed.startIndex, offsetBy: maxLength)
+        return String(collapsed[..<end]).trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+}
+
+public struct DJConnectAskDJWidgetSnapshot: Codable, Equatable, Sendable {
+    public static let storageKey = "DJConnectAskDJWidgetSnapshot"
+    public static let widgetKind = "DJConnectAskDJWidget"
+
+    public var updatedAt: Date
+    public var prompt: String
+    public var response: String
+    public var context: String
+    public var trackTitle: String?
+    public var artist: String?
+
+    public init(
+        updatedAt: Date = Date(),
+        prompt: String,
+        response: String,
+        context: String,
+        trackTitle: String? = nil,
+        artist: String? = nil
+    ) {
+        self.updatedAt = updatedAt
+        self.prompt = DJConnectTrackInsightWidgetSnapshot.sanitizedPublic(prompt, maxLength: 96) ?? "Ask DJ"
+        self.response = DJConnectTrackInsightWidgetSnapshot.sanitizedPublic(response, maxLength: 180) ?? ""
+        self.context = DJConnectTrackInsightWidgetSnapshot.sanitizedPublic(context, maxLength: 80) ?? ""
+        self.trackTitle = DJConnectTrackInsightWidgetSnapshot.sanitizedPublic(trackTitle, maxLength: 96)
+        self.artist = DJConnectTrackInsightWidgetSnapshot.sanitizedPublic(artist, maxLength: 96)
+    }
+
+    public func save(to defaults: UserDefaults) throws {
+        let data = try JSONEncoder().encode(self)
+        defaults.set(data, forKey: Self.storageKey)
+    }
+
+    public static func load(from defaults: UserDefaults) -> DJConnectAskDJWidgetSnapshot? {
+        guard let data = defaults.data(forKey: storageKey) else {
+            return nil
+        }
+        return try? JSONDecoder().decode(DJConnectAskDJWidgetSnapshot.self, from: data)
+    }
+}
+
 public struct TrackInsightSimilarTrack: Codable, Equatable, Sendable, Identifiable {
     public var id: String { "\(title)|\(artist)|\(reason ?? "")" }
     public var title: String

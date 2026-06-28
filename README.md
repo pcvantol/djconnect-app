@@ -117,7 +117,7 @@ Sources/
   DJConnectCore/
     DJConnectClient.swift
     DJConnectErrors.swift
-    DJConnectKeychain.swift  # token-store abstraction; legacy filename
+    DJConnectKeychain.swift  # token-store abstraction; retained filename
     DJConnectModels.swift
 Tests/
   DJConnectCoreTests/
@@ -216,7 +216,7 @@ last version seen on that device. If the version changed, the app shows a
 `Wat is er nieuw` / `What's New` sheet and loads the current release notes from
 static files on `djconnect.dev`. The app tries the selected language first,
 for example `/release-notes/ios/nl/vX.Y.Z.json` or
-`/release-notes/macos/en/vX.Y.Z.json`, then falls back to the legacy
+`/release-notes/macos/en/vX.Y.Z.json`, then falls back to the older
 platform-only JSON path and finally the GitHub release metadata API.
 
 ## Swift Package
@@ -265,7 +265,7 @@ Spotify Web API calls for voice commands. Canonical examples from
 | `personal_music_recommendations` | `Geef me muziek aanbevelingen op basis van mijn luisterprofiel`, `Wat zou ik nu leuk vinden om te luisteren?`, `Raad me iets nieuws aan dat past bij mijn smaak` | `Recommend music based on my listening profile`, `what should I listen to now?`, `recommend something new that fits my taste` | HA recommends concrete tracks, albums, artists, or playlists from Music DNA and Spotify profile data without changing playback unless the user explicitly asks to play or queue them. |
 | `dj_announcement_request` | `Geef me een leuke aankondiging voor het volgende nummer`, `Doe een radio intro voor wat er nu speelt` | `Give me a fun announcement for the next song`, `do a radio-style intro for what is playing now` | HA generates DJ text and optional `audio_url` without changing playback. |
 | `track_context_info` | `Vertel iets over dit nummer`, `Wanneer kwam dit uit?`, `Waarom koos je dit nummer?`, `Heeft deze artiest concerten in Nederland?` | `Tell me about this song`, `what year was this released?`, `why did you choose this track?` | HA enriches current playback with release, genre, commentary, trivia, samples, concerts, releases, and musical connections without changing playback. |
-| `track_insight` | `Geef een technische track analyse van dit nummer`, `Analyseer deze track`, `Wat is de bpm en opbouw van deze track?`, `Welke instrumenten hoor je hierin?` | `Give me a Track Insight of this song`, `What is the BPM, key and structure of this track?`, `Why does this track work so well?` | HA gives a read-only Track Insight of the current track, distinguishing measured BPM/key/sections from inferred musical commentary and never changing playback. |
+| `track_insight` | `Geef Track Insight voor dit nummer`, `Analyseer deze track`, `Wat is de bpm en opbouw van deze track?`, `Welke instrumenten hoor je hierin?` | `Give me Track Insight for this song`, `What is the BPM, key and structure of this track?`, `Why does this track work so well?` | HA gives a read-only Track Insight of the current track, distinguishing measured BPM/key/sections from inferred musical commentary and never changing playback. |
 
 Ask DJ output-device responses may include structured output `playback_actions`.
 Apple clients render those vertically, with the speaker name on the left and an
@@ -338,7 +338,11 @@ DJConnect command, Ask DJ message, and Track Insight actions. HTTP remains the
 canonical transport and all remote/Nabu Casa sessions stay HTTP-only. Any
 WebSocket auth, timeout, disconnect, protocol, or capability failure falls back
 to the existing HTTP request once without clearing pairing or exposing tokens in
-logs.
+logs. Clients must first detect `djconnect/capabilities` on the Home Assistant
+WebSocket and only send advertised routes such as `djconnect/command`,
+`djconnect/ask_dj/message`, and `djconnect/track_insight`. Diagnostics export
+only transport state, advertised route names, capability refresh time, and a
+redacted last error.
 
 All status and command payloads include `device_id`, `client_type`, and
 `firmware`. The `firmware` value remains the protocol compatibility version,

@@ -232,7 +232,7 @@ The workflow:
   `CHANGELOG.nl.md` as the Dutch release notes;
 - publishes static `.md` and `.json` release-note files into
   `pcvantol/djconnect-website` at
-  `wwwroot/release-notes/{ios|macos}/{en|nl}/vX.Y.Z.{md,json}` plus a legacy
+  `wwwroot/release-notes/{ios|macos}/{en|nl}/vX.Y.Z.{md,json}` plus an older
   English fallback at `wwwroot/release-notes/{ios|macos}/vX.Y.Z.{md,json}`;
 - removes older platform-specific public releases and tags after successful
   publication, keeping the newest iOS and newest macOS public release online.
@@ -290,7 +290,7 @@ https://djconnect.dev/release-notes/macos/vX.Y.Z.json
 ```
 
 Current builds first read the matching platform and language-specific static
-file, then the legacy English platform-specific static file. The GitHub release
+file, then the older English platform-specific static file. The GitHub release
 metadata API is retained only as a final fallback:
 
 ```text
@@ -561,8 +561,8 @@ tag trigger and must never be used without explicit maintainer approval, an
 explicit semantic version, and an explicit matching source tag. To run it,
 choose **Run workflow** and provide:
 
-- `version`: for example `3.2.0`;
-- `tag`: the exact matching source tag, for example `v3.2.0`;
+- `version`: for example `3.2.2`;
+- `tag`: the exact matching source tag, for example `v3.2.2`;
 - `confirm_upload`: exactly `UPLOAD_TESTFLIGHT`.
 
 The workflow uses the protected `testflight-beta` GitHub Environment, checks out
@@ -603,17 +603,17 @@ repository environments/secrets. Configure required reviewers on the
 
 ## Current Local Verification
 
-For release `3.2.0`, local verification was completed with:
+For release `3.2.2`, local verification was completed with:
 
 ```sh
 swift test --no-parallel
-xcodebuild -project DJConnectApp.xcodeproj -scheme DJConnectMac -configuration Debug -destination platform=macOS -derivedDataPath .xcode-derived-mac CODE_SIGNING_ALLOWED=NO build
-xcodebuild -project DJConnectApp.xcodeproj -scheme DJConnectIOS -configuration Debug -destination generic/platform=iOS -derivedDataPath .xcode-derived-ios-generic CODE_SIGNING_ALLOWED=NO build
-xcodebuild -project DJConnectApp.xcodeproj -scheme DJConnectWatch -configuration Debug -destination generic/platform=watchOS -derivedDataPath .xcode-derived-watch-generic CODE_SIGNING_ALLOWED=NO build
+xcodebuild -project DJConnectApp.xcodeproj -scheme DJConnectIOS -configuration Debug -destination generic/platform=iOS CODE_SIGNING_ALLOWED=NO build
+xcodebuild -project DJConnectApp.xcodeproj -scheme DJConnectMac -configuration Debug -destination platform=macOS -derivedDataPath /private/tmp/djconnect-mac-dd CODE_SIGNING_ALLOWED=NO build
+xcodebuild -project DJConnectApp.xcodeproj -scheme DJConnectWatch -configuration Debug -destination generic/platform=watchOS -derivedDataPath /private/tmp/djconnect-watch-dd CODE_SIGNING_ALLOWED=NO build
 git diff --check
 ```
 
-The Xcode toolchain was Xcode 26.5 (`17F42`). These checks do not replace
+The Xcode toolchain was Xcode 26.6 (`17F113`). These checks do not replace
 signed archive validation, TestFlight processing, notarization, or physical
 device permission testing.
 
@@ -630,7 +630,7 @@ The local helper script packages and uploads public macOS releases:
 PUBLIC_REPO=pcvantol/djconnect-app-releases \
 DEVELOPMENT_TEAM=<APPLE_TEAM_ID> \
 NOTARY_PROFILE=<notarytool-keychain-profile> \
-./Tools/release/release_macos_public.sh --version 3.2.0
+./Tools/release/release_macos_public.sh --version 3.2.2
 ```
 
 Create the notary profile once with:
@@ -691,7 +691,7 @@ Use a Home Assistant instance with the matching `djconnect` integration.
 - Start a playlist through `start_playlist`.
 - Start liked songs through `start_liked_proxy`.
 - Confirm setup, Settings, onboarding, and command payloads do not expose or
-  send legacy `spotify_source` or `liked_proxy_playlist_uri` overrides.
+  send older `spotify_source` or `liked_proxy_playlist_uri` overrides.
 - Record Push-to-Talk and verify WAV upload to `/api/djconnect/voice`.
 - Copy diagnostics export and confirm no bearer token, pairing code, or query
   token appears.

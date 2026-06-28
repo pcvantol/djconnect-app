@@ -33,6 +33,14 @@ struct DJConnectMacApp: App {
         }
         .defaultSize(width: 520, height: 620)
         .windowResizability(.contentSize)
+
+        Window("VibeCast", id: "vibecast") {
+            VibeCastOutputView(model: model)
+                .frame(minWidth: 960, idealWidth: 1280, minHeight: 540, idealHeight: 720)
+                .background(Color.black)
+        }
+        .defaultSize(width: 1280, height: 720)
+        .windowStyle(.hiddenTitleBar)
         .commands {
             CommandGroup(replacing: .appInfo) {
                 Button(localizedAboutMenuTitle(for: model.language)) {
@@ -64,11 +72,11 @@ struct DJConnectMacApp: App {
 }
 
 private func localizedAboutTitle(for language: String) -> String {
-    language == "nl" ? "Over" : "About"
+    DJConnectLocalization.localized(language: language, english: "About", dutch: "Over")
 }
 
 private func localizedAboutMenuTitle(for language: String) -> String {
-    language == "nl" ? "Over DJConnect" : "About DJConnect"
+    DJConnectLocalization.localized(language: language, english: "About DJConnect", dutch: "Over DJConnect")
 }
 
 private let mainWindowIdentifier = NSUserInterfaceItemIdentifier("DJConnectMainWindow")
