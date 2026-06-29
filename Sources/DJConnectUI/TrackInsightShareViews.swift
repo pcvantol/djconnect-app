@@ -600,35 +600,39 @@ private struct TrackInsightShareBackground: View {
 
     var body: some View {
         Canvas { context, size in
-            let rect = CGRect(origin: .zero, size: size)
-            context.fill(Path(rect), with: .linearGradient(
-                Gradient(colors: profile.colors),
-                startPoint: CGPoint(x: 0, y: 0),
-                endPoint: CGPoint(x: size.width, y: size.height)
-            ))
-            for index in 0..<5 {
-                var path = Path()
-                let baseY = size.height * (0.42 + CGFloat(index) * 0.08)
-                path.move(to: CGPoint(x: -40, y: baseY))
-                for step in 0...18 {
-                    let x = size.width * CGFloat(step) / 18
-                    let y = baseY + sin(CGFloat(step) * 0.8 + CGFloat(index) + CGFloat(animationPhase) * 1.4) * 22 * profile.waveform
-                    path.addLine(to: CGPoint(x: x, y: y))
-                }
-                context.stroke(path, with: .color(.white.opacity(0.05 + Double(index) * 0.018)), lineWidth: 2)
-            }
-            let pulse = sin(animationPhase * profile.pulseSpeed) * 0.5 + 0.5
-            context.fill(
-                Path(ellipseIn: CGRect(
-                    x: size.width * (0.50 + CGFloat(sin(animationPhase * 0.7)) * 0.06) - size.width * 0.16,
-                    y: size.height * 0.20 - size.width * 0.16,
-                    width: size.width * (0.28 + CGFloat(pulse) * 0.08),
-                    height: size.width * (0.28 + CGFloat(pulse) * 0.08)
-                )),
-                with: .color((profile.colors.last ?? djConnectAccent).opacity(0.14 + pulse * 0.10))
-            )
-            context.fill(Path(rect), with: .color(.black.opacity(0.30)))
+            draw(context: &context, size: size)
         }
+    }
+
+    private func draw(context: inout GraphicsContext, size: CGSize) {
+        let rect = CGRect(origin: .zero, size: size)
+        context.fill(Path(rect), with: .linearGradient(
+            Gradient(colors: profile.colors),
+            startPoint: CGPoint(x: 0, y: 0),
+            endPoint: CGPoint(x: size.width, y: size.height)
+        ))
+        for index in 0..<5 {
+            var path = Path()
+            let baseY = size.height * (0.42 + CGFloat(index) * 0.08)
+            path.move(to: CGPoint(x: -40, y: baseY))
+            for step in 0...18 {
+                let x = size.width * CGFloat(step) / 18
+                let y = baseY + sin(CGFloat(step) * 0.8 + CGFloat(index) + CGFloat(animationPhase) * 1.4) * 22 * profile.waveform
+                path.addLine(to: CGPoint(x: x, y: y))
+            }
+            context.stroke(path, with: .color(.white.opacity(0.05 + Double(index) * 0.018)), lineWidth: 2)
+        }
+        let pulse = sin(animationPhase * profile.pulseSpeed) * 0.5 + 0.5
+        context.fill(
+            Path(ellipseIn: CGRect(
+                x: size.width * (0.50 + CGFloat(sin(animationPhase * 0.7)) * 0.06) - size.width * 0.16,
+                y: size.height * 0.20 - size.width * 0.16,
+                width: size.width * (0.28 + CGFloat(pulse) * 0.08),
+                height: size.width * (0.28 + CGFloat(pulse) * 0.08)
+            )),
+            with: .color((profile.colors.last ?? djConnectAccent).opacity(0.14 + pulse * 0.10))
+        )
+        context.fill(Path(rect), with: .color(.black.opacity(0.30)))
     }
 }
 

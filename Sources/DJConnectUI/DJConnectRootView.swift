@@ -3006,96 +3006,99 @@ private struct TrackVibeCanvas: View {
 
     var body: some View {
         Canvas(opaque: true, colorMode: .linear, rendersAsynchronously: true) { context, size in
-            let colors = profile.colors
-            let rect = CGRect(origin: .zero, size: size)
-            context.fill(Path(rect), with: .linearGradient(
-                Gradient(colors: [
-                    Color(red: 0.015, green: 0.018, blue: 0.045),
-                    colors.first?.opacity(0.34) ?? djConnectAccent.opacity(0.34),
-                    Color.black
-                ]),
-                startPoint: CGPoint(x: 0, y: 0),
-                endPoint: CGPoint(x: size.width, y: size.height)
-            ))
-
-            let songTime = playbackPhase.positionSeconds
-            let progress = playbackPhase.progress
-            let energyLift = playbackPhase.energyLift
-            let pulse = sin((songTime + liveBeat * 0.12) * profile.pulseSpeed) * 0.5 + 0.5
-            let horizonY = size.height * 0.54
-            let orbRadius = min(size.width, size.height) * (0.15 + pulse * 0.04 + energyLift * 0.07)
-            let orbCenter = CGPoint(
-                x: size.width * (0.18 + progress * 0.64 + sin(songTime * 0.12) * 0.04),
-                y: size.height * (0.40 + cos(songTime * 0.10) * 0.04)
-            )
-            context.addFilter(.blur(radius: 22 + profile.glow * 14))
-            context.fill(
-                Path(ellipseIn: CGRect(x: orbCenter.x - orbRadius, y: orbCenter.y - orbRadius, width: orbRadius * 2, height: orbRadius * 2)),
-                with: .color((colors.last ?? djConnectAccent).opacity(0.22 + pulse * 0.18 + energyLift * 0.18))
-            )
-            context.addFilter(.blur(radius: 0))
-            for ring in 0..<4 {
-                let radius = orbRadius * (0.78 + CGFloat(ring) * 0.18 + CGFloat(pulse) * 0.05)
-                context.stroke(
-                    Path(ellipseIn: CGRect(x: orbCenter.x - radius, y: orbCenter.y - radius, width: radius * 2, height: radius * 2)),
-                    with: .color((colors[safe: ring] ?? djConnectAccent).opacity(0.40 - Double(ring) * 0.06)),
-                    lineWidth: 1.3
-                )
-            }
-
-            for layer in 0..<9 {
-                var path = Path()
-                let layerProgress = CGFloat(layer) / 8
-                let baseY = horizonY + layerProgress * size.height * 0.34
-                path.move(to: CGPoint(x: -20, y: baseY))
-                let steps = 72
-                for index in 0...steps {
-                    let progress = CGFloat(index) / CGFloat(steps)
-                    let x = size.width * progress
-                    let depth = 1 + layerProgress * 2.4
-                    let waveA = sin(Double(index) * 0.28 + songTime * profile.animationSpeed + Double(layer) * 0.58)
-                    let waveB = cos(Double(index) * 0.13 + songTime * 0.42 + Double(layer))
-                    let y = baseY + CGFloat(waveA) * 18 * profile.waveform * depth * CGFloat(0.72 + energyLift) + CGFloat(waveB) * 8
-                    path.addLine(to: CGPoint(x: x, y: y))
-                }
-                let hueColor = colors[safe: layer % max(colors.count, 1)] ?? djConnectAccent
-                context.stroke(path, with: .color(hueColor.opacity(0.18 + Double(layer) * 0.045)), lineWidth: 1.1 + layerProgress * 1.6)
-            }
-
-            for column in stride(from: 0, through: Int(size.width), by: 7) {
-                let x = CGFloat(column)
-                let seed = Double(column + 17)
-                let distanceFromPlayhead = abs((x / max(size.width, 1)) - progress)
-                let playheadBoost = max(0, 1 - distanceFromPlayhead * 6)
-                let normalized = (sin(seed * 0.21 + songTime * 1.3) + 1) / 2
-                let barSignal = normalized + playheadBoost * 0.72 + energyLift * 0.42
-                let heightValue = 12 + barSignal * 64 * profile.waveform
-                let height = CGFloat(heightValue)
-                let top = horizonY - height * 0.55
-                var bar = Path()
-                bar.move(to: CGPoint(x: x, y: horizonY))
-                bar.addLine(to: CGPoint(x: x, y: top))
-                context.stroke(bar, with: .color((colors.last ?? djConnectAccent).opacity(0.10 + normalized * 0.14 + playheadBoost * 0.28)), lineWidth: 2)
-            }
-
-            let particleCount = max(10, Int(28 * profile.particleDensity))
-            for index in 0..<particleCount {
-                let seed = Double(index + 1)
-                let x = size.width * CGFloat((sin(seed * 12.989 + songTime * profile.particleVelocity) + 1) / 2)
-                let y = size.height * CGFloat((cos(seed * 7.233 + songTime * 0.37) + 1) / 2)
-                let radius = CGFloat(1.5 + (seed.truncatingRemainder(dividingBy: 4)))
-                context.fill(
-                    Path(ellipseIn: CGRect(x: x, y: y, width: radius, height: radius)),
-                    with: .color(.white.opacity(0.16 + profile.glow * 0.24))
-                )
-            }
-
-            context.fill(Path(rect), with: .linearGradient(
-                Gradient(colors: [.clear, .black.opacity(0.72)]),
-                startPoint: CGPoint(x: size.width / 2, y: size.height * 0.58),
-                endPoint: CGPoint(x: size.width / 2, y: size.height)
-            ))
+            draw(context: &context, size: size)
         }
+    }
+
+    private func draw(context: inout GraphicsContext, size: CGSize) {
+        let colors = profile.colors
+        let rect = CGRect(origin: .zero, size: size)
+        context.fill(Path(rect), with: .linearGradient(
+            Gradient(colors: [
+                Color(red: 0.015, green: 0.018, blue: 0.045),
+                colors.first?.opacity(0.34) ?? djConnectAccent.opacity(0.34),
+                Color.black
+            ]),
+            startPoint: CGPoint(x: 0, y: 0),
+            endPoint: CGPoint(x: size.width, y: size.height)
+        ))
+
+        let songTime = playbackPhase.positionSeconds
+        let progress = playbackPhase.progress
+        let energyLift = playbackPhase.energyLift
+        let pulse = sin((songTime + liveBeat * 0.12) * profile.pulseSpeed) * 0.5 + 0.5
+        let horizonY = size.height * 0.54
+        let orbRadius = min(size.width, size.height) * (0.15 + pulse * 0.04 + energyLift * 0.07)
+        let orbCenter = CGPoint(
+            x: size.width * (0.18 + progress * 0.64 + sin(songTime * 0.12) * 0.04),
+            y: size.height * (0.40 + cos(songTime * 0.10) * 0.04)
+        )
+        context.addFilter(.blur(radius: 22 + profile.glow * 14))
+        context.fill(
+            Path(ellipseIn: CGRect(x: orbCenter.x - orbRadius, y: orbCenter.y - orbRadius, width: orbRadius * 2, height: orbRadius * 2)),
+            with: .color((colors.last ?? djConnectAccent).opacity(0.22 + pulse * 0.18 + energyLift * 0.18))
+        )
+        context.addFilter(.blur(radius: 0))
+        for ring in 0..<4 {
+            let radius = orbRadius * (0.78 + CGFloat(ring) * 0.18 + CGFloat(pulse) * 0.05)
+            context.stroke(
+                Path(ellipseIn: CGRect(x: orbCenter.x - radius, y: orbCenter.y - radius, width: radius * 2, height: radius * 2)),
+                with: .color((colors[safe: ring] ?? djConnectAccent).opacity(0.40 - Double(ring) * 0.06)),
+                lineWidth: 1.3
+            )
+        }
+
+        for layer in 0..<9 {
+            var path = Path()
+            let layerProgress = CGFloat(layer) / 8
+            let baseY = horizonY + layerProgress * size.height * 0.34
+            path.move(to: CGPoint(x: -20, y: baseY))
+            let steps = 72
+            for index in 0...steps {
+                let progress = CGFloat(index) / CGFloat(steps)
+                let x = size.width * progress
+                let depth = 1 + layerProgress * 2.4
+                let waveA = sin(Double(index) * 0.28 + songTime * profile.animationSpeed + Double(layer) * 0.58)
+                let waveB = cos(Double(index) * 0.13 + songTime * 0.42 + Double(layer))
+                let y = baseY + CGFloat(waveA) * 18 * profile.waveform * depth * CGFloat(0.72 + energyLift) + CGFloat(waveB) * 8
+                path.addLine(to: CGPoint(x: x, y: y))
+            }
+            let hueColor = colors[safe: layer % max(colors.count, 1)] ?? djConnectAccent
+            context.stroke(path, with: .color(hueColor.opacity(0.18 + Double(layer) * 0.045)), lineWidth: 1.1 + layerProgress * 1.6)
+        }
+
+        for column in stride(from: 0, through: Int(size.width), by: 7) {
+            let x = CGFloat(column)
+            let seed = Double(column + 17)
+            let distanceFromPlayhead = abs((x / max(size.width, 1)) - progress)
+            let playheadBoost = max(0, 1 - distanceFromPlayhead * 6)
+            let normalized = (sin(seed * 0.21 + songTime * 1.3) + 1) / 2
+            let barSignal = normalized + playheadBoost * 0.72 + energyLift * 0.42
+            let height = CGFloat(12 + barSignal * 64 * profile.waveform)
+            let top = horizonY - height * 0.55
+            var bar = Path()
+            bar.move(to: CGPoint(x: x, y: horizonY))
+            bar.addLine(to: CGPoint(x: x, y: top))
+            context.stroke(bar, with: .color((colors.last ?? djConnectAccent).opacity(0.10 + normalized * 0.14 + playheadBoost * 0.28)), lineWidth: 2)
+        }
+
+        let particleCount = max(10, Int(28 * profile.particleDensity))
+        for index in 0..<particleCount {
+            let seed = Double(index + 1)
+            let x = size.width * CGFloat((sin(seed * 12.989 + songTime * profile.particleVelocity) + 1) / 2)
+            let y = size.height * CGFloat((cos(seed * 7.233 + songTime * 0.37) + 1) / 2)
+            let radius = CGFloat(1.5 + (seed.truncatingRemainder(dividingBy: 4)))
+            context.fill(
+                Path(ellipseIn: CGRect(x: x, y: y, width: radius, height: radius)),
+                with: .color(.white.opacity(0.16 + profile.glow * 0.24))
+            )
+        }
+
+        context.fill(Path(rect), with: .linearGradient(
+            Gradient(colors: [.clear, .black.opacity(0.72)]),
+            startPoint: CGPoint(x: size.width / 2, y: size.height * 0.58),
+            endPoint: CGPoint(x: size.width / 2, y: size.height)
+        ))
     }
 }
 
