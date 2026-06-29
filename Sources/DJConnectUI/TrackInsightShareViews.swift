@@ -82,10 +82,10 @@ struct TrackInsightSharePreviewView: View {
                 }
                     }
                 }
+                .padding(20)
+                .frame(maxWidth: 560)
+                .frame(maxWidth: .infinity)
             }
-            .padding(20)
-            .frame(maxWidth: 560)
-            .frame(maxWidth: .infinity)
         }
         #if os(iOS)
         .presentationDetents([.large])
@@ -389,13 +389,10 @@ struct TrackInsightShareCardView: View {
     @ViewBuilder
     private var artwork: some View {
         CachedArtworkImage(url: insight.artwork, mode: .fill) {
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(profile.gradient)
-                .overlay {
-                    Image(systemName: "waveform.path.ecg")
-                        .font(.system(size: artworkSize * 0.28, weight: .semibold))
-                        .foregroundStyle(.white.opacity(0.70))
-                }
+            TrackInsightShareAnimatedArtworkFallback(
+                profile: profile,
+                animationPhase: animationPhase
+            )
         }
         .frame(width: artworkSize, height: artworkSize)
         .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
@@ -493,6 +490,107 @@ struct TrackInsightShareCardView: View {
 
     private func localized(_ english: String, _ dutch: String) -> String {
         DJConnectLocalization.localized(language: language, english: english, dutch: dutch)
+    }
+}
+
+private struct TrackInsightShareAnimatedArtworkFallback: View {
+    let profile: TrackVibeProfile
+    let animationPhase: Double
+
+    var body: some View {
+        GeometryReader { proxy in
+            let size = min(proxy.size.width, proxy.size.height)
+            let pulse = sin(animationPhase * profile.pulseSpeed * 1.7) * 0.5 + 0.5
+            let beat = sin(animationPhase * 8.0) * 0.5 + 0.5
+            let accent = profile.colors.last ?? djConnectAccent
+
+            ZStack {
+                profile.gradient
+
+                AngularGradient(
+                    colors: [
+                        .white.opacity(0.0),
+                        .white.opacity(0.38 + pulse * 0.20),
+                        accent.opacity(0.18 + beat * 0.22),
+                        .white.opacity(0.0)
+                    ],
+                    center: .center,
+                    angle: .degrees(animationPhase * 42)
+                )
+                .blendMode(.screen)
+                .blur(radius: size * 0.03)
+
+                ForEach(0..<3, id: \.self) { index in
+                    RoundedRectangle(cornerRadius: size * 0.14, style: .continuous)
+                        .stroke(.white.opacity(0.16 - Double(index) * 0.035), lineWidth: max(1, size * 0.012))
+                        .scaleEffect(0.68 + CGFloat(index) * 0.16 + CGFloat(pulse) * 0.06)
+                        .rotationEffect(.degrees(animationPhase * (index.isMultiple(of: 2) ? 10 : -8)))
+                }
+
+                TrackInsightShareHeartbeatLine(phase: animationPhase, intensity: profile.waveform)
+                    .stroke(
+                        LinearGradient(
+                            colors: [
+                                .white.opacity(0.38),
+                                .white,
+                                accent.opacity(0.96),
+                                .white.opacity(0.48)
+                            ],
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        ),
+                        style: StrokeStyle(lineWidth: max(4, size * 0.035), lineCap: .round, lineJoin: .round)
+                    )
+                    .frame(width: size * 0.50, height: size * 0.30)
+                    .shadow(color: accent.opacity(0.72), radius: size * (0.05 + pulse * 0.03))
+                    .scaleEffect(1 + CGFloat(beat) * 0.10)
+
+                Circle()
+                    .fill(accent.opacity(0.34 + pulse * 0.18))
+                    .frame(width: size * 0.22, height: size * 0.22)
+                    .blur(radius: size * 0.10)
+                    .offset(x: sin(animationPhase * 1.8) * size * 0.24, y: cos(animationPhase * 1.3) * size * 0.18)
+                    .blendMode(.screen)
+            }
+        }
+    }
+}
+
+private struct TrackInsightShareHeartbeatLine: Shape {
+    let phase: Double
+    let intensity: Double
+
+    var animatableData: Double {
+        get { phase }
+        set {}
+    }
+
+    func path(in rect: CGRect) -> Path {
+        let points: [CGPoint] = [
+            CGPoint(x: 0.00, y: 0.52),
+            CGPoint(x: 0.18, y: 0.52),
+            CGPoint(x: 0.28, y: 0.23),
+            CGPoint(x: 0.42, y: 0.86),
+            CGPoint(x: 0.54, y: 0.34),
+            CGPoint(x: 0.64, y: 0.52),
+            CGPoint(x: 1.00, y: 0.52)
+        ]
+        let shimmer = CGFloat((sin(phase * 7.0) * 0.5 + 0.5) * 0.08 * intensity)
+
+        var path = Path()
+        for (index, point) in points.enumerated() {
+            let yOffset = index == 3 ? -shimmer : shimmer * CGFloat(index.isMultiple(of: 2) ? 0.7 : -0.5)
+            let resolved = CGPoint(
+                x: rect.minX + point.x * rect.width,
+                y: rect.minY + (point.y + yOffset) * rect.height
+            )
+            if index == 0 {
+                path.move(to: resolved)
+            } else {
+                path.addLine(to: resolved)
+            }
+        }
+        return path
     }
 }
 

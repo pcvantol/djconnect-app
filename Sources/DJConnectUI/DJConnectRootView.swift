@@ -2330,9 +2330,9 @@ private struct TrackInsightView: View {
                     VStack(alignment: .leading, spacing: 16) {
                         if let insight {
                             TrackInsightHero(model: model, insight: insight)
-                            MusicDNAMatchCard(insight: insight, language: model.language)
-                            TrackInsightMetricsGrid(insight: insight, language: model.language)
                             TrackInsightAnalysisCard(insight: insight, language: model.language)
+                            TrackInsightMetricsGrid(insight: insight, language: model.language)
+                            MusicDNAMatchCard(insight: insight, language: model.language)
                         } else {
                             TrackInsightEmptyState(model: model)
                         }
@@ -2356,18 +2356,11 @@ private struct TrackInsightView: View {
                             isShowingShare = true
                         } label: {
                             Image(systemName: "square.and.arrow.up")
+                                .foregroundStyle(.primary)
                         }
+                        .tint(.primary)
                         .help(localized(model.language, "Share Insight", "Insight delen"))
                     }
-                }
-                ToolbarItem(placement: .primaryAction) {
-                    Button {
-                        model.analyzeCurrentTrack(open: false)
-                    } label: {
-                        Image(systemName: "sparkles")
-                    }
-                    .disabled(model.isLoadingTrackInsight)
-                    .help(localized(model.language, "Analyze Track", "Analyseer nummer"))
                 }
             }
             .sheet(isPresented: $isShowingShare) {
@@ -2691,8 +2684,8 @@ private struct TrackInsightHero: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(alignment: .center, spacing: 10) {
-                Label("Track Insight Visualizer", systemImage: "sparkles")
-                    .font(.headline.weight(.semibold))
+                Label("Track Insight", systemImage: "waveform")
+                    .font(.title3.weight(.semibold))
                     .foregroundStyle(.white)
                 Spacer(minLength: 0)
             }
@@ -2969,7 +2962,7 @@ private struct TrackVibeVisualizerView: View {
                     TrackVibeCanvas(profile: profile, playbackPhase: playbackPhase(at: Date()), liveBeat: 0)
                 }
             } else {
-                TimelineView(.animation) { timeline in
+                TimelineView(.animation(minimumInterval: 1.0 / 30.0)) { timeline in
                     let phase = playbackPhase(at: timeline.date)
                     TrackVibeCanvas(
                         profile: profile,
@@ -2985,6 +2978,7 @@ private struct TrackVibeVisualizerView: View {
                 .padding(.horizontal, 14)
                 .padding(.bottom, 10)
         }
+        .drawingGroup(opaque: true, colorMode: .linear)
     }
 
     private func playbackPhase(at date: Date) -> TrackVibePlaybackPhase {
@@ -2998,7 +2992,7 @@ private struct TrackVibeCanvas: View {
     let liveBeat: TimeInterval
 
     var body: some View {
-        Canvas { context, size in
+        Canvas(opaque: true, colorMode: .linear, rendersAsynchronously: true) { context, size in
             let colors = profile.colors
             let rect = CGRect(origin: .zero, size: size)
             context.fill(Path(rect), with: .linearGradient(
@@ -3206,7 +3200,7 @@ private struct TrackInsightMetricsGrid: View {
     let language: String
 
     var body: some View {
-        LazyVGrid(columns: [GridItem(.adaptive(minimum: 118), spacing: 8)], spacing: 8) {
+        LazyVGrid(columns: [GridItem(.adaptive(minimum: 172), spacing: 10, alignment: .top)], spacing: 10) {
             TrackInsightMetricPill(title: "BPM", value: insight.bpm.map { String(Int($0.rounded())) })
             TrackInsightMetricPill(title: localized(language, "Key", "Toonsoort"), value: insight.key)
             TrackInsightMetricPill(title: localized(language, "Genre", "Genre"), value: insight.genre)
@@ -3233,14 +3227,18 @@ private struct TrackInsightMetricPill: View {
             Text(title)
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(.white.opacity(0.56))
+                .lineLimit(1)
+                .minimumScaleFactor(0.82)
             Text(value?.isEmpty == false ? value! : "-")
                 .font(.headline.weight(.semibold))
                 .foregroundStyle(.white)
-                .lineLimit(1)
-                .minimumScaleFactor(0.72)
+                .lineLimit(2)
+                .minimumScaleFactor(0.82)
+                .fixedSize(horizontal: false, vertical: true)
         }
         .padding(.horizontal, 11)
         .padding(.vertical, 9)
+        .frame(minHeight: 74, alignment: .topLeading)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(.white.opacity(0.10), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
     }
