@@ -4,6 +4,19 @@ All notable changes to DJConnect App are documented here.
 
 ## Unreleased
 
+## 3.2.3 - 2026-06-29
+
+### Changed
+
+- Refined the iOS Track Insight screen with native large-title navigation,
+  reordered insight cards, adaptive metric tiles, and default-colored toolbar
+  sharing.
+- Reworked Track Insight share controls, copy, scrolling, cancellation, and
+  animated card visuals.
+- Reduced Track Insight visualizer CPU load with async Canvas rendering,
+  Metal-backed compositing, a 30 FPS animation cadence, and offscreen animation
+  shutdown.
+
 ## 3.2.2 - 2026-06-28
 
 ### Added

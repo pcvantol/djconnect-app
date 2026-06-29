@@ -18,8 +18,8 @@ install identity.
   "device_id": "djconnect-ios-8F3A2C91B45D",
   "device_name": "DJConnect iPhone",
   "client_type": "ios",
-  "firmware": "3.2.2",
-  "app_version": "3.2.2",
+  "firmware": "3.2.3",
+  "app_version": "3.2.3",
   "platform": "ios"
 }
 ```
@@ -79,8 +79,8 @@ Payload:
   "device_id": "djconnect-macos-8F3A2C91B45D",
   "device_name": "DJConnect Mac",
   "client_type": "macos",
-  "firmware": "3.2.2",
-  "app_version": "3.2.2",
+  "firmware": "3.2.3",
+  "app_version": "3.2.3",
   "platform": "macos",
   "pair_code": "123456",
   "pairing_code": "123456",
@@ -189,7 +189,7 @@ Expected macOS payload:
   "push_token": "<apns-device-token>",
   "push_environment": "sandbox",
   "app_bundle_id": "dev.djconnect.mac",
-  "app_version": "3.2.2",
+  "app_version": "3.2.3",
   "locale": "nl-NL",
   "notification_categories": ["ask_dj"],
   "bootstrap_proof": "<short-lived proof when available>"
@@ -240,8 +240,8 @@ Minimum payload:
   "device_name": "DJConnect iPhone",
   "client_type": "ios",
   "ha_pairing_status": "paired",
-  "firmware": "3.2.2",
-  "app_version": "3.2.2",
+  "firmware": "3.2.3",
+  "app_version": "3.2.3",
   "state": "online",
   "status": "online",
   "battery_percent": 85,

@@ -136,8 +136,8 @@ Recommended iOS fields:
   "device_id": "djconnect-ios-8F3A2C91B45D",
   "device_name": "DJConnect iPhone",
   "client_type": "ios",
-  "firmware": "3.2.2",
-  "app_version": "3.2.2",
+  "firmware": "3.2.3",
+  "app_version": "3.2.3",
   "platform": "ios"
 }
 ```
@@ -149,8 +149,8 @@ Recommended macOS fields:
   "device_id": "djconnect-macos-8F3A2C91B45D",
   "device_name": "DJConnect Mac",
   "client_type": "macos",
-  "firmware": "3.2.2",
-  "app_version": "3.2.2",
+  "firmware": "3.2.3",
+  "app_version": "3.2.3",
   "platform": "macos"
 }
 ```
@@ -162,8 +162,8 @@ Recommended watchOS fields:
   "device_id": "djconnect-watchos-8F3A2C91B45D",
   "device_name": "DJConnect Watch",
   "client_type": "watchos",
-  "firmware": "3.2.2",
-  "app_version": "3.2.2",
+  "firmware": "3.2.3",
+  "app_version": "3.2.3",
   "platform": "watchos"
 }
 ```
@@ -252,9 +252,9 @@ Expected response:
   "success": false,
   "error": "version_mismatch",
   "message": "DJConnect Home Assistant integration and device firmware major.minor versions must match.",
-  "ha_version": "3.2.2",
+  "ha_version": "3.2.3",
   "ha_major_minor": "3.2",
-  "firmware": "3.2.2",
+  "firmware": "3.2.3",
   "firmware_major_minor": "3.1"
 }
 ```
@@ -325,8 +325,8 @@ X-DJConnect-Device-ID: <device_id>
 {  "device_id": "djconnect-macos-8F3A2C91B45D",
   "device_name": "DJConnect Mac",
   "client_type": "macos",
-  "firmware": "3.2.2",
-  "app_version": "3.2.2",
+  "firmware": "3.2.3",
+  "app_version": "3.2.3",
   "platform": "macos",
   "pair_code": "123456",
   "pairing_code": "123456",
@@ -458,8 +458,8 @@ Minimum payload:
   "device_id": "djconnect-ios-8F3A2C91B45D",
   "client_type": "ios",
   "ha_pairing_status": "paired",
-  "firmware": "3.2.2",
-  "app_version": "3.2.2",
+  "firmware": "3.2.3",
+  "app_version": "3.2.3",
   "state": "online",
   "status": "online",
   "battery_percent": 85,
