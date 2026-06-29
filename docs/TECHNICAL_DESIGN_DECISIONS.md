@@ -1,6 +1,6 @@
 # Technische designbeslissingen
 
-Laatst bijgewerkt: 2026-06-14
+Laatst bijgewerkt: 2026-06-29
 
 Dit document is in eerste instantie reverse-engineered uit de codebase. Het legt
 vast welke ontwerpkeuzes, codepatronen, conventies en dependencies op dit moment
@@ -38,7 +38,7 @@ De app is opgesplitst in twee gedeelde Swift targets:
 
 - `DJConnectCore`: platformonafhankelijke contractmodellen, app-tokenopslag,
   API-contracten en basislogica.
-- `DJConnectUI`: gedeelde SwiftUI UI, app-state, client-API hosting,
+- `DJConnectUI`: gedeelde SwiftUI UI, app-state, Home Assistant transport,
   platformadaptatie, audio, speech, logging en featureflows.
 
 De app targets `DJConnectIOS` en `DJConnectMac` zijn bewust dun. Ze initialiseren
@@ -56,12 +56,25 @@ Home Assistant long-lived tokens of backend credentials.
 Deze scheiding voorkomt dat Apple clients backendgeheimen hoeven te beheren en
 houdt iOS/macOS gelijk aan andere DJConnect clients.
 
-### Lokale Client API als bridge
+### Inbound-only Home Assistant pairing
 
-iOS en macOS hosten een kleine lokale HTTP API voor pairing en statuscallbacks.
-De app adverteert deze lokaal en Home Assistant gebruikt de URL om pairing af te
-ronden. Runtime-verkeer van app naar Home Assistant blijft token-based en gebruikt
-de lokale Home Assistant URL.
+iOS, macOS en watchOS hosten geen lokale HTTP API voor Home Assistant callbacks,
+adverteren geen pairable Bonjour/mDNS-service en gebruiken geen lokale discovery
+voor pairing. Pairing is uitsluitend client-geinitieerd: de Apple client post
+naar `POST /api/djconnect/pair` op de lokale Home Assistant URL die de setupflow
+toont of via de QR/deep-link payload meegeeft.
+
+iOS pairt primair via de Home Assistant QR/deep-link payload. macOS gebruikt
+handmatige invoer van Home Assistant URL plus zescijferige code. watchOS pairt
+via iPhone-proxy: de iPhone valideert de Watch QR/deep-link en geeft de gegevens
+door aan de Watch; de Watch-identiteit blijft `client_type: "watchos"` met een
+`djconnect-watchos-*` device ID, ook wanneer de iPhone de HTTP request proxiet.
+
+Na succesvolle pairing bewaren de Apple clients alleen de DJConnect bearer token,
+clientidentiteit, `ha_local_url`, optionele `ha_remote_url` en door Home
+Assistant geadverteerde API paths/capabilities. Runtime-verkeer blijft
+token-based en gebruikt de lokale Home Assistant URL eerst; iOS/macOS gebruiken
+de optionele remote URL alleen als fallback na succesvolle lokale pairing.
 
 Spotify source/default playlist overrides (`spotify_source` en
 `liked_proxy_playlist_uri`) zijn geen clientinstellingen meer. De app toont deze
@@ -98,7 +111,7 @@ bijgewerkt.
 | MVVM / Observable app model | `DJConnectAppModel` als gedeelde UI-state owner | Centraliseert appstatus, backendinteracties en UI-reacties. |
 | Declarative UI composition | SwiftUI views in `Sources/DJConnectUI` | Houdt iOS/macOS UI consistent en state-driven. |
 | DTO / Codable contract models | Core/UI response- en requestmodellen | Maakt Home Assistant API-contracten expliciet en testbaar. |
-| Gateway / API client | DJConnect command- en refresh-aanroepen via clientlaag | Isoleert HTTP, bearer-token headers, redactie en decodefouten. |
+| Gateway / API client | Pairing, command- en refresh-aanroepen via clientlaag | Isoleert HTTP, bearer-token headers, redactie en decodefouten. |
 | Service adapters | App storage, logging, permissions, speech/audio, HA transport | Houdt platform-API's buiten de viewlaag. |
 | State machine UI | Pairing, unpaired, paired, stale, demo, connecting, unavailable | Maakt disabling, overlays, foutmeldingen en herstelpaden voorspelbaar. |
 | Async/await concurrency | Netwerk, refresh, voice upload, file logging | Voorkomt blokkeren van de main thread en houdt UI responsief. |

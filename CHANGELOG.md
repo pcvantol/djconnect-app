@@ -19,6 +19,13 @@ All notable changes to DJConnect App are documented here.
   persistent profile from local Track Insight history.
 - Updated Music DNA and Watch proxy tests plus the Home Assistant API contract
   documentation.
+- Removed the remaining Apple local API/Bonjour pairing legacy and documented
+  inbound-only pairing through Home Assistant `/api/djconnect/pair`.
+
+### Removed
+
+- Removed old local `/api/device/*` callback/discovery compatibility,
+  Bonjour/mDNS service declarations, and local-device API release tooling.
 
 ## 3.2.3 - 2026-06-29
 

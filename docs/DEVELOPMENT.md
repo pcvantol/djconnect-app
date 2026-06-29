@@ -73,7 +73,7 @@ and may proxy the HTTP request, but the payload identity remains
 
 The pairing sheet also offers Demo Mode. Use it only for local UI work or App
 Store review/auditing when a real Home Assistant backend is unavailable. Demo
-Mode does not validate HA entities, pairing callbacks, Spotify OAuth, or voice
+Mode does not validate HA entities, legacy pairing callbacks, Spotify OAuth, or voice
 round trips. Demo Mode is session-only; restarting an unpaired app returns to
 the pairing sheet. Stopping Demo Mode from Settings returns to Now Playing with
 the pairing sheet on top. Pressing the microphone in Demo Mode plays and shows

@@ -3517,6 +3517,20 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     #expect(json?["firmware"] as? String == "3.1.7")
 }
 
+@Test func appleAppInfoPlistsDoNotDeclareBonjourServicesForPairingDiscovery() throws {
+    let root = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
+    let plistPaths = [
+        root.appendingPathComponent("Apps/DJConnectIOS/Info.plist").path,
+        root.appendingPathComponent("Apps/DJConnectMac/Info.plist").path
+    ]
+
+    for path in plistPaths {
+        let plist = try #require(NSDictionary(contentsOfFile: path) as? [String: Any])
+        #expect(plist["NSBonjourServices"] == nil)
+        #expect(String(describing: plist).contains("_djconnect") == false)
+    }
+}
+
 @Test func iOSPairingRequestUsesPairEndpointWithoutLocalCallbackFields() throws {
     let identity = DJConnectIdentity(
         deviceID: "djconnect-ios-8F3A2C91B45D",
