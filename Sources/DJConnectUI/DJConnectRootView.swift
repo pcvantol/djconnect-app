@@ -2317,6 +2317,7 @@ private func averageArtworkColor(from data: Data) -> Color? {
 private struct TrackInsightView: View {
     @ObservedObject var model: DJConnectAppModel
     @State private var isShowingShare = false
+    @State private var isAnimationActive = false
 
     private var insight: TrackInsight? {
         model.currentTrackInsight
@@ -2329,7 +2330,7 @@ private struct TrackInsightView: View {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 16) {
                         if let insight {
-                            TrackInsightHero(model: model, insight: insight)
+                            TrackInsightHero(model: model, insight: insight, isAnimationActive: isAnimationActive)
                             TrackInsightAnalysisCard(insight: insight, language: model.language)
                             TrackInsightMetricsGrid(insight: insight, language: model.language)
                             MusicDNAMatchCard(insight: insight, language: model.language)
@@ -2369,6 +2370,12 @@ private struct TrackInsightView: View {
                 }
             }
             .djUserNoticeToast(model: model)
+        }
+        .onAppear {
+            isAnimationActive = true
+        }
+        .onDisappear {
+            isAnimationActive = false
         }
     }
 }
@@ -2674,6 +2681,7 @@ private enum MusicDNAMatch {
 private struct TrackInsightHero: View {
     @ObservedObject var model: DJConnectAppModel
     let insight: TrackInsight
+    let isAnimationActive: Bool
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.colorScheme) private var colorScheme
 
@@ -2693,7 +2701,8 @@ private struct TrackInsightHero: View {
             TrackVibeVisualizerView(
                 profile: profile,
                 playback: model.playback,
-                reduceMotion: reduceMotion || ProcessInfo.processInfo.isLowPowerModeEnabled
+                reduceMotion: reduceMotion || ProcessInfo.processInfo.isLowPowerModeEnabled,
+                isActive: isAnimationActive
             )
                 .frame(height: 330)
 
@@ -2702,7 +2711,8 @@ private struct TrackInsightHero: View {
                     TrackHeartbeatIcon(
                         profile: profile,
                         playback: model.playback,
-                        reduceMotion: reduceMotion || ProcessInfo.processInfo.isLowPowerModeEnabled
+                        reduceMotion: reduceMotion || ProcessInfo.processInfo.isLowPowerModeEnabled,
+                        isActive: isAnimationActive
                     )
                 }
                 .frame(width: 96, height: 96)
@@ -2786,7 +2796,7 @@ private struct VibeCastVisualizerSignalView: View {
         GeometryReader { geometry in
             ZStack {
                 profile.gradient
-                TrackVibeVisualizerView(profile: profile, playback: playback, reduceMotion: reduceMotion)
+                TrackVibeVisualizerView(profile: profile, playback: playback, reduceMotion: reduceMotion, isActive: true)
                     .clipShape(Rectangle())
                     .overlay(alignment: .topLeading) {
                         brandHeader
@@ -2954,10 +2964,13 @@ private struct TrackVibeVisualizerView: View {
     let profile: TrackVibeProfile
     let playback: DJConnectPlayback?
     let reduceMotion: Bool
+    let isActive: Bool
 
     var body: some View {
         Group {
-            if reduceMotion {
+            if !isActive {
+                TrackVibeCanvas(profile: profile, playbackPhase: playbackPhase(at: Date()), liveBeat: 0)
+            } else if reduceMotion {
                 TimelineView(.periodic(from: .now, by: 60)) { _ in
                     TrackVibeCanvas(profile: profile, playbackPhase: playbackPhase(at: Date()), liveBeat: 0)
                 }
@@ -3090,10 +3103,13 @@ private struct TrackHeartbeatIcon: View {
     let profile: TrackVibeProfile
     let playback: DJConnectPlayback?
     let reduceMotion: Bool
+    let isActive: Bool
 
     var body: some View {
         Group {
-            if reduceMotion {
+            if !isActive {
+                icon(phase: TrackVibePlaybackPhase(playback: playback, date: Date()), reduceMotion: true)
+            } else if reduceMotion {
                 TimelineView(.periodic(from: .now, by: 60)) { timeline in
                     icon(phase: TrackVibePlaybackPhase(playback: playback, date: timeline.date), reduceMotion: true)
                 }
