@@ -70,10 +70,12 @@ public enum TrackInsightShareRenderer {
         try cleanupTemporaryExports()
         let fileURL = try makeOutputURL(insight: insight, format: format, mediaKind: .animatedVideo, extension: "mp4")
         try? FileManager.default.removeItem(at: fileURL)
+        var writer: AVAssetWriter?
 
         do {
             let size = normalizedVideoSize(format.size)
-            let writer = try AVAssetWriter(outputURL: fileURL, fileType: .mp4)
+            let videoWriter = try AVAssetWriter(outputURL: fileURL, fileType: .mp4)
+            writer = videoWriter
             let settings: [String: Any] = [
                 AVVideoCodecKey: AVVideoCodecType.h264,
                 AVVideoWidthKey: Int(size.width),
@@ -89,14 +91,14 @@ public enum TrackInsightShareRenderer {
                     kCVPixelBufferHeightKey as String: Int(size.height)
                 ]
             )
-            guard writer.canAdd(input) else {
+            guard videoWriter.canAdd(input) else {
                 throw RenderError.videoWriterUnavailable
             }
-            writer.add(input)
-            guard writer.startWriting() else {
-                throw RenderError.videoEncodingFailed(writer.error?.localizedDescription ?? "Video encoding could not start.")
+            videoWriter.add(input)
+            guard videoWriter.startWriting() else {
+                throw RenderError.videoEncodingFailed(videoWriter.error?.localizedDescription ?? "Video encoding could not start.")
             }
-            writer.startSession(atSourceTime: .zero)
+            videoWriter.startSession(atSourceTime: .zero)
 
             let frameRate = 24
             let durationSeconds = 6
@@ -114,19 +116,26 @@ public enum TrackInsightShareRenderer {
                 }
                 let time = CMTime(value: CMTimeValue(frame), timescale: CMTimeScale(frameRate))
                 guard adaptor.append(pixelBuffer, withPresentationTime: time) else {
-                    throw RenderError.videoEncodingFailed(writer.error?.localizedDescription ?? "Video frame encoding failed.")
+                    throw RenderError.videoEncodingFailed(videoWriter.error?.localizedDescription ?? "Video frame encoding failed.")
                 }
                 progress(Double(frame + 1) / Double(frameCount))
                 await Task.yield()
             }
             input.markAsFinished()
-            await finishWriting(writer)
-            guard writer.status == .completed else {
-                throw RenderError.videoEncodingFailed(writer.error?.localizedDescription ?? "Video encoding did not complete.")
+            try Task.checkCancellation()
+            await finishWriting(videoWriter)
+            try Task.checkCancellation()
+            guard videoWriter.status == .completed else {
+                throw RenderError.videoEncodingFailed(videoWriter.error?.localizedDescription ?? "Video encoding did not complete.")
             }
             progress(1)
             return fileURL
+        } catch is CancellationError {
+            writer?.cancelWriting()
+            try? FileManager.default.removeItem(at: fileURL)
+            throw CancellationError()
         } catch {
+            writer?.cancelWriting()
             try? FileManager.default.removeItem(at: fileURL)
             throw error
         }

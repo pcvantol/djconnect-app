@@ -45,7 +45,7 @@ public final class DJConnectClient: Sendable {
     }
 
     public func sendCommand(_ payload: DJConnectCommandPayload) async throws -> DJConnectEnvelope<DJConnectPlayback> {
-        if let response: DJConnectEnvelope<DJConnectPlayback> = try await webSocketResultIfSupported(.command, payload: payload) {
+        if let response: DJConnectEnvelope<DJConnectPlayback> = try await webSocketCommandIfSupported(payload) {
             return response
         }
         let request = try commandRequest(payload)
@@ -53,7 +53,7 @@ public final class DJConnectClient: Sendable {
     }
 
     public func sendCommandResponse(_ payload: DJConnectCommandPayload) async throws -> DJConnectCommandResponse {
-        if let response: DJConnectCommandResponse = try await webSocketResultIfSupported(.command, payload: payload) {
+        if let response: DJConnectCommandResponse = try await webSocketCommandIfSupported(payload) {
             return response
         }
         let request = try commandRequest(payload)
@@ -74,11 +74,17 @@ public final class DJConnectClient: Sendable {
     }
 
     public func askDJHistory(sinceRevision: Int? = nil) async throws -> DJConnectAskDJHistoryResponse {
+        if let response = try await webSocketAskDJHistoryIfSupported(sinceRevision: sinceRevision) {
+            return response
+        }
         let request = try askDJHistoryRequest(sinceRevision: sinceRevision)
         return try await decodedResponse(for: request)
     }
 
     public func clearAskDJHistory(musicDNAKey: String? = nil) async throws -> DJConnectAskDJHistoryResponse {
+        if let response = try await webSocketClearAskDJHistoryIfSupported(musicDNAKey: musicDNAKey) {
+            return response
+        }
         let request = try clearAskDJHistoryRequest(musicDNAKey: musicDNAKey)
         return try await decodedResponse(for: request)
     }
@@ -313,40 +319,44 @@ public final class DJConnectClient: Sendable {
         }
     }
 
-    private func webSocketResultIfSupported<T: Decodable & Sendable>(
-        _ route: DJConnectFastPathRoute,
-        payload: DJConnectCommandPayload
+    private func webSocketCommandIfSupported<T: Decodable & Sendable>(_ payload: DJConnectCommandPayload) async throws -> T? {
+        try await webSocketFastPathResult { fastPath, token in
+            try await fastPath.command(payload, token: token, responseType: T.self)
+        }
+    }
+
+    private func webSocketAskDJMessageIfSupported(_ payload: DJConnectAskDJRequest) async throws -> DJConnectAskDJMessageResponse? {
+        try await webSocketFastPathResult { fastPath, token in
+            try await fastPath.askDJMessage(payload, token: token)
+        }
+    }
+
+    private func webSocketAskDJHistoryIfSupported(sinceRevision: Int?) async throws -> DJConnectAskDJHistoryResponse? {
+        try await webSocketFastPathResult { fastPath, token in
+            try await fastPath.askDJHistory(identity: identity, sinceRevision: sinceRevision, token: token)
+        }
+    }
+
+    private func webSocketClearAskDJHistoryIfSupported(musicDNAKey: String?) async throws -> DJConnectAskDJHistoryResponse? {
+        try await webSocketFastPathResult { fastPath, token in
+            try await fastPath.clearAskDJHistory(identity: identity, musicDNAKey: musicDNAKey, token: token)
+        }
+    }
+
+    private func webSocketTrackInsightIfSupported(_ payload: DJConnectTrackInsightRequest) async throws -> TrackInsight? {
+        try await webSocketFastPathResult { fastPath, token in
+            try await fastPath.trackInsight(payload, identity: identity, token: token)
+        }
+    }
+
+    private func webSocketFastPathResult<T: Sendable>(
+        _ operation: (any DJConnectWebSocketFastPathTransport, String) async throws -> T
     ) async throws -> T? {
         guard let webSocketFastPath else {
             return nil
         }
         do {
-            let token = try loadedToken()
-            return try await webSocketFastPath.command(payload, token: token, responseType: T.self)
-        } catch {
-            return nil
-        }
-    }
-
-    private func webSocketAskDJMessageIfSupported(_ payload: DJConnectAskDJRequest) async throws -> DJConnectAskDJMessageResponse? {
-        guard let webSocketFastPath else {
-            return nil
-        }
-        do {
-            let token = try loadedToken()
-            return try await webSocketFastPath.askDJMessage(payload, token: token)
-        } catch {
-            return nil
-        }
-    }
-
-    private func webSocketTrackInsightIfSupported(_ payload: DJConnectTrackInsightRequest) async throws -> TrackInsight? {
-        guard let webSocketFastPath else {
-            return nil
-        }
-        do {
-            let token = try loadedToken()
-            return try await webSocketFastPath.trackInsight(payload, identity: identity, token: token)
+            return try await operation(webSocketFastPath, loadedToken())
         } catch {
             return nil
         }

@@ -814,11 +814,15 @@ Expected response:
 
 Rules:
 
-- For local latency wins, use only the DJConnect WebSocket fast path on Home
-  Assistant `/api/websocket`: authenticate, request `djconnect/capabilities`,
-  and send only advertised `djconnect/command`, `djconnect/ask_dj/message`, or
-  `djconnect/track_insight` actions. Missing capabilities or any WebSocket
-  failure must fall back to the canonical HTTP route once.
+- For local latency wins, use only the opt-in DJConnect WebSocket fast path on
+  Home Assistant `/api/websocket`: authenticate the HA WebSocket with a valid HA
+  auth token/mechanism first, request `djconnect/capabilities`, and send only
+  advertised `djconnect/command`, `djconnect/ask_dj/message`,
+  `djconnect/ask_dj/history`, `djconnect/ask_dj/history/clear`, or
+  `djconnect/track_insight` actions. The paired DJConnect `device_token` is
+  required inside DJConnect payloads after HA auth succeeds, but must never be
+  treated as HA WebSocket auth. Missing capabilities or any WebSocket failure
+  must fall back to the canonical HTTP route once.
 - Do not connect directly to Home Assistant Assist WebSocket from the app for
   DJConnect PTT unless the backend contract is explicitly changed.
 - Do not call OpenAI or Spotify directly from the app for DJConnect commands.

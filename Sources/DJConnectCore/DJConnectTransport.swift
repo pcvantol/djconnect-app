@@ -16,6 +16,55 @@ public struct DJConnectTransportResolution: Equatable, Sendable {
     }
 }
 
+public struct DJConnectTransportConfiguration: Sendable {
+    public var webSocketFastPathEnabled: Bool
+    public var homeAssistantWebSocketAuth: DJConnectHomeAssistantWebSocketAuth?
+    public var allowsRemoteHTTPFallback: Bool
+
+    public init(
+        webSocketFastPathEnabled: Bool = false,
+        homeAssistantWebSocketAuth: DJConnectHomeAssistantWebSocketAuth? = nil,
+        allowsRemoteHTTPFallback: Bool = true
+    ) {
+        self.webSocketFastPathEnabled = webSocketFastPathEnabled
+        self.homeAssistantWebSocketAuth = homeAssistantWebSocketAuth
+        self.allowsRemoteHTTPFallback = allowsRemoteHTTPFallback
+    }
+}
+
+public enum DJConnectFastPathPolicy {
+    public static func makeFastPath(
+        baseURL: URL,
+        localURL: URL?,
+        configuration: DJConnectTransportConfiguration
+    ) -> (any DJConnectWebSocketFastPathTransport)? {
+        guard configuration.webSocketFastPathEnabled,
+              let homeAssistantAuth = configuration.homeAssistantWebSocketAuth,
+              isEligible(baseURL: baseURL, localURL: localURL) else {
+            return nil
+        }
+        return DJConnectHomeAssistantWebSocketFastPath(baseURL: baseURL, homeAssistantAuth: homeAssistantAuth)
+    }
+
+    public static func isEligible(baseURL: URL, localURL: URL?) -> Bool {
+        guard let localURL else { return false }
+        guard DJConnectHomeAssistantWebSocketFastPath.isLocalHomeAssistantURL(baseURL) else { return false }
+        return cacheKey(for: localURL) == cacheKey(for: baseURL)
+    }
+
+    public static func cacheKey(for url: URL) -> String {
+        var components = URLComponents(url: url, resolvingAgainstBaseURL: false)
+        components?.query = nil
+        components?.fragment = nil
+        var path = components?.path ?? ""
+        while path.count > 1, path.hasSuffix("/") {
+            path.removeLast()
+        }
+        components?.path = path
+        return (components?.url?.absoluteString ?? url.absoluteString).lowercased()
+    }
+}
+
 public final class DJConnectHATransportManager: Sendable {
     public let localURL: URL?
     public let remoteURL: URL?

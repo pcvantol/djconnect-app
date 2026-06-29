@@ -128,8 +128,9 @@ Tests/
 - stable client identity payloads with `client_type` set to `ios`, `macos`, or
   `watchos`;
 - authenticated Home Assistant requests;
-- optional local Home Assistant native `/api/websocket` fast-path transport for
-  latency-sensitive DJConnect actions;
+- opt-in local Home Assistant native `/api/websocket` fast-path transport for
+  latency-sensitive DJConnect actions after separate Home Assistant WebSocket
+  auth succeeds;
 - status, command, and raw WAV voice request serialization;
 - playback and voice response decoding;
 - error classification for auth stale, backend unavailable, version mismatch,
@@ -332,17 +333,22 @@ Command responses are transport success first and playback-state second.
 snapshot, not an error; playback fields such as progress, duration, volume,
 track metadata, context and artwork URLs may be `null`.
 
-When the app has a reachable local Home Assistant URL, it may use the native
-Home Assistant `/api/websocket` API as an optional fast path for supported
-DJConnect command, Ask DJ message, and Track Insight actions. HTTP remains the
-canonical transport and all remote/Nabu Casa sessions stay HTTP-only. Any
-WebSocket auth, timeout, disconnect, protocol, or capability failure falls back
-to the existing HTTP request once without clearing pairing or exposing tokens in
-logs. Clients must first detect `djconnect/capabilities` on the Home Assistant
-WebSocket and only send advertised routes such as `djconnect/command`,
-`djconnect/ask_dj/message`, and `djconnect/track_insight`. Diagnostics export
-only transport state, advertised route names, capability refresh time, and a
-redacted last error.
+When the app has a reachable local Home Assistant URL, an explicit feature flag,
+and a valid Home Assistant WebSocket auth token, it may use the native Home
+Assistant `/api/websocket` API as an optional fast path for supported DJConnect
+command, Ask DJ message/history, and Track Insight actions. HTTP remains the
+canonical transport and all remote/Nabu Casa sessions stay HTTP-only unless a
+future client explicitly proves HA WebSocket auth for that URL class. The paired
+DJConnect `device_token` never authenticates `/api/websocket`; it is included
+only inside DJConnect payloads after HA WebSocket auth succeeds. Any WebSocket
+auth, timeout, disconnect, protocol, malformed result, or capability failure
+falls back to the existing HTTP request once without clearing pairing or
+exposing tokens in logs. Clients must first request `djconnect/capabilities` on
+the authenticated Home Assistant WebSocket and only send advertised routes such
+as `djconnect/command`, `djconnect/ask_dj/message`,
+`djconnect/ask_dj/history`, `djconnect/ask_dj/history/clear`, and
+`djconnect/track_insight`. Diagnostics export only transport state, advertised
+route names, capability refresh time, and a redacted last error.
 
 All status and command payloads include `device_id`, `client_type`, and
 `firmware`. The `firmware` value remains the protocol compatibility version,

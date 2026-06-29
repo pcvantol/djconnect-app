@@ -126,13 +126,18 @@ is unavailable and remote is supported. Do not use the older `ha_url` field.
 
 ## Local WebSocket Fast Path
 
-Apple clients may use Home Assistant's native `/api/websocket` only as a local
-latency optimization for DJConnect actions. HTTP remains the canonical
-transport, and remote/Nabu Casa sessions stay HTTP-only.
+Apple clients may use Home Assistant's native `/api/websocket` only as an
+opt-in local latency optimization for DJConnect actions. HTTP remains the
+canonical transport, and remote/Nabu Casa sessions stay HTTP-only unless a
+client has explicitly proven HA WebSocket auth for that URL class.
 
-Clients must authenticate with the stored DJConnect bearer token, request
-`djconnect/capabilities`, and only send routes advertised by the server. Current
-fast-path route names are `djconnect/command`, `djconnect/ask_dj/message`, and
+Clients must authenticate `/api/websocket` with a valid Home Assistant
+WebSocket auth token/mechanism first, then request `djconnect/capabilities`, and
+only send routes advertised by the server. The paired DJConnect `device_token`
+must not be used as HA WebSocket auth; it is required only inside DJConnect
+WebSocket payloads after HA auth succeeds. Current fast-path route names are
+`djconnect/command`, `djconnect/ask_dj/message`, `djconnect/ask_dj/history`,
+`djconnect/ask_dj/history/clear`, `djconnect/ask_dj/history/state`, and
 `djconnect/track_insight`. If capability detection is missing, stale, refused,
 or does not list the needed route, the client must make the normal HTTP request
 instead.

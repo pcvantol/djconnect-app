@@ -1934,7 +1934,7 @@ private struct DJConnectPressedTintButtonStyle: ButtonStyle {
     }
 }
 
-private struct DJConnectLilacPillButtonStyle: ButtonStyle {
+struct DJConnectLilacPillButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(.headline)
@@ -2345,7 +2345,7 @@ private struct TrackInsightView: View {
             }
             .navigationTitle("Track Insight")
             #if os(iOS)
-            .navigationBarTitleDisplayMode(.inline)
+            .navigationBarTitleDisplayMode(.large)
             #endif
             .toolbar {
                 ToolbarItemGroup(placement: .primaryAction) {
@@ -2695,25 +2695,22 @@ private struct TrackInsightHero: View {
                     .font(.headline.weight(.semibold))
                     .foregroundStyle(.white)
                 Spacer(minLength: 0)
-                Text("\(insight.title) - \(insight.artist)")
-                    .font(.subheadline.weight(.medium))
-                    .foregroundStyle(.white.opacity(0.62))
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.7)
             }
 
-            TrackVibeVisualizerView(profile: profile, language: model.language, reduceMotion: reduceMotion || ProcessInfo.processInfo.isLowPowerModeEnabled)
+            TrackVibeVisualizerView(
+                profile: profile,
+                playback: model.playback,
+                reduceMotion: reduceMotion || ProcessInfo.processInfo.isLowPowerModeEnabled
+            )
                 .frame(height: 330)
 
             HStack(alignment: .top, spacing: 14) {
                 CachedArtworkImage(url: insight.artwork, mode: .fill) {
-                    RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .fill(profile.gradient)
-                        .overlay {
-                            Image(systemName: "waveform.path.ecg")
-                                .font(.largeTitle.weight(.semibold))
-                                .foregroundStyle(.white.opacity(0.72))
-                        }
+                    TrackHeartbeatIcon(
+                        profile: profile,
+                        playback: model.playback,
+                        reduceMotion: reduceMotion || ProcessInfo.processInfo.isLowPowerModeEnabled
+                    )
                 }
                 .frame(width: 96, height: 96)
                 .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
@@ -2766,6 +2763,7 @@ public struct VibeCastOutputView: View {
             if let insight = insight ?? model.currentTrackInsight {
                 VibeCastVisualizerSignalView(
                     insight: insight,
+                    playback: model.playback,
                     language: model.language,
                     reduceMotion: reduceMotion || ProcessInfo.processInfo.isLowPowerModeEnabled
                 )
@@ -2779,6 +2777,7 @@ public struct VibeCastOutputView: View {
 
 private struct VibeCastVisualizerSignalView: View {
     let insight: TrackInsight
+    let playback: DJConnectPlayback?
     let language: String
     let reduceMotion: Bool
 
@@ -2794,7 +2793,7 @@ private struct VibeCastVisualizerSignalView: View {
         GeometryReader { geometry in
             ZStack {
                 profile.gradient
-                TrackVibeVisualizerView(profile: profile, language: language, reduceMotion: reduceMotion)
+                TrackVibeVisualizerView(profile: profile, playback: playback, reduceMotion: reduceMotion)
                     .clipShape(Rectangle())
                     .overlay(alignment: .topLeading) {
                         brandHeader
@@ -2960,39 +2959,43 @@ private struct NativeAirPlayRoutePicker: UIViewRepresentable {
 
 private struct TrackVibeVisualizerView: View {
     let profile: TrackVibeProfile
-    let language: String
+    let playback: DJConnectPlayback?
     let reduceMotion: Bool
 
     var body: some View {
         Group {
             if reduceMotion {
                 TimelineView(.periodic(from: .now, by: 60)) { _ in
-                    TrackVibeCanvas(profile: profile, time: 0)
+                    TrackVibeCanvas(profile: profile, playbackPhase: playbackPhase(at: Date()), liveBeat: 0)
                 }
             } else {
                 TimelineView(.animation) { timeline in
-                    TrackVibeCanvas(profile: profile, time: timeline.date.timeIntervalSinceReferenceDate)
+                    let phase = playbackPhase(at: timeline.date)
+                    TrackVibeCanvas(
+                        profile: profile,
+                        playbackPhase: phase,
+                        liveBeat: playback?.isPlaying == true ? timeline.date.timeIntervalSinceReferenceDate : phase.positionSeconds
+                    )
                 }
             }
         }
         .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-        .overlay(alignment: .topLeading) {
-            Label(localized(language, "Visualize the vibe", "Visualiseer de vibe"), systemImage: "sparkles")
-                .font(.caption.weight(.bold))
-                .foregroundStyle(.white.opacity(0.78))
-                .padding(12)
-        }
         .overlay(alignment: .bottom) {
-            TrackVibePhaseSpectrum(profile: profile)
+            TrackVibePhaseSpectrum(profile: profile, progress: playbackPhase(at: Date()).progress)
                 .padding(.horizontal, 14)
                 .padding(.bottom, 10)
         }
+    }
+
+    private func playbackPhase(at date: Date) -> TrackVibePlaybackPhase {
+        TrackVibePlaybackPhase(playback: playback, date: date)
     }
 }
 
 private struct TrackVibeCanvas: View {
     let profile: TrackVibeProfile
-    let time: TimeInterval
+    let playbackPhase: TrackVibePlaybackPhase
+    let liveBeat: TimeInterval
 
     var body: some View {
         Canvas { context, size in
@@ -3008,21 +3011,24 @@ private struct TrackVibeCanvas: View {
                 endPoint: CGPoint(x: size.width, y: size.height)
             ))
 
-            let pulse = sin(time * profile.pulseSpeed) * 0.5 + 0.5
+            let songTime = playbackPhase.positionSeconds
+            let progress = playbackPhase.progress
+            let energyLift = playbackPhase.energyLift
+            let pulse = sin((songTime + liveBeat * 0.12) * profile.pulseSpeed) * 0.5 + 0.5
             let horizonY = size.height * 0.54
-            let orbRadius = min(size.width, size.height) * (0.18 + pulse * 0.04)
+            let orbRadius = min(size.width, size.height) * (0.15 + pulse * 0.04 + energyLift * 0.07)
             let orbCenter = CGPoint(
-                x: size.width * (0.50 + sin(time * 0.23) * 0.08),
-                y: size.height * (0.40 + cos(time * 0.19) * 0.04)
+                x: size.width * (0.18 + progress * 0.64 + sin(songTime * 0.12) * 0.04),
+                y: size.height * (0.40 + cos(songTime * 0.10) * 0.04)
             )
             context.addFilter(.blur(radius: 22 + profile.glow * 14))
             context.fill(
                 Path(ellipseIn: CGRect(x: orbCenter.x - orbRadius, y: orbCenter.y - orbRadius, width: orbRadius * 2, height: orbRadius * 2)),
-                with: .color((colors.last ?? djConnectAccent).opacity(0.24 + pulse * 0.20))
+                with: .color((colors.last ?? djConnectAccent).opacity(0.22 + pulse * 0.18 + energyLift * 0.18))
             )
             context.addFilter(.blur(radius: 0))
             for ring in 0..<4 {
-                let radius = orbRadius * (0.78 + CGFloat(ring) * 0.18)
+                let radius = orbRadius * (0.78 + CGFloat(ring) * 0.18 + CGFloat(pulse) * 0.05)
                 context.stroke(
                     Path(ellipseIn: CGRect(x: orbCenter.x - radius, y: orbCenter.y - radius, width: radius * 2, height: radius * 2)),
                     with: .color((colors[safe: ring] ?? djConnectAccent).opacity(0.40 - Double(ring) * 0.06)),
@@ -3040,9 +3046,9 @@ private struct TrackVibeCanvas: View {
                     let progress = CGFloat(index) / CGFloat(steps)
                     let x = size.width * progress
                     let depth = 1 + layerProgress * 2.4
-                    let waveA = sin(Double(index) * 0.28 + time * profile.animationSpeed + Double(layer) * 0.58)
-                    let waveB = cos(Double(index) * 0.13 + time * 0.42 + Double(layer))
-                    let y = baseY + CGFloat(waveA) * 18 * profile.waveform * depth + CGFloat(waveB) * 8
+                    let waveA = sin(Double(index) * 0.28 + songTime * profile.animationSpeed + Double(layer) * 0.58)
+                    let waveB = cos(Double(index) * 0.13 + songTime * 0.42 + Double(layer))
+                    let y = baseY + CGFloat(waveA) * 18 * profile.waveform * depth * CGFloat(0.72 + energyLift) + CGFloat(waveB) * 8
                     path.addLine(to: CGPoint(x: x, y: y))
                 }
                 let hueColor = colors[safe: layer % max(colors.count, 1)] ?? djConnectAccent
@@ -3052,20 +3058,24 @@ private struct TrackVibeCanvas: View {
             for column in stride(from: 0, through: Int(size.width), by: 7) {
                 let x = CGFloat(column)
                 let seed = Double(column + 17)
-                let normalized = (sin(seed * 0.21 + time * 1.3) + 1) / 2
-                let height = CGFloat(12 + normalized * 72 * profile.waveform)
+                let distanceFromPlayhead = abs((x / max(size.width, 1)) - progress)
+                let playheadBoost = max(0, 1 - distanceFromPlayhead * 6)
+                let normalized = (sin(seed * 0.21 + songTime * 1.3) + 1) / 2
+                let barSignal = normalized + playheadBoost * 0.72 + energyLift * 0.42
+                let heightValue = 12 + barSignal * 64 * profile.waveform
+                let height = CGFloat(heightValue)
                 let top = horizonY - height * 0.55
                 var bar = Path()
                 bar.move(to: CGPoint(x: x, y: horizonY))
                 bar.addLine(to: CGPoint(x: x, y: top))
-                context.stroke(bar, with: .color((colors.last ?? djConnectAccent).opacity(0.10 + normalized * 0.16)), lineWidth: 2)
+                context.stroke(bar, with: .color((colors.last ?? djConnectAccent).opacity(0.10 + normalized * 0.14 + playheadBoost * 0.28)), lineWidth: 2)
             }
 
             let particleCount = max(10, Int(28 * profile.particleDensity))
             for index in 0..<particleCount {
                 let seed = Double(index + 1)
-                let x = size.width * CGFloat((sin(seed * 12.989 + time * profile.particleVelocity) + 1) / 2)
-                let y = size.height * CGFloat((cos(seed * 7.233 + time * 0.37) + 1) / 2)
+                let x = size.width * CGFloat((sin(seed * 12.989 + songTime * profile.particleVelocity) + 1) / 2)
+                let y = size.height * CGFloat((cos(seed * 7.233 + songTime * 0.37) + 1) / 2)
                 let radius = CGFloat(1.5 + (seed.truncatingRemainder(dividingBy: 4)))
                 context.fill(
                     Path(ellipseIn: CGRect(x: x, y: y, width: radius, height: radius)),
@@ -3082,8 +3092,75 @@ private struct TrackVibeCanvas: View {
     }
 }
 
+private struct TrackHeartbeatIcon: View {
+    let profile: TrackVibeProfile
+    let playback: DJConnectPlayback?
+    let reduceMotion: Bool
+
+    var body: some View {
+        Group {
+            if reduceMotion {
+                TimelineView(.periodic(from: .now, by: 60)) { timeline in
+                    icon(phase: TrackVibePlaybackPhase(playback: playback, date: timeline.date), reduceMotion: true)
+                }
+            } else {
+                TimelineView(.animation) { timeline in
+                    icon(phase: TrackVibePlaybackPhase(playback: playback, date: timeline.date), reduceMotion: false)
+                }
+            }
+        }
+    }
+
+    private func icon(phase: TrackVibePlaybackPhase, reduceMotion: Bool) -> some View {
+        let pulse = reduceMotion ? 0.45 : (sin(phase.positionSeconds * profile.pulseSpeed * 1.6) * 0.5 + 0.5)
+        let scale = 1 + CGFloat(pulse) * 0.10 + CGFloat(phase.energyLift) * 0.06
+        let iconOpacity = 0.78 + pulse * 0.18
+        let iconOffset = CGFloat(sin(phase.positionSeconds * 2.2)) * -3
+        let glowOpacity = 0.55 + pulse * 0.34
+        let glowRadius = 8 + pulse * 16
+        let strokeOpacity = 0.12 + pulse * 0.18
+
+        return RoundedRectangle(cornerRadius: 8, style: .continuous)
+            .fill(profile.gradient)
+            .overlay {
+                Image(systemName: "waveform.path.ecg")
+                    .font(.largeTitle.weight(.semibold))
+                    .foregroundStyle(.white.opacity(iconOpacity))
+                    .scaleEffect(scale)
+                    .offset(y: iconOffset)
+                    .shadow(color: (profile.colors.last ?? djConnectAccent).opacity(glowOpacity), radius: glowRadius)
+            }
+            .overlay {
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .stroke(.white.opacity(strokeOpacity), lineWidth: 1)
+            }
+    }
+}
+
+private struct TrackVibePlaybackPhase {
+    let progress: Double
+    let positionSeconds: TimeInterval
+    let energyLift: Double
+
+    init(playback: DJConnectPlayback?, date: Date) {
+        let durationMS = max(playback?.durationMS ?? 0, 0)
+        let progressMS = max(playback?.progressMS ?? 0, 0)
+        let durationSeconds = durationMS > 0 ? Double(durationMS) / 1_000 : 240
+        let positionSeconds = min(Double(progressMS) / 1_000, durationSeconds)
+        let progress = durationSeconds > 0 ? min(max(positionSeconds / durationSeconds, 0), 1) : 0
+        let phrase = sin(progress * .pi * 10)
+        let section = sin(progress * .pi * 2 - .pi / 2) * 0.5 + 0.5
+
+        self.progress = progress
+        self.positionSeconds = positionSeconds
+        self.energyLift = max(0, min(1, 0.28 + phrase * 0.18 + section * 0.54))
+        _ = date
+    }
+}
+
 private struct TrackVibePhaseSpectrum: View {
     let profile: TrackVibeProfile
+    let progress: Double
 
     private let phases = ["Intro", "Build", "Drop", "Break", "Outro"]
 
@@ -3092,10 +3169,16 @@ private struct TrackVibePhaseSpectrum: View {
             HStack(alignment: .bottom, spacing: 2) {
                 ForEach(0..<64, id: \.self) { index in
                     let base = profile.spectrumProfile[index % profile.spectrumProfile.count]
-                    let lift = sin(Double(index) * 0.31) * 0.5 + 0.5
+                    let position = Double(index) / 63
+                    let playheadBoost = max(0, 1 - abs(position - progress) * 9)
+                    let lift = sin(Double(index) * 0.31 + progress * .pi * 8) * 0.5 + 0.5
+                    let opacity = 0.56 + playheadBoost * 0.38
+                    let heightSignal = base * (0.55 + lift * 0.55) + playheadBoost * 0.82
+                    let height = 5 + CGFloat(heightSignal) * 36
+                    let color = Color(hue: 0.60 + Double(index) / 170, saturation: 0.85, brightness: 1.0)
                     Capsule()
-                        .fill(Color(hue: 0.60 + Double(index) / 170, saturation: 0.85, brightness: 1.0).opacity(0.84))
-                        .frame(width: 3, height: 5 + CGFloat(base * (0.55 + lift * 0.55)) * 36)
+                        .fill(color.opacity(opacity))
+                        .frame(width: 3, height: height)
                 }
             }
             HStack {
@@ -3169,7 +3252,7 @@ private struct TrackInsightAnalysisCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text(localized(language, "AI summary", "AI-samenvatting"))
+            Text("Track energy")
                 .font(.headline.weight(.semibold))
             Text(insight.summary)
                 .font(.body)
@@ -3194,6 +3277,7 @@ private struct TrackInsightAnalysisCard: View {
             }
         }
         .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .djConnectGradientCard(cornerRadius: 8)
     }
 }
@@ -3499,7 +3583,6 @@ private struct IOSConnectionCard: View {
 private struct IOSTrackHero: View {
     @ObservedObject var model: DJConnectAppModel
     @State private var cardTint = Color(red: 0.22, green: 0.52, blue: 0.92)
-    @State private var isShowingTrackInsightShare = false
 
     private var playback: DJConnectPlayback? {
         model.playback
@@ -3521,25 +3604,10 @@ private struct IOSTrackHero: View {
                             .lineLimit(2)
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
-
-                    TrackInsightIconButton(model: model)
                 }
             }
 
             ProgressScrubberView(model: model)
-
-            if let insight = model.currentTrackInsight {
-                Button {
-                    isShowingTrackInsightShare = true
-                } label: {
-                    Label(localized(model.language, "Share Insight", "Insight delen"), systemImage: "square.and.arrow.up")
-                        .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.bordered)
-                .sheet(isPresented: $isShowingTrackInsightShare) {
-                    TrackInsightSharePreviewView(insight: insight, language: model.language)
-                }
-            }
 
             SeekControlsView(model: model)
             IOSPlaybackSurface(model: model)
@@ -3557,41 +3625,22 @@ private struct TrackInsightIconButton: View {
 
     var body: some View {
         Button {
+            DJConnectHaptics.selection()
             model.analyzeCurrentTrack(open: true)
         } label: {
-            ZStack {
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .fill(
-                        LinearGradient(
-                            colors: [
-                                Color(red: 0.34, green: 0.42, blue: 1.0),
-                                Color(red: 0.68, green: 0.34, blue: 1.0)
-                            ],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
-                    .overlay {
-                        RoundedRectangle(cornerRadius: 8, style: .continuous)
-                            .stroke(.white.opacity(0.22), lineWidth: 1)
-                    }
-                    .shadow(color: Color(red: 0.56, green: 0.30, blue: 1.0).opacity(0.42), radius: 14)
-
-                if model.isLoadingTrackInsight {
-                    ProgressView()
-                        .controlSize(.small)
-                        .tint(.white)
-                } else {
-                    TrackInsightPulseIcon()
-                        .stroke(.white.opacity(0.92), style: StrokeStyle(lineWidth: 3.6, lineCap: .round, lineJoin: .round))
-                        .frame(width: 28, height: 24)
-                        .foregroundStyle(.white)
-                }
+            if model.isLoadingTrackInsight {
+                ProgressView()
+                    .controlSize(.small)
+                    .frame(width: 44, height: 40)
+            } else {
+                TrackInsightPulseIcon()
+                    .stroke(style: StrokeStyle(lineWidth: 3.2, lineCap: .round, lineJoin: .round))
+                    .frame(width: 27, height: 23)
+                    .frame(width: 44, height: 40)
             }
-            .frame(width: 46, height: 46)
-            .contentShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.bordered)
+        .tint(model.currentTrackInsight == nil ? .secondary : djConnectAccent)
         .disabled(model.isLoadingTrackInsight || !model.canStartTrackInsightAnalysis)
         .opacity(model.canStartTrackInsightAnalysis ? 1 : 0.45)
         .accessibilityLabel(localized(model.language, "Open Track Insight", "Open Track Insight"))
@@ -3675,6 +3724,9 @@ private struct IOSPlaybackSurface: View {
                     .disabled(!canUsePlayback)
 
                 FavoriteTrackButton(model: model)
+                    .disabled(!canUsePlayback)
+
+                TrackInsightIconButton(model: model)
                     .disabled(!canUsePlayback)
 
                 RepeatModeButton(model: model)
@@ -4143,12 +4195,15 @@ private struct FavoriteTrackButton: View {
             if model.isSavingCurrentTrack {
                 ProgressView()
                     .controlSize(.small)
+                    .frame(width: 44, height: 40)
             } else {
                 Image(systemName: isFavorite ? "heart.fill" : "heart")
+                    .font(.system(size: 22, weight: .semibold))
+                    .frame(width: 44, height: 40)
             }
         }
         .buttonStyle(.bordered)
-        .tint(isFavorite ? .pink : nil)
+        .tint(isFavorite ? djConnectAccent : nil)
         .help(label)
         .accessibilityLabel(label)
         .disabled(model.isSavingCurrentTrack)
@@ -8872,16 +8927,16 @@ private struct MoreView: View {
                         PlaylistsView(model: model)
                     }
                     MoreNavigationRow(
-                        title: localized(model.language, "Games", "Games"),
-                        systemImage: "gamecontroller"
-                    ) {
-                        GamesView(language: model.language, isDemoMode: model.isDemoMode)
-                    }
-                    MoreNavigationRow(
                         title: "Music DNA",
                         systemImage: "waveform"
                     ) {
                         MusicDNAView(model: model)
+                    }
+                    MoreNavigationRow(
+                        title: localized(model.language, "Games", "Games"),
+                        systemImage: "gamecontroller"
+                    ) {
+                        GamesView(language: model.language, isDemoMode: model.isDemoMode)
                     }
                     MoreNavigationRow(
                         title: localized(model.language, "Settings", "Instellingen"),
@@ -9576,6 +9631,9 @@ private struct AboutView: View {
                     AboutStackedRow(label: localized(model.language, "Connection Type", "Connectietype")) {
                         SelectableValue(connectionModeTitle, foregroundStyle: connectionModeColor)
                     }
+                    AboutStackedRow(label: localized(model.language, "Connection Speed", "Verbindingssnelheid")) {
+                        SelectableValue(connectionTransportTitle, foregroundStyle: connectionTransportColor)
+                    }
                     AboutStackedRow(label: localized(model.language, "Home Assistant address", "Home Assistant adres")) {
                         SelectableValue(model.homeAssistantURL)
                     }
@@ -9633,6 +9691,29 @@ private struct AboutView: View {
         case .offline:
             return .red
         }
+    }
+
+    private var connectionTransportTitle: String {
+        if model.isDemoMode {
+            return localized(model.language, "Demo", "Demo")
+        }
+        if model.haConnectionMode == .offline {
+            return localized(model.language, "Not active", "Niet actief")
+        }
+        if model.fastPathDiagnostics.websocketConnected {
+            return localized(model.language, "Fast local link (WebSocket)", "Snelle lokale verbinding (WebSocket)")
+        }
+        return localized(model.language, "Normal link (HTTP)", "Normale verbinding (HTTP)")
+    }
+
+    private var connectionTransportColor: Color {
+        if model.isDemoMode {
+            return djConnectAccent
+        }
+        if model.haConnectionMode == .offline {
+            return .red
+        }
+        return model.fastPathDiagnostics.websocketConnected ? .green : .secondary
     }
 }
 

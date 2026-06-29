@@ -149,16 +149,16 @@ enum DJConnectWatchLogLevel: String, CaseIterable, Identifiable {
 
     var id: String { rawValue }
 
-    var title: String {
+    func title(language: String) -> String {
         switch self {
         case .debug:
             return "Debug"
         case .info:
             return "Info"
         case .warning:
-            return "Waarschuwingen"
+            return DJConnectLocalization.localized(language: language, english: "Warnings", dutch: "Waarschuwingen")
         case .error:
-            return "Fouten"
+            return DJConnectLocalization.localized(language: language, english: "Errors", dutch: "Fouten")
         }
     }
 
@@ -289,6 +289,10 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
     @AppStorage("askDJClearRevision") private var askDJClearRevision = 0
     @AppStorage("DJConnectWatchWelcomeSeen") private var welcomeSeen = false
     @AppStorage("watchVoiceActivationEnabled") private var storedVoiceActivationEnabled = false
+
+    var language: String {
+        Locale.current.language.languageCode?.identifier ?? "en"
+    }
 
     @Published private(set) var connectionState: ConnectionState = .unpaired
     @Published private(set) var voiceState: VoiceState = .idle

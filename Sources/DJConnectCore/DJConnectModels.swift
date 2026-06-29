@@ -867,6 +867,10 @@ public struct DJConnectTrackInsightWidgetSnapshot: Codable, Equatable, Sendable 
         defaults.set(data, forKey: Self.storageKey)
     }
 
+    public static func remove(from defaults: UserDefaults) {
+        defaults.removeObject(forKey: storageKey)
+    }
+
     public static func load(from defaults: UserDefaults) -> DJConnectTrackInsightWidgetSnapshot? {
         guard let data = defaults.data(forKey: storageKey) else {
             return nil
@@ -929,6 +933,10 @@ public struct DJConnectAskDJWidgetSnapshot: Codable, Equatable, Sendable {
     public func save(to defaults: UserDefaults) throws {
         let data = try JSONEncoder().encode(self)
         defaults.set(data, forKey: Self.storageKey)
+    }
+
+    public static func remove(from defaults: UserDefaults) {
+        defaults.removeObject(forKey: storageKey)
     }
 
     public static func load(from defaults: UserDefaults) -> DJConnectAskDJWidgetSnapshot? {

@@ -535,7 +535,7 @@ public final class DJConnectAppModel: ObservableObject {
     private var shouldShowWakeWordPromptAfterPairingScreen = false
     private var currentAPNsPushToken: String?
     private var webSocketFastPathCache: [String: any DJConnectWebSocketFastPathTransport] = [:]
-    private var lastFastPathDiagnostics = DJConnectFastPathDiagnostics()
+    @Published public private(set) var fastPathDiagnostics = DJConnectFastPathDiagnostics()
     #if canImport(AVFoundation)
     private var voiceRecorder: AVAudioRecorder?
     private var voiceRecordingURL: URL?
@@ -555,6 +555,7 @@ public final class DJConnectAppModel: ObservableObject {
     #endif
     private let defaults: UserDefaults
     private let tokenStore: DJConnectTokenStore
+    private let homeAssistantWebSocketAuth: DJConnectHomeAssistantWebSocketAuth?
     private let startLocalAPI: Bool
     private let startBackgroundTasks: Bool
     private let monkeyTestingMode: Bool
@@ -588,6 +589,7 @@ public final class DJConnectAppModel: ObservableObject {
     private let askDJAudioResponseModeKey = "DJConnectAskDJAudioResponseMode"
     private let autoTrackInsightEnabledKey = "DJConnectAutoTrackInsightEnabled"
     private let showVisualizerOnAirPlayKey = "DJConnectShowVisualizerOnAirPlay"
+    private let webSocketFastPathEnabledKey = "DJConnectWebSocketFastPathEnabled"
     private let legacyPushTokenKey = "DJConnectPushToken"
     private let registeredPushTokenKey = "DJConnectRegisteredPushToken"
     private let registeredPushTokenHashKey = "DJConnectRegisteredPushTokenHash"
@@ -723,6 +725,7 @@ public final class DJConnectAppModel: ObservableObject {
         playback: DJConnectPlayback? = nil,
         defaults: UserDefaults = .standard,
         tokenStore: DJConnectTokenStore? = nil,
+        homeAssistantWebSocketAuth: DJConnectHomeAssistantWebSocketAuth? = nil,
         startLocalAPI: Bool = true,
         startBackgroundTasks: Bool = true,
         monkeyTestingMode: Bool = false,
@@ -732,6 +735,7 @@ public final class DJConnectAppModel: ObservableObject {
         self.startLocalAPI = startLocalAPI
         self.startBackgroundTasks = startBackgroundTasks
         self.monkeyTestingMode = monkeyTestingMode
+        self.homeAssistantWebSocketAuth = homeAssistantWebSocketAuth
         self.isMonkeyTestingMode = monkeyTestingMode
         self.diagnosticLogFileURL = (diagnosticLogDirectory ?? Self.defaultDiagnosticLogDirectory())?
             .appendingPathComponent("djconnect.log")
@@ -1061,6 +1065,7 @@ public final class DJConnectAppModel: ObservableObject {
         resumeWakeWordListeningIfNeeded()
         updatePlaybackProgressTimer()
         updateNowPlayingPollTimer()
+        syncTrackInsightLiveActivity(reason: "App became active")
         guard pairingStatus == .paired, !isDemoMode else {
             return
         }
@@ -2874,6 +2879,11 @@ public final class DJConnectAppModel: ObservableObject {
             }
         }
         self.playback = normalizedPlayback
+        if !hasActiveNowPlaying || !currentTrackInsightMatchesPlayback() {
+            currentTrackInsight = nil
+            clearTrackInsightWidgetSnapshot(reason: "No matching active playback")
+        }
+        syncTrackInsightLiveActivity(reason: normalizedPlayback == nil ? "Empty playback snapshot" : "Playback snapshot changed")
         if startBackgroundTasks {
             updatePlaybackProgressTimer()
         }
@@ -3417,6 +3427,9 @@ public final class DJConnectAppModel: ObservableObject {
         pendingSelectedOutput = nil
         pendingVolumePercent = nil
         playback = nil
+        currentTrackInsight = nil
+        clearTrackInsightWidgetSnapshot(reason: "Runtime state cleared")
+        syncTrackInsightLiveActivity(reason: "Runtime state cleared")
         queue = []
         playlists = []
         availableOutputs = []
@@ -4025,8 +4038,12 @@ public final class DJConnectAppModel: ObservableObject {
 
     private func applyTrackInsight(_ insight: TrackInsight, open: Bool) {
         currentTrackInsight = insight
-        saveTrackInsightWidgetSnapshot(for: insight)
-        updateTrackInsightLiveActivity(for: insight)
+        if isDemoMode {
+            log(.debug, "Track Insight widget snapshot skipped in Demo Mode")
+        } else {
+            saveTrackInsightWidgetSnapshot(for: insight)
+        }
+        syncTrackInsightLiveActivity(reason: "Track Insight changed")
         trackInsightHistory.removeAll { $0.id == insight.id }
         trackInsightHistory.insert(insight, at: 0)
         if trackInsightHistory.count > 25 {
@@ -4053,15 +4070,49 @@ public final class DJConnectAppModel: ObservableObject {
         }
     }
 
-    private func updateTrackInsightLiveActivity(for insight: TrackInsight) {
+    private func clearTrackInsightWidgetSnapshot(reason: String) {
+        guard let defaults = UserDefaults(suiteName: DJConnectTrackInsightWidgetSnapshot.appGroupIdentifier) else {
+            return
+        }
+        DJConnectTrackInsightWidgetSnapshot.remove(from: defaults)
+        #if canImport(WidgetKit)
+        WidgetCenter.shared.reloadTimelines(ofKind: DJConnectTrackInsightWidgetSnapshot.widgetKind)
+        #endif
+        log(.debug, "Cleared Track Insight widget snapshot: \(reason)")
+    }
+
+    private func syncTrackInsightLiveActivity(reason: String) {
         #if os(iOS) && canImport(ActivityKit)
         guard #available(iOS 16.1, *) else {
             return
         }
-        Task {
-            await TrackInsightLiveActivityController.update(with: insight)
+        if currentTrackInsight != nil, (!hasActiveNowPlaying || !currentTrackInsightMatchesPlayback()) {
+            currentTrackInsight = nil
         }
+        let insight = currentTrackInsight
+        let hasPlayback = hasActiveNowPlaying
+        Task {
+            await TrackInsightLiveActivityController.sync(currentInsight: insight, hasActivePlayback: hasPlayback)
+        }
+        log(.debug, "Synced Track Insight Live Activity: \(reason), insight=\(insight == nil ? "none" : "present"), playback=\(hasPlayback)")
         #endif
+    }
+
+    private func currentTrackInsightMatchesPlayback() -> Bool {
+        guard let insight = currentTrackInsight else {
+            return true
+        }
+        guard let playback else {
+            return false
+        }
+        return Self.normalizedTrackIdentity(insight.title) == Self.normalizedTrackIdentity(playback.trackName)
+            && Self.normalizedTrackIdentity(insight.artist) == Self.normalizedTrackIdentity(playback.artistName)
+    }
+
+    private static func normalizedTrackIdentity(_ value: String?) -> String {
+        value?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .folding(options: [.diacriticInsensitive, .caseInsensitive], locale: .current) ?? ""
     }
 
     private func trackInsightErrorMessage(for error: Error) -> String {
@@ -5312,10 +5363,10 @@ public final class DJConnectAppModel: ObservableObject {
         case "pause":
             updated.isPlaying = false
         case "next":
-            applyDemoQueueItem(at: 1)
+            applyDemoQueueItem(relativeOffset: 1)
             return
         case "previous":
-            applyDemoQueueItem(at: 0)
+            applyDemoQueueItem(relativeOffset: -1)
             return
         case "set_volume":
             if case let .int(volume) = value {
@@ -5398,6 +5449,24 @@ public final class DJConnectAppModel: ObservableObject {
         }
     }
 
+    private func applyDemoQueueItem(relativeOffset: Int) {
+        guard !queueItems.isEmpty else {
+            return
+        }
+        let currentIndex = currentDemoQueueIndex() ?? 0
+        let targetIndex = min(max(currentIndex + relativeOffset, 0), queueItems.count - 1)
+        applyDemoQueueItem(at: targetIndex)
+    }
+
+    private func currentDemoQueueIndex() -> Int? {
+        guard let playback else {
+            return nil
+        }
+        return queueItems.firstIndex { item in
+            item.title == playback.trackName && item.artist == playback.artistName
+        }
+    }
+
     private func applyDemoTrackInsightForCurrentPlayback(open: Bool) {
         let playback = playback
         Task {
@@ -5452,45 +5521,38 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     private func webSocketFastPathIfLocal(_ baseURL: URL) -> (any DJConnectWebSocketFastPathTransport)? {
+        let configuration = transportConfiguration()
         let localURL = Self.normalizedHomeAssistantURL(from: localHomeAssistantURL())
             ?? Self.normalizedHomeAssistantURL(from: homeAssistantURL)
             ?? Self.normalizedHomeAssistantURL(from: haLocalURL)
-        guard Self.isWebSocketFastPathEligible(baseURL, localURL: localURL) else {
+        guard DJConnectFastPathPolicy.isEligible(baseURL: baseURL, localURL: localURL) else {
             return nil
         }
-        let key = Self.fastPathCacheKey(for: baseURL)
+        let key = DJConnectFastPathPolicy.cacheKey(for: baseURL)
         if let cached = webSocketFastPathCache[key] {
             return cached
         }
-        let fastPath = DJConnectHomeAssistantWebSocketFastPath(baseURL: baseURL)
+        guard let fastPath = DJConnectFastPathPolicy.makeFastPath(
+            baseURL: baseURL,
+            localURL: localURL,
+            configuration: configuration
+        ) else {
+            return nil
+        }
         webSocketFastPathCache[key] = fastPath
         return fastPath
     }
 
-    nonisolated private static func webSocketFastPathIfLocal(_ baseURL: URL, localURL: URL?) -> (any DJConnectWebSocketFastPathTransport)? {
-        guard isWebSocketFastPathEligible(baseURL, localURL: localURL) else { return nil }
-        return DJConnectHomeAssistantWebSocketFastPath(baseURL: baseURL)
-    }
-
-    nonisolated private static func isWebSocketFastPathEligible(_ baseURL: URL, localURL: URL?) -> Bool {
-        guard let localURL else { return false }
-        return fastPathCacheKey(for: localURL) == fastPathCacheKey(for: baseURL)
-    }
-
-    nonisolated private static func fastPathCacheKey(for url: URL) -> String {
-        var components = URLComponents(url: url, resolvingAgainstBaseURL: false)
-        components?.query = nil
-        components?.fragment = nil
-        var path = components?.path ?? ""
-        while path.count > 1, path.hasSuffix("/") {
-            path.removeLast()
-        }
-        components?.path = path
-        return (components?.url?.absoluteString ?? url.absoluteString).lowercased()
+    private func transportConfiguration(allowsRemoteHTTPFallback: Bool = true) -> DJConnectTransportConfiguration {
+        DJConnectTransportConfiguration(
+            webSocketFastPathEnabled: defaults.bool(forKey: webSocketFastPathEnabledKey),
+            homeAssistantWebSocketAuth: homeAssistantWebSocketAuth,
+            allowsRemoteHTTPFallback: allowsRemoteHTTPFallback
+        )
     }
 
     private func updateFastPathDiagnostics(from client: DJConnectClient) async {
-        lastFastPathDiagnostics = await client.fastPathDiagnostics
+        fastPathDiagnostics = await client.fastPathDiagnostics
     }
 
     private func homeAssistantBaseURLs() -> [URL] {
@@ -5522,12 +5584,13 @@ public final class DJConnectAppModel: ObservableObject {
         }
 
         let localFastPath = localURL.flatMap { webSocketFastPathIfLocal($0) }
+        let configuration = transportConfiguration(allowsRemoteHTTPFallback: identity.clientType != .watchos)
         let transport = DJConnectHATransportManager(
             localURL: localURL,
             remoteURL: remoteURL,
-            allowsRemoteFallback: identity.clientType != .watchos,
+            allowsRemoteFallback: configuration.allowsRemoteHTTPFallback,
             clientFactory: { [identity, tokenStore, localURL, localFastPath] baseURL in
-                let fastPath = Self.isWebSocketFastPathEligible(baseURL, localURL: localURL) ? localFastPath : nil
+                let fastPath = DJConnectFastPathPolicy.isEligible(baseURL: baseURL, localURL: localURL) ? localFastPath : nil
                 return DJConnectClient(
                     baseURL: baseURL,
                     identity: identity,
@@ -6120,16 +6183,21 @@ public final class DJConnectAppModel: ObservableObject {
             ?? Self.normalizedHomeAssistantURL(from: homeAssistantURL)
         let remoteURL = Self.normalizedHomeAssistantURL(from: haRemoteURL)
         let tokenStore = DJConnectInMemoryTokenStore(token: token)
+        let configuration = transportConfiguration()
         let transport = DJConnectHATransportManager(
             localURL: localURL,
             remoteURL: remoteURL,
-            allowsRemoteFallback: true,
-            clientFactory: { [localURL] baseURL in
+            allowsRemoteFallback: configuration.allowsRemoteHTTPFallback,
+            clientFactory: { [localURL, configuration] baseURL in
                 DJConnectClient(
                     baseURL: baseURL,
                     identity: identity,
                     tokenStore: tokenStore,
-                    webSocketFastPath: Self.webSocketFastPathIfLocal(baseURL, localURL: localURL)
+                    webSocketFastPath: DJConnectFastPathPolicy.makeFastPath(
+                        baseURL: baseURL,
+                        localURL: localURL,
+                        configuration: configuration
+                    )
                 )
             },
             modeReporter: { [weak self] mode, baseURL in
@@ -6451,11 +6519,11 @@ public final class DJConnectAppModel: ObservableObject {
         wakeword_phrase: \(wakeWordPhrase)
         wakeword_status: \(wakeWordStatus)
         local_response_audio_enabled: \(localResponseAudioEnabled)
-        fast_path_transport: \(lastFastPathDiagnostics.fastPathTransport)
-        fast_path_websocket_connected: \(lastFastPathDiagnostics.websocketConnected)
-        fast_path_last_capability_refresh: \(lastFastPathDiagnostics.lastCapabilityRefresh?.description ?? "missing")
-        fast_path_websocket_commands: \(lastFastPathDiagnostics.websocketCommands.isEmpty ? "none" : lastFastPathDiagnostics.websocketCommands.joined(separator: ","))
-        fast_path_last_error: \(lastFastPathDiagnostics.lastWebSocketError ?? "none")
+        fast_path_transport: \(fastPathDiagnostics.fastPathTransport)
+        fast_path_websocket_connected: \(fastPathDiagnostics.websocketConnected)
+        fast_path_last_capability_refresh: \(fastPathDiagnostics.lastCapabilityRefresh?.description ?? "missing")
+        fast_path_websocket_commands: \(fastPathDiagnostics.websocketCommands.isEmpty ? "none" : fastPathDiagnostics.websocketCommands.joined(separator: ","))
+        fast_path_last_error: \(fastPathDiagnostics.lastWebSocketError ?? "none")
 
         Logs
         \(lines.isEmpty ? "none" : lines)

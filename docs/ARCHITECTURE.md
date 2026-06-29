@@ -61,13 +61,17 @@ Native macOS app target. It hosts the shared SwiftUI root view in a macOS app
 scene and exposes a native settings scene.
 
 Local Home Assistant transport can use a native `/api/websocket` fast path for
-latency-sensitive DJConnect command, Ask DJ message, and Track Insight actions
-when HA reports the matching `djconnect/*` capabilities. This is deliberately
-optional: HTTP remains the canonical implementation, remote/Nabu Casa URLs use
-HTTP only, and every WebSocket failure path falls back to the existing HTTP
-flow without treating the pairing as stale. WebSocket diagnostics must remain
-non-secret: route/capability state is fine, but HA tokens, DJConnect device
-tokens, raw prompts, Ask DJ history, raw audio, and Music DNA content are not.
+latency-sensitive DJConnect command, Ask DJ message/history, and Track Insight
+actions when an explicit feature flag is enabled, the URL is local, HA WebSocket
+auth succeeds with a HA token/mechanism, and HA reports the matching
+`djconnect/*` capabilities. The paired DJConnect `device_token` is not HA
+WebSocket auth; it is sent only inside DJConnect payloads after HA auth succeeds.
+This is deliberately optional: HTTP remains the canonical implementation,
+remote/Nabu Casa URLs use HTTP only, and every WebSocket failure path falls back
+to the existing HTTP flow without treating the pairing as stale. WebSocket
+diagnostics must remain non-secret: route/capability state is fine, but HA
+tokens, DJConnect device tokens, raw prompts, Ask DJ history, raw audio, and
+Music DNA content are not.
 
 `DJConnectWatch`
 

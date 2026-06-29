@@ -96,7 +96,11 @@ final class DJConnectIOSAppDelegate: NSObject, UIApplicationDelegate {
         if let shortcutItem = options.shortcutItem {
             handle(shortcutItem)
         }
-        return UISceneConfiguration(name: nil, sessionRole: connectingSceneSession.role)
+        let configuration = UISceneConfiguration(name: nil, sessionRole: connectingSceneSession.role)
+        if connectingSceneSession.role == .windowExternalDisplayNonInteractive {
+            configuration.delegateClass = VibeCastExternalDisplaySceneDelegate.self
+        }
+        return configuration
     }
 
     func application(
@@ -133,50 +137,88 @@ final class DJConnectIOSAppDelegate: NSObject, UIApplicationDelegate {
 }
 
 @MainActor
+private final class VibeCastExternalDisplaySceneDelegate: NSObject, UIWindowSceneDelegate {
+    func scene(
+        _ scene: UIScene,
+        willConnectTo session: UISceneSession,
+        options connectionOptions: UIScene.ConnectionOptions
+    ) {
+        VibeCastExternalDisplayController.updateActiveController()
+    }
+
+    func sceneDidDisconnect(_ scene: UIScene) {
+        VibeCastExternalDisplayController.updateActiveController()
+    }
+}
+
+@MainActor
 private final class VibeCastExternalDisplayController {
+    private static weak var activeController: VibeCastExternalDisplayController?
+
     weak var model: DJConnectAppModel?
-    private var outputWindow: UIWindow?
-    private var outputScreen: UIScreen?
+    private var outputWindows: [String: UIWindow] = [:]
     private var observers: [NSObjectProtocol] = []
+
+    init() {
+        Self.activeController = self
+    }
+
+    static func updateActiveController() {
+        activeController?.update()
+    }
 
     func start() {
         guard observers.isEmpty else {
             return
         }
         let center = NotificationCenter.default
-        observers.append(center.addObserver(forName: UIScreen.didConnectNotification, object: nil, queue: .main) { [weak self] _ in
+        observers.append(center.addObserver(forName: UIScene.didActivateNotification, object: nil, queue: .main) { [weak self] _ in
             Task { @MainActor in self?.update() }
         })
-        observers.append(center.addObserver(forName: UIScreen.didDisconnectNotification, object: nil, queue: .main) { [weak self] _ in
+        observers.append(center.addObserver(forName: UIScene.didDisconnectNotification, object: nil, queue: .main) { [weak self] _ in
             Task { @MainActor in self?.update() }
         })
         update()
     }
 
     func update() {
-        guard let model, model.currentTrackInsight != nil, let screen = externalScreen else {
+        guard let model, model.currentTrackInsight != nil else {
             clear()
             return
         }
-        if outputWindow == nil || outputScreen !== screen {
-            let window = UIWindow(frame: screen.bounds)
-            window.screen = screen
-            window.windowLevel = .normal
-            outputWindow = window
-            outputScreen = screen
+        let scenes = externalWindowScenes
+        guard !scenes.isEmpty else {
+            clear()
+            return
         }
-        outputWindow?.rootViewController = UIHostingController(rootView: VibeCastOutputView(model: model))
-        outputWindow?.isHidden = false
+        let activeSessionIDs = Set(scenes.map { $0.session.persistentIdentifier })
+        for staleID in outputWindows.keys where !activeSessionIDs.contains(staleID) {
+            outputWindows[staleID]?.isHidden = true
+            outputWindows[staleID] = nil
+        }
+        for scene in scenes {
+            let sessionID = scene.session.persistentIdentifier
+            let window = outputWindows[sessionID] ?? UIWindow(windowScene: scene)
+            window.rootViewController = UIHostingController(rootView: VibeCastOutputView(model: model))
+            window.windowLevel = .normal
+            window.isHidden = false
+            outputWindows[sessionID] = window
+        }
     }
 
-    private var externalScreen: UIScreen? {
-        UIScreen.screens.first { $0 !== UIScreen.main }
+    private var externalWindowScenes: [UIWindowScene] {
+        UIApplication.shared.connectedScenes.compactMap { scene in
+            guard let windowScene = scene as? UIWindowScene,
+                  windowScene.session.role == .windowExternalDisplayNonInteractive else {
+                return nil
+            }
+            return windowScene
+        }
     }
 
     private func clear() {
-        outputWindow?.isHidden = true
-        outputWindow = nil
-        outputScreen = nil
+        outputWindows.values.forEach { $0.isHidden = true }
+        outputWindows.removeAll()
     }
 
 }

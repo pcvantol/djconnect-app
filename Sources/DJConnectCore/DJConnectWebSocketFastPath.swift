@@ -3,7 +3,18 @@ import Foundation
 public enum DJConnectFastPathRoute: String, CaseIterable, Sendable {
     case command = "djconnect/command"
     case askDJMessage = "djconnect/ask_dj/message"
+    case askDJHistory = "djconnect/ask_dj/history"
+    case askDJHistoryClear = "djconnect/ask_dj/history/clear"
+    case askDJHistoryState = "djconnect/ask_dj/history/state"
     case trackInsight = "djconnect/track_insight"
+}
+
+public struct DJConnectHomeAssistantWebSocketAuth: Sendable {
+    public var accessToken: @Sendable () async throws -> String?
+
+    public init(accessToken: @escaping @Sendable () async throws -> String?) {
+        self.accessToken = accessToken
+    }
 }
 
 public struct DJConnectFastPathDiagnostics: Equatable, Sendable {
@@ -33,6 +44,8 @@ public protocol DJConnectWebSocketFastPathTransport: Sendable {
     func supports(_ route: DJConnectFastPathRoute) async -> Bool
     func command<T: Decodable & Sendable>(_ payload: DJConnectCommandPayload, token: String, responseType: T.Type) async throws -> T
     func askDJMessage(_ payload: DJConnectAskDJRequest, token: String) async throws -> DJConnectAskDJMessageResponse
+    func askDJHistory(identity: DJConnectIdentity, sinceRevision: Int?, token: String) async throws -> DJConnectAskDJHistoryResponse
+    func clearAskDJHistory(identity: DJConnectIdentity, musicDNAKey: String?, token: String) async throws -> DJConnectAskDJHistoryResponse
     func trackInsight(_ payload: DJConnectTrackInsightRequest, identity: DJConnectIdentity, token: String) async throws -> TrackInsight
 }
 
@@ -40,6 +53,7 @@ public actor DJConnectHomeAssistantWebSocketFastPath: DJConnectWebSocketFastPath
     public let baseURL: URL
 
     private let session: URLSession
+    private let homeAssistantAuth: DJConnectHomeAssistantWebSocketAuth
     private let decoder = JSONDecoder()
     private let encoder = JSONEncoder()
     private var task: URLSessionWebSocketTask?
@@ -49,8 +63,13 @@ public actor DJConnectHomeAssistantWebSocketFastPath: DJConnectWebSocketFastPath
     private var unhealthyUntil: Date?
     private var lastError: String?
 
-    public init(baseURL: URL, session: URLSession = .shared) {
+    public init(
+        baseURL: URL,
+        homeAssistantAuth: DJConnectHomeAssistantWebSocketAuth,
+        session: URLSession = .shared
+    ) {
         self.baseURL = baseURL
+        self.homeAssistantAuth = homeAssistantAuth
         self.session = session
     }
 
@@ -73,7 +92,7 @@ public actor DJConnectHomeAssistantWebSocketFastPath: DJConnectWebSocketFastPath
         token: String,
         responseType: T.Type
     ) async throws -> T {
-        guard try await ensureCapabilities(token: token).contains(.command) else {
+        guard try await ensureCapabilities().contains(.command) else {
             throw DJConnectError.routeMissing(message: "WebSocket command capability unavailable")
         }
         let request = DJConnectWebSocketCommandMessage(id: allocateID(), payload: payload, deviceToken: token)
@@ -81,11 +100,49 @@ public actor DJConnectHomeAssistantWebSocketFastPath: DJConnectWebSocketFastPath
     }
 
     public func askDJMessage(_ payload: DJConnectAskDJRequest, token: String) async throws -> DJConnectAskDJMessageResponse {
-        guard try await ensureCapabilities(token: token).contains(.askDJMessage) else {
+        guard try await ensureCapabilities().contains(.askDJMessage) else {
             throw DJConnectError.routeMissing(message: "WebSocket Ask DJ capability unavailable")
         }
         let request = DJConnectWebSocketAskDJMessage(id: allocateID(), payload: payload, deviceToken: token)
         return try await sendResult(request, timeout: 15, responseType: DJConnectAskDJMessageResponse.self)
+    }
+
+    public func askDJHistory(
+        identity: DJConnectIdentity,
+        sinceRevision: Int?,
+        token: String
+    ) async throws -> DJConnectAskDJHistoryResponse {
+        guard try await ensureCapabilities().contains(.askDJHistory) else {
+            throw DJConnectError.routeMissing(message: "WebSocket Ask DJ history capability unavailable")
+        }
+        let request = DJConnectWebSocketAskDJHistoryMessage(
+            id: allocateID(),
+            type: DJConnectFastPathRoute.askDJHistory.rawValue,
+            identity: identity,
+            deviceToken: token,
+            sinceRevision: sinceRevision,
+            musicDNAKey: nil
+        )
+        return try await sendResult(request, timeout: 10, responseType: DJConnectAskDJHistoryResponse.self)
+    }
+
+    public func clearAskDJHistory(
+        identity: DJConnectIdentity,
+        musicDNAKey: String?,
+        token: String
+    ) async throws -> DJConnectAskDJHistoryResponse {
+        guard try await ensureCapabilities().contains(.askDJHistoryClear) else {
+            throw DJConnectError.routeMissing(message: "WebSocket Ask DJ clear-history capability unavailable")
+        }
+        let request = DJConnectWebSocketAskDJHistoryMessage(
+            id: allocateID(),
+            type: DJConnectFastPathRoute.askDJHistoryClear.rawValue,
+            identity: identity,
+            deviceToken: token,
+            sinceRevision: nil,
+            musicDNAKey: musicDNAKey
+        )
+        return try await sendResult(request, timeout: 10, responseType: DJConnectAskDJHistoryResponse.self)
     }
 
     public func trackInsight(
@@ -93,7 +150,7 @@ public actor DJConnectHomeAssistantWebSocketFastPath: DJConnectWebSocketFastPath
         identity: DJConnectIdentity,
         token: String
     ) async throws -> TrackInsight {
-        guard try await ensureCapabilities(token: token).contains(.trackInsight) else {
+        guard try await ensureCapabilities().contains(.trackInsight) else {
             throw DJConnectError.routeMissing(message: "WebSocket Track Insight capability unavailable")
         }
         let request = DJConnectWebSocketTrackInsightMessage(id: allocateID(), identity: identity, payload: payload, deviceToken: token)
@@ -104,26 +161,37 @@ public actor DJConnectHomeAssistantWebSocketFastPath: DJConnectWebSocketFastPath
         return insight
     }
 
-    private func ensureCapabilities(token: String) async throws -> Set<DJConnectFastPathRoute> {
+    private func ensureCapabilities() async throws -> Set<DJConnectFastPathRoute> {
         if let unhealthyUntil, unhealthyUntil > Date() {
             throw DJConnectError.network(message: "WebSocket fast path is backing off")
         }
         if let capabilitiesLoadedAt, Date().timeIntervalSince(capabilitiesLoadedAt) < 60 {
             return Set(commands.compactMap(DJConnectFastPathRoute.init(rawValue:)))
         }
-        try await connectIfNeeded(token: token)
+        try await connectIfNeeded()
         let request = DJConnectWebSocketTypeMessage(id: allocateID(), type: "djconnect/capabilities")
         let response: DJConnectWebSocketCapabilitiesResponse = try await sendResult(request, timeout: 5, responseType: DJConnectWebSocketCapabilitiesResponse.self)
+        guard response.websocketSupported == true, response.transports?.websocket == true else {
+            throw DJConnectError.routeMissing(message: "Home Assistant did not advertise DJConnect WebSocket transport support")
+        }
         commands = Set(response.commands)
         capabilitiesLoadedAt = Date()
         return Set(response.commands.compactMap(DJConnectFastPathRoute.init(rawValue:)))
     }
 
-    private func connectIfNeeded(token: String) async throws {
+    private func connectIfNeeded() async throws {
         if task != nil {
             return
         }
         do {
+            guard Self.isLocalHomeAssistantURL(baseURL) else {
+                throw DJConnectError.routeMissing(message: "WebSocket fast path is local-only")
+            }
+            guard let homeAssistantToken = try await homeAssistantAuth.accessToken()?
+                .trimmingCharacters(in: .whitespacesAndNewlines),
+                !homeAssistantToken.isEmpty else {
+                throw DJConnectError.routeMissing(message: "Home Assistant WebSocket auth token is unavailable")
+            }
             let websocketURL = try Self.websocketURL(from: baseURL)
             let task = session.webSocketTask(with: websocketURL)
             self.task = task
@@ -132,10 +200,10 @@ public actor DJConnectHomeAssistantWebSocketFastPath: DJConnectWebSocketFastPath
             guard authRequired.type == "auth_required" else {
                 throw DJConnectError.invalidResponse
             }
-            try await send(DJConnectWebSocketAuthRequest(type: "auth", accessToken: token))
+            try await send(DJConnectWebSocketAuthRequest(type: "auth", accessToken: homeAssistantToken))
             let authResponse: DJConnectWebSocketAuthMessage = try await receive(timeout: 5)
             guard authResponse.type == "auth_ok" else {
-                throw DJConnectError.authStale(statusCode: 401, message: "WebSocket auth failed")
+                throw DJConnectError.network(message: "Home Assistant WebSocket auth failed")
             }
         } catch {
             markUnhealthy(error)
@@ -240,6 +308,26 @@ public actor DJConnectHomeAssistantWebSocketFastPath: DJConnectWebSocketFastPath
         return url
     }
 
+    public static func isLocalHomeAssistantURL(_ url: URL) -> Bool {
+        guard let host = url.host?.lowercased(), !host.isEmpty else {
+            return false
+        }
+        if host == "localhost" || host == "homeassistant.local" || host.hasSuffix(".local") {
+            return true
+        }
+        if host.hasPrefix("10.") || host.hasPrefix("192.168.") {
+            return true
+        }
+        let parts = host.split(separator: ".").compactMap { Int($0) }
+        if parts.count == 4, parts[0] == 172, (16...31).contains(parts[1]) {
+            return true
+        }
+        if host.hasPrefix("127.") || host == "::1" {
+            return true
+        }
+        return false
+    }
+
     private static func redactedError(_ error: Error) -> String {
         let raw = error.localizedDescription
         return raw
@@ -285,7 +373,19 @@ private struct DJConnectWebSocketTypeMessage: Encodable {
 }
 
 private struct DJConnectWebSocketCapabilitiesResponse: Decodable {
+    var websocketSupported: Bool?
+    var transports: DJConnectWebSocketTransports?
     var commands: [String]
+
+    enum CodingKeys: String, CodingKey {
+        case websocketSupported = "websocket_supported"
+        case transports
+        case commands
+    }
+}
+
+private struct DJConnectWebSocketTransports: Decodable {
+    var websocket: Bool?
 }
 
 private struct DJConnectWebSocketError: Decodable, Sendable {
@@ -380,6 +480,49 @@ private struct DJConnectWebSocketAskDJMessage: Encodable {
         case mood
         case musicDNAKey = "music_dna_key"
         case audioResponse = "audio_response"
+    }
+}
+
+private struct DJConnectWebSocketAskDJHistoryMessage: Encodable {
+    var id: Int
+    var type: String
+    var deviceID: String
+    var clientType: DJConnectClientType
+    var clientID: String
+    var deviceName: String
+    var deviceToken: String
+    var sinceRevision: Int?
+    var musicDNAKey: String?
+
+    init(
+        id: Int,
+        type: String,
+        identity: DJConnectIdentity,
+        deviceToken: String,
+        sinceRevision: Int?,
+        musicDNAKey: String?
+    ) {
+        self.id = id
+        self.type = type
+        deviceID = identity.deviceID
+        clientType = identity.clientType
+        clientID = identity.deviceID
+        deviceName = identity.deviceName
+        self.deviceToken = deviceToken
+        self.sinceRevision = sinceRevision
+        self.musicDNAKey = musicDNAKey
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case type
+        case deviceID = "device_id"
+        case clientType = "client_type"
+        case clientID = "client_id"
+        case deviceName = "device_name"
+        case deviceToken = "device_token"
+        case sinceRevision = "since_revision"
+        case musicDNAKey = "music_dna_key"
     }
 }
 

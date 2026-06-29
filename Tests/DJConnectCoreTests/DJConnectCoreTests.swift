@@ -109,10 +109,14 @@ private actor MockWebSocketFastPathTransport: DJConnectWebSocketFastPathTranspor
     var trackInsightError: Error?
     var commandCalls = 0
     var askDJCalls = 0
+    var askDJHistoryCalls = 0
+    var clearAskDJHistoryCalls = 0
     var trackInsightCalls = 0
     var receivedTokens: [String] = []
     var receivedCommandPayload: DJConnectCommandPayload?
     var receivedAskPayload: DJConnectAskDJRequest?
+    var receivedHistorySinceRevision: Int?
+    var receivedClearMusicDNAKey: String?
     var receivedTrackPayload: DJConnectTrackInsightRequest?
 
     init(supportedRoutes: Set<DJConnectFastPathRoute>) {
@@ -174,6 +178,26 @@ private actor MockWebSocketFastPathTransport: DJConnectWebSocketFastPathTranspor
             historyRevision: 12,
             clearRevision: 3
         )
+    }
+
+    func askDJHistory(identity: DJConnectIdentity, sinceRevision: Int?, token: String) async throws -> DJConnectAskDJHistoryResponse {
+        askDJHistoryCalls += 1
+        receivedTokens.append(token)
+        receivedHistorySinceRevision = sinceRevision
+        guard supportedRoutes.contains(.askDJHistory) else {
+            throw DJConnectError.routeMissing(message: "missing websocket ask dj history capability")
+        }
+        return DJConnectAskDJHistoryResponse(historyRevision: sinceRevision ?? 0, clearRevision: 0, messages: [])
+    }
+
+    func clearAskDJHistory(identity: DJConnectIdentity, musicDNAKey: String?, token: String) async throws -> DJConnectAskDJHistoryResponse {
+        clearAskDJHistoryCalls += 1
+        receivedTokens.append(token)
+        receivedClearMusicDNAKey = musicDNAKey
+        guard supportedRoutes.contains(.askDJHistoryClear) else {
+            throw DJConnectError.routeMissing(message: "missing websocket ask dj clear history capability")
+        }
+        return DJConnectAskDJHistoryResponse(historyRevision: 0, clearRevision: 1, messages: [])
     }
 
     func trackInsight(_ payload: DJConnectTrackInsightRequest, identity: DJConnectIdentity, token: String) async throws -> TrackInsight {
@@ -1357,6 +1381,89 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
     ))
 
     #expect(counter.count == 1)
+}
+
+@Test func askDJHistoryWebSocketFastPathSucceedsWhenAdvertised() async throws {
+    let fastPath = MockWebSocketFastPathTransport(supportedRoutes: [.askDJHistory])
+    let client = DJConnectClient(
+        baseURL: URL(string: "http://history-fast.local:8123")!,
+        identity: testIOSIdentity(),
+        tokenStore: DJConnectInMemoryTokenStore(token: "device-token"),
+        session: mockSession(host: "history-fast.local") { request in
+            Issue.record("HTTP should not be used when WebSocket Ask DJ history succeeds")
+            return (try httpResponse(for: request, statusCode: 500), Data())
+        },
+        webSocketFastPath: fastPath
+    )
+
+    let response = try await client.askDJHistory(sinceRevision: 44)
+
+    #expect(response.historyRevision == 44)
+    #expect(await fastPath.askDJHistoryCalls == 1)
+    #expect(await fastPath.receivedHistorySinceRevision == 44)
+    #expect(await fastPath.receivedTokens == ["device-token"])
+}
+
+@Test func clearAskDJHistoryWebSocketFailureFallsBackToHTTPExactlyOnce() async throws {
+    let fastPath = MockWebSocketFastPathTransport(supportedRoutes: [])
+    final class Counter: @unchecked Sendable {
+        let lock = NSLock()
+        var value = 0
+        func increment() { lock.withLock { value += 1 } }
+        var count: Int { lock.withLock { value } }
+    }
+    let counter = Counter()
+    let client = DJConnectClient(
+        baseURL: URL(string: "http://clear-history-fallback.local:8123")!,
+        identity: testIOSIdentity(),
+        tokenStore: DJConnectInMemoryTokenStore(token: "device-token"),
+        session: mockSession(host: "clear-history-fallback.local") { request in
+            counter.increment()
+            #expect(request.url?.path == "/api/djconnect/ask_dj/history/clear")
+            return (try httpResponse(for: request, statusCode: 200), Data(#"{"messages":[],"history_revision":0,"clear_revision":7}"#.utf8))
+        },
+        webSocketFastPath: fastPath
+    )
+
+    let response = try await client.clearAskDJHistory(musicDNAKey: "music-dna")
+
+    #expect(response.clearRevision == 7)
+    #expect(await fastPath.clearAskDJHistoryCalls == 1)
+    #expect(counter.count == 1)
+}
+
+@Test func homeAssistantWebSocketFastPathAllowsOnlyLocalURLs() {
+    #expect(DJConnectHomeAssistantWebSocketFastPath.isLocalHomeAssistantURL(URL(string: "http://homeassistant.local:8123")!))
+    #expect(DJConnectHomeAssistantWebSocketFastPath.isLocalHomeAssistantURL(URL(string: "http://192.168.1.10:8123")!))
+    #expect(DJConnectHomeAssistantWebSocketFastPath.isLocalHomeAssistantURL(URL(string: "http://172.20.1.10:8123")!))
+    #expect(!DJConnectHomeAssistantWebSocketFastPath.isLocalHomeAssistantURL(URL(string: "https://remote.ui.nabu.casa")!))
+}
+
+@Test func fastPathPolicyRequiresOptInAuthAndMatchingLocalURL() {
+    let localURL = URL(string: "http://homeassistant.local:8123")!
+    let remoteURL = URL(string: "https://remote.ui.nabu.casa")!
+    let auth = DJConnectHomeAssistantWebSocketAuth { "ha-token" }
+
+    #expect(DJConnectFastPathPolicy.makeFastPath(
+        baseURL: localURL,
+        localURL: localURL,
+        configuration: DJConnectTransportConfiguration(webSocketFastPathEnabled: false, homeAssistantWebSocketAuth: auth)
+    ) == nil)
+    #expect(DJConnectFastPathPolicy.makeFastPath(
+        baseURL: localURL,
+        localURL: localURL,
+        configuration: DJConnectTransportConfiguration(webSocketFastPathEnabled: true)
+    ) == nil)
+    #expect(DJConnectFastPathPolicy.makeFastPath(
+        baseURL: remoteURL,
+        localURL: localURL,
+        configuration: DJConnectTransportConfiguration(webSocketFastPathEnabled: true, homeAssistantWebSocketAuth: auth)
+    ) == nil)
+    #expect(DJConnectFastPathPolicy.makeFastPath(
+        baseURL: localURL,
+        localURL: localURL,
+        configuration: DJConnectTransportConfiguration(webSocketFastPathEnabled: true, homeAssistantWebSocketAuth: auth)
+    ) != nil)
 }
 
 @Test func trackInsightEndpointResponseDecodesNormalizedBackendContract() throws {
@@ -4200,6 +4307,39 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
     #expect(model.askDJMessages[0].status == .sent)
     #expect(model.askDJMessages[1].role == .dj)
     #expect(model.askDJMessages[1].text.contains("Home Assistant"))
+}
+
+@MainActor
+@Test func demoModeNextCommandAdvancesThroughQueue() async throws {
+    let suiteName = "DJConnectTests-\(UUID().uuidString)"
+    let defaults = try #require(UserDefaults(suiteName: suiteName))
+    defaults.removePersistentDomain(forName: suiteName)
+    let model = DJConnectAppModel(
+        defaults: defaults,
+        tokenStore: DJConnectInMemoryTokenStore(),
+        startLocalAPI: false,
+        startBackgroundTasks: false
+    )
+
+    model.startDemoMode()
+
+    #expect(model.playback?.trackName == "Midnight City")
+
+    model.sendPlaybackCommand("next")
+    await Task.yield()
+    #expect(model.playback?.trackName == "Sweet Disposition")
+
+    model.sendPlaybackCommand("next")
+    await Task.yield()
+    #expect(model.playback?.trackName == "Electric Feel")
+
+    model.sendPlaybackCommand("next")
+    await Task.yield()
+    #expect(model.playback?.trackName == "Electric Feel")
+
+    model.sendPlaybackCommand("previous")
+    await Task.yield()
+    #expect(model.playback?.trackName == "Sweet Disposition")
 }
 
 @MainActor

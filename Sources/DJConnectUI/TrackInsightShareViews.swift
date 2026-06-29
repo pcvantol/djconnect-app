@@ -12,28 +12,44 @@ struct TrackInsightSharePreviewView: View {
     @State private var renderProgress: Double = 0
     @State private var isRendering = false
     @State private var renderTask: Task<Void, Never>?
+    @State private var activeRenderID = UUID()
 
     var body: some View {
-        NavigationStack {
-            ZStack {
-                DJConnectCanvasBackground()
-                VStack(spacing: 14) {
-                    Picker(localized("Media", "Media"), selection: $mediaKind) {
-                        ForEach(TrackInsightShareMediaKind.allCases) { mediaKind in
-                            Text(mediaKind.title(language: language)).tag(mediaKind)
-                        }
+        ZStack {
+            DJConnectCanvasBackground()
+            ScrollView {
+                VStack(alignment: .leading, spacing: 22) {
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text(localized("Share Track Insight", "Track Insight delen"))
+                            .font(.title.bold())
+                        Text(localized(
+                            "Create a share card or short animated clip from this track analysis. Nothing is posted automatically.",
+                            "Maak een deelkaart of korte animatie van deze trackanalyse. Er wordt niets automatisch geplaatst."
+                        ))
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
                     }
-                    .pickerStyle(.segmented)
 
-                    Picker(localized("Format", "Formaat"), selection: $format) {
-                        ForEach(TrackInsightShareFormat.allCases) { format in
-                            Text(format.title(language: language)).tag(format)
-                        }
-                    }
-                    .pickerStyle(.segmented)
+                    VStack(spacing: 14) {
+                TrackInsightShareSegmentControl(
+                    title: localized("Media", "Media"),
+                    options: TrackInsightShareMediaKind.allCases,
+                    selection: $mediaKind
+                ) { mediaKind in
+                    mediaKind.title(language: language)
+                }
 
-                    previewCard
+                TrackInsightShareSegmentControl(
+                    title: localized("Format", "Formaat"),
+                    options: TrackInsightShareFormat.allCases,
+                    selection: $format
+                ) { format in
+                    format.title(language: language)
+                }
 
+                previewCard
+
+                VStack(spacing: 12) {
                     if let payload {
                         ShareLink(
                             item: payload.mediaURL,
@@ -43,37 +59,37 @@ struct TrackInsightSharePreviewView: View {
                             Label(shareButtonTitle, systemImage: "square.and.arrow.up")
                                 .frame(maxWidth: .infinity)
                         }
-                        .buttonStyle(.borderedProminent)
+                        .buttonStyle(DJConnectLilacPillButtonStyle())
+                        .controlSize(.large)
                     } else {
                         renderStatus
                     }
 
-                    if let errorText {
-                        Text(errorText)
-                            .font(.caption.weight(.semibold))
-                            .foregroundStyle(.orange)
-                    }
-                }
-                .padding(16)
-                .frame(maxWidth: 560)
-            }
-            .navigationTitle(localized("Share Vibe", "Vibe delen"))
-            #if os(iOS)
-            .navigationBarTitleDisplayMode(.inline)
-            #endif
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
                     Button {
                         dismiss()
                     } label: {
-                        Image(systemName: "xmark")
+                        Text(localized("Not Now", "Niet nu"))
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(DJConnectLilacPillButtonStyle())
+                    .controlSize(.large)
+                }
+
+                if let errorText {
+                    Text(errorText)
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.orange)
+                }
                     }
                 }
             }
+            .padding(20)
+            .frame(maxWidth: 560)
+            .frame(maxWidth: .infinity)
         }
         #if os(iOS)
         .presentationDetents([.large])
-        .presentationDragIndicator(.visible)
+        .presentationDragIndicator(.hidden)
         #endif
         .onAppear {
             startRender()
@@ -93,7 +109,7 @@ struct TrackInsightSharePreviewView: View {
     private var shareButtonTitle: String {
         switch mediaKind {
         case .staticImage:
-            localized("Share Vibe Card", "Vibe-kaart delen")
+            localized("Share Track Insight", "Track Insight delen")
         case .animatedVideo:
             localized("Share Animated Vibe", "Geanimeerde vibe delen")
         }
@@ -110,12 +126,12 @@ struct TrackInsightSharePreviewView: View {
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(.secondary)
                     Button(role: .cancel) {
-                        renderTask?.cancel()
+                        cancelRender()
                     } label: {
                         Text(localized("Cancel export", "Export annuleren"))
                     }
                     .buttonStyle(.bordered)
-                    .disabled(!isRendering)
+                    .disabled(!isRendering || renderTask == nil)
                 }
             } else {
                 Text(localized("Preparing share card...", "Deelkaart voorbereiden..."))
@@ -159,6 +175,8 @@ struct TrackInsightSharePreviewView: View {
     @MainActor
     private func startRender() {
         renderTask?.cancel()
+        let taskID = UUID()
+        activeRenderID = taskID
         payload = nil
         errorText = nil
         renderProgress = 0
@@ -173,24 +191,42 @@ struct TrackInsightSharePreviewView: View {
                     mediaKind: currentMediaKind,
                     language: language
                 ) { progress in
+                    guard activeRenderID == taskID else { return }
                     renderProgress = min(1, max(0, progress))
                 }
                 try Task.checkCancellation()
+                guard activeRenderID == taskID else { return }
                 payload = renderedPayload
                 renderProgress = 1
                 errorText = nil
             } catch is CancellationError {
+                guard activeRenderID == taskID else { return }
                 payload = nil
                 errorText = localized("Export cancelled.", "Export geannuleerd.")
             } catch let error as TrackInsightShareRenderer.RenderError {
+                guard activeRenderID == taskID else { return }
                 payload = nil
                 errorText = localizedMessage(for: error)
             } catch {
+                guard activeRenderID == taskID else { return }
                 payload = nil
                 errorText = localized("Share media could not be generated.", "Deelmedia kon niet worden gemaakt.")
             }
+            guard activeRenderID == taskID else { return }
             isRendering = false
+            renderTask = nil
         }
+    }
+
+    @MainActor
+    private func cancelRender() {
+        renderTask?.cancel()
+        renderTask = nil
+        activeRenderID = UUID()
+        payload = nil
+        renderProgress = 0
+        isRendering = false
+        errorText = localized("Export cancelled.", "Export geannuleerd.")
     }
 
     private func localized(_ english: String, _ dutch: String) -> String {
@@ -213,6 +249,79 @@ struct TrackInsightSharePreviewView: View {
     }
 }
 
+private struct TrackInsightShareSegmentControl<Option: Hashable & Identifiable>: View {
+    let title: String
+    let options: [Option]
+    @Binding var selection: Option
+    let label: (Option) -> String
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Text(title)
+                .font(.headline.weight(.semibold))
+                .foregroundStyle(.white.opacity(0.86))
+                .frame(width: 92, alignment: .trailing)
+
+            HStack(spacing: 8) {
+                ForEach(options) { option in
+                    Button {
+                        selection = option
+                    } label: {
+                        Text(label(option))
+                            .font(.system(size: 16, weight: .semibold, design: .default))
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.74)
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 44)
+                            .contentShape(Rectangle())
+                            .background(selectionBackground(for: option))
+                            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(option == selection ? .white : .white.opacity(0.70))
+                    .contentShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    .accessibilityAddTraits(option == selection ? .isSelected : [])
+                }
+            }
+            .padding(8)
+            .frame(minHeight: 60)
+            .frame(maxWidth: 390)
+            .background(
+                LinearGradient(
+                    colors: [
+                        Color(red: 0.04, green: 0.03, blue: 0.13).opacity(0.96),
+                        Color(red: 0.11, green: 0.05, blue: 0.24).opacity(0.96)
+                    ],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                ),
+                in: RoundedRectangle(cornerRadius: 12, style: .continuous)
+            )
+            .overlay {
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .stroke(.white.opacity(0.16), lineWidth: 1.5)
+            }
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    @ViewBuilder
+    private func selectionBackground(for option: Option) -> some View {
+        if option == selection {
+            LinearGradient(
+                colors: [
+                    Color(red: 0.98, green: 0.49, blue: 0.27),
+                    Color(red: 0.74, green: 0.20, blue: 0.77)
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        } else {
+            Color.clear
+        }
+    }
+}
+
 struct TrackInsightShareCardView: View {
     let insight: TrackInsight
     let format: TrackInsightShareFormat
@@ -230,9 +339,6 @@ struct TrackInsightShareCardView: View {
                 Label("DJCONNECT", systemImage: "circle.hexagongrid.fill")
                     .font(.caption.weight(.bold))
                     .foregroundStyle(.white.opacity(0.88))
-                Text(localized("Now Playing", "Speelt nu"))
-                    .font(.caption)
-                    .foregroundStyle(.white.opacity(0.62))
                 artwork
                 VStack(spacing: 5) {
                     Text(insight.title)
@@ -256,6 +362,9 @@ struct TrackInsightShareCardView: View {
                     Text(vibeLine)
                         .font(.subheadline.weight(.semibold))
                         .foregroundStyle(profile.colors.last ?? djConnectAccent)
+                        .lineLimit(format == .linkPreview ? 1 : 2)
+                        .minimumScaleFactor(0.72)
+                        .multilineTextAlignment(.center)
                         .padding(.horizontal, 14)
                         .padding(.vertical, 7)
                         .background(.black.opacity(0.24), in: Capsule())
@@ -265,15 +374,10 @@ struct TrackInsightShareCardView: View {
                     .font(summaryFont)
                     .foregroundStyle(.white.opacity(0.78))
                     .multilineTextAlignment(.center)
-                    .lineLimit(format == .linkPreview ? 2 : 4)
-                    .minimumScaleFactor(0.76)
+                    .lineLimit(summaryLineLimit)
+                    .minimumScaleFactor(0.66)
+                    .fixedSize(horizontal: false, vertical: true)
                 Spacer(minLength: 0)
-                Label(localized("Rendered privately on your device", "Privé gerenderd op je apparaat"), systemImage: "lock.fill")
-                    .font(.caption2.weight(.semibold))
-                    .foregroundStyle(.white.opacity(0.58))
-                Text(localized("Track Insight powered by Music DNA", "Track Insight met Music DNA"))
-                    .font(.caption2.weight(.semibold))
-                    .foregroundStyle(.white.opacity(0.58))
                 Text("#DJConnect #TrackInsight")
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(.white.opacity(0.66))
@@ -303,19 +407,58 @@ struct TrackInsightShareCardView: View {
     }
 
     private var titleFont: Font {
-        format == .linkPreview ? .title2.weight(.bold) : .title.weight(.bold)
+        switch format {
+        case .story:
+            .title.weight(.bold)
+        case .square:
+            .title2.weight(.bold)
+        case .linkPreview:
+            .headline.weight(.bold)
+        }
     }
 
     private var summaryFont: Font {
-        format == .linkPreview ? .caption.weight(.medium) : .callout.weight(.medium)
+        switch format {
+        case .story:
+            .callout.weight(.medium)
+        case .square:
+            .caption.weight(.medium)
+        case .linkPreview:
+            .caption2.weight(.medium)
+        }
+    }
+
+    private var summaryLineLimit: Int {
+        switch format {
+        case .story:
+            5
+        case .square:
+            3
+        case .linkPreview:
+            2
+        }
     }
 
     private var cardSpacing: CGFloat {
-        format == .linkPreview ? 7 : 12
+        switch format {
+        case .story:
+            10
+        case .square:
+            8
+        case .linkPreview:
+            6
+        }
     }
 
     private var cardPadding: CGFloat {
-        format == .linkPreview ? 22 : 28
+        switch format {
+        case .story:
+            28
+        case .square:
+            22
+        case .linkPreview:
+            20
+        }
     }
 
     private var artworkSize: CGFloat {
