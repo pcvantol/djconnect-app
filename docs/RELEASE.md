@@ -63,9 +63,9 @@ After renewing the Apple Developer Program membership:
 - Confirm iOS signing uses automatic signing for `DJConnectIOS`.
 - Confirm macOS signing uses automatic signing for `DJConnectMac`.
 - Confirm iOS capabilities and Info.plist strings:
-  Local Network, Bonjour services, Microphone, Speech Recognition.
+  Local Network, Microphone, Speech Recognition.
 - Confirm macOS capabilities and Info.plist strings:
-  Local Network, Bonjour services, Microphone, Speech Recognition.
+  Local Network, Microphone, Speech Recognition.
 - Confirm app icons, launch screen, welcome screen, About screen, and website
   link match the current DJConnect branding.
 - Confirm the HA integration compatibility line is documented:
@@ -500,10 +500,7 @@ real playback validation.
 
 The app declares only the permissions it needs:
 
-- Local Network: required to reach Home Assistant on the LAN and expose the
-  local pairing and runtime HA connection.
-- Bonjour service `_home-assistant._tcp.`: used for local HA discovery on
-  iOS/macOS. Apple clients do not advertise `_djconnect._tcp`.
+- Local Network: required to reach Home Assistant on the LAN.
 - Microphone: required for push-to-talk WAV uploads.
 - Speech Recognition: required for the foreground wake phrase.
 
@@ -675,7 +672,7 @@ Use a Home Assistant instance with the matching `djconnect` integration.
 
 - Pair from the app-generated code and confirm HA creates the app device.
 - Confirm iOS/macOS pair only through local `/api/djconnect/pair`, store
-  `ha_local_url` plus optional `ha_remote_url`, and show no Client adres.
+  `ha_local_url` plus optional `ha_remote_url`, and show no callback address.
 - Confirm watchOS actions, status, Ask DJ history, clear history, voice/PTT,
   and push registration run through the paired iPhone proxy and preserve
   `client_type:"watchos"`.

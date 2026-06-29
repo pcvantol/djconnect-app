@@ -42,8 +42,6 @@ Website: [https://djconnect.dev](https://djconnect.dev)
   toolchain, simulator, signing, and hygiene setup.
 - [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md): local development, generation, build, and test commands.
 - [docs/RELEASE.md](docs/RELEASE.md): signing, TestFlight, notarization, and live HA validation checklist.
-- [docs/postman/djconnect-local-device-api.postman_collection.json](docs/postman/djconnect-local-device-api.postman_collection.json):
-  historical Postman collection for the removed local Client API contract.
 - `pcvantol/djconnect/SYNC_PROMPTS.md`: canonical source for cross-repo DJConnect
   sync prompts and contract instructions.
 - `pcvantol/djconnect/PRODUCT_ROADMAP.md`: canonical DJConnect product roadmap.
@@ -69,9 +67,11 @@ Assistant.
 
 If the app is not paired yet, the main runtime UI is blocked by a pairing
 sheet. On iOS/macOS that sheet asks for the local Home Assistant address and
-pairing code/QR. On watchOS it shows the Watch pairing code and iPhone
-companion status. After Home Assistant completes pairing, the sheet shows a
-success state before the runtime UI is released.
+pairing code/QR. Apple Watch pairing starts on the paired iPhone by scanning
+the Home Assistant-generated Apple Watch QR/deep-link; the Watch only shows
+companion status and never asks for a Home Assistant URL or code. After Home
+Assistant completes pairing, the sheet shows a success state before the runtime
+UI is released.
 
 Pairing is always LAN-first and local-only. Use `http://homeassistant.local:8123`
 or the Home Assistant LAN IP address while the Apple device is on the same
@@ -146,10 +146,18 @@ UI cache, playback controls, and push-to-talk voice capture through the
 fallback, status refresh, history sync, playback actions, and voice upload are
 mediated by the paired iPhone over WatchConnectivity. The Watch does not store
 `ha_remote_url`, does not choose Home Assistant transport, does not host a local
-Web API, and does not advertise Bonjour/mDNS. The Watch still reports
+inbound Web API. The Watch still reports
 `client_type:"watchos"` metadata through the iPhone proxy. Foreground wake
 phrase support may be added later, but the Watch target must not promise
 always-on background wakeword listening.
+
+Music DNA is first-class on iOS, macOS, and watchOS. The profile remains
+server-side in Home Assistant and is explicit opt-in. iOS/macOS call the Music
+DNA endpoints directly; watchOS uses the paired iPhone proxy while preserving
+the Watch `device_id` and `client_type:"watchos"`. The initial Music DNA consent
+sheet can be reached from Ask DJ or from the Music DNA screen, and Watch
+Settings can turn Music DNA off or on again. Turning it off clears learned Music
+DNA on the backend and stops further buildup until it is enabled again.
 
 APNs push registration is supported for iOS, macOS, and watchOS clients. iOS
 uses `client_type: "ios"` and `device_id` values shaped like
@@ -361,21 +369,25 @@ POST /api/djconnect/pair
 ```
 
 The app sends `device_id`, `device_name`, canonical `client_type`, `firmware`,
-`app_version`, `platform`, and the pairing code as `pair_code`, `pairing_code`,
-and `pairing_token`. Pairing bootstrap is local-only: the Apple client posts to
-the local Home Assistant `/api/djconnect/pair` endpoint and stores the returned
-DJConnect bearer token, `ha_local_url`, optional `ha_remote_url`, remote support
-flag, and music-backend summary. Remote URLs are never used for first pairing.
+`app_version`, `platform`, and the 6-digit Home Assistant setup code as
+`pair_code`, `pairing_code`, and `pairing_token`. Pairing bootstrap is
+local-only: the Apple client posts to the local Home Assistant
+`/api/djconnect/pair` endpoint and stores the returned DJConnect bearer token,
+`ha_local_url`, optional `ha_remote_url`, remote support flag, API
+paths/capabilities, and music-backend summary. Remote URLs are never used for
+first pairing.
+
+iOS primarily pairs from the Home Assistant QR/deep-link payload
+`djconnect://pair?ha_url=<local-ha-url>&pair_code=<code>&client_type=ios&pair_path=/api/djconnect/pair`.
+Manual local URL plus 6-digit code entry remains a fallback.
 
 iOS and macOS no longer host a Home Assistant-callable local Client API and do
-not advertise `_djconnect._tcp` as a pairable HA device. The removed Apple app
-routes are `/api/device/info`, `/api/device/pairing-info`, `/api/device/pair`,
-`/api/device/command`, `/api/device/dj_response`, and `/api/device/forget`.
+not expose any app-hosted Home Assistant callback API or pairable discovery service.
 The app does not implement ESP-only reboot or OTA routes.
 
 Users can choose `App opnieuw koppelen` / `Pair App Again` in Settings to clear
-the locally stored DJConnect token, generate a fresh app code, and reopen the
-pairing sheet.
+the locally stored DJConnect token and reopen the pairing sheet for a fresh
+Home Assistant setup code.
 
 After successful local pairing, iOS and macOS choose the local HA URL when it is
 reachable, fall back to `ha_remote_url` when local access fails and remote is

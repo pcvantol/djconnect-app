@@ -89,6 +89,21 @@ public final class DJConnectClient: Sendable {
         return try await decodedResponse(for: request)
     }
 
+    public func musicDNAProfile() async throws -> DJConnectMusicDNAProfileResponse {
+        let request = try musicDNAProfileRequest()
+        return try await decodedResponse(for: request)
+    }
+
+    public func setMusicDNAEnabled(_ enabled: Bool) async throws -> DJConnectMusicDNAProfileResponse {
+        let request = try musicDNASettingsRequest(enabled: enabled)
+        return try await decodedResponse(for: request)
+    }
+
+    public func clearMusicDNA() async throws -> DJConnectMusicDNAProfileResponse {
+        let request = try clearMusicDNARequest()
+        return try await decodedResponse(for: request)
+    }
+
     public func askDJIdleSuggestion(_ payload: DJConnectAskDJIdleSuggestionRequest) async throws -> DJConnectAskDJMessageResponse {
         let request = try askDJIdleSuggestionRequest(payload)
         return try await decodedResponse(for: request)
@@ -137,6 +152,9 @@ public final class DJConnectClient: Sendable {
     }
 
     public func pairingRequest(_ payload: DJConnectPairingPayload) throws -> URLRequest {
+        guard Self.deviceID(payload.deviceID, matches: payload.clientType) else {
+            throw DJConnectError.invalidConfiguration("DJConnect pairing identity mismatch: device_id prefix does not match client_type.")
+        }
         var request = URLRequest(url: endpoint(path: "/api/djconnect/pair"))
         request.timeoutInterval = 10
         request.httpMethod = "POST"
@@ -144,6 +162,23 @@ public final class DJConnectClient: Sendable {
         request.setValue(payload.deviceID, forHTTPHeaderField: "X-DJConnect-Device-ID")
         request.httpBody = try encoder.encode(payload)
         return request
+    }
+
+    private static func deviceID(_ deviceID: String, matches clientType: DJConnectClientType) -> Bool {
+        return switch clientType {
+        case .ios:
+            deviceID.hasPrefix("djconnect-ios-")
+        case .macos:
+            deviceID.hasPrefix("djconnect-macos-")
+        case .watchos:
+            deviceID.hasPrefix("djconnect-watchos-")
+        case .windows:
+            deviceID.hasPrefix("djconnect-windows-")
+        case .esp32:
+            deviceID.hasPrefix("djconnect-esp32-")
+        case .raspberryPi:
+            deviceID.hasPrefix("djconnect-rpi-") || deviceID.hasPrefix("djconnect-raspberry-pi-")
+        }
     }
 
     public func commandRequest(_ payload: DJConnectCommandPayload) throws -> URLRequest {
@@ -177,6 +212,18 @@ public final class DJConnectClient: Sendable {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = try encoder.encode(DJConnectAskDJClearHistoryRequest(identity: identity, musicDNAKey: musicDNAKey))
         return request
+    }
+
+    public func musicDNAProfileRequest() throws -> URLRequest {
+        try jsonRequest(path: "/api/djconnect/music_dna/profile", payload: DJConnectMusicDNAIdentityRequest(identity: identity))
+    }
+
+    public func musicDNASettingsRequest(enabled: Bool) throws -> URLRequest {
+        try jsonRequest(path: "/api/djconnect/music_dna/settings", payload: DJConnectMusicDNASettingsRequest(identity: identity, enabled: enabled))
+    }
+
+    public func clearMusicDNARequest() throws -> URLRequest {
+        try jsonRequest(path: "/api/djconnect/music_dna/clear", payload: DJConnectMusicDNAIdentityRequest(identity: identity))
     }
 
     public func askDJIdleSuggestionRequest(_ payload: DJConnectAskDJIdleSuggestionRequest) throws -> URLRequest {

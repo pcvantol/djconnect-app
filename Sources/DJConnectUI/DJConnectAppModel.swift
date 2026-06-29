@@ -375,10 +375,17 @@ public final class DJConnectAppModel: ObservableObject {
     @Published public private(set) var remoteSupported = false
     @Published public private(set) var musicBackendSummary = DJConnectMusicBackendSummary()
     @Published public private(set) var assistPipelineID = ""
+    @Published public private(set) var apiBase = ""
+    @Published public private(set) var voicePath = ""
+    @Published public private(set) var statusPath = ""
+    @Published public private(set) var eventPath = ""
+    @Published public private(set) var askDJSupported = false
+    @Published public private(set) var askDJVoiceSupported = false
+    @Published public private(set) var askDJAudioResponseSupported = false
+    @Published public private(set) var watchPairingMessage: String?
     @Published public var pairingToken = ""
     @Published public var pairingStatus: DJConnectPairingStatus = .unpaired {
         didSet {
-            updateBonjourAdvertisingState()
             if startBackgroundTasks, oldValue != .paired, pairingStatus == .paired {
                 schedulePairedRefresh(reason: "Pairing became online")
                 updateNowPlayingPollTimer()
@@ -393,9 +400,7 @@ public final class DJConnectAppModel: ObservableObject {
     @Published public var isConnected = false {
         didSet { updateWakeWordListeningForAvailability() }
     }
-    @Published public var isPairing = false {
-        didSet { updateBonjourAdvertisingState() }
-    }
+    @Published public var isPairing = false
     @Published public var isRefreshing = false
     @Published public private(set) var isLoadingOutputs = false
     @Published public private(set) var isLoadingQueue = false
@@ -417,6 +422,14 @@ public final class DJConnectAppModel: ObservableObject {
     @Published public private(set) var trackInsightHistory: [TrackInsight] = []
     @Published public private(set) var isLoadingTrackInsight = false
     @Published public private(set) var trackInsightErrorMessage: String?
+    @Published public private(set) var musicDNAProfileResponse: DJConnectMusicDNAProfileResponse?
+    @Published public private(set) var isLoadingMusicDNA = false
+    @Published public private(set) var isUpdatingMusicDNA = false
+    @Published public private(set) var musicDNAErrorMessage: String?
+    @Published public var isShowingMusicDNAOptInPrompt = false
+    #if DEBUG
+    public private(set) var isMusicDNAPreviewMode = false
+    #endif
     @Published public var autoTrackInsightEnabled = false {
         didSet { defaults.set(autoTrackInsightEnabled, forKey: autoTrackInsightEnabledKey) }
     }
@@ -467,9 +480,7 @@ public final class DJConnectAppModel: ObservableObject {
         didSet { updateWakeWordListeningForAvailability() }
     }
     @Published public var localResponseAudioEnabled = true
-    @Published public var isDemoMode = false {
-        didSet { updateBonjourAdvertisingState() }
-    }
+    @Published public var isDemoMode = false
     @Published public private(set) var isMonkeyTestingMode = false
     @Published public var wakeWordEnabled = false {
         didSet {
@@ -491,9 +502,7 @@ public final class DJConnectAppModel: ObservableObject {
     @Published public private(set) var localNetworkPermissionStatus: DJConnectPermissionStatus = .unknown
     @Published public private(set) var isRequestingPermissions = false
     @Published public var isShowingPermissionExplanation = false
-    @Published public var isShowingWelcome = false {
-        didSet { updateBonjourAdvertisingState() }
-    }
+    @Published public var isShowingWelcome = false
     @Published public var isShowingCrashReportPrompt = false
     @Published public var isShowingWakeWordActivationPrompt = false
     @Published public var isShowingTokenStorageError = false
@@ -503,7 +512,6 @@ public final class DJConnectAppModel: ObservableObject {
     @Published public private(set) var isLoadingWhatsNew = false
     @Published public private(set) var isShowingPairingSuccess = false
     @Published public private(set) var isPairingScreenDismissed = false
-    @Published public private(set) var localDeviceAPIURL: String?
     @Published public private(set) var isLocalNetworkAvailable = false
     @Published public private(set) var hasEvaluatedLocalNetwork = false
     @Published public private(set) var diagnosticLogLines: [DJConnectDiagnosticLogLine] = []
@@ -525,7 +533,6 @@ public final class DJConnectAppModel: ObservableObject {
     private var isAppInForeground = true
     private var lastFullRefreshAt: Date?
     private var lastBackendCollectionsRefreshAt: Date?
-    private var localDeviceAPI: DJConnectLocalDeviceAPI?
     #if os(iOS) && canImport(WatchConnectivity)
     private var watchProxyRegistration: DJConnectWatchProxyRegistration?
     private var watchProxySessionDelegate: DJConnectWatchProxySessionDelegate?
@@ -555,8 +562,8 @@ public final class DJConnectAppModel: ObservableObject {
     #endif
     private let defaults: UserDefaults
     private let tokenStore: DJConnectTokenStore
+    private let urlSession: URLSession
     private let homeAssistantWebSocketAuth: DJConnectHomeAssistantWebSocketAuth?
-    private let startLocalAPI: Bool
     private let startBackgroundTasks: Bool
     private let monkeyTestingMode: Bool
     private let diagnosticLogFileURL: URL?
@@ -569,8 +576,14 @@ public final class DJConnectAppModel: ObservableObject {
     private let haRemoteURLKey = "DJConnectHARemoteURL"
     private let haConnectionModeKey = "DJConnectHAConnectionMode"
     private let assistPipelineIDKey = "DJConnectAssistPipelineID"
+    private let apiBaseKey = "DJConnectAPIBase"
+    private let voicePathKey = "DJConnectVoicePath"
+    private let statusPathKey = "DJConnectStatusPath"
+    private let eventPathKey = "DJConnectEventPath"
+    private let askDJSupportedKey = "DJConnectAskDJSupported"
+    private let askDJVoiceSupportedKey = "DJConnectAskDJVoiceSupported"
+    private let askDJAudioResponseSupportedKey = "DJConnectAskDJAudioResponseSupported"
     private let pairingTokenKey = "DJConnectPairingToken"
-    private let localDeviceAPIURLKey = "DJConnectLocalDeviceAPIURL"
     private let watchProxyDeviceIDKey = "DJConnectWatchProxyDeviceID"
     private let watchProxyDeviceNameKey = "DJConnectWatchProxyDeviceName"
     private let watchProxyPairCodeKey = "DJConnectWatchProxyPairCode"
@@ -579,6 +592,13 @@ public final class DJConnectAppModel: ObservableObject {
     private let watchProxyPairedKey = "DJConnectWatchProxyPaired"
     private let watchProxyDeviceTokenKey = "DJConnectWatchProxyDeviceToken"
     private let watchProxyLocalURLKey = "DJConnectWatchProxyLocalURL"
+    private let watchProxyAPIBaseKey = "DJConnectWatchProxyAPIBase"
+    private let watchProxyVoicePathKey = "DJConnectWatchProxyVoicePath"
+    private let watchProxyStatusPathKey = "DJConnectWatchProxyStatusPath"
+    private let watchProxyEventPathKey = "DJConnectWatchProxyEventPath"
+    private let watchProxyAskDJSupportedKey = "DJConnectWatchProxyAskDJSupported"
+    private let watchProxyAskDJVoiceSupportedKey = "DJConnectWatchProxyAskDJVoiceSupported"
+    private let watchProxyAskDJAudioResponseSupportedKey = "DJConnectWatchProxyAskDJAudioResponseSupported"
     private let logLevelKey = "DJConnectLogLevel"
     private let demoModeKey = "DJConnectDemoMode"
     private let askDJMoodKey = "DJConnectAskDJMood"
@@ -600,6 +620,7 @@ public final class DJConnectAppModel: ObservableObject {
     private let pushEnvironmentStatusKey = "DJConnectPushEnvironmentStatus"
     private let lastPushErrorKey = "DJConnectLastPushError"
     private let wakeWordPromptDismissedKey = "DJConnectWakeWordPromptDismissed"
+    private let musicDNAOptInPromptSeenKey = "DJConnectMusicDNAOptInPromptSeen"
     private let welcomeSeenKey = "DJConnectWelcomeSeen"
     private let lastSeenAppVersionKey = "DJConnectLastSeenAppVersion"
     private let cleanShutdownKey = "DJConnectCleanShutdown"
@@ -725,14 +746,13 @@ public final class DJConnectAppModel: ObservableObject {
         playback: DJConnectPlayback? = nil,
         defaults: UserDefaults = .standard,
         tokenStore: DJConnectTokenStore? = nil,
+        urlSession: URLSession = .shared,
         homeAssistantWebSocketAuth: DJConnectHomeAssistantWebSocketAuth? = nil,
-        startLocalAPI: Bool = true,
         startBackgroundTasks: Bool = true,
         monkeyTestingMode: Bool = false,
         diagnosticLogDirectory: URL? = nil
     ) {
         self.defaults = defaults
-        self.startLocalAPI = startLocalAPI
         self.startBackgroundTasks = startBackgroundTasks
         self.monkeyTestingMode = monkeyTestingMode
         self.homeAssistantWebSocketAuth = homeAssistantWebSocketAuth
@@ -745,6 +765,7 @@ public final class DJConnectAppModel: ObservableObject {
             try? resolvedTokenStore.clearToken()
         }
         self.tokenStore = resolvedTokenStore
+        self.urlSession = urlSession
         self.identity = Self.makeIdentity(defaults: defaults)
         self.logger = Logger(
             subsystem: Bundle.main.bundleIdentifier ?? "dev.djconnect",
@@ -758,7 +779,13 @@ public final class DJConnectAppModel: ObservableObject {
             self.haConnectionMode = storedMode
         }
         self.assistPipelineID = defaults.string(forKey: assistPipelineIDKey) ?? ""
-        self.localDeviceAPIURL = defaults.string(forKey: localDeviceAPIURLKey)
+        self.apiBase = defaults.string(forKey: apiBaseKey) ?? ""
+        self.voicePath = defaults.string(forKey: voicePathKey) ?? ""
+        self.statusPath = defaults.string(forKey: statusPathKey) ?? ""
+        self.eventPath = defaults.string(forKey: eventPathKey) ?? ""
+        self.askDJSupported = defaults.bool(forKey: askDJSupportedKey)
+        self.askDJVoiceSupported = defaults.bool(forKey: askDJVoiceSupportedKey)
+        self.askDJAudioResponseSupported = defaults.bool(forKey: askDJAudioResponseSupportedKey)
         self.pairingToken = defaults.string(forKey: pairingTokenKey) ?? Self.generatePairingToken()
         self.language = Self.defaultLanguage()
         self.selectedOutput = Self.noOutputName(for: language)
@@ -1032,6 +1059,7 @@ public final class DJConnectAppModel: ObservableObject {
         )
         clearAskDJHistoryLocally()
         applyDemoState()
+        applyDemoMusicDNAProfile()
         log(.info, "Demo mode started")
     }
 
@@ -1060,7 +1088,6 @@ public final class DJConnectAppModel: ObservableObject {
     public func markActiveSession() {
         isAppInForeground = true
         defaults.set(false, forKey: cleanShutdownKey)
-        restartLocalDeviceAPIAfterForegroundResumeIfNeeded()
         refreshPermissionStatuses()
         resumeWakeWordListeningIfNeeded()
         updatePlaybackProgressTimer()
@@ -1098,9 +1125,8 @@ public final class DJConnectAppModel: ObservableObject {
         nowPlayingPollTask?.cancel()
         nowPlayingPollTask = nil
         stopWakeWordListening()
-        stopLocalDeviceAPIForBackgroundIfNeeded()
         markCleanShutdown()
-        log(.debug, "App left foreground; paused wakeword, pending refresh tasks, local progress timer, Now Playing poll, and iOS local API when applicable")
+        log(.debug, "App left foreground; paused wakeword, pending refresh tasks, local progress timer, and Now Playing poll")
     }
 
     public func dismissCrashReportPrompt() {
@@ -1551,48 +1577,9 @@ public final class DJConnectAppModel: ObservableObject {
         seekCommandTask?.cancel()
         playbackProgressTask?.cancel()
         startupRefreshTask?.cancel()
-        localDeviceAPI?.stop()
-    }
-
-    public func stopLocalDeviceAPI() {
-        localDeviceAPI?.stop()
-        localDeviceAPI = nil
-    }
-
-    private var shouldPauseLocalDeviceAPIWhenInactive: Bool {
-        #if os(iOS)
-        true
-        #else
-        false
-        #endif
-    }
-
-    private func restartLocalDeviceAPIAfterForegroundResumeIfNeeded() {
-        guard shouldPauseLocalDeviceAPIWhenInactive, startLocalAPI, !monkeyTestingMode else {
-            return
-        }
-        guard localDeviceAPI == nil else {
-            return
-        }
-        log(.debug, "Restarting local device API after foreground resume")
-        startLocalDeviceAPI()
-    }
-
-    private func stopLocalDeviceAPIForBackgroundIfNeeded() {
-        guard shouldPauseLocalDeviceAPIWhenInactive else {
-            return
-        }
-        guard localDeviceAPI != nil else {
-            return
-        }
-        log(.debug, "Stopping local device API while iOS app is backgrounded")
-        stopLocalDeviceAPI()
     }
 
     private func pausePairingWaitForBackgroundIfNeeded() {
-        guard shouldPauseLocalDeviceAPIWhenInactive else {
-            return
-        }
         pairingTask?.cancel()
         pairingTask = nil
         guard pairingStatus == .pairing else {
@@ -1635,6 +1622,127 @@ public final class DJConnectAppModel: ObservableObject {
         startPairingWait()
     }
 
+    public func handlePairingDeepLink(_ url: URL) {
+        if handleWatchPairingDeepLink(url) {
+            return
+        }
+        guard pairingStatus != .paired else {
+            log(.debug, "Ignoring pairing link because device is already paired")
+            return
+        }
+        do {
+            let payload = try DJConnectPairingDeepLink.parse(url, expectedClientType: identity.clientType)
+            homeAssistantURL = payload.homeAssistantURL
+            pairingToken = payload.pairCode
+            pairingMessage = localized(
+                english: "Pairing link accepted. Pairing with Home Assistant...",
+                dutch: "Koppellink geaccepteerd. Koppelen met Home Assistant..."
+            )
+            log(.info, "Accepted DJConnect pairing link for \(identity.clientType.rawValue)")
+            startPairingWait()
+        } catch let error as DJConnectError {
+            applyInvalidPairingLink(error)
+        } catch {
+            applyInvalidPairingLink(nil)
+        }
+    }
+
+    public func handlePairingQRCode(_ value: String) {
+        guard let url = URL(string: value.trimmingCharacters(in: .whitespacesAndNewlines)) else {
+            pairingStatus = .unpaired
+            isPairing = false
+            pairingMessage = localized(
+                english: "Invalid DJConnect pairing QR code.",
+                dutch: "Ongeldige DJConnect pairing-QR-code."
+            )
+            log(.warning, "Rejected invalid DJConnect pairing QR code")
+            return
+        }
+        if handleWatchPairingDeepLink(url) {
+            return
+        }
+        handlePairingDeepLink(url)
+    }
+
+    private func applyInvalidPairingLink(_ error: DJConnectError?) {
+        pairingStatus = .unpaired
+        isPairing = false
+        pairingMessage = userFacingPairingMessage(from: error.map(Self.describe) ?? "") ?? localized(
+            english: "Invalid DJConnect pairing QR code or link.",
+            dutch: "Ongeldige DJConnect pairing-QR-code of link."
+        )
+        log(.warning, "Rejected invalid DJConnect pairing link")
+    }
+
+    private func handleWatchPairingDeepLink(_ url: URL) -> Bool {
+        #if os(iOS) && canImport(WatchConnectivity)
+        do {
+            let payload = try DJConnectPairingDeepLink.parse(url, expectedClientType: .watchos)
+            startWatchProxyPairing(payload)
+            return true
+        } catch {
+            return false
+        }
+        #else
+        return false
+        #endif
+    }
+
+    public func handleWatchPairingQRCode(_ value: String) {
+        guard let url = URL(string: value.trimmingCharacters(in: .whitespacesAndNewlines)),
+              handleWatchPairingDeepLink(url) else {
+            watchPairingMessage = localized(
+                english: "Invalid Apple Watch pairing QR code.",
+                dutch: "Ongeldige Apple Watch pairing-QR-code."
+            )
+            pairingMessage = watchPairingMessage
+            log(.warning, "Rejected invalid Watch pairing QR code")
+            return
+        }
+    }
+
+    #if os(iOS) && canImport(WatchConnectivity)
+    private func startWatchProxyPairing(_ payload: DJConnectPairingDeepLink) {
+        activateWatchProxySession()
+        guard WCSession.default.activationState == .activated, WCSession.default.isReachable else {
+            watchPairingMessage = localized(
+                english: "Apple Watch is not reachable. Open DJConnect on the Watch and keep iPhone, Watch and Home Assistant on the same local network.",
+                dutch: "Apple Watch is niet bereikbaar. Open DJConnect op de Watch en houd iPhone, Watch en Home Assistant op hetzelfde lokale netwerk."
+            )
+            pairingMessage = watchPairingMessage
+            log(.warning, "Watch pairing link accepted but WatchConnectivity is not reachable")
+            return
+        }
+        guard var registration = watchProxyRegistration else {
+            watchPairingMessage = localized(
+                english: "Open DJConnect on Apple Watch first, then scan the Watch pairing QR code again.",
+                dutch: "Open eerst DJConnect op Apple Watch en scan daarna de Watch pairing-QR-code opnieuw."
+            )
+            pairingMessage = watchPairingMessage
+            log(.warning, "Watch pairing link accepted but no Watch proxy registration is available")
+            return
+        }
+        registration.pairCode = payload.pairCode
+        registration.paired = false
+        watchProxyRegistration = registration
+        persistWatchProxyRegistration()
+        watchPairingMessage = localized(
+            english: "Pair Apple Watch: sending pairing request to Home Assistant...",
+            dutch: "Apple Watch koppelen: pairing request naar Home Assistant sturen..."
+        )
+        pairingMessage = watchPairingMessage
+        sendWatchProxyMessage([
+            "type": "watch_proxy_pair_request",
+            "ha_url": payload.homeAssistantURL,
+            "pair_code": payload.pairCode,
+            "pair_path": payload.pairPath
+        ])
+        Task { @MainActor in
+            await self.pairWatchProxy(registration: registration, homeAssistantURL: payload.homeAssistantURL, pairCode: payload.pairCode)
+        }
+    }
+    #endif
+
     public func recoverPairingClientAPIIfNeeded() {
         guard !isDemoMode, pairingStatus != .paired else {
             return
@@ -1676,14 +1784,23 @@ public final class DJConnectAppModel: ObservableObject {
             return
         }
 
-        let trimmedPairingToken = pairingToken.trimmingCharacters(in: .whitespacesAndNewlines)
-        let appPairingToken = trimmedPairingToken.isEmpty ? newPairingToken() : trimmedPairingToken
+        guard let pairCode = self.normalizedPairCode(from: pairingToken) else {
+            log(.warning, "Pairing cannot start because the Home Assistant pair code is invalid")
+            pairingMessage = localized(
+                english: "Enter the 6-digit pair code shown by Home Assistant.",
+                dutch: "Vul de 6-cijferige koppelcode uit Home Assistant in."
+            )
+            pairingStatus = .unpaired
+            isConnected = false
+            isPairing = false
+            return
+        }
 
         log(.info, "Starting pairing wait against \(Self.redactedURL(baseURL))")
         pairingStatus = .pairing
         isPairing = true
         pairingTask = Task { [weak self] in
-            await self?.waitForHomeAssistantPairing(baseURL: baseURL, pairingToken: appPairingToken)
+            await self?.pairWithHomeAssistant(baseURL: baseURL, pairCode: pairCode)
         }
     }
 
@@ -1703,59 +1820,54 @@ public final class DJConnectAppModel: ObservableObject {
         }
     }
 
-    private func waitForHomeAssistantPairing(baseURL: URL, pairingToken: String) async {
+    private func pairWithHomeAssistant(baseURL: URL, pairCode: String) async {
         isPairing = true
-        try? await Task.sleep(nanoseconds: 750_000_000)
-        log(.info, "Polling Home Assistant pairing endpoint")
-        pairingMessage = pairingWaitMessage(pairingToken: pairingToken)
+        log(.info, "Posting pairing request to Home Assistant")
+        pairingMessage = localized(
+            english: "Pairing with Home Assistant...",
+            dutch: "Koppelen met Home Assistant..."
+        )
         defer {
             if pairingStatus != .paired {
                 isPairing = false
             }
         }
 
-        while !Task.isCancelled && pairingStatus != .paired {
-            let client = makeClient(baseURL: baseURL)
-            do {
-                if baseURL.scheme?.lowercased() == "https", homeAssistantURL.contains("ui.nabu.casa") || homeAssistantURL.contains("://") {
-                    throw DJConnectError.invalidConfiguration(localized(
-                        english: "Pairing must be completed on the same local network as Home Assistant. Remote URLs are available after local pairing.",
-                        dutch: "Koppelen moet op hetzelfde lokale netwerk als Home Assistant. Remote URLs zijn pas beschikbaar na lokale pairing."
-                    ))
-                }
-                let response = try await client.pair(DJConnectPairingPayload(
-                    identity: identity,
-                    pairingToken: pairingToken,
-                    haLocalURL: Self.normalizedHomeAssistantURL(from: homeAssistantURL).map(Self.redactedURL)
+        let client = makeClient(baseURL: baseURL)
+        do {
+            if baseURL.scheme?.lowercased() == "https" {
+                throw DJConnectError.invalidConfiguration(localized(
+                    english: "Pairing must be completed on the same local network as Home Assistant. Remote access becomes available after pairing if Home Assistant provides an external HTTPS URL.",
+                    dutch: "Koppelen moet op hetzelfde lokale netwerk als Home Assistant. Remote gebruik komt beschikbaar na pairing als Home Assistant een externe HTTPS-URL teruggeeft."
                 ))
-                apply(pairingResponse: response, fallbackBaseURL: baseURL)
-                log(.info, "Pairing accepted by Home Assistant")
-                pairingStatus = .paired
-                isConnected = true
-                isPairing = false
-                pairingMessage = localized(
-                    english: "Paired with Home Assistant.",
-                    dutch: "Gekoppeld met Home Assistant."
-                )
-                presentPairingSuccessScreenAfterPairing()
-                presentWakeWordActivationPromptAfterPairing()
+            }
+            let response = try await client.pair(DJConnectPairingPayload(
+                identity: identity,
+                pairingToken: pairCode,
+                haLocalURL: Self.normalizedHomeAssistantURL(from: homeAssistantURL).map(Self.redactedURL)
+            ))
+            apply(pairingResponse: response, fallbackBaseURL: baseURL)
+            log(.info, "Pairing accepted by Home Assistant")
+            pairingStatus = .paired
+            isConnected = true
+            isPairing = false
+            pairingMessage = localized(
+                english: "Paired with Home Assistant.",
+                dutch: "Gekoppeld met Home Assistant."
+            )
+            presentPairingSuccessScreenAfterPairing()
+            presentWakeWordActivationPromptAfterPairing()
+            if startBackgroundTasks {
                 try await refreshStatus(client: client)
                 registerStoredPushTokenIfPossible()
-                return
-            } catch let error as DJConnectError {
-                logPairingError(error)
-                applyPairingWait(error: error, pairingToken: pairingToken)
-                if isTerminalPairingError(error) {
-                    log(.error, "Pairing stopped because Home Assistant rejected the current app code")
-                    return
-                }
-            } catch {
-                log(.error, "Unexpected pairing error: \(error.localizedDescription)")
-                isConnected = false
-                pairingMessage = error.localizedDescription
             }
-
-            try? await Task.sleep(for: .seconds(2))
+        } catch let error as DJConnectError {
+            logPairingError(error)
+            applyPairingWait(error: error, pairingToken: pairCode)
+        } catch {
+            log(.error, "Unexpected pairing error: \(error.localizedDescription)")
+            isConnected = false
+            pairingMessage = error.localizedDescription
         }
     }
 
@@ -1771,7 +1883,6 @@ public final class DJConnectAppModel: ObservableObject {
         isDemoMode = false
         defaults.removeObject(forKey: demoModeKey)
         clearStoredHomeAssistantURLs()
-        clearPinnedLocalDeviceAPIURL()
         defaults.removeObject(forKey: installIDKey)
         currentAPNsPushToken = nil
         defaults.removeObject(forKey: legacyPushTokenKey)
@@ -1791,7 +1902,6 @@ public final class DJConnectAppModel: ObservableObject {
         shouldShowWakeWordPromptAfterPairingScreen = false
         defaults.set(false, forKey: wakeWordPromptDismissedKey)
         _ = newPairingToken()
-        restartLocalDeviceAPI()
         pairingStatus = .unpaired
         isConnected = false
         isPairing = false
@@ -3091,6 +3201,38 @@ public final class DJConnectAppModel: ObservableObject {
             assistPipelineID = pipelineID
             defaults.set(pipelineID, forKey: assistPipelineIDKey)
         }
+        apply(pairingContract: response)
+    }
+
+    private func apply(pairingContract response: DJConnectPairingResponse) {
+        if let value = response.apiBase {
+            apiBase = value
+            defaults.set(value, forKey: apiBaseKey)
+        }
+        if let value = response.voicePath {
+            voicePath = value
+            defaults.set(value, forKey: voicePathKey)
+        }
+        if let value = response.statusPath {
+            statusPath = value
+            defaults.set(value, forKey: statusPathKey)
+        }
+        if let value = response.eventPath {
+            eventPath = value
+            defaults.set(value, forKey: eventPathKey)
+        }
+        if let value = response.askDJSupported {
+            askDJSupported = value
+            defaults.set(value, forKey: askDJSupportedKey)
+        }
+        if let value = response.askDJVoiceSupported {
+            askDJVoiceSupported = value
+            defaults.set(value, forKey: askDJVoiceSupportedKey)
+        }
+        if let value = response.askDJAudioResponseSupported {
+            askDJAudioResponseSupported = value
+            defaults.set(value, forKey: askDJAudioResponseSupportedKey)
+        }
     }
 
     public func apply(musicBackendSummary summary: DJConnectMusicBackendSummary) {
@@ -3103,7 +3245,7 @@ public final class DJConnectAppModel: ObservableObject {
         }
     }
 
-    public func apply(localDJResponse response: DJConnectLocalDJResponseRequest) {
+    public func apply(watchProxyDJResponse response: DJConnectWatchProxyDJResponseRequest) {
         if let text = response.djText ?? response.text, !text.isEmpty {
             djResponseText = userFacingDJResponseText(text) ?? text
         }
@@ -3140,6 +3282,7 @@ public final class DJConnectAppModel: ObservableObject {
         case let .authStale(_, message):
             recoverFromStalePairing(message: message)
         case let .routeMissing(message):
+            clearMusicDNADisplay()
             pairingStatus = .stale
             isConnected = false
             pairingMessage = message ?? localized(
@@ -3147,6 +3290,7 @@ public final class DJConnectAppModel: ObservableObject {
                 dutch: "DJConnect route ontbreekt in Home Assistant. Controleer de integratie."
             )
         case let .notConfigured(message):
+            clearMusicDNADisplay()
             pairingStatus = .stale
             isConnected = false
             pairingMessage = message ?? localized(
@@ -3174,19 +3318,16 @@ public final class DJConnectAppModel: ObservableObject {
         scheduledPairingTask = nil
         try? tokenStore.clearToken()
         clearAskDJHistoryLocally()
-        clearPinnedLocalDeviceAPIURL()
+        clearMusicDNADisplay()
         pairingStatus = .stale
         isConnected = false
         isPairing = false
         isPairingScreenDismissed = false
         isShowingPairingSuccess = false
         pairingMessage = message ?? localized(
-            english: "Pairing is stale. Open Home Assistant setup and use the code shown here.",
-            dutch: "Pairing is verlopen. Open Home Assistant setup en gebruik de code die hier staat."
+            english: "Pairing is stale. Open Home Assistant setup and enter the new pair code here.",
+            dutch: "Pairing is verlopen. Open Home Assistant setup en vul de nieuwe koppelcode hier in."
         )
-        restartLocalDeviceAPI()
-        updateBonjourAdvertisingState()
-        startPairingWait()
     }
 
     public func emitUserConnectionNotice(for error: DJConnectError? = nil) {
@@ -3237,64 +3378,68 @@ public final class DJConnectAppModel: ObservableObject {
 
         switch error {
         case .pairingFailed:
-            pairingStatus = .pairing
-            pairingMessage = pairingWaitMessage(pairingToken: pairingToken)
-        case let .network(message):
-            pairingStatus = .pairing
+            pairingStatus = .unpaired
             pairingMessage = localized(
-                english: "Waiting for Home Assistant: \(message)",
-                dutch: "Wachten op Home Assistant: \(message)"
+                english: "Home Assistant did not accept this pair code. Check the 6-digit code and try again.",
+                dutch: "Home Assistant accepteerde deze koppelcode niet. Controleer de 6 cijfers en probeer opnieuw."
+            )
+        case let .network(message):
+            pairingStatus = .unpaired
+            pairingMessage = localized(
+                english: "Home Assistant is unreachable on this local network: \(message)",
+                dutch: "Home Assistant is niet bereikbaar op dit lokale netwerk: \(message)"
             )
         case .routeMissing:
-            pairingStatus = .pairing
+            pairingStatus = .unpaired
             pairingMessage = localized(
-                english: "Waiting for the DJConnect pairing route in Home Assistant.",
-                dutch: "Wachten op koppeling."
+                english: "DJConnect is not configured in Home Assistant yet. Open the DJConnect setup flow first.",
+                dutch: "DJConnect is nog niet geconfigureerd in Home Assistant. Open eerst de DJConnect setup-flow."
             )
         case let .server(_, message):
-            pairingStatus = .pairing
+            pairingStatus = .unpaired
             pairingMessage = userFacingPairingMessage(from: message) ?? localized(
-                english: "Waiting for Home Assistant to finish pairing.",
-                dutch: "Wachten tot Home Assistant pairing afrondt."
+                english: "Home Assistant could not complete pairing. Check the pair code and try again.",
+                dutch: "Home Assistant kon de koppeling niet afronden. Controleer de koppelcode en probeer opnieuw."
             )
         case let .authStale(_, message):
-            pairingStatus = .pairing
-            isPairing = true
-            updateBonjourAdvertisingState()
-            pairingMessage = localized(
-                english: "Keeping local discovery active. Open DJConnect in Home Assistant and enter code \(pairingToken).",
-                dutch: "Lokale discovery blijft actief. Open DJConnect in Home Assistant en vul code \(pairingToken) in."
+            pairingStatus = .unpaired
+            isPairing = false
+            pairingMessage = userFacingPairingMessage(from: message) ?? localized(
+                english: "Home Assistant rejected this pair code. Generate a fresh 6-digit code in Home Assistant and try again.",
+                dutch: "Home Assistant wees deze koppelcode af. Genereer een nieuwe 6-cijferige code in Home Assistant en probeer opnieuw."
             )
             if let message, !message.isEmpty {
-                log(.debug, "Home Assistant rejected stale pairing code while local discovery remains active: \(message)")
+                log(.debug, "Home Assistant rejected pairing code: \(message)")
             }
         case let .versionMismatch(mismatch):
-            pairingStatus = .pairing
+            pairingStatus = .unpaired
             updateRequiredMessage = mismatch.message ?? localized(
                 english: "DJConnect update required",
                 dutch: "DJConnect update vereist"
             )
+        case let .notConfigured(message):
+            pairingStatus = .unpaired
+            pairingMessage = message ?? localized(
+                english: "DJConnect is not configured in Home Assistant yet. Open the DJConnect setup flow first.",
+                dutch: "DJConnect is nog niet geconfigureerd in Home Assistant. Open eerst de DJConnect setup-flow."
+            )
+        case let .invalidConfiguration(message):
+            pairingStatus = .unpaired
+            pairingMessage = message
         default:
-            pairingStatus = .pairing
+            pairingStatus = .unpaired
             pairingMessage = localized(
-                english: "Waiting for Home Assistant to finish pairing.",
-                dutch: "Wachten tot Home Assistant pairing afrondt."
+                english: "Home Assistant could not complete pairing. Check the URL and pair code, then try again.",
+                dutch: "Home Assistant kon de koppeling niet afronden. Controleer de URL en koppelcode en probeer opnieuw."
             )
         }
     }
 
     private func pairingWaitMessage(pairingToken: String) -> String {
-        #if os(macOS)
         localized(
-            english: "Waiting for Home Assistant to accept code \(pairingToken). If the client is not discovered, allow incoming local network connections for DJConnect in macOS firewall or security software.",
-            dutch: "Wachten tot Home Assistant code \(pairingToken) accepteert. Wordt de client niet gevonden, sta inkomende lokale netwerkverbindingen voor DJConnect toe in macOS firewall of beveiligingssoftware."
+            english: "Enter the 6-digit pair code shown by Home Assistant.",
+            dutch: "Vul de 6-cijferige koppelcode uit Home Assistant in."
         )
-        #else
-        localized(
-            english: "Waiting for Home Assistant to accept code \(pairingToken). Keep this device on the same Wi-Fi/LAN as Home Assistant and leave DJConnect open while pairing.",
-            dutch: "Wachten tot Home Assistant code \(pairingToken) accepteert. Houd dit apparaat op hetzelfde WiFi/LAN-netwerk als Home Assistant en laat DJConnect open tijdens koppelen."
-        )
-        #endif
     }
 
     func isTerminalPairingError(_ error: DJConnectError) -> Bool {
@@ -3313,7 +3458,6 @@ public final class DJConnectAppModel: ObservableObject {
                     localAudioSupported: true,
                     voiceSupported: voiceEnabled,
                     haLocalURL: haLocalURL.isEmpty ? nil : haLocalURL,
-                    localURL: nil,
                     voiceEnabled: voiceEnabled,
                     wakewordEnabled: wakeWordEnabled,
                     wakewordPhrase: wakeWordPhrase,
@@ -3428,6 +3572,7 @@ public final class DJConnectAppModel: ObservableObject {
         pendingVolumePercent = nil
         playback = nil
         currentTrackInsight = nil
+        clearMusicDNADisplay()
         clearTrackInsightWidgetSnapshot(reason: "Runtime state cleared")
         syncTrackInsightLiveActivity(reason: "Runtime state cleared")
         queue = []
@@ -3696,6 +3841,231 @@ public final class DJConnectAppModel: ObservableObject {
     private func fetchAskDJHistory(sinceRevision: Int?) async throws -> DJConnectAskDJHistoryResponse {
         try await withHomeAssistantClient { client in
             try await client.askDJHistory(sinceRevision: sinceRevision)
+        }
+    }
+
+    public func refreshMusicDNAProfile() async {
+        if isDemoMode {
+            applyDemoMusicDNAProfile()
+            return
+        }
+        guard pairingStatus == .paired, !isDemoMode, isRuntimeCompatible else {
+            clearMusicDNADisplay()
+            return
+        }
+        isLoadingMusicDNA = true
+        musicDNAErrorMessage = nil
+        do {
+            let response = try await withHomeAssistantClient { client in
+                try await client.musicDNAProfile()
+            }
+            apply(musicDNAProfile: response)
+        } catch let error as DJConnectError {
+            handleMusicDNAError(error)
+        } catch {
+            musicDNAErrorMessage = error.localizedDescription
+            log(.warning, "Music DNA profile refresh failed: \(error.localizedDescription)")
+        }
+        isLoadingMusicDNA = false
+    }
+
+    public func presentMusicDNAOptInPromptIfNeeded() {
+        #if DEBUG
+        guard !isMusicDNAPreviewMode else { return }
+        #endif
+        guard pairingStatus == .paired,
+              !isDemoMode,
+              !defaults.bool(forKey: musicDNAOptInPromptSeenKey),
+              !isShowingMusicDNAOptInPrompt else {
+            return
+        }
+        if musicDNAProfileResponse?.enabled == true {
+            defaults.set(true, forKey: musicDNAOptInPromptSeenKey)
+            return
+        }
+        isShowingMusicDNAOptInPrompt = true
+    }
+
+    public func dismissMusicDNAOptInPrompt() {
+        defaults.set(true, forKey: musicDNAOptInPromptSeenKey)
+        isShowingMusicDNAOptInPrompt = false
+    }
+
+    public func acceptMusicDNAOptInPrompt() {
+        dismissMusicDNAOptInPrompt()
+        Task { await setMusicDNAEnabled(true) }
+    }
+
+    public func setMusicDNAEnabled(_ enabled: Bool) async {
+        if isDemoMode {
+            musicDNAProfileResponse = enabled ? Self.demoMusicDNAProfileResponse() : DJConnectMusicDNAProfileResponse(
+                success: true,
+                enabled: false,
+                profile: DJConnectMusicDNAProfile()
+            )
+            musicDNAErrorMessage = nil
+            return
+        }
+        guard pairingStatus == .paired, !isDemoMode, isRuntimeCompatible else {
+            return
+        }
+        isUpdatingMusicDNA = true
+        musicDNAErrorMessage = nil
+        do {
+            _ = try await withHomeAssistantClient { client in
+                try await client.setMusicDNAEnabled(enabled)
+            }
+            try Task.checkCancellation()
+            let refreshed = try await withHomeAssistantClient { client in
+                try await client.musicDNAProfile()
+            }
+            apply(musicDNAProfile: refreshed)
+        } catch let error as DJConnectError {
+            handleMusicDNAError(error)
+        } catch is CancellationError {
+        } catch {
+            musicDNAErrorMessage = error.localizedDescription
+            log(.warning, "Music DNA settings update failed: \(error.localizedDescription)")
+        }
+        isUpdatingMusicDNA = false
+    }
+
+    public func clearMusicDNA() async {
+        if isDemoMode {
+            musicDNAErrorMessage = nil
+            return
+        }
+        guard pairingStatus == .paired, !isDemoMode, isRuntimeCompatible else {
+            return
+        }
+        isUpdatingMusicDNA = true
+        musicDNAErrorMessage = nil
+        do {
+            _ = try await withHomeAssistantClient { client in
+                try await client.clearMusicDNA()
+            }
+            try Task.checkCancellation()
+            let refreshed = try await withHomeAssistantClient { client in
+                try await client.musicDNAProfile()
+            }
+            apply(musicDNAProfile: refreshed)
+        } catch let error as DJConnectError {
+            handleMusicDNAError(error)
+        } catch is CancellationError {
+        } catch {
+            musicDNAErrorMessage = error.localizedDescription
+            log(.warning, "Music DNA clear failed: \(error.localizedDescription)")
+        }
+        isUpdatingMusicDNA = false
+    }
+
+    private func apply(musicDNAProfile response: DJConnectMusicDNAProfileResponse) {
+        musicDNAProfileResponse = response
+        musicDNAErrorMessage = nil
+        log(.debug, "Music DNA profile refreshed enabled=\(response.enabled) generation=\(response.generation ?? 0)")
+    }
+
+    private func applyDemoMusicDNAProfile() {
+        musicDNAProfileResponse = Self.demoMusicDNAProfileResponse()
+        musicDNAErrorMessage = nil
+        isLoadingMusicDNA = false
+        isUpdatingMusicDNA = false
+    }
+
+    public static func demoMusicDNAProfileResponse() -> DJConnectMusicDNAProfileResponse {
+        DJConnectMusicDNAProfileResponse(
+            success: true,
+            musicDNAKey: "demo:music-dna",
+            enabled: true,
+            generation: 3,
+            profile: DJConnectMusicDNAProfile(
+                summary: "A fictional profile that leans toward late-night synth grooves, bright hooks, warm basslines, and playful discoveries.",
+                favoriteGenres: [
+                    DJConnectMusicDNANameValue(name: "Neon downtempo"),
+                    DJConnectMusicDNANameValue(name: "Velvet electro"),
+                    DJConnectMusicDNANameValue(name: "Skyline pop")
+                ],
+                favoriteArtists: [
+                    DJConnectMusicDNANameValue(name: "Luna Vale"),
+                    DJConnectMusicDNANameValue(name: "Nova Harbor"),
+                    DJConnectMusicDNANameValue(name: "Echo Parade")
+                ],
+                recentTracks: [
+                    DJConnectMusicDNATrack(title: "Glass Avenue", artist: "Luna Vale"),
+                    DJConnectMusicDNATrack(title: "Afterglow Signals", artist: "Nova Harbor"),
+                    DJConnectMusicDNATrack(title: "Silver Static", artist: "Echo Parade")
+                ],
+                topTracksByRange: [
+                    "week": [
+                        DJConnectMusicDNATrack(title: "Glass Avenue", artist: "Luna Vale"),
+                        DJConnectMusicDNATrack(title: "Afterglow Signals", artist: "Nova Harbor")
+                    ]
+                ],
+                topArtistsByRange: [
+                    "week": [
+                        DJConnectMusicDNANameValue(name: "Luna Vale"),
+                        DJConnectMusicDNANameValue(name: "Nova Harbor")
+                    ]
+                ],
+                mood: DJConnectMusicDNAMood(value: 68, zone: "warm energy", promptHint: "Recommend melodic tracks with motion, glow, and soft-edged rhythm."),
+                timePatterns: [
+                    DJConnectMusicDNASignal(title: "Evening listening", kind: "time", value: "20:00-23:00"),
+                    DJConnectMusicDNASignal(title: "Weekend discovery", kind: "pattern", value: "new artists")
+                ],
+                recommendationSignals: [
+                    DJConnectMusicDNASignal(title: "Bright synth hooks", kind: "sound"),
+                    DJConnectMusicDNASignal(title: "Warm rolling bass", kind: "texture"),
+                    DJConnectMusicDNASignal(title: "Playful vocal fragments", kind: "mood")
+                ],
+                blockedArtists: [],
+                blockedItems: []
+            ),
+            sources: [
+                DJConnectResponseLink(
+                    url: URL(string: "https://djconnect.dev")!,
+                    title: "Music DNA Demo",
+                    subtitle: "Fictional sample profile",
+                    source: "djconnect_demo"
+                )
+            ]
+        )
+    }
+
+    private func clearMusicDNADisplay() {
+        musicDNAProfileResponse = nil
+        musicDNAErrorMessage = nil
+        isLoadingMusicDNA = false
+        isUpdatingMusicDNA = false
+    }
+
+    #if DEBUG
+    public func setMusicDNAPreviewResponse(_ response: DJConnectMusicDNAProfileResponse?) {
+        isMusicDNAPreviewMode = true
+        musicDNAProfileResponse = response
+        musicDNAErrorMessage = nil
+        isLoadingMusicDNA = false
+        isUpdatingMusicDNA = false
+    }
+
+    public func setMusicDNAPreviewErrorMessage(_ message: String?) {
+        isMusicDNAPreviewMode = true
+        musicDNAErrorMessage = message
+        isLoadingMusicDNA = false
+        isUpdatingMusicDNA = false
+    }
+    #endif
+
+    private func handleMusicDNAError(_ error: DJConnectError) {
+        log(.warning, "Music DNA request failed: \(Self.describe(error))")
+        switch error {
+        case .authStale, .notConfigured, .missingToken:
+            clearMusicDNADisplay()
+            apply(error: error)
+        case .versionMismatch:
+            clearMusicDNADisplay()
+            apply(error: error)
+        default:
+            musicDNAErrorMessage = userFacingDJResponseText(Self.describe(error)) ?? Self.describe(error)
         }
     }
 
@@ -5512,6 +5882,7 @@ public final class DJConnectAppModel: ObservableObject {
             baseURL: baseURL,
             identity: identity,
             tokenStore: tokenStore,
+            session: urlSession,
             webSocketFastPath: webSocketFastPathIfLocal(baseURL)
         ) { [weak self] requestSummary, statusCode in
             Task { @MainActor in
@@ -5589,12 +5960,13 @@ public final class DJConnectAppModel: ObservableObject {
             localURL: localURL,
             remoteURL: remoteURL,
             allowsRemoteFallback: configuration.allowsRemoteHTTPFallback,
-            clientFactory: { [identity, tokenStore, localURL, localFastPath] baseURL in
+            clientFactory: { [identity, tokenStore, urlSession, localURL, localFastPath] baseURL in
                 let fastPath = DJConnectFastPathPolicy.isEligible(baseURL: baseURL, localURL: localURL) ? localFastPath : nil
                 return DJConnectClient(
                     baseURL: baseURL,
                     identity: identity,
                     tokenStore: tokenStore,
+                    session: urlSession,
                     webSocketFastPath: fastPath
                 )
             },
@@ -5678,127 +6050,8 @@ public final class DJConnectAppModel: ObservableObject {
         networkMonitor.start(queue: networkMonitorQueue)
     }
 
-    private func startLocalDeviceAPI() {
-        localDeviceAPI = DJConnectLocalDeviceAPI(
-            infoProvider: { [weak self] in
-                if let self {
-                    return await self.localDeviceAPIInfo()
-                }
-                return Self.unavailableLocalDeviceAPIInfo()
-            },
-            tokenProvider: { [weak self] in
-                await self?.loadDeviceToken()
-            },
-            pairHandler: { [weak self] request in
-                await self?.handleLocalPair(request) ?? DJConnectLocalDeviceAPIResponse(
-                    success: false,
-                    error: "unavailable",
-                    message: "DJConnect app model is unavailable."
-                )
-            },
-            commandHandler: { [weak self] request in
-                await self?.handleLocalCommand(request) ?? DJConnectLocalDeviceAPIResponse(
-                    success: false,
-                    error: "unavailable",
-                    message: "DJConnect app model is unavailable."
-                )
-            },
-            djResponseHandler: { [weak self] request in
-                await self?.handleLocalDJResponse(request) ?? DJConnectLocalDeviceAPIResponse(
-                    success: false,
-                    error: "unavailable",
-                    message: "DJConnect app model is unavailable."
-                )
-            },
-            forgetHandler: { [weak self] in
-                await self?.handleLocalForget() ?? DJConnectLocalDeviceAPIResponse(
-                    success: false,
-                    error: "unavailable",
-                    message: "DJConnect app model is unavailable."
-                )
-            },
-            urlHandler: { [weak self] url in
-                await MainActor.run {
-                    self?.applyLocalDeviceAPIURL(url)
-                }
-            },
-            logHandler: { [weak self] message in
-                await MainActor.run {
-                    self?.log(.info, message)
-                }
-            },
-            preferredPort: pinnedLocalDeviceAPIPort(),
-            advertiseBonjour: shouldAdvertiseBonjour
-        )
-        localDeviceAPI?.start()
-    }
-
-    private func restartLocalDeviceAPI() {
-        localDeviceAPI?.stop()
-        localDeviceAPI = nil
-        startLocalDeviceAPI()
-    }
-
-    private var shouldAdvertiseBonjour: Bool {
-        false
-    }
-
-    var isBonjourAdvertisingPreferredForTests: Bool {
-        shouldAdvertiseBonjour
-    }
-
     var isAppInForegroundForTests: Bool {
         isAppInForeground
-    }
-
-    var isLocalDeviceAPIRunningForTests: Bool {
-        localDeviceAPI != nil
-    }
-
-    private func updateBonjourAdvertisingState() {
-        localDeviceAPI?.setBonjourAdvertisingEnabled(shouldAdvertiseBonjour)
-    }
-
-    private func ensureLocalDeviceAPIAdvertising() {
-        restartLocalDeviceAPI()
-        updateBonjourAdvertisingState()
-        log(.debug, "Local device API advertising preference is \(shouldAdvertiseBonjour ? "enabled" : "disabled") for pairing_status=\(pairingStatus.rawValue) demo_mode=\(isDemoMode)")
-    }
-
-    private func localDeviceAPIInfo() -> DJConnectLocalDeviceAPIInfo {
-        DJConnectLocalDeviceAPIInfo(
-            identity: identity,
-            pairingToken: pairingToken,
-            pairingStatus: pairingStatus,
-            localURL: localDeviceAPIURL
-        )
-    }
-
-    nonisolated private static func unavailableLocalDeviceAPIInfo() -> DJConnectLocalDeviceAPIInfo {
-        #if os(macOS)
-        let identity = DJConnectIdentity(
-            deviceID: "djconnect-macos-unavailable",
-            deviceName: "DJConnect Mac",
-            clientType: .macos,
-            firmware: "3.2.3",
-            appVersion: "3.2.3",
-            platform: .macos
-        )
-        #else
-        let identity = DJConnectIdentity(
-            deviceID: "djconnect-ios-unavailable",
-            deviceName: "DJConnect iPhone",
-            clientType: .ios,
-            firmware: "3.2.3",
-            appVersion: "3.2.3",
-            platform: .ios
-        )
-        #endif
-        return DJConnectLocalDeviceAPIInfo(
-            identity: identity,
-            pairingToken: "",
-            pairingStatus: .unpaired
-        )
     }
 
     #if os(iOS) && canImport(WatchConnectivity)
@@ -5837,8 +6090,6 @@ public final class DJConnectAppModel: ObservableObject {
         switch type {
         case "watch_proxy_register":
             registerWatchProxy(message)
-        case "watch_proxy_callback_response":
-            log(.debug, "Watch proxy callback response received")
         case "watch_proxy_ha_request":
             handleWatchProxyHARequest(message)
         default:
@@ -5874,7 +6125,6 @@ public final class DJConnectAppModel: ObservableObject {
         )
         persistWatchProxyRegistration()
         sendWatchProxyReady()
-        attemptWatchProxyPairingIfNeeded()
         log(.info, "Watch proxy registered \(Self.redactedDJConnectDeviceID(deviceID))")
     }
 
@@ -5933,31 +6183,48 @@ public final class DJConnectAppModel: ObservableObject {
             ])
             return
         }
+        await pairWatchProxy(registration: registration, homeAssistantURL: Self.redactedURL(baseURL), pairCode: registration.pairCode)
+    }
+
+    private func pairWatchProxy(registration: DJConnectWatchProxyRegistration, homeAssistantURL: String, pairCode: String) async {
+        guard let baseURL = Self.normalizedHomeAssistantURL(from: homeAssistantURL) else {
+            watchPairingMessage = localized(
+                english: "Invalid local Home Assistant URL for Apple Watch pairing.",
+                dutch: "Ongeldige lokale Home Assistant URL voor Apple Watch-koppeling."
+            )
+            pairingMessage = watchPairingMessage
+            return
+        }
         let tokenStore = DJConnectInMemoryTokenStore()
         let client = DJConnectClient(baseURL: baseURL, identity: registration.identity, tokenStore: tokenStore)
         do {
             let response = try await client.pair(DJConnectPairingPayload(
                 identity: registration.identity,
-                pairingToken: registration.pairCode,
+                pairingToken: pairCode,
                 haLocalURL: Self.redactedURL(baseURL),
                 assistPipelineID: assistPipelineID.isEmpty ? nil : assistPipelineID,
-                bootstrapProof: registration.pairCode
+                bootstrapProof: pairCode
             ))
             guard let token = try tokenStore.loadToken(), !token.isEmpty else {
                 return
             }
             defaults.set(token, forKey: watchProxyDeviceTokenKey)
+            persistWatchPairingContract(response)
             var updated = registration
             updated.paired = true
+            updated.pairCode = pairCode
             watchProxyRegistration = updated
             persistWatchProxyRegistration()
             apply(musicBackendSummary: response.musicBackendSummary)
             remoteSupported = response.remoteSupported ?? remoteSupported
+            watchPairingMessage = localized(
+                english: "Apple Watch paired with Home Assistant.",
+                dutch: "Apple Watch gekoppeld met Home Assistant."
+            )
             sendWatchProxyMessage([
                 "type": "watch_proxy_pair_result",
                 "device_token": token,
                 "ha_base_url": response.haLocalURL ?? Self.redactedURL(baseURL),
-                "local_url": "",
                 "connection_mode": haConnectionMode.rawValue,
                 "remote_supported": remoteSupported,
                 "music_backend": musicBackendSummary.musicBackend ?? "",
@@ -5966,12 +6233,23 @@ public final class DJConnectAppModel: ObservableObject {
                 "music_backend_revision": musicBackendSummary.musicBackendRevision ?? 0,
                 "music_backend_error": musicBackendSummary.musicBackendError ?? "",
                 "music_target_player_name": musicBackendSummary.musicTargetPlayer?.name ?? "",
-                "assist_pipeline_id": response.assistPipelineID ?? assistPipelineID
+                "assist_pipeline_id": response.assistPipelineID ?? assistPipelineID,
+                "api_base": response.apiBase ?? "",
+                "voice_path": response.voicePath ?? "",
+                "status_path": response.statusPath ?? "",
+                "event_path": response.eventPath ?? "",
+                "ask_dj_supported": response.askDJSupported ?? true,
+                "ask_dj_voice_supported": response.askDJVoiceSupported ?? true,
+                "ask_dj_audio_response_supported": response.askDJAudioResponseSupported ?? true
             ])
             log(.info, "Watch proxy paired through iPhone for \(Self.redactedDJConnectDeviceID(registration.identity.deviceID))")
         } catch let error as DJConnectError {
             if case .pairingFailed = error {
-                sendWatchProxyReady()
+                watchPairingMessage = localized(
+                    english: "Home Assistant did not accept the Apple Watch pair code.",
+                    dutch: "Home Assistant accepteerde de Apple Watch koppelcode niet."
+                )
+                pairingMessage = watchPairingMessage
             } else if case .versionMismatch = error {
                 sendWatchProxyMessage([
                     "type": "watch_proxy_ready",
@@ -5980,10 +6258,55 @@ public final class DJConnectAppModel: ObservableObject {
                     "message": Self.watchProxyUserMessage(for: error)
                 ])
             } else {
+                if case .authStale = error {
+                    clearWatchProxyPairingState()
+                } else if case .notConfigured = error {
+                    clearWatchProxyPairingState()
+                }
                 log(.debug, "Watch proxy pairing pending: \(Self.describe(error))")
             }
         } catch {
             log(.debug, "Watch proxy pairing pending: \(error.localizedDescription)")
+        }
+    }
+
+    private func persistWatchPairingContract(_ response: DJConnectPairingResponse) {
+        if let value = response.apiBase {
+            defaults.set(value, forKey: watchProxyAPIBaseKey)
+        }
+        if let value = response.voicePath {
+            defaults.set(value, forKey: watchProxyVoicePathKey)
+        }
+        if let value = response.statusPath {
+            defaults.set(value, forKey: watchProxyStatusPathKey)
+        }
+        if let value = response.eventPath {
+            defaults.set(value, forKey: watchProxyEventPathKey)
+        }
+        if let value = response.askDJSupported {
+            defaults.set(value, forKey: watchProxyAskDJSupportedKey)
+        }
+        if let value = response.askDJVoiceSupported {
+            defaults.set(value, forKey: watchProxyAskDJVoiceSupportedKey)
+        }
+        if let value = response.askDJAudioResponseSupported {
+            defaults.set(value, forKey: watchProxyAskDJAudioResponseSupportedKey)
+        }
+    }
+
+    private func clearWatchProxyPairingState() {
+        defaults.removeObject(forKey: watchProxyDeviceTokenKey)
+        defaults.removeObject(forKey: watchProxyAPIBaseKey)
+        defaults.removeObject(forKey: watchProxyVoicePathKey)
+        defaults.removeObject(forKey: watchProxyStatusPathKey)
+        defaults.removeObject(forKey: watchProxyEventPathKey)
+        defaults.removeObject(forKey: watchProxyAskDJSupportedKey)
+        defaults.removeObject(forKey: watchProxyAskDJVoiceSupportedKey)
+        defaults.removeObject(forKey: watchProxyAskDJAudioResponseSupportedKey)
+        if var registration = watchProxyRegistration {
+            registration.paired = false
+            watchProxyRegistration = registration
+            persistWatchProxyRegistration()
         }
     }
 
@@ -5997,85 +6320,17 @@ public final class DJConnectAppModel: ObservableObject {
             watchProxyAppVersionKey,
             watchProxyPairedKey,
             watchProxyDeviceTokenKey,
-            watchProxyLocalURLKey
+            watchProxyLocalURLKey,
+            watchProxyAPIBaseKey,
+            watchProxyVoicePathKey,
+            watchProxyStatusPathKey,
+            watchProxyEventPathKey,
+            watchProxyAskDJSupportedKey,
+            watchProxyAskDJVoiceSupportedKey,
+            watchProxyAskDJAudioResponseSupportedKey
         ] {
             defaults.removeObject(forKey: key)
         }
-    }
-
-    private func handleWatchProxyPair(_ request: DJConnectLocalPairRequest) -> DJConnectLocalDeviceAPIResponse {
-        guard var registration = watchProxyRegistration else {
-            return DJConnectLocalDeviceAPIResponse(success: false, error: "watch_proxy_unavailable", message: "No Watch registered with this iPhone.")
-        }
-        guard request.deviceID == registration.identity.deviceID else {
-            return DJConnectLocalDeviceAPIResponse(success: false, error: "wrong_device_id", message: "Pair request is for a different DJConnect Watch.")
-        }
-        guard request.clientType == .watchos else {
-            return DJConnectLocalDeviceAPIResponse(success: false, error: "wrong_client_type", message: "Pair request is not for a watchOS client.")
-        }
-        guard request.resolvedPairCode == registration.pairCode else {
-            return DJConnectLocalDeviceAPIResponse(success: false, error: "pair_code_mismatch", message: "Pairing code does not match this Watch.")
-        }
-        guard let token = request.resolvedDeviceToken, !token.isEmpty else {
-            return DJConnectLocalDeviceAPIResponse(success: false, error: "missing_token", message: "Pair request did not include a device token.")
-        }
-
-        defaults.set(token, forKey: watchProxyDeviceTokenKey)
-        registration.paired = true
-        watchProxyRegistration = registration
-        persistWatchProxyRegistration()
-        sendWatchProxyMessage([
-            "type": "watch_proxy_pair_result",
-            "device_token": token,
-            "ha_base_url": request.haLocalURL ?? homeAssistantURL,
-            "local_url": "",
-            "connection_mode": haConnectionMode.rawValue,
-            "remote_supported": remoteSupported,
-            "music_backend": musicBackendSummary.musicBackend ?? "",
-            "music_backend_name": musicBackendSummary.displayName,
-            "music_backend_available": musicBackendSummary.musicBackendAvailable ?? true,
-            "music_backend_revision": musicBackendSummary.musicBackendRevision ?? 0,
-            "music_backend_error": musicBackendSummary.musicBackendError ?? "",
-            "music_target_player_name": musicBackendSummary.musicTargetPlayer?.name ?? "",
-            "assist_pipeline_id": request.assistPipelineID ?? ""
-        ])
-        log(.info, "Watch proxy completed pairing for \(Self.redactedDJConnectDeviceID(registration.identity.deviceID))")
-        return DJConnectLocalDeviceAPIResponse(
-            success: true,
-            message: "paired",
-            deviceID: registration.identity.deviceID,
-            clientType: registration.identity.clientType.rawValue,
-            paired: true
-        )
-    }
-
-    private func forwardWatchProxyCommand(_ request: DJConnectLocalCommandRequest) -> DJConnectLocalDeviceAPIResponse {
-        forwardWatchProxyPayload(type: "watch_proxy_command", request: request)
-    }
-
-    private func forwardWatchProxyDJResponse(_ request: DJConnectLocalDJResponseRequest) -> DJConnectLocalDeviceAPIResponse {
-        forwardWatchProxyPayload(type: "watch_proxy_dj_response", request: request)
-    }
-
-    private func forwardWatchProxyPayload<T: Encodable>(type: String, request: T) -> DJConnectLocalDeviceAPIResponse {
-        guard watchProxyRegistration != nil else {
-            return DJConnectLocalDeviceAPIResponse(success: false, error: "watch_proxy_unavailable", message: "No Watch registered with this iPhone.")
-        }
-        guard let data = try? JSONEncoder().encode(request) else {
-            return DJConnectLocalDeviceAPIResponse(success: false, error: "bad_request", message: "Could not encode Watch proxy payload.")
-        }
-        sendWatchProxyMessage([
-            "type": type,
-            "correlation_id": UUID().uuidString,
-            "request": data
-        ])
-        return DJConnectLocalDeviceAPIResponse(success: true, message: "accepted")
-    }
-
-    private func handleWatchProxyForget() -> DJConnectLocalDeviceAPIResponse {
-        sendWatchProxyMessage(["type": "watch_proxy_forget"])
-        clearWatchProxyRegistration()
-        return DJConnectLocalDeviceAPIResponse(success: true, message: "forgotten")
     }
 
     private func sendWatchProxyReady() {
@@ -6086,7 +6341,6 @@ public final class DJConnectAppModel: ObservableObject {
             "type": "watch_proxy_ready",
             "device_id": registration.identity.deviceID,
             "client_type": registration.identity.clientType.rawValue,
-            "local_url": "",
             "connection_mode": haConnectionMode.rawValue,
             "remote_supported": remoteSupported,
             "music_backend": musicBackendSummary.musicBackend ?? "",
@@ -6126,6 +6380,13 @@ public final class DJConnectAppModel: ObservableObject {
                 try await self.performWatchProxyOperation(request, client: client)
             }
             return DJConnectWatchProxyResponse(success: true, payload: encoded)
+        } catch let error as DJConnectError {
+            if case .authStale = error {
+                clearWatchProxyPairingState()
+            } else if case .notConfigured = error {
+                clearWatchProxyPairingState()
+            }
+            return DJConnectWatchProxyResponse(success: false, error: Self.watchProxyErrorCode(for: error), message: Self.watchProxyUserMessage(for: error))
         } catch {
             return DJConnectWatchProxyResponse(success: false, error: Self.watchProxyErrorCode(for: error), message: Self.watchProxyUserMessage(for: error))
         }
@@ -6153,6 +6414,16 @@ public final class DJConnectAppModel: ObservableObject {
         case .askDJIdleSuggestion:
             let payload = try decoder.decode(DJConnectAskDJIdleSuggestionRequest.self, from: request.payload ?? Data())
             let response = try await client.askDJIdleSuggestion(payload)
+            return try encoder.encode(response)
+        case .musicDNAProfile:
+            let response = try await client.musicDNAProfile()
+            return try encoder.encode(response)
+        case .musicDNASettings:
+            let payload = try decoder.decode(DJConnectMusicDNASettingsRequest.self, from: request.payload ?? Data())
+            let response = try await client.setMusicDNAEnabled(payload.enabled)
+            return try encoder.encode(response)
+        case .clearMusicDNA:
+            let response = try await client.clearMusicDNA()
             return try encoder.encode(response)
         case .voice:
             let payload = try decoder.decode(DJConnectWatchProxyVoicePayload.self, from: request.payload ?? Data())
@@ -6275,137 +6546,6 @@ public final class DJConnectAppModel: ObservableObject {
     }
     #endif
 
-    private func loadDeviceToken() -> String? {
-        try? tokenStore.loadToken()
-    }
-
-    private func handleLocalPair(_ request: DJConnectLocalPairRequest) -> DJConnectLocalDeviceAPIResponse {
-        guard request.deviceID == identity.deviceID else {
-            log(.warning, "Local pair rejected because device_id \(request.deviceID ?? "missing") does not match \(identity.deviceID)")
-            return DJConnectLocalDeviceAPIResponse(success: false, error: "wrong_device_id", message: "Pair request is for a different DJConnect device.")
-        }
-        guard request.clientType == identity.clientType else {
-            log(.warning, "Local pair rejected because client_type \(request.clientType?.rawValue ?? "missing") does not match \(identity.clientType.rawValue)")
-            return DJConnectLocalDeviceAPIResponse(success: false, error: "wrong_client_type", message: "Pair request is for a different DJConnect client type.")
-        }
-        guard request.resolvedPairCode == pairingToken else {
-            log(.warning, "Local pair rejected because pair_code does not match the visible app code")
-            return DJConnectLocalDeviceAPIResponse(success: false, error: "pair_code_mismatch", message: "Pairing code does not match this app.")
-        }
-        guard let token = request.resolvedDeviceToken, !token.isEmpty else {
-            log(.warning, "Local pair rejected because Home Assistant did not send a device token")
-            return DJConnectLocalDeviceAPIResponse(success: false, error: "missing_token", message: "Pair request did not include a device token.")
-        }
-
-        do {
-            try tokenStore.saveToken(token)
-        } catch {
-            log(.error, "Local device API failed to store device token: \(error.localizedDescription)")
-            applyTokenStorageFailure(error)
-            pairingMessage = localized(
-                english: "DJConnect could not save the device token.",
-                dutch: "DJConnect kon het device-token niet opslaan."
-            )
-            return DJConnectLocalDeviceAPIResponse(
-                success: false,
-                error: "token_store_failed",
-                message: "Could not store device token."
-            )
-        }
-
-        let fallbackURL = Self.normalizedHomeAssistantURL(from: request.haLocalURL ?? homeAssistantURL)
-            ?? URL(string: "http://homeassistant.local:8123")!
-        apply(pairingResponse: DJConnectPairingResponse(
-            success: true,
-            deviceToken: token,
-            token: nil,
-            bearerToken: nil,
-            message: nil,
-            deviceID: request.deviceID,
-            clientType: request.clientType,
-            haLocalURL: request.haLocalURL,
-            haRemoteURL: nil,
-            deviceLanguage: request.deviceLanguage,
-            language: request.language,
-            assistPipelineID: request.assistPipelineID
-        ), fallbackBaseURL: fallbackURL)
-        if let localDeviceAPIURL, !localDeviceAPIURL.isEmpty {
-            pinLocalDeviceAPIURL(localDeviceAPIURL)
-        }
-        pairingStatus = .paired
-        isConnected = true
-        isPairing = false
-        pairingMessage = localized(english: "Paired with Home Assistant.", dutch: "Gekoppeld met Home Assistant.")
-        log(.info, "Local device API completed pairing from Home Assistant")
-        presentPairingSuccessScreenAfterPairing()
-        presentWakeWordActivationPromptAfterPairing()
-        if startBackgroundTasks {
-            refresh()
-        }
-        return DJConnectLocalDeviceAPIResponse(
-            success: true,
-            message: "paired",
-            deviceID: identity.deviceID,
-            clientType: identity.clientType.rawValue,
-            paired: true
-        )
-    }
-
-    private func handleLocalCommand(_ request: DJConnectLocalCommandRequest) -> DJConnectLocalDeviceAPIResponse {
-        if let logLevel = request.logLevel, !logLevel.isEmpty {
-            self.logLevel = logLevel
-        }
-        if let voiceEnabled = request.voiceEnabled {
-            self.voiceEnabled = voiceEnabled
-        }
-        if let localResponseAudioEnabled = request.localResponseAudioEnabled {
-            self.localResponseAudioEnabled = localResponseAudioEnabled
-        }
-
-        guard let command = request.command, !command.isEmpty else {
-            return DJConnectLocalDeviceAPIResponse(success: true, message: "settings_applied")
-        }
-
-        switch command {
-        case "status":
-            refresh()
-        case "set_language":
-            if case let .string(value) = request.value {
-                language = value
-            }
-        case "set_log_level":
-            if case let .string(value) = request.value {
-                logLevel = value
-            }
-        case "set_voice_enabled":
-            if case let .bool(value) = request.value {
-                voiceEnabled = value
-            }
-        case "set_local_response_audio_enabled":
-            if case let .bool(value) = request.value {
-                localResponseAudioEnabled = value
-            }
-        case "diagnostics_export":
-            return DJConnectLocalDeviceAPIResponse(success: true, message: diagnosticExportText())
-        case "play", "pause", "next", "previous", "set_volume", "set_shuffle", "set_repeat", "start_liked_proxy", "start_playlist", "play_context_at", "set_output", "set_current_track_favorite", "save_current_track":
-            sendPlaybackCommand(command, value: request.value, play: request.play)
-        default:
-            return DJConnectLocalDeviceAPIResponse(success: false, error: "unsupported_command", message: "Unsupported local app command.")
-        }
-        log(.info, "Local device API handled command \(command)")
-        return DJConnectLocalDeviceAPIResponse(success: true, message: "accepted")
-    }
-
-    private func handleLocalDJResponse(_ request: DJConnectLocalDJResponseRequest) -> DJConnectLocalDeviceAPIResponse {
-        apply(localDJResponse: request)
-        return DJConnectLocalDeviceAPIResponse(success: true, message: "accepted")
-    }
-
-    private func handleLocalForget() -> DJConnectLocalDeviceAPIResponse {
-        resetPairing()
-        return DJConnectLocalDeviceAPIResponse(success: true, message: "forgotten")
-    }
-
     private func localHomeAssistantURL() -> String {
         if !haLocalURL.isEmpty {
             return haLocalURL
@@ -6423,43 +6563,24 @@ public final class DJConnectAppModel: ObservableObject {
         defaults.removeObject(forKey: "DJConnectHAActiveURL")
         assistPipelineID = ""
         defaults.removeObject(forKey: assistPipelineIDKey)
+        clearPairingContractState()
     }
 
-    private func applyLocalDeviceAPIURL(_ url: String?) {
-        if pairingStatus == .paired, let pinnedURL = defaults.string(forKey: localDeviceAPIURLKey), !pinnedURL.isEmpty {
-            localDeviceAPIURL = pinnedURL
-            return
-        }
-        localDeviceAPIURL = url
-        if pairingStatus == .paired, let url, !url.isEmpty {
-            pinLocalDeviceAPIURL(url)
-        }
-    }
-
-    private func pinLocalDeviceAPIURL(_ url: String) {
-        localDeviceAPIURL = url
-        defaults.set(url, forKey: localDeviceAPIURLKey)
-        log(.info, "Pinned Client address for current pairing")
-    }
-
-    private func clearPinnedLocalDeviceAPIURL() {
-        localDeviceAPIURL = nil
-        defaults.removeObject(forKey: localDeviceAPIURLKey)
-    }
-
-    private func pinnedLocalDeviceAPIPort() -> UInt16? {
-        guard pairingStatus == .paired else {
-            return nil
-        }
-        guard
-            let urlString = defaults.string(forKey: localDeviceAPIURLKey),
-            let port = URL(string: urlString)?.port,
-            port > 0,
-            port <= Int(UInt16.max)
-        else {
-            return nil
-        }
-        return UInt16(port)
+    private func clearPairingContractState() {
+        apiBase = ""
+        voicePath = ""
+        statusPath = ""
+        eventPath = ""
+        askDJSupported = false
+        askDJVoiceSupported = false
+        askDJAudioResponseSupported = false
+        defaults.removeObject(forKey: apiBaseKey)
+        defaults.removeObject(forKey: voicePathKey)
+        defaults.removeObject(forKey: statusPathKey)
+        defaults.removeObject(forKey: eventPathKey)
+        defaults.removeObject(forKey: askDJSupportedKey)
+        defaults.removeObject(forKey: askDJVoiceSupportedKey)
+        defaults.removeObject(forKey: askDJAudioResponseSupportedKey)
     }
 
     public func clearDiagnosticLog() {
@@ -6505,7 +6626,6 @@ public final class DJConnectAppModel: ObservableObject {
         output_count: \(availableOutputs.count)
         active_output: \(activeOutput?.name ?? "missing") / \(activeOutput?.id ?? "missing")
         assist_pipeline_id: \(assistPipelineID.isEmpty ? "missing" : "present")
-        local_device_api_url: \(localDeviceAPIURL ?? "missing")
         backend_available: \(backendAvailable)
         selected_output: \(selectedOutput)
         language: \(language)
@@ -6551,6 +6671,14 @@ public final class DJConnectAppModel: ObservableObject {
         }
 
         return url
+    }
+
+    private func normalizedPairCode(from rawValue: String) -> String? {
+        let trimmed = rawValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed.count == 6, trimmed.allSatisfy(\.isNumber) else {
+            return nil
+        }
+        return trimmed
     }
 
     private func logPairingError(_ error: DJConnectError) {

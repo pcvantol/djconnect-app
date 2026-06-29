@@ -99,7 +99,7 @@ bijgewerkt.
 | Declarative UI composition | SwiftUI views in `Sources/DJConnectUI` | Houdt iOS/macOS UI consistent en state-driven. |
 | DTO / Codable contract models | Core/UI response- en requestmodellen | Maakt Home Assistant API-contracten expliciet en testbaar. |
 | Gateway / API client | DJConnect command- en refresh-aanroepen via clientlaag | Isoleert HTTP, bearer-token headers, redactie en decodefouten. |
-| Service adapters | App storage, logging, local API, permissions, speech/audio, Bonjour | Houdt platform-API's buiten de viewlaag. |
+| Service adapters | App storage, logging, permissions, speech/audio, HA transport | Houdt platform-API's buiten de viewlaag. |
 | State machine UI | Pairing, unpaired, paired, stale, demo, connecting, unavailable | Maakt disabling, overlays, foutmeldingen en herstelpaden voorspelbaar. |
 | Async/await concurrency | Netwerk, refresh, voice upload, file logging | Voorkomt blokkeren van de main thread en houdt UI responsief. |
 | `@MainActor` UI isolation | Appmodel en UI-mutaties | Beschermt SwiftUI state tegen thread-races. |
@@ -188,7 +188,6 @@ Conventies:
 
 Bronnen:
 
-- `docs/postman/djconnect-local-device-api.postman_collection.json`
 - `Tools/release/ExportOptions-macOS.plist`
 - gegenereerde Info.plist-fragmenten uit `project.yml`
 
@@ -231,6 +230,7 @@ vastlegt, staat "niet gepind".
 | Combine | Publishers/subscriptions in appmodel/UI | Apple SDK | Apple SDK terms | <https://developer.apple.com/documentation/combine> |
 | UIKit | iOS platformbridges, haptics, pasteboard, app lifecycle | Apple SDK, iOS target | Apple SDK terms | <https://developer.apple.com/documentation/uikit> |
 | AppKit | macOS platformbridges, windows, clipboard, app lifecycle | Apple SDK, macOS target | Apple SDK terms | <https://developer.apple.com/documentation/appkit> |
+| MetalKit | GPU-rendering voor de Track Insight visualizer op iOS en macOS | Apple SDK, iOS/macOS targets | Apple SDK terms | <https://developer.apple.com/documentation/metalkit> |
 | AVFoundation | Audio playback/recording en speech/audio flows | Apple SDK | Apple SDK terms | <https://developer.apple.com/documentation/avfoundation> |
 | Speech | Speech recognition permission en wake phrase support | Apple SDK | Apple SDK terms | <https://developer.apple.com/documentation/speech> |
 | Network | Lokale HTTP listener en netwerkconstructies | Apple SDK | Apple SDK terms | <https://developer.apple.com/documentation/network> |
@@ -247,7 +247,6 @@ vastlegt, staat "niet gepind".
 | GitHub Actions | CI en unsigned public release artifacts | Workflowversies niet centraal gepind | GitHub Terms of Service | <https://github.com/features/actions> |
 | GitHub CLI (`gh`) | Release- en cleanup-scripts | Niet gepind in repo | MIT License | <https://github.com/cli/cli> |
 | Apple notarytool | macOS notarization releaseflow | Xcode toolchain | Apple Developer tools terms | <https://developer.apple.com/documentation/security/notarizing_macos_software_before_distribution> |
-| Postman collection | Handmatige lokale Client API-testdocumentatie | Collectionbestand in repo | Postman terms voor Postman-app/cloud; JSON zelf repo-documentatie | <https://www.postman.com/> |
 
 Er zijn op basis van `Package.swift` geen externe runtime Swift packages
 gedeclareerd (`dependencies: []` en `packages: {}` in `project.yml`).

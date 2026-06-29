@@ -126,7 +126,7 @@ Reasoning:
 - preflight prompts avoid surprising users at the exact moment they press the
   microphone or enable wakeword;
 - Local Network access is still declared in Info.plist and explained in the UI,
-  but the first real LAN/Bonjour use remains the system trigger.
+  but the first real LAN use remains the system trigger.
 
 ## ADR-009: Do Not Host A Home Assistant-Callable Local App API
 
@@ -135,8 +135,7 @@ Status: accepted
 iOS and macOS pair by calling Home Assistant's local `/api/djconnect/pair`
 endpoint directly, then use HA's local URL first and optional remote URL as
 fallback. watchOS is mediated by the paired iPhone over WatchConnectivity. No
-Apple target hosts `/api/device/*` as a Home Assistant callback API, advertises
-`_djconnect._tcp`, or shows a Client adres.
+Apple target hosts a Home Assistant callback API, advertises a pairable discovery service, or shows a callback address.
 
 Reasoning:
 
@@ -263,3 +262,24 @@ Reasoning:
 - local sample data keeps the runtime UI inspectable without a backend;
 - Games lazy start behind a tap-to-play overlay so entering the Games screen is
   cheap and deterministic, and leaving the screen stops the local loop.
+
+## ADR-017: Track Insight Visualizer Uses Metal on Apple GPU Platforms
+
+Status: accepted
+
+The Track Insight visualizer uses `MTKView`/Metal on iOS and macOS. The SwiftUI
+`Canvas` implementation remains as a fallback for platforms where MetalKit is
+not available.
+
+Reasoning:
+
+- the animated Track Insight hero is visible for long stretches on macOS and
+  should not keep SwiftUI canvas rendering on the CPU;
+- Metal keeps the visualizer's animated gradient, glow, and spectrum bars on the
+  GPU while Swift only prepares a compact vertex buffer per frame;
+- the renderer is started when the Track Insight view becomes active and paused
+  when the view is closed or inactive;
+- reduced-motion mode lowers the Metal view to a static or very low frequency
+  render path;
+- watchOS and unsupported platforms keep the simpler Canvas fallback instead of
+  carrying a MetalKit bridge they cannot use.

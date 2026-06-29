@@ -68,6 +68,24 @@ private final class ConnectionModeRecorder: @unchecked Sendable {
     }
 }
 
+private final class RequestPathRecorder: @unchecked Sendable {
+    private let lock = NSLock()
+    private var values: [String] = []
+
+    func append(_ value: String) {
+        lock.lock()
+        values.append(value)
+        lock.unlock()
+    }
+
+    var paths: [String] {
+        lock.lock()
+        let snapshot = values
+        lock.unlock()
+        return snapshot
+    }
+}
+
 private final class RequestCounter: @unchecked Sendable {
     private let lock = NSLock()
     private var value = 0
@@ -78,6 +96,19 @@ private final class RequestCounter: @unchecked Sendable {
 
     var count: Int {
         lock.withLock { value }
+    }
+}
+
+private final class RequestRecorder: @unchecked Sendable {
+    private let lock = NSLock()
+    private var storage: [URLRequest] = []
+
+    func append(_ request: URLRequest) {
+        lock.withLock { storage.append(request) }
+    }
+
+    var requests: [URLRequest] {
+        lock.withLock { storage }
     }
 }
 
@@ -257,6 +288,26 @@ private func testIOSIdentity(deviceID: String = "device-1", deviceName: String =
     )
 }
 
+private func testDefaults() throws -> UserDefaults {
+    let suiteName = "DJConnectTests-\(UUID().uuidString)"
+    let defaults = try #require(UserDefaults(suiteName: suiteName))
+    defaults.removePersistentDomain(forName: suiteName)
+    return defaults
+}
+
+@MainActor
+private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, session: URLSession) -> DJConnectAppModel {
+    let model = DJConnectAppModel(
+        defaults: defaults,
+        tokenStore: DJConnectInMemoryTokenStore(token: "secret-token"),
+        urlSession: session,
+        startBackgroundTasks: false
+    )
+    model.homeAssistantURL = "http://\(host):8123"
+    model.pairingStatus = .paired
+    return model
+}
+
 @Test func userDefaultsTokenStorePersistsAndClearsToken() throws {
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
@@ -285,7 +336,6 @@ private func testIOSIdentity(deviceID: String = "device-1", deviceName: String =
     let model = DJConnectAppModel(
         defaults: defaults,
         tokenStore: tokenStore,
-        startLocalAPI: false,
         startBackgroundTasks: false
     )
 
@@ -301,58 +351,13 @@ private func testIOSIdentity(deviceID: String = "device-1", deviceName: String =
 }
 
 @MainActor
-private func waitForLocalDeviceAPIURL(_ model: DJConnectAppModel) async throws -> String {
-    for _ in 0..<30 {
-        if let url = model.localDeviceAPIURL, !url.isEmpty {
-            return url
-        }
-        try await Task.sleep(for: .milliseconds(100))
-    }
-    throw URLError(.timedOut)
-}
-
-private struct LocalDeviceJSON: Decodable, Sendable {
-    var deviceID: String
-    var clientType: String
-    var version: String
-    var firmware: String
-    var appVersion: String
-    var platform: String
-    var status: String
-    var pairingStatus: String
-    var localURL: String
-    var pairCode: String?
-
-    enum CodingKeys: String, CodingKey {
-        case deviceID = "device_id"
-        case clientType = "client_type"
-        case version
-        case firmware
-        case appVersion = "app_version"
-        case platform
-        case status
-        case pairingStatus = "pairing_status"
-        case localURL = "local_url"
-        case pairCode = "pair_code"
-    }
-}
-
-private func localDeviceJSON(from urlString: String) async throws -> LocalDeviceJSON {
-    let url = try #require(URL(string: urlString))
-    let (data, response) = try await URLSession.shared.data(from: url)
-    let httpResponse = try #require(response as? HTTPURLResponse)
-    #expect(httpResponse.statusCode == 200)
-    return try JSONDecoder().decode(LocalDeviceJSON.self, from: data)
-}
-
-@MainActor
 @Test func resetPairingRotatesLocalIdentityAndCode() throws {
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
     defaults.set("manual-code", forKey: "DJConnectPairingToken")
     let tokenStore = DJConnectInMemoryTokenStore(token: "secret-token")
-    let model = DJConnectAppModel(defaults: defaults, tokenStore: tokenStore, startLocalAPI: false, startBackgroundTasks: false)
+    let model = DJConnectAppModel(defaults: defaults, tokenStore: tokenStore, startBackgroundTasks: false)
     let originalDeviceID = model.identity.deviceID
     let originalPairingToken = model.pairingToken
 
@@ -372,7 +377,7 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
     let tokenStore = DJConnectUserDefaultsTokenStore(defaults: defaults, key: "DJConnectTestDeviceToken")
     try tokenStore.saveToken("orphaned-token")
 
-    let model = DJConnectAppModel(defaults: defaults, tokenStore: tokenStore, startLocalAPI: false, startBackgroundTasks: false)
+    let model = DJConnectAppModel(defaults: defaults, tokenStore: tokenStore, startBackgroundTasks: false)
 
     #expect(model.pairingStatus == .unpaired)
     #expect(model.isConnected == false)
@@ -381,12 +386,12 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
 }
 
 @MainActor
-@Test func pairingAuthStaleKeepsLocalDiscoveryActive() throws {
+@Test func pairingAuthStaleShowsPairCodeRetryWithoutLocalDiscovery() throws {
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
     defaults.set("PAIR42", forKey: "DJConnectPairingToken")
-    let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startLocalAPI: false, startBackgroundTasks: false)
+    let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startBackgroundTasks: false)
     model.language = "nl"
 
     model.applyPairingWait(
@@ -397,38 +402,31 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
         pairingToken: "PAIR42"
     )
 
-    #expect(model.pairingStatus == .pairing)
-    #expect(model.isPairing == true)
+    #expect(model.pairingStatus == .unpaired)
+    #expect(model.isPairing == false)
     #expect(!model.isTerminalPairingError(.authStale(statusCode: 401, message: nil)))
-    #expect(model.pairingMessage?.contains("Lokale discovery blijft actief.") == true)
-    #expect(model.pairingMessage?.contains("Open DJConnect in Home Assistant") == true)
+    #expect(model.pairingMessage?.contains("code") == true)
     #expect(model.pairingMessage?.contains("The pairing code does not match") == false)
 }
 
 @MainActor
-@Test func authStaleClearsTokenAndReopensPairingWithoutBonjour() throws {
+@Test func authStaleClearsTokenAndReopensPairing() throws {
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
     defaults.set(true, forKey: "DJConnectWelcomeSeen")
-    defaults.set("http://192.168.1.104:55046", forKey: "DJConnectLocalDeviceAPIURL")
     let tokenStore = DJConnectInMemoryTokenStore(token: "stale-token")
-    let model = DJConnectAppModel(defaults: defaults, tokenStore: tokenStore, startLocalAPI: false, startBackgroundTasks: false)
+    let model = DJConnectAppModel(defaults: defaults, tokenStore: tokenStore, startBackgroundTasks: false)
     defer {
         model.stopPairingWait()
-        model.stopLocalDeviceAPI()
     }
 
     #expect(model.pairingStatus == .paired)
-    #expect(model.isBonjourAdvertisingPreferredForTests == false)
 
     model.apply(error: .authStale(statusCode: 401, message: "The DJConnect device token is missing or invalid."))
 
     #expect(model.pairingStatus == .pairing || model.pairingStatus == .stale)
     #expect(model.isPairingScreenDismissed == false)
-    #expect(model.isBonjourAdvertisingPreferredForTests == false)
-    #expect(model.localDeviceAPIURL == nil)
-    #expect(defaults.string(forKey: "DJConnectLocalDeviceAPIURL") == nil)
     #expect(try tokenStore.loadToken() == nil)
 }
 
@@ -454,7 +452,6 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
         theme: "dark",
         logLevel: "info",
         haLocalURL: "http://192.168.1.10:8123",
-        localURL: "http://192.168.1.105:51193",
         voiceEnabled: true,
         wakewordEnabled: true,
         wakewordPhrase: "Okay Nabu",
@@ -482,7 +479,7 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
     #expect(json?["ha_local_url"] as? String == "http://192.168.1.10:8123")
     #expect(json?["ha_remote_url"] == nil)
     #expect(json?["ha_active_url"] == nil)
-    #expect(json?["local_url"] as? String == "http://192.168.1.105:51193")
+    #expect(json?["local_url"] == nil)
     #expect(json?["voice_enabled"] as? Bool == true)
     #expect(json?["wakeword_enabled"] as? Bool == true)
     #expect(json?["wakeword_phrase"] as? String == "Okay Nabu")
@@ -639,6 +636,286 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
     #expect(json?["device_id"] as? String == identity.deviceID)
     #expect(json?["client_type"] as? String == "ios")
     #expect(json?["music_dna_key"] as? String == "djconnect_ios_8F3A2C91B45D")
+}
+
+@Test func musicDNARequestsUseBearerIdentityAndCanonicalClientType() throws {
+    let identity = DJConnectIdentity(
+        deviceID: "djconnect-macos-8F3A2C91B45D",
+        deviceName: "DJConnect Mac",
+        clientType: .macos,
+        firmware: "3.2.3",
+        appVersion: "3.2.3",
+        platform: .macos
+    )
+    let client = DJConnectClient(
+        baseURL: try #require(URL(string: "http://homeassistant.local:8123")),
+        identity: identity,
+        tokenStore: DJConnectInMemoryTokenStore(token: "secret-token")
+    )
+
+    let profile = try client.musicDNAProfileRequest()
+    let settings = try client.musicDNASettingsRequest(enabled: true)
+    let clear = try client.clearMusicDNARequest()
+
+    for request in [profile, settings, clear] {
+        let body = try #require(request.httpBody)
+        let json = try JSONSerialization.jsonObject(with: body) as? [String: Any]
+        #expect(request.httpMethod == "POST")
+        #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer secret-token")
+        #expect(request.value(forHTTPHeaderField: "X-DJConnect-Device-ID") == identity.deviceID)
+        #expect(request.value(forHTTPHeaderField: "Content-Type") == "application/json")
+        #expect(json?["device_id"] as? String == identity.deviceID)
+        #expect(json?["client_type"] as? String == "macos")
+    }
+    #expect(profile.url?.path == "/api/djconnect/music_dna/profile")
+    #expect(settings.url?.path == "/api/djconnect/music_dna/settings")
+    #expect(clear.url?.path == "/api/djconnect/music_dna/clear")
+
+    let settingsBody = try #require(settings.httpBody)
+    let settingsJSON = try JSONSerialization.jsonObject(with: settingsBody) as? [String: Any]
+    #expect(settingsJSON?["enabled"] as? Bool == true)
+}
+
+@Test func musicDNAProfileDecodesPopulatedEmptyAndDisabledStates() throws {
+    let populated = try JSONDecoder().decode(
+        DJConnectMusicDNAProfileResponse.self,
+        from: Data("""
+        {
+          "success": true,
+          "music_dna_key": "user:abc123",
+          "enabled": true,
+          "generation": 2,
+          "updated_at": "2026-06-29T12:00:00+00:00",
+          "profile": {
+            "summary": "Warm late-night electronic taste.",
+            "favorite_genres": [{"name": "ambient"}],
+            "favorite_artists": [{"name": "The xx"}],
+            "recent_tracks": [{"title": "Intro", "artist": "The xx"}],
+            "mood": {"value": 65, "zone": "energy", "prompt_hint": "keep it warm"},
+            "recommendation_signals": [{"title": "soft vocals"}]
+          },
+          "sources": [{"source": "djconnect_music_dna", "kind": "source", "title": "Music DNA"}]
+        }
+        """.utf8)
+    )
+    let empty = try JSONDecoder().decode(
+        DJConnectMusicDNAProfileResponse.self,
+        from: Data(#"{"success":true,"enabled":true,"profile":{}}"#.utf8)
+    )
+    let disabled = try JSONDecoder().decode(
+        DJConnectMusicDNAProfileResponse.self,
+        from: Data(#"{"success":true,"enabled":false,"profile":{}}"#.utf8)
+    )
+
+    #expect(populated.enabled == true)
+    #expect(populated.profile.isEmpty == false)
+    #expect(populated.musicDNAKey == "user:abc123")
+    #expect(populated.profile.favoriteGenres.first?.name == "ambient")
+    #expect(populated.profile.favoriteArtists.first?.name == "The xx")
+    #expect(populated.profile.recentTracks.first?.title == "Intro")
+    #expect(populated.profile.mood?.value == 65)
+    #expect(populated.sources.first?.title == "Music DNA")
+    #expect(empty.enabled == true)
+    #expect(empty.profile.isEmpty == true)
+    #expect(disabled.enabled == false)
+    #expect(disabled.profile.isEmpty == true)
+}
+
+@MainActor
+@Test func musicDNAProfileLoadsPopulatedBackendProfile() async throws {
+    let defaults = try testDefaults()
+    let recorder = RequestRecorder()
+    let session = mockSession(host: "musicdna-populated.local") { request in
+        recorder.append(request)
+        return (try httpResponse(for: request, statusCode: 200), Data("""
+        {
+          "success": true,
+          "music_dna_key": "user:abc123",
+          "enabled": true,
+          "generation": 2,
+          "profile": {
+            "summary": "Warm late-night electronic taste.",
+            "favorite_genres": [{"name": "ambient"}],
+            "favorite_artists": [{"name": "The xx"}],
+            "recent_tracks": [{"title": "Intro", "artist": "The xx"}],
+            "mood": {"value": 65, "zone": "energy"},
+            "recommendation_signals": [{"title": "soft vocals"}]
+          }
+        }
+        """.utf8))
+    }
+    let model = makePairedMusicDNAModel(defaults: defaults, host: "musicdna-populated.local", session: session)
+
+    await model.refreshMusicDNAProfile()
+
+    #expect(model.musicDNAProfileResponse?.enabled == true)
+    #expect(model.musicDNAProfileResponse?.profile.isEmpty == false)
+    #expect(model.musicDNAProfileResponse?.profile.summary == "Warm late-night electronic taste.")
+    #expect(model.musicDNAProfileResponse?.profile.favoriteGenres.first?.name == "ambient")
+    #expect(recorder.requests.map { $0.url?.path } == ["/api/djconnect/music_dna/profile"])
+}
+
+@MainActor
+@Test func musicDNAProfileLoadsEnabledEmptyState() async throws {
+    let defaults = try testDefaults()
+    let session = mockSession(host: "musicdna-empty.local") { request in
+        (try httpResponse(for: request, statusCode: 200), Data(#"{"success":true,"enabled":true,"profile":{}}"#.utf8))
+    }
+    let model = makePairedMusicDNAModel(defaults: defaults, host: "musicdna-empty.local", session: session)
+
+    await model.refreshMusicDNAProfile()
+
+    #expect(model.musicDNAProfileResponse?.enabled == true)
+    #expect(model.musicDNAProfileResponse?.profile.isEmpty == true)
+}
+
+@MainActor
+@Test func musicDNAProfileLoadsDisabledOptInStateWithoutLocalProfile() async throws {
+    let defaults = try testDefaults()
+    let session = mockSession(host: "musicdna-disabled.local") { request in
+        (try httpResponse(for: request, statusCode: 200), Data(#"{"success":true,"enabled":false,"profile":{}}"#.utf8))
+    }
+    let model = makePairedMusicDNAModel(defaults: defaults, host: "musicdna-disabled.local", session: session)
+
+    await model.refreshMusicDNAProfile()
+
+    #expect(model.musicDNAProfileResponse?.enabled == false)
+    #expect(model.musicDNAProfileResponse?.profile.isEmpty == true)
+}
+
+@MainActor
+@Test func clearMusicDNAUsesClearEndpointAndRefreshesProfile() async throws {
+    let defaults = try testDefaults()
+    let recorder = RequestRecorder()
+    let session = mockSession(host: "musicdna-clear.local") { request in
+        recorder.append(request)
+        if request.url?.path == "/api/djconnect/music_dna/clear" {
+            return (try httpResponse(for: request, statusCode: 200), Data(#"{"success":true,"enabled":true,"profile":{}}"#.utf8))
+        }
+        return (try httpResponse(for: request, statusCode: 200), Data(#"{"success":true,"enabled":true,"profile":{}}"#.utf8))
+    }
+    let model = makePairedMusicDNAModel(defaults: defaults, host: "musicdna-clear.local", session: session)
+
+    await model.clearMusicDNA()
+
+    #expect(recorder.requests.map { $0.url?.path } == [
+        "/api/djconnect/music_dna/clear",
+        "/api/djconnect/music_dna/profile"
+    ])
+    #expect(model.musicDNAProfileResponse?.enabled == true)
+    #expect(model.musicDNAProfileResponse?.profile.isEmpty == true)
+}
+
+@MainActor
+@Test func optOutMusicDNAUsesSettingsEndpointAndRefreshesDisabledProfile() async throws {
+    let defaults = try testDefaults()
+    let recorder = RequestRecorder()
+    let session = mockSession(host: "musicdna-optout.local") { request in
+        recorder.append(request)
+        return (try httpResponse(for: request, statusCode: 200), Data(#"{"success":true,"enabled":false,"profile":{}}"#.utf8))
+    }
+    let model = makePairedMusicDNAModel(defaults: defaults, host: "musicdna-optout.local", session: session)
+
+    await model.setMusicDNAEnabled(false)
+
+    #expect(recorder.requests.map { $0.url?.path } == [
+        "/api/djconnect/music_dna/settings",
+        "/api/djconnect/music_dna/profile"
+    ])
+    #expect(model.musicDNAProfileResponse?.enabled == false)
+    #expect(model.musicDNAProfileResponse?.profile.isEmpty == true)
+}
+
+@MainActor
+@Test func musicDNAOptInPromptShowsOnceAfterPairing() throws {
+    let defaults = try testDefaults()
+    let model = DJConnectAppModel(
+        defaults: defaults,
+        tokenStore: DJConnectInMemoryTokenStore(),
+        startBackgroundTasks: false
+    )
+
+    model.presentMusicDNAOptInPromptIfNeeded()
+    #expect(model.isShowingMusicDNAOptInPrompt == false)
+
+    model.pairingStatus = .paired
+    model.presentMusicDNAOptInPromptIfNeeded()
+    #expect(model.isShowingMusicDNAOptInPrompt == true)
+
+    model.dismissMusicDNAOptInPrompt()
+    #expect(model.isShowingMusicDNAOptInPrompt == false)
+
+    model.presentMusicDNAOptInPromptIfNeeded()
+    #expect(model.isShowingMusicDNAOptInPrompt == false)
+}
+
+@MainActor
+@Test func optInMusicDNAUsesSettingsEndpointAndRefreshesProfile() async throws {
+    let defaults = try testDefaults()
+    let recorder = RequestRecorder()
+    let session = mockSession(host: "musicdna-optin.local") { request in
+        recorder.append(request)
+        return (try httpResponse(for: request, statusCode: 200), Data("""
+        {"success":true,"enabled":true,"profile":{"summary":"Newly enabled profile"}}
+        """.utf8))
+    }
+    let model = makePairedMusicDNAModel(defaults: defaults, host: "musicdna-optin.local", session: session)
+
+    await model.setMusicDNAEnabled(true)
+
+    #expect(recorder.requests.map { $0.url?.path } == [
+        "/api/djconnect/music_dna/settings",
+        "/api/djconnect/music_dna/profile"
+    ])
+    #expect(model.musicDNAProfileResponse?.enabled == true)
+    #expect(model.musicDNAProfileResponse?.profile.summary == "Newly enabled profile")
+}
+
+@MainActor
+@Test func demoModeShowsFictionalMusicDNAProfileAndSupportsClear() async throws {
+    let defaults = try testDefaults()
+    let model = DJConnectAppModel(
+        defaults: defaults,
+        tokenStore: DJConnectInMemoryTokenStore(),
+        startBackgroundTasks: false
+    )
+
+    model.startDemoMode()
+
+    #expect(model.isDemoMode == true)
+    #expect(model.musicDNAProfileResponse?.enabled == true)
+    #expect(model.musicDNAProfileResponse?.profile.summary?.contains("fictional") == true)
+    #expect(model.musicDNAProfileResponse?.profile.favoriteArtists.map(\.name).contains("Luna Vale") == true)
+    #expect(model.musicDNAProfileResponse?.profile.recentTracks.map(\.title).contains("Glass Avenue") == true)
+
+    await model.clearMusicDNA()
+
+    #expect(model.musicDNAProfileResponse?.enabled == true)
+    #expect(model.musicDNAProfileResponse?.profile.favoriteArtists.map(\.name).contains("Luna Vale") == true)
+    #expect(model.musicDNAProfileResponse?.profile.recentTracks.map(\.title).contains("Glass Avenue") == true)
+}
+
+@MainActor
+@Test func authFailureClearsMusicDNALocalDisplay() async throws {
+    let defaults = try testDefaults()
+    let recorder = RequestRecorder()
+    let session = mockSession(host: "musicdna-auth.local") { request in
+        recorder.append(request)
+        if recorder.requests.count == 1 {
+            return (try httpResponse(for: request, statusCode: 200), Data("""
+            {"success":true,"enabled":true,"profile":{"summary":"Cached server display"}}
+            """.utf8))
+        }
+        return (try httpResponse(for: request, statusCode: 401), Data(#"{"success":false,"error":"auth_stale"}"#.utf8))
+    }
+    let model = makePairedMusicDNAModel(defaults: defaults, host: "musicdna-auth.local", session: session)
+
+    await model.refreshMusicDNAProfile()
+    #expect(model.musicDNAProfileResponse?.profile.summary == "Cached server display")
+
+    await model.refreshMusicDNAProfile()
+
+    #expect(model.musicDNAProfileResponse == nil)
 }
 
 @Test func askDJIdleSuggestionRequestUsesDedicatedEndpoint() throws {
@@ -2712,7 +2989,7 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
-    let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startLocalAPI: false, startBackgroundTasks: false)
+    let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startBackgroundTasks: false)
     model.language = "nl"
 
     model.apply(commandResponse: DJConnectCommandResponse(
@@ -2741,7 +3018,6 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
     let model = DJConnectAppModel(
         defaults: defaults,
         tokenStore: DJConnectInMemoryTokenStore(),
-        startLocalAPI: false,
         startBackgroundTasks: false
     )
     model.language = "nl"
@@ -2761,7 +3037,6 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
     let model = DJConnectAppModel(
         defaults: defaults,
         tokenStore: DJConnectInMemoryTokenStore(),
-        startLocalAPI: false,
         startBackgroundTasks: false
     )
 
@@ -2776,7 +3051,6 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
     let model = DJConnectAppModel(
         defaults: defaults,
         tokenStore: DJConnectInMemoryTokenStore(token: "secret-token"),
-        startLocalAPI: false,
         startBackgroundTasks: false
     )
     model.language = "nl"
@@ -2864,7 +3138,7 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
-    let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startLocalAPI: false, startBackgroundTasks: false)
+    let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startBackgroundTasks: false)
 
     model.apply(commandResponse: DJConnectCommandResponse(
         success: true,
@@ -2883,7 +3157,7 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
-    let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startLocalAPI: false, startBackgroundTasks: false)
+    let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startBackgroundTasks: false)
     let repeatedItem = DJConnectQueueItem(
         title: "Summer Of 69",
         artist: "Bryan Adams",
@@ -2908,7 +3182,7 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
-    let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startLocalAPI: false, startBackgroundTasks: false)
+    let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startBackgroundTasks: false)
     let episode = DJConnectQueueItem(
         title: "Podcast Episode",
         artist: "Podcast",
@@ -3243,6 +3517,188 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
     #expect(json?["firmware"] as? String == "3.1.7")
 }
 
+@Test func iOSPairingRequestUsesPairEndpointWithoutLocalCallbackFields() throws {
+    let identity = DJConnectIdentity(
+        deviceID: "djconnect-ios-8F3A2C91B45D",
+        deviceName: "DJConnect iPhone",
+        clientType: .ios,
+        firmware: "3.2.3",
+        appVersion: "3.2.3",
+        platform: .ios
+    )
+    let client = DJConnectClient(
+        baseURL: try #require(URL(string: "http://homeassistant.local:8123")),
+        identity: identity,
+        tokenStore: DJConnectInMemoryTokenStore()
+    )
+
+    let request = try client.pairingRequest(DJConnectPairingPayload(identity: identity, pairingToken: "123456"))
+    let body = try #require(request.httpBody)
+    let json = try JSONSerialization.jsonObject(with: body) as? [String: Any]
+
+    #expect(request.url?.path == "/api/djconnect/pair")
+    #expect(request.value(forHTTPHeaderField: "Authorization") == nil)
+    #expect(request.value(forHTTPHeaderField: "X-DJConnect-Device-ID") == "djconnect-ios-8F3A2C91B45D")
+    #expect(json?["device_id"] as? String == "djconnect-ios-8F3A2C91B45D")
+    #expect(json?["device_name"] as? String == "DJConnect iPhone")
+    #expect(json?["client_type"] as? String == "ios")
+    #expect(json?["pair_code"] as? String == "123456")
+    #expect(json?["callback_url"] == nil)
+    #expect(json?["local_url"] == nil)
+    #expect(json?["pair_path"] == nil)
+}
+
+@Test func iOSPairingDeepLinkParsesHomeAssistantPayload() throws {
+    let url = try #require(URL(string: "djconnect://pair?ha_url=http%3A%2F%2Fhomeassistant.local%3A8123&pair_code=123456&client_type=ios&pair_path=%2Fapi%2Fdjconnect%2Fpair"))
+
+    let payload = try DJConnectPairingDeepLink.parse(url, expectedClientType: .ios)
+
+    #expect(payload.homeAssistantURL == "http://homeassistant.local:8123")
+    #expect(payload.pairCode == "123456")
+    #expect(payload.clientType == .ios)
+    #expect(payload.pairPath == "/api/djconnect/pair")
+}
+
+@Test func iOSPairingDeepLinkRejectsInvalidPayloads() throws {
+    let missingURL = try #require(URL(string: "djconnect://pair?pair_code=123456&client_type=ios&pair_path=%2Fapi%2Fdjconnect%2Fpair"))
+    let remoteURL = try #require(URL(string: "djconnect://pair?ha_url=https%3A%2F%2Fexample.ui.nabu.casa&pair_code=123456&client_type=ios&pair_path=%2Fapi%2Fdjconnect%2Fpair"))
+    let badCode = try #require(URL(string: "djconnect://pair?ha_url=http%3A%2F%2Fhomeassistant.local%3A8123&pair_code=12AB56&client_type=ios&pair_path=%2Fapi%2Fdjconnect%2Fpair"))
+    let wrongClient = try #require(URL(string: "djconnect://pair?ha_url=http%3A%2F%2Fhomeassistant.local%3A8123&pair_code=123456&client_type=macos&pair_path=%2Fapi%2Fdjconnect%2Fpair"))
+    let wrongPath = try #require(URL(string: "djconnect://pair?ha_url=http%3A%2F%2Fhomeassistant.local%3A8123&pair_code=123456&client_type=ios&pair_path=%2Fapi%2Fdevice%2Fpair"))
+
+    for url in [missingURL, remoteURL, badCode, wrongClient, wrongPath] {
+        #expect(throws: DJConnectError.self) {
+            _ = try DJConnectPairingDeepLink.parse(url, expectedClientType: .ios)
+        }
+    }
+}
+
+@Test func watchPairingDeepLinkParsesHomeAssistantPayload() throws {
+    let url = try #require(URL(string: "djconnect://pair?ha_url=http%3A%2F%2Fhomeassistant.local%3A8123&pair_code=123456&client_type=watchos&pair_path=%2Fapi%2Fdjconnect%2Fpair"))
+
+    let payload = try DJConnectPairingDeepLink.parse(url, expectedClientType: .watchos)
+
+    #expect(payload.homeAssistantURL == "http://homeassistant.local:8123")
+    #expect(payload.pairCode == "123456")
+    #expect(payload.clientType == .watchos)
+    #expect(payload.pairPath == "/api/djconnect/pair")
+}
+
+@Test func watchPairingDeepLinkRejectsWrongClientTypeAndPairPath() throws {
+    let wrongClient = try #require(URL(string: "djconnect://pair?ha_url=http%3A%2F%2Fhomeassistant.local%3A8123&pair_code=123456&client_type=ios&pair_path=%2Fapi%2Fdjconnect%2Fpair"))
+    let wrongPath = try #require(URL(string: "djconnect://pair?ha_url=http%3A%2F%2Fhomeassistant.local%3A8123&pair_code=123456&client_type=watchos&pair_path=%2Fapi%2Fdevice%2Fpair"))
+
+    #expect(throws: DJConnectError.self) {
+        _ = try DJConnectPairingDeepLink.parse(wrongClient, expectedClientType: .watchos)
+    }
+    #expect(throws: DJConnectError.self) {
+        _ = try DJConnectPairingDeepLink.parse(wrongPath, expectedClientType: .watchos)
+    }
+}
+
+@Test func watchPairingRequestUsesHomeAssistantPairEndpoint() throws {
+    let identity = DJConnectIdentity(
+        deviceID: "djconnect-watchos-8F3A2C91B45D",
+        deviceName: "Apple Watch van Peter",
+        clientType: .watchos,
+        firmware: "3.2.3",
+        appVersion: "3.2.3",
+        platform: .watchos
+    )
+    let client = DJConnectClient(
+        baseURL: try #require(URL(string: "http://homeassistant.local:8123")),
+        identity: identity,
+        tokenStore: DJConnectInMemoryTokenStore()
+    )
+
+    let request = try client.pairingRequest(DJConnectPairingPayload(identity: identity, pairingToken: "123456"))
+    let body = try #require(request.httpBody)
+    let json = try JSONSerialization.jsonObject(with: body) as? [String: Any]
+
+    #expect(request.url?.path == "/api/djconnect/pair")
+    #expect(request.value(forHTTPHeaderField: "Authorization") == nil)
+    #expect(request.value(forHTTPHeaderField: "X-DJConnect-Device-ID") == "djconnect-watchos-8F3A2C91B45D")
+    #expect(json?["device_id"] as? String == "djconnect-watchos-8F3A2C91B45D")
+    #expect(json?["device_name"] as? String == "Apple Watch van Peter")
+    #expect(json?["client_type"] as? String == "watchos")
+    #expect(json?["pair_code"] as? String == "123456")
+    #expect(json?["callback_url"] == nil)
+    #expect(json?["local_url"] == nil)
+    #expect(json?["pair_path"] == nil)
+}
+
+@Test func iPhoneWatchProxyPairRequestPreservesWatchIdentity() async throws {
+    let identity = DJConnectIdentity(
+        deviceID: "djconnect-watchos-8F3A2C91B45D",
+        deviceName: "Apple Watch van Peter",
+        clientType: .watchos,
+        firmware: "3.2.3",
+        appVersion: "3.2.3",
+        platform: .watchos
+    )
+    let tokenStore = DJConnectInMemoryTokenStore()
+    let host = "watch-pair-proxy.local"
+    let session = mockSession(host: host) { request in
+        #expect(request.url?.path == "/api/djconnect/pair")
+        #expect(request.value(forHTTPHeaderField: "Authorization") == nil)
+        #expect(request.value(forHTTPHeaderField: "X-DJConnect-Device-ID") == "djconnect-watchos-8F3A2C91B45D")
+        return (
+            try httpResponse(for: request, statusCode: 200),
+            Data(
+                """
+                {
+                  "success": true,
+                  "client_type": "watchos",
+                  "device_token": "watch-secret",
+                  "ha_local_url": "http://\(host):8123",
+                  "api_base": "/api/djconnect",
+                  "voice_path": "/api/djconnect/voice",
+                  "status_path": "/api/djconnect/status",
+                  "event_path": "/api/djconnect/event",
+                  "ask_dj_supported": true,
+                  "ask_dj_voice_supported": true,
+                  "ask_dj_audio_response_supported": true
+                }
+                """.utf8
+            )
+        )
+    }
+    let client = DJConnectClient(
+        baseURL: try #require(URL(string: "http://\(host):8123")),
+        identity: identity,
+        tokenStore: tokenStore,
+        session: session
+    )
+
+    let response = try await client.pair(DJConnectPairingPayload(identity: identity, pairingToken: "123456"))
+
+    #expect(response.success)
+    #expect(response.clientType == .watchos)
+    #expect(response.apiBase == "/api/djconnect")
+    #expect(response.askDJVoiceSupported == true)
+    #expect(try tokenStore.loadToken() == "watch-secret")
+}
+
+@Test func pairingRequestRejectsMismatchedClientTypeAndDeviceIDPrefix() throws {
+    let identity = DJConnectIdentity(
+        deviceID: "djconnect-ios-8F3A2C91B45D",
+        deviceName: "DJConnect Mac",
+        clientType: .macos,
+        firmware: "3.2.3",
+        appVersion: "3.2.3",
+        platform: .macos
+    )
+    let client = DJConnectClient(
+        baseURL: try #require(URL(string: "http://homeassistant.local:8123")),
+        identity: identity,
+        tokenStore: DJConnectInMemoryTokenStore()
+    )
+
+    #expect(throws: DJConnectError.invalidConfiguration("DJConnect pairing identity mismatch: device_id prefix does not match client_type.")) {
+        _ = try client.pairingRequest(DJConnectPairingPayload(identity: identity, pairingToken: "123456"))
+    }
+}
+
 @Test func pairingResponseAcceptsCommonTokenFieldNames() throws {
     let decoder = JSONDecoder()
 
@@ -3269,7 +3725,7 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
-    let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startLocalAPI: false, startBackgroundTasks: false)
+    let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startBackgroundTasks: false)
     model.language = "en"
     let response = DJConnectPairingResponse(
         success: true,
@@ -3283,163 +3739,91 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
         haRemoteURL: "https://remote.ui.nabu.casa",
         deviceLanguage: "nl",
         language: "en",
-        assistPipelineID: "preferred"
+        assistPipelineID: "preferred",
+        apiBase: "/api/djconnect",
+        voicePath: "/api/djconnect/voice",
+        statusPath: "/api/djconnect/status",
+        eventPath: "/api/djconnect/event",
+        askDJSupported: true,
+        askDJVoiceSupported: true,
+        askDJAudioResponseSupported: true
     )
 
     model.apply(pairingResponse: response, fallbackBaseURL: try #require(URL(string: "http://fallback.local:8123")))
 
     #expect(model.homeAssistantURL == "http://192.168.1.13:8123")
     #expect(model.haLocalURL == "http://192.168.1.13:8123")
+    #expect(model.haRemoteURL == "https://remote.ui.nabu.casa")
     #expect(model.language == "en")
     #expect(model.assistPipelineID == "preferred")
-}
-
-@Test func localPairRequestAcceptsHomeAssistantCallbackPayload() throws {
-    let request = try JSONDecoder().decode(
-        DJConnectLocalPairRequest.self,
-        from: Data(
-            """
-            {
-              "pair_code": 555293,
-              "device_id": "djconnect-macos-68B74487726D",
-              "device_name": "DJConnect Mac",
-              "client_type": "macos",
-              "device_language": "nl",
-              "language": "nl",
-              "device_token": "device-secret",
-              "ha_local_url": "http://192.168.1.13:8123",
-              "ha_remote_url": "https://remote.ui.nabu.casa",
-              "assist_pipeline_id": "preferred"
-            }
-            """.utf8
-        )
-    )
-
-    #expect(request.resolvedPairCode == "555293")
-    #expect(request.deviceID == "djconnect-macos-68B74487726D")
-    #expect(request.clientType == .macos)
-    #expect(request.resolvedDeviceToken == "device-secret")
-    #expect(request.haLocalURL == "http://192.168.1.13:8123")
-    #expect(request.haRemoteURL == "https://remote.ui.nabu.casa")
-    #expect(request.assistPipelineID == "preferred")
+    #expect(model.apiBase == "/api/djconnect")
+    #expect(model.voicePath == "/api/djconnect/voice")
+    #expect(model.statusPath == "/api/djconnect/status")
+    #expect(model.eventPath == "/api/djconnect/event")
+    #expect(model.askDJSupported)
+    #expect(model.askDJVoiceSupported)
+    #expect(model.askDJAudioResponseSupported)
+    #expect(defaults.string(forKey: "DJConnectHARemoteURL") == "https://remote.ui.nabu.casa")
+    #expect(defaults.string(forKey: "DJConnectAPIBase") == "/api/djconnect")
 }
 
 @MainActor
-@Test func appDoesNotStartClientHostedLocalAPIForPairing() async throws {
+@Test func macOSPairingPostsOnlyToHomeAssistantPairEndpoint() async throws {
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
+    defaults.set(true, forKey: "DJConnectWelcomeSeen")
+    defaults.set("ABCDEF1234567890", forKey: "DJConnectInstallID")
     let tokenStore = DJConnectInMemoryTokenStore()
-    let model = DJConnectAppModel(defaults: defaults, tokenStore: tokenStore, startBackgroundTasks: false)
+    let host = "pair-macos.local"
+    let recorder = RequestPathRecorder()
+    let session = mockSession(host: host) { request in
+        recorder.append(request.url?.path ?? "")
+        #expect(request.url?.path == "/api/djconnect/pair")
+        #expect(request.value(forHTTPHeaderField: "Authorization") == nil)
+        #expect(request.value(forHTTPHeaderField: "X-DJConnect-Device-ID") == "djconnect-macos-ABCDEF123456")
+        return (
+            try httpResponse(for: request, statusCode: 200),
+            Data(
+                """
+                {
+                  "success": true,
+                  "client_type": "macos",
+                  "device_token": "device-secret",
+                  "ha_local_url": "http://\(host):8123",
+                  "ha_remote_url": "https://example.ui.nabu.casa",
+                  "api_base": "/api/djconnect",
+                  "voice_path": "/api/djconnect/voice",
+                  "status_path": "/api/djconnect/status",
+                  "event_path": "/api/djconnect/event",
+                  "ask_dj_supported": true,
+                  "ask_dj_voice_supported": true,
+                  "ask_dj_audio_response_supported": true
+                }
+                """.utf8
+            )
+        )
+    }
+    let model = DJConnectAppModel(defaults: defaults, tokenStore: tokenStore, urlSession: session, startBackgroundTasks: false)
+    defer {
+        model.stopPairingWait()
+    }
+    model.homeAssistantURL = "http://\(host):8123"
+    model.pairingToken = "123456"
 
-    try await Task.sleep(for: .milliseconds(150))
-    #expect(model.isLocalDeviceAPIRunningForTests == false)
-    #expect(model.localDeviceAPIURL == nil)
-    #expect(defaults.string(forKey: "DJConnectLocalDeviceAPIURL") == nil)
-    #expect(try tokenStore.loadToken() == nil)
-    model.stopLocalDeviceAPI()
-}
+    model.confirmPairingHomeAssistantURL()
 
-@MainActor
-@Test func localDeviceAPIAndBonjourAreInactiveForAppleClients() async throws {
-    let suiteName = "DJConnectTests-\(UUID().uuidString)"
-    let defaults = try #require(UserDefaults(suiteName: suiteName))
-    defaults.removePersistentDomain(forName: suiteName)
-    let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startBackgroundTasks: false)
-    defer { model.stopLocalDeviceAPI() }
+    for _ in 0..<20 where model.pairingStatus != .paired {
+        try await Task.sleep(for: .milliseconds(100))
+    }
 
-    try await Task.sleep(for: .milliseconds(150))
-    #expect(model.isLocalDeviceAPIRunningForTests == false)
-    #expect(model.isBonjourAdvertisingPreferredForTests == false)
-    #expect(model.localDeviceAPIURL == nil)
-}
-
-@Test func bonjourTXTRecordIncludesWatchOSDiscoveryContract() throws {
-    let identity = DJConnectIdentity(
-        deviceID: "djconnect-watchos-8F3A2C91B45D",
-        deviceName: "DJConnect Watch",
-        clientType: .watchos,
-        firmware: "3.1.49",
-        appVersion: "3.1.49",
-        platform: .watchos
-    )
-    let info = DJConnectLocalDeviceAPIInfo(
-        identity: identity,
-        pairingToken: "123456",
-        pairingStatus: .pairing
-    )
-    let txtRecord = DJConnectLocalDeviceAPI.bonjourTXTRecord(
-        for: info,
-        localURL: "http://192.168.1.105:55805"
-    ).mapValues { String(decoding: $0, as: UTF8.self) }
-
-    #expect(txtRecord["device_id"] == "djconnect-watchos-8F3A2C91B45D")
-    #expect(txtRecord["device_id"]?.hasPrefix("djconnect-watchos-") == true)
-    #expect(txtRecord["client_type"] == "watchos")
-    #expect(txtRecord["platform"] == "watchos")
-    #expect(txtRecord["pairing_status"] == "pairing")
-    #expect(txtRecord["paired"] == "false")
-    #expect(txtRecord["pair_code"] == "123456")
-    #expect(txtRecord["pairing_code"] == "123456")
-    #expect(txtRecord["pairing_token"] == "123456")
-    #expect(txtRecord["local_url"] == "http://192.168.1.105:55805")
-    #expect(txtRecord["path"] == "/api/device/info")
-    #expect(txtRecord["pairing_path"] == "/api/device/pairing-info")
-    #expect(txtRecord["pair_path"] == "/api/device/pair")
-}
-
-@Test func bonjourTXTRecordIncludesIOSDiscoveryContract() throws {
-    let identity = DJConnectIdentity(
-        deviceID: "djconnect-ios-8F3A2C91B45D",
-        deviceName: "DJConnect iPhone",
-        clientType: .ios,
-        firmware: "3.1.49",
-        appVersion: "3.1.49",
-        platform: .ios
-    )
-    let info = DJConnectLocalDeviceAPIInfo(
-        identity: identity,
-        pairingToken: "654321",
-        pairingStatus: .unpaired
-    )
-    let txtRecord = DJConnectLocalDeviceAPI.bonjourTXTRecord(
-        for: info,
-        localURL: "http://192.168.1.106:55806"
-    ).mapValues { String(decoding: $0, as: UTF8.self) }
-
-    #expect(txtRecord["device_id"] == "djconnect-ios-8F3A2C91B45D")
-    #expect(txtRecord["device_id"]?.hasPrefix("djconnect-ios-") == true)
-    #expect(txtRecord["client_type"] == "ios")
-    #expect(txtRecord["platform"] == "ios")
-    #expect(txtRecord["pairing_status"] == "unpaired")
-    #expect(txtRecord["paired"] == "false")
-    #expect(txtRecord["pair_code"] == "654321")
-    #expect(txtRecord["local_url"] == "http://192.168.1.106:55806")
-}
-
-@MainActor
-@Test func bonjourAdvertisingIsDisabledForAppleClients() throws {
-    let suiteName = "DJConnectTests-\(UUID().uuidString)"
-    let defaults = try #require(UserDefaults(suiteName: suiteName))
-    defaults.removePersistentDomain(forName: suiteName)
-    let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startLocalAPI: false, startBackgroundTasks: false)
-
-    #expect(!model.isBonjourAdvertisingPreferredForTests)
-
-    model.dismissWelcome()
-    #expect(!model.isBonjourAdvertisingPreferredForTests)
-
-    model.startDemoMode()
-    #expect(!model.isBonjourAdvertisingPreferredForTests)
-
-    model.stopDemoMode()
-    #expect(!model.isBonjourAdvertisingPreferredForTests)
-
-    model.pairingStatus = DJConnectPairingStatus.paired
-    #expect(!model.isBonjourAdvertisingPreferredForTests)
-
-    model.pairingStatus = DJConnectPairingStatus.unpaired
-    #expect(!model.isBonjourAdvertisingPreferredForTests)
+    #expect(model.pairingStatus == .paired)
+    #expect(recorder.paths == ["/api/djconnect/pair"])
+    #expect(!recorder.paths.contains { $0.hasPrefix("/api/device/") })
+    #expect(try tokenStore.loadToken() == "device-secret")
+    #expect(model.haRemoteURL == "https://example.ui.nabu.casa")
+    #expect(model.apiBase == "/api/djconnect")
+    #expect(model.askDJSupported)
 }
 
 @MainActor
@@ -3447,7 +3831,7 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
-    let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startLocalAPI: false, startBackgroundTasks: false)
+    let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startBackgroundTasks: false)
 
     #expect(model.isAppInForegroundForTests)
 
@@ -3456,23 +3840,6 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
 
     model.markActiveSession()
     #expect(model.isAppInForegroundForTests)
-}
-
-@MainActor
-@Test func appLifecycleKeepsClientHostedLocalAPIOff() throws {
-    let suiteName = "DJConnectTests-\(UUID().uuidString)"
-    let defaults = try #require(UserDefaults(suiteName: suiteName))
-    defaults.removePersistentDomain(forName: suiteName)
-    let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startLocalAPI: true, startBackgroundTasks: false)
-    defer { model.stopLocalDeviceAPI() }
-
-    #expect(!model.isLocalDeviceAPIRunningForTests)
-
-    model.markInactiveSession()
-    #expect(!model.isLocalDeviceAPIRunningForTests)
-
-    model.markActiveSession()
-    #expect(!model.isLocalDeviceAPIRunningForTests)
 }
 
 @Test func pairSuccessStoresReturnedBearerToken() async throws {
@@ -3546,7 +3913,7 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
     defaults.removePersistentDomain(forName: suiteName)
     defaults.set("123456", forKey: "DJConnectPairingToken")
     defaults.set("http://user:password@homeassistant.local:8123/path?token=secret", forKey: "DJConnectHomeAssistantURL")
-    let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(token: "secret-token"), startLocalAPI: false, startBackgroundTasks: false)
+    let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(token: "secret-token"), startBackgroundTasks: false)
 
     let export = model.diagnosticExportText()
 
@@ -3585,7 +3952,6 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
     _ = DJConnectAppModel(
         defaults: defaults,
         tokenStore: DJConnectInMemoryTokenStore(),
-        startLocalAPI: false,
         startBackgroundTasks: false,
         diagnosticLogDirectory: logDirectory
     )
@@ -3597,7 +3963,6 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
     let relaunched = DJConnectAppModel(
         defaults: defaults,
         tokenStore: DJConnectInMemoryTokenStore(),
-        startLocalAPI: false,
         startBackgroundTasks: false,
         diagnosticLogDirectory: logDirectory
     )
@@ -3619,7 +3984,6 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
     let model = DJConnectAppModel(
         defaults: defaults,
         tokenStore: DJConnectInMemoryTokenStore(),
-        startLocalAPI: false,
         startBackgroundTasks: false,
         diagnosticLogDirectory: logDirectory
     )
@@ -3633,7 +3997,6 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
     let relaunched = DJConnectAppModel(
         defaults: defaults,
         tokenStore: DJConnectInMemoryTokenStore(),
-        startLocalAPI: false,
         startBackgroundTasks: false,
         diagnosticLogDirectory: logDirectory
     )
@@ -3912,7 +4275,7 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
-    let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startLocalAPI: false, startBackgroundTasks: false)
+    let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startBackgroundTasks: false)
 
     model.emitUserConnectionNotice(for: .decodingFailed(statusCode: 200, endpoint: "POST /api/djconnect/command", message: "bad shape"))
     #expect(["Geen verbinding met Home Assistant", "No connection to Home Assistant"].contains(model.userNotice?.text ?? ""))
@@ -3931,10 +4294,10 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
-    let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startLocalAPI: false)
+    let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore())
     model.language = "nl"
 
-    model.apply(localDJResponse: DJConnectLocalDJResponseRequest(
+    model.apply(watchProxyDJResponse: DJConnectWatchProxyDJResponseRequest(
         text: #"Spotify API failed HTTP 400: {"error":{"status":400,"message":"Can't have offset for context type: ARTIST"}}"#,
         djText: nil,
         audioURL: nil,
@@ -3949,10 +4312,10 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
-    let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startLocalAPI: false)
+    let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore())
     model.language = "nl"
 
-    model.apply(localDJResponse: DJConnectLocalDJResponseRequest(
+    model.apply(watchProxyDJResponse: DJConnectWatchProxyDJResponseRequest(
         text: "Player command failed. No active device found",
         djText: nil,
         audioURL: nil,
@@ -3967,10 +4330,10 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
-    let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startLocalAPI: false)
+    let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore())
     model.language = "nl"
 
-    model.apply(localDJResponse: DJConnectLocalDJResponseRequest(
+    model.apply(watchProxyDJResponse: DJConnectWatchProxyDJResponseRequest(
         text: """
         <!DOCTYPE html>
         <html class="h-full" lang="en-US" dir="ltr">
@@ -4051,12 +4414,11 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
     let model = DJConnectAppModel(
         defaults: defaults,
         tokenStore: DJConnectInMemoryTokenStore(token: "secret-token"),
-        startLocalAPI: false,
         startBackgroundTasks: false
     )
     model.language = "nl"
 
-    model.apply(localDJResponse: DJConnectLocalDJResponseRequest(
+    model.apply(watchProxyDJResponse: DJConnectWatchProxyDJResponseRequest(
         text: "Spotify authorization has expired or was revoked.",
         djText: nil,
         audioURL: nil,
@@ -4083,7 +4445,6 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
     let model = DJConnectAppModel(
         defaults: defaults,
         tokenStore: DJConnectInMemoryTokenStore(token: "secret-token"),
-        startLocalAPI: false,
         startBackgroundTasks: false
     )
 
@@ -4099,13 +4460,13 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
 
-    let firstLaunch = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startLocalAPI: false, startBackgroundTasks: false)
+    let firstLaunch = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startBackgroundTasks: false)
     #expect(firstLaunch.isShowingWelcome == true)
 
     firstLaunch.dismissWelcome()
     #expect(firstLaunch.isShowingWelcome == false)
 
-    let secondLaunch = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startLocalAPI: false, startBackgroundTasks: false)
+    let secondLaunch = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startBackgroundTasks: false)
     #expect(secondLaunch.isShowingWelcome == false)
 }
 
@@ -4115,7 +4476,7 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
 
-    let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startLocalAPI: false, startBackgroundTasks: false)
+    let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startBackgroundTasks: false)
 
     #expect(model.isShowingWhatsNew == false)
     #expect(defaults.string(forKey: "DJConnectLastSeenAppVersion") == model.version)
@@ -4129,7 +4490,7 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
     defaults.set(true, forKey: "DJConnectWelcomeSeen")
     defaults.set("3.1.17", forKey: "DJConnectLastSeenAppVersion")
 
-    let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startLocalAPI: false, startBackgroundTasks: false)
+    let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startBackgroundTasks: false)
 
     #expect(model.isShowingWhatsNew == true)
     #expect(model.whatsNewTitle.contains(model.version))
@@ -4179,17 +4540,17 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
 
-    let firstLaunch = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startLocalAPI: false, startBackgroundTasks: false)
+    let firstLaunch = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startBackgroundTasks: false)
     #expect(firstLaunch.isShowingCrashReportPrompt == false)
     firstLaunch.markActiveSession()
 
-    let secondLaunch = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startLocalAPI: false, startBackgroundTasks: false)
+    let secondLaunch = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startBackgroundTasks: false)
     #expect(secondLaunch.isShowingCrashReportPrompt == true)
     #expect(secondLaunch.crashIssueURL()?.host == "github.com")
     #expect(secondLaunch.crashIssueURL()?.path == "/pcvantol/djconnect/issues/new")
 
     secondLaunch.dismissCrashReportPrompt()
-    let thirdLaunch = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startLocalAPI: false, startBackgroundTasks: false)
+    let thirdLaunch = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startBackgroundTasks: false)
     #expect(thirdLaunch.isShowingCrashReportPrompt == false)
 }
 
@@ -4198,7 +4559,7 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
-    let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startLocalAPI: false, startBackgroundTasks: false)
+    let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startBackgroundTasks: false)
 
     model.pairingStatus = .paired
     model.presentWakeWordActivationPromptAfterPairing()
@@ -4214,7 +4575,7 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
-    let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startLocalAPI: false, startBackgroundTasks: false)
+    let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startBackgroundTasks: false)
 
     model.pairingStatus = .paired
     model.presentWakeWordActivationPromptAfterPairing()
@@ -4237,7 +4598,7 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
-    let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startLocalAPI: false, startBackgroundTasks: false)
+    let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startBackgroundTasks: false)
 
     model.pairingStatus = .paired
     model.presentWakeWordActivationPromptAfterPairing()
@@ -4253,7 +4614,7 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
-    let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startLocalAPI: false, startBackgroundTasks: false)
+    let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startBackgroundTasks: false)
 
     #expect(model.shouldShowPairingScreen == false)
 
@@ -4293,7 +4654,6 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
     let model = DJConnectAppModel(
         defaults: defaults,
         tokenStore: DJConnectInMemoryTokenStore(),
-        startLocalAPI: false,
         startBackgroundTasks: false
     )
 
@@ -4317,7 +4677,6 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
     let model = DJConnectAppModel(
         defaults: defaults,
         tokenStore: DJConnectInMemoryTokenStore(),
-        startLocalAPI: false,
         startBackgroundTasks: false
     )
 
@@ -4363,7 +4722,6 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
     let model = DJConnectAppModel(
         defaults: defaults,
         tokenStore: DJConnectInMemoryTokenStore(),
-        startLocalAPI: false,
         startBackgroundTasks: false
     )
     let serverUserMessage = DJConnectAskDJHistoryMessage(
@@ -4427,7 +4785,6 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
     let hydratedModel = DJConnectAppModel(
         defaults: defaults,
         tokenStore: DJConnectInMemoryTokenStore(),
-        startLocalAPI: false,
         startBackgroundTasks: false
     )
     let serverUserMessage = DJConnectAskDJHistoryMessage(
@@ -4469,14 +4826,13 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
 }
 
 @MainActor
-@Test func monkeyTestingModeStartsSafeLocalDemoWithoutPairingOrLocalAPI() throws {
+@Test func monkeyTestingModeStartsSafeLocalDemoWithoutPairing() throws {
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
     let model = DJConnectAppModel(
         defaults: defaults,
         tokenStore: DJConnectInMemoryTokenStore(),
-        startLocalAPI: true,
         startBackgroundTasks: true,
         monkeyTestingMode: true
     )
@@ -4486,7 +4842,6 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
     #expect(model.shouldShowPairingScreen == false)
     #expect(model.isShowingWelcome == false)
     #expect(model.isShowingCrashReportPrompt == false)
-    #expect(model.localDeviceAPIURL == nil)
     #expect(model.canUsePlaybackFeatures == true)
     #expect(model.playback?.trackName == "Midnight City")
     #expect(model.queueItems.isEmpty == false)
@@ -4588,6 +4943,62 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
     #expect(decodedPayload.wavData == Data([0x52, 0x49, 0x46, 0x46]))
     #expect(decodedPayload.mood == 70)
     #expect(decodedPayload.djStyle == "warm_radio_dj")
+}
+
+@Test func watchProxyMusicDNASettingsPayloadUsesWatchIdentity() throws {
+    let identity = DJConnectIdentity(
+        deviceID: "djconnect-watchos-ABC123",
+        deviceName: "DJConnect Watch",
+        clientType: .watchos,
+        firmware: "3.2.3",
+        appVersion: "3.2.3",
+        platform: .watchos
+    )
+    let payload = DJConnectMusicDNASettingsRequest(identity: identity, enabled: true)
+    let request = DJConnectWatchProxyRequest(operation: .musicDNASettings, payload: try JSONEncoder().encode(payload))
+    let decodedRequest = try JSONDecoder().decode(DJConnectWatchProxyRequest.self, from: JSONEncoder().encode(request))
+    let decodedPayload = try JSONDecoder().decode(DJConnectMusicDNASettingsRequest.self, from: try #require(decodedRequest.payload))
+
+    #expect(decodedRequest.operation == .musicDNASettings)
+    #expect(decodedPayload.deviceID == "djconnect-watchos-ABC123")
+    #expect(decodedPayload.clientType == .watchos)
+    #expect(decodedPayload.enabled == true)
+}
+
+@Test func watchProxyMusicDNASettingsPayloadSupportsWatchOptOut() throws {
+    let identity = DJConnectIdentity(
+        deviceID: "djconnect-watchos-ABC123",
+        deviceName: "DJConnect Watch",
+        clientType: .watchos,
+        firmware: "3.2.3",
+        appVersion: "3.2.3",
+        platform: .watchos
+    )
+    let payload = DJConnectMusicDNASettingsRequest(identity: identity, enabled: false)
+    let request = DJConnectWatchProxyRequest(operation: .musicDNASettings, payload: try JSONEncoder().encode(payload))
+    let decodedRequest = try JSONDecoder().decode(DJConnectWatchProxyRequest.self, from: JSONEncoder().encode(request))
+    let decodedPayload = try JSONDecoder().decode(DJConnectMusicDNASettingsRequest.self, from: try #require(decodedRequest.payload))
+
+    #expect(decodedRequest.operation == .musicDNASettings)
+    #expect(decodedPayload.deviceID == "djconnect-watchos-ABC123")
+    #expect(decodedPayload.clientType == .watchos)
+    #expect(decodedPayload.enabled == false)
+}
+
+@Test func watchProxyMusicDNAProfileOperationRoundTrips() throws {
+    let request = DJConnectWatchProxyRequest(operation: .musicDNAProfile)
+    let decodedRequest = try JSONDecoder().decode(DJConnectWatchProxyRequest.self, from: JSONEncoder().encode(request))
+
+    #expect(decodedRequest.operation == .musicDNAProfile)
+    #expect(decodedRequest.payload == nil)
+}
+
+@Test func watchProxyMusicDNAClearOperationRoundTrips() throws {
+    let request = DJConnectWatchProxyRequest(operation: .clearMusicDNA)
+    let decodedRequest = try JSONDecoder().decode(DJConnectWatchProxyRequest.self, from: JSONEncoder().encode(request))
+
+    #expect(decodedRequest.operation == .clearMusicDNA)
+    #expect(decodedRequest.payload == nil)
 }
 
 @Test func commandResponseExposesBackendSummaryForWatchSync() throws {

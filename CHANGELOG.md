@@ -4,6 +4,22 @@ All notable changes to DJConnect App are documented here.
 
 ## Unreleased
 
+## 3.2.4 - 2026-06-29
+
+### Added
+
+- Added first-class Music DNA profile loading, opt-in, opt-out, clear, demo,
+  refresh, and empty/error states across iOS, macOS, and watchOS.
+- Added Apple Watch Music DNA screens, consent from both Ask DJ and Music DNA,
+  and Music DNA controls in Watch Settings through the iPhone proxy.
+
+### Changed
+
+- Kept Music DNA server-side as the source of truth and stopped deriving a
+  persistent profile from local Track Insight history.
+- Updated Music DNA and Watch proxy tests plus the Home Assistant API contract
+  documentation.
+
 ## 3.2.3 - 2026-06-29
 
 ### Changed

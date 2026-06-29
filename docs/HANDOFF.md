@@ -174,7 +174,7 @@ transport selection, APNs registration, status refresh, Ask DJ history sync,
 playback actions, follow-up actions, idle suggestions, clear history, and voice
 upload are mediated by the paired iPhone over WatchConnectivity. The Watch does
 not store `ha_remote_url`, does not choose local/remote transport, does not host
-a local Web API, does not advertise Bonjour/mDNS, exposes voice through `Ask
+an inbound Web API, exposes voice through `Ask
 DJ`, and keeps wake phrase detection foreground-only. When the iPhone sends a
 request to HA on behalf of the Watch it preserves `client_type:"watchos"` and
 the Watch `device_id`.
@@ -189,6 +189,14 @@ For `Ask DJ`, the Watch may send mood, DJ style, and a Music DNA key hint, but
 Music DNA itself belongs to the Home Assistant integration. This lets a user
 ask for a calmer track on Watch and later ask from Mac why that track was
 chosen.
+
+Music DNA consent and settings must stay cross-device. iOS, macOS, and watchOS
+show the initial opt-in prompt from both Ask DJ and the Music DNA screen. On
+watchOS, the Watch asks the paired iPhone to call `/api/djconnect/music_dna/*`
+while preserving the Watch `device_id` and canonical `client_type:"watchos"`.
+Watch Settings must expose the same Music DNA on/off control as iOS/macOS:
+opting out clears learned backend Music DNA and stops future profile buildup;
+opting in again restarts from the backend profile response.
 
 Ask DJ history is backend-synchronized and locally cached. Clients must merge
 server history into the cache instead of replacing it with a bounded response
@@ -279,10 +287,17 @@ The app needs:
 Recommended user flow:
 
 1. User starts Apple-client pairing in the Home Assistant DJConnect setup flow.
-2. Home Assistant shows a pairing code or QR code.
-3. The Apple app is on the same LAN and the user enters or scans that code.
+2. Home Assistant shows a pairing code or QR code. For iOS, prefer the
+   `djconnect://pair?ha_url=<local-ha-url>&pair_code=<code>&client_type=ios&pair_path=/api/djconnect/pair`
+   QR/deep-link payload. For Apple Watch, use the same payload with
+   `client_type=watchos` and scan/open it on the paired iPhone.
+3. The Apple app is on the same LAN and the user scans the QR code or enters
+   the local URL plus code manually. Watch users do not enter URL/code on the
+   Watch; the iPhone forwards the validated payload over WatchConnectivity.
 4. The app posts the code and canonical client identity to local
-   `/api/djconnect/pair`.
+   `/api/djconnect/pair`. For Watch pairing, the posting client identity remains
+   `client_type: "watchos"` with a `djconnect-watchos-*` device ID, even when
+   the iPhone proxies the HTTP request.
 5. Integration creates or returns a DJConnect bearer token for the app runtime.
 6. App stores only the DJConnect bearer token, client identity, `ha_local_url`,
    optional `ha_remote_url`, and protocol/backend metadata in app-private
@@ -303,13 +318,10 @@ Fresh app installs should default the Home Assistant URL input to:
 http://homeassistant.local:8123
 ```
 
-Users can replace it with an IP-based local URL when mDNS is unavailable.
+Users can replace it with an IP-based local URL when name resolution is unavailable.
 
 The iOS/macOS app is an app client, not ESP hardware, and no longer exposes a
-Home Assistant-callable local `/api/device/*` Web API or `_djconnect._tcp`
-Bonjour/mDNS service. Removed Apple app routes include `/api/device/info`,
-`/api/device/pairing-info`, `/api/device/pair`, `/api/device/command`,
-`/api/device/dj_response`, and `/api/device/forget`. The Watch itself never
+Home Assistant-callable inbound Web API or pairable discovery service. The Watch itself never
 exposes a LAN endpoint, and the active Watch runtime is a WatchConnectivity
 proxy rather than an iPhone-hosted Home Assistant callback endpoint.
 
@@ -343,13 +355,12 @@ Expected completion response:
 }
 ```
 
-While Home Assistant has not accepted the code yet, the app keeps waiting and
-does not show a manual Pair button. The app sends the same app-generated code
-as `pair_code`, `pairing_code`, and `pairing_token` for compatibility with
-current HA builds. HTTP 401/403 during unauthenticated pairing polling means
-Home Assistant rejected the current code or setup identity; stop polling, keep
-the visible app code, and ask the user to enter that same code again in Home
-Assistant. Do not rotate the code automatically.
+Home Assistant generates the 6-digit setup code. The app shows manual fields
+for the local Home Assistant URL and that code, then posts client-to-HA with
+the code as `pair_code`, `pairing_code`, and `pairing_token` for compatibility
+with current HA builds. HTTP 401/403 during unauthenticated pairing means Home
+Assistant rejected the entered code or setup identity; stop pairing and ask the
+user to verify the code shown by Home Assistant or generate a fresh setup code.
 
 Bearer token storage:
 
@@ -407,7 +418,7 @@ Permission UX:
   permission button. If speech access is already granted, accept it; otherwise
   log a non-secret diagnostic line and keep stemactivatie unavailable until the
   user enables speech access in system settings.
-- Local Network is declared for LAN/Bonjour access, but Apple does not provide
+- Local Network is declared for LAN access, but Apple does not provide
   a reliable explicit preflight API. The app should not fake a request button;
   iOS/macOS show the system prompt when local network work first occurs.
 - iPhone permission rows should remain compact enough to scan without excessive
@@ -591,8 +602,7 @@ albums, and shows; artist contexts are sent without `offset_uri` to avoid
 Spotify API offset errors. The app no longer sends unsupported older
 `play_queue_item` or `play_uri` commands.
 
-The app no longer exposes a Client adres or receives Home Assistant callbacks
-on `/api/device/*`. Playback and queue actions always travel from the Apple
+The app does not expose an inbound callback API. Playback and queue actions always travel from the Apple
 client to Home Assistant through `/api/djconnect/command` using the selected
 local or remote HA transport.
 
@@ -874,13 +884,6 @@ remain fallbacks. The release body is shown once in a native
 `Wat is er nieuw` / `What's New` sheet. This request sends no DJConnect token,
 Home Assistant URL, Spotify token, diagnostics, or user data.
 
-## Local Client API Postman Collection
-
-The older Apple app-hosted `/api/device/*` Postman collection is retained only
-as historical reference for older 3.1 clients and must not be used as the 3.2
-iOS/macOS contract. Current Apple clients call Home Assistant
-`/api/djconnect/*` endpoints directly.
-
 ## UI Parity Goals
 
 Functional parity with the ESP device should include:
@@ -981,14 +984,13 @@ target with a real or recorded mock Home Assistant server.
 - HTTP 426 version mismatch shows update-required UI and keeps pairing.
 - Authenticated 401/403/404 show stale pairing/setup recovery and keep token
   until user reset.
-- 401/403 during unauthenticated pairing polling stops the wait loop and asks
-  the user to re-enter the visible app code in Home Assistant.
+- 401/403 during unauthenticated pairing stops the attempt and asks the user to
+  verify the 6-digit code shown by Home Assistant.
 - Voice/PTT uploads raw WAV to `/api/djconnect/voice`.
 - Local Games show Paddle Rally, Meteor Run, Sky Dash, and Maze Chase without
   HA/backend traffic, render the Maze Chase player mouth and ghost eyes, and
   reset to tap-to-play when leaving the screen.
-- Bonjour/mDNS advertises only while the app is unpaired/pairable; pairing
-  keeps the HTTP API alive but stops unnecessary Bonjour publication.
+- iOS/macOS do not host an inbound Home Assistant callback HTTP API.
 - Wakeword listening and local progress timers stop when the app leaves the
   foreground and resume only when the app becomes active again.
 - Automatic resume/startup refreshes and backend collection refreshes are

@@ -279,6 +279,13 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
     }
 
     @AppStorage("haBaseURL") var haBaseURL = "http://homeassistant.local:8123"
+    @AppStorage("apiBase") var apiBase = ""
+    @AppStorage("voicePath") var voicePath = ""
+    @AppStorage("statusPath") var statusPath = ""
+    @AppStorage("eventPath") var eventPath = ""
+    @AppStorage("askDJSupported") var askDJSupported = false
+    @AppStorage("askDJVoiceSupported") var askDJVoiceSupported = false
+    @AppStorage("askDJAudioResponseSupported") var askDJAudioResponseSupported = false
     @AppStorage("pairingCode") var pairingCode = DJConnectWatchModel.makePairingCode()
     @AppStorage("stableInstallID") private var stableInstallID = DJConnectWatchModel.makeStableInstallID()
     @AppStorage("paired") private var paired = false
@@ -289,6 +296,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
     @AppStorage("askDJClearRevision") private var askDJClearRevision = 0
     @AppStorage("DJConnectWatchWelcomeSeen") private var welcomeSeen = false
     @AppStorage("watchVoiceActivationEnabled") private var storedVoiceActivationEnabled = false
+    @AppStorage("DJConnectWatchMusicDNAOptInPromptSeen") private var musicDNAOptInPromptSeen = false
 
     var language: String {
         Locale.current.language.languageCode?.identifier ?? "en"
@@ -316,6 +324,13 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
     @Published private(set) var isCheckingAskDJHistoryState = true
     @Published private(set) var isClearingAskDJHistory = false
     @Published private(set) var isRequestingAskDJIdleSuggestion = false
+    @Published private(set) var isLoadingMusicDNAConsent = false
+    @Published private(set) var isUpdatingMusicDNAConsent = false
+    @Published private(set) var musicDNAProfileResponse: DJConnectMusicDNAProfileResponse?
+    @Published private(set) var isLoadingMusicDNA = false
+    @Published private(set) var isUpdatingMusicDNA = false
+    @Published private(set) var musicDNAErrorMessage: String?
+    @Published var isShowingMusicDNAOptInPrompt = false
     @Published private(set) var playingAskDJActionID: String?
     @Published private(set) var isSavingCurrentTrack = false
     @Published private(set) var askDJToast: DJConnectWatchToast?
@@ -323,7 +338,6 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
     @Published private(set) var isShowingPairingSuccess = false
     @Published private(set) var isDemoMode = false
     @Published private(set) var diagnosticLogLines: [DJConnectWatchLogLine] = []
-    @Published private(set) var localDeviceAPIURL: String?
     @Published private(set) var companionPairingStatus = "iPhone companion zoeken..."
     @Published private(set) var iPhoneConnectionMode: DJConnectHAConnectionMode = .offline
     @Published private(set) var musicBackendSummary = DJConnectMusicBackendSummary()
@@ -584,7 +598,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         if bucket != lastRuntimeMemoryLogBucket || memoryMB >= 80 {
             lastRuntimeMemoryLogBucket = bucket
             appendDiagnosticLog(
-                "Runtime geheugen: \(Int(memoryMB.rounded())) MB; wakeword=\(storedVoiceActivationEnabled ? "aan" : "uit"); voice=\(voiceActivationStatusText); paired=\(canUseBackend ? "ja" : "nee"); askdj=\(askDJMessages.count); logs=\(diagnosticLogLines.count); api=\(localDeviceAPIURL == nil ? "uit" : "aan")",
+                "Runtime geheugen: \(Int(memoryMB.rounded())) MB; wakeword=\(storedVoiceActivationEnabled ? "aan" : "uit"); voice=\(voiceActivationStatusText); paired=\(canUseBackend ? "ja" : "nee"); askdj=\(askDJMessages.count); logs=\(diagnosticLogLines.count)",
                 level: memoryMB >= 80 ? .warning : .debug
             )
         }
@@ -815,18 +829,17 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         switch type {
         case "watch_proxy_ready":
             applyCompanionSummary(message)
-            localDeviceAPIURL = nil
-            companionPairingStatus = "iPhone companion is klaar"
+                companionPairingStatus = "iPhone companion is klaar"
             if !paired {
                 connectionState = .pairing
                 statusMessage = "Wachten op Home Assistant via iPhone..."
             }
         case "watch_proxy_pair_result":
             applyCompanionPairingResult(message)
-        case "watch_proxy_command":
-            Task { await handleCompanionCommand(message) }
-        case "watch_proxy_dj_response":
-            handleCompanionDJResponse(message)
+        case "watch_proxy_pair_request":
+            companionPairingStatus = "iPhone koppelt Watch met Home Assistant..."
+            statusMessage = companionPairingStatus
+            connectionState = .pairing
         case "watch_proxy_forget":
             resetPairing()
         case "watch_proxy_ha_response":
@@ -879,7 +892,19 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         if let haURL = message["ha_base_url"] as? String, !haURL.isEmpty {
             haBaseURL = haURL
         }
-        localDeviceAPIURL = nil
+        apiBase = nonEmptyString(message["api_base"]) ?? apiBase
+        voicePath = nonEmptyString(message["voice_path"]) ?? voicePath
+        statusPath = nonEmptyString(message["status_path"]) ?? statusPath
+        eventPath = nonEmptyString(message["event_path"]) ?? eventPath
+        if let supported = message["ask_dj_supported"] as? Bool {
+            askDJSupported = supported
+        }
+        if let supported = message["ask_dj_voice_supported"] as? Bool {
+            askDJVoiceSupported = supported
+        }
+        if let supported = message["ask_dj_audio_response_supported"] as? Bool {
+            askDJAudioResponseSupported = supported
+        }
         applyCompanionSummary(message)
         paired = true
         connectionState = .paired
@@ -888,57 +913,6 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         companionPairingStatus = "Gekoppeld via iPhone"
         requestRemoteNotificationRegistration()
         Task { await refreshStatus() }
-    }
-
-    private func handleCompanionCommand(_ message: [String: Any]) async {
-        guard let data = message["request"] as? Data else {
-            return
-        }
-        do {
-            let request = try JSONDecoder().decode(DJConnectLocalCommandRequest.self, from: data)
-            let response = await handleLocalCommand(request)
-            sendCompanionCallbackResponse(response, correlationID: message["correlation_id"] as? String)
-        } catch {
-            sendCompanionCallbackResponse(
-                DJConnectLocalDeviceAPIResponse(success: false, error: "bad_request", message: "Invalid command payload."),
-                correlationID: message["correlation_id"] as? String
-            )
-        }
-    }
-
-    private func handleCompanionDJResponse(_ message: [String: Any]) {
-        guard let data = message["request"] as? Data,
-              let request = try? JSONDecoder().decode(DJConnectLocalDJResponseRequest.self, from: data) else {
-            return
-        }
-        if let text = request.djText ?? request.text, !text.isEmpty {
-            appendAskDJMessage(role: .dj, text: text, audioURL: request.audioURL.flatMap(URL.init(string:)))
-            notifyAskDJResponse(text)
-        }
-        sendCompanionCallbackResponse(
-            DJConnectLocalDeviceAPIResponse(success: true, message: "accepted"),
-            correlationID: message["correlation_id"] as? String
-        )
-    }
-
-    private func sendCompanionCallbackResponse(_ response: DJConnectLocalDeviceAPIResponse, correlationID: String?) {
-        #if canImport(WatchConnectivity)
-        guard WCSession.default.activationState == .activated else {
-            return
-        }
-        var message: [String: Any] = ["type": "watch_proxy_callback_response"]
-        if let correlationID {
-            message["correlation_id"] = correlationID
-        }
-        if let data = try? JSONEncoder().encode(response) {
-            message["response"] = data
-        }
-        if WCSession.default.isReachable {
-            WCSession.default.sendMessage(message, replyHandler: nil)
-        } else {
-            WCSession.default.transferUserInfo(message)
-        }
-        #endif
     }
 
     private func handleCompanionHAResponse(_ message: [String: Any]) {
@@ -1536,6 +1510,13 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         UserDefaults.standard.removeObject(forKey: pushRegisteredKey)
         UserDefaults.standard.removeObject(forKey: pushEnvironmentStatusKey)
         UserDefaults.standard.removeObject(forKey: lastPushErrorKey)
+        apiBase = ""
+        voicePath = ""
+        statusPath = ""
+        eventPath = ""
+        askDJSupported = false
+        askDJVoiceSupported = false
+        askDJAudioResponseSupported = false
         paired = false
         storedDemoMode = false
         isDemoMode = false
@@ -1560,7 +1541,6 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         voiceState = .idle
         isShowingPairingSuccess = false
         statusMessage = "Niet gekoppeld"
-        localDeviceAPIURL = nil
         companionPairingStatus = "iPhone companion zoeken..."
         activateCompanionSession()
         sendCompanionPairingRegistration()
@@ -1784,6 +1764,140 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         isCheckingAskDJHistoryState = true
         defer { isCheckingAskDJHistoryState = false }
         await syncAskDJHistory(showErrors: true)
+    }
+
+    func prepareMusicDNAConsentPromptIfNeeded() async {
+        guard canUseBackend,
+              !musicDNAOptInPromptSeen,
+              !isShowingMusicDNAOptInPrompt,
+              !isLoadingMusicDNAConsent,
+              !isUpdatingMusicDNAConsent else {
+            return
+        }
+        isLoadingMusicDNAConsent = true
+        defer { isLoadingMusicDNAConsent = false }
+        do {
+            let response: DJConnectMusicDNAProfileResponse = try await sendCompanionHARequest(.musicDNAProfile)
+            applyMusicDNAProfile(response)
+            if response.enabled {
+                musicDNAOptInPromptSeen = true
+            } else {
+                isShowingMusicDNAOptInPrompt = true
+            }
+        } catch {
+            appendDiagnosticLog("Music DNA consent status ophalen mislukt: \(Self.userMessage(for: error))", level: .warning)
+        }
+    }
+
+    func refreshMusicDNAProfile() async {
+        if isDemoMode {
+            musicDNAProfileResponse = Self.demoMusicDNAProfileResponse()
+            musicDNAErrorMessage = nil
+            isLoadingMusicDNA = false
+            isUpdatingMusicDNA = false
+            return
+        }
+        guard canUseBackend else {
+            musicDNAProfileResponse = nil
+            musicDNAErrorMessage = nil
+            isLoadingMusicDNA = false
+            return
+        }
+        isLoadingMusicDNA = true
+        musicDNAErrorMessage = nil
+        defer { isLoadingMusicDNA = false }
+        do {
+            let response: DJConnectMusicDNAProfileResponse = try await sendCompanionHARequest(.musicDNAProfile)
+            applyMusicDNAProfile(response)
+            if response.enabled {
+                musicDNAOptInPromptSeen = true
+            }
+        } catch {
+            musicDNAProfileResponse = nil
+            musicDNAErrorMessage = Self.userMessage(for: error)
+        }
+    }
+
+    func acceptMusicDNAOptInPrompt() {
+        guard !isUpdatingMusicDNAConsent else {
+            return
+        }
+        isShowingMusicDNAOptInPrompt = false
+        musicDNAOptInPromptSeen = true
+        Task { @MainActor in
+            await setMusicDNAEnabledFromPrompt(true)
+        }
+    }
+
+    func dismissMusicDNAOptInPrompt() {
+        musicDNAOptInPromptSeen = true
+        isShowingMusicDNAOptInPrompt = false
+    }
+
+    private func setMusicDNAEnabledFromPrompt(_ enabled: Bool) async {
+        await setMusicDNAEnabled(enabled)
+    }
+
+    func setMusicDNAEnabled(_ enabled: Bool) async {
+        if isDemoMode {
+            musicDNAProfileResponse = enabled ? Self.demoMusicDNAProfileResponse() : DJConnectMusicDNAProfileResponse(
+                success: true,
+                enabled: false,
+                profile: DJConnectMusicDNAProfile()
+            )
+            musicDNAErrorMessage = nil
+            return
+        }
+        guard canUseBackend else {
+            return
+        }
+        isUpdatingMusicDNA = true
+        isUpdatingMusicDNAConsent = true
+        musicDNAErrorMessage = nil
+        defer {
+            isUpdatingMusicDNA = false
+            isUpdatingMusicDNAConsent = false
+        }
+        do {
+            let response: DJConnectMusicDNAProfileResponse = try await sendCompanionHARequest(
+                .musicDNASettings,
+                payload: DJConnectMusicDNASettingsRequest(identity: identity, enabled: enabled)
+            )
+            applyMusicDNAProfile(response)
+            musicDNAOptInPromptSeen = true
+            showAskDJToast(enabled ? "Music DNA geactiveerd" : "Music DNA uitgeschakeld")
+        } catch {
+            musicDNAOptInPromptSeen = false
+            statusMessage = Self.userMessage(for: error)
+            musicDNAErrorMessage = Self.userMessage(for: error)
+            showAskDJToast(Self.askDJToastText(for: error))
+        }
+    }
+
+    func clearMusicDNA() async {
+        if isDemoMode {
+            musicDNAErrorMessage = nil
+            return
+        }
+        guard canUseBackend else {
+            return
+        }
+        isUpdatingMusicDNA = true
+        musicDNAErrorMessage = nil
+        defer { isUpdatingMusicDNA = false }
+        do {
+            let response: DJConnectMusicDNAProfileResponse = try await sendCompanionHARequest(.clearMusicDNA)
+            applyMusicDNAProfile(response)
+            showAskDJToast("Music DNA gewist")
+        } catch {
+            musicDNAErrorMessage = Self.userMessage(for: error)
+            showAskDJToast(Self.askDJToastText(for: error))
+        }
+    }
+
+    private func applyMusicDNAProfile(_ response: DJConnectMusicDNAProfileResponse) {
+        musicDNAProfileResponse = response
+        musicDNAErrorMessage = nil
     }
 
     func runAskDJHistorySyncLoop() async {
@@ -2329,14 +2443,6 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         let synthesizer = AVSpeechSynthesizer()
         speechSynthesizer = synthesizer
         synthesizer.speak(utterance)
-    }
-
-    private func handleLocalCommand(_ request: DJConnectLocalCommandRequest) async -> DJConnectLocalDeviceAPIResponse {
-        guard let command = request.command, !command.isEmpty else {
-            return DJConnectLocalDeviceAPIResponse(success: false, error: "missing_command", message: "Missing command.")
-        }
-        await sendCommand(command)
-        return DJConnectLocalDeviceAPIResponse(success: true, message: "accepted")
     }
 
     private func statusPayload(screenState: String) -> DJConnectStatusPayload {
@@ -3392,6 +3498,39 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
             .replacingOccurrences(of: "-", with: "")
             .prefix(12)
             .uppercased()
+    }
+
+    private static func demoMusicDNAProfileResponse() -> DJConnectMusicDNAProfileResponse {
+        DJConnectMusicDNAProfileResponse(
+            success: true,
+            musicDNAKey: "demo:music-dna",
+            enabled: true,
+            generation: 3,
+            profile: DJConnectMusicDNAProfile(
+                summary: "A fictional profile for warm synth grooves, bright hooks and playful discovery.",
+                favoriteGenres: [
+                    DJConnectMusicDNANameValue(name: "Neon downtempo"),
+                    DJConnectMusicDNANameValue(name: "Velvet electro"),
+                    DJConnectMusicDNANameValue(name: "Skyline pop")
+                ],
+                favoriteArtists: [
+                    DJConnectMusicDNANameValue(name: "Luna Vale"),
+                    DJConnectMusicDNANameValue(name: "Nova Harbor"),
+                    DJConnectMusicDNANameValue(name: "Echo Parade")
+                ],
+                recentTracks: [
+                    DJConnectMusicDNATrack(title: "Glass Avenue", artist: "Luna Vale"),
+                    DJConnectMusicDNATrack(title: "Afterglow Signals", artist: "Nova Harbor"),
+                    DJConnectMusicDNATrack(title: "Silver Static", artist: "Echo Parade")
+                ],
+                mood: DJConnectMusicDNAMood(value: 68, zone: "warm energy", promptHint: "Recommend melodic tracks with motion and glow."),
+                recommendationSignals: [
+                    DJConnectMusicDNASignal(title: "Bright synth hooks", kind: "sound"),
+                    DJConnectMusicDNASignal(title: "Warm rolling bass", kind: "texture"),
+                    DJConnectMusicDNASignal(title: "Playful vocal fragments", kind: "mood")
+                ]
+            )
+        )
     }
 
     private static func userMessage(for error: Error) -> String {

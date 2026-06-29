@@ -12,6 +12,9 @@ import AVKit
 #if canImport(WebKit)
 import WebKit
 #endif
+#if canImport(MetalKit)
+import MetalKit
+#endif
 #if os(iOS)
 import UIKit
 #elseif os(macOS)
@@ -638,6 +641,9 @@ public struct DJConnectRootView: View {
                 selectedSection = .nowPlaying
             }
         }
+        .onOpenURL { url in
+            model.handlePairingDeepLink(url)
+        }
         .onChange(of: model.trackInsightNavigationRequestID) {
             selectedSection = .trackInsight
         }
@@ -846,6 +852,9 @@ private struct SidebarItem: View {
 
 private struct PairingSheetView: View {
     @ObservedObject var model: DJConnectAppModel
+    #if os(iOS)
+    @State private var isShowingQRScanner = false
+    #endif
 
     var body: some View {
         ScrollView(.vertical) {
@@ -870,12 +879,14 @@ private struct PairingSheetView: View {
         #if os(macOS)
         .frame(minHeight: 560)
         #endif
-        .task {
-            model.recoverPairingClientAPIIfNeeded()
+        #if os(iOS)
+        .sheet(isPresented: $isShowingQRScanner) {
+            PairingQRScannerView(language: model.language) { value in
+                isShowingQRScanner = false
+                model.handlePairingQRCode(value)
+            }
         }
-        .onChange(of: model.homeAssistantURL) {
-            model.schedulePairingWait()
-        }
+        #endif
     }
 
     private var pairingPending: some View {
@@ -900,20 +911,44 @@ private struct PairingSheetView: View {
                     warning: model.localNetworkRequirementMessage
                 )
 
+                #if os(iOS)
+                Button {
+                    isShowingQRScanner = true
+                } label: {
+                    Label(
+                        localized(model.language, "Scan Pairing QR Code", "Scan pairing-QR-code"),
+                        systemImage: "qrcode.viewfinder"
+                    )
+                    .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(DJConnectLilacPillButtonStyle())
+                .controlSize(.large)
+                .disabled(model.isPairing)
+
+                Button {
+                    isShowingQRScanner = true
+                } label: {
+                    Label(
+                        localized(model.language, "Pair Apple Watch", "Apple Watch koppelen"),
+                        systemImage: "applewatch"
+                    )
+                    .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(DJConnectLilacPillButtonStyle())
+                .controlSize(.large)
+                .disabled(model.isPairing)
+                #endif
+
                 PairingEditableURLCard(
                     title: localized(model.language, "Local Home Assistant URL", "Lokale Home Assistant URL"),
                     language: model.language,
                     text: $model.homeAssistantURL
-                ) {
-                    model.confirmPairingHomeAssistantURL()
-                }
+                ) {}
 
-                PairingValueCard(
+                PairingCodeEntryCard(
                     title: localized(model.language, "Pair Code", "Koppelcode"),
                     language: model.language,
-                    value: model.pairingToken,
-                    copyLabel: localized(model.language, "Copy Pair Code", "Koppelcode kopiëren"),
-                    prominent: true
+                    text: $model.pairingToken
                 )
             }
 
@@ -938,6 +973,19 @@ private struct PairingSheetView: View {
             }
             .padding(14)
             .djConnectGradientCard()
+
+            Button {
+                model.confirmPairingHomeAssistantURL()
+            } label: {
+                Label(
+                    localized(model.language, "Pair with Home Assistant", "Koppel met Home Assistant"),
+                    systemImage: "link.circle"
+                )
+                .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(DJConnectLilacPillButtonStyle())
+            .controlSize(.large)
+            .disabled(model.isPairing)
 
             Button {
                 model.startDemoMode()
@@ -1136,8 +1184,8 @@ private struct PairingEditableURLCard: View {
                 Label(
                     localized(
                         language,
-                        "Open the DJConnect integration in Home Assistant on this LAN and enter the app code.",
-                        "Open de DJConnect integratie in Home Assistant op dit LAN en vul de app-code in."
+                        "Open the DJConnect integration in Home Assistant on this LAN and enter the Home Assistant pair code below.",
+                        "Open de DJConnect integratie in Home Assistant op dit LAN en vul hieronder de Home Assistant koppelcode in."
                     ),
                     systemImage: "checkmark.circle"
                 )
@@ -1175,6 +1223,213 @@ private struct PairingEditableURLCard: View {
         onConfirm()
     }
 }
+
+private struct PairingCodeEntryCard: View {
+    let title: String
+    let language: String
+    @Binding var text: String
+    @FocusState private var isCodeFocused: Bool
+
+    private var trimmedText: String {
+        text.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private var isValid: Bool {
+        trimmedText.count == 6 && trimmedText.allSatisfy(\.isNumber)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(title)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.white.opacity(0.62))
+            TextField(title, text: $text)
+                .font(.system(.title3, design: .monospaced).weight(.bold))
+                .textContentType(.oneTimeCode)
+                .focused($isCodeFocused)
+                #if os(iOS)
+                .keyboardType(.numberPad)
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+                #endif
+                .textFieldStyle(.plain)
+                .onChange(of: text) {
+                    let digits = text.filter(\.isNumber)
+                    if digits != text || digits.count > 6 {
+                        text = String(digits.prefix(6))
+                    }
+                }
+
+            if !trimmedText.isEmpty, !isValid {
+                Label(
+                    localized(
+                        language,
+                        "Enter the 6-digit code shown by Home Assistant.",
+                        "Vul de 6-cijferige code uit Home Assistant in."
+                    ),
+                    systemImage: "exclamationmark.triangle"
+                )
+                .font(.caption)
+                .foregroundStyle(.orange)
+            } else {
+                Label(
+                    localized(
+                        language,
+                        "Choose macOS in the Home Assistant DJConnect setup flow and enter that code here.",
+                        "Kies macOS in de Home Assistant DJConnect setup-flow en vul die code hier in."
+                    ),
+                    systemImage: "number"
+                )
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            }
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .djConnectGradientCard(strokeOpacity: !trimmedText.isEmpty && !isValid ? 0.0 : 0.16)
+        .overlay {
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .stroke(!trimmedText.isEmpty && !isValid ? .orange.opacity(0.75) : .clear, lineWidth: 1)
+        }
+    }
+}
+
+#if os(iOS) && canImport(AVFoundation)
+private struct PairingQRScannerView: View {
+    let language: String
+    let onCode: (String) -> Void
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            ZStack(alignment: .bottom) {
+                PairingQRScannerRepresentable(onCode: onCode)
+                    .ignoresSafeArea()
+                Text(localized(
+                    language,
+                    "Scan the DJConnect QR code shown by Home Assistant.",
+                    "Scan de DJConnect QR-code die Home Assistant toont."
+                ))
+                .font(.headline)
+                .multilineTextAlignment(.center)
+                .padding(16)
+                .frame(maxWidth: .infinity)
+                .background(.ultraThinMaterial)
+            }
+            .navigationTitle(localized(language, "Scan QR Code", "Scan QR-code"))
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button(localized(language, "Cancel", "Annuleer")) {
+                        dismiss()
+                    }
+                }
+            }
+        }
+    }
+}
+
+private struct PairingQRScannerRepresentable: UIViewControllerRepresentable {
+    let onCode: (String) -> Void
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(onCode: onCode)
+    }
+
+    func makeUIViewController(context: Context) -> PairingQRScannerViewController {
+        let controller = PairingQRScannerViewController()
+        controller.onCode = context.coordinator.handleCode(_:)
+        return controller
+    }
+
+    func updateUIViewController(_ uiViewController: PairingQRScannerViewController, context: Context) {}
+
+    final class Coordinator {
+        private var didSendCode = false
+        let onCode: (String) -> Void
+
+        init(onCode: @escaping (String) -> Void) {
+            self.onCode = onCode
+        }
+
+        func handleCode(_ value: String) {
+            guard !didSendCode else { return }
+            didSendCode = true
+            onCode(value)
+        }
+    }
+}
+
+private final class PairingQRScannerViewController: UIViewController, @preconcurrency AVCaptureMetadataOutputObjectsDelegate {
+    var onCode: ((String) -> Void)?
+    private let session = AVCaptureSession()
+    private var previewLayer: AVCaptureVideoPreviewLayer?
+
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        view.backgroundColor = .black
+        configureSession()
+    }
+
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        previewLayer?.frame = view.bounds
+    }
+
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        if !session.isRunning {
+            DispatchQueue.global(qos: .userInitiated).async { [session] in
+                session.startRunning()
+            }
+        }
+    }
+
+    override func viewWillDisappear(_ animated: Bool) {
+        super.viewWillDisappear(animated)
+        if session.isRunning {
+            session.stopRunning()
+        }
+    }
+
+    private func configureSession() {
+        guard let device = AVCaptureDevice.default(for: .video),
+              let input = try? AVCaptureDeviceInput(device: device),
+              session.canAddInput(input) else {
+            return
+        }
+        session.addInput(input)
+
+        let output = AVCaptureMetadataOutput()
+        guard session.canAddOutput(output) else {
+            return
+        }
+        session.addOutput(output)
+        output.setMetadataObjectsDelegate(self, queue: .main)
+        output.metadataObjectTypes = [.qr]
+
+        let layer = AVCaptureVideoPreviewLayer(session: session)
+        layer.videoGravity = .resizeAspectFill
+        layer.frame = view.bounds
+        view.layer.insertSublayer(layer, at: 0)
+        previewLayer = layer
+    }
+
+    func metadataOutput(
+        _ output: AVCaptureMetadataOutput,
+        didOutput metadataObjects: [AVMetadataObject],
+        from connection: AVCaptureConnection
+    ) {
+        guard let object = metadataObjects.compactMap({ $0 as? AVMetadataMachineReadableCodeObject }).first,
+              object.type == .qr,
+              let value = object.stringValue else {
+            return
+        }
+        session.stopRunning()
+        onCode?(value)
+    }
+}
+#endif
 
 private struct PairingValueCard: View {
     let title: String
@@ -1534,6 +1789,16 @@ private struct WelcomeTourStep: Identifiable, Equatable {
                 systemImage: "bubble.left.and.bubble.right.fill"
             ),
             WelcomeTourStep(
+                id: .trackInsight,
+                title: "Track Insight",
+                body: localized(
+                    language,
+                    "Analyze the current track for mood, energy, genre and musical details when Home Assistant has provider data.",
+                    "Analyseer het huidige nummer op sfeer, energie, genre en muzikale details wanneer Home Assistant providerdata heeft."
+                ),
+                systemImage: "waveform.path.ecg"
+            ),
+            WelcomeTourStep(
                 id: .queue,
                 title: localized(language, "Queue", "Wachtrij"),
                 body: localized(
@@ -1542,16 +1807,6 @@ private struct WelcomeTourStep: Identifiable, Equatable {
                     "Bekijk wat hierna komt en start wachtrij-items wanneer Home Assistant afspeelacties teruggeeft."
                 ),
                 systemImage: "text.line.first.and.arrowtriangle.forward"
-            ),
-            WelcomeTourStep(
-                id: .settings,
-                title: localized(language, "More and Settings", "Meer en Instellingen"),
-                body: localized(
-                    language,
-                    "Open playlists, local games, settings, logs, legal information and privacy controls.",
-                    "Open afspeellijsten, lokale games, instellingen, logs, juridische info en privacyopties."
-                ),
-                systemImage: "ellipsis.circle.fill"
             ),
             WelcomeTourStep(
                 id: .games,
@@ -2382,6 +2637,7 @@ private struct TrackInsightView: View {
 
 private struct MusicDNAView: View {
     @ObservedObject var model: DJConnectAppModel
+    @State private var isShowingClearConfirmation = false
 
     var body: some View {
         NavigationStack {
@@ -2390,20 +2646,100 @@ private struct MusicDNAView: View {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 16) {
                         MusicDNAHeroView(model: model)
-                        MusicDNASectionGrid(model: model)
-                        MusicDNATimelinePreview(language: model.language)
+                        MusicDNAContentView(model: model, isShowingClearConfirmation: $isShowingClearConfirmation)
                     }
                     .padding(.horizontal, djConnectScreenHorizontalPadding)
                     .padding(.vertical, djConnectScreenVerticalPadding)
                     .frame(maxWidth: djConnectContentMaxWidth, alignment: .topLeading)
                     .frame(maxWidth: .infinity, alignment: .top)
                 }
+                #if os(iOS)
+                .refreshable {
+                    #if DEBUG
+                    guard !model.isMusicDNAPreviewMode else { return }
+                    #endif
+                    await model.refreshMusicDNAProfile()
+                }
+                #endif
             }
-            .navigationTitle("Music DNA")
+            .navigationTitle(screenTitle(model.language, "Music DNA", "Music DNA", isDemoMode: model.isDemoMode))
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             #endif
+            .toolbar {
+                #if os(macOS)
+                ToolbarItem(placement: .primaryAction) {
+                    MusicDNARefreshButton(model: model)
+                }
+                #else
+                ToolbarItem(placement: .topBarTrailing) {
+                    MusicDNARefreshButton(model: model)
+                }
+                #endif
+            }
         }
+        .task {
+            #if DEBUG
+            guard !model.isMusicDNAPreviewMode else { return }
+            #endif
+            await model.refreshMusicDNAProfile()
+            model.presentMusicDNAOptInPromptIfNeeded()
+        }
+        .sheet(isPresented: $model.isShowingMusicDNAOptInPrompt) {
+            MusicDNAOptInPromptView(model: model)
+        }
+        .confirmationDialog(
+            model.isDemoMode
+                ? localized(model.language, "Clear Music DNA in demo?", "Music DNA wissen in demo?")
+                : localized(model.language, "Clear Music DNA?", "Music DNA wissen?"),
+            isPresented: $isShowingClearConfirmation,
+            titleVisibility: .visible
+        ) {
+            if model.isDemoMode {
+                Button(localized(model.language, "Keep Demo Profile", "Demo-profiel behouden")) {
+                    Task { await model.clearMusicDNA() }
+                }
+            } else {
+                Button(localized(model.language, "Clear Music DNA", "Music DNA wissen"), role: .destructive) {
+                    Task { await model.clearMusicDNA() }
+                }
+            }
+            Button(localized(model.language, "Cancel", "Annuleer"), role: .cancel) {}
+        } message: {
+            if model.isDemoMode {
+                Text(localized(
+                    model.language,
+                    "In the real app this clears learned Music DNA on your Home Assistant backend. Because this is demo mode, the fictional sample profile stays visible.",
+                    "In de echte app wist dit geleerde Music DNA op je Home Assistant-backend. Omdat dit demo modus is, blijft het fictieve voorbeeldprofiel zichtbaar."
+                ))
+            } else {
+                Text(localized(
+                    model.language,
+                    "This clears learned Music DNA on your Home Assistant backend. If Music DNA remains enabled, it starts learning again from an empty profile.",
+                    "Dit wist geleerde Music DNA op je Home Assistant-backend. Als Music DNA aan blijft, begint de backend opnieuw vanaf een leeg profiel."
+                ))
+            }
+        }
+    }
+}
+
+private struct MusicDNARefreshButton: View {
+    @ObservedObject var model: DJConnectAppModel
+
+    var body: some View {
+        Button {
+            Task { await model.refreshMusicDNAProfile() }
+        } label: {
+            if model.isLoadingMusicDNA {
+                ProgressView()
+                    .controlSize(.small)
+            } else {
+                Image(systemName: "arrow.clockwise")
+            }
+        }
+        .disabled(model.isLoadingMusicDNA || model.isUpdatingMusicDNA)
+        .help(localized(model.language, "Refresh Music DNA", "Music DNA vernieuwen"))
+        .accessibilityLabel(localized(model.language, "Refresh Music DNA", "Music DNA vernieuwen"))
     }
 }
 
@@ -2416,34 +2752,34 @@ private struct MusicDNAHeroView: View {
                 .frame(height: 180)
                 .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
 
-            Text("Music DNA")
+            Text(screenTitle(model.language, "Music DNA", "Music DNA", isDemoMode: model.isDemoMode))
                 .font(.title.weight(.bold))
                 .foregroundStyle(.white)
             Text(localized(
                 model.language,
-                "The more you listen and chat with Ask DJ, the better DJConnect understands your unique musical taste.",
-                "Hoe meer je luistert en met Ask DJ praat, hoe beter DJConnect jouw unieke muzieksmaak begrijpt."
+                "Music DNA is learned server-side in Home Assistant and only when you opt in.",
+                "Music DNA wordt server-side in Home Assistant geleerd en alleen als je dit aanzet."
             ))
             .font(.callout)
             .foregroundStyle(.white.opacity(0.72))
             .fixedSize(horizontal: false, vertical: true)
 
-            if model.trackInsightHistory.isEmpty {
-                Text(localized(
-                    model.language,
-                    "Nothing has been learned yet. Start exploring music with Ask DJ or Track Insight.",
-                    "Er is nog niets geleerd. Verken muziek met Ask DJ of Track Insight om te beginnen."
-                ))
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(.white.opacity(0.62))
-                .fixedSize(horizontal: false, vertical: true)
-            } else {
+            if model.musicDNAProfileResponse?.enabled == true {
                 Label(
-                    localized(model.language, "Your Music DNA just evolved.", "Je Music DNA is net geevolueerd."),
+                    localized(model.language, "Music DNA is enabled.", "Music DNA staat aan."),
                     systemImage: "sparkles"
                 )
                 .font(.subheadline.weight(.semibold))
                 .foregroundStyle(djConnectAccent)
+            } else {
+                Text(localized(
+                    model.language,
+                    "Disabled means Home Assistant does not build Music DNA knowledge.",
+                    "Uit betekent dat Home Assistant geen Music DNA-kennis opbouwt."
+                ))
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.white.opacity(0.62))
+                .fixedSize(horizontal: false, vertical: true)
             }
         }
         .padding(16)
@@ -2451,80 +2787,430 @@ private struct MusicDNAHeroView: View {
     }
 }
 
-private struct MusicDNASectionGrid: View {
+private struct MusicDNAOptInPromptView: View {
     @ObservedObject var model: DJConnectAppModel
 
-    private var insights: [TrackInsight] {
-        var values = model.trackInsightHistory
-        if let current = model.currentTrackInsight, !values.contains(where: { $0.id == current.id }) {
-            values.insert(current, at: 0)
+    var body: some View {
+        NavigationStack {
+            VStack(alignment: .leading, spacing: 18) {
+                Image(systemName: "waveform")
+                    .font(.system(size: 44, weight: .semibold))
+                    .foregroundStyle(djConnectAccent)
+                    .frame(width: 64, height: 64)
+                    .background(.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+
+                VStack(alignment: .leading, spacing: 10) {
+                    Text(localized(model.language, "Enable Music DNA?", "Music DNA activeren?"))
+                        .font(.title2.weight(.bold))
+                        .foregroundStyle(.white)
+                    Text(localized(
+                        model.language,
+                        "Music DNA lets Home Assistant build a private server-side taste profile for better Ask DJ context and recommendations.",
+                        "Met Music DNA kan Home Assistant een prive server-side smaakprofiel opbouwen voor betere Ask DJ-context en aanbevelingen."
+                    ))
+                    .font(.callout)
+                    .foregroundStyle(.white.opacity(0.72))
+                    .fixedSize(horizontal: false, vertical: true)
+                }
+
+                VStack(alignment: .leading, spacing: 10) {
+                    Label(
+                        localized(model.language, "Music DNA is explicit opt-in.", "Music DNA is expliciet opt-in."),
+                        systemImage: "checkmark.shield"
+                    )
+                    Label(
+                        localized(model.language, "You can clear the learned profile at any time.", "Je kunt het opgebouwde profiel op elk moment wissen."),
+                        systemImage: "trash"
+                    )
+                    Label(
+                        localized(model.language, "You can turn Music DNA off later in Settings.", "Je kunt Music DNA later via Instellingen uitschakelen."),
+                        systemImage: "switch.2"
+                    )
+                }
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.white.opacity(0.78))
+
+                Spacer(minLength: 0)
+
+                VStack(spacing: 10) {
+                    Button {
+                        model.acceptMusicDNAOptInPrompt()
+                    } label: {
+                        Label(localized(model.language, "Enable Music DNA", "Music DNA activeren"), systemImage: "sparkles")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(djConnectAccent)
+                    .disabled(model.isUpdatingMusicDNA)
+
+                    Button {
+                        model.dismissMusicDNAOptInPrompt()
+                    } label: {
+                        Text(localized(model.language, "Not Now", "Niet nu"))
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.bordered)
+                    .tint(.white.opacity(0.8))
+                }
+            }
+            .padding(24)
+            .frame(maxWidth: 520, minHeight: 420, alignment: .topLeading)
+            .background(DJConnectCanvasBackground())
+            .navigationTitle("Music DNA")
+            #if os(iOS)
+            .navigationBarTitleDisplayMode(.inline)
+            #endif
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button(localized(model.language, "Close", "Sluit")) {
+                        model.dismissMusicDNAOptInPrompt()
+                    }
+                }
+            }
         }
-        return values
     }
+}
+
+private struct MusicDNAContentView: View {
+    @ObservedObject var model: DJConnectAppModel
+    @Binding var isShowingClearConfirmation: Bool
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            if model.isLoadingMusicDNA, model.musicDNAProfileResponse == nil {
+                MusicDNALoadingView(model: model)
+            } else if let response = model.musicDNAProfileResponse {
+                if response.enabled {
+                    if response.profile.isEmpty {
+                        MusicDNANoProfileView(model: model, isShowingClearConfirmation: $isShowingClearConfirmation)
+                    } else {
+                        MusicDNASectionGrid(model: model, response: response)
+                        MusicDNAActionsView(model: model, isShowingClearConfirmation: $isShowingClearConfirmation)
+                    }
+                } else {
+                    MusicDNADisabledView(model: model)
+                }
+            } else {
+                MusicDNAUnavailableView(model: model)
+            }
+
+            if let message = model.musicDNAErrorMessage, !message.isEmpty {
+                Text(message)
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(.red.opacity(0.85))
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+    }
+}
+
+private struct MusicDNASectionGrid: View {
+    @ObservedObject var model: DJConnectAppModel
+    let response: DJConnectMusicDNAProfileResponse
+
+    private var profile: DJConnectMusicDNAProfile { response.profile }
 
     var body: some View {
         LazyVGrid(columns: [GridItem(.adaptive(minimum: 160), spacing: 10)], spacing: 10) {
-            MusicDNAPanel(title: localized(model.language, "Your Taste", "Jouw smaak"), value: tasteSummary, icon: "waveform")
-            MusicDNAPanel(title: localized(model.language, "Favorite Genres", "Favoriete genres"), value: topValue(\.genre), icon: "music.quarternote.3")
-            MusicDNAPanel(title: localized(model.language, "Favorite Artists", "Favoriete artiesten"), value: topArtist, icon: "person.wave.2")
-            MusicDNAPanel(title: localized(model.language, "Favorite Moods", "Favoriete moods"), value: topValue(\.mood), icon: "sparkles")
+            MusicDNAPanel(title: localized(model.language, "Summary", "Samenvatting"), value: profile.summary ?? "-", icon: "waveform")
+            MusicDNAPanel(title: localized(model.language, "Favorite Genres", "Favoriete genres"), value: names(profile.favoriteGenres), icon: "music.quarternote.3")
+            MusicDNAPanel(title: localized(model.language, "Favorite Artists", "Favoriete artiesten"), value: names(profile.favoriteArtists), icon: "person.wave.2")
+            MusicDNAPanel(title: localized(model.language, "Mood", "Mood"), value: moodSummary, icon: "sparkles")
             MusicDNAPanel(title: localized(model.language, "Energy Profile", "Energieprofiel"), value: energyProfile, icon: "bolt.fill")
-            MusicDNAPanel(title: localized(model.language, "Listening Habits", "Luistergewoontes"), value: localized(model.language, "Evolving with every session", "Groeit met elke luistersessie"), icon: "clock.arrow.circlepath")
-            MusicDNAPanel(title: localized(model.language, "Discovery Profile", "Discovery-profiel"), value: localized(model.language, "Open to nearby surprises", "Open voor nabije verrassingen"), icon: "safari")
-            MusicDNAPanel(title: localized(model.language, "Recently Learned", "Recent geleerd"), value: recentlyLearned, icon: "plus.circle")
+            MusicDNAPanel(title: localized(model.language, "Recent Tracks", "Recente tracks"), value: tracks(profile.recentTracks), icon: "clock.arrow.circlepath")
+            MusicDNAPanel(title: localized(model.language, "Signals", "Signalen"), value: signals(profile.recommendationSignals), icon: "safari")
+            MusicDNAPanel(title: localized(model.language, "Updated", "Bijgewerkt"), value: updatedSummary, icon: "checkmark.seal")
         }
-    }
-
-    private var tasteSummary: String {
-        guard !insights.isEmpty else {
-            return localized(model.language, "Waiting for signals", "Wacht op signalen")
-        }
-        return localized(model.language, "Every track shapes your Music DNA.", "Elke track vormt je Music DNA.")
-    }
-
-    private var topArtist: String {
-        topString(insights.map(\.artist))
     }
 
     private var energyProfile: String {
-        let values = insights.compactMap(\.energy)
-        guard !values.isEmpty else {
+        guard let value = profile.mood?.value else {
             return localized(model.language, "Not enough signals", "Nog niet genoeg signalen")
         }
-        let average = values.reduce(0, +) / Double(values.count)
-        if average >= 0.72 {
+        if value >= 72 {
             return localized(model.language, "High-energy leaning", "Neigt naar hoge energie")
         }
-        if average <= 0.42 {
+        if value <= 42 {
             return localized(model.language, "Calm and spacious", "Rustig en ruimtelijk")
         }
         return localized(model.language, "Balanced energy", "Gebalanceerde energie")
     }
 
-    private var recentlyLearned: String {
-        guard let latest = insights.first else {
-            return localized(model.language, "Start with Ask DJ or Track Insight", "Begin met Ask DJ of Track Insight")
-        }
-        return [latest.genre, latest.mood, latest.vibe]
-            .compactMap { $0 }
-            .filter { !$0.isEmpty }
-            .prefix(2)
-            .joined(separator: " - ")
-    }
-
-    private func topValue(_ keyPath: KeyPath<TrackInsight, String?>) -> String {
-        topString(insights.compactMap { $0[keyPath: keyPath] })
-    }
-
-    private func topString(_ values: [String]) -> String {
-        let trimmed = values
-            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-            .filter { !$0.isEmpty }
-        guard let best = Dictionary(grouping: trimmed, by: { $0 })
-            .max(by: { $0.value.count < $1.value.count })?.key else {
+    private var moodSummary: String {
+        guard let mood = profile.mood else {
             return localized(model.language, "Not enough signals", "Nog niet genoeg signalen")
         }
-        return best
+        let zone = mood.zone?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let value = mood.value.map { "\($0)%" }
+        return [zone, value].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: " - ")
+    }
+
+    private var updatedSummary: String {
+        if response.generation != nil {
+            return localized(model.language, "Generation \(response.generation ?? 0)", "Generatie \(response.generation ?? 0)")
+        }
+        return localized(model.language, "Server profile", "Serverprofiel")
+    }
+
+    private func names(_ values: [DJConnectMusicDNANameValue]) -> String {
+        values.map(\.name)
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+            .prefix(3)
+            .joined(separator: ", ")
+            .ifEmpty(localized(model.language, "Not enough signals", "Nog niet genoeg signalen"))
+    }
+
+    private func tracks(_ values: [DJConnectMusicDNATrack]) -> String {
+        values.compactMap { track in
+            let title = track.title?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            let artist = track.artist?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            if title.isEmpty { return artist.isEmpty ? nil : artist }
+            return artist.isEmpty ? title : "\(title) - \(artist)"
+        }
+        .prefix(3)
+        .joined(separator: ", ")
+        .ifEmpty(localized(model.language, "Not enough signals", "Nog niet genoeg signalen"))
+    }
+
+    private func signals(_ values: [DJConnectMusicDNASignal]) -> String {
+        values.compactMap { $0.title ?? $0.name ?? $0.value }
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+            .prefix(3)
+            .joined(separator: ", ")
+            .ifEmpty(localized(model.language, "Not enough signals", "Nog niet genoeg signalen"))
+    }
+}
+
+private struct MusicDNADisabledView: View {
+    @ObservedObject var model: DJConnectAppModel
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Label(localized(model.language, "Music DNA is not enabled", "Music DNA is nog niet geactiveerd"), systemImage: "lock")
+                .font(.headline.weight(.semibold))
+                .foregroundStyle(.white)
+            Text(localized(
+                model.language,
+                "Enable it to let Home Assistant start building your private server-side music profile from future signals.",
+                "Activeer dit om Home Assistant je prive server-side muziekprofiel te laten opbouwen uit toekomstige signalen."
+            ))
+            .font(.callout)
+            .foregroundStyle(.white.opacity(0.72))
+            .fixedSize(horizontal: false, vertical: true)
+            Button {
+                Task { await model.setMusicDNAEnabled(true) }
+            } label: {
+                Label(localized(model.language, "Enable Music DNA", "Music DNA aanzetten"), systemImage: "sparkles")
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(djConnectAccent)
+            .disabled(model.isUpdatingMusicDNA)
+        }
+        .padding(16)
+        .djConnectGradientCard(cornerRadius: 8)
+    }
+}
+
+private struct MusicDNANoProfileView: View {
+    @ObservedObject var model: DJConnectAppModel
+    @Binding var isShowingClearConfirmation: Bool
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Label(
+                localized(model.language, "No Music DNA profile yet", "Nog geen Music DNA profiel opgebouwd"),
+                systemImage: "waveform.path.ecg"
+            )
+                .font(.headline.weight(.semibold))
+                .foregroundStyle(.white)
+            Text(localized(
+                model.language,
+                "Music DNA is enabled, but Home Assistant has not built profile data yet. This can happen right after enabling Music DNA or after clearing the learned profile.",
+                "Music DNA staat aan, maar Home Assistant heeft nog geen profieldata opgebouwd. Dit kan gebeuren direct na activeren of nadat het geleerde profiel is gewist."
+            ))
+            .font(.callout)
+            .foregroundStyle(.white.opacity(0.72))
+            .fixedSize(horizontal: false, vertical: true)
+            Label(
+                localized(model.language, "Ask DJ, Track Insight and listening signals will fill this in over time.", "Ask DJ, Track Insight en luistersignalen vullen dit na verloop van tijd aan."),
+                systemImage: "clock.arrow.circlepath"
+            )
+            .font(.footnote.weight(.semibold))
+            .foregroundStyle(.white.opacity(0.62))
+            MusicDNAActionsView(model: model, isShowingClearConfirmation: $isShowingClearConfirmation)
+        }
+        .padding(16)
+        .djConnectGradientCard(cornerRadius: 8)
+    }
+}
+
+private struct MusicDNAUnavailableView: View {
+    @ObservedObject var model: DJConnectAppModel
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Label(
+                localized(model.language, "Music DNA could not be loaded", "Music DNA kon niet worden geladen"),
+                systemImage: "wifi.exclamationmark"
+            )
+            .font(.headline.weight(.semibold))
+            .foregroundStyle(.white)
+            Text(localized(
+                model.language,
+                "DJConnect cannot read the current Music DNA state from Home Assistant right now. This is a temporary connection or backend issue, not the same as Music DNA being turned off.",
+                "DJConnect kan de huidige Music DNA-status nu niet uit Home Assistant ophalen. Dit is een tijdelijke verbindings- of backendfout, niet hetzelfde als Music DNA uitschakelen."
+            ))
+            .font(.callout)
+            .foregroundStyle(.white.opacity(0.72))
+            .fixedSize(horizontal: false, vertical: true)
+            Button {
+                Task { await model.refreshMusicDNAProfile() }
+            } label: {
+                Label(localized(model.language, "Try Again", "Probeer opnieuw"), systemImage: "arrow.clockwise")
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(djConnectAccent)
+            .disabled(model.isLoadingMusicDNA)
+        }
+        .padding(16)
+        .djConnectGradientCard(cornerRadius: 8)
+    }
+}
+
+private struct MusicDNALoadingView: View {
+    @ObservedObject var model: DJConnectAppModel
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            ProgressView()
+            Text(localized(model.language, "Loading Music DNA from Home Assistant...", "Music DNA laden uit Home Assistant..."))
+                .font(.headline.weight(.semibold))
+                .foregroundStyle(.white)
+            if let latest = model.currentTrackInsight ?? model.trackInsightHistory.first {
+                Text([latest.title, latest.artist].compactMap { $0 }.joined(separator: " - "))
+                    .font(.callout)
+                    .foregroundStyle(.white.opacity(0.56))
+                    .lineLimit(2)
+            }
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .djConnectGradientCard(cornerRadius: 8)
+    }
+}
+
+private struct MusicDNAActionsView: View {
+    @ObservedObject var model: DJConnectAppModel
+    @Binding var isShowingClearConfirmation: Bool
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Button {
+                isShowingClearConfirmation = true
+            } label: {
+                Label(localized(model.language, "Clear Music DNA", "Music DNA wissen"), systemImage: "trash")
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.bordered)
+            .tint(.red)
+            .disabled(model.isUpdatingMusicDNA)
+
+            Button {
+                Task { await model.setMusicDNAEnabled(false) }
+            } label: {
+                Label(localized(model.language, "Turn Off", "Uitzetten"), systemImage: "power")
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.bordered)
+            .tint(.white.opacity(0.8))
+            .disabled(model.isUpdatingMusicDNA)
+        }
+    }
+}
+
+#if DEBUG && (os(iOS) || os(macOS))
+#Preview("Music DNA - Populated") {
+    MusicDNAView(model: DJConnectAppModel.musicDNAPreviewModel(response: .previewPopulated))
+}
+
+#Preview("Music DNA - No Profile Yet") {
+    MusicDNAView(model: DJConnectAppModel.musicDNAPreviewModel(response: .previewEnabledEmpty))
+}
+
+#Preview("Music DNA - Disabled") {
+    MusicDNAView(model: DJConnectAppModel.musicDNAPreviewModel(response: .previewDisabled))
+}
+
+#Preview("Music DNA - Unavailable") {
+    MusicDNAView(model: DJConnectAppModel.musicDNAPreviewModel(
+        response: nil,
+        errorMessage: "Home Assistant is temporarily unavailable."
+    ))
+}
+
+private extension DJConnectAppModel {
+    static func musicDNAPreviewModel(response: DJConnectMusicDNAProfileResponse) -> DJConnectAppModel {
+        musicDNAPreviewModel(response: response, errorMessage: nil)
+    }
+
+    static func musicDNAPreviewModel(response: DJConnectMusicDNAProfileResponse?, errorMessage: String?) -> DJConnectAppModel {
+        let model = DJConnectAppModel(startBackgroundTasks: false)
+        model.setMusicDNAPreviewResponse(response)
+        model.setMusicDNAPreviewErrorMessage(errorMessage)
+        return model
+    }
+}
+
+private extension DJConnectMusicDNAProfileResponse {
+    static let previewPopulated = DJConnectMusicDNAProfileResponse(
+        success: true,
+        musicDNAKey: "user:preview",
+        enabled: true,
+        generation: 2,
+        profile: DJConnectMusicDNAProfile(
+            summary: "Warm, nocturnal electronic tracks with soft vocals and spacious low-end.",
+            favoriteGenres: [
+                DJConnectMusicDNANameValue(name: "ambient"),
+                DJConnectMusicDNANameValue(name: "melodic house"),
+                DJConnectMusicDNANameValue(name: "indie electronic")
+            ],
+            favoriteArtists: [
+                DJConnectMusicDNANameValue(name: "The xx"),
+                DJConnectMusicDNANameValue(name: "Ben Bohmer")
+            ],
+            recentTracks: [
+                DJConnectMusicDNATrack(title: "Intro", artist: "The xx"),
+                DJConnectMusicDNATrack(title: "Beyond Beliefs", artist: "Ben Bohmer")
+            ],
+            mood: DJConnectMusicDNAMood(value: 65, zone: "energy", promptHint: "keep it warm"),
+            recommendationSignals: [
+                DJConnectMusicDNASignal(title: "soft vocals"),
+                DJConnectMusicDNASignal(title: "wide pads")
+            ]
+        )
+    )
+
+    static let previewEnabledEmpty = DJConnectMusicDNAProfileResponse(
+        success: true,
+        enabled: true,
+        profile: DJConnectMusicDNAProfile()
+    )
+
+    static let previewDisabled = DJConnectMusicDNAProfileResponse(
+        success: true,
+        enabled: false,
+        profile: DJConnectMusicDNAProfile()
+    )
+}
+#endif
+
+private extension String {
+    func ifEmpty(_ fallback: String) -> String {
+        isEmpty ? fallback : self
     }
 }
 
@@ -2967,37 +3653,338 @@ private struct TrackVibeVisualizerView: View {
     let isActive: Bool
 
     var body: some View {
-        Group {
-            if !isActive {
-                TrackVibeCanvas(profile: profile, playbackPhase: playbackPhase(at: Date()), liveBeat: 0)
-            } else if reduceMotion {
-                TimelineView(.periodic(from: .now, by: 60)) { _ in
-                    TrackVibeCanvas(profile: profile, playbackPhase: playbackPhase(at: Date()), liveBeat: 0)
-                }
-            } else {
-                TimelineView(.animation(minimumInterval: 1.0 / 30.0)) { timeline in
-                    let phase = playbackPhase(at: timeline.date)
-                    TrackVibeCanvas(
-                        profile: profile,
-                        playbackPhase: phase,
-                        liveBeat: playback?.isPlaying == true ? timeline.date.timeIntervalSinceReferenceDate : phase.positionSeconds
-                    )
-                }
+        visualizer
+            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+            .overlay(alignment: .bottom) {
+                TrackVibePhaseSpectrum(profile: profile, progress: playbackPhase(at: Date()).progress)
+                    .padding(.horizontal, 14)
+                    .padding(.bottom, 10)
             }
+    }
+
+    @ViewBuilder
+    private var visualizer: some View {
+        #if canImport(MetalKit) && (os(iOS) || os(macOS))
+        TrackVibeMetalVisualizerView(
+            profile: profile,
+            playback: playback,
+            reduceMotion: reduceMotion,
+            isActive: isActive
+        )
+        #else
+        canvasVisualizer
+            .drawingGroup(opaque: true, colorMode: .linear)
+        #endif
+    }
+
+    @ViewBuilder
+    private var canvasVisualizer: some View {
+        if !isActive {
+            TrackVibeCanvas(profile: profile, playbackPhase: playbackPhase(at: Date()), liveBeat: 0)
+        } else if reduceMotion {
+            TimelineView(.periodic(from: .now, by: 60)) { _ in
+                TrackVibeCanvas(profile: profile, playbackPhase: playbackPhase(at: Date()), liveBeat: 0)
+            }
+        } else {
+            #if os(macOS)
+            TimelineView(.animation(minimumInterval: 1.0 / 15.0)) { timeline in
+                let phase = playbackPhase(at: timeline.date)
+                TrackVibeCanvas(
+                    profile: profile,
+                    playbackPhase: phase,
+                    liveBeat: playback?.isPlaying == true ? timeline.date.timeIntervalSinceReferenceDate : phase.positionSeconds
+                )
+            }
+            #else
+            TimelineView(.animation(minimumInterval: 1.0 / 30.0)) { timeline in
+                let phase = playbackPhase(at: timeline.date)
+                TrackVibeCanvas(
+                    profile: profile,
+                    playbackPhase: phase,
+                    liveBeat: playback?.isPlaying == true ? timeline.date.timeIntervalSinceReferenceDate : phase.positionSeconds
+                )
+            }
+            #endif
         }
-        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-        .overlay(alignment: .bottom) {
-            TrackVibePhaseSpectrum(profile: profile, progress: playbackPhase(at: Date()).progress)
-                .padding(.horizontal, 14)
-                .padding(.bottom, 10)
-        }
-        .drawingGroup(opaque: true, colorMode: .linear)
     }
 
     private func playbackPhase(at date: Date) -> TrackVibePlaybackPhase {
         TrackVibePlaybackPhase(playback: playback, date: date)
     }
 }
+
+#if canImport(MetalKit) && (os(iOS) || os(macOS))
+#if os(iOS)
+private struct TrackVibeMetalVisualizerView: UIViewRepresentable {
+    let profile: TrackVibeProfile
+    let playback: DJConnectPlayback?
+    let reduceMotion: Bool
+    let isActive: Bool
+
+    func makeCoordinator() -> TrackVibeMetalRenderer {
+        TrackVibeMetalRenderer()
+    }
+
+    func makeUIView(context: Context) -> MTKView {
+        makeView(context: context)
+    }
+
+    func updateUIView(_ view: MTKView, context: Context) {
+        update(view, context: context)
+    }
+}
+#elseif os(macOS)
+private struct TrackVibeMetalVisualizerView: NSViewRepresentable {
+    let profile: TrackVibeProfile
+    let playback: DJConnectPlayback?
+    let reduceMotion: Bool
+    let isActive: Bool
+
+    func makeCoordinator() -> TrackVibeMetalRenderer {
+        TrackVibeMetalRenderer()
+    }
+
+    func makeNSView(context: Context) -> MTKView {
+        makeView(context: context)
+    }
+
+    func updateNSView(_ view: MTKView, context: Context) {
+        update(view, context: context)
+    }
+}
+#endif
+
+private extension TrackVibeMetalVisualizerView {
+    func makeView(context: Context) -> MTKView {
+        let device = MTLCreateSystemDefaultDevice()
+        let view = MTKView(frame: .zero, device: device)
+        view.delegate = context.coordinator
+        view.framebufferOnly = true
+        view.clearColor = MTLClearColor(red: 0.015, green: 0.018, blue: 0.045, alpha: 1)
+        view.colorPixelFormat = .bgra8Unorm
+        view.preferredFramesPerSecond = 30
+        view.enableSetNeedsDisplay = false
+        view.isPaused = false
+        context.coordinator.configure(device: view.device, colorPixelFormat: view.colorPixelFormat)
+        update(view, context: context)
+        return view
+    }
+
+    func update(_ view: MTKView, context: Context) {
+        context.coordinator.profile = profile
+        context.coordinator.playback = playback
+        context.coordinator.reduceMotion = reduceMotion
+        view.preferredFramesPerSecond = reduceMotion ? 1 : 30
+        view.isPaused = !isActive
+        if !isActive || reduceMotion {
+            view.draw()
+        }
+    }
+}
+
+private final class TrackVibeMetalRenderer: NSObject, MTKViewDelegate {
+    var profile: TrackVibeProfile?
+    var playback: DJConnectPlayback?
+    var reduceMotion = false
+
+    private var pipelineState: MTLRenderPipelineState?
+    private var commandQueue: MTLCommandQueue?
+    private let startDate = Date()
+
+    func configure(device: MTLDevice?, colorPixelFormat: MTLPixelFormat) {
+        guard pipelineState == nil, let device else { return }
+        let source = """
+        #include <metal_stdlib>
+        using namespace metal;
+
+        struct VertexOut {
+            float4 position [[position]];
+            float4 color;
+        };
+
+        vertex VertexOut vertex_main(const device float *data [[buffer(0)]], uint vertexID [[vertex_id]]) {
+            uint base = vertexID * 6;
+            VertexOut out;
+            out.position = float4(data[base], data[base + 1], 0.0, 1.0);
+            out.color = float4(data[base + 2], data[base + 3], data[base + 4], data[base + 5]);
+            return out;
+        }
+
+        fragment float4 fragment_main(VertexOut in [[stage_in]]) {
+            return in.color;
+        }
+        """
+        do {
+            let library = try device.makeLibrary(source: source, options: nil)
+            let descriptor = MTLRenderPipelineDescriptor()
+            descriptor.vertexFunction = library.makeFunction(name: "vertex_main")
+            descriptor.fragmentFunction = library.makeFunction(name: "fragment_main")
+            descriptor.colorAttachments[0].pixelFormat = colorPixelFormat
+            descriptor.colorAttachments[0].isBlendingEnabled = true
+            descriptor.colorAttachments[0].sourceRGBBlendFactor = .sourceAlpha
+            descriptor.colorAttachments[0].destinationRGBBlendFactor = .oneMinusSourceAlpha
+            descriptor.colorAttachments[0].sourceAlphaBlendFactor = .sourceAlpha
+            descriptor.colorAttachments[0].destinationAlphaBlendFactor = .oneMinusSourceAlpha
+            pipelineState = try device.makeRenderPipelineState(descriptor: descriptor)
+            commandQueue = device.makeCommandQueue()
+        } catch {
+            pipelineState = nil
+            commandQueue = nil
+        }
+    }
+
+    func mtkView(_ view: MTKView, drawableSizeWillChange size: CGSize) {}
+
+    func draw(in view: MTKView) {
+        guard let drawable = view.currentDrawable,
+              let descriptor = view.currentRenderPassDescriptor,
+              let pipelineState,
+              let commandQueue,
+              let commandBuffer = commandQueue.makeCommandBuffer(),
+              let encoder = commandBuffer.makeRenderCommandEncoder(descriptor: descriptor),
+              let device = view.device else {
+            return
+        }
+
+        let vertices = makeVertices(size: view.drawableSize)
+        guard !vertices.isEmpty,
+              let buffer = device.makeBuffer(
+                bytes: vertices,
+                length: vertices.count * MemoryLayout<Float>.stride,
+                options: .storageModeShared
+              ) else {
+            return
+        }
+
+        encoder.setRenderPipelineState(pipelineState)
+        encoder.setVertexBuffer(buffer, offset: 0, index: 0)
+        encoder.drawPrimitives(type: .triangle, vertexStart: 0, vertexCount: vertices.count / 6)
+        encoder.endEncoding()
+        commandBuffer.present(drawable)
+        commandBuffer.commit()
+    }
+
+    private func makeVertices(size: CGSize) -> [Float] {
+        guard size.width > 0, size.height > 0 else { return [] }
+        let profile = profile
+        let phase = TrackVibePlaybackPhase(playback: playback, date: Date())
+        let elapsed = reduceMotion ? phase.positionSeconds : Date().timeIntervalSince(startDate)
+        let songTime = playback?.isPlaying == true ? phase.positionSeconds + elapsed : phase.positionSeconds
+        let progress = phase.progress
+        let waveform = Float(profile?.waveform ?? 0.8)
+        let glow = Float(profile?.glow ?? 0.7)
+        var vertices: [Float] = []
+        vertices.reserveCapacity(6 * (6 + 2 + 90))
+
+        addGradientQuad(to: &vertices)
+        addOrb(to: &vertices, progress: Float(progress), elapsed: Float(elapsed), glow: glow)
+        addBars(to: &vertices, songTime: Float(songTime), progress: Float(progress), waveform: waveform)
+        addBottomFade(to: &vertices)
+        return vertices
+    }
+
+    private func addGradientQuad(to vertices: inout [Float]) {
+        appendQuad(
+            to: &vertices,
+            x0: -1, y0: -1, x1: 1, y1: 1,
+            colors: [
+                SIMD4<Float>(0.02, 0.02, 0.07, 1.0),
+                SIMD4<Float>(0.14, 0.22, 0.56, 1.0),
+                SIMD4<Float>(0.03, 0.05, 0.10, 1.0),
+                SIMD4<Float>(0.00, 0.02, 0.03, 1.0)
+            ]
+        )
+    }
+
+    private func addOrb(to vertices: inout [Float], progress: Float, elapsed: Float, glow: Float) {
+        let centerX = -0.64 + progress * 1.28 + sin(elapsed * 0.7) * 0.08
+        let centerY = 0.24 + cos(elapsed * 0.45) * 0.08
+        let size = 0.42 + glow * 0.18
+        appendQuad(
+            to: &vertices,
+            x0: centerX - size,
+            y0: centerY - size * 0.7,
+            x1: centerX + size,
+            y1: centerY + size * 0.7,
+            color: SIMD4<Float>(0.34, 0.32, 1.0, 0.18 + glow * 0.12)
+        )
+    }
+
+    private func addBars(to vertices: inout [Float], songTime: Float, progress: Float, waveform: Float) {
+        let barCount = 82
+        let startX: Float = -0.45
+        let endX: Float = 0.48
+        let width = (endX - startX) / Float(barCount)
+        let baseY: Float = -0.70
+        for index in 0..<barCount {
+            let t = Float(index) / Float(max(1, barCount - 1))
+            let x = startX + Float(index) * width
+            let distance = abs(t - progress)
+            let playheadBoost = max(0, 1 - distance * 7)
+            let signal = (sin(Float(index) * 0.57 + songTime * 2.1) + 1) * 0.5
+            let height = 0.05 + (signal * 0.16 + playheadBoost * 0.22) * max(0.35, waveform)
+            let color = interpolatedBarColor(t: t, boost: playheadBoost)
+            appendQuad(
+                to: &vertices,
+                x0: x,
+                y0: baseY,
+                x1: x + width * 0.42,
+                y1: baseY + height,
+                color: color
+            )
+        }
+    }
+
+    private func addBottomFade(to vertices: inout [Float]) {
+        appendQuad(
+            to: &vertices,
+            x0: -1, y0: -1, x1: 1, y1: -0.42,
+            colors: [
+                SIMD4<Float>(0.0, 0.0, 0.0, 0.70),
+                SIMD4<Float>(0.0, 0.0, 0.0, 0.70),
+                SIMD4<Float>(0.0, 0.0, 0.0, 0.0),
+                SIMD4<Float>(0.0, 0.0, 0.0, 0.0)
+            ]
+        )
+    }
+
+    private func interpolatedBarColor(t: Float, boost: Float) -> SIMD4<Float> {
+        let blue = SIMD3<Float>(0.12, 0.43, 1.0)
+        let purple = SIMD3<Float>(0.52, 0.24, 1.0)
+        let pink = SIMD3<Float>(1.0, 0.18, 0.70)
+        let color: SIMD3<Float>
+        if t < 0.5 {
+            let local = t / 0.5
+            color = blue * (1 - local) + purple * local
+        } else {
+            let local = (t - 0.5) / 0.5
+            color = purple * (1 - local) + pink * local
+        }
+        return SIMD4<Float>(color.x, color.y, color.z, 0.42 + boost * 0.42)
+    }
+
+    private func appendQuad(to vertices: inout [Float], x0: Float, y0: Float, x1: Float, y1: Float, color: SIMD4<Float>) {
+        appendQuad(to: &vertices, x0: x0, y0: y0, x1: x1, y1: y1, colors: [color, color, color, color])
+    }
+
+    private func appendQuad(to vertices: inout [Float], x0: Float, y0: Float, x1: Float, y1: Float, colors: [SIMD4<Float>]) {
+        let c0 = colors[0]
+        let c1 = colors[1]
+        let c2 = colors[2]
+        let c3 = colors[3]
+        appendVertex(to: &vertices, x0, y0, c0)
+        appendVertex(to: &vertices, x1, y0, c1)
+        appendVertex(to: &vertices, x0, y1, c2)
+        appendVertex(to: &vertices, x1, y0, c1)
+        appendVertex(to: &vertices, x1, y1, c3)
+        appendVertex(to: &vertices, x0, y1, c2)
+    }
+
+    private func appendVertex(to vertices: inout [Float], _ x: Float, _ y: Float, _ color: SIMD4<Float>) {
+        vertices.append(contentsOf: [x, y, color.x, color.y, color.z, color.w])
+    }
+}
+#endif
 
 private struct TrackVibeCanvas: View {
     let profile: TrackVibeProfile
@@ -4922,6 +5909,9 @@ private struct AskDJView: View {
             }
         }
         .background(DJConnectCanvasBackground())
+        .onAppear {
+            model.presentMusicDNAOptInPromptIfNeeded()
+        }
         .task {
             await model.runAskDJHistorySyncLoop()
         }
@@ -4931,10 +5921,13 @@ private struct AskDJView: View {
         .sheet(item: $feedbackMessage) { message in
             AskDJFeedbackPromptView(model: model, message: message)
         }
-            .onChange(of: model.askDJToast?.id) { _, _ in
-                guard let text = model.askDJToast?.text else {
-                    return
-                }
+        .sheet(isPresented: $model.isShowingMusicDNAOptInPrompt) {
+            MusicDNAOptInPromptView(model: model)
+        }
+        .onChange(of: model.askDJToast?.id) { _, _ in
+            guard let text = model.askDJToast?.text else {
+                return
+            }
             showToast(text)
         }
     }
@@ -9074,11 +10067,6 @@ struct SettingsView: View {
     var returnToNowPlaying: () -> Void = {}
     @Environment(\.openURL) private var openURL
     @State private var isShowingResetPairingConfirmation = false
-    @AppStorage("DJConnectMusicDNALearnFromTrackInsights") private var learnFromTrackInsights = true
-    @AppStorage("DJConnectMusicDNALearnFromAskDJ") private var learnFromAskDJ = true
-    @AppStorage("DJConnectMusicDNALearnFromLikes") private var learnFromLikes = true
-    @AppStorage("DJConnectMusicDNALearnFromSkips") private var learnFromSkips = false
-    @AppStorage("DJConnectMusicDNALearnFromListeningHistory") private var learnFromListeningHistory = true
 
     var body: some View {
         NavigationStack {
@@ -9137,40 +10125,19 @@ struct SettingsView: View {
                 .djSettingsListRowBackground()
 
                 Section("Music DNA") {
-                    Toggle(isOn: $learnFromTrackInsights) {
-                        Text(localized(model.language, "Learn from Track Insights", "Leer van Track Insights"))
-                    }
-                    Toggle(isOn: $learnFromAskDJ) {
-                        Text(localized(model.language, "Learn from Ask DJ conversations", "Leer van Ask DJ-gesprekken"))
-                    }
-                    Toggle(isOn: $learnFromLikes) {
-                        Text(localized(model.language, "Learn from likes", "Leer van likes"))
-                    }
-                    Toggle(isOn: $learnFromSkips) {
-                        Text(localized(model.language, "Learn from skips", "Leer van skips"))
-                    }
-                    Toggle(isOn: $learnFromListeningHistory) {
-                        Text(localized(model.language, "Learn from listening history", "Leer van luistergeschiedenis"))
-                    }
                     Button(role: .destructive) {
+                        Task { await model.setMusicDNAEnabled(false) }
                     } label: {
-                        Label(localized(model.language, "Reset Music DNA", "Reset Music DNA"), systemImage: "arrow.counterclockwise")
+                        Label(localized(model.language, "Turn Off Music DNA", "Music DNA uitschakelen"), systemImage: "power")
                     }
-                    .disabled(true)
-                    LabeledContent(localized(model.language, "Export Music DNA", "Exporteer Music DNA")) {
-                        Text(localized(model.language, "Future", "Toekomstig"))
-                            .foregroundStyle(.secondary)
-                    }
-                    LabeledContent(localized(model.language, "Import Music DNA", "Importeer Music DNA")) {
-                        Text(localized(model.language, "Future", "Toekomstig"))
-                            .foregroundStyle(.secondary)
-                    }
+                    .disabled(model.isUpdatingMusicDNA || model.pairingStatus != .paired)
+
                     Text(localized(
                         model.language,
-                        "Music DNA is stored privately and belongs to you.",
-                        "Music DNA wordt prive opgeslagen en is van jou."
+                        "Music DNA is learned server-side in Home Assistant, only after opt-in. Turning it off clears learned DNA and stops future buildup.",
+                        "Music DNA wordt server-side in Home Assistant geleerd, alleen na opt-in. Uitschakelen wist geleerde DNA en stopt verdere opbouw."
                     ))
-                    .font(.caption)
+                    .font(.callout)
                     .foregroundStyle(.secondary)
                 }
                 .djSettingsListRowBackground()

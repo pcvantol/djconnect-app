@@ -82,7 +82,7 @@ and compact UI cache; the paired iPhone owns HA pairing, token storage,
 local/remote/offline selection, APNs registration, status refresh, Ask DJ
 history sync, playback action forwarding, clear history, idle suggestions, and
 voice upload. The Watch does not store `ha_remote_url`, does not host a local
-Web API, and does not advertise Bonjour/mDNS. Wake phrase work on watchOS is
+Web API, and does not advertise pairable discovery. Wake phrase work on watchOS is
 foreground-only by design; the app must not run an always-on background
 microphone listener.
 
@@ -235,8 +235,7 @@ status, commands, Ask DJ history, clear history, idle suggestions, voice upload,
 and push registration on behalf of the Watch while preserving
 `client_type:"watchos"` metadata.
 
-No Apple target hosts a Home Assistant-callable `/api/device/*` Client API,
-shows a Client adres, or advertises `_djconnect._tcp`.
+No Apple target hosts a Home Assistant-callable inbound API, shows a callback address, or advertises a pairable discovery service.
 
 ## Battery And Responsiveness
 

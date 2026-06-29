@@ -10,8 +10,7 @@ the Apple client as an app client identified by `client_type`, not as an ESP
 emulator.
 
 The suffix should stay stable across app launches. Explicit user pairing reset
-clears the bearer token, generates a new app code, and creates a fresh local
-install identity.
+clears the bearer token and creates a fresh local install identity.
 
 ```json
 {
@@ -94,11 +93,38 @@ as `djconnect-watchos-8F3A2C91B45D` with `client_type: "watchos"` and
 status, commands, Ask DJ history, voice upload, and push registration are
 mediated by the paired iPhone companion over WatchConnectivity.
 
-The app-generated code is sent as `pair_code`, `pairing_code`, and
+Home Assistant generates the 6-digit pair code in the DJConnect setup flow.
+The app sends that user-entered code as `pair_code`, `pairing_code`, and
 `pairing_token` for compatibility with current Home Assistant integration
-builds. The user confirms or enters the same value in the Home Assistant
-DJConnect setup flow. The app keeps polling this endpoint with the generated
-code until Home Assistant returns a DJConnect bearer token.
+builds. iOS and macOS do not wait for a Home Assistant callback and do not host
+any inbound callback API; they make a client-initiated `POST /api/djconnect/pair`.
+
+iOS pairing should primarily use the Home Assistant-generated QR/deep-link
+payload:
+
+```text
+djconnect://pair?ha_url=<local-ha-url>&pair_code=<code>&client_type=ios&pair_path=/api/djconnect/pair
+```
+
+The iOS app rejects QR/deep-link payloads unless `ha_url` is a valid local
+`http` Home Assistant URL, `pair_code` is exactly six digits, `client_type` is
+`ios`, and `pair_path` is `/api/djconnect/pair`.
+
+Apple Watch pairing uses the same Home Assistant-generated QR/deep-link shape
+with `client_type=watchos`:
+
+```text
+djconnect://pair?ha_url=<local-ha-url>&pair_code=<code>&client_type=watchos&pair_path=/api/djconnect/pair
+```
+
+The iPhone app scans or opens that payload, validates `client_type=watchos` and
+`pair_path=/api/djconnect/pair`, then forwards the pairing details to the
+paired Watch over WatchConnectivity. The Watch performs `POST
+/api/djconnect/pair` with its own stable `djconnect-watchos-*` identity. If the
+Watch cannot reach Home Assistant directly, the iPhone may proxy the HTTP
+request, but it must preserve Watch identity and must not rewrite the request
+as `client_type: "ios"`. The Watch UI does not show Home Assistant URL or code
+entry fields.
 
 Expected response:
 
@@ -150,13 +176,11 @@ last capability refresh time, advertised route names, and a redacted last error;
 they must not include tokens, private Home Assistant URLs, entity IDs, player
 IDs, prompts, raw Track Insight JSON, or internal backend URLs.
 
-## Local App Web API
+## Inbound API
 
-iOS and macOS no longer host a Home Assistant-callable local Web API and no
-longer advertise `_djconnect._tcp`. These Apple clients must not expose
-`/api/device/info`, `/api/device/pairing-info`, `/api/device/pair`,
-`/api/device/command`, `/api/device/dj_response`, or `/api/device/forget` as HA
-callback routes.
+iOS and macOS do not host a Home Assistant-callable inbound API and do not
+advertise a pairable discovery service. Pairing and runtime traffic are always
+client-to-Home Assistant.
 
 watchOS remains iPhone-mediated. The Watch itself never exposes a LAN endpoint
 or direct HA remote/local contract; when Watch identity metadata is needed it
@@ -215,10 +239,7 @@ POST /api/djconnect/push/unregister
 Authorization: Bearer <device_token>
 ```
 
-The Apple app does not implement ESP-only `/api/device/reboot` or
-`/api/device/ota` routes. Starting with protocol 3.2, iOS and macOS also do not
-host Home Assistant-callable `/api/device/*` pairing, command, DJ response, or
-forget callbacks and do not advertise themselves through `_djconnect._tcp`.
+The Apple app does not implement ESP-only device management routes. iOS, macOS, and watchOS do not host Home Assistant-callable pairing, command, DJ response, or forget callbacks and do not advertise themselves as pairable devices.
 
 Demo Mode is not part of the Home Assistant API contract. It is local sample
 state for App Store review and UI inspection, and must not create HA devices,
@@ -1254,6 +1275,109 @@ technical details for diagnostics, but user-facing Ask DJ errors are limited to
 short localized messages such as `Ask DJ niet bereikbaar` or `Home Assistant
 gaf geen antwoord`.
 
+## Music DNA Profile
+
+```http
+POST /api/djconnect/music_dna/profile
+POST /api/djconnect/music_dna/settings
+POST /api/djconnect/music_dna/clear
+```
+
+Music DNA is server-side in Home Assistant and explicitly opt-in. Apple clients
+do not persist a Music DNA profile locally; the Music DNA dashboard uses
+`/api/djconnect/music_dna/profile` as the source of truth whenever the screen
+opens. Track Insight `music_dna.match_percent` may still be rendered per track,
+but must not be treated as a complete profile.
+
+All Music DNA requests use the existing DJConnect bearer auth, `device_id`, and
+canonical `client_type` values such as `ios`, `macos`, `watchos`,
+`raspberry_pi`, or `windows`.
+
+iOS and macOS call these endpoints directly. watchOS calls them through the
+paired iPhone WatchConnectivity proxy, but the forwarded payload remains the
+Watch identity (`device_id` plus `client_type:"watchos"`). The initial Music DNA
+consent prompt is reachable from both Ask DJ and the Music DNA screen; Settings
+on iOS, macOS, and watchOS can opt out and opt in again.
+
+Profile request payload:
+
+```json
+{
+  "device_id": "djconnect-ios-8F3A2C91B45D",
+  "client_type": "ios"
+}
+```
+
+`enabled:false` with `profile:{}` means clients show an opt-in/empty state. The
+backend must not build Music DNA knowledge while disabled. `enabled:true` means
+the dashboard may render structured backend profile data; if the profile is
+empty, clients show a learning state such as `Music DNA is aan, maar nog aan het
+leren.`
+
+Settings opt-in/opt-out payload:
+
+```json
+{
+  "device_id": "djconnect-ios-8F3A2C91B45D",
+  "client_type": "ios",
+  "enabled": true
+}
+```
+
+Clients call `/music_dna/settings` for both opt-in and opt-out, then refresh
+`/music_dna/profile`. On opt-out, the backend is expected to clear learned Music
+DNA and stop further buildup.
+
+Clear payload:
+
+```json
+{
+  "device_id": "djconnect-ios-8F3A2C91B45D",
+  "client_type": "ios"
+}
+```
+
+Clients call `/music_dna/clear` after user confirmation and then refresh
+`/music_dna/profile`. Clear deletes learned Music DNA but preserves the opt-in
+setting. If `enabled:true` remains after clear, the backend starts again from an
+empty profile and clients show the enabled learning state.
+
+Ask DJ history sync remains separate:
+`/api/djconnect/ask_dj/history` and `/api/djconnect/ask_dj/history/clear` do not
+clear Music DNA.
+
+Expected profile response:
+
+```json
+{
+  "success": true,
+  "music_dna_key": "user:abc123",
+  "enabled": true,
+  "generation": 2,
+  "clear_requested_at": null,
+  "updated_at": "2026-06-29T12:00:00+00:00",
+  "profile": {
+    "summary": "Warm late-night electronic taste.",
+    "favorite_genres": [{"name": "ambient"}],
+    "favorite_artists": [{"name": "The xx"}],
+    "recent_tracks": [{"title": "Intro", "artist": "The xx"}],
+    "top_tracks_by_range": {},
+    "top_artists_by_range": {},
+    "mood": {"value": 65, "zone": "energy", "prompt_hint": "keep it warm"},
+    "time_patterns": [],
+    "recommendation_signals": [],
+    "blocked_artists": [],
+    "blocked_items": [],
+    "last_profile_refresh": "2026-06-29T12:00:00+00:00",
+    "consent_updated_at": "2026-06-29T12:00:00+00:00"
+  },
+  "sources": [{"source": "djconnect_music_dna", "kind": "source", "title": "Music DNA"}]
+}
+```
+
+After `401`, `403`, `not_configured`, or stale pairing errors, clients clear
+local Music DNA display/cache for the current Home Assistant installation.
+
 ## Voice
 
 ```http
@@ -1313,11 +1437,10 @@ HTTP `401`/`403`
 
 Pairing is stale or unauthorized. Keep token until explicit user reset.
 
-During unauthenticated app pairing polls, HTTP `401`/`403` means Home Assistant
-rejected the current app code or setup identity. The app must stop polling,
-keep the visible app-generated code, and ask the user to enter that same code
-again in the Home Assistant setup flow. It must not rotate the code
-automatically.
+During unauthenticated app pairing, HTTP `401`/`403` means Home Assistant
+rejected the entered pair code or setup identity. The app must stop pairing and
+ask the user to verify the 6-digit code shown by Home Assistant or generate a
+fresh setup code there.
 
 HTTP `404`
 

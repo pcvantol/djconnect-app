@@ -4,6 +4,7 @@ import WatchKit
 
 private let watchAccentBlue = Color(red: 0.16, green: 0.56, blue: 1.0)
 private let watchAccentPurple = Color(red: 0.84, green: 0.18, blue: 1.0)
+private let watchAccentGreen = Color(red: 0.20, green: 0.86, blue: 0.48)
 private let watchDeepNavy = Color(red: 0.02, green: 0.03, blue: 0.09)
 
 private func watchLocalized(_ language: String, _ english: String, _ dutch: String) -> String {
@@ -12,6 +13,10 @@ private func watchLocalized(_ language: String, _ english: String, _ dutch: Stri
 
 private func watchLocalized(_ english: String, _ dutch: String) -> String {
     DJConnectLocalization.localized(locale: .current, english: english, dutch: dutch)
+}
+
+private func watchNonEmpty(_ value: String, fallback: String) -> String {
+    value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? fallback : value
 }
 
 private func watchAskDJTimestamp(_ date: Date, language: String, now: Date = Date()) -> String {
@@ -101,6 +106,10 @@ struct DJConnectWatchRootView: View {
             DJConnectWatchWelcomeView()
                 .environmentObject(model)
         }
+        .sheet(isPresented: $model.isShowingMusicDNAOptInPrompt) {
+            DJConnectWatchMusicDNAOptInPromptView()
+                .environmentObject(model)
+        }
         .onChange(of: scenePhase) { _, phase in
             model.handleAppForegroundChange(phase == .active)
         }
@@ -119,7 +128,7 @@ struct DJConnectWatchRootView: View {
                 pairedView
             }
         case .pairing:
-            pairingView(message: watchLocalized(model.language, "Waiting for Home Assistant to accept the code.", "Wachten tot Home Assistant de code accepteert."))
+            pairingView(message: watchLocalized(model.language, "Waiting for iPhone to pair this Watch with Home Assistant.", "Wachten tot iPhone deze Watch met Home Assistant koppelt."))
         case let .failed(message):
             pairingView(message: message)
         case .unpaired:
@@ -220,6 +229,15 @@ struct DJConnectWatchRootView: View {
                         DJConnectWatchTrackInsightView()
                     } label: {
                         Label("Track Insight", systemImage: "waveform.path.ecg")
+                            .font(.footnote.weight(.semibold))
+                            .frame(maxWidth: .infinity, minHeight: 34)
+                    }
+                    .buttonStyle(DJConnectWatchGradientButtonStyle(kind: .secondary))
+
+                    NavigationLink {
+                        DJConnectWatchMusicDNAView()
+                    } label: {
+                        Label("Music DNA", systemImage: "waveform")
                             .font(.footnote.weight(.semibold))
                             .frame(maxWidth: .infinity, minHeight: 34)
                     }
@@ -654,6 +672,311 @@ struct DJConnectWatchRootView: View {
         }
     }
 
+    private struct DJConnectWatchMusicDNAView: View {
+        @EnvironmentObject private var model: DJConnectWatchModel
+        @State private var isShowingClearConfirmation = false
+
+        var body: some View {
+            ZStack {
+                DJConnectWatchCanvas()
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 10) {
+                        header
+                        content
+                    }
+                    .padding(.vertical, 8)
+                    .padding(.horizontal, 4)
+                }
+            }
+            .navigationTitle(model.isDemoMode ? "Music DNA (Demo)" : "Music DNA")
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        Task { await model.refreshMusicDNAProfile() }
+                    } label: {
+                        if model.isLoadingMusicDNA {
+                            ProgressView()
+                                .controlSize(.mini)
+                        } else {
+                            Image(systemName: "arrow.clockwise")
+                        }
+                    }
+                    .disabled(model.isLoadingMusicDNA || model.isUpdatingMusicDNA)
+                    .accessibilityLabel(watchLocalized(model.language, "Refresh Music DNA", "Music DNA vernieuwen"))
+                }
+            }
+            .task {
+                await model.refreshMusicDNAProfile()
+                await model.prepareMusicDNAConsentPromptIfNeeded()
+            }
+            .confirmationDialog(
+                model.isDemoMode
+                    ? watchLocalized(model.language, "Clear Music DNA in demo?", "Music DNA wissen in demo?")
+                    : watchLocalized(model.language, "Clear Music DNA?", "Music DNA wissen?"),
+                isPresented: $isShowingClearConfirmation,
+                titleVisibility: .visible
+            ) {
+                Button(
+                    model.isDemoMode
+                        ? watchLocalized(model.language, "Keep Demo Profile", "Demo-profiel behouden")
+                        : watchLocalized(model.language, "Clear Music DNA", "Music DNA wissen"),
+                    role: model.isDemoMode ? nil : .destructive
+                ) {
+                    Task { await model.clearMusicDNA() }
+                }
+                Button(watchLocalized(model.language, "Cancel", "Annuleer"), role: .cancel) {}
+            } message: {
+                if model.isDemoMode {
+                    Text(watchLocalized(
+                        model.language,
+                        "In the real app this clears learned Music DNA on Home Assistant. Demo data stays visible.",
+                        "In de echte app wist dit geleerde Music DNA op Home Assistant. Demo-data blijft zichtbaar."
+                    ))
+                } else {
+                    Text(watchLocalized(
+                        model.language,
+                        "This clears learned Music DNA. If Music DNA stays enabled, Home Assistant starts learning again from empty.",
+                        "Dit wist geleerde Music DNA. Als Music DNA aan blijft, begint Home Assistant opnieuw vanaf leeg."
+                    ))
+                }
+            }
+        }
+
+        private var header: some View {
+            VStack(alignment: .leading, spacing: 7) {
+                Label("Music DNA", systemImage: "waveform")
+                    .font(.headline.weight(.bold))
+                    .foregroundStyle(.white)
+                Text(watchLocalized(
+                    model.language,
+                    "Server-side taste profile for Ask DJ context and recommendations.",
+                    "Server-side smaakprofiel voor Ask DJ-context en aanbevelingen."
+                ))
+                .font(.caption2)
+                .foregroundStyle(.white.opacity(0.68))
+                .fixedSize(horizontal: false, vertical: true)
+            }
+            .padding(9)
+            .background(DJConnectWatchPanel(cornerRadius: 12))
+        }
+
+        @ViewBuilder
+        private var content: some View {
+            if model.isLoadingMusicDNA, model.musicDNAProfileResponse == nil {
+                watchPanel {
+                    ProgressView()
+                        .tint(.white)
+                    Text(watchLocalized(model.language, "Loading Music DNA...", "Music DNA laden..."))
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.white)
+                }
+            } else if let response = model.musicDNAProfileResponse {
+                if response.enabled {
+                    if response.profile.isEmpty {
+                        noProfilePanel
+                    } else {
+                        populatedProfile(response)
+                        actionsPanel(isEnabled: true)
+                    }
+                } else {
+                    disabledPanel
+                }
+            } else {
+                unavailablePanel
+            }
+
+            if let message = model.musicDNAErrorMessage, !message.isEmpty {
+                Text(message)
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(Color(red: 1.0, green: 0.45, blue: 0.58))
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+
+        private var disabledPanel: some View {
+            watchPanel {
+                Label(watchLocalized(model.language, "Not enabled", "Niet geactiveerd"), systemImage: "lock")
+                    .font(.caption.weight(.bold))
+                    .foregroundStyle(.white)
+                Text(watchLocalized(
+                    model.language,
+                    "Enable Music DNA to let Home Assistant build a private profile from future signals.",
+                    "Activeer Music DNA om Home Assistant een prive profiel uit toekomstige signalen te laten opbouwen."
+                ))
+                .font(.caption2)
+                .foregroundStyle(.white.opacity(0.68))
+                Button {
+                    Task { await model.setMusicDNAEnabled(true) }
+                } label: {
+                    Label(watchLocalized(model.language, "Enable", "Activeer"), systemImage: "sparkles")
+                        .font(.caption.weight(.semibold))
+                        .frame(maxWidth: .infinity, minHeight: 30)
+                }
+                .buttonStyle(DJConnectWatchGradientButtonStyle(kind: .primary))
+                .disabled(model.isUpdatingMusicDNA)
+            }
+        }
+
+        private var noProfilePanel: some View {
+            watchPanel {
+                Label(watchLocalized(model.language, "No profile yet", "Nog geen profiel"), systemImage: "waveform.path.ecg")
+                    .font(.caption.weight(.bold))
+                    .foregroundStyle(.white)
+                Text(watchLocalized(
+                    model.language,
+                    "Music DNA is on, but Home Assistant has not built data yet. This can happen after enabling or clearing.",
+                    "Music DNA staat aan, maar Home Assistant heeft nog geen data opgebouwd. Dit kan na activeren of wissen."
+                ))
+                .font(.caption2)
+                .foregroundStyle(.white.opacity(0.68))
+                actionsPanel(isEnabled: true)
+            }
+        }
+
+        private var unavailablePanel: some View {
+            watchPanel {
+                Label(watchLocalized(model.language, "Could not load", "Kon niet laden"), systemImage: "wifi.exclamationmark")
+                    .font(.caption.weight(.bold))
+                    .foregroundStyle(.white)
+                Text(watchLocalized(
+                    model.language,
+                    "This is a temporary backend or connection issue, not the same as Music DNA being turned off.",
+                    "Dit is een tijdelijke backend- of verbindingsfout, niet hetzelfde als Music DNA uitschakelen."
+                ))
+                .font(.caption2)
+                .foregroundStyle(.white.opacity(0.68))
+                Button {
+                    Task { await model.refreshMusicDNAProfile() }
+                } label: {
+                    Label(watchLocalized(model.language, "Try Again", "Opnieuw"), systemImage: "arrow.clockwise")
+                        .font(.caption.weight(.semibold))
+                        .frame(maxWidth: .infinity, minHeight: 30)
+                }
+                .buttonStyle(DJConnectWatchGradientButtonStyle(kind: .primary))
+                .disabled(model.isLoadingMusicDNA)
+            }
+        }
+
+        private func populatedProfile(_ response: DJConnectMusicDNAProfileResponse) -> some View {
+            let profile = response.profile
+            return VStack(alignment: .leading, spacing: 8) {
+                if let summary = profile.summary?.trimmingCharacters(in: .whitespacesAndNewlines), !summary.isEmpty {
+                    watchPanel {
+                        Label(watchLocalized(model.language, "Summary", "Samenvatting"), systemImage: "text.quote")
+                            .font(.caption.weight(.bold))
+                            .foregroundStyle(.white)
+                        Text(summary)
+                            .font(.caption2)
+                            .foregroundStyle(.white.opacity(0.72))
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+                LazyVStack(spacing: 8) {
+                    metricPanel(title: watchLocalized(model.language, "Genres", "Genres"), value: names(profile.favoriteGenres), icon: "music.quarternote.3")
+                    metricPanel(title: watchLocalized(model.language, "Artists", "Artiesten"), value: names(profile.favoriteArtists), icon: "person.wave.2")
+                    metricPanel(title: watchLocalized(model.language, "Mood", "Mood"), value: mood(profile.mood), icon: "sparkles")
+                    metricPanel(title: watchLocalized(model.language, "Recent", "Recent"), value: tracks(profile.recentTracks), icon: "clock.arrow.circlepath")
+                    metricPanel(title: watchLocalized(model.language, "Signals", "Signalen"), value: signals(profile.recommendationSignals), icon: "safari")
+                }
+            }
+        }
+
+        private func actionsPanel(isEnabled: Bool) -> some View {
+            VStack(spacing: 8) {
+                Button {
+                    isShowingClearConfirmation = true
+                } label: {
+                    Label(watchLocalized(model.language, "Clear Music DNA", "Music DNA wissen"), systemImage: "trash")
+                        .font(.caption.weight(.semibold))
+                        .frame(maxWidth: .infinity, minHeight: 30)
+                }
+                .buttonStyle(DJConnectWatchGradientButtonStyle(kind: .secondary))
+                .disabled(!isEnabled || model.isUpdatingMusicDNA)
+
+                Button {
+                    Task { await model.setMusicDNAEnabled(false) }
+                } label: {
+                    Label(watchLocalized(model.language, "Turn Off", "Uitzetten"), systemImage: "power")
+                        .font(.caption.weight(.semibold))
+                        .frame(maxWidth: .infinity, minHeight: 30)
+                }
+                .buttonStyle(DJConnectWatchGradientButtonStyle(kind: .secondary))
+                .disabled(!isEnabled || model.isUpdatingMusicDNA)
+            }
+        }
+
+        private func metricPanel(title: String, value: String, icon: String) -> some View {
+            HStack(alignment: .top, spacing: 8) {
+                Image(systemName: icon)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(watchAccentPurple)
+                    .frame(width: 18)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title)
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(.white.opacity(0.58))
+                    Text(value)
+                        .font(.caption.weight(.bold))
+                        .foregroundStyle(.white)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer(minLength: 0)
+            }
+            .padding(9)
+            .background(DJConnectWatchPanel(cornerRadius: 12))
+        }
+
+        private func watchPanel<Content: View>(@ViewBuilder content: () -> Content) -> some View {
+            VStack(alignment: .leading, spacing: 8, content: content)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(9)
+                .background(DJConnectWatchPanel(cornerRadius: 12))
+        }
+
+        private func names(_ values: [DJConnectMusicDNANameValue]) -> String {
+            let value = values.map(\.name)
+                .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+                .filter { !$0.isEmpty }
+                .prefix(3)
+                .joined(separator: ", ")
+            return watchNonEmpty(value, fallback: watchLocalized(model.language, "Not enough signals", "Nog niet genoeg signalen"))
+        }
+
+        private func tracks(_ values: [DJConnectMusicDNATrack]) -> String {
+            let value = values.compactMap { track in
+                let title = track.title?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+                let artist = track.artist?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+                if title.isEmpty { return artist.isEmpty ? nil : artist }
+                return artist.isEmpty ? title : "\(title) - \(artist)"
+            }
+            .prefix(3)
+            .joined(separator: ", ")
+            return watchNonEmpty(value, fallback: watchLocalized(model.language, "Not enough signals", "Nog niet genoeg signalen"))
+        }
+
+        private func signals(_ values: [DJConnectMusicDNASignal]) -> String {
+            let value = values.compactMap { $0.title ?? $0.name ?? $0.value }
+                .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+                .filter { !$0.isEmpty }
+                .prefix(3)
+                .joined(separator: ", ")
+            return watchNonEmpty(value, fallback: watchLocalized(model.language, "Not enough signals", "Nog niet genoeg signalen"))
+        }
+
+        private func mood(_ mood: DJConnectMusicDNAMood?) -> String {
+            guard let mood else {
+                return watchLocalized(model.language, "Not enough signals", "Nog niet genoeg signalen")
+            }
+            let zone = mood.zone?.trimmingCharacters(in: .whitespacesAndNewlines)
+            let value = mood.value.map { "\($0)%" }
+            let summary = [zone, value]
+                .compactMap { $0 }
+                .filter { !$0.isEmpty }
+                .joined(separator: " - ")
+            return watchNonEmpty(summary, fallback: watchLocalized(model.language, "Not enough signals", "Nog niet genoeg signalen"))
+        }
+    }
+
     private func pairingView(message: String?) -> some View {
         ZStack {
             DJConnectWatchCanvas()
@@ -682,8 +1005,8 @@ struct DJConnectWatchRootView: View {
                     Label(
                         watchLocalized(
                             model.language,
-                            "Open DJConnect on your iPhone. The iPhone pairs locally with Home Assistant and forwards status, playback, and voice requests to this Watch.",
-                            "Open DJConnect op je iPhone. De iPhone koppelt lokaal met Home Assistant en stuurt daarna status, playback en stemverzoeken door naar deze Watch."
+                            "Open DJConnect on your iPhone and scan the Apple Watch QR code shown by Home Assistant. Keep iPhone, Watch and Home Assistant on the same local network.",
+                            "Open DJConnect op je iPhone en scan de Apple Watch-QR-code uit Home Assistant. Houd iPhone, Watch en Home Assistant op hetzelfde lokale netwerk."
                         ),
                         systemImage: "network"
                     )
@@ -703,13 +1026,6 @@ struct DJConnectWatchRootView: View {
                     }
 
                     pairingValueCard(
-                        title: watchLocalized(model.language, "Pairing code", "Koppelcode"),
-                        value: model.pairingCode,
-                        systemImage: "number",
-                        prominent: true
-                    )
-
-                    pairingValueCard(
                         title: watchLocalized(model.language, "iPhone companion", "iPhone companion"),
                         value: model.companionPairingStatus,
                         systemImage: "iphone",
@@ -721,15 +1037,6 @@ struct DJConnectWatchRootView: View {
                             .font(.footnote)
                             .foregroundStyle(Color(red: 1.0, green: 0.45, blue: 0.58))
                     }
-
-                    Button {
-                        Task { await model.pair() }
-                    } label: {
-                        Label(watchLocalized(model.language, "Pair through iPhone", "Koppel via iPhone"), systemImage: "iphone.and.arrow.forward")
-                            .frame(maxWidth: .infinity, minHeight: 36)
-                    }
-                    .buttonStyle(DJConnectWatchGradientButtonStyle(kind: .primary))
-                    .disabled(!model.canUseLocalPairingAPI)
 
                     Button {
                         model.startDemoMode()
@@ -1193,9 +1500,27 @@ private struct DJConnectWatchSettingsView: View {
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject private var model: DJConnectWatchModel
     @State private var isShowingResetPairingConfirmation = false
+    @State private var isShowingMusicDNADisableConfirmation = false
 
     private var selectedLogLevel: DJConnectWatchLogLevel {
         DJConnectWatchLogLevel(rawValue: model.watchLogLevel) ?? .info
+    }
+
+    private var musicDNAEnabled: Bool {
+        model.musicDNAProfileResponse?.enabled == true
+    }
+
+    private var musicDNAStatusText: String {
+        if model.isLoadingMusicDNA, model.musicDNAProfileResponse == nil {
+            return watchLocalized(model.language, "Checking status...", "Status ophalen...")
+        }
+        if musicDNAEnabled {
+            return watchLocalized(model.language, "Music DNA is enabled.", "Music DNA staat aan.")
+        }
+        if model.musicDNAProfileResponse?.enabled == false {
+            return watchLocalized(model.language, "Music DNA is disabled.", "Music DNA staat uit.")
+        }
+        return watchLocalized(model.language, "Status not loaded yet.", "Status nog niet geladen.")
     }
 
     var body: some View {
@@ -1234,6 +1559,47 @@ private struct DJConnectWatchSettingsView: View {
                             }
                             .buttonStyle(DJConnectWatchGradientButtonStyle(kind: .secondary))
                         }
+                    }
+
+                    DJConnectWatchSettingsSection(title: "Music DNA") {
+                        HStack(spacing: 7) {
+                            Image(systemName: musicDNAEnabled ? "checkmark.seal.fill" : "power")
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundStyle(musicDNAEnabled ? watchAccentGreen : watchAccentPurple)
+                            Text(musicDNAStatusText)
+                                .font(.caption2.weight(.bold))
+                                .foregroundStyle(.white)
+                                .fixedSize(horizontal: false, vertical: true)
+                            Spacer(minLength: 0)
+                        }
+
+                        Text(watchLocalized(
+                            model.language,
+                            "Server-side, opt-in profile. Turning it off clears learned Music DNA and stops future buildup.",
+                            "Server-side opt-in profiel. Uitschakelen wist geleerde Music DNA en stopt verdere opbouw."
+                        ))
+                        .font(.caption2)
+                        .foregroundStyle(.white.opacity(0.68))
+                        .fixedSize(horizontal: false, vertical: true)
+
+                        Button {
+                            if musicDNAEnabled {
+                                isShowingMusicDNADisableConfirmation = true
+                            } else {
+                                Task { await model.setMusicDNAEnabled(true) }
+                            }
+                        } label: {
+                            Label(
+                                musicDNAEnabled
+                                    ? watchLocalized(model.language, "Turn Off Music DNA", "Music DNA uitschakelen")
+                                    : watchLocalized(model.language, "Turn On Music DNA", "Music DNA inschakelen"),
+                                systemImage: musicDNAEnabled ? "power" : "sparkles"
+                            )
+                            .font(.caption2.weight(.semibold))
+                            .frame(maxWidth: .infinity, minHeight: 30)
+                        }
+                        .buttonStyle(DJConnectWatchGradientButtonStyle(kind: musicDNAEnabled ? .secondary : .primary))
+                        .disabled(model.isLoadingMusicDNA || model.isUpdatingMusicDNA || (!model.canUseBackend && !model.isDemoMode))
                     }
 
                     DJConnectWatchSettingsSection(title: watchLocalized(model.language, "Voice activation", "Stemactivatie")) {
@@ -1298,6 +1664,9 @@ private struct DJConnectWatchSettingsView: View {
             }
         }
         .navigationTitle(watchLocalized(model.language, "Settings", "Instellingen"))
+        .task {
+            await model.refreshMusicDNAProfile()
+        }
         .alert(watchLocalized(model.language, "Pair again?", "Opnieuw koppelen?"), isPresented: $isShowingResetPairingConfirmation) {
             Button(watchLocalized(model.language, "Cancel", "Annuleer"), role: .cancel) {}
             Button(watchLocalized(model.language, "Pair again", "Opnieuw koppelen"), role: .destructive) {
@@ -1306,6 +1675,18 @@ private struct DJConnectWatchSettingsView: View {
             }
         } message: {
             Text(watchLocalized(model.language, "This clears local Watch pairing and opens the pairing screen again.", "Dit wist de lokale Watch-koppeling en opent het koppelscherm opnieuw."))
+        }
+        .alert(watchLocalized(model.language, "Turn Off Music DNA?", "Music DNA uitschakelen?"), isPresented: $isShowingMusicDNADisableConfirmation) {
+            Button(watchLocalized(model.language, "Cancel", "Annuleer"), role: .cancel) {}
+            Button(watchLocalized(model.language, "Turn Off", "Uitschakelen"), role: .destructive) {
+                Task { await model.setMusicDNAEnabled(false) }
+            }
+        } message: {
+            Text(watchLocalized(
+                model.language,
+                "This clears learned Music DNA on Home Assistant and stops future buildup until you turn it on again.",
+                "Dit wist geleerde Music DNA op Home Assistant en stopt verdere opbouw totdat je het opnieuw inschakelt."
+            ))
         }
     }
 
@@ -2027,6 +2408,7 @@ private struct DJConnectWatchAskDJChatView: View {
         }
         .navigationTitle("Ask DJ")
         .task {
+            await model.prepareMusicDNAConsentPromptIfNeeded()
             await model.runAskDJHistorySyncLoop()
         }
         .onChange(of: model.askDJToast?.id) { _, _ in
@@ -2273,6 +2655,88 @@ private struct DJConnectWatchAskDJBubble: View {
             return max(116, width - (bubbleHorizontalInset * 2) - 12)
         }
         return max(124, width - bubbleHorizontalInset - 10)
+    }
+}
+
+private struct DJConnectWatchMusicDNAOptInPromptView: View {
+    @EnvironmentObject private var model: DJConnectWatchModel
+
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                DJConnectWatchCanvas()
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 12) {
+                        Image(systemName: "waveform.path.ecg")
+                            .font(.title2.weight(.semibold))
+                            .foregroundStyle(
+                                LinearGradient(
+                                    colors: [watchAccentBlue, watchAccentPurple],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                            )
+
+                        Text(watchLocalized(model.language, "Enable Music DNA?", "Music DNA activeren?"))
+                            .font(.headline.weight(.bold))
+                            .foregroundStyle(.white)
+
+                        Text(watchLocalized(
+                            model.language,
+                            "Home Assistant can build a private server-side music profile for better Ask DJ context.",
+                            "Home Assistant kan een prive server-side muziekprofiel opbouwen voor betere Ask DJ-context."
+                        ))
+                        .font(.caption2)
+                        .foregroundStyle(.white.opacity(0.72))
+                        .fixedSize(horizontal: false, vertical: true)
+
+                        VStack(alignment: .leading, spacing: 6) {
+                            Label(watchLocalized(model.language, "Explicit opt-in", "Expliciete opt-in"), systemImage: "checkmark.shield")
+                            Label(watchLocalized(model.language, "Clear anytime", "Altijd te wissen"), systemImage: "trash")
+                            Label(watchLocalized(model.language, "Can be turned off in Settings", "Uitzetten kan via Instellingen"), systemImage: "switch.2")
+                        }
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(.white.opacity(0.78))
+
+                        Button {
+                            model.acceptMusicDNAOptInPrompt()
+                        } label: {
+                            Label(
+                                model.isUpdatingMusicDNAConsent
+                                    ? watchLocalized(model.language, "Enabling...", "Activeren...")
+                                    : watchLocalized(model.language, "Enable", "Activeer"),
+                                systemImage: "sparkles"
+                            )
+                            .font(.caption.weight(.semibold))
+                            .frame(maxWidth: .infinity, minHeight: 34)
+                        }
+                        .buttonStyle(DJConnectWatchGradientButtonStyle(kind: .primary))
+                        .disabled(model.isUpdatingMusicDNAConsent)
+
+                        Button {
+                            model.dismissMusicDNAOptInPrompt()
+                        } label: {
+                            Text(watchLocalized(model.language, "Not now", "Niet nu"))
+                                .font(.caption.weight(.semibold))
+                                .frame(maxWidth: .infinity, minHeight: 30)
+                        }
+                        .buttonStyle(DJConnectWatchGradientButtonStyle(kind: .secondary))
+                        .disabled(model.isUpdatingMusicDNAConsent)
+                    }
+                    .padding(.vertical, 12)
+                    .padding(.horizontal, 6)
+                }
+            }
+            .navigationTitle("Music DNA")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button(watchLocalized(model.language, "Close", "Sluit")) {
+                        model.dismissMusicDNAOptInPrompt()
+                    }
+                }
+            }
+        }
     }
 }
 

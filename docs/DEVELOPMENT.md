@@ -51,22 +51,25 @@ release binaries.
 5. The blocking pairing sheet opens automatically while the app is unpaired.
 6. Enter or confirm the Home Assistant base URL, for example
    `http://homeassistant.local:8123`.
-7. Copy the app-generated Pairing Code into the Home Assistant `djconnect`
-   integration setup/pairing flow.
-8. Leave the app open. It waits automatically until Home Assistant accepts the
-   code and returns a DJConnect bearer token.
+7. In Home Assistant, start the DJConnect app setup flow and choose macOS.
+8. Enter the local Home Assistant URL and the 6-digit code shown by Home
+   Assistant in the app, then choose the pairing action.
 9. When the green pairing success state appears, choose `Let's Start!`.
 
-The app polls `POST /api/djconnect/pair`, stores the returned DJConnect bearer
-token in app-private storage, and validates the pairing by posting to
-`/api/djconnect/status`. The pairing request sends the app code as
-`pair_code`, `pairing_code`, and `pairing_token` for compatibility with current
-Home Assistant integration builds.
+The app posts once to `POST /api/djconnect/pair` from the Apple client to Home
+Assistant, stores the returned DJConnect bearer token in app-private storage,
+and sends the Home Assistant code as `pair_code`, `pairing_code`, and
+`pairing_token` for compatibility with current Home Assistant integration
+builds.
 
-For iOS Simulator testing, use the polling flow above. Do not treat simulator
-mDNS/Bonjour reachability as authoritative. On real devices and macOS, the app
-may browse `_home-assistant._tcp` for local HA discovery, but it does not
-advertise `_djconnect._tcp` or host `/api/device/*` callbacks.
+For iOS Simulator testing, use the pairing flow above. Treat direct HTTP reachability to the configured Home Assistant URL as authoritative; Apple clients do not advertise a pairable service or host callback endpoints.
+
+For Apple Watch pairing, choose Apple Watch in the Home Assistant DJConnect
+setup flow and scan/open the generated `djconnect://pair?...client_type=watchos`
+payload on the paired iPhone. The Watch does not show Home Assistant URL or
+pair-code entry fields. The iPhone forwards the validated payload to the Watch
+and may proxy the HTTP request, but the payload identity remains
+`client_type: "watchos"` with a `djconnect-watchos-*` device ID.
 
 The pairing sheet also offers Demo Mode. Use it only for local UI work or App
 Store review/auditing when a real Home Assistant backend is unavailable. Demo
@@ -76,10 +79,9 @@ the pairing sheet. Stopping Demo Mode from Settings returns to Now Playing with
 the pairing sheet on top. Pressing the microphone in Demo Mode plays and shows
 a local sample DJ announcement for UI review.
 
-Reset Pairing clears the locally stored DJConnect token, generates a new app code,
-and creates a fresh local `device_id` for a new DJConnect app client setup.
-It also clears Demo Mode, returns to Now Playing, and reopens the pairing
-sheet.
+Reset Pairing clears the locally stored DJConnect token and creates a fresh
+local `device_id` for a new DJConnect app client setup. It also clears Demo
+Mode, returns to Now Playing, and reopens the pairing sheet.
 
 ## Debug Logging
 
@@ -149,7 +151,7 @@ Settings can preflight Microphone and Speech Recognition. Local Network is not
 preflighted because Apple does not expose a reliable explicit request/status API
 for that permission. Validate Local Network on a real iPhone/iPad or Mac by
 pairing against Home Assistant and confirming the system prompt appears during
-actual LAN/Bonjour access.
+actual LAN access.
 
 The app intentionally avoids invoking the unstable Speech Recognition system
 prompt from the Settings permission button. If Speech Recognition is already
@@ -228,15 +230,23 @@ remote is supported, and report offline when neither URL works.
 For Apple Watch, keep DJConnect open on the paired iPhone. The Watch should show
 the iPhone companion status and send pairing, status, Ask DJ history, playback
 actions, voice/PTT, and push registration through WatchConnectivity. The Watch
-must not advertise `_djconnect._tcp`, expose `/api/device/*`, or store/use
-`ha_remote_url` directly.
+must not expose inbound callback/discovery routes or store/use `ha_remote_url`
+directly.
+
+Music DNA on Apple Watch is also iPhone-mediated. Validate that opening either
+Ask DJ or Music DNA can show the same initial consent sheet when the backend
+reports `enabled:false`, and that Watch Settings can turn Music DNA off and on
+again. Watch Music DNA profile/settings/clear requests must preserve the Watch
+identity (`device_id` plus `client_type:"watchos"`). Turning Music DNA off
+should be confirmed in the UI because Home Assistant clears learned Music DNA
+and stops future profile buildup.
 
 `Connection reset by peer` after TCP connect usually means macOS firewall or
 third-party security software, such as ESET, Little Snitch, or LuLu, is blocking
 inbound local HTTP. Do not add automatic firewall exclusions in the app; keep the
 macOS network server entitlement, log the inbound request details, and document
 that users should allow inbound local-network connections for DJConnect. Prefer
-an application-based allow rule because the local API port can change when the
+an application-based allow rule because Home Assistant LAN access can be blocked when the
 pairing server restarts.
 
 ## Repository Rules
