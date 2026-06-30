@@ -207,6 +207,15 @@ struct DJConnectWatchRootView: View {
                     }
                     .buttonStyle(.plain)
 
+                    NavigationLink {
+                        DJConnectWatchQueueView()
+                    } label: {
+                        Label(watchLocalized(model.language, "Queue", "Wachtrij"), systemImage: "text.line.first.and.arrowtriangle.forward")
+                            .font(.footnote.weight(.semibold))
+                            .frame(maxWidth: .infinity, minHeight: 34)
+                    }
+                    .buttonStyle(DJConnectWatchGradientButtonStyle(kind: .secondary))
+
                     askDJMoodControl
 
                     NavigationLink {
@@ -255,15 +264,6 @@ struct DJConnectWatchRootView: View {
                     if !model.responseImages.isEmpty {
                         AskDJWatchImageStack(images: model.responseImages)
                     }
-
-                    NavigationLink {
-                        DJConnectWatchQueueView()
-                    } label: {
-                        Label(watchLocalized(model.language, "Queue", "Wachtrij"), systemImage: "text.line.first.and.arrowtriangle.forward")
-                            .font(.footnote.weight(.semibold))
-                            .frame(maxWidth: .infinity, minHeight: 34)
-                    }
-                    .buttonStyle(DJConnectWatchGradientButtonStyle(kind: .secondary))
 
                     NavigationLink {
                         DJConnectWatchPlaylistsView()

@@ -843,14 +843,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         companionPairingStatus = WCSession.default.isReachable
             ? "Pairinggegevens naar iPhone gestuurd"
             : "Open DJConnect op je iPhone"
-        if WCSession.default.isReachable {
-            WCSession.default.sendMessage(message, replyHandler: nil) { [weak self] error in
-                Task { @MainActor in
-                    self?.companionPairingStatus = "iPhone niet bereikbaar: \(error.localizedDescription)"
-                    self?.appendDiagnosticLog("Companion registratie mislukt: \(error.localizedDescription)", level: .warning)
-                }
-            }
-        } else {
+        if !WCSession.default.isReachable {
             WCSession.default.transferUserInfo(message)
         }
         #endif

@@ -488,6 +488,11 @@ public struct DJConnectRootView: View {
                             isSelected: selectedSection == .nowPlaying
                         ) { selectedSection = .nowPlaying }
                         SidebarItem(
+                            title: localized(model.language, "Queue", "Wachtrij"),
+                            systemImage: "text.line.first.and.arrowtriangle.forward",
+                            isSelected: selectedSection == .queue
+                        ) { selectedSection = .queue }
+                        SidebarItem(
                             title: "Ask DJ",
                             systemImage: "bubble.left.and.bubble.right.fill",
                             isSelected: selectedSection == .askDJ
@@ -502,11 +507,6 @@ public struct DJConnectRootView: View {
                             systemImage: "heart.fill",
                             isSelected: selectedSection == .musicDNA
                         ) { selectedSection = .musicDNA }
-                        SidebarItem(
-                            title: localized(model.language, "Queue", "Wachtrij"),
-                            systemImage: "text.line.first.and.arrowtriangle.forward",
-                            isSelected: selectedSection == .queue
-                        ) { selectedSection = .queue }
                         SidebarItem(
                             title: localized(model.language, "Playlists", "Afspeellijsten"),
                             systemImage: "rectangle.stack",
@@ -564,6 +564,11 @@ public struct DJConnectRootView: View {
                             Label(localized(model.language, "Now Playing", "Speelt Nu"), systemImage: "music.note")
                         }
                         .tag(DJConnectSection.nowPlaying)
+                    QueueView(model: model)
+                        .tabItem {
+                            Label(localized(model.language, "Queue", "Wachtrij"), systemImage: "text.line.first.and.arrowtriangle.forward")
+                        }
+                        .tag(DJConnectSection.queue)
                     AskDJView(model: model)
                         .tabItem {
                             Label("Ask DJ", systemImage: "bubble.left.and.bubble.right.fill")
@@ -574,11 +579,6 @@ public struct DJConnectRootView: View {
                             Label("Track Insight", systemImage: "waveform.path.ecg")
                         }
                         .tag(DJConnectSection.trackInsight)
-                    QueueView(model: model)
-                        .tabItem {
-                            Label(localized(model.language, "Queue", "Wachtrij"), systemImage: "text.line.first.and.arrowtriangle.forward")
-                        }
-                        .tag(DJConnectSection.queue)
                     MoreView(model: model) {
                         selectedSection = .nowPlaying
                     }
@@ -1905,7 +1905,7 @@ private struct WelcomeView: View {
                     Text(localized(
                         model.language,
                         "Setup runs through Home Assistant. Spotify playback requires Spotify Premium.",
-                        "Installatie loopt via Home Assistant. Spotify-weergave vereist Spotify Premium."
+                        "Muziekweergave en bediening loopt via Home Assistant."
                     ))
                     .font(.callout.weight(.semibold))
                     .foregroundStyle(.secondary)
@@ -2021,14 +2021,14 @@ private struct WelcomeTourStep: Identifiable, Equatable {
                 systemImage: "waveform.path.ecg"
             ),
             WelcomeTourStep(
-                id: .queue,
-                title: localized(language, "Queue", "Wachtrij"),
+                id: .musicDNA,
+                title: "Music DNA",
                 body: localized(
                     language,
-                    "See what is coming up next and start queue items when Home Assistant returns playable actions.",
-                    "Bekijk wat hierna komt en start wachtrij-items wanneer Home Assistant afspeelacties teruggeeft."
+                    "Learn from your taste and listening behavior to shape recommendations around your listening profile.",
+                    "Leer van je smaak en luistergedrag om aanbevelingen af te stemmen op jouw luisterprofiel."
                 ),
-                systemImage: "text.line.first.and.arrowtriangle.forward"
+                systemImage: "heart.fill"
             ),
             WelcomeTourStep(
                 id: .games,

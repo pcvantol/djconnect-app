@@ -97,6 +97,9 @@ targets:
         LSApplicationCategoryType: public.app-category.music
         UILaunchStoryboardName: LaunchScreen
         UIApplicationShortcutItems:
+          - UIApplicationShortcutItemIconType: UIApplicationShortcutIconTypePlay
+            UIApplicationShortcutItemTitle: Speelt Nu
+            UIApplicationShortcutItemType: dev.djconnect.action.now-playing
           - UIApplicationShortcutItemIconType: UIApplicationShortcutIconTypeMessage
             UIApplicationShortcutItemTitle: Ask DJ
             UIApplicationShortcutItemType: dev.djconnect.action.ask-dj

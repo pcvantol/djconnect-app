@@ -144,31 +144,19 @@ struct TrackInsightSharePreviewView: View {
 
     @ViewBuilder
     private var previewCard: some View {
-        if mediaKind == .animatedVideo {
-            TimelineView(.animation) { timeline in
-                TrackInsightShareCardView(
-                    insight: insight,
-                    format: format,
-                    language: language,
-                    animationPhase: timeline.date.timeIntervalSinceReferenceDate
-                )
-            }
-            .aspectRatio(format.size.width / format.size.height, contentMode: .fit)
-            .frame(maxHeight: 460)
-            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-            .overlay {
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .stroke(.white.opacity(0.14), lineWidth: 1)
-            }
-        } else {
-            TrackInsightShareCardView(insight: insight, format: format, language: language, animationPhase: 0)
-                .aspectRatio(format.size.width / format.size.height, contentMode: .fit)
-                .frame(maxHeight: 460)
-                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                .overlay {
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .stroke(.white.opacity(0.14), lineWidth: 1)
+        TrackInsightShareScaledPreview(format: format) {
+            if mediaKind == .animatedVideo {
+                TimelineView(.animation) { timeline in
+                    TrackInsightShareCardView(
+                        insight: insight,
+                        format: format,
+                        language: language,
+                        animationPhase: timeline.date.timeIntervalSinceReferenceDate
+                    )
                 }
+            } else {
+                TrackInsightShareCardView(insight: insight, format: format, language: language, animationPhase: 0)
+            }
         }
     }
 
@@ -245,6 +233,39 @@ struct TrackInsightSharePreviewView: View {
             localized("The animated share video could not be encoded.", "Geanimeerde deelvideo kon niet worden gecodeerd.")
         case .unsupportedVideoExport:
             localized("Animated video export is not supported on this platform.", "Geanimeerde video-export wordt niet ondersteund op dit platform.")
+        }
+    }
+}
+
+private struct TrackInsightShareScaledPreview<Content: View>: View {
+    let format: TrackInsightShareFormat
+    @ViewBuilder var content: Content
+
+    private var aspectRatio: CGFloat {
+        format.size.width / format.size.height
+    }
+
+    var body: some View {
+        ZStack {
+            GeometryReader { proxy in
+                let scale = min(
+                    proxy.size.width / format.size.width,
+                    proxy.size.height / format.size.height
+                )
+
+                content
+                    .frame(width: format.size.width, height: format.size.height)
+                    .scaleEffect(scale)
+                    .frame(width: proxy.size.width, height: proxy.size.height)
+            }
+        }
+        .aspectRatio(aspectRatio, contentMode: .fit)
+        .frame(maxWidth: .infinity)
+        .frame(maxHeight: 460)
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .stroke(.white.opacity(0.14), lineWidth: 1)
         }
     }
 }
