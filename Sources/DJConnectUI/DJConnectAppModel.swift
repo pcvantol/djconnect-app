@@ -549,7 +549,7 @@ public final class DJConnectAppModel: ObservableObject {
     private var lastFullRefreshAt: Date?
     private var lastBackendCollectionsRefreshAt: Date?
     #if os(iOS) && canImport(WatchConnectivity)
-    private var watchProxyRegistration: DJConnectWatchProxyRegistration?
+    @Published private var watchProxyRegistration: DJConnectWatchProxyRegistration?
     private var watchProxySessionDelegate: DJConnectWatchProxySessionDelegate?
     #endif
     private let networkMonitor = NWPathMonitor()
@@ -762,7 +762,7 @@ public final class DJConnectAppModel: ObservableObject {
     public var isAppleWatchPairingPending: Bool {
         #if os(iOS) && canImport(WatchConnectivity)
         if let registration = watchProxyRegistration {
-            return pairingFlowTarget == .appleWatch && !registration.paired
+            return !registration.paired
         }
         #endif
         return false
@@ -3074,6 +3074,7 @@ public final class DJConnectAppModel: ObservableObject {
             }
         }
         self.playback = normalizedPlayback
+        updateNowPlayingWidgetSnapshot(playback: normalizedPlayback)
         if !hasActiveNowPlaying || !currentTrackInsightMatchesPlayback() {
             currentTrackInsight = nil
             clearTrackInsightWidgetSnapshot(reason: "No matching active playback")
@@ -3170,6 +3171,7 @@ public final class DJConnectAppModel: ObservableObject {
             let normalizedQueue = normalizedQueueItems(responseQueue)
             queueItems = normalizedQueue
             queue = normalizedQueue.map(\.displayTitle)
+            updateQueueWidgetSnapshot(items: normalizedQueue)
         }
         if shouldApplyQueue, response.queueContext != nil || response.queue != nil {
             queueContext = response.queueContext
@@ -3177,6 +3179,7 @@ public final class DJConnectAppModel: ObservableObject {
         if shouldApplyPlaylists, let responsePlaylists = response.playlists {
             playlistItems = responsePlaylists
             playlists = responsePlaylists.map(\.name)
+            updatePlaylistsWidgetSnapshot(playlists: responsePlaylists)
         }
         if let message = response.message, !message.isEmpty {
             djResponseText = userFacingDJResponseText(message) ?? message
@@ -3658,12 +3661,14 @@ public final class DJConnectAppModel: ObservableObject {
         playback = nil
         currentTrackInsight = nil
         clearMusicDNADisplay()
+        clearNowPlayingWidgetSnapshot(reason: "Runtime state cleared")
         clearTrackInsightWidgetSnapshot(reason: "Runtime state cleared")
         syncTrackInsightLiveActivity(reason: "Runtime state cleared")
         queue = []
         playlists = []
         availableOutputs = []
         queueItems = []
+        clearQueueWidgetSnapshot(reason: "Runtime state cleared")
         loadingQueueItemID = nil
         loadingQueueItemIndex = nil
         loadingPlaylistID = nil
@@ -3671,6 +3676,7 @@ public final class DJConnectAppModel: ObservableObject {
         isLoadingPlaylists = false
         queueContext = nil
         playlistItems = []
+        clearPlaylistsWidgetSnapshot(reason: "Runtime state cleared")
         selectedOutput = noOutputName()
         djResponseText = ""
         voiceStatus = .idle
@@ -3763,8 +3769,7 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     private static func defaultLanguage() -> String {
-        let preferredLanguage = Locale.preferredLanguages.first?.lowercased() ?? ""
-        return preferredLanguage.hasPrefix("nl") ? "nl" : "en"
+        DJConnectLocalization.preferredLanguageCode()
     }
 
     private static func parsedVersion(_ version: String) -> (major: Int, minor: Int, patch: Int)? {
@@ -4550,6 +4555,108 @@ public final class DJConnectAppModel: ObservableObject {
         log(.debug, "Cleared Track Insight widget snapshot: \(reason)")
     }
 
+    private func updateNowPlayingWidgetSnapshot(playback: DJConnectPlayback?) {
+        guard let defaults = UserDefaults(suiteName: DJConnectTrackInsightWidgetSnapshot.appGroupIdentifier) else {
+            log(.warning, "Now Playing widget snapshot skipped: App Group storage is unavailable.")
+            return
+        }
+        guard let playback, let snapshot = DJConnectNowPlayingWidgetSnapshot(playback: playback) else {
+            DJConnectNowPlayingWidgetSnapshot.remove(from: defaults)
+            #if canImport(WidgetKit)
+            WidgetCenter.shared.reloadTimelines(ofKind: DJConnectNowPlayingWidgetSnapshot.widgetKind)
+            #endif
+            log(.debug, "Cleared Now Playing widget snapshot: empty playback")
+            return
+        }
+        do {
+            try snapshot.save(to: defaults)
+            #if canImport(WidgetKit)
+            WidgetCenter.shared.reloadTimelines(ofKind: DJConnectNowPlayingWidgetSnapshot.widgetKind)
+            #endif
+        } catch {
+            log(.warning, "Now Playing widget snapshot failed: \(error.localizedDescription)")
+        }
+    }
+
+    private func clearNowPlayingWidgetSnapshot(reason: String) {
+        guard let defaults = UserDefaults(suiteName: DJConnectTrackInsightWidgetSnapshot.appGroupIdentifier) else {
+            return
+        }
+        DJConnectNowPlayingWidgetSnapshot.remove(from: defaults)
+        #if canImport(WidgetKit)
+        WidgetCenter.shared.reloadTimelines(ofKind: DJConnectNowPlayingWidgetSnapshot.widgetKind)
+        #endif
+        log(.debug, "Cleared Now Playing widget snapshot: \(reason)")
+    }
+
+    private func updateQueueWidgetSnapshot(items: [DJConnectQueueItem]) {
+        guard let defaults = UserDefaults(suiteName: DJConnectTrackInsightWidgetSnapshot.appGroupIdentifier) else {
+            log(.warning, "Queue widget snapshot skipped: App Group storage is unavailable.")
+            return
+        }
+        guard !items.isEmpty else {
+            DJConnectQueueWidgetSnapshot.remove(from: defaults)
+            #if canImport(WidgetKit)
+            WidgetCenter.shared.reloadTimelines(ofKind: DJConnectQueueWidgetSnapshot.widgetKind)
+            #endif
+            log(.debug, "Cleared Queue widget snapshot: empty queue")
+            return
+        }
+        do {
+            try DJConnectQueueWidgetSnapshot(items: items).save(to: defaults)
+            #if canImport(WidgetKit)
+            WidgetCenter.shared.reloadTimelines(ofKind: DJConnectQueueWidgetSnapshot.widgetKind)
+            #endif
+        } catch {
+            log(.warning, "Queue widget snapshot failed: \(error.localizedDescription)")
+        }
+    }
+
+    private func clearQueueWidgetSnapshot(reason: String) {
+        guard let defaults = UserDefaults(suiteName: DJConnectTrackInsightWidgetSnapshot.appGroupIdentifier) else {
+            return
+        }
+        DJConnectQueueWidgetSnapshot.remove(from: defaults)
+        #if canImport(WidgetKit)
+        WidgetCenter.shared.reloadTimelines(ofKind: DJConnectQueueWidgetSnapshot.widgetKind)
+        #endif
+        log(.debug, "Cleared Queue widget snapshot: \(reason)")
+    }
+
+    private func updatePlaylistsWidgetSnapshot(playlists: [DJConnectPlaylist]) {
+        guard let defaults = UserDefaults(suiteName: DJConnectTrackInsightWidgetSnapshot.appGroupIdentifier) else {
+            log(.warning, "Playlists widget snapshot skipped: App Group storage is unavailable.")
+            return
+        }
+        guard !playlists.isEmpty else {
+            DJConnectPlaylistsWidgetSnapshot.remove(from: defaults)
+            #if canImport(WidgetKit)
+            WidgetCenter.shared.reloadTimelines(ofKind: DJConnectPlaylistsWidgetSnapshot.widgetKind)
+            #endif
+            log(.debug, "Cleared Playlists widget snapshot: empty playlists")
+            return
+        }
+        do {
+            try DJConnectPlaylistsWidgetSnapshot(playlists: playlists).save(to: defaults)
+            #if canImport(WidgetKit)
+            WidgetCenter.shared.reloadTimelines(ofKind: DJConnectPlaylistsWidgetSnapshot.widgetKind)
+            #endif
+        } catch {
+            log(.warning, "Playlists widget snapshot failed: \(error.localizedDescription)")
+        }
+    }
+
+    private func clearPlaylistsWidgetSnapshot(reason: String) {
+        guard let defaults = UserDefaults(suiteName: DJConnectTrackInsightWidgetSnapshot.appGroupIdentifier) else {
+            return
+        }
+        DJConnectPlaylistsWidgetSnapshot.remove(from: defaults)
+        #if canImport(WidgetKit)
+        WidgetCenter.shared.reloadTimelines(ofKind: DJConnectPlaylistsWidgetSnapshot.widgetKind)
+        #endif
+        log(.debug, "Cleared Playlists widget snapshot: \(reason)")
+    }
+
     private func syncTrackInsightLiveActivity(reason: String) {
         #if os(iOS) && canImport(ActivityKit)
         guard #available(iOS 16.1, *) else {
@@ -4558,12 +4665,11 @@ public final class DJConnectAppModel: ObservableObject {
         if currentTrackInsight != nil, (!hasActiveNowPlaying || !currentTrackInsightMatchesPlayback()) {
             currentTrackInsight = nil
         }
-        let insight = currentTrackInsight
-        let hasPlayback = hasActiveNowPlaying
+        let activityPlayback = hasActiveNowPlaying ? playback : nil
         Task {
-            await TrackInsightLiveActivityController.sync(currentInsight: insight, hasActivePlayback: hasPlayback)
+            await TrackInsightLiveActivityController.sync(playback: activityPlayback)
         }
-        log(.debug, "Synced Track Insight Live Activity: \(reason), insight=\(insight == nil ? "none" : "present"), playback=\(hasPlayback)")
+        log(.debug, "Synced Now Playing Live Activity: \(reason), playback=\(activityPlayback == nil ? "none" : "present")")
         #endif
     }
 
@@ -6211,18 +6317,23 @@ public final class DJConnectAppModel: ObservableObject {
             pairCode: pairCode,
             paired: (message["paired"] as? Bool) ?? defaults.bool(forKey: watchProxyPairedKey)
         )
-        if watchProxyRegistration?.paired == false {
-            pairingFlowTarget = .appleWatch
-            isShowingPairingSuccess = false
-            isPairingScreenDismissed = false
-            pairingMessage = localized(
-                english: "Apple Watch is ready. Scan the Apple Watch QR code from Home Assistant or enter the Watch pair code manually.",
-                dutch: "Apple Watch staat klaar. Scan de Apple Watch-QR-code uit Home Assistant of vul de Watch-koppelcode handmatig in."
-            )
-        }
+        presentAppleWatchPairingIfNeeded()
         persistWatchProxyRegistration()
         sendWatchProxyReady()
         log(.info, "Watch proxy registered \(Self.redactedDJConnectDeviceID(deviceID))")
+    }
+
+    private func presentAppleWatchPairingIfNeeded() {
+        guard watchProxyRegistration?.paired == false else {
+            return
+        }
+        pairingFlowTarget = .appleWatch
+        isShowingPairingSuccess = false
+        isPairingScreenDismissed = false
+        pairingMessage = localized(
+            english: "Apple Watch is ready. Scan the Apple Watch QR code from Home Assistant or enter the Watch pair code manually.",
+            dutch: "Apple Watch staat klaar. Scan de Apple Watch-QR-code uit Home Assistant of vul de Watch-koppelcode handmatig in."
+        )
     }
 
     private func restoreWatchProxyRegistration() {
@@ -6243,6 +6354,7 @@ public final class DJConnectAppModel: ObservableObject {
             pairCode: pairCode,
             paired: defaults.bool(forKey: watchProxyPairedKey)
         )
+        presentAppleWatchPairingIfNeeded()
     }
 
     private func persistWatchProxyRegistration() {

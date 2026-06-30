@@ -499,7 +499,7 @@ public struct DJConnectRootView: View {
                         ) { selectedSection = .trackInsight }
                         SidebarItem(
                             title: "Music DNA",
-                            systemImage: "waveform",
+                            systemImage: "heart.fill",
                             isSelected: selectedSection == .musicDNA
                         ) { selectedSection = .musicDNA }
                         SidebarItem(
@@ -1498,6 +1498,19 @@ private struct PairingCodeEntryCard: View {
             RoundedRectangle(cornerRadius: 12, style: .continuous)
                 .stroke(!trimmedText.isEmpty && !isValid ? .orange.opacity(0.75) : .clear, lineWidth: 1)
         }
+        #if os(iOS)
+        .toolbar {
+            ToolbarItemGroup(placement: .keyboard) {
+                Spacer()
+                if isValid {
+                    Button(localized(language, "Done", "Gereed")) {
+                        isCodeFocused = false
+                    }
+                    .font(.headline.weight(.semibold))
+                }
+            }
+        }
+        #endif
     }
 }
 
@@ -2812,9 +2825,16 @@ private struct TrackInsightView: View {
             }
             .navigationTitle(screenTitle(model.language, "Track Insight", "Track Insight", isDemoMode: model.isDemoMode))
             #if os(iOS)
-            .navigationBarTitleDisplayMode(.large)
+            .navigationBarTitleDisplayMode(.inline)
             #endif
             .toolbar {
+                #if os(iOS)
+                ToolbarItem(placement: .principal) {
+                    Text(screenTitle(model.language, "Track Insight", "Track Insight", isDemoMode: model.isDemoMode))
+                        .font(.headline.weight(.semibold))
+                        .multilineTextAlignment(.center)
+                }
+                #endif
                 ToolbarItemGroup(placement: .primaryAction) {
                     AirPlayToolbarButton(language: model.language)
 
@@ -2931,20 +2951,11 @@ private struct MusicDNAHeroView: View {
                 .frame(height: 180)
                 .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
 
-            Text(localized(
-                model.language,
-                "Music DNA is learned server-side in Home Assistant and only when you opt in.",
-                "Music DNA wordt server-side in Home Assistant geleerd en alleen als je dit aanzet."
-            ))
-            .font(.callout)
-            .foregroundStyle(.white.opacity(0.72))
-            .fixedSize(horizontal: false, vertical: true)
-
             if model.musicDNAProfileResponse?.enabled != true {
                 Text(localized(
                     model.language,
-                    "DJConnect in Home Assistant does not build a listening profile about you.",
-                    "DJConnect (in Home Assistant) bouwt geen luisterprofiel van je op."
+                    "DJConnect in your Home Assistant environment does not build a listening profile about you.",
+                    "DJConnect in je Home Assistant omgeving bouwt geen luisterprofiel van je op."
                 ))
                 .font(.subheadline.weight(.semibold))
                 .foregroundStyle(.white.opacity(0.62))
@@ -2979,8 +2990,8 @@ private struct MusicDNAOptInPromptView: View {
                     if model.isDemoMode {
                         Text(localized(
                             model.language,
-                            "In demo mode this only unlocks fictional sample data on this device. No backend call is made.",
-                            "In demo modus zet dit alleen fictieve voorbeelddata op dit apparaat aan. Er wordt geen backend-call gedaan."
+                            "In demo mode this only unlocks fictional sample data on this device.",
+                            "In demo modus zet dit alleen fictieve voorbeelddata op dit apparaat aan."
                         ))
                         .font(.callout.weight(.semibold))
                         .foregroundStyle(.secondary)
@@ -2990,15 +3001,11 @@ private struct MusicDNAOptInPromptView: View {
 
                 VStack(alignment: .leading, spacing: 10) {
                     Label(
-                        localized(model.language, "Music DNA is explicit opt-in.", "Music DNA is expliciet opt-in."),
-                        systemImage: "checkmark.shield"
-                    )
-                    Label(
                         localized(model.language, "You can clear the learned profile at any time.", "Je kunt het opgebouwde profiel op elk moment wissen."),
                         systemImage: "trash"
                     )
                     Label(
-                        localized(model.language, "You can turn Music DNA off later in Settings.", "Je kunt Music DNA later via Instellingen uitschakelen."),
+                        localized(model.language, "You can always turn Music DNA off in Settings.", "Je kunt Music DNA altijd uitschakelen via Instellingen."),
                         systemImage: "switch.2"
                     )
                 }
@@ -3149,13 +3156,13 @@ private struct MusicDNADisabledView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Label(localized(model.language, "Music DNA is not enabled", "Music DNA is nog niet geactiveerd"), systemImage: "lock")
+            Label(localized(model.language, "Music DNA is not enabled", "Music DNA is niet geactiveerd"), systemImage: "lock")
                 .font(.headline.weight(.semibold))
                 .foregroundStyle(.white)
             Text(localized(
                 model.language,
-                "Enable it to let Home Assistant start building your private server-side music profile from future signals.",
-                "Activeer dit om Home Assistant je prive server-side muziekprofiel te laten opbouwen uit toekomstige signalen."
+                "Enable Music DNA to get recommendations tailored to your listening profile.",
+                "Activeer Music DNA om aanbevelingen te kunnen krijgen afgestemd op jouw luisterprofiel."
             ))
             .font(.callout)
             .foregroundStyle(.white.opacity(0.72))
@@ -3163,11 +3170,11 @@ private struct MusicDNADisabledView: View {
             Button {
                 model.showMusicDNAOptInPrompt()
             } label: {
-                Label(localized(model.language, "Enable Music DNA", "Music DNA aanzetten"), systemImage: "sparkles")
+                Label(localized(model.language, "Enable Music DNA", "Music DNA activeren"), systemImage: "sparkles")
                     .frame(maxWidth: .infinity)
             }
-            .buttonStyle(.borderedProminent)
-            .tint(djConnectAccent)
+            .buttonStyle(DJConnectLilacPillButtonStyle())
+            .controlSize(.large)
             .disabled(model.isUpdatingMusicDNA)
         }
         .padding(16)
@@ -3513,20 +3520,14 @@ private struct TrackInsightHeroScene: View {
 
                 TrackInsightPremiumSpectrum(profile: profile, phase: phase)
                     .frame(height: max(86, geometry.size.height * 0.22))
-                    .padding(.horizontal, 28)
-                    .position(x: geometry.size.width / 2, y: geometry.size.height * 0.67)
+                    .padding(.horizontal, max(44, geometry.size.width * 0.11))
+                    .position(x: geometry.size.width / 2, y: geometry.size.height * 0.76)
 
                 VStack(spacing: 0) {
                     Spacer(minLength: 0)
                     TrackInsightHeroInfo(insight: insight, language: language)
                 }
                 .padding(18)
-
-                TrackVibePhaseSpectrum(profile: profile, progress: phase.progress)
-                    .sections(insight.sections)
-                    .padding(.horizontal, 18)
-                    .padding(.bottom, 16)
-                    .frame(maxHeight: .infinity, alignment: .bottom)
             }
         }
     }
@@ -3674,16 +3675,21 @@ private struct TrackInsightPremiumSpectrum: View {
 
     private func barGradient(index: Int, count: Int) -> LinearGradient {
         let progress = Double(index) / Double(max(count - 1, 1))
+        let playhead = max(0, 1 - abs(progress - phase.progress) * 10)
         let colors = profile.colors
         return LinearGradient(
             colors: [
-                colors.first?.opacity(0.86) ?? Color.blue.opacity(0.86),
-                colors[safe: 1]?.opacity(0.92) ?? djConnectAccent.opacity(0.92),
-                colors.last?.opacity(0.96) ?? Color.pink.opacity(0.96)
+                playheadColor(colors.first ?? .blue, playhead: playhead).opacity(0.70 + playhead * 0.30),
+                playheadColor(colors[safe: 1] ?? djConnectAccent, playhead: playhead).opacity(0.78 + playhead * 0.22),
+                playheadColor(colors.last ?? .pink, playhead: playhead).opacity(0.86 + playhead * 0.14)
             ],
             startPoint: UnitPoint(x: progress, y: 1),
             endPoint: UnitPoint(x: 1 - progress, y: 0)
         )
+    }
+
+    private func playheadColor(_ color: Color, playhead: Double) -> Color {
+        color.mix(with: .white, by: min(max(playhead * 0.42, 0), 0.42))
     }
 }
 
@@ -3708,10 +3714,34 @@ private struct TrackInsightHeroInfo: View {
                     .foregroundStyle(.white.opacity(0.52))
                     .lineLimit(1)
             }
+            if let progressLabel {
+                Text(progressLabel)
+                    .font(.caption.weight(.bold))
+                    .monospacedDigit()
+                    .foregroundStyle(.white.opacity(0.72))
+                    .padding(.vertical, 5)
+                    .padding(.horizontal, 10)
+                    .background(.white.opacity(0.12), in: Capsule())
+            }
         }
         .multilineTextAlignment(.center)
         .padding(.horizontal, 18)
         .padding(.bottom, 50)
+    }
+
+    private var progressLabel: String? {
+        guard let duration = insight.duration, duration > 0 else {
+            return nil
+        }
+        let progress = min(max(insight.progress ?? 0, 0), duration)
+        return "\(formatTime(progress)) / \(formatTime(duration))"
+    }
+
+    private func formatTime(_ seconds: TimeInterval) -> String {
+        let totalSeconds = max(Int(seconds.rounded()), 0)
+        let minutes = totalSeconds / 60
+        let seconds = totalSeconds % 60
+        return "\(minutes):\(seconds < 10 ? "0" : "")\(seconds)"
     }
 }
 
@@ -3800,16 +3830,12 @@ private struct VibeCastVisualizerSignalView: View {
                 TrackInsightPremiumSpectrum(profile: profile, phase: phase)
                     .frame(height: max(118, geometry.size.height * 0.18))
                     .padding(.horizontal, max(52, geometry.size.width * 0.12))
-                    .position(x: geometry.size.width / 2, y: geometry.size.height * 0.64)
+                    .position(x: geometry.size.width / 2, y: geometry.size.height * 0.72)
 
                 VStack(spacing: 0) {
                     Spacer(minLength: 0)
                     TrackInsightHeroInfo(insight: insight, language: language)
                         .frame(maxWidth: min(920, geometry.size.width * 0.78))
-                    TrackVibePhaseSpectrum(profile: profile, progress: phase.progress)
-                        .sections(insight.sections)
-                        .frame(maxWidth: min(980, geometry.size.width * 0.82))
-                        .padding(.top, 16)
                 }
                 .padding(.horizontal, max(32, geometry.size.width * 0.04))
                 .padding(.bottom, max(34, geometry.size.height * 0.055))
@@ -4758,8 +4784,9 @@ private struct TrackInsightEmptyState: View {
                 model.analyzeCurrentTrack(open: false)
             } label: {
                 Label(localized(model.language, "Analyze Track", "Analyseer nummer"), systemImage: "sparkles")
+                    .fixedSize(horizontal: true, vertical: false)
             }
-            .buttonStyle(.borderedProminent)
+            .buttonStyle(DJConnectLilacPillButtonStyle())
             .disabled(model.isLoadingTrackInsight)
             if model.isLoadingTrackInsight {
                 ProgressView()
@@ -6588,7 +6615,7 @@ private struct AskDJEmptyState: View {
 
     var body: some View {
         VStack(spacing: 14) {
-            Image(systemName: "sparkles")
+            Image(systemName: "bubble.left.and.bubble.right.fill")
                 .font(.system(size: 36, weight: .semibold))
                 .foregroundStyle(
                     LinearGradient(
@@ -10357,7 +10384,7 @@ private struct MoreView: View {
                     }
                     MoreNavigationRow(
                         title: "Music DNA",
-                        systemImage: "waveform"
+                        systemImage: "heart.fill"
                     ) {
                         MusicDNAView(model: model)
                     }
@@ -10486,6 +10513,7 @@ struct SettingsView: View {
     var returnToNowPlaying: () -> Void = {}
     @Environment(\.openURL) private var openURL
     @State private var isShowingResetPairingConfirmation = false
+    @State private var isShowingMusicDNADisableConfirmation = false
     @State private var isShowingMusicDNAClearConfirmation = false
 
     private var musicDNAEnabled: Bool {
@@ -10549,10 +10577,21 @@ struct SettingsView: View {
                 .djSettingsListRowBackground()
 
                 Section("Music DNA") {
+                    LabeledContent(localized(model.language, "How It Works", "Werking")) {
+                        Text(localized(
+                            model.language,
+                            "Only after opt-in. Turning off clears the learned profile and stops future buildup.",
+                            "Alleen na opt-in. Uitschakelen wist het geleerde profiel en stopt verdere opbouw."
+                        ))
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.trailing)
+                        .fixedSize(horizontal: false, vertical: true)
+                    }
+
                     LabeledContent("Music DNA") {
                         if musicDNAEnabled {
                             Button(role: .destructive) {
-                                Task { await model.setMusicDNAEnabled(false) }
+                                isShowingMusicDNADisableConfirmation = true
                             } label: {
                                 Text(localized(model.language, "Turn Off", "Uitschakelen"))
                             }
@@ -10577,17 +10616,6 @@ struct SettingsView: View {
                             Text(localized(model.language, "Clear", "Wissen"))
                         }
                         .disabled(model.isUpdatingMusicDNA || (!model.isDemoMode && model.pairingStatus != .paired))
-                    }
-
-                    LabeledContent(localized(model.language, "How It Works", "Werking")) {
-                        Text(localized(
-                            model.language,
-                            "Only after opt-in. Turning off clears the learned profile and stops future buildup.",
-                            "Alleen na opt-in. Uitschakelen wist het geleerde profiel en stopt verdere opbouw."
-                        ))
-                        .foregroundStyle(.secondary)
-                        .multilineTextAlignment(.trailing)
-                        .fixedSize(horizontal: false, vertical: true)
                     }
                 }
                 .djSettingsListRowBackground()
@@ -10674,11 +10702,26 @@ struct SettingsView: View {
                     "Dit wist de lokale DJConnect-koppeling en opent het koppelscherm opnieuw."
                 ))
             }
-            .confirmationDialog(
-                localized(model.language, "Clear Music DNA?", "Music DNA wissen?"),
-                isPresented: $isShowingMusicDNAClearConfirmation,
-                titleVisibility: .visible
+            .alert(
+                localized(model.language, "Turn Off Music DNA?", "Music DNA uitschakelen?"),
+                isPresented: $isShowingMusicDNADisableConfirmation
             ) {
+                Button(localized(model.language, "Cancel", "Annuleer"), role: .cancel) {}
+                Button(localized(model.language, "Turn Off", "Uitschakelen"), role: .destructive) {
+                    Task { await model.setMusicDNAEnabled(false) }
+                }
+            } message: {
+                Text(localized(
+                    model.language,
+                    "This turns off Music DNA and removes your listening profile data from the server.",
+                    "Dit schakelt Music DNA uit en verwijdert je luisterprofielgegevens van de server."
+                ))
+            }
+            .alert(
+                localized(model.language, "Clear Music DNA?", "Music DNA wissen?"),
+                isPresented: $isShowingMusicDNAClearConfirmation
+            ) {
+                Button(localized(model.language, "Cancel", "Annuleer"), role: .cancel) {}
                 if model.isDemoMode {
                     Button(localized(model.language, "Keep Demo Profile", "Demo-profiel behouden")) {
                         Task { await model.clearMusicDNA() }
@@ -10688,7 +10731,6 @@ struct SettingsView: View {
                         Task { await model.clearMusicDNA() }
                     }
                 }
-                Button(localized(model.language, "Cancel", "Annuleer"), role: .cancel) {}
             } message: {
                 if model.isDemoMode {
                     Text(localized(
@@ -10767,19 +10809,6 @@ private struct LogsView: View {
             VStack(alignment: .leading, spacing: 14) {
                 HStack {
                     Button {
-                        copyText(model.diagnosticExportText())
-                        showStatusToast(localized(model.language, "Logs copied to clipboard", "Logs gekopieerd naar klembord"))
-                    } label: {
-                        Label(localized(model.language, "Copy Logs", "Logs kopiëren"), systemImage: "doc.on.doc")
-                            .foregroundStyle(djConnectAccent)
-                    }
-                    .tint(djConnectAccent)
-                    .foregroundStyle(djConnectAccent)
-                    .disabled(model.diagnosticLogLines.isEmpty)
-
-                    Spacer()
-
-                    Button {
                         toggleLogSearch()
                     } label: {
                         Label(logSearchButtonTitle, systemImage: "magnifyingglass")
@@ -10791,6 +10820,19 @@ private struct LogsView: View {
                     .help(logSearchButtonTitle)
                     .accessibilityLabel(logSearchButtonTitle)
                     .disabled(model.diagnosticLogLines.isEmpty)
+
+                    Button {
+                        copyText(model.diagnosticExportText())
+                        showStatusToast(localized(model.language, "Logs copied to clipboard", "Logs gekopieerd naar klembord"))
+                    } label: {
+                        Label(localized(model.language, "Copy Logs", "Logs kopiëren"), systemImage: "doc.on.doc")
+                            .foregroundStyle(djConnectAccent)
+                    }
+                    .tint(djConnectAccent)
+                    .foregroundStyle(djConnectAccent)
+                    .disabled(model.diagnosticLogLines.isEmpty)
+
+                    Spacer()
 
                     Button {
                         showingClearConfirmation = true

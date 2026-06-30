@@ -136,6 +136,10 @@ struct DJConnectWatchRootView: View {
         }
     }
 
+    private var canUsePlaybackControls: Bool {
+        model.isDemoMode || model.canUseBackend
+    }
+
     private var pairedView: some View {
         ZStack {
             DJConnectWatchCanvas()
@@ -186,7 +190,7 @@ struct DJConnectWatchRootView: View {
                         .frame(maxWidth: .infinity, minHeight: 34)
                     }
                     .buttonStyle(DJConnectWatchGradientButtonStyle(kind: .secondary))
-                    .disabled(!model.canUseBackend || model.isSavingCurrentTrack)
+                    .disabled(!canUsePlaybackControls || model.isSavingCurrentTrack)
 
                     NavigationLink {
                         DJConnectWatchOutputsView()
@@ -216,14 +220,16 @@ struct DJConnectWatchRootView: View {
                     }
                     .buttonStyle(.plain)
 
+                    askDJMoodControl
+
                     NavigationLink {
                         DJConnectWatchAskDJChatView()
                     } label: {
                         Label("Ask DJ", systemImage: "bubble.left.and.bubble.right.fill")
-                            .font(.headline)
-                            .frame(maxWidth: .infinity, minHeight: 38)
+                            .font(.footnote.weight(.semibold))
+                            .frame(maxWidth: .infinity, minHeight: 34)
                     }
-                    .buttonStyle(DJConnectWatchGradientButtonStyle(kind: .primary))
+                    .buttonStyle(DJConnectWatchGradientButtonStyle(kind: .secondary))
 
                     NavigationLink {
                         DJConnectWatchTrackInsightView()
@@ -237,13 +243,11 @@ struct DJConnectWatchRootView: View {
                     NavigationLink {
                         DJConnectWatchMusicDNAView()
                     } label: {
-                        Label("Music DNA", systemImage: "waveform")
+                        Label("Music DNA", systemImage: "heart.fill")
                             .font(.footnote.weight(.semibold))
                             .frame(maxWidth: .infinity, minHeight: 34)
                     }
                     .buttonStyle(DJConnectWatchGradientButtonStyle(kind: .secondary))
-
-                    askDJMoodControl
 
                     Text(model.statusMessage)
                         .font(.footnote)
@@ -506,7 +510,7 @@ struct DJConnectWatchRootView: View {
                     }
                 }
                 .tint(watchAccentPurple)
-                .disabled(!model.canUseBackend || model.isRefreshingStatus || volumePercent == nil)
+                .disabled(!canUsePlaybackControls || model.isRefreshingStatus || volumePercent == nil)
                 Text(volumePercent.map { "\($0)%" } ?? "--")
                     .font(.caption2.monospacedDigit().weight(.semibold))
                     .foregroundStyle(.white.opacity(0.72))
@@ -557,20 +561,26 @@ struct DJConnectWatchRootView: View {
         @EnvironmentObject private var model: DJConnectWatchModel
 
         private var insight: TrackInsight {
-            TrackInsight(
+            if let currentTrackInsight = model.currentTrackInsight {
+                return currentTrackInsight
+            }
+            if model.isDemoMode, let demoInsight = DemoTrackInsightService.defaultTracks.first {
+                return demoInsight
+            }
+            return TrackInsight(
                 title: model.playback?.trackName ?? "Track Insight",
                 artist: model.playback?.artistName ?? "DJConnect",
                 artwork: model.playback?.albumImageURL,
-                bpm: 122,
-                key: "6A",
-                genre: "Deep House",
-                energy: 0.80,
-                danceability: 0.70,
-                intensity: 0.74,
-                mood: "Dreamy",
-                vibe: "Uplifting",
-                texture: "Neon wave textures",
-                summary: "Visualize the vibe. Feel the music.",
+                bpm: nil,
+                key: nil,
+                genre: nil,
+                energy: nil,
+                danceability: nil,
+                intensity: nil,
+                mood: nil,
+                vibe: nil,
+                texture: nil,
+                summary: watchLocalized(model.language, "Ask DJ can fill Track Insight details for this track.", "Ask DJ kan Track Insight-details voor dit nummer vullen."),
                 rawAnalysisText: "Watch Track Insight preview"
             )
         }
@@ -580,12 +590,6 @@ struct DJConnectWatchRootView: View {
                 DJConnectWatchCanvas()
                 ScrollView {
                     VStack(alignment: .leading, spacing: 10) {
-                        Text("Ask DJ")
-                            .font(.caption.weight(.semibold))
-                            .foregroundStyle(watchAccentPurple)
-                        Text("Track Insight")
-                            .font(.footnote.weight(.semibold))
-                            .foregroundStyle(watchAccentPurple.opacity(0.92))
                         HStack(alignment: .top, spacing: 8) {
                             VStack(alignment: .leading, spacing: 3) {
                                 Text(insight.title)
@@ -607,12 +611,17 @@ struct DJConnectWatchRootView: View {
                             .frame(height: 118)
                             .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
 
-                        Text("\(watchLocalized(model.language, "Vibe", "Vibe")): \(insight.mood ?? "Dreamy") & \(insight.vibe ?? "Uplifting")")
-                            .font(.caption)
-                            .foregroundStyle(.white.opacity(0.76))
-                        Text("\(watchLocalized(model.language, "Energy", "Energie")): \(Int(((insight.energy ?? 0.8) * 10).rounded()))/10")
-                            .font(.caption)
-                            .foregroundStyle(.white.opacity(0.76))
+                        DJConnectWatchTrackInsightAnalysisCard(insight: insight, language: model.language)
+                        DJConnectWatchTrackInsightMetricsGrid(insight: insight, language: model.language)
+
+                        Label(
+                            watchLocalized(model.language, "Rendered privately on your device", "Privé gerendered op je apparaat"),
+                            systemImage: "lock.fill"
+                        )
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(.white.opacity(0.54))
+                        .frame(maxWidth: .infinity)
+                        .padding(.top, 2)
                     }
                     .padding(.vertical, 8)
                 }
@@ -621,38 +630,200 @@ struct DJConnectWatchRootView: View {
         }
     }
 
+    private struct DJConnectWatchTrackInsightAnalysisCard: View {
+        let insight: TrackInsight
+        let language: String
+
+        var body: some View {
+            VStack(alignment: .leading, spacing: 9) {
+                Text("Track energy")
+                    .font(.caption.weight(.bold))
+                    .foregroundStyle(.white)
+                Text(watchNonEmpty(insight.summary, fallback: "-"))
+                    .font(.caption2)
+                    .foregroundStyle(.white.opacity(0.72))
+                    .fixedSize(horizontal: false, vertical: true)
+
+                let groups = DJConnectWatchTrackInsightGroups.make(for: insight, language: language)
+                if !groups.isEmpty {
+                    Divider().overlay(.white.opacity(0.14))
+                    ForEach(groups) { group in
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(group.title)
+                                .font(.caption2.weight(.bold))
+                                .foregroundStyle(.white.opacity(0.90))
+                            ForEach(group.values, id: \.self) { value in
+                                Text(value)
+                                    .font(.caption2)
+                                    .foregroundStyle(.white.opacity(0.64))
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
+                        }
+                    }
+                }
+            }
+            .padding(10)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(DJConnectWatchPanel(cornerRadius: 12))
+        }
+    }
+
+    private struct DJConnectWatchTrackInsightMetricsGrid: View {
+        let insight: TrackInsight
+        let language: String
+
+        private var columns: [GridItem] {
+            [
+                GridItem(.flexible(), spacing: 7, alignment: .top),
+                GridItem(.flexible(), spacing: 7, alignment: .top)
+            ]
+        }
+
+        var body: some View {
+            LazyVGrid(columns: columns, spacing: 7) {
+                DJConnectWatchTrackInsightMetric(title: "BPM", value: insight.bpm.map { String(Int($0.rounded())) })
+                DJConnectWatchTrackInsightMetric(title: watchLocalized(language, "Key", "Toonsoort"), value: insight.key)
+                DJConnectWatchTrackInsightMetric(title: watchLocalized(language, "Genre", "Genre"), value: insight.genre)
+                DJConnectWatchTrackInsightMetric(title: watchLocalized(language, "Mood", "Mood"), value: insight.mood)
+                DJConnectWatchTrackInsightMetric(title: watchLocalized(language, "Energy", "Energie"), value: percent(insight.energy))
+                DJConnectWatchTrackInsightMetric(title: watchLocalized(language, "Dance", "Dans"), value: percent(insight.danceability))
+                DJConnectWatchTrackInsightMetric(title: watchLocalized(language, "Intensity", "Intensiteit"), value: percent(insight.intensity))
+                DJConnectWatchTrackInsightMetric(title: watchLocalized(language, "Vibe", "Vibe"), value: insight.vibe)
+                DJConnectWatchTrackInsightMetric(title: watchLocalized(language, "Texture", "Textuur"), value: insight.texture)
+            }
+        }
+
+        private func percent(_ value: Double?) -> String? {
+            value.map { "\(Int(($0 * 100).rounded()))%" }
+        }
+    }
+
+    private struct DJConnectWatchTrackInsightMetric: View {
+        let title: String
+        let value: String?
+
+        var body: some View {
+            VStack(alignment: .leading, spacing: 3) {
+                Text(title)
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(.white.opacity(0.54))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.72)
+                Text(value?.isEmpty == false ? value! : "-")
+                    .font(.caption.weight(.bold))
+                    .foregroundStyle(.white)
+                    .lineLimit(3)
+                    .minimumScaleFactor(0.70)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .padding(.horizontal, 8)
+            .padding(.vertical, 7)
+            .frame(maxWidth: .infinity, minHeight: 52, alignment: .topLeading)
+            .background(.white.opacity(0.09), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+        }
+    }
+
+    private struct DJConnectWatchTrackInsightStructuredGroup: Identifiable {
+        let id: String
+        let title: String
+        let values: [String]
+    }
+
+    private struct DJConnectWatchTrackInsightGroups {
+        static func make(for insight: TrackInsight, language: String) -> [DJConnectWatchTrackInsightStructuredGroup] {
+            var groups = [
+                DJConnectWatchTrackInsightStructuredGroup(id: "production", title: watchLocalized(language, "Production", "Productie"), values: insight.productionNotes),
+                DJConnectWatchTrackInsightStructuredGroup(id: "instrumentation", title: watchLocalized(language, "Instrumentation", "Instrumentatie"), values: insight.instrumentation),
+                DJConnectWatchTrackInsightStructuredGroup(id: "arrangement", title: watchLocalized(language, "Arrangement", "Arrangement"), values: insight.arrangementNotes),
+                DJConnectWatchTrackInsightStructuredGroup(id: "listening", title: watchLocalized(language, "Listening cues", "Luisterpunten"), values: insight.listeningCues),
+                DJConnectWatchTrackInsightStructuredGroup(
+                    id: "similar",
+                    title: watchLocalized(language, "Similar tracks", "Vergelijkbare tracks"),
+                    values: insight.similarTracks.map { track in
+                        if let reason = track.reason, !reason.isEmpty {
+                            return "\(track.title) - \(track.artist): \(reason)"
+                        }
+                        return "\(track.title) - \(track.artist)"
+                    }
+                )
+            ].filter { !$0.values.isEmpty }
+
+            let backendSections = insight.sections.compactMap { section -> DJConnectWatchTrackInsightStructuredGroup? in
+                let values = [section.value, section.summary]
+                    .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
+                    .filter { !$0.isEmpty }
+                guard !values.isEmpty else {
+                    return nil
+                }
+                return DJConnectWatchTrackInsightStructuredGroup(id: "section-\(section.id)", title: section.title, values: values)
+            }
+            groups.append(contentsOf: backendSections)
+
+            if let musicDNASummary = insight.musicDNASummary, !musicDNASummary.isEmpty {
+                groups.append(
+                    DJConnectWatchTrackInsightStructuredGroup(
+                        id: "music-dna",
+                        title: musicDNATitle(insight.musicDNALabel, language: language),
+                        values: [musicDNASummary]
+                    )
+                )
+            }
+
+            return groups
+        }
+
+        private static func musicDNATitle(_ label: TrackInsight.MusicDNALabel?, language: String) -> String {
+            switch label {
+            case .matchesMusicDNA:
+                return watchLocalized(language, "Matches Music DNA", "Past bij Music DNA")
+            case .expandsMusicDNA:
+                return watchLocalized(language, "Expands Music DNA", "Verbreedt Music DNA")
+            case .outsideMusicDNA:
+                return watchLocalized(language, "Outside Music DNA", "Buiten Music DNA")
+            case nil:
+                return "Music DNA"
+            }
+        }
+    }
+
     private struct DJConnectWatchTrackInsightVisualizer: View {
+        @Environment(\.accessibilityReduceMotion) private var reduceMotion
         let profile: TrackVibeProfile
 
         var body: some View {
-            ZStack {
-                LinearGradient(
-                    colors: [watchDeepNavy, watchAccentPurple.opacity(0.34), .black],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-
+            TimelineView(.periodic(from: .now, by: reduceMotion ? 60 : 0.12)) { timeline in
+                let phase = reduceMotion ? 0 : timeline.date.timeIntervalSinceReferenceDate
                 ZStack {
-                    ForEach(0..<4, id: \.self) { ring in
-                        Circle()
-                            .stroke(ringColor(ring).opacity(0.56 - Double(ring) * 0.09), lineWidth: 1.4)
-                            .frame(width: 38 + CGFloat(ring) * 16, height: 38 + CGFloat(ring) * 16)
-                    }
-                    Image(systemName: "waveform.path.ecg")
-                        .font(.system(size: 28, weight: .semibold))
-                        .foregroundStyle(.white.opacity(0.88))
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    LinearGradient(
+                        colors: [watchDeepNavy, watchAccentPurple.opacity(0.34), .black],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
 
-                HStack(alignment: .bottom, spacing: 3) {
-                    ForEach(0..<24, id: \.self) { index in
-                        RoundedRectangle(cornerRadius: 1.1, style: .continuous)
-                            .fill(Color(hue: 0.60 + Double(index) / 90, saturation: 0.85, brightness: 1.0).opacity(0.78))
-                            .frame(width: 2.4, height: barHeight(index))
+                    ZStack {
+                        ForEach(0..<4, id: \.self) { ring in
+                            let pulse = ringPulse(ring, phase: phase)
+                            Circle()
+                                .stroke(ringColor(ring).opacity(0.50 - Double(ring) * 0.07 + pulse * 0.12), lineWidth: 1.4)
+                                .frame(width: 38 + CGFloat(ring) * 16 + CGFloat(pulse) * 7, height: 38 + CGFloat(ring) * 16 + CGFloat(pulse) * 7)
+                                .rotationEffect(.degrees(phase * (reduceMotion ? 0 : 8 + Double(ring) * 3)))
+                        }
+                        Image(systemName: "waveform.path.ecg")
+                            .font(.system(size: 28, weight: .semibold))
+                            .foregroundStyle(.white.opacity(0.88))
                     }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+                    HStack(alignment: .bottom, spacing: 3) {
+                        ForEach(0..<24, id: \.self) { index in
+                            RoundedRectangle(cornerRadius: 1.1, style: .continuous)
+                                .fill(Color(hue: 0.60 + Double(index) / 90, saturation: 0.85, brightness: 1.0).opacity(0.78))
+                                .frame(width: 2.4, height: barHeight(index, phase: phase))
+                        }
+                    }
+                    .frame(maxHeight: .infinity, alignment: .bottom)
+                    .padding(.bottom, 7)
                 }
-                .frame(maxHeight: .infinity, alignment: .bottom)
-                .padding(.bottom, 7)
             }
         }
 
@@ -661,10 +832,18 @@ struct DJConnectWatchRootView: View {
             return colors[safe: index] ?? watchAccentPurple
         }
 
-        private func barHeight(_ index: Int) -> CGFloat {
+        private func ringPulse(_ index: Int, phase: TimeInterval) -> Double {
+            guard !reduceMotion else {
+                return 0
+            }
+            return (sin(phase * 1.5 + Double(index) * 0.8) + 1) / 2
+        }
+
+        private func barHeight(_ index: Int, phase: TimeInterval) -> CGFloat {
             let spectrum = profile.spectrumProfile.isEmpty ? [0.5] : profile.spectrumProfile
             let base = spectrum[index % spectrum.count]
-            return CGFloat(base) * 28 + 5
+            let motion = reduceMotion ? 1 : 0.72 + ((sin(phase * 2.4 + Double(index) * 0.55) + 1) / 2) * 0.48
+            return CGFloat(base * motion) * 28 + 5
         }
     }
 
@@ -692,10 +871,16 @@ struct DJConnectWatchRootView: View {
                         if model.isLoadingMusicDNA {
                             ProgressView()
                                 .controlSize(.mini)
+                                .tint(.white.opacity(0.82))
                         } else {
                             Image(systemName: "arrow.clockwise")
+                                .font(.system(size: 15, weight: .semibold))
+                                .foregroundStyle(.white.opacity(0.82))
                         }
                     }
+                    .buttonStyle(.plain)
+                    .frame(width: 28, height: 28)
+                    .contentShape(Circle())
                     .disabled(model.isLoadingMusicDNA || model.isUpdatingMusicDNA)
                     .accessibilityLabel(watchLocalized(model.language, "Refresh Music DNA", "Music DNA vernieuwen"))
                 }
@@ -708,7 +893,7 @@ struct DJConnectWatchRootView: View {
 
         private var header: some View {
             VStack(alignment: .leading, spacing: 7) {
-                Label("Music DNA", systemImage: "waveform")
+                Label("Music DNA", systemImage: "heart.fill")
                     .font(.headline.weight(.bold))
                     .foregroundStyle(.white)
                 Text(watchLocalized(
@@ -1032,7 +1217,7 @@ struct DJConnectWatchRootView: View {
                 .frame(width: isPrimary ? 54 : 44, height: isPrimary ? 54 : 44)
         }
         .buttonStyle(DJConnectWatchRoundButtonStyle())
-        .disabled(!model.canUseBackend || model.isRefreshingStatus)
+        .disabled(!canUsePlaybackControls || model.isRefreshingStatus)
         .focusable(false)
         .accessibilityLabel(accessibilityLabel)
     }
@@ -1205,7 +1390,6 @@ private struct DJConnectWatchAboutView: View {
 
                     DJConnectWatchSettingsSection(title: "App") {
                         aboutRow(watchLocalized(model.language, "Version", "Versie"), appVersion)
-                        aboutRow("Protocol", model.identity.firmware)
                         aboutRow(watchLocalized(model.language, "Device name", "Apparaatnaam"), model.identity.deviceName)
                         aboutRow("Website", "https://djconnect.dev")
                         aboutRow("Device ID", model.identity.deviceID)
@@ -1821,21 +2005,6 @@ private struct DJConnectWatchOutputsView: View {
             DJConnectWatchCanvas()
             ScrollView {
                 LazyVStack(spacing: 8) {
-                    Button {
-                        Task { await model.loadOutputs() }
-                    } label: {
-                        Label(
-                            model.isLoadingOutputs
-                                ? watchLocalized(model.language, "Refreshing...", "Ververs...")
-                                : watchLocalized(model.language, "Refresh", "Ververs"),
-                            systemImage: "arrow.clockwise"
-                        )
-                            .font(.caption2.weight(.semibold))
-                            .frame(maxWidth: .infinity, minHeight: 30)
-                    }
-                    .buttonStyle(DJConnectWatchGradientButtonStyle(kind: .secondary))
-                    .disabled(model.isLoadingOutputs)
-
                     if model.isLoadingOutputs && model.availableOutputs.isEmpty {
                         ProgressView()
                             .tint(.white)
@@ -1877,6 +2046,28 @@ private struct DJConnectWatchOutputsView: View {
             }
         }
         .navigationTitle(watchLocalized(model.language, "Output", "Uitvoer"))
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button {
+                    Task { await model.loadOutputs() }
+                } label: {
+                    if model.isLoadingOutputs {
+                        ProgressView()
+                            .controlSize(.mini)
+                            .tint(.white.opacity(0.82))
+                    } else {
+                        Image(systemName: "arrow.clockwise")
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundStyle(.white.opacity(0.82))
+                    }
+                }
+                .buttonStyle(.plain)
+                .frame(width: 28, height: 28)
+                .contentShape(Circle())
+                .disabled(model.isLoadingOutputs)
+                .accessibilityLabel(watchLocalized(model.language, "Refresh Output", "Uitvoer vernieuwen"))
+            }
+        }
         .task {
             await model.loadOutputs()
         }
@@ -1961,21 +2152,6 @@ private struct DJConnectWatchPlaylistsView: View {
             DJConnectWatchCanvas()
             ScrollView {
                 LazyVStack(spacing: 8) {
-                    Button {
-                        Task { await model.loadPlaylists() }
-                    } label: {
-                        Label(
-                            model.isLoadingPlaylists
-                                ? watchLocalized(model.language, "Refreshing...", "Ververs...")
-                                : watchLocalized(model.language, "Refresh", "Ververs"),
-                            systemImage: "arrow.clockwise"
-                        )
-                            .font(.caption2.weight(.semibold))
-                            .frame(maxWidth: .infinity, minHeight: 30)
-                    }
-                    .buttonStyle(DJConnectWatchGradientButtonStyle(kind: .secondary))
-                    .disabled(model.isLoadingPlaylists)
-
                     if model.isLoadingPlaylists && model.playlistItems.isEmpty {
                         ProgressView()
                             .tint(.white)
@@ -2016,6 +2192,28 @@ private struct DJConnectWatchPlaylistsView: View {
             }
         }
         .navigationTitle(watchLocalized(model.language, "Playlists", "Afspeellijsten"))
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button {
+                    Task { await model.loadPlaylists() }
+                } label: {
+                    if model.isLoadingPlaylists {
+                        ProgressView()
+                            .controlSize(.mini)
+                            .tint(.white.opacity(0.82))
+                    } else {
+                        Image(systemName: "arrow.clockwise")
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundStyle(.white.opacity(0.82))
+                    }
+                }
+                .buttonStyle(.plain)
+                .frame(width: 28, height: 28)
+                .contentShape(Circle())
+                .disabled(model.isLoadingPlaylists)
+                .accessibilityLabel(watchLocalized(model.language, "Refresh Playlists", "Afspeellijsten vernieuwen"))
+            }
+        }
         .task {
             await model.loadPlaylists()
         }
@@ -2030,21 +2228,6 @@ private struct DJConnectWatchQueueView: View {
             DJConnectWatchCanvas()
             ScrollView {
                 LazyVStack(spacing: 8) {
-                    Button {
-                        Task { await model.loadQueue() }
-                    } label: {
-                        Label(
-                            model.isLoadingQueue
-                                ? watchLocalized(model.language, "Refreshing...", "Ververs...")
-                                : watchLocalized(model.language, "Refresh", "Ververs"),
-                            systemImage: "arrow.clockwise"
-                        )
-                            .font(.caption2.weight(.semibold))
-                            .frame(maxWidth: .infinity, minHeight: 30)
-                    }
-                    .buttonStyle(DJConnectWatchGradientButtonStyle(kind: .secondary))
-                    .disabled(model.isLoadingQueue)
-
                     if model.isLoadingQueue && model.queueItems.isEmpty {
                         ProgressView()
                             .tint(.white)
@@ -2087,6 +2270,28 @@ private struct DJConnectWatchQueueView: View {
             }
         }
         .navigationTitle(watchLocalized(model.language, "Queue", "Wachtrij"))
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button {
+                    Task { await model.loadQueue() }
+                } label: {
+                    if model.isLoadingQueue {
+                        ProgressView()
+                            .controlSize(.mini)
+                            .tint(.white.opacity(0.82))
+                    } else {
+                        Image(systemName: "arrow.clockwise")
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundStyle(.white.opacity(0.82))
+                    }
+                }
+                .buttonStyle(.plain)
+                .frame(width: 28, height: 28)
+                .contentShape(Circle())
+                .disabled(model.isLoadingQueue)
+                .accessibilityLabel(watchLocalized(model.language, "Refresh Queue", "Wachtrij vernieuwen"))
+            }
+        }
         .task {
             await model.loadQueue()
         }
@@ -2316,7 +2521,7 @@ private struct DJConnectWatchAskDJChatView: View {
                                 .frame(maxWidth: .infinity, minHeight: 34)
                         }
                         .buttonStyle(DJConnectWatchGradientButtonStyle(kind: voiceButtonKind))
-                        .disabled(!model.canUseBackend)
+                        .disabled(!model.isDemoMode && !model.canUseBackend)
 
                         Button(role: .destructive) {
                             Task { await model.clearAskDJHistory() }
@@ -2384,6 +2589,28 @@ private struct DJConnectWatchAskDJChatView: View {
             }
         }
         .navigationTitle("Ask DJ")
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button {
+                    Task { await model.refreshStatus(confirmAskDJBeat: true) }
+                } label: {
+                    if model.isRefreshingStatus {
+                        ProgressView()
+                            .controlSize(.mini)
+                            .tint(.white.opacity(0.82))
+                    } else {
+                        Image(systemName: "arrow.clockwise")
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundStyle(.white.opacity(0.82))
+                    }
+                }
+                .buttonStyle(.plain)
+                .frame(width: 28, height: 28)
+                .contentShape(Circle())
+                .disabled(model.isRefreshingStatus || (!model.canUseBackend && !model.isDemoMode))
+                .accessibilityLabel(watchLocalized(model.language, "Refresh Ask DJ", "Ask DJ vernieuwen"))
+            }
+        }
         .task {
             await model.prepareMusicDNAConsentPromptIfNeeded()
             await model.runAskDJHistorySyncLoop()
@@ -2447,7 +2674,7 @@ private struct DJConnectWatchAskDJChatView: View {
     private var voiceButtonTitle: String {
         switch model.voiceState {
         case .idle:
-            return watchLocalized(model.language, "DJ request", "DJ verzoek")
+            return "Ask DJ"
         case .recording:
             return "Stop"
         case .processing:

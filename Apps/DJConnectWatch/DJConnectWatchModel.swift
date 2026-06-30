@@ -301,12 +301,13 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
     @AppStorage("DJConnectWatchDemoMusicDNAOptInPromptSeen") private var demoMusicDNAOptInPromptSeen = false
 
     var language: String {
-        Locale.current.language.languageCode?.identifier ?? "en"
+        DJConnectLocalization.preferredLanguageCode()
     }
 
     @Published private(set) var connectionState: ConnectionState = .unpaired
     @Published private(set) var voiceState: VoiceState = .idle
     @Published private(set) var playback: DJConnectPlayback?
+    @Published private(set) var currentTrackInsight: TrackInsight?
     @Published private(set) var isRefreshingStatus = false
     @Published private(set) var queueItems: [DJConnectQueueItem] = []
     @Published private(set) var queueContext: String?
@@ -391,6 +392,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
     private var hasAppliedDemoState = false
     #if canImport(WatchConnectivity)
     private var hasActivatedCompanionSession = false
+    private var companionPairingRegistrationRetryTask: Task<Void, Never>?
     private var pendingWatchProxyHARequests: [String: CheckedContinuation<DJConnectWatchProxyResponse, Never>] = [:]
     #endif
     #if canImport(Speech)
@@ -437,6 +439,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
     deinit {
         networkMonitor?.cancel()
         runtimeDiagnosticsTask?.cancel()
+        companionPairingRegistrationRetryTask?.cancel()
         voiceActivationCaptureTask?.cancel()
         voiceActivationRestartTask?.cancel()
         voiceActivationListenTimeoutTask?.cancel()
@@ -796,8 +799,11 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         activateCompanionSession()
         guard WCSession.default.activationState == .activated else {
             companionPairingStatus = "iPhone companion wordt geactiveerd..."
+            scheduleCompanionPairingRegistrationRetry()
             return
         }
+        companionPairingRegistrationRetryTask?.cancel()
+        companionPairingRegistrationRetryTask = nil
         let identity = identity
         let message: [String: Any] = [
             "type": "watch_proxy_register",
@@ -824,6 +830,19 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
             WCSession.default.transferUserInfo(message)
         }
         #endif
+    }
+
+    private func scheduleCompanionPairingRegistrationRetry() {
+        companionPairingRegistrationRetryTask?.cancel()
+        companionPairingRegistrationRetryTask = Task { [weak self] in
+            try? await Task.sleep(for: .milliseconds(800))
+            await MainActor.run {
+                guard let self, !self.paired, !Task.isCancelled else {
+                    return
+                }
+                self.sendCompanionPairingRegistration()
+            }
+        }
     }
 
     private func handleCompanionMessage(_ message: [String: Any]) {
@@ -1069,6 +1088,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         hasAppliedDemoState = false
         playback = nil
         playbackBeatSignature = nil
+        currentTrackInsight = nil
         responseImages = []
         voiceState = .idle
         paired = false
@@ -1527,6 +1547,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         pairingCode = Self.makePairingCode()
         playback = nil
         playbackBeatSignature = nil
+        currentTrackInsight = nil
         isRefreshingStatus = false
         queueItems = []
         queueContext = nil
@@ -2229,6 +2250,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         if let assistantMessage = response.assistantMessage {
             upsertAskDJHistoryMessage(assistantMessage, into: &nextMessages)
         }
+        applyCurrentTrackInsight(from: response)
         applyAskDJTrim(response.historyTrimmedBefore, to: &nextMessages)
         coalesceAskDJMessages(&nextMessages)
         askDJMessages = sortedAskDJMessages(nextMessages)
@@ -2239,6 +2261,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
 
     private func clearAskDJHistoryLocally() {
         askDJMessages = []
+        currentTrackInsight = nil
         UserDefaults.standard.removeObject(forKey: askDJMessagesKey)
         askDJHistoryRevision = 0
         askDJClearRevision = 0
@@ -2252,6 +2275,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         for message in response.messages {
             upsertAskDJHistoryMessage(message, into: &nextMessages)
         }
+        applyCurrentTrackInsight(from: response.messages)
         applyAskDJTrim(response.historyTrimmedBefore, to: &nextMessages)
         coalesceAskDJMessages(&nextMessages)
         askDJMessages = sortedAskDJMessages(nextMessages)
@@ -2299,6 +2323,22 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         }
     }
 
+    private func applyCurrentTrackInsight(from response: DJConnectAskDJMessageResponse) {
+        if let insight = response.trackInsight ?? response.assistantMessage?.trackInsight {
+            currentTrackInsight = insight
+        }
+    }
+
+    private func applyCurrentTrackInsight(from messages: [DJConnectAskDJHistoryMessage]) {
+        if let insight = messages
+            .filter({ $0.role != .user })
+            .sorted(by: { $0.createdAt < $1.createdAt })
+            .compactMap(\.trackInsight)
+            .last {
+            currentTrackInsight = insight
+        }
+    }
+
     private static func redactedDeviceID(_ deviceID: String) -> String {
         guard deviceID.count > 6 else {
             return "..."
@@ -2337,6 +2377,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
             ),
             contextURI: "spotify:playlist:djconnect-demo"
         )
+        currentTrackInsight = DemoTrackInsightService.defaultTracks.first
         applyDemoOutputs()
         applyDemoQueue()
         applyDemoPlaylists()
@@ -2461,6 +2502,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         statusMessage = "Demo verwerkt..."
         appendAskDJMessage(role: .user, text: "Stemverzoek")
         let response = "Ja hoor. Ik zou nu Midnight City van M83 aankondigen: glanzende synths, avondlucht, en precies genoeg energie om de kamer op te tillen."
+        currentTrackInsight = DemoTrackInsightService.defaultTracks.first
         appendAskDJMessage(role: .dj, text: response)
         notifyAskDJResponse(response)
         voiceState = .idle

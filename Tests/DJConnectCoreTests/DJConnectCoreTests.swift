@@ -5215,6 +5215,8 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     let insight = TrackInsight(
         title: "  Innerbloom\n",
         artist: "RUFUS DU SOL",
+        duration: 200,
+        progress: 138,
         bpm: 122.4,
         key: "F# minor",
         genre: "Deep House",
@@ -5237,6 +5239,8 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     #expect(snapshot.danceability == 0)
     #expect(snapshot.intensity == 0.58)
     #expect(snapshot.musicDNAMatchPercent == 100)
+    #expect(snapshot.progress == 138)
+    #expect(snapshot.duration == 200)
     #expect(snapshot.summary.count <= 180)
     #expect(!snapshot.summary.contains("\n"))
 }
@@ -5289,12 +5293,139 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     #expect(loaded.artist == "RUFUS DU SOL")
 }
 
+@Test func nowPlayingWidgetSnapshotKeepsOnlySafeVisibleFields() throws {
+    let playback = DJConnectPlayback(
+        hasPlayback: true,
+        isPlaying: true,
+        trackName: "  Midnight City\n",
+        artistName: "M83",
+        albumImageURL: URL(string: "https://example.com/artwork.jpg"),
+        progressMS: -100,
+        durationMS: 244_000,
+        device: DJConnectPlaybackDevice(
+            id: "private-device-id",
+            name: "  Living Room\n",
+            type: "speaker",
+            volumePercent: 50
+        ),
+        contextURI: "spotify:private:context"
+    )
+
+    let snapshot = try #require(DJConnectNowPlayingWidgetSnapshot(playback: playback))
+
+    #expect(snapshot.title == "Midnight City")
+    #expect(snapshot.artist == "M83")
+    #expect(snapshot.artworkURL == URL(string: "https://example.com/artwork.jpg"))
+    #expect(snapshot.progressMS == 0)
+    #expect(snapshot.durationMS == 244_000)
+    #expect(snapshot.isPlaying)
+    #expect(snapshot.deviceName == "Living Room")
+}
+
+@Test func nowPlayingWidgetSnapshotStoresAndLoadsFromSharedDefaults() throws {
+    let suiteName = "DJConnectNowPlayingWidgetSnapshotTests-\(UUID().uuidString)"
+    let defaults = try #require(UserDefaults(suiteName: suiteName))
+    defaults.removePersistentDomain(forName: suiteName)
+    let snapshot = DJConnectNowPlayingWidgetSnapshot(
+        title: "Sweet Disposition",
+        artist: "The Temper Trap",
+        artworkURL: URL(string: "https://example.com/sweet.jpg"),
+        progressMS: 42_000,
+        durationMS: 232_000,
+        isPlaying: true,
+        deviceName: "Studio"
+    )
+
+    try snapshot.save(to: defaults)
+    let loaded = try #require(DJConnectNowPlayingWidgetSnapshot.load(from: defaults))
+
+    #expect(loaded == snapshot)
+}
+
+@Test func queueWidgetSnapshotKeepsOnlySafeVisibleItems() throws {
+    let items = (0..<7).map { index in
+        DJConnectQueueItem(
+            id: "private-\(index)",
+            title: "  Track \(index)\n",
+            artist: "Artist \(index)",
+            album: "Album \(index)",
+            uri: "spotify:track:private-\(index)",
+            durationMS: -100 + index,
+            albumImageURL: URL(string: "https://example.com/art-\(index).jpg")
+        )
+    }
+
+    let snapshot = DJConnectQueueWidgetSnapshot(items: items)
+
+    #expect(snapshot.items.count == 5)
+    #expect(snapshot.totalCount == 7)
+    #expect(snapshot.items.first?.title == "Track 0")
+    #expect(snapshot.items.first?.artist == "Artist 0")
+    #expect(snapshot.items.first?.album == "Album 0")
+    #expect(snapshot.items.first?.durationMS == 0)
+    #expect(snapshot.items.first?.artworkURL == URL(string: "https://example.com/art-0.jpg"))
+}
+
+@Test func queueWidgetSnapshotStoresAndLoadsFromSharedDefaults() throws {
+    let suiteName = "DJConnectQueueWidgetSnapshotTests-\(UUID().uuidString)"
+    let defaults = try #require(UserDefaults(suiteName: suiteName))
+    defaults.removePersistentDomain(forName: suiteName)
+    let snapshot = DJConnectQueueWidgetSnapshot(items: [
+        DJConnectQueueItem(title: "Innerbloom", artist: "RUFUS DU SOL", album: "Bloom", durationMS: 540_000),
+        DJConnectQueueItem(title: "Strobe", artist: "deadmau5", album: "For Lack of a Better Name", durationMS: 633_000)
+    ])
+
+    try snapshot.save(to: defaults)
+    let loaded = try #require(DJConnectQueueWidgetSnapshot.load(from: defaults))
+
+    #expect(loaded == snapshot)
+}
+
+@Test func playlistsWidgetSnapshotKeepsOnlySafeVisibleItems() throws {
+    let playlists = (0..<7).map { index in
+        DJConnectPlaylist(
+            id: "private-playlist-\(index)",
+            name: "  Playlist \(index)\n",
+            uri: "spotify:playlist:private-\(index)",
+            imageURL: URL(string: "https://example.com/playlist-\(index).jpg"),
+            subtitle: "Owner \(index)"
+        )
+    }
+
+    let snapshot = DJConnectPlaylistsWidgetSnapshot(playlists: playlists)
+
+    #expect(snapshot.items.count == 5)
+    #expect(snapshot.totalCount == 7)
+    #expect(snapshot.items.first?.name == "Playlist 0")
+    #expect(snapshot.items.first?.subtitle == "Owner 0")
+    #expect(snapshot.items.first?.imageURL == URL(string: "https://example.com/playlist-0.jpg"))
+}
+
+@Test func playlistsWidgetSnapshotStoresAndLoadsFromSharedDefaults() throws {
+    let suiteName = "DJConnectPlaylistsWidgetSnapshotTests-\(UUID().uuidString)"
+    let defaults = try #require(UserDefaults(suiteName: suiteName))
+    defaults.removePersistentDomain(forName: suiteName)
+    let snapshot = DJConnectPlaylistsWidgetSnapshot(playlists: [
+        DJConnectPlaylist(name: "Friday Night", uri: "spotify:playlist:friday", subtitle: "DJConnect"),
+        DJConnectPlaylist(name: "Dinner Vibes", uri: "spotify:playlist:dinner", subtitle: "Home")
+    ])
+
+    try snapshot.save(to: defaults)
+    let loaded = try #require(DJConnectPlaylistsWidgetSnapshot.load(from: defaults))
+
+    #expect(loaded == snapshot)
+}
+
 @Test func localizationNormalizesDutchLanguageVariants() {
     #expect(DJConnectLocalization.localized(language: "nl", english: "About", dutch: "Over") == "Over")
     #expect(DJConnectLocalization.localized(language: "nl-NL", english: "About", dutch: "Over") == "Over")
     #expect(DJConnectLocalization.localized(language: "NL", english: "About", dutch: "Over") == "Over")
     #expect(DJConnectLocalization.localized(language: "en", english: "About", dutch: "Over") == "About")
     #expect(DJConnectLocalization.localized(language: "", english: "About", dutch: "Over") == "About")
+    #expect(DJConnectLocalization.preferredLanguageCode(["nl-NL", "en-US"]) == "nl")
+    #expect(DJConnectLocalization.preferredLanguageCode(["NL", "en-US"]) == "nl")
+    #expect(DJConnectLocalization.preferredLanguageCode(["en-US", "nl-NL"]) == "en")
+    #expect(DJConnectLocalization.preferredLanguageCode([]) == "en")
 }
 
 @MainActor

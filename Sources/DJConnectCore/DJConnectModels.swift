@@ -888,6 +888,8 @@ public struct DJConnectTrackInsightWidgetSnapshot: Codable, Equatable, Sendable 
     public var danceability: Double?
     public var intensity: Double?
     public var musicDNAMatchPercent: Int?
+    public var progress: TimeInterval?
+    public var duration: TimeInterval?
     public var summary: String
 
     public init(
@@ -903,6 +905,8 @@ public struct DJConnectTrackInsightWidgetSnapshot: Codable, Equatable, Sendable 
         danceability: Double? = nil,
         intensity: Double? = nil,
         musicDNAMatchPercent: Int? = nil,
+        progress: TimeInterval? = nil,
+        duration: TimeInterval? = nil,
         summary: String
     ) {
         self.updatedAt = updatedAt
@@ -917,6 +921,8 @@ public struct DJConnectTrackInsightWidgetSnapshot: Codable, Equatable, Sendable 
         self.danceability = Self.normalizedMetric(danceability)
         self.intensity = Self.normalizedMetric(intensity)
         self.musicDNAMatchPercent = musicDNAMatchPercent.map { max(0, min(100, $0)) }
+        self.progress = Self.normalizedTime(progress)
+        self.duration = Self.normalizedTime(duration)
         self.summary = Self.sanitizedPublic(summary, maxLength: 180) ?? ""
     }
 
@@ -934,6 +940,8 @@ public struct DJConnectTrackInsightWidgetSnapshot: Codable, Equatable, Sendable 
             danceability: insight.danceability,
             intensity: insight.intensity,
             musicDNAMatchPercent: insight.musicDNAMatchPercent,
+            progress: insight.progress,
+            duration: insight.duration,
             summary: insight.summary
         )
     }
@@ -956,6 +964,10 @@ public struct DJConnectTrackInsightWidgetSnapshot: Codable, Equatable, Sendable 
 
     private static func normalizedMetric(_ value: Double?) -> Double? {
         value.map { max(0, min(1, $0)) }
+    }
+
+    private static func normalizedTime(_ value: TimeInterval?) -> TimeInterval? {
+        value.map { max(0, $0) }
     }
 
     public static func sanitizedPublic(_ value: String?, maxLength: Int) -> String? {
@@ -1020,6 +1032,199 @@ public struct DJConnectAskDJWidgetSnapshot: Codable, Equatable, Sendable {
             return nil
         }
         return try? JSONDecoder().decode(DJConnectAskDJWidgetSnapshot.self, from: data)
+    }
+}
+
+public struct DJConnectNowPlayingWidgetSnapshot: Codable, Equatable, Sendable {
+    public static let storageKey = "DJConnectNowPlayingWidgetSnapshot"
+    public static let widgetKind = "DJConnectNowPlayingWidget"
+
+    public var updatedAt: Date
+    public var title: String
+    public var artist: String
+    public var artworkURL: URL?
+    public var progressMS: Int?
+    public var durationMS: Int?
+    public var isPlaying: Bool
+    public var deviceName: String?
+
+    public init(
+        updatedAt: Date = Date(),
+        title: String,
+        artist: String,
+        artworkURL: URL? = nil,
+        progressMS: Int? = nil,
+        durationMS: Int? = nil,
+        isPlaying: Bool,
+        deviceName: String? = nil
+    ) {
+        self.updatedAt = updatedAt
+        self.title = DJConnectTrackInsightWidgetSnapshot.sanitizedPublic(title, maxLength: 96) ?? ""
+        self.artist = DJConnectTrackInsightWidgetSnapshot.sanitizedPublic(artist, maxLength: 96) ?? ""
+        self.artworkURL = artworkURL
+        self.progressMS = progressMS.map { max(0, $0) }
+        self.durationMS = durationMS.map { max(0, $0) }
+        self.isPlaying = isPlaying
+        self.deviceName = DJConnectTrackInsightWidgetSnapshot.sanitizedPublic(deviceName, maxLength: 80)
+    }
+
+    public init?(playback: DJConnectPlayback, updatedAt: Date = Date()) {
+        guard playback.hasPlayback == true || playback.isPlaying == true || playback.trackName?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false else {
+            return nil
+        }
+        self.init(
+            updatedAt: updatedAt,
+            title: playback.trackName ?? "",
+            artist: playback.artistName ?? "",
+            artworkURL: playback.albumImageURL,
+            progressMS: playback.progressMS,
+            durationMS: playback.durationMS,
+            isPlaying: playback.isPlaying == true,
+            deviceName: playback.device?.name
+        )
+    }
+
+    public func save(to defaults: UserDefaults) throws {
+        let data = try JSONEncoder().encode(self)
+        defaults.set(data, forKey: Self.storageKey)
+    }
+
+    public static func remove(from defaults: UserDefaults) {
+        defaults.removeObject(forKey: storageKey)
+    }
+
+    public static func load(from defaults: UserDefaults) -> DJConnectNowPlayingWidgetSnapshot? {
+        guard let data = defaults.data(forKey: storageKey) else {
+            return nil
+        }
+        return try? JSONDecoder().decode(DJConnectNowPlayingWidgetSnapshot.self, from: data)
+    }
+}
+
+public struct DJConnectQueueWidgetItem: Codable, Equatable, Sendable, Identifiable {
+    public var id: String
+    public var title: String
+    public var artist: String?
+    public var album: String?
+    public var durationMS: Int?
+    public var artworkURL: URL?
+
+    public init(
+        id: String,
+        title: String,
+        artist: String? = nil,
+        album: String? = nil,
+        durationMS: Int? = nil,
+        artworkURL: URL? = nil
+    ) {
+        self.id = DJConnectTrackInsightWidgetSnapshot.sanitizedPublic(id, maxLength: 96) ?? title
+        self.title = DJConnectTrackInsightWidgetSnapshot.sanitizedPublic(title, maxLength: 96) ?? ""
+        self.artist = DJConnectTrackInsightWidgetSnapshot.sanitizedPublic(artist, maxLength: 96)
+        self.album = DJConnectTrackInsightWidgetSnapshot.sanitizedPublic(album, maxLength: 96)
+        self.durationMS = durationMS.map { max(0, $0) }
+        self.artworkURL = artworkURL
+    }
+
+    public init(item: DJConnectQueueItem) {
+        self.init(
+            id: item.id,
+            title: item.title,
+            artist: item.artist,
+            album: item.album,
+            durationMS: item.durationMS,
+            artworkURL: item.albumImageURL
+        )
+    }
+}
+
+public struct DJConnectQueueWidgetSnapshot: Codable, Equatable, Sendable {
+    public static let storageKey = "DJConnectQueueWidgetSnapshot"
+    public static let widgetKind = "DJConnectQueueWidget"
+    public static let maxVisibleItems = 5
+
+    public var updatedAt: Date
+    public var items: [DJConnectQueueWidgetItem]
+    public var totalCount: Int
+
+    public init(updatedAt: Date = Date(), items: [DJConnectQueueItem]) {
+        self.updatedAt = updatedAt
+        let sanitizedItems = items.map(DJConnectQueueWidgetItem.init(item:))
+            .filter { !$0.title.isEmpty }
+        self.items = Array(sanitizedItems.prefix(Self.maxVisibleItems))
+        self.totalCount = sanitizedItems.count
+    }
+
+    public func save(to defaults: UserDefaults) throws {
+        let data = try JSONEncoder().encode(self)
+        defaults.set(data, forKey: Self.storageKey)
+    }
+
+    public static func remove(from defaults: UserDefaults) {
+        defaults.removeObject(forKey: storageKey)
+    }
+
+    public static func load(from defaults: UserDefaults) -> DJConnectQueueWidgetSnapshot? {
+        guard let data = defaults.data(forKey: storageKey) else {
+            return nil
+        }
+        return try? JSONDecoder().decode(DJConnectQueueWidgetSnapshot.self, from: data)
+    }
+}
+
+public struct DJConnectPlaylistWidgetItem: Codable, Equatable, Sendable, Identifiable {
+    public var id: String
+    public var name: String
+    public var subtitle: String?
+    public var imageURL: URL?
+
+    public init(id: String, name: String, subtitle: String? = nil, imageURL: URL? = nil) {
+        self.id = DJConnectTrackInsightWidgetSnapshot.sanitizedPublic(id, maxLength: 96) ?? name
+        self.name = DJConnectTrackInsightWidgetSnapshot.sanitizedPublic(name, maxLength: 96) ?? ""
+        self.subtitle = DJConnectTrackInsightWidgetSnapshot.sanitizedPublic(subtitle, maxLength: 96)
+        self.imageURL = imageURL
+    }
+
+    public init(playlist: DJConnectPlaylist) {
+        self.init(
+            id: playlist.id,
+            name: playlist.name,
+            subtitle: playlist.subtitle,
+            imageURL: playlist.imageURL
+        )
+    }
+}
+
+public struct DJConnectPlaylistsWidgetSnapshot: Codable, Equatable, Sendable {
+    public static let storageKey = "DJConnectPlaylistsWidgetSnapshot"
+    public static let widgetKind = "DJConnectPlaylistsWidget"
+    public static let maxVisibleItems = 5
+
+    public var updatedAt: Date
+    public var items: [DJConnectPlaylistWidgetItem]
+    public var totalCount: Int
+
+    public init(updatedAt: Date = Date(), playlists: [DJConnectPlaylist]) {
+        self.updatedAt = updatedAt
+        let sanitizedItems = playlists.map(DJConnectPlaylistWidgetItem.init(playlist:))
+            .filter { !$0.name.isEmpty }
+        self.items = Array(sanitizedItems.prefix(Self.maxVisibleItems))
+        self.totalCount = sanitizedItems.count
+    }
+
+    public func save(to defaults: UserDefaults) throws {
+        let data = try JSONEncoder().encode(self)
+        defaults.set(data, forKey: Self.storageKey)
+    }
+
+    public static func remove(from defaults: UserDefaults) {
+        defaults.removeObject(forKey: storageKey)
+    }
+
+    public static func load(from defaults: UserDefaults) -> DJConnectPlaylistsWidgetSnapshot? {
+        guard let data = defaults.data(forKey: storageKey) else {
+            return nil
+        }
+        return try? JSONDecoder().decode(DJConnectPlaylistsWidgetSnapshot.self, from: data)
     }
 }
 

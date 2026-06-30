@@ -7,6 +7,1208 @@ import ActivityKit
 import DJConnectCore
 #endif
 
+struct DJConnectNowPlayingWidgetEntry: TimelineEntry {
+    let date: Date
+    let title: String
+    let artist: String
+    let artworkURL: URL?
+    let progress: Double
+    let isPlaying: Bool
+    let deviceName: String
+    let hasSnapshot: Bool
+
+    init(
+        date: Date,
+        title: String,
+        artist: String,
+        artworkURL: URL?,
+        progress: Double,
+        isPlaying: Bool,
+        deviceName: String,
+        hasSnapshot: Bool
+    ) {
+        self.date = date
+        self.title = title
+        self.artist = artist
+        self.artworkURL = artworkURL
+        self.progress = max(0, min(1, progress))
+        self.isPlaying = isPlaying
+        self.deviceName = deviceName
+        self.hasSnapshot = hasSnapshot
+    }
+
+    static let placeholder = DJConnectNowPlayingWidgetEntry(
+        date: Date(),
+        title: "Midnight City",
+        artist: "M83",
+        artworkURL: nil,
+        progress: 0.42,
+        isPlaying: true,
+        deviceName: "Living Room",
+        hasSnapshot: true
+    )
+
+    static let empty = DJConnectNowPlayingWidgetEntry(
+        date: Date(),
+        title: DJConnectLocalization.localized(english: "Nothing playing", dutch: "Niets speelt nu"),
+        artist: DJConnectLocalization.localized(english: "Open DJConnect", dutch: "Open DJConnect"),
+        artworkURL: nil,
+        progress: 0,
+        isPlaying: false,
+        deviceName: DJConnectLocalization.localized(english: "Ready", dutch: "Klaar"),
+        hasSnapshot: false
+    )
+
+#if canImport(DJConnectCore)
+    init(snapshot: DJConnectNowPlayingWidgetSnapshot) {
+        let duration = max(1, snapshot.durationMS ?? 0)
+        let progress = snapshot.durationMS == nil ? 0 : Double(snapshot.progressMS ?? 0) / Double(duration)
+        date = snapshot.updatedAt
+        title = snapshot.title.isEmpty ? DJConnectLocalization.localized(english: "Unknown track", dutch: "Onbekende track") : snapshot.title
+        artist = snapshot.artist.isEmpty ? DJConnectLocalization.localized(english: "Unknown artist", dutch: "Onbekende artiest") : snapshot.artist
+        artworkURL = snapshot.artworkURL
+        self.progress = max(0, min(1, progress))
+        isPlaying = snapshot.isPlaying
+        deviceName = snapshot.deviceName ?? DJConnectLocalization.localized(english: "DJConnect", dutch: "DJConnect")
+        hasSnapshot = true
+    }
+#endif
+}
+
+struct DJConnectNowPlayingWidgetProvider: TimelineProvider {
+    func placeholder(in context: Context) -> DJConnectNowPlayingWidgetEntry {
+        .placeholder
+    }
+
+    func getSnapshot(in context: Context, completion: @escaping (DJConnectNowPlayingWidgetEntry) -> Void) {
+        completion(Self.currentEntry())
+    }
+
+    func getTimeline(in context: Context, completion: @escaping (Timeline<DJConnectNowPlayingWidgetEntry>) -> Void) {
+        let entry = Self.currentEntry()
+        let refreshDate = Calendar.current.date(byAdding: .minute, value: entry.isPlaying ? 5 : 30, to: Date()) ?? Date()
+        completion(Timeline(entries: [entry], policy: .after(refreshDate)))
+    }
+
+    private static func currentEntry() -> DJConnectNowPlayingWidgetEntry {
+#if canImport(DJConnectCore)
+        if let defaults = UserDefaults(suiteName: DJConnectTrackInsightWidgetSnapshot.appGroupIdentifier),
+           let snapshot = DJConnectNowPlayingWidgetSnapshot.load(from: defaults) {
+            return DJConnectNowPlayingWidgetEntry(snapshot: snapshot)
+        }
+#endif
+        return .empty
+    }
+}
+
+struct DJConnectNowPlayingWidgetView: View {
+    @Environment(\.widgetFamily) private var family
+    let entry: DJConnectNowPlayingWidgetEntry
+
+    var body: some View {
+        ZStack {
+            DJConnectNowPlayingWidgetBackground(entry: entry)
+            content
+        }
+        .containerBackground(.clear, for: .widget)
+    }
+
+    @ViewBuilder
+    private var content: some View {
+        switch family {
+        case .systemSmall:
+            small
+        case .systemMedium:
+            medium
+        case .systemLarge, .systemExtraLarge:
+            large
+        case .accessoryRectangular:
+            accessoryRectangular
+        case .accessoryCircular:
+            accessoryCircular
+        case .accessoryInline:
+            Label(entry.title, systemImage: entry.isPlaying ? "play.fill" : "pause.fill")
+        default:
+            medium
+        }
+    }
+
+    private var small: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            header(compact: true)
+            Spacer(minLength: 0)
+            DJConnectNowPlayingArtwork(entry: entry)
+                .frame(width: 64, height: 64)
+            Spacer(minLength: 0)
+            titleBlock(lineLimit: 1)
+            DJConnectNowPlayingProgressBar(progress: entry.progress)
+                .frame(height: 5)
+        }
+        .padding(14)
+    }
+
+    private var medium: some View {
+        HStack(spacing: 14) {
+            DJConnectNowPlayingArtwork(entry: entry)
+                .frame(width: 92, height: 92)
+            VStack(alignment: .leading, spacing: 9) {
+                header(compact: false)
+                titleBlock(lineLimit: 2)
+                DJConnectNowPlayingProgressBar(progress: entry.progress)
+                    .frame(height: 6)
+                statusLine
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(16)
+    }
+
+    private var large: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            header(compact: false)
+            HStack(alignment: .center, spacing: 16) {
+                DJConnectNowPlayingArtwork(entry: entry)
+                    .frame(width: 128, height: 128)
+                VStack(alignment: .leading, spacing: 9) {
+                    titleBlock(lineLimit: 3)
+                    statusLine
+                }
+            }
+            DJConnectNowPlayingProgressBar(progress: entry.progress)
+                .frame(height: 7)
+            DJConnectNowPlayingWaveform(entry: entry)
+                .frame(height: 66)
+            Spacer(minLength: 0)
+            Text(DJConnectLocalization.localized(english: "Updated from DJConnect", dutch: "Bijgewerkt vanuit DJConnect"))
+                .font(.caption2.weight(.semibold))
+                .foregroundStyle(.white.opacity(0.58))
+        }
+        .padding(18)
+    }
+
+    private var accessoryRectangular: some View {
+        HStack(spacing: 8) {
+            Image(systemName: entry.isPlaying ? "play.circle.fill" : "pause.circle")
+                .font(.title3.weight(.semibold))
+            VStack(alignment: .leading, spacing: 1) {
+                Text(entry.title)
+                    .font(.headline)
+                    .lineLimit(1)
+                Text(entry.artist)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+        }
+    }
+
+    private var accessoryCircular: some View {
+        ZStack {
+            AccessoryWidgetBackground()
+            Image(systemName: entry.isPlaying ? "play.fill" : "music.note")
+                .font(.system(size: 17, weight: .semibold))
+                .widgetAccentable()
+        }
+    }
+
+    private func header(compact: Bool) -> some View {
+        HStack(spacing: 6) {
+            Image(systemName: entry.isPlaying ? "music.note" : "pause.fill")
+                .font(.caption.weight(.bold))
+            Text(compact ? DJConnectLocalization.localized(english: "Now", dutch: "Nu") : DJConnectLocalization.localized(english: "Now Playing", dutch: "Speelt Nu"))
+                .font(.caption.weight(.bold))
+                .textCase(.uppercase)
+            Spacer(minLength: 0)
+        }
+        .foregroundStyle(.white.opacity(0.84))
+    }
+
+    private func titleBlock(lineLimit: Int) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(entry.title)
+                .font(.headline.weight(.bold))
+                .foregroundStyle(.white)
+                .lineLimit(lineLimit)
+            Text(entry.artist)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.white.opacity(0.72))
+                .lineLimit(1)
+        }
+    }
+
+    private var statusLine: some View {
+        Label(
+            entry.hasSnapshot ? entry.deviceName : DJConnectLocalization.localized(english: "Open the app to refresh", dutch: "Open de app om te verversen"),
+            systemImage: entry.isPlaying ? "speaker.wave.2.fill" : "pause.circle"
+        )
+        .font(.caption.weight(.semibold))
+        .foregroundStyle(.white.opacity(0.70))
+        .lineLimit(1)
+    }
+}
+
+private struct DJConnectNowPlayingArtwork: View {
+    let entry: DJConnectNowPlayingWidgetEntry
+
+    var body: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .fill(
+                    LinearGradient(
+                        colors: [
+                            Color(red: 0.08, green: 0.10, blue: 0.24),
+                            Color(red: 0.29, green: 0.16, blue: 0.44),
+                            Color(red: 0.06, green: 0.38, blue: 0.56)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+            if let artworkURL = entry.artworkURL {
+                AsyncImage(url: artworkURL) { phase in
+                    if let image = phase.image {
+                        image
+                            .resizable()
+                            .scaledToFill()
+                    } else {
+                        DJConnectNowPlayingArtworkFallback(entry: entry)
+                    }
+                }
+            } else {
+                DJConnectNowPlayingArtworkFallback(entry: entry)
+            }
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .stroke(.white.opacity(0.16), lineWidth: 1)
+        )
+    }
+}
+
+private struct DJConnectNowPlayingArtworkFallback: View {
+    let entry: DJConnectNowPlayingWidgetEntry
+
+    var body: some View {
+        VStack(spacing: 6) {
+            Image(systemName: entry.isPlaying ? "music.note" : "music.note.list")
+                .font(.system(size: 26, weight: .bold))
+            Text("DJ")
+                .font(.caption.weight(.black))
+        }
+        .foregroundStyle(.white.opacity(0.82))
+    }
+}
+
+private struct DJConnectNowPlayingProgressBar: View {
+    let progress: Double
+
+    var body: some View {
+        GeometryReader { geometry in
+            ZStack(alignment: .leading) {
+                Capsule()
+                    .fill(.white.opacity(0.18))
+                Capsule()
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                Color(red: 0.24, green: 0.64, blue: 1.0),
+                                Color(red: 0.86, green: 0.23, blue: 1.0)
+                            ],
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        )
+                    )
+                    .frame(width: max(geometry.size.width * progress, progress > 0 ? 5 : 0))
+            }
+        }
+    }
+}
+
+private struct DJConnectNowPlayingWaveform: View {
+    let entry: DJConnectNowPlayingWidgetEntry
+
+    var body: some View {
+        Canvas { context, size in
+            let bars = 30
+            let barWidth = size.width / CGFloat(bars)
+            let seedBase = entry.title.count * 11 + entry.artist.count * 7
+            let opacity = entry.isPlaying ? 0.72 : 0.36
+            for index in 0..<bars {
+                let seedValue = (index * 23 + seedBase) % 100
+                let seed = Double(seedValue) / 100.0
+                let activeLevel = 0.18 + seed * 0.76
+                let inactiveLevel = 0.12 + seed * 0.20
+                let level = entry.isPlaying ? activeLevel : inactiveLevel
+                let height = size.height * CGFloat(level)
+                let rect = CGRect(
+                    x: CGFloat(index) * barWidth,
+                    y: size.height - height,
+                    width: max(2, barWidth * 0.52),
+                    height: height
+                )
+                let hue = 0.54 + Double(index) / Double(bars) * 0.28
+                let color = Color(hue: hue, saturation: 0.86, brightness: 1)
+                let path = Path(roundedRect: rect, cornerRadius: 2)
+                context.fill(path, with: .color(color.opacity(opacity)))
+            }
+        }
+    }
+}
+
+private struct DJConnectNowPlayingWidgetBackground: View {
+    let entry: DJConnectNowPlayingWidgetEntry
+
+    var body: some View {
+        ZStack {
+            LinearGradient(
+                colors: [
+                    Color(red: 0.02, green: 0.04, blue: 0.10),
+                    Color(red: 0.08, green: 0.09, blue: 0.30),
+                    Color(red: 0.15, green: 0.26, blue: 0.43)
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+            DJConnectNowPlayingWaveform(entry: entry)
+                .opacity(0.20)
+                .padding(.top, 48)
+        }
+    }
+}
+
+struct DJConnectNowPlayingWidget: Widget {
+    let kind = DJConnectNowPlayingWidgetSnapshot.widgetKind
+
+    var body: some WidgetConfiguration {
+        StaticConfiguration(kind: kind, provider: DJConnectNowPlayingWidgetProvider()) { entry in
+            DJConnectNowPlayingWidgetView(entry: entry)
+        }
+        .configurationDisplayName(DJConnectLocalization.localized(english: "Now Playing", dutch: "Speelt Nu"))
+        .description(DJConnectLocalization.localized(english: "Shows the current DJConnect track, artist, playback state and progress.", dutch: "Toont de huidige DJConnect-track, artiest, afspeelstatus en voortgang."))
+        .supportedFamilies(supportedFamilies)
+    }
+
+    private var supportedFamilies: [WidgetFamily] {
+        #if os(iOS)
+        [
+            .systemSmall,
+            .systemMedium,
+            .systemLarge,
+            .accessoryCircular,
+            .accessoryRectangular,
+            .accessoryInline
+        ]
+        #else
+        [
+            .systemSmall,
+            .systemMedium,
+            .systemLarge,
+            .systemExtraLarge
+        ]
+        #endif
+    }
+}
+
+struct DJConnectQueueWidgetEntry: TimelineEntry {
+    let date: Date
+    let items: [DJConnectQueueWidgetItem]
+    let totalCount: Int
+    let hasSnapshot: Bool
+
+    static let placeholder = DJConnectQueueWidgetEntry(
+        date: Date(),
+        items: [
+            DJConnectQueueWidgetItem(id: "0", title: "Midnight City", artist: "M83", album: "Hurry Up, We're Dreaming", durationMS: 244_000),
+            DJConnectQueueWidgetItem(id: "1", title: "Sweet Disposition", artist: "The Temper Trap", album: "Conditions", durationMS: 232_000),
+            DJConnectQueueWidgetItem(id: "2", title: "Electric Feel", artist: "MGMT", album: "Oracular Spectacular", durationMS: 229_000),
+            DJConnectQueueWidgetItem(id: "3", title: "Innerbloom", artist: "RUFUS DU SOL", album: "Bloom", durationMS: 540_000)
+        ],
+        totalCount: 4,
+        hasSnapshot: true
+    )
+
+    static let empty = DJConnectQueueWidgetEntry(
+        date: Date(),
+        items: [],
+        totalCount: 0,
+        hasSnapshot: false
+    )
+
+#if canImport(DJConnectCore)
+    init(snapshot: DJConnectQueueWidgetSnapshot) {
+        date = snapshot.updatedAt
+        items = snapshot.items
+        totalCount = snapshot.totalCount
+        hasSnapshot = true
+    }
+#endif
+
+    init(date: Date, items: [DJConnectQueueWidgetItem], totalCount: Int, hasSnapshot: Bool) {
+        self.date = date
+        self.items = items
+        self.totalCount = totalCount
+        self.hasSnapshot = hasSnapshot
+    }
+}
+
+struct DJConnectQueueWidgetProvider: TimelineProvider {
+    func placeholder(in context: Context) -> DJConnectQueueWidgetEntry {
+        .placeholder
+    }
+
+    func getSnapshot(in context: Context, completion: @escaping (DJConnectQueueWidgetEntry) -> Void) {
+        completion(Self.currentEntry())
+    }
+
+    func getTimeline(in context: Context, completion: @escaping (Timeline<DJConnectQueueWidgetEntry>) -> Void) {
+        let entry = Self.currentEntry()
+        let refreshDate = Calendar.current.date(byAdding: .minute, value: 30, to: Date()) ?? Date()
+        completion(Timeline(entries: [entry], policy: .after(refreshDate)))
+    }
+
+    private static func currentEntry() -> DJConnectQueueWidgetEntry {
+#if canImport(DJConnectCore)
+        if let defaults = UserDefaults(suiteName: DJConnectTrackInsightWidgetSnapshot.appGroupIdentifier),
+           let snapshot = DJConnectQueueWidgetSnapshot.load(from: defaults) {
+            return DJConnectQueueWidgetEntry(snapshot: snapshot)
+        }
+#endif
+        return .empty
+    }
+}
+
+struct DJConnectQueueWidgetView: View {
+    @Environment(\.widgetFamily) private var family
+    let entry: DJConnectQueueWidgetEntry
+
+    var body: some View {
+        ZStack {
+            DJConnectQueueWidgetBackground()
+            content
+        }
+        .containerBackground(.clear, for: .widget)
+    }
+
+    @ViewBuilder
+    private var content: some View {
+        switch family {
+        case .systemSmall:
+            small
+        case .systemMedium:
+            medium
+        case .systemLarge:
+            queueList(limit: 5, includeFooter: true)
+                .padding(16)
+        case .systemExtraLarge:
+            queueList(limit: 5, includeFooter: true)
+                .padding(20)
+        case .accessoryRectangular:
+            accessoryRectangular
+        case .accessoryCircular:
+            accessoryCircular
+        case .accessoryInline:
+            Label(accessoryInlineTitle, systemImage: "text.line.first.and.arrowtriangle.forward")
+        default:
+            medium
+        }
+    }
+
+    private var small: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            header
+            Spacer(minLength: 0)
+            if let first = entry.items.first {
+                DJConnectQueueArtwork(item: first)
+                    .frame(width: 62, height: 62)
+                Text(first.title)
+                    .font(.headline.weight(.bold))
+                    .foregroundStyle(.white)
+                    .lineLimit(2)
+                Text(first.artist ?? queueCountText)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.white.opacity(0.70))
+                    .lineLimit(1)
+            } else {
+                emptyState
+            }
+        }
+        .padding(14)
+    }
+
+    private var medium: some View {
+        HStack(spacing: 14) {
+            if let first = entry.items.first {
+                DJConnectQueueArtwork(item: first)
+                    .frame(width: 92, height: 92)
+            } else {
+                DJConnectQueueEmptyIcon()
+                    .frame(width: 92, height: 92)
+            }
+            VStack(alignment: .leading, spacing: 8) {
+                header
+                if entry.items.isEmpty {
+                    emptyText
+                } else {
+                    ForEach(Array(entry.items.prefix(3).enumerated()), id: \.element.id) { index, item in
+                        queueRow(item: item, index: index + 1, showArtwork: false)
+                    }
+                }
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(16)
+    }
+
+    private func queueList(limit: Int, includeFooter: Bool) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            header
+            if entry.items.isEmpty {
+                Spacer(minLength: 0)
+                emptyState
+                Spacer(minLength: 0)
+            } else {
+                ForEach(Array(entry.items.prefix(limit).enumerated()), id: \.element.id) { index, item in
+                    queueRow(item: item, index: index + 1, showArtwork: true)
+                }
+                Spacer(minLength: 0)
+                if includeFooter {
+                    Text(queueCountText)
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(.white.opacity(0.58))
+                        .lineLimit(1)
+                }
+            }
+        }
+    }
+
+    private var accessoryRectangular: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "text.line.first.and.arrowtriangle.forward")
+                .font(.title3.weight(.semibold))
+            VStack(alignment: .leading, spacing: 1) {
+                Text(DJConnectLocalization.localized(english: "Queue", dutch: "Wachtrij"))
+                    .font(.headline)
+                    .lineLimit(1)
+                Text(entry.items.first?.title ?? DJConnectLocalization.localized(english: "No queue", dutch: "Geen wachtrij"))
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+        }
+    }
+
+    private var accessoryCircular: some View {
+        ZStack {
+            AccessoryWidgetBackground()
+            Image(systemName: "text.line.first.and.arrowtriangle.forward")
+                .font(.system(size: 17, weight: .semibold))
+                .widgetAccentable()
+        }
+    }
+
+    private var header: some View {
+        HStack(spacing: 6) {
+            Image(systemName: "text.line.first.and.arrowtriangle.forward")
+                .font(.caption.weight(.bold))
+            Text(DJConnectLocalization.localized(english: "Queue", dutch: "Wachtrij"))
+                .font(.caption.weight(.bold))
+                .textCase(.uppercase)
+            Spacer(minLength: 0)
+            if entry.hasSnapshot {
+                Text("\(entry.totalCount)")
+                    .font(.caption2.weight(.bold))
+                    .monospacedDigit()
+                    .padding(.horizontal, 7)
+                    .padding(.vertical, 3)
+                    .background(.white.opacity(0.14), in: Capsule())
+            }
+        }
+        .foregroundStyle(.white.opacity(0.84))
+    }
+
+    private func queueRow(item: DJConnectQueueWidgetItem, index: Int, showArtwork: Bool) -> some View {
+        HStack(spacing: 9) {
+            if showArtwork {
+                DJConnectQueueArtwork(item: item)
+                    .frame(width: 42, height: 42)
+            } else {
+                Text("\(index)")
+                    .font(.caption.weight(.bold))
+                    .foregroundStyle(.white.opacity(0.55))
+                    .frame(width: 18)
+            }
+            VStack(alignment: .leading, spacing: 2) {
+                Text(item.title)
+                    .font(.caption.weight(.bold))
+                    .foregroundStyle(.white)
+                    .lineLimit(1)
+                Text(item.artist ?? item.album ?? DJConnectLocalization.localized(english: "Queued", dutch: "In wachtrij"))
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(.white.opacity(0.66))
+                    .lineLimit(1)
+            }
+            Spacer(minLength: 0)
+            if let duration = item.durationMS {
+                Text(formattedDuration(duration))
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(.white.opacity(0.52))
+                    .monospacedDigit()
+            }
+        }
+    }
+
+    private var emptyState: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            DJConnectQueueEmptyIcon()
+                .frame(width: 62, height: 62)
+            emptyText
+        }
+    }
+
+    private var emptyText: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(DJConnectLocalization.localized(english: "No queue", dutch: "Geen wachtrij"))
+                .font(.headline.weight(.bold))
+                .foregroundStyle(.white)
+            Text(DJConnectLocalization.localized(english: "Open DJConnect to refresh.", dutch: "Open DJConnect om te verversen."))
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.white.opacity(0.68))
+                .lineLimit(2)
+        }
+    }
+
+    private var queueCountText: String {
+        if entry.totalCount == 1 {
+            return DJConnectLocalization.localized(english: "1 track queued", dutch: "1 track in wachtrij")
+        }
+        return DJConnectLocalization.localized(english: "\(entry.totalCount) tracks queued", dutch: "\(entry.totalCount) tracks in wachtrij")
+    }
+
+    private var accessoryInlineTitle: String {
+        entry.items.first?.title ?? DJConnectLocalization.localized(english: "Queue", dutch: "Wachtrij")
+    }
+
+    private func formattedDuration(_ milliseconds: Int) -> String {
+        let seconds = max(0, milliseconds / 1_000)
+        return "\(seconds / 60):\(String(format: "%02d", seconds % 60))"
+    }
+}
+
+private struct DJConnectQueueArtwork: View {
+    let item: DJConnectQueueWidgetItem
+
+    var body: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(
+                    LinearGradient(
+                        colors: [
+                            Color(red: 0.08, green: 0.12, blue: 0.26),
+                            Color(red: 0.21, green: 0.16, blue: 0.42),
+                            Color(red: 0.07, green: 0.34, blue: 0.42)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+            if let artworkURL = item.artworkURL {
+                AsyncImage(url: artworkURL) { phase in
+                    if let image = phase.image {
+                        image
+                            .resizable()
+                            .scaledToFill()
+                    } else {
+                        Image(systemName: "music.note.list")
+                            .font(.headline.weight(.bold))
+                            .foregroundStyle(.white.opacity(0.80))
+                    }
+                }
+            } else {
+                Image(systemName: "music.note.list")
+                    .font(.headline.weight(.bold))
+                    .foregroundStyle(.white.opacity(0.80))
+            }
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .stroke(.white.opacity(0.14), lineWidth: 1)
+        )
+    }
+}
+
+private struct DJConnectQueueEmptyIcon: View {
+    var body: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .fill(.white.opacity(0.12))
+            Image(systemName: "text.line.first.and.arrowtriangle.forward")
+                .font(.system(size: 25, weight: .bold))
+                .foregroundStyle(.white.opacity(0.78))
+        }
+    }
+}
+
+private struct DJConnectQueueWidgetBackground: View {
+    var body: some View {
+        ZStack {
+            LinearGradient(
+                colors: [
+                    Color(red: 0.02, green: 0.04, blue: 0.10),
+                    Color(red: 0.08, green: 0.12, blue: 0.30),
+                    Color(red: 0.07, green: 0.28, blue: 0.36)
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+            Canvas { context, size in
+                let rows = 5
+                for row in 0..<rows {
+                    let y = size.height * (0.22 + CGFloat(row) * 0.14)
+                    let rect = CGRect(x: size.width * 0.10, y: y, width: size.width * 0.78, height: 2)
+                    context.fill(Path(roundedRect: rect, cornerRadius: 1), with: .color(.white.opacity(0.08)))
+                }
+            }
+        }
+    }
+}
+
+struct DJConnectQueueWidget: Widget {
+    let kind = DJConnectQueueWidgetSnapshot.widgetKind
+
+    var body: some WidgetConfiguration {
+        StaticConfiguration(kind: kind, provider: DJConnectQueueWidgetProvider()) { entry in
+            DJConnectQueueWidgetView(entry: entry)
+        }
+        .configurationDisplayName(DJConnectLocalization.localized(english: "Queue", dutch: "Wachtrij"))
+        .description(DJConnectLocalization.localized(english: "Shows the upcoming DJConnect queue in compact and detailed widget sizes.", dutch: "Toont de komende DJConnect-wachtrij in compacte en uitgebreide widgetformaten."))
+        .supportedFamilies(supportedFamilies)
+    }
+
+    private var supportedFamilies: [WidgetFamily] {
+        #if os(iOS)
+        [
+            .systemSmall,
+            .systemMedium,
+            .systemLarge,
+            .accessoryCircular,
+            .accessoryRectangular,
+            .accessoryInline
+        ]
+        #else
+        [
+            .systemSmall,
+            .systemMedium,
+            .systemLarge,
+            .systemExtraLarge
+        ]
+        #endif
+    }
+}
+
+struct DJConnectPlaylistsWidgetEntry: TimelineEntry {
+    let date: Date
+    let items: [DJConnectPlaylistWidgetItem]
+    let totalCount: Int
+    let hasSnapshot: Bool
+
+    static let placeholder = DJConnectPlaylistsWidgetEntry(
+        date: Date(),
+        items: [
+            DJConnectPlaylistWidgetItem(id: "0", name: "Friday Night", subtitle: "DJConnect"),
+            DJConnectPlaylistWidgetItem(id: "1", name: "Dinner Vibes", subtitle: "Home"),
+            DJConnectPlaylistWidgetItem(id: "2", name: "Late Drive", subtitle: "Road"),
+            DJConnectPlaylistWidgetItem(id: "3", name: "Deep Focus", subtitle: "Work")
+        ],
+        totalCount: 4,
+        hasSnapshot: true
+    )
+
+    static let empty = DJConnectPlaylistsWidgetEntry(date: Date(), items: [], totalCount: 0, hasSnapshot: false)
+
+#if canImport(DJConnectCore)
+    init(snapshot: DJConnectPlaylistsWidgetSnapshot) {
+        date = snapshot.updatedAt
+        items = snapshot.items
+        totalCount = snapshot.totalCount
+        hasSnapshot = true
+    }
+#endif
+
+    init(date: Date, items: [DJConnectPlaylistWidgetItem], totalCount: Int, hasSnapshot: Bool) {
+        self.date = date
+        self.items = items
+        self.totalCount = totalCount
+        self.hasSnapshot = hasSnapshot
+    }
+}
+
+struct DJConnectPlaylistsWidgetProvider: TimelineProvider {
+    func placeholder(in context: Context) -> DJConnectPlaylistsWidgetEntry {
+        .placeholder
+    }
+
+    func getSnapshot(in context: Context, completion: @escaping (DJConnectPlaylistsWidgetEntry) -> Void) {
+        completion(Self.currentEntry())
+    }
+
+    func getTimeline(in context: Context, completion: @escaping (Timeline<DJConnectPlaylistsWidgetEntry>) -> Void) {
+        let entry = Self.currentEntry()
+        let refreshDate = Calendar.current.date(byAdding: .minute, value: 30, to: Date()) ?? Date()
+        completion(Timeline(entries: [entry], policy: .after(refreshDate)))
+    }
+
+    private static func currentEntry() -> DJConnectPlaylistsWidgetEntry {
+#if canImport(DJConnectCore)
+        if let defaults = UserDefaults(suiteName: DJConnectTrackInsightWidgetSnapshot.appGroupIdentifier),
+           let snapshot = DJConnectPlaylistsWidgetSnapshot.load(from: defaults) {
+            return DJConnectPlaylistsWidgetEntry(snapshot: snapshot)
+        }
+#endif
+        return .empty
+    }
+}
+
+struct DJConnectPlaylistsWidgetView: View {
+    @Environment(\.widgetFamily) private var family
+    let entry: DJConnectPlaylistsWidgetEntry
+
+    var body: some View {
+        ZStack {
+            DJConnectPlaylistsWidgetBackground()
+            content
+        }
+        .containerBackground(.clear, for: .widget)
+    }
+
+    @ViewBuilder
+    private var content: some View {
+        switch family {
+        case .systemSmall:
+            small
+        case .systemMedium:
+            medium
+        case .systemLarge:
+            playlistsList(limit: 5, includeFooter: true)
+                .padding(16)
+        case .systemExtraLarge:
+            playlistsList(limit: 5, includeFooter: true)
+                .padding(20)
+        case .accessoryRectangular:
+            accessoryRectangular
+        case .accessoryCircular:
+            accessoryCircular
+        case .accessoryInline:
+            Label(accessoryInlineTitle, systemImage: "music.note.list")
+        default:
+            medium
+        }
+    }
+
+    private var small: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            header
+            Spacer(minLength: 0)
+            if let first = entry.items.first {
+                DJConnectPlaylistArtwork(item: first)
+                    .frame(width: 62, height: 62)
+                Text(first.name)
+                    .font(.headline.weight(.bold))
+                    .foregroundStyle(.white)
+                    .lineLimit(2)
+                Text(first.subtitle ?? playlistsCountText)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.white.opacity(0.70))
+                    .lineLimit(1)
+            } else {
+                emptyState
+            }
+        }
+        .padding(14)
+    }
+
+    private var medium: some View {
+        HStack(spacing: 14) {
+            DJConnectPlaylistStackPreview(items: Array(entry.items.prefix(3)))
+                .frame(width: 92, height: 92)
+            VStack(alignment: .leading, spacing: 8) {
+                header
+                if entry.items.isEmpty {
+                    emptyText
+                } else {
+                    ForEach(Array(entry.items.prefix(3).enumerated()), id: \.element.id) { index, item in
+                        playlistRow(item: item, index: index + 1, showArtwork: false)
+                    }
+                }
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(16)
+    }
+
+    private func playlistsList(limit: Int, includeFooter: Bool) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            header
+            if entry.items.isEmpty {
+                Spacer(minLength: 0)
+                emptyState
+                Spacer(minLength: 0)
+            } else {
+                ForEach(Array(entry.items.prefix(limit).enumerated()), id: \.element.id) { index, item in
+                    playlistRow(item: item, index: index + 1, showArtwork: true)
+                }
+                Spacer(minLength: 0)
+                if includeFooter {
+                    Text(playlistsCountText)
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(.white.opacity(0.58))
+                        .lineLimit(1)
+                }
+            }
+        }
+    }
+
+    private var accessoryRectangular: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "music.note.list")
+                .font(.title3.weight(.semibold))
+            VStack(alignment: .leading, spacing: 1) {
+                Text(DJConnectLocalization.localized(english: "Playlists", dutch: "Afspeellijsten"))
+                    .font(.headline)
+                    .lineLimit(1)
+                Text(entry.items.first?.name ?? DJConnectLocalization.localized(english: "No playlists", dutch: "Geen afspeellijsten"))
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+        }
+    }
+
+    private var accessoryCircular: some View {
+        ZStack {
+            AccessoryWidgetBackground()
+            Image(systemName: "music.note.list")
+                .font(.system(size: 17, weight: .semibold))
+                .widgetAccentable()
+        }
+    }
+
+    private var header: some View {
+        HStack(spacing: 6) {
+            Image(systemName: "music.note.list")
+                .font(.caption.weight(.bold))
+            Text(DJConnectLocalization.localized(english: "Playlists", dutch: "Afspeellijsten"))
+                .font(.caption.weight(.bold))
+                .textCase(.uppercase)
+            Spacer(minLength: 0)
+            if entry.hasSnapshot {
+                Text("\(entry.totalCount)")
+                    .font(.caption2.weight(.bold))
+                    .monospacedDigit()
+                    .padding(.horizontal, 7)
+                    .padding(.vertical, 3)
+                    .background(.white.opacity(0.14), in: Capsule())
+            }
+        }
+        .foregroundStyle(.white.opacity(0.84))
+    }
+
+    private func playlistRow(item: DJConnectPlaylistWidgetItem, index: Int, showArtwork: Bool) -> some View {
+        HStack(spacing: 9) {
+            if showArtwork {
+                DJConnectPlaylistArtwork(item: item)
+                    .frame(width: 42, height: 42)
+            } else {
+                Text("\(index)")
+                    .font(.caption.weight(.bold))
+                    .foregroundStyle(.white.opacity(0.55))
+                    .frame(width: 18)
+            }
+            VStack(alignment: .leading, spacing: 2) {
+                Text(item.name)
+                    .font(.caption.weight(.bold))
+                    .foregroundStyle(.white)
+                    .lineLimit(1)
+                Text(item.subtitle ?? DJConnectLocalization.localized(english: "Playlist", dutch: "Afspeellijst"))
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(.white.opacity(0.66))
+                    .lineLimit(1)
+            }
+            Spacer(minLength: 0)
+            Image(systemName: "play.fill")
+                .font(.caption2.weight(.bold))
+                .foregroundStyle(.white.opacity(0.46))
+        }
+    }
+
+    private var emptyState: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            DJConnectPlaylistEmptyIcon()
+                .frame(width: 62, height: 62)
+            emptyText
+        }
+    }
+
+    private var emptyText: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(DJConnectLocalization.localized(english: "No playlists", dutch: "Geen afspeellijsten"))
+                .font(.headline.weight(.bold))
+                .foregroundStyle(.white)
+            Text(DJConnectLocalization.localized(english: "Open DJConnect to refresh.", dutch: "Open DJConnect om te verversen."))
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.white.opacity(0.68))
+                .lineLimit(2)
+        }
+    }
+
+    private var playlistsCountText: String {
+        if entry.totalCount == 1 {
+            return DJConnectLocalization.localized(english: "1 playlist", dutch: "1 afspeellijst")
+        }
+        return DJConnectLocalization.localized(english: "\(entry.totalCount) playlists", dutch: "\(entry.totalCount) afspeellijsten")
+    }
+
+    private var accessoryInlineTitle: String {
+        entry.items.first?.name ?? DJConnectLocalization.localized(english: "Playlists", dutch: "Afspeellijsten")
+    }
+}
+
+private struct DJConnectPlaylistStackPreview: View {
+    let items: [DJConnectPlaylistWidgetItem]
+
+    var body: some View {
+        ZStack {
+            if items.isEmpty {
+                DJConnectPlaylistEmptyIcon()
+            } else {
+                ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
+                    DJConnectPlaylistArtwork(item: item)
+                        .frame(width: 62, height: 62)
+                        .offset(x: CGFloat(index) * 10 - 10, y: CGFloat(index) * -6 + 6)
+                }
+            }
+        }
+    }
+}
+
+private struct DJConnectPlaylistArtwork: View {
+    let item: DJConnectPlaylistWidgetItem
+
+    var body: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(
+                    LinearGradient(
+                        colors: [
+                            Color(red: 0.11, green: 0.10, blue: 0.28),
+                            Color(red: 0.30, green: 0.12, blue: 0.42),
+                            Color(red: 0.08, green: 0.30, blue: 0.48)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+            if let imageURL = item.imageURL {
+                AsyncImage(url: imageURL) { phase in
+                    if let image = phase.image {
+                        image
+                            .resizable()
+                            .scaledToFill()
+                    } else {
+                        Image(systemName: "music.note.list")
+                            .font(.headline.weight(.bold))
+                            .foregroundStyle(.white.opacity(0.80))
+                    }
+                }
+            } else {
+                Image(systemName: "music.note.list")
+                    .font(.headline.weight(.bold))
+                    .foregroundStyle(.white.opacity(0.80))
+            }
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .stroke(.white.opacity(0.14), lineWidth: 1)
+        )
+    }
+}
+
+private struct DJConnectPlaylistEmptyIcon: View {
+    var body: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .fill(.white.opacity(0.12))
+            Image(systemName: "music.note.list")
+                .font(.system(size: 25, weight: .bold))
+                .foregroundStyle(.white.opacity(0.78))
+        }
+    }
+}
+
+private struct DJConnectPlaylistsWidgetBackground: View {
+    var body: some View {
+        ZStack {
+            LinearGradient(
+                colors: [
+                    Color(red: 0.03, green: 0.04, blue: 0.10),
+                    Color(red: 0.10, green: 0.08, blue: 0.30),
+                    Color(red: 0.18, green: 0.14, blue: 0.44)
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+            Canvas { context, size in
+                for index in 0..<18 {
+                    let column = index % 6
+                    let row = index / 6
+                    let rect = CGRect(
+                        x: size.width * 0.10 + CGFloat(column) * size.width * 0.14,
+                        y: size.height * 0.24 + CGFloat(row) * size.height * 0.18,
+                        width: size.width * 0.08,
+                        height: size.width * 0.08
+                    )
+                    context.fill(Path(roundedRect: rect, cornerRadius: 3), with: .color(.white.opacity(0.08)))
+                }
+            }
+        }
+    }
+}
+
+struct DJConnectPlaylistsWidget: Widget {
+    let kind = DJConnectPlaylistsWidgetSnapshot.widgetKind
+
+    var body: some WidgetConfiguration {
+        StaticConfiguration(kind: kind, provider: DJConnectPlaylistsWidgetProvider()) { entry in
+            DJConnectPlaylistsWidgetView(entry: entry)
+        }
+        .configurationDisplayName(DJConnectLocalization.localized(english: "Playlists", dutch: "Afspeellijsten"))
+        .description(DJConnectLocalization.localized(english: "Shows DJConnect playlists in compact and detailed widget sizes.", dutch: "Toont DJConnect-afspeellijsten in compacte en uitgebreide widgetformaten."))
+        .supportedFamilies(supportedFamilies)
+    }
+
+    private var supportedFamilies: [WidgetFamily] {
+        #if os(iOS)
+        [
+            .systemSmall,
+            .systemMedium,
+            .systemLarge,
+            .accessoryCircular,
+            .accessoryRectangular,
+            .accessoryInline
+        ]
+        #else
+        [
+            .systemSmall,
+            .systemMedium,
+            .systemLarge,
+            .systemExtraLarge
+        ]
+        #endif
+    }
+}
+
 struct DJConnectTrackInsightWidgetEntry: TimelineEntry {
     let date: Date
     let title: String
@@ -19,6 +1221,8 @@ struct DJConnectTrackInsightWidgetEntry: TimelineEntry {
     let energy: Double
     let danceability: Double
     let intensity: Double
+    let progress: TimeInterval?
+    let duration: TimeInterval?
     let summary: String
     let hasSnapshot: Bool
 
@@ -34,6 +1238,8 @@ struct DJConnectTrackInsightWidgetEntry: TimelineEntry {
         energy: Double,
         danceability: Double,
         intensity: Double,
+        progress: TimeInterval?,
+        duration: TimeInterval?,
         summary: String,
         hasSnapshot: Bool
     ) {
@@ -48,6 +1254,8 @@ struct DJConnectTrackInsightWidgetEntry: TimelineEntry {
         self.energy = energy
         self.danceability = danceability
         self.intensity = intensity
+        self.progress = progress
+        self.duration = duration
         self.summary = summary
         self.hasSnapshot = hasSnapshot
     }
@@ -64,6 +1272,8 @@ struct DJConnectTrackInsightWidgetEntry: TimelineEntry {
         energy: 0.65,
         danceability: 0.72,
         intensity: 0.58,
+        progress: 138,
+        duration: 200,
         summary: "A slow-building journey with glowing synth textures and a hypnotic groove.",
         hasSnapshot: true
     )
@@ -80,6 +1290,8 @@ struct DJConnectTrackInsightWidgetEntry: TimelineEntry {
         energy: 0.5,
         danceability: 0.5,
         intensity: 0.5,
+        progress: nil,
+        duration: nil,
         summary: DJConnectLocalization.localized(
             english: "Run Track Insight in the app to update this widget.",
             dutch: "Open Track Insight in de app om deze widget bij te werken."
@@ -100,6 +1312,8 @@ struct DJConnectTrackInsightWidgetEntry: TimelineEntry {
         energy = snapshot.energy ?? 0.5
         danceability = snapshot.danceability ?? 0.5
         intensity = snapshot.intensity ?? 0.5
+        progress = snapshot.progress
+        duration = snapshot.duration
         summary = snapshot.summary
         hasSnapshot = true
     }
@@ -172,7 +1386,7 @@ struct DJConnectTrackInsightWidgetView: View {
                 .frame(width: 58, height: 58)
             Spacer(minLength: 0)
             titleBlock(lineLimit: 1)
-            metricRow
+            progressOrMetricRow
         }
         .padding(14)
     }
@@ -188,6 +1402,13 @@ struct DJConnectTrackInsightWidgetView: View {
                     .font(.caption)
                     .foregroundStyle(.white.opacity(0.70))
                     .lineLimit(2)
+                if let progressLabel {
+                    Text(progressLabel)
+                        .font(.caption2.weight(.bold))
+                        .monospacedDigit()
+                        .foregroundStyle(.white.opacity(0.76))
+                        .lineLimit(1)
+                }
                 metricRow
             }
             Spacer(minLength: 0)
@@ -203,6 +1424,13 @@ struct DJConnectTrackInsightWidgetView: View {
                     .frame(width: 126, height: 126)
                 VStack(alignment: .leading, spacing: 8) {
                     titleBlock(lineLimit: 2)
+                    if let progressLabel {
+                        Text(progressLabel)
+                            .font(.caption.weight(.bold))
+                            .monospacedDigit()
+                            .foregroundStyle(.white.opacity(0.76))
+                            .lineLimit(1)
+                    }
                     Text(entry.summary)
                         .font(.callout)
                         .foregroundStyle(.white.opacity(0.72))
@@ -226,7 +1454,7 @@ struct DJConnectTrackInsightWidgetView: View {
                 Text(entry.title)
                     .font(.headline)
                     .lineLimit(1)
-                Text(entry.hasSnapshot ? "\(entry.genre) - \(entry.bpm) BPM" : entry.summary)
+                Text(progressLabel ?? (entry.hasSnapshot ? "\(entry.genre) - \(entry.bpm) BPM" : entry.summary))
                     .font(.caption2)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
@@ -275,8 +1503,28 @@ struct DJConnectTrackInsightWidgetView: View {
             .lineLimit(1)
     }
 
+    private var progressOrMetricRow: some View {
+        Text(progressLabel ?? (entry.hasSnapshot ? [entry.genre, bpmLabel, entry.key].filter { !$0.isEmpty }.joined(separator: " - ") : entry.vibe))
+            .font(.caption2.weight(.semibold))
+            .foregroundStyle(.white.opacity(0.70))
+            .lineLimit(1)
+    }
+
     private var bpmLabel: String {
         entry.hasSnapshot && entry.bpm > 0 ? "\(entry.bpm) BPM" : ""
+    }
+
+    private var progressLabel: String? {
+        guard let duration = entry.duration, duration > 0 else {
+            return nil
+        }
+        let progress = min(max(entry.progress ?? 0, 0), duration)
+        return "\(formatTime(progress)) / \(formatTime(duration))"
+    }
+
+    private func formatTime(_ seconds: TimeInterval) -> String {
+        let totalSeconds = max(Int(seconds.rounded()), 0)
+        return "\(totalSeconds / 60):\(String(format: "%02d", totalSeconds % 60))"
     }
 
 }
@@ -827,48 +2075,48 @@ struct DJConnectAskDJWidget: Widget {
 struct DJConnectTrackInsightLiveActivityWidget: Widget {
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: TrackInsightLiveActivityAttributes.self) { context in
-            DJConnectTrackInsightLiveActivityLockScreenView(state: context.state)
+            DJConnectNowPlayingLiveActivityLockScreenView(state: context.state)
                 .activityBackgroundTint(Color(red: 0.03, green: 0.04, blue: 0.10))
                 .activitySystemActionForegroundColor(.white)
         } dynamicIsland: { context in
             DynamicIsland {
                 DynamicIslandExpandedRegion(.leading) {
-                    DJConnectTrackInsightLiveActivityOrb(state: context.state)
+                    DJConnectNowPlayingLiveActivityOrb(state: context.state)
                         .frame(width: 54, height: 54)
                 }
                 DynamicIslandExpandedRegion(.trailing) {
-                    DJConnectTrackInsightLiveActivityMetricStack(state: context.state)
+                    DJConnectNowPlayingLiveActivityStatusStack(state: context.state)
                 }
                 DynamicIslandExpandedRegion(.bottom) {
-                    DJConnectTrackInsightLiveActivityExpandedBottom(state: context.state)
+                    DJConnectNowPlayingLiveActivityExpandedBottom(state: context.state)
                 }
             } compactLeading: {
-                Image(systemName: "waveform.path.ecg")
-                    .foregroundStyle(.purple)
+                Image(systemName: context.state.isPlaying ? "play.fill" : "pause.fill")
+                    .foregroundStyle(.cyan)
             } compactTrailing: {
-                Text(context.state.compactMetric)
+                Text(context.state.compactProgress)
                     .font(.caption2.weight(.bold))
                     .foregroundStyle(.white)
                     .monospacedDigit()
             } minimal: {
-                Image(systemName: "waveform.path.ecg")
-                    .foregroundStyle(.purple)
+                Image(systemName: "music.note")
+                    .foregroundStyle(.cyan)
             }
-            .keylineTint(.purple)
+            .keylineTint(.cyan)
         }
     }
 }
 
 @available(iOS 16.1, *)
-private struct DJConnectTrackInsightLiveActivityLockScreenView: View {
+private struct DJConnectNowPlayingLiveActivityLockScreenView: View {
     let state: TrackInsightLiveActivityAttributes.ContentState
 
     var body: some View {
         HStack(spacing: 14) {
-            DJConnectTrackInsightLiveActivityOrb(state: state)
+            DJConnectNowPlayingLiveActivityOrb(state: state)
                 .frame(width: 72, height: 72)
             VStack(alignment: .leading, spacing: 6) {
-                Label("Track Insight", systemImage: "waveform.path.ecg")
+                Label(DJConnectLocalization.localized(english: "Now Playing", dutch: "Speelt Nu"), systemImage: state.isPlaying ? "play.fill" : "pause.fill")
                     .font(.caption.weight(.bold))
                     .foregroundStyle(.white.opacity(0.72))
                     .textCase(.uppercase)
@@ -880,19 +2128,21 @@ private struct DJConnectTrackInsightLiveActivityLockScreenView: View {
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(.white.opacity(0.70))
                     .lineLimit(1)
-                DJConnectTrackInsightLiveActivityDescriptorRow(state: state)
+                DJConnectNowPlayingLiveActivityDescriptorRow(state: state)
+                ProgressView(value: state.progress)
+                    .tint(.cyan)
             }
             Spacer(minLength: 0)
         }
         .padding(16)
         .background {
-            DJConnectTrackInsightLiveActivityBackground(state: state)
+            DJConnectNowPlayingLiveActivityBackground(state: state)
         }
     }
 }
 
 @available(iOS 16.1, *)
-private struct DJConnectTrackInsightLiveActivityExpandedBottom: View {
+private struct DJConnectNowPlayingLiveActivityExpandedBottom: View {
     let state: TrackInsightLiveActivityAttributes.ContentState
 
     var body: some View {
@@ -906,30 +2156,30 @@ private struct DJConnectTrackInsightLiveActivityExpandedBottom: View {
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
             }
-            DJConnectTrackInsightLiveActivityDescriptorRow(state: state)
-            DJConnectTrackInsightLiveActivityWaveform(state: state)
-                .frame(height: 26)
+            DJConnectNowPlayingLiveActivityDescriptorRow(state: state)
+            ProgressView(value: state.progress)
+                .tint(.cyan)
+            DJConnectNowPlayingLiveActivityWaveform(state: state)
+                .frame(height: 24)
         }
     }
 }
 
 @available(iOS 16.1, *)
-private struct DJConnectTrackInsightLiveActivityDescriptorRow: View {
+private struct DJConnectNowPlayingLiveActivityDescriptorRow: View {
     let state: TrackInsightLiveActivityAttributes.ContentState
 
     var body: some View {
         HStack(spacing: 6) {
-            if let genre = state.genre {
-                Text(genre)
+            Label(state.isPlaying ? DJConnectLocalization.localized(english: "Playing", dutch: "Speelt") : DJConnectLocalization.localized(english: "Paused", dutch: "Gepauzeerd"), systemImage: state.isPlaying ? "play.fill" : "pause.fill")
+            if let compactProgress = state.progressText {
+                Text(compactProgress)
             }
-            if let bpm = state.bpm {
-                Text("\(bpm) BPM")
+            if let deviceName = state.deviceName, !deviceName.isEmpty {
+                Text(deviceName)
             }
-            if let key = state.key {
-                Text(key)
-            }
-            if let vibe = state.vibe ?? state.mood {
-                Text(vibe)
+            if let volumePercent = state.volumePercent {
+                Text("\(volumePercent)%")
             }
         }
         .font(.caption2.weight(.semibold))
@@ -939,25 +2189,29 @@ private struct DJConnectTrackInsightLiveActivityDescriptorRow: View {
 }
 
 @available(iOS 16.1, *)
-private struct DJConnectTrackInsightLiveActivityMetricStack: View {
+private struct DJConnectNowPlayingLiveActivityStatusStack: View {
     let state: TrackInsightLiveActivityAttributes.ContentState
 
     var body: some View {
         VStack(alignment: .trailing, spacing: 4) {
-            if let energy = state.energy {
-                Text(energy.formatted(.number.precision(.fractionLength(2))))
-                    .font(.title3.weight(.bold))
+            Image(systemName: state.isPlaying ? "speaker.wave.2.fill" : "pause.circle")
+                .font(.title3.weight(.bold))
+                .foregroundStyle(.cyan)
+            if let volumePercent = state.volumePercent {
+                Text("\(volumePercent)%")
+                    .font(.caption.weight(.bold))
                     .monospacedDigit()
-                Text(DJConnectLocalization.localized(english: "Energy", dutch: "Energie"))
-                    .font(.caption2.weight(.semibold))
-                    .foregroundStyle(.secondary)
             }
+            Text(state.deviceName ?? "DJConnect")
+                .font(.caption2.weight(.semibold))
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
         }
     }
 }
 
 @available(iOS 16.1, *)
-private struct DJConnectTrackInsightLiveActivityOrb: View {
+private struct DJConnectNowPlayingLiveActivityOrb: View {
     let state: TrackInsightLiveActivityAttributes.ContentState
 
     var body: some View {
@@ -982,12 +2236,12 @@ private struct DJConnectTrackInsightLiveActivityOrb: View {
                         .stroke(
                             AngularGradient(
                                 colors: [
-                                    Color(red: 0.30, green: 0.63, blue: 1.0),
-                                    Color(red: 0.78, green: 0.34, blue: 1.0),
-                                    Color(red: 1.0, green: 0.34, blue: 0.44),
-                                    Color(red: 0.30, green: 0.63, blue: 1.0)
-                                ],
-                                center: .center
+                                Color(red: 0.30, green: 0.63, blue: 1.0),
+                                Color(red: 0.78, green: 0.34, blue: 1.0),
+                                Color(red: 0.16, green: 0.92, blue: 0.84),
+                                Color(red: 0.30, green: 0.63, blue: 1.0)
+                            ],
+                            center: .center
                             ),
                             style: StrokeStyle(lineWidth: CGFloat(4 - ring), lineCap: .round)
                         )
@@ -995,8 +2249,8 @@ private struct DJConnectTrackInsightLiveActivityOrb: View {
                         .padding(CGFloat(ring) * 7 + 5)
                         .opacity(0.92 - Double(ring) * 0.18)
                 }
-                Image(systemName: "sparkles")
-                    .font(.caption.weight(.bold))
+                Image(systemName: state.isPlaying ? "play.fill" : "pause.fill")
+                    .font(.caption.weight(.black))
                     .foregroundStyle(.white.opacity(0.78))
             }
         }
@@ -1004,7 +2258,7 @@ private struct DJConnectTrackInsightLiveActivityOrb: View {
 }
 
 @available(iOS 16.1, *)
-private struct DJConnectTrackInsightLiveActivityWaveform: View {
+private struct DJConnectNowPlayingLiveActivityWaveform: View {
     let state: TrackInsightLiveActivityAttributes.ContentState
 
     var body: some View {
@@ -1013,10 +2267,10 @@ private struct DJConnectTrackInsightLiveActivityWaveform: View {
             Canvas { context, size in
                 let bars = 26
                 let barWidth = size.width / CGFloat(bars)
-                let energy = state.energy ?? 0.62
+                let energy = state.isPlaying ? 0.78 : 0.42
                 for index in 0..<bars {
                     let seed = Double((index * 29 + state.animationSeed) % 97) / 97
-                    let pulse = (sin(phase * 1.7 + Double(index) * 0.45) + 1) / 2
+                    let pulse = state.isPlaying ? (sin(phase * 1.7 + Double(index) * 0.45) + 1) / 2 : 0.28
                     let height = size.height * (0.18 + 0.52 * seed * energy + 0.22 * pulse)
                     let rect = CGRect(
                         x: CGFloat(index) * barWidth,
@@ -1033,7 +2287,7 @@ private struct DJConnectTrackInsightLiveActivityWaveform: View {
 }
 
 @available(iOS 16.1, *)
-private struct DJConnectTrackInsightLiveActivityBackground: View {
+private struct DJConnectNowPlayingLiveActivityBackground: View {
     let state: TrackInsightLiveActivityAttributes.ContentState
 
     var body: some View {
@@ -1041,13 +2295,13 @@ private struct DJConnectTrackInsightLiveActivityBackground: View {
             LinearGradient(
                 colors: [
                     Color(red: 0.03, green: 0.04, blue: 0.10),
-                    Color(red: 0.10, green: 0.08, blue: 0.30),
-                    Color(red: 0.36, green: 0.10, blue: 0.38)
+                    Color(red: 0.05, green: 0.12, blue: 0.32),
+                    Color(red: 0.12, green: 0.10, blue: 0.30)
                 ],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             )
-            DJConnectTrackInsightLiveActivityWaveform(state: state)
+            DJConnectNowPlayingLiveActivityWaveform(state: state)
                 .opacity(0.26)
                 .padding(.top, 48)
         }
@@ -1056,11 +2310,20 @@ private struct DJConnectTrackInsightLiveActivityBackground: View {
 
 @available(iOS 16.1, *)
 private extension TrackInsightLiveActivityAttributes.ContentState {
-    var compactMetric: String {
-        if let bpm {
-            return "\(bpm)"
+    var compactProgress: String {
+        progressText ?? (isPlaying ? DJConnectLocalization.localized(english: "On", dutch: "Aan") : DJConnectLocalization.localized(english: "Off", dutch: "Uit"))
+    }
+
+    var progressText: String? {
+        guard let progressMS, let durationMS, durationMS > 0 else {
+            return nil
         }
-        return "Vibe"
+        return "\(formatTime(progressMS))/\(formatTime(durationMS))"
+    }
+
+    private func formatTime(_ milliseconds: Int) -> String {
+        let seconds = max(0, milliseconds / 1_000)
+        return "\(seconds / 60):\(String(format: "%02d", seconds % 60))"
     }
 }
 #endif
@@ -1068,6 +2331,9 @@ private extension TrackInsightLiveActivityAttributes.ContentState {
 @main
 struct DJConnectTrackInsightWidgetsBundle: WidgetBundle {
     var body: some Widget {
+        DJConnectNowPlayingWidget()
+        DJConnectQueueWidget()
+        DJConnectPlaylistsWidget()
         DJConnectTrackInsightWidget()
         DJConnectAskDJWidget()
         #if canImport(ActivityKit) && os(iOS)
