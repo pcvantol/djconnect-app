@@ -1297,7 +1297,7 @@ public enum TrackInsightParser {
             musicDNALabel: musicDNA?.label,
             musicDNASummary: musicDNA?.summary,
             visualProfile: payload.visualProfile,
-            sections: []
+            sections: payload.sections
         )
     }
 
@@ -1342,6 +1342,7 @@ struct TrackInsightPayload: Decodable {
     var analysis: Analysis?
     var musicDNA: MusicDNA?
     var visualProfile: TrackInsightVisualProfile?
+    var sections: [TrackInsightSection]
 
     struct Track: Codable {
         var title: String?
@@ -1474,6 +1475,7 @@ struct TrackInsightPayload: Decodable {
         case track
         case musicDNA = "music_dna"
         case visualProfile = "visual_profile"
+        case sections
         case trackInsight = "track_insight"
     }
 
@@ -1508,6 +1510,7 @@ struct TrackInsightPayload: Decodable {
         analysis = try container.decodeIfPresent(Analysis.self, forKey: .analysis)
         musicDNA = try container.decodeIfPresent(MusicDNA.self, forKey: .musicDNA)
         visualProfile = try container.decodeIfPresent(TrackInsightVisualProfile.self, forKey: .visualProfile)
+        sections = try container.decodeIfPresent([TrackInsightSection].self, forKey: .sections) ?? []
     }
 
     private static func decodeDate<K: CodingKey>(_ container: KeyedDecodingContainer<K>, key: K) -> Date? {

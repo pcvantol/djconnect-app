@@ -4,6 +4,17 @@ All notable changes to DJConnect App are documented here.
 
 ## Unreleased
 
+## 3.2.5 - 2026-06-30
+
+### Changed
+
+- Split iPhone and Apple Watch pairing into explicit QR/manual flows so the
+  iPhone shows only the relevant pairing action for the active device.
+- Clarified Apple Watch pairing success on both iPhone and Apple Watch.
+- Restyled the Music DNA opt-in prompt to match the Feedback sheet.
+- Refined Track Insight privacy and logs UI with a lock footer icon and muted
+  log line numbers.
+
 ## 3.2.4 - 2026-06-29
 
 ### Added

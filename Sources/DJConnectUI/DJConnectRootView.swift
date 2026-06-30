@@ -852,6 +852,7 @@ private struct SidebarItem: View {
 
 private struct PairingSheetView: View {
     @ObservedObject var model: DJConnectAppModel
+    @State private var isManualPairingVisible = false
     #if os(iOS)
     @State private var isShowingQRScanner = false
     #endif
@@ -883,7 +884,11 @@ private struct PairingSheetView: View {
         .sheet(isPresented: $isShowingQRScanner) {
             PairingQRScannerView(language: model.language) { value in
                 isShowingQRScanner = false
-                model.handlePairingQRCode(value)
+                if model.pairingFlowTarget == .appleWatch {
+                    model.handleWatchPairingQRCode(value)
+                } else {
+                    model.handlePairingQRCode(value)
+                }
             }
         }
         #endif
@@ -892,14 +897,10 @@ private struct PairingSheetView: View {
     private var pairingPending: some View {
         VStack(spacing: 20) {
             VStack(spacing: 8) {
-                Text(localized(model.language, "Pair DJConnect", "DJConnect koppelen"))
+                Text(pairingTitle)
                     .font(.largeTitle.bold())
                     .multilineTextAlignment(.center)
-                Text(localized(
-                    model.language,
-                    "Enter or scan the code shown by Home Assistant while this device and Home Assistant are on the same LAN.",
-                    "Vul of scan de code uit Home Assistant terwijl dit apparaat en Home Assistant op hetzelfde LAN zitten."
-                ))
+                Text(pairingCodeInstruction)
                 .font(.headline)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
@@ -912,80 +913,109 @@ private struct PairingSheetView: View {
                 )
 
                 #if os(iOS)
-                Button {
-                    isShowingQRScanner = true
-                } label: {
-                    Label(
-                        localized(model.language, "Scan Pairing QR Code", "Scan pairing-QR-code"),
-                        systemImage: "qrcode.viewfinder"
-                    )
-                    .frame(maxWidth: .infinity)
+                if model.pairingFlowTarget == .appleWatch {
+                    Button {
+                        isShowingQRScanner = true
+                    } label: {
+                        Label(
+                            localized(model.language, "Pair Apple Watch via QR Code", "Koppel Apple Watch via QR-code"),
+                            systemImage: "applewatch"
+                        )
+                        .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(DJConnectLilacPillButtonStyle())
+                    .controlSize(.large)
+                    .disabled(model.isPairing)
+                } else {
+                    Button {
+                        isShowingQRScanner = true
+                    } label: {
+                        Label(
+                            localized(model.language, "Pair iPhone via QR Code", "Koppel iPhone via QR-code"),
+                            systemImage: "qrcode.viewfinder"
+                        )
+                        .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(DJConnectLilacPillButtonStyle())
+                    .controlSize(.large)
+                    .disabled(model.isPairing)
                 }
-                .buttonStyle(DJConnectLilacPillButtonStyle())
-                .controlSize(.large)
-                .disabled(model.isPairing)
 
                 Button {
-                    isShowingQRScanner = true
+                    withAnimation(.snappy(duration: 0.22)) {
+                        isManualPairingVisible.toggle()
+                    }
                 } label: {
-                    Label(
-                        localized(model.language, "Pair Apple Watch", "Apple Watch koppelen"),
-                        systemImage: "applewatch"
-                    )
+                    HStack(spacing: 8) {
+                        Text(localized(model.language, "Manual", "Handmatig"))
+                            .font(.headline.weight(.semibold))
+                        Image(systemName: "chevron.down")
+                            .font(.subheadline.weight(.semibold))
+                            .rotationEffect(.degrees(isManualPairingVisible ? 180 : 0))
+                    }
+                    .foregroundStyle(djConnectAccent)
                     .frame(maxWidth: .infinity)
+                    .padding(.vertical, 6)
                 }
-                .buttonStyle(DJConnectLilacPillButtonStyle())
-                .controlSize(.large)
-                .disabled(model.isPairing)
+                .buttonStyle(.plain)
+                .accessibilityLabel(localized(model.language, "Manual pairing", "Handmatig koppelen"))
                 #endif
 
-                PairingEditableURLCard(
-                    title: localized(model.language, "Local Home Assistant URL", "Lokale Home Assistant URL"),
-                    language: model.language,
-                    text: $model.homeAssistantURL
-                ) {}
+                if shouldShowManualPairing {
+                    PairingEditableURLCard(
+                        title: localized(model.language, "Local Home Assistant URL", "Lokale Home Assistant URL"),
+                        language: model.language,
+                        text: $model.homeAssistantURL
+                    ) {}
 
                 PairingCodeEntryCard(
                     title: localized(model.language, "Pair Code", "Koppelcode"),
                     language: model.language,
+                    deviceTypeLabel: manualPairingDeviceTypeLabel,
                     text: $model.pairingToken
                 )
+                }
             }
 
-            HStack(spacing: 12) {
-                ProgressView()
-                    .controlSize(.regular)
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(statusTitle)
-                        .font(.headline)
-                        .lineLimit(nil)
-                        .fixedSize(horizontal: false, vertical: true)
-                    if let pairingMessage = model.pairingMessage {
-                        Text(pairingMessage)
-                            .font(.callout)
-                            .foregroundStyle(.secondary)
+            if shouldShowManualPairing {
+                HStack(spacing: 12) {
+                    statusIcon
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(statusTitle)
+                            .font(.headline)
                             .lineLimit(nil)
                             .fixedSize(horizontal: false, vertical: true)
+                        if let pairingMessage = pairingStatusMessage {
+                            Text(pairingMessage)
+                                .font(.callout)
+                                .foregroundStyle(.secondary)
+                                .lineLimit(nil)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
                     }
+                    .layoutPriority(1)
+                    Spacer(minLength: 0)
                 }
-                .layoutPriority(1)
-                Spacer(minLength: 0)
-            }
-            .padding(14)
-            .djConnectGradientCard()
+                .padding(14)
+                .djConnectGradientCard()
 
-            Button {
-                model.confirmPairingHomeAssistantURL()
-            } label: {
-                Label(
-                    localized(model.language, "Pair with Home Assistant", "Koppel met Home Assistant"),
-                    systemImage: "link.circle"
-                )
-                .frame(maxWidth: .infinity)
+                Button {
+                    if model.pairingFlowTarget == .appleWatch {
+                        model.confirmAppleWatchPairingHomeAssistantURL()
+                    } else {
+                        model.confirmPairingHomeAssistantURL()
+                    }
+                } label: {
+                    Label(
+                        manualPairingButtonTitle,
+                        systemImage: "link.circle"
+                    )
+                    .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(DJConnectLilacPillButtonStyle())
+                .controlSize(.large)
+                .disabled(model.isPairing || !canSubmitPairing)
             }
-            .buttonStyle(DJConnectLilacPillButtonStyle())
-            .controlSize(.large)
-            .disabled(model.isPairing)
 
             Button {
                 model.startDemoMode()
@@ -1015,6 +1045,14 @@ private struct PairingSheetView: View {
         }
     }
 
+    private var shouldShowManualPairing: Bool {
+        #if os(iOS)
+        isManualPairingVisible
+        #else
+        true
+        #endif
+    }
+
     #if os(macOS)
     private func quitApplication() {
         NSApp.sendAction(#selector(NSApplication.terminate(_:)), to: nil, from: nil)
@@ -1035,14 +1073,10 @@ private struct PairingSheetView: View {
                 .accessibilityHidden(true)
 
             VStack(spacing: 8) {
-                Text(localized(model.language, "Pairing successful", "Koppeling succesvol"))
+                Text(pairingSuccessTitle)
                     .font(.largeTitle.bold())
                     .multilineTextAlignment(.center)
-                Text(localized(
-                    model.language,
-                    "DJConnect is paired with Home Assistant. Remote access, if configured in Home Assistant, is used only after this local pairing.",
-                    "DJConnect is gekoppeld met Home Assistant. Remote toegang wordt alleen na deze lokale koppeling gebruikt, als Home Assistant die heeft meegegeven."
-                ))
+                Text(pairingSuccessMessage)
                 .font(.headline)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
@@ -1066,11 +1100,184 @@ private struct PairingSheetView: View {
         }
         return switch model.pairingStatus {
         case .pairing:
-            localized(model.language, "Pairing in progress", "Wacht op koppeling in Home Assistant")
+            model.pairingFlowTarget == .appleWatch
+                ? localized(model.language, "Pairing Apple Watch with Home Assistant", "Apple Watch koppelen met Home Assistant")
+                : localized(model.language, "Pairing with Home Assistant", "Koppelen met Home Assistant")
         case .stale:
             localized(model.language, "Not connected to Home Assistant", "Niet gekoppeld aan Home Assistant")
         default:
-            localized(model.language, "Waiting for Home Assistant", "Wachten op Home Assistant")
+            model.pairingFlowTarget == .appleWatch
+                ? localized(model.language, "Ready to Pair Apple Watch", "Klaar om Apple Watch te koppelen")
+                : localized(model.language, "Ready to Pair", "Klaar om te koppelen")
+        }
+    }
+
+    @ViewBuilder
+    private var statusIcon: some View {
+        if model.pairingStatus == .pairing {
+            ProgressView()
+                .controlSize(.regular)
+        } else {
+            Image(systemName: statusIconName)
+                .font(.title2.weight(.semibold))
+                .foregroundStyle(statusIconColor)
+                .frame(width: 28, height: 28)
+        }
+    }
+
+    private var statusIconName: String {
+        if model.pairingStatus == .stale {
+            return "wifi.exclamationmark"
+        }
+        if !isPairingURLValid || !isPairingCodeValid {
+            return "exclamationmark.circle"
+        }
+        return "link.circle"
+    }
+
+    private var statusIconColor: Color {
+        if model.pairingStatus == .stale || !isPairingURLValid || !isPairingCodeValid {
+            return .orange
+        }
+        return .blue
+    }
+
+    private var pairingStatusMessage: String? {
+        if model.pairingStatus == .pairing || model.pairingStatus == .stale {
+            return model.pairingMessage
+        }
+        if !isPairingURLValid {
+            return invalidURLStatusMessage
+        }
+        if !isPairingCodeValid {
+            return invalidPairCodeStatusMessage
+        }
+        if let pairingMessage = model.pairingMessage, !isFieldPrompt(pairingMessage) {
+            return pairingMessage
+        }
+        return localized(
+            model.language,
+            model.pairingFlowTarget == .appleWatch
+                ? "Everything is ready. Click Pair Apple Watch with Home Assistant to start pairing."
+                : "Everything is ready. Click Pair with Home Assistant to start pairing.",
+            model.pairingFlowTarget == .appleWatch
+                ? "Alles staat klaar. Klik op Koppel Apple Watch met Home Assistant om de koppeling te starten."
+                : "Alles staat klaar. Klik op Koppel met Home Assistant om de koppeling te starten."
+        )
+    }
+
+    private var canSubmitPairing: Bool {
+        isPairingURLValid && isPairingCodeValid
+    }
+
+    private var isPairingURLValid: Bool {
+        DJConnectAppModel.normalizedHomeAssistantURL(from: model.homeAssistantURL) != nil
+    }
+
+    private var isPairingCodeValid: Bool {
+        let code = model.pairingToken.trimmingCharacters(in: .whitespacesAndNewlines)
+        return code.count == 6 && code.allSatisfy(\.isNumber)
+    }
+
+    private var invalidURLStatusMessage: String {
+        return localized(
+            model.language,
+            "Enter your Home Assistant URL, for example 192.168.1.10:8123.",
+            "Vul je Home Assistant URL in, bijvoorbeeld 192.168.1.10:8123."
+        )
+    }
+
+    private var invalidPairCodeStatusMessage: String {
+        localized(
+            model.language,
+            model.pairingFlowTarget == .appleWatch
+                ? "Enter the 6-digit Apple Watch pair code shown by Home Assistant."
+                : "Enter the 6-digit pair code shown by Home Assistant.",
+            model.pairingFlowTarget == .appleWatch
+                ? "Vul de 6-cijferige Apple Watch-koppelcode uit Home Assistant in."
+                : "Vul de 6-cijferige koppelcode uit Home Assistant in."
+        )
+    }
+
+    private func isFieldPrompt(_ message: String) -> Bool {
+        message == invalidURLStatusMessage || message == invalidPairCodeStatusMessage
+    }
+
+    private var pairingCodeInstruction: String {
+        #if os(iOS)
+        if model.pairingFlowTarget == .appleWatch {
+            return localized(
+                model.language,
+                "Open DJConnect on Apple Watch, then scan or enter the Apple Watch pair code from Home Assistant on this iPhone.",
+                "Open DJConnect op Apple Watch en scan of vul daarna op deze iPhone de Apple Watch-koppelcode uit Home Assistant in."
+            )
+        }
+        return localized(
+            model.language,
+            "Enter or scan the code shown by Home Assistant while this device and Home Assistant are on the same LAN.",
+            "Vul of scan de code uit Home Assistant terwijl dit apparaat en Home Assistant op hetzelfde LAN zitten."
+        )
+        #else
+        localized(
+            model.language,
+            "Enter the code shown by Home Assistant while this device and Home Assistant are on the same LAN.",
+            "Vul de code uit Home Assistant in terwijl dit apparaat en Home Assistant op hetzelfde LAN zitten."
+        )
+        #endif
+    }
+
+    private var pairingTitle: String {
+        model.pairingFlowTarget == .appleWatch
+            ? localized(model.language, "Pair Apple Watch", "Apple Watch koppelen")
+            : localized(model.language, "Pair DJConnect", "DJConnect koppelen")
+    }
+
+    private var manualPairingButtonTitle: String {
+        model.pairingFlowTarget == .appleWatch
+            ? localized(model.language, "Pair Apple Watch with Home Assistant", "Koppel Apple Watch met Home Assistant")
+            : localized(model.language, "Pair with Home Assistant", "Koppel met Home Assistant")
+    }
+
+    private var manualPairingDeviceTypeLabel: String {
+        model.pairingFlowTarget == .appleWatch
+            ? Self.pairingDeviceTypeLabel(for: .watchos)
+            : Self.pairingDeviceTypeLabel(for: model.identity.clientType)
+    }
+
+    private var pairingSuccessTitle: String {
+        model.pairingFlowTarget == .appleWatch
+            ? localized(model.language, "Apple Watch Paired", "Apple Watch gekoppeld")
+            : localized(model.language, "Pairing successful", "Koppeling succesvol")
+    }
+
+    private var pairingSuccessMessage: String {
+        model.pairingFlowTarget == .appleWatch
+            ? localized(
+                model.language,
+                "Apple Watch is paired with Home Assistant through this iPhone.",
+                "Apple Watch is via deze iPhone gekoppeld met Home Assistant."
+            )
+            : localized(
+                model.language,
+                "DJConnect is paired with Home Assistant. Remote access, if configured in Home Assistant, is used only after this local pairing.",
+                "DJConnect is gekoppeld met Home Assistant. Remote toegang wordt alleen na deze lokale koppeling gebruikt, als Home Assistant die heeft meegegeven."
+            )
+    }
+
+    private static func pairingDeviceTypeLabel(for clientType: DJConnectClientType) -> String {
+        switch clientType {
+        case .ios:
+            "iOS"
+        case .macos:
+            "macOS"
+        case .watchos:
+            "watchOS"
+        case .esp32:
+            "ESP32"
+        case .raspberryPi:
+            "Raspberry Pi"
+        case .windows:
+            "Windows"
         }
     }
 }
@@ -1083,8 +1290,8 @@ private struct PairingNetworkNotice: View {
         Label {
             Text(warning ?? localized(
                     language,
-                    "Pairing is local-only. Use the LAN address of Home Assistant, such as http://homeassistant.local:8123 or http://192.168.x.x:8123. Remote URLs are saved only after local pairing succeeds.",
-                    "Koppelen kan alleen lokaal. Gebruik het LAN-adres van Home Assistant, zoals http://homeassistant.local:8123 of http://192.168.x.x:8123. Remote URL's worden pas bewaard nadat lokale koppeling is gelukt."
+                    "Pairing is local-only. Use the LAN address of Home Assistant. After pairing, DJConnect can also connect to Home Assistant outside your home if Home Assistant provides remote access.",
+                    "Koppelen kan alleen lokaal. Gebruik het LAN-adres van Home Assistant. Na het koppelen kan DJConnect eventueel ook buitenshuis verbinden met Home Assistant als Home Assistant remote toegang aanbiedt."
                 ))
             .fixedSize(horizontal: false, vertical: true)
         } icon: {
@@ -1181,16 +1388,15 @@ private struct PairingEditableURLCard: View {
                 .font(.caption)
                 .foregroundStyle(.orange)
             } else if didConfirm {
-                Label(
+                Text(
                     localized(
                         language,
                         "Open the DJConnect integration in Home Assistant on this LAN and enter the Home Assistant pair code below.",
                         "Open de DJConnect integratie in Home Assistant op dit LAN en vul hieronder de Home Assistant koppelcode in."
-                    ),
-                    systemImage: "checkmark.circle"
+                    )
                 )
                 .font(.caption)
-                .foregroundStyle(.green)
+                .foregroundStyle(.blue)
             }
         }
         .padding(14)
@@ -1227,6 +1433,7 @@ private struct PairingEditableURLCard: View {
 private struct PairingCodeEntryCard: View {
     let title: String
     let language: String
+    let deviceTypeLabel: String
     @Binding var text: String
     @FocusState private var isCodeFocused: Bool
 
@@ -1275,8 +1482,8 @@ private struct PairingCodeEntryCard: View {
                 Label(
                     localized(
                         language,
-                        "Choose macOS in the Home Assistant DJConnect setup flow and enter that code here.",
-                        "Kies macOS in de Home Assistant DJConnect setup-flow en vul die code hier in."
+                        "Choose \(deviceTypeLabel) in the Home Assistant DJConnect setup flow and enter the Home Assistant code here.",
+                        "Kies \(deviceTypeLabel) in de Home Assistant DJConnect setup-flow en vul de Home Assistant code hier in."
                     ),
                     systemImage: "number"
                 )
@@ -2158,6 +2365,7 @@ private struct RefreshButton: View {
             }
         }
         .disabled(model.isDemoMode || model.pairingStatus != .paired || model.isRefreshing)
+        .tint(.primary)
         .help(localized(model.language, "Refresh", "Vernieuwen"))
         .accessibilityLabel(localized(model.language, "Refresh", "Vernieuwen"))
     }
@@ -2588,7 +2796,7 @@ private struct TrackInsightView: View {
                             TrackInsightHero(model: model, insight: insight, isAnimationActive: isAnimationActive)
                             TrackInsightAnalysisCard(insight: insight, language: model.language)
                             TrackInsightMetricsGrid(insight: insight, language: model.language)
-                            MusicDNAMatchCard(insight: insight, language: model.language)
+                            TrackInsightPrivacyFooter(language: model.language)
                         } else {
                             TrackInsightEmptyState(model: model)
                         }
@@ -2599,7 +2807,7 @@ private struct TrackInsightView: View {
                     .frame(maxWidth: .infinity, alignment: .top)
                 }
             }
-            .navigationTitle("Track Insight")
+            .navigationTitle(screenTitle(model.language, "Track Insight", "Track Insight", isDemoMode: model.isDemoMode))
             #if os(iOS)
             .navigationBarTitleDisplayMode(.large)
             #endif
@@ -2637,7 +2845,6 @@ private struct TrackInsightView: View {
 
 private struct MusicDNAView: View {
     @ObservedObject var model: DJConnectAppModel
-    @State private var isShowingClearConfirmation = false
 
     var body: some View {
         NavigationStack {
@@ -2646,7 +2853,7 @@ private struct MusicDNAView: View {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 16) {
                         MusicDNAHeroView(model: model)
-                        MusicDNAContentView(model: model, isShowingClearConfirmation: $isShowingClearConfirmation)
+                        MusicDNAContentView(model: model)
                     }
                     .padding(.horizontal, djConnectScreenHorizontalPadding)
                     .padding(.vertical, djConnectScreenVerticalPadding)
@@ -2664,7 +2871,7 @@ private struct MusicDNAView: View {
             }
             .navigationTitle(screenTitle(model.language, "Music DNA", "Music DNA", isDemoMode: model.isDemoMode))
             #if os(iOS)
-            .navigationBarTitleDisplayMode(.inline)
+            .navigationBarTitleDisplayMode(.large)
             #endif
             .toolbar {
                 #if os(macOS)
@@ -2688,38 +2895,6 @@ private struct MusicDNAView: View {
         .sheet(isPresented: $model.isShowingMusicDNAOptInPrompt) {
             MusicDNAOptInPromptView(model: model)
         }
-        .confirmationDialog(
-            model.isDemoMode
-                ? localized(model.language, "Clear Music DNA in demo?", "Music DNA wissen in demo?")
-                : localized(model.language, "Clear Music DNA?", "Music DNA wissen?"),
-            isPresented: $isShowingClearConfirmation,
-            titleVisibility: .visible
-        ) {
-            if model.isDemoMode {
-                Button(localized(model.language, "Keep Demo Profile", "Demo-profiel behouden")) {
-                    Task { await model.clearMusicDNA() }
-                }
-            } else {
-                Button(localized(model.language, "Clear Music DNA", "Music DNA wissen"), role: .destructive) {
-                    Task { await model.clearMusicDNA() }
-                }
-            }
-            Button(localized(model.language, "Cancel", "Annuleer"), role: .cancel) {}
-        } message: {
-            if model.isDemoMode {
-                Text(localized(
-                    model.language,
-                    "In the real app this clears learned Music DNA on your Home Assistant backend. Because this is demo mode, the fictional sample profile stays visible.",
-                    "In de echte app wist dit geleerde Music DNA op je Home Assistant-backend. Omdat dit demo modus is, blijft het fictieve voorbeeldprofiel zichtbaar."
-                ))
-            } else {
-                Text(localized(
-                    model.language,
-                    "This clears learned Music DNA on your Home Assistant backend. If Music DNA remains enabled, it starts learning again from an empty profile.",
-                    "Dit wist geleerde Music DNA op je Home Assistant-backend. Als Music DNA aan blijft, begint de backend opnieuw vanaf een leeg profiel."
-                ))
-            }
-        }
     }
 }
 
@@ -2738,6 +2913,7 @@ private struct MusicDNARefreshButton: View {
             }
         }
         .disabled(model.isLoadingMusicDNA || model.isUpdatingMusicDNA)
+        .tint(.primary)
         .help(localized(model.language, "Refresh Music DNA", "Music DNA vernieuwen"))
         .accessibilityLabel(localized(model.language, "Refresh Music DNA", "Music DNA vernieuwen"))
     }
@@ -2752,9 +2928,6 @@ private struct MusicDNAHeroView: View {
                 .frame(height: 180)
                 .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
 
-            Text(screenTitle(model.language, "Music DNA", "Music DNA", isDemoMode: model.isDemoMode))
-                .font(.title.weight(.bold))
-                .foregroundStyle(.white)
             Text(localized(
                 model.language,
                 "Music DNA is learned server-side in Home Assistant and only when you opt in.",
@@ -2764,18 +2937,11 @@ private struct MusicDNAHeroView: View {
             .foregroundStyle(.white.opacity(0.72))
             .fixedSize(horizontal: false, vertical: true)
 
-            if model.musicDNAProfileResponse?.enabled == true {
-                Label(
-                    localized(model.language, "Music DNA is enabled.", "Music DNA staat aan."),
-                    systemImage: "sparkles"
-                )
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(djConnectAccent)
-            } else {
+            if model.musicDNAProfileResponse?.enabled != true {
                 Text(localized(
                     model.language,
-                    "Disabled means Home Assistant does not build Music DNA knowledge.",
-                    "Uit betekent dat Home Assistant geen Music DNA-kennis opbouwt."
+                    "DJConnect in Home Assistant does not build a listening profile about you.",
+                    "DJConnect (in Home Assistant) bouwt geen luisterprofiel van je op."
                 ))
                 .font(.subheadline.weight(.semibold))
                 .foregroundStyle(.white.opacity(0.62))
@@ -2791,26 +2957,32 @@ private struct MusicDNAOptInPromptView: View {
     @ObservedObject var model: DJConnectAppModel
 
     var body: some View {
-        NavigationStack {
+        ZStack {
+            DJConnectCanvasBackground()
             VStack(alignment: .leading, spacing: 18) {
-                Image(systemName: "waveform")
-                    .font(.system(size: 44, weight: .semibold))
-                    .foregroundStyle(djConnectAccent)
-                    .frame(width: 64, height: 64)
-                    .background(.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                AboutBanner()
 
                 VStack(alignment: .leading, spacing: 10) {
                     Text(localized(model.language, "Enable Music DNA?", "Music DNA activeren?"))
-                        .font(.title2.weight(.bold))
+                        .font(.title.bold())
                         .foregroundStyle(.white)
                     Text(localized(
                         model.language,
                         "Music DNA lets Home Assistant build a private server-side taste profile for better Ask DJ context and recommendations.",
-                        "Met Music DNA kan Home Assistant een prive server-side smaakprofiel opbouwen voor betere Ask DJ-context en aanbevelingen."
+                        "Met Music DNA kan Home Assistant een privé server-side smaakprofiel opbouwen voor betere Ask DJ-context en aanbevelingen."
                     ))
-                    .font(.callout)
-                    .foregroundStyle(.white.opacity(0.72))
+                    .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
+                    if model.isDemoMode {
+                        Text(localized(
+                            model.language,
+                            "In demo mode this only unlocks fictional sample data on this device. No backend call is made.",
+                            "In demo modus zet dit alleen fictieve voorbeelddata op dit apparaat aan. Er wordt geen backend-call gedaan."
+                        ))
+                        .font(.callout.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                    }
                 }
 
                 VStack(alignment: .leading, spacing: 10) {
@@ -2839,8 +3011,8 @@ private struct MusicDNAOptInPromptView: View {
                         Label(localized(model.language, "Enable Music DNA", "Music DNA activeren"), systemImage: "sparkles")
                             .frame(maxWidth: .infinity)
                     }
-                    .buttonStyle(.borderedProminent)
-                    .tint(djConnectAccent)
+                    .buttonStyle(DJConnectLilacPillButtonStyle())
+                    .controlSize(.large)
                     .disabled(model.isUpdatingMusicDNA)
 
                     Button {
@@ -2849,31 +3021,18 @@ private struct MusicDNAOptInPromptView: View {
                         Text(localized(model.language, "Not Now", "Niet nu"))
                             .frame(maxWidth: .infinity)
                     }
-                    .buttonStyle(.bordered)
-                    .tint(.white.opacity(0.8))
+                    .buttonStyle(DJConnectLilacPillButtonStyle())
+                    .controlSize(.large)
                 }
             }
-            .padding(24)
-            .frame(maxWidth: 520, minHeight: 420, alignment: .topLeading)
-            .background(DJConnectCanvasBackground())
-            .navigationTitle("Music DNA")
-            #if os(iOS)
-            .navigationBarTitleDisplayMode(.inline)
-            #endif
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button(localized(model.language, "Close", "Sluit")) {
-                        model.dismissMusicDNAOptInPrompt()
-                    }
-                }
-            }
+            .padding(28)
+            .frame(minWidth: 360, idealWidth: 520, maxWidth: 620, minHeight: 420, alignment: .topLeading)
         }
     }
 }
 
 private struct MusicDNAContentView: View {
     @ObservedObject var model: DJConnectAppModel
-    @Binding var isShowingClearConfirmation: Bool
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -2882,10 +3041,9 @@ private struct MusicDNAContentView: View {
             } else if let response = model.musicDNAProfileResponse {
                 if response.enabled {
                     if response.profile.isEmpty {
-                        MusicDNANoProfileView(model: model, isShowingClearConfirmation: $isShowingClearConfirmation)
+                        MusicDNANoProfileView(model: model)
                     } else {
                         MusicDNASectionGrid(model: model, response: response)
-                        MusicDNAActionsView(model: model, isShowingClearConfirmation: $isShowingClearConfirmation)
                     }
                 } else {
                     MusicDNADisabledView(model: model)
@@ -2911,7 +3069,7 @@ private struct MusicDNASectionGrid: View {
     private var profile: DJConnectMusicDNAProfile { response.profile }
 
     var body: some View {
-        LazyVGrid(columns: [GridItem(.adaptive(minimum: 160), spacing: 10)], spacing: 10) {
+        LazyVGrid(columns: [GridItem(.adaptive(minimum: 220), spacing: 12, alignment: .top)], spacing: 12) {
             MusicDNAPanel(title: localized(model.language, "Summary", "Samenvatting"), value: profile.summary ?? "-", icon: "waveform")
             MusicDNAPanel(title: localized(model.language, "Favorite Genres", "Favoriete genres"), value: names(profile.favoriteGenres), icon: "music.quarternote.3")
             MusicDNAPanel(title: localized(model.language, "Favorite Artists", "Favoriete artiesten"), value: names(profile.favoriteArtists), icon: "person.wave.2")
@@ -3000,7 +3158,7 @@ private struct MusicDNADisabledView: View {
             .foregroundStyle(.white.opacity(0.72))
             .fixedSize(horizontal: false, vertical: true)
             Button {
-                Task { await model.setMusicDNAEnabled(true) }
+                model.showMusicDNAOptInPrompt()
             } label: {
                 Label(localized(model.language, "Enable Music DNA", "Music DNA aanzetten"), systemImage: "sparkles")
                     .frame(maxWidth: .infinity)
@@ -3016,7 +3174,6 @@ private struct MusicDNADisabledView: View {
 
 private struct MusicDNANoProfileView: View {
     @ObservedObject var model: DJConnectAppModel
-    @Binding var isShowingClearConfirmation: Bool
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -3040,7 +3197,6 @@ private struct MusicDNANoProfileView: View {
             )
             .font(.footnote.weight(.semibold))
             .foregroundStyle(.white.opacity(0.62))
-            MusicDNAActionsView(model: model, isShowingClearConfirmation: $isShowingClearConfirmation)
         }
         .padding(16)
         .djConnectGradientCard(cornerRadius: 8)
@@ -3100,35 +3256,6 @@ private struct MusicDNALoadingView: View {
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
         .djConnectGradientCard(cornerRadius: 8)
-    }
-}
-
-private struct MusicDNAActionsView: View {
-    @ObservedObject var model: DJConnectAppModel
-    @Binding var isShowingClearConfirmation: Bool
-
-    var body: some View {
-        HStack(spacing: 10) {
-            Button {
-                isShowingClearConfirmation = true
-            } label: {
-                Label(localized(model.language, "Clear Music DNA", "Music DNA wissen"), systemImage: "trash")
-                    .frame(maxWidth: .infinity)
-            }
-            .buttonStyle(.bordered)
-            .tint(.red)
-            .disabled(model.isUpdatingMusicDNA)
-
-            Button {
-                Task { await model.setMusicDNAEnabled(false) }
-            } label: {
-                Label(localized(model.language, "Turn Off", "Uitzetten"), systemImage: "power")
-                    .frame(maxWidth: .infinity)
-            }
-            .buttonStyle(.bordered)
-            .tint(.white.opacity(0.8))
-            .disabled(model.isUpdatingMusicDNA)
-        }
     }
 }
 
@@ -3227,14 +3354,14 @@ private struct MusicDNAPanel: View {
             Text(title)
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(.white.opacity(0.58))
+                .fixedSize(horizontal: false, vertical: true)
             Text(value.isEmpty ? "-" : value)
                 .font(.headline.weight(.semibold))
                 .foregroundStyle(.white)
-                .lineLimit(2)
-                .minimumScaleFactor(0.72)
+                .fixedSize(horizontal: false, vertical: true)
         }
-        .padding(14)
-        .frame(maxWidth: .infinity, minHeight: 128, alignment: .topLeading)
+        .padding(18)
+        .frame(maxWidth: .infinity, minHeight: 168, alignment: .topLeading)
         .background(.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
         .overlay {
             RoundedRectangle(cornerRadius: 8, style: .continuous)
@@ -3301,69 +3428,6 @@ private struct MusicDNAHelixView: View {
     }
 }
 
-private struct MusicDNAMatchCard: View {
-    let insight: TrackInsight
-    let language: String
-
-    private var score: Int {
-        insight.musicDNAMatchPercent ?? MusicDNAMatch.score(for: insight)
-    }
-
-    var body: some View {
-        HStack(spacing: 14) {
-            ZStack {
-                Circle()
-                    .stroke(.white.opacity(0.14), lineWidth: 8)
-                Circle()
-                    .trim(from: 0, to: CGFloat(score) / 100)
-                    .stroke(djConnectAccent, style: StrokeStyle(lineWidth: 8, lineCap: .round))
-                    .rotationEffect(.degrees(-90))
-                Text("\(score)%")
-                    .font(.headline.weight(.bold))
-                    .foregroundStyle(.white)
-            }
-            .frame(width: 74, height: 74)
-
-            VStack(alignment: .leading, spacing: 5) {
-                Text("Music DNA Match")
-                    .font(.headline.weight(.semibold))
-                    .foregroundStyle(.white)
-                Text(insight.musicDNASummary?.isEmpty == false ? insight.musicDNASummary! : matchCopy)
-                    .font(.callout)
-                    .foregroundStyle(.white.opacity(0.68))
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-            Spacer(minLength: 0)
-        }
-        .padding(14)
-        .djConnectGradientCard(cornerRadius: 8)
-    }
-
-    private var matchCopy: String {
-        if score >= 88 {
-            return localized(language, "This track fits your Music DNA beautifully.", "Deze track past prachtig bij je Music DNA.")
-        }
-        if score >= 68 {
-            return localized(language, "This track expands your Music DNA with nearby colors.", "Deze track breidt je Music DNA uit met verwante kleuren.")
-        }
-        return localized(language, "This track sits outside your usual Music DNA.", "Deze track ligt buiten je gebruikelijke Music DNA.")
-    }
-}
-
-private enum MusicDNAMatch {
-    static func score(for insight: TrackInsight) -> Int {
-        let seed = insight.id.unicodeScalars.reduce(into: 0) { value, scalar in
-            value = ((value &* 31) &+ Int(scalar.value)) & 0x7fffffff
-        }
-        let musicalSignals = [insight.genre, insight.mood, insight.vibe, insight.texture]
-            .compactMap { $0?.isEmpty == false ? $0 : nil }
-            .count
-        let metricSignals = [insight.energy, insight.danceability, insight.intensity, insight.bpm].compactMap { $0 }.count
-        let base = 58 + (seed % 24)
-        return min(99, base + musicalSignals * 3 + metricSignals * 2)
-    }
-}
-
 private struct TrackInsightHero: View {
     @ObservedObject var model: DJConnectAppModel
     let insight: TrackInsight
@@ -3377,54 +3441,15 @@ private struct TrackInsightHero: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            HStack(alignment: .center, spacing: 10) {
-                Label("Track Insight", systemImage: "waveform")
-                    .font(.title3.weight(.semibold))
-                    .foregroundStyle(.white)
-                Spacer(minLength: 0)
-            }
-
-            TrackVibeVisualizerView(
+            TrackInsightHeroScene(
+                insight: insight,
                 profile: profile,
                 playback: model.playback,
                 reduceMotion: reduceMotion || ProcessInfo.processInfo.isLowPowerModeEnabled,
-                isActive: isAnimationActive
+                isActive: isAnimationActive,
+                language: model.language
             )
-                .frame(height: 330)
-
-            HStack(alignment: .top, spacing: 14) {
-                CachedArtworkImage(url: insight.artwork, mode: .fill) {
-                    TrackHeartbeatIcon(
-                        profile: profile,
-                        playback: model.playback,
-                        reduceMotion: reduceMotion || ProcessInfo.processInfo.isLowPowerModeEnabled,
-                        isActive: isAnimationActive
-                    )
-                }
-                .frame(width: 96, height: 96)
-                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-
-                VStack(alignment: .leading, spacing: 6) {
-                    Text(insight.title)
-                        .font(.title2.weight(.bold))
-                        .foregroundStyle(.white)
-                        .lineLimit(2)
-                    Text(insight.artist)
-                        .font(.headline)
-                        .foregroundStyle(.white.opacity(0.72))
-                        .lineLimit(2)
-                    if let album = insight.album, !album.isEmpty {
-                        Text(album)
-                            .font(.subheadline)
-                            .foregroundStyle(.white.opacity(0.54))
-                            .lineLimit(2)
-                    }
-                    Label(localized(model.language, "Rendered privately on your device", "Privé gerenderd op je apparaat"), systemImage: "lock.shield")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(.white.opacity(0.64))
-                }
-                Spacer(minLength: 0)
-            }
+            .frame(height: 430)
 
         }
         .padding(14)
@@ -3433,6 +3458,270 @@ private struct TrackInsightHero: View {
             RoundedRectangle(cornerRadius: 8, style: .continuous)
                 .stroke(.white.opacity(colorScheme == .dark ? 0.16 : 0.22), lineWidth: 1)
         }
+    }
+}
+
+private struct TrackInsightHeroScene: View {
+    let insight: TrackInsight
+    let profile: TrackVibeProfile
+    let playback: DJConnectPlayback?
+    let reduceMotion: Bool
+    let isActive: Bool
+    let language: String
+
+    var body: some View {
+        Group {
+            if reduceMotion || !isActive {
+                TimelineView(.periodic(from: .now, by: 60)) { timeline in
+                    scene(date: timeline.date)
+                }
+            } else {
+                TimelineView(.animation(minimumInterval: 1.0 / 24.0)) { timeline in
+                    scene(date: timeline.date)
+                }
+            }
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .stroke(.white.opacity(0.14), lineWidth: 1)
+        }
+        .shadow(color: .black.opacity(0.24), radius: 24, x: 0, y: 18)
+    }
+
+    private func scene(date: Date) -> some View {
+        let phase = TrackVibePlaybackPhase(playback: playback, date: date)
+        return GeometryReader { geometry in
+            ZStack {
+                TrackInsightPremiumBackground(profile: profile, phase: phase, date: date)
+                TrackInsightLightField(profile: profile, phase: phase, date: date)
+                TrackInsightHeroArtwork(
+                    insight: insight,
+                    profile: profile,
+                    playback: playback,
+                    reduceMotion: reduceMotion,
+                    isActive: isActive
+                )
+                .frame(
+                    width: min(geometry.size.width * 0.34, 210),
+                    height: min(geometry.size.width * 0.34, 210)
+                )
+                .position(x: geometry.size.width * 0.50, y: geometry.size.height * 0.34)
+
+                TrackInsightPremiumSpectrum(profile: profile, phase: phase)
+                    .frame(height: max(86, geometry.size.height * 0.22))
+                    .padding(.horizontal, 28)
+                    .position(x: geometry.size.width / 2, y: geometry.size.height * 0.67)
+
+                VStack(spacing: 0) {
+                    Spacer(minLength: 0)
+                    TrackInsightHeroInfo(insight: insight, language: language)
+                }
+                .padding(18)
+
+                TrackVibePhaseSpectrum(profile: profile, progress: phase.progress)
+                    .sections(insight.sections)
+                    .padding(.horizontal, 18)
+                    .padding(.bottom, 16)
+                    .frame(maxHeight: .infinity, alignment: .bottom)
+            }
+        }
+    }
+}
+
+private struct TrackInsightPremiumBackground: View {
+    let profile: TrackVibeProfile
+    let phase: TrackVibePlaybackPhase
+    let date: Date
+
+    var body: some View {
+        let colors = profile.colors
+        let time = date.timeIntervalSinceReferenceDate
+        ZStack {
+            LinearGradient(
+                colors: [
+                    Color(red: 0.015, green: 0.020, blue: 0.050),
+                    (colors.first ?? djConnectAccent).opacity(0.42),
+                    Color(red: 0.010, green: 0.018, blue: 0.035)
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+
+            RadialGradient(
+                colors: [
+                    (colors.last ?? djConnectAccent).opacity(0.44),
+                    .clear
+                ],
+                center: UnitPoint(x: 0.22 + phase.progress * 0.56, y: 0.28 + sin(time * 0.18) * 0.06),
+                startRadius: 16,
+                endRadius: 360
+            )
+
+            RadialGradient(
+                colors: [
+                    Color.white.opacity(0.16),
+                    .clear
+                ],
+                center: .topTrailing,
+                startRadius: 8,
+                endRadius: 420
+            )
+
+            LinearGradient(
+                colors: [.clear, .black.opacity(0.58)],
+                startPoint: .center,
+                endPoint: .bottom
+            )
+        }
+    }
+}
+
+private struct TrackInsightLightField: View {
+    let profile: TrackVibeProfile
+    let phase: TrackVibePlaybackPhase
+    let date: Date
+
+    var body: some View {
+        Canvas(opaque: false, rendersAsynchronously: true) { context, size in
+            let time = date.timeIntervalSinceReferenceDate
+            let colors = profile.colors
+            for index in 0..<18 {
+                let progress = CGFloat(index) / 17
+                let x = size.width * (0.10 + progress * 0.82)
+                let drift = CGFloat(sin(time * 0.22 + Double(index) * 0.61)) * 18
+                let y = size.height * (0.18 + CGFloat((index * 37) % 53) / 100) + drift
+                let radius = CGFloat(1.8 + profile.glow * 4.2)
+                context.fill(
+                    Path(ellipseIn: CGRect(x: x - radius, y: y - radius, width: radius * 2, height: radius * 2)),
+                    with: .color((colors[safe: index % max(colors.count, 1)] ?? djConnectAccent).opacity(0.16 + phase.energyLift * 0.16))
+                )
+            }
+        }
+        .blur(radius: 0.3)
+    }
+}
+
+private struct TrackInsightHeroArtwork: View {
+    let insight: TrackInsight
+    let profile: TrackVibeProfile
+    let playback: DJConnectPlayback?
+    let reduceMotion: Bool
+    let isActive: Bool
+
+    var body: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 26, style: .continuous)
+                .fill(.white.opacity(0.12))
+                .blur(radius: 22)
+                .scaleEffect(1.14)
+            CachedArtworkImage(url: insight.artwork, mode: .fill) {
+                TrackHeartbeatIcon(
+                    profile: profile,
+                    playback: playback,
+                    reduceMotion: reduceMotion,
+                    isActive: isActive
+                )
+                .padding(34)
+                .background(profile.gradient)
+            }
+            .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: 24, style: .continuous)
+                    .stroke(.white.opacity(0.32), lineWidth: 1)
+            }
+            .shadow(color: (profile.colors.last ?? djConnectAccent).opacity(0.42), radius: 34, x: 0, y: 18)
+        }
+    }
+}
+
+private struct TrackInsightPremiumSpectrum: View {
+    let profile: TrackVibeProfile
+    let phase: TrackVibePlaybackPhase
+
+    var body: some View {
+        GeometryReader { geometry in
+            let count = 52
+            let spacing: CGFloat = 4
+            let barWidth = max(3, (geometry.size.width - CGFloat(count - 1) * spacing) / CGFloat(count))
+            HStack(alignment: .bottom, spacing: spacing) {
+                ForEach(0..<count, id: \.self) { index in
+                    let normalized = spectrumValue(index: index, count: count)
+                    RoundedRectangle(cornerRadius: barWidth / 2, style: .continuous)
+                        .fill(barGradient(index: index, count: count))
+                        .frame(width: barWidth, height: max(8, geometry.size.height * normalized))
+                        .shadow(color: (profile.colors[safe: index % max(profile.colors.count, 1)] ?? djConnectAccent).opacity(0.28), radius: 8)
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+            .mask(
+                LinearGradient(colors: [.clear, .black, .black, .clear], startPoint: .leading, endPoint: .trailing)
+            )
+        }
+        .allowsHitTesting(false)
+    }
+
+    private func spectrumValue(index: Int, count: Int) -> CGFloat {
+        let base = profile.spectrumProfile[safe: index % max(profile.spectrumProfile.count, 1)] ?? 0.5
+        let position = Double(index) / Double(max(count - 1, 1))
+        let playhead = max(0, 1 - abs(position - phase.progress) * 6)
+        let pulse = (sin(Double(index) * 0.55 + phase.positionSeconds * profile.pulseSpeed) + 1) * 0.5
+        return CGFloat(min(1.0, 0.14 + base * 0.42 + pulse * 0.20 + playhead * 0.36 + phase.energyLift * 0.16))
+    }
+
+    private func barGradient(index: Int, count: Int) -> LinearGradient {
+        let progress = Double(index) / Double(max(count - 1, 1))
+        let colors = profile.colors
+        return LinearGradient(
+            colors: [
+                colors.first?.opacity(0.86) ?? Color.blue.opacity(0.86),
+                colors[safe: 1]?.opacity(0.92) ?? djConnectAccent.opacity(0.92),
+                colors.last?.opacity(0.96) ?? Color.pink.opacity(0.96)
+            ],
+            startPoint: UnitPoint(x: progress, y: 1),
+            endPoint: UnitPoint(x: 1 - progress, y: 0)
+        )
+    }
+}
+
+private struct TrackInsightHeroInfo: View {
+    let insight: TrackInsight
+    let language: String
+
+    var body: some View {
+        VStack(spacing: 10) {
+            Text(insight.title)
+                .font(.title.weight(.bold))
+                .foregroundStyle(.white)
+                .lineLimit(1)
+                .minimumScaleFactor(0.72)
+            Text(insight.artist)
+                .font(.headline.weight(.semibold))
+                .foregroundStyle(.white.opacity(0.74))
+                .lineLimit(1)
+            if let album = insight.album, !album.isEmpty {
+                Text(album)
+                    .font(.subheadline.weight(.medium))
+                    .foregroundStyle(.white.opacity(0.52))
+                    .lineLimit(1)
+            }
+        }
+        .multilineTextAlignment(.center)
+        .padding(.horizontal, 18)
+        .padding(.bottom, 50)
+    }
+}
+
+private struct TrackInsightPrivacyFooter: View {
+    let language: String
+
+    var body: some View {
+        Label(localized(language, "Rendered privately on your device", "Privé gerenderd op je apparaat"), systemImage: "lock.fill")
+            .font(.caption2.weight(.semibold))
+            .foregroundStyle(.white.opacity(0.46))
+            .frame(maxWidth: .infinity, alignment: .center)
+            .padding(.top, 2)
+            .padding(.bottom, 6)
     }
 }
 
@@ -3474,10 +3763,6 @@ private struct VibeCastVisualizerSignalView: View {
         TrackVibeProfile.make(for: insight)
     }
 
-    private var musicDNAScore: Int {
-        insight.musicDNAMatchPercent ?? MusicDNAMatch.score(for: insight)
-    }
-
     var body: some View {
         GeometryReader { geometry in
             ZStack {
@@ -3505,9 +3790,6 @@ private struct VibeCastVisualizerSignalView: View {
                 .font(.headline.weight(.bold))
                 .tracking(1.2)
             Spacer(minLength: 0)
-            Text(localized(language, "Private on-device visualizer", "Privé visualizer op je apparaat"))
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(.white.opacity(0.70))
         }
         .foregroundStyle(.white.opacity(0.88))
     }
@@ -3527,12 +3809,6 @@ private struct VibeCastVisualizerSignalView: View {
                         .lineLimit(1)
                 }
                 Spacer(minLength: 0)
-                Text("\(localized(language, "Music DNA", "Music DNA")) \(musicDNAScore)%")
-                    .font(.headline.weight(.bold))
-                    .foregroundStyle(.white.opacity(0.88))
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 8)
-                    .background(.white.opacity(0.12), in: Capsule())
             }
 
             HStack(spacing: 10) {
@@ -3604,6 +3880,13 @@ private struct AirPlayToolbarButton: View {
             .frame(width: 30, height: 30)
             .accessibilityLabel(localized(language, "AirPlay", "AirPlay"))
             .help(airPlayHelpText)
+        #elseif canImport(AVKit) && os(macOS)
+        NativeAirPlayRoutePicker {
+            openWindow(id: "vibecast")
+        }
+        .frame(width: 30, height: 30)
+        .accessibilityLabel(localized(language, "AirPlay", "AirPlay"))
+        .help(airPlayHelpText)
         #elseif os(macOS)
         Button {
             openWindow(id: "vibecast")
@@ -3611,6 +3894,7 @@ private struct AirPlayToolbarButton: View {
             Image(systemName: "airplayvideo")
         }
         .buttonStyle(.borderless)
+        .foregroundStyle(.primary)
         .accessibilityLabel(localized(language, "VibeCast", "VibeCast"))
         .help(airPlayHelpText)
         #else
@@ -3624,7 +3908,7 @@ private struct AirPlayToolbarButton: View {
 
     private var airPlayHelpText: String {
         #if os(macOS)
-        localized(language, "Open VibeCast visualizer output", "Open VibeCast visualizer-output")
+        localized(language, "Choose an AirPlay display for VibeCast", "Kies een AirPlay-scherm voor VibeCast")
         #else
         localized(language, "VibeCast via AirPlay", "VibeCast via AirPlay")
         #endif
@@ -3643,6 +3927,40 @@ private struct NativeAirPlayRoutePicker: UIViewRepresentable {
     }
 
     func updateUIView(_ uiView: AVRoutePickerView, context: Context) {}
+}
+#elseif canImport(AVKit) && os(macOS)
+private struct NativeAirPlayRoutePicker: NSViewRepresentable {
+    let onActivate: () -> Void
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(onActivate: onActivate)
+    }
+
+    func makeNSView(context: Context) -> AVRoutePickerView {
+        let picker = AVRoutePickerView(frame: .zero)
+        picker.wantsLayer = true
+        picker.layer?.backgroundColor = NSColor.clear.cgColor
+        let recognizer = NSClickGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.activate))
+        recognizer.delaysPrimaryMouseButtonEvents = false
+        picker.addGestureRecognizer(recognizer)
+        return picker
+    }
+
+    func updateNSView(_ nsView: AVRoutePickerView, context: Context) {
+        context.coordinator.onActivate = onActivate
+    }
+
+    final class Coordinator: NSObject {
+        var onActivate: () -> Void
+
+        init(onActivate: @escaping () -> Void) {
+            self.onActivate = onActivate
+        }
+
+        @objc func activate() {
+            onActivate()
+        }
+    }
 }
 #endif
 
@@ -4112,28 +4430,122 @@ private struct TrackHeartbeatIcon: View {
     }
 
     private func icon(phase: TrackVibePlaybackPhase, reduceMotion: Bool) -> some View {
-        let pulse = reduceMotion ? 0.45 : (sin(phase.positionSeconds * profile.pulseSpeed * 1.6) * 0.5 + 0.5)
-        let scale = 1 + CGFloat(pulse) * 0.10 + CGFloat(phase.energyLift) * 0.06
-        let iconOpacity = 0.78 + pulse * 0.18
-        let iconOffset = CGFloat(sin(phase.positionSeconds * 2.2)) * -3
-        let glowOpacity = 0.55 + pulse * 0.34
-        let glowRadius = 8 + pulse * 16
+        let pulse = reduceMotion ? 0.45 : (sin(phase.positionSeconds * profile.pulseSpeed * 1.8) * 0.5 + 0.5)
         let strokeOpacity = 0.12 + pulse * 0.18
 
         return RoundedRectangle(cornerRadius: 8, style: .continuous)
             .fill(profile.gradient)
             .overlay {
-                Image(systemName: "waveform.path.ecg")
-                    .font(.largeTitle.weight(.semibold))
-                    .foregroundStyle(.white.opacity(iconOpacity))
-                    .scaleEffect(scale)
-                    .offset(y: iconOffset)
-                    .shadow(color: (profile.colors.last ?? djConnectAccent).opacity(glowOpacity), radius: glowRadius)
+                TrackHeartbeatRunner(
+                    progress: reduceMotion ? 0.58 : phase.positionSeconds * profile.pulseSpeed * 0.34,
+                    pulse: pulse,
+                    accent: profile.colors.last ?? djConnectAccent,
+                    reduceMotion: reduceMotion
+                )
+                .padding(24)
             }
             .overlay {
                 RoundedRectangle(cornerRadius: 8, style: .continuous)
                     .stroke(.white.opacity(strokeOpacity), lineWidth: 1)
             }
+    }
+}
+
+private struct TrackHeartbeatRunner: View {
+    let progress: Double
+    let pulse: Double
+    let accent: Color
+    let reduceMotion: Bool
+
+    private let points = [
+        CGPoint(x: 0.04, y: 0.54),
+        CGPoint(x: 0.28, y: 0.54),
+        CGPoint(x: 0.38, y: 0.22),
+        CGPoint(x: 0.50, y: 0.82),
+        CGPoint(x: 0.60, y: 0.38),
+        CGPoint(x: 0.69, y: 0.54),
+        CGPoint(x: 0.96, y: 0.54)
+    ]
+
+    var body: some View {
+        GeometryReader { geometry in
+            let size = geometry.size
+            let path = heartbeatPath(in: size)
+            let dot = point(at: progress, in: size)
+            let dotRadius = max(5, min(size.width, size.height) * 0.075)
+            let bounce = reduceMotion ? 0 : CGFloat(sin(progress * .pi * 2)) * -2
+
+            ZStack {
+                path
+                    .stroke(.white.opacity(0.18), style: StrokeStyle(lineWidth: 7, lineCap: .round, lineJoin: .round))
+                    .blur(radius: 7)
+                path
+                    .stroke(.white.opacity(0.92), style: StrokeStyle(lineWidth: 5, lineCap: .round, lineJoin: .round))
+                path
+                    .trim(from: 0, to: CGFloat(reduceMotion ? 1 : normalizedProgress))
+                    .stroke(
+                        LinearGradient(colors: [.white, accent.opacity(0.95)], startPoint: .leading, endPoint: .trailing),
+                        style: StrokeStyle(lineWidth: 5, lineCap: .round, lineJoin: .round)
+                    )
+                    .shadow(color: accent.opacity(0.64), radius: 12)
+
+                Circle()
+                    .fill(.white)
+                    .frame(width: dotRadius * 2, height: dotRadius * 2)
+                    .overlay {
+                        Circle()
+                            .stroke(accent.opacity(0.72), lineWidth: 2)
+                    }
+                    .shadow(color: .white.opacity(0.74), radius: 8)
+                    .shadow(color: accent.opacity(0.82), radius: 18)
+                    .position(x: dot.x, y: dot.y + bounce)
+                    .opacity(reduceMotion ? 0.88 : 0.9 + pulse * 0.1)
+            }
+        }
+        .aspectRatio(1, contentMode: .fit)
+    }
+
+    private var normalizedProgress: Double {
+        progress - floor(progress)
+    }
+
+    private func heartbeatPath(in size: CGSize) -> Path {
+        var path = Path()
+        for (index, point) in points.enumerated() {
+            let mapped = CGPoint(x: point.x * size.width, y: point.y * size.height)
+            if index == 0 {
+                path.move(to: mapped)
+            } else {
+                path.addLine(to: mapped)
+            }
+        }
+        return path
+    }
+
+    private func point(at progress: Double, in size: CGSize) -> CGPoint {
+        let t = normalizedProgress
+        let segmentLengths = zip(points, points.dropFirst()).map { lhs, rhs in
+            hypot(rhs.x - lhs.x, rhs.y - lhs.y)
+        }
+        let totalLength = segmentLengths.reduce(0, +)
+        var remaining = t * totalLength
+
+        for index in segmentLengths.indices {
+            let length = segmentLengths[index]
+            if remaining <= length {
+                let local = length == 0 ? 0 : remaining / length
+                let lhs = points[index]
+                let rhs = points[index + 1]
+                return CGPoint(
+                    x: (lhs.x + (rhs.x - lhs.x) * local) * size.width,
+                    y: (lhs.y + (rhs.y - lhs.y) * local) * size.height
+                )
+            }
+            remaining -= length
+        }
+
+        let fallback = points.last ?? .zero
+        return CGPoint(x: fallback.x * size.width, y: fallback.y * size.height)
     }
 }
 
@@ -4161,8 +4573,13 @@ private struct TrackVibePlaybackPhase {
 private struct TrackVibePhaseSpectrum: View {
     let profile: TrackVibeProfile
     let progress: Double
+    var sectionTitles: [String] = []
 
-    private let phases = ["Intro", "Build", "Drop", "Break", "Outro"]
+    private var visibleSectionTitles: [String] {
+        sectionTitles
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+    }
 
     var body: some View {
         VStack(spacing: 7) {
@@ -4181,17 +4598,28 @@ private struct TrackVibePhaseSpectrum: View {
                         .frame(width: 3, height: height)
                 }
             }
-            HStack {
-                ForEach(phases, id: \.self) { phase in
-                    Text(phase)
-                        .font(.caption2.weight(.medium))
-                        .foregroundStyle(.white.opacity(0.55))
-                    if phase != phases.last {
-                        Spacer(minLength: 0)
+            if !visibleSectionTitles.isEmpty {
+                HStack {
+                    ForEach(visibleSectionTitles, id: \.self) { phase in
+                        Text(phase)
+                            .font(.caption2.weight(.medium))
+                            .foregroundStyle(.white.opacity(0.55))
+                            .lineLimit(1)
+                        if phase != visibleSectionTitles.last {
+                            Spacer(minLength: 0)
+                        }
                     }
                 }
             }
         }
+    }
+}
+
+private extension TrackVibePhaseSpectrum {
+    func sections(_ sections: [TrackInsightSection]) -> TrackVibePhaseSpectrum {
+        var copy = self
+        copy.sectionTitles = sections.map(\.title)
+        return copy
     }
 }
 
@@ -4325,8 +4753,8 @@ private struct TrackInsightEmptyState: View {
                 .font(.title2.weight(.bold))
             Text(localized(
                 model.language,
-                "Open an AI-powered analysis of the current track with a deterministic on-device visualizer.",
-                "Open een AI-analyse van het huidige nummer met een deterministische visualizer op je apparaat."
+                "See what makes the current track feel the way it does.",
+                "Ontdek wat dit nummer zijn gevoel geeft."
             ))
                 .font(.callout)
                 .foregroundStyle(.white.opacity(0.68))
@@ -4408,7 +4836,7 @@ private struct IOSNowPlayingView: View {
                 }
             }
             .navigationTitle(screenTitle(model.language, "Now Playing", "Speelt nu", isDemoMode: model.isDemoMode))
-            .navigationBarTitleDisplayMode(.inline)
+            .navigationBarTitleDisplayMode(.large)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     RefreshButton(model: model)
@@ -4527,7 +4955,7 @@ private struct IOSConnectionCard: View {
         case .paired:
             localized(model.language, "Paired", "Gekoppeld")
         case .pairing:
-            localized(model.language, "Waiting for Home Assistant", "Wachten op Home Assistant")
+            localized(model.language, "Pairing with Home Assistant", "Koppelen met Home Assistant")
         case .stale:
             localized(model.language, "Not connected to Home Assistant", "Niet gekoppeld aan Home Assistant")
         case .unpaired:
@@ -4910,11 +5338,11 @@ struct SetupStatusView: View {
         case .paired:
             localized(model.language, "Paired", "Gekoppeld")
         case .pairing:
-            localized(model.language, "Pairing", "Koppelen")
+            localized(model.language, "Pairing with Home Assistant", "Koppelen met Home Assistant")
         case .stale:
-            localized(model.language, "Stale", "Verlopen")
+            localized(model.language, "Not connected to Home Assistant", "Niet gekoppeld aan Home Assistant")
         case .unpaired:
-            localized(model.language, "Unpaired", "Niet gekoppeld")
+            localized(model.language, "Ready to Pair", "Klaar om te koppelen")
         }
     }
 
@@ -5837,6 +6265,7 @@ private struct AskDJView: View {
                         }
                     } label: {
                         Image(systemName: "arrow.clockwise")
+                            .foregroundStyle(.primary)
                     }
                     .disabled(model.isClearingAskDJHistory)
                     .help(localized(model.language, "Refresh Ask DJ", "Ask DJ vernieuwen"))
@@ -5884,6 +6313,7 @@ private struct AskDJView: View {
                         }
                     } label: {
                         Image(systemName: "arrow.clockwise")
+                            .foregroundStyle(.primary)
                     }
                     .disabled(model.isClearingAskDJHistory)
                     .help(localized(model.language, "Refresh Ask DJ", "Ask DJ vernieuwen"))
@@ -8027,7 +8457,7 @@ private struct AskDJInputBar: View {
         }
         .padding(.horizontal, djConnectScreenHorizontalPadding)
         .padding(.top, 10)
-        .padding(.bottom, 12)
+        .padding(.bottom, 24)
         .background {
             ZStack(alignment: .top) {
                 Rectangle()
@@ -10067,6 +10497,11 @@ struct SettingsView: View {
     var returnToNowPlaying: () -> Void = {}
     @Environment(\.openURL) private var openURL
     @State private var isShowingResetPairingConfirmation = false
+    @State private var isShowingMusicDNAClearConfirmation = false
+
+    private var musicDNAEnabled: Bool {
+        model.musicDNAProfileResponse?.enabled == true
+    }
 
     var body: some View {
         NavigationStack {
@@ -10125,20 +10560,46 @@ struct SettingsView: View {
                 .djSettingsListRowBackground()
 
                 Section("Music DNA") {
-                    Button(role: .destructive) {
-                        Task { await model.setMusicDNAEnabled(false) }
-                    } label: {
-                        Label(localized(model.language, "Turn Off Music DNA", "Music DNA uitschakelen"), systemImage: "power")
+                    LabeledContent("Music DNA") {
+                        if musicDNAEnabled {
+                            Button(role: .destructive) {
+                                Task { await model.setMusicDNAEnabled(false) }
+                            } label: {
+                                Text(localized(model.language, "Turn Off", "Uitschakelen"))
+                            }
+                            .disabled(model.isUpdatingMusicDNA || (!model.isDemoMode && model.pairingStatus != .paired))
+                        } else {
+                            Button {
+                                model.showMusicDNAOptInPrompt()
+                            } label: {
+                                Text(localized(model.language, "Turn On", "Inschakelen"))
+                                    .foregroundStyle(djConnectAccent)
+                            }
+                            .foregroundStyle(djConnectAccent)
+                            .tint(djConnectAccent)
+                            .disabled(model.isUpdatingMusicDNA || (!model.isDemoMode && model.pairingStatus != .paired))
+                        }
                     }
-                    .disabled(model.isUpdatingMusicDNA || model.pairingStatus != .paired)
 
-                    Text(localized(
-                        model.language,
-                        "Music DNA is learned server-side in Home Assistant, only after opt-in. Turning it off clears learned DNA and stops future buildup.",
-                        "Music DNA wordt server-side in Home Assistant geleerd, alleen na opt-in. Uitschakelen wist geleerde DNA en stopt verdere opbouw."
-                    ))
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
+                    LabeledContent(localized(model.language, "Listening Profile", "Luisterprofiel")) {
+                        Button(role: .destructive) {
+                            isShowingMusicDNAClearConfirmation = true
+                        } label: {
+                            Text(localized(model.language, "Clear", "Wissen"))
+                        }
+                        .disabled(model.isUpdatingMusicDNA || (!model.isDemoMode && model.pairingStatus != .paired))
+                    }
+
+                    LabeledContent(localized(model.language, "How It Works", "Werking")) {
+                        Text(localized(
+                            model.language,
+                            "Only after opt-in. Turning off clears the learned profile and stops future buildup.",
+                            "Alleen na opt-in. Uitschakelen wist het geleerde profiel en stopt verdere opbouw."
+                        ))
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.trailing)
+                        .fixedSize(horizontal: false, vertical: true)
+                    }
                 }
                 .djSettingsListRowBackground()
 
@@ -10224,6 +10685,36 @@ struct SettingsView: View {
                     "Dit wist de lokale DJConnect-koppeling en opent het koppelscherm opnieuw."
                 ))
             }
+            .confirmationDialog(
+                localized(model.language, "Clear Music DNA?", "Music DNA wissen?"),
+                isPresented: $isShowingMusicDNAClearConfirmation,
+                titleVisibility: .visible
+            ) {
+                if model.isDemoMode {
+                    Button(localized(model.language, "Keep Demo Profile", "Demo-profiel behouden")) {
+                        Task { await model.clearMusicDNA() }
+                    }
+                } else {
+                    Button(localized(model.language, "Clear Music DNA", "Music DNA wissen"), role: .destructive) {
+                        Task { await model.clearMusicDNA() }
+                    }
+                }
+                Button(localized(model.language, "Cancel", "Annuleer"), role: .cancel) {}
+            } message: {
+                if model.isDemoMode {
+                    Text(localized(
+                        model.language,
+                        "In the real app this clears learned Music DNA on your Home Assistant backend. Because this is demo mode, the fictional sample profile stays visible.",
+                        "In de echte app wist dit geleerde Music DNA op je Home Assistant-backend. Omdat dit demo modus is, blijft het fictieve voorbeeldprofiel zichtbaar."
+                    ))
+                } else {
+                    Text(localized(
+                        model.language,
+                        "This clears learned Music DNA on your Home Assistant backend. If Music DNA remains enabled, it starts learning again from an empty profile.",
+                        "Dit wist geleerde Music DNA op je Home Assistant-backend. Als Music DNA aan blijft, begint de backend opnieuw vanaf een leeg profiel."
+                    ))
+                }
+            }
             .task {
                 model.refreshPermissionStatuses()
                 model.startPairingWait()
@@ -10231,6 +10722,9 @@ struct SettingsView: View {
             #if os(macOS)
             .djConnectMacDetailContent()
             #endif
+        }
+        .sheet(isPresented: $model.isShowingMusicDNAOptInPrompt) {
+            MusicDNAOptInPromptView(model: model)
         }
         .background(DJConnectCanvasBackground())
     }
@@ -10367,6 +10861,7 @@ private struct LogsView: View {
                                     }
                                     LogSearchText(
                                         text: selectableLogText,
+                                        lineNumberWidth: logLineNumberDigits(total: model.diagnosticLogLines.count),
                                         highlight: logSearchText,
                                         isSearchResult: !logSearchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
                                     )
@@ -10408,7 +10903,7 @@ private struct LogsView: View {
             .background(DJConnectCanvasBackground())
             .navigationTitle(localized(model.language, "Logs", "Logs"))
             #if os(macOS)
-            .djConnectMacDetailContent()
+            .djConnectMacDetailContent(maxWidth: 1280)
             #endif
             #if os(iOS)
             .navigationBarTitleDisplayMode(.large)
@@ -10552,6 +11047,7 @@ private struct LogsView: View {
 
 private struct LogSearchText: View {
     let text: String
+    let lineNumberWidth: Int
     let highlight: String
     let isSearchResult: Bool
 
@@ -10563,6 +11059,7 @@ private struct LogSearchText: View {
     private var highlightedText: AttributedString {
         let query = highlight.trimmingCharacters(in: .whitespacesAndNewlines)
         var attributed = AttributedString(text)
+        applyLineNumberColor(to: &attributed)
         guard !query.isEmpty else {
             return attributed
         }
@@ -10577,6 +11074,25 @@ private struct LogSearchText: View {
             searchRange = matchRange.upperBound..<attributed.endIndex
         }
         return attributed
+    }
+
+    private func applyLineNumberColor(to attributed: inout AttributedString) {
+        var lineStart = attributed.startIndex
+        while lineStart < attributed.endIndex {
+            let lineEnd = attributed[lineStart..<attributed.endIndex].characters.firstIndex(of: "\n") ?? attributed.endIndex
+            let numberEnd = attributed.characters.index(
+                lineStart,
+                offsetBy: lineNumberWidth,
+                limitedBy: lineEnd
+            ) ?? lineEnd
+            if lineStart < numberEnd {
+                attributed[lineStart..<numberEnd].foregroundColor = Color.white.opacity(0.48)
+            }
+            guard lineEnd < attributed.endIndex else {
+                break
+            }
+            lineStart = attributed.characters.index(after: lineEnd)
+        }
     }
 }
 
@@ -10798,8 +11314,17 @@ private struct AskDJFeedbackPromptView: View {
     let message: DJConnectAskDJMessage
     @Environment(\.dismiss) private var dismiss
     @Environment(\.openURL) private var openURL
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @State private var userNote = ""
     @State private var issueBody = ""
+
+    private var isCompact: Bool {
+        #if os(iOS)
+        horizontalSizeClass == .compact
+        #else
+        false
+        #endif
+    }
 
     var body: some View {
         ZStack {
@@ -10867,36 +11392,44 @@ private struct AskDJFeedbackPromptView: View {
                             }
                     }
 
-                    HStack(spacing: 12) {
-                        Button {
-                            if let url = model.askDJFeedbackIssueURL(for: message, body: issueBody) {
-                                openURL(url)
-                            }
-                            dismiss()
-                        } label: {
-                            Label(localized(model.language, "Open GitHub Draft", "Open GitHub concept"), systemImage: "arrow.up.right.square")
-                                .frame(maxWidth: .infinity)
-                        }
-                        .buttonStyle(DJConnectLilacPillButtonStyle())
-                        .controlSize(.large)
-
-                        Button {
-                            dismiss()
-                        } label: {
-                            Text(localized(model.language, "Cancel", "Annuleren"))
-                                .frame(maxWidth: .infinity)
-                        }
-                        .buttonStyle(DJConnectLilacPillButtonStyle())
-                        .controlSize(.large)
-                    }
+                    actionButtons
                 }
-                .padding(28)
-                .frame(minWidth: 360, idealWidth: 960, maxWidth: 1_080)
+                .padding(isCompact ? 18 : 28)
+                .frame(maxWidth: 1_080, alignment: .leading)
             }
         }
+        #if os(macOS)
         .frame(minWidth: 760, idealWidth: 1_020, maxWidth: 1_160)
+        #endif
         .onAppear {
             refreshIssueBody()
+        }
+    }
+
+    @ViewBuilder
+    private var actionButtons: some View {
+        let layout = isCompact ? AnyLayout(VStackLayout(spacing: 12)) : AnyLayout(HStackLayout(spacing: 12))
+        layout {
+            Button {
+                if let url = model.askDJFeedbackIssueURL(for: message, body: issueBody) {
+                    openURL(url)
+                }
+                dismiss()
+            } label: {
+                Label(localized(model.language, "Open GitHub Draft", "Open GitHub concept"), systemImage: "arrow.up.right.square")
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(DJConnectLilacPillButtonStyle())
+            .controlSize(.large)
+
+            Button {
+                dismiss()
+            } label: {
+                Text(localized(model.language, "Cancel", "Annuleren"))
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(DJConnectLilacPillButtonStyle())
+            .controlSize(.large)
         }
     }
 
@@ -10904,6 +11437,19 @@ private struct AskDJFeedbackPromptView: View {
         issueBody = model.askDJFeedbackIssueBody(for: message, userNote: userNote)
     }
 }
+
+#if os(iOS)
+#Preview("Ask DJ Feedback - Compact") {
+    let model = DJConnectAppModel(startBackgroundTasks: false)
+    model.language = "nl"
+    let message = DJConnectAskDJMessage(
+        role: .dj,
+        text: "Ik koos dit nummer omdat de warme synths, het tempo en de late-night energie goed aansluiten."
+    )
+    return AskDJFeedbackPromptView(model: model, message: message)
+        .previewDevice("iPhone 17 Pro")
+}
+#endif
 
 private struct FeedbackPromptView: View {
     @ObservedObject var model: DJConnectAppModel
@@ -11221,7 +11767,7 @@ private func wakeWordStatusText(_ model: DJConnectAppModel) -> String {
     case .idle:
         if model.wakeWordEnabled {
             if model.pairingStatus != .paired || !model.isConnected {
-                return localized(model.language, "Waiting for Home Assistant", "Wachten op Home Assistant")
+                return localized(model.language, "Pair Home Assistant first", "Koppel eerst met Home Assistant")
             }
             if !model.backendAvailable {
                 return localized(model.language, "Playback backend unavailable", "Playback backend niet beschikbaar")

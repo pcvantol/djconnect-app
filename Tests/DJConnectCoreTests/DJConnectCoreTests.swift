@@ -351,7 +351,7 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
 }
 
 @MainActor
-@Test func resetPairingRotatesLocalIdentityAndCode() throws {
+@Test func resetPairingRotatesLocalIdentityAndClearsPairCode() throws {
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
@@ -359,13 +359,13 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     let tokenStore = DJConnectInMemoryTokenStore(token: "secret-token")
     let model = DJConnectAppModel(defaults: defaults, tokenStore: tokenStore, startBackgroundTasks: false)
     let originalDeviceID = model.identity.deviceID
-    let originalPairingToken = model.pairingToken
 
     model.resetPairing()
 
     #expect(model.identity.deviceID != originalDeviceID)
     #expect(model.identity.deviceID.hasPrefix("djconnect-"))
-    #expect(model.pairingToken != originalPairingToken)
+    #expect(model.pairingToken.isEmpty)
+    #expect(defaults.string(forKey: "DJConnectPairingToken") == nil)
     #expect(try tokenStore.loadToken() == nil)
 }
 
@@ -383,6 +383,22 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     #expect(model.isConnected == false)
     #expect(try tokenStore.loadToken() == nil)
     #expect(defaults.string(forKey: "DJConnectInstallID")?.isEmpty == false)
+}
+
+@MainActor
+@Test func freshInstallDoesNotGenerateLocalPairCode() throws {
+    let suiteName = "DJConnectTests-\(UUID().uuidString)"
+    let defaults = try #require(UserDefaults(suiteName: suiteName))
+    defaults.removePersistentDomain(forName: suiteName)
+    let model = DJConnectAppModel(
+        defaults: defaults,
+        tokenStore: DJConnectInMemoryTokenStore(),
+        startBackgroundTasks: false
+    )
+
+    #expect(model.pairingToken.isEmpty)
+    #expect(defaults.string(forKey: "DJConnectPairingToken") == nil)
+    #expect(model.pairingStatus == DJConnectPairingStatus.unpaired)
 }
 
 @MainActor
@@ -872,7 +888,7 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
 }
 
 @MainActor
-@Test func demoModeShowsFictionalMusicDNAProfileAndSupportsClear() async throws {
+@Test func demoModeRequiresLocalMusicDNAOptInAndSupportsClear() async throws {
     let defaults = try testDefaults()
     let model = DJConnectAppModel(
         defaults: defaults,
@@ -883,6 +899,13 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     model.startDemoMode()
 
     #expect(model.isDemoMode == true)
+    #expect(model.demoMusicDNAEnabled == false)
+    #expect(model.musicDNAProfileResponse?.enabled == false)
+    #expect(model.musicDNAProfileResponse?.profile.isEmpty == true)
+
+    await model.setMusicDNAEnabled(true)
+
+    #expect(model.demoMusicDNAEnabled == true)
     #expect(model.musicDNAProfileResponse?.enabled == true)
     #expect(model.musicDNAProfileResponse?.profile.summary?.contains("fictional") == true)
     #expect(model.musicDNAProfileResponse?.profile.favoriteArtists.map(\.name).contains("Luna Vale") == true)
@@ -893,6 +916,12 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     #expect(model.musicDNAProfileResponse?.enabled == true)
     #expect(model.musicDNAProfileResponse?.profile.favoriteArtists.map(\.name).contains("Luna Vale") == true)
     #expect(model.musicDNAProfileResponse?.profile.recentTracks.map(\.title).contains("Glass Avenue") == true)
+
+    await model.setMusicDNAEnabled(false)
+
+    #expect(model.demoMusicDNAEnabled == false)
+    #expect(model.musicDNAProfileResponse?.enabled == false)
+    #expect(model.musicDNAProfileResponse?.profile.isEmpty == true)
 }
 
 @MainActor
@@ -1798,7 +1827,11 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
           "glow_strength": 0.9,
           "spectrum_bias": "mid",
           "seed": "innerbloom"
-        }
+        },
+        "sections": [
+          { "id": "intro", "title": "Intro", "summary": "Soft opening" },
+          { "id": "lift", "title": "Lift", "summary": "Energy rises" }
+        ]
       }
     }
     """.data(using: .utf8)!
@@ -1826,6 +1859,7 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     #expect(insight.musicDNALabel == .matchesMusicDNA)
     #expect(insight.visualProfile?.motionStyle == .cinematic)
     #expect(insight.visualProfile?.spectrumBias == .mid)
+    #expect(insight.sections.map(\.title) == ["Intro", "Lift"])
 }
 
 @Test func askDJMessageResponseDecodesTrackInsightMetadataAndOpenScreen() throws {
@@ -4684,6 +4718,50 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
 }
 
 @MainActor
+@Test func askDJFeedbackDraftIncludesContextWithoutLocalIdentifiers() throws {
+    let suiteName = "DJConnectTests-\(UUID().uuidString)"
+    let defaults = try #require(UserDefaults(suiteName: suiteName))
+    defaults.removePersistentDomain(forName: suiteName)
+    let clientMessageID = "client-message-\(UUID().uuidString)"
+    let userMessage = DJConnectAskDJMessage(
+        id: UUID(),
+        clientMessageID: clientMessageID,
+        exchangeID: "exchange-feedback",
+        exchangeOrder: 0,
+        role: .user,
+        text: "Waarom past dit nummer bij de avond?",
+        status: .sent,
+        createdAt: Date(timeIntervalSince1970: 100)
+    )
+    let answerMessage = DJConnectAskDJMessage(
+        id: UUID(),
+        clientMessageID: clientMessageID,
+        exchangeID: "exchange-feedback",
+        exchangeOrder: 1,
+        role: .dj,
+        text: "Omdat de warme synths en rustige drums goed passen.",
+        status: .delivered,
+        createdAt: Date(timeIntervalSince1970: 101)
+    )
+    defaults.set(try JSONEncoder().encode([userMessage, answerMessage]), forKey: "DJConnectAskDJMessages")
+    let model = DJConnectAppModel(
+        defaults: defaults,
+        tokenStore: DJConnectInMemoryTokenStore(token: "secret-token"),
+        startBackgroundTasks: false
+    )
+
+    let body = model.askDJFeedbackIssueBody(for: answerMessage, userNote: "Het antwoord miste de context van mijn vraag.")
+
+    #expect(body.contains("Het antwoord miste de context van mijn vraag."))
+    #expect(body.contains("Waarom past dit nummer bij de avond?"))
+    #expect(body.contains("Omdat de warme synths en rustige drums goed passen."))
+    #expect(body.contains(#""client_type""#))
+    #expect(!body.contains(model.identity.deviceID))
+    #expect(!body.contains("secret-token"))
+    #expect(!body.contains(#""device_id""#))
+}
+
+@MainActor
 @Test func demoModeNextCommandAdvancesThroughQueue() async throws {
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
@@ -4860,6 +4938,9 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     #expect(model.playback?.trackName == "Midnight City")
     #expect(model.queueItems.isEmpty == false)
     #expect(model.playlistItems.isEmpty == false)
+    #expect(model.currentTrackInsight == nil)
+    model.openTrackInsight()
+    #expect(model.currentTrackInsight == nil)
 }
 
 @MainActor

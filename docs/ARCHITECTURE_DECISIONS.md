@@ -191,7 +191,7 @@ The watchOS pairing sheet shows the Watch code and paired-iPhone status.
 Reasoning:
 
 - prevents users from interacting with runtime controls that cannot work yet;
-- gives Home Assistant one visible app code and one local pairing flow;
+- gives Home Assistant one visible pair code and one local pairing flow;
 - keeps the wakeword activation prompt from competing with pairing success;
 - lets Settings remain available after pairing reset through the same recovery
   path.

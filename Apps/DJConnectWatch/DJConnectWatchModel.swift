@@ -297,6 +297,8 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
     @AppStorage("DJConnectWatchWelcomeSeen") private var welcomeSeen = false
     @AppStorage("watchVoiceActivationEnabled") private var storedVoiceActivationEnabled = false
     @AppStorage("DJConnectWatchMusicDNAOptInPromptSeen") private var musicDNAOptInPromptSeen = false
+    @AppStorage("DJConnectWatchDemoMusicDNAEnabled") private var storedDemoMusicDNAEnabled = false
+    @AppStorage("DJConnectWatchDemoMusicDNAOptInPromptSeen") private var demoMusicDNAOptInPromptSeen = false
 
     var language: String {
         Locale.current.language.languageCode?.identifier ?? "en"
@@ -330,6 +332,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
     @Published private(set) var isLoadingMusicDNA = false
     @Published private(set) var isUpdatingMusicDNA = false
     @Published private(set) var musicDNAErrorMessage: String?
+    @Published private(set) var demoMusicDNAEnabled = false
     @Published var isShowingMusicDNAOptInPrompt = false
     @Published private(set) var playingAskDJActionID: String?
     @Published private(set) var isSavingCurrentTrack = false
@@ -398,6 +401,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
     init(monkeyTestingMode: Bool = false) {
         self.monkeyTestingMode = monkeyTestingMode
         super.init()
+        demoMusicDNAEnabled = storedDemoMusicDNAEnabled
         askDJMessages = Self.loadAskDJMessages(key: askDJMessagesKey)
         isShowingWelcome = !welcomeSeen && !monkeyTestingMode
         if monkeyTestingMode {
@@ -1767,11 +1771,21 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
     }
 
     func prepareMusicDNAConsentPromptIfNeeded() async {
-        guard canUseBackend,
-              !musicDNAOptInPromptSeen,
+        let promptSeen = isDemoMode ? demoMusicDNAOptInPromptSeen : musicDNAOptInPromptSeen
+        guard (isDemoMode || canUseBackend),
+              !promptSeen,
               !isShowingMusicDNAOptInPrompt,
               !isLoadingMusicDNAConsent,
               !isUpdatingMusicDNAConsent else {
+            return
+        }
+        if isDemoMode {
+            applyDemoMusicDNAProfile()
+            if musicDNAProfileResponse?.enabled == true {
+                demoMusicDNAOptInPromptSeen = true
+            } else {
+                isShowingMusicDNAOptInPrompt = true
+            }
             return
         }
         isLoadingMusicDNAConsent = true
@@ -1791,10 +1805,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
 
     func refreshMusicDNAProfile() async {
         if isDemoMode {
-            musicDNAProfileResponse = Self.demoMusicDNAProfileResponse()
-            musicDNAErrorMessage = nil
-            isLoadingMusicDNA = false
-            isUpdatingMusicDNA = false
+            applyDemoMusicDNAProfile()
             return
         }
         guard canUseBackend else {
@@ -1830,8 +1841,16 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
     }
 
     func dismissMusicDNAOptInPrompt() {
-        musicDNAOptInPromptSeen = true
+        if isDemoMode {
+            demoMusicDNAOptInPromptSeen = true
+        } else {
+            musicDNAOptInPromptSeen = true
+        }
         isShowingMusicDNAOptInPrompt = false
+    }
+
+    func showMusicDNAOptInPrompt() {
+        isShowingMusicDNAOptInPrompt = true
     }
 
     private func setMusicDNAEnabledFromPrompt(_ enabled: Bool) async {
@@ -1840,12 +1859,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
 
     func setMusicDNAEnabled(_ enabled: Bool) async {
         if isDemoMode {
-            musicDNAProfileResponse = enabled ? Self.demoMusicDNAProfileResponse() : DJConnectMusicDNAProfileResponse(
-                success: true,
-                enabled: false,
-                profile: DJConnectMusicDNAProfile()
-            )
-            musicDNAErrorMessage = nil
+            setDemoMusicDNAEnabled(enabled)
             return
         }
         guard canUseBackend else {
@@ -1893,6 +1907,21 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
             musicDNAErrorMessage = Self.userMessage(for: error)
             showAskDJToast(Self.askDJToastText(for: error))
         }
+    }
+
+    private func setDemoMusicDNAEnabled(_ enabled: Bool) {
+        storedDemoMusicDNAEnabled = enabled
+        demoMusicDNAEnabled = enabled
+        demoMusicDNAOptInPromptSeen = true
+        applyDemoMusicDNAProfile()
+    }
+
+    private func applyDemoMusicDNAProfile() {
+        musicDNAProfileResponse = demoMusicDNAEnabled ? Self.demoMusicDNAProfileResponse() : Self.disabledMusicDNAProfileResponse()
+        musicDNAErrorMessage = nil
+        isLoadingMusicDNA = false
+        isUpdatingMusicDNA = false
+        isUpdatingMusicDNAConsent = false
     }
 
     private func applyMusicDNAProfile(_ response: DJConnectMusicDNAProfileResponse) {
@@ -3498,6 +3527,14 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
             .replacingOccurrences(of: "-", with: "")
             .prefix(12)
             .uppercased()
+    }
+
+    private static func disabledMusicDNAProfileResponse() -> DJConnectMusicDNAProfileResponse {
+        DJConnectMusicDNAProfileResponse(
+            success: true,
+            enabled: false,
+            profile: DJConnectMusicDNAProfile()
+        )
     }
 
     private static func demoMusicDNAProfileResponse() -> DJConnectMusicDNAProfileResponse {

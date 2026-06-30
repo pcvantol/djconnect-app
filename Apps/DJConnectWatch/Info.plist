@@ -38,6 +38,6 @@
 	<key>WKApplication</key>
 	<true/>
 	<key>WKWatchOnly</key>
-	<false/>
+	<true/>
 </dict>
 </plist>

@@ -19,7 +19,6 @@ struct DJConnectTrackInsightWidgetEntry: TimelineEntry {
     let energy: Double
     let danceability: Double
     let intensity: Double
-    let musicDNAMatchPercent: Int?
     let summary: String
     let hasSnapshot: Bool
 
@@ -35,7 +34,6 @@ struct DJConnectTrackInsightWidgetEntry: TimelineEntry {
         energy: Double,
         danceability: Double,
         intensity: Double,
-        musicDNAMatchPercent: Int?,
         summary: String,
         hasSnapshot: Bool
     ) {
@@ -50,7 +48,6 @@ struct DJConnectTrackInsightWidgetEntry: TimelineEntry {
         self.energy = energy
         self.danceability = danceability
         self.intensity = intensity
-        self.musicDNAMatchPercent = musicDNAMatchPercent
         self.summary = summary
         self.hasSnapshot = hasSnapshot
     }
@@ -67,7 +64,6 @@ struct DJConnectTrackInsightWidgetEntry: TimelineEntry {
         energy: 0.65,
         danceability: 0.72,
         intensity: 0.58,
-        musicDNAMatchPercent: 96,
         summary: "A slow-building journey with glowing synth textures and a hypnotic groove.",
         hasSnapshot: true
     )
@@ -84,7 +80,6 @@ struct DJConnectTrackInsightWidgetEntry: TimelineEntry {
         energy: 0.5,
         danceability: 0.5,
         intensity: 0.5,
-        musicDNAMatchPercent: nil,
         summary: DJConnectLocalization.localized(
             english: "Run Track Insight in the app to update this widget.",
             dutch: "Open Track Insight in de app om deze widget bij te werken."
@@ -105,7 +100,6 @@ struct DJConnectTrackInsightWidgetEntry: TimelineEntry {
         energy = snapshot.energy ?? 0.5
         danceability = snapshot.danceability ?? 0.5
         intensity = snapshot.intensity ?? 0.5
-        musicDNAMatchPercent = snapshot.musicDNAMatchPercent
         summary = snapshot.summary
         hasSnapshot = true
     }
@@ -194,7 +188,6 @@ struct DJConnectTrackInsightWidgetView: View {
                     .font(.caption)
                     .foregroundStyle(.white.opacity(0.70))
                     .lineLimit(2)
-                musicDNAMatchChip
                 metricRow
             }
             Spacer(minLength: 0)
@@ -214,7 +207,6 @@ struct DJConnectTrackInsightWidgetView: View {
                         .font(.callout)
                         .foregroundStyle(.white.opacity(0.72))
                         .lineLimit(3)
-                    musicDNAMatchChip
                 }
             }
             DJConnectTrackInsightMeterRow(entry: entry)
@@ -287,17 +279,6 @@ struct DJConnectTrackInsightWidgetView: View {
         entry.hasSnapshot && entry.bpm > 0 ? "\(entry.bpm) BPM" : ""
     }
 
-    @ViewBuilder
-    private var musicDNAMatchChip: some View {
-        if let match = entry.musicDNAMatchPercent, entry.hasSnapshot {
-            Text("\(DJConnectLocalization.localized(english: "Music DNA", dutch: "Music DNA")) \(match)%")
-                .font(.caption2.weight(.bold))
-                .foregroundStyle(.white.opacity(0.86))
-                .padding(.horizontal, 8)
-                .padding(.vertical, 4)
-                .background(.white.opacity(0.13), in: Capsule())
-        }
-    }
 }
 
 private struct DJConnectTrackInsightWidgetBackground: View {
@@ -963,14 +944,7 @@ private struct DJConnectTrackInsightLiveActivityMetricStack: View {
 
     var body: some View {
         VStack(alignment: .trailing, spacing: 4) {
-            if let match = state.musicDNAMatchPercent {
-                Text("\(match)%")
-                    .font(.title3.weight(.bold))
-                    .monospacedDigit()
-                Text("Music DNA")
-                    .font(.caption2.weight(.semibold))
-                    .foregroundStyle(.secondary)
-            } else if let energy = state.energy {
+            if let energy = state.energy {
                 Text(energy.formatted(.number.precision(.fractionLength(2))))
                     .font(.title3.weight(.bold))
                     .monospacedDigit()
@@ -1083,9 +1057,6 @@ private struct DJConnectTrackInsightLiveActivityBackground: View {
 @available(iOS 16.1, *)
 private extension TrackInsightLiveActivityAttributes.ContentState {
     var compactMetric: String {
-        if let match = musicDNAMatchPercent {
-            return "\(match)%"
-        }
         if let bpm {
             return "\(bpm)"
         }

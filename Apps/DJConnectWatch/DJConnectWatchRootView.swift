@@ -362,11 +362,11 @@ struct DJConnectWatchRootView: View {
                             endPoint: .bottomTrailing
                         )
                     )
-                Text(watchLocalized(model.language, "Paired successfully", "Succesvol gekoppeld"))
+                Text(watchLocalized(model.language, "Apple Watch paired", "Apple Watch gekoppeld"))
                     .font(.headline)
                     .foregroundStyle(.white)
                     .multilineTextAlignment(.center)
-                Text(watchLocalized(model.language, "DJConnect is connected to Home Assistant.", "DJConnect is verbonden met Home Assistant."))
+                Text(watchLocalized(model.language, "Apple Watch is paired with Home Assistant through your iPhone.", "Apple Watch is via je iPhone gekoppeld met Home Assistant."))
                     .font(.caption2)
                     .foregroundStyle(.white.opacity(0.68))
                     .multilineTextAlignment(.center)
@@ -617,7 +617,7 @@ struct DJConnectWatchRootView: View {
                     .padding(.vertical, 8)
                 }
             }
-            .navigationTitle("Track Insight")
+            .navigationTitle(model.isDemoMode ? "Track Insight (Demo)" : "Track Insight")
         }
     }
 
@@ -625,56 +625,51 @@ struct DJConnectWatchRootView: View {
         let profile: TrackVibeProfile
 
         var body: some View {
-            TimelineView(.animation) { timeline in
-                Canvas { context, size in
-                    let time = timeline.date.timeIntervalSinceReferenceDate
-                    let colors = profile.palette.compactMap { Color(watchHex: $0) }
-                    let rect = CGRect(origin: .zero, size: size)
-                    context.fill(Path(rect), with: .radialGradient(
-                        Gradient(colors: [watchAccentPurple.opacity(0.34), watchDeepNavy, .black]),
-                        center: CGPoint(x: size.width * 0.50, y: size.height * 0.50),
-                        startRadius: 4,
-                        endRadius: max(size.width, size.height)
-                    ))
-                    let pulse = sin(time * profile.pulseSpeed) * 0.5 + 0.5
-                    let center = CGPoint(x: size.width * 0.52, y: size.height * 0.46)
-                    let radius = min(size.width, size.height) * (0.24 + CGFloat(pulse) * 0.04)
-                    for ring in 0..<4 {
-                        let ringRadius = radius * (0.82 + CGFloat(ring) * 0.24)
-                        context.stroke(
-                            Path(ellipseIn: CGRect(x: center.x - ringRadius, y: center.y - ringRadius, width: ringRadius * 2, height: ringRadius * 2)),
-                            with: .color((colors[safe: ring] ?? watchAccentPurple).opacity(0.58 - Double(ring) * 0.09)),
-                            lineWidth: 1.4
-                        )
+            ZStack {
+                LinearGradient(
+                    colors: [watchDeepNavy, watchAccentPurple.opacity(0.34), .black],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+
+                ZStack {
+                    ForEach(0..<4, id: \.self) { ring in
+                        Circle()
+                            .stroke(ringColor(ring).opacity(0.56 - Double(ring) * 0.09), lineWidth: 1.4)
+                            .frame(width: 38 + CGFloat(ring) * 16, height: 38 + CGFloat(ring) * 16)
                     }
-                    for index in 0..<80 {
-                        let angle = Double(index) / 80 * .pi * 2
-                        let wave = sin(angle * 5 + time * profile.animationSpeed) * 0.5 + 0.5
-                        let distance = radius * (1.05 + CGFloat(wave) * 0.42)
-                        let x = center.x + cos(angle) * distance
-                        let y = center.y + sin(angle) * distance
-                        context.fill(
-                            Path(ellipseIn: CGRect(x: x - 1.2, y: y - 1.2, width: 2.4, height: 2.4)),
-                            with: .color((colors[safe: index % max(colors.count, 1)] ?? watchAccentPurple).opacity(0.72))
-                        )
-                    }
-                    for index in 0..<24 {
-                        let base = profile.spectrumProfile[index % profile.spectrumProfile.count]
-                        let x = size.width * CGFloat(index) / 23
-                        let height = CGFloat(base) * 28 + 5
-                        context.fill(
-                            Path(roundedRect: CGRect(x: x, y: size.height - height - 6, width: 2.2, height: height), cornerRadius: 1.1),
-                            with: .color(Color(hue: 0.60 + Double(index) / 90, saturation: 0.85, brightness: 1.0).opacity(0.78))
-                        )
+                    Image(systemName: "waveform.path.ecg")
+                        .font(.system(size: 28, weight: .semibold))
+                        .foregroundStyle(.white.opacity(0.88))
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+                HStack(alignment: .bottom, spacing: 3) {
+                    ForEach(0..<24, id: \.self) { index in
+                        RoundedRectangle(cornerRadius: 1.1, style: .continuous)
+                            .fill(Color(hue: 0.60 + Double(index) / 90, saturation: 0.85, brightness: 1.0).opacity(0.78))
+                            .frame(width: 2.4, height: barHeight(index))
                     }
                 }
+                .frame(maxHeight: .infinity, alignment: .bottom)
+                .padding(.bottom, 7)
             }
+        }
+
+        private func ringColor(_ index: Int) -> Color {
+            let colors = profile.palette.compactMap { Color(watchHex: $0) }
+            return colors[safe: index] ?? watchAccentPurple
+        }
+
+        private func barHeight(_ index: Int) -> CGFloat {
+            let spectrum = profile.spectrumProfile.isEmpty ? [0.5] : profile.spectrumProfile
+            let base = spectrum[index % spectrum.count]
+            return CGFloat(base) * 28 + 5
         }
     }
 
     private struct DJConnectWatchMusicDNAView: View {
         @EnvironmentObject private var model: DJConnectWatchModel
-        @State private var isShowingClearConfirmation = false
 
         var body: some View {
             ZStack {
@@ -708,37 +703,6 @@ struct DJConnectWatchRootView: View {
             .task {
                 await model.refreshMusicDNAProfile()
                 await model.prepareMusicDNAConsentPromptIfNeeded()
-            }
-            .confirmationDialog(
-                model.isDemoMode
-                    ? watchLocalized(model.language, "Clear Music DNA in demo?", "Music DNA wissen in demo?")
-                    : watchLocalized(model.language, "Clear Music DNA?", "Music DNA wissen?"),
-                isPresented: $isShowingClearConfirmation,
-                titleVisibility: .visible
-            ) {
-                Button(
-                    model.isDemoMode
-                        ? watchLocalized(model.language, "Keep Demo Profile", "Demo-profiel behouden")
-                        : watchLocalized(model.language, "Clear Music DNA", "Music DNA wissen"),
-                    role: model.isDemoMode ? nil : .destructive
-                ) {
-                    Task { await model.clearMusicDNA() }
-                }
-                Button(watchLocalized(model.language, "Cancel", "Annuleer"), role: .cancel) {}
-            } message: {
-                if model.isDemoMode {
-                    Text(watchLocalized(
-                        model.language,
-                        "In the real app this clears learned Music DNA on Home Assistant. Demo data stays visible.",
-                        "In de echte app wist dit geleerde Music DNA op Home Assistant. Demo-data blijft zichtbaar."
-                    ))
-                } else {
-                    Text(watchLocalized(
-                        model.language,
-                        "This clears learned Music DNA. If Music DNA stays enabled, Home Assistant starts learning again from empty.",
-                        "Dit wist geleerde Music DNA. Als Music DNA aan blijft, begint Home Assistant opnieuw vanaf leeg."
-                    ))
-                }
             }
         }
 
@@ -776,7 +740,6 @@ struct DJConnectWatchRootView: View {
                         noProfilePanel
                     } else {
                         populatedProfile(response)
-                        actionsPanel(isEnabled: true)
                     }
                 } else {
                     disabledPanel
@@ -806,7 +769,7 @@ struct DJConnectWatchRootView: View {
                 .font(.caption2)
                 .foregroundStyle(.white.opacity(0.68))
                 Button {
-                    Task { await model.setMusicDNAEnabled(true) }
+                    model.showMusicDNAOptInPrompt()
                 } label: {
                     Label(watchLocalized(model.language, "Enable", "Activeer"), systemImage: "sparkles")
                         .font(.caption.weight(.semibold))
@@ -829,7 +792,6 @@ struct DJConnectWatchRootView: View {
                 ))
                 .font(.caption2)
                 .foregroundStyle(.white.opacity(0.68))
-                actionsPanel(isEnabled: true)
             }
         }
 
@@ -872,36 +834,12 @@ struct DJConnectWatchRootView: View {
                     }
                 }
                 LazyVStack(spacing: 8) {
-                    metricPanel(title: watchLocalized(model.language, "Genres", "Genres"), value: names(profile.favoriteGenres), icon: "music.quarternote.3")
-                    metricPanel(title: watchLocalized(model.language, "Artists", "Artiesten"), value: names(profile.favoriteArtists), icon: "person.wave.2")
+                    metricPanel(title: watchLocalized(model.language, "Genres", "Genres"), value: names(profile.favoriteGenres), icon: "music.note.list")
+                    metricPanel(title: watchLocalized(model.language, "Artists", "Artiesten"), value: names(profile.favoriteArtists), icon: "person.2")
                     metricPanel(title: watchLocalized(model.language, "Mood", "Mood"), value: mood(profile.mood), icon: "sparkles")
                     metricPanel(title: watchLocalized(model.language, "Recent", "Recent"), value: tracks(profile.recentTracks), icon: "clock.arrow.circlepath")
-                    metricPanel(title: watchLocalized(model.language, "Signals", "Signalen"), value: signals(profile.recommendationSignals), icon: "safari")
+                    metricPanel(title: watchLocalized(model.language, "Signals", "Signalen"), value: signals(profile.recommendationSignals), icon: "slider.horizontal.3")
                 }
-            }
-        }
-
-        private func actionsPanel(isEnabled: Bool) -> some View {
-            VStack(spacing: 8) {
-                Button {
-                    isShowingClearConfirmation = true
-                } label: {
-                    Label(watchLocalized(model.language, "Clear Music DNA", "Music DNA wissen"), systemImage: "trash")
-                        .font(.caption.weight(.semibold))
-                        .frame(maxWidth: .infinity, minHeight: 30)
-                }
-                .buttonStyle(DJConnectWatchGradientButtonStyle(kind: .secondary))
-                .disabled(!isEnabled || model.isUpdatingMusicDNA)
-
-                Button {
-                    Task { await model.setMusicDNAEnabled(false) }
-                } label: {
-                    Label(watchLocalized(model.language, "Turn Off", "Uitzetten"), systemImage: "power")
-                        .font(.caption.weight(.semibold))
-                        .frame(maxWidth: .infinity, minHeight: 30)
-                }
-                .buttonStyle(DJConnectWatchGradientButtonStyle(kind: .secondary))
-                .disabled(!isEnabled || model.isUpdatingMusicDNA)
             }
         }
 
@@ -1005,8 +943,8 @@ struct DJConnectWatchRootView: View {
                     Label(
                         watchLocalized(
                             model.language,
-                            "Open DJConnect on your iPhone and scan the Apple Watch QR code shown by Home Assistant. Keep iPhone, Watch and Home Assistant on the same local network.",
-                            "Open DJConnect op je iPhone en scan de Apple Watch-QR-code uit Home Assistant. Houd iPhone, Watch en Home Assistant op hetzelfde lokale netwerk."
+                            "Open DJConnect on your iPhone. The iPhone will show Apple Watch pairing with only the Apple Watch QR option. Keep iPhone, Watch and Home Assistant on the same local network.",
+                            "Open DJConnect op je iPhone. De iPhone toont Apple Watch-koppeling met alleen de Apple Watch QR-optie. Houd iPhone, Watch en Home Assistant op hetzelfde lokale netwerk."
                         ),
                         systemImage: "network"
                     )
@@ -1501,6 +1439,7 @@ private struct DJConnectWatchSettingsView: View {
     @EnvironmentObject private var model: DJConnectWatchModel
     @State private var isShowingResetPairingConfirmation = false
     @State private var isShowingMusicDNADisableConfirmation = false
+    @State private var isShowingMusicDNAClearConfirmation = false
 
     private var selectedLogLevel: DJConnectWatchLogLevel {
         DJConnectWatchLogLevel(rawValue: model.watchLogLevel) ?? .info
@@ -1582,11 +1521,21 @@ private struct DJConnectWatchSettingsView: View {
                         .foregroundStyle(.white.opacity(0.68))
                         .fixedSize(horizontal: false, vertical: true)
 
+                        Button(role: .destructive) {
+                            isShowingMusicDNAClearConfirmation = true
+                        } label: {
+                            Label(watchLocalized(model.language, "Clear Music DNA", "Music DNA wissen"), systemImage: "trash")
+                                .font(.caption2.weight(.semibold))
+                                .frame(maxWidth: .infinity, minHeight: 30)
+                        }
+                        .buttonStyle(DJConnectWatchGradientButtonStyle(kind: .secondary))
+                        .disabled(model.isLoadingMusicDNA || model.isUpdatingMusicDNA || (!model.canUseBackend && !model.isDemoMode))
+
                         Button {
                             if musicDNAEnabled {
                                 isShowingMusicDNADisableConfirmation = true
                             } else {
-                                Task { await model.setMusicDNAEnabled(true) }
+                                model.showMusicDNAOptInPrompt()
                             }
                         } label: {
                             Label(
@@ -1687,6 +1636,34 @@ private struct DJConnectWatchSettingsView: View {
                 "This clears learned Music DNA on Home Assistant and stops future buildup until you turn it on again.",
                 "Dit wist geleerde Music DNA op Home Assistant en stopt verdere opbouw totdat je het opnieuw inschakelt."
             ))
+        }
+        .alert(
+            watchLocalized(model.language, "Clear Music DNA?", "Music DNA wissen?"),
+            isPresented: $isShowingMusicDNAClearConfirmation
+        ) {
+            Button(watchLocalized(model.language, "Cancel", "Annuleer"), role: .cancel) {}
+            Button(
+                model.isDemoMode
+                    ? watchLocalized(model.language, "Keep Demo Profile", "Demo-profiel behouden")
+                    : watchLocalized(model.language, "Clear Music DNA", "Music DNA wissen"),
+                role: model.isDemoMode ? nil : .destructive
+            ) {
+                Task { await model.clearMusicDNA() }
+            }
+        } message: {
+            if model.isDemoMode {
+                Text(watchLocalized(
+                    model.language,
+                    "In the real app this clears learned Music DNA on Home Assistant. Demo data stays visible.",
+                    "In de echte app wist dit geleerde Music DNA op Home Assistant. Demo-data blijft zichtbaar."
+                ))
+            } else {
+                Text(watchLocalized(
+                    model.language,
+                    "This clears learned Music DNA. If Music DNA stays enabled, Home Assistant starts learning again from empty.",
+                    "Dit wist geleerde Music DNA. Als Music DNA aan blijft, begint Home Assistant opnieuw vanaf leeg."
+                ))
+            }
         }
     }
 
@@ -2689,6 +2666,16 @@ private struct DJConnectWatchMusicDNAOptInPromptView: View {
                         .font(.caption2)
                         .foregroundStyle(.white.opacity(0.72))
                         .fixedSize(horizontal: false, vertical: true)
+                        if model.isDemoMode {
+                            Text(watchLocalized(
+                                model.language,
+                                "Demo mode only unlocks fictional sample data on this watch. No backend call is made.",
+                                "Demo modus zet alleen fictieve voorbeelddata op deze Watch aan. Er wordt geen backend-call gedaan."
+                            ))
+                            .font(.caption2.weight(.semibold))
+                            .foregroundStyle(.white.opacity(0.62))
+                            .fixedSize(horizontal: false, vertical: true)
+                        }
 
                         VStack(alignment: .leading, spacing: 6) {
                             Label(watchLocalized(model.language, "Explicit opt-in", "Expliciete opt-in"), systemImage: "checkmark.shield")

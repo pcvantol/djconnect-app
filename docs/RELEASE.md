@@ -170,11 +170,15 @@ git diff --check
   Authorization headers, secret-bearing URLs, and private HA details while
   retaining bundle, locale, permission, route, backend, output, and playback
   readiness fields.
-- Validate `App opnieuw koppelen` clears the local token, generates a fresh app
-  code, reopens the pairing sheet, and makes the app discoverable/pairable
-  again.
+- Validate `App opnieuw koppelen` clears the local token, reopens the pairing
+  sheet, and waits for a Home Assistant QR code or pairing code instead of
+  generating a client-side code.
+- Validate iPhone pairing shows the QR-code actions first and keeps manual
+  Home Assistant URL/code entry collapsed behind `Handmatig`.
 - Validate Ask DJ route/proxy/backend failures show only localized user-facing
   messages and never raw HTML or response bodies.
+- Validate Ask DJ answer feedback opens a compact, vertically scrollable sheet
+  on iPhone and does not force horizontal overflow.
 - Archive `DJConnectIOS` in Release configuration.
 - Upload through Xcode Organizer or Transporter.
 - Wait for App Store Connect processing.
