@@ -2076,7 +2076,7 @@ struct DJConnectTrackInsightLiveActivityWidget: Widget {
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: TrackInsightLiveActivityAttributes.self) { context in
             DJConnectNowPlayingLiveActivityLockScreenView(state: context.state)
-                .activityBackgroundTint(Color(red: 0.03, green: 0.04, blue: 0.10))
+                .activityBackgroundTint(Color(red: 0.20, green: 0.16, blue: 0.50))
                 .activitySystemActionForegroundColor(.white)
         } dynamicIsland: { context in
             DynamicIsland {
@@ -2161,6 +2161,11 @@ private struct DJConnectNowPlayingLiveActivityExpandedBottom: View {
                 .tint(.cyan)
             DJConnectNowPlayingLiveActivityWaveform(state: state)
                 .frame(height: 24)
+        }
+        .padding(10)
+        .background {
+            DJConnectNowPlayingLiveActivityBackground(state: state)
+                .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
         }
     }
 }
@@ -2292,18 +2297,45 @@ private struct DJConnectNowPlayingLiveActivityBackground: View {
 
     var body: some View {
         ZStack {
+            DJConnectLiveActivityGradient()
+            DJConnectNowPlayingLiveActivityWaveform(state: state)
+                .opacity(0.20)
+                .padding(.top, 48)
+        }
+    }
+}
+
+@available(iOS 16.1, *)
+private struct DJConnectLiveActivityGradient: View {
+    var body: some View {
+        ZStack {
             LinearGradient(
                 colors: [
-                    Color(red: 0.03, green: 0.04, blue: 0.10),
-                    Color(red: 0.05, green: 0.12, blue: 0.32),
-                    Color(red: 0.12, green: 0.10, blue: 0.30)
+                    Color(red: 0.08, green: 0.12, blue: 0.34),
+                    Color(red: 0.24, green: 0.18, blue: 0.58),
+                    Color(red: 0.73, green: 0.22, blue: 0.96),
+                    Color(red: 0.08, green: 0.74, blue: 0.72)
                 ],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             )
-            DJConnectNowPlayingLiveActivityWaveform(state: state)
-                .opacity(0.26)
-                .padding(.top, 48)
+            RadialGradient(
+                colors: [
+                    Color.white.opacity(0.18),
+                    Color.clear
+                ],
+                center: .topTrailing,
+                startRadius: 4,
+                endRadius: 260
+            )
+            LinearGradient(
+                colors: [
+                    Color.black.opacity(0.10),
+                    Color.black.opacity(0.46)
+                ],
+                startPoint: .top,
+                endPoint: .bottom
+            )
         }
     }
 }

@@ -146,6 +146,18 @@ private final class DJConnectWatchProxySessionDelegate: NSObject, WCSessionDeleg
         }
     }
 
+    nonisolated func session(_ session: WCSession, didReceiveApplicationContext applicationContext: [String: Any]) {
+        guard let data = try? NSKeyedArchiver.archivedData(withRootObject: applicationContext, requiringSecureCoding: false) else {
+            return
+        }
+        Task { @MainActor [weak self] in
+            guard let applicationContext = Self.unarchiveWatchProxyMessage(data) else {
+                return
+            }
+            self?.model?.handleWatchProxyMessage(applicationContext)
+        }
+    }
+
     private static func unarchiveWatchProxyMessage(_ data: Data) -> [String: Any]? {
         let classes: [AnyClass] = [
             NSDictionary.self,
@@ -193,6 +205,7 @@ private enum DJConnectPendingPermissionRequest {
 }
 
 public enum DJConnectHomeScreenAction: String, Equatable, Sendable {
+    case nowPlaying = "dev.djconnect.action.now-playing"
     case askDJ = "dev.djconnect.action.ask-dj"
     case trackInsight = "dev.djconnect.action.track-insight"
 }
@@ -716,6 +729,10 @@ public final class DJConnectAppModel: ObservableObject {
             || playback?.trackName?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
     }
 
+    private var hasPlayingNow: Bool {
+        playback?.isPlaying == true
+    }
+
     public var version: String {
         appVersion
     }
@@ -751,12 +768,16 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     public var shouldShowPairingScreen: Bool {
-        !isDemoMode
-            && !isShowingWelcome
+        let shouldShowAppleWatchPairing = isAppleWatchPairingPending
+            || (pairingFlowTarget == .appleWatch && isShowingPairingSuccess)
+        let shouldShowIPhonePairing = !isDemoMode
+            && (pairingStatus != .paired || isShowingPairingSuccess)
+
+        return !isShowingWelcome
             && !isShowingCrashReportPrompt
             && !isShowingTokenStorageError
             && !isPairingScreenDismissed
-            && (pairingStatus != .paired || isShowingPairingSuccess || isAppleWatchPairingPending)
+            && (shouldShowIPhonePairing || shouldShowAppleWatchPairing)
     }
 
     public var isAppleWatchPairingPending: Bool {
@@ -2217,6 +2238,10 @@ public final class DJConnectAppModel: ObservableObject {
             return
         }
         log(.debug, "User action: seek to \(target)ms")
+        if isDemoMode {
+            applyDemoSeek(to: target)
+            return
+        }
         pendingSeekTargetMS = target
         var updated = playback ?? DJConnectPlayback()
         updated.progressMS = target
@@ -2552,6 +2577,8 @@ public final class DJConnectAppModel: ObservableObject {
     public func performHomeScreenAction(_ action: DJConnectHomeScreenAction) {
         homeScreenActionRequest = action
         switch action {
+        case .nowPlaying:
+            break
         case .askDJ:
             prepareAskDJHistoryForDisplay()
         case .trackInsight:
@@ -3808,6 +3835,9 @@ public final class DJConnectAppModel: ObservableObject {
                 }
                 tick += 1
                 let shouldRefresh = self?.advancePlaybackProgress() ?? false
+                if self?.isDemoMode == true {
+                    continue
+                }
                 if shouldRefresh || tick >= (self?.progressTimerNetworkRefreshInterval ?? 60) {
                     tick = 0
                     await self?.refreshNowPlayingFromProgressTimer()
@@ -4665,7 +4695,7 @@ public final class DJConnectAppModel: ObservableObject {
         if currentTrackInsight != nil, (!hasActiveNowPlaying || !currentTrackInsightMatchesPlayback()) {
             currentTrackInsight = nil
         }
-        let activityPlayback = hasActiveNowPlaying ? playback : nil
+        let activityPlayback = hasPlayingNow ? playback : nil
         Task {
             await TrackInsightLiveActivityController.sync(playback: activityPlayback)
         }
@@ -5998,6 +6028,20 @@ public final class DJConnectAppModel: ObservableObject {
         }
     }
 
+    private func applyDemoSeek(to milliseconds: Int) {
+        pendingSeekTargetMS = nil
+        seekCommandTask?.cancel()
+        seekCommandTask = nil
+        var updated = playback ?? DJConnectPlayback()
+        let duration = max(updated.durationMS ?? milliseconds, 0)
+        updated.progressMS = min(max(milliseconds, 0), duration)
+        playback = updated
+        syncTrackInsightLiveActivity(reason: "Demo seek changed")
+        if startBackgroundTasks {
+            updatePlaybackProgressTimer()
+        }
+    }
+
     private func applyDemoQueueItem(at index: Int) {
         guard queueItems.indices.contains(index) else {
             return
@@ -6266,6 +6310,7 @@ public final class DJConnectAppModel: ObservableObject {
             return
         }
         log(.debug, "Watch proxy session activation state=\(state.rawValue)")
+        handleWatchProxyMessage(WCSession.default.receivedApplicationContext)
         if watchProxyRegistration != nil {
             sendWatchProxyReady()
         }
@@ -6739,6 +6784,11 @@ public final class DJConnectAppModel: ObservableObject {
     private func sendWatchProxyMessage(_ message: [String: Any]) {
         guard WCSession.isSupported(), WCSession.default.activationState == .activated else {
             return
+        }
+        do {
+            try WCSession.default.updateApplicationContext(message)
+        } catch {
+            log(.warning, "Watch proxy application context failed: \(error.localizedDescription)")
         }
         if WCSession.default.isReachable {
             WCSession.default.sendMessage(message, replyHandler: nil) { [weak self] error in

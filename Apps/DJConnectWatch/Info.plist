@@ -37,7 +37,7 @@
 	</array>
 	<key>WKApplication</key>
 	<true/>
-	<key>WKWatchOnly</key>
-	<true/>
+	<key>WKCompanionAppBundleIdentifier</key>
+	<string>dev.djconnect.ios</string>
 </dict>
 </plist>

@@ -145,20 +145,7 @@ struct DJConnectWatchRootView: View {
             DJConnectWatchCanvas()
             ScrollView {
                 LazyVStack(spacing: 12) {
-                    Button {
-                        Task { await model.refreshStatus() }
-                    } label: {
-                        Label(
-                            model.isRefreshingStatus
-                                ? watchLocalized(model.language, "Refreshing...", "Ververs...")
-                                : watchLocalized(model.language, "Refresh", "Ververs"),
-                            systemImage: "arrow.clockwise"
-                        )
-                            .font(.caption2.weight(.semibold))
-                            .frame(maxWidth: .infinity, minHeight: 30)
-                    }
-                    .buttonStyle(DJConnectWatchGradientButtonStyle(kind: .secondary))
-                    .disabled(!model.canUseBackend || model.isRefreshingStatus)
+                    mainHeader
 
                     nowPlaying
 
@@ -351,6 +338,45 @@ struct DJConnectWatchRootView: View {
         .onAppear {
             Task { await model.refreshMainScreenStatusIfNeeded() }
         }
+        .navigationTitle("")
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                refreshStatusButton
+            }
+        }
+    }
+
+    private var mainHeader: some View {
+        HStack {
+            Text("DJConnect")
+                .font(.headline.weight(.semibold))
+                .foregroundStyle(.white.opacity(0.92))
+
+            Spacer(minLength: 8)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 4)
+    }
+
+    private var refreshStatusButton: some View {
+        Button {
+            Task { await model.refreshStatus() }
+        } label: {
+            if model.isRefreshingStatus {
+                ProgressView()
+                    .controlSize(.mini)
+                    .tint(.white.opacity(0.82))
+            } else {
+                Image(systemName: "arrow.clockwise")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(.white.opacity(0.82))
+            }
+        }
+        .buttonStyle(.plain)
+        .frame(width: 28, height: 28)
+        .contentShape(Circle())
+        .disabled(!model.canUseBackend || model.isRefreshingStatus)
+        .accessibilityLabel(watchLocalized(model.language, "Refresh", "Ververs"))
     }
 
     private var pairingSuccessView: some View {
@@ -607,9 +633,12 @@ struct DJConnectWatchRootView: View {
                                 .foregroundStyle(watchAccentPurple)
                         }
 
-                        DJConnectWatchTrackInsightVisualizer(profile: TrackVibeProfile.make(for: insight))
-                            .frame(height: 118)
-                            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        DJConnectWatchTrackInsightVisualizer(
+                            profile: TrackVibeProfile.make(for: insight),
+                            isPlaying: model.playback?.isPlaying == true
+                        )
+                        .frame(height: 118)
+                        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
 
                         DJConnectWatchTrackInsightAnalysisCard(insight: insight, language: model.language)
                         DJConnectWatchTrackInsightMetricsGrid(insight: insight, language: model.language)
@@ -789,10 +818,15 @@ struct DJConnectWatchRootView: View {
     private struct DJConnectWatchTrackInsightVisualizer: View {
         @Environment(\.accessibilityReduceMotion) private var reduceMotion
         let profile: TrackVibeProfile
+        let isPlaying: Bool
+
+        private var shouldAnimate: Bool {
+            !reduceMotion && isPlaying
+        }
 
         var body: some View {
-            TimelineView(.periodic(from: .now, by: reduceMotion ? 60 : 0.12)) { timeline in
-                let phase = reduceMotion ? 0 : timeline.date.timeIntervalSinceReferenceDate
+            TimelineView(.periodic(from: .now, by: shouldAnimate ? 0.12 : 60)) { timeline in
+                let phase = shouldAnimate ? timeline.date.timeIntervalSinceReferenceDate : 0
                 ZStack {
                     LinearGradient(
                         colors: [watchDeepNavy, watchAccentPurple.opacity(0.34), .black],
@@ -806,7 +840,7 @@ struct DJConnectWatchRootView: View {
                             Circle()
                                 .stroke(ringColor(ring).opacity(0.50 - Double(ring) * 0.07 + pulse * 0.12), lineWidth: 1.4)
                                 .frame(width: 38 + CGFloat(ring) * 16 + CGFloat(pulse) * 7, height: 38 + CGFloat(ring) * 16 + CGFloat(pulse) * 7)
-                                .rotationEffect(.degrees(phase * (reduceMotion ? 0 : 8 + Double(ring) * 3)))
+                                .rotationEffect(.degrees(phase * (shouldAnimate ? 8 + Double(ring) * 3 : 0)))
                         }
                         Image(systemName: "waveform.path.ecg")
                             .font(.system(size: 28, weight: .semibold))
@@ -833,7 +867,7 @@ struct DJConnectWatchRootView: View {
         }
 
         private func ringPulse(_ index: Int, phase: TimeInterval) -> Double {
-            guard !reduceMotion else {
+            guard shouldAnimate else {
                 return 0
             }
             return (sin(phase * 1.5 + Double(index) * 0.8) + 1) / 2
@@ -842,7 +876,7 @@ struct DJConnectWatchRootView: View {
         private func barHeight(_ index: Int, phase: TimeInterval) -> CGFloat {
             let spectrum = profile.spectrumProfile.isEmpty ? [0.5] : profile.spectrumProfile
             let base = spectrum[index % spectrum.count]
-            let motion = reduceMotion ? 1 : 0.72 + ((sin(phase * 2.4 + Double(index) * 0.55) + 1) / 2) * 0.48
+            let motion = shouldAnimate ? 0.72 + ((sin(phase * 2.4 + Double(index) * 0.55) + 1) / 2) * 0.48 : 1
             return CGFloat(base * motion) * 28 + 5
         }
     }
@@ -905,6 +939,7 @@ struct DJConnectWatchRootView: View {
                 .foregroundStyle(.white.opacity(0.68))
                 .fixedSize(horizontal: false, vertical: true)
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
             .padding(9)
             .background(DJConnectWatchPanel(cornerRadius: 12))
         }
@@ -1025,7 +1060,9 @@ struct DJConnectWatchRootView: View {
                     metricPanel(title: watchLocalized(model.language, "Recent", "Recent"), value: tracks(profile.recentTracks), icon: "clock.arrow.circlepath")
                     metricPanel(title: watchLocalized(model.language, "Signals", "Signalen"), value: signals(profile.recommendationSignals), icon: "slider.horizontal.3")
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
 
         private func metricPanel(title: String, value: String, icon: String) -> some View {
@@ -1045,6 +1082,7 @@ struct DJConnectWatchRootView: View {
                 }
                 Spacer(minLength: 0)
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
             .padding(9)
             .background(DJConnectWatchPanel(cornerRadius: 12))
         }
@@ -1646,6 +1684,28 @@ private struct DJConnectWatchSettingsView: View {
         return watchLocalized(model.language, "Status not loaded yet.", "Status nog niet geladen.")
     }
 
+    private var musicDNAHowItWorksText: String {
+        if musicDNAEnabled {
+            return watchLocalized(
+                model.language,
+                "Music DNA is enabled. Home Assistant can build a private profile from future listening signals.",
+                "Music DNA staat aan. Home Assistant kan een prive profiel opbouwen uit toekomstige luistersignalen."
+            )
+        }
+        if model.musicDNAProfileResponse?.enabled == false {
+            return watchLocalized(
+                model.language,
+                "Music DNA is disabled. No profile is being built, and the learned profile has already been cleared.",
+                "Music DNA staat uit. Er wordt geen profiel opgebouwd en het geleerde profiel is al gewist."
+            )
+        }
+        return watchLocalized(
+            model.language,
+            "DJConnect is still checking the current Music DNA status.",
+            "DJConnect haalt de huidige Music DNA-status nog op."
+        )
+    }
+
     var body: some View {
         ZStack {
             DJConnectWatchCanvas()
@@ -1696,24 +1756,22 @@ private struct DJConnectWatchSettingsView: View {
                             Spacer(minLength: 0)
                         }
 
-                        Text(watchLocalized(
-                            model.language,
-                            "Server-side, opt-in profile. Turning it off clears learned Music DNA and stops future buildup.",
-                            "Server-side opt-in profiel. Uitschakelen wist geleerde Music DNA en stopt verdere opbouw."
-                        ))
+                        Text(musicDNAHowItWorksText)
                         .font(.caption2)
                         .foregroundStyle(.white.opacity(0.68))
                         .fixedSize(horizontal: false, vertical: true)
 
-                        Button(role: .destructive) {
-                            isShowingMusicDNAClearConfirmation = true
-                        } label: {
-                            Label(watchLocalized(model.language, "Clear Music DNA", "Music DNA wissen"), systemImage: "trash")
-                                .font(.caption2.weight(.semibold))
-                                .frame(maxWidth: .infinity, minHeight: 30)
+                        if musicDNAEnabled {
+                            Button(role: .destructive) {
+                                isShowingMusicDNAClearConfirmation = true
+                            } label: {
+                                Label(watchLocalized(model.language, "Clear Music DNA", "Music DNA wissen"), systemImage: "trash")
+                                    .font(.caption2.weight(.semibold))
+                                    .frame(maxWidth: .infinity, minHeight: 30)
+                            }
+                            .buttonStyle(DJConnectWatchGradientButtonStyle(kind: .secondary))
+                            .disabled(model.isLoadingMusicDNA || model.isUpdatingMusicDNA || (!model.canUseBackend && !model.isDemoMode))
                         }
-                        .buttonStyle(DJConnectWatchGradientButtonStyle(kind: .secondary))
-                        .disabled(model.isLoadingMusicDNA || model.isUpdatingMusicDNA || (!model.canUseBackend && !model.isDemoMode))
 
                         Button {
                             if musicDNAEnabled {
@@ -2532,10 +2590,12 @@ private struct DJConnectWatchAskDJChatView: View {
                                     : watchLocalized(model.language, "Clear chat", "Wis chat"),
                                 systemImage: "trash"
                             )
-                                .font(.caption2)
+                            .font(.footnote.weight(.semibold))
+                            .symbolRenderingMode(.monochrome)
+                            .frame(maxWidth: .infinity, minHeight: 34)
                         }
+                        .buttonStyle(DJConnectWatchGradientButtonStyle(kind: .destructive))
                         .disabled(model.askDJMessages.isEmpty || model.isClearingAskDJHistory)
-                        .foregroundStyle(.white.opacity(0.72))
                     }
                     .padding(.vertical, 8)
                     .padding(.horizontal, 4)
@@ -2887,8 +2947,8 @@ private struct DJConnectWatchMusicDNAOptInPromptView: View {
 
                         Text(watchLocalized(
                             model.language,
-                            "Home Assistant can build a private server-side music profile for better Ask DJ context.",
-                            "Home Assistant kan een prive server-side muziekprofiel opbouwen voor betere Ask DJ-context."
+                            "With Music DNA, DJConnect can learn from your taste and listening behavior to give recommendations tailored to your listening profile.",
+                            "Met Music DNA kan DJConnect leren van je smaak en luistergedrag om aanbevelingen te kunnen geven afgestemd op jouw luisterprofiel."
                         ))
                         .font(.caption2)
                         .foregroundStyle(.white.opacity(0.72))
@@ -3393,6 +3453,7 @@ private struct DJConnectWatchGradientButtonStyle: ButtonStyle {
     enum Kind {
         case primary
         case secondary
+        case destructive
         case recording
         case processing
     }
@@ -3401,7 +3462,7 @@ private struct DJConnectWatchGradientButtonStyle: ButtonStyle {
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .foregroundStyle(.white)
+            .foregroundStyle(foregroundColor)
             .padding(.horizontal, 8)
             .background(background(isPressed: configuration.isPressed))
             .clipShape(Capsule())
@@ -3423,6 +3484,8 @@ private struct DJConnectWatchGradientButtonStyle: ButtonStyle {
             return [watchAccentBlue, watchAccentPurple]
         case .secondary:
             return [watchAccentBlue.opacity(0.42), watchAccentPurple.opacity(0.56)]
+        case .destructive:
+            return [watchAccentBlue.opacity(0.30), watchAccentPurple.opacity(0.46)]
         case .recording:
             return [Color(red: 1.0, green: 0.18, blue: 0.38), watchAccentPurple]
         case .processing:
@@ -3430,9 +3493,18 @@ private struct DJConnectWatchGradientButtonStyle: ButtonStyle {
         }
     }
 
+    private var foregroundColor: Color {
+        switch kind {
+        case .destructive:
+            return Color(red: 1.0, green: 0.24, blue: 0.34)
+        default:
+            return .white
+        }
+    }
+
     private var shadowColor: Color {
         switch kind {
-        case .primary, .secondary:
+        case .primary, .secondary, .destructive:
             return watchAccentBlue
         case .recording:
             return Color(red: 1.0, green: 0.18, blue: 0.38)

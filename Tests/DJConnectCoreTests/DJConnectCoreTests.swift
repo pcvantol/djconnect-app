@@ -4779,10 +4779,12 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     model.sendPlaybackCommand("next")
     await Task.yield()
     #expect(model.playback?.trackName == "Sweet Disposition")
+    #expect(model.playback?.progressMS == 0)
 
     model.sendPlaybackCommand("next")
     await Task.yield()
     #expect(model.playback?.trackName == "Electric Feel")
+    #expect(model.playback?.progressMS == 0)
 
     model.sendPlaybackCommand("next")
     await Task.yield()
@@ -4791,6 +4793,53 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     model.sendPlaybackCommand("previous")
     await Task.yield()
     #expect(model.playback?.trackName == "Sweet Disposition")
+    #expect(model.playback?.progressMS == 0)
+}
+
+@MainActor
+@Test func demoModeSeekSetsExactPlaybackPosition() throws {
+    let suiteName = "DJConnectTests-\(UUID().uuidString)"
+    let defaults = try #require(UserDefaults(suiteName: suiteName))
+    defaults.removePersistentDomain(forName: suiteName)
+    let model = DJConnectAppModel(
+        defaults: defaults,
+        tokenStore: DJConnectInMemoryTokenStore(),
+        startBackgroundTasks: false
+    )
+
+    model.startDemoMode()
+
+    model.commitSeek(to: 96_000)
+    #expect(model.playback?.progressMS == 96_000)
+
+    model.commitSeek(to: 999_000)
+    #expect(model.playback?.progressMS == model.playback?.durationMS)
+}
+
+@MainActor
+@Test func demoModeSeekRelativeMovesPlaybackPosition() async throws {
+    let suiteName = "DJConnectTests-\(UUID().uuidString)"
+    let defaults = try #require(UserDefaults(suiteName: suiteName))
+    defaults.removePersistentDomain(forName: suiteName)
+    let model = DJConnectAppModel(
+        defaults: defaults,
+        tokenStore: DJConnectInMemoryTokenStore(),
+        startBackgroundTasks: false
+    )
+
+    model.startDemoMode()
+
+    model.seekRelative(milliseconds: 15_000)
+    await Task.yield()
+    #expect(model.playback?.progressMS == 63_000)
+
+    model.seekRelative(milliseconds: -15_000)
+    await Task.yield()
+    #expect(model.playback?.progressMS == 48_000)
+
+    model.seekRelative(milliseconds: -999_000)
+    await Task.yield()
+    #expect(model.playback?.progressMS == 0)
 }
 
 @MainActor

@@ -196,7 +196,10 @@ watchOS, the Watch asks the paired iPhone to call `/api/djconnect/music_dna/*`
 while preserving the Watch `device_id` and canonical `client_type:"watchos"`.
 Watch Settings must expose the same Music DNA on/off control as iOS/macOS:
 opting out clears learned backend Music DNA and stops future profile buildup;
-opting in again restarts from the backend profile response.
+opting in again restarts from the backend profile response. Settings copy must
+be contextual: disabled means no profile is being built and the learned profile
+has already been cleared. The separate clear-profile action should only be
+visible while Music DNA is enabled.
 
 Ask DJ history is backend-synchronized and locally cached. Clients must merge
 server history into the cache instead of replacing it with a bounded response

@@ -157,7 +157,11 @@ DNA endpoints directly; watchOS uses the paired iPhone proxy while preserving
 the Watch `device_id` and `client_type:"watchos"`. The initial Music DNA consent
 sheet can be reached from Ask DJ or from the Music DNA screen, and Watch
 Settings can turn Music DNA off or on again. Turning it off clears learned Music
-DNA on the backend and stops further buildup until it is enabled again.
+DNA on the backend and stops further buildup until it is enabled again. The
+Settings explanation is contextual: when Music DNA is disabled, clients explain
+that no profile is being built and that the learned profile has already been
+cleared. The separate clear-profile action is shown only while Music DNA is
+enabled, because opting out already clears the learned profile.
 
 APNs push registration is supported for iOS, macOS, and watchOS clients. iOS
 uses `client_type: "ios"` and `device_id` values shaped like

@@ -239,7 +239,10 @@ reports `enabled:false`, and that Watch Settings can turn Music DNA off and on
 again. Watch Music DNA profile/settings/clear requests must preserve the Watch
 identity (`device_id` plus `client_type:"watchos"`). Turning Music DNA off
 should be confirmed in the UI because Home Assistant clears learned Music DNA
-and stops future profile buildup.
+and stops future profile buildup. Verify Settings explains the current state:
+when disabled, no profile is being built and the learned profile is already
+cleared. The clear-profile button should only be visible while Music DNA is
+enabled.
 
 `Connection reset by peer` after TCP connect usually means macOS firewall or
 third-party security software, such as ESET, Little Snitch, or LuLu, is blocking

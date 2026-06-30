@@ -652,6 +652,8 @@ public struct DJConnectRootView: View {
                 return
             }
             switch action {
+            case .nowPlaying:
+                selectedSection = .nowPlaying
             case .askDJ:
                 selectedSection = .askDJ
             case .trackInsight:
@@ -2797,9 +2799,16 @@ private struct TrackInsightView: View {
     @ObservedObject var model: DJConnectAppModel
     @State private var isShowingShare = false
     @State private var isAnimationActive = false
+    #if canImport(AVKit) && os(iOS)
+    @StateObject private var vibeCastAirPlaySession = VibeCastAirPlaySession()
+    #endif
 
     private var insight: TrackInsight? {
         model.currentTrackInsight
+    }
+
+    private var insightID: String? {
+        insight?.id
     }
 
     var body: some View {
@@ -2822,21 +2831,32 @@ private struct TrackInsightView: View {
                     .frame(maxWidth: djConnectContentMaxWidth, alignment: .topLeading)
                     .frame(maxWidth: .infinity, alignment: .top)
                 }
+                #if canImport(AVKit) && os(iOS)
+                if let player = vibeCastAirPlaySession.player {
+                    VideoPlayer(player: player)
+                        .frame(width: 2, height: 2)
+                        .opacity(0.01)
+                        .allowsHitTesting(false)
+                        .accessibilityHidden(true)
+                }
+                #endif
             }
             .navigationTitle(screenTitle(model.language, "Track Insight", "Track Insight", isDemoMode: model.isDemoMode))
             #if os(iOS)
-            .navigationBarTitleDisplayMode(.inline)
+            .navigationBarTitleDisplayMode(.large)
             #endif
             .toolbar {
-                #if os(iOS)
-                ToolbarItem(placement: .principal) {
-                    Text(screenTitle(model.language, "Track Insight", "Track Insight", isDemoMode: model.isDemoMode))
-                        .font(.headline.weight(.semibold))
-                        .multilineTextAlignment(.center)
-                }
-                #endif
                 ToolbarItemGroup(placement: .primaryAction) {
+                    #if canImport(AVKit) && os(iOS)
+                    VibeCastAirPlayToolbarButton(
+                        language: model.language,
+                        hasInsight: insight != nil,
+                        isPreparing: vibeCastAirPlaySession.isPreparing,
+                        isReady: vibeCastAirPlaySession.player != nil
+                    )
+                    #else
                     AirPlayToolbarButton(language: model.language)
+                    #endif
 
                     if insight != nil {
                         Button {
@@ -2857,6 +2877,18 @@ private struct TrackInsightView: View {
             }
             .djUserNoticeToast(model: model)
         }
+        #if canImport(AVKit) && os(iOS)
+        .task(id: insightID) {
+            guard let insight else {
+                vibeCastAirPlaySession.reset()
+                return
+            }
+            await vibeCastAirPlaySession.prepare(insight: insight, language: model.language)
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .AVPlayerItemDidPlayToEndTime)) { notification in
+            vibeCastAirPlaySession.loopIfNeeded(notification.object)
+        }
+        #endif
         .onAppear {
             isAnimationActive = true
         }
@@ -2982,8 +3014,8 @@ private struct MusicDNAOptInPromptView: View {
                         .foregroundStyle(.white)
                     Text(localized(
                         model.language,
-                        "Music DNA lets Home Assistant build a private server-side taste profile for better Ask DJ context and recommendations.",
-                        "Met Music DNA kan Home Assistant een privé server-side smaakprofiel opbouwen voor betere Ask DJ-context en aanbevelingen."
+                        "With Music DNA, DJConnect can learn from your taste and listening behavior to give recommendations tailored to your listening profile.",
+                        "Met Music DNA kan DJConnect leren van je smaak en luistergedrag om aanbevelingen te kunnen geven afgestemd op jouw luisterprofiel."
                     ))
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -3449,6 +3481,10 @@ private struct TrackInsightHero: View {
         TrackVibeProfile.make(for: insight)
     }
 
+    private var isVisualizerPlaying: Bool {
+        model.playback?.isPlaying == true
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             TrackInsightHeroScene(
@@ -3456,7 +3492,7 @@ private struct TrackInsightHero: View {
                 profile: profile,
                 playback: model.playback,
                 reduceMotion: reduceMotion || ProcessInfo.processInfo.isLowPowerModeEnabled,
-                isActive: isAnimationActive,
+                isActive: isAnimationActive && isVisualizerPlaying,
                 language: model.language
             )
             .frame(height: 430)
@@ -3796,9 +3832,13 @@ private struct VibeCastVisualizerSignalView: View {
         TrackVibeProfile.make(for: insight)
     }
 
+    private var isPlaying: Bool {
+        playback?.isPlaying == true
+    }
+
     var body: some View {
         Group {
-            if reduceMotion {
+            if reduceMotion || !isPlaying {
                 TimelineView(.periodic(from: .now, by: 60)) { timeline in
                     premiumScene(date: timeline.date)
                 }
@@ -3822,7 +3862,7 @@ private struct VibeCastVisualizerSignalView: View {
                     profile: profile,
                     playback: playback,
                     reduceMotion: reduceMotion,
-                    isActive: !reduceMotion
+                    isActive: !reduceMotion && isPlaying
                 )
                 .frame(width: artworkSize(in: geometry.size), height: artworkSize(in: geometry.size))
                 .position(x: geometry.size.width * 0.50, y: geometry.size.height * 0.33)
@@ -3882,6 +3922,279 @@ private struct VibeCastEmptySignalView: View {
         .padding(32)
     }
 }
+
+#if canImport(AVKit) && os(iOS)
+@MainActor
+private final class VibeCastAirPlaySession: ObservableObject {
+    @Published var player: AVPlayer?
+    @Published var isPreparing = false
+    @Published var progress = 0.0
+    @Published var errorMessage: String?
+
+    private var preparedInsightID: String?
+    private var renderedURL: URL?
+
+    func prepare(insight: TrackInsight, language: String) async {
+        if preparedInsightID == insight.id, player != nil {
+            player?.play()
+            return
+        }
+        reset()
+        preparedInsightID = insight.id
+        isPreparing = true
+        progress = 0
+        errorMessage = nil
+        do {
+            let url = try await TrackInsightShareRenderer.renderVideo(
+                insight: insight,
+                format: .linkPreview,
+                language: language
+            ) { [weak self] value in
+                self?.progress = value
+            }
+            try Task.checkCancellation()
+            renderedURL = url
+            let item = AVPlayerItem(url: url)
+            let avPlayer = AVPlayer(playerItem: item)
+            avPlayer.actionAtItemEnd = .none
+            avPlayer.allowsExternalPlayback = true
+            avPlayer.usesExternalPlaybackWhileExternalScreenIsActive = true
+            try? AVAudioSession.sharedInstance().setCategory(.playback, mode: .moviePlayback, options: [.allowAirPlay])
+            try? AVAudioSession.sharedInstance().setActive(true)
+            player = avPlayer
+            isPreparing = false
+            avPlayer.play()
+        } catch is CancellationError {
+            reset()
+        } catch {
+            errorMessage = error.localizedDescription
+            isPreparing = false
+        }
+    }
+
+    func reset() {
+        player?.pause()
+        player = nil
+        renderedURL = nil
+        preparedInsightID = nil
+        progress = 0
+        errorMessage = nil
+        isPreparing = false
+    }
+
+    func loopIfNeeded(_ object: Any?) {
+        guard let item = object as? AVPlayerItem,
+              item == player?.currentItem else {
+            return
+        }
+        item.seek(to: .zero, completionHandler: nil)
+        player?.play()
+    }
+}
+
+private struct VibeCastAirPlayToolbarButton: View {
+    let language: String
+    let hasInsight: Bool
+    let isPreparing: Bool
+    let isReady: Bool
+
+    var body: some View {
+        if hasInsight, isReady {
+            NativeAirPlayRoutePicker()
+                .frame(width: 30, height: 30)
+                .accessibilityLabel(localized(language, "AirPlay VibeCast", "AirPlay VibeCast"))
+                .help(localized(language, "Send VibeCast video to AirPlay", "Stuur VibeCast-video naar AirPlay"))
+        } else if hasInsight, isPreparing {
+            ProgressView()
+                .controlSize(.small)
+                .frame(width: 30, height: 30)
+                .tint(.primary)
+                .accessibilityLabel(localized(language, "Preparing VibeCast video", "VibeCast-video voorbereiden"))
+        } else {
+            Button {} label: {
+                Image(systemName: "airplayvideo")
+                    .frame(width: 30, height: 30)
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(.secondary)
+            .disabled(true)
+            .opacity(0.42)
+            .accessibilityLabel(localized(language, "Analyze Track Insight before using VibeCast", "Analyseer Track Insight voordat je VibeCast gebruikt"))
+            .help(localized(language, "Analyze Track Insight before using VibeCast", "Analyseer Track Insight voordat je VibeCast gebruikt"))
+        }
+    }
+}
+#endif
+
+#if canImport(AVKit)
+private struct VibeCastAVPlayerPreviewSheet: View {
+    let insight: TrackInsight
+    let language: String
+    @Environment(\.dismiss) private var dismiss
+    @State private var player: AVPlayer?
+    @State private var renderedURL: URL?
+    @State private var progress = 0.0
+    @State private var errorMessage: String?
+    @State private var renderTask: Task<Void, Never>?
+
+    var body: some View {
+        ZStack {
+            DJConnectCanvasBackground()
+            VStack(alignment: .leading, spacing: 16) {
+                HStack(alignment: .center, spacing: 12) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("VibeCast")
+                            .font(.title.bold())
+                            .foregroundStyle(.white)
+                        Text(localized(language, "Local AVPlayer preview", "Lokaal AVPlayer voorbeeld"))
+                            .font(.callout.weight(.semibold))
+                            .foregroundStyle(.white.opacity(0.62))
+                    }
+                    Spacer(minLength: 0)
+                    Button {
+                        dismiss()
+                    } label: {
+                        Image(systemName: "xmark")
+                            .font(.headline.weight(.semibold))
+                            .frame(width: 36, height: 36)
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(.white.opacity(0.82))
+                    .background(.white.opacity(0.10), in: Circle())
+                }
+
+                ZStack {
+                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                        .fill(.black.opacity(0.36))
+                    if let player {
+                        VideoPlayer(player: player)
+                            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                            .onAppear {
+                                player.play()
+                            }
+                    } else if let errorMessage {
+                        VStack(spacing: 10) {
+                            Image(systemName: "exclamationmark.triangle")
+                                .font(.title.weight(.semibold))
+                                .foregroundStyle(.orange)
+                            Text(errorMessage)
+                                .font(.callout.weight(.semibold))
+                                .foregroundStyle(.white.opacity(0.78))
+                                .multilineTextAlignment(.center)
+                        }
+                        .padding(20)
+                    } else {
+                        VStack(spacing: 12) {
+                            ProgressView(value: progress)
+                                .tint(djConnectAccent)
+                                .frame(maxWidth: 260)
+                            Text(localized(language, "Rendering VibeCast video...", "VibeCast-video renderen..."))
+                                .font(.callout.weight(.semibold))
+                                .foregroundStyle(.white.opacity(0.72))
+                            Text("\(Int((progress * 100).rounded()))%")
+                                .font(.caption.monospacedDigit().weight(.bold))
+                                .foregroundStyle(.white.opacity(0.54))
+                        }
+                        .padding(20)
+                    }
+                }
+                .aspectRatio(1200.0 / 628.0, contentMode: .fit)
+                .overlay {
+                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                        .stroke(.white.opacity(0.14), lineWidth: 1)
+                }
+
+                #if os(iOS)
+                HStack(spacing: 12) {
+                    Label(
+                        localized(language, "Route this VibeCast video with AirPlay", "Route deze VibeCast-video met AirPlay"),
+                        systemImage: "airplayvideo"
+                    )
+                    .font(.callout.weight(.semibold))
+                    .foregroundStyle(.white.opacity(player == nil ? 0.42 : 0.78))
+                    Spacer(minLength: 0)
+                    NativeAirPlayRoutePicker()
+                        .frame(width: 42, height: 42)
+                        .opacity(player == nil ? 0.38 : 1)
+                        .disabled(player == nil)
+                        .accessibilityLabel(localized(language, "Choose AirPlay display", "Kies AirPlay-scherm"))
+                }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 10)
+                .background(.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                .overlay {
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .stroke(.white.opacity(0.12), lineWidth: 1)
+                }
+                #endif
+
+                Text(localized(
+                    language,
+                    "This MP4 is played through AVPlayer. Use the AirPlay control above to send the active VibeCast video route to a display.",
+                    "Deze MP4 speelt via AVPlayer. Gebruik de AirPlay-knop hierboven om de actieve VibeCast-videoroute naar een scherm te sturen."
+                ))
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.white.opacity(0.54))
+                .fixedSize(horizontal: false, vertical: true)
+            }
+            .padding(22)
+            .frame(maxWidth: 860)
+        }
+        .task(id: insight.id) {
+            startRender()
+        }
+        .onDisappear {
+            renderTask?.cancel()
+            player?.pause()
+            player = nil
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .AVPlayerItemDidPlayToEndTime)) { notification in
+            guard let item = notification.object as? AVPlayerItem,
+                  item == player?.currentItem else {
+                return
+            }
+            item.seek(to: .zero, completionHandler: nil)
+            player?.play()
+        }
+    }
+
+    private func startRender() {
+        guard renderTask == nil else {
+            return
+        }
+        progress = 0
+        errorMessage = nil
+        renderTask = Task { @MainActor in
+            do {
+                let url = try await TrackInsightShareRenderer.renderVideo(
+                    insight: insight,
+                    format: .linkPreview,
+                    language: language
+                ) { value in
+                    progress = value
+                }
+                try Task.checkCancellation()
+                renderedURL = url
+                let item = AVPlayerItem(url: url)
+                let avPlayer = AVPlayer(playerItem: item)
+                avPlayer.actionAtItemEnd = .none
+                avPlayer.allowsExternalPlayback = true
+                avPlayer.usesExternalPlaybackWhileExternalScreenIsActive = true
+                #if os(iOS)
+                try? AVAudioSession.sharedInstance().setCategory(.playback, mode: .moviePlayback, options: [.allowAirPlay])
+                try? AVAudioSession.sharedInstance().setActive(true)
+                #endif
+                player = avPlayer
+                avPlayer.play()
+            } catch is CancellationError {
+                return
+            } catch {
+                errorMessage = error.localizedDescription
+            }
+        }
+    }
+}
+#endif
 
 private struct AirPlayToolbarButton: View {
     let language: String
@@ -3985,6 +4298,14 @@ private struct TrackVibeVisualizerView: View {
     let reduceMotion: Bool
     let isActive: Bool
 
+    private var isPlaying: Bool {
+        playback?.isPlaying == true
+    }
+
+    private var shouldAnimate: Bool {
+        isActive && isPlaying
+    }
+
     var body: some View {
         visualizer
             .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
@@ -4002,7 +4323,7 @@ private struct TrackVibeVisualizerView: View {
             profile: profile,
             playback: playback,
             reduceMotion: reduceMotion,
-            isActive: isActive
+            isActive: shouldAnimate
         )
         #else
         canvasVisualizer
@@ -4012,7 +4333,7 @@ private struct TrackVibeVisualizerView: View {
 
     @ViewBuilder
     private var canvasVisualizer: some View {
-        if !isActive {
+        if !shouldAnimate {
             TrackVibeCanvas(profile: profile, playbackPhase: playbackPhase(at: Date()), liveBeat: 0)
         } else if reduceMotion {
             TimelineView(.periodic(from: .now, by: 60)) { _ in
@@ -6249,6 +6570,7 @@ private struct AskDJView: View {
                     canUseVoiceInput: canUseVoiceInput,
                     isInputFocused: $isInputFocused
                 )
+                .padding(.bottom, 8)
             }
             .background(DJConnectCanvasBackground())
             .overlay(alignment: .bottom) {
@@ -6283,6 +6605,7 @@ private struct AskDJView: View {
                         Image(systemName: "arrow.clockwise")
                             .foregroundStyle(.primary)
                     }
+                    .tint(.primary)
                     .disabled(model.isClearingAskDJHistory)
                     .help(localized(model.language, "Refresh Ask DJ", "Ask DJ vernieuwen"))
                     .accessibilityLabel(localized(model.language, "Refresh Ask DJ", "Ask DJ vernieuwen"))
@@ -6331,6 +6654,7 @@ private struct AskDJView: View {
                         Image(systemName: "arrow.clockwise")
                             .foregroundStyle(.primary)
                     }
+                    .tint(.primary)
                     .disabled(model.isClearingAskDJHistory)
                     .help(localized(model.language, "Refresh Ask DJ", "Ask DJ vernieuwen"))
                     .accessibilityLabel(localized(model.language, "Refresh Ask DJ", "Ask DJ vernieuwen"))
@@ -8472,8 +8796,8 @@ private struct AskDJInputBar: View {
             .help(localized(model.language, "Send", "Verstuur"))
         }
         .padding(.horizontal, djConnectScreenHorizontalPadding)
-        .padding(.top, 10)
-        .padding(.bottom, 24)
+        .padding(.top, 18)
+        .padding(.bottom, 18)
         .background {
             ZStack(alignment: .top) {
                 Rectangle()
@@ -10384,7 +10708,7 @@ private struct MoreView: View {
                     }
                     MoreNavigationRow(
                         title: "Music DNA",
-                        systemImage: "heart.fill"
+                        systemImage: "heart"
                     ) {
                         MusicDNAView(model: model)
                     }
@@ -10520,6 +10844,28 @@ struct SettingsView: View {
         model.musicDNAProfileResponse?.enabled == true
     }
 
+    private var musicDNAHowItWorksText: String {
+        if musicDNAEnabled {
+            return localized(
+                model.language,
+                "Music DNA is enabled. Home Assistant can use future listening signals to build a private server-side taste profile for better Ask DJ context.",
+                "Music DNA staat aan. Met Music DNA kan DJConnect leren van je smaak en luistergedrag om aanbevelingen te kunnen geven afgestemd op jouw luisterprofiel."
+            )
+        }
+        if model.musicDNAProfileResponse?.enabled == false {
+            return localized(
+                model.language,
+                "Music DNA is disabled. No listening profile is being built, and turning it off has already cleared the learned profile.",
+                "Music DNA staat uit. Er wordt geen luisterprofiel opgebouwd en uitschakelen heeft het geleerde profiel al gewist."
+            )
+        }
+        return localized(
+            model.language,
+            "DJConnect is still checking the current Music DNA status.",
+            "DJConnect haalt de huidige Music DNA-status nog op."
+        )
+    }
+
     var body: some View {
         NavigationStack {
             List {
@@ -10578,11 +10924,7 @@ struct SettingsView: View {
 
                 Section("Music DNA") {
                     LabeledContent(localized(model.language, "How It Works", "Werking")) {
-                        Text(localized(
-                            model.language,
-                            "Only after opt-in. Turning off clears the learned profile and stops future buildup.",
-                            "Alleen na opt-in. Uitschakelen wist het geleerde profiel en stopt verdere opbouw."
-                        ))
+                        Text(musicDNAHowItWorksText)
                         .foregroundStyle(.secondary)
                         .multilineTextAlignment(.trailing)
                         .fixedSize(horizontal: false, vertical: true)
@@ -10609,13 +10951,15 @@ struct SettingsView: View {
                         }
                     }
 
-                    LabeledContent(localized(model.language, "Listening Profile", "Luisterprofiel")) {
-                        Button(role: .destructive) {
-                            isShowingMusicDNAClearConfirmation = true
-                        } label: {
-                            Text(localized(model.language, "Clear", "Wissen"))
+                    if musicDNAEnabled {
+                        LabeledContent(localized(model.language, "Listening Profile", "Luisterprofiel")) {
+                            Button(role: .destructive) {
+                                isShowingMusicDNAClearConfirmation = true
+                            } label: {
+                                Text(localized(model.language, "Clear", "Wissen"))
+                            }
+                            .disabled(model.isUpdatingMusicDNA || (!model.isDemoMode && model.pairingStatus != .paired))
                         }
-                        .disabled(model.isUpdatingMusicDNA || (!model.isDemoMode && model.pairingStatus != .paired))
                     }
                 }
                 .djSettingsListRowBackground()

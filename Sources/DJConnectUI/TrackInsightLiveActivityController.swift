@@ -7,10 +7,10 @@ import ActivityKit
 @available(iOS 16.1, *)
 enum TrackInsightLiveActivityController {
     private static let staleInterval: TimeInterval = 12 * 60
-    private static let dismissalInterval: TimeInterval = 20 * 60
+    private static let nowPlayingSessionID = "djconnect-now-playing"
 
     static func sync(playback: DJConnectPlayback?) async {
-        guard let playback, playback.hasPlayback == true || playback.isPlaying == true || playback.trackName?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false else {
+        guard let playback, playback.isPlaying == true else {
             await endAll()
             return
         }
@@ -23,9 +23,8 @@ enum TrackInsightLiveActivityController {
             return
         }
 
-        let sessionID = sessionID(for: playback)
+        let sessionID = nowPlayingSessionID
         let content = content(for: playback)
-        let state = TrackInsightLiveActivityAttributes.ContentState(playback: playback)
         if let activity = Activity<TrackInsightLiveActivityAttributes>.activities.first(where: { $0.attributes.sessionID == sessionID }) {
             await activity.update(content)
         } else {
@@ -41,7 +40,7 @@ enum TrackInsightLiveActivityController {
         }
 
         for activity in Activity<TrackInsightLiveActivityAttributes>.activities where activity.attributes.sessionID != sessionID {
-            await end(activity, state: state)
+            await activity.end(nil, dismissalPolicy: .immediate)
         }
     }
 
@@ -55,25 +54,6 @@ enum TrackInsightLiveActivityController {
         ActivityContent(
             state: TrackInsightLiveActivityAttributes.ContentState(playback: playback),
             staleDate: Date().addingTimeInterval(staleInterval)
-        )
-    }
-
-    private static func sessionID(for playback: DJConnectPlayback) -> String {
-        let title = playback.trackName?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        let artist = playback.artistName?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        let device = playback.device?.id ?? playback.device?.name ?? ""
-        let raw = "\(title)|\(artist)|\(device)"
-        let normalized = raw.trimmingCharacters(in: .whitespacesAndNewlines)
-        return normalized.isEmpty ? "djconnect-now-playing" : normalized
-    }
-
-    private static func end(
-        _ activity: Activity<TrackInsightLiveActivityAttributes>,
-        state: TrackInsightLiveActivityAttributes.ContentState
-    ) async {
-        await activity.end(
-            ActivityContent(state: state, staleDate: Date()),
-            dismissalPolicy: .after(Date().addingTimeInterval(dismissalInterval))
         )
     }
 }

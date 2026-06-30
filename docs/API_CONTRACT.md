@@ -1297,7 +1297,10 @@ iOS and macOS call these endpoints directly. watchOS calls them through the
 paired iPhone WatchConnectivity proxy, but the forwarded payload remains the
 Watch identity (`device_id` plus `client_type:"watchos"`). The initial Music DNA
 consent prompt is reachable from both Ask DJ and the Music DNA screen; Settings
-on iOS, macOS, and watchOS can opt out and opt in again.
+on iOS, macOS, and watchOS can opt out and opt in again. Client Settings copy
+should reflect the current state: enabled means future listening signals may
+build the server-side profile, disabled means no profile is being built and any
+previously learned profile was already cleared by opt-out.
 
 Profile request payload:
 
@@ -1326,7 +1329,9 @@ Settings opt-in/opt-out payload:
 
 Clients call `/music_dna/settings` for both opt-in and opt-out, then refresh
 `/music_dna/profile`. On opt-out, the backend is expected to clear learned Music
-DNA and stop further buildup.
+DNA and stop further buildup. Because opt-out already clears learned Music DNA,
+clients should not present a separate clear-profile action while Music DNA is
+disabled.
 
 Clear payload:
 
@@ -1340,7 +1345,8 @@ Clear payload:
 Clients call `/music_dna/clear` after user confirmation and then refresh
 `/music_dna/profile`. Clear deletes learned Music DNA but preserves the opt-in
 setting. If `enabled:true` remains after clear, the backend starts again from an
-empty profile and clients show the enabled learning state.
+empty profile and clients show the enabled learning state. Clients should expose
+this clear action only when Music DNA is currently enabled.
 
 Ask DJ history sync remains separate:
 `/api/djconnect/ask_dj/history` and `/api/djconnect/ask_dj/history/clear` do not

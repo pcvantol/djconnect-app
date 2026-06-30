@@ -84,6 +84,8 @@ targets:
     dependencies:
       - target: DJConnectCoreIOS
       - target: DJConnectUIIOS
+      - target: DJConnectWatch
+        embed: true
       - target: DJConnectTrackInsightWidgetsIOS
         embed: true
     info:
@@ -178,7 +180,7 @@ targets:
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         WKApplication: true
-        WKWatchOnly: true
+        WKCompanionAppBundleIdentifier: dev.djconnect.ios
         NSLocalNetworkUsageDescription: DJConnect maakt verbinding met Home Assistant op je lokale netwerk.
         NSMicrophoneUsageDescription: DJConnect neemt je stem op voor push-to-talk muziekverzoeken aan Home Assistant.
         NSSpeechRecognitionUsageDescription: DJConnect gebruikt spraakherkenning alleen voor foreground stemactivatie met Hey DJ.
@@ -188,7 +190,7 @@ targets:
           NSAllowsArbitraryLoadsInLocalNetworking: true
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: dev.djconnect.watch
+        PRODUCT_BUNDLE_IDENTIFIER: dev.djconnect.ios.watch
         PRODUCT_NAME: DJConnect
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         CODE_SIGN_ENTITLEMENTS: Apps/DJConnectWatch/DJConnectWatch.entitlements
@@ -207,7 +209,7 @@ targets:
           NSExtensionPointIdentifier: com.apple.widgetkit-extension
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: dev.djconnect.watch.complications
+        PRODUCT_BUNDLE_IDENTIFIER: dev.djconnect.ios.watch.complications
         PRODUCT_NAME: DJConnectComplications
         SKIP_INSTALL: YES
   DJConnectTrackInsightWidgetsIOS:

@@ -227,6 +227,18 @@ extension DJConnectWatchModel: WCSessionDelegate {
         }
     }
 
+    nonisolated func session(_ session: WCSession, didReceiveApplicationContext applicationContext: [String: Any]) {
+        guard let data = try? NSKeyedArchiver.archivedData(withRootObject: applicationContext, requiringSecureCoding: false) else {
+            return
+        }
+        Task { @MainActor in
+            guard let applicationContext = Self.unarchiveCompanionMessage(data) else {
+                return
+            }
+            handleCompanionMessage(applicationContext)
+        }
+    }
+
     private static func unarchiveCompanionMessage(_ data: Data) -> [String: Any]? {
         let classes: [AnyClass] = [
             NSDictionary.self,
@@ -393,6 +405,8 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
     #if canImport(WatchConnectivity)
     private var hasActivatedCompanionSession = false
     private var companionPairingRegistrationRetryTask: Task<Void, Never>?
+    private var companionPairingRegistrationWatchdogTask: Task<Void, Never>?
+    private var hasReceivedCompanionPairingReady = false
     private var pendingWatchProxyHARequests: [String: CheckedContinuation<DJConnectWatchProxyResponse, Never>] = [:]
     #endif
     #if canImport(Speech)
@@ -440,6 +454,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         networkMonitor?.cancel()
         runtimeDiagnosticsTask?.cancel()
         companionPairingRegistrationRetryTask?.cancel()
+        companionPairingRegistrationWatchdogTask?.cancel()
         voiceActivationCaptureTask?.cancel()
         voiceActivationRestartTask?.cancel()
         voiceActivationListenTimeoutTask?.cancel()
@@ -816,6 +831,15 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
             "pair_code": pairingCode,
             "paired": paired
         ]
+        if !paired {
+            hasReceivedCompanionPairingReady = false
+            scheduleCompanionPairingRegistrationWatchdog()
+        }
+        do {
+            try WCSession.default.updateApplicationContext(message)
+        } catch {
+            appendDiagnosticLog("Companion context kon niet worden bijgewerkt: \(error.localizedDescription)", level: .warning)
+        }
         companionPairingStatus = WCSession.default.isReachable
             ? "Pairinggegevens naar iPhone gestuurd"
             : "Open DJConnect op je iPhone"
@@ -845,12 +869,32 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         }
     }
 
+    private func scheduleCompanionPairingRegistrationWatchdog() {
+        companionPairingRegistrationWatchdogTask?.cancel()
+        companionPairingRegistrationWatchdogTask = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(2))
+            await MainActor.run {
+                guard let self, !self.paired, !self.hasReceivedCompanionPairingReady, !Task.isCancelled else {
+                    return
+                }
+                self.sendCompanionPairingRegistration()
+            }
+        }
+    }
+
+    private func cancelCompanionPairingRegistrationWatchdog() {
+        companionPairingRegistrationWatchdogTask?.cancel()
+        companionPairingRegistrationWatchdogTask = nil
+    }
+
     private func handleCompanionMessage(_ message: [String: Any]) {
         guard let type = message["type"] as? String else {
             return
         }
         switch type {
         case "watch_proxy_ready":
+            hasReceivedCompanionPairingReady = true
+            cancelCompanionPairingRegistrationWatchdog()
             applyCompanionSummary(message)
                 companionPairingStatus = "iPhone companion is klaar"
             if !paired {
@@ -858,6 +902,8 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
                 statusMessage = "Wachten op Home Assistant via iPhone..."
             }
         case "watch_proxy_pair_result":
+            hasReceivedCompanionPairingReady = true
+            cancelCompanionPairingRegistrationWatchdog()
             applyCompanionPairingResult(message)
         case "watch_proxy_pair_request":
             companionPairingStatus = "iPhone koppelt Watch met Home Assistant..."
@@ -2442,6 +2488,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
                 playback?.trackName = payload["title"] ?? playback?.trackName
                 playback?.artistName = payload["artist"] ?? playback?.artistName
                 playback?.contextURI = payload["context_uri"] ?? playback?.contextURI
+                playback?.progressMS = 0
             }
             statusMessage = "Nummer gestart"
         case "set_output":
@@ -2471,15 +2518,18 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
             playback?.isPlaying = false
             statusMessage = "Demo gepauzeerd"
         case "next":
-            playback?.trackName = "Sweet Disposition"
-            playback?.artistName = "The Temper Trap"
-            playback?.isPlaying = true
+            applyDemoQueueItem(relativeOffset: 1)
             statusMessage = "Volgend demo nummer"
         case "previous":
-            playback?.trackName = "Midnight City"
-            playback?.artistName = "M83"
-            playback?.isPlaying = true
+            applyDemoQueueItem(relativeOffset: -1)
             statusMessage = "Vorig demo nummer"
+        case "seek_relative":
+            if case let .int(delta) = value {
+                let currentProgress = playback?.progressMS ?? 0
+                let duration = max(playback?.durationMS ?? currentProgress, 0)
+                playback?.progressMS = min(max(currentProgress + delta, 0), duration)
+            }
+            statusMessage = "Demo positie bijgewerkt"
         case "set_current_track_favorite", "save_current_track":
             if command == "save_current_track" {
                 playback?.favoriteStatus = true
@@ -2494,6 +2544,50 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
             }
         default:
             statusMessage = "Demo opdracht ontvangen"
+        }
+    }
+
+    private func applyDemoQueueItem(relativeOffset: Int) {
+        guard !queueItems.isEmpty else {
+            return
+        }
+        let currentIndex = currentDemoQueueIndex() ?? 0
+        let targetIndex = min(max(currentIndex + relativeOffset, 0), queueItems.count - 1)
+        applyDemoQueueItem(at: targetIndex)
+    }
+
+    private func applyDemoQueueItem(at index: Int) {
+        guard queueItems.indices.contains(index) else {
+            return
+        }
+        let item = queueItems[index]
+        let activeDevice = playback?.device
+        let volumePercent = playback?.volumePercent ?? 42
+        playback = DJConnectPlayback(
+            hasPlayback: true,
+            isPlaying: true,
+            trackName: item.title,
+            artistName: item.artist,
+            albumImageURL: item.albumImageURL,
+            progressMS: 0,
+            durationMS: item.durationMS,
+            volumePercent: volumePercent,
+            shuffle: playback?.shuffle ?? false,
+            repeatState: playback?.repeatState ?? .off,
+            device: activeDevice,
+            contextURI: queueContext
+        )
+        currentTrackInsight = DemoTrackInsightService.defaultTracks.first { insight in
+            insight.title == item.title && insight.artist == item.artist
+        }
+    }
+
+    private func currentDemoQueueIndex() -> Int? {
+        guard let playback else {
+            return nil
+        }
+        return queueItems.firstIndex { item in
+            item.title == playback.trackName && item.artist == playback.artistName
         }
     }
 

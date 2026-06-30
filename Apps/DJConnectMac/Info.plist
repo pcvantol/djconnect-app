@@ -29,6 +29,10 @@
 		<key>NSAllowsArbitraryLoadsInLocalNetworking</key>
 		<true/>
 	</dict>
+	<key>NSBonjourServices</key>
+	<array>
+		<string>_home-assistant._tcp.</string>
+	</array>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>DJConnect maakt verbinding met Home Assistant op je lokale netwerk.</string>
 	<key>NSMicrophoneUsageDescription</key>
