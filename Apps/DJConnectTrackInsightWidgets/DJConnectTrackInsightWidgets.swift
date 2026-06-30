@@ -7,6 +7,14 @@ import ActivityKit
 import DJConnectCore
 #endif
 
+private enum DJConnectWidgetDeepLink {
+    static let nowPlaying = URL(string: "djconnect://now-playing")!
+    static let queue = URL(string: "djconnect://queue")!
+    static let playlists = URL(string: "djconnect://playlists")!
+    static let trackInsight = URL(string: "djconnect://track-insight")!
+    static let askDJ = URL(string: "djconnect://ask-dj")!
+}
+
 struct DJConnectNowPlayingWidgetEntry: TimelineEntry {
     let date: Date
     let title: String
@@ -111,6 +119,7 @@ struct DJConnectNowPlayingWidgetView: View {
             content
         }
         .containerBackground(.clear, for: .widget)
+        .widgetURL(DJConnectWidgetDeepLink.nowPlaying)
     }
 
     @ViewBuilder
@@ -384,8 +393,8 @@ struct DJConnectNowPlayingWidget: Widget {
         StaticConfiguration(kind: kind, provider: DJConnectNowPlayingWidgetProvider()) { entry in
             DJConnectNowPlayingWidgetView(entry: entry)
         }
-        .configurationDisplayName(DJConnectLocalization.localized(english: "Now Playing", dutch: "Speelt Nu"))
-        .description(DJConnectLocalization.localized(english: "Shows the current DJConnect track, artist, playback state and progress.", dutch: "Toont de huidige DJConnect-track, artiest, afspeelstatus en voortgang."))
+        .configurationDisplayName("Now Playing")
+        .description("Shows the current DJConnect track, artist, playback state and progress.")
         .supportedFamilies(supportedFamilies)
     }
 
@@ -488,6 +497,7 @@ struct DJConnectQueueWidgetView: View {
             content
         }
         .containerBackground(.clear, for: .widget)
+        .widgetURL(DJConnectWidgetDeepLink.queue)
     }
 
     @ViewBuilder
@@ -781,8 +791,8 @@ struct DJConnectQueueWidget: Widget {
         StaticConfiguration(kind: kind, provider: DJConnectQueueWidgetProvider()) { entry in
             DJConnectQueueWidgetView(entry: entry)
         }
-        .configurationDisplayName(DJConnectLocalization.localized(english: "Queue", dutch: "Wachtrij"))
-        .description(DJConnectLocalization.localized(english: "Shows the upcoming DJConnect queue in compact and detailed widget sizes.", dutch: "Toont de komende DJConnect-wachtrij in compacte en uitgebreide widgetformaten."))
+        .configurationDisplayName("Queue")
+        .description("Shows the upcoming DJConnect queue in compact and detailed widget sizes.")
         .supportedFamilies(supportedFamilies)
     }
 
@@ -880,6 +890,7 @@ struct DJConnectPlaylistsWidgetView: View {
             content
         }
         .containerBackground(.clear, for: .widget)
+        .widgetURL(DJConnectWidgetDeepLink.playlists)
     }
 
     @ViewBuilder
@@ -1183,8 +1194,8 @@ struct DJConnectPlaylistsWidget: Widget {
         StaticConfiguration(kind: kind, provider: DJConnectPlaylistsWidgetProvider()) { entry in
             DJConnectPlaylistsWidgetView(entry: entry)
         }
-        .configurationDisplayName(DJConnectLocalization.localized(english: "Playlists", dutch: "Afspeellijsten"))
-        .description(DJConnectLocalization.localized(english: "Shows DJConnect playlists in compact and detailed widget sizes.", dutch: "Toont DJConnect-afspeellijsten in compacte en uitgebreide widgetformaten."))
+        .configurationDisplayName("Playlists")
+        .description("Shows DJConnect playlists in compact and detailed widget sizes.")
         .supportedFamilies(supportedFamilies)
     }
 
@@ -1356,6 +1367,7 @@ struct DJConnectTrackInsightWidgetView: View {
             content
         }
         .containerBackground(.clear, for: .widget)
+        .widgetURL(DJConnectWidgetDeepLink.trackInsight)
     }
 
     @ViewBuilder
@@ -1695,7 +1707,7 @@ struct DJConnectTrackInsightWidget: Widget {
             DJConnectTrackInsightWidgetView(entry: entry)
         }
         .configurationDisplayName("Track Insight")
-        .description(DJConnectLocalization.localized(english: "DJConnect Track Insight visualization for your current vibe.", dutch: "DJConnect Track Insight visualisatie voor je huidige vibe."))
+        .description("DJConnect Track Insight visualization for your current vibe.")
         .supportedFamilies(supportedFamilies)
     }
 
@@ -1811,6 +1823,7 @@ struct DJConnectAskDJWidgetView: View {
             content
         }
         .containerBackground(.clear, for: .widget)
+        .widgetURL(DJConnectWidgetDeepLink.askDJ)
     }
 
     @ViewBuilder
@@ -2045,7 +2058,7 @@ struct DJConnectAskDJWidget: Widget {
             DJConnectAskDJWidgetView(entry: entry)
         }
         .configurationDisplayName("Ask DJ")
-        .description(DJConnectLocalization.localized(english: "DJConnect Ask DJ widget for quick music questions and vibe context.", dutch: "DJConnect Ask DJ widget voor snelle muziekvragen en vibe-context."))
+        .description("DJConnect Ask DJ widget for quick music questions and vibe context.")
         .supportedFamilies(supportedFamilies)
     }
 
@@ -2076,12 +2089,12 @@ struct DJConnectTrackInsightLiveActivityWidget: Widget {
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: TrackInsightLiveActivityAttributes.self) { context in
             DJConnectNowPlayingLiveActivityLockScreenView(state: context.state)
-                .activityBackgroundTint(Color(red: 0.20, green: 0.16, blue: 0.50))
+                .activityBackgroundTint(Color(red: 0.02, green: 0.04, blue: 0.10))
                 .activitySystemActionForegroundColor(.white)
         } dynamicIsland: { context in
             DynamicIsland {
                 DynamicIslandExpandedRegion(.leading) {
-                    DJConnectNowPlayingLiveActivityOrb(state: context.state)
+                    DJConnectNowPlayingArtwork(entry: context.state.widgetEntry)
                         .frame(width: 54, height: 54)
                 }
                 DynamicIslandExpandedRegion(.trailing) {
@@ -2091,8 +2104,8 @@ struct DJConnectTrackInsightLiveActivityWidget: Widget {
                     DJConnectNowPlayingLiveActivityExpandedBottom(state: context.state)
                 }
             } compactLeading: {
-                Image(systemName: context.state.isPlaying ? "play.fill" : "pause.fill")
-                    .foregroundStyle(.cyan)
+                Image(systemName: context.state.isPlaying ? "music.note" : "pause.fill")
+                    .foregroundStyle(.white)
             } compactTrailing: {
                 Text(context.state.compactProgress)
                     .font(.caption2.weight(.bold))
@@ -2100,9 +2113,9 @@ struct DJConnectTrackInsightLiveActivityWidget: Widget {
                     .monospacedDigit()
             } minimal: {
                 Image(systemName: "music.note")
-                    .foregroundStyle(.cyan)
+                    .foregroundStyle(.white)
             }
-            .keylineTint(.cyan)
+            .keylineTint(Color(red: 0.24, green: 0.64, blue: 1.0))
         }
     }
 }
@@ -2112,13 +2125,14 @@ private struct DJConnectNowPlayingLiveActivityLockScreenView: View {
     let state: TrackInsightLiveActivityAttributes.ContentState
 
     var body: some View {
+        let entry = state.widgetEntry
         HStack(spacing: 14) {
-            DJConnectNowPlayingLiveActivityOrb(state: state)
+            DJConnectNowPlayingArtwork(entry: entry)
                 .frame(width: 72, height: 72)
             VStack(alignment: .leading, spacing: 6) {
-                Label(DJConnectLocalization.localized(english: "Now Playing", dutch: "Speelt Nu"), systemImage: state.isPlaying ? "play.fill" : "pause.fill")
+                Label(DJConnectLocalization.localized(english: "Now Playing", dutch: "Speelt Nu"), systemImage: state.isPlaying ? "music.note" : "pause.fill")
                     .font(.caption.weight(.bold))
-                    .foregroundStyle(.white.opacity(0.72))
+                    .foregroundStyle(.white.opacity(0.84))
                     .textCase(.uppercase)
                 Text(state.title)
                     .font(.headline.weight(.bold))
@@ -2129,14 +2143,14 @@ private struct DJConnectNowPlayingLiveActivityLockScreenView: View {
                     .foregroundStyle(.white.opacity(0.70))
                     .lineLimit(1)
                 DJConnectNowPlayingLiveActivityDescriptorRow(state: state)
-                ProgressView(value: state.progress)
-                    .tint(.cyan)
+                DJConnectNowPlayingProgressBar(progress: state.progress)
+                    .frame(height: 6)
             }
             Spacer(minLength: 0)
         }
         .padding(16)
         .background {
-            DJConnectNowPlayingLiveActivityBackground(state: state)
+            DJConnectNowPlayingWidgetBackground(entry: entry)
         }
     }
 }
@@ -2146,6 +2160,7 @@ private struct DJConnectNowPlayingLiveActivityExpandedBottom: View {
     let state: TrackInsightLiveActivityAttributes.ContentState
 
     var body: some View {
+        let entry = state.widgetEntry
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 8) {
                 Text(state.title)
@@ -2157,14 +2172,14 @@ private struct DJConnectNowPlayingLiveActivityExpandedBottom: View {
                     .lineLimit(1)
             }
             DJConnectNowPlayingLiveActivityDescriptorRow(state: state)
-            ProgressView(value: state.progress)
-                .tint(.cyan)
-            DJConnectNowPlayingLiveActivityWaveform(state: state)
+            DJConnectNowPlayingProgressBar(progress: state.progress)
+                .frame(height: 6)
+            DJConnectNowPlayingWaveform(entry: entry)
                 .frame(height: 24)
         }
         .padding(10)
         .background {
-            DJConnectNowPlayingLiveActivityBackground(state: state)
+            DJConnectNowPlayingWidgetBackground(entry: entry)
                 .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
         }
     }
@@ -2201,7 +2216,7 @@ private struct DJConnectNowPlayingLiveActivityStatusStack: View {
         VStack(alignment: .trailing, spacing: 4) {
             Image(systemName: state.isPlaying ? "speaker.wave.2.fill" : "pause.circle")
                 .font(.title3.weight(.bold))
-                .foregroundStyle(.cyan)
+                .foregroundStyle(Color(red: 0.24, green: 0.64, blue: 1.0))
             if let volumePercent = state.volumePercent {
                 Text("\(volumePercent)%")
                     .font(.caption.weight(.bold))
@@ -2342,6 +2357,19 @@ private struct DJConnectLiveActivityGradient: View {
 
 @available(iOS 16.1, *)
 private extension TrackInsightLiveActivityAttributes.ContentState {
+    var widgetEntry: DJConnectNowPlayingWidgetEntry {
+        DJConnectNowPlayingWidgetEntry(
+            date: Date(),
+            title: title,
+            artist: artist,
+            artworkURL: nil,
+            progress: progress,
+            isPlaying: isPlaying,
+            deviceName: deviceName ?? "DJConnect",
+            hasSnapshot: true
+        )
+    }
+
     var compactProgress: String {
         progressText ?? (isPlaying ? DJConnectLocalization.localized(english: "On", dutch: "Aan") : DJConnectLocalization.localized(english: "Off", dutch: "Uit"))
     }

@@ -94,16 +94,21 @@ targets:
         CFBundleDisplayName: DJConnect
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        CFBundleURLTypes:
+          - CFBundleURLName: dev.djconnect.ios
+            CFBundleURLSchemes:
+              - djconnect
         LSApplicationCategoryType: public.app-category.music
+        NSCameraUsageDescription: DJConnect gebruikt de camera alleen om de koppel-QR-code van Home Assistant of Apple Watch te scannen.
         UILaunchStoryboardName: LaunchScreen
         UIApplicationShortcutItems:
-          - UIApplicationShortcutItemIconType: UIApplicationShortcutIconTypePlay
+          - UIApplicationShortcutItemIconSymbolName: music.note
             UIApplicationShortcutItemTitle: Speelt Nu
             UIApplicationShortcutItemType: dev.djconnect.action.now-playing
-          - UIApplicationShortcutItemIconType: UIApplicationShortcutIconTypeMessage
+          - UIApplicationShortcutItemIconSymbolName: bubble.left.and.bubble.right.fill
             UIApplicationShortcutItemTitle: Ask DJ
             UIApplicationShortcutItemType: dev.djconnect.action.ask-dj
-          - UIApplicationShortcutItemIconType: UIApplicationShortcutIconTypeAudio
+          - UIApplicationShortcutItemIconSymbolName: waveform.path.ecg
             UIApplicationShortcutItemSubtitle: Analyseer huidig nummer
             UIApplicationShortcutItemTitle: Track Insight
             UIApplicationShortcutItemType: dev.djconnect.action.track-insight

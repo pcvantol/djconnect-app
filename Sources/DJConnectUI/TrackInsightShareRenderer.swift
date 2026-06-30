@@ -44,11 +44,12 @@ public enum TrackInsightShareRenderer {
         language: String
     ) throws -> URL {
         try cleanupTemporaryExports()
+        let designSize = format.cardDesignSize
         let view = TrackInsightShareCardView(insight: insight, format: format, language: language, animationPhase: 0)
-            .frame(width: format.size.width, height: format.size.height)
+            .frame(width: designSize.width, height: designSize.height)
         let renderer = ImageRenderer(content: view)
-        renderer.proposedSize = ProposedViewSize(format.size)
-        renderer.scale = 1
+        renderer.proposedSize = ProposedViewSize(designSize)
+        renderer.scale = format.size.width / designSize.width
 
         guard let data = try pngData(from: renderer) else {
             throw RenderError.imageRenderingFailed
@@ -222,11 +223,12 @@ public enum TrackInsightShareRenderer {
         size: CGSize,
         animationPhase: Double
     ) throws -> CVPixelBuffer? {
+        let designSize = format.cardDesignSize
         let view = TrackInsightShareCardView(insight: insight, format: format, language: language, animationPhase: animationPhase)
-            .frame(width: size.width, height: size.height)
+            .frame(width: designSize.width, height: designSize.height)
         let renderer = ImageRenderer(content: view)
-        renderer.proposedSize = ProposedViewSize(size)
-        renderer.scale = 1
+        renderer.proposedSize = ProposedViewSize(designSize)
+        renderer.scale = size.width / designSize.width
 
         #if os(iOS)
         guard let cgImage = renderer.uiImage?.cgImage else {

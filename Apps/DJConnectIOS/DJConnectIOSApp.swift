@@ -51,7 +51,9 @@ final class DJConnectIOSAppDelegate: NSObject, UIApplicationDelegate {
 
     weak var model: DJConnectAppModel? {
         didSet {
-            flushPendingHomeScreenAction()
+            Task { @MainActor in
+                flushPendingHomeScreenAction()
+            }
             vibeCastOutputController.model = model
             updateVibeCastSignal()
         }
@@ -96,6 +98,9 @@ final class DJConnectIOSAppDelegate: NSObject, UIApplicationDelegate {
         if let shortcutItem = options.shortcutItem {
             handle(shortcutItem)
         }
+        if let url = options.urlContexts.first?.url {
+            handle(url)
+        }
         let configuration = UISceneConfiguration(name: nil, sessionRole: connectingSceneSession.role)
         if connectingSceneSession.role == .windowExternalDisplayNonInteractive {
             configuration.delegateClass = VibeCastExternalDisplaySceneDelegate.self
@@ -121,14 +126,22 @@ final class DJConnectIOSAppDelegate: NSObject, UIApplicationDelegate {
         return true
     }
 
+    @discardableResult
+    private func handle(_ url: URL) -> Bool {
+        guard let action = DJConnectHomeScreenAction(deepLinkURL: url) else {
+            return false
+        }
+        pendingHomeScreenAction = action
+        flushPendingHomeScreenAction()
+        return true
+    }
+
     private func flushPendingHomeScreenAction() {
         guard let action = pendingHomeScreenAction, let model else {
             return
         }
         pendingHomeScreenAction = nil
-        Task { @MainActor in
-            model.performHomeScreenAction(action)
-        }
+        model.performHomeScreenAction(action)
     }
 
     func updateVibeCastSignal() {

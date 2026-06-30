@@ -241,6 +241,10 @@ private struct TrackInsightShareScaledPreview<Content: View>: View {
     let format: TrackInsightShareFormat
     @ViewBuilder var content: Content
 
+    private var designSize: CGSize {
+        format.cardDesignSize
+    }
+
     private var aspectRatio: CGFloat {
         format.size.width / format.size.height
     }
@@ -249,12 +253,12 @@ private struct TrackInsightShareScaledPreview<Content: View>: View {
         ZStack {
             GeometryReader { proxy in
                 let scale = min(
-                    proxy.size.width / format.size.width,
-                    proxy.size.height / format.size.height
+                    proxy.size.width / designSize.width,
+                    proxy.size.height / designSize.height
                 )
 
                 content
-                    .frame(width: format.size.width, height: format.size.height)
+                    .frame(width: designSize.width, height: designSize.height)
                     .scaleEffect(scale)
                     .frame(width: proxy.size.width, height: proxy.size.height)
             }
@@ -266,6 +270,19 @@ private struct TrackInsightShareScaledPreview<Content: View>: View {
         .overlay {
             RoundedRectangle(cornerRadius: 12, style: .continuous)
                 .stroke(.white.opacity(0.14), lineWidth: 1)
+        }
+    }
+}
+
+extension TrackInsightShareFormat {
+    var cardDesignSize: CGSize {
+        switch self {
+        case .story:
+            CGSize(width: 540, height: 960)
+        case .square:
+            CGSize(width: 540, height: 540)
+        case .linkPreview:
+            CGSize(width: 600, height: 314)
         }
     }
 }
@@ -390,7 +407,7 @@ struct TrackInsightShareCardView: View {
                         .padding(.vertical, 7)
                         .background(.black.opacity(0.24), in: Capsule())
                 }
-                TrackInsightShareMeters(insight: insight, profile: profile, language: language)
+                TrackInsightShareMeters(insight: insight, profile: profile, format: format, language: language)
                 Text(insight.summary)
                     .font(summaryFont)
                     .foregroundStyle(.white.opacity(0.78))
@@ -398,12 +415,13 @@ struct TrackInsightShareCardView: View {
                     .lineLimit(summaryLineLimit)
                     .minimumScaleFactor(0.66)
                     .fixedSize(horizontal: false, vertical: true)
-                Spacer(minLength: 0)
+                Spacer(minLength: format == .story ? 10 : 0)
                 Text("#DJConnect #TrackInsight")
-                    .font(.caption.weight(.semibold))
+                    .font(hashtagFont)
                     .foregroundStyle(.white.opacity(0.66))
             }
             .padding(cardPadding)
+            .frame(maxWidth: contentMaxWidth)
         }
     }
 
@@ -427,7 +445,7 @@ struct TrackInsightShareCardView: View {
     private var titleFont: Font {
         switch format {
         case .story:
-            .title.weight(.bold)
+            .largeTitle.weight(.bold)
         case .square:
             .title2.weight(.bold)
         case .linkPreview:
@@ -438,7 +456,7 @@ struct TrackInsightShareCardView: View {
     private var summaryFont: Font {
         switch format {
         case .story:
-            .callout.weight(.medium)
+            .title3.weight(.medium)
         case .square:
             .caption.weight(.medium)
         case .linkPreview:
@@ -460,7 +478,7 @@ struct TrackInsightShareCardView: View {
     private var cardSpacing: CGFloat {
         switch format {
         case .story:
-            10
+            16
         case .square:
             8
         case .linkPreview:
@@ -471,7 +489,7 @@ struct TrackInsightShareCardView: View {
     private var cardPadding: CGFloat {
         switch format {
         case .story:
-            28
+            38
         case .square:
             22
         case .linkPreview:
@@ -482,11 +500,31 @@ struct TrackInsightShareCardView: View {
     private var artworkSize: CGFloat {
         switch format {
         case .story:
-            166
+            300
         case .square:
             132
         case .linkPreview:
             112
+        }
+    }
+
+    private var hashtagFont: Font {
+        switch format {
+        case .story:
+            .callout.weight(.semibold)
+        case .square, .linkPreview:
+            .caption.weight(.semibold)
+        }
+    }
+
+    private var contentMaxWidth: CGFloat {
+        switch format {
+        case .story:
+            470
+        case .square:
+            500
+        case .linkPreview:
+            560
         }
     }
 
@@ -660,10 +698,11 @@ private struct TrackInsightShareBackground: View {
 private struct TrackInsightShareMeters: View {
     let insight: TrackInsight
     let profile: TrackVibeProfile
+    let format: TrackInsightShareFormat
     let language: String
 
     var body: some View {
-        HStack(spacing: 18) {
+        HStack(spacing: meterSpacing) {
             meter(localized("Energy", "Energie"), insight.energy)
             meter(localized("Danceability", "Dansbaarheid"), insight.danceability)
             meter(localized("Intensity", "Intensiteit"), insight.intensity)
@@ -675,26 +714,88 @@ private struct TrackInsightShareMeters: View {
         return VStack(spacing: 5) {
             ZStack {
                 Circle()
-                    .stroke(.white.opacity(0.16), lineWidth: 6)
+                    .stroke(.white.opacity(0.16), lineWidth: meterLineWidth)
                 Circle()
                     .trim(from: 0, to: CGFloat(max(0.04, min(1, value))))
                     .stroke(
                         AngularGradient(colors: profile.colors, center: .center),
-                        style: StrokeStyle(lineWidth: 6, lineCap: .round)
+                        style: StrokeStyle(lineWidth: meterLineWidth, lineCap: .round)
                     )
                     .rotationEffect(.degrees(-90))
                 Text(String(format: "%.2f", value))
-                    .font(.caption.weight(.bold))
+                    .font(meterValueFont)
                     .foregroundStyle(.white)
             }
-            .frame(width: 52, height: 52)
+            .frame(width: meterSize, height: meterSize)
             Text(title)
-                .font(.caption2.weight(.semibold))
+                .font(meterTitleFont)
                 .foregroundStyle(.white.opacity(0.62))
                 .lineLimit(1)
                 .minimumScaleFactor(0.65)
         }
-        .frame(width: 74)
+        .frame(width: meterColumnWidth)
+    }
+
+    private var meterSize: CGFloat {
+        switch format {
+        case .story:
+            92
+        case .square:
+            52
+        case .linkPreview:
+            44
+        }
+    }
+
+    private var meterColumnWidth: CGFloat {
+        switch format {
+        case .story:
+            128
+        case .square:
+            74
+        case .linkPreview:
+            64
+        }
+    }
+
+    private var meterSpacing: CGFloat {
+        switch format {
+        case .story:
+            34
+        case .square:
+            18
+        case .linkPreview:
+            12
+        }
+    }
+
+    private var meterLineWidth: CGFloat {
+        switch format {
+        case .story:
+            10
+        case .square, .linkPreview:
+            6
+        }
+    }
+
+    private var meterValueFont: Font {
+        switch format {
+        case .story:
+            .title3.weight(.bold)
+        case .square:
+            .caption.weight(.bold)
+        case .linkPreview:
+            .caption2.weight(.bold)
+        }
+    }
+
+    private var meterTitleFont: Font {
+        switch format {
+        case .story:
+            .callout.weight(.semibold)
+        case .square, .linkPreview:
+            .caption2.weight(.semibold)
+        }
     }
 
     private func localized(_ english: String, _ dutch: String) -> String {

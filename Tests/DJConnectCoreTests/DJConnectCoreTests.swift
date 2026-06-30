@@ -3551,18 +3551,16 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     #expect(json?["firmware"] as? String == "3.1.7")
 }
 
-@Test func appleAppInfoPlistsDoNotDeclareBonjourServicesForPairingDiscovery() throws {
-    let root = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
-    let plistPaths = [
-        root.appendingPathComponent("Apps/DJConnectIOS/Info.plist").path,
-        root.appendingPathComponent("Apps/DJConnectMac/Info.plist").path
-    ]
+@Test func appleAppInfoPlistsDeclareOnlySupportedBonjourServices() throws {
+    let iOSPlist = try loadRepositoryPlist("Apps/DJConnectIOS/Info.plist")
+    let macPlist = try loadRepositoryPlist("Apps/DJConnectMac/Info.plist")
+    let iOSBonjourServices = try #require(iOSPlist["NSBonjourServices"] as? [String])
+    let macBonjourServices = try #require(macPlist["NSBonjourServices"] as? [String])
 
-    for path in plistPaths {
-        let plist = try #require(NSDictionary(contentsOfFile: path) as? [String: Any])
-        #expect(plist["NSBonjourServices"] == nil)
-        #expect(String(describing: plist).contains("_djconnect") == false)
-    }
+    #expect(iOSBonjourServices == ["_home-assistant._tcp."])
+    #expect(macBonjourServices == ["_home-assistant._tcp."])
+    #expect(String(describing: iOSPlist).contains("_djconnect") == false)
+    #expect(String(describing: macPlist).contains("_djconnect") == false)
 }
 
 @Test func iOSPairingRequestUsesPairEndpointWithoutLocalCallbackFields() throws {
@@ -5477,6 +5475,41 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     #expect(DJConnectLocalization.preferredLanguageCode([]) == "en")
 }
 
+@Test func homeScreenActionsDecodeWidgetAndShortcutDeepLinks() throws {
+    #expect(DJConnectHomeScreenAction(deepLinkURL: try #require(URL(string: "djconnect://now-playing"))) == .nowPlaying)
+    #expect(DJConnectHomeScreenAction(deepLinkURL: try #require(URL(string: "djconnect://queue"))) == .queue)
+    #expect(DJConnectHomeScreenAction(deepLinkURL: try #require(URL(string: "djconnect://ask-dj"))) == .askDJ)
+    #expect(DJConnectHomeScreenAction(deepLinkURL: try #require(URL(string: "djconnect://track-insight"))) == .trackInsight)
+    #expect(DJConnectHomeScreenAction(deepLinkURL: try #require(URL(string: "djconnect://playlists"))) == .playlists)
+    #expect(DJConnectHomeScreenAction(deepLinkURL: try #require(URL(string: "djconnect:///queue"))) == .queue)
+    #expect(DJConnectHomeScreenAction(deepLinkURL: try #require(URL(string: "https://djconnect.dev/queue"))) == nil)
+    #expect(DJConnectHomeScreenAction(deepLinkURL: try #require(URL(string: "djconnect://unknown"))) == nil)
+}
+
+@Test func homeScreenActionRequestsAreUniqueEventsForRepeatedActions() {
+    let first = DJConnectHomeScreenActionRequest(action: .askDJ)
+    let second = DJConnectHomeScreenActionRequest(action: .askDJ)
+
+    #expect(first.action == second.action)
+    #expect(first != second)
+}
+
+@Test func iOSInfoPlistContainsCameraConsentAndNavigationMetadata() throws {
+    let plist = try loadRepositoryPlist("Apps/DJConnectIOS/Info.plist")
+    let cameraUsage = try #require(plist["NSCameraUsageDescription"] as? String)
+    let urlTypes = try #require(plist["CFBundleURLTypes"] as? [[String: Any]])
+    let shortcutItems = try #require(plist["UIApplicationShortcutItems"] as? [[String: Any]])
+
+    #expect(cameraUsage.localizedCaseInsensitiveContains("camera"))
+    #expect(cameraUsage.localizedCaseInsensitiveContains("QR"))
+    #expect(urlTypes.contains { type in
+        (type["CFBundleURLSchemes"] as? [String])?.contains("djconnect") == true
+    })
+    #expect(shortcutItems.map { $0["UIApplicationShortcutItemType"] as? String }.contains("dev.djconnect.action.now-playing"))
+    #expect(shortcutItems.map { $0["UIApplicationShortcutItemType"] as? String }.contains("dev.djconnect.action.ask-dj"))
+    #expect(shortcutItems.map { $0["UIApplicationShortcutItemType"] as? String }.contains("dev.djconnect.action.track-insight"))
+}
+
 @MainActor
 @Test func trackInsightShareTextStaysCompactAndPublic() {
     let insight = TrackInsight(
@@ -5498,6 +5531,17 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     #expect(!text.localizedCaseInsensitiveContains("token"))
     #expect(!text.localizedCaseInsensitiveContains("entity_id"))
     #expect(!text.localizedCaseInsensitiveContains("home assistant"))
+}
+
+private func loadRepositoryPlist(_ relativePath: String) throws -> [String: Any] {
+    let url = URL(fileURLWithPath: #filePath)
+        .deletingLastPathComponent()
+        .deletingLastPathComponent()
+        .deletingLastPathComponent()
+        .appendingPathComponent(relativePath)
+    let data = try Data(contentsOf: url)
+    let object = try PropertyListSerialization.propertyList(from: data, options: [], format: nil)
+    return try #require(object as? [String: Any])
 }
 
 @MainActor

@@ -642,24 +642,30 @@ public struct DJConnectRootView: View {
             }
         }
         .onOpenURL { url in
-            model.handlePairingDeepLink(url)
+            if !model.handleAppNavigationDeepLink(url) {
+                model.handlePairingDeepLink(url)
+            }
         }
         .onChange(of: model.trackInsightNavigationRequestID) {
             selectedSection = .trackInsight
         }
         .onChange(of: model.homeScreenActionRequest) {
-            guard let action = model.homeScreenActionRequest else {
+            guard let request = model.homeScreenActionRequest else {
                 return
             }
-            switch action {
+            switch request.action {
             case .nowPlaying:
                 selectedSection = .nowPlaying
+            case .queue:
+                selectedSection = .queue
             case .askDJ:
                 selectedSection = .askDJ
             case .trackInsight:
                 selectedSection = .trackInsight
+            case .playlists:
+                selectedSection = .playlists
             }
-            model.clearHomeScreenActionRequest(action)
+            model.clearHomeScreenActionRequest(request)
         }
         .onChange(of: selectedSection) {
             if selectedSection == .settings {
@@ -679,7 +685,7 @@ public struct DJConnectRootView: View {
         .onChange(of: scenePhase) {
             switch scenePhase {
             case .active:
-                model.refreshPermissionStatuses()
+                model.refreshPermissionStatuses(retryWakeWord: false)
                 model.markActiveSession()
                 model.recoverPairingClientAPIIfNeeded()
             case .inactive, .background:
@@ -857,6 +863,8 @@ private struct PairingSheetView: View {
     @State private var isManualPairingVisible = false
     #if os(iOS)
     @State private var isShowingQRScanner = false
+    @State private var isShowingCameraConsent = false
+    @State private var cameraConsentShowsSettings = false
     #endif
 
     var body: some View {
@@ -883,6 +891,16 @@ private struct PairingSheetView: View {
         .frame(minHeight: 560)
         #endif
         #if os(iOS)
+        .sheet(isPresented: $isShowingCameraConsent) {
+            PairingCameraConsentSheet(
+                language: model.language,
+                showsSettingsAction: cameraConsentShowsSettings,
+                continueAction: openScannerAfterCameraConsent,
+                settingsAction: openCameraSettings
+            )
+            .presentationDetents([.medium])
+            .presentationDragIndicator(.visible)
+        }
         .sheet(isPresented: $isShowingQRScanner) {
             PairingQRScannerView(language: model.language) { value in
                 isShowingQRScanner = false
@@ -895,6 +913,54 @@ private struct PairingSheetView: View {
         }
         #endif
     }
+
+    #if os(iOS)
+    private func requestCameraConsentForScanner() {
+        switch AVCaptureDevice.authorizationStatus(for: .video) {
+        case .authorized:
+            isShowingQRScanner = true
+        case .notDetermined:
+            cameraConsentShowsSettings = false
+            isShowingCameraConsent = true
+        case .denied, .restricted:
+            cameraConsentShowsSettings = true
+            isShowingCameraConsent = true
+        @unknown default:
+            cameraConsentShowsSettings = true
+            isShowingCameraConsent = true
+        }
+    }
+
+    private func openScannerAfterCameraConsent() {
+        guard !cameraConsentShowsSettings else {
+            openCameraSettings()
+            return
+        }
+        AVCaptureDevice.requestAccess(for: .video) { granted in
+            DispatchQueue.main.async {
+                isShowingCameraConsent = false
+                if granted {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
+                        isShowingQRScanner = true
+                    }
+                } else {
+                    cameraConsentShowsSettings = true
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
+                        isShowingCameraConsent = true
+                    }
+                }
+            }
+        }
+    }
+
+    private func openCameraSettings() {
+        guard let url = URL(string: UIApplication.openSettingsURLString) else {
+            return
+        }
+        isShowingCameraConsent = false
+        UIApplication.shared.open(url)
+    }
+    #endif
 
     private var pairingPending: some View {
         VStack(spacing: 20) {
@@ -917,7 +983,7 @@ private struct PairingSheetView: View {
                 #if os(iOS)
                 if model.pairingFlowTarget == .appleWatch {
                     Button {
-                        isShowingQRScanner = true
+                        requestCameraConsentForScanner()
                     } label: {
                         Label(
                             localized(model.language, "Pair Apple Watch via QR Code", "Koppel Apple Watch via QR-code"),
@@ -930,7 +996,7 @@ private struct PairingSheetView: View {
                     .disabled(model.isPairing)
                 } else {
                     Button {
-                        isShowingQRScanner = true
+                        requestCameraConsentForScanner()
                     } label: {
                         Label(
                             localized(model.language, "Pair iPhone via QR Code", "Koppel iPhone via QR-code"),
@@ -1517,6 +1583,88 @@ private struct PairingCodeEntryCard: View {
 }
 
 #if os(iOS) && canImport(AVFoundation)
+private struct PairingCameraConsentSheet: View {
+    let language: String
+    let showsSettingsAction: Bool
+    let continueAction: () -> Void
+    let settingsAction: () -> Void
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            VStack(spacing: 22) {
+                Image(systemName: "qrcode.viewfinder")
+                    .font(.system(size: 42, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .frame(width: 78, height: 78)
+                    .background(
+                        LinearGradient(
+                            colors: [djConnectAccent, Color(red: 0.82, green: 0.20, blue: 0.92)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        ),
+                        in: RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    )
+
+                VStack(spacing: 10) {
+                    Text(localized(language, "Camera access for pairing", "Cameratoegang voor koppelen"))
+                        .font(.title2.bold())
+                        .multilineTextAlignment(.center)
+                    Text(message)
+                        .font(.body)
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                VStack(spacing: 12) {
+                    Button {
+                        showsSettingsAction ? settingsAction() : continueAction()
+                    } label: {
+                        Label(primaryButtonTitle, systemImage: showsSettingsAction ? "gear" : "camera.fill")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(DJConnectLilacPillButtonStyle())
+                    .controlSize(.large)
+
+                    Button(localized(language, "Not now", "Niet nu")) {
+                        dismiss()
+                    }
+                    .buttonStyle(.plain)
+                    .font(.headline.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                }
+            }
+            .padding(24)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(DJConnectCanvasBackground())
+            .navigationTitle(localized(language, "Camera", "Camera"))
+            .navigationBarTitleDisplayMode(.inline)
+        }
+    }
+
+    private var message: String {
+        if showsSettingsAction {
+            return localized(
+                language,
+                "Camera access is disabled. Enable it in Settings to scan the DJConnect pairing QR code from Home Assistant.",
+                "Cameratoegang staat uit. Zet dit aan in Instellingen om de DJConnect koppel-QR-code van Home Assistant te scannen."
+            )
+        }
+        return localized(
+            language,
+            "DJConnect uses the camera only to scan the pairing QR code from Home Assistant or Apple Watch. Nothing is recorded or stored.",
+            "DJConnect gebruikt de camera alleen om de koppel-QR-code van Home Assistant of Apple Watch te scannen. Er wordt niets opgenomen of opgeslagen."
+        )
+    }
+
+    private var primaryButtonTitle: String {
+        showsSettingsAction
+            ? localized(language, "Open Settings", "Open Instellingen")
+            : localized(language, "Allow Camera", "Camera toestaan")
+    }
+}
+
 private struct PairingQRScannerView: View {
     let language: String
     let onCode: (String) -> Void
@@ -1905,7 +2053,7 @@ private struct WelcomeView: View {
                     Text(localized(
                         model.language,
                         "Setup runs through Home Assistant. Spotify playback requires Spotify Premium.",
-                        "Muziekweergave en bediening loopt via Home Assistant."
+                        "Muziekbediening loopt via Home Assistant."
                     ))
                     .font(.callout.weight(.semibold))
                     .foregroundStyle(.secondary)
@@ -1919,8 +2067,13 @@ private struct WelcomeView: View {
                 Button {
                     model.dismissWelcome()
                 } label: {
-                    Text(localized(model.language, "Skip", "Overslaan"))
-                        .frame(maxWidth: .infinity)
+                    if isLastStep {
+                        Label(localized(model.language, "Let's Start!", "Aan de slag!"), systemImage: "checkmark.circle.fill")
+                            .frame(maxWidth: .infinity)
+                    } else {
+                        Text(localized(model.language, "Skip", "Overslaan"))
+                            .frame(maxWidth: .infinity)
+                    }
                 }
                 .buttonStyle(DJConnectLilacPillButtonStyle())
                 .controlSize(.large)
@@ -1937,23 +2090,16 @@ private struct WelcomeView: View {
                     .disabled(selectedStepIndex == 0)
                     .opacity(selectedStepIndex == 0 ? 0.46 : 1)
 
-                    Button {
-                        if isLastStep {
-                            model.dismissWelcome()
-                        } else {
+                    if !isLastStep {
+                        Button {
                             moveWelcomeTour(by: 1)
+                        } label: {
+                            Label(localized(model.language, "Next", "Volgende"), systemImage: "chevron.right")
+                                .frame(maxWidth: .infinity)
                         }
-                    } label: {
-                        Label(
-                            isLastStep
-                                ? localized(model.language, "Let's Start!", "Aan de slag!")
-                                : localized(model.language, "Next", "Volgende"),
-                            systemImage: isLastStep ? "checkmark.circle.fill" : "chevron.right"
-                        )
-                            .frame(maxWidth: .infinity)
+                        .buttonStyle(DJConnectLilacPillButtonStyle())
+                        .controlSize(.large)
                     }
-                    .buttonStyle(DJConnectLilacPillButtonStyle())
-                    .controlSize(.large)
                 }
             }
             .padding(28)
@@ -3522,7 +3668,7 @@ private struct TrackInsightHeroScene: View {
                     scene(date: timeline.date)
                 }
             } else {
-                TimelineView(.animation(minimumInterval: 1.0 / 24.0)) { timeline in
+                TimelineView(.animation(minimumInterval: 1.0 / 60.0)) { timeline in
                     scene(date: timeline.date)
                 }
             }
@@ -3843,7 +3989,7 @@ private struct VibeCastVisualizerSignalView: View {
                     premiumScene(date: timeline.date)
                 }
             } else {
-                TimelineView(.animation(minimumInterval: 1.0 / 24.0)) { timeline in
+                TimelineView(.animation(minimumInterval: 1.0 / 60.0)) { timeline in
                     premiumScene(date: timeline.date)
                 }
             }
@@ -4179,7 +4325,9 @@ private struct VibeCastAVPlayerPreviewSheet: View {
                 let avPlayer = AVPlayer(playerItem: item)
                 avPlayer.actionAtItemEnd = .none
                 avPlayer.allowsExternalPlayback = true
+                #if !os(macOS)
                 avPlayer.usesExternalPlaybackWhileExternalScreenIsActive = true
+                #endif
                 #if os(iOS)
                 try? AVAudioSession.sharedInstance().setCategory(.playback, mode: .moviePlayback, options: [.allowAirPlay])
                 try? AVAudioSession.sharedInstance().setActive(true)
@@ -4341,7 +4489,7 @@ private struct TrackVibeVisualizerView: View {
             }
         } else {
             #if os(macOS)
-            TimelineView(.animation(minimumInterval: 1.0 / 15.0)) { timeline in
+            TimelineView(.animation(minimumInterval: 1.0 / 60.0)) { timeline in
                 let phase = playbackPhase(at: timeline.date)
                 TrackVibeCanvas(
                     profile: profile,
@@ -4350,7 +4498,7 @@ private struct TrackVibeVisualizerView: View {
                 )
             }
             #else
-            TimelineView(.animation(minimumInterval: 1.0 / 30.0)) { timeline in
+            TimelineView(.animation(minimumInterval: 1.0 / 60.0)) { timeline in
                 let phase = playbackPhase(at: timeline.date)
                 TrackVibeCanvas(
                     profile: profile,
@@ -4416,7 +4564,7 @@ private extension TrackVibeMetalVisualizerView {
         view.framebufferOnly = true
         view.clearColor = MTLClearColor(red: 0.015, green: 0.018, blue: 0.045, alpha: 1)
         view.colorPixelFormat = .bgra8Unorm
-        view.preferredFramesPerSecond = 30
+        view.preferredFramesPerSecond = 60
         view.enableSetNeedsDisplay = false
         view.isPaused = false
         context.coordinator.configure(device: view.device, colorPixelFormat: view.colorPixelFormat)
@@ -4428,7 +4576,7 @@ private extension TrackVibeMetalVisualizerView {
         context.coordinator.profile = profile
         context.coordinator.playback = playback
         context.coordinator.reduceMotion = reduceMotion
-        view.preferredFramesPerSecond = reduceMotion ? 1 : 30
+        view.preferredFramesPerSecond = reduceMotion ? 1 : 60
         view.isPaused = !isActive
         if !isActive || reduceMotion {
             view.draw()
@@ -4523,7 +4671,7 @@ private final class TrackVibeMetalRenderer: NSObject, MTKViewDelegate {
         let profile = profile
         let phase = TrackVibePlaybackPhase(playback: playback, date: Date())
         let elapsed = reduceMotion ? phase.positionSeconds : Date().timeIntervalSince(startDate)
-        let songTime = playback?.isPlaying == true ? phase.positionSeconds + elapsed : phase.positionSeconds
+        let songTime = phase.positionSeconds
         let progress = phase.progress
         let waveform = Float(profile?.waveform ?? 0.8)
         let glow = Float(profile?.glow ?? 0.7)
@@ -4894,7 +5042,11 @@ private struct TrackVibePlaybackPhase {
         let durationMS = max(playback?.durationMS ?? 0, 0)
         let progressMS = max(playback?.progressMS ?? 0, 0)
         let durationSeconds = durationMS > 0 ? Double(durationMS) / 1_000 : 240
-        let positionSeconds = min(Double(progressMS) / 1_000, durationSeconds)
+        let basePositionSeconds = Double(progressMS) / 1_000
+        let liveFraction = playback?.isPlaying == true
+            ? date.timeIntervalSinceReferenceDate.truncatingRemainder(dividingBy: 1)
+            : 0
+        let positionSeconds = min(basePositionSeconds + liveFraction, durationSeconds)
         let progress = durationSeconds > 0 ? min(max(positionSeconds / durationSeconds, 0), 1) : 0
         let phrase = sin(progress * .pi * 10)
         let section = sin(progress * .pi * 2 - .pi / 2) * 0.5 + 0.5
@@ -4902,7 +5054,6 @@ private struct TrackVibePlaybackPhase {
         self.progress = progress
         self.positionSeconds = positionSeconds
         self.energyLift = max(0, min(1, 0.28 + phrase * 0.18 + section * 0.54))
-        _ = date
     }
 }
 
@@ -5169,7 +5320,9 @@ private struct IOSNowPlayingView: View {
                 }
                 .background(.clear)
                 .refreshable {
-                    model.refresh()
+                    if !model.isDemoMode {
+                        model.refresh()
+                    }
                 }
             }
             .navigationTitle(screenTitle(model.language, "Now Playing", "Speelt nu", isDemoMode: model.isDemoMode))
@@ -5386,56 +5539,6 @@ private struct IOSTrackHero: View {
         .task(id: nowPlayingTrackKey(for: playback)) {
             cardTint = await sampledArtworkTint(for: playback)
         }
-    }
-}
-
-private struct TrackInsightIconButton: View {
-    @ObservedObject var model: DJConnectAppModel
-
-    var body: some View {
-        Button {
-            DJConnectHaptics.selection()
-            model.analyzeCurrentTrack(open: true)
-        } label: {
-            if model.isLoadingTrackInsight {
-                ProgressView()
-                    .controlSize(.small)
-                    .frame(width: 44, height: 40)
-            } else {
-                TrackInsightPulseIcon()
-                    .stroke(style: StrokeStyle(lineWidth: 3.2, lineCap: .round, lineJoin: .round))
-                    .frame(width: 27, height: 23)
-                    .frame(width: 44, height: 40)
-            }
-        }
-        .buttonStyle(.bordered)
-        .tint(model.currentTrackInsight == nil ? .secondary : djConnectAccent)
-        .disabled(model.isLoadingTrackInsight || !model.canStartTrackInsightAnalysis)
-        .opacity(model.canStartTrackInsightAnalysis ? 1 : 0.45)
-        .accessibilityLabel(localized(model.language, "Open Track Insight", "Open Track Insight"))
-        .accessibilityHint(localized(
-            model.language,
-            "Sends the current track to the backend for analysis and opens Track Insight.",
-            "Stuurt het huidige nummer naar de backend voor analyse en opent Track Insight."
-        ))
-        .help(localized(model.language, "Track Insight", "Track Insight"))
-    }
-}
-
-private struct TrackInsightPulseIcon: Shape {
-    func path(in rect: CGRect) -> Path {
-        var path = Path()
-        let midY = rect.midY
-        let width = rect.width
-        let height = rect.height
-        path.move(to: CGPoint(x: rect.minX + width * 0.02, y: midY))
-        path.addLine(to: CGPoint(x: rect.minX + width * 0.24, y: midY))
-        path.addLine(to: CGPoint(x: rect.minX + width * 0.34, y: rect.minY + height * 0.26))
-        path.addLine(to: CGPoint(x: rect.minX + width * 0.46, y: rect.maxY - height * 0.18))
-        path.addLine(to: CGPoint(x: rect.minX + width * 0.56, y: rect.minY + height * 0.38))
-        path.addLine(to: CGPoint(x: rect.minX + width * 0.66, y: midY))
-        path.addLine(to: CGPoint(x: rect.minX + width * 0.98, y: midY))
-        return path
     }
 }
 
@@ -5862,6 +5965,56 @@ private struct SeekControlsView: View {
     }
 }
 
+private struct TrackInsightIconButton: View {
+    @ObservedObject var model: DJConnectAppModel
+
+    var body: some View {
+        Button {
+            DJConnectHaptics.selection()
+            model.analyzeCurrentTrack(open: true)
+        } label: {
+            if model.isLoadingTrackInsight {
+                ProgressView()
+                    .controlSize(.small)
+                    .frame(width: 44, height: 40)
+            } else {
+                TrackInsightPulseIcon()
+                    .stroke(style: StrokeStyle(lineWidth: 3.2, lineCap: .round, lineJoin: .round))
+                    .frame(width: 27, height: 23)
+                    .frame(width: 44, height: 40)
+            }
+        }
+        .buttonStyle(.bordered)
+        .tint(model.currentTrackInsight == nil ? .secondary : djConnectAccent)
+        .disabled(model.isLoadingTrackInsight || !model.canStartTrackInsightAnalysis)
+        .opacity(model.canStartTrackInsightAnalysis ? 1 : 0.45)
+        .accessibilityLabel(localized(model.language, "Open Track Insight", "Open Track Insight"))
+        .accessibilityHint(localized(
+            model.language,
+            "Sends the current track to the backend for analysis and opens Track Insight.",
+            "Stuurt het huidige nummer naar de backend voor analyse en opent Track Insight."
+        ))
+        .help(localized(model.language, "Track Insight", "Track Insight"))
+    }
+}
+
+private struct TrackInsightPulseIcon: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let midY = rect.midY
+        let width = rect.width
+        let height = rect.height
+        path.move(to: CGPoint(x: rect.minX + width * 0.02, y: midY))
+        path.addLine(to: CGPoint(x: rect.minX + width * 0.24, y: midY))
+        path.addLine(to: CGPoint(x: rect.minX + width * 0.34, y: rect.minY + height * 0.26))
+        path.addLine(to: CGPoint(x: rect.minX + width * 0.46, y: rect.maxY - height * 0.18))
+        path.addLine(to: CGPoint(x: rect.minX + width * 0.56, y: rect.minY + height * 0.38))
+        path.addLine(to: CGPoint(x: rect.minX + width * 0.66, y: midY))
+        path.addLine(to: CGPoint(x: rect.minX + width * 0.98, y: midY))
+        return path
+    }
+}
+
 struct PlaybackControlsView: View {
     @ObservedObject var model: DJConnectAppModel
     private var canUsePlayback: Bool { model.canUsePlaybackFeatures && !model.isRefreshing }
@@ -5933,6 +6086,9 @@ struct PlaybackControlsView: View {
                     .disabled(!canUsePlayback)
 
                 FavoriteTrackButton(model: model)
+                    .disabled(!canUsePlayback)
+
+                TrackInsightIconButton(model: model)
                     .disabled(!canUsePlayback)
 
                 RepeatModeButton(model: model)
@@ -6469,7 +6625,9 @@ private struct AskDJView: View {
                         .refreshable {
                             isInputFocused = false
                             isSearchFocused = false
-                            await model.refreshAskDJHistory()
+                            if !model.isDemoMode {
+                                await model.refreshAskDJHistory()
+                            }
                         }
                         .scrollDismissesKeyboard(.interactively)
                         .simultaneousGesture(
@@ -6599,14 +6757,16 @@ private struct AskDJView: View {
                     Button {
                         isInputFocused = false
                         Task {
-                            await model.refreshAskDJHistory()
+                            if !model.isDemoMode {
+                                await model.refreshAskDJHistory()
+                            }
                         }
                     } label: {
                         Image(systemName: "arrow.clockwise")
-                            .foregroundStyle(.primary)
+                            .foregroundStyle(model.isDemoMode ? .secondary : .primary)
                     }
                     .tint(.primary)
-                    .disabled(model.isClearingAskDJHistory)
+                    .disabled(model.isDemoMode || model.isClearingAskDJHistory)
                     .help(localized(model.language, "Refresh Ask DJ", "Ask DJ vernieuwen"))
                     .accessibilityLabel(localized(model.language, "Refresh Ask DJ", "Ask DJ vernieuwen"))
                 }
@@ -6648,14 +6808,16 @@ private struct AskDJView: View {
                     Button {
                         isInputFocused = false
                         Task {
-                            await model.refreshAskDJHistory()
+                            if !model.isDemoMode {
+                                await model.refreshAskDJHistory()
+                            }
                         }
                     } label: {
                         Image(systemName: "arrow.clockwise")
-                            .foregroundStyle(.primary)
+                            .foregroundStyle(model.isDemoMode ? .secondary : .primary)
                     }
                     .tint(.primary)
-                    .disabled(model.isClearingAskDJHistory)
+                    .disabled(model.isDemoMode || model.isClearingAskDJHistory)
                     .help(localized(model.language, "Refresh Ask DJ", "Ask DJ vernieuwen"))
                     .accessibilityLabel(localized(model.language, "Refresh Ask DJ", "Ask DJ vernieuwen"))
                 }

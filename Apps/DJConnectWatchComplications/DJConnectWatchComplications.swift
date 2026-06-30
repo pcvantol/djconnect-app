@@ -406,7 +406,7 @@ struct DJConnectComplicationWidget: Widget {
             DJConnectLauncherView()
         }
         .configurationDisplayName("DJConnect")
-        .description(localized("Open DJConnect from your watch face.", "Open DJConnect vanaf je wijzerplaat."))
+        .description("Open DJConnect from your watch face.")
         .supportedFamilies(supportedFamilies)
     }
 }
@@ -429,8 +429,8 @@ struct DJConnectNowPlayingComplicationWidget: Widget {
         ) { entry in
             NowPlayingComplicationView(entry: entry)
         }
-        .configurationDisplayName(localized("Now Playing", "Speelt Nu"))
-        .description(localized("Current DJConnect playback.", "Huidige DJConnect weergave."))
+        .configurationDisplayName("Now Playing")
+        .description("Current DJConnect playback.")
         .supportedFamilies(supportedFamilies)
     }
 }
@@ -449,8 +449,8 @@ struct DJConnectQueueComplicationWidget: Widget {
         ) { entry in
             QueueComplicationView(entry: entry)
         }
-        .configurationDisplayName(localized("Queue", "Wachtrij"))
-        .description(localized("Upcoming DJConnect tracks.", "Aankomende DJConnect tracks."))
+        .configurationDisplayName("Queue")
+        .description("Upcoming DJConnect tracks.")
         .supportedFamilies(supportedFamilies)
     }
 }
@@ -469,8 +469,8 @@ struct DJConnectPlaylistsComplicationWidget: Widget {
         ) { entry in
             PlaylistsComplicationView(entry: entry)
         }
-        .configurationDisplayName(localized("Playlists", "Afspeellijsten"))
-        .description(localized("DJConnect playlist shortcuts.", "DJConnect playlist snelkoppelingen."))
+        .configurationDisplayName("Playlists")
+        .description("DJConnect playlist shortcuts.")
         .supportedFamilies(supportedFamilies)
     }
 }
@@ -497,7 +497,7 @@ struct DJConnectTrackInsightComplicationWidget: Widget {
             TrackInsightComplicationView(entry: entry)
         }
         .configurationDisplayName("Track Insight")
-        .description(localized("Track vibe and energy from DJConnect.", "Track vibe en energie vanuit DJConnect."))
+        .description("Track vibe and energy from DJConnect.")
         .supportedFamilies(supportedFamilies)
     }
 }
@@ -520,7 +520,7 @@ struct DJConnectAskDJComplicationWidget: Widget {
             AskDJComplicationView(entry: entry)
         }
         .configurationDisplayName("Ask DJ")
-        .description(localized("Open Ask DJ from your watch face.", "Open Ask DJ vanaf je wijzerplaat."))
+        .description("Open Ask DJ from your watch face.")
         .supportedFamilies(supportedFamilies)
     }
 }

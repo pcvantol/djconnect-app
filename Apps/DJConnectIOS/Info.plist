@@ -16,6 +16,17 @@
 	<string>$(PRODUCT_NAME)</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>dev.djconnect.ios</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>djconnect</string>
+			</array>
+		</dict>
+	</array>
 	<key>CFBundleShortVersionString</key>
 	<string>$(MARKETING_VERSION)</string>
 	<key>CFBundleVersion</key>
@@ -31,6 +42,8 @@
 	<array>
 		<string>_home-assistant._tcp.</string>
 	</array>
+	<key>NSCameraUsageDescription</key>
+	<string>DJConnect gebruikt de camera alleen om de koppel-QR-code van Home Assistant of Apple Watch te scannen.</string>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>DJConnect maakt verbinding met Home Assistant op je lokale netwerk.</string>
 	<key>NSMicrophoneUsageDescription</key>
@@ -42,24 +55,24 @@
 	<key>UIApplicationShortcutItems</key>
 	<array>
 		<dict>
-			<key>UIApplicationShortcutItemIconType</key>
-			<string>UIApplicationShortcutIconTypePlay</string>
+			<key>UIApplicationShortcutItemIconSymbolName</key>
+			<string>music.note</string>
 			<key>UIApplicationShortcutItemTitle</key>
 			<string>Speelt Nu</string>
 			<key>UIApplicationShortcutItemType</key>
 			<string>dev.djconnect.action.now-playing</string>
 		</dict>
 		<dict>
-			<key>UIApplicationShortcutItemIconType</key>
-			<string>UIApplicationShortcutIconTypeMessage</string>
+			<key>UIApplicationShortcutItemIconSymbolName</key>
+			<string>bubble.left.and.bubble.right.fill</string>
 			<key>UIApplicationShortcutItemTitle</key>
 			<string>Ask DJ</string>
 			<key>UIApplicationShortcutItemType</key>
 			<string>dev.djconnect.action.ask-dj</string>
 		</dict>
 		<dict>
-			<key>UIApplicationShortcutItemIconType</key>
-			<string>UIApplicationShortcutIconTypeAudio</string>
+			<key>UIApplicationShortcutItemIconSymbolName</key>
+			<string>waveform.path.ecg</string>
 			<key>UIApplicationShortcutItemSubtitle</key>
 			<string>Analyseer huidig nummer</string>
 			<key>UIApplicationShortcutItemTitle</key>

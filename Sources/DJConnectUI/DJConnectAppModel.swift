@@ -206,8 +206,43 @@ private enum DJConnectPendingPermissionRequest {
 
 public enum DJConnectHomeScreenAction: String, Equatable, Sendable {
     case nowPlaying = "dev.djconnect.action.now-playing"
+    case queue = "dev.djconnect.action.queue"
     case askDJ = "dev.djconnect.action.ask-dj"
     case trackInsight = "dev.djconnect.action.track-insight"
+    case playlists = "dev.djconnect.action.playlists"
+
+    public init?(deepLinkURL url: URL) {
+        guard url.scheme?.lowercased() == "djconnect" else {
+            return nil
+        }
+        let host = url.host?.lowercased()
+        let path = url.path.trimmingCharacters(in: CharacterSet(charactersIn: "/")).lowercased()
+        let target = path.isEmpty ? host : path
+        switch target {
+        case "now-playing", "nowplaying", "speelt-nu":
+            self = .nowPlaying
+        case "queue", "wachtrij":
+            self = .queue
+        case "ask-dj", "askdj":
+            self = .askDJ
+        case "track-insight", "trackinsight":
+            self = .trackInsight
+        case "playlists", "afspeellijsten":
+            self = .playlists
+        default:
+            return nil
+        }
+    }
+}
+
+public struct DJConnectHomeScreenActionRequest: Equatable, Sendable {
+    public let id: UUID
+    public let action: DJConnectHomeScreenAction
+
+    public init(action: DJConnectHomeScreenAction, id: UUID = UUID()) {
+        self.id = id
+        self.action = action
+    }
 }
 
 private extension DJConnectAskDJMessageResponse {
@@ -464,7 +499,7 @@ public final class DJConnectAppModel: ObservableObject {
         didSet { defaults.set(showVisualizerOnAirPlay, forKey: showVisualizerOnAirPlayKey) }
     }
     @Published public private(set) var trackInsightNavigationRequestID: UUID?
-    @Published public private(set) var homeScreenActionRequest: DJConnectHomeScreenAction?
+    @Published public private(set) var homeScreenActionRequest: DJConnectHomeScreenActionRequest?
     @Published public var queue: [String] = []
     @Published public var playlists: [String] = []
     @Published public var availableOutputs: [DJConnectOutputDevice] = []
@@ -554,6 +589,7 @@ public final class DJConnectAppModel: ObservableObject {
     private var nowPlayingPollTask: Task<Void, Never>?
     private var startupRefreshTask: Task<Void, Never>?
     private var backendRecoveryTask: Task<Void, Never>?
+    private var openPermissionSettingsTask: Task<Void, Never>?
     private var pendingSelectedOutput: String?
     private var pendingVolumePercent: Int?
     private var pendingSeekTargetMS: Int?
@@ -2064,7 +2100,7 @@ public final class DJConnectAppModel: ObservableObject {
         if isDemoMode {
             log(.debug, "Demo refresh requested")
             isRefreshing = true
-            applyDemoState()
+            refreshDemoCollections()
             isRefreshing = false
             lastFullRefreshAt = Date()
             log(.info, reason)
@@ -2575,9 +2611,9 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     public func performHomeScreenAction(_ action: DJConnectHomeScreenAction) {
-        homeScreenActionRequest = action
+        homeScreenActionRequest = DJConnectHomeScreenActionRequest(action: action)
         switch action {
-        case .nowPlaying:
+        case .nowPlaying, .queue, .playlists:
             break
         case .askDJ:
             prepareAskDJHistoryForDisplay()
@@ -2586,8 +2622,17 @@ public final class DJConnectAppModel: ObservableObject {
         }
     }
 
-    public func clearHomeScreenActionRequest(_ action: DJConnectHomeScreenAction) {
-        if homeScreenActionRequest == action {
+    @discardableResult
+    public func handleAppNavigationDeepLink(_ url: URL) -> Bool {
+        guard let action = DJConnectHomeScreenAction(deepLinkURL: url) else {
+            return false
+        }
+        performHomeScreenAction(action)
+        return true
+    }
+
+    public func clearHomeScreenActionRequest(_ request: DJConnectHomeScreenActionRequest) {
+        if homeScreenActionRequest?.id == request.id {
             homeScreenActionRequest = nil
         }
     }
@@ -3690,6 +3735,7 @@ public final class DJConnectAppModel: ObservableObject {
         clearMusicDNADisplay()
         clearNowPlayingWidgetSnapshot(reason: "Runtime state cleared")
         clearTrackInsightWidgetSnapshot(reason: "Runtime state cleared")
+        clearAskDJWidgetSnapshot(reason: "Runtime state cleared")
         syncTrackInsightLiveActivity(reason: "Runtime state cleared")
         queue = []
         playlists = []
@@ -4542,11 +4588,7 @@ public final class DJConnectAppModel: ObservableObject {
 
     private func applyTrackInsight(_ insight: TrackInsight, open: Bool) {
         currentTrackInsight = insight
-        if isDemoMode {
-            log(.debug, "Track Insight widget snapshot skipped in Demo Mode")
-        } else {
-            saveTrackInsightWidgetSnapshot(for: insight)
-        }
+        saveTrackInsightWidgetSnapshot(for: insight)
         syncTrackInsightLiveActivity(reason: "Track Insight changed")
         trackInsightHistory.removeAll { $0.id == insight.id }
         trackInsightHistory.insert(insight, at: 0)
@@ -5379,6 +5421,7 @@ public final class DJConnectAppModel: ObservableObject {
         defaults.removeObject(forKey: askDJMessagesKey)
         defaults.removeObject(forKey: askDJHistoryRevisionKey)
         defaults.removeObject(forKey: askDJClearRevisionKey)
+        clearAskDJWidgetSnapshot(reason: "Ask DJ history cleared")
     }
 
     private func appendAskDJStatusMessageIfNeeded(text: String, origin: String) {
@@ -5400,7 +5443,11 @@ public final class DJConnectAppModel: ObservableObject {
         do {
             let data = try JSONEncoder().encode(askDJMessages)
             defaults.set(data, forKey: askDJMessagesKey)
-            saveAskDJWidgetSnapshot()
+            if askDJMessages.isEmpty {
+                clearAskDJWidgetSnapshot(reason: "Ask DJ history empty")
+            } else {
+                saveAskDJWidgetSnapshot()
+            }
         } catch {
             log(.warning, "Ask DJ chat cache could not be saved: \(error.localizedDescription)")
         }
@@ -5441,6 +5488,17 @@ public final class DJConnectAppModel: ObservableObject {
         } catch {
             log(.warning, "Ask DJ widget snapshot failed: \(error.localizedDescription)")
         }
+    }
+
+    private func clearAskDJWidgetSnapshot(reason: String) {
+        guard let defaults = UserDefaults(suiteName: DJConnectTrackInsightWidgetSnapshot.appGroupIdentifier) else {
+            return
+        }
+        DJConnectAskDJWidgetSnapshot.remove(from: defaults)
+        #if canImport(WidgetKit)
+        WidgetCenter.shared.reloadTimelines(ofKind: DJConnectAskDJWidgetSnapshot.widgetKind)
+        #endif
+        log(.debug, "Cleared Ask DJ widget snapshot: \(reason)")
     }
 
     private static func loadAskDJMessages(defaults: UserDefaults, key: String) -> [DJConnectAskDJMessage] {
@@ -5941,6 +5999,7 @@ public final class DJConnectAppModel: ObservableObject {
             DJConnectPlaylist(id: "demo-playlist-2", name: localized(english: "Dinner Vibes", dutch: "Dinner vibes"), uri: "spotify:playlist:djconnect-dinner")
         ]
         playlists = playlistItems.map(\.name)
+        updateDemoWidgetSnapshots()
         djResponseText = localized(
             english: "Tap the microphone icon to hear a sample announcement.",
             dutch: "Druk op het microfoon icoon om een voorbeeld aankondiging te beluisteren."
@@ -5949,6 +6008,34 @@ public final class DJConnectAppModel: ObservableObject {
         updateRequiredMessage = nil
         if startBackgroundTasks {
             updatePlaybackProgressTimer()
+        }
+    }
+
+    private func refreshDemoCollections() {
+        let currentPlayback = playback
+        applyDemoState()
+        if let currentPlayback {
+            playback = currentPlayback
+            updateDemoWidgetSnapshots()
+            if startBackgroundTasks {
+                updatePlaybackProgressTimer()
+            }
+        }
+    }
+
+    private func updateDemoWidgetSnapshots() {
+        updateNowPlayingWidgetSnapshot(playback: playback)
+        updateQueueWidgetSnapshot(items: queueItems)
+        updatePlaylistsWidgetSnapshot(playlists: playlistItems)
+        if let currentTrackInsight {
+            saveTrackInsightWidgetSnapshot(for: currentTrackInsight)
+        } else {
+            clearTrackInsightWidgetSnapshot(reason: "Demo Track Insight empty")
+        }
+        if !askDJMessages.isEmpty {
+            saveAskDJWidgetSnapshot()
+        } else {
+            clearAskDJWidgetSnapshot(reason: "Demo Ask DJ history empty")
         }
     }
 
@@ -6023,6 +6110,7 @@ public final class DJConnectAppModel: ObservableObject {
             break
         }
         playback = updated
+        updateDemoWidgetSnapshots()
         if startBackgroundTasks {
             updatePlaybackProgressTimer()
         }
@@ -6036,6 +6124,7 @@ public final class DJConnectAppModel: ObservableObject {
         let duration = max(updated.durationMS ?? milliseconds, 0)
         updated.progressMS = min(max(milliseconds, 0), duration)
         playback = updated
+        updateDemoWidgetSnapshots()
         syncTrackInsightLiveActivity(reason: "Demo seek changed")
         if startBackgroundTasks {
             updatePlaybackProgressTimer()
@@ -6062,6 +6151,7 @@ public final class DJConnectAppModel: ObservableObject {
             contextURI: queueContext
         )
         currentTrackInsight = nil
+        updateDemoWidgetSnapshots()
         syncTrackInsightLiveActivity(reason: "Demo playback changed")
         if startBackgroundTasks {
             updatePlaybackProgressTimer()
@@ -7171,7 +7261,7 @@ public final class DJConnectAppModel: ObservableObject {
             .appendingPathComponent("Logs", isDirectory: true)
     }
 
-    public func refreshPermissionStatuses() {
+    public func refreshPermissionStatuses(retryWakeWord: Bool = true) {
         microphonePermissionStatus = Self.currentMicrophonePermissionStatus()
         speechPermissionStatus = Self.currentSpeechPermissionStatus()
         Task { @MainActor in
@@ -7179,9 +7269,9 @@ public final class DJConnectAppModel: ObservableObject {
         }
         localNetworkPermissionStatus = .unknown
         log(.debug, "Permission status refreshed: microphone=\(microphonePermissionStatus.rawValue) speech=\(speechPermissionStatus.rawValue) notifications=\(notificationPermissionStatus.rawValue) local_network=\(localNetworkPermissionStatus.rawValue)")
-        if wakeWordEnabled, wakeWordStatus == .unavailable, microphonePermissionStatus == .granted, speechPermissionStatus == .granted {
+        if retryWakeWord, wakeWordEnabled, wakeWordStatus == .unavailable, microphonePermissionStatus == .granted, speechPermissionStatus == .granted {
             log(.info, "Retrying wakeword listening after permission status refresh")
-            startWakeWordListening()
+            resumeWakeWordListeningIfNeeded()
         }
     }
 
@@ -7328,15 +7418,28 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     private func openAppPermissionSettings() {
+        openPermissionSettingsTask?.cancel()
         #if canImport(UIKit)
         guard let url = URL(string: UIApplication.openSettingsURLString) else {
             log(.warning, "Could not create iOS Settings URL")
             return
         }
-        UIApplication.shared.open(url)
+        openPermissionSettingsTask = Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(450))
+            guard !Task.isCancelled else {
+                return
+            }
+            await UIApplication.shared.open(url)
+        }
         #elseif canImport(AppKit)
         if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy") {
-            NSWorkspace.shared.open(url)
+            openPermissionSettingsTask = Task { @MainActor in
+                try? await Task.sleep(for: .milliseconds(450))
+                guard !Task.isCancelled else {
+                    return
+                }
+                NSWorkspace.shared.open(url)
+            }
         }
         #endif
     }
@@ -7345,7 +7448,7 @@ public final class DJConnectAppModel: ObservableObject {
         Task { @MainActor in
             for delay in [500, 1_500, 3_000] {
                 try? await Task.sleep(for: .milliseconds(delay))
-                refreshPermissionStatuses()
+                refreshPermissionStatuses(retryWakeWord: false)
             }
         }
     }

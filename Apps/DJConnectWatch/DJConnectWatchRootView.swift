@@ -239,7 +239,7 @@ struct DJConnectWatchRootView: View {
                     NavigationLink {
                         DJConnectWatchMusicDNAView()
                     } label: {
-                        Label("Music DNA", systemImage: "heart.fill")
+                        Label("Music DNA", systemImage: "heart")
                             .font(.footnote.weight(.semibold))
                             .frame(maxWidth: .infinity, minHeight: 34)
                     }
@@ -927,7 +927,7 @@ struct DJConnectWatchRootView: View {
 
         private var header: some View {
             VStack(alignment: .leading, spacing: 7) {
-                Label("Music DNA", systemImage: "heart.fill")
+                Label("Music DNA", systemImage: "heart")
                     .font(.headline.weight(.bold))
                     .foregroundStyle(.white)
                 Text(watchLocalized(
@@ -1780,14 +1780,12 @@ private struct DJConnectWatchSettingsView: View {
                                 model.showMusicDNAOptInPrompt()
                             }
                         } label: {
-                            Label(
-                                musicDNAEnabled
+                            DJConnectWatchCenteredButtonLabel(
+                                title: musicDNAEnabled
                                     ? watchLocalized(model.language, "Turn Off Music DNA", "Music DNA uitschakelen")
                                     : watchLocalized(model.language, "Turn On Music DNA", "Music DNA inschakelen"),
                                 systemImage: musicDNAEnabled ? "power" : "sparkles"
                             )
-                            .font(.caption2.weight(.semibold))
-                            .frame(maxWidth: .infinity, minHeight: 30)
                         }
                         .buttonStyle(DJConnectWatchGradientButtonStyle(kind: musicDNAEnabled ? .secondary : .primary))
                         .disabled(model.isLoadingMusicDNA || model.isUpdatingMusicDNA || (!model.canUseBackend && !model.isDemoMode))
@@ -1948,6 +1946,30 @@ private struct DJConnectWatchSettingsSection<Content: View>: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(10)
         .background(DJConnectWatchPanel(cornerRadius: 12))
+    }
+}
+
+private struct DJConnectWatchCenteredButtonLabel: View {
+    let title: String
+    let systemImage: String
+
+    var body: some View {
+        HStack(alignment: .center, spacing: 7) {
+            Image(systemName: systemImage)
+                .font(.system(size: 12, weight: .semibold))
+                .frame(width: 16, height: 16, alignment: .center)
+                .alignmentGuide(.firstTextBaseline) { dimensions in
+                    dimensions[VerticalAlignment.center]
+                }
+            Text(title)
+                .font(.caption2.weight(.semibold))
+                .multilineTextAlignment(.leading)
+                .fixedSize(horizontal: false, vertical: true)
+                .alignmentGuide(.firstTextBaseline) { dimensions in
+                    dimensions[VerticalAlignment.center]
+                }
+        }
+        .frame(maxWidth: .infinity, minHeight: 30, alignment: .center)
     }
 }
 
