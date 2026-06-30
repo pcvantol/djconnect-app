@@ -75,6 +75,7 @@ public enum DJConnectPushEnvironment: String, Codable, Sendable {
 public enum DJConnectPairingStatus: String, Codable, Sendable {
     case unpaired
     case pairing
+    case waitingForHomeAssistantCompletion = "waiting_for_home_assistant_completion"
     case paired
     case stale
 }
@@ -211,7 +212,11 @@ public struct DJConnectPairingDeepLink: Equatable, Sendable {
         let items = Dictionary(uniqueKeysWithValues: (components.queryItems ?? []).compactMap { item in
             item.value.map { (item.name, $0) }
         })
-        guard let rawHAURL = items["ha_url"], let haURL = URL(string: rawHAURL), let scheme = haURL.scheme?.lowercased(), scheme == "http", haURL.host?.isEmpty == false else {
+        guard
+            let rawHAURL = items["ha_url"],
+            let haURL = URL(string: rawHAURL),
+            DJConnectPairingURLPolicy.isAllowedPairingURL(haURL)
+        else {
             throw DJConnectError.invalidConfiguration("Missing or invalid local Home Assistant URL.")
         }
         guard let pairCode = items["pair_code"], pairCode.count == 6, pairCode.allSatisfy(\.isNumber) else {
@@ -232,11 +237,61 @@ public struct DJConnectPairingDeepLink: Equatable, Sendable {
     }
 }
 
+public enum DJConnectPairingURLPolicy {
+    public static func isAllowedPairingURL(_ url: URL) -> Bool {
+        guard let scheme = url.scheme?.lowercased(), let host = url.host?.lowercased(), !host.isEmpty else {
+            return false
+        }
+        if scheme == "http", isPlausibleLocalHomeAssistantHost(host) {
+            return true
+        }
+        return scheme == "https" && isWhitelistedDevelopmentTunnelHost(host)
+    }
+
+    public static func isWhitelistedDevelopmentTunnelURL(_ url: URL) -> Bool {
+        guard let scheme = url.scheme?.lowercased(), let host = url.host?.lowercased() else {
+            return false
+        }
+        return scheme == "https" && isWhitelistedDevelopmentTunnelHost(host)
+    }
+
+    private static func isWhitelistedDevelopmentTunnelHost(_ host: String) -> Bool {
+        host.hasSuffix(".ngrok-free.dev")
+    }
+
+    private static func isPlausibleLocalHomeAssistantHost(_ host: String) -> Bool {
+        if host == "localhost" {
+            return true
+        }
+        if isValidIPv4Host(host) {
+            return true
+        }
+        if host.hasSuffix(".local") {
+            return host.range(of: #"^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+$"#, options: .regularExpression) != nil
+        }
+        return host.range(of: #"^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+\.[a-z]{2,63}$"#, options: .regularExpression) != nil
+    }
+
+    private static func isValidIPv4Host(_ host: String) -> Bool {
+        let parts = host.split(separator: ".", omittingEmptySubsequences: false)
+        guard parts.count == 4 else {
+            return false
+        }
+        return parts.allSatisfy { part in
+            guard !part.isEmpty, part.allSatisfy(\.isNumber), let value = Int(part) else {
+                return false
+            }
+            return (0...255).contains(value)
+        }
+    }
+}
+
 public struct DJConnectPairingResponse: Codable, Equatable, Sendable {
     public var success: Bool
     public var deviceToken: String?
     public var token: String?
     public var bearerToken: String?
+    public var setupPending: Bool?
     public var message: String?
     public var deviceID: String?
     public var clientType: DJConnectClientType?
@@ -282,6 +337,7 @@ public struct DJConnectPairingResponse: Codable, Equatable, Sendable {
         deviceToken: String? = nil,
         token: String? = nil,
         bearerToken: String? = nil,
+        setupPending: Bool? = nil,
         message: String? = nil,
         deviceID: String? = nil,
         clientType: DJConnectClientType? = nil,
@@ -310,6 +366,7 @@ public struct DJConnectPairingResponse: Codable, Equatable, Sendable {
         self.deviceToken = deviceToken
         self.token = token
         self.bearerToken = bearerToken
+        self.setupPending = setupPending
         self.message = message
         self.deviceID = deviceID
         self.clientType = clientType
@@ -340,6 +397,7 @@ public struct DJConnectPairingResponse: Codable, Equatable, Sendable {
         case deviceToken = "device_token"
         case token
         case bearerToken = "bearer_token"
+        case setupPending = "setup_pending"
         case message
         case deviceID = "device_id"
         case clientType = "client_type"
@@ -1746,6 +1804,7 @@ public struct DJConnectTrackInsightRequest: Codable, Equatable, Sendable {
     public var entityID: String?
     public var playerID: String?
     public var musicBackend: String?
+    public var clientType: String?
     public var forceRefresh: Bool
     public var locale: String?
     public var includeVisualProfile: Bool
@@ -1758,6 +1817,7 @@ public struct DJConnectTrackInsightRequest: Codable, Equatable, Sendable {
         entityID: String? = nil,
         playerID: String? = nil,
         musicBackend: String? = nil,
+        clientType: String? = nil,
         forceRefresh: Bool = false,
         locale: String? = nil,
         includeVisualProfile: Bool = true,
@@ -1769,6 +1829,7 @@ public struct DJConnectTrackInsightRequest: Codable, Equatable, Sendable {
         self.entityID = entityID
         self.playerID = playerID
         self.musicBackend = musicBackend
+        self.clientType = clientType
         self.forceRefresh = forceRefresh
         self.locale = locale
         self.includeVisualProfile = includeVisualProfile
@@ -1782,6 +1843,7 @@ public struct DJConnectTrackInsightRequest: Codable, Equatable, Sendable {
         case entityID = "entity_id"
         case playerID = "player_id"
         case musicBackend = "music_backend"
+        case clientType = "client_type"
         case forceRefresh = "force_refresh"
         case locale
         case includeVisualProfile = "include_visual_profile"

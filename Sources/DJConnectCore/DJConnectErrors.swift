@@ -13,6 +13,7 @@ public enum DJConnectError: Error, Equatable, Sendable {
     case invalidConfiguration(String)
     case missingToken
     case pairingFailed(message: String?)
+    case clientTypeMismatch(message: String?, expectedClientType: String?, receivedClientType: String?)
     case trackInsightUnavailable(code: String?, message: String?)
 }
 
@@ -55,6 +56,8 @@ struct DJConnectErrorEnvelope: Codable {
     var haMajorMinor: String?
     var firmware: String?
     var firmwareMajorMinor: String?
+    var expectedClientType: String?
+    var receivedClientType: String?
 
     enum CodingKeys: String, CodingKey {
         case success
@@ -65,5 +68,7 @@ struct DJConnectErrorEnvelope: Codable {
         case haMajorMinor = "ha_major_minor"
         case firmware
         case firmwareMajorMinor = "firmware_major_minor"
+        case expectedClientType = "expected_client_type"
+        case receivedClientType = "received_client_type"
     }
 }

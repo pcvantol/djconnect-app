@@ -136,8 +136,8 @@ Recommended iOS fields:
   "device_id": "djconnect-ios-8F3A2C91B45D",
   "device_name": "DJConnect iPhone",
   "client_type": "ios",
-  "firmware": "3.2.5",
-  "app_version": "3.2.5",
+  "firmware": "3.2.7",
+  "app_version": "3.2.7",
   "platform": "ios"
 }
 ```
@@ -149,8 +149,8 @@ Recommended macOS fields:
   "device_id": "djconnect-macos-8F3A2C91B45D",
   "device_name": "DJConnect Mac",
   "client_type": "macos",
-  "firmware": "3.2.5",
-  "app_version": "3.2.5",
+  "firmware": "3.2.7",
+  "app_version": "3.2.7",
   "platform": "macos"
 }
 ```
@@ -162,8 +162,8 @@ Recommended watchOS fields:
   "device_id": "djconnect-watchos-8F3A2C91B45D",
   "device_name": "DJConnect Watch",
   "client_type": "watchos",
-  "firmware": "3.2.5",
-  "app_version": "3.2.5",
+  "firmware": "3.2.7",
+  "app_version": "3.2.7",
   "platform": "watchos"
 }
 ```
@@ -199,7 +199,10 @@ opting out clears learned backend Music DNA and stops future profile buildup;
 opting in again restarts from the backend profile response. Settings copy must
 be contextual: disabled means no profile is being built and the learned profile
 has already been cleared. The separate clear-profile action should only be
-visible while Music DNA is enabled.
+visible while Music DNA is enabled. After opt-in or opt-out, clients may keep
+the just-selected enabled state visible briefly while a stale profile refresh
+catches up; Home Assistant remains authoritative once it returns the matching
+state or the grace window expires.
 
 Ask DJ history is backend-synchronized and locally cached. Clients must merge
 server history into the cache instead of replacing it with a bounded response
@@ -209,7 +212,10 @@ server-side history limit is reached. Assistant-only `message_kind: system`
 messages such as ambient music facts and history-retention notices must render
 without requiring a preceding user bubble. When the Ask DJ screen opens,
 clients should scroll the loaded timeline to the newest message by default,
-including after the first async history response.
+including after the first async history response. If a later history/status
+sync advances `clear_revision` while a fresh local question/answer exchange is
+still identified by the same `client_message_id`, preserve that exchange until
+Home Assistant returns it in history.
 
 Ask DJ output-device responses may include output `playback_actions`. Apple
 clients render them as vertical speaker rows with the name on the left and an
@@ -263,9 +269,9 @@ Expected response:
   "success": false,
   "error": "version_mismatch",
   "message": "DJConnect Home Assistant integration and device firmware major.minor versions must match.",
-  "ha_version": "3.2.5",
+  "ha_version": "3.2.7",
   "ha_major_minor": "3.2",
-  "firmware": "3.2.5",
+  "firmware": "3.2.7",
   "firmware_major_minor": "3.1"
 }
 ```
@@ -305,15 +311,20 @@ Recommended user flow:
 6. App stores only the DJConnect bearer token, client identity, `ha_local_url`,
    optional `ha_remote_url`, and protocol/backend metadata in app-private
    storage.
-7. App starts sending authenticated status and command payloads with
+7. App sends authenticated status and stays in a waiting state until Home
+   Assistant has finished the setup flow. `not_configured`, route-missing, or
+   equivalent setup-pending status responses do not count as runtime paired.
+8. App starts sending authenticated status and command payloads with
    `device_id` and `client_type`.
-8. iOS/macOS use `ha_local_url` first, fall back to `ha_remote_url` after
+9. iOS/macOS use `ha_local_url` first, fall back to `ha_remote_url` after
    successful local pairing when local access is unavailable, and report
    `offline` when neither URL works.
 
 Remote pairing is not allowed. If only the remote URL is reachable during
 pairing, the app must tell the user to complete pairing on the same local
-network as Home Assistant.
+network as Home Assistant. For development only, `https://*.ngrok-free.dev`
+is whitelisted as an allowed tunnel URL during pairing; other remote HTTPS URLs
+remain invalid for first pairing.
 
 Fresh app installs should default the Home Assistant URL input to:
 
@@ -340,8 +351,8 @@ X-DJConnect-Device-ID: <device_id>
 {  "device_id": "djconnect-macos-8F3A2C91B45D",
   "device_name": "DJConnect Mac",
   "client_type": "macos",
-  "firmware": "3.2.5",
-  "app_version": "3.2.5",
+  "firmware": "3.2.7",
+  "app_version": "3.2.7",
   "platform": "macos",
   "pair_code": "123456",
   "pairing_code": "123456",
@@ -354,6 +365,7 @@ Expected completion response:
 ```json
 {
   "success": true,
+  "setup_pending": true,
   "device_token": "<djconnect bearer token>"
 }
 ```
@@ -364,6 +376,13 @@ the code as `pair_code`, `pairing_code`, and `pairing_token` for compatibility
 with current HA builds. HTTP 401/403 during unauthenticated pairing means Home
 Assistant rejected the entered code or setup identity; stop pairing and ask the
 user to verify the code shown by Home Assistant or generate a fresh setup code.
+HTTP 400 with `error:"client_type_mismatch"` means the user selected the wrong
+Home Assistant DJConnect setup flow for this app. Stop the attempt, keep the
+entered URL and code intact, log expected/received client types only at debug
+level, and show platform-specific guidance to choose iPhone/iPad, Apple Watch,
+or macOS in Home Assistant. Do not clear local token/keychain state for this
+error unless an already paired runtime request later receives authenticated
+401/403 stale auth.
 
 Bearer token storage:
 
@@ -472,8 +491,8 @@ Minimum payload:
   "device_id": "djconnect-ios-8F3A2C91B45D",
   "client_type": "ios",
   "ha_pairing_status": "paired",
-  "firmware": "3.2.5",
-  "app_version": "3.2.5",
+  "firmware": "3.2.7",
+  "app_version": "3.2.7",
   "state": "online",
   "status": "online",
   "battery_percent": 85,
@@ -679,6 +698,15 @@ When HA returns 401/403 on authenticated routes:
 During unauthenticated pairing polling, 401/403 responses with pairing-code
 messages stop polling and show code-mismatch recovery guidance.
 
+When HA returns 400 `client_type_mismatch` during pairing:
+
+- stop the current attempt;
+- keep the entered Home Assistant URL and pairing code intact;
+- tell the user to select the matching DJConnect setup flow for this platform;
+- log expected/received client types only as debug metadata;
+- do not clear local pairing credentials unless a paired runtime request later
+  receives authenticated 401/403 stale auth.
+
 When HA returns 404:
 
 - treat as integration route missing or stale pairing;
@@ -803,6 +831,9 @@ impressions, and why the composition works. This is an informational/read-only
 intent for iOS, macOS, watchOS, Raspberry Pi, and Windows Ask DJ clients: never
 start, pause, skip, queue, save, like, transfer output, or otherwise mutate
 playback from this intent. ESP32 remains outside the Ask DJ chat/history UI.
+Direct Track Insight endpoint calls include the same canonical `client_type` as
+status/command payloads. Missing or unsupported client types should be returned
+as `invalid_client_type`; clients localize the message and keep pairing state.
 
 The response may include `analysis` metadata with `mode`, `confidence`,
 `measured`, `inferred`, `limitations`, and `sources`, plus optional compact

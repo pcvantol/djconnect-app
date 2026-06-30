@@ -77,6 +77,8 @@ private func localizedPairingStatus(_ status: DJConnectPairingStatus, language: 
         localized(language, "Paired", "Gekoppeld")
     case .pairing:
         localized(language, "Pairing", "Koppelen")
+    case .waitingForHomeAssistantCompletion:
+        localized(language, "Waiting for Home Assistant", "Wachten op Home Assistant")
     case .stale:
         localized(language, "Stale", "Verlopen")
     case .unpaired:
@@ -504,7 +506,7 @@ public struct DJConnectRootView: View {
                         ) { selectedSection = .trackInsight }
                         SidebarItem(
                             title: "Music DNA",
-                            systemImage: "heart.fill",
+                            systemImage: "heart",
                             isSelected: selectedSection == .musicDNA
                         ) { selectedSection = .musicDNA }
                         SidebarItem(
@@ -975,10 +977,12 @@ private struct PairingSheetView: View {
             }
 
             VStack(spacing: 12) {
-                PairingNetworkNotice(
-                    language: model.language,
-                    warning: model.localNetworkRequirementMessage
-                )
+                if shouldShowPairingNetworkNotice {
+                    PairingNetworkNotice(
+                        language: model.language,
+                        warning: model.localNetworkRequirementMessage
+                    )
+                }
 
                 #if os(iOS)
                 if model.pairingFlowTarget == .appleWatch {
@@ -1083,19 +1087,37 @@ private struct PairingSheetView: View {
                 .buttonStyle(DJConnectLilacPillButtonStyle())
                 .controlSize(.large)
                 .disabled(model.isPairing || !canSubmitPairing)
+
+                if let inlinePairingMessage {
+                    Label {
+                        Text(inlinePairingMessage)
+                            .font(.callout.weight(.semibold))
+                            .lineLimit(nil)
+                            .fixedSize(horizontal: false, vertical: true)
+                    } icon: {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .font(.callout.weight(.semibold))
+                    }
+                    .foregroundStyle(.orange)
+                    .padding(.horizontal, 6)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .accessibilityElement(children: .combine)
+                }
             }
 
-            Button {
-                model.startDemoMode()
-            } label: {
-                Label(
-                    localized(model.language, "Start Demo Mode", "Demo modus starten"),
-                    systemImage: "play.circle"
-                )
-                .frame(maxWidth: .infinity)
+            if model.pairingFlowTarget != .appleWatch {
+                Button {
+                    model.startDemoMode()
+                } label: {
+                    Label(
+                        localized(model.language, "Start Demo Mode", "Demo modus starten"),
+                        systemImage: "play.circle"
+                    )
+                    .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(DJConnectLilacPillButtonStyle())
+                .controlSize(.large)
             }
-            .buttonStyle(DJConnectLilacPillButtonStyle())
-            .controlSize(.large)
 
             #if os(macOS)
             Button {
@@ -1171,6 +1193,8 @@ private struct PairingSheetView: View {
             model.pairingFlowTarget == .appleWatch
                 ? localized(model.language, "Pairing Apple Watch with Home Assistant", "Apple Watch koppelen met Home Assistant")
                 : localized(model.language, "Pairing with Home Assistant", "Koppelen met Home Assistant")
+        case .waitingForHomeAssistantCompletion:
+            localized(model.language, "Finish setup in Home Assistant", "Rond de setup af in Home Assistant")
         case .stale:
             localized(model.language, "Not connected to Home Assistant", "Niet gekoppeld aan Home Assistant")
         default:
@@ -1182,7 +1206,7 @@ private struct PairingSheetView: View {
 
     @ViewBuilder
     private var statusIcon: some View {
-        if model.pairingStatus == .pairing {
+        if model.pairingStatus == .pairing || model.pairingStatus == .waitingForHomeAssistantCompletion {
             ProgressView()
                 .controlSize(.regular)
         } else {
@@ -1194,6 +1218,9 @@ private struct PairingSheetView: View {
     }
 
     private var statusIconName: String {
+        if model.pairingStatus == .waitingForHomeAssistantCompletion {
+            return "hourglass.circle"
+        }
         if model.pairingStatus == .stale {
             return "wifi.exclamationmark"
         }
@@ -1211,7 +1238,7 @@ private struct PairingSheetView: View {
     }
 
     private var pairingStatusMessage: String? {
-        if model.pairingStatus == .pairing || model.pairingStatus == .stale {
+        if model.pairingStatus == .pairing || model.pairingStatus == .waitingForHomeAssistantCompletion || model.pairingStatus == .stale {
             return model.pairingMessage
         }
         if !isPairingURLValid {
@@ -1234,12 +1261,34 @@ private struct PairingSheetView: View {
         )
     }
 
+    private var inlinePairingMessage: String? {
+        guard let pairingMessage = model.pairingMessage,
+              !isFieldPrompt(pairingMessage) else {
+            return nil
+        }
+        return pairingMessage
+    }
+
+    private var shouldShowPairingNetworkNotice: Bool {
+        if model.localNetworkRequirementMessage != nil {
+            return true
+        }
+        guard let url = DJConnectAppModel.normalizedHomeAssistantURL(from: model.homeAssistantURL),
+              url.scheme?.lowercased() == "https" else {
+            return false
+        }
+        return !DJConnectPairingURLPolicy.isWhitelistedDevelopmentTunnelURL(url)
+    }
+
     private var canSubmitPairing: Bool {
         isPairingURLValid && isPairingCodeValid
     }
 
     private var isPairingURLValid: Bool {
-        DJConnectAppModel.normalizedHomeAssistantURL(from: model.homeAssistantURL) != nil
+        guard let url = DJConnectAppModel.normalizedHomeAssistantURL(from: model.homeAssistantURL) else {
+            return false
+        }
+        return DJConnectPairingURLPolicy.isAllowedPairingURL(url)
     }
 
     private var isPairingCodeValid: Bool {
@@ -1395,7 +1444,10 @@ private struct PairingEditableURLCard: View {
     }
 
     private var isValid: Bool {
-        DJConnectAppModel.normalizedHomeAssistantURL(from: trimmedText) != nil
+        guard let url = DJConnectAppModel.normalizedHomeAssistantURL(from: trimmedText) else {
+            return false
+        }
+        return DJConnectPairingURLPolicy.isAllowedPairingURL(url)
     }
 
     var body: some View {
@@ -1455,16 +1507,6 @@ private struct PairingEditableURLCard: View {
                 )
                 .font(.caption)
                 .foregroundStyle(.orange)
-            } else if didConfirm {
-                Text(
-                    localized(
-                        language,
-                        "Open the DJConnect integration in Home Assistant on this LAN and enter the Home Assistant pair code below.",
-                        "Open de DJConnect integratie in Home Assistant op dit LAN en vul hieronder de Home Assistant koppelcode in."
-                    )
-                )
-                .font(.caption)
-                .foregroundStyle(.blue)
             }
         }
         .padding(14)
@@ -2174,7 +2216,7 @@ private struct WelcomeTourStep: Identifiable, Equatable {
                     "Learn from your taste and listening behavior to shape recommendations around your listening profile.",
                     "Leer van je smaak en luistergedrag om aanbevelingen af te stemmen op jouw luisterprofiel."
                 ),
-                systemImage: "heart.fill"
+                systemImage: "heart"
             ),
             WelcomeTourStep(
                 id: .games,
@@ -5446,6 +5488,8 @@ private struct IOSConnectionCard: View {
             localized(model.language, "Paired", "Gekoppeld")
         case .pairing:
             localized(model.language, "Pairing with Home Assistant", "Koppelen met Home Assistant")
+        case .waitingForHomeAssistantCompletion:
+            localized(model.language, "Finish setup in Home Assistant", "Rond de setup af in Home Assistant")
         case .stale:
             localized(model.language, "Not connected to Home Assistant", "Niet gekoppeld aan Home Assistant")
         case .unpaired:
@@ -5462,6 +5506,8 @@ private struct IOSConnectionCard: View {
             nil
         case .pairing:
             localized(model.language, "Enter this code in the DJConnect Home Assistant integration", "Vul deze code in bij de DJConnect Home Assistant integratie")
+        case .waitingForHomeAssistantCompletion:
+            localized(model.language, "Waiting for setup to be completed in Home Assistant", "Wacht op afronden in Home Assistant")
         case .stale:
             localized(model.language, "Open Settings to reset or recover pairing", "Open Instellingen om pairing te herstellen of resetten")
         case .unpaired:
@@ -5478,6 +5524,8 @@ private struct IOSConnectionCard: View {
             "checkmark.seal.fill"
         case .pairing:
             "link"
+        case .waitingForHomeAssistantCompletion:
+            "hourglass.circle.fill"
         case .stale:
             "exclamationmark.lock.fill"
         case .unpaired:
@@ -5494,6 +5542,8 @@ private struct IOSConnectionCard: View {
             model.backendAvailable ? .green : .red
         case .pairing:
             djConnectAccent
+        case .waitingForHomeAssistantCompletion:
+            .orange
         case .stale:
             .orange
         case .unpaired:
@@ -5730,6 +5780,8 @@ struct SetupStatusView: View {
             "checkmark.seal"
         case .pairing:
             "link"
+        case .waitingForHomeAssistantCompletion:
+            "hourglass.circle"
         case .stale:
             "exclamationmark.lock"
         case .unpaired:
@@ -5753,6 +5805,8 @@ struct SetupStatusView: View {
             model.isConnected && model.backendAvailable ? .green : .red
         case .pairing:
             djConnectAccent
+        case .waitingForHomeAssistantCompletion:
+            .orange
         case .stale:
             .orange
         case .unpaired:
@@ -5779,6 +5833,8 @@ struct SetupStatusView: View {
             localized(model.language, "Paired", "Gekoppeld")
         case .pairing:
             localized(model.language, "Pairing with Home Assistant", "Koppelen met Home Assistant")
+        case .waitingForHomeAssistantCompletion:
+            localized(model.language, "Finish setup in Home Assistant", "Rond de setup af in Home Assistant")
         case .stale:
             localized(model.language, "Not connected to Home Assistant", "Niet gekoppeld aan Home Assistant")
         case .unpaired:
@@ -6248,7 +6304,7 @@ private struct OutputSelectorView: View {
     private var canUsePlayback: Bool { model.canUsePlaybackFeatures }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 14) {
             HStack {
                 Text(localized(model.language, "Output Device", "Uitvoerapparaat"))
                     .font(.headline)
@@ -6256,31 +6312,35 @@ private struct OutputSelectorView: View {
             }
 
             if model.availableOutputs.isEmpty {
-                Text(localizedOutputName(model.selectedOutput, language: model.language))
-                    .foregroundStyle(.secondary)
-                    .textSelection(.enabled)
+                OutputDeviceChoiceRow(
+                    language: model.language,
+                    output: nil,
+                    title: localizedOutputName(model.selectedOutput, language: model.language),
+                    isActive: false,
+                    isEnabled: false,
+                    action: {}
+                )
             } else {
-                Picker("", selection: Binding(
-                    get: { model.selectedOutput },
-                    set: { selected in
-                        if let output = model.availableOutputs.first(where: { $0.name == selected || $0.id == selected }) {
-                            DJConnectHaptics.selection()
-                            model.selectOutput(output)
-                        }
-                    }
-                )) {
+                VStack(spacing: 8) {
                     ForEach(model.availableOutputs) { output in
-                        Label(output.name, systemImage: output.active == true ? "speaker.wave.2.fill" : "speaker.wave.2")
-                            .tag(output.name)
+                        OutputDeviceChoiceRow(
+                            language: model.language,
+                            output: output,
+                            title: output.name,
+                            isActive: output.active == true,
+                            isEnabled: canUsePlayback,
+                            action: {
+                                guard canUsePlayback else {
+                                    return
+                                }
+                                if output.active != true {
+                                    DJConnectHaptics.selection()
+                                }
+                                model.selectOutput(output)
+                            }
+                        )
                     }
                 }
-                #if os(iOS)
-                .pickerStyle(.menu)
-                #endif
-                .labelsHidden()
-                .tint(djConnectAccent)
-                .foregroundStyle(djConnectAccent)
-                .disabled(!canUsePlayback)
             }
         }
         .opacity(canUsePlayback ? 1 : 0.55)
@@ -6297,6 +6357,93 @@ private struct OutputSelectorView: View {
                 .clipShape(RoundedRectangle(cornerRadius: 8))
         }
         #endif
+    }
+}
+
+private struct OutputDeviceChoiceRow: View {
+    let language: String
+    let output: DJConnectOutputDevice?
+    let title: String
+    let isActive: Bool
+    let isEnabled: Bool
+    let action: () -> Void
+
+    private var iconName: String {
+        switch output?.type?.lowercased() {
+        case "computer", "tv":
+            return "display"
+        case "headphones":
+            return "headphones"
+        case "phone":
+            return "iphone"
+        default:
+            return isActive ? "speaker.wave.2.fill" : "speaker.wave.2"
+        }
+    }
+
+    private var subtitle: String {
+        if isActive {
+            return localized(language, "Active", "Actief")
+        }
+        if let volume = output?.volumePercent {
+            return "\(volume)%"
+        }
+        if let type = output?.type, !type.isEmpty {
+            return type
+        }
+        return localized(language, "Output", "Uitvoer")
+    }
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 12) {
+                Image(systemName: iconName)
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundStyle(isActive ? djConnectButtonBlue : .white.opacity(0.68))
+                    .frame(width: 38, height: 38)
+                    .background(
+                        Circle()
+                            .fill(isActive ? djConnectButtonBlue.opacity(0.18) : Color.white.opacity(0.08))
+                    )
+
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(title)
+                        .font(.headline.weight(.semibold))
+                        .foregroundStyle(.white.opacity(0.94))
+                        .lineLimit(2)
+                        .multilineTextAlignment(.leading)
+                    Text(subtitle)
+                        .font(.subheadline.weight(.medium))
+                        .foregroundStyle(isActive ? djConnectButtonBlue.opacity(0.92) : .white.opacity(0.56))
+                        .lineLimit(1)
+                }
+                .layoutPriority(1)
+
+                Spacer(minLength: 8)
+
+                if isActive {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.title3.weight(.semibold))
+                        .foregroundStyle(djConnectAccent)
+                }
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 11)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background {
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .fill(isActive ? Color.white.opacity(0.10) : Color.white.opacity(0.055))
+            }
+            .overlay {
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .stroke(isActive ? Color.white.opacity(0.22) : Color.white.opacity(0.10), lineWidth: 1)
+            }
+            .contentShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .disabled(!isEnabled)
+        .accessibilityLabel(title)
+        .accessibilityValue(subtitle)
     }
 }
 

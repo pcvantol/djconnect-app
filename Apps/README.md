@@ -29,7 +29,10 @@ requests belong in Ask DJ.
 - Demo mode still writes widget snapshots for Now Playing, Queue, Playlists,
   Track Insight and Ask DJ so widgets can refresh without a Home Assistant
   backend.
-- Watch Music DNA uses the outline `heart` icon to match iOS/macOS. Filled
-  hearts are reserved for favorite/save-track actions.
+- Music DNA navigation uses the outline `heart` icon on iOS, macOS, and
+  watchOS. Filled hearts are reserved for favorite/save-track actions.
+- Now Playing output selection on iOS and macOS should stay inline and
+  Watch-like: rows for `Geen`/`None` plus real backend outputs, with no
+  separate drill-in page for the ordinary selection flow.
 - Track Insight and VibeCast visualizers are expected to animate smoothly while
   playback is active; avoid periodic one-second timers for in-app visual scenes.

@@ -426,6 +426,95 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
 }
 
 @MainActor
+@Test func pairingNetworkErrorsAreLocalizedWithoutRawSystemText() throws {
+    let suiteName = "DJConnectTests-\(UUID().uuidString)"
+    let defaults = try #require(UserDefaults(suiteName: suiteName))
+    defaults.removePersistentDomain(forName: suiteName)
+    let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startBackgroundTasks: false)
+    model.language = "nl"
+
+    model.applyPairingWait(
+        error: .network(message: "The resource could not be loaded because the App Transport Security policy requires the use of a secure connection."),
+        pairingToken: "123456"
+    )
+
+    #expect(model.pairingMessage?.contains("iOS/macOS-beveiliging") == true)
+    #expect(model.pairingMessage?.contains("App Transport Security") == false)
+    #expect(model.pairingMessage?.contains("secure connection") == false)
+}
+
+@MainActor
+@Test func pairingHTTPStatusErrorsAreLocalized() throws {
+    let suiteName = "DJConnectTests-\(UUID().uuidString)"
+    let defaults = try #require(UserDefaults(suiteName: suiteName))
+    defaults.removePersistentDomain(forName: suiteName)
+    let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startBackgroundTasks: false)
+    model.language = "nl"
+
+    model.applyPairingWait(error: .server(statusCode: 404, message: "HTTP 404 Not Found"), pairingToken: "123456")
+    #expect(model.pairingMessage == "DJConnect is niet gevonden in Home Assistant. Open eerst de DJConnect setup-flow.")
+
+    model.applyPairingWait(error: .server(statusCode: 500, message: "HTTP 500 Internal Server Error"), pairingToken: "123456")
+    #expect(model.pairingMessage == "Home Assistant kreeg een interne fout tijdens het koppelen. Controleer Home Assistant en probeer opnieuw.")
+}
+
+@MainActor
+@Test func pairingNotConfiguredDuringManualPairingShowsInvalidCode() throws {
+    let suiteName = "DJConnectTests-\(UUID().uuidString)"
+    let defaults = try #require(UserDefaults(suiteName: suiteName))
+    defaults.removePersistentDomain(forName: suiteName)
+    let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startBackgroundTasks: false)
+    model.language = "nl"
+
+    model.applyPairingWait(error: .notConfigured(message: "DJConnect is not configured."), pairingToken: "353312")
+    #expect(model.pairingMessage == "Koppelcode klopt niet. Controleer de code in Home Assistant.")
+
+    model.applyPairingWait(error: .server(statusCode: 503, message: #"{"error":"not_configured","message":"DJConnect is not configured."}"#), pairingToken: "353312")
+    #expect(model.pairingMessage == "Koppelcode klopt niet. Controleer de code in Home Assistant.")
+}
+
+@MainActor
+@Test func pairingClientTypeMismatchShowsWrongAppType() throws {
+    let suiteName = "DJConnectTests-\(UUID().uuidString)"
+    let defaults = try #require(UserDefaults(suiteName: suiteName))
+    defaults.removePersistentDomain(forName: suiteName)
+    let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startBackgroundTasks: false)
+    model.language = "nl"
+
+    model.applyPairingWait(error: .server(statusCode: 400, message: #"{"error":"invalid_client_type","message":"Selected iOS pairing flow does not match macOS client_type."}"#), pairingToken: "503901")
+
+    #expect(model.pairingMessage?.contains("Verkeerd app-type gekozen") == true)
+    #expect(model.pairingMessage?.contains("setup-flow") == true)
+    #expect(model.pairingMessage?.contains("invalid_client_type") == false)
+}
+
+@MainActor
+@Test func pairingOfficialClientTypeMismatchKeepsInputsAndShowsRequestedMessage() throws {
+    let suiteName = "DJConnectTests-\(UUID().uuidString)"
+    let defaults = try #require(UserDefaults(suiteName: suiteName))
+    defaults.removePersistentDomain(forName: suiteName)
+    let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startBackgroundTasks: false)
+    model.language = "nl"
+    model.homeAssistantURL = "https://victory-curvy-refold.ngrok-free.dev"
+    model.pairingToken = "503901"
+
+    model.applyPairingWait(
+        error: .clientTypeMismatch(
+            message: "Selected iOS setup flow does not match this macOS app.",
+            expectedClientType: "macos",
+            receivedClientType: "ios"
+        ),
+        pairingToken: "503901"
+    )
+
+    #expect(model.homeAssistantURL == "https://victory-curvy-refold.ngrok-free.dev")
+    #expect(model.pairingToken == "503901")
+    #expect(model.isPairing == false)
+    #expect(model.pairingStatus == .unpaired)
+    #expect(model.pairingMessage == "Het gekozen app-type in Home Assistant klopt niet met deze app. Kies in Home Assistant de DJConnect macOS setup-flow en probeer opnieuw.")
+}
+
+@MainActor
 @Test func authStaleClearsTokenAndReopensPairing() throws {
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
@@ -885,6 +974,34 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     ])
     #expect(model.musicDNAProfileResponse?.enabled == true)
     #expect(model.musicDNAProfileResponse?.profile.summary == "Newly enabled profile")
+}
+
+@MainActor
+@Test func musicDNAOptInSurvivesStaleProfileRefresh() async throws {
+    let defaults = try testDefaults()
+    let recorder = RequestRecorder()
+    let session = mockSession(host: "musicdna-stale-optin.local") { request in
+        recorder.append(request)
+        if request.url?.path == "/api/djconnect/music_dna/settings" {
+            return (try httpResponse(for: request, statusCode: 200), Data(#"{"success":true,"enabled":true,"profile":{"summary":"Enabled locally"}}"#.utf8))
+        }
+        return (try httpResponse(for: request, statusCode: 200), Data(#"{"success":true,"enabled":false,"profile":{}}"#.utf8))
+    }
+    let model = makePairedMusicDNAModel(defaults: defaults, host: "musicdna-stale-optin.local", session: session)
+
+    await model.setMusicDNAEnabled(true)
+    #expect(model.musicDNAProfileResponse?.enabled == true)
+    #expect(model.musicDNAProfileResponse?.profile.summary == "Enabled locally")
+
+    await model.refreshMusicDNAProfile()
+
+    #expect(recorder.requests.map { $0.url?.path } == [
+        "/api/djconnect/music_dna/settings",
+        "/api/djconnect/music_dna/profile",
+        "/api/djconnect/music_dna/profile"
+    ])
+    #expect(model.musicDNAProfileResponse?.enabled == true)
+    #expect(model.musicDNAProfileResponse?.profile.summary == "Enabled locally")
 }
 
 @MainActor
@@ -1416,6 +1533,7 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
         entityID: "media_player.living_room",
         playerID: "spotify-player",
         musicBackend: "spotify",
+        clientType: "ios",
         forceRefresh: true,
         locale: "nl",
         includeVisualProfile: true,
@@ -1432,6 +1550,7 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     #expect((object?["entity_id"] as? String) == "media_player.living_room")
     #expect((object?["player_id"] as? String) == "spotify-player")
     #expect((object?["music_backend"] as? String) == "spotify")
+    #expect((object?["client_type"] as? String) == "ios")
     #expect((object?["force_refresh"] as? Bool) == true)
     #expect((object?["include_visual_profile"] as? Bool) == true)
 }
@@ -3605,6 +3724,44 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     #expect(payload.pairPath == "/api/djconnect/pair")
 }
 
+@Test func pairingURLPolicyAllowsNgrokFreeDevelopmentTunnel() throws {
+    let url = try #require(URL(string: "https://victory-curvy-refold.ngrok-free.dev"))
+    let pairingLink = try #require(URL(string: "djconnect://pair?ha_url=https%3A%2F%2Fvictory-curvy-refold.ngrok-free.dev&pair_code=123456&client_type=ios&pair_path=%2Fapi%2Fdjconnect%2Fpair"))
+
+    #expect(DJConnectPairingURLPolicy.isAllowedPairingURL(url))
+    #expect(DJConnectPairingURLPolicy.isWhitelistedDevelopmentTunnelURL(url))
+
+    let payload = try DJConnectPairingDeepLink.parse(pairingLink, expectedClientType: .ios)
+
+    #expect(payload.homeAssistantURL == "https://victory-curvy-refold.ngrok-free.dev")
+    #expect(payload.pairCode == "123456")
+}
+
+@Test func pairingURLPolicyRequiresPlausibleHomeAssistantHostSyntax() throws {
+    let localMDNS = try #require(URL(string: "http://homeassistant.local:8123"))
+    let localIP = try #require(URL(string: "http://192.168.1.10:8123"))
+    let localhost = try #require(URL(string: "http://localhost:8123"))
+    let bareWord = try #require(URL(string: "http://ddd"))
+    let partialIP = try #require(URL(string: "http://192."))
+    let bareWordPairingLink = try #require(URL(string: "djconnect://pair?ha_url=http%3A%2F%2Fddd&pair_code=123456&client_type=ios&pair_path=%2Fapi%2Fdjconnect%2Fpair"))
+
+    #expect(DJConnectPairingURLPolicy.isAllowedPairingURL(localMDNS))
+    #expect(DJConnectPairingURLPolicy.isAllowedPairingURL(localIP))
+    #expect(DJConnectPairingURLPolicy.isAllowedPairingURL(localhost))
+    #expect(!DJConnectPairingURLPolicy.isAllowedPairingURL(bareWord))
+    #expect(!DJConnectPairingURLPolicy.isAllowedPairingURL(partialIP))
+    #expect(throws: DJConnectError.self) {
+        _ = try DJConnectPairingDeepLink.parse(bareWordPairingLink, expectedClientType: .ios)
+    }
+}
+
+@Test func pairingURLPolicyRejectsNonWhitelistedRemoteHTTPS() throws {
+    let nabuCasa = try #require(URL(string: "https://example.ui.nabu.casa"))
+
+    #expect(!DJConnectPairingURLPolicy.isAllowedPairingURL(nabuCasa))
+    #expect(!DJConnectPairingURLPolicy.isWhitelistedDevelopmentTunnelURL(nabuCasa))
+}
+
 @Test func iOSPairingDeepLinkRejectsInvalidPayloads() throws {
     let missingURL = try #require(URL(string: "djconnect://pair?pair_code=123456&client_type=ios&pair_path=%2Fapi%2Fdjconnect%2Fpair"))
     let remoteURL = try #require(URL(string: "djconnect://pair?ha_url=https%3A%2F%2Fexample.ui.nabu.casa&pair_code=123456&client_type=ios&pair_path=%2Fapi%2Fdjconnect%2Fpair"))
@@ -3859,17 +4016,79 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
 
     model.confirmPairingHomeAssistantURL()
 
-    for _ in 0..<20 where model.pairingStatus != .paired {
+    for _ in 0..<20 where model.pairingStatus != .waitingForHomeAssistantCompletion {
         try await Task.sleep(for: .milliseconds(100))
     }
 
-    #expect(model.pairingStatus == .paired)
+    #expect(model.pairingStatus == .waitingForHomeAssistantCompletion)
+    #expect(model.pairingMessage?.contains("Home Assistant") == true)
+    #expect(model.pairingMessage?.contains("setup") == true)
     #expect(recorder.paths == ["/api/djconnect/pair"])
     #expect(!recorder.paths.contains { $0.hasPrefix("/api/device/") })
     #expect(try tokenStore.loadToken() == "device-secret")
     #expect(model.haRemoteURL == "https://example.ui.nabu.casa")
     #expect(model.apiBase == "/api/djconnect")
     #expect(model.askDJSupported)
+}
+
+@MainActor
+@Test func macOSPairingCompletesOnlyAfterAuthenticatedStatusSucceeds() async throws {
+    let suiteName = "DJConnectTests-\(UUID().uuidString)"
+    let defaults = try #require(UserDefaults(suiteName: suiteName))
+    defaults.removePersistentDomain(forName: suiteName)
+    defaults.set(true, forKey: "DJConnectWelcomeSeen")
+    defaults.set("ABCDEF1234567890", forKey: "DJConnectInstallID")
+    let tokenStore = DJConnectInMemoryTokenStore()
+    let host = "pair-status-macos.local"
+    let recorder = RequestPathRecorder()
+    let session = mockSession(host: host) { request in
+        recorder.append(request.url?.path ?? "")
+        if request.url?.path == "/api/djconnect/status" {
+            #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer device-secret")
+            return (
+                try httpResponse(for: request, statusCode: 200),
+                Data(#"{"success":true,"ha_major_minor":"3.2","playback":{"has_playback":false},"music_backend_available":true}"#.utf8)
+            )
+        }
+        if request.url?.path == "/api/djconnect/command" {
+            return (
+                try httpResponse(for: request, statusCode: 200),
+                Data(#"{"success":true,"ha_major_minor":"3.2","playback":{"has_playback":false},"music_backend_available":true}"#.utf8)
+            )
+        }
+        #expect(request.url?.path == "/api/djconnect/pair")
+        return (
+            try httpResponse(for: request, statusCode: 200),
+            Data(
+                """
+                {
+                  "success": true,
+                  "setup_pending": true,
+                  "client_type": "macos",
+                  "device_token": "device-secret",
+                  "ha_local_url": "http://\(host):8123"
+                }
+                """.utf8
+            )
+        )
+    }
+    let model = DJConnectAppModel(defaults: defaults, tokenStore: tokenStore, urlSession: session, startBackgroundTasks: true)
+    defer {
+        model.stopPairingWait()
+    }
+    model.homeAssistantURL = "http://\(host):8123"
+    model.pairingToken = "123456"
+
+    model.confirmPairingHomeAssistantURL()
+
+    for _ in 0..<30 where model.pairingStatus != .paired {
+        try await Task.sleep(for: .milliseconds(100))
+    }
+
+    #expect(model.pairingStatus == .paired)
+    #expect(model.pairingMessage == "Pairing complete." || model.pairingMessage == "Koppeling voltooid.")
+    #expect(recorder.paths.contains("/api/djconnect/pair"))
+    #expect(recorder.paths.contains("/api/djconnect/status"))
 }
 
 @MainActor
@@ -4120,6 +4339,39 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
             firmware: "3.1.7",
             firmwareMajorMinor: "3.0"
         )
+    ))
+}
+
+@Test func clientTypeMismatchIsClassifiedBeforeGenericBadRequest() throws {
+    let client = DJConnectClient(
+        baseURL: try #require(URL(string: "http://homeassistant.local:8123")),
+        identity: DJConnectIdentity(
+            deviceID: "djconnect-macos-8F3A2C91B45D",
+            deviceName: "DJConnect Mac",
+            clientType: .macos,
+            firmware: "3.1.7",
+            platform: .macos
+        ),
+        tokenStore: DJConnectInMemoryTokenStore(token: "secret-token")
+    )
+    let body = Data(
+        """
+        {
+          "success": false,
+          "error": "client_type_mismatch",
+          "message": "Selected iOS pairing flow does not match this macOS app.",
+          "expected_client_type": "macos",
+          "received_client_type": "ios"
+        }
+        """.utf8
+    )
+
+    let error = client.classify(statusCode: 400, body: body)
+
+    #expect(error == .clientTypeMismatch(
+        message: "Selected iOS pairing flow does not match this macOS app.",
+        expectedClientType: "macos",
+        receivedClientType: "ios"
     ))
 }
 
@@ -4902,6 +5154,55 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     #expect(model.askDJMessages[1].clientMessageID == clientMessageID)
     #expect(model.askDJMessages[1].role == .dj)
     #expect(model.askDJMessages[1].text == "Ik zet Metallica - One voor je klaar.")
+}
+
+@MainActor
+@Test func askDJHistorySyncDoesNotClearFreshClientExchange() throws {
+    let suiteName = "DJConnectTests-\(UUID().uuidString)"
+    let defaults = try #require(UserDefaults(suiteName: suiteName))
+    defaults.removePersistentDomain(forName: suiteName)
+    let clientMessageID = "client-message-\(UUID().uuidString)"
+    let localUserID = UUID()
+    let localUserMessage = DJConnectAskDJMessage(
+        id: localUserID,
+        clientMessageID: clientMessageID,
+        role: .user,
+        text: "wat speelt er nu?",
+        status: .sending,
+        createdAt: Date(timeIntervalSince1970: 100)
+    )
+    let assistantMessage = DJConnectAskDJHistoryMessage(
+        id: "assistant-now-playing",
+        clientMessageID: clientMessageID,
+        role: .assistant,
+        text: "Dit klinkt als een warme, melodische house track.",
+        createdAt: Date(timeIntervalSince1970: 101)
+    )
+
+    defaults.set(try JSONEncoder().encode([localUserMessage]), forKey: "DJConnectAskDJMessages")
+    let hydratedModel = DJConnectAppModel(
+        defaults: defaults,
+        tokenStore: DJConnectInMemoryTokenStore(),
+        startBackgroundTasks: false
+    )
+    hydratedModel.applyAskDJMessageResponse(DJConnectAskDJMessageResponse(
+        assistantMessage: assistantMessage,
+        historyRevision: 4,
+        clearRevision: 0
+    ), fallbackUserMessageID: localUserID)
+
+    hydratedModel.applyAskDJHistory(DJConnectAskDJHistoryResponse(
+        historyRevision: 5,
+        clearRevision: 1,
+        messages: []
+    ))
+
+    #expect(hydratedModel.askDJMessages.count == 2)
+    #expect(hydratedModel.askDJMessages[0].id == localUserID)
+    #expect(hydratedModel.askDJMessages[0].text == "wat speelt er nu?")
+    #expect(hydratedModel.askDJMessages[0].status == .delivered)
+    #expect(hydratedModel.askDJMessages[1].role == .dj)
+    #expect(hydratedModel.askDJMessages[1].text == "Dit klinkt als een warme, melodische house track.")
 }
 
 @MainActor

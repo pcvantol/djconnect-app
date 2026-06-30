@@ -4,6 +4,30 @@ All notable changes to DJConnect App are documented here.
 
 ## Unreleased
 
+## 3.2.7 - 2026-06-30
+
+### Added
+
+- Added pairing coverage for ngrok development tunnels, URL syntax validation,
+  two-phase Home Assistant setup completion, and `client_type_mismatch`.
+- Added regression coverage for Track Insight `client_type`, Ask DJ history
+  sync preserving fresh exchanges, and stale Music DNA profile refreshes.
+
+### Changed
+
+- Matched Music DNA outline-heart iconography across Watch, iOS, and macOS.
+- Restyled iOS/macOS output-device choices to feel closer to the Apple Watch
+  selector.
+- Improved pairing copy and validation for local URLs, local-development ngrok
+  URLs, invalid pairing codes, and wrong Home Assistant app-type selections.
+
+### Fixed
+
+- Fixed Track Insight requests missing the canonical Apple client type.
+- Fixed Ask DJ answers disappearing after a later history/status sync.
+- Fixed Music DNA toggles visually reverting when Home Assistant returned a
+  stale profile immediately after opt-in or opt-out.
+
 ## 3.2.6 - 2026-06-30
 
 ### Added

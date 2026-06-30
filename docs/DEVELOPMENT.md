@@ -54,7 +54,9 @@ release binaries.
 7. In Home Assistant, start the DJConnect app setup flow and choose macOS.
 8. Enter the local Home Assistant URL and the 6-digit code shown by Home
    Assistant in the app, then choose the pairing action.
-9. When the green pairing success state appears, choose `Let's Start!`.
+9. Finish the setup flow in Home Assistant. The app waits after the initial
+   `POST /api/djconnect/pair` until authenticated status succeeds.
+10. When the green pairing success state appears, choose `Let's Start!`.
 
 The app posts once to `POST /api/djconnect/pair` from the Apple client to Home
 Assistant, stores the returned DJConnect bearer token in app-private storage,
@@ -62,13 +64,28 @@ and sends the Home Assistant code as `pair_code`, `pairing_code`, and
 `pairing_token` for compatibility with current Home Assistant integration
 builds.
 
+Pairing is local-first. The URL field validates real URL syntax and accepts
+local `http` Home Assistant hosts such as `homeassistant.local`, LAN IP
+addresses, or `localhost`. For development, `https://*.ngrok-free.dev` is
+whitelisted so a tunneled Home Assistant dev environment can be paired. Other
+remote HTTPS URLs are rejected for first pairing and should be used only after
+Home Assistant returns `ha_remote_url` for runtime fallback.
+
+If Home Assistant returns `error:"client_type_mismatch"` during pairing, the
+client keeps the entered URL and 6-digit code, stops the current attempt, and
+shows a platform-specific instruction to choose the matching DJConnect setup
+flow in Home Assistant. For macOS use `client_type:"macos"`, for iPhone/iPad
+use `client_type:"ios"`, and for Apple Watch through the iPhone proxy use
+`client_type:"watchos"`.
+
 For iOS Simulator testing, use the pairing flow above. Treat direct HTTP reachability to the configured Home Assistant URL as authoritative; Apple clients do not advertise a pairable service or host callback endpoints.
 
 For Apple Watch pairing, choose Apple Watch in the Home Assistant DJConnect
 setup flow and scan/open the generated `djconnect://pair?...client_type=watchos`
 payload on the paired iPhone. The Watch does not show Home Assistant URL or
-pair-code entry fields. The iPhone forwards the validated payload to the Watch
-and may proxy the HTTP request, but the payload identity remains
+pair-code entry fields and the iPhone proxy pairing screen does not show Demo
+Mode. The iPhone forwards the validated payload to the Watch and may proxy the
+HTTP request, but the payload identity remains
 `client_type: "watchos"` with a `djconnect-watchos-*` device ID.
 
 The pairing sheet also offers Demo Mode. Use it only for local UI work or App

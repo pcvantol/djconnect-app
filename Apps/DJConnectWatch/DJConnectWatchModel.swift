@@ -3391,7 +3391,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
             return "Home Assistant gaf geen antwoord"
         case .trackInsightUnavailable:
             return "Track Insight niet beschikbaar"
-        case .network, .routeMissing, .notConfigured, .invalidConfiguration, .missingToken, .pairingFailed, .authStale, .versionMismatch:
+        case .network, .routeMissing, .notConfigured, .invalidConfiguration, .missingToken, .pairingFailed, .clientTypeMismatch, .authStale, .versionMismatch:
             return "Ask DJ niet bereikbaar"
         }
     }
@@ -3712,6 +3712,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
                  .authStale,
                  .notConfigured,
                  .pairingFailed,
+                 .clientTypeMismatch,
                  .routeMissing:
                 return "Ask DJ niet bereikbaar."
             case let .versionMismatch(mismatch):

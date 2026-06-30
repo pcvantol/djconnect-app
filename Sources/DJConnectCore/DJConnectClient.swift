@@ -299,6 +299,14 @@ public final class DJConnectClient: Sendable {
             )
         }
 
+        if envelope?.error == "client_type_mismatch" {
+            return .clientTypeMismatch(
+                message: message,
+                expectedClientType: envelope?.expectedClientType,
+                receivedClientType: envelope?.receivedClientType
+            )
+        }
+
         if statusCode == 401 || statusCode == 403 {
             return .authStale(statusCode: statusCode, message: message)
         }

@@ -161,7 +161,10 @@ DNA on the backend and stops further buildup until it is enabled again. The
 Settings explanation is contextual: when Music DNA is disabled, clients explain
 that no profile is being built and that the learned profile has already been
 cleared. The separate clear-profile action is shown only while Music DNA is
-enabled, because opting out already clears the learned profile.
+enabled, because opting out already clears the learned profile. After opt-in or
+opt-out, clients may temporarily keep the just-selected enabled state visible
+while a stale profile refresh catches up; Home Assistant remains authoritative
+once it returns the matching state.
 
 APNs push registration is supported for iOS, macOS, and watchOS clients. iOS
 uses `client_type: "ios"` and `device_id` values shaped like
@@ -278,7 +281,7 @@ Spotify Web API calls for voice commands. Canonical examples from
 | `personal_music_recommendations` | `Geef me muziek aanbevelingen op basis van mijn luisterprofiel`, `Wat zou ik nu leuk vinden om te luisteren?`, `Raad me iets nieuws aan dat past bij mijn smaak` | `Recommend music based on my listening profile`, `what should I listen to now?`, `recommend something new that fits my taste` | HA recommends concrete tracks, albums, artists, or playlists from Music DNA and Spotify profile data without changing playback unless the user explicitly asks to play or queue them. |
 | `dj_announcement_request` | `Geef me een leuke aankondiging voor het volgende nummer`, `Doe een radio intro voor wat er nu speelt` | `Give me a fun announcement for the next song`, `do a radio-style intro for what is playing now` | HA generates DJ text and optional `audio_url` without changing playback. |
 | `track_context_info` | `Vertel iets over dit nummer`, `Wanneer kwam dit uit?`, `Waarom koos je dit nummer?`, `Heeft deze artiest concerten in Nederland?` | `Tell me about this song`, `what year was this released?`, `why did you choose this track?` | HA enriches current playback with release, genre, commentary, trivia, samples, concerts, releases, and musical connections without changing playback. |
-| `track_insight` | `Geef Track Insight voor dit nummer`, `Analyseer deze track`, `Wat is de bpm en opbouw van deze track?`, `Welke instrumenten hoor je hierin?` | `Give me Track Insight for this song`, `What is the BPM, key and structure of this track?`, `Why does this track work so well?` | HA gives a read-only Track Insight of the current track, distinguishing measured BPM/key/sections from inferred musical commentary and never changing playback. |
+| `track_insight` | `Geef Track Insight voor dit nummer`, `Analyseer deze track`, `Wat is de bpm en opbouw van deze track?`, `Welke instrumenten hoor je hierin?` | `Give me Track Insight for this song`, `What is the BPM, key and structure of this track?`, `Why does this track work so well?` | HA gives a read-only Track Insight of the current track, distinguishing measured BPM/key/sections from inferred musical commentary and never changing playback. Direct Track Insight requests include the canonical `client_type`. |
 
 Ask DJ output-device responses may include structured output `playback_actions`.
 Apple clients render those vertically, with the speaker name on the left and an
@@ -379,7 +382,15 @@ local-only: the Apple client posts to the local Home Assistant
 `/api/djconnect/pair` endpoint and stores the returned DJConnect bearer token,
 `ha_local_url`, optional `ha_remote_url`, remote support flag, API
 paths/capabilities, and music-backend summary. Remote URLs are never used for
-first pairing.
+first pairing. For development, `https://*.ngrok-free.dev` is whitelisted as a
+tunnel URL; other remote HTTPS URLs are rejected for first pairing.
+
+The pairing flow is two-phase. A successful pair response stores the returned
+token, then the app waits for authenticated status to succeed before showing the
+runtime as paired. `client_type_mismatch` during pairing keeps the entered URL
+and code intact and tells the user to select the matching Home Assistant setup
+flow: iPhone/iPad uses `ios`, macOS uses `macos`, and Apple Watch pairing
+through iPhone uses `watchos`.
 
 iOS primarily pairs from the Home Assistant QR/deep-link payload
 `djconnect://pair?ha_url=<local-ha-url>&pair_code=<code>&client_type=ios&pair_path=/api/djconnect/pair`.
