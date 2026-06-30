@@ -2398,11 +2398,13 @@ private struct DJConnectPressedTintButtonStyle: ButtonStyle {
 }
 
 struct DJConnectLilacPillButtonStyle: ButtonStyle {
+    @Environment(\.isEnabled) private var isEnabled
+
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(.headline)
-            .foregroundStyle(.white)
-            .foregroundColor(.white)
+            .foregroundStyle(.white.opacity(isEnabled ? 1.0 : 0.52))
+            .foregroundColor(.white.opacity(isEnabled ? 1.0 : 0.52))
             .tint(.white)
             .accentColor(.white)
             .symbolRenderingMode(.monochrome)
@@ -2412,8 +2414,8 @@ struct DJConnectLilacPillButtonStyle: ButtonStyle {
             .background(
                 LinearGradient(
                     colors: [
-                        djConnectButtonBlue.opacity(configuration.isPressed ? 0.82 : 1.0),
-                        djConnectButtonPurple.opacity(configuration.isPressed ? 0.82 : 1.0)
+                        (isEnabled ? djConnectButtonBlue : Color.white).opacity(isEnabled ? (configuration.isPressed ? 0.82 : 1.0) : 0.12),
+                        (isEnabled ? djConnectButtonPurple : Color.white).opacity(isEnabled ? (configuration.isPressed ? 0.82 : 1.0) : 0.08)
                     ],
                     startPoint: .leading,
                     endPoint: .trailing
@@ -2422,11 +2424,12 @@ struct DJConnectLilacPillButtonStyle: ButtonStyle {
             )
             .overlay {
                 Capsule()
-                    .stroke(.white.opacity(configuration.isPressed ? 0.18 : 0.12), lineWidth: 1)
+                    .stroke(.white.opacity(isEnabled ? (configuration.isPressed ? 0.18 : 0.12) : 0.10), lineWidth: 1)
             }
-            .shadow(color: djConnectButtonPurple.opacity(0.26), radius: 10, y: 4)
-            .scaleEffect(configuration.isPressed ? 0.98 : 1)
+            .shadow(color: djConnectButtonPurple.opacity(isEnabled ? 0.26 : 0), radius: 10, y: 4)
+            .scaleEffect(configuration.isPressed && isEnabled ? 0.98 : 1)
             .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
+            .animation(.easeOut(duration: 0.16), value: isEnabled)
     }
 }
 
@@ -3764,22 +3767,62 @@ private struct VibeCastVisualizerSignalView: View {
     }
 
     var body: some View {
-        GeometryReader { geometry in
-            ZStack {
-                profile.gradient
-                TrackVibeVisualizerView(profile: profile, playback: playback, reduceMotion: reduceMotion, isActive: true)
-                    .clipShape(Rectangle())
-                    .overlay(alignment: .topLeading) {
-                        brandHeader
-                            .padding(max(24, geometry.size.width * 0.035))
-                    }
-                    .overlay(alignment: .bottom) {
-                        signalFooter
-                            .padding(.horizontal, max(24, geometry.size.width * 0.045))
-                            .padding(.bottom, max(24, geometry.size.height * 0.055))
-                    }
+        Group {
+            if reduceMotion {
+                TimelineView(.periodic(from: .now, by: 60)) { timeline in
+                    premiumScene(date: timeline.date)
+                }
+            } else {
+                TimelineView(.animation(minimumInterval: 1.0 / 24.0)) { timeline in
+                    premiumScene(date: timeline.date)
+                }
             }
         }
+    }
+
+    private func premiumScene(date: Date) -> some View {
+        let phase = TrackVibePlaybackPhase(playback: playback, date: date)
+        return GeometryReader { geometry in
+            ZStack {
+                TrackInsightPremiumBackground(profile: profile, phase: phase, date: date)
+                TrackInsightLightField(profile: profile, phase: phase, date: date)
+
+                TrackInsightHeroArtwork(
+                    insight: insight,
+                    profile: profile,
+                    playback: playback,
+                    reduceMotion: reduceMotion,
+                    isActive: !reduceMotion
+                )
+                .frame(width: artworkSize(in: geometry.size), height: artworkSize(in: geometry.size))
+                .position(x: geometry.size.width * 0.50, y: geometry.size.height * 0.33)
+
+                TrackInsightPremiumSpectrum(profile: profile, phase: phase)
+                    .frame(height: max(118, geometry.size.height * 0.18))
+                    .padding(.horizontal, max(52, geometry.size.width * 0.12))
+                    .position(x: geometry.size.width / 2, y: geometry.size.height * 0.64)
+
+                VStack(spacing: 0) {
+                    Spacer(minLength: 0)
+                    TrackInsightHeroInfo(insight: insight, language: language)
+                        .frame(maxWidth: min(920, geometry.size.width * 0.78))
+                    TrackVibePhaseSpectrum(profile: profile, progress: phase.progress)
+                        .sections(insight.sections)
+                        .frame(maxWidth: min(980, geometry.size.width * 0.82))
+                        .padding(.top, 16)
+                }
+                .padding(.horizontal, max(32, geometry.size.width * 0.04))
+                .padding(.bottom, max(34, geometry.size.height * 0.055))
+
+                brandHeader
+                    .padding(max(24, geometry.size.width * 0.035))
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            }
+        }
+    }
+
+    private func artworkSize(in size: CGSize) -> CGFloat {
+        min(size.width * 0.24, size.height * 0.36, 360)
     }
 
     private var brandHeader: some View {
@@ -3792,60 +3835,6 @@ private struct VibeCastVisualizerSignalView: View {
             Spacer(minLength: 0)
         }
         .foregroundStyle(.white.opacity(0.88))
-    }
-
-    private var signalFooter: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack(alignment: .bottom, spacing: 18) {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text(insight.title)
-                        .font(.system(size: 42, weight: .bold, design: .rounded))
-                        .foregroundStyle(.white)
-                        .lineLimit(2)
-                        .minimumScaleFactor(0.58)
-                    Text(insight.artist)
-                        .font(.title2.weight(.semibold))
-                        .foregroundStyle(.white.opacity(0.76))
-                        .lineLimit(1)
-                }
-                Spacer(minLength: 0)
-            }
-
-            HStack(spacing: 10) {
-                signalPill(insight.genre)
-                if let bpm = insight.bpm {
-                    signalPill("\(Int(bpm.rounded())) BPM")
-                }
-                signalPill(insight.key)
-                signalPill(insight.mood)
-                signalPill(insight.vibe)
-            }
-
-            Text(insight.summary)
-                .font(.callout.weight(.medium))
-                .foregroundStyle(.white.opacity(0.72))
-                .lineLimit(2)
-                .fixedSize(horizontal: false, vertical: true)
-        }
-        .padding(18)
-        .background(.black.opacity(0.28), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .stroke(.white.opacity(0.14), lineWidth: 1)
-        }
-    }
-
-    @ViewBuilder
-    private func signalPill(_ value: String?) -> some View {
-        if let value, !value.isEmpty {
-            Text(value)
-                .font(.subheadline.weight(.bold))
-                .foregroundStyle(.white.opacity(0.82))
-                .lineLimit(1)
-                .padding(.horizontal, 10)
-                .padding(.vertical, 6)
-                .background(.white.opacity(0.10), in: Capsule())
-        }
     }
 }
 
