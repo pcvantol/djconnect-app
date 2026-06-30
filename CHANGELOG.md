@@ -4,6 +4,34 @@ All notable changes to DJConnect App are documented here.
 
 ## Unreleased
 
+## 3.2.6 - 2026-06-30
+
+### Added
+
+- Added an iOS camera consent sheet before QR pairing and restored the required
+  camera usage description.
+- Added Dutch widget and Watch complication metadata localizations.
+- Added documentation and tests for deep links, quick actions, camera consent,
+  and supported Bonjour service declarations.
+
+### Changed
+
+- Made iOS home-screen quick actions and widget taps route reliably to the
+  matching app page.
+- Improved demo-mode widget refreshes for Now Playing, Queue, Playlists, Track
+  Insight, and Ask DJ.
+- Smoothed Track Insight and VibeCast visualizer animation while playback is
+  active.
+- Matched Watch Music DNA iconography and button alignment with iOS/macOS.
+- Refined Track Insight share preview/export sizing so preview scaling does not
+  alter exported content.
+
+### Fixed
+
+- Fixed macOS build availability around external playback preview settings.
+- Fixed iOS permission-settings return flow, demo playback controls, and Watch
+  install/startup regressions.
+
 ## 3.2.5 - 2026-06-30
 
 ### Changed
