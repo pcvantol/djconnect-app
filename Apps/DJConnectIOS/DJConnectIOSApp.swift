@@ -2,6 +2,7 @@ import DJConnectCore
 import DJConnectUI
 import SwiftUI
 import UIKit
+import UserNotifications
 
 @main
 struct DJConnectIOSApp: App {
@@ -46,7 +47,7 @@ struct DJConnectIOSApp: App {
     }
 }
 
-final class DJConnectIOSAppDelegate: NSObject, UIApplicationDelegate {
+final class DJConnectIOSAppDelegate: NSObject, UIApplicationDelegate, @preconcurrency UNUserNotificationCenterDelegate {
     private let vibeCastOutputController = VibeCastExternalDisplayController()
 
     weak var model: DJConnectAppModel? {
@@ -62,7 +63,16 @@ final class DJConnectIOSAppDelegate: NSObject, UIApplicationDelegate {
 
     override init() {
         super.init()
+        UNUserNotificationCenter.current().delegate = self
         vibeCastOutputController.start()
+    }
+
+    func application(
+        _ application: UIApplication,
+        didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
+    ) -> Bool {
+        UNUserNotificationCenter.current().delegate = self
+        return true
     }
 
     func application(
@@ -87,6 +97,19 @@ final class DJConnectIOSAppDelegate: NSObject, UIApplicationDelegate {
         Task { @MainActor in
             await model?.refreshAskDJHistory()
             completionHandler(.newData)
+        }
+    }
+
+    func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        didReceive response: UNNotificationResponse,
+        withCompletionHandler completionHandler: @escaping () -> Void
+    ) {
+        Task { @MainActor in
+            await model?.refreshAskDJHistory()
+            pendingHomeScreenAction = .askDJ
+            flushPendingHomeScreenAction()
+            completionHandler()
         }
     }
 

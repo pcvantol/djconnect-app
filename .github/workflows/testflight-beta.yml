@@ -143,6 +143,9 @@ jobs:
           echo "$APP_STORE_CONNECT_API_KEY_BASE64" | base64 --decode \
             > "$HOME/.appstoreconnect/private_keys/AuthKey_${APP_STORE_CONNECT_API_KEY_ID}.p8"
 
+      - name: Validate Apple localizations
+        run: python3 scripts/validate_localizations.py
+
       - name: Swift tests
         run: swift test --no-parallel
 

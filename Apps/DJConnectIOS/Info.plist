@@ -16,6 +16,8 @@
 	<string>$(PRODUCT_NAME)</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>$(MARKETING_VERSION)</string>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>
@@ -27,8 +29,6 @@
 			</array>
 		</dict>
 	</array>
-	<key>CFBundleShortVersionString</key>
-	<string>$(MARKETING_VERSION)</string>
 	<key>CFBundleVersion</key>
 	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>LSApplicationCategoryType</key>
@@ -43,13 +43,13 @@
 		<string>_home-assistant._tcp.</string>
 	</array>
 	<key>NSCameraUsageDescription</key>
-	<string>DJConnect gebruikt de camera alleen om de koppel-QR-code van Home Assistant of Apple Watch te scannen.</string>
+	<string>DJConnect uses the camera only to scan the pairing QR code from Home Assistant or Apple Watch.</string>
 	<key>NSLocalNetworkUsageDescription</key>
-	<string>DJConnect maakt verbinding met Home Assistant op je lokale netwerk.</string>
+	<string>DJConnect connects to Home Assistant on your local network.</string>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>DJConnect neemt je stem op voor push-to-talk muziekverzoeken aan Home Assistant.</string>
+	<string>DJConnect records your voice for push-to-talk music requests to Home Assistant.</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
-	<string>DJConnect gebruikt spraakherkenning om de wake-zin te herkennen.</string>
+	<string>DJConnect uses speech recognition to detect the wake phrase.</string>
 	<key>NSSupportsLiveActivities</key>
 	<true/>
 	<key>UIApplicationShortcutItems</key>
@@ -57,14 +57,18 @@
 		<dict>
 			<key>UIApplicationShortcutItemIconSymbolName</key>
 			<string>music.note</string>
+			<key>UIApplicationShortcutItemSubtitle</key>
+			<string>Control playback</string>
 			<key>UIApplicationShortcutItemTitle</key>
-			<string>Speelt Nu</string>
+			<string>Now Playing</string>
 			<key>UIApplicationShortcutItemType</key>
 			<string>dev.djconnect.action.now-playing</string>
 		</dict>
 		<dict>
 			<key>UIApplicationShortcutItemIconSymbolName</key>
 			<string>bubble.left.and.bubble.right</string>
+			<key>UIApplicationShortcutItemSubtitle</key>
+			<string>Ask for music</string>
 			<key>UIApplicationShortcutItemTitle</key>
 			<string>Ask DJ</string>
 			<key>UIApplicationShortcutItemType</key>
@@ -74,7 +78,7 @@
 			<key>UIApplicationShortcutItemIconSymbolName</key>
 			<string>waveform.path.ecg</string>
 			<key>UIApplicationShortcutItemSubtitle</key>
-			<string>Analyseer huidig nummer</string>
+			<string>Analyze current track</string>
 			<key>UIApplicationShortcutItemTitle</key>
 			<string>Track Insight</string>
 			<key>UIApplicationShortcutItemType</key>

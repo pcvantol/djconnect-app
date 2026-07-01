@@ -2,17 +2,24 @@ import DJConnectCore
 import SwiftUI
 import WatchKit
 
-private let watchAccentBlue = Color(red: 0.16, green: 0.56, blue: 1.0)
 private let watchAccentPurple = Color(red: 0.84, green: 0.18, blue: 1.0)
 private let watchAccentGreen = Color(red: 0.20, green: 0.86, blue: 0.48)
 private let watchDeepNavy = Color(red: 0.02, green: 0.03, blue: 0.09)
 
-private func watchLocalized(_ language: String, _ english: String, _ dutch: String) -> String {
-    DJConnectLocalization.localized(language: language, english: english, dutch: dutch)
+private func watchLocalizedKey(_ language: String, _ key: String, arguments: CVarArg...) -> String {
+    String(
+        format: DJConnectLocalization.localized(key: key, language: language),
+        locale: Locale(identifier: DJConnectLocalization.supportedLanguageCode(language)),
+        arguments: arguments
+    )
 }
 
-private func watchLocalized(_ english: String, _ dutch: String) -> String {
-    DJConnectLocalization.localized(locale: .current, english: english, dutch: dutch)
+private func watchLocalizedKey(_ key: String, arguments: CVarArg...) -> String {
+    String(
+        format: DJConnectLocalization.localized(key: key),
+        locale: Locale(identifier: DJConnectLocalization.preferredLanguageCode()),
+        arguments: arguments
+    )
 }
 
 private func watchNonEmpty(_ value: String, fallback: String) -> String {
@@ -23,7 +30,7 @@ private func watchAskDJTimestamp(_ date: Date, language: String, now: Date = Dat
     let elapsed = max(0, now.timeIntervalSince(date))
     if elapsed < 3_600 {
         let minutes = max(1, Int(elapsed / 60))
-        return watchLocalized(language, "\(minutes)m ago", "\(minutes) minuten geleden")
+        return watchLocalizedKey(language, "watch.value.m.ago", arguments: minutes)
     }
     if Calendar.current.isDate(date, inSameDayAs: now) {
         return date.formatted(date: .omitted, time: .shortened)
@@ -31,19 +38,19 @@ private func watchAskDJTimestamp(_ date: Date, language: String, now: Date = Dat
     let days = max(1, Calendar.current.dateComponents([.day], from: date, to: now).day ?? 1)
     switch days {
     case 1:
-        return watchLocalized(language, "Yesterday", "Gisteren")
+        return watchLocalizedKey(language, "watch.yesterday")
     case 2...6:
-        return watchLocalized(language, "\(days)d ago", "\(days) dagen geleden")
+        return watchLocalizedKey(language, "watch.value.d.ago", arguments: days)
     case 7...13:
-        return watchLocalized(language, "Last week", "Vorige week")
+        return watchLocalizedKey(language, "watch.last.week")
     case 14...30:
         let weeks = max(2, days / 7)
-        return watchLocalized(language, "\(weeks)w ago", "\(weeks) weken geleden")
+        return watchLocalizedKey(language, "watch.value.w.ago", arguments: weeks)
     case 31...61:
-        return watchLocalized(language, "Last month", "Vorige maand")
+        return watchLocalizedKey(language, "watch.last.month")
     default:
         let months = max(2, days / 30)
-        return watchLocalized(language, "\(months)mo ago", "\(months) maanden geleden")
+        return watchLocalizedKey(language, "watch.value.mo.ago", arguments: months)
     }
 }
 
@@ -102,6 +109,10 @@ struct DJConnectWatchRootView: View {
             DJConnectWatchMicrophonePermissionView(kind: .voiceActivation)
                 .environmentObject(model)
         }
+        .sheet(isPresented: $model.isShowingAskDJNotificationPermissionExplanation) {
+            DJConnectWatchAskDJNotificationPermissionView()
+                .environmentObject(model)
+        }
         .sheet(isPresented: $model.isShowingWelcome) {
             DJConnectWatchWelcomeView()
                 .environmentObject(model)
@@ -128,7 +139,7 @@ struct DJConnectWatchRootView: View {
                 pairedView
             }
         case .pairing:
-            pairingView(message: watchLocalized(model.language, "Waiting for iPhone to pair this Watch with Home Assistant.", "Wachten tot iPhone deze Watch met Home Assistant koppelt."))
+            pairingView(message: watchLocalizedKey(model.language, "watch.waiting.for.iphone.to.pair.this.watch.with"))
         case let .failed(message):
             pairingView(message: message)
         case .unpaired:
@@ -150,34 +161,21 @@ struct DJConnectWatchRootView: View {
                     nowPlaying
 
                     HStack(spacing: 12) {
-                        commandButton("backward.fill", command: "previous", accessibilityLabel: watchLocalized(model.language, "Previous track", "Vorige track"))
+                        commandButton("backward.fill", command: "previous", accessibilityLabel: watchLocalizedKey(model.language, "watch.previous.track"))
                         commandButton(
                             model.playback?.isPlaying == true ? "pause.fill" : "play.fill",
                             command: model.playback?.isPlaying == true ? "pause" : "play",
                             accessibilityLabel: model.playback?.isPlaying == true
-                                ? watchLocalized(model.language, "Pause", "Pauzeer")
-                                : watchLocalized(model.language, "Play", "Speel af"),
+                                ? watchLocalizedKey(model.language, "watch.pause")
+                                : watchLocalizedKey(model.language, "watch.play"),
                             isPrimary: true
                         )
-                        commandButton("forward.fill", command: "next", accessibilityLabel: watchLocalized(model.language, "Next track", "Volgende track"))
+                        commandButton("forward.fill", command: "next", accessibilityLabel: watchLocalizedKey(model.language, "watch.next.track"))
                     }
 
                     volumeControl
 
-                    Button {
-                        Task { await model.saveCurrentTrack() }
-                    } label: {
-                        Label(
-                            model.isSavingCurrentTrack
-                                ? watchLocalized(model.language, "Saving...", "Opslaan...")
-                                : watchLocalized(model.language, "Add to favorites", "Zet in favorieten"),
-                            systemImage: model.isSavingCurrentTrack ? "hourglass" : "heart.fill"
-                        )
-                        .font(.caption.weight(.semibold))
-                        .frame(maxWidth: .infinity, minHeight: 34)
-                    }
-                    .buttonStyle(DJConnectWatchGradientButtonStyle(kind: .secondary))
-                    .disabled(!canUsePlaybackControls || model.isSavingCurrentTrack)
+                    favoriteButton
 
                     NavigationLink {
                         DJConnectWatchOutputsView()
@@ -185,9 +183,9 @@ struct DJConnectWatchRootView: View {
                         HStack(spacing: 8) {
                             Image(systemName: "speaker.wave.2")
                                 .font(.system(size: 14, weight: .semibold))
-                                .foregroundStyle(watchAccentBlue.opacity(0.94))
+                                .foregroundStyle(watchAccentPurple.opacity(0.94))
                             VStack(alignment: .leading, spacing: 2) {
-                                Text(watchLocalized(model.language, "Output", "Uitvoer"))
+                                Text(watchLocalizedKey(model.language, "watch.output"))
                                     .font(.caption2.weight(.semibold))
                                     .foregroundStyle(.white.opacity(0.62))
                                 Text(model.selectedOutput)
@@ -210,7 +208,7 @@ struct DJConnectWatchRootView: View {
                     NavigationLink {
                         DJConnectWatchQueueView()
                     } label: {
-                        Label(watchLocalized(model.language, "Queue", "Wachtrij"), systemImage: "text.line.first.and.arrowtriangle.forward")
+                        Label(watchLocalizedKey(model.language, "watch.queue"), systemImage: "text.line.first.and.arrowtriangle.forward")
                             .font(.footnote.weight(.semibold))
                             .frame(maxWidth: .infinity, minHeight: 34)
                     }
@@ -254,7 +252,7 @@ struct DJConnectWatchRootView: View {
                         Button {
                             model.stopDemoMode()
                         } label: {
-                            Label(watchLocalized(model.language, "Stop demo", "Stop demo"), systemImage: "xmark.circle")
+                            Label(watchLocalizedKey(model.language, "watch.stop.demo"), systemImage: "xmark.circle")
                                 .font(.footnote.weight(.semibold))
                                 .frame(maxWidth: .infinity, minHeight: 34)
                         }
@@ -268,7 +266,7 @@ struct DJConnectWatchRootView: View {
                     NavigationLink {
                         DJConnectWatchPlaylistsView()
                     } label: {
-                        Label(watchLocalized(model.language, "Playlists", "Afspeellijsten"), systemImage: "music.note.list")
+                        Label(watchLocalizedKey(model.language, "watch.playlists"), systemImage: "music.note.list")
                             .font(.footnote.weight(.semibold))
                             .frame(maxWidth: .infinity, minHeight: 34)
                     }
@@ -277,7 +275,7 @@ struct DJConnectWatchRootView: View {
                     NavigationLink {
                         DJConnectWatchSettingsView()
                     } label: {
-                        Label(watchLocalized(model.language, "Settings", "Instellingen"), systemImage: "gearshape")
+                        Label(watchLocalizedKey(model.language, "watch.settings"), systemImage: "gearshape")
                             .font(.footnote.weight(.semibold))
                             .frame(maxWidth: .infinity, minHeight: 32)
                     }
@@ -295,7 +293,7 @@ struct DJConnectWatchRootView: View {
                     NavigationLink {
                         DJConnectWatchAboutView()
                     } label: {
-                        Label(watchLocalized(model.language, "About", "Over"), systemImage: "info.circle")
+                        Label(watchLocalizedKey(model.language, "watch.about"), systemImage: "info.circle")
                             .font(.footnote.weight(.semibold))
                             .frame(maxWidth: .infinity, minHeight: 32)
                     }
@@ -304,7 +302,7 @@ struct DJConnectWatchRootView: View {
                     NavigationLink {
                         DJConnectWatchLegalView()
                     } label: {
-                        Label(watchLocalized(model.language, "Legal", "Juridisch"), systemImage: "doc.text")
+                        Label(watchLocalizedKey(model.language, "watch.legal"), systemImage: "doc.text")
                             .font(.footnote.weight(.semibold))
                             .frame(maxWidth: .infinity, minHeight: 32)
                     }
@@ -322,7 +320,7 @@ struct DJConnectWatchRootView: View {
                     NavigationLink {
                         DJConnectWatchFeedbackView()
                     } label: {
-                        Label(watchLocalized(model.language, "Share feedback", "Feedback delen"), systemImage: "bubble.left.and.bubble.right")
+                        Label(watchLocalizedKey(model.language, "watch.share.feedback"), systemImage: "bubble.left.and.bubble.right")
                             .font(.footnote.weight(.semibold))
                             .frame(maxWidth: .infinity, minHeight: 32)
                     }
@@ -376,7 +374,7 @@ struct DJConnectWatchRootView: View {
         .frame(width: 28, height: 28)
         .contentShape(Circle())
         .disabled(!model.canUseBackend || model.isRefreshingStatus)
-        .accessibilityLabel(watchLocalized(model.language, "Refresh", "Ververs"))
+        .accessibilityLabel(watchLocalizedKey(model.language, "watch.refresh"))
     }
 
     private var pairingSuccessView: some View {
@@ -387,23 +385,23 @@ struct DJConnectWatchRootView: View {
                     .font(.system(size: 38, weight: .semibold))
                     .foregroundStyle(
                         LinearGradient(
-                            colors: [watchAccentBlue, watchAccentPurple],
+                            colors: [watchAccentPurple, watchAccentPurple],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
                         )
                     )
-                Text(watchLocalized(model.language, "Apple Watch paired", "Apple Watch gekoppeld"))
+                Text(watchLocalizedKey(model.language, "watch.apple.watch.paired"))
                     .font(.headline)
                     .foregroundStyle(.white)
                     .multilineTextAlignment(.center)
-                Text(watchLocalized(model.language, "Apple Watch is paired with Home Assistant through your iPhone.", "Apple Watch is via je iPhone gekoppeld met Home Assistant."))
+                Text(watchLocalizedKey(model.language, "watch.apple.watch.is.paired.with.home.assistant.through"))
                     .font(.caption2)
                     .foregroundStyle(.white.opacity(0.68))
                     .multilineTextAlignment(.center)
                 Button {
                     model.dismissPairingSuccess()
                 } label: {
-                    Text(watchLocalized(model.language, "Continue", "Doorgaan"))
+                    Text(watchLocalizedKey(model.language, "watch.continue"))
                         .frame(maxWidth: .infinity, minHeight: 34)
                 }
                 .buttonStyle(DJConnectWatchGradientButtonStyle(kind: .primary))
@@ -422,7 +420,7 @@ struct DJConnectWatchRootView: View {
                 Spacer()
                 Text(model.askDJMoodLabel)
                     .font(.caption2.weight(.semibold))
-                    .foregroundStyle(watchAccentBlue.opacity(0.92))
+                    .foregroundStyle(watchAccentPurple.opacity(0.92))
             }
 
             HStack(spacing: 8) {
@@ -437,7 +435,7 @@ struct DJConnectWatchRootView: View {
                             Circle()
                                 .fill(isSelected ? watchAccentPurple.opacity(0.46) : Color.white.opacity(0.09))
                             Circle()
-                                .stroke(isSelected ? watchAccentBlue.opacity(0.82) : Color.white.opacity(0.14), lineWidth: 1)
+                                .stroke(isSelected ? watchAccentPurple.opacity(0.82) : Color.white.opacity(0.14), lineWidth: 1)
                             Image(systemName: moodIcon(for: index))
                                 .font(.system(size: 15, weight: .bold))
                                 .foregroundStyle(isSelected ? .white : .white.opacity(0.68))
@@ -529,7 +527,7 @@ struct DJConnectWatchRootView: View {
             HStack(spacing: 6) {
                 Image(systemName: "speaker.wave.2.fill")
                     .font(.caption2.weight(.bold))
-                    .foregroundStyle(watchAccentBlue.opacity(0.92))
+                    .foregroundStyle(watchAccentPurple.opacity(0.92))
                 Slider(value: $model.volume, in: 0...1, step: 0.01) { editing in
                     if !editing {
                         model.commitVolume()
@@ -546,8 +544,8 @@ struct DJConnectWatchRootView: View {
         .padding(.vertical, 7)
         .padding(.horizontal, 9)
         .background(DJConnectWatchPanel(cornerRadius: 12))
-        .accessibilityLabel(watchLocalized(model.language, "Volume", "Volume"))
-        .accessibilityValue(volumePercent.map { "\($0)%" } ?? watchLocalized(model.language, "Unknown", "Onbekend"))
+        .accessibilityLabel(watchLocalizedKey(model.language, "watch.volume"))
+        .accessibilityValue(volumePercent.map { "\($0)%" } ?? watchLocalizedKey(model.language, "watch.unknown"))
     }
 
     private var nowPlaying: some View {
@@ -559,7 +557,7 @@ struct DJConnectWatchRootView: View {
             .frame(width: 54, height: 54)
 
             VStack(alignment: .leading, spacing: 4) {
-                Text(model.playback?.trackName ?? watchLocalized(model.language, "No track", "Geen track"))
+                Text(model.playback?.trackName ?? watchLocalizedKey(model.language, "watch.no.track"))
                     .font(.headline)
                     .foregroundStyle(.white)
                     .lineLimit(2)
@@ -572,7 +570,7 @@ struct DJConnectWatchRootView: View {
                 if let volume = model.playback?.volumePercent {
                     Label("\(volume)%", systemImage: "speaker.wave.2.fill")
                         .font(.caption2)
-                        .foregroundStyle(watchAccentBlue.opacity(0.92))
+                        .foregroundStyle(watchAccentPurple.opacity(0.92))
                         .lineLimit(1)
                 }
             }
@@ -606,7 +604,7 @@ struct DJConnectWatchRootView: View {
                 mood: nil,
                 vibe: nil,
                 texture: nil,
-                summary: watchLocalized(model.language, "Ask DJ can fill Track Insight details for this track.", "Ask DJ kan Track Insight-details voor dit nummer vullen."),
+                summary: watchLocalizedKey(model.language, "watch.ask.dj.can.fill.track.insight.details.for"),
                 rawAnalysisText: "Watch Track Insight preview"
             )
         }
@@ -644,7 +642,7 @@ struct DJConnectWatchRootView: View {
                         DJConnectWatchTrackInsightMetricsGrid(insight: insight, language: model.language)
 
                         Label(
-                            watchLocalized(model.language, "Rendered privately on your device", "Privé gerendered op je apparaat"),
+                            watchLocalizedKey(model.language, "watch.rendered.privately.on.your.device"),
                             systemImage: "lock.fill"
                         )
                         .font(.caption2.weight(.semibold))
@@ -665,10 +663,10 @@ struct DJConnectWatchRootView: View {
 
         var body: some View {
             VStack(alignment: .leading, spacing: 9) {
-                Text("Track energy")
+                Text(watchLocalizedKey(language, "watch.track.energy"))
                     .font(.caption.weight(.bold))
                     .foregroundStyle(.white)
-                Text(watchNonEmpty(insight.summary, fallback: "-"))
+                Text(watchNonEmpty(insight.summary, fallback: watchLocalizedKey(language, "watch.not.enough.signals")))
                     .font(.caption2)
                     .foregroundStyle(.white.opacity(0.72))
                     .fixedSize(horizontal: false, vertical: true)
@@ -703,7 +701,6 @@ struct DJConnectWatchRootView: View {
 
         private var columns: [GridItem] {
             [
-                GridItem(.flexible(), spacing: 7, alignment: .top),
                 GridItem(.flexible(), spacing: 7, alignment: .top)
             ]
         }
@@ -711,14 +708,14 @@ struct DJConnectWatchRootView: View {
         var body: some View {
             LazyVGrid(columns: columns, spacing: 7) {
                 DJConnectWatchTrackInsightMetric(title: "BPM", value: insight.bpm.map { String(Int($0.rounded())) })
-                DJConnectWatchTrackInsightMetric(title: watchLocalized(language, "Key", "Toonsoort"), value: insight.key)
-                DJConnectWatchTrackInsightMetric(title: watchLocalized(language, "Genre", "Genre"), value: insight.genre)
-                DJConnectWatchTrackInsightMetric(title: watchLocalized(language, "Mood", "Mood"), value: insight.mood)
-                DJConnectWatchTrackInsightMetric(title: watchLocalized(language, "Energy", "Energie"), value: percent(insight.energy))
-                DJConnectWatchTrackInsightMetric(title: watchLocalized(language, "Dance", "Dans"), value: percent(insight.danceability))
-                DJConnectWatchTrackInsightMetric(title: watchLocalized(language, "Intensity", "Intensiteit"), value: percent(insight.intensity))
-                DJConnectWatchTrackInsightMetric(title: watchLocalized(language, "Vibe", "Vibe"), value: insight.vibe)
-                DJConnectWatchTrackInsightMetric(title: watchLocalized(language, "Texture", "Textuur"), value: insight.texture)
+                DJConnectWatchTrackInsightMetric(title: watchLocalizedKey(language, "watch.key"), value: insight.key)
+                DJConnectWatchTrackInsightMetric(title: watchLocalizedKey(language, "watch.genre"), value: insight.genre)
+                DJConnectWatchTrackInsightMetric(title: watchLocalizedKey(language, "watch.mood"), value: insight.mood)
+                DJConnectWatchTrackInsightMetric(title: watchLocalizedKey(language, "watch.energy"), value: percent(insight.energy))
+                DJConnectWatchTrackInsightMetric(title: watchLocalizedKey(language, "watch.dance"), value: percent(insight.danceability))
+                DJConnectWatchTrackInsightMetric(title: watchLocalizedKey(language, "watch.intensity"), value: percent(insight.intensity))
+                DJConnectWatchTrackInsightMetric(title: watchLocalizedKey(language, "watch.vibe"), value: insight.vibe)
+                DJConnectWatchTrackInsightMetric(title: watchLocalizedKey(language, "watch.texture"), value: insight.texture)
             }
         }
 
@@ -761,13 +758,13 @@ struct DJConnectWatchRootView: View {
     private struct DJConnectWatchTrackInsightGroups {
         static func make(for insight: TrackInsight, language: String) -> [DJConnectWatchTrackInsightStructuredGroup] {
             var groups = [
-                DJConnectWatchTrackInsightStructuredGroup(id: "production", title: watchLocalized(language, "Production", "Productie"), values: insight.productionNotes),
-                DJConnectWatchTrackInsightStructuredGroup(id: "instrumentation", title: watchLocalized(language, "Instrumentation", "Instrumentatie"), values: insight.instrumentation),
-                DJConnectWatchTrackInsightStructuredGroup(id: "arrangement", title: watchLocalized(language, "Arrangement", "Arrangement"), values: insight.arrangementNotes),
-                DJConnectWatchTrackInsightStructuredGroup(id: "listening", title: watchLocalized(language, "Listening cues", "Luisterpunten"), values: insight.listeningCues),
+                DJConnectWatchTrackInsightStructuredGroup(id: "production", title: watchLocalizedKey(language, "watch.production"), values: insight.productionNotes),
+                DJConnectWatchTrackInsightStructuredGroup(id: "instrumentation", title: watchLocalizedKey(language, "watch.instrumentation"), values: insight.instrumentation),
+                DJConnectWatchTrackInsightStructuredGroup(id: "arrangement", title: watchLocalizedKey(language, "watch.arrangement"), values: insight.arrangementNotes),
+                DJConnectWatchTrackInsightStructuredGroup(id: "listening", title: watchLocalizedKey(language, "watch.listening.cues"), values: insight.listeningCues),
                 DJConnectWatchTrackInsightStructuredGroup(
                     id: "similar",
-                    title: watchLocalized(language, "Similar tracks", "Vergelijkbare tracks"),
+                    title: watchLocalizedKey(language, "watch.similar.tracks"),
                     values: insight.similarTracks.map { track in
                         if let reason = track.reason, !reason.isEmpty {
                             return "\(track.title) - \(track.artist): \(reason)"
@@ -804,11 +801,11 @@ struct DJConnectWatchRootView: View {
         private static func musicDNATitle(_ label: TrackInsight.MusicDNALabel?, language: String) -> String {
             switch label {
             case .matchesMusicDNA:
-                return watchLocalized(language, "Matches Music DNA", "Past bij Music DNA")
+                return watchLocalizedKey(language, "watch.matches.music.dna")
             case .expandsMusicDNA:
-                return watchLocalized(language, "Expands Music DNA", "Verbreedt Music DNA")
+                return watchLocalizedKey(language, "watch.expands.music.dna")
             case .outsideMusicDNA:
-                return watchLocalized(language, "Outside Music DNA", "Buiten Music DNA")
+                return watchLocalizedKey(language, "watch.outside.music.dna")
             case nil:
                 return "Music DNA"
             }
@@ -916,7 +913,7 @@ struct DJConnectWatchRootView: View {
                     .frame(width: 28, height: 28)
                     .contentShape(Circle())
                     .disabled(model.isLoadingMusicDNA || model.isUpdatingMusicDNA)
-                    .accessibilityLabel(watchLocalized(model.language, "Refresh Music DNA", "Music DNA vernieuwen"))
+                    .accessibilityLabel(watchLocalizedKey(model.language, "watch.refresh.music.dna"))
                 }
             }
             .task {
@@ -930,11 +927,7 @@ struct DJConnectWatchRootView: View {
                 Label("Music DNA", systemImage: "heart")
                     .font(.headline.weight(.bold))
                     .foregroundStyle(.white)
-                Text(watchLocalized(
-                    model.language,
-                    "Server-side taste profile for Ask DJ context and recommendations.",
-                    "Server-side smaakprofiel voor Ask DJ-context en aanbevelingen."
-                ))
+                Text(watchLocalizedKey(model.language, "watch.server.side.taste.profile.for.ask.dj.context.and.recommendations"))
                 .font(.caption2)
                 .foregroundStyle(.white.opacity(0.68))
                 .fixedSize(horizontal: false, vertical: true)
@@ -950,7 +943,7 @@ struct DJConnectWatchRootView: View {
                 watchPanel {
                     ProgressView()
                         .tint(.white)
-                    Text(watchLocalized(model.language, "Loading Music DNA...", "Music DNA laden..."))
+                    Text(watchLocalizedKey(model.language, "watch.loading.music.dna"))
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(.white)
                 }
@@ -978,20 +971,16 @@ struct DJConnectWatchRootView: View {
 
         private var disabledPanel: some View {
             watchPanel {
-                Label(watchLocalized(model.language, "Not enabled", "Niet geactiveerd"), systemImage: "lock")
+                Label(watchLocalizedKey(model.language, "watch.not.enabled"), systemImage: "lock")
                     .font(.caption.weight(.bold))
                     .foregroundStyle(.white)
-                Text(watchLocalized(
-                    model.language,
-                    "Enable Music DNA to let Home Assistant build a private profile from future signals.",
-                    "Activeer Music DNA om Home Assistant een prive profiel uit toekomstige signalen te laten opbouwen."
-                ))
+                Text(watchLocalizedKey(model.language, "watch.enable.music.dna.to.let.home.assistant.build.a.private"))
                 .font(.caption2)
                 .foregroundStyle(.white.opacity(0.68))
                 Button {
                     model.showMusicDNAOptInPrompt()
                 } label: {
-                    Label(watchLocalized(model.language, "Enable", "Activeer"), systemImage: "sparkles")
+                    Label(watchLocalizedKey(model.language, "watch.enable"), systemImage: "sparkles")
                         .font(.caption.weight(.semibold))
                         .frame(maxWidth: .infinity, minHeight: 30)
                 }
@@ -1002,14 +991,10 @@ struct DJConnectWatchRootView: View {
 
         private var noProfilePanel: some View {
             watchPanel {
-                Label(watchLocalized(model.language, "No profile yet", "Nog geen profiel"), systemImage: "waveform.path.ecg")
+                Label(watchLocalizedKey(model.language, "watch.no.profile.yet"), systemImage: "waveform.path.ecg")
                     .font(.caption.weight(.bold))
                     .foregroundStyle(.white)
-                Text(watchLocalized(
-                    model.language,
-                    "Music DNA is on, but Home Assistant has not built data yet. This can happen after enabling or clearing.",
-                    "Music DNA staat aan, maar Home Assistant heeft nog geen data opgebouwd. Dit kan na activeren of wissen."
-                ))
+                Text(watchLocalizedKey(model.language, "watch.music.dna.is.on.but.home.assistant.has.not.built"))
                 .font(.caption2)
                 .foregroundStyle(.white.opacity(0.68))
             }
@@ -1017,20 +1002,16 @@ struct DJConnectWatchRootView: View {
 
         private var unavailablePanel: some View {
             watchPanel {
-                Label(watchLocalized(model.language, "Could not load", "Kon niet laden"), systemImage: "wifi.exclamationmark")
+                Label(watchLocalizedKey(model.language, "watch.could.not.load"), systemImage: "wifi.exclamationmark")
                     .font(.caption.weight(.bold))
                     .foregroundStyle(.white)
-                Text(watchLocalized(
-                    model.language,
-                    "This is a temporary backend or connection issue, not the same as Music DNA being turned off.",
-                    "Dit is een tijdelijke backend- of verbindingsfout, niet hetzelfde als Music DNA uitschakelen."
-                ))
+                Text(watchLocalizedKey(model.language, "watch.this.is.a.temporary.backend.or.connection.issue.not.the"))
                 .font(.caption2)
                 .foregroundStyle(.white.opacity(0.68))
                 Button {
                     Task { await model.refreshMusicDNAProfile() }
                 } label: {
-                    Label(watchLocalized(model.language, "Try Again", "Opnieuw"), systemImage: "arrow.clockwise")
+                    Label(watchLocalizedKey(model.language, "watch.try.again"), systemImage: "arrow.clockwise")
                         .font(.caption.weight(.semibold))
                         .frame(maxWidth: .infinity, minHeight: 30)
                 }
@@ -1044,7 +1025,7 @@ struct DJConnectWatchRootView: View {
             return VStack(alignment: .leading, spacing: 8) {
                 if let summary = profile.summary?.trimmingCharacters(in: .whitespacesAndNewlines), !summary.isEmpty {
                     watchPanel {
-                        Label(watchLocalized(model.language, "Summary", "Samenvatting"), systemImage: "text.quote")
+                        Label(watchLocalizedKey(model.language, "watch.summary"), systemImage: "text.quote")
                             .font(.caption.weight(.bold))
                             .foregroundStyle(.white)
                         Text(summary)
@@ -1054,11 +1035,11 @@ struct DJConnectWatchRootView: View {
                     }
                 }
                 LazyVStack(spacing: 8) {
-                    metricPanel(title: watchLocalized(model.language, "Genres", "Genres"), value: names(profile.favoriteGenres), icon: "music.note.list")
-                    metricPanel(title: watchLocalized(model.language, "Artists", "Artiesten"), value: names(profile.favoriteArtists), icon: "person.2")
-                    metricPanel(title: watchLocalized(model.language, "Mood", "Mood"), value: mood(profile.mood), icon: "sparkles")
-                    metricPanel(title: watchLocalized(model.language, "Recent", "Recent"), value: tracks(profile.recentTracks), icon: "clock.arrow.circlepath")
-                    metricPanel(title: watchLocalized(model.language, "Signals", "Signalen"), value: signals(profile.recommendationSignals), icon: "slider.horizontal.3")
+                    metricPanel(title: watchLocalizedKey(model.language, "watch.genres"), value: names(profile.favoriteGenres), icon: "music.note.list")
+                    metricPanel(title: watchLocalizedKey(model.language, "watch.artists"), value: names(profile.favoriteArtists), icon: "person.2")
+                    metricPanel(title: watchLocalizedKey(model.language, "watch.mood"), value: mood(profile.mood), icon: "sparkles")
+                    metricPanel(title: watchLocalizedKey(model.language, "watch.recent"), value: tracks(profile.recentTracks), icon: "clock.arrow.circlepath")
+                    metricPanel(title: watchLocalizedKey(model.language, "watch.signals"), value: signals(profile.recommendationSignals), icon: "slider.horizontal.3")
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
@@ -1100,7 +1081,7 @@ struct DJConnectWatchRootView: View {
                 .filter { !$0.isEmpty }
                 .prefix(3)
                 .joined(separator: ", ")
-            return watchNonEmpty(value, fallback: watchLocalized(model.language, "Not enough signals", "Nog niet genoeg signalen"))
+            return watchNonEmpty(value, fallback: watchLocalizedKey(model.language, "watch.not.enough.signals"))
         }
 
         private func tracks(_ values: [DJConnectMusicDNATrack]) -> String {
@@ -1112,7 +1093,7 @@ struct DJConnectWatchRootView: View {
             }
             .prefix(3)
             .joined(separator: ", ")
-            return watchNonEmpty(value, fallback: watchLocalized(model.language, "Not enough signals", "Nog niet genoeg signalen"))
+            return watchNonEmpty(value, fallback: watchLocalizedKey(model.language, "watch.not.enough.signals"))
         }
 
         private func signals(_ values: [DJConnectMusicDNASignal]) -> String {
@@ -1121,12 +1102,12 @@ struct DJConnectWatchRootView: View {
                 .filter { !$0.isEmpty }
                 .prefix(3)
                 .joined(separator: ", ")
-            return watchNonEmpty(value, fallback: watchLocalized(model.language, "Not enough signals", "Nog niet genoeg signalen"))
+            return watchNonEmpty(value, fallback: watchLocalizedKey(model.language, "watch.not.enough.signals"))
         }
 
         private func mood(_ mood: DJConnectMusicDNAMood?) -> String {
             guard let mood else {
-                return watchLocalized(model.language, "Not enough signals", "Nog niet genoeg signalen")
+                return watchLocalizedKey(model.language, "watch.not.enough.signals")
             }
             let zone = mood.zone?.trimmingCharacters(in: .whitespacesAndNewlines)
             let value = mood.value.map { "\($0)%" }
@@ -1134,7 +1115,7 @@ struct DJConnectWatchRootView: View {
                 .compactMap { $0 }
                 .filter { !$0.isEmpty }
                 .joined(separator: " - ")
-            return watchNonEmpty(summary, fallback: watchLocalized(model.language, "Not enough signals", "Nog niet genoeg signalen"))
+            return watchNonEmpty(summary, fallback: watchLocalizedKey(model.language, "watch.not.enough.signals"))
         }
     }
 
@@ -1152,11 +1133,11 @@ struct DJConnectWatchRootView: View {
                             .accessibilityHidden(true)
 
                         VStack(alignment: .leading, spacing: 3) {
-                            Text(watchLocalized(model.language, "Pair DJConnect", "DJConnect koppelen"))
+                            Text(watchLocalizedKey(model.language, "watch.pair.djconnect"))
                                 .font(.headline)
                                 .foregroundStyle(.white)
                                 .lineLimit(2)
-                            Text(watchLocalized(model.language, "LAN pairing runs through your iPhone", "LAN-koppeling loopt via je iPhone"))
+                            Text(watchLocalizedKey(model.language, "watch.lan.pairing.runs.through.your.iphone"))
                                 .font(.caption2.weight(.semibold))
                                 .foregroundStyle(.white.opacity(0.58))
                                 .fixedSize(horizontal: false, vertical: true)
@@ -1164,11 +1145,7 @@ struct DJConnectWatchRootView: View {
                     }
 
                     Label(
-                        watchLocalized(
-                            model.language,
-                            "Open DJConnect on your iPhone. The iPhone will show Apple Watch pairing with only the Apple Watch QR option. Keep iPhone, Watch and Home Assistant on the same local network.",
-                            "Open DJConnect op je iPhone. De iPhone toont Apple Watch-koppeling met alleen de Apple Watch QR-optie. Houd iPhone, Watch en Home Assistant op hetzelfde lokale netwerk."
-                        ),
+                        watchLocalizedKey(model.language, "watch.open.djconnect.on.your.iphone.the.iphone.will.show.apple"),
                         systemImage: "network"
                     )
                     .font(.caption2.weight(.semibold))
@@ -1187,7 +1164,7 @@ struct DJConnectWatchRootView: View {
                     }
 
                     pairingValueCard(
-                        title: watchLocalized(model.language, "iPhone companion", "iPhone companion"),
+                        title: watchLocalizedKey(model.language, "watch.iphone.companion"),
                         value: model.companionPairingStatus,
                         systemImage: "iphone",
                         prominent: false
@@ -1202,7 +1179,7 @@ struct DJConnectWatchRootView: View {
                     Button {
                         model.startDemoMode()
                     } label: {
-                        Label(watchLocalized(model.language, "Demo Mode", "Demo modus"), systemImage: "play.circle")
+                        Label(watchLocalizedKey(model.language, "watch.demo.mode"), systemImage: "play.circle")
                             .frame(maxWidth: .infinity, minHeight: 34)
                     }
                     .buttonStyle(DJConnectWatchGradientButtonStyle(kind: .secondary))
@@ -1260,6 +1237,36 @@ struct DJConnectWatchRootView: View {
         .accessibilityLabel(accessibilityLabel)
     }
 
+    private var favoriteButton: some View {
+        let isFavorite = model.playback?.currentTrackFavoriteStatus == true
+        return Button {
+            Task { await model.saveCurrentTrack() }
+        } label: {
+            Image(systemName: model.isSavingCurrentTrack ? "hourglass" : (isFavorite ? "heart.fill" : "heart"))
+                .font(.system(size: 20, weight: .semibold))
+                .symbolRenderingMode(.monochrome)
+                .foregroundStyle(isFavorite ? watchAccentPurple : .white)
+                .foregroundColor(isFavorite ? watchAccentPurple : .white)
+                .frame(width: 44, height: 44)
+                .background(
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .fill(isFavorite ? watchAccentPurple.opacity(0.18) : Color.white.opacity(0.09))
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .stroke(isFavorite ? watchAccentPurple.opacity(0.46) : Color.white.opacity(0.10), lineWidth: 1)
+                )
+        }
+        .buttonStyle(.plain)
+        .disabled(!canUsePlaybackControls || model.isSavingCurrentTrack)
+        .focusable(false)
+        .accessibilityLabel(
+            isFavorite
+                ? watchLocalizedKey(model.language, "watch.remove.from.favorites")
+                : watchLocalizedKey(model.language, "watch.add.to.favorites")
+        )
+    }
+
 }
 
 private struct DJConnectWatchWelcomeView: View {
@@ -1277,18 +1284,18 @@ private struct DJConnectWatchWelcomeView: View {
                         .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
                         .accessibilityHidden(true)
 
-                    Text(watchLocalized(model.language, "Welcome to DJConnect", "Welkom bij DJConnect"))
+                    Text(watchLocalizedKey(model.language, "watch.welcome.to.djconnect"))
                         .font(.headline.weight(.bold))
                         .foregroundStyle(.white)
                         .multilineTextAlignment(.center)
 
-                    Text(watchLocalized(model.language, "Configure DJConnect in Home Assistant, then pair this Watch.", "Configureer DJConnect in Home Assistant en koppel daarna deze Watch."))
+                    Text(watchLocalizedKey(model.language, "watch.configure.djconnect.in.home.assistant.then.pair.this"))
                         .font(.caption2)
                         .foregroundStyle(.white.opacity(0.72))
                         .multilineTextAlignment(.center)
                         .fixedSize(horizontal: false, vertical: true)
 
-                    Label(watchLocalized(model.language, "The music backend runs through Home Assistant.", "Muziekbackend loopt via Home Assistant."), systemImage: "music.note")
+                    Label(watchLocalizedKey(model.language, "watch.the.music.backend.runs.through.home.assistant"), systemImage: "music.note")
                         .font(.caption2.weight(.semibold))
                         .foregroundStyle(.white.opacity(0.62))
                         .multilineTextAlignment(.center)
@@ -1296,7 +1303,7 @@ private struct DJConnectWatchWelcomeView: View {
                     Button {
                         model.dismissWelcome()
                     } label: {
-                        Text(watchLocalized(model.language, "Continue", "Doorgaan"))
+                        Text(watchLocalizedKey(model.language, "watch.continue"))
                             .frame(maxWidth: .infinity, minHeight: 34)
                     }
                     .buttonStyle(DJConnectWatchGradientButtonStyle(kind: .primary))
@@ -1325,13 +1332,13 @@ private struct DJConnectWatchMicrophonePermissionView: View {
                     .font(.system(size: 36, weight: .semibold))
                     .foregroundStyle(
                         LinearGradient(
-                            colors: [watchAccentBlue, watchAccentPurple],
+                            colors: [watchAccentPurple, watchAccentPurple],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
                         )
                     )
 
-                Text(watchLocalized(model.language, "Microphone", "Microfoon"))
+                Text(watchLocalizedKey(model.language, "watch.microphone"))
                     .font(.headline.weight(.bold))
                     .foregroundStyle(.white)
 
@@ -1354,7 +1361,7 @@ private struct DJConnectWatchMicrophonePermissionView: View {
                         model.continueAfterVoiceActivationPermissionExplanation()
                     }
                 } label: {
-                    Text(watchLocalized(model.language, "Continue", "Doorgaan"))
+                    Text(watchLocalizedKey(model.language, "watch.continue"))
                         .frame(maxWidth: .infinity, minHeight: 32)
                 }
                 .buttonStyle(DJConnectWatchGradientButtonStyle(kind: .primary))
@@ -1367,7 +1374,7 @@ private struct DJConnectWatchMicrophonePermissionView: View {
                         model.cancelVoiceActivationPermissionExplanation()
                     }
                 } label: {
-                    Text(watchLocalized(model.language, "Not now", "Niet nu"))
+                    Text(watchLocalizedKey(model.language, "watch.not.now"))
                         .frame(maxWidth: .infinity, minHeight: 30)
                 }
                 .buttonStyle(DJConnectWatchGradientButtonStyle(kind: .secondary))
@@ -1379,18 +1386,72 @@ private struct DJConnectWatchMicrophonePermissionView: View {
     private var bodyText: String {
         switch kind {
         case .pushToTalk:
-            return watchLocalized(model.language, "DJConnect only uses the microphone when you start an Ask DJ voice request.", "DJConnect gebruikt de microfoon alleen wanneer je zelf een stemverzoek aan Ask DJ start.")
+            return watchLocalizedKey(model.language, "watch.djconnect.only.uses.the.microphone.when.you.start")
         case .voiceActivation:
-            return watchLocalized(model.language, "Voice activation only listens for Hey DJ while the Watch app is visible and open.", "Stemactivatie luistert alleen naar Hey DJ zolang de Watch app zichtbaar en open is.")
+            return watchLocalizedKey(model.language, "watch.voice.activation.only.listens.for.hey.dj.while")
         }
     }
 
     private var secondaryText: String {
         switch kind {
         case .pushToTalk:
-            return watchLocalized(model.language, "Apple will ask for permission next.", "Hierna vraagt Apple om toestemming.")
+            return watchLocalizedKey(model.language, "watch.apple.will.ask.for.permission.next")
         case .voiceActivation:
-            return watchLocalized(model.language, "No wake word outside the app. Apple will ask for microphone and speech recognition permission next.", "Geen wake word buiten de app. Hierna vraagt Apple om microfoon- en spraakherkenningstoestemming.")
+            return watchLocalizedKey(model.language, "watch.no.wake.word.outside.the.app.apple.will")
+        }
+    }
+}
+
+private struct DJConnectWatchAskDJNotificationPermissionView: View {
+    @EnvironmentObject private var model: DJConnectWatchModel
+
+    var body: some View {
+        ZStack {
+            DJConnectWatchCanvas()
+            VStack(spacing: 10) {
+                Image(systemName: "bell.badge.fill")
+                    .font(.system(size: 34, weight: .semibold))
+                    .foregroundStyle(
+                        LinearGradient(
+                            colors: [watchAccentPurple, watchAccentPurple.opacity(0.72)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+
+                Text(watchLocalizedKey(model.language, "ui.ask.dj.notifications"))
+                    .font(.headline.weight(.bold))
+                    .foregroundStyle(.white)
+                    .multilineTextAlignment(.center)
+
+                Text(watchLocalizedKey(model.language, "watch.push.notifications.are.only.used.for.djconnect.notifications"))
+                    .font(.caption2)
+                    .foregroundStyle(.white.opacity(0.72))
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                Text(watchLocalizedKey(model.language, "watch.apple.will.ask.for.permission.next"))
+                    .font(.caption2)
+                    .foregroundStyle(.white.opacity(0.56))
+                    .multilineTextAlignment(.center)
+
+                Button {
+                    model.continueAfterAskDJNotificationPermissionExplanation()
+                } label: {
+                    Text(watchLocalizedKey(model.language, "watch.continue"))
+                        .frame(maxWidth: .infinity, minHeight: 32)
+                }
+                .buttonStyle(DJConnectWatchGradientButtonStyle(kind: .primary))
+
+                Button {
+                    model.cancelAskDJNotificationPermissionExplanation()
+                } label: {
+                    Text(watchLocalizedKey(model.language, "watch.not.now"))
+                        .frame(maxWidth: .infinity, minHeight: 30)
+                }
+                .buttonStyle(DJConnectWatchGradientButtonStyle(kind: .secondary))
+            }
+            .padding(.horizontal, 8)
         }
     }
 }
@@ -1420,22 +1481,22 @@ private struct DJConnectWatchAboutView: View {
                         .foregroundStyle(.white)
                         .frame(maxWidth: .infinity)
 
-                    Text(watchLocalized(model.language, "Music control with character.", "Muziekbediening met karakter."))
+                    Text(watchLocalizedKey(model.language, "watch.music.control.with.character"))
                         .font(.caption2)
                         .foregroundStyle(.white.opacity(0.68))
                         .multilineTextAlignment(.center)
                         .frame(maxWidth: .infinity)
 
                     DJConnectWatchSettingsSection(title: "App") {
-                        aboutRow(watchLocalized(model.language, "Version", "Versie"), appVersion)
-                        aboutRow(watchLocalized(model.language, "Device name", "Apparaatnaam"), model.identity.deviceName)
+                        aboutRow(watchLocalizedKey(model.language, "watch.version"), appVersion)
+                        aboutRow(watchLocalizedKey(model.language, "watch.device.name"), model.identity.deviceName)
                         aboutRow("Website", "https://djconnect.dev")
                         aboutRow("Device ID", model.identity.deviceID)
                     }
 
-                    DJConnectWatchSettingsSection(title: watchLocalized(model.language, "Connection", "Verbinding")) {
+                    DJConnectWatchSettingsSection(title: watchLocalizedKey(model.language, "watch.connection")) {
                         aboutRow("iPhone", model.companionPairingStatus)
-                        aboutRow(watchLocalized(model.language, "Connection", "Connectie"), "\(watchLocalized(model.language, "through iPhone", "via iPhone")), \(connectionModeTitle(model.iPhoneConnectionMode))")
+                        aboutRow(watchLocalizedKey(model.language, "watch.connection"), "\(watchLocalizedKey(model.language, "watch.through.iphone")), \(connectionModeTitle(model.iPhoneConnectionMode))")
                         aboutRow(
                             "Backend",
                             backendTitle,
@@ -1445,7 +1506,7 @@ private struct DJConnectWatchAboutView: View {
                             aboutRow("Target", target)
                         }
                         if let error = model.musicBackendSummary.musicBackendError {
-                            aboutRow(watchLocalized(model.language, "Backend error", "Backend fout"), error, foregroundStyle: .red)
+                            aboutRow(watchLocalizedKey(model.language, "watch.backend.error"), error, foregroundStyle: .red)
                         }
                     }
 
@@ -1457,13 +1518,13 @@ private struct DJConnectWatchAboutView: View {
                 .padding(.horizontal, 6)
             }
         }
-        .navigationTitle(watchLocalized(model.language, "About", "Over"))
+        .navigationTitle(watchLocalizedKey(model.language, "watch.about"))
     }
 
     private var backendTitle: String {
         let name = model.musicBackendSummary.displayName
         if model.musicBackendSummary.musicBackendAvailable == false {
-            return "\(name) \(watchLocalized(model.language, "unavailable", "niet beschikbaar"))"
+            return "\(name) \(watchLocalizedKey(model.language, "watch.unavailable"))"
         }
         if let revision = model.musicBackendSummary.musicBackendRevision {
             return "\(name) rev \(revision)"
@@ -1474,7 +1535,7 @@ private struct DJConnectWatchAboutView: View {
     private func connectionModeTitle(_ mode: DJConnectHAConnectionMode) -> String {
         switch mode {
         case .local:
-            return watchLocalized(model.language, "Local", "Lokaal")
+            return watchLocalizedKey(model.language, "watch.local")
         case .remote:
             return "Remote"
         case .offline:
@@ -1507,14 +1568,14 @@ private struct DJConnectWatchLegalView: View {
             DJConnectWatchCanvas()
             ScrollView {
                 VStack(alignment: .leading, spacing: 10) {
-                    DJConnectWatchLegalSection(title: watchLocalized(model.language, "Legal", "Juridisch")) {
-                        Text(watchLocalized(model.language, "DJConnect is not affiliated with, endorsed by, or sponsored by Spotify AB, Apple, or Home Assistant.", "DJConnect is niet gelieerd aan, goedgekeurd door of gesponsord door Spotify AB, Apple of Home Assistant."))
-                        Text(watchLocalized(model.language, "Spotify is a trademark of Spotify AB. Home Assistant is a trademark of the Open Home Foundation.", "Spotify is een handelsmerk van Spotify AB. Home Assistant is een handelsmerk van de Open Home Foundation."))
+                    DJConnectWatchLegalSection(title: watchLocalizedKey(model.language, "watch.legal")) {
+                        Text(watchLocalizedKey(model.language, "watch.djconnect.is.not.affiliated.with.endorsed.by.or"))
+                        Text(watchLocalizedKey(model.language, "watch.spotify.is.a.trademark.of.spotify.ab.home"))
                     }
 
                     DJConnectWatchLegalSection(title: "OSS") {
-                        Text(watchLocalized(model.language, "DJConnect uses Apple platform frameworks and Swift Package Manager.", "DJConnect gebruikt Apple platform-frameworks en Swift Package Manager."))
-                        Text(watchLocalized(model.language, "Third-party notices are documented in the repository when dependencies are added.", "Third-party notices worden in de repository gedocumenteerd wanneer dependencies worden toegevoegd."))
+                        Text(watchLocalizedKey(model.language, "watch.djconnect.uses.apple.platform.frameworks.and.swift.package"))
+                        Text(watchLocalizedKey(model.language, "watch.third.party.notices.are.documented.in.the.repository"))
                     }
                 }
                 .font(.caption2)
@@ -1523,7 +1584,7 @@ private struct DJConnectWatchLegalView: View {
                 .padding(.horizontal, 4)
             }
         }
-        .navigationTitle(watchLocalized(model.language, "Legal", "Juridisch"))
+        .navigationTitle(watchLocalizedKey(model.language, "watch.legal"))
     }
 }
 
@@ -1556,12 +1617,12 @@ private struct DJConnectWatchPrivacyView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 10) {
                     DJConnectWatchLegalSection(title: "Privacy") {
-                        Text(watchLocalized(model.language, "DJConnect itself does not collect, sell, or process personal data in the app.", "DJConnect verzamelt, verkoopt of verwerkt zelf geen persoonsgegevens in de app."))
-                        Text(watchLocalized(model.language, "Device tokens are stored locally in private app storage.", "Device-tokens worden lokaal in de private app-opslag bewaard."))
-                        Text(watchLocalized(model.language, "Push notifications are only used for DJConnect notifications, such as Ask DJ responses. DJConnect stores an Apple push token locally and shares it with your own Home Assistant DJConnect integration so notifications can be delivered through Apple Push Notification service. Push tokens are not used for tracking, ads, or sale.", "Pushnotificaties worden alleen gebruikt voor DJConnect-meldingen, zoals Ask DJ-reacties. DJConnect bewaart hiervoor een Apple push-token lokaal en deelt dit met je eigen Home Assistant DJConnect-integratie zodat notificaties via Apple Push Notification service kunnen worden bezorgd. Push-tokens worden niet gebruikt voor tracking, advertenties of verkoop."))
-                        Text(watchLocalized(model.language, "Diagnostics are only shared when you copy them yourself or open a GitHub issue.", "Diagnostiek wordt alleen gedeeld wanneer je die zelf kopieert of een GitHub issue opent."))
-                        Text(watchLocalized(model.language, "Music, playback, and voice requests run through your own Home Assistant DJConnect integration.", "Muziek, playback en stemverzoeken lopen via je eigen Home Assistant DJConnect-integratie."))
-                        Text(watchLocalized(model.language, "AI and Assist answers can be incorrect and depend on your own Home Assistant and Assist configuration.", "AI- en Assist-antwoorden kunnen onjuist zijn en hangen af van je eigen Home Assistant- en Assist-configuratie."))
+                        Text(watchLocalizedKey(model.language, "watch.djconnect.itself.does.not.collect.sell.or.process"))
+                        Text(watchLocalizedKey(model.language, "watch.device.tokens.are.stored.locally.in.private.app"))
+                        Text(watchLocalizedKey(model.language, "watch.push.notifications.are.only.used.for.djconnect.notifications"))
+                        Text(watchLocalizedKey(model.language, "watch.diagnostics.are.only.shared.when.you.copy.them"))
+                        Text(watchLocalizedKey(model.language, "watch.music.playback.and.voice.requests.run.through.your"))
+                        Text(watchLocalizedKey(model.language, "watch.ai.and.assist.answers.can.be.incorrect.and"))
                     }
                 }
                 .font(.caption2)
@@ -1570,7 +1631,7 @@ private struct DJConnectWatchPrivacyView: View {
                 .padding(.horizontal, 4)
             }
         }
-        .navigationTitle(watchLocalized(model.language, "Privacy", "Privacy"))
+        .navigationTitle(watchLocalizedKey(model.language, "watch.privacy"))
     }
 }
 
@@ -1583,7 +1644,7 @@ private struct DJConnectWatchFeedbackView: View {
         components?.queryItems = [
             URLQueryItem(name: "title", value: "DJConnect watchOS feedback"),
             URLQueryItem(name: "body", value: """
-            ## DJConnect watchOS feedback
+            DJConnect watchOS feedback
 
             Please describe your feedback or feature request:
 
@@ -1605,18 +1666,18 @@ private struct DJConnectWatchFeedbackView: View {
                         .font(.system(size: 32, weight: .semibold))
                         .foregroundStyle(
                             LinearGradient(
-                                colors: [watchAccentBlue, watchAccentPurple],
+                                colors: [watchAccentPurple, watchAccentPurple],
                                 startPoint: .topLeading,
                                 endPoint: .bottomTrailing
                             )
                         )
 
-                    Text(watchLocalized(model.language, "Share feedback", "Feedback delen"))
+                    Text(watchLocalizedKey(model.language, "watch.share.feedback"))
                         .font(.headline.weight(.bold))
                         .foregroundStyle(.white)
                         .multilineTextAlignment(.center)
 
-                    Text(watchLocalized(model.language, "Open a GitHub issue with app context. Nothing is uploaded automatically.", "Open een GitHub issue met app-context. Er wordt niets automatisch geüpload."))
+                    Text(watchLocalizedKey(model.language, "watch.open.a.github.issue.with.app.context.nothing"))
                         .font(.caption2)
                         .foregroundStyle(.white.opacity(0.68))
                         .multilineTextAlignment(.center)
@@ -1625,22 +1686,22 @@ private struct DJConnectWatchFeedbackView: View {
                     Button {
                         openURL(feedbackURL)
                     } label: {
-                        Label(watchLocalized(model.language, "Open GitHub issue", "Open GitHub issue"), systemImage: "arrow.up.right.square")
+                        Label(watchLocalizedKey(model.language, "watch.open.github.issue"), systemImage: "arrow.up.right.square")
                             .font(.caption2.weight(.semibold))
                             .frame(maxWidth: .infinity, minHeight: 32)
                     }
                     .buttonStyle(DJConnectWatchGradientButtonStyle(kind: .primary))
 
                     VStack(alignment: .leading, spacing: 5) {
-                        Text(watchLocalized(model.language, "Does opening not work on the Watch?", "Werkt openen niet op de Watch?"))
+                        Text(watchLocalizedKey(model.language, "watch.does.opening.not.work.on.the.watch"))
                             .font(.caption2.weight(.bold))
                             .foregroundStyle(.white)
-                        Text(watchLocalized(model.language, "Use this link on iPhone or Mac:", "Gebruik dan deze link op iPhone of Mac:"))
+                        Text(watchLocalizedKey(model.language, "watch.use.this.link.on.iphone.or.mac"))
                             .font(.caption2)
                             .foregroundStyle(.white.opacity(0.62))
                         Text("github.com/pcvantol/djconnect/issues/new")
                             .font(.system(size: 9, weight: .semibold, design: .monospaced))
-                            .foregroundStyle(watchAccentBlue.opacity(0.92))
+                            .foregroundStyle(watchAccentPurple.opacity(0.92))
                             .lineLimit(3)
                             .minimumScaleFactor(0.78)
                     }
@@ -1652,7 +1713,7 @@ private struct DJConnectWatchFeedbackView: View {
                 .padding(.horizontal, 6)
             }
         }
-        .navigationTitle(watchLocalized(model.language, "Feedback", "Feedback"))
+        .navigationTitle(watchLocalizedKey(model.language, "watch.feedback"))
     }
 }
 
@@ -1673,37 +1734,25 @@ private struct DJConnectWatchSettingsView: View {
 
     private var musicDNAStatusText: String {
         if model.isLoadingMusicDNA, model.musicDNAProfileResponse == nil {
-            return watchLocalized(model.language, "Checking status...", "Status ophalen...")
+            return watchLocalizedKey(model.language, "watch.checking.status")
         }
         if musicDNAEnabled {
-            return watchLocalized(model.language, "Music DNA is enabled.", "Music DNA staat aan.")
+            return watchLocalizedKey(model.language, "watch.music.dna.is.enabled")
         }
         if model.musicDNAProfileResponse?.enabled == false {
-            return watchLocalized(model.language, "Music DNA is disabled.", "Music DNA staat uit.")
+            return watchLocalizedKey(model.language, "watch.music.dna.is.disabled")
         }
-        return watchLocalized(model.language, "Status not loaded yet.", "Status nog niet geladen.")
+        return watchLocalizedKey(model.language, "watch.status.not.loaded.yet")
     }
 
     private var musicDNAHowItWorksText: String {
         if musicDNAEnabled {
-            return watchLocalized(
-                model.language,
-                "Music DNA is enabled. Home Assistant can build a private profile from future listening signals.",
-                "Music DNA staat aan. Home Assistant kan een prive profiel opbouwen uit toekomstige luistersignalen."
-            )
+            return watchLocalizedKey(model.language, "watch.music.dna.is.enabled.home.assistant.can.build.a.private")
         }
         if model.musicDNAProfileResponse?.enabled == false {
-            return watchLocalized(
-                model.language,
-                "Music DNA is disabled. No profile is being built, and the learned profile has already been cleared.",
-                "Music DNA staat uit. Er wordt geen profiel opgebouwd en het geleerde profiel is al gewist."
-            )
+            return watchLocalizedKey(model.language, "watch.music.dna.is.disabled.no.profile.is.being.built.and")
         }
-        return watchLocalized(
-            model.language,
-            "DJConnect is still checking the current Music DNA status.",
-            "DJConnect haalt de huidige Music DNA-status nog op."
-        )
+        return watchLocalizedKey(model.language, "watch.djconnect.is.still.checking.the.current.music.dna.status")
     }
 
     var body: some View {
@@ -1711,15 +1760,32 @@ private struct DJConnectWatchSettingsView: View {
             DJConnectWatchCanvas()
             ScrollView {
                 VStack(alignment: .leading, spacing: 10) {
+                    DJConnectWatchSettingsSection(title: watchLocalizedKey(model.language, "watch.app")) {
+                        Picker(
+                            watchLocalizedKey(model.language, "watch.app.language"),
+                            selection: Binding(
+                                get: { model.appLanguageOverrideCode },
+                                set: { model.setAppLanguageOverride($0) }
+                            )
+                        ) {
+                            Text(watchLocalizedKey(model.language, "watch.system.language")).tag("")
+                            ForEach(DJConnectLocalization.supportedLanguageCodes, id: \.self) { code in
+                                Text(DJConnectLocalization.nativeLanguageName(for: code)).tag(code)
+                            }
+                        }
+                        .labelsHidden()
+                        .pickerStyle(.navigationLink)
+                    }
+
                     if model.isDemoMode {
-                        DJConnectWatchSettingsSection(title: watchLocalized(model.language, "Mode", "Modus")) {
-                            Text(watchLocalized(model.language, "Demo Mode active", "Demo modus actief"))
+                        DJConnectWatchSettingsSection(title: watchLocalizedKey(model.language, "watch.mode")) {
+                            Text(watchLocalizedKey(model.language, "watch.demo.mode.active"))
                                 .font(.caption2)
                                 .foregroundStyle(.white.opacity(0.72))
                             Button {
                                 model.stopDemoMode()
                             } label: {
-                                Label(watchLocalized(model.language, "Stop demo", "Stop demo"), systemImage: "xmark.circle")
+                                Label(watchLocalizedKey(model.language, "watch.stop.demo"), systemImage: "xmark.circle")
                                     .font(.caption2.weight(.semibold))
                                     .frame(maxWidth: .infinity, minHeight: 30)
                             }
@@ -1728,15 +1794,15 @@ private struct DJConnectWatchSettingsView: View {
                     }
 
                     if !model.isDemoMode {
-                        DJConnectWatchSettingsSection(title: watchLocalized(model.language, "Pairing", "Koppeling")) {
-                            Text(watchLocalized(model.language, "Reset Watch pairing and pair again through the iPhone companion.", "Reset de Watch-koppeling en koppel opnieuw via de iPhone companion."))
+                        DJConnectWatchSettingsSection(title: watchLocalizedKey(model.language, "watch.pairing")) {
+                            Text(watchLocalizedKey(model.language, "watch.reset.watch.pairing.and.pair.again.through.the"))
                                 .font(.caption2)
                                 .foregroundStyle(.white.opacity(0.72))
                                 .fixedSize(horizontal: false, vertical: true)
                             Button(role: .destructive) {
                                 isShowingResetPairingConfirmation = true
                             } label: {
-                                Label(watchLocalized(model.language, "Pair again", "Opnieuw koppelen"), systemImage: "arrow.triangle.2.circlepath")
+                                Label(watchLocalizedKey(model.language, "watch.pair.again"), systemImage: "arrow.triangle.2.circlepath")
                                     .font(.caption2.weight(.semibold))
                                     .frame(maxWidth: .infinity, minHeight: 30)
                             }
@@ -1765,7 +1831,7 @@ private struct DJConnectWatchSettingsView: View {
                             Button(role: .destructive) {
                                 isShowingMusicDNAClearConfirmation = true
                             } label: {
-                                Label(watchLocalized(model.language, "Clear Music DNA", "Music DNA wissen"), systemImage: "trash")
+                                Label(watchLocalizedKey(model.language, "watch.clear.music.dna"), systemImage: "trash")
                                     .font(.caption2.weight(.semibold))
                                     .frame(maxWidth: .infinity, minHeight: 30)
                             }
@@ -1782,8 +1848,8 @@ private struct DJConnectWatchSettingsView: View {
                         } label: {
                             DJConnectWatchCenteredButtonLabel(
                                 title: musicDNAEnabled
-                                    ? watchLocalized(model.language, "Turn Off Music DNA", "Music DNA uitschakelen")
-                                    : watchLocalized(model.language, "Turn On Music DNA", "Music DNA inschakelen"),
+                                    ? watchLocalizedKey(model.language, "watch.turn.off.music.dna")
+                                    : watchLocalizedKey(model.language, "watch.turn.on.music.dna"),
                                 systemImage: musicDNAEnabled ? "power" : "sparkles"
                             )
                         }
@@ -1791,7 +1857,7 @@ private struct DJConnectWatchSettingsView: View {
                         .disabled(model.isLoadingMusicDNA || model.isUpdatingMusicDNA || (!model.canUseBackend && !model.isDemoMode))
                     }
 
-                    DJConnectWatchSettingsSection(title: watchLocalized(model.language, "Voice activation", "Stemactivatie")) {
+                    DJConnectWatchSettingsSection(title: watchLocalizedKey(model.language, "watch.voice.activation")) {
                         Toggle(isOn: Binding(
                             get: { model.isVoiceActivationEnabled },
                             set: { model.setVoiceActivationEnabled($0) }
@@ -1817,7 +1883,7 @@ private struct DJConnectWatchSettingsView: View {
                             .foregroundStyle(.white.opacity(0.68))
                             .fixedSize(horizontal: false, vertical: true)
 
-                        Text(watchLocalized(model.language, "Stops automatically in the background or during sleep.", "Stop automatisch bij achtergrond of slapen."))
+                        Text(watchLocalizedKey(model.language, "watch.stops.automatically.in.the.background.or.during.sleep"))
                             .font(.caption2.weight(.semibold))
                             .foregroundStyle(.white.opacity(0.52))
                             .fixedSize(horizontal: false, vertical: true)
@@ -1852,57 +1918,45 @@ private struct DJConnectWatchSettingsView: View {
                 .padding(.horizontal, 4)
             }
         }
-        .navigationTitle(watchLocalized(model.language, "Settings", "Instellingen"))
+        .navigationTitle(watchLocalizedKey(model.language, "watch.settings"))
         .task {
             await model.refreshMusicDNAProfile()
         }
-        .alert(watchLocalized(model.language, "Pair again?", "Opnieuw koppelen?"), isPresented: $isShowingResetPairingConfirmation) {
-            Button(watchLocalized(model.language, "Cancel", "Annuleer"), role: .cancel) {}
-            Button(watchLocalized(model.language, "Pair again", "Opnieuw koppelen"), role: .destructive) {
+        .alert(watchLocalizedKey(model.language, "watch.pair.again.9b37ad"), isPresented: $isShowingResetPairingConfirmation) {
+            Button(watchLocalizedKey(model.language, "watch.cancel"), role: .cancel) {}
+            Button(watchLocalizedKey(model.language, "watch.pair.again"), role: .destructive) {
                 model.resetPairing()
                 dismiss()
             }
         } message: {
-            Text(watchLocalized(model.language, "This clears local Watch pairing and opens the pairing screen again.", "Dit wist de lokale Watch-koppeling en opent het koppelscherm opnieuw."))
+            Text(watchLocalizedKey(model.language, "watch.this.clears.local.watch.pairing.and.opens.the"))
         }
-        .alert(watchLocalized(model.language, "Turn Off Music DNA?", "Music DNA uitschakelen?"), isPresented: $isShowingMusicDNADisableConfirmation) {
-            Button(watchLocalized(model.language, "Cancel", "Annuleer"), role: .cancel) {}
-            Button(watchLocalized(model.language, "Turn Off", "Uitschakelen"), role: .destructive) {
+        .alert(watchLocalizedKey(model.language, "watch.turn.off.music.dna.9e036e"), isPresented: $isShowingMusicDNADisableConfirmation) {
+            Button(watchLocalizedKey(model.language, "watch.cancel"), role: .cancel) {}
+            Button(watchLocalizedKey(model.language, "watch.turn.off"), role: .destructive) {
                 Task { await model.setMusicDNAEnabled(false) }
             }
         } message: {
-            Text(watchLocalized(
-                model.language,
-                "This clears learned Music DNA on Home Assistant and stops future buildup until you turn it on again.",
-                "Dit wist geleerde Music DNA op Home Assistant en stopt verdere opbouw totdat je het opnieuw inschakelt."
-            ))
+            Text(watchLocalizedKey(model.language, "watch.this.clears.learned.music.dna.on.home.assistant.and.stops"))
         }
         .alert(
-            watchLocalized(model.language, "Clear Music DNA?", "Music DNA wissen?"),
+            watchLocalizedKey(model.language, "watch.clear.music.dna.3c1f0b"),
             isPresented: $isShowingMusicDNAClearConfirmation
         ) {
-            Button(watchLocalized(model.language, "Cancel", "Annuleer"), role: .cancel) {}
+            Button(watchLocalizedKey(model.language, "watch.cancel"), role: .cancel) {}
             Button(
                 model.isDemoMode
-                    ? watchLocalized(model.language, "Keep Demo Profile", "Demo-profiel behouden")
-                    : watchLocalized(model.language, "Clear Music DNA", "Music DNA wissen"),
+                    ? watchLocalizedKey(model.language, "watch.keep.demo.profile")
+                    : watchLocalizedKey(model.language, "watch.clear.music.dna"),
                 role: model.isDemoMode ? nil : .destructive
             ) {
                 Task { await model.clearMusicDNA() }
             }
         } message: {
             if model.isDemoMode {
-                Text(watchLocalized(
-                    model.language,
-                    "In the real app this clears learned Music DNA on Home Assistant. Demo data stays visible.",
-                    "In de echte app wist dit geleerde Music DNA op Home Assistant. Demo-data blijft zichtbaar."
-                ))
+                Text(watchLocalizedKey(model.language, "watch.in.the.real.app.this.clears.learned.music.dna.on"))
             } else {
-                Text(watchLocalized(
-                    model.language,
-                    "This clears learned Music DNA. If Music DNA stays enabled, Home Assistant starts learning again from empty.",
-                    "Dit wist geleerde Music DNA. Als Music DNA aan blijft, begint Home Assistant opnieuw vanaf leeg."
-                ))
+                Text(watchLocalizedKey(model.language, "watch.this.clears.learned.music.dna.if.music.dna.stays.enabled"))
             }
         }
     }
@@ -1988,15 +2042,15 @@ private struct DJConnectWatchLogsView: View {
                             .font(.title2)
                             .foregroundStyle(
                                 LinearGradient(
-                                    colors: [watchAccentBlue, watchAccentPurple],
+                                    colors: [watchAccentPurple, watchAccentPurple],
                                     startPoint: .topLeading,
                                     endPoint: .bottomTrailing
                                 )
                             )
-                        Text(watchLocalized(model.language, "No logs", "Geen logs"))
+                        Text(watchLocalizedKey(model.language, "watch.no.logs"))
                             .font(.caption.weight(.semibold))
                             .foregroundStyle(.white)
-                        Text(watchLocalized(model.language, "New Watch actions appear here.", "Nieuwe acties op de Watch verschijnen hier."))
+                        Text(watchLocalizedKey(model.language, "watch.new.watch.actions.appear.here"))
                             .font(.caption2)
                             .foregroundStyle(.white.opacity(0.66))
                             .multilineTextAlignment(.center)
@@ -2045,7 +2099,7 @@ private struct DJConnectWatchLogsView: View {
             Button(role: .destructive) {
                 isShowingClearConfirmation = true
             } label: {
-                Label(watchLocalized(model.language, "Clear logs", "Wis logs"), systemImage: "trash")
+                Label(watchLocalizedKey(model.language, "watch.clear.logs"), systemImage: "trash")
                     .font(.caption2.weight(.semibold))
                     .frame(maxWidth: .infinity, minHeight: 28)
             }
@@ -2055,13 +2109,13 @@ private struct DJConnectWatchLogsView: View {
             .padding(.bottom, 0)
         }
         .navigationTitle("Logs")
-        .alert(watchLocalized(model.language, "Clear logs?", "Logs wissen?"), isPresented: $isShowingClearConfirmation) {
-            Button(watchLocalized(model.language, "Cancel", "Annuleer"), role: .cancel) {}
-            Button(watchLocalized(model.language, "Clear logs", "Wis logs"), role: .destructive) {
+        .alert(watchLocalizedKey(model.language, "watch.clear.logs.9f65b0"), isPresented: $isShowingClearConfirmation) {
+            Button(watchLocalizedKey(model.language, "watch.cancel"), role: .cancel) {}
+            Button(watchLocalizedKey(model.language, "watch.clear.logs"), role: .destructive) {
                 model.clearDiagnosticLog()
             }
         } message: {
-            Text(watchLocalized(model.language, "This removes diagnostic logs on this Watch.", "Dit verwijdert de diagnostische logs op deze Watch."))
+            Text(watchLocalizedKey(model.language, "watch.this.removes.diagnostic.logs.on.this.watch"))
         }
     }
 
@@ -2095,12 +2149,12 @@ private struct DJConnectWatchOutputsView: View {
                                 .font(.title2)
                                 .foregroundStyle(
                                     LinearGradient(
-                                        colors: [watchAccentBlue, watchAccentPurple],
+                                        colors: [watchAccentPurple, watchAccentPurple],
                                         startPoint: .topLeading,
                                         endPoint: .bottomTrailing
                                     )
                                 )
-                            Text(watchLocalized(model.language, "No output devices found.", "Geen uitvoerapparaten gevonden."))
+                            Text(watchLocalizedKey(model.language, "watch.no.output.devices.found"))
                                 .font(.caption2)
                                 .foregroundStyle(.white.opacity(0.72))
                                 .multilineTextAlignment(.center)
@@ -2125,7 +2179,7 @@ private struct DJConnectWatchOutputsView: View {
                 .padding(.horizontal, 4)
             }
         }
-        .navigationTitle(watchLocalized(model.language, "Output", "Uitvoer"))
+        .navigationTitle(watchLocalizedKey(model.language, "watch.output"))
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Button {
@@ -2145,7 +2199,7 @@ private struct DJConnectWatchOutputsView: View {
                 .frame(width: 28, height: 28)
                 .contentShape(Circle())
                 .disabled(model.isLoadingOutputs)
-                .accessibilityLabel(watchLocalized(model.language, "Refresh Output", "Uitvoer vernieuwen"))
+                .accessibilityLabel(watchLocalizedKey(model.language, "watch.refresh.output"))
             }
         }
         .task {
@@ -2176,15 +2230,26 @@ private struct DJConnectWatchOutputRow: View {
         }
     }
 
+    private var activeColor: Color {
+        watchAccentPurple
+    }
+
+    private var activeTextColor: Color {
+        watchAccentPurple.opacity(0.92)
+    }
+
     var body: some View {
         HStack(spacing: 9) {
             Image(systemName: iconName)
+                .renderingMode(.template)
                 .font(.system(size: 15, weight: .semibold))
-                .foregroundStyle(isActive ? watchAccentBlue : .white.opacity(0.68))
+                .symbolRenderingMode(.monochrome)
+                .foregroundStyle(isActive ? activeColor : .white.opacity(0.68))
+                .foregroundColor(isActive ? activeColor : .white.opacity(0.68))
                 .frame(width: 30, height: 30)
                 .background(
                     Circle()
-                        .fill(isActive ? watchAccentBlue.opacity(0.18) : Color.white.opacity(0.08))
+                        .fill(isActive ? activeColor.opacity(0.18) : Color.white.opacity(0.08))
                 )
 
             VStack(alignment: .leading, spacing: 2) {
@@ -2195,15 +2260,16 @@ private struct DJConnectWatchOutputRow: View {
                     .multilineTextAlignment(.leading)
                 HStack(spacing: 4) {
                     if isActive {
-                        Text(watchLocalized(model.language, "Active", "Actief"))
+                        Text(watchLocalizedKey(model.language, "watch.active"))
                     } else if let volume = output.volumePercent {
                         Text("\(volume)%")
                     } else {
-                        Text(output.type ?? watchLocalized(model.language, "Output", "Uitvoer"))
+                        Text(output.type ?? watchLocalizedKey(model.language, "watch.output"))
                     }
                 }
                 .font(.caption2)
-                .foregroundStyle(isActive ? watchAccentBlue.opacity(0.92) : .white.opacity(0.56))
+                .foregroundStyle(isActive ? activeTextColor : .white.opacity(0.56))
+                .foregroundColor(isActive ? activeTextColor : .white.opacity(0.56))
             }
 
             Spacer(minLength: 4)
@@ -2214,8 +2280,11 @@ private struct DJConnectWatchOutputRow: View {
                     .tint(.white)
             } else if isActive {
                 Image(systemName: "checkmark.circle.fill")
+                    .renderingMode(.template)
                     .font(.system(size: 18, weight: .semibold))
-                    .foregroundStyle(watchAccentPurple)
+                    .symbolRenderingMode(.monochrome)
+                    .foregroundStyle(activeColor)
+                    .foregroundColor(activeColor)
             }
         }
         .padding(.horizontal, 8)
@@ -2242,12 +2311,12 @@ private struct DJConnectWatchPlaylistsView: View {
                                 .font(.title2)
                                 .foregroundStyle(
                                     LinearGradient(
-                                        colors: [watchAccentBlue, watchAccentPurple],
+                                        colors: [watchAccentPurple, watchAccentPurple],
                                         startPoint: .topLeading,
                                         endPoint: .bottomTrailing
                                     )
                                 )
-                            Text(watchLocalized(model.language, "No playlists found.", "Geen afspeellijsten gevonden."))
+                            Text(watchLocalizedKey(model.language, "watch.no.playlists.found"))
                                 .font(.caption2)
                                 .foregroundStyle(.white.opacity(0.72))
                                 .multilineTextAlignment(.center)
@@ -2271,7 +2340,7 @@ private struct DJConnectWatchPlaylistsView: View {
                 .padding(.horizontal, 4)
             }
         }
-        .navigationTitle(watchLocalized(model.language, "Playlists", "Afspeellijsten"))
+        .navigationTitle(watchLocalizedKey(model.language, "watch.playlists"))
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Button {
@@ -2291,7 +2360,7 @@ private struct DJConnectWatchPlaylistsView: View {
                 .frame(width: 28, height: 28)
                 .contentShape(Circle())
                 .disabled(model.isLoadingPlaylists)
-                .accessibilityLabel(watchLocalized(model.language, "Refresh Playlists", "Afspeellijsten vernieuwen"))
+                .accessibilityLabel(watchLocalizedKey(model.language, "watch.refresh.playlists"))
             }
         }
         .task {
@@ -2318,12 +2387,12 @@ private struct DJConnectWatchQueueView: View {
                                 .font(.title2)
                                 .foregroundStyle(
                                     LinearGradient(
-                                        colors: [watchAccentBlue, watchAccentPurple],
+                                        colors: [watchAccentPurple, watchAccentPurple],
                                         startPoint: .topLeading,
                                         endPoint: .bottomTrailing
                                     )
                                 )
-                            Text(watchLocalized(model.language, "No queue found.", "Geen wachtrij gevonden."))
+                            Text(watchLocalizedKey(model.language, "watch.no.queue.found"))
                                 .font(.caption2)
                                 .foregroundStyle(.white.opacity(0.72))
                                 .multilineTextAlignment(.center)
@@ -2349,7 +2418,7 @@ private struct DJConnectWatchQueueView: View {
                 .padding(.horizontal, 4)
             }
         }
-        .navigationTitle(watchLocalized(model.language, "Queue", "Wachtrij"))
+        .navigationTitle(watchLocalizedKey(model.language, "watch.queue"))
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Button {
@@ -2369,7 +2438,7 @@ private struct DJConnectWatchQueueView: View {
                 .frame(width: 28, height: 28)
                 .contentShape(Circle())
                 .disabled(model.isLoadingQueue)
-                .accessibilityLabel(watchLocalized(model.language, "Refresh Queue", "Wachtrij vernieuwen"))
+                .accessibilityLabel(watchLocalizedKey(model.language, "watch.refresh.queue"))
             }
         }
         .task {
@@ -2416,7 +2485,7 @@ private struct DJConnectWatchQueueRow: View {
                         Circle()
                             .fill(
                                 LinearGradient(
-                                    colors: [watchAccentPurple, watchAccentBlue],
+                                    colors: [watchAccentPurple, watchAccentPurple],
                                     startPoint: .topLeading,
                                     endPoint: .bottomTrailing
                                 )
@@ -2468,7 +2537,7 @@ private struct DJConnectWatchPlaylistRow: View {
                         Circle()
                             .fill(
                                 LinearGradient(
-                                    colors: [watchAccentPurple, watchAccentBlue],
+                                    colors: [watchAccentPurple, watchAccentPurple],
                                     startPoint: .topLeading,
                                     endPoint: .bottomTrailing
                                 )
@@ -2515,8 +2584,11 @@ private struct DJConnectWatchArtwork: View {
 
     private var fallback: some View {
         Image(systemName: fallbackSystemImage)
+            .renderingMode(.template)
             .font(.system(size: 15, weight: .semibold))
-            .foregroundStyle(watchAccentBlue.opacity(0.88))
+            .symbolRenderingMode(.monochrome)
+            .foregroundStyle(watchAccentPurple.opacity(0.88))
+            .foregroundColor(watchAccentPurple.opacity(0.88))
     }
 }
 
@@ -2541,20 +2613,20 @@ private struct DJConnectWatchAskDJChatView: View {
                                     .font(.title2)
                                     .foregroundStyle(
                                         LinearGradient(
-                                            colors: [watchAccentBlue, watchAccentPurple],
+                                            colors: [watchAccentPurple, watchAccentPurple],
                                             startPoint: .topLeading,
                                             endPoint: .bottomTrailing
                                         )
                                     )
-                                Text(watchLocalized(model.language, "Ask something about the music or give your DJ a command.", "Vraag iets over de muziek of geef je DJ een opdracht."))
+                                Text(watchLocalizedKey(model.language, "watch.ask.something.about.the.music.or.give.your"))
                                     .font(.caption2)
                                     .foregroundStyle(.white.opacity(0.72))
                                     .multilineTextAlignment(.center)
                                 VStack(alignment: .leading, spacing: 5) {
-                                    Text(watchLocalized(model.language, "Why this track?", "Waarom dit nummer?"))
-                                    Text(watchLocalized(model.language, "Surprise me with new music", "Verras me met nieuwe muziek"))
-                                    Text(watchLocalized(model.language, "Give Track Insight", "Geef Track Insight"))
-                                    Text(watchLocalized(model.language, "Play something for cooking", "Speel iets voor koken"))
+                                    Text(watchLocalizedKey(model.language, "watch.why.this.track"))
+                                    Text(watchLocalizedKey(model.language, "watch.surprise.me.with.new.music"))
+                                    Text(watchLocalizedKey(model.language, "watch.give.track.insight"))
+                                    Text(watchLocalizedKey(model.language, "watch.play.something.for.cooking"))
                                 }
                                 .font(.caption2.weight(.semibold))
                                 .foregroundStyle(.white.opacity(0.84))
@@ -2564,7 +2636,7 @@ private struct DJConnectWatchAskDJChatView: View {
                                     RoundedRectangle(cornerRadius: 10, style: .continuous)
                                         .fill(.white.opacity(0.09))
                                 }
-                                Text(watchLocalized(model.language, "Ask DJ can adjust music when you ask.", "Ask DJ kan muziek aanpassen als je daarom vraagt."))
+                                Text(watchLocalizedKey(model.language, "watch.ask.dj.can.adjust.music.when.you.ask"))
                                     .font(.caption2)
                                     .foregroundStyle(.white.opacity(0.48))
                                     .multilineTextAlignment(.center)
@@ -2573,7 +2645,7 @@ private struct DJConnectWatchAskDJChatView: View {
                                         ProgressView()
                                             .controlSize(.mini)
                                             .tint(.white)
-                                        Text(watchLocalized(model.language, "Finding something...", "Iets zoeken..."))
+                                        Text(watchLocalizedKey(model.language, "watch.finding.something"))
                                             .font(.caption2.weight(.semibold))
                                             .foregroundStyle(.white.opacity(0.58))
                                     }
@@ -2608,8 +2680,8 @@ private struct DJConnectWatchAskDJChatView: View {
                         } label: {
                             Label(
                                 model.isClearingAskDJHistory
-                                    ? watchLocalized(model.language, "Clearing...", "Wissen...")
-                                    : watchLocalized(model.language, "Clear chat", "Wis chat"),
+                                    ? watchLocalizedKey(model.language, "watch.clearing")
+                                    : watchLocalizedKey(model.language, "watch.clear.chat"),
                                 systemImage: "trash"
                             )
                             .font(.footnote.weight(.semibold))
@@ -2658,7 +2730,7 @@ private struct DJConnectWatchAskDJChatView: View {
                             Capsule()
                                 .fill(
                                     LinearGradient(
-                                        colors: [watchAccentBlue.opacity(0.96), watchAccentPurple.opacity(0.92)],
+                                        colors: [watchAccentPurple.opacity(0.96), watchAccentPurple.opacity(0.92)],
                                         startPoint: .topLeading,
                                         endPoint: .bottomTrailing
                                     )
@@ -2690,7 +2762,7 @@ private struct DJConnectWatchAskDJChatView: View {
                 .frame(width: 28, height: 28)
                 .contentShape(Circle())
                 .disabled(model.isRefreshingStatus || (!model.canUseBackend && !model.isDemoMode))
-                .accessibilityLabel(watchLocalized(model.language, "Refresh Ask DJ", "Ask DJ vernieuwen"))
+                .accessibilityLabel(watchLocalizedKey(model.language, "watch.refresh.ask.dj"))
             }
         }
         .task {
@@ -2760,9 +2832,9 @@ private struct DJConnectWatchAskDJChatView: View {
         case .recording:
             return "Stop"
         case .processing:
-            return watchLocalized(model.language, "Working", "Bezig")
+            return watchLocalizedKey(model.language, "watch.working")
         case .failed:
-            return watchLocalized(model.language, "Retry", "Opnieuw")
+            return watchLocalizedKey(model.language, "watch.retry")
         }
     }
 
@@ -2821,8 +2893,8 @@ private struct DJConnectWatchAskDJBubble: View {
                 HStack(spacing: 4) {
                     Image(systemName: "sparkles")
                     Text(message.origin == "spotify_playback_context"
-                        ? watchLocalized(model.language, "DJ fact", "DJ feitje")
-                        : watchLocalized(model.language, "DJ note", "DJ notitie"))
+                        ? watchLocalizedKey(model.language, "watch.dj.fact")
+                        : watchLocalizedKey(model.language, "watch.dj.note"))
                 }
                 .font(.caption2.weight(.semibold))
                 .foregroundStyle(.white.opacity(0.66))
@@ -2880,8 +2952,8 @@ private struct DJConnectWatchAskDJBubble: View {
                     Image(systemName: model.isPlayingAskDJAudio(message.audioURL) ? "stop.fill" : "play.fill")
                 }
                 Text(model.isPlayingAskDJAudio(message.audioURL)
-                    ? watchLocalized(model.language, "Stop audio", "Stop audio")
-                    : watchLocalized(model.language, "Play audio", "Speel audio"))
+                    ? watchLocalizedKey(model.language, "watch.stop.audio")
+                    : watchLocalizedKey(model.language, "watch.play.audio"))
             }
             .font(.caption2.weight(.semibold))
             .foregroundStyle(.white)
@@ -2901,13 +2973,13 @@ private struct DJConnectWatchAskDJBubble: View {
     private var bubbleBackground: some View {
         if isUser {
             RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .fill(watchAccentBlue)
+                .fill(watchAccentPurple)
         } else if isSystemMessage {
             RoundedRectangle(cornerRadius: 13, style: .continuous)
                 .fill(
                     LinearGradient(
                         colors: [
-                            watchAccentBlue.opacity(0.34),
+                            watchAccentPurple.opacity(0.34),
                             watchAccentPurple.opacity(0.24),
                             .white.opacity(0.10)
                         ],
@@ -2919,7 +2991,7 @@ private struct DJConnectWatchAskDJBubble: View {
             RoundedRectangle(cornerRadius: 14, style: .continuous)
                 .fill(
                     LinearGradient(
-                        colors: [watchAccentBlue, watchAccentPurple],
+                        colors: [watchAccentPurple, watchAccentPurple],
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
                     )
@@ -2957,39 +3029,31 @@ private struct DJConnectWatchMusicDNAOptInPromptView: View {
                             .font(.title2.weight(.semibold))
                             .foregroundStyle(
                                 LinearGradient(
-                                    colors: [watchAccentBlue, watchAccentPurple],
+                                    colors: [watchAccentPurple, watchAccentPurple],
                                     startPoint: .topLeading,
                                     endPoint: .bottomTrailing
                                 )
                             )
 
-                        Text(watchLocalized(model.language, "Enable Music DNA?", "Music DNA activeren?"))
+                        Text(watchLocalizedKey(model.language, "watch.enable.music.dna"))
                             .font(.headline.weight(.bold))
                             .foregroundStyle(.white)
 
-                        Text(watchLocalized(
-                            model.language,
-                            "With Music DNA, DJConnect can learn from your taste and listening behavior to give recommendations tailored to your listening profile.",
-                            "Met Music DNA kan DJConnect leren van je smaak en luistergedrag om aanbevelingen te kunnen geven afgestemd op jouw luisterprofiel."
-                        ))
+                        Text(watchLocalizedKey(model.language, "watch.with.music.dna.djconnect.can.learn.from.your.taste.and"))
                         .font(.caption2)
                         .foregroundStyle(.white.opacity(0.72))
                         .fixedSize(horizontal: false, vertical: true)
                         if model.isDemoMode {
-                            Text(watchLocalized(
-                                model.language,
-                                "Demo mode only unlocks fictional sample data on this watch. No backend call is made.",
-                                "Demo modus zet alleen fictieve voorbeelddata op deze Watch aan. Er wordt geen backend-call gedaan."
-                            ))
+                            Text(watchLocalizedKey(model.language, "watch.demo.mode.only.unlocks.fictional.sample.data.on.this.watch"))
                             .font(.caption2.weight(.semibold))
                             .foregroundStyle(.white.opacity(0.62))
                             .fixedSize(horizontal: false, vertical: true)
                         }
 
                         VStack(alignment: .leading, spacing: 6) {
-                            Label(watchLocalized(model.language, "Explicit opt-in", "Expliciete opt-in"), systemImage: "checkmark.shield")
-                            Label(watchLocalized(model.language, "Clear anytime", "Altijd te wissen"), systemImage: "trash")
-                            Label(watchLocalized(model.language, "Can be turned off in Settings", "Uitzetten kan via Instellingen"), systemImage: "switch.2")
+                            Label(watchLocalizedKey(model.language, "watch.explicit.opt.in"), systemImage: "checkmark.shield")
+                            Label(watchLocalizedKey(model.language, "watch.clear.anytime"), systemImage: "trash")
+                            Label(watchLocalizedKey(model.language, "watch.can.be.turned.off.in.settings"), systemImage: "switch.2")
                         }
                         .font(.caption2.weight(.semibold))
                         .foregroundStyle(.white.opacity(0.78))
@@ -2999,8 +3063,8 @@ private struct DJConnectWatchMusicDNAOptInPromptView: View {
                         } label: {
                             Label(
                                 model.isUpdatingMusicDNAConsent
-                                    ? watchLocalized(model.language, "Enabling...", "Activeren...")
-                                    : watchLocalized(model.language, "Enable", "Activeer"),
+                                    ? watchLocalizedKey(model.language, "watch.enabling")
+                                    : watchLocalizedKey(model.language, "watch.enable"),
                                 systemImage: "sparkles"
                             )
                             .font(.caption.weight(.semibold))
@@ -3012,7 +3076,7 @@ private struct DJConnectWatchMusicDNAOptInPromptView: View {
                         Button {
                             model.dismissMusicDNAOptInPrompt()
                         } label: {
-                            Text(watchLocalized(model.language, "Not now", "Niet nu"))
+                            Text(watchLocalizedKey(model.language, "watch.not.now"))
                                 .font(.caption.weight(.semibold))
                                 .frame(maxWidth: .infinity, minHeight: 30)
                         }
@@ -3027,7 +3091,7 @@ private struct DJConnectWatchMusicDNAOptInPromptView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button(watchLocalized(model.language, "Close", "Sluit")) {
+                    Button(watchLocalizedKey(model.language, "watch.close")) {
                         model.dismissMusicDNAOptInPrompt()
                     }
                 }
@@ -3186,7 +3250,9 @@ private struct AskDJWatchPlaybackActionStack: View {
                 .fill(.white.opacity(0.14))
             Image(systemName: "music.note")
                 .font(.caption2.weight(.bold))
-                .foregroundStyle(.white.opacity(0.72))
+                .symbolRenderingMode(.monochrome)
+                .foregroundStyle(watchAccentPurple.opacity(0.88))
+                .foregroundColor(watchAccentPurple.opacity(0.88))
         }
     }
 
@@ -3196,7 +3262,7 @@ private struct AskDJWatchPlaybackActionStack: View {
                 return trimmed
             }
         }
-        return action.isOutputAction ? watchLocalized("Activate", "Activeer") : "Play Now"
+        return action.isOutputAction ? watchLocalizedKey("watch.activate") : "Play Now"
     }
 
     private func outputIcon(isActive: Bool) -> some View {
@@ -3460,7 +3526,7 @@ private struct DJConnectWatchRoundButtonStyle: ButtonStyle {
                         LinearGradient(
                             colors: [
                                 watchAccentPurple.opacity(configuration.isPressed ? 0.72 : 0.92),
-                                watchAccentBlue.opacity(configuration.isPressed ? 0.66 : 0.88)
+                                watchAccentPurple.opacity(configuration.isPressed ? 0.66 : 0.88)
                             ],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
@@ -3484,6 +3550,7 @@ private struct DJConnectWatchGradientButtonStyle: ButtonStyle {
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
+            .labelStyle(.titleAndIcon)
             .foregroundStyle(foregroundColor)
             .padding(.horizontal, 8)
             .background(background(isPressed: configuration.isPressed))
@@ -3503,11 +3570,11 @@ private struct DJConnectWatchGradientButtonStyle: ButtonStyle {
     private var colors: [Color] {
         switch kind {
         case .primary:
-            return [watchAccentBlue, watchAccentPurple]
+            return [watchAccentPurple, watchAccentPurple]
         case .secondary:
-            return [watchAccentBlue.opacity(0.42), watchAccentPurple.opacity(0.56)]
+            return [watchAccentPurple.opacity(0.42), watchAccentPurple.opacity(0.56)]
         case .destructive:
-            return [watchAccentBlue.opacity(0.30), watchAccentPurple.opacity(0.46)]
+            return [watchAccentPurple.opacity(0.30), watchAccentPurple.opacity(0.46)]
         case .recording:
             return [Color(red: 1.0, green: 0.18, blue: 0.38), watchAccentPurple]
         case .processing:
@@ -3527,7 +3594,7 @@ private struct DJConnectWatchGradientButtonStyle: ButtonStyle {
     private var shadowColor: Color {
         switch kind {
         case .primary, .secondary, .destructive:
-            return watchAccentBlue
+            return watchAccentPurple
         case .recording:
             return Color(red: 1.0, green: 0.18, blue: 0.38)
         case .processing:

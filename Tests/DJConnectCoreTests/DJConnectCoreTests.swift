@@ -654,7 +654,8 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
         text: "Speel iets rustigers",
         mood: 20,
         djStyle: "warm_radio_dj",
-        musicDNAKey: "djconnect_ios_8F3A2C91B45D"
+        musicDNAKey: "djconnect_ios_8F3A2C91B45D",
+        language: "nl-NL"
     ))
     let body = try #require(request.httpBody)
     let json = try JSONSerialization.jsonObject(with: body) as? [String: Any]
@@ -671,6 +672,7 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     #expect(json?["mood"] as? Int == 20)
     #expect(json?["dj_style"] as? String == "warm_radio_dj")
     #expect(json?["music_dna_key"] as? String == "djconnect_ios_8F3A2C91B45D")
+    #expect(json?["language"] as? String == "nl-NL")
 }
 
 @Test func askDJMessageRequestUsesSyncedHistoryEndpointAndClientMessageID() throws {
@@ -696,7 +698,8 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
         mood: 70,
         djStyle: "warm_radio_dj",
         musicDNAKey: "djconnect_ios_8F3A2C91B45D",
-        audioResponse: .auto
+        audioResponse: .auto,
+        language: "nl-NL"
     ))
     let body = try #require(request.httpBody)
     let json = try JSONSerialization.jsonObject(with: body) as? [String: Any]
@@ -713,6 +716,7 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     #expect(json?["text"] as? String == "Verras me met nieuwe muziek")
     #expect(json?["mood"] as? Int == 70)
     #expect(json?["audio_response"] as? String == "auto")
+    #expect(json?["language"] as? String == "nl-NL")
 }
 
 @Test func clearAskDJHistoryRequestIncludesClientIdentityAndMusicDNAKey() throws {
@@ -1570,7 +1574,8 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
 
     let response = try await client.sendCommandResponse(DJConnectCommandPayload(
         identity: testIOSIdentity(),
-        command: "play"
+        command: "play",
+        language: "en-GB"
     ))
 
     #expect(response.success == true)
@@ -1579,6 +1584,7 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     #expect(await fastPath.receivedTokens == ["device-token"])
     #expect(await fastPath.receivedCommandPayload?.clientType == .ios)
     #expect(await fastPath.receivedCommandPayload?.deviceID == "device-1")
+    #expect(await fastPath.receivedCommandPayload?.language == "en-GB")
 }
 
 @Test func homeAssistantWebSocketURLUsesNativeAPIPath() throws {
@@ -1671,7 +1677,8 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
         clientMessageID: "client-message-1",
         mood: 72,
         musicDNAKey: "music-dna",
-        audioResponse: .auto
+        audioResponse: .auto,
+        language: "de-DE"
     ))
 
     #expect(response.historyRevision == 12)
@@ -1679,6 +1686,7 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     #expect(response.assistantMessage?.text == "Fast answer")
     #expect(await fastPath.askDJCalls == 1)
     #expect(await fastPath.receivedAskPayload?.musicDNAKey == "music-dna")
+    #expect(await fastPath.receivedAskPayload?.language == "de-DE")
     #expect(await fastPath.receivedTokens == ["device-token"])
 }
 
@@ -2568,7 +2576,8 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     )
     let request = try client.commandRequest(DJConnectCommandPayload(
         identity: identity,
-        command: "save_current_track"
+        command: "save_current_track",
+        language: "fr-FR"
     ))
     let body = try #require(request.httpBody)
     let json = try JSONSerialization.jsonObject(with: body) as? [String: Any]
@@ -2578,6 +2587,7 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     #expect(json?["device_id"] as? String == identity.deviceID)
     #expect(json?["client_type"] as? String == "watchos")
     #expect(json?["command"] as? String == "save_current_track")
+    #expect(json?["language"] as? String == "fr-FR")
     #expect(json?["value"] == nil)
 }
 
@@ -3153,11 +3163,12 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
         ]
     ))
 
-    #expect(model.availableOutputs.map(\.name).prefix(2) == ["Geen", "Woonkamer"])
+    let noOutputName = DJConnectLocalization.localized(key: "ui.no.output.device.selected", language: "nl")
+    #expect(model.availableOutputs.map(\.name).prefix(2) == [noOutputName, "Woonkamer"])
     #expect(model.selectedOutput == "Woonkamer")
 
     model.selectOutput(model.availableOutputs[0])
-    #expect(model.selectedOutput == "Geen")
+    #expect(model.selectedOutput == noOutputName)
     #expect(model.availableOutputs[0].active == true)
     #expect(model.availableOutputs[1].active == false)
 }
@@ -3177,15 +3188,24 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
 
     await Task.yield()
 
-    #expect(["Geen", "None"].contains(model.selectedOutput))
+    #expect(model.selectedOutput == DJConnectLocalization.localized(key: "ui.no.output.device.selected", language: model.language))
 }
 
 @MainActor
-@Test func storedLanguagePreferenceDoesNotOverrideDeviceLanguage() throws {
+@Test func defaultLanguageUsesDeviceLanguageUntilAppOverrideIsSet() throws {
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
-    defaults.set("nl", forKey: "DJConnectLanguage")
+    let sharedDefaults = try #require(UserDefaults(suiteName: DJConnectLocalization.appGroupIdentifier))
+    let oldSharedOverride = sharedDefaults.string(forKey: DJConnectLocalization.appLanguageOverrideDefaultsKey)
+    sharedDefaults.removeObject(forKey: DJConnectLocalization.appLanguageOverrideDefaultsKey)
+    defer {
+        if let oldSharedOverride {
+            sharedDefaults.set(oldSharedOverride, forKey: DJConnectLocalization.appLanguageOverrideDefaultsKey)
+        } else {
+            sharedDefaults.removeObject(forKey: DJConnectLocalization.appLanguageOverrideDefaultsKey)
+        }
+    }
 
     let model = DJConnectAppModel(
         defaults: defaults,
@@ -3193,7 +3213,20 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
         startBackgroundTasks: false
     )
 
-    #expect(model.language == DJConnectAppModel.normalizedReleaseNotesLanguageCode(Locale.preferredLanguages.first ?? "en"))
+    #expect(model.language == DJConnectLocalization.preferredLanguageCode())
+    #expect(model.appLanguageOverrideCode == "")
+
+    model.setAppLanguageOverride("nl")
+    #expect(model.language == "nl")
+    #expect(model.appLanguageOverrideCode == "nl")
+    #expect(defaults.string(forKey: DJConnectLocalization.appLanguageOverrideDefaultsKey) == "nl")
+    #expect(sharedDefaults.string(forKey: DJConnectLocalization.appLanguageOverrideDefaultsKey) == "nl")
+
+    model.setAppLanguageOverride("")
+    #expect(model.language == DJConnectLocalization.preferredLanguageCode())
+    #expect(model.appLanguageOverrideCode == "")
+    #expect(defaults.string(forKey: DJConnectLocalization.appLanguageOverrideDefaultsKey) == nil)
+    #expect(sharedDefaults.string(forKey: DJConnectLocalization.appLanguageOverrideDefaultsKey) == nil)
 }
 
 @MainActor
@@ -3216,7 +3249,7 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     model.selectOutput(model.availableOutputs[0])
     model.sendPlaybackCommand("play")
 
-    #expect(model.selectedOutput == "Geen")
+    #expect(model.selectedOutput == DJConnectLocalization.localized(key: "ui.no.output.device.selected", language: "nl"))
     #expect(model.userNotice?.text == "Kies eerst een uitvoerapparaat")
 }
 
@@ -4292,7 +4325,8 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
         wavData: wav,
         mood: 120,
         djStyle: "warm_radio_dj",
-        musicDNAKey: "djconnect-watchos-8F3A2C91B45D"
+        musicDNAKey: "djconnect-watchos-8F3A2C91B45D",
+        language: "es-ES"
     )
 
     #expect(request.url?.path == "/api/djconnect/voice")
@@ -4304,6 +4338,8 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     #expect(request.value(forHTTPHeaderField: "X-DJConnect-Mood") == "100")
     #expect(request.value(forHTTPHeaderField: "X-DJConnect-DJ-Style") == "warm_radio_dj")
     #expect(request.value(forHTTPHeaderField: "X-DJConnect-Music-DNA-Key") == "djconnect-watchos-8F3A2C91B45D")
+    #expect(request.value(forHTTPHeaderField: "X-DJConnect-Language") == "es-ES")
+    #expect(request.value(forHTTPHeaderField: "X-DJConnect-Locale") == "es-ES")
     #expect(request.httpBody == wav)
 }
 
@@ -4649,6 +4685,51 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     ))
 
     #expect(model.djResponseText == "Geen verbinding met Home Assistant")
+}
+
+@MainActor
+@Test func trackInsightSuppressesHTMLBackendErrorPages() async throws {
+    let suiteName = "DJConnectTests-\(UUID().uuidString)"
+    let defaults = try #require(UserDefaults(suiteName: suiteName))
+    defaults.removePersistentDomain(forName: suiteName)
+    defaults.set(DJConnectHAConnectionMode.local.rawValue, forKey: "DJConnectHAConnectionMode")
+    let host = "track-insight-html.local"
+    let session = mockSession(host: host) { request in
+        #expect(request.url?.path == "/api/djconnect/track_insight")
+        let html = """
+        <!DOCTYPE html>
+        <html class="h-full" lang="en-US" dir="ltr">
+        <head><link rel="preload" href="https://assets.ngrok.com/fonts/euclid-square/EuclidSquare-Regular-WebS.woff"></head>
+        <body>Home Assistant tunnel unavailable</body>
+        </html>
+        """
+        return (try httpResponse(for: request, statusCode: 502), Data(html.utf8))
+    }
+    let model = DJConnectAppModel(
+        playback: DJConnectPlayback(trackName: "Midnight City", artistName: "M83"),
+        defaults: defaults,
+        tokenStore: DJConnectInMemoryTokenStore(token: "secret-token"),
+        urlSession: session,
+        startBackgroundTasks: false
+    )
+    model.language = "nl"
+    model.homeAssistantURL = "http://\(host):8123"
+    model.pairingStatus = .paired
+    model.apply(commandResponse: DJConnectCommandResponse(
+        success: true,
+        backendAvailable: true,
+        playback: DJConnectPlayback(trackName: "Midnight City", artistName: "M83")
+    ))
+
+    model.analyzeCurrentTrack(open: false)
+
+    for _ in 0..<20 where model.isLoadingTrackInsight {
+        try await Task.sleep(for: .milliseconds(50))
+    }
+
+    #expect(model.trackInsightErrorMessage == "Geen verbinding met Home Assistant")
+    #expect(model.trackInsightErrorMessage?.contains("<!DOCTYPE html>") != true)
+    #expect(model.trackInsightErrorMessage?.contains("assets.ngrok.com") != true)
 }
 
 @MainActor
@@ -5084,15 +5165,12 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     model.startDemoMode()
 
     model.seekRelative(milliseconds: 15_000)
-    await Task.yield()
     #expect(model.playback?.progressMS == 63_000)
 
     model.seekRelative(milliseconds: -15_000)
-    await Task.yield()
     #expect(model.playback?.progressMS == 48_000)
 
     model.seekRelative(milliseconds: -999_000)
-    await Task.yield()
     #expect(model.playback?.progressMS == 0)
 }
 
@@ -5380,7 +5458,8 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
         wavData: Data([0x52, 0x49, 0x46, 0x46]),
         mood: 70,
         djStyle: "warm_radio_dj",
-        musicDNAKey: "djconnect-watchos-ABC123"
+        musicDNAKey: "djconnect-watchos-ABC123",
+        language: "nl-NL"
     )
     let request = DJConnectWatchProxyRequest(operation: .voice, payload: try JSONEncoder().encode(payload))
     let decodedRequest = try JSONDecoder().decode(DJConnectWatchProxyRequest.self, from: JSONEncoder().encode(request))
@@ -5390,6 +5469,7 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     #expect(decodedPayload.wavData == Data([0x52, 0x49, 0x46, 0x46]))
     #expect(decodedPayload.mood == 70)
     #expect(decodedPayload.djStyle == "warm_radio_dj")
+    #expect(decodedPayload.language == "nl-NL")
 }
 
 @Test func watchProxyMusicDNASettingsPayloadUsesWatchIdentity() throws {
@@ -5769,14 +5849,14 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
 }
 
 @Test func localizationNormalizesDutchLanguageVariants() {
-    #expect(DJConnectLocalization.localized(language: "nl", english: "About", dutch: "Over") == "Over")
-    #expect(DJConnectLocalization.localized(language: "nl-NL", english: "About", dutch: "Over") == "Over")
-    #expect(DJConnectLocalization.localized(language: "NL", english: "About", dutch: "Over") == "Over")
-    #expect(DJConnectLocalization.localized(language: "en", english: "About", dutch: "Over") == "About")
-    #expect(DJConnectLocalization.localized(language: "de-DE", english: "About", dutch: "Over") == "Info")
-    #expect(DJConnectLocalization.localized(language: "fr-FR", english: "About", dutch: "Over") == "A propos")
-    #expect(DJConnectLocalization.localized(language: "es-ES", english: "About", dutch: "Over") == "Acerca de")
-    #expect(DJConnectLocalization.localized(language: "", english: "About", dutch: "Over") == "About")
+    #expect(DJConnectLocalization.localized(key: "About", language: "nl") == "Over")
+    #expect(DJConnectLocalization.localized(key: "About", language: "nl-NL") == "Over")
+    #expect(DJConnectLocalization.localized(key: "About", language: "NL") == "Over")
+    #expect(DJConnectLocalization.localized(key: "About", language: "en") == "About")
+    #expect(DJConnectLocalization.localized(key: "About", language: "de-DE") == "Info")
+    #expect(DJConnectLocalization.localized(key: "About", language: "fr-FR") == "A propos")
+    #expect(DJConnectLocalization.localized(key: "About", language: "es-ES") == "Acerca de")
+    #expect(DJConnectLocalization.localized(key: "About", language: "") == "About")
     #expect(DJConnectLocalization.preferredLanguageCode(["nl-NL", "en-US"]) == "nl")
     #expect(DJConnectLocalization.preferredLanguageCode(["NL", "en-US"]) == "nl")
     #expect(DJConnectLocalization.preferredLanguageCode(["de-DE", "en-US"]) == "de")
@@ -5784,6 +5864,34 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     #expect(DJConnectLocalization.preferredLanguageCode(["es-ES", "en-US"]) == "es")
     #expect(DJConnectLocalization.preferredLanguageCode(["en-US", "nl-NL"]) == "en")
     #expect(DJConnectLocalization.preferredLanguageCode([]) == "en")
+}
+
+@Test func defaultDisplayLanguageUsesSharedAppLanguageOverrideForWidgets() throws {
+    let sharedDefaults = try #require(UserDefaults(suiteName: DJConnectLocalization.appGroupIdentifier))
+    let oldSharedOverride = sharedDefaults.string(forKey: DJConnectLocalization.appLanguageOverrideDefaultsKey)
+    defer {
+        if let oldSharedOverride {
+            sharedDefaults.set(oldSharedOverride, forKey: DJConnectLocalization.appLanguageOverrideDefaultsKey)
+        } else {
+            sharedDefaults.removeObject(forKey: DJConnectLocalization.appLanguageOverrideDefaultsKey)
+        }
+    }
+
+    sharedDefaults.set("de", forKey: DJConnectLocalization.appLanguageOverrideDefaultsKey)
+    #expect(DJConnectLocalization.defaultDisplayLanguageCode(preferredLanguages: ["nl-NL"]) == "de")
+    #expect(DJConnectLocalization.localized(key: "About") == "Info")
+
+    sharedDefaults.removeObject(forKey: DJConnectLocalization.appLanguageOverrideDefaultsKey)
+    #expect(DJConnectLocalization.defaultDisplayLanguageCode(preferredLanguages: ["nl-NL"]) == "nl")
+}
+
+@Test func localizationMapsClientLanguagesToBCP47Locales() {
+    #expect(DJConnectLocalization.bcp47LocaleIdentifier(for: "nl") == "nl-NL")
+    #expect(DJConnectLocalization.bcp47LocaleIdentifier(for: "en-GB") == "en-GB")
+    #expect(DJConnectLocalization.bcp47LocaleIdentifier(for: "de_DE") == "de-DE")
+    #expect(DJConnectLocalization.bcp47LocaleIdentifier(for: "fr") == "fr-FR")
+    #expect(DJConnectLocalization.bcp47LocaleIdentifier(for: "es") == "es-ES")
+    #expect(DJConnectLocalization.bcp47LocaleIdentifier(for: "") == "en-US")
 }
 
 @Test func pairingErrorPresentationLocalizesKnownHTTPCodes() {

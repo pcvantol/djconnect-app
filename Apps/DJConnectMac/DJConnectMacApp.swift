@@ -2,6 +2,7 @@ import DJConnectCore
 import DJConnectUI
 import AppKit
 import SwiftUI
+import UserNotifications
 
 @main
 struct DJConnectMacApp: App {
@@ -72,17 +73,27 @@ struct DJConnectMacApp: App {
 }
 
 private func localizedAboutTitle(for language: String) -> String {
-    DJConnectLocalization.localized(language: language, english: "About", dutch: "Over")
+    DJConnectLocalization.localized(key: "mac.about", language: language)
 }
 
 private func localizedAboutMenuTitle(for language: String) -> String {
-    DJConnectLocalization.localized(language: language, english: "About DJConnect", dutch: "Over DJConnect")
+    DJConnectLocalization.localized(key: "mac.about.djconnect", language: language)
 }
 
 private let mainWindowIdentifier = NSUserInterfaceItemIdentifier("DJConnectMainWindow")
 
-final class DJConnectMacAppDelegate: NSObject, NSApplicationDelegate {
+@MainActor
+final class DJConnectMacAppDelegate: NSObject, NSApplicationDelegate, @preconcurrency UNUserNotificationCenterDelegate {
     weak var model: DJConnectAppModel?
+
+    override init() {
+        super.init()
+        UNUserNotificationCenter.current().delegate = self
+    }
+
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        UNUserNotificationCenter.current().delegate = self
+    }
 
     func application(
         _ application: NSApplication,
@@ -105,6 +116,19 @@ final class DJConnectMacAppDelegate: NSObject, NSApplicationDelegate {
         Task { @MainActor in
             await model?.refreshAskDJHistory()
         }
+    }
+
+    func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        didReceive response: UNNotificationResponse,
+        withCompletionHandler completionHandler: @escaping () -> Void
+    ) {
+        NSApp.activate(ignoringOtherApps: true)
+        model?.performHomeScreenAction(.askDJ)
+        Task { @MainActor [weak self] in
+            await self?.model?.refreshAskDJHistory()
+        }
+        completionHandler()
     }
 }
 

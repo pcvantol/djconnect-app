@@ -53,6 +53,9 @@ jobs:
           sudo xcode-select -s /Applications/Xcode.app
           xcodebuild -version
 
+      - name: Validate Apple localizations
+        run: python3 scripts/validate_localizations.py
+
       - name: Swift tests
         run: swift test --no-parallel
 

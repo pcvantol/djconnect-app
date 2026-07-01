@@ -7,7 +7,7 @@ import SwiftUI
 import UniformTypeIdentifiers
 #endif
 #if canImport(AVKit)
-import AVKit
+@preconcurrency import AVKit
 #endif
 #if canImport(WebKit)
 import WebKit
@@ -22,22 +22,26 @@ import AppKit
 import Darwin
 #endif
 
-private func localized(_ language: String, _ english: String, _ dutch: String) -> String {
-    DJConnectLocalization.localized(language: language, english: english, dutch: dutch)
+private func localizedKey(_ language: String, _ key: String, arguments: CVarArg...) -> String {
+    String(
+        format: DJConnectLocalization.localized(key: key, language: language),
+        locale: Locale(identifier: DJConnectLocalization.supportedLanguageCode(language)),
+        arguments: arguments
+    )
 }
 
 private func localizedOutputName(_ outputName: String, language: String) -> String {
     switch outputName {
     case "Not selected", "No output selected":
-        localized(language, "No output device selected", "Geen uitvoerapparaat geselecteerd")
+        localizedKey(language, "ui.no.output.device.selected")
     default:
         outputName
     }
 }
 
-private func screenTitle(_ language: String, _ english: String, _ dutch: String, isDemoMode: Bool) -> String {
-    let title = localized(language, english, dutch)
-    guard isDemoMode, title != localized(language, "More", "Meer") else {
+private func screenTitle(_ language: String, key: String, isDemoMode: Bool) -> String {
+    let title = localizedKey(language, key)
+    guard isDemoMode, title != localizedKey(language, "ui.more") else {
         return title
     }
     return "\(title) (demo)"
@@ -47,7 +51,7 @@ private func askDJTimestamp(_ date: Date, language: String, now: Date = Date()) 
     let elapsed = max(0, now.timeIntervalSince(date))
     if elapsed < 3_600 {
         let minutes = max(1, Int(elapsed / 60))
-        return localized(language, "\(minutes) min ago", "\(minutes) minuten geleden")
+        return localizedKey(language, "ui.value.min.ago", arguments: minutes)
     }
     if Calendar.current.isDate(date, inSameDayAs: now) {
         return date.formatted(date: .omitted, time: .shortened)
@@ -55,34 +59,34 @@ private func askDJTimestamp(_ date: Date, language: String, now: Date = Date()) 
     let days = max(1, Calendar.current.dateComponents([.day], from: date, to: now).day ?? 1)
     switch days {
     case 1:
-        return localized(language, "Yesterday", "Gisteren")
+        return localizedKey(language, "ui.yesterday")
     case 2...6:
-        return localized(language, "\(days) days ago", "\(days) dagen geleden")
+        return localizedKey(language, "ui.value.days.ago", arguments: days)
     case 7...13:
-        return localized(language, "Last week", "Vorige week")
+        return localizedKey(language, "ui.last.week")
     case 14...30:
         let weeks = max(2, days / 7)
-        return localized(language, "\(weeks) weeks ago", "\(weeks) weken geleden")
+        return localizedKey(language, "ui.value.weeks.ago", arguments: weeks)
     case 31...61:
-        return localized(language, "Last month", "Vorige maand")
+        return localizedKey(language, "ui.last.month")
     default:
         let months = max(2, days / 30)
-        return localized(language, "\(months) months ago", "\(months) maanden geleden")
+        return localizedKey(language, "ui.value.months.ago", arguments: months)
     }
 }
 
 private func localizedPairingStatus(_ status: DJConnectPairingStatus, language: String) -> String {
     switch status {
     case .paired:
-        localized(language, "Paired", "Gekoppeld")
+        localizedKey(language, "ui.paired")
     case .pairing:
-        localized(language, "Pairing", "Koppelen")
+        localizedKey(language, "ui.pairing")
     case .waitingForHomeAssistantCompletion:
-        localized(language, "Waiting for Home Assistant", "Wachten op Home Assistant")
+        localizedKey(language, "ui.waiting.for.home.assistant")
     case .stale:
-        localized(language, "Stale", "Verlopen")
+        localizedKey(language, "ui.stale")
     case .unpaired:
-        localized(language, "Unpaired", "Niet gekoppeld")
+        localizedKey(language, "ui.unpaired")
     }
 }
 
@@ -228,6 +232,24 @@ private extension View {
         self.listRowBackground(Color.clear)
             .listRowSeparator(.hidden)
             .listSectionSeparator(.hidden)
+        #endif
+    }
+
+    @ViewBuilder
+    func djSettingsSectionTopSpacing() -> some View {
+        #if os(macOS)
+        self.padding(.top, 18)
+        #else
+        self
+        #endif
+    }
+
+    @ViewBuilder
+    func djCompactSettingsListRow() -> some View {
+        #if os(macOS)
+        self.listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 4, trailing: 0))
+        #else
+        self
         #endif
     }
 }
@@ -471,6 +493,7 @@ private enum DJConnectSection: Hashable {
     case musicDNA
     case askDJ
     case queue
+    case more
     case playlists
     case games
     case settings
@@ -500,13 +523,13 @@ public struct DJConnectRootView: View {
                 NavigationSplitView {
                     List {
                         SidebarItem(
-                            title: localized(model.language, "Now Playing", "Speelt Nu"),
+                            title: localizedKey(model.language, "ui.now.playing"),
                             systemImage: "music.note",
                             isSelected: selectedSection == .nowPlaying
                         ) { selectedSection = .nowPlaying }
                         SidebarItem(
-                            title: localized(model.language, "Queue", "Wachtrij"),
-                            systemImage: "text.line.first.and.arrowtriangle.forward",
+                            title: localizedKey(model.language, "ui.queue"),
+                            systemImage: "music.note.list",
                             isSelected: selectedSection == .queue
                         ) { selectedSection = .queue }
                         SidebarItem(
@@ -525,48 +548,48 @@ public struct DJConnectRootView: View {
                             isSelected: selectedSection == .musicDNA
                         ) { selectedSection = .musicDNA }
                         SidebarItem(
-                            title: localized(model.language, "Playlists", "Afspeellijsten"),
+                            title: localizedKey(model.language, "ui.playlists"),
                             systemImage: "rectangle.stack",
                             isSelected: selectedSection == .playlists
                         ) { selectedSection = .playlists }
                         SidebarItem(
-                            title: localized(model.language, "Games", "Games"),
+                            title: localizedKey(model.language, "ui.games"),
                             systemImage: "gamecontroller",
                             isSelected: selectedSection == .games
                         ) { selectedSection = .games }
                         SidebarItem(
-                            title: localized(model.language, "Settings", "Instellingen"),
+                            title: localizedKey(model.language, "ui.settings"),
                             systemImage: "gearshape",
                             isSelected: selectedSection == .settings
                         ) { selectedSection = .settings }
                         SidebarItem(
-                            title: localized(model.language, "Logs", "Logs"),
+                            title: localizedKey(model.language, "ui.logs"),
                             systemImage: "doc.text.magnifyingglass",
                             isSelected: selectedSection == .logs
                         ) { selectedSection = .logs }
                         SidebarItem(
-                            title: localized(model.language, "About", "Over"),
+                            title: localizedKey(model.language, "ui.about"),
                             systemImage: "info.circle",
                             isSelected: selectedSection == .about
                         ) { selectedSection = .about }
                         SidebarItem(
-                            title: localized(model.language, "Legal", "Juridisch"),
+                            title: localizedKey(model.language, "ui.legal"),
                             systemImage: "doc.text",
                             isSelected: selectedSection == .legal
                         ) { selectedSection = .legal }
                         SidebarItem(
-                            title: localized(model.language, "Privacy", "Privacy"),
+                            title: localizedKey(model.language, "ui.privacy"),
                             systemImage: "hand.raised",
                             isSelected: selectedSection == .privacy
                         ) { selectedSection = .privacy }
                         Button {
                             showingFeedback = true
                         } label: {
-                            Label(localized(model.language, "Share Feedback", "Feedback delen"), systemImage: "bubble.left.and.bubble.right")
+                            Label(localizedKey(model.language, "ui.share.feedback"), systemImage: "bubble.left.and.bubble.right")
                         }
                         .buttonStyle(.plain)
                     }
-                    .navigationTitle(screenTitle(model.language, "DJConnect", "DJConnect", isDemoMode: model.isDemoMode))
+                    .navigationTitle(screenTitle(model.language, key: "ui.djconnect", isDemoMode: model.isDemoMode))
                     .scrollContentBackgroundIfAvailable(.hidden)
                     .navigationSplitViewColumnWidth(min: 220, ideal: 240, max: 280)
                 } detail: {
@@ -581,12 +604,12 @@ public struct DJConnectRootView: View {
                     TabView(selection: $selectedSection) {
                         NowPlayingView(model: model)
                             .tabItem {
-                                Label(localized(model.language, "Now Playing", "Speelt Nu"), systemImage: "music.note")
+                                Label(localizedKey(model.language, "ui.now.playing"), systemImage: "music.note")
                             }
                             .tag(DJConnectSection.nowPlaying)
                         QueueView(model: model)
                             .tabItem {
-                                Label(localized(model.language, "Queue", "Wachtrij"), systemImage: "text.line.first.and.arrowtriangle.forward")
+                                Label(localizedKey(model.language, "ui.queue"), systemImage: "music.note.list")
                             }
                             .tag(DJConnectSection.queue)
                         AskDJView(model: model)
@@ -604,7 +627,7 @@ public struct DJConnectRootView: View {
                         }
                         .id(moreResetID)
                             .tabItem {
-                                Label(localized(model.language, "More", "Meer"), systemImage: "ellipsis")
+                                Label(localizedKey(model.language, "ui.more"), systemImage: "ellipsis")
                             }
                             .tag(DJConnectSection.settings)
                     }
@@ -652,9 +675,11 @@ public struct DJConnectRootView: View {
             model.clearHomeScreenActionRequest(request)
         }
         .onChange(of: selectedSection) {
-            if selectedSection == .settings {
+            #if os(iOS)
+            if horizontalSizeClass != .regular, selectedSection == .settings {
                 moreResetID = UUID()
             }
+            #endif
         }
         .onChange(of: scenePhase) {
             switch scenePhase {
@@ -677,13 +702,13 @@ public struct DJConnectRootView: View {
         VStack(spacing: 0) {
             HStack(spacing: 8) {
                 DJConnectTopTabButton(
-                    title: localized(model.language, "Now Playing", "Speelt Nu"),
+                    title: localizedKey(model.language, "ui.now.playing"),
                     systemImage: "music.note",
                     isSelected: selectedSection == .nowPlaying
                 ) { selectedSection = .nowPlaying }
                 DJConnectTopTabButton(
-                    title: localized(model.language, "Queue", "Wachtrij"),
-                    systemImage: "text.line.first.and.arrowtriangle.forward",
+                    title: localizedKey(model.language, "ui.queue"),
+                    systemImage: "music.note.list",
                     isSelected: selectedSection == .queue
                 ) { selectedSection = .queue }
                 DJConnectTopTabButton(
@@ -697,10 +722,10 @@ public struct DJConnectRootView: View {
                     isSelected: selectedSection == .trackInsight
                 ) { selectedSection = .trackInsight }
                 DJConnectTopTabButton(
-                    title: localized(model.language, "More", "Meer"),
+                    title: localizedKey(model.language, "ui.more"),
                     systemImage: "ellipsis",
                     isSelected: isMoreSectionSelected
-                ) { selectedSection = .settings }
+                ) { selectedSection = .more }
             }
             .padding(6)
             .background(
@@ -723,7 +748,7 @@ public struct DJConnectRootView: View {
         switch selectedSection {
         case .nowPlaying, .queue, .askDJ, .trackInsight:
             false
-        case .musicDNA, .playlists, .games, .settings, .logs, .about, .legal, .privacy:
+        case .more, .musicDNA, .playlists, .games, .settings, .logs, .about, .legal, .privacy:
             true
         }
     }
@@ -784,6 +809,10 @@ public struct DJConnectRootView: View {
                 .tint(djConnectAccent)
                 .accentColor(djConnectAccent)
                 .interactiveDismissDisabled(true)
+                #if os(iOS)
+                .presentationDetents([.large])
+                .presentationSizing(.page)
+                #endif
                 .presentationBackground {
                     DJConnectCanvasBackground()
                 }
@@ -850,6 +879,10 @@ public struct DJConnectRootView: View {
             AskDJView(model: model)
         case .queue:
             QueueView(model: model)
+        case .more:
+            MoreView(model: model) {
+                selectedSection = .nowPlaying
+            }
         case .playlists:
             PlaylistsView(model: model)
         case .games:
@@ -889,22 +922,14 @@ private struct AskDJNotificationPermissionExplanationView: View {
                     )
 
                 VStack(spacing: 8) {
-                    Text(localized(model.language, "Ask DJ notifications", "Ask DJ-meldingen"))
+                    Text(localizedKey(model.language, "ui.ask.dj.notifications"))
                         .font(.title2.bold())
                         .multilineTextAlignment(.center)
-                    Text(localized(
-                        model.language,
-                        "DJConnect can send a notification when Ask DJ has an answer for you.",
-                        "DJConnect kan een melding sturen wanneer Ask DJ een antwoord voor je heeft."
-                    ))
+                    Text(localizedKey(model.language, "ui.djconnect.can.send.a.notification.when.ask.dj.has.an"))
                     .font(.body)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
-                    Text(localized(
-                        model.language,
-                        "After this screen, Apple will ask for permission. You can change this later in Settings.",
-                        "Na dit scherm vraagt Apple om toestemming. Je kunt dit later aanpassen in Instellingen."
-                    ))
+                    Text(localizedKey(model.language, "ui.after.this.screen.apple.will.ask.for.permission.you.can"))
                     .font(.callout)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
@@ -915,7 +940,7 @@ private struct AskDJNotificationPermissionExplanationView: View {
                         model.continueAfterAskDJNotificationPermissionExplanation()
                     } label: {
                         Label(
-                            localized(model.language, "Allow notifications", "Meldingen toestaan"),
+                            localizedKey(model.language, "ui.allow.notifications"),
                             systemImage: "bell.badge.fill"
                         )
                         .frame(maxWidth: .infinity)
@@ -925,7 +950,7 @@ private struct AskDJNotificationPermissionExplanationView: View {
                     Button {
                         model.cancelAskDJNotificationPermissionExplanation()
                     } label: {
-                        Text(localized(model.language, "Not now", "Niet nu"))
+                        Text(localizedKey(model.language, "ui.not.now"))
                             .frame(maxWidth: .infinity)
                     }
                     .buttonStyle(DJConnectLilacPillButtonStyle())
@@ -949,73 +974,60 @@ private struct PermissionExplanationView: View {
     var body: some View {
         ZStack {
             DJConnectCanvasBackground()
+            VStack(alignment: .leading, spacing: 22) {
+                AboutBanner()
 
-            VStack(spacing: 18) {
-                Image(systemName: "bell.badge.circle.fill")
-                    .font(.system(size: 54, weight: .semibold))
-                    .foregroundStyle(
-                        LinearGradient(
-                            colors: [djConnectAccent, Color(red: 0.12, green: 0.55, blue: 1.0)],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
-
-                VStack(spacing: 8) {
-                    Text(localized(model.language, "App permissions", "App-toestemmingen"))
-                        .font(.title2.bold())
-                        .multilineTextAlignment(.center)
-                    Text(localized(
-                        model.language,
-                        "DJConnect asks for microphone access for voice requests and notifications for Ask DJ responses.",
-                        "DJConnect vraagt microfoontoegang voor stemverzoeken en meldingen voor Ask DJ-antwoorden."
-                    ))
-                    .font(.body)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-                    Text(localized(
-                        model.language,
-                        "Server push notifications use Apple APNs and contain only a small wake-up message; the app syncs the real Ask DJ history after opening.",
-                        "Server-pushmeldingen gebruiken Apple APNs en bevatten alleen een korte melding; de app synchroniseert de echte Ask DJ-geschiedenis na openen."
-                    ))
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-                    Text(localized(
-                        model.language,
-                        "After this screen, Apple will ask for permission. You can change this later in Settings.",
-                        "Na dit scherm vraagt Apple om toestemming. Je kunt dit later aanpassen in Instellingen."
-                    ))
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
+                VStack(alignment: .leading, spacing: 10) {
+                    Label {
+                        Text(localizedKey(model.language, "ui.app.permissions"))
+                            .font(.title.bold())
+                    } icon: {
+                        Image(systemName: "checkmark.shield.fill")
+                            .font(.title.weight(.semibold))
+                            .foregroundStyle(
+                                LinearGradient(
+                                    colors: [djConnectAccent, Color(red: 0.12, green: 0.55, blue: 1.0)],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                            )
+                    }
+                    .labelStyle(.titleAndIcon)
+                    Text(localizedKey(model.language, "ui.djconnect.asks.for.microphone.access.for.voice.requests.and.notifications"))
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Text(localizedKey(model.language, "ui.server.push.notifications.use.apple.apns.and.contain.only.a"))
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Text(localizedKey(model.language, "ui.after.this.screen.apple.will.ask.for.permission.you.can"))
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
 
-                HStack(spacing: 12) {
-                    Button {
-                        model.cancelPermissionExplanation()
-                    } label: {
-                        Text(localized(model.language, "Not now", "Niet nu"))
-                            .frame(maxWidth: .infinity)
-                    }
-                    .buttonStyle(DJConnectLilacPillButtonStyle())
-
+                VStack(spacing: 12) {
                     Button {
                         model.continueAfterPermissionExplanation()
                     } label: {
-                        Text(localized(model.language, "Continue", "Doorgaan"))
+                        Label(localizedKey(model.language, "ui.continue"), systemImage: "checkmark.shield")
                             .frame(maxWidth: .infinity)
                     }
                     .buttonStyle(DJConnectLilacPillButtonStyle())
+                    .controlSize(.large)
+
+                    Button {
+                        model.cancelPermissionExplanation()
+                    } label: {
+                        Text(localizedKey(model.language, "ui.not.now"))
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(DJConnectLilacPillButtonStyle())
+                    .controlSize(.large)
                 }
             }
-            .padding(24)
-            .frame(minWidth: 320, idealWidth: 420, maxWidth: 460)
-            .background(Color.black.opacity(0.20), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .stroke(Color.white.opacity(0.10), lineWidth: 1)
-            )
+            .padding(28)
+            .frame(minWidth: 360, idealWidth: 520, maxWidth: 620)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
@@ -1108,6 +1120,14 @@ private struct PairingSheetView: View {
     @State private var cameraConsentShowsSettings = false
     #endif
 
+    private var contentIdealWidth: CGFloat {
+        horizontalSizeClass == .regular ? 780 : 560
+    }
+
+    private var contentMaxWidth: CGFloat {
+        horizontalSizeClass == .regular ? 940 : 680
+    }
+
     var body: some View {
         ScrollView(.vertical) {
             VStack(spacing: 22) {
@@ -1120,13 +1140,16 @@ private struct PairingSheetView: View {
                     pairingPending
                 }
             }
-            .padding(28)
+            .padding(.horizontal, 28)
+            .padding(.top, horizontalSizeClass == .regular ? 8 : 28)
+            .padding(.bottom, 28)
             #if !os(macOS)
             .padding(.bottom, 18)
             #endif
-            .frame(minWidth: 360, idealWidth: 560, maxWidth: 680)
-            .frame(maxWidth: .infinity)
+            .frame(minWidth: 360, idealWidth: contentIdealWidth, maxWidth: contentMaxWidth)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         }
+        .defaultScrollAnchor(.top)
         .background(DJConnectCanvasBackground())
         #if os(iOS)
         .frame(
@@ -1241,7 +1264,7 @@ private struct PairingSheetView: View {
                         requestCameraConsentForScanner()
                     } label: {
                         Label(
-                            localized(model.language, "Pair Apple Watch via QR Code", "Koppel Apple Watch via QR-code"),
+                            localizedKey(model.language, "ui.pair.apple.watch.via.qr.code"),
                             systemImage: "applewatch"
                         )
                         .frame(maxWidth: .infinity)
@@ -1254,7 +1277,7 @@ private struct PairingSheetView: View {
                         requestCameraConsentForScanner()
                     } label: {
                         Label(
-                            localized(model.language, "Pair iPhone via QR Code", "Koppel iPhone via QR-code"),
+                            localizedKey(model.language, "ui.pair.iphone.via.qr.code"),
                             systemImage: "qrcode.viewfinder"
                         )
                         .frame(maxWidth: .infinity)
@@ -1270,7 +1293,7 @@ private struct PairingSheetView: View {
                     }
                 } label: {
                     HStack(spacing: 8) {
-                        Text(localized(model.language, "Manual", "Handmatig"))
+                        Text(localizedKey(model.language, "ui.manual"))
                             .font(.headline.weight(.semibold))
                         Image(systemName: "chevron.down")
                             .font(.subheadline.weight(.semibold))
@@ -1281,18 +1304,18 @@ private struct PairingSheetView: View {
                     .padding(.vertical, 6)
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel(localized(model.language, "Manual pairing", "Handmatig koppelen"))
+                .accessibilityLabel(localizedKey(model.language, "ui.manual.pairing"))
                 #endif
 
                 if shouldShowManualPairing {
                     PairingEditableURLCard(
-                        title: localized(model.language, "Local Home Assistant URL", "Lokale Home Assistant URL"),
+                        title: localizedKey(model.language, "ui.local.home.assistant.url"),
                         language: model.language,
                         text: $model.homeAssistantURL
                     ) {}
 
                 PairingCodeEntryCard(
-                    title: localized(model.language, "Pair Code", "Koppelcode"),
+                    title: localizedKey(model.language, "ui.pair.code"),
                     language: model.language,
                     deviceTypeLabel: manualPairingDeviceTypeLabel,
                     text: $model.pairingToken
@@ -1361,7 +1384,7 @@ private struct PairingSheetView: View {
                     model.startDemoMode()
                 } label: {
                     Label(
-                        localized(model.language, "Start Demo Mode", "Demo modus starten"),
+                        localizedKey(model.language, "ui.start.demo.mode"),
                         systemImage: "play.circle"
                     )
                     .frame(maxWidth: .infinity)
@@ -1375,7 +1398,7 @@ private struct PairingSheetView: View {
                 quitApplication()
             } label: {
                 Label(
-                    localized(model.language, "Quit App", "App afsluiten"),
+                    localizedKey(model.language, "ui.quit.app"),
                     systemImage: "power"
                 )
                 .frame(maxWidth: .infinity)
@@ -1437,21 +1460,21 @@ private struct PairingSheetView: View {
 
     private var statusTitle: String {
         if model.isDemoMode {
-            return localized(model.language, "Demo Mode", "Demo modus")
+            return localizedKey(model.language, "ui.demo.mode")
         }
         return switch model.pairingStatus {
         case .pairing:
             model.pairingFlowTarget == .appleWatch
-                ? localized(model.language, "Pairing Apple Watch with Home Assistant", "Apple Watch koppelen met Home Assistant")
-                : localized(model.language, "Pairing with Home Assistant", "Koppelen met Home Assistant")
+                ? localizedKey(model.language, "ui.pairing.apple.watch.with.home.assistant")
+                : localizedKey(model.language, "ui.pairing.with.home.assistant")
         case .waitingForHomeAssistantCompletion:
-            localized(model.language, "Finish setup in Home Assistant", "Rond de setup af in Home Assistant")
+            localizedKey(model.language, "ui.finish.setup.in.home.assistant")
         case .stale:
-            localized(model.language, "Not connected to Home Assistant", "Niet gekoppeld aan Home Assistant")
+            localizedKey(model.language, "ui.not.connected.to.home.assistant")
         default:
             model.pairingFlowTarget == .appleWatch
-                ? localized(model.language, "Ready to Pair Apple Watch", "Klaar om Apple Watch te koppelen")
-                : localized(model.language, "Ready to Pair", "Klaar om te koppelen")
+                ? localizedKey(model.language, "ui.ready.to.pair.apple.watch")
+                : localizedKey(model.language, "ui.ready.to.pair")
         }
     }
 
@@ -1501,15 +1524,9 @@ private struct PairingSheetView: View {
         if let pairingMessage = model.pairingMessage, !isFieldPrompt(pairingMessage) {
             return pairingMessage
         }
-        return localized(
-            model.language,
-            model.pairingFlowTarget == .appleWatch
-                ? "Everything is ready. Click Pair Apple Watch with Home Assistant to start pairing."
-                : "Everything is ready. Click Pair with Home Assistant to start pairing.",
-            model.pairingFlowTarget == .appleWatch
-                ? "Alles staat klaar. Klik op Koppel Apple Watch met Home Assistant om de koppeling te starten."
-                : "Alles staat klaar. Klik op Koppel met Home Assistant om de koppeling te starten."
-        )
+        return model.pairingFlowTarget == .appleWatch
+            ? localizedKey(model.language, "ui.ready.click.pair.apple.watch.with.home.assistant")
+            : localizedKey(model.language, "ui.ready.click.pair.with.home.assistant")
     }
 
     private var inlinePairingMessage: String? {
@@ -1548,23 +1565,13 @@ private struct PairingSheetView: View {
     }
 
     private var invalidURLStatusMessage: String {
-        return localized(
-            model.language,
-            "Enter your Home Assistant URL, for example 192.168.1.10:8123.",
-            "Vul je Home Assistant URL in, bijvoorbeeld 192.168.1.10:8123."
-        )
+        return localizedKey(model.language, "ui.enter.your.home.assistant.url.for.example.192.168.1")
     }
 
     private var invalidPairCodeStatusMessage: String {
-        localized(
-            model.language,
-            model.pairingFlowTarget == .appleWatch
-                ? "Enter the 6-digit Apple Watch pair code shown by Home Assistant."
-                : "Enter the 6-digit pair code shown by Home Assistant.",
-            model.pairingFlowTarget == .appleWatch
-                ? "Vul de 6-cijferige Apple Watch-koppelcode uit Home Assistant in."
-                : "Vul de 6-cijferige koppelcode uit Home Assistant in."
-        )
+        model.pairingFlowTarget == .appleWatch
+            ? localizedKey(model.language, "ui.enter.apple.watch.6.digit.pair.code")
+            : localizedKey(model.language, "ui.enter.the.6.digit.pair.code.shown.by.home")
     }
 
     private func isFieldPrompt(_ message: String) -> Bool {
@@ -1574,36 +1581,24 @@ private struct PairingSheetView: View {
     private var pairingCodeInstruction: String {
         #if os(iOS)
         if model.pairingFlowTarget == .appleWatch {
-            return localized(
-                model.language,
-                "Open DJConnect on Apple Watch, then scan or enter the Apple Watch pair code from Home Assistant on this iPhone.",
-                "Open DJConnect op Apple Watch en scan of vul daarna op deze iPhone de Apple Watch-koppelcode uit Home Assistant in."
-            )
+            return localizedKey(model.language, "ui.open.djconnect.on.apple.watch.then.scan.or.enter.the")
         }
-        return localized(
-            model.language,
-            "Enter or scan the code shown by Home Assistant while this device and Home Assistant are on the same LAN.",
-            "Vul of scan de code uit Home Assistant terwijl dit apparaat en Home Assistant op hetzelfde LAN zitten."
-        )
+        return localizedKey(model.language, "ui.enter.or.scan.the.code.shown.by.home.assistant.while")
         #else
-        localized(
-            model.language,
-            "Enter the code shown by Home Assistant while this device and Home Assistant are on the same LAN.",
-            "Vul de code uit Home Assistant in terwijl dit apparaat en Home Assistant op hetzelfde LAN zitten."
-        )
+        localizedKey(model.language, "ui.enter.the.code.shown.by.home.assistant.while.this.device")
         #endif
     }
 
     private var pairingTitle: String {
         model.pairingFlowTarget == .appleWatch
-            ? localized(model.language, "Pair Apple Watch", "Apple Watch koppelen")
-            : localized(model.language, "Pair DJConnect", "DJConnect koppelen")
+            ? localizedKey(model.language, "ui.pair.apple.watch")
+            : localizedKey(model.language, "ui.pair.djconnect")
     }
 
     private var manualPairingButtonTitle: String {
         model.pairingFlowTarget == .appleWatch
-            ? localized(model.language, "Pair Apple Watch with Home Assistant", "Koppel Apple Watch met Home Assistant")
-            : localized(model.language, "Pair with Home Assistant", "Koppel met Home Assistant")
+            ? localizedKey(model.language, "ui.pair.apple.watch.with.home.assistant")
+            : localizedKey(model.language, "ui.pair.with.home.assistant")
     }
 
     private var manualPairingDeviceTypeLabel: String {
@@ -1614,22 +1609,14 @@ private struct PairingSheetView: View {
 
     private var pairingSuccessTitle: String {
         model.pairingFlowTarget == .appleWatch
-            ? localized(model.language, "Apple Watch Paired", "Apple Watch gekoppeld")
-            : localized(model.language, "Pairing successful", "Koppeling succesvol")
+            ? localizedKey(model.language, "ui.apple.watch.paired")
+            : localizedKey(model.language, "ui.pairing.successful")
     }
 
     private var pairingSuccessMessage: String {
         model.pairingFlowTarget == .appleWatch
-            ? localized(
-                model.language,
-                "Apple Watch is paired with Home Assistant through this iPhone.",
-                "Apple Watch is via deze iPhone gekoppeld met Home Assistant."
-            )
-            : localized(
-                model.language,
-                "DJConnect is paired with Home Assistant.",
-                "DJConnect is gekoppeld met Home Assistant."
-            )
+            ? localizedKey(model.language, "ui.apple.watch.is.paired.with.home.assistant.through.this.iphone")
+            : localizedKey(model.language, "ui.djconnect.is.paired.with.home.assistant")
     }
 
     private static func pairingDeviceTypeLabel(for clientType: DJConnectClientType) -> String {
@@ -1656,11 +1643,7 @@ private struct PairingNetworkNotice: View {
 
     var body: some View {
         Label {
-            Text(warning ?? localized(
-                    language,
-                    "Pairing is local-only. Use the LAN address of Home Assistant. After pairing, DJConnect can also connect to Home Assistant outside your home if Home Assistant provides remote access.",
-                    "Koppelen kan alleen lokaal. Gebruik het LAN-adres van Home Assistant. Na het koppelen kan DJConnect eventueel ook buitenshuis verbinden met Home Assistant als Home Assistant remote toegang aanbiedt."
-                ))
+            Text(warning ?? localizedKey(language, "ui.pairing.is.local.only.use.the.lan.address.of.home"))
             .fixedSize(horizontal: false, vertical: true)
         } icon: {
             Image(systemName: warning == nil ? "network" : "wifi.exclamationmark")
@@ -1733,7 +1716,7 @@ private struct PairingEditableURLCard: View {
                             .foregroundStyle(.secondary)
                     }
                     .buttonStyle(.plain)
-                    .accessibilityLabel(localized(language, "Clear Home Assistant URL", "Home Assistant URL wissen"))
+                    .accessibilityLabel(localizedKey(language, "ui.clear.home.assistant.url"))
                 }
 
                 Button {
@@ -1745,15 +1728,11 @@ private struct PairingEditableURLCard: View {
                 }
                 .buttonStyle(.plain)
                 .disabled(!isValid)
-                .accessibilityLabel(localized(language, "Confirm Home Assistant URL", "Home Assistant URL bevestigen"))
+                .accessibilityLabel(localizedKey(language, "ui.confirm.home.assistant.url"))
             }
             if !trimmedText.isEmpty, !isValid {
                 Label(
-                    localized(
-                        language,
-                        "Enter a valid local Home Assistant URL, for example http://homeassistant.local:8123.",
-                        "Vul een geldige lokale Home Assistant URL in, bijvoorbeeld http://homeassistant.local:8123."
-                    ),
+                    localizedKey(language, "ui.enter.a.valid.local.home.assistant.url.for.example.http"),
                     systemImage: "exclamationmark.triangle"
                 )
                 .font(.caption)
@@ -1830,21 +1809,17 @@ private struct PairingCodeEntryCard: View {
 
             if !trimmedText.isEmpty, !isValid {
                 Label(
-                    localized(
-                        language,
-                        "Enter the 6-digit code shown by Home Assistant.",
-                        "Vul de 6-cijferige code uit Home Assistant in."
-                    ),
+                    localizedKey(language, "ui.enter.the.6.digit.code.shown.by.home.assistant"),
                     systemImage: "exclamationmark.triangle"
                 )
                 .font(.caption)
                 .foregroundStyle(.orange)
             } else {
                 Label(
-                    localized(
+                    localizedKey(
                         language,
-                        "Choose \(deviceTypeLabel) in the Home Assistant DJConnect setup flow and enter the Home Assistant code here.",
-                        "Kies \(deviceTypeLabel) in de Home Assistant DJConnect setup-flow en vul de Home Assistant code hier in."
+                        "ui.choose.value.in.the.home.assistant.djconnect.setup.flow.and",
+                        arguments: deviceTypeLabel
                     ),
                     systemImage: "number"
                 )
@@ -1864,7 +1839,7 @@ private struct PairingCodeEntryCard: View {
             ToolbarItemGroup(placement: .keyboard) {
                 Spacer()
                 if isValid {
-                    Button(localized(language, "Done", "Gereed")) {
+                    Button(localizedKey(language, "ui.done")) {
                         isCodeFocused = false
                     }
                     .font(.headline.weight(.semibold))
@@ -1900,7 +1875,7 @@ private struct PairingCameraConsentSheet: View {
                     )
 
                 VStack(spacing: 10) {
-                    Text(localized(language, "Camera access for pairing", "Cameratoegang voor koppelen"))
+                    Text(localizedKey(language, "ui.camera.access.for.pairing"))
                         .font(.title2.bold())
                         .multilineTextAlignment(.center)
                     Text(message)
@@ -1923,7 +1898,7 @@ private struct PairingCameraConsentSheet: View {
                     Button {
                         dismiss()
                     } label: {
-                        Text(localized(language, "Not now", "Niet nu"))
+                        Text(localizedKey(language, "ui.not.now"))
                             .frame(maxWidth: .infinity)
                     }
                     .buttonStyle(DJConnectLilacPillButtonStyle())
@@ -1935,30 +1910,22 @@ private struct PairingCameraConsentSheet: View {
             .padding(.bottom, 36)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(DJConnectCanvasBackground())
-            .navigationTitle(localized(language, "Camera", "Camera"))
+            .navigationTitle(localizedKey(language, "ui.camera"))
             .navigationBarTitleDisplayMode(.inline)
         }
     }
 
     private var message: String {
         if showsSettingsAction {
-            return localized(
-                language,
-                "Camera access is disabled. Enable it in Settings to scan the DJConnect pairing QR code from Home Assistant.",
-                "Cameratoegang staat uit. Zet dit aan in Instellingen om de DJConnect koppel-QR-code van Home Assistant te scannen."
-            )
+            return localizedKey(language, "ui.camera.access.is.disabled.enable.it.in.settings.to.scan")
         }
-        return localized(
-            language,
-            "DJConnect uses the camera only to scan the pairing QR code from Home Assistant or Apple Watch. Nothing is recorded or stored.",
-            "DJConnect gebruikt de camera alleen om de koppel-QR-code van Home Assistant of Apple Watch te scannen. Er wordt niets opgenomen of opgeslagen."
-        )
+        return localizedKey(language, "ui.djconnect.uses.the.camera.only.to.scan.the.pairing.qr")
     }
 
     private var primaryButtonTitle: String {
         showsSettingsAction
-            ? localized(language, "Open Settings", "Open Instellingen")
-            : localized(language, "Allow Camera", "Camera toestaan")
+            ? localizedKey(language, "ui.open.settings")
+            : localizedKey(language, "ui.allow.camera")
     }
 }
 
@@ -1966,33 +1933,66 @@ private struct PairingQRScannerView: View {
     let language: String
     let onCode: (String) -> Void
     @Environment(\.dismiss) private var dismiss
+    @State private var didDetectCode = false
 
     var body: some View {
         NavigationStack {
-            ZStack(alignment: .bottom) {
-                PairingQRScannerRepresentable(onCode: onCode)
+            ZStack {
+                PairingQRScannerRepresentable { value in
+                    guard !didDetectCode else { return }
+                    withAnimation(.spring(response: 0.28, dampingFraction: 0.82)) {
+                        didDetectCode = true
+                    }
+                    Task { @MainActor in
+                        try? await Task.sleep(for: .milliseconds(700))
+                        onCode(value)
+                    }
+                }
                     .ignoresSafeArea()
-                Text(localized(
-                    language,
-                    "Scan the DJConnect QR code shown by Home Assistant.",
-                    "Scan de DJConnect QR-code die Home Assistant toont."
-                ))
-                .font(.headline)
-                .multilineTextAlignment(.center)
-                .padding(16)
-                .frame(maxWidth: .infinity)
-                .background(.ultraThinMaterial)
+                VStack {
+                    if didDetectCode {
+                        PairingQRSuccessOverlay(language: language)
+                            .transition(.scale(scale: 0.92).combined(with: .opacity))
+                    }
+                    Spacer()
+                    Text(localizedKey(language, "ui.scan.the.djconnect.qr.code.shown.by.home.assistant"))
+                        .font(.headline)
+                        .multilineTextAlignment(.center)
+                        .padding(16)
+                        .frame(maxWidth: .infinity)
+                        .background(.ultraThinMaterial)
+                }
             }
-            .navigationTitle(localized(language, "Scan QR Code", "Scan QR-code"))
+            .navigationTitle(localizedKey(language, "ui.scan.qr.code"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button(localized(language, "Cancel", "Annuleer")) {
+                    Button(localizedKey(language, "ui.cancel")) {
                         dismiss()
                     }
                 }
             }
         }
+    }
+}
+
+private struct PairingQRSuccessOverlay: View {
+    let language: String
+
+    var body: some View {
+        VStack(spacing: 12) {
+            Image(systemName: "checkmark.circle.fill")
+                .font(.system(size: 58, weight: .semibold))
+                .symbolRenderingMode(.hierarchical)
+            Text(localizedKey(language, "ui.pairing.successful"))
+                .font(.headline)
+        }
+        .foregroundStyle(.white)
+        .padding(.horizontal, 28)
+        .padding(.vertical, 22)
+        .background(.green.gradient, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .shadow(color: .black.opacity(0.35), radius: 24, y: 12)
+        .padding(.top, 56)
     }
 }
 
@@ -2133,7 +2133,7 @@ private struct PairingValueCard: View {
             }
             if didCopy {
                 Label(
-                    localized(language, "Copied to clipboard", "Gekopieerd naar klembord"),
+                    localizedKey(language, "ui.copied.to.clipboard"),
                     systemImage: "checkmark.circle"
                 )
                 .font(.caption)
@@ -2172,19 +2172,15 @@ private struct WakeWordActivationPromptView: View {
             DJConnectCanvasBackground()
             VStack(alignment: .leading, spacing: 20) {
                 AboutBanner()
-                Text(localized(model.language, "Enable Voice Activation?", "Stemactivatie inschakelen?"))
+                Text(localizedKey(model.language, "ui.enable.voice.activation"))
                     .font(.title2.bold())
-                Text(localized(
-                    model.language,
-                    "Start hands-free with \"Hey DJ\" while DJConnect is open. Microphone and speech recognition permission may be requested.",
-                    "Start handsfree met \"Hey DJ\" terwijl DJConnect open is. Microfoon- en spraakherkenningstoestemming kunnen worden gevraagd."
-                ))
+                Text(localizedKey(model.language, "ui.start.hands.free.with.hey.dj.while.djconnect.is.open"))
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
                 Button {
                     model.activateWakeWordFromPrompt()
                 } label: {
-                    Label(localized(model.language, "Enable Voice Activation", "Stemactivatie inschakelen"), systemImage: "waveform")
+                    Label(localizedKey(model.language, "ui.enable.voice.activation.321a28"), systemImage: "waveform")
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(DJConnectLilacPillButtonStyle())
@@ -2192,7 +2188,7 @@ private struct WakeWordActivationPromptView: View {
                 Button {
                     model.dismissWakeWordActivationPrompt()
                 } label: {
-                    Text(localized(model.language, "Not Now", "Niet nu"))
+                    Text(localizedKey(model.language, "ui.not.now.b1e535"))
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(DJConnectLilacPillButtonStyle())
@@ -2218,29 +2214,21 @@ private struct UpdateRequiredView: View {
                     .font(.system(size: 44, weight: .semibold))
                     .foregroundStyle(.orange)
                 VStack(alignment: .leading, spacing: 6) {
-                    Text(localized(model.language, "Update Required", "Update vereist"))
+                    Text(localizedKey(model.language, "ui.update.required"))
                         .font(.title2.bold())
-                    Text(model.updateRequiredMessage ?? localized(
-                        model.language,
-                        "Update DJConnect before continuing.",
-                        "Update DJConnect voordat je verdergaat."
-                    ))
+                    Text(model.updateRequiredMessage ?? localizedKey(model.language, "ui.update.djconnect.before.continuing"))
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
                 }
             }
 
-            Text(localized(
-                model.language,
-                "Playback, queue, playlists, output selection and voice controls are blocked until the app and Home Assistant integration are compatible.",
-                "Playback, wachtrij, afspeellijsten, uitvoerapparaat en stemfuncties zijn geblokkeerd totdat de app en Home Assistant-integratie compatibel zijn."
-            ))
+            Text(localizedKey(model.language, "ui.playback.queue.playlists.output.selection.and.voice.controls.are.blocked"))
             .font(.callout)
             .foregroundStyle(.secondary)
             .fixedSize(horizontal: false, vertical: true)
 
             Link(destination: websiteURL) {
-                Label(localized(model.language, "Open DJConnect Update Page", "Open DJConnect updatepagina"), systemImage: "safari")
+                Label(localizedKey(model.language, "ui.open.djconnect.update.page"), systemImage: "safari")
                     .frame(maxWidth: .infinity)
             }
             .buttonStyle(DJConnectLilacPillButtonStyle())
@@ -2260,25 +2248,18 @@ private struct CrashReportPromptView: View {
             DJConnectCanvasBackground()
             VStack(alignment: .leading, spacing: 18) {
                 AboutBanner()
-                Label(localized(model.language, "The app may have crashed", "De app is mogelijk gecrasht"), systemImage: "exclamationmark.triangle.fill")
+                Label(localizedKey(model.language, "ui.the.app.may.have.crashed"), systemImage: "exclamationmark.triangle.fill")
                     .font(.title2.bold())
                     .foregroundStyle(.orange)
-                Text(localized(
-                    model.language,
-                    "You can share redacted diagnostics by opening a GitHub issue. Nothing is uploaded automatically.",
-                    "Je kunt geredigeerde diagnostiek delen via een GitHub issue. Er wordt niets automatisch geüpload."
-                ))
+                Text(localizedKey(model.language, "ui.you.can.share.redacted.diagnostics.by.opening.a.github.issue"))
                 .foregroundStyle(.secondary)
-                Text(localized(model.language, "GitHub issue target: pcvantol/djconnect", "GitHub issue doel: pcvantol/djconnect"))
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-                Text(localized(model.language, "Version", "Versie") + " \(DJConnectVersionInfo.displayVersion)")
+                Text(localizedKey(model.language, "ui.version") + " \(DJConnectVersionInfo.displayVersion)")
                     .font(.callout.weight(.semibold))
                     .foregroundStyle(.secondary)
                 Button {
                     copyText(model.crashIssueBody())
                 } label: {
-                    Label(localized(model.language, "Copy Logs", "Logs kopiëren"), systemImage: "doc.on.doc")
+                    Label(localizedKey(model.language, "ui.copy.logs"), systemImage: "doc.on.doc")
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(DJConnectLilacPillButtonStyle())
@@ -2288,14 +2269,14 @@ private struct CrashReportPromptView: View {
                     }
                     model.dismissCrashReportPrompt()
                 } label: {
-                    Label(localized(model.language, "Open GitHub Issue", "Open GitHub issue"), systemImage: "arrow.up.forward.app")
+                    Label(localizedKey(model.language, "ui.open.github.issue"), systemImage: "arrow.up.forward.app")
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(DJConnectLilacPillButtonStyle())
                 Button {
                     model.dismissCrashReportPrompt()
                 } label: {
-                    Text(localized(model.language, "Not Now", "Niet nu"))
+                    Text(localizedKey(model.language, "ui.not.now.b1e535"))
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(DJConnectLilacPillButtonStyle())
@@ -2347,11 +2328,7 @@ private struct WelcomeView: View {
                 WelcomeTourProgress(count: steps.count, selectedIndex: selectedStepIndex)
 
                 VStack(spacing: 8) {
-                    Text(localized(
-                        model.language,
-                        "Setup runs through Home Assistant. Spotify playback requires Spotify Premium.",
-                        "Muziekbediening loopt via Home Assistant."
-                    ))
+                    Text(localizedKey(model.language, "ui.setup.runs.through.home.assistant.spotify.playback.requires.spotify.premium"))
                     .font(.callout.weight(.semibold))
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
@@ -2365,7 +2342,7 @@ private struct WelcomeView: View {
                     Button {
                         moveWelcomeTour(by: -1)
                     } label: {
-                        Label(localized(model.language, "Previous", "Vorige"), systemImage: "chevron.left")
+                        Label(localizedKey(model.language, "ui.previous"), systemImage: "chevron.left")
                             .frame(maxWidth: .infinity)
                     }
                     .buttonStyle(DJConnectLilacPillButtonStyle())
@@ -2377,7 +2354,7 @@ private struct WelcomeView: View {
                         Button {
                             moveWelcomeTour(by: 1)
                         } label: {
-                            Label(localized(model.language, "Next", "Volgende"), systemImage: "chevron.right")
+                            Label(localizedKey(model.language, "ui.next"), systemImage: "chevron.right")
                                 .frame(maxWidth: .infinity)
                         }
                         .buttonStyle(DJConnectLilacPillButtonStyle())
@@ -2392,10 +2369,10 @@ private struct WelcomeView: View {
                     model.dismissWelcome()
                 } label: {
                     if isLastStep {
-                        Label(localized(model.language, "Let's Start", "Aan de slag"), systemImage: "music.note")
+                        Label(localizedKey(model.language, "ui.let.s.start"), systemImage: "music.note")
                             .frame(maxWidth: .infinity)
                     } else {
-                        Text(localized(model.language, "Skip", "Overslaan"))
+                        Text(localizedKey(model.language, "ui.skip"))
                             .frame(maxWidth: .infinity)
                     }
                 }
@@ -2438,52 +2415,32 @@ private struct WelcomeTourStep: Identifiable, Equatable {
         [
             WelcomeTourStep(
                 id: .nowPlaying,
-                title: localized(language, "Now Playing", "Speelt Nu"),
-                body: localized(
-                    language,
-                    "Control playback, volume and the active output from the main screen.",
-                    "Bedien playback, volume en het actieve uitvoerapparaat vanaf het hoofdscherm."
-                ),
+                title: localizedKey(language, "ui.now.playing"),
+                body: localizedKey(language, "ui.control.playback.volume.and.the.active.output.from.the.main"),
                 systemImage: "music.note"
             ),
             WelcomeTourStep(
                 id: .askDJ,
                 title: "Ask DJ",
-                body: localized(
-                    language,
-                    "Ask for music, context or a voice reply. DJConnect keeps the chat history in sync through Home Assistant.",
-                    "Vraag om muziek, context of een gesproken antwoord. DJConnect synchroniseert de chatgeschiedenis via Home Assistant."
-                ),
+                body: localizedKey(language, "ui.ask.for.music.context.or.a.voice.reply.djconnect.keeps"),
                 systemImage: "bubble.left.and.bubble.right"
             ),
             WelcomeTourStep(
                 id: .trackInsight,
                 title: "Track Insight",
-                body: localized(
-                    language,
-                    "Analyze the current track for mood, energy, genre and musical details when Home Assistant has provider data.",
-                    "Analyseer het huidige nummer op sfeer, energie, genre en muzikale details wanneer Home Assistant providerdata heeft."
-                ),
+                body: localizedKey(language, "ui.analyze.the.current.track.for.mood.energy.genre.and.musical"),
                 systemImage: "waveform.path.ecg"
             ),
             WelcomeTourStep(
                 id: .musicDNA,
                 title: "Music DNA",
-                body: localized(
-                    language,
-                    "Learn from your taste and listening behavior to shape recommendations around your listening profile.",
-                    "Leer van je smaak en luistergedrag om aanbevelingen af te stemmen op jouw luisterprofiel."
-                ),
+                body: localizedKey(language, "ui.learn.from.your.taste.and.listening.behavior.to.shape.recommendations"),
                 systemImage: "heart"
             ),
             WelcomeTourStep(
                 id: .games,
-                title: localized(language, "Mini-games", "Mini-games"),
-                body: localized(
-                    language,
-                    "Play local mini-games while keeping DJConnect ready for your music setup.",
-                    "Speel lokale mini-games terwijl DJConnect klaar blijft voor je muziekopstelling."
-                ),
+                title: localizedKey(language, "ui.mini.games"),
+                body: localizedKey(language, "ui.play.local.mini.games.while.keeping.djconnect.ready.for.your"),
                 systemImage: "gamecontroller.fill"
             )
         ]
@@ -2648,7 +2605,7 @@ private struct WhatsNewView: View {
                 HStack(spacing: 12) {
                     Image(systemName: "sparkles")
                         .foregroundStyle(.purple)
-                    Text(localized(model.language, "What's New", "Wat is er nieuw?"))
+                    Text(localizedKey(model.language, "ui.what.s.new"))
                         .font(.title.bold())
                 }
 
@@ -2671,7 +2628,7 @@ private struct WhatsNewView: View {
                     if model.isLoadingWhatsNew {
                         HStack(spacing: 10) {
                             ProgressView()
-                            Text(localized(model.language, "Loading release notes...", "Release notes laden..."))
+                            Text(localizedKey(model.language, "ui.loading.release.notes"))
                                 .font(.callout)
                         }
                         .foregroundStyle(.secondary)
@@ -2682,7 +2639,7 @@ private struct WhatsNewView: View {
                 Button {
                     model.dismissWhatsNew()
                 } label: {
-                Text(localized(model.language, "Continue", "Doorgaan"))
+                Text(localizedKey(model.language, "ui.continue"))
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(DJConnectLilacPillButtonStyle())
@@ -2794,7 +2751,7 @@ struct NowPlayingView: View {
                 .frame(maxWidth: djConnectContentMaxWidth)
                 .frame(maxWidth: .infinity)
             }
-            .navigationTitle(screenTitle(model.language, "Now Playing", "Speelt nu", isDemoMode: model.isDemoMode))
+            .navigationTitle(screenTitle(model.language, key: "Now Playing", isDemoMode: model.isDemoMode))
             .toolbar {
                 ToolbarItem {
                     RefreshButton(model: model)
@@ -2827,8 +2784,8 @@ private struct RefreshButton: View {
         }
         .disabled(model.isDemoMode || model.pairingStatus != .paired || model.isRefreshing)
         .tint(.primary)
-        .help(localized(model.language, "Refresh", "Vernieuwen"))
-        .accessibilityLabel(localized(model.language, "Refresh", "Vernieuwen"))
+        .help(localizedKey(model.language, "ui.refresh"))
+        .accessibilityLabel(localizedKey(model.language, "ui.refresh"))
     }
 }
 
@@ -2855,6 +2812,35 @@ private struct DJConnectPressedTintButtonStyle: ButtonStyle {
             }
             .scaleEffect(configuration.isPressed ? 0.96 : 1)
             .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
+    }
+}
+
+private struct PlaybackControlButtonStyle: ButtonStyle {
+    var isProminent = false
+    var isActive = false
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .background(
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .fill(backgroundColor(isPressed: configuration.isPressed))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .stroke(Color.white.opacity(isProminent || isActive ? 0.12 : 0.08), lineWidth: 1)
+            )
+            .scaleEffect(configuration.isPressed ? 0.96 : 1)
+            .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
+    }
+
+    private func backgroundColor(isPressed: Bool) -> Color {
+        if isProminent {
+            return djConnectAccent.opacity(isPressed ? 0.82 : 0.96)
+        }
+        if isActive {
+            return djConnectAccent.opacity(isPressed ? 0.30 : 0.24)
+        }
+        return Color.white.opacity(isPressed ? 0.16 : 0.10)
     }
 }
 
@@ -3287,7 +3273,7 @@ private struct TrackInsightView: View {
                 }
                 #endif
             }
-            .navigationTitle(screenTitle(model.language, "Track Insight", "Track Insight", isDemoMode: model.isDemoMode))
+            .navigationTitle(screenTitle(model.language, key: "Track Insight", isDemoMode: model.isDemoMode))
             #if os(iOS)
             .navigationBarTitleDisplayMode(.large)
             #endif
@@ -3312,7 +3298,7 @@ private struct TrackInsightView: View {
                                 .foregroundStyle(.primary)
                         }
                         .tint(.primary)
-                        .help(localized(model.language, "Share Insight", "Insight delen"))
+                        .help(localizedKey(model.language, "ui.share.insight"))
                     }
                 }
             }
@@ -3370,7 +3356,7 @@ private struct MusicDNAView: View {
                 }
                 #endif
             }
-            .navigationTitle(screenTitle(model.language, "Music DNA", "Music DNA", isDemoMode: model.isDemoMode))
+            .navigationTitle(screenTitle(model.language, key: "Music DNA", isDemoMode: model.isDemoMode))
             #if os(iOS)
             .navigationBarTitleDisplayMode(.large)
             #endif
@@ -3415,8 +3401,8 @@ private struct MusicDNARefreshButton: View {
         }
         .disabled(model.isLoadingMusicDNA || model.isUpdatingMusicDNA)
         .tint(.primary)
-        .help(localized(model.language, "Refresh Music DNA", "Music DNA vernieuwen"))
-        .accessibilityLabel(localized(model.language, "Refresh Music DNA", "Music DNA vernieuwen"))
+        .help(localizedKey(model.language, "ui.refresh.music.dna"))
+        .accessibilityLabel(localizedKey(model.language, "ui.refresh.music.dna"))
     }
 }
 
@@ -3430,11 +3416,7 @@ private struct MusicDNAHeroView: View {
                 .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
 
             if model.musicDNAProfileResponse?.enabled != true {
-                Text(localized(
-                    model.language,
-                    "DJConnect in your Home Assistant environment does not build a listening profile about you.",
-                    "DJConnect in je Home Assistant omgeving bouwt geen luisterprofiel van je op."
-                ))
+                Text(localizedKey(model.language, "ui.djconnect.in.your.home.assistant.environment.does.not.build.a"))
                 .font(.subheadline.weight(.semibold))
                 .foregroundStyle(.white.opacity(0.62))
                 .fixedSize(horizontal: false, vertical: true)
@@ -3455,22 +3437,14 @@ private struct MusicDNAOptInPromptView: View {
                 AboutBanner()
 
                 VStack(alignment: .leading, spacing: 10) {
-                    Text(localized(model.language, "Enable Music DNA?", "Music DNA activeren?"))
+                    Text(localizedKey(model.language, "ui.enable.music.dna"))
                         .font(.title.bold())
                         .foregroundStyle(.white)
-                    Text(localized(
-                        model.language,
-                        "With Music DNA, DJConnect can learn from your taste and listening behavior to give recommendations tailored to your listening profile.",
-                        "Met Music DNA kan DJConnect leren van je smaak en luistergedrag om aanbevelingen te kunnen geven afgestemd op jouw luisterprofiel."
-                    ))
+                    Text(localizedKey(model.language, "ui.with.music.dna.djconnect.can.learn.from.your.taste.and"))
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
                     if model.isDemoMode {
-                        Text(localized(
-                            model.language,
-                            "In demo mode this only unlocks fictional sample data on this device.",
-                            "In demo modus zet dit alleen fictieve voorbeelddata op dit apparaat aan."
-                        ))
+                        Text(localizedKey(model.language, "ui.in.demo.mode.this.only.unlocks.fictional.sample.data.on"))
                         .font(.callout.weight(.semibold))
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
@@ -3479,11 +3453,11 @@ private struct MusicDNAOptInPromptView: View {
 
                 VStack(alignment: .leading, spacing: 10) {
                     Label(
-                        localized(model.language, "You can clear the learned profile at any time.", "Je kunt het opgebouwde profiel op elk moment wissen."),
+                        localizedKey(model.language, "ui.you.can.clear.the.learned.profile.at.any"),
                         systemImage: "trash"
                     )
                     Label(
-                        localized(model.language, "You can always turn Music DNA off in Settings.", "Je kunt Music DNA altijd uitschakelen via Instellingen."),
+                        localizedKey(model.language, "ui.you.can.always.turn.music.dna.off.in"),
                         systemImage: "switch.2"
                     )
                 }
@@ -3496,7 +3470,7 @@ private struct MusicDNAOptInPromptView: View {
                     Button {
                         model.acceptMusicDNAOptInPrompt()
                     } label: {
-                        Label(localized(model.language, "Enable Music DNA", "Music DNA activeren"), systemImage: "sparkles")
+                        Label(localizedKey(model.language, "ui.enable.music.dna.1adf61"), systemImage: "sparkles")
                             .frame(maxWidth: .infinity)
                     }
                     .buttonStyle(DJConnectLilacPillButtonStyle())
@@ -3506,7 +3480,7 @@ private struct MusicDNAOptInPromptView: View {
                     Button {
                         model.dismissMusicDNAOptInPrompt()
                     } label: {
-                        Text(localized(model.language, "Not Now", "Niet nu"))
+                        Text(localizedKey(model.language, "ui.not.now.b1e535"))
                             .frame(maxWidth: .infinity)
                     }
                     .buttonStyle(DJConnectLilacPillButtonStyle())
@@ -3540,12 +3514,6 @@ private struct MusicDNAContentView: View {
                 MusicDNAUnavailableView(model: model)
             }
 
-            if let message = model.musicDNAErrorMessage, !message.isEmpty {
-                Text(message)
-                    .font(.footnote.weight(.semibold))
-                    .foregroundStyle(.red.opacity(0.85))
-                    .fixedSize(horizontal: false, vertical: true)
-            }
         }
     }
 }
@@ -3558,33 +3526,33 @@ private struct MusicDNASectionGrid: View {
 
     var body: some View {
         LazyVGrid(columns: [GridItem(.adaptive(minimum: 220), spacing: 12, alignment: .top)], spacing: 12) {
-            MusicDNAPanel(title: localized(model.language, "Summary", "Samenvatting"), value: profile.summary ?? "-", icon: "waveform")
-            MusicDNAPanel(title: localized(model.language, "Favorite Genres", "Favoriete genres"), value: names(profile.favoriteGenres), icon: "music.quarternote.3")
-            MusicDNAPanel(title: localized(model.language, "Favorite Artists", "Favoriete artiesten"), value: names(profile.favoriteArtists), icon: "person.wave.2")
-            MusicDNAPanel(title: localized(model.language, "Mood", "Mood"), value: moodSummary, icon: "sparkles")
-            MusicDNAPanel(title: localized(model.language, "Energy Profile", "Energieprofiel"), value: energyProfile, icon: "bolt.fill")
-            MusicDNAPanel(title: localized(model.language, "Recent Tracks", "Recente tracks"), value: tracks(profile.recentTracks), icon: "clock.arrow.circlepath")
-            MusicDNAPanel(title: localized(model.language, "Signals", "Signalen"), value: signals(profile.recommendationSignals), icon: "safari")
-            MusicDNAPanel(title: localized(model.language, "Updated", "Bijgewerkt"), value: updatedSummary, icon: "checkmark.seal")
+            MusicDNAPanel(title: localizedKey(model.language, "ui.summary"), value: profile.summary ?? "-", icon: "waveform")
+            MusicDNAPanel(title: localizedKey(model.language, "ui.favorite.genres"), value: names(profile.favoriteGenres), icon: "music.quarternote.3")
+            MusicDNAPanel(title: localizedKey(model.language, "ui.favorite.artists"), value: names(profile.favoriteArtists), icon: "person.wave.2")
+            MusicDNAPanel(title: localizedKey(model.language, "ui.mood"), value: moodSummary, icon: "sparkles")
+            MusicDNAPanel(title: localizedKey(model.language, "ui.energy.profile"), value: energyProfile, icon: "bolt.fill")
+            MusicDNAPanel(title: localizedKey(model.language, "ui.recent.tracks"), value: tracks(profile.recentTracks), icon: "clock.arrow.circlepath")
+            MusicDNAPanel(title: localizedKey(model.language, "ui.signals"), value: signals(profile.recommendationSignals), icon: "safari")
+            MusicDNAPanel(title: localizedKey(model.language, "ui.updated"), value: updatedSummary, icon: "checkmark.seal")
         }
     }
 
     private var energyProfile: String {
         guard let value = profile.mood?.value else {
-            return localized(model.language, "Not enough signals", "Nog niet genoeg signalen")
+            return localizedKey(model.language, "ui.not.enough.signals")
         }
         if value >= 72 {
-            return localized(model.language, "High-energy leaning", "Neigt naar hoge energie")
+            return localizedKey(model.language, "ui.high.energy.leaning")
         }
         if value <= 42 {
-            return localized(model.language, "Calm and spacious", "Rustig en ruimtelijk")
+            return localizedKey(model.language, "ui.calm.and.spacious")
         }
-        return localized(model.language, "Balanced energy", "Gebalanceerde energie")
+        return localizedKey(model.language, "ui.balanced.energy")
     }
 
     private var moodSummary: String {
         guard let mood = profile.mood else {
-            return localized(model.language, "Not enough signals", "Nog niet genoeg signalen")
+            return localizedKey(model.language, "ui.not.enough.signals")
         }
         let zone = mood.zone?.trimmingCharacters(in: .whitespacesAndNewlines)
         let value = mood.value.map { "\($0)%" }
@@ -3593,9 +3561,9 @@ private struct MusicDNASectionGrid: View {
 
     private var updatedSummary: String {
         if response.generation != nil {
-            return localized(model.language, "Generation \(response.generation ?? 0)", "Generatie \(response.generation ?? 0)")
+            return localizedKey(model.language, "ui.generation.value", arguments: response.generation ?? 0)
         }
-        return localized(model.language, "Server profile", "Serverprofiel")
+        return localizedKey(model.language, "ui.server.profile")
     }
 
     private func names(_ values: [DJConnectMusicDNANameValue]) -> String {
@@ -3604,7 +3572,7 @@ private struct MusicDNASectionGrid: View {
             .filter { !$0.isEmpty }
             .prefix(3)
             .joined(separator: ", ")
-            .ifEmpty(localized(model.language, "Not enough signals", "Nog niet genoeg signalen"))
+            .ifEmpty(localizedKey(model.language, "ui.not.enough.signals"))
     }
 
     private func tracks(_ values: [DJConnectMusicDNATrack]) -> String {
@@ -3616,7 +3584,7 @@ private struct MusicDNASectionGrid: View {
         }
         .prefix(3)
         .joined(separator: ", ")
-        .ifEmpty(localized(model.language, "Not enough signals", "Nog niet genoeg signalen"))
+        .ifEmpty(localizedKey(model.language, "ui.not.enough.signals"))
     }
 
     private func signals(_ values: [DJConnectMusicDNASignal]) -> String {
@@ -3625,7 +3593,7 @@ private struct MusicDNASectionGrid: View {
             .filter { !$0.isEmpty }
             .prefix(3)
             .joined(separator: ", ")
-            .ifEmpty(localized(model.language, "Not enough signals", "Nog niet genoeg signalen"))
+            .ifEmpty(localizedKey(model.language, "ui.not.enough.signals"))
     }
 }
 
@@ -3634,21 +3602,17 @@ private struct MusicDNADisabledView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Label(localized(model.language, "Music DNA is not enabled", "Music DNA is niet geactiveerd"), systemImage: "lock")
+            Label(localizedKey(model.language, "ui.music.dna.is.not.enabled"), systemImage: "lock")
                 .font(.headline.weight(.semibold))
                 .foregroundStyle(.white)
-            Text(localized(
-                model.language,
-                "Enable Music DNA to get recommendations tailored to your listening profile.",
-                "Activeer Music DNA om aanbevelingen te kunnen krijgen afgestemd op jouw luisterprofiel."
-            ))
+            Text(localizedKey(model.language, "ui.enable.music.dna.to.get.recommendations.tailored.to.your.listening"))
             .font(.callout)
             .foregroundStyle(.white.opacity(0.72))
             .fixedSize(horizontal: false, vertical: true)
             Button {
                 model.showMusicDNAOptInPrompt()
             } label: {
-                Label(localized(model.language, "Enable Music DNA", "Music DNA activeren"), systemImage: "sparkles")
+                Label(localizedKey(model.language, "ui.enable.music.dna.1adf61"), systemImage: "sparkles")
                     .frame(maxWidth: .infinity)
             }
             .buttonStyle(DJConnectLilacPillButtonStyle())
@@ -3666,21 +3630,17 @@ private struct MusicDNANoProfileView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             Label(
-                localized(model.language, "No Music DNA profile yet", "Nog geen Music DNA profiel opgebouwd"),
+                localizedKey(model.language, "ui.no.music.dna.profile.yet"),
                 systemImage: "waveform.path.ecg"
             )
                 .font(.headline.weight(.semibold))
                 .foregroundStyle(.white)
-            Text(localized(
-                model.language,
-                "Music DNA is enabled, but Home Assistant has not built profile data yet. This can happen right after enabling Music DNA or after clearing the learned profile.",
-                "Music DNA staat aan, maar Home Assistant heeft nog geen profieldata opgebouwd. Dit kan gebeuren direct na activeren of nadat het geleerde profiel is gewist."
-            ))
+            Text(localizedKey(model.language, "ui.music.dna.is.enabled.but.home.assistant.has.not.built"))
             .font(.callout)
             .foregroundStyle(.white.opacity(0.72))
             .fixedSize(horizontal: false, vertical: true)
             Label(
-                localized(model.language, "Ask DJ, Track Insight and listening signals will fill this in over time.", "Ask DJ, Track Insight en luistersignalen vullen dit na verloop van tijd aan."),
+                localizedKey(model.language, "ui.ask.dj.track.insight.and.listening.signals.will"),
                 systemImage: "clock.arrow.circlepath"
             )
             .font(.footnote.weight(.semibold))
@@ -3697,27 +3657,22 @@ private struct MusicDNAUnavailableView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             Label(
-                localized(model.language, "Music DNA could not be loaded", "Music DNA kon niet worden geladen"),
+                localizedKey(model.language, "ui.music.dna.could.not.be.loaded"),
                 systemImage: "wifi.exclamationmark"
             )
             .font(.headline.weight(.semibold))
             .foregroundStyle(.white)
-            Text(localized(
-                model.language,
-                "DJConnect cannot read the current Music DNA state from Home Assistant right now. This is a temporary connection or backend issue, not the same as Music DNA being turned off.",
-                "DJConnect kan de huidige Music DNA-status nu niet uit Home Assistant ophalen. Dit is een tijdelijke verbindings- of backendfout, niet hetzelfde als Music DNA uitschakelen."
-            ))
+            Text(localizedKey(model.language, "ui.djconnect.cannot.read.the.current.music.dna.state.from.home"))
             .font(.callout)
             .foregroundStyle(.white.opacity(0.72))
             .fixedSize(horizontal: false, vertical: true)
             Button {
                 Task { await model.refreshMusicDNAProfile() }
             } label: {
-                Label(localized(model.language, "Try Again", "Probeer opnieuw"), systemImage: "arrow.clockwise")
+                Label(localizedKey(model.language, "ui.try.again"), systemImage: "arrow.clockwise")
                     .frame(maxWidth: .infinity)
             }
-            .buttonStyle(.borderedProminent)
-            .tint(djConnectAccent)
+            .buttonStyle(DJConnectLilacPillButtonStyle())
             .disabled(model.isLoadingMusicDNA)
         }
         .padding(16)
@@ -3731,7 +3686,7 @@ private struct MusicDNALoadingView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             ProgressView()
-            Text(localized(model.language, "Loading Music DNA from Home Assistant...", "Music DNA laden uit Home Assistant..."))
+            Text(localizedKey(model.language, "ui.loading.music.dna.from.home.assistant"))
                 .font(.headline.weight(.semibold))
                 .foregroundStyle(.white)
             if let latest = model.currentTrackInsight ?? model.trackInsightHistory.first {
@@ -3849,7 +3804,7 @@ private struct MusicDNAPanel: View {
                 .fixedSize(horizontal: false, vertical: true)
         }
         .padding(18)
-        .frame(maxWidth: .infinity, minHeight: 168, alignment: .topLeading)
+        .frame(maxWidth: .infinity, minHeight: 220, alignment: .topLeading)
         .background(.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
         .overlay {
             RoundedRectangle(cornerRadius: 8, style: .continuous)
@@ -3865,11 +3820,7 @@ private struct MusicDNATimelinePreview: View {
         VStack(alignment: .leading, spacing: 10) {
             Label("Music DNA Evolution", systemImage: "point.3.connected.trianglepath.dotted")
                 .font(.headline.weight(.semibold))
-            Text(localized(
-                language,
-                "Future timeline: taste evolution, artist affinity, mood shifts, Year in Music and compatibility scores.",
-                "Toekomstige tijdlijn: smaakontwikkeling, artiest-affiniteit, mood-verschuivingen, Year in Music en compatibility scores."
-            ))
+            Text(localizedKey(language, "ui.future.timeline.taste.evolution.artist.affinity.mood.shifts.year.in"))
             .font(.callout)
             .foregroundStyle(.white.opacity(0.68))
             .fixedSize(horizontal: false, vertical: true)
@@ -3984,6 +3935,15 @@ private struct TrackInsightHeroScene: View {
     private func scene(date: Date) -> some View {
         let phase = TrackVibePlaybackPhase(playback: playback, date: date)
         return GeometryReader { geometry in
+            let isCompact = geometry.size.width < 560 || geometry.size.width / max(geometry.size.height, 1) < 1.05
+            let artworkSize = min(
+                geometry.size.width * (isCompact ? 0.34 : 0.30),
+                geometry.size.height * (isCompact ? 0.25 : 0.34),
+                210
+            )
+            let spectrumHeight = max(isCompact ? 96 : 86, geometry.size.height * (isCompact ? 0.16 : 0.22))
+            let spectrumY = geometry.size.height * (isCompact ? 0.78 : 0.76)
+            let infoBottomPadding = max(isCompact ? 112 : 18, geometry.size.height * (isCompact ? 0.16 : 0.04))
             ZStack {
                 TrackInsightPremiumBackground(profile: profile, phase: phase, date: date)
                 TrackInsightLightField(profile: profile, phase: phase, date: date)
@@ -3994,22 +3954,21 @@ private struct TrackInsightHeroScene: View {
                     reduceMotion: reduceMotion,
                     isActive: isActive
                 )
-                .frame(
-                    width: min(geometry.size.width * 0.34, 210),
-                    height: min(geometry.size.width * 0.34, 210)
-                )
-                .position(x: geometry.size.width * 0.50, y: geometry.size.height * 0.34)
+                .frame(width: artworkSize, height: artworkSize)
+                .position(x: geometry.size.width * 0.50, y: geometry.size.height * (isCompact ? 0.27 : 0.34))
 
                 TrackInsightPremiumSpectrum(profile: profile, phase: phase)
-                    .frame(height: max(86, geometry.size.height * 0.22))
-                    .padding(.horizontal, max(44, geometry.size.width * 0.11))
-                    .position(x: geometry.size.width / 2, y: geometry.size.height * 0.76)
+                    .frame(height: spectrumHeight)
+                    .padding(.horizontal, max(isCompact ? 28 : 44, geometry.size.width * (isCompact ? 0.08 : 0.11)))
+                    .position(x: geometry.size.width / 2, y: spectrumY)
 
                 VStack(spacing: 0) {
                     Spacer(minLength: 0)
                     TrackInsightHeroInfo(insight: insight, language: language)
+                        .frame(maxWidth: min(720, geometry.size.width * 0.82))
                 }
-                .padding(18)
+                .padding(.horizontal, 18)
+                .padding(.bottom, infoBottomPadding)
             }
         }
     }
@@ -4096,27 +4055,32 @@ private struct TrackInsightHeroArtwork: View {
     let isActive: Bool
 
     var body: some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: 26, style: .continuous)
-                .fill(.white.opacity(0.12))
-                .blur(radius: 22)
-                .scaleEffect(1.14)
-            CachedArtworkImage(url: insight.artwork, mode: .fill) {
-                TrackHeartbeatIcon(
-                    profile: profile,
-                    playback: playback,
-                    reduceMotion: reduceMotion,
-                    isActive: isActive
-                )
-                .padding(34)
-                .background(profile.gradient)
+        GeometryReader { geometry in
+            let side = min(geometry.size.width, geometry.size.height)
+            let cornerRadius = max(16, side * 0.12)
+            let iconPadding = max(12, side * 0.16)
+            ZStack {
+                RoundedRectangle(cornerRadius: cornerRadius + 2, style: .continuous)
+                    .fill(.white.opacity(0.12))
+                    .blur(radius: max(14, side * 0.11))
+                    .scaleEffect(1.14)
+                CachedArtworkImage(url: insight.artwork, mode: .fill) {
+                    TrackHeartbeatIcon(
+                        profile: profile,
+                        playback: playback,
+                        reduceMotion: reduceMotion,
+                        isActive: isActive
+                    )
+                    .padding(iconPadding)
+                    .background(profile.gradient)
+                }
+                .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+                .overlay {
+                    RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                        .stroke(.white.opacity(0.32), lineWidth: 1)
+                }
+                .shadow(color: (profile.colors.last ?? djConnectAccent).opacity(0.42), radius: max(18, side * 0.16), x: 0, y: max(8, side * 0.08))
             }
-            .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
-            .overlay {
-                RoundedRectangle(cornerRadius: 24, style: .continuous)
-                    .stroke(.white.opacity(0.32), lineWidth: 1)
-            }
-            .shadow(color: (profile.colors.last ?? djConnectAccent).opacity(0.42), radius: 34, x: 0, y: 18)
         }
     }
 }
@@ -4231,7 +4195,7 @@ private struct TrackInsightPrivacyFooter: View {
     let language: String
 
     var body: some View {
-        Label(localized(language, "Rendered privately on your device", "Privé gerenderd op je apparaat"), systemImage: "lock.fill")
+        Label(localizedKey(language, "ui.rendered.privately.on.your.device"), systemImage: "lock.fill")
             .font(.caption2.weight(.semibold))
             .foregroundStyle(.white.opacity(0.46))
             .frame(maxWidth: .infinity, alignment: .center)
@@ -4361,7 +4325,7 @@ private struct VibeCastEmptySignalView: View {
             Text("VibeCast")
                 .font(.largeTitle.weight(.bold))
                 .foregroundStyle(.white)
-            Text(localized(language, "Analyze a track to publish the visualizer signal.", "Analyseer een nummer om het visualizer-signaal te publiceren."))
+            Text(localizedKey(language, "ui.analyze.a.track.to.publish.the.visualizer.signal"))
                 .font(.headline)
                 .foregroundStyle(.white.opacity(0.68))
         }
@@ -4370,6 +4334,19 @@ private struct VibeCastEmptySignalView: View {
 }
 
 #if canImport(AVKit) && os(iOS)
+private func makeAirPlayPreviewPlayer(url: URL) async -> AVPlayer {
+    await Task.detached(priority: .userInitiated) {
+        let item = AVPlayerItem(url: url)
+        let avPlayer = AVPlayer(playerItem: item)
+        avPlayer.actionAtItemEnd = .none
+        avPlayer.allowsExternalPlayback = true
+        avPlayer.usesExternalPlaybackWhileExternalScreenIsActive = true
+        try? AVAudioSession.sharedInstance().setCategory(.playback, mode: .moviePlayback, options: [.allowAirPlay])
+        try? AVAudioSession.sharedInstance().setActive(true)
+        return avPlayer
+    }.value
+}
+
 @MainActor
 private final class VibeCastAirPlaySession: ObservableObject {
     @Published var player: AVPlayer?
@@ -4400,13 +4377,7 @@ private final class VibeCastAirPlaySession: ObservableObject {
             }
             try Task.checkCancellation()
             renderedURL = url
-            let item = AVPlayerItem(url: url)
-            let avPlayer = AVPlayer(playerItem: item)
-            avPlayer.actionAtItemEnd = .none
-            avPlayer.allowsExternalPlayback = true
-            avPlayer.usesExternalPlaybackWhileExternalScreenIsActive = true
-            try? AVAudioSession.sharedInstance().setCategory(.playback, mode: .moviePlayback, options: [.allowAirPlay])
-            try? AVAudioSession.sharedInstance().setActive(true)
+            let avPlayer = await makeAirPlayPreviewPlayer(url: url)
             player = avPlayer
             isPreparing = false
             avPlayer.play()
@@ -4448,14 +4419,14 @@ private struct VibeCastAirPlayToolbarButton: View {
         if hasInsight, isReady {
             NativeAirPlayRoutePicker()
                 .frame(width: 30, height: 30)
-                .accessibilityLabel(localized(language, "AirPlay VibeCast", "AirPlay VibeCast"))
-                .help(localized(language, "Send VibeCast video to AirPlay", "Stuur VibeCast-video naar AirPlay"))
+                .accessibilityLabel(localizedKey(language, "ui.airplay.vibecast"))
+                .help(localizedKey(language, "ui.send.vibecast.video.to.airplay"))
         } else if hasInsight, isPreparing {
             ProgressView()
                 .controlSize(.small)
                 .frame(width: 30, height: 30)
                 .tint(.primary)
-                .accessibilityLabel(localized(language, "Preparing VibeCast video", "VibeCast-video voorbereiden"))
+                .accessibilityLabel(localizedKey(language, "ui.preparing.vibecast.video"))
         } else {
             Button {} label: {
                 Image(systemName: "airplayvideo")
@@ -4465,8 +4436,8 @@ private struct VibeCastAirPlayToolbarButton: View {
             .foregroundStyle(.secondary)
             .disabled(true)
             .opacity(0.42)
-            .accessibilityLabel(localized(language, "Analyze Track Insight before using VibeCast", "Analyseer Track Insight voordat je VibeCast gebruikt"))
-            .help(localized(language, "Analyze Track Insight before using VibeCast", "Analyseer Track Insight voordat je VibeCast gebruikt"))
+            .accessibilityLabel(localizedKey(language, "ui.analyze.track.insight.before.using.vibecast"))
+            .help(localizedKey(language, "ui.analyze.track.insight.before.using.vibecast"))
         }
     }
 }
@@ -4492,7 +4463,7 @@ private struct VibeCastAVPlayerPreviewSheet: View {
                         Text("VibeCast")
                             .font(.title.bold())
                             .foregroundStyle(.white)
-                        Text(localized(language, "Local AVPlayer preview", "Lokaal AVPlayer voorbeeld"))
+                        Text(localizedKey(language, "ui.local.avplayer.preview"))
                             .font(.callout.weight(.semibold))
                             .foregroundStyle(.white.opacity(0.62))
                     }
@@ -4534,7 +4505,7 @@ private struct VibeCastAVPlayerPreviewSheet: View {
                             ProgressView(value: progress)
                                 .tint(djConnectAccent)
                                 .frame(maxWidth: 260)
-                            Text(localized(language, "Rendering VibeCast video...", "VibeCast-video renderen..."))
+                            Text(localizedKey(language, "ui.rendering.vibecast.video"))
                                 .font(.callout.weight(.semibold))
                                 .foregroundStyle(.white.opacity(0.72))
                             Text("\(Int((progress * 100).rounded()))%")
@@ -4553,7 +4524,7 @@ private struct VibeCastAVPlayerPreviewSheet: View {
                 #if os(iOS)
                 HStack(spacing: 12) {
                     Label(
-                        localized(language, "Route this VibeCast video with AirPlay", "Route deze VibeCast-video met AirPlay"),
+                        localizedKey(language, "ui.route.this.vibecast.video.with.airplay"),
                         systemImage: "airplayvideo"
                     )
                     .font(.callout.weight(.semibold))
@@ -4563,7 +4534,7 @@ private struct VibeCastAVPlayerPreviewSheet: View {
                         .frame(width: 42, height: 42)
                         .opacity(player == nil ? 0.38 : 1)
                         .disabled(player == nil)
-                        .accessibilityLabel(localized(language, "Choose AirPlay display", "Kies AirPlay-scherm"))
+                        .accessibilityLabel(localizedKey(language, "ui.choose.airplay.display"))
                 }
                 .padding(.horizontal, 14)
                 .padding(.vertical, 10)
@@ -4574,11 +4545,7 @@ private struct VibeCastAVPlayerPreviewSheet: View {
                 }
                 #endif
 
-                Text(localized(
-                    language,
-                    "This MP4 is played through AVPlayer. Use the AirPlay control above to send the active VibeCast video route to a display.",
-                    "Deze MP4 speelt via AVPlayer. Gebruik de AirPlay-knop hierboven om de actieve VibeCast-videoroute naar een scherm te sturen."
-                ))
+                Text(localizedKey(language, "ui.this.mp4.is.played.through.avplayer.use.the.airplay.control"))
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(.white.opacity(0.54))
                 .fixedSize(horizontal: false, vertical: true)
@@ -4621,16 +4588,13 @@ private struct VibeCastAVPlayerPreviewSheet: View {
                 }
                 try Task.checkCancellation()
                 renderedURL = url
+                #if !os(macOS)
+                let avPlayer = await makeAirPlayPreviewPlayer(url: url)
+                #else
                 let item = AVPlayerItem(url: url)
                 let avPlayer = AVPlayer(playerItem: item)
                 avPlayer.actionAtItemEnd = .none
                 avPlayer.allowsExternalPlayback = true
-                #if !os(macOS)
-                avPlayer.usesExternalPlaybackWhileExternalScreenIsActive = true
-                #endif
-                #if os(iOS)
-                try? AVAudioSession.sharedInstance().setCategory(.playback, mode: .moviePlayback, options: [.allowAirPlay])
-                try? AVAudioSession.sharedInstance().setActive(true)
                 #endif
                 player = avPlayer
                 avPlayer.play()
@@ -4654,14 +4618,14 @@ private struct AirPlayToolbarButton: View {
         #if canImport(AVKit) && os(iOS)
         NativeAirPlayRoutePicker()
             .frame(width: 30, height: 30)
-            .accessibilityLabel(localized(language, "AirPlay", "AirPlay"))
+            .accessibilityLabel(localizedKey(language, "ui.airplay"))
             .help(airPlayHelpText)
         #elseif canImport(AVKit) && os(macOS)
         NativeAirPlayRoutePicker {
             openWindow(id: "vibecast")
         }
         .frame(width: 30, height: 30)
-        .accessibilityLabel(localized(language, "AirPlay", "AirPlay"))
+        .accessibilityLabel(localizedKey(language, "ui.airplay"))
         .help(airPlayHelpText)
         #elseif os(macOS)
         Button {
@@ -4671,22 +4635,22 @@ private struct AirPlayToolbarButton: View {
         }
         .buttonStyle(.borderless)
         .foregroundStyle(.primary)
-        .accessibilityLabel(localized(language, "VibeCast", "VibeCast"))
+        .accessibilityLabel(localizedKey(language, "ui.vibecast"))
         .help(airPlayHelpText)
         #else
         Button {} label: {
             Image(systemName: "airplayvideo")
         }
         .disabled(true)
-        .help(localized(language, "VibeCast unavailable", "VibeCast niet beschikbaar"))
+        .help(localizedKey(language, "ui.vibecast.unavailable"))
         #endif
     }
 
     private var airPlayHelpText: String {
         #if os(macOS)
-        localized(language, "Choose an AirPlay display for VibeCast", "Kies een AirPlay-scherm voor VibeCast")
+        localizedKey(language, "ui.choose.an.airplay.display.for.vibecast")
         #else
-        localized(language, "VibeCast via AirPlay", "VibeCast via AirPlay")
+        localizedKey(language, "ui.vibecast.via.airplay")
         #endif
     }
 }
@@ -5423,14 +5387,14 @@ private struct TrackInsightMetricsGrid: View {
     var body: some View {
         LazyVGrid(columns: [GridItem(.adaptive(minimum: 172), spacing: 10, alignment: .top)], spacing: 10) {
             TrackInsightMetricPill(title: "BPM", value: insight.bpm.map { String(Int($0.rounded())) })
-            TrackInsightMetricPill(title: localized(language, "Key", "Toonsoort"), value: insight.key)
-            TrackInsightMetricPill(title: localized(language, "Genre", "Genre"), value: insight.genre)
-            TrackInsightMetricPill(title: localized(language, "Mood", "Mood"), value: insight.mood)
-            TrackInsightMetricPill(title: localized(language, "Energy", "Energie"), value: percent(insight.energy))
-            TrackInsightMetricPill(title: localized(language, "Dance", "Dans"), value: percent(insight.danceability))
-            TrackInsightMetricPill(title: localized(language, "Intensity", "Intensiteit"), value: percent(insight.intensity))
-            TrackInsightMetricPill(title: localized(language, "Vibe", "Vibe"), value: insight.vibe)
-            TrackInsightMetricPill(title: localized(language, "Texture", "Textuur"), value: insight.texture)
+            TrackInsightMetricPill(title: localizedKey(language, "ui.key"), value: insight.key)
+            TrackInsightMetricPill(title: localizedKey(language, "ui.genre"), value: insight.genre)
+            TrackInsightMetricPill(title: localizedKey(language, "ui.mood"), value: insight.mood)
+            TrackInsightMetricPill(title: localizedKey(language, "ui.energy"), value: percent(insight.energy))
+            TrackInsightMetricPill(title: localizedKey(language, "ui.dance"), value: percent(insight.danceability))
+            TrackInsightMetricPill(title: localizedKey(language, "ui.intensity"), value: percent(insight.intensity))
+            TrackInsightMetricPill(title: localizedKey(language, "ui.vibe"), value: insight.vibe)
+            TrackInsightMetricPill(title: localizedKey(language, "ui.texture"), value: insight.texture)
         }
     }
 
@@ -5510,13 +5474,13 @@ private struct TrackInsightStructuredGroup: Identifiable {
 private extension TrackInsight {
     func structuredAnalysisGroups(language: String) -> [TrackInsightStructuredGroup] {
         [
-            TrackInsightStructuredGroup(id: "production", title: localized(language, "Production", "Productie"), values: productionNotes),
-            TrackInsightStructuredGroup(id: "instrumentation", title: localized(language, "Instrumentation", "Instrumentatie"), values: instrumentation),
-            TrackInsightStructuredGroup(id: "arrangement", title: localized(language, "Arrangement", "Arrangement"), values: arrangementNotes),
-            TrackInsightStructuredGroup(id: "listening", title: localized(language, "Listening cues", "Luisterpunten"), values: listeningCues),
+            TrackInsightStructuredGroup(id: "production", title: localizedKey(language, "ui.production"), values: productionNotes),
+            TrackInsightStructuredGroup(id: "instrumentation", title: localizedKey(language, "ui.instrumentation"), values: instrumentation),
+            TrackInsightStructuredGroup(id: "arrangement", title: localizedKey(language, "ui.arrangement"), values: arrangementNotes),
+            TrackInsightStructuredGroup(id: "listening", title: localizedKey(language, "ui.listening.cues"), values: listeningCues),
             TrackInsightStructuredGroup(
                 id: "similar",
-                title: localized(language, "Similar tracks", "Vergelijkbare tracks"),
+                title: localizedKey(language, "ui.similar.tracks"),
                 values: similarTracks.map { track in
                     if let reason = track.reason, !reason.isEmpty {
                         return "\(track.title) - \(track.artist): \(reason)"
@@ -5538,11 +5502,7 @@ private struct TrackInsightEmptyState: View {
                 .foregroundStyle(djConnectAccent)
             Text("Track Insight")
                 .font(.title2.weight(.bold))
-            Text(localized(
-                model.language,
-                "See what makes the current track feel the way it does.",
-                "Ontdek wat dit nummer zijn gevoel geeft."
-            ))
+            Text(localizedKey(model.language, "ui.see.what.makes.the.current.track.feel.the.way.it"))
                 .font(.callout)
                 .foregroundStyle(.white.opacity(0.68))
                 .multilineTextAlignment(.center)
@@ -5555,7 +5515,7 @@ private struct TrackInsightEmptyState: View {
             Button {
                 model.analyzeCurrentTrack(open: false)
             } label: {
-                Label(localized(model.language, "Analyze Track", "Analyseer nummer"), systemImage: "sparkles")
+                Label(localizedKey(model.language, "ui.analyze.track"), systemImage: "sparkles")
                     .fixedSize(horizontal: true, vertical: false)
             }
             .buttonStyle(DJConnectLilacPillButtonStyle())
@@ -5625,7 +5585,7 @@ private struct IOSNowPlayingView: View {
                     }
                 }
             }
-            .navigationTitle(screenTitle(model.language, "Now Playing", "Speelt nu", isDemoMode: model.isDemoMode))
+            .navigationTitle(screenTitle(model.language, key: "Now Playing", isDemoMode: model.isDemoMode))
             .navigationBarTitleDisplayMode(.large)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
@@ -5674,12 +5634,12 @@ private struct IOSConnectionCard: View {
 
             if model.pairingStatus != .paired {
                 HStack {
-                    Text(localized(model.language, "Code", "Code"))
+                    Text(localizedKey(model.language, "ui.code"))
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(.secondary)
                     CopyableValue(
                         text: model.pairingToken,
-                        copyLabel: localized(model.language, "Copy Pair Code", "Koppelcode kopiëren"),
+                        copyLabel: localizedKey(model.language, "ui.copy.pair.code"),
                         prominent: true
                     )
                     if model.isPairing {
@@ -5698,11 +5658,7 @@ private struct IOSConnectionCard: View {
                     .fixedSize(horizontal: false, vertical: true)
             } else if !model.backendAvailable {
                 Label(
-                    localized(
-                            model.language,
-                            "Playback is unavailable\nCheck the Spotify authorization in Home Assistant",
-                            "Afspelen niet beschikbaar\nControleer de Spotify autorisatie in Home Assistant"
-                        ),
+                    localizedKey(model.language, "ui.playback.is.unavailable.ncheck.the.spotify.authorization.in.home.assistant"),
                     systemImage: "exclamationmark.triangle"
                 )
                     .font(.footnote)
@@ -5729,47 +5685,47 @@ private struct IOSConnectionCard: View {
         if model.backendAvailable {
             GlowingStatusDot()
                 .frame(width: 22, height: 22)
-                .accessibilityLabel(localized(model.language, "Playback available", "Afspelen beschikbaar"))
+                .accessibilityLabel(localizedKey(model.language, "ui.playback.available"))
         } else {
             Circle()
                 .fill(Color.secondary.opacity(0.75))
                 .frame(width: 11, height: 11)
                 .shadow(color: Color.secondary.opacity(0.35), radius: 8)
                 .frame(width: 22, height: 22)
-                .accessibilityLabel(localized(model.language, "Playback unavailable", "Afspelen niet beschikbaar"))
+                .accessibilityLabel(localizedKey(model.language, "ui.playback.unavailable"))
         }
     }
 
     private var statusTitle: String {
         return switch model.pairingStatus {
         case .paired:
-            localized(model.language, "Paired", "Gekoppeld")
+            localizedKey(model.language, "ui.paired")
         case .pairing:
-            localized(model.language, "Pairing with Home Assistant", "Koppelen met Home Assistant")
+            localizedKey(model.language, "ui.pairing.with.home.assistant")
         case .waitingForHomeAssistantCompletion:
-            localized(model.language, "Finish setup in Home Assistant", "Rond de setup af in Home Assistant")
+            localizedKey(model.language, "ui.finish.setup.in.home.assistant")
         case .stale:
-            localized(model.language, "Not connected to Home Assistant", "Niet gekoppeld aan Home Assistant")
+            localizedKey(model.language, "ui.not.connected.to.home.assistant")
         case .unpaired:
-            localized(model.language, "Ready to Pair", "Klaar om te koppelen")
+            localizedKey(model.language, "ui.ready.to.pair")
         }
     }
 
     private var statusSubtitle: String? {
         if model.isDemoMode {
-            return localized(model.language, "App Store preview without Home Assistant", "App Store preview zonder Home Assistant")
+            return localizedKey(model.language, "ui.app.store.preview.without.home.assistant")
         }
         return switch model.pairingStatus {
         case .paired:
             nil
         case .pairing:
-            localized(model.language, "Enter this code in the DJConnect Home Assistant integration", "Vul deze code in bij de DJConnect Home Assistant integratie")
+            localizedKey(model.language, "ui.enter.this.code.in.the.djconnect.home.assistant")
         case .waitingForHomeAssistantCompletion:
-            localized(model.language, "Waiting for setup to be completed in Home Assistant", "Wacht op afronden in Home Assistant")
+            localizedKey(model.language, "ui.waiting.for.setup.to.be.completed.in.home")
         case .stale:
-            localized(model.language, "Open Settings to reset or recover pairing", "Open Instellingen om pairing te herstellen of resetten")
+            localizedKey(model.language, "ui.open.settings.to.reset.or.recover.pairing")
         case .unpaired:
-            localized(model.language, "Add your Home Assistant URL in Settings", "Vul je Home Assistant URL in bij Instellingen")
+            localizedKey(model.language, "ui.add.your.home.assistant.url.in.settings")
         }
     }
 
@@ -5825,10 +5781,10 @@ private struct IOSTrackHero: View {
             VStack(alignment: .leading, spacing: 5) {
                 HStack(alignment: .top, spacing: 12) {
                     VStack(alignment: .leading, spacing: 5) {
-                        Text(playback?.trackName ?? localized(model.language, "Nothing Playing", "Niets speelt af"))
+                        Text(playback?.trackName ?? localizedKey(model.language, "ui.nothing.playing"))
                             .font(.title2.weight(.bold))
                             .lineLimit(2)
-                        Text(playback?.artistName ?? playback?.device?.name ?? localized(model.language, "Select an output device", "Kies een uitvoerapparaat"))
+                        Text(playback?.artistName ?? playback?.device?.name ?? localizedKey(model.language, "ui.select.an.output.device"))
                             .font(.headline)
                             .foregroundStyle(.secondary)
                             .lineLimit(2)
@@ -5860,7 +5816,7 @@ private struct IOSPlaybackSurface: View {
                 playbackButton(
                     "backward.end.fill",
                     size: 54,
-                    accessibilityLabel: localized(model.language, "Previous Track", "Vorig nummer")
+                    accessibilityLabel: localizedKey(model.language, "ui.previous.track")
                 ) {
                     model.sendPlaybackCommand("previous")
                 }
@@ -5869,7 +5825,7 @@ private struct IOSPlaybackSurface: View {
                     model.isPlaying ? "pause.fill" : "play.fill",
                     size: 66,
                     prominent: true,
-                    accessibilityLabel: model.isPlaying ? localized(model.language, "Pause", "Pauze") : localized(model.language, "Play", "Afspelen")
+                    accessibilityLabel: model.isPlaying ? localizedKey(model.language, "ui.pause") : localizedKey(model.language, "ui.play")
                 ) {
                     model.togglePlayback()
                 }
@@ -5877,7 +5833,7 @@ private struct IOSPlaybackSurface: View {
                 playbackButton(
                     "forward.end.fill",
                     size: 54,
-                    accessibilityLabel: localized(model.language, "Next Track", "Volgend nummer")
+                    accessibilityLabel: localizedKey(model.language, "ui.next.track")
                 ) {
                     model.sendPlaybackCommand("next")
                 }
@@ -5886,12 +5842,13 @@ private struct IOSPlaybackSurface: View {
             HStack(spacing: 12) {
                 Image(systemName: "speaker.wave.1.fill")
                     .foregroundStyle(.secondary)
-                Slider(value: $model.volume, in: 0...100, step: 1) { editing in
+                Slider(value: $model.volume, in: 0...100) { editing in
                     if !editing {
                         DJConnectHaptics.selection()
                         model.commitVolumeChange()
                     }
                 }
+                .tint(djConnectAccent)
                 .disabled(!canUsePlayback)
                 Text("\(Int(model.volume))")
                     .font(.caption.monospacedDigit())
@@ -5916,7 +5873,7 @@ private struct IOSPlaybackSurface: View {
         .disabled(!canUsePlayback)
         .opacity(canUsePlayback ? 1 : 0.55)
         .padding(14)
-        .background(Color(uiColor: .systemBackground), in: RoundedRectangle(cornerRadius: 8))
+        .background(Color.white.opacity(0.04), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
     }
 
     private func playbackButton(
@@ -5934,10 +5891,9 @@ private struct IOSPlaybackSurface: View {
             Image(systemName: systemImage)
                 .font(.system(size: prominent ? 24 : 18, weight: .semibold))
                 .frame(width: size, height: size)
-                .foregroundStyle(prominent ? .white : .primary)
-                .background(prominent ? Color.purple : Color(uiColor: .secondarySystemGroupedBackground), in: Circle())
+                .foregroundStyle(.white)
         }
-        .buttonStyle(DJConnectPressedTintButtonStyle(pressedColor: djConnectAccent, shape: .circle))
+        .buttonStyle(PlaybackControlButtonStyle(isProminent: prominent))
         .disabled(!canUsePlayback)
         .accessibilityLabel(accessibilityLabel)
     }
@@ -5977,11 +5933,7 @@ struct SetupStatusView: View {
                         .fixedSize(horizontal: false, vertical: true)
                 } else if !model.backendAvailable {
                     Label(
-                        localized(
-                            model.language,
-                            "Playback is unavailable\nCheck the Spotify authorization in Home Assistant",
-                            "Afspelen niet beschikbaar\nControleer de Spotify autorisatie in Home Assistant"
-                        ),
+                        localizedKey(model.language, "ui.playback.is.unavailable.ncheck.the.spotify.authorization.in.home.assistant"),
                         systemImage: "exclamationmark.triangle"
                     )
                         .foregroundStyle(.orange)
@@ -5999,15 +5951,15 @@ struct SetupStatusView: View {
 
                 VStack(alignment: .leading, spacing: 6) {
                     setupDetailRow(
-                        localized(model.language, "Route", "Route"),
+                        localizedKey(model.language, "ui.route"),
                         connectionModeTitle
                     )
                     setupDetailRow(
-                        localized(model.language, "Backend", "Backend"),
+                        localizedKey(model.language, "ui.backend"),
                         backendTitle
                     )
                     setupDetailRow(
-                        localized(model.language, "Playback", "Afspelen"),
+                        localizedKey(model.language, "ui.playback"),
                         playbackTitle
                     )
                 }
@@ -6074,71 +6026,71 @@ struct SetupStatusView: View {
 
     private var statusDotLabel: String {
         guard model.isConnected else {
-            return localized(model.language, "Disconnected", "Niet verbonden")
+            return localizedKey(model.language, "ui.disconnected")
         }
         guard model.backendAvailable else {
-            return localized(model.language, "Playback unavailable", "Afspelen niet beschikbaar")
+            return localizedKey(model.language, "ui.playback.unavailable")
         }
-        return localized(model.language, "Connected", "Verbonden")
+        return localizedKey(model.language, "ui.connected")
     }
 
     private var statusTitle: String {
         if model.isDemoMode {
-            return localized(model.language, "Demo Mode", "Demo modus")
+            return localizedKey(model.language, "ui.demo.mode")
         }
         return switch model.pairingStatus {
         case .paired:
-            localized(model.language, "Paired", "Gekoppeld")
+            localizedKey(model.language, "ui.paired")
         case .pairing:
-            localized(model.language, "Pairing with Home Assistant", "Koppelen met Home Assistant")
+            localizedKey(model.language, "ui.pairing.with.home.assistant")
         case .waitingForHomeAssistantCompletion:
-            localized(model.language, "Finish setup in Home Assistant", "Rond de setup af in Home Assistant")
+            localizedKey(model.language, "ui.finish.setup.in.home.assistant")
         case .stale:
-            localized(model.language, "Not connected to Home Assistant", "Niet gekoppeld aan Home Assistant")
+            localizedKey(model.language, "ui.not.connected.to.home.assistant")
         case .unpaired:
-            localized(model.language, "Ready to Pair", "Klaar om te koppelen")
+            localizedKey(model.language, "ui.ready.to.pair")
         }
     }
 
     private var connectionModeTitle: String {
         if model.isDemoMode {
-            return localized(model.language, "Local Demo Mode", "Lokale demo modus")
+            return localizedKey(model.language, "ui.local.demo.mode")
         }
         return switch model.haConnectionMode {
         case .local:
-            localized(model.language, "Local Home Assistant", "Lokale Home Assistant")
+            localizedKey(model.language, "ui.local.home.assistant")
         case .remote:
-            localized(model.language, "Remote Home Assistant", "Remote Home Assistant")
+            localizedKey(model.language, "ui.remote.home.assistant")
         case .offline:
-            localized(model.language, "Offline", "Offline")
+            localizedKey(model.language, "ui.offline")
         }
     }
 
     private var backendTitle: String {
         let name = model.musicBackendSummary.musicBackendName
             ?? model.musicBackendSummary.musicBackend
-            ?? localized(model.language, "Not reported", "Niet gemeld")
+            ?? localizedKey(model.language, "ui.not.reported")
         guard let available = model.musicBackendSummary.musicBackendAvailable else {
             return name
         }
         return available
-            ? localized(model.language, "\(name) available", "\(name) beschikbaar")
-            : localized(model.language, "\(name) unavailable", "\(name) niet beschikbaar")
+            ? localizedKey(model.language, "ui.value.available", arguments: name)
+            : localizedKey(model.language, "ui.value.unavailable", arguments: name)
     }
 
     private var playbackTitle: String {
         guard model.pairingStatus == .paired || model.isDemoMode else {
-            return localized(model.language, "Locked until pairing", "Geblokkeerd tot koppeling")
+            return localizedKey(model.language, "ui.locked.until.pairing")
         }
         guard model.canUsePlaybackFeatures else {
-            return localized(model.language, "Unavailable", "Niet beschikbaar")
+            return localizedKey(model.language, "ui.unavailable")
         }
         if model.playback?.hasPlayback == true {
             return model.isPlaying
-                ? localized(model.language, "Playing", "Speelt")
-                : localized(model.language, "Paused", "Gepauzeerd")
+                ? localizedKey(model.language, "ui.playing")
+                : localizedKey(model.language, "ui.paused")
         }
-        return localized(model.language, "No active playback", "Geen actieve playback")
+        return localizedKey(model.language, "ui.no.active.playback")
     }
 }
 
@@ -6155,10 +6107,10 @@ struct TrackSummaryView: View {
             AnimatedAlbumArtworkView(playback: playback, isDemoMode: model.isDemoMode, maxWidth: 320)
 
             VStack(alignment: .leading, spacing: 6) {
-                Text(playback?.trackName ?? localized(model.language, "Nothing playing", "Niets speelt af"))
+                Text(playback?.trackName ?? localizedKey(model.language, "ui.nothing.playing.13ae37"))
                     .font(.title2.weight(.semibold))
                     .lineLimit(2)
-                Text(playback?.artistName ?? playback?.device?.name ?? localized(model.language, "Select an output device", "Kies een uitvoerapparaat"))
+                Text(playback?.artistName ?? playback?.device?.name ?? localizedKey(model.language, "ui.select.an.output.device"))
                     .font(.title3)
                     .foregroundStyle(.secondary)
                     .lineLimit(2)
@@ -6218,7 +6170,7 @@ private struct ProgressScrubberView: View {
             .tint(djConnectAccent)
             .disabled(!canSeek)
             .opacity(canSeek ? 1 : 0.55)
-            .accessibilityLabel(localized(model.language, "Playback position", "Afspeelpositie"))
+            .accessibilityLabel(localizedKey(model.language, "ui.playback.position"))
 
             Text("\(formatPlaybackTime(currentMS)) / \(formatPlaybackTime(durationMS))")
                 .font(.caption.monospacedDigit())
@@ -6255,8 +6207,8 @@ private struct SeekControlsView: View {
                     .frame(width: 48, height: 44)
                     .foregroundStyle(.white)
             }
-            .help(localized(model.language, "Back 15 seconds", "15 seconden terug"))
-            .accessibilityLabel(localized(model.language, "Back 15 seconds", "15 seconden terug"))
+            .help(localizedKey(model.language, "ui.back.15.seconds"))
+            .accessibilityLabel(localizedKey(model.language, "ui.back.15.seconds"))
 
             Button {
                 DJConnectHaptics.impact()
@@ -6267,12 +6219,10 @@ private struct SeekControlsView: View {
                     .frame(width: 48, height: 44)
                     .foregroundStyle(.white)
             }
-            .help(localized(model.language, "Forward 15 seconds", "15 seconden vooruit"))
-            .accessibilityLabel(localized(model.language, "Forward 15 seconds", "15 seconden vooruit"))
+            .help(localizedKey(model.language, "ui.forward.15.seconds"))
+            .accessibilityLabel(localizedKey(model.language, "ui.forward.15.seconds"))
         }
-        .buttonStyle(.bordered)
-        .controlSize(.small)
-        .tint(.white)
+        .buttonStyle(PlaybackControlButtonStyle())
         .disabled(!canSeek)
         .opacity(canSeek ? 1 : 0.45)
         .frame(maxWidth: .infinity, alignment: .center)
@@ -6294,21 +6244,17 @@ private struct TrackInsightIconButton: View {
             } else {
                 TrackInsightPulseIcon()
                     .stroke(style: StrokeStyle(lineWidth: 3.2, lineCap: .round, lineJoin: .round))
+                    .foregroundStyle(model.currentTrackInsight == nil ? .white.opacity(0.68) : djConnectAccent)
                     .frame(width: 27, height: 23)
                     .frame(width: 44, height: 40)
             }
         }
-        .buttonStyle(.bordered)
-        .tint(model.currentTrackInsight == nil ? .secondary : djConnectAccent)
+        .buttonStyle(PlaybackControlButtonStyle(isActive: model.currentTrackInsight != nil))
         .disabled(model.isLoadingTrackInsight || !model.canStartTrackInsightAnalysis)
         .opacity(model.canStartTrackInsightAnalysis ? 1 : 0.45)
-        .accessibilityLabel(localized(model.language, "Open Track Insight", "Open Track Insight"))
-        .accessibilityHint(localized(
-            model.language,
-            "Sends the current track to the backend for analysis and opens Track Insight.",
-            "Stuurt het huidige nummer naar de backend voor analyse en opent Track Insight."
-        ))
-        .help(localized(model.language, "Track Insight", "Track Insight"))
+        .accessibilityLabel(localizedKey(model.language, "ui.open.track.insight"))
+        .accessibilityHint(localizedKey(model.language, "ui.sends.the.current.track.to.the.backend.for.analysis.and"))
+        .help(localizedKey(model.language, "ui.track.insight"))
     }
 }
 
@@ -6343,11 +6289,11 @@ struct PlaybackControlsView: View {
                     Image(systemName: "backward.end.fill")
                         .font(.system(size: 22, weight: .semibold))
                         .frame(width: 44, height: 40)
+                        .foregroundStyle(.white)
                 }
-                .buttonStyle(.bordered)
-                .buttonStyle(DJConnectPressedTintButtonStyle(pressedColor: djConnectAccent))
-                .help(localized(model.language, "Previous", "Vorige"))
-                .accessibilityLabel(localized(model.language, "Previous Track", "Vorig nummer"))
+                .buttonStyle(PlaybackControlButtonStyle())
+                .help(localizedKey(model.language, "ui.previous"))
+                .accessibilityLabel(localizedKey(model.language, "ui.previous.track"))
                 .disabled(!canUsePlayback)
 
                 Button {
@@ -6357,12 +6303,11 @@ struct PlaybackControlsView: View {
                     Image(systemName: model.isPlaying ? "pause.fill" : "play.fill")
                         .font(.system(size: 24, weight: .semibold))
                         .frame(width: 50, height: 44)
+                        .foregroundStyle(.white)
                 }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.large)
-                .tint(djConnectAccent)
-                .help(model.isPlaying ? localized(model.language, "Pause", "Pauze") : localized(model.language, "Play", "Afspelen"))
-                .accessibilityLabel(model.isPlaying ? localized(model.language, "Pause", "Pauze") : localized(model.language, "Play", "Afspelen"))
+                .buttonStyle(PlaybackControlButtonStyle(isProminent: true))
+                .help(model.isPlaying ? localizedKey(model.language, "ui.pause") : localizedKey(model.language, "ui.play"))
+                .accessibilityLabel(model.isPlaying ? localizedKey(model.language, "ui.pause") : localizedKey(model.language, "ui.play"))
                 .disabled(!canUsePlayback)
 
                 Button {
@@ -6372,17 +6317,17 @@ struct PlaybackControlsView: View {
                     Image(systemName: "forward.end.fill")
                         .font(.system(size: 22, weight: .semibold))
                         .frame(width: 44, height: 40)
+                        .foregroundStyle(.white)
                 }
-                .buttonStyle(.bordered)
-                .buttonStyle(DJConnectPressedTintButtonStyle(pressedColor: djConnectAccent))
-                .help(localized(model.language, "Next", "Volgende"))
-                .accessibilityLabel(localized(model.language, "Next Track", "Volgend nummer"))
+                .buttonStyle(PlaybackControlButtonStyle())
+                .help(localizedKey(model.language, "ui.next"))
+                .accessibilityLabel(localizedKey(model.language, "ui.next.track"))
                 .disabled(!canUsePlayback)
             }
 
             HStack {
                 Image(systemName: "speaker.wave.1")
-                Slider(value: $model.volume, in: 0...100, step: 1) { editing in
+                Slider(value: $model.volume, in: 0...100) { editing in
                     if !editing {
                         DJConnectHaptics.selection()
                         model.commitVolumeChange()
@@ -6422,8 +6367,8 @@ private struct FavoriteTrackButton: View {
 
     private var label: String {
         isFavorite
-            ? localized(model.language, "Remove from favorites", "Haal uit favorieten")
-            : localized(model.language, "Add to favorites", "Zet in favorieten")
+            ? localizedKey(model.language, "ui.remove.from.favorites")
+            : localizedKey(model.language, "ui.add.to.favorites")
     }
 
     var body: some View {
@@ -6438,11 +6383,13 @@ private struct FavoriteTrackButton: View {
             } else {
                 Image(systemName: isFavorite ? "heart.fill" : "heart")
                     .font(.system(size: 22, weight: .semibold))
+                    .symbolRenderingMode(.monochrome)
+                    .foregroundStyle(isFavorite ? djConnectAccent : .white)
                     .frame(width: 44, height: 40)
             }
         }
-        .buttonStyle(.bordered)
-        .tint(isFavorite ? djConnectAccent : nil)
+        .buttonStyle(PlaybackControlButtonStyle(isActive: isFavorite))
+        .tint(isFavorite ? djConnectAccent : .white)
         .help(label)
         .accessibilityLabel(label)
         .disabled(model.isSavingCurrentTrack)
@@ -6564,7 +6511,7 @@ private struct OutputSelectorView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack {
-                Text(localized(model.language, "Output Device", "Uitvoerapparaat"))
+                Text(localizedKey(model.language, "ui.output.device"))
                     .font(.headline)
                 Spacer()
             }
@@ -6641,7 +6588,7 @@ private struct OutputDeviceChoiceRow: View {
 
     private var subtitle: String {
         if isActive {
-            return localized(language, "Active", "Actief")
+            return localizedKey(language, "ui.active")
         }
         if let volume = output?.volumePercent {
             return "\(volume)%"
@@ -6649,7 +6596,11 @@ private struct OutputDeviceChoiceRow: View {
         if let type = output?.type, !type.isEmpty {
             return type
         }
-        return localized(language, "Output", "Uitvoer")
+        return localizedKey(language, "ui.output")
+    }
+
+    private var activeColor: Color {
+        djConnectAccent
     }
 
     var body: some View {
@@ -6657,11 +6608,11 @@ private struct OutputDeviceChoiceRow: View {
             HStack(spacing: 12) {
                 Image(systemName: iconName)
                     .font(.system(size: 18, weight: .semibold))
-                    .foregroundStyle(isActive ? djConnectButtonBlue : .white.opacity(0.68))
+                    .foregroundStyle(isActive ? activeColor : .white.opacity(0.68))
                     .frame(width: 38, height: 38)
                     .background(
                         Circle()
-                            .fill(isActive ? djConnectButtonBlue.opacity(0.18) : Color.white.opacity(0.08))
+                            .fill(isActive ? activeColor.opacity(0.18) : Color.white.opacity(0.08))
                     )
 
                 VStack(alignment: .leading, spacing: 3) {
@@ -6672,7 +6623,7 @@ private struct OutputDeviceChoiceRow: View {
                         .multilineTextAlignment(.leading)
                     Text(subtitle)
                         .font(.subheadline.weight(.medium))
-                        .foregroundStyle(isActive ? djConnectButtonBlue.opacity(0.92) : .white.opacity(0.56))
+                        .foregroundStyle(isActive ? activeColor.opacity(0.92) : .white.opacity(0.56))
                         .lineLimit(1)
                 }
                 .layoutPriority(1)
@@ -6682,7 +6633,7 @@ private struct OutputDeviceChoiceRow: View {
                 if isActive {
                     Image(systemName: "checkmark.circle.fill")
                         .font(.title3.weight(.semibold))
-                        .foregroundStyle(djConnectAccent)
+                        .foregroundStyle(activeColor)
                 }
             }
             .padding(.horizontal, 12)
@@ -6738,13 +6689,13 @@ private struct ShuffleModeButton: View {
             Image(systemName: "shuffle")
                 .symbolVariant(isShuffling ? .fill : .none)
                 .font(.system(size: 22, weight: .semibold))
+                .foregroundStyle(isShuffling ? djConnectAccent : .white.opacity(0.68))
                 .frame(width: 44, height: 40)
         }
-        .buttonStyle(.bordered)
-        .tint(isShuffling ? djConnectAccent : .secondary)
-        .help(localized(model.language, "Shuffle", "Shuffle"))
-        .accessibilityLabel(localized(model.language, "Shuffle", "Shuffle"))
-        .accessibilityValue(isShuffling ? localized(model.language, "On", "Aan") : localized(model.language, "Off", "Uit"))
+        .buttonStyle(PlaybackControlButtonStyle(isActive: isShuffling))
+        .help(localizedKey(model.language, "ui.shuffle"))
+        .accessibilityLabel(localizedKey(model.language, "ui.shuffle"))
+        .accessibilityValue(isShuffling ? localizedKey(model.language, "ui.on") : localizedKey(model.language, "ui.off"))
     }
 }
 
@@ -6767,23 +6718,19 @@ private struct RepeatModeButton: View {
             Image(systemName: repeatState.systemImage)
                 .symbolVariant(repeatState == .off ? .none : .fill)
                 .font(.system(size: 22, weight: .semibold))
+                .foregroundStyle(repeatState == .off ? .white.opacity(0.68) : djConnectAccent)
                 .frame(width: 44, height: 40)
         }
-        .buttonStyle(.bordered)
-        .tint(repeatState == .off ? .secondary : djConnectAccent)
+        .buttonStyle(PlaybackControlButtonStyle(isActive: repeatState != .off))
         .help(repeatHelpText)
-        .accessibilityLabel(localized(model.language, "Repeat", "Herhaal"))
+        .accessibilityLabel(localizedKey(model.language, "ui.repeat"))
         .accessibilityValue(repeatState.localizedName(language: model.language))
     }
 
     private var repeatHelpText: String {
         let state = repeatState.localizedName(language: model.language)
         let next = repeatState.next.localizedName(language: model.language)
-        return localized(
-            model.language,
-            "Repeat: \(state). Click for \(next).",
-            "Herhaal: \(state). Klik voor \(next)."
-        )
+        return localizedKey(model.language, "ui.repeat.value.click.for.value", arguments: state, next)
     }
 }
 
@@ -6811,11 +6758,11 @@ private extension DJConnectRepeatState {
     func localizedName(language: String) -> String {
         switch self {
         case .off:
-            localized(language, "Off", "Uit")
+            localizedKey(language, "ui.off")
         case .track:
-            localized(language, "Track", "Nummer")
+            localizedKey(language, "ui.track")
         case .context:
-            localized(language, "Context", "Context")
+            localizedKey(language, "ui.context")
         }
     }
 }
@@ -7058,7 +7005,7 @@ private struct AskDJView: View {
                                 .buttonStyle(DJConnectFloatingCircleButtonStyle())
                                 .padding(.trailing, djConnectScreenHorizontalPadding)
                                 .padding(.bottom, 12)
-                                .help(localized(model.language, "Scroll to bottom", "Naar beneden"))
+                                .help(localizedKey(model.language, "ui.scroll.to.bottom"))
                             }
                         }
 
@@ -7144,7 +7091,7 @@ private struct AskDJView: View {
                         .transition(.move(edge: .bottom).combined(with: .opacity))
                 }
             }
-            .navigationTitle(screenTitle(model.language, "Ask DJ", "Ask DJ", isDemoMode: model.isDemoMode))
+            .navigationTitle(screenTitle(model.language, key: "Ask DJ", isDemoMode: model.isDemoMode))
             .toolbar {
                 #if os(macOS)
                 ToolbarItemGroup(placement: .primaryAction) {
@@ -7154,8 +7101,8 @@ private struct AskDJView: View {
                         Image(systemName: "magnifyingglass")
                             .foregroundStyle(isSearchVisible ? djConnectAccent : .primary)
                     }
-                    .help(localized(model.language, "Search Ask DJ", "Zoek in Ask DJ"))
-                    .accessibilityLabel(localized(model.language, "Search Ask DJ", "Zoek in Ask DJ"))
+                    .help(localizedKey(model.language, "ui.search.ask.dj"))
+                    .accessibilityLabel(localizedKey(model.language, "ui.search.ask.dj"))
 
                     askDJMoodToolbarButton
 
@@ -7172,8 +7119,8 @@ private struct AskDJView: View {
                     }
                     .tint(.primary)
                     .disabled(model.isDemoMode || model.isClearingAskDJHistory)
-                    .help(localized(model.language, "Refresh Ask DJ", "Ask DJ vernieuwen"))
-                    .accessibilityLabel(localized(model.language, "Refresh Ask DJ", "Ask DJ vernieuwen"))
+                    .help(localizedKey(model.language, "ui.refresh.ask.dj"))
+                    .accessibilityLabel(localizedKey(model.language, "ui.refresh.ask.dj"))
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button {
@@ -7183,7 +7130,7 @@ private struct AskDJView: View {
                         Image(systemName: model.isClearingAskDJHistory ? "hourglass" : "trash")
                     }
                     .disabled(model.askDJMessages.isEmpty || model.isClearingAskDJHistory)
-                    .help(localized(model.language, "Clear chat", "Chat wissen"))
+                    .help(localizedKey(model.language, "ui.clear.chat"))
                 }
                 #else
                 ToolbarItemGroup(placement: .topBarLeading) {
@@ -7193,8 +7140,8 @@ private struct AskDJView: View {
                         Image(systemName: "magnifyingglass")
                             .foregroundStyle(isSearchVisible ? djConnectAccent : .primary)
                     }
-                    .help(localized(model.language, "Search Ask DJ", "Zoek in Ask DJ"))
-                    .accessibilityLabel(localized(model.language, "Search Ask DJ", "Zoek in Ask DJ"))
+                    .help(localizedKey(model.language, "ui.search.ask.dj"))
+                    .accessibilityLabel(localizedKey(model.language, "ui.search.ask.dj"))
 
                     askDJMoodToolbarButton
                 }
@@ -7207,8 +7154,8 @@ private struct AskDJView: View {
                     }
                     .tint(.red)
                     .disabled(model.askDJMessages.isEmpty || model.isClearingAskDJHistory)
-                    .help(localized(model.language, "Clear chat", "Chat wissen"))
-                    .accessibilityLabel(localized(model.language, "Clear chat", "Chat wissen"))
+                    .help(localizedKey(model.language, "ui.clear.chat"))
+                    .accessibilityLabel(localizedKey(model.language, "ui.clear.chat"))
 
                     Button {
                         isInputFocused = false
@@ -7223,26 +7170,22 @@ private struct AskDJView: View {
                     }
                     .tint(.primary)
                     .disabled(model.isDemoMode || model.isClearingAskDJHistory)
-                    .help(localized(model.language, "Refresh Ask DJ", "Ask DJ vernieuwen"))
-                    .accessibilityLabel(localized(model.language, "Refresh Ask DJ", "Ask DJ vernieuwen"))
+                    .help(localizedKey(model.language, "ui.refresh.ask.dj"))
+                    .accessibilityLabel(localizedKey(model.language, "ui.refresh.ask.dj"))
                 }
                 #endif
             }
             .alert(
-                localized(model.language, "Clear Ask DJ chat?", "Ask DJ chat wissen?"),
+                localizedKey(model.language, "ui.clear.ask.dj.chat"),
                 isPresented: $showingClearConfirmation
             ) {
-                Button(localized(model.language, "Clear Chat", "Chat wissen"), role: .destructive) {
+                Button(localizedKey(model.language, "ui.clear.chat.9ad354"), role: .destructive) {
                     isInputFocused = false
                     model.clearAskDJHistory()
                 }
-                Button(localized(model.language, "Cancel", "Annuleren"), role: .cancel) {}
+                Button(localizedKey(model.language, "ui.cancel"), role: .cancel) {}
             } message: {
-                Text(localized(
-                    model.language,
-                    "This clears the Ask DJ chat history on this Home Assistant account.",
-                    "Dit wist de Ask DJ chatgeschiedenis voor dit Home Assistant-account."
-                ))
+                Text(localizedKey(model.language, "ui.this.clears.the.ask.dj.chat.history.on.this.home"))
             }
         }
         .background(DJConnectCanvasBackground())
@@ -7257,6 +7200,10 @@ private struct AskDJView: View {
         }
         .sheet(item: $feedbackMessage) { message in
             AskDJFeedbackPromptView(model: model, message: message)
+            #if os(iOS)
+                .presentationDetents([.large])
+                .presentationSizing(.page)
+            #endif
         }
         .sheet(isPresented: $model.isShowingMusicDNAOptInPrompt) {
             MusicDNAOptInPromptView(model: model)
@@ -7280,8 +7227,8 @@ private struct AskDJView: View {
             Image(systemName: "slider.horizontal.3")
                 .foregroundStyle(isMoodVisible ? djConnectAccent : .primary)
         }
-        .help(localized(model.language, "Mood", "Mood"))
-        .accessibilityLabel(localized(model.language, "Mood", "Mood"))
+        .help(localizedKey(model.language, "ui.mood"))
+        .accessibilityLabel(localizedKey(model.language, "ui.mood"))
     }
 
     private func dismissAskDJSearch() {
@@ -7404,16 +7351,16 @@ private struct AskDJSearchBar: View {
                 Image(systemName: "chevron.up")
             }
             .disabled(resultCount == 0)
-            .help(localized(language, "Previous result", "Vorig resultaat"))
+            .help(localizedKey(language, "ui.previous.result"))
             Button(action: nextAction) {
                 Image(systemName: "chevron.down")
             }
             .disabled(resultCount == 0)
-            .help(localized(language, "Next result", "Volgend resultaat"))
+            .help(localizedKey(language, "ui.next.result"))
             Button(action: closeAction) {
                 Image(systemName: "xmark")
             }
-            .help(localized(language, "Close search", "Zoeken sluiten"))
+            .help(localizedKey(language, "ui.close.search"))
         }
         .buttonStyle(.plain)
         .foregroundStyle(.white.opacity(0.86))
@@ -7471,13 +7418,13 @@ private struct AskDJSearchBar: View {
             return ""
         }
         guard resultCount > 0 else {
-            return localized(language, "0", "0")
+            return localizedKey(language, "ui.0")
         }
         return "\(selectedIndex + 1)/\(resultCount)"
     }
 
     private var searchPrompt: Text {
-        Text(localized(language, "Search \(scopeName)", "Zoek in \(scopeName)"))
+        Text(localizedKey(language, "ui.search.value", arguments: scopeName))
     }
 }
 
@@ -7488,19 +7435,11 @@ private struct AskDJEmptyState: View {
 
     private var examples: [String] {
         [
-            localized(
-                language,
-                "What did I listen to last week?",
-                "Waar heb ik afgelopen week naar geluisterd?"
-            ),
-            localized(language, "Surprise me with new music", "Verras me met nieuwe muziek"),
-            localized(
-                language,
-                "Give me Track Insight for this song",
-                "Geef Track Insight voor dit nummer"
-            ),
-            localized(language, "Which albums did this artist release?", "Welke albums bracht deze artiest uit?"),
-            localized(language, "Play something for cooking", "Speel iets dat past bij koken")
+            localizedKey(language, "ui.what.did.i.listen.to.last.week"),
+            localizedKey(language, "ui.surprise.me.with.new.music"),
+            localizedKey(language, "ui.give.me.track.insight.for.this.song"),
+            localizedKey(language, "ui.which.albums.did.this.artist.release"),
+            localizedKey(language, "ui.play.something.for.cooking")
         ]
     }
 
@@ -7518,14 +7457,10 @@ private struct AskDJEmptyState: View {
                         endPoint: .bottomTrailing
                     )
                 )
-            Text(localized(language, "Ask DJ", "Ask DJ"))
+            Text(localizedKey(language, "ui.ask.dj"))
                 .font(.title3.weight(.semibold))
                 .foregroundStyle(.white)
-            Text(localized(
-                language,
-                "Ask about the music or give your DJ a request.",
-                "Vraag iets over de muziek of geef je DJ een opdracht."
-            ))
+            Text(localizedKey(language, "ui.ask.about.the.music.or.give.your.dj.a.request"))
                 .font(.callout)
                 .foregroundStyle(.white.opacity(0.62))
                 .multilineTextAlignment(.center)
@@ -7568,11 +7503,7 @@ private struct AskDJEmptyState: View {
             }
             .padding(.top, 2)
 
-            Text(localized(
-                language,
-                "Ask DJ can change the music when you ask for it.",
-                "Ask DJ kan muziek aanpassen als je daarom vraagt."
-            ))
+            Text(localizedKey(language, "ui.ask.dj.can.change.the.music.when.you.ask.for"))
                 .font(.caption2.weight(.medium))
                 .foregroundStyle(.white.opacity(0.48))
                 .multilineTextAlignment(.center)
@@ -7582,7 +7513,7 @@ private struct AskDJEmptyState: View {
                     ProgressView()
                         .controlSize(.small)
                         .tint(.white)
-                    Text(localized(language, "Finding something to play...", "Iets om af te spelen zoeken..."))
+                    Text(localizedKey(language, "ui.finding.something.to.play"))
                         .font(.caption2.weight(.semibold))
                         .foregroundStyle(.white.opacity(0.58))
                 }
@@ -7602,14 +7533,10 @@ private struct AskDJOfflineNotice: View {
                 .font(.headline.weight(.semibold))
                 .foregroundStyle(.white.opacity(0.82))
             VStack(alignment: .leading, spacing: 2) {
-                Text(localized(language, "Ask DJ offline", "Ask DJ offline"))
+                Text(localizedKey(language, "ui.ask.dj.offline"))
                     .font(.subheadline.weight(.bold))
                     .foregroundStyle(.white)
-                Text(localized(
-                    language,
-                    "Shown messages may be stale until DJConnect is paired with Home Assistant again.",
-                    "Getoonde berichten kunnen verouderd zijn totdat DJConnect weer met Home Assistant is gekoppeld."
-                ))
+                Text(localizedKey(language, "ui.shown.messages.may.be.stale.until.djconnect.is.paired.with"))
                 .font(.caption.weight(.medium))
                 .foregroundStyle(.white.opacity(0.66))
                 .fixedSize(horizontal: false, vertical: true)
@@ -7661,9 +7588,9 @@ private struct AskDJMessageBubble: View {
             return nil
         }
         if message.origin == "spotify_playback_context" {
-            return localized(language, "DJ fact", "DJ feitje")
+            return localizedKey(language, "ui.dj.fact")
         }
-        return localized(language, "DJ note", "DJ notitie")
+        return localizedKey(language, "ui.dj.note")
     }
 
     private var promptText: String {
@@ -7815,7 +7742,7 @@ private struct AskDJMessageBubble: View {
                         .foregroundStyle(.white.opacity(0.46))
                     if isUser, message.status == .failed {
                         Button(action: retryAction) {
-                            Label(localized(language, "Retry", "Opnieuw"), systemImage: "arrow.clockwise")
+                            Label(localizedKey(language, "ui.retry"), systemImage: "arrow.clockwise")
                                 .font(.caption2.weight(.semibold))
                         }
                         .buttonStyle(.plain)
@@ -7827,13 +7754,13 @@ private struct AskDJMessageBubble: View {
                             DJConnectHaptics.selection()
                             feedbackAction(message)
                         } label: {
-                            Label(localized(language, "Feedback", "Feedback"), systemImage: "exclamationmark.bubble")
+                            Label(localizedKey(language, "ui.feedback"), systemImage: "exclamationmark.bubble")
                                 .font(.caption2.weight(.semibold))
                         }
                         .buttonStyle(.plain)
                         .foregroundStyle(.white.opacity(0.58))
-                        .help(localized(language, "Report this Ask DJ answer", "Meld dit Ask DJ antwoord"))
-                        .accessibilityLabel(localized(language, "Report this Ask DJ answer", "Meld dit Ask DJ antwoord"))
+                        .help(localizedKey(language, "ui.report.this.ask.dj.answer"))
+                        .accessibilityLabel(localizedKey(language, "ui.report.this.ask.dj.answer"))
                     }
                 }
                 .padding(.horizontal, 6)
@@ -7851,7 +7778,7 @@ private struct AskDJMessageBubble: View {
                     DJConnectHaptics.selection()
                     setPromptAction(promptText)
                 } label: {
-                    Label(localized(language, "Set in prompt", "Zet in prompt"), systemImage: "text.cursor")
+                    Label(localizedKey(language, "ui.set.in.prompt"), systemImage: "text.cursor")
                 }
             }
             if canReportFeedback {
@@ -7859,7 +7786,7 @@ private struct AskDJMessageBubble: View {
                     DJConnectHaptics.selection()
                     feedbackAction(message)
                 } label: {
-                    Label(localized(language, "Report answer", "Meld antwoord"), systemImage: "exclamationmark.bubble")
+                    Label(localizedKey(language, "ui.report.answer"), systemImage: "exclamationmark.bubble")
                 }
             }
         }
@@ -7873,13 +7800,13 @@ private struct AskDJMessageBubble: View {
         let statusText: String
         switch status {
         case .sending:
-            statusText = localized(language, "sending...", "bezig...")
+            statusText = localizedKey(language, "ui.sending")
         case .sent:
-            statusText = localized(language, "sent", "verzonden")
+            statusText = localizedKey(language, "ui.sent")
         case .delivered:
-            statusText = localized(language, "sent", "verzonden")
+            statusText = localizedKey(language, "ui.sent")
         case .failed:
-            statusText = localized(language, "failed", "mislukt")
+            statusText = localizedKey(language, "ui.failed")
         }
         return "\(timestamp) · \(statusText)"
     }
@@ -7995,12 +7922,12 @@ private struct AskDJAudioReplayButton: View {
 
     private var buttonText: String {
         if isLoading {
-            return localized(language, "Loading audio...", "Audio laden...")
+            return localizedKey(language, "ui.loading.audio")
         }
         if isPlaying {
-            return localized(language, "Stop DJ response", "DJ antwoord stoppen")
+            return localizedKey(language, "ui.stop.dj.response")
         }
-        return localized(language, "Play DJ response", "DJ antwoord afspelen")
+        return localizedKey(language, "ui.play.dj.response")
     }
 }
 
@@ -8041,7 +7968,7 @@ private struct AskDJTrackInsightSummary: View {
             RoundedRectangle(cornerRadius: 8, style: .continuous)
                 .stroke(.white.opacity(0.12), lineWidth: 1)
         }
-        .accessibilityLabel(localized(language, "Track Insight preview", "Track Insight voorbeeld"))
+        .accessibilityLabel(localizedKey(language, "ui.track.insight.preview"))
     }
 }
 
@@ -8316,7 +8243,7 @@ private struct AskDJPlaybackActionStack: View {
                             .foregroundStyle(.white)
                             .lineLimit(2)
                             .fixedSize(horizontal: false, vertical: true)
-                        Text(localized(language, "Speaker", "Speaker"))
+                        Text(localizedKey(language, "ui.speaker"))
                             .font(.caption2.weight(.bold))
                             .foregroundStyle(.white.opacity(0.62))
                             .lineLimit(1)
@@ -8400,7 +8327,7 @@ private struct AskDJPlaybackActionStack: View {
                             .lineLimit(2)
                     }
                     if action.isOutputAction {
-                        Text(localized(language, "Speaker", "Speaker"))
+                        Text(localizedKey(language, "ui.speaker"))
                             .font(.caption2.weight(.bold))
                             .foregroundStyle(.white.opacity(0.72))
                             .lineLimit(1)
@@ -8488,15 +8415,15 @@ private struct AskDJPlaybackActionStack: View {
                 return trimmed
             }
         }
-        return localized(language, "Speaker", "Speaker")
+        return localizedKey(language, "ui.speaker")
     }
 
     private func buttonLabel(for action: DJConnectAskDJPlaybackAction) -> String {
         if action.isActiveOutputAction {
-            return localized(language, "Active", "Actief")
+            return localizedKey(language, "ui.active")
         }
         if action.isOutputAction {
-            return localized(language, "Activate", "Activeer")
+            return localizedKey(language, "ui.activate")
         }
         for candidate in [action.buttonLabel, action.title] {
             if let trimmed = candidate?.trimmingCharacters(in: .whitespacesAndNewlines), !trimmed.isEmpty {
@@ -8509,10 +8436,10 @@ private struct AskDJPlaybackActionStack: View {
     private func confirmationLabel(for action: DJConnectAskDJPlaybackAction) -> String {
         let responseValue = action.responseValue?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         if responseValue == "yes" {
-            return localized(language, "Yes please", "Ja graag")
+            return localizedKey(language, "ui.yes.please")
         }
         if responseValue == "no" {
-            return localized(language, "No thanks", "Nee dank je")
+            return localizedKey(language, "ui.no.thanks")
         }
         return buttonLabel(for: action)
     }
@@ -8655,15 +8582,15 @@ private enum AskDJPlaybackMediaType {
     func label(language: String) -> String {
         switch self {
         case .track:
-            return localized(language, "Track", "Nummer")
+            return localizedKey(language, "ui.track")
         case .album:
-            return localized(language, "Album", "Album")
+            return localizedKey(language, "ui.album")
         case .playlist:
-            return localized(language, "Playlist", "Playlist")
+            return localizedKey(language, "ui.playlist")
         case .podcast:
-            return localized(language, "Podcast", "Podcast")
+            return localizedKey(language, "ui.podcast")
         case .artist:
-            return localized(language, "Artist", "Artiest")
+            return localizedKey(language, "ui.artist")
         }
     }
 }
@@ -8734,7 +8661,7 @@ private struct AskDJSourcesStack: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 7) {
-            Text(localized(language, "Sources", "Bronnen"))
+            Text(localizedKey(language, "ui.sources"))
                 .font(.caption2.weight(.bold))
                 .foregroundStyle(.white.opacity(0.76))
                 .textCase(.uppercase)
@@ -8889,7 +8816,7 @@ private struct AskDJWebPreview: View {
     @Environment(\.openURL) private var openURL
 
     private var title: String {
-        link.title?.isEmpty == false ? link.title! : link.url.host ?? localized(language, "Link", "Link")
+        link.title?.isEmpty == false ? link.title! : link.url.host ?? localizedKey(language, "ui.link")
     }
 
     var body: some View {
@@ -8907,7 +8834,7 @@ private struct AskDJWebPreview: View {
                         .foregroundStyle(.white.opacity(0.72))
                         .multilineTextAlignment(.center)
                         .textSelection(.enabled)
-                    Button(localized(language, "Open in Browser", "Open in browser")) {
+                    Button(localizedKey(language, "ui.open.in.browser")) {
                         openURL(link.url)
                     }
                     .buttonStyle(DJConnectLilacPillButtonStyle())
@@ -8923,7 +8850,7 @@ private struct AskDJWebPreview: View {
             #endif
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button(localized(language, "Done", "Gereed")) {
+                    Button(localizedKey(language, "ui.done")) {
                         dismiss()
                     }
                 }
@@ -8931,7 +8858,7 @@ private struct AskDJWebPreview: View {
                     Button {
                         openURL(link.url)
                     } label: {
-                        Label(localized(language, "Open in Browser", "Open in browser"), systemImage: "safari")
+                        Label(localizedKey(language, "ui.open.in.browser"), systemImage: "safari")
                     }
                 }
             }
@@ -9093,7 +9020,7 @@ private struct AskDJMoodModeControl: View {
                 Image(systemName: askDJMoodIcon(for: model.askDJMoodStepIndex))
                     .font(.caption.weight(.bold))
                     .foregroundStyle(djConnectAccent)
-                Text(localized(model.language, "Mood", "Mood"))
+                Text(localizedKey(model.language, "ui.mood"))
                     .font(.caption.weight(.bold))
                     .foregroundStyle(.primary)
                 Spacer()
@@ -9107,8 +9034,8 @@ private struct AskDJMoodModeControl: View {
                     }
                     .buttonStyle(.plain)
                     .foregroundStyle(.secondary)
-                    .help(localized(model.language, "Close", "Sluiten"))
-                    .accessibilityLabel(localized(model.language, "Close", "Sluiten"))
+                    .help(localizedKey(model.language, "ui.close"))
+                    .accessibilityLabel(localizedKey(model.language, "ui.close"))
                 }
             }
 
@@ -9159,11 +9086,7 @@ private struct AskDJMoodModeControl: View {
 
             AskDJMoodLabelsView(steps: model.askDJMoodSteps, selectedIndex: model.askDJMoodStepIndex)
 
-            Text(localized(
-                model.language,
-                "Mood guides Ask DJ's recommendations, from calmer tracks to higher-energy picks.",
-                "Mood stuurt Ask DJ's aanbevelingen, van rustigere tracks tot energiekere keuzes."
-            ))
+            Text(localizedKey(model.language, "ui.mood.guides.ask.dj.s.recommendations.from.calmer.tracks.to"))
             .font(.caption2)
             .foregroundStyle(.secondary)
             .fixedSize(horizontal: false, vertical: true)
@@ -9355,7 +9278,7 @@ private struct AskDJInputBar: View {
                     .opacity(canSend || model.isSendingAskDJText ? 1 : 0.38)
             }
             .disabled(!canSend)
-            .help(localized(model.language, "Send", "Verstuur"))
+            .help(localizedKey(model.language, "ui.send"))
         }
         .padding(.horizontal, djConnectScreenHorizontalPadding)
         .padding(.top, 18)
@@ -9537,11 +9460,7 @@ private struct AskDJVoiceInputButton: View {
         }
         .help(helpText)
         .accessibilityLabel(helpText)
-        .accessibilityHint(localized(
-            model.language,
-            "Hold to record a voice request for Ask DJ.",
-            "Houd ingedrukt om een stemverzoek voor Ask DJ op te nemen."
-        ))
+        .accessibilityHint(localizedKey(model.language, "ui.hold.to.record.a.voice.request.for.ask.dj"))
         .accessibilityAction {
             DJConnectHaptics.impact()
             model.toggleVoiceRecording()
@@ -9567,12 +9486,12 @@ private struct AskDJVoiceInputButton: View {
 
     private var helpText: String {
         if isProcessing {
-            return localized(model.language, "Processing voice request", "Stemverzoek verwerken")
+            return localizedKey(model.language, "ui.processing.voice.request")
         }
         if isActive {
-            return localized(model.language, "Release to send", "Laat los om te verzenden")
+            return localizedKey(model.language, "ui.release.to.send")
         }
-        return localized(model.language, "Hold to talk", "Houd ingedrukt om te praten")
+        return localizedKey(model.language, "ui.hold.to.talk")
     }
 }
 
@@ -9609,7 +9528,7 @@ struct QueueView: View {
                 List {
                     if shouldShowEmptyQueueState {
                         DJConnectEmptyState(
-                            title: localized(model.language, "No Queue", "Geen wachtrij"),
+                            title: localizedKey(model.language, "ui.no.queue"),
                             systemImage: "music.note.list"
                         )
                         .frame(maxWidth: .infinity, minHeight: 360, alignment: .center)
@@ -9619,7 +9538,7 @@ struct QueueView: View {
                         ForEach(Array(model.queueItems.enumerated()), id: \.offset) { index, item in
                             Button {
                                 DJConnectHaptics.impact()
-                                showStatusToast(localized(model.language, "Track is starting", "Nummer wordt gestart"))
+                                showStatusToast(localizedKey(model.language, "ui.track.is.starting"))
                                 model.startQueueItem(item, at: index)
                             } label: {
                                 QueueItemRow(item: item, isLoading: model.loadingQueueItemIndex == index)
@@ -9645,7 +9564,7 @@ struct QueueView: View {
                 }
                 await model.refreshQueue()
             }
-            .navigationTitle(screenTitle(model.language, "Queue", "Wachtrij", isDemoMode: model.isDemoMode))
+            .navigationTitle(screenTitle(model.language, key: "Queue", isDemoMode: model.isDemoMode))
             .scrollContentBackgroundIfAvailable(.hidden)
             .background(DJConnectCanvasBackground())
             #if os(iOS)
@@ -9673,8 +9592,8 @@ struct QueueView: View {
                         }
                     }
                     .disabled(model.isDemoMode || !canUsePlayback || model.isLoadingQueue)
-                    .help(localized(model.language, "Reload Queue", "Wachtrij herladen"))
-                    .accessibilityLabel(localized(model.language, "Reload Queue", "Wachtrij herladen"))
+                    .help(localizedKey(model.language, "ui.reload.queue"))
+                    .accessibilityLabel(localizedKey(model.language, "ui.reload.queue"))
                 }
             }
             .task {
@@ -9698,7 +9617,7 @@ struct QueueView: View {
             LazyVStack(spacing: 10) {
                 if shouldShowEmptyQueueState {
                     DJConnectEmptyState(
-                        title: localized(model.language, "No Queue", "Geen wachtrij"),
+                        title: localizedKey(model.language, "ui.no.queue"),
                         systemImage: "music.note.list"
                     )
                     .frame(maxWidth: .infinity, minHeight: 360, alignment: .center)
@@ -9706,7 +9625,7 @@ struct QueueView: View {
                     ForEach(Array(model.queueItems.enumerated()), id: \.offset) { index, item in
                         Button {
                             DJConnectHaptics.impact()
-                            showStatusToast(localized(model.language, "Track is starting", "Nummer wordt gestart"))
+                            showStatusToast(localizedKey(model.language, "ui.track.is.starting"))
                             model.startQueueItem(item, at: index)
                         } label: {
                             QueueItemRow(item: item, isLoading: model.loadingQueueItemIndex == index)
@@ -9758,7 +9677,7 @@ struct PlaylistsView: View {
                 List {
                     if model.playlistItems.isEmpty {
                         DJConnectEmptyState(
-                            title: localized(model.language, "No Playlists", "Geen afspeellijsten"),
+                            title: localizedKey(model.language, "ui.no.playlists"),
                             systemImage: "rectangle.stack"
                         )
                         .frame(maxWidth: .infinity, minHeight: 360, alignment: .center)
@@ -9768,7 +9687,7 @@ struct PlaylistsView: View {
                         ForEach(model.playlistItems) { playlist in
                             Button {
                                 DJConnectHaptics.impact()
-                                showStatusToast(localized(model.language, "Playlist is starting", "Afspeellijst wordt gestart"))
+                                showStatusToast(localizedKey(model.language, "ui.playlist.is.starting"))
                                 model.startPlaylist(playlist)
                             } label: {
                                 PlaylistRow(playlist: playlist, isLoading: model.loadingPlaylistID == playlist.id)
@@ -9793,7 +9712,7 @@ struct PlaylistsView: View {
                 }
                 await model.refreshPlaylists()
             }
-            .navigationTitle(screenTitle(model.language, "Playlists", "Afspeellijsten", isDemoMode: model.isDemoMode))
+            .navigationTitle(screenTitle(model.language, key: "ui.playlists", isDemoMode: model.isDemoMode))
             .scrollContentBackgroundIfAvailable(.hidden)
             .background(DJConnectCanvasBackground())
             #if os(iOS)
@@ -9821,8 +9740,8 @@ struct PlaylistsView: View {
                         }
                     }
                     .disabled(model.isDemoMode || !canUsePlayback || model.isLoadingPlaylists)
-                    .help(localized(model.language, "Reload Playlists", "Afspeellijsten herladen"))
-                    .accessibilityLabel(localized(model.language, "Reload Playlists", "Afspeellijsten herladen"))
+                    .help(localizedKey(model.language, "ui.reload.playlists"))
+                    .accessibilityLabel(localizedKey(model.language, "ui.reload.playlists"))
                 }
             }
             .task {
@@ -9845,7 +9764,7 @@ struct PlaylistsView: View {
             LazyVStack(spacing: 10) {
                 if model.playlistItems.isEmpty {
                     DJConnectEmptyState(
-                        title: localized(model.language, "No Playlists", "Geen afspeellijsten"),
+                        title: localizedKey(model.language, "ui.no.playlists"),
                         systemImage: "rectangle.stack"
                     )
                     .frame(maxWidth: .infinity, minHeight: 360, alignment: .center)
@@ -9853,7 +9772,7 @@ struct PlaylistsView: View {
                     ForEach(model.playlistItems) { playlist in
                         Button {
                             DJConnectHaptics.impact()
-                            showStatusToast(localized(model.language, "Playlist is starting", "Afspeellijst wordt gestart"))
+                            showStatusToast(localizedKey(model.language, "ui.playlist.is.starting"))
                             model.startPlaylist(playlist)
                         } label: {
                             PlaylistRow(playlist: playlist, isLoading: model.loadingPlaylistID == playlist.id)
@@ -10084,7 +10003,7 @@ private struct GamesView: View {
                 .frame(maxWidth: .infinity)
             }
             .background(DJConnectCanvasBackground())
-            .navigationTitle(localized(language, "Games", "Games"))
+            .navigationTitle(localizedKey(language, "ui.games"))
         }
         .id("games-\(isDemoMode)-\(language)")
     }
@@ -10226,9 +10145,9 @@ private struct LocalGameSurface: View {
                     .font(.title2.bold())
                     .foregroundStyle(game.tint)
                 Spacer()
-                Text("\(localized(language, "Score", "Score")) \(score)")
+                Text("\(localizedKey(language, "ui.score")) \(score)")
                     .monospacedDigit()
-                Text("\(localized(language, "High", "High")) \(highScore)")
+                Text("\(localizedKey(language, "ui.high")) \(highScore)")
                     .monospacedDigit()
                     .foregroundStyle(.secondary)
             }
@@ -10248,7 +10167,7 @@ private struct LocalGameSurface: View {
                     Button {
                         startGame()
                     } label: {
-                        Label(localized(language, "Tap to play", "Tik om te spelen"), systemImage: "play.fill")
+                        Label(localizedKey(language, "ui.tap.to.play"), systemImage: "play.fill")
                             .font(.headline)
                             .foregroundStyle(.white)
                             .frame(minWidth: 180)
@@ -10362,11 +10281,11 @@ private struct LocalGameSurface: View {
     }
 
     private var primaryMoveLabel: String {
-        game == .asteroids ? localized(language, "Left", "Links") : localized(language, "Up", "Omhoog")
+        game == .asteroids ? localizedKey(language, "ui.left") : localizedKey(language, "ui.up")
     }
 
     private var secondaryMoveLabel: String {
-        game == .asteroids ? localized(language, "Right", "Rechts") : localized(language, "Down", "Omlaag")
+        game == .asteroids ? localizedKey(language, "ui.right") : localizedKey(language, "ui.down")
     }
 
     private var primaryMoveIcon: String {
@@ -10380,13 +10299,13 @@ private struct LocalGameSurface: View {
     private var helpText: String {
         switch game {
         case .pong:
-            localized(language, "Move the paddle and keep the ball alive.", "Beweeg het batje en houd de bal in het spel.")
+            localizedKey(language, "ui.move.the.paddle.and.keep.the.ball.alive")
         case .asteroids:
-            localized(language, "Move left and right. Fire to hit meteors.", "Beweeg links en rechts. Schiet om meteorieten te raken.")
+            localizedKey(language, "ui.move.left.and.right.fire.to.hit.meteors")
         case .fly:
-            localized(language, "Fly through the gaps. Fire clears an obstacle.", "Vlieg door de openingen. Schieten ruimt een obstakel op.")
+            localizedKey(language, "ui.fly.through.the.gaps.fire.clears.an.obstacle")
         case .pacman:
-            localized(language, "Eat dots and dodge the ghost.", "Eet bolletjes en ontwijk de geest.")
+            localizedKey(language, "ui.eat.dots.and.dodge.the.ghost")
         }
     }
 
@@ -10394,16 +10313,16 @@ private struct LocalGameSurface: View {
     private var controlsView: some View {
         if game == .pacman {
             HStack(spacing: 10) {
-                directionButton(localized(language, "Up", "Omhoog"), icon: "chevron.up") {
+                directionButton(localizedKey(language, "ui.up"), icon: "chevron.up") {
                     setPacmanDirection(dx: 0, dy: -1)
                 }
-                directionButton(localized(language, "Down", "Omlaag"), icon: "chevron.down") {
+                directionButton(localizedKey(language, "ui.down"), icon: "chevron.down") {
                     setPacmanDirection(dx: 0, dy: 1)
                 }
-                directionButton(localized(language, "Left", "Links"), icon: "chevron.left") {
+                directionButton(localizedKey(language, "ui.left"), icon: "chevron.left") {
                     setPacmanDirection(dx: -1, dy: 0)
                 }
-                directionButton(localized(language, "Right", "Rechts"), icon: "chevron.right") {
+                directionButton(localizedKey(language, "ui.right"), icon: "chevron.right") {
                     setPacmanDirection(dx: 1, dy: 0)
                 }
                 resetButton
@@ -10424,11 +10343,11 @@ private struct LocalGameSurface: View {
                         DJConnectHaptics.impact()
                         fire()
                     } label: {
-                        Label(localized(language, "Fire", "Schiet"), systemImage: "sparkle")
+                        Label(localizedKey(language, "ui.fire"), systemImage: "sparkle")
                             .labelStyle(.iconOnly)
                             .frame(height: 24)
                     }
-                    .help(localized(language, "Fire", "Schiet"))
+                    .help(localizedKey(language, "ui.fire"))
                 }
 
                 resetButton
@@ -10455,11 +10374,11 @@ private struct LocalGameSurface: View {
             DJConnectHaptics.selection()
             reset()
         } label: {
-            Label(localized(language, "Reset", "Reset"), systemImage: "arrow.clockwise")
+            Label(localizedKey(language, "ui.reset"), systemImage: "arrow.clockwise")
                 .labelStyle(.iconOnly)
                 .frame(height: 24)
         }
-        .help(localized(language, "Reset", "Reset"))
+        .help(localizedKey(language, "ui.reset"))
     }
 
     private var pacmanPowerPellets: Set<Int> { [0, 7, 24, 31] }
@@ -11339,7 +11258,7 @@ private struct MoreView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
                     MoreNavigationRow(
-                        title: localized(model.language, "Playlists", "Afspeellijsten"),
+                        title: localizedKey(model.language, "ui.playlists"),
                         systemImage: "rectangle.stack"
                     ) {
                         PlaylistsView(model: model)
@@ -11351,37 +11270,37 @@ private struct MoreView: View {
                         MusicDNAView(model: model)
                     }
                     MoreNavigationRow(
-                        title: localized(model.language, "Games", "Games"),
+                        title: localizedKey(model.language, "ui.games"),
                         systemImage: "gamecontroller"
                     ) {
                         GamesView(language: model.language, isDemoMode: model.isDemoMode)
                     }
                     MoreNavigationRow(
-                        title: localized(model.language, "Settings", "Instellingen"),
+                        title: localizedKey(model.language, "ui.settings"),
                         systemImage: "gearshape"
                     ) {
                         SettingsView(model: model, returnToNowPlaying: returnToNowPlaying)
                     }
                     MoreNavigationRow(
-                        title: localized(model.language, "Logs", "Logs"),
+                        title: localizedKey(model.language, "ui.logs"),
                         systemImage: "doc.text.magnifyingglass"
                     ) {
                         LogsView(model: model)
                     }
                     MoreNavigationRow(
-                        title: localized(model.language, "About", "Over"),
+                        title: localizedKey(model.language, "ui.about"),
                         systemImage: "info.circle"
                     ) {
                         AboutView(model: model)
                     }
                     MoreNavigationRow(
-                        title: localized(model.language, "Legal", "Juridisch"),
+                        title: localizedKey(model.language, "ui.legal"),
                         systemImage: "doc.text"
                     ) {
                         LegalNoticesView(language: model.language)
                     }
                     MoreNavigationRow(
-                        title: localized(model.language, "Privacy", "Privacy"),
+                        title: localizedKey(model.language, "ui.privacy"),
                         systemImage: "hand.raised"
                     ) {
                         PrivacyView(language: model.language)
@@ -11393,7 +11312,7 @@ private struct MoreView: View {
                             Image(systemName: "bubble.left.and.bubble.right")
                                 .font(.title3)
                                 .frame(width: 30)
-                            Text(localized(model.language, "Share Feedback", "Feedback delen"))
+                            Text(localizedKey(model.language, "ui.share.feedback"))
                                 .font(.body)
                             Spacer()
                         }
@@ -11424,7 +11343,7 @@ private struct MoreView: View {
                 .padding(.top, 12)
             }
             .background(DJConnectCanvasBackground())
-            .navigationTitle(screenTitle(model.language, "More", "Meer", isDemoMode: model.isDemoMode))
+            .navigationTitle(screenTitle(model.language, key: "More", isDemoMode: model.isDemoMode))
         }
         .background(DJConnectCanvasBackground())
         .sheet(isPresented: $showingFeedback) {
@@ -11484,53 +11403,49 @@ struct SettingsView: View {
 
     private var musicDNAHowItWorksText: String {
         if musicDNAEnabled {
-            return localized(
-                model.language,
-                "Music DNA is enabled. Home Assistant can use future listening signals to build a private server-side taste profile for better Ask DJ context.",
-                "Music DNA staat aan. Met Music DNA kan DJConnect leren van je smaak en luistergedrag om aanbevelingen te kunnen geven afgestemd op jouw luisterprofiel."
-            )
+            return localizedKey(model.language, "ui.music.dna.is.enabled.home.assistant.can.use.future.listening")
         }
         if model.musicDNAProfileResponse?.enabled == false {
-            return localized(
-                model.language,
-                "Music DNA is disabled. No listening profile is being built, and turning it off has already cleared the learned profile.",
-                "Music DNA staat uit. Er wordt geen luisterprofiel opgebouwd en uitschakelen heeft het geleerde profiel al gewist."
-            )
+            return localizedKey(model.language, "ui.music.dna.is.disabled.no.listening.profile.is.being.built")
         }
-        return localized(
-            model.language,
-            "DJConnect is still checking the current Music DNA status.",
-            "DJConnect haalt de huidige Music DNA-status nog op."
-        )
+        return localizedKey(model.language, "ui.djconnect.is.still.checking.the.current.music.dna.status")
     }
 
     var body: some View {
         NavigationStack {
-            List {
-                Section(localized(model.language, "App", "App")) {
+            ZStack {
+                DJConnectCanvasBackground()
+                List {
+                Section(localizedKey(model.language, "ui.app")) {
+                    Picker(localizedKey(model.language, "ui.app.language"), selection: $model.appLanguageSelectionCode) {
+                        Text(localizedKey(model.language, "ui.system.language")).tag("")
+                        ForEach(DJConnectLocalization.supportedLanguageCodes, id: \.self) { code in
+                            Text(DJConnectLocalization.nativeLanguageName(for: code)).tag(code)
+                        }
+                    }
                     if model.isDemoMode {
-                        LabeledContent(localized(model.language, "Demo Mode", "Demo modus")) {
-                            Button(localized(model.language, "Stop Demo Mode", "Demo modus stoppen"), role: .destructive) {
+                        LabeledContent(localizedKey(model.language, "ui.demo.mode")) {
+                            Button(localizedKey(model.language, "ui.stop.demo.mode"), role: .destructive) {
                                 returnToNowPlaying()
                                 model.stopDemoMode()
                             }
                         }
                     }
                     if !model.isDemoMode {
-                        LabeledContent(localized(model.language, "Pairing", "Koppeling")) {
+                        LabeledContent(localizedKey(model.language, "ui.pairing")) {
                             Button(role: .destructive) {
                                 isShowingResetPairingConfirmation = true
                             } label: {
-                                Text(localized(model.language, "Pair App Again", "App opnieuw koppelen"))
+                                Text(localizedKey(model.language, "ui.pair.app.again"))
                             }
                         }
                     }
-                    LabeledContent(localized(model.language, "Wakeword", "Stemactivatie")) {
+                    LabeledContent(localizedKey(model.language, "ui.wakeword")) {
                         if model.wakeWordEnabled {
                             Button {
                                 model.setWakeWordEnabled(false)
                             } label: {
-                                Text(localized(model.language, "Disable Voice Activation", "Stemactivatie uitschakelen"))
+                                Text(localizedKey(model.language, "ui.disable.voice.activation"))
                                     .foregroundStyle(djConnectAccent)
                             }
                             .foregroundStyle(djConnectAccent)
@@ -11539,7 +11454,7 @@ struct SettingsView: View {
                             Button {
                                 model.setWakeWordEnabled(true)
                             } label: {
-                                Text(localized(model.language, "Enable Voice Activation", "Stemactivatie inschakelen"))
+                                Text(localizedKey(model.language, "ui.enable.voice.activation.321a28"))
                                     .foregroundStyle(djConnectAccent)
                             }
                             .foregroundStyle(djConnectAccent)
@@ -11547,40 +11462,41 @@ struct SettingsView: View {
                         }
                     }
                     wakeWordPhraseField(model)
-                    LabeledContent(localized(model.language, "Wakeword status", "Stemactivatie-status")) {
+                    LabeledContent(localizedKey(model.language, "ui.wakeword.status")) {
                         Text(wakeWordStatusText(model))
                             .foregroundStyle(.secondary)
                     }
-                    Picker(localized(model.language, "Log Level", "Logniveau"), selection: $model.logLevel) {
+                    Picker(localizedKey(model.language, "ui.log.level"), selection: $model.logLevel) {
                         Text("Debug").tag("debug")
                         Text("Info").tag("info")
-                        Text(localized(model.language, "Warning", "Waarschuwing")).tag("warning")
-                        Text(localized(model.language, "Error", "Fout")).tag("error")
+                        Text(localizedKey(model.language, "ui.warning")).tag("warning")
+                        Text(localizedKey(model.language, "ui.error")).tag("error")
                     }
                 }
                 .djSettingsListRowBackground()
 
                 Section("Music DNA") {
-                    LabeledContent(localized(model.language, "How It Works", "Werking")) {
+                    LabeledContent(localizedKey(model.language, "ui.how.it.works")) {
                         Text(musicDNAHowItWorksText)
                         .foregroundStyle(.secondary)
                         .multilineTextAlignment(.trailing)
                         .fixedSize(horizontal: false, vertical: true)
                     }
+                    .djCompactSettingsListRow()
 
                     LabeledContent("Music DNA") {
                         if musicDNAEnabled {
                             Button(role: .destructive) {
                                 isShowingMusicDNADisableConfirmation = true
                             } label: {
-                                Text(localized(model.language, "Turn Off", "Uitschakelen"))
+                                Text(localizedKey(model.language, "ui.turn.off"))
                             }
                             .disabled(model.isUpdatingMusicDNA || (!model.isDemoMode && model.pairingStatus != .paired))
                         } else {
                             Button {
                                 model.showMusicDNAOptInPrompt()
                             } label: {
-                                Text(localized(model.language, "Turn On", "Inschakelen"))
+                                Text(localizedKey(model.language, "ui.turn.on"))
                                     .foregroundStyle(djConnectAccent)
                             }
                             .foregroundStyle(djConnectAccent)
@@ -11588,48 +11504,39 @@ struct SettingsView: View {
                             .disabled(model.isUpdatingMusicDNA || (!model.isDemoMode && model.pairingStatus != .paired))
                         }
                     }
+                    .djCompactSettingsListRow()
 
                     if musicDNAEnabled {
-                        LabeledContent(localized(model.language, "Listening Profile", "Luisterprofiel")) {
+                        LabeledContent(localizedKey(model.language, "ui.listening.profile")) {
                             Button(role: .destructive) {
                                 isShowingMusicDNAClearConfirmation = true
                             } label: {
-                                Text(localized(model.language, "Clear", "Wissen"))
+                                Text(localizedKey(model.language, "ui.clear"))
                             }
                             .disabled(model.isUpdatingMusicDNA || (!model.isDemoMode && model.pairingStatus != .paired))
                         }
+                        .djCompactSettingsListRow()
                     }
                 }
+                .djSettingsSectionTopSpacing()
                 .djSettingsListRowBackground()
 
-                Section(localized(model.language, "Permissions", "Toestemmingen")) {
+                Section(localizedKey(model.language, "ui.permissions")) {
                     PermissionStatusRow(
-                        title: localized(model.language, "Microphone", "Microfoon"),
-                        detail: localized(
-                            model.language,
-                            "Needed for push-to-talk voice requests.",
-                            "Nodig voor push-to-talk muziekverzoeken."
-                        ),
+                        title: localizedKey(model.language, "ui.microphone"),
+                        detail: localizedKey(model.language, "ui.needed.for.push.to.talk.voice.requests"),
                         status: model.microphonePermissionStatus,
                         language: model.language
                     )
                     PermissionStatusRow(
-                        title: localized(model.language, "Speech Recognition", "Spraakherkenning"),
-                        detail: localized(
-                            model.language,
-                            "Needed for the foreground wake phrase.",
-                            "Nodig voor stemactivatie."
-                        ),
+                        title: localizedKey(model.language, "ui.speech.recognition"),
+                        detail: localizedKey(model.language, "ui.needed.for.the.foreground.wake.phrase"),
                         status: model.speechPermissionStatus,
                         language: model.language
                     )
                     PermissionStatusRow(
-                        title: localized(model.language, "Notifications", "Meldingen"),
-                        detail: localized(
-                            model.language,
-                            "Needed for server push notifications when Ask DJ answers.",
-                            "Nodig voor server-pushmeldingen wanneer Ask DJ antwoordt."
-                        ),
+                        title: localizedKey(model.language, "ui.notifications"),
+                        detail: localizedKey(model.language, "ui.needed.for.server.push.notifications.when.ask.dj.answers"),
                         status: model.notificationPermissionStatus,
                         language: model.language
                     )
@@ -11644,7 +11551,7 @@ struct SettingsView: View {
                                     .tint(djConnectAccent)
                             } else {
                                 Label(
-                                    localized(model.language, "Request Permissions", "Toestemmingen vragen"),
+                                    localizedKey(model.language, "ui.request.permissions"),
                                     systemImage: "checkmark.shield"
                                 )
                                 .foregroundStyle(djConnectAccent)
@@ -11655,77 +11562,64 @@ struct SettingsView: View {
                         .disabled(model.isRequestingPermissions)
                     }
                 }
+                .djSettingsSectionTopSpacing()
                 .djSettingsListRowBackground()
 
+                }
+                #if os(iOS)
+                .listStyle(.insetGrouped)
+                #else
+                .listStyle(.plain)
+                .contentMargins(.horizontal, 0, for: .scrollContent)
+                .contentMargins(.vertical, 0, for: .scrollContent)
+                #endif
+                .scrollContentBackgroundIfAvailable(.hidden)
+                .background(.clear)
             }
-            #if os(iOS)
-            .listStyle(.insetGrouped)
-            #else
-            .listStyle(.plain)
-            .contentMargins(.horizontal, 0, for: .scrollContent)
-            .contentMargins(.vertical, 0, for: .scrollContent)
-            #endif
-            .scrollContentBackgroundIfAvailable(.hidden)
-            .background(.clear)
-            .navigationTitle(localized(model.language, "Settings", "Instellingen"))
+            .ignoresSafeArea(edges: .bottom)
+            .navigationTitle(localizedKey(model.language, "ui.settings"))
             .alert(
-                localized(model.language, "Pair App Again?", "App opnieuw koppelen?"),
+                localizedKey(model.language, "ui.pair.app.again.c2c7b2"),
                 isPresented: $isShowingResetPairingConfirmation
             ) {
-                Button(localized(model.language, "Cancel", "Annuleer"), role: .cancel) {}
-                Button(localized(model.language, "Pair App Again", "App opnieuw koppelen"), role: .destructive) {
+                Button(localizedKey(model.language, "ui.cancel"), role: .cancel) {}
+                Button(localizedKey(model.language, "ui.pair.app.again"), role: .destructive) {
                     returnToNowPlaying()
                     model.resetPairing()
                 }
             } message: {
-                Text(localized(
-                    model.language,
-                    "This clears the local DJConnect pairing and opens pairing setup again.",
-                    "Dit wist de lokale DJConnect-koppeling en opent het koppelscherm opnieuw."
-                ))
+                Text(localizedKey(model.language, "ui.this.clears.the.local.djconnect.pairing.and.opens.pairing.setup"))
             }
             .alert(
-                localized(model.language, "Turn Off Music DNA?", "Music DNA uitschakelen?"),
+                localizedKey(model.language, "ui.turn.off.music.dna"),
                 isPresented: $isShowingMusicDNADisableConfirmation
             ) {
-                Button(localized(model.language, "Cancel", "Annuleer"), role: .cancel) {}
-                Button(localized(model.language, "Turn Off", "Uitschakelen"), role: .destructive) {
+                Button(localizedKey(model.language, "ui.cancel"), role: .cancel) {}
+                Button(localizedKey(model.language, "ui.turn.off"), role: .destructive) {
                     Task { await model.setMusicDNAEnabled(false) }
                 }
             } message: {
-                Text(localized(
-                    model.language,
-                    "This turns off Music DNA and removes your listening profile data from the server.",
-                    "Dit schakelt Music DNA uit en verwijdert je luisterprofielgegevens van de server."
-                ))
+                Text(localizedKey(model.language, "ui.this.turns.off.music.dna.and.removes.your.listening.profile"))
             }
             .alert(
-                localized(model.language, "Clear Music DNA?", "Music DNA wissen?"),
+                localizedKey(model.language, "ui.clear.music.dna"),
                 isPresented: $isShowingMusicDNAClearConfirmation
             ) {
-                Button(localized(model.language, "Cancel", "Annuleer"), role: .cancel) {}
+                Button(localizedKey(model.language, "ui.cancel"), role: .cancel) {}
                 if model.isDemoMode {
-                    Button(localized(model.language, "Keep Demo Profile", "Demo-profiel behouden")) {
+                    Button(localizedKey(model.language, "ui.keep.demo.profile")) {
                         Task { await model.clearMusicDNA() }
                     }
                 } else {
-                    Button(localized(model.language, "Clear Music DNA", "Music DNA wissen"), role: .destructive) {
+                    Button(localizedKey(model.language, "ui.clear.music.dna.817df9"), role: .destructive) {
                         Task { await model.clearMusicDNA() }
                     }
                 }
             } message: {
                 if model.isDemoMode {
-                    Text(localized(
-                        model.language,
-                        "In the real app this clears learned Music DNA on your Home Assistant backend. Because this is demo mode, the fictional sample profile stays visible.",
-                        "In de echte app wist dit geleerde Music DNA op je Home Assistant-backend. Omdat dit demo modus is, blijft het fictieve voorbeeldprofiel zichtbaar."
-                    ))
+                    Text(localizedKey(model.language, "ui.in.the.real.app.this.clears.learned.music.dna.on"))
                 } else {
-                    Text(localized(
-                        model.language,
-                        "This clears learned Music DNA on your Home Assistant backend. If Music DNA remains enabled, it starts learning again from an empty profile.",
-                        "Dit wist geleerde Music DNA op je Home Assistant-backend. Als Music DNA aan blijft, begint de backend opnieuw vanaf een leeg profiel."
-                    ))
+                    Text(localizedKey(model.language, "ui.this.clears.learned.music.dna.on.your.home.assistant.backend"))
                 }
             }
             .task {
@@ -11746,6 +11640,7 @@ struct SettingsView: View {
 
 private struct LogsView: View {
     @ObservedObject var model: DJConnectAppModel
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @State private var showingClearConfirmation = false
     @State private var statusToast: String?
     @State private var showsCompactTitle = false
@@ -11773,8 +11668,18 @@ private struct LogsView: View {
 
     private var logSearchButtonTitle: String {
         isSearchVisible
-            ? localized(model.language, "Close search", "Zoeken sluiten")
-            : localized(model.language, "Search Logs", "Logs zoeken")
+            ? localizedKey(model.language, "ui.close.search")
+            : localizedKey(model.language, "ui.search.logs")
+    }
+
+    @ViewBuilder
+    private var logSearchButtonLabel: some View {
+        if horizontalSizeClass == .regular {
+            Label(localizedKey(model.language, "ui.search"), systemImage: "magnifyingglass")
+        } else {
+            Label(logSearchButtonTitle, systemImage: "magnifyingglass")
+                .labelStyle(.iconOnly)
+        }
     }
 
     private var selectableLogText: String {
@@ -11793,8 +11698,7 @@ private struct LogsView: View {
                     Button {
                         toggleLogSearch()
                     } label: {
-                        Label(logSearchButtonTitle, systemImage: "magnifyingglass")
-                            .labelStyle(.iconOnly)
+                        logSearchButtonLabel
                             .foregroundStyle(djConnectAccent)
                     }
                     .tint(djConnectAccent)
@@ -11805,9 +11709,9 @@ private struct LogsView: View {
 
                     Button {
                         copyText(model.diagnosticExportText())
-                        showStatusToast(localized(model.language, "Logs copied to clipboard", "Logs gekopieerd naar klembord"))
+                        showStatusToast(localizedKey(model.language, "ui.logs.copied.to.clipboard"))
                     } label: {
-                        Label(localized(model.language, "Copy Logs", "Logs kopiëren"), systemImage: "doc.on.doc")
+                        Label(localizedKey(model.language, "ui.copy.logs"), systemImage: "doc.on.doc")
                             .foregroundStyle(djConnectAccent)
                     }
                     .tint(djConnectAccent)
@@ -11819,7 +11723,7 @@ private struct LogsView: View {
                     Button {
                         showingClearConfirmation = true
                     } label: {
-                        Text(localized(model.language, "Clear Logs", "Logs wissen"))
+                        Label(localizedKey(model.language, "ui.clear.logs"), systemImage: "trash")
                             .foregroundStyle(djConnectAccent)
                     }
                     .tint(djConnectAccent)
@@ -11832,7 +11736,7 @@ private struct LogsView: View {
                     HStack {
                         Spacer()
                         ContentUnavailableView(
-                            localized(model.language, "No Logs", "Geen logs"),
+                            localizedKey(model.language, "ui.no.logs"),
                             systemImage: "doc.text.magnifyingglass"
                         )
                         .frame(maxWidth: 420)
@@ -11845,7 +11749,7 @@ private struct LogsView: View {
                             if isSearchVisible {
                                 AskDJSearchBar(
                                     language: model.language,
-                                    scopeName: localized(model.language, "logs", "logs"),
+                                    scopeName: localizedKey(model.language, "ui.logs.474c79"),
                                     text: $logSearchText,
                                     isFocused: $isSearchFocused,
                                     resultCount: logSearchResultIDs.count,
@@ -11914,7 +11818,7 @@ private struct LogsView: View {
             }
             .padding(.top, 12)
             .background(DJConnectCanvasBackground())
-            .navigationTitle(localized(model.language, "Logs", "Logs"))
+            .navigationTitle(localizedKey(model.language, "ui.logs"))
             #if os(macOS)
             .djConnectMacDetailContent(maxWidth: 1280)
             #endif
@@ -11925,7 +11829,7 @@ private struct LogsView: View {
                 ZStack(alignment: .top) {
                     #if os(iOS)
                     if showsCompactTitle {
-                        Text(localized(model.language, "Logs", "Logs"))
+                        Text(localizedKey(model.language, "ui.logs"))
                             .font(.headline.weight(.semibold))
                             .foregroundStyle(.white)
                             .padding(.top, 2)
@@ -11942,17 +11846,13 @@ private struct LogsView: View {
                     }
                 }
             }
-            .alert(localized(model.language, "Clear Logs?", "Logs wissen?"), isPresented: $showingClearConfirmation) {
-                Button(localized(model.language, "Clear Logs", "Logs wissen"), role: .destructive) {
+            .alert(localizedKey(model.language, "ui.clear.logs.1489bd"), isPresented: $showingClearConfirmation) {
+                Button(localizedKey(model.language, "ui.clear.logs"), role: .destructive) {
                     model.clearDiagnosticLog()
                 }
-                Button(localized(model.language, "Cancel", "Annuleren"), role: .cancel) {}
+                Button(localizedKey(model.language, "ui.cancel"), role: .cancel) {}
             } message: {
-                Text(localized(
-                    model.language,
-                    "This removes the visible and persisted diagnostic logs.",
-                    "Dit verwijdert de zichtbare en opgeslagen diagnostische logs."
-                ))
+                Text(localizedKey(model.language, "ui.this.removes.the.visible.and.persisted.diagnostic.logs"))
             }
             .background {
                 Button("") {
@@ -12120,14 +12020,14 @@ private struct AboutView: View {
                 VStack(alignment: .leading, spacing: 28) {
                     AboutBanner()
 
-                    SettingsSection(title: localized(model.language, "App", "App")) {
-                        AboutStackedRow(label: localized(model.language, "Version", "Versie")) {
+                    SettingsSection(title: localizedKey(model.language, "ui.app")) {
+                        AboutStackedRow(label: localizedKey(model.language, "ui.version")) {
                             SelectableValue(model.version)
                         }
-                        AboutStackedRow(label: localized(model.language, "Device Name", "Apparaatnaam")) {
+                        AboutStackedRow(label: localizedKey(model.language, "ui.device.name")) {
                             SelectableValue(model.identity.deviceName)
                         }
-                        AboutStackedRow(label: localized(model.language, "Website", "Website")) {
+                        AboutStackedRow(label: localizedKey(model.language, "ui.website")) {
                             Link(destination: websiteURL) {
                                 Text("https://djconnect.dev")
                                     .font(.body)
@@ -12137,32 +12037,32 @@ private struct AboutView: View {
                             }
                             .djConnectLilacButton()
                         }
-                        AboutStackedRow(label: localized(model.language, "Device ID", "Device ID")) {
+                        AboutStackedRow(label: localizedKey(model.language, "ui.device.id")) {
                             SelectableValue(model.identity.deviceID)
                         }
                     }
 
-                    SettingsSection(title: localized(model.language, "Connection", "Verbinding")) {
-                        AboutStackedRow(label: localized(model.language, "Connection Type", "Connectietype")) {
+                    SettingsSection(title: localizedKey(model.language, "ui.connection")) {
+                        AboutStackedRow(label: localizedKey(model.language, "ui.connection.type")) {
                             SelectableValue(connectionModeTitle, foregroundStyle: connectionModeColor)
                         }
-                        AboutStackedRow(label: localized(model.language, "Connection Speed", "Verbindingssnelheid")) {
+                        AboutStackedRow(label: localizedKey(model.language, "ui.connection.speed")) {
                             SelectableValue(connectionTransportTitle, foregroundStyle: connectionTransportColor)
                         }
-                        AboutStackedRow(label: localized(model.language, "Home Assistant address", "Home Assistant adres")) {
+                        AboutStackedRow(label: localizedKey(model.language, "ui.home.assistant.address")) {
                             SelectableValue(model.homeAssistantURL)
                         }
-                        AboutStackedRow(label: localized(model.language, "Music", "Muziek")) {
+                        AboutStackedRow(label: localizedKey(model.language, "ui.music")) {
                             SelectableValue(
                                 model.backendAvailable
-                                    ? localized(model.language, "Available", "Beschikbaar")
-                                    : localized(model.language, "Unavailable", "Niet beschikbaar"),
+                                    ? localizedKey(model.language, "ui.available")
+                                    : localizedKey(model.language, "ui.unavailable"),
                                 foregroundStyle: model.backendAvailable ? .green : .red
                             )
                         }
                     }
 
-                    SettingsSection(title: localized(model.language, "Notices", "Notices")) {
+                    SettingsSection(title: localizedKey(model.language, "ui.notices")) {
                         AboutStackedRow(label: "Copyright") {
                             SelectableValue("2026 Peter van Tol")
                         }
@@ -12179,20 +12079,20 @@ private struct AboutView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .navigationTitle(localized(model.language, "About", "Over"))
+        .navigationTitle(localizedKey(model.language, "ui.about"))
     }
 
     private var connectionModeTitle: String {
         if model.isDemoMode {
-            return localized(model.language, "Local Demo Mode", "Lokale demo modus")
+            return localizedKey(model.language, "ui.local.demo.mode")
         }
         switch model.haConnectionMode {
         case .local:
-            return localized(model.language, "Local Home Assistant", "Lokale Home Assistant")
+            return localizedKey(model.language, "ui.local.home.assistant")
         case .remote:
-            return localized(model.language, "Remote Home Assistant", "Remote Home Assistant")
+            return localizedKey(model.language, "ui.remote.home.assistant")
         case .offline:
-            return localized(model.language, "Offline", "Offline")
+            return localizedKey(model.language, "ui.offline")
         }
     }
 
@@ -12212,15 +12112,15 @@ private struct AboutView: View {
 
     private var connectionTransportTitle: String {
         if model.isDemoMode {
-            return localized(model.language, "Demo", "Demo")
+            return localizedKey(model.language, "ui.demo")
         }
         if model.haConnectionMode == .offline {
-            return localized(model.language, "Not active", "Niet actief")
+            return localizedKey(model.language, "ui.not.active")
         }
         if model.fastPathDiagnostics.websocketConnected {
-            return localized(model.language, "Fast local link (WebSocket)", "Snelle lokale verbinding (WebSocket)")
+            return localizedKey(model.language, "ui.fast.local.link.websocket")
         }
-        return localized(model.language, "Normal link (HTTP)", "Normale verbinding (HTTP)")
+        return localizedKey(model.language, "ui.normal.link.http")
     }
 
     private var connectionTransportColor: Color {
@@ -12245,25 +12145,13 @@ private struct LegalNoticesView: View {
                     VStack(alignment: .leading, spacing: 20) {
                         AboutBanner()
 
-                        SettingsSection(title: localized(language, "Legal", "Juridisch")) {
-                            SelectableValue(localized(
-                                language,
-                                "DJConnect is not affiliated with, endorsed by, or sponsored by Spotify AB, Apple, or Home Assistant.",
-                                "DJConnect is niet gelieerd aan, goedgekeurd door of gesponsord door Spotify AB, Apple of Home Assistant."
-                            ))
-                            SelectableValue(localized(
-                                language,
-                                "Spotify is a trademark of Spotify AB. Home Assistant is a trademark of the Open Home Foundation.",
-                                "Spotify is een handelsmerk van Spotify AB. Home Assistant is een handelsmerk van de Open Home Foundation."
-                            ))
+                        SettingsSection(title: localizedKey(language, "ui.legal")) {
+                            SelectableValue(localizedKey(language, "ui.djconnect.is.not.affiliated.with.endorsed.by.or.sponsored.by"))
+                            SelectableValue(localizedKey(language, "ui.spotify.is.a.trademark.of.spotify.ab.home.assistant.is"))
                         }
 
                         SettingsSection(title: "OSS") {
-                            SelectableValue(localized(
-                                language,
-                                "DJConnect uses Apple platform frameworks and Swift Package Manager. Third-party notices are documented in the repository when dependencies are added.",
-                                "DJConnect gebruikt Apple platform-frameworks en Swift Package Manager. Third-party notices worden in de repository gedocumenteerd wanneer dependencies worden toegevoegd."
-                            ))
+                            SelectableValue(localizedKey(language, "ui.djconnect.uses.apple.platform.frameworks.and.swift.package.manager.third"))
                         }
                     }
                     #if os(macOS)
@@ -12276,7 +12164,7 @@ private struct LegalNoticesView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .navigationTitle(localized(language, "Legal", "Juridisch"))
+            .navigationTitle(localizedKey(language, "ui.legal"))
         }
     }
 }
@@ -12290,32 +12178,12 @@ private struct PrivacyView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 24) {
                     AboutBanner()
-                    SettingsSection(title: localized(language, "Privacy", "Privacy")) {
-                        SelectableValue(localized(
-                            language,
-                            "DJConnect does not collect, sell, or process personal data in the app.",
-                            "DJConnect verzamelt, verkoopt of verwerkt zelf geen persoonsgegevens in de app."
-                        ))
-                        SelectableValue(localized(
-                            language,
-                            "Device tokens are stored locally in the app's private storage. Diagnostics are only shared when you copy them or open a GitHub issue yourself.",
-                            "Device-tokens worden lokaal in de private app-opslag bewaard. Diagnostiek wordt alleen gedeeld wanneer je die zelf kopieert of een GitHub issue opent."
-                        ))
-                        SelectableValue(localized(
-                            language,
-                            "Push notifications are only used for DJConnect notifications, such as Ask DJ responses. DJConnect stores an Apple push token locally and shares it with your own Home Assistant DJConnect integration so notifications can be delivered through Apple Push Notification service. Push tokens are not used for tracking, advertising, or sale.",
-                            "Pushnotificaties worden alleen gebruikt voor DJConnect-meldingen, zoals Ask DJ-reacties. DJConnect bewaart hiervoor een Apple push-token lokaal en deelt dit met je eigen Home Assistant DJConnect-integratie zodat notificaties via Apple Push Notification service kunnen worden bezorgd. Push-tokens worden niet gebruikt voor tracking, advertenties of verkoop."
-                        ))
-                        SelectableValue(localized(
-                            language,
-                            "Music, playback, and voice requests are handled through your own Home Assistant DJConnect integration.",
-                            "Muziek, playback en stemverzoeken lopen via je eigen Home Assistant DJConnect-integratie."
-                        ))
-                        SelectableValue(localized(
-                            language,
-                            "AI and Assist answers can be incorrect and depend on your own Home Assistant and Assist configuration.",
-                            "AI- en Assist-antwoorden kunnen onjuist zijn en hangen af van je eigen Home Assistant- en Assist-configuratie."
-                        ))
+                    SettingsSection(title: localizedKey(language, "ui.privacy")) {
+                        SelectableValue(localizedKey(language, "ui.djconnect.does.not.collect.sell.or.process.personal.data.in"))
+                        SelectableValue(localizedKey(language, "ui.device.tokens.are.stored.locally.in.the.app.s.private"))
+                        SelectableValue(localizedKey(language, "ui.push.notifications.are.only.used.for.djconnect.notifications.such.as"))
+                        SelectableValue(localizedKey(language, "ui.music.playback.and.voice.requests.are.handled.through.your.own"))
+                        SelectableValue(localizedKey(language, "ui.ai.and.assist.answers.can.be.incorrect.and.depend.on"))
                     }
                 }
                 #if os(macOS)
@@ -12329,7 +12197,7 @@ private struct PrivacyView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .navigationTitle(localized(language, "Privacy", "Privacy"))
+        .navigationTitle(localizedKey(language, "ui.privacy"))
     }
 }
 
@@ -12350,6 +12218,18 @@ private struct AskDJFeedbackPromptView: View {
         #endif
     }
 
+    private var contentMinWidth: CGFloat? {
+        isCompact ? nil : 760
+    }
+
+    private var contentIdealWidth: CGFloat? {
+        isCompact ? nil : 920
+    }
+
+    private var contentMaxWidth: CGFloat {
+        isCompact ? .infinity : 1_080
+    }
+
     var body: some View {
         ZStack {
             DJConnectCanvasBackground()
@@ -12357,19 +12237,15 @@ private struct AskDJFeedbackPromptView: View {
                 VStack(alignment: .leading, spacing: 18) {
                     AboutBanner()
                     VStack(alignment: .leading, spacing: 8) {
-                        Text(localized(model.language, "Report Ask DJ answer", "Ask DJ antwoord melden"))
+                        Text(localizedKey(model.language, "ui.report.ask.dj.answer"))
                             .font(.title.bold())
-                        Text(localized(
-                            model.language,
-                            "Create a GitHub issue draft with redacted Ask DJ context. Nothing is sent automatically.",
-                            "Maak een GitHub issue-concept met geredigeerde Ask DJ-context. Er wordt niets automatisch verstuurd."
-                        ))
+                        Text(localizedKey(model.language, "ui.create.a.github.issue.draft.with.redacted.ask.dj.context"))
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                     }
 
                     VStack(alignment: .leading, spacing: 8) {
-                        Text(localized(model.language, "What was wrong or missing?", "Wat klopte er niet of wat miste er?"))
+                        Text(localizedKey(model.language, "ui.what.was.wrong.or.missing"))
                             .font(.headline)
                         TextEditor(text: $userNote)
                             .font(.body)
@@ -12385,23 +12261,20 @@ private struct AskDJFeedbackPromptView: View {
 
                     VStack(alignment: .leading, spacing: 8) {
                         HStack {
-                            Text(localized(model.language, "GitHub draft context", "GitHub conceptcontext"))
+                            Text(localizedKey(model.language, "ui.github.draft.context"))
                                 .font(.headline)
                             Spacer()
                             Button {
                                 refreshIssueBody()
                             } label: {
-                                Label(localized(model.language, "Update", "Bijwerken"), systemImage: "arrow.clockwise")
+                                Label(localizedKey(model.language, "ui.update"), systemImage: "arrow.clockwise")
                                     .labelStyle(.iconOnly)
                             }
                             .buttonStyle(.borderless)
-                            .help(localized(model.language, "Update draft context", "Werk conceptcontext bij"))
+                            .foregroundStyle(.white)
+                            .help(localizedKey(model.language, "ui.update.draft.context"))
                         }
-                        Text(localized(
-                            model.language,
-                            "Review this text before opening GitHub. Remove anything you do not want to share.",
-                            "Controleer deze tekst voordat GitHub opent. Verwijder alles wat je niet wilt delen."
-                        ))
+                        Text(localizedKey(model.language, "ui.review.this.text.before.opening.github.remove.anything.you.do"))
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         TextEditor(text: $issueBody)
@@ -12418,9 +12291,18 @@ private struct AskDJFeedbackPromptView: View {
 
                     actionButtons
                 }
-                .padding(isCompact ? 18 : 28)
-                .frame(maxWidth: 1_080, alignment: .leading)
+                .padding(.horizontal, isCompact ? 18 : 28)
+                .padding(.top, isCompact ? 18 : 8)
+                .padding(.bottom, isCompact ? 18 : 28)
+                .frame(
+                    minWidth: contentMinWidth,
+                    idealWidth: contentIdealWidth,
+                    maxWidth: contentMaxWidth,
+                    alignment: .leading
+                )
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             }
+            .defaultScrollAnchor(.top)
         }
         #if os(macOS)
         .frame(minWidth: 760, idealWidth: 1_020, maxWidth: 1_160)
@@ -12440,7 +12322,7 @@ private struct AskDJFeedbackPromptView: View {
                 }
                 dismiss()
             } label: {
-                Label(localized(model.language, "Open GitHub Draft", "Open GitHub concept"), systemImage: "arrow.up.right.square")
+                Label(localizedKey(model.language, "ui.open.github.issue"), systemImage: "arrow.up.right.square")
                     .frame(maxWidth: .infinity)
             }
             .buttonStyle(DJConnectLilacPillButtonStyle())
@@ -12449,7 +12331,7 @@ private struct AskDJFeedbackPromptView: View {
             Button {
                 dismiss()
             } label: {
-                Text(localized(model.language, "Cancel", "Annuleren"))
+                Text(localizedKey(model.language, "ui.not.now"))
                     .frame(maxWidth: .infinity)
             }
             .buttonStyle(DJConnectLilacPillButtonStyle())
@@ -12485,13 +12367,9 @@ private struct FeedbackPromptView: View {
             VStack(alignment: .leading, spacing: 22) {
                 AboutBanner()
                 VStack(alignment: .leading, spacing: 10) {
-                    Text(localized(model.language, "Share Feedback", "Feedback delen"))
+                    Text(localizedKey(model.language, "ui.share.feedback"))
                         .font(.title.bold())
-                    Text(localized(
-                        model.language,
-                        "Open a GitHub issue with redacted app context. Nothing is uploaded automatically.",
-                        "Open een GitHub issue met geredigeerde app-context. Er wordt niets automatisch geüpload."
-                    ))
+                    Text(localizedKey(model.language, "ui.open.a.github.issue.with.redacted.app.context.nothing.is"))
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
                 }
@@ -12503,7 +12381,7 @@ private struct FeedbackPromptView: View {
                         }
                         dismiss()
                     } label: {
-                        Label(localized(model.language, "Open GitHub Issue", "Open GitHub issue"), systemImage: "arrow.up.right.square")
+                        Label(localizedKey(model.language, "ui.open.github.issue"), systemImage: "arrow.up.right.square")
                             .frame(maxWidth: .infinity)
                     }
                     .buttonStyle(DJConnectLilacPillButtonStyle())
@@ -12512,7 +12390,7 @@ private struct FeedbackPromptView: View {
                     Button {
                         dismiss()
                     } label: {
-                        Text(localized(model.language, "Not Now", "Niet nu"))
+                        Text(localizedKey(model.language, "ui.not.now.b1e535"))
                             .frame(maxWidth: .infinity)
                     }
                     .buttonStyle(DJConnectLilacPillButtonStyle())
@@ -12542,7 +12420,7 @@ private struct AboutBanner: View {
                     .foregroundStyle(.white)
                     .lineLimit(1)
                     .minimumScaleFactor(0.72)
-                Text(localized(language, "Music control with character", "Muziekbediening met karakter"))
+                Text(localizedKey(language, "ui.music.control.with.character"))
                     .font(.headline)
                     .foregroundStyle(.white.opacity(0.72))
                     .lineLimit(2)
@@ -12770,15 +12648,15 @@ private func wakeWordPhraseField(_ model: DJConnectAppModel) -> some View {
         set: { model.wakeWordPhrase = $0 }
     )
     #if os(iOS)
-    LabeledContent(localized(model.language, "Wake word", "Wake word")) {
-        TextField(localized(model.language, "Wake word", "Wake word"), text: phrase)
+    LabeledContent(localizedKey(model.language, "ui.wake.word")) {
+        TextField(localizedKey(model.language, "ui.wake.word"), text: phrase)
             .multilineTextAlignment(.trailing)
             .textInputAutocapitalization(.never)
             .autocorrectionDisabled()
     }
     #else
-    LabeledContent(localized(model.language, "Wake word", "Wake word")) {
-        TextField(localized(model.language, "Wake word", "Wake word"), text: phrase)
+    LabeledContent(localizedKey(model.language, "ui.wake.word")) {
+        TextField(localizedKey(model.language, "ui.wake.word"), text: phrase)
             .multilineTextAlignment(.trailing)
     }
     #endif
@@ -12790,40 +12668,40 @@ private func wakeWordStatusText(_ model: DJConnectAppModel) -> String {
     case .idle:
         if model.wakeWordEnabled {
             if model.pairingStatus != .paired || !model.isConnected {
-                return localized(model.language, "Pair Home Assistant first", "Koppel eerst met Home Assistant")
+                return localizedKey(model.language, "ui.pair.home.assistant.first")
             }
             if !model.backendAvailable {
-                return localized(model.language, "Playback backend unavailable", "Playback backend niet beschikbaar")
+                return localizedKey(model.language, "ui.playback.backend.unavailable")
             }
             if !model.voiceEnabled {
-                return localized(model.language, "Voice requests unavailable", "Stemverzoeken niet beschikbaar")
+                return localizedKey(model.language, "ui.voice.requests.unavailable")
             }
         }
-        return localized(model.language, "Idle", "Inactief")
+        return localizedKey(model.language, "ui.idle")
     case .listening:
-        return localized(model.language, "Listening for wake word", "Luistert naar wake word")
+        return localizedKey(model.language, "ui.listening.for.wake.word")
     case .detected:
-        return localized(model.language, "Wake word detected", "Wake word herkend")
+        return localizedKey(model.language, "ui.wake.word.detected")
     case .unavailable:
         if model.isDemoMode {
-            return localized(model.language, "Not available in Demo Mode", "Niet beschikbaar in demo modus")
+            return localizedKey(model.language, "ui.not.available.in.demo.mode")
         }
-        return localized(model.language, "Not available", "Niet beschikbaar")
+        return localizedKey(model.language, "ui.not.available")
     }
 }
 
 private func permissionStatusText(_ status: DJConnectPermissionStatus, language: String) -> String {
     switch status {
     case .unknown:
-        localized(language, "Ask when needed", "Vragen wanneer nodig")
+        localizedKey(language, "ui.ask.when.needed")
     case .granted:
-        localized(language, "Allowed", "Toegestaan")
+        localizedKey(language, "ui.allowed")
     case .denied:
-        localized(language, "Denied", "Geweigerd")
+        localizedKey(language, "ui.denied")
     case .restricted:
-        localized(language, "Restricted", "Beperkt")
+        localizedKey(language, "ui.restricted")
     case .unavailable:
-        localized(language, "Not available", "Niet beschikbaar")
+        localizedKey(language, "ui.not.available")
     }
 }
 

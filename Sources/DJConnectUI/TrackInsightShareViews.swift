@@ -5,6 +5,7 @@ struct TrackInsightSharePreviewView: View {
     let insight: TrackInsight
     let language: String
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @State private var format: TrackInsightShareFormat = .story
     @State private var mediaKind: TrackInsightShareMediaKind = .staticImage
     @State private var payload: TrackInsightSharePayload?
@@ -14,25 +15,26 @@ struct TrackInsightSharePreviewView: View {
     @State private var renderTask: Task<Void, Never>?
     @State private var activeRenderID = UUID()
 
+    private var contentMaxWidth: CGFloat {
+        horizontalSizeClass == .regular ? 820 : 560
+    }
+
     var body: some View {
         ZStack {
             DJConnectCanvasBackground()
             ScrollView {
                 VStack(alignment: .leading, spacing: 22) {
                     VStack(alignment: .leading, spacing: 10) {
-                        Text(localized("Share Track Insight", "Track Insight delen"))
+                        Text(localizedKey("trackInsight.share.share.track.insight"))
                             .font(.title.bold())
-                        Text(localized(
-                            "Create a share card or short animated clip from this track analysis. Nothing is posted automatically.",
-                            "Maak een deelkaart of korte animatie van deze trackanalyse. Er wordt niets automatisch geplaatst."
-                        ))
+                        Text(localizedKey("trackInsight.share.create.a.share.card.or.short.animated.clip.from.this"))
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                     }
 
                     VStack(spacing: 14) {
                 TrackInsightShareSegmentControl(
-                    title: localized("Media", "Media"),
+                    title: localizedKey("trackInsight.share.media"),
                     options: TrackInsightShareMediaKind.allCases,
                     selection: $mediaKind
                 ) { mediaKind in
@@ -40,7 +42,7 @@ struct TrackInsightSharePreviewView: View {
                 }
 
                 TrackInsightShareSegmentControl(
-                    title: localized("Format", "Formaat"),
+                    title: localizedKey("trackInsight.share.format"),
                     options: TrackInsightShareFormat.allCases,
                     selection: $format
                 ) { format in
@@ -68,7 +70,7 @@ struct TrackInsightSharePreviewView: View {
                     Button {
                         dismiss()
                     } label: {
-                        Text(localized("Not Now", "Niet nu"))
+                        Text(localizedKey("trackInsight.share.not.now"))
                             .frame(maxWidth: .infinity)
                     }
                     .buttonStyle(DJConnectLilacPillButtonStyle())
@@ -82,13 +84,17 @@ struct TrackInsightSharePreviewView: View {
                 }
                     }
                 }
-                .padding(20)
-                .frame(maxWidth: 560)
-                .frame(maxWidth: .infinity)
+                .padding(.horizontal, 20)
+                .padding(.top, horizontalSizeClass == .regular ? 8 : 20)
+                .padding(.bottom, 20)
+                .frame(maxWidth: contentMaxWidth)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             }
+            .defaultScrollAnchor(.top)
         }
         #if os(iOS)
         .presentationDetents([.large])
+        .presentationSizing(.page)
         .presentationDragIndicator(.hidden)
         #endif
         .onAppear {
@@ -109,32 +115,35 @@ struct TrackInsightSharePreviewView: View {
     private var shareButtonTitle: String {
         switch mediaKind {
         case .staticImage:
-            localized("Share Track Insight", "Track Insight delen")
+            localizedKey("trackInsight.share.share.track.insight")
         case .animatedVideo:
-            localized("Share Animated Vibe", "Geanimeerde vibe delen")
+            localizedKey("trackInsight.share.share.track.insight")
         }
     }
 
     @ViewBuilder
     private var renderStatus: some View {
-        VStack(spacing: 10) {
-            ProgressView(value: mediaKind == .animatedVideo ? renderProgress : nil)
-                .progressViewStyle(.linear)
+        VStack(spacing: 12) {
             if mediaKind == .animatedVideo {
+                TrackInsightShareExportProgress(progress: renderProgress)
                 HStack(spacing: 12) {
                     Text("\(Int((renderProgress * 100).rounded()))%")
                         .font(.caption.weight(.semibold))
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(.white.opacity(0.72))
                     Button(role: .cancel) {
                         cancelRender()
                     } label: {
-                        Text(localized("Cancel export", "Export annuleren"))
+                        Label(localizedKey("trackInsight.share.cancel.export"), systemImage: "xmark.circle")
+                            .frame(maxWidth: .infinity)
                     }
-                    .buttonStyle(.bordered)
+                    .buttonStyle(DJConnectLilacPillButtonStyle())
+                    .controlSize(.large)
                     .disabled(!isRendering || renderTask == nil)
                 }
             } else {
-                Text(localized("Preparing share card...", "Deelkaart voorbereiden..."))
+                ProgressView()
+                    .tint(djConnectAccent)
+                Text(localizedKey("trackInsight.share.preparing.share.card"))
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(.secondary)
             }
@@ -190,7 +199,7 @@ struct TrackInsightSharePreviewView: View {
             } catch is CancellationError {
                 guard activeRenderID == taskID else { return }
                 payload = nil
-                errorText = localized("Export cancelled.", "Export geannuleerd.")
+                errorText = localizedKey("trackInsight.share.export.cancelled")
             } catch let error as TrackInsightShareRenderer.RenderError {
                 guard activeRenderID == taskID else { return }
                 payload = nil
@@ -198,7 +207,7 @@ struct TrackInsightSharePreviewView: View {
             } catch {
                 guard activeRenderID == taskID else { return }
                 payload = nil
-                errorText = localized("Share media could not be generated.", "Deelmedia kon niet worden gemaakt.")
+                errorText = localizedKey("trackInsight.share.share.media.could.not.be.generated")
             }
             guard activeRenderID == taskID else { return }
             isRendering = false
@@ -214,26 +223,64 @@ struct TrackInsightSharePreviewView: View {
         payload = nil
         renderProgress = 0
         isRendering = false
-        errorText = localized("Export cancelled.", "Export geannuleerd.")
+        errorText = localizedKey("trackInsight.share.export.cancelled")
     }
 
-    private func localized(_ english: String, _ dutch: String) -> String {
-        DJConnectLocalization.localized(language: language, english: english, dutch: dutch)
+    private func localizedKey(_ key: String, arguments: CVarArg...) -> String {
+        DJConnectLocalization.localized(key: key, language: language, arguments: arguments)
     }
 
     private func localizedMessage(for error: TrackInsightShareRenderer.RenderError) -> String {
         switch error {
         case .imageRenderingFailed:
-            localized("The share image could not be rendered.", "Deelafbeelding kon niet worden gerenderd.")
+            localizedKey("trackInsight.share.the.share.image.could.not.be.rendered")
         case .videoWriterUnavailable:
-            localized("The animated share video could not be prepared.", "Geanimeerde deelvideo kon niet worden voorbereid.")
+            localizedKey("trackInsight.share.the.animated.share.video.could.not.be.prepared")
         case .videoFrameRenderingFailed:
-            localized("A video frame could not be rendered.", "Een videoframe kon niet worden gerenderd.")
+            localizedKey("trackInsight.share.a.video.frame.could.not.be.rendered")
         case .videoEncodingFailed:
-            localized("The animated share video could not be encoded.", "Geanimeerde deelvideo kon niet worden gecodeerd.")
+            localizedKey("trackInsight.share.the.animated.share.video.could.not.be.encoded")
         case .unsupportedVideoExport:
-            localized("Animated video export is not supported on this platform.", "Geanimeerde video-export wordt niet ondersteund op dit platform.")
+            localizedKey("trackInsight.share.animated.video.export.is.not.supported.on.this.platform")
         }
+    }
+}
+
+private struct TrackInsightShareExportProgress: View {
+    let progress: Double
+
+    private let progressBlue = Color(red: 0.16, green: 0.56, blue: 1.0)
+    private let progressPurple = Color(red: 0.84, green: 0.18, blue: 1.0)
+
+    private var clampedProgress: Double {
+        min(max(progress, 0), 1)
+    }
+
+    var body: some View {
+        GeometryReader { geometry in
+            ZStack(alignment: .leading) {
+                Capsule()
+                    .fill(.white.opacity(0.14))
+                Capsule()
+                    .fill(
+                        LinearGradient(
+                            colors: [progressBlue, progressPurple],
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        )
+                    )
+                    .frame(width: max(10, geometry.size.width * clampedProgress))
+                    .shadow(color: progressPurple.opacity(0.28), radius: 8, y: 2)
+            }
+        }
+        .frame(height: 8)
+        .overlay {
+            Capsule()
+                .stroke(.white.opacity(0.12), lineWidth: 1)
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Export progress")
+        .accessibilityValue("\(Int((clampedProgress * 100).rounded()))%")
     }
 }
 
@@ -250,26 +297,53 @@ private struct TrackInsightShareScaledPreview<Content: View>: View {
     }
 
     var body: some View {
-        ZStack {
-            GeometryReader { proxy in
-                let scale = min(
-                    proxy.size.width / designSize.width,
-                    proxy.size.height / designSize.height
-                )
+        GeometryReader { outerProxy in
+            ZStack {
+                GeometryReader { proxy in
+                    let scale = min(
+                        proxy.size.width / designSize.width,
+                        proxy.size.height / designSize.height
+                    )
 
-                content
-                    .frame(width: designSize.width, height: designSize.height)
-                    .scaleEffect(scale)
-                    .frame(width: proxy.size.width, height: proxy.size.height)
+                    content
+                        .frame(width: designSize.width, height: designSize.height)
+                        .scaleEffect(scale)
+                        .frame(width: proxy.size.width, height: proxy.size.height)
+                }
+            }
+            .aspectRatio(aspectRatio, contentMode: .fit)
+            .frame(maxWidth: .infinity)
+            .frame(maxHeight: maxPreviewHeight(in: outerProxy.size))
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .stroke(.white.opacity(0.14), lineWidth: 1)
             }
         }
-        .aspectRatio(aspectRatio, contentMode: .fit)
-        .frame(maxWidth: .infinity)
-        .frame(maxHeight: 460)
-        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .stroke(.white.opacity(0.14), lineWidth: 1)
+        .frame(height: preferredContainerHeight)
+    }
+
+    private var preferredContainerHeight: CGFloat {
+        switch format {
+        case .story:
+            640
+        case .square:
+            540
+        case .linkPreview:
+            360
+        }
+    }
+
+    private func maxPreviewHeight(in size: CGSize) -> CGFloat {
+        let availableHeight = max(size.height, preferredContainerHeight)
+        let responsiveHeight = availableHeight * 0.92
+        switch format {
+        case .story:
+            return min(720, max(460, responsiveHeight))
+        case .square:
+            return min(560, max(420, responsiveHeight))
+        case .linkPreview:
+            return min(420, max(260, responsiveHeight))
         }
     }
 }
@@ -547,8 +621,8 @@ struct TrackInsightShareCardView: View {
         return parts.isEmpty ? nil : parts.joined(separator: " - ")
     }
 
-    private func localized(_ english: String, _ dutch: String) -> String {
-        DJConnectLocalization.localized(language: language, english: english, dutch: dutch)
+    private func localizedKey(_ key: String, arguments: CVarArg...) -> String {
+        DJConnectLocalization.localized(key: key, language: language, arguments: arguments)
     }
 }
 
@@ -703,9 +777,9 @@ private struct TrackInsightShareMeters: View {
 
     var body: some View {
         HStack(spacing: meterSpacing) {
-            meter(localized("Energy", "Energie"), insight.energy)
-            meter(localized("Danceability", "Dansbaarheid"), insight.danceability)
-            meter(localized("Intensity", "Intensiteit"), insight.intensity)
+            meter(localizedKey("trackInsight.share.energy"), insight.energy)
+            meter(localizedKey("trackInsight.share.danceability"), insight.danceability)
+            meter(localizedKey("trackInsight.share.intensity"), insight.intensity)
         }
     }
 
@@ -798,7 +872,7 @@ private struct TrackInsightShareMeters: View {
         }
     }
 
-    private func localized(_ english: String, _ dutch: String) -> String {
-        DJConnectLocalization.localized(language: language, english: english, dutch: dutch)
+    private func localizedKey(_ key: String, arguments: CVarArg...) -> String {
+        DJConnectLocalization.localized(key: key, language: language, arguments: arguments)
     }
 }

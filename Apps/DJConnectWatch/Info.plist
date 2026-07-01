@@ -26,11 +26,11 @@
 		<true/>
 	</dict>
 	<key>NSLocalNetworkUsageDescription</key>
-	<string>DJConnect maakt verbinding met Home Assistant op je lokale netwerk.</string>
+	<string>DJConnect connects to Home Assistant on your local network.</string>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>DJConnect neemt je stem op voor push-to-talk muziekverzoeken aan Home Assistant.</string>
+	<string>DJConnect records your voice for push-to-talk music requests to Home Assistant.</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
-	<string>DJConnect gebruikt spraakherkenning alleen voor foreground stemactivatie met Hey DJ.</string>
+	<string>DJConnect uses speech recognition only for foreground wake phrase detection with Hey DJ.</string>
 	<key>UIRequiredDeviceCapabilities</key>
 	<array>
 		<string>wifi</string>

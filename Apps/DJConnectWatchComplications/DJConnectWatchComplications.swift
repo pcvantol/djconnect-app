@@ -1,3 +1,4 @@
+import DJConnectCore
 import SwiftUI
 import WidgetKit
 
@@ -5,9 +6,8 @@ private let appGroupIdentifier = "group.dev.djconnect"
 private let accentBlue = Color(red: 0.16, green: 0.56, blue: 1.0)
 private let accentPurple = Color(red: 0.84, green: 0.18, blue: 1.0)
 
-private func localized(_ english: String, _ dutch: String) -> String {
-    let code = Locale.current.language.languageCode?.identifier.lowercased()
-    return code == "nl" || Locale.preferredLanguages.first?.lowercased().hasPrefix("nl") == true ? dutch : english
+private func localizedKey(_ key: String, arguments: CVarArg...) -> String {
+    DJConnectLocalization.localized(key: key, arguments: arguments)
 }
 
 private func defaults() -> UserDefaults? {
@@ -164,7 +164,7 @@ private struct DJConnectLauncherView: View {
                 Label {
                     VStack(alignment: .leading, spacing: 1) {
                         Text("DJConnect").font(.headline)
-                        Text(localized("Open music control", "Open muziekbediening"))
+                        Text(localizedKey("watch.complication.open.music.control"))
                             .font(.caption2)
                             .foregroundStyle(.secondary)
                     }
@@ -193,7 +193,7 @@ private struct NowPlayingComplicationView: View {
     let entry: ComplicationEntry<NowPlayingSnapshot>
 
     private var snapshot: NowPlayingSnapshot? { entry.value }
-    private var title: String { snapshot?.title.isEmpty == false ? snapshot!.title : localized("Nothing playing", "Niets speelt nu") }
+    private var title: String { snapshot?.title.isEmpty == false ? snapshot!.title : localizedKey("watch.complication.nothing.playing") }
     private var artist: String { snapshot?.artist.isEmpty == false ? snapshot!.artist : "DJConnect" }
     private var isPlaying: Bool { snapshot?.isPlaying == true }
 
@@ -234,7 +234,7 @@ private struct QueueComplicationView: View {
 
     private var first: QueueItem? { entry.value?.items.first }
     private var count: Int { entry.value?.totalCount ?? 0 }
-    private var title: String { first?.title ?? localized("Queue", "Wachtrij") }
+    private var title: String { first?.title ?? localizedKey("watch.complication.queue") }
 
     var body: some View {
         ComplicationShell {
@@ -245,15 +245,15 @@ private struct QueueComplicationView: View {
                         .font(.title3.weight(.semibold))
                         .widgetAccentable()
                     VStack(alignment: .leading, spacing: 1) {
-                        Text(localized("Queue", "Wachtrij")).font(.headline).lineLimit(1)
-                        Text(first.map { "\($0.title) - \($0.artist ?? "DJConnect")" } ?? localized("No queue snapshot", "Geen wachtrij snapshot"))
+                        Text(localizedKey("watch.complication.queue")).font(.headline).lineLimit(1)
+                        Text(first.map { "\($0.title) - \($0.artist ?? "DJConnect")" } ?? localizedKey("watch.complication.no.queue.snapshot"))
                             .font(.caption2)
                             .foregroundStyle(.secondary)
                             .lineLimit(1)
                     }
                 }
             case .accessoryInline:
-                Label(count > 0 ? "\(count) \(localized("queued", "in wachtrij"))" : localized("Queue", "Wachtrij"), systemImage: "music.note.list")
+                Label(count > 0 ? "\(count) \(localizedKey("watch.complication.queued"))" : localizedKey("watch.complication.queue"), systemImage: "music.note.list")
             case .accessoryCorner:
                 Image(systemName: "music.note.list")
                     .widgetLabel { Text("\(count)") }
@@ -287,15 +287,15 @@ private struct PlaylistsComplicationView: View {
                         .font(.title3.weight(.semibold))
                         .widgetAccentable()
                     VStack(alignment: .leading, spacing: 1) {
-                        Text(localized("Playlists", "Afspeellijsten")).font(.headline).lineLimit(1)
-                        Text(first?.name ?? localized("No playlist snapshot", "Geen playlist snapshot"))
+                        Text(localizedKey("watch.complication.playlists")).font(.headline).lineLimit(1)
+                        Text(first?.name ?? localizedKey("watch.complication.no.playlist.snapshot"))
                             .font(.caption2)
                             .foregroundStyle(.secondary)
                             .lineLimit(1)
                     }
                 }
             case .accessoryInline:
-                Label(first?.name ?? localized("Playlists", "Afspeellijsten"), systemImage: "rectangle.stack.fill")
+                Label(first?.name ?? localizedKey("watch.complication.playlists"), systemImage: "rectangle.stack.fill")
             case .accessoryCorner:
                 Image(systemName: "rectangle.stack.fill")
                     .widgetLabel { Text("\(count)") }
@@ -375,7 +375,7 @@ private struct AskDJComplicationView: View {
                         .widgetAccentable()
                     VStack(alignment: .leading, spacing: 1) {
                         Text("Ask DJ").font(.headline).lineLimit(1)
-                        Text(snapshot?.prompt ?? localized("Open Ask DJ", "Open Ask DJ"))
+                        Text(snapshot?.prompt ?? localizedKey("watch.complication.open.ask.dj"))
                             .font(.caption2)
                             .foregroundStyle(.secondary)
                             .lineLimit(1)

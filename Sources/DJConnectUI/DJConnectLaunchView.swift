@@ -1,3 +1,4 @@
+import DJConnectCore
 import SwiftUI
 
 #if os(iOS)
@@ -5,10 +6,6 @@ import UIKit
 #elseif os(macOS)
 import AppKit
 #endif
-
-private func launchLocalized(english: String, dutch: String) -> String {
-    Locale.preferredLanguages.first?.lowercased().hasPrefix("nl") == true ? dutch : english
-}
 
 enum DJConnectVersionInfo {
     static var displayVersion: String {
@@ -174,7 +171,7 @@ private struct DJConnectLaunchBanner: View {
                     .multilineTextAlignment(.center)
                     .frame(maxWidth: .infinity, alignment: .center)
                     .layoutPriority(2)
-                Text(launchLocalized(english: "Music control with character.", dutch: "Muziekbediening met karakter."))
+                Text(DJConnectLocalization.localized(key: "launch.music.control.with.character"))
                     .font(.headline.weight(.semibold))
                     .foregroundStyle(.white.opacity(0.72))
                     .lineLimit(2)

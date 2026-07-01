@@ -169,8 +169,9 @@ French, and Spanish. Keep protocol values, endpoint paths, JSON keys, and
 `client_type` values (`ios`, `macos`, `watchos`) untranslated.
 
 When adding or changing shared localized text, update every locale in
-`Resources/Localization/{en,nl,de,fr,es}.lproj/Localizable.strings` and prefer
-format placeholders over concatenating translated fragments. Then run:
+`Sources/DJConnectCore/Resources/Localization/{en,nl,de,fr,es}.lproj/Localizable.strings`
+and prefer format placeholders over concatenating translated fragments. Then
+run:
 
 ```sh
 python3 scripts/validate_localizations.py

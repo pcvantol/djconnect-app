@@ -21,6 +21,7 @@ targets:
     platform: iOS
     sources:
       - path: Sources/DJConnectCore
+      - path: Sources/DJConnectCore/Resources
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: dev.djconnect.core.ios
@@ -32,6 +33,7 @@ targets:
     platform: macOS
     sources:
       - path: Sources/DJConnectCore
+      - path: Sources/DJConnectCore/Resources
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: dev.djconnect.core.mac
@@ -43,6 +45,7 @@ targets:
     platform: watchOS
     sources:
       - path: Sources/DJConnectCore
+      - path: Sources/DJConnectCore/Resources
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: dev.djconnect.core.watch
@@ -99,17 +102,17 @@ targets:
             CFBundleURLSchemes:
               - djconnect
         LSApplicationCategoryType: public.app-category.music
-        NSCameraUsageDescription: DJConnect gebruikt de camera alleen om de koppel-QR-code van Home Assistant of Apple Watch te scannen.
+        NSCameraUsageDescription: DJConnect uses the camera only to scan the pairing QR code from Home Assistant or Apple Watch.
         UILaunchStoryboardName: LaunchScreen
         UIApplicationShortcutItems:
           - UIApplicationShortcutItemIconSymbolName: music.note
-            UIApplicationShortcutItemTitle: Speelt Nu
+            UIApplicationShortcutItemTitle: Now Playing
             UIApplicationShortcutItemType: dev.djconnect.action.now-playing
-          - UIApplicationShortcutItemIconSymbolName: bubble.left.and.bubble.right.fill
+          - UIApplicationShortcutItemIconSymbolName: bubble.left.and.bubble.right
             UIApplicationShortcutItemTitle: Ask DJ
             UIApplicationShortcutItemType: dev.djconnect.action.ask-dj
           - UIApplicationShortcutItemIconSymbolName: waveform.path.ecg
-            UIApplicationShortcutItemSubtitle: Analyseer huidig nummer
+            UIApplicationShortcutItemSubtitle: Analyze current track
             UIApplicationShortcutItemTitle: Track Insight
             UIApplicationShortcutItemType: dev.djconnect.action.track-insight
         UISupportedInterfaceOrientations:
@@ -121,9 +124,9 @@ targets:
           - UIInterfaceOrientationPortraitUpsideDown
           - UIInterfaceOrientationLandscapeLeft
           - UIInterfaceOrientationLandscapeRight
-        NSLocalNetworkUsageDescription: DJConnect maakt verbinding met Home Assistant op je lokale netwerk.
-        NSMicrophoneUsageDescription: DJConnect neemt je stem op voor push-to-talk muziekverzoeken aan Home Assistant.
-        NSSpeechRecognitionUsageDescription: DJConnect gebruikt spraakherkenning om de wake-zin te herkennen.
+        NSLocalNetworkUsageDescription: DJConnect connects to Home Assistant on your local network.
+        NSMicrophoneUsageDescription: DJConnect records your voice for push-to-talk music requests to Home Assistant.
+        NSSpeechRecognitionUsageDescription: DJConnect uses speech recognition to detect the wake phrase.
         NSSupportsLiveActivities: true
         UIRequiredDeviceCapabilities:
           - wifi
@@ -157,9 +160,9 @@ targets:
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         LSApplicationCategoryType: public.app-category.music
-        NSLocalNetworkUsageDescription: DJConnect maakt verbinding met Home Assistant op je lokale netwerk.
-        NSMicrophoneUsageDescription: DJConnect neemt je stem op voor push-to-talk muziekverzoeken aan Home Assistant.
-        NSSpeechRecognitionUsageDescription: DJConnect gebruikt spraakherkenning om de wake-zin te herkennen.
+        NSLocalNetworkUsageDescription: DJConnect connects to Home Assistant on your local network.
+        NSMicrophoneUsageDescription: DJConnect records your voice for push-to-talk music requests to Home Assistant.
+        NSSpeechRecognitionUsageDescription: DJConnect uses speech recognition to detect the wake phrase.
         NSBonjourServices:
           - _home-assistant._tcp.
         NSAppTransportSecurity:
@@ -189,9 +192,9 @@ targets:
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         WKApplication: true
         WKCompanionAppBundleIdentifier: dev.djconnect.ios
-        NSLocalNetworkUsageDescription: DJConnect maakt verbinding met Home Assistant op je lokale netwerk.
-        NSMicrophoneUsageDescription: DJConnect neemt je stem op voor push-to-talk muziekverzoeken aan Home Assistant.
-        NSSpeechRecognitionUsageDescription: DJConnect gebruikt spraakherkenning alleen voor foreground stemactivatie met Hey DJ.
+        NSLocalNetworkUsageDescription: DJConnect connects to Home Assistant on your local network.
+        NSMicrophoneUsageDescription: DJConnect records your voice for push-to-talk music requests to Home Assistant.
+        NSSpeechRecognitionUsageDescription: DJConnect uses speech recognition only for foreground wake phrase detection with Hey DJ.
         UIRequiredDeviceCapabilities:
           - wifi
         NSAppTransportSecurity:
@@ -207,6 +210,8 @@ targets:
     platform: watchOS
     sources:
       - path: Apps/DJConnectWatchComplications
+    dependencies:
+      - target: DJConnectCoreWatch
     info:
       path: Apps/DJConnectWatchComplications/Info.plist
       properties:

@@ -12,6 +12,9 @@ import WatchKit
 #if canImport(WatchConnectivity)
 @preconcurrency import WatchConnectivity
 #endif
+#if canImport(WidgetKit)
+import WidgetKit
+#endif
 
 struct DJConnectWatchAskDJMessage: Identifiable, Codable, Equatable {
     enum Role: String, Codable {
@@ -156,9 +159,9 @@ enum DJConnectWatchLogLevel: String, CaseIterable, Identifiable {
         case .info:
             return "Info"
         case .warning:
-            return DJConnectLocalization.localized(language: language, english: "Warnings", dutch: "Waarschuwingen")
+            return DJConnectLocalization.localized(key: "watch.warnings", language: language)
         case .error:
-            return DJConnectLocalization.localized(language: language, english: "Errors", dutch: "Fouten")
+            return DJConnectLocalization.localized(key: "watch.errors", language: language)
         }
     }
 
@@ -311,9 +314,16 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
     @AppStorage("DJConnectWatchMusicDNAOptInPromptSeen") private var musicDNAOptInPromptSeen = false
     @AppStorage("DJConnectWatchDemoMusicDNAEnabled") private var storedDemoMusicDNAEnabled = false
     @AppStorage("DJConnectWatchDemoMusicDNAOptInPromptSeen") private var demoMusicDNAOptInPromptSeen = false
+    @Published private(set) var appLanguageOverrideCode = DJConnectLocalization.languageOverrideCode(
+        UserDefaults.standard.string(forKey: DJConnectLocalization.appLanguageOverrideDefaultsKey)
+    )
 
     var language: String {
-        DJConnectLocalization.preferredLanguageCode()
+        DJConnectLocalization.resolvedLanguageCode(override: appLanguageOverrideCode)
+    }
+
+    var currentRequestLocale: String {
+        DJConnectLocalization.bcp47LocaleIdentifier(for: language)
     }
 
     @Published private(set) var connectionState: ConnectionState = .unpaired
@@ -361,6 +371,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
     @Published private(set) var isWiFiAvailable = false
     @Published var isShowingMicrophonePermissionExplanation = false
     @Published var isShowingVoiceActivationPermissionExplanation = false
+    @Published var isShowingAskDJNotificationPermissionExplanation = false
     @Published var isShowingWelcome = false
     @Published var statusMessage = "Niet gekoppeld"
     @Published private(set) var voiceActivationStatus: VoiceActivationStatus = .paused
@@ -393,6 +404,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
     private var playbackBeatSignature: String?
     private var lastMainScreenRefreshAt: Date?
     private var hasRequestedAskDJNotificationPermission = false
+    private var pendingAskDJNotificationAuthorizationContinuation: CheckedContinuation<Bool, Never>?
     private var currentAPNsPushToken: String?
     private var shouldBypassMicrophonePermissionExplanationOnce = false
     private var shouldBypassVoiceActivationPermissionExplanationOnce = false
@@ -417,6 +429,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
     init(monkeyTestingMode: Bool = false) {
         self.monkeyTestingMode = monkeyTestingMode
         super.init()
+        syncAppLanguageOverrideToSharedDefaults()
         demoMusicDNAEnabled = storedDemoMusicDNAEnabled
         askDJMessages = Self.loadAskDJMessages(key: askDJMessagesKey)
         isShowingWelcome = !welcomeSeen && !monkeyTestingMode
@@ -448,6 +461,39 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         if !isDemoMode {
             startRuntimeDiagnosticsMonitor()
         }
+    }
+
+    func setAppLanguageOverride(_ value: String) {
+        let normalizedOverride = DJConnectLocalization.languageOverrideCode(value)
+        guard normalizedOverride != appLanguageOverrideCode else {
+            syncAppLanguageOverrideToSharedDefaults()
+            return
+        }
+        appLanguageOverrideCode = normalizedOverride
+        if normalizedOverride.isEmpty {
+            UserDefaults.standard.removeObject(forKey: DJConnectLocalization.appLanguageOverrideDefaultsKey)
+        } else {
+            UserDefaults.standard.set(normalizedOverride, forKey: DJConnectLocalization.appLanguageOverrideDefaultsKey)
+        }
+        syncAppLanguageOverrideToSharedDefaults()
+        reloadComplicationTimelinesForLanguageChange()
+    }
+
+    private func syncAppLanguageOverrideToSharedDefaults() {
+        guard let sharedDefaults = UserDefaults(suiteName: DJConnectLocalization.appGroupIdentifier) else {
+            return
+        }
+        if appLanguageOverrideCode.isEmpty {
+            sharedDefaults.removeObject(forKey: DJConnectLocalization.appLanguageOverrideDefaultsKey)
+        } else {
+            sharedDefaults.set(appLanguageOverrideCode, forKey: DJConnectLocalization.appLanguageOverrideDefaultsKey)
+        }
+    }
+
+    private func reloadComplicationTimelinesForLanguageChange() {
+        #if canImport(WidgetKit)
+        WidgetCenter.shared.reloadAllTimelines()
+        #endif
     }
 
     deinit {
@@ -1210,7 +1256,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         do {
             let response: DJConnectCommandResponse = try await sendCompanionHARequest(
                 .command,
-                payload: DJConnectCommandPayload(identity: identity, command: command)
+                payload: DJConnectCommandPayload(identity: identity, command: command, language: currentRequestLocale)
             )
             applyBackendSummary(response.musicBackendSummary)
             if !Self.shouldDeferPlaybackSnapshotUntilRefresh(command) {
@@ -1259,7 +1305,8 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
                 payload: DJConnectCommandPayload(
                     identity: identity,
                     command: "set_current_track_favorite",
-                    value: .bool(shouldFavorite)
+                    value: .bool(shouldFavorite),
+                    language: currentRequestLocale
                 )
             )
             applyBackendSummary(response.musicBackendSummary)
@@ -1305,7 +1352,13 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         do {
             let response: DJConnectCommandResponse = try await sendCompanionHARequest(
                 .command,
-                payload: DJConnectCommandPayload(identity: identity, command: "set_volume", value: .int(value), play: true)
+                payload: DJConnectCommandPayload(
+                    identity: identity,
+                    command: "set_volume",
+                    value: .int(value),
+                    play: true,
+                    language: currentRequestLocale
+                )
             )
             applyBackendSummary(response.musicBackendSummary)
             applyPlayback(response.playback)
@@ -1344,7 +1397,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         do {
             let response: DJConnectCommandResponse = try await sendCompanionHARequest(
                 .command,
-                payload: DJConnectCommandPayload(identity: identity, command: "playlists", limit: 100)
+                payload: DJConnectCommandPayload(identity: identity, command: "playlists", limit: 100, language: currentRequestLocale)
             )
             applyBackendSummary(response.musicBackendSummary)
             playlistItems = response.playlists ?? []
@@ -1375,7 +1428,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         do {
             let response: DJConnectCommandResponse = try await sendCompanionHARequest(
                 .command,
-                payload: DJConnectCommandPayload(identity: identity, command: "queue", limit: 100)
+                payload: DJConnectCommandPayload(identity: identity, command: "queue", limit: 100, language: currentRequestLocale)
             )
             applyBackendSummary(response.musicBackendSummary)
             queueItems = response.queue ?? []
@@ -1410,7 +1463,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         do {
             let response: DJConnectCommandResponse = try await sendCompanionHARequest(
                 .command,
-                payload: DJConnectCommandPayload(identity: identity, command: "devices")
+                payload: DJConnectCommandPayload(identity: identity, command: "devices", language: currentRequestLocale)
             )
             applyBackendSummary(response.musicBackendSummary)
             applyOutputs(response.devices ?? [])
@@ -1453,7 +1506,8 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
                     identity: identity,
                     command: "set_output",
                     value: .string(output.name),
-                    play: true
+                    play: true,
+                    language: currentRequestLocale
                 )
             )
             applyBackendSummary(response.musicBackendSummary)
@@ -1497,7 +1551,8 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
                     identity: identity,
                     command: "play_context_at",
                     value: .object(queueStartPayload(for: item, uri: uri, index: index)),
-                    play: true
+                    play: true,
+                    language: currentRequestLocale
                 )
             )
             applyBackendSummary(response.musicBackendSummary)
@@ -1534,7 +1589,8 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
                     identity: identity,
                     command: "start_playlist",
                     value: .string(playlist.commandValue),
-                    play: true
+                    play: true,
+                    language: currentRequestLocale
                 )
             )
             applyBackendSummary(response.musicBackendSummary)
@@ -2056,7 +2112,8 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
                     command: command,
                     value: Self.askDJCommandValue(for: action, command: command),
                     play: command == "ask_dj_play_recommendation",
-                    musicBackendRevision: action.musicBackendRevision ?? musicBackendSummary.musicBackendRevision
+                    musicBackendRevision: action.musicBackendRevision ?? musicBackendSummary.musicBackendRevision,
+                    language: currentRequestLocale
                 )
             )
             applyBackendSummary(response.musicBackendSummary)
@@ -2093,7 +2150,8 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
                     identity: identity,
                     command: command,
                     value: value,
-                    musicBackendRevision: action.musicBackendRevision ?? musicBackendSummary.musicBackendRevision
+                    musicBackendRevision: action.musicBackendRevision ?? musicBackendSummary.musicBackendRevision,
+                    language: currentRequestLocale
                 )
             )
             applyBackendSummary(response.musicBackendSummary)
@@ -2143,7 +2201,8 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
                     identity: identity,
                     command: command,
                     value: Self.askDJCommandValue(for: action, command: command),
-                    musicBackendRevision: action.musicBackendRevision ?? musicBackendSummary.musicBackendRevision
+                    musicBackendRevision: action.musicBackendRevision ?? musicBackendSummary.musicBackendRevision,
+                    language: currentRequestLocale
                 )
             )
             applyBackendSummary(response.musicBackendSummary)
@@ -2596,7 +2655,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         statusMessage = response
         speechSynthesizer?.stopSpeaking(at: .immediate)
         let utterance = AVSpeechUtterance(string: response)
-        utterance.voice = AVSpeechSynthesisVoice(language: "nl-NL")
+        utterance.voice = AVSpeechSynthesisVoice(language: currentRequestLocale)
         utterance.rate = 0.48
         let synthesizer = AVSpeechSynthesizer()
         speechSynthesizer = synthesizer
@@ -2608,7 +2667,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
             identity: identity,
             haPairingStatus: canUseBackend ? .paired : .unpaired,
             batteryPercent: Int(WKInterfaceDevice.current().batteryLevel * 100),
-            language: Locale.current.language.languageCode?.identifier,
+            language: currentRequestLocale,
             osVersion: WKInterfaceDevice.current().systemVersion,
             localAudioSupported: true,
             voiceSupported: true,
@@ -2740,7 +2799,8 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
                         wavData: data,
                         mood: askDJMoodInt,
                         djStyle: djStyle,
-                        musicDNAKey: musicDNAKey
+                        musicDNAKey: musicDNAKey,
+                        language: currentRequestLocale
                     )
                 )
                 voiceState = .idle
@@ -2948,16 +3008,45 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
             guard !hasRequestedAskDJNotificationPermission else {
                 return false
             }
-            hasRequestedAskDJNotificationPermission = true
-            do {
-                return try await center.requestAuthorization(options: [.alert, .sound])
-            } catch {
-                appendDiagnosticLog("Notificatie toestemming mislukt: \(error.localizedDescription)", level: .warning)
+            let shouldRequestSystemPermission = await withCheckedContinuation { continuation in
+                pendingAskDJNotificationAuthorizationContinuation?.resume(returning: false)
+                pendingAskDJNotificationAuthorizationContinuation = continuation
+                isShowingAskDJNotificationPermissionExplanation = true
+            }
+            guard shouldRequestSystemPermission else {
                 return false
             }
+            return await requestAskDJNotificationAuthorization(center: center)
         case .denied:
             return false
         @unknown default:
+            return false
+        }
+    }
+
+    func continueAfterAskDJNotificationPermissionExplanation() {
+        isShowingAskDJNotificationPermissionExplanation = false
+        hasRequestedAskDJNotificationPermission = true
+        pendingAskDJNotificationAuthorizationContinuation?.resume(returning: true)
+        pendingAskDJNotificationAuthorizationContinuation = nil
+    }
+
+    func cancelAskDJNotificationPermissionExplanation() {
+        isShowingAskDJNotificationPermissionExplanation = false
+        appendDiagnosticLog("Ask DJ notificatie uitleg geannuleerd", level: .debug)
+        pendingAskDJNotificationAuthorizationContinuation?.resume(returning: false)
+        pendingAskDJNotificationAuthorizationContinuation = nil
+    }
+
+    private func requestAskDJNotificationAuthorization(center: UNUserNotificationCenter) async -> Bool {
+        do {
+            let granted = try await center.requestAuthorization(options: [.alert, .sound])
+            if granted {
+                WKApplication.shared().registerForRemoteNotifications()
+            }
+            return granted
+        } catch {
+            appendDiagnosticLog("Notificatie toestemming mislukt: \(error.localizedDescription)", level: .warning)
             return false
         }
     }
@@ -2969,15 +3058,8 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         case .authorized, .provisional, .ephemeral:
             return true
         case .notDetermined:
-            do {
-                let granted = try await center.requestAuthorization(options: [.alert, .sound])
-                let updatedSettings = await center.notificationSettings()
-                logPush("notification permission requested granted=\(granted) status=\(Self.notificationAuthorizationStatusName(updatedSettings.authorizationStatus))")
-                return granted
-            } catch {
-                logPush("notification permission failed error=\(error.localizedDescription)", level: .warning)
-                return false
-            }
+            logPush("notification permission not requested by remote registration; waiting for Ask DJ explanation")
+            return false
         case .denied:
             return false
         @unknown default:
@@ -3323,7 +3405,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
             return
         }
         let utterance = AVSpeechUtterance(string: text)
-        utterance.voice = AVSpeechSynthesisVoice(language: "nl-NL")
+        utterance.voice = AVSpeechSynthesisVoice(language: currentRequestLocale)
         let synthesizer = AVSpeechSynthesizer()
         speechSynthesizer = synthesizer
         synthesizer.speak(utterance)

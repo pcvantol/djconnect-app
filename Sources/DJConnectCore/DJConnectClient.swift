@@ -141,9 +141,10 @@ public final class DJConnectClient: Sendable {
         wavData: Data,
         mood: Int? = nil,
         djStyle: String? = nil,
-        musicDNAKey: String? = nil
+        musicDNAKey: String? = nil,
+        language: String? = nil
     ) async throws -> DJConnectVoiceResponse {
-        let request = try voiceRequest(wavData: wavData, mood: mood, djStyle: djStyle, musicDNAKey: musicDNAKey)
+        let request = try voiceRequest(wavData: wavData, mood: mood, djStyle: djStyle, musicDNAKey: musicDNAKey, language: language)
         return try await decodedResponse(for: request)
     }
 
@@ -247,7 +248,8 @@ public final class DJConnectClient: Sendable {
         wavData: Data,
         mood: Int? = nil,
         djStyle: String? = nil,
-        musicDNAKey: String? = nil
+        musicDNAKey: String? = nil,
+        language: String? = nil
     ) throws -> URLRequest {
         var request = try authenticatedRequest(path: "/api/djconnect/voice")
         request.httpMethod = "POST"
@@ -263,6 +265,10 @@ public final class DJConnectClient: Sendable {
         }
         if let musicDNAKey, !musicDNAKey.isEmpty {
             request.setValue(musicDNAKey, forHTTPHeaderField: "X-DJConnect-Music-DNA-Key")
+        }
+        if let language, !language.isEmpty {
+            request.setValue(language, forHTTPHeaderField: "X-DJConnect-Language")
+            request.setValue(language, forHTTPHeaderField: "X-DJConnect-Locale")
         }
         request.httpBody = wavData
         return request

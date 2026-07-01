@@ -36,6 +36,21 @@ import WidgetKit
 @preconcurrency import WatchConnectivity
 #endif
 
+#if os(iOS) && canImport(AVFoundation)
+private func setDJConnectAudioSessionActive(
+    _ isActive: Bool,
+    options: AVAudioSession.SetActiveOptions = []
+) async throws {
+    let rawOptions = options.rawValue
+    try await Task.detached(priority: .userInitiated) {
+        try AVAudioSession.sharedInstance().setActive(
+            isActive,
+            options: AVAudioSession.SetActiveOptions(rawValue: rawOptions)
+        )
+    }.value
+}
+#endif
+
 public enum DJConnectAppLogLevel: String, CaseIterable, Sendable {
     case debug
     case info
@@ -540,6 +555,7 @@ public final class DJConnectAppModel: ObservableObject {
         }
     }
     @Published public var language = "en"
+    @Published public private(set) var appLanguageOverrideCode = ""
     @Published public var voiceEnabled = true {
         didSet { updateWakeWordListeningForAvailability() }
     }
@@ -667,6 +683,7 @@ public final class DJConnectAppModel: ObservableObject {
     private let watchProxyAskDJVoiceSupportedKey = "DJConnectWatchProxyAskDJVoiceSupported"
     private let watchProxyAskDJAudioResponseSupportedKey = "DJConnectWatchProxyAskDJAudioResponseSupported"
     private let logLevelKey = "DJConnectLogLevel"
+    private let appLanguageOverrideKey = DJConnectLocalization.appLanguageOverrideDefaultsKey
     private let demoModeKey = "DJConnectDemoMode"
     private let askDJMoodKey = "DJConnectAskDJMood"
     private let wakeWordPhraseKey = "DJConnectWakeWordPhrase"
@@ -763,6 +780,28 @@ public final class DJConnectAppModel: ObservableObject {
         showMoodChangedMessage()
     }
 
+    public func setAppLanguageOverride(_ value: String) {
+        let normalizedOverride = DJConnectLocalization.languageOverrideCode(value)
+        guard normalizedOverride != appLanguageOverrideCode else {
+            Self.syncAppLanguageOverrideToSharedDefaults(normalizedOverride)
+            return
+        }
+        let oldNoOutputName = Self.noOutputName(for: language)
+        appLanguageOverrideCode = normalizedOverride
+        if normalizedOverride.isEmpty {
+            defaults.removeObject(forKey: appLanguageOverrideKey)
+        } else {
+            defaults.set(normalizedOverride, forKey: appLanguageOverrideKey)
+        }
+        Self.syncAppLanguageOverrideToSharedDefaults(normalizedOverride)
+        language = Self.resolvedLanguage(defaults: defaults)
+        if selectedOutput == oldNoOutputName || Self.legacyNoOutputNames.contains(selectedOutput) {
+            selectedOutput = Self.noOutputName(for: language)
+        }
+        refreshReleaseNotesIfNeeded()
+        reloadWidgetTimelinesForLanguageChange()
+    }
+
     private var hasActiveNowPlaying: Bool {
         playback?.hasPlayback == true
             || playback?.isPlaying == true
@@ -777,8 +816,17 @@ public final class DJConnectAppModel: ObservableObject {
         appVersion
     }
 
+    public var appLanguageSelectionCode: String {
+        get { appLanguageOverrideCode }
+        set { setAppLanguageOverride(newValue) }
+    }
+
     private var releaseNotesLanguageCode: String {
         Self.normalizedReleaseNotesLanguageCode(language)
+    }
+
+    public var currentRequestLocale: String {
+        DJConnectLocalization.bcp47LocaleIdentifier(for: language)
     }
 
     public var hasStoredPairingToken: Bool {
@@ -801,10 +849,7 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     public var localNetworkRequirementMessage: String? {
-        (!hasEvaluatedLocalNetwork || isLocalNetworkAvailable) ? nil : localized(
-            english: "Local Wi-Fi/LAN is required. Connect this device to the same local network as Home Assistant.",
-            dutch: "Lokaal WiFi/LAN is vereist. Verbind dit apparaat met hetzelfde lokale netwerk als Home Assistant."
-        )
+        (!hasEvaluatedLocalNetwork || isLocalNetworkAvailable) ? nil : localized(key: "appModel.local.wi.fi.lan.is.required.connect.this.device")
     }
 
     public var shouldShowPairingScreen: Bool {
@@ -874,7 +919,9 @@ public final class DJConnectAppModel: ObservableObject {
         self.askDJVoiceSupported = defaults.bool(forKey: askDJVoiceSupportedKey)
         self.askDJAudioResponseSupported = defaults.bool(forKey: askDJAudioResponseSupportedKey)
         self.pairingToken = defaults.string(forKey: pairingTokenKey) ?? ""
-        self.language = Self.defaultLanguage()
+        self.appLanguageOverrideCode = Self.appLanguageOverride(defaults: defaults)
+        self.language = Self.resolvedLanguage(defaults: defaults)
+        Self.syncAppLanguageOverrideToSharedDefaults(self.appLanguageOverrideCode)
         self.selectedOutput = Self.noOutputName(for: language)
         self.logLevel = defaults.string(forKey: logLevelKey) ?? "info"
         self.askDJMood = defaults.object(forKey: askDJMoodKey) == nil ? 50.0 : defaults.double(forKey: askDJMoodKey)
@@ -951,11 +998,8 @@ public final class DJConnectAppModel: ObservableObject {
             return
         }
 
-        whatsNewTitle = localized(english: "What's New in DJConnect \(appVersion)", dutch: "Wat is er nieuw in DJConnect \(appVersion)")
-        whatsNewBody = localized(
-            english: "Loading release notes...",
-            dutch: "Release notes laden..."
-        )
+        whatsNewTitle = localized(key: "appModel.what.s.new.in.djconnect.value", arguments: appVersion)
+        whatsNewBody = localized(key: "appModel.loading.release.notes")
         isShowingWhatsNew = true
         if startBackgroundTasks {
             Task { [weak self] in
@@ -969,14 +1013,20 @@ public final class DJConnectAppModel: ObservableObject {
         isShowingWhatsNew = false
     }
 
+    private func refreshReleaseNotesIfNeeded() {
+        guard isShowingWhatsNew else {
+            return
+        }
+        Task { [weak self] in
+            await self?.loadWhatsNewReleaseNotes()
+        }
+    }
+
     public func loadWhatsNewReleaseNotes() async {
         await MainActor.run {
             isLoadingWhatsNew = true
         }
-        let fallback = localized(
-            english: "Release notes could not be loaded. See https://djconnect.dev for more information.",
-            dutch: "Release notes konden niet worden geladen. Bekijk https://djconnect.dev voor meer informatie."
-        )
+        let fallback = localized(key: "appModel.release.notes.could.not.be.loaded.see.https.djconnect")
 
         let candidateURLs = [
             DJConnectAppModel.publicReleaseNotesURL(version: appVersion, clientType: identity.clientType, language: releaseNotesLanguageCode),
@@ -1068,10 +1118,7 @@ public final class DJConnectAppModel: ObservableObject {
             if let existingToken = try tokenStore.loadToken(), !existingToken.isEmpty {
                 isShowingTokenStorageError = false
                 beginStoredPairingValidation()
-                pairingMessage = localized(
-                    english: "DJConnect token restored. Checking Home Assistant pairing...",
-                    dutch: "DJConnect-token hersteld. Home Assistant-koppeling controleren..."
-                )
+                pairingMessage = localized(key: "appModel.djconnect.token.restored.checking.home.assistant.pairing")
                 log(.info, "Token storage access restored")
                 if startBackgroundTasks {
                     schedulePairedRefresh(reason: "Refreshing after token storage restore")
@@ -1080,10 +1127,7 @@ public final class DJConnectAppModel: ObservableObject {
                 isShowingTokenStorageError = false
                 pairingStatus = .unpaired
                 isConnected = false
-                pairingMessage = localized(
-                    english: "No DJConnect token found. Pair again to continue.",
-                    dutch: "Geen DJConnect-token gevonden. Koppel opnieuw om door te gaan."
-                )
+                pairingMessage = localized(key: "appModel.no.djconnect.token.found.pair.again.to.continue")
                 log(.warning, "Token storage access restored but no DJConnect bearer token was found")
             }
         } catch {
@@ -1096,10 +1140,7 @@ public final class DJConnectAppModel: ObservableObject {
         isConnected = false
         pairingStatus = .stale
         backendAvailable = false
-        pairingMessage = localized(
-            english: "DJConnect could not read the saved device token.",
-            dutch: "DJConnect kon het opgeslagen device-token niet lezen."
-        )
+        pairingMessage = localized(key: "appModel.djconnect.could.not.read.the.saved.device.token")
         log(.error, "Token storage failed: \(error.localizedDescription)")
     }
 
@@ -1109,10 +1150,7 @@ public final class DJConnectAppModel: ObservableObject {
         isPairing = false
         backendAvailable = true
         isShowingPairingSuccess = false
-        pairingMessage = localized(
-            english: "Checking saved Home Assistant pairing...",
-            dutch: "Opgeslagen Home Assistant-koppeling controleren..."
-        )
+        pairingMessage = localized(key: "appModel.checking.saved.home.assistant.pairing")
     }
 
     public func completePairingScreen() {
@@ -1142,10 +1180,7 @@ public final class DJConnectAppModel: ObservableObject {
         isPairing = false
         backendAvailable = true
         updateRequiredMessage = nil
-        pairingMessage = localized(
-            english: "Demo mode active. Home Assistant is not connected.",
-            dutch: "Demo modus actief. Home Assistant is niet gekoppeld."
-        )
+        pairingMessage = localized(key: "appModel.demo.mode.active.home.assistant.is.not.connected")
         clearAskDJHistoryLocally()
         applyDemoState()
         applyDemoMusicDNAProfile()
@@ -1158,10 +1193,7 @@ public final class DJConnectAppModel: ObservableObject {
         defaults.removeObject(forKey: demoModeKey)
         isPairingScreenDismissed = false
         clearRuntimeState()
-        pairingMessage = localized(
-            english: "Demo mode stopped. Pair with Home Assistant to continue.",
-            dutch: "Demo modus gestopt. Koppel met Home Assistant om door te gaan."
-        )
+        pairingMessage = localized(key: "appModel.demo.mode.stopped.pair.with.home.assistant.to.continue")
         log(.info, "Demo mode stopped")
     }
 
@@ -1266,7 +1298,7 @@ public final class DJConnectAppModel: ObservableObject {
 
     public func crashIssueBody() -> String {
         """
-        ## DJConnect app crash report
+        DJConnect app crash report
 
         The app detected that the previous session may not have closed cleanly.
 
@@ -1290,7 +1322,7 @@ public final class DJConnectAppModel: ObservableObject {
 
     public func feedbackIssueBody() -> String {
         """
-        ## DJConnect app feedback
+        DJConnect app feedback
 
         Please describe your feedback or feature request:
 
@@ -1331,7 +1363,7 @@ public final class DJConnectAppModel: ObservableObject {
         let note = userNote.trimmingCharacters(in: .whitespacesAndNewlines)
 
         return """
-        ## Ask DJ antwoord-feedback
+        Ask DJ antwoord-feedback
 
         Wat voldeed niet aan de verwachting?
         \(note.isEmpty ? "_Vul hier kort in wat er miste, verkeerd was of onverwacht gebeurde._" : note)
@@ -1689,10 +1721,7 @@ public final class DJConnectAppModel: ObservableObject {
         }
         isPairing = false
         pairingStatus = .unpaired
-        pairingMessage = localized(
-            english: "Pairing paused while DJConnect is in the background.",
-            dutch: "Koppeling gepauzeerd terwijl DJConnect op de achtergrond staat."
-        )
+        pairingMessage = localized(key: "appModel.pairing.paused.while.djconnect.is.in.the.background")
     }
 
     public func schedulePairingWait() {
@@ -1729,28 +1758,19 @@ public final class DJConnectAppModel: ObservableObject {
         #if os(iOS) && canImport(WatchConnectivity)
         guard var registration = watchProxyRegistration else {
             pairingFlowTarget = .appleWatch
-            watchPairingMessage = localized(
-                english: "Open DJConnect on Apple Watch first, then enter the Watch pair code again.",
-                dutch: "Open eerst DJConnect op Apple Watch en vul daarna de Watch-koppelcode opnieuw in."
-            )
+            watchPairingMessage = localized(key: "appModel.open.djconnect.on.apple.watch.first.then.enter.the")
             pairingMessage = watchPairingMessage
             return
         }
         guard let baseURL = Self.normalizedHomeAssistantURL(from: homeAssistantURL) else {
             pairingFlowTarget = .appleWatch
-            pairingMessage = localized(
-                english: "Enter the local Home Assistant URL for Apple Watch pairing.",
-                dutch: "Vul de lokale Home Assistant URL in voor Apple Watch-koppeling."
-            )
+            pairingMessage = localized(key: "appModel.enter.the.local.home.assistant.url.for.apple.watch")
             return
         }
         let code = pairingToken.trimmingCharacters(in: .whitespacesAndNewlines)
         guard code.count == 6, code.allSatisfy(\.isNumber) else {
             pairingFlowTarget = .appleWatch
-            pairingMessage = localized(
-                english: "Enter the 6-digit Apple Watch pair code shown by Home Assistant.",
-                dutch: "Vul de 6-cijferige Apple Watch-koppelcode uit Home Assistant in."
-            )
+            pairingMessage = localized(key: "appModel.enter.the.6.digit.apple.watch.pair.code.shown")
             return
         }
         pairingFlowTarget = .appleWatch
@@ -1758,10 +1778,7 @@ public final class DJConnectAppModel: ObservableObject {
         registration.paired = false
         watchProxyRegistration = registration
         persistWatchProxyRegistration()
-        watchPairingMessage = localized(
-            english: "Pair Apple Watch: sending pairing request to Home Assistant...",
-            dutch: "Apple Watch koppelen: pairing request naar Home Assistant sturen..."
-        )
+        watchPairingMessage = localized(key: "appModel.pair.apple.watch.sending.pairing.request.to.home.assistant")
         pairingMessage = watchPairingMessage
         sendWatchProxyMessage([
             "type": "watch_proxy_pair_request",
@@ -1791,10 +1808,7 @@ public final class DJConnectAppModel: ObservableObject {
             pairingFlowTarget = .iPhone
             homeAssistantURL = payload.homeAssistantURL
             pairingToken = payload.pairCode
-            pairingMessage = localized(
-                english: "Pairing link accepted. Pairing with Home Assistant...",
-                dutch: "Koppellink geaccepteerd. Koppelen met Home Assistant..."
-            )
+            pairingMessage = localized(key: "appModel.pairing.link.accepted.pairing.with.home.assistant")
             log(.info, "Accepted DJConnect pairing link for \(identity.clientType.rawValue)")
             startPairingWait()
             return true
@@ -1812,10 +1826,7 @@ public final class DJConnectAppModel: ObservableObject {
         guard let url = URL(string: value.trimmingCharacters(in: .whitespacesAndNewlines)) else {
             pairingStatus = .unpaired
             isPairing = false
-            pairingMessage = localized(
-                english: "Invalid DJConnect pairing QR code.",
-                dutch: "Ongeldige DJConnect pairing-QR-code."
-            )
+            pairingMessage = localized(key: "appModel.invalid.djconnect.pairing.qr.code")
             log(.warning, "Rejected invalid DJConnect pairing QR code")
             return false
         }
@@ -1828,10 +1839,7 @@ public final class DJConnectAppModel: ObservableObject {
     private func applyInvalidPairingLink(_ error: DJConnectError?) {
         pairingStatus = .unpaired
         isPairing = false
-        pairingMessage = userFacingPairingMessage(from: error.map(Self.describe) ?? "") ?? localized(
-            english: "Invalid DJConnect pairing QR code or link.",
-            dutch: "Ongeldige DJConnect pairing-QR-code of link."
-        )
+        pairingMessage = userFacingPairingMessage(from: error.map(Self.describe) ?? "") ?? localized(key: "appModel.invalid.djconnect.pairing.qr.code.or.link")
         log(.warning, "Rejected invalid DJConnect pairing link")
     }
 
@@ -1855,10 +1863,7 @@ public final class DJConnectAppModel: ObservableObject {
     public func handleWatchPairingQRCode(_ value: String) {
         guard let url = URL(string: value.trimmingCharacters(in: .whitespacesAndNewlines)),
               handleWatchPairingDeepLink(url) else {
-            watchPairingMessage = localized(
-                english: "Invalid Apple Watch pairing QR code.",
-                dutch: "Ongeldige Apple Watch pairing-QR-code."
-            )
+            watchPairingMessage = localized(key: "appModel.invalid.apple.watch.pairing.qr.code")
             pairingMessage = watchPairingMessage
             log(.warning, "Rejected invalid Watch pairing QR code")
             return
@@ -1871,19 +1876,13 @@ public final class DJConnectAppModel: ObservableObject {
         homeAssistantURL = payload.homeAssistantURL
         pairingToken = payload.pairCode
         guard WCSession.default.activationState == .activated, WCSession.default.isReachable else {
-            watchPairingMessage = localized(
-                english: "Apple Watch is not reachable. Open DJConnect on the Watch and keep iPhone, Watch and Home Assistant on the same local network.",
-                dutch: "Apple Watch is niet bereikbaar. Open DJConnect op de Watch en houd iPhone, Watch en Home Assistant op hetzelfde lokale netwerk."
-            )
+            watchPairingMessage = localized(key: "appModel.apple.watch.is.not.reachable.open.djconnect.on.the")
             pairingMessage = watchPairingMessage
             log(.warning, "Watch pairing link accepted but WatchConnectivity is not reachable")
             return
         }
         guard var registration = watchProxyRegistration else {
-            watchPairingMessage = localized(
-                english: "Open DJConnect on Apple Watch first, then scan the Watch pairing QR code again.",
-                dutch: "Open eerst DJConnect op Apple Watch en scan daarna de Watch pairing-QR-code opnieuw."
-            )
+            watchPairingMessage = localized(key: "appModel.open.djconnect.on.apple.watch.first.then.scan.the")
             pairingMessage = watchPairingMessage
             log(.warning, "Watch pairing link accepted but no Watch proxy registration is available")
             return
@@ -1892,10 +1891,7 @@ public final class DJConnectAppModel: ObservableObject {
         registration.paired = false
         watchProxyRegistration = registration
         persistWatchProxyRegistration()
-        watchPairingMessage = localized(
-            english: "Pair Apple Watch: sending pairing request to Home Assistant...",
-            dutch: "Apple Watch koppelen: pairing request naar Home Assistant sturen..."
-        )
+        watchPairingMessage = localized(key: "appModel.pair.apple.watch.sending.pairing.request.to.home.assistant")
         pairingMessage = watchPairingMessage
         sendWatchProxyMessage([
             "type": "watch_proxy_pair_request",
@@ -1941,10 +1937,7 @@ public final class DJConnectAppModel: ObservableObject {
         guard let baseURL = Self.normalizedHomeAssistantURL(from: homeAssistantURL),
               DJConnectPairingURLPolicy.isAllowedPairingURL(baseURL) else {
             log(.warning, "Pairing wait cannot start because the Home Assistant URL is invalid")
-            pairingMessage = localized(
-                english: "Enter your Home Assistant URL, for example 192.168.1.10:8123.",
-                dutch: "Vul je Home Assistant URL in, bijvoorbeeld 192.168.1.10:8123."
-            )
+            pairingMessage = localized(key: "appModel.enter.your.home.assistant.url.for.example.192.168")
             pairingStatus = .unpaired
             isConnected = false
             isPairing = false
@@ -1953,10 +1946,7 @@ public final class DJConnectAppModel: ObservableObject {
 
         guard let pairCode = self.normalizedPairCode(from: pairingToken) else {
             log(.warning, "Pairing cannot start because the Home Assistant pair code is invalid")
-            pairingMessage = localized(
-                english: "Enter the 6-digit pair code shown by Home Assistant.",
-                dutch: "Vul de 6-cijferige koppelcode uit Home Assistant in."
-            )
+            pairingMessage = localized(key: "appModel.enter.the.6.digit.pair.code.shown.by.home")
             pairingStatus = .unpaired
             isConnected = false
             isPairing = false
@@ -1980,20 +1970,14 @@ public final class DJConnectAppModel: ObservableObject {
             log(.info, "Pairing wait stopped")
             pairingStatus = .unpaired
             isPairing = false
-            pairingMessage = localized(
-                english: "Pairing wait stopped.",
-                dutch: "Wachten op pairing gestopt."
-            )
+            pairingMessage = localized(key: "appModel.pairing.wait.stopped")
         }
     }
 
     private func pairWithHomeAssistant(baseURL: URL, pairCode: String) async {
         isPairing = true
         log(.info, "Posting pairing request to Home Assistant client_type=\(identity.clientType.rawValue)")
-        pairingMessage = localized(
-            english: "Pairing with Home Assistant...",
-            dutch: "Koppelen met Home Assistant..."
-        )
+        pairingMessage = localized(key: "appModel.pairing.with.home.assistant")
         defer {
             if pairingStatus != .paired {
                 isPairing = false
@@ -2004,10 +1988,7 @@ public final class DJConnectAppModel: ObservableObject {
         do {
             if baseURL.scheme?.lowercased() == "https",
                !DJConnectPairingURLPolicy.isWhitelistedDevelopmentTunnelURL(baseURL) {
-                throw DJConnectError.invalidConfiguration(localized(
-                    english: "Pairing must be completed on the same local network as Home Assistant. Use the local Home Assistant address, for example http://homeassistant.local:8123.",
-                    dutch: "Koppelen moet op hetzelfde lokale netwerk als Home Assistant. Gebruik het lokale Home Assistant-adres, bijvoorbeeld http://homeassistant.local:8123."
-                ))
+                throw DJConnectError.invalidConfiguration(localized(key: "appModel.pairing.must.be.completed.on.the.same.local.network"))
             }
             let response = try await client.pair(DJConnectPairingPayload(
                 identity: identity,
@@ -2018,10 +1999,7 @@ public final class DJConnectAppModel: ObservableObject {
             log(.info, "Pairing accepted by Home Assistant")
             pairingStatus = .waitingForHomeAssistantCompletion
             isConnected = false
-            pairingMessage = localized(
-                english: "Home Assistant recognized this device. Finish setup in Home Assistant.",
-                dutch: "Home Assistant heeft dit apparaat herkend. Rond de setup af in Home Assistant."
-            )
+            pairingMessage = localized(key: "appModel.home.assistant.recognized.this.device.finish.setup.in.home")
             if startBackgroundTasks {
                 try await waitForHomeAssistantPairingCompletion(client: client)
             }
@@ -2049,10 +2027,7 @@ public final class DJConnectAppModel: ObservableObject {
                 pairingStatus = .paired
                 isConnected = true
                 isPairing = false
-                pairingMessage = localized(
-                    english: "Pairing complete.",
-                    dutch: "Koppeling voltooid."
-                )
+                pairingMessage = localized(key: "appModel.pairing.complete")
                 presentPairingSuccessScreenAfterPairing()
                 presentWakeWordActivationPromptAfterPairing()
                 registerStoredPushTokenIfPossible()
@@ -2060,10 +2035,7 @@ public final class DJConnectAppModel: ObservableObject {
             } catch let error as DJConnectError {
                 if isWaitingForHomeAssistantCompletion(error) {
                     pairingStatus = .waitingForHomeAssistantCompletion
-                    pairingMessage = localized(
-                        english: "Waiting for setup to be completed in Home Assistant.",
-                        dutch: "Wacht op afronden in Home Assistant."
-                    )
+                    pairingMessage = localized(key: "appModel.waiting.for.setup.to.be.completed.in.home.assistant")
                     log(.debug, "Waiting for Home Assistant setup completion: \(Self.describe(error))")
                     continue
                 }
@@ -2077,10 +2049,7 @@ public final class DJConnectAppModel: ObservableObject {
         pairingStatus = .waitingForHomeAssistantCompletion
         isConnected = false
         isPairing = false
-        pairingMessage = localized(
-            english: "Not completed in Home Assistant yet. Finish setup there, then try again.",
-            dutch: "Nog niet afgerond in Home Assistant. Rond daar de setup af en probeer opnieuw."
-        )
+        pairingMessage = localized(key: "appModel.not.completed.in.home.assistant.yet.finish.setup.there")
     }
 
     private func isWaitingForHomeAssistantCompletion(_ error: DJConnectError) -> Bool {
@@ -2139,10 +2108,7 @@ public final class DJConnectAppModel: ObservableObject {
         pairingStatus = .unpaired
         isConnected = false
         isPairing = false
-        pairingMessage = localized(
-            english: "Pairing reset.",
-            dutch: "Koppeling verwijderd."
-        )
+        pairingMessage = localized(key: "appModel.pairing.reset")
     }
 
     public func clearPairingToken() {
@@ -2157,10 +2123,7 @@ public final class DJConnectAppModel: ObservableObject {
         }
         clearPairingToken()
         pairingStatus = .unpaired
-        pairingMessage = localized(
-            english: "Enter the new pair code from Home Assistant.",
-            dutch: "Vul de nieuwe koppelcode uit Home Assistant in."
-        )
+        pairingMessage = localized(key: "appModel.enter.the.new.pair.code.from.home.assistant")
         startPairingWait()
     }
 
@@ -2284,10 +2247,7 @@ public final class DJConnectAppModel: ObservableObject {
         }
         if shouldBlockPlaybackStart(command: command, play: play) {
             log(.warning, "Command \(command) blocked because no output device is selected")
-            userNotice = DJConnectUserNotice(text: localized(
-                english: "Select an output device first",
-                dutch: "Kies eerst een uitvoerapparaat"
-            ))
+            userNotice = DJConnectUserNotice(text: localized(key: "appModel.select.an.output.device.first"))
             return
         }
         log(.info, "Sending playback command: \(command)")
@@ -2351,6 +2311,11 @@ public final class DJConnectAppModel: ObservableObject {
 
     public func seekRelative(milliseconds: Int) {
         log(.debug, "User action: seek relative \(milliseconds)ms")
+        if isDemoMode {
+            let currentProgress = playback?.progressMS ?? 0
+            commitSeek(to: currentProgress + milliseconds)
+            return
+        }
         sendPlaybackCommand("seek_relative", value: .int(milliseconds))
     }
 
@@ -2502,10 +2467,7 @@ public final class DJConnectAppModel: ObservableObject {
             return
         }
         guard canUsePlaybackFeatures else {
-            userNotice = DJConnectUserNotice(text: localized(
-                english: "Pair with Home Assistant before saving tracks.",
-                dutch: "Koppel eerst met Home Assistant om nummers op te slaan."
-            ))
+            userNotice = DJConnectUserNotice(text: localized(key: "appModel.pair.with.home.assistant.before.saving.tracks"))
             return
         }
         isSavingCurrentTrack = true
@@ -2515,12 +2477,8 @@ public final class DJConnectAppModel: ObservableObject {
             defer { isSavingCurrentTrack = false }
             let didToggle = await sendSetCurrentTrackFavoriteCommand(shouldFavorite)
             userNotice = DJConnectUserNotice(text: didToggle ? localized(
-                english: shouldFavorite ? "Saved to favorites" : "Removed from favorites",
-                dutch: shouldFavorite ? "Toegevoegd aan favorieten" : "Uit favorieten gehaald"
-            ) : localized(
-                english: "Favorite status could not be changed",
-                dutch: "Favorietstatus kon niet worden aangepast"
-            ))
+                key: shouldFavorite ? "appModel.saved.to.favorites" : "appModel.removed.from.favorites"
+            ) : localized(key: "appModel.favorite.status.could.not.be.changed"))
         }
     }
 
@@ -2612,10 +2570,7 @@ public final class DJConnectAppModel: ObservableObject {
             return
         }
         guard canUsePlaybackFeatures else {
-            askDJErrorMessage = localized(
-                english: "Pair with Home Assistant before using Ask DJ.",
-                dutch: "Koppel eerst met Home Assistant voordat je Ask DJ gebruikt."
-            )
+            askDJErrorMessage = localized(key: "appModel.pair.with.home.assistant.before.using.ask.dj")
             return
         }
 
@@ -2644,7 +2599,9 @@ public final class DJConnectAppModel: ObservableObject {
                     insight = try await demoTrackInsightService.insight(for: playback)
                 } else {
                     guard canUsePlaybackFeatures else {
-                        throw DJConnectError.invalidConfiguration("Pair with Home Assistant before using Track Insight.")
+                        throw DJConnectError.invalidConfiguration(
+                            localized(key: "appModel.pair.with.home.assistant.before.using.track.insight")
+                        )
                     }
                     let payload = DJConnectTrackInsightRequest(
                         title: playback?.trackName,
@@ -2736,20 +2693,14 @@ public final class DJConnectAppModel: ObservableObject {
             return
         }
         guard canUsePlaybackFeatures else {
-            askDJErrorMessage = localized(
-                english: "Pair with Home Assistant before playing recommendations.",
-                dutch: "Koppel eerst met Home Assistant om aanbevelingen af te spelen."
-            )
+            askDJErrorMessage = localized(key: "appModel.pair.with.home.assistant.before.playing.recommendations")
             return
         }
         guard action.command?.isEmpty == false
             || action.isOutputAction
             || action.isRecommendationAction
             || action.isConfirmationAction else {
-            showAskDJToast(localized(
-                english: "This recommendation cannot be played yet",
-                dutch: "Deze aanbeveling kan nog niet worden afgespeeld"
-            ))
+            showAskDJToast(localized(key: "appModel.this.recommendation.cannot.be.played.yet"))
             return
         }
 
@@ -2766,10 +2717,7 @@ public final class DJConnectAppModel: ObservableObject {
                     if renderAskDJCommandPlaybackActions(response) {
                         return
                     }
-                    showAskDJToast(response.error ?? response.message ?? localized(
-                        english: "Action could not be completed",
-                        dutch: "Actie kon niet worden uitgevoerd"
-                    ))
+                    showAskDJToast(response.error ?? response.message ?? localized(key: "appModel.action.could.not.be.completed"))
                     log(.warning, "Ask DJ action was rejected by Home Assistant")
                     return
                 }
@@ -2779,12 +2727,9 @@ public final class DJConnectAppModel: ObservableObject {
                 }
                 if action.isOutputAction, let outputDeviceID = action.outputDeviceID {
                     markAskDJOutputActionActive(outputDeviceID)
-                    showAskDJToast(localized(
-                        english: "Output changed",
-                        dutch: "Uitvoer gewijzigd"
-                    ))
+                    showAskDJToast(localized(key: "appModel.output.changed"))
                 } else {
-                    showAskDJToast(localized(english: "Playing recommendation", dutch: "Aanbeveling afspelen"))
+                    showAskDJToast(localized(key: "appModel.playing.recommendation"))
                 }
                 await refreshAfterDJResponse()
                 log(.info, "Ask DJ action completed")
@@ -2794,7 +2739,7 @@ public final class DJConnectAppModel: ObservableObject {
                 log(.warning, "Ask DJ action failed: \(Self.describe(error))")
             } catch {
                 askDJErrorMessage = askDJUnavailableText()
-                showAskDJToast(localized(english: "Ask DJ is unreachable", dutch: "Ask DJ niet bereikbaar"))
+                showAskDJToast(localized(key: "appModel.ask.dj.is.unreachable"))
                 log(.error, "Ask DJ action failed unexpectedly: \(error.localizedDescription)")
             }
         }
@@ -2807,10 +2752,7 @@ public final class DJConnectAppModel: ObservableObject {
         }
         appendAskDJMessage(
             role: .dj,
-            text: response.message ?? localized(
-                english: "Choose a speaker to continue.",
-                dutch: "Kies een speaker om verder te gaan."
-            ),
+            text: response.message ?? localized(key: "appModel.choose.a.speaker.to.continue"),
             playbackActions: actions
         )
         askDJScrollRequestID = UUID()
@@ -2819,10 +2761,7 @@ public final class DJConnectAppModel: ObservableObject {
 
     private func setCurrentTrackFavoriteFromAskDJ(_ action: DJConnectAskDJPlaybackAction) {
         guard canUsePlaybackFeatures else {
-            askDJErrorMessage = localized(
-                english: "Pair with Home Assistant before saving tracks.",
-                dutch: "Koppel eerst met Home Assistant om nummers op te slaan."
-            )
+            askDJErrorMessage = localized(key: "appModel.pair.with.home.assistant.before.saving.tracks")
             return
         }
         playingAskDJActionID = action.id
@@ -2833,15 +2772,9 @@ public final class DJConnectAppModel: ObservableObject {
             let didToggle = await sendFavoriteActionCommand(action)
             if didToggle {
                 markAskDJActionCompleted(action.id)
-                showAskDJToast(localized(
-                    english: "Favorite status updated",
-                    dutch: "Favorietstatus bijgewerkt"
-                ))
+                showAskDJToast(localized(key: "appModel.favorite.status.updated"))
             } else {
-                showAskDJToast(localized(
-                    english: "Favorite status could not be changed",
-                    dutch: "Favorietstatus kon niet worden aangepast"
-                ))
+                showAskDJToast(localized(key: "appModel.favorite.status.could.not.be.changed"))
             }
         }
     }
@@ -2861,7 +2794,7 @@ public final class DJConnectAppModel: ObservableObject {
                 applyTrackInsightIfNeeded(from: response, open: true)
                 let assistant = response.assistantMessage
                 let responseText = userFacingDJResponseText(assistant?.text)
-                    ?? localized(english: "Ask DJ completed.", dutch: "Ask DJ afgerond.")
+                    ?? localized(key: "appModel.ask.dj.completed")
                 djResponseText = responseText
                 notifyAskDJResponse(responseText)
                 Task {
@@ -2885,7 +2818,7 @@ public final class DJConnectAppModel: ObservableObject {
                 }
             } catch {
                 askDJErrorMessage = askDJUnavailableText()
-                showAskDJToast(localized(english: "Ask DJ is unreachable", dutch: "Ask DJ niet bereikbaar"))
+                showAskDJToast(localized(key: "appModel.ask.dj.is.unreachable"))
                 if let userMessageID {
                     updateAskDJMessageStatus(id: userMessageID, status: .failed)
                 }
@@ -2917,7 +2850,7 @@ public final class DJConnectAppModel: ObservableObject {
                 log(.warning, "Ask DJ clear request failed: \(Self.describe(error))")
             } catch {
                 askDJErrorMessage = askDJUnavailableText()
-                showAskDJToast(localized(english: "Ask DJ is unreachable", dutch: "Ask DJ niet bereikbaar"))
+                showAskDJToast(localized(key: "appModel.ask.dj.is.unreachable"))
                 log(.error, "Ask DJ clear request failed unexpectedly: \(error.localizedDescription)")
             }
         }
@@ -3001,7 +2934,7 @@ public final class DJConnectAppModel: ObservableObject {
             voiceStatus = .processing
             let demoResponse = "Ja ja, daar is hij dan, de knaller van Luna Vale, Neonregen!"
             djResponseText = demoResponse
-            appendAskDJMessage(role: .user, text: localized(english: "Voice request", dutch: "Stemverzoek"))
+            appendAskDJMessage(role: .user, text: localized(key: "appModel.voice.request"))
             appendAskDJMessage(role: .dj, text: demoResponse)
             notifyAskDJResponse(demoResponse)
             speakDemoResponse(demoResponse)
@@ -3029,10 +2962,7 @@ public final class DJConnectAppModel: ObservableObject {
         guard pairingStatus == .paired else {
             dismissWakeWordListeningMessage()
             voiceStatus = .unavailable
-            voiceErrorMessage = localized(
-                english: "Pair with Home Assistant before using voice.",
-                dutch: "Koppel eerst met Home Assistant voordat je voice gebruikt."
-            )
+            voiceErrorMessage = localized(key: "appModel.pair.with.home.assistant.before.using.voice")
             log(.warning, "Voice recording ignored because app is not paired")
             resumeWakeWordListeningIfNeeded()
             return
@@ -3052,10 +2982,7 @@ public final class DJConnectAppModel: ObservableObject {
                 isRecordingVoice = false
                 dismissWakeWordListeningMessage()
                 voiceStatus = .unavailable
-                voiceErrorMessage = localized(
-                    english: "Microphone access is required for push-to-talk.",
-                    dutch: "Microfoontoegang is nodig voor push-to-talk."
-                )
+                voiceErrorMessage = localized(key: "appModel.microphone.access.is.required.for.push.to.talk")
                 log(.warning, "Microphone permission was not granted")
                 resumeWakeWordListeningIfNeeded()
                 return
@@ -3066,7 +2993,7 @@ public final class DJConnectAppModel: ObservableObject {
             guard !Task.isCancelled, isRecordingVoice else {
                 return
             }
-            beginVoiceRecording()
+            await beginVoiceRecording()
             voiceStartTask = nil
         }
     }
@@ -3075,7 +3002,7 @@ public final class DJConnectAppModel: ObservableObject {
         transientAskDJListeningMessage = DJConnectAskDJMessage(
             role: .dj,
             origin: "wakeword_listening",
-            text: localized(english: "I'm listening", dutch: "Ik luister")
+            text: localized(key: "appModel.i.m.listening")
         )
         askDJScrollRequestID = UUID()
     }
@@ -3088,10 +3015,7 @@ public final class DJConnectAppModel: ObservableObject {
         transientAskDJMoodMessage = DJConnectAskDJMessage(
             role: .dj,
             origin: "local_mood_change",
-            text: localized(
-                english: "Mood set to \(askDJMoodLabel).",
-                dutch: "Mood ingesteld op \(askDJMoodLabel)."
-            )
+            text: localized(key: "appModel.mood.set.to.value", arguments: askDJMoodLabel)
         )
         askDJScrollRequestID = UUID()
     }
@@ -3111,7 +3035,9 @@ public final class DJConnectAppModel: ObservableObject {
         voiceStatus = .idle
         dismissWakeWordListeningMessage()
         #if os(iOS)
-        try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+        Task {
+            try? await setDJConnectAudioSessionActive(false, options: .notifyOthersOnDeactivation)
+        }
         #endif
         log(.info, "Wakeword voice capture dismissed after silence")
         resumeWakeWordListeningIfNeeded()
@@ -3134,7 +3060,9 @@ public final class DJConnectAppModel: ObservableObject {
         voiceStatus = .processing
         dismissWakeWordListeningMessage()
         #if os(iOS)
-        try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+        Task {
+            try? await setDJConnectAudioSessionActive(false, options: .notifyOthersOnDeactivation)
+        }
         #endif
         playVoiceCue(.stopListening)
         playVoiceHaptic(.stopListening)
@@ -3152,11 +3080,8 @@ public final class DJConnectAppModel: ObservableObject {
                 try? FileManager.default.removeItem(at: url)
                 log(.info, "Uploading voice recording WAV (\(data.count) bytes)")
                 let response = try await sendVoiceWithFallback(wavData: data)
-                djResponseText = userFacingDJResponseText(response.djText ?? response.text) ?? localized(
-                    english: "Voice request completed.",
-                    dutch: "Voice-request afgerond."
-                )
-                appendAskDJMessage(role: .user, text: localized(english: "Voice request", dutch: "Stemverzoek"))
+                djResponseText = userFacingDJResponseText(response.djText ?? response.text) ?? localized(key: "appModel.voice.request.completed")
+                appendAskDJMessage(role: .user, text: localized(key: "appModel.voice.request"))
                 appendAskDJMessage(
                     role: .dj,
                     text: djResponseText,
@@ -3194,7 +3119,7 @@ public final class DJConnectAppModel: ObservableObject {
                 resumeWakeWordListeningIfNeeded()
             } catch {
                 voiceErrorMessage = error.localizedDescription
-                showAskDJToast(localized(english: "Ask DJ is unreachable", dutch: "Ask DJ niet bereikbaar"))
+                showAskDJToast(localized(key: "appModel.ask.dj.is.unreachable"))
                 voiceStatus = .unavailable
                 log(.error, "Voice upload failed unexpectedly: \(error.localizedDescription)")
                 resumeWakeWordListeningIfNeeded()
@@ -3204,10 +3129,7 @@ public final class DJConnectAppModel: ObservableObject {
         isRecordingVoice = false
         voiceStatus = .unavailable
         dismissWakeWordListeningMessage()
-        voiceErrorMessage = localized(
-            english: "Voice recording is not available on this platform.",
-            dutch: "Voice-opname is niet beschikbaar op dit platform."
-        )
+        voiceErrorMessage = localized(key: "appModel.voice.recording.is.not.available.on.this.platform")
         #endif
     }
 
@@ -3289,15 +3211,9 @@ public final class DJConnectAppModel: ObservableObject {
         if response.success == false {
             switch response.error {
             case "stale_backend_action":
-                userNotice = DJConnectUserNotice(text: localized(
-                    english: "This action belongs to a previous music backend. Ask DJConnect again for a current recommendation.",
-                    dutch: "Deze actie hoort bij een vorige muziekbackend. Vraag DJConnect opnieuw om een actuele aanbeveling."
-                ))
+                userNotice = DJConnectUserNotice(text: localized(key: "appModel.this.action.belongs.to.a.previous.music.backend.ask"))
             case "unsupported_backend_capability":
-                userNotice = DJConnectUserNotice(text: response.message ?? localized(
-                    english: "This music backend does not support that action.",
-                    dutch: "Deze muziekbackend ondersteunt die actie niet."
-                ))
+                userNotice = DJConnectUserNotice(text: response.message ?? localized(key: "appModel.this.music.backend.does.not.support.that.action"))
             default:
                 break
             }
@@ -3399,8 +3315,15 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     private static func noOutputName(for language: String) -> String {
-        language == "nl" ? "Geen" : "None"
+        DJConnectLocalization.localized(key: "ui.no.output.device.selected", language: language)
     }
+
+    private static let legacyNoOutputNames: Set<String> = [
+        "Geen",
+        "None",
+        "Geen uitvoerapparaat geselecteerd",
+        "No output device selected"
+    ]
 
     private var isNoOutputSelected: Bool {
         selectedOutput == noOutputName()
@@ -3525,37 +3448,25 @@ public final class DJConnectAppModel: ObservableObject {
         case let .versionMismatch(mismatch):
             clearRuntimeState()
             backendAvailable = false
-            updateRequiredMessage = mismatch.message ?? localized(
-                english: "Update the DJConnect app or Home Assistant integration.",
-                dutch: "Werk de DJConnect app of Home Assistant-integratie bij."
-            )
+            updateRequiredMessage = mismatch.message ?? localized(key: "appModel.update.the.djconnect.app.or.home.assistant.integration")
         case let .authStale(_, message):
             recoverFromStalePairing(message: message)
         case let .routeMissing(message):
             clearMusicDNADisplay()
             pairingStatus = .stale
             isConnected = false
-            pairingMessage = message ?? localized(
-                english: "DJConnect route missing in Home Assistant. Check the integration setup.",
-                dutch: "DJConnect route ontbreekt in Home Assistant. Controleer de integratie."
-            )
+            pairingMessage = message ?? localized(key: "appModel.djconnect.route.missing.in.home.assistant.check.the.integration")
         case let .notConfigured(message):
             clearMusicDNADisplay()
             pairingStatus = .stale
             isConnected = false
-            pairingMessage = message ?? localized(
-                english: "Not connected to Home Assistant.",
-                dutch: "Niet gekoppeld aan Home Assistant."
-            )
+            pairingMessage = message ?? localized(key: "appModel.not.connected.to.home.assistant")
         case let .server(_, message):
             if let userFacingError = userFacingDJResponseText(message ?? Self.describe(error)) {
                 djResponseText = userFacingError
             }
         case .missingToken:
-            recoverFromStalePairing(message: localized(
-                english: "Missing DJConnect bearer token. Reset pairing to set up again.",
-                dutch: "DJConnect bearer-token ontbreekt. Reset de pairing om opnieuw te koppelen."
-            ))
+            recoverFromStalePairing(message: localized(key: "appModel.missing.djconnect.bearer.token.reset.pairing.to.set.up"))
         default:
             break
         }
@@ -3574,20 +3485,14 @@ public final class DJConnectAppModel: ObservableObject {
         isPairing = false
         isPairingScreenDismissed = false
         isShowingPairingSuccess = false
-        pairingMessage = message ?? localized(
-            english: "Pairing is stale. Open Home Assistant setup and enter the new pair code here.",
-            dutch: "Pairing is verlopen. Open Home Assistant setup en vul de nieuwe koppelcode hier in."
-        )
+        pairingMessage = message ?? localized(key: "appModel.pairing.is.stale.open.home.assistant.setup.and.enter")
     }
 
     public func emitUserConnectionNotice(for error: DJConnectError? = nil) {
         if let error, !Self.shouldShowConnectionNotice(for: error) {
             return
         }
-        userNotice = DJConnectUserNotice(text: localized(
-            english: "No connection to Home Assistant",
-            dutch: "Geen verbinding met Home Assistant"
-        ))
+        userNotice = DJConnectUserNotice(text: localized(key: "appModel.no.connection.to.home.assistant"))
     }
 
     private func markHomeAssistantReachable(backendAvailableAfterResponse: Bool) {
@@ -3604,10 +3509,7 @@ public final class DJConnectAppModel: ObservableObject {
         clearRuntimeState(backendAvailableAfterClear: false)
         isConnected = false
         if pairingStatus == .paired {
-            pairingMessage = localized(
-                english: "Home Assistant is unreachable.",
-                dutch: "Home Assistant is niet bereikbaar."
-            )
+            pairingMessage = localized(key: "appModel.home.assistant.is.unreachable")
         }
         if let message, !message.isEmpty {
             log(.warning, "Home Assistant unavailable: \(message)")
@@ -3660,10 +3562,7 @@ public final class DJConnectAppModel: ObservableObject {
                 context: .pairing(expectedPairingFlowName: Self.expectedPairingFlowName)
             )
                 ?? userFacingPairingHTTPMessage(from: error)
-                ?? userFacingPairingMessage(from: message) ?? localized(
-                english: "Home Assistant could not complete pairing. Check the pair code and try again.",
-                dutch: "Home Assistant kon de koppeling niet afronden. Controleer de koppelcode en probeer opnieuw."
-            )
+                ?? userFacingPairingMessage(from: message) ?? localized(key: "appModel.home.assistant.could.not.complete.pairing.check.the.pair")
         case let .authStale(_, message):
             pairingStatus = .unpaired
             isPairing = false
@@ -3673,19 +3572,13 @@ public final class DJConnectAppModel: ObservableObject {
                 context: .pairing(expectedPairingFlowName: Self.expectedPairingFlowName)
             )
                 ?? userFacingPairingHTTPMessage(from: error)
-                ?? userFacingPairingMessage(from: message) ?? localized(
-                english: "Home Assistant rejected this pair code. Generate a fresh 6-digit code in Home Assistant and try again.",
-                dutch: "Home Assistant wees deze koppelcode af. Genereer een nieuwe 6-cijferige code in Home Assistant en probeer opnieuw."
-            )
+                ?? userFacingPairingMessage(from: message) ?? localized(key: "appModel.home.assistant.rejected.this.pair.code.generate.a.fresh")
             if let message, !message.isEmpty {
                 log(.debug, "Home Assistant rejected pairing code: \(message)")
             }
         case let .versionMismatch(mismatch):
             pairingStatus = .unpaired
-            updateRequiredMessage = mismatch.message ?? localized(
-                english: "DJConnect update required",
-                dutch: "DJConnect update vereist"
-            )
+            updateRequiredMessage = mismatch.message ?? localized(key: "appModel.djconnect.update.required")
         case let .notConfigured(message):
             pairingStatus = .unpaired
             pairingMessage = DJConnectErrorPresentation.userMessage(
@@ -3698,32 +3591,22 @@ public final class DJConnectAppModel: ObservableObject {
             pairingMessage = message
         default:
             pairingStatus = .unpaired
-            pairingMessage = localized(
-                english: "Home Assistant could not complete pairing. Check the URL and pair code, then try again.",
-                dutch: "Home Assistant kon de koppeling niet afronden. Controleer de URL en koppelcode en probeer opnieuw."
-            )
+            pairingMessage = localized(key: "appModel.home.assistant.could.not.complete.pairing.check.the.url")
         }
     }
 
     private func pairingWaitMessage(pairingToken: String) -> String {
-        localized(
-            english: "Enter the 6-digit pair code shown by Home Assistant.",
-            dutch: "Vul de 6-cijferige koppelcode uit Home Assistant in."
-        )
+        localized(key: "appModel.enter.the.6.digit.pair.code.shown.by.home")
     }
 
     private func pairingCodeRejectedMessage() -> String {
-        localized(
-            english: "Pair code is incorrect. Check the code in Home Assistant.",
-            dutch: "Koppelcode klopt niet. Controleer de code in Home Assistant."
-        )
+        localized(key: "appModel.pair.code.is.incorrect.check.the.code.in.home")
     }
 
     private func wrongPairingClientTypeMessage() -> String {
         DJConnectLocalization.localized(
             key: "pairing.error.invalidClientType",
             language: language,
-            fallback: "Wrong app type selected in Home Assistant. Choose the DJConnect %@ setup flow and use its new pair code.",
             arguments: Self.expectedPairingFlowName
         )
     }
@@ -3732,15 +3615,14 @@ public final class DJConnectAppModel: ObservableObject {
         DJConnectLocalization.localized(
             key: "pairing.error.clientTypeMismatch",
             language: language,
-            fallback: "The app type selected in Home Assistant does not match this app. Choose the DJConnect %@ setup flow, then try again.",
             arguments: Self.expectedPairingFlowName
         )
     }
 
     private func trackInsightClientTypeMessage() -> String {
         localized(
-            english: "Home Assistant expected a different DJConnect app type. Choose the DJConnect \(Self.expectedPairingFlowName) setup flow in Home Assistant and pair again.",
-            dutch: "Home Assistant verwacht een ander DJConnect app-type. Kies in Home Assistant de DJConnect \(Self.expectedPairingFlowName) setup-flow en koppel opnieuw."
+            key: "appModel.home.assistant.expected.a.different.djconnect.app.type.choose",
+            arguments: Self.expectedPairingFlowName
         )
     }
 
@@ -3765,7 +3647,7 @@ public final class DJConnectAppModel: ObservableObject {
                 DJConnectStatusPayload(
                     identity: identity,
                     haPairingStatus: .paired,
-                    language: language,
+                    language: currentRequestLocale,
                     logLevel: logLevel,
                     localAudioSupported: true,
                     voiceSupported: voiceEnabled,
@@ -3842,7 +3724,8 @@ public final class DJConnectAppModel: ObservableObject {
             let response = try await client.sendCommandResponse(
                 DJConnectCommandPayload(
                     identity: identity,
-                    command: "status"
+                    command: "status",
+                    language: currentRequestLocale
                 )
             )
             apply(commandResponse: response)
@@ -3936,14 +3819,20 @@ public final class DJConnectAppModel: ObservableObject {
         #if os(iOS)
         do {
             try AVAudioSession.sharedInstance().setCategory(.playback, mode: .spokenAudio, options: [.duckOthers])
-            try AVAudioSession.sharedInstance().setActive(true)
         } catch {
             log(.warning, "Demo DJ response audio session could not be configured: \(error.localizedDescription)")
+        }
+        Task {
+            do {
+                try await setDJConnectAudioSessionActive(true)
+            } catch {
+                log(.warning, "Demo DJ response audio session could not be activated: \(error.localizedDescription)")
+            }
         }
         #endif
         let synthesizer = AVSpeechSynthesizer()
         let utterance = AVSpeechUtterance(string: text)
-        utterance.voice = AVSpeechSynthesisVoice(language: language == "nl" ? "nl-NL" : "en-US")
+        utterance.voice = AVSpeechSynthesisVoice(language: Self.speechLocaleIdentifier(for: language))
         utterance.rate = AVSpeechUtteranceDefaultSpeechRate
         responseSpeechSynthesizer = synthesizer
         synthesizer.speak(utterance)
@@ -3967,8 +3856,8 @@ public final class DJConnectAppModel: ObservableObject {
             clearRuntimeState()
             backendAvailable = false
             updateRequiredMessage = message ?? localized(
-                english: "Update the DJConnect app or Home Assistant integration to \(requiredRange).",
-                dutch: "Werk de DJConnect app of Home Assistant-integratie bij naar \(requiredRange)."
+                key: "appModel.update.the.djconnect.app.or.home.assistant.integration.to",
+                arguments: requiredRange
             )
             log(.error, "Home Assistant integration version \(resolvedVersion) is incompatible with app \(appVersion); required \(requiredRange)")
             return false
@@ -3993,8 +3882,35 @@ public final class DJConnectAppModel: ObservableObject {
         return "\(app.major).\(app.minor).x (>=\(app.major).\(app.minor).0, <\(app.major).\(app.minor + 1).0)"
     }
 
-    private static func defaultLanguage() -> String {
-        DJConnectLocalization.preferredLanguageCode()
+    private static func appLanguageOverride(defaults: UserDefaults) -> String {
+        DJConnectLocalization.languageOverrideCode(
+            defaults.string(forKey: DJConnectLocalization.appLanguageOverrideDefaultsKey)
+        )
+    }
+
+    private static func resolvedLanguage(defaults: UserDefaults) -> String {
+        DJConnectLocalization.resolvedLanguageCode(
+            override: defaults.string(forKey: DJConnectLocalization.appLanguageOverrideDefaultsKey)
+        )
+    }
+
+    private static func syncAppLanguageOverrideToSharedDefaults(_ overrideCode: String) {
+        guard let sharedDefaults = UserDefaults(suiteName: DJConnectLocalization.appGroupIdentifier) else {
+            return
+        }
+        if overrideCode.isEmpty {
+            sharedDefaults.removeObject(forKey: DJConnectLocalization.appLanguageOverrideDefaultsKey)
+        } else {
+            sharedDefaults.set(overrideCode, forKey: DJConnectLocalization.appLanguageOverrideDefaultsKey)
+        }
+    }
+
+    private func reloadWidgetTimelinesForLanguageChange() {
+        WidgetCenter.shared.reloadAllTimelines()
+    }
+
+    private static func speechLocaleIdentifier(for language: String) -> String {
+        DJConnectLocalization.bcp47LocaleIdentifier(for: language)
     }
 
     private static func parsedVersion(_ version: String) -> (major: Int, minor: Int, patch: Int)? {
@@ -4113,7 +4029,13 @@ public final class DJConnectAppModel: ObservableObject {
 
     private func sendVoiceWithFallback(wavData: Data) async throws -> DJConnectVoiceResponse {
         try await withHomeAssistantClient { client in
-            try await client.sendVoice(wavData: wavData, mood: askDJMoodInt, djStyle: "warm_radio_dj", musicDNAKey: askDJMusicDNAKey)
+            try await client.sendVoice(
+                wavData: wavData,
+                mood: askDJMoodInt,
+                djStyle: "warm_radio_dj",
+                musicDNAKey: askDJMusicDNAKey,
+                language: currentRequestLocale
+            )
         }
     }
 
@@ -4122,10 +4044,7 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     private var demoAskDJResponse: String {
-        localized(
-            english: "Ask DJ gives real answers as soon as DJConnect is paired with Home Assistant.",
-            dutch: "Ask DJ geeft echte antwoorden zodra DJConnect is gekoppeld met Home Assistant."
-        )
+        localized(key: "appModel.ask.dj.gives.real.answers.as.soon.as.djconnect")
     }
 
     private var askDJAudioResponseMode: DJConnectAskDJRequest.AudioResponse {
@@ -4145,7 +4064,8 @@ public final class DJConnectAppModel: ObservableObject {
                 mood: askDJMoodInt,
                 djStyle: "warm_radio_dj",
                 musicDNAKey: askDJMusicDNAKey,
-                audioResponse: askDJAudioResponseMode
+                audioResponse: askDJAudioResponseMode,
+                language: currentRequestLocale
             ))
         }
     }
@@ -4447,7 +4367,8 @@ public final class DJConnectAppModel: ObservableObject {
                 command: command,
                 value: Self.askDJCommandValue(for: action, command: command),
                 play: command == "ask_dj_play_recommendation",
-                musicBackendRevision: action.musicBackendRevision ?? musicBackendSummary.musicBackendRevision
+                musicBackendRevision: action.musicBackendRevision ?? musicBackendSummary.musicBackendRevision,
+                language: currentRequestLocale
             ))
         }
     }
@@ -4466,7 +4387,8 @@ public final class DJConnectAppModel: ObservableObject {
                 try await client.sendCommandResponse(DJConnectCommandPayload(
                     identity: identity,
                     command: "set_current_track_favorite",
-                    value: .bool(shouldFavorite)
+                    value: .bool(shouldFavorite),
+                    language: currentRequestLocale
                 ))
             }
             apply(commandResponse: response, command: "set_current_track_favorite")
@@ -4507,7 +4429,8 @@ public final class DJConnectAppModel: ObservableObject {
                 try await client.sendCommandResponse(DJConnectCommandPayload(
                     identity: identity,
                     command: command,
-                    value: value
+                    value: value,
+                    language: currentRequestLocale
                 ))
             }
             apply(commandResponse: response, command: command)
@@ -4671,7 +4594,7 @@ public final class DJConnectAppModel: ObservableObject {
             }
             if showErrors {
                 askDJErrorMessage = askDJUnavailableText()
-                showAskDJToast(localized(english: "Ask DJ is unreachable", dutch: "Ask DJ niet bereikbaar"))
+                showAskDJToast(localized(key: "appModel.ask.dj.is.unreachable"))
             }
             log(.error, "Ask DJ history sync failed unexpectedly: \(error.localizedDescription)")
         }
@@ -4944,10 +4867,7 @@ public final class DJConnectAppModel: ObservableObject {
 
     private func trackInsightErrorMessage(for error: Error) -> String {
         guard let djConnectError = error as? DJConnectError else {
-            return localized(
-                english: "Track Insight is unavailable for this track.",
-                dutch: "Track Insight is niet beschikbaar voor dit nummer."
-            )
+            return localized(key: "appModel.track.insight.is.unavailable.for.this.track")
         }
 
         switch djConnectError {
@@ -4957,36 +4877,24 @@ public final class DJConnectAppModel: ObservableObject {
                 return trackInsightClientTypeMessage()
             }
             if normalizedCode == "no_track_playing" {
-                return localized(
-                    english: "Start playback before opening Track Insight.",
-                    dutch: "Start eerst een nummer voordat je Track Insight opent."
-                )
+                return localized(key: "appModel.start.playback.before.opening.track.insight")
             }
             if let message, !message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                 if isClientTypeErrorText(message) {
                     return trackInsightClientTypeMessage()
                 }
-                return message
+                return userFacingTrackInsightErrorText(message) ?? message
             }
-            return localized(
-                english: "Track Insight is unavailable for this track.",
-                dutch: "Track Insight is niet beschikbaar voor dit nummer."
-            )
+            return localized(key: "appModel.track.insight.is.unavailable.for.this.track")
         case let .routeMissing(message):
-            return message ?? localized(
-                english: "Track Insight is not available in this Home Assistant integration yet. Update or restart the DJConnect integration.",
-                dutch: "Track Insight is nog niet beschikbaar in deze Home Assistant-integratie. Werk de DJConnect-integratie bij of herstart deze."
-            )
+            return userFacingTrackInsightErrorText(message)
+                ?? localized(key: "appModel.track.insight.is.not.available.in.this.home.assistant")
         case let .notConfigured(message):
-            return message ?? localized(
-                english: "Finish the DJConnect setup in Home Assistant before using Track Insight.",
-                dutch: "Rond de DJConnect-setup in Home Assistant af voordat je Track Insight gebruikt."
-            )
+            return userFacingTrackInsightErrorText(message)
+                ?? localized(key: "appModel.finish.the.djconnect.setup.in.home.assistant.before.using")
         case let .backendUnavailable(message):
-            return message ?? localized(
-                english: "The music backend in Home Assistant is not available for Track Insight.",
-                dutch: "De muziekbackend in Home Assistant is niet beschikbaar voor Track Insight."
-            )
+            return userFacingTrackInsightErrorText(message)
+                ?? localized(key: "appModel.the.music.backend.in.home.assistant.is.not.available")
         case .clientTypeMismatch:
             return trackInsightClientTypeMessage()
         case let .server(statusCode, message):
@@ -4994,51 +4902,41 @@ public final class DJConnectAppModel: ObservableObject {
                 if isClientTypeErrorText(message) {
                     return trackInsightClientTypeMessage()
                 }
-                return message
+                return userFacingTrackInsightErrorText(message) ?? message
             }
-            return localized(
-                english: "Home Assistant could not create Track Insight. HTTP \(statusCode).",
-                dutch: "Home Assistant kon Track Insight niet maken. HTTP \(statusCode)."
-            )
+            return localized(key: "appModel.home.assistant.could.not.create.track.insight.http.value", arguments: statusCode)
         case let .decodingFailed(_, _, message):
             if let message, !message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                return localized(
-                    english: "Home Assistant returned an unexpected Track Insight response.",
-                    dutch: "Home Assistant gaf een onverwacht Track Insight-antwoord terug."
-                )
+                return localized(key: "appModel.home.assistant.returned.an.unexpected.track.insight.response")
             }
-            return localized(
-                english: "Home Assistant returned an unreadable Track Insight response.",
-                dutch: "Home Assistant gaf een onleesbaar Track Insight-antwoord terug."
-            )
+            return localized(key: "appModel.home.assistant.returned.an.unreadable.track.insight.response")
         case let .network(message):
-            return localized(
-                english: "Home Assistant is unreachable for Track Insight: \(message)",
-                dutch: "Home Assistant is niet bereikbaar voor Track Insight: \(message)"
-            )
+            return localized(key: "appModel.home.assistant.is.unreachable.for.track.insight.value", arguments: message)
         case .authStale, .missingToken:
-            return localized(
-                english: "Pair with Home Assistant again before using Track Insight.",
-                dutch: "Koppel opnieuw met Home Assistant voordat je Track Insight gebruikt."
-            )
+            return localized(key: "appModel.pair.with.home.assistant.again.before.using.track.insight")
         case .invalidResponse:
-            return localized(
-                english: "Home Assistant returned an invalid Track Insight response.",
-                dutch: "Home Assistant gaf een ongeldig Track Insight-antwoord terug."
-            )
+            return localized(key: "appModel.home.assistant.returned.an.invalid.track.insight.response")
         case let .invalidConfiguration(message):
             return message
         case let .pairingFailed(message):
-            return message ?? localized(
-                english: "Pair with Home Assistant before using Track Insight.",
-                dutch: "Koppel eerst met Home Assistant voordat je Track Insight gebruikt."
-            )
+            return message ?? localized(key: "appModel.pair.with.home.assistant.before.using.track.insight")
         case let .versionMismatch(mismatch):
-            return mismatch.message ?? localized(
-                english: "Update the DJConnect app or Home Assistant integration before using Track Insight.",
-                dutch: "Werk de DJConnect app of Home Assistant-integratie bij voordat je Track Insight gebruikt."
-            )
+            return mismatch.message ?? localized(key: "appModel.update.the.djconnect.app.or.home.assistant.integration.before")
         }
+    }
+
+    private func userFacingTrackInsightErrorText(_ text: String?) -> String? {
+        guard let text, !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            return nil
+        }
+        if let message = Self.extractServerJSONMessage(from: text) {
+            return userFacingTrackInsightErrorText(message) ?? message
+        }
+        if Self.looksLikeHTMLDocument(text.lowercased()) {
+            log(.warning, "Suppressed HTML response in Track Insight error")
+            return localized(key: "appModel.no.connection.to.home.assistant")
+        }
+        return text
     }
 
     private func upsertAskDJHistoryMessage(
@@ -5291,8 +5189,8 @@ public final class DJConnectAppModel: ObservableObject {
 
     private func scheduleAskDJLocalNotification(center: UNUserNotificationCenter, preview: String) async {
         let content = UNMutableNotificationContent()
-        content.title = localized(english: "Ask DJ answered", dutch: "Ask DJ heeft geantwoord")
-        content.body = preview.isEmpty ? localized(english: "Your DJ response is ready.", dutch: "Je DJ-antwoord staat klaar.") : preview
+        content.title = localized(key: "appModel.ask.dj.answered")
+        content.body = preview.isEmpty ? localized(key: "appModel.your.dj.response.is.ready") : preview
         content.sound = .default
         content.threadIdentifier = "djconnect.askdj"
         content.categoryIdentifier = "DJCONNECT_ASK_DJ_RESPONSE"
@@ -5632,20 +5530,11 @@ public final class DJConnectAppModel: ObservableObject {
     private func showAskDJToast(for error: DJConnectError) {
         switch error {
         case .backendUnavailable, .server, .decodingFailed, .invalidResponse:
-            showAskDJToast(localized(
-                english: "Home Assistant did not respond",
-                dutch: "Home Assistant gaf geen antwoord"
-            ))
+            showAskDJToast(localized(key: "appModel.home.assistant.did.not.respond"))
         case .network, .routeMissing, .notConfigured, .invalidConfiguration, .missingToken, .pairingFailed, .clientTypeMismatch:
-            showAskDJToast(localized(
-                english: "Ask DJ is unreachable",
-                dutch: "Ask DJ niet bereikbaar"
-            ))
+            showAskDJToast(localized(key: "appModel.ask.dj.is.unreachable"))
         case .authStale, .versionMismatch, .trackInsightUnavailable:
-            showAskDJToast(localized(
-                english: "Ask DJ is unreachable",
-                dutch: "Ask DJ niet bereikbaar"
-            ))
+            showAskDJToast(localized(key: "appModel.ask.dj.is.unreachable"))
         }
     }
 
@@ -5656,10 +5545,7 @@ public final class DJConnectAppModel: ObservableObject {
     private func askDJErrorText(for error: DJConnectError) -> String {
         switch error {
         case .backendUnavailable, .server, .decodingFailed, .invalidResponse:
-            localized(
-                english: "Home Assistant did not respond",
-                dutch: "Home Assistant gaf geen antwoord"
-            )
+            localized(key: "appModel.home.assistant.did.not.respond")
         case .network,
              .routeMissing,
              .notConfigured,
@@ -5675,7 +5561,7 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     private func askDJUnavailableText() -> String {
-        localized(english: "Ask DJ is unreachable", dutch: "Ask DJ niet bereikbaar")
+        localized(key: "appModel.ask.dj.is.unreachable")
     }
 
     private func clearAskDJHistoryLocally() {
@@ -5727,10 +5613,7 @@ public final class DJConnectAppModel: ObservableObject {
         if let trackTitle, !trackTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             context = artist?.isEmpty == false ? "\(trackTitle) - \(artist ?? "")" : trackTitle
         } else {
-            context = localized(
-                english: "Private Music DNA context",
-                dutch: "Privé Music DNA-context"
-            )
+            context = localized(key: "appModel.private.music.dna.context")
         }
         guard let defaults = UserDefaults(suiteName: DJConnectTrackInsightWidgetSnapshot.appGroupIdentifier) else {
             log(.warning, "Ask DJ widget snapshot skipped: App Group storage is unavailable.")
@@ -5738,8 +5621,8 @@ public final class DJConnectAppModel: ObservableObject {
         }
         do {
             try DJConnectAskDJWidgetSnapshot(
-                prompt: latestPrompt ?? localized(english: "Ask DJ", dutch: "Vraag Ask DJ"),
-                response: latestResponse ?? localized(english: "Ask DJ is ready.", dutch: "Ask DJ staat klaar."),
+                prompt: latestPrompt ?? localized(key: "appModel.ask.dj"),
+                response: latestResponse ?? localized(key: "appModel.ask.dj.is.ready"),
                 context: context,
                 trackTitle: trackTitle,
                 artist: artist
@@ -5780,37 +5663,28 @@ public final class DJConnectAppModel: ObservableObject {
         let normalized = text.lowercased()
         if Self.looksLikeHTMLDocument(normalized) {
             log(.warning, "Suppressed HTML response in DJ request message")
-            return localized(
-                english: "No connection to Home Assistant",
-                dutch: "Geen verbinding met Home Assistant"
-            )
+            return localized(key: "appModel.no.connection.to.home.assistant")
         }
         if normalized.contains("did not return recognized text")
             || normalized.contains("recognitionstatus") {
             log(.info, "HA Assist STT did not recognize the input")
-            return localized(english: "Input not recognized", dutch: "Invoer niet herkend")
+            return localized(key: "appModel.input.not.recognized")
         }
         if normalized.contains("not recognized") || normalized.contains("not_recognized") {
             log(.info, "STT response was not recognized")
-            return localized(english: "Not recognized", dutch: "Niet herkend")
+            return localized(key: "appModel.not.recognized")
         }
         if normalized.contains("spotify authorization")
             || normalized.contains("reauthorize djconnect")
             || normalized.contains("start_spotify_oauth")
             || normalized.contains("spotify oauth") {
             log(.warning, "Spotify authorization needs refresh: \(text)")
-            return localized(
-                english: "Refresh the Spotify connection in Home Assistant",
-                dutch: "Ververs Spotify koppeling in Home Assistant"
-            )
+            return localized(key: "appModel.refresh.the.spotify.connection.in.home.assistant")
         }
         if normalized.contains("player command failed")
             && normalized.contains("no active device found") {
             log(.warning, "Playback command failed because Spotify has no active device")
-            return localized(
-                english: "No active playback device found",
-                dutch: "Geen actief afspeelapparaat gevonden"
-            )
+            return localized(key: "appModel.no.active.playback.device.found")
         }
         return text
     }
@@ -5834,10 +5708,7 @@ public final class DJConnectAppModel: ObservableObject {
         }
         let normalized = text.lowercased()
         if normalized.contains("missing_pair_data") {
-            return localized(
-                english: "Enter the Home Assistant URL and pair code.",
-                dutch: "Vul de Home Assistant URL en koppelcode in."
-            )
+            return localized(key: "appModel.enter.the.home.assistant.url.and.pair.code")
         }
         if normalized.contains("invalid_client_type")
             || normalized.contains("invalid client type")
@@ -5851,10 +5722,7 @@ public final class DJConnectAppModel: ObservableObject {
             return wrongPairingClientTypeMessage()
         }
         if normalized.contains("invalid_pair_code") {
-            return localized(
-                english: "Pair code is incorrect. Check the code in Home Assistant.",
-                dutch: "Koppelcode klopt niet. Controleer de code in Home Assistant."
-            )
+            return localized(key: "appModel.pair.code.is.incorrect.check.the.code.in.home")
         }
         if normalized.contains("not_configured")
             || normalized.contains("not configured")
@@ -5866,24 +5734,15 @@ public final class DJConnectAppModel: ObservableObject {
             || normalized.contains("app code")
             || normalized.contains("does not match")
             || normalized.contains("invalid code") {
-            return localized(
-                english: "Not paired yet. Open DJConnect in Home Assistant and enter the current code from this screen.",
-                dutch: "Nog niet gekoppeld. Open DJConnect in Home Assistant en vul de huidige code uit dit scherm in."
-            )
+            return localized(key: "appModel.not.paired.yet.open.djconnect.in.home.assistant.and")
         }
         if normalized.contains("token")
             || normalized.contains("bearer")
             || normalized.contains("unauthorized")
             || normalized.contains("forbidden") {
-            return localized(
-                english: "Home Assistant rejected this app. Pair DJConnect again from Home Assistant.",
-                dutch: "Home Assistant weigert deze app. Koppel DJConnect opnieuw vanuit Home Assistant."
-            )
+            return localized(key: "appModel.home.assistant.rejected.this.app.pair.djconnect.again.from")
         }
-        return localized(
-            english: "Pairing could not be completed. Check Home Assistant and enter the Home Assistant pair code again.",
-            dutch: "Koppelen is niet gelukt. Controleer Home Assistant en vul de Home Assistant koppelcode opnieuw in."
-        )
+        return localized(key: "appModel.pairing.could.not.be.completed.check.home.assistant.and")
     }
 
     private func userFacingPairingNetworkMessage(from message: String) -> String {
@@ -5892,39 +5751,24 @@ public final class DJConnectAppModel: ObservableObject {
             || normalized.contains("secure connection")
             || normalized.contains("requires the use of a secure connection")
             || normalized.contains("ats") {
-            return localized(
-                english: "Home Assistant refused the connection because this address is not allowed by iOS/macOS security. Use a valid local Home Assistant URL or the approved ngrok development URL.",
-                dutch: "Home Assistant kon niet verbinden omdat dit adres wordt geblokkeerd door iOS/macOS-beveiliging. Gebruik een geldige lokale Home Assistant URL of de toegestane ngrok ontwikkel-URL."
-            )
+            return localized(key: "appModel.home.assistant.refused.the.connection.because.this.address.is")
         }
         if normalized.contains("could not find the server")
             || normalized.contains("server with the specified hostname")
             || normalized.contains("cannot find host")
             || normalized.contains("dns")
             || normalized.contains("name or service not known") {
-            return localized(
-                english: "Home Assistant was not found at this address. Check the hostname or IP address.",
-                dutch: "Home Assistant is niet gevonden op dit adres. Controleer de hostnaam of het IP-adres."
-            )
+            return localized(key: "appModel.home.assistant.was.not.found.at.this.address.check")
         }
         if normalized.contains("timed out") || normalized.contains("timeout") {
-            return localized(
-                english: "Home Assistant did not respond in time. Check that this device is on the same network and try again.",
-                dutch: "Home Assistant reageerde niet op tijd. Controleer of dit apparaat op hetzelfde netwerk zit en probeer opnieuw."
-            )
+            return localized(key: "appModel.home.assistant.did.not.respond.in.time.check.that")
         }
         if normalized.contains("not connected to the internet")
             || normalized.contains("network connection was lost")
             || normalized.contains("offline") {
-            return localized(
-                english: "No network connection to Home Assistant. Check Wi-Fi or the local network and try again.",
-                dutch: "Geen netwerkverbinding met Home Assistant. Controleer wifi of het lokale netwerk en probeer opnieuw."
-            )
+            return localized(key: "appModel.no.network.connection.to.home.assistant.check.wi.fi")
         }
-        return localized(
-            english: "Home Assistant is unreachable on this local network. Check the URL and try again.",
-            dutch: "Home Assistant is niet bereikbaar op dit lokale netwerk. Controleer de URL en probeer opnieuw."
-        )
+        return localized(key: "appModel.home.assistant.is.unreachable.on.this.local.network.check")
     }
 
     private func userFacingPairingHTTPMessage(from error: DJConnectError) -> String? {
@@ -5941,47 +5785,26 @@ public final class DJConnectAppModel: ObservableObject {
             if case let .server(_, message) = error, let userMessage = userFacingPairingMessage(from: message) {
                 return userMessage
             }
-            return localized(english: "Enter the Home Assistant URL and pair code.", dutch: "Vul de Home Assistant URL en koppelcode in.")
+            return localized(key: "appModel.enter.the.home.assistant.url.and.pair.code")
         case 401, 403:
-            return localized(
-                english: "Pair code is incorrect. Check the code in Home Assistant.",
-                dutch: "Koppelcode klopt niet. Controleer de code in Home Assistant."
-            )
+            return localized(key: "appModel.pair.code.is.incorrect.check.the.code.in.home")
         case 404:
-            return localized(
-                english: "DJConnect was not found in Home Assistant. Open the DJConnect setup flow first.",
-                dutch: "DJConnect is niet gevonden in Home Assistant. Open eerst de DJConnect setup-flow."
-            )
+            return localized(key: "appModel.djconnect.was.not.found.in.home.assistant.open.the")
         case 409:
-            return localized(
-                english: "Home Assistant says this pairing request is no longer current. Generate a new pair code and try again.",
-                dutch: "Home Assistant meldt dat dit koppelverzoek niet meer actueel is. Genereer een nieuwe koppelcode en probeer opnieuw."
-            )
+            return localized(key: "appModel.home.assistant.says.this.pairing.request.is.no.longer")
         case 426:
-            return localized(
-                english: "DJConnect and Home Assistant are not on the same version line. Update DJConnect or the Home Assistant integration.",
-                dutch: "DJConnect en Home Assistant zitten niet op dezelfde versielijn. Werk DJConnect of de Home Assistant-integratie bij."
-            )
+            return localized(key: "appModel.djconnect.and.home.assistant.are.not.on.the.same")
         case 429:
-            return localized(
-                english: "Home Assistant received too many pairing attempts. Wait a moment and try again.",
-                dutch: "Home Assistant kreeg te veel koppelverzoeken. Wacht even en probeer opnieuw."
-            )
+            return localized(key: "appModel.home.assistant.received.too.many.pairing.attempts.wait.a")
         case 500...599:
             if statusCode == 503,
                case let .server(_, message) = error,
                message?.lowercased().contains("not_configured") == true {
                 return pairingCodeRejectedMessage()
             }
-            return localized(
-                english: "Home Assistant had an internal error while pairing. Check Home Assistant and try again.",
-                dutch: "Home Assistant kreeg een interne fout tijdens het koppelen. Controleer Home Assistant en probeer opnieuw."
-            )
+            return localized(key: "appModel.home.assistant.had.an.internal.error.while.pairing.check")
         default:
-            return localized(
-                english: "Home Assistant could not complete pairing. Check the URL and pair code, then try again.",
-                dutch: "Home Assistant kon de koppeling niet afronden. Controleer de URL en koppelcode en probeer opnieuw."
-            )
+            return localized(key: "appModel.home.assistant.could.not.complete.pairing.check.the.url")
         }
     }
 
@@ -6200,7 +6023,7 @@ public final class DJConnectAppModel: ObservableObject {
             log(.info, "Loading DJ response audio from Home Assistant")
             #if os(iOS)
             try AVAudioSession.sharedInstance().setCategory(.playback, mode: .spokenAudio, options: [.duckOthers])
-            try AVAudioSession.sharedInstance().setActive(true)
+            try await setDJConnectAudioSessionActive(true)
             #endif
             let item = AVPlayerItem(url: audioURL)
             let player = AVPlayer(playerItem: item)
@@ -6245,17 +6068,11 @@ public final class DJConnectAppModel: ObservableObject {
         } catch {
             askDJAudioPlaybackState = .idle
             log(.warning, "DJ response audio could not be played: \(error.localizedDescription)")
-            showAskDJToast(localized(
-                english: "Audio could not be played again",
-                dutch: "Audio kon niet opnieuw worden afgespeeld"
-            ))
+            showAskDJToast(localized(key: "appModel.audio.could.not.be.played.again"))
         }
         #else
         log(.warning, "DJ response audio is not available on this platform")
-        showAskDJToast(localized(
-            english: "Audio could not be played again",
-            dutch: "Audio kon niet opnieuw worden afgespeeld"
-        ))
+        showAskDJToast(localized(key: "appModel.audio.could.not.be.played.again"))
         #endif
     }
 
@@ -6288,7 +6105,8 @@ public final class DJConnectAppModel: ObservableObject {
                         command: command,
                         value: value,
                         play: play,
-                        limit: Self.commandLimit(for: command)
+                        limit: Self.commandLimit(for: command),
+                        language: currentRequestLocale
                     )
                 )
                 apply(commandResponse: response)
@@ -6338,7 +6156,7 @@ public final class DJConnectAppModel: ObservableObject {
     private func applyDemoState() {
         let output = DJConnectOutputDevice(
             id: "demo-living-room",
-            name: localized(english: "Living Room", dutch: "Woonkamer"),
+            name: localized(key: "appModel.living.room"),
             type: "speaker",
             active: true,
             supportsVolume: true,
@@ -6348,7 +6166,7 @@ public final class DJConnectAppModel: ObservableObject {
             output,
             DJConnectOutputDevice(
                 id: "demo-kitchen",
-                name: localized(english: "Kitchen", dutch: "Keuken"),
+                name: localized(key: "appModel.kitchen"),
                 type: "speaker",
                 active: false,
                 supportsVolume: true,
@@ -6385,15 +6203,12 @@ public final class DJConnectAppModel: ObservableObject {
         queue = queueItems.map(\.displayTitle)
         queueContext = "spotify:playlist:djconnect-demo"
         playlistItems = [
-            DJConnectPlaylist(id: "demo-playlist-1", name: localized(english: "Friday Night", dutch: "Vrijdagavond"), uri: "spotify:playlist:djconnect-demo"),
-            DJConnectPlaylist(id: "demo-playlist-2", name: localized(english: "Dinner Vibes", dutch: "Dinner vibes"), uri: "spotify:playlist:djconnect-dinner")
+            DJConnectPlaylist(id: "demo-playlist-1", name: localized(key: "appModel.friday.night"), uri: "spotify:playlist:djconnect-demo"),
+            DJConnectPlaylist(id: "demo-playlist-2", name: localized(key: "appModel.dinner.vibes"), uri: "spotify:playlist:djconnect-dinner")
         ]
         playlists = playlistItems.map(\.name)
         updateDemoWidgetSnapshots()
-        djResponseText = localized(
-            english: "Tap the microphone icon to hear a sample announcement.",
-            dutch: "Druk op het microfoon icoon om een voorbeeld aankondiging te beluisteren."
-        )
+        djResponseText = localized(key: "appModel.tap.the.microphone.icon.to.hear.a.sample.announcement")
         backendAvailable = true
         updateRequiredMessage = nil
         if startBackgroundTasks {
@@ -6587,10 +6402,7 @@ public final class DJConnectAppModel: ObservableObject {
     private func makeClient() throws -> DJConnectClient {
         guard let baseURL = homeAssistantBaseURLs().first else {
             log(.warning, "Cannot create Home Assistant client because URL is invalid")
-            throw DJConnectError.network(message: localized(
-                english: "Enter your Home Assistant URL, for example 192.168.1.10:8123.",
-                dutch: "Vul je Home Assistant URL in, bijvoorbeeld 192.168.1.10:8123."
-            ))
+            throw DJConnectError.network(message: localized(key: "appModel.enter.your.home.assistant.url.for.example.192.168"))
         }
         return makeClient(baseURL: baseURL)
     }
@@ -6666,10 +6478,7 @@ public final class DJConnectAppModel: ObservableObject {
             ?? Self.normalizedHomeAssistantURL(from: homeAssistantURL)
         let remoteURL = Self.normalizedHomeAssistantURL(from: haRemoteURL)
         guard localURL != nil || remoteURL != nil else {
-            throw DJConnectError.network(message: localized(
-                english: "Enter your Home Assistant URL, for example 192.168.1.10:8123.",
-                dutch: "Vul je Home Assistant URL in, bijvoorbeeld 192.168.1.10:8123."
-            ))
+            throw DJConnectError.network(message: localized(key: "appModel.enter.your.home.assistant.url.for.example.192.168"))
         }
 
         let localFastPath = localURL.flatMap { webSocketFastPathIfLocal($0) }
@@ -6855,10 +6664,7 @@ public final class DJConnectAppModel: ObservableObject {
         pairingFlowTarget = .appleWatch
         isShowingPairingSuccess = false
         isPairingScreenDismissed = false
-        pairingMessage = localized(
-            english: "Apple Watch is ready. Scan the Apple Watch QR code from Home Assistant or enter the Watch pair code manually.",
-            dutch: "Apple Watch staat klaar. Scan de Apple Watch-QR-code uit Home Assistant of vul de Watch-koppelcode handmatig in."
-        )
+        pairingMessage = localized(key: "appModel.apple.watch.is.ready.scan.the.apple.watch.qr")
     }
 
     private func restoreWatchProxyRegistration() {
@@ -6910,10 +6716,7 @@ public final class DJConnectAppModel: ObservableObject {
                 "type": "watch_proxy_ready",
                 "device_id": registration.identity.deviceID,
                 "client_type": registration.identity.clientType.rawValue,
-                "message": localized(
-                    english: "Open DJConnect on iPhone and pair with local Home Assistant first.",
-                    dutch: "Open DJConnect op iPhone en koppel eerst lokaal met Home Assistant."
-                )
+                "message": localized(key: "appModel.open.djconnect.on.iphone.and.pair.with.local.home")
             ])
             return
         }
@@ -6922,10 +6725,7 @@ public final class DJConnectAppModel: ObservableObject {
 
     private func pairWatchProxy(registration: DJConnectWatchProxyRegistration, homeAssistantURL: String, pairCode: String) async {
         guard let baseURL = Self.normalizedHomeAssistantURL(from: homeAssistantURL) else {
-            watchPairingMessage = localized(
-                english: "Invalid local Home Assistant URL for Apple Watch pairing.",
-                dutch: "Ongeldige lokale Home Assistant URL voor Apple Watch-koppeling."
-            )
+            watchPairingMessage = localized(key: "appModel.invalid.local.home.assistant.url.for.apple.watch.pairing")
             pairingMessage = watchPairingMessage
             return
         }
@@ -6946,10 +6746,7 @@ public final class DJConnectAppModel: ObservableObject {
             persistWatchPairingContract(response)
             apply(musicBackendSummary: response.musicBackendSummary)
             remoteSupported = response.remoteSupported ?? remoteSupported
-            watchPairingMessage = localized(
-                english: "Home Assistant recognized Apple Watch. Finish setup in Home Assistant.",
-                dutch: "Home Assistant heeft Apple Watch herkend. Rond de setup af in Home Assistant."
-            )
+            watchPairingMessage = localized(key: "appModel.home.assistant.recognized.apple.watch.finish.setup.in.home")
             pairingFlowTarget = .appleWatch
             pairingStatus = .waitingForHomeAssistantCompletion
             isShowingPairingSuccess = false
@@ -6966,10 +6763,7 @@ public final class DJConnectAppModel: ObservableObject {
             log(.info, "Watch proxy paired through iPhone for \(Self.redactedDJConnectDeviceID(registration.identity.deviceID))")
         } catch let error as DJConnectError {
             if case .pairingFailed = error {
-                watchPairingMessage = localized(
-                    english: "Home Assistant did not accept the Apple Watch pair code.",
-                    dutch: "Home Assistant accepteerde de Apple Watch koppelcode niet."
-                )
+                watchPairingMessage = localized(key: "appModel.home.assistant.did.not.accept.the.apple.watch.pair")
                 pairingMessage = watchPairingMessage
             } else if case .versionMismatch = error {
                 sendWatchProxyMessage([
@@ -7011,7 +6805,7 @@ public final class DJConnectAppModel: ObservableObject {
                 _ = try await client.postStatus(DJConnectStatusPayload(
                     identity: registration.identity,
                     haPairingStatus: .paired,
-                    language: language,
+                    language: currentRequestLocale,
                     logLevel: logLevel,
                     localAudioSupported: false,
                     voiceSupported: true,
@@ -7024,10 +6818,7 @@ public final class DJConnectAppModel: ObservableObject {
                 ))
             } catch let error as DJConnectError {
                 if isWaitingForHomeAssistantCompletion(error) {
-                    watchPairingMessage = localized(
-                        english: "Waiting for setup to be completed in Home Assistant.",
-                        dutch: "Wacht op afronden in Home Assistant."
-                    )
+                    watchPairingMessage = localized(key: "appModel.waiting.for.setup.to.be.completed.in.home.assistant")
                     pairingMessage = watchPairingMessage
                     log(.debug, "Waiting for Home Assistant Watch setup completion: \(Self.describe(error))")
                     continue
@@ -7039,10 +6830,7 @@ public final class DJConnectAppModel: ObservableObject {
             updated.pairCode = pairCode
             watchProxyRegistration = updated
             persistWatchProxyRegistration()
-            watchPairingMessage = localized(
-                english: "Apple Watch paired with Home Assistant.",
-                dutch: "Apple Watch gekoppeld met Home Assistant."
-            )
+            watchPairingMessage = localized(key: "appModel.apple.watch.paired.with.home.assistant")
             pairingStatus = .paired
             pairingFlowTarget = .appleWatch
             isShowingPairingSuccess = true
@@ -7071,10 +6859,7 @@ public final class DJConnectAppModel: ObservableObject {
             ])
             return
         }
-        watchPairingMessage = localized(
-            english: "Not completed in Home Assistant yet. Finish setup there, then try again.",
-            dutch: "Nog niet afgerond in Home Assistant. Rond daar de setup af en probeer opnieuw."
-        )
+        watchPairingMessage = localized(key: "appModel.not.completed.in.home.assistant.yet.finish.setup.there")
         pairingMessage = watchPairingMessage
     }
 
@@ -7239,7 +7024,8 @@ public final class DJConnectAppModel: ObservableObject {
                 wavData: payload.wavData,
                 mood: payload.mood,
                 djStyle: payload.djStyle,
-                musicDNAKey: payload.musicDNAKey
+                musicDNAKey: payload.musicDNAKey,
+                language: payload.language ?? currentRequestLocale
             )
             return try encoder.encode(response)
         case .pushRegister:
@@ -7465,8 +7251,12 @@ public final class DJConnectAppModel: ObservableObject {
         """
     }
 
-    public func localized(english: String, dutch: String) -> String {
-        DJConnectLocalization.localized(language: language, english: english, dutch: dutch)
+    public func localized(key: String, arguments: CVarArg...) -> String {
+        String(
+            format: DJConnectLocalization.localized(key: key, language: language),
+            locale: Locale(identifier: DJConnectLocalization.supportedLanguageCode(language)),
+            arguments: arguments
+        )
     }
 
     public static func normalizedHomeAssistantURL(from rawValue: String) -> URL? {
@@ -8125,7 +7915,7 @@ public final class DJConnectAppModel: ObservableObject {
                 log(.warning, "Wakeword listening unavailable because microphone or speech permission was not granted")
                 return
             }
-            beginWakeWordListening()
+            await beginWakeWordListening()
         }
         #endif
         #else
@@ -8306,14 +8096,14 @@ public final class DJConnectAppModel: ObservableObject {
         return granted
     }
 
-    private func beginWakeWordListening() {
+    private func beginWakeWordListening() async {
         guard wakeAudioEngine == nil else {
             return
         }
         guard !isStoppingWakeWord else {
             return
         }
-        let locale = Locale(identifier: language == "nl" ? "nl-NL" : "en-US")
+        let locale = Locale(identifier: Self.speechLocaleIdentifier(for: language))
         guard let recognizer = SFSpeechRecognizer(locale: locale), recognizer.isAvailable else {
             wakeWordStatus = .unavailable
             log(.warning, "Wakeword speech recognizer is unavailable for \(locale.identifier)")
@@ -8323,7 +8113,7 @@ public final class DJConnectAppModel: ObservableObject {
             #if os(iOS)
             let session = AVAudioSession.sharedInstance()
             try session.setCategory(.playAndRecord, mode: .measurement, options: [.defaultToSpeaker, Self.bluetoothAudioSessionOption, .duckOthers])
-            try session.setActive(true, options: .notifyOthersOnDeactivation)
+            try await setDJConnectAudioSessionActive(true, options: .notifyOthersOnDeactivation)
             #endif
 
             let engine = AVAudioEngine()
@@ -8450,13 +8240,13 @@ public final class DJConnectAppModel: ObservableObject {
             .joined(separator: " ")
     }
 
-    private func beginVoiceRecording() {
+    private func beginVoiceRecording() async {
         #if canImport(AVFoundation)
         do {
             #if os(iOS)
             let session = AVAudioSession.sharedInstance()
             try session.setCategory(.playAndRecord, mode: .spokenAudio, options: [.defaultToSpeaker, Self.bluetoothAudioSessionOption])
-            try session.setActive(true)
+            try await setDJConnectAudioSessionActive(true)
             #endif
 
             let url = FileManager.default.temporaryDirectory
@@ -8489,10 +8279,7 @@ public final class DJConnectAppModel: ObservableObject {
         }
         #else
         voiceStatus = .unavailable
-        voiceErrorMessage = localized(
-            english: "Voice recording is not available on this platform.",
-            dutch: "Voice-opname is niet beschikbaar op dit platform."
-        )
+        voiceErrorMessage = localized(key: "appModel.voice.recording.is.not.available.on.this.platform")
         #endif
     }
 

@@ -58,12 +58,14 @@ public struct DJConnectWatchProxyVoicePayload: Codable, Sendable {
     public var mood: Int?
     public var djStyle: String?
     public var musicDNAKey: String?
+    public var language: String?
 
-    public init(wavData: Data, mood: Int? = nil, djStyle: String? = nil, musicDNAKey: String? = nil) {
+    public init(wavData: Data, mood: Int? = nil, djStyle: String? = nil, musicDNAKey: String? = nil, language: String? = nil) {
         self.wavData = wavData
         self.mood = mood
         self.djStyle = djStyle
         self.musicDNAKey = musicDNAKey
+        self.language = language
     }
 }
 
@@ -641,6 +643,7 @@ public struct DJConnectCommandPayload: Codable, Equatable, Sendable {
     public var play: Bool?
     public var limit: Int?
     public var musicBackendRevision: Int?
+    public var language: String?
 
     public init(
         identity: DJConnectIdentity,
@@ -648,7 +651,8 @@ public struct DJConnectCommandPayload: Codable, Equatable, Sendable {
         value: DJConnectCommandValue? = nil,
         play: Bool? = nil,
         limit: Int? = nil,
-        musicBackendRevision: Int? = nil
+        musicBackendRevision: Int? = nil,
+        language: String? = nil
     ) {
         self.deviceID = identity.deviceID
         self.deviceName = identity.deviceName
@@ -659,6 +663,7 @@ public struct DJConnectCommandPayload: Codable, Equatable, Sendable {
         self.play = play
         self.limit = limit
         self.musicBackendRevision = musicBackendRevision
+        self.language = language
     }
 
     enum CodingKeys: String, CodingKey {
@@ -671,6 +676,7 @@ public struct DJConnectCommandPayload: Codable, Equatable, Sendable {
         case play
         case limit
         case musicBackendRevision = "music_backend_revision"
+        case language
     }
 }
 
@@ -693,6 +699,7 @@ public struct DJConnectAskDJRequest: Codable, Equatable, Sendable {
     public var musicDNAKey: String?
     public var audioResponse: AudioResponse?
     public var metadata: [String: String]?
+    public var language: String?
 
     public init(
         identity: DJConnectIdentity,
@@ -703,7 +710,8 @@ public struct DJConnectAskDJRequest: Codable, Equatable, Sendable {
         djStyle: String? = nil,
         musicDNAKey: String? = nil,
         audioResponse: AudioResponse? = nil,
-        metadata: [String: String]? = nil
+        metadata: [String: String]? = nil,
+        language: String? = nil
     ) {
         self.deviceID = identity.deviceID
         self.deviceName = identity.deviceName
@@ -717,6 +725,7 @@ public struct DJConnectAskDJRequest: Codable, Equatable, Sendable {
         self.musicDNAKey = musicDNAKey
         self.audioResponse = audioResponse
         self.metadata = metadata
+        self.language = language
     }
 
     enum CodingKeys: String, CodingKey {
@@ -732,6 +741,7 @@ public struct DJConnectAskDJRequest: Codable, Equatable, Sendable {
         case musicDNAKey = "music_dna_key"
         case audioResponse = "audio_response"
         case metadata
+        case language
     }
 }
 

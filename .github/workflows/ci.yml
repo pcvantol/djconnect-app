@@ -35,6 +35,9 @@ jobs:
       - name: Validate Postman collection
         run: node Tools/validate_postman_collection.js docs/postman/djconnect-local-device-api.postman_collection.json
 
+      - name: Validate Apple localizations
+        run: python3 scripts/validate_localizations.py
+
       - name: Swift tests
         run: swift test --no-parallel
 

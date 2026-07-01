@@ -12,11 +12,11 @@ public enum TrackInsightShareFormat: String, CaseIterable, Identifiable, Sendabl
     func title(language: String) -> String {
         switch self {
         case .story:
-            DJConnectLocalization.localized(language: language, english: "Story", dutch: "Verhaal")
+            DJConnectLocalization.localized(key: "trackInsight.share.story", language: language)
         case .square:
-            DJConnectLocalization.localized(language: language, english: "Square", dutch: "Vierkant")
+            DJConnectLocalization.localized(key: "trackInsight.share.square", language: language)
         case .linkPreview:
-            DJConnectLocalization.localized(language: language, english: "Landscape", dutch: "Liggend")
+            DJConnectLocalization.localized(key: "trackInsight.share.landscape", language: language)
         }
     }
 
@@ -41,9 +41,9 @@ public enum TrackInsightShareMediaKind: String, CaseIterable, Identifiable, Send
     func title(language: String) -> String {
         switch self {
         case .staticImage:
-            DJConnectLocalization.localized(language: language, english: "Static", dutch: "Statisch")
+            DJConnectLocalization.localized(key: "trackInsight.share.static", language: language)
         case .animatedVideo:
-            DJConnectLocalization.localized(language: language, english: "Animated", dutch: "Geanimeerd")
+            DJConnectLocalization.localized(key: "trackInsight.share.animated", language: language)
         }
     }
 }

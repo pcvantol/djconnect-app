@@ -58,12 +58,12 @@ struct DJConnectNowPlayingWidgetEntry: TimelineEntry {
 
     static let empty = DJConnectNowPlayingWidgetEntry(
         date: Date(),
-        title: DJConnectLocalization.localized(english: "Nothing playing", dutch: "Niets speelt nu"),
-        artist: DJConnectLocalization.localized(english: "Open DJConnect", dutch: "Open DJConnect"),
+        title: DJConnectLocalization.localized(key: "widget.nothing.playing"),
+        artist: DJConnectLocalization.localized(key: "widget.open.djconnect"),
         artworkURL: nil,
         progress: 0,
         isPlaying: false,
-        deviceName: DJConnectLocalization.localized(english: "Ready", dutch: "Klaar"),
+        deviceName: DJConnectLocalization.localized(key: "widget.ready"),
         hasSnapshot: false
     )
 
@@ -72,12 +72,12 @@ struct DJConnectNowPlayingWidgetEntry: TimelineEntry {
         let duration = max(1, snapshot.durationMS ?? 0)
         let progress = snapshot.durationMS == nil ? 0 : Double(snapshot.progressMS ?? 0) / Double(duration)
         date = snapshot.updatedAt
-        title = snapshot.title.isEmpty ? DJConnectLocalization.localized(english: "Unknown track", dutch: "Onbekende track") : snapshot.title
-        artist = snapshot.artist.isEmpty ? DJConnectLocalization.localized(english: "Unknown artist", dutch: "Onbekende artiest") : snapshot.artist
+        title = snapshot.title.isEmpty ? DJConnectLocalization.localized(key: "widget.unknown.track") : snapshot.title
+        artist = snapshot.artist.isEmpty ? DJConnectLocalization.localized(key: "widget.unknown.artist") : snapshot.artist
         artworkURL = snapshot.artworkURL
         self.progress = max(0, min(1, progress))
         isPlaying = snapshot.isPlaying
-        deviceName = snapshot.deviceName ?? DJConnectLocalization.localized(english: "DJConnect", dutch: "DJConnect")
+        deviceName = snapshot.deviceName ?? DJConnectLocalization.localized(key: "widget.djconnect")
         hasSnapshot = true
     }
 #endif
@@ -188,7 +188,7 @@ struct DJConnectNowPlayingWidgetView: View {
             DJConnectNowPlayingWaveform(entry: entry)
                 .frame(height: 66)
             Spacer(minLength: 0)
-            Text(DJConnectLocalization.localized(english: "Updated from DJConnect", dutch: "Bijgewerkt vanuit DJConnect"))
+            Text(DJConnectLocalization.localized(key: "widget.updated.from.djconnect"))
                 .font(.caption2.weight(.semibold))
                 .foregroundStyle(.white.opacity(0.58))
         }
@@ -224,7 +224,7 @@ struct DJConnectNowPlayingWidgetView: View {
         HStack(spacing: 6) {
             Image(systemName: entry.isPlaying ? "music.note" : "pause.fill")
                 .font(.caption.weight(.bold))
-            Text(compact ? DJConnectLocalization.localized(english: "Now", dutch: "Nu") : DJConnectLocalization.localized(english: "Now Playing", dutch: "Speelt Nu"))
+            Text(compact ? DJConnectLocalization.localized(key: "widget.now") : DJConnectLocalization.localized(key: "widget.now.playing"))
                 .font(.caption.weight(.bold))
                 .textCase(.uppercase)
             Spacer(minLength: 0)
@@ -247,7 +247,7 @@ struct DJConnectNowPlayingWidgetView: View {
 
     private var statusLine: some View {
         Label(
-            entry.hasSnapshot ? entry.deviceName : DJConnectLocalization.localized(english: "Open the app to refresh", dutch: "Open de app om te verversen"),
+            entry.hasSnapshot ? entry.deviceName : DJConnectLocalization.localized(key: "widget.open.the.app.to.refresh"),
             systemImage: entry.isPlaying ? "speaker.wave.2.fill" : "pause.circle"
         )
         .font(.caption.weight(.semibold))
@@ -597,10 +597,10 @@ struct DJConnectQueueWidgetView: View {
             Image(systemName: "text.line.first.and.arrowtriangle.forward")
                 .font(.title3.weight(.semibold))
             VStack(alignment: .leading, spacing: 1) {
-                Text(DJConnectLocalization.localized(english: "Queue", dutch: "Wachtrij"))
+                Text(DJConnectLocalization.localized(key: "widget.queue"))
                     .font(.headline)
                     .lineLimit(1)
-                Text(entry.items.first?.title ?? DJConnectLocalization.localized(english: "No queue", dutch: "Geen wachtrij"))
+                Text(entry.items.first?.title ?? DJConnectLocalization.localized(key: "widget.no.queue"))
                     .font(.caption2)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
@@ -621,7 +621,7 @@ struct DJConnectQueueWidgetView: View {
         HStack(spacing: 6) {
             Image(systemName: "text.line.first.and.arrowtriangle.forward")
                 .font(.caption.weight(.bold))
-            Text(DJConnectLocalization.localized(english: "Queue", dutch: "Wachtrij"))
+            Text(DJConnectLocalization.localized(key: "widget.queue"))
                 .font(.caption.weight(.bold))
                 .textCase(.uppercase)
             Spacer(minLength: 0)
@@ -653,7 +653,7 @@ struct DJConnectQueueWidgetView: View {
                     .font(.caption.weight(.bold))
                     .foregroundStyle(.white)
                     .lineLimit(1)
-                Text(item.artist ?? item.album ?? DJConnectLocalization.localized(english: "Queued", dutch: "In wachtrij"))
+                Text(item.artist ?? item.album ?? DJConnectLocalization.localized(key: "widget.queued"))
                     .font(.caption2.weight(.semibold))
                     .foregroundStyle(.white.opacity(0.66))
                     .lineLimit(1)
@@ -678,10 +678,10 @@ struct DJConnectQueueWidgetView: View {
 
     private var emptyText: some View {
         VStack(alignment: .leading, spacing: 2) {
-            Text(DJConnectLocalization.localized(english: "No queue", dutch: "Geen wachtrij"))
+            Text(DJConnectLocalization.localized(key: "widget.no.queue"))
                 .font(.headline.weight(.bold))
                 .foregroundStyle(.white)
-            Text(DJConnectLocalization.localized(english: "Open DJConnect to refresh.", dutch: "Open DJConnect om te verversen."))
+            Text(DJConnectLocalization.localized(key: "widget.open.djconnect.to.refresh"))
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(.white.opacity(0.68))
                 .lineLimit(2)
@@ -690,13 +690,13 @@ struct DJConnectQueueWidgetView: View {
 
     private var queueCountText: String {
         if entry.totalCount == 1 {
-            return DJConnectLocalization.localized(english: "1 track queued", dutch: "1 track in wachtrij")
+            return DJConnectLocalization.localized(key: "widget.1.track.queued")
         }
-        return DJConnectLocalization.localized(english: "\(entry.totalCount) tracks queued", dutch: "\(entry.totalCount) tracks in wachtrij")
+        return DJConnectLocalization.localized(key: "widget.value.tracks.queued", arguments: entry.totalCount)
     }
 
     private var accessoryInlineTitle: String {
-        entry.items.first?.title ?? DJConnectLocalization.localized(english: "Queue", dutch: "Wachtrij")
+        entry.items.first?.title ?? DJConnectLocalization.localized(key: "widget.queue")
     }
 
     private func formattedDuration(_ milliseconds: Int) -> String {
@@ -985,10 +985,10 @@ struct DJConnectPlaylistsWidgetView: View {
             Image(systemName: "music.note.list")
                 .font(.title3.weight(.semibold))
             VStack(alignment: .leading, spacing: 1) {
-                Text(DJConnectLocalization.localized(english: "Playlists", dutch: "Afspeellijsten"))
+                Text(DJConnectLocalization.localized(key: "widget.playlists"))
                     .font(.headline)
                     .lineLimit(1)
-                Text(entry.items.first?.name ?? DJConnectLocalization.localized(english: "No playlists", dutch: "Geen afspeellijsten"))
+                Text(entry.items.first?.name ?? DJConnectLocalization.localized(key: "widget.no.playlists"))
                     .font(.caption2)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
@@ -1009,7 +1009,7 @@ struct DJConnectPlaylistsWidgetView: View {
         HStack(spacing: 6) {
             Image(systemName: "music.note.list")
                 .font(.caption.weight(.bold))
-            Text(DJConnectLocalization.localized(english: "Playlists", dutch: "Afspeellijsten"))
+            Text(DJConnectLocalization.localized(key: "widget.playlists"))
                 .font(.caption.weight(.bold))
                 .textCase(.uppercase)
             Spacer(minLength: 0)
@@ -1041,7 +1041,7 @@ struct DJConnectPlaylistsWidgetView: View {
                     .font(.caption.weight(.bold))
                     .foregroundStyle(.white)
                     .lineLimit(1)
-                Text(item.subtitle ?? DJConnectLocalization.localized(english: "Playlist", dutch: "Afspeellijst"))
+                Text(item.subtitle ?? DJConnectLocalization.localized(key: "widget.playlist"))
                     .font(.caption2.weight(.semibold))
                     .foregroundStyle(.white.opacity(0.66))
                     .lineLimit(1)
@@ -1063,10 +1063,10 @@ struct DJConnectPlaylistsWidgetView: View {
 
     private var emptyText: some View {
         VStack(alignment: .leading, spacing: 2) {
-            Text(DJConnectLocalization.localized(english: "No playlists", dutch: "Geen afspeellijsten"))
+            Text(DJConnectLocalization.localized(key: "widget.no.playlists"))
                 .font(.headline.weight(.bold))
                 .foregroundStyle(.white)
-            Text(DJConnectLocalization.localized(english: "Open DJConnect to refresh.", dutch: "Open DJConnect om te verversen."))
+            Text(DJConnectLocalization.localized(key: "widget.open.djconnect.to.refresh"))
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(.white.opacity(0.68))
                 .lineLimit(2)
@@ -1075,13 +1075,13 @@ struct DJConnectPlaylistsWidgetView: View {
 
     private var playlistsCountText: String {
         if entry.totalCount == 1 {
-            return DJConnectLocalization.localized(english: "1 playlist", dutch: "1 afspeellijst")
+            return DJConnectLocalization.localized(key: "widget.1.playlist")
         }
-        return DJConnectLocalization.localized(english: "\(entry.totalCount) playlists", dutch: "\(entry.totalCount) afspeellijsten")
+        return DJConnectLocalization.localized(key: "widget.value.playlists", arguments: entry.totalCount)
     }
 
     private var accessoryInlineTitle: String {
-        entry.items.first?.name ?? DJConnectLocalization.localized(english: "Playlists", dutch: "Afspeellijsten")
+        entry.items.first?.name ?? DJConnectLocalization.localized(key: "widget.playlists")
     }
 }
 
@@ -1291,11 +1291,11 @@ struct DJConnectTrackInsightWidgetEntry: TimelineEntry {
 
     static let empty = DJConnectTrackInsightWidgetEntry(
         date: Date(),
-        title: DJConnectLocalization.localized(english: "No Track Insight yet", dutch: "Nog geen Track Insight"),
-        artist: DJConnectLocalization.localized(english: "Open DJConnect", dutch: "Open DJConnect"),
-        genre: DJConnectLocalization.localized(english: "Private", dutch: "Privé"),
-        mood: DJConnectLocalization.localized(english: "Ready", dutch: "Klaar"),
-        vibe: DJConnectLocalization.localized(english: "On device", dutch: "Op apparaat"),
+        title: DJConnectLocalization.localized(key: "widget.no.track.insight.yet"),
+        artist: DJConnectLocalization.localized(key: "widget.open.djconnect"),
+        genre: DJConnectLocalization.localized(key: "widget.private"),
+        mood: DJConnectLocalization.localized(key: "widget.ready"),
+        vibe: DJConnectLocalization.localized(key: "widget.on.device"),
         bpm: 0,
         key: "-",
         energy: 0.5,
@@ -1303,10 +1303,7 @@ struct DJConnectTrackInsightWidgetEntry: TimelineEntry {
         intensity: 0.5,
         progress: nil,
         duration: nil,
-        summary: DJConnectLocalization.localized(
-            english: "Run Track Insight in the app to update this widget.",
-            dutch: "Open Track Insight in de app om deze widget bij te werken."
-        ),
+        summary: DJConnectLocalization.localized(key: "widget.run.track.insight.in.the.app.to.update.this"),
         hasSnapshot: false
     )
 
@@ -1315,9 +1312,9 @@ struct DJConnectTrackInsightWidgetEntry: TimelineEntry {
         date = snapshot.updatedAt
         title = snapshot.title
         artist = snapshot.artist
-        genre = snapshot.genre ?? DJConnectLocalization.localized(english: "Unknown genre", dutch: "Onbekend genre")
-        mood = snapshot.mood ?? DJConnectLocalization.localized(english: "Evolving", dutch: "In beweging")
-        vibe = snapshot.vibe ?? DJConnectLocalization.localized(english: "Fresh", dutch: "Fris")
+        genre = snapshot.genre ?? DJConnectLocalization.localized(key: "widget.unknown.genre")
+        mood = snapshot.mood ?? DJConnectLocalization.localized(key: "widget.evolving")
+        vibe = snapshot.vibe ?? DJConnectLocalization.localized(key: "widget.fresh")
         bpm = snapshot.bpm ?? 0
         key = snapshot.key ?? "-"
         energy = snapshot.energy ?? 0.5
@@ -1451,7 +1448,7 @@ struct DJConnectTrackInsightWidgetView: View {
             }
             DJConnectTrackInsightMeterRow(entry: entry)
             Spacer(minLength: 0)
-            Text(DJConnectLocalization.localized(english: "Rendered privately on device", dutch: "Privé gerenderd op apparaat"))
+            Text(DJConnectLocalization.localized(key: "widget.rendered.privately.on.device"))
                 .font(.caption2.weight(.semibold))
                 .foregroundStyle(.white.opacity(0.58))
         }
@@ -1487,7 +1484,7 @@ struct DJConnectTrackInsightWidgetView: View {
         HStack(spacing: 6) {
             Image(systemName: "waveform.path.ecg")
                 .font(.caption.weight(.bold))
-            Text(entry.hasSnapshot ? (compact ? "Insight" : "Track Insight") : DJConnectLocalization.localized(english: "Ready", dutch: "Klaar"))
+            Text(entry.hasSnapshot ? (compact ? "Insight" : "Track Insight") : DJConnectLocalization.localized(key: "widget.ready"))
                 .font(.caption.weight(.bold))
                 .textCase(.uppercase)
             Spacer(minLength: 0)
@@ -1664,9 +1661,9 @@ private struct DJConnectTrackInsightMeterRow: View {
 
     var body: some View {
         HStack(spacing: 10) {
-            meter(title: DJConnectLocalization.localized(english: "Energy", dutch: "Energie"), value: entry.energy)
-            meter(title: DJConnectLocalization.localized(english: "Dance", dutch: "Dans"), value: entry.danceability)
-            meter(title: DJConnectLocalization.localized(english: "Intensity", dutch: "Intensiteit"), value: entry.intensity)
+            meter(title: DJConnectLocalization.localized(key: "widget.energy"), value: entry.energy)
+            meter(title: DJConnectLocalization.localized(key: "widget.dance"), value: entry.danceability)
+            meter(title: DJConnectLocalization.localized(key: "widget.intensity"), value: entry.intensity)
         }
     }
 
@@ -1763,13 +1760,10 @@ struct DJConnectAskDJWidgetEntry: TimelineEntry {
 
     static let empty = DJConnectAskDJWidgetEntry(
         date: Date(),
-        prompt: DJConnectLocalization.localized(english: "Ask DJ", dutch: "Ask DJ"),
-        response: DJConnectLocalization.localized(
-            english: "Ask DJ in the app to update this widget.",
-            dutch: "Gebruik Ask DJ in de app om deze widget bij te werken."
-        ),
-        mood: DJConnectLocalization.localized(english: "Private - On device", dutch: "Privé - Op apparaat"),
-        trackTitle: DJConnectLocalization.localized(english: "No Ask DJ snapshot yet", dutch: "Nog geen Ask DJ snapshot"),
+        prompt: DJConnectLocalization.localized(key: "widget.ask.dj"),
+        response: DJConnectLocalization.localized(key: "widget.ask.dj.in.the.app.to.update.this.widget"),
+        mood: DJConnectLocalization.localized(key: "widget.private.on.device"),
+        trackTitle: DJConnectLocalization.localized(key: "widget.no.ask.dj.snapshot.yet"),
         artist: "DJConnect",
         hasSnapshot: false
     )
@@ -1780,8 +1774,8 @@ struct DJConnectAskDJWidgetEntry: TimelineEntry {
         prompt = snapshot.prompt
         response = snapshot.response
         mood = snapshot.context
-        trackTitle = snapshot.trackTitle ?? DJConnectLocalization.localized(english: "Ask DJ", dutch: "Ask DJ")
-        artist = snapshot.artist ?? DJConnectLocalization.localized(english: "Ready", dutch: "Klaar")
+        trackTitle = snapshot.trackTitle ?? DJConnectLocalization.localized(key: "widget.ask.dj")
+        artist = snapshot.artist ?? DJConnectLocalization.localized(key: "widget.ready")
         hasSnapshot = true
     }
 #endif
@@ -2130,7 +2124,7 @@ private struct DJConnectNowPlayingLiveActivityLockScreenView: View {
             DJConnectNowPlayingArtwork(entry: entry)
                 .frame(width: 72, height: 72)
             VStack(alignment: .leading, spacing: 6) {
-                Label(DJConnectLocalization.localized(english: "Now Playing", dutch: "Speelt Nu"), systemImage: state.isPlaying ? "music.note" : "pause.fill")
+                Label(DJConnectLocalization.localized(key: "widget.now.playing"), systemImage: state.isPlaying ? "music.note" : "pause.fill")
                     .font(.caption.weight(.bold))
                     .foregroundStyle(.white.opacity(0.84))
                     .textCase(.uppercase)
@@ -2191,7 +2185,7 @@ private struct DJConnectNowPlayingLiveActivityDescriptorRow: View {
 
     var body: some View {
         HStack(spacing: 6) {
-            Label(state.isPlaying ? DJConnectLocalization.localized(english: "Playing", dutch: "Speelt") : DJConnectLocalization.localized(english: "Paused", dutch: "Gepauzeerd"), systemImage: state.isPlaying ? "play.fill" : "pause.fill")
+            Label(state.isPlaying ? DJConnectLocalization.localized(key: "widget.playing") : DJConnectLocalization.localized(key: "widget.paused"), systemImage: state.isPlaying ? "play.fill" : "pause.fill")
             if let compactProgress = state.progressText {
                 Text(compactProgress)
             }
@@ -2371,7 +2365,7 @@ private extension TrackInsightLiveActivityAttributes.ContentState {
     }
 
     var compactProgress: String {
-        progressText ?? (isPlaying ? DJConnectLocalization.localized(english: "On", dutch: "Aan") : DJConnectLocalization.localized(english: "Off", dutch: "Uit"))
+        progressText ?? (isPlaying ? DJConnectLocalization.localized(key: "widget.on") : DJConnectLocalization.localized(key: "widget.off"))
     }
 
     var progressText: String? {

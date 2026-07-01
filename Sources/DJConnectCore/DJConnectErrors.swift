@@ -32,7 +32,6 @@ public enum DJConnectErrorPresentation {
         case .clientTypeMismatch:
             return localizedPairingMessage(
                 key: "pairing.error.clientTypeMismatch",
-                fallback: "The app type selected in Home Assistant does not match this app. Choose the DJConnect %@ setup flow, then try again.",
                 language: language,
                 context: context
             )
@@ -40,34 +39,29 @@ public enum DJConnectErrorPresentation {
             if containsAny(message, ["invalid_pair_code", "invalid pair code"]) || statusCode == 401 || statusCode == 403 {
                 return DJConnectLocalization.localized(
                     key: "pairing.error.invalidPairCode",
-                    language: language,
-                    fallback: "Pair code is incorrect. Check the code in Home Assistant."
+                    language: language
                 )
             }
             return DJConnectLocalization.localized(
                 key: "pairing.error.staleAuth",
-                language: language,
-                fallback: "This pairing is no longer valid. Generate a new pair code in Home Assistant and try again."
+                language: language
             )
         case let .notConfigured(message):
             if containsAny(message, ["invalid_pair_code", "invalid pair code"]) {
                 return DJConnectLocalization.localized(
                     key: "pairing.error.invalidPairCode",
-                    language: language,
-                    fallback: "Pair code is incorrect. Check the code in Home Assistant."
+                    language: language
                 )
             }
             if case .pairing = context {
                 return DJConnectLocalization.localized(
                     key: "pairing.error.invalidPairCode",
-                    language: language,
-                    fallback: "Pair code is incorrect. Check the code in Home Assistant."
+                    language: language
                 )
             }
             return DJConnectLocalization.localized(
                 key: "pairing.error.notConfigured",
-                language: language,
-                fallback: "DJConnect is not configured in Home Assistant yet. Open the DJConnect setup flow first."
+                language: language
             )
         case .routeMissing:
             return nil
@@ -77,7 +71,6 @@ public enum DJConnectErrorPresentation {
             if containsAny(message, ["invalid_client_type", "client_type_mismatch", "client type"]) {
                 return localizedPairingMessage(
                     key: "pairing.error.invalidClientType",
-                    fallback: "Wrong app type selected in Home Assistant. Choose the DJConnect %@ setup flow and use its new pair code.",
                     language: language,
                     context: context
                 )
@@ -85,20 +78,17 @@ public enum DJConnectErrorPresentation {
             if containsAny(message, ["invalid_pair_code", "invalid code", "pair code"]) {
                 return DJConnectLocalization.localized(
                     key: "pairing.error.invalidPairCode",
-                    language: language,
-                    fallback: "Pair code is incorrect. Check the code in Home Assistant."
+                    language: language
                 )
             }
             return DJConnectLocalization.localized(
                 key: "pairing.error.generic",
-                language: language,
-                fallback: "Pairing could not be completed. Check Home Assistant and try again."
+                language: language
             )
         case .missingToken:
             return DJConnectLocalization.localized(
                 key: "pairing.error.staleAuth",
-                language: language,
-                fallback: "This pairing is no longer valid. Generate a new pair code in Home Assistant and try again."
+                language: language
             )
         default:
             return nil
@@ -114,7 +104,6 @@ public enum DJConnectErrorPresentation {
         if containsAny(message, ["client_type_mismatch"]) {
             return localizedPairingMessage(
                 key: "pairing.error.clientTypeMismatch",
-                fallback: "The app type selected in Home Assistant does not match this app. Choose the DJConnect %@ setup flow, then try again.",
                 language: language,
                 context: context
             )
@@ -122,7 +111,6 @@ public enum DJConnectErrorPresentation {
         if containsAny(message, ["invalid_client_type", "client type", "client_type"]) {
             return localizedPairingMessage(
                 key: "pairing.error.invalidClientType",
-                fallback: "Wrong app type selected in Home Assistant. Choose the DJConnect %@ setup flow and use its new pair code.",
                 language: language,
                 context: context
             )
@@ -130,29 +118,25 @@ public enum DJConnectErrorPresentation {
         if containsAny(message, ["invalid_pair_code", "invalid code", "pair code"]) || statusCode == 401 || statusCode == 403 {
             return DJConnectLocalization.localized(
                 key: "pairing.error.invalidPairCode",
-                language: language,
-                fallback: "Pair code is incorrect. Check the code in Home Assistant."
+                language: language
             )
         }
         if containsAny(message, ["not_configured", "not configured", "setup flow", "config flow"]) {
             if case .pairing = context {
                 return DJConnectLocalization.localized(
                     key: "pairing.error.invalidPairCode",
-                    language: language,
-                    fallback: "Pair code is incorrect. Check the code in Home Assistant."
+                    language: language
                 )
             }
             return DJConnectLocalization.localized(
                 key: "pairing.error.notConfigured",
-                language: language,
-                fallback: "DJConnect is not configured in Home Assistant yet. Open the DJConnect setup flow first."
+                language: language
             )
         }
         if containsAny(message, ["unauthorized", "forbidden", "bearer", "token"]) {
             return DJConnectLocalization.localized(
                 key: "pairing.error.unauthorized",
-                language: language,
-                fallback: "Home Assistant rejected this app. Pair DJConnect again from Home Assistant."
+                language: language
             )
         }
         return nil
@@ -160,7 +144,6 @@ public enum DJConnectErrorPresentation {
 
     private static func localizedPairingMessage(
         key: String,
-        fallback: String,
         language: String,
         context: DJConnectErrorPresentationContext
     ) -> String {
@@ -171,7 +154,7 @@ public enum DJConnectErrorPresentation {
         case let .pairing(expectedPairingFlowName):
             flowName = expectedPairingFlowName
         }
-        return DJConnectLocalization.localized(key: key, language: language, fallback: fallback, arguments: flowName)
+        return DJConnectLocalization.localized(key: key, language: language, arguments: flowName)
     }
 
     private static func containsAny(_ message: String?, _ needles: [String]) -> Bool {

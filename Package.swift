@@ -4,6 +4,7 @@ import PackageDescription
 
 let package = Package(
     name: "DJConnectApp",
+    defaultLocalization: "en",
     platforms: [
         .iOS("26.0"),
         .macOS("26.0"),
@@ -21,7 +22,10 @@ let package = Package(
     ],
     targets: [
         .target(
-            name: "DJConnectCore"
+            name: "DJConnectCore",
+            resources: [
+                .process("Resources")
+            ]
         ),
         .target(
             name: "DJConnectUI",

@@ -412,6 +412,7 @@ private struct DJConnectWebSocketCommandMessage: Encodable {
     var command: String
     var value: DJConnectCommandValue?
     var play: Bool?
+    var language: String?
 
     init(id: Int, payload: DJConnectCommandPayload, deviceToken: String) {
         self.id = id
@@ -423,6 +424,7 @@ private struct DJConnectWebSocketCommandMessage: Encodable {
         command = payload.command
         value = payload.value
         play = payload.play
+        language = payload.language
     }
 
     enum CodingKeys: String, CodingKey {
@@ -436,6 +438,7 @@ private struct DJConnectWebSocketCommandMessage: Encodable {
         case command
         case value
         case play
+        case language
     }
 }
 
@@ -452,6 +455,7 @@ private struct DJConnectWebSocketAskDJMessage: Encodable {
     var mood: Int?
     var musicDNAKey: String?
     var audioResponse: DJConnectAskDJRequest.AudioResponse?
+    var language: String?
 
     init(id: Int, payload: DJConnectAskDJRequest, deviceToken: String) {
         self.id = id
@@ -465,6 +469,7 @@ private struct DJConnectWebSocketAskDJMessage: Encodable {
         mood = payload.mood
         musicDNAKey = payload.musicDNAKey
         audioResponse = payload.audioResponse
+        language = payload.language
     }
 
     enum CodingKeys: String, CodingKey {
@@ -480,6 +485,7 @@ private struct DJConnectWebSocketAskDJMessage: Encodable {
         case mood
         case musicDNAKey = "music_dna_key"
         case audioResponse = "audio_response"
+        case language
     }
 }
 

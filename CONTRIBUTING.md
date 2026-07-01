@@ -80,12 +80,15 @@ Home Assistant integration contract and any affected client implementations.
 - Do not log secrets, tokens, credentials, pairing codes, private URLs, or raw
   diagnostics.
 - Add every user-facing Apple client string to the shared localization source
-  for `en`, `nl`, `de`, `fr`, and `es` in the same pull request. Prefer
-  semantic keys and format placeholders over concatenating translated fragments.
-  Keep protocol values, endpoint paths, JSON keys, and `client_type` values
-  (`ios`, `macos`, `watchos`) unlocalized.
+  in `Sources/DJConnectCore/Resources/Localization` for `en`, `nl`, `de`,
+  `fr`, and `es` in the same pull request. Prefer semantic keys and format
+  placeholders over concatenating translated fragments. Keep protocol values,
+  endpoint paths, JSON keys, and `client_type` values (`ios`, `macos`,
+  `watchos`) unlocalized.
 - Run `python3 scripts/validate_localizations.py` whenever adding or changing
-  localized Apple client text. The validator must pass before review.
+  localized Apple client text. GitHub Actions runs the same validator and fails
+  pull requests that add inline English/Dutch UI pairs or incomplete locale
+  coverage.
 - Respect Spotify trademark and non-affiliation language: DJConnect is not
   affiliated with, endorsed by, or sponsored by Spotify AB.
 - Use real DJConnect brand assets from the project. Do not redraw the logo or

@@ -34,10 +34,10 @@
 		<string>_home-assistant._tcp.</string>
 	</array>
 	<key>NSLocalNetworkUsageDescription</key>
-	<string>DJConnect maakt verbinding met Home Assistant op je lokale netwerk.</string>
+	<string>DJConnect connects to Home Assistant on your local network.</string>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>DJConnect neemt je stem op voor push-to-talk muziekverzoeken aan Home Assistant.</string>
+	<string>DJConnect records your voice for push-to-talk music requests to Home Assistant.</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
-	<string>DJConnect gebruikt spraakherkenning om de wake-zin te herkennen.</string>
+	<string>DJConnect uses speech recognition to detect the wake phrase.</string>
 </dict>
 </plist>
