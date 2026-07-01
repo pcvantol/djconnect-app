@@ -162,6 +162,23 @@ compile/test-source failures from Xcode runner infrastructure failures. Do not
 mark a release as fully tested until a real `test` invocation completes on a
 healthy local Xcode/simulator setup.
 
+## Localization
+
+Apple client user-facing text must be available for English, Dutch, German,
+French, and Spanish. Keep protocol values, endpoint paths, JSON keys, and
+`client_type` values (`ios`, `macos`, `watchos`) untranslated.
+
+When adding or changing shared localized text, update every locale in
+`Resources/Localization/{en,nl,de,fr,es}.lproj/Localizable.strings` and prefer
+format placeholders over concatenating translated fragments. Then run:
+
+```sh
+python3 scripts/validate_localizations.py
+```
+
+The validator fails on missing keys, extra keys, duplicate keys, invalid
+`.strings` syntax, or mismatched printf placeholders.
+
 ## Permissions During Development
 
 Settings can preflight Microphone and Speech Recognition. Local Network is not

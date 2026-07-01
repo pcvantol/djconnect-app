@@ -3,7 +3,7 @@ import Combine
 import SwiftUI
 
 #if canImport(AVFoundation)
-import AVFoundation
+@preconcurrency import AVFoundation
 import UniformTypeIdentifiers
 #endif
 #if canImport(AVKit)
@@ -95,6 +95,20 @@ private let djConnectContentMaxWidth: CGFloat = 760
 private let djConnectCompactContentMaxWidth: CGFloat = 640
 private let djConnectMacDetailHorizontalPadding: CGFloat = djConnectScreenHorizontalPadding
 private let djConnectMacDetailVerticalPadding: CGFloat = djConnectScreenVerticalPadding
+
+private enum DJConnectRootSheet: String, Identifiable {
+    case updateRequired
+    case pairing
+    case welcome
+    case crashReportPrompt
+    case whatsNew
+    case wakeWordActivationPrompt
+    case feedback
+    case permissionExplanation
+    case askDJNotificationPermissionExplanation
+
+    var id: String { rawValue }
+}
 
 private var djConnectListRowInsets: EdgeInsets {
     #if os(iOS)
@@ -469,6 +483,7 @@ private enum DJConnectSection: Hashable {
 public struct DJConnectRootView: View {
     @ObservedObject private var model: DJConnectAppModel
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @State private var selectedSection = DJConnectSection.nowPlaying
     @State private var moreResetID = UUID()
     @State private var showingFeedback = false
@@ -496,7 +511,7 @@ public struct DJConnectRootView: View {
                         ) { selectedSection = .queue }
                         SidebarItem(
                             title: "Ask DJ",
-                            systemImage: "bubble.left.and.bubble.right.fill",
+                            systemImage: "bubble.left.and.bubble.right",
                             isSelected: selectedSection == .askDJ
                         ) { selectedSection = .askDJ }
                         SidebarItem(
@@ -560,83 +575,50 @@ public struct DJConnectRootView: View {
                 .tint(Color(red: 0.74, green: 0.22, blue: 0.96))
                 .accentColor(Color(red: 0.74, green: 0.22, blue: 0.96))
                 #else
-                TabView(selection: $selectedSection) {
-                    NowPlayingView(model: model)
-                        .tabItem {
-                            Label(localized(model.language, "Now Playing", "Speelt Nu"), systemImage: "music.note")
+                if horizontalSizeClass == .regular {
+                    iPadRootTabs
+                } else {
+                    TabView(selection: $selectedSection) {
+                        NowPlayingView(model: model)
+                            .tabItem {
+                                Label(localized(model.language, "Now Playing", "Speelt Nu"), systemImage: "music.note")
+                            }
+                            .tag(DJConnectSection.nowPlaying)
+                        QueueView(model: model)
+                            .tabItem {
+                                Label(localized(model.language, "Queue", "Wachtrij"), systemImage: "text.line.first.and.arrowtriangle.forward")
+                            }
+                            .tag(DJConnectSection.queue)
+                        AskDJView(model: model)
+                            .tabItem {
+                                Label("Ask DJ", systemImage: "bubble.left.and.bubble.right")
+                            }
+                            .tag(DJConnectSection.askDJ)
+                        TrackInsightView(model: model)
+                            .tabItem {
+                                Label("Track Insight", systemImage: "waveform.path.ecg")
+                            }
+                            .tag(DJConnectSection.trackInsight)
+                        MoreView(model: model) {
+                            selectedSection = .nowPlaying
                         }
-                        .tag(DJConnectSection.nowPlaying)
-                    QueueView(model: model)
-                        .tabItem {
-                            Label(localized(model.language, "Queue", "Wachtrij"), systemImage: "text.line.first.and.arrowtriangle.forward")
-                        }
-                        .tag(DJConnectSection.queue)
-                    AskDJView(model: model)
-                        .tabItem {
-                            Label("Ask DJ", systemImage: "bubble.left.and.bubble.right.fill")
-                        }
-                        .tag(DJConnectSection.askDJ)
-                    TrackInsightView(model: model)
-                        .tabItem {
-                            Label("Track Insight", systemImage: "waveform.path.ecg")
-                        }
-                        .tag(DJConnectSection.trackInsight)
-                    MoreView(model: model) {
-                        selectedSection = .nowPlaying
+                        .id(moreResetID)
+                            .tabItem {
+                                Label(localized(model.language, "More", "Meer"), systemImage: "ellipsis")
+                            }
+                            .tag(DJConnectSection.settings)
                     }
-                    .id(moreResetID)
-                        .tabItem {
-                            Label(localized(model.language, "More", "Meer"), systemImage: "ellipsis")
-                        }
-                        .tag(DJConnectSection.settings)
+                    .tint(djConnectAccent)
+                    .accentColor(djConnectAccent)
                 }
-                .tint(djConnectAccent)
-                .accentColor(djConnectAccent)
                 #endif
             }
             #if os(iOS)
             .background(.clear)
             #endif
         }
-        .sheet(isPresented: $model.isShowingWelcome) {
-            WelcomeView(model: model)
-                .tint(djConnectAccent)
-                .accentColor(djConnectAccent)
-        }
-        .sheet(isPresented: $model.isShowingWhatsNew) {
-            WhatsNewView(model: model)
-                .tint(djConnectAccent)
-                .accentColor(djConnectAccent)
-        }
-        .sheet(isPresented: $model.isShowingCrashReportPrompt) {
-            CrashReportPromptView(model: model)
-                .tint(djConnectAccent)
-                .accentColor(djConnectAccent)
-        }
-        .sheet(isPresented: Binding(
-            get: { model.updateRequiredMessage != nil },
-            set: { _ in }
-        )) {
-            UpdateRequiredView(model: model)
-                .tint(djConnectAccent)
-                .accentColor(djConnectAccent)
-                .interactiveDismissDisabled(true)
-        }
-        .sheet(isPresented: Binding(
-            get: { model.shouldShowPairingScreen },
-            set: { isPresented in
-                if !isPresented {
-                    model.completePairingScreen()
-                }
-            }
-        )) {
-            PairingSheetView(model: model)
-                .tint(djConnectAccent)
-                .accentColor(djConnectAccent)
-                .interactiveDismissDisabled(true)
-                .presentationBackground {
-                    DJConnectCanvasBackground()
-                }
+        .sheet(item: rootSheetBinding) { sheet in
+            rootSheetView(sheet)
         }
         .onChange(of: model.shouldShowPairingScreen) {
             if model.shouldShowPairingScreen {
@@ -674,16 +656,6 @@ public struct DJConnectRootView: View {
                 moreResetID = UUID()
             }
         }
-        .sheet(isPresented: $model.isShowingWakeWordActivationPrompt) {
-            WakeWordActivationPromptView(model: model)
-                .tint(djConnectAccent)
-                .accentColor(djConnectAccent)
-        }
-        .sheet(isPresented: $showingFeedback) {
-            FeedbackPromptView(model: model)
-                .tint(djConnectAccent)
-                .accentColor(djConnectAccent)
-        }
         .onChange(of: scenePhase) {
             switch scenePhase {
             case .active:
@@ -698,8 +670,170 @@ public struct DJConnectRootView: View {
         }
         .environment(\.colorScheme, .dark)
         .preferredColorScheme(.dark)
-        .sheet(isPresented: $model.isShowingPermissionExplanation) {
+    }
+
+    #if os(iOS)
+    private var iPadRootTabs: some View {
+        VStack(spacing: 0) {
+            HStack(spacing: 8) {
+                DJConnectTopTabButton(
+                    title: localized(model.language, "Now Playing", "Speelt Nu"),
+                    systemImage: "music.note",
+                    isSelected: selectedSection == .nowPlaying
+                ) { selectedSection = .nowPlaying }
+                DJConnectTopTabButton(
+                    title: localized(model.language, "Queue", "Wachtrij"),
+                    systemImage: "text.line.first.and.arrowtriangle.forward",
+                    isSelected: selectedSection == .queue
+                ) { selectedSection = .queue }
+                DJConnectTopTabButton(
+                    title: "Ask DJ",
+                    systemImage: "bubble.left.and.bubble.right",
+                    isSelected: selectedSection == .askDJ
+                ) { selectedSection = .askDJ }
+                DJConnectTopTabButton(
+                    title: "Track Insight",
+                    systemImage: "waveform.path.ecg",
+                    isSelected: selectedSection == .trackInsight
+                ) { selectedSection = .trackInsight }
+                DJConnectTopTabButton(
+                    title: localized(model.language, "More", "Meer"),
+                    systemImage: "ellipsis",
+                    isSelected: isMoreSectionSelected
+                ) { selectedSection = .settings }
+            }
+            .padding(6)
+            .background(
+                Capsule(style: .continuous)
+                    .fill(Color.white.opacity(0.12))
+                    .overlay {
+                        Capsule(style: .continuous)
+                            .stroke(Color.white.opacity(0.16), lineWidth: 1)
+                    }
+            )
+            .padding(.top, 18)
+            .padding(.bottom, 10)
+
+            selectedView
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+    }
+
+    private var isMoreSectionSelected: Bool {
+        switch selectedSection {
+        case .nowPlaying, .queue, .askDJ, .trackInsight:
+            false
+        case .musicDNA, .playlists, .games, .settings, .logs, .about, .legal, .privacy:
+            true
+        }
+    }
+    #endif
+
+    private var rootSheetBinding: Binding<DJConnectRootSheet?> {
+        Binding(
+            get: { activeRootSheet },
+            set: { newValue in
+                if newValue == nil, let activeRootSheet {
+                    dismiss(rootSheet: activeRootSheet)
+                }
+            }
+        )
+    }
+
+    private var activeRootSheet: DJConnectRootSheet? {
+        if model.updateRequiredMessage != nil {
+            return .updateRequired
+        }
+        if model.shouldShowPairingScreen {
+            return .pairing
+        }
+        if model.isShowingWelcome {
+            return .welcome
+        }
+        if model.isShowingCrashReportPrompt {
+            return .crashReportPrompt
+        }
+        if model.isShowingWhatsNew {
+            return .whatsNew
+        }
+        if model.isShowingWakeWordActivationPrompt {
+            return .wakeWordActivationPrompt
+        }
+        if showingFeedback {
+            return .feedback
+        }
+        if model.isShowingPermissionExplanation {
+            return .permissionExplanation
+        }
+        if model.isShowingAskDJNotificationPermissionExplanation {
+            return .askDJNotificationPermissionExplanation
+        }
+        return nil
+    }
+
+    @ViewBuilder
+    private func rootSheetView(_ sheet: DJConnectRootSheet) -> some View {
+        switch sheet {
+        case .updateRequired:
+            UpdateRequiredView(model: model)
+                .tint(djConnectAccent)
+                .accentColor(djConnectAccent)
+                .interactiveDismissDisabled(true)
+        case .pairing:
+            PairingSheetView(model: model)
+                .tint(djConnectAccent)
+                .accentColor(djConnectAccent)
+                .interactiveDismissDisabled(true)
+                .presentationBackground {
+                    DJConnectCanvasBackground()
+                }
+        case .welcome:
+            WelcomeView(model: model)
+                .tint(djConnectAccent)
+                .accentColor(djConnectAccent)
+        case .crashReportPrompt:
+            CrashReportPromptView(model: model)
+                .tint(djConnectAccent)
+                .accentColor(djConnectAccent)
+        case .whatsNew:
+            WhatsNewView(model: model)
+                .tint(djConnectAccent)
+                .accentColor(djConnectAccent)
+        case .wakeWordActivationPrompt:
+            WakeWordActivationPromptView(model: model)
+                .tint(djConnectAccent)
+                .accentColor(djConnectAccent)
+        case .feedback:
+            FeedbackPromptView(model: model)
+                .tint(djConnectAccent)
+                .accentColor(djConnectAccent)
+        case .permissionExplanation:
             PermissionExplanationView(model: model)
+        case .askDJNotificationPermissionExplanation:
+            AskDJNotificationPermissionExplanationView(model: model)
+        }
+    }
+
+    private func dismiss(rootSheet sheet: DJConnectRootSheet) {
+        switch sheet {
+        case .updateRequired:
+            break
+        case .pairing:
+            model.completePairingScreen()
+        case .welcome:
+            model.dismissWelcome()
+        case .crashReportPrompt:
+            model.dismissCrashReportPrompt()
+        case .whatsNew:
+            model.dismissWhatsNew()
+        case .wakeWordActivationPrompt:
+            model.dismissWakeWordActivationPrompt()
+        case .feedback:
+            showingFeedback = false
+        case .permissionExplanation:
+            model.cancelPermissionExplanation()
+        case .askDJNotificationPermissionExplanation:
+            model.cancelAskDJNotificationPermissionExplanation()
         }
     }
 
@@ -733,6 +867,79 @@ public struct DJConnectRootView: View {
         case .privacy:
             PrivacyView(language: model.language)
         }
+    }
+}
+
+private struct AskDJNotificationPermissionExplanationView: View {
+    @ObservedObject var model: DJConnectAppModel
+
+    var body: some View {
+        ZStack {
+            DJConnectCanvasBackground()
+
+            VStack(spacing: 18) {
+                Image(systemName: "bell.badge.fill")
+                    .font(.system(size: 52, weight: .semibold))
+                    .foregroundStyle(
+                        LinearGradient(
+                            colors: [djConnectAccent, Color(red: 0.12, green: 0.55, blue: 1.0)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+
+                VStack(spacing: 8) {
+                    Text(localized(model.language, "Ask DJ notifications", "Ask DJ-meldingen"))
+                        .font(.title2.bold())
+                        .multilineTextAlignment(.center)
+                    Text(localized(
+                        model.language,
+                        "DJConnect can send a notification when Ask DJ has an answer for you.",
+                        "DJConnect kan een melding sturen wanneer Ask DJ een antwoord voor je heeft."
+                    ))
+                    .font(.body)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                    Text(localized(
+                        model.language,
+                        "After this screen, Apple will ask for permission. You can change this later in Settings.",
+                        "Na dit scherm vraagt Apple om toestemming. Je kunt dit later aanpassen in Instellingen."
+                    ))
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                }
+
+                VStack(spacing: 12) {
+                    Button {
+                        model.continueAfterAskDJNotificationPermissionExplanation()
+                    } label: {
+                        Label(
+                            localized(model.language, "Allow notifications", "Meldingen toestaan"),
+                            systemImage: "bell.badge.fill"
+                        )
+                        .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(DJConnectLilacPillButtonStyle())
+
+                    Button {
+                        model.cancelAskDJNotificationPermissionExplanation()
+                    } label: {
+                        Text(localized(model.language, "Not now", "Niet nu"))
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(DJConnectLilacPillButtonStyle())
+                }
+            }
+            .padding(24)
+            .frame(minWidth: 320, idealWidth: 420, maxWidth: 460)
+            .background(Color.black.opacity(0.20), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .stroke(Color.white.opacity(0.10), lineWidth: 1)
+            )
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
 
@@ -860,8 +1067,40 @@ private struct SidebarItem: View {
 }
 #endif
 
+#if os(iOS)
+private struct DJConnectTopTabButton: View {
+    let title: String
+    let systemImage: String
+    let isSelected: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Label(title, systemImage: systemImage)
+                .font(.headline.weight(.semibold))
+                .labelStyle(.titleAndIcon)
+                .lineLimit(1)
+                .foregroundStyle(isSelected ? djConnectAccent : .primary)
+                .frame(minWidth: 118)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 10)
+                .contentShape(Capsule(style: .continuous))
+                .background {
+                    if isSelected {
+                        Capsule(style: .continuous)
+                            .fill(Color.black.opacity(0.28))
+                    }
+                }
+        }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(isSelected ? [.isSelected] : [])
+    }
+}
+#endif
+
 private struct PairingSheetView: View {
     @ObservedObject var model: DJConnectAppModel
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @State private var isManualPairingVisible = false
     #if os(iOS)
     @State private var isShowingQRScanner = false
@@ -889,6 +1128,12 @@ private struct PairingSheetView: View {
             .frame(maxWidth: .infinity)
         }
         .background(DJConnectCanvasBackground())
+        #if os(iOS)
+        .frame(
+            minHeight: horizontalSizeClass == .regular ? 760 : nil,
+            idealHeight: horizontalSizeClass == .regular ? 860 : nil
+        )
+        #endif
         #if os(macOS)
         .frame(minHeight: 560)
         #endif
@@ -900,7 +1145,7 @@ private struct PairingSheetView: View {
                 continueAction: openScannerAfterCameraConsent,
                 settingsAction: openCameraSettings
             )
-            .presentationDetents([.medium])
+            .presentationDetents([.large, .medium])
             .presentationDragIndicator(.visible)
         }
         .sheet(isPresented: $isShowingQRScanner) {
@@ -909,7 +1154,13 @@ private struct PairingSheetView: View {
                 if model.pairingFlowTarget == .appleWatch {
                     model.handleWatchPairingQRCode(value)
                 } else {
-                    model.handlePairingQRCode(value)
+                    let accepted = model.handlePairingQRCode(value)
+                    if accepted {
+                        Task { @MainActor in
+                            await Task.yield()
+                            model.confirmPairingHomeAssistantURL()
+                        }
+                    }
                 }
             }
         }
@@ -1376,8 +1627,8 @@ private struct PairingSheetView: View {
             )
             : localized(
                 model.language,
-                "DJConnect is paired with Home Assistant. Remote access, if configured in Home Assistant, is used only after this local pairing.",
-                "DJConnect is gekoppeld met Home Assistant. Remote toegang wordt alleen na deze lokale koppeling gebruikt, als Home Assistant die heeft meegegeven."
+                "DJConnect is paired with Home Assistant.",
+                "DJConnect is gekoppeld met Home Assistant."
             )
     }
 
@@ -1669,15 +1920,19 @@ private struct PairingCameraConsentSheet: View {
                     .buttonStyle(DJConnectLilacPillButtonStyle())
                     .controlSize(.large)
 
-                    Button(localized(language, "Not now", "Niet nu")) {
+                    Button {
                         dismiss()
+                    } label: {
+                        Text(localized(language, "Not now", "Niet nu"))
+                            .frame(maxWidth: .infinity)
                     }
-                    .buttonStyle(.plain)
-                    .font(.headline.weight(.semibold))
-                    .foregroundStyle(.secondary)
+                    .buttonStyle(DJConnectLilacPillButtonStyle())
+                    .controlSize(.large)
                 }
             }
-            .padding(24)
+            .padding(.horizontal, 24)
+            .padding(.top, 28)
+            .padding(.bottom, 36)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(DJConnectCanvasBackground())
             .navigationTitle(localized(language, "Camera", "Camera"))
@@ -2106,20 +2361,6 @@ private struct WelcomeView: View {
                         .foregroundStyle(djConnectAccent)
                 }
 
-                Button {
-                    model.dismissWelcome()
-                } label: {
-                    if isLastStep {
-                        Label(localized(model.language, "Let's Start!", "Aan de slag!"), systemImage: "checkmark.circle.fill")
-                            .frame(maxWidth: .infinity)
-                    } else {
-                        Text(localized(model.language, "Skip", "Overslaan"))
-                            .frame(maxWidth: .infinity)
-                    }
-                }
-                .buttonStyle(DJConnectLilacPillButtonStyle())
-                .controlSize(.large)
-
                 HStack(spacing: 12) {
                     Button {
                         moveWelcomeTour(by: -1)
@@ -2141,8 +2382,25 @@ private struct WelcomeView: View {
                         }
                         .buttonStyle(DJConnectLilacPillButtonStyle())
                         .controlSize(.large)
+                    } else {
+                        Color.clear
+                            .frame(maxWidth: .infinity)
                     }
                 }
+
+                Button {
+                    model.dismissWelcome()
+                } label: {
+                    if isLastStep {
+                        Label(localized(model.language, "Let's Start", "Aan de slag"), systemImage: "music.note")
+                            .frame(maxWidth: .infinity)
+                    } else {
+                        Text(localized(model.language, "Skip", "Overslaan"))
+                            .frame(maxWidth: .infinity)
+                    }
+                }
+                .buttonStyle(DJConnectLilacPillButtonStyle())
+                .controlSize(.large)
             }
             .padding(28)
             .frame(minWidth: 360, idealWidth: 580, maxWidth: 680)
@@ -2196,7 +2454,7 @@ private struct WelcomeTourStep: Identifiable, Equatable {
                     "Ask for music, context or a voice reply. DJConnect keeps the chat history in sync through Home Assistant.",
                     "Vraag om muziek, context of een gesproken antwoord. DJConnect synchroniseert de chatgeschiedenis via Home Assistant."
                 ),
-                systemImage: "bubble.left.and.bubble.right.fill"
+                systemImage: "bubble.left.and.bubble.right"
             ),
             WelcomeTourStep(
                 id: .trackInsight,
@@ -7248,7 +7506,7 @@ private struct AskDJEmptyState: View {
 
     var body: some View {
         VStack(spacing: 14) {
-            Image(systemName: "bubble.left.and.bubble.right.fill")
+            Image(systemName: "bubble.left.and.bubble.right")
                 .font(.system(size: 36, weight: .semibold))
                 .foregroundStyle(
                     LinearGradient(
@@ -9023,6 +9281,10 @@ private struct AskDJInputBar: View {
                         .allowsHitTesting(false)
                 }
 
+                #if os(iOS)
+                AskDJPromptTextView(text: $model.askDJDraft, isInputFocused: isInputFocused)
+                    .frame(minHeight: 44)
+                #else
                 TextField("", text: $model.askDJDraft, axis: .vertical)
                     .lineLimit(1...4)
                     .textFieldStyle(.plain)
@@ -9036,16 +9298,7 @@ private struct AskDJInputBar: View {
                             model.sendAskDJText()
                         }
                     }
-                    #if os(iOS)
-                    .toolbar {
-                        ToolbarItemGroup(placement: .keyboard) {
-                            Spacer()
-                            Button(localized(model.language, "Done", "Gereed")) {
-                                isInputFocused.wrappedValue = false
-                            }
-                        }
-                    }
-                    #endif
+                #endif
             }
             .background {
                 RoundedRectangle(cornerRadius: 18, style: .continuous)
@@ -9142,6 +9395,82 @@ private struct AskDJInputBar: View {
         }
     }
 }
+
+#if os(iOS)
+private struct AskDJPromptTextView: UIViewRepresentable {
+    @Binding var text: String
+    var isInputFocused: FocusState<Bool>.Binding
+
+    func makeUIView(context: Context) -> UITextView {
+        let textView = UITextView()
+        textView.delegate = context.coordinator
+        textView.backgroundColor = .clear
+        textView.textColor = .white
+        textView.tintColor = UIColor(djConnectAccent)
+        textView.font = .preferredFont(forTextStyle: .body)
+        textView.adjustsFontForContentSizeCategory = true
+        textView.isScrollEnabled = false
+        textView.textContainerInset = UIEdgeInsets(top: 11, left: 10, bottom: 11, right: 10)
+        textView.textContainer.lineFragmentPadding = 0
+        textView.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        return textView
+    }
+
+    func updateUIView(_ textView: UITextView, context: Context) {
+        if textView.text != text {
+            textView.text = text
+            context.coordinator.moveCaretToEnd(in: textView)
+        }
+
+        if isInputFocused.wrappedValue {
+            if !textView.isFirstResponder {
+                textView.becomeFirstResponder()
+            }
+            context.coordinator.moveCaretToEnd(in: textView)
+        } else if textView.isFirstResponder {
+            textView.resignFirstResponder()
+        }
+    }
+
+    func sizeThatFits(_ proposal: ProposedViewSize, uiView: UITextView, context: Context) -> CGSize? {
+        let width = proposal.width ?? 240
+        let fittingSize = uiView.sizeThatFits(CGSize(width: width, height: .greatestFiniteMagnitude))
+        return CGSize(width: width, height: min(max(fittingSize.height, 44), 104))
+    }
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(text: $text, isInputFocused: isInputFocused)
+    }
+
+    final class Coordinator: NSObject, UITextViewDelegate {
+        @Binding var text: String
+        var isInputFocused: FocusState<Bool>.Binding
+
+        init(text: Binding<String>, isInputFocused: FocusState<Bool>.Binding) {
+            _text = text
+            self.isInputFocused = isInputFocused
+        }
+
+        func textViewDidChange(_ textView: UITextView) {
+            text = textView.text
+        }
+
+        func textViewDidBeginEditing(_ textView: UITextView) {
+            isInputFocused.wrappedValue = true
+            moveCaretToEnd(in: textView)
+        }
+
+        func textViewDidEndEditing(_ textView: UITextView) {
+            isInputFocused.wrappedValue = false
+        }
+
+        func moveCaretToEnd(in textView: UITextView) {
+            let end = textView.endOfDocument
+            textView.selectedTextRange = textView.textRange(from: end, to: end)
+        }
+    }
+}
+#endif
 
 private struct AskDJVoiceInputButton: View {
     @ObservedObject var model: DJConnectAppModel
@@ -11785,68 +12114,72 @@ private struct AboutView: View {
     private let websiteURL = URL(string: "https://djconnect.dev")!
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 28) {
-                AboutBanner()
+        ZStack {
+            DJConnectCanvasBackground()
+            ScrollView {
+                VStack(alignment: .leading, spacing: 28) {
+                    AboutBanner()
 
-                SettingsSection(title: localized(model.language, "App", "App")) {
-                    AboutStackedRow(label: localized(model.language, "Version", "Versie")) {
-                        SelectableValue(model.version)
-                    }
-                    AboutStackedRow(label: localized(model.language, "Device Name", "Apparaatnaam")) {
-                        SelectableValue(model.identity.deviceName)
-                    }
-                    AboutStackedRow(label: localized(model.language, "Website", "Website")) {
-                        Link(destination: websiteURL) {
-                            Text("https://djconnect.dev")
-                                .font(.body)
-                                .foregroundStyle(djConnectAccent)
-                                .foregroundColor(djConnectAccent)
-                                .textSelection(.enabled)
+                    SettingsSection(title: localized(model.language, "App", "App")) {
+                        AboutStackedRow(label: localized(model.language, "Version", "Versie")) {
+                            SelectableValue(model.version)
                         }
-                        .djConnectLilacButton()
+                        AboutStackedRow(label: localized(model.language, "Device Name", "Apparaatnaam")) {
+                            SelectableValue(model.identity.deviceName)
+                        }
+                        AboutStackedRow(label: localized(model.language, "Website", "Website")) {
+                            Link(destination: websiteURL) {
+                                Text("https://djconnect.dev")
+                                    .font(.body)
+                                    .foregroundStyle(djConnectAccent)
+                                    .foregroundColor(djConnectAccent)
+                                    .textSelection(.enabled)
+                            }
+                            .djConnectLilacButton()
+                        }
+                        AboutStackedRow(label: localized(model.language, "Device ID", "Device ID")) {
+                            SelectableValue(model.identity.deviceID)
+                        }
                     }
-                    AboutStackedRow(label: localized(model.language, "Device ID", "Device ID")) {
-                        SelectableValue(model.identity.deviceID)
-                    }
-                }
 
-                SettingsSection(title: localized(model.language, "Connection", "Verbinding")) {
-                    AboutStackedRow(label: localized(model.language, "Connection Type", "Connectietype")) {
-                        SelectableValue(connectionModeTitle, foregroundStyle: connectionModeColor)
+                    SettingsSection(title: localized(model.language, "Connection", "Verbinding")) {
+                        AboutStackedRow(label: localized(model.language, "Connection Type", "Connectietype")) {
+                            SelectableValue(connectionModeTitle, foregroundStyle: connectionModeColor)
+                        }
+                        AboutStackedRow(label: localized(model.language, "Connection Speed", "Verbindingssnelheid")) {
+                            SelectableValue(connectionTransportTitle, foregroundStyle: connectionTransportColor)
+                        }
+                        AboutStackedRow(label: localized(model.language, "Home Assistant address", "Home Assistant adres")) {
+                            SelectableValue(model.homeAssistantURL)
+                        }
+                        AboutStackedRow(label: localized(model.language, "Music", "Muziek")) {
+                            SelectableValue(
+                                model.backendAvailable
+                                    ? localized(model.language, "Available", "Beschikbaar")
+                                    : localized(model.language, "Unavailable", "Niet beschikbaar"),
+                                foregroundStyle: model.backendAvailable ? .green : .red
+                            )
+                        }
                     }
-                    AboutStackedRow(label: localized(model.language, "Connection Speed", "Verbindingssnelheid")) {
-                        SelectableValue(connectionTransportTitle, foregroundStyle: connectionTransportColor)
-                    }
-                    AboutStackedRow(label: localized(model.language, "Home Assistant address", "Home Assistant adres")) {
-                        SelectableValue(model.homeAssistantURL)
-                    }
-                    AboutStackedRow(label: localized(model.language, "Music", "Muziek")) {
-                        SelectableValue(
-                            model.backendAvailable
-                                ? localized(model.language, "Available", "Beschikbaar")
-                                : localized(model.language, "Unavailable", "Niet beschikbaar"),
-                            foregroundStyle: model.backendAvailable ? .green : .red
-                        )
-                    }
-                }
 
-                SettingsSection(title: localized(model.language, "Notices", "Notices")) {
-                    AboutStackedRow(label: "Copyright") {
-                        SelectableValue("2026 Peter van Tol")
+                    SettingsSection(title: localized(model.language, "Notices", "Notices")) {
+                        AboutStackedRow(label: "Copyright") {
+                            SelectableValue("2026 Peter van Tol")
+                        }
                     }
                 }
+                #if os(macOS)
+                .djConnectMacDetailContent(maxWidth: .infinity, alignment: .topLeading)
+                #else
+                .frame(maxWidth: 760, alignment: .leading)
+                .padding(.horizontal, 24)
+                .padding(.vertical, 28)
+                #endif
             }
-            #if os(macOS)
-            .djConnectMacDetailContent(maxWidth: .infinity, alignment: .topLeading)
-            #else
-            .frame(maxWidth: 760, alignment: .leading)
-            .padding(.horizontal, 24)
-            .padding(.vertical, 28)
-            #endif
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .navigationTitle(localized(model.language, "About", "Over"))
-        .background(DJConnectCanvasBackground())
     }
 
     private var connectionModeTitle: String {
@@ -11906,42 +12239,45 @@ private struct LegalNoticesView: View {
 
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 20) {
-                    AboutBanner()
+            ZStack {
+                DJConnectCanvasBackground()
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 20) {
+                        AboutBanner()
 
-                    SettingsSection(title: localized(language, "Legal", "Juridisch")) {
-                        SelectableValue(localized(
-                            language,
-                            "DJConnect is not affiliated with, endorsed by, or sponsored by Spotify AB, Apple, or Home Assistant.",
-                            "DJConnect is niet gelieerd aan, goedgekeurd door of gesponsord door Spotify AB, Apple of Home Assistant."
-                        ))
-                        SelectableValue(localized(
-                            language,
-                            "Spotify is a trademark of Spotify AB. Home Assistant is a trademark of the Open Home Foundation.",
-                            "Spotify is een handelsmerk van Spotify AB. Home Assistant is een handelsmerk van de Open Home Foundation."
-                        ))
-                    }
+                        SettingsSection(title: localized(language, "Legal", "Juridisch")) {
+                            SelectableValue(localized(
+                                language,
+                                "DJConnect is not affiliated with, endorsed by, or sponsored by Spotify AB, Apple, or Home Assistant.",
+                                "DJConnect is niet gelieerd aan, goedgekeurd door of gesponsord door Spotify AB, Apple of Home Assistant."
+                            ))
+                            SelectableValue(localized(
+                                language,
+                                "Spotify is a trademark of Spotify AB. Home Assistant is a trademark of the Open Home Foundation.",
+                                "Spotify is een handelsmerk van Spotify AB. Home Assistant is een handelsmerk van de Open Home Foundation."
+                            ))
+                        }
 
-                    SettingsSection(title: "OSS") {
-                        SelectableValue(localized(
-                            language,
-                            "DJConnect uses Apple platform frameworks and Swift Package Manager. Third-party notices are documented in the repository when dependencies are added.",
-                            "DJConnect gebruikt Apple platform-frameworks en Swift Package Manager. Third-party notices worden in de repository gedocumenteerd wanneer dependencies worden toegevoegd."
-                        ))
+                        SettingsSection(title: "OSS") {
+                            SelectableValue(localized(
+                                language,
+                                "DJConnect uses Apple platform frameworks and Swift Package Manager. Third-party notices are documented in the repository when dependencies are added.",
+                                "DJConnect gebruikt Apple platform-frameworks en Swift Package Manager. Third-party notices worden in de repository gedocumenteerd wanneer dependencies worden toegevoegd."
+                            ))
+                        }
                     }
+                    #if os(macOS)
+                    .djConnectMacDetailContent(maxWidth: .infinity, alignment: .topLeading)
+                    #else
+                    .padding(24)
+                    .frame(maxWidth: 760, alignment: .leading)
+                    #endif
                 }
-                #if os(macOS)
-                .djConnectMacDetailContent(maxWidth: .infinity, alignment: .topLeading)
-                #else
-                .padding(24)
-                .frame(maxWidth: 760, alignment: .leading)
-                #endif
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
             .navigationTitle(localized(language, "Legal", "Juridisch"))
-            .background(DJConnectCanvasBackground())
         }
-        .background(DJConnectCanvasBackground())
     }
 }
 
@@ -11949,47 +12285,51 @@ private struct PrivacyView: View {
     let language: String
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 24) {
-                AboutBanner()
-                SettingsSection(title: localized(language, "Privacy", "Privacy")) {
-                    SelectableValue(localized(
-                        language,
-                        "DJConnect does not collect, sell, or process personal data in the app.",
-                        "DJConnect verzamelt, verkoopt of verwerkt zelf geen persoonsgegevens in de app."
-                    ))
-                    SelectableValue(localized(
-                        language,
-                        "Device tokens are stored locally in the app's private storage. Diagnostics are only shared when you copy them or open a GitHub issue yourself.",
-                        "Device-tokens worden lokaal in de private app-opslag bewaard. Diagnostiek wordt alleen gedeeld wanneer je die zelf kopieert of een GitHub issue opent."
-                    ))
-                    SelectableValue(localized(
-                        language,
-                        "Push notifications are only used for DJConnect notifications, such as Ask DJ responses. DJConnect stores an Apple push token locally and shares it with your own Home Assistant DJConnect integration so notifications can be delivered through Apple Push Notification service. Push tokens are not used for tracking, advertising, or sale.",
-                        "Pushnotificaties worden alleen gebruikt voor DJConnect-meldingen, zoals Ask DJ-reacties. DJConnect bewaart hiervoor een Apple push-token lokaal en deelt dit met je eigen Home Assistant DJConnect-integratie zodat notificaties via Apple Push Notification service kunnen worden bezorgd. Push-tokens worden niet gebruikt voor tracking, advertenties of verkoop."
-                    ))
-                    SelectableValue(localized(
-                        language,
-                        "Music, playback, and voice requests are handled through your own Home Assistant DJConnect integration.",
-                        "Muziek, playback en stemverzoeken lopen via je eigen Home Assistant DJConnect-integratie."
-                    ))
-                    SelectableValue(localized(
-                        language,
-                        "AI and Assist answers can be incorrect and depend on your own Home Assistant and Assist configuration.",
-                        "AI- en Assist-antwoorden kunnen onjuist zijn en hangen af van je eigen Home Assistant- en Assist-configuratie."
-                    ))
+        ZStack {
+            DJConnectCanvasBackground()
+            ScrollView {
+                VStack(alignment: .leading, spacing: 24) {
+                    AboutBanner()
+                    SettingsSection(title: localized(language, "Privacy", "Privacy")) {
+                        SelectableValue(localized(
+                            language,
+                            "DJConnect does not collect, sell, or process personal data in the app.",
+                            "DJConnect verzamelt, verkoopt of verwerkt zelf geen persoonsgegevens in de app."
+                        ))
+                        SelectableValue(localized(
+                            language,
+                            "Device tokens are stored locally in the app's private storage. Diagnostics are only shared when you copy them or open a GitHub issue yourself.",
+                            "Device-tokens worden lokaal in de private app-opslag bewaard. Diagnostiek wordt alleen gedeeld wanneer je die zelf kopieert of een GitHub issue opent."
+                        ))
+                        SelectableValue(localized(
+                            language,
+                            "Push notifications are only used for DJConnect notifications, such as Ask DJ responses. DJConnect stores an Apple push token locally and shares it with your own Home Assistant DJConnect integration so notifications can be delivered through Apple Push Notification service. Push tokens are not used for tracking, advertising, or sale.",
+                            "Pushnotificaties worden alleen gebruikt voor DJConnect-meldingen, zoals Ask DJ-reacties. DJConnect bewaart hiervoor een Apple push-token lokaal en deelt dit met je eigen Home Assistant DJConnect-integratie zodat notificaties via Apple Push Notification service kunnen worden bezorgd. Push-tokens worden niet gebruikt voor tracking, advertenties of verkoop."
+                        ))
+                        SelectableValue(localized(
+                            language,
+                            "Music, playback, and voice requests are handled through your own Home Assistant DJConnect integration.",
+                            "Muziek, playback en stemverzoeken lopen via je eigen Home Assistant DJConnect-integratie."
+                        ))
+                        SelectableValue(localized(
+                            language,
+                            "AI and Assist answers can be incorrect and depend on your own Home Assistant and Assist configuration.",
+                            "AI- en Assist-antwoorden kunnen onjuist zijn en hangen af van je eigen Home Assistant- en Assist-configuratie."
+                        ))
+                    }
                 }
+                #if os(macOS)
+                .djConnectMacDetailContent(maxWidth: .infinity, alignment: .topLeading)
+                #else
+                .frame(maxWidth: 760, alignment: .leading)
+                .padding(.horizontal, 24)
+                .padding(.vertical, 28)
+                #endif
             }
-            #if os(macOS)
-            .djConnectMacDetailContent(maxWidth: .infinity, alignment: .topLeading)
-            #else
-            .frame(maxWidth: 760, alignment: .leading)
-            .padding(.horizontal, 24)
-            .padding(.vertical, 28)
-            #endif
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .navigationTitle(localized(language, "Privacy", "Privacy"))
-        .background(DJConnectCanvasBackground())
     }
 }
 
@@ -12131,7 +12471,6 @@ private struct AskDJFeedbackPromptView: View {
         text: "Ik koos dit nummer omdat de warme synths, het tempo en de late-night energie goed aansluiten."
     )
     return AskDJFeedbackPromptView(model: model, message: message)
-        .previewDevice("iPhone 17 Pro")
 }
 #endif
 

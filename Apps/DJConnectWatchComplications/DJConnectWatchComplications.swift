@@ -370,7 +370,7 @@ private struct AskDJComplicationView: View {
             switch family {
             case .accessoryRectangular:
                 HStack(spacing: 7) {
-                    Image(systemName: "bubble.left.and.bubble.right.fill")
+                    Image(systemName: "bubble.left.and.bubble.right")
                         .font(.title3.weight(.semibold))
                         .widgetAccentable()
                     VStack(alignment: .leading, spacing: 1) {
@@ -382,14 +382,14 @@ private struct AskDJComplicationView: View {
                     }
                 }
             case .accessoryInline:
-                Label("Ask DJ", systemImage: "bubble.left.and.bubble.right.fill")
+                Label("Ask DJ", systemImage: "bubble.left.and.bubble.right")
             case .accessoryCorner:
-                Image(systemName: "bubble.left.and.bubble.right.fill")
+                Image(systemName: "bubble.left.and.bubble.right")
                     .widgetLabel { Text("Ask DJ") }
             default:
                 ZStack {
                     AccessoryWidgetBackground()
-                    Image(systemName: "bubble.left.and.bubble.right.fill")
+                    Image(systemName: "bubble.left.and.bubble.right")
                         .font(.system(size: 17, weight: .semibold))
                         .widgetAccentable()
                 }

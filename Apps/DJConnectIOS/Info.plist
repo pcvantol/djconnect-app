@@ -64,7 +64,7 @@
 		</dict>
 		<dict>
 			<key>UIApplicationShortcutItemIconSymbolName</key>
-			<string>bubble.left.and.bubble.right.fill</string>
+			<string>bubble.left.and.bubble.right</string>
 			<key>UIApplicationShortcutItemTitle</key>
 			<string>Ask DJ</string>
 			<key>UIApplicationShortcutItemType</key>

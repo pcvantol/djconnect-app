@@ -160,6 +160,7 @@ public final class DJConnectClient: Sendable {
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue(payload.deviceID, forHTTPHeaderField: "X-DJConnect-Device-ID")
+        request.setValue(payload.clientType.rawValue, forHTTPHeaderField: "X-DJConnect-Client-Type")
         request.httpBody = try encoder.encode(payload)
         return request
     }

@@ -1840,7 +1840,7 @@ struct DJConnectAskDJWidgetView: View {
         case .accessoryCircular:
             accessoryCircular
         case .accessoryInline:
-            Label("Ask DJ", systemImage: "sparkles")
+            Label("Ask DJ", systemImage: "bubble.left.and.bubble.right")
         default:
             medium
         }
@@ -2029,7 +2029,7 @@ private struct DJConnectAskDJPromptRow: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             prompt("Analyze this track", systemImage: "waveform.path.ecg")
-            prompt("Why does this vibe work?", systemImage: "bubble.left.and.bubble.right.fill")
+            prompt("Why does this vibe work?", systemImage: "bubble.left.and.bubble.right")
             prompt("What should play next?", systemImage: "music.note.list")
         }
     }

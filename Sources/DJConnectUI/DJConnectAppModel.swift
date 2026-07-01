@@ -566,6 +566,7 @@ public final class DJConnectAppModel: ObservableObject {
     @Published public private(set) var localNetworkPermissionStatus: DJConnectPermissionStatus = .unknown
     @Published public private(set) var isRequestingPermissions = false
     @Published public var isShowingPermissionExplanation = false
+    @Published public var isShowingAskDJNotificationPermissionExplanation = false
     @Published public var isShowingWelcome = false
     @Published public var isShowingCrashReportPrompt = false
     @Published public var isShowingWakeWordActivationPrompt = false
@@ -633,7 +634,7 @@ public final class DJConnectAppModel: ObservableObject {
     private let startBackgroundTasks: Bool
     private let monkeyTestingMode: Bool
     private let diagnosticLogFileURL: URL?
-    nonisolated private static let protocolVersion = "3.2.7"
+    nonisolated private static let protocolVersion = "3.2.8"
     private static let defaultHomeAssistantURL = "http://homeassistant.local:8123"
     private let appVersion = DJConnectAppModel.protocolVersion
     private let installIDKey = "DJConnectInstallID"
@@ -703,6 +704,7 @@ public final class DJConnectAppModel: ObservableObject {
     private let askDJHistorySyncInterval: UInt64 = 8_000_000_000
     private var hasRequestedAskDJIdleSuggestion = false
     private var hasRequestedAskDJNotificationPermission = false
+    private var pendingAskDJNotificationPreview: String?
     private var pendingPermissionRequest: DJConnectPendingPermissionRequest?
     private var shouldBypassPermissionExplanationOnce = false
     private let demoTrackInsightService = DemoTrackInsightService()
@@ -1775,13 +1777,14 @@ public final class DJConnectAppModel: ObservableObject {
         #endif
     }
 
-    public func handlePairingDeepLink(_ url: URL) {
+    @discardableResult
+    public func handlePairingDeepLink(_ url: URL) -> Bool {
         if handleWatchPairingDeepLink(url) {
-            return
+            return true
         }
         guard pairingStatus != .paired else {
             log(.debug, "Ignoring pairing link because device is already paired")
-            return
+            return false
         }
         do {
             let payload = try DJConnectPairingDeepLink.parse(url, expectedClientType: identity.clientType)
@@ -1794,14 +1797,18 @@ public final class DJConnectAppModel: ObservableObject {
             )
             log(.info, "Accepted DJConnect pairing link for \(identity.clientType.rawValue)")
             startPairingWait()
+            return true
         } catch let error as DJConnectError {
             applyInvalidPairingLink(error)
+            return false
         } catch {
             applyInvalidPairingLink(nil)
+            return false
         }
     }
 
-    public func handlePairingQRCode(_ value: String) {
+    @discardableResult
+    public func handlePairingQRCode(_ value: String) -> Bool {
         guard let url = URL(string: value.trimmingCharacters(in: .whitespacesAndNewlines)) else {
             pairingStatus = .unpaired
             isPairing = false
@@ -1810,12 +1817,12 @@ public final class DJConnectAppModel: ObservableObject {
                 dutch: "Ongeldige DJConnect pairing-QR-code."
             )
             log(.warning, "Rejected invalid DJConnect pairing QR code")
-            return
+            return false
         }
         if handleWatchPairingDeepLink(url) {
-            return
+            return true
         }
-        handlePairingDeepLink(url)
+        return handlePairingDeepLink(url)
     }
 
     private func applyInvalidPairingLink(_ error: DJConnectError?) {
@@ -1982,7 +1989,7 @@ public final class DJConnectAppModel: ObservableObject {
 
     private func pairWithHomeAssistant(baseURL: URL, pairCode: String) async {
         isPairing = true
-        log(.info, "Posting pairing request to Home Assistant")
+        log(.info, "Posting pairing request to Home Assistant client_type=\(identity.clientType.rawValue)")
         pairingMessage = localized(
             english: "Pairing with Home Assistant...",
             dutch: "Koppelen met Home Assistant..."
@@ -2134,7 +2141,7 @@ public final class DJConnectAppModel: ObservableObject {
         isPairing = false
         pairingMessage = localized(
             english: "Pairing reset.",
-            dutch: "Pairing gereset."
+            dutch: "Koppeling verwijderd."
         )
     }
 
@@ -3626,7 +3633,11 @@ public final class DJConnectAppModel: ObservableObject {
         case let .clientTypeMismatch(_, expectedClientType, receivedClientType):
             pairingStatus = .unpaired
             isPairing = false
-            pairingMessage = pairingClientTypeMismatchMessage()
+            pairingMessage = DJConnectErrorPresentation.userMessage(
+                for: error,
+                language: language,
+                context: .pairing(expectedPairingFlowName: Self.expectedPairingFlowName)
+            ) ?? pairingClientTypeMismatchMessage()
             log(
                 .debug,
                 "Pairing client_type_mismatch expected=\(expectedClientType ?? "<missing>") received=\(receivedClientType ?? "<missing>")"
@@ -3636,13 +3647,19 @@ public final class DJConnectAppModel: ObservableObject {
             pairingMessage = userFacingPairingNetworkMessage(from: message)
         case .routeMissing:
             pairingStatus = .unpaired
-            pairingMessage = localized(
-                english: "DJConnect is not configured in Home Assistant yet. Open the DJConnect setup flow first.",
-                dutch: "DJConnect is nog niet geconfigureerd in Home Assistant. Open eerst de DJConnect setup-flow."
+            pairingMessage = DJConnectErrorPresentation.userMessage(
+                for: error,
+                language: language,
+                context: .pairing(expectedPairingFlowName: Self.expectedPairingFlowName)
             )
         case let .server(_, message):
             pairingStatus = .unpaired
-            pairingMessage = userFacingPairingHTTPMessage(from: error)
+            pairingMessage = DJConnectErrorPresentation.userMessage(
+                for: error,
+                language: language,
+                context: .pairing(expectedPairingFlowName: Self.expectedPairingFlowName)
+            )
+                ?? userFacingPairingHTTPMessage(from: error)
                 ?? userFacingPairingMessage(from: message) ?? localized(
                 english: "Home Assistant could not complete pairing. Check the pair code and try again.",
                 dutch: "Home Assistant kon de koppeling niet afronden. Controleer de koppelcode en probeer opnieuw."
@@ -3650,7 +3667,12 @@ public final class DJConnectAppModel: ObservableObject {
         case let .authStale(_, message):
             pairingStatus = .unpaired
             isPairing = false
-            pairingMessage = userFacingPairingHTTPMessage(from: error)
+            pairingMessage = DJConnectErrorPresentation.userMessage(
+                for: error,
+                language: language,
+                context: .pairing(expectedPairingFlowName: Self.expectedPairingFlowName)
+            )
+                ?? userFacingPairingHTTPMessage(from: error)
                 ?? userFacingPairingMessage(from: message) ?? localized(
                 english: "Home Assistant rejected this pair code. Generate a fresh 6-digit code in Home Assistant and try again.",
                 dutch: "Home Assistant wees deze koppelcode af. Genereer een nieuwe 6-cijferige code in Home Assistant en probeer opnieuw."
@@ -3666,7 +3688,11 @@ public final class DJConnectAppModel: ObservableObject {
             )
         case let .notConfigured(message):
             pairingStatus = .unpaired
-            pairingMessage = userFacingPairingMessage(from: message) ?? pairingCodeRejectedMessage()
+            pairingMessage = DJConnectErrorPresentation.userMessage(
+                for: error,
+                language: language,
+                context: .pairing(expectedPairingFlowName: Self.expectedPairingFlowName)
+            ) ?? userFacingPairingMessage(from: message) ?? pairingCodeRejectedMessage()
         case let .invalidConfiguration(message):
             pairingStatus = .unpaired
             pairingMessage = message
@@ -3694,16 +3720,20 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     private func wrongPairingClientTypeMessage() -> String {
-        localized(
-            english: "Wrong app type selected in Home Assistant. Choose the \(Self.expectedPairingFlowName) DJConnect setup flow and use its new pair code.",
-            dutch: "Verkeerd app-type gekozen in Home Assistant. Kies de DJConnect \(Self.expectedPairingFlowName) setup-flow en gebruik de nieuwe koppelcode."
+        DJConnectLocalization.localized(
+            key: "pairing.error.invalidClientType",
+            language: language,
+            fallback: "Wrong app type selected in Home Assistant. Choose the DJConnect %@ setup flow and use its new pair code.",
+            arguments: Self.expectedPairingFlowName
         )
     }
 
     private func pairingClientTypeMismatchMessage() -> String {
-        localized(
-            english: "The app type selected in Home Assistant does not match this app. In Home Assistant, choose the DJConnect \(Self.expectedPairingFlowName) setup flow, then try again.",
-            dutch: "Het gekozen app-type in Home Assistant klopt niet met deze app. Kies in Home Assistant de DJConnect \(Self.expectedPairingFlowName) setup-flow en probeer opnieuw."
+        DJConnectLocalization.localized(
+            key: "pairing.error.clientTypeMismatch",
+            language: language,
+            fallback: "The app type selected in Home Assistant does not match this app. Choose the DJConnect %@ setup flow, then try again.",
+            arguments: Self.expectedPairingFlowName
         )
     }
 
@@ -5221,29 +5251,11 @@ public final class DJConnectAppModel: ObservableObject {
         let preview = Self.notificationPreview(from: text)
         Task {
             let center = UNUserNotificationCenter.current()
-            guard await requestAskDJNotificationAuthorizationIfNeeded(center: center) else {
+            guard await requestAskDJNotificationAuthorizationIfNeeded(center: center, preview: preview) else {
                 log(.debug, "Ask DJ notification skipped because notifications are not authorized")
                 return
             }
-
-            let content = UNMutableNotificationContent()
-            content.title = localized(english: "Ask DJ answered", dutch: "Ask DJ heeft geantwoord")
-            content.body = preview.isEmpty ? localized(english: "Your DJ response is ready.", dutch: "Je DJ-antwoord staat klaar.") : preview
-            content.sound = .default
-            content.threadIdentifier = "djconnect.askdj"
-            content.categoryIdentifier = "DJCONNECT_ASK_DJ_RESPONSE"
-
-            let request = UNNotificationRequest(
-                identifier: "djconnect.askdj.\(UUID().uuidString)",
-                content: content,
-                trigger: UNTimeIntervalNotificationTrigger(timeInterval: 1, repeats: false)
-            )
-            do {
-                try await center.add(request)
-                log(.debug, "Ask DJ local notification scheduled")
-            } catch {
-                log(.warning, "Ask DJ local notification failed: \(error.localizedDescription)")
-            }
+            await scheduleAskDJLocalNotification(center: center, preview: preview)
         }
         #endif
     }
@@ -5256,7 +5268,7 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     #if canImport(UserNotifications)
-    private func requestAskDJNotificationAuthorizationIfNeeded(center: UNUserNotificationCenter) async -> Bool {
+    private func requestAskDJNotificationAuthorizationIfNeeded(center: UNUserNotificationCenter, preview: String) async -> Bool {
         let settings = await center.notificationSettings()
         switch settings.authorizationStatus {
         case .authorized, .provisional, .ephemeral:
@@ -5265,17 +5277,36 @@ public final class DJConnectAppModel: ObservableObject {
             guard !hasRequestedAskDJNotificationPermission else {
                 return false
             }
-            hasRequestedAskDJNotificationPermission = true
-            do {
-                return try await center.requestAuthorization(options: [.alert, .sound])
-            } catch {
-                log(.warning, "Ask DJ notification permission failed: \(error.localizedDescription)")
-                return false
+            await MainActor.run {
+                pendingAskDJNotificationPreview = preview
+                isShowingAskDJNotificationPermissionExplanation = true
             }
+            return false
         case .denied:
             return false
         @unknown default:
             return false
+        }
+    }
+
+    private func scheduleAskDJLocalNotification(center: UNUserNotificationCenter, preview: String) async {
+        let content = UNMutableNotificationContent()
+        content.title = localized(english: "Ask DJ answered", dutch: "Ask DJ heeft geantwoord")
+        content.body = preview.isEmpty ? localized(english: "Your DJ response is ready.", dutch: "Je DJ-antwoord staat klaar.") : preview
+        content.sound = .default
+        content.threadIdentifier = "djconnect.askdj"
+        content.categoryIdentifier = "DJCONNECT_ASK_DJ_RESPONSE"
+
+        let request = UNNotificationRequest(
+            identifier: "djconnect.askdj.\(UUID().uuidString)",
+            content: content,
+            trigger: UNTimeIntervalNotificationTrigger(timeInterval: 1, repeats: false)
+        )
+        do {
+            try await center.add(request)
+            log(.debug, "Ask DJ local notification scheduled")
+        } catch {
+            log(.warning, "Ask DJ local notification failed: \(error.localizedDescription)")
         }
     }
 
@@ -7789,6 +7820,42 @@ public final class DJConnectAppModel: ObservableObject {
         log(.debug, "User cancelled permission explanation")
     }
 
+    public func continueAfterAskDJNotificationPermissionExplanation() {
+        let preview = pendingAskDJNotificationPreview ?? ""
+        pendingAskDJNotificationPreview = nil
+        isShowingAskDJNotificationPermissionExplanation = false
+        hasRequestedAskDJNotificationPermission = true
+
+        #if canImport(UserNotifications)
+        Task {
+            let center = UNUserNotificationCenter.current()
+            do {
+                let granted = try await center.requestAuthorization(options: [.alert, .sound])
+                await MainActor.run {
+                    refreshPermissionStatuses()
+                }
+                guard granted else {
+                    log(.debug, "Ask DJ notification permission was not granted")
+                    return
+                }
+                await scheduleAskDJLocalNotification(center: center, preview: preview)
+            } catch {
+                await MainActor.run {
+                    refreshPermissionStatuses()
+                }
+                log(.warning, "Ask DJ notification permission failed: \(error.localizedDescription)")
+            }
+        }
+        #endif
+    }
+
+    public func cancelAskDJNotificationPermissionExplanation() {
+        pendingAskDJNotificationPreview = nil
+        isShowingAskDJNotificationPermissionExplanation = false
+        hasRequestedAskDJNotificationPermission = true
+        log(.debug, "User cancelled Ask DJ notification permission explanation")
+    }
+
     private func requestAppPermissionsAfterExplanation() {
         guard !isRequestingPermissions else {
             return
@@ -7901,7 +7968,7 @@ public final class DJConnectAppModel: ObservableObject {
         @unknown default:
             return .unknown
         }
-        #endif
+        #else
         switch AVCaptureDevice.authorizationStatus(for: .audio) {
         case .authorized:
             return .granted
@@ -7914,8 +7981,9 @@ public final class DJConnectAppModel: ObservableObject {
         @unknown default:
             return .unknown
         }
+        #endif
         #else
-        .unavailable
+        return .unavailable
         #endif
     }
 

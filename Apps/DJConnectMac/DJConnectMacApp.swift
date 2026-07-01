@@ -109,31 +109,42 @@ final class DJConnectMacAppDelegate: NSObject, NSApplicationDelegate {
 }
 
 private struct WindowConfigurator: NSViewRepresentable {
+    func makeCoordinator() -> Coordinator {
+        Coordinator()
+    }
+
     func makeNSView(context: Context) -> NSView {
         let view = NSView()
         DispatchQueue.main.async {
-            configure(window: view.window)
+            context.coordinator.configure(window: view.window)
         }
         return view
     }
 
     func updateNSView(_ nsView: NSView, context: Context) {
         DispatchQueue.main.async {
-            configure(window: nsView.window)
+            context.coordinator.configure(window: nsView.window)
         }
     }
 
-    private func configure(window: NSWindow?) {
-        guard let window else {
-            return
+    @MainActor
+    final class Coordinator {
+        private weak var configuredWindow: NSWindow?
+
+        func configure(window: NSWindow?) {
+            guard let window, configuredWindow !== window else {
+                return
+            }
+            configuredWindow = window
+
+            window.titlebarAppearsTransparent = true
+            window.titleVisibility = .hidden
+            window.styleMask.insert(.fullSizeContentView)
+            window.isMovableByWindowBackground = true
+            window.backgroundColor = .clear
+            window.toolbarStyle = .unifiedCompact
+            window.identifier = mainWindowIdentifier
         }
-        window.titlebarAppearsTransparent = true
-        window.titleVisibility = .hidden
-        window.styleMask.insert(.fullSizeContentView)
-        window.isMovableByWindowBackground = true
-        window.backgroundColor = .clear
-        window.toolbarStyle = .unifiedCompact
-        window.identifier = mainWindowIdentifier
     }
 }
 

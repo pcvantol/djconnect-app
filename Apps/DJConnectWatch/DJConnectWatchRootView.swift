@@ -221,7 +221,7 @@ struct DJConnectWatchRootView: View {
                     NavigationLink {
                         DJConnectWatchAskDJChatView()
                     } label: {
-                        Label("Ask DJ", systemImage: "bubble.left.and.bubble.right.fill")
+                        Label("Ask DJ", systemImage: "bubble.left.and.bubble.right")
                             .font(.footnote.weight(.semibold))
                             .frame(maxWidth: .infinity, minHeight: 34)
                     }
@@ -1601,7 +1601,7 @@ private struct DJConnectWatchFeedbackView: View {
             DJConnectWatchCanvas()
             ScrollView {
                 VStack(spacing: 10) {
-                    Image(systemName: "bubble.left.and.bubble.right.fill")
+                    Image(systemName: "bubble.left.and.bubble.right")
                         .font(.system(size: 32, weight: .semibold))
                         .foregroundStyle(
                             LinearGradient(
@@ -2537,7 +2537,7 @@ private struct DJConnectWatchAskDJChatView: View {
                                 .padding(.vertical, 18)
                         } else if model.askDJMessages.isEmpty && model.transientAskDJMoodMessage == nil {
                             VStack(spacing: 8) {
-                                Image(systemName: "bubble.left.and.bubble.right.fill")
+                                Image(systemName: "bubble.left.and.bubble.right")
                                     .font(.title2)
                                     .foregroundStyle(
                                         LinearGradient(

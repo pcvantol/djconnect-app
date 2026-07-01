@@ -3659,6 +3659,7 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     #expect(request.value(forHTTPHeaderField: "Content-Type") == "application/json")
     #expect(request.value(forHTTPHeaderField: "X-DJConnect-Client-ID") == nil)
     #expect(request.value(forHTTPHeaderField: "X-DJConnect-Device-ID") == identity.deviceID)
+    #expect(request.value(forHTTPHeaderField: "X-DJConnect-Client-Type") == "macos")
     #expect(json?["client_id"] == nil)
     #expect(json?["client_name"] == nil)
     #expect(json?["device_id"] as? String == identity.deviceID)
@@ -3704,6 +3705,7 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     #expect(request.url?.path == "/api/djconnect/pair")
     #expect(request.value(forHTTPHeaderField: "Authorization") == nil)
     #expect(request.value(forHTTPHeaderField: "X-DJConnect-Device-ID") == "djconnect-ios-8F3A2C91B45D")
+    #expect(request.value(forHTTPHeaderField: "X-DJConnect-Client-Type") == "ios")
     #expect(json?["device_id"] as? String == "djconnect-ios-8F3A2C91B45D")
     #expect(json?["device_name"] as? String == "DJConnect iPhone")
     #expect(json?["client_type"] as? String == "ios")
@@ -3821,6 +3823,7 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     #expect(request.url?.path == "/api/djconnect/pair")
     #expect(request.value(forHTTPHeaderField: "Authorization") == nil)
     #expect(request.value(forHTTPHeaderField: "X-DJConnect-Device-ID") == "djconnect-watchos-8F3A2C91B45D")
+    #expect(request.value(forHTTPHeaderField: "X-DJConnect-Client-Type") == "watchos")
     #expect(json?["device_id"] as? String == "djconnect-watchos-8F3A2C91B45D")
     #expect(json?["device_name"] as? String == "Apple Watch van Peter")
     #expect(json?["client_type"] as? String == "watchos")
@@ -3845,6 +3848,7 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
         #expect(request.url?.path == "/api/djconnect/pair")
         #expect(request.value(forHTTPHeaderField: "Authorization") == nil)
         #expect(request.value(forHTTPHeaderField: "X-DJConnect-Device-ID") == "djconnect-watchos-8F3A2C91B45D")
+        #expect(request.value(forHTTPHeaderField: "X-DJConnect-Client-Type") == "watchos")
         return (
             try httpResponse(for: request, statusCode: 200),
             Data(
@@ -5769,11 +5773,47 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     #expect(DJConnectLocalization.localized(language: "nl-NL", english: "About", dutch: "Over") == "Over")
     #expect(DJConnectLocalization.localized(language: "NL", english: "About", dutch: "Over") == "Over")
     #expect(DJConnectLocalization.localized(language: "en", english: "About", dutch: "Over") == "About")
+    #expect(DJConnectLocalization.localized(language: "de-DE", english: "About", dutch: "Over") == "Info")
+    #expect(DJConnectLocalization.localized(language: "fr-FR", english: "About", dutch: "Over") == "A propos")
+    #expect(DJConnectLocalization.localized(language: "es-ES", english: "About", dutch: "Over") == "Acerca de")
     #expect(DJConnectLocalization.localized(language: "", english: "About", dutch: "Over") == "About")
     #expect(DJConnectLocalization.preferredLanguageCode(["nl-NL", "en-US"]) == "nl")
     #expect(DJConnectLocalization.preferredLanguageCode(["NL", "en-US"]) == "nl")
+    #expect(DJConnectLocalization.preferredLanguageCode(["de-DE", "en-US"]) == "de")
+    #expect(DJConnectLocalization.preferredLanguageCode(["fr-FR", "en-US"]) == "fr")
+    #expect(DJConnectLocalization.preferredLanguageCode(["es-ES", "en-US"]) == "es")
     #expect(DJConnectLocalization.preferredLanguageCode(["en-US", "nl-NL"]) == "en")
     #expect(DJConnectLocalization.preferredLanguageCode([]) == "en")
+}
+
+@Test func pairingErrorPresentationLocalizesKnownHTTPCodes() {
+    let context = DJConnectErrorPresentationContext.pairing(expectedPairingFlowName: "iPhone/iPad")
+
+    let clientMismatch = DJConnectError.clientTypeMismatch(
+        message: "client_type_mismatch",
+        expectedClientType: "ios",
+        receivedClientType: "watchos"
+    )
+    #expect(
+        DJConnectErrorPresentation.userMessage(for: clientMismatch, language: "nl", context: context)?
+            .contains("app-type") == true
+    )
+    #expect(
+        DJConnectErrorPresentation.userMessage(for: clientMismatch, language: "de", context: context)?
+            .contains("App-Typ") == true
+    )
+
+    let invalidPairCode = DJConnectError.server(statusCode: 400, message: #"{"error":"invalid_pair_code"}"#)
+    #expect(
+        DJConnectErrorPresentation.userMessage(for: invalidPairCode, language: "fr", context: context)?
+            .contains("code d'association") == true
+    )
+
+    let notConfigured = DJConnectError.notConfigured(message: #"{"error":"not_configured"}"#)
+    #expect(
+        DJConnectErrorPresentation.userMessage(for: notConfigured, language: "es", context: .general)?
+            .contains("configurado") == true
+    )
 }
 
 @Test func homeScreenActionsDecodeWidgetAndShortcutDeepLinks() throws {

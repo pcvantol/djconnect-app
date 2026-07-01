@@ -4,6 +4,30 @@ All notable changes to DJConnect App are documented here.
 
 ## Unreleased
 
+## 3.2.8 - 2026-07-01
+
+### Added
+
+- Added shared localization coverage for the Apple clients with supported
+  languages `en`, `nl`, `de`, `fr`, and `es`.
+- Added localized pairing/API error presentation for stale auth,
+  `client_type_mismatch`, `invalid_client_type`, `invalid_pair_code`,
+  `not_configured`, and unauthorized pairing responses.
+- Added a localization validation script that fails when supported locales are
+  missing keys or format placeholders drift.
+
+### Changed
+
+- Centralized pairing error copy so iOS/iPadOS, watchOS, and macOS use the same
+  user-facing messages while protocol values remain unchanged.
+- Documented that future Apple client UI text must be localized for all
+  supported languages in the same pull request.
+
+### Fixed
+
+- Kept manual pairing errors free of raw backend/debug jargon while preserving
+  existing Home Assistant setup-flow guidance.
+
 ## 3.2.7 - 2026-06-30
 
 ### Added

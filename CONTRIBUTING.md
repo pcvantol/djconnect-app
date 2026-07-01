@@ -46,6 +46,7 @@ Useful commands:
 
 ```sh
 swift test --no-parallel
+python3 scripts/validate_localizations.py
 xcodebuild -project DJConnectApp.xcodeproj -scheme DJConnectMac -configuration Debug -destination platform=macOS -derivedDataPath .xcode-derived CODE_SIGNING_ALLOWED=NO build
 xcodebuild -project DJConnectApp.xcodeproj -scheme DJConnectIOS -configuration Debug -destination generic/platform=iOS -derivedDataPath .xcode-derived CODE_SIGNING_ALLOWED=NO build
 ./release.sh <X.Y.Z> --dry-run
@@ -78,6 +79,13 @@ Home Assistant integration contract and any affected client implementations.
   protocol changes.
 - Do not log secrets, tokens, credentials, pairing codes, private URLs, or raw
   diagnostics.
+- Add every user-facing Apple client string to the shared localization source
+  for `en`, `nl`, `de`, `fr`, and `es` in the same pull request. Prefer
+  semantic keys and format placeholders over concatenating translated fragments.
+  Keep protocol values, endpoint paths, JSON keys, and `client_type` values
+  (`ios`, `macos`, `watchos`) unlocalized.
+- Run `python3 scripts/validate_localizations.py` whenever adding or changing
+  localized Apple client text. The validator must pass before review.
 - Respect Spotify trademark and non-affiliation language: DJConnect is not
   affiliated with, endorsed by, or sponsored by Spotify AB.
 - Use real DJConnect brand assets from the project. Do not redraw the logo or
