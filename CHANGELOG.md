@@ -4,6 +4,33 @@ All notable changes to DJConnect App are documented here.
 
 ## Unreleased
 
+## 3.2.9 - 2026-07-02
+
+### Added
+
+- Added a richer vector launch visual for the macOS splash screen.
+- Added stronger regression coverage for Ask DJ history clearing across HTTP,
+  WebSocket and Apple client identity payloads.
+
+### Changed
+
+- Improved wide iPad/macOS layouts for Track Insight, Music DNA, local games,
+  About, Legal and Privacy pages.
+- Made iPad sheets and QR scanning use more of the available canvas.
+- Refined iOS More-menu ordering and labels, permission copy, action icons and
+  output-device accent colors.
+
+### Fixed
+
+- Fixed Ask DJ chat clearing so successful clear responses immediately empty
+  the local cache on iOS, macOS and watchOS.
+- Fixed clear-history identity payloads to include the canonical Apple
+  `device_id`, `client_id`, `client_type` and `device_name`.
+- Fixed Track Insight export UI so the action button no longer shifts while
+  progress updates.
+- Fixed iPad/macOS card grids and row heights that left unused space or uneven
+  rows.
+
 ## 3.2.8 - 2026-07-01
 
 ### Added

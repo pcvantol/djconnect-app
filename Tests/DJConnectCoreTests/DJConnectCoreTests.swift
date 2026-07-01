@@ -148,7 +148,9 @@ private actor MockWebSocketFastPathTransport: DJConnectWebSocketFastPathTranspor
     var receivedAskPayload: DJConnectAskDJRequest?
     var receivedHistorySinceRevision: Int?
     var receivedClearMusicDNAKey: String?
+    var receivedClearIdentity: DJConnectIdentity?
     var receivedTrackPayload: DJConnectTrackInsightRequest?
+    var clearAskDJHistoryResponse = DJConnectAskDJHistoryResponse(historyRevision: 0, clearRevision: 1, messages: [])
 
     init(supportedRoutes: Set<DJConnectFastPathRoute>) {
         self.supportedRoutes = supportedRoutes
@@ -164,6 +166,10 @@ private actor MockWebSocketFastPathTransport: DJConnectWebSocketFastPathTranspor
 
     func setTrackInsightError(_ error: Error?) {
         trackInsightError = error
+    }
+
+    func setClearAskDJHistoryResponse(_ response: DJConnectAskDJHistoryResponse) {
+        clearAskDJHistoryResponse = response
     }
 
     var diagnostics: DJConnectFastPathDiagnostics {
@@ -224,11 +230,12 @@ private actor MockWebSocketFastPathTransport: DJConnectWebSocketFastPathTranspor
     func clearAskDJHistory(identity: DJConnectIdentity, musicDNAKey: String?, token: String) async throws -> DJConnectAskDJHistoryResponse {
         clearAskDJHistoryCalls += 1
         receivedTokens.append(token)
+        receivedClearIdentity = identity
         receivedClearMusicDNAKey = musicDNAKey
         guard supportedRoutes.contains(.askDJHistoryClear) else {
             throw DJConnectError.routeMissing(message: "missing websocket ask dj clear history capability")
         }
-        return DJConnectAskDJHistoryResponse(historyRevision: 0, clearRevision: 1, messages: [])
+        return clearAskDJHistoryResponse
     }
 
     func trackInsight(_ payload: DJConnectTrackInsightRequest, identity: DJConnectIdentity, token: String) async throws -> TrackInsight {
@@ -743,8 +750,38 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer secret-token")
     #expect(request.value(forHTTPHeaderField: "X-DJConnect-Device-ID") == identity.deviceID)
     #expect(json?["device_id"] as? String == identity.deviceID)
+    #expect(json?["client_id"] as? String == identity.deviceID)
     #expect(json?["client_type"] as? String == "ios")
+    #expect(json?["device_name"] as? String == identity.deviceName)
     #expect(json?["music_dna_key"] as? String == "djconnect_ios_8F3A2C91B45D")
+}
+
+@Test func clearAskDJHistoryMacOSRequestIncludesFullClientIdentity() throws {
+    let identity = DJConnectIdentity(
+        deviceID: "djconnect-macos-8F3A2C91B45D",
+        deviceName: "DJConnect Mac",
+        clientType: .macos,
+        firmware: "3.2.8",
+        appVersion: "3.2.8",
+        platform: .macos
+    )
+    let client = DJConnectClient(
+        baseURL: try #require(URL(string: "http://homeassistant.local:8123")),
+        identity: identity,
+        tokenStore: DJConnectInMemoryTokenStore(token: "secret-token")
+    )
+
+    let request = try client.clearAskDJHistoryRequest(musicDNAKey: "music-dna")
+    let body = try #require(request.httpBody)
+    let json = try JSONSerialization.jsonObject(with: body) as? [String: Any]
+
+    #expect(request.url?.path == "/api/djconnect/ask_dj/history/clear")
+    #expect(request.httpMethod == "POST")
+    #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer secret-token")
+    #expect(json?["device_id"] as? String == "djconnect-macos-8F3A2C91B45D")
+    #expect(json?["client_id"] as? String == "djconnect-macos-8F3A2C91B45D")
+    #expect(json?["client_type"] as? String == "macos")
+    #expect(json?["device_name"] as? String == "DJConnect Mac")
 }
 
 @Test func musicDNARequestsUseBearerIdentityAndCanonicalClientType() throws {
@@ -1863,6 +1900,96 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     #expect(response.clearRevision == 7)
     #expect(await fastPath.clearAskDJHistoryCalls == 1)
     #expect(counter.count == 1)
+}
+
+@MainActor
+@Test func httpClearAskDJHistoryResponseWithClearedTrueClearsLocalCacheImmediately() async throws {
+    let defaults = try testDefaults()
+    defaults.set(true, forKey: "DJConnectWelcomeSeen")
+    let staleMessage = DJConnectAskDJMessage(
+        role: .user,
+        text: "oude vraag",
+        status: .delivered,
+        createdAt: Date(timeIntervalSince1970: 100)
+    )
+    defaults.set(try JSONEncoder().encode([staleMessage]), forKey: "DJConnectAskDJMessages")
+    defaults.set(4, forKey: "DJConnectAskDJClearRevision")
+    let host = "clear-http.local"
+    let session = mockSession(host: host) { request in
+        #expect(request.url?.path == "/api/djconnect/ask_dj/history/clear")
+        return (
+            try httpResponse(for: request, statusCode: 200),
+            Data(#"{"success":true,"cleared":true,"messages":[],"history_revision":22,"clear_revision":5,"ask_dj_clear_required":true,"server_time":"2026-07-02T10:00:00Z","user_id":"ha-user"}"#.utf8)
+        )
+    }
+    let model = makePairedMusicDNAModel(defaults: defaults, host: host, session: session)
+
+    model.clearAskDJHistory()
+    for _ in 0..<20 where model.isClearingAskDJHistory {
+        try await Task.sleep(for: .milliseconds(100))
+    }
+
+    #expect(model.askDJMessages.isEmpty)
+    #expect(defaults.integer(forKey: "DJConnectAskDJClearRevision") == 5)
+    #expect(defaults.integer(forKey: "DJConnectAskDJHistoryRevision") == 22)
+}
+
+@MainActor
+@Test func webSocketClearAskDJHistoryResponseWithClearedTrueClearsLocalCacheImmediately() async throws {
+    let defaults = try testDefaults()
+    let staleMessage = DJConnectAskDJMessage(
+        role: .dj,
+        text: "oud antwoord",
+        status: .sent,
+        createdAt: Date(timeIntervalSince1970: 200)
+    )
+    defaults.set(try JSONEncoder().encode([staleMessage]), forKey: "DJConnectAskDJMessages")
+    defaults.set(6, forKey: "DJConnectAskDJClearRevision")
+    let fastPath = MockWebSocketFastPathTransport(supportedRoutes: [.askDJHistoryClear])
+    await fastPath.setClearAskDJHistoryResponse(DJConnectAskDJHistoryResponse(
+        success: true,
+        cleared: true,
+        userID: "ha-user",
+        historyRevision: 33,
+        clearRevision: 7,
+        askDJClearRequired: true,
+        messages: []
+    ))
+    let host = "clear-ws.local"
+    let identity = DJConnectIdentity(
+        deviceID: "djconnect-macos-8F3A2C91B45D",
+        deviceName: "DJConnect Mac",
+        clientType: .macos,
+        firmware: "3.2.8",
+        appVersion: "3.2.8",
+        platform: .macos
+    )
+    let client = DJConnectClient(
+        baseURL: try #require(URL(string: "http://\(host):8123")),
+        identity: identity,
+        tokenStore: DJConnectInMemoryTokenStore(token: "device-token"),
+        session: mockSession(host: host) { request in
+            Issue.record("HTTP should not be used when WebSocket clear succeeds")
+            return (try httpResponse(for: request, statusCode: 500), Data())
+        },
+        webSocketFastPath: fastPath
+    )
+    let response = try await client.clearAskDJHistory(musicDNAKey: "music-dna")
+    let model = DJConnectAppModel(
+        defaults: defaults,
+        tokenStore: DJConnectInMemoryTokenStore(),
+        startBackgroundTasks: false
+    )
+
+    model.applyAskDJHistory(response, forceClear: response.isClearAcknowledged)
+
+    #expect(model.askDJMessages.isEmpty)
+    #expect(defaults.integer(forKey: "DJConnectAskDJClearRevision") == 7)
+    #expect(defaults.integer(forKey: "DJConnectAskDJHistoryRevision") == 33)
+    #expect(await fastPath.clearAskDJHistoryCalls == 1)
+    #expect(await fastPath.receivedClearIdentity?.deviceID == "djconnect-macos-8F3A2C91B45D")
+    #expect(await fastPath.receivedClearIdentity?.clientType == .macos)
+    #expect(await fastPath.receivedClearIdentity?.deviceName == "DJConnect Mac")
 }
 
 @Test func homeAssistantWebSocketFastPathAllowsOnlyLocalURLs() {
@@ -5239,7 +5366,7 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
 }
 
 @MainActor
-@Test func askDJHistorySyncDoesNotClearFreshClientExchange() throws {
+@Test func askDJHistorySyncHigherClearRevisionClearsLocalCacheBeforeMerge() throws {
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
@@ -5279,12 +5406,39 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
         messages: []
     ))
 
-    #expect(hydratedModel.askDJMessages.count == 2)
-    #expect(hydratedModel.askDJMessages[0].id == localUserID)
-    #expect(hydratedModel.askDJMessages[0].text == "wat speelt er nu?")
-    #expect(hydratedModel.askDJMessages[0].status == .delivered)
-    #expect(hydratedModel.askDJMessages[1].role == .dj)
-    #expect(hydratedModel.askDJMessages[1].text == "Dit klinkt als een warme, melodische house track.")
+    #expect(hydratedModel.askDJMessages.isEmpty)
+    #expect(defaults.integer(forKey: "DJConnectAskDJClearRevision") == 1)
+    #expect(defaults.integer(forKey: "DJConnectAskDJHistoryRevision") == 5)
+}
+
+@MainActor
+@Test func askDJHistorySyncEmptyMessagesAfterClearDoesNotRestoreOldLocalMessages() throws {
+    let suiteName = "DJConnectTests-\(UUID().uuidString)"
+    let defaults = try #require(UserDefaults(suiteName: suiteName))
+    defaults.removePersistentDomain(forName: suiteName)
+    let staleMessage = DJConnectAskDJMessage(
+        role: .dj,
+        text: "oude chat",
+        status: .sent,
+        createdAt: Date(timeIntervalSince1970: 100)
+    )
+    defaults.set(try JSONEncoder().encode([staleMessage]), forKey: "DJConnectAskDJMessages")
+    defaults.set(3, forKey: "DJConnectAskDJClearRevision")
+    let hydratedModel = DJConnectAppModel(
+        defaults: defaults,
+        tokenStore: DJConnectInMemoryTokenStore(),
+        startBackgroundTasks: false
+    )
+
+    hydratedModel.applyAskDJHistory(DJConnectAskDJHistoryResponse(
+        historyRevision: 12,
+        clearRevision: 4,
+        messages: []
+    ))
+
+    #expect(hydratedModel.askDJMessages.isEmpty)
+    #expect(defaults.integer(forKey: "DJConnectAskDJClearRevision") == 4)
+    #expect(defaults.integer(forKey: "DJConnectAskDJHistoryRevision") == 12)
 }
 
 @MainActor

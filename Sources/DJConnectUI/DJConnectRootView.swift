@@ -109,7 +109,6 @@ private enum DJConnectRootSheet: String, Identifiable {
     case wakeWordActivationPrompt
     case feedback
     case permissionExplanation
-    case askDJNotificationPermissionExplanation
 
     var id: String { rawValue }
 }
@@ -614,7 +613,12 @@ public struct DJConnectRootView: View {
                             .tag(DJConnectSection.queue)
                         AskDJView(model: model)
                             .tabItem {
-                                Label("Ask DJ", systemImage: "bubble.left.and.bubble.right")
+                                Label {
+                                    Text("Ask DJ")
+                                } icon: {
+                                    Image(systemName: "bubble.left.and.bubble.right")
+                                        .symbolVariant(.none)
+                                }
                             }
                             .tag(DJConnectSection.askDJ)
                         TrackInsightView(model: model)
@@ -714,6 +718,7 @@ public struct DJConnectRootView: View {
                 DJConnectTopTabButton(
                     title: "Ask DJ",
                     systemImage: "bubble.left.and.bubble.right",
+                    symbolVariant: .none,
                     isSelected: selectedSection == .askDJ
                 ) { selectedSection = .askDJ }
                 DJConnectTopTabButton(
@@ -790,9 +795,6 @@ public struct DJConnectRootView: View {
         if model.isShowingPermissionExplanation {
             return .permissionExplanation
         }
-        if model.isShowingAskDJNotificationPermissionExplanation {
-            return .askDJNotificationPermissionExplanation
-        }
         return nil
     }
 
@@ -820,6 +822,13 @@ public struct DJConnectRootView: View {
             WelcomeView(model: model)
                 .tint(djConnectAccent)
                 .accentColor(djConnectAccent)
+                #if os(iOS)
+                .presentationDetents([.large])
+                .presentationSizing(.page)
+                #endif
+                .presentationBackground {
+                    DJConnectCanvasBackground()
+                }
         case .crashReportPrompt:
             CrashReportPromptView(model: model)
                 .tint(djConnectAccent)
@@ -838,8 +847,6 @@ public struct DJConnectRootView: View {
                 .accentColor(djConnectAccent)
         case .permissionExplanation:
             PermissionExplanationView(model: model)
-        case .askDJNotificationPermissionExplanation:
-            AskDJNotificationPermissionExplanationView(model: model)
         }
     }
 
@@ -861,8 +868,6 @@ public struct DJConnectRootView: View {
             showingFeedback = false
         case .permissionExplanation:
             model.cancelPermissionExplanation()
-        case .askDJNotificationPermissionExplanation:
-            model.cancelAskDJNotificationPermissionExplanation()
         }
     }
 
@@ -900,71 +905,6 @@ public struct DJConnectRootView: View {
         case .privacy:
             PrivacyView(language: model.language)
         }
-    }
-}
-
-private struct AskDJNotificationPermissionExplanationView: View {
-    @ObservedObject var model: DJConnectAppModel
-
-    var body: some View {
-        ZStack {
-            DJConnectCanvasBackground()
-
-            VStack(spacing: 18) {
-                Image(systemName: "bell.badge.fill")
-                    .font(.system(size: 52, weight: .semibold))
-                    .foregroundStyle(
-                        LinearGradient(
-                            colors: [djConnectAccent, Color(red: 0.12, green: 0.55, blue: 1.0)],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
-
-                VStack(spacing: 8) {
-                    Text(localizedKey(model.language, "ui.ask.dj.notifications"))
-                        .font(.title2.bold())
-                        .multilineTextAlignment(.center)
-                    Text(localizedKey(model.language, "ui.djconnect.can.send.a.notification.when.ask.dj.has.an"))
-                    .font(.body)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-                    Text(localizedKey(model.language, "ui.after.this.screen.apple.will.ask.for.permission.you.can"))
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-                }
-
-                VStack(spacing: 12) {
-                    Button {
-                        model.continueAfterAskDJNotificationPermissionExplanation()
-                    } label: {
-                        Label(
-                            localizedKey(model.language, "ui.allow.notifications"),
-                            systemImage: "bell.badge.fill"
-                        )
-                        .frame(maxWidth: .infinity)
-                    }
-                    .buttonStyle(DJConnectLilacPillButtonStyle())
-
-                    Button {
-                        model.cancelAskDJNotificationPermissionExplanation()
-                    } label: {
-                        Text(localizedKey(model.language, "ui.not.now"))
-                            .frame(maxWidth: .infinity)
-                    }
-                    .buttonStyle(DJConnectLilacPillButtonStyle())
-                }
-            }
-            .padding(24)
-            .frame(minWidth: 320, idealWidth: 420, maxWidth: 460)
-            .background(Color.black.opacity(0.20), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .stroke(Color.white.opacity(0.10), lineWidth: 1)
-            )
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
 
@@ -1083,12 +1023,18 @@ private struct SidebarItem: View {
 private struct DJConnectTopTabButton: View {
     let title: String
     let systemImage: String
+    var symbolVariant: SymbolVariants = .none
     let isSelected: Bool
     let action: () -> Void
 
     var body: some View {
         Button(action: action) {
-            Label(title, systemImage: systemImage)
+            Label {
+                Text(title)
+            } icon: {
+                Image(systemName: systemImage)
+                    .symbolVariant(symbolVariant)
+            }
                 .font(.headline.weight(.semibold))
                 .labelStyle(.titleAndIcon)
                 .lineLimit(1)
@@ -1132,7 +1078,6 @@ private struct PairingSheetView: View {
         ScrollView(.vertical) {
             VStack(spacing: 22) {
                 AboutBanner()
-                    .frame(maxWidth: 520)
 
                 if model.isShowingPairingSuccess {
                     pairingSuccess
@@ -1171,7 +1116,7 @@ private struct PairingSheetView: View {
             .presentationDetents([.large, .medium])
             .presentationDragIndicator(.visible)
         }
-        .sheet(isPresented: $isShowingQRScanner) {
+        .fullScreenCover(isPresented: $isShowingQRScanner) {
             PairingQRScannerView(language: model.language) { value in
                 isShowingQRScanner = false
                 if model.pairingFlowTarget == .appleWatch {
@@ -1186,6 +1131,7 @@ private struct PairingSheetView: View {
                     }
                 }
             }
+            .presentationBackground(.black)
         }
         #endif
     }
@@ -2257,13 +2203,6 @@ private struct CrashReportPromptView: View {
                     .font(.callout.weight(.semibold))
                     .foregroundStyle(.secondary)
                 Button {
-                    copyText(model.crashIssueBody())
-                } label: {
-                    Label(localizedKey(model.language, "ui.copy.logs"), systemImage: "doc.on.doc")
-                        .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(DJConnectLilacPillButtonStyle())
-                Button {
                     if let url = model.crashIssueURL() {
                         openURL(url)
                     }
@@ -2292,18 +2231,24 @@ private struct CrashReportPromptView: View {
 
 private struct WelcomeView: View {
     @ObservedObject var model: DJConnectAppModel
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @State private var selectedStepIndex = 0
     private let startURL = URL(string: "https://djconnect.dev/start")!
     private var steps: [WelcomeTourStep] { WelcomeTourStep.steps(language: model.language) }
     private var selectedStep: WelcomeTourStep { steps[selectedStepIndex] }
     private var isLastStep: Bool { selectedStepIndex == steps.count - 1 }
+    private var contentIdealWidth: CGFloat {
+        horizontalSizeClass == .regular ? 780 : 580
+    }
+    private var contentMaxWidth: CGFloat {
+        horizontalSizeClass == .regular ? 940 : 680
+    }
 
     var body: some View {
         ZStack {
             DJConnectCanvasBackground()
             VStack(spacing: 20) {
                 AboutBanner()
-                    .frame(maxWidth: 520)
 
                 WelcomeTourPreview(
                     steps: steps,
@@ -2380,7 +2325,7 @@ private struct WelcomeView: View {
                 .controlSize(.large)
             }
             .padding(28)
-            .frame(minWidth: 360, idealWidth: 580, maxWidth: 680)
+            .frame(minWidth: 360, idealWidth: contentIdealWidth, maxWidth: contentMaxWidth)
             #if os(macOS)
             .frame(minHeight: 620)
             #endif
@@ -3229,6 +3174,7 @@ private func averageArtworkColor(from data: Data) -> Color? {
 
 private struct TrackInsightView: View {
     @ObservedObject var model: DJConnectAppModel
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @State private var isShowingShare = false
     @State private var isAnimationActive = false
     #if canImport(AVKit) && os(iOS)
@@ -3243,25 +3189,57 @@ private struct TrackInsightView: View {
         insight?.id
     }
 
+    private func shouldUseWideLayout(for size: CGSize) -> Bool {
+        #if os(macOS)
+        size.width >= 1_000
+        #else
+        horizontalSizeClass == .regular && size.width > size.height
+        #endif
+    }
+
     var body: some View {
         NavigationStack {
             ZStack {
                 DJConnectCanvasBackground()
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 16) {
-                        if let insight {
-                            TrackInsightHero(model: model, insight: insight, isAnimationActive: isAnimationActive)
-                            TrackInsightAnalysisCard(insight: insight, language: model.language)
-                            TrackInsightMetricsGrid(insight: insight, language: model.language)
-                            TrackInsightPrivacyFooter(language: model.language)
-                        } else {
-                            TrackInsightEmptyState(model: model)
+                GeometryReader { proxy in
+                    let useWideLayout = shouldUseWideLayout(for: proxy.size)
+                    ScrollView {
+                        VStack(alignment: .leading, spacing: 16) {
+                            if let insight {
+                                if useWideLayout {
+                                    HStack(alignment: .top, spacing: 18) {
+                                        TrackInsightHero(
+                                            model: model,
+                                            insight: insight,
+                                            isAnimationActive: isAnimationActive
+                                        )
+                                        .frame(maxWidth: .infinity, alignment: .top)
+
+                                        VStack(alignment: .leading, spacing: 16) {
+                                            TrackInsightAnalysisCard(insight: insight, language: model.language)
+                                            TrackInsightMetricsGrid(insight: insight, language: model.language)
+                                            TrackInsightPrivacyFooter(language: model.language)
+                                        }
+                                        .frame(minWidth: 390, idealWidth: 470, maxWidth: 540, alignment: .topLeading)
+                                    }
+                                } else {
+                                    TrackInsightHero(model: model, insight: insight, isAnimationActive: isAnimationActive)
+                                    TrackInsightAnalysisCard(insight: insight, language: model.language)
+                                    TrackInsightMetricsGrid(insight: insight, language: model.language)
+                                    TrackInsightPrivacyFooter(language: model.language)
+                                }
+                            } else {
+                                TrackInsightEmptyState(model: model)
+                            }
                         }
+                        .padding(.horizontal, djConnectScreenHorizontalPadding)
+                        .padding(.vertical, djConnectScreenVerticalPadding)
+                        .frame(
+                            maxWidth: useWideLayout ? 1_520 : djConnectContentMaxWidth,
+                            alignment: .topLeading
+                        )
+                        .frame(maxWidth: .infinity, alignment: .top)
                     }
-                    .padding(.horizontal, djConnectScreenHorizontalPadding)
-                    .padding(.vertical, djConnectScreenVerticalPadding)
-                    .frame(maxWidth: djConnectContentMaxWidth, alignment: .topLeading)
-                    .frame(maxWidth: .infinity, alignment: .top)
                 }
                 #if canImport(AVKit) && os(iOS)
                 if let player = vibeCastAirPlaySession.player {
@@ -3332,29 +3310,54 @@ private struct TrackInsightView: View {
 
 private struct MusicDNAView: View {
     @ObservedObject var model: DJConnectAppModel
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+
+    private func shouldUseWideLayout(for size: CGSize) -> Bool {
+        #if os(macOS)
+        size.width >= 1_000
+        #else
+        horizontalSizeClass == .regular && size.width > size.height
+        #endif
+    }
 
     var body: some View {
         NavigationStack {
             ZStack {
                 DJConnectCanvasBackground()
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 16) {
-                        MusicDNAHeroView(model: model)
-                        MusicDNAContentView(model: model)
+                GeometryReader { proxy in
+                    let useWideLayout = shouldUseWideLayout(for: proxy.size)
+                    ScrollView {
+                        if useWideLayout {
+                            HStack(alignment: .top, spacing: 18) {
+                                MusicDNAHeroView(model: model)
+                                    .frame(minWidth: 360, idealWidth: 430, maxWidth: 500, alignment: .top)
+                                MusicDNAContentView(model: model, isWideLayout: true)
+                                    .frame(maxWidth: .infinity, alignment: .topLeading)
+                            }
+                            .padding(.horizontal, djConnectScreenHorizontalPadding)
+                            .padding(.vertical, djConnectScreenVerticalPadding)
+                            .frame(maxWidth: 1_520, alignment: .topLeading)
+                            .frame(maxWidth: .infinity, alignment: .top)
+                        } else {
+                            VStack(alignment: .leading, spacing: 16) {
+                                MusicDNAHeroView(model: model)
+                                MusicDNAContentView(model: model)
+                            }
+                            .padding(.horizontal, djConnectScreenHorizontalPadding)
+                            .padding(.vertical, djConnectScreenVerticalPadding)
+                            .frame(maxWidth: djConnectContentMaxWidth, alignment: .topLeading)
+                            .frame(maxWidth: .infinity, alignment: .top)
+                        }
                     }
-                    .padding(.horizontal, djConnectScreenHorizontalPadding)
-                    .padding(.vertical, djConnectScreenVerticalPadding)
-                    .frame(maxWidth: djConnectContentMaxWidth, alignment: .topLeading)
-                    .frame(maxWidth: .infinity, alignment: .top)
-                }
-                #if os(iOS)
-                .refreshable {
-                    #if DEBUG
-                    guard !model.isMusicDNAPreviewMode else { return }
+                    #if os(iOS)
+                    .refreshable {
+                        #if DEBUG
+                        guard !model.isMusicDNAPreviewMode else { return }
+                        #endif
+                        await model.refreshMusicDNAProfile()
+                    }
                     #endif
-                    await model.refreshMusicDNAProfile()
                 }
-                #endif
             }
             .navigationTitle(screenTitle(model.language, key: "Music DNA", isDemoMode: model.isDemoMode))
             #if os(iOS)
@@ -3495,6 +3498,7 @@ private struct MusicDNAOptInPromptView: View {
 
 private struct MusicDNAContentView: View {
     @ObservedObject var model: DJConnectAppModel
+    var isWideLayout = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -3505,7 +3509,7 @@ private struct MusicDNAContentView: View {
                     if response.profile.isEmpty {
                         MusicDNANoProfileView(model: model)
                     } else {
-                        MusicDNASectionGrid(model: model, response: response)
+                        MusicDNASectionGrid(model: model, response: response, isWideLayout: isWideLayout)
                     }
                 } else {
                     MusicDNADisabledView(model: model)
@@ -3521,11 +3525,12 @@ private struct MusicDNAContentView: View {
 private struct MusicDNASectionGrid: View {
     @ObservedObject var model: DJConnectAppModel
     let response: DJConnectMusicDNAProfileResponse
+    var isWideLayout = false
 
     private var profile: DJConnectMusicDNAProfile { response.profile }
 
     var body: some View {
-        LazyVGrid(columns: [GridItem(.adaptive(minimum: 220), spacing: 12, alignment: .top)], spacing: 12) {
+        LazyVGrid(columns: gridColumns, spacing: 12) {
             MusicDNAPanel(title: localizedKey(model.language, "ui.summary"), value: profile.summary ?? "-", icon: "waveform")
             MusicDNAPanel(title: localizedKey(model.language, "ui.favorite.genres"), value: names(profile.favoriteGenres), icon: "music.quarternote.3")
             MusicDNAPanel(title: localizedKey(model.language, "ui.favorite.artists"), value: names(profile.favoriteArtists), icon: "person.wave.2")
@@ -3535,6 +3540,17 @@ private struct MusicDNASectionGrid: View {
             MusicDNAPanel(title: localizedKey(model.language, "ui.signals"), value: signals(profile.recommendationSignals), icon: "safari")
             MusicDNAPanel(title: localizedKey(model.language, "ui.updated"), value: updatedSummary, icon: "checkmark.seal")
         }
+    }
+
+    private var gridColumns: [GridItem] {
+        if isWideLayout {
+            return [
+                GridItem(.adaptive(minimum: 240), spacing: 12, alignment: .top)
+            ]
+        }
+        return [
+            GridItem(.adaptive(minimum: 220), spacing: 12, alignment: .top)
+        ]
     }
 
     private var energyProfile: String {
@@ -9986,23 +10002,40 @@ private enum LocalGameMode: String, CaseIterable, Identifiable {
 private struct GamesView: View {
     let language: String
     let isDemoMode: Bool
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @State private var selectedGame = LocalGameMode.pong
+
+    private func contentMaxWidth(for size: CGSize) -> CGFloat {
+        #if os(macOS)
+        size.width >= 1_000 ? 1_280 : djConnectContentMaxWidth
+        #else
+        horizontalSizeClass == .regular && size.width > size.height ? 1_320 : djConnectContentMaxWidth
+        #endif
+    }
+
+    private func pickerMaxWidth(for size: CGSize) -> CGFloat {
+        min(contentMaxWidth(for: size), 760)
+    }
 
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 18) {
-                    GameModePicker(selection: $selectedGame)
-                        .frame(maxWidth: 540)
-                        .frame(maxWidth: .infinity, alignment: .center)
+            GeometryReader { proxy in
+                let contentMaxWidth = contentMaxWidth(for: proxy.size)
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 18) {
+                        GameModePicker(selection: $selectedGame)
+                            .frame(maxWidth: pickerMaxWidth(for: proxy.size))
+                            .frame(maxWidth: .infinity, alignment: .center)
 
-                    LocalGameSurface(game: selectedGame, language: language)
+                        LocalGameSurface(game: selectedGame, language: language)
+                            .frame(maxWidth: .infinity, alignment: .top)
+                    }
+                    .djConnectScreenPadding()
+                    .frame(maxWidth: contentMaxWidth)
+                    .frame(maxWidth: .infinity)
                 }
-                .djConnectScreenPadding()
-                .frame(maxWidth: djConnectContentMaxWidth)
-                .frame(maxWidth: .infinity)
+                .background(DJConnectCanvasBackground())
             }
-            .background(DJConnectCanvasBackground())
             .navigationTitle(localizedKey(language, "ui.games"))
         }
         .id("games-\(isDemoMode)-\(language)")
@@ -10124,6 +10157,7 @@ private struct LocalGameSurface: View {
     @State private var isPlaying = false
     @FocusState private var isGameFocused: Bool
     private let tick = Timer.publish(every: 1.0 / 30.0, on: .main, in: .common).autoconnect()
+    private let gameAspectRatio: CGFloat = 320.0 / 170.0
 
     private var highScore: Int {
         switch game {
@@ -10193,8 +10227,8 @@ private struct LocalGameSurface: View {
                     .controlSize(.large)
                 }
             }
-            .aspectRatio(320.0 / 170.0, contentMode: .fit)
-            .frame(maxWidth: 640)
+            .aspectRatio(gameAspectRatio, contentMode: .fit)
+            .frame(maxWidth: .infinity)
             .background(.black.opacity(0.25), in: RoundedRectangle(cornerRadius: 8))
             .gesture(
                 DragGesture(minimumDistance: 0)
@@ -10312,7 +10346,7 @@ private struct LocalGameSurface: View {
     @ViewBuilder
     private var controlsView: some View {
         if game == .pacman {
-            HStack(spacing: 10) {
+            LazyVGrid(columns: controlColumns(count: 5), spacing: 10) {
                 directionButton(localizedKey(language, "ui.up"), icon: "chevron.up") {
                     setPacmanDirection(dx: 0, dy: -1)
                 }
@@ -10330,7 +10364,7 @@ private struct LocalGameSurface: View {
             .buttonStyle(DJConnectLilacPillButtonStyle())
             .controlSize(.large)
         } else {
-            HStack(spacing: 10) {
+            LazyVGrid(columns: controlColumns(count: game == .pong ? 3 : 4), spacing: 10) {
                 directionButton(primaryMoveLabel, icon: primaryMoveIcon) {
                     move(-1)
                 }
@@ -10355,6 +10389,10 @@ private struct LocalGameSurface: View {
             .buttonStyle(DJConnectLilacPillButtonStyle())
             .controlSize(.large)
         }
+    }
+
+    private func controlColumns(count: Int) -> [GridItem] {
+        Array(repeating: GridItem(.flexible(minimum: 96), spacing: 10), count: count)
     }
 
     private func directionButton(_ label: String, icon: String, action: @escaping () -> Void) -> some View {
@@ -11258,16 +11296,16 @@ private struct MoreView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
                     MoreNavigationRow(
-                        title: localizedKey(model.language, "ui.playlists"),
-                        systemImage: "rectangle.stack"
-                    ) {
-                        PlaylistsView(model: model)
-                    }
-                    MoreNavigationRow(
                         title: "Music DNA",
                         systemImage: "heart"
                     ) {
                         MusicDNAView(model: model)
+                    }
+                    MoreNavigationRow(
+                        title: localizedKey(model.language, "ui.playlists"),
+                        systemImage: "rectangle.stack"
+                    ) {
+                        PlaylistsView(model: model)
                     }
                     MoreNavigationRow(
                         title: localizedKey(model.language, "ui.games"),
@@ -11311,12 +11349,13 @@ private struct MoreView: View {
                         HStack(spacing: 14) {
                             Image(systemName: "bubble.left.and.bubble.right")
                                 .font(.title3)
+                                .foregroundStyle(djConnectAccent)
                                 .frame(width: 30)
                             Text(localizedKey(model.language, "ui.share.feedback"))
                                 .font(.body)
+                                .foregroundStyle(.primary)
                             Spacer()
                         }
-                        .foregroundStyle(djConnectAccent)
                         .padding(.vertical, 14)
                         .padding(.horizontal, 18)
                         .contentShape(Rectangle())
@@ -12011,7 +12050,12 @@ private struct LogSearchText: View {
 
 private struct AboutView: View {
     @ObservedObject var model: DJConnectAppModel
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     private let websiteURL = URL(string: "https://djconnect.dev")!
+
+    private var contentMaxWidth: CGFloat {
+        horizontalSizeClass == .regular ? .infinity : 760
+    }
 
     var body: some View {
         ZStack {
@@ -12071,7 +12115,7 @@ private struct AboutView: View {
                 #if os(macOS)
                 .djConnectMacDetailContent(maxWidth: .infinity, alignment: .topLeading)
                 #else
-                .frame(maxWidth: 760, alignment: .leading)
+                .frame(maxWidth: contentMaxWidth, alignment: .leading)
                 .padding(.horizontal, 24)
                 .padding(.vertical, 28)
                 #endif
@@ -12136,6 +12180,11 @@ private struct AboutView: View {
 
 private struct LegalNoticesView: View {
     let language: String
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+
+    private var contentMaxWidth: CGFloat {
+        horizontalSizeClass == .regular ? .infinity : 760
+    }
 
     var body: some View {
         NavigationStack {
@@ -12158,7 +12207,7 @@ private struct LegalNoticesView: View {
                     .djConnectMacDetailContent(maxWidth: .infinity, alignment: .topLeading)
                     #else
                     .padding(24)
-                    .frame(maxWidth: 760, alignment: .leading)
+                    .frame(maxWidth: contentMaxWidth, alignment: .leading)
                     #endif
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -12171,6 +12220,11 @@ private struct LegalNoticesView: View {
 
 private struct PrivacyView: View {
     let language: String
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+
+    private var contentMaxWidth: CGFloat {
+        horizontalSizeClass == .regular ? .infinity : 760
+    }
 
     var body: some View {
         ZStack {
@@ -12189,7 +12243,7 @@ private struct PrivacyView: View {
                 #if os(macOS)
                 .djConnectMacDetailContent(maxWidth: .infinity, alignment: .topLeading)
                 #else
-                .frame(maxWidth: 760, alignment: .leading)
+                .frame(maxWidth: contentMaxWidth, alignment: .leading)
                 .padding(.horizontal, 24)
                 .padding(.vertical, 28)
                 #endif
@@ -12517,26 +12571,47 @@ private struct SettingsRow<Content: View>: View {
 private struct AboutStackedRow<Content: View>: View {
     let label: String
     @ViewBuilder var content: Content
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+
+    private var usesHorizontalLayout: Bool {
+        #if os(macOS)
+        true
+        #else
+        horizontalSizeClass == .regular
+        #endif
+    }
+
+    private var labelColumnWidth: CGFloat {
+        #if os(macOS)
+        280
+        #else
+        240
+        #endif
+    }
 
     var body: some View {
-        #if os(macOS)
-        HStack(alignment: .firstTextBaseline, spacing: 18) {
-            Text(label)
-                .font(.body.weight(.semibold))
-                .foregroundStyle(.secondary)
-                .frame(width: 150, alignment: .trailing)
-            content
-                .frame(maxWidth: .infinity, alignment: .leading)
+        if usesHorizontalLayout {
+            HStack(alignment: .firstTextBaseline, spacing: 24) {
+                Text(label)
+                    .font(.body.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
+                    .multilineTextAlignment(.trailing)
+                    .frame(width: labelColumnWidth, alignment: .trailing)
+                content
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .layoutPriority(1)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        } else {
+            VStack(alignment: .leading, spacing: 6) {
+                Text(label)
+                    .font(.body.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                content
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
         }
-        #else
-        VStack(alignment: .leading, spacing: 6) {
-            Text(label)
-                .font(.body.weight(.semibold))
-                .foregroundStyle(.secondary)
-            content
-                .frame(maxWidth: .infinity, alignment: .leading)
-        }
-        #endif
     }
 }
 

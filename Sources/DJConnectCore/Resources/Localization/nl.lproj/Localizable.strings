@@ -681,7 +681,7 @@
 "ui.djconnect.can.send.a.notification.when.ask.dj.has.an" = "DJConnect kan een melding sturen wanneer Ask DJ een antwoord voor je heeft.";
 "ui.after.this.screen.apple.will.ask.for.permission.you.can" = "Na dit scherm vraagt Apple om toestemming. Je kunt dit later aanpassen in Instellingen.";
 "ui.djconnect.asks.for.microphone.access.for.voice.requests.and.notifications" = "DJConnect vraagt microfoontoegang voor stemverzoeken en meldingen voor Ask DJ-antwoorden.";
-"ui.server.push.notifications.use.apple.apns.and.contain.only.a" = "Server-pushmeldingen gebruiken Apple APNs en bevatten alleen een korte melding; de app synchroniseert de echte Ask DJ-geschiedenis na openen.";
+"ui.server.push.notifications.use.apple.apns.and.contain.only.a" = "Spraakherkenning is nodig voor stemactivatie van Ask DJ-verzoeken.";
 "ui.enter.your.home.assistant.url.for.example.192.168.1" = "Vul je Home Assistant URL in, bijvoorbeeld 192.168.1.10:8123.";
 "ui.open.djconnect.on.apple.watch.then.scan.or.enter.the" = "Open DJConnect op Apple Watch en scan of vul daarna op deze iPhone de Apple Watch-koppelcode uit Home Assistant in.";
 "ui.enter.or.scan.the.code.shown.by.home.assistant.while" = "Vul of scan de code uit Home Assistant terwijl dit apparaat en Home Assistant op hetzelfde LAN zitten.";

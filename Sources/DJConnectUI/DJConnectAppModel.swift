@@ -37,6 +37,23 @@ import WidgetKit
 #endif
 
 #if os(iOS) && canImport(AVFoundation)
+private func configureDJConnectAudioSession(
+    category: AVAudioSession.Category,
+    mode: AVAudioSession.Mode,
+    options: AVAudioSession.CategoryOptions = []
+) async throws {
+    let rawCategory = category.rawValue
+    let rawMode = mode.rawValue
+    let rawOptions = options.rawValue
+    try await Task.detached(priority: .userInitiated) {
+        try AVAudioSession.sharedInstance().setCategory(
+            AVAudioSession.Category(rawValue: rawCategory),
+            mode: AVAudioSession.Mode(rawValue: rawMode),
+            options: AVAudioSession.CategoryOptions(rawValue: rawOptions)
+        )
+    }.value
+}
+
 private func setDJConnectAudioSessionActive(
     _ isActive: Bool,
     options: AVAudioSession.SetActiveOptions = []
@@ -582,7 +599,6 @@ public final class DJConnectAppModel: ObservableObject {
     @Published public private(set) var localNetworkPermissionStatus: DJConnectPermissionStatus = .unknown
     @Published public private(set) var isRequestingPermissions = false
     @Published public var isShowingPermissionExplanation = false
-    @Published public var isShowingAskDJNotificationPermissionExplanation = false
     @Published public var isShowingWelcome = false
     @Published public var isShowingCrashReportPrompt = false
     @Published public var isShowingWakeWordActivationPrompt = false
@@ -650,7 +666,7 @@ public final class DJConnectAppModel: ObservableObject {
     private let startBackgroundTasks: Bool
     private let monkeyTestingMode: Bool
     private let diagnosticLogFileURL: URL?
-    nonisolated private static let protocolVersion = "3.2.8"
+    nonisolated private static let protocolVersion = "3.2.9"
     private static let defaultHomeAssistantURL = "http://homeassistant.local:8123"
     private let appVersion = DJConnectAppModel.protocolVersion
     private let installIDKey = "DJConnectInstallID"
@@ -2843,7 +2859,8 @@ public final class DJConnectAppModel: ObservableObject {
             defer { isClearingAskDJHistory = false }
             do {
                 let response = try await clearAskDJHistoryWithFallback()
-                applyAskDJHistory(response)
+                clearAskDJHistoryLocally()
+                applyAskDJHistory(response, forceClear: response.isClearAcknowledged)
             } catch let error as DJConnectError {
                 askDJErrorMessage = askDJErrorText(for: error)
                 showAskDJToast(for: error)
@@ -3817,16 +3834,12 @@ public final class DJConnectAppModel: ObservableObject {
         }
         #if canImport(AVFoundation)
         #if os(iOS)
-        do {
-            try AVAudioSession.sharedInstance().setCategory(.playback, mode: .spokenAudio, options: [.duckOthers])
-        } catch {
-            log(.warning, "Demo DJ response audio session could not be configured: \(error.localizedDescription)")
-        }
         Task {
             do {
+                try await configureDJConnectAudioSession(category: .playback, mode: .spokenAudio, options: [.duckOthers])
                 try await setDJConnectAudioSessionActive(true)
             } catch {
-                log(.warning, "Demo DJ response audio session could not be activated: \(error.localizedDescription)")
+                log(.warning, "Demo DJ response audio session could not be configured: \(error.localizedDescription)")
             }
         }
         #endif
@@ -4661,12 +4674,10 @@ public final class DJConnectAppModel: ObservableObject {
         applyTrackInsightIfNeeded(from: response, open: false)
     }
 
-    func applyAskDJHistory(_ response: DJConnectAskDJHistoryResponse) {
+    func applyAskDJHistory(_ response: DJConnectAskDJHistoryResponse, forceClear: Bool = false) {
         let localClearRevision = defaults.integer(forKey: askDJClearRevisionKey)
-        if response.clearRevision > localClearRevision {
-            askDJMessages.removeAll { message in
-                !Self.isClientAskDJExchangeMessage(message)
-            }
+        if forceClear || response.clearRevision > localClearRevision {
+            askDJMessages.removeAll()
         }
         var nextMessages = askDJMessages
         for message in response.messages {
@@ -5177,7 +5188,7 @@ public final class DJConnectAppModel: ObservableObject {
             }
             await MainActor.run {
                 pendingAskDJNotificationPreview = preview
-                isShowingAskDJNotificationPermissionExplanation = true
+                requestAppPermissions()
             }
             return false
         case .denied:
@@ -6022,7 +6033,7 @@ public final class DJConnectAppModel: ObservableObject {
             askDJAudioPlaybackState = .loading(audioURL)
             log(.info, "Loading DJ response audio from Home Assistant")
             #if os(iOS)
-            try AVAudioSession.sharedInstance().setCategory(.playback, mode: .spokenAudio, options: [.duckOthers])
+            try await configureDJConnectAudioSession(category: .playback, mode: .spokenAudio, options: [.duckOthers])
             try await setDJConnectAudioSessionActive(true)
             #endif
             let item = AVPlayerItem(url: audioURL)
@@ -7606,44 +7617,12 @@ public final class DJConnectAppModel: ObservableObject {
 
     public func cancelPermissionExplanation() {
         pendingPermissionRequest = nil
+        if pendingAskDJNotificationPreview != nil {
+            pendingAskDJNotificationPreview = nil
+            hasRequestedAskDJNotificationPermission = true
+        }
         isShowingPermissionExplanation = false
         log(.debug, "User cancelled permission explanation")
-    }
-
-    public func continueAfterAskDJNotificationPermissionExplanation() {
-        let preview = pendingAskDJNotificationPreview ?? ""
-        pendingAskDJNotificationPreview = nil
-        isShowingAskDJNotificationPermissionExplanation = false
-        hasRequestedAskDJNotificationPermission = true
-
-        #if canImport(UserNotifications)
-        Task {
-            let center = UNUserNotificationCenter.current()
-            do {
-                let granted = try await center.requestAuthorization(options: [.alert, .sound])
-                await MainActor.run {
-                    refreshPermissionStatuses()
-                }
-                guard granted else {
-                    log(.debug, "Ask DJ notification permission was not granted")
-                    return
-                }
-                await scheduleAskDJLocalNotification(center: center, preview: preview)
-            } catch {
-                await MainActor.run {
-                    refreshPermissionStatuses()
-                }
-                log(.warning, "Ask DJ notification permission failed: \(error.localizedDescription)")
-            }
-        }
-        #endif
-    }
-
-    public func cancelAskDJNotificationPermissionExplanation() {
-        pendingAskDJNotificationPreview = nil
-        isShowingAskDJNotificationPermissionExplanation = false
-        hasRequestedAskDJNotificationPermission = true
-        log(.debug, "User cancelled Ask DJ notification permission explanation")
     }
 
     private func requestAppPermissionsAfterExplanation() {
@@ -7673,8 +7652,16 @@ public final class DJConnectAppModel: ObservableObject {
             let notificationGranted: Bool
             #if canImport(UserNotifications)
             notificationGranted = await requestRemoteNotificationAuthorizationIfNeeded(center: UNUserNotificationCenter.current())
+            let askDJNotificationPreview = pendingAskDJNotificationPreview
+            if askDJNotificationPreview != nil {
+                pendingAskDJNotificationPreview = nil
+                hasRequestedAskDJNotificationPermission = true
+            }
             if notificationGranted {
                 registerForSystemRemoteNotifications()
+                if let preview = askDJNotificationPreview {
+                    await scheduleAskDJLocalNotification(center: UNUserNotificationCenter.current(), preview: preview)
+                }
             }
             #else
             notificationGranted = false
@@ -8111,8 +8098,11 @@ public final class DJConnectAppModel: ObservableObject {
         }
         do {
             #if os(iOS)
-            let session = AVAudioSession.sharedInstance()
-            try session.setCategory(.playAndRecord, mode: .measurement, options: [.defaultToSpeaker, Self.bluetoothAudioSessionOption, .duckOthers])
+            try await configureDJConnectAudioSession(
+                category: .playAndRecord,
+                mode: .measurement,
+                options: [.defaultToSpeaker, Self.bluetoothAudioSessionOption, .duckOthers]
+            )
             try await setDJConnectAudioSessionActive(true, options: .notifyOthersOnDeactivation)
             #endif
 
@@ -8244,8 +8234,11 @@ public final class DJConnectAppModel: ObservableObject {
         #if canImport(AVFoundation)
         do {
             #if os(iOS)
-            let session = AVAudioSession.sharedInstance()
-            try session.setCategory(.playAndRecord, mode: .spokenAudio, options: [.defaultToSpeaker, Self.bluetoothAudioSessionOption])
+            try await configureDJConnectAudioSession(
+                category: .playAndRecord,
+                mode: .spokenAudio,
+                options: [.defaultToSpeaker, Self.bluetoothAudioSessionOption]
+            )
             try await setDJConnectAudioSessionActive(true)
             #endif
 
@@ -8398,10 +8391,11 @@ public final class DJConnectAppModel: ObservableObject {
             platform: .macos
         )
         #else
+        let deviceName = iosIdentityDeviceName()
         return DJConnectIdentity(
-            clientName: "DJConnect iPhone",
+            clientName: deviceName,
             deviceID: "djconnect-ios-\(installID.prefix(12))",
-            deviceName: "DJConnect iPhone",
+            deviceName: deviceName,
             clientType: .ios,
             firmware: protocolVersion,
             appVersion: protocolVersion,
@@ -8409,6 +8403,19 @@ public final class DJConnectAppModel: ObservableObject {
         )
         #endif
     }
+
+    #if os(iOS)
+    private static func iosIdentityDeviceName() -> String {
+        switch UIDevice.current.userInterfaceIdiom {
+        case .pad:
+            return "DJConnect iPad"
+        case .phone:
+            return "DJConnect iPhone"
+        default:
+            return "DJConnect iOS"
+        }
+    }
+    #endif
 
     private static var isRunningUnderDebugger: Bool {
         #if DEBUG && canImport(Darwin)

@@ -127,9 +127,6 @@ struct TrackInsightSharePreviewView: View {
             if mediaKind == .animatedVideo {
                 TrackInsightShareExportProgress(progress: renderProgress)
                 HStack(spacing: 12) {
-                    Text("\(Int((renderProgress * 100).rounded()))%")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(.white.opacity(0.72))
                     Button(role: .cancel) {
                         cancelRender()
                     } label: {

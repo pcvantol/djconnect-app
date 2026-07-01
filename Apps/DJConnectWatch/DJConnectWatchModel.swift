@@ -1869,7 +1869,8 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
                 .clearAskDJHistory,
                 payload: DJConnectAskDJClearHistoryRequest(identity: identity, musicDNAKey: musicDNAKey)
             )
-            applyAskDJHistory(response)
+            clearAskDJHistoryLocally()
+            applyAskDJHistory(response, forceClear: response.isClearAcknowledged)
         } catch {
             statusMessage = Self.userMessage(for: error)
             showAskDJToast(Self.askDJToastText(for: error))
@@ -2365,8 +2366,8 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         askDJClearRevision = 0
     }
 
-    private func applyAskDJHistory(_ response: DJConnectAskDJHistoryResponse) {
-        if response.clearRevision > askDJClearRevision {
+    private func applyAskDJHistory(_ response: DJConnectAskDJHistoryResponse, forceClear: Bool = false) {
+        if forceClear || response.clearRevision > askDJClearRevision {
             askDJMessages = []
         }
         var nextMessages = askDJMessages

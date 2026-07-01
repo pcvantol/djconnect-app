@@ -2199,9 +2199,12 @@ public struct DJConnectAskDJHistoryMessage: Codable, Equatable, Identifiable, Se
 }
 
 public struct DJConnectAskDJHistoryResponse: Codable, Equatable, Sendable {
+    public var success: Bool?
+    public var cleared: Bool?
     public var userID: String?
     public var historyRevision: Int
     public var clearRevision: Int
+    public var askDJClearRequired: Bool?
     public var messages: [DJConnectAskDJHistoryMessage]
     public var serverTime: Date?
     public var historyLimit: Int?
@@ -2209,9 +2212,12 @@ public struct DJConnectAskDJHistoryResponse: Codable, Equatable, Sendable {
     public var historyTrimmedCount: Int?
 
     enum CodingKeys: String, CodingKey {
+        case success
+        case cleared
         case userID = "user_id"
         case historyRevision = "history_revision"
         case clearRevision = "clear_revision"
+        case askDJClearRequired = "ask_dj_clear_required"
         case messages
         case serverTime = "server_time"
         case historyLimit = "history_limit"
@@ -2220,18 +2226,24 @@ public struct DJConnectAskDJHistoryResponse: Codable, Equatable, Sendable {
     }
 
     public init(
+        success: Bool? = nil,
+        cleared: Bool? = nil,
         userID: String? = nil,
         historyRevision: Int = 0,
         clearRevision: Int = 0,
+        askDJClearRequired: Bool? = nil,
         messages: [DJConnectAskDJHistoryMessage] = [],
         serverTime: Date? = nil,
         historyLimit: Int? = nil,
         historyTrimmedBefore: Date? = nil,
         historyTrimmedCount: Int? = nil
     ) {
+        self.success = success
+        self.cleared = cleared
         self.userID = userID
         self.historyRevision = historyRevision
         self.clearRevision = clearRevision
+        self.askDJClearRequired = askDJClearRequired
         self.messages = messages
         self.serverTime = serverTime
         self.historyLimit = historyLimit
@@ -2241,14 +2253,21 @@ public struct DJConnectAskDJHistoryResponse: Codable, Equatable, Sendable {
 
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
+        success = try container.decodeIfPresent(Bool.self, forKey: .success)
+        cleared = try container.decodeIfPresent(Bool.self, forKey: .cleared)
         userID = try container.decodeIfPresent(String.self, forKey: .userID)
         historyRevision = try container.decodeIfPresent(Int.self, forKey: .historyRevision) ?? 0
         clearRevision = try container.decodeIfPresent(Int.self, forKey: .clearRevision) ?? 0
+        askDJClearRequired = try container.decodeIfPresent(Bool.self, forKey: .askDJClearRequired)
         messages = try container.decodeIfPresent([DJConnectAskDJHistoryMessage].self, forKey: .messages) ?? []
         serverTime = Self.decodeDate(container, key: .serverTime)
         historyLimit = try container.decodeIfPresent(Int.self, forKey: .historyLimit)
         historyTrimmedBefore = Self.decodeDate(container, key: .historyTrimmedBefore)
         historyTrimmedCount = try container.decodeIfPresent(Int.self, forKey: .historyTrimmedCount)
+    }
+
+    public var isClearAcknowledged: Bool {
+        success == true || cleared == true || askDJClearRequired == true
     }
 
     static func decodeDate<K: CodingKey>(_ container: KeyedDecodingContainer<K>, key: K) -> Date? {
@@ -2271,18 +2290,33 @@ public struct DJConnectAskDJHistoryResponse: Codable, Equatable, Sendable {
 public struct DJConnectAskDJClearHistoryRequest: Codable, Equatable, Sendable {
     public var deviceID: String
     public var clientType: DJConnectClientType
+    public var clientID: String
+    public var deviceName: String
     public var musicDNAKey: String?
 
     enum CodingKeys: String, CodingKey {
         case deviceID = "device_id"
         case clientType = "client_type"
+        case clientID = "client_id"
+        case deviceName = "device_name"
         case musicDNAKey = "music_dna_key"
     }
 
     public init(identity: DJConnectIdentity, musicDNAKey: String? = nil) {
         self.deviceID = identity.deviceID
         self.clientType = identity.clientType
+        self.clientID = identity.deviceID
+        self.deviceName = identity.deviceName
         self.musicDNAKey = musicDNAKey
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        deviceID = try container.decode(String.self, forKey: .deviceID)
+        clientType = try container.decode(DJConnectClientType.self, forKey: .clientType)
+        clientID = try container.decodeIfPresent(String.self, forKey: .clientID) ?? deviceID
+        deviceName = try container.decodeIfPresent(String.self, forKey: .deviceName) ?? ""
+        musicDNAKey = try container.decodeIfPresent(String.self, forKey: .musicDNAKey)
     }
 }
 
