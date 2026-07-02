@@ -2095,15 +2095,8 @@ struct DJConnectTrackInsightLiveActivityWidget: Widget {
                 .activitySystemActionForegroundColor(.white)
         } dynamicIsland: { context in
             DynamicIsland {
-                DynamicIslandExpandedRegion(.leading) {
-                    DJConnectNowPlayingArtwork(entry: context.state.widgetEntry)
-                        .frame(width: 54, height: 54)
-                }
-                DynamicIslandExpandedRegion(.trailing) {
-                    DJConnectNowPlayingLiveActivityStatusStack(state: context.state)
-                }
                 DynamicIslandExpandedRegion(.bottom) {
-                    DJConnectNowPlayingLiveActivityExpandedBottom(state: context.state)
+                    DJConnectNowPlayingLiveActivityExpandedIslandView(state: context.state)
                 }
             } compactLeading: {
                 Image(systemName: context.state.isPlaying ? "music.note" : "pause.fill")
@@ -2158,32 +2151,46 @@ private struct DJConnectNowPlayingLiveActivityLockScreenView: View {
 }
 
 @available(iOS 16.1, *)
-private struct DJConnectNowPlayingLiveActivityExpandedBottom: View {
+private struct DJConnectNowPlayingLiveActivityExpandedIslandView: View {
     let state: TrackInsightLiveActivityAttributes.ContentState
 
     var body: some View {
         let entry = state.widgetEntry
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 8) {
-                Text(state.title)
-                    .font(.headline.weight(.bold))
+        HStack(spacing: 12) {
+            DJConnectNowPlayingArtwork(entry: entry)
+                .frame(width: 72, height: 72)
+            VStack(alignment: .leading, spacing: 7) {
+                Label(DJConnectLocalization.localized(key: "widget.now.playing"), systemImage: state.isPlaying ? "music.note" : "pause.fill")
+                    .font(.caption2.weight(.bold))
+                    .foregroundStyle(.white.opacity(0.84))
+                    .textCase(.uppercase)
                     .lineLimit(1)
-                Text(state.artist)
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(state.title)
+                        .font(.headline.weight(.bold))
+                        .foregroundStyle(.white)
+                        .lineLimit(1)
+                    Text(state.artist)
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.white.opacity(0.72))
+                        .lineLimit(1)
+                }
+                DJConnectNowPlayingProgressBar(progress: state.progress)
+                    .frame(height: 6)
+                DJConnectNowPlayingLiveActivityDescriptorRow(state: state)
             }
-            DJConnectNowPlayingLiveActivityDescriptorRow(state: state)
-            DJConnectNowPlayingProgressBar(progress: state.progress)
-                .frame(height: 6)
-            DJConnectNowPlayingWaveform(entry: entry)
-                .frame(height: 24)
+            Spacer(minLength: 0)
         }
-        .padding(10)
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .background {
             DJConnectNowPlayingWidgetBackground(entry: entry)
-                .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
         }
+        .overlay(
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .stroke(.white.opacity(0.12), lineWidth: 1)
+        )
     }
 }
 
@@ -2207,28 +2214,6 @@ private struct DJConnectNowPlayingLiveActivityDescriptorRow: View {
         .font(.caption2.weight(.semibold))
         .foregroundStyle(.white.opacity(0.72))
         .lineLimit(1)
-    }
-}
-
-@available(iOS 16.1, *)
-private struct DJConnectNowPlayingLiveActivityStatusStack: View {
-    let state: TrackInsightLiveActivityAttributes.ContentState
-
-    var body: some View {
-        VStack(alignment: .trailing, spacing: 4) {
-            Image(systemName: state.isPlaying ? "speaker.wave.2.fill" : "pause.circle")
-                .font(.title3.weight(.bold))
-                .foregroundStyle(Color(red: 0.24, green: 0.64, blue: 1.0))
-            if let volumePercent = state.volumePercent {
-                Text("\(volumePercent)%")
-                    .font(.caption.weight(.bold))
-                    .monospacedDigit()
-            }
-            Text(state.deviceName ?? "DJConnect")
-                .font(.caption2.weight(.semibold))
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
-        }
     }
 }
 
