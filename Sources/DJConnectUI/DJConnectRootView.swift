@@ -5429,7 +5429,7 @@ private struct TrackInsightAnalysisCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Track energy")
+            Text(localizedKey(language, "watch.track.energy"))
                 .font(.headline.weight(.semibold))
             Text(insight.summary)
                 .font(.body)

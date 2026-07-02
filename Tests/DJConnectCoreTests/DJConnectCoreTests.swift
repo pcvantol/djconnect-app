@@ -4945,6 +4945,50 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
 }
 
 @MainActor
+@Test func trackInsightLocalizesNoCurrentlyPlayingBackendMessage() async throws {
+    let suiteName = "DJConnectTests-\(UUID().uuidString)"
+    let defaults = try #require(UserDefaults(suiteName: suiteName))
+    defaults.removePersistentDomain(forName: suiteName)
+    defaults.set(DJConnectHAConnectionMode.local.rawValue, forKey: "DJConnectHAConnectionMode")
+    let host = "track-insight-no-current.local"
+    let session = mockSession(host: host) { request in
+        #expect(request.url?.path == "/api/djconnect/track_insight")
+        let json = """
+        {
+          "success": false,
+          "error": "no_track_playing",
+          "message": "No currently playing track could be resolved."
+        }
+        """
+        return (try httpResponse(for: request, statusCode: 200), Data(json.utf8))
+    }
+    let model = DJConnectAppModel(
+        playback: DJConnectPlayback(trackName: "Midnight City", artistName: "M83"),
+        defaults: defaults,
+        tokenStore: DJConnectInMemoryTokenStore(token: "secret-token"),
+        urlSession: session,
+        startBackgroundTasks: false
+    )
+    model.language = "nl"
+    model.homeAssistantURL = "http://\(host):8123"
+    model.pairingStatus = .paired
+    model.apply(commandResponse: DJConnectCommandResponse(
+        success: true,
+        backendAvailable: true,
+        playback: DJConnectPlayback(trackName: "Midnight City", artistName: "M83")
+    ))
+
+    model.analyzeCurrentTrack(open: false)
+
+    for _ in 0..<20 where model.isLoadingTrackInsight {
+        try await Task.sleep(for: .milliseconds(50))
+    }
+
+    #expect(model.trackInsightErrorMessage == "Start eerst een nummer voordat je Track Insight opent.")
+    #expect(model.trackInsightErrorMessage?.contains("No currently playing") != true)
+}
+
+@MainActor
 @Test func haVersionOutsideAppMinorRangeDisablesRuntimeControls() throws {
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))

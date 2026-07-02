@@ -4945,6 +4945,27 @@ public final class DJConnectAppModel: ObservableObject {
             log(.warning, "Suppressed HTML response in Track Insight error")
             return localized(key: "appModel.no.connection.to.home.assistant")
         }
+        let normalized = text.lowercased()
+        if normalized.contains("no_track_playing")
+            || normalized.contains("no currently playing track")
+            || normalized.contains("no current track")
+            || normalized.contains("no track playing")
+            || normalized.contains("nothing is playing") {
+            return localized(key: "appModel.start.playback.before.opening.track.insight")
+        }
+        if normalized.contains("backend_unavailable")
+            || normalized.contains("playback_backend_unavailable")
+            || normalized.contains("music backend")
+            || normalized == "backend unavailable"
+            || normalized == "playback backend unavailable" {
+            return localized(key: "appModel.the.music.backend.in.home.assistant.is.not.available")
+        }
+        if normalized.contains("not_configured")
+            || normalized.contains("not configured")
+            || normalized.contains("setup flow")
+            || normalized.contains("config flow") {
+            return localized(key: "appModel.finish.the.djconnect.setup.in.home.assistant.before.using")
+        }
         return text
     }
 
