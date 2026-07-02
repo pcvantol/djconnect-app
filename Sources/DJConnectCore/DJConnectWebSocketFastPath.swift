@@ -41,12 +41,13 @@ public struct DJConnectFastPathDiagnostics: Equatable, Sendable {
 
 public protocol DJConnectWebSocketFastPathTransport: Sendable {
     var diagnostics: DJConnectFastPathDiagnostics { get async }
+    func prepare() async throws
     func supports(_ route: DJConnectFastPathRoute) async -> Bool
-    func command<T: Decodable & Sendable>(_ payload: DJConnectCommandPayload, token: String, responseType: T.Type) async throws -> T
-    func askDJMessage(_ payload: DJConnectAskDJRequest, token: String) async throws -> DJConnectAskDJMessageResponse
-    func askDJHistory(identity: DJConnectIdentity, sinceRevision: Int?, token: String) async throws -> DJConnectAskDJHistoryResponse
-    func clearAskDJHistory(identity: DJConnectIdentity, musicDNAKey: String?, token: String) async throws -> DJConnectAskDJHistoryResponse
-    func trackInsight(_ payload: DJConnectTrackInsightRequest, identity: DJConnectIdentity, token: String) async throws -> TrackInsight
+    func command<T: Decodable & Sendable>(_ payload: DJConnectCommandPayload, identity: DJConnectAPIIdentity, responseType: T.Type) async throws -> T
+    func askDJMessage(_ payload: DJConnectAskDJRequest, identity: DJConnectAPIIdentity) async throws -> DJConnectAskDJMessageResponse
+    func askDJHistory(identity: DJConnectAPIIdentity, sinceRevision: Int?) async throws -> DJConnectAskDJHistoryResponse
+    func clearAskDJHistory(identity: DJConnectAPIIdentity, musicDNAKey: String?) async throws -> DJConnectAskDJHistoryResponse
+    func trackInsight(_ payload: DJConnectTrackInsightRequest, identity: DJConnectAPIIdentity) async throws -> TrackInsight
 }
 
 public actor DJConnectHomeAssistantWebSocketFastPath: DJConnectWebSocketFastPathTransport {
@@ -83,34 +84,37 @@ public actor DJConnectHomeAssistantWebSocketFastPath: DJConnectWebSocketFastPath
         )
     }
 
+    public func prepare() async throws {
+        _ = try await ensureCapabilities()
+    }
+
     public func supports(_ route: DJConnectFastPathRoute) async -> Bool {
         commands.contains(route.rawValue)
     }
 
     public func command<T: Decodable & Sendable>(
         _ payload: DJConnectCommandPayload,
-        token: String,
+        identity: DJConnectAPIIdentity,
         responseType: T.Type
     ) async throws -> T {
         guard try await ensureCapabilities().contains(.command) else {
             throw DJConnectError.routeMissing(message: "WebSocket command capability unavailable")
         }
-        let request = DJConnectWebSocketCommandMessage(id: allocateID(), payload: payload, deviceToken: token)
+        let request = DJConnectWebSocketCommandMessage(id: allocateID(), identity: identity, payload: payload)
         return try await sendResult(request, timeout: Self.timeout(for: payload.command), responseType: T.self)
     }
 
-    public func askDJMessage(_ payload: DJConnectAskDJRequest, token: String) async throws -> DJConnectAskDJMessageResponse {
+    public func askDJMessage(_ payload: DJConnectAskDJRequest, identity: DJConnectAPIIdentity) async throws -> DJConnectAskDJMessageResponse {
         guard try await ensureCapabilities().contains(.askDJMessage) else {
             throw DJConnectError.routeMissing(message: "WebSocket Ask DJ capability unavailable")
         }
-        let request = DJConnectWebSocketAskDJMessage(id: allocateID(), payload: payload, deviceToken: token)
+        let request = DJConnectWebSocketAskDJMessage(id: allocateID(), identity: identity, payload: payload)
         return try await sendResult(request, timeout: 15, responseType: DJConnectAskDJMessageResponse.self)
     }
 
     public func askDJHistory(
-        identity: DJConnectIdentity,
-        sinceRevision: Int?,
-        token: String
+        identity: DJConnectAPIIdentity,
+        sinceRevision: Int?
     ) async throws -> DJConnectAskDJHistoryResponse {
         guard try await ensureCapabilities().contains(.askDJHistory) else {
             throw DJConnectError.routeMissing(message: "WebSocket Ask DJ history capability unavailable")
@@ -119,7 +123,6 @@ public actor DJConnectHomeAssistantWebSocketFastPath: DJConnectWebSocketFastPath
             id: allocateID(),
             type: DJConnectFastPathRoute.askDJHistory.rawValue,
             identity: identity,
-            deviceToken: token,
             sinceRevision: sinceRevision,
             musicDNAKey: nil
         )
@@ -127,9 +130,8 @@ public actor DJConnectHomeAssistantWebSocketFastPath: DJConnectWebSocketFastPath
     }
 
     public func clearAskDJHistory(
-        identity: DJConnectIdentity,
-        musicDNAKey: String?,
-        token: String
+        identity: DJConnectAPIIdentity,
+        musicDNAKey: String?
     ) async throws -> DJConnectAskDJHistoryResponse {
         guard try await ensureCapabilities().contains(.askDJHistoryClear) else {
             throw DJConnectError.routeMissing(message: "WebSocket Ask DJ clear-history capability unavailable")
@@ -138,7 +140,6 @@ public actor DJConnectHomeAssistantWebSocketFastPath: DJConnectWebSocketFastPath
             id: allocateID(),
             type: DJConnectFastPathRoute.askDJHistoryClear.rawValue,
             identity: identity,
-            deviceToken: token,
             sinceRevision: nil,
             musicDNAKey: musicDNAKey
         )
@@ -147,13 +148,12 @@ public actor DJConnectHomeAssistantWebSocketFastPath: DJConnectWebSocketFastPath
 
     public func trackInsight(
         _ payload: DJConnectTrackInsightRequest,
-        identity: DJConnectIdentity,
-        token: String
+        identity: DJConnectAPIIdentity
     ) async throws -> TrackInsight {
         guard try await ensureCapabilities().contains(.trackInsight) else {
             throw DJConnectError.routeMissing(message: "WebSocket Track Insight capability unavailable")
         }
-        let request = DJConnectWebSocketTrackInsightMessage(id: allocateID(), identity: identity, payload: payload, deviceToken: token)
+        let request = DJConnectWebSocketTrackInsightMessage(id: allocateID(), identity: identity, payload: payload)
         let response: TrackInsightEndpointResponse = try await sendResult(request, timeout: 15, responseType: TrackInsightEndpointResponse.self)
         guard response.success != false, let insight = response.trackInsightValue else {
             throw DJConnectError.trackInsightUnavailable(code: response.error, message: response.message)
@@ -404,23 +404,27 @@ private struct DJConnectWebSocketResultEnvelope<T: Decodable & Sendable>: Decoda
 private struct DJConnectWebSocketCommandMessage: Encodable {
     var id: Int
     var type = DJConnectFastPathRoute.command.rawValue
+    var identity: DJConnectAPIIdentity
+    var payload: DJConnectIdentifiedRequestPayload<DJConnectCommandPayload>
     var deviceID: String
     var clientType: DJConnectClientType
     var clientID: String
     var deviceName: String
-    var deviceToken: String
+    var deviceToken: String?
     var command: String
     var value: DJConnectCommandValue?
     var play: Bool?
     var language: String?
 
-    init(id: Int, payload: DJConnectCommandPayload, deviceToken: String) {
+    init(id: Int, identity: DJConnectAPIIdentity, payload: DJConnectCommandPayload) {
         self.id = id
+        self.identity = identity
+        self.payload = DJConnectIdentifiedRequestPayload(identity: identity, payload: payload, includeNestedPayload: false)
         deviceID = payload.deviceID
         clientType = payload.clientType
         clientID = payload.clientID
         deviceName = payload.deviceName
-        self.deviceToken = deviceToken
+        deviceToken = identity.deviceToken
         command = payload.command
         value = payload.value
         play = payload.play
@@ -430,6 +434,8 @@ private struct DJConnectWebSocketCommandMessage: Encodable {
     enum CodingKeys: String, CodingKey {
         case id
         case type
+        case identity
+        case payload
         case deviceID = "device_id"
         case clientType = "client_type"
         case clientID = "client_id"
@@ -445,11 +451,13 @@ private struct DJConnectWebSocketCommandMessage: Encodable {
 private struct DJConnectWebSocketAskDJMessage: Encodable {
     var id: Int
     var type = DJConnectFastPathRoute.askDJMessage.rawValue
+    var identity: DJConnectAPIIdentity
+    var payload: DJConnectIdentifiedRequestPayload<DJConnectAskDJRequest>
     var deviceID: String
     var clientType: DJConnectClientType
     var clientID: String
     var deviceName: String
-    var deviceToken: String
+    var deviceToken: String?
     var clientMessageID: String?
     var text: String
     var mood: Int?
@@ -457,13 +465,15 @@ private struct DJConnectWebSocketAskDJMessage: Encodable {
     var audioResponse: DJConnectAskDJRequest.AudioResponse?
     var language: String?
 
-    init(id: Int, payload: DJConnectAskDJRequest, deviceToken: String) {
+    init(id: Int, identity: DJConnectAPIIdentity, payload: DJConnectAskDJRequest) {
         self.id = id
+        self.identity = identity
+        self.payload = DJConnectIdentifiedRequestPayload(identity: identity, payload: payload, includeNestedPayload: false)
         deviceID = payload.deviceID
         clientType = payload.clientType
         clientID = payload.clientID
         deviceName = payload.deviceName
-        self.deviceToken = deviceToken
+        deviceToken = identity.deviceToken
         clientMessageID = payload.clientMessageID
         text = payload.text
         mood = payload.mood
@@ -475,6 +485,8 @@ private struct DJConnectWebSocketAskDJMessage: Encodable {
     enum CodingKeys: String, CodingKey {
         case id
         case type
+        case identity
+        case payload
         case deviceID = "device_id"
         case clientType = "client_type"
         case clientID = "client_id"
@@ -492,29 +504,33 @@ private struct DJConnectWebSocketAskDJMessage: Encodable {
 private struct DJConnectWebSocketAskDJHistoryMessage: Encodable {
     var id: Int
     var type: String
+    var identity: DJConnectAPIIdentity
+    var payload: DJConnectIdentifiedRequestPayload<DJConnectAskDJHistorySyncPayload>
     var deviceID: String
     var clientType: DJConnectClientType
     var clientID: String
     var deviceName: String
-    var deviceToken: String
+    var deviceToken: String?
     var sinceRevision: Int?
     var musicDNAKey: String?
 
     init(
         id: Int,
         type: String,
-        identity: DJConnectIdentity,
-        deviceToken: String,
+        identity: DJConnectAPIIdentity,
         sinceRevision: Int?,
         musicDNAKey: String?
     ) {
         self.id = id
         self.type = type
+        self.identity = identity
+        let syncPayload = DJConnectAskDJHistorySyncPayload(sinceRevision: sinceRevision, musicDNAKey: musicDNAKey)
+        payload = DJConnectIdentifiedRequestPayload(identity: identity, payload: syncPayload, includeNestedPayload: false)
         deviceID = identity.deviceID
         clientType = identity.clientType
         clientID = identity.deviceID
         deviceName = identity.deviceName
-        self.deviceToken = deviceToken
+        deviceToken = identity.deviceToken
         self.sinceRevision = sinceRevision
         self.musicDNAKey = musicDNAKey
     }
@@ -522,6 +538,8 @@ private struct DJConnectWebSocketAskDJHistoryMessage: Encodable {
     enum CodingKeys: String, CodingKey {
         case id
         case type
+        case identity
+        case payload
         case deviceID = "device_id"
         case clientType = "client_type"
         case clientID = "client_id"
@@ -532,58 +550,96 @@ private struct DJConnectWebSocketAskDJHistoryMessage: Encodable {
     }
 }
 
+private struct DJConnectAskDJHistorySyncPayload: Encodable {
+    var sinceRevision: Int?
+    var musicDNAKey: String?
+
+    enum CodingKeys: String, CodingKey {
+        case sinceRevision = "since_revision"
+        case musicDNAKey = "music_dna_key"
+    }
+}
+
 private struct DJConnectWebSocketTrackInsightMessage: Encodable {
     var id: Int
     var type = DJConnectFastPathRoute.trackInsight.rawValue
+    var identity: DJConnectAPIIdentity
+    var payload: DJConnectIdentifiedRequestPayload<DJConnectTrackInsightRequest>
     var deviceID: String
     var clientType: DJConnectClientType
     var clientID: String
     var deviceName: String
-    var deviceToken: String
+    var deviceToken: String?
     var title: String?
+    var trackName: String?
     var artist: String?
+    var artistName: String?
     var album: String?
+    var albumName: String?
+    var artworkURL: URL?
+    var durationMS: Int?
+    var progressMS: Int?
     var entityID: String?
     var playerID: String?
     var musicBackend: String?
     var locale: String?
     var forceRefresh: Bool
     var includeVisualProfile: Bool
+    var includeRawResponse: Bool
 
-    init(id: Int, identity: DJConnectIdentity, payload: DJConnectTrackInsightRequest, deviceToken: String) {
+    init(id: Int, identity: DJConnectAPIIdentity, payload: DJConnectTrackInsightRequest) {
+        let normalizedPayload = payload.normalizedForSend(identity: identity)
         self.id = id
+        self.identity = identity
+        self.payload = DJConnectIdentifiedRequestPayload(identity: identity, payload: normalizedPayload, includeNestedPayload: false)
         deviceID = identity.deviceID
         clientType = identity.clientType
         clientID = identity.deviceID
         deviceName = identity.deviceName
-        self.deviceToken = deviceToken
-        title = payload.title
-        artist = payload.artist
-        album = payload.album
-        entityID = payload.entityID
-        playerID = payload.playerID
-        musicBackend = payload.musicBackend
-        locale = payload.locale
-        forceRefresh = payload.forceRefresh
-        includeVisualProfile = payload.includeVisualProfile
+        deviceToken = identity.deviceToken
+        title = normalizedPayload.title
+        trackName = normalizedPayload.title
+        artist = normalizedPayload.artist
+        artistName = normalizedPayload.artist
+        album = normalizedPayload.album
+        albumName = normalizedPayload.album
+        artworkURL = normalizedPayload.artworkURL
+        durationMS = normalizedPayload.durationMS
+        progressMS = normalizedPayload.progressMS
+        entityID = normalizedPayload.entityID
+        playerID = normalizedPayload.playerID
+        musicBackend = normalizedPayload.musicBackend
+        locale = normalizedPayload.locale
+        forceRefresh = normalizedPayload.forceRefresh
+        includeVisualProfile = normalizedPayload.includeVisualProfile
+        includeRawResponse = normalizedPayload.includeRawResponse
     }
 
     enum CodingKeys: String, CodingKey {
         case id
         case type
+        case identity
+        case payload
         case deviceID = "device_id"
         case clientType = "client_type"
         case clientID = "client_id"
         case deviceName = "device_name"
         case deviceToken = "device_token"
         case title
+        case trackName = "track_name"
         case artist
+        case artistName = "artist_name"
         case album
+        case albumName = "album_name"
+        case artworkURL = "artwork_url"
+        case durationMS = "duration_ms"
+        case progressMS = "progress_ms"
         case entityID = "entity_id"
         case playerID = "player_id"
         case musicBackend = "music_backend"
         case locale
         case forceRefresh = "force_refresh"
         case includeVisualProfile = "include_visual_profile"
+        case includeRawResponse = "include_raw_response"
     }
 }

@@ -131,6 +131,91 @@ public struct DJConnectIdentity: Codable, Equatable, Sendable {
     }
 }
 
+public struct DJConnectAPIIdentity: Codable, Equatable, Sendable {
+    public var clientType: DJConnectClientType
+    public var clientID: String
+    public var deviceID: String
+    public var deviceName: String
+    public var deviceToken: String?
+
+    public init(identity: DJConnectIdentity, deviceToken: String? = nil) {
+        self.clientType = identity.clientType
+        self.clientID = identity.deviceID
+        self.deviceID = identity.deviceID
+        self.deviceName = identity.deviceName
+        self.deviceToken = deviceToken
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case clientType = "client_type"
+        case clientID = "client_id"
+        case deviceID = "device_id"
+        case deviceName = "device_name"
+        case deviceToken = "device_token"
+    }
+}
+
+public struct DJConnectIdentifiedRequestPayload<Payload: Encodable>: Encodable {
+    public var identity: DJConnectAPIIdentity
+    public var sourcePayload: Payload
+    public var includeNestedPayload: Bool
+
+    public init(identity: DJConnectAPIIdentity, payload: Payload, includeNestedPayload: Bool = true) {
+        self.identity = identity
+        self.sourcePayload = payload
+        self.includeNestedPayload = includeNestedPayload
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: DJConnectDynamicCodingKey.self)
+        try container.encode(identity, forKey: DJConnectDynamicCodingKey("identity"))
+        try container.encode(identity.clientType, forKey: DJConnectDynamicCodingKey("client_type"))
+        try container.encode(identity.clientID, forKey: DJConnectDynamicCodingKey("client_id"))
+        try container.encode(identity.deviceID, forKey: DJConnectDynamicCodingKey("device_id"))
+        try container.encode(identity.deviceName, forKey: DJConnectDynamicCodingKey("device_name"))
+        try container.encodeIfPresent(identity.deviceToken, forKey: DJConnectDynamicCodingKey("device_token"))
+
+        let payloadFields = try Self.payloadFields(from: sourcePayload)
+        for (key, value) in payloadFields where key != "identity" && key != "payload" {
+            try container.encode(value, forKey: DJConnectDynamicCodingKey(key))
+        }
+        if includeNestedPayload {
+            try container.encode(
+                DJConnectIdentifiedRequestPayload(identity: identity, payload: sourcePayload, includeNestedPayload: false),
+                forKey: DJConnectDynamicCodingKey("payload")
+            )
+        }
+    }
+
+    private static func payloadFields(from payload: Payload) throws -> [String: DJConnectJSONValue] {
+        let data = try JSONEncoder().encode(payload)
+        let decoded = try JSONDecoder().decode(DJConnectJSONValue.self, from: data)
+        guard case let .object(fields) = decoded else {
+            return ["value": decoded]
+        }
+        return fields
+    }
+}
+
+public struct DJConnectDynamicCodingKey: CodingKey, Hashable, Sendable {
+    public var stringValue: String
+    public var intValue: Int?
+
+    public init(_ stringValue: String) {
+        self.stringValue = stringValue
+        self.intValue = nil
+    }
+
+    public init?(stringValue: String) {
+        self.init(stringValue)
+    }
+
+    public init?(intValue: Int) {
+        self.stringValue = "\(intValue)"
+        self.intValue = intValue
+    }
+}
+
 public struct DJConnectPairingPayload: Codable, Equatable, Sendable {
     public var deviceID: String
     public var deviceName: String
@@ -958,6 +1043,8 @@ public struct DJConnectTrackInsightWidgetSnapshot: Codable, Equatable, Sendable 
     public var musicDNAMatchPercent: Int?
     public var progress: TimeInterval?
     public var duration: TimeInterval?
+    public var artworkURL: URL?
+    public var artworkData: Data?
     public var summary: String
 
     public init(
@@ -975,6 +1062,8 @@ public struct DJConnectTrackInsightWidgetSnapshot: Codable, Equatable, Sendable 
         musicDNAMatchPercent: Int? = nil,
         progress: TimeInterval? = nil,
         duration: TimeInterval? = nil,
+        artworkURL: URL? = nil,
+        artworkData: Data? = nil,
         summary: String
     ) {
         self.updatedAt = updatedAt
@@ -991,6 +1080,8 @@ public struct DJConnectTrackInsightWidgetSnapshot: Codable, Equatable, Sendable 
         self.musicDNAMatchPercent = musicDNAMatchPercent.map { max(0, min(100, $0)) }
         self.progress = Self.normalizedTime(progress)
         self.duration = Self.normalizedTime(duration)
+        self.artworkURL = artworkURL
+        self.artworkData = artworkData
         self.summary = Self.sanitizedPublic(summary, maxLength: 180) ?? ""
     }
 
@@ -1010,6 +1101,7 @@ public struct DJConnectTrackInsightWidgetSnapshot: Codable, Equatable, Sendable 
             musicDNAMatchPercent: insight.musicDNAMatchPercent,
             progress: insight.progress,
             duration: insight.duration,
+            artworkURL: insight.artwork,
             summary: insight.summary
         )
     }
@@ -1111,6 +1203,7 @@ public struct DJConnectNowPlayingWidgetSnapshot: Codable, Equatable, Sendable {
     public var title: String
     public var artist: String
     public var artworkURL: URL?
+    public var artworkData: Data?
     public var progressMS: Int?
     public var durationMS: Int?
     public var isPlaying: Bool
@@ -1121,6 +1214,7 @@ public struct DJConnectNowPlayingWidgetSnapshot: Codable, Equatable, Sendable {
         title: String,
         artist: String,
         artworkURL: URL? = nil,
+        artworkData: Data? = nil,
         progressMS: Int? = nil,
         durationMS: Int? = nil,
         isPlaying: Bool,
@@ -1130,6 +1224,7 @@ public struct DJConnectNowPlayingWidgetSnapshot: Codable, Equatable, Sendable {
         self.title = DJConnectTrackInsightWidgetSnapshot.sanitizedPublic(title, maxLength: 96) ?? ""
         self.artist = DJConnectTrackInsightWidgetSnapshot.sanitizedPublic(artist, maxLength: 96) ?? ""
         self.artworkURL = artworkURL
+        self.artworkData = artworkData
         self.progressMS = progressMS.map { max(0, $0) }
         self.durationMS = durationMS.map { max(0, $0) }
         self.isPlaying = isPlaying
@@ -1176,6 +1271,7 @@ public struct DJConnectQueueWidgetItem: Codable, Equatable, Sendable, Identifiab
     public var album: String?
     public var durationMS: Int?
     public var artworkURL: URL?
+    public var artworkData: Data?
 
     public init(
         id: String,
@@ -1183,7 +1279,8 @@ public struct DJConnectQueueWidgetItem: Codable, Equatable, Sendable, Identifiab
         artist: String? = nil,
         album: String? = nil,
         durationMS: Int? = nil,
-        artworkURL: URL? = nil
+        artworkURL: URL? = nil,
+        artworkData: Data? = nil
     ) {
         self.id = DJConnectTrackInsightWidgetSnapshot.sanitizedPublic(id, maxLength: 96) ?? title
         self.title = DJConnectTrackInsightWidgetSnapshot.sanitizedPublic(title, maxLength: 96) ?? ""
@@ -1191,6 +1288,7 @@ public struct DJConnectQueueWidgetItem: Codable, Equatable, Sendable, Identifiab
         self.album = DJConnectTrackInsightWidgetSnapshot.sanitizedPublic(album, maxLength: 96)
         self.durationMS = durationMS.map { max(0, $0) }
         self.artworkURL = artworkURL
+        self.artworkData = artworkData
     }
 
     public init(item: DJConnectQueueItem) {
@@ -1244,12 +1342,14 @@ public struct DJConnectPlaylistWidgetItem: Codable, Equatable, Sendable, Identif
     public var name: String
     public var subtitle: String?
     public var imageURL: URL?
+    public var imageData: Data?
 
-    public init(id: String, name: String, subtitle: String? = nil, imageURL: URL? = nil) {
+    public init(id: String, name: String, subtitle: String? = nil, imageURL: URL? = nil, imageData: Data? = nil) {
         self.id = DJConnectTrackInsightWidgetSnapshot.sanitizedPublic(id, maxLength: 96) ?? name
         self.name = DJConnectTrackInsightWidgetSnapshot.sanitizedPublic(name, maxLength: 96) ?? ""
         self.subtitle = DJConnectTrackInsightWidgetSnapshot.sanitizedPublic(subtitle, maxLength: 96)
         self.imageURL = imageURL
+        self.imageData = imageData
     }
 
     public init(playlist: DJConnectPlaylist) {
@@ -1814,6 +1914,9 @@ public struct DJConnectTrackInsightRequest: Codable, Equatable, Sendable {
     public var title: String?
     public var artist: String?
     public var album: String?
+    public var artworkURL: URL?
+    public var durationMS: Int?
+    public var progressMS: Int?
     public var entityID: String?
     public var playerID: String?
     public var musicBackend: String?
@@ -1830,6 +1933,9 @@ public struct DJConnectTrackInsightRequest: Codable, Equatable, Sendable {
         title: String? = nil,
         artist: String? = nil,
         album: String? = nil,
+        artworkURL: URL? = nil,
+        durationMS: Int? = nil,
+        progressMS: Int? = nil,
         entityID: String? = nil,
         playerID: String? = nil,
         musicBackend: String? = nil,
@@ -1845,6 +1951,9 @@ public struct DJConnectTrackInsightRequest: Codable, Equatable, Sendable {
         self.title = title
         self.artist = artist
         self.album = album
+        self.artworkURL = artworkURL
+        self.durationMS = durationMS.map { max(0, $0) }
+        self.progressMS = progressMS.map { max(0, $0) }
         self.entityID = entityID
         self.playerID = playerID
         self.musicBackend = musicBackend
@@ -1864,6 +1973,22 @@ public struct DJConnectTrackInsightRequest: Codable, Equatable, Sendable {
         copy.title = copy.title?.nilIfBlank
         copy.artist = copy.artist?.nilIfBlank
         copy.album = copy.album?.nilIfBlank
+        copy.durationMS = copy.durationMS.map { max(0, $0) }
+        copy.progressMS = copy.progressMS.map { max(0, $0) }
+        return copy
+    }
+
+    public func normalizedForSend(identity: DJConnectAPIIdentity) -> DJConnectTrackInsightRequest {
+        var copy = self
+        copy.deviceID = copy.deviceID?.nilIfBlank ?? identity.deviceID
+        copy.clientID = copy.clientID?.nilIfBlank ?? identity.clientID
+        copy.deviceName = copy.deviceName?.nilIfBlank ?? identity.deviceName
+        copy.clientType = copy.clientType?.nilIfBlank ?? identity.clientType.rawValue
+        copy.title = copy.title?.nilIfBlank
+        copy.artist = copy.artist?.nilIfBlank
+        copy.album = copy.album?.nilIfBlank
+        copy.durationMS = copy.durationMS.map { max(0, $0) }
+        copy.progressMS = copy.progressMS.map { max(0, $0) }
         return copy
     }
 
@@ -1872,8 +1997,14 @@ public struct DJConnectTrackInsightRequest: Codable, Equatable, Sendable {
         case clientID = "client_id"
         case deviceName = "device_name"
         case title
+        case trackName = "track_name"
         case artist
+        case artistName = "artist_name"
         case album
+        case albumName = "album_name"
+        case artworkURL = "artwork_url"
+        case durationMS = "duration_ms"
+        case progressMS = "progress_ms"
         case entityID = "entity_id"
         case playerID = "player_id"
         case musicBackend = "music_backend"
@@ -1882,6 +2013,54 @@ public struct DJConnectTrackInsightRequest: Codable, Equatable, Sendable {
         case locale
         case includeVisualProfile = "include_visual_profile"
         case includeRawResponse = "include_raw_response"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        deviceID = try container.decodeIfPresent(String.self, forKey: .deviceID)
+        clientID = try container.decodeIfPresent(String.self, forKey: .clientID)
+        deviceName = try container.decodeIfPresent(String.self, forKey: .deviceName)
+        title = try container.decodeIfPresent(String.self, forKey: .title)
+            ?? container.decodeIfPresent(String.self, forKey: .trackName)
+        artist = try container.decodeIfPresent(String.self, forKey: .artist)
+            ?? container.decodeIfPresent(String.self, forKey: .artistName)
+        album = try container.decodeIfPresent(String.self, forKey: .album)
+            ?? container.decodeIfPresent(String.self, forKey: .albumName)
+        artworkURL = try container.decodeIfPresent(URL.self, forKey: .artworkURL)
+        durationMS = try container.decodeIfPresent(Int.self, forKey: .durationMS).map { max(0, $0) }
+        progressMS = try container.decodeIfPresent(Int.self, forKey: .progressMS).map { max(0, $0) }
+        entityID = try container.decodeIfPresent(String.self, forKey: .entityID)
+        playerID = try container.decodeIfPresent(String.self, forKey: .playerID)
+        musicBackend = try container.decodeIfPresent(String.self, forKey: .musicBackend)
+        clientType = try container.decodeIfPresent(String.self, forKey: .clientType)
+        forceRefresh = try container.decodeIfPresent(Bool.self, forKey: .forceRefresh) ?? false
+        locale = try container.decodeIfPresent(String.self, forKey: .locale)
+        includeVisualProfile = try container.decodeIfPresent(Bool.self, forKey: .includeVisualProfile) ?? true
+        includeRawResponse = try container.decodeIfPresent(Bool.self, forKey: .includeRawResponse) ?? true
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encodeIfPresent(deviceID, forKey: .deviceID)
+        try container.encodeIfPresent(clientID, forKey: .clientID)
+        try container.encodeIfPresent(deviceName, forKey: .deviceName)
+        try container.encodeIfPresent(title, forKey: .title)
+        try container.encodeIfPresent(title, forKey: .trackName)
+        try container.encodeIfPresent(artist, forKey: .artist)
+        try container.encodeIfPresent(artist, forKey: .artistName)
+        try container.encodeIfPresent(album, forKey: .album)
+        try container.encodeIfPresent(album, forKey: .albumName)
+        try container.encodeIfPresent(artworkURL, forKey: .artworkURL)
+        try container.encodeIfPresent(durationMS, forKey: .durationMS)
+        try container.encodeIfPresent(progressMS, forKey: .progressMS)
+        try container.encodeIfPresent(entityID, forKey: .entityID)
+        try container.encodeIfPresent(playerID, forKey: .playerID)
+        try container.encodeIfPresent(musicBackend, forKey: .musicBackend)
+        try container.encodeIfPresent(clientType, forKey: .clientType)
+        try container.encode(forceRefresh, forKey: .forceRefresh)
+        try container.encodeIfPresent(locale, forKey: .locale)
+        try container.encode(includeVisualProfile, forKey: .includeVisualProfile)
+        try container.encode(includeRawResponse, forKey: .includeRawResponse)
     }
 }
 

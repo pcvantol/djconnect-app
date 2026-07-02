@@ -3,8 +3,14 @@ import SwiftUI
 import WatchKit
 
 private let watchAccentPurple = Color(red: 0.84, green: 0.18, blue: 1.0)
+private let watchAccentBlue = Color(red: 0.12, green: 0.45, blue: 1.0)
 private let watchAccentGreen = Color(red: 0.20, green: 0.86, blue: 0.48)
 private let watchDeepNavy = Color(red: 0.02, green: 0.03, blue: 0.09)
+private let watchIconGradient = LinearGradient(
+    colors: [watchAccentBlue, watchAccentPurple],
+    startPoint: .topLeading,
+    endPoint: .bottomTrailing
+)
 
 private func watchLocalizedKey(_ language: String, _ key: String, arguments: CVarArg...) -> String {
     String(
@@ -699,7 +705,7 @@ struct DJConnectWatchRootView: View {
                             }
                             Spacer(minLength: 0)
                             Image(systemName: "waveform")
-                                .foregroundStyle(watchAccentPurple)
+                                .foregroundStyle(watchIconGradient)
                         }
 
                         DJConnectWatchTrackInsightVisualizer(
@@ -912,7 +918,7 @@ struct DJConnectWatchRootView: View {
                         }
                         Image(systemName: "waveform.path.ecg")
                             .font(.system(size: 28, weight: .semibold))
-                            .foregroundStyle(.white.opacity(0.88))
+                            .foregroundStyle(watchIconGradient)
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
 
@@ -1771,13 +1777,7 @@ private struct DJConnectWatchFeedbackView: View {
                 VStack(spacing: 10) {
                     Image(systemName: "bubble.left.and.bubble.right")
                         .font(.system(size: 32, weight: .semibold))
-                        .foregroundStyle(
-                            LinearGradient(
-                                colors: [watchAccentPurple, watchAccentPurple],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                        )
+                        .foregroundStyle(watchIconGradient)
 
                     Text(watchLocalizedKey(model.language, "watch.share.feedback"))
                         .font(.headline.weight(.bold))

@@ -20,11 +20,15 @@ public enum DJConnectLocalization {
 
     private static func localizedFormat(key: String, language: String, arguments: [CVarArg]) -> String {
         let code = supportedLanguageCode(language)
-        let format = resourceValue(forKey: key, languageCode: code) ?? key
+        let format = normalizeEscapedNewlines(resourceValue(forKey: key, languageCode: code) ?? key)
         guard !arguments.isEmpty else {
             return format
         }
         return String(format: format, locale: Locale(identifier: code), arguments: arguments)
+    }
+
+    private static func normalizeEscapedNewlines(_ value: String) -> String {
+        value.replacingOccurrences(of: "\\n", with: "\n")
     }
 
     public static func preferredLanguageCode(_ preferredLanguages: [String] = Locale.preferredLanguages) -> String {

@@ -613,7 +613,7 @@
 "appModel.update.the.djconnect.app.or.home.assistant.integration" = "Update the DJConnect app or Home Assistant integration.";
 "appModel.djconnect.route.missing.in.home.assistant.check.the.integration" = "DJConnect route missing in Home Assistant. Check the integration setup.";
 "appModel.not.connected.to.home.assistant" = "Not connected to Home Assistant.";
-"appModel.missing.djconnect.bearer.token.reset.pairing.to.set.up" = "Missing DJConnect bearer token. Reset pairing to set up again.";
+"appModel.missing.djconnect.bearer.token.reset.pairing.to.set.up" = "Pairing was not completed. Scan the QR code again or enter the pair code.";
 "appModel.pairing.is.stale.open.home.assistant.setup.and.enter" = "Pairing is stale. Open Home Assistant setup and enter the new pair code here.";
 "appModel.no.connection.to.home.assistant" = "Sin conexion con Home Assistant";
 "appModel.home.assistant.is.unreachable" = "Home Assistant no esta disponible.";
@@ -718,7 +718,7 @@
 "ui.future.timeline.taste.evolution.artist.affinity.mood.shifts.year.in" = "Future timeline: taste evolution, artist affinity, mood shifts, Year in Music and compatibility scores.";
 "ui.this.mp4.is.played.through.avplayer.use.the.airplay.control" = "This MP4 is played through AVPlayer. Use the AirPlay control above to send the active VibeCast video route to a display.";
 "ui.see.what.makes.the.current.track.feel.the.way.it" = "See what makes the current track feel the way it does.";
-"ui.playback.is.unavailable.ncheck.the.spotify.authorization.in.home.assistant" = "Playback is unavailable\\nCheck the Spotify authorization in Home Assistant";
+"ui.playback.is.unavailable.ncheck.the.spotify.authorization.in.home.assistant" = "Playback is unavailable\nCheck the Spotify authorization in Home Assistant";
 "ui.sends.the.current.track.to.the.backend.for.analysis.and" = "Sends the current track to the backend for analysis and opens Track Insight.";
 "ui.repeat.value.click.for.value" = "Repetir: %@. Toca para %@.";
 "ui.this.clears.the.ask.dj.chat.history.on.this.home" = "This clears the Ask DJ chat history on this Home Assistant account.";
@@ -797,6 +797,7 @@
 "widget.track.insight.description" = "Visualizacion de DJConnect Track Insight para tu vibra actual.";
 "widget.ask.dj.description" = "Widget DJConnect Ask DJ para preguntas rapidas de musica y contexto de vibra.";
 "widget.ask.dj.placeholder.response" = "Pregunta por la vibra, descubre por que funciona una cancion o deja que DJConnect sugiera lo siguiente.";
+"widget.track.insight.placeholder.summary" = "Muestra tempo, energia y ambiente de la cancion actual de un vistazo.";
 "widget.private.on.device.music.dna" = "Privado - En el dispositivo - Music DNA";
 "widget.djconnect.ask.dj" = "DJConnect Ask DJ";
 "watch.complication.djconnect.description" = "Abre DJConnect desde la esfera.";

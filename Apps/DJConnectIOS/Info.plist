@@ -84,6 +84,16 @@
 			<key>UIApplicationShortcutItemType</key>
 			<string>dev.djconnect.action.track-insight</string>
 		</dict>
+		<dict>
+			<key>UIApplicationShortcutItemIconSymbolName</key>
+			<string>music.note.list</string>
+			<key>UIApplicationShortcutItemSubtitle</key>
+			<string>Bekijk komende tracks</string>
+			<key>UIApplicationShortcutItemTitle</key>
+			<string>Wachtrij</string>
+			<key>UIApplicationShortcutItemType</key>
+			<string>dev.djconnect.action.queue</string>
+		</dict>
 	</array>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>

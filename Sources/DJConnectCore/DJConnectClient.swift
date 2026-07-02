@@ -1,5 +1,17 @@
 import Foundation
 
+public struct DJConnectAPIFailureLogDetails: Equatable, Sendable {
+    public var route: String
+    public var httpStatus: Int?
+    public var websocketCode: String?
+    public var serverError: String
+    public var serverMessage: String?
+    public var identityPresent: Bool
+    public var tokenPresent: Bool
+    public var clientType: String
+    public var redactedClientID: String
+}
+
 public final class DJConnectClient: Sendable {
     public let baseURL: URL
     public let identity: DJConnectIdentity
@@ -9,6 +21,7 @@ public final class DJConnectClient: Sendable {
     private let encoder: JSONEncoder
     private let decoder: JSONDecoder
     private let responseLogger: (@Sendable (_ requestSummary: String, _ statusCode: Int) -> Void)?
+    private let failureLogger: (@Sendable (_ details: DJConnectAPIFailureLogDetails) -> Void)?
     private let webSocketFastPath: (any DJConnectWebSocketFastPathTransport)?
 
     public init(
@@ -17,7 +30,8 @@ public final class DJConnectClient: Sendable {
         tokenStore: DJConnectTokenStore,
         session: URLSession = .shared,
         webSocketFastPath: (any DJConnectWebSocketFastPathTransport)? = nil,
-        responseLogger: (@Sendable (_ requestSummary: String, _ statusCode: Int) -> Void)? = nil
+        responseLogger: (@Sendable (_ requestSummary: String, _ statusCode: Int) -> Void)? = nil,
+        failureLogger: (@Sendable (_ details: DJConnectAPIFailureLogDetails) -> Void)? = nil
     ) {
         self.baseURL = baseURL
         self.identity = identity
@@ -27,6 +41,7 @@ public final class DJConnectClient: Sendable {
         self.decoder = JSONDecoder()
         self.webSocketFastPath = webSocketFastPath
         self.responseLogger = responseLogger
+        self.failureLogger = failureLogger
     }
 
     public func postStatus(_ payload: DJConnectStatusPayload) async throws -> DJConnectEnvelope<DJConnectPlayback> {
@@ -127,6 +142,10 @@ public final class DJConnectClient: Sendable {
         }
     }
 
+    public func prepareFastPath() async throws {
+        try await webSocketFastPath?.prepare()
+    }
+
     public func registerPushNotifications(_ payload: DJConnectPushRegistrationRequest) async throws -> DJConnectCommandResponse {
         let request = try pushRegisterRequest(payload)
         return try await decodedResponse(for: request)
@@ -153,7 +172,7 @@ public final class DJConnectClient: Sendable {
     }
 
     public func pairingRequest(_ payload: DJConnectPairingPayload) throws -> URLRequest {
-        guard Self.deviceID(payload.deviceID, matches: payload.clientType) else {
+        guard Self.deviceID(payload.deviceID, matches: payload.clientType, allowLegacyRaspberryPiPrefix: false) else {
             throw DJConnectError.invalidConfiguration("DJConnect pairing identity mismatch: device_id prefix does not match client_type.")
         }
         var request = URLRequest(url: endpoint(path: "/api/djconnect/pair"))
@@ -167,6 +186,14 @@ public final class DJConnectClient: Sendable {
     }
 
     private static func deviceID(_ deviceID: String, matches clientType: DJConnectClientType) -> Bool {
+        Self.deviceID(deviceID, matches: clientType, allowLegacyRaspberryPiPrefix: false)
+    }
+
+    private static func deviceID(
+        _ deviceID: String,
+        matches clientType: DJConnectClientType,
+        allowLegacyRaspberryPiPrefix: Bool
+    ) -> Bool {
         return switch clientType {
         case .ios:
             deviceID.hasPrefix("djconnect-ios-")
@@ -179,7 +206,8 @@ public final class DJConnectClient: Sendable {
         case .esp32:
             deviceID.hasPrefix("djconnect-esp32-")
         case .raspberryPi:
-            deviceID.hasPrefix("djconnect-rpi-") || deviceID.hasPrefix("djconnect-raspberry-pi-")
+            deviceID.hasPrefix("djconnect-raspberry-pi-")
+                || (allowLegacyRaspberryPiPrefix && deviceID.hasPrefix("djconnect-rpi-"))
         }
     }
 
@@ -209,11 +237,10 @@ public final class DJConnectClient: Sendable {
     }
 
     public func clearAskDJHistoryRequest(musicDNAKey: String? = nil) throws -> URLRequest {
-        var request = try authenticatedRequest(path: "/api/djconnect/ask_dj/history/clear")
-        request.httpMethod = "POST"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.httpBody = try encoder.encode(DJConnectAskDJClearHistoryRequest(identity: identity, musicDNAKey: musicDNAKey))
-        return request
+        try jsonRequest(
+            path: "/api/djconnect/ask_dj/history/clear",
+            payload: DJConnectAskDJClearHistoryRequest(identity: identity, musicDNAKey: musicDNAKey)
+        )
     }
 
     public func musicDNAProfileRequest() throws -> URLRequest {
@@ -367,6 +394,7 @@ public final class DJConnectClient: Sendable {
         responseLogger?(Self.requestSummary(request), httpResponse.statusCode)
 
         if let error = classify(statusCode: httpResponse.statusCode, body: data) {
+            logAPIFailure(request: request, statusCode: httpResponse.statusCode, body: data, error: error)
             throw error
         }
 
@@ -383,31 +411,32 @@ public final class DJConnectClient: Sendable {
 
     private func webSocketCommandIfSupported<T: Decodable & Sendable>(_ payload: DJConnectCommandPayload) async throws -> T? {
         try await webSocketFastPathResult { fastPath, token in
-            try await fastPath.command(payload, token: token, responseType: T.self)
+            try await fastPath.command(payload, identity: makeDJConnectIdentity(deviceToken: token), responseType: T.self)
         }
     }
 
     private func webSocketAskDJMessageIfSupported(_ payload: DJConnectAskDJRequest) async throws -> DJConnectAskDJMessageResponse? {
         try await webSocketFastPathResult { fastPath, token in
-            try await fastPath.askDJMessage(payload, token: token)
+            try await fastPath.askDJMessage(payload, identity: makeDJConnectIdentity(deviceToken: token))
         }
     }
 
     private func webSocketAskDJHistoryIfSupported(sinceRevision: Int?) async throws -> DJConnectAskDJHistoryResponse? {
         try await webSocketFastPathResult { fastPath, token in
-            try await fastPath.askDJHistory(identity: identity, sinceRevision: sinceRevision, token: token)
+            try await fastPath.askDJHistory(identity: makeDJConnectIdentity(deviceToken: token), sinceRevision: sinceRevision)
         }
     }
 
     private func webSocketClearAskDJHistoryIfSupported(musicDNAKey: String?) async throws -> DJConnectAskDJHistoryResponse? {
         try await webSocketFastPathResult { fastPath, token in
-            try await fastPath.clearAskDJHistory(identity: identity, musicDNAKey: musicDNAKey, token: token)
+            try await fastPath.clearAskDJHistory(identity: makeDJConnectIdentity(deviceToken: token), musicDNAKey: musicDNAKey)
         }
     }
 
     private func webSocketTrackInsightIfSupported(_ payload: DJConnectTrackInsightRequest) async throws -> TrackInsight? {
-        try await webSocketFastPathResult { fastPath, token in
-            try await fastPath.trackInsight(payload, identity: identity, token: token)
+        let normalizedPayload = payload.normalizedForSend(identity: identity)
+        return try await webSocketFastPathResult { fastPath, token in
+            try await fastPath.trackInsight(normalizedPayload, identity: makeDJConnectIdentity(deviceToken: token))
         }
     }
 
@@ -425,10 +454,12 @@ public final class DJConnectClient: Sendable {
     }
 
     private func jsonRequest<T: Encodable>(path: String, payload: T) throws -> URLRequest {
-        var request = try authenticatedRequest(path: path)
+        let token = try loadedToken()
+        let apiIdentity = try makeDJConnectIdentity(deviceToken: token)
+        var request = makeAuthenticatedRequest(url: endpoint(path: path), token: token)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.httpBody = try encoder.encode(payload)
+        request.httpBody = try encoder.encode(DJConnectIdentifiedRequestPayload(identity: apiIdentity, payload: payload))
         return request
     }
 
@@ -438,11 +469,25 @@ public final class DJConnectClient: Sendable {
 
     private func authenticatedRequest(url: URL) throws -> URLRequest {
         let token = try loadedToken()
+        _ = try makeDJConnectIdentity(deviceToken: token)
+        return makeAuthenticatedRequest(url: url, token: token)
+    }
 
+    public func makeDJConnectIdentity(deviceToken: String? = nil) throws -> DJConnectAPIIdentity {
+        guard Self.deviceID(identity.deviceID, matches: identity.clientType, allowLegacyRaspberryPiPrefix: false) else {
+            throw DJConnectError.invalidConfiguration("DJConnect identity mismatch: device_id prefix does not match client_type.")
+        }
+        return DJConnectAPIIdentity(identity: identity, deviceToken: deviceToken)
+    }
+
+    private func makeAuthenticatedRequest(url: URL, token: String) -> URLRequest {
         var request = URLRequest(url: url)
         request.timeoutInterval = 10
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         request.setValue(identity.deviceID, forHTTPHeaderField: "X-DJConnect-Device-ID")
+        request.setValue(identity.deviceID, forHTTPHeaderField: "X-DJConnect-Client-ID")
+        request.setValue(identity.clientType.rawValue, forHTTPHeaderField: "X-DJConnect-Client-Type")
+        request.setValue(identity.deviceName, forHTTPHeaderField: "X-DJConnect-Device-Name")
         return request
     }
 
@@ -453,6 +498,24 @@ public final class DJConnectClient: Sendable {
         return token
     }
 
+    private func logAPIFailure(request: URLRequest, statusCode: Int, body: Data, error: DJConnectError) {
+        guard let failureLogger else {
+            return
+        }
+        let envelope = try? decoder.decode(DJConnectErrorEnvelope.self, from: body)
+        failureLogger(DJConnectAPIFailureLogDetails(
+            route: Self.requestSummary(request),
+            httpStatus: statusCode,
+            websocketCode: nil,
+            serverError: envelope?.error ?? Self.errorCode(for: error),
+            serverMessage: envelope?.message ?? Self.redactedResponseBodyMessage(from: body),
+            identityPresent: true,
+            tokenPresent: request.value(forHTTPHeaderField: "Authorization")?.isEmpty == false,
+            clientType: identity.clientType.rawValue,
+            redactedClientID: Self.redactedIdentifier(identity.deviceID)
+        ))
+    }
+
     private func endpoint(path: String) -> URL {
         baseURL.appendingPathComponent(path.trimmingCharacters(in: CharacterSet(charactersIn: "/")))
     }
@@ -461,6 +524,47 @@ public final class DJConnectClient: Sendable {
         let method = request.httpMethod ?? "GET"
         let path = request.url?.path.isEmpty == false ? request.url?.path ?? "/" : "/"
         return "\(method) \(path)"
+    }
+
+    private static func errorCode(for error: DJConnectError) -> String {
+        switch error {
+        case .backendUnavailable:
+            return "backend_unavailable"
+        case .authStale:
+            return "auth_stale"
+        case .routeMissing:
+            return "route_missing"
+        case .versionMismatch:
+            return "version_mismatch"
+        case .notConfigured:
+            return "not_configured"
+        case .server:
+            return "server"
+        case .decodingFailed:
+            return "decoding_failed"
+        case .network:
+            return "network"
+        case .invalidResponse:
+            return "invalid_response"
+        case .invalidConfiguration:
+            return "invalid_configuration"
+        case .missingToken:
+            return "missing_token"
+        case .pairingFailed:
+            return "pairing_failed"
+        case .clientTypeMismatch:
+            return "client_type_mismatch"
+        case let .trackInsightUnavailable(code, _):
+            return code ?? "track_insight_unavailable"
+        }
+    }
+
+    private static func redactedIdentifier(_ value: String) -> String {
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed.count > 8 else {
+            return trimmed.isEmpty ? "missing" : "[redacted]"
+        }
+        return "\(trimmed.prefix(18))...[redacted]"
     }
 
     private static func decodingFailureMessage(error: Error, body: Data) -> String {

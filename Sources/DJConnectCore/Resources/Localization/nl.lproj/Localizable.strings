@@ -613,7 +613,7 @@
 "appModel.update.the.djconnect.app.or.home.assistant.integration" = "Werk de DJConnect app of Home Assistant-integratie bij.";
 "appModel.djconnect.route.missing.in.home.assistant.check.the.integration" = "DJConnect route ontbreekt in Home Assistant. Controleer de integratie.";
 "appModel.not.connected.to.home.assistant" = "Niet gekoppeld aan Home Assistant.";
-"appModel.missing.djconnect.bearer.token.reset.pairing.to.set.up" = "DJConnect bearer-token ontbreekt. Reset de pairing om opnieuw te koppelen.";
+"appModel.missing.djconnect.bearer.token.reset.pairing.to.set.up" = "Koppeling niet voltooid. Scan de QR-code opnieuw of vul de koppelcode in.";
 "appModel.pairing.is.stale.open.home.assistant.setup.and.enter" = "Pairing is verlopen. Open Home Assistant setup en vul de nieuwe koppelcode hier in.";
 "appModel.no.connection.to.home.assistant" = "Geen verbinding met Home Assistant";
 "appModel.home.assistant.is.unreachable" = "Home Assistant is niet bereikbaar.";
@@ -718,7 +718,7 @@
 "ui.future.timeline.taste.evolution.artist.affinity.mood.shifts.year.in" = "Toekomstige tijdlijn: smaakontwikkeling, artiest-affiniteit, mood-verschuivingen, Year in Music en compatibility scores.";
 "ui.this.mp4.is.played.through.avplayer.use.the.airplay.control" = "Deze MP4 speelt via AVPlayer. Gebruik de AirPlay-knop hierboven om de actieve VibeCast-videoroute naar een scherm te sturen.";
 "ui.see.what.makes.the.current.track.feel.the.way.it" = "Ontdek wat dit nummer zijn gevoel geeft.";
-"ui.playback.is.unavailable.ncheck.the.spotify.authorization.in.home.assistant" = "Afspelen niet beschikbaar\\nControleer de Spotify autorisatie in Home Assistant";
+"ui.playback.is.unavailable.ncheck.the.spotify.authorization.in.home.assistant" = "Afspelen niet beschikbaar\nControleer de Spotify autorisatie in Home Assistant";
 "ui.sends.the.current.track.to.the.backend.for.analysis.and" = "Stuurt het huidige nummer naar de backend voor analyse en opent Track Insight.";
 "ui.repeat.value.click.for.value" = "Herhaal: %@. Klik voor %@.";
 "ui.this.clears.the.ask.dj.chat.history.on.this.home" = "Dit wist de Ask DJ chatgeschiedenis voor dit Home Assistant-account.";
@@ -797,6 +797,7 @@
 "widget.track.insight.description" = "DJConnect Track Insight-visualisatie voor je huidige vibe.";
 "widget.ask.dj.description" = "DJConnect Ask DJ-widget voor snelle muziekvragen en vibe-context.";
 "widget.ask.dj.placeholder.response" = "Vraag om de vibe, ontdek waarom een track werkt of laat DJConnect voorstellen wat hierna past.";
+"widget.track.insight.placeholder.summary" = "Laat tempo, energie en sfeer van de huidige track in een oogopslag zien.";
 "widget.private.on.device.music.dna" = "Prive - Op apparaat - Music DNA";
 "widget.djconnect.ask.dj" = "DJConnect Ask DJ";
 "watch.complication.djconnect.description" = "Open DJConnect vanaf je wijzerplaat.";

@@ -657,6 +657,9 @@ public final class DJConnectAppModel: ObservableObject {
             webSocketFastPathCache.removeAll()
             fastPathDiagnostics = DJConnectFastPathDiagnostics()
             log(.info, "WebSocket fast path \(webSocketFastPathEnabled ? "enabled" : "disabled")")
+            if webSocketFastPathEnabled {
+                refreshWebSocketFastPathStatus()
+            }
         }
     }
     #if canImport(AVFoundation)
@@ -2158,6 +2161,25 @@ public final class DJConnectAppModel: ObservableObject {
         }
     }
 
+    public func refreshWebSocketFastPathStatus() {
+        guard webSocketFastPathEnabled, pairingStatus == .paired else {
+            fastPathDiagnostics = DJConnectFastPathDiagnostics()
+            return
+        }
+        Task {
+            do {
+                try await withHomeAssistantClient { client in
+                    try await client.prepareFastPath()
+                }
+                log(.info, "WebSocket fast path status refreshed")
+            } catch let error as DJConnectError {
+                log(.warning, "WebSocket fast path status refresh failed: \(Self.describe(error))")
+            } catch {
+                log(.warning, "WebSocket fast path status refresh failed: \(error.localizedDescription)")
+            }
+        }
+    }
+
     private func runRefresh(
         reason: String,
         notifyUserOnError: Bool = false,
@@ -2630,6 +2652,9 @@ public final class DJConnectAppModel: ObservableObject {
                     let payload = DJConnectTrackInsightRequest(
                         title: playback?.trackName,
                         artist: playback?.artistName,
+                        artworkURL: playback?.albumImageURL,
+                        durationMS: playback?.durationMS,
+                        progressMS: playback?.progressMS,
                         entityID: nil,
                         playerID: playback?.device?.id,
                         musicBackend: musicBackendSummary.musicBackend,
@@ -2646,10 +2671,10 @@ public final class DJConnectAppModel: ObservableObject {
                 applyTrackInsight(insight, open: open)
             } catch let error as DJConnectError {
                 trackInsightErrorMessage = trackInsightErrorMessage(for: error)
-                log(.warning, "Track Insight failed: \(Self.describe(error))")
+                log(.warning, "Track Insight failed: \(trackInsightFailureLogDetails(for: error))")
             } catch {
                 trackInsightErrorMessage = trackInsightErrorMessage(for: error)
-                log(.warning, "Track Insight failed: \(error.localizedDescription)")
+                log(.warning, "Track Insight failed: \(trackInsightFailureLogDetails(for: error))")
             }
         }
     }
@@ -3308,7 +3333,6 @@ public final class DJConnectAppModel: ObservableObject {
         if shouldApplyPlaylists, let responsePlaylists = response.playlists {
             playlistItems = responsePlaylists
             playlists = responsePlaylists.map(\.name)
-            updatePlaylistsWidgetSnapshot(playlists: responsePlaylists)
         }
         if let message = response.message, !message.isEmpty {
             djResponseText = userFacingDJResponseText(message) ?? message
@@ -3842,7 +3866,6 @@ public final class DJConnectAppModel: ObservableObject {
         isLoadingPlaylists = false
         queueContext = nil
         playlistItems = []
-        clearPlaylistsWidgetSnapshot(reason: "Runtime state cleared")
         selectedOutput = noOutputName()
         djResponseText = ""
         voiceStatus = .idle
@@ -4762,12 +4785,39 @@ public final class DJConnectAppModel: ObservableObject {
             return
         }
         do {
-            try DJConnectTrackInsightWidgetSnapshot(insight: insight).save(to: defaults)
+            let snapshot = DJConnectTrackInsightWidgetSnapshot(insight: insight)
+            try snapshot.save(to: defaults)
+            #if canImport(WidgetKit)
+            WidgetCenter.shared.reloadTimelines(ofKind: DJConnectTrackInsightWidgetSnapshot.widgetKind)
+            #endif
+            Task { [snapshot] in
+                await updateTrackInsightWidgetSnapshotArtwork(snapshot: snapshot)
+            }
+        } catch {
+            log(.warning, "Track Insight widget snapshot failed: \(error.localizedDescription)")
+        }
+    }
+
+    private func updateTrackInsightWidgetSnapshotArtwork(snapshot: DJConnectTrackInsightWidgetSnapshot) async {
+        guard let defaults = UserDefaults(suiteName: DJConnectTrackInsightWidgetSnapshot.appGroupIdentifier),
+              let artworkURL = snapshot.artworkURL,
+              let artworkData = await widgetArtworkData(from: artworkURL) else {
+            return
+        }
+        guard var currentSnapshot = DJConnectTrackInsightWidgetSnapshot.load(from: defaults),
+              currentSnapshot.artworkURL == artworkURL,
+              currentSnapshot.title == snapshot.title,
+              currentSnapshot.artist == snapshot.artist else {
+            return
+        }
+        currentSnapshot.artworkData = artworkData
+        do {
+            try currentSnapshot.save(to: defaults)
             #if canImport(WidgetKit)
             WidgetCenter.shared.reloadTimelines(ofKind: DJConnectTrackInsightWidgetSnapshot.widgetKind)
             #endif
         } catch {
-            log(.warning, "Track Insight widget snapshot failed: \(error.localizedDescription)")
+            log(.debug, "Track Insight widget artwork cache failed: \(error.localizedDescription)")
         }
     }
 
@@ -4791,6 +4841,7 @@ public final class DJConnectAppModel: ObservableObject {
             DJConnectNowPlayingWidgetSnapshot.remove(from: defaults)
             #if canImport(WidgetKit)
             WidgetCenter.shared.reloadTimelines(ofKind: DJConnectNowPlayingWidgetSnapshot.widgetKind)
+            WidgetCenter.shared.reloadTimelines(ofKind: DJConnectAskDJWidgetSnapshot.widgetKind)
             #endif
             log(.debug, "Cleared Now Playing widget snapshot: empty playback")
             return
@@ -4799,9 +4850,55 @@ public final class DJConnectAppModel: ObservableObject {
             try snapshot.save(to: defaults)
             #if canImport(WidgetKit)
             WidgetCenter.shared.reloadTimelines(ofKind: DJConnectNowPlayingWidgetSnapshot.widgetKind)
+            WidgetCenter.shared.reloadTimelines(ofKind: DJConnectAskDJWidgetSnapshot.widgetKind)
             #endif
+            Task { [snapshot] in
+                await updateNowPlayingWidgetSnapshotArtwork(snapshot: snapshot)
+            }
         } catch {
             log(.warning, "Now Playing widget snapshot failed: \(error.localizedDescription)")
+        }
+    }
+
+    private func updateNowPlayingWidgetSnapshotArtwork(snapshot: DJConnectNowPlayingWidgetSnapshot) async {
+        guard let defaults = UserDefaults(suiteName: DJConnectTrackInsightWidgetSnapshot.appGroupIdentifier),
+              let artworkURL = snapshot.artworkURL,
+              let artworkData = await widgetArtworkData(from: artworkURL) else {
+            return
+        }
+        guard var currentSnapshot = DJConnectNowPlayingWidgetSnapshot.load(from: defaults),
+              currentSnapshot.artworkURL == artworkURL,
+              currentSnapshot.title == snapshot.title,
+              currentSnapshot.artist == snapshot.artist else {
+            return
+        }
+        currentSnapshot.artworkData = artworkData
+        do {
+            try currentSnapshot.save(to: defaults)
+            #if canImport(WidgetKit)
+            WidgetCenter.shared.reloadTimelines(ofKind: DJConnectNowPlayingWidgetSnapshot.widgetKind)
+            WidgetCenter.shared.reloadTimelines(ofKind: DJConnectAskDJWidgetSnapshot.widgetKind)
+            #endif
+        } catch {
+            log(.debug, "Now Playing widget artwork cache failed: \(error.localizedDescription)")
+        }
+    }
+
+    private func widgetArtworkData(from url: URL) async -> Data? {
+        do {
+            let (data, response) = try await urlSession.data(from: url)
+            if let httpResponse = response as? HTTPURLResponse,
+               !(200..<300).contains(httpResponse.statusCode) {
+                return nil
+            }
+            guard data.count <= 750_000 else {
+                log(.debug, "Widget artwork cache skipped: image too large")
+                return nil
+            }
+            return data
+        } catch {
+            log(.debug, "Widget artwork cache failed: \(error.localizedDescription)")
+            return nil
         }
     }
 
@@ -4812,6 +4909,7 @@ public final class DJConnectAppModel: ObservableObject {
         DJConnectNowPlayingWidgetSnapshot.remove(from: defaults)
         #if canImport(WidgetKit)
         WidgetCenter.shared.reloadTimelines(ofKind: DJConnectNowPlayingWidgetSnapshot.widgetKind)
+        WidgetCenter.shared.reloadTimelines(ofKind: DJConnectAskDJWidgetSnapshot.widgetKind)
         #endif
         log(.debug, "Cleared Now Playing widget snapshot: \(reason)")
     }
@@ -4830,12 +4928,66 @@ public final class DJConnectAppModel: ObservableObject {
             return
         }
         do {
-            try DJConnectQueueWidgetSnapshot(items: items).save(to: defaults)
+            let snapshot = DJConnectQueueWidgetSnapshot(items: items)
+            try snapshot.save(to: defaults)
+            #if canImport(WidgetKit)
+            WidgetCenter.shared.reloadTimelines(ofKind: DJConnectQueueWidgetSnapshot.widgetKind)
+            #endif
+            Task { [snapshot] in
+                await updateQueueWidgetSnapshotArtwork(snapshot: snapshot)
+            }
+        } catch {
+            log(.warning, "Queue widget snapshot failed: \(error.localizedDescription)")
+        }
+    }
+
+    private func updateQueueWidgetSnapshotArtwork(snapshot: DJConnectQueueWidgetSnapshot) async {
+        let artworkPairs = await withTaskGroup(of: (String, URL, Data)?.self) { group in
+            for item in snapshot.items {
+                guard let artworkURL = item.artworkURL else { continue }
+                let itemID = item.id
+                group.addTask { [weak self] in
+                    guard let self,
+                          let artworkData = await self.widgetArtworkData(from: artworkURL) else {
+                        return nil
+                    }
+                    return (itemID, artworkURL, artworkData)
+                }
+            }
+
+            var pairs: [(String, URL, Data)] = []
+            for await pair in group {
+                if let pair {
+                    pairs.append(pair)
+                }
+            }
+            return pairs
+        }
+
+        guard !artworkPairs.isEmpty,
+              let defaults = UserDefaults(suiteName: DJConnectTrackInsightWidgetSnapshot.appGroupIdentifier),
+              var currentSnapshot = DJConnectQueueWidgetSnapshot.load(from: defaults),
+              currentSnapshot.items.map(\.id) == snapshot.items.map(\.id) else {
+            return
+        }
+
+        var didUpdateArtwork = false
+        for (itemID, artworkURL, artworkData) in artworkPairs {
+            guard let index = currentSnapshot.items.firstIndex(where: { $0.id == itemID && $0.artworkURL == artworkURL }) else {
+                continue
+            }
+            currentSnapshot.items[index].artworkData = artworkData
+            didUpdateArtwork = true
+        }
+
+        guard didUpdateArtwork else { return }
+        do {
+            try currentSnapshot.save(to: defaults)
             #if canImport(WidgetKit)
             WidgetCenter.shared.reloadTimelines(ofKind: DJConnectQueueWidgetSnapshot.widgetKind)
             #endif
         } catch {
-            log(.warning, "Queue widget snapshot failed: \(error.localizedDescription)")
+            log(.debug, "Queue widget artwork cache failed: \(error.localizedDescription)")
         }
     }
 
@@ -4848,40 +5000,6 @@ public final class DJConnectAppModel: ObservableObject {
         WidgetCenter.shared.reloadTimelines(ofKind: DJConnectQueueWidgetSnapshot.widgetKind)
         #endif
         log(.debug, "Cleared Queue widget snapshot: \(reason)")
-    }
-
-    private func updatePlaylistsWidgetSnapshot(playlists: [DJConnectPlaylist]) {
-        guard let defaults = UserDefaults(suiteName: DJConnectTrackInsightWidgetSnapshot.appGroupIdentifier) else {
-            log(.warning, "Playlists widget snapshot skipped: App Group storage is unavailable.")
-            return
-        }
-        guard !playlists.isEmpty else {
-            DJConnectPlaylistsWidgetSnapshot.remove(from: defaults)
-            #if canImport(WidgetKit)
-            WidgetCenter.shared.reloadTimelines(ofKind: DJConnectPlaylistsWidgetSnapshot.widgetKind)
-            #endif
-            log(.debug, "Cleared Playlists widget snapshot: empty playlists")
-            return
-        }
-        do {
-            try DJConnectPlaylistsWidgetSnapshot(playlists: playlists).save(to: defaults)
-            #if canImport(WidgetKit)
-            WidgetCenter.shared.reloadTimelines(ofKind: DJConnectPlaylistsWidgetSnapshot.widgetKind)
-            #endif
-        } catch {
-            log(.warning, "Playlists widget snapshot failed: \(error.localizedDescription)")
-        }
-    }
-
-    private func clearPlaylistsWidgetSnapshot(reason: String) {
-        guard let defaults = UserDefaults(suiteName: DJConnectTrackInsightWidgetSnapshot.appGroupIdentifier) else {
-            return
-        }
-        DJConnectPlaylistsWidgetSnapshot.remove(from: defaults)
-        #if canImport(WidgetKit)
-        WidgetCenter.shared.reloadTimelines(ofKind: DJConnectPlaylistsWidgetSnapshot.widgetKind)
-        #endif
-        log(.debug, "Cleared Playlists widget snapshot: \(reason)")
     }
 
     private func syncTrackInsightLiveActivity(reason: String) {
@@ -4915,6 +5033,33 @@ public final class DJConnectAppModel: ObservableObject {
         value?
             .trimmingCharacters(in: .whitespacesAndNewlines)
             .folding(options: [.diacriticInsensitive, .caseInsensitive], locale: .current) ?? ""
+    }
+
+    private static func trimmedNonEmpty(_ value: String?) -> String? {
+        let trimmed = value?.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed?.isEmpty == false ? trimmed : nil
+    }
+
+    private func trackInsightFailureLogDetails(for error: Error) -> String {
+        let tokenPresent = (try? tokenStore.loadToken())?.isEmpty == false
+        let fields: [String] = [
+            "error=\(Self.trackInsightFailureCode(for: error))",
+            "message=\(Self.trackInsightFailureMessage(for: error))",
+            "transport=\(Self.trackInsightFailureTransport(for: error))",
+            "http_status=\(Self.trackInsightFailureHTTPStatus(for: error) ?? "none")",
+            "identity_present=true",
+            "client_type=\(identity.clientType.rawValue)",
+            "client_id_present=\(!identity.deviceID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)",
+            "device_id_present=\(!identity.deviceID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)",
+            "device_name_present=\(!identity.deviceName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)",
+            "token_present=\(tokenPresent)",
+            "track_present=\(!(playback?.trackName?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true))",
+            "artist_present=\(!(playback?.artistName?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true))",
+            "artwork_present=\(playback?.albumImageURL != nil)",
+            "duration_present=\(playback?.durationMS != nil)",
+            "progress_present=\(playback?.progressMS != nil)"
+        ]
+        return fields.joined(separator: " ")
     }
 
     private func trackInsightErrorMessage(for error: Error) -> String {
@@ -6304,7 +6449,6 @@ public final class DJConnectAppModel: ObservableObject {
     private func updateDemoWidgetSnapshots() {
         updateNowPlayingWidgetSnapshot(playback: playback)
         updateQueueWidgetSnapshot(items: queueItems)
-        updatePlaylistsWidgetSnapshot(playlists: playlistItems)
         if let currentTrackInsight {
             saveTrackInsightWidgetSnapshot(for: currentTrackInsight)
         } else {
@@ -6486,12 +6630,25 @@ public final class DJConnectAppModel: ObservableObject {
             identity: identity,
             tokenStore: tokenStore,
             session: urlSession,
-            webSocketFastPath: webSocketFastPathIfLocal(baseURL)
-        ) { [weak self] requestSummary, statusCode in
-            Task { @MainActor in
-                self?.log(.debug, "Home Assistant API \(requestSummary) -> HTTP \(statusCode)")
+            webSocketFastPath: webSocketFastPathIfLocal(baseURL),
+            responseLogger: { [weak self] requestSummary, statusCode in
+                Task { @MainActor in
+                    self?.log(.debug, "Home Assistant API \(requestSummary) -> HTTP \(statusCode)")
+                }
+            },
+            failureLogger: { [weak self] details in
+                Task { @MainActor in
+                    self?.logAPIFailure(details)
+                }
             }
-        }
+        )
+    }
+
+    private func logAPIFailure(_ details: DJConnectAPIFailureLogDetails) {
+        log(
+            .warning,
+            "Home Assistant API failure route=\(details.route) http_status=\(details.httpStatus.map(String.init) ?? "none") ws_code=\(details.websocketCode ?? "none") error=\(details.serverError) message=\((details.serverMessage ?? "none").replacingOccurrences(of: "\n", with: "\\n")) identity_present=\(details.identityPresent) token_present=\(details.tokenPresent) client_type=\(details.clientType) client_id=\(details.redactedClientID)"
+        )
     }
 
     private func webSocketFastPathIfLocal(_ baseURL: URL) -> (any DJConnectWebSocketFastPathTransport)? {
@@ -6560,14 +6717,19 @@ public final class DJConnectAppModel: ObservableObject {
             localURL: localURL,
             remoteURL: remoteURL,
             allowsRemoteFallback: configuration.allowsRemoteHTTPFallback,
-            clientFactory: { [identity, tokenStore, urlSession, localURL, localFastPath] baseURL in
+            clientFactory: { [weak self, identity, tokenStore, urlSession, localURL, localFastPath] baseURL in
                 let fastPath = DJConnectFastPathPolicy.isEligible(baseURL: baseURL, localURL: localURL) ? localFastPath : nil
                 return DJConnectClient(
                     baseURL: baseURL,
                     identity: identity,
                     tokenStore: tokenStore,
                     session: urlSession,
-                    webSocketFastPath: fastPath
+                    webSocketFastPath: fastPath,
+                    failureLogger: { details in
+                        Task { @MainActor in
+                            self?.logAPIFailure(details)
+                        }
+                    }
                 )
             },
             modeReporter: { [weak self] mode, baseURL in
@@ -7531,6 +7693,102 @@ public final class DJConnectAppModel: ObservableObject {
             "client type mismatch expected=\(expectedClientType ?? "?") received=\(receivedClientType ?? "?")\(message.map { ": \($0)" } ?? "")"
         case let .trackInsightUnavailable(code, message):
             "track insight unavailable\(code.map { " \($0)" } ?? "")\(message.map { ": \($0)" } ?? "")"
+        }
+    }
+
+    private static func trackInsightFailureCode(for error: Error) -> String {
+        guard let error = error as? DJConnectError else {
+            return "unknown"
+        }
+        switch error {
+        case let .trackInsightUnavailable(code, _):
+            return trimmedNonEmpty(code) ?? "track_insight_unavailable"
+        case .backendUnavailable:
+            return "backend_unavailable"
+        case .authStale:
+            return "auth_stale"
+        case .routeMissing:
+            return "route_missing"
+        case .versionMismatch:
+            return "version_mismatch"
+        case .notConfigured:
+            return "not_configured"
+        case .server:
+            return "server"
+        case .decodingFailed:
+            return "decoding_failed"
+        case .network:
+            return "network"
+        case .invalidResponse:
+            return "invalid_response"
+        case .invalidConfiguration:
+            return "invalid_configuration"
+        case .missingToken:
+            return "missing_token"
+        case .pairingFailed:
+            return "pairing_failed"
+        case .clientTypeMismatch:
+            return "client_type_mismatch"
+        }
+    }
+
+    private static func trackInsightFailureMessage(for error: Error) -> String {
+        let message: String?
+        if let error = error as? DJConnectError {
+            switch error {
+            case let .backendUnavailable(value),
+                 let .routeMissing(value),
+                 let .notConfigured(value),
+                 let .trackInsightUnavailable(_, value):
+                message = value
+            case let .authStale(_, value),
+                 let .server(_, value),
+                 let .decodingFailed(_, _, value),
+                 let .pairingFailed(value),
+                 let .clientTypeMismatch(value, _, _):
+                message = value
+            case let .network(value):
+                message = value
+            case let .invalidConfiguration(value):
+                message = value
+            case .versionMismatch:
+                message = "version_mismatch"
+            case .invalidResponse:
+                message = "invalid_response"
+            case .missingToken:
+                message = "missing_token"
+            }
+        } else {
+            message = error.localizedDescription
+        }
+        return (trimmedNonEmpty(message) ?? "none").replacingOccurrences(of: "\n", with: "\\n")
+    }
+
+    private static func trackInsightFailureTransport(for error: Error) -> String {
+        guard let error = error as? DJConnectError else {
+            return "unknown"
+        }
+        switch error {
+        case .server, .authStale, .decodingFailed:
+            return "http_or_ws"
+        case .network:
+            return "network"
+        default:
+            return "client_or_server"
+        }
+    }
+
+    private static func trackInsightFailureHTTPStatus(for error: Error) -> String? {
+        guard let error = error as? DJConnectError else {
+            return nil
+        }
+        switch error {
+        case let .authStale(statusCode, _),
+             let .server(statusCode, _),
+             let .decodingFailed(statusCode, _, _):
+            return String(statusCode)
+        default:
+            return nil
         }
     }
 

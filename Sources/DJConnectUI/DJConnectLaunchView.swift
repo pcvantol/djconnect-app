@@ -56,7 +56,7 @@ public struct DJConnectLaunchContainer<Content: View>: View {
         showLaunch = true
 
         minimumLaunchTask = Task { @MainActor in
-            try? await Task.sleep(for: .seconds(6))
+            try? await Task.sleep(for: .seconds(1.5))
             guard !Task.isCancelled else { return }
             minimumLaunchTimeElapsed = true
             updateLaunchVisibility()
@@ -304,28 +304,46 @@ private struct DJConnectLaunchHeroVisual: View {
                 .frame(width: 116, height: 116)
                 .offset(x: -66, y: 6)
 
-            DJConnectLaunchMixerLines()
-                .stroke(.white.opacity(0.30), style: StrokeStyle(lineWidth: 4, lineCap: .round))
-                .frame(width: 74, height: 66)
-                .offset(x: 64, y: 34)
-
-            DJConnectLaunchWaveform()
-                .stroke(
-                    LinearGradient(
-                        colors: [
-                            Color(red: 0.54, green: 0.22, blue: 0.98),
-                            Color(red: 0.20, green: 0.78, blue: 1.0),
-                            Color(red: 0.33, green: 0.96, blue: 0.72)
-                        ],
-                        startPoint: .leading,
-                        endPoint: .trailing
-                    ),
-                    style: StrokeStyle(lineWidth: 8, lineCap: .round, lineJoin: .round)
-                )
-                .frame(width: 144, height: 54)
-                .shadow(color: Color(red: 0.18, green: 0.68, blue: 1.0).opacity(0.32), radius: 12)
-                .offset(x: 52, y: -26)
+            DJConnectLaunchFeatureIcons()
+                .frame(width: 120, height: 112)
+                .offset(x: 64, y: 4)
         }
+    }
+}
+
+private struct DJConnectLaunchFeatureIcons: View {
+    private let gradient = LinearGradient(
+        colors: [
+            Color(red: 0.54, green: 0.22, blue: 0.98),
+            Color(red: 0.20, green: 0.78, blue: 1.0),
+            Color(red: 0.33, green: 0.96, blue: 0.72)
+        ],
+        startPoint: .topLeading,
+        endPoint: .bottomTrailing
+    )
+
+    var body: some View {
+        VStack(spacing: 12) {
+            HStack(spacing: 16) {
+                icon("bubble.left.and.bubble.right")
+                icon("waveform.path.ecg")
+            }
+            icon("point.3.connected.trianglepath.dotted")
+        }
+    }
+
+    private func icon(_ systemName: String) -> some View {
+        Image(systemName: systemName)
+            .font(.system(size: 25, weight: .semibold))
+            .symbolRenderingMode(.hierarchical)
+            .foregroundStyle(gradient)
+            .frame(width: 48, height: 48)
+            .background(.white.opacity(0.055), in: Circle())
+            .overlay(
+                Circle()
+                    .stroke(gradient.opacity(0.70), lineWidth: 1.4)
+            )
+            .shadow(color: Color(red: 0.20, green: 0.78, blue: 1.0).opacity(0.22), radius: 12, y: 6)
     }
 }
 

@@ -23,11 +23,7 @@ import Darwin
 #endif
 
 private func localizedKey(_ language: String, _ key: String, arguments: CVarArg...) -> String {
-    String(
-        format: DJConnectLocalization.localized(key: key, language: language),
-        locale: Locale(identifier: DJConnectLocalization.supportedLanguageCode(language)),
-        arguments: arguments
-    )
+    DJConnectLocalization.localized(key: key, language: language, arguments: arguments)
 }
 
 private func localizedOutputName(_ outputName: String, language: String) -> String {
@@ -93,6 +89,14 @@ private func localizedPairingStatus(_ status: DJConnectPairingStatus, language: 
 let djConnectAccent = Color(red: 0.84, green: 0.22, blue: 0.96)
 private let djConnectButtonBlue = Color(red: 0.16, green: 0.56, blue: 1.0)
 private let djConnectButtonPurple = Color(red: 0.84, green: 0.18, blue: 1.0)
+private let djConnectIconGradient = LinearGradient(
+    colors: [
+        Color(red: 0.12, green: 0.45, blue: 1.00),
+        Color(red: 0.84, green: 0.22, blue: 0.96)
+    ],
+    startPoint: .topLeading,
+    endPoint: .bottomTrailing
+)
 private let djConnectScreenHorizontalPadding: CGFloat = 16
 private let djConnectScreenVerticalPadding: CGFloat = 12
 private let djConnectContentMaxWidth: CGFloat = 760
@@ -694,7 +698,7 @@ public struct DJConnectRootView: View {
         }
         .onChange(of: selectedSection) {
             #if os(iOS)
-            if horizontalSizeClass != .regular, selectedSection == .settings {
+            if horizontalSizeClass != .regular, selectedSection == .more {
                 moreResetID = UUID()
             }
             #endif
@@ -702,6 +706,7 @@ public struct DJConnectRootView: View {
         .onChange(of: scenePhase) {
             switch scenePhase {
             case .active:
+                handleHomeScreenActionRequestIfNeeded()
                 model.refreshPermissionStatuses(retryWakeWord: false)
                 model.markActiveSession()
                 model.recoverPairingClientAPIIfNeeded()
@@ -786,7 +791,7 @@ public struct DJConnectRootView: View {
     private var compactTabSelection: Binding<DJConnectSection> {
         Binding(
             get: {
-                isMoreSectionSelected ? .settings : selectedSection
+                isMoreSectionSelected ? .more : selectedSection
             },
             set: { newValue in
                 selectedSection = newValue
@@ -826,10 +831,10 @@ public struct DJConnectRootView: View {
                 selectedSection = .nowPlaying
             }
             .id(moreResetID)
-            .tabItem {
-                Label(localizedKey(model.language, "ui.more"), systemImage: "ellipsis")
-            }
-            .tag(DJConnectSection.settings)
+                .tabItem {
+                    Label(localizedKey(model.language, "ui.more"), systemImage: "ellipsis")
+                }
+                .tag(DJConnectSection.more)
         }
         .tint(djConnectAccent)
         .accentColor(djConnectAccent)
@@ -891,6 +896,7 @@ public struct DJConnectRootView: View {
             true
         }
     }
+
     #endif
 
     private var rootSheetBinding: Binding<DJConnectRootSheet?> {
@@ -1376,7 +1382,30 @@ private struct PairingSheetView: View {
                     .controlSize(.large)
                     .disabled(model.isPairing)
                 }
+                #endif
 
+                HStack(spacing: 12) {
+                    statusIcon
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(statusTitle)
+                            .font(.headline)
+                            .lineLimit(nil)
+                            .fixedSize(horizontal: false, vertical: true)
+                        if let pairingMessage = pairingStatusMessage {
+                            Text(pairingMessage)
+                                .font(.callout)
+                                .foregroundStyle(.secondary)
+                                .lineLimit(nil)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                    }
+                    .layoutPriority(1)
+                    Spacer(minLength: 0)
+                }
+                .padding(14)
+                .djConnectGradientCard()
+
+                #if os(iOS)
                 Button {
                     withAnimation(.snappy(duration: 0.22)) {
                         isManualPairingVisible.toggle()
@@ -1414,27 +1443,6 @@ private struct PairingSheetView: View {
             }
 
             if shouldShowManualPairing {
-                HStack(spacing: 12) {
-                    statusIcon
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text(statusTitle)
-                            .font(.headline)
-                            .lineLimit(nil)
-                            .fixedSize(horizontal: false, vertical: true)
-                        if let pairingMessage = pairingStatusMessage {
-                            Text(pairingMessage)
-                                .font(.callout)
-                                .foregroundStyle(.secondary)
-                                .lineLimit(nil)
-                                .fixedSize(horizontal: false, vertical: true)
-                        }
-                    }
-                    .layoutPriority(1)
-                    Spacer(minLength: 0)
-                }
-                .padding(14)
-                .djConnectGradientCard()
-
                 Button {
                     if model.pairingFlowTarget == .appleWatch {
                         model.confirmAppleWatchPairingHomeAssistantURL()
@@ -1452,21 +1460,6 @@ private struct PairingSheetView: View {
                 .controlSize(.large)
                 .disabled(model.isPairing || !canSubmitPairing)
 
-                if let inlinePairingMessage {
-                    Label {
-                        Text(inlinePairingMessage)
-                            .font(.callout.weight(.semibold))
-                            .lineLimit(nil)
-                            .fixedSize(horizontal: false, vertical: true)
-                    } icon: {
-                        Image(systemName: "exclamationmark.triangle.fill")
-                            .font(.callout.weight(.semibold))
-                    }
-                    .foregroundStyle(.orange)
-                    .padding(.horizontal, 6)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .accessibilityElement(children: .combine)
-                }
             }
 
             if model.pairingFlowTarget != .appleWatch {
@@ -1617,14 +1610,6 @@ private struct PairingSheetView: View {
         return model.pairingFlowTarget == .appleWatch
             ? localizedKey(model.language, "ui.ready.click.pair.apple.watch.with.home.assistant")
             : localizedKey(model.language, "ui.ready.click.pair.with.home.assistant")
-    }
-
-    private var inlinePairingMessage: String? {
-        guard let pairingMessage = model.pairingMessage,
-              !isFieldPrompt(pairingMessage) else {
-            return nil
-        }
-        return pairingMessage
     }
 
     private var shouldShowPairingNetworkNotice: Bool {
@@ -2031,6 +2016,7 @@ private struct PairingQRScannerView: View {
             ZStack {
                 PairingQRScannerRepresentable { value in
                     guard !didDetectCode else { return }
+                    DJConnectHaptics.success()
                     withAnimation(.spring(response: 0.28, dampingFraction: 0.82)) {
                         didDetectCode = true
                     }
@@ -3660,7 +3646,9 @@ private struct MusicDNASectionGrid: View {
             MusicDNAPanel(title: localizedKey(model.language, "ui.energy.profile"), value: energyProfile, icon: "bolt.fill")
             MusicDNAPanel(title: localizedKey(model.language, "ui.recent.tracks"), value: tracks(profile.recentTracks), icon: "clock.arrow.circlepath")
             MusicDNAPanel(title: localizedKey(model.language, "ui.signals"), value: signals(profile.recommendationSignals), icon: "safari")
-            MusicDNAPanel(title: localizedKey(model.language, "ui.updated"), value: updatedSummary, icon: "checkmark.seal")
+            if let updatedSummary {
+                MusicDNAPanel(title: localizedKey(model.language, "ui.updated"), value: updatedSummary, icon: "checkmark.seal")
+            }
         }
     }
 
@@ -3692,11 +3680,14 @@ private struct MusicDNASectionGrid: View {
         return [zone, value].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: " - ")
     }
 
-    private var updatedSummary: String {
-        if response.generation != nil {
-            return localizedKey(model.language, "ui.generation.value", arguments: response.generation ?? 0)
+    private var updatedSummary: String? {
+        guard let updatedAt = response.updatedAt else {
+            return nil
         }
-        return localizedKey(model.language, "ui.server.profile")
+        if Calendar.current.isDate(updatedAt, inSameDayAs: Date()) {
+            return updatedAt.formatted(date: .omitted, time: .shortened)
+        }
+        return updatedAt.formatted(date: .abbreviated, time: .shortened)
     }
 
     private func names(_ values: [DJConnectMusicDNANameValue]) -> String {
@@ -3874,6 +3865,7 @@ private extension DJConnectMusicDNAProfileResponse {
         musicDNAKey: "user:preview",
         enabled: true,
         generation: 2,
+        updatedAt: Date(),
         profile: DJConnectMusicDNAProfile(
             summary: "Warm, nocturnal electronic tracks with soft vocals and spacious low-end.",
             favoriteGenres: [
@@ -3937,7 +3929,7 @@ private struct MusicDNAPanel: View {
                 .fixedSize(horizontal: false, vertical: true)
         }
         .padding(18)
-        .frame(maxWidth: .infinity, minHeight: 220, alignment: .topLeading)
+        .frame(maxWidth: .infinity, minHeight: 132, alignment: .topLeading)
         .background(.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
         .overlay {
             RoundedRectangle(cornerRadius: 8, style: .continuous)
@@ -5631,7 +5623,7 @@ private struct TrackInsightEmptyState: View {
         VStack(spacing: 16) {
             Image(systemName: "waveform.path.ecg")
                 .font(.system(size: 50, weight: .semibold))
-                .foregroundStyle(djConnectAccent)
+                .foregroundStyle(djConnectIconGradient)
             Text("Track Insight")
                 .font(.title2.weight(.bold))
             Text(localizedKey(model.language, "ui.see.what.makes.the.current.track.feel.the.way.it"))
@@ -7580,16 +7572,7 @@ private struct AskDJEmptyState: View {
         VStack(spacing: 14) {
             Image(systemName: "bubble.left.and.bubble.right")
                 .font(.system(size: 36, weight: .semibold))
-                .foregroundStyle(
-                    LinearGradient(
-                        colors: [
-                            Color(red: 0.12, green: 0.45, blue: 1.00),
-                            Color(red: 0.84, green: 0.22, blue: 0.96)
-                        ],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
+                .foregroundStyle(djConnectIconGradient)
             Text(localizedKey(language, "ui.ask.dj"))
                 .font(.title3.weight(.semibold))
                 .foregroundStyle(.white)
@@ -8072,7 +8055,7 @@ private struct AskDJTrackInsightSummary: View {
         VStack(alignment: .leading, spacing: 8) {
             Label("Track Insight", systemImage: "waveform.path.ecg")
                 .font(.caption.weight(.semibold))
-                .foregroundStyle(djConnectAccent)
+                .foregroundStyle(djConnectIconGradient)
             Text(insight.title)
                 .font(.subheadline.weight(.semibold))
                 .foregroundStyle(.white)
@@ -9478,12 +9461,17 @@ private struct AskDJPromptTextView: UIViewRepresentable {
             context.coordinator.moveCaretToEnd(in: textView)
         }
 
-        if isInputFocused.wrappedValue {
+        let requestedFocus = isInputFocused.wrappedValue
+        defer {
+            context.coordinator.lastRequestedFocus = requestedFocus
+        }
+
+        if requestedFocus {
             if !textView.isFirstResponder {
                 textView.becomeFirstResponder()
             }
             context.coordinator.moveCaretToEnd(in: textView)
-        } else if textView.isFirstResponder {
+        } else if context.coordinator.lastRequestedFocus && textView.isFirstResponder {
             textView.resignFirstResponder()
         }
     }
@@ -9501,6 +9489,7 @@ private struct AskDJPromptTextView: UIViewRepresentable {
     final class Coordinator: NSObject, UITextViewDelegate {
         @Binding var text: String
         var isInputFocused: FocusState<Bool>.Binding
+        var lastRequestedFocus = false
 
         init(text: Binding<String>, isInputFocused: FocusState<Bool>.Binding) {
             _text = text
@@ -10281,7 +10270,7 @@ private struct LocalGameSurface: View {
     @State private var pacmanDeathX: CGFloat = 46
     @State private var pacmanDeathY: CGFloat = 86
     @State private var pacmanDeathTicks = 0
-    @State private var pellets: Set<Int> = Set(0..<32)
+    @State private var pellets: Set<Int> = Set(0..<36)
     @State private var flashUntil = Date.distantPast
     @State private var isPlaying = false
     @FocusState private var isGameFocused: Bool
@@ -10410,6 +10399,7 @@ private struct LocalGameSurface: View {
                 .stroke(.white.opacity(0.12), lineWidth: 1)
         }
         .focusable(true)
+        .focusEffectDisabled()
         .focused($isGameFocused)
         .onKeyPress(.upArrow) {
             handleArrowKey(.up)
@@ -10557,7 +10547,24 @@ private struct LocalGameSurface: View {
         .help(localizedKey(language, "ui.reset"))
     }
 
-    private var pacmanPowerPellets: Set<Int> { [0, 7, 24, 31] }
+    private var pacmanColumnCount: Int { 9 }
+    private var pacmanRowCount: Int { 4 }
+    private var pacmanPelletCount: Int { pacmanColumnCount * pacmanRowCount }
+    private var pacmanPelletStartX: CGFloat { 48 }
+    private var pacmanPelletStartY: CGFloat { 52 }
+    private var pacmanPelletSpacing: CGFloat { 28 }
+    private var pacmanMinX: CGFloat { pacmanPelletStartX }
+    private var pacmanMaxX: CGFloat { pacmanPelletStartX + CGFloat(pacmanColumnCount - 1) * pacmanPelletSpacing }
+    private var pacmanMinY: CGFloat { pacmanPelletStartY - 8 }
+    private var pacmanMaxY: CGFloat { pacmanPelletStartY + CGFloat(pacmanRowCount - 1) * pacmanPelletSpacing + 8 }
+    private var pacmanPowerPellets: Set<Int> {
+        [
+            0,
+            pacmanColumnCount - 1,
+            pacmanPelletCount - pacmanColumnCount,
+            pacmanPelletCount - 1
+        ]
+    }
     private var pacmanPowerTicks: Int { 150 }
     private var isGhostVulnerable: Bool { ghostVulnerableTicks > 0 }
     private var isGhostBlinking: Bool {
@@ -10619,12 +10626,12 @@ private struct LocalGameSurface: View {
             }
         case .pacman:
             for pellet in pellets {
-                let column = pellet % 8
-                let row = pellet / 8
+                let column = pellet % pacmanColumnCount
+                let row = pellet / pacmanColumnCount
                 let isPowerPellet = pacmanPowerPellets.contains(pellet)
                 let pelletSize: CGFloat = isPowerPellet ? 8 : 4
                 context.fill(
-                    Path(ellipseIn: rect(CGFloat(48 + column * 28) - pelletSize / 2, CGFloat(52 + row * 28) - pelletSize / 2, pelletSize, pelletSize)),
+                    Path(ellipseIn: rect(pacmanPelletStartX + CGFloat(column) * pacmanPelletSpacing - pelletSize / 2, pacmanPelletStartY + CGFloat(row) * pacmanPelletSpacing - pelletSize / 2, pelletSize, pelletSize)),
                     with: .color(.white.opacity(isPowerPellet ? 0.98 : 0.82))
                 )
             }
@@ -11227,8 +11234,8 @@ private struct LocalGameSurface: View {
                 }
                 return
             }
-            pacmanX = min(max(pacmanX + pacmanDX * 4, 28), 292)
-            pacmanY = min(max(pacmanY + pacmanDY * 4, 44), 140)
+            pacmanX = min(max(pacmanX + pacmanDX * 4, pacmanMinX), pacmanMaxX)
+            pacmanY = min(max(pacmanY + pacmanDY * 4, pacmanMinY), pacmanMaxY)
             if ghostVulnerableTicks > 0 {
                 ghostVulnerableTicks -= 1
             }
@@ -11240,10 +11247,10 @@ private struct LocalGameSurface: View {
                 ghostY += ghostY < pacmanY ? ghostStep : -ghostStep
             }
             for pellet in pellets {
-                let column = pellet % 8
-                let row = pellet / 8
-                let pelletX = CGFloat(48 + column * 28)
-                let pelletY = CGFloat(52 + row * 28)
+                let column = pellet % pacmanColumnCount
+                let row = pellet / pacmanColumnCount
+                let pelletX = pacmanPelletStartX + CGFloat(column) * pacmanPelletSpacing
+                let pelletY = pacmanPelletStartY + CGFloat(row) * pacmanPelletSpacing
                 if abs(pelletX - pacmanX) < 10 && abs(pelletY - pacmanY) < 10 {
                     pellets.remove(pellet)
                     setScore(score + 1)
@@ -11259,7 +11266,7 @@ private struct LocalGameSurface: View {
                 }
             }
             if pellets.isEmpty {
-                pellets = Set(0..<32)
+                pellets = Set(0..<pacmanPelletCount)
                 ghostX = 250
                 ghostY = 86
                 ghostVulnerableTicks = 0
@@ -11317,7 +11324,7 @@ private struct LocalGameSurface: View {
         ghostY = 86
         ghostVulnerableTicks = 0
         pacmanDeathTicks = 0
-        pellets = Set(0..<32)
+        pellets = Set(0..<pacmanPelletCount)
     }
 
     private func resetPaddleBall() {
@@ -11430,6 +11437,13 @@ private struct MoreView: View {
     @State private var showingFeedback = false
 
     var body: some View {
+        moreList
+        .sheet(isPresented: $showingFeedback) {
+            FeedbackPromptView(model: model)
+        }
+    }
+
+    private var moreList: some View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
@@ -11521,10 +11535,6 @@ private struct MoreView: View {
             }
             .background(DJConnectCanvasBackground())
             .navigationTitle(screenTitle(model.language, key: "More", isDemoMode: model.isDemoMode))
-        }
-        .background(DJConnectCanvasBackground())
-        .sheet(isPresented: $showingFeedback) {
-            FeedbackPromptView(model: model)
         }
     }
 }

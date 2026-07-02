@@ -84,7 +84,13 @@ private let mainWindowIdentifier = NSUserInterfaceItemIdentifier("DJConnectMainW
 
 @MainActor
 final class DJConnectMacAppDelegate: NSObject, NSApplicationDelegate, @preconcurrency UNUserNotificationCenterDelegate {
-    weak var model: DJConnectAppModel?
+    weak var model: DJConnectAppModel? {
+        didSet {
+            flushPendingRemoteNotificationRegistration()
+        }
+    }
+    private var pendingRemoteNotificationDeviceToken: Data?
+    private var pendingRemoteNotificationRegistrationError: Error?
 
     override init() {
         super.init()
@@ -99,14 +105,24 @@ final class DJConnectMacAppDelegate: NSObject, NSApplicationDelegate, @preconcur
         _ application: NSApplication,
         didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data
     ) {
-        model?.handleRemoteNotificationDeviceToken(deviceToken)
+        if let model {
+            model.handleRemoteNotificationDeviceToken(deviceToken)
+        } else {
+            pendingRemoteNotificationDeviceToken = deviceToken
+            pendingRemoteNotificationRegistrationError = nil
+        }
     }
 
     func application(
         _ application: NSApplication,
         didFailToRegisterForRemoteNotificationsWithError error: Error
     ) {
-        model?.handleRemoteNotificationRegistrationError(error)
+        if let model {
+            model.handleRemoteNotificationRegistrationError(error)
+        } else {
+            pendingRemoteNotificationRegistrationError = error
+            pendingRemoteNotificationDeviceToken = nil
+        }
     }
 
     func application(
@@ -129,6 +145,20 @@ final class DJConnectMacAppDelegate: NSObject, NSApplicationDelegate, @preconcur
             await self?.model?.refreshAskDJHistory()
         }
         completionHandler()
+    }
+
+    private func flushPendingRemoteNotificationRegistration() {
+        guard let model else {
+            return
+        }
+        if let pendingRemoteNotificationDeviceToken {
+            self.pendingRemoteNotificationDeviceToken = nil
+            model.handleRemoteNotificationDeviceToken(pendingRemoteNotificationDeviceToken)
+        }
+        if let pendingRemoteNotificationRegistrationError {
+            self.pendingRemoteNotificationRegistrationError = nil
+            model.handleRemoteNotificationRegistrationError(pendingRemoteNotificationRegistrationError)
+        }
     }
 }
 

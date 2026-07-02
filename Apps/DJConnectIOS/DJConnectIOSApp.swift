@@ -72,9 +72,6 @@ final class DJConnectIOSAppDelegate: NSObject, UIApplicationDelegate, @preconcur
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
     ) -> Bool {
         UNUserNotificationCenter.current().delegate = self
-        if let shortcutItem = launchOptions?[.shortcutItem] as? UIApplicationShortcutItem {
-            handle(shortcutItem)
-        }
         return true
     }
 
