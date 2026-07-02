@@ -3474,10 +3474,7 @@ public final class DJConnectAppModel: ObservableObject {
             isConnected = false
             pairingMessage = message ?? localized(key: "appModel.djconnect.route.missing.in.home.assistant.check.the.integration")
         case let .notConfigured(message):
-            clearMusicDNADisplay()
-            pairingStatus = .stale
-            isConnected = false
-            pairingMessage = message ?? localized(key: "appModel.not.connected.to.home.assistant")
+            recoverFromStalePairing(message: message ?? localized(key: "appModel.not.connected.to.home.assistant"))
         case let .server(_, message):
             if let userFacingError = userFacingDJResponseText(message ?? Self.describe(error)) {
                 djResponseText = userFacingError
@@ -3495,6 +3492,7 @@ public final class DJConnectAppModel: ObservableObject {
         scheduledPairingTask?.cancel()
         scheduledPairingTask = nil
         try? tokenStore.clearToken()
+        clearPairingToken()
         clearAskDJHistoryLocally()
         clearMusicDNADisplay()
         pairingStatus = .stale

@@ -527,6 +527,7 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
     defaults.set(true, forKey: "DJConnectWelcomeSeen")
+    defaults.set("651161", forKey: "DJConnectPairingToken")
     let tokenStore = DJConnectInMemoryTokenStore(token: "stale-token")
     let model = DJConnectAppModel(defaults: defaults, tokenStore: tokenStore, startBackgroundTasks: false)
     defer {
@@ -539,7 +540,35 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
 
     #expect(model.pairingStatus == .pairing || model.pairingStatus == .stale)
     #expect(model.isPairingScreenDismissed == false)
+    #expect(model.pairingToken.isEmpty)
+    #expect(defaults.string(forKey: "DJConnectPairingToken") == nil)
     #expect(try tokenStore.loadToken() == nil)
+}
+
+@MainActor
+@Test func notConfiguredClearsStalePairCodeAndReopensPairing() throws {
+    let suiteName = "DJConnectTests-\(UUID().uuidString)"
+    let defaults = try #require(UserDefaults(suiteName: suiteName))
+    defaults.removePersistentDomain(forName: suiteName)
+    defaults.set(true, forKey: "DJConnectWelcomeSeen")
+    defaults.set("651161", forKey: "DJConnectPairingToken")
+    let tokenStore = DJConnectInMemoryTokenStore(token: "stale-token")
+    let model = DJConnectAppModel(defaults: defaults, tokenStore: tokenStore, startBackgroundTasks: false)
+    defer {
+        model.stopPairingWait()
+    }
+
+    #expect(model.pairingStatus == .paired)
+    #expect(model.pairingToken == "651161")
+
+    model.apply(error: .notConfigured(message: "DJConnect is not configured."))
+
+    #expect(model.pairingStatus == .stale)
+    #expect(model.isPairingScreenDismissed == false)
+    #expect(model.pairingToken.isEmpty)
+    #expect(defaults.string(forKey: "DJConnectPairingToken") == nil)
+    #expect(try tokenStore.loadToken() == nil)
+    #expect(model.pairingMessage == "DJConnect is not configured.")
 }
 
 @Test func statusRequestIncludesContractFieldsAndHeaders() throws {
