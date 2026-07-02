@@ -90,18 +90,18 @@ private struct DJConnectLaunchView: View {
             ZStack {
                 DJConnectLaunchCanvasBackground()
                 VStack(spacing: 24) {
-                    DJConnectLaunchHeroVisual()
-                        .frame(width: heroSize, height: heroSize * 0.72)
-                        .accessibilityHidden(true)
                     VStack(spacing: 10) {
                         DJConnectLaunchBanner()
                             .frame(width: bannerWidth)
-                        Text("v\(DJConnectVersionInfo.displayVersion)")
-                            .font(.caption.weight(.semibold))
-                            .foregroundStyle(.white.opacity(0.58))
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.82)
                     }
+                    DJConnectLaunchHeroVisual()
+                        .frame(width: heroSize, height: heroSize * 0.72)
+                        .accessibilityHidden(true)
+                    Text("v\(DJConnectVersionInfo.displayVersion)")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.white.opacity(0.58))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.82)
                     ProgressView()
                         .controlSize(.regular)
                         .tint(.white.opacity(0.86))

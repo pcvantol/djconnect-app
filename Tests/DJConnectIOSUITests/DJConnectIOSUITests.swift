@@ -128,15 +128,50 @@ final class DJConnectIOSUITests: XCTestCase {
         let deadline = Date().addingTimeInterval(timeout)
         while Date() < deadline {
             for title in titles {
+                if let identifier = screenIdentifier(for: title),
+                   app.descendants(matching: .any)[identifier].exists {
+                    return true
+                }
                 if app.navigationBars[title].exists
                     || app.staticTexts[title].exists
-                    || app.buttons[title].exists {
+                    || app.otherElements[title].exists {
                     return true
                 }
             }
             RunLoop.current.run(until: Date().addingTimeInterval(0.2))
         }
         return false
+    }
+
+    private func screenIdentifier(for title: String) -> String? {
+        switch title.replacingOccurrences(of: " (demo)", with: "") {
+        case "Speelt Nu", "Now Playing":
+            return "screen-now-playing"
+        case "Wachtrij", "Queue":
+            return "screen-queue"
+        case "Afspeellijsten", "Playlists":
+            return "screen-playlists"
+        case "Ask DJ":
+            return "screen-ask-dj"
+        case "Track Insight":
+            return "screen-track-insight"
+        case "Music DNA":
+            return "screen-music-dna"
+        case "Games":
+            return "screen-games"
+        case "Instellingen", "Settings":
+            return "screen-settings"
+        case "Logs":
+            return "screen-logs"
+        case "Over", "About":
+            return "screen-about"
+        case "Juridisch", "Legal":
+            return "screen-legal"
+        case "Privacy":
+            return "screen-privacy"
+        default:
+            return nil
+        }
     }
 
     private func firstExistingElement(named title: String, in app: XCUIApplication) -> XCUIElement {
@@ -227,7 +262,7 @@ final class DJConnectIOSUITests: XCTestCase {
         XCTAssertTrue(app.buttons["Tik om te spelen"].exists || app.staticTexts["Tik om te spelen"].exists)
     }
 
-    func testJumpURLsNavigateToCorrectPagesOnIPad() throws {
+    func testJumpURLsNavigateToCorrectPagesOnIOS() throws {
         let app = launchMonkeyApp()
         enterDemoModeIfNeeded(app)
 
