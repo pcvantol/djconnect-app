@@ -244,6 +244,28 @@ final class DJConnectIOSUITests: XCTestCase {
         }
     }
 
+    func testScreenshotCleanupRemovesOnlyPNGFiles() throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer {
+            try? FileManager.default.removeItem(at: directory)
+        }
+
+        let staleScreenshot = directory.appendingPathComponent("old-screen.png")
+        let uppercaseScreenshot = directory.appendingPathComponent("old-screen.PNG")
+        let metadata = directory.appendingPathComponent("README.md")
+        try Data([0x89, 0x50, 0x4E, 0x47]).write(to: staleScreenshot)
+        try Data([0x89, 0x50, 0x4E, 0x47]).write(to: uppercaseScreenshot)
+        try Data("keep".utf8).write(to: metadata)
+
+        try cleanScreenshotDirectory(at: directory)
+
+        XCTAssertFalse(FileManager.default.fileExists(atPath: staleScreenshot.path))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: uppercaseScreenshot.path))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: metadata.path))
+    }
+
     func testMonkeyModeSafeNavigationSmoke() {
         let app = launchMonkeyApp()
         let argumentDuration = ProcessInfo.processInfo.arguments
@@ -302,6 +324,7 @@ final class DJConnectIOSUITests: XCTestCase {
 
         XCTAssertTrue(app.tabBars.firstMatch.waitForExistence(timeout: 12))
         lastScreenshotPNG = nil
+        try cleanScreenshotDirectory()
 
         let primaryScreens = [
             ScreenshotScreen(fileName: "01-now-playing", title: "Speelt Nu"),
@@ -387,6 +410,27 @@ private var defaultScreenshotDirectory: URL {
         .deletingLastPathComponent()
         .appendingPathComponent("tmp")
         .appendingPathComponent("ask-dj-airplay-screenshots")
+}
+
+@MainActor
+private func cleanScreenshotDirectory() throws {
+    let directory = ProcessInfo.processInfo.environment["DJCONNECT_SCREENSHOT_DIR"]
+        .map(URL.init(fileURLWithPath:))
+        ?? defaultScreenshotDirectory
+    try cleanScreenshotDirectory(at: directory)
+}
+
+@MainActor
+private func cleanScreenshotDirectory(at directory: URL) throws {
+    let fileManager = FileManager.default
+    try fileManager.createDirectory(at: directory, withIntermediateDirectories: true)
+    let files = try fileManager.contentsOfDirectory(
+        at: directory,
+        includingPropertiesForKeys: nil
+    )
+    for file in files where file.pathExtension.lowercased() == "png" {
+        try fileManager.removeItem(at: file)
+    }
 }
 
 private extension XCUIElement {

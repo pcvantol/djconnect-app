@@ -72,6 +72,9 @@ final class DJConnectIOSAppDelegate: NSObject, UIApplicationDelegate, @preconcur
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
     ) -> Bool {
         UNUserNotificationCenter.current().delegate = self
+        if let shortcutItem = launchOptions?[.shortcutItem] as? UIApplicationShortcutItem {
+            handle(shortcutItem)
+        }
         return true
     }
 
@@ -175,6 +178,19 @@ final class DJConnectIOSAppDelegate: NSObject, UIApplicationDelegate, @preconcur
 }
 
 final class DJConnectIOSSceneDelegate: NSObject, UIWindowSceneDelegate {
+    func scene(
+        _ scene: UIScene,
+        willConnectTo session: UISceneSession,
+        options connectionOptions: UIScene.ConnectionOptions
+    ) {
+        if let shortcutItem = connectionOptions.shortcutItem {
+            _ = appDelegate?.handle(shortcutItem)
+        }
+        if let url = connectionOptions.urlContexts.first?.url {
+            _ = appDelegate?.handle(url)
+        }
+    }
+
     func windowScene(
         _ windowScene: UIWindowScene,
         performActionFor shortcutItem: UIApplicationShortcutItem,

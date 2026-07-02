@@ -67,6 +67,7 @@ for device in "${DEVICES[@]}"; do
   udid="${device%%:*}"
   output_dir="${device#*:}"
   mkdir -p "$output_dir"
+  find "$output_dir" -maxdepth 1 -type f -name '*.png' -delete
 
   xcrun simctl boot "$udid" >/dev/null 2>&1 || true
   xcrun simctl bootstatus "$udid" -b

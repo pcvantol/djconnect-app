@@ -27,6 +27,10 @@ Device folders:
 - `ipad-mini-a17-ios-26-5-1488x2266`
 - `ipad-pro-13-m5-ios-27-0-2064x2752`
 
+The iOS/iPadOS screenshot UI test removes existing `*.png` files from
+`DJCONNECT_SCREENSHOT_DIR` before it writes a new set. This keeps removed or
+renamed screens from surviving as stale files after a fresh capture run.
+
 ## watchOS
 
 Watch screenshots are captured from the watch simulator with `Tools/capture_watch_screenshots.sh`.
@@ -41,6 +45,9 @@ The script launches the Watch app in demo/monkey mode once per screen with
 `--screenshot-screen=<screen>`, then writes the simulator PNG after the target
 screen has rendered. This avoids saving stale navigation states and keeps the
 PNG aligned with the filename.
+
+Before capturing a device, the script removes existing `*.png` files from that
+device's output folder. Non-PNG support files are left untouched.
 
 Each watchOS device folder contains:
 

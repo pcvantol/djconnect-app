@@ -84,8 +84,8 @@ private struct DJConnectLaunchView: View {
     var body: some View {
         GeometryReader { proxy in
             let shortestSide = min(proxy.size.width, proxy.size.height)
-            let bannerWidth = min(max(proxy.size.width - 48, 300), 760)
             let heroSize = min(max(shortestSide * 0.30, 220), 360)
+            let bannerWidth = min(max(proxy.size.width - 48, 300), max(340, heroSize * 1.55))
 
             ZStack {
                 DJConnectLaunchCanvasBackground()
