@@ -3310,54 +3310,31 @@ private struct TrackInsightView: View {
 
 private struct MusicDNAView: View {
     @ObservedObject var model: DJConnectAppModel
-    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
-
-    private func shouldUseWideLayout(for size: CGSize) -> Bool {
-        #if os(macOS)
-        size.width >= 1_000
-        #else
-        horizontalSizeClass == .regular && size.width > size.height
-        #endif
-    }
 
     var body: some View {
         NavigationStack {
             ZStack {
                 DJConnectCanvasBackground()
-                GeometryReader { proxy in
-                    let useWideLayout = shouldUseWideLayout(for: proxy.size)
-                    ScrollView {
-                        if useWideLayout {
-                            HStack(alignment: .top, spacing: 18) {
-                                MusicDNAHeroView(model: model)
-                                    .frame(minWidth: 360, idealWidth: 430, maxWidth: 500, alignment: .top)
-                                MusicDNAContentView(model: model, isWideLayout: true)
-                                    .frame(maxWidth: .infinity, alignment: .topLeading)
-                            }
-                            .padding(.horizontal, djConnectScreenHorizontalPadding)
-                            .padding(.vertical, djConnectScreenVerticalPadding)
-                            .frame(maxWidth: 1_520, alignment: .topLeading)
-                            .frame(maxWidth: .infinity, alignment: .top)
-                        } else {
-                            VStack(alignment: .leading, spacing: 16) {
-                                MusicDNAHeroView(model: model)
-                                MusicDNAContentView(model: model)
-                            }
-                            .padding(.horizontal, djConnectScreenHorizontalPadding)
-                            .padding(.vertical, djConnectScreenVerticalPadding)
-                            .frame(maxWidth: djConnectContentMaxWidth, alignment: .topLeading)
-                            .frame(maxWidth: .infinity, alignment: .top)
-                        }
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 16) {
+                        MusicDNAHeroView(model: model)
+                            .frame(maxWidth: .infinity, alignment: .topLeading)
+                        MusicDNAContentView(model: model)
+                            .frame(maxWidth: .infinity, alignment: .topLeading)
                     }
-                    #if os(iOS)
-                    .refreshable {
-                        #if DEBUG
-                        guard !model.isMusicDNAPreviewMode else { return }
-                        #endif
-                        await model.refreshMusicDNAProfile()
-                    }
-                    #endif
+                    .padding(.horizontal, djConnectScreenHorizontalPadding)
+                    .padding(.vertical, djConnectScreenVerticalPadding)
+                    .frame(maxWidth: musicDNAMaxContentWidth, alignment: .topLeading)
+                    .frame(maxWidth: .infinity, alignment: .top)
                 }
+                #if os(iOS)
+                .refreshable {
+                    #if DEBUG
+                    guard !model.isMusicDNAPreviewMode else { return }
+                    #endif
+                    await model.refreshMusicDNAProfile()
+                }
+                #endif
             }
             .navigationTitle(screenTitle(model.language, key: "Music DNA", isDemoMode: model.isDemoMode))
             #if os(iOS)
@@ -3385,6 +3362,14 @@ private struct MusicDNAView: View {
         .sheet(isPresented: $model.isShowingMusicDNAOptInPrompt) {
             MusicDNAOptInPromptView(model: model)
         }
+    }
+
+    private var musicDNAMaxContentWidth: CGFloat {
+        #if os(macOS)
+        return 1_680
+        #else
+        return 1_520
+        #endif
     }
 }
 
@@ -3498,7 +3483,6 @@ private struct MusicDNAOptInPromptView: View {
 
 private struct MusicDNAContentView: View {
     @ObservedObject var model: DJConnectAppModel
-    var isWideLayout = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -3509,7 +3493,7 @@ private struct MusicDNAContentView: View {
                     if response.profile.isEmpty {
                         MusicDNANoProfileView(model: model)
                     } else {
-                        MusicDNASectionGrid(model: model, response: response, isWideLayout: isWideLayout)
+                        MusicDNASectionGrid(model: model, response: response)
                     }
                 } else {
                     MusicDNADisabledView(model: model)
@@ -3525,7 +3509,6 @@ private struct MusicDNAContentView: View {
 private struct MusicDNASectionGrid: View {
     @ObservedObject var model: DJConnectAppModel
     let response: DJConnectMusicDNAProfileResponse
-    var isWideLayout = false
 
     private var profile: DJConnectMusicDNAProfile { response.profile }
 
@@ -3543,13 +3526,8 @@ private struct MusicDNASectionGrid: View {
     }
 
     private var gridColumns: [GridItem] {
-        if isWideLayout {
-            return [
-                GridItem(.adaptive(minimum: 240), spacing: 12, alignment: .top)
-            ]
-        }
         return [
-            GridItem(.adaptive(minimum: 220), spacing: 12, alignment: .top)
+            GridItem(.adaptive(minimum: 280), spacing: 12, alignment: .top)
         ]
     }
 

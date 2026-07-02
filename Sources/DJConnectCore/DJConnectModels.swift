@@ -1808,6 +1808,9 @@ public protocol TrackInsightService: Sendable {
 }
 
 public struct DJConnectTrackInsightRequest: Codable, Equatable, Sendable {
+    public var deviceID: String?
+    public var clientID: String?
+    public var deviceName: String?
     public var title: String?
     public var artist: String?
     public var album: String?
@@ -1821,6 +1824,9 @@ public struct DJConnectTrackInsightRequest: Codable, Equatable, Sendable {
     public var includeRawResponse: Bool
 
     public init(
+        deviceID: String? = nil,
+        clientID: String? = nil,
+        deviceName: String? = nil,
         title: String? = nil,
         artist: String? = nil,
         album: String? = nil,
@@ -1833,6 +1839,9 @@ public struct DJConnectTrackInsightRequest: Codable, Equatable, Sendable {
         includeVisualProfile: Bool = true,
         includeRawResponse: Bool = true
     ) {
+        self.deviceID = deviceID
+        self.clientID = clientID
+        self.deviceName = deviceName
         self.title = title
         self.artist = artist
         self.album = album
@@ -1846,7 +1855,22 @@ public struct DJConnectTrackInsightRequest: Codable, Equatable, Sendable {
         self.includeRawResponse = includeRawResponse
     }
 
+    public func normalizedForSend(identity: DJConnectIdentity) -> DJConnectTrackInsightRequest {
+        var copy = self
+        copy.deviceID = copy.deviceID?.nilIfBlank ?? identity.deviceID
+        copy.clientID = copy.clientID?.nilIfBlank ?? identity.deviceID
+        copy.deviceName = copy.deviceName?.nilIfBlank ?? identity.deviceName
+        copy.clientType = copy.clientType?.nilIfBlank ?? identity.clientType.rawValue
+        copy.title = copy.title?.nilIfBlank
+        copy.artist = copy.artist?.nilIfBlank
+        copy.album = copy.album?.nilIfBlank
+        return copy
+    }
+
     enum CodingKeys: String, CodingKey {
+        case deviceID = "device_id"
+        case clientID = "client_id"
+        case deviceName = "device_name"
         case title
         case artist
         case album
@@ -4704,6 +4728,13 @@ public struct DJConnectVoiceResponse: Codable, Equatable, Sendable {
 private struct DJConnectMusicBackendErrorPayload: Codable, Equatable, Sendable {
     var code: String?
     var message: String?
+}
+
+private extension String {
+    var nilIfBlank: String? {
+        let trimmed = trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
+    }
 }
 
 private extension KeyedDecodingContainer {

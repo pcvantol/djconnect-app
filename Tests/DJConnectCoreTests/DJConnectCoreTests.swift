@@ -1571,6 +1571,7 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     let request = try client.trackInsightRequest(DJConnectTrackInsightRequest(
         title: "Innerbloom",
         artist: "RUFUS DU SOL",
+        album: "Bloom",
         entityID: "media_player.living_room",
         playerID: "spotify-player",
         musicBackend: "spotify",
@@ -1586,14 +1587,69 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     #expect(request.httpMethod == "POST")
     #expect(request.url?.path == "/api/djconnect/track_insight")
     #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer token")
+    #expect((object?["device_id"] as? String) == "device-1")
+    #expect((object?["client_id"] as? String) == "device-1")
+    #expect((object?["device_name"] as? String) == "iPhone")
+    #expect((object?["client_type"] as? String) == "ios")
     #expect((object?["title"] as? String) == "Innerbloom")
     #expect((object?["artist"] as? String) == "RUFUS DU SOL")
+    #expect((object?["album"] as? String) == "Bloom")
+    #expect(object?["track_name"] == nil)
+    #expect(object?["artist_name"] == nil)
     #expect((object?["entity_id"] as? String) == "media_player.living_room")
     #expect((object?["player_id"] as? String) == "spotify-player")
     #expect((object?["music_backend"] as? String) == "spotify")
-    #expect((object?["client_type"] as? String) == "ios")
     #expect((object?["force_refresh"] as? Bool) == true)
+    #expect((object?["locale"] as? String) == "nl")
     #expect((object?["include_visual_profile"] as? Bool) == true)
+}
+
+@Test func appleClientCodeDoesNotReferenceRemovedDJConnectHAPlaybackEntities() throws {
+    let repositoryRoot = URL(fileURLWithPath: #filePath)
+        .deletingLastPathComponent()
+        .deletingLastPathComponent()
+        .deletingLastPathComponent()
+    let scannedRoots = ["Sources", "Apps"].map { repositoryRoot.appendingPathComponent($0) }
+    let removedEntities = [
+        "djconnect_volume",
+        "djconnect_shuffle",
+        "djconnect_repeat_state",
+        "djconnect_sound_output",
+        "djconnect_spotify_status",
+        "djconnect_playback_available",
+        "djconnect_queue",
+        "djconnect_playlists",
+        "djconnect_outputs",
+        "sensor.djconnect_",
+        "number.djconnect_volume",
+        "select.djconnect_sound_output",
+        "switch.djconnect_shuffle"
+    ]
+    let resourceKeys: Set<URLResourceKey> = [.isDirectoryKey, .isRegularFileKey]
+    let sourceExtensions = Set(["swift", "strings"])
+
+    for root in scannedRoots {
+        guard let enumerator = FileManager.default.enumerator(
+            at: root,
+            includingPropertiesForKeys: Array(resourceKeys),
+            options: [.skipsHiddenFiles]
+        ) else {
+            continue
+        }
+        for case let fileURL as URL in enumerator {
+            let values = try fileURL.resourceValues(forKeys: resourceKeys)
+            if values.isDirectory == true {
+                continue
+            }
+            guard values.isRegularFile == true, sourceExtensions.contains(fileURL.pathExtension) else {
+                continue
+            }
+            let contents = try String(contentsOf: fileURL, encoding: .utf8)
+            for entity in removedEntities {
+                #expect(contents.contains(entity) == false, "\(fileURL.path) references removed HA playback entity \(entity)")
+            }
+        }
+    }
 }
 
 @Test func commandWebSocketFastPathSucceedsWithoutHTTP() async throws {

@@ -393,8 +393,8 @@ struct DJConnectNowPlayingWidget: Widget {
         StaticConfiguration(kind: kind, provider: DJConnectNowPlayingWidgetProvider()) { entry in
             DJConnectNowPlayingWidgetView(entry: entry)
         }
-        .configurationDisplayName("Now Playing")
-        .description("Shows the current DJConnect track, artist, playback state and progress.")
+        .configurationDisplayName(DJConnectLocalization.localized(key: "widget.now.playing"))
+        .description(DJConnectLocalization.localized(key: "widget.now.playing.description"))
         .supportedFamilies(supportedFamilies)
     }
 
@@ -791,8 +791,8 @@ struct DJConnectQueueWidget: Widget {
         StaticConfiguration(kind: kind, provider: DJConnectQueueWidgetProvider()) { entry in
             DJConnectQueueWidgetView(entry: entry)
         }
-        .configurationDisplayName("Queue")
-        .description("Shows the upcoming DJConnect queue in compact and detailed widget sizes.")
+        .configurationDisplayName(DJConnectLocalization.localized(key: "widget.queue"))
+        .description(DJConnectLocalization.localized(key: "widget.queue.description"))
         .supportedFamilies(supportedFamilies)
     }
 
@@ -1194,8 +1194,8 @@ struct DJConnectPlaylistsWidget: Widget {
         StaticConfiguration(kind: kind, provider: DJConnectPlaylistsWidgetProvider()) { entry in
             DJConnectPlaylistsWidgetView(entry: entry)
         }
-        .configurationDisplayName("Playlists")
-        .description("Shows DJConnect playlists in compact and detailed widget sizes.")
+        .configurationDisplayName(DJConnectLocalization.localized(key: "widget.playlists"))
+        .description(DJConnectLocalization.localized(key: "widget.playlists.description"))
         .supportedFamilies(supportedFamilies)
     }
 
@@ -1276,7 +1276,7 @@ struct DJConnectTrackInsightWidgetEntry: TimelineEntry {
         title: "Innerbloom",
         artist: "RUFUS DU SOL",
         genre: "Deep House",
-        mood: "Dreamy",
+        mood: DJConnectLocalization.localized(key: "widget.preview.mood.dreamy"),
         vibe: "Cinematic",
         bpm: 122,
         key: "F# minor",
@@ -1703,8 +1703,8 @@ struct DJConnectTrackInsightWidget: Widget {
         StaticConfiguration(kind: kind, provider: DJConnectTrackInsightWidgetProvider()) { entry in
             DJConnectTrackInsightWidgetView(entry: entry)
         }
-        .configurationDisplayName("Track Insight")
-        .description("DJConnect Track Insight visualization for your current vibe.")
+        .configurationDisplayName(DJConnectLocalization.localized(key: "widget.track.insight"))
+        .description(DJConnectLocalization.localized(key: "widget.track.insight.description"))
         .supportedFamilies(supportedFamilies)
     }
 
@@ -1750,9 +1750,9 @@ struct DJConnectAskDJWidgetEntry: TimelineEntry {
 
     static let placeholder = DJConnectAskDJWidgetEntry(
         date: Date(),
-        prompt: "Ask DJ",
-        response: "Vraag om de vibe, ontdek waarom een track werkt of laat DJConnect een volgende stap voorstellen.",
-        mood: "Private - On device - Music DNA",
+        prompt: DJConnectLocalization.localized(key: "widget.ask.dj"),
+        response: DJConnectLocalization.localized(key: "widget.ask.dj.placeholder.response"),
+        mood: DJConnectLocalization.localized(key: "widget.private.on.device.music.dna"),
         trackTitle: "Innerbloom",
         artist: "RUFUS DU SOL",
         hasSnapshot: true
@@ -1834,7 +1834,7 @@ struct DJConnectAskDJWidgetView: View {
         case .accessoryCircular:
             accessoryCircular
         case .accessoryInline:
-            Label("Ask DJ", systemImage: "bubble.left.and.bubble.right")
+            Label(localizedKey("widget.ask.dj"), systemImage: "bubble.left.and.bubble.right")
         default:
             medium
         }
@@ -1847,7 +1847,7 @@ struct DJConnectAskDJWidgetView: View {
             DJConnectAskDJOrb()
                 .frame(width: 62, height: 62)
             Spacer(minLength: 0)
-            Text("Ask DJ")
+            Text(localizedKey("widget.ask.dj"))
                 .font(.headline.weight(.bold))
                 .foregroundStyle(.white)
                 .lineLimit(1)
@@ -1911,7 +1911,7 @@ struct DJConnectAskDJWidgetView: View {
             Image(systemName: "sparkles")
                 .font(.title3.weight(.semibold))
             VStack(alignment: .leading, spacing: 1) {
-                Text("Ask DJ")
+                Text(localizedKey("widget.ask.dj"))
                     .font(.headline)
                     .lineLimit(1)
                 Text(entry.prompt)
@@ -1935,12 +1935,16 @@ struct DJConnectAskDJWidgetView: View {
         HStack(spacing: 6) {
             Image(systemName: "sparkles")
                 .font(.caption.weight(.bold))
-            Text(compact ? "Ask DJ" : "DJConnect Ask DJ")
+            Text(compact ? localizedKey("widget.ask.dj") : localizedKey("widget.djconnect.ask.dj"))
                 .font(.caption.weight(.bold))
                 .textCase(.uppercase)
             Spacer(minLength: 0)
         }
         .foregroundStyle(.white.opacity(0.84))
+    }
+
+    private func localizedKey(_ key: String) -> String {
+        DJConnectLocalization.localized(key: key)
     }
 }
 
@@ -2022,10 +2026,14 @@ private struct DJConnectAskDJPromptRow: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            prompt("Analyze this track", systemImage: "waveform.path.ecg")
-            prompt("Why does this vibe work?", systemImage: "bubble.left.and.bubble.right")
-            prompt("What should play next?", systemImage: "music.note.list")
+            prompt(localizedKey("widget.ask.dj.example.analyze.this.track"), systemImage: "waveform.path.ecg")
+            prompt(localizedKey("widget.ask.dj.example.why.does.this.vibe.work"), systemImage: "bubble.left.and.bubble.right")
+            prompt(localizedKey("widget.ask.dj.example.what.should.play.next"), systemImage: "music.note.list")
         }
+    }
+
+    private func localizedKey(_ key: String) -> String {
+        DJConnectLocalization.localized(key: key)
     }
 
     private func prompt(_ title: String, systemImage: String) -> some View {
@@ -2051,8 +2059,8 @@ struct DJConnectAskDJWidget: Widget {
         StaticConfiguration(kind: kind, provider: DJConnectAskDJWidgetProvider()) { entry in
             DJConnectAskDJWidgetView(entry: entry)
         }
-        .configurationDisplayName("Ask DJ")
-        .description("DJConnect Ask DJ widget for quick music questions and vibe context.")
+        .configurationDisplayName(DJConnectLocalization.localized(key: "widget.ask.dj"))
+        .description(DJConnectLocalization.localized(key: "widget.ask.dj.description"))
         .supportedFamilies(supportedFamilies)
     }
 

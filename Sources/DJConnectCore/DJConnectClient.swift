@@ -233,7 +233,7 @@ public final class DJConnectClient: Sendable {
     }
 
     public func trackInsightRequest(_ payload: DJConnectTrackInsightRequest) throws -> URLRequest {
-        try jsonRequest(path: "/api/djconnect/track_insight", payload: payload)
+        try jsonRequest(path: "/api/djconnect/track_insight", payload: payload.normalizedForSend(identity: identity))
     }
 
     public func pushRegisterRequest(_ payload: DJConnectPushRegistrationRequest) throws -> URLRequest {

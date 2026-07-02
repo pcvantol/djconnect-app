@@ -374,7 +374,7 @@ private struct AskDJComplicationView: View {
                         .font(.title3.weight(.semibold))
                         .widgetAccentable()
                     VStack(alignment: .leading, spacing: 1) {
-                        Text("Ask DJ").font(.headline).lineLimit(1)
+                        Text(localizedKey("widget.ask.dj")).font(.headline).lineLimit(1)
                         Text(snapshot?.prompt ?? localizedKey("watch.complication.open.ask.dj"))
                             .font(.caption2)
                             .foregroundStyle(.secondary)
@@ -382,10 +382,10 @@ private struct AskDJComplicationView: View {
                     }
                 }
             case .accessoryInline:
-                Label("Ask DJ", systemImage: "bubble.left.and.bubble.right")
+                Label(localizedKey("widget.ask.dj"), systemImage: "bubble.left.and.bubble.right")
             case .accessoryCorner:
                 Image(systemName: "bubble.left.and.bubble.right")
-                    .widgetLabel { Text("Ask DJ") }
+                    .widgetLabel { Text(localizedKey("widget.ask.dj")) }
             default:
                 ZStack {
                     AccessoryWidgetBackground()
@@ -406,7 +406,7 @@ struct DJConnectComplicationWidget: Widget {
             DJConnectLauncherView()
         }
         .configurationDisplayName("DJConnect")
-        .description("Open DJConnect from your watch face.")
+        .description(localizedKey("watch.complication.djconnect.description"))
         .supportedFamilies(supportedFamilies)
     }
 }
@@ -429,8 +429,8 @@ struct DJConnectNowPlayingComplicationWidget: Widget {
         ) { entry in
             NowPlayingComplicationView(entry: entry)
         }
-        .configurationDisplayName("Now Playing")
-        .description("Current DJConnect playback.")
+        .configurationDisplayName(localizedKey("widget.now.playing"))
+        .description(localizedKey("watch.complication.now.playing.description"))
         .supportedFamilies(supportedFamilies)
     }
 }
@@ -449,8 +449,8 @@ struct DJConnectQueueComplicationWidget: Widget {
         ) { entry in
             QueueComplicationView(entry: entry)
         }
-        .configurationDisplayName("Queue")
-        .description("Upcoming DJConnect tracks.")
+        .configurationDisplayName(localizedKey("watch.complication.queue"))
+        .description(localizedKey("watch.complication.queue.description"))
         .supportedFamilies(supportedFamilies)
     }
 }
@@ -469,8 +469,8 @@ struct DJConnectPlaylistsComplicationWidget: Widget {
         ) { entry in
             PlaylistsComplicationView(entry: entry)
         }
-        .configurationDisplayName("Playlists")
-        .description("DJConnect playlist shortcuts.")
+        .configurationDisplayName(localizedKey("watch.complication.playlists"))
+        .description(localizedKey("watch.complication.playlists.description"))
         .supportedFamilies(supportedFamilies)
     }
 }
@@ -488,7 +488,7 @@ struct DJConnectTrackInsightComplicationWidget: Widget {
                 bpm: 105,
                 key: "B minor",
                 genre: "Synthpop",
-                mood: "Nostalgic",
+                mood: localizedKey("widget.preview.mood.nostalgic"),
                 energy: 0.76,
                 progress: 138,
                 duration: 200
@@ -496,8 +496,8 @@ struct DJConnectTrackInsightComplicationWidget: Widget {
         ) { entry in
             TrackInsightComplicationView(entry: entry)
         }
-        .configurationDisplayName("Track Insight")
-        .description("Track vibe and energy from DJConnect.")
+        .configurationDisplayName(localizedKey("watch.complication.track.insight"))
+        .description(localizedKey("watch.complication.track.insight.description"))
         .supportedFamilies(supportedFamilies)
     }
 }
@@ -510,8 +510,8 @@ struct DJConnectAskDJComplicationWidget: Widget {
             kind: kind,
             provider: SnapshotProvider(key: AskDJSnapshot.key, placeholderValue: AskDJSnapshot(
                 updatedAt: Date(),
-                prompt: "Ask DJ",
-                response: "Ready",
+                prompt: localizedKey("widget.ask.dj"),
+                response: localizedKey("watch.complication.ready"),
                 context: "DJConnect",
                 trackTitle: "Midnight City",
                 artist: "M83"
@@ -519,8 +519,8 @@ struct DJConnectAskDJComplicationWidget: Widget {
         ) { entry in
             AskDJComplicationView(entry: entry)
         }
-        .configurationDisplayName("Ask DJ")
-        .description("Open Ask DJ from your watch face.")
+        .configurationDisplayName(localizedKey("widget.ask.dj"))
+        .description(localizedKey("watch.complication.ask.dj.description"))
         .supportedFamilies(supportedFamilies)
     }
 }
