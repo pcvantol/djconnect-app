@@ -231,6 +231,11 @@ public enum DJConnectPermissionRequestAction: Equatable, Sendable {
     case openSystemSettings
 }
 
+public enum DJConnectPermissionExplanationKind: Equatable, Sendable {
+    case notifications
+    case microphone
+}
+
 private enum DJConnectPendingPermissionRequest {
     case appPermissions
     case voiceRecording
@@ -599,6 +604,7 @@ public final class DJConnectAppModel: ObservableObject {
     @Published public private(set) var localNetworkPermissionStatus: DJConnectPermissionStatus = .unknown
     @Published public private(set) var isRequestingPermissions = false
     @Published public var isShowingPermissionExplanation = false
+    @Published public private(set) var permissionExplanationKind: DJConnectPermissionExplanationKind = .notifications
     @Published public var isShowingWelcome = false
     @Published public var isShowingCrashReportPrompt = false
     @Published public var isShowingWakeWordActivationPrompt = false
@@ -642,6 +648,17 @@ public final class DJConnectAppModel: ObservableObject {
     private var currentAPNsPushToken: String?
     private var webSocketFastPathCache: [String: any DJConnectWebSocketFastPathTransport] = [:]
     @Published public private(set) var fastPathDiagnostics = DJConnectFastPathDiagnostics()
+    @Published public var webSocketFastPathEnabled = false {
+        didSet {
+            guard oldValue != webSocketFastPathEnabled else {
+                return
+            }
+            defaults.set(webSocketFastPathEnabled, forKey: webSocketFastPathEnabledKey)
+            webSocketFastPathCache.removeAll()
+            fastPathDiagnostics = DJConnectFastPathDiagnostics()
+            log(.info, "WebSocket fast path \(webSocketFastPathEnabled ? "enabled" : "disabled")")
+        }
+    }
     #if canImport(AVFoundation)
     private var voiceRecorder: AVAudioRecorder?
     private var voiceRecordingURL: URL?
@@ -666,7 +683,7 @@ public final class DJConnectAppModel: ObservableObject {
     private let startBackgroundTasks: Bool
     private let monkeyTestingMode: Bool
     private let diagnosticLogFileURL: URL?
-    nonisolated private static let protocolVersion = "3.2.9"
+    nonisolated private static let protocolVersion = "3.2.10"
     private static let defaultHomeAssistantURL = "http://homeassistant.local:8123"
     private let appVersion = DJConnectAppModel.protocolVersion
     private let installIDKey = "DJConnectInstallID"
@@ -942,6 +959,7 @@ public final class DJConnectAppModel: ObservableObject {
         self.logLevel = defaults.string(forKey: logLevelKey) ?? "info"
         self.askDJMood = defaults.object(forKey: askDJMoodKey) == nil ? 50.0 : defaults.double(forKey: askDJMoodKey)
         self.autoTrackInsightEnabled = defaults.bool(forKey: autoTrackInsightEnabledKey)
+        self.webSocketFastPathEnabled = defaults.bool(forKey: webSocketFastPathEnabledKey)
         self.showVisualizerOnAirPlay = defaults.bool(forKey: showVisualizerOnAirPlayKey)
         self.demoMusicDNAEnabled = defaults.bool(forKey: demoMusicDNAEnabledKey)
         self.askDJMessages = Self.loadAskDJMessages(defaults: defaults, key: askDJMessagesKey)
@@ -1278,7 +1296,7 @@ public final class DJConnectAppModel: ObservableObject {
         defaults.set(true, forKey: wakeWordPromptDismissedKey)
         isShowingWakeWordActivationPrompt = false
         wakeWordEnabled = true
-        log(.info, "Wakeword enabled from post-pairing prompt")
+        log(.info, "Wakeword enabled from voice activation prompt")
     }
 
     public func dismissWakeWordActivationPrompt() {
@@ -1289,18 +1307,8 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     func presentWakeWordActivationPromptAfterPairing() {
-        guard !wakeWordEnabled else {
-            return
-        }
-        guard !defaults.bool(forKey: wakeWordPromptDismissedKey) else {
-            return
-        }
-        guard isPairingScreenDismissed else {
-            shouldShowWakeWordPromptAfterPairingScreen = true
-            return
-        }
-        isShowingWakeWordActivationPrompt = true
-        log(.info, "Showing post-pairing wakeword activation prompt")
+        shouldShowWakeWordPromptAfterPairingScreen = false
+        log(.debug, "Skipping automatic wakeword activation prompt after pairing")
     }
 
     public func crashIssueURL() -> URL? {
@@ -2947,18 +2955,6 @@ public final class DJConnectAppModel: ObservableObject {
             return
         }
         stopResponsePlayback(clearText: true)
-        if isDemoMode {
-            voiceStatus = .processing
-            let demoResponse = "Ja ja, daar is hij dan, de knaller van Luna Vale, Neonregen!"
-            djResponseText = demoResponse
-            appendAskDJMessage(role: .user, text: localized(key: "appModel.voice.request"))
-            appendAskDJMessage(role: .dj, text: demoResponse)
-            notifyAskDJResponse(demoResponse)
-            speakDemoResponse(demoResponse)
-            voiceStatus = .idle
-            log(.info, "Demo voice request completed")
-            return
-        }
         stopWakeWordListening()
         guard voiceEnabled else {
             dismissWakeWordListeningMessage()
@@ -2971,11 +2967,16 @@ public final class DJConnectAppModel: ObservableObject {
         if microphonePermissionStatus == .unknown, !shouldBypassPermissionExplanationOnce {
             dismissWakeWordListeningMessage()
             pendingPermissionRequest = .voiceRecording
+            permissionExplanationKind = .microphone
             isShowingPermissionExplanation = true
             log(.debug, "Showing microphone permission explanation before voice recording")
             return
         }
         shouldBypassPermissionExplanationOnce = false
+        if isDemoMode {
+            startDemoVoiceRequestAfterPermission()
+            return
+        }
         guard pairingStatus == .paired else {
             dismissWakeWordListeningMessage()
             voiceStatus = .unavailable
@@ -3012,6 +3013,39 @@ public final class DJConnectAppModel: ObservableObject {
             }
             await beginVoiceRecording()
             voiceStartTask = nil
+        }
+    }
+
+    private func startDemoVoiceRequestAfterPermission() {
+        voiceStartTask?.cancel()
+        isRecordingVoice = true
+        voiceStatus = .listening
+        voiceErrorMessage = nil
+
+        voiceStartTask = Task { @MainActor in
+            let granted = await requestMicrophoneAccess()
+            guard !Task.isCancelled, isRecordingVoice else {
+                return
+            }
+            isRecordingVoice = false
+            voiceStartTask = nil
+            guard granted else {
+                dismissWakeWordListeningMessage()
+                voiceStatus = .unavailable
+                voiceErrorMessage = localized(key: "appModel.microphone.access.is.required.for.push.to.talk")
+                log(.warning, "Demo voice request ignored because microphone permission was not granted")
+                resumeWakeWordListeningIfNeeded()
+                return
+            }
+            voiceStatus = .processing
+            let demoResponse = "Ja ja, daar is hij dan, de knaller van Luna Vale, Neonregen!"
+            djResponseText = demoResponse
+            appendAskDJMessage(role: .user, text: localized(key: "appModel.voice.request"))
+            appendAskDJMessage(role: .dj, text: demoResponse)
+            notifyAskDJResponse(demoResponse)
+            speakDemoResponse(demoResponse)
+            voiceStatus = .idle
+            log(.info, "Demo voice request completed")
         }
     }
 
@@ -3474,7 +3508,12 @@ public final class DJConnectAppModel: ObservableObject {
             isConnected = false
             pairingMessage = message ?? localized(key: "appModel.djconnect.route.missing.in.home.assistant.check.the.integration")
         case let .notConfigured(message):
-            recoverFromStalePairing(message: message ?? localized(key: "appModel.not.connected.to.home.assistant"))
+            if isPairingFlowActive {
+                isConnected = false
+                pairingMessage = localized(key: "appModel.waiting.for.setup.to.be.completed.in.home.assistant")
+            } else {
+                recoverFromStalePairing(message: message ?? localized(key: "appModel.not.connected.to.home.assistant"))
+            }
         case let .server(_, message):
             if let userFacingError = userFacingDJResponseText(message ?? Self.describe(error)) {
                 djResponseText = userFacingError
@@ -3501,6 +3540,10 @@ public final class DJConnectAppModel: ObservableObject {
         isPairingScreenDismissed = false
         isShowingPairingSuccess = false
         pairingMessage = message ?? localized(key: "appModel.pairing.is.stale.open.home.assistant.setup.and.enter")
+    }
+
+    private var isPairingFlowActive: Bool {
+        isPairing || pairingStatus == .pairing || pairingStatus == .waitingForHomeAssistantCompletion
     }
 
     public func emitUserConnectionNotice(for error: DJConnectError? = nil) {
@@ -6476,7 +6519,7 @@ public final class DJConnectAppModel: ObservableObject {
 
     private func transportConfiguration(allowsRemoteHTTPFallback: Bool = true) -> DJConnectTransportConfiguration {
         DJConnectTransportConfiguration(
-            webSocketFastPathEnabled: defaults.bool(forKey: webSocketFastPathEnabledKey),
+            webSocketFastPathEnabled: webSocketFastPathEnabled,
             homeAssistantWebSocketAuth: homeAssistantWebSocketAuth,
             allowsRemoteHTTPFallback: allowsRemoteHTTPFallback
         )
@@ -7563,6 +7606,13 @@ public final class DJConnectAppModel: ObservableObject {
 
     public func setWakeWordEnabled(_ enabled: Bool) {
         refreshPermissionStatuses()
+        if enabled,
+           !wakeWordEnabled,
+           (microphonePermissionStatus == .unknown || speechPermissionStatus == .unknown) {
+            isShowingWakeWordActivationPrompt = true
+            log(.debug, "Showing voice activation prompt from settings")
+            return
+        }
         wakeWordEnabled = enabled
     }
 
@@ -7596,26 +7646,22 @@ public final class DJConnectAppModel: ObservableObject {
         }
         log(.debug, "User action: request app permissions")
         refreshPermissionStatuses()
-        let action = Self.permissionRequestAction(
-            microphone: microphonePermissionStatus,
-            speech: speechPermissionStatus,
-            notifications: notificationPermissionStatus
-        )
-        switch action {
-        case .alreadyGranted:
-            log(.info, "App permissions already granted")
+        switch notificationPermissionStatus {
+        case .granted:
+            log(.info, "Notification permission already granted")
             registerForSystemRemoteNotifications()
             refreshPermissionStatuses()
             return
-        case .openSystemSettings:
-            log(.info, "Opening system settings because a permission was denied or restricted")
+        case .denied, .restricted:
+            log(.info, "Opening system settings because notification permission was denied or restricted")
             openAppPermissionSettings()
             schedulePermissionStatusRefreshes()
             return
-        case .requestSystemPrompt:
+        case .unknown, .unavailable:
             break
         }
         pendingPermissionRequest = .appPermissions
+        permissionExplanationKind = .notifications
         isShowingPermissionExplanation = true
     }
 
@@ -7650,23 +7696,7 @@ public final class DJConnectAppModel: ObservableObject {
         }
         isRequestingPermissions = true
         Task { @MainActor in
-            log(.debug, "Permission request started: microphone_status=\(microphonePermissionStatus.rawValue) speech_status=\(speechPermissionStatus.rawValue)")
-            log(.debug, "Permission request step: microphone begin")
-            let microphoneGranted: Bool
-            if microphonePermissionStatus == .granted {
-                microphoneGranted = true
-            } else {
-                microphoneGranted = await requestMicrophoneAccess()
-            }
-            log(.debug, "Permission request step: microphone completed granted=\(microphoneGranted)")
-            log(.debug, "Permission request step: speech begin")
-            let speechGranted: Bool
-            if speechPermissionStatus == .granted {
-                speechGranted = true
-            } else {
-                speechGranted = await requestSpeechAccessIfAvailable()
-            }
-            log(.debug, "Permission request step: speech completed granted=\(speechGranted)")
+            log(.debug, "Notification permission request started: notifications_status=\(notificationPermissionStatus.rawValue)")
             log(.debug, "Permission request step: notifications begin")
             let notificationGranted: Bool
             #if canImport(UserNotifications)
@@ -7688,10 +7718,10 @@ public final class DJConnectAppModel: ObservableObject {
             log(.debug, "Permission request step: notifications completed granted=\(notificationGranted)")
             refreshPermissionStatuses()
             isRequestingPermissions = false
-            if microphoneGranted, speechGranted {
-                log(.info, "App permissions granted")
+            if notificationGranted {
+                log(.info, "Notification permission granted")
             } else {
-                log(.warning, "App permissions are incomplete")
+                log(.warning, "Notification permission is incomplete")
             }
         }
     }

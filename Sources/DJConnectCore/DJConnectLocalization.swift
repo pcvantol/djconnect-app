@@ -106,21 +106,36 @@ public enum DJConnectLocalization {
     }
 
     private static func localizedBundle(for languageCode: String) -> Bundle? {
-        let bundle = resourceBundle
-        if let path = bundle.path(
-            forResource: languageCode,
-            ofType: "lproj",
-            inDirectory: "Localization"
-        ) {
-            return Bundle(path: path)
-        }
-        if let path = bundle.path(forResource: languageCode, ofType: "lproj") {
-            return Bundle(path: path)
-        }
-        if let path = bundle.path(forResource: languageCode, ofType: "lproj", inDirectory: "Resources/Localization") {
-            return Bundle(path: path)
+        for bundle in localizationCandidateBundles {
+            if let path = bundle.path(
+                forResource: languageCode,
+                ofType: "lproj",
+                inDirectory: "Localization"
+            ) {
+                return Bundle(path: path)
+            }
+            if let path = bundle.path(forResource: languageCode, ofType: "lproj") {
+                return Bundle(path: path)
+            }
+            if let path = bundle.path(forResource: languageCode, ofType: "lproj", inDirectory: "Resources/Localization") {
+                return Bundle(path: path)
+            }
         }
         return nil
+    }
+
+    private static var localizationCandidateBundles: [Bundle] {
+        var bundles = [resourceBundle, Bundle.main]
+        bundles.append(contentsOf: Bundle.allFrameworks.filter { bundle in
+            bundle.bundleIdentifier?.contains("DJConnectCore") == true
+                || bundle.bundleURL.lastPathComponent == "DJConnectCore.framework"
+        })
+        return bundles.reduce(into: []) { uniqueBundles, bundle in
+            guard !uniqueBundles.contains(where: { $0.bundleURL == bundle.bundleURL }) else {
+                return
+            }
+            uniqueBundles.append(bundle)
+        }
     }
 
     private static var resourceBundle: Bundle {

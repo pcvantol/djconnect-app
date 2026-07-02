@@ -4,6 +4,30 @@ All notable changes to DJConnect App are documented here.
 
 ## Unreleased
 
+## 3.2.10 - 2026-07-02
+
+### Added
+
+- Added an opt-in WebSocket fast-path toggle for local Home Assistant
+  connections on iOS and macOS.
+- Added direct screenshot launch routing for deterministic iPhone and iPad
+  capture runs.
+
+### Changed
+
+- Refined Settings, Logs, Music DNA, Track Insight, onboarding and pairing
+  layouts across iOS, iPadOS and macOS.
+- Regenerated iPhone, iPad and Watch screenshots for the updated UI.
+- Updated Ask DJ permission prompts so notifications are requested first and
+  microphone access is requested only from voice actions.
+
+### Fixed
+
+- Fixed iPhone rotation behavior for Games and Music DNA by switching to a
+  geometry-aware top-tab layout in landscape.
+- Fixed remaining wake-word copy escaping and untranslated Track Insight text.
+- Fixed home-screen jump actions and several row-height/padding inconsistencies.
+
 ## 3.2.9 - 2026-07-02
 
 ### Added

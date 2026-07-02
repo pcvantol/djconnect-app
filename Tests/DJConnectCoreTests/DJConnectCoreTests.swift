@@ -571,6 +571,33 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     #expect(model.pairingMessage == "DJConnect is not configured.")
 }
 
+@MainActor
+@Test func notConfiguredDuringActivePairingKeepsEnteredPairCode() throws {
+    let suiteName = "DJConnectTests-\(UUID().uuidString)"
+    let defaults = try #require(UserDefaults(suiteName: suiteName))
+    defaults.removePersistentDomain(forName: suiteName)
+    defaults.set(true, forKey: "DJConnectWelcomeSeen")
+    let tokenStore = DJConnectInMemoryTokenStore(token: "pairing-token")
+    let model = DJConnectAppModel(defaults: defaults, tokenStore: tokenStore, startBackgroundTasks: false)
+    defer {
+        model.stopPairingWait()
+    }
+    model.language = "nl"
+    model.pairingStatus = .pairing
+    model.isPairing = true
+    model.pairingToken = "651161"
+
+    model.apply(error: .notConfigured(message: "DJConnect is not configured."))
+
+    #expect(model.pairingStatus == .pairing)
+    #expect(model.isPairing == true)
+    #expect(model.isPairingScreenDismissed == false)
+    #expect(model.pairingToken == "651161")
+    #expect(defaults.string(forKey: "DJConnectPairingToken") == "651161")
+    #expect(try tokenStore.loadToken() == "pairing-token")
+    #expect(model.pairingMessage == "Wacht op afronden in Home Assistant.")
+}
+
 @Test func statusRequestIncludesContractFieldsAndHeaders() throws {
     let identity = DJConnectIdentity(
         deviceID: "djconnect-ios-8F3A2C91B45D",
@@ -5094,6 +5121,29 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
 }
 
 @MainActor
+@Test func demoVoiceRecordingShowsMicrophoneConsentBeforeDemoResponse() throws {
+    let suiteName = "DJConnectTests-\(UUID().uuidString)"
+    let defaults = try #require(UserDefaults(suiteName: suiteName))
+    defaults.removePersistentDomain(forName: suiteName)
+    let model = DJConnectAppModel(
+        defaults: defaults,
+        tokenStore: DJConnectInMemoryTokenStore(),
+        startBackgroundTasks: false
+    )
+    model.startDemoMode()
+    guard model.microphonePermissionStatus == .unknown else {
+        return
+    }
+
+    model.startVoiceRecording()
+
+    #expect(model.isShowingPermissionExplanation == true)
+    #expect(model.permissionExplanationKind == .microphone)
+    #expect(model.askDJMessages.contains { $0.text == "Voice request" } == false)
+    #expect(model.djResponseText.isEmpty)
+}
+
+@MainActor
 @Test func welcomeScreenIsShownOncePerInstall() throws {
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
@@ -5194,7 +5244,7 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
 }
 
 @MainActor
-@Test func wakeWordPromptAppearsAfterFreshPairingWhenDisabled() throws {
+@Test func wakeWordPromptDoesNotAppearAutomaticallyAfterFreshPairing() throws {
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
@@ -5206,30 +5256,21 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
 
     model.completePairingScreen()
 
-    #expect(model.isShowingWakeWordActivationPrompt == true)
+    #expect(model.isShowingWakeWordActivationPrompt == false)
 }
 
 @MainActor
-@Test func wakeWordPromptDismissalIsRememberedUntilPairingReset() throws {
+@Test func wakeWordPromptAppearsWhenVoiceActivationIsEnabledFromSettings() throws {
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
     let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startBackgroundTasks: false)
 
     model.pairingStatus = .paired
-    model.presentWakeWordActivationPromptAfterPairing()
-    model.completePairingScreen()
-    model.dismissWakeWordActivationPrompt()
-    model.presentWakeWordActivationPromptAfterPairing()
-
-    #expect(model.isShowingWakeWordActivationPrompt == false)
-
-    model.resetPairing()
-    model.pairingStatus = .paired
-    model.presentWakeWordActivationPromptAfterPairing()
-    model.completePairingScreen()
+    model.setWakeWordEnabled(true)
 
     #expect(model.isShowingWakeWordActivationPrompt == true)
+    #expect(model.wakeWordEnabled == false)
 }
 
 @MainActor
@@ -5240,8 +5281,7 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startBackgroundTasks: false)
 
     model.pairingStatus = .paired
-    model.presentWakeWordActivationPromptAfterPairing()
-    model.completePairingScreen()
+    model.setWakeWordEnabled(true)
     model.activateWakeWordFromPrompt()
 
     #expect(model.isShowingWakeWordActivationPrompt == false)
@@ -6147,6 +6187,26 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     #expect(DJConnectLocalization.preferredLanguageCode(["es-ES", "en-US"]) == "es")
     #expect(DJConnectLocalization.preferredLanguageCode(["en-US", "nl-NL"]) == "en")
     #expect(DJConnectLocalization.preferredLanguageCode([]) == "en")
+}
+
+@Test func localizationResolvesWatchScreenKeys() {
+    let dutchExpectations = [
+        "watch.settings": "Instellingen",
+        "watch.legal": "Juridisch",
+        "watch.privacy": "Privacy",
+        "watch.feedback": "Feedback",
+        "watch.demo.mode.active": "Demo modus actief",
+        "watch.app.language": "App-taal"
+    ]
+
+    for (key, value) in dutchExpectations {
+        #expect(DJConnectLocalization.localized(key: key, language: "nl") == value)
+        #expect(DJConnectLocalization.localized(key: key, language: "nl") != key)
+    }
+
+    #expect(DJConnectLocalization.localized(key: "watch.settings", language: "en") == "Settings")
+    #expect(DJConnectLocalization.localized(key: "watch.legal", language: "en") == "Legal")
+    #expect(DJConnectLocalization.localized(key: "watch.app.language", language: "en") == "App Language")
 }
 
 @Test func defaultDisplayLanguageUsesSharedAppLanguageOverrideForWidgets() throws {

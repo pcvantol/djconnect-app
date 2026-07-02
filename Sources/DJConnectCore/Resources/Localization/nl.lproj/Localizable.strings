@@ -319,7 +319,7 @@
 "ui.request.permissions" = "Toestemmingen vragen";
 "ui.pair.app.again.c2c7b2" = "App opnieuw koppelen?";
 "ui.turn.off.music.dna" = "Music DNA uitschakelen?";
-"ui.clear.music.dna" = "Music DNA wissen?";
+"ui.clear.music.dna" = "Music DNA luisterprofiel wissen?";
 "ui.keep.demo.profile" = "Demo-profiel behouden";
 "ui.clear.music.dna.817df9" = "Music DNA wissen";
 "ui.search.logs" = "Logs zoeken";
@@ -337,10 +337,12 @@
 "ui.home.assistant.address" = "Home Assistant adres";
 "ui.music" = "Muziek";
 "ui.available" = "Beschikbaar";
-"ui.notices" = "Notices";
+"ui.notices" = "Kennisgevingen";
 "ui.demo" = "Demo";
 "ui.not.active" = "Niet actief";
 "ui.fast.local.link.websocket" = "Snelle lokale verbinding (WebSocket)";
+"ui.websocket.fast.path" = "WebSocket fast path";
+"ui.use.websocket.fast.path.only.on.local.home.assistant" = "Gebruik WebSocket voor snellere lokale Home Assistant-acties. Alleen beschikbaar via de lokale verbinding.";
 "ui.normal.link.http" = "Normale verbinding (HTTP)";
 "ui.report.ask.dj.answer" = "Ask DJ antwoord melden";
 "ui.what.was.wrong.or.missing" = "Wat klopte er niet of wat miste er?";
@@ -468,7 +470,7 @@
 "watch.iphone.companion" = "iPhone companion";
 "watch.demo.mode" = "Demo modus";
 "watch.welcome.to.djconnect" = "Welkom bij DJConnect";
-"watch.configure.djconnect.in.home.assistant.then.pair.this" = "Configureer DJConnect in Home Assistant en koppel daarna deze Watch.";
+"watch.configure.djconnect.in.home.assistant.then.pair.this" = "Configureer DJConnect in Home Assistant en koppel daarna deze Watch via DJConnect op je iPhone.";
 "watch.the.music.backend.runs.through.home.assistant" = "Muziekbackend loopt via Home Assistant.";
 "watch.microphone" = "Microfoon";
 "watch.not.now" = "Niet nu";
@@ -482,6 +484,8 @@
 "watch.connection" = "Connectie";
 "watch.through.iphone" = "via iPhone";
 "watch.backend.error" = "Backend fout";
+"watch.backend.unknown" = "Onbekend";
+"watch.target" = "Doel";
 "watch.unavailable" = "niet beschikbaar";
 "watch.local" = "Lokaal";
 "watch.djconnect.is.not.affiliated.with.endorsed.by.or" = "DJConnect is niet gelieerd aan, goedgekeurd door of gesponsord door Spotify AB, Apple of Home Assistant.";
@@ -695,7 +699,7 @@
 "ui.camera.access.is.disabled.enable.it.in.settings.to.scan" = "Cameratoegang staat uit. Zet dit aan in Instellingen om de DJConnect koppel-QR-code van Home Assistant te scannen.";
 "ui.djconnect.uses.the.camera.only.to.scan.the.pairing.qr" = "DJConnect gebruikt de camera alleen om de koppel-QR-code van Home Assistant te scannen. Er wordt niets opgenomen of opgeslagen.";
 "ui.scan.the.djconnect.qr.code.shown.by.home.assistant" = "Scan de DJConnect QR-code die Home Assistant toont.";
-"ui.start.hands.free.with.hey.dj.while.djconnect.is.open" = "Start handsfree met \\\"Hey DJ\\\" terwijl DJConnect open is. Microfoon- en spraakherkenningstoestemming kunnen worden gevraagd.";
+"ui.start.hands.free.with.hey.dj.while.djconnect.is.open" = "Start handsfree met \"Hey DJ\" terwijl DJConnect open is. Microfoon- en spraakherkenningstoestemming kunnen worden gevraagd.";
 "ui.update.djconnect.before.continuing" = "Update DJConnect voordat je verdergaat.";
 "ui.playback.queue.playlists.output.selection.and.voice.controls.are.blocked" = "Playback, wachtrij, afspeellijsten, uitvoerapparaat en stemfuncties zijn geblokkeerd totdat de app en Home Assistant-integratie compatibel zijn.";
 "ui.you.can.share.redacted.diagnostics.by.opening.a.github.issue" = "Je kunt logs delen als je dat wilt. Er wordt niets automatisch geüpload.";

@@ -2,11 +2,47 @@ import XCTest
 
 @MainActor
 final class DJConnectMacUITests: XCTestCase {
+    private var lastScreenshotPNG: Data?
+
     private func launchMonkeyApp() -> XCUIApplication {
         let app = XCUIApplication()
-        app.launchArguments.append("--monkey-testing")
+        app.launchArguments.append(contentsOf: ["--monkey-testing", "-AppleLanguages", "(nl)", "-AppleLocale", "nl_NL"])
         app.launch()
         return app
+    }
+
+    private func openScreen(_ title: String, in app: XCUIApplication, timeout: TimeInterval = 6) {
+        let button = app.buttons[title]
+        if button.waitForExistence(timeout: 2), button.isHittable {
+            button.tap()
+        } else {
+            app.staticTexts[title].tapIfExists()
+        }
+        XCTAssertTrue(waitForScreen(title, in: app, timeout: timeout), "Expected \(title) to be visible after navigation.")
+    }
+
+    private func waitForScreen(_ title: String, in app: XCUIApplication, timeout: TimeInterval = 6) -> Bool {
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            if app.windows.firstMatch.exists
+                && (app.staticTexts[title].exists
+                    || app.buttons[title].exists
+                    || app.groups[title].exists) {
+                return true
+            }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.2))
+        }
+        return false
+    }
+
+    private func captureVerifiedScreenshot(named name: String, allowDuplicate: Bool = false) throws {
+        let screenshot = XCUIScreen.main.screenshot()
+        let png = screenshot.pngRepresentation
+        if !allowDuplicate, let previous = lastScreenshotPNG {
+            XCTAssertNotEqual(png, previous, "Screenshot \(name) is identical to the previous capture; navigation likely did not reach a new screen.")
+        }
+        try attachAndWriteScreenshot(screenshot, named: name)
+        lastScreenshotPNG = png
     }
 
     func testMonkeyModeSafeNavigationSmoke() {
@@ -16,7 +52,7 @@ final class DJConnectMacUITests: XCTestCase {
         let destinations = ["Speelt Nu", "Wachtrij", "Afspeellijsten", "Games", "Instellingen", "Over"]
         var index = 0
 
-        XCTAssertTrue(app.windows.firstMatch.waitForExistence(timeout: 8))
+        XCTAssertTrue(app.windows.firstMatch.waitForExistence(timeout: 12))
 
         while Date() < deadline {
             let title = destinations[index % destinations.count]
@@ -51,13 +87,65 @@ final class DJConnectMacUITests: XCTestCase {
     func testSettingsShowsRepairPairingAction() {
         let app = launchMonkeyApp()
 
-        XCTAssertTrue(app.windows.firstMatch.waitForExistence(timeout: 8))
-        app.buttons["Instellingen"].tapIfExists()
-        app.staticTexts["Instellingen"].tapIfExists()
+        XCTAssertTrue(app.windows.firstMatch.waitForExistence(timeout: 12))
+        openScreen("Instellingen", in: app)
 
         XCTAssertTrue(app.staticTexts["Koppeling"].waitForExistence(timeout: 3))
         XCTAssertTrue(app.buttons["App opnieuw koppelen"].exists)
     }
+
+    func testCaptureDemoScreenshots() throws {
+        let app = launchMonkeyApp()
+
+        XCTAssertTrue(app.windows.firstMatch.waitForExistence(timeout: 12))
+        lastScreenshotPNG = nil
+
+        let screens = [
+            ("01-now-playing", "Speelt Nu"),
+            ("02-queue", "Wachtrij"),
+            ("03-ask-dj", "Ask DJ"),
+            ("04-track-insight", "Track Insight"),
+            ("05-music-dna", "Music DNA"),
+            ("06-playlists", "Afspeellijsten"),
+            ("07-games", "Games"),
+            ("08-settings", "Instellingen"),
+            ("09-logs", "Logs"),
+            ("10-about", "Over"),
+            ("11-legal", "Juridisch"),
+            ("12-privacy", "Privacy")
+        ]
+
+        for (name, title) in screens {
+            openScreen(title, in: app)
+            RunLoop.current.run(until: Date().addingTimeInterval(0.8))
+            try captureVerifiedScreenshot(named: name, allowDuplicate: name == "01-now-playing")
+        }
+    }
+}
+
+@MainActor
+private func attachAndWriteScreenshot(_ screenshot: XCUIScreenshot, named name: String) throws {
+    let attachment = XCTAttachment(screenshot: screenshot)
+    attachment.name = name
+    attachment.lifetime = .keepAlways
+    XCTContext.runActivity(named: name) { activity in
+        activity.add(attachment)
+    }
+
+    let directory = ProcessInfo.processInfo.environment["DJCONNECT_SCREENSHOT_DIR"]
+        .map(URL.init(fileURLWithPath:))
+        ?? defaultScreenshotDirectory
+    try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+    try screenshot.pngRepresentation.write(to: directory.appendingPathComponent("\(name).png"))
+}
+
+private var defaultScreenshotDirectory: URL {
+    URL(fileURLWithPath: #filePath)
+        .deletingLastPathComponent()
+        .deletingLastPathComponent()
+        .deletingLastPathComponent()
+        .appendingPathComponent("screenshots")
+        .appendingPathComponent("macos-local")
 }
 
 private extension XCUIElement {

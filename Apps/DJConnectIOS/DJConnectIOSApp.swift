@@ -125,7 +125,9 @@ final class DJConnectIOSAppDelegate: NSObject, UIApplicationDelegate, @preconcur
             handle(url)
         }
         let configuration = UISceneConfiguration(name: nil, sessionRole: connectingSceneSession.role)
-        if connectingSceneSession.role == .windowExternalDisplayNonInteractive {
+        if connectingSceneSession.role == .windowApplication {
+            configuration.delegateClass = DJConnectIOSSceneDelegate.self
+        } else if connectingSceneSession.role == .windowExternalDisplayNonInteractive {
             configuration.delegateClass = VibeCastExternalDisplaySceneDelegate.self
         }
         return configuration
@@ -140,7 +142,7 @@ final class DJConnectIOSAppDelegate: NSObject, UIApplicationDelegate, @preconcur
     }
 
     @discardableResult
-    private func handle(_ shortcutItem: UIApplicationShortcutItem) -> Bool {
+    func handle(_ shortcutItem: UIApplicationShortcutItem) -> Bool {
         guard let action = DJConnectHomeScreenAction(rawValue: shortcutItem.type) else {
             return false
         }
@@ -150,7 +152,7 @@ final class DJConnectIOSAppDelegate: NSObject, UIApplicationDelegate, @preconcur
     }
 
     @discardableResult
-    private func handle(_ url: URL) -> Bool {
+    func handle(_ url: URL) -> Bool {
         guard let action = DJConnectHomeScreenAction(deepLinkURL: url) else {
             return false
         }
@@ -169,6 +171,27 @@ final class DJConnectIOSAppDelegate: NSObject, UIApplicationDelegate, @preconcur
 
     func updateVibeCastSignal() {
         vibeCastOutputController.update()
+    }
+}
+
+final class DJConnectIOSSceneDelegate: NSObject, UIWindowSceneDelegate {
+    func windowScene(
+        _ windowScene: UIWindowScene,
+        performActionFor shortcutItem: UIApplicationShortcutItem,
+        completionHandler: @escaping (Bool) -> Void
+    ) {
+        completionHandler(appDelegate?.handle(shortcutItem) ?? false)
+    }
+
+    func scene(_ scene: UIScene, openURLContexts URLContexts: Set<UIOpenURLContext>) {
+        guard let url = URLContexts.first?.url else {
+            return
+        }
+        _ = appDelegate?.handle(url)
+    }
+
+    private var appDelegate: DJConnectIOSAppDelegate? {
+        UIApplication.shared.delegate as? DJConnectIOSAppDelegate
     }
 }
 

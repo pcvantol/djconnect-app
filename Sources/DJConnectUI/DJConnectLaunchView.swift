@@ -9,7 +9,7 @@ import AppKit
 
 enum DJConnectVersionInfo {
     static var displayVersion: String {
-        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "3.2.9"
+        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "3.2.10"
     }
 }
 
@@ -56,7 +56,7 @@ public struct DJConnectLaunchContainer<Content: View>: View {
         showLaunch = true
 
         minimumLaunchTask = Task { @MainActor in
-            try? await Task.sleep(for: .milliseconds(3_500))
+            try? await Task.sleep(for: .seconds(6))
             guard !Task.isCancelled else { return }
             minimumLaunchTimeElapsed = true
             updateLaunchVisibility()
@@ -239,12 +239,12 @@ private struct DJConnectLaunchBanner: View {
 private struct DJConnectLaunchHeroVisual: View {
     var body: some View {
         ZStack {
-            Circle()
+            RoundedRectangle(cornerRadius: 72, style: .continuous)
                 .fill(
                     RadialGradient(
                         colors: [
-                            Color(red: 0.96, green: 0.12, blue: 0.92).opacity(0.28),
-                            Color(red: 0.12, green: 0.58, blue: 1.0).opacity(0.18),
+                            Color(red: 0.20, green: 0.74, blue: 1.0).opacity(0.24),
+                            Color(red: 0.56, green: 0.18, blue: 0.96).opacity(0.18),
                             .clear
                         ],
                         center: .center,
@@ -252,23 +252,23 @@ private struct DJConnectLaunchHeroVisual: View {
                         endRadius: 190
                     )
                 )
-                .blur(radius: 16)
-                .scaleEffect(x: 1.35, y: 0.82)
+                .blur(radius: 20)
+                .scaleEffect(x: 1.18, y: 0.82)
 
             DJConnectLaunchSignalRings()
                 .stroke(
                     LinearGradient(
                         colors: [
-                            Color(red: 0.16, green: 0.78, blue: 1.0).opacity(0.62),
-                            Color(red: 0.96, green: 0.14, blue: 0.90).opacity(0.18)
+                            Color(red: 0.18, green: 0.78, blue: 1.0).opacity(0.34),
+                            Color(red: 0.54, green: 0.22, blue: 0.96).opacity(0.10)
                         ],
                         startPoint: .leading,
                         endPoint: .trailing
                     ),
-                    style: StrokeStyle(lineWidth: 2.4, lineCap: .round)
+                    style: StrokeStyle(lineWidth: 2, lineCap: .round)
                 )
-                .frame(width: 286, height: 176)
-                .offset(x: 24, y: -4)
+                .frame(width: 250, height: 150)
+                .offset(x: 44, y: -2)
 
             RoundedRectangle(cornerRadius: 34, style: .continuous)
                 .fill(
@@ -284,68 +284,47 @@ private struct DJConnectLaunchHeroVisual: View {
                 )
                 .overlay {
                     RoundedRectangle(cornerRadius: 34, style: .continuous)
-                        .stroke(.white.opacity(0.16), lineWidth: 1)
+                        .stroke(
+                            LinearGradient(
+                                colors: [
+                                    .white.opacity(0.18),
+                                    Color(red: 0.18, green: 0.78, blue: 1.0).opacity(0.16)
+                                ],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            ),
+                            lineWidth: 1
+                        )
                 }
-                .shadow(color: Color(red: 0.96, green: 0.12, blue: 0.92).opacity(0.22), radius: 34, y: 18)
-                .frame(width: 270, height: 170)
-                .rotationEffect(.degrees(-4))
+                .shadow(color: Color(red: 0.18, green: 0.64, blue: 1.0).opacity(0.18), radius: 30, y: 16)
+                .shadow(color: Color(red: 0.60, green: 0.16, blue: 0.90).opacity(0.18), radius: 24, y: 12)
+                .frame(width: 280, height: 164)
 
             DJConnectLaunchRecord()
-                .frame(width: 128, height: 128)
-                .offset(x: -56, y: 12)
+                .frame(width: 116, height: 116)
+                .offset(x: -66, y: 6)
 
             DJConnectLaunchMixerLines()
-                .stroke(.white.opacity(0.34), style: StrokeStyle(lineWidth: 4, lineCap: .round))
-                .frame(width: 88, height: 78)
-                .offset(x: 42, y: 32)
+                .stroke(.white.opacity(0.30), style: StrokeStyle(lineWidth: 4, lineCap: .round))
+                .frame(width: 74, height: 66)
+                .offset(x: 64, y: 34)
 
             DJConnectLaunchWaveform()
                 .stroke(
                     LinearGradient(
                         colors: [
-                            Color(red: 0.90, green: 0.18, blue: 1.0),
+                            Color(red: 0.54, green: 0.22, blue: 0.98),
                             Color(red: 0.20, green: 0.78, blue: 1.0),
                             Color(red: 0.33, green: 0.96, blue: 0.72)
                         ],
                         startPoint: .leading,
                         endPoint: .trailing
                     ),
-                    style: StrokeStyle(lineWidth: 9, lineCap: .round, lineJoin: .round)
+                    style: StrokeStyle(lineWidth: 8, lineCap: .round, lineJoin: .round)
                 )
-                .frame(width: 172, height: 66)
-                .shadow(color: Color(red: 0.92, green: 0.12, blue: 1.0).opacity(0.46), radius: 14)
-                .offset(x: 42, y: -28)
-
-            Image(systemName: "megaphone.fill")
-                .font(.system(size: 46, weight: .bold))
-                .foregroundStyle(
-                    LinearGradient(
-                        colors: [
-                            Color(red: 1.0, green: 0.34, blue: 0.46),
-                            Color(red: 0.97, green: 0.14, blue: 0.92)
-                        ],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
-                .shadow(color: Color(red: 0.97, green: 0.14, blue: 0.92).opacity(0.36), radius: 14)
-                .rotationEffect(.degrees(9))
-                .offset(x: 112, y: -60)
-
-            Image(systemName: "music.note")
-                .font(.system(size: 48, weight: .heavy))
-                .foregroundStyle(
-                    LinearGradient(
-                        colors: [
-                            Color(red: 0.20, green: 0.76, blue: 1.0),
-                            Color(red: 0.88, green: 0.22, blue: 1.0)
-                        ],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
-                .shadow(color: Color(red: 0.18, green: 0.68, blue: 1.0).opacity(0.34), radius: 12)
-                .offset(x: -120, y: -54)
+                .frame(width: 144, height: 54)
+                .shadow(color: Color(red: 0.18, green: 0.68, blue: 1.0).opacity(0.32), radius: 12)
+                .offset(x: 52, y: -26)
         }
     }
 }
@@ -435,9 +414,9 @@ private struct DJConnectLaunchMixerLines: Shape {
 private struct DJConnectLaunchSignalRings: Shape {
     func path(in rect: CGRect) -> Path {
         var path = Path()
-        let center = CGPoint(x: rect.minX + rect.width * 0.70, y: rect.midY)
-        for index in 0..<3 {
-            let inset = CGFloat(index) * 28
+        let center = CGPoint(x: rect.minX + rect.width * 0.72, y: rect.midY)
+        for index in 0..<2 {
+            let inset = CGFloat(index) * 30
             let arcRect = CGRect(
                 x: center.x - 52 - inset,
                 y: center.y - 52 - inset,

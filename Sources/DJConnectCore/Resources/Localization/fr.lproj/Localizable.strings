@@ -337,10 +337,12 @@
 "ui.home.assistant.address" = "Home Assistant address";
 "ui.music" = "Music";
 "ui.available" = "Available";
-"ui.notices" = "Notices";
+"ui.notices" = "Mentions";
 "ui.demo" = "Demo";
 "ui.not.active" = "Not active";
 "ui.fast.local.link.websocket" = "Fast local link (WebSocket)";
+"ui.websocket.fast.path" = "Chemin rapide WebSocket";
+"ui.use.websocket.fast.path.only.on.local.home.assistant" = "Utilise WebSocket pour des actions Home Assistant locales plus rapides. Disponible uniquement via la connexion locale.";
 "ui.normal.link.http" = "Normal link (HTTP)";
 "ui.report.ask.dj.answer" = "Report Ask DJ answer";
 "ui.what.was.wrong.or.missing" = "What was wrong or missing?";
@@ -482,6 +484,8 @@
 "watch.connection" = "Connexion";
 "watch.through.iphone" = "through iPhone";
 "watch.backend.error" = "Backend error";
+"watch.backend.unknown" = "Inconnu";
+"watch.target" = "Cible";
 "watch.unavailable" = "unavailable";
 "watch.local" = "Local";
 "watch.djconnect.is.not.affiliated.with.endorsed.by.or" = "DJConnect is not affiliated with, endorsed by, or sponsored by Spotify AB, Apple, or Home Assistant.";
@@ -695,7 +699,7 @@
 "ui.camera.access.is.disabled.enable.it.in.settings.to.scan" = "Camera access is disabled. Enable it in Settings to scan the DJConnect pairing QR code from Home Assistant.";
 "ui.djconnect.uses.the.camera.only.to.scan.the.pairing.qr" = "DJConnect uses the camera only to scan the pairing QR code from Home Assistant or Apple Watch. Nothing is recorded or stored.";
 "ui.scan.the.djconnect.qr.code.shown.by.home.assistant" = "Scan the DJConnect QR code shown by Home Assistant.";
-"ui.start.hands.free.with.hey.dj.while.djconnect.is.open" = "Start hands-free with \\\"Hey DJ\\\" while DJConnect is open. Microphone and speech recognition permission may be requested.";
+"ui.start.hands.free.with.hey.dj.while.djconnect.is.open" = "Start hands-free with \"Hey DJ\" while DJConnect is open. Microphone and speech recognition permission may be requested.";
 "ui.update.djconnect.before.continuing" = "Update DJConnect before continuing.";
 "ui.playback.queue.playlists.output.selection.and.voice.controls.are.blocked" = "Playback, queue, playlists, output selection and voice controls are blocked until the app and Home Assistant integration are compatible.";
 "ui.you.can.share.redacted.diagnostics.by.opening.a.github.issue" = "You can share logs if you want to. Nothing is uploaded automatically.";
