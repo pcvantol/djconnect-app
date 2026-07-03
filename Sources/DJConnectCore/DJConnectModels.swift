@@ -4260,6 +4260,21 @@ public struct DJConnectQueueItem: Codable, Equatable, Identifiable, Sendable {
         artist.map { "\(title) - \($0)" } ?? title
     }
 
+    public var displaySubtitle: String? {
+        let trimmedArtist = artist?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedAlbum = album?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let artistValue = trimmedArtist?.isEmpty == false ? trimmedArtist : nil
+        let albumValue = trimmedAlbum?.isEmpty == false ? trimmedAlbum : nil
+        guard let artistValue else {
+            return albumValue
+        }
+        guard let albumValue,
+              albumValue.localizedCaseInsensitiveCompare(artistValue) != .orderedSame else {
+            return artistValue
+        }
+        return "\(artistValue) • \(albumValue)"
+    }
+
     public init(
         id: String? = nil,
         title: String,
@@ -4269,7 +4284,7 @@ public struct DJConnectQueueItem: Codable, Equatable, Identifiable, Sendable {
         durationMS: Int? = nil,
         albumImageURL: URL? = nil
     ) {
-        self.id = id ?? uri ?? title
+        self.id = uri ?? id ?? title
         self.title = title
         self.artist = artist
         self.album = album
@@ -4289,7 +4304,7 @@ public struct DJConnectQueueItem: Codable, Equatable, Identifiable, Sendable {
         let id = try container.decodeIfPresent(String.self, forKey: .id)
         let decodedTitle = container.decodeStringAliasIfPresent(.title, .name, .displayTitle, .trackName)
         let title = decodedTitle ?? uri ?? id ?? "Unknown"
-        let artist = container.decodeStringAliasIfPresent(.artist, .artistName, .artistNameCamel, .mediaArtist, .mediaArtistCamel, .artists)
+        let artist = container.decodeStringAliasIfPresent(.artist, .artistName, .artistNameCamel, .subtitle, .mediaArtist, .mediaArtistCamel, .artists)
         let album = container.decodeStringAliasIfPresent(.album, .albumName, .albumNameCamel, .mediaAlbum, .mediaAlbumCamel)
         let durationMS = try container.decodeIfPresent(Int.self, forKey: .durationMS)
         var albumImageURL = try container.decodeIfPresent(URL.self, forKey: .albumImageURL)
@@ -4351,6 +4366,7 @@ public struct DJConnectQueueItem: Codable, Equatable, Identifiable, Sendable {
         case artist
         case artistName = "artist_name"
         case artistNameCamel = "artistName"
+        case subtitle
         case mediaArtist = "media_artist"
         case mediaArtistCamel = "mediaArtist"
         case artists
@@ -4406,13 +4422,33 @@ public struct DJConnectQueueResponse: Codable, Equatable, Sendable {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         self.init(
             items: try container.decodeIfPresent([DJConnectQueueItem].self, forKey: .items) ?? [],
-            context: try container.decodeIfPresent(String.self, forKey: .context)
+            context: container.decodeStringAliasIfPresent(.context, .contextURI, .contextUri)
         )
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(items, forKey: .items)
+        try container.encodeIfPresent(context, forKey: .context)
     }
 
     enum CodingKeys: String, CodingKey {
         case items
         case context
+        case contextURI = "context_uri"
+        case contextUri
+    }
+}
+
+private extension KeyedDecodingContainer where Key == DJConnectQueueResponse.CodingKeys {
+    func decodeStringAliasIfPresent(_ keys: Key...) -> String? {
+        for key in keys {
+            if let value = try? decodeIfPresent(String.self, forKey: key),
+               !value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                return value
+            }
+        }
+        return nil
     }
 }
 

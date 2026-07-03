@@ -3979,6 +3979,49 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     #expect(response.queue?.first?.albumImageURL?.absoluteString == "https://example.test/queue.jpg")
 }
 
+@Test func queueContractDecodesArtistSubtitleFallbackAndNestedContextURI() throws {
+    let response = try JSONDecoder().decode(
+        DJConnectCommandResponse.self,
+        from: Data(
+            """
+            {
+              "success": true,
+              "queue": {
+                "context_uri": "spotify:playlist:nested",
+                "items": [
+                  {
+                    "id": "backend-row-1",
+                    "uri": "spotify:track:nothing-else-matters",
+                    "title": "Nothing Else Matters",
+                    "subtitle": "Scala & Kolacny Brothers",
+                    "album_name": "Scala on the Rocks",
+                    "image_url": "https://example.test/nothing.jpg"
+                  },
+                  {
+                    "id": "spotify:track:id-only",
+                    "title": "ID Only",
+                    "artist_name": "Artist Name",
+                    "thumbnail_url": "https://example.test/thumb.jpg"
+                  }
+                ]
+              }
+            }
+            """.utf8
+        )
+    )
+
+    #expect(response.queueContext == "spotify:playlist:nested")
+    #expect(response.queue?.count == 2)
+    #expect(response.queue?.first?.id == "spotify:track:nothing-else-matters")
+    #expect(response.queue?.first?.artist == "Scala & Kolacny Brothers")
+    #expect(response.queue?.first?.album == "Scala on the Rocks")
+    #expect(response.queue?.first?.displaySubtitle == "Scala & Kolacny Brothers • Scala on the Rocks")
+    #expect(response.queue?.first?.albumImageURL?.absoluteString == "https://example.test/nothing.jpg")
+    #expect(response.queue?.last?.id == "spotify:track:id-only")
+    #expect(response.queue?.last?.artist == "Artist Name")
+    #expect(response.queue?.last?.albumImageURL?.absoluteString == "https://example.test/thumb.jpg")
+}
+
 @MainActor
 @Test func emptyBackendQueueClearsRenderedQueueItems() throws {
     let suiteName = "DJConnectTests-\(UUID().uuidString)"

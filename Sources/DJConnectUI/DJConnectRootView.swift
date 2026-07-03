@@ -1207,12 +1207,6 @@ private struct DJConnectTopTabButton: View {
                 .padding(.horizontal, 16)
                 .padding(.vertical, 10)
                 .contentShape(Capsule(style: .continuous))
-                .background {
-                    if isSelected {
-                        Capsule(style: .continuous)
-                            .fill(Color.black.opacity(0.28))
-                    }
-                }
         }
         .buttonStyle(.plain)
         .accessibilityAddTraits(isSelected ? [.isSelected] : [])
@@ -6648,7 +6642,7 @@ private struct QueueItemRow: View {
     var isLoading = false
 
     private var subtitle: String? {
-        Self.trimmedNonEmpty(item.artist) ?? Self.trimmedNonEmpty(item.album)
+        Self.trimmedNonEmpty(item.displaySubtitle)
     }
 
     var body: some View {

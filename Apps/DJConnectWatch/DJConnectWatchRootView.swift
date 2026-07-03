@@ -2627,7 +2627,7 @@ private struct DJConnectWatchQueueRow: View {
     let isLoading: Bool
 
     private var subtitle: String? {
-        Self.trimmedNonEmpty(item.artist) ?? Self.trimmedNonEmpty(item.album)
+        Self.trimmedNonEmpty(item.displaySubtitle)
     }
 
     var body: some View {
