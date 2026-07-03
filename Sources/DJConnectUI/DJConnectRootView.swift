@@ -3403,8 +3403,6 @@ private struct TrackInsightView: View {
                     AirPlayToolbarButton(language: model.language)
                     #endif
 
-                    TrackInsightRefreshButton(model: model)
-
                     if insight != nil {
                         Button {
                             isShowingShare = true
@@ -3415,6 +3413,8 @@ private struct TrackInsightView: View {
                         .tint(.primary)
                         .help(localizedKey(model.language, "ui.share.insight"))
                     }
+
+                    TrackInsightRefreshButton(model: model)
                 }
             }
             .sheet(isPresented: $isShowingShare) {
@@ -4127,9 +4127,13 @@ private struct TrackInsightHeroScene: View {
                 geometry.size.height * (isCompact ? 0.25 : 0.34),
                 210
             )
-            let spectrumHeight = max(isCompact ? 96 : 86, geometry.size.height * (isCompact ? 0.16 : 0.22))
-            let spectrumY = geometry.size.height * (isCompact ? 0.78 : 0.76)
-            let infoBottomPadding = max(isCompact ? 112 : 18, geometry.size.height * (isCompact ? 0.16 : 0.04))
+            let artworkY = geometry.size.height * (isCompact ? 0.24 : 0.30)
+            let infoY = min(
+                geometry.size.height * (isCompact ? 0.56 : 0.57),
+                artworkY + artworkSize / 2 + (isCompact ? 64 : 74)
+            )
+            let spectrumHeight = max(isCompact ? 88 : 96, geometry.size.height * (isCompact ? 0.15 : 0.20))
+            let spectrumY = geometry.size.height * (isCompact ? 0.88 : 0.86)
             ZStack {
                 TrackInsightPremiumBackground(profile: profile, phase: phase, date: date)
                 TrackInsightLightField(profile: profile, phase: phase, date: date)
@@ -4141,20 +4145,16 @@ private struct TrackInsightHeroScene: View {
                     isActive: isActive
                 )
                 .frame(width: artworkSize, height: artworkSize)
-                .position(x: geometry.size.width * 0.50, y: geometry.size.height * (isCompact ? 0.27 : 0.34))
+                .position(x: geometry.size.width * 0.50, y: artworkY)
+
+                TrackInsightHeroInfo(insight: insight, language: language)
+                    .frame(maxWidth: min(720, geometry.size.width * 0.82))
+                    .position(x: geometry.size.width / 2, y: infoY)
 
                 TrackInsightPremiumSpectrum(profile: profile, phase: phase)
                     .frame(height: spectrumHeight)
                     .padding(.horizontal, max(isCompact ? 28 : 44, geometry.size.width * (isCompact ? 0.08 : 0.11)))
                     .position(x: geometry.size.width / 2, y: spectrumY)
-
-                VStack(spacing: 0) {
-                    Spacer(minLength: 0)
-                    TrackInsightHeroInfo(insight: insight, language: language)
-                        .frame(maxWidth: min(720, geometry.size.width * 0.82))
-                }
-                .padding(.horizontal, 18)
-                .padding(.bottom, infoBottomPadding)
             }
         }
     }
@@ -4217,19 +4217,121 @@ private struct TrackInsightLightField: View {
         Canvas(opaque: false, rendersAsynchronously: true) { context, size in
             let time = date.timeIntervalSinceReferenceDate
             let colors = profile.colors
-            for index in 0..<18 {
-                let progress = CGFloat(index) / 17
-                let x = size.width * (0.10 + progress * 0.82)
-                let drift = CGFloat(sin(time * 0.22 + Double(index) * 0.61)) * 18
-                let y = size.height * (0.18 + CGFloat((index * 37) % 53) / 100) + drift
-                let radius = CGFloat(1.8 + profile.glow * 4.2)
+            let density = min(max(profile.particleDensity, 0.12), 0.95)
+            let motionSpeed = styleSpeed * (0.32 + profile.particleVelocity * 0.72 + profile.pulseSpeed * 0.18)
+            let circleCount = Int(10 + density * 22)
+            let starCount = Int(3 + profile.waveform * 8 + profile.glow * 4)
+            let sparkCount = Int(4 + profile.pulseSpeed * 5 + phase.energyLift * 7)
+
+            for index in 0..<circleCount {
+                let seed = Double(index + 1)
+                let lane = noise(seed, 2)
+                let drift = time * motionSpeed * (0.018 + noise(seed, 3) * 0.038)
+                let xPhase = noise(seed, 0) + drift + sin(time * 0.12 + seed) * 0.018
+                let x = wrap(CGFloat(xPhase)) * size.width
+                let yBase = noise(seed, 1)
+                let yDrift = sin(time * (0.18 + lane * 0.22) + seed * 0.71) * 0.035
+                let y = size.height * CGFloat(0.14 + yBase * 0.58 + yDrift)
+                let radius = CGFloat(2.0 + density * 5.5 + noise(seed, 4) * 7.0)
+                let color = colors[safe: index % max(colors.count, 1)] ?? djConnectAccent
+                let opacity = 0.08 + density * 0.08 + phase.energyLift * 0.10 + noise(seed, 5) * 0.08
+
                 context.fill(
                     Path(ellipseIn: CGRect(x: x - radius, y: y - radius, width: radius * 2, height: radius * 2)),
-                    with: .color((colors[safe: index % max(colors.count, 1)] ?? djConnectAccent).opacity(0.16 + phase.energyLift * 0.16))
+                    with: .color(color.opacity(opacity))
+                )
+            }
+
+            for index in 0..<starCount {
+                let seed = Double(index + 101)
+                let orbit = time * motionSpeed * (0.026 + noise(seed, 2) * 0.044)
+                let x = wrap(CGFloat(noise(seed, 0) + orbit)) * size.width
+                let yPhase = 0.12 + noise(seed, 1) * 0.48
+                let yDrift = cos(time * 0.16 + seed) * 0.026
+                let y = size.height * CGFloat(yPhase + yDrift)
+                let outer = CGFloat(4 + profile.glow * 7 + noise(seed, 3) * 7)
+                let innerRatio = 0.34 + noise(seed, 4) * 0.14
+                let inner = outer * CGFloat(innerRatio)
+                let points = profile.motionStyle == .organic ? 5 : 4
+                let rotation = CGFloat(time * motionSpeed * 0.24 + seed)
+                let color = colors[safe: (index + 1) % max(colors.count, 1)] ?? djConnectAccent
+                let star = starPath(center: CGPoint(x: x, y: y), outerRadius: outer, innerRadius: inner, points: points, rotation: rotation)
+                context.fill(star, with: .color(color.opacity(0.10 + profile.glow * 0.16 + phase.energyLift * 0.10)))
+            }
+
+            for index in 0..<sparkCount {
+                let seed = Double(index + 211)
+                let fall = time * motionSpeed * (0.05 + noise(seed, 2) * 0.08)
+                let x = wrap(CGFloat(noise(seed, 0) + fall * 0.52)) * size.width
+                let y = wrap(CGFloat(noise(seed, 1) + fall)) * size.height
+                let sparkLength = 12 + profile.pulseSpeed * 10 + phase.energyLift * 18 + noise(seed, 3) * 18
+                let length = CGFloat(sparkLength)
+                let tilt = CGFloat(-0.7 + noise(seed, 4) * 1.4)
+                let color = colors[safe: (index + 2) % max(colors.count, 1)] ?? djConnectAccent
+                let dx = cos(tilt) * length * 0.5
+                let dy = sin(tilt) * length * 0.5
+                let start = CGPoint(x: x - dx, y: y - dy)
+                let end = CGPoint(x: x + dx, y: y + dy)
+                var spark = Path()
+                spark.move(to: start)
+                spark.addLine(to: end)
+                context.stroke(
+                    spark,
+                    with: .linearGradient(
+                        Gradient(colors: [.clear, color.opacity(0.20 + phase.energyLift * 0.22), .clear]),
+                        startPoint: start,
+                        endPoint: end
+                    ),
+                    style: StrokeStyle(lineWidth: 1.1 + profile.glow * 1.4, lineCap: .round)
                 )
             }
         }
         .blur(radius: 0.3)
+    }
+
+    private var styleSpeed: Double {
+        switch profile.motionStyle {
+        case .dreamy:
+            return 0.58
+        case .energetic:
+            return 1.42
+        case .organic:
+            return 0.82
+        case .dark:
+            return 0.70
+        case .balanced:
+            return 1.0
+        }
+    }
+
+    private func wrap(_ value: CGFloat) -> CGFloat {
+        let remainder = value.truncatingRemainder(dividingBy: 1)
+        return remainder < 0 ? remainder + 1 : remainder
+    }
+
+    private func noise(_ seed: Double, _ offset: Double) -> Double {
+        let value = sin(seed * 12.9898 + offset * 78.233) * 43_758.5453
+        return value - floor(value)
+    }
+
+    private func starPath(center: CGPoint, outerRadius: CGFloat, innerRadius: CGFloat, points: Int, rotation: CGFloat) -> Path {
+        var path = Path()
+        let totalPoints = max(points, 3) * 2
+        for index in 0..<totalPoints {
+            let radius = index.isMultiple(of: 2) ? outerRadius : innerRadius
+            let angle = rotation - .pi / 2 + CGFloat(index) * .pi / CGFloat(max(points, 3))
+            let point = CGPoint(
+                x: center.x + cos(angle) * radius,
+                y: center.y + sin(angle) * radius
+            )
+            if index == 0 {
+                path.move(to: point)
+            } else {
+                path.addLine(to: point)
+            }
+        }
+        path.closeSubpath()
+        return path
     }
 }
 
@@ -4358,7 +4460,6 @@ private struct TrackInsightHeroInfo: View {
         }
         .multilineTextAlignment(.center)
         .padding(.horizontal, 18)
-        .padding(.bottom, 50)
     }
 
     private var progressLabel: String? {
@@ -4449,6 +4550,9 @@ private struct VibeCastVisualizerSignalView: View {
     private func premiumScene(date: Date) -> some View {
         let phase = TrackVibePlaybackPhase(playback: playback, date: date)
         return GeometryReader { geometry in
+            let artworkSize = artworkSize(in: geometry.size)
+            let artworkY = geometry.size.height * 0.29
+            let infoY = min(geometry.size.height * 0.56, artworkY + artworkSize / 2 + 78)
             ZStack {
                 TrackInsightPremiumBackground(profile: profile, phase: phase, date: date)
                 TrackInsightLightField(profile: profile, phase: phase, date: date)
@@ -4460,21 +4564,17 @@ private struct VibeCastVisualizerSignalView: View {
                     reduceMotion: reduceMotion,
                     isActive: !reduceMotion && isPlaying
                 )
-                .frame(width: artworkSize(in: geometry.size), height: artworkSize(in: geometry.size))
-                .position(x: geometry.size.width * 0.50, y: geometry.size.height * 0.33)
+                .frame(width: artworkSize, height: artworkSize)
+                .position(x: geometry.size.width * 0.50, y: artworkY)
+
+                TrackInsightHeroInfo(insight: insight, language: language)
+                    .frame(maxWidth: min(920, geometry.size.width * 0.78))
+                    .position(x: geometry.size.width / 2, y: infoY)
 
                 TrackInsightPremiumSpectrum(profile: profile, phase: phase)
-                    .frame(height: max(118, geometry.size.height * 0.18))
+                    .frame(height: max(112, geometry.size.height * 0.17))
                     .padding(.horizontal, max(52, geometry.size.width * 0.12))
-                    .position(x: geometry.size.width / 2, y: geometry.size.height * 0.72)
-
-                VStack(spacing: 0) {
-                    Spacer(minLength: 0)
-                    TrackInsightHeroInfo(insight: insight, language: language)
-                        .frame(maxWidth: min(920, geometry.size.width * 0.78))
-                }
-                .padding(.horizontal, max(32, geometry.size.width * 0.04))
-                .padding(.bottom, max(34, geometry.size.height * 0.055))
+                    .position(x: geometry.size.width / 2, y: geometry.size.height * 0.86)
 
                 brandHeader
                     .padding(max(24, geometry.size.width * 0.035))
@@ -5572,7 +5672,7 @@ private struct TrackInsightMetricsGrid: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 132), spacing: 10, alignment: .top)], spacing: 10) {
+            LazyVGrid(columns: metricColumns, spacing: 10) {
                 TrackInsightMetricRing(title: localizedKey(language, "ui.energy"), value: insight.energy)
                 TrackInsightMetricRing(title: localizedKey(language, "ui.dance"), value: insight.danceability)
                 TrackInsightMetricRing(title: localizedKey(language, "ui.intensity"), value: insight.intensity)
@@ -5587,6 +5687,10 @@ private struct TrackInsightMetricsGrid: View {
                 TrackInsightMetricPill(title: localizedKey(language, "ui.texture"), value: insight.texture)
             }
         }
+    }
+
+    private var metricColumns: [GridItem] {
+        Array(repeating: GridItem(.flexible(minimum: 132), spacing: 10, alignment: .top), count: 3)
     }
 }
 
@@ -6190,35 +6294,7 @@ struct SetupStatusView: View {
                         .fixedSize(horizontal: false, vertical: true)
                 }
 
-                VStack(alignment: .leading, spacing: 6) {
-                    setupDetailRow(
-                        localizedKey(model.language, "ui.route"),
-                        connectionModeTitle
-                    )
-                    setupDetailRow(
-                        localizedKey(model.language, "ui.backend"),
-                        backendTitle
-                    )
-                    setupDetailRow(
-                        localizedKey(model.language, "ui.playback"),
-                        playbackTitle
-                    )
-                }
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .accessibilityElement(children: .combine)
             }
-        }
-    }
-
-    private func setupDetailRow(_ label: String, _ value: String) -> some View {
-        HStack(alignment: .firstTextBaseline, spacing: 8) {
-            Text(label)
-                .fontWeight(.semibold)
-            Spacer(minLength: 8)
-            Text(value)
-                .multilineTextAlignment(.trailing)
-                .lineLimit(2)
         }
     }
 
@@ -6293,46 +6369,6 @@ struct SetupStatusView: View {
         }
     }
 
-    private var connectionModeTitle: String {
-        if model.isDemoMode {
-            return localizedKey(model.language, "ui.local.demo.mode")
-        }
-        return switch model.haConnectionMode {
-        case .local:
-            localizedKey(model.language, "ui.local.home.assistant")
-        case .remote:
-            localizedKey(model.language, "ui.remote.home.assistant")
-        case .offline:
-            localizedKey(model.language, "ui.offline")
-        }
-    }
-
-    private var backendTitle: String {
-        let name = model.musicBackendSummary.musicBackendName
-            ?? model.musicBackendSummary.musicBackend
-            ?? localizedKey(model.language, "ui.not.reported")
-        guard let available = model.musicBackendSummary.musicBackendAvailable else {
-            return name
-        }
-        return available
-            ? localizedKey(model.language, "ui.value.available", arguments: name)
-            : localizedKey(model.language, "ui.value.unavailable", arguments: name)
-    }
-
-    private var playbackTitle: String {
-        guard model.pairingStatus == .paired || model.isDemoMode else {
-            return localizedKey(model.language, "ui.locked.until.pairing")
-        }
-        guard model.canUsePlaybackFeatures else {
-            return localizedKey(model.language, "ui.unavailable")
-        }
-        if model.playback?.hasPlayback == true {
-            return model.isPlaying
-                ? localizedKey(model.language, "ui.playing")
-                : localizedKey(model.language, "ui.paused")
-        }
-        return localizedKey(model.language, "ui.no.active.playback")
-    }
 }
 
 struct TrackSummaryView: View {
@@ -9882,6 +9918,7 @@ struct QueueView: View {
                         }
                     }
                     .disabled(model.isDemoMode || !canUsePlayback || model.isLoadingQueue)
+                    .tint(.primary)
                     .help(localizedKey(model.language, "ui.reload.queue"))
                     .accessibilityLabel(localizedKey(model.language, "ui.reload.queue"))
                 }
@@ -10031,6 +10068,7 @@ struct PlaylistsView: View {
                         }
                     }
                     .disabled(model.isDemoMode || !canUsePlayback || model.isLoadingPlaylists)
+                    .tint(.primary)
                     .help(localizedKey(model.language, "ui.reload.playlists"))
                     .accessibilityLabel(localizedKey(model.language, "ui.reload.playlists"))
                 }
@@ -12731,8 +12769,7 @@ private struct AskDJFeedbackPromptView: View {
                     actionButtons
                 }
                 .padding(.horizontal, isCompact ? 18 : 28)
-                .padding(.top, isCompact ? 18 : 8)
-                .padding(.bottom, isCompact ? 18 : 28)
+                .padding(.vertical, isCompact ? 18 : 28)
                 .frame(
                     minWidth: contentMinWidth,
                     idealWidth: contentIdealWidth,

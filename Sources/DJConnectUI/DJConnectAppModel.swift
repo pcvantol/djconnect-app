@@ -3420,8 +3420,7 @@ public final class DJConnectAppModel: ObservableObject {
             item.title,
             item.artist,
             item.album,
-            item.durationMS.map(String.init),
-            item.albumImageURL?.absoluteString
+            item.durationMS.map(String.init)
         ]
             .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() }
             .filter { !$0.isEmpty }

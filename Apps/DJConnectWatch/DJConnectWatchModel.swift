@@ -1483,7 +1483,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
                 payload: DJConnectCommandPayload(identity: identity, command: "playlists", limit: 100, language: currentRequestLocale)
             )
             applyBackendSummary(response.musicBackendSummary)
-            playlistItems = response.playlists ?? []
+            playlistItems = normalizedPlaylists(response.playlists ?? [])
             statusMessage = playlistItems.isEmpty ? "Geen afspeellijsten" : "Afspeellijsten bijgewerkt"
             appendDiagnosticLog("Afspeellijsten bijgewerkt: \(playlistItems.count) items")
         } catch {
@@ -1514,7 +1514,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
                 payload: DJConnectCommandPayload(identity: identity, command: "queue", limit: 100, language: currentRequestLocale)
             )
             applyBackendSummary(response.musicBackendSummary)
-            queueItems = response.queue ?? []
+            queueItems = normalizedQueueItems(response.queue ?? [])
             if let responseQueueContext = response.queueContext?.trimmingCharacters(in: .whitespacesAndNewlines),
                !responseQueueContext.isEmpty {
                 queueContext = responseQueueContext
@@ -1525,6 +1525,41 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
             statusMessage = Self.userMessage(for: error)
             appendDiagnosticLog("Wachtrij laden mislukt: \(statusMessage)", level: .error)
         }
+    }
+
+    private func normalizedQueueItems(_ items: [DJConnectQueueItem]) -> [DJConnectQueueItem] {
+        var seen: Set<String> = []
+        return items.compactMap { item -> DJConnectQueueItem? in
+            var item = item
+            item.albumImageURL = resolvedArtworkURL(item.albumImageURL)
+            let signature = queueItemSignature(item)
+            guard !seen.contains(signature) else {
+                return nil
+            }
+            seen.insert(signature)
+            return item
+        }
+    }
+
+    private func normalizedPlaylists(_ playlists: [DJConnectPlaylist]) -> [DJConnectPlaylist] {
+        playlists.map { playlist in
+            var playlist = playlist
+            playlist.imageURL = resolvedArtworkURL(playlist.imageURL)
+            return playlist
+        }
+    }
+
+    private func queueItemSignature(_ item: DJConnectQueueItem) -> String {
+        [
+            item.uri,
+            item.title,
+            item.artist,
+            item.album,
+            item.durationMS.map(String.init)
+        ]
+            .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() }
+            .filter { !$0.isEmpty }
+            .joined(separator: "|")
     }
 
     func loadOutputs() async {
@@ -1819,7 +1854,9 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
 
     private func applyPlayback(_ nextPlayback: DJConnectPlayback?, confirmAskDJBeat: Bool = false) {
         let previousSignature = playbackBeatSignature ?? Self.playbackBeatSignature(for: playback)
-        let sanitizedPlayback = DJConnectVolumeNormalizer.sanitizedPlayback(nextPlayback)
+        var sanitizedPlayback = DJConnectVolumeNormalizer.sanitizedPlayback(nextPlayback)
+        let resolvedAlbumImageURL = resolvedArtworkURL(sanitizedPlayback?.albumImageURL)
+        sanitizedPlayback?.albumImageURL = resolvedAlbumImageURL
         playback = sanitizedPlayback
         applyActiveOutput(from: sanitizedPlayback)
         let nextSignature = Self.playbackBeatSignature(for: sanitizedPlayback)
@@ -3540,6 +3577,19 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
             return audioURL
         }
         return URL(string: audioURL.absoluteString, relativeTo: URL(string: haBaseURL))?.absoluteURL
+    }
+
+    private func resolvedArtworkURL(_ artworkURL: URL?) -> URL? {
+        guard let artworkURL else {
+            return nil
+        }
+        if let scheme = artworkURL.scheme?.lowercased(), scheme == "http" || scheme == "https" {
+            return artworkURL
+        }
+        guard artworkURL.host == nil else {
+            return nil
+        }
+        return URL(string: artworkURL.relativeString, relativeTo: URL(string: haBaseURL))?.absoluteURL
     }
 
     private func proxiedResponseImages(_ images: [DJConnectResponseImage]?) -> [DJConnectResponseImage] {

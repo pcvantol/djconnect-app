@@ -4058,7 +4058,16 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
 
     model.apply(commandResponse: DJConnectCommandResponse(
         success: true,
-        queue: Array(repeating: repeatedItem, count: 8)
+        queue: Array(repeating: repeatedItem, count: 7) + [
+            DJConnectQueueItem(
+                title: "Summer Of 69",
+                artist: "Bryan Adams",
+                album: "Reckless",
+                uri: "spotify:track:summer-of-69",
+                durationMS: 216_000,
+                albumImageURL: URL(string: "https://example.test/summer-alt.jpg")
+            )
+        ]
     ))
 
     #expect(model.queueItems.count == 1)
