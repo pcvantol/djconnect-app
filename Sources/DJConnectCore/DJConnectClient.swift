@@ -104,18 +104,18 @@ public final class DJConnectClient: Sendable {
         return try await decodedResponse(for: request)
     }
 
-    public func musicDNAProfile() async throws -> DJConnectMusicDNAProfileResponse {
-        let request = try musicDNAProfileRequest()
+    public func musicDNAProfile(mood: Int? = nil) async throws -> DJConnectMusicDNAProfileResponse {
+        let request = try musicDNAProfileRequest(mood: mood)
         return try await decodedResponse(for: request)
     }
 
-    public func setMusicDNAEnabled(_ enabled: Bool) async throws -> DJConnectMusicDNAProfileResponse {
-        let request = try musicDNASettingsRequest(enabled: enabled)
+    public func setMusicDNAEnabled(_ enabled: Bool, mood: Int? = nil) async throws -> DJConnectMusicDNAProfileResponse {
+        let request = try musicDNASettingsRequest(enabled: enabled, mood: mood)
         return try await decodedResponse(for: request)
     }
 
-    public func clearMusicDNA() async throws -> DJConnectMusicDNAProfileResponse {
-        let request = try clearMusicDNARequest()
+    public func clearMusicDNA(mood: Int? = nil) async throws -> DJConnectMusicDNAProfileResponse {
+        let request = try clearMusicDNARequest(mood: mood)
         return try await decodedResponse(for: request)
     }
 
@@ -253,16 +253,16 @@ public final class DJConnectClient: Sendable {
         )
     }
 
-    public func musicDNAProfileRequest() throws -> URLRequest {
-        try jsonRequest(path: "/api/djconnect/music_dna/profile", payload: DJConnectMusicDNAIdentityRequest(identity: identity))
+    public func musicDNAProfileRequest(mood: Int? = nil) throws -> URLRequest {
+        try jsonRequest(path: "/api/djconnect/music_dna/profile", payload: DJConnectMusicDNAIdentityRequest(identity: identity, mood: mood))
     }
 
-    public func musicDNASettingsRequest(enabled: Bool) throws -> URLRequest {
-        try jsonRequest(path: "/api/djconnect/music_dna/settings", payload: DJConnectMusicDNASettingsRequest(identity: identity, enabled: enabled))
+    public func musicDNASettingsRequest(enabled: Bool, mood: Int? = nil) throws -> URLRequest {
+        try jsonRequest(path: "/api/djconnect/music_dna/settings", payload: DJConnectMusicDNASettingsRequest(identity: identity, enabled: enabled, mood: mood))
     }
 
-    public func clearMusicDNARequest() throws -> URLRequest {
-        try jsonRequest(path: "/api/djconnect/music_dna/clear", payload: DJConnectMusicDNAIdentityRequest(identity: identity))
+    public func clearMusicDNARequest(mood: Int? = nil) throws -> URLRequest {
+        try jsonRequest(path: "/api/djconnect/music_dna/clear", payload: DJConnectMusicDNAIdentityRequest(identity: identity, mood: mood))
     }
 
     public func askDJIdleSuggestionRequest(_ payload: DJConnectAskDJIdleSuggestionRequest) throws -> URLRequest {

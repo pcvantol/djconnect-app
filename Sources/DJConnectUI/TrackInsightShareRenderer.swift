@@ -41,11 +41,18 @@ public enum TrackInsightShareRenderer {
     public static func renderImage(
         insight: TrackInsight,
         format: TrackInsightShareFormat,
-        language: String
+        language: String,
+        moodStepIndex: Int = 2
     ) throws -> URL {
         try cleanupTemporaryExports()
         let designSize = format.cardDesignSize
-        let view = TrackInsightShareCardView(insight: insight, format: format, language: language, animationPhase: 0)
+        let view = TrackInsightShareCardView(
+            insight: insight,
+            format: format,
+            language: language,
+            moodStepIndex: moodStepIndex,
+            animationPhase: 0
+        )
             .frame(width: designSize.width, height: designSize.height)
         let renderer = ImageRenderer(content: view)
         renderer.proposedSize = ProposedViewSize(designSize)
@@ -64,6 +71,7 @@ public enum TrackInsightShareRenderer {
         insight: TrackInsight,
         format: TrackInsightShareFormat,
         language: String,
+        moodStepIndex: Int = 2,
         progress: @escaping @MainActor (Double) -> Void = { _ in }
     ) async throws -> URL {
         #if canImport(AVFoundation)
@@ -112,7 +120,14 @@ public enum TrackInsightShareRenderer {
                     try await Task.sleep(nanoseconds: 10_000_000)
                 }
                 let phase = Double(frame) / Double(frameRate)
-                guard let pixelBuffer = try pixelBuffer(for: insight, format: format, language: language, size: size, animationPhase: phase) else {
+                guard let pixelBuffer = try pixelBuffer(
+                    for: insight,
+                    format: format,
+                    language: language,
+                    moodStepIndex: moodStepIndex,
+                    size: size,
+                    animationPhase: phase
+                ) else {
                     throw RenderError.videoFrameRenderingFailed
                 }
                 let time = CMTime(value: CMTimeValue(frame), timescale: CMTimeScale(frameRate))
@@ -220,11 +235,18 @@ public enum TrackInsightShareRenderer {
         for insight: TrackInsight,
         format: TrackInsightShareFormat,
         language: String,
+        moodStepIndex: Int,
         size: CGSize,
         animationPhase: Double
     ) throws -> CVPixelBuffer? {
         let designSize = format.cardDesignSize
-        let view = TrackInsightShareCardView(insight: insight, format: format, language: language, animationPhase: animationPhase)
+        let view = TrackInsightShareCardView(
+            insight: insight,
+            format: format,
+            language: language,
+            moodStepIndex: moodStepIndex,
+            animationPhase: animationPhase
+        )
             .frame(width: designSize.width, height: designSize.height)
         let renderer = ImageRenderer(content: view)
         renderer.proposedSize = ProposedViewSize(designSize)

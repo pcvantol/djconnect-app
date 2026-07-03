@@ -24,6 +24,12 @@ actions. Ask DJ message and command payloads include `device_id`,
 `device_name`, `client_id`, and `client_type`; action taps send the
 backend-returned action object back where possible so Home Assistant keeps
 ownership of follow-up and output metadata.
+Ask DJ also carries the current client mood as structured `mood` metadata when
+available. Assistant answers may return their own `mood` / `mood_context`;
+clients use that structured value, or the current selected client mood as a
+fallback, to tint assistant bubbles consistently with Track Insight mood zones.
+Clients never infer generated/fallback state or mood by parsing visible answer
+text.
 
 AI and Assist answers can be incorrect and depend on your own Home Assistant
 and Assist configuration.

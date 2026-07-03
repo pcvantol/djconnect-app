@@ -4,6 +4,7 @@ import SwiftUI
 struct TrackInsightSharePreviewView: View {
     let insight: TrackInsight
     let language: String
+    let moodStepIndex: Int
     @Environment(\.dismiss) private var dismiss
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @State private var format: TrackInsightShareFormat = .story
@@ -157,11 +158,18 @@ struct TrackInsightSharePreviewView: View {
                         insight: insight,
                         format: format,
                         language: language,
+                        moodStepIndex: moodStepIndex,
                         animationPhase: timeline.date.timeIntervalSinceReferenceDate
                     )
                 }
             } else {
-                TrackInsightShareCardView(insight: insight, format: format, language: language, animationPhase: 0)
+                TrackInsightShareCardView(
+                    insight: insight,
+                    format: format,
+                    language: language,
+                    moodStepIndex: moodStepIndex,
+                    animationPhase: 0
+                )
             }
         }
     }
@@ -183,7 +191,8 @@ struct TrackInsightSharePreviewView: View {
                     for: insight,
                     format: currentFormat,
                     mediaKind: currentMediaKind,
-                    language: language
+                    language: language,
+                    moodStepIndex: moodStepIndex
                 ) { progress in
                     guard activeRenderID == taskID else { return }
                     renderProgress = min(1, max(0, progress))
@@ -435,15 +444,32 @@ struct TrackInsightShareCardView: View {
     let insight: TrackInsight
     let format: TrackInsightShareFormat
     let language: String
+    let moodStepIndex: Int
     let animationPhase: Double
 
     private var profile: TrackVibeProfile {
         TrackVibeProfile.make(for: insight)
+            .applyingTrackInsightMoodRenderOverride(stepIndex: moodStepIndex)
+    }
+
+    private var phase: TrackVibePlaybackPhase {
+        TrackVibePlaybackPhase(shareProgress: animationPhase, duration: 6)
+    }
+
+    private var renderDate: Date {
+        Date(timeIntervalSinceReferenceDate: animationPhase)
     }
 
     var body: some View {
         ZStack {
-            TrackInsightShareBackground(profile: profile, animationPhase: animationPhase)
+            TrackInsightPremiumBackground(profile: profile, phase: phase, date: renderDate)
+            TrackInsightLightField(profile: profile, phase: phase, date: renderDate)
+            TrackInsightPremiumSpectrum(profile: profile, phase: phase)
+                .frame(height: spectrumHeight)
+                .padding(.horizontal, spectrumHorizontalPadding)
+                .frame(maxHeight: .infinity, alignment: .bottom)
+                .padding(.bottom, spectrumBottomPadding)
+                .opacity(spectrumOpacity)
             VStack(spacing: cardSpacing) {
                 artwork
                 VStack(spacing: 5) {
@@ -488,6 +514,8 @@ struct TrackInsightShareCardView: View {
             .padding(cardPadding)
             .frame(maxWidth: contentMaxWidth)
         }
+        .background(profile.gradient)
+        .clipped()
     }
 
     @ViewBuilder
@@ -586,6 +614,50 @@ struct TrackInsightShareCardView: View {
             500
         case .linkPreview:
             560
+        }
+    }
+
+    private var spectrumHeight: CGFloat {
+        switch format {
+        case .story:
+            170
+        case .square:
+            112
+        case .linkPreview:
+            84
+        }
+    }
+
+    private var spectrumHorizontalPadding: CGFloat {
+        switch format {
+        case .story:
+            128
+        case .square:
+            112
+        case .linkPreview:
+            144
+        }
+    }
+
+    private var spectrumBottomPadding: CGFloat {
+        switch format {
+        case .story:
+            216
+        case .square:
+            92
+        case .linkPreview:
+            52
+        }
+    }
+
+    private var spectrumOpacity: Double {
+        switch format {
+        case .story:
+            0.72
+        case .square:
+            0.64
+        case .linkPreview:
+            0.52
         }
     }
 
@@ -769,7 +841,7 @@ private struct TrackInsightShareMeters: View {
                 Circle()
                     .trim(from: 0, to: CGFloat(max(0.04, value)))
                     .stroke(
-                        AngularGradient(colors: profile.colors, center: .center),
+                        AngularGradient(colors: Self.liveMetricRingColors, center: .center),
                         style: StrokeStyle(lineWidth: meterLineWidth, lineCap: .round)
                     )
                     .rotationEffect(.degrees(-90))
@@ -863,4 +935,11 @@ private struct TrackInsightShareMeters: View {
     private func localizedKey(_ key: String, arguments: CVarArg...) -> String {
         DJConnectLocalization.localized(key: key, language: language, arguments: arguments)
     }
+
+    private static let liveMetricRingColors: [Color] = [
+        Color(red: 0.30, green: 0.63, blue: 1.0),
+        Color(red: 0.82, green: 0.28, blue: 1.0),
+        Color(red: 0.23, green: 0.91, blue: 0.84),
+        Color(red: 0.30, green: 0.63, blue: 1.0)
+    ]
 }

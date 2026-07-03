@@ -3356,6 +3356,7 @@ private struct TrackInsightView: View {
                 DJConnectCanvasBackground()
                 GeometryReader { proxy in
                     ScrollView {
+                        let contentWidth = min(maxContentWidth(for: proxy.size), proxy.size.width)
                         VStack(alignment: .leading, spacing: 16) {
                             if isMoodVisible {
                                 AskDJMoodModeControl(
@@ -3392,7 +3393,7 @@ private struct TrackInsightView: View {
                         }
                         .padding(.horizontal, djConnectScreenHorizontalPadding)
                         .padding(.vertical, djConnectScreenVerticalPadding)
-                        .frame(maxWidth: maxContentWidth(for: proxy.size), alignment: .topLeading)
+                        .frame(width: contentWidth, alignment: .topLeading)
                         .frame(maxWidth: .infinity, alignment: .top)
                     }
                 }
@@ -3465,7 +3466,11 @@ private struct TrackInsightView: View {
             }
             .sheet(isPresented: $isShowingShare) {
                 if let insight {
-                    TrackInsightSharePreviewView(insight: insight, language: model.language)
+                    TrackInsightSharePreviewView(
+                        insight: insight,
+                        language: model.language,
+                        moodStepIndex: model.askDJMoodStepIndex
+                    )
                 }
             }
             .onChange(of: playbackShareIdentity) {
@@ -3790,7 +3795,7 @@ private struct MusicDNASectionGrid: View {
             MusicDNAPanel(title: localizedKey(model.language, "ui.profile.mood"), value: moodSummary, icon: "sparkles")
             MusicDNAPanel(title: localizedKey(model.language, "ui.energy.profile"), value: energyProfile, icon: "bolt.fill")
             MusicDNAPanel(title: localizedKey(model.language, "ui.recent.tracks"), value: tracks(profile.recentTracks), icon: "clock.arrow.circlepath")
-            MusicDNAPanel(title: localizedKey(model.language, "ui.signals"), value: signals(profile.recommendationSignals), icon: "safari")
+            MusicDNAPanel(title: localizedKey(model.language, "ui.signals"), value: basisSignals, icon: "safari")
             if let updatedSummary {
                 MusicDNAPanel(title: localizedKey(model.language, "ui.updated"), value: updatedSummary, icon: "checkmark.seal")
             }
@@ -3804,25 +3809,64 @@ private struct MusicDNASectionGrid: View {
     }
 
     private var energyProfile: String {
-        guard let value = profile.mood?.value else {
+        guard let energyProfile = profile.energyProfile else {
             return localizedKey(model.language, "ui.music.dna.needs.more.listening.for.energy")
         }
-        if value >= 72 {
-            return localizedKey(model.language, "ui.high.energy.leaning")
+        let hasEnergySignal = energyProfile.energyPercent != nil || (energyProfile.sampleCount ?? 0) > 0
+        guard hasEnergySignal else {
+            return localizedKey(model.language, "ui.music.dna.needs.more.listening.for.energy")
         }
-        if value <= 42 {
-            return localizedKey(model.language, "ui.calm.and.spacious")
+        let primary = [
+            musicDNAZoneLabel(energyProfile.zone),
+            energyProfile.energyPercent.map { "\($0)%" },
+            energyProfile.sampleCount.map { analysisCountLabel($0) }
+        ]
+        .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
+        .filter { !$0.isEmpty }
+        .joined(separator: " · ")
+
+        let secondary = [
+            energyProfile.danceabilityPercent.map { "Dansbaarheid \($0)%" },
+            energyProfile.intensityPercent.map { "Intensiteit \($0)%" }
+        ]
+        .compactMap { $0 }
+        .joined(separator: " · ")
+
+        if !primary.isEmpty, !secondary.isEmpty {
+            return "\(primary)\n\(secondary)"
         }
-        return localizedKey(model.language, "ui.balanced.energy")
+        return primary.ifEmpty(localizedKey(model.language, "ui.music.dna.needs.more.listening.for.energy"))
     }
 
     private var moodSummary: String {
         guard let mood = profile.mood else {
             return localizedKey(model.language, "ui.music.dna.needs.more.listening.for.profile.mood")
         }
-        let zone = mood.zone?.trimmingCharacters(in: .whitespacesAndNewlines)
-        let value = mood.value.map { "\($0)%" }
-        return [zone, value].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: " - ")
+        let value = mood.average ?? mood.value
+        let zone = mood.averageZone ?? mood.zone
+        let sampleCount = mood.sampleCount
+        let hasMoodSignal = value != nil || (sampleCount ?? 0) > 0
+        guard hasMoodSignal else {
+            return localizedKey(model.language, "ui.music.dna.needs.more.listening.for.profile.mood")
+        }
+        let zoneLabel = musicDNAZoneLabel(zone)
+        let zoneText = mood.average != nil && zoneLabel != nil ? "\(zoneLabel!) gemiddeld" : zoneLabel
+        return [
+            zoneText,
+            value.map { "\($0)%" },
+            sampleCount.map { signalCountLabel($0) }
+        ]
+        .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
+        .filter { !$0.isEmpty }
+        .joined(separator: " · ")
+        .ifEmpty(localizedKey(model.language, "ui.music.dna.needs.more.listening.for.profile.mood"))
+    }
+
+    private var basisSignals: String {
+        if let recentSignals = profile.energyProfile?.recentSignals, !recentSignals.isEmpty {
+            return energySignals(recentSignals)
+        }
+        return signals(profile.recommendationSignals)
     }
 
     private var updatedSummary: String? {
@@ -3848,12 +3892,33 @@ private struct MusicDNASectionGrid: View {
         values.compactMap { track in
             let title = track.title?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
             let artist = track.artist?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            let album = track.album?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
             if title.isEmpty { return artist.isEmpty ? nil : artist }
-            return artist.isEmpty ? title : "\(title) - \(artist)"
+            let titleArtist = artist.isEmpty ? title : "\(title) — \(artist)"
+            return album.isEmpty ? titleArtist : "\(titleArtist) · \(album)"
         }
         .prefix(3)
-        .joined(separator: ", ")
+        .joined(separator: "\n")
         .ifEmpty(localizedKey(model.language, "ui.music.dna.needs.more.listening.for.recent.tracks"))
+    }
+
+    private func energySignals(_ values: [DJConnectMusicDNAEnergySignal]) -> String {
+        values.compactMap { signal in
+            let title = signal.title?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            let artist = signal.artist?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            let album = signal.album?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            guard !title.isEmpty || !artist.isEmpty || !album.isEmpty else {
+                return nil
+            }
+            if title.isEmpty {
+                return artist.isEmpty ? album : artist
+            }
+            let titleArtist = artist.isEmpty ? title : "\(title) — \(artist)"
+            return album.isEmpty ? titleArtist : "\(titleArtist) · \(album)"
+        }
+        .prefix(4)
+        .joined(separator: "\n")
+        .ifEmpty(localizedKey(model.language, "ui.music.dna.needs.more.listening.for.basis"))
     }
 
     private func signals(_ values: [DJConnectMusicDNASignal]) -> String {
@@ -3863,6 +3928,34 @@ private struct MusicDNASectionGrid: View {
             .prefix(3)
             .joined(separator: ", ")
             .ifEmpty(localizedKey(model.language, "ui.music.dna.needs.more.listening.for.basis"))
+    }
+
+    private func musicDNAZoneLabel(_ zone: String?) -> String? {
+        switch zone?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() {
+        case "chill":
+            return "Chill"
+        case "groove":
+            return "Groove"
+        case "energy":
+            return "Energy"
+        case "party":
+            return "Party"
+        case let value? where !value.isEmpty:
+            return value
+                .split(separator: "_")
+                .map { String($0.prefix(1)).uppercased() + String($0.dropFirst()) }
+                .joined(separator: " ")
+        default:
+            return nil
+        }
+    }
+
+    private func signalCountLabel(_ count: Int) -> String {
+        count == 1 ? "1 signaal" : "\(count) signalen"
+    }
+
+    private func analysisCountLabel(_ count: Int) -> String {
+        count == 1 ? "1 analyse" : "\(count) analyses"
     }
 }
 
@@ -3971,7 +4064,7 @@ private struct MusicDNALoadingView: View {
     }
 }
 
-#if DEBUG && (os(iOS) || os(macOS))
+#if DEBUG && ((os(iOS) && targetEnvironment(simulator)) || os(macOS))
 #Preview("Music DNA - Populated") {
     MusicDNAView(model: DJConnectAppModel.musicDNAPreviewModel(response: .previewPopulated))
 }
@@ -4170,6 +4263,7 @@ private struct TrackInsightHero: View {
         }
         .padding(14)
         .frame(maxWidth: .infinity)
+        .clipped()
         .background(profile.gradient, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
         .overlay {
             RoundedRectangle(cornerRadius: 8, style: .continuous)
@@ -4185,6 +4279,11 @@ private struct TrackInsightHeroScene: View {
     let reduceMotion: Bool
     let isActive: Bool
     let language: String
+    @State private var playbackAnchor = TrackVibePlaybackAnchor()
+
+    private var playbackSignature: String {
+        TrackVibePlaybackAnchor.signature(for: playback)
+    }
 
     var body: some View {
         Group {
@@ -4198,6 +4297,15 @@ private struct TrackInsightHeroScene: View {
                 }
             }
         }
+        .onAppear {
+            playbackAnchor.update(from: playback, at: Date())
+        }
+        .onChange(of: playbackSignature) {
+            playbackAnchor.update(from: playback, at: Date())
+        }
+        .onChange(of: playback?.isPlaying) {
+            playbackAnchor.update(from: playback, at: Date())
+        }
         .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
         .overlay {
             RoundedRectangle(cornerRadius: 14, style: .continuous)
@@ -4207,7 +4315,7 @@ private struct TrackInsightHeroScene: View {
     }
 
     private func scene(date: Date) -> some View {
-        let phase = TrackVibePlaybackPhase(playback: playback, date: date)
+        let phase = TrackVibePlaybackPhase(playback: playback, anchor: playbackAnchor, date: date)
         return GeometryReader { geometry in
             let isCompact = geometry.size.width < 560 || geometry.size.width / max(geometry.size.height, 1) < 1.05
             let artworkSize = min(
@@ -4248,7 +4356,7 @@ private struct TrackInsightHeroScene: View {
     }
 }
 
-private struct TrackInsightPremiumBackground: View {
+struct TrackInsightPremiumBackground: View {
     let profile: TrackVibeProfile
     let phase: TrackVibePlaybackPhase
     let date: Date
@@ -4296,7 +4404,7 @@ private struct TrackInsightPremiumBackground: View {
     }
 }
 
-private struct TrackInsightLightField: View {
+struct TrackInsightLightField: View {
     let profile: TrackVibeProfile
     let phase: TrackVibePlaybackPhase
     let date: Date
@@ -4461,7 +4569,7 @@ private struct TrackInsightHeroArtwork: View {
     }
 }
 
-private struct TrackInsightPremiumSpectrum: View {
+struct TrackInsightPremiumSpectrum: View {
     let profile: TrackVibeProfile
     let phase: TrackVibePlaybackPhase
 
@@ -4472,20 +4580,88 @@ private struct TrackInsightPremiumSpectrum: View {
             let spacing: CGFloat = isCompact ? 2.5 : 4
             let spectrumWidth = geometry.size.width * 0.86
             let barWidth = max(1.8, (spectrumWidth - CGFloat(count - 1) * spacing) / CGFloat(count))
-            HStack(alignment: .bottom, spacing: spacing) {
-                ForEach(0..<count, id: \.self) { index in
-                    let normalized = spectrumValue(index: index, count: count)
-                    RoundedRectangle(cornerRadius: barWidth / 2, style: .continuous)
-                        .fill(barGradient(index: index, count: count))
-                        .frame(width: barWidth, height: max(8, geometry.size.height * normalized))
-                        .shadow(color: (profile.colors[safe: index % max(profile.colors.count, 1)] ?? djConnectAccent).opacity(0.28), radius: 8)
+            let clampedProgress = min(max(phase.progress, 0), 1)
+            let progressX = spectrumWidth * clampedProgress
+            ZStack(alignment: .bottomLeading) {
+                progressRail(width: spectrumWidth, progressX: progressX, height: geometry.size.height)
+
+                HStack(alignment: .bottom, spacing: spacing) {
+                    ForEach(0..<count, id: \.self) { index in
+                        let normalized = spectrumValue(index: index, count: count)
+                        let position = Double(index) / Double(max(count - 1, 1))
+                        let hasPlayed = position <= clampedProgress
+                        RoundedRectangle(cornerRadius: barWidth / 2, style: .continuous)
+                            .fill(barGradient(index: index, count: count))
+                            .frame(width: barWidth, height: max(8, geometry.size.height * normalized))
+                            .opacity(hasPlayed ? 1.0 : 0.52)
+                            .shadow(
+                                color: (profile.colors[safe: index % max(profile.colors.count, 1)] ?? djConnectAccent)
+                                    .opacity(hasPlayed ? 0.34 : 0.12),
+                                radius: hasPlayed ? 8 : 3
+                            )
+                    }
                 }
+                .frame(width: spectrumWidth)
+                .frame(maxHeight: .infinity, alignment: .bottom)
+
+                playhead(width: spectrumWidth, progressX: progressX, height: geometry.size.height)
             }
             .frame(width: spectrumWidth)
             .frame(maxHeight: .infinity, alignment: .bottom)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
         }
         .allowsHitTesting(false)
+    }
+
+    private func progressRail(width: CGFloat, progressX: CGFloat, height: CGFloat) -> some View {
+        let railY = height - 3
+        return ZStack(alignment: .leading) {
+            Capsule()
+                .fill(.white.opacity(0.14))
+                .frame(width: width, height: 3)
+            Capsule()
+                .fill(
+                    LinearGradient(
+                        colors: [
+                            (profile.colors.first ?? djConnectAccent).opacity(0.95),
+                            .white.opacity(0.92),
+                            (profile.colors.last ?? djConnectAccent).opacity(0.95)
+                        ],
+                        startPoint: .leading,
+                        endPoint: .trailing
+                    )
+                )
+                .frame(width: max(8, progressX), height: 3)
+                .shadow(color: .white.opacity(0.34), radius: 8)
+        }
+        .position(x: width / 2, y: railY)
+    }
+
+    private func playhead(width: CGFloat, progressX: CGFloat, height: CGFloat) -> some View {
+        let x = max(7, min(width - 7, progressX))
+        return ZStack {
+            Rectangle()
+                .fill(
+                    LinearGradient(
+                        colors: [.clear, .white.opacity(0.62), .clear],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                )
+                .frame(width: 2, height: height * 0.86)
+                .position(x: x, y: height * 0.46)
+            Circle()
+                .fill(.white)
+                .frame(width: 12, height: 12)
+                .overlay {
+                    Circle()
+                        .stroke((profile.colors.last ?? djConnectAccent).opacity(0.85), lineWidth: 2)
+                }
+                .shadow(color: .white.opacity(0.72), radius: 8)
+                .shadow(color: (profile.colors.last ?? djConnectAccent).opacity(0.70), radius: 14)
+                .position(x: x, y: height - 3)
+        }
+        .frame(width: width, height: height, alignment: .bottomLeading)
     }
 
     private func spectrumValue(index: Int, count: Int) -> CGFloat {
@@ -4598,6 +4774,7 @@ public struct VibeCastOutputView: View {
                     insight: insight,
                     playback: model.playback,
                     language: model.language,
+                    moodStepIndex: model.askDJMoodStepIndex,
                     reduceMotion: reduceMotion || ProcessInfo.processInfo.isLowPowerModeEnabled
                 )
             } else {
@@ -4612,14 +4789,21 @@ private struct VibeCastVisualizerSignalView: View {
     let insight: TrackInsight
     let playback: DJConnectPlayback?
     let language: String
+    let moodStepIndex: Int
     let reduceMotion: Bool
+    @State private var playbackAnchor = TrackVibePlaybackAnchor()
 
     private var profile: TrackVibeProfile {
         TrackVibeProfile.make(for: insight)
+            .applyingTrackInsightMoodRenderOverride(stepIndex: moodStepIndex)
     }
 
     private var isPlaying: Bool {
         playback?.isPlaying == true
+    }
+
+    private var playbackSignature: String {
+        TrackVibePlaybackAnchor.signature(for: playback)
     }
 
     var body: some View {
@@ -4634,10 +4818,19 @@ private struct VibeCastVisualizerSignalView: View {
                 }
             }
         }
+        .onAppear {
+            playbackAnchor.update(from: playback, at: Date())
+        }
+        .onChange(of: playbackSignature) {
+            playbackAnchor.update(from: playback, at: Date())
+        }
+        .onChange(of: playback?.isPlaying) {
+            playbackAnchor.update(from: playback, at: Date())
+        }
     }
 
     private func premiumScene(date: Date) -> some View {
-        let phase = TrackVibePlaybackPhase(playback: playback, date: date)
+        let phase = TrackVibePlaybackPhase(playback: playback, anchor: playbackAnchor, date: date)
         return GeometryReader { geometry in
             let artworkSize = artworkSize(in: geometry.size)
             let artworkY = geometry.size.height * 0.29
@@ -5672,20 +5865,16 @@ private struct TrackHeartbeatRunner: View {
     }
 }
 
-private struct TrackVibePlaybackPhase {
+struct TrackVibePlaybackPhase {
     let progress: Double
     let positionSeconds: TimeInterval
     let energyLift: Double
 
-    init(playback: DJConnectPlayback?, date: Date) {
+    init(playback: DJConnectPlayback?, anchor: TrackVibePlaybackAnchor = TrackVibePlaybackAnchor(), date: Date) {
         let durationMS = max(playback?.durationMS ?? 0, 0)
         let progressMS = max(playback?.progressMS ?? 0, 0)
         let durationSeconds = durationMS > 0 ? Double(durationMS) / 1_000 : 240
-        let basePositionSeconds = Double(progressMS) / 1_000
-        let liveFraction = playback?.isPlaying == true
-            ? date.timeIntervalSinceReferenceDate.truncatingRemainder(dividingBy: 1)
-            : 0
-        let positionSeconds = min(basePositionSeconds + liveFraction, durationSeconds)
+        let positionSeconds = anchor.positionSeconds(for: playback, fallbackProgressMS: progressMS, durationSeconds: durationSeconds, at: date)
         let progress = durationSeconds > 0 ? min(max(positionSeconds / durationSeconds, 0), 1) : 0
         let phrase = sin(progress * .pi * 10)
         let section = sin(progress * .pi * 2 - .pi / 2) * 0.5 + 0.5
@@ -5693,6 +5882,74 @@ private struct TrackVibePlaybackPhase {
         self.progress = progress
         self.positionSeconds = positionSeconds
         self.energyLift = max(0, min(1, 0.28 + phrase * 0.18 + section * 0.54))
+    }
+
+    init(shareProgress: Double, duration: TimeInterval) {
+        let durationSeconds = max(duration, 1)
+        let loopedPosition = shareProgress.truncatingRemainder(dividingBy: durationSeconds)
+        let positionSeconds = loopedPosition < 0 ? loopedPosition + durationSeconds : loopedPosition
+        let progress = min(max(positionSeconds / durationSeconds, 0), 1)
+        let phrase = sin(progress * .pi * 10)
+        let section = sin(progress * .pi * 2 - .pi / 2) * 0.5 + 0.5
+
+        self.progress = progress
+        self.positionSeconds = positionSeconds
+        self.energyLift = max(0, min(1, 0.28 + phrase * 0.18 + section * 0.54))
+    }
+}
+
+struct TrackVibePlaybackAnchor: Equatable {
+    var signature: String = ""
+    var progressMS: Int = 0
+    var durationMS: Int = 0
+    var snapshotDate: Date = .distantPast
+    var isPlaying: Bool = false
+
+    static func signature(for playback: DJConnectPlayback?) -> String {
+        [
+            playback?.trackName,
+            playback?.artistName,
+            playback?.contextURI,
+            playback?.durationMS.map(String.init)
+        ]
+        .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() }
+        .filter { !$0.isEmpty }
+        .joined(separator: "|")
+    }
+
+    mutating func update(from playback: DJConnectPlayback?, at date: Date) {
+        let nextSignature = Self.signature(for: playback)
+        let nextProgressMS = max(playback?.progressMS ?? 0, 0)
+        let nextDurationMS = max(playback?.durationMS ?? 0, 0)
+        let nextIsPlaying = playback?.isPlaying == true
+        let estimatedMS = Int((positionSeconds(
+            for: playback,
+            fallbackProgressMS: progressMS,
+            durationSeconds: nextDurationMS > 0 ? Double(nextDurationMS) / 1_000 : 240,
+            at: date
+        ) * 1_000).rounded())
+
+        let didChangeTrack = nextSignature != signature
+        let didSeekBackward = nextProgressMS + 2_000 < estimatedMS
+        let anchoredProgressMS = didChangeTrack || didSeekBackward ? nextProgressMS : max(nextProgressMS, estimatedMS)
+
+        signature = nextSignature
+        progressMS = anchoredProgressMS
+        durationMS = nextDurationMS
+        snapshotDate = date
+        isPlaying = nextIsPlaying
+    }
+
+    func positionSeconds(
+        for playback: DJConnectPlayback?,
+        fallbackProgressMS: Int,
+        durationSeconds: TimeInterval,
+        at date: Date
+    ) -> TimeInterval {
+        let playbackSignature = Self.signature(for: playback)
+        let baseMS = playbackSignature == signature && !signature.isEmpty ? progressMS : max(playback?.progressMS ?? fallbackProgressMS, 0)
+        let elapsed = playback?.isPlaying == true && isPlaying ? max(0, date.timeIntervalSince(snapshotDate)) : 0
+        return min(Double(baseMS) / 1_000 + elapsed, durationSeconds)
     }
 }
 
@@ -5762,18 +6019,18 @@ private struct TrackInsightMetricsGrid: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             LazyVGrid(columns: metricColumns, spacing: 10) {
-                TrackInsightMetricRing(title: localizedKey(language, "ui.energy"), value: insight.energy)
-                TrackInsightMetricRing(title: localizedKey(language, "ui.dance"), value: insight.danceability)
-                TrackInsightMetricRing(title: localizedKey(language, "ui.intensity"), value: insight.intensity)
+                TrackInsightMetricRing(title: localizedKey(language, "ui.energy"), value: insight.energy, icon: "bolt.fill")
+                TrackInsightMetricRing(title: localizedKey(language, "ui.dance"), value: insight.danceability, icon: "figure.dance")
+                TrackInsightMetricRing(title: localizedKey(language, "ui.intensity"), value: insight.intensity, icon: "flame.fill")
             }
 
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 172), spacing: 10, alignment: .top)], spacing: 10) {
-                TrackInsightMetricPill(title: "BPM", value: insight.bpm.map { String(Int($0.rounded())) })
-                TrackInsightMetricPill(title: localizedKey(language, "ui.key"), value: insight.key)
-                TrackInsightMetricPill(title: localizedKey(language, "ui.genre"), value: insight.genre)
-                TrackInsightMetricPill(title: localizedKey(language, "ui.mood"), value: insight.mood)
-                TrackInsightMetricPill(title: localizedKey(language, "ui.vibe"), value: insight.vibe)
-                TrackInsightMetricPill(title: localizedKey(language, "ui.texture"), value: insight.texture)
+                TrackInsightMetricPill(title: "BPM", value: insight.bpm.map { String(Int($0.rounded())) }, icon: "metronome.fill")
+                TrackInsightMetricPill(title: localizedKey(language, "ui.key"), value: insight.key, icon: "pianokeys")
+                TrackInsightMetricPill(title: localizedKey(language, "ui.genre"), value: insight.genre, icon: "music.quarternote.3")
+                TrackInsightMetricPill(title: localizedKey(language, "ui.mood"), value: insight.mood, icon: "sparkles")
+                TrackInsightMetricPill(title: localizedKey(language, "ui.vibe"), value: insight.vibe, icon: "waveform.path")
+                TrackInsightMetricPill(title: localizedKey(language, "ui.texture"), value: insight.texture, icon: "square.stack.3d.up.fill")
             }
         }
     }
@@ -5786,6 +6043,7 @@ private struct TrackInsightMetricsGrid: View {
 private struct TrackInsightMetricRing: View {
     let title: String
     let value: Double?
+    let icon: String
 
     private var normalizedValue: Double {
         min(1, max(0, value ?? 0))
@@ -5798,6 +6056,10 @@ private struct TrackInsightMetricRing: View {
 
     var body: some View {
         VStack(spacing: 8) {
+            Image(systemName: icon)
+                .font(.caption.weight(.bold))
+                .foregroundStyle(djConnectAccent)
+                .frame(width: 22, height: 18)
             ZStack {
                 Circle()
                     .stroke(.white.opacity(0.16), lineWidth: 12)
@@ -5841,14 +6103,21 @@ private struct TrackInsightMetricRing: View {
 private struct TrackInsightMetricPill: View {
     let title: String
     let value: String?
+    let icon: String
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text(title)
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(.white.opacity(0.56))
-                .lineLimit(1)
-                .minimumScaleFactor(0.82)
+            HStack(spacing: 7) {
+                Image(systemName: icon)
+                    .font(.caption.weight(.bold))
+                    .foregroundStyle(djConnectAccent)
+                    .frame(width: 16)
+                Text(title)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.white.opacity(0.56))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.82)
+            }
             Text(value?.isEmpty == false ? value! : "-")
                 .font(.headline.weight(.semibold))
                 .foregroundStyle(.white)
@@ -5869,8 +6138,13 @@ private struct TrackInsightAnalysisCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text(localizedKey(language, "watch.track.energy"))
-                .font(.headline.weight(.semibold))
+            Label {
+                Text(localizedKey(language, "watch.track.energy"))
+            } icon: {
+                Image(systemName: "bolt.fill")
+                    .foregroundStyle(djConnectAccent)
+            }
+            .font(.headline.weight(.semibold))
             Text(insight.summary)
                 .font(.body)
                 .foregroundStyle(.white.opacity(0.78))
@@ -5881,8 +6155,15 @@ private struct TrackInsightAnalysisCard: View {
                 Divider().overlay(.white.opacity(0.16))
                 ForEach(groups.prefix(8)) { section in
                     VStack(alignment: .leading, spacing: 4) {
-                        Text(section.title)
-                            .font(.subheadline.weight(.semibold))
+                        Label {
+                            Text(section.title)
+                        } icon: {
+                            Image(systemName: section.iconName)
+                                .font(.caption.weight(.bold))
+                                .foregroundStyle(section.iconColor)
+                                .frame(width: 18)
+                        }
+                        .font(.subheadline.weight(.semibold))
                         ForEach(section.values.prefix(5), id: \.self) { value in
                             Text(value)
                                 .font(.caption)
@@ -5903,6 +6184,40 @@ private struct TrackInsightStructuredGroup: Identifiable {
     let id: String
     let title: String
     let values: [String]
+
+    var iconName: String {
+        switch id {
+        case "production":
+            "slider.horizontal.3"
+        case "instrumentation":
+            "music.note.list"
+        case "arrangement":
+            "square.stack.3d.up"
+        case "listening":
+            "ear"
+        case "similar":
+            "sparkles"
+        default:
+            "waveform"
+        }
+    }
+
+    var iconColor: Color {
+        switch id {
+        case "production":
+            Color(red: 0.30, green: 0.63, blue: 1.0)
+        case "instrumentation":
+            Color(red: 0.23, green: 0.91, blue: 0.84)
+        case "arrangement":
+            Color(red: 0.82, green: 0.28, blue: 1.0)
+        case "listening":
+            Color(red: 1.0, green: 0.82, blue: 0.34)
+        case "similar":
+            Color(red: 0.96, green: 0.38, blue: 0.72)
+        default:
+            djConnectAccent
+        }
+    }
 }
 
 private extension TrackInsight {
@@ -7343,6 +7658,7 @@ private struct AskDJView: View {
                                             isAudioPlaying: isTransientMessage ? false : model.isPlayingAskDJAudio(message.audioURL),
                                             isRetryDisabled: isTransientMessage || isAskDJHistoryStale || model.isSendingAskDJText,
                                             playingActionID: model.playingAskDJActionID,
+                                            currentMood: model.askDJMoodInt,
                                             isSearchResult: searchResultIDs.contains(message.id),
                                             isActiveSearchResult: activeSearchResultID == message.id,
                                             searchText: askDJSearchText,
@@ -7388,17 +7704,9 @@ private struct AskDJView: View {
                             .padding(.top, chatTopPadding)
                             .padding(.bottom, 16)
                             .contentShape(Rectangle())
-                            .onTapGesture {
-                                dismissAskDJKeyboard()
-                            }
                         }
                         .coordinateSpace(name: "askDJScroll")
                         .contentShape(Rectangle())
-                        .simultaneousGesture(
-                            TapGesture().onEnded {
-                                dismissAskDJKeyboard()
-                            }
-                        )
                         .background(
                             GeometryReader { geometry in
                                 Color.clear.preference(
@@ -7420,11 +7728,6 @@ private struct AskDJView: View {
                             }
                         }
                         .scrollDismissesKeyboard(.interactively)
-                        .simultaneousGesture(
-                            DragGesture(minimumDistance: 8).onChanged { _ in
-                                dismissAskDJKeyboard()
-                            }
-                        )
                         .overlay(alignment: .bottomTrailing) {
                             if shouldShowAskDJScrollToBottomButton, let lastID = model.askDJMessages.last?.id {
                                 Button {
@@ -7479,11 +7782,6 @@ private struct AskDJView: View {
                         }
                     }
                     .contentShape(Rectangle())
-                    .simultaneousGesture(
-                        TapGesture().onEnded {
-                            dismissAskDJKeyboard()
-                        }
-                    )
                     .onChange(of: model.askDJMessages) {
                         normalizeAskDJSearchSelection()
                         scrollAskDJToInitialBottomIfNeeded(proxy: proxy)
@@ -8012,6 +8310,7 @@ private struct AskDJMessageBubble: View {
     let isAudioPlaying: Bool
     let isRetryDisabled: Bool
     let playingActionID: String?
+    let currentMood: Int?
     let isSearchResult: Bool
     let isActiveSearchResult: Bool
     let searchText: String
@@ -8057,6 +8356,45 @@ private struct AskDJMessageBubble: View {
             && !isSystemMessage
             && message.isGeneratedText == true
             && message.textSource?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() != "fallback"
+    }
+
+    private var assistantMood: Int? {
+        guard !isUser && !isSystemMessage else {
+            return nil
+        }
+        return (message.mood ?? currentMood).map { max(0, min(100, $0)) }
+    }
+
+    private var assistantMoodColors: [Color]? {
+        guard let assistantMood else {
+            return nil
+        }
+        switch assistantMood {
+        case ...24:
+            return [
+                Color(red: 0.24, green: 0.25, blue: 0.63),
+                Color(red: 0.38, green: 0.24, blue: 0.58),
+                Color(red: 0.58, green: 0.30, blue: 0.48)
+            ]
+        case 25...59:
+            return [
+                Color(red: 0.02, green: 0.47, blue: 0.55),
+                Color(red: 0.12, green: 0.34, blue: 0.82),
+                Color(red: 0.49, green: 0.25, blue: 0.86)
+            ]
+        case 60...84:
+            return [
+                Color(red: 0.11, green: 0.45, blue: 1.00),
+                Color(red: 0.44, green: 0.28, blue: 0.98),
+                Color(red: 0.84, green: 0.18, blue: 0.90)
+            ]
+        default:
+            return [
+                Color(red: 1.00, green: 0.46, blue: 0.26),
+                Color(red: 0.94, green: 0.20, blue: 0.55),
+                Color(red: 0.70, green: 0.18, blue: 0.86)
+            ]
+        }
     }
 
     private var isVoiceRequestMessage: Bool {
@@ -8286,6 +8624,16 @@ private struct AskDJMessageBubble: View {
             AnyShapeStyle(Color.white.opacity(0.36))
         } else if isStaleHistory {
             AnyShapeStyle(Color.white.opacity(0.16))
+        } else if let assistantMoodColors {
+            AnyShapeStyle(LinearGradient(
+                colors: [
+                    assistantMoodColors[0].opacity(0.42),
+                    assistantMoodColors[min(2, assistantMoodColors.count - 1)].opacity(0.52),
+                    Color.white.opacity(0.16)
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            ))
         } else {
             AnyShapeStyle(Color.white.opacity(isUser ? 0.12 : isSystemMessage ? 0.14 : 0.18))
         }
@@ -8316,6 +8664,20 @@ private struct AskDJMessageBubble: View {
                             Color(red: 0.12, green: 0.45, blue: 1.00).opacity(0.34),
                             Color(red: 0.47, green: 0.30, blue: 0.98).opacity(0.26),
                             Color.white.opacity(0.10)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+        } else if let assistantMoodColors {
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .fill(
+                    LinearGradient(
+                        colors: [
+                            assistantMoodColors[0].opacity(0.86),
+                            assistantMoodColors[1].opacity(0.76),
+                            assistantMoodColors[2].opacity(0.82),
+                            Color.black.opacity(0.18)
                         ],
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
@@ -8850,6 +9212,9 @@ private struct AskDJPlaybackActionStack: View {
 
     static func isSupportedAction(_ action: DJConnectAskDJPlaybackAction) -> Bool {
         if action.isSaveCurrentTrackControlAction {
+            return true
+        }
+        if action.isAskDJMessageAction {
             return true
         }
         if action.isRecommendationAction {
@@ -12983,7 +13348,7 @@ private struct AskDJFeedbackPromptView: View {
     }
 }
 
-#if os(iOS)
+#if DEBUG && os(iOS) && targetEnvironment(simulator)
 #Preview("Ask DJ Feedback - Compact") {
     let model = DJConnectAppModel(startBackgroundTasks: false)
     model.language = "nl"

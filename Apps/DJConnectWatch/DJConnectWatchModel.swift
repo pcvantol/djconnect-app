@@ -38,6 +38,7 @@ struct DJConnectWatchAskDJMessage: Identifiable, Codable, Equatable {
         case origin
         case textSource = "text_source"
         case isGeneratedText = "is_generated_text"
+        case mood
         case createdAt
     }
 
@@ -56,6 +57,7 @@ struct DJConnectWatchAskDJMessage: Identifiable, Codable, Equatable {
     var origin: String?
     var textSource: String?
     var isGeneratedText: Bool?
+    var mood: Int?
     var createdAt: Date
 
     var renderablePlaybackActions: [DJConnectAskDJPlaybackAction] {
@@ -78,6 +80,7 @@ struct DJConnectWatchAskDJMessage: Identifiable, Codable, Equatable {
         origin: String? = nil,
         textSource: String? = nil,
         isGeneratedText: Bool? = nil,
+        mood: Int? = nil,
         createdAt: Date = Date()
     ) {
         self.id = id
@@ -95,6 +98,7 @@ struct DJConnectWatchAskDJMessage: Identifiable, Codable, Equatable {
         self.origin = origin
         self.textSource = textSource
         self.isGeneratedText = isGeneratedText
+        self.mood = mood.map { max(0, min(100, $0)) }
         self.createdAt = createdAt
     }
 
@@ -115,6 +119,7 @@ struct DJConnectWatchAskDJMessage: Identifiable, Codable, Equatable {
         origin = try container.decodeIfPresent(String.self, forKey: .origin)
         textSource = try container.decodeIfPresent(String.self, forKey: .textSource)
         isGeneratedText = try container.decodeIfPresent(Bool.self, forKey: .isGeneratedText)
+        mood = try container.decodeIfPresent(Int.self, forKey: .mood).map { max(0, min(100, $0)) }
         createdAt = try container.decodeIfPresent(Date.self, forKey: .createdAt) ?? Date()
     }
 
@@ -135,6 +140,7 @@ struct DJConnectWatchAskDJMessage: Identifiable, Codable, Equatable {
         try container.encodeIfPresent(origin, forKey: .origin)
         try container.encodeIfPresent(textSource, forKey: .textSource)
         try container.encodeIfPresent(isGeneratedText, forKey: .isGeneratedText)
+        try container.encodeIfPresent(mood, forKey: .mood)
         try container.encode(createdAt, forKey: .createdAt)
     }
 
@@ -1352,7 +1358,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         do {
             let response: DJConnectCommandResponse = try await sendCompanionHARequest(
                 .command,
-                payload: DJConnectCommandPayload(identity: identity, command: command, language: currentRequestLocale)
+                payload: DJConnectCommandPayload(identity: identity, command: command, language: currentRequestLocale, mood: askDJMoodInt)
             )
             applyBackendSummary(response.musicBackendSummary)
             if !Self.shouldDeferPlaybackSnapshotUntilRefresh(command) {
@@ -1402,7 +1408,8 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
                     identity: identity,
                     command: "set_current_track_favorite",
                     value: .bool(shouldFavorite),
-                    language: currentRequestLocale
+                    language: currentRequestLocale,
+                    mood: askDJMoodInt
                 )
             )
             applyBackendSummary(response.musicBackendSummary)
@@ -1453,7 +1460,8 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
                     command: "set_volume",
                     value: .int(value),
                     play: true,
-                    language: currentRequestLocale
+                    language: currentRequestLocale,
+                    mood: askDJMoodInt
                 )
             )
             applyBackendSummary(response.musicBackendSummary)
@@ -1493,7 +1501,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         do {
             let response: DJConnectCommandResponse = try await sendCompanionHARequest(
                 .command,
-                payload: DJConnectCommandPayload(identity: identity, command: "playlists", limit: 100, language: currentRequestLocale)
+                payload: DJConnectCommandPayload(identity: identity, command: "playlists", limit: 100, language: currentRequestLocale, mood: askDJMoodInt)
             )
             applyBackendSummary(response.musicBackendSummary)
             playlistItems = normalizedPlaylists(response.playlists ?? [])
@@ -1524,7 +1532,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         do {
             let response: DJConnectCommandResponse = try await sendCompanionHARequest(
                 .command,
-                payload: DJConnectCommandPayload(identity: identity, command: "queue", limit: 100, language: currentRequestLocale)
+                payload: DJConnectCommandPayload(identity: identity, command: "queue", limit: 100, language: currentRequestLocale, mood: askDJMoodInt)
             )
             applyBackendSummary(response.musicBackendSummary)
             queueItems = normalizedQueueItems(response.queue ?? [])
@@ -1594,7 +1602,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         do {
             let response: DJConnectCommandResponse = try await sendCompanionHARequest(
                 .command,
-                payload: DJConnectCommandPayload(identity: identity, command: "devices", language: currentRequestLocale)
+                payload: DJConnectCommandPayload(identity: identity, command: "devices", language: currentRequestLocale, mood: askDJMoodInt)
             )
             applyBackendSummary(response.musicBackendSummary)
             applyOutputs(response.devices ?? [])
@@ -1638,7 +1646,8 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
                     command: "set_output",
                     value: .string(output.name),
                     play: true,
-                    language: currentRequestLocale
+                    language: currentRequestLocale,
+                    mood: askDJMoodInt
                 )
             )
             applyBackendSummary(response.musicBackendSummary)
@@ -1683,7 +1692,8 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
                     command: "play_context_at",
                     value: .object(queueStartPayload(for: item, uri: uri, index: index)),
                     play: true,
-                    language: currentRequestLocale
+                    language: currentRequestLocale,
+                    mood: askDJMoodInt
                 )
             )
             applyBackendSummary(response.musicBackendSummary)
@@ -1721,7 +1731,8 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
                     command: "start_playlist",
                     value: .string(playlist.commandValue),
                     play: true,
-                    language: currentRequestLocale
+                    language: currentRequestLocale,
+                    mood: askDJMoodInt
                 )
             )
             applyBackendSummary(response.musicBackendSummary)
@@ -2098,7 +2109,10 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         isLoadingMusicDNAConsent = true
         defer { isLoadingMusicDNAConsent = false }
         do {
-            let response: DJConnectMusicDNAProfileResponse = try await sendCompanionHARequest(.musicDNAProfile)
+            let response: DJConnectMusicDNAProfileResponse = try await sendCompanionHARequest(
+                .musicDNAProfile,
+                payload: DJConnectMusicDNAIdentityRequest(identity: identity, mood: askDJMoodInt)
+            )
             applyMusicDNAProfile(response)
             if response.enabled {
                 musicDNAOptInPromptSeen = true
@@ -2125,7 +2139,10 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         musicDNAErrorMessage = nil
         defer { isLoadingMusicDNA = false }
         do {
-            let response: DJConnectMusicDNAProfileResponse = try await sendCompanionHARequest(.musicDNAProfile)
+            let response: DJConnectMusicDNAProfileResponse = try await sendCompanionHARequest(
+                .musicDNAProfile,
+                payload: DJConnectMusicDNAIdentityRequest(identity: identity, mood: askDJMoodInt)
+            )
             applyMusicDNAProfile(response)
             if response.enabled {
                 musicDNAOptInPromptSeen = true
@@ -2182,7 +2199,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         do {
             let response: DJConnectMusicDNAProfileResponse = try await sendCompanionHARequest(
                 .musicDNASettings,
-                payload: DJConnectMusicDNASettingsRequest(identity: identity, enabled: enabled)
+                payload: DJConnectMusicDNASettingsRequest(identity: identity, enabled: enabled, mood: askDJMoodInt)
             )
             applyMusicDNAProfile(response)
             musicDNAOptInPromptSeen = true
@@ -2207,7 +2224,10 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         musicDNAErrorMessage = nil
         defer { isUpdatingMusicDNA = false }
         do {
-            let response: DJConnectMusicDNAProfileResponse = try await sendCompanionHARequest(.clearMusicDNA)
+            let response: DJConnectMusicDNAProfileResponse = try await sendCompanionHARequest(
+                .clearMusicDNA,
+                payload: DJConnectMusicDNAIdentityRequest(identity: identity, mood: askDJMoodInt)
+            )
             applyMusicDNAProfile(response)
             showAskDJToast("Music DNA gewist")
         } catch {
@@ -2276,6 +2296,10 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
             await saveCurrentTrackFromAskDJ(action)
             return
         }
+        if action.isAskDJMessageAction {
+            await sendAskDJFollowUpAction(action)
+            return
+        }
         if action.isOutputAction {
             await switchAskDJOutput(action)
             return
@@ -2304,7 +2328,8 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
                     value: Self.askDJCommandValue(for: action, command: command),
                     play: command == "ask_dj_play_recommendation",
                     musicBackendRevision: action.musicBackendRevision ?? musicBackendSummary.musicBackendRevision,
-                    language: currentRequestLocale
+                    language: currentRequestLocale,
+                    mood: askDJMoodInt
                 )
             )
             applyBackendSummary(response.musicBackendSummary)
@@ -2329,6 +2354,37 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         }
     }
 
+    private func sendAskDJFollowUpAction(_ action: DJConnectAskDJPlaybackAction) async {
+        guard let text = action.resolvedAskDJMessageText?.trimmingCharacters(in: .whitespacesAndNewlines), !text.isEmpty else {
+            showAskDJToast("Deze aanbeveling kan nog niet worden afgespeeld")
+            return
+        }
+        playingAskDJActionID = action.id
+        defer { playingAskDJActionID = nil }
+        let clientMessageID = UUID().uuidString
+        appendAskDJMessage(role: .user, text: text)
+        do {
+            let response: DJConnectAskDJMessageResponse = try await sendCompanionHARequest(
+                .askDJMessage,
+                payload: DJConnectAskDJRequest(
+                    identity: identity,
+                    text: text,
+                    clientMessageID: clientMessageID,
+                    inputType: "text",
+                    mood: askDJMoodInt,
+                    djStyle: djStyle,
+                    musicDNAKey: musicDNAKey,
+                    audioResponse: .auto,
+                    language: currentRequestLocale
+                )
+            )
+            applyAskDJMessageResponse(response)
+            await refreshStatus(confirmAskDJBeat: true)
+        } catch {
+            showAskDJToast(Self.askDJToastText(for: error))
+        }
+    }
+
     private func saveCurrentTrackFromAskDJ(_ action: DJConnectAskDJPlaybackAction) async {
         playingAskDJActionID = action.id
         defer { playingAskDJActionID = nil }
@@ -2342,7 +2398,8 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
                     command: command,
                     value: value,
                     musicBackendRevision: action.musicBackendRevision ?? musicBackendSummary.musicBackendRevision,
-                    language: currentRequestLocale
+                    language: currentRequestLocale,
+                    mood: askDJMoodInt
                 )
             )
             applyBackendSummary(response.musicBackendSummary)
@@ -2393,7 +2450,8 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
                     command: command,
                     value: Self.askDJCommandValue(for: action, command: command),
                     musicBackendRevision: action.musicBackendRevision ?? musicBackendSummary.musicBackendRevision,
-                    language: currentRequestLocale
+                    language: currentRequestLocale,
+                    mood: askDJMoodInt
                 )
             )
             applyBackendSummary(response.musicBackendSummary)
@@ -2605,6 +2663,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
             origin: historyMessage.role == .user ? nil : historyMessage.origin,
             textSource: historyMessage.role == .user ? nil : historyMessage.textSource,
             isGeneratedText: historyMessage.role == .user ? nil : historyMessage.isGeneratedText,
+            mood: historyMessage.role == .user ? nil : historyMessage.mood,
             createdAt: historyMessage.createdAt
         )
         if let existingIndex {

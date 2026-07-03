@@ -4,6 +4,32 @@ All notable changes to DJConnect App are documented here.
 
 ## Unreleased
 
+## 3.2.11 - 2026-07-04
+
+### Added
+
+- Added mood-aware Ask DJ assistant bubbles on iOS, macOS, and watchOS using
+  structured `mood` / `mood_context` metadata.
+- Added richer Music DNA dashboard decoding for backend mood averages,
+  energy profiles, and recent analysis signals.
+- Added Music DNA and Track Insight visual parity updates for Apple Watch,
+  sharing, and AirPlay/VibeCast output surfaces.
+
+### Changed
+
+- Updated Ask DJ follow-up actions such as "Meer van deze artiest" to send a
+  new Ask DJ text request instead of an empty playback command.
+- Made Track Insight refresh and rendering respect mood overrides more
+  consistently across live, share, and output contexts.
+- Improved Track Insight progress visuals and analysis/metric section icons.
+
+### Fixed
+
+- Fixed stale Track Insight content on Apple Watch when playback changes.
+- Fixed overly aggressive Ask DJ keyboard dismissal while typing.
+- Fixed iPhone Track Insight width overflow and smoother playback progress
+  animation.
+
 ## 3.2.10 - 2026-07-02
 
 ### Added

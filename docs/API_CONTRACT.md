@@ -17,8 +17,8 @@ clears the bearer token and creates a fresh local install identity.
   "device_id": "djconnect-ios-8F3A2C91B45D",
   "device_name": "DJConnect iPhone",
   "client_type": "ios",
-  "firmware": "3.2.8",
-  "app_version": "3.2.8",
+  "firmware": "3.2.11",
+  "app_version": "3.2.11",
   "platform": "ios"
 }
 ```
@@ -78,8 +78,8 @@ Payload:
   "device_id": "djconnect-macos-8F3A2C91B45D",
   "device_name": "DJConnect Mac",
   "client_type": "macos",
-  "firmware": "3.2.8",
-  "app_version": "3.2.8",
+  "firmware": "3.2.11",
+  "app_version": "3.2.11",
   "platform": "macos",
   "pair_code": "123456",
   "pairing_code": "123456",
@@ -226,7 +226,7 @@ Expected macOS payload:
   "push_token": "<apns-device-token>",
   "push_environment": "sandbox",
   "app_bundle_id": "dev.djconnect.mac",
-  "app_version": "3.2.8",
+  "app_version": "3.2.11",
   "locale": "nl-NL",
   "notification_categories": ["ask_dj"],
   "bootstrap_proof": "<short-lived proof when available>"
@@ -274,8 +274,8 @@ Minimum payload:
   "device_name": "DJConnect iPhone",
   "client_type": "ios",
   "ha_pairing_status": "paired",
-  "firmware": "3.2.8",
-  "app_version": "3.2.8",
+  "firmware": "3.2.11",
+  "app_version": "3.2.11",
   "state": "online",
   "status": "online",
   "battery_percent": 85,
@@ -499,10 +499,44 @@ Minimum payload:
 }
 ```
 
+Clients should include the selected mood as a numeric `mood` value from 0 to
+100 whenever it is available. Home Assistant may use this as request context for
+Ask DJ generation, recommendations, Track Insight, Music DNA refreshes, and
+playback commands that accept mood-aware behavior. Apple clients persist the
+current selected mood locally and do not infer mood from visible response text.
+
 `audio_response` may be `auto`, `always`, or `never`; Apple text chat defaults
 to `auto`. Missing `audio_url` is a normal successful response for
 informational text answers. Replay UI is shown only when
 `assistant_message.audio_url` or top-level `audio_url` is present.
+
+Ask DJ responses may include structured mood metadata either top-level or on
+`assistant_message` / history messages:
+
+```json
+{
+  "dj_text": "Dit past bij de energie van nu.",
+  "mood": 72,
+  "mood_context": {
+    "value": 72,
+    "zone": "energy"
+  },
+  "assistant_message": {
+    "id": "server-assistant-...",
+    "role": "assistant",
+    "text": "Dit past bij de energie van nu.",
+    "mood": 72
+  }
+}
+```
+
+Clients use this metadata for visual rendering only. If a response or assistant
+message contains its own mood value, that value wins for the rendered assistant
+bubble. Otherwise clients use the current selected client mood when available.
+If no structured mood is known, clients keep the default Ask DJ assistant
+gradient. Mood zones are interpreted as `0...24 = chill`, `25...59 = groove`,
+`60...84 = energy`, and `85...100 = party`. Clients must not parse Dutch or
+English response strings to infer mood.
 
 Apple clients include stable identity fields in Ask DJ message and command
 payloads: `device_id`, `device_name`, `client_id`, and `client_type`.
@@ -1230,6 +1264,11 @@ require a preceding user bubble.
 Missing `message_kind` defaults to `assistant`.
 `origin: spotify_playback_context` represents backend-generated ambient music facts.
 `audio_url` is optional; replay UI appears only when an audio URL is present.
+Assistant history messages may include `mood` or `mood_context` using the same
+0...100 contract as live Ask DJ responses. Apple clients preserve this metadata
+when merging history into the local chat cache so old assistant bubbles keep
+their original mood-aware styling across iOS, macOS, and watchOS. User and
+system messages do not need mood styling.
 
 The backend should bound history per Home Assistant user/Music DNA key. When a
 history limit is reached, the backend should add an assistant-only system

@@ -3352,6 +3352,45 @@ private struct DJConnectWatchAskDJBubble: View {
             && message.textSource?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() != "fallback"
     }
 
+    private var assistantMood: Int? {
+        guard !isUser && !isSystemMessage else {
+            return nil
+        }
+        return max(0, min(100, message.mood ?? model.askDJMoodInt))
+    }
+
+    private var assistantMoodColors: [Color]? {
+        guard let assistantMood else {
+            return nil
+        }
+        switch assistantMood {
+        case ...24:
+            return [
+                Color(red: 0.24, green: 0.25, blue: 0.63),
+                Color(red: 0.38, green: 0.24, blue: 0.58),
+                Color(red: 0.58, green: 0.30, blue: 0.48)
+            ]
+        case 25...59:
+            return [
+                Color(red: 0.02, green: 0.47, blue: 0.55),
+                Color(red: 0.12, green: 0.34, blue: 0.82),
+                Color(red: 0.49, green: 0.25, blue: 0.86)
+            ]
+        case 60...84:
+            return [
+                Color(red: 0.11, green: 0.45, blue: 1.00),
+                Color(red: 0.44, green: 0.28, blue: 0.98),
+                Color(red: 0.84, green: 0.18, blue: 0.90)
+            ]
+        default:
+            return [
+                Color(red: 1.00, green: 0.46, blue: 0.26),
+                Color(red: 0.94, green: 0.20, blue: 0.55),
+                Color(red: 0.70, green: 0.18, blue: 0.86)
+            ]
+        }
+    }
+
     var body: some View {
         HStack {
             if isUser {
@@ -3479,6 +3518,20 @@ private struct DJConnectWatchAskDJBubble: View {
                         endPoint: .bottomTrailing
                     )
                 )
+        } else if let assistantMoodColors {
+            RoundedRectangle(cornerRadius: bubbleCornerRadius, style: .continuous)
+                .fill(
+                    LinearGradient(
+                        colors: [
+                            assistantMoodColors[0].opacity(0.82),
+                            assistantMoodColors[1].opacity(0.72),
+                            assistantMoodColors[2].opacity(0.78),
+                            Color.black.opacity(0.20)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
         } else {
             RoundedRectangle(cornerRadius: bubbleCornerRadius, style: .continuous)
                 .fill(
@@ -3499,7 +3552,10 @@ private struct DJConnectWatchAskDJBubble: View {
     }
 
     private var bubbleStrokeColor: Color {
-        Color.white.opacity(isUser ? 0.12 : isSystemMessage ? 0.14 : 0.18)
+        if assistantMoodColors != nil {
+            return Color.white.opacity(0.24)
+        }
+        return Color.white.opacity(isUser ? 0.12 : isSystemMessage ? 0.14 : 0.18)
     }
 
     private var bubbleHorizontalInset: CGFloat {
@@ -3760,6 +3816,9 @@ private struct AskDJWatchPlaybackActionStack: View {
 
     private static func isSupportedAction(_ action: DJConnectAskDJPlaybackAction) -> Bool {
         if action.isSaveCurrentTrackControlAction {
+            return true
+        }
+        if action.isAskDJMessageAction {
             return true
         }
         if action.isRecommendationAction {

@@ -81,18 +81,25 @@ public enum TrackInsightShareService {
         format: TrackInsightShareFormat,
         mediaKind: TrackInsightShareMediaKind,
         language: String,
+        moodStepIndex: Int = 2,
         progress: @escaping @MainActor (Double) -> Void = { _ in }
     ) async throws -> TrackInsightSharePayload {
         let mediaURL: URL
         switch mediaKind {
         case .staticImage:
-            mediaURL = try TrackInsightShareRenderer.renderImage(insight: insight, format: format, language: language)
+            mediaURL = try TrackInsightShareRenderer.renderImage(
+                insight: insight,
+                format: format,
+                language: language,
+                moodStepIndex: moodStepIndex
+            )
             progress(1)
         case .animatedVideo:
             mediaURL = try await TrackInsightShareRenderer.renderVideo(
                 insight: insight,
                 format: format,
                 language: language,
+                moodStepIndex: moodStepIndex,
                 progress: progress
             )
         }

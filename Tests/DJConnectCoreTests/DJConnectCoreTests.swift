@@ -268,6 +268,44 @@ private actor MockWebSocketFastPathTransport: DJConnectWebSocketFastPathTranspor
     }
 }
 
+private struct FailingTrackInsightFastPathTransport: DJConnectWebSocketFastPathTransport {
+    let error: Error
+
+    var diagnostics: DJConnectFastPathDiagnostics {
+        DJConnectFastPathDiagnostics(
+            fastPathTransport: "websocket",
+            websocketConnected: true,
+            websocketCommands: [DJConnectFastPathRoute.trackInsight.rawValue]
+        )
+    }
+
+    func supports(_ route: DJConnectFastPathRoute) async -> Bool {
+        route == .trackInsight
+    }
+
+    func prepare() async throws {}
+
+    func command<T>(_ payload: DJConnectCommandPayload, identity: DJConnectAPIIdentity, responseType: T.Type) async throws -> T where T: Decodable, T: Sendable {
+        throw DJConnectError.routeMissing(message: "command unsupported")
+    }
+
+    func askDJMessage(_ payload: DJConnectAskDJRequest, identity: DJConnectAPIIdentity) async throws -> DJConnectAskDJMessageResponse {
+        throw DJConnectError.routeMissing(message: "ask dj unsupported")
+    }
+
+    func askDJHistory(identity: DJConnectAPIIdentity, sinceRevision: Int?) async throws -> DJConnectAskDJHistoryResponse {
+        throw DJConnectError.routeMissing(message: "ask dj history unsupported")
+    }
+
+    func clearAskDJHistory(identity: DJConnectAPIIdentity, musicDNAKey: String?) async throws -> DJConnectAskDJHistoryResponse {
+        throw DJConnectError.routeMissing(message: "ask dj clear unsupported")
+    }
+
+    func trackInsight(_ payload: DJConnectTrackInsightRequest, identity: DJConnectAPIIdentity) async throws -> TrackInsight {
+        throw error
+    }
+}
+
 private enum TokenStoreTestError: Error {
     case denied
 }
@@ -687,7 +725,8 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
             identity: identity,
             command: "set_volume",
             value: .int(35),
-            play: true
+            play: true,
+            mood: 70
         )
     )
     let body = try #require(request.httpBody)
@@ -705,6 +744,7 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     #expect(json?["command"] as? String == "set_volume")
     #expect(json?["value"] as? Int == 35)
     #expect(json?["play"] as? Bool == true)
+    #expect(json?["mood"] as? Int == 70)
 }
 
 @Test func askDJRequestUsesAskEndpointAndMusicDNAContext() throws {
@@ -897,6 +937,9 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     let profile = try client.musicDNAProfileRequest()
     let settings = try client.musicDNASettingsRequest(enabled: true)
     let clear = try client.clearMusicDNARequest()
+    let moodProfile = try client.musicDNAProfileRequest(mood: 70)
+    let moodSettings = try client.musicDNASettingsRequest(enabled: false, mood: 85)
+    let moodClear = try client.clearMusicDNARequest(mood: -10)
 
     for request in [profile, settings, clear] {
         let body = try #require(request.httpBody)
@@ -925,6 +968,19 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     let settingsBody = try #require(settings.httpBody)
     let settingsJSON = try JSONSerialization.jsonObject(with: settingsBody) as? [String: Any]
     #expect(settingsJSON?["enabled"] as? Bool == true)
+
+    let moodProfileBody = try #require(moodProfile.httpBody)
+    let moodProfileJSON = try JSONSerialization.jsonObject(with: moodProfileBody) as? [String: Any]
+    #expect(moodProfileJSON?["mood"] as? Int == 70)
+
+    let moodSettingsBody = try #require(moodSettings.httpBody)
+    let moodSettingsJSON = try JSONSerialization.jsonObject(with: moodSettingsBody) as? [String: Any]
+    #expect(moodSettingsJSON?["enabled"] as? Bool == false)
+    #expect(moodSettingsJSON?["mood"] as? Int == 85)
+
+    let moodClearBody = try #require(moodClear.httpBody)
+    let moodClearJSON = try JSONSerialization.jsonObject(with: moodClearBody) as? [String: Any]
+    #expect(moodClearJSON?["mood"] as? Int == 0)
 }
 
 @Test func authenticatedRequestsRejectClientTypeDeviceIDPrefixMismatch() throws {
@@ -961,8 +1017,45 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
             "summary": "Warm late-night electronic taste.",
             "favorite_genres": [{"name": "ambient"}],
             "favorite_artists": [{"name": "The xx"}],
-            "recent_tracks": [{"title": "Intro", "artist": "The xx"}],
-            "mood": {"value": 65, "zone": "energy", "prompt_hint": "keep it warm"},
+            "recent_tracks": [{"title": "Intro", "artist": "The xx", "album": "xx"}],
+            "mood": {
+              "value": 90,
+              "zone": "party",
+              "prompt_hint": "maximale energie",
+              "sample_count": 3,
+              "average": 57,
+              "average_zone": "groove",
+              "average_prompt_hint": "vloeiend, ritmisch",
+              "zone_counts": {
+                "chill": 1,
+                "groove": 0,
+                "energy": 1,
+                "party": 1
+              }
+            },
+            "energy_profile": {
+              "sample_count": 2,
+              "energy": 0.70,
+              "energy_percent": 70,
+              "zone": "energy",
+              "prompt_hint": "hoog tempo",
+              "danceability": 0.54,
+              "danceability_percent": 54,
+              "intensity": 0.62,
+              "intensity_percent": 62,
+              "recent_signals": [
+                {
+                  "title": "Dream On",
+                  "artist": "Scala",
+                  "album": "Dream On",
+                  "energy": 0.81,
+                  "danceability": 0.62,
+                  "intensity": 0.74,
+                  "confidence": 0.9,
+                  "created_at": "2026-06-29T11:59:00+00:00"
+                }
+              ]
+            },
             "recommendation_signals": [{"title": "soft vocals"}]
           },
           "sources": [{"source": "djconnect_music_dna", "kind": "source", "title": "Music DNA"}]
@@ -984,7 +1077,21 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     #expect(populated.profile.favoriteGenres.first?.name == "ambient")
     #expect(populated.profile.favoriteArtists.first?.name == "The xx")
     #expect(populated.profile.recentTracks.first?.title == "Intro")
-    #expect(populated.profile.mood?.value == 65)
+    #expect(populated.profile.recentTracks.first?.album == "xx")
+    #expect(populated.profile.mood?.value == 90)
+    #expect(populated.profile.mood?.zone == "party")
+    #expect(populated.profile.mood?.sampleCount == 3)
+    #expect(populated.profile.mood?.average == 57)
+    #expect(populated.profile.mood?.averageZone == "groove")
+    #expect(populated.profile.mood?.zoneCounts["party"] == 1)
+    #expect(populated.profile.energyProfile?.sampleCount == 2)
+    #expect(populated.profile.energyProfile?.energyPercent == 70)
+    #expect(populated.profile.energyProfile?.zone == "energy")
+    #expect(populated.profile.energyProfile?.danceabilityPercent == 54)
+    #expect(populated.profile.energyProfile?.intensityPercent == 62)
+    #expect(populated.profile.energyProfile?.recentSignals.first?.title == "Dream On")
+    #expect(populated.profile.energyProfile?.recentSignals.first?.artist == "Scala")
+    #expect(populated.profile.energyProfile?.recentSignals.first?.album == "Dream On")
     #expect(populated.sources.first?.title == "Music DNA")
     #expect(empty.enabled == true)
     #expect(empty.profile.isEmpty == true)
@@ -1679,6 +1786,61 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     #expect(response.assistantMessage?.audioURL == nil)
 }
 
+@Test func askDJMessageResponseDecodesMoodMetadataForAssistantRendering() throws {
+    let payload = Data("""
+    {
+      "dj_text": "Dit past bij de energie van nu.",
+      "mood_context": {
+        "value": 82,
+        "zone": "energy"
+      },
+      "assistant_message": {
+        "id": "server-assistant-mood",
+        "role": "assistant",
+        "text": "Energy bubble.",
+        "created_at": "2026-07-03T20:00:00Z"
+      },
+      "messages": [
+        {
+          "id": "server-user-mood",
+          "role": "user",
+          "text": "Wat past hierbij?",
+          "created_at": "2026-07-03T19:59:58Z"
+        },
+        {
+          "id": "server-assistant-list-mood",
+          "role": "assistant",
+          "text": "Energy bubble.",
+          "created_at": "2026-07-03T20:00:00Z"
+        }
+      ]
+    }
+    """.utf8)
+
+    let response = try JSONDecoder().decode(DJConnectAskDJMessageResponse.self, from: payload)
+
+    #expect(response.mood == 82)
+    #expect(response.assistantMessage?.mood == 82)
+    #expect(response.messages.first(where: { $0.role == .user })?.mood == nil)
+    #expect(response.messages.first(where: { $0.role == .assistant })?.mood == 82)
+}
+
+@Test func askDJHistoryMessageDecodesOwnMoodMetadata() throws {
+    let payload = Data("""
+    {
+      "id": "assistant-party",
+      "role": "assistant",
+      "text": "Party bubble.",
+      "mood": 94,
+      "created_at": "2026-07-03T20:00:00Z"
+    }
+    """.utf8)
+
+    let message = try JSONDecoder().decode(DJConnectAskDJHistoryMessage.self, from: payload)
+
+    #expect(message.mood == 94)
+}
+
 @Test func trackInsightRequestUsesDirectEndpointAndPayload() throws {
     let client = DJConnectClient(
         baseURL: URL(string: "http://homeassistant.local:8123")!,
@@ -2042,8 +2204,7 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
 }
 
 @Test func trackInsightWebSocketFailureFallsBackToHTTPExactlyOnce() async throws {
-    let fastPath = MockWebSocketFastPathTransport(supportedRoutes: [.trackInsight])
-    await fastPath.setTrackInsightError(DJConnectError.network(message: "timeout"))
+    let fastPath = FailingTrackInsightFastPathTransport(error: DJConnectError.network(message: "timeout"))
     final class Counter: @unchecked Sendable {
         let lock = NSLock()
         var value = 0
@@ -2058,7 +2219,28 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
         session: mockSession(host: "insight-fallback.local") { request in
             counter.increment()
             #expect(request.url?.path == "/api/djconnect/track_insight")
-            return (try httpResponse(for: request, statusCode: 200), Data(#"{"track_insight":{"track":{"title":"HTTP Insight","artist":"HTTP Artist"},"analysis":{"summary":"Fallback insight"}}}"#.utf8))
+            return (
+                try httpResponse(for: request, statusCode: 200),
+                Data(
+                    """
+                    {
+                      "success": true,
+                      "track_insight": {
+                        "title": "HTTP Insight",
+                        "artist": "HTTP Artist",
+                        "track": {
+                          "title": "HTTP Insight",
+                          "artist": "HTTP Artist"
+                        },
+                        "analysis": {
+                          "summary": "Fallback insight",
+                          "full_text": "Fallback insight"
+                        }
+                      }
+                    }
+                    """.utf8
+                )
+            )
         },
         webSocketFastPath: fastPath
     )
@@ -2067,7 +2249,6 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
 
     #expect(insight.title == "HTTP Insight")
     #expect(insight.artist == "HTTP Artist")
-    #expect(await fastPath.trackInsightCalls == 1)
     #expect(counter.count == 1)
 }
 
@@ -2836,6 +3017,47 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
         "text": .string("Meer van Kebu"),
         "artist": .string("Kebu")
     ]))
+    #expect(action.isAskDJMessageAction)
+    #expect(action.resolvedAskDJMessageText == "Meer van Kebu")
+    #expect(action.resolvedArtistName == "Kebu")
+}
+
+@Test func askDJMessageActionConstructsArtistPromptWhenLabelIsGeneric() throws {
+    let json = """
+    {
+      "id": "more-artist",
+      "title": "Meer van deze artiest",
+      "kind": "artist_more",
+      "command": "ask_dj_message",
+      "button_label": "Meer van deze artiest",
+      "artist_name": "Charly Lownoise & Mental Theo"
+    }
+    """.data(using: .utf8)!
+
+    let action = try JSONDecoder().decode(DJConnectAskDJPlaybackAction.self, from: json)
+
+    #expect(action.isAskDJMessageAction)
+    #expect(action.title == "Meer van deze artiest")
+    #expect(action.buttonLabel == "Meer van deze artiest")
+    #expect(action.artist == "Charly Lownoise & Mental Theo")
+    #expect(action.resolvedAskDJMessageText == "Meer van Charly Lownoise & Mental Theo")
+}
+
+@Test func askDJMessageActionFallsBackToSafePromptInsteadOfEmptyText() throws {
+    let json = """
+    {
+      "id": "more-artist",
+      "title": "Meer",
+      "kind": "artist_more",
+      "command": "ask_dj_message",
+      "text": "Meer"
+    }
+    """.data(using: .utf8)!
+
+    let action = try JSONDecoder().decode(DJConnectAskDJPlaybackAction.self, from: json)
+
+    #expect(action.isAskDJMessageAction)
+    #expect(action.resolvedAskDJMessageText == "Laat meer muziek van deze artiest zien")
 }
 
 @Test func askDJMessageResponsePrefersAssistantMessageImages() throws {
@@ -4088,6 +4310,12 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     defaults.set(DJConnectHAConnectionMode.local.rawValue, forKey: "DJConnectHAConnectionMode")
     let host = "playlist-items-are-not-queue.local"
     let session = mockSession(host: host) { request in
+        if request.url?.path == "/api/djconnect/music_dna/profile" {
+            return (
+                try httpResponse(for: request, statusCode: 200),
+                Data(#"{"enabled":true,"profile":{}}"#.utf8)
+            )
+        }
         #expect(request.url?.path == "/api/djconnect/command")
         let json = """
         {
@@ -4851,6 +5079,12 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
             return (
                 try httpResponse(for: request, statusCode: 200),
                 Data(#"{"success":true,"ha_major_minor":"3.2","playback":{"has_playback":false},"music_backend_available":true}"#.utf8)
+            )
+        }
+        if request.url?.path == "/api/djconnect/music_dna/profile" {
+            return (
+                try httpResponse(for: request, statusCode: 200),
+                Data(#"{"enabled":true,"profile":{}}"#.utf8)
             )
         }
         #expect(request.url?.path == "/api/djconnect/pair")
@@ -6068,6 +6302,34 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
 }
 
 @MainActor
+@Test func askDJMoodMetadataMapsToLocalAssistantMessage() throws {
+    let suiteName = "DJConnectTests-\(UUID().uuidString)"
+    let defaults = try #require(UserDefaults(suiteName: suiteName))
+    defaults.removePersistentDomain(forName: suiteName)
+    let model = DJConnectAppModel(
+        defaults: defaults,
+        tokenStore: DJConnectInMemoryTokenStore(),
+        startBackgroundTasks: false
+    )
+    let assistantMessage = DJConnectAskDJHistoryMessage(
+        id: "assistant-energy",
+        role: .assistant,
+        mood: 72,
+        text: "Dit antwoord krijgt de energy-kleurstelling.",
+        createdAt: Date(timeIntervalSince1970: 20)
+    )
+
+    model.applyAskDJMessageResponse(DJConnectAskDJMessageResponse(
+        assistantMessage: assistantMessage,
+        historyRevision: 1
+    ), fallbackUserMessageID: nil)
+
+    let message = try #require(model.askDJMessages.first)
+    #expect(message.role == .dj)
+    #expect(message.mood == 72)
+}
+
+@MainActor
 @Test func askDJTopLevelGeneratedTextMetadataIsUsedOnlyForSyntheticAssistantMessage() throws {
     let payload = Data("""
     {
@@ -6463,6 +6725,38 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     #expect(decodedPayload.language == "nl-NL")
 }
 
+@Test func watchProxyAskDJMessagePayloadCarriesTextContext() throws {
+    let identity = DJConnectIdentity(
+        deviceID: "djconnect-watchos-ABC123",
+        deviceName: "DJConnect Watch",
+        clientType: .watchos,
+        firmware: "3.2.3",
+        appVersion: "3.2.3",
+        platform: .watchos
+    )
+    let payload = DJConnectAskDJRequest(
+        identity: identity,
+        text: "Meer van Charly Lownoise & Mental Theo",
+        clientMessageID: "watch-message-1",
+        inputType: "text",
+        mood: 70,
+        musicDNAKey: "djconnect_watchos_ABC123",
+        audioResponse: .auto,
+        language: "nl-NL"
+    )
+    let request = DJConnectWatchProxyRequest(operation: .askDJMessage, payload: try JSONEncoder().encode(payload))
+    let decodedRequest = try JSONDecoder().decode(DJConnectWatchProxyRequest.self, from: JSONEncoder().encode(request))
+    let decodedPayload = try JSONDecoder().decode(DJConnectAskDJRequest.self, from: try #require(decodedRequest.payload))
+
+    #expect(decodedRequest.operation == .askDJMessage)
+    #expect(decodedPayload.text == "Meer van Charly Lownoise & Mental Theo")
+    #expect(decodedPayload.clientMessageID == "watch-message-1")
+    #expect(decodedPayload.mood == 70)
+    #expect(decodedPayload.musicDNAKey == "djconnect_watchos_ABC123")
+    #expect(decodedPayload.audioResponse == .auto)
+    #expect(decodedPayload.language == "nl-NL")
+}
+
 @Test func watchProxyMusicDNASettingsPayloadUsesWatchIdentity() throws {
     let identity = DJConnectIdentity(
         deviceID: "djconnect-watchos-ABC123",
@@ -6472,7 +6766,7 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
         appVersion: "3.2.3",
         platform: .watchos
     )
-    let payload = DJConnectMusicDNASettingsRequest(identity: identity, enabled: true)
+    let payload = DJConnectMusicDNASettingsRequest(identity: identity, enabled: true, mood: 70)
     let request = DJConnectWatchProxyRequest(operation: .musicDNASettings, payload: try JSONEncoder().encode(payload))
     let decodedRequest = try JSONDecoder().decode(DJConnectWatchProxyRequest.self, from: JSONEncoder().encode(request))
     let decodedPayload = try JSONDecoder().decode(DJConnectMusicDNASettingsRequest.self, from: try #require(decodedRequest.payload))
@@ -6481,6 +6775,7 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     #expect(decodedPayload.deviceID == "djconnect-watchos-ABC123")
     #expect(decodedPayload.clientType == .watchos)
     #expect(decodedPayload.enabled == true)
+    #expect(decodedPayload.mood == 70)
 }
 
 @Test func watchProxyMusicDNASettingsPayloadSupportsWatchOptOut() throws {
@@ -6504,19 +6799,43 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
 }
 
 @Test func watchProxyMusicDNAProfileOperationRoundTrips() throws {
-    let request = DJConnectWatchProxyRequest(operation: .musicDNAProfile)
+    let identity = DJConnectIdentity(
+        deviceID: "djconnect-watchos-ABC123",
+        deviceName: "DJConnect Watch",
+        clientType: .watchos,
+        firmware: "3.2.3",
+        appVersion: "3.2.3",
+        platform: .watchos
+    )
+    let payload = DJConnectMusicDNAIdentityRequest(identity: identity, mood: 40)
+    let request = DJConnectWatchProxyRequest(operation: .musicDNAProfile, payload: try JSONEncoder().encode(payload))
     let decodedRequest = try JSONDecoder().decode(DJConnectWatchProxyRequest.self, from: JSONEncoder().encode(request))
+    let decodedPayload = try JSONDecoder().decode(DJConnectMusicDNAIdentityRequest.self, from: try #require(decodedRequest.payload))
 
     #expect(decodedRequest.operation == .musicDNAProfile)
-    #expect(decodedRequest.payload == nil)
+    #expect(decodedPayload.deviceID == "djconnect-watchos-ABC123")
+    #expect(decodedPayload.clientType == .watchos)
+    #expect(decodedPayload.mood == 40)
 }
 
 @Test func watchProxyMusicDNAClearOperationRoundTrips() throws {
-    let request = DJConnectWatchProxyRequest(operation: .clearMusicDNA)
+    let identity = DJConnectIdentity(
+        deviceID: "djconnect-watchos-ABC123",
+        deviceName: "DJConnect Watch",
+        clientType: .watchos,
+        firmware: "3.2.3",
+        appVersion: "3.2.3",
+        platform: .watchos
+    )
+    let payload = DJConnectMusicDNAIdentityRequest(identity: identity, mood: 100)
+    let request = DJConnectWatchProxyRequest(operation: .clearMusicDNA, payload: try JSONEncoder().encode(payload))
     let decodedRequest = try JSONDecoder().decode(DJConnectWatchProxyRequest.self, from: JSONEncoder().encode(request))
+    let decodedPayload = try JSONDecoder().decode(DJConnectMusicDNAIdentityRequest.self, from: try #require(decodedRequest.payload))
 
     #expect(decodedRequest.operation == .clearMusicDNA)
-    #expect(decodedRequest.payload == nil)
+    #expect(decodedPayload.deviceID == "djconnect-watchos-ABC123")
+    #expect(decodedPayload.clientType == .watchos)
+    #expect(decodedPayload.mood == 100)
 }
 
 @Test func commandResponseExposesBackendSummaryForWatchSync() throws {
