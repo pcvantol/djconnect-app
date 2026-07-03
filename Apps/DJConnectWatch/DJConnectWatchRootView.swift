@@ -695,9 +695,11 @@ struct DJConnectWatchRootView: View {
                     VStack(alignment: .leading, spacing: 10) {
                         DJConnectWatchTrackInsightVisualizer(
                             insight: insight,
-                            profile: TrackVibeProfile.make(for: insight),
+                            profile: TrackVibeProfile.make(for: insight)
+                                .applyingWatchTrackInsightMoodRenderOverride(stepIndex: model.askDJMoodStepIndex),
                             isPlaying: model.playback?.isPlaying == true
                         )
+                        .id(trackInsightVisualizerRenderID(for: insight))
                         .frame(height: 190)
                         .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
                         .overlay {
@@ -743,6 +745,18 @@ struct DJConnectWatchRootView: View {
                     .accessibilityLabel(watchLocalizedKey(model.language, "ui.refresh.track.insight"))
                 }
             }
+        }
+
+        private func trackInsightVisualizerRenderID(for insight: TrackInsight) -> String {
+            [
+                insight.id,
+                insight.title,
+                insight.artist,
+                insight.visualProfile?.motionStyle?.rawValue ?? "",
+                insight.visualProfile?.palette.joined(separator: ",") ?? "",
+                String(model.askDJMoodStepIndex),
+                String(model.askDJMoodInt)
+            ].joined(separator: "|")
         }
     }
 
@@ -4129,5 +4143,66 @@ private struct DJConnectWatchGradientButtonStyle: ButtonStyle {
         case .processing:
             return Color(red: 1.0, green: 0.48, blue: 0.16)
         }
+    }
+}
+
+private extension TrackVibeProfile {
+    func applyingWatchTrackInsightMoodRenderOverride(stepIndex: Int) -> TrackVibeProfile {
+        var copy = self
+        let clampedStep = max(0, min(3, stepIndex))
+        switch clampedStep {
+        case 0:
+            copy.palette = ["#4DA3FF", "#7B61FF", "#D184FF"]
+            copy.glow = max(0.30, glow * 0.76)
+            copy.pulseSpeed = max(0.35, pulseSpeed * 0.70)
+            copy.waveform = max(0.20, waveform * 0.72)
+            copy.particleDensity = max(0.12, particleDensity * 0.68)
+            copy.particleVelocity = max(0.18, particleVelocity * 0.68)
+            copy.animationSpeed = max(0.45, animationSpeed * 0.68)
+            copy.motionStyle = .dreamy
+        case 1:
+            copy.palette = ["#2EC4B6", "#7B61FF", "#D184FF"]
+            copy.glow = max(0.36, glow * 0.94)
+            copy.pulseSpeed = max(0.52, pulseSpeed * 0.90)
+            copy.waveform = max(0.32, waveform * 0.94)
+            copy.particleDensity = max(0.20, particleDensity * 0.90)
+            copy.particleVelocity = max(0.24, particleVelocity * 0.86)
+            copy.animationSpeed = max(0.56, animationSpeed * 0.88)
+            copy.motionStyle = .balanced
+        case 2:
+            copy.palette = ["#8AC926", "#FFD166", "#FF6A3D"]
+            copy.glow = min(0.95, max(0.46, glow * 1.14))
+            copy.pulseSpeed = min(2.2, max(0.72, pulseSpeed * 1.16))
+            copy.waveform = min(1.0, max(0.44, waveform * 1.12))
+            copy.particleDensity = min(0.92, max(0.28, particleDensity * 1.12))
+            copy.particleVelocity = min(1.18, max(0.32, particleVelocity * 1.08))
+            copy.animationSpeed = min(1.9, max(0.72, animationSpeed * 1.12))
+            copy.motionStyle = .energetic
+        default:
+            copy.palette = ["#FF2E63", "#A855F7", "#FFD166"]
+            copy.glow = min(0.95, max(0.52, glow * 1.24))
+            copy.pulseSpeed = min(2.2, max(0.88, pulseSpeed * 1.30))
+            copy.waveform = min(1.0, max(0.52, waveform * 1.22))
+            copy.particleDensity = min(0.92, max(0.40, particleDensity * 1.24))
+            copy.particleVelocity = min(1.18, max(0.40, particleVelocity * 1.16))
+            copy.animationSpeed = min(1.9, max(0.84, animationSpeed * 1.22))
+            copy.motionStyle = .energetic
+        }
+        copy.spectrumProfile = copy.spectrumProfile.enumerated().map { index, value in
+            let position = Double(index) / Double(max(copy.spectrumProfile.count - 1, 1))
+            let lift: Double
+            switch clampedStep {
+            case 0:
+                lift = 0.78 - position * 0.08
+            case 1:
+                lift = 0.88 + (1.0 - abs(position - 0.5) * 2.0) * 0.18
+            case 2:
+                lift = 0.96 + position * 0.24
+            default:
+                lift = 1.02 + sin(position * .pi * 3.0) * 0.20
+            }
+            return min(1.0, max(0.12, value * lift))
+        }
+        return copy
     }
 }

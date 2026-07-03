@@ -3317,6 +3317,7 @@ private struct TrackInsightView: View {
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @State private var isShowingShare = false
     @State private var isAnimationActive = false
+    @State private var isMoodVisible = false
     #if canImport(AVKit) && os(iOS)
     @StateObject private var vibeCastAirPlaySession = VibeCastAirPlaySession()
     #endif
@@ -3356,14 +3357,28 @@ private struct TrackInsightView: View {
                 GeometryReader { proxy in
                     ScrollView {
                         VStack(alignment: .leading, spacing: 16) {
-                            AskDJMoodModeControl(
-                                model: model,
-                                caption: localizedKey(model.language, "ui.mood.colors.track.insight.from.calm.listening.cues.to.energetic")
-                            )
-                            .frame(maxWidth: .infinity, alignment: .topLeading)
+                            if isMoodVisible {
+                                AskDJMoodModeControl(
+                                    model: model,
+                                    caption: localizedKey(model.language, "ui.mood.colors.track.insight.from.calm.listening.cues.to.energetic"),
+                                    closeAction: {
+                                        withAnimation(.spring(response: 0.28, dampingFraction: 0.86)) {
+                                            isMoodVisible = false
+                                        }
+                                    }
+                                )
+                                .frame(maxWidth: .infinity, alignment: .topLeading)
+                                .transition(.move(edge: .top).combined(with: .opacity))
+                            }
 
                             if let insight {
-                                TrackInsightHero(model: model, insight: insight, isAnimationActive: isAnimationActive)
+                                TrackInsightHero(
+                                    model: model,
+                                    insight: insight,
+                                    moodStepIndex: model.askDJMoodStepIndex,
+                                    isAnimationActive: isAnimationActive
+                                )
+                                .id(trackInsightHeroRenderID(for: insight))
                                     .frame(maxWidth: .infinity, alignment: .topLeading)
                                 TrackInsightAnalysisCard(insight: insight, language: model.language)
                                     .frame(maxWidth: .infinity, alignment: .topLeading)
@@ -3397,8 +3412,9 @@ private struct TrackInsightView: View {
             .navigationBarTitleDisplayMode(.large)
             #endif
             .toolbar {
-                ToolbarItemGroup(placement: .primaryAction) {
-                    #if canImport(AVKit) && os(iOS)
+                #if os(iOS)
+                ToolbarItemGroup(placement: .topBarLeading) {
+                    #if canImport(AVKit)
                     VibeCastAirPlayToolbarButton(
                         language: model.language,
                         hasInsight: insight != nil,
@@ -3408,6 +3424,29 @@ private struct TrackInsightView: View {
                     #else
                     AirPlayToolbarButton(language: model.language)
                     #endif
+
+                    trackInsightMoodToolbarButton
+                }
+
+                ToolbarItemGroup(placement: .topBarTrailing) {
+                    if insight != nil {
+                        Button {
+                            isShowingShare = true
+                        } label: {
+                            Image(systemName: "square.and.arrow.up")
+                                .foregroundStyle(.primary)
+                        }
+                        .tint(.primary)
+                        .help(localizedKey(model.language, "ui.share.insight"))
+                    }
+
+                    TrackInsightRefreshButton(model: model)
+                }
+                #else
+                ToolbarItemGroup(placement: .primaryAction) {
+                    AirPlayToolbarButton(language: model.language)
+
+                    trackInsightMoodToolbarButton
 
                     if insight != nil {
                         Button {
@@ -3422,6 +3461,7 @@ private struct TrackInsightView: View {
 
                     TrackInsightRefreshButton(model: model)
                 }
+                #endif
             }
             .sheet(isPresented: $isShowingShare) {
                 if let insight {
@@ -3433,12 +3473,6 @@ private struct TrackInsightView: View {
             }
             .onChange(of: insightShareIdentity) {
                 dismissShareIfPlaybackMovedOn()
-            }
-            .onChange(of: model.askDJMoodInt) {
-                guard insight != nil, !model.isDemoMode else {
-                    return
-                }
-                model.analyzeCurrentTrack(open: false, forceRefresh: true)
             }
             .djUserNoticeToast(model: model)
         }
@@ -3460,6 +3494,32 @@ private struct TrackInsightView: View {
         .onDisappear {
             isAnimationActive = false
         }
+    }
+
+    @ViewBuilder
+    private var trackInsightMoodToolbarButton: some View {
+        Button {
+            withAnimation(.spring(response: 0.28, dampingFraction: 0.86)) {
+                isMoodVisible.toggle()
+            }
+        } label: {
+            Image(systemName: "slider.horizontal.3")
+                .foregroundStyle(isMoodVisible ? djConnectAccent : .primary)
+        }
+        .help(localizedKey(model.language, "ui.mood"))
+        .accessibilityLabel(localizedKey(model.language, "ui.mood"))
+    }
+
+    private func trackInsightHeroRenderID(for insight: TrackInsight) -> String {
+        [
+            insight.id,
+            insight.title,
+            insight.artist,
+            insight.visualProfile?.motionStyle?.rawValue ?? "",
+            insight.visualProfile?.palette.joined(separator: ",") ?? "",
+            String(model.askDJMoodStepIndex),
+            String(model.askDJMoodInt)
+        ].joined(separator: "|")
     }
 
     private func dismissShareIfPlaybackMovedOn() {
@@ -4080,12 +4140,14 @@ private struct MusicDNAHelixView: View {
 private struct TrackInsightHero: View {
     @ObservedObject var model: DJConnectAppModel
     let insight: TrackInsight
+    let moodStepIndex: Int
     let isAnimationActive: Bool
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.colorScheme) private var colorScheme
 
     private var profile: TrackVibeProfile {
         TrackVibeProfile.make(for: insight)
+            .applyingTrackInsightMoodRenderOverride(stepIndex: moodStepIndex)
     }
 
     private var isVisualizerPlaying: Bool {
@@ -4103,9 +4165,11 @@ private struct TrackInsightHero: View {
                 language: model.language
             )
             .frame(height: 430)
+            .frame(maxWidth: .infinity)
 
         }
         .padding(14)
+        .frame(maxWidth: .infinity)
         .background(profile.gradient, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
         .overlay {
             RoundedRectangle(cornerRadius: 8, style: .continuous)
@@ -4403,10 +4467,11 @@ private struct TrackInsightPremiumSpectrum: View {
 
     var body: some View {
         GeometryReader { geometry in
-            let count = 52
-            let spacing: CGFloat = 4
+            let isCompact = geometry.size.width < 420
+            let count = isCompact ? 40 : 52
+            let spacing: CGFloat = isCompact ? 2.5 : 4
             let spectrumWidth = geometry.size.width * 0.86
-            let barWidth = max(3, (spectrumWidth - CGFloat(count - 1) * spacing) / CGFloat(count))
+            let barWidth = max(1.8, (spectrumWidth - CGFloat(count - 1) * spacing) / CGFloat(count))
             HStack(alignment: .bottom, spacing: spacing) {
                 ForEach(0..<count, id: \.self) { index in
                     let normalized = spectrumValue(index: index, count: count)
@@ -5906,6 +5971,65 @@ extension TrackVibeProfile {
 
     var gradient: LinearGradient {
         LinearGradient(colors: colors, startPoint: .topLeading, endPoint: .bottomTrailing)
+    }
+
+    func applyingTrackInsightMoodRenderOverride(stepIndex: Int) -> TrackVibeProfile {
+        var copy = self
+        let clampedStep = max(0, min(3, stepIndex))
+        switch clampedStep {
+        case 0:
+            copy.palette = ["#4DA3FF", "#7B61FF", "#D184FF"]
+            copy.glow = max(0.30, glow * 0.78)
+            copy.pulseSpeed = max(0.35, pulseSpeed * 0.72)
+            copy.waveform = max(0.20, waveform * 0.74)
+            copy.particleDensity = max(0.12, particleDensity * 0.70)
+            copy.particleVelocity = max(0.18, particleVelocity * 0.70)
+            copy.animationSpeed = max(0.45, animationSpeed * 0.70)
+            copy.motionStyle = .dreamy
+        case 1:
+            copy.palette = ["#2EC4B6", "#7B61FF", "#D184FF"]
+            copy.glow = max(0.38, glow * 0.95)
+            copy.pulseSpeed = max(0.55, pulseSpeed * 0.92)
+            copy.waveform = max(0.34, waveform * 0.96)
+            copy.particleDensity = max(0.22, particleDensity * 0.92)
+            copy.particleVelocity = max(0.26, particleVelocity * 0.88)
+            copy.animationSpeed = max(0.58, animationSpeed * 0.90)
+            copy.motionStyle = .balanced
+        case 2:
+            copy.palette = ["#8AC926", "#FFD166", "#FF6A3D"]
+            copy.glow = min(0.95, max(0.48, glow * 1.14))
+            copy.pulseSpeed = min(2.2, max(0.75, pulseSpeed * 1.16))
+            copy.waveform = min(1.0, max(0.46, waveform * 1.12))
+            copy.particleDensity = min(0.92, max(0.30, particleDensity * 1.12))
+            copy.particleVelocity = min(1.18, max(0.34, particleVelocity * 1.08))
+            copy.animationSpeed = min(1.9, max(0.75, animationSpeed * 1.12))
+            copy.motionStyle = .energetic
+        default:
+            copy.palette = ["#FF2E63", "#A855F7", "#FFD166"]
+            copy.glow = min(0.95, max(0.56, glow * 1.26))
+            copy.pulseSpeed = min(2.2, max(0.95, pulseSpeed * 1.34))
+            copy.waveform = min(1.0, max(0.56, waveform * 1.24))
+            copy.particleDensity = min(0.92, max(0.44, particleDensity * 1.28))
+            copy.particleVelocity = min(1.18, max(0.42, particleVelocity * 1.18))
+            copy.animationSpeed = min(1.9, max(0.90, animationSpeed * 1.24))
+            copy.motionStyle = .energetic
+        }
+        copy.spectrumProfile = copy.spectrumProfile.enumerated().map { index, value in
+            let position = Double(index) / Double(max(copy.spectrumProfile.count - 1, 1))
+            let lift: Double
+            switch clampedStep {
+            case 0:
+                lift = 0.78 - position * 0.08
+            case 1:
+                lift = 0.88 + (1.0 - abs(position - 0.5) * 2.0) * 0.18
+            case 2:
+                lift = 0.96 + position * 0.24
+            default:
+                lift = 1.02 + sin(position * .pi * 3.0) * 0.20
+            }
+            return min(1.0, max(0.12, value * lift))
+        }
+        return copy
     }
 }
 
