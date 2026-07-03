@@ -36,6 +36,8 @@ struct DJConnectWatchAskDJMessage: Identifiable, Codable, Equatable {
         case audioURL
         case messageKind = "message_kind"
         case origin
+        case textSource = "text_source"
+        case isGeneratedText = "is_generated_text"
         case createdAt
     }
 
@@ -52,6 +54,8 @@ struct DJConnectWatchAskDJMessage: Identifiable, Codable, Equatable {
     var audioURL: URL?
     var messageKind: DJConnectAskDJMessageKind
     var origin: String?
+    var textSource: String?
+    var isGeneratedText: Bool?
     var createdAt: Date
 
     var renderablePlaybackActions: [DJConnectAskDJPlaybackAction] {
@@ -72,6 +76,8 @@ struct DJConnectWatchAskDJMessage: Identifiable, Codable, Equatable {
         audioURL: URL? = nil,
         messageKind: DJConnectAskDJMessageKind = .assistant,
         origin: String? = nil,
+        textSource: String? = nil,
+        isGeneratedText: Bool? = nil,
         createdAt: Date = Date()
     ) {
         self.id = id
@@ -87,6 +93,8 @@ struct DJConnectWatchAskDJMessage: Identifiable, Codable, Equatable {
         self.audioURL = audioURL
         self.messageKind = messageKind
         self.origin = origin
+        self.textSource = textSource
+        self.isGeneratedText = isGeneratedText
         self.createdAt = createdAt
     }
 
@@ -105,6 +113,8 @@ struct DJConnectWatchAskDJMessage: Identifiable, Codable, Equatable {
         audioURL = try container.decodeIfPresent(URL.self, forKey: .audioURL)
         messageKind = try container.decodeIfPresent(DJConnectAskDJMessageKind.self, forKey: .messageKind) ?? .assistant
         origin = try container.decodeIfPresent(String.self, forKey: .origin)
+        textSource = try container.decodeIfPresent(String.self, forKey: .textSource)
+        isGeneratedText = try container.decodeIfPresent(Bool.self, forKey: .isGeneratedText)
         createdAt = try container.decodeIfPresent(Date.self, forKey: .createdAt) ?? Date()
     }
 
@@ -123,6 +133,8 @@ struct DJConnectWatchAskDJMessage: Identifiable, Codable, Equatable {
         try container.encodeIfPresent(audioURL, forKey: .audioURL)
         try container.encode(messageKind, forKey: .messageKind)
         try container.encodeIfPresent(origin, forKey: .origin)
+        try container.encodeIfPresent(textSource, forKey: .textSource)
+        try container.encodeIfPresent(isGeneratedText, forKey: .isGeneratedText)
         try container.encode(createdAt, forKey: .createdAt)
     }
 
@@ -1300,6 +1312,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
                 clientType: identity.clientType.rawValue,
                 forceRefresh: true,
                 locale: language,
+                mood: askDJMoodInt,
                 includeVisualProfile: true,
                 includeRawResponse: true
             )
@@ -1858,6 +1871,9 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         let resolvedAlbumImageURL = resolvedArtworkURL(sanitizedPlayback?.albumImageURL)
         sanitizedPlayback?.albumImageURL = resolvedAlbumImageURL
         playback = sanitizedPlayback
+        if !hasActiveNowPlaying || !currentTrackInsightMatchesPlayback() {
+            currentTrackInsight = nil
+        }
         applyActiveOutput(from: sanitizedPlayback)
         let nextSignature = Self.playbackBeatSignature(for: sanitizedPlayback)
         playbackBeatSignature = nextSignature
@@ -1869,6 +1885,27 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         }
         playAskDJBeatConfirmHaptic()
             appendDiagnosticLog("Ask DJ beat confirm")
+    }
+
+    private func currentTrackInsightMatchesPlayback() -> Bool {
+        guard let insight = currentTrackInsight else {
+            return true
+        }
+        return trackInsightMatchesPlayback(insight)
+    }
+
+    private func trackInsightMatchesPlayback(_ insight: TrackInsight) -> Bool {
+        guard let playback else {
+            return false
+        }
+        return Self.normalizedTrackIdentity(insight.title) == Self.normalizedTrackIdentity(playback.trackName)
+            && Self.normalizedTrackIdentity(insight.artist) == Self.normalizedTrackIdentity(playback.artistName)
+    }
+
+    private static func normalizedTrackIdentity(_ value: String?) -> String {
+        value?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .folding(options: [.diacriticInsensitive, .caseInsensitive], locale: .current) ?? ""
     }
 
     private func applyActiveOutput(from playback: DJConnectPlayback?) {
@@ -2566,6 +2603,8 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
             audioURL: resolvedAudioURL(historyMessage.audioURL),
             messageKind: historyMessage.role == .user ? .assistant : historyMessage.messageKind,
             origin: historyMessage.role == .user ? nil : historyMessage.origin,
+            textSource: historyMessage.role == .user ? nil : historyMessage.textSource,
+            isGeneratedText: historyMessage.role == .user ? nil : historyMessage.isGeneratedText,
             createdAt: historyMessage.createdAt
         )
         if let existingIndex {
@@ -2577,7 +2616,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
 
     private func applyCurrentTrackInsight(from response: DJConnectAskDJMessageResponse) {
         if let insight = response.trackInsight ?? response.assistantMessage?.trackInsight {
-            currentTrackInsight = insight
+            applyCurrentTrackInsightIfMatchingPlayback(insight)
         }
     }
 
@@ -2587,8 +2626,15 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
             .sorted(by: { $0.createdAt < $1.createdAt })
             .compactMap(\.trackInsight)
             .last {
-            currentTrackInsight = insight
+            applyCurrentTrackInsightIfMatchingPlayback(insight)
         }
+    }
+
+    private func applyCurrentTrackInsightIfMatchingPlayback(_ insight: TrackInsight) {
+        guard trackInsightMatchesPlayback(insight) else {
+            return
+        }
+        currentTrackInsight = insight
     }
 
     private static func redactedDeviceID(_ deviceID: String) -> String {

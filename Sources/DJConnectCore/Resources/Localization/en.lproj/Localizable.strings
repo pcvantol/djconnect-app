@@ -140,11 +140,18 @@
 "ui.favorite.genres" = "Favorite Genres";
 "ui.favorite.artists" = "Favorite Artists";
 "ui.mood" = "Mood";
+"ui.profile.mood" = "Profile mood";
 "ui.energy.profile" = "Energy Profile";
 "ui.recent.tracks" = "Recent Tracks";
 "ui.signals" = "Signals";
 "ui.updated" = "Updated";
 "ui.not.enough.signals" = "Not enough signals";
+"ui.music.dna.needs.more.listening.for.genres" = "Not enough listening data to identify favorite genres yet.";
+"ui.music.dna.needs.more.listening.for.artists" = "Not enough listening data to identify favorite artists yet.";
+"ui.music.dna.needs.more.listening.for.profile.mood" = "Not enough listening data for a profile mood yet.";
+"ui.music.dna.needs.more.listening.for.energy" = "Not enough listening data for an energy profile yet.";
+"ui.music.dna.needs.more.listening.for.recent.tracks" = "No recent tracks in Music DNA yet.";
+"ui.music.dna.needs.more.listening.for.basis" = "Not enough listening data to base recommendations on yet.";
 "ui.high.energy.leaning" = "High-energy leaning";
 "ui.calm.and.spacious" = "Calm and spacious";
 "ui.balanced.energy" = "Balanced energy";
@@ -730,6 +737,7 @@
 "ui.ask.dj.can.change.the.music.when.you.ask.for" = "Ask DJ can change the music when you ask for it.";
 "ui.shown.messages.may.be.stale.until.djconnect.is.paired.with" = "Shown messages may be stale until DJConnect is paired with Home Assistant again.";
 "ui.mood.guides.ask.dj.s.recommendations.from.calmer.tracks.to" = "Mood guides Ask DJ's recommendations, from calmer tracks to higher-energy picks.";
+"ui.mood.colors.track.insight.from.calm.listening.cues.to.energetic" = "Mood colors Track Insight: from calm listening cues to energetic visualizations.";
 "ui.hold.to.record.a.voice.request.for.ask.dj" = "Hold to record a voice request for Ask DJ.";
 "ui.music.dna.is.enabled.home.assistant.can.use.future.listening" = "Music DNA is enabled. Home Assistant can use future listening signals to build a private server-side taste profile for better Ask DJ context.";
 "ui.music.dna.is.disabled.no.listening.profile.is.being.built" = "Music DNA is disabled. No listening profile is being built, and turning it off has already cleared the learned profile.";

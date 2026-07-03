@@ -589,6 +589,7 @@ private struct DJConnectWebSocketTrackInsightMessage: Encodable {
     var playerID: String?
     var musicBackend: String?
     var locale: String?
+    var mood: Int?
     var forceRefresh: Bool
     var includeVisualProfile: Bool
     var includeRawResponse: Bool
@@ -616,6 +617,7 @@ private struct DJConnectWebSocketTrackInsightMessage: Encodable {
         playerID = normalizedPayload.playerID
         musicBackend = normalizedPayload.musicBackend
         locale = normalizedPayload.locale
+        mood = normalizedPayload.mood
         forceRefresh = normalizedPayload.forceRefresh
         includeVisualProfile = normalizedPayload.includeVisualProfile
         includeRawResponse = normalizedPayload.includeRawResponse
@@ -644,6 +646,7 @@ private struct DJConnectWebSocketTrackInsightMessage: Encodable {
         case playerID = "player_id"
         case musicBackend = "music_backend"
         case locale
+        case mood
         case forceRefresh = "force_refresh"
         case includeVisualProfile = "include_visual_profile"
         case includeRawResponse = "include_raw_response"

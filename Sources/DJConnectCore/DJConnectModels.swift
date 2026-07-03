@@ -1924,6 +1924,7 @@ public struct DJConnectTrackInsightRequest: Codable, Equatable, Sendable {
     public var forceRefresh: Bool
     public var locale: String?
     public var language: String?
+    public var mood: Int?
     public var includeVisualProfile: Bool
     public var includeRawResponse: Bool
 
@@ -1944,6 +1945,7 @@ public struct DJConnectTrackInsightRequest: Codable, Equatable, Sendable {
         forceRefresh: Bool = false,
         locale: String? = nil,
         language: String? = nil,
+        mood: Int? = nil,
         includeVisualProfile: Bool = true,
         includeRawResponse: Bool = true
     ) {
@@ -1963,6 +1965,7 @@ public struct DJConnectTrackInsightRequest: Codable, Equatable, Sendable {
         self.forceRefresh = forceRefresh
         self.locale = locale
         self.language = language
+        self.mood = mood.map { max(0, min(100, $0)) }
         self.includeVisualProfile = includeVisualProfile
         self.includeRawResponse = includeRawResponse
     }
@@ -1980,6 +1983,7 @@ public struct DJConnectTrackInsightRequest: Codable, Equatable, Sendable {
         copy.progressMS = copy.progressMS.map { max(0, $0) }
         copy.locale = copy.locale?.nilIfBlank ?? copy.language?.nilIfBlank
         copy.language = copy.language?.nilIfBlank ?? copy.locale?.nilIfBlank
+        copy.mood = copy.mood.map { max(0, min(100, $0)) }
         return copy
     }
 
@@ -1996,6 +2000,7 @@ public struct DJConnectTrackInsightRequest: Codable, Equatable, Sendable {
         copy.progressMS = copy.progressMS.map { max(0, $0) }
         copy.locale = copy.locale?.nilIfBlank ?? copy.language?.nilIfBlank
         copy.language = copy.language?.nilIfBlank ?? copy.locale?.nilIfBlank
+        copy.mood = copy.mood.map { max(0, min(100, $0)) }
         return copy
     }
 
@@ -2019,6 +2024,7 @@ public struct DJConnectTrackInsightRequest: Codable, Equatable, Sendable {
         case forceRefresh = "force_refresh"
         case locale
         case language
+        case mood
         case includeVisualProfile = "include_visual_profile"
         case includeRawResponse = "include_raw_response"
     }
@@ -2044,6 +2050,7 @@ public struct DJConnectTrackInsightRequest: Codable, Equatable, Sendable {
         forceRefresh = try container.decodeIfPresent(Bool.self, forKey: .forceRefresh) ?? false
         locale = try container.decodeIfPresent(String.self, forKey: .locale)
         language = try container.decodeIfPresent(String.self, forKey: .language)
+        mood = try container.decodeIfPresent(Int.self, forKey: .mood).map { max(0, min(100, $0)) }
         includeVisualProfile = try container.decodeIfPresent(Bool.self, forKey: .includeVisualProfile) ?? true
         includeRawResponse = try container.decodeIfPresent(Bool.self, forKey: .includeRawResponse) ?? true
     }
@@ -2069,6 +2076,7 @@ public struct DJConnectTrackInsightRequest: Codable, Equatable, Sendable {
         try container.encode(forceRefresh, forKey: .forceRefresh)
         try container.encodeIfPresent(locale, forKey: .locale)
         try container.encodeIfPresent(language, forKey: .language)
+        try container.encodeIfPresent(mood, forKey: .mood)
         try container.encode(includeVisualProfile, forKey: .includeVisualProfile)
         try container.encode(includeRawResponse, forKey: .includeRawResponse)
     }
@@ -2285,6 +2293,8 @@ public struct DJConnectAskDJHistoryMessage: Codable, Equatable, Identifiable, Se
     public var role: DJConnectAskDJHistoryRole
     public var messageKind: DJConnectAskDJMessageKind
     public var origin: String?
+    public var textSource: String?
+    public var isGeneratedText: Bool?
     public var text: String
     public var createdAt: Date
     public var clientID: String?
@@ -2308,6 +2318,8 @@ public struct DJConnectAskDJHistoryMessage: Codable, Equatable, Identifiable, Se
         case role
         case messageKind = "message_kind"
         case origin
+        case textSource = "text_source"
+        case isGeneratedText = "is_generated_text"
         case text
         case djText = "dj_text"
         case message
@@ -2337,6 +2349,8 @@ public struct DJConnectAskDJHistoryMessage: Codable, Equatable, Identifiable, Se
         role: DJConnectAskDJHistoryRole,
         messageKind: DJConnectAskDJMessageKind = .assistant,
         origin: String? = nil,
+        textSource: String? = nil,
+        isGeneratedText: Bool? = nil,
         text: String,
         createdAt: Date,
         clientID: String? = nil,
@@ -2359,6 +2373,8 @@ public struct DJConnectAskDJHistoryMessage: Codable, Equatable, Identifiable, Se
         self.role = role
         self.messageKind = messageKind
         self.origin = origin
+        self.textSource = textSource
+        self.isGeneratedText = isGeneratedText
         self.text = text
         self.createdAt = createdAt
         self.clientID = clientID
@@ -2384,6 +2400,8 @@ public struct DJConnectAskDJHistoryMessage: Codable, Equatable, Identifiable, Se
         role = try container.decodeIfPresent(DJConnectAskDJHistoryRole.self, forKey: .role) ?? .assistant
         messageKind = try container.decodeIfPresent(DJConnectAskDJMessageKind.self, forKey: .messageKind) ?? .assistant
         origin = try container.decodeIfPresent(String.self, forKey: .origin)
+        textSource = try container.decodeIfPresent(String.self, forKey: .textSource)
+        isGeneratedText = try container.decodeIfPresent(Bool.self, forKey: .isGeneratedText)
         text = try container.decodeIfPresent(String.self, forKey: .text)
             ?? container.decodeIfPresentIgnoringErrors(String.self, forKey: .djText)
             ?? container.decodeIfPresentIgnoringErrors(String.self, forKey: .message)
@@ -2422,6 +2440,8 @@ public struct DJConnectAskDJHistoryMessage: Codable, Equatable, Identifiable, Se
         try container.encode(role, forKey: .role)
         try container.encode(messageKind, forKey: .messageKind)
         try container.encodeIfPresent(origin, forKey: .origin)
+        try container.encodeIfPresent(textSource, forKey: .textSource)
+        try container.encodeIfPresent(isGeneratedText, forKey: .isGeneratedText)
         try container.encode(text, forKey: .text)
         try container.encode(createdAt, forKey: .createdAt)
         try container.encodeIfPresent(clientID, forKey: .clientID)
@@ -2840,6 +2860,8 @@ public struct DJConnectAskDJMessageResponse: Codable, Equatable, Sendable {
     public var text: String?
     public var djText: String?
     public var message: String?
+    public var textSource: String?
+    public var isGeneratedText: Bool?
     public var images: [DJConnectResponseImage]?
     public var links: [DJConnectResponseLink]?
     public var sources: [DJConnectResponseLink]?
@@ -2868,6 +2890,8 @@ public struct DJConnectAskDJMessageResponse: Codable, Equatable, Sendable {
         case text
         case djText = "dj_text"
         case message
+        case textSource = "text_source"
+        case isGeneratedText = "is_generated_text"
         case images
         case links
         case sources
@@ -2903,6 +2927,8 @@ public struct DJConnectAskDJMessageResponse: Codable, Equatable, Sendable {
         text: String? = nil,
         djText: String? = nil,
         message: String? = nil,
+        textSource: String? = nil,
+        isGeneratedText: Bool? = nil,
         images: [DJConnectResponseImage]? = nil,
         links: [DJConnectResponseLink]? = nil,
         sources: [DJConnectResponseLink]? = nil,
@@ -2930,6 +2956,8 @@ public struct DJConnectAskDJMessageResponse: Codable, Equatable, Sendable {
         self.text = text
         self.djText = djText
         self.message = message
+        self.textSource = textSource
+        self.isGeneratedText = isGeneratedText
         self.images = images
         self.links = links
         self.sources = sources
@@ -2960,6 +2988,8 @@ public struct DJConnectAskDJMessageResponse: Codable, Equatable, Sendable {
         text = try container.decodeIfPresent(String.self, forKey: .text)
         djText = try container.decodeIfPresent(String.self, forKey: .djText)
         message = try container.decodeIfPresent(String.self, forKey: .message)
+        textSource = try container.decodeIfPresent(String.self, forKey: .textSource)
+        isGeneratedText = try container.decodeIfPresent(Bool.self, forKey: .isGeneratedText)
         images = container.decodeLossyArrayIfPresent(DJConnectResponseImage.self, forKey: .images)
         links = container.decodeLossyArrayIfPresent(DJConnectResponseLink.self, forKey: .links)
         sources = container.decodeLossyArrayIfPresent(DJConnectResponseLink.self, forKey: .sources)
@@ -3031,6 +3061,8 @@ public struct DJConnectAskDJMessageResponse: Codable, Equatable, Sendable {
             assistantMessage = DJConnectAskDJHistoryMessage(
                 id: UUID().uuidString,
                 role: .assistant,
+                textSource: textSource,
+                isGeneratedText: isGeneratedText,
                 text: fallbackText,
                 createdAt: serverTime ?? Date(),
                 images: images ?? [],
@@ -3057,6 +3089,8 @@ public struct DJConnectAskDJMessageResponse: Codable, Equatable, Sendable {
         try container.encodeIfPresent(text, forKey: .text)
         try container.encodeIfPresent(djText, forKey: .djText)
         try container.encodeIfPresent(message, forKey: .message)
+        try container.encodeIfPresent(textSource, forKey: .textSource)
+        try container.encodeIfPresent(isGeneratedText, forKey: .isGeneratedText)
         try container.encodeIfPresent(images, forKey: .images)
         try container.encodeIfPresent(links, forKey: .links)
         try container.encodeIfPresent(sources, forKey: .sources)

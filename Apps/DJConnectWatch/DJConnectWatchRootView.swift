@@ -693,29 +693,17 @@ struct DJConnectWatchRootView: View {
                 DJConnectWatchCanvas()
                 ScrollView {
                     VStack(alignment: .leading, spacing: 10) {
-                        HStack(alignment: .top, spacing: 8) {
-                            VStack(alignment: .leading, spacing: 3) {
-                                Text(insight.title)
-                                    .font(.headline.weight(.semibold))
-                                    .foregroundStyle(.white)
-                                    .lineLimit(2)
-                                    .minimumScaleFactor(0.72)
-                                Text(insight.artist)
-                                    .font(.caption)
-                                    .foregroundStyle(.white.opacity(0.68))
-                                    .lineLimit(1)
-                            }
-                            Spacer(minLength: 0)
-                            Image(systemName: "waveform")
-                                .foregroundStyle(watchIconGradient)
-                        }
-
                         DJConnectWatchTrackInsightVisualizer(
+                            insight: insight,
                             profile: TrackVibeProfile.make(for: insight),
                             isPlaying: model.playback?.isPlaying == true
                         )
-                        .frame(height: 118)
+                        .frame(height: 190)
                         .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        .overlay {
+                            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                .stroke(.white.opacity(0.14), lineWidth: 1)
+                        }
 
                         DJConnectWatchTrackInsightAnalysisCard(insight: insight, language: model.language)
                         DJConnectWatchTrackInsightMetricsGrid(insight: insight, language: model.language)
@@ -947,6 +935,7 @@ struct DJConnectWatchRootView: View {
 
     private struct DJConnectWatchTrackInsightVisualizer: View {
         @Environment(\.accessibilityReduceMotion) private var reduceMotion
+        let insight: TrackInsight
         let profile: TrackVibeProfile
         let isPlaying: Bool
 
@@ -955,59 +944,298 @@ struct DJConnectWatchRootView: View {
         }
 
         var body: some View {
-            TimelineView(.periodic(from: .now, by: shouldAnimate ? 0.12 : 60)) { timeline in
+            TimelineView(.periodic(from: .now, by: shouldAnimate ? 0.08 : 60)) { timeline in
                 let phase = shouldAnimate ? timeline.date.timeIntervalSinceReferenceDate : 0
-                ZStack {
-                    LinearGradient(
-                        colors: [watchDeepNavy, watchAccentPurple.opacity(0.34), .black],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
+                GeometryReader { geometry in
+                    let width = geometry.size.width
+                    let height = geometry.size.height
+                    let artworkSize = min(width * 0.36, height * 0.36, 62)
 
                     ZStack {
-                        ForEach(0..<4, id: \.self) { ring in
-                            let pulse = ringPulse(ring, phase: phase)
-                            Circle()
-                                .stroke(ringColor(ring).opacity(0.50 - Double(ring) * 0.07 + pulse * 0.12), lineWidth: 1.4)
-                                .frame(width: 38 + CGFloat(ring) * 16 + CGFloat(pulse) * 7, height: 38 + CGFloat(ring) * 16 + CGFloat(pulse) * 7)
-                                .rotationEffect(.degrees(phase * (shouldAnimate ? 8 + Double(ring) * 3 : 0)))
-                        }
-                        Image(systemName: "waveform.path.ecg")
-                            .font(.system(size: 28, weight: .semibold))
-                            .foregroundStyle(watchIconGradient)
-                    }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        background(phase: phase)
+                        lightField(phase: phase)
 
-                    HStack(alignment: .bottom, spacing: 3) {
-                        ForEach(0..<24, id: \.self) { index in
-                            RoundedRectangle(cornerRadius: 1.1, style: .continuous)
-                                .fill(Color(hue: 0.60 + Double(index) / 90, saturation: 0.85, brightness: 1.0).opacity(0.78))
-                                .frame(width: 2.4, height: barHeight(index, phase: phase))
+                        artwork
+                            .frame(width: artworkSize, height: artworkSize)
+                            .position(x: width / 2, y: height * 0.30)
+
+                        VStack(spacing: 3) {
+                            Text(insight.title)
+                                .font(.system(size: 17, weight: .bold))
+                                .foregroundStyle(.white)
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.62)
+                            Text(insight.artist)
+                                .font(.system(size: 12, weight: .semibold))
+                                .foregroundStyle(.white.opacity(0.72))
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.70)
                         }
+                        .multilineTextAlignment(.center)
+                        .frame(width: width * 0.88)
+                        .position(x: width / 2, y: height * 0.61)
+
+                        spectrum(phase: phase)
+                            .frame(height: height * 0.28)
+                            .padding(.horizontal, 22)
+                            .position(x: width / 2, y: height * 0.87)
                     }
-                    .frame(maxHeight: .infinity, alignment: .bottom)
-                    .padding(.bottom, 7)
                 }
             }
         }
 
-        private func ringColor(_ index: Int) -> Color {
-            let colors = profile.palette.compactMap { Color(watchHex: $0) }
-            return colors[safe: index] ?? watchAccentPurple
-        }
-
-        private func ringPulse(_ index: Int, phase: TimeInterval) -> Double {
-            guard shouldAnimate else {
-                return 0
+        private func background(phase: TimeInterval) -> some View {
+            let colors = paletteColors
+            return ZStack {
+                LinearGradient(
+                    colors: [
+                        Color(red: 0.015, green: 0.020, blue: 0.050),
+                        (colors.first ?? watchAccentPurple).opacity(0.42),
+                        .black
+                    ],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+                RadialGradient(
+                    colors: [(colors.last ?? watchAccentGreen).opacity(0.44), .clear],
+                    center: UnitPoint(x: 0.22 + 0.26 * sin(phase * 0.22), y: 0.20 + 0.06 * cos(phase * 0.18)),
+                    startRadius: 6,
+                    endRadius: 150
+                )
+                RadialGradient(
+                    colors: [.white.opacity(0.14), .clear],
+                    center: .topTrailing,
+                    startRadius: 8,
+                    endRadius: 180
+                )
+                LinearGradient(
+                    colors: [.clear, .black.opacity(0.64)],
+                    startPoint: .center,
+                    endPoint: .bottom
+                )
             }
-            return (sin(phase * 1.5 + Double(index) * 0.8) + 1) / 2
         }
 
-        private func barHeight(_ index: Int, phase: TimeInterval) -> CGFloat {
+        private var artwork: some View {
+            ZStack {
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(.white.opacity(0.14))
+                    .blur(radius: 10)
+                    .scaleEffect(1.16)
+
+                ZStack {
+                    if let artworkURL = insight.artwork {
+                        AsyncImage(url: artworkURL) { phase in
+                            switch phase {
+                            case let .success(image):
+                                image
+                                    .resizable()
+                                    .scaledToFill()
+                            default:
+                                artworkFallback
+                            }
+                        }
+                    } else {
+                        artworkFallback
+                    }
+                }
+                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .overlay {
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .stroke(.white.opacity(0.30), lineWidth: 1)
+                }
+                .shadow(color: (paletteColors.last ?? watchAccentPurple).opacity(0.40), radius: 12, x: 0, y: 6)
+            }
+        }
+
+        private var artworkFallback: some View {
+            ZStack {
+                profileGradient
+                Image(systemName: "waveform.path.ecg")
+                    .font(.system(size: 25, weight: .semibold))
+                    .foregroundStyle(.white.opacity(0.88))
+            }
+        }
+
+        private func lightField(phase: TimeInterval) -> some View {
+            Canvas(opaque: false, rendersAsynchronously: true) { context, size in
+                let colors = paletteColors
+                let density = min(max(profile.particleDensity, 0.12), 0.95)
+                let circleCount = Int(8 + density * 12)
+                let sparkCount = Int(3 + profile.pulseSpeed * 4)
+
+                for index in 0..<circleCount {
+                    let seed = Double(index + 1)
+                    let drift = shouldAnimate ? phase * (0.012 + noise(seed, 3) * 0.028) : 0
+                    let x = wrap(CGFloat(noise(seed, 0) + drift)) * size.width
+                    let y = size.height * CGFloat(0.12 + noise(seed, 1) * 0.58 + sin(phase * 0.15 + seed) * 0.024)
+                    let radius = CGFloat(2.0 + density * 4.0 + noise(seed, 4) * 5.0)
+                    let color = colors[safe: index % max(colors.count, 1)] ?? watchAccentPurple
+                    context.fill(
+                        Path(ellipseIn: CGRect(x: x - radius, y: y - radius, width: radius * 2, height: radius * 2)),
+                        with: .color(color.opacity(0.10 + density * 0.08 + noise(seed, 5) * 0.08))
+                    )
+                }
+
+                for index in 0..<sparkCount {
+                    let seed = Double(index + 101)
+                    let drift = shouldAnimate ? phase * (0.030 + noise(seed, 2) * 0.038) : 0
+                    let x = wrap(CGFloat(noise(seed, 0) + drift)) * size.width
+                    let y = wrap(CGFloat(noise(seed, 1) + drift * 0.6)) * size.height
+                    let length = CGFloat(10 + profile.glow * 12 + noise(seed, 3) * 14)
+                    let tilt = CGFloat(-0.7 + noise(seed, 4) * 1.4)
+                    let dx = cos(tilt) * length * 0.5
+                    let dy = sin(tilt) * length * 0.5
+                    let start = CGPoint(x: x - dx, y: y - dy)
+                    let end = CGPoint(x: x + dx, y: y + dy)
+                    let color = colors[safe: (index + 2) % max(colors.count, 1)] ?? watchAccentBlue
+                    var spark = Path()
+                    spark.move(to: start)
+                    spark.addLine(to: end)
+                    context.stroke(
+                        spark,
+                        with: .linearGradient(
+                            Gradient(colors: [.clear, color.opacity(0.30), .clear]),
+                            startPoint: start,
+                            endPoint: end
+                        ),
+                        style: StrokeStyle(lineWidth: 1.1, lineCap: .round)
+                    )
+                }
+            }
+            .blur(radius: 0.25)
+        }
+
+        private func spectrum(phase: TimeInterval) -> some View {
+            GeometryReader { geometry in
+                let count = 30
+                let spacing: CGFloat = 3
+                let barWidth = max(2.2, (geometry.size.width - CGFloat(count - 1) * spacing) / CGFloat(count))
+                HStack(alignment: .bottom, spacing: spacing) {
+                    ForEach(Array(0..<count), id: \.self) { index in
+                        let normalized = spectrumValue(index: index, count: count, phase: phase)
+                        RoundedRectangle(cornerRadius: barWidth / 2, style: .continuous)
+                            .fill(barGradient(index: index, count: count))
+                            .frame(width: barWidth, height: max(6, geometry.size.height * normalized))
+                            .shadow(color: (paletteColors[safe: index % max(paletteColors.count, 1)] ?? watchAccentPurple).opacity(0.26), radius: 5)
+                    }
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+            }
+        }
+
+        private func spectrumValue(index: Int, count: Int, phase: TimeInterval) -> CGFloat {
             let spectrum = profile.spectrumProfile.isEmpty ? [0.5] : profile.spectrumProfile
             let base = spectrum[index % spectrum.count]
-            let motion = shouldAnimate ? 0.72 + ((sin(phase * 2.4 + Double(index) * 0.55) + 1) / 2) * 0.48 : 1
-            return CGFloat(base * motion) * 28 + 5
+            let position = Double(index) / Double(max(count - 1, 1))
+            let playhead = shouldAnimate ? max(0, 1 - abs(position - wrapDouble(phase * 0.045)) * 7) : 0.34
+            let pulse = (sin(Double(index) * 0.55 + phase * profile.pulseSpeed) + 1) * 0.5
+            return CGFloat(min(1.0, 0.16 + base * 0.44 + pulse * 0.22 + playhead * 0.22))
+        }
+
+        private func barGradient(index: Int, count: Int) -> LinearGradient {
+            let progress = Double(index) / Double(max(count - 1, 1))
+            let colors = paletteColors
+            return LinearGradient(
+                colors: [
+                    (colors.first ?? watchAccentBlue).opacity(0.74),
+                    (colors[safe: 1] ?? watchAccentPurple).opacity(0.82),
+                    (colors.last ?? watchAccentGreen).opacity(0.92)
+                ],
+                startPoint: UnitPoint(x: progress, y: 1),
+                endPoint: UnitPoint(x: 1 - progress, y: 0)
+            )
+        }
+
+        private var paletteColors: [Color] {
+            let colors = profile.palette.compactMap { Color(watchHex: $0) }
+            return colors.isEmpty ? [watchAccentBlue, watchAccentPurple, watchAccentGreen] : colors
+        }
+
+        private var profileGradient: LinearGradient {
+            let colors = paletteColors
+            return LinearGradient(
+                colors: [
+                    colors.first ?? watchAccentBlue,
+                    colors[safe: 1] ?? watchAccentPurple,
+                    colors.last ?? watchAccentGreen
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        }
+
+        private func wrap(_ value: CGFloat) -> CGFloat {
+            let remainder = value.truncatingRemainder(dividingBy: 1)
+            return remainder < 0 ? remainder + 1 : remainder
+        }
+
+        private func wrapDouble(_ value: Double) -> Double {
+            let remainder = value.truncatingRemainder(dividingBy: 1)
+            return remainder < 0 ? remainder + 1 : remainder
+        }
+
+        private func noise(_ seed: Double, _ offset: Double) -> Double {
+            let value = sin(seed * 12.9898 + offset * 78.233) * 43_758.5453
+            return value - floor(value)
+        }
+    }
+
+    private struct DJConnectWatchMusicDNAHelixView: View {
+        @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+        var body: some View {
+            TimelineView(.periodic(from: .now, by: reduceMotion ? 60 : 1.0 / 24.0)) { timeline in
+                Canvas(opaque: false, rendersAsynchronously: true) { context, size in
+                    let time = reduceMotion ? 0 : timeline.date.timeIntervalSinceReferenceDate
+                    let rect = CGRect(origin: .zero, size: size)
+                    context.fill(
+                        Path(rect),
+                        with: .linearGradient(
+                            Gradient(colors: [
+                                Color(red: 0.04, green: 0.06, blue: 0.12),
+                                Color(red: 0.18, green: 0.09, blue: 0.32),
+                                Color(red: 0.02, green: 0.25, blue: 0.30)
+                            ]),
+                            startPoint: .zero,
+                            endPoint: CGPoint(x: size.width, y: size.height)
+                        )
+                    )
+
+                    let strandCount = 22
+                    for index in 0..<strandCount {
+                        let progress = CGFloat(index) / CGFloat(max(strandCount - 1, 1))
+                        let y = size.height * (0.13 + progress * 0.74)
+                        let phase = Double(progress) * .pi * 4 + time * 0.9
+                        let amplitude = size.width * 0.27
+                        let centerX = size.width * 0.50
+                        let leftX = centerX + CGFloat(sin(phase)) * amplitude
+                        let rightX = centerX + CGFloat(sin(phase + .pi)) * amplitude
+                        let color = Color(hue: 0.58 + Double(progress) * 0.22, saturation: 0.80, brightness: 1.0)
+                        let frontOpacity = 0.62 + (sin(phase) + 1) * 0.16
+                        let rearOpacity = 0.50 + (sin(phase + .pi) + 1) * 0.12
+
+                        var connector = Path()
+                        connector.move(to: CGPoint(x: leftX, y: y))
+                        connector.addLine(to: CGPoint(x: rightX, y: y))
+                        context.stroke(
+                            connector,
+                            with: .color(.white.opacity(0.11)),
+                            style: StrokeStyle(lineWidth: 1, lineCap: .round)
+                        )
+
+                        context.fill(
+                            Path(ellipseIn: CGRect(x: leftX - 3.4, y: y - 3.4, width: 6.8, height: 6.8)),
+                            with: .color(color.opacity(frontOpacity))
+                        )
+                        context.fill(
+                            Path(ellipseIn: CGRect(x: rightX - 2.8, y: y - 2.8, width: 5.6, height: 5.6)),
+                            with: .color(.white.opacity(rearOpacity))
+                        )
+                    }
+                }
+            }
+            .accessibilityHidden(true)
         }
     }
 
@@ -1060,7 +1288,14 @@ struct DJConnectWatchRootView: View {
                 Label("Music DNA", systemImage: "heart")
                     .font(.headline.weight(.bold))
                     .foregroundStyle(.white)
-                Text(watchLocalizedKey(model.language, "watch.with.music.dna.djconnect.can.learn.from.your.taste.and"))
+                DJConnectWatchMusicDNAHelixView()
+                    .frame(height: 112)
+                    .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            .stroke(.white.opacity(0.10), lineWidth: 1)
+                    }
+                Text(headerText)
                 .font(.caption2)
                 .foregroundStyle(.white.opacity(0.68))
                 .fixedSize(horizontal: false, vertical: true)
@@ -1068,6 +1303,13 @@ struct DJConnectWatchRootView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(9)
             .background(DJConnectWatchPanel(cornerRadius: 12))
+        }
+
+        private var headerText: String {
+            if model.musicDNAProfileResponse?.enabled == false {
+                return watchLocalizedKey(model.language, "ui.djconnect.in.your.home.assistant.environment.does.not.build.a")
+            }
+            return watchLocalizedKey(model.language, "ui.with.music.dna.djconnect.can.learn.from.your.taste.and")
         }
 
         @ViewBuilder
@@ -1104,16 +1346,16 @@ struct DJConnectWatchRootView: View {
 
         private var disabledPanel: some View {
             watchPanel {
-                Label(watchLocalizedKey(model.language, "watch.not.enabled"), systemImage: "lock")
+                Label(watchLocalizedKey(model.language, "ui.music.dna.is.not.enabled"), systemImage: "lock")
                     .font(.caption.weight(.bold))
                     .foregroundStyle(.white)
-                Text(watchLocalizedKey(model.language, "watch.enable.music.dna.to.let.home.assistant.build.a.private"))
+                Text(watchLocalizedKey(model.language, "ui.enable.music.dna.to.get.recommendations.tailored.to.your.listening"))
                 .font(.caption2)
                 .foregroundStyle(.white.opacity(0.68))
                 Button {
                     model.showMusicDNAOptInPrompt()
                 } label: {
-                    Label(watchLocalizedKey(model.language, "watch.enable"), systemImage: "sparkles")
+                    Label(watchLocalizedKey(model.language, "ui.enable.music.dna.1adf61"), systemImage: "sparkles")
                         .font(.caption.weight(.semibold))
                         .frame(maxWidth: .infinity, minHeight: 30)
                 }
@@ -3089,6 +3331,13 @@ private struct DJConnectWatchAskDJBubble: View {
         !isUser && message.messageKind == .system
     }
 
+    private var shouldShowGeneratedTextIcon: Bool {
+        !isUser
+            && !isSystemMessage
+            && message.isGeneratedText == true
+            && message.textSource?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() != "fallback"
+    }
+
     var body: some View {
         HStack {
             if isUser {
@@ -3107,7 +3356,7 @@ private struct DJConnectWatchAskDJBubble: View {
         VStack(alignment: .leading, spacing: isSystemMessage ? 5 : 6) {
             if isSystemMessage {
                 HStack(spacing: 4) {
-                    Image(systemName: "sparkles")
+                    Image(systemName: "info.circle")
                     Text(message.origin == "spotify_playback_context"
                         ? watchLocalizedKey(model.language, "watch.dj.fact")
                         : watchLocalizedKey(model.language, "watch.dj.note"))
@@ -3117,7 +3366,16 @@ private struct DJConnectWatchAskDJBubble: View {
                 .lineLimit(1)
             }
             if !message.text.isEmpty {
-                AskDJWatchRichText(text: message.text, compact: isSystemMessage)
+                if shouldShowGeneratedTextIcon {
+                    HStack(alignment: .firstTextBaseline, spacing: 6) {
+                        Image(systemName: "sparkles")
+                            .font(.caption2.weight(.bold))
+                            .foregroundStyle(watchIconGradient)
+                        AskDJWatchRichText(text: message.text, compact: false)
+                    }
+                } else {
+                    AskDJWatchRichText(text: message.text, compact: isSystemMessage)
+                }
             }
             if !isUser, !message.items.isEmpty {
                 AskDJWatchItemList(items: message.items)
@@ -3256,15 +3514,7 @@ private struct DJConnectWatchMusicDNAOptInPromptView: View {
                 DJConnectWatchCanvas()
                 ScrollView {
                     VStack(alignment: .leading, spacing: 12) {
-                        Image(systemName: "waveform.path.ecg")
-                            .font(.title2.weight(.semibold))
-                            .foregroundStyle(
-                                LinearGradient(
-                                    colors: [watchAccentPurple, watchAccentPurple],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                )
-                            )
+                        DJConnectWatchMusicDNAPromptIcon()
 
                         Text(watchLocalizedKey(model.language, "watch.enable.music.dna"))
                             .font(.headline.weight(.bold))
@@ -3338,6 +3588,18 @@ private struct DJConnectWatchMusicDNAOptInPromptView: View {
     private static func trimmedNonEmpty(_ value: String?) -> String? {
         let trimmed = value?.trimmingCharacters(in: .whitespacesAndNewlines)
         return trimmed?.isEmpty == false ? trimmed : nil
+    }
+}
+
+private struct DJConnectWatchMusicDNAPromptIcon: View {
+    var body: some View {
+        Image(systemName: "heart")
+            .font(.system(size: 38, weight: .semibold))
+            .symbolRenderingMode(.hierarchical)
+            .foregroundStyle(watchIconGradient)
+            .frame(maxWidth: .infinity)
+            .padding(.bottom, 2)
+            .accessibilityHidden(true)
     }
 }
 

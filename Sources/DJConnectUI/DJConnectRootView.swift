@@ -3356,6 +3356,12 @@ private struct TrackInsightView: View {
                 GeometryReader { proxy in
                     ScrollView {
                         VStack(alignment: .leading, spacing: 16) {
+                            AskDJMoodModeControl(
+                                model: model,
+                                caption: localizedKey(model.language, "ui.mood.colors.track.insight.from.calm.listening.cues.to.energetic")
+                            )
+                            .frame(maxWidth: .infinity, alignment: .topLeading)
+
                             if let insight {
                                 TrackInsightHero(model: model, insight: insight, isAnimationActive: isAnimationActive)
                                     .frame(maxWidth: .infinity, alignment: .topLeading)
@@ -3427,6 +3433,12 @@ private struct TrackInsightView: View {
             }
             .onChange(of: insightShareIdentity) {
                 dismissShareIfPlaybackMovedOn()
+            }
+            .onChange(of: model.askDJMoodInt) {
+                guard insight != nil, !model.isDemoMode else {
+                    return
+                }
+                model.analyzeCurrentTrack(open: false, forceRefresh: true)
             }
             .djUserNoticeToast(model: model)
         }
@@ -3609,6 +3621,7 @@ private struct MusicDNAOptInPromptView: View {
             DJConnectCanvasBackground()
             VStack(alignment: .leading, spacing: 18) {
                 AboutBanner()
+                MusicDNAPromptIcon()
 
                 VStack(alignment: .leading, spacing: 10) {
                     Text(localizedKey(model.language, "ui.enable.music.dna"))
@@ -3667,6 +3680,17 @@ private struct MusicDNAOptInPromptView: View {
     }
 }
 
+private struct MusicDNAPromptIcon: View {
+    var body: some View {
+        Image(systemName: "heart")
+            .font(.system(size: 50, weight: .semibold))
+            .symbolRenderingMode(.hierarchical)
+            .foregroundStyle(djConnectIconGradient)
+            .frame(maxWidth: .infinity)
+            .accessibilityHidden(true)
+    }
+}
+
 private struct MusicDNAContentView: View {
     @ObservedObject var model: DJConnectAppModel
 
@@ -3701,9 +3725,9 @@ private struct MusicDNASectionGrid: View {
     var body: some View {
         LazyVGrid(columns: gridColumns, spacing: 12) {
             MusicDNAPanel(title: localizedKey(model.language, "ui.summary"), value: profile.summary ?? "-", icon: "waveform")
-            MusicDNAPanel(title: localizedKey(model.language, "ui.favorite.genres"), value: names(profile.favoriteGenres), icon: "music.quarternote.3")
-            MusicDNAPanel(title: localizedKey(model.language, "ui.favorite.artists"), value: names(profile.favoriteArtists), icon: "person.wave.2")
-            MusicDNAPanel(title: localizedKey(model.language, "ui.mood"), value: moodSummary, icon: "sparkles")
+            MusicDNAPanel(title: localizedKey(model.language, "ui.favorite.genres"), value: names(profile.favoriteGenres, fallbackKey: "ui.music.dna.needs.more.listening.for.genres"), icon: "music.quarternote.3")
+            MusicDNAPanel(title: localizedKey(model.language, "ui.favorite.artists"), value: names(profile.favoriteArtists, fallbackKey: "ui.music.dna.needs.more.listening.for.artists"), icon: "person.wave.2")
+            MusicDNAPanel(title: localizedKey(model.language, "ui.profile.mood"), value: moodSummary, icon: "sparkles")
             MusicDNAPanel(title: localizedKey(model.language, "ui.energy.profile"), value: energyProfile, icon: "bolt.fill")
             MusicDNAPanel(title: localizedKey(model.language, "ui.recent.tracks"), value: tracks(profile.recentTracks), icon: "clock.arrow.circlepath")
             MusicDNAPanel(title: localizedKey(model.language, "ui.signals"), value: signals(profile.recommendationSignals), icon: "safari")
@@ -3721,7 +3745,7 @@ private struct MusicDNASectionGrid: View {
 
     private var energyProfile: String {
         guard let value = profile.mood?.value else {
-            return localizedKey(model.language, "ui.not.enough.signals")
+            return localizedKey(model.language, "ui.music.dna.needs.more.listening.for.energy")
         }
         if value >= 72 {
             return localizedKey(model.language, "ui.high.energy.leaning")
@@ -3734,7 +3758,7 @@ private struct MusicDNASectionGrid: View {
 
     private var moodSummary: String {
         guard let mood = profile.mood else {
-            return localizedKey(model.language, "ui.not.enough.signals")
+            return localizedKey(model.language, "ui.music.dna.needs.more.listening.for.profile.mood")
         }
         let zone = mood.zone?.trimmingCharacters(in: .whitespacesAndNewlines)
         let value = mood.value.map { "\($0)%" }
@@ -3751,13 +3775,13 @@ private struct MusicDNASectionGrid: View {
         return updatedAt.formatted(date: .abbreviated, time: .shortened)
     }
 
-    private func names(_ values: [DJConnectMusicDNANameValue]) -> String {
+    private func names(_ values: [DJConnectMusicDNANameValue], fallbackKey: String) -> String {
         values.map(\.name)
             .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
             .filter { !$0.isEmpty }
             .prefix(3)
             .joined(separator: ", ")
-            .ifEmpty(localizedKey(model.language, "ui.not.enough.signals"))
+            .ifEmpty(localizedKey(model.language, fallbackKey))
     }
 
     private func tracks(_ values: [DJConnectMusicDNATrack]) -> String {
@@ -3769,7 +3793,7 @@ private struct MusicDNASectionGrid: View {
         }
         .prefix(3)
         .joined(separator: ", ")
-        .ifEmpty(localizedKey(model.language, "ui.not.enough.signals"))
+        .ifEmpty(localizedKey(model.language, "ui.music.dna.needs.more.listening.for.recent.tracks"))
     }
 
     private func signals(_ values: [DJConnectMusicDNASignal]) -> String {
@@ -3778,7 +3802,7 @@ private struct MusicDNASectionGrid: View {
             .filter { !$0.isEmpty }
             .prefix(3)
             .joined(separator: ", ")
-            .ifEmpty(localizedKey(model.language, "ui.not.enough.signals"))
+            .ifEmpty(localizedKey(model.language, "ui.music.dna.needs.more.listening.for.basis"))
     }
 }
 
@@ -7904,6 +7928,13 @@ private struct AskDJMessageBubble: View {
         !isUser && !isSystemMessage && !isStaleHistory
     }
 
+    private var shouldShowGeneratedTextIcon: Bool {
+        !isUser
+            && !isSystemMessage
+            && message.isGeneratedText == true
+            && message.textSource?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() != "fallback"
+    }
+
     private var isVoiceRequestMessage: Bool {
         guard isUser else {
             return false
@@ -7977,7 +8008,7 @@ private struct AskDJMessageBubble: View {
             VStack(alignment: isUser ? .trailing : .leading, spacing: 4) {
                 VStack(alignment: .leading, spacing: 10) {
                     if let systemMessageLabel {
-                        Label(systemMessageLabel, systemImage: "sparkles")
+                        Label(systemMessageLabel, systemImage: "info.circle")
                             .font(.caption2.weight(.semibold))
                             .foregroundStyle(.white.opacity(0.66))
                             .lineLimit(1)
@@ -7988,6 +8019,13 @@ private struct AskDJMessageBubble: View {
                                 Image(systemName: "mic.fill")
                                     .font(.caption.weight(.bold))
                                     .foregroundStyle(.white.opacity(0.88))
+                                AskDJMarkdownText(text: displayText, highlight: searchText)
+                            }
+                        } else if shouldShowGeneratedTextIcon {
+                            HStack(alignment: .firstTextBaseline, spacing: 7) {
+                                Image(systemName: "sparkles")
+                                    .font(.caption.weight(.bold))
+                                    .foregroundStyle(djConnectIconGradient)
                                 AskDJMarkdownText(text: displayText, highlight: searchText)
                             }
                         } else {
@@ -9331,6 +9369,7 @@ private struct AskDJImageCard: View {
 
 private struct AskDJMoodModeControl: View {
     @ObservedObject var model: DJConnectAppModel
+    var caption: String? = nil
     var closeAction: (() -> Void)?
 
     var body: some View {
@@ -9405,7 +9444,7 @@ private struct AskDJMoodModeControl: View {
 
             AskDJMoodLabelsView(steps: model.askDJMoodSteps, selectedIndex: model.askDJMoodStepIndex)
 
-            Text(localizedKey(model.language, "ui.mood.guides.ask.dj.s.recommendations.from.calmer.tracks.to"))
+            Text(caption ?? localizedKey(model.language, "ui.mood.guides.ask.dj.s.recommendations.from.calmer.tracks.to"))
             .font(.caption2)
             .foregroundStyle(.secondary)
             .fixedSize(horizontal: false, vertical: true)

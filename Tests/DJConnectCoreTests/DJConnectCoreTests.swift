@@ -1706,6 +1706,7 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
         clientType: "ios",
         forceRefresh: true,
         locale: "nl",
+        mood: 70,
         includeVisualProfile: true,
         includeRawResponse: true
     ))
@@ -1718,6 +1719,7 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     #expect(request.value(forHTTPHeaderField: "X-DJConnect-Language") == "nl")
     #expect(request.value(forHTTPHeaderField: "X-DJConnect-Locale") == "nl")
     #expect(request.value(forHTTPHeaderField: "Accept-Language") == "nl")
+    #expect(request.value(forHTTPHeaderField: "X-DJConnect-Mood") == "70")
     #expect((object?["device_id"] as? String) == "djconnect-ios-8F3A2C91B45D")
     #expect((object?["client_id"] as? String) == "djconnect-ios-8F3A2C91B45D")
     #expect((object?["device_name"] as? String) == "iPhone")
@@ -1747,6 +1749,7 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     #expect((object?["force_refresh"] as? Bool) == true)
     #expect((object?["locale"] as? String) == "nl")
     #expect((object?["language"] as? String) == "nl")
+    #expect((object?["mood"] as? Int) == 70)
     #expect((object?["include_visual_profile"] as? Bool) == true)
     #expect((object?["include_raw_response"] as? Bool) == true)
 }
@@ -1982,7 +1985,8 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
         album: "Bloom",
         artworkURL: URL(string: "https://example.com/innerbloom.jpg"),
         durationMS: 544_000,
-        progressMS: 123_000
+        progressMS: 123_000,
+        mood: 70
     ))
 
     #expect(insight.title == "Innerbloom")
@@ -1999,6 +2003,7 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     #expect(await fastPath.receivedTrackPayload?.artworkURL?.absoluteString == "https://example.com/innerbloom.jpg")
     #expect(await fastPath.receivedTrackPayload?.durationMS == 544_000)
     #expect(await fastPath.receivedTrackPayload?.progressMS == 123_000)
+    #expect(await fastPath.receivedTrackPayload?.mood == 70)
     #expect(await fastPath.receivedTokens == ["device-token"])
 }
 
@@ -6030,6 +6035,107 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
 
     model.seekRelative(milliseconds: -999_000)
     #expect(model.playback?.progressMS == 0)
+}
+
+@MainActor
+@Test func askDJGeneratedTextMetadataMapsToLocalAssistantMessage() throws {
+    let suiteName = "DJConnectTests-\(UUID().uuidString)"
+    let defaults = try #require(UserDefaults(suiteName: suiteName))
+    defaults.removePersistentDomain(forName: suiteName)
+    let model = DJConnectAppModel(
+        defaults: defaults,
+        tokenStore: DJConnectInMemoryTokenStore(),
+        startBackgroundTasks: false
+    )
+    let assistantMessage = DJConnectAskDJHistoryMessage(
+        id: "assistant-generated",
+        role: .assistant,
+        textSource: "generated",
+        isGeneratedText: true,
+        text: "Pearl Jam komt binnen alsof de festivalweide net wakker wordt.",
+        createdAt: Date(timeIntervalSince1970: 20)
+    )
+
+    model.applyAskDJMessageResponse(DJConnectAskDJMessageResponse(
+        assistantMessage: assistantMessage,
+        historyRevision: 1
+    ), fallbackUserMessageID: nil)
+
+    let message = try #require(model.askDJMessages.first)
+    #expect(message.role == .dj)
+    #expect(message.textSource == "generated")
+    #expect(message.isGeneratedText == true)
+}
+
+@MainActor
+@Test func askDJTopLevelGeneratedTextMetadataIsUsedOnlyForSyntheticAssistantMessage() throws {
+    let payload = Data("""
+    {
+      "dj_text": "Pearl Jam komt binnen alsof de festivalweide net wakker wordt.",
+      "text_source": "generated",
+      "is_generated_text": true
+    }
+    """.utf8)
+    let response = try JSONDecoder().decode(DJConnectAskDJMessageResponse.self, from: payload)
+    let assistantMessage = try #require(response.assistantMessage)
+
+    #expect(response.textSource == "generated")
+    #expect(response.isGeneratedText == true)
+    #expect(assistantMessage.textSource == "generated")
+    #expect(assistantMessage.isGeneratedText == true)
+}
+
+@MainActor
+@Test func askDJTopLevelGeneratedTextMetadataDoesNotOverrideAssistantMessageMetadata() throws {
+    let payload = Data("""
+    {
+      "dj_text": "Top-level generated text.",
+      "text_source": "generated",
+      "is_generated_text": true,
+      "assistant_message": {
+        "id": "assistant-without-metadata",
+        "role": "assistant",
+        "text": "Assistant text zonder metadata.",
+        "created_at": "2026-07-03T20:00:00Z"
+      }
+    }
+    """.utf8)
+    let response = try JSONDecoder().decode(DJConnectAskDJMessageResponse.self, from: payload)
+    let assistantMessage = try #require(response.assistantMessage)
+
+    #expect(response.isGeneratedText == true)
+    #expect(assistantMessage.textSource == nil)
+    #expect(assistantMessage.isGeneratedText == nil)
+}
+
+@MainActor
+@Test func askDJFallbackTextMetadataMapsWithoutGeneratedFlag() throws {
+    let suiteName = "DJConnectTests-\(UUID().uuidString)"
+    let defaults = try #require(UserDefaults(suiteName: suiteName))
+    defaults.removePersistentDomain(forName: suiteName)
+    let model = DJConnectAppModel(
+        defaults: defaults,
+        tokenStore: DJConnectInMemoryTokenStore(),
+        startBackgroundTasks: false
+    )
+    let assistantMessage = DJConnectAskDJHistoryMessage(
+        id: "assistant-fallback",
+        role: .assistant,
+        textSource: "fallback",
+        isGeneratedText: false,
+        text: "Ask DJ is even niet bereikbaar.",
+        createdAt: Date(timeIntervalSince1970: 20)
+    )
+
+    model.applyAskDJMessageResponse(DJConnectAskDJMessageResponse(
+        assistantMessage: assistantMessage,
+        historyRevision: 1
+    ), fallbackUserMessageID: nil)
+
+    let message = try #require(model.askDJMessages.first)
+    #expect(message.role == .dj)
+    #expect(message.textSource == "fallback")
+    #expect(message.isGeneratedText == false)
 }
 
 @MainActor

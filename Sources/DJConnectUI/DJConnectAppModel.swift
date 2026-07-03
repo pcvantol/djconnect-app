@@ -332,6 +332,8 @@ public struct DJConnectAskDJMessage: Identifiable, Codable, Equatable, Sendable 
     public var role: DJConnectAskDJMessageRole
     public var messageKind: DJConnectAskDJLocalMessageKind
     public var origin: String?
+    public var textSource: String?
+    public var isGeneratedText: Bool?
     public var text: String
     public var images: [DJConnectResponseImage]
     public var links: [DJConnectResponseLink]
@@ -352,6 +354,8 @@ public struct DJConnectAskDJMessage: Identifiable, Codable, Equatable, Sendable 
         role: DJConnectAskDJMessageRole,
         messageKind: DJConnectAskDJLocalMessageKind = .assistant,
         origin: String? = nil,
+        textSource: String? = nil,
+        isGeneratedText: Bool? = nil,
         text: String,
         images: [DJConnectResponseImage] = [],
         links: [DJConnectResponseLink] = [],
@@ -371,6 +375,8 @@ public struct DJConnectAskDJMessage: Identifiable, Codable, Equatable, Sendable 
         self.role = role
         self.messageKind = messageKind
         self.origin = origin
+        self.textSource = textSource
+        self.isGeneratedText = isGeneratedText
         self.text = text
         self.images = images
         self.links = links
@@ -396,6 +402,8 @@ public struct DJConnectAskDJMessage: Identifiable, Codable, Equatable, Sendable 
         case role
         case messageKind = "message_kind"
         case origin
+        case textSource = "text_source"
+        case isGeneratedText = "is_generated_text"
         case text
         case images
         case links
@@ -418,6 +426,8 @@ public struct DJConnectAskDJMessage: Identifiable, Codable, Equatable, Sendable 
         role = try container.decode(DJConnectAskDJMessageRole.self, forKey: .role)
         messageKind = try container.decodeIfPresent(DJConnectAskDJLocalMessageKind.self, forKey: .messageKind) ?? .assistant
         origin = try container.decodeIfPresent(String.self, forKey: .origin)
+        textSource = try container.decodeIfPresent(String.self, forKey: .textSource)
+        isGeneratedText = try container.decodeIfPresent(Bool.self, forKey: .isGeneratedText)
         text = try container.decodeIfPresent(String.self, forKey: .text) ?? ""
         images = try container.decodeIfPresent([DJConnectResponseImage].self, forKey: .images) ?? []
         links = try container.decodeIfPresent([DJConnectResponseLink].self, forKey: .links) ?? []
@@ -440,6 +450,8 @@ public struct DJConnectAskDJMessage: Identifiable, Codable, Equatable, Sendable 
         try container.encode(role, forKey: .role)
         try container.encode(messageKind, forKey: .messageKind)
         try container.encodeIfPresent(origin, forKey: .origin)
+        try container.encodeIfPresent(textSource, forKey: .textSource)
+        try container.encodeIfPresent(isGeneratedText, forKey: .isGeneratedText)
         try container.encode(text, forKey: .text)
         try container.encode(images, forKey: .images)
         try container.encode(links, forKey: .links)
@@ -2661,6 +2673,7 @@ public final class DJConnectAppModel: ObservableObject {
                         clientType: identity.clientType.rawValue,
                         forceRefresh: forceRefresh,
                         locale: language,
+                        mood: askDJMoodInt,
                         includeVisualProfile: true,
                         includeRawResponse: true
                     )
@@ -4651,6 +4664,8 @@ public final class DJConnectAppModel: ObservableObject {
         exchangeOrder: Int? = nil,
         messageKind: DJConnectAskDJLocalMessageKind = .assistant,
         origin: String? = nil,
+        textSource: String? = nil,
+        isGeneratedText: Bool? = nil,
         images: [DJConnectResponseImage] = [],
         links: [DJConnectResponseLink] = [],
         playbackActions: [DJConnectAskDJPlaybackAction] = [],
@@ -4669,6 +4684,8 @@ public final class DJConnectAppModel: ObservableObject {
             role: role,
             messageKind: role == .user ? .assistant : messageKind,
             origin: role == .user ? nil : origin,
+            textSource: role == .user ? nil : textSource,
+            isGeneratedText: role == .user ? nil : isGeneratedText,
             text: trimmed,
             images: images,
             links: links,
@@ -5279,6 +5296,8 @@ public final class DJConnectAppModel: ObservableObject {
             role: role,
             messageKind: role == .user ? .assistant : messageKind,
             origin: role == .user ? nil : historyMessage.origin,
+            textSource: role == .user ? nil : historyMessage.textSource,
+            isGeneratedText: role == .user ? nil : historyMessage.isGeneratedText,
             text: serverText.isEmpty ? (existingText ?? "") : historyMessage.text,
             images: proxiedResponseImages(historyMessage.images),
             links: safeResponseLinks(historyMessage.links),

@@ -279,6 +279,9 @@ public final class DJConnectClient: Sendable {
             request.setValue(language, forHTTPHeaderField: "X-DJConnect-Locale")
             request.setValue(language, forHTTPHeaderField: "Accept-Language")
         }
+        if let mood = normalizedPayload.mood {
+            request.setValue("\(max(0, min(100, mood)))", forHTTPHeaderField: "X-DJConnect-Mood")
+        }
         return request
     }
 
