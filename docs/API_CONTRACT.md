@@ -1313,8 +1313,8 @@ POST /api/djconnect/music_dna/clear
 Music DNA is server-side in Home Assistant and explicitly opt-in. Apple clients
 do not persist a Music DNA profile locally; the Music DNA dashboard uses
 `/api/djconnect/music_dna/profile` as the source of truth whenever the screen
-opens. Track Insight `music_dna.match_percent` may still be rendered per track,
-but must not be treated as a complete profile.
+opens. Track Insight responses must not expose or render per-track Music DNA
+match fields such as `music_dna.match_percent`, labels, or match reasons.
 
 All Music DNA requests use the existing DJConnect bearer auth, `device_id`, and
 canonical `client_type` values such as `ios`, `macos`, `watchos`,

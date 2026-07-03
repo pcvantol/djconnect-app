@@ -22,6 +22,15 @@ import AppKit
 import Darwin
 #endif
 
+@MainActor
+private func resignPlatformFirstResponder() {
+    #if os(iOS)
+    UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+    #elseif os(macOS)
+    NSApp.keyWindow?.makeFirstResponder(nil)
+    #endif
+}
+
 private func localizedKey(_ language: String, _ key: String, arguments: CVarArg...) -> String {
     DJConnectLocalization.localized(key: key, language: language, arguments: arguments)
 }
@@ -3326,6 +3335,14 @@ private struct TrackInsightView: View {
         insight?.id
     }
 
+    private var playbackShareIdentity: String {
+        Self.shareIdentity(title: model.playback?.trackName, artist: model.playback?.artistName)
+    }
+
+    private var insightShareIdentity: String {
+        Self.shareIdentity(title: insight?.title, artist: insight?.artist)
+    }
+
     private func shouldUseWideLayout(for size: CGSize) -> Bool {
         #if os(macOS)
         size.width >= 1_000
@@ -3392,6 +3409,8 @@ private struct TrackInsightView: View {
                     AirPlayToolbarButton(language: model.language)
                     #endif
 
+                    TrackInsightRefreshButton(model: model)
+
                     if insight != nil {
                         Button {
                             isShowingShare = true
@@ -3408,6 +3427,12 @@ private struct TrackInsightView: View {
                 if let insight {
                     TrackInsightSharePreviewView(insight: insight, language: model.language)
                 }
+            }
+            .onChange(of: playbackShareIdentity) {
+                dismissShareIfPlaybackMovedOn()
+            }
+            .onChange(of: insightShareIdentity) {
+                dismissShareIfPlaybackMovedOn()
             }
             .djUserNoticeToast(model: model)
         }
@@ -3429,6 +3454,48 @@ private struct TrackInsightView: View {
         .onDisappear {
             isAnimationActive = false
         }
+    }
+
+    private func dismissShareIfPlaybackMovedOn() {
+        guard isShowingShare, !playbackShareIdentity.isEmpty, !insightShareIdentity.isEmpty else {
+            return
+        }
+        if playbackShareIdentity != insightShareIdentity {
+            isShowingShare = false
+        }
+    }
+
+    private static func shareIdentity(title: String?, artist: String?) -> String {
+        let parts = [title, artist].map { value in
+            value?
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+                .folding(options: [.caseInsensitive, .diacriticInsensitive], locale: .current) ?? ""
+        }
+        guard parts.contains(where: { !$0.isEmpty }) else {
+            return ""
+        }
+        return parts.joined(separator: "\u{1F}")
+    }
+}
+
+private struct TrackInsightRefreshButton: View {
+    @ObservedObject var model: DJConnectAppModel
+
+    var body: some View {
+        Button {
+            model.analyzeCurrentTrack(open: true, forceRefresh: true)
+        } label: {
+            if model.isLoadingTrackInsight {
+                ProgressView()
+                    .controlSize(.small)
+            } else {
+                Image(systemName: "arrow.clockwise")
+            }
+        }
+        .disabled(model.isLoadingTrackInsight || !model.canStartTrackInsightAnalysis)
+        .tint(.primary)
+        .help(localizedKey(model.language, "ui.refresh.track.insight"))
+        .accessibilityLabel(localizedKey(model.language, "ui.refresh.track.insight"))
     }
 }
 
@@ -4218,7 +4285,8 @@ private struct TrackInsightPremiumSpectrum: View {
         GeometryReader { geometry in
             let count = 52
             let spacing: CGFloat = 4
-            let barWidth = max(3, (geometry.size.width - CGFloat(count - 1) * spacing) / CGFloat(count))
+            let spectrumWidth = geometry.size.width * 0.86
+            let barWidth = max(3, (spectrumWidth - CGFloat(count - 1) * spacing) / CGFloat(count))
             HStack(alignment: .bottom, spacing: spacing) {
                 ForEach(0..<count, id: \.self) { index in
                     let normalized = spectrumValue(index: index, count: count)
@@ -4228,10 +4296,9 @@ private struct TrackInsightPremiumSpectrum: View {
                         .shadow(color: (profile.colors[safe: index % max(profile.colors.count, 1)] ?? djConnectAccent).opacity(0.28), radius: 8)
                 }
             }
+            .frame(width: spectrumWidth)
+            .frame(maxHeight: .infinity, alignment: .bottom)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
-            .mask(
-                LinearGradient(colors: [.clear, .black, .black, .clear], startPoint: .leading, endPoint: .trailing)
-            )
         }
         .allowsHitTesting(false)
     }
@@ -5510,21 +5577,77 @@ private struct TrackInsightMetricsGrid: View {
     let language: String
 
     var body: some View {
-        LazyVGrid(columns: [GridItem(.adaptive(minimum: 172), spacing: 10, alignment: .top)], spacing: 10) {
-            TrackInsightMetricPill(title: "BPM", value: insight.bpm.map { String(Int($0.rounded())) })
-            TrackInsightMetricPill(title: localizedKey(language, "ui.key"), value: insight.key)
-            TrackInsightMetricPill(title: localizedKey(language, "ui.genre"), value: insight.genre)
-            TrackInsightMetricPill(title: localizedKey(language, "ui.mood"), value: insight.mood)
-            TrackInsightMetricPill(title: localizedKey(language, "ui.energy"), value: percent(insight.energy))
-            TrackInsightMetricPill(title: localizedKey(language, "ui.dance"), value: percent(insight.danceability))
-            TrackInsightMetricPill(title: localizedKey(language, "ui.intensity"), value: percent(insight.intensity))
-            TrackInsightMetricPill(title: localizedKey(language, "ui.vibe"), value: insight.vibe)
-            TrackInsightMetricPill(title: localizedKey(language, "ui.texture"), value: insight.texture)
+        VStack(alignment: .leading, spacing: 10) {
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 132), spacing: 10, alignment: .top)], spacing: 10) {
+                TrackInsightMetricRing(title: localizedKey(language, "ui.energy"), value: insight.energy)
+                TrackInsightMetricRing(title: localizedKey(language, "ui.dance"), value: insight.danceability)
+                TrackInsightMetricRing(title: localizedKey(language, "ui.intensity"), value: insight.intensity)
+            }
+
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 172), spacing: 10, alignment: .top)], spacing: 10) {
+                TrackInsightMetricPill(title: "BPM", value: insight.bpm.map { String(Int($0.rounded())) })
+                TrackInsightMetricPill(title: localizedKey(language, "ui.key"), value: insight.key)
+                TrackInsightMetricPill(title: localizedKey(language, "ui.genre"), value: insight.genre)
+                TrackInsightMetricPill(title: localizedKey(language, "ui.mood"), value: insight.mood)
+                TrackInsightMetricPill(title: localizedKey(language, "ui.vibe"), value: insight.vibe)
+                TrackInsightMetricPill(title: localizedKey(language, "ui.texture"), value: insight.texture)
+            }
         }
     }
+}
 
-    private func percent(_ value: Double?) -> String? {
-        value.map { "\(Int(($0 * 100).rounded()))%" }
+private struct TrackInsightMetricRing: View {
+    let title: String
+    let value: Double?
+
+    private var normalizedValue: Double {
+        min(1, max(0, value ?? 0))
+    }
+
+    private var percentText: String {
+        guard let value else { return "-" }
+        return "\(Int((min(1, max(0, value)) * 100).rounded()))%"
+    }
+
+    var body: some View {
+        VStack(spacing: 8) {
+            ZStack {
+                Circle()
+                    .stroke(.white.opacity(0.16), lineWidth: 12)
+                Circle()
+                    .trim(from: 0, to: normalizedValue)
+                    .stroke(
+                        AngularGradient(
+                            colors: [
+                                Color(red: 0.30, green: 0.63, blue: 1.0),
+                                Color(red: 0.82, green: 0.28, blue: 1.0),
+                                Color(red: 0.23, green: 0.91, blue: 0.84),
+                                Color(red: 0.30, green: 0.63, blue: 1.0)
+                            ],
+                            center: .center
+                        ),
+                        style: StrokeStyle(lineWidth: 12, lineCap: .round)
+                    )
+                    .rotationEffect(.degrees(-90))
+                Text(percentText)
+                    .font(.title3.weight(.bold))
+                    .foregroundStyle(.white)
+                    .monospacedDigit()
+                    .minimumScaleFactor(0.72)
+                    .lineLimit(1)
+                    .padding(.horizontal, 10)
+            }
+            .frame(width: 108, height: 108)
+
+            Text(title)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.white.opacity(0.66))
+                .lineLimit(1)
+                .minimumScaleFactor(0.78)
+        }
+        .padding(.vertical, 12)
+        .frame(maxWidth: .infinity, minHeight: 150)
+        .background(.white.opacity(0.09), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
     }
 }
 
@@ -6524,6 +6647,10 @@ private struct QueueItemRow: View {
     let item: DJConnectQueueItem
     var isLoading = false
 
+    private var subtitle: String? {
+        Self.trimmedNonEmpty(item.artist) ?? Self.trimmedNonEmpty(item.album)
+    }
+
     var body: some View {
         HStack(spacing: 12) {
             QueueArtworkView(url: item.albumImageURL)
@@ -6532,10 +6659,10 @@ private struct QueueItemRow: View {
                 Text(item.title)
                     .font(.body.weight(.medium))
                     .lineLimit(2)
-                if let artist = item.artist, !artist.isEmpty {
-                    Text(artist)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                if let subtitle {
+                    Text(subtitle)
+                        .font(.caption2.weight(.medium))
+                        .foregroundStyle(.secondary.opacity(0.82))
                         .lineLimit(1)
                 }
             }
@@ -6565,6 +6692,11 @@ private struct QueueItemRow: View {
             RoundedRectangle(cornerRadius: 12, style: .continuous)
                 .stroke(djConnectAccent.opacity(0.12), lineWidth: 1)
         }
+    }
+
+    private static func trimmedNonEmpty(_ value: String?) -> String? {
+        let trimmed = value?.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed?.isEmpty == false ? trimmed : nil
     }
 }
 
@@ -7079,11 +7211,16 @@ private struct AskDJView: View {
                             .padding(.bottom, 16)
                             .contentShape(Rectangle())
                             .onTapGesture {
-                                isInputFocused = false
-                                isSearchFocused = false
+                                dismissAskDJKeyboard()
                             }
                         }
                         .coordinateSpace(name: "askDJScroll")
+                        .contentShape(Rectangle())
+                        .simultaneousGesture(
+                            TapGesture().onEnded {
+                                dismissAskDJKeyboard()
+                            }
+                        )
                         .background(
                             GeometryReader { geometry in
                                 Color.clear.preference(
@@ -7099,8 +7236,7 @@ private struct AskDJView: View {
                             isAskDJAtBottom = bottomMaxY <= askDJViewportHeight + 140
                         }
                         .refreshable {
-                            isInputFocused = false
-                            isSearchFocused = false
+                            dismissAskDJKeyboard()
                             if !model.isDemoMode {
                                 await model.refreshAskDJHistory()
                             }
@@ -7108,7 +7244,7 @@ private struct AskDJView: View {
                         .scrollDismissesKeyboard(.interactively)
                         .simultaneousGesture(
                             DragGesture(minimumDistance: 8).onChanged { _ in
-                                isInputFocused = false
+                                dismissAskDJKeyboard()
                             }
                         )
                         .overlay(alignment: .bottomTrailing) {
@@ -7164,6 +7300,12 @@ private struct AskDJView: View {
                             .transition(.move(edge: .top).combined(with: .opacity))
                         }
                     }
+                    .contentShape(Rectangle())
+                    .simultaneousGesture(
+                        TapGesture().onEnded {
+                            dismissAskDJKeyboard()
+                        }
+                    )
                     .onChange(of: model.askDJMessages) {
                         normalizeAskDJSearchSelection()
                         scrollAskDJToInitialBottomIfNeeded(proxy: proxy)
@@ -7239,11 +7381,11 @@ private struct AskDJView: View {
                             }
                         }
                     } label: {
-                        Image(systemName: "arrow.clockwise")
+                        Image(systemName: model.isCheckingAskDJHistoryState ? "hourglass" : "arrow.clockwise")
                             .foregroundStyle(model.isDemoMode ? .secondary : .primary)
                     }
                     .tint(.primary)
-                    .disabled(model.isDemoMode || model.isClearingAskDJHistory)
+                    .disabled(model.isDemoMode || model.isClearingAskDJHistory || model.isCheckingAskDJHistoryState)
                     .help(localizedKey(model.language, "ui.refresh.ask.dj"))
                     .accessibilityLabel(localizedKey(model.language, "ui.refresh.ask.dj"))
                 }
@@ -7290,11 +7432,11 @@ private struct AskDJView: View {
                             }
                         }
                     } label: {
-                        Image(systemName: "arrow.clockwise")
+                        Image(systemName: model.isCheckingAskDJHistoryState ? "hourglass" : "arrow.clockwise")
                             .foregroundStyle(model.isDemoMode ? .secondary : .primary)
                     }
                     .tint(.primary)
-                    .disabled(model.isDemoMode || model.isClearingAskDJHistory)
+                    .disabled(model.isDemoMode || model.isClearingAskDJHistory || model.isCheckingAskDJHistoryState)
                     .help(localizedKey(model.language, "ui.refresh.ask.dj"))
                     .accessibilityLabel(localizedKey(model.language, "ui.refresh.ask.dj"))
                 }
@@ -7365,8 +7507,14 @@ private struct AskDJView: View {
         isSearchFocused = false
     }
 
-    private func toggleAskDJSearch() {
+    private func dismissAskDJKeyboard() {
         isInputFocused = false
+        isSearchFocused = false
+        resignPlatformFirstResponder()
+    }
+
+    private func toggleAskDJSearch() {
+        dismissAskDJKeyboard()
         if isSearchVisible {
             dismissAskDJSearch()
         } else {
@@ -7435,6 +7583,11 @@ private struct AskDJView: View {
                 toast = nil
             }
         }
+    }
+
+    private static func trimmedNonEmpty(_ value: String?) -> String? {
+        let trimmed = value?.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed?.isEmpty == false ? trimmed : nil
     }
 }
 
@@ -9036,6 +9189,15 @@ private extension DJConnectResponseLink {
 
 private struct AskDJImageStrip: View {
     let images: [DJConnectResponseImage]
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+
+    private var isCompact: Bool {
+        #if os(iOS)
+        horizontalSizeClass == .compact
+        #else
+        false
+        #endif
+    }
 
     var body: some View {
         GeometryReader { geometry in
@@ -9043,9 +9205,10 @@ private struct AskDJImageStrip: View {
             let visibleCount = min(max(images.count, 1), 3)
             let availableWidth = max(1, geometry.size.width)
             let cardWidth = min(
-                190,
+                maxCardWidth,
                 floor((availableWidth - spacing * CGFloat(visibleCount - 1)) / CGFloat(visibleCount))
             )
+            let stripHeight = imageStripHeight(for: cardWidth)
 
             ScrollView(.horizontal, showsIndicators: false) {
                 LazyHStack(alignment: .top, spacing: spacing) {
@@ -9056,15 +9219,25 @@ private struct AskDJImageStrip: View {
                 .padding(.vertical, 1)
             }
             .scrollClipDisabled()
+            .frame(height: stripHeight)
         }
         .frame(maxWidth: 520, alignment: .leading)
-        .frame(height: imageStripHeight)
+        .frame(height: reservedStripHeight)
     }
 
-    private var imageStripHeight: CGFloat {
-        images.contains { image in
+    private var reservedStripHeight: CGFloat {
+        imageStripHeight(for: maxCardWidth)
+    }
+
+    private var maxCardWidth: CGFloat {
+        isCompact ? 112 : 190
+    }
+
+    private func imageStripHeight(for cardWidth: CGFloat) -> CGFloat {
+        let textHeight: CGFloat = images.contains { image in
             image.title?.isEmpty == false || image.subtitle?.isEmpty == false
-        } ? 250 : 192
+        } ? 58 : 0
+        return cardWidth + textHeight + 4
     }
 }
 
@@ -9471,7 +9644,7 @@ private struct AskDJPromptTextView: UIViewRepresentable {
                 textView.becomeFirstResponder()
             }
             context.coordinator.moveCaretToEnd(in: textView)
-        } else if context.coordinator.lastRequestedFocus && textView.isFirstResponder {
+        } else if textView.isFirstResponder {
             textView.resignFirstResponder()
         }
     }
@@ -11812,6 +11985,11 @@ struct SettingsView: View {
                 #endif
                 .scrollContentBackgroundIfAvailable(.hidden)
                 .background(.clear)
+                .safeAreaInset(edge: .bottom) {
+                    Color.clear
+                        .frame(height: 28)
+                        .allowsHitTesting(false)
+                }
                 .djTransparentMacListBackground()
             }
             .ignoresSafeArea(edges: .bottom)
@@ -12489,6 +12667,14 @@ private struct AskDJFeedbackPromptView: View {
         isCompact ? .infinity : 1_080
     }
 
+    private var noteEditorHeight: CGFloat {
+        isCompact ? 78 : 96
+    }
+
+    private var issueBodyEditorHeight: CGFloat {
+        isCompact ? 150 : 220
+    }
+
     var body: some View {
         ZStack {
             DJConnectCanvasBackground()
@@ -12508,7 +12694,7 @@ private struct AskDJFeedbackPromptView: View {
                             .font(.headline)
                         TextEditor(text: $userNote)
                             .font(.body)
-                            .frame(minHeight: 96)
+                            .frame(height: noteEditorHeight)
                             .scrollContentBackground(.hidden)
                             .padding(10)
                             .background(Color.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
@@ -12538,7 +12724,7 @@ private struct AskDJFeedbackPromptView: View {
                         .foregroundStyle(.secondary)
                         TextEditor(text: $issueBody)
                             .font(.system(.caption, design: .monospaced))
-                            .frame(minHeight: 260)
+                            .frame(height: issueBodyEditorHeight)
                             .scrollContentBackground(.hidden)
                             .padding(10)
                             .background(Color.black.opacity(0.20), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
@@ -12625,6 +12811,7 @@ private struct FeedbackPromptView: View {
             DJConnectCanvasBackground()
             VStack(alignment: .leading, spacing: 22) {
                 AboutBanner()
+                FeedbackPromptIcon()
                 VStack(alignment: .leading, spacing: 10) {
                     Text(localizedKey(model.language, "ui.share.feedback"))
                         .font(.title.bold())
@@ -12659,6 +12846,17 @@ private struct FeedbackPromptView: View {
             .padding(28)
             .frame(minWidth: 360, idealWidth: 520, maxWidth: 620)
         }
+    }
+}
+
+private struct FeedbackPromptIcon: View {
+    var body: some View {
+        Image(systemName: "bubble.left.and.bubble.right")
+            .font(.system(size: 46, weight: .semibold))
+            .symbolRenderingMode(.hierarchical)
+            .foregroundStyle(djConnectIconGradient)
+            .frame(maxWidth: .infinity)
+            .accessibilityHidden(true)
     }
 }
 

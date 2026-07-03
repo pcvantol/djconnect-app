@@ -788,6 +788,7 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     let json = try JSONSerialization.jsonObject(with: body) as? [String: Any]
 
     #expect(request.url?.path == "/api/djconnect/ask_dj/message")
+    #expect(request.timeoutInterval == 30)
     #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer secret-token")
     #expect(request.value(forHTTPHeaderField: "X-DJConnect-Device-ID") == identity.deviceID)
     #expect(json?["device_id"] as? String == identity.deviceID)
@@ -1714,6 +1715,9 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     #expect(request.httpMethod == "POST")
     #expect(request.url?.path == "/api/djconnect/track_insight")
     #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer token")
+    #expect(request.value(forHTTPHeaderField: "X-DJConnect-Language") == "nl")
+    #expect(request.value(forHTTPHeaderField: "X-DJConnect-Locale") == "nl")
+    #expect(request.value(forHTTPHeaderField: "Accept-Language") == "nl")
     #expect((object?["device_id"] as? String) == "djconnect-ios-8F3A2C91B45D")
     #expect((object?["client_id"] as? String) == "djconnect-ios-8F3A2C91B45D")
     #expect((object?["device_name"] as? String) == "iPhone")
@@ -1742,6 +1746,7 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     #expect((object?["music_backend"] as? String) == "spotify")
     #expect((object?["force_refresh"] as? Bool) == true)
     #expect((object?["locale"] as? String) == "nl")
+    #expect((object?["language"] as? String) == "nl")
     #expect((object?["include_visual_profile"] as? Bool) == true)
     #expect((object?["include_raw_response"] as? Bool) == true)
 }
@@ -2391,11 +2396,127 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     #expect(insight.confidence == 0.91)
     #expect(insight.productionNotes == ["Wide pads"])
     #expect(insight.similarTracks.first?.title == "Underwater")
-    #expect(insight.musicDNAMatchPercent == 96)
-    #expect(insight.musicDNALabel == .matchesMusicDNA)
+    #expect(insight.musicDNAMatchPercent == nil)
+    #expect(insight.musicDNALabel == nil)
     #expect(insight.visualProfile?.motionStyle == .cinematic)
     #expect(insight.visualProfile?.spectrumBias == .mid)
     #expect(insight.sections.map(\.title) == ["Intro", "Lift"])
+}
+
+@Test func trackInsightEndpointResponseDecodesCamelCaseWrapper() throws {
+    let json = """
+    {
+      "success": true,
+      "trackInsight": {
+        "track": {
+          "title": "Camel Song",
+          "artist": "Camel Artist"
+        },
+        "analysis": {
+          "summary": "Camel-case wrapper insight."
+        }
+      }
+    }
+    """.data(using: .utf8)!
+
+    let response = try JSONDecoder().decode(TrackInsightEndpointResponse.self, from: json)
+    let insight = try #require(response.trackInsightValue)
+
+    #expect(insight.title == "Camel Song")
+    #expect(insight.artist == "Camel Artist")
+    #expect(insight.summary == "Camel-case wrapper insight.")
+}
+
+@Test func trackInsightEndpointResponseDecodesCanonicalStandalonePayload() throws {
+    let json = """
+    {
+      "id": "track_insight_direct",
+      "created_at": "2026-07-03T16:00:00Z",
+      "source": "http",
+      "track": {
+        "title": "Direct Song",
+        "artist": "Direct Artist",
+        "album": "Direct Album",
+        "artwork_url": "https://example.test/direct.jpg",
+        "duration_ms": 240000,
+        "progress_ms": 42000,
+        "is_playing": true,
+        "player_id": "media_player.direct",
+        "entity_id": "media_player.direct",
+        "backend": "music_assistant"
+      },
+      "analysis": {
+        "summary": "Canonical standalone insight.",
+        "full_text": "Canonical standalone full text.",
+        "mood": "Focused",
+        "vibe": "Late-night",
+        "texture": "Warm",
+        "emotional_tone": "Calm",
+        "energy": 0.44,
+        "danceability": 0.35,
+        "intensity": 0.41,
+        "confidence": 0.82,
+        "production_notes": [],
+        "instrumentation": [],
+        "arrangement_notes": [],
+        "listening_cues": [],
+        "similar_tracks": []
+      },
+      "music_dna": {
+        "match_percent": 99,
+        "label": "matches_music_dna",
+        "summary": "Must not be exposed."
+      }
+    }
+    """.data(using: .utf8)!
+
+    let response = try JSONDecoder().decode(TrackInsightEndpointResponse.self, from: json)
+    let insight = try #require(response.trackInsightValue)
+
+    #expect(insight.id == "track_insight_direct")
+    #expect(insight.title == "Direct Song")
+    #expect(insight.artist == "Direct Artist")
+    #expect(insight.backend == "music_assistant")
+    #expect(insight.summary == "Canonical standalone insight.")
+    #expect(insight.rawAnalysisText == "Canonical standalone full text.")
+    #expect(insight.musicDNAMatchPercent == nil)
+    #expect(insight.musicDNALabel == nil)
+    #expect(insight.musicDNASummary == nil)
+}
+
+@Test func trackInsightEndpointResponseBuildsInsightFromSuccessfulTextContract() throws {
+    let json = """
+    {
+      "success": true,
+      "text": "Deze track werkt door spanning en release.",
+      "dj_text": "Deze track werkt door spanning en release.",
+      "message": "Deze track werkt door spanning en release.",
+      "action": "track_insight",
+      "analysis": {
+        "mode": "knowledge_plus_metadata",
+        "confidence": "medium",
+        "limitations": [
+          "Exact BPM is unavailable."
+        ]
+      }
+    }
+    """.data(using: .utf8)!
+
+    let response = try JSONDecoder().decode(TrackInsightEndpointResponse.self, from: json)
+    let insight = try #require(response.trackInsightValue(
+        fallbackTitle: "Innerbloom",
+        fallbackArtist: "RUFUS DU SOL",
+        fallbackArtwork: URL(string: "https://example.com/art.jpg"),
+        fallbackDurationMS: 596000,
+        fallbackProgressMS: 120000
+    ))
+
+    #expect(insight.title == "Innerbloom")
+    #expect(insight.artist == "RUFUS DU SOL")
+    #expect(insight.artwork?.absoluteString == "https://example.com/art.jpg")
+    #expect(insight.duration == 596)
+    #expect(insight.progress == 120)
+    #expect(insight.summary == "Deze track werkt door spanning en release.")
 }
 
 @Test func askDJMessageResponseDecodesTrackInsightMetadataAndOpenScreen() throws {
@@ -2433,7 +2554,7 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     #expect(response.responseType == "track_insight")
     #expect(response.intentInfo?.intent == "track_insight")
     #expect(insight.title == "Adagio for Strings")
-    #expect(insight.musicDNAMatchPercent == 74)
+    #expect(insight.musicDNAMatchPercent == nil)
     #expect(assistantMessage.trackInsight?.artist == "Samuel Barber")
 }
 
@@ -2848,6 +2969,84 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     let response = try JSONDecoder().decode(DJConnectCommandResponse.self, from: json)
 
     #expect(response.askDJClearRequired == true)
+}
+
+@Test func commandResponseDecodesPlayNowAssistantMessage() throws {
+    let json = """
+    {
+      "success": true,
+      "message": "Playing now",
+      "audio_url": "https://example.test/audio/top.mp3",
+      "assistant_message": {
+        "id": "play-now-assistant-1",
+        "role": "assistant",
+        "origin": "play_now",
+        "text": "Ik zet Winner nu voor je aan.",
+        "audio_url": "https://example.test/audio/assistant.mp3",
+        "images": [
+          { "url": "https://example.test/winner.jpg", "title": "Winner" }
+        ],
+        "links": [
+          { "title": "Open playlist", "url": "https://example.test/playlist" }
+        ],
+        "sources": [
+          { "title": "Ask DJ", "url": "https://example.test/source" }
+        ],
+        "playback_actions": []
+      },
+      "playback_actions": [
+        {
+          "id": "old-action",
+          "label": "Play old",
+          "command": "ask_dj_play_recommendation",
+          "uri": "spotify:track:old"
+        }
+      ]
+    }
+    """.data(using: .utf8)!
+
+    let response = try JSONDecoder().decode(DJConnectCommandResponse.self, from: json)
+    let assistant = try #require(response.assistantMessage)
+
+    #expect(assistant.text == "Ik zet Winner nu voor je aan.")
+    #expect(assistant.origin == "play_now")
+    #expect(assistant.audioURL?.absoluteString == "https://example.test/audio/assistant.mp3")
+    #expect(assistant.images.count == 1)
+    #expect(assistant.links.count == 2)
+    #expect(assistant.sources.count == 1)
+    #expect(assistant.playbackActions.isEmpty)
+    #expect(response.playbackActions?.count == 1)
+}
+
+@Test func commandResponseBuildsPlayNowAssistantMessageFromTopLevelFallbacks() throws {
+    let json = """
+    {
+      "success": true,
+      "dj_text": "Deze playlist start nu.",
+      "audio_url": "https://example.test/audio/fallback.mp3",
+      "images": [
+        { "url": "https://example.test/cover.jpg", "title": "Cover" }
+      ],
+      "links": [
+        { "title": "Open", "url": "https://example.test/open" }
+      ],
+      "sources": [
+        { "title": "Library", "url": "https://example.test/library" }
+      ],
+      "playback_actions": []
+    }
+    """.data(using: .utf8)!
+
+    let response = try JSONDecoder().decode(DJConnectCommandResponse.self, from: json)
+    let assistant = try #require(response.assistantMessage)
+
+    #expect(assistant.text == "Deze playlist start nu.")
+    #expect(assistant.origin == "play_now")
+    #expect(assistant.audioURL?.absoluteString == "https://example.test/audio/fallback.mp3")
+    #expect(assistant.images.count == 1)
+    #expect(assistant.links.count == 2)
+    #expect(assistant.sources.count == 1)
+    #expect(assistant.playbackActions.isEmpty)
 }
 
 @Test func playbackCommandRequestsUsePlaybackEndpointAndIdentity() throws {
@@ -3583,6 +3782,57 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
 }
 
 @MainActor
+@Test func playNowCommandResponseAppendsAssistantBubbleWithoutReusingOldActions() throws {
+    let suiteName = "DJConnectTests-\(UUID().uuidString)"
+    let defaults = try #require(UserDefaults(suiteName: suiteName))
+    defaults.removePersistentDomain(forName: suiteName)
+    let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startBackgroundTasks: false)
+    let oldAction = DJConnectAskDJPlaybackAction(
+        id: "old-action",
+        title: "Play old",
+        uri: "spotify:track:old",
+        command: "ask_dj_play_recommendation"
+    )
+    model.applyAskDJMessageResponse(DJConnectAskDJMessageResponse(
+        assistantMessage: DJConnectAskDJHistoryMessage(
+            id: "previous-assistant",
+            role: .assistant,
+            text: "Eerdere suggestie",
+            createdAt: Date(timeIntervalSince1970: 1),
+            playbackActions: [oldAction]
+        )
+    ), fallbackUserMessageID: nil)
+
+    let response = DJConnectCommandResponse(
+        success: true,
+        message: "Playing now",
+        assistantMessage: DJConnectAskDJHistoryMessage(
+            id: "play-now-assistant",
+            role: .assistant,
+            origin: "play_now",
+            text: "Ik zet Winner nu aan.",
+            createdAt: Date(timeIntervalSince1970: 2),
+            audioURL: URL(string: "https://example.test/audio/play-now.mp3"),
+            playbackActions: []
+        ),
+        playbackActions: []
+    )
+
+    #expect(model.applyAskDJPlayNowCommandResponse(response) == true)
+
+    #expect(model.askDJMessages.count == 2)
+    let previous = model.askDJMessages[0]
+    let playNow = model.askDJMessages[1]
+    #expect(previous.playbackActions.map(\.id) == ["old-action"])
+    #expect(playNow.role == .dj)
+    #expect(playNow.serverID == "play-now-assistant")
+    #expect(playNow.origin == "play_now")
+    #expect(playNow.text == "Ik zet Winner nu aan.")
+    #expect(playNow.audioURL?.absoluteString == "https://example.test/audio/play-now.mp3")
+    #expect(playNow.playbackActions.isEmpty)
+}
+
+@MainActor
 @Test func appStartsWithNoOutputSelected() async throws {
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
@@ -3673,8 +3923,8 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
                 "items": [
                   {
                     "title": "Song title",
-                    "artist": "Artist name",
-                    "album": "Album name",
+                    "artist_name": "Artist name",
+                    "album_name": "Album name",
                     "uri": "spotify:track:1",
                     "duration_ms": 213000,
                     "media_image_url": "https://example.test/media.jpg"
@@ -3694,6 +3944,7 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     #expect(response.success)
     #expect(response.queueContext == "spotify:playlist:context")
     #expect(response.queue?.count == 2)
+    #expect(response.queue?.first?.artist == "Artist name")
     #expect(response.queue?.first?.album == "Album name")
     #expect(response.queue?.first?.durationMS == 213000)
     #expect(response.queue?.first?.albumImageURL?.absoluteString == "https://example.test/media.jpg")
@@ -3770,6 +4021,49 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     #expect(model.queueItems.count == 1)
     #expect(model.queueItems.first?.title == "Summer Of 69")
     #expect(model.queue == ["Summer Of 69 - Bryan Adams"])
+}
+
+@MainActor
+@Test func playlistsCommandDoesNotOverwriteQueueWithPlaylistItems() async throws {
+    let suiteName = "DJConnectTests-\(UUID().uuidString)"
+    let defaults = try #require(UserDefaults(suiteName: suiteName))
+    defaults.removePersistentDomain(forName: suiteName)
+    defaults.set(DJConnectHAConnectionMode.local.rawValue, forKey: "DJConnectHAConnectionMode")
+    let host = "playlist-items-are-not-queue.local"
+    let session = mockSession(host: host) { request in
+        #expect(request.url?.path == "/api/djconnect/command")
+        let json = """
+        {
+          "success": true,
+          "items": [
+            {"id":"playlist-1","name":"Acid Trip","uri":"spotify:playlist:acid"},
+            {"id":"playlist-2","name":"Lucy","uri":"spotify:playlist:lucy"}
+          ]
+        }
+        """
+        return (try httpResponse(for: request, statusCode: 200), Data(json.utf8))
+    }
+    let model = DJConnectAppModel(
+        defaults: defaults,
+        tokenStore: DJConnectInMemoryTokenStore(token: "secret-token"),
+        urlSession: session,
+        startBackgroundTasks: false
+    )
+    model.homeAssistantURL = "http://\(host):8123"
+    model.pairingStatus = .paired
+    model.apply(commandResponse: DJConnectCommandResponse(
+        success: true,
+        queue: [DJConnectQueueItem(title: "Real queued track", artist: "Real Artist", uri: "spotify:track:real")]
+    ))
+    let existingQueueSnapshot = DJConnectQueueWidgetSnapshot.load(from: defaults)
+
+    let didLoad = await model.refreshPlaylists()
+
+    #expect(didLoad)
+    #expect(model.playlistItems.map(\.name) == ["Acid Trip", "Lucy"])
+    #expect(model.queueItems.map(\.title) == ["Real queued track"])
+    #expect(model.queue == ["Real queued track - Real Artist"])
+    #expect(DJConnectQueueWidgetSnapshot.load(from: defaults) == existingQueueSnapshot)
 }
 
 @MainActor
@@ -5260,7 +5554,7 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
         audioURL: nil,
         audioType: nil
     ))
-    #expect(model.djResponseText == "Ververs Spotify koppeling in Home Assistant")
+    #expect(model.djResponseText == "Ververs de muziekdienst-koppeling in Home Assistant")
 
     model.apply(commandResponse: DJConnectCommandResponse(
         success: true,
@@ -5516,6 +5810,52 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     #expect(model.askDJMessages[0].status == .sent)
     #expect(model.askDJMessages[1].role == .dj)
     #expect(model.askDJMessages[1].text.contains("Home Assistant"))
+}
+
+@MainActor
+@Test func manualAskDJRefreshCallsBackendEvenWhenForegroundFlagIsStale() async throws {
+    let suiteName = "DJConnectTests-\(UUID().uuidString)"
+    let defaults = try #require(UserDefaults(suiteName: suiteName))
+    defaults.removePersistentDomain(forName: suiteName)
+    defaults.set(DJConnectHAConnectionMode.local.rawValue, forKey: "DJConnectHAConnectionMode")
+    let host = "manual-ask-dj-refresh.local"
+    let recorder = RequestPathRecorder()
+    let session = mockSession(host: host) { request in
+        let path = request.url?.path ?? ""
+        recorder.append(path)
+        if path == "/api/djconnect/ask_dj/history" {
+            return (
+                try httpResponse(for: request, statusCode: 200),
+                Data(#"{"history_revision":12,"clear_revision":0,"messages":[]}"#.utf8)
+            )
+        }
+        if path == "/api/djconnect/ask_dj/idle_suggestion" {
+            return (
+                try httpResponse(for: request, statusCode: 200),
+                Data(#"{"history_revision":12,"clear_revision":0,"messages":[]}"#.utf8)
+            )
+        }
+        return (
+            try httpResponse(for: request, statusCode: 404),
+            Data(#"{"success":false,"error":"unexpected_path"}"#.utf8)
+        )
+    }
+    let model = DJConnectAppModel(
+        defaults: defaults,
+        tokenStore: DJConnectInMemoryTokenStore(token: "secret-token"),
+        urlSession: session,
+        startBackgroundTasks: false
+    )
+    model.homeAssistantURL = "http://\(host):8123"
+    model.pairingStatus = .paired
+    model.markInactiveSession()
+
+    #expect(model.isAppInForegroundForTests == false)
+
+    await model.refreshAskDJHistory()
+
+    #expect(recorder.paths.contains("/api/djconnect/ask_dj/history"))
+    #expect(model.isCheckingAskDJHistoryState == false)
 }
 
 @MainActor
@@ -6163,7 +6503,7 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     #expect(snapshot.energy == 1)
     #expect(snapshot.danceability == 0)
     #expect(snapshot.intensity == 0.58)
-    #expect(snapshot.musicDNAMatchPercent == 100)
+    #expect(snapshot.musicDNAMatchPercent == nil)
     #expect(snapshot.progress == 138)
     #expect(snapshot.duration == 200)
     #expect(snapshot.summary.count <= 180)

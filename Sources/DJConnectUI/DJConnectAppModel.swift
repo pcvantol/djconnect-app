@@ -753,7 +753,7 @@ public final class DJConnectAppModel: ObservableObject {
     private let minimumAutomaticRefreshInterval: TimeInterval = 8
     private let backendCollectionsRefreshInterval: TimeInterval = 30
     private let nowPlayingPollInterval: UInt64 = 10
-    private let progressTimerNetworkRefreshInterval = 60
+    private let progressTimerNetworkRefreshInterval = 5
     private let askDJHistorySyncInterval: UInt64 = 8_000_000_000
     private var hasRequestedAskDJIdleSuggestion = false
     private var hasRequestedAskDJNotificationPermission = false
@@ -2762,6 +2762,14 @@ public final class DJConnectAppModel: ObservableObject {
             do {
                 let response = try await playAskDJRecommendationWithFallback(action)
                 apply(commandResponse: response)
+                if applyAskDJPlayNowCommandResponse(response) {
+                    if response.success {
+                        showAskDJToast(localized(key: "appModel.playing.recommendation"))
+                        await refreshAfterDJResponse()
+                        log(.info, "Ask DJ Play Now assistant response rendered")
+                        return
+                    }
+                }
                 guard response.success else {
                     if renderAskDJCommandPlaybackActions(response) {
                         return
@@ -2792,6 +2800,24 @@ public final class DJConnectAppModel: ObservableObject {
                 log(.error, "Ask DJ action failed unexpectedly: \(error.localizedDescription)")
             }
         }
+    }
+
+    @discardableResult
+    func applyAskDJPlayNowCommandResponse(_ response: DJConnectCommandResponse) -> Bool {
+        guard let assistantMessage = response.assistantMessage else {
+            return false
+        }
+        let role: DJConnectAskDJMessageRole = assistantMessage.role == .user ? .user : .dj
+        guard role == .dj else {
+            return false
+        }
+        var nextMessages = askDJMessages
+        upsertAskDJHistoryMessage(assistantMessage, into: &nextMessages, fallbackID: nil)
+        coalesceAskDJMessages(&nextMessages)
+        askDJMessages = sortedAskDJMessages(nextMessages)
+        saveAskDJMessages()
+        requestAskDJScrollToBottom()
+        return true
     }
 
     @discardableResult
@@ -2854,22 +2880,42 @@ public final class DJConnectAppModel: ObservableObject {
                 log(.info, "Ask DJ text request completed")
             } catch let error as DJConnectError {
                 let describedError = Self.describe(error)
-                askDJErrorMessage = askDJErrorText(for: error)
-                showAskDJToast(for: error)
-                if let userMessageID {
-                    updateAskDJMessageStatus(id: userMessageID, status: .failed)
-                }
-                log(.warning, "Ask DJ text request failed: \(describedError)")
-                if case .backendUnavailable = error {
+                if isDeferredAskDJTimeout(error) {
+                    askDJErrorMessage = nil
+                    showAskDJToast(localized(key: "appModel.ask.dj.is.processing"))
+                    if let userMessageID {
+                        updateAskDJMessageStatus(id: userMessageID, status: .sent)
+                    }
+                    await syncAskDJHistoryAfterDeferredAskDJResponse()
                     await refreshAfterDJResponse()
                 } else {
-                    apply(error: error)
+                    askDJErrorMessage = askDJErrorText(for: error)
+                    showAskDJToast(for: error)
+                    if let userMessageID {
+                        updateAskDJMessageStatus(id: userMessageID, status: .failed)
+                    }
+                    if case .backendUnavailable = error {
+                        await refreshAfterDJResponse()
+                    } else {
+                        apply(error: error)
+                    }
                 }
+                log(.warning, "Ask DJ text request failed: \(describedError)")
             } catch {
-                askDJErrorMessage = askDJUnavailableText()
-                showAskDJToast(localized(key: "appModel.ask.dj.is.unreachable"))
-                if let userMessageID {
-                    updateAskDJMessageStatus(id: userMessageID, status: .failed)
+                if isDeferredAskDJTimeout(error) {
+                    askDJErrorMessage = nil
+                    showAskDJToast(localized(key: "appModel.ask.dj.is.processing"))
+                    if let userMessageID {
+                        updateAskDJMessageStatus(id: userMessageID, status: .sent)
+                    }
+                    await syncAskDJHistoryAfterDeferredAskDJResponse()
+                    await refreshAfterDJResponse()
+                } else {
+                    askDJErrorMessage = askDJUnavailableText()
+                    showAskDJToast(localized(key: "appModel.ask.dj.is.unreachable"))
+                    if let userMessageID {
+                        updateAskDJMessageStatus(id: userMessageID, status: .failed)
+                    }
                 }
                 log(.error, "Ask DJ text request failed unexpectedly: \(error.localizedDescription)")
             }
@@ -2961,16 +3007,17 @@ public final class DJConnectAppModel: ObservableObject {
     public func refreshAskDJHistory() async {
         guard !isDemoMode else {
             askDJErrorMessage = nil
+            log(.debug, "Ask DJ refresh skipped in demo mode")
             return
         }
         guard canUsePlaybackFeatures else {
-            return
-        }
-        guard isAppInForeground else {
+            log(.warning, "Ask DJ refresh skipped because playback features are unavailable")
             return
         }
         askDJErrorMessage = nil
-        log(.debug, "Refreshing Ask DJ history from pull-to-refresh")
+        isCheckingAskDJHistoryState = true
+        defer { isCheckingAskDJHistoryState = false }
+        log(.info, "Refreshing Ask DJ history from user action")
         await syncAskDJHistory(showErrors: true)
         await requestAskDJIdleSuggestionIfNeeded()
     }
@@ -3255,7 +3302,9 @@ public final class DJConnectAppModel: ObservableObject {
         if let normalizedPlayback {
             let playing = normalizedPlayback.isPlaying.map(String.init) ?? "unknown"
             let volume = normalizedPlayback.volumePercent.map(String.init) ?? "unknown"
-            log(.debug, "Applied playback snapshot: playing=\(playing), volume=\(volume)")
+            let progress = normalizedPlayback.progressMS.map(String.init) ?? "unknown"
+            let duration = normalizedPlayback.durationMS.map(String.init) ?? "unknown"
+            log(.debug, "Applied playback snapshot: playing=\(playing), volume=\(volume), progress=\(progress), duration=\(duration)")
         } else {
             log(.debug, "Applied empty playback snapshot")
         }
@@ -4677,6 +4726,30 @@ public final class DJConnectAppModel: ObservableObject {
         }
     }
 
+    private func syncAskDJHistoryAfterDeferredAskDJResponse() async {
+        for attempt in 0..<4 {
+            if attempt > 0 {
+                try? await Task.sleep(nanoseconds: 1_500_000_000)
+            }
+            await syncAskDJHistory(showErrors: false)
+        }
+    }
+
+    private func isDeferredAskDJTimeout(_ error: Error) -> Bool {
+        if let urlError = error as? URLError, urlError.code == .timedOut {
+            return true
+        }
+        guard let djConnectError = error as? DJConnectError,
+              case let .network(message) = djConnectError else {
+            return false
+        }
+        let normalized = message.lowercased()
+        return normalized.contains("timed out")
+            || normalized.contains("timeout")
+            || normalized.contains("time-out")
+            || normalized.contains("time out")
+    }
+
     private func requestAskDJIdleSuggestionIfNeeded() async {
         guard canUsePlaybackFeatures,
               !hasRequestedAskDJIdleSuggestion,
@@ -4879,6 +4952,7 @@ public final class DJConnectAppModel: ObservableObject {
             WidgetCenter.shared.reloadTimelines(ofKind: DJConnectNowPlayingWidgetSnapshot.widgetKind)
             WidgetCenter.shared.reloadTimelines(ofKind: DJConnectAskDJWidgetSnapshot.widgetKind)
             #endif
+            syncTrackInsightLiveActivity(reason: "Now Playing widget artwork cached")
         } catch {
             log(.debug, "Now Playing widget artwork cache failed: \(error.localizedDescription)")
         }
@@ -6042,6 +6116,8 @@ public final class DJConnectAppModel: ObservableObject {
         let normalized = text.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         return normalized == "refresh the spotify connection in home assistant"
             || normalized == "ververs spotify koppeling in home assistant"
+            || normalized == "refresh the music service connection in home assistant"
+            || normalized == "ververs de muziekdienst-koppeling in home assistant"
             || normalized == "playback backend unavailable"
             || normalized == "playback backend niet beschikbaar"
     }
@@ -6327,7 +6403,7 @@ public final class DJConnectAppModel: ObservableObject {
                         language: currentRequestLocale
                     )
                 )
-                apply(commandResponse: response)
+                apply(commandResponse: response, command: command)
                 if Self.shouldRefreshPlaybackAfterCommand(command) {
                     try await refreshPlaybackSnapshot(client: client)
                     if Self.shouldRefreshPlaybackAgainAfterCommand(command) {
@@ -6897,6 +6973,7 @@ public final class DJConnectAppModel: ObservableObject {
             return
         }
         pairingFlowTarget = .appleWatch
+        pairingToken = ""
         isShowingPairingSuccess = false
         isPairingScreenDismissed = false
         pairingMessage = localized(key: "appModel.apple.watch.is.ready.scan.the.apple.watch.qr")
@@ -7231,6 +7308,10 @@ public final class DJConnectAppModel: ObservableObject {
         case .command:
             let payload = try decoder.decode(DJConnectCommandPayload.self, from: request.payload ?? Data())
             let response = try await client.sendCommandResponse(payload)
+            return try encoder.encode(response)
+        case .trackInsight:
+            let payload = try decoder.decode(DJConnectTrackInsightRequest.self, from: request.payload ?? Data())
+            let response = try await client.trackInsight(payload)
             return try encoder.encode(response)
         case .askDJHistory:
             let response = try await client.askDJHistory()

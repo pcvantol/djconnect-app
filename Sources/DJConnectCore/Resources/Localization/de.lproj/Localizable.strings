@@ -43,6 +43,7 @@
 "appModel.your.dj.response.is.ready" = "Your DJ response is ready.";
 "appModel.ask.dj" = "Ask DJ";
 "appModel.ask.dj.is.ready" = "Ask DJ is ready.";
+"appModel.ask.dj.is.processing" = "Ask DJ is still processing your request.";
 "appModel.input.not.recognized" = "Input not recognized";
 "appModel.not.recognized" = "Not recognized";
 "appModel.enter.the.home.assistant.url.and.pair.code" = "Enter the Home Assistant URL and pair code.";
@@ -129,6 +130,7 @@
 "ui.loading.release.notes" = "Loading release notes...";
 "ui.refresh" = "Aktualisieren";
 "ui.share.insight" = "Share Insight";
+"ui.refresh.track.insight" = "Track Insight aktualisieren";
 "ui.refresh.music.dna" = "Refresh Music DNA";
 "ui.enable.music.dna" = "Enable Music DNA?";
 "ui.you.can.clear.the.learned.profile.at.any" = "You can clear the learned profile at any time.";
@@ -340,8 +342,8 @@
 "ui.notices" = "Hinweise";
 "ui.demo" = "Demo";
 "ui.not.active" = "Not active";
-"ui.fast.local.link.websocket" = "Fast local link (WebSocket)";
-"ui.websocket.fast.path" = "WebSocket-Schnellpfad";
+"ui.fast.local.link.websocket" = "Lokale Verbindung (WebSocket)";
+"ui.websocket.fast.path" = "WebSocket";
 "ui.use.websocket.fast.path.only.on.local.home.assistant" = "WebSocket fuer schnellere lokale Home Assistant-Aktionen verwenden. Nur ueber die lokale Verbindung verfuegbar.";
 "ui.normal.link.http" = "Normal link (HTTP)";
 "ui.report.ask.dj.answer" = "Report Ask DJ answer";
@@ -399,7 +401,7 @@
 "widget.intensity" = "Intensitaet";
 "widget.ask.dj" = "Ask DJ";
 "widget.private.on.device" = "Private - On device";
-"widget.no.ask.dj.snapshot.yet" = "No Ask DJ snapshot yet";
+"widget.no.ask.dj.snapshot.yet" = "Ask DJ is ready";
 "widget.playing" = "Wird wiedergegeben";
 "widget.paused" = "Pausiert";
 "widget.on" = "On";
@@ -488,8 +490,8 @@
 "watch.target" = "Ziel";
 "watch.unavailable" = "unavailable";
 "watch.local" = "Lokal";
-"watch.djconnect.is.not.affiliated.with.endorsed.by.or" = "DJConnect is not affiliated with, endorsed by, or sponsored by Spotify AB, Apple, or Home Assistant.";
-"watch.spotify.is.a.trademark.of.spotify.ab.home" = "Spotify is a trademark of Spotify AB. Home Assistant is a trademark of the Open Home Foundation.";
+"watch.djconnect.is.not.affiliated.with.endorsed.by.or" = "DJConnect is not affiliated with, endorsed by, or sponsored by Apple, Home Assistant, or any supported music service.";
+"watch.spotify.is.a.trademark.of.spotify.ab.home" = "Home Assistant is a trademark of the Open Home Foundation. Other service names are trademarks of their respective owners.";
 "watch.djconnect.uses.apple.platform.frameworks.and.swift.package" = "DJConnect uses Apple platform frameworks and Swift Package Manager.";
 "watch.third.party.notices.are.documented.in.the.repository" = "Third-party notices are documented in the repository when dependencies are added.";
 "watch.djconnect.itself.does.not.collect.sell.or.process" = "DJConnect itself does not collect, sell, or process personal data in the app.";
@@ -640,7 +642,7 @@
 "appModel.update.the.djconnect.app.or.home.assistant.integration.before" = "Update the DJConnect app or Home Assistant integration before using Track Insight.";
 "appModel.home.assistant.did.not.respond" = "Home Assistant did not respond";
 "appModel.private.music.dna.context" = "Private Music DNA context";
-"appModel.refresh.the.spotify.connection.in.home.assistant" = "Refresh the Spotify connection in Home Assistant";
+"appModel.refresh.the.spotify.connection.in.home.assistant" = "Refresh the music service connection in Home Assistant";
 "appModel.no.active.playback.device.found" = "No active playback device found";
 "appModel.not.paired.yet.open.djconnect.in.home.assistant.and" = "Not paired yet. Open DJConnect in Home Assistant and enter the current code from this screen.";
 "appModel.home.assistant.rejected.this.app.pair.djconnect.again.from" = "Home Assistant rejected this app. Pair DJConnect again from Home Assistant.";
@@ -703,7 +705,7 @@
 "ui.update.djconnect.before.continuing" = "Update DJConnect before continuing.";
 "ui.playback.queue.playlists.output.selection.and.voice.controls.are.blocked" = "Playback, queue, playlists, output selection and voice controls are blocked until the app and Home Assistant integration are compatible.";
 "ui.you.can.share.redacted.diagnostics.by.opening.a.github.issue" = "You can share logs if you want to. Nothing is uploaded automatically.";
-"ui.setup.runs.through.home.assistant.spotify.playback.requires.spotify.premium" = "Setup runs through Home Assistant. Spotify playback requires Spotify Premium.";
+"ui.setup.runs.through.home.assistant.spotify.playback.requires.spotify.premium" = "Setup and music playback run through Home Assistant.";
 "ui.control.playback.volume.and.the.active.output.from.the.main" = "Control playback, volume and the active output from the main screen.";
 "ui.ask.for.music.context.or.a.voice.reply.djconnect.keeps" = "Ask for music, context or a voice reply. DJConnect keeps the chat history in sync through Home Assistant.";
 "ui.analyze.the.current.track.for.mood.energy.genre.and.musical" = "Analyze the current track for mood, energy, genre and musical details when Home Assistant has provider data.";
@@ -718,7 +720,7 @@
 "ui.future.timeline.taste.evolution.artist.affinity.mood.shifts.year.in" = "Future timeline: taste evolution, artist affinity, mood shifts, Year in Music and compatibility scores.";
 "ui.this.mp4.is.played.through.avplayer.use.the.airplay.control" = "This MP4 is played through AVPlayer. Use the AirPlay control above to send the active VibeCast video route to a display.";
 "ui.see.what.makes.the.current.track.feel.the.way.it" = "See what makes the current track feel the way it does.";
-"ui.playback.is.unavailable.ncheck.the.spotify.authorization.in.home.assistant" = "Playback is unavailable\nCheck the Spotify authorization in Home Assistant";
+"ui.playback.is.unavailable.ncheck.the.spotify.authorization.in.home.assistant" = "Playback is unavailable\nCheck the music service authorization in Home Assistant";
 "ui.sends.the.current.track.to.the.backend.for.analysis.and" = "Sends the current track to the backend for analysis and opens Track Insight.";
 "ui.repeat.value.click.for.value" = "Wiederholen: %@. Klicken fuer %@.";
 "ui.this.clears.the.ask.dj.chat.history.on.this.home" = "This clears the Ask DJ chat history on this Home Assistant account.";
@@ -740,8 +742,8 @@
 "ui.in.the.real.app.this.clears.learned.music.dna.on" = "In the real app this clears learned Music DNA on your Home Assistant backend. Because this is demo mode, the fictional sample profile stays visible.";
 "ui.this.clears.learned.music.dna.on.your.home.assistant.backend" = "This clears learned Music DNA on your Home Assistant backend. If Music DNA remains enabled, it starts learning again from an empty profile.";
 "ui.this.removes.the.visible.and.persisted.diagnostic.logs" = "This removes the visible and persisted diagnostic logs.";
-"ui.djconnect.is.not.affiliated.with.endorsed.by.or.sponsored.by" = "DJConnect is not affiliated with, endorsed by, or sponsored by Spotify AB, Apple, or Home Assistant.";
-"ui.spotify.is.a.trademark.of.spotify.ab.home.assistant.is" = "Spotify is a trademark of Spotify AB. Home Assistant is a trademark of the Open Home Foundation.";
+"ui.djconnect.is.not.affiliated.with.endorsed.by.or.sponsored.by" = "DJConnect is not affiliated with, endorsed by, or sponsored by Apple, Home Assistant, or any supported music service.";
+"ui.spotify.is.a.trademark.of.spotify.ab.home.assistant.is" = "Home Assistant is a trademark of the Open Home Foundation. Other service names are trademarks of their respective owners.";
 "ui.djconnect.uses.apple.platform.frameworks.and.swift.package.manager.third" = "DJConnect uses Apple platform frameworks and Swift Package Manager. Third-party notices are documented in the repository when dependencies are added.";
 "ui.djconnect.does.not.collect.sell.or.process.personal.data.in" = "DJConnect does not collect, sell, or process personal data in the app.";
 "ui.device.tokens.are.stored.locally.in.the.app.s.private" = "Device tokens are stored locally in the app's private storage. Diagnostics are only shared when you copy them or open a GitHub issue yourself.";

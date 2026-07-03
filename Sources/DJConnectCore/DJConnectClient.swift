@@ -130,7 +130,13 @@ public final class DJConnectClient: Sendable {
         }
         let request = try trackInsightRequest(payload)
         let data: TrackInsightEndpointResponse = try await decodedResponse(for: request)
-        guard data.success != false, let insight = data.trackInsightValue else {
+        guard data.success != false, let insight = data.trackInsightValue(
+            fallbackTitle: payload.title,
+            fallbackArtist: payload.artist,
+            fallbackArtwork: payload.artworkURL,
+            fallbackDurationMS: payload.durationMS,
+            fallbackProgressMS: payload.progressMS
+        ) else {
             throw DJConnectError.trackInsightUnavailable(code: data.error, message: data.message)
         }
         return insight
@@ -216,11 +222,15 @@ public final class DJConnectClient: Sendable {
     }
 
     public func askDJRequest(_ payload: DJConnectAskDJRequest) throws -> URLRequest {
-        try jsonRequest(path: "/api/djconnect/ask", payload: payload)
+        var request = try jsonRequest(path: "/api/djconnect/ask", payload: payload)
+        request.timeoutInterval = 15
+        return request
     }
 
     public func askDJMessageRequest(_ payload: DJConnectAskDJRequest) throws -> URLRequest {
-        try jsonRequest(path: "/api/djconnect/ask_dj/message", payload: payload)
+        var request = try jsonRequest(path: "/api/djconnect/ask_dj/message", payload: payload)
+        request.timeoutInterval = 30
+        return request
     }
 
     public func askDJHistoryRequest(sinceRevision: Int? = nil) throws -> URLRequest {
@@ -256,11 +266,20 @@ public final class DJConnectClient: Sendable {
     }
 
     public func askDJIdleSuggestionRequest(_ payload: DJConnectAskDJIdleSuggestionRequest) throws -> URLRequest {
-        try jsonRequest(path: "/api/djconnect/ask_dj/idle_suggestion", payload: payload)
+        var request = try jsonRequest(path: "/api/djconnect/ask_dj/idle_suggestion", payload: payload)
+        request.timeoutInterval = 15
+        return request
     }
 
     public func trackInsightRequest(_ payload: DJConnectTrackInsightRequest) throws -> URLRequest {
-        try jsonRequest(path: "/api/djconnect/track_insight", payload: payload.normalizedForSend(identity: identity))
+        let normalizedPayload = payload.normalizedForSend(identity: identity)
+        var request = try jsonRequest(path: "/api/djconnect/track_insight", payload: normalizedPayload)
+        if let language = Self.nonBlankLanguage(normalizedPayload.language ?? normalizedPayload.locale) {
+            request.setValue(language, forHTTPHeaderField: "X-DJConnect-Language")
+            request.setValue(language, forHTTPHeaderField: "X-DJConnect-Locale")
+            request.setValue(language, forHTTPHeaderField: "Accept-Language")
+        }
+        return request
     }
 
     public func pushRegisterRequest(_ payload: DJConnectPushRegistrationRequest) throws -> URLRequest {
@@ -378,6 +397,11 @@ public final class DJConnectClient: Sendable {
                 options: .regularExpression
             )
         return String(redacted.prefix(500))
+    }
+
+    private static func nonBlankLanguage(_ value: String?) -> String? {
+        let trimmed = value?.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed?.isEmpty == false ? trimmed : nil
     }
 
     private func decodedResponse<T: Decodable>(for request: URLRequest) async throws -> T {

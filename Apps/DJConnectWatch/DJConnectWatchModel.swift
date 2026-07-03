@@ -331,6 +331,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
     @Published private(set) var playback: DJConnectPlayback?
     @Published private(set) var currentTrackInsight: TrackInsight?
     @Published private(set) var isRefreshingStatus = false
+    @Published private(set) var isRefreshingTrackInsight = false
     @Published private(set) var queueItems: [DJConnectQueueItem] = []
     @Published private(set) var queueContext: String?
     @Published private(set) var isLoadingQueue = false
@@ -388,6 +389,9 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
     private let pushEnvironmentStatusKey = "DJConnectWatchPushEnvironmentStatus"
     private let lastPushErrorKey = "DJConnectWatchLastPushError"
     private let maxDiagnosticLogLines = 80
+    private let maxInteractiveWatchProxyRequestBytes = 55_000
+    private let maxWatchVoiceWAVBytes = 32_000
+    private let maxWatchVoiceRecordingDuration: TimeInterval = 4
     private let tokenStore = DJConnectUserDefaultsTokenStore(key: "DJConnectWatchDeviceToken")
     private let monkeyTestingMode: Bool
     private var networkMonitor: NWPathMonitor?
@@ -1053,6 +1057,10 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         }
         let request = DJConnectWatchProxyRequest(operation: operation, payload: payloadData)
         let requestData = try JSONEncoder().encode(request)
+        if operation == .voice, requestData.count > maxInteractiveWatchProxyRequestBytes {
+            appendDiagnosticLog("Stemverzoek te groot voor iPhone proxy: \(requestData.count) bytes", level: .warning)
+            throw DJConnectError.invalidConfiguration("Opname is te lang. Probeer een kortere Ask DJ opname.")
+        }
         let correlationID = UUID().uuidString
         let response = await withCheckedContinuation { continuation in
             pendingWatchProxyHARequests[correlationID] = continuation
@@ -1064,16 +1072,17 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
                 ],
                 replyHandler: nil
             ) { [weak self] error in
-                Task { @MainActor in
+                DispatchQueue.main.async { [weak self] in
                     guard let self,
                           let continuation = self.pendingWatchProxyHARequests.removeValue(forKey: correlationID) else {
                         return
                     }
+                    let message = Self.watchProxySendFailureMessage(for: error)
                     self.appendDiagnosticLog("iPhone proxy niet bereikbaar: \(error.localizedDescription)", level: .warning)
                     continuation.resume(returning: DJConnectWatchProxyResponse(
                         success: false,
-                        error: "iphone_unreachable",
-                        message: "Open DJConnect op je iPhone."
+                        error: Self.watchProxySendFailureCode(for: error),
+                        message: message
                     ))
                 }
             }
@@ -1085,6 +1094,28 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         #else
         throw DJConnectError.invalidConfiguration("Open DJConnect op je iPhone.")
         #endif
+    }
+
+    private static func watchProxySendFailureCode(for error: Error) -> String {
+        let nsError = error as NSError
+        #if canImport(WatchConnectivity)
+        if nsError.domain == WCError.errorDomain,
+           nsError.code == WCError.Code.payloadTooLarge.rawValue {
+            return "payload_too_large"
+        }
+        #endif
+        return "iphone_unreachable"
+    }
+
+    private static func watchProxySendFailureMessage(for error: Error) -> String {
+        let nsError = error as NSError
+        #if canImport(WatchConnectivity)
+        if nsError.domain == WCError.errorDomain,
+           nsError.code == WCError.Code.payloadTooLarge.rawValue {
+            return "Opname is te lang. Probeer een kortere Ask DJ opname."
+        }
+        #endif
+        return "Open DJConnect op je iPhone."
     }
 
     private struct AnyEncodable: Encodable {
@@ -1226,6 +1257,58 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         } catch {
             statusMessage = Self.userMessage(for: error)
             appendDiagnosticLog("Status vernieuwen mislukt: \(statusMessage)", level: .error)
+        }
+    }
+
+    func refreshTrackInsight() async {
+        guard !isRefreshingTrackInsight else {
+            return
+        }
+        if isDemoMode {
+            if !hasAppliedDemoState {
+                applyDemoState()
+            } else if let playback {
+                currentTrackInsight = DemoTrackInsightService.defaultTracks.first { insight in
+                    insight.title == playback.trackName && insight.artist == playback.artistName
+                } ?? DemoTrackInsightService.defaultTracks.first
+            } else {
+                currentTrackInsight = DemoTrackInsightService.defaultTracks.first
+            }
+            return
+        }
+        guard isAppForeground else {
+            appendDiagnosticLog("Track Insight vernieuwen overgeslagen: app niet zichtbaar", level: .debug)
+            return
+        }
+        guard canUseBackend else {
+            appendDiagnosticLog("Track Insight vernieuwen overgeslagen: niet gekoppeld", level: .warning)
+            return
+        }
+        isRefreshingTrackInsight = true
+        defer { isRefreshingTrackInsight = false }
+        appendDiagnosticLog("Track Insight vernieuwen")
+        do {
+            let request = DJConnectTrackInsightRequest(
+                title: playback?.trackName,
+                artist: playback?.artistName,
+                artworkURL: playback?.albumImageURL,
+                durationMS: playback?.durationMS,
+                progressMS: playback?.progressMS,
+                entityID: nil,
+                playerID: playback?.device?.id,
+                musicBackend: musicBackendSummary.musicBackend,
+                clientType: identity.clientType.rawValue,
+                forceRefresh: true,
+                locale: language,
+                includeVisualProfile: true,
+                includeRawResponse: true
+            )
+            currentTrackInsight = try await sendCompanionHARequest(.trackInsight, payload: request)
+            statusMessage = "Track Insight bijgewerkt"
+            appendDiagnosticLog("Track Insight vernieuwd")
+        } catch {
+            statusMessage = Self.userMessage(for: error)
+            appendDiagnosticLog("Track Insight vernieuwen mislukt: \(statusMessage)", level: .error)
         }
     }
 
@@ -1738,6 +1821,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         let previousSignature = playbackBeatSignature ?? Self.playbackBeatSignature(for: playback)
         let sanitizedPlayback = DJConnectVolumeNormalizer.sanitizedPlayback(nextPlayback)
         playback = sanitizedPlayback
+        applyActiveOutput(from: sanitizedPlayback)
         let nextSignature = Self.playbackBeatSignature(for: sanitizedPlayback)
         playbackBeatSignature = nextSignature
 
@@ -1747,7 +1831,39 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
             return
         }
         playAskDJBeatConfirmHaptic()
-        appendDiagnosticLog("Ask DJ beat confirm")
+            appendDiagnosticLog("Ask DJ beat confirm")
+    }
+
+    private func applyActiveOutput(from playback: DJConnectPlayback?) {
+        guard let device = playback?.device else {
+            return
+        }
+        let deviceName = device.name?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let deviceID = device.id?.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard deviceName?.isEmpty == false || deviceID?.isEmpty == false else {
+            return
+        }
+
+        if let deviceName, !deviceName.isEmpty {
+            selectedOutput = deviceName
+        }
+
+        guard !availableOutputs.isEmpty else {
+            return
+        }
+        var didMatchOutput = false
+        availableOutputs = availableOutputs.map { output in
+            var updated = output
+            let matchesID = deviceID?.isEmpty == false && output.id == deviceID
+            let matchesName = deviceName?.isEmpty == false && output.name == deviceName
+            updated.active = matchesID || matchesName
+            didMatchOutput = didMatchOutput || updated.active == true
+            return updated
+        }
+
+        if !didMatchOutput, let deviceName, !deviceName.isEmpty, selectedOutput == deviceName {
+            appendDiagnosticLog("Actief uitvoerapparaat uit playback: \(deviceName)", level: .debug)
+        }
     }
 
     private func applyBackendSummary(_ summary: DJConnectMusicBackendSummary) {
@@ -2722,14 +2838,14 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
                     .appendingPathExtension("wav")
                 let settings: [String: Any] = [
                     AVFormatIDKey: Int(kAudioFormatLinearPCM),
-                    AVSampleRateKey: 16_000,
+                    AVSampleRateKey: 8_000,
                     AVNumberOfChannelsKey: 1,
-                    AVLinearPCMBitDepthKey: 16,
+                    AVLinearPCMBitDepthKey: 8,
                     AVLinearPCMIsFloatKey: false,
                     AVLinearPCMIsBigEndianKey: false
                 ]
                 let recorder = try AVAudioRecorder(url: url, settings: settings)
-                recorder.record()
+                recorder.record(forDuration: maxWatchVoiceRecordingDuration)
                 self.recorder = recorder
                 self.recordingURL = url
                 self.voiceState = .recording
@@ -2793,6 +2909,10 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
             }
             do {
                 let data = try Data(contentsOf: url)
+                guard data.count <= maxWatchVoiceWAVBytes else {
+                    appendDiagnosticLog("Stemopname te groot: \(data.count) bytes", level: .warning)
+                    throw DJConnectError.invalidConfiguration("Opname is te lang. Probeer een kortere Ask DJ opname.")
+                }
                 appendAskDJMessage(role: .user, text: "Stemverzoek")
                 let response: DJConnectVoiceResponse = try await sendCompanionHARequest(
                     .voice,

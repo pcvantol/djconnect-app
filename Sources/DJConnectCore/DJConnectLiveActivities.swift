@@ -11,6 +11,7 @@ public struct TrackInsightLiveActivityAttributes: ActivityAttributes, Sendable {
         public var deviceName: String?
         public var progressMS: Int?
         public var durationMS: Int?
+        public var artworkURL: URL?
         public var isPlaying: Bool
         public var volumePercent: Int?
         public var isLiked: Bool?
@@ -22,6 +23,7 @@ public struct TrackInsightLiveActivityAttributes: ActivityAttributes, Sendable {
             deviceName: String? = nil,
             progressMS: Int? = nil,
             durationMS: Int? = nil,
+            artworkURL: URL? = nil,
             isPlaying: Bool = false,
             volumePercent: Int? = nil,
             isLiked: Bool? = nil,
@@ -32,6 +34,7 @@ public struct TrackInsightLiveActivityAttributes: ActivityAttributes, Sendable {
             self.deviceName = deviceName
             self.progressMS = progressMS
             self.durationMS = durationMS
+            self.artworkURL = artworkURL
             self.isPlaying = isPlaying
             self.volumePercent = volumePercent
             self.isLiked = isLiked
@@ -55,6 +58,7 @@ public extension TrackInsightLiveActivityAttributes.ContentState {
             deviceName: playback.device?.name,
             progressMS: playback.progressMS,
             durationMS: playback.durationMS,
+            artworkURL: playback.albumImageURL,
             isPlaying: playback.isPlaying == true,
             volumePercent: playback.volumePercent ?? playback.device?.volumePercent,
             isLiked: playback.isLiked ?? playback.favoriteStatus,

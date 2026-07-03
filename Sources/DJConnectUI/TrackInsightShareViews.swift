@@ -445,9 +445,6 @@ struct TrackInsightShareCardView: View {
         ZStack {
             TrackInsightShareBackground(profile: profile, animationPhase: animationPhase)
             VStack(spacing: cardSpacing) {
-                Label("DJCONNECT", systemImage: "circle.hexagongrid.fill")
-                    .font(.caption.weight(.bold))
-                    .foregroundStyle(.white.opacity(0.88))
                 artwork
                 VStack(spacing: 5) {
                     Text(insight.title)
@@ -470,13 +467,10 @@ struct TrackInsightShareCardView: View {
                 if let vibeLine {
                     Text(vibeLine)
                         .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(profile.colors.last ?? djConnectAccent)
+                        .foregroundStyle(.white.opacity(0.78))
                         .lineLimit(format == .linkPreview ? 1 : 2)
                         .minimumScaleFactor(0.72)
                         .multilineTextAlignment(.center)
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 7)
-                        .background(.black.opacity(0.24), in: Capsule())
                 }
                 TrackInsightShareMeters(insight: insight, profile: profile, format: format, language: language)
                 Text(insight.summary)
@@ -506,11 +500,7 @@ struct TrackInsightShareCardView: View {
         }
         .frame(width: artworkSize, height: artworkSize)
         .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .stroke(profile.colors.last?.opacity(0.72) ?? .white.opacity(0.28), lineWidth: 2)
-        }
-        .shadow(color: (profile.colors.last ?? djConnectAccent).opacity(0.46), radius: 26)
+        .shadow(color: .clear, radius: 0)
     }
 
     private var titleFont: Font {
@@ -551,9 +541,9 @@ struct TrackInsightShareCardView: View {
         case .story:
             16
         case .square:
-            8
+            10
         case .linkPreview:
-            6
+            8
         }
     }
 
@@ -562,20 +552,20 @@ struct TrackInsightShareCardView: View {
         case .story:
             38
         case .square:
-            22
-        case .linkPreview:
             20
+        case .linkPreview:
+            18
         }
     }
 
     private var artworkSize: CGFloat {
         switch format {
         case .story:
-            300
+            360
         case .square:
-            132
+            220
         case .linkPreview:
-            112
+            220
         }
     }
 
@@ -615,7 +605,7 @@ struct TrackInsightShareCardView: View {
             .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
             .filter { !$0.isEmpty }
             .prefix(3)
-        return parts.isEmpty ? nil : parts.joined(separator: " - ")
+        return parts.isEmpty ? nil : parts.joined(separator: " • ")
     }
 
     private func localizedKey(_ key: String, arguments: CVarArg...) -> String {
@@ -752,16 +742,6 @@ private struct TrackInsightShareBackground: View {
             }
             context.stroke(path, with: .color(.white.opacity(0.05 + Double(index) * 0.018)), lineWidth: 2)
         }
-        let pulse = sin(animationPhase * profile.pulseSpeed) * 0.5 + 0.5
-        context.fill(
-            Path(ellipseIn: CGRect(
-                x: size.width * (0.50 + CGFloat(sin(animationPhase * 0.7)) * 0.06) - size.width * 0.16,
-                y: size.height * 0.20 - size.width * 0.16,
-                width: size.width * (0.28 + CGFloat(pulse) * 0.08),
-                height: size.width * (0.28 + CGFloat(pulse) * 0.08)
-            )),
-            with: .color((profile.colors.last ?? djConnectAccent).opacity(0.14 + pulse * 0.10))
-        )
         context.fill(Path(rect), with: .color(.black.opacity(0.30)))
     }
 }
@@ -781,21 +761,24 @@ private struct TrackInsightShareMeters: View {
     }
 
     private func meter(_ title: String, _ value: Double?) -> some View {
-        let value = value ?? 0
+        let value = normalizedMeterValue(value)
         return VStack(spacing: 5) {
             ZStack {
                 Circle()
                     .stroke(.white.opacity(0.16), lineWidth: meterLineWidth)
                 Circle()
-                    .trim(from: 0, to: CGFloat(max(0.04, min(1, value))))
+                    .trim(from: 0, to: CGFloat(max(0.04, value)))
                     .stroke(
                         AngularGradient(colors: profile.colors, center: .center),
                         style: StrokeStyle(lineWidth: meterLineWidth, lineCap: .round)
                     )
                     .rotationEffect(.degrees(-90))
-                Text(String(format: "%.2f", value))
+                Text(meterPercentText(value))
                     .font(meterValueFont)
                     .foregroundStyle(.white)
+                    .monospacedDigit()
+                    .minimumScaleFactor(0.68)
+                    .lineLimit(1)
             }
             .frame(width: meterSize, height: meterSize)
             Text(title)
@@ -805,6 +788,14 @@ private struct TrackInsightShareMeters: View {
                 .minimumScaleFactor(0.65)
         }
         .frame(width: meterColumnWidth)
+    }
+
+    private func normalizedMeterValue(_ value: Double?) -> Double {
+        min(1, max(0, value ?? 0))
+    }
+
+    private func meterPercentText(_ value: Double) -> String {
+        "\(Int((value * 100).rounded()))%"
     }
 
     private var meterSize: CGFloat {

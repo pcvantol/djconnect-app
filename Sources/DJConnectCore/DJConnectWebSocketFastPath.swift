@@ -155,7 +155,13 @@ public actor DJConnectHomeAssistantWebSocketFastPath: DJConnectWebSocketFastPath
         }
         let request = DJConnectWebSocketTrackInsightMessage(id: allocateID(), identity: identity, payload: payload)
         let response: TrackInsightEndpointResponse = try await sendResult(request, timeout: 15, responseType: TrackInsightEndpointResponse.self)
-        guard response.success != false, let insight = response.trackInsightValue else {
+        guard response.success != false, let insight = response.trackInsightValue(
+            fallbackTitle: payload.title,
+            fallbackArtist: payload.artist,
+            fallbackArtwork: payload.artworkURL,
+            fallbackDurationMS: payload.durationMS,
+            fallbackProgressMS: payload.progressMS
+        ) else {
             throw DJConnectError.trackInsightUnavailable(code: response.error, message: response.message)
         }
         return insight

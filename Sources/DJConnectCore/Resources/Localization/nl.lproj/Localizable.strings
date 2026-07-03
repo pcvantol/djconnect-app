@@ -43,6 +43,7 @@
 "appModel.your.dj.response.is.ready" = "Je DJ-antwoord staat klaar.";
 "appModel.ask.dj" = "Vraag Ask DJ";
 "appModel.ask.dj.is.ready" = "Ask DJ staat klaar.";
+"appModel.ask.dj.is.processing" = "Ask DJ verwerkt je verzoek nog.";
 "appModel.input.not.recognized" = "Invoer niet herkend";
 "appModel.not.recognized" = "Niet herkend";
 "appModel.enter.the.home.assistant.url.and.pair.code" = "Vul de Home Assistant URL en koppelcode in.";
@@ -129,6 +130,7 @@
 "ui.loading.release.notes" = "Release notes laden...";
 "ui.refresh" = "Vernieuwen";
 "ui.share.insight" = "Insight delen";
+"ui.refresh.track.insight" = "Track Insight vernieuwen";
 "ui.refresh.music.dna" = "Music DNA vernieuwen";
 "ui.enable.music.dna" = "Music DNA activeren?";
 "ui.you.can.clear.the.learned.profile.at.any" = "Je kunt het opgebouwde profiel op elk moment wissen.";
@@ -340,8 +342,8 @@
 "ui.notices" = "Kennisgevingen";
 "ui.demo" = "Demo";
 "ui.not.active" = "Niet actief";
-"ui.fast.local.link.websocket" = "Snelle lokale verbinding (WebSocket)";
-"ui.websocket.fast.path" = "WebSocket fast path";
+"ui.fast.local.link.websocket" = "Lokale verbinding (WebSocket)";
+"ui.websocket.fast.path" = "WebSocket";
 "ui.use.websocket.fast.path.only.on.local.home.assistant" = "Gebruik WebSocket voor snellere lokale Home Assistant-acties. Alleen beschikbaar via de lokale verbinding.";
 "ui.normal.link.http" = "Normale verbinding (HTTP)";
 "ui.report.ask.dj.answer" = "Ask DJ antwoord melden";
@@ -399,7 +401,7 @@
 "widget.intensity" = "Intensiteit";
 "widget.ask.dj" = "Ask DJ";
 "widget.private.on.device" = "Privé - Op apparaat";
-"widget.no.ask.dj.snapshot.yet" = "Nog geen Ask DJ snapshot";
+"widget.no.ask.dj.snapshot.yet" = "Ask DJ staat klaar";
 "widget.playing" = "Speelt";
 "widget.paused" = "Gepauzeerd";
 "widget.on" = "Aan";
@@ -488,8 +490,8 @@
 "watch.target" = "Doel";
 "watch.unavailable" = "niet beschikbaar";
 "watch.local" = "Lokaal";
-"watch.djconnect.is.not.affiliated.with.endorsed.by.or" = "DJConnect is niet gelieerd aan, goedgekeurd door of gesponsord door Spotify AB, Apple of Home Assistant.";
-"watch.spotify.is.a.trademark.of.spotify.ab.home" = "Spotify is een handelsmerk van Spotify AB. Home Assistant is een handelsmerk van de Open Home Foundation.";
+"watch.djconnect.is.not.affiliated.with.endorsed.by.or" = "DJConnect is niet gelieerd aan, goedgekeurd door of gesponsord door Apple, Home Assistant of ondersteunde muziekdiensten.";
+"watch.spotify.is.a.trademark.of.spotify.ab.home" = "Home Assistant is een handelsmerk van de Open Home Foundation. Andere dienstnamen zijn handelsmerken van hun respectieve eigenaren.";
 "watch.djconnect.uses.apple.platform.frameworks.and.swift.package" = "DJConnect gebruikt Apple platform-frameworks en Swift Package Manager.";
 "watch.third.party.notices.are.documented.in.the.repository" = "Third-party notices worden in de repository gedocumenteerd wanneer dependencies worden toegevoegd.";
 "watch.djconnect.itself.does.not.collect.sell.or.process" = "DJConnect verzamelt, verkoopt of verwerkt zelf geen persoonsgegevens in de app.";
@@ -640,7 +642,7 @@
 "appModel.update.the.djconnect.app.or.home.assistant.integration.before" = "Werk de DJConnect app of Home Assistant-integratie bij voordat je Track Insight gebruikt.";
 "appModel.home.assistant.did.not.respond" = "Home Assistant gaf geen antwoord";
 "appModel.private.music.dna.context" = "Privé Music DNA-context";
-"appModel.refresh.the.spotify.connection.in.home.assistant" = "Ververs Spotify koppeling in Home Assistant";
+"appModel.refresh.the.spotify.connection.in.home.assistant" = "Ververs de muziekdienst-koppeling in Home Assistant";
 "appModel.no.active.playback.device.found" = "Geen actief afspeelapparaat gevonden";
 "appModel.not.paired.yet.open.djconnect.in.home.assistant.and" = "Nog niet gekoppeld. Open DJConnect in Home Assistant en vul de huidige code uit dit scherm in.";
 "appModel.home.assistant.rejected.this.app.pair.djconnect.again.from" = "Home Assistant weigert deze app. Koppel DJConnect opnieuw vanuit Home Assistant.";
@@ -718,7 +720,7 @@
 "ui.future.timeline.taste.evolution.artist.affinity.mood.shifts.year.in" = "Toekomstige tijdlijn: smaakontwikkeling, artiest-affiniteit, mood-verschuivingen, Year in Music en compatibility scores.";
 "ui.this.mp4.is.played.through.avplayer.use.the.airplay.control" = "Deze MP4 speelt via AVPlayer. Gebruik de AirPlay-knop hierboven om de actieve VibeCast-videoroute naar een scherm te sturen.";
 "ui.see.what.makes.the.current.track.feel.the.way.it" = "Ontdek wat dit nummer zijn gevoel geeft.";
-"ui.playback.is.unavailable.ncheck.the.spotify.authorization.in.home.assistant" = "Afspelen niet beschikbaar\nControleer de Spotify autorisatie in Home Assistant";
+"ui.playback.is.unavailable.ncheck.the.spotify.authorization.in.home.assistant" = "Afspelen niet beschikbaar\nControleer de muziekdienst-autorisatie in Home Assistant";
 "ui.sends.the.current.track.to.the.backend.for.analysis.and" = "Stuurt het huidige nummer naar de backend voor analyse en opent Track Insight.";
 "ui.repeat.value.click.for.value" = "Herhaal: %@. Klik voor %@.";
 "ui.this.clears.the.ask.dj.chat.history.on.this.home" = "Dit wist de Ask DJ chatgeschiedenis voor dit Home Assistant-account.";
@@ -740,8 +742,8 @@
 "ui.in.the.real.app.this.clears.learned.music.dna.on" = "In de echte app wist dit geleerde Music DNA op je Home Assistant-backend. Omdat dit demo modus is, blijft het fictieve voorbeeldprofiel zichtbaar.";
 "ui.this.clears.learned.music.dna.on.your.home.assistant.backend" = "Dit wist geleerde Music DNA op je Home Assistant-backend. Als Music DNA aan blijft, begint de backend opnieuw vanaf een leeg profiel.";
 "ui.this.removes.the.visible.and.persisted.diagnostic.logs" = "Dit verwijdert de zichtbare en opgeslagen diagnostische logs.";
-"ui.djconnect.is.not.affiliated.with.endorsed.by.or.sponsored.by" = "DJConnect is niet gelieerd aan, goedgekeurd door of gesponsord door Spotify AB, Apple of Home Assistant.";
-"ui.spotify.is.a.trademark.of.spotify.ab.home.assistant.is" = "Spotify is een handelsmerk van Spotify AB. Home Assistant is een handelsmerk van de Open Home Foundation.";
+"ui.djconnect.is.not.affiliated.with.endorsed.by.or.sponsored.by" = "DJConnect is niet gelieerd aan, goedgekeurd door of gesponsord door Apple, Home Assistant of ondersteunde muziekdiensten.";
+"ui.spotify.is.a.trademark.of.spotify.ab.home.assistant.is" = "Home Assistant is een handelsmerk van de Open Home Foundation. Andere dienstnamen zijn handelsmerken van hun respectieve eigenaren.";
 "ui.djconnect.uses.apple.platform.frameworks.and.swift.package.manager.third" = "DJConnect gebruikt Apple platform-frameworks en Swift Package Manager. Third-party notices worden in de repository gedocumenteerd wanneer dependencies worden toegevoegd.";
 "ui.djconnect.does.not.collect.sell.or.process.personal.data.in" = "DJConnect verzamelt, verkoopt of verwerkt zelf geen persoonsgegevens in de app.";
 "ui.device.tokens.are.stored.locally.in.the.app.s.private" = "Device-tokens worden lokaal in de private app-opslag bewaard. Diagnostiek wordt alleen gedeeld wanneer je die zelf kopieert of een GitHub issue opent.";

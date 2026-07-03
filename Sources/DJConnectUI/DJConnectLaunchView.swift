@@ -94,8 +94,8 @@ private struct DJConnectLaunchView: View {
                         DJConnectLaunchBanner()
                             .frame(width: bannerWidth)
                     }
-                    DJConnectLaunchHeroVisual()
-                        .frame(width: heroSize, height: heroSize * 0.72)
+                    DJConnectLaunchHeroVisual(width: bannerWidth)
+                        .frame(width: bannerWidth, height: bannerWidth * 0.72)
                         .accessibilityHidden(true)
                     Text("v\(DJConnectVersionInfo.displayVersion)")
                         .font(.caption.weight(.semibold))
@@ -237,6 +237,13 @@ private struct DJConnectLaunchBanner: View {
 }
 
 private struct DJConnectLaunchHeroVisual: View {
+    let width: CGFloat
+    private let baseWidth: CGFloat = 280
+
+    private var scale: CGFloat {
+        width / baseWidth
+    }
+
     var body: some View {
         ZStack {
             RoundedRectangle(cornerRadius: 72, style: .continuous)
@@ -308,6 +315,9 @@ private struct DJConnectLaunchHeroVisual: View {
                 .frame(width: 120, height: 112)
                 .offset(x: 64, y: 4)
         }
+        .frame(width: baseWidth, height: baseWidth * 0.72)
+        .scaleEffect(scale)
+        .frame(width: width, height: width * 0.72)
     }
 }
 

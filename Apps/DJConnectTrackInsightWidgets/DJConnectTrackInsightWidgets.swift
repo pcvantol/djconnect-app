@@ -187,15 +187,13 @@ struct DJConnectNowPlayingWidgetView: View {
     }
 
     private var small: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            header(compact: true)
+        VStack(alignment: .leading, spacing: 9) {
+            smallPlaybackStatus
             Spacer(minLength: 0)
             DJConnectNowPlayingArtwork(entry: entry)
                 .frame(width: 64, height: 64)
             Spacer(minLength: 0)
             titleBlock(lineLimit: 1)
-            nowPlayingProgressBar
-                .frame(height: 5)
         }
         .padding(14)
     }
@@ -268,6 +266,20 @@ struct DJConnectNowPlayingWidgetView: View {
         }
     }
 
+    private var smallPlaybackStatus: some View {
+        Label(
+            entry.isPlaying
+                ? DJConnectLocalization.localized(key: "widget.playing")
+                : DJConnectLocalization.localized(key: "widget.paused"),
+            systemImage: entry.isPlaying ? "play.fill" : "pause.fill"
+        )
+        .font(.caption.weight(.bold))
+        .textCase(.uppercase)
+        .foregroundStyle(.white.opacity(0.84))
+        .lineLimit(1)
+        .minimumScaleFactor(0.78)
+    }
+
     private func header(compact: Bool) -> some View {
         HStack(spacing: 6) {
             Image(systemName: entry.isPlaying ? "music.note" : "pause.fill")
@@ -306,6 +318,7 @@ struct DJConnectNowPlayingWidgetView: View {
 
 private struct DJConnectNowPlayingArtwork: View {
     let entry: DJConnectNowPlayingWidgetEntry
+    var allowsRemoteArtwork = true
 
     var body: some View {
         ZStack {
@@ -326,7 +339,7 @@ private struct DJConnectNowPlayingArtwork: View {
                 image
                     .resizable()
                     .scaledToFill()
-            } else if let artworkURL = entry.artworkURL {
+            } else if allowsRemoteArtwork, let artworkURL = entry.artworkURL {
                 AsyncImage(url: artworkURL) { phase in
                     if let image = phase.image {
                         image
@@ -352,13 +365,31 @@ private struct DJConnectNowPlayingArtworkFallback: View {
     let entry: DJConnectNowPlayingWidgetEntry
 
     var body: some View {
-        VStack(spacing: 6) {
-            Image(systemName: entry.isPlaying ? "music.note" : "music.note.list")
-                .font(.system(size: 26, weight: .bold))
-            Text("DJ")
-                .font(.caption.weight(.black))
+        ZStack {
+            LinearGradient(
+                colors: [
+                    Color(red: 0.14, green: 0.22, blue: 0.58),
+                    Color(red: 0.45, green: 0.20, blue: 0.76),
+                    Color(red: 0.18, green: 0.78, blue: 0.76)
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+            RadialGradient(
+                colors: [
+                    .white.opacity(0.22),
+                    .clear
+                ],
+                center: .topLeading,
+                startRadius: 2,
+                endRadius: 64
+            )
+            Image(systemName: entry.isPlaying ? "play.fill" : "pause.fill")
+                .font(.system(size: 30, weight: .black))
+                .foregroundStyle(.white.opacity(0.92))
+                .shadow(color: .black.opacity(0.25), radius: 8, x: 0, y: 4)
         }
-        .foregroundStyle(.white.opacity(0.82))
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
 
@@ -1428,7 +1459,8 @@ private struct DJConnectTrackInsightArtworkSpectrum: View {
         GeometryReader { geometry in
             let count = 18
             let spacing: CGFloat = 2
-            let barWidth = max(2, (geometry.size.width - CGFloat(count - 1) * spacing) / CGFloat(count))
+            let spectrumWidth = geometry.size.width * 0.86
+            let barWidth = max(2, (spectrumWidth - CGFloat(count - 1) * spacing) / CGFloat(count))
             HStack(alignment: .bottom, spacing: spacing) {
                 ForEach(0..<count, id: \.self) { index in
                     let value = spectrumValue(index: index, count: count)
@@ -1446,8 +1478,9 @@ private struct DJConnectTrackInsightArtworkSpectrum: View {
                         .frame(width: barWidth, height: max(4, geometry.size.height * value))
                 }
             }
+            .frame(width: spectrumWidth)
+            .frame(maxHeight: .infinity, alignment: .bottom)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
-            .mask(LinearGradient(colors: [.clear, .black, .black, .clear], startPoint: .leading, endPoint: .trailing))
         }
         .frame(height: 26)
         .allowsHitTesting(false)
@@ -1617,6 +1650,20 @@ struct DJConnectAskDJWidgetEntry: TimelineEntry {
             hasSnapshot: hasSnapshot
         )
     }
+
+    static func emptyForCurrentTrack(_ nowPlaying: DJConnectNowPlayingWidgetSnapshot) -> DJConnectAskDJWidgetEntry {
+        DJConnectAskDJWidgetEntry(
+            date: nowPlaying.updatedAt,
+            prompt: DJConnectLocalization.localized(key: "widget.ask.dj"),
+            response: DJConnectLocalization.localized(key: "widget.ask.dj.in.the.app.to.update.this.widget"),
+            mood: DJConnectLocalization.localized(key: "widget.private.on.device"),
+            trackTitle: nowPlaying.title.isEmpty ? DJConnectLocalization.localized(key: "widget.ask.dj") : nowPlaying.title,
+            artist: nowPlaying.artist.isEmpty ? DJConnectLocalization.localized(key: "widget.ready") : nowPlaying.artist,
+            artworkURL: nowPlaying.artworkURL,
+            artworkData: nowPlaying.artworkData,
+            hasSnapshot: false
+        )
+    }
 }
 
 struct DJConnectAskDJWidgetProvider: TimelineProvider {
@@ -1643,7 +1690,10 @@ struct DJConnectAskDJWidgetProvider: TimelineProvider {
             if let snapshot = DJConnectAskDJWidgetSnapshot.load(from: defaults) {
                 return DJConnectAskDJWidgetEntry(snapshot: snapshot, artworkURL: artworkURL, artworkData: artworkData)
             }
-            return DJConnectAskDJWidgetEntry.empty.withCurrentTrackArtwork(url: artworkURL, data: artworkData)
+            if let nowPlaying {
+                return DJConnectAskDJWidgetEntry.emptyForCurrentTrack(nowPlaying)
+            }
+            return .empty
         }
 #endif
         return .empty
@@ -1980,10 +2030,31 @@ struct DJConnectTrackInsightLiveActivityWidget: Widget {
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: TrackInsightLiveActivityAttributes.self) { context in
             DJConnectNowPlayingLiveActivityLockScreenView(state: context.state)
-                .activityBackgroundTint(Color(red: 0.02, green: 0.04, blue: 0.10))
+                .containerBackground(for: .widget) {
+                    DJConnectNowPlayingLiveActivityBackground(state: context.state)
+                }
+                .activityBackgroundTint(Color(red: 0.14, green: 0.12, blue: 0.34))
                 .activitySystemActionForegroundColor(.white)
         } dynamicIsland: { context in
             DynamicIsland {
+                DynamicIslandExpandedRegion(.leading) {
+                    DJConnectNowPlayingArtwork(entry: context.state.widgetEntry, allowsRemoteArtwork: false)
+                        .frame(width: 56, height: 56)
+                        .padding(.leading, 2)
+                        .background {
+                            DJConnectNowPlayingLiveActivityBackground(state: context.state)
+                                .frame(width: 112, height: 104)
+                                .offset(x: 38, y: 28)
+                        }
+                }
+                DynamicIslandExpandedRegion(.center) {
+                    DJConnectNowPlayingLiveActivityExpandedTitleView(state: context.state)
+                }
+                DynamicIslandExpandedRegion(.trailing) {
+                    DJConnectNowPlayingLiveActivityCompactPlaybackIcon(state: context.state)
+                        .font(.title3.weight(.black))
+                        .padding(.trailing, 4)
+                }
                 DynamicIslandExpandedRegion(.bottom) {
                     DJConnectNowPlayingLiveActivityExpandedIslandView(state: context.state)
                 }
@@ -2008,7 +2079,7 @@ private struct DJConnectNowPlayingLiveActivityLockScreenView: View {
     var body: some View {
         let entry = state.widgetEntry
         HStack(spacing: 14) {
-            DJConnectNowPlayingArtwork(entry: entry)
+            DJConnectNowPlayingArtwork(entry: entry, allowsRemoteArtwork: false)
                 .frame(width: 72, height: 72)
             VStack(alignment: .leading, spacing: 6) {
                 Label(DJConnectLocalization.localized(key: "widget.now.playing"), systemImage: state.isPlaying ? "music.note" : "pause.fill")
@@ -2031,7 +2102,7 @@ private struct DJConnectNowPlayingLiveActivityLockScreenView: View {
         }
         .padding(16)
         .background {
-            DJConnectNowPlayingWidgetBackground(entry: entry)
+            DJConnectNowPlayingLiveActivityBackground(state: state)
         }
     }
 }
@@ -2041,41 +2112,53 @@ private struct DJConnectNowPlayingLiveActivityExpandedIslandView: View {
     let state: TrackInsightLiveActivityAttributes.ContentState
 
     var body: some View {
-        let entry = state.widgetEntry
-        ZStack {
-            DJConnectLiveActivityGradient()
-            HStack(spacing: 12) {
-                DJConnectNowPlayingArtwork(entry: entry)
-                    .frame(width: 72, height: 72)
-                VStack(alignment: .leading, spacing: 7) {
-                    Label(DJConnectLocalization.localized(key: "widget.now.playing"), systemImage: state.isPlaying ? "music.note" : "pause.fill")
-                        .font(.caption2.weight(.bold))
-                        .foregroundStyle(.white.opacity(0.84))
-                        .textCase(.uppercase)
-                        .lineLimit(1)
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(state.title)
-                            .font(.headline.weight(.bold))
-                            .foregroundStyle(.white)
-                            .lineLimit(1)
-                        Text(state.artist)
-                            .font(.caption.weight(.semibold))
-                            .foregroundStyle(.white.opacity(0.72))
-                            .lineLimit(1)
-                    }
-                    DJConnectNowPlayingProgressBar(progress: state.progress)
-                        .frame(height: 6)
-                    DJConnectNowPlayingLiveActivityDescriptorRow(state: state)
-                }
-                Spacer(minLength: 0)
-            }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 12)
+        VStack(alignment: .leading, spacing: 7) {
+            DJConnectNowPlayingProgressBar(progress: state.progress)
+                .frame(height: 6)
+            DJConnectNowPlayingLiveActivityDescriptorRow(state: state)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background {
+            Color.white.opacity(0.10)
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .stroke(.white.opacity(0.16), lineWidth: 1)
+        }
+    }
+}
+
+@available(iOS 16.1, *)
+private struct DJConnectNowPlayingLiveActivityExpandedTitleView: View {
+    let state: TrackInsightLiveActivityAttributes.ContentState
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Label(DJConnectLocalization.localized(key: "widget.now.playing"), systemImage: state.isPlaying ? "music.note" : "pause.fill")
+                .font(.caption2.weight(.bold))
+                .foregroundStyle(.white.opacity(0.78))
+                .textCase(.uppercase)
+                .lineLimit(1)
+            Text(state.title)
+                .font(.headline.weight(.bold))
+                .foregroundStyle(.white)
+                .lineLimit(1)
+                .minimumScaleFactor(0.76)
+            Text(state.artist)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.white.opacity(0.68))
+                .lineLimit(1)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .clipShape(RoundedRectangle(cornerRadius: 32, style: .continuous))
-        .padding(.horizontal, -12)
-        .padding(.vertical, -8)
+        .padding(.vertical, 4)
+        .background {
+            DJConnectNowPlayingLiveActivityBackground(state: state)
+                .frame(width: 260, height: 112)
+                .offset(x: -4, y: 34)
+        }
     }
 }
 
@@ -2260,16 +2343,51 @@ private struct DJConnectLiveActivityGradient: View {
 @available(iOS 16.1, *)
 private extension TrackInsightLiveActivityAttributes.ContentState {
     var widgetEntry: DJConnectNowPlayingWidgetEntry {
-        DJConnectNowPlayingWidgetEntry(
+        let cachedSnapshot = matchingNowPlayingSnapshot
+        return DJConnectNowPlayingWidgetEntry(
             date: Date(),
             title: title,
             artist: artist,
-            artworkURL: nil,
+            artworkURL: cachedSnapshot?.artworkURL ?? artworkURL,
+            artworkData: cachedSnapshot?.artworkData,
             progress: progress,
             isPlaying: isPlaying,
             deviceName: deviceName ?? "DJConnect",
             hasSnapshot: true
         )
+    }
+
+    private var matchingNowPlayingSnapshot: DJConnectNowPlayingWidgetSnapshot? {
+        guard let defaults = UserDefaults(suiteName: DJConnectTrackInsightWidgetSnapshot.appGroupIdentifier),
+              let snapshot = DJConnectNowPlayingWidgetSnapshot.load(from: defaults),
+              Self.matchesNowPlayingSnapshot(snapshot, title: title, artist: artist, artworkURL: artworkURL) else {
+            return nil
+        }
+        return snapshot
+    }
+
+    private static func matchesNowPlayingSnapshot(_ snapshot: DJConnectNowPlayingWidgetSnapshot, title: String, artist: String, artworkURL: URL?) -> Bool {
+        if let artworkURL,
+           snapshot.artworkURL == artworkURL {
+            return true
+        }
+
+        let snapshotTitle = normalizedTrackIdentity(snapshot.title)
+        let stateTitle = normalizedTrackIdentity(title)
+        guard !snapshotTitle.isEmpty,
+              snapshotTitle == stateTitle else {
+            return false
+        }
+
+        let snapshotArtist = normalizedTrackIdentity(snapshot.artist)
+        let stateArtist = normalizedTrackIdentity(artist)
+        return snapshotArtist.isEmpty || stateArtist.isEmpty || snapshotArtist == stateArtist
+    }
+
+    private static func normalizedTrackIdentity(_ value: String?) -> String {
+        value?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .folding(options: [.diacriticInsensitive, .caseInsensitive], locale: .current) ?? ""
     }
 
     var compactProgress: String {
