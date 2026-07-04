@@ -2859,13 +2859,20 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
 }
 
 @Test func vibeCastResponseDecodesEmojiOnlyBubbleSegments() throws {
+    let single = try JSONDecoder().decode(
+        DJConnectVibeCastResponse.self,
+        from: Data(#"{"enabled":true,"items":[{"id":"single-emoji","kind":"mood_note","text":[{"type":"emoji","value":"🎧 "}]}]}"#.utf8)
+    )
+    #expect(single.items.first?.text.map(\.type) == [.emoji])
+    #expect(single.items.first?.plainText == "🎧 ")
+
     let response = try JSONDecoder().decode(
         DJConnectVibeCastResponse.self,
-        from: Data(#"{"enabled":true,"items":[{"id":"emoji","kind":"mood_note","text":[{"type":"emoji","value":"✨ "},{"type":"emoji","value":"🎧 "},{"type":"emoji","value":"♪ ♫ "}]}]}"#.utf8)
+        from: Data(#"{"enabled":true,"items":[{"id":"emoji","kind":"mood_note","text":[{"type":"emoji","value":"♪ ♫ "},{"type":"emoji","value":"✨ "},{"type":"emoji","value":"🎧 "}]}]}"#.utf8)
     )
 
     #expect(response.items.first?.text.map(\.type) == [.emoji, .emoji, .emoji])
-    #expect(response.items.first?.plainText == "✨ 🎧 ♪ ♫ ")
+    #expect(response.items.first?.plainText == "♪ ♫ ✨ 🎧 ")
 }
 
 @Test func vibeCastResponseStillDecodesLegacyStructuredTextWithoutEmoji() throws {
@@ -2922,11 +2929,12 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     #expect(macRequest.value(forHTTPHeaderField: "X-DJConnect-Locale") == "nl-NL")
     #expect(iosRequest.value(forHTTPHeaderField: "X-DJConnect-Render-Capabilities") == macRequest.value(forHTTPHeaderField: "X-DJConnect-Render-Capabilities"))
     #expect(iosRequest.value(forHTTPHeaderField: "X-DJConnect-Render-Capabilities")?.split(separator: ",").contains("emoji") == true)
-    #expect(iosRequest.value(forHTTPHeaderField: "X-DJConnect-Render-Capabilities")?.contains("emoji_safe") == true)
+    #expect(iosRequest.value(forHTTPHeaderField: "X-DJConnect-Render-Capabilities")?.split(separator: ",").contains("emoji_safe") == true)
     #expect(iosQuery.first(where: { $0.name == "client_type" })?.value == "ios")
     #expect(macQuery.first(where: { $0.name == "client_type" })?.value == "macos")
     #expect(iosQuery.first(where: { $0.name == "capabilities" })?.value == macQuery.first(where: { $0.name == "capabilities" })?.value)
     #expect(iosQuery.first(where: { $0.name == "capabilities" })?.value?.split(separator: ",").contains("emoji") == true)
+    #expect(iosQuery.first(where: { $0.name == "capabilities" })?.value?.split(separator: ",").contains("emoji_safe") == true)
     #expect(iosQuery.first(where: { $0.name == "locale" })?.value == macQuery.first(where: { $0.name == "locale" })?.value)
     #expect(iosQuery.first(where: { $0.name == "timezone" })?.value == macQuery.first(where: { $0.name == "timezone" })?.value)
 }
