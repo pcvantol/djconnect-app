@@ -122,6 +122,7 @@ private enum DJConnectRootSheet: String, Identifiable {
     case wakeWordActivationPrompt
     case feedback
     case permissionExplanation
+    case musicDNAOptIn
 
     var id: String { rawValue }
 }
@@ -616,7 +617,7 @@ public struct DJConnectRootView: View {
                             title: localizedKey(model.language, "ui.discover"),
                             systemImage: "sparkles",
                             isSelected: selectedSection == .discovery
-                        ) { selectedSection = .discovery }
+                        ) { selectDiscovery() }
                         SidebarItem(
                             title: "Music DNA",
                             systemImage: "heart",
@@ -813,7 +814,11 @@ public struct DJConnectRootView: View {
                 isMoreSectionSelected ? .more : selectedSection
             },
             set: { newValue in
-                selectedSection = newValue
+                if newValue == .discovery {
+                    selectDiscovery()
+                } else {
+                    selectedSection = newValue
+                }
             }
         )
     }
@@ -891,7 +896,7 @@ public struct DJConnectRootView: View {
                     title: localizedKey(model.language, "ui.discover"),
                     systemImage: "sparkles",
                     isSelected: selectedSection == .discovery
-                ) { selectedSection = .discovery }
+                ) { selectDiscovery() }
                 DJConnectTopTabButton(
                     title: localizedKey(model.language, "ui.more"),
                     systemImage: "ellipsis",
@@ -962,6 +967,9 @@ public struct DJConnectRootView: View {
         if model.isShowingPermissionExplanation {
             return .permissionExplanation
         }
+        if model.isShowingMusicDNAOptInPrompt {
+            return .musicDNAOptIn
+        }
         return nil
     }
 
@@ -1014,6 +1022,17 @@ public struct DJConnectRootView: View {
                 .accentColor(djConnectAccent)
         case .permissionExplanation:
             PermissionExplanationView(model: model)
+        case .musicDNAOptIn:
+            MusicDNAOptInPromptView(model: model)
+                .tint(djConnectAccent)
+                .accentColor(djConnectAccent)
+                #if os(iOS)
+                .presentationDetents([.large])
+                .presentationSizing(.page)
+                #endif
+                .presentationBackground {
+                    DJConnectCanvasBackground()
+                }
         }
     }
 
@@ -1035,7 +1054,14 @@ public struct DJConnectRootView: View {
             showingFeedback = false
         case .permissionExplanation:
             model.cancelPermissionExplanation()
+        case .musicDNAOptIn:
+            model.dismissMusicDNAOptInPrompt()
         }
+    }
+
+    private func selectDiscovery() {
+        selectedSection = .discovery
+        model.showMusicDNAOptInPrompt()
     }
 
     @ViewBuilder
@@ -3742,9 +3768,6 @@ private struct MusicDNAView: View {
             await model.refreshMusicDNAProfile()
             model.presentMusicDNAOptInPromptIfNeeded()
         }
-        .sheet(isPresented: $model.isShowingMusicDNAOptInPrompt) {
-            MusicDNAOptInPromptView(model: model)
-        }
         .onChange(of: model.musicDNAToast?.id) { _, _ in
             guard let toast = model.musicDNAToast else {
                 return
@@ -4511,6 +4534,8 @@ private extension String {
     }
 }
 
+private let musicDNADashboardPanelMinHeight: CGFloat = 220
+
 private struct MusicDNAPanel: View {
     let title: String
     let value: String
@@ -4518,20 +4543,15 @@ private struct MusicDNAPanel: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Image(systemName: icon)
-                .font(.title3.weight(.semibold))
-                .foregroundStyle(djConnectAccent)
-            Text(title)
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(.white.opacity(0.58))
-                .fixedSize(horizontal: false, vertical: true)
+            MusicDNACompactPanelHeader(title: title, icon: icon)
             Text(value.isEmpty ? "-" : value)
                 .font(.headline.weight(.semibold))
                 .foregroundStyle(.white)
                 .fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: 0)
         }
         .padding(18)
-        .frame(maxWidth: .infinity, minHeight: 132, alignment: .topLeading)
+        .frame(maxWidth: .infinity, minHeight: musicDNADashboardPanelMinHeight, alignment: .topLeading)
         .background(.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
         .overlay {
             RoundedRectangle(cornerRadius: 8, style: .continuous)
@@ -4546,24 +4566,17 @@ private struct MusicDNATrackListPanel: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 8) {
-                Image(systemName: "heart.fill")
-                    .font(.title3.weight(.semibold))
-                    .foregroundStyle(djConnectAccent)
-                Text(title)
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.white.opacity(0.58))
-                    .fixedSize(horizontal: false, vertical: true)
-            }
+            MusicDNACompactPanelHeader(title: title, icon: "heart.fill")
 
             VStack(spacing: 10) {
                 ForEach(Array(tracks.prefix(3).enumerated()), id: \.offset) { _, track in
                     MusicDNATrackListRow(track: track)
                 }
             }
+            Spacer(minLength: 0)
         }
         .padding(18)
-        .frame(maxWidth: .infinity, minHeight: 132, alignment: .topLeading)
+        .frame(maxWidth: .infinity, minHeight: musicDNADashboardPanelMinHeight, alignment: .topLeading)
         .background(.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
         .overlay {
             RoundedRectangle(cornerRadius: 8, style: .continuous)
@@ -4619,6 +4632,7 @@ private struct MusicDNAListeningRhythmPanel: View {
                     }
                 )
             }
+            Spacer(minLength: 0)
         }
         .musicDNADashboardPanel()
         .accessibilityIdentifier("musicDNAListeningRhythmSection")
@@ -4667,6 +4681,7 @@ private struct MusicDNAMoodMixPanel: View {
                     )
                 }
             )
+            Spacer(minLength: 0)
         }
         .musicDNADashboardPanel()
         .accessibilityIdentifier("musicDNAMoodMixSection")
@@ -4714,6 +4729,7 @@ private struct MusicDNAPlaytimePanel: View {
             if !visibleAlbums.isEmpty {
                 MusicDNAPlaytimeRanking(title: topAlbumsTitle, items: visibleAlbums)
             }
+            Spacer(minLength: 0)
         }
         .musicDNADashboardPanel()
         .accessibilityIdentifier("musicDNAPlaytimeSection")
@@ -4736,6 +4752,7 @@ private struct MusicDNARepeatMagnetsPanel: View {
                     )
                 }
             }
+            Spacer(minLength: 0)
         }
         .musicDNADashboardPanel()
         .accessibilityIdentifier("musicDNARepeatMagnetsSection")
@@ -4784,6 +4801,7 @@ private struct MusicDNAExplicitPositivesPanel: View {
                     }
                 }
             }
+            Spacer(minLength: 0)
         }
         .musicDNADashboardPanel()
         .accessibilityIdentifier("musicDNAExplicitPositivesSection")
@@ -4821,6 +4839,7 @@ private struct MusicDNATasteAnchorsPanel: View {
                     items: genreItems.map { MusicDNAChipItem(label: $0.name, detail: nil) }
                 )
             }
+            Spacer(minLength: 0)
         }
         .musicDNADashboardPanel()
         .accessibilityIdentifier("musicDNATasteAnchorsSection")
@@ -5021,7 +5040,7 @@ private struct MusicDNADashboardPanelModifier: ViewModifier {
     func body(content: Content) -> some View {
         content
             .padding(18)
-            .frame(maxWidth: .infinity, minHeight: 132, alignment: .topLeading)
+            .frame(maxWidth: .infinity, minHeight: musicDNADashboardPanelMinHeight, alignment: .topLeading)
             .background(.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
             .overlay {
                 RoundedRectangle(cornerRadius: 8, style: .continuous)
@@ -5167,27 +5186,45 @@ private struct MusicDiscoveryView: View {
     }
 
     private var header: some View {
-        HStack(alignment: .center, spacing: 12) {
+        VStack(spacing: 18) {
             Image(systemName: "sparkles")
-                .font(.title2.weight(.semibold))
-                .foregroundStyle(djConnectAccent)
-                .frame(width: 34, height: 34)
-                .background(.white.opacity(0.10), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-            VStack(alignment: .leading, spacing: 3) {
-                Text(localizedKey(model.language, "ui.discover"))
-                    .font(.title2.weight(.bold))
-                    .foregroundStyle(.white)
-                if let response = model.musicDiscoveryResponse, response.enabled, let revision = response.revision {
-                    Text("Revision \(revision)")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(.white.opacity(0.58))
-                }
-            }
-            Spacer()
+                .font(.system(size: 58, weight: .semibold))
+                .foregroundStyle(djConnectIconGradient)
+                .frame(width: 96, height: 96)
+
+            Text(localizedKey(model.language, "ui.discover"))
+                .font(.title.bold())
+                .foregroundStyle(.white)
+
+            Text(localizedKey(model.language, "ui.learn.from.your.taste.and.listening.behavior.to.shape.recommendations"))
+                .font(.title3.weight(.semibold))
+                .foregroundStyle(.white.opacity(0.66))
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+
             if model.isRefreshingMusicDiscovery {
                 ProgressView()
                     .tint(.white)
             }
+        }
+        .padding(.horizontal, 28)
+        .padding(.vertical, 34)
+        .frame(maxWidth: .infinity)
+        .background(
+            LinearGradient(
+                colors: [
+                    Color(red: 0.04, green: 0.03, blue: 0.13).opacity(0.98),
+                    Color(red: 0.10, green: 0.04, blue: 0.22).opacity(0.97),
+                    Color(red: 0.11, green: 0.06, blue: 0.26).opacity(0.94)
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            ),
+            in: RoundedRectangle(cornerRadius: 8, style: .continuous)
+        )
+        .overlay {
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .stroke(.white.opacity(0.16), lineWidth: 1.5)
         }
     }
 }
@@ -5479,20 +5516,64 @@ private struct MusicDiscoveryLockedState: View {
     @ObservedObject var model: DJConnectAppModel
 
     var body: some View {
-        DJConnectStatusCard(
-            title: localizedKey(model.language, "ui.music.dna.is.not.enabled"),
-            message: localizedKey(model.language, "ui.enable.music.dna.to.get.recommendations.tailored.to.your.listening"),
-            systemImage: "lock.fill",
-            tint: djConnectAccent
-        ) {
+        VStack(alignment: .leading, spacing: 20) {
+            ViewThatFits(in: .horizontal) {
+                HStack(alignment: .firstTextBaseline, spacing: 12) {
+                    lockIcon
+                    title
+                }
+                VStack(alignment: .leading, spacing: 14) {
+                    lockIcon
+                    title
+                }
+            }
+
+            Text(localizedKey(model.language, "ui.enable.music.dna.to.get.recommendations.tailored.to.your.listening"))
+                .font(.title3.weight(.semibold))
+                .foregroundStyle(.white.opacity(0.72))
+                .fixedSize(horizontal: false, vertical: true)
+
             Button {
                 model.showMusicDNAOptInPrompt()
             } label: {
-                Text(localizedKey(model.language, "ui.enable.music.dna.1adf61"))
+                Label(localizedKey(model.language, "ui.enable.music.dna.1adf61"), systemImage: "sparkles")
                     .frame(maxWidth: .infinity)
             }
             .buttonStyle(DJConnectLilacPillButtonStyle())
         }
+        .padding(.horizontal, 32)
+        .padding(.vertical, 28)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            LinearGradient(
+                colors: [
+                    Color(red: 0.05, green: 0.03, blue: 0.13).opacity(0.98),
+                    Color(red: 0.12, green: 0.06, blue: 0.24).opacity(0.96),
+                    Color(red: 0.11, green: 0.15, blue: 0.33).opacity(0.92)
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            ),
+            in: RoundedRectangle(cornerRadius: 8, style: .continuous)
+        )
+        .overlay {
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .stroke(.white.opacity(0.16), lineWidth: 1.5)
+        }
+        .shadow(color: djConnectButtonPurple.opacity(0.18), radius: 18, y: 10)
+    }
+
+    private var lockIcon: some View {
+        Image(systemName: "lock.fill")
+            .font(.title2.weight(.semibold))
+            .foregroundStyle(djConnectIconGradient)
+            .frame(width: 30, alignment: .leading)
+    }
+
+    private var title: some View {
+        Text(localizedKey(model.language, "ui.music.dna.is.not.enabled"))
+            .font(.title3.weight(.bold))
+            .foregroundStyle(.white)
     }
 }
 
@@ -5627,6 +5708,8 @@ private struct MusicDNAMetricPanel: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
+            MusicDNACompactPanelHeader(title: metric.title, icon: metric.icon)
+
             HStack(alignment: .center, spacing: 16) {
                 metricRing(
                     percent: metric.percent,
@@ -5637,10 +5720,6 @@ private struct MusicDNAMetricPanel: View {
                 )
 
                 VStack(alignment: .leading, spacing: 5) {
-                    Text(metric.title)
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(.white.opacity(0.58))
-                        .fixedSize(horizontal: false, vertical: true)
                     Text(metric.headline)
                         .font(.headline.weight(.semibold))
                         .foregroundStyle(.white)
@@ -5676,9 +5755,10 @@ private struct MusicDNAMetricPanel: View {
                     }
                 }
             }
+            Spacer(minLength: 0)
         }
         .padding(18)
-        .frame(maxWidth: .infinity, minHeight: 172, alignment: .topLeading)
+        .frame(maxWidth: .infinity, minHeight: musicDNADashboardPanelMinHeight, alignment: .topLeading)
         .background(.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
         .overlay {
             RoundedRectangle(cornerRadius: 8, style: .continuous)
@@ -9778,9 +9858,6 @@ private struct AskDJView: View {
                 .presentationDetents([.large])
                 .presentationSizing(.page)
             #endif
-        }
-        .sheet(isPresented: $model.isShowingMusicDNAOptInPrompt) {
-            MusicDNAOptInPromptView(model: model)
         }
         .onChange(of: model.askDJToast?.id) { _, _ in
             guard let text = model.askDJToast?.text else {
@@ -14796,9 +14873,6 @@ struct SettingsView: View {
             #if os(macOS)
             .djConnectMacDetailContent()
             #endif
-        }
-        .sheet(isPresented: $model.isShowingMusicDNAOptInPrompt) {
-            MusicDNAOptInPromptView(model: model)
         }
         .background(DJConnectCanvasBackground())
     }

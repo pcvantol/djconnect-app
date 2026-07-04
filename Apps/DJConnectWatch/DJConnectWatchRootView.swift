@@ -317,6 +317,9 @@ struct DJConnectWatchRootView: View {
 
                     NavigationLink {
                         DJConnectWatchMusicDNAView()
+                            .onAppear {
+                                model.showMusicDNAOptInPrompt()
+                            }
                     } label: {
                         Label("Music DNA", systemImage: "heart")
                             .font(.footnote.weight(.semibold))
