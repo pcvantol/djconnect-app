@@ -726,7 +726,7 @@ public final class DJConnectAppModel: ObservableObject {
     private let startBackgroundTasks: Bool
     private let monkeyTestingMode: Bool
     private let diagnosticLogFileURL: URL?
-    nonisolated private static let protocolVersion = "3.2.14"
+    nonisolated private static let protocolVersion = "3.2.15"
     private static let defaultHomeAssistantURL = "http://homeassistant.local:8123"
     private let appVersion = DJConnectAppModel.protocolVersion
     private let installIDKey = "DJConnectInstallID"
@@ -6410,7 +6410,7 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     private static var apsEnvironmentEntitlement: String? {
-        #if canImport(Security)
+        #if os(macOS) && canImport(Security)
         guard let task = SecTaskCreateFromSelf(nil),
               let value = SecTaskCopyValueForEntitlement(task, "aps-environment" as CFString, nil) else {
             return nil

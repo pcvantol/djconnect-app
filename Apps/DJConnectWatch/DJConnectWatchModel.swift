@@ -3522,7 +3522,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
     }
 
     private static var apsEnvironmentEntitlement: String? {
-        #if canImport(Security)
+        #if os(macOS) && canImport(Security)
         guard let task = SecTaskCreateFromSelf(nil),
               let value = SecTaskCopyValueForEntitlement(task, "aps-environment" as CFString, nil) else {
             return nil

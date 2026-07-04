@@ -4,6 +4,8 @@ All notable changes to DJConnect App are documented here.
 
 ## Unreleased
 
+## 3.2.15 - 2026-07-04
+
 ### Added
 
 - Added Ontdek / Discover as a first-class iOS/macOS Music Discovery page backed
@@ -15,6 +17,13 @@ All notable changes to DJConnect App are documented here.
 
 - Moved Queue into More on compact iOS navigation so Discover can sit directly
   after Track Insight in the main tab set.
+
+### Fixed
+
+- Fixed iOS/watchOS release builds by keeping APNs entitlement lookup on
+  platforms where the Security task API is available.
+- Fixed watchOS Music DNA rendering for backend responses that omit optional
+  profile lists.
 
 ## 3.2.14 - 2026-07-04
 

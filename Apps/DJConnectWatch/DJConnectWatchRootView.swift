@@ -1420,11 +1420,11 @@ struct DJConnectWatchRootView: View {
                     }
                 }
                 LazyVStack(spacing: 8) {
-                    metricPanel(title: watchLocalizedKey(model.language, "watch.genres"), value: names(profile.favoriteGenres), icon: "music.note.list")
-                    metricPanel(title: watchLocalizedKey(model.language, "watch.artists"), value: names(profile.favoriteArtists), icon: "person.2")
+                    metricPanel(title: watchLocalizedKey(model.language, "watch.genres"), value: names(profile.favoriteGenres ?? []), icon: "music.note.list")
+                    metricPanel(title: watchLocalizedKey(model.language, "watch.artists"), value: names(profile.favoriteArtists ?? []), icon: "person.2")
                     metricPanel(title: watchLocalizedKey(model.language, "watch.mood"), value: mood(profile.mood), icon: "sparkles")
-                    metricPanel(title: watchLocalizedKey(model.language, "watch.recent"), value: tracks(profile.recentTracks), icon: "clock.arrow.circlepath")
-                    metricPanel(title: watchLocalizedKey(model.language, "watch.signals"), value: signals(profile.recommendationSignals), icon: "slider.horizontal.3")
+                    metricPanel(title: watchLocalizedKey(model.language, "watch.recent"), value: tracks(profile.recentTracks ?? []), icon: "clock.arrow.circlepath")
+                    metricPanel(title: watchLocalizedKey(model.language, "watch.signals"), value: signals(profile.recommendationSignals ?? []), icon: "slider.horizontal.3")
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
