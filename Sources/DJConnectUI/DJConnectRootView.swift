@@ -268,7 +268,11 @@ private extension View {
 
     @ViewBuilder
     func djMusicDNASettingsListRow() -> some View {
-        self.djCompactSettingsListRow()
+        #if os(macOS)
+        self.listRowInsets(EdgeInsets(top: 14, leading: 0, bottom: 14, trailing: 0))
+        #else
+        self
+        #endif
     }
 }
 
@@ -2797,7 +2801,7 @@ private struct WhatsNewMarkdownBody: View {
     let clientType: DJConnectClientType
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 14) {
             ForEach(Array(blocks.enumerated()), id: \.offset) { _, block in
                 switch block {
                 case let .heading(value):
@@ -3471,7 +3475,7 @@ private struct TrackInsightView: View {
                                     .frame(maxWidth: .infinity, alignment: .topLeading)
                                 TrackInsightAnalysisCard(insight: insight, language: model.language)
                                     .frame(maxWidth: .infinity, alignment: .topLeading)
-                                TrackInsightMetricsGrid(insight: insight, language: model.language)
+                                TrackInsightMetricsGrid(insight: insight, language: model.language, moodStepIndex: model.askDJMoodStepIndex)
                                     .frame(maxWidth: .infinity, alignment: .topLeading)
                                 TrackInsightPrivacyFooter(language: model.language)
                                     .frame(maxWidth: .infinity, alignment: .top)
@@ -4034,10 +4038,10 @@ private struct MusicDNASectionGrid: View {
                 MusicDNAPanel(title: localizedKey(model.language, "ui.favorite.artists"), value: names(favoriteArtists), icon: "person.wave.2")
             }
             if let moodMetric {
-                MusicDNAMetricPanel(metric: moodMetric)
+                MusicDNAMetricPanel(metric: moodMetric, moodStepIndex: model.askDJMoodStepIndex)
             }
             if let energyMetrics {
-                MusicDNAMetricPanel(metric: energyMetrics)
+                MusicDNAMetricPanel(metric: energyMetrics, moodStepIndex: model.askDJMoodStepIndex)
             }
             if let listeningRhythm = profile.listeningRhythm, listeningRhythm.isDisplayable {
                 MusicDNAListeningRhythmPanel(
@@ -5249,7 +5253,7 @@ private struct MusicDiscoveryView: View {
             )
         } else if shouldShowMusicDNALockedState {
             MusicDiscoveryLockedState(model: model)
-        } else if visibleSections.isEmpty, model.musicDiscoveryResponse?.enabled == true {
+        } else if model.musicDiscoveryResponse == nil || visibleSections.isEmpty {
             MusicDiscoveryEmptyState(model: model)
         } else {
             LazyVStack(alignment: .leading, spacing: 22) {
@@ -5668,21 +5672,27 @@ private struct MusicDiscoveryEmptyState: View {
     @ObservedObject var model: DJConnectAppModel
 
     var body: some View {
-        DJConnectStatusCard(
-            title: localizedKey(model.language, "ui.no.discovery.recommendations"),
-            message: localizedKey(model.language, "ui.discovery.recommendations.will.appear.after.music.dna.has.more.signals"),
-            systemImage: "wand.and.stars",
-            tint: djConnectAccent
-        ) {
+        VStack(spacing: 14) {
+            Text(localizedKey(model.language, "ui.no.discovery.recommendations.available.currently"))
+                .font(.callout.weight(.semibold))
+                .foregroundStyle(.white.opacity(0.48))
+                .multilineTextAlignment(.center)
+                .frame(maxWidth: .infinity)
+
             Button {
                 Task { await model.refreshMusicDiscovery() }
             } label: {
-                Text(localizedKey(model.language, "ui.refresh.discover"))
+                Label(
+                    localizedKey(model.language, "ui.refresh.discover"),
+                    systemImage: "arrow.clockwise"
+                )
                     .frame(maxWidth: .infinity)
             }
             .buttonStyle(DJConnectLilacPillButtonStyle())
             .disabled(model.isRefreshingMusicDiscovery)
         }
+        .padding(.vertical, 18)
+        .frame(maxWidth: .infinity)
     }
 }
 
@@ -5792,53 +5802,41 @@ private struct MusicDNAMetricPanel: View {
     }
 
     let metric: Metric
+    let moodStepIndex: Int
+
+    private var moodPalette: MusicDNAHelixMoodPalette {
+        MusicDNAHelixMoodPalette(stepIndex: moodStepIndex)
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             MusicDNACompactPanelHeader(title: metric.title, icon: metric.icon)
 
-            HStack(alignment: .center, spacing: 16) {
-                metricRing(
-                    percent: metric.percent,
-                    size: 118,
-                    lineWidth: 13,
-                    percentFont: .title3.weight(.bold)
-                )
+            if metric.secondaryMetrics.isEmpty {
+                HStack(alignment: .center, spacing: 16) {
+                    metricRing(
+                        percent: metric.percent,
+                        size: 118,
+                        lineWidth: 13,
+                        percentFont: .title3.weight(.bold)
+                    )
 
-                VStack(alignment: .leading, spacing: 5) {
-                    Text(metric.headline)
-                        .font(.headline.weight(.semibold))
-                        .foregroundStyle(.white)
-                        .fixedSize(horizontal: false, vertical: true)
-                    if let subtitle = metric.subtitle?.trimmingCharacters(in: .whitespacesAndNewlines), !subtitle.isEmpty {
-                        Text(subtitle)
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(.white.opacity(0.66))
+                    VStack(alignment: .leading, spacing: 5) {
+                        Text(metric.headline)
+                            .font(.headline.weight(.semibold))
+                            .foregroundStyle(.white)
                             .fixedSize(horizontal: false, vertical: true)
-                    }
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-            }
-
-            if !metric.secondaryMetrics.isEmpty {
-                HStack(spacing: 10) {
-                    ForEach(metric.secondaryMetrics, id: \.title) { secondary in
-                        VStack(spacing: 6) {
-                            metricRing(
-                                percent: secondary.percent,
-                                size: 62,
-                                lineWidth: 7,
-                                percentFont: .caption.weight(.bold)
-                            )
-                            Text(secondary.title)
-                                .font(.caption2.weight(.semibold))
-                                .foregroundStyle(.white.opacity(0.62))
-                                .lineLimit(1)
-                                .minimumScaleFactor(0.78)
+                        if let subtitle = metric.subtitle?.trimmingCharacters(in: .whitespacesAndNewlines), !subtitle.isEmpty {
+                            Text(subtitle)
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundStyle(.white.opacity(0.66))
+                                .fixedSize(horizontal: false, vertical: true)
                         }
-                        .frame(maxWidth: .infinity)
                     }
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
+            } else {
+                equalMetricsRow
             }
             Spacer(minLength: 0)
         }
@@ -5857,6 +5855,62 @@ private struct MusicDNAMetricPanel: View {
         }
     }
 
+    private var equalMetricsRow: some View {
+        GeometryReader { proxy in
+            let ringSize = min(118, max(72, (proxy.size.width - 24) / 3))
+            HStack(alignment: .top, spacing: 12) {
+                metricTile(
+                    title: metric.headline,
+                    subtitle: metric.subtitle,
+                    percent: metric.percent,
+                    ringSize: ringSize
+                )
+                ForEach(metric.secondaryMetrics.prefix(2), id: \.title) { secondary in
+                    metricTile(
+                        title: secondary.title,
+                        subtitle: nil,
+                        percent: secondary.percent,
+                        ringSize: ringSize
+                    )
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .top)
+        }
+        .frame(height: 164)
+    }
+
+    private func metricTile(
+        title: String,
+        subtitle: String?,
+        percent: Int,
+        ringSize: CGFloat
+    ) -> some View {
+        VStack(spacing: 8) {
+            metricRing(
+                percent: percent,
+                size: ringSize,
+                lineWidth: max(8, ringSize * 0.10),
+                percentFont: .headline.weight(.bold)
+            )
+            VStack(spacing: 3) {
+                Text(title)
+                    .font(.subheadline.weight(.bold))
+                    .foregroundStyle(.white)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.72)
+                if let subtitle = subtitle?.trimmingCharacters(in: .whitespacesAndNewlines), !subtitle.isEmpty {
+                    Text(subtitle)
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.white.opacity(0.66))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.72)
+                }
+            }
+            .multilineTextAlignment(.center)
+        }
+        .frame(maxWidth: .infinity)
+    }
+
     private func metricRing(
         percent: Int,
         size: CGFloat,
@@ -5864,15 +5918,8 @@ private struct MusicDNAMetricPanel: View {
         percentFont: Font
     ) -> some View {
         let normalizedValue = min(1, max(0, Double(percent) / 100))
-        let ringGradient = AngularGradient(
-            colors: [
-                Color(red: 0.30, green: 0.63, blue: 1.0),
-                Color(red: 0.82, green: 0.28, blue: 1.0),
-                Color(red: 0.23, green: 0.91, blue: 0.84),
-                Color(red: 0.30, green: 0.63, blue: 1.0)
-            ],
-            center: .center
-        )
+        let ringGradient = moodRingGradient(moodPalette.colors)
+        let glowColor = moodPalette.colors[safe: 1] ?? djConnectAccent
         return ZStack {
             Circle()
                 .stroke(.white.opacity(0.16), lineWidth: lineWidth)
@@ -5884,7 +5931,7 @@ private struct MusicDNAMetricPanel: View {
                 )
                 .rotationEffect(.degrees(-90))
                 .shadow(
-                    color: djConnectAccent.opacity(reduceMotion ? 0.18 : (ringGlowIsActive ? 0.54 : 0.22)),
+                    color: glowColor.opacity(reduceMotion ? 0.18 : (ringGlowIsActive ? 0.56 : 0.24)),
                     radius: reduceMotion ? 4 : (ringGlowIsActive ? 22 : 8),
                     x: 0,
                     y: 0
@@ -6015,6 +6062,22 @@ private func interpolatedMusicDNAHelixColor(colors: [Color], progress: CGFloat) 
     return blendMusicDNAHelixColors(colors[lowerIndex], colors[upperIndex], fraction: fraction)
 }
 
+private func moodRingGradient(_ colors: [Color]) -> AngularGradient {
+    let primary = colors[safe: 0] ?? Color(red: 0.30, green: 0.63, blue: 1.0)
+    let secondary = colors[safe: 1] ?? Color(red: 0.82, green: 0.28, blue: 1.0)
+    let tertiary = colors[safe: 2] ?? Color(red: 0.23, green: 0.91, blue: 0.84)
+    return AngularGradient(
+        colors: [
+            primary,
+            secondary,
+            tertiary,
+            blendMusicDNAHelixColors(primary, secondary, fraction: 0.45),
+            primary
+        ],
+        center: .center
+    )
+}
+
 private func blendMusicDNAHelixColors(_ lhs: Color, _ rhs: Color, fraction: Double) -> Color {
     #if canImport(UIKit)
     let lhsPlatform = UIColor(lhs)
@@ -6077,8 +6140,7 @@ private struct TrackInsightHero: View {
                 isActive: isAnimationActive && isVisualizerPlaying,
                 language: model.language
             )
-            .aspectRatio(2.35, contentMode: .fit)
-            .frame(minHeight: 320, maxHeight: 500)
+            .frame(height: 430)
             .frame(maxWidth: .infinity)
 
         }
@@ -8026,13 +8088,14 @@ private extension Array {
 private struct TrackInsightMetricsGrid: View {
     let insight: TrackInsight
     let language: String
+    let moodStepIndex: Int
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             LazyVGrid(columns: metricColumns, spacing: 10) {
-                TrackInsightMetricRing(title: localizedKey(language, "ui.energy"), value: insight.energy, icon: "bolt.fill")
-                TrackInsightMetricRing(title: localizedKey(language, "ui.dance"), value: insight.danceability, icon: "figure.dance")
-                TrackInsightMetricRing(title: localizedKey(language, "ui.intensity"), value: insight.intensity, icon: "flame.fill")
+                TrackInsightMetricRing(title: localizedKey(language, "ui.energy"), value: insight.energy, icon: "bolt.fill", moodStepIndex: moodStepIndex)
+                TrackInsightMetricRing(title: localizedKey(language, "ui.dance"), value: insight.danceability, icon: "figure.dance", moodStepIndex: moodStepIndex)
+                TrackInsightMetricRing(title: localizedKey(language, "ui.intensity"), value: insight.intensity, icon: "flame.fill", moodStepIndex: moodStepIndex)
             }
 
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 172), spacing: 10, alignment: .top)], spacing: 10) {
@@ -8058,6 +8121,11 @@ private struct TrackInsightMetricRing: View {
     let title: String
     let value: Double?
     let icon: String
+    let moodStepIndex: Int
+
+    private var moodPalette: MusicDNAHelixMoodPalette {
+        MusicDNAHelixMoodPalette(stepIndex: moodStepIndex)
+    }
 
     private var normalizedValue: Double {
         min(1, max(0, value ?? 0))
@@ -8069,20 +8137,13 @@ private struct TrackInsightMetricRing: View {
     }
 
     var body: some View {
-        let ringGradient = AngularGradient(
-            colors: [
-                Color(red: 0.30, green: 0.63, blue: 1.0),
-                Color(red: 0.82, green: 0.28, blue: 1.0),
-                Color(red: 0.23, green: 0.91, blue: 0.84),
-                Color(red: 0.30, green: 0.63, blue: 1.0)
-            ],
-            center: .center
-        )
+        let ringGradient = moodRingGradient(moodPalette.colors)
+        let glowColor = moodPalette.colors[safe: 1] ?? djConnectAccent
 
         VStack(spacing: 8) {
             Image(systemName: icon)
                 .font(.caption.weight(.bold))
-                .foregroundStyle(djConnectAccent)
+                .foregroundStyle(glowColor)
                 .frame(width: 22, height: 18)
             ZStack {
                 Circle()
@@ -8094,7 +8155,7 @@ private struct TrackInsightMetricRing: View {
                         style: StrokeStyle(lineWidth: 12, lineCap: .round)
                     )
                     .rotationEffect(.degrees(-90))
-                    .shadow(color: djConnectAccent.opacity(reduceMotion ? 0.18 : (ringGlowIsActive ? 0.34 : 0.16)), radius: reduceMotion ? 4 : (ringGlowIsActive ? 13 : 5), x: 0, y: 0)
+                    .shadow(color: glowColor.opacity(reduceMotion ? 0.18 : (ringGlowIsActive ? 0.52 : 0.22)), radius: reduceMotion ? 4 : (ringGlowIsActive ? 20 : 8), x: 0, y: 0)
                 Circle()
                     .trim(from: 0, to: normalizedValue)
                     .stroke(
@@ -8102,8 +8163,8 @@ private struct TrackInsightMetricRing: View {
                         style: StrokeStyle(lineWidth: 17, lineCap: .round)
                     )
                     .rotationEffect(.degrees(-90))
-                    .blur(radius: reduceMotion ? 4 : (ringGlowIsActive ? 9 : 4))
-                    .opacity(reduceMotion ? 0.14 : (ringGlowIsActive ? 0.22 : 0.08))
+                    .blur(radius: reduceMotion ? 4 : (ringGlowIsActive ? 13 : 5))
+                    .opacity(reduceMotion ? 0.14 : (ringGlowIsActive ? 0.32 : 0.12))
                 Text(percentText)
                     .font(.title3.weight(.bold))
                     .foregroundStyle(.white)
@@ -8186,27 +8247,27 @@ private struct TrackInsightAnalysisCard: View {
             if !groups.isEmpty {
                 Divider().overlay(.white.opacity(0.16))
                 ForEach(groups.prefix(8)) { section in
-                    VStack(alignment: .leading, spacing: 4) {
+                    VStack(alignment: .leading, spacing: 7) {
                         Label {
                             Text(section.title)
                         } icon: {
                             Image(systemName: section.iconName)
-                                .font(.caption.weight(.bold))
+                                .font(.callout.weight(.bold))
                                 .foregroundStyle(section.iconColor)
-                                .frame(width: 18)
+                                .frame(width: 22)
                         }
-                        .font(.subheadline.weight(.semibold))
+                        .font(.title3.weight(.bold))
                         ForEach(section.values.prefix(5), id: \.self) { value in
                             Text(value)
-                                .font(.caption)
-                                .foregroundStyle(.white.opacity(0.62))
+                                .font(.callout.weight(.semibold))
+                                .foregroundStyle(.white.opacity(0.68))
                                 .fixedSize(horizontal: false, vertical: true)
                         }
                     }
                 }
             }
         }
-        .padding(14)
+        .padding(18)
         .frame(maxWidth: .infinity, alignment: .leading)
         .djConnectGradientCard(cornerRadius: 8)
     }
@@ -10461,6 +10522,13 @@ private struct AskDJMessageBubble: View {
             && message.textSource?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() != "fallback"
     }
 
+    private var hasPlayableAudio: Bool {
+        guard let audioURL = message.audioURL else {
+            return false
+        }
+        return !audioURL.absoluteString.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
     private var assistantMood: Int? {
         guard !isUser && !isSystemMessage else {
             return nil
@@ -10572,6 +10640,10 @@ private struct AskDJMessageBubble: View {
         return message.origin?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == "play_now"
     }
 
+    private var shouldShowAudioReplayShortcut: Bool {
+        !isStaleHistory && !isUser && hasPlayableAudio
+    }
+
     var body: some View {
         HStack(alignment: .bottom, spacing: 8) {
             if isUser {
@@ -10627,19 +10699,15 @@ private struct AskDJMessageBubble: View {
                             playAction: playAction
                         )
                     }
-                    if !isStaleHistory, !isUser, message.audioURL != nil {
-                        AskDJAudioReplayButton(
+                    if shouldShowAudioReplayShortcut || shouldShowTrackInsightShortcut {
+                        AskDJResponseShortcutStack(
                             language: language,
-                            isLoading: isAudioLoading,
-                            isPlaying: isAudioPlaying,
-                            action: audioAction
-                        )
-                    }
-                    if shouldShowTrackInsightShortcut {
-                        AskDJTrackInsightButton(
-                            language: language,
-                            isLoading: false,
-                            action: trackInsightAction
+                            showAudioReplay: shouldShowAudioReplayShortcut,
+                            isAudioLoading: isAudioLoading,
+                            isAudioPlaying: isAudioPlaying,
+                            audioAction: audioAction,
+                            showTrackInsight: shouldShowTrackInsightShortcut,
+                            trackInsightAction: trackInsightAction
                         )
                     }
                 }
@@ -10812,6 +10880,46 @@ private struct AskDJMessageBubble: View {
                         endPoint: .bottomTrailing
                     )
                 )
+        }
+    }
+}
+
+private struct AskDJResponseShortcutStack: View {
+    let language: String
+    let showAudioReplay: Bool
+    let isAudioLoading: Bool
+    let isAudioPlaying: Bool
+    let audioAction: () -> Void
+    let showTrackInsight: Bool
+    let trackInsightAction: () -> Void
+
+    var body: some View {
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: 10) {
+                shortcuts
+            }
+            VStack(alignment: .leading, spacing: 10) {
+                shortcuts
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var shortcuts: some View {
+        if showAudioReplay {
+            AskDJAudioReplayButton(
+                language: language,
+                isLoading: isAudioLoading,
+                isPlaying: isAudioPlaying,
+                action: audioAction
+            )
+        }
+        if showTrackInsight {
+            AskDJTrackInsightButton(
+                language: language,
+                isLoading: false,
+                action: trackInsightAction
+            )
         }
     }
 }
@@ -14895,7 +15003,7 @@ private struct AskDJHistoryExportSheet: View {
                     Button {
                         closeAction()
                     } label: {
-                        Text(localizedKey(language, status == .saved ? "ui.done" : "ui.cancel"))
+                        Text(localizedKey(language, status == .saved ? "ui.done" : "ui.not.now"))
                             .frame(maxWidth: .infinity)
                     }
                     .buttonStyle(DJConnectLilacPillButtonStyle())
@@ -14999,7 +15107,7 @@ private struct MusicDNAExportSheet: View {
                     Button {
                         closeAction()
                     } label: {
-                        Text(localizedKey(language, status == .saved ? "ui.done" : "ui.cancel"))
+                        Text(localizedKey(language, status == .saved ? "ui.done" : "ui.not.now"))
                             .frame(maxWidth: .infinity)
                     }
                     .buttonStyle(DJConnectLilacPillButtonStyle())
@@ -15328,6 +15436,57 @@ struct SettingsView: View {
         }
     }
 
+    private func presentAskDJHistoryFileExporter() {
+        guard askDJHistoryExportDocument != nil else {
+            return
+        }
+        #if os(macOS)
+        isShowingAskDJHistoryExportSheet = false
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+            isShowingAskDJHistoryFileExporter = true
+        }
+        #else
+        isShowingAskDJHistoryFileExporter = true
+        #endif
+    }
+
+    private func presentMusicDNAFileExporter() {
+        guard musicDNAExportDocument != nil else {
+            return
+        }
+        #if os(macOS)
+        isShowingMusicDNAExportSheet = false
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+            isShowingMusicDNAFileExporter = true
+        }
+        #else
+        isShowingMusicDNAFileExporter = true
+        #endif
+    }
+
+    private func presentMusicDNAFileImporter() {
+        guard canUseMusicDNAImport else {
+            musicDNAImportStatus = .failed(localizedKey(model.language, "appModel.no.connection.to.home.assistant"))
+            return
+        }
+        #if os(macOS)
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [.json]
+        panel.allowsMultipleSelection = false
+        panel.canChooseDirectories = false
+        panel.canChooseFiles = true
+        panel.prompt = localizedKey(model.language, "ui.import")
+        panel.begin { response in
+            guard response == .OK, let url = panel.url else {
+                return
+            }
+            handleMusicDNAImportSelection(.success([url]))
+        }
+        #else
+        isShowingMusicDNAFileImporter = true
+        #endif
+    }
+
     private func handleMusicDNAImportSelection(_ result: Result<[URL], Error>) {
         guard canUseMusicDNAImport else {
             musicDNAImportStatus = .failed(localizedKey(model.language, "appModel.no.connection.to.home.assistant"))
@@ -15445,7 +15604,7 @@ struct SettingsView: View {
                             Text(DJConnectLocalization.nativeLanguageName(for: code)).tag(code)
                         }
                     }
-                    .djCompactSettingsListRow()
+                    .djMusicDNASettingsListRow()
                     if model.isDemoMode {
                         LabeledContent(localizedKey(model.language, "ui.demo.mode")) {
                             Button(localizedKey(model.language, "ui.stop.demo.mode"), role: .destructive) {
@@ -15453,7 +15612,7 @@ struct SettingsView: View {
                                 model.stopDemoMode()
                             }
                         }
-                        .djCompactSettingsListRow()
+                        .djMusicDNASettingsListRow()
                     }
                     if !model.isDemoMode {
                         LabeledContent(localizedKey(model.language, "ui.pairing")) {
@@ -15463,7 +15622,7 @@ struct SettingsView: View {
                                 Text(localizedKey(model.language, "ui.pair.app.again"))
                             }
                         }
-                        .djCompactSettingsListRow()
+                        .djMusicDNASettingsListRow()
                     }
                     LabeledContent(localizedKey(model.language, "ui.wakeword")) {
                         if model.wakeWordEnabled {
@@ -15486,21 +15645,21 @@ struct SettingsView: View {
                             .tint(djConnectAccent)
                         }
                     }
-                    .djCompactSettingsListRow()
+                    .djMusicDNASettingsListRow()
                     wakeWordPhraseField(model)
-                        .djCompactSettingsListRow()
+                        .djMusicDNASettingsListRow()
                     LabeledContent(localizedKey(model.language, "ui.wakeword.status")) {
                         Text(wakeWordStatusText(model))
                             .foregroundStyle(.secondary)
                     }
-                    .djCompactSettingsListRow()
+                    .djMusicDNASettingsListRow()
                     Picker(localizedKey(model.language, "ui.log.level"), selection: $model.logLevel) {
                         Text("Debug").tag("debug")
                         Text("Info").tag("info")
                         Text(localizedKey(model.language, "ui.warning")).tag("warning")
                         Text(localizedKey(model.language, "ui.error")).tag("error")
                     }
-                    .djCompactSettingsListRow()
+                    .djMusicDNASettingsListRow()
                 }
                 .djSettingsListRowBackground()
 
@@ -15564,7 +15723,7 @@ struct SettingsView: View {
                         .djMusicDNASettingsListRow()
                     }
 
-                    LabeledContent(localizedKey(model.language, "ui.music.dna.export")) {
+                    LabeledContent(localizedKey(model.language, "ui.listening.profile")) {
                         Button {
                             prepareMusicDNAExport()
                         } label: {
@@ -15577,9 +15736,9 @@ struct SettingsView: View {
                     }
                     .djMusicDNASettingsListRow()
 
-                    LabeledContent(localizedKey(model.language, "ui.music.dna.import")) {
+                    LabeledContent(localizedKey(model.language, "ui.listening.profile")) {
                         Button {
-                            isShowingMusicDNAFileImporter = true
+                            presentMusicDNAFileImporter()
                         } label: {
                             Text(localizedKey(model.language, "ui.import"))
                                 .foregroundStyle(djConnectAccent)
@@ -15732,7 +15891,7 @@ struct SettingsView: View {
                     language: model.language,
                     filename: askDJHistoryExportFilename,
                     status: askDJHistoryExportStatus,
-                    saveAction: { isShowingAskDJHistoryFileExporter = true },
+                    saveAction: { presentAskDJHistoryFileExporter() },
                     closeAction: { isShowingAskDJHistoryExportSheet = false }
                 )
                 .presentationBackground {
@@ -15744,7 +15903,7 @@ struct SettingsView: View {
                     language: model.language,
                     filename: musicDNAExportFilename,
                     status: musicDNAExportStatus,
-                    saveAction: { isShowingMusicDNAFileExporter = true },
+                    saveAction: { presentMusicDNAFileExporter() },
                     closeAction: { isShowingMusicDNAExportSheet = false }
                 )
                 .presentationBackground {
