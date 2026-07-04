@@ -4,6 +4,9 @@ import DJConnectCore
 import Foundation
 import Network
 import OSLog
+#if canImport(Security)
+import Security
+#endif
 
 #if os(iOS) && canImport(ActivityKit)
 import ActivityKit
@@ -6296,12 +6299,24 @@ public final class DJConnectAppModel: ObservableObject {
                 }
                 applyPushRegistrationStatus(from: response)
                 let responseError = Self.redactedPushFailureReason(response.lastPushError ?? response.error ?? "<missing>")
-                logPush("register response http_status=decoded success=\(response.success) push_supported=\(Self.optionalBoolForLog(response.pushSupported)) push_registered=\(Self.optionalBoolForLog(response.pushRegistered)) push_environment=\(response.pushEnvironment?.rawValue ?? "<missing>") last_push_error=\(responseError)")
-                guard response.success, response.pushRegistered != false else {
+                let responseEnvironment = response.pushEnvironment
+                let canonicalEnvironment = responseEnvironment ?? environment
+                let environmentMatches = environment.isCompatible(with: responseEnvironment)
+                logPush("register response http_status=decoded success=\(response.success) push_supported=\(Self.optionalBoolForLog(response.pushSupported)) push_registered=\(Self.optionalBoolForLog(response.pushRegistered)) client_type=\(identity.clientType.rawValue) canonical_push_environment=\(canonicalEnvironment.rawValue) push_environment=\(responseEnvironment?.rawValue ?? "<missing>") last_push_error=\(responseError)")
+                guard response.success, response.pushRegistered != false, environmentMatches else {
                     let reason = response.error ?? response.lastPushError ?? response.message ?? "unknown"
                     defaults.set(false, forKey: pushRegisteredKey)
                     defaults.removeObject(forKey: registeredPushSignatureKey)
-                    log(.warning, "Push registration was not accepted by Home Assistant: \(Self.redactedPushFailureReason(reason))")
+                    if Self.isInvalidBootstrapProof(reason) {
+                        defaults.set(Self.redactedPushFailureReason(reason), forKey: lastPushErrorKey)
+                        logPush("registration recovery_required=true reason=invalid_bootstrap_proof message=pair_with_home_assistant_again push_registered=false", level: .warning)
+                    } else if !environmentMatches {
+                        let responseValue = responseEnvironment?.rawValue ?? "<missing>"
+                        defaults.set("push_environment_mismatch", forKey: lastPushErrorKey)
+                        logPush("registration rejected push_environment_mismatch expected=\(environment.rawValue) response=\(responseValue) push_registered=false", level: .warning)
+                    } else {
+                        log(.warning, "Push registration was not accepted by Home Assistant: \(Self.redactedPushFailureReason(reason))")
+                    }
                     return
                 }
                 defaults.removeObject(forKey: registeredPushTokenKey)
@@ -6310,10 +6325,15 @@ public final class DJConnectAppModel: ObservableObject {
                 defaults.set(registrationSignature, forKey: registeredPushSignatureKey)
                 defaults.set(true, forKey: pushRegisteredKey)
                 defaults.removeObject(forKey: lastPushErrorKey)
-                logPush("registered with Home Assistant env=\(environment.rawValue)", level: .info)
+                logPush("registered with Home Assistant client_type=\(identity.clientType.rawValue) env=\(canonicalEnvironment.rawValue) push_registered=true", level: .info)
             } catch let error as DJConnectError {
                 if case .routeMissing = error {
                     logPush("registration skipped route_missing=true")
+                } else if Self.isInvalidBootstrapProof(Self.describe(error)) {
+                    defaults.set(false, forKey: pushRegisteredKey)
+                    defaults.removeObject(forKey: registeredPushSignatureKey)
+                    defaults.set("invalid_bootstrap_proof", forKey: lastPushErrorKey)
+                    logPush("registration recovery_required=true reason=invalid_bootstrap_proof message=pair_with_home_assistant_again push_registered=false", level: .warning)
                 } else {
                     logPush("registration failed error=\(Self.describe(error))", level: .warning)
                 }
@@ -6370,11 +6390,34 @@ public final class DJConnectAppModel: ObservableObject {
         logPush("status push_supported=\(Self.optionalBoolForLog(response.pushSupported)) push_registered=\(Self.optionalBoolForLog(response.pushRegistered)) push_environment=\(response.pushEnvironment?.rawValue ?? "<missing>") last_push_error=\(Self.redactedPushFailureReason(response.lastPushError ?? "<missing>"))")
     }
 
-    private static var pushEnvironment: DJConnectPushEnvironment {
-        #if DEBUG
-        .sandbox
+    static var pushEnvironment: DJConnectPushEnvironment {
+        pushEnvironment(apsEnvironment: apsEnvironmentEntitlement)
+    }
+
+    nonisolated static func pushEnvironment(apsEnvironment: String?) -> DJConnectPushEnvironment {
+        switch apsEnvironment?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() {
+        case "development", "sandbox":
+            return .sandbox
+        case "production":
+            return .production
+        default:
+            #if DEBUG
+            return .sandbox
+            #else
+            return .production
+            #endif
+        }
+    }
+
+    private static var apsEnvironmentEntitlement: String? {
+        #if canImport(Security)
+        guard let task = SecTaskCreateFromSelf(nil),
+              let value = SecTaskCopyValueForEntitlement(task, "aps-environment" as CFString, nil) else {
+            return nil
+        }
+        return value as? String
         #else
-        .production
+        return nil
         #endif
     }
 
@@ -6432,6 +6475,10 @@ public final class DJConnectAppModel: ObservableObject {
                 with: "[redacted]",
                 options: .regularExpression
             )
+    }
+
+    private static func isInvalidBootstrapProof(_ reason: String) -> Bool {
+        reason.trimmingCharacters(in: .whitespacesAndNewlines).lowercased().contains("invalid_bootstrap_proof")
     }
 
     private static func notificationPreview(from text: String) -> String {

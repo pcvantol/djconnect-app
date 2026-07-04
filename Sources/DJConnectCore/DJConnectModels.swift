@@ -74,6 +74,32 @@ public struct DJConnectWatchProxyVoicePayload: Codable, Sendable {
 public enum DJConnectPushEnvironment: String, Codable, Sendable {
     case sandbox
     case production
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        let rawValue = try container.decode(String.self).trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        switch rawValue {
+        case "sandbox", "development", "develop":
+            self = .sandbox
+        case "production", "prod":
+            self = .production
+        default:
+            throw DecodingError.dataCorruptedError(
+                in: container,
+                debugDescription: "Unsupported push environment: \(rawValue)"
+            )
+        }
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
+
+    public func isCompatible(with responseEnvironment: DJConnectPushEnvironment?) -> Bool {
+        guard let responseEnvironment else { return true }
+        return self == responseEnvironment
+    }
 }
 
 public enum DJConnectPairingStatus: String, Codable, Sendable {

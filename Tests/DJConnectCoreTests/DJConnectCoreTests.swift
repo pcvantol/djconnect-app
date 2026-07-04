@@ -2050,6 +2050,12 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     #expect(json["bootstrap_proof"] as? String == "short-lived-proof")
 }
 
+@Test func pushEnvironmentResolvesDevelopmentEntitlementToSandbox() {
+    #expect(DJConnectAppModel.pushEnvironment(apsEnvironment: "development") == .sandbox)
+    #expect(DJConnectAppModel.pushEnvironment(apsEnvironment: "sandbox") == .sandbox)
+    #expect(DJConnectAppModel.pushEnvironment(apsEnvironment: "production") == .production)
+}
+
 @Test func watchOSPushRegisterRequestUsesCanonicalIdentityAndBootstrapProofWhenProvided() throws {
     let identity = DJConnectIdentity(
         deviceID: "djconnect-watchos-8F3A2C91B45D",
@@ -2167,6 +2173,105 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     #expect(response.pushRegistered == false)
     #expect(response.pushEnvironment == .sandbox)
     #expect(response.lastPushError == "missing_bootstrap_proof")
+}
+
+@Test func commandResponseDecodesDevelopmentPushEnvironmentAsSandbox() throws {
+    let json = """
+    {
+      "success": true,
+      "data": {
+        "push_supported": true,
+        "push_registered": true,
+        "push_environment": "development"
+      }
+    }
+    """.data(using: .utf8)!
+
+    let response = try JSONDecoder().decode(DJConnectCommandResponse.self, from: json)
+
+    #expect(response.pushRegistered == true)
+    #expect(response.pushEnvironment == .sandbox)
+}
+
+@MainActor
+@Test func macOSDevelopmentPushRegistrationAcceptsCanonicalSandboxResponse() async throws {
+    let defaults = try testDefaults()
+    let recorder = RequestRecorder()
+    let session = mockSession(host: "push-sandbox.local") { request in
+        recorder.append(request)
+        return (try httpResponse(for: request, statusCode: 200), Data("""
+        {
+          "success": true,
+          "push_supported": true,
+          "push_registered": true,
+          "push_environment": "sandbox"
+        }
+        """.utf8))
+    }
+    let model = makePairedMusicDNAModel(defaults: defaults, host: "push-sandbox.local", session: session)
+
+    model.handleRemoteNotificationDeviceToken(Data([0xab, 0xcd, 0xef, 0x12]))
+    try await Task.sleep(for: .milliseconds(120))
+
+    #expect(recorder.requests.map { $0.url?.path } == ["/api/djconnect/push/register"])
+    #expect(defaults.bool(forKey: "DJConnectPushRegistered") == true)
+    #expect(defaults.string(forKey: "DJConnectPushEnvironmentStatus") == "sandbox")
+    #expect(defaults.string(forKey: "DJConnectLastPushError") == nil)
+}
+
+@MainActor
+@Test func macOSPushInvalidBootstrapProofMarksTemporaryRecoveryWithoutClearingPairing() async throws {
+    let defaults = try testDefaults()
+    let recorder = RequestRecorder()
+    let session = mockSession(host: "push-invalid-bootstrap.local") { request in
+        recorder.append(request)
+        return (try httpResponse(for: request, statusCode: 200), Data("""
+        {
+          "success": false,
+          "error": "invalid_bootstrap_proof",
+          "push_supported": true,
+          "push_registered": false,
+          "push_environment": "sandbox",
+          "last_push_error": "invalid_bootstrap_proof"
+        }
+        """.utf8))
+    }
+    let model = makePairedMusicDNAModel(defaults: defaults, host: "push-invalid-bootstrap.local", session: session)
+
+    model.handleRemoteNotificationDeviceToken(Data([0xab, 0xcd, 0xef, 0x34]))
+    try await Task.sleep(for: .milliseconds(120))
+
+    #expect(recorder.requests.map { $0.url?.path } == ["/api/djconnect/push/register"])
+    #expect(defaults.bool(forKey: "DJConnectPushRegistered") == false)
+    #expect(defaults.string(forKey: "DJConnectRegisteredPushSignature") == nil)
+    #expect(defaults.string(forKey: "DJConnectLastPushError") == "invalid_bootstrap_proof")
+    #expect(model.pairingStatus == .paired)
+}
+
+@MainActor
+@Test func sandboxPushRegistrationRejectsProductionResponseEnvironment() async throws {
+    let defaults = try testDefaults()
+    let recorder = RequestRecorder()
+    let session = mockSession(host: "push-production-mismatch.local") { request in
+        recorder.append(request)
+        return (try httpResponse(for: request, statusCode: 200), Data("""
+        {
+          "success": true,
+          "push_supported": true,
+          "push_registered": true,
+          "push_environment": "production"
+        }
+        """.utf8))
+    }
+    let model = makePairedMusicDNAModel(defaults: defaults, host: "push-production-mismatch.local", session: session)
+
+    model.handleRemoteNotificationDeviceToken(Data([0xab, 0xcd, 0xef, 0x56]))
+    try await Task.sleep(for: .milliseconds(120))
+
+    #expect(recorder.requests.map { $0.url?.path } == ["/api/djconnect/push/register"])
+    #expect(defaults.bool(forKey: "DJConnectPushRegistered") == false)
+    #expect(defaults.string(forKey: "DJConnectRegisteredPushSignature") == nil)
+    #expect(defaults.string(forKey: "DJConnectLastPushError") == "push_environment_mismatch")
 }
 
 @Test func askDJHistoryResponseDecodesRevisionAndRichMessages() throws {
