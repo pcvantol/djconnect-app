@@ -902,8 +902,6 @@ struct DJConnectTrackInsightWidgetEntry: TimelineEntry {
     let genre: String
     let mood: String
     let vibe: String
-    let bpm: Int
-    let key: String
     let energy: Double
     let danceability: Double
     let intensity: Double
@@ -921,8 +919,6 @@ struct DJConnectTrackInsightWidgetEntry: TimelineEntry {
         genre: String,
         mood: String,
         vibe: String,
-        bpm: Int,
-        key: String,
         energy: Double,
         danceability: Double,
         intensity: Double,
@@ -939,8 +935,6 @@ struct DJConnectTrackInsightWidgetEntry: TimelineEntry {
         self.genre = genre
         self.mood = mood
         self.vibe = vibe
-        self.bpm = bpm
-        self.key = key
         self.energy = energy
         self.danceability = danceability
         self.intensity = intensity
@@ -959,8 +953,6 @@ struct DJConnectTrackInsightWidgetEntry: TimelineEntry {
         genre: "Deep House",
         mood: DJConnectLocalization.localized(key: "widget.preview.mood.dreamy"),
         vibe: "Cinematic",
-        bpm: 122,
-        key: "F# minor",
         energy: 0.65,
         danceability: 0.72,
         intensity: 0.58,
@@ -979,8 +971,6 @@ struct DJConnectTrackInsightWidgetEntry: TimelineEntry {
         genre: DJConnectLocalization.localized(key: "widget.private"),
         mood: DJConnectLocalization.localized(key: "widget.ready"),
         vibe: DJConnectLocalization.localized(key: "widget.on.device"),
-        bpm: 0,
-        key: "-",
         energy: 0.5,
         danceability: 0.5,
         intensity: 0.5,
@@ -1000,8 +990,6 @@ struct DJConnectTrackInsightWidgetEntry: TimelineEntry {
         genre = snapshot.genre ?? DJConnectLocalization.localized(key: "widget.unknown.genre")
         mood = snapshot.mood ?? DJConnectLocalization.localized(key: "widget.evolving")
         vibe = snapshot.vibe ?? DJConnectLocalization.localized(key: "widget.fresh")
-        bpm = snapshot.bpm ?? 0
-        key = snapshot.key ?? "-"
         energy = snapshot.energy ?? 0.5
         danceability = snapshot.danceability ?? 0.5
         intensity = snapshot.intensity ?? 0.5
@@ -1021,8 +1009,6 @@ struct DJConnectTrackInsightWidgetEntry: TimelineEntry {
             genre: genre,
             mood: mood,
             vibe: vibe,
-            bpm: bpm,
-            key: key,
             energy: energy,
             danceability: danceability,
             intensity: intensity,
@@ -1183,7 +1169,7 @@ struct DJConnectTrackInsightWidgetView: View {
                 Text(entry.title)
                     .font(.headline)
                     .lineLimit(1)
-                Text(progressLabel ?? (entry.hasSnapshot ? "\(entry.genre) - \(entry.bpm) BPM" : entry.summary))
+                Text(progressLabel ?? (entry.hasSnapshot ? entry.genre : entry.summary))
                     .font(.caption2)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
@@ -1228,7 +1214,7 @@ struct DJConnectTrackInsightWidgetView: View {
     private var metricRow: some View {
         Group {
             if entry.hasSnapshot {
-                Text([entry.genre, bpmLabel, entry.key].filter { !$0.isEmpty }.joined(separator: " - "))
+                Text(entry.genre)
                     .font(.caption2.weight(.semibold))
                     .foregroundStyle(.white.opacity(0.70))
                     .lineLimit(1)
@@ -1244,16 +1230,12 @@ struct DJConnectTrackInsightWidgetView: View {
                     .foregroundStyle(.white.opacity(0.70))
                     .lineLimit(1)
             } else if entry.hasSnapshot {
-                Text([entry.genre, bpmLabel, entry.key].filter { !$0.isEmpty }.joined(separator: " - "))
+                Text(entry.genre)
                     .font(.caption2.weight(.semibold))
                     .foregroundStyle(.white.opacity(0.70))
                     .lineLimit(1)
             }
         }
-    }
-
-    private var bpmLabel: String {
-        entry.hasSnapshot && entry.bpm > 0 ? "\(entry.bpm) BPM" : ""
     }
 
     private var progressLabel: String? {
@@ -1325,7 +1307,7 @@ private struct DJConnectTrackInsightWavefield: View {
                 let barCount = 34
                 let width = size.width / CGFloat(barCount)
                 for index in 0..<barCount {
-                    let seed = Double((index * 37 + entry.bpm) % 100) / 100
+                    let seed = Double((index * 37 + spectrumSeed) % 100) / 100
                     let height = size.height * (0.05 + (0.18 * seed + 0.16 * entry.energy))
                     let rect = CGRect(
                         x: CGFloat(index) * width,
@@ -1337,6 +1319,12 @@ private struct DJConnectTrackInsightWavefield: View {
                     context.fill(Path(roundedRect: rect, cornerRadius: 2), with: .color(color.opacity(0.58)))
                 }
             }
+        }
+    }
+
+    private var spectrumSeed: Int {
+        "\(entry.title)|\(entry.artist)|\(entry.genre)".unicodeScalars.reduce(0) {
+            (($0 &* 31) &+ Int($1.value)) & 0x7fffffff
         }
     }
 }
@@ -1488,9 +1476,15 @@ private struct DJConnectTrackInsightArtworkSpectrum: View {
 
     private func spectrumValue(index: Int, count: Int) -> CGFloat {
         let position = Double(index) / Double(max(count - 1, 1))
-        let wave = (sin(Double(index) * 0.74 + Double(entry.bpm) * 0.03) + 1) * 0.5
+        let wave = (sin(Double(index) * 0.74 + Double(spectrumSeed) * 0.03) + 1) * 0.5
         let centerLift = max(0, 1 - abs(position - 0.54) * 2.4)
         return CGFloat(min(1, 0.18 + entry.energy * 0.24 + entry.intensity * 0.18 + wave * 0.24 + centerLift * 0.18))
+    }
+
+    private var spectrumSeed: Int {
+        "\(entry.title)|\(entry.artist)|\(entry.genre)".unicodeScalars.reduce(0) {
+            (($0 &* 31) &+ Int($1.value)) & 0x7fffffff
+        }
     }
 }
 

@@ -104,18 +104,18 @@ public final class DJConnectClient: Sendable {
         return try await decodedResponse(for: request)
     }
 
-    public func musicDNAProfile(mood: Int? = nil) async throws -> DJConnectMusicDNAProfileResponse {
-        let request = try musicDNAProfileRequest(mood: mood)
+    public func musicDNAProfile(mood: Int? = nil, musicDNAKey: String? = nil, language: String? = nil) async throws -> DJConnectMusicDNAProfileResponse {
+        let request = try musicDNAProfileRequest(mood: mood, musicDNAKey: musicDNAKey, language: language)
         return try await decodedResponse(for: request)
     }
 
-    public func setMusicDNAEnabled(_ enabled: Bool, mood: Int? = nil) async throws -> DJConnectMusicDNAProfileResponse {
-        let request = try musicDNASettingsRequest(enabled: enabled, mood: mood)
+    public func setMusicDNAEnabled(_ enabled: Bool, mood: Int? = nil, musicDNAKey: String? = nil, language: String? = nil) async throws -> DJConnectMusicDNAProfileResponse {
+        let request = try musicDNASettingsRequest(enabled: enabled, mood: mood, musicDNAKey: musicDNAKey, language: language)
         return try await decodedResponse(for: request)
     }
 
-    public func clearMusicDNA(mood: Int? = nil) async throws -> DJConnectMusicDNAProfileResponse {
-        let request = try clearMusicDNARequest(mood: mood)
+    public func clearMusicDNA(mood: Int? = nil, musicDNAKey: String? = nil, language: String? = nil) async throws -> DJConnectMusicDNAProfileResponse {
+        let request = try clearMusicDNARequest(mood: mood, musicDNAKey: musicDNAKey, language: language)
         return try await decodedResponse(for: request)
     }
 
@@ -140,6 +140,14 @@ public final class DJConnectClient: Sendable {
             throw DJConnectError.trackInsightUnavailable(code: data.error, message: data.message)
         }
         return insight
+    }
+
+    public func vibeCast(_ payload: DJConnectVibeCastRequest) async throws -> DJConnectVibeCastResponse {
+        if let response = try await webSocketVibeCastIfSupported(payload) {
+            return response
+        }
+        let request = try vibeCastRequest(payload)
+        return try await decodedResponse(for: request)
     }
 
     public var fastPathDiagnostics: DJConnectFastPathDiagnostics {
@@ -218,7 +226,20 @@ public final class DJConnectClient: Sendable {
     }
 
     public func commandRequest(_ payload: DJConnectCommandPayload) throws -> URLRequest {
-        try jsonRequest(path: "/api/djconnect/command", payload: payload)
+        var request = try jsonRequest(path: "/api/djconnect/command", payload: payload)
+        if let language = Self.nonBlankLanguage(payload.language) {
+            request.setValue(language, forHTTPHeaderField: "X-DJConnect-Language")
+            request.setValue(language, forHTTPHeaderField: "X-DJConnect-Locale")
+            request.setValue(language, forHTTPHeaderField: "Accept-Language")
+        }
+        if let mood = payload.mood {
+            request.setValue(String(mood), forHTTPHeaderField: "X-DJConnect-Mood")
+        }
+        if let musicDNAKey = payload.musicDNAKey?.trimmingCharacters(in: .whitespacesAndNewlines),
+           !musicDNAKey.isEmpty {
+            request.setValue(musicDNAKey, forHTTPHeaderField: "X-DJConnect-Music-DNA-Key")
+        }
+        return request
     }
 
     public func askDJRequest(_ payload: DJConnectAskDJRequest) throws -> URLRequest {
@@ -253,16 +274,56 @@ public final class DJConnectClient: Sendable {
         )
     }
 
-    public func musicDNAProfileRequest(mood: Int? = nil) throws -> URLRequest {
-        try jsonRequest(path: "/api/djconnect/music_dna/profile", payload: DJConnectMusicDNAIdentityRequest(identity: identity, mood: mood))
+    public func musicDNAProfileRequest(mood: Int? = nil, musicDNAKey: String? = nil, language: String? = nil) throws -> URLRequest {
+        try musicDNARequest(
+            path: "/api/djconnect/music_dna/profile",
+            payload: DJConnectMusicDNAIdentityRequest(identity: identity, mood: mood, musicDNAKey: musicDNAKey, language: language),
+            mood: mood,
+            musicDNAKey: musicDNAKey,
+            language: language
+        )
     }
 
-    public func musicDNASettingsRequest(enabled: Bool, mood: Int? = nil) throws -> URLRequest {
-        try jsonRequest(path: "/api/djconnect/music_dna/settings", payload: DJConnectMusicDNASettingsRequest(identity: identity, enabled: enabled, mood: mood))
+    public func musicDNASettingsRequest(enabled: Bool, mood: Int? = nil, musicDNAKey: String? = nil, language: String? = nil) throws -> URLRequest {
+        try musicDNARequest(
+            path: "/api/djconnect/music_dna/settings",
+            payload: DJConnectMusicDNASettingsRequest(identity: identity, enabled: enabled, mood: mood, musicDNAKey: musicDNAKey, language: language),
+            mood: mood,
+            musicDNAKey: musicDNAKey,
+            language: language
+        )
     }
 
-    public func clearMusicDNARequest(mood: Int? = nil) throws -> URLRequest {
-        try jsonRequest(path: "/api/djconnect/music_dna/clear", payload: DJConnectMusicDNAIdentityRequest(identity: identity, mood: mood))
+    public func clearMusicDNARequest(mood: Int? = nil, musicDNAKey: String? = nil, language: String? = nil) throws -> URLRequest {
+        try musicDNARequest(
+            path: "/api/djconnect/music_dna/clear",
+            payload: DJConnectMusicDNAIdentityRequest(identity: identity, mood: mood, musicDNAKey: musicDNAKey, language: language),
+            mood: mood,
+            musicDNAKey: musicDNAKey,
+            language: language
+        )
+    }
+
+    private func musicDNARequest<T: Encodable>(
+        path: String,
+        payload: T,
+        mood: Int?,
+        musicDNAKey: String?,
+        language: String?
+    ) throws -> URLRequest {
+        var request = try jsonRequest(path: path, payload: payload)
+        if let language = Self.nonBlankLanguage(language) {
+            request.setValue(language, forHTTPHeaderField: "X-DJConnect-Language")
+            request.setValue(language, forHTTPHeaderField: "X-DJConnect-Locale")
+            request.setValue(language, forHTTPHeaderField: "Accept-Language")
+        }
+        if let mood {
+            request.setValue("\(max(0, min(100, mood)))", forHTTPHeaderField: "X-DJConnect-Mood")
+        }
+        if let musicDNAKey, !musicDNAKey.isEmpty {
+            request.setValue(musicDNAKey, forHTTPHeaderField: "X-DJConnect-Music-DNA-Key")
+        }
+        return request
     }
 
     public func askDJIdleSuggestionRequest(_ payload: DJConnectAskDJIdleSuggestionRequest) throws -> URLRequest {
@@ -281,6 +342,47 @@ public final class DJConnectClient: Sendable {
         }
         if let mood = normalizedPayload.mood {
             request.setValue("\(max(0, min(100, mood)))", forHTTPHeaderField: "X-DJConnect-Mood")
+        }
+        if let musicDNAKey = normalizedPayload.musicDNAKey, !musicDNAKey.isEmpty {
+            request.setValue(musicDNAKey, forHTTPHeaderField: "X-DJConnect-Music-DNA-Key")
+        }
+        return request
+    }
+
+    public func vibeCastRequest(_ payload: DJConnectVibeCastRequest = DJConnectVibeCastRequest()) throws -> URLRequest {
+        var components = URLComponents(url: endpoint(path: "/api/djconnect/vibecast"), resolvingAgainstBaseURL: false)
+        var queryItems: [URLQueryItem] = [
+            URLQueryItem(name: "device_id", value: identity.deviceID),
+            URLQueryItem(name: "client_id", value: identity.deviceID),
+            URLQueryItem(name: "client_type", value: identity.clientType.rawValue),
+            URLQueryItem(name: "device_name", value: identity.deviceName),
+            URLQueryItem(name: "app_version", value: identity.appVersion)
+        ]
+        if let locale = Self.nonBlankLanguage(payload.locale ?? payload.language) {
+            queryItems.append(URLQueryItem(name: "locale", value: locale))
+            queryItems.append(URLQueryItem(name: "language", value: locale))
+        }
+        if let timezone = payload.timezone?.trimmingCharacters(in: .whitespacesAndNewlines), !timezone.isEmpty {
+            queryItems.append(URLQueryItem(name: "timezone", value: timezone))
+        }
+        if !payload.capabilities.isEmpty {
+            queryItems.append(URLQueryItem(name: "capabilities", value: payload.capabilities.joined(separator: ",")))
+        }
+        components?.queryItems = queryItems
+        guard let url = components?.url else {
+            throw DJConnectError.invalidConfiguration("Invalid VibeCast endpoint")
+        }
+        var request = try authenticatedRequest(url: url)
+        request.httpMethod = "GET"
+        request.setValue(identity.appVersion, forHTTPHeaderField: "X-DJConnect-App-Version")
+        request.setValue(payload.capabilities.joined(separator: ","), forHTTPHeaderField: "X-DJConnect-Render-Capabilities")
+        if let locale = Self.nonBlankLanguage(payload.locale ?? payload.language) {
+            request.setValue(locale, forHTTPHeaderField: "X-DJConnect-Language")
+            request.setValue(locale, forHTTPHeaderField: "X-DJConnect-Locale")
+            request.setValue(locale, forHTTPHeaderField: "Accept-Language")
+        }
+        if let timezone = payload.timezone?.trimmingCharacters(in: .whitespacesAndNewlines), !timezone.isEmpty {
+            request.setValue(timezone, forHTTPHeaderField: "X-DJConnect-Timezone")
         }
         return request
     }
@@ -464,6 +566,12 @@ public final class DJConnectClient: Sendable {
         let normalizedPayload = payload.normalizedForSend(identity: identity)
         return try await webSocketFastPathResult { fastPath, token in
             try await fastPath.trackInsight(normalizedPayload, identity: makeDJConnectIdentity(deviceToken: token))
+        }
+    }
+
+    private func webSocketVibeCastIfSupported(_ payload: DJConnectVibeCastRequest) async throws -> DJConnectVibeCastResponse? {
+        try await webSocketFastPathResult { fastPath, token in
+            try await fastPath.vibeCast(payload, identity: makeDJConnectIdentity(deviceToken: token))
         }
     }
 

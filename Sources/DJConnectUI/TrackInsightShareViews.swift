@@ -663,9 +663,7 @@ struct TrackInsightShareCardView: View {
 
     private var metricLine: String {
         [
-            insight.genre,
-            insight.bpm.map { "\(Int($0.rounded())) BPM" },
-            insight.key
+            insight.genre
         ]
         .compactMap { $0 }
         .filter { !$0.isEmpty }
@@ -819,6 +817,9 @@ private struct TrackInsightShareBackground: View {
 }
 
 private struct TrackInsightShareMeters: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var ringGlowIsActive = false
+
     let insight: TrackInsight
     let profile: TrackVibeProfile
     let format: TrackInsightShareFormat
@@ -830,10 +831,17 @@ private struct TrackInsightShareMeters: View {
             meter(localizedKey("trackInsight.share.danceability"), insight.danceability)
             meter(localizedKey("trackInsight.share.intensity"), insight.intensity)
         }
+        .onAppear {
+            guard !reduceMotion else { return }
+            withAnimation(.easeInOut(duration: 3.2).repeatForever(autoreverses: true)) {
+                ringGlowIsActive = true
+            }
+        }
     }
 
     private func meter(_ title: String, _ value: Double?) -> some View {
         let value = normalizedMeterValue(value)
+        let ringGradient = AngularGradient(colors: Self.liveMetricRingColors, center: .center)
         return VStack(spacing: 5) {
             ZStack {
                 Circle()
@@ -841,10 +849,20 @@ private struct TrackInsightShareMeters: View {
                 Circle()
                     .trim(from: 0, to: CGFloat(max(0.04, value)))
                     .stroke(
-                        AngularGradient(colors: Self.liveMetricRingColors, center: .center),
+                        ringGradient,
                         style: StrokeStyle(lineWidth: meterLineWidth, lineCap: .round)
                     )
                     .rotationEffect(.degrees(-90))
+                    .shadow(color: (Self.liveMetricRingColors.last ?? djConnectAccent).opacity(reduceMotion ? 0.18 : (ringGlowIsActive ? 0.34 : 0.16)), radius: reduceMotion ? 4 : (ringGlowIsActive ? 13 : 5), x: 0, y: 0)
+                Circle()
+                    .trim(from: 0, to: CGFloat(max(0.04, value)))
+                    .stroke(
+                        ringGradient,
+                        style: StrokeStyle(lineWidth: meterLineWidth + 5, lineCap: .round)
+                    )
+                    .rotationEffect(.degrees(-90))
+                    .blur(radius: reduceMotion ? 4 : (ringGlowIsActive ? 9 : 4))
+                    .opacity(reduceMotion ? 0.14 : (ringGlowIsActive ? 0.22 : 0.08))
                 Text(meterPercentText(value))
                     .font(meterValueFont)
                     .foregroundStyle(.white)

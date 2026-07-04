@@ -178,7 +178,6 @@
 "ui.vibecast.unavailable" = "VibeCast niet beschikbaar";
 "ui.choose.an.airplay.display.for.vibecast" = "Kies een AirPlay-scherm voor VibeCast";
 "ui.vibecast.via.airplay" = "VibeCast via AirPlay";
-"ui.key" = "Toonsoort";
 "ui.genre" = "Genre";
 "ui.energy" = "Energie";
 "ui.dance" = "Dans";
@@ -445,7 +444,6 @@
 "watch.no.track" = "Geen track";
 "watch.ask.dj.can.fill.track.insight.details.for" = "Ask DJ kan Track Insight-details voor dit nummer vullen.";
 "watch.rendered.privately.on.your.device" = "Privé gerendered op je apparaat";
-"watch.key" = "Toonsoort";
 "watch.genre" = "Genre";
 "watch.mood" = "Mood";
 "watch.energy" = "Energie";
@@ -625,6 +623,17 @@
 "appModel.missing.djconnect.bearer.token.reset.pairing.to.set.up" = "Koppeling niet voltooid. Scan de QR-code opnieuw of vul de koppelcode in.";
 "appModel.pairing.is.stale.open.home.assistant.setup.and.enter" = "Pairing is verlopen. Open Home Assistant setup en vul de nieuwe koppelcode hier in.";
 "appModel.no.connection.to.home.assistant" = "Geen verbinding met Home Assistant";
+"appModel.now.playing.updated" = "Speelt Nu bijgewerkt";
+"appModel.now.playing.update.failed" = "Speelt Nu bijwerken mislukt";
+"appModel.track.insight.updated" = "Track Insight bijgewerkt";
+"appModel.track.insight.update.failed" = "Track Insight bijwerken mislukt";
+"appModel.ask.dj.updated" = "Ask DJ bijgewerkt";
+"appModel.queue.updated" = "Wachtrij bijgewerkt";
+"appModel.queue.update.failed" = "Wachtrij bijwerken mislukt";
+"appModel.playlists.updated" = "Playlists bijgewerkt";
+"appModel.playlists.update.failed" = "Playlists bijwerken mislukt";
+"appModel.music.dna.updated" = "Music DNA bijgewerkt";
+"appModel.music.dna.update.failed" = "Music DNA bijwerken mislukt";
 "appModel.home.assistant.is.unreachable" = "Home Assistant is niet bereikbaar.";
 "appModel.home.assistant.could.not.complete.pairing.check.the.pair" = "Home Assistant kon de koppeling niet afronden. Controleer de koppelcode en probeer opnieuw.";
 "appModel.home.assistant.rejected.this.pair.code.generate.a.fresh" = "Home Assistant wees deze koppelcode af. Genereer een nieuwe 6-cijferige code in Home Assistant en probeer opnieuw.";
@@ -636,6 +645,7 @@
 "appModel.ask.dj.gives.real.answers.as.soon.as.djconnect" = "Ask DJ geeft echte antwoorden zodra DJConnect is gekoppeld met Home Assistant.";
 "appModel.track.insight.is.unavailable.for.this.track" = "Track Insight is niet beschikbaar voor dit nummer.";
 "appModel.start.playback.before.opening.track.insight" = "Start eerst een nummer voordat je Track Insight opent.";
+"appModel.track.insight.rate.limited.try.again.later" = "Track Insight is even bezig. Probeer later opnieuw te verversen.";
 "appModel.track.insight.is.not.available.in.this.home.assistant" = "Track Insight is nog niet beschikbaar in deze Home Assistant-integratie. Werk de DJConnect-integratie bij of herstart deze.";
 "appModel.finish.the.djconnect.setup.in.home.assistant.before.using" = "Rond de DJConnect-setup in Home Assistant af voordat je Track Insight gebruikt.";
 "appModel.the.music.backend.in.home.assistant.is.not.available" = "De muziekbackend in Home Assistant is niet beschikbaar voor Track Insight.";
@@ -807,7 +817,7 @@
 "widget.track.insight.description" = "DJConnect Track Insight-visualisatie voor je huidige vibe.";
 "widget.ask.dj.description" = "DJConnect Ask DJ-widget voor snelle muziekvragen en vibe-context.";
 "widget.ask.dj.placeholder.response" = "Vraag om de vibe, ontdek waarom een track werkt of laat DJConnect voorstellen wat hierna past.";
-"widget.track.insight.placeholder.summary" = "Laat tempo, energie en sfeer van de huidige track in een oogopslag zien.";
+"widget.track.insight.placeholder.summary" = "Laat energie, dansbaarheid en sfeer van de huidige track in een oogopslag zien.";
 "widget.private.on.device.music.dna" = "Prive - Op apparaat - Music DNA";
 "widget.djconnect.ask.dj" = "DJConnect Ask DJ";
 "watch.complication.djconnect.description" = "Open DJConnect vanaf je wijzerplaat.";

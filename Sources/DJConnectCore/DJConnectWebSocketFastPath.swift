@@ -7,6 +7,7 @@ public enum DJConnectFastPathRoute: String, CaseIterable, Sendable {
     case askDJHistoryClear = "djconnect/ask_dj/history/clear"
     case askDJHistoryState = "djconnect/ask_dj/history/state"
     case trackInsight = "djconnect/track_insight"
+    case vibeCast = "djconnect/vibecast"
 }
 
 public struct DJConnectHomeAssistantWebSocketAuth: Sendable {
@@ -48,6 +49,7 @@ public protocol DJConnectWebSocketFastPathTransport: Sendable {
     func askDJHistory(identity: DJConnectAPIIdentity, sinceRevision: Int?) async throws -> DJConnectAskDJHistoryResponse
     func clearAskDJHistory(identity: DJConnectAPIIdentity, musicDNAKey: String?) async throws -> DJConnectAskDJHistoryResponse
     func trackInsight(_ payload: DJConnectTrackInsightRequest, identity: DJConnectAPIIdentity) async throws -> TrackInsight
+    func vibeCast(_ payload: DJConnectVibeCastRequest, identity: DJConnectAPIIdentity) async throws -> DJConnectVibeCastResponse
 }
 
 public actor DJConnectHomeAssistantWebSocketFastPath: DJConnectWebSocketFastPathTransport {
@@ -165,6 +167,17 @@ public actor DJConnectHomeAssistantWebSocketFastPath: DJConnectWebSocketFastPath
             throw DJConnectError.trackInsightUnavailable(code: response.error, message: response.message)
         }
         return insight
+    }
+
+    public func vibeCast(
+        _ payload: DJConnectVibeCastRequest,
+        identity: DJConnectAPIIdentity
+    ) async throws -> DJConnectVibeCastResponse {
+        guard try await ensureCapabilities().contains(.vibeCast) else {
+            throw DJConnectError.routeMissing(message: "WebSocket VibeCast capability unavailable")
+        }
+        let request = DJConnectWebSocketVibeCastMessage(id: allocateID(), identity: identity, payload: payload)
+        return try await sendResult(request, timeout: 10, responseType: DJConnectVibeCastResponse.self)
     }
 
     private func ensureCapabilities() async throws -> Set<DJConnectFastPathRoute> {
@@ -650,5 +663,52 @@ private struct DJConnectWebSocketTrackInsightMessage: Encodable {
         case forceRefresh = "force_refresh"
         case includeVisualProfile = "include_visual_profile"
         case includeRawResponse = "include_raw_response"
+    }
+}
+
+private struct DJConnectWebSocketVibeCastMessage: Encodable {
+    var id: Int
+    var type = DJConnectFastPathRoute.vibeCast.rawValue
+    var identity: DJConnectAPIIdentity
+    var payload: DJConnectIdentifiedRequestPayload<DJConnectVibeCastRequest>
+    var deviceID: String
+    var clientType: DJConnectClientType
+    var clientID: String
+    var deviceName: String
+    var deviceToken: String?
+    var locale: String?
+    var language: String?
+    var timezone: String?
+    var capabilities: [String]
+
+    init(id: Int, identity: DJConnectAPIIdentity, payload: DJConnectVibeCastRequest) {
+        self.id = id
+        self.identity = identity
+        self.payload = DJConnectIdentifiedRequestPayload(identity: identity, payload: payload, includeNestedPayload: false)
+        deviceID = identity.deviceID
+        clientType = identity.clientType
+        clientID = identity.clientID
+        deviceName = identity.deviceName
+        deviceToken = identity.deviceToken
+        locale = payload.locale
+        language = payload.language
+        timezone = payload.timezone
+        capabilities = payload.capabilities
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case type
+        case identity
+        case payload
+        case deviceID = "device_id"
+        case clientType = "client_type"
+        case clientID = "client_id"
+        case deviceName = "device_name"
+        case deviceToken = "device_token"
+        case locale
+        case language
+        case timezone
+        case capabilities
     }
 }

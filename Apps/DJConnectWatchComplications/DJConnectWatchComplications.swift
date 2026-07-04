@@ -78,8 +78,6 @@ private struct TrackInsightSnapshot: Decodable {
     var updatedAt: Date
     var title: String
     var artist: String
-    var bpm: Double?
-    var key: String?
     var genre: String?
     var mood: String?
     var energy: Double?
@@ -320,9 +318,6 @@ private struct TrackInsightComplicationView: View {
     private var snapshot: TrackInsightSnapshot? { entry.value }
     private var title: String { snapshot?.title.isEmpty == false ? snapshot!.title : "Track Insight" }
     private var detail: String {
-        if let bpm = snapshot?.bpm {
-            return "\(Int(bpm.rounded())) BPM"
-        }
         return snapshot?.mood ?? snapshot?.genre ?? "DJConnect"
     }
 
@@ -485,8 +480,6 @@ struct DJConnectTrackInsightComplicationWidget: Widget {
                 updatedAt: Date(),
                 title: "Midnight City",
                 artist: "M83",
-                bpm: 105,
-                key: "B minor",
                 genre: "Synthpop",
                 mood: localizedKey("widget.preview.mood.nostalgic"),
                 energy: 0.76,

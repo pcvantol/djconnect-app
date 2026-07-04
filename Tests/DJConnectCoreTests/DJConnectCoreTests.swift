@@ -138,11 +138,13 @@ private actor MockWebSocketFastPathTransport: DJConnectWebSocketFastPathTranspor
     var commandError: Error?
     var askDJError: Error?
     var trackInsightError: Error?
+    var vibeCastError: Error?
     var commandCalls = 0
     var askDJCalls = 0
     var askDJHistoryCalls = 0
     var clearAskDJHistoryCalls = 0
     var trackInsightCalls = 0
+    var vibeCastCalls = 0
     var receivedTokens: [String] = []
     var receivedCommandPayload: DJConnectCommandPayload?
     var receivedCommandIdentity: DJConnectAPIIdentity?
@@ -154,6 +156,8 @@ private actor MockWebSocketFastPathTransport: DJConnectWebSocketFastPathTranspor
     var receivedClearIdentity: DJConnectAPIIdentity?
     var receivedTrackPayload: DJConnectTrackInsightRequest?
     var receivedTrackIdentity: DJConnectAPIIdentity?
+    var receivedVibeCastPayload: DJConnectVibeCastRequest?
+    var receivedVibeCastIdentity: DJConnectAPIIdentity?
     var clearAskDJHistoryResponse = DJConnectAskDJHistoryResponse(historyRevision: 0, clearRevision: 1, messages: [])
 
     init(supportedRoutes: Set<DJConnectFastPathRoute>) {
@@ -170,6 +174,10 @@ private actor MockWebSocketFastPathTransport: DJConnectWebSocketFastPathTranspor
 
     func setTrackInsightError(_ error: Error?) {
         trackInsightError = error
+    }
+
+    func setVibeCastError(_ error: Error?) {
+        vibeCastError = error
     }
 
     func setClearAskDJHistoryResponse(_ response: DJConnectAskDJHistoryResponse) {
@@ -266,6 +274,38 @@ private actor MockWebSocketFastPathTransport: DJConnectWebSocketFastPathTranspor
             rawAnalysisText: "Fast insight"
         )
     }
+
+    func vibeCast(_ payload: DJConnectVibeCastRequest, identity: DJConnectAPIIdentity) async throws -> DJConnectVibeCastResponse {
+        vibeCastCalls += 1
+        receivedTokens.append(identity.deviceToken ?? "")
+        receivedVibeCastPayload = payload
+        receivedVibeCastIdentity = identity
+        if let vibeCastError {
+            throw vibeCastError
+        }
+        guard supportedRoutes.contains(.vibeCast) else {
+            throw DJConnectError.routeMissing(message: "missing websocket vibecast capability")
+        }
+        return DJConnectVibeCastResponse(
+            enabled: true,
+            revision: 7,
+            ttlSeconds: 45,
+            pollAfterSeconds: 20,
+            context: .init(trackID: "fast-track", title: "Fast Track", artist: "Fast Artist", musicBackend: "music_assistant"),
+            items: [
+                .init(
+                    id: "fast-fact",
+                    kind: .trackFact,
+                    tone: "playful",
+                    priority: 80,
+                    displaySeconds: 8,
+                    placementHint: "side",
+                    text: [.init(type: .strong, value: "Fast fact")]
+                )
+            ],
+            cache: .init(hit: true)
+        )
+    }
 }
 
 private struct FailingTrackInsightFastPathTransport: DJConnectWebSocketFastPathTransport {
@@ -303,6 +343,10 @@ private struct FailingTrackInsightFastPathTransport: DJConnectWebSocketFastPathT
 
     func trackInsight(_ payload: DJConnectTrackInsightRequest, identity: DJConnectAPIIdentity) async throws -> TrackInsight {
         throw error
+    }
+
+    func vibeCast(_ payload: DJConnectVibeCastRequest, identity: DJConnectAPIIdentity) async throws -> DJConnectVibeCastResponse {
+        throw DJConnectError.routeMissing(message: "vibecast unsupported")
     }
 }
 
@@ -726,7 +770,9 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
             command: "set_volume",
             value: .int(35),
             play: true,
-            mood: 70
+            language: "nl-NL",
+            mood: 70,
+            musicDNAKey: "user:peter"
         )
     )
     let body = try #require(request.httpBody)
@@ -737,12 +783,20 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     #expect(request.value(forHTTPHeaderField: "X-DJConnect-Client-ID") == identity.deviceID)
     #expect(request.value(forHTTPHeaderField: "X-DJConnect-Device-ID") == identity.deviceID)
     #expect(request.value(forHTTPHeaderField: "Content-Type") == "application/json")
+    #expect(request.value(forHTTPHeaderField: "X-DJConnect-Language") == "nl-NL")
+    #expect(request.value(forHTTPHeaderField: "X-DJConnect-Locale") == "nl-NL")
+    #expect(request.value(forHTTPHeaderField: "Accept-Language") == "nl-NL")
+    #expect(request.value(forHTTPHeaderField: "X-DJConnect-Mood") == "70")
+    #expect(request.value(forHTTPHeaderField: "X-DJConnect-Music-DNA-Key") == "user:peter")
     #expect(json?["client_id"] as? String == identity.deviceID)
     #expect(json?["device_id"] as? String == identity.deviceID)
     #expect(json?["device_name"] as? String == identity.deviceName)
     #expect(json?["client_type"] as? String == "macos")
     #expect(json?["command"] as? String == "set_volume")
     #expect(json?["value"] as? Int == 35)
+    #expect(json?["language"] as? String == "nl-NL")
+    #expect(json?["mood"] as? Int == 70)
+    #expect(json?["music_dna_key"] as? String == "user:peter")
     #expect(json?["play"] as? Bool == true)
     #expect(json?["mood"] as? Int == 70)
 }
@@ -937,9 +991,9 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     let profile = try client.musicDNAProfileRequest()
     let settings = try client.musicDNASettingsRequest(enabled: true)
     let clear = try client.clearMusicDNARequest()
-    let moodProfile = try client.musicDNAProfileRequest(mood: 70)
-    let moodSettings = try client.musicDNASettingsRequest(enabled: false, mood: 85)
-    let moodClear = try client.clearMusicDNARequest(mood: -10)
+    let moodProfile = try client.musicDNAProfileRequest(mood: 70, musicDNAKey: "user:abc123", language: "nl")
+    let moodSettings = try client.musicDNASettingsRequest(enabled: false, mood: 85, musicDNAKey: "user:abc123", language: "nl")
+    let moodClear = try client.clearMusicDNARequest(mood: -10, musicDNAKey: "user:abc123", language: "nl")
 
     for request in [profile, settings, clear] {
         let body = try #require(request.httpBody)
@@ -951,6 +1005,7 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
         #expect(json?["device_id"] as? String == identity.deviceID)
         #expect(json?["client_id"] as? String == identity.deviceID)
         #expect(json?["client_type"] as? String == "macos")
+        #expect(json?["device_name"] as? String == identity.deviceName)
         let topIdentity = json?["identity"] as? [String: Any]
         let payload = json?["payload"] as? [String: Any]
         let payloadIdentity = payload?["identity"] as? [String: Any]
@@ -972,15 +1027,23 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     let moodProfileBody = try #require(moodProfile.httpBody)
     let moodProfileJSON = try JSONSerialization.jsonObject(with: moodProfileBody) as? [String: Any]
     #expect(moodProfileJSON?["mood"] as? Int == 70)
+    #expect(moodProfileJSON?["music_dna_key"] as? String == "user:abc123")
+    #expect(moodProfileJSON?["language"] as? String == "nl")
+    #expect(moodProfileJSON?["locale"] as? String == "nl")
+    #expect(moodProfile.value(forHTTPHeaderField: "X-DJConnect-Mood") == "70")
+    #expect(moodProfile.value(forHTTPHeaderField: "X-DJConnect-Music-DNA-Key") == "user:abc123")
+    #expect(moodProfile.value(forHTTPHeaderField: "X-DJConnect-Language") == "nl")
 
     let moodSettingsBody = try #require(moodSettings.httpBody)
     let moodSettingsJSON = try JSONSerialization.jsonObject(with: moodSettingsBody) as? [String: Any]
     #expect(moodSettingsJSON?["enabled"] as? Bool == false)
     #expect(moodSettingsJSON?["mood"] as? Int == 85)
+    #expect(moodSettingsJSON?["music_dna_key"] as? String == "user:abc123")
 
     let moodClearBody = try #require(moodClear.httpBody)
     let moodClearJSON = try JSONSerialization.jsonObject(with: moodClearBody) as? [String: Any]
     #expect(moodClearJSON?["mood"] as? Int == 0)
+    #expect(moodClearJSON?["music_dna_key"] as? String == "user:abc123")
 }
 
 @Test func authenticatedRequestsRejectClientTypeDeviceIDPrefixMismatch() throws {
@@ -1038,7 +1101,7 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
               "energy": 0.70,
               "energy_percent": 70,
               "zone": "energy",
-              "prompt_hint": "hoog tempo",
+              "prompt_hint": "hoge energie",
               "danceability": 0.54,
               "danceability_percent": 54,
               "intensity": 0.62,
@@ -1111,13 +1174,19 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
           "music_dna_key": "user:abc123",
           "enabled": true,
           "generation": 2,
+          "updated_at": "2026-07-04T05:00:00Z",
           "profile": {
             "summary": "Warm late-night electronic taste.",
-            "favorite_genres": [{"name": "ambient"}],
-            "favorite_artists": [{"name": "The xx"}],
-            "recent_tracks": [{"title": "Intro", "artist": "The xx"}],
-            "mood": {"value": 65, "zone": "energy"},
-            "recommendation_signals": [{"title": "soft vocals"}]
+            "track_count": 12,
+            "artist_count": 4,
+            "genre_count": 3,
+            "favorite_genres": ["ambient", {"name": "melodic house", "count": 2}],
+            "favorite_artists": ["The xx"],
+            "recent_tracks": [{"title": "Intro", "artist": "The xx", "genres": ["indie"]}],
+            "mood_profile": {"average": 57, "average_zone": "groove", "sample_count": 3},
+            "taste_direction": "Warm electronic",
+            "based_on": ["soft vocals", {"title": "Intro", "artist": "The xx", "genres": ["indie"]}],
+            "updated_at": "2026-07-04T05:01:00Z"
           }
         }
         """.utf8))
@@ -1130,6 +1199,13 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     #expect(model.musicDNAProfileResponse?.profile.isEmpty == false)
     #expect(model.musicDNAProfileResponse?.profile.summary == "Warm late-night electronic taste.")
     #expect(model.musicDNAProfileResponse?.profile.favoriteGenres.first?.name == "ambient")
+    #expect(model.musicDNAProfileResponse?.profile.favoriteGenres.dropFirst().first?.count == 2)
+    #expect(model.musicDNAProfileResponse?.profile.favoriteArtists.first?.name == "The xx")
+    #expect(model.musicDNAProfileResponse?.profile.trackCount == 12)
+    #expect(model.musicDNAProfileResponse?.profile.mood?.averageZone == "groove")
+    #expect(model.musicDNAProfileResponse?.profile.tasteDirection == "Warm electronic")
+    #expect(model.musicDNAProfileResponse?.profile.basedOn.map { $0.title ?? $0.name ?? "" } == ["soft vocals", "Intro"])
+    #expect(model.musicDNAProfileResponse?.profile.updatedAt != nil)
     #expect(recorder.requests.map { $0.url?.path } == ["/api/djconnect/music_dna/profile"])
 }
 
@@ -1869,6 +1945,7 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
         forceRefresh: true,
         locale: "nl",
         mood: 70,
+        musicDNAKey: "djconnect_ios_djconnect-ios-8F3A2C91B45D",
         includeVisualProfile: true,
         includeRawResponse: true
     ))
@@ -1882,6 +1959,7 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     #expect(request.value(forHTTPHeaderField: "X-DJConnect-Locale") == "nl")
     #expect(request.value(forHTTPHeaderField: "Accept-Language") == "nl")
     #expect(request.value(forHTTPHeaderField: "X-DJConnect-Mood") == "70")
+    #expect(request.value(forHTTPHeaderField: "X-DJConnect-Music-DNA-Key") == "djconnect_ios_djconnect-ios-8F3A2C91B45D")
     #expect((object?["device_id"] as? String) == "djconnect-ios-8F3A2C91B45D")
     #expect((object?["client_id"] as? String) == "djconnect-ios-8F3A2C91B45D")
     #expect((object?["device_name"] as? String) == "iPhone")
@@ -1903,6 +1981,16 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     #expect((object?["album"] as? String) == "Bloom")
     #expect((object?["album_name"] as? String) == "Bloom")
     #expect((object?["artwork_url"] as? String) == "https://example.com/innerbloom.jpg")
+    let track = object?["track"] as? [String: Any]
+    #expect(track?["title"] as? String == "Innerbloom")
+    #expect(track?["artist"] as? String == "RUFUS DU SOL")
+    #expect(track?["album"] as? String == "Bloom")
+    #expect(track?["artwork_url"] as? String == "https://example.com/innerbloom.jpg")
+    #expect(track?["duration_ms"] as? Int == 544_000)
+    #expect(track?["progress_ms"] as? Int == 123_000)
+    #expect(track?["entity_id"] as? String == "media_player.living_room")
+    #expect(track?["player_id"] as? String == "spotify-player")
+    #expect(track?["backend"] as? String == "spotify")
     #expect((object?["duration_ms"] as? Int) == 544_000)
     #expect((object?["progress_ms"] as? Int) == 123_000)
     #expect((object?["entity_id"] as? String) == "media_player.living_room")
@@ -1912,6 +2000,7 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     #expect((object?["locale"] as? String) == "nl")
     #expect((object?["language"] as? String) == "nl")
     #expect((object?["mood"] as? Int) == 70)
+    #expect((object?["music_dna_key"] as? String) == "djconnect_ios_djconnect-ios-8F3A2C91B45D")
     #expect((object?["include_visual_profile"] as? Bool) == true)
     #expect((object?["include_raw_response"] as? Bool) == true)
 }
@@ -1947,6 +2036,182 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     #expect((object?["track_name"] as? String) == "Natural Blues")
     #expect((object?["artist"] as? String) == "Moby")
     #expect((object?["artist_name"] as? String) == "Moby")
+}
+
+@Test func vibeCastResponseDecodesSuccessAndStructuredText() throws {
+    let json = Data(#"""
+    {
+      "enabled": true,
+      "revision": 12,
+      "ttl_seconds": 45,
+      "poll_after_seconds": 20,
+      "context": {
+        "track_id": "track-1",
+        "title": "Song Title",
+        "artist": "Artist Name",
+        "album": "Album Name",
+        "music_backend": "music_assistant",
+        "music_backend_name": "Music Assistant",
+        "music_backend_revision": 2
+      },
+      "items": [
+        {
+          "id": "fact-1",
+          "kind": "track_fact",
+          "tone": "playful",
+          "priority": 50,
+          "display_seconds": 8,
+          "placement_hint": "side",
+          "text": [
+            { "type": "text", "value": "This track rides on " },
+            { "type": "strong", "value": "space and pulse" },
+            { "type": "text", "value": "." }
+          ],
+          "source": { "kind": "generated", "confidence": "medium" }
+        }
+      ],
+      "cache": { "hit": false }
+    }
+    """#.utf8)
+
+    let response = try JSONDecoder().decode(DJConnectVibeCastResponse.self, from: json)
+
+    #expect(response.enabled == true)
+    #expect(response.revision == 12)
+    #expect(response.effectivePollAfterSeconds == 20)
+    #expect(response.context?.musicBackend == "music_assistant")
+    #expect(response.items.first?.kind == .trackFact)
+    #expect(response.items.first?.text[1].type == .strong)
+    #expect(response.items.first?.plainText == "This track rides on space and pulse.")
+}
+
+@Test func vibeCastResponseDecodesDisabledAndUnknownSegmentsGracefully() throws {
+    let disabled = try JSONDecoder().decode(
+        DJConnectVibeCastResponse.self,
+        from: Data(#"{"enabled":false,"reason":"no_active_playback","ttl_seconds":30,"poll_after_seconds":30,"items":[]}"#.utf8)
+    )
+    #expect(disabled.enabled == false)
+    #expect(disabled.reason == "no_active_playback")
+    #expect(disabled.items.isEmpty)
+
+    let unknown = try JSONDecoder().decode(
+        DJConnectVibeCastResponse.self,
+        from: Data(#"{"enabled":true,"items":[{"id":"x","kind":"future_kind","text":[{"type":"sparkle","value":"safe fallback"}]}]}"#.utf8)
+    )
+    #expect(unknown.items.first?.kind == .unknown("future_kind"))
+    #expect(unknown.items.first?.text.first?.type == .unknown("sparkle"))
+    #expect(unknown.items.first?.plainText == "safe fallback")
+}
+
+@Test func vibeCastRequestsUseEquivalentIOSAndMacOSMetadata() throws {
+    let iosClient = DJConnectClient(
+        baseURL: URL(string: "http://homeassistant.local:8123")!,
+        identity: DJConnectIdentity(
+            deviceID: "djconnect-ios-8F3A2C91B45D",
+            deviceName: "iPhone",
+            clientType: .ios,
+            firmware: "3.2.12",
+            appVersion: "3.2.12",
+            platform: .ios
+        ),
+        tokenStore: DJConnectInMemoryTokenStore(token: "token")
+    )
+    let macClient = DJConnectClient(
+        baseURL: URL(string: "http://homeassistant.local:8123")!,
+        identity: DJConnectIdentity(
+            deviceID: "djconnect-macos-8F3A2C91B45D",
+            deviceName: "Mac",
+            clientType: .macos,
+            firmware: "3.2.12",
+            appVersion: "3.2.12",
+            platform: .macos
+        ),
+        tokenStore: DJConnectInMemoryTokenStore(token: "token")
+    )
+
+    let payload = DJConnectVibeCastRequest(locale: "nl-NL", timezone: "Europe/Oslo")
+    let iosRequest = try iosClient.vibeCastRequest(payload)
+    let macRequest = try macClient.vibeCastRequest(payload)
+    let iosURL = try #require(iosRequest.url)
+    let macURL = try #require(macRequest.url)
+    let iosQuery = try #require(URLComponents(url: iosURL, resolvingAgainstBaseURL: false)?.queryItems)
+    let macQuery = try #require(URLComponents(url: macURL, resolvingAgainstBaseURL: false)?.queryItems)
+
+    #expect(iosRequest.httpMethod == "GET")
+    #expect(macRequest.httpMethod == "GET")
+    #expect(iosRequest.url?.path == "/api/djconnect/vibecast")
+    #expect(macRequest.url?.path == "/api/djconnect/vibecast")
+    #expect(iosRequest.value(forHTTPHeaderField: "Authorization") == "Bearer token")
+    #expect(macRequest.value(forHTTPHeaderField: "Authorization") == "Bearer token")
+    #expect(iosRequest.value(forHTTPHeaderField: "X-DJConnect-Locale") == "nl-NL")
+    #expect(macRequest.value(forHTTPHeaderField: "X-DJConnect-Locale") == "nl-NL")
+    #expect(iosRequest.value(forHTTPHeaderField: "X-DJConnect-Render-Capabilities") == macRequest.value(forHTTPHeaderField: "X-DJConnect-Render-Capabilities"))
+    #expect(iosQuery.first(where: { $0.name == "client_type" })?.value == "ios")
+    #expect(macQuery.first(where: { $0.name == "client_type" })?.value == "macos")
+    #expect(iosQuery.first(where: { $0.name == "capabilities" })?.value == macQuery.first(where: { $0.name == "capabilities" })?.value)
+    #expect(iosQuery.first(where: { $0.name == "locale" })?.value == macQuery.first(where: { $0.name == "locale" })?.value)
+    #expect(iosQuery.first(where: { $0.name == "timezone" })?.value == macQuery.first(where: { $0.name == "timezone" })?.value)
+}
+
+@Test func vibeCastWebSocketFastPathSucceedsWithoutHTTP() async throws {
+    let fastPath = MockWebSocketFastPathTransport(supportedRoutes: [.vibeCast])
+    let client = DJConnectClient(
+        baseURL: URL(string: "http://vibecast-fast.local:8123")!,
+        identity: testIOSIdentity(deviceID: "djconnect-ios-8F3A2C91B45D"),
+        tokenStore: DJConnectInMemoryTokenStore(token: "device-token"),
+        session: mockSession(host: "vibecast-fast.local") { request in
+            Issue.record("HTTP should not be used when WebSocket VibeCast succeeds")
+            return (try httpResponse(for: request, statusCode: 500), Data())
+        },
+        webSocketFastPath: fastPath
+    )
+
+    let response = try await client.vibeCast(DJConnectVibeCastRequest(locale: "nl-NL", timezone: "Europe/Oslo"))
+
+    #expect(response.enabled == true)
+    #expect(response.revision == 7)
+    #expect(response.context?.trackID == "fast-track")
+    #expect(response.items.first?.plainText == "Fast fact")
+    #expect(await fastPath.vibeCastCalls == 1)
+    #expect(await fastPath.receivedVibeCastIdentity?.clientType == .ios)
+    #expect(await fastPath.receivedVibeCastIdentity?.deviceID == "djconnect-ios-8F3A2C91B45D")
+    #expect(await fastPath.receivedVibeCastPayload?.locale == "nl-NL")
+    #expect(await fastPath.receivedVibeCastPayload?.timezone == "Europe/Oslo")
+    #expect(await fastPath.receivedTokens == ["device-token"])
+}
+
+@Test func vibeCastWebSocketFailureFallsBackToHTTPExactlyOnce() async throws {
+    let fastPath = MockWebSocketFastPathTransport(supportedRoutes: [.vibeCast])
+    await fastPath.setVibeCastError(DJConnectError.network(message: "timeout"))
+    final class Counter: @unchecked Sendable {
+        let lock = NSLock()
+        var value = 0
+        func increment() { lock.withLock { value += 1 } }
+        var count: Int { lock.withLock { value } }
+    }
+    let counter = Counter()
+    let client = DJConnectClient(
+        baseURL: URL(string: "http://vibecast-fallback.local:8123")!,
+        identity: testIOSIdentity(),
+        tokenStore: DJConnectInMemoryTokenStore(token: "device-token"),
+        session: mockSession(host: "vibecast-fallback.local") { request in
+            counter.increment()
+            #expect(request.url?.path == "/api/djconnect/vibecast")
+            return (
+                try httpResponse(for: request, statusCode: 200),
+                Data(#"{"enabled":true,"revision":8,"poll_after_seconds":30,"context":{"track_id":"http-track"},"items":[{"id":"http-fact","kind":"trivia","text":[{"type":"text","value":"HTTP fact"}]}]}"#.utf8)
+            )
+        },
+        webSocketFastPath: fastPath
+    )
+
+    let response = try await client.vibeCast(DJConnectVibeCastRequest(locale: "en-US"))
+
+    #expect(response.revision == 8)
+    #expect(response.context?.trackID == "http-track")
+    #expect(response.items.first?.plainText == "HTTP fact")
+    #expect(await fastPath.vibeCastCalls == 1)
+    #expect(counter.count == 1)
 }
 
 @Test func appleClientCodeDoesNotReferenceRemovedDJConnectHAPlaybackEntities() throws {
@@ -2520,8 +2785,6 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
         "analysis": {
           "summary": "A slow-blooming electronic journey.",
           "full_text": "Full Track Insight text.",
-          "bpm": 122,
-          "key": "F# minor",
           "genre": "Deep House",
           "subgenre": "Melodic House",
           "mood": "Dreamy",
@@ -2574,8 +2837,6 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     #expect(insight.isPlaying == true)
     #expect(insight.playerID == "spotify-player")
     #expect(insight.entityID == "media_player.living_room")
-    #expect(insight.bpm == 122)
-    #expect(insight.key == "F# minor")
     #expect(insight.genre == "Deep House")
     #expect(insight.subgenre == "Melodic House")
     #expect(insight.emotionalTone == "Euphoric")
@@ -2682,7 +2943,7 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
         "mode": "knowledge_plus_metadata",
         "confidence": "medium",
         "limitations": [
-          "Exact BPM is unavailable."
+          "Exact section timestamps are unavailable."
         ]
       }
     }
@@ -4070,8 +4331,6 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
         tokenStore: DJConnectInMemoryTokenStore(),
         startBackgroundTasks: false
     )
-    model.language = "nl"
-
     await Task.yield()
 
     #expect(model.selectedOutput == DJConnectLocalization.localized(key: "ui.no.output.device.selected", language: model.language))
@@ -5771,6 +6030,102 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
 }
 
 @MainActor
+@Test func activeVibeCastAutoAnalyzesCurrentAndNextTrackInsight() async throws {
+    let suiteName = "DJConnectTests-\(UUID().uuidString)"
+    let defaults = try #require(UserDefaults(suiteName: suiteName))
+    defaults.removePersistentDomain(forName: suiteName)
+    defaults.set(DJConnectHAConnectionMode.local.rawValue, forKey: "DJConnectHAConnectionMode")
+    final class Recorder: @unchecked Sendable {
+        let lock = NSLock()
+        var trackInsightTitles: [String] = []
+        func append(_ value: String) {
+            lock.withLock { trackInsightTitles.append(value) }
+        }
+        var titles: [String] {
+            lock.withLock { trackInsightTitles }
+        }
+    }
+    let recorder = Recorder()
+    let host = "vibecast-auto-insight.local"
+    let session = mockSession(host: host) { request in
+        switch request.url?.path {
+        case "/api/djconnect/vibecast":
+            return (
+                try httpResponse(for: request, statusCode: 200),
+                Data(#"{"enabled":true,"revision":1,"poll_after_seconds":30,"items":[]}"#.utf8)
+            )
+        case "/api/djconnect/track_insight":
+            let object = request.httpBody.flatMap { try? JSONSerialization.jsonObject(with: $0) as? [String: Any] }
+            let fallbackTitle = recorder.titles.isEmpty ? "Track One" : "Track Two"
+            let title = (object?["track_name"] as? String) ?? fallbackTitle
+            let artist = (object?["artist"] as? String) ?? title.replacingOccurrences(of: "Track", with: "Artist")
+            recorder.append(title)
+            let json = """
+            {
+              "success": true,
+              "track_insight": {
+                "title": "\(title)",
+                "artist": "\(artist)",
+                "analysis": {
+                  "summary": "Auto insight for \(title)",
+                  "full_text": "Auto insight for \(title)"
+                }
+              }
+            }
+            """
+            return (try httpResponse(for: request, statusCode: 200), Data(json.utf8))
+        case "/api/djconnect/music_dna/profile":
+            return (
+                try httpResponse(for: request, statusCode: 200),
+                Data(#"{"enabled":false,"profile":null,"items":[]}"#.utf8)
+            )
+        default:
+            Issue.record("Unexpected route \(request.url?.path ?? "nil")")
+            return (try httpResponse(for: request, statusCode: 404), Data(#"{"error":"not_found"}"#.utf8))
+        }
+    }
+    let model = DJConnectAppModel(
+        playback: DJConnectPlayback(hasPlayback: true, isPlaying: true, trackName: "Track One", artistName: "Artist One"),
+        defaults: defaults,
+        tokenStore: DJConnectInMemoryTokenStore(token: "secret-token"),
+        urlSession: session,
+        startBackgroundTasks: false
+    )
+    model.homeAssistantURL = "http://\(host):8123"
+    model.pairingStatus = .paired
+
+    let pollingTask = Task { await model.runVibeCastPolling() }
+    defer { pollingTask.cancel() }
+
+    for _ in 0..<60 where recorder.titles.count < 1 || model.currentTrackInsight?.title != "Track One" {
+        try await Task.sleep(for: .milliseconds(50))
+    }
+    #expect(recorder.titles == ["Track One"])
+    #expect(model.currentTrackInsight?.title == "Track One")
+
+    model.apply(playback: DJConnectPlayback(hasPlayback: true, isPlaying: true, trackName: "Track Two", artistName: "Artist Two"))
+
+    for _ in 0..<60 where recorder.titles.count < 2 || model.currentTrackInsight?.title != "Track Two" {
+        try await Task.sleep(for: .milliseconds(50))
+    }
+    #expect(recorder.titles == ["Track One", "Track Two"])
+    #expect(model.currentTrackInsight?.title == "Track Two")
+
+    model.apply(playback: DJConnectPlayback(hasPlayback: true, isPlaying: true, trackName: "Track Two", artistName: "Artist Two"))
+    try await Task.sleep(for: .milliseconds(150))
+    #expect(recorder.titles == ["Track One", "Track Two"])
+
+    pollingTask.cancel()
+    for _ in 0..<20 where model.isVibeCastStreamingActive {
+        try await Task.sleep(for: .milliseconds(50))
+    }
+    model.apply(playback: DJConnectPlayback(hasPlayback: true, isPlaying: true, trackName: "Track Three", artistName: "Artist Three"))
+    try await Task.sleep(for: .milliseconds(200))
+    #expect(recorder.titles == ["Track One", "Track Two"])
+    #expect(model.currentTrackInsight == nil)
+}
+
+@MainActor
 @Test func haVersionOutsideAppMinorRangeDisablesRuntimeControls() throws {
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
@@ -6930,8 +7285,6 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
       "title": "Innerbloom",
       "artist": "RUFUS DU SOL",
       "album": "Bloom",
-      "bpm": 122,
-      "key": "D minor",
       "genre": "Melodic house",
       "energy": 0.64,
       "danceability": 0.62,
@@ -6948,9 +7301,31 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
 
     #expect(insight.title == "Innerbloom")
     #expect(insight.artist == "RUFUS DU SOL")
-    #expect(insight.bpm == 122)
     #expect(insight.energy == 0.64)
     #expect(insight.summary == "A slow-blooming electronic piece.")
+}
+
+@Test func trackInsightUsesTrackGenresWhenAnalysisGenreIsMissing() throws {
+    let json = """
+    {
+      "success": true,
+      "track_insight": {
+        "track": {
+          "title": "Genre Fallback",
+          "artist": "Backend",
+          "genres": ["dream pop", "ambient", "electronic", "extra"]
+        },
+        "analysis": {
+          "summary": "Genre comes from track context."
+        }
+      }
+    }
+    """.data(using: .utf8)!
+
+    let response = try JSONDecoder().decode(TrackInsightEndpointResponse.self, from: json)
+    let insight = try #require(response.trackInsightValue)
+
+    #expect(insight.genre == "dream pop, ambient, electronic")
 }
 
 @Test func trackInsightWidgetSnapshotKeepsOnlySafeVisibleFields() throws {
@@ -6959,8 +7334,6 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
         artist: "RUFUS DU SOL",
         duration: 200,
         progress: 138,
-        bpm: 122.4,
-        key: "F# minor",
         genre: "Deep House",
         energy: 1.4,
         danceability: -0.2,
@@ -6976,7 +7349,6 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
 
     #expect(snapshot.title == "Innerbloom")
     #expect(snapshot.artist == "RUFUS DU SOL")
-    #expect(snapshot.bpm == 122)
     #expect(snapshot.energy == 1)
     #expect(snapshot.danceability == 0)
     #expect(snapshot.intensity == 0.58)
@@ -6997,8 +7369,6 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
         genre: "Classical",
         mood: "Dreamy",
         vibe: "Lamenting",
-        bpm: 72,
-        key: "B-flat minor",
         energy: 0.32,
         danceability: 0.10,
         intensity: 0.68,
@@ -7381,7 +7751,6 @@ private func loadRepositoryPlist(_ relativePath: String) throws -> [String: Any]
     let insight = TrackInsight(
         title: "Marea",
         artist: "Fred again..",
-        bpm: 126,
         genre: "House",
         energy: 0.8,
         danceability: 0.88,

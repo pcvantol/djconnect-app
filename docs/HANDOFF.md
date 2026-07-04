@@ -136,8 +136,8 @@ Recommended iOS fields:
   "device_id": "djconnect-ios-8F3A2C91B45D",
   "device_name": "DJConnect iPhone",
   "client_type": "ios",
-  "firmware": "3.2.12",
-  "app_version": "3.2.12",
+  "firmware": "3.2.13",
+  "app_version": "3.2.13",
   "platform": "ios"
 }
 ```
@@ -149,8 +149,8 @@ Recommended macOS fields:
   "device_id": "djconnect-macos-8F3A2C91B45D",
   "device_name": "DJConnect Mac",
   "client_type": "macos",
-  "firmware": "3.2.12",
-  "app_version": "3.2.12",
+  "firmware": "3.2.13",
+  "app_version": "3.2.13",
   "platform": "macos"
 }
 ```
@@ -162,8 +162,8 @@ Recommended watchOS fields:
   "device_id": "djconnect-watchos-8F3A2C91B45D",
   "device_name": "DJConnect Watch",
   "client_type": "watchos",
-  "firmware": "3.2.12",
-  "app_version": "3.2.12",
+  "firmware": "3.2.13",
+  "app_version": "3.2.13",
   "platform": "watchos"
 }
 ```
@@ -269,9 +269,9 @@ Expected response:
   "success": false,
   "error": "version_mismatch",
   "message": "DJConnect Home Assistant integration and device firmware major.minor versions must match.",
-  "ha_version": "3.2.12",
+  "ha_version": "3.2.13",
   "ha_major_minor": "3.2",
-  "firmware": "3.2.12",
+  "firmware": "3.2.13",
   "firmware_major_minor": "3.1"
 }
 ```
@@ -351,8 +351,8 @@ X-DJConnect-Device-ID: <device_id>
 {  "device_id": "djconnect-macos-8F3A2C91B45D",
   "device_name": "DJConnect Mac",
   "client_type": "macos",
-  "firmware": "3.2.12",
-  "app_version": "3.2.12",
+  "firmware": "3.2.13",
+  "app_version": "3.2.13",
   "platform": "macos",
   "pair_code": "123456",
   "pairing_code": "123456",
@@ -491,8 +491,8 @@ Minimum payload:
   "device_id": "djconnect-ios-8F3A2C91B45D",
   "client_type": "ios",
   "ha_pairing_status": "paired",
-  "firmware": "3.2.12",
-  "app_version": "3.2.12",
+  "firmware": "3.2.13",
+  "app_version": "3.2.13",
   "state": "online",
   "status": "online",
   "battery_percent": 85,
@@ -788,11 +788,10 @@ Canonical voice examples live in
   are used?`, `does this artist have concerts in the Netherlands?`, `why did
   you choose this track?`
 - `track_insight`: `Geef Track Insight voor dit nummer`, `Analyseer deze track`,
-  `Wat is de bpm en opbouw van deze track?`,
+  `Hoe is deze track opgebouwd?`,
   `Welke instrumenten hoor je hierin?`, `Hoe zit intro, couplet, refrein en
-  breakdown in elkaar?`, `Give me a Track Insight of this song`, `What is
-  the BPM, key and structure of this track?`, `Why does this track work so
-  well?`
+  breakdown in elkaar?`, `Give me a Track Insight of this song`, `How is
+  this track built up?`, `Why does this track work so well?`
 
 The app does not hardcode these intent families or validate spoken text
 client-side. It records/uploads voice audio and lets Home Assistant handle STT,
@@ -821,12 +820,11 @@ For `track_context_info`, Home Assistant should enrich the current playback
 context with album art, title, artist, release year, genre, DJ commentary,
 artist origin, trivia, samples, related artists, upcoming Netherlands concerts,
 festival appearances, new releases, why the track was chosen, relation to the
-previous track, BPM/energy transition, and shared producer or label connections
+previous track, energy flow, and shared producer or label connections
 when those details are available.
 
 For `track_insight`, Home Assistant should explain instrumentation,
-arrangement, rhythm/groove, BPM/key/sections when measured or sourced,
-harmony/chords when known, sound design, production techniques, mix/mastering
+arrangement, rhythm/groove, energy curve, sound design, production techniques, mix/mastering
 impressions, and why the composition works. This is an informational/read-only
 intent for iOS, macOS, watchOS, Raspberry Pi, and Windows Ask DJ clients: never
 start, pause, skip, queue, save, like, transfer output, or otherwise mutate
@@ -835,14 +833,28 @@ Direct Track Insight endpoint calls include the same canonical `client_type` as
 status/command payloads. Missing or unsupported client types should be returned
 as `invalid_client_type`; clients localize the message and keep pairing state.
 
+VibeCast is a first-class iOS/macOS streaming surface. Apple clients poll
+`GET /api/djconnect/vibecast` while the VibeCast surface is visible, or use the
+optional local WebSocket route `djconnect/vibecast` when HA advertises it. The
+response is backend-neutral structured JSON with `enabled`, disabled `reason`,
+`revision`, `ttl_seconds`, `poll_after_seconds`, current-track `context`, and
+feed `items` using safe rich-text segments (`text`, `strong`, `emphasis`,
+`magnify`, `accent`, `line_break`). Clients render unknown item/segment types as
+plain text, do not parse HTML/Markdown, and do not show raw provider/cache/
+decode errors. While VibeCast is active, iOS/macOS client-side Track Insight
+enters an "auto analyze on next track start" mode: it requests Track Insight for
+the current playing track and once for each new playing track with `open:false`,
+dedupes repeated snapshots for the same track, and stops the mode when VibeCast
+is closed.
+
 The response may include `analysis` metadata with `mode`, `confidence`,
 `measured`, `inferred`, `limitations`, and `sources`, plus optional compact
-`items[]` such as `kind: "technical_metric"` for BPM/key or `kind:
+`items[]` such as `kind: "energy"` or `kind:
 "arrangement"` for structure notes. Clearly separate measured/provider-backed
 facts from inferred musical commentary. Unless the backend adds a real
 audio-analysis pipeline or uses a trusted source, it must avoid claiming exact
-BPM/key, timestamps, stem separation, exact chord transcription, or definitive
-instrument lists.
+timestamps, stem separation, exact chord transcription, or definitive instrument
+lists.
 
 Expected response:
 

@@ -121,7 +121,7 @@ backend; Apple clients render backend summaries and action payloads without
 requiring Spotify URIs. Rich
 now-playing and artist questions are handled as `track_context_info`, including
 release year, genre, DJ commentary, artist origin, trivia, samples, related
-artists, concerts, releases, and musical connections such as BPM transition or
+artists, concerts, releases, and musical connections such as energy flow or
 shared producer/label. Technical and production-analysis questions are handled
 as `track_insight`; the backend should distinguish measured/provider
 metadata from inferred musical commentary and must keep the intent read-only

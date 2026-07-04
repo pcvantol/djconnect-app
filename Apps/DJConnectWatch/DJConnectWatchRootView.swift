@@ -674,8 +674,6 @@ struct DJConnectWatchRootView: View {
                 title: model.playback?.trackName ?? "Track Insight",
                 artist: model.playback?.artistName ?? "DJConnect",
                 artwork: model.playback?.albumImageURL,
-                bpm: nil,
-                key: nil,
                 genre: nil,
                 energy: nil,
                 danceability: nil,
@@ -817,8 +815,6 @@ struct DJConnectWatchRootView: View {
                 }
 
                 LazyVGrid(columns: columns, spacing: 7) {
-                    DJConnectWatchTrackInsightMetric(title: "BPM", value: insight.bpm.map { String(Int($0.rounded())) })
-                    DJConnectWatchTrackInsightMetric(title: watchLocalizedKey(language, "watch.key"), value: insight.key)
                     DJConnectWatchTrackInsightMetric(title: watchLocalizedKey(language, "watch.genre"), value: insight.genre)
                     DJConnectWatchTrackInsightMetric(title: watchLocalizedKey(language, "watch.mood"), value: insight.mood)
                     DJConnectWatchTrackInsightMetric(title: watchLocalizedKey(language, "watch.vibe"), value: insight.vibe)

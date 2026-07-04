@@ -178,7 +178,6 @@
 "ui.vibecast.unavailable" = "VibeCast unavailable";
 "ui.choose.an.airplay.display.for.vibecast" = "Choose an AirPlay display for VibeCast";
 "ui.vibecast.via.airplay" = "VibeCast via AirPlay";
-"ui.key" = "Key";
 "ui.genre" = "Genre";
 "ui.energy" = "Energy";
 "ui.dance" = "Dance";
@@ -445,7 +444,6 @@
 "watch.no.track" = "No track";
 "watch.ask.dj.can.fill.track.insight.details.for" = "Ask DJ can fill Track Insight details for this track.";
 "watch.rendered.privately.on.your.device" = "Rendered privately on your device";
-"watch.key" = "Key";
 "watch.genre" = "Genre";
 "watch.mood" = "Mood";
 "watch.energy" = "Energy";
@@ -625,6 +623,17 @@
 "appModel.missing.djconnect.bearer.token.reset.pairing.to.set.up" = "Pairing was not completed. Scan the QR code again or enter the pair code.";
 "appModel.pairing.is.stale.open.home.assistant.setup.and.enter" = "Pairing is stale. Open Home Assistant setup and enter the new pair code here.";
 "appModel.no.connection.to.home.assistant" = "No connection to Home Assistant";
+"appModel.now.playing.updated" = "Now Playing updated";
+"appModel.now.playing.update.failed" = "Now Playing update failed";
+"appModel.track.insight.updated" = "Track Insight updated";
+"appModel.track.insight.update.failed" = "Track Insight update failed";
+"appModel.ask.dj.updated" = "Ask DJ updated";
+"appModel.queue.updated" = "Queue updated";
+"appModel.queue.update.failed" = "Queue update failed";
+"appModel.playlists.updated" = "Playlists updated";
+"appModel.playlists.update.failed" = "Playlist update failed";
+"appModel.music.dna.updated" = "Music DNA updated";
+"appModel.music.dna.update.failed" = "Music DNA update failed";
 "appModel.home.assistant.is.unreachable" = "Home Assistant is unreachable.";
 "appModel.home.assistant.could.not.complete.pairing.check.the.pair" = "Home Assistant could not complete pairing. Check the pair code and try again.";
 "appModel.home.assistant.rejected.this.pair.code.generate.a.fresh" = "Home Assistant rejected this pair code. Generate a fresh 6-digit code in Home Assistant and try again.";
@@ -636,6 +645,7 @@
 "appModel.ask.dj.gives.real.answers.as.soon.as.djconnect" = "Ask DJ gives real answers as soon as DJConnect is paired with Home Assistant.";
 "appModel.track.insight.is.unavailable.for.this.track" = "Track Insight is unavailable for this track.";
 "appModel.start.playback.before.opening.track.insight" = "Start playback before opening Track Insight.";
+"appModel.track.insight.rate.limited.try.again.later" = "Track Insight is busy. Try refreshing again later.";
 "appModel.track.insight.is.not.available.in.this.home.assistant" = "Track Insight is not available in this Home Assistant integration yet. Update or restart the DJConnect integration.";
 "appModel.finish.the.djconnect.setup.in.home.assistant.before.using" = "Finish the DJConnect setup in Home Assistant before using Track Insight.";
 "appModel.the.music.backend.in.home.assistant.is.not.available" = "The music backend in Home Assistant is not available for Track Insight.";
@@ -807,7 +817,7 @@
 "widget.track.insight.description" = "DJConnect Track Insight visualization for your current vibe.";
 "widget.ask.dj.description" = "DJConnect Ask DJ widget for quick music questions and vibe context.";
 "widget.ask.dj.placeholder.response" = "Ask about the vibe, discover why a track works or let DJConnect suggest what comes next.";
-"widget.track.insight.placeholder.summary" = "Shows tempo, energy and mood for the current track at a glance.";
+"widget.track.insight.placeholder.summary" = "Shows energy, danceability and mood for the current track at a glance.";
 "widget.private.on.device.music.dna" = "Private - On device - Music DNA";
 "widget.djconnect.ask.dj" = "DJConnect Ask DJ";
 "watch.complication.djconnect.description" = "Open DJConnect from your watch face.";

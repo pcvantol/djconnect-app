@@ -17,8 +17,8 @@ clears the bearer token and creates a fresh local install identity.
   "device_id": "djconnect-ios-8F3A2C91B45D",
   "device_name": "DJConnect iPhone",
   "client_type": "ios",
-  "firmware": "3.2.12",
-  "app_version": "3.2.12",
+  "firmware": "3.2.13",
+  "app_version": "3.2.13",
   "platform": "ios"
 }
 ```
@@ -78,8 +78,8 @@ Payload:
   "device_id": "djconnect-macos-8F3A2C91B45D",
   "device_name": "DJConnect Mac",
   "client_type": "macos",
-  "firmware": "3.2.12",
-  "app_version": "3.2.12",
+  "firmware": "3.2.13",
+  "app_version": "3.2.13",
   "platform": "macos",
   "pair_code": "123456",
   "pairing_code": "123456",
@@ -226,7 +226,7 @@ Expected macOS payload:
   "push_token": "<apns-device-token>",
   "push_environment": "sandbox",
   "app_bundle_id": "dev.djconnect.mac",
-  "app_version": "3.2.12",
+  "app_version": "3.2.13",
   "locale": "nl-NL",
   "notification_categories": ["ask_dj"],
   "bootstrap_proof": "<short-lived proof when available>"
@@ -274,8 +274,8 @@ Minimum payload:
   "device_name": "DJConnect iPhone",
   "client_type": "ios",
   "ha_pairing_status": "paired",
-  "firmware": "3.2.12",
-  "app_version": "3.2.12",
+  "firmware": "3.2.13",
+  "app_version": "3.2.13",
   "state": "online",
   "status": "online",
   "battery_percent": 85,
@@ -619,11 +619,11 @@ families in addition to general informational questions and playback control:
   have concerts in the Netherlands?`, `why did you choose this track?`.
 - `track_insight`: answer Track Insight questions about
   the current track without changing playback. Dutch examples: `Geef Track
-  Insight voor dit nummer`, `Analyseer deze track`, `Wat is de
-  bpm en opbouw van deze track?`, `Welke instrumenten hoor je hierin?`, `Hoe
+  Insight voor dit nummer`, `Analyseer deze track`, `Hoe is deze track
+  opgebouwd?`, `Welke instrumenten hoor je hierin?`, `Hoe
   zit intro, couplet, refrein en breakdown in elkaar?`. English examples:
-  `Give me a Track Insight of this song`, `What is the BPM, key and
-  structure of this track?`, `Why does this track work so well?`.
+  `Give me a Track Insight of this song`, `How is this track built up?`,
+  `Why does this track work so well?`.
 
 For `favorite_current_track`, Home Assistant should use the current playback
 context if the request uses deictic language such as `dit nummer`, `deze track`,
@@ -931,7 +931,7 @@ without mutating playback. Useful response material includes:
 - concert and release information: upcoming Netherlands shows, relevant
   festivals, recent or upcoming album/single releases, and authoritative links;
 - musical connections: why the track was chosen, relation to the previous track,
-  BPM/energy transition, shared producer, shared label, genre lineage, or mood
+  energy flow, shared producer, shared label, genre lineage, or mood
   continuity.
 
 Home Assistant may return this as a concise `dj_text` plus optional `images`
@@ -956,19 +956,118 @@ as other DJConnect requests, including `client_type`. Apple clients send
 client types with `invalid_client_type`; clients localize that error and keep
 pairing state intact.
 
+## VibeCast Feed
+
+iOS and macOS VibeCast use the same backend-owned feed contract:
+
+```http
+GET /api/djconnect/vibecast
+Authorization: Bearer <djconnect_bearer_token>
+X-DJConnect-Device-ID: <device_id>
+X-DJConnect-Client-ID: <device_id>
+X-DJConnect-Client-Type: ios|macos
+X-DJConnect-Device-Name: <device_name>
+X-DJConnect-Locale: <bcp47-locale>
+X-DJConnect-Timezone: <iana-timezone>
+X-DJConnect-Render-Capabilities: bold,emphasis,magnify,accent,emoji_safe
+```
+
+The same values may also be present as query parameters for compatibility with
+simple Home Assistant route handlers. Home Assistant remains source of truth for
+current playback context; clients do not send Spotify-specific assumptions and
+must not require a particular music backend.
+
+The optional local WebSocket fast path uses the route name
+`djconnect/vibecast` and returns the same JSON contract as HTTP. Clients only
+use it when Home Assistant advertises the capability from
+`djconnect/capabilities`; missing capability, timeout, disconnect, malformed
+result, or server error falls back to one HTTP request without clearing pairing.
+
+Expected success:
+
+```json
+{
+  "enabled": true,
+  "revision": 12,
+  "ttl_seconds": 45,
+  "poll_after_seconds": 20,
+  "context": {
+    "track_id": "provider-or-stable-track-id",
+    "title": "Song Title",
+    "artist": "Artist Name",
+    "album": "Album Name",
+    "music_backend": "music_assistant",
+    "music_backend_name": "Music Assistant",
+    "music_backend_revision": 2
+  },
+  "items": [
+    {
+      "id": "fact-1",
+      "kind": "track_fact",
+      "tone": "playful",
+      "priority": 50,
+      "display_seconds": 8,
+      "placement_hint": "side",
+      "text": [
+        { "type": "text", "value": "This track rides on " },
+        { "type": "strong", "value": "space and pulse" },
+        { "type": "text", "value": "." }
+      ],
+      "source": { "kind": "generated", "confidence": "medium" }
+    }
+  ],
+  "cache": { "hit": false }
+}
+```
+
+Supported item kinds are `track_fact`, `artist_fact`, `album_fact`,
+`genre_fact`, `trivia`, `listening_tip`, `mood_note`, `production_note`,
+`history_note`, and `system`. Supported rich-text segment types are `text`,
+`strong`, `emphasis`, `magnify`, `accent`, and `line_break`. Clients render
+segments directly, do not parse HTML or Markdown, and degrade unknown kinds or
+segment types to plain text.
+
+Disabled responses should be short, structured, and safe:
+
+```json
+{
+  "enabled": false,
+  "reason": "no_active_playback",
+  "ttl_seconds": 30,
+  "poll_after_seconds": 30,
+  "items": []
+}
+```
+
+Clients handle at least `feature_disabled`, `premium_unavailable`,
+`no_active_playback`, `playback_inactive`, `unknown_track`,
+`unsupported_backend`, `provider_unavailable`,
+`generative_provider_unavailable`, `rate_limited`, `cache_failure`,
+`unauthorized`, `invalid_client_type`, `client_type_mismatch`, and
+`privacy_disabled` as quiet empty/degraded states. Raw provider, cache, decode,
+HTML, prompt, token, or private URL errors must not be returned for display.
+
+While the VibeCast surface is visible, Apple clients poll according to
+`poll_after_seconds` and clear stale bubbles when `context.track_id` changes.
+VibeCast also activates a client-side "auto analyze on next track start" mode:
+the client automatically requests Track Insight for the current playing track
+with `open:false`, then repeats once per new playing track until VibeCast is
+closed/stopped. This is presentation support for the VibeCast stream; Home
+Assistant should treat those direct Track Insight calls exactly like normal
+read-only Track Insight requests and must not mutate playback.
+
 Zero-conf setups must work without a central DJConnect backend. Use only
 Home Assistant-local config and user-provided provider keys. Possible providers
 include `spotify_playback_context`, `ha_conversation`,
-`spotify_audio_features`, `spotify_audio_analysis`, `getsongbpm`,
-`acousticbrainz`, and `local_audio_analyzer`. Spotify audio feature/analysis
+`spotify_audio_features`, `spotify_audio_analysis`, `acousticbrainz`, and
+`local_audio_analyzer`. Spotify audio feature/analysis
 endpoints may be unavailable for some apps; treat them as optional. Never store
 OAuth tokens, API keys, raw prompts, or raw audio in Ask DJ history or Music
 DNA. History may keep only compact response metadata.
 
-The response should distinguish `measured` values, such as provider-backed
-BPM/key/sections/features, from `inferred` musical commentary. Do not invent
-exact BPM, key, timestamps, section labels, stem separation, exact chords,
-exact instrument lists, or a full transcription unless a real audio-analysis
+The response should distinguish provider-backed values from `inferred` musical
+commentary. Do not invent exact timestamps, section labels, stem separation,
+exact chords, exact instrument lists, or a full transcription unless a real audio-analysis
 pipeline or trusted source supplies enough confidence. If no current track is
 available, return friendly text such as `er speelt nu geen track die ik kan
 analyseren`.
@@ -978,9 +1077,8 @@ Useful response material includes:
 - instrumentation and sound palette;
 - arrangement and song structure, such as intro, build, verse, chorus, break,
   drop, outro, or gradual layering;
-- rhythm, groove, BPM/tempo feel, energy curve, and transition qualities;
-- harmony, key, chords, melody, motifs, or tension/release when known or safely
-  inferable;
+- rhythm, groove, energy curve, and transition qualities;
+- harmony, chords, melody, motifs, or tension/release when known or safely inferable;
 - sound design and production techniques such as filtering, sidechain, reverb,
   delay, automation, sampling, layering, risers, or call-and-response;
 - mix/mastering impressions such as stereo width, low-end handling, dynamics,
@@ -989,8 +1087,8 @@ Useful response material includes:
   current DJ set.
 
 Clients render this as a text-first Ask DJ answer. Optional `items[]` may be
-shown as compact technical metrics/lists, for example `kind:
-"technical_metric"` for BPM/key or `kind: "arrangement"` for structure. Clients
+shown as compact metrics/lists, for example `kind: "energy"` or
+`kind: "arrangement"` for structure. Clients
 must not add Play Now buttons for this intent and should not parse text content;
 use `intent.intent`, `action`, `analysis.mode`, `analysis.sources`, and
 `items[].kind` where structured behavior is needed. `analysis.mode:
@@ -1002,9 +1100,9 @@ Expected successful Track Insight response:
 ```json
 {
   "success": true,
-  "text": "De track werkt door een strakke 128 BPM puls, een geleidelijke laag-opbouw en een drop die de opgebouwde spanning loslaat.",
-  "dj_text": "De track werkt door een strakke 128 BPM puls, een geleidelijke laag-opbouw en een drop die de opgebouwde spanning loslaat.",
-  "message": "De track werkt door een strakke 128 BPM puls, een geleidelijke laag-opbouw en een drop die de opgebouwde spanning loslaat.",
+  "text": "De track werkt door een gefocuste groove, een geleidelijke laag-opbouw en een drop die de opgebouwde spanning loslaat.",
+  "dj_text": "De track werkt door een gefocuste groove, een geleidelijke laag-opbouw en een drop die de opgebouwde spanning loslaat.",
+  "message": "De track werkt door een gefocuste groove, een geleidelijke laag-opbouw en een drop die de opgebouwde spanning loslaat.",
   "action": "track_insight",
   "intent": {
     "category": "informational",
@@ -1021,9 +1119,6 @@ Expected successful Track Insight response:
       "uri": "spotify:track:123"
     },
     "measured": {
-      "bpm": 128,
-      "key": "C minor",
-      "time_signature": 4,
       "sections": [
         {
           "label": "intro",
@@ -1054,9 +1149,9 @@ Expected successful Track Insight response:
   },
   "items": [
     {
-      "kind": "technical_metric",
-      "title": "BPM",
-      "value": "128",
+      "kind": "energy",
+      "title": "Energie",
+      "value": "82%",
       "source": "spotify_audio_features"
     },
     {
@@ -1207,7 +1302,7 @@ Expected successful Track Insight response:
     "mode": "knowledge_plus_metadata",
     "confidence": "medium",
     "limitations": [
-      "Exact BPM and section timestamps are unavailable."
+      "Exact section timestamps are unavailable."
     ],
     "sources": [
       "spotify_playback_context",

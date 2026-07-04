@@ -287,7 +287,7 @@ Spotify Web API calls for voice commands. Canonical examples from
 | `personal_music_recommendations` | `Geef me muziek aanbevelingen op basis van mijn luisterprofiel`, `Wat zou ik nu leuk vinden om te luisteren?`, `Raad me iets nieuws aan dat past bij mijn smaak` | `Recommend music based on my listening profile`, `what should I listen to now?`, `recommend something new that fits my taste` | HA recommends concrete tracks, albums, artists, or playlists from Music DNA and Spotify profile data without changing playback unless the user explicitly asks to play or queue them. |
 | `dj_announcement_request` | `Geef me een leuke aankondiging voor het volgende nummer`, `Doe een radio intro voor wat er nu speelt` | `Give me a fun announcement for the next song`, `do a radio-style intro for what is playing now` | HA generates DJ text and optional `audio_url` without changing playback. |
 | `track_context_info` | `Vertel iets over dit nummer`, `Wanneer kwam dit uit?`, `Waarom koos je dit nummer?`, `Heeft deze artiest concerten in Nederland?` | `Tell me about this song`, `what year was this released?`, `why did you choose this track?` | HA enriches current playback with release, genre, commentary, trivia, samples, concerts, releases, and musical connections without changing playback. |
-| `track_insight` | `Geef Track Insight voor dit nummer`, `Analyseer deze track`, `Wat is de bpm en opbouw van deze track?`, `Welke instrumenten hoor je hierin?` | `Give me Track Insight for this song`, `What is the BPM, key and structure of this track?`, `Why does this track work so well?` | HA gives a read-only Track Insight of the current track, distinguishing measured BPM/key/sections from inferred musical commentary and never changing playback. Direct Track Insight requests include the canonical `client_type`. |
+| `track_insight` | `Geef Track Insight voor dit nummer`, `Analyseer deze track`, `Hoe is deze track opgebouwd?`, `Welke instrumenten hoor je hierin?` | `Give me Track Insight for this song`, `How is this track built up?`, `Why does this track work so well?` | HA gives a read-only Track Insight of the current track, focused on energy, arrangement, instrumentation, production and musical commentary without changing playback. Direct Track Insight requests include the canonical `client_type`. |
 
 Ask DJ output-device responses may include structured output `playback_actions`.
 Apple clients render those vertically, with the speaker name on the left and an
@@ -368,8 +368,28 @@ exposing tokens in logs. Clients must first request `djconnect/capabilities` on
 the authenticated Home Assistant WebSocket and only send advertised routes such
 as `djconnect/command`, `djconnect/ask_dj/message`,
 `djconnect/ask_dj/history`, `djconnect/ask_dj/history/clear`, and
-`djconnect/track_insight`. Diagnostics export only transport state, advertised
-route names, capability refresh time, and a redacted last error.
+`djconnect/track_insight` and `djconnect/vibecast`. Diagnostics export only
+transport state, advertised route names, capability refresh time, and a redacted
+last error.
+
+VibeCast on iOS and macOS uses the same authenticated backend contract:
+`GET /api/djconnect/vibecast`. The request sends the paired device identity
+and canonical `client_type` through the existing bearer-token headers plus
+locale, timezone, app version, and supported render capabilities. The response
+is backend-neutral structured JSON with `enabled`, `reason`, `revision`,
+`ttl_seconds`, `poll_after_seconds`, current-track `context`, and feed `items`.
+Items render safe rich-text segment types (`text`, `strong`, `emphasis`,
+`magnify`, `accent`, `line_break`) directly; clients do not parse HTML or
+Markdown and unknown segment types fall back to plain text. Polling runs only
+while the VibeCast surface is visible, respects `poll_after_seconds`, clears old
+bubbles when `context.track_id` changes, and treats disabled/error reasons as a
+quiet empty state without clearing pairing unless the app-wide stale-pairing
+logic applies. When local HA WebSocket fast-path is enabled and Home Assistant
+advertises `djconnect/vibecast`, the same response contract may be fetched over
+WebSocket; missing capability or transport failure falls back to HTTP once.
+While VibeCast is visible, iOS/macOS also keep Track Insight warm client-side:
+the app auto-analyzes the current playing track and each next playing track
+with `open:false`, deduping repeated playback snapshots until VibeCast closes.
 
 All status and command payloads include `device_id`, `client_type`, and
 `firmware`. The `firmware` value remains the protocol compatibility version,
