@@ -4,6 +4,23 @@ All notable changes to DJConnect App are documented here.
 
 ## Unreleased
 
+## 3.2.14 - 2026-07-04
+
+### Added
+
+- Added iOS/macOS VibeCast feed support for `/api/djconnect/vibecast`, including
+  shared response models, authenticated parity request metadata, polling while
+  the VibeCast surface is visible, and side bubbles for structured facts/trivia.
+- Added optional WebSocket fast-path support for the `djconnect/vibecast` route
+  with the same HTTP fallback behavior as Ask DJ and Track Insight.
+- Made active iOS/macOS VibeCast sessions auto-analyze Track Insight for the
+  current and next playing tracks until the VibeCast surface is closed.
+
+### Fixed
+
+- Made the no-output startup regression test locale-independent so release CI
+  passes on runners whose default app language is Dutch.
+
 ## 3.2.13 - 2026-07-04
 
 ### Added
