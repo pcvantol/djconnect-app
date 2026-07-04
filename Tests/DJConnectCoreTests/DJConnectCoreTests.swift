@@ -7509,7 +7509,7 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
 }
 
 @MainActor
-@Test func askDJTopLevelGeneratedTextMetadataDoesNotOverrideAssistantMessageMetadata() throws {
+@Test func askDJTopLevelGeneratedTextMetadataFillsMissingAssistantMessageMetadata() throws {
     let payload = Data("""
     {
       "dj_text": "Top-level generated text.",
@@ -7527,8 +7527,82 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     let assistantMessage = try #require(response.assistantMessage)
 
     #expect(response.isGeneratedText == true)
-    #expect(assistantMessage.textSource == nil)
-    #expect(assistantMessage.isGeneratedText == nil)
+    #expect(assistantMessage.textSource == "generated")
+    #expect(assistantMessage.isGeneratedText == true)
+}
+
+@MainActor
+@Test func askDJGeneratedWatSpeeltErResponseKeepsAssistantAudioAndGeneratedMetadata() throws {
+    let payload = Data("""
+    {
+      "dj_text": "Je luistert nu naar Alive van Pearl Jam.",
+      "text_source": "generated",
+      "is_generated_text": true,
+      "audio_url": "/api/djconnect/audio/wat-speelt-er.mp3",
+      "audio_type": "tts",
+      "assistant_message": {
+        "id": "assistant-wat-speelt-er",
+        "role": "assistant",
+        "text": "Je luistert nu naar Alive van Pearl Jam.",
+        "text_source": "generated",
+        "is_generated_text": true,
+        "audio_url": "/api/djconnect/audio/wat-speelt-er.mp3",
+        "audio_type": "tts",
+        "created_at": "2026-07-04T10:00:00Z"
+      }
+    }
+    """.utf8)
+    let response = try JSONDecoder().decode(DJConnectAskDJMessageResponse.self, from: payload)
+    let assistantMessage = try #require(response.assistantMessage)
+
+    #expect(response.textSource == "generated")
+    #expect(response.isGeneratedText == true)
+    #expect(response.audioURL?.path == "/api/djconnect/audio/wat-speelt-er.mp3")
+    #expect(assistantMessage.textSource == "generated")
+    #expect(assistantMessage.isGeneratedText == true)
+    #expect(assistantMessage.audioURL?.path == "/api/djconnect/audio/wat-speelt-er.mp3")
+}
+
+@MainActor
+@Test func askDJNonGeneratedAssistantMessageKeepsAudioReplayMetadata() throws {
+    let payload = Data("""
+    {
+      "assistant_message": {
+        "id": "assistant-audio-fallback",
+        "role": "assistant",
+        "text": "Ask DJ gaf een vaste fallback met audio.",
+        "text_source": "fallback",
+        "is_generated_text": false,
+        "audio_url": "https://example.test/audio/fallback.mp3",
+        "created_at": "2026-07-04T10:05:00Z"
+      }
+    }
+    """.utf8)
+    let response = try JSONDecoder().decode(DJConnectAskDJMessageResponse.self, from: payload)
+    let assistantMessage = try #require(response.assistantMessage)
+
+    #expect(assistantMessage.textSource == "fallback")
+    #expect(assistantMessage.isGeneratedText == false)
+    #expect(assistantMessage.audioURL?.absoluteString == "https://example.test/audio/fallback.mp3")
+}
+
+@MainActor
+@Test func askDJLegacyTopLevelFallbackFieldsHydrateSyntheticAssistantMessage() throws {
+    let payload = Data("""
+    {
+      "dj_text": "Legacy top-level antwoord met TTS.",
+      "text_source": "generated",
+      "is_generated_text": true,
+      "audio_url": "https://example.test/audio/legacy.mp3"
+    }
+    """.utf8)
+    let response = try JSONDecoder().decode(DJConnectAskDJMessageResponse.self, from: payload)
+    let assistantMessage = try #require(response.assistantMessage)
+
+    #expect(assistantMessage.text == "Legacy top-level antwoord met TTS.")
+    #expect(assistantMessage.textSource == "generated")
+    #expect(assistantMessage.isGeneratedText == true)
+    #expect(assistantMessage.audioURL?.absoluteString == "https://example.test/audio/legacy.mp3")
 }
 
 @MainActor

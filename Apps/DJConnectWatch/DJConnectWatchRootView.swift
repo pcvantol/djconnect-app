@@ -3351,6 +3351,13 @@ private struct DJConnectWatchAskDJBubble: View {
             && message.textSource?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() != "fallback"
     }
 
+    private var hasPlayableAudio: Bool {
+        guard let audioURL = message.audioURL else {
+            return false
+        }
+        return !audioURL.absoluteString.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
     private var assistantMood: Int? {
         guard !isUser && !isSystemMessage else {
             return nil
@@ -3447,7 +3454,7 @@ private struct DJConnectWatchAskDJBubble: View {
                     }
                 )
             }
-            if !isUser, message.audioURL != nil {
+            if !isUser, hasPlayableAudio {
                 audioButton
             }
             Text(watchAskDJTimestamp(message.createdAt, language: model.language))

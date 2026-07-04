@@ -883,6 +883,7 @@
 "ui.refresh.discover" = "Actualizar Descubrir";
 "ui.discovery.could.not.be.loaded" = "No se pudo cargar Descubrir";
 "ui.no.discovery.recommendations" = "Aun no hay recomendaciones";
+"ui.no.discovery.recommendations.available.currently" = "No hay recomendaciones disponibles en este momento";
 "ui.discovery.recommendations.will.appear.after.music.dna.has.more.signals" = "Las recomendaciones apareceran cuando Music DNA tenga suficientes senales.";
 "ui.why.this" = "Por que esto?";
 "ui.play.now" = "Reproducir ahora";

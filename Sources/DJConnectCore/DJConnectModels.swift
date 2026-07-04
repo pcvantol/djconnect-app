@@ -4707,6 +4707,12 @@ public struct DJConnectAskDJMessageResponse: Codable, Equatable, Sendable {
         if assistantMessage?.audioURL == nil, let audioURL {
             assistantMessage?.audioURL = audioURL
         }
+        if assistantMessage?.textSource == nil, let textSource {
+            assistantMessage?.textSource = textSource
+        }
+        if assistantMessage?.isGeneratedText == nil, let isGeneratedText {
+            assistantMessage?.isGeneratedText = isGeneratedText
+        }
         if assistantMessage?.intentInfo == nil, let intentInfo {
             assistantMessage?.intentInfo = intentInfo
         }
@@ -4756,6 +4762,23 @@ public struct DJConnectAskDJMessageResponse: Codable, Equatable, Sendable {
         }
         if messages.isEmpty {
             messages = [userMessage, assistantMessage].compactMap { $0 }
+        } else if textSource != nil || isGeneratedText != nil || audioURL != nil {
+            messages = messages.map { message in
+                guard message.role != .user else {
+                    return message
+                }
+                var updated = message
+                if updated.audioURL == nil, let audioURL {
+                    updated.audioURL = audioURL
+                }
+                if updated.textSource == nil, let textSource {
+                    updated.textSource = textSource
+                }
+                if updated.isGeneratedText == nil, let isGeneratedText {
+                    updated.isGeneratedText = isGeneratedText
+                }
+                return updated
+            }
         }
         if let mood {
             messages = messages.map { message in

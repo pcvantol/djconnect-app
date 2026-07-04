@@ -4912,7 +4912,11 @@ public final class DJConnectAppModel: ObservableObject {
     private func apply(musicDiscovery response: DJConnectMusicDiscoveryResponse) {
         musicDiscoveryResponse = response
         musicDiscoveryErrorMessage = nil
-        log(.debug, "Music Discovery refreshed enabled=\(response.enabled) revision=\(response.revision ?? 0)")
+        let sectionCount = response.sections.count
+        let itemCount = response.sections.reduce(0) { $0 + $1.items.count }
+        let visibleSectionCount = response.visibleSections.count
+        let visibleItemCount = response.visibleSections.reduce(0) { $0 + $1.visibleItems.count }
+        log(.debug, "Music Discovery refreshed enabled=\(response.enabled) revision=\(response.revision ?? 0) sections=\(sectionCount) items=\(itemCount) visible_sections=\(visibleSectionCount) visible_items=\(visibleItemCount)")
     }
 
     private func isMusicDiscoveryExpired(_ response: DJConnectMusicDiscoveryResponse) -> Bool {
