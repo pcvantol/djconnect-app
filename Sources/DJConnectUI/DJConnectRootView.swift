@@ -12367,6 +12367,15 @@ struct QueueView: View {
         })
         return signatures.count == 1 && model.queueItems.allSatisfy { !model.canStartQueueItem($0) }
     }
+    private var canOpenQueueSearch: Bool {
+        !shouldShowEmptyQueueState
+    }
+    private var queueSearchButtonForeground: Color {
+        if isSearchVisible {
+            return djConnectAccent
+        }
+        return canOpenQueueSearch ? .primary : .secondary
+    }
 
     var body: some View {
         NavigationStack {
@@ -12466,9 +12475,9 @@ struct QueueView: View {
                         toggleQueueSearch()
                     } label: {
                         Image(systemName: "magnifyingglass")
-                            .foregroundStyle(isSearchVisible ? djConnectAccent : .primary)
+                            .foregroundStyle(queueSearchButtonForeground)
                     }
-                    .disabled(model.queueItems.isEmpty)
+                    .disabled(!isSearchVisible && !canOpenQueueSearch)
                     .help(isSearchVisible ? localizedKey(model.language, "ui.close.search") : localizedKey(model.language, "ui.search.queue"))
                     .accessibilityLabel(isSearchVisible ? localizedKey(model.language, "ui.close.search") : localizedKey(model.language, "ui.search.queue"))
                 }
@@ -12555,7 +12564,7 @@ struct QueueView: View {
     }
 
     private func showQueueSearch() {
-        guard !model.queueItems.isEmpty else {
+        guard canOpenQueueSearch else {
             return
         }
         withAnimation(.spring(response: 0.24, dampingFraction: 0.86)) {
@@ -12666,6 +12675,15 @@ struct PlaylistsView: View {
     private var shouldShowFilteredEmptyPlaylistState: Bool {
         !playlistSearchQuery.isEmpty && model.playlistItems.isEmpty == false && filteredPlaylistItems.isEmpty
     }
+    private var canOpenPlaylistSearch: Bool {
+        !model.playlistItems.isEmpty
+    }
+    private var playlistSearchButtonForeground: Color {
+        if isSearchVisible {
+            return djConnectAccent
+        }
+        return canOpenPlaylistSearch ? .primary : .secondary
+    }
 
     var body: some View {
         NavigationStack {
@@ -12764,9 +12782,9 @@ struct PlaylistsView: View {
                         togglePlaylistSearch()
                     } label: {
                         Image(systemName: "magnifyingglass")
-                            .foregroundStyle(isSearchVisible ? djConnectAccent : .primary)
+                            .foregroundStyle(playlistSearchButtonForeground)
                     }
-                    .disabled(model.playlistItems.isEmpty)
+                    .disabled(!isSearchVisible && !canOpenPlaylistSearch)
                     .help(isSearchVisible ? localizedKey(model.language, "ui.close.search") : localizedKey(model.language, "ui.search.playlists"))
                     .accessibilityLabel(isSearchVisible ? localizedKey(model.language, "ui.close.search") : localizedKey(model.language, "ui.search.playlists"))
                 }
@@ -12848,7 +12866,7 @@ struct PlaylistsView: View {
     }
 
     private func showPlaylistSearch() {
-        guard !model.playlistItems.isEmpty else {
+        guard canOpenPlaylistSearch else {
             return
         }
         withAnimation(.spring(response: 0.24, dampingFraction: 0.86)) {
