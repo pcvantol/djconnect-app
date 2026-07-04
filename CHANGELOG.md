@@ -4,6 +4,14 @@ All notable changes to DJConnect App are documented here.
 
 ## Unreleased
 
+## 3.2.12 - 2026-07-04
+
+### Changed
+
+- Regenerated iPhone, iPad and Apple Watch screenshots for the updated
+  Track Insight, Music DNA, Ask DJ and watchOS visual states.
+- Updated screenshot documentation with the latest simulator capture date.
+
 ## 3.2.11 - 2026-07-04
 
 ### Added
