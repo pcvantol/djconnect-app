@@ -647,6 +647,13 @@
 "appModel.pair.with.home.assistant.before.playing.recommendations" = "Koppel eerst met Home Assistant om aanbevelingen af te spelen.";
 "appModel.this.recommendation.cannot.be.played.yet" = "Deze aanbeveling kan nog niet worden afgespeeld";
 "appModel.action.could.not.be.completed" = "Actie kon niet worden uitgevoerd";
+"appModel.shuffle.could.not.be.changed" = "Shuffle kon niet worden aangepast";
+"appModel.repeat.could.not.be.changed" = "Herhalen kon niet worden aangepast";
+"appModel.volume.could.not.be.changed" = "Volume kon niet worden aangepast";
+"appModel.seek.could.not.be.changed" = "Spoelen kon niet worden uitgevoerd";
+"appModel.track.could.not.be.changed" = "Nummer kon niet worden gewijzigd";
+"appModel.playback.could.not.be.changed" = "Afspelen kon niet worden aangepast";
+"appModel.output.could.not.be.changed" = "Uitvoer kon niet worden aangepast";
 "appModel.output.changed" = "Uitvoer gewijzigd";
 "appModel.choose.a.speaker.to.continue" = "Kies een speaker om verder te gaan.";
 "appModel.favorite.status.updated" = "Favorietstatus bijgewerkt";
@@ -702,6 +709,7 @@
 "appModel.private.music.dna.context" = "Privé Music DNA-context";
 "appModel.refresh.the.spotify.connection.in.home.assistant" = "Controleer de muziekdienst-autorisatie in Home Assistant";
 "appModel.no.active.playback.device.found" = "Geen actief afspeelapparaat gevonden";
+"appModel.active.player.rejected.this.command" = "De actieve speler staat deze opdracht nu niet toe";
 "appModel.not.paired.yet.open.djconnect.in.home.assistant.and" = "Nog niet gekoppeld. Open DJConnect in Home Assistant en vul de huidige code uit dit scherm in.";
 "appModel.home.assistant.rejected.this.app.pair.djconnect.again.from" = "Home Assistant weigert deze app. Koppel DJConnect opnieuw vanuit Home Assistant.";
 "appModel.pairing.could.not.be.completed.check.home.assistant.and" = "Koppelen is niet gelukt. Controleer Home Assistant en vul de Home Assistant koppelcode opnieuw in.";

@@ -3726,7 +3726,7 @@ private struct MusicDNAView: View {
                     ScrollView {
                         let contentWidth = min(musicDNAMaxContentWidth, proxy.size.width)
                         VStack(alignment: .leading, spacing: 16) {
-                            MusicDNAHeroView(model: model)
+                            MusicDNAHeroView(model: model, moodStepIndex: model.askDJMoodStepIndex)
                                 .frame(maxWidth: .infinity, alignment: .topLeading)
                             MusicDNAContentView(model: model)
                                 .frame(maxWidth: .infinity, alignment: .topLeading)
@@ -3856,6 +3856,7 @@ private struct MusicDNARefreshButton: View {
 
 private struct MusicDNAHeroView: View {
     @ObservedObject var model: DJConnectAppModel
+    let moodStepIndex: Int
 
     var body: some View {
         if model.musicDNAProfileResponse?.enabled == true {
@@ -3867,7 +3868,7 @@ private struct MusicDNAHeroView: View {
 
     private var activeHero: some View {
         VStack(alignment: .leading, spacing: 14) {
-            MusicDNAHelixView()
+            MusicDNAHelixView(moodStepIndex: moodStepIndex)
                 .frame(height: 220)
                 .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
         }
@@ -5928,16 +5929,27 @@ private struct MusicDNATimelinePreview: View {
 }
 
 private struct MusicDNAHelixView: View {
+    let moodStepIndex: Int
+
+    private var moodPalette: MusicDNAHelixMoodPalette {
+        MusicDNAHelixMoodPalette(stepIndex: moodStepIndex)
+    }
+
     var body: some View {
         TimelineView(.animation) { timeline in
             Canvas { context, size in
                 let time = timeline.date.timeIntervalSinceReferenceDate
+                let palette = moodPalette
+                let colors = palette.colors
+                let primary = colors[safe: 0] ?? Color(red: 0.18, green: 0.78, blue: 1.0)
+                let secondary = colors[safe: 1] ?? djConnectAccent
+                let tertiary = colors[safe: 2] ?? Color(red: 0.33, green: 0.96, blue: 0.72)
                 let rect = CGRect(origin: .zero, size: size)
                 context.fill(Path(rect), with: .linearGradient(
                     Gradient(colors: [
-                        Color(red: 0.04, green: 0.06, blue: 0.12),
-                        Color(red: 0.18, green: 0.09, blue: 0.32),
-                        Color(red: 0.02, green: 0.25, blue: 0.30)
+                        primary.opacity(0.16),
+                        secondary.opacity(0.22),
+                        tertiary.opacity(0.24)
                     ]),
                     startPoint: .zero,
                     endPoint: CGPoint(x: size.width, y: size.height)
@@ -5950,18 +5962,92 @@ private struct MusicDNAHelixView: View {
                     let phase = Double(progress) * .pi * 4 + time * 0.9
                     let leftX = size.width * (0.50 + CGFloat(sin(phase)) * 0.24)
                     let rightX = size.width * (0.50 + CGFloat(sin(phase + .pi)) * 0.24)
-                    let color = Color(hue: 0.58 + Double(progress) * 0.22, saturation: 0.78, brightness: 1.0)
+                    let color = interpolatedMusicDNAHelixColor(colors: colors, progress: progress)
 
                     var connector = Path()
                     connector.move(to: CGPoint(x: leftX, y: y))
                     connector.addLine(to: CGPoint(x: rightX, y: y))
-                    context.stroke(connector, with: .color(.white.opacity(0.10)), lineWidth: 1)
+                    context.stroke(connector, with: .color(color.opacity(0.10 + palette.glow * 0.16)), lineWidth: 1)
                     context.fill(Path(ellipseIn: CGRect(x: leftX - 4, y: y - 4, width: 8, height: 8)), with: .color(color.opacity(0.92)))
-                    context.fill(Path(ellipseIn: CGRect(x: rightX - 3, y: y - 3, width: 6, height: 6)), with: .color(.white.opacity(0.68)))
+                    context.fill(Path(ellipseIn: CGRect(x: rightX - 3, y: y - 3, width: 6, height: 6)), with: .color(color.opacity(0.42 + palette.glow * 0.30)))
                 }
             }
         }
     }
+}
+
+private struct MusicDNAHelixMoodPalette {
+    let colors: [Color]
+    let glow: Double
+
+    init(stepIndex: Int) {
+        switch max(0, min(3, stepIndex)) {
+        case 0:
+            colors = ["#4DA3FF", "#7B61FF", "#D184FF"].compactMap(Color.init(hex:))
+            glow = 0.36
+        case 1:
+            colors = ["#2EC4B6", "#7B61FF", "#D184FF"].compactMap(Color.init(hex:))
+            glow = 0.46
+        case 2:
+            colors = ["#8AC926", "#FFD166", "#FF6A3D"].compactMap(Color.init(hex:))
+            glow = 0.58
+        default:
+            colors = ["#FF2E63", "#A855F7", "#FFD166"].compactMap(Color.init(hex:))
+            glow = 0.66
+        }
+    }
+}
+
+private func interpolatedMusicDNAHelixColor(colors: [Color], progress: CGFloat) -> Color {
+    guard !colors.isEmpty else {
+        return djConnectAccent
+    }
+    guard colors.count > 1 else {
+        return colors[0]
+    }
+    let scaled = max(0, min(1, progress)) * CGFloat(colors.count - 1)
+    let lowerIndex = min(colors.count - 1, max(0, Int(floor(scaled))))
+    let upperIndex = min(colors.count - 1, lowerIndex + 1)
+    guard lowerIndex != upperIndex else {
+        return colors[lowerIndex]
+    }
+    let fraction = Double(scaled - CGFloat(lowerIndex))
+    return blendMusicDNAHelixColors(colors[lowerIndex], colors[upperIndex], fraction: fraction)
+}
+
+private func blendMusicDNAHelixColors(_ lhs: Color, _ rhs: Color, fraction: Double) -> Color {
+    #if canImport(UIKit)
+    let lhsPlatform = UIColor(lhs)
+    let rhsPlatform = UIColor(rhs)
+    var lhsRed: CGFloat = 0
+    var lhsGreen: CGFloat = 0
+    var lhsBlue: CGFloat = 0
+    var lhsAlpha: CGFloat = 0
+    var rhsRed: CGFloat = 0
+    var rhsGreen: CGFloat = 0
+    var rhsBlue: CGFloat = 0
+    var rhsAlpha: CGFloat = 0
+    lhsPlatform.getRed(&lhsRed, green: &lhsGreen, blue: &lhsBlue, alpha: &lhsAlpha)
+    rhsPlatform.getRed(&rhsRed, green: &rhsGreen, blue: &rhsBlue, alpha: &rhsAlpha)
+    #elseif canImport(AppKit)
+    let lhsPlatform = NSColor(lhs).usingColorSpace(.deviceRGB) ?? .white
+    let rhsPlatform = NSColor(rhs).usingColorSpace(.deviceRGB) ?? .white
+    let lhsRed = lhsPlatform.redComponent
+    let lhsGreen = lhsPlatform.greenComponent
+    let lhsBlue = lhsPlatform.blueComponent
+    let lhsAlpha = lhsPlatform.alphaComponent
+    let rhsRed = rhsPlatform.redComponent
+    let rhsGreen = rhsPlatform.greenComponent
+    let rhsBlue = rhsPlatform.blueComponent
+    let rhsAlpha = rhsPlatform.alphaComponent
+    #endif
+    let clamped = max(0, min(1, fraction))
+    return Color(
+        red: Double(lhsRed) + (Double(rhsRed) - Double(lhsRed)) * clamped,
+        green: Double(lhsGreen) + (Double(rhsGreen) - Double(lhsGreen)) * clamped,
+        blue: Double(lhsBlue) + (Double(rhsBlue) - Double(lhsBlue)) * clamped,
+        opacity: Double(lhsAlpha) + (Double(rhsAlpha) - Double(lhsAlpha)) * clamped
+    )
 }
 
 private struct TrackInsightHero: View {

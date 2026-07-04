@@ -647,6 +647,13 @@
 "appModel.pair.with.home.assistant.before.playing.recommendations" = "Pair with Home Assistant before playing recommendations.";
 "appModel.this.recommendation.cannot.be.played.yet" = "This recommendation cannot be played yet";
 "appModel.action.could.not.be.completed" = "Action could not be completed";
+"appModel.shuffle.could.not.be.changed" = "Shuffle could not be changed";
+"appModel.repeat.could.not.be.changed" = "Repeat could not be changed";
+"appModel.volume.could.not.be.changed" = "Volume could not be changed";
+"appModel.seek.could.not.be.changed" = "Seek could not be changed";
+"appModel.track.could.not.be.changed" = "Track could not be changed";
+"appModel.playback.could.not.be.changed" = "Playback could not be changed";
+"appModel.output.could.not.be.changed" = "Output could not be changed";
 "appModel.output.changed" = "Output changed";
 "appModel.choose.a.speaker.to.continue" = "Choose a speaker to continue.";
 "appModel.favorite.status.updated" = "Favorite status updated";
@@ -702,6 +709,7 @@
 "appModel.private.music.dna.context" = "Private Music DNA context";
 "appModel.refresh.the.spotify.connection.in.home.assistant" = "Check the music service authorization in Home Assistant";
 "appModel.no.active.playback.device.found" = "No active playback device found";
+"appModel.active.player.rejected.this.command" = "The active player does not allow this command right now";
 "appModel.not.paired.yet.open.djconnect.in.home.assistant.and" = "Not paired yet. Open DJConnect in Home Assistant and enter the current code from this screen.";
 "appModel.home.assistant.rejected.this.app.pair.djconnect.again.from" = "Home Assistant rejected this app. Pair DJConnect again from Home Assistant.";
 "appModel.pairing.could.not.be.completed.check.home.assistant.and" = "Pairing could not be completed. Check Home Assistant and enter the Home Assistant pair code again.";

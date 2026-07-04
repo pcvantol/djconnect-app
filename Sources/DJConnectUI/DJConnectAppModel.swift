@@ -6894,6 +6894,11 @@ public final class DJConnectAppModel: ObservableObject {
             log(.warning, "Playback command failed because Spotify has no active device")
             return localized(key: "appModel.no.active.playback.device.found")
         }
+        if normalized.contains("player command failed")
+            && normalized.contains("restriction violated") {
+            log(.warning, "Playback command failed because the active player rejected the command")
+            return localized(key: "appModel.active.player.rejected.this.command")
+        }
         return text
     }
 
@@ -7378,16 +7383,59 @@ public final class DJConnectAppModel: ObservableObject {
                 apply(error: error)
             }
             if notifyUserOnError {
-                emitUserConnectionNotice(for: error)
+                userNotice = DJConnectUserNotice(text: playbackCommandFailureMessage(command: command, error: error))
             }
             return false
         } catch {
             log(.error, "Command \(command) failed unexpectedly: \(error.localizedDescription)")
             pairingMessage = error.localizedDescription
             if notifyUserOnError {
-                emitUserConnectionNotice()
+                userNotice = DJConnectUserNotice(text: playbackCommandFailureFallback(command: command))
             }
             return false
+        }
+    }
+
+    private func playbackCommandFailureMessage(command: String, error: DJConnectError) -> String {
+        switch error {
+        case let .backendUnavailable(message),
+             let .server(_, message),
+             let .decodingFailed(_, _, message):
+            if let message = userFacingDJResponseText(message ?? Self.describe(error)) {
+                return message
+            }
+        default:
+            break
+        }
+
+        if Self.isMusicBackendUnavailableError(error) {
+            return localized(key: "appModel.music.backend.unavailable")
+        }
+        if Self.shouldShowConnectionNotice(for: error) {
+            return localized(key: "appModel.no.connection.to.home.assistant")
+        }
+
+        return playbackCommandFailureFallback(command: command)
+    }
+
+    private func playbackCommandFailureFallback(command: String) -> String {
+        switch command {
+        case "set_shuffle":
+            return localized(key: "appModel.shuffle.could.not.be.changed")
+        case "set_repeat":
+            return localized(key: "appModel.repeat.could.not.be.changed")
+        case "set_volume", "volume_delta":
+            return localized(key: "appModel.volume.could.not.be.changed")
+        case "seek_relative":
+            return localized(key: "appModel.seek.could.not.be.changed")
+        case "next", "previous":
+            return localized(key: "appModel.track.could.not.be.changed")
+        case "play", "pause", "start_playlist", "start_liked_proxy", "play_context_at":
+            return localized(key: "appModel.playback.could.not.be.changed")
+        case "set_output":
+            return localized(key: "appModel.output.could.not.be.changed")
+        default:
+            return localized(key: "appModel.action.could.not.be.completed")
         }
     }
 

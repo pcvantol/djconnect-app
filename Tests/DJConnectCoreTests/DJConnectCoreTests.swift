@@ -6670,6 +6670,48 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
 }
 
 @MainActor
+@Test func djAnnouncementMapsPlaybackRestrictionServerMessage() throws {
+    let suiteName = "DJConnectTests-\(UUID().uuidString)"
+    let defaults = try #require(UserDefaults(suiteName: suiteName))
+    defaults.removePersistentDomain(forName: suiteName)
+    let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore())
+    model.language = "nl"
+
+    model.apply(watchProxyDJResponse: DJConnectWatchProxyDJResponseRequest(
+        text: #"Spotify API failed HTTP 403: {"error":{"status":403,"message":"Player command failed: Restriction violated","reason":"UNKNOWN"}}"#,
+        djText: nil,
+        audioURL: nil,
+        audioType: nil
+    ))
+
+    #expect(model.djResponseText == "De actieve speler staat deze opdracht nu niet toe")
+}
+
+@MainActor
+@Test func shuffleCommandRestrictionShowsSpecificUserNotice() async throws {
+    let defaults = try testDefaults()
+    let host = "shuffle-restricted.local"
+    let session = mockSession(host: host) { request in
+        #expect(request.url?.path == "/api/djconnect/command")
+        return (try httpResponse(for: request, statusCode: 200), Data("""
+        {
+          "success": false,
+          "error": "backend_unavailable",
+          "message": "Spotify API failed HTTP 403: {\\\"error\\\":{\\\"status\\\":403,\\\"message\\\":\\\"Player command failed: Restriction violated\\\",\\\"reason\\\":\\\"UNKNOWN\\\"}}"
+        }
+        """.utf8))
+    }
+    let model = makePairedMusicDNAModel(defaults: defaults, host: host, session: session)
+    model.language = "nl"
+    model.isConnected = true
+
+    model.setShuffle(true)
+    try await Task.sleep(for: .milliseconds(100))
+
+    #expect(model.userNotice?.text == "De actieve speler staat deze opdracht nu niet toe")
+}
+
+@MainActor
 @Test func djAnnouncementSuppressesHTMLBackendErrorPages() throws {
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
