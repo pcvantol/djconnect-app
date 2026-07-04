@@ -849,9 +849,10 @@ optional local WebSocket route `djconnect/vibecast` when HA advertises it. The
 response is backend-neutral structured JSON with `enabled`, disabled `reason`,
 `revision`, `ttl_seconds`, `poll_after_seconds`, current-track `context`, and
 feed `items` using safe rich-text segments (`text`, `strong`, `emphasis`,
-`magnify`, `accent`, `line_break`). Clients render unknown item/segment types as
-plain text, do not parse HTML/Markdown, and do not show raw provider/cache/
-decode errors. While VibeCast is active, iOS/macOS client-side Track Insight
+`emoji`, `magnify`, `accent`, `line_break`). Clients advertise `emoji_safe`
+when emoji can be shown inline, render unknown item/segment types as plain text,
+do not parse HTML/Markdown, and do not show raw provider/cache/decode errors.
+While VibeCast is active, iOS/macOS client-side Track Insight
 enters an "auto analyze on next track start" mode: it requests Track Insight for
 the current playing track and once for each new playing track with `open:false`,
 dedupes repeated snapshots for the same track, and stops the mode when VibeCast

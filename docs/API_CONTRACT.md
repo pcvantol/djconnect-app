@@ -969,7 +969,7 @@ X-DJConnect-Client-Type: ios|macos
 X-DJConnect-Device-Name: <device_name>
 X-DJConnect-Locale: <bcp47-locale>
 X-DJConnect-Timezone: <iana-timezone>
-X-DJConnect-Render-Capabilities: bold,emphasis,magnify,accent,emoji_safe
+X-DJConnect-Render-Capabilities: bold,emphasis,magnify,accent,emoji,emoji_safe
 ```
 
 The same values may also be present as query parameters for compatibility with
@@ -1009,8 +1009,9 @@ Expected success:
       "display_seconds": 8,
       "placement_hint": "side",
       "text": [
-        { "type": "text", "value": "This track rides on " },
-        { "type": "strong", "value": "space and pulse" },
+        { "type": "emoji", "value": "♪ ♫ " },
+        { "type": "text", "value": "Deze track leunt op " },
+        { "type": "strong", "value": "ritme en ruimte" },
         { "type": "text", "value": "." }
       ],
       "source": { "kind": "generated", "confidence": "medium" }
@@ -1023,9 +1024,11 @@ Expected success:
 Supported item kinds are `track_fact`, `artist_fact`, `album_fact`,
 `genre_fact`, `trivia`, `listening_tip`, `mood_note`, `production_note`,
 `history_note`, and `system`. Supported rich-text segment types are `text`,
-`strong`, `emphasis`, `magnify`, `accent`, and `line_break`. Clients render
-segments directly, do not parse HTML or Markdown, and degrade unknown kinds or
-segment types to plain text.
+`strong`, `emphasis`, `emoji`, `magnify`, `accent`, and `line_break`. Clients
+render segments directly, do not parse HTML or Markdown, and degrade unknown
+kinds or segment types to plain text. Backends should only send `emoji` segments
+when the client advertises `emoji_safe`; emoji segment values are rendered
+inline with the same wrapping and spacing as text.
 
 Disabled responses should be short, structured, and safe:
 

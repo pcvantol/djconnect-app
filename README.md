@@ -399,8 +399,9 @@ locale, timezone, app version, and supported render capabilities. The response
 is backend-neutral structured JSON with `enabled`, `reason`, `revision`,
 `ttl_seconds`, `poll_after_seconds`, current-track `context`, and feed `items`.
 Items render safe rich-text segment types (`text`, `strong`, `emphasis`,
-`magnify`, `accent`, `line_break`) directly; clients do not parse HTML or
-Markdown and unknown segment types fall back to plain text. Polling runs only
+`emoji`, `magnify`, `accent`, `line_break`) directly; clients advertise
+`emoji_safe` when emoji can be shown inline, do not parse HTML or Markdown, and
+unknown segment types fall back to plain text. Polling runs only
 while the VibeCast surface is visible, respects `poll_after_seconds`, clears old
 bubbles when `context.track_id` changes, and treats disabled/error reasons as a
 quiet empty state without clearing pairing unless the app-wide stale-pairing
