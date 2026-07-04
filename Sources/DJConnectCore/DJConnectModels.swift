@@ -2275,7 +2275,7 @@ public struct DJConnectVibeCastRequest: Codable, Equatable, Sendable {
         locale: String? = nil,
         language: String? = nil,
         timezone: String? = nil,
-        capabilities: [String] = ["bold", "emphasis", "magnify", "accent", "emoji_safe"]
+        capabilities: [String] = ["bold", "emphasis", "magnify", "accent", "emoji", "emoji_safe"]
     ) {
         self.locale = locale?.nilIfBlank
         self.language = language?.nilIfBlank ?? locale?.nilIfBlank
@@ -2487,6 +2487,7 @@ public struct DJConnectVibeCastResponse: Codable, Equatable, Sendable {
         case text
         case strong
         case emphasis
+        case emoji
         case magnify
         case accent
         case lineBreak
@@ -2498,6 +2499,7 @@ public struct DJConnectVibeCastResponse: Codable, Equatable, Sendable {
             case "text": .text
             case "strong": .strong
             case "emphasis": .emphasis
+            case "emoji": .emoji
             case "magnify": .magnify
             case "accent": .accent
             case "line_break": .lineBreak
@@ -2515,6 +2517,7 @@ public struct DJConnectVibeCastResponse: Codable, Equatable, Sendable {
             case .text: "text"
             case .strong: "strong"
             case .emphasis: "emphasis"
+            case .emoji: "emoji"
             case .magnify: "magnify"
             case .accent: "accent"
             case .lineBreak: "line_break"

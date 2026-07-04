@@ -5857,8 +5857,9 @@ private struct MusicDNAMetricPanel: View {
 
     private var equalMetricsRow: some View {
         GeometryReader { proxy in
-            let ringSize = min(118, max(72, (proxy.size.width - 24) / 3))
-            HStack(alignment: .top, spacing: 12) {
+            let tileSpacing: CGFloat = 22
+            let ringSize = min(104, max(70, (proxy.size.width - (tileSpacing * 2)) / 3))
+            HStack(alignment: .top, spacing: tileSpacing) {
                 metricTile(
                     title: metric.headline,
                     subtitle: metric.subtitle,
@@ -6798,8 +6799,9 @@ private struct VibeCastBubbleField: View {
     var body: some View {
         ZStack {
             ForEach(Array(visibleItems.enumerated()), id: \.element.id) { index, item in
-                VibeCastFactBubble(item: item, accent: bubbleAccent(index: index))
-                    .frame(width: bubbleWidth)
+                let style = bubbleStyle(for: item, index: index)
+                VibeCastFactBubble(item: item, accent: bubbleAccent(index: index), style: style)
+                    .frame(width: style.width)
                     .position(position(for: item, index: index))
                     .transition(.opacity.combined(with: .scale(scale: 0.96)))
                     .animation(reduceMotion ? nil : .easeInOut(duration: 0.7).delay(Double(index) * 0.12), value: visibleItems.map(\.id))
@@ -6814,8 +6816,9 @@ private struct VibeCastBubbleField: View {
 
     private func position(for item: DJConnectVibeCastResponse.Item, index: Int) -> CGPoint {
         let leftSide = stableSeed(item.id, salt: index) % 2 == 0
+        let width = bubbleStyle(for: item, index: index).width
         let sideInset = max(18, canvasSize.width * 0.035)
-        let x = leftSide ? sideInset + bubbleWidth / 2 : canvasSize.width - sideInset - bubbleWidth / 2
+        let x = leftSide ? sideInset + width / 2 : canvasSize.width - sideInset - width / 2
         let safeTop = max(92, canvasSize.height * 0.14)
         let safeBottom = min(canvasSize.height * 0.74, canvasSize.height - 150)
         let lanes = max(1, visibleItems.count)
@@ -6824,6 +6827,27 @@ private struct VibeCastBubbleField: View {
         let jitter = CGFloat(stableSeed(item.id, salt: 31) % 37) - 18
         let y = min(safeBottom, max(safeTop, safeTop + laneHeight * (lane + 0.5) + jitter))
         return CGPoint(x: x, y: y)
+    }
+
+    private func bubbleStyle(for item: DJConnectVibeCastResponse.Item, index: Int) -> VibeCastFactBubble.Style {
+        let widthSeed = stableSeed(item.id, salt: 17 + index)
+        let fontSeed = stableSeed(item.id, salt: 43 + index)
+        let shapeSeed = stableSeed(item.id, salt: 71 + index)
+        let widthScale = CGFloat(92 + (widthSeed % 19)) / 100
+        let fontSize = CGFloat(16 + (fontSeed % 4))
+        let cornerBase = CGFloat(16 + (shapeSeed % 10))
+        return VibeCastFactBubble.Style(
+            width: min(330, max(182, bubbleWidth * widthScale)),
+            fontSize: fontSize,
+            verticalPadding: CGFloat(12 + (shapeSeed % 4)),
+            horizontalPadding: CGFloat(15 + (widthSeed % 5)),
+            cornerRadii: RectangleCornerRadii(
+                topLeading: cornerBase + CGFloat(shapeSeed % 7),
+                bottomLeading: cornerBase * 0.72 + CGFloat((shapeSeed / 3) % 5),
+                bottomTrailing: cornerBase + CGFloat((shapeSeed / 5) % 9),
+                topTrailing: cornerBase * 0.82 + CGFloat((shapeSeed / 7) % 6)
+            )
+        )
     }
 
     private func bubbleAccent(index: Int) -> Color {
@@ -6836,22 +6860,31 @@ private struct VibeCastBubbleField: View {
 }
 
 private struct VibeCastFactBubble: View {
+    struct Style: Equatable {
+        var width: CGFloat
+        var fontSize: CGFloat
+        var verticalPadding: CGFloat
+        var horizontalPadding: CGFloat
+        var cornerRadii: RectangleCornerRadii
+    }
+
     let item: DJConnectVibeCastResponse.Item
     let accent: Color
+    let style: Style
 
     var body: some View {
         richText
-            .font(.callout.weight(.semibold))
-            .lineSpacing(2)
+            .font(.system(size: style.fontSize, weight: .semibold, design: .rounded))
+            .lineSpacing(3)
             .foregroundStyle(.white.opacity(0.92))
             .multilineTextAlignment(.leading)
-            .padding(.vertical, 12)
-            .padding(.horizontal, 14)
+            .padding(.vertical, style.verticalPadding)
+            .padding(.horizontal, style.horizontalPadding)
             .background {
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                UnevenRoundedRectangle(cornerRadii: style.cornerRadii, style: .continuous)
                     .fill(.black.opacity(0.36))
                     .overlay {
-                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        UnevenRoundedRectangle(cornerRadii: style.cornerRadii, style: .continuous)
                             .stroke(accent.opacity(0.46), lineWidth: 1)
                     }
                     .shadow(color: accent.opacity(0.22), radius: 18, y: 8)
@@ -6874,16 +6907,16 @@ private struct VibeCastFactBubble: View {
         case .lineBreak:
             break
         case .strong:
-            text.font = .callout.weight(.black)
+            text.font = .system(size: style.fontSize + 1.5, weight: .black, design: .rounded)
         case .emphasis:
             text.inlinePresentationIntent = .emphasized
         case .magnify:
-            text.font = .title3.weight(.black)
+            text.font = .system(size: style.fontSize + 5, weight: .black, design: .rounded)
             text.foregroundColor = .white
         case .accent:
-            text.font = .callout.weight(.bold)
+            text.font = .system(size: style.fontSize + 1, weight: .bold, design: .rounded)
             text.foregroundColor = accent.mix(with: .white, by: 0.24)
-        case .text, .unknown:
+        case .text, .emoji, .unknown:
             break
         }
         return text

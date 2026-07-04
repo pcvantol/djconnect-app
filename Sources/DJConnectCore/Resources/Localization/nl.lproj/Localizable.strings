@@ -678,7 +678,7 @@
 "appModel.ask.dj.updated" = "Ask DJ bijgewerkt";
 "appModel.queue.updated" = "Wachtrij bijgewerkt";
 "appModel.queue.update.failed" = "Wachtrij bijwerken mislukt";
-"appModel.playlists.updated" = "Playlists bijgewerkt";
+"appModel.playlists.updated" = "Afspeellijsten bijgewerkt";
 "appModel.playlists.update.failed" = "Playlists bijwerken mislukt";
 "appModel.music.dna.updated" = "Music DNA bijgewerkt";
 "appModel.music.dna.update.failed" = "Music DNA bijwerken mislukt";

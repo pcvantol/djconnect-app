@@ -2816,6 +2816,7 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
           "display_seconds": 8,
           "placement_hint": "side",
           "text": [
+            { "type": "emoji", "value": "♪ ♫ " },
             { "type": "text", "value": "This track rides on " },
             { "type": "strong", "value": "space and pulse" },
             { "type": "text", "value": "." }
@@ -2834,8 +2835,9 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     #expect(response.effectivePollAfterSeconds == 20)
     #expect(response.context?.musicBackend == "music_assistant")
     #expect(response.items.first?.kind == .trackFact)
-    #expect(response.items.first?.text[1].type == .strong)
-    #expect(response.items.first?.plainText == "This track rides on space and pulse.")
+    #expect(response.items.first?.text[0].type == .emoji)
+    #expect(response.items.first?.text[2].type == .strong)
+    #expect(response.items.first?.plainText == "♪ ♫ This track rides on space and pulse.")
 }
 
 @Test func vibeCastResponseDecodesDisabledAndUnknownSegmentsGracefully() throws {
@@ -2854,6 +2856,26 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     #expect(unknown.items.first?.kind == .unknown("future_kind"))
     #expect(unknown.items.first?.text.first?.type == .unknown("sparkle"))
     #expect(unknown.items.first?.plainText == "safe fallback")
+}
+
+@Test func vibeCastResponseDecodesEmojiOnlyBubbleSegments() throws {
+    let response = try JSONDecoder().decode(
+        DJConnectVibeCastResponse.self,
+        from: Data(#"{"enabled":true,"items":[{"id":"emoji","kind":"mood_note","text":[{"type":"emoji","value":"✨ "},{"type":"emoji","value":"🎧 "},{"type":"emoji","value":"♪ ♫ "}]}]}"#.utf8)
+    )
+
+    #expect(response.items.first?.text.map(\.type) == [.emoji, .emoji, .emoji])
+    #expect(response.items.first?.plainText == "✨ 🎧 ♪ ♫ ")
+}
+
+@Test func vibeCastResponseStillDecodesLegacyStructuredTextWithoutEmoji() throws {
+    let response = try JSONDecoder().decode(
+        DJConnectVibeCastResponse.self,
+        from: Data(#"{"enabled":true,"items":[{"id":"legacy","kind":"track_fact","text":[{"type":"text","value":"This track rides on "},{"type":"strong","value":"space and pulse"},{"type":"text","value":"."}]}]}"#.utf8)
+    )
+
+    #expect(response.items.first?.text.map(\.type) == [.text, .strong, .text])
+    #expect(response.items.first?.plainText == "This track rides on space and pulse.")
 }
 
 @Test func vibeCastRequestsUseEquivalentIOSAndMacOSMetadata() throws {
@@ -2899,9 +2921,12 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     #expect(iosRequest.value(forHTTPHeaderField: "X-DJConnect-Locale") == "nl-NL")
     #expect(macRequest.value(forHTTPHeaderField: "X-DJConnect-Locale") == "nl-NL")
     #expect(iosRequest.value(forHTTPHeaderField: "X-DJConnect-Render-Capabilities") == macRequest.value(forHTTPHeaderField: "X-DJConnect-Render-Capabilities"))
+    #expect(iosRequest.value(forHTTPHeaderField: "X-DJConnect-Render-Capabilities")?.split(separator: ",").contains("emoji") == true)
+    #expect(iosRequest.value(forHTTPHeaderField: "X-DJConnect-Render-Capabilities")?.contains("emoji_safe") == true)
     #expect(iosQuery.first(where: { $0.name == "client_type" })?.value == "ios")
     #expect(macQuery.first(where: { $0.name == "client_type" })?.value == "macos")
     #expect(iosQuery.first(where: { $0.name == "capabilities" })?.value == macQuery.first(where: { $0.name == "capabilities" })?.value)
+    #expect(iosQuery.first(where: { $0.name == "capabilities" })?.value?.split(separator: ",").contains("emoji") == true)
     #expect(iosQuery.first(where: { $0.name == "locale" })?.value == macQuery.first(where: { $0.name == "locale" })?.value)
     #expect(iosQuery.first(where: { $0.name == "timezone" })?.value == macQuery.first(where: { $0.name == "timezone" })?.value)
 }
