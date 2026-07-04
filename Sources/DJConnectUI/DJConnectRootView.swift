@@ -5186,18 +5186,18 @@ private struct MusicDiscoveryView: View {
     }
 
     private var header: some View {
-        VStack(spacing: 18) {
+        VStack(spacing: 16) {
             Image(systemName: "sparkles")
-                .font(.system(size: 58, weight: .semibold))
+                .font(.system(size: 50, weight: .semibold))
                 .foregroundStyle(djConnectIconGradient)
-                .frame(width: 96, height: 96)
+                .frame(width: 72, height: 72)
 
             Text(localizedKey(model.language, "ui.discover"))
-                .font(.title.bold())
+                .font(.title2.weight(.bold))
                 .foregroundStyle(.white)
 
             Text(localizedKey(model.language, "ui.learn.from.your.taste.and.listening.behavior.to.shape.recommendations"))
-                .font(.title3.weight(.semibold))
+                .font(.callout)
                 .foregroundStyle(.white.opacity(0.66))
                 .multilineTextAlignment(.center)
                 .fixedSize(horizontal: false, vertical: true)
@@ -5529,7 +5529,7 @@ private struct MusicDiscoveryLockedState: View {
             }
 
             Text(localizedKey(model.language, "ui.enable.music.dna.to.get.recommendations.tailored.to.your.listening"))
-                .font(.title3.weight(.semibold))
+                .font(.callout.weight(.semibold))
                 .foregroundStyle(.white.opacity(0.72))
                 .fixedSize(horizontal: false, vertical: true)
 
@@ -5572,7 +5572,7 @@ private struct MusicDiscoveryLockedState: View {
 
     private var title: some View {
         Text(localizedKey(model.language, "ui.music.dna.is.not.enabled"))
-            .font(.title3.weight(.bold))
+            .font(.headline.weight(.bold))
             .foregroundStyle(.white)
     }
 }
@@ -10108,16 +10108,16 @@ private struct AskDJEmptyState: View {
     var body: some View {
         VStack(spacing: 14) {
             Image(systemName: "bubble.left.and.bubble.right")
-                .font(.system(size: 36, weight: .semibold))
+                .font(.system(size: 44, weight: .semibold))
                 .foregroundStyle(djConnectIconGradient)
             Text(localizedKey(language, "ui.ask.dj"))
-                .font(.title3.weight(.semibold))
+                .font(.title2.weight(.bold))
                 .foregroundStyle(.white)
             Text(localizedKey(language, "ui.ask.about.the.music.or.give.your.dj.a.request"))
-                .font(.callout)
+                .font(.headline.weight(.semibold))
                 .foregroundStyle(.white.opacity(0.62))
                 .multilineTextAlignment(.center)
-                .frame(maxWidth: 360)
+                .frame(maxWidth: 480)
 
             VStack(alignment: .leading, spacing: 8) {
                 ForEach(examples, id: \.self) { example in
@@ -10126,22 +10126,22 @@ private struct AskDJEmptyState: View {
                     } label: {
                         HStack(spacing: 8) {
                             Image(systemName: "quote.opening")
-                                .font(.caption2.weight(.bold))
+                                .font(.caption.weight(.bold))
                                 .foregroundStyle(.white.opacity(0.54))
                                 .frame(width: 18)
                             Text(example)
-                                .font(.caption.weight(.semibold))
+                                .font(.subheadline.weight(.semibold))
                                 .foregroundStyle(.white.opacity(0.86))
                                 .lineLimit(2)
                                 .fixedSize(horizontal: false, vertical: true)
                             Spacer(minLength: 4)
                             Image(systemName: "plus")
-                                .font(.caption2.weight(.bold))
+                                .font(.caption.weight(.bold))
                                 .foregroundStyle(.white.opacity(0.50))
                         }
-                        .padding(.horizontal, 11)
-                        .padding(.vertical, 8)
-                        .frame(maxWidth: 360, alignment: .leading)
+                        .padding(.horizontal, 13)
+                        .padding(.vertical, 10)
+                        .frame(maxWidth: 480, alignment: .leading)
                         .background {
                             RoundedRectangle(cornerRadius: 12, style: .continuous)
                                 .fill(.white.opacity(0.09))
