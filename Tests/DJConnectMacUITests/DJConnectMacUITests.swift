@@ -49,7 +49,7 @@ final class DJConnectMacUITests: XCTestCase {
         let app = launchMonkeyApp()
         let duration = TimeInterval(ProcessInfo.processInfo.environment["DJCONNECT_MONKEY_SECONDS"] ?? "20") ?? 20
         let deadline = Date().addingTimeInterval(duration)
-        let destinations = ["Speelt Nu", "Wachtrij", "Afspeellijsten", "Games", "Instellingen", "Over"]
+        let destinations = ["Speelt Nu", "Wachtrij", "Ask DJ", "Track Insight", "Ontdek", "Afspeellijsten", "Games", "Instellingen", "Over"]
         var index = 0
 
         XCTAssertTrue(app.windows.firstMatch.waitForExistence(timeout: 12))
@@ -65,6 +65,8 @@ final class DJConnectMacUITests: XCTestCase {
                 app.buttons["Afspelen"].tapIfExists()
             case "Wachtrij":
                 app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "Midnight City")).firstMatch.tapIfExists()
+            case "Ontdek":
+                app.buttons["Ververs Ontdek"].tapIfExists()
             case "Afspeellijsten":
                 app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "DJConnect")).firstMatch.tapIfExists()
             case "Games":
@@ -128,13 +130,14 @@ final class DJConnectMacUITests: XCTestCase {
             ("02-queue", "Wachtrij"),
             ("03-ask-dj", "Ask DJ"),
             ("04-track-insight", "Track Insight"),
-            ("05-music-dna", "Music DNA"),
-            ("06-playlists", "Afspeellijsten"),
-            ("07-games", "Games"),
-            ("08-settings", "Instellingen"),
-            ("09-logs", "Logs"),
-            ("10-about", "Over"),
-            ("11-legal", "Juridisch"),
+            ("05-discover", "Ontdek"),
+            ("06-music-dna", "Music DNA"),
+            ("07-playlists", "Afspeellijsten"),
+            ("08-games", "Games"),
+            ("09-settings", "Instellingen"),
+            ("10-logs", "Logs"),
+            ("11-about", "Over"),
+            ("12-legal", "Juridisch"),
             ("12-privacy", "Privacy")
         ]
 

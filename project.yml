@@ -115,6 +115,10 @@ targets:
             UIApplicationShortcutItemSubtitle: Analyze current track
             UIApplicationShortcutItemTitle: Track Insight
             UIApplicationShortcutItemType: dev.djconnect.action.track-insight
+          - UIApplicationShortcutItemIconSymbolName: sparkles
+            UIApplicationShortcutItemSubtitle: Music DNA recommendations
+            UIApplicationShortcutItemTitle: Discover
+            UIApplicationShortcutItemType: dev.djconnect.action.discovery
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
           - UIInterfaceOrientationLandscapeLeft

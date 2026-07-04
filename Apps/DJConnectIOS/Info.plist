@@ -86,6 +86,16 @@
 		</dict>
 		<dict>
 			<key>UIApplicationShortcutItemIconSymbolName</key>
+			<string>sparkles</string>
+			<key>UIApplicationShortcutItemSubtitle</key>
+			<string>Music DNA recommendations</string>
+			<key>UIApplicationShortcutItemTitle</key>
+			<string>Discover</string>
+			<key>UIApplicationShortcutItemType</key>
+			<string>dev.djconnect.action.discovery</string>
+		</dict>
+		<dict>
+			<key>UIApplicationShortcutItemIconSymbolName</key>
 			<string>music.note.list</string>
 			<key>UIApplicationShortcutItemSubtitle</key>
 			<string>Bekijk komende tracks</string>

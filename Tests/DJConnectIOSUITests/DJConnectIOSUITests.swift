@@ -155,6 +155,8 @@ final class DJConnectIOSUITests: XCTestCase {
             return "screen-ask-dj"
         case "Track Insight":
             return "screen-track-insight"
+        case "Ontdek", "Discover":
+            return "screen-discovery"
         case "Music DNA":
             return "screen-music-dna"
         case "Games":
@@ -213,12 +215,14 @@ final class DJConnectIOSUITests: XCTestCase {
         enterDemoModeIfNeeded(app)
 
         XCTAssertTrue(app.tabBars.buttons["Speelt Nu"].waitForExistence(timeout: 10))
-        XCTAssertTrue(app.tabBars.buttons["Wachtrij"].exists)
-        XCTAssertTrue(app.tabBars.buttons["Afspeellijsten"].exists)
+        XCTAssertTrue(app.tabBars.buttons["Ask DJ"].exists)
+        XCTAssertTrue(app.tabBars.buttons["Track Insight"].exists)
+        XCTAssertTrue(app.tabBars.buttons["Ontdek"].exists || app.tabBars.buttons["Discover"].exists)
         XCTAssertTrue(app.tabBars.buttons["Meer"].exists || app.tabBars.buttons["More"].exists)
 
         let moreButton = app.tabBars.buttons["Meer"].exists ? app.tabBars.buttons["Meer"] : app.tabBars.buttons["More"]
         moreButton.tap()
+        XCTAssertTrue(app.descendants(matching: .any)["Wachtrij"].waitForExistence(timeout: 3))
         XCTAssertTrue(app.descendants(matching: .any)["Games"].waitForExistence(timeout: 3))
         XCTAssertTrue(app.descendants(matching: .any)["Instellingen"].waitForExistence(timeout: 3))
         XCTAssertTrue(app.descendants(matching: .any)["Over"].exists)
@@ -269,6 +273,7 @@ final class DJConnectIOSUITests: XCTestCase {
         let jumps = [
             ("djconnect://ask-dj", "Ask DJ"),
             ("djconnect://track-insight", "Track Insight"),
+            ("djconnect://discover", "Ontdek"),
             ("djconnect://playlists", "Afspeellijsten"),
             ("djconnect://queue", "Wachtrij")
         ]
@@ -312,7 +317,7 @@ final class DJConnectIOSUITests: XCTestCase {
             ?? TimeInterval(ProcessInfo.processInfo.environment["DJCONNECT_MONKEY_SECONDS"] ?? "20")
             ?? 20
         let deadline = Date().addingTimeInterval(duration)
-        let tabs = ["Speelt Nu", "Wachtrij", "Afspeellijsten", "Games", "Meer"]
+        let tabs = ["Speelt Nu", "Ask DJ", "Track Insight", "Ontdek", "Meer"]
         var index = 0
 
         XCTAssertTrue(app.tabBars.firstMatch.waitForExistence(timeout: 12))
@@ -328,15 +333,12 @@ final class DJConnectIOSUITests: XCTestCase {
                 app.buttons.matching(identifier: "Druk op het microfoon icoon om een voorbeeld aankondiging te beluisteren").firstMatch.tapIfExists()
                 app.buttons["Afspelen"].tapIfExists()
                 app.buttons["Volgend nummer"].tapIfExists()
-            case "Wachtrij":
-                app.buttons["Tik om te spelen"].tapIfExists()
-            case "Afspeellijsten":
-                app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "DJConnect")).firstMatch.tapIfExists()
-            case "Games":
-                app.buttons["Tik om te spelen"].tapIfExists()
-                app.buttons["Sky Dash"].tapIfExists()
-                app.buttons["Tik om te spelen"].tapIfExists()
+            case "Ontdek":
+                app.buttons["Ververs Ontdek"].tapIfExists()
             case "Meer":
+                app.staticTexts["Wachtrij"].tapIfExists()
+                app.buttons.firstMatch.tapIfExists()
+                app.tabBars.buttons["Meer"].tapIfExists()
                 app.staticTexts["Instellingen"].tapIfExists()
                 app.buttons.firstMatch.tapIfExists()
                 app.tabBars.buttons["Meer"].tapIfExists()
@@ -377,12 +379,13 @@ final class DJConnectIOSUITests: XCTestCase {
         let secondaryScreens = [
             ScreenshotScreen(fileName: "05-ask-dj", title: "Ask DJ"),
             ScreenshotScreen(fileName: "06-track-insight", title: "Track Insight"),
-            ScreenshotScreen(fileName: "07-music-dna", title: "Music DNA"),
-            ScreenshotScreen(fileName: "08-settings", title: "Instellingen"),
-            ScreenshotScreen(fileName: "09-logs", title: "Logs"),
-            ScreenshotScreen(fileName: "10-about", title: "Over"),
-            ScreenshotScreen(fileName: "11-legal", title: "Juridisch"),
-            ScreenshotScreen(fileName: "12-privacy", title: "Privacy")
+            ScreenshotScreen(fileName: "07-discover", title: "Ontdek"),
+            ScreenshotScreen(fileName: "08-music-dna", title: "Music DNA"),
+            ScreenshotScreen(fileName: "09-settings", title: "Instellingen"),
+            ScreenshotScreen(fileName: "10-logs", title: "Logs"),
+            ScreenshotScreen(fileName: "11-about", title: "Over"),
+            ScreenshotScreen(fileName: "12-legal", title: "Juridisch"),
+            ScreenshotScreen(fileName: "13-privacy", title: "Privacy")
         ]
 
         for screen in secondaryScreens {
@@ -405,6 +408,7 @@ final class DJConnectIOSUITests: XCTestCase {
             "Games",
             "Ask DJ",
             "Track Insight",
+            "Ontdek",
             "Music DNA",
             "Instellingen",
             "Logs",

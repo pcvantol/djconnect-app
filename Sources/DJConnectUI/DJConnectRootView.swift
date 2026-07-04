@@ -559,6 +559,7 @@ struct DJConnectCanvasBackground: View {
 private enum DJConnectSection: Hashable {
     case nowPlaying
     case trackInsight
+    case discovery
     case musicDNA
     case askDJ
     case queue
@@ -611,6 +612,11 @@ public struct DJConnectRootView: View {
                             systemImage: "waveform.path.ecg",
                             isSelected: selectedSection == .trackInsight
                         ) { selectedSection = .trackInsight }
+                        SidebarItem(
+                            title: localizedKey(model.language, "ui.discover"),
+                            systemImage: "sparkles",
+                            isSelected: selectedSection == .discovery
+                        ) { selectedSection = .discovery }
                         SidebarItem(
                             title: "Music DNA",
                             systemImage: "heart",
@@ -742,6 +748,8 @@ public struct DJConnectRootView: View {
             selectedSection = .askDJ
         case .trackInsight:
             selectedSection = .trackInsight
+        case .discovery:
+            selectedSection = .discovery
         case .playlists:
             selectedSection = .playlists
         }
@@ -766,6 +774,8 @@ public struct DJConnectRootView: View {
             selectedSection = .askDJ
         case "track-insight":
             selectedSection = .trackInsight
+        case "discover", "discovery", "ontdek":
+            selectedSection = .discovery
         case "music-dna":
             selectedSection = .musicDNA
         case "playlists":
@@ -815,11 +825,6 @@ public struct DJConnectRootView: View {
                     Label(localizedKey(model.language, "ui.now.playing"), systemImage: "music.note")
                 }
                 .tag(DJConnectSection.nowPlaying)
-            QueueView(model: model)
-                .tabItem {
-                    Label(localizedKey(model.language, "ui.queue"), systemImage: "music.note.list")
-                }
-                .tag(DJConnectSection.queue)
             AskDJView(model: model) {
                 selectedSection = .trackInsight
                 model.openTrackInsight()
@@ -839,6 +844,11 @@ public struct DJConnectRootView: View {
                     Label("Track Insight", systemImage: "waveform.path.ecg")
                 }
                 .tag(DJConnectSection.trackInsight)
+            MusicDiscoveryView(model: model)
+                .tabItem {
+                    Label(localizedKey(model.language, "ui.discover"), systemImage: "sparkles")
+                }
+                .tag(DJConnectSection.discovery)
             MoreView(model: model) {
                 selectedSection = .nowPlaying
             }
@@ -878,6 +888,11 @@ public struct DJConnectRootView: View {
                     isSelected: selectedSection == .trackInsight
                 ) { selectedSection = .trackInsight }
                 DJConnectTopTabButton(
+                    title: localizedKey(model.language, "ui.discover"),
+                    systemImage: "sparkles",
+                    isSelected: selectedSection == .discovery
+                ) { selectedSection = .discovery }
+                DJConnectTopTabButton(
                     title: localizedKey(model.language, "ui.more"),
                     systemImage: "ellipsis",
                     isSelected: isMoreSectionSelected
@@ -902,9 +917,9 @@ public struct DJConnectRootView: View {
 
     private var isMoreSectionSelected: Bool {
         switch selectedSection {
-        case .nowPlaying, .queue, .askDJ, .trackInsight:
+        case .nowPlaying, .askDJ, .trackInsight, .discovery:
             false
-        case .more, .musicDNA, .playlists, .games, .settings, .logs, .about, .legal, .privacy:
+        case .more, .queue, .musicDNA, .playlists, .games, .settings, .logs, .about, .legal, .privacy:
             true
         }
     }
@@ -1030,6 +1045,8 @@ public struct DJConnectRootView: View {
             NowPlayingView(model: model)
         case .trackInsight:
             TrackInsightView(model: model)
+        case .discovery:
+            MusicDiscoveryView(model: model)
         case .musicDNA:
             MusicDNAView(model: model)
         case .askDJ:
@@ -2521,16 +2538,16 @@ private struct WelcomeTourStep: Identifiable, Equatable {
                 systemImage: "waveform.path.ecg"
             ),
             WelcomeTourStep(
+                id: .discovery,
+                title: localizedKey(language, "ui.discover"),
+                body: localizedKey(language, "ui.discovery.recommendations.will.appear.after.music.dna.has.more.signals"),
+                systemImage: "sparkles"
+            ),
+            WelcomeTourStep(
                 id: .musicDNA,
                 title: "Music DNA",
                 body: localizedKey(language, "ui.learn.from.your.taste.and.listening.behavior.to.shape.recommendations"),
                 systemImage: "heart"
-            ),
-            WelcomeTourStep(
-                id: .games,
-                title: localizedKey(language, "ui.mini.games"),
-                body: localizedKey(language, "ui.play.local.mini.games.while.keeping.djconnect.ready.for.your"),
-                systemImage: "gamecontroller.fill"
             )
         ]
     }
@@ -3914,20 +3931,72 @@ private struct MusicDNASectionGrid: View {
     var body: some View {
         LazyVGrid(columns: gridColumns, spacing: 12) {
             MusicDNAPanel(title: localizedKey(model.language, "ui.summary"), value: summaryText, icon: "waveform")
-            MusicDNAPanel(title: localizedKey(model.language, "ui.favorite.genres"), value: names(profile.favoriteGenres, fallbackKey: "ui.music.dna.needs.more.listening.for.genres"), icon: "music.quarternote.3")
-            MusicDNAPanel(title: localizedKey(model.language, "ui.favorite.artists"), value: names(profile.favoriteArtists, fallbackKey: "ui.music.dna.needs.more.listening.for.artists"), icon: "person.wave.2")
+            if let favoriteGenres = profile.favoriteGenres, !favoriteGenres.isEmpty {
+                MusicDNAPanel(title: localizedKey(model.language, "ui.favorite.genres"), value: names(favoriteGenres), icon: "music.quarternote.3")
+            }
+            if let favoriteArtists = profile.favoriteArtists, !favoriteArtists.isEmpty {
+                MusicDNAPanel(title: localizedKey(model.language, "ui.favorite.artists"), value: names(favoriteArtists), icon: "person.wave.2")
+            }
             if let moodMetric {
                 MusicDNAMetricPanel(metric: moodMetric)
-            } else {
-                MusicDNAPanel(title: localizedKey(model.language, "ui.profile.mood"), value: moodSummary, icon: "sparkles")
             }
             if let energyMetrics {
                 MusicDNAMetricPanel(metric: energyMetrics)
-            } else {
-                MusicDNAPanel(title: localizedKey(model.language, "ui.energy.profile"), value: energyProfile, icon: "bolt.fill")
             }
-            MusicDNAPanel(title: localizedKey(model.language, "ui.recent.tracks"), value: tracks(profile.recentTracks), icon: "clock.arrow.circlepath")
-            MusicDNAPanel(title: localizedKey(model.language, "ui.signals"), value: basisSignals, icon: "safari")
+            if let listeningRhythm = profile.listeningRhythm, listeningRhythm.isDisplayable {
+                MusicDNAListeningRhythmPanel(
+                    rhythm: listeningRhythm,
+                    title: localizedKey(model.language, "ui.listening.rhythm")
+                )
+            }
+            if let moodMix = profile.moodMix, moodMix.isDisplayable {
+                MusicDNAMoodMixPanel(
+                    moodMix: moodMix,
+                    title: localizedKey(model.language, "ui.mood.mix"),
+                    averageTitle: localizedKey(model.language, "ui.average")
+                )
+            }
+            if let playtime = profile.playtime, playtime.isDisplayable {
+                MusicDNAPlaytimePanel(
+                    playtime: playtime,
+                    title: localizedKey(model.language, "ui.playtime"),
+                    subtitle: localizedKey(model.language, "ui.total.in.your.music.dna"),
+                    topArtistsTitle: localizedKey(model.language, "ui.top.artists.by.playtime"),
+                    topAlbumsTitle: localizedKey(model.language, "ui.top.albums.by.playtime")
+                )
+            }
+            if let repeatMagnets = profile.repeatMagnets, repeatMagnets.isDisplayable {
+                MusicDNARepeatMagnetsPanel(
+                    repeatMagnets: repeatMagnets,
+                    title: localizedKey(model.language, "ui.repeat.magnets")
+                )
+            }
+            if let explicitPositives = profile.explicitPositives, explicitPositives.isDisplayable {
+                MusicDNAExplicitPositivesPanel(
+                    positives: explicitPositives,
+                    title: localizedKey(model.language, "ui.explicit.positives"),
+                    favoritesTitle: localizedKey(model.language, "ui.favorites"),
+                    acceptedRecommendationsTitle: localizedKey(model.language, "ui.accepted.recommendations")
+                )
+            }
+            if let tasteAnchors = profile.tasteAnchors, tasteAnchors.isDisplayable {
+                MusicDNATasteAnchorsPanel(
+                    anchors: tasteAnchors,
+                    title: localizedKey(model.language, "ui.taste.anchors")
+                )
+            }
+            if let recentTracks = profile.recentTracks, !recentTracks.isEmpty {
+                MusicDNAPanel(title: localizedKey(model.language, "ui.recent.tracks"), value: tracks(recentTracks), icon: "clock.arrow.circlepath")
+            }
+            if let recentFavoriteTracks = profile.recentFavoriteTracks, !recentFavoriteTracks.isEmpty {
+                MusicDNATrackListPanel(
+                    title: localizedKey(model.language, "ui.recent.favorite.tracks"),
+                    tracks: recentFavoriteTracks
+                )
+            }
+            if let basisSignals {
+                MusicDNAPanel(title: localizedKey(model.language, "ui.signals"), value: basisSignals, icon: "safari")
+            }
             if let updatedSummary {
                 MusicDNAPanel(title: localizedKey(model.language, "ui.updated"), value: updatedSummary, icon: "checkmark.seal")
             }
@@ -3958,38 +4027,9 @@ private struct MusicDNASectionGrid: View {
         return counts.ifEmpty(localizedKey(model.language, "ui.not.enough.signals"))
     }
 
-    private var energyProfile: String {
-        guard let energyProfile = profile.energyProfile else {
-            return localizedKey(model.language, "ui.music.dna.needs.more.listening.for.energy")
-        }
-        let hasEnergySignal = energyProfile.energyPercent != nil || (energyProfile.sampleCount ?? 0) > 0
-        guard hasEnergySignal else {
-            return localizedKey(model.language, "ui.music.dna.needs.more.listening.for.energy")
-        }
-        let primary = [
-            musicDNAZoneLabel(energyProfile.zone),
-            energyProfile.energyPercent.map { "\($0)%" },
-            energyProfile.sampleCount.map { analysisCountLabel($0) }
-        ]
-        .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
-        .filter { !$0.isEmpty }
-        .joined(separator: " · ")
-
-        let secondary = [
-            energyProfile.danceabilityPercent.map { "Dansbaarheid \($0)%" },
-            energyProfile.intensityPercent.map { "Intensiteit \($0)%" }
-        ]
-        .compactMap { $0 }
-        .joined(separator: " · ")
-
-        if !primary.isEmpty, !secondary.isEmpty {
-            return "\(primary)\n\(secondary)"
-        }
-        return primary.ifEmpty(localizedKey(model.language, "ui.music.dna.needs.more.listening.for.energy"))
-    }
-
     private var energyMetrics: MusicDNAMetricPanel.Metric? {
         guard let energyProfile = profile.energyProfile,
+              (energyProfile.sampleCount ?? 0) > 0,
               let energyPercent = energyProfile.energyPercent else {
             return nil
         }
@@ -4070,14 +4110,17 @@ private struct MusicDNASectionGrid: View {
         )
     }
 
-    private var basisSignals: String {
-        if !profile.basedOn.isEmpty {
-            return signals(profile.basedOn)
+    private var basisSignals: String? {
+        if let basedOn = profile.basedOn, !basedOn.isEmpty {
+            return signals(basedOn)
         }
         if let recentSignals = profile.energyProfile?.recentSignals, !recentSignals.isEmpty {
             return energySignals(recentSignals)
         }
-        return signals(profile.recommendationSignals)
+        if let recommendationSignals = profile.recommendationSignals, !recommendationSignals.isEmpty {
+            return signals(recommendationSignals)
+        }
+        return nil
     }
 
     private var updatedSummary: String? {
@@ -4090,13 +4133,12 @@ private struct MusicDNASectionGrid: View {
         return updatedAt.formatted(date: .abbreviated, time: .shortened)
     }
 
-    private func names(_ values: [DJConnectMusicDNANameValue], fallbackKey: String) -> String {
+    private func names(_ values: [DJConnectMusicDNANameValue]) -> String {
         values.map(\.name)
             .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
             .filter { !$0.isEmpty }
             .prefix(3)
             .joined(separator: ", ")
-            .ifEmpty(localizedKey(model.language, fallbackKey))
     }
 
     private func tracks(_ values: [DJConnectMusicDNATrack]) -> String {
@@ -4356,7 +4398,92 @@ private extension DJConnectMusicDNAProfileResponse {
                 DJConnectMusicDNATrack(title: "Intro", artist: "The xx"),
                 DJConnectMusicDNATrack(title: "Beyond Beliefs", artist: "Ben Bohmer")
             ],
+            recentFavoriteTracks: [
+                DJConnectMusicDNATrack(title: "VCR", artist: "The xx", album: "xx"),
+                DJConnectMusicDNATrack(title: "Breathing", artist: "Ben Bohmer", album: "Breathing")
+            ],
             mood: DJConnectMusicDNAMood(value: 65, zone: "energy", promptHint: "keep it warm"),
+            energyProfile: DJConnectMusicDNAEnergyProfile(
+                sampleCount: 3,
+                energy: 0.68,
+                energyPercent: 68,
+                zone: "energy",
+                danceability: 0.62,
+                danceabilityPercent: 62,
+                intensity: 0.58,
+                intensityPercent: 58,
+                recentSignals: [
+                    DJConnectMusicDNAEnergySignal(title: "Intro", artist: "The xx", album: "xx"),
+                    DJConnectMusicDNAEnergySignal(title: "Beyond Beliefs", artist: "Ben Bohmer")
+                ]
+            ),
+            playtime: DJConnectMusicDNAPlaytime(
+                totalSeconds: 8_460,
+                totalHours: 2.35,
+                formattedTotal: "2u 21m",
+                topArtists: [
+                    DJConnectMusicDNAPlaytimeArtist(name: "The xx", seconds: 3_000, hours: 0.83, formatted: "50m"),
+                    DJConnectMusicDNAPlaytimeArtist(name: "Ben Bohmer", seconds: 2_400, hours: 0.67, formatted: "40m"),
+                    DJConnectMusicDNAPlaytimeArtist(name: "Tycho", seconds: 1_500, hours: 0.42, formatted: "25m")
+                ],
+                topAlbums: [
+                    DJConnectMusicDNAPlaytimeArtist(name: "xx", seconds: 2_700, hours: 0.75, formatted: "45m"),
+                    DJConnectMusicDNAPlaytimeArtist(name: "Breathing", seconds: 2_100, hours: 0.58, formatted: "35m")
+                ]
+            ),
+            listeningRhythm: DJConnectMusicDNAListeningRhythm(
+                sampleCount: 5,
+                topDaypart: "Avond",
+                topWeekday: "Vrijdag",
+                dayparts: [
+                    DJConnectMusicDNAListeningRhythmItem(daypart: "Avond", count: 3, percent: 60),
+                    DJConnectMusicDNAListeningRhythmItem(daypart: "Nacht", count: 2, percent: 40)
+                ],
+                weekdays: [
+                    DJConnectMusicDNAListeningRhythmItem(weekday: "Vrijdag", count: 2, percent: 40),
+                    DJConnectMusicDNAListeningRhythmItem(weekday: "Zaterdag", count: 2, percent: 40),
+                    DJConnectMusicDNAListeningRhythmItem(weekday: "Zondag", count: 1, percent: 20)
+                ]
+            ),
+            moodMix: DJConnectMusicDNAMoodMix(
+                sampleCount: 4,
+                average: 61,
+                topZone: "groove",
+                zones: [
+                    DJConnectMusicDNAMoodMixZone(zone: "chill", count: 1, percent: 25),
+                    DJConnectMusicDNAMoodMixZone(zone: "groove", count: 2, percent: 50),
+                    DJConnectMusicDNAMoodMixZone(zone: "energy", count: 1, percent: 25)
+                ]
+            ),
+            repeatMagnets: DJConnectMusicDNARepeatMagnets(
+                eligible: true,
+                items: [
+                    DJConnectMusicDNARepeatMagnetItem(kind: "artist", name: "The xx", count: 4),
+                    DJConnectMusicDNARepeatMagnetItem(kind: "album", name: "xx", formatted: "45m"),
+                    DJConnectMusicDNARepeatMagnetItem(kind: "artist", name: "Ben Bohmer", count: 3)
+                ]
+            ),
+            explicitPositives: DJConnectMusicDNAExplicitPositives(
+                eligible: true,
+                signalCount: 3,
+                favoriteTracks: [
+                    DJConnectMusicDNAFavoriteTrackSignal(title: "VCR", artist: "The xx"),
+                    DJConnectMusicDNAFavoriteTrackSignal(title: "Breathing", artist: "Ben Bohmer")
+                ],
+                acceptedRecommendations: [
+                    DJConnectMusicDNAAcceptedRecommendationSignal(title: "A Walk", subtitle: "Wide pads"),
+                    DJConnectMusicDNAAcceptedRecommendationSignal(title: "Glue", subtitle: "Soft vocal fragments")
+                ]
+            ),
+            tasteAnchors: DJConnectMusicDNATasteAnchors(
+                eligible: true,
+                items: [
+                    DJConnectMusicDNATasteAnchorItem(kind: "artist", name: "The xx", playCount: 5, formatted: "50m"),
+                    DJConnectMusicDNATasteAnchorItem(kind: "genre", name: "ambient"),
+                    DJConnectMusicDNATasteAnchorItem(kind: "genre", name: "melodic house"),
+                    DJConnectMusicDNATasteAnchorItem(kind: "artist", name: "Ben Bohmer", playCount: 4, formatted: "40m")
+                ]
+            ),
             recommendationSignals: [
                 DJConnectMusicDNASignal(title: "soft vocals"),
                 DJConnectMusicDNASignal(title: "wide pads")
@@ -4409,6 +4536,1070 @@ private struct MusicDNAPanel: View {
         .overlay {
             RoundedRectangle(cornerRadius: 8, style: .continuous)
                 .stroke(.white.opacity(0.10), lineWidth: 1)
+        }
+    }
+}
+
+private struct MusicDNATrackListPanel: View {
+    let title: String
+    let tracks: [DJConnectMusicDNATrack]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 8) {
+                Image(systemName: "heart.fill")
+                    .font(.title3.weight(.semibold))
+                    .foregroundStyle(djConnectAccent)
+                Text(title)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.white.opacity(0.58))
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            VStack(spacing: 10) {
+                ForEach(Array(tracks.prefix(3).enumerated()), id: \.offset) { _, track in
+                    MusicDNATrackListRow(track: track)
+                }
+            }
+        }
+        .padding(18)
+        .frame(maxWidth: .infinity, minHeight: 132, alignment: .topLeading)
+        .background(.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .stroke(.white.opacity(0.10), lineWidth: 1)
+        }
+        .accessibilityIdentifier("musicDNARecentFavoriteTracksSection")
+    }
+}
+
+private struct MusicDNAListeningRhythmPanel: View {
+    let rhythm: DJConnectMusicDNAListeningRhythm
+    let title: String
+
+    private var primaryValue: String {
+        rhythm.topDaypart?.trimmingCharacters(in: .whitespacesAndNewlines).ifEmpty("-") ?? "-"
+    }
+
+    private var secondaryValue: String? {
+        let value = rhythm.topWeekday?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return value.isEmpty ? nil : value
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            MusicDNACompactPanelHeader(title: title, icon: "clock")
+            VStack(alignment: .leading, spacing: 4) {
+                Text(primaryValue)
+                    .font(.title3.weight(.bold))
+                    .foregroundStyle(.white)
+                    .fixedSize(horizontal: false, vertical: true)
+                if let secondaryValue {
+                    Text(secondaryValue)
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.white.opacity(0.66))
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            if !rhythm.dayparts.isEmpty {
+                MusicDNADistributionList(
+                    items: rhythm.dayparts.map { item in
+                        MusicDNADistributionItem(
+                            label: item.daypart ?? "",
+                            percent: item.percent,
+                            tint: djConnectAccent
+                        )
+                    }
+                )
+            }
+            if !rhythm.visibleWeekdays.isEmpty {
+                MusicDNAChipRow(
+                    items: rhythm.visibleWeekdays.map { item in
+                        MusicDNAChipItem(label: item.weekday ?? "", detail: item.percent.map(percentText))
+                    }
+                )
+            }
+        }
+        .musicDNADashboardPanel()
+        .accessibilityIdentifier("musicDNAListeningRhythmSection")
+    }
+}
+
+private struct MusicDNAMoodMixPanel: View {
+    let moodMix: DJConnectMusicDNAMoodMix
+    let title: String
+    let averageTitle: String
+
+    private var primaryValue: String {
+        musicDNAZoneDisplayLabel(moodMix.topZone)
+            ?? moodMix.topZone?.trimmingCharacters(in: .whitespacesAndNewlines).ifEmpty("-")
+            ?? "-"
+    }
+
+    private var averageValue: String? {
+        guard let average = moodMix.average else {
+            return nil
+        }
+        return "\(averageTitle): \(average)/100"
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            MusicDNACompactPanelHeader(title: title, icon: "sparkles")
+            VStack(alignment: .leading, spacing: 4) {
+                Text(primaryValue)
+                    .font(.title3.weight(.bold))
+                    .foregroundStyle(.white)
+                    .fixedSize(horizontal: false, vertical: true)
+                if let averageValue {
+                    Text(averageValue)
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.white.opacity(0.66))
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            MusicDNADistributionList(
+                items: moodMix.zones.map { zone in
+                    MusicDNADistributionItem(
+                        label: musicDNAZoneDisplayLabel(zone.zone) ?? zone.zone,
+                        percent: zone.percent,
+                        tint: musicDNAMoodTint(zone.zone)
+                    )
+                }
+            )
+        }
+        .musicDNADashboardPanel()
+        .accessibilityIdentifier("musicDNAMoodMixSection")
+    }
+}
+
+private struct MusicDNAPlaytimePanel: View {
+    let playtime: DJConnectMusicDNAPlaytime
+    let title: String
+    let subtitle: String
+    let topArtistsTitle: String
+    let topAlbumsTitle: String
+
+    private var totalText: String {
+        let formatted = playtime.formattedTotal?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return formatted.isEmpty ? "\(playtime.totalSeconds)s" : formatted
+    }
+
+    private var visibleArtists: [DJConnectMusicDNAPlaytimeArtist] {
+        playtime.visibleTopArtists
+    }
+
+    private var visibleAlbums: [DJConnectMusicDNAPlaytimeArtist] {
+        playtime.visibleTopAlbums
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            MusicDNACompactPanelHeader(title: title, icon: "timer")
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(totalText)
+                    .font(.title2.weight(.bold))
+                    .foregroundStyle(.white)
+                    .fixedSize(horizontal: false, vertical: true)
+                Text(subtitle)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.white.opacity(0.62))
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            if !visibleArtists.isEmpty {
+                MusicDNAPlaytimeRanking(title: topArtistsTitle, items: visibleArtists)
+            }
+            if !visibleAlbums.isEmpty {
+                MusicDNAPlaytimeRanking(title: topAlbumsTitle, items: visibleAlbums)
+            }
+        }
+        .musicDNADashboardPanel()
+        .accessibilityIdentifier("musicDNAPlaytimeSection")
+    }
+}
+
+private struct MusicDNARepeatMagnetsPanel: View {
+    let repeatMagnets: DJConnectMusicDNARepeatMagnets
+    let title: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            MusicDNACompactPanelHeader(title: title, icon: "repeat")
+            VStack(spacing: 10) {
+                ForEach(Array(repeatMagnets.visibleItems.enumerated()), id: \.offset) { _, item in
+                    MusicDNAProfileSignalRow(
+                        title: item.name,
+                        subtitle: repeatMagnetSubtitle(item),
+                        icon: item.kind == "album" ? "square.stack" : "person.wave.2"
+                    )
+                }
+            }
+        }
+        .musicDNADashboardPanel()
+        .accessibilityIdentifier("musicDNARepeatMagnetsSection")
+    }
+
+    private func repeatMagnetSubtitle(_ item: DJConnectMusicDNARepeatMagnetItem) -> String? {
+        switch item.kind {
+        case "artist":
+            return item.count.map { $0 == 1 ? "1 keer" : "\($0) keer" } ?? item.formatted
+        case "album":
+            return item.formatted ?? item.count.map { $0 == 1 ? "1 keer" : "\($0) keer" }
+        default:
+            return item.formatted ?? item.count.map { $0 == 1 ? "1 keer" : "\($0) keer" }
+        }
+    }
+}
+
+private struct MusicDNAExplicitPositivesPanel: View {
+    let positives: DJConnectMusicDNAExplicitPositives
+    let title: String
+    let favoritesTitle: String
+    let acceptedRecommendationsTitle: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            MusicDNACompactPanelHeader(title: title, icon: "hand.thumbsup.fill")
+            if !positives.visibleFavoriteTracks.isEmpty {
+                MusicDNAProfileSignalSection(title: favoritesTitle) {
+                    ForEach(Array(positives.visibleFavoriteTracks.enumerated()), id: \.offset) { _, track in
+                        MusicDNAProfileSignalRow(
+                            title: track.title,
+                            subtitle: track.artist,
+                            icon: "heart.fill"
+                        )
+                    }
+                }
+            }
+            if !positives.visibleAcceptedRecommendations.isEmpty {
+                MusicDNAProfileSignalSection(title: acceptedRecommendationsTitle) {
+                    ForEach(Array(positives.visibleAcceptedRecommendations.enumerated()), id: \.offset) { _, recommendation in
+                        MusicDNAProfileSignalRow(
+                            title: recommendation.title?.trimmingCharacters(in: .whitespacesAndNewlines).ifEmpty(recommendation.subtitle ?? "-") ?? recommendation.subtitle ?? "-",
+                            subtitle: recommendation.subtitle,
+                            icon: "checkmark.seal.fill"
+                        )
+                    }
+                }
+            }
+        }
+        .musicDNADashboardPanel()
+        .accessibilityIdentifier("musicDNAExplicitPositivesSection")
+    }
+}
+
+private struct MusicDNATasteAnchorsPanel: View {
+    let anchors: DJConnectMusicDNATasteAnchors
+    let title: String
+
+    private var artistItems: [DJConnectMusicDNATasteAnchorItem] {
+        anchors.visibleItems.filter { $0.kind == "artist" }
+    }
+
+    private var genreItems: [DJConnectMusicDNATasteAnchorItem] {
+        anchors.visibleItems.filter { $0.kind == "genre" }
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            MusicDNACompactPanelHeader(title: title, icon: "anchor")
+            if !artistItems.isEmpty {
+                VStack(spacing: 10) {
+                    ForEach(Array(artistItems.enumerated()), id: \.offset) { _, item in
+                        MusicDNAProfileSignalRow(
+                            title: item.name,
+                            subtitle: tasteAnchorSubtitle(item),
+                            icon: "person.wave.2"
+                        )
+                    }
+                }
+            }
+            if !genreItems.isEmpty {
+                MusicDNAChipRow(
+                    items: genreItems.map { MusicDNAChipItem(label: $0.name, detail: nil) }
+                )
+            }
+        }
+        .musicDNADashboardPanel()
+        .accessibilityIdentifier("musicDNATasteAnchorsSection")
+    }
+
+    private func tasteAnchorSubtitle(_ item: DJConnectMusicDNATasteAnchorItem) -> String? {
+        if let playCount = item.playCount {
+            return playCount == 1 ? "1 keer" : "\(playCount) keer"
+        }
+        return item.formatted
+    }
+}
+
+private struct MusicDNACompactPanelHeader: View {
+    let title: String
+    let icon: String
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Image(systemName: icon)
+                .font(.title3.weight(.semibold))
+                .foregroundStyle(djConnectAccent)
+            Text(title)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.white.opacity(0.58))
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+}
+
+private struct MusicDNAProfileSignalSection<Content: View>: View {
+    let title: String
+    @ViewBuilder var content: Content
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(title)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.white.opacity(0.58))
+            VStack(spacing: 10) {
+                content
+            }
+        }
+    }
+}
+
+private struct MusicDNAProfileSignalRow: View {
+    let title: String
+    let subtitle: String?
+    let icon: String
+
+    private var cleanTitle: String {
+        title.trimmingCharacters(in: .whitespacesAndNewlines).ifEmpty("-")
+    }
+
+    private var cleanSubtitle: String? {
+        let value = subtitle?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return value.isEmpty ? nil : value
+    }
+
+    var body: some View {
+        HStack(spacing: 10) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 7, style: .continuous)
+                    .fill(.white.opacity(0.08))
+                Image(systemName: icon)
+                    .font(.caption.weight(.bold))
+                    .foregroundStyle(djConnectAccent)
+            }
+            .frame(width: 34, height: 34)
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text(cleanTitle)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.white)
+                    .lineLimit(1)
+                if let cleanSubtitle {
+                    Text(cleanSubtitle)
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.white.opacity(0.62))
+                        .lineLimit(1)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+}
+
+private struct MusicDNAPlaytimeRanking: View {
+    let title: String
+    let items: [DJConnectMusicDNAPlaytimeArtist]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(title)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.white.opacity(0.58))
+            ForEach(Array(items.enumerated()), id: \.offset) { index, item in
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                    Text("\(index + 1).")
+                        .font(.caption.weight(.bold))
+                        .foregroundStyle(djConnectAccent)
+                        .frame(width: 18, alignment: .leading)
+                    Text(item.name)
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.white)
+                        .lineLimit(1)
+                    Spacer(minLength: 8)
+                    Text(item.formatted?.trimmingCharacters(in: .whitespacesAndNewlines).ifEmpty("-") ?? "-")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.white.opacity(0.66))
+                        .lineLimit(1)
+                }
+            }
+        }
+    }
+}
+
+private struct MusicDNADistributionItem: Equatable {
+    var label: String
+    var percent: Double?
+    var tint: Color
+}
+
+private struct MusicDNADistributionList: View {
+    let items: [MusicDNADistributionItem]
+
+    var body: some View {
+        VStack(spacing: 8) {
+            ForEach(Array(items.enumerated()), id: \.offset) { _, item in
+                let sanitizedLabel = item.label.trimmingCharacters(in: .whitespacesAndNewlines)
+                if !sanitizedLabel.isEmpty {
+                    VStack(alignment: .leading, spacing: 4) {
+                        HStack(spacing: 8) {
+                            Text(sanitizedLabel)
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(.white.opacity(0.78))
+                                .lineLimit(1)
+                            Spacer(minLength: 8)
+                            Text(percentText(item.percent))
+                                .font(.caption.weight(.bold))
+                                .foregroundStyle(.white.opacity(0.64))
+                                .lineLimit(1)
+                        }
+                        GeometryReader { proxy in
+                            ZStack(alignment: .leading) {
+                                Capsule()
+                                    .fill(.white.opacity(0.10))
+                                Capsule()
+                                    .fill(item.tint.opacity(0.82))
+                                    .frame(width: max(4, proxy.size.width * CGFloat(clampedPercent(item.percent) / 100)))
+                            }
+                        }
+                        .frame(height: 6)
+                    }
+                }
+            }
+        }
+    }
+}
+
+private struct MusicDNAChipItem: Equatable {
+    var label: String
+    var detail: String?
+}
+
+private struct MusicDNAChipRow: View {
+    let items: [MusicDNAChipItem]
+
+    var body: some View {
+        LazyVGrid(columns: [GridItem(.adaptive(minimum: 86), spacing: 6)], alignment: .leading, spacing: 6) {
+            ForEach(Array(items.enumerated()), id: \.offset) { _, item in
+                let sanitizedLabel = item.label.trimmingCharacters(in: .whitespacesAndNewlines)
+                if !sanitizedLabel.isEmpty {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(sanitizedLabel)
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(.white)
+                            .lineLimit(1)
+                        if let detail = item.detail?.trimmingCharacters(in: .whitespacesAndNewlines), !detail.isEmpty {
+                            Text(detail)
+                                .font(.caption2.weight(.bold))
+                                .foregroundStyle(.white.opacity(0.58))
+                                .lineLimit(1)
+                        }
+                    }
+                    .padding(.vertical, 6)
+                    .padding(.horizontal, 8)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 7, style: .continuous))
+                }
+            }
+        }
+    }
+}
+
+private struct MusicDNADashboardPanelModifier: ViewModifier {
+    func body(content: Content) -> some View {
+        content
+            .padding(18)
+            .frame(maxWidth: .infinity, minHeight: 132, alignment: .topLeading)
+            .background(.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .stroke(.white.opacity(0.10), lineWidth: 1)
+            }
+    }
+}
+
+private extension View {
+    func musicDNADashboardPanel() -> some View {
+        modifier(MusicDNADashboardPanelModifier())
+    }
+}
+
+private func clampedPercent(_ value: Double?) -> Double {
+    min(100, max(0, value ?? 0))
+}
+
+private func percentText(_ value: Double?) -> String {
+    let percent = clampedPercent(value)
+    if percent.rounded() == percent {
+        return "\(Int(percent))%"
+    }
+    return String(format: "%.1f%%", percent)
+}
+
+private func musicDNAZoneDisplayLabel(_ zone: String?) -> String? {
+    switch zone?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() {
+    case "chill":
+        return "Chill"
+    case "groove":
+        return "Groove"
+    case "energy":
+        return "Energy"
+    case "party":
+        return "Party"
+    case let value? where !value.isEmpty:
+        return value
+            .split(separator: "_")
+            .map { String($0.prefix(1)).uppercased() + String($0.dropFirst()) }
+            .joined(separator: " ")
+    default:
+        return nil
+    }
+}
+
+private func musicDNAMoodTint(_ zone: String) -> Color {
+    switch zone.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() {
+    case "chill":
+        return Color(red: 0.34, green: 0.74, blue: 1.0)
+    case "groove":
+        return Color(red: 0.36, green: 0.90, blue: 0.60)
+    case "energy":
+        return Color(red: 1.0, green: 0.70, blue: 0.24)
+    case "party":
+        return djConnectAccent
+    default:
+        return djConnectAccent
+    }
+}
+
+private struct MusicDiscoveryView: View {
+    @ObservedObject var model: DJConnectAppModel
+    @State private var selectedDetail: MusicDiscoveryDetailSelection?
+
+    private var visibleSections: [DJConnectMusicDiscoverySection] {
+        model.musicDiscoveryResponse?.visibleSections ?? []
+    }
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 18) {
+                    header
+                    content
+                }
+                .padding(.horizontal, 20)
+                .padding(.vertical, 18)
+            }
+            .background(DJConnectCanvasBackground())
+            .accessibilityIdentifier("screen-discovery")
+            .navigationTitle(localizedKey(model.language, "ui.discover"))
+            #if os(iOS)
+            .navigationBarTitleDisplayMode(.inline)
+            #endif
+            .toolbar {
+                ToolbarItem(placement: .primaryAction) {
+                    Button {
+                        Task { await model.refreshMusicDiscovery() }
+                    } label: {
+                        Image(systemName: "arrow.clockwise")
+                    }
+                    .disabled(model.isRefreshingMusicDiscovery || model.isLoadingMusicDiscovery)
+                    .accessibilityLabel(localizedKey(model.language, "ui.refresh.discover"))
+                }
+            }
+            .task {
+                await model.loadMusicDiscovery()
+            }
+            .sheet(item: $selectedDetail) { selection in
+                MusicDiscoveryDetailView(
+                    model: model,
+                    sectionID: selection.sectionID,
+                    item: selection.item
+                )
+                #if os(iOS)
+                .presentationDetents([.medium, .large])
+                #endif
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var content: some View {
+        if model.musicDiscoveryResponse?.isMusicDNADisabled == true || model.musicDNAProfileResponse?.enabled == false {
+            MusicDiscoveryLockedState(model: model)
+        } else if model.isLoadingMusicDiscovery && model.musicDiscoveryResponse == nil {
+            ProgressView()
+                .tint(.white)
+                .frame(maxWidth: .infinity, minHeight: 220)
+        } else if let error = model.musicDiscoveryErrorMessage, !error.isEmpty {
+            DJConnectStatusCard(
+                title: localizedKey(model.language, "ui.discovery.could.not.be.loaded"),
+                message: error,
+                systemImage: "exclamationmark.triangle.fill",
+                tint: .orange
+            )
+        } else if visibleSections.isEmpty, model.musicDiscoveryResponse?.enabled == true {
+            MusicDiscoveryEmptyState(model: model)
+        } else {
+            LazyVStack(alignment: .leading, spacing: 22) {
+                ForEach(visibleSections) { section in
+                    MusicDiscoverySectionView(
+                        model: model,
+                        section: section,
+                        showDetail: { item in
+                            selectedDetail = MusicDiscoveryDetailSelection(sectionID: section.id, item: item)
+                        }
+                    )
+                }
+            }
+        }
+    }
+
+    private var header: some View {
+        HStack(alignment: .center, spacing: 12) {
+            Image(systemName: "sparkles")
+                .font(.title2.weight(.semibold))
+                .foregroundStyle(djConnectAccent)
+                .frame(width: 34, height: 34)
+                .background(.white.opacity(0.10), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+            VStack(alignment: .leading, spacing: 3) {
+                Text(localizedKey(model.language, "ui.discover"))
+                    .font(.title2.weight(.bold))
+                    .foregroundStyle(.white)
+                if let response = model.musicDiscoveryResponse, response.enabled, let revision = response.revision {
+                    Text("Revision \(revision)")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.white.opacity(0.58))
+                }
+            }
+            Spacer()
+            if model.isRefreshingMusicDiscovery {
+                ProgressView()
+                    .tint(.white)
+            }
+        }
+    }
+}
+
+private struct MusicDiscoveryDetailSelection: Identifiable {
+    let sectionID: String
+    let item: DJConnectMusicDiscoveryItem
+
+    var id: String { "\(sectionID)-\(item.id)" }
+}
+
+private struct MusicDiscoverySectionView: View {
+    @ObservedObject var model: DJConnectAppModel
+    let section: DJConnectMusicDiscoverySection
+    let showDetail: (DJConnectMusicDiscoveryItem) -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text(section.title)
+                .font(.headline.weight(.bold))
+                .foregroundStyle(.white)
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                LazyHStack(alignment: .top, spacing: 12) {
+                    ForEach(section.visibleItems) { item in
+                        MusicDiscoveryCard(
+                            model: model,
+                            sectionID: section.id,
+                            item: item,
+                            showDetail: { showDetail(item) }
+                        )
+                    }
+                }
+                .padding(.vertical, 2)
+            }
+            .scrollClipDisabled()
+        }
+    }
+}
+
+private struct MusicDiscoveryCard: View {
+    @ObservedObject var model: DJConnectAppModel
+    let sectionID: String
+    let item: DJConnectMusicDiscoveryItem
+    let showDetail: () -> Void
+
+    private var artworkURL: URL? {
+        musicDiscoveryArtworkURL(item.imageURL, model: model)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            artwork
+                .contentShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                .onTapGesture {
+                    Task { await model.playMusicDiscoveryItem(item, sectionID: sectionID) }
+                }
+            #if os(iOS)
+                .onLongPressGesture(minimumDuration: 0.45) {
+                    DJConnectHaptics.selection()
+                    showDetail()
+                }
+            #endif
+            #if os(macOS)
+                .contextMenu {
+                    Button(localizedKey(model.language, "ui.why.this")) {
+                        showDetail()
+                    }
+                    Button(localizedKey(model.language, "ui.play.now")) {
+                        Task { await model.playMusicDiscoveryItem(item, sectionID: sectionID) }
+                    }
+                }
+            #endif
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text(item.title)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.white)
+                    .lineLimit(2)
+                if let subtitle = item.subtitle, !subtitle.isEmpty {
+                    Text(subtitle)
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.white.opacity(0.62))
+                        .lineLimit(1)
+                }
+                Text(item.kind.rawValue.capitalized)
+                    .font(.caption2.weight(.bold))
+                    .foregroundStyle(djConnectAccent)
+                    .textCase(.uppercase)
+            }
+            .frame(width: 142, alignment: .leading)
+        }
+    }
+
+    private var artwork: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .fill(.white.opacity(0.10))
+            if let artworkURL {
+                AsyncImage(url: artworkURL) { phase in
+                    switch phase {
+                    case let .success(image):
+                        image
+                            .resizable()
+                            .scaledToFill()
+                    case .empty:
+                        ProgressView()
+                            .tint(.white)
+                    default:
+                        Image(systemName: "sparkles")
+                            .font(.title2)
+                            .foregroundStyle(.white.opacity(0.74))
+                    }
+                }
+            } else {
+                Image(systemName: "sparkles")
+                    .font(.title2)
+                    .foregroundStyle(.white.opacity(0.74))
+            }
+            if model.playingMusicDiscoveryItemID == item.id {
+                Color.black.opacity(0.36)
+                ProgressView()
+                    .tint(.white)
+            }
+        }
+        .frame(width: 142, height: 142)
+        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .stroke(.white.opacity(0.16), lineWidth: 1)
+        }
+    }
+}
+
+private struct MusicDiscoveryDetailView: View {
+    @ObservedObject var model: DJConnectAppModel
+    let sectionID: String
+    let item: DJConnectMusicDiscoveryItem
+    @Environment(\.dismiss) private var dismiss
+
+    private var artworkURL: URL? {
+        musicDiscoveryArtworkURL(item.imageURL, model: model)
+    }
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                HStack(alignment: .top, spacing: 14) {
+                    MusicDiscoveryDetailArtwork(url: artworkURL)
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text(item.title)
+                            .font(.title3.weight(.bold))
+                            .foregroundStyle(.white)
+                        if let subtitle = item.subtitle, !subtitle.isEmpty {
+                            Text(subtitle)
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundStyle(.white.opacity(0.68))
+                        }
+                        Text(item.kind.rawValue.capitalized)
+                            .font(.caption.weight(.bold))
+                            .foregroundStyle(djConnectAccent)
+                    }
+                    Spacer()
+                }
+
+                Text(item.reason)
+                    .font(.body)
+                    .foregroundStyle(.white.opacity(0.86))
+                    .fixedSize(horizontal: false, vertical: true)
+
+                if !item.reasonSources.isEmpty {
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 7) {
+                            ForEach(item.reasonSources, id: \.self) { source in
+                                Text(source.replacingOccurrences(of: "_", with: " "))
+                                    .font(.caption.weight(.bold))
+                                    .foregroundStyle(.white.opacity(0.82))
+                                    .padding(.horizontal, 9)
+                                    .padding(.vertical, 5)
+                                    .background(.white.opacity(0.10), in: Capsule())
+                            }
+                        }
+                    }
+                    .scrollClipDisabled()
+                }
+
+                Button {
+                    Task {
+                        await model.playMusicDiscoveryItem(item, sectionID: sectionID)
+                        dismiss()
+                    }
+                } label: {
+                    Label(localizedKey(model.language, "ui.play.now"), systemImage: "play.fill")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(DJConnectLilacPillButtonStyle())
+                .disabled(model.playingMusicDiscoveryItemID == item.id)
+            }
+            .padding(22)
+        }
+        .background(DJConnectCanvasBackground())
+    }
+}
+
+private struct MusicDiscoveryDetailArtwork: View {
+    let url: URL?
+
+    var body: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .fill(.white.opacity(0.10))
+            if let url {
+                AsyncImage(url: url) { phase in
+                    switch phase {
+                    case let .success(image):
+                        image
+                            .resizable()
+                            .scaledToFill()
+                    default:
+                        Image(systemName: "sparkles")
+                            .foregroundStyle(.white.opacity(0.74))
+                    }
+                }
+            } else {
+                Image(systemName: "sparkles")
+                    .foregroundStyle(.white.opacity(0.74))
+            }
+        }
+        .frame(width: 92, height: 92)
+        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+    }
+}
+
+private struct DJConnectStatusCard<Action: View>: View {
+    let title: String
+    let message: String
+    let systemImage: String
+    let tint: Color
+    @ViewBuilder var action: Action
+
+    init(
+        title: String,
+        message: String,
+        systemImage: String,
+        tint: Color,
+        @ViewBuilder action: () -> Action
+    ) {
+        self.title = title
+        self.message = message
+        self.systemImage = systemImage
+        self.tint = tint
+        self.action = action()
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Image(systemName: systemImage)
+                .font(.title2.weight(.semibold))
+                .foregroundStyle(tint)
+            Text(title)
+                .font(.headline.weight(.bold))
+                .foregroundStyle(.white)
+            Text(message)
+                .font(.subheadline)
+                .foregroundStyle(.white.opacity(0.72))
+                .fixedSize(horizontal: false, vertical: true)
+            action
+                .padding(.top, 4)
+        }
+        .padding(16)
+        .frame(maxWidth: 520, alignment: .leading)
+        .background(.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .stroke(.white.opacity(0.14), lineWidth: 1)
+        }
+    }
+}
+
+private extension DJConnectStatusCard where Action == EmptyView {
+    init(title: String, message: String, systemImage: String, tint: Color) {
+        self.init(title: title, message: message, systemImage: systemImage, tint: tint) {
+            EmptyView()
+        }
+    }
+}
+
+private struct MusicDiscoveryLockedState: View {
+    @ObservedObject var model: DJConnectAppModel
+
+    var body: some View {
+        DJConnectStatusCard(
+            title: localizedKey(model.language, "ui.music.dna.is.not.enabled"),
+            message: localizedKey(model.language, "ui.enable.music.dna.to.get.recommendations.tailored.to.your.listening"),
+            systemImage: "lock.fill",
+            tint: djConnectAccent
+        ) {
+            Button {
+                model.showMusicDNAOptInPrompt()
+            } label: {
+                Text(localizedKey(model.language, "ui.enable.music.dna.1adf61"))
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(DJConnectLilacPillButtonStyle())
+        }
+    }
+}
+
+private struct MusicDiscoveryEmptyState: View {
+    @ObservedObject var model: DJConnectAppModel
+
+    var body: some View {
+        DJConnectStatusCard(
+            title: localizedKey(model.language, "ui.no.discovery.recommendations"),
+            message: localizedKey(model.language, "ui.discovery.recommendations.will.appear.after.music.dna.has.more.signals"),
+            systemImage: "sparkles",
+            tint: djConnectAccent
+        ) {
+            Button {
+                Task { await model.refreshMusicDiscovery() }
+            } label: {
+                Text(localizedKey(model.language, "ui.refresh.discover"))
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(DJConnectLilacPillButtonStyle())
+            .disabled(model.isRefreshingMusicDiscovery)
+        }
+    }
+}
+
+@MainActor
+private func musicDiscoveryArtworkURL(_ rawValue: String?, model: DJConnectAppModel) -> URL? {
+    guard let rawValue = rawValue?.trimmingCharacters(in: .whitespacesAndNewlines), !rawValue.isEmpty else {
+        return nil
+    }
+    if let absoluteURL = URL(string: rawValue), absoluteURL.scheme?.isEmpty == false {
+        return absoluteURL
+    }
+    guard let baseURL = DJConnectAppModel.normalizedHomeAssistantURL(from: model.homeAssistantURL) else {
+        return URL(string: rawValue)
+    }
+    return URL(string: rawValue, relativeTo: baseURL)?.absoluteURL
+}
+
+private struct MusicDNATrackListRow: View {
+    let track: DJConnectMusicDNATrack
+
+    private var title: String {
+        track.title?.trimmingCharacters(in: .whitespacesAndNewlines).ifEmpty("-") ?? "-"
+    }
+
+    private var subtitle: String {
+        [
+            track.artist?.trimmingCharacters(in: .whitespacesAndNewlines),
+            track.album?.trimmingCharacters(in: .whitespacesAndNewlines)
+        ]
+        .compactMap { $0 }
+        .filter { !$0.isEmpty }
+        .joined(separator: " · ")
+    }
+
+    private var artworkURL: URL? {
+        guard let imageURL = track.imageURL?.trimmingCharacters(in: .whitespacesAndNewlines), !imageURL.isEmpty else {
+            return nil
+        }
+        return URL(string: imageURL)
+    }
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Group {
+                if let artworkURL {
+                    AsyncImage(url: artworkURL) { phase in
+                        switch phase {
+                        case let .success(image):
+                            image
+                                .resizable()
+                                .scaledToFill()
+                        default:
+                            placeholder
+                        }
+                    }
+                } else {
+                    placeholder
+                }
+            }
+            .frame(width: 42, height: 42)
+            .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text(title)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.white)
+                    .lineLimit(1)
+                if !subtitle.isEmpty {
+                    Text(subtitle)
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.white.opacity(0.62))
+                        .lineLimit(1)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+
+    private var placeholder: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 7, style: .continuous)
+                .fill(.white.opacity(0.10))
+            Image(systemName: "music.note")
+                .font(.footnote.weight(.bold))
+                .foregroundStyle(.white.opacity(0.56))
         }
     }
 }
@@ -11046,9 +12237,42 @@ private struct AskDJVoiceInputButton: View {
 struct QueueView: View {
     @ObservedObject var model: DJConnectAppModel
     @State private var statusToast: DJConnectVisualNotice?
+    @State private var isSearchVisible = false
+    @State private var queueSearchText = ""
+    @State private var selectedSearchResultIndex = 0
+    @FocusState private var isSearchFocused: Bool
     private var canUsePlayback: Bool { model.canUsePlaybackFeatures }
     private var areQueueItemsDisabled: Bool {
         !canUsePlayback || model.isRefreshing || model.isLoadingQueue || model.loadingQueueItemIndex != nil
+    }
+    private var queueSearchQuery: String {
+        queueSearchText.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+    private var indexedQueueItems: [(index: Int, item: DJConnectQueueItem)] {
+        Array(model.queueItems.enumerated()).map { (index: $0.offset, item: $0.element) }
+    }
+    private var filteredQueueItems: [(index: Int, item: DJConnectQueueItem)] {
+        guard !queueSearchQuery.isEmpty else {
+            return indexedQueueItems
+        }
+        return indexedQueueItems.filter { _, item in
+            queueSearchMatches(item)
+        }
+    }
+    private var queueSearchResultIDs: [Int] {
+        guard !queueSearchQuery.isEmpty else {
+            return []
+        }
+        return filteredQueueItems.map(\.index)
+    }
+    private var activeQueueSearchResultID: Int? {
+        guard queueSearchResultIDs.indices.contains(selectedSearchResultIndex) else {
+            return nil
+        }
+        return queueSearchResultIDs[selectedSearchResultIndex]
+    }
+    private var shouldShowFilteredEmptyQueueState: Bool {
+        !queueSearchQuery.isEmpty && model.queueItems.isEmpty == false && filteredQueueItems.isEmpty
     }
     private var shouldShowEmptyQueueState: Bool {
         guard !model.queueItems.isEmpty else {
@@ -11069,42 +12293,72 @@ struct QueueView: View {
 
     var body: some View {
         NavigationStack {
-            Group {
-                #if os(macOS)
-                queueScrollContent
-                #else
-                List {
-                    if shouldShowEmptyQueueState {
-                        DJConnectEmptyState(
-                            title: localizedKey(model.language, "ui.no.queue"),
-                            systemImage: "music.note.list"
+            ScrollViewReader { proxy in
+                VStack(spacing: 10) {
+                    if isSearchVisible {
+                        AskDJSearchBar(
+                            language: model.language,
+                            scopeName: localizedKey(model.language, "ui.queue.1b6dc1"),
+                            text: $queueSearchText,
+                            isFocused: $isSearchFocused,
+                            resultCount: queueSearchResultIDs.count,
+                            selectedIndex: selectedSearchResultIndex,
+                            previousAction: { moveQueueSearchSelection(by: -1, proxy: proxy) },
+                            nextAction: { moveQueueSearchSelection(by: 1, proxy: proxy) },
+                            closeAction: { dismissQueueSearch() }
                         )
-                        .frame(maxWidth: .infinity, minHeight: 360, alignment: .center)
-                        .listRowBackground(Color.clear)
-                        .listRowSeparator(.hidden)
-                    } else {
-                        ForEach(Array(model.queueItems.enumerated()), id: \.offset) { index, item in
-                            Button {
-                                DJConnectHaptics.impact()
-                                showStatusToast(localizedKey(model.language, "ui.track.is.starting"), systemImage: "play.fill")
-                                model.startQueueItem(item, at: index)
-                            } label: {
-                                QueueItemRow(item: item, isLoading: model.loadingQueueItemIndex == index)
-                                    .opacity(areQueueItemsDisabled || !model.canStartQueueItem(item) ? 0.45 : 1)
-                            }
-                            .buttonStyle(.plain)
+                        .padding(.horizontal, 20)
+                        .padding(.top, 10)
+                        .transition(.move(edge: .top).combined(with: .opacity))
+                    }
+
+                    #if os(macOS)
+                    queueScrollContent(proxy: proxy)
+                    #else
+                    List {
+                        if shouldShowEmptyQueueState || shouldShowFilteredEmptyQueueState {
+                            DJConnectEmptyState(
+                                title: shouldShowFilteredEmptyQueueState
+                                    ? localizedKey(model.language, "ui.no.search.results")
+                                    : localizedKey(model.language, "ui.no.queue"),
+                                systemImage: shouldShowFilteredEmptyQueueState ? "magnifyingglass" : "music.note.list"
+                            )
+                            .frame(maxWidth: .infinity, minHeight: 360, alignment: .center)
                             .listRowBackground(Color.clear)
                             .listRowSeparator(.hidden)
-                            .listRowInsets(djConnectListRowInsets)
-                            .disabled(areQueueItemsDisabled || !model.canStartQueueItem(item))
-                            .allowsHitTesting(!areQueueItemsDisabled && model.canStartQueueItem(item))
-                            .accessibilityLabel(item.displayTitle)
+                        } else {
+                            ForEach(filteredQueueItems, id: \.index) { index, item in
+                                Button {
+                                    DJConnectHaptics.impact()
+                                    showStatusToast(localizedKey(model.language, "ui.track.is.starting"), systemImage: "play.fill")
+                                    model.startQueueItem(item, at: index)
+                                } label: {
+                                    QueueItemRow(item: item, isLoading: model.loadingQueueItemIndex == index)
+                                        .opacity(areQueueItemsDisabled || !model.canStartQueueItem(item) ? 0.45 : 1)
+                                }
+                                .buttonStyle(.plain)
+                                .listRowBackground(Color.clear)
+                                .listRowSeparator(.hidden)
+                                .listRowInsets(djConnectListRowInsets)
+                                .disabled(areQueueItemsDisabled || !model.canStartQueueItem(item))
+                                .allowsHitTesting(!areQueueItemsDisabled && model.canStartQueueItem(item))
+                                .accessibilityLabel(item.displayTitle)
+                                .id(index)
+                            }
                         }
                     }
+                    .listStyle(.plain)
+                    .scrollIndicators(.visible)
+                    #endif
                 }
-                .listStyle(.plain)
-                .scrollIndicators(.visible)
-                #endif
+                .onChange(of: queueSearchText) {
+                    selectedSearchResultIndex = 0
+                    scrollToActiveQueueSearchResult(proxy)
+                }
+                .onChange(of: queueSearchResultIDs) {
+                    selectedSearchResultIndex = min(selectedSearchResultIndex, max(queueSearchResultIDs.count - 1, 0))
+                    scrollToActiveQueueSearchResult(proxy)
+                }
             }
             .refreshable {
                 guard !model.isDemoMode, canUsePlayback else {
@@ -11130,6 +12384,17 @@ struct QueueView: View {
                 }
             }
             .toolbar {
+                ToolbarItem {
+                    Button {
+                        toggleQueueSearch()
+                    } label: {
+                        Image(systemName: "magnifyingglass")
+                            .foregroundStyle(isSearchVisible ? djConnectAccent : .primary)
+                    }
+                    .disabled(model.queueItems.isEmpty)
+                    .help(isSearchVisible ? localizedKey(model.language, "ui.close.search") : localizedKey(model.language, "ui.search.queue"))
+                    .accessibilityLabel(isSearchVisible ? localizedKey(model.language, "ui.close.search") : localizedKey(model.language, "ui.search.queue"))
+                }
                 ToolbarItem {
                     Button {
                         Task { await refreshQueueWithToast() }
@@ -11163,17 +12428,19 @@ struct QueueView: View {
     }
 
     #if os(macOS)
-    private var queueScrollContent: some View {
+    private func queueScrollContent(proxy: ScrollViewProxy) -> some View {
         ScrollView(.vertical, showsIndicators: true) {
             LazyVStack(spacing: 10) {
-                if shouldShowEmptyQueueState {
+                if shouldShowEmptyQueueState || shouldShowFilteredEmptyQueueState {
                     DJConnectEmptyState(
-                        title: localizedKey(model.language, "ui.no.queue"),
-                        systemImage: "music.note.list"
+                        title: shouldShowFilteredEmptyQueueState
+                            ? localizedKey(model.language, "ui.no.search.results")
+                            : localizedKey(model.language, "ui.no.queue"),
+                        systemImage: shouldShowFilteredEmptyQueueState ? "magnifyingglass" : "music.note.list"
                     )
                     .frame(maxWidth: .infinity, minHeight: 360, alignment: .center)
                 } else {
-                    ForEach(Array(model.queueItems.enumerated()), id: \.offset) { index, item in
+                    ForEach(filteredQueueItems, id: \.index) { index, item in
                         Button {
                             DJConnectHaptics.impact()
                             showStatusToast(localizedKey(model.language, "ui.track.is.starting"), systemImage: "play.fill")
@@ -11186,6 +12453,7 @@ struct QueueView: View {
                         .disabled(areQueueItemsDisabled || !model.canStartQueueItem(item))
                         .allowsHitTesting(!areQueueItemsDisabled && model.canStartQueueItem(item))
                         .accessibilityLabel(item.displayTitle)
+                        .id(index)
                     }
                 }
             }
@@ -11194,6 +12462,68 @@ struct QueueView: View {
         }
     }
     #endif
+
+    private func queueSearchMatches(_ item: DJConnectQueueItem) -> Bool {
+        let searchable = [
+            item.displayTitle,
+            item.title,
+            item.artist,
+            item.album,
+            item.displaySubtitle,
+            item.uri
+        ]
+        return searchable.contains { value in
+            value?.localizedCaseInsensitiveContains(queueSearchQuery) == true
+        }
+    }
+
+    private func showQueueSearch() {
+        guard !model.queueItems.isEmpty else {
+            return
+        }
+        withAnimation(.spring(response: 0.24, dampingFraction: 0.86)) {
+            isSearchVisible = true
+        }
+        DispatchQueue.main.async {
+            isSearchFocused = true
+        }
+    }
+
+    private func toggleQueueSearch() {
+        if isSearchVisible {
+            dismissQueueSearch()
+        } else {
+            showQueueSearch()
+        }
+    }
+
+    private func dismissQueueSearch() {
+        withAnimation(.spring(response: 0.24, dampingFraction: 0.86)) {
+            isSearchVisible = false
+        }
+        queueSearchText = ""
+        selectedSearchResultIndex = 0
+        isSearchFocused = false
+    }
+
+    private func moveQueueSearchSelection(by offset: Int, proxy: ScrollViewProxy) {
+        guard !queueSearchResultIDs.isEmpty else {
+            return
+        }
+        selectedSearchResultIndex = (selectedSearchResultIndex + offset + queueSearchResultIDs.count) % queueSearchResultIDs.count
+        scrollToActiveQueueSearchResult(proxy)
+    }
+
+    private func scrollToActiveQueueSearchResult(_ proxy: ScrollViewProxy) {
+        guard let activeQueueSearchResultID else {
+            return
+        }
+        DispatchQueue.main.async {
+            withAnimation(.easeOut(duration: 0.18)) {
+                proxy.scrollTo(activeQueueSearchResultID, anchor: .center)
+            }
+        }
+    }
 
     private func refreshQueueWithToast() async {
         guard !model.isDemoMode, canUsePlayback else {
@@ -11227,48 +12557,106 @@ struct QueueView: View {
 struct PlaylistsView: View {
     @ObservedObject var model: DJConnectAppModel
     @State private var statusToast: DJConnectVisualNotice?
+    @State private var isSearchVisible = false
+    @State private var playlistSearchText = ""
+    @State private var selectedSearchResultIndex = 0
+    @FocusState private var isSearchFocused: Bool
     private var canUsePlayback: Bool { model.canUsePlaybackFeatures }
     private var arePlaylistItemsDisabled: Bool {
         !canUsePlayback || model.isRefreshing || model.isLoadingPlaylists || model.loadingPlaylistID != nil
     }
+    private var playlistSearchQuery: String {
+        playlistSearchText.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+    private var filteredPlaylistItems: [DJConnectPlaylist] {
+        guard !playlistSearchQuery.isEmpty else {
+            return model.playlistItems
+        }
+        return model.playlistItems.filter(playlistSearchMatches)
+    }
+    private var playlistSearchResultIDs: [String] {
+        guard !playlistSearchQuery.isEmpty else {
+            return []
+        }
+        return filteredPlaylistItems.map(\.id)
+    }
+    private var activePlaylistSearchResultID: String? {
+        guard playlistSearchResultIDs.indices.contains(selectedSearchResultIndex) else {
+            return nil
+        }
+        return playlistSearchResultIDs[selectedSearchResultIndex]
+    }
+    private var shouldShowFilteredEmptyPlaylistState: Bool {
+        !playlistSearchQuery.isEmpty && model.playlistItems.isEmpty == false && filteredPlaylistItems.isEmpty
+    }
 
     var body: some View {
         NavigationStack {
-            Group {
-                #if os(macOS)
-                playlistsScrollContent
-                #else
-                List {
-                    if model.playlistItems.isEmpty {
-                        DJConnectEmptyState(
-                            title: localizedKey(model.language, "ui.no.playlists"),
-                            systemImage: "rectangle.stack"
+            ScrollViewReader { proxy in
+                VStack(spacing: 10) {
+                    if isSearchVisible {
+                        AskDJSearchBar(
+                            language: model.language,
+                            scopeName: localizedKey(model.language, "ui.playlists.5e5f2e"),
+                            text: $playlistSearchText,
+                            isFocused: $isSearchFocused,
+                            resultCount: playlistSearchResultIDs.count,
+                            selectedIndex: selectedSearchResultIndex,
+                            previousAction: { movePlaylistSearchSelection(by: -1, proxy: proxy) },
+                            nextAction: { movePlaylistSearchSelection(by: 1, proxy: proxy) },
+                            closeAction: { dismissPlaylistSearch() }
                         )
-                        .frame(maxWidth: .infinity, minHeight: 360, alignment: .center)
-                        .listRowBackground(Color.clear)
-                        .listRowSeparator(.hidden)
-                    } else {
-                        ForEach(model.playlistItems) { playlist in
-                            Button {
-                                DJConnectHaptics.impact()
-                                showStatusToast(localizedKey(model.language, "ui.playlist.is.starting"), systemImage: "play.fill")
-                                model.startPlaylist(playlist)
-                            } label: {
-                                PlaylistRow(playlist: playlist, isLoading: model.loadingPlaylistID == playlist.id)
-                                    .opacity(arePlaylistItemsDisabled ? 0.45 : 1)
-                            }
-                            .buttonStyle(.plain)
+                        .padding(.horizontal, 20)
+                        .padding(.top, 10)
+                        .transition(.move(edge: .top).combined(with: .opacity))
+                    }
+
+                    #if os(macOS)
+                    playlistsScrollContent(proxy: proxy)
+                    #else
+                    List {
+                        if model.playlistItems.isEmpty || shouldShowFilteredEmptyPlaylistState {
+                            DJConnectEmptyState(
+                                title: shouldShowFilteredEmptyPlaylistState
+                                    ? localizedKey(model.language, "ui.no.search.results")
+                                    : localizedKey(model.language, "ui.no.playlists"),
+                                systemImage: shouldShowFilteredEmptyPlaylistState ? "magnifyingglass" : "rectangle.stack"
+                            )
+                            .frame(maxWidth: .infinity, minHeight: 360, alignment: .center)
                             .listRowBackground(Color.clear)
                             .listRowSeparator(.hidden)
-                            .listRowInsets(djConnectListRowInsets)
-                            .disabled(arePlaylistItemsDisabled)
-                            .allowsHitTesting(!arePlaylistItemsDisabled)
+                        } else {
+                            ForEach(filteredPlaylistItems) { playlist in
+                                Button {
+                                    DJConnectHaptics.impact()
+                                    showStatusToast(localizedKey(model.language, "ui.playlist.is.starting"), systemImage: "play.fill")
+                                    model.startPlaylist(playlist)
+                                } label: {
+                                    PlaylistRow(playlist: playlist, isLoading: model.loadingPlaylistID == playlist.id)
+                                        .opacity(arePlaylistItemsDisabled ? 0.45 : 1)
+                                }
+                                .buttonStyle(.plain)
+                                .listRowBackground(Color.clear)
+                                .listRowSeparator(.hidden)
+                                .listRowInsets(djConnectListRowInsets)
+                                .disabled(arePlaylistItemsDisabled)
+                                .allowsHitTesting(!arePlaylistItemsDisabled)
+                                .id(playlist.id)
+                            }
                         }
                     }
+                    .listStyle(.plain)
+                    .scrollIndicators(.visible)
+                    #endif
                 }
-                .listStyle(.plain)
-                .scrollIndicators(.visible)
-                #endif
+                .onChange(of: playlistSearchText) {
+                    selectedSearchResultIndex = 0
+                    scrollToActivePlaylistSearchResult(proxy)
+                }
+                .onChange(of: playlistSearchResultIDs) {
+                    selectedSearchResultIndex = min(selectedSearchResultIndex, max(playlistSearchResultIDs.count - 1, 0))
+                    scrollToActivePlaylistSearchResult(proxy)
+                }
             }
             .refreshable {
                 guard !model.isDemoMode, canUsePlayback else {
@@ -11294,6 +12682,17 @@ struct PlaylistsView: View {
                 }
             }
             .toolbar {
+                ToolbarItem {
+                    Button {
+                        togglePlaylistSearch()
+                    } label: {
+                        Image(systemName: "magnifyingglass")
+                            .foregroundStyle(isSearchVisible ? djConnectAccent : .primary)
+                    }
+                    .disabled(model.playlistItems.isEmpty)
+                    .help(isSearchVisible ? localizedKey(model.language, "ui.close.search") : localizedKey(model.language, "ui.search.playlists"))
+                    .accessibilityLabel(isSearchVisible ? localizedKey(model.language, "ui.close.search") : localizedKey(model.language, "ui.search.playlists"))
+                }
                 ToolbarItem {
                     Button {
                         Task { await refreshPlaylistsWithToast() }
@@ -11326,17 +12725,19 @@ struct PlaylistsView: View {
     }
 
     #if os(macOS)
-    private var playlistsScrollContent: some View {
+    private func playlistsScrollContent(proxy: ScrollViewProxy) -> some View {
         ScrollView(.vertical, showsIndicators: true) {
             LazyVStack(spacing: 10) {
-                if model.playlistItems.isEmpty {
+                if model.playlistItems.isEmpty || shouldShowFilteredEmptyPlaylistState {
                     DJConnectEmptyState(
-                        title: localizedKey(model.language, "ui.no.playlists"),
-                        systemImage: "rectangle.stack"
+                        title: shouldShowFilteredEmptyPlaylistState
+                            ? localizedKey(model.language, "ui.no.search.results")
+                            : localizedKey(model.language, "ui.no.playlists"),
+                        systemImage: shouldShowFilteredEmptyPlaylistState ? "magnifyingglass" : "rectangle.stack"
                     )
                     .frame(maxWidth: .infinity, minHeight: 360, alignment: .center)
                 } else {
-                    ForEach(model.playlistItems) { playlist in
+                    ForEach(filteredPlaylistItems) { playlist in
                         Button {
                             DJConnectHaptics.impact()
                             showStatusToast(localizedKey(model.language, "ui.playlist.is.starting"), systemImage: "play.fill")
@@ -11348,6 +12749,7 @@ struct PlaylistsView: View {
                         .buttonStyle(.plain)
                         .disabled(arePlaylistItemsDisabled)
                         .allowsHitTesting(!arePlaylistItemsDisabled)
+                        .id(playlist.id)
                     }
                 }
             }
@@ -11356,6 +12758,65 @@ struct PlaylistsView: View {
         }
     }
     #endif
+
+    private func playlistSearchMatches(_ playlist: DJConnectPlaylist) -> Bool {
+        let searchable = [
+            playlist.name,
+            playlist.subtitle,
+            playlist.uri
+        ]
+        return searchable.contains { value in
+            value?.localizedCaseInsensitiveContains(playlistSearchQuery) == true
+        }
+    }
+
+    private func showPlaylistSearch() {
+        guard !model.playlistItems.isEmpty else {
+            return
+        }
+        withAnimation(.spring(response: 0.24, dampingFraction: 0.86)) {
+            isSearchVisible = true
+        }
+        DispatchQueue.main.async {
+            isSearchFocused = true
+        }
+    }
+
+    private func togglePlaylistSearch() {
+        if isSearchVisible {
+            dismissPlaylistSearch()
+        } else {
+            showPlaylistSearch()
+        }
+    }
+
+    private func dismissPlaylistSearch() {
+        withAnimation(.spring(response: 0.24, dampingFraction: 0.86)) {
+            isSearchVisible = false
+        }
+        playlistSearchText = ""
+        selectedSearchResultIndex = 0
+        isSearchFocused = false
+    }
+
+    private func movePlaylistSearchSelection(by offset: Int, proxy: ScrollViewProxy) {
+        guard !playlistSearchResultIDs.isEmpty else {
+            return
+        }
+        selectedSearchResultIndex = (selectedSearchResultIndex + offset + playlistSearchResultIDs.count) % playlistSearchResultIDs.count
+        scrollToActivePlaylistSearchResult(proxy)
+    }
+
+    private func scrollToActivePlaylistSearchResult(_ proxy: ScrollViewProxy) {
+        guard let activePlaylistSearchResultID else {
+            return
+        }
+        DispatchQueue.main.async {
+            withAnimation(.easeOut(duration: 0.18)) {
+                proxy.scrollTo(activePlaylistSearchResultID, anchor: .center)
+            }
+        }
+    }
 
     private func refreshPlaylistsWithToast() async {
         guard !model.isDemoMode, canUsePlayback else {
@@ -12903,6 +14364,12 @@ private struct MoreView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
+                    MoreNavigationRow(
+                        title: localizedKey(model.language, "ui.queue"),
+                        systemImage: "music.note.list"
+                    ) {
+                        QueueView(model: model)
+                    }
                     MoreNavigationRow(
                         title: "Music DNA",
                         systemImage: "heart"

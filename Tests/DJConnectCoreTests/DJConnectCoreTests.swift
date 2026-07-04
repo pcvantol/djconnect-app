@@ -1046,6 +1046,48 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     #expect(moodClearJSON?["music_dna_key"] as? String == "user:abc123")
 }
 
+@Test func musicDiscoveryRequestsUseDedicatedEndpointsAndIdentity() throws {
+    let identity = DJConnectIdentity(
+        deviceID: "djconnect-ios-8F3A2C91B45D",
+        deviceName: "iPhone",
+        clientType: .ios,
+        firmware: "3.2.3",
+        appVersion: "3.2.3",
+        platform: .ios
+    )
+    let client = DJConnectClient(
+        baseURL: try #require(URL(string: "http://homeassistant.local:8123")),
+        identity: identity,
+        tokenStore: DJConnectInMemoryTokenStore(token: "secret-token")
+    )
+
+    let feed = try client.musicDiscoveryFeedRequest(musicDNAKey: "user:abc123", language: "nl")
+    let refresh = try client.refreshMusicDiscoveryRequest(musicDNAKey: "user:abc123", language: "nl")
+    let play = try client.musicDiscoveryPlayRequest(DJConnectMusicDiscoveryPlayRequest(
+        discoveryItemID: "disc-track-1",
+        sectionID: "because_you_like",
+        identity: identity,
+        musicDNAKey: "user:abc123"
+    ))
+
+    #expect(feed.httpMethod == "GET")
+    #expect(feed.url?.path == "/api/djconnect/music_discovery")
+    #expect(feed.value(forHTTPHeaderField: "X-DJConnect-Music-DNA-Key") == "user:abc123")
+    #expect(feed.value(forHTTPHeaderField: "X-DJConnect-Language") == "nl")
+    #expect(refresh.httpMethod == "POST")
+    #expect(refresh.url?.path == "/api/djconnect/music_discovery/refresh")
+    #expect(play.httpMethod == "POST")
+    #expect(play.url?.path == "/api/djconnect/music_discovery/play")
+
+    let playBody = try #require(play.httpBody)
+    let playJSON = try #require(JSONSerialization.jsonObject(with: playBody) as? [String: Any])
+    #expect(playJSON["discovery_item_id"] as? String == "disc-track-1")
+    #expect(playJSON["section_id"] as? String == "because_you_like")
+    #expect(playJSON["device_id"] as? String == "djconnect-ios-8F3A2C91B45D")
+    #expect(playJSON["client_type"] as? String == "ios")
+    #expect(playJSON["music_dna_key"] as? String == "user:abc123")
+}
+
 @Test func authenticatedRequestsRejectClientTypeDeviceIDPrefixMismatch() throws {
     let identity = DJConnectIdentity(
         deviceID: "djconnect-ios-8F3A2C91B45D",
@@ -1081,6 +1123,92 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
             "favorite_genres": [{"name": "ambient"}],
             "favorite_artists": [{"name": "The xx"}],
             "recent_tracks": [{"title": "Intro", "artist": "The xx", "album": "xx"}],
+            "recent_favorite_tracks": [
+              {
+                "track_name": "Favorite One",
+                "artist_name": "Asha",
+                "album_name": "Night Drive",
+                "uri": "spotify:track:favorite-one",
+                "album_image_url": "https://example.test/favorite-one.jpg",
+                "created_at": "2026-07-04T05:45:00Z"
+              },
+              {
+                "title": "Favorite Two",
+                "artist": "Miro",
+                "album": "Dawn",
+                "image_url": "https://example.test/favorite-two.jpg"
+              }
+            ],
+            "playtime": {
+              "total_seconds": 5400,
+              "total_hours": 1.5,
+              "formatted_total": "1u 30m",
+              "top_artists": [
+                {"name": "The xx", "seconds": 2400, "hours": 0.67, "formatted": "40m"},
+                {"name": "Asha", "seconds": 1800, "hours": 0.5, "formatted": "30m"},
+                {"name": "Miro", "seconds": 900, "hours": 0.25, "formatted": "15m"},
+                {"name": "Fourth", "seconds": 300, "hours": 0.08, "formatted": "5m"}
+              ],
+              "top_albums": [
+                {"name": "xx", "seconds": 2100, "hours": 0.58, "formatted": "35m"},
+                {"name": "Night Drive", "seconds": 1500, "hours": 0.42, "formatted": "25m"},
+                {"name": "Dawn", "seconds": 900, "hours": 0.25, "formatted": "15m"},
+                {"name": "Overflow Album", "seconds": 300, "hours": 0.08, "formatted": "5m"}
+              ]
+            },
+            "listening_rhythm": {
+              "sample_count": 3,
+              "top_daypart": "avond",
+              "top_weekday": "vrijdag",
+              "dayparts": [
+                {"daypart": "avond", "count": 2, "percent": 66.7},
+                {"daypart": "middag", "count": 1, "percent": 33.3}
+              ],
+              "weekdays": [
+                {"weekday": "vrijdag", "count": 2, "percent": 66.7},
+                {"weekday": "zaterdag", "count": 1, "percent": 33.3}
+              ]
+            },
+            "mood_mix": {
+              "sample_count": 4,
+              "average": 57,
+              "top_zone": "groove",
+              "zones": [
+                {"zone": "chill", "count": 1, "percent": 25},
+                {"zone": "groove", "count": 2, "percent": 50},
+                {"zone": "energy", "count": 1, "percent": 25}
+              ]
+            },
+            "repeat_magnets": {
+              "eligible": true,
+              "items": [
+                {"kind": "artist", "name": "The xx", "count": 4},
+                {"kind": "album", "name": "xx", "seconds": 2400, "formatted": "40m"},
+                {"kind": "artist", "name": "Asha", "count": 2},
+                {"kind": "album", "name": "Overflow", "formatted": "5m"}
+              ]
+            },
+            "explicit_positives": {
+              "eligible": true,
+              "signal_count": 3,
+              "favorite_tracks": [
+                {"kind": "favorite_track", "title": "Favorite One", "artist": "Asha", "uri": "spotify:track:favorite-one"}
+              ],
+              "accepted_recommendations": [
+                {"kind": "accepted_recommendation", "title": "Try This", "subtitle": "Warm groove", "uri": "spotify:track:try-this", "reason": "matched_mood"}
+              ]
+            },
+            "taste_anchors": {
+              "eligible": true,
+              "items": [
+                {"kind": "artist", "name": "The xx", "play_count": 6, "formatted": "1u"},
+                {"kind": "genre", "name": "ambient"},
+                {"kind": "genre", "name": "melodic house"},
+                {"kind": "artist", "name": "Asha", "seconds": 1200, "formatted": "20m"},
+                {"kind": "genre", "name": "indie electronic"},
+                {"kind": "genre", "name": "overflow"}
+              ]
+            },
             "mood": {
               "value": 90,
               "zone": "party",
@@ -1133,14 +1261,84 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
         DJConnectMusicDNAProfileResponse.self,
         from: Data(#"{"success":true,"enabled":false,"profile":{}}"#.utf8)
     )
+    let summaryOnly = try JSONDecoder().decode(
+        DJConnectMusicDNAProfileResponse.self,
+        from: Data(#"{"success":true,"enabled":true,"profile":{"summary":"Compact Music DNA summary."}}"#.utf8)
+    )
+    let zeroPlaytime = try JSONDecoder().decode(
+        DJConnectMusicDNAProfileResponse.self,
+        from: Data(#"{"success":true,"enabled":true,"profile":{"playtime":{"total_seconds":0,"total_hours":0,"formatted_total":"0m","top_artists":[{"name":"Silent","seconds":0,"hours":0,"formatted":"0m"}]}}}"#.utf8)
+    )
+    let emptyDashboardBlocks = try JSONDecoder().decode(
+        DJConnectMusicDNAProfileResponse.self,
+        from: Data(#"{"success":true,"enabled":true,"profile":{"listening_rhythm":{"sample_count":0,"top_daypart":"avond","dayparts":[]},"mood_mix":{"sample_count":0,"top_zone":"groove","zones":[]}}}"#.utf8)
+    )
+    let lowSampleListeningRhythm = try JSONDecoder().decode(
+        DJConnectMusicDNAProfileResponse.self,
+        from: Data(#"{"success":true,"enabled":true,"profile":{"summary":"Short profile.","listening_rhythm":{"sample_count":2,"top_daypart":"avond","dayparts":[{"daypart":"avond","count":2,"percent":100}]}}}"#.utf8)
+    )
+    let ineligibleConditionalBlocks = try JSONDecoder().decode(
+        DJConnectMusicDNAProfileResponse.self,
+        from: Data(#"{"success":true,"enabled":true,"profile":{"repeat_magnets":{"eligible":false,"reason":"insufficient_repeat_signals","items":[{"kind":"artist","name":"Hidden","count":4}]},"explicit_positives":{"eligible":false,"reason":"no_explicit_positive_signals","signal_count":0,"favorite_tracks":[{"kind":"favorite_track","title":"Hidden"}],"accepted_recommendations":[]},"taste_anchors":{"eligible":false,"reason":"insufficient_anchor_signals","items":[{"kind":"genre","name":"hidden"}]}}}"#.utf8)
+    )
+    let eligibleEmptyConditionalBlocks = try JSONDecoder().decode(
+        DJConnectMusicDNAProfileResponse.self,
+        from: Data(#"{"success":true,"enabled":true,"profile":{"repeat_magnets":{"eligible":true,"items":[]},"explicit_positives":{"eligible":true,"favorite_tracks":[],"accepted_recommendations":[]},"taste_anchors":{"eligible":true,"items":[]}}}"#.utf8)
+    )
 
     #expect(populated.enabled == true)
     #expect(populated.profile.isEmpty == false)
     #expect(populated.musicDNAKey == "user:abc123")
-    #expect(populated.profile.favoriteGenres.first?.name == "ambient")
-    #expect(populated.profile.favoriteArtists.first?.name == "The xx")
-    #expect(populated.profile.recentTracks.first?.title == "Intro")
-    #expect(populated.profile.recentTracks.first?.album == "xx")
+    #expect(populated.profile.favoriteGenres?.first?.name == "ambient")
+    #expect(populated.profile.favoriteArtists?.first?.name == "The xx")
+    #expect(populated.profile.recentTracks?.first?.title == "Intro")
+    #expect(populated.profile.recentTracks?.first?.album == "xx")
+    #expect(populated.profile.recentFavoriteTracks?.count == 2)
+    #expect(populated.profile.recentFavoriteTracks?.first?.title == "Favorite One")
+    #expect(populated.profile.recentFavoriteTracks?.first?.artist == "Asha")
+    #expect(populated.profile.recentFavoriteTracks?.first?.album == "Night Drive")
+    #expect(populated.profile.recentFavoriteTracks?.first?.uri == "spotify:track:favorite-one")
+    #expect(populated.profile.recentFavoriteTracks?.first?.imageURL == "https://example.test/favorite-one.jpg")
+    #expect(populated.profile.recentFavoriteTracks?.first?.createdAt != nil)
+    #expect(populated.profile.recentFavoriteTracks?.dropFirst().first?.title == "Favorite Two")
+    #expect(populated.profile.recentFavoriteTracks?.dropFirst().first?.imageURL == "https://example.test/favorite-two.jpg")
+    #expect(populated.profile.playtime?.totalSeconds == 5400)
+    #expect(populated.profile.playtime?.totalHours == 1.5)
+    #expect(populated.profile.playtime?.formattedTotal == "1u 30m")
+    #expect(populated.profile.playtime?.isDisplayable == true)
+    #expect(populated.profile.playtime?.visibleTopArtists.map(\.name) == ["The xx", "Asha", "Miro"])
+    #expect(populated.profile.playtime?.visibleTopArtists.map(\.formatted) == ["40m", "30m", "15m"])
+    #expect(populated.profile.playtime?.visibleTopAlbums.map(\.name) == ["xx", "Night Drive", "Dawn"])
+    #expect(populated.profile.playtime?.visibleTopAlbums.map(\.formatted) == ["35m", "25m", "15m"])
+    #expect(populated.profile.listeningRhythm?.sampleCount == 3)
+    #expect(populated.profile.listeningRhythm?.topDaypart == "avond")
+    #expect(populated.profile.listeningRhythm?.topWeekday == "vrijdag")
+    #expect(populated.profile.listeningRhythm?.dayparts.map(\.daypart) == ["avond", "middag"])
+    #expect(populated.profile.listeningRhythm?.dayparts.map(\.percent) == [66.7, 33.3])
+    #expect(populated.profile.listeningRhythm?.visibleWeekdays.map(\.weekday) == ["vrijdag", "zaterdag"])
+    #expect(populated.profile.listeningRhythm?.isDisplayable == true)
+    #expect(populated.profile.moodMix?.sampleCount == 4)
+    #expect(populated.profile.moodMix?.average == 57)
+    #expect(populated.profile.moodMix?.topZone == "groove")
+    #expect(populated.profile.moodMix?.zones.map(\.zone) == ["chill", "groove", "energy"])
+    #expect(populated.profile.moodMix?.zones.map(\.percent) == [25, 50, 25])
+    #expect(populated.profile.moodMix?.isDisplayable == true)
+    #expect(populated.profile.repeatMagnets?.isDisplayable == true)
+    #expect(populated.profile.repeatMagnets?.visibleItems.map(\.kind) == ["artist", "album", "artist"])
+    #expect(populated.profile.repeatMagnets?.visibleItems.map(\.name) == ["The xx", "xx", "Asha"])
+    #expect(populated.profile.repeatMagnets?.visibleItems.first?.count == 4)
+    #expect(populated.profile.repeatMagnets?.visibleItems.dropFirst().first?.formatted == "40m")
+    #expect(populated.profile.explicitPositives?.isDisplayable == true)
+    #expect(populated.profile.explicitPositives?.signalCount == 3)
+    #expect(populated.profile.explicitPositives?.visibleFavoriteTracks.first?.title == "Favorite One")
+    #expect(populated.profile.explicitPositives?.visibleFavoriteTracks.first?.artist == "Asha")
+    #expect(populated.profile.explicitPositives?.visibleAcceptedRecommendations.first?.title == "Try This")
+    #expect(populated.profile.explicitPositives?.visibleAcceptedRecommendations.first?.subtitle == "Warm groove")
+    #expect(populated.profile.explicitPositives?.visibleAcceptedRecommendations.first?.reason == "matched_mood")
+    #expect(populated.profile.tasteAnchors?.isDisplayable == true)
+    #expect(populated.profile.tasteAnchors?.visibleItems.map(\.kind) == ["artist", "genre", "genre", "artist", "genre"])
+    #expect(populated.profile.tasteAnchors?.visibleItems.map(\.name) == ["The xx", "ambient", "melodic house", "Asha", "indie electronic"])
+    #expect(populated.profile.tasteAnchors?.visibleItems.first?.playCount == 6)
     #expect(populated.profile.mood?.value == 90)
     #expect(populated.profile.mood?.zone == "party")
     #expect(populated.profile.mood?.sampleCount == 3)
@@ -1158,8 +1356,112 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     #expect(populated.sources.first?.title == "Music DNA")
     #expect(empty.enabled == true)
     #expect(empty.profile.isEmpty == true)
+    #expect(empty.profile.recentFavoriteTracks == nil)
+    #expect(empty.profile.playtime == nil)
     #expect(disabled.enabled == false)
     #expect(disabled.profile.isEmpty == true)
+    #expect(summaryOnly.enabled == true)
+    #expect(summaryOnly.profile.summary == "Compact Music DNA summary.")
+    #expect(summaryOnly.profile.isEmpty == false)
+    #expect(summaryOnly.profile.favoriteGenres == nil)
+    #expect(summaryOnly.profile.favoriteArtists == nil)
+    #expect(summaryOnly.profile.recentTracks == nil)
+    #expect(summaryOnly.profile.playtime == nil)
+    #expect(zeroPlaytime.profile.playtime?.isDisplayable == false)
+    #expect(zeroPlaytime.profile.isEmpty == true)
+    #expect(emptyDashboardBlocks.profile.listeningRhythm?.isDisplayable == false)
+    #expect(emptyDashboardBlocks.profile.moodMix?.isDisplayable == false)
+    #expect(emptyDashboardBlocks.profile.isEmpty == true)
+    #expect(lowSampleListeningRhythm.profile.isEmpty == false)
+    #expect(lowSampleListeningRhythm.profile.listeningRhythm?.isDisplayable == false)
+    #expect(ineligibleConditionalBlocks.profile.repeatMagnets?.isDisplayable == false)
+    #expect(ineligibleConditionalBlocks.profile.repeatMagnets?.reason == "insufficient_repeat_signals")
+    #expect(ineligibleConditionalBlocks.profile.explicitPositives?.isDisplayable == false)
+    #expect(ineligibleConditionalBlocks.profile.explicitPositives?.reason == "no_explicit_positive_signals")
+    #expect(ineligibleConditionalBlocks.profile.tasteAnchors?.isDisplayable == false)
+    #expect(ineligibleConditionalBlocks.profile.tasteAnchors?.reason == "insufficient_anchor_signals")
+    #expect(ineligibleConditionalBlocks.profile.isEmpty == true)
+    #expect(eligibleEmptyConditionalBlocks.profile.repeatMagnets?.isDisplayable == false)
+    #expect(eligibleEmptyConditionalBlocks.profile.explicitPositives?.isDisplayable == false)
+    #expect(eligibleEmptyConditionalBlocks.profile.tasteAnchors?.isDisplayable == false)
+    #expect(eligibleEmptyConditionalBlocks.profile.isEmpty == true)
+}
+
+@Test func musicDiscoveryResponseParsesDisabledFeedAndFiltersInvalidItems() throws {
+    let disabled = try JSONDecoder().decode(
+        DJConnectMusicDiscoveryResponse.self,
+        from: Data(#"{"success":true,"enabled":false,"reason":"music_dna_disabled","sections":[]}"#.utf8)
+    )
+    let feed = try JSONDecoder().decode(
+        DJConnectMusicDiscoveryResponse.self,
+        from: Data("""
+        {
+          "success": true,
+          "enabled": true,
+          "revision": 12,
+          "generated_at": "2026-07-04T12:00:00+00:00",
+          "ttl_seconds": 86400,
+          "source": "music_dna",
+          "sections": [
+            {
+              "id": "because_you_like",
+              "title": "Omdat je dit vaak luistert",
+              "items": [
+                {
+                  "id": "disc-track-1",
+                  "kind": "track",
+                  "title": "Intro",
+                  "subtitle": "The xx",
+                  "uri": "spotify:track:intro",
+                  "image_url": "/api/djconnect/image_proxy/intro",
+                  "reason": "Past bij je smaakankers.",
+                  "reason_sources": ["taste_anchors", "favorite_genres"],
+                  "confidence": "medium"
+                },
+                {
+                  "id": "missing-reason",
+                  "kind": "track",
+                  "title": "Hidden",
+                  "uri": "spotify:track:hidden",
+                  "reason": ""
+                },
+                {
+                  "id": "missing-uri",
+                  "kind": "album",
+                  "title": "Hidden Album",
+                  "reason": "No play uri."
+                }
+              ]
+            },
+            {
+              "id": "empty",
+              "title": "Empty",
+              "items": []
+            }
+          ]
+        }
+        """.utf8)
+    )
+
+    #expect(disabled.enabled == false)
+    #expect(disabled.isMusicDNADisabled == true)
+    #expect(disabled.visibleSections.isEmpty)
+    #expect(feed.enabled == true)
+    #expect(feed.revision == 12)
+    #expect(feed.generatedAt != nil)
+    #expect(feed.ttlSeconds == 86400)
+    #expect(feed.source == "music_dna")
+    #expect(feed.visibleSections.map(\.id) == ["because_you_like"])
+    let item = try #require(feed.visibleSections.first?.visibleItems.first)
+    #expect(item.id == "disc-track-1")
+    #expect(item.kind == .track)
+    #expect(item.title == "Intro")
+    #expect(item.subtitle == "The xx")
+    #expect(item.imageURL == "/api/djconnect/image_proxy/intro")
+    #expect(item.reasonSources == ["taste_anchors", "favorite_genres"])
+    #expect(item.confidence == .medium)
+    #expect(feed.sections.first?.items.count == 3)
+    #expect(feed.sections.first?.visibleItems.count == 1)
 }
 
 @MainActor
@@ -1183,6 +1485,64 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
             "favorite_genres": ["ambient", {"name": "melodic house", "count": 2}],
             "favorite_artists": ["The xx"],
             "recent_tracks": [{"title": "Intro", "artist": "The xx", "genres": ["indie"]}],
+            "recent_favorite_tracks": [{"title": "Favorited", "artist": "Nala", "album": "Late Set"}],
+            "playtime": {
+              "total_seconds": 7260,
+              "total_hours": 2.02,
+              "formatted_total": "2u 1m",
+              "top_artists": [
+                {"name": "The xx", "seconds": 3600, "hours": 1.0, "formatted": "1u"},
+                {"name": "Nala", "seconds": 2400, "hours": 0.67, "formatted": "40m"},
+                {"name": "Ben Bohmer", "seconds": 900, "hours": 0.25, "formatted": "15m"},
+                {"name": "Overflow", "seconds": 360, "hours": 0.1, "formatted": "6m"}
+              ],
+              "top_albums": [
+                {"name": "xx", "seconds": 3300, "hours": 0.92, "formatted": "55m"},
+                {"name": "Late Set", "seconds": 1800, "hours": 0.5, "formatted": "30m"}
+              ]
+            },
+            "listening_rhythm": {
+              "sample_count": 5,
+              "top_daypart": "avond",
+              "top_weekday": "vrijdag",
+              "dayparts": [
+                {"daypart": "avond", "count": 4, "percent": 80},
+                {"daypart": "middag", "count": 1, "percent": 20}
+              ],
+              "weekdays": [
+                {"weekday": "vrijdag", "count": 3, "percent": 60},
+                {"weekday": "zaterdag", "count": 2, "percent": 40}
+              ]
+            },
+            "mood_mix": {
+              "sample_count": 3,
+              "average": 57,
+              "top_zone": "groove",
+              "zones": [
+                {"zone": "groove", "count": 2, "percent": 66.7},
+                {"zone": "energy", "count": 1, "percent": 33.3}
+              ]
+            },
+            "repeat_magnets": {
+              "eligible": true,
+              "items": [
+                {"kind": "artist", "name": "The xx", "count": 5},
+                {"kind": "album", "name": "xx", "formatted": "55m"}
+              ]
+            },
+            "explicit_positives": {
+              "eligible": true,
+              "signal_count": 2,
+              "favorite_tracks": [{"kind": "favorite_track", "title": "Favorited", "artist": "Nala"}],
+              "accepted_recommendations": [{"kind": "accepted_recommendation", "title": "Accepted", "subtitle": "Warm"}]
+            },
+            "taste_anchors": {
+              "eligible": true,
+              "items": [
+                {"kind": "artist", "name": "The xx", "play_count": 7},
+                {"kind": "genre", "name": "ambient"}
+              ]
+            },
             "mood_profile": {"average": 57, "average_zone": "groove", "sample_count": 3},
             "taste_direction": "Warm electronic",
             "based_on": ["soft vocals", {"title": "Intro", "artist": "The xx", "genres": ["indie"]}],
@@ -1198,13 +1558,33 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     #expect(model.musicDNAProfileResponse?.enabled == true)
     #expect(model.musicDNAProfileResponse?.profile.isEmpty == false)
     #expect(model.musicDNAProfileResponse?.profile.summary == "Warm late-night electronic taste.")
-    #expect(model.musicDNAProfileResponse?.profile.favoriteGenres.first?.name == "ambient")
-    #expect(model.musicDNAProfileResponse?.profile.favoriteGenres.dropFirst().first?.count == 2)
-    #expect(model.musicDNAProfileResponse?.profile.favoriteArtists.first?.name == "The xx")
+    #expect(model.musicDNAProfileResponse?.profile.favoriteGenres?.first?.name == "ambient")
+    #expect(model.musicDNAProfileResponse?.profile.favoriteGenres?.dropFirst().first?.count == 2)
+    #expect(model.musicDNAProfileResponse?.profile.favoriteArtists?.first?.name == "The xx")
     #expect(model.musicDNAProfileResponse?.profile.trackCount == 12)
+    #expect(model.musicDNAProfileResponse?.profile.recentFavoriteTracks?.map(\.title) == ["Favorited"])
+    #expect(model.musicDNAProfileResponse?.profile.playtime?.isDisplayable == true)
+    #expect(model.musicDNAProfileResponse?.profile.playtime?.formattedTotal == "2u 1m")
+    #expect(model.musicDNAProfileResponse?.profile.playtime?.visibleTopArtists.map(\.name) == ["The xx", "Nala", "Ben Bohmer"])
+    #expect(model.musicDNAProfileResponse?.profile.playtime?.visibleTopArtists.map(\.formatted) == ["1u", "40m", "15m"])
+    #expect(model.musicDNAProfileResponse?.profile.playtime?.visibleTopAlbums.map(\.name) == ["xx", "Late Set"])
+    #expect(model.musicDNAProfileResponse?.profile.playtime?.visibleTopAlbums.map(\.formatted) == ["55m", "30m"])
+    #expect(model.musicDNAProfileResponse?.profile.listeningRhythm?.isDisplayable == true)
+    #expect(model.musicDNAProfileResponse?.profile.listeningRhythm?.topDaypart == "avond")
+    #expect(model.musicDNAProfileResponse?.profile.listeningRhythm?.topWeekday == "vrijdag")
+    #expect(model.musicDNAProfileResponse?.profile.moodMix?.isDisplayable == true)
+    #expect(model.musicDNAProfileResponse?.profile.moodMix?.topZone == "groove")
+    #expect(model.musicDNAProfileResponse?.profile.moodMix?.average == 57)
+    #expect(model.musicDNAProfileResponse?.profile.repeatMagnets?.isDisplayable == true)
+    #expect(model.musicDNAProfileResponse?.profile.repeatMagnets?.visibleItems.map(\.name) == ["The xx", "xx"])
+    #expect(model.musicDNAProfileResponse?.profile.explicitPositives?.isDisplayable == true)
+    #expect(model.musicDNAProfileResponse?.profile.explicitPositives?.visibleFavoriteTracks.map(\.title) == ["Favorited"])
+    #expect(model.musicDNAProfileResponse?.profile.explicitPositives?.visibleAcceptedRecommendations.map(\.title) == ["Accepted"])
+    #expect(model.musicDNAProfileResponse?.profile.tasteAnchors?.isDisplayable == true)
+    #expect(model.musicDNAProfileResponse?.profile.tasteAnchors?.visibleItems.map(\.name) == ["The xx", "ambient"])
     #expect(model.musicDNAProfileResponse?.profile.mood?.averageZone == "groove")
     #expect(model.musicDNAProfileResponse?.profile.tasteDirection == "Warm electronic")
-    #expect(model.musicDNAProfileResponse?.profile.basedOn.map { $0.title ?? $0.name ?? "" } == ["soft vocals", "Intro"])
+    #expect(model.musicDNAProfileResponse?.profile.basedOn?.map { $0.title ?? $0.name ?? "" } == ["soft vocals", "Intro"])
     #expect(model.musicDNAProfileResponse?.profile.updatedAt != nil)
     #expect(recorder.requests.map { $0.url?.path } == ["/api/djconnect/music_dna/profile"])
 }
@@ -1221,6 +1601,13 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
 
     #expect(model.musicDNAProfileResponse?.enabled == true)
     #expect(model.musicDNAProfileResponse?.profile.isEmpty == true)
+    #expect(model.musicDNAProfileResponse?.profile.recentFavoriteTracks == nil)
+    #expect(model.musicDNAProfileResponse?.profile.playtime == nil)
+    #expect(model.musicDNAProfileResponse?.profile.listeningRhythm == nil)
+    #expect(model.musicDNAProfileResponse?.profile.moodMix == nil)
+    #expect(model.musicDNAProfileResponse?.profile.repeatMagnets == nil)
+    #expect(model.musicDNAProfileResponse?.profile.explicitPositives == nil)
+    #expect(model.musicDNAProfileResponse?.profile.tasteAnchors == nil)
 }
 
 @MainActor
@@ -1235,6 +1622,97 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
 
     #expect(model.musicDNAProfileResponse?.enabled == false)
     #expect(model.musicDNAProfileResponse?.profile.isEmpty == true)
+}
+
+@MainActor
+@Test func musicDiscoveryLoadsDisabledFeedAndEnabledRecommendations() async throws {
+    let defaults = try testDefaults()
+    let recorder = RequestRecorder()
+    var enabled = false
+    let session = mockSession(host: "discovery-feed.local") { request in
+        recorder.append(request)
+        if enabled {
+            return (try httpResponse(for: request, statusCode: 200), Data("""
+            {
+              "success": true,
+              "enabled": true,
+              "revision": 7,
+              "generated_at": "2026-07-04T12:00:00+00:00",
+              "ttl_seconds": 86400,
+              "source": "music_dna",
+              "sections": [
+                {
+                  "id": "because_you_like",
+                  "title": "Omdat je dit vaak luistert",
+                  "items": [
+                    {"id":"disc-track-1","kind":"track","title":"Intro","subtitle":"The xx","uri":"spotify:track:intro","reason":"Past bij je smaakankers.","confidence":"high"}
+                  ]
+                }
+              ]
+            }
+            """.utf8))
+        }
+        return (try httpResponse(for: request, statusCode: 200), Data(#"{"success":true,"enabled":false,"reason":"music_dna_disabled","sections":[]}"#.utf8))
+    }
+    let model = makePairedMusicDNAModel(defaults: defaults, host: "discovery-feed.local", session: session)
+
+    await model.loadMusicDiscovery(force: true)
+    #expect(model.musicDiscoveryResponse?.isMusicDNADisabled == true)
+    #expect(model.musicDiscoveryResponse?.visibleSections.isEmpty == true)
+
+    enabled = true
+    await model.loadMusicDiscovery(force: true)
+    #expect(model.musicDiscoveryResponse?.enabled == true)
+    #expect(model.musicDiscoveryResponse?.visibleSections.first?.visibleItems.first?.title == "Intro")
+    #expect(recorder.requests.map { $0.url?.path } == [
+        "/api/djconnect/music_discovery",
+        "/api/djconnect/music_discovery"
+    ])
+}
+
+@MainActor
+@Test func musicDiscoveryRefreshAndPlayUseDedicatedEndpoints() async throws {
+    let defaults = try testDefaults()
+    let recorder = RequestRecorder()
+    let session = mockSession(host: "discovery-actions.local") { request in
+        recorder.append(request)
+        switch request.url?.path {
+        case "/api/djconnect/music_discovery/refresh":
+            return (try httpResponse(for: request, statusCode: 200), Data(#"{"success":true,"enabled":true,"sections":[]}"#.utf8))
+        case "/api/djconnect/music_discovery":
+            return (try httpResponse(for: request, statusCode: 200), Data("""
+            {
+              "success": true,
+              "enabled": true,
+              "revision": 8,
+              "sections": [
+                {
+                  "id": "fresh",
+                  "title": "Fresh",
+                  "items": [
+                    {"id":"disc-track-2","kind":"track","title":"Angel","subtitle":"Massive Attack","uri":"spotify:track:angel","reason":"Past bij je donkere groove-signalen."}
+                  ]
+                }
+              ]
+            }
+            """.utf8))
+        case "/api/djconnect/music_discovery/play":
+            return (try httpResponse(for: request, statusCode: 200), Data(#"{"success":true}"#.utf8))
+        default:
+            return (try httpResponse(for: request, statusCode: 404), Data(#"{"success":false}"#.utf8))
+        }
+    }
+    let model = makePairedMusicDNAModel(defaults: defaults, host: "discovery-actions.local", session: session)
+
+    await model.refreshMusicDiscovery()
+    let item = try #require(model.musicDiscoveryResponse?.visibleSections.first?.visibleItems.first)
+    await model.playMusicDiscoveryItem(item, sectionID: "fresh")
+
+    #expect(recorder.requests.map { $0.url?.path } == [
+        "/api/djconnect/music_discovery/refresh",
+        "/api/djconnect/music_discovery",
+        "/api/djconnect/music_discovery/play"
+    ])
 }
 
 @MainActor
@@ -1374,14 +1852,23 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     #expect(model.demoMusicDNAEnabled == true)
     #expect(model.musicDNAProfileResponse?.enabled == true)
     #expect(model.musicDNAProfileResponse?.profile.summary?.contains("fictional") == true)
-    #expect(model.musicDNAProfileResponse?.profile.favoriteArtists.map(\.name).contains("Luna Vale") == true)
-    #expect(model.musicDNAProfileResponse?.profile.recentTracks.map(\.title).contains("Glass Avenue") == true)
+    #expect(model.musicDNAProfileResponse?.profile.favoriteArtists?.map(\.name).contains("Luna Vale") == true)
+    #expect(model.musicDNAProfileResponse?.profile.recentTracks?.map(\.title).contains("Glass Avenue") == true)
+    #expect(model.musicDNAProfileResponse?.profile.recentFavoriteTracks?.isEmpty == false)
+    #expect(model.musicDNAProfileResponse?.profile.playtime?.isDisplayable == true)
+    #expect(model.musicDNAProfileResponse?.profile.listeningRhythm?.isDisplayable == true)
+    #expect(model.musicDNAProfileResponse?.profile.moodMix?.isDisplayable == true)
+    #expect(model.musicDNAProfileResponse?.profile.energyProfile?.sampleCount ?? 0 > 0)
+    #expect(model.musicDNAProfileResponse?.profile.repeatMagnets?.isDisplayable == true)
+    #expect(model.musicDNAProfileResponse?.profile.explicitPositives?.isDisplayable == true)
+    #expect(model.musicDNAProfileResponse?.profile.tasteAnchors?.isDisplayable == true)
+    #expect((model.musicDNAProfileResponse?.profile.timePatterns?.count ?? 0) >= 3)
 
     await model.clearMusicDNA()
 
     #expect(model.musicDNAProfileResponse?.enabled == true)
-    #expect(model.musicDNAProfileResponse?.profile.favoriteArtists.map(\.name).contains("Luna Vale") == true)
-    #expect(model.musicDNAProfileResponse?.profile.recentTracks.map(\.title).contains("Glass Avenue") == true)
+    #expect(model.musicDNAProfileResponse?.profile.favoriteArtists?.map(\.name).contains("Luna Vale") == true)
+    #expect(model.musicDNAProfileResponse?.profile.recentTracks?.map(\.title).contains("Glass Avenue") == true)
 
     await model.setMusicDNAEnabled(false)
 
@@ -6269,6 +6756,17 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     #expect(secondLaunch.isShowingWelcome == false)
 }
 
+@Test func onboardingTourPromotesDiscoverInsteadOfMiniGames() throws {
+    let source = try loadRepositoryText("Sources/DJConnectUI/DJConnectRootView.swift")
+    let stepsStart = try #require(source.range(of: "static func steps(language: String) -> [WelcomeTourStep]"))
+    let stepsEnd = try #require(source[stepsStart.lowerBound...].range(of: "private struct WelcomeTourPreview"))
+    let stepsSource = String(source[stepsStart.lowerBound..<stepsEnd.lowerBound])
+
+    #expect(stepsSource.contains("id: .discovery"))
+    #expect(stepsSource.contains("id: .games") == false)
+    #expect(stepsSource.contains("ui.mini.games") == false)
+}
+
 @MainActor
 @Test func whatsNewDoesNotAppearOnFirstInstall() throws {
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
@@ -7663,6 +8161,8 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     #expect(DJConnectHomeScreenAction(deepLinkURL: try #require(URL(string: "djconnect://queue"))) == .queue)
     #expect(DJConnectHomeScreenAction(deepLinkURL: try #require(URL(string: "djconnect://ask-dj"))) == .askDJ)
     #expect(DJConnectHomeScreenAction(deepLinkURL: try #require(URL(string: "djconnect://track-insight"))) == .trackInsight)
+    #expect(DJConnectHomeScreenAction(deepLinkURL: try #require(URL(string: "djconnect://discover"))) == .discovery)
+    #expect(DJConnectHomeScreenAction(deepLinkURL: try #require(URL(string: "djconnect://ontdek"))) == .discovery)
     #expect(DJConnectHomeScreenAction(deepLinkURL: try #require(URL(string: "djconnect://playlists"))) == .playlists)
     #expect(DJConnectHomeScreenAction(deepLinkURL: try #require(URL(string: "djconnect:///queue"))) == .queue)
     #expect(DJConnectHomeScreenAction(deepLinkURL: try #require(URL(string: "https://djconnect.dev/queue"))) == nil)
@@ -7688,10 +8188,35 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     #expect(urlTypes.contains { type in
         (type["CFBundleURLSchemes"] as? [String])?.contains("djconnect") == true
     })
-    #expect(shortcutItems.map { $0["UIApplicationShortcutItemType"] as? String }.contains("dev.djconnect.action.now-playing"))
-    #expect(shortcutItems.map { $0["UIApplicationShortcutItemType"] as? String }.contains("dev.djconnect.action.queue"))
-    #expect(shortcutItems.map { $0["UIApplicationShortcutItemType"] as? String }.contains("dev.djconnect.action.ask-dj"))
-    #expect(shortcutItems.map { $0["UIApplicationShortcutItemType"] as? String }.contains("dev.djconnect.action.track-insight"))
+    let shortcutTypes = shortcutItems.compactMap { $0["UIApplicationShortcutItemType"] as? String }
+    #expect(shortcutTypes == [
+        "dev.djconnect.action.now-playing",
+        "dev.djconnect.action.ask-dj",
+        "dev.djconnect.action.track-insight",
+        "dev.djconnect.action.discovery",
+        "dev.djconnect.action.queue"
+    ])
+    let discoveryShortcut = try #require(shortcutItems.first {
+        $0["UIApplicationShortcutItemType"] as? String == "dev.djconnect.action.discovery"
+    })
+    #expect(discoveryShortcut["UIApplicationShortcutItemIconSymbolName"] as? String == "sparkles")
+    #expect(discoveryShortcut["UIApplicationShortcutItemTitle"] as? String == "Discover")
+    #expect(discoveryShortcut["UIApplicationShortcutItemSubtitle"] as? String == "Music DNA recommendations")
+}
+
+@Test func iOSInfoPlistLocalizesDiscoverShortcutStrings() throws {
+    let expectedTitles = [
+        "en": "Discover",
+        "nl": "Ontdek",
+        "de": "Entdecken",
+        "fr": "Decouvrir",
+        "es": "Descubrir"
+    ]
+    for (locale, title) in expectedTitles {
+        let strings = try loadRepositoryText("Apps/DJConnectIOS/\(locale).lproj/InfoPlist.strings")
+        #expect(strings.contains(#""Discover" = "\#(title)";"#))
+        #expect(strings.contains(#""Music DNA recommendations" = "#))
+    }
 }
 
 @MainActor
@@ -7726,6 +8251,15 @@ private func loadRepositoryPlist(_ relativePath: String) throws -> [String: Any]
     let data = try Data(contentsOf: url)
     let object = try PropertyListSerialization.propertyList(from: data, options: [], format: nil)
     return try #require(object as? [String: Any])
+}
+
+private func loadRepositoryText(_ relativePath: String) throws -> String {
+    let url = URL(fileURLWithPath: #filePath)
+        .deletingLastPathComponent()
+        .deletingLastPathComponent()
+        .deletingLastPathComponent()
+        .appendingPathComponent(relativePath)
+    return try String(contentsOf: url, encoding: .utf8)
 }
 
 @MainActor

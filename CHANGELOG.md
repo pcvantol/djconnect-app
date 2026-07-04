@@ -4,6 +4,18 @@ All notable changes to DJConnect App are documented here.
 
 ## Unreleased
 
+### Added
+
+- Added Ontdek / Discover as a first-class iOS/macOS Music Discovery page backed
+  by the new Home Assistant Music Discovery endpoints.
+- Added the iOS Home Screen quick action `dev.djconnect.action.discovery` for
+  jumping directly to Discover/Ontdek.
+
+### Changed
+
+- Moved Queue into More on compact iOS navigation so Discover can sit directly
+  after Track Insight in the main tab set.
+
 ## 3.2.14 - 2026-07-04
 
 ### Added

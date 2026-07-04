@@ -246,6 +246,7 @@ public enum DJConnectHomeScreenAction: String, Equatable, Sendable {
     case queue = "dev.djconnect.action.queue"
     case askDJ = "dev.djconnect.action.ask-dj"
     case trackInsight = "dev.djconnect.action.track-insight"
+    case discovery = "dev.djconnect.action.discovery"
     case playlists = "dev.djconnect.action.playlists"
 
     public init?(deepLinkURL url: URL) {
@@ -264,6 +265,8 @@ public enum DJConnectHomeScreenAction: String, Equatable, Sendable {
             self = .askDJ
         case "track-insight", "trackinsight":
             self = .trackInsight
+        case "discover", "discovery", "ontdek":
+            self = .discovery
         case "playlists", "afspeellijsten":
             self = .playlists
         default:
@@ -555,6 +558,11 @@ public final class DJConnectAppModel: ObservableObject {
     @Published public private(set) var musicDNAToast: DJConnectVisualNotice?
     @Published public var isShowingMusicDNAOptInPrompt = false
     @Published public private(set) var demoMusicDNAEnabled = false
+    @Published public private(set) var musicDiscoveryResponse: DJConnectMusicDiscoveryResponse?
+    @Published public private(set) var isLoadingMusicDiscovery = false
+    @Published public private(set) var isRefreshingMusicDiscovery = false
+    @Published public private(set) var musicDiscoveryErrorMessage: String?
+    @Published public private(set) var playingMusicDiscoveryItemID: String?
     private var pendingMusicDNAEnabled: Bool?
     private var pendingMusicDNAEnabledAt: Date?
     #if DEBUG
@@ -2775,7 +2783,7 @@ public final class DJConnectAppModel: ObservableObject {
     public func performHomeScreenAction(_ action: DJConnectHomeScreenAction) {
         homeScreenActionRequest = DJConnectHomeScreenActionRequest(action: action)
         switch action {
-        case .nowPlaying, .queue, .playlists:
+        case .nowPlaying, .queue, .discovery, .playlists:
             break
         case .askDJ:
             prepareAskDJHistoryForDisplay()
@@ -4673,6 +4681,125 @@ public final class DJConnectAppModel: ObservableObject {
         isUpdatingMusicDNA = false
     }
 
+    public func loadMusicDiscovery(force: Bool = false, showToast: Bool = false) async {
+        if isDemoMode {
+            musicDiscoveryResponse = demoMusicDNAEnabled ? Self.demoMusicDiscoveryResponse() : Self.disabledMusicDiscoveryResponse()
+            musicDiscoveryErrorMessage = nil
+            isLoadingMusicDiscovery = false
+            isRefreshingMusicDiscovery = false
+            return
+        }
+        guard pairingStatus == .paired, isRuntimeCompatible else {
+            musicDiscoveryResponse = nil
+            musicDiscoveryErrorMessage = nil
+            return
+        }
+        if !force, let response = musicDiscoveryResponse, !isMusicDiscoveryExpired(response) {
+            return
+        }
+        isLoadingMusicDiscovery = true
+        musicDiscoveryErrorMessage = nil
+        do {
+            let response = try await withHomeAssistantClient { client in
+                try await client.musicDiscoveryFeed(musicDNAKey: askDJMusicDNAKey, language: language)
+            }
+            apply(musicDiscovery: response)
+        } catch let error as DJConnectError {
+            handleMusicDiscoveryError(error)
+            if showToast {
+                showMusicDNAToast(messageForMusicDNARefreshFailure(error), systemImage: "exclamationmark.triangle.fill")
+            }
+        } catch {
+            musicDiscoveryErrorMessage = error.localizedDescription
+            log(.warning, "Music Discovery load failed: \(error.localizedDescription)")
+        }
+        isLoadingMusicDiscovery = false
+    }
+
+    public func refreshMusicDiscovery() async {
+        if isDemoMode {
+            musicDiscoveryResponse = demoMusicDNAEnabled ? Self.demoMusicDiscoveryResponse(revision: (musicDiscoveryResponse?.revision ?? 12) + 1) : Self.disabledMusicDiscoveryResponse()
+            musicDiscoveryErrorMessage = nil
+            return
+        }
+        guard pairingStatus == .paired, isRuntimeCompatible else {
+            return
+        }
+        isRefreshingMusicDiscovery = true
+        musicDiscoveryErrorMessage = nil
+        do {
+            _ = try await withHomeAssistantClient { client in
+                try await client.refreshMusicDiscovery(musicDNAKey: askDJMusicDNAKey, language: language)
+            }
+            try Task.checkCancellation()
+            let response = try await withHomeAssistantClient { client in
+                try await client.musicDiscoveryFeed(musicDNAKey: askDJMusicDNAKey, language: language)
+            }
+            apply(musicDiscovery: response)
+        } catch let error as DJConnectError {
+            handleMusicDiscoveryError(error)
+        } catch is CancellationError {
+        } catch {
+            musicDiscoveryErrorMessage = error.localizedDescription
+            log(.warning, "Music Discovery refresh failed: \(error.localizedDescription)")
+        }
+        isRefreshingMusicDiscovery = false
+    }
+
+    public func playMusicDiscoveryItem(_ item: DJConnectMusicDiscoveryItem, sectionID: String) async {
+        guard item.isDisplayable else { return }
+        if isDemoMode {
+            playingMusicDiscoveryItemID = item.id
+            try? await Task.sleep(for: .milliseconds(120))
+            playingMusicDiscoveryItemID = nil
+            return
+        }
+        guard pairingStatus == .paired, isRuntimeCompatible else {
+            return
+        }
+        playingMusicDiscoveryItemID = item.id
+        musicDiscoveryErrorMessage = nil
+        do {
+            let payload = DJConnectMusicDiscoveryPlayRequest(
+                discoveryItemID: item.id,
+                sectionID: sectionID,
+                identity: identity,
+                musicDNAKey: askDJMusicDNAKey
+            )
+            _ = try await withHomeAssistantClient { client in
+                try await client.playMusicDiscoveryItem(payload)
+            }
+        } catch let error as DJConnectError {
+            handleMusicDiscoveryError(error)
+        } catch is CancellationError {
+        } catch {
+            musicDiscoveryErrorMessage = error.localizedDescription
+            log(.warning, "Music Discovery play failed: \(error.localizedDescription)")
+        }
+        playingMusicDiscoveryItemID = nil
+    }
+
+    private func apply(musicDiscovery response: DJConnectMusicDiscoveryResponse) {
+        musicDiscoveryResponse = response
+        musicDiscoveryErrorMessage = nil
+        log(.debug, "Music Discovery refreshed enabled=\(response.enabled) revision=\(response.revision ?? 0)")
+    }
+
+    private func isMusicDiscoveryExpired(_ response: DJConnectMusicDiscoveryResponse) -> Bool {
+        guard let generatedAt = response.generatedAt, let ttlSeconds = response.ttlSeconds else {
+            return true
+        }
+        return Date().timeIntervalSince(generatedAt) >= Double(ttlSeconds)
+    }
+
+    private func handleMusicDiscoveryError(_ error: DJConnectError) {
+        musicDiscoveryErrorMessage = userFacingDJResponseText(Self.describe(error)) ?? Self.describe(error)
+        log(.warning, "Music Discovery request failed: \(Self.describe(error))")
+        if Self.shouldShowConnectionNotice(for: error) {
+            musicDiscoveryResponse = nil
+        }
+    }
+
     private func scheduleMusicDNAProfileRefresh(reason: String) {
         #if DEBUG
         guard !isMusicDNAPreviewMode else { return }
@@ -4724,9 +4851,13 @@ public final class DJConnectAppModel: ObservableObject {
 
     private func applyDemoMusicDNAProfile() {
         musicDNAProfileResponse = demoMusicDNAEnabled ? Self.demoMusicDNAProfileResponse() : Self.disabledMusicDNAProfileResponse()
+        musicDiscoveryResponse = demoMusicDNAEnabled ? Self.demoMusicDiscoveryResponse() : Self.disabledMusicDiscoveryResponse()
         musicDNAErrorMessage = nil
+        musicDiscoveryErrorMessage = nil
         isLoadingMusicDNA = false
         isUpdatingMusicDNA = false
+        isLoadingMusicDiscovery = false
+        isRefreshingMusicDiscovery = false
     }
 
     private func setDemoMusicDNAEnabled(_ enabled: Bool) {
@@ -4741,6 +4872,95 @@ public final class DJConnectAppModel: ObservableObject {
             success: true,
             enabled: false,
             profile: DJConnectMusicDNAProfile()
+        )
+    }
+
+    public static func disabledMusicDiscoveryResponse() -> DJConnectMusicDiscoveryResponse {
+        DJConnectMusicDiscoveryResponse(
+            success: true,
+            enabled: false,
+            reason: "music_dna_disabled",
+            sections: []
+        )
+    }
+
+    public static func demoMusicDiscoveryResponse(revision: Int = 12) -> DJConnectMusicDiscoveryResponse {
+        DJConnectMusicDiscoveryResponse(
+            success: true,
+            enabled: true,
+            revision: revision,
+            generatedAt: Date(),
+            ttlSeconds: 86_400,
+            source: "music_dna",
+            sections: [
+                DJConnectMusicDiscoverySection(
+                    id: "because_you_like",
+                    title: "Omdat je dit vaak luistert",
+                    items: [
+                        DJConnectMusicDiscoveryItem(
+                            id: "demo-disc-track-1",
+                            kind: .track,
+                            title: "Midnight Relay",
+                            subtitle: "Luna Vale",
+                            uri: "spotify:track:demo-discovery-1",
+                            imageURL: "https://example.test/djconnect/demo-discovery-1.jpg",
+                            reason: "Past bij je smaakankers: Neon downtempo, Luna Vale en late-night synth grooves.",
+                            reasonSources: ["taste_anchors", "favorite_artists", "favorite_genres"],
+                            confidence: .high
+                        ),
+                        DJConnectMusicDiscoveryItem(
+                            id: "demo-disc-track-2",
+                            kind: .track,
+                            title: "Harbor Afterglow",
+                            subtitle: "Nova Harbor",
+                            uri: "spotify:track:demo-discovery-2",
+                            imageURL: "https://example.test/djconnect/demo-discovery-2.jpg",
+                            reason: "Sluit aan op je recente favorieten met warm baswerk en melodische avondenergie.",
+                            reasonSources: ["recent_favorite_tracks", "mood_mix"],
+                            confidence: .medium
+                        ),
+                        DJConnectMusicDiscoveryItem(
+                            id: "demo-disc-album-1",
+                            kind: .album,
+                            title: "Signal Garden",
+                            subtitle: "Echo Parade",
+                            uri: "spotify:album:demo-discovery-1",
+                            imageURL: "https://example.test/djconnect/demo-discovery-album-1.jpg",
+                            reason: "Je playtime-profiel laat Echo Parade terugkomen bij energieke, glanzende tracks.",
+                            reasonSources: ["playtime", "repeat_magnets"],
+                            confidence: .medium
+                        )
+                    ]
+                ),
+                DJConnectMusicDiscoverySection(
+                    id: "fresh_for_your_mood",
+                    title: "Nieuw voor je mood",
+                    items: [
+                        DJConnectMusicDiscoveryItem(
+                            id: "demo-disc-playlist-1",
+                            kind: .playlist,
+                            title: "Neon Drive",
+                            subtitle: "Playlist",
+                            uri: "spotify:playlist:demo-discovery-1",
+                            imageURL: "https://example.test/djconnect/demo-discovery-playlist-1.jpg",
+                            reason: "Gebouwd rond je groove-zone met genoeg energie om de set vooruit te duwen.",
+                            reasonSources: ["mood_mix", "energy_profile"],
+                            confidence: .high
+                        ),
+                        DJConnectMusicDiscoveryItem(
+                            id: "demo-disc-artist-1",
+                            kind: .artist,
+                            title: "Mira Sol",
+                            subtitle: "Artist",
+                            uri: "spotify:artist:demo-discovery-1",
+                            imageURL: "https://example.test/djconnect/demo-discovery-artist-1.jpg",
+                            reason: "Ligt dicht bij je skyline pop en velvet electro signalen zonder dezelfde artiesten te herhalen.",
+                            reasonSources: ["favorite_genres", "taste_anchors"],
+                            confidence: .low
+                        )
+                    ]
+                )
+            ]
         )
     }
 
@@ -4766,6 +4986,10 @@ public final class DJConnectAppModel: ObservableObject {
                     DJConnectMusicDNATrack(title: "Glass Avenue", artist: "Luna Vale"),
                     DJConnectMusicDNATrack(title: "Afterglow Signals", artist: "Nova Harbor"),
                     DJConnectMusicDNATrack(title: "Silver Static", artist: "Echo Parade")
+                ],
+                recentFavoriteTracks: [
+                    DJConnectMusicDNATrack(title: "Neon Bloom", artist: "Luna Vale", album: "Night Map", uri: "spotify:track:demo-favorite-1"),
+                    DJConnectMusicDNATrack(title: "Velvet Room", artist: "Nova Harbor", album: "Harbor Lights", uri: "spotify:track:demo-favorite-2")
                 ],
                 topTracksByRange: [
                     "week": [
@@ -4804,9 +5028,79 @@ public final class DJConnectAppModel: ObservableObject {
                         DJConnectMusicDNAEnergySignal(title: "Afterglow Signals", artist: "Nova Harbor", album: "Harbor Lights")
                     ]
                 ),
+                playtime: DJConnectMusicDNAPlaytime(
+                    totalSeconds: 12_840,
+                    totalHours: 3.57,
+                    formattedTotal: "3u 34m",
+                    topArtists: [
+                        DJConnectMusicDNAPlaytimeArtist(name: "Luna Vale", seconds: 4_800, hours: 1.33, formatted: "1u 20m"),
+                        DJConnectMusicDNAPlaytimeArtist(name: "Nova Harbor", seconds: 3_240, hours: 0.90, formatted: "54m"),
+                        DJConnectMusicDNAPlaytimeArtist(name: "Echo Parade", seconds: 2_100, hours: 0.58, formatted: "35m")
+                    ],
+                    topAlbums: [
+                        DJConnectMusicDNAPlaytimeArtist(name: "Night Map", seconds: 3_900, hours: 1.08, formatted: "1u 5m"),
+                        DJConnectMusicDNAPlaytimeArtist(name: "Harbor Lights", seconds: 2_700, hours: 0.75, formatted: "45m"),
+                        DJConnectMusicDNAPlaytimeArtist(name: "Signal Garden", seconds: 1_560, hours: 0.43, formatted: "26m")
+                    ]
+                ),
+                listeningRhythm: DJConnectMusicDNAListeningRhythm(
+                    sampleCount: 6,
+                    topDaypart: "Avond",
+                    topWeekday: "Vrijdag",
+                    dayparts: [
+                        DJConnectMusicDNAListeningRhythmItem(daypart: "Avond", count: 4, percent: 66.7),
+                        DJConnectMusicDNAListeningRhythmItem(daypart: "Middag", count: 2, percent: 33.3)
+                    ],
+                    weekdays: [
+                        DJConnectMusicDNAListeningRhythmItem(weekday: "Vrijdag", count: 3, percent: 50),
+                        DJConnectMusicDNAListeningRhythmItem(weekday: "Zaterdag", count: 2, percent: 33.3),
+                        DJConnectMusicDNAListeningRhythmItem(weekday: "Donderdag", count: 1, percent: 16.7)
+                    ]
+                ),
+                moodMix: DJConnectMusicDNAMoodMix(
+                    sampleCount: 5,
+                    average: 63,
+                    topZone: "groove",
+                    zones: [
+                        DJConnectMusicDNAMoodMixZone(zone: "chill", count: 1, percent: 20),
+                        DJConnectMusicDNAMoodMixZone(zone: "groove", count: 2, percent: 40),
+                        DJConnectMusicDNAMoodMixZone(zone: "energy", count: 2, percent: 40)
+                    ]
+                ),
+                repeatMagnets: DJConnectMusicDNARepeatMagnets(
+                    eligible: true,
+                    items: [
+                        DJConnectMusicDNARepeatMagnetItem(kind: "artist", name: "Luna Vale", count: 5),
+                        DJConnectMusicDNARepeatMagnetItem(kind: "album", name: "Night Map", seconds: 3_900, formatted: "1u 5m"),
+                        DJConnectMusicDNARepeatMagnetItem(kind: "artist", name: "Nova Harbor", count: 3)
+                    ]
+                ),
+                explicitPositives: DJConnectMusicDNAExplicitPositives(
+                    eligible: true,
+                    signalCount: 4,
+                    favoriteTracks: [
+                        DJConnectMusicDNAFavoriteTrackSignal(title: "Neon Bloom", artist: "Luna Vale", uri: "spotify:track:demo-favorite-1"),
+                        DJConnectMusicDNAFavoriteTrackSignal(title: "Velvet Room", artist: "Nova Harbor", uri: "spotify:track:demo-favorite-2")
+                    ],
+                    acceptedRecommendations: [
+                        DJConnectMusicDNAAcceptedRecommendationSignal(title: "Glass Avenue", subtitle: "Warm synth groove", uri: "spotify:track:demo-accepted-1", reason: "matches_music_dna"),
+                        DJConnectMusicDNAAcceptedRecommendationSignal(title: "Silver Static", subtitle: "Bright late-night pulse", uri: "spotify:track:demo-accepted-2", reason: "expands_music_dna")
+                    ]
+                ),
+                tasteAnchors: DJConnectMusicDNATasteAnchors(
+                    eligible: true,
+                    items: [
+                        DJConnectMusicDNATasteAnchorItem(kind: "artist", name: "Luna Vale", playCount: 7, formatted: "1u 20m"),
+                        DJConnectMusicDNATasteAnchorItem(kind: "genre", name: "Neon downtempo"),
+                        DJConnectMusicDNATasteAnchorItem(kind: "genre", name: "Velvet electro"),
+                        DJConnectMusicDNATasteAnchorItem(kind: "artist", name: "Nova Harbor", playCount: 4, formatted: "54m"),
+                        DJConnectMusicDNATasteAnchorItem(kind: "genre", name: "Skyline pop")
+                    ]
+                ),
                 timePatterns: [
                     DJConnectMusicDNASignal(title: "Evening listening", kind: "time", value: "20:00-23:00"),
-                    DJConnectMusicDNASignal(title: "Weekend discovery", kind: "pattern", value: "new artists")
+                    DJConnectMusicDNASignal(title: "Weekend discovery", kind: "pattern", value: "new artists"),
+                    DJConnectMusicDNASignal(title: "Friday lift", kind: "pattern", value: "higher energy")
                 ],
                 recommendationSignals: [
                     DJConnectMusicDNASignal(title: "Bright synth hooks", kind: "sound"),

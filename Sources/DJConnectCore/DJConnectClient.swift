@@ -119,6 +119,21 @@ public final class DJConnectClient: Sendable {
         return try await decodedResponse(for: request)
     }
 
+    public func musicDiscoveryFeed(musicDNAKey: String? = nil, language: String? = nil) async throws -> DJConnectMusicDiscoveryResponse {
+        let request = try musicDiscoveryFeedRequest(musicDNAKey: musicDNAKey, language: language)
+        return try await decodedResponse(for: request)
+    }
+
+    public func refreshMusicDiscovery(musicDNAKey: String? = nil, language: String? = nil) async throws -> DJConnectMusicDiscoveryResponse {
+        let request = try refreshMusicDiscoveryRequest(musicDNAKey: musicDNAKey, language: language)
+        return try await decodedResponse(for: request)
+    }
+
+    public func playMusicDiscoveryItem(_ payload: DJConnectMusicDiscoveryPlayRequest) async throws -> DJConnectCommandResponse {
+        let request = try musicDiscoveryPlayRequest(payload)
+        return try await decodedResponse(for: request)
+    }
+
     public func askDJIdleSuggestion(_ payload: DJConnectAskDJIdleSuggestionRequest) async throws -> DJConnectAskDJMessageResponse {
         let request = try askDJIdleSuggestionRequest(payload)
         return try await decodedResponse(for: request)
@@ -304,6 +319,33 @@ public final class DJConnectClient: Sendable {
         )
     }
 
+    public func musicDiscoveryFeedRequest(musicDNAKey: String? = nil, language: String? = nil) throws -> URLRequest {
+        var request = try authenticatedRequest(path: "/api/djconnect/music_discovery")
+        request.httpMethod = "GET"
+        applyMusicDNAHeaders(to: &request, mood: nil, musicDNAKey: musicDNAKey, language: language)
+        return request
+    }
+
+    public func refreshMusicDiscoveryRequest(musicDNAKey: String? = nil, language: String? = nil) throws -> URLRequest {
+        try musicDNARequest(
+            path: "/api/djconnect/music_discovery/refresh",
+            payload: DJConnectMusicDNAIdentityRequest(identity: identity, musicDNAKey: musicDNAKey, language: language),
+            mood: nil,
+            musicDNAKey: musicDNAKey,
+            language: language
+        )
+    }
+
+    public func musicDiscoveryPlayRequest(_ payload: DJConnectMusicDiscoveryPlayRequest) throws -> URLRequest {
+        try musicDNARequest(
+            path: "/api/djconnect/music_discovery/play",
+            payload: payload,
+            mood: nil,
+            musicDNAKey: payload.musicDNAKey,
+            language: nil
+        )
+    }
+
     private func musicDNARequest<T: Encodable>(
         path: String,
         payload: T,
@@ -312,6 +354,11 @@ public final class DJConnectClient: Sendable {
         language: String?
     ) throws -> URLRequest {
         var request = try jsonRequest(path: path, payload: payload)
+        applyMusicDNAHeaders(to: &request, mood: mood, musicDNAKey: musicDNAKey, language: language)
+        return request
+    }
+
+    private func applyMusicDNAHeaders(to request: inout URLRequest, mood: Int?, musicDNAKey: String?, language: String?) {
         if let language = Self.nonBlankLanguage(language) {
             request.setValue(language, forHTTPHeaderField: "X-DJConnect-Language")
             request.setValue(language, forHTTPHeaderField: "X-DJConnect-Locale")
@@ -323,7 +370,6 @@ public final class DJConnectClient: Sendable {
         if let musicDNAKey, !musicDNAKey.isEmpty {
             request.setValue(musicDNAKey, forHTTPHeaderField: "X-DJConnect-Music-DNA-Key")
         }
-        return request
     }
 
     public func askDJIdleSuggestionRequest(_ payload: DJConnectAskDJIdleSuggestionRequest) throws -> URLRequest {

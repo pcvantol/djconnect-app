@@ -172,6 +172,18 @@ opt-out, clients may temporarily keep the just-selected enabled state visible
 while a stale profile refresh catches up; Home Assistant remains authoritative
 once it returns the matching state.
 
+Ontdek / Discover is the iOS/macOS Music Discovery surface. It appears directly
+after Track Insight in primary navigation and is backed only by Home Assistant
+Music DNA data. The client loads `GET /api/djconnect/music_discovery`, refreshes
+with `POST /api/djconnect/music_discovery/refresh`, and plays accepted items via
+`POST /api/djconnect/music_discovery/play` so Home Assistant can record the
+acceptance as a positive Music DNA signal. Clients must not generate
+recommendations or reasons locally, and displayed items require a backend `id`,
+`kind`, `title`, playable `uri`, and `reason`. If Music DNA is disabled, Ontdek
+shows the opt-in/locked state instead of an empty grid. On iOS the Home Screen
+quick action `dev.djconnect.action.discovery` and deep links
+`djconnect://discover` / `djconnect://ontdek` jump directly to Ontdek.
+
 APNs push registration is supported for iOS, macOS, and watchOS clients. iOS
 uses `client_type: "ios"` and `device_id` values shaped like
 `djconnect-ios-XXXXXXXXXXXX`; macOS and watchOS use their own matching prefixes.
