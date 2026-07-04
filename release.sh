@@ -1,19 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-if [[ "${DJCONNECT_SKIP_THIRDPARTY_UPDATE:-0}" != "1" ]]; then
-  bash "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/Tools/release/update_thirdparty.sh"
-  export DJCONNECT_THIRDPARTY_PREFLIGHT_DONE=1
-else
-  echo "Skipping third-party update preflight (DJCONNECT_SKIP_THIRDPARTY_UPDATE=1)."
-fi
-
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 VERSION="${1:-}"
 DERIVED_DATA="$ROOT_DIR/.release/DerivedData"
 SKIP_TESTS=0
 SKIP_BUILDS=0
 SKIP_SOURCE_RELEASE=0
+SKIP_THIRDPARTY_UPDATE="${DJCONNECT_SKIP_THIRDPARTY_UPDATE:-0}"
 PUBLIC_MACOS=0
 CLEANUP=1
 KEEP_RELEASES=1
@@ -25,6 +19,8 @@ usage() {
 Usage: ./release.sh <version> [options]
 
 Options:
+  --skip-thirdparty-update
+                          Skip Swift package, Xcode package and Homebrew tool update preflight
   --skip-tests            Skip swift test
   --skip-builds           Skip unsigned iOS/macOS build validation
   --skip-source-release   Do not create/push tag or private GitHub source release
@@ -50,6 +46,7 @@ shift_version() {
   shift || true
   while [[ $# -gt 0 ]]; do
     case "$1" in
+      --skip-thirdparty-update) SKIP_THIRDPARTY_UPDATE=1 ;;
       --skip-tests) SKIP_TESTS=1 ;;
       --skip-builds) SKIP_BUILDS=1 ;;
       --skip-source-release) SKIP_SOURCE_RELEASE=1 ;;
@@ -105,6 +102,13 @@ fi
 
 cd "$ROOT_DIR"
 mkdir -p "$ROOT_DIR/.release"
+
+if [[ "$SKIP_THIRDPARTY_UPDATE" != "1" && "${DJCONNECT_THIRDPARTY_PREFLIGHT_DONE:-0}" != "1" ]]; then
+  bash "$ROOT_DIR/Tools/release/update_thirdparty.sh"
+  export DJCONNECT_THIRDPARTY_PREFLIGHT_DONE=1
+elif [[ "$SKIP_THIRDPARTY_UPDATE" == "1" ]]; then
+  echo "Skipping third-party update preflight."
+fi
 
 echo "DJConnect app release $VERSION"
 run git diff --check

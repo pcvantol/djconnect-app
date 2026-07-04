@@ -4,6 +4,32 @@ All notable changes to DJConnect App are documented here.
 
 ## Unreleased
 
+## 3.2.16 - 2026-07-04
+
+### Added
+
+- Added Music DNA export/import actions to iOS and macOS Settings using native
+  Apple save/import sheets.
+- Added authenticated HTTP Music DNA export support for
+  `/api/djconnect/music_dna/export`, saving the exact server-built JSON envelope
+  instead of reconstructing exports from cached profile data.
+- Added Music DNA import preview and upload support for previously exported JSON
+  backups, with connected/pairing guards and clear success/error states.
+
+### Changed
+
+- Updated the Music DNA, Discover, Ask DJ, Track Insight, toast, hero, and
+  localization polish across iOS and macOS.
+- Documented release hygiene that app-facing translations must be reviewed in
+  all five supported languages before release.
+
+### Fixed
+
+- Fixed stale Music DNA opt-in prompts when Home Assistant is unavailable or the
+  music backend token has expired.
+- Fixed Music DNA export/auth failures to use the existing DJConnect pairing
+  recovery flow.
+
 ## 3.2.15 - 2026-07-04
 
 ### Added

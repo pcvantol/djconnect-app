@@ -104,6 +104,11 @@ public final class DJConnectClient: Sendable {
         return try await decodedResponse(for: request)
     }
 
+    public func exportAskDJHistoryData() async throws -> Data {
+        let request = try exportAskDJHistoryRequest()
+        return try await dataResponse(for: request)
+    }
+
     public func musicDNAProfile(mood: Int? = nil, musicDNAKey: String? = nil, language: String? = nil) async throws -> DJConnectMusicDNAProfileResponse {
         let request = try musicDNAProfileRequest(mood: mood, musicDNAKey: musicDNAKey, language: language)
         return try await decodedResponse(for: request)
@@ -117,6 +122,21 @@ public final class DJConnectClient: Sendable {
     public func clearMusicDNA(mood: Int? = nil, musicDNAKey: String? = nil, language: String? = nil) async throws -> DJConnectMusicDNAProfileResponse {
         let request = try clearMusicDNARequest(mood: mood, musicDNAKey: musicDNAKey, language: language)
         return try await decodedResponse(for: request)
+    }
+
+    public func importMusicDNA(_ profile: DJConnectMusicDNAProfileResponse, mood: Int? = nil, musicDNAKey: String? = nil, language: String? = nil) async throws -> DJConnectMusicDNAProfileResponse {
+        let request = try importMusicDNARequest(profile, mood: mood, musicDNAKey: musicDNAKey, language: language)
+        return try await decodedResponse(for: request)
+    }
+
+    public func exportMusicDNA(musicDNAKey: String? = nil, language: String? = nil) async throws -> DJConnectMusicDNAExportResponse {
+        let request = try exportMusicDNARequest(musicDNAKey: musicDNAKey, language: language)
+        return try await decodedResponse(for: request)
+    }
+
+    public func exportMusicDNAData(musicDNAKey: String? = nil, language: String? = nil) async throws -> Data {
+        let request = try exportMusicDNARequest(musicDNAKey: musicDNAKey, language: language)
+        return try await dataResponse(for: request)
     }
 
     public func musicDiscoveryFeed(musicDNAKey: String? = nil, language: String? = nil) async throws -> DJConnectMusicDiscoveryResponse {
@@ -289,6 +309,13 @@ public final class DJConnectClient: Sendable {
         )
     }
 
+    public func exportAskDJHistoryRequest() throws -> URLRequest {
+        try jsonRequest(
+            path: "/api/djconnect/ask_dj/history/export",
+            payload: DJConnectAskDJHistoryExportRequest(identity: identity)
+        )
+    }
+
     public func musicDNAProfileRequest(mood: Int? = nil, musicDNAKey: String? = nil, language: String? = nil) throws -> URLRequest {
         try musicDNARequest(
             path: "/api/djconnect/music_dna/profile",
@@ -314,6 +341,26 @@ public final class DJConnectClient: Sendable {
             path: "/api/djconnect/music_dna/clear",
             payload: DJConnectMusicDNAIdentityRequest(identity: identity, mood: mood, musicDNAKey: musicDNAKey, language: language),
             mood: mood,
+            musicDNAKey: musicDNAKey,
+            language: language
+        )
+    }
+
+    public func importMusicDNARequest(_ profile: DJConnectMusicDNAProfileResponse, mood: Int? = nil, musicDNAKey: String? = nil, language: String? = nil) throws -> URLRequest {
+        try musicDNARequest(
+            path: "/api/djconnect/music_dna/import",
+            payload: DJConnectMusicDNAImportRequest(identity: identity, profile: profile, mood: mood, musicDNAKey: musicDNAKey, language: language),
+            mood: mood,
+            musicDNAKey: musicDNAKey,
+            language: language
+        )
+    }
+
+    public func exportMusicDNARequest(musicDNAKey: String? = nil, language: String? = nil) throws -> URLRequest {
+        try musicDNARequest(
+            path: "/api/djconnect/music_dna/export",
+            payload: DJConnectMusicDNAExportRequest(identity: identity, musicDNAKey: musicDNAKey, language: language),
+            mood: nil,
             musicDNAKey: musicDNAKey,
             language: language
         )
@@ -556,6 +603,24 @@ public final class DJConnectClient: Sendable {
     }
 
     private func decodedResponse<T: Decodable>(for request: URLRequest) async throws -> T {
+        let (data, statusCode) = try await dataAndStatusCodeResponse(for: request)
+        do {
+            return try decoder.decode(T.self, from: data)
+        } catch {
+            throw DJConnectError.decodingFailed(
+                statusCode: statusCode,
+                endpoint: Self.requestSummary(request),
+                message: Self.decodingFailureMessage(error: error, body: data)
+            )
+        }
+    }
+
+    private func dataResponse(for request: URLRequest) async throws -> Data {
+        let (data, _) = try await dataAndStatusCodeResponse(for: request)
+        return data
+    }
+
+    private func dataAndStatusCodeResponse(for request: URLRequest) async throws -> (Data, Int) {
         let (data, response): (Data, URLResponse)
         do {
             (data, response) = try await session.data(for: request)
@@ -573,15 +638,7 @@ public final class DJConnectClient: Sendable {
             throw error
         }
 
-        do {
-            return try decoder.decode(T.self, from: data)
-        } catch {
-            throw DJConnectError.decodingFailed(
-                statusCode: httpResponse.statusCode,
-                endpoint: Self.requestSummary(request),
-                message: Self.decodingFailureMessage(error: error, body: data)
-            )
-        }
+        return (data, httpResponse.statusCode)
     }
 
     private func webSocketCommandIfSupported<T: Decodable & Sendable>(_ payload: DJConnectCommandPayload) async throws -> T? {

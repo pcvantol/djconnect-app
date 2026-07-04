@@ -96,6 +96,14 @@ client may remember local UI preferences such as the current mood slider value,
 but it must not be the source of truth for conversation history, music profile,
 or cross-device follow-up context.
 
+Music DNA export/import follows the same boundary. Apple clients may request a
+server-built export envelope over authenticated HTTP and save it through native
+Files/Finder UI, but the export body is exactly the Home Assistant response.
+The app does not synthesize Music DNA backup JSON from cached profile state and
+does not add OAuth credentials, DJConnect bearer tokens, raw prompts, raw audio,
+diagnostics, or local caches. Import is allowed only while paired and connected,
+with stale/auth failures routed through the regular pairing recovery path.
+
 Ask DJ is also the only Apple-client DJ request surface. Now Playing focuses on
 playback status and controls; it must not carry a separate `DJ verzoek` card.
 rbpi had no separate rich DJ request UI, and ESP32 remains a firmware/device

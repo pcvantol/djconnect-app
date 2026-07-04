@@ -973,6 +973,41 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     #expect(json?["device_name"] as? String == "DJConnect Mac")
 }
 
+@Test func exportAskDJHistoryRequestUsesHTTPAndNestedIdentityEnvelope() throws {
+    let identity = DJConnectIdentity(
+        deviceID: "djconnect-ios-8F3A2C91B45D",
+        deviceName: "DJConnect iPhone",
+        clientType: .ios,
+        firmware: "3.2.15",
+        appVersion: "3.2.15",
+        platform: .ios
+    )
+    let client = DJConnectClient(
+        baseURL: try #require(URL(string: "http://homeassistant.local:8123")),
+        identity: identity,
+        tokenStore: DJConnectInMemoryTokenStore(token: "secret-token")
+    )
+
+    let request = try client.exportAskDJHistoryRequest()
+    let body = try #require(request.httpBody)
+    let json = try JSONSerialization.jsonObject(with: body) as? [String: Any]
+    let exportIdentity = json?["identity"] as? [String: Any]
+    let payload = json?["payload"] as? [String: Any]
+    let payloadIdentity = payload?["identity"] as? [String: Any]
+
+    #expect(request.url?.path == "/api/djconnect/ask_dj/history/export")
+    #expect(request.httpMethod == "POST")
+    #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer secret-token")
+    #expect(request.value(forHTTPHeaderField: "X-DJConnect-Device-ID") == identity.deviceID)
+    #expect(exportIdentity?["device_id"] as? String == identity.deviceID)
+    #expect(exportIdentity?["device_token"] as? String == "secret-token")
+    #expect(payloadIdentity?["device_id"] as? String == identity.deviceID)
+    #expect(payloadIdentity?["client_type"] as? String == "ios")
+    #expect(payloadIdentity?["device_name"] as? String == identity.deviceName)
+    #expect(payload?["app_version"] as? String == "3.2.15")
+    #expect(payload?["music_dna_key"] == nil)
+}
+
 @Test func musicDNARequestsUseBearerIdentityAndCanonicalClientType() throws {
     let identity = DJConnectIdentity(
         deviceID: "djconnect-macos-8F3A2C91B45D",
@@ -994,8 +1029,15 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     let moodProfile = try client.musicDNAProfileRequest(mood: 70, musicDNAKey: "user:abc123", language: "nl")
     let moodSettings = try client.musicDNASettingsRequest(enabled: false, mood: 85, musicDNAKey: "user:abc123", language: "nl")
     let moodClear = try client.clearMusicDNARequest(mood: -10, musicDNAKey: "user:abc123", language: "nl")
+    let export = try client.exportMusicDNARequest(musicDNAKey: "user:abc123", language: "nl")
+    let importedProfile = DJConnectMusicDNAProfileResponse(
+        enabled: true,
+        generation: 4,
+        profile: DJConnectMusicDNAProfile(summary: "Imported taste", trackCount: 9)
+    )
+    let moodImport = try client.importMusicDNARequest(importedProfile, mood: 35, musicDNAKey: "user:abc123", language: "nl")
 
-    for request in [profile, settings, clear] {
+    for request in [profile, settings, clear, moodImport] {
         let body = try #require(request.httpBody)
         let json = try JSONSerialization.jsonObject(with: body) as? [String: Any]
         #expect(request.httpMethod == "POST")
@@ -1019,6 +1061,8 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     #expect(profile.url?.path == "/api/djconnect/music_dna/profile")
     #expect(settings.url?.path == "/api/djconnect/music_dna/settings")
     #expect(clear.url?.path == "/api/djconnect/music_dna/clear")
+    #expect(moodImport.url?.path == "/api/djconnect/music_dna/import")
+    #expect(export.url?.path == "/api/djconnect/music_dna/export")
 
     let settingsBody = try #require(settings.httpBody)
     let settingsJSON = try JSONSerialization.jsonObject(with: settingsBody) as? [String: Any]
@@ -1044,6 +1088,91 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     let moodClearJSON = try JSONSerialization.jsonObject(with: moodClearBody) as? [String: Any]
     #expect(moodClearJSON?["mood"] as? Int == 0)
     #expect(moodClearJSON?["music_dna_key"] as? String == "user:abc123")
+
+    let moodImportBody = try #require(moodImport.httpBody)
+    let moodImportJSON = try JSONSerialization.jsonObject(with: moodImportBody) as? [String: Any]
+    let importProfile = moodImportJSON?["profile"] as? [String: Any]
+    let importProfileBody = importProfile?["profile"] as? [String: Any]
+    #expect(moodImportJSON?["mood"] as? Int == 35)
+    #expect(moodImportJSON?["music_dna_key"] as? String == "user:abc123")
+    #expect(moodImport.value(forHTTPHeaderField: "X-DJConnect-Mood") == "35")
+    #expect(importProfile?["enabled"] as? Bool == true)
+    #expect(importProfile?["generation"] as? Int == 4)
+    #expect(importProfileBody?["summary"] as? String == "Imported taste")
+    #expect(importProfileBody?["track_count"] as? Int == 9)
+
+    let exportBody = try #require(export.httpBody)
+    let exportJSON = try JSONSerialization.jsonObject(with: exportBody) as? [String: Any]
+    let exportIdentity = exportJSON?["identity"] as? [String: Any]
+    let exportPayload = exportJSON?["payload"] as? [String: Any]
+    #expect(export.httpMethod == "POST")
+    #expect(export.value(forHTTPHeaderField: "Authorization") == "Bearer secret-token")
+    #expect(export.value(forHTTPHeaderField: "X-DJConnect-Music-DNA-Key") == "user:abc123")
+    #expect(export.value(forHTTPHeaderField: "X-DJConnect-Language") == "nl")
+    #expect(exportJSON?["device_id"] as? String == identity.deviceID)
+    #expect(exportJSON?["client_type"] as? String == "macos")
+    #expect(exportJSON?["device_name"] as? String == identity.deviceName)
+    #expect(exportJSON?["music_dna_key"] as? String == "user:abc123")
+    #expect(exportJSON?["language"] as? String == "nl")
+    #expect(exportJSON?["app_version"] as? String == "3.2.3")
+    #expect(exportIdentity?["device_id"] as? String == identity.deviceID)
+    #expect(exportPayload?["music_dna_key"] as? String == "user:abc123")
+    #expect(exportPayload?["app_version"] as? String == "3.2.3")
+}
+
+@Test func musicDNAExportDownloadsExactBackendEnvelopeOverHTTP() async throws {
+    let host = "musicdna-export.local"
+    let recorder = RequestRecorder()
+    let exportedBody = Data("""
+    {
+      "success": true,
+      "format": "djconnect.music_dna.export",
+      "schema_version": 1,
+      "exported_at": "2026-07-04T20:21:00.123Z",
+      "exported_by_client_type": "ios",
+      "app_version": "3.2.3",
+      "profile": {
+        "success": true,
+        "music_dna_key": "user:abc123",
+        "enabled": true,
+        "generation": 12,
+        "updated_at": "2026-07-04T20:20:00Z",
+        "profile": {"summary": "Server-built export", "track_count": 42},
+        "sources": [{"source": "djconnect_music_dna", "kind": "source", "title": "Music DNA"}]
+      }
+    }
+    """.utf8)
+    let session = mockSession(host: host) { request in
+        recorder.append(request)
+        return (try httpResponse(for: request, statusCode: 200), exportedBody)
+    }
+    let identity = testIOSIdentity()
+    let client = DJConnectClient(
+        baseURL: try #require(URL(string: "http://\(host):8123")),
+        identity: identity,
+        tokenStore: DJConnectInMemoryTokenStore(token: "secret-token"),
+        session: session
+    )
+
+    let data = try await client.exportMusicDNAData(musicDNAKey: "user:abc123", language: "nl")
+    let decoded = try await client.exportMusicDNA(musicDNAKey: "user:abc123", language: "nl")
+    let requests = recorder.requests
+
+    #expect(data == exportedBody)
+    #expect(decoded.format == "djconnect.music_dna.export")
+    #expect(decoded.schemaVersion == 1)
+    #expect(decoded.profile.musicDNAKey == "user:abc123")
+    #expect(decoded.profile.profile.summary == "Server-built export")
+    #expect(requests.count == 2)
+    for request in requests {
+        #expect(request.url?.path == "/api/djconnect/music_dna/export")
+        #expect(request.httpMethod == "POST")
+        #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer secret-token")
+        #expect(request.value(forHTTPHeaderField: "X-DJConnect-Device-ID") == identity.deviceID)
+        #expect(request.value(forHTTPHeaderField: "X-DJConnect-Client-Type") == "ios")
+        #expect(request.value(forHTTPHeaderField: "X-DJConnect-Music-DNA-Key") == "user:abc123")
+        #expect(request.value(forHTTPHeaderField: "X-DJConnect-Language") == "nl")
+    }
 }
 
 @Test func musicDiscoveryRequestsUseDedicatedEndpointsAndIdentity() throws {
@@ -1759,7 +1888,7 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
 }
 
 @MainActor
-@Test func musicDNAOptInPromptShowsOnceAfterPairing() throws {
+@Test func musicDNAOptInPromptWaitsForExplicitDisabledStatus() throws {
     let defaults = try testDefaults()
     let model = DJConnectAppModel(
         defaults: defaults,
@@ -1772,7 +1901,7 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
 
     model.pairingStatus = .paired
     model.presentMusicDNAOptInPromptIfNeeded()
-    #expect(model.isShowingMusicDNAOptInPrompt == true)
+    #expect(model.isShowingMusicDNAOptInPrompt == false)
 
     model.dismissMusicDNAOptInPrompt()
     #expect(model.isShowingMusicDNAOptInPrompt == false)
@@ -1898,6 +2027,38 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     await model.refreshMusicDNAProfile()
 
     #expect(model.musicDNAProfileResponse == nil)
+}
+
+@MainActor
+@Test func musicDNAExportAuthFailureUsesPairingRecoveryAndClearsLocalDisplay() async throws {
+    let defaults = try testDefaults()
+    let recorder = RequestRecorder()
+    let session = mockSession(host: "musicdna-export-auth.local") { request in
+        recorder.append(request)
+        if request.url?.path == "/api/djconnect/music_dna/profile" {
+            return (try httpResponse(for: request, statusCode: 200), Data("""
+            {"success":true,"enabled":true,"profile":{"summary":"Cached server display"}}
+            """.utf8))
+        }
+        return (try httpResponse(for: request, statusCode: 403), Data(#"{"success":false,"error":"auth_stale","message":"Pair again"}"#.utf8))
+    }
+    let model = makePairedMusicDNAModel(defaults: defaults, host: "musicdna-export-auth.local", session: session)
+    model.isConnected = true
+
+    await model.refreshMusicDNAProfile()
+    #expect(model.musicDNAProfileResponse?.profile.summary == "Cached server display")
+
+    await #expect(throws: DJConnectError.self) {
+        _ = try await model.exportMusicDNAProfileData()
+    }
+
+    #expect(recorder.requests.map { $0.url?.path } == [
+        "/api/djconnect/music_dna/profile",
+        "/api/djconnect/music_dna/export"
+    ])
+    #expect(model.musicDNAProfileResponse == nil)
+    #expect(model.pairingStatus == .stale)
+    #expect(model.pairingMessage?.isEmpty == false)
 }
 
 @Test func askDJIdleSuggestionRequestUsesDedicatedEndpoint() throws {
@@ -6792,7 +6953,7 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
         audioURL: nil,
         audioType: nil
     ))
-    #expect(model.djResponseText == "Ververs de muziekdienst-koppeling in Home Assistant")
+    #expect(model.djResponseText == "Controleer de muziekdienst-autorisatie in Home Assistant")
 
     model.apply(commandResponse: DJConnectCommandResponse(
         success: true,

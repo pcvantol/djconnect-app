@@ -121,6 +121,20 @@ private struct DJConnectReleaseNotesFetchResult {
     let statusCode: Int
 }
 
+public enum DJConnectMusicDNATransferError: Error, Equatable, Sendable {
+    case noProfileAvailable
+    case invalidDocument
+    case homeAssistantUnavailable
+}
+
+public struct DJConnectMusicDNAImportPreview: Identifiable, Equatable, Sendable {
+    public var id = UUID()
+    public var profile: DJConnectMusicDNAProfileResponse
+    public var exportedAt: Date?
+    public var exportedByClientType: String?
+    public var appVersion: String?
+}
+
 #if os(iOS) && canImport(WatchConnectivity)
 private struct DJConnectWatchProxyRegistration: Sendable {
     var identity: DJConnectIdentity
@@ -1773,6 +1787,34 @@ public final class DJConnectAppModel: ObservableObject {
         formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
         return formatter
     }()
+
+    private static let musicDNAFilenameDateFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = .current
+        formatter.dateFormat = "yyyyMMdd-HHmmss"
+        return formatter
+    }()
+
+    private static func musicDNATransferDecoder() -> JSONDecoder {
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .custom { decoder in
+            let container = try decoder.singleValueContainer()
+            let value = try container.decode(String.self)
+            let fractional = ISO8601DateFormatter()
+            fractional.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+            if let date = fractional.date(from: value) {
+                return date
+            }
+            let fallback = ISO8601DateFormatter()
+            fallback.formatOptions = [.withInternetDateTime]
+            if let date = fallback.date(from: value) {
+                return date
+            }
+            throw DecodingError.dataCorruptedError(in: container, debugDescription: "Invalid ISO8601 date")
+        }
+        return decoder
+    }
 
     deinit {
         networkMonitor.cancel()
@@ -3767,7 +3809,10 @@ public final class DJConnectAppModel: ObservableObject {
         if let error, !Self.shouldShowConnectionNotice(for: error) {
             return
         }
-        userNotice = DJConnectUserNotice(text: localized(key: "appModel.no.connection.to.home.assistant"))
+        let text = error.map { Self.isMusicBackendUnavailableError($0) } == true
+            ? localized(key: "appModel.music.backend.unavailable")
+            : localized(key: "appModel.no.connection.to.home.assistant")
+        userNotice = DJConnectUserNotice(text: text)
     }
 
     private func markHomeAssistantReachable(backendAvailableAfterResponse: Bool) {
@@ -4543,7 +4588,7 @@ public final class DJConnectAppModel: ObservableObject {
         if isDemoMode {
             applyDemoMusicDNAProfile()
             if showToast {
-                showMusicDNAToast(localized(key: "appModel.music.dna.updated"), systemImage: "checkmark.circle.fill")
+                showMusicDNAToast(localized(key: "appModel.music.dna.updated"), systemImage: "heart")
             }
             return
         }
@@ -4562,7 +4607,7 @@ public final class DJConnectAppModel: ObservableObject {
             }
             apply(musicDNAProfile: response)
             if showToast {
-                showMusicDNAToast(localized(key: "appModel.music.dna.updated"), systemImage: "checkmark.circle.fill")
+                showMusicDNAToast(localized(key: "appModel.music.dna.updated"), systemImage: "heart")
             }
         } catch let error as DJConnectError {
             handleMusicDNAError(error)
@@ -4584,6 +4629,12 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     private func messageForMusicDNARefreshFailure(_ error: DJConnectError) -> String {
+        if Self.isMusicBackendUnavailableError(error) {
+            return localized(key: "appModel.music.backend.unavailable")
+        }
+        if let message = userFacingDJResponseText(Self.describe(error)) {
+            return message
+        }
         if Self.shouldShowConnectionNotice(for: error) {
             return localized(key: "appModel.no.connection.to.home.assistant")
         }
@@ -4604,6 +4655,9 @@ public final class DJConnectAppModel: ObservableObject {
         }
         if musicDNAProfileResponse?.enabled == true {
             defaults.set(true, forKey: promptSeenKey)
+            return
+        }
+        guard musicDNAProfileResponse?.enabled == false else {
             return
         }
         isShowingMusicDNAOptInPrompt = true
@@ -4682,6 +4736,79 @@ public final class DJConnectAppModel: ObservableObject {
             log(.warning, "Music DNA clear failed: \(error.localizedDescription)")
         }
         isUpdatingMusicDNA = false
+    }
+
+    public func musicDNAExportFilename(now: Date = Date()) -> String {
+        let timestamp = Self.musicDNAFilenameDateFormatter.string(from: now)
+        return "djconnect-music-dna-\(identity.clientType.rawValue)-\(timestamp).json"
+    }
+
+    public func askDJHistoryExportFilename(now: Date = Date()) -> String {
+        let timestamp = Self.musicDNAFilenameDateFormatter.string(from: now)
+        return "djconnect-ask-dj-history-\(identity.clientType.rawValue)-\(timestamp).json"
+    }
+
+    public func exportAskDJHistoryData() async throws -> Data {
+        guard pairingStatus == .paired, isConnected, !isDemoMode else {
+            throw DJConnectMusicDNATransferError.homeAssistantUnavailable
+        }
+        do {
+            return try await withHomeAssistantClient { client in
+                try await client.exportAskDJHistoryData()
+            }
+        } catch let error as DJConnectError {
+            handleAskDJHistoryExportError(error)
+            throw error
+        }
+    }
+
+    public func exportMusicDNAProfileData() async throws -> Data {
+        guard pairingStatus == .paired, isConnected, !isDemoMode else {
+            throw DJConnectMusicDNATransferError.homeAssistantUnavailable
+        }
+        do {
+            return try await withHomeAssistantClient { client in
+                try await client.exportMusicDNAData(musicDNAKey: askDJMusicDNAKey, language: language)
+            }
+        } catch let error as DJConnectError {
+            handleMusicDNAError(error)
+            throw error
+        }
+    }
+
+    public func previewMusicDNAImport(data: Data) throws -> DJConnectMusicDNAImportPreview {
+        let decoder = Self.musicDNATransferDecoder()
+        if let envelope = try? decoder.decode(DJConnectMusicDNAExportResponse.self, from: data),
+           envelope.format == "djconnect.music_dna.export" {
+            return DJConnectMusicDNAImportPreview(
+                profile: envelope.profile,
+                exportedAt: envelope.exportedAt,
+                exportedByClientType: envelope.exportedByClientType,
+                appVersion: envelope.appVersion
+            )
+        }
+        if let response = try? decoder.decode(DJConnectMusicDNAProfileResponse.self, from: data) {
+            return DJConnectMusicDNAImportPreview(
+                profile: response,
+                exportedAt: response.updatedAt,
+                exportedByClientType: nil,
+                appVersion: nil
+            )
+        }
+        throw DJConnectMusicDNATransferError.invalidDocument
+    }
+
+    public func uploadMusicDNAImport(_ preview: DJConnectMusicDNAImportPreview) async throws {
+        guard pairingStatus == .paired, isConnected, !isDemoMode else {
+            throw DJConnectMusicDNATransferError.homeAssistantUnavailable
+        }
+        isUpdatingMusicDNA = true
+        musicDNAErrorMessage = nil
+        defer { isUpdatingMusicDNA = false }
+        let response = try await withHomeAssistantClient { client in
+            try await client.importMusicDNA(preview.profile, mood: askDJMoodInt, musicDNAKey: askDJMusicDNAKey, language: language)
+        }
+        apply(musicDNAProfile: response)
     }
 
     public func loadMusicDiscovery(force: Bool = false, showToast: Bool = false) async {
@@ -4842,12 +4969,18 @@ public final class DJConnectAppModel: ObservableObject {
                     error: response.error,
                     message: response.message
                 )
+                if pendingEnabled, musicDiscoveryResponse?.isMusicDNADisabled == true {
+                    musicDiscoveryResponse = nil
+                }
                 musicDNAErrorMessage = nil
                 log(.debug, "Music DNA profile refresh kept pending enabled=\(pendingEnabled) over stale enabled=\(response.enabled)")
                 return
             }
         }
         musicDNAProfileResponse = response
+        if response.enabled, musicDiscoveryResponse?.isMusicDNADisabled == true {
+            musicDiscoveryResponse = nil
+        }
         musicDNAErrorMessage = nil
         log(.debug, "Music DNA profile refreshed enabled=\(response.enabled) generation=\(response.generation ?? 0)")
     }
@@ -5159,6 +5292,16 @@ public final class DJConnectAppModel: ObservableObject {
             apply(error: error)
         default:
             musicDNAErrorMessage = userFacingDJResponseText(Self.describe(error)) ?? Self.describe(error)
+        }
+    }
+
+    private func handleAskDJHistoryExportError(_ error: DJConnectError) {
+        log(.warning, "Ask DJ history export failed: \(Self.describe(error))")
+        switch error {
+        case .authStale, .notConfigured, .missingToken, .versionMismatch:
+            apply(error: error)
+        default:
+            break
         }
     }
 
@@ -5921,6 +6064,10 @@ public final class DJConnectAppModel: ObservableObject {
             return localized(key: "appModel.no.connection.to.home.assistant")
         }
         let normalized = text.lowercased()
+        if Self.isSpotifyAuthorizationErrorText(normalized) {
+            log(.warning, "Spotify authorization needs refresh for Track Insight: \(text)")
+            return localized(key: "appModel.refresh.the.spotify.connection.in.home.assistant")
+        }
         if normalized.contains("no_track_playing")
             || normalized.contains("no currently playing track")
             || normalized.contains("no current track")
@@ -6581,7 +6728,13 @@ public final class DJConnectAppModel: ObservableObject {
 
     private func showAskDJToast(for error: DJConnectError) {
         switch error {
-        case .backendUnavailable, .server, .decodingFailed, .invalidResponse:
+        case let .backendUnavailable(message):
+            showAskDJToast(userFacingDJResponseText(message) ?? localized(key: "appModel.home.assistant.did.not.respond"))
+        case let .server(_, message):
+            showAskDJToast(userFacingDJResponseText(message) ?? localized(key: "appModel.home.assistant.did.not.respond"))
+        case let .decodingFailed(_, _, message):
+            showAskDJToast(userFacingDJResponseText(message) ?? localized(key: "appModel.home.assistant.did.not.respond"))
+        case .invalidResponse:
             showAskDJToast(localized(key: "appModel.home.assistant.did.not.respond"))
         case .network, .routeMissing, .notConfigured, .invalidConfiguration, .missingToken, .pairingFailed, .clientTypeMismatch:
             showAskDJToast(localized(key: "appModel.ask.dj.is.unreachable"))
@@ -6596,7 +6749,13 @@ public final class DJConnectAppModel: ObservableObject {
 
     private func askDJErrorText(for error: DJConnectError) -> String {
         switch error {
-        case .backendUnavailable, .server, .decodingFailed, .invalidResponse:
+        case let .backendUnavailable(message):
+            userFacingDJResponseText(message) ?? localized(key: "appModel.home.assistant.did.not.respond")
+        case let .server(_, message):
+            userFacingDJResponseText(message) ?? localized(key: "appModel.home.assistant.did.not.respond")
+        case let .decodingFailed(_, _, message):
+            userFacingDJResponseText(message) ?? localized(key: "appModel.home.assistant.did.not.respond")
+        case .invalidResponse:
             localized(key: "appModel.home.assistant.did.not.respond")
         case .network,
              .routeMissing,
@@ -6726,10 +6885,7 @@ public final class DJConnectAppModel: ObservableObject {
             log(.info, "STT response was not recognized")
             return localized(key: "appModel.not.recognized")
         }
-        if normalized.contains("spotify authorization")
-            || normalized.contains("reauthorize djconnect")
-            || normalized.contains("start_spotify_oauth")
-            || normalized.contains("spotify oauth") {
+        if Self.isSpotifyAuthorizationErrorText(normalized) {
             log(.warning, "Spotify authorization needs refresh: \(text)")
             return localized(key: "appModel.refresh.the.spotify.connection.in.home.assistant")
         }
@@ -6739,6 +6895,14 @@ public final class DJConnectAppModel: ObservableObject {
             return localized(key: "appModel.no.active.playback.device.found")
         }
         return text
+    }
+
+    private static func isSpotifyAuthorizationErrorText(_ normalizedText: String) -> Bool {
+        normalizedText.contains("spotify authorization")
+            || normalizedText.contains("reauthorize djconnect")
+            || normalizedText.contains("start_spotify_oauth")
+            || normalizedText.contains("spotify oauth")
+            || (normalizedText.contains("expired or was revoked") && normalizedText.contains("spotify"))
     }
 
     private static func looksLikeHTMLDocument(_ normalizedText: String) -> Bool {
@@ -6874,10 +7038,39 @@ public final class DJConnectAppModel: ObservableObject {
 
     private func isRecoverableVoiceErrorText(_ text: String) -> Bool {
         let normalized = text.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        return normalized == "refresh the spotify connection in home assistant"
+        return normalized.contains("spotify authorization has expired")
+            || normalized.contains("spotify-autorisatie is verlopen")
+            || normalized == "check the music service authorization in home assistant"
+            || normalized == "controleer de muziekdienst-autorisatie in home assistant"
+            || normalized == "refresh the spotify connection in home assistant"
             || normalized == "ververs spotify koppeling in home assistant"
             || normalized == "refresh the music service connection in home assistant"
             || normalized == "ververs de muziekdienst-koppeling in home assistant"
+            || normalized == "playback backend unavailable"
+            || normalized == "playback backend niet beschikbaar"
+    }
+
+    private static func isMusicBackendUnavailableError(_ error: DJConnectError) -> Bool {
+        switch error {
+        case .backendUnavailable:
+            return true
+        case let .server(_, message), let .decodingFailed(_, _, message):
+            return isMusicBackendUnavailableText(message)
+        default:
+            return isMusicBackendUnavailableText(describe(error))
+        }
+    }
+
+    private static func isMusicBackendUnavailableText(_ text: String?) -> Bool {
+        guard let text else {
+            return false
+        }
+        let normalized = text.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        return normalized.contains("backend_unavailable")
+            || normalized.contains("playback_backend_unavailable")
+            || normalized.contains("music backend")
+            || normalized.contains("muziekbackend")
+            || normalized == "backend unavailable"
             || normalized == "playback backend unavailable"
             || normalized == "playback backend niet beschikbaar"
     }

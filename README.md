@@ -172,6 +172,14 @@ opt-out, clients may temporarily keep the just-selected enabled state visible
 while a stale profile refresh catches up; Home Assistant remains authoritative
 once it returns the matching state.
 
+iOS and macOS can export and import Music DNA backups from Settings. Export is
+an authenticated HTTP `POST /api/djconnect/music_dna/export` call and saves the
+exact server-built JSON envelope through the native share/save panel; clients do
+not reconstruct exports from cached profile data and do not add tokens,
+bootstrap proofs, raw prompts, raw audio, diagnostics, or local cache fields.
+Import previews a selected JSON backup locally, then uploads it to Home
+Assistant only while paired and connected.
+
 Ontdek / Discover is the iOS/macOS Music Discovery surface. It appears directly
 after Track Insight in primary navigation and is backed only by Home Assistant
 Music DNA data. The client loads `GET /api/djconnect/music_discovery`, refreshes

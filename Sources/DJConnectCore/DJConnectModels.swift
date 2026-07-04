@@ -3113,6 +3113,196 @@ public struct DJConnectMusicDNASettingsRequest: Codable, Equatable, Sendable {
     }
 }
 
+public struct DJConnectMusicDNAImportRequest: Codable, Equatable, Sendable {
+    public var deviceID: String
+    public var clientID: String
+    public var clientType: DJConnectClientType
+    public var deviceName: String
+    public var musicDNAKey: String?
+    public var language: String?
+    public var locale: String?
+    public var mood: Int?
+    public var profile: DJConnectMusicDNAProfileResponse
+
+    enum CodingKeys: String, CodingKey {
+        case deviceID = "device_id"
+        case clientID = "client_id"
+        case clientType = "client_type"
+        case deviceName = "device_name"
+        case musicDNAKey = "music_dna_key"
+        case language
+        case locale
+        case mood
+        case profile
+    }
+
+    public init(
+        identity: DJConnectIdentity,
+        profile: DJConnectMusicDNAProfileResponse,
+        mood: Int? = nil,
+        musicDNAKey: String? = nil,
+        language: String? = nil,
+        locale: String? = nil
+    ) {
+        self.deviceID = identity.deviceID
+        self.clientID = identity.deviceID
+        self.clientType = identity.clientType
+        self.deviceName = identity.deviceName
+        self.musicDNAKey = musicDNAKey?.nilIfBlank
+        self.language = language?.nilIfBlank
+        self.locale = locale?.nilIfBlank ?? language?.nilIfBlank
+        self.mood = mood.map { max(0, min(100, $0)) }
+        self.profile = profile
+    }
+}
+
+public struct DJConnectAskDJHistoryExportRequest: Codable, Equatable, Sendable {
+    public struct Identity: Codable, Equatable, Sendable {
+        public var deviceID: String
+        public var clientType: DJConnectClientType
+        public var deviceName: String
+
+        enum CodingKeys: String, CodingKey {
+            case deviceID = "device_id"
+            case clientType = "client_type"
+            case deviceName = "device_name"
+        }
+
+        public init(identity: DJConnectIdentity) {
+            self.deviceID = identity.deviceID
+            self.clientType = identity.clientType
+            self.deviceName = identity.deviceName
+        }
+    }
+
+    public var identity: Identity
+    public var appVersion: String?
+
+    enum CodingKeys: String, CodingKey {
+        case identity
+        case appVersion = "app_version"
+    }
+
+    public init(identity: DJConnectIdentity) {
+        self.identity = Identity(identity: identity)
+        self.appVersion = identity.appVersion?.nilIfBlank
+    }
+}
+
+public struct DJConnectMusicDNAExportRequest: Codable, Equatable, Sendable {
+    public var deviceID: String
+    public var clientID: String
+    public var clientType: DJConnectClientType
+    public var deviceName: String
+    public var musicDNAKey: String?
+    public var language: String?
+    public var locale: String?
+    public var appVersion: String?
+
+    enum CodingKeys: String, CodingKey {
+        case deviceID = "device_id"
+        case clientID = "client_id"
+        case clientType = "client_type"
+        case deviceName = "device_name"
+        case musicDNAKey = "music_dna_key"
+        case language
+        case locale
+        case appVersion = "app_version"
+    }
+
+    public init(
+        identity: DJConnectIdentity,
+        musicDNAKey: String? = nil,
+        language: String? = nil,
+        locale: String? = nil
+    ) {
+        self.deviceID = identity.deviceID
+        self.clientID = identity.deviceID
+        self.clientType = identity.clientType
+        self.deviceName = identity.deviceName
+        self.musicDNAKey = musicDNAKey?.nilIfBlank
+        self.language = language?.nilIfBlank
+        self.locale = locale?.nilIfBlank ?? language?.nilIfBlank
+        self.appVersion = identity.appVersion?.nilIfBlank
+    }
+}
+
+public struct DJConnectMusicDNAExportResponse: Codable, Equatable, Sendable {
+    public var success: Bool?
+    public var format: String
+    public var schemaVersion: Int
+    public var exportedAt: Date
+    public var exportedByClientType: String
+    public var appVersion: String?
+    public var profile: DJConnectMusicDNAProfileResponse
+
+    enum CodingKeys: String, CodingKey {
+        case success
+        case format
+        case schemaVersion = "schema_version"
+        case exportedAt = "exported_at"
+        case exportedByClientType = "exported_by_client_type"
+        case appVersion = "app_version"
+        case profile
+    }
+
+    public init(
+        success: Bool? = nil,
+        format: String,
+        schemaVersion: Int,
+        exportedAt: Date,
+        exportedByClientType: String,
+        appVersion: String? = nil,
+        profile: DJConnectMusicDNAProfileResponse
+    ) {
+        self.success = success
+        self.format = format
+        self.schemaVersion = schemaVersion
+        self.exportedAt = exportedAt
+        self.exportedByClientType = exportedByClientType
+        self.appVersion = appVersion
+        self.profile = profile
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        let exportedAtValue = try container.decode(String.self, forKey: .exportedAt)
+        let fractional = ISO8601DateFormatter()
+        fractional.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        let fallback = ISO8601DateFormatter()
+        fallback.formatOptions = [.withInternetDateTime]
+        guard let exportedAt = fractional.date(from: exportedAtValue) ?? fallback.date(from: exportedAtValue) else {
+            throw DecodingError.dataCorruptedError(
+                forKey: .exportedAt,
+                in: container,
+                debugDescription: "Invalid ISO8601 exported_at date"
+            )
+        }
+        self.init(
+            success: try container.decodeIfPresent(Bool.self, forKey: .success),
+            format: try container.decode(String.self, forKey: .format),
+            schemaVersion: try container.decode(Int.self, forKey: .schemaVersion),
+            exportedAt: exportedAt,
+            exportedByClientType: try container.decode(String.self, forKey: .exportedByClientType),
+            appVersion: try container.decodeIfPresent(String.self, forKey: .appVersion),
+            profile: try container.decode(DJConnectMusicDNAProfileResponse.self, forKey: .profile)
+        )
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encodeIfPresent(success, forKey: .success)
+        try container.encode(format, forKey: .format)
+        try container.encode(schemaVersion, forKey: .schemaVersion)
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        try container.encode(formatter.string(from: exportedAt), forKey: .exportedAt)
+        try container.encode(exportedByClientType, forKey: .exportedByClientType)
+        try container.encodeIfPresent(appVersion, forKey: .appVersion)
+        try container.encode(profile, forKey: .profile)
+    }
+}
+
 public enum DJConnectMusicDiscoveryItemKind: String, Codable, Equatable, Sendable {
     case track
     case album

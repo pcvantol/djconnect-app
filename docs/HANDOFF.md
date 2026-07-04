@@ -204,6 +204,16 @@ the just-selected enabled state visible briefly while a stale profile refresh
 catches up; Home Assistant remains authoritative once it returns the matching
 state or the grace window expires.
 
+iOS and macOS Settings expose Music DNA export/import. Export must use HTTP
+`POST /api/djconnect/music_dna/export`, never the Home Assistant WebSocket fast
+path, and save/share the exact backend JSON envelope only after the user chooses
+a native save/share destination. Clients must not build the export locally from
+`/music_dna/profile` and must not append tokens, bootstrap proofs, raw prompts,
+raw audio, diagnostics, Home Assistant URLs, or cache fields. Import previews an
+export envelope locally and uploads only while paired and connected; rejected,
+stale, `401`/`403`, or `not_configured` responses use the same pairing recovery
+flow as other DJConnect endpoints.
+
 Ask DJ history is backend-synchronized and locally cached. Clients must merge
 server history into the cache instead of replacing it with a bounded response
 window. Backend `clear_revision` clears the local chat; backend

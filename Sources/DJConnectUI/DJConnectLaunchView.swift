@@ -338,7 +338,10 @@ private struct DJConnectLaunchFeatureIcons: View {
                 icon("bubble.left.and.bubble.right")
                 icon("waveform.path.ecg")
             }
-            icon("point.3.connected.trianglepath.dotted")
+            HStack(spacing: 16) {
+                icon("wand.and.stars")
+                icon("point.3.connected.trianglepath.dotted")
+            }
         }
     }
 

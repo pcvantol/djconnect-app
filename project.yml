@@ -11,7 +11,7 @@ settings:
   base:
     SWIFT_VERSION: "6.0"
     CURRENT_PROJECT_VERSION: "1"
-    MARKETING_VERSION: "3.2.15"
+    MARKETING_VERSION: "3.2.16"
     DEVELOPMENT_TEAM: ""
     CODE_SIGN_STYLE: Automatic
 packages: {}
@@ -119,6 +119,10 @@ targets:
             UIApplicationShortcutItemSubtitle: Music DNA recommendations
             UIApplicationShortcutItemTitle: Discover
             UIApplicationShortcutItemType: dev.djconnect.action.discovery
+          - UIApplicationShortcutItemIconSymbolName: music.note.list
+            UIApplicationShortcutItemSubtitle: Upcoming tracks
+            UIApplicationShortcutItemTitle: Queue
+            UIApplicationShortcutItemType: dev.djconnect.action.queue
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
           - UIInterfaceOrientationLandscapeLeft

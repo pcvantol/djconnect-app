@@ -57,8 +57,6 @@
 		<dict>
 			<key>UIApplicationShortcutItemIconSymbolName</key>
 			<string>music.note</string>
-			<key>UIApplicationShortcutItemSubtitle</key>
-			<string>Control playback</string>
 			<key>UIApplicationShortcutItemTitle</key>
 			<string>Now Playing</string>
 			<key>UIApplicationShortcutItemType</key>
@@ -67,8 +65,6 @@
 		<dict>
 			<key>UIApplicationShortcutItemIconSymbolName</key>
 			<string>bubble.left.and.bubble.right</string>
-			<key>UIApplicationShortcutItemSubtitle</key>
-			<string>Ask for music</string>
 			<key>UIApplicationShortcutItemTitle</key>
 			<string>Ask DJ</string>
 			<key>UIApplicationShortcutItemType</key>
@@ -98,9 +94,9 @@
 			<key>UIApplicationShortcutItemIconSymbolName</key>
 			<string>music.note.list</string>
 			<key>UIApplicationShortcutItemSubtitle</key>
-			<string>Bekijk komende tracks</string>
+			<string>Upcoming tracks</string>
 			<key>UIApplicationShortcutItemTitle</key>
-			<string>Wachtrij</string>
+			<string>Queue</string>
 			<key>UIApplicationShortcutItemType</key>
 			<string>dev.djconnect.action.queue</string>
 		</dict>

@@ -1442,6 +1442,8 @@ gaf geen antwoord`.
 POST /api/djconnect/music_dna/profile
 POST /api/djconnect/music_dna/settings
 POST /api/djconnect/music_dna/clear
+POST /api/djconnect/music_dna/export
+POST /api/djconnect/music_dna/import
 ```
 
 Music DNA is server-side in Home Assistant and explicitly opt-in. Apple clients
@@ -1513,6 +1515,69 @@ Clients call `/music_dna/clear` after user confirmation and then refresh
 setting. If `enabled:true` remains after clear, the backend starts again from an
 empty profile and clients show the enabled learning state. Clients should expose
 this clear action only when Music DNA is currently enabled.
+
+Export payload:
+
+```json
+{
+  "identity": {
+    "device_id": "djconnect-ios-8F3A2C91B45D",
+    "client_type": "ios",
+    "device_name": "DJConnect iPhone"
+  },
+  "device_id": "djconnect-ios-8F3A2C91B45D",
+  "client_id": "djconnect-ios-8F3A2C91B45D",
+  "client_type": "ios",
+  "device_name": "DJConnect iPhone",
+  "music_dna_key": "djconnect_ios_djconnect-ios-8F3A2C91B45D",
+  "language": "nl",
+  "locale": "nl",
+  "app_version": "3.2.3"
+}
+```
+
+iOS and macOS export Music DNA with HTTP `POST
+/api/djconnect/music_dna/export`; clients must not use the Home Assistant
+WebSocket fast path for export. The backend is the source of truth and returns a
+complete export envelope. Apple clients save/share the exact JSON response body
+only after the user chooses a destination in the native share/save panel. The
+client must not build an export envelope from `/music_dna/profile`, and must not
+add OAuth tokens, DJConnect bearer tokens, bootstrap proofs, raw prompts, raw
+audio, diagnostics, Home Assistant URLs, or local cache fields.
+
+Expected export response:
+
+```json
+{
+  "success": true,
+  "format": "djconnect.music_dna.export",
+  "schema_version": 1,
+  "exported_at": "2026-07-04T20:21:00.123Z",
+  "exported_by_client_type": "ios",
+  "app_version": "3.2.3",
+  "profile": {
+    "success": true,
+    "music_dna_key": "user:abc123",
+    "enabled": true,
+    "generation": 12,
+    "updated_at": "2026-07-04T20:20:00Z",
+    "profile": {},
+    "sources": []
+  }
+}
+```
+
+The Apple filename format is
+`djconnect-music-dna-<client_type>-<yyyyMMdd-HHmmss>.json`.
+
+Import accepts a previously exported `djconnect.music_dna.export` JSON file and
+shows a local preview before upload. The upload is only available while the
+Apple client is paired and connected. Backend import overwrites server Music DNA
+with the supplied profile data after Music DNA has been activated server-side.
+If Home Assistant rejects the import, returns `401`/`403`, reports
+`not_configured`, or marks pairing stale, clients must show the import/export
+error in the sheet and use the same pairing recovery behavior as other
+DJConnect endpoints.
 
 Ask DJ history sync remains separate:
 `/api/djconnect/ask_dj/history` and `/api/djconnect/ask_dj/history/clear` do not
