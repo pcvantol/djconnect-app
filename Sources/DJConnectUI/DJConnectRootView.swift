@@ -2893,13 +2893,7 @@ struct NowPlayingView: View {
                     }
                 }
             }
-            .overlay(alignment: .top) {
-                if let statusToast {
-                    StatusToast(text: statusToast.text, systemImage: statusToast.systemImage)
-                        .padding(.top, 12)
-                        .transition(.move(edge: .top).combined(with: .opacity))
-                }
-            }
+            .djStatusToastOverlay(statusToast)
             .task {
                 if model.pairingStatus == .paired {
                     model.refresh()
@@ -3491,11 +3485,6 @@ private struct TrackInsightView: View {
                     }
                     #endif
                 }
-                if let statusToast {
-                    StatusToast(text: statusToast.text, systemImage: statusToast.systemImage)
-                        .padding(.top, 12)
-                        .transition(.move(edge: .top).combined(with: .opacity))
-                }
                 #if canImport(AVKit) && os(iOS)
                 if let player = vibeCastAirPlaySession.player {
                     VideoPlayer(player: player)
@@ -3506,6 +3495,7 @@ private struct TrackInsightView: View {
                 }
                 #endif
             }
+            .djStatusToastOverlay(statusToast)
             .navigationTitle(screenTitle(model.language, key: "Track Insight", isDemoMode: model.isDemoMode))
             .accessibilityIdentifier("screen-track-insight")
             #if os(iOS)
@@ -3738,12 +3728,8 @@ private struct MusicDNAView: View {
                     await model.refreshMusicDNAProfile(showToast: true)
                 }
                 #endif
-                if let statusToast {
-                    StatusToast(text: statusToast.text, systemImage: statusToast.systemImage)
-                        .padding(.top, 12)
-                        .transition(.move(edge: .top).combined(with: .opacity))
-                }
             }
+            .djStatusToastOverlay(statusToast)
             .navigationTitle(screenTitle(model.language, key: "Music DNA", isDemoMode: model.isDemoMode))
             .accessibilityIdentifier("screen-music-dna")
             #if os(iOS)
@@ -8248,12 +8234,8 @@ private struct IOSNowPlayingView: View {
                         await refreshNowPlayingWithToast()
                     }
                 }
-                if let statusToast {
-                    StatusToast(text: statusToast.text, systemImage: statusToast.systemImage)
-                        .padding(.top, 12)
-                        .transition(.move(edge: .top).combined(with: .opacity))
-                }
             }
+            .djStatusToastOverlay(statusToast)
             .navigationTitle(screenTitle(model.language, key: "Now Playing", isDemoMode: model.isDemoMode))
             .navigationBarTitleDisplayMode(.large)
             .toolbar {
@@ -9736,14 +9718,7 @@ private struct AskDJView: View {
                 .padding(.bottom, 8)
             }
             .background(DJConnectCanvasBackground())
-            .overlay(alignment: .bottom) {
-                if let toast {
-                    StatusToast(text: toast, systemImage: "bubble.left.and.bubble.right.fill")
-                        .padding(.bottom, 76)
-                        .padding(.horizontal, djConnectScreenHorizontalPadding)
-                        .transition(.move(edge: .bottom).combined(with: .opacity))
-                }
-            }
+            .djStatusToastOverlay(text: toast, systemImage: "bubble.left.and.bubble.right.fill")
             .navigationTitle(screenTitle(model.language, key: "Ask DJ", isDemoMode: model.isDemoMode))
             .accessibilityIdentifier("screen-ask-dj")
             .toolbar {
@@ -12462,13 +12437,7 @@ struct QueueView: View {
             #else
             .contentMargins(.horizontal, djConnectScreenHorizontalPadding, for: .scrollContent)
             #endif
-            .overlay(alignment: .top) {
-                if let statusToast {
-                    StatusToast(text: statusToast.text, systemImage: statusToast.systemImage)
-                        .padding(.top, 8)
-                        .transition(.move(edge: .top).combined(with: .opacity))
-                }
-            }
+            .djStatusToastOverlay(statusToast)
             .toolbar {
                 ToolbarItem {
                     Button {
@@ -12769,13 +12738,7 @@ struct PlaylistsView: View {
             #else
             .contentMargins(.horizontal, djConnectScreenHorizontalPadding, for: .scrollContent)
             #endif
-            .overlay(alignment: .top) {
-                if let statusToast {
-                    StatusToast(text: statusToast.text, systemImage: statusToast.systemImage)
-                        .padding(.top, 8)
-                        .transition(.move(edge: .top).combined(with: .opacity))
-                }
-            }
+            .djStatusToastOverlay(statusToast)
             .toolbar {
                 ToolbarItem {
                     Button {
@@ -12993,19 +12956,37 @@ private struct StatusToast: View {
     }
 }
 
+private extension View {
+    func djStatusToastOverlay(_ toast: DJConnectVisualNotice?) -> some View {
+        overlay(alignment: .top) {
+            if let toast {
+                StatusToast(text: toast.text, systemImage: toast.systemImage)
+                    .padding(.top, 12)
+                    .padding(.horizontal, djConnectScreenHorizontalPadding)
+                    .transition(.move(edge: .top).combined(with: .opacity))
+            }
+        }
+    }
+
+    func djStatusToastOverlay(text: String?, systemImage: String = "play.fill") -> some View {
+        overlay(alignment: .top) {
+            if let text {
+                StatusToast(text: text, systemImage: systemImage)
+                    .padding(.top, 12)
+                    .padding(.horizontal, djConnectScreenHorizontalPadding)
+                    .transition(.move(edge: .top).combined(with: .opacity))
+            }
+        }
+    }
+}
+
 private struct DJConnectUserNoticeToastModifier: ViewModifier {
     @ObservedObject var model: DJConnectAppModel
     @State private var toast: String?
 
     func body(content: Content) -> some View {
         content
-            .overlay(alignment: .top) {
-                if let toast {
-                    StatusToast(text: toast)
-                        .padding(.top, 12)
-                        .transition(.move(edge: .top).combined(with: .opacity))
-                }
-            }
+            .djStatusToastOverlay(text: toast)
             .onChange(of: model.userNotice?.id) { _, _ in
                 guard let text = model.userNotice?.text else {
                     return
