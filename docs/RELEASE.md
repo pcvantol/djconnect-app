@@ -556,6 +556,10 @@ The private source repo uses GitHub Actions only for deterministic checks:
 - unsigned macOS Debug build
 - unsigned iOS Debug generic build
 
+On `main` pushes and manual CI runs, the CI workflow also removes older
+completed GitHub Actions runs after the deterministic checks finish, keeping the
+newest 2 completed runs per workflow. Pull requests never run this cleanup.
+
 The `TestFlight beta` workflow is intentionally manual-only. It has no push or
 tag trigger and must never be used without explicit maintainer approval, an
 explicit semantic version, and an explicit matching source tag. To run it,
@@ -674,7 +678,7 @@ successful release unless `--no-cleanup` is passed.
 Use a Home Assistant instance with the matching `djconnect` integration.
 
 - Pair from the app-generated code and confirm HA creates the app device.
-- Confirm iOS/macOS pair only through local `/api/djconnect/pair`, store
+- Confirm iOS/macOS pair only through local `/api/djconnect/v1/pair`, store
   `ha_local_url` plus optional `ha_remote_url`, and show no Client adres.
 - Confirm watchOS actions, status, Ask DJ history, clear history, voice/PTT,
   and push registration run through the paired iPhone proxy and preserve
@@ -692,7 +696,7 @@ Use a Home Assistant instance with the matching `djconnect` integration.
 - Start liked songs through `start_liked_proxy`.
 - Confirm setup, Settings, onboarding, and command payloads do not expose or
   send legacy `spotify_source` or `liked_proxy_playlist_uri` overrides.
-- Record Push-to-Talk and verify WAV upload to `/api/djconnect/voice`.
+- Record Push-to-Talk and verify WAV upload to `/api/djconnect/v1/voice`.
 - Copy diagnostics export and confirm no bearer token, pairing code, or query
   token appears.
 
@@ -702,9 +706,9 @@ The source tree can only provide deterministic unit tests without a HA fixture.
 For end-to-end UI tests, provide either:
 
 - a real HA URL plus test integration credentials on the local network; or
-- a recorded/mock HA server that implements `/api/djconnect/pair`,
-  `/api/djconnect/status`, `/api/djconnect/command`, and
-  `/api/djconnect/voice`.
+- a recorded/mock HA server that implements `/api/djconnect/v1/pair`,
+  `/api/djconnect/v1/status`, `/api/djconnect/v1/command`, and
+  `/api/djconnect/v1/voice`.
 
 The `DJConnectIOSUITests` target now launches the iOS app in deterministic
 `--uitesting` mode with isolated defaults and a mock Home Assistant URL. The

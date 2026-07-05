@@ -33,13 +33,13 @@ Context:
 - Ask DJ tekst- en command-payloads sturen expliciet `device_id`, `device_name`, `client_id` en `client_type`; `client_id` is nu gelijk aan `device_id` voor backendcompatibiliteit.
 - Backend follow-up/confirmatievragen worden als Ask DJ `playback_actions` gerenderd. Voor algemene ja/nee verduidelijking gebruikt de backend acties met bijvoorbeeld `kind: "confirmation"`, `action_style: "confirmation"`, `response_value: "yes"|"no"` en `command: "ask_dj_followup_response"`. Clients tonen dan klikbare Ja/Nee knoppen; de pending follow-up state en uiteindelijke intentuitvoering blijven server-side.
 - Clients sturen bij action-taps waar mogelijk het volledige door de backend teruggegeven action-object terug, inclusief object-valued `value`; output-actions worden dus niet meer gereduceerd tot alleen een device-id tenzij legacy fallback nodig is.
-- Ask DJ clear-history gebruikt `POST /api/djconnect/ask_dj/history/clear`; de backend moet `clear_revision` verhogen en blijven teruggeven, want dat is de authoritative full-clear marker voor lokale caches.
+- Ask DJ clear-history gebruikt `POST /api/djconnect/v1/ask_dj/history/clear`; de backend moet `clear_revision` verhogen en blijven teruggeven, want dat is de authoritative full-clear marker voor lokale caches.
 - Raw backend/proxy/decode/HTML-fouten mogen nooit in de Ask DJ chat UI verschijnen. Toon korte gelokaliseerde meldingen zoals `Ask DJ niet bereikbaar` of `Home Assistant gaf geen antwoord`; technische details blijven in diagnostics/logs.
 - Secrets/tokens/wachtwoorden/private URLs mogen nooit in commits, logs, screenshots, diagnostics of test fixtures.
 
 Huidige status om te controleren:
 - Release `3.2.0` is de actuele source release/protocollijn. iOS/macOS pairen
-  lokaal via `/api/djconnect/pair`, bewaren `ha_local_url` plus optioneel
+  lokaal via `/api/djconnect/v1/pair`, bewaren `ha_local_url` plus optioneel
   `ha_remote_url`, kiezen runtime local -> remote -> offline, en hosten geen
   client `/api/device/*` API of `_djconnect._tcp` service.
 - Ask DJ toont in het lege scherm een voorbeeldvraag voor technische

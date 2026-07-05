@@ -67,7 +67,7 @@ client-provided memory key. Clients must not store long-term DJ Memory locally.
 ## Pairing
 
 ```http
-POST /api/djconnect/pair
+POST /api/djconnect/v1/pair
 Content-Type: application/json
 X-DJConnect-Device-ID: <device_id>
 ```
@@ -144,7 +144,7 @@ Apple clients register APNs device tokens with Home Assistant through the
 authenticated Home Assistant endpoint:
 
 ```http
-POST /api/djconnect/push/register
+POST /api/djconnect/v1/push/register
 Authorization: Bearer <device_token>
 Content-Type: application/json
 ```
@@ -185,7 +185,7 @@ disabled or best-effort.
 Unpairing or logout calls:
 
 ```http
-POST /api/djconnect/push/unregister
+POST /api/djconnect/v1/push/unregister
 Authorization: Bearer <device_token>
 ```
 
@@ -203,7 +203,7 @@ treated as successful HA voice validation.
 ## Status
 
 ```http
-POST /api/djconnect/status
+POST /api/djconnect/v1/status
 ```
 
 Minimum payload:
@@ -264,15 +264,55 @@ iOS/macOS use `ha_local_url` first after successful local pairing, then
 `ha_remote_url` when local access is unreachable and remote is supported.
 watchOS requests remain mediated by iPhone.
 
+## VibeCast
+
+```http
+GET /api/djconnect/v1/vibecast
+```
+
+Home Assistant may return artist shout-out artwork through proxied DJConnect
+image URL fields. Clients must render only those proxied DJConnect URLs and
+must not follow direct external catalog, Wikipedia, Spotify, or artist-search
+URLs.
+
+```json
+{
+  "revision": 42,
+  "ttl_seconds": 60,
+  "poll_after_seconds": 20,
+  "context": {
+    "artist_image_url": "/api/djconnect/v1/proxy/images/artist.jpg"
+  },
+  "items": [
+    {
+      "kind": "artist_fact",
+      "title": "Artist shout-out",
+      "text": "Artist fact text.",
+      "image_url": "/api/djconnect/v1/proxy/images/artist-fact.jpg",
+      "thumbnail_url": "/api/djconnect/v1/proxy/images/artist-thumb.jpg",
+      "image_alt": "Portrait of Artist Name",
+      "image_source": "musicbrainz"
+    }
+  ]
+}
+```
+
+The preferred artist visual is `items[].image_url` on the `artist_fact` item,
+falling back to that item's `thumbnail_url`, then `context.artist_image_url`.
+If all image fields are missing, existing text-only VibeCast rendering remains
+unchanged. `image_alt` may be used for accessibility labels; `image_source` is
+debug metadata and not prominent user-facing copy. Polling and cache freshness
+stay based on `revision`, `ttl_seconds`, and `poll_after_seconds`.
+
 ## Commands
 
 ```http
-POST /api/djconnect/command
+POST /api/djconnect/v1/command
 ```
 
 Command payloads are focused on playback commands and client identity. Do not
-send partial status snapshots in `/api/djconnect/command`; use
-`/api/djconnect/status` as the authoritative source for client status and
+send partial status snapshots in `/api/djconnect/v1/command`; use
+`/api/djconnect/v1/status` as the authoritative source for client status and
 settings mirrored into Home Assistant entities.
 
 Examples:
@@ -404,7 +444,7 @@ still use the paired `ha_local_url` returned by Home Assistant after pairing.
 ## Ask DJ Text
 
 ```http
-POST /api/djconnect/ask_dj/message
+POST /api/djconnect/v1/ask_dj/message
 Content-Type: application/json
 ```
 
@@ -537,7 +577,7 @@ context if the request uses deictic language such as `dit nummer`, `deze track`,
 current Spotify track from liked songs. Current favorite state is backend-owned:
 clients may display `playback.is_liked`, `playback.favorite_status`, or Ask DJ
 action metadata, but must show an inactive neutral favorite button when status
-is unknown. Direct clients use `POST /api/djconnect/command` with
+is unknown. Direct clients use `POST /api/djconnect/v1/command` with
 `{"command":"set_current_track_favorite","value":true}` to add and
 `{"command":"set_current_track_favorite","value":false}` to remove. Legacy
 `save_current_track` may still work, but new clients should use
@@ -692,7 +732,7 @@ If the command response returns `error:"no_active_output"` and
 speaker actions in Ask DJ. When the user taps a speaker action whose command is
 `ask_dj_play_request_on_output` or `ask_dj_play_recommendation_on_output`, the
 client posts that action's `command` and full returned `value` unchanged to
-`POST /api/djconnect/command`. The backend then sets output and replays the
+`POST /api/djconnect/v1/command`. The backend then sets output and replays the
 original request server-side.
 
 Home Assistant owns the final Spotify playback decision. It may start a track,
@@ -1121,8 +1161,8 @@ Expected successful technical analysis response:
 ## Ask DJ History Sync
 
 ```http
-GET /api/djconnect/ask_dj/history
-POST /api/djconnect/ask_dj/history/clear
+GET /api/djconnect/v1/ask_dj/history
+POST /api/djconnect/v1/ask_dj/history/clear
 ```
 
 iOS, macOS, and watchOS sync Ask DJ chat history from Home Assistant. When Ask
@@ -1194,7 +1234,7 @@ Clients may remove local cached messages older than `history_trimmed_before`.
 clients clear local Ask DJ history before applying returned messages.
 
 When the user clears Ask DJ history, Apple clients call
-`POST /api/djconnect/ask_dj/history/clear`. The request uses the same bearer
+`POST /api/djconnect/v1/ask_dj/history/clear`. The request uses the same bearer
 auth and client identity as other Ask DJ endpoints, and may include
 `memory_key` when the client is using a scoped DJ Memory/history namespace:
 
@@ -1231,7 +1271,7 @@ gaf geen antwoord`.
 ## Voice
 
 ```http
-POST /api/djconnect/voice
+POST /api/djconnect/v1/voice
 Content-Type: audio/wav
 ```
 

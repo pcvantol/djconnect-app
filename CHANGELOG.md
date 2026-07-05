@@ -15,6 +15,8 @@ All notable changes to DJConnect App are documented here.
 - Synced the Apple client contract with Home Assistant `3.2.x` backend error
   shapes by accepting object-form `music_backend_error` and the shared
   `windows` client type in core models.
+- Added VibeCast artist shout-out image decoding from proxied Home Assistant
+  artwork URLs with text-only fallback behavior.
 
 ## 3.2.0 - 2026-06-26
 
@@ -67,7 +69,7 @@ All notable changes to DJConnect App are documented here.
 ### Changed
 
 - Documented the Ask DJ history-clear endpoint as
-  `/api/djconnect/ask_dj/history/clear`, with `clear_revision` as the
+  `/api/djconnect/v1/ask_dj/history/clear`, with `clear_revision` as the
   authoritative full-clear signal for cached Apple-client history.
 - Updated the Ask DJ action contract so Apple clients preserve backend-returned
   action objects, including object-valued `value` payloads, when sending
@@ -1121,9 +1123,9 @@ All notable changes to DJConnect App are documented here.
   version mismatch handling, and reset/recovery flows.
 - Added native playback controls for play/pause, previous, next, volume,
   shuffle, repeat, output selection, queue loading, playlists, and liked proxy
-  through `/api/djconnect/command`.
+  through `/api/djconnect/v1/command`.
 - Added Push-to-Talk recording with mono PCM WAV upload to
-  `/api/djconnect/voice`.
+  `/api/djconnect/v1/voice`.
 - Added native iOS/macOS UI for setup status, now playing, playback controls,
   queue/playlists, DJ response, settings, language switching, log level, and
   diagnostics.

@@ -132,7 +132,7 @@ Reasoning:
 
 Status: accepted
 
-iOS and macOS pair by calling Home Assistant's local `/api/djconnect/pair`
+iOS and macOS pair by calling Home Assistant's local `/api/djconnect/v1/pair`
 endpoint directly, then use HA's local URL first and optional remote URL as
 fallback. watchOS is mediated by the paired iPhone over WatchConnectivity. No
 Apple target hosts `/api/device/*` as a Home Assistant callback API, advertises

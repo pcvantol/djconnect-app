@@ -326,7 +326,7 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
     let body = try #require(request.httpBody)
     let json = try JSONSerialization.jsonObject(with: body) as? [String: Any]
 
-    #expect(request.url?.path == "/api/djconnect/status")
+    #expect(request.url?.path == "/api/djconnect/v1/status")
     #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer secret-token")
     #expect(request.value(forHTTPHeaderField: "X-DJConnect-Client-ID") == nil)
     #expect(request.value(forHTTPHeaderField: "X-DJConnect-Device-ID") == identity.deviceID)
@@ -376,7 +376,7 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
     let body = try #require(request.httpBody)
     let json = try JSONSerialization.jsonObject(with: body) as? [String: Any]
 
-    #expect(request.url?.path == "/api/djconnect/command")
+    #expect(request.url?.path == "/api/djconnect/v1/command")
     #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer secret-token")
     #expect(request.value(forHTTPHeaderField: "X-DJConnect-Client-ID") == nil)
     #expect(request.value(forHTTPHeaderField: "X-DJConnect-Device-ID") == identity.deviceID)
@@ -388,45 +388,6 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
     #expect(json?["command"] as? String == "set_volume")
     #expect(json?["value"] as? Int == 35)
     #expect(json?["play"] as? Bool == true)
-}
-
-@Test func askDJRequestUsesAskEndpointAndMemoryContext() throws {
-    let identity = DJConnectIdentity(
-        deviceID: "djconnect-ios-8F3A2C91B45D",
-        deviceName: "DJConnect iPhone",
-        clientType: .ios,
-        firmware: "3.1.7",
-        appVersion: "3.1.7",
-        platform: .ios
-    )
-    let client = DJConnectClient(
-        baseURL: try #require(URL(string: "http://homeassistant.local:8123")),
-        identity: identity,
-        tokenStore: DJConnectInMemoryTokenStore(token: "secret-token")
-    )
-
-    let request = try client.askDJRequest(DJConnectAskDJRequest(
-        identity: identity,
-        text: "Speel iets rustigers",
-        mood: 20,
-        djStyle: "warm_radio_dj",
-        memoryKey: "djconnect_ios_8F3A2C91B45D"
-    ))
-    let body = try #require(request.httpBody)
-    let json = try JSONSerialization.jsonObject(with: body) as? [String: Any]
-
-    #expect(request.url?.path == "/api/djconnect/ask")
-    #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer secret-token")
-    #expect(request.value(forHTTPHeaderField: "X-DJConnect-Device-ID") == identity.deviceID)
-    #expect(request.value(forHTTPHeaderField: "Content-Type") == "application/json")
-    #expect(json?["device_id"] as? String == identity.deviceID)
-    #expect(json?["device_name"] as? String == identity.deviceName)
-    #expect(json?["client_type"] as? String == "ios")
-    #expect(json?["client_id"] as? String == identity.deviceID)
-    #expect(json?["text"] as? String == "Speel iets rustigers")
-    #expect(json?["mood"] as? Int == 20)
-    #expect(json?["dj_style"] as? String == "warm_radio_dj")
-    #expect(json?["memory_key"] as? String == "djconnect_ios_8F3A2C91B45D")
 }
 
 @Test func askDJMessageRequestUsesSyncedHistoryEndpointAndClientMessageID() throws {
@@ -457,7 +418,7 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
     let body = try #require(request.httpBody)
     let json = try JSONSerialization.jsonObject(with: body) as? [String: Any]
 
-    #expect(request.url?.path == "/api/djconnect/ask_dj/message")
+    #expect(request.url?.path == "/api/djconnect/v1/ask_dj/message")
     #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer secret-token")
     #expect(request.value(forHTTPHeaderField: "X-DJConnect-Device-ID") == identity.deviceID)
     #expect(json?["device_id"] as? String == identity.deviceID)
@@ -490,13 +451,187 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
     let body = try #require(request.httpBody)
     let json = try JSONSerialization.jsonObject(with: body) as? [String: Any]
 
-    #expect(request.url?.path == "/api/djconnect/ask_dj/history/clear")
+    #expect(request.url?.path == "/api/djconnect/v1/ask_dj/history/clear")
     #expect(request.httpMethod == "POST")
     #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer secret-token")
     #expect(request.value(forHTTPHeaderField: "X-DJConnect-Device-ID") == identity.deviceID)
     #expect(json?["device_id"] as? String == identity.deviceID)
     #expect(json?["client_type"] as? String == "ios")
     #expect(json?["memory_key"] as? String == "djconnect_ios_8F3A2C91B45D")
+}
+
+@Test func askDJHistoryRequestUsesCanonicalV1EndpointAndSinceRevision() throws {
+    let identity = DJConnectIdentity(
+        deviceID: "djconnect-ios-8F3A2C91B45D",
+        deviceName: "DJConnect iPhone",
+        clientType: .ios,
+        firmware: "3.1.36",
+        appVersion: "3.1.36",
+        platform: .ios
+    )
+    let client = DJConnectClient(
+        baseURL: try #require(URL(string: "http://homeassistant.local:8123")),
+        identity: identity,
+        tokenStore: DJConnectInMemoryTokenStore(token: "secret-token")
+    )
+
+    let request = try client.askDJHistoryRequest(sinceRevision: 42)
+    let requestURL = try #require(request.url)
+    let components = try #require(URLComponents(url: requestURL, resolvingAgainstBaseURL: false))
+
+    #expect(request.httpMethod == "GET")
+    #expect(components.path == "/api/djconnect/v1/ask_dj/history")
+    #expect(components.queryItems == [URLQueryItem(name: "since_revision", value: "42")])
+    #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer secret-token")
+    #expect(request.value(forHTTPHeaderField: "X-DJConnect-Device-ID") == identity.deviceID)
+}
+
+@Test func vibeCastRequestUsesCanonicalV1Endpoint() throws {
+    let identity = DJConnectIdentity(deviceID: "djconnect-ios-test", deviceName: "iPhone", clientType: .ios, firmware: "3.2.0", platform: .ios)
+    let client = DJConnectClient(
+        baseURL: try #require(URL(string: "http://ha.local:8123")),
+        identity: identity,
+        tokenStore: DJConnectInMemoryTokenStore(token: "secret-token")
+    )
+
+    let request = try client.vibeCastRequest()
+
+    #expect(request.httpMethod == "GET")
+    #expect(request.url?.path == "/api/djconnect/v1/vibecast")
+    #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer secret-token")
+}
+
+@Test func vibeCastArtistImageUsesArtistFactImageURL() throws {
+    let data = Data("""
+    {
+      "revision": 12,
+      "ttl_seconds": 30,
+      "poll_after_seconds": 10,
+      "context": {
+        "artist_image_url": "/api/djconnect/v1/proxy/images/context-artist.jpg"
+      },
+      "items": [
+        {
+          "kind": "artist_fact",
+          "title": "Artist shout-out",
+          "text": "A precise artist fact.",
+          "image_url": "/api/djconnect/v1/proxy/images/artist-fact.jpg",
+          "thumbnail_url": "/api/djconnect/v1/proxy/images/artist-thumb.jpg",
+          "image_alt": "Portrait of Example Artist",
+          "image_source": "musicbrainz"
+        }
+      ]
+    }
+    """.utf8)
+
+    let response = try JSONDecoder().decode(DJConnectVibeCastResponse.self, from: data)
+    let renderState = DJConnectVibeCastRenderState.rendered(from: response)
+
+    #expect(response.revision == 12)
+    #expect(response.ttlSeconds == 30)
+    #expect(response.pollAfterSeconds == 10)
+    #expect(renderState.artistImage?.url.absoluteString == "/api/djconnect/v1/proxy/images/artist-fact.jpg")
+    #expect(renderState.artistImage?.alt == "Portrait of Example Artist")
+    #expect(renderState.artistImage?.source == "musicbrainz")
+}
+
+@Test func vibeCastArtistImageFallsBackToContextArtistImageURL() throws {
+    let data = Data("""
+    {
+      "revision": 13,
+      "context": {
+        "artist_image_url": "/api/djconnect/v1/proxy/images/context-artist.jpg"
+      },
+      "items": [
+        {
+          "kind": "artist_fact",
+          "title": "Artist shout-out",
+          "text": "No item image on this response."
+        }
+      ]
+    }
+    """.utf8)
+
+    let response = try JSONDecoder().decode(DJConnectVibeCastResponse.self, from: data)
+    let renderState = DJConnectVibeCastRenderState.rendered(from: response)
+
+    #expect(renderState.revision == 13)
+    #expect(renderState.artistImage?.url.absoluteString == "/api/djconnect/v1/proxy/images/context-artist.jpg")
+}
+
+@Test func vibeCastMissingImageFieldsKeepTextOnlyRendering() throws {
+    let data = Data("""
+    {
+      "revision": 14,
+      "items": [
+        {
+          "kind": "artist_fact",
+          "title": "Artist shout-out",
+          "text": "Still render the text exactly as before.",
+          "unknown_future_field": {"ignored": true}
+        }
+      ]
+    }
+    """.utf8)
+
+    let response = try JSONDecoder().decode(DJConnectVibeCastResponse.self, from: data)
+    let renderState = DJConnectVibeCastRenderState.rendered(from: response)
+
+    #expect(response.items.first?.text == "Still render the text exactly as before.")
+    #expect(renderState.artistImage == nil)
+}
+
+@Test func vibeCastIgnoresDirectExternalArtistImageURLs() throws {
+    let data = Data("""
+    {
+      "revision": 15,
+      "context": {
+        "artist_image_url": "https://images.example-catalog.test/artist.jpg"
+      },
+      "items": [
+        {
+          "kind": "artist_fact",
+          "title": "Artist shout-out",
+          "image_url": "https://open.spotify.com/image/direct.jpg",
+          "thumbnail_url": "https://wikipedia.org/thumb/direct.jpg"
+        }
+      ]
+    }
+    """.utf8)
+
+    let response = try JSONDecoder().decode(DJConnectVibeCastResponse.self, from: data)
+    let renderState = DJConnectVibeCastRenderState.rendered(from: response)
+
+    #expect(response.items.first?.imageURL == nil)
+    #expect(response.items.first?.thumbnailURL == nil)
+    #expect(response.context?.artistImageURL == nil)
+    #expect(renderState.artistImage == nil)
+}
+
+@Test func vibeCastTextOnlyResponseClearsPreviousArtistImageState() throws {
+    let imageResponse = DJConnectVibeCastResponse(
+        revision: 20,
+        items: [
+            DJConnectVibeCastItem(
+                kind: "artist_fact",
+                title: "Artist shout-out",
+                imageURL: URL(string: "/api/djconnect/v1/proxy/images/artist.jpg")
+            )
+        ]
+    )
+    let textOnlyResponse = DJConnectVibeCastResponse(
+        revision: 21,
+        items: [
+            DJConnectVibeCastItem(kind: "artist_fact", title: "Artist shout-out", text: "Text-only refresh.")
+        ]
+    )
+
+    let imageState = DJConnectVibeCastRenderState.rendered(from: imageResponse)
+    let textOnlyState = DJConnectVibeCastRenderState.rendered(from: textOnlyResponse)
+
+    #expect(imageState.artistImage?.url.absoluteString == "/api/djconnect/v1/proxy/images/artist.jpg")
+    #expect(textOnlyState.revision == 21)
+    #expect(textOnlyState.artistImage == nil)
 }
 
 @Test func askDJIdleSuggestionRequestUsesDedicatedEndpoint() throws {
@@ -524,12 +659,65 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
     let body = try #require(request.httpBody)
     let json = try JSONSerialization.jsonObject(with: body) as? [String: Any]
 
-    #expect(request.url?.path == "/api/djconnect/ask_dj/idle_suggestion")
+    #expect(request.url?.path == "/api/djconnect/v1/ask_dj/idle_suggestion")
     #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer secret-token")
     #expect(json?["client_message_id"] as? String == "idle-suggestion-1")
     #expect(json?["client_type"] as? String == "watchos")
     #expect(json?["mood"] as? Int == 72)
     #expect(json?["dj_style"] as? String == "warm_radio_dj")
+}
+
+@Test func clientCallRoutesUseCanonicalV1Prefix() throws {
+    let identity = DJConnectIdentity(
+        deviceID: "djconnect-ios-8F3A2C91B45D",
+        deviceName: "DJConnect iPhone",
+        clientType: .ios,
+        firmware: "3.1.36",
+        appVersion: "3.1.36",
+        platform: .ios
+    )
+    let client = DJConnectClient(
+        baseURL: try #require(URL(string: "http://homeassistant.local:8123")),
+        identity: identity,
+        tokenStore: DJConnectInMemoryTokenStore(token: "secret-token")
+    )
+    let statusPayload = DJConnectStatusPayload(identity: identity)
+    let commandPayload = DJConnectCommandPayload(identity: identity, command: "status")
+    let askPayload = DJConnectAskDJRequest(
+        identity: identity,
+        text: "Welke track draait dit?",
+        clientMessageID: "client-message-1"
+    )
+    let pushRegister = DJConnectPushRegistrationRequest(
+        identity: identity,
+        pushToken: "abcdef123456",
+        pushEnvironment: .sandbox,
+        appBundleID: "dev.djconnect.ios"
+    )
+    let pushUnregister = DJConnectPushUnregistrationRequest(
+        identity: identity,
+        pushToken: "abcdef123456"
+    )
+
+    let paths = try [
+        client.statusRequest(statusPayload),
+        client.commandRequest(commandPayload),
+        client.askDJMessageRequest(askPayload),
+        client.askDJHistoryRequest(sinceRevision: 1),
+        client.clearAskDJHistoryRequest(),
+        client.askDJIdleSuggestionRequest(DJConnectAskDJIdleSuggestionRequest(
+            identity: identity,
+            clientMessageID: "idle-suggestion-1"
+        )),
+        client.pushRegisterRequest(pushRegister),
+        client.pushUnregisterRequest(pushUnregister),
+        client.voiceRequest(wavData: Data())
+    ].map { try #require($0.url?.path) }
+
+    for path in paths {
+        #expect(path.hasPrefix("/api/djconnect/v1/"))
+        #expect(!path.hasPrefix("/api/djconnect/v1/ask_dj/") || path != "/api/djconnect/v1/ask_dj")
+    }
 }
 
 @Test func pushRegisterRequestUsesAuthenticatedEndpointAndSandboxEnvironment() throws {
@@ -557,7 +745,7 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
     let body = try #require(request.httpBody)
     let json = try #require(JSONSerialization.jsonObject(with: body) as? [String: Any])
 
-    #expect(request.url?.path == "/api/djconnect/push/register")
+    #expect(request.url?.path == "/api/djconnect/v1/push/register")
     #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer secret-token")
     #expect(request.value(forHTTPHeaderField: "X-DJConnect-Device-ID") == identity.deviceID)
     #expect(json["device_id"] as? String == identity.deviceID)
@@ -595,7 +783,7 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
     let body = try #require(request.httpBody)
     let json = try #require(JSONSerialization.jsonObject(with: body) as? [String: Any])
 
-    #expect(request.url?.path == "/api/djconnect/push/register")
+    #expect(request.url?.path == "/api/djconnect/v1/push/register")
     #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer secret-token")
     #expect(request.value(forHTTPHeaderField: "X-DJConnect-Device-ID") == identity.deviceID)
     #expect(json["device_id"] as? String == "djconnect-ios-8F3A2C91B45D")
@@ -635,7 +823,7 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
     let body = try #require(request.httpBody)
     let json = try #require(JSONSerialization.jsonObject(with: body) as? [String: Any])
 
-    #expect(request.url?.path == "/api/djconnect/push/register")
+    #expect(request.url?.path == "/api/djconnect/v1/push/register")
     #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer secret-token")
     #expect(request.value(forHTTPHeaderField: "X-DJConnect-Device-ID") == identity.deviceID)
     #expect(json["device_id"] as? String == "djconnect-macos-8F3A2C91B45D")
@@ -675,7 +863,7 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
     let body = try #require(request.httpBody)
     let json = try #require(JSONSerialization.jsonObject(with: body) as? [String: Any])
 
-    #expect(request.url?.path == "/api/djconnect/push/register")
+    #expect(request.url?.path == "/api/djconnect/v1/push/register")
     #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer secret-token")
     #expect(request.value(forHTTPHeaderField: "X-DJConnect-Device-ID") == identity.deviceID)
     #expect(json["device_id"] as? String == "djconnect-watchos-8F3A2C91B45D")
@@ -737,7 +925,7 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
     let body = try #require(request.httpBody)
     let json = try #require(JSONSerialization.jsonObject(with: body) as? [String: Any])
 
-    #expect(request.url?.path == "/api/djconnect/push/unregister")
+    #expect(request.url?.path == "/api/djconnect/v1/push/unregister")
     #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer secret-token")
     #expect(json["device_id"] as? String == identity.deviceID)
     #expect(json["client_type"] as? String == "macos")
@@ -1714,6 +1902,87 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
     #expect(message.renderablePlaybackActions.isEmpty)
 }
 
+@Test func askDJMessageResponseIgnoresLegacyRecommendationActionAliases() throws {
+    let json = """
+    {
+      "history_revision": 44,
+      "clear_revision": 7,
+      "assistant_message": {
+        "id": "server-assistant-text-only",
+        "role": "assistant",
+        "text": "Ik heb drie suggesties, maar start niets zonder expliciete actie.",
+        "created_at": "2026-06-19T12:35:00Z",
+        "recommendation_actions": [
+          {
+            "id": "legacy-action",
+            "title": "Play legacy recommendation",
+            "uri": "spotify:track:legacy",
+            "kind": "track"
+          }
+        ]
+      },
+      "recommendations": [
+        {
+          "id": "legacy-top-level",
+          "title": "Play legacy top-level recommendation",
+          "uri": "spotify:track:legacy-top-level",
+          "kind": "track"
+        }
+      ]
+    }
+    """.data(using: .utf8)!
+
+    let response = try JSONDecoder().decode(DJConnectAskDJMessageResponse.self, from: json)
+
+    #expect(response.playbackActions == nil)
+    #expect(response.assistantMessage?.playbackActions.isEmpty == true)
+}
+
+@Test func recentlyPlayedHistoryResponseDecodesItemsWithoutImplicitPlaybackActions() throws {
+    let json = """
+    {
+      "history_revision": 51,
+      "clear_revision": 7,
+      "intent": {
+        "intent": "recently_played_history",
+        "item_type": "tracks"
+      },
+      "items": [
+        {
+          "kind": "track",
+          "title": "Midnight City",
+          "subtitle": "M83",
+          "uri": "spotify:track:recent",
+          "source": "spotify_recently_played"
+        }
+      ],
+      "assistant_message": {
+        "id": "recent-history",
+        "role": "assistant",
+        "text": "Dit draaide je net.",
+        "created_at": "2026-06-19T12:35:00Z",
+        "items": [
+          {
+            "kind": "track",
+            "title": "Midnight City",
+            "subtitle": "M83",
+            "source": "spotify_recently_played"
+          }
+        ]
+      }
+    }
+    """.data(using: .utf8)!
+
+    let response = try JSONDecoder().decode(DJConnectAskDJMessageResponse.self, from: json)
+
+    #expect(response.intentInfo?.intent == "recently_played_history")
+    #expect(response.intentInfo?.itemType == "tracks")
+    #expect(response.items?.first?.source == "spotify_recently_played")
+    #expect(response.assistantMessage?.items.first?.title == "Midnight City")
+    #expect(response.playbackActions == nil)
+    #expect(response.assistantMessage?.playbackActions.isEmpty == true)
+}
+
 @Test func askDJResponseDecodesObjectIntentForTechnicalTrackAnalysis() throws {
     let json = """
     {
@@ -2183,7 +2452,7 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
         let body = try #require(request.httpBody)
         let json = try JSONSerialization.jsonObject(with: body) as? [String: Any]
 
-        #expect(request.url?.path == "/api/djconnect/command")
+        #expect(request.url?.path == "/api/djconnect/v1/command")
         #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer secret-token")
         #expect(request.value(forHTTPHeaderField: "X-DJConnect-Device-ID") == identity.deviceID)
         #expect(json?["device_id"] as? String == identity.deviceID)
@@ -2328,7 +2597,7 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
     let body = try #require(request.httpBody)
     let json = try JSONSerialization.jsonObject(with: body) as? [String: Any]
 
-    #expect(request.url?.path == "/api/djconnect/command")
+    #expect(request.url?.path == "/api/djconnect/v1/command")
     #expect(json?["command"] as? String == "set_current_track_favorite")
     #expect(json?["value"] as? Bool == false)
 }
@@ -2690,7 +2959,7 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
     let json = try #require(JSONSerialization.jsonObject(with: body) as? [String: Any])
     let value = try #require(json["value"] as? [String: Any])
 
-    #expect(request.url?.path == "/api/djconnect/command")
+    #expect(request.url?.path == "/api/djconnect/v1/command")
     #expect(json["command"] as? String == "set_output")
     #expect(value["kind"] as? String == "output")
     #expect(value["device_id"] as? String == "spotify-device-1")
@@ -3382,7 +3651,7 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
     let body = try #require(request.httpBody)
     let json = try JSONSerialization.jsonObject(with: body) as? [String: Any]
 
-    #expect(request.url?.path == "/api/djconnect/pair")
+    #expect(request.url?.path == "/api/djconnect/v1/pair")
     #expect(request.value(forHTTPHeaderField: "Authorization") == nil)
     #expect(request.value(forHTTPHeaderField: "Content-Type") == "application/json")
     #expect(request.value(forHTTPHeaderField: "X-DJConnect-Client-ID") == nil)
@@ -3642,7 +3911,7 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
     let tokenStore = DJConnectInMemoryTokenStore()
     let host = "pair-success.local"
     let session = mockSession(host: host) { request in
-        #expect(request.url?.path == "/api/djconnect/pair")
+        #expect(request.url?.path == "/api/djconnect/v1/pair")
         #expect(request.value(forHTTPHeaderField: "Authorization") == nil)
         #expect(request.value(forHTTPHeaderField: "X-DJConnect-Client-ID") == nil)
         #expect(request.value(forHTTPHeaderField: "X-DJConnect-Device-ID") == identity.deviceID)
@@ -3814,7 +4083,7 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
         memoryKey: "djconnect-watchos-8F3A2C91B45D"
     )
 
-    #expect(request.url?.path == "/api/djconnect/voice")
+    #expect(request.url?.path == "/api/djconnect/v1/voice")
     #expect(request.value(forHTTPHeaderField: "Content-Type") == "audio/wav")
     #expect(request.value(forHTTPHeaderField: "X-DJConnect-Client-ID") == identity.deviceID)
     #expect(request.value(forHTTPHeaderField: "X-DJConnect-Device-ID") == identity.deviceID)
@@ -4007,7 +4276,7 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
             return
         }
         #expect(statusCode == 200)
-        #expect(endpoint == "POST /api/djconnect/command")
+        #expect(endpoint == "POST /api/djconnect/v1/command")
         #expect(message?.contains("response_body=") == true)
         #expect(message?.contains(#""device_token":"[redacted]""#) == true)
         #expect(message?.contains("secret-token") == false)
@@ -4050,7 +4319,7 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
             return
         }
         #expect(statusCode == 200)
-        #expect(endpoint == "POST /api/djconnect/command")
+        #expect(endpoint == "POST /api/djconnect/v1/command")
         #expect(message?.contains("contract error") == true)
         #expect(message?.contains("<empty response body>") == true)
     } catch {
@@ -4065,7 +4334,7 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
     defaults.removePersistentDomain(forName: suiteName)
     let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startLocalAPI: false, startBackgroundTasks: false)
 
-    model.emitUserConnectionNotice(for: .decodingFailed(statusCode: 200, endpoint: "POST /api/djconnect/command", message: "bad shape"))
+    model.emitUserConnectionNotice(for: .decodingFailed(statusCode: 200, endpoint: "POST /api/djconnect/v1/command", message: "bad shape"))
     #expect(["Geen verbinding met Home Assistant", "No connection to Home Assistant"].contains(model.userNotice?.text ?? ""))
 
     model.userNotice = nil
