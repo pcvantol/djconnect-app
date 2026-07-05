@@ -67,6 +67,11 @@ public final class DJConnectClient: Sendable {
         return try await decodedResponse(for: request)
     }
 
+    public func vibeCast() async throws -> DJConnectVibeCastResponse {
+        let request = try vibeCastRequest()
+        return try await decodedResponse(for: request)
+    }
+
     public func askDJIdleSuggestion(_ payload: DJConnectAskDJIdleSuggestionRequest) async throws -> DJConnectAskDJMessageResponse {
         let request = try askDJIdleSuggestionRequest(payload)
         return try await decodedResponse(for: request)
@@ -132,6 +137,12 @@ public final class DJConnectClient: Sendable {
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = try encoder.encode(DJConnectAskDJClearHistoryRequest(identity: identity, memoryKey: memoryKey))
+        return request
+    }
+
+    public func vibeCastRequest() throws -> URLRequest {
+        var request = try authenticatedRequest(path: Self.v1Path("vibecast"))
+        request.httpMethod = "GET"
         return request
     }
 

@@ -264,6 +264,46 @@ iOS/macOS use `ha_local_url` first after successful local pairing, then
 `ha_remote_url` when local access is unreachable and remote is supported.
 watchOS requests remain mediated by iPhone.
 
+## VibeCast
+
+```http
+GET /api/djconnect/v1/vibecast
+```
+
+Home Assistant may return artist shout-out artwork through proxied DJConnect
+image URL fields. Clients must render only those proxied DJConnect URLs and
+must not follow direct external catalog, Wikipedia, Spotify, or artist-search
+URLs.
+
+```json
+{
+  "revision": 42,
+  "ttl_seconds": 60,
+  "poll_after_seconds": 20,
+  "context": {
+    "artist_image_url": "/api/djconnect/v1/proxy/images/artist.jpg"
+  },
+  "items": [
+    {
+      "kind": "artist_fact",
+      "title": "Artist shout-out",
+      "text": "Artist fact text.",
+      "image_url": "/api/djconnect/v1/proxy/images/artist-fact.jpg",
+      "thumbnail_url": "/api/djconnect/v1/proxy/images/artist-thumb.jpg",
+      "image_alt": "Portrait of Artist Name",
+      "image_source": "musicbrainz"
+    }
+  ]
+}
+```
+
+The preferred artist visual is `items[].image_url` on the `artist_fact` item,
+falling back to that item's `thumbnail_url`, then `context.artist_image_url`.
+If all image fields are missing, existing text-only VibeCast rendering remains
+unchanged. `image_alt` may be used for accessibility labels; `image_source` is
+debug metadata and not prominent user-facing copy. Polling and cache freshness
+stay based on `revision`, `ttl_seconds`, and `poll_after_seconds`.
+
 ## Commands
 
 ```http

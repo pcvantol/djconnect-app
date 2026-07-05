@@ -486,6 +486,154 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
     #expect(request.value(forHTTPHeaderField: "X-DJConnect-Device-ID") == identity.deviceID)
 }
 
+@Test func vibeCastRequestUsesCanonicalV1Endpoint() throws {
+    let identity = DJConnectIdentity(deviceID: "djconnect-ios-test", deviceName: "iPhone", clientType: .ios, firmware: "3.2.0", platform: .ios)
+    let client = DJConnectClient(
+        baseURL: try #require(URL(string: "http://ha.local:8123")),
+        identity: identity,
+        tokenStore: DJConnectInMemoryTokenStore(token: "secret-token")
+    )
+
+    let request = try client.vibeCastRequest()
+
+    #expect(request.httpMethod == "GET")
+    #expect(request.url?.path == "/api/djconnect/v1/vibecast")
+    #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer secret-token")
+}
+
+@Test func vibeCastArtistImageUsesArtistFactImageURL() throws {
+    let data = Data("""
+    {
+      "revision": 12,
+      "ttl_seconds": 30,
+      "poll_after_seconds": 10,
+      "context": {
+        "artist_image_url": "/api/djconnect/v1/proxy/images/context-artist.jpg"
+      },
+      "items": [
+        {
+          "kind": "artist_fact",
+          "title": "Artist shout-out",
+          "text": "A precise artist fact.",
+          "image_url": "/api/djconnect/v1/proxy/images/artist-fact.jpg",
+          "thumbnail_url": "/api/djconnect/v1/proxy/images/artist-thumb.jpg",
+          "image_alt": "Portrait of Example Artist",
+          "image_source": "musicbrainz"
+        }
+      ]
+    }
+    """.utf8)
+
+    let response = try JSONDecoder().decode(DJConnectVibeCastResponse.self, from: data)
+    let renderState = DJConnectVibeCastRenderState.rendered(from: response)
+
+    #expect(response.revision == 12)
+    #expect(response.ttlSeconds == 30)
+    #expect(response.pollAfterSeconds == 10)
+    #expect(renderState.artistImage?.url.absoluteString == "/api/djconnect/v1/proxy/images/artist-fact.jpg")
+    #expect(renderState.artistImage?.alt == "Portrait of Example Artist")
+    #expect(renderState.artistImage?.source == "musicbrainz")
+}
+
+@Test func vibeCastArtistImageFallsBackToContextArtistImageURL() throws {
+    let data = Data("""
+    {
+      "revision": 13,
+      "context": {
+        "artist_image_url": "/api/djconnect/v1/proxy/images/context-artist.jpg"
+      },
+      "items": [
+        {
+          "kind": "artist_fact",
+          "title": "Artist shout-out",
+          "text": "No item image on this response."
+        }
+      ]
+    }
+    """.utf8)
+
+    let response = try JSONDecoder().decode(DJConnectVibeCastResponse.self, from: data)
+    let renderState = DJConnectVibeCastRenderState.rendered(from: response)
+
+    #expect(renderState.revision == 13)
+    #expect(renderState.artistImage?.url.absoluteString == "/api/djconnect/v1/proxy/images/context-artist.jpg")
+}
+
+@Test func vibeCastMissingImageFieldsKeepTextOnlyRendering() throws {
+    let data = Data("""
+    {
+      "revision": 14,
+      "items": [
+        {
+          "kind": "artist_fact",
+          "title": "Artist shout-out",
+          "text": "Still render the text exactly as before.",
+          "unknown_future_field": {"ignored": true}
+        }
+      ]
+    }
+    """.utf8)
+
+    let response = try JSONDecoder().decode(DJConnectVibeCastResponse.self, from: data)
+    let renderState = DJConnectVibeCastRenderState.rendered(from: response)
+
+    #expect(response.items.first?.text == "Still render the text exactly as before.")
+    #expect(renderState.artistImage == nil)
+}
+
+@Test func vibeCastIgnoresDirectExternalArtistImageURLs() throws {
+    let data = Data("""
+    {
+      "revision": 15,
+      "context": {
+        "artist_image_url": "https://images.example-catalog.test/artist.jpg"
+      },
+      "items": [
+        {
+          "kind": "artist_fact",
+          "title": "Artist shout-out",
+          "image_url": "https://open.spotify.com/image/direct.jpg",
+          "thumbnail_url": "https://wikipedia.org/thumb/direct.jpg"
+        }
+      ]
+    }
+    """.utf8)
+
+    let response = try JSONDecoder().decode(DJConnectVibeCastResponse.self, from: data)
+    let renderState = DJConnectVibeCastRenderState.rendered(from: response)
+
+    #expect(response.items.first?.imageURL == nil)
+    #expect(response.items.first?.thumbnailURL == nil)
+    #expect(response.context?.artistImageURL == nil)
+    #expect(renderState.artistImage == nil)
+}
+
+@Test func vibeCastTextOnlyResponseClearsPreviousArtistImageState() throws {
+    let imageResponse = DJConnectVibeCastResponse(
+        revision: 20,
+        items: [
+            DJConnectVibeCastItem(
+                kind: "artist_fact",
+                title: "Artist shout-out",
+                imageURL: URL(string: "/api/djconnect/v1/proxy/images/artist.jpg")
+            )
+        ]
+    )
+    let textOnlyResponse = DJConnectVibeCastResponse(
+        revision: 21,
+        items: [
+            DJConnectVibeCastItem(kind: "artist_fact", title: "Artist shout-out", text: "Text-only refresh.")
+        ]
+    )
+
+    let imageState = DJConnectVibeCastRenderState.rendered(from: imageResponse)
+    let textOnlyState = DJConnectVibeCastRenderState.rendered(from: textOnlyResponse)
+
+    #expect(imageState.artistImage?.url.absoluteString == "/api/djconnect/v1/proxy/images/artist.jpg")
+    #expect(textOnlyState.revision == 21)
+    #expect(textOnlyState.artistImage == nil)
+}
+
 @Test func askDJIdleSuggestionRequestUsesDedicatedEndpoint() throws {
     let identity = DJConnectIdentity(
         deviceID: "djconnect-watchos-8F3A2C91B45D",

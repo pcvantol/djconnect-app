@@ -15,6 +15,8 @@ All notable changes to DJConnect App are documented here.
 - Synced the Apple client contract with Home Assistant `3.2.x` backend error
   shapes by accepting object-form `music_backend_error` and the shared
   `windows` client type in core models.
+- Added VibeCast artist shout-out image decoding from proxied Home Assistant
+  artwork URLs with text-only fallback behavior.
 
 ## 3.2.0 - 2026-06-26
 
