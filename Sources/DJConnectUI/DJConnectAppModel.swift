@@ -527,7 +527,7 @@ public final class DJConnectAppModel: ObservableObject {
     private let startBackgroundTasks: Bool
     private let monkeyTestingMode: Bool
     private let diagnosticLogFileURL: URL?
-    nonisolated private static let protocolVersion = "3.2.0"
+    nonisolated private static let protocolVersion = "3.2.17"
     private static let defaultHomeAssistantURL = "http://homeassistant.local:8123"
     private let appVersion = DJConnectAppModel.protocolVersion
     private let installIDKey = "DJConnectInstallID"
@@ -5419,8 +5419,8 @@ public final class DJConnectAppModel: ObservableObject {
             deviceID: "djconnect-macos-unavailable",
             deviceName: "DJConnect Mac",
             clientType: .macos,
-            firmware: "3.2.0",
-            appVersion: "3.2.0",
+            firmware: "3.2.17",
+            appVersion: "3.2.17",
             platform: .macos
         )
         #else
@@ -5428,8 +5428,8 @@ public final class DJConnectAppModel: ObservableObject {
             deviceID: "djconnect-ios-unavailable",
             deviceName: "DJConnect iPhone",
             clientType: .ios,
-            firmware: "3.2.0",
-            appVersion: "3.2.0",
+            firmware: "3.2.17",
+            appVersion: "3.2.17",
             platform: .ios
         )
         #endif
