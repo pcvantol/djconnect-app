@@ -556,6 +556,10 @@ The private source repo uses GitHub Actions only for deterministic checks:
 - unsigned macOS Debug build
 - unsigned iOS Debug generic build
 
+On `main` pushes and manual CI runs, the CI workflow also removes older
+completed GitHub Actions runs after the deterministic checks finish, keeping the
+newest 2 completed runs per workflow. Pull requests never run this cleanup.
+
 The `TestFlight beta` workflow is intentionally manual-only. It has no push or
 tag trigger and must never be used without explicit maintainer approval, an
 explicit semantic version, and an explicit matching source tag. To run it,

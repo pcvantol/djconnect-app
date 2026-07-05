@@ -59,3 +59,68 @@ jobs:
             -derivedDataPath .xcode-derived \
             CODE_SIGNING_ALLOWED=NO \
             build
+
+  cleanup-workflow-runs:
+    name: Cleanup old workflow runs
+    needs:
+      - test-and-unsigned-build
+    if: ${{ github.event_name != 'pull_request' && (github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      actions: write
+      contents: read
+
+    steps:
+      - name: Delete old completed workflow runs
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          CURRENT_RUN_ID: ${{ github.run_id }}
+          KEEP_RUNS: "2"
+        run: |
+          set -euo pipefail
+
+          current_workflow_id="$(
+            gh api "/repos/${REPO}/actions/runs/${CURRENT_RUN_ID}" --jq '.workflow_id'
+          )"
+
+          mapfile -t workflows < <(
+            gh api --paginate "/repos/${REPO}/actions/workflows?per_page=100" \
+              --jq '.workflows[] | @base64'
+          )
+
+          for encoded_workflow in "${workflows[@]}"; do
+            workflow="$(
+              printf '%s' "$encoded_workflow" | base64 --decode
+            )"
+            workflow_id="$(jq -r '.id' <<<"$workflow")"
+            workflow_name="$(jq -r '.name' <<<"$workflow")"
+            keep_limit="$KEEP_RUNS"
+            kept=0
+
+            if [[ "$workflow_id" == "$current_workflow_id" ]]; then
+              keep_limit=$((KEEP_RUNS - 1))
+            fi
+
+            echo "Checking completed runs for ${workflow_name} (${workflow_id})"
+
+            mapfile -t completed_run_ids < <(
+              gh api "/repos/${REPO}/actions/workflows/${workflow_id}/runs?status=completed&per_page=100" \
+                --jq '.workflow_runs | sort_by(.created_at) | reverse | .[].id'
+            )
+
+            for run_id in "${completed_run_ids[@]}"; do
+              if [[ "$run_id" == "$CURRENT_RUN_ID" ]]; then
+                continue
+              fi
+
+              kept=$((kept + 1))
+              if [[ "$kept" -le "$keep_limit" ]]; then
+                continue
+              fi
+
+              echo "Deleting completed workflow run ${run_id}"
+              gh api --method DELETE "/repos/${REPO}/actions/runs/${run_id}"
+            done
+          done
