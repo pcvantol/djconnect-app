@@ -188,7 +188,9 @@ with `POST /api/djconnect/v1/music_discovery/refresh`, and plays accepted items 
 acceptance as a positive Music DNA signal. Clients must not generate
 recommendations or reasons locally, and displayed items require a backend `id`,
 `kind`, `title`, playable `uri`, and `reason`. If Music DNA is disabled, Ontdek
-shows the opt-in/locked state instead of an empty grid. On iOS the Home Screen
+shows the opt-in/locked state instead of an empty grid. Load failures stay in
+the app model and refresh controls instead of replacing the page with an error
+card. On iOS the Home Screen
 quick action `dev.djconnect.action.discovery` and deep links
 `djconnect://discover` / `djconnect://ontdek` jump directly to Ontdek.
 

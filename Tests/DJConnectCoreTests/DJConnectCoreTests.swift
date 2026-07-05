@@ -2934,6 +2934,25 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     #expect(unknown.items.first?.plainText == "safe fallback")
 }
 
+@Test func vibeCastResponseDecodesOnlyProxiedContextArtistImage() throws {
+    let response = try JSONDecoder().decode(
+        DJConnectVibeCastResponse.self,
+        from: Data(#"{"enabled":true,"revision":3,"context":{"artist_image_url":"/api/djconnect/v1/proxy/images/artist.jpg"},"items":[]}"#.utf8)
+    )
+
+    #expect(response.context?.artistImageURL?.absoluteString == "/api/djconnect/v1/proxy/images/artist.jpg")
+    #expect(response.artistShoutOutImage?.url.absoluteString == "/api/djconnect/v1/proxy/images/artist.jpg")
+    #expect(DJConnectVibeCastRenderState.rendered(from: response).artistImage?.url.absoluteString == "/api/djconnect/v1/proxy/images/artist.jpg")
+
+    let external = try JSONDecoder().decode(
+        DJConnectVibeCastResponse.self,
+        from: Data(#"{"enabled":true,"context":{"artistImageUrl":"https://images.example.com/artist.jpg"},"items":[]}"#.utf8)
+    )
+
+    #expect(external.context?.artistImageURL == nil)
+    #expect(external.artistShoutOutImage == nil)
+}
+
 @Test func vibeCastResponseDecodesEmojiOnlyBubbleSegments() throws {
     let single = try JSONDecoder().decode(
         DJConnectVibeCastResponse.self,

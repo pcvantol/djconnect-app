@@ -343,26 +343,15 @@ URLs.
   "context": {
     "artist_image_url": "/api/djconnect/v1/proxy/images/artist.jpg"
   },
-  "items": [
-    {
-      "kind": "artist_fact",
-      "title": "Artist shout-out",
-      "text": "Artist fact text.",
-      "image_url": "/api/djconnect/v1/proxy/images/artist-fact.jpg",
-      "thumbnail_url": "/api/djconnect/v1/proxy/images/artist-thumb.jpg",
-      "image_alt": "Portrait of Artist Name",
-      "image_source": "musicbrainz"
-    }
-  ]
+  "items": []
 }
 ```
 
-The preferred artist visual is `items[].image_url` on the `artist_fact` item,
-falling back to that item's `thumbnail_url`, then `context.artist_image_url`.
-If all image fields are missing, existing text-only VibeCast rendering remains
-unchanged. `image_alt` may be used for accessibility labels; `image_source` is
-debug metadata and not prominent user-facing copy. Polling and cache freshness
-stay based on `revision`, `ttl_seconds`, and `poll_after_seconds`.
+The Apple clients currently use `context.artist_image_url` for the artist
+shout-out render state. If the field is missing or points outside the DJConnect
+proxy path allowlist, existing text-only VibeCast rendering remains unchanged.
+Polling and cache freshness stay based on `revision`, `ttl_seconds`, and
+`poll_after_seconds`.
 
 ## Commands
 
