@@ -5724,6 +5724,17 @@ private struct MusicDiscoveryDetailView: View {
                 }
                 .buttonStyle(DJConnectLilacPillButtonStyle())
                 .disabled(model.playingMusicDiscoveryItemID == item.id)
+
+                Button {
+                    dismiss()
+                } label: {
+                    Text(localizedKey(model.language, "ui.close"))
+                        .font(.headline.weight(.semibold))
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(.white.opacity(0.76))
+                .padding(.top, -4)
             }
             .padding(22)
         }

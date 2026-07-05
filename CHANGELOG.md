@@ -4,6 +4,18 @@ All notable changes to DJConnect App are documented here.
 
 ## Unreleased
 
+## 3.2.19 - 2026-07-05
+
+### Changed
+
+- Added a Sluiten / Close action below Speel nu / Play now in the Discover
+  recommendation detail sheet.
+
+### Fixed
+
+- Fixed the public unsigned iOS release workflow on Xcode 16.4 by treating
+  watchOS `UserNotifications` concurrency annotations as preconcurrency.
+
 ## 3.2.18 - 2026-07-05
 
 ### Added

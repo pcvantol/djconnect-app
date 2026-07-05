@@ -10,7 +10,7 @@ import Security
 import Speech
 #endif
 import SwiftUI
-import UserNotifications
+@preconcurrency import UserNotifications
 import WatchKit
 #if canImport(WatchConnectivity)
 @preconcurrency import WatchConnectivity
