@@ -208,7 +208,7 @@ command payloads include `device_id`, `device_name`, `client_id`, and
 `client_type`, with `client_id` currently matching `device_id`.
 
 The Apple clear-history action calls
-`POST /api/djconnect/ask_dj/history/clear`. Home Assistant should scope the
+`POST /api/djconnect/v1/ask_dj/history/clear`. Home Assistant should scope the
 clear to the relevant user/client/history namespace, increment
 `clear_revision`, and keep returning that revision on later history/message
 responses so all Apple clients can clear their local caches deterministically.
@@ -281,7 +281,7 @@ Recommended user flow:
 2. Home Assistant shows a pairing code or QR code.
 3. The Apple app is on the same LAN and the user enters or scans that code.
 4. The app posts the code and canonical client identity to local
-   `/api/djconnect/pair`.
+   `/api/djconnect/v1/pair`.
 5. Integration creates or returns a DJConnect bearer token for the app runtime.
 6. App stores only the DJConnect bearer token, client identity, `ha_local_url`,
    optional `ha_remote_url`, and protocol/backend metadata in app-private
@@ -315,7 +315,7 @@ proxy rather than an iPhone-hosted Home Assistant callback endpoint.
 Implemented initial app contract:
 
 ```http
-POST /api/djconnect/pair
+POST /api/djconnect/v1/pair
 Content-Type: application/json
 X-DJConnect-Device-ID: <device_id>
 ```
@@ -447,7 +447,7 @@ Content-Type: audio/wav
 Post client status to:
 
 ```http
-POST /api/djconnect/status
+POST /api/djconnect/v1/status
 ```
 
 Minimum payload:
@@ -504,12 +504,12 @@ supports remote language sync. Otherwise keep it as informational state.
 Send generic playback commands to:
 
 ```http
-POST /api/djconnect/command
+POST /api/djconnect/v1/command
 ```
 
 All command payloads must include `device_id` and `client_type`. Keep command payloads focused on playback commands and client identity. Do not
-send partial device-status snapshots in `/api/djconnect/command`; use
-`/api/djconnect/status` as the authoritative source for client status and
+send partial device-status snapshots in `/api/djconnect/v1/command`; use
+`/api/djconnect/v1/status` as the authoritative source for client status and
 settings mirrored into Home Assistant entities.
 
 Do not expose or send Home Assistant's removed Spotify override settings in
@@ -592,7 +592,7 @@ Spotify API offset errors. The app no longer sends unsupported legacy
 
 The app no longer exposes a Client adres or receives Home Assistant callbacks
 on `/api/device/*`. Playback and queue actions always travel from the Apple
-client to Home Assistant through `/api/djconnect/command` using the selected
+client to Home Assistant through `/api/djconnect/v1/command` using the selected
 local or remote HA transport.
 
 Expected success shape:
@@ -679,7 +679,7 @@ If implementing push-to-talk:
 2. App uploads raw WAV to HA:
 
 ```http
-POST /api/djconnect/voice
+POST /api/djconnect/v1/voice
 Content-Type: audio/wav
 Authorization: Bearer <djconnect_bearer_token>
 X-DJConnect-Device-ID: <device_id>
@@ -973,7 +973,7 @@ target with a real or recorded mock Home Assistant server.
   until user reset.
 - 401/403 during unauthenticated pairing polling stops the wait loop and asks
   the user to re-enter the visible app code in Home Assistant.
-- Voice/PTT uploads raw WAV to `/api/djconnect/voice`.
+- Voice/PTT uploads raw WAV to `/api/djconnect/v1/voice`.
 - Local Games show Paddle Rally, Meteor Run, Sky Dash, and Maze Chase without
   HA/backend traffic, render the Maze Chase player mouth and ghost eyes, and
   reset to tap-to-play when leaving the screen.

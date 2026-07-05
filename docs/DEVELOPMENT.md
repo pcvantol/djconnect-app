@@ -57,9 +57,9 @@ release binaries.
    code and returns a DJConnect bearer token.
 9. When the green pairing success state appears, choose `Let's Start!`.
 
-The app polls `POST /api/djconnect/pair`, stores the returned DJConnect bearer
+The app polls `POST /api/djconnect/v1/pair`, stores the returned DJConnect bearer
 token in app-private storage, and validates the pairing by posting to
-`/api/djconnect/status`. The pairing request sends the app code as
+`/api/djconnect/v1/status`. The pairing request sends the app code as
 `pair_code`, `pairing_code`, and `pairing_token` for compatibility with current
 Home Assistant integration builds.
 
@@ -221,7 +221,7 @@ output, and voice flows.
 ## Home Assistant Transport Check
 
 For a manual regression check, pair iOS/macOS through the local
-`/api/djconnect/pair` flow, then validate that status and command calls use the
+`/api/djconnect/v1/pair` flow, then validate that status and command calls use the
 stored `ha_local_url`, fall back to `ha_remote_url` when local access fails and
 remote is supported, and report offline when neither URL works.
 

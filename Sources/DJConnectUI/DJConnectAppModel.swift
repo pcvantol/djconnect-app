@@ -4235,7 +4235,7 @@ public final class DJConnectAppModel: ObservableObject {
             do {
                 let authPresent = (try? tokenStore.loadToken())?.isEmpty == false
                 logPush(
-                    "register payload endpoint=/api/djconnect/push/register ha_host=\(Self.hostForLog(from: localHomeAssistantURL())) device_id=\(identity.deviceID) client_type=\(identity.clientType.rawValue) env=\(environment.rawValue) app_bundle_id=\(appBundleID) app_version=\(appVersion) locale=\(locale) categories=\(categories) push_token_present=\(!token.isEmpty) token=\(DJConnectLogRedactor.redactSecret(token)) bootstrap_proof_present=\(bootstrapProof?.isEmpty == false) bootstrap_proof=\(DJConnectLogRedactor.redactSecret(bootstrapProof)) auth_present=\(authPresent)"
+                    "register payload endpoint=/api/djconnect/v1/push/register ha_host=\(Self.hostForLog(from: localHomeAssistantURL())) device_id=\(identity.deviceID) client_type=\(identity.clientType.rawValue) env=\(environment.rawValue) app_bundle_id=\(appBundleID) app_version=\(appVersion) locale=\(locale) categories=\(categories) push_token_present=\(!token.isEmpty) token=\(DJConnectLogRedactor.redactSecret(token)) bootstrap_proof_present=\(bootstrapProof?.isEmpty == false) bootstrap_proof=\(DJConnectLogRedactor.redactSecret(bootstrapProof)) auth_present=\(authPresent)"
                 )
                 let response = try await withHomeAssistantClient { client in
                     try await client.registerPushNotifications(DJConnectPushRegistrationRequest(

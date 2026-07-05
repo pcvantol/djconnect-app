@@ -1102,8 +1102,6 @@ public struct DJConnectAskDJHistoryMessage: Codable, Equatable, Identifiable, Se
         case audioUrl
         case playbackActions = "playback_actions"
         case confirmationActions = "confirmation_actions"
-        case recommendationActions = "recommendation_actions"
-        case recommendations
         case intentInfo = "intent"
         case analysis
         case items
@@ -1179,10 +1177,7 @@ public struct DJConnectAskDJHistoryMessage: Codable, Equatable, Identifiable, Se
         sources = sourceLinks
         audioURL = try container.decodeIfPresent(URL.self, forKey: .audioURL)
             ?? container.decodeIfPresentIgnoringErrors(URL.self, forKey: .audioUrl)
-        playbackActions = container.decodeLossyArrayIfPresent(DJConnectAskDJPlaybackAction.self, forKey: .playbackActions)
-            ?? container.decodeLossyArrayIfPresent(DJConnectAskDJPlaybackAction.self, forKey: .recommendationActions)
-            ?? container.decodeLossyArrayIfPresent(DJConnectAskDJPlaybackAction.self, forKey: .recommendations)
-            ?? []
+        playbackActions = container.decodeLossyArrayIfPresent(DJConnectAskDJPlaybackAction.self, forKey: .playbackActions) ?? []
         confirmationActions = container.decodeLossyArrayIfPresent(DJConnectAskDJPlaybackAction.self, forKey: .confirmationActions) ?? []
         intentInfo = try container.decodeIfPresent(DJConnectAskDJIntentInfo.self, forKey: .intentInfo)
         analysis = try container.decodeIfPresent(DJConnectAskDJTrackAnalysis.self, forKey: .analysis)
@@ -1357,8 +1352,6 @@ public struct DJConnectAskDJMessageResponse: Codable, Equatable, Sendable {
         case sources
         case playbackActions = "playback_actions"
         case confirmationActions = "confirmation_actions"
-        case recommendationActions = "recommendation_actions"
-        case recommendations
         case historyRevision = "history_revision"
         case clearRevision = "clear_revision"
         case audioURL = "audio_url"
@@ -1442,8 +1435,6 @@ public struct DJConnectAskDJMessageResponse: Codable, Equatable, Sendable {
         links = container.decodeLossyArrayIfPresent(DJConnectResponseLink.self, forKey: .links)
         sources = container.decodeLossyArrayIfPresent(DJConnectResponseLink.self, forKey: .sources)
         playbackActions = container.decodeLossyArrayIfPresent(DJConnectAskDJPlaybackAction.self, forKey: .playbackActions)
-            ?? container.decodeLossyArrayIfPresent(DJConnectAskDJPlaybackAction.self, forKey: .recommendationActions)
-            ?? container.decodeLossyArrayIfPresent(DJConnectAskDJPlaybackAction.self, forKey: .recommendations)
         confirmationActions = container.decodeLossyArrayIfPresent(DJConnectAskDJPlaybackAction.self, forKey: .confirmationActions)
         historyRevision = try container.decodeIfPresent(Int.self, forKey: .historyRevision) ?? 0
         clearRevision = try container.decodeIfPresent(Int.self, forKey: .clearRevision) ?? 0
@@ -1802,8 +1793,6 @@ public struct DJConnectAskDJResponse: Codable, Equatable, Sendable {
         case sources
         case playbackActions = "playback_actions"
         case confirmationActions = "confirmation_actions"
-        case recommendationActions = "recommendation_actions"
-        case recommendations
         case intent
         case action
         case analysis
@@ -1863,8 +1852,6 @@ public struct DJConnectAskDJResponse: Codable, Equatable, Sendable {
         links = container.decodeLossyArrayIfPresent(DJConnectResponseLink.self, forKey: .links)
         sources = container.decodeLossyArrayIfPresent(DJConnectResponseLink.self, forKey: .sources)
         playbackActions = container.decodeLossyArrayIfPresent(DJConnectAskDJPlaybackAction.self, forKey: .playbackActions)
-            ?? container.decodeLossyArrayIfPresent(DJConnectAskDJPlaybackAction.self, forKey: .recommendationActions)
-            ?? container.decodeLossyArrayIfPresent(DJConnectAskDJPlaybackAction.self, forKey: .recommendations)
         confirmationActions = container.decodeLossyArrayIfPresent(DJConnectAskDJPlaybackAction.self, forKey: .confirmationActions)
         intentInfo = try container.decodeIfPresent(DJConnectAskDJIntentInfo.self, forKey: .intent)
         intent = intentInfo?.intent
@@ -3398,8 +3385,6 @@ public struct DJConnectVoiceResponse: Codable, Equatable, Sendable {
         case images
         case links
         case playbackActions = "playback_actions"
-        case recommendationActions = "recommendation_actions"
-        case recommendations
     }
 
     public init(from decoder: Decoder) throws {
@@ -3417,8 +3402,6 @@ public struct DJConnectVoiceResponse: Codable, Equatable, Sendable {
         images = container.decodeLossyArrayIfPresent(DJConnectResponseImage.self, forKey: .images)
         links = container.decodeLossyArrayIfPresent(DJConnectResponseLink.self, forKey: .links)
         playbackActions = container.decodeLossyArrayIfPresent(DJConnectAskDJPlaybackAction.self, forKey: .playbackActions)
-            ?? container.decodeLossyArrayIfPresent(DJConnectAskDJPlaybackAction.self, forKey: .recommendationActions)
-            ?? container.decodeLossyArrayIfPresent(DJConnectAskDJPlaybackAction.self, forKey: .recommendations)
     }
 
     public func encode(to encoder: Encoder) throws {

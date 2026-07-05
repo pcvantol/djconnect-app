@@ -9,6 +9,7 @@ public final class DJConnectClient: Sendable {
     private let encoder: JSONEncoder
     private let decoder: JSONDecoder
     private let responseLogger: (@Sendable (_ requestSummary: String, _ statusCode: Int) -> Void)?
+    private static let apiPrefix = "/api/djconnect/v1"
 
     public init(
         baseURL: URL,
@@ -48,11 +49,6 @@ public final class DJConnectClient: Sendable {
 
     public func sendCommandResponse(_ payload: DJConnectCommandPayload) async throws -> DJConnectCommandResponse {
         let request = try commandRequest(payload)
-        return try await decodedResponse(for: request)
-    }
-
-    public func sendAskDJ(_ payload: DJConnectAskDJRequest) async throws -> DJConnectAskDJResponse {
-        let request = try askDJRequest(payload)
         return try await decodedResponse(for: request)
     }
 
@@ -97,11 +93,11 @@ public final class DJConnectClient: Sendable {
     }
 
     public func statusRequest(_ payload: DJConnectStatusPayload) throws -> URLRequest {
-        try jsonRequest(path: "/api/djconnect/status", payload: payload)
+        try jsonRequest(path: Self.v1Path("status"), payload: payload)
     }
 
     public func pairingRequest(_ payload: DJConnectPairingPayload) throws -> URLRequest {
-        var request = URLRequest(url: endpoint(path: "/api/djconnect/pair"))
+        var request = URLRequest(url: endpoint(path: Self.v1Path("pair")))
         request.timeoutInterval = 10
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -111,19 +107,15 @@ public final class DJConnectClient: Sendable {
     }
 
     public func commandRequest(_ payload: DJConnectCommandPayload) throws -> URLRequest {
-        try jsonRequest(path: "/api/djconnect/command", payload: payload)
-    }
-
-    public func askDJRequest(_ payload: DJConnectAskDJRequest) throws -> URLRequest {
-        try jsonRequest(path: "/api/djconnect/ask", payload: payload)
+        try jsonRequest(path: Self.v1Path("command"), payload: payload)
     }
 
     public func askDJMessageRequest(_ payload: DJConnectAskDJRequest) throws -> URLRequest {
-        try jsonRequest(path: "/api/djconnect/ask_dj/message", payload: payload)
+        try jsonRequest(path: Self.v1Path("ask_dj/message"), payload: payload)
     }
 
     public func askDJHistoryRequest(sinceRevision: Int? = nil) throws -> URLRequest {
-        var components = URLComponents(url: endpoint(path: "/api/djconnect/ask_dj/history"), resolvingAgainstBaseURL: false)
+        var components = URLComponents(url: endpoint(path: Self.v1Path("ask_dj/history")), resolvingAgainstBaseURL: false)
         if let sinceRevision {
             components?.queryItems = [URLQueryItem(name: "since_revision", value: "\(sinceRevision)")]
         }
@@ -136,7 +128,7 @@ public final class DJConnectClient: Sendable {
     }
 
     public func clearAskDJHistoryRequest(memoryKey: String? = nil) throws -> URLRequest {
-        var request = try authenticatedRequest(path: "/api/djconnect/ask_dj/history/clear")
+        var request = try authenticatedRequest(path: Self.v1Path("ask_dj/history/clear"))
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = try encoder.encode(DJConnectAskDJClearHistoryRequest(identity: identity, memoryKey: memoryKey))
@@ -144,15 +136,15 @@ public final class DJConnectClient: Sendable {
     }
 
     public func askDJIdleSuggestionRequest(_ payload: DJConnectAskDJIdleSuggestionRequest) throws -> URLRequest {
-        try jsonRequest(path: "/api/djconnect/ask_dj/idle_suggestion", payload: payload)
+        try jsonRequest(path: Self.v1Path("ask_dj/idle_suggestion"), payload: payload)
     }
 
     public func pushRegisterRequest(_ payload: DJConnectPushRegistrationRequest) throws -> URLRequest {
-        try jsonRequest(path: "/api/djconnect/push/register", payload: payload)
+        try jsonRequest(path: Self.v1Path("push/register"), payload: payload)
     }
 
     public func pushUnregisterRequest(_ payload: DJConnectPushUnregistrationRequest) throws -> URLRequest {
-        try jsonRequest(path: "/api/djconnect/push/unregister", payload: payload)
+        try jsonRequest(path: Self.v1Path("push/unregister"), payload: payload)
     }
 
     public func voiceRequest(
@@ -161,7 +153,7 @@ public final class DJConnectClient: Sendable {
         djStyle: String? = nil,
         memoryKey: String? = nil
     ) throws -> URLRequest {
-        var request = try authenticatedRequest(path: "/api/djconnect/voice")
+        var request = try authenticatedRequest(path: Self.v1Path("voice"))
         request.httpMethod = "POST"
         request.setValue("audio/wav", forHTTPHeaderField: "Content-Type")
         request.setValue(identity.clientType.rawValue, forHTTPHeaderField: "X-DJConnect-Client-Type")
@@ -305,6 +297,10 @@ public final class DJConnectClient: Sendable {
 
     private func endpoint(path: String) -> URL {
         baseURL.appendingPathComponent(path.trimmingCharacters(in: CharacterSet(charactersIn: "/")))
+    }
+
+    private static func v1Path(_ suffix: String) -> String {
+        "\(apiPrefix)/\(suffix.trimmingCharacters(in: CharacterSet(charactersIn: "/")))"
     }
 
     private static func requestSummary(_ request: URLRequest) -> String {

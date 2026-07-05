@@ -230,19 +230,19 @@ swift test
 Status is posted to:
 
 ```http
-POST /api/djconnect/status
+POST /api/djconnect/v1/status
 ```
 
 Playback commands are posted to:
 
 ```http
-POST /api/djconnect/command
+POST /api/djconnect/v1/command
 ```
 
 Voice/PTT WAV audio, when implemented by an app target, is posted to:
 
 ```http
-POST /api/djconnect/voice
+POST /api/djconnect/v1/voice
 Content-Type: audio/wav
 ```
 
@@ -270,14 +270,14 @@ Apple clients render those vertically, with the speaker name on the left and an
 `Actief`/`Activeer` button on the right. Opening Ask DJ scrolls the synced chat
 history to the newest message by default, including after the first async
 history load. Clearing Ask DJ history calls
-`POST /api/djconnect/ask_dj/history/clear`; the returned `clear_revision` is
+`POST /api/djconnect/v1/ask_dj/history/clear`; the returned `clear_revision` is
 the authoritative full-clear signal for local cached history.
 
 The native app also uses command proxy flows for backend devices, queue,
 playlists, liked songs, and output selection:
 
 ```http
-POST /api/djconnect/command
+POST /api/djconnect/v1/command
 {"command":"devices"}
 {"command":"queue"}
 {"command":"playlists"}
@@ -311,7 +311,7 @@ commands until the user chooses a real backend output.
 Foreground wakeword support is available from Settings. When enabled for the
 current app session, the app uses Apple Speech while the app is open to listen
 for the configured wake phrase (`Hey DJ` by default), then records a short WAV
-voice request through the normal `/api/djconnect/voice` flow. The app does not
+voice request through the normal `/api/djconnect/v1/voice` flow. The app does not
 run an always-on background wakeword listener and does not auto-start wakeword
 listening after launch. Wakeword and the local progress timer are paused when
 the app leaves the foreground and resume only when the app becomes active
@@ -337,13 +337,13 @@ even for app clients.
 Pairing is posted to:
 
 ```http
-POST /api/djconnect/pair
+POST /api/djconnect/v1/pair
 ```
 
 The app sends `device_id`, `device_name`, canonical `client_type`, `firmware`,
 `app_version`, `platform`, and the pairing code as `pair_code`, `pairing_code`,
 and `pairing_token`. Pairing bootstrap is local-only: the Apple client posts to
-the local Home Assistant `/api/djconnect/pair` endpoint and stores the returned
+the local Home Assistant `/api/djconnect/v1/pair` endpoint and stores the returned
 DJConnect bearer token, `ha_local_url`, optional `ha_remote_url`, remote support
 flag, and music-backend summary. Remote URLs are never used for first pairing.
 
