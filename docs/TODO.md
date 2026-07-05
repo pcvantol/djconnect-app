@@ -17,7 +17,7 @@ with acceptance criteria live in [ISSUES.md](ISSUES.md).
   `pcvantol/djconnect/FIELD_TEST_APP_CLIENTS.md` checklist.
 - Field-test APNs wake/sync hints for iOS/macOS/watchOS with central
   `djconnect-api`, confirming push never carries raw prompts, raw audio,
-  Ask DJ history, DJ Memory, Spotify tokens, HA tokens, or bearer tokens.
+  Ask DJ history, Music DNA, Spotify tokens, HA tokens, or bearer tokens.
 - Validate HA entity creation and status sync for iOS, iPadOS, and macOS app
   clients after pairing.
 - Validate the blocking pairing sheet and Demo Mode on physical iPhone, iPad,
@@ -71,7 +71,7 @@ with acceptance criteria live in [ISSUES.md](ISSUES.md).
   auth recovery.
 - Add more diagnostics export tests for `audio_url`, `Authorization`, and
   arbitrary token-like JSON fields.
-- Add security hardening tests for local API request-size limits and deeper
+- Add security hardening tests for request-size limits and deeper
   app-storage token reset/re-pair behavior.
 - Add performance regression checks for refresh coalescing and repeated artwork
   URLs.

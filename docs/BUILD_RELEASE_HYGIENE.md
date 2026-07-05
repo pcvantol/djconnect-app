@@ -51,6 +51,10 @@ Before release, beta distribution, or a maintainer-facing workflow change:
 - add or update Dutch What's New release notes in
   `docs/release-notes/nl/vX.Y.Z.md` before publishing, so localized app screens
   do not fall back to English changelog text;
+- review app-facing translations in all five supported languages (`nl`, `en`,
+  `de`, `es`, `fr`) whenever UI copy, notices, errors, prompts, or release
+  strings change; do not leave new keys as English fallbacks in non-English
+  `.lproj/Localizable.strings` files;
 - keep `CONTRIBUTING.md`, `SECURITY.md`, `CODE_OF_CONDUCT.md`,
   `docs/RELEASE.md`, `docs/TODO.md`, and `docs/TECHNICAL_DESIGN_DECISIONS.md`
   aligned when contribution, security, CI, signing, or release behavior changes;

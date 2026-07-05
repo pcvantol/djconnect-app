@@ -1,0 +1,13 @@
+"CFBundleDisplayName" = "DJConnect";
+"NSLocalNetworkUsageDescription" = "DJConnect se connecte à Home Assistant sur votre réseau local.";
+"NSMicrophoneUsageDescription" = "DJConnect enregistre votre voix pour envoyer des demandes musicales push-to-talk à Home Assistant.";
+"NSSpeechRecognitionUsageDescription" = "DJConnect utilise la reconnaissance vocale pour détecter la phrase d’activation.";
+"NSCameraUsageDescription" = "DJConnect utilise l’appareil photo uniquement pour scanner le QR code d’association de Home Assistant ou de l’Apple Watch.";
+"Now Playing" = "Lecture en cours";
+"Control playback" = "Contrôler la lecture";
+"Ask DJ" = "Ask DJ";
+"Ask for music" = "Demander de la musique";
+"Track Insight" = "Track Insight";
+"Analyze current track" = "Analyser le morceau actuel";
+"Discover" = "Decouvrir";
+"Music DNA recommendations" = "Recommandations Music DNA";

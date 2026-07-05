@@ -16,12 +16,15 @@ DerivedData/
 # Generated simulator screenshots
 screenshots/
 Screenshots/
+!screenshots/
+!screenshots/**
 *-screenshot*.png
 *-screenshot*.jpg
 *-screenshot*.jpeg
 *Screenshot*.png
 *Screenshot*.jpg
 *Screenshot*.jpeg
+tmp/ask-dj-airplay-screenshots/*.png
 
 # Environment
 .env

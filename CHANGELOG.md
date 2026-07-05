@@ -4,6 +4,342 @@ All notable changes to DJConnect App are documented here.
 
 ## Unreleased
 
+## 3.2.17 - 2026-07-05
+
+### Changed
+
+- Updated every Home Assistant DJConnect HTTP route used by the Apple clients to
+  the canonical `/api/djconnect/v1/...` prefix.
+- Updated pairing QR/deep-link payloads to advertise
+  `pair_path=/api/djconnect/v1/pair` while keeping legacy pair-path parsing for
+  existing setup links.
+- Refreshed API, architecture, handoff, release, README, and chat-bootstrap
+  documentation for the canonical v1 route prefix.
+
+### Fixed
+
+- Added regression coverage so hardcoded client-call routes cannot silently
+  fall back to the old `/api/djconnect/...` prefix.
+- Kept backend-provided image, TTS, and audio URLs intact instead of rewriting
+  server-returned media paths on the client.
+
+## 3.2.16 - 2026-07-04
+
+### Added
+
+- Added Music DNA export/import actions to iOS and macOS Settings using native
+  Apple save/import sheets.
+- Added authenticated HTTP Music DNA export support for
+  `/api/djconnect/v1/music_dna/export`, saving the exact server-built JSON envelope
+  instead of reconstructing exports from cached profile data.
+- Added Music DNA import preview and upload support for previously exported JSON
+  backups, with connected/pairing guards and clear success/error states.
+
+### Changed
+
+- Updated the Music DNA, Discover, Ask DJ, Track Insight, toast, hero, and
+  localization polish across iOS and macOS.
+- Documented release hygiene that app-facing translations must be reviewed in
+  all five supported languages before release.
+
+### Fixed
+
+- Fixed stale Music DNA opt-in prompts when Home Assistant is unavailable or the
+  music backend token has expired.
+- Fixed Music DNA export/auth failures to use the existing DJConnect pairing
+  recovery flow.
+
+## 3.2.15 - 2026-07-04
+
+### Added
+
+- Added Ontdek / Discover as a first-class iOS/macOS Music Discovery page backed
+  by the new Home Assistant Music Discovery endpoints.
+- Added the iOS Home Screen quick action `dev.djconnect.action.discovery` for
+  jumping directly to Discover/Ontdek.
+
+### Changed
+
+- Moved Queue into More on compact iOS navigation so Discover can sit directly
+  after Track Insight in the main tab set.
+
+### Fixed
+
+- Fixed iOS/watchOS release builds by keeping APNs entitlement lookup on
+  platforms where the Security task API is available.
+- Fixed watchOS Music DNA rendering for backend responses that omit optional
+  profile lists.
+
+## 3.2.14 - 2026-07-04
+
+### Added
+
+- Added iOS/macOS VibeCast feed support for `/api/djconnect/v1/vibecast`, including
+  shared response models, authenticated parity request metadata, polling while
+  the VibeCast surface is visible, and side bubbles for structured facts/trivia.
+- Added optional WebSocket fast-path support for the `djconnect/vibecast` route
+  with the same HTTP fallback behavior as Ask DJ and Track Insight.
+- Made active iOS/macOS VibeCast sessions auto-analyze Track Insight for the
+  current and next playing tracks until the VibeCast surface is closed.
+
+### Fixed
+
+- Made the no-output startup regression test locale-independent so release CI
+  passes on runners whose default app language is Dutch.
+
+## 3.2.13 - 2026-07-04
+
+### Added
+
+- Added iOS/macOS VibeCast feed support for `/api/djconnect/v1/vibecast`, including
+  shared response models, authenticated parity request metadata, polling while
+  the VibeCast surface is visible, and side bubbles for structured facts/trivia.
+- Added optional WebSocket fast-path support for the `djconnect/vibecast` route
+  with the same HTTP fallback behavior as Ask DJ and Track Insight.
+- Made active iOS/macOS VibeCast sessions auto-analyze Track Insight for the
+  current and next playing tracks until the VibeCast surface is closed.
+
+## 3.2.12 - 2026-07-04
+
+### Changed
+
+- Regenerated iPhone, iPad and Apple Watch screenshots for the updated
+  Track Insight, Music DNA, Ask DJ and watchOS visual states.
+- Updated screenshot documentation with the latest simulator capture date.
+
+## 3.2.11 - 2026-07-04
+
+### Added
+
+- Added mood-aware Ask DJ assistant bubbles on iOS, macOS, and watchOS using
+  structured `mood` / `mood_context` metadata.
+- Added richer Music DNA dashboard decoding for backend mood averages,
+  energy profiles, and recent analysis signals.
+- Added Music DNA and Track Insight visual parity updates for Apple Watch,
+  sharing, and AirPlay/VibeCast output surfaces.
+
+### Changed
+
+- Updated Ask DJ follow-up actions such as "Meer van deze artiest" to send a
+  new Ask DJ text request instead of an empty playback command.
+- Made Track Insight refresh and rendering respect mood overrides more
+  consistently across live, share, and output contexts.
+- Improved Track Insight progress visuals and analysis/metric section icons.
+
+### Fixed
+
+- Fixed stale Track Insight content on Apple Watch when playback changes.
+- Fixed overly aggressive Ask DJ keyboard dismissal while typing.
+- Fixed iPhone Track Insight width overflow and smoother playback progress
+  animation.
+
+## 3.2.10 - 2026-07-02
+
+### Added
+
+- Added an opt-in WebSocket fast-path toggle for local Home Assistant
+  connections on iOS and macOS.
+- Added direct screenshot launch routing for deterministic iPhone and iPad
+  capture runs.
+
+### Changed
+
+- Refined Settings, Logs, Music DNA, Track Insight, onboarding and pairing
+  layouts across iOS, iPadOS and macOS.
+- Regenerated iPhone, iPad and Watch screenshots for the updated UI.
+- Updated Ask DJ permission prompts so notifications are requested first and
+  microphone access is requested only from voice actions.
+
+### Fixed
+
+- Fixed iPhone rotation behavior for Games and Music DNA by switching to a
+  geometry-aware top-tab layout in landscape.
+- Fixed remaining wake-word copy escaping and untranslated Track Insight text.
+- Fixed home-screen jump actions and several row-height/padding inconsistencies.
+
+## 3.2.9 - 2026-07-02
+
+### Added
+
+- Added a richer vector launch visual for the macOS splash screen.
+- Added stronger regression coverage for Ask DJ history clearing across HTTP,
+  WebSocket and Apple client identity payloads.
+
+### Changed
+
+- Improved wide iPad/macOS layouts for Track Insight, Music DNA, local games,
+  About, Legal and Privacy pages.
+- Made iPad sheets and QR scanning use more of the available canvas.
+- Refined iOS More-menu ordering and labels, permission copy, action icons and
+  output-device accent colors.
+
+### Fixed
+
+- Fixed Ask DJ chat clearing so successful clear responses immediately empty
+  the local cache on iOS, macOS and watchOS.
+- Fixed clear-history identity payloads to include the canonical Apple
+  `device_id`, `client_id`, `client_type` and `device_name`.
+- Fixed Track Insight export UI so the action button no longer shifts while
+  progress updates.
+- Fixed iPad/macOS card grids and row heights that left unused space or uneven
+  rows.
+
+## 3.2.8 - 2026-07-01
+
+### Added
+
+- Added shared localization coverage for the Apple clients with supported
+  languages `en`, `nl`, `de`, `fr`, and `es`.
+- Added localized pairing/API error presentation for stale auth,
+  `client_type_mismatch`, `invalid_client_type`, `invalid_pair_code`,
+  `not_configured`, and unauthorized pairing responses.
+- Added a localization validation script that fails when supported locales are
+  missing keys or format placeholders drift.
+
+### Changed
+
+- Centralized pairing error copy so iOS/iPadOS, watchOS, and macOS use the same
+  user-facing messages while protocol values remain unchanged.
+- Documented that future Apple client UI text must be localized for all
+  supported languages in the same pull request.
+
+### Fixed
+
+- Kept manual pairing errors free of raw backend/debug jargon while preserving
+  existing Home Assistant setup-flow guidance.
+
+## 3.2.7 - 2026-06-30
+
+### Added
+
+- Added pairing coverage for ngrok development tunnels, URL syntax validation,
+  two-phase Home Assistant setup completion, and `client_type_mismatch`.
+- Added regression coverage for Track Insight `client_type`, Ask DJ history
+  sync preserving fresh exchanges, and stale Music DNA profile refreshes.
+
+### Changed
+
+- Matched Music DNA outline-heart iconography across Watch, iOS, and macOS.
+- Restyled iOS/macOS output-device choices to feel closer to the Apple Watch
+  selector.
+- Improved pairing copy and validation for local URLs, local-development ngrok
+  URLs, invalid pairing codes, and wrong Home Assistant app-type selections.
+
+### Fixed
+
+- Fixed Track Insight requests missing the canonical Apple client type.
+- Fixed Ask DJ answers disappearing after a later history/status sync.
+- Fixed Music DNA toggles visually reverting when Home Assistant returned a
+  stale profile immediately after opt-in or opt-out.
+
+## 3.2.6 - 2026-06-30
+
+### Added
+
+- Added an iOS camera consent sheet before QR pairing and restored the required
+  camera usage description.
+- Added Dutch widget and Watch complication metadata localizations.
+- Added documentation and tests for deep links, quick actions, camera consent,
+  and supported Bonjour service declarations.
+
+### Changed
+
+- Made iOS home-screen quick actions and widget taps route reliably to the
+  matching app page.
+- Improved demo-mode widget refreshes for Now Playing, Queue, Playlists, Track
+  Insight, and Ask DJ.
+- Smoothed Track Insight and VibeCast visualizer animation while playback is
+  active.
+- Matched Watch Music DNA iconography and button alignment with iOS/macOS.
+- Refined Track Insight share preview/export sizing so preview scaling does not
+  alter exported content.
+
+### Fixed
+
+- Fixed macOS build availability around external playback preview settings.
+- Fixed iOS permission-settings return flow, demo playback controls, and Watch
+  install/startup regressions.
+
+## 3.2.5 - 2026-06-30
+
+### Changed
+
+- Split iPhone and Apple Watch pairing into explicit QR/manual flows so the
+  iPhone shows only the relevant pairing action for the active device.
+- Clarified Apple Watch pairing success on both iPhone and Apple Watch.
+- Restyled the Music DNA opt-in prompt to match the Feedback sheet.
+- Refined Track Insight privacy and logs UI with a lock footer icon and muted
+  log line numbers.
+
+## 3.2.4 - 2026-06-29
+
+### Added
+
+- Added first-class Music DNA profile loading, opt-in, opt-out, clear, demo,
+  refresh, and empty/error states across iOS, macOS, and watchOS.
+- Added Apple Watch Music DNA screens, consent from both Ask DJ and Music DNA,
+  and Music DNA controls in Watch Settings through the iPhone proxy.
+
+### Changed
+
+- Kept Music DNA server-side as the source of truth and stopped deriving a
+  persistent profile from local Track Insight history.
+- Updated Music DNA and Watch proxy tests plus the Home Assistant API contract
+  documentation.
+- Removed the remaining Apple local API/Bonjour pairing legacy and documented
+  inbound-only pairing through Home Assistant `/api/djconnect/v1/pair`.
+
+### Removed
+
+- Removed old local `/api/device/*` callback/discovery compatibility,
+  Bonjour/mDNS service declarations, and local-device API release tooling.
+
+## 3.2.3 - 2026-06-29
+
+### Changed
+
+- Refined the iOS Track Insight screen with native large-title navigation,
+  reordered insight cards, adaptive metric tiles, and default-colored toolbar
+  sharing.
+- Reworked Track Insight share controls, copy, scrolling, cancellation, and
+  animated card visuals.
+- Reduced Track Insight visualizer CPU load with async Canvas rendering,
+  Metal-backed compositing, a 30 FPS animation cadence, and offscreen animation
+  shutdown.
+
+## 3.2.2 - 2026-06-28
+
+### Added
+
+- Added Track Insight and Ask DJ widgets for iOS and macOS, plus Track Insight
+  Live Activity/Dynamic Island rendering on iPhone.
+- Added on-device Track Insight sharing with static and animated formats for
+  story, square, and landscape cards.
+- Added an optional local Home Assistant native `/api/websocket` fast path for
+  latency-sensitive command, Ask DJ message, and Track Insight actions, with
+  HTTP remaining the canonical fallback.
+- Added iOS Home Screen quick actions for Ask DJ and Track Insight.
+
+### Changed
+
+- Aligned the Apple clients with the Home Assistant 3.2.2 Ask DJ and Track
+  Insight contract, including Music DNA terminology and `music_dna_key`
+  payloads.
+- Reworked Track Insight navigation and toolbar actions so Share, Refresh, and
+  VibeCast/AirPlay live in the Track Insight toolbar instead of a separate
+  VibeCast screen.
+- Updated Demo Mode Track Insight visualizations to map demo playback to
+  distinct local insights.
+
+### Removed
+
+- Removed old memory terminology from the active client contract; Music DNA is
+  now the visible and code-facing label.
+- Removed old Ask DJ non-Track Insight analysis rendering and local Track
+  Insight prompt classification.
+
+## 3.2.0 - 2026-06-26
+
 ### Changed
 
 - Clarified LAN-only pairing and post-pairing remote URL fallback guidance in
@@ -17,10 +353,6 @@ All notable changes to DJConnect App are documented here.
   `windows` client type in core models.
 - Added VibeCast artist shout-out image decoding from proxied Home Assistant
   artwork URLs with text-only fallback behavior.
-
-## 3.2.0 - 2026-06-26
-
-### Changed
 
 - Bumped the Apple client protocol/app version line to `3.2.0`.
 - Added Home Assistant local/remote transport selection for iOS and macOS after
@@ -77,8 +409,8 @@ All notable changes to DJConnect App are documented here.
   Assistant.
 - Included explicit `client_id`, `device_id`, `device_name`, and `client_type`
   identity fields in Ask DJ text and command payload documentation.
-- Added the Ask DJ `technical_track_analysis` read-only intent contract and
-  client decoding for structured analysis metadata and technical metric items.
+- Added the Ask DJ `track_insight` read-only intent contract and client
+  decoding for structured Track Insight metadata and metric items.
 
 ## 3.1.50 - 2026-06-25
 
@@ -364,8 +696,8 @@ All notable changes to DJConnect App are documented here.
 - Added a standalone native watchOS DJConnect client target with Home Assistant
   pairing, playback controls, `Ask DJ` push-to-talk WAV voice upload, and Watch
   speaker DJ response playback.
-- Added Watch-side `Ask DJ` mood and DJ Memory context hints for future
-  server-side DJ Memory support in the Home Assistant integration.
+- Added Watch-side `Ask DJ` mood and Music DNA context hints for future
+  server-side Music DNA support in the Home Assistant integration.
 - Added `Ask DJ` as a first-class iOS/macOS chat screen with local chat
   history, text input, clickable starter prompts, timestamps, clear-history
   coordination, retry states, toast errors, markdown, sources, links, images,
@@ -375,7 +707,7 @@ All notable changes to DJConnect App are documented here.
 - Added Ask DJ support for image attachments, multiple images, hyperlinks,
   embedded link previews, rich sources, and audio replay/stop controls across
   Apple clients.
-- Added backend contract documentation for DJ Memory, personal listening
+- Added backend contract documentation for Music DNA, personal listening
   profile analysis, personal recommendations, Spotify recently played/top
   profile usage, voice Ask DJ, and explicit `Play Now` recommendation actions.
 - Added client-side `Play Now` buttons for structured Ask DJ recommendation

@@ -11,7 +11,7 @@ settings:
   base:
     SWIFT_VERSION: "6.0"
     CURRENT_PROJECT_VERSION: "1"
-    MARKETING_VERSION: "3.2.0"
+    MARKETING_VERSION: "3.2.17"
     DEVELOPMENT_TEAM: ""
     CODE_SIGN_STYLE: Automatic
 packages: {}
@@ -21,6 +21,7 @@ targets:
     platform: iOS
     sources:
       - path: Sources/DJConnectCore
+      - path: Sources/DJConnectCore/Resources
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: dev.djconnect.core.ios
@@ -32,6 +33,7 @@ targets:
     platform: macOS
     sources:
       - path: Sources/DJConnectCore
+      - path: Sources/DJConnectCore/Resources
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: dev.djconnect.core.mac
@@ -43,6 +45,7 @@ targets:
     platform: watchOS
     sources:
       - path: Sources/DJConnectCore
+      - path: Sources/DJConnectCore/Resources
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: dev.djconnect.core.watch
@@ -84,14 +87,42 @@ targets:
     dependencies:
       - target: DJConnectCoreIOS
       - target: DJConnectUIIOS
+      - target: DJConnectWatch
+        embed: true
+      - target: DJConnectTrackInsightWidgetsIOS
+        embed: true
     info:
       path: Apps/DJConnectIOS/Info.plist
       properties:
         CFBundleDisplayName: DJConnect
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        CFBundleURLTypes:
+          - CFBundleURLName: dev.djconnect.ios
+            CFBundleURLSchemes:
+              - djconnect
         LSApplicationCategoryType: public.app-category.music
+        NSCameraUsageDescription: DJConnect uses the camera only to scan the pairing QR code from Home Assistant or Apple Watch.
         UILaunchStoryboardName: LaunchScreen
+        UIApplicationShortcutItems:
+          - UIApplicationShortcutItemIconSymbolName: music.note
+            UIApplicationShortcutItemTitle: Now Playing
+            UIApplicationShortcutItemType: dev.djconnect.action.now-playing
+          - UIApplicationShortcutItemIconSymbolName: bubble.left.and.bubble.right
+            UIApplicationShortcutItemTitle: Ask DJ
+            UIApplicationShortcutItemType: dev.djconnect.action.ask-dj
+          - UIApplicationShortcutItemIconSymbolName: waveform.path.ecg
+            UIApplicationShortcutItemSubtitle: Analyze current track
+            UIApplicationShortcutItemTitle: Track Insight
+            UIApplicationShortcutItemType: dev.djconnect.action.track-insight
+          - UIApplicationShortcutItemIconSymbolName: sparkles
+            UIApplicationShortcutItemSubtitle: Music DNA recommendations
+            UIApplicationShortcutItemTitle: Discover
+            UIApplicationShortcutItemType: dev.djconnect.action.discovery
+          - UIApplicationShortcutItemIconSymbolName: music.note.list
+            UIApplicationShortcutItemSubtitle: Upcoming tracks
+            UIApplicationShortcutItemTitle: Queue
+            UIApplicationShortcutItemType: dev.djconnect.action.queue
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
           - UIInterfaceOrientationLandscapeLeft
@@ -101,9 +132,10 @@ targets:
           - UIInterfaceOrientationPortraitUpsideDown
           - UIInterfaceOrientationLandscapeLeft
           - UIInterfaceOrientationLandscapeRight
-        NSLocalNetworkUsageDescription: DJConnect maakt verbinding met Home Assistant op je lokale netwerk.
-        NSMicrophoneUsageDescription: DJConnect neemt je stem op voor push-to-talk muziekverzoeken aan Home Assistant.
-        NSSpeechRecognitionUsageDescription: DJConnect gebruikt spraakherkenning om de wake-zin te herkennen.
+        NSLocalNetworkUsageDescription: DJConnect connects to Home Assistant on your local network.
+        NSMicrophoneUsageDescription: DJConnect records your voice for push-to-talk music requests to Home Assistant.
+        NSSpeechRecognitionUsageDescription: DJConnect uses speech recognition to detect the wake phrase.
+        NSSupportsLiveActivities: true
         UIRequiredDeviceCapabilities:
           - wifi
         NSBonjourServices:
@@ -126,6 +158,8 @@ targets:
     dependencies:
       - target: DJConnectCoreMac
       - target: DJConnectUIMac
+      - target: DJConnectTrackInsightWidgetsMac
+        embed: true
     info:
       path: Apps/DJConnectMac/Info.plist
       properties:
@@ -134,9 +168,9 @@ targets:
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         LSApplicationCategoryType: public.app-category.music
-        NSLocalNetworkUsageDescription: DJConnect maakt verbinding met Home Assistant op je lokale netwerk.
-        NSMicrophoneUsageDescription: DJConnect neemt je stem op voor push-to-talk muziekverzoeken aan Home Assistant.
-        NSSpeechRecognitionUsageDescription: DJConnect gebruikt spraakherkenning om de wake-zin te herkennen.
+        NSLocalNetworkUsageDescription: DJConnect connects to Home Assistant on your local network.
+        NSMicrophoneUsageDescription: DJConnect records your voice for push-to-talk music requests to Home Assistant.
+        NSSpeechRecognitionUsageDescription: DJConnect uses speech recognition to detect the wake phrase.
         NSBonjourServices:
           - _home-assistant._tcp.
         NSAppTransportSecurity:
@@ -165,17 +199,17 @@ targets:
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         WKApplication: true
-        WKWatchOnly: false
-        NSLocalNetworkUsageDescription: DJConnect maakt verbinding met Home Assistant op je lokale netwerk.
-        NSMicrophoneUsageDescription: DJConnect neemt je stem op voor push-to-talk muziekverzoeken aan Home Assistant.
-        NSSpeechRecognitionUsageDescription: DJConnect gebruikt spraakherkenning alleen voor foreground stemactivatie met Hey DJ.
+        WKCompanionAppBundleIdentifier: dev.djconnect.ios
+        NSLocalNetworkUsageDescription: DJConnect connects to Home Assistant on your local network.
+        NSMicrophoneUsageDescription: DJConnect records your voice for push-to-talk music requests to Home Assistant.
+        NSSpeechRecognitionUsageDescription: DJConnect uses speech recognition only for foreground wake phrase detection with Hey DJ.
         UIRequiredDeviceCapabilities:
           - wifi
         NSAppTransportSecurity:
           NSAllowsArbitraryLoadsInLocalNetworking: true
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: dev.djconnect.watch
+        PRODUCT_BUNDLE_IDENTIFIER: dev.djconnect.ios.watch
         PRODUCT_NAME: DJConnect
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         CODE_SIGN_ENTITLEMENTS: Apps/DJConnectWatch/DJConnectWatch.entitlements
@@ -184,6 +218,8 @@ targets:
     platform: watchOS
     sources:
       - path: Apps/DJConnectWatchComplications
+    dependencies:
+      - target: DJConnectCoreWatch
     info:
       path: Apps/DJConnectWatchComplications/Info.plist
       properties:
@@ -194,8 +230,50 @@ targets:
           NSExtensionPointIdentifier: com.apple.widgetkit-extension
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: dev.djconnect.watch.complications
+        PRODUCT_BUNDLE_IDENTIFIER: dev.djconnect.ios.watch.complications
         PRODUCT_NAME: DJConnectComplications
+        SKIP_INSTALL: YES
+  DJConnectTrackInsightWidgetsIOS:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: Apps/DJConnectTrackInsightWidgets
+    dependencies:
+      - target: DJConnectCoreIOS
+    info:
+      path: Apps/DJConnectTrackInsightWidgets/Info.plist
+      properties:
+        CFBundleDisplayName: Track Insight
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: dev.djconnect.ios.track-insight-widget
+        PRODUCT_NAME: TrackInsightWidget
+        CODE_SIGN_ENTITLEMENTS: Apps/DJConnectTrackInsightWidgets/DJConnectTrackInsightWidgets.entitlements
+        SKIP_INSTALL: YES
+  DJConnectTrackInsightWidgetsMac:
+    type: app-extension
+    platform: macOS
+    sources:
+      - path: Apps/DJConnectTrackInsightWidgets
+    dependencies:
+      - target: DJConnectCoreMac
+    info:
+      path: Apps/DJConnectTrackInsightWidgets/Info.plist
+      properties:
+        CFBundleDisplayName: Track Insight
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: dev.djconnect.mac.track-insight-widget
+        PRODUCT_NAME: TrackInsightWidget
+        CODE_SIGN_ENTITLEMENTS: Apps/DJConnectTrackInsightWidgets/DJConnectTrackInsightWidgets.entitlements
         SKIP_INSTALL: YES
   DJConnectCoreTests:
     type: bundle.unit-test

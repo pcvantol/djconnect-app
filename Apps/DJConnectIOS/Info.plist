@@ -18,6 +18,17 @@
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
 	<string>$(MARKETING_VERSION)</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>dev.djconnect.ios</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>djconnect</string>
+			</array>
+		</dict>
+	</array>
 	<key>CFBundleVersion</key>
 	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>LSApplicationCategoryType</key>
@@ -31,12 +42,65 @@
 	<array>
 		<string>_home-assistant._tcp.</string>
 	</array>
+	<key>NSCameraUsageDescription</key>
+	<string>DJConnect uses the camera only to scan the pairing QR code from Home Assistant or Apple Watch.</string>
 	<key>NSLocalNetworkUsageDescription</key>
-	<string>DJConnect maakt verbinding met Home Assistant op je lokale netwerk.</string>
+	<string>DJConnect connects to Home Assistant on your local network.</string>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>DJConnect neemt je stem op voor push-to-talk muziekverzoeken aan Home Assistant.</string>
+	<string>DJConnect records your voice for push-to-talk music requests to Home Assistant.</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
-	<string>DJConnect gebruikt spraakherkenning om de wake-zin te herkennen.</string>
+	<string>DJConnect uses speech recognition to detect the wake phrase.</string>
+	<key>NSSupportsLiveActivities</key>
+	<true/>
+	<key>UIApplicationShortcutItems</key>
+	<array>
+		<dict>
+			<key>UIApplicationShortcutItemIconSymbolName</key>
+			<string>music.note</string>
+			<key>UIApplicationShortcutItemTitle</key>
+			<string>Now Playing</string>
+			<key>UIApplicationShortcutItemType</key>
+			<string>dev.djconnect.action.now-playing</string>
+		</dict>
+		<dict>
+			<key>UIApplicationShortcutItemIconSymbolName</key>
+			<string>bubble.left.and.bubble.right</string>
+			<key>UIApplicationShortcutItemTitle</key>
+			<string>Ask DJ</string>
+			<key>UIApplicationShortcutItemType</key>
+			<string>dev.djconnect.action.ask-dj</string>
+		</dict>
+		<dict>
+			<key>UIApplicationShortcutItemIconSymbolName</key>
+			<string>waveform.path.ecg</string>
+			<key>UIApplicationShortcutItemSubtitle</key>
+			<string>Analyze current track</string>
+			<key>UIApplicationShortcutItemTitle</key>
+			<string>Track Insight</string>
+			<key>UIApplicationShortcutItemType</key>
+			<string>dev.djconnect.action.track-insight</string>
+		</dict>
+		<dict>
+			<key>UIApplicationShortcutItemIconSymbolName</key>
+			<string>sparkles</string>
+			<key>UIApplicationShortcutItemSubtitle</key>
+			<string>Music DNA recommendations</string>
+			<key>UIApplicationShortcutItemTitle</key>
+			<string>Discover</string>
+			<key>UIApplicationShortcutItemType</key>
+			<string>dev.djconnect.action.discovery</string>
+		</dict>
+		<dict>
+			<key>UIApplicationShortcutItemIconSymbolName</key>
+			<string>music.note.list</string>
+			<key>UIApplicationShortcutItemSubtitle</key>
+			<string>Upcoming tracks</string>
+			<key>UIApplicationShortcutItemTitle</key>
+			<string>Queue</string>
+			<key>UIApplicationShortcutItemType</key>
+			<string>dev.djconnect.action.queue</string>
+		</dict>
+	</array>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
 	<key>UIRequiredDeviceCapabilities</key>

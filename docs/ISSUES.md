@@ -56,7 +56,7 @@ Acceptance:
 Priority: medium
 
 `DJConnectAppModel` owns pairing, playback, voice, wakeword, permissions,
-local API coordination, diagnostics, and refresh orchestration. Split the
+diagnostics and refresh orchestration. Split the
 largest responsibilities into focused services while keeping `DJConnectCore`
 UI-free.
 

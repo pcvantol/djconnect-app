@@ -3,6 +3,9 @@ import CryptoKit
 import DJConnectCore
 import Network
 import OSLog
+#if canImport(Security)
+import Security
+#endif
 #if canImport(Speech)
 import Speech
 #endif
@@ -11,6 +14,9 @@ import UserNotifications
 import WatchKit
 #if canImport(WatchConnectivity)
 @preconcurrency import WatchConnectivity
+#endif
+#if canImport(WidgetKit)
+import WidgetKit
 #endif
 
 struct DJConnectWatchAskDJMessage: Identifiable, Codable, Equatable {
@@ -29,11 +35,13 @@ struct DJConnectWatchAskDJMessage: Identifiable, Codable, Equatable {
         case links
         case playbackActions
         case intentInfo = "intent"
-        case analysis
         case items
         case audioURL
         case messageKind = "message_kind"
         case origin
+        case textSource = "text_source"
+        case isGeneratedText = "is_generated_text"
+        case mood
         case createdAt
     }
 
@@ -46,16 +54,14 @@ struct DJConnectWatchAskDJMessage: Identifiable, Codable, Equatable {
     var links: [DJConnectResponseLink]
     var playbackActions: [DJConnectAskDJPlaybackAction]
     var intentInfo: DJConnectAskDJIntentInfo?
-    var analysis: DJConnectAskDJTrackAnalysis?
     var items: [DJConnectAskDJHistoryItem]
     var audioURL: URL?
     var messageKind: DJConnectAskDJMessageKind
     var origin: String?
+    var textSource: String?
+    var isGeneratedText: Bool?
+    var mood: Int?
     var createdAt: Date
-
-    var isTechnicalTrackAnalysis: Bool {
-        intentInfo?.intent == "technical_track_analysis" || intentInfo?.action == "track_analysis"
-    }
 
     var renderablePlaybackActions: [DJConnectAskDJPlaybackAction] {
         playbackActions
@@ -71,11 +77,13 @@ struct DJConnectWatchAskDJMessage: Identifiable, Codable, Equatable {
         links: [DJConnectResponseLink] = [],
         playbackActions: [DJConnectAskDJPlaybackAction] = [],
         intentInfo: DJConnectAskDJIntentInfo? = nil,
-        analysis: DJConnectAskDJTrackAnalysis? = nil,
         items: [DJConnectAskDJHistoryItem] = [],
         audioURL: URL? = nil,
         messageKind: DJConnectAskDJMessageKind = .assistant,
         origin: String? = nil,
+        textSource: String? = nil,
+        isGeneratedText: Bool? = nil,
+        mood: Int? = nil,
         createdAt: Date = Date()
     ) {
         self.id = id
@@ -87,11 +95,13 @@ struct DJConnectWatchAskDJMessage: Identifiable, Codable, Equatable {
         self.links = links
         self.playbackActions = playbackActions
         self.intentInfo = intentInfo
-        self.analysis = analysis
         self.items = items
         self.audioURL = audioURL
         self.messageKind = messageKind
         self.origin = origin
+        self.textSource = textSource
+        self.isGeneratedText = isGeneratedText
+        self.mood = mood.map { max(0, min(100, $0)) }
         self.createdAt = createdAt
     }
 
@@ -106,11 +116,13 @@ struct DJConnectWatchAskDJMessage: Identifiable, Codable, Equatable {
         links = try container.decodeIfPresent([DJConnectResponseLink].self, forKey: .links) ?? []
         playbackActions = try container.decodeIfPresent([DJConnectAskDJPlaybackAction].self, forKey: .playbackActions) ?? []
         intentInfo = try container.decodeIfPresent(DJConnectAskDJIntentInfo.self, forKey: .intentInfo)
-        analysis = try container.decodeIfPresent(DJConnectAskDJTrackAnalysis.self, forKey: .analysis)
         items = try container.decodeIfPresent([DJConnectAskDJHistoryItem].self, forKey: .items) ?? []
         audioURL = try container.decodeIfPresent(URL.self, forKey: .audioURL)
         messageKind = try container.decodeIfPresent(DJConnectAskDJMessageKind.self, forKey: .messageKind) ?? .assistant
         origin = try container.decodeIfPresent(String.self, forKey: .origin)
+        textSource = try container.decodeIfPresent(String.self, forKey: .textSource)
+        isGeneratedText = try container.decodeIfPresent(Bool.self, forKey: .isGeneratedText)
+        mood = try container.decodeIfPresent(Int.self, forKey: .mood).map { max(0, min(100, $0)) }
         createdAt = try container.decodeIfPresent(Date.self, forKey: .createdAt) ?? Date()
     }
 
@@ -125,11 +137,13 @@ struct DJConnectWatchAskDJMessage: Identifiable, Codable, Equatable {
         try container.encode(links, forKey: .links)
         try container.encode(playbackActions, forKey: .playbackActions)
         try container.encodeIfPresent(intentInfo, forKey: .intentInfo)
-        try container.encodeIfPresent(analysis, forKey: .analysis)
         try container.encode(items, forKey: .items)
         try container.encodeIfPresent(audioURL, forKey: .audioURL)
         try container.encode(messageKind, forKey: .messageKind)
         try container.encodeIfPresent(origin, forKey: .origin)
+        try container.encodeIfPresent(textSource, forKey: .textSource)
+        try container.encodeIfPresent(isGeneratedText, forKey: .isGeneratedText)
+        try container.encodeIfPresent(mood, forKey: .mood)
         try container.encode(createdAt, forKey: .createdAt)
     }
 
@@ -159,16 +173,16 @@ enum DJConnectWatchLogLevel: String, CaseIterable, Identifiable {
 
     var id: String { rawValue }
 
-    var title: String {
+    func title(language: String) -> String {
         switch self {
         case .debug:
             return "Debug"
         case .info:
             return "Info"
         case .warning:
-            return "Waarschuwingen"
+            return DJConnectLocalization.localized(key: "watch.warnings", language: language)
         case .error:
-            return "Fouten"
+            return DJConnectLocalization.localized(key: "watch.errors", language: language)
         }
     }
 
@@ -237,6 +251,18 @@ extension DJConnectWatchModel: WCSessionDelegate {
         }
     }
 
+    nonisolated func session(_ session: WCSession, didReceiveApplicationContext applicationContext: [String: Any]) {
+        guard let data = try? NSKeyedArchiver.archivedData(withRootObject: applicationContext, requiringSecureCoding: false) else {
+            return
+        }
+        Task { @MainActor in
+            guard let applicationContext = Self.unarchiveCompanionMessage(data) else {
+                return
+            }
+            handleCompanionMessage(applicationContext)
+        }
+    }
+
     private static func unarchiveCompanionMessage(_ data: Data) -> [String: Any]? {
         let classes: [AnyClass] = [
             NSDictionary.self,
@@ -289,6 +315,13 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
     }
 
     @AppStorage("haBaseURL") var haBaseURL = "http://homeassistant.local:8123"
+    @AppStorage("apiBase") var apiBase = ""
+    @AppStorage("voicePath") var voicePath = ""
+    @AppStorage("statusPath") var statusPath = ""
+    @AppStorage("eventPath") var eventPath = ""
+    @AppStorage("askDJSupported") var askDJSupported = false
+    @AppStorage("askDJVoiceSupported") var askDJVoiceSupported = false
+    @AppStorage("askDJAudioResponseSupported") var askDJAudioResponseSupported = false
     @AppStorage("pairingCode") var pairingCode = DJConnectWatchModel.makePairingCode()
     @AppStorage("stableInstallID") private var stableInstallID = DJConnectWatchModel.makeStableInstallID()
     @AppStorage("paired") private var paired = false
@@ -299,11 +332,27 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
     @AppStorage("askDJClearRevision") private var askDJClearRevision = 0
     @AppStorage("DJConnectWatchWelcomeSeen") private var welcomeSeen = false
     @AppStorage("watchVoiceActivationEnabled") private var storedVoiceActivationEnabled = false
+    @AppStorage("DJConnectWatchMusicDNAOptInPromptSeen") private var musicDNAOptInPromptSeen = false
+    @AppStorage("DJConnectWatchDemoMusicDNAEnabled") private var storedDemoMusicDNAEnabled = false
+    @AppStorage("DJConnectWatchDemoMusicDNAOptInPromptSeen") private var demoMusicDNAOptInPromptSeen = false
+    @Published private(set) var appLanguageOverrideCode = DJConnectLocalization.languageOverrideCode(
+        UserDefaults.standard.string(forKey: DJConnectLocalization.appLanguageOverrideDefaultsKey)
+    )
+
+    var language: String {
+        DJConnectLocalization.resolvedLanguageCode(override: appLanguageOverrideCode)
+    }
+
+    var currentRequestLocale: String {
+        DJConnectLocalization.bcp47LocaleIdentifier(for: language)
+    }
 
     @Published private(set) var connectionState: ConnectionState = .unpaired
     @Published private(set) var voiceState: VoiceState = .idle
     @Published private(set) var playback: DJConnectPlayback?
+    @Published private(set) var currentTrackInsight: TrackInsight?
     @Published private(set) var isRefreshingStatus = false
+    @Published private(set) var isRefreshingTrackInsight = false
     @Published private(set) var queueItems: [DJConnectQueueItem] = []
     @Published private(set) var queueContext: String?
     @Published private(set) var isLoadingQueue = false
@@ -322,6 +371,14 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
     @Published private(set) var isCheckingAskDJHistoryState = true
     @Published private(set) var isClearingAskDJHistory = false
     @Published private(set) var isRequestingAskDJIdleSuggestion = false
+    @Published private(set) var isLoadingMusicDNAConsent = false
+    @Published private(set) var isUpdatingMusicDNAConsent = false
+    @Published private(set) var musicDNAProfileResponse: DJConnectMusicDNAProfileResponse?
+    @Published private(set) var isLoadingMusicDNA = false
+    @Published private(set) var isUpdatingMusicDNA = false
+    @Published private(set) var musicDNAErrorMessage: String?
+    @Published private(set) var demoMusicDNAEnabled = false
+    @Published var isShowingMusicDNAOptInPrompt = false
     @Published private(set) var playingAskDJActionID: String?
     @Published private(set) var isSavingCurrentTrack = false
     @Published private(set) var askDJToast: DJConnectWatchToast?
@@ -329,7 +386,6 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
     @Published private(set) var isShowingPairingSuccess = false
     @Published private(set) var isDemoMode = false
     @Published private(set) var diagnosticLogLines: [DJConnectWatchLogLine] = []
-    @Published private(set) var localDeviceAPIURL: String?
     @Published private(set) var companionPairingStatus = "iPhone companion zoeken..."
     @Published private(set) var iPhoneConnectionMode: DJConnectHAConnectionMode = .offline
     @Published private(set) var musicBackendSummary = DJConnectMusicBackendSummary()
@@ -337,6 +393,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
     @Published private(set) var isWiFiAvailable = false
     @Published var isShowingMicrophonePermissionExplanation = false
     @Published var isShowingVoiceActivationPermissionExplanation = false
+    @Published var isShowingAskDJNotificationPermissionExplanation = false
     @Published var isShowingWelcome = false
     @Published var statusMessage = "Niet gekoppeld"
     @Published private(set) var voiceActivationStatus: VoiceActivationStatus = .paused
@@ -353,6 +410,9 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
     private let pushEnvironmentStatusKey = "DJConnectWatchPushEnvironmentStatus"
     private let lastPushErrorKey = "DJConnectWatchLastPushError"
     private let maxDiagnosticLogLines = 80
+    private let maxInteractiveWatchProxyRequestBytes = 55_000
+    private let maxWatchVoiceWAVBytes = 32_000
+    private let maxWatchVoiceRecordingDuration: TimeInterval = 4
     private let tokenStore = DJConnectUserDefaultsTokenStore(key: "DJConnectWatchDeviceToken")
     private let monkeyTestingMode: Bool
     private var networkMonitor: NWPathMonitor?
@@ -369,6 +429,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
     private var playbackBeatSignature: String?
     private var lastMainScreenRefreshAt: Date?
     private var hasRequestedAskDJNotificationPermission = false
+    private var pendingAskDJNotificationAuthorizationContinuation: CheckedContinuation<Bool, Never>?
     private var currentAPNsPushToken: String?
     private var shouldBypassMicrophonePermissionExplanationOnce = false
     private var shouldBypassVoiceActivationPermissionExplanationOnce = false
@@ -380,6 +441,9 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
     private var hasAppliedDemoState = false
     #if canImport(WatchConnectivity)
     private var hasActivatedCompanionSession = false
+    private var companionPairingRegistrationRetryTask: Task<Void, Never>?
+    private var companionPairingRegistrationWatchdogTask: Task<Void, Never>?
+    private var hasReceivedCompanionPairingReady = false
     private var pendingWatchProxyHARequests: [String: CheckedContinuation<DJConnectWatchProxyResponse, Never>] = [:]
     #endif
     #if canImport(Speech)
@@ -390,6 +454,8 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
     init(monkeyTestingMode: Bool = false) {
         self.monkeyTestingMode = monkeyTestingMode
         super.init()
+        syncAppLanguageOverrideToSharedDefaults()
+        demoMusicDNAEnabled = storedDemoMusicDNAEnabled
         askDJMessages = Self.loadAskDJMessages(key: askDJMessagesKey)
         isShowingWelcome = !welcomeSeen && !monkeyTestingMode
         if monkeyTestingMode {
@@ -422,9 +488,44 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         }
     }
 
+    func setAppLanguageOverride(_ value: String) {
+        let normalizedOverride = DJConnectLocalization.languageOverrideCode(value)
+        guard normalizedOverride != appLanguageOverrideCode else {
+            syncAppLanguageOverrideToSharedDefaults()
+            return
+        }
+        appLanguageOverrideCode = normalizedOverride
+        if normalizedOverride.isEmpty {
+            UserDefaults.standard.removeObject(forKey: DJConnectLocalization.appLanguageOverrideDefaultsKey)
+        } else {
+            UserDefaults.standard.set(normalizedOverride, forKey: DJConnectLocalization.appLanguageOverrideDefaultsKey)
+        }
+        syncAppLanguageOverrideToSharedDefaults()
+        reloadComplicationTimelinesForLanguageChange()
+    }
+
+    private func syncAppLanguageOverrideToSharedDefaults() {
+        guard let sharedDefaults = UserDefaults(suiteName: DJConnectLocalization.appGroupIdentifier) else {
+            return
+        }
+        if appLanguageOverrideCode.isEmpty {
+            sharedDefaults.removeObject(forKey: DJConnectLocalization.appLanguageOverrideDefaultsKey)
+        } else {
+            sharedDefaults.set(appLanguageOverrideCode, forKey: DJConnectLocalization.appLanguageOverrideDefaultsKey)
+        }
+    }
+
+    private func reloadComplicationTimelinesForLanguageChange() {
+        #if canImport(WidgetKit)
+        WidgetCenter.shared.reloadAllTimelines()
+        #endif
+    }
+
     deinit {
         networkMonitor?.cancel()
         runtimeDiagnosticsTask?.cancel()
+        companionPairingRegistrationRetryTask?.cancel()
+        companionPairingRegistrationWatchdogTask?.cancel()
         voiceActivationCaptureTask?.cancel()
         voiceActivationRestartTask?.cancel()
         voiceActivationListenTimeoutTask?.cancel()
@@ -590,7 +691,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         if bucket != lastRuntimeMemoryLogBucket || memoryMB >= 80 {
             lastRuntimeMemoryLogBucket = bucket
             appendDiagnosticLog(
-                "Runtime geheugen: \(Int(memoryMB.rounded())) MB; wakeword=\(storedVoiceActivationEnabled ? "aan" : "uit"); voice=\(voiceActivationStatusText); paired=\(canUseBackend ? "ja" : "nee"); askdj=\(askDJMessages.count); logs=\(diagnosticLogLines.count); api=\(localDeviceAPIURL == nil ? "uit" : "aan")",
+                "Runtime geheugen: \(Int(memoryMB.rounded())) MB; wakeword=\(storedVoiceActivationEnabled ? "aan" : "uit"); voice=\(voiceActivationStatusText); paired=\(canUseBackend ? "ja" : "nee"); askdj=\(askDJMessages.count); logs=\(diagnosticLogLines.count)",
                 level: memoryMB >= 80 ? .warning : .debug
             )
         }
@@ -763,7 +864,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         "warm_radio_dj"
     }
 
-    var memoryKey: String {
+    var musicDNAKey: String {
         identity.deviceID
     }
 
@@ -784,8 +885,11 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         activateCompanionSession()
         guard WCSession.default.activationState == .activated else {
             companionPairingStatus = "iPhone companion wordt geactiveerd..."
+            scheduleCompanionPairingRegistrationRetry()
             return
         }
+        companionPairingRegistrationRetryTask?.cancel()
+        companionPairingRegistrationRetryTask = nil
         let identity = identity
         let message: [String: Any] = [
             "type": "watch_proxy_register",
@@ -798,20 +902,53 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
             "pair_code": pairingCode,
             "paired": paired
         ]
+        if !paired {
+            hasReceivedCompanionPairingReady = false
+            scheduleCompanionPairingRegistrationWatchdog()
+        }
+        do {
+            try WCSession.default.updateApplicationContext(message)
+        } catch {
+            appendDiagnosticLog("Companion context kon niet worden bijgewerkt: \(error.localizedDescription)", level: .warning)
+        }
         companionPairingStatus = WCSession.default.isReachable
             ? "Pairinggegevens naar iPhone gestuurd"
             : "Open DJConnect op je iPhone"
-        if WCSession.default.isReachable {
-            WCSession.default.sendMessage(message, replyHandler: nil) { [weak self] error in
-                Task { @MainActor in
-                    self?.companionPairingStatus = "iPhone niet bereikbaar: \(error.localizedDescription)"
-                    self?.appendDiagnosticLog("Companion registratie mislukt: \(error.localizedDescription)", level: .warning)
-                }
-            }
-        } else {
+        if !WCSession.default.isReachable {
             WCSession.default.transferUserInfo(message)
         }
         #endif
+    }
+
+    private func scheduleCompanionPairingRegistrationRetry() {
+        companionPairingRegistrationRetryTask?.cancel()
+        companionPairingRegistrationRetryTask = Task { [weak self] in
+            try? await Task.sleep(for: .milliseconds(800))
+            await MainActor.run {
+                guard let self, !self.paired, !Task.isCancelled else {
+                    return
+                }
+                self.sendCompanionPairingRegistration()
+            }
+        }
+    }
+
+    private func scheduleCompanionPairingRegistrationWatchdog() {
+        companionPairingRegistrationWatchdogTask?.cancel()
+        companionPairingRegistrationWatchdogTask = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(2))
+            await MainActor.run {
+                guard let self, !self.paired, !self.hasReceivedCompanionPairingReady, !Task.isCancelled else {
+                    return
+                }
+                self.sendCompanionPairingRegistration()
+            }
+        }
+    }
+
+    private func cancelCompanionPairingRegistrationWatchdog() {
+        companionPairingRegistrationWatchdogTask?.cancel()
+        companionPairingRegistrationWatchdogTask = nil
     }
 
     private func handleCompanionMessage(_ message: [String: Any]) {
@@ -820,19 +957,22 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         }
         switch type {
         case "watch_proxy_ready":
+            hasReceivedCompanionPairingReady = true
+            cancelCompanionPairingRegistrationWatchdog()
             applyCompanionSummary(message)
-            localDeviceAPIURL = nil
-            companionPairingStatus = "iPhone companion is klaar"
+                companionPairingStatus = "iPhone companion is klaar"
             if !paired {
                 connectionState = .pairing
                 statusMessage = "Wachten op Home Assistant via iPhone..."
             }
         case "watch_proxy_pair_result":
+            hasReceivedCompanionPairingReady = true
+            cancelCompanionPairingRegistrationWatchdog()
             applyCompanionPairingResult(message)
-        case "watch_proxy_command":
-            Task { await handleCompanionCommand(message) }
-        case "watch_proxy_dj_response":
-            handleCompanionDJResponse(message)
+        case "watch_proxy_pair_request":
+            companionPairingStatus = "iPhone koppelt Watch met Home Assistant..."
+            statusMessage = companionPairingStatus
+            connectionState = .pairing
         case "watch_proxy_forget":
             resetPairing()
         case "watch_proxy_ha_response":
@@ -885,7 +1025,19 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         if let haURL = message["ha_base_url"] as? String, !haURL.isEmpty {
             haBaseURL = haURL
         }
-        localDeviceAPIURL = nil
+        apiBase = nonEmptyString(message["api_base"]) ?? apiBase
+        voicePath = nonEmptyString(message["voice_path"]) ?? voicePath
+        statusPath = nonEmptyString(message["status_path"]) ?? statusPath
+        eventPath = nonEmptyString(message["event_path"]) ?? eventPath
+        if let supported = message["ask_dj_supported"] as? Bool {
+            askDJSupported = supported
+        }
+        if let supported = message["ask_dj_voice_supported"] as? Bool {
+            askDJVoiceSupported = supported
+        }
+        if let supported = message["ask_dj_audio_response_supported"] as? Bool {
+            askDJAudioResponseSupported = supported
+        }
         applyCompanionSummary(message)
         paired = true
         connectionState = .paired
@@ -894,57 +1046,6 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         companionPairingStatus = "Gekoppeld via iPhone"
         requestRemoteNotificationRegistration()
         Task { await refreshStatus() }
-    }
-
-    private func handleCompanionCommand(_ message: [String: Any]) async {
-        guard let data = message["request"] as? Data else {
-            return
-        }
-        do {
-            let request = try JSONDecoder().decode(DJConnectLocalCommandRequest.self, from: data)
-            let response = await handleLocalCommand(request)
-            sendCompanionCallbackResponse(response, correlationID: message["correlation_id"] as? String)
-        } catch {
-            sendCompanionCallbackResponse(
-                DJConnectLocalDeviceAPIResponse(success: false, error: "bad_request", message: "Invalid command payload."),
-                correlationID: message["correlation_id"] as? String
-            )
-        }
-    }
-
-    private func handleCompanionDJResponse(_ message: [String: Any]) {
-        guard let data = message["request"] as? Data,
-              let request = try? JSONDecoder().decode(DJConnectLocalDJResponseRequest.self, from: data) else {
-            return
-        }
-        if let text = request.djText ?? request.text, !text.isEmpty {
-            appendAskDJMessage(role: .dj, text: text, audioURL: request.audioURL.flatMap(URL.init(string:)))
-            notifyAskDJResponse(text)
-        }
-        sendCompanionCallbackResponse(
-            DJConnectLocalDeviceAPIResponse(success: true, message: "accepted"),
-            correlationID: message["correlation_id"] as? String
-        )
-    }
-
-    private func sendCompanionCallbackResponse(_ response: DJConnectLocalDeviceAPIResponse, correlationID: String?) {
-        #if canImport(WatchConnectivity)
-        guard WCSession.default.activationState == .activated else {
-            return
-        }
-        var message: [String: Any] = ["type": "watch_proxy_callback_response"]
-        if let correlationID {
-            message["correlation_id"] = correlationID
-        }
-        if let data = try? JSONEncoder().encode(response) {
-            message["response"] = data
-        }
-        if WCSession.default.isReachable {
-            WCSession.default.sendMessage(message, replyHandler: nil)
-        } else {
-            WCSession.default.transferUserInfo(message)
-        }
-        #endif
     }
 
     private func handleCompanionHAResponse(_ message: [String: Any]) {
@@ -977,6 +1078,10 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         }
         let request = DJConnectWatchProxyRequest(operation: operation, payload: payloadData)
         let requestData = try JSONEncoder().encode(request)
+        if operation == .voice, requestData.count > maxInteractiveWatchProxyRequestBytes {
+            appendDiagnosticLog("Stemverzoek te groot voor iPhone proxy: \(requestData.count) bytes", level: .warning)
+            throw DJConnectError.invalidConfiguration("Opname is te lang. Probeer een kortere Ask DJ opname.")
+        }
         let correlationID = UUID().uuidString
         let response = await withCheckedContinuation { continuation in
             pendingWatchProxyHARequests[correlationID] = continuation
@@ -988,16 +1093,17 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
                 ],
                 replyHandler: nil
             ) { [weak self] error in
-                Task { @MainActor in
+                DispatchQueue.main.async { [weak self] in
                     guard let self,
                           let continuation = self.pendingWatchProxyHARequests.removeValue(forKey: correlationID) else {
                         return
                     }
+                    let message = Self.watchProxySendFailureMessage(for: error)
                     self.appendDiagnosticLog("iPhone proxy niet bereikbaar: \(error.localizedDescription)", level: .warning)
                     continuation.resume(returning: DJConnectWatchProxyResponse(
                         success: false,
-                        error: "iphone_unreachable",
-                        message: "Open DJConnect op je iPhone."
+                        error: Self.watchProxySendFailureCode(for: error),
+                        message: message
                     ))
                 }
             }
@@ -1009,6 +1115,28 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         #else
         throw DJConnectError.invalidConfiguration("Open DJConnect op je iPhone.")
         #endif
+    }
+
+    private static func watchProxySendFailureCode(for error: Error) -> String {
+        let nsError = error as NSError
+        #if canImport(WatchConnectivity)
+        if nsError.domain == WCError.errorDomain,
+           nsError.code == WCError.Code.payloadTooLarge.rawValue {
+            return "payload_too_large"
+        }
+        #endif
+        return "iphone_unreachable"
+    }
+
+    private static func watchProxySendFailureMessage(for error: Error) -> String {
+        let nsError = error as NSError
+        #if canImport(WatchConnectivity)
+        if nsError.domain == WCError.errorDomain,
+           nsError.code == WCError.Code.payloadTooLarge.rawValue {
+            return "Opname is te lang. Probeer een kortere Ask DJ opname."
+        }
+        #endif
+        return "Open DJConnect op je iPhone."
     }
 
     private struct AnyEncodable: Encodable {
@@ -1097,6 +1225,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         hasAppliedDemoState = false
         playback = nil
         playbackBeatSignature = nil
+        currentTrackInsight = nil
         responseImages = []
         voiceState = .idle
         paired = false
@@ -1152,6 +1281,59 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         }
     }
 
+    func refreshTrackInsight() async {
+        guard !isRefreshingTrackInsight else {
+            return
+        }
+        if isDemoMode {
+            if !hasAppliedDemoState {
+                applyDemoState()
+            } else if let playback {
+                currentTrackInsight = DemoTrackInsightService.defaultTracks.first { insight in
+                    insight.title == playback.trackName && insight.artist == playback.artistName
+                } ?? DemoTrackInsightService.defaultTracks.first
+            } else {
+                currentTrackInsight = DemoTrackInsightService.defaultTracks.first
+            }
+            return
+        }
+        guard isAppForeground else {
+            appendDiagnosticLog("Track Insight vernieuwen overgeslagen: app niet zichtbaar", level: .debug)
+            return
+        }
+        guard canUseBackend else {
+            appendDiagnosticLog("Track Insight vernieuwen overgeslagen: niet gekoppeld", level: .warning)
+            return
+        }
+        isRefreshingTrackInsight = true
+        defer { isRefreshingTrackInsight = false }
+        appendDiagnosticLog("Track Insight vernieuwen")
+        do {
+            let request = DJConnectTrackInsightRequest(
+                title: playback?.trackName,
+                artist: playback?.artistName,
+                artworkURL: playback?.albumImageURL,
+                durationMS: playback?.durationMS,
+                progressMS: playback?.progressMS,
+                entityID: nil,
+                playerID: playback?.device?.id,
+                musicBackend: musicBackendSummary.musicBackend,
+                clientType: identity.clientType.rawValue,
+                forceRefresh: true,
+                locale: language,
+                mood: askDJMoodInt,
+                includeVisualProfile: true,
+                includeRawResponse: true
+            )
+            currentTrackInsight = try await sendCompanionHARequest(.trackInsight, payload: request)
+            statusMessage = "Track Insight bijgewerkt"
+            appendDiagnosticLog("Track Insight vernieuwd")
+        } catch {
+            statusMessage = Self.userMessage(for: error)
+            appendDiagnosticLog("Track Insight vernieuwen mislukt: \(statusMessage)", level: .error)
+        }
+    }
+
     func refreshMainScreenStatusIfNeeded() async {
         guard canUseBackend else {
             return
@@ -1179,7 +1361,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         do {
             let response: DJConnectCommandResponse = try await sendCompanionHARequest(
                 .command,
-                payload: DJConnectCommandPayload(identity: identity, command: command)
+                payload: DJConnectCommandPayload(identity: identity, command: command, language: currentRequestLocale, mood: askDJMoodInt)
             )
             applyBackendSummary(response.musicBackendSummary)
             if !Self.shouldDeferPlaybackSnapshotUntilRefresh(command) {
@@ -1228,7 +1410,9 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
                 payload: DJConnectCommandPayload(
                     identity: identity,
                     command: "set_current_track_favorite",
-                    value: .bool(shouldFavorite)
+                    value: .bool(shouldFavorite),
+                    language: currentRequestLocale,
+                    mood: askDJMoodInt
                 )
             )
             applyBackendSummary(response.musicBackendSummary)
@@ -1274,7 +1458,14 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         do {
             let response: DJConnectCommandResponse = try await sendCompanionHARequest(
                 .command,
-                payload: DJConnectCommandPayload(identity: identity, command: "set_volume", value: .int(value), play: true)
+                payload: DJConnectCommandPayload(
+                    identity: identity,
+                    command: "set_volume",
+                    value: .int(value),
+                    play: true,
+                    language: currentRequestLocale,
+                    mood: askDJMoodInt
+                )
             )
             applyBackendSummary(response.musicBackendSummary)
             applyPlayback(response.playback)
@@ -1313,10 +1504,10 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         do {
             let response: DJConnectCommandResponse = try await sendCompanionHARequest(
                 .command,
-                payload: DJConnectCommandPayload(identity: identity, command: "playlists", limit: 100)
+                payload: DJConnectCommandPayload(identity: identity, command: "playlists", limit: 100, language: currentRequestLocale, mood: askDJMoodInt)
             )
             applyBackendSummary(response.musicBackendSummary)
-            playlistItems = response.playlists ?? []
+            playlistItems = normalizedPlaylists(response.playlists ?? [])
             statusMessage = playlistItems.isEmpty ? "Geen afspeellijsten" : "Afspeellijsten bijgewerkt"
             appendDiagnosticLog("Afspeellijsten bijgewerkt: \(playlistItems.count) items")
         } catch {
@@ -1344,10 +1535,10 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         do {
             let response: DJConnectCommandResponse = try await sendCompanionHARequest(
                 .command,
-                payload: DJConnectCommandPayload(identity: identity, command: "queue", limit: 100)
+                payload: DJConnectCommandPayload(identity: identity, command: "queue", limit: 100, language: currentRequestLocale, mood: askDJMoodInt)
             )
             applyBackendSummary(response.musicBackendSummary)
-            queueItems = response.queue ?? []
+            queueItems = normalizedQueueItems(response.queue ?? [])
             if let responseQueueContext = response.queueContext?.trimmingCharacters(in: .whitespacesAndNewlines),
                !responseQueueContext.isEmpty {
                 queueContext = responseQueueContext
@@ -1358,6 +1549,41 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
             statusMessage = Self.userMessage(for: error)
             appendDiagnosticLog("Wachtrij laden mislukt: \(statusMessage)", level: .error)
         }
+    }
+
+    private func normalizedQueueItems(_ items: [DJConnectQueueItem]) -> [DJConnectQueueItem] {
+        var seen: Set<String> = []
+        return items.compactMap { item -> DJConnectQueueItem? in
+            var item = item
+            item.albumImageURL = resolvedArtworkURL(item.albumImageURL)
+            let signature = queueItemSignature(item)
+            guard !seen.contains(signature) else {
+                return nil
+            }
+            seen.insert(signature)
+            return item
+        }
+    }
+
+    private func normalizedPlaylists(_ playlists: [DJConnectPlaylist]) -> [DJConnectPlaylist] {
+        playlists.map { playlist in
+            var playlist = playlist
+            playlist.imageURL = resolvedArtworkURL(playlist.imageURL)
+            return playlist
+        }
+    }
+
+    private func queueItemSignature(_ item: DJConnectQueueItem) -> String {
+        [
+            item.uri,
+            item.title,
+            item.artist,
+            item.album,
+            item.durationMS.map(String.init)
+        ]
+            .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() }
+            .filter { !$0.isEmpty }
+            .joined(separator: "|")
     }
 
     func loadOutputs() async {
@@ -1379,7 +1605,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         do {
             let response: DJConnectCommandResponse = try await sendCompanionHARequest(
                 .command,
-                payload: DJConnectCommandPayload(identity: identity, command: "devices")
+                payload: DJConnectCommandPayload(identity: identity, command: "devices", language: currentRequestLocale, mood: askDJMoodInt)
             )
             applyBackendSummary(response.musicBackendSummary)
             applyOutputs(response.devices ?? [])
@@ -1422,7 +1648,9 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
                     identity: identity,
                     command: "set_output",
                     value: .string(output.name),
-                    play: true
+                    play: true,
+                    language: currentRequestLocale,
+                    mood: askDJMoodInt
                 )
             )
             applyBackendSummary(response.musicBackendSummary)
@@ -1466,7 +1694,9 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
                     identity: identity,
                     command: "play_context_at",
                     value: .object(queueStartPayload(for: item, uri: uri, index: index)),
-                    play: true
+                    play: true,
+                    language: currentRequestLocale,
+                    mood: askDJMoodInt
                 )
             )
             applyBackendSummary(response.musicBackendSummary)
@@ -1503,7 +1733,9 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
                     identity: identity,
                     command: "start_playlist",
                     value: .string(playlist.commandValue),
-                    play: true
+                    play: true,
+                    language: currentRequestLocale,
+                    mood: askDJMoodInt
                 )
             )
             applyBackendSummary(response.musicBackendSummary)
@@ -1542,12 +1774,20 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         UserDefaults.standard.removeObject(forKey: pushRegisteredKey)
         UserDefaults.standard.removeObject(forKey: pushEnvironmentStatusKey)
         UserDefaults.standard.removeObject(forKey: lastPushErrorKey)
+        apiBase = ""
+        voicePath = ""
+        statusPath = ""
+        eventPath = ""
+        askDJSupported = false
+        askDJVoiceSupported = false
+        askDJAudioResponseSupported = false
         paired = false
         storedDemoMode = false
         isDemoMode = false
         pairingCode = Self.makePairingCode()
         playback = nil
         playbackBeatSignature = nil
+        currentTrackInsight = nil
         isRefreshingStatus = false
         queueItems = []
         queueContext = nil
@@ -1566,7 +1806,6 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         voiceState = .idle
         isShowingPairingSuccess = false
         statusMessage = "Niet gekoppeld"
-        localDeviceAPIURL = nil
         companionPairingStatus = "iPhone companion zoeken..."
         activateCompanionSession()
         sendCompanionPairingRegistration()
@@ -1642,8 +1881,14 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
 
     private func applyPlayback(_ nextPlayback: DJConnectPlayback?, confirmAskDJBeat: Bool = false) {
         let previousSignature = playbackBeatSignature ?? Self.playbackBeatSignature(for: playback)
-        let sanitizedPlayback = DJConnectVolumeNormalizer.sanitizedPlayback(nextPlayback)
+        var sanitizedPlayback = DJConnectVolumeNormalizer.sanitizedPlayback(nextPlayback)
+        let resolvedAlbumImageURL = resolvedArtworkURL(sanitizedPlayback?.albumImageURL)
+        sanitizedPlayback?.albumImageURL = resolvedAlbumImageURL
         playback = sanitizedPlayback
+        if !hasActiveNowPlaying || !currentTrackInsightMatchesPlayback() {
+            currentTrackInsight = nil
+        }
+        applyActiveOutput(from: sanitizedPlayback)
         let nextSignature = Self.playbackBeatSignature(for: sanitizedPlayback)
         playbackBeatSignature = nextSignature
 
@@ -1653,7 +1898,60 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
             return
         }
         playAskDJBeatConfirmHaptic()
-        appendDiagnosticLog("Ask DJ beat confirm")
+            appendDiagnosticLog("Ask DJ beat confirm")
+    }
+
+    private func currentTrackInsightMatchesPlayback() -> Bool {
+        guard let insight = currentTrackInsight else {
+            return true
+        }
+        return trackInsightMatchesPlayback(insight)
+    }
+
+    private func trackInsightMatchesPlayback(_ insight: TrackInsight) -> Bool {
+        guard let playback else {
+            return false
+        }
+        return Self.normalizedTrackIdentity(insight.title) == Self.normalizedTrackIdentity(playback.trackName)
+            && Self.normalizedTrackIdentity(insight.artist) == Self.normalizedTrackIdentity(playback.artistName)
+    }
+
+    private static func normalizedTrackIdentity(_ value: String?) -> String {
+        value?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .folding(options: [.diacriticInsensitive, .caseInsensitive], locale: .current) ?? ""
+    }
+
+    private func applyActiveOutput(from playback: DJConnectPlayback?) {
+        guard let device = playback?.device else {
+            return
+        }
+        let deviceName = device.name?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let deviceID = device.id?.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard deviceName?.isEmpty == false || deviceID?.isEmpty == false else {
+            return
+        }
+
+        if let deviceName, !deviceName.isEmpty {
+            selectedOutput = deviceName
+        }
+
+        guard !availableOutputs.isEmpty else {
+            return
+        }
+        var didMatchOutput = false
+        availableOutputs = availableOutputs.map { output in
+            var updated = output
+            let matchesID = deviceID?.isEmpty == false && output.id == deviceID
+            let matchesName = deviceName?.isEmpty == false && output.name == deviceName
+            updated.active = matchesID || matchesName
+            didMatchOutput = didMatchOutput || updated.active == true
+            return updated
+        }
+
+        if !didMatchOutput, let deviceName, !deviceName.isEmpty, selectedOutput == deviceName {
+            appendDiagnosticLog("Actief uitvoerapparaat uit playback: \(deviceName)", level: .debug)
+        }
     }
 
     private func applyBackendSummary(_ summary: DJConnectMusicBackendSummary) {
@@ -1773,9 +2071,10 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         do {
             let response: DJConnectAskDJHistoryResponse = try await sendCompanionHARequest(
                 .clearAskDJHistory,
-                payload: DJConnectAskDJClearHistoryRequest(identity: identity, memoryKey: memoryKey)
+                payload: DJConnectAskDJClearHistoryRequest(identity: identity, musicDNAKey: musicDNAKey)
             )
-            applyAskDJHistory(response)
+            clearAskDJHistoryLocally()
+            applyAskDJHistory(response, forceClear: response.isClearAcknowledged)
         } catch {
             statusMessage = Self.userMessage(for: error)
             showAskDJToast(Self.askDJToastText(for: error))
@@ -1790,6 +2089,174 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         isCheckingAskDJHistoryState = true
         defer { isCheckingAskDJHistoryState = false }
         await syncAskDJHistory(showErrors: true)
+    }
+
+    func prepareMusicDNAConsentPromptIfNeeded() async {
+        let promptSeen = isDemoMode ? demoMusicDNAOptInPromptSeen : musicDNAOptInPromptSeen
+        guard (isDemoMode || canUseBackend),
+              !promptSeen,
+              !isShowingMusicDNAOptInPrompt,
+              !isLoadingMusicDNAConsent,
+              !isUpdatingMusicDNAConsent else {
+            return
+        }
+        if isDemoMode {
+            applyDemoMusicDNAProfile()
+            if musicDNAProfileResponse?.enabled == true {
+                demoMusicDNAOptInPromptSeen = true
+            } else {
+                isShowingMusicDNAOptInPrompt = true
+            }
+            return
+        }
+        isLoadingMusicDNAConsent = true
+        defer { isLoadingMusicDNAConsent = false }
+        do {
+            let response: DJConnectMusicDNAProfileResponse = try await sendCompanionHARequest(
+                .musicDNAProfile,
+                payload: DJConnectMusicDNAIdentityRequest(identity: identity, mood: askDJMoodInt)
+            )
+            applyMusicDNAProfile(response)
+            if response.enabled {
+                musicDNAOptInPromptSeen = true
+            } else {
+                isShowingMusicDNAOptInPrompt = true
+            }
+        } catch {
+            appendDiagnosticLog("Music DNA consent status ophalen mislukt: \(Self.userMessage(for: error))", level: .warning)
+        }
+    }
+
+    func refreshMusicDNAProfile() async {
+        if isDemoMode {
+            applyDemoMusicDNAProfile()
+            return
+        }
+        guard canUseBackend else {
+            musicDNAProfileResponse = nil
+            musicDNAErrorMessage = nil
+            isLoadingMusicDNA = false
+            return
+        }
+        isLoadingMusicDNA = true
+        musicDNAErrorMessage = nil
+        defer { isLoadingMusicDNA = false }
+        do {
+            let response: DJConnectMusicDNAProfileResponse = try await sendCompanionHARequest(
+                .musicDNAProfile,
+                payload: DJConnectMusicDNAIdentityRequest(identity: identity, mood: askDJMoodInt)
+            )
+            applyMusicDNAProfile(response)
+            if response.enabled {
+                musicDNAOptInPromptSeen = true
+            }
+        } catch {
+            musicDNAProfileResponse = nil
+            musicDNAErrorMessage = Self.userMessage(for: error)
+        }
+    }
+
+    func acceptMusicDNAOptInPrompt() {
+        guard !isUpdatingMusicDNAConsent else {
+            return
+        }
+        isShowingMusicDNAOptInPrompt = false
+        musicDNAOptInPromptSeen = true
+        Task { @MainActor in
+            await setMusicDNAEnabledFromPrompt(true)
+        }
+    }
+
+    func dismissMusicDNAOptInPrompt() {
+        if isDemoMode {
+            demoMusicDNAOptInPromptSeen = true
+        } else {
+            musicDNAOptInPromptSeen = true
+        }
+        isShowingMusicDNAOptInPrompt = false
+    }
+
+    func showMusicDNAOptInPrompt() {
+        isShowingMusicDNAOptInPrompt = true
+    }
+
+    private func setMusicDNAEnabledFromPrompt(_ enabled: Bool) async {
+        await setMusicDNAEnabled(enabled)
+    }
+
+    func setMusicDNAEnabled(_ enabled: Bool) async {
+        if isDemoMode {
+            setDemoMusicDNAEnabled(enabled)
+            return
+        }
+        guard canUseBackend else {
+            return
+        }
+        isUpdatingMusicDNA = true
+        isUpdatingMusicDNAConsent = true
+        musicDNAErrorMessage = nil
+        defer {
+            isUpdatingMusicDNA = false
+            isUpdatingMusicDNAConsent = false
+        }
+        do {
+            let response: DJConnectMusicDNAProfileResponse = try await sendCompanionHARequest(
+                .musicDNASettings,
+                payload: DJConnectMusicDNASettingsRequest(identity: identity, enabled: enabled, mood: askDJMoodInt)
+            )
+            applyMusicDNAProfile(response)
+            musicDNAOptInPromptSeen = true
+            showAskDJToast(enabled ? "Music DNA geactiveerd" : "Music DNA uitgeschakeld")
+        } catch {
+            musicDNAOptInPromptSeen = false
+            statusMessage = Self.userMessage(for: error)
+            musicDNAErrorMessage = Self.userMessage(for: error)
+            showAskDJToast(Self.askDJToastText(for: error))
+        }
+    }
+
+    func clearMusicDNA() async {
+        if isDemoMode {
+            musicDNAErrorMessage = nil
+            return
+        }
+        guard canUseBackend else {
+            return
+        }
+        isUpdatingMusicDNA = true
+        musicDNAErrorMessage = nil
+        defer { isUpdatingMusicDNA = false }
+        do {
+            let response: DJConnectMusicDNAProfileResponse = try await sendCompanionHARequest(
+                .clearMusicDNA,
+                payload: DJConnectMusicDNAIdentityRequest(identity: identity, mood: askDJMoodInt)
+            )
+            applyMusicDNAProfile(response)
+            showAskDJToast("Music DNA gewist")
+        } catch {
+            musicDNAErrorMessage = Self.userMessage(for: error)
+            showAskDJToast(Self.askDJToastText(for: error))
+        }
+    }
+
+    private func setDemoMusicDNAEnabled(_ enabled: Bool) {
+        storedDemoMusicDNAEnabled = enabled
+        demoMusicDNAEnabled = enabled
+        demoMusicDNAOptInPromptSeen = true
+        applyDemoMusicDNAProfile()
+    }
+
+    private func applyDemoMusicDNAProfile() {
+        musicDNAProfileResponse = demoMusicDNAEnabled ? Self.demoMusicDNAProfileResponse() : Self.disabledMusicDNAProfileResponse()
+        musicDNAErrorMessage = nil
+        isLoadingMusicDNA = false
+        isUpdatingMusicDNA = false
+        isUpdatingMusicDNAConsent = false
+    }
+
+    private func applyMusicDNAProfile(_ response: DJConnectMusicDNAProfileResponse) {
+        musicDNAProfileResponse = response
+        musicDNAErrorMessage = nil
     }
 
     func runAskDJHistorySyncLoop() async {
@@ -1832,6 +2299,10 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
             await saveCurrentTrackFromAskDJ(action)
             return
         }
+        if action.isAskDJMessageAction {
+            await sendAskDJFollowUpAction(action)
+            return
+        }
         if action.isOutputAction {
             await switchAskDJOutput(action)
             return
@@ -1859,7 +2330,9 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
                     command: command,
                     value: Self.askDJCommandValue(for: action, command: command),
                     play: command == "ask_dj_play_recommendation",
-                    musicBackendRevision: action.musicBackendRevision ?? musicBackendSummary.musicBackendRevision
+                    musicBackendRevision: action.musicBackendRevision ?? musicBackendSummary.musicBackendRevision,
+                    language: currentRequestLocale,
+                    mood: askDJMoodInt
                 )
             )
             applyBackendSummary(response.musicBackendSummary)
@@ -1884,6 +2357,37 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         }
     }
 
+    private func sendAskDJFollowUpAction(_ action: DJConnectAskDJPlaybackAction) async {
+        guard let text = action.resolvedAskDJMessageText?.trimmingCharacters(in: .whitespacesAndNewlines), !text.isEmpty else {
+            showAskDJToast("Deze aanbeveling kan nog niet worden afgespeeld")
+            return
+        }
+        playingAskDJActionID = action.id
+        defer { playingAskDJActionID = nil }
+        let clientMessageID = UUID().uuidString
+        appendAskDJMessage(role: .user, text: text)
+        do {
+            let response: DJConnectAskDJMessageResponse = try await sendCompanionHARequest(
+                .askDJMessage,
+                payload: DJConnectAskDJRequest(
+                    identity: identity,
+                    text: text,
+                    clientMessageID: clientMessageID,
+                    inputType: "text",
+                    mood: askDJMoodInt,
+                    djStyle: djStyle,
+                    musicDNAKey: musicDNAKey,
+                    audioResponse: .auto,
+                    language: currentRequestLocale
+                )
+            )
+            applyAskDJMessageResponse(response)
+            await refreshStatus(confirmAskDJBeat: true)
+        } catch {
+            showAskDJToast(Self.askDJToastText(for: error))
+        }
+    }
+
     private func saveCurrentTrackFromAskDJ(_ action: DJConnectAskDJPlaybackAction) async {
         playingAskDJActionID = action.id
         defer { playingAskDJActionID = nil }
@@ -1896,7 +2400,9 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
                     identity: identity,
                     command: command,
                     value: value,
-                    musicBackendRevision: action.musicBackendRevision ?? musicBackendSummary.musicBackendRevision
+                    musicBackendRevision: action.musicBackendRevision ?? musicBackendSummary.musicBackendRevision,
+                    language: currentRequestLocale,
+                    mood: askDJMoodInt
                 )
             )
             applyBackendSummary(response.musicBackendSummary)
@@ -1946,7 +2452,9 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
                     identity: identity,
                     command: command,
                     value: Self.askDJCommandValue(for: action, command: command),
-                    musicBackendRevision: action.musicBackendRevision ?? musicBackendSummary.musicBackendRevision
+                    musicBackendRevision: action.musicBackendRevision ?? musicBackendSummary.musicBackendRevision,
+                    language: currentRequestLocale,
+                    mood: askDJMoodInt
                 )
             )
             applyBackendSummary(response.musicBackendSummary)
@@ -2075,7 +2583,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
                     clientMessageID: UUID().uuidString,
                     mood: askDJMoodInt,
                     djStyle: djStyle,
-                    memoryKey: memoryKey
+                    musicDNAKey: musicDNAKey
                 )
             )
             applyAskDJMessageResponse(response)
@@ -2092,6 +2600,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         if let assistantMessage = response.assistantMessage {
             upsertAskDJHistoryMessage(assistantMessage, into: &nextMessages)
         }
+        applyCurrentTrackInsight(from: response)
         applyAskDJTrim(response.historyTrimmedBefore, to: &nextMessages)
         coalesceAskDJMessages(&nextMessages)
         askDJMessages = sortedAskDJMessages(nextMessages)
@@ -2102,19 +2611,21 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
 
     private func clearAskDJHistoryLocally() {
         askDJMessages = []
+        currentTrackInsight = nil
         UserDefaults.standard.removeObject(forKey: askDJMessagesKey)
         askDJHistoryRevision = 0
         askDJClearRevision = 0
     }
 
-    private func applyAskDJHistory(_ response: DJConnectAskDJHistoryResponse) {
-        if response.clearRevision > askDJClearRevision {
+    private func applyAskDJHistory(_ response: DJConnectAskDJHistoryResponse, forceClear: Bool = false) {
+        if forceClear || response.clearRevision > askDJClearRevision {
             askDJMessages = []
         }
         var nextMessages = askDJMessages
         for message in response.messages {
             upsertAskDJHistoryMessage(message, into: &nextMessages)
         }
+        applyCurrentTrackInsight(from: response.messages)
         applyAskDJTrim(response.historyTrimmedBefore, to: &nextMessages)
         coalesceAskDJMessages(&nextMessages)
         askDJMessages = sortedAskDJMessages(nextMessages)
@@ -2149,11 +2660,13 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
             links: safeResponseLinks(historyMessage.links),
             playbackActions: historyMessage.playbackActions + historyMessage.confirmationActions,
             intentInfo: historyMessage.intentInfo,
-            analysis: historyMessage.analysis,
             items: historyMessage.items,
             audioURL: resolvedAudioURL(historyMessage.audioURL),
             messageKind: historyMessage.role == .user ? .assistant : historyMessage.messageKind,
             origin: historyMessage.role == .user ? nil : historyMessage.origin,
+            textSource: historyMessage.role == .user ? nil : historyMessage.textSource,
+            isGeneratedText: historyMessage.role == .user ? nil : historyMessage.isGeneratedText,
+            mood: historyMessage.role == .user ? nil : historyMessage.mood,
             createdAt: historyMessage.createdAt
         )
         if let existingIndex {
@@ -2161,6 +2674,29 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         } else {
             messages.append(mapped)
         }
+    }
+
+    private func applyCurrentTrackInsight(from response: DJConnectAskDJMessageResponse) {
+        if let insight = response.trackInsight ?? response.assistantMessage?.trackInsight {
+            applyCurrentTrackInsightIfMatchingPlayback(insight)
+        }
+    }
+
+    private func applyCurrentTrackInsight(from messages: [DJConnectAskDJHistoryMessage]) {
+        if let insight = messages
+            .filter({ $0.role != .user })
+            .sorted(by: { $0.createdAt < $1.createdAt })
+            .compactMap(\.trackInsight)
+            .last {
+            applyCurrentTrackInsightIfMatchingPlayback(insight)
+        }
+    }
+
+    private func applyCurrentTrackInsightIfMatchingPlayback(_ insight: TrackInsight) {
+        guard trackInsightMatchesPlayback(insight) else {
+            return
+        }
+        currentTrackInsight = insight
     }
 
     private static func redactedDeviceID(_ deviceID: String) -> String {
@@ -2201,6 +2737,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
             ),
             contextURI: "spotify:playlist:djconnect-demo"
         )
+        currentTrackInsight = DemoTrackInsightService.defaultTracks.first
         applyDemoOutputs()
         applyDemoQueue()
         applyDemoPlaylists()
@@ -2265,6 +2802,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
                 playback?.trackName = payload["title"] ?? playback?.trackName
                 playback?.artistName = payload["artist"] ?? playback?.artistName
                 playback?.contextURI = payload["context_uri"] ?? playback?.contextURI
+                playback?.progressMS = 0
             }
             statusMessage = "Nummer gestart"
         case "set_output":
@@ -2294,15 +2832,18 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
             playback?.isPlaying = false
             statusMessage = "Demo gepauzeerd"
         case "next":
-            playback?.trackName = "Sweet Disposition"
-            playback?.artistName = "The Temper Trap"
-            playback?.isPlaying = true
+            applyDemoQueueItem(relativeOffset: 1)
             statusMessage = "Volgend demo nummer"
         case "previous":
-            playback?.trackName = "Midnight City"
-            playback?.artistName = "M83"
-            playback?.isPlaying = true
+            applyDemoQueueItem(relativeOffset: -1)
             statusMessage = "Vorig demo nummer"
+        case "seek_relative":
+            if case let .int(delta) = value {
+                let currentProgress = playback?.progressMS ?? 0
+                let duration = max(playback?.durationMS ?? currentProgress, 0)
+                playback?.progressMS = min(max(currentProgress + delta, 0), duration)
+            }
+            statusMessage = "Demo positie bijgewerkt"
         case "set_current_track_favorite", "save_current_track":
             if command == "save_current_track" {
                 playback?.favoriteStatus = true
@@ -2320,30 +2861,67 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         }
     }
 
+    private func applyDemoQueueItem(relativeOffset: Int) {
+        guard !queueItems.isEmpty else {
+            return
+        }
+        let currentIndex = currentDemoQueueIndex() ?? 0
+        let targetIndex = min(max(currentIndex + relativeOffset, 0), queueItems.count - 1)
+        applyDemoQueueItem(at: targetIndex)
+    }
+
+    private func applyDemoQueueItem(at index: Int) {
+        guard queueItems.indices.contains(index) else {
+            return
+        }
+        let item = queueItems[index]
+        let activeDevice = playback?.device
+        let volumePercent = playback?.volumePercent ?? 42
+        playback = DJConnectPlayback(
+            hasPlayback: true,
+            isPlaying: true,
+            trackName: item.title,
+            artistName: item.artist,
+            albumImageURL: item.albumImageURL,
+            progressMS: 0,
+            durationMS: item.durationMS,
+            volumePercent: volumePercent,
+            shuffle: playback?.shuffle ?? false,
+            repeatState: playback?.repeatState ?? .off,
+            device: activeDevice,
+            contextURI: queueContext
+        )
+        currentTrackInsight = DemoTrackInsightService.defaultTracks.first { insight in
+            insight.title == item.title && insight.artist == item.artist
+        }
+    }
+
+    private func currentDemoQueueIndex() -> Int? {
+        guard let playback else {
+            return nil
+        }
+        return queueItems.firstIndex { item in
+            item.title == playback.trackName && item.artist == playback.artistName
+        }
+    }
+
     private func sendDemoVoiceResponse() {
         voiceState = .processing
         statusMessage = "Demo verwerkt..."
         appendAskDJMessage(role: .user, text: "Stemverzoek")
         let response = "Ja hoor. Ik zou nu Midnight City van M83 aankondigen: glanzende synths, avondlucht, en precies genoeg energie om de kamer op te tillen."
+        currentTrackInsight = DemoTrackInsightService.defaultTracks.first
         appendAskDJMessage(role: .dj, text: response)
         notifyAskDJResponse(response)
         voiceState = .idle
         statusMessage = response
         speechSynthesizer?.stopSpeaking(at: .immediate)
         let utterance = AVSpeechUtterance(string: response)
-        utterance.voice = AVSpeechSynthesisVoice(language: "nl-NL")
+        utterance.voice = AVSpeechSynthesisVoice(language: currentRequestLocale)
         utterance.rate = 0.48
         let synthesizer = AVSpeechSynthesizer()
         speechSynthesizer = synthesizer
         synthesizer.speak(utterance)
-    }
-
-    private func handleLocalCommand(_ request: DJConnectLocalCommandRequest) async -> DJConnectLocalDeviceAPIResponse {
-        guard let command = request.command, !command.isEmpty else {
-            return DJConnectLocalDeviceAPIResponse(success: false, error: "missing_command", message: "Missing command.")
-        }
-        await sendCommand(command)
-        return DJConnectLocalDeviceAPIResponse(success: true, message: "accepted")
     }
 
     private func statusPayload(screenState: String) -> DJConnectStatusPayload {
@@ -2351,7 +2929,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
             identity: identity,
             haPairingStatus: canUseBackend ? .paired : .unpaired,
             batteryPercent: Int(WKInterfaceDevice.current().batteryLevel * 100),
-            language: Locale.current.language.languageCode?.identifier,
+            language: currentRequestLocale,
             osVersion: WKInterfaceDevice.current().systemVersion,
             localAudioSupported: true,
             voiceSupported: true,
@@ -2364,7 +2942,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
             wakewordStatus: "foreground_only_\(voiceActivationStatusText.lowercased().replacingOccurrences(of: " ", with: "_"))",
             mood: askDJMoodInt,
             djStyle: djStyle,
-            memoryKey: memoryKey
+            musicDNAKey: musicDNAKey
         )
     }
 
@@ -2405,14 +2983,14 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
                     .appendingPathExtension("wav")
                 let settings: [String: Any] = [
                     AVFormatIDKey: Int(kAudioFormatLinearPCM),
-                    AVSampleRateKey: 16_000,
+                    AVSampleRateKey: 8_000,
                     AVNumberOfChannelsKey: 1,
-                    AVLinearPCMBitDepthKey: 16,
+                    AVLinearPCMBitDepthKey: 8,
                     AVLinearPCMIsFloatKey: false,
                     AVLinearPCMIsBigEndianKey: false
                 ]
                 let recorder = try AVAudioRecorder(url: url, settings: settings)
-                recorder.record()
+                recorder.record(forDuration: maxWatchVoiceRecordingDuration)
                 self.recorder = recorder
                 self.recordingURL = url
                 self.voiceState = .recording
@@ -2476,6 +3054,10 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
             }
             do {
                 let data = try Data(contentsOf: url)
+                guard data.count <= maxWatchVoiceWAVBytes else {
+                    appendDiagnosticLog("Stemopname te groot: \(data.count) bytes", level: .warning)
+                    throw DJConnectError.invalidConfiguration("Opname is te lang. Probeer een kortere Ask DJ opname.")
+                }
                 appendAskDJMessage(role: .user, text: "Stemverzoek")
                 let response: DJConnectVoiceResponse = try await sendCompanionHARequest(
                     .voice,
@@ -2483,7 +3065,8 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
                         wavData: data,
                         mood: askDJMoodInt,
                         djStyle: djStyle,
-                        memoryKey: memoryKey
+                        musicDNAKey: musicDNAKey,
+                        language: currentRequestLocale
                     )
                 )
                 voiceState = .idle
@@ -2595,9 +3178,6 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         if merged.intentInfo == nil {
             merged.intentInfo = fallback.intentInfo
         }
-        if merged.analysis == nil {
-            merged.analysis = fallback.analysis
-        }
         if merged.items.isEmpty {
             merged.items = fallback.items
         }
@@ -2694,16 +3274,45 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
             guard !hasRequestedAskDJNotificationPermission else {
                 return false
             }
-            hasRequestedAskDJNotificationPermission = true
-            do {
-                return try await center.requestAuthorization(options: [.alert, .sound])
-            } catch {
-                appendDiagnosticLog("Notificatie toestemming mislukt: \(error.localizedDescription)", level: .warning)
+            let shouldRequestSystemPermission = await withCheckedContinuation { continuation in
+                pendingAskDJNotificationAuthorizationContinuation?.resume(returning: false)
+                pendingAskDJNotificationAuthorizationContinuation = continuation
+                isShowingAskDJNotificationPermissionExplanation = true
+            }
+            guard shouldRequestSystemPermission else {
                 return false
             }
+            return await requestAskDJNotificationAuthorization(center: center)
         case .denied:
             return false
         @unknown default:
+            return false
+        }
+    }
+
+    func continueAfterAskDJNotificationPermissionExplanation() {
+        isShowingAskDJNotificationPermissionExplanation = false
+        hasRequestedAskDJNotificationPermission = true
+        pendingAskDJNotificationAuthorizationContinuation?.resume(returning: true)
+        pendingAskDJNotificationAuthorizationContinuation = nil
+    }
+
+    func cancelAskDJNotificationPermissionExplanation() {
+        isShowingAskDJNotificationPermissionExplanation = false
+        appendDiagnosticLog("Ask DJ notificatie uitleg geannuleerd", level: .debug)
+        pendingAskDJNotificationAuthorizationContinuation?.resume(returning: false)
+        pendingAskDJNotificationAuthorizationContinuation = nil
+    }
+
+    private func requestAskDJNotificationAuthorization(center: UNUserNotificationCenter) async -> Bool {
+        do {
+            let granted = try await center.requestAuthorization(options: [.alert, .sound])
+            if granted {
+                WKApplication.shared().registerForRemoteNotifications()
+            }
+            return granted
+        } catch {
+            appendDiagnosticLog("Notificatie toestemming mislukt: \(error.localizedDescription)", level: .warning)
             return false
         }
     }
@@ -2715,15 +3324,8 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         case .authorized, .provisional, .ephemeral:
             return true
         case .notDetermined:
-            do {
-                let granted = try await center.requestAuthorization(options: [.alert, .sound])
-                let updatedSettings = await center.notificationSettings()
-                logPush("notification permission requested granted=\(granted) status=\(Self.notificationAuthorizationStatusName(updatedSettings.authorizationStatus))")
-                return granted
-            } catch {
-                logPush("notification permission failed error=\(error.localizedDescription)", level: .warning)
-                return false
-            }
+            logPush("notification permission not requested by remote registration; waiting for Ask DJ explanation")
+            return false
         case .denied:
             return false
         @unknown default:
@@ -2779,12 +3381,24 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
                 )
                 applyPushRegistrationStatus(from: response)
                 let responseError = Self.redactedPushFailureReason(response.lastPushError ?? response.error ?? "<missing>")
-                logPush("register response http_status=decoded success=\(response.success) push_supported=\(Self.optionalBoolForLog(response.pushSupported)) push_registered=\(Self.optionalBoolForLog(response.pushRegistered)) push_environment=\(response.pushEnvironment?.rawValue ?? "<missing>") last_push_error=\(responseError)")
-                guard response.success, response.pushRegistered != false else {
+                let responseEnvironment = response.pushEnvironment
+                let canonicalEnvironment = responseEnvironment ?? environment
+                let environmentMatches = environment.isCompatible(with: responseEnvironment)
+                logPush("register response http_status=decoded success=\(response.success) push_supported=\(Self.optionalBoolForLog(response.pushSupported)) push_registered=\(Self.optionalBoolForLog(response.pushRegistered)) client_type=\(identity.clientType.rawValue) canonical_push_environment=\(canonicalEnvironment.rawValue) push_environment=\(responseEnvironment?.rawValue ?? "<missing>") last_push_error=\(responseError)")
+                guard response.success, response.pushRegistered != false, environmentMatches else {
                     let reason = response.error ?? response.lastPushError ?? response.message ?? "onbekend"
                     UserDefaults.standard.set(false, forKey: pushRegisteredKey)
                     UserDefaults.standard.removeObject(forKey: registeredPushSignatureKey)
-                    appendDiagnosticLog("Push registratie niet geaccepteerd door Home Assistant: \(Self.redactedPushFailureReason(reason))", level: .warning)
+                    if Self.isInvalidBootstrapProof(reason) {
+                        UserDefaults.standard.set(Self.redactedPushFailureReason(reason), forKey: lastPushErrorKey)
+                        logPush("registration recovery_required=true reason=invalid_bootstrap_proof message=pair_with_home_assistant_again push_registered=false", level: .warning)
+                    } else if !environmentMatches {
+                        let responseValue = responseEnvironment?.rawValue ?? "<missing>"
+                        UserDefaults.standard.set("push_environment_mismatch", forKey: lastPushErrorKey)
+                        logPush("registration rejected push_environment_mismatch expected=\(environment.rawValue) response=\(responseValue) push_registered=false", level: .warning)
+                    } else {
+                        appendDiagnosticLog("Push registratie niet geaccepteerd door Home Assistant: \(Self.redactedPushFailureReason(reason))", level: .warning)
+                    }
                     return
                 }
                 UserDefaults.standard.removeObject(forKey: registeredPushTokenKey)
@@ -2793,10 +3407,15 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
                 UserDefaults.standard.set(registrationSignature, forKey: registeredPushSignatureKey)
                 UserDefaults.standard.set(true, forKey: pushRegisteredKey)
                 UserDefaults.standard.removeObject(forKey: lastPushErrorKey)
-                logPush("registered with Home Assistant env=\(environment.rawValue)", level: .info)
+                logPush("registered with Home Assistant client_type=\(identity.clientType.rawValue) env=\(canonicalEnvironment.rawValue) push_registered=true", level: .info)
             } catch let error as DJConnectError {
                 if case .routeMissing = error {
                     logPush("registration skipped route_missing=true")
+                } else if Self.isInvalidBootstrapProof(Self.userMessage(for: error)) {
+                    UserDefaults.standard.set(false, forKey: pushRegisteredKey)
+                    UserDefaults.standard.removeObject(forKey: registeredPushSignatureKey)
+                    UserDefaults.standard.set("invalid_bootstrap_proof", forKey: lastPushErrorKey)
+                    logPush("registration recovery_required=true reason=invalid_bootstrap_proof message=pair_with_home_assistant_again push_registered=false", level: .warning)
                 } else {
                     logPush("registration failed error=\(Self.userMessage(for: error))", level: .warning)
                 }
@@ -2884,10 +3503,33 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
     }
 
     private static var pushEnvironment: DJConnectPushEnvironment {
-        #if DEBUG
-        .sandbox
+        pushEnvironment(apsEnvironment: apsEnvironmentEntitlement)
+    }
+
+    static func pushEnvironment(apsEnvironment: String?) -> DJConnectPushEnvironment {
+        switch apsEnvironment?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() {
+        case "development", "sandbox":
+            return .sandbox
+        case "production":
+            return .production
+        default:
+            #if DEBUG
+            return .sandbox
+            #else
+            return .production
+            #endif
+        }
+    }
+
+    private static var apsEnvironmentEntitlement: String? {
+        #if os(macOS) && canImport(Security)
+        guard let task = SecTaskCreateFromSelf(nil),
+              let value = SecTaskCopyValueForEntitlement(task, "aps-environment" as CFString, nil) else {
+            return nil
+        }
+        return value as? String
         #else
-        .production
+        return nil
         #endif
     }
 
@@ -2949,6 +3591,10 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
                 with: "[redacted]",
                 options: .regularExpression
             )
+    }
+
+    private static func isInvalidBootstrapProof(_ reason: String) -> Bool {
+        reason.trimmingCharacters(in: .whitespacesAndNewlines).lowercased().contains("invalid_bootstrap_proof")
     }
 
     private static func notificationPreview(from text: String) -> String {
@@ -3069,7 +3715,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
             return
         }
         let utterance = AVSpeechUtterance(string: text)
-        utterance.voice = AVSpeechSynthesisVoice(language: "nl-NL")
+        utterance.voice = AVSpeechSynthesisVoice(language: currentRequestLocale)
         let synthesizer = AVSpeechSynthesizer()
         speechSynthesizer = synthesizer
         synthesizer.speak(utterance)
@@ -3083,6 +3729,19 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
             return audioURL
         }
         return URL(string: audioURL.absoluteString, relativeTo: URL(string: haBaseURL))?.absoluteURL
+    }
+
+    private func resolvedArtworkURL(_ artworkURL: URL?) -> URL? {
+        guard let artworkURL else {
+            return nil
+        }
+        if let scheme = artworkURL.scheme?.lowercased(), scheme == "http" || scheme == "https" {
+            return artworkURL
+        }
+        guard artworkURL.host == nil else {
+            return nil
+        }
+        return URL(string: artworkURL.relativeString, relativeTo: URL(string: haBaseURL))?.absoluteURL
     }
 
     private func proxiedResponseImages(_ images: [DJConnectResponseImage]?) -> [DJConnectResponseImage] {
@@ -3135,7 +3794,9 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         switch error {
         case .backendUnavailable, .server, .decodingFailed, .invalidResponse:
             return "Home Assistant gaf geen antwoord"
-        case .network, .routeMissing, .notConfigured, .invalidConfiguration, .missingToken, .pairingFailed, .authStale, .versionMismatch:
+        case .trackInsightUnavailable:
+            return "Track Insight niet beschikbaar"
+        case .network, .routeMissing, .notConfigured, .invalidConfiguration, .missingToken, .pairingFailed, .clientTypeMismatch, .authStale, .versionMismatch:
             return "Ask DJ niet bereikbaar"
         }
     }
@@ -3402,6 +4063,47 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
             .uppercased()
     }
 
+    private static func disabledMusicDNAProfileResponse() -> DJConnectMusicDNAProfileResponse {
+        DJConnectMusicDNAProfileResponse(
+            success: true,
+            enabled: false,
+            profile: DJConnectMusicDNAProfile()
+        )
+    }
+
+    private static func demoMusicDNAProfileResponse() -> DJConnectMusicDNAProfileResponse {
+        DJConnectMusicDNAProfileResponse(
+            success: true,
+            musicDNAKey: "demo:music-dna",
+            enabled: true,
+            generation: 3,
+            profile: DJConnectMusicDNAProfile(
+                summary: "A fictional profile for warm synth grooves, bright hooks and playful discovery.",
+                favoriteGenres: [
+                    DJConnectMusicDNANameValue(name: "Neon downtempo"),
+                    DJConnectMusicDNANameValue(name: "Velvet electro"),
+                    DJConnectMusicDNANameValue(name: "Skyline pop")
+                ],
+                favoriteArtists: [
+                    DJConnectMusicDNANameValue(name: "Luna Vale"),
+                    DJConnectMusicDNANameValue(name: "Nova Harbor"),
+                    DJConnectMusicDNANameValue(name: "Echo Parade")
+                ],
+                recentTracks: [
+                    DJConnectMusicDNATrack(title: "Glass Avenue", artist: "Luna Vale"),
+                    DJConnectMusicDNATrack(title: "Afterglow Signals", artist: "Nova Harbor"),
+                    DJConnectMusicDNATrack(title: "Silver Static", artist: "Echo Parade")
+                ],
+                mood: DJConnectMusicDNAMood(value: 68, zone: "warm energy", promptHint: "Recommend melodic tracks with motion and glow."),
+                recommendationSignals: [
+                    DJConnectMusicDNASignal(title: "Bright synth hooks", kind: "sound"),
+                    DJConnectMusicDNASignal(title: "Warm rolling bass", kind: "texture"),
+                    DJConnectMusicDNASignal(title: "Playful vocal fragments", kind: "mood")
+                ]
+            )
+        )
+    }
+
     private static func userMessage(for error: Error) -> String {
         if let error = error as? DJConnectError {
             switch error {
@@ -3409,10 +4111,13 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
                 return "Koppel eerst met Home Assistant."
             case .backendUnavailable, .server, .decodingFailed, .invalidResponse:
                 return "Home Assistant gaf geen antwoord."
+            case .trackInsightUnavailable:
+                return "Track Insight niet beschikbaar."
             case .network,
                  .authStale,
                  .notConfigured,
                  .pairingFailed,
+                 .clientTypeMismatch,
                  .routeMissing:
                 return "Ask DJ niet bereikbaar."
             case let .versionMismatch(mismatch):

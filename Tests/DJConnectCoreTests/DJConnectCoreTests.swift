@@ -68,6 +68,50 @@ private final class ConnectionModeRecorder: @unchecked Sendable {
     }
 }
 
+private final class RequestPathRecorder: @unchecked Sendable {
+    private let lock = NSLock()
+    private var values: [String] = []
+
+    func append(_ value: String) {
+        lock.lock()
+        values.append(value)
+        lock.unlock()
+    }
+
+    var paths: [String] {
+        lock.lock()
+        let snapshot = values
+        lock.unlock()
+        return snapshot
+    }
+}
+
+private final class RequestCounter: @unchecked Sendable {
+    private let lock = NSLock()
+    private var value = 0
+
+    func increment() {
+        lock.withLock { value += 1 }
+    }
+
+    var count: Int {
+        lock.withLock { value }
+    }
+}
+
+private final class RequestRecorder: @unchecked Sendable {
+    private let lock = NSLock()
+    private var storage: [URLRequest] = []
+
+    func append(_ request: URLRequest) {
+        lock.withLock { storage.append(request) }
+    }
+
+    var requests: [URLRequest] {
+        lock.withLock { storage }
+    }
+}
+
 private final class SequenceTokenStore: DJConnectTokenStore, @unchecked Sendable {
     private let lock = NSLock()
     private var loadResults: [Result<String?, Error>]
@@ -87,6 +131,223 @@ private final class SequenceTokenStore: DJConnectTokenStore, @unchecked Sendable
 
     func saveToken(_ token: String) throws {}
     func clearToken() throws {}
+}
+
+private actor MockWebSocketFastPathTransport: DJConnectWebSocketFastPathTransport {
+    var supportedRoutes: Set<DJConnectFastPathRoute>
+    var commandError: Error?
+    var askDJError: Error?
+    var trackInsightError: Error?
+    var vibeCastError: Error?
+    var commandCalls = 0
+    var askDJCalls = 0
+    var askDJHistoryCalls = 0
+    var clearAskDJHistoryCalls = 0
+    var trackInsightCalls = 0
+    var vibeCastCalls = 0
+    var receivedTokens: [String] = []
+    var receivedCommandPayload: DJConnectCommandPayload?
+    var receivedCommandIdentity: DJConnectAPIIdentity?
+    var receivedAskPayload: DJConnectAskDJRequest?
+    var receivedAskIdentity: DJConnectAPIIdentity?
+    var receivedHistorySinceRevision: Int?
+    var receivedHistoryIdentity: DJConnectAPIIdentity?
+    var receivedClearMusicDNAKey: String?
+    var receivedClearIdentity: DJConnectAPIIdentity?
+    var receivedTrackPayload: DJConnectTrackInsightRequest?
+    var receivedTrackIdentity: DJConnectAPIIdentity?
+    var receivedVibeCastPayload: DJConnectVibeCastRequest?
+    var receivedVibeCastIdentity: DJConnectAPIIdentity?
+    var clearAskDJHistoryResponse = DJConnectAskDJHistoryResponse(historyRevision: 0, clearRevision: 1, messages: [])
+
+    init(supportedRoutes: Set<DJConnectFastPathRoute>) {
+        self.supportedRoutes = supportedRoutes
+    }
+
+    func setAskDJError(_ error: Error?) {
+        askDJError = error
+    }
+
+    func setCommandError(_ error: Error?) {
+        commandError = error
+    }
+
+    func setTrackInsightError(_ error: Error?) {
+        trackInsightError = error
+    }
+
+    func setVibeCastError(_ error: Error?) {
+        vibeCastError = error
+    }
+
+    func setClearAskDJHistoryResponse(_ response: DJConnectAskDJHistoryResponse) {
+        clearAskDJHistoryResponse = response
+    }
+
+    var diagnostics: DJConnectFastPathDiagnostics {
+        DJConnectFastPathDiagnostics(
+            fastPathTransport: "websocket",
+            websocketConnected: true,
+            websocketCommands: supportedRoutes.map(\.rawValue).sorted()
+        )
+    }
+
+    func supports(_ route: DJConnectFastPathRoute) async -> Bool {
+        supportedRoutes.contains(route)
+    }
+
+    func prepare() async throws {}
+
+    func command<T>(_ payload: DJConnectCommandPayload, identity: DJConnectAPIIdentity, responseType: T.Type) async throws -> T where T: Decodable, T: Sendable {
+        commandCalls += 1
+        receivedTokens.append(identity.deviceToken ?? "")
+        receivedCommandPayload = payload
+        receivedCommandIdentity = identity
+        if let commandError {
+            throw commandError
+        }
+        guard supportedRoutes.contains(.command) else {
+            throw DJConnectError.routeMissing(message: "missing websocket command capability")
+        }
+        let response = DJConnectCommandResponse(success: true, playback: DJConnectPlayback(hasPlayback: true, isPlaying: true, trackName: "WebSocket Track"))
+        let data = try JSONEncoder().encode(response)
+        return try JSONDecoder().decode(T.self, from: data)
+    }
+
+    func askDJMessage(_ payload: DJConnectAskDJRequest, identity: DJConnectAPIIdentity) async throws -> DJConnectAskDJMessageResponse {
+        askDJCalls += 1
+        receivedTokens.append(identity.deviceToken ?? "")
+        receivedAskPayload = payload
+        receivedAskIdentity = identity
+        if let askDJError {
+            throw askDJError
+        }
+        guard supportedRoutes.contains(.askDJMessage) else {
+            throw DJConnectError.routeMissing(message: "missing websocket ask dj capability")
+        }
+        return DJConnectAskDJMessageResponse(
+            assistantMessage: DJConnectAskDJHistoryMessage(id: "fast-assistant", role: .assistant, text: "Fast answer", createdAt: Date()),
+            text: "Fast answer",
+            historyRevision: 12,
+            clearRevision: 3
+        )
+    }
+
+    func askDJHistory(identity: DJConnectAPIIdentity, sinceRevision: Int?) async throws -> DJConnectAskDJHistoryResponse {
+        askDJHistoryCalls += 1
+        receivedTokens.append(identity.deviceToken ?? "")
+        receivedHistorySinceRevision = sinceRevision
+        receivedHistoryIdentity = identity
+        guard supportedRoutes.contains(.askDJHistory) else {
+            throw DJConnectError.routeMissing(message: "missing websocket ask dj history capability")
+        }
+        return DJConnectAskDJHistoryResponse(historyRevision: sinceRevision ?? 0, clearRevision: 0, messages: [])
+    }
+
+    func clearAskDJHistory(identity: DJConnectAPIIdentity, musicDNAKey: String?) async throws -> DJConnectAskDJHistoryResponse {
+        clearAskDJHistoryCalls += 1
+        receivedTokens.append(identity.deviceToken ?? "")
+        receivedClearIdentity = identity
+        receivedClearMusicDNAKey = musicDNAKey
+        guard supportedRoutes.contains(.askDJHistoryClear) else {
+            throw DJConnectError.routeMissing(message: "missing websocket ask dj clear history capability")
+        }
+        return clearAskDJHistoryResponse
+    }
+
+    func trackInsight(_ payload: DJConnectTrackInsightRequest, identity: DJConnectAPIIdentity) async throws -> TrackInsight {
+        trackInsightCalls += 1
+        receivedTokens.append(identity.deviceToken ?? "")
+        receivedTrackPayload = payload
+        receivedTrackIdentity = identity
+        if let trackInsightError {
+            throw trackInsightError
+        }
+        guard supportedRoutes.contains(.trackInsight) else {
+            throw DJConnectError.routeMissing(message: "missing websocket track insight capability")
+        }
+        return TrackInsight(
+            title: payload.title ?? "Fast Track",
+            artist: payload.artist ?? "Fast Artist",
+            genre: "House",
+            summary: "Fast insight",
+            rawAnalysisText: "Fast insight"
+        )
+    }
+
+    func vibeCast(_ payload: DJConnectVibeCastRequest, identity: DJConnectAPIIdentity) async throws -> DJConnectVibeCastResponse {
+        vibeCastCalls += 1
+        receivedTokens.append(identity.deviceToken ?? "")
+        receivedVibeCastPayload = payload
+        receivedVibeCastIdentity = identity
+        if let vibeCastError {
+            throw vibeCastError
+        }
+        guard supportedRoutes.contains(.vibeCast) else {
+            throw DJConnectError.routeMissing(message: "missing websocket vibecast capability")
+        }
+        return DJConnectVibeCastResponse(
+            enabled: true,
+            revision: 7,
+            ttlSeconds: 45,
+            pollAfterSeconds: 20,
+            context: .init(trackID: "fast-track", title: "Fast Track", artist: "Fast Artist", musicBackend: "music_assistant"),
+            items: [
+                .init(
+                    id: "fast-fact",
+                    kind: .trackFact,
+                    tone: "playful",
+                    priority: 80,
+                    displaySeconds: 8,
+                    placementHint: "side",
+                    text: [.init(type: .strong, value: "Fast fact")]
+                )
+            ],
+            cache: .init(hit: true)
+        )
+    }
+}
+
+private struct FailingTrackInsightFastPathTransport: DJConnectWebSocketFastPathTransport {
+    let error: Error
+
+    var diagnostics: DJConnectFastPathDiagnostics {
+        DJConnectFastPathDiagnostics(
+            fastPathTransport: "websocket",
+            websocketConnected: true,
+            websocketCommands: [DJConnectFastPathRoute.trackInsight.rawValue]
+        )
+    }
+
+    func supports(_ route: DJConnectFastPathRoute) async -> Bool {
+        route == .trackInsight
+    }
+
+    func prepare() async throws {}
+
+    func command<T>(_ payload: DJConnectCommandPayload, identity: DJConnectAPIIdentity, responseType: T.Type) async throws -> T where T: Decodable, T: Sendable {
+        throw DJConnectError.routeMissing(message: "command unsupported")
+    }
+
+    func askDJMessage(_ payload: DJConnectAskDJRequest, identity: DJConnectAPIIdentity) async throws -> DJConnectAskDJMessageResponse {
+        throw DJConnectError.routeMissing(message: "ask dj unsupported")
+    }
+
+    func askDJHistory(identity: DJConnectAPIIdentity, sinceRevision: Int?) async throws -> DJConnectAskDJHistoryResponse {
+        throw DJConnectError.routeMissing(message: "ask dj history unsupported")
+    }
+
+    func clearAskDJHistory(identity: DJConnectAPIIdentity, musicDNAKey: String?) async throws -> DJConnectAskDJHistoryResponse {
+        throw DJConnectError.routeMissing(message: "ask dj clear unsupported")
+    }
+
+    func trackInsight(_ payload: DJConnectTrackInsightRequest, identity: DJConnectAPIIdentity) async throws -> TrackInsight {
+        throw error
+    }
+
+    func vibeCast(_ payload: DJConnectVibeCastRequest, identity: DJConnectAPIIdentity) async throws -> DJConnectVibeCastResponse {
+        throw DJConnectError.routeMissing(message: "vibecast unsupported")
+    }
 }
 
 private enum TokenStoreTestError: Error {
@@ -113,6 +374,37 @@ private func httpResponse(for request: URLRequest, statusCode: Int) throws -> HT
         throw URLError(.badURL)
     }
     return response
+}
+
+private func testIOSIdentity(deviceID: String = "djconnect-ios-8F3A2C91B45D", deviceName: String = "iPhone") -> DJConnectIdentity {
+    DJConnectIdentity(
+        deviceID: deviceID,
+        deviceName: deviceName,
+        clientType: .ios,
+        firmware: "3.2.2",
+        appVersion: "3.2.2",
+        platform: .ios
+    )
+}
+
+private func testDefaults() throws -> UserDefaults {
+    let suiteName = "DJConnectTests-\(UUID().uuidString)"
+    let defaults = try #require(UserDefaults(suiteName: suiteName))
+    defaults.removePersistentDomain(forName: suiteName)
+    return defaults
+}
+
+@MainActor
+private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, session: URLSession) -> DJConnectAppModel {
+    let model = DJConnectAppModel(
+        defaults: defaults,
+        tokenStore: DJConnectInMemoryTokenStore(token: "secret-token"),
+        urlSession: session,
+        startBackgroundTasks: false
+    )
+    model.homeAssistantURL = "http://\(host):8123"
+    model.pairingStatus = .paired
+    return model
 }
 
 @Test func userDefaultsTokenStorePersistsAndClearsToken() throws {
@@ -143,7 +435,6 @@ private func httpResponse(for request: URLRequest, statusCode: Int) throws -> HT
     let model = DJConnectAppModel(
         defaults: defaults,
         tokenStore: tokenStore,
-        startLocalAPI: false,
         startBackgroundTasks: false
     )
 
@@ -159,66 +450,21 @@ private func httpResponse(for request: URLRequest, statusCode: Int) throws -> HT
 }
 
 @MainActor
-private func waitForLocalDeviceAPIURL(_ model: DJConnectAppModel) async throws -> String {
-    for _ in 0..<30 {
-        if let url = model.localDeviceAPIURL, !url.isEmpty {
-            return url
-        }
-        try await Task.sleep(for: .milliseconds(100))
-    }
-    throw URLError(.timedOut)
-}
-
-private struct LocalDeviceJSON: Decodable, Sendable {
-    var deviceID: String
-    var clientType: String
-    var version: String
-    var firmware: String
-    var appVersion: String
-    var platform: String
-    var status: String
-    var pairingStatus: String
-    var localURL: String
-    var pairCode: String?
-
-    enum CodingKeys: String, CodingKey {
-        case deviceID = "device_id"
-        case clientType = "client_type"
-        case version
-        case firmware
-        case appVersion = "app_version"
-        case platform
-        case status
-        case pairingStatus = "pairing_status"
-        case localURL = "local_url"
-        case pairCode = "pair_code"
-    }
-}
-
-private func localDeviceJSON(from urlString: String) async throws -> LocalDeviceJSON {
-    let url = try #require(URL(string: urlString))
-    let (data, response) = try await URLSession.shared.data(from: url)
-    let httpResponse = try #require(response as? HTTPURLResponse)
-    #expect(httpResponse.statusCode == 200)
-    return try JSONDecoder().decode(LocalDeviceJSON.self, from: data)
-}
-
-@MainActor
-@Test func resetPairingRotatesLocalIdentityAndCode() throws {
+@Test func resetPairingRotatesLocalIdentityAndClearsPairCode() throws {
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
     defaults.set("manual-code", forKey: "DJConnectPairingToken")
     let tokenStore = DJConnectInMemoryTokenStore(token: "secret-token")
-    let model = DJConnectAppModel(defaults: defaults, tokenStore: tokenStore, startLocalAPI: false, startBackgroundTasks: false)
+    let model = DJConnectAppModel(defaults: defaults, tokenStore: tokenStore, startBackgroundTasks: false)
     let originalDeviceID = model.identity.deviceID
-    let originalPairingToken = model.pairingToken
 
     model.resetPairing()
 
     #expect(model.identity.deviceID != originalDeviceID)
     #expect(model.identity.deviceID.hasPrefix("djconnect-"))
-    #expect(model.pairingToken != originalPairingToken)
+    #expect(model.pairingToken.isEmpty)
+    #expect(defaults.string(forKey: "DJConnectPairingToken") == nil)
     #expect(try tokenStore.loadToken() == nil)
 }
 
@@ -230,7 +476,7 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
     let tokenStore = DJConnectUserDefaultsTokenStore(defaults: defaults, key: "DJConnectTestDeviceToken")
     try tokenStore.saveToken("orphaned-token")
 
-    let model = DJConnectAppModel(defaults: defaults, tokenStore: tokenStore, startLocalAPI: false, startBackgroundTasks: false)
+    let model = DJConnectAppModel(defaults: defaults, tokenStore: tokenStore, startBackgroundTasks: false)
 
     #expect(model.pairingStatus == .unpaired)
     #expect(model.isConnected == false)
@@ -239,12 +485,28 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
 }
 
 @MainActor
-@Test func pairingAuthStaleKeepsLocalDiscoveryActive() throws {
+@Test func freshInstallDoesNotGenerateLocalPairCode() throws {
+    let suiteName = "DJConnectTests-\(UUID().uuidString)"
+    let defaults = try #require(UserDefaults(suiteName: suiteName))
+    defaults.removePersistentDomain(forName: suiteName)
+    let model = DJConnectAppModel(
+        defaults: defaults,
+        tokenStore: DJConnectInMemoryTokenStore(),
+        startBackgroundTasks: false
+    )
+
+    #expect(model.pairingToken.isEmpty)
+    #expect(defaults.string(forKey: "DJConnectPairingToken") == nil)
+    #expect(model.pairingStatus == DJConnectPairingStatus.unpaired)
+}
+
+@MainActor
+@Test func pairingAuthStaleShowsPairCodeRetryWithoutLocalDiscovery() throws {
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
     defaults.set("PAIR42", forKey: "DJConnectPairingToken")
-    let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startLocalAPI: false, startBackgroundTasks: false)
+    let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startBackgroundTasks: false)
     model.language = "nl"
 
     model.applyPairingWait(
@@ -255,39 +517,177 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
         pairingToken: "PAIR42"
     )
 
-    #expect(model.pairingStatus == .pairing)
-    #expect(model.isPairing == true)
+    #expect(model.pairingStatus == .unpaired)
+    #expect(model.isPairing == false)
     #expect(!model.isTerminalPairingError(.authStale(statusCode: 401, message: nil)))
-    #expect(model.pairingMessage?.contains("Lokale discovery blijft actief.") == true)
-    #expect(model.pairingMessage?.contains("Open DJConnect in Home Assistant") == true)
+    #expect(model.pairingMessage?.contains("code") == true)
     #expect(model.pairingMessage?.contains("The pairing code does not match") == false)
 }
 
 @MainActor
-@Test func authStaleClearsTokenAndReopensPairingWithoutBonjour() throws {
+@Test func pairingNetworkErrorsAreLocalizedWithoutRawSystemText() throws {
+    let suiteName = "DJConnectTests-\(UUID().uuidString)"
+    let defaults = try #require(UserDefaults(suiteName: suiteName))
+    defaults.removePersistentDomain(forName: suiteName)
+    let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startBackgroundTasks: false)
+    model.language = "nl"
+
+    model.applyPairingWait(
+        error: .network(message: "The resource could not be loaded because the App Transport Security policy requires the use of a secure connection."),
+        pairingToken: "123456"
+    )
+
+    #expect(model.pairingMessage?.contains("iOS/macOS-beveiliging") == true)
+    #expect(model.pairingMessage?.contains("App Transport Security") == false)
+    #expect(model.pairingMessage?.contains("secure connection") == false)
+}
+
+@MainActor
+@Test func pairingHTTPStatusErrorsAreLocalized() throws {
+    let suiteName = "DJConnectTests-\(UUID().uuidString)"
+    let defaults = try #require(UserDefaults(suiteName: suiteName))
+    defaults.removePersistentDomain(forName: suiteName)
+    let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startBackgroundTasks: false)
+    model.language = "nl"
+
+    model.applyPairingWait(error: .server(statusCode: 404, message: "HTTP 404 Not Found"), pairingToken: "123456")
+    #expect(model.pairingMessage == "DJConnect is niet gevonden in Home Assistant. Open eerst de DJConnect setup-flow.")
+
+    model.applyPairingWait(error: .server(statusCode: 500, message: "HTTP 500 Internal Server Error"), pairingToken: "123456")
+    #expect(model.pairingMessage == "Home Assistant kreeg een interne fout tijdens het koppelen. Controleer Home Assistant en probeer opnieuw.")
+}
+
+@MainActor
+@Test func pairingNotConfiguredDuringManualPairingShowsInvalidCode() throws {
+    let suiteName = "DJConnectTests-\(UUID().uuidString)"
+    let defaults = try #require(UserDefaults(suiteName: suiteName))
+    defaults.removePersistentDomain(forName: suiteName)
+    let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startBackgroundTasks: false)
+    model.language = "nl"
+
+    model.applyPairingWait(error: .notConfigured(message: "DJConnect is not configured."), pairingToken: "353312")
+    #expect(model.pairingMessage == "Koppelcode klopt niet. Controleer de code in Home Assistant.")
+
+    model.applyPairingWait(error: .server(statusCode: 503, message: #"{"error":"not_configured","message":"DJConnect is not configured."}"#), pairingToken: "353312")
+    #expect(model.pairingMessage == "Koppelcode klopt niet. Controleer de code in Home Assistant.")
+}
+
+@MainActor
+@Test func pairingClientTypeMismatchShowsWrongAppType() throws {
+    let suiteName = "DJConnectTests-\(UUID().uuidString)"
+    let defaults = try #require(UserDefaults(suiteName: suiteName))
+    defaults.removePersistentDomain(forName: suiteName)
+    let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startBackgroundTasks: false)
+    model.language = "nl"
+
+    model.applyPairingWait(error: .server(statusCode: 400, message: #"{"error":"invalid_client_type","message":"Selected iOS pairing flow does not match macOS client_type."}"#), pairingToken: "503901")
+
+    #expect(model.pairingMessage?.contains("Verkeerd app-type gekozen") == true)
+    #expect(model.pairingMessage?.contains("setup-flow") == true)
+    #expect(model.pairingMessage?.contains("invalid_client_type") == false)
+}
+
+@MainActor
+@Test func pairingOfficialClientTypeMismatchKeepsInputsAndShowsRequestedMessage() throws {
+    let suiteName = "DJConnectTests-\(UUID().uuidString)"
+    let defaults = try #require(UserDefaults(suiteName: suiteName))
+    defaults.removePersistentDomain(forName: suiteName)
+    let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startBackgroundTasks: false)
+    model.language = "nl"
+    model.homeAssistantURL = "https://victory-curvy-refold.ngrok-free.dev"
+    model.pairingToken = "503901"
+
+    model.applyPairingWait(
+        error: .clientTypeMismatch(
+            message: "Selected iOS setup flow does not match this macOS app.",
+            expectedClientType: "macos",
+            receivedClientType: "ios"
+        ),
+        pairingToken: "503901"
+    )
+
+    #expect(model.homeAssistantURL == "https://victory-curvy-refold.ngrok-free.dev")
+    #expect(model.pairingToken == "503901")
+    #expect(model.isPairing == false)
+    #expect(model.pairingStatus == .unpaired)
+    #expect(model.pairingMessage == "Het gekozen app-type in Home Assistant klopt niet met deze app. Kies in Home Assistant de DJConnect macOS setup-flow en probeer opnieuw.")
+}
+
+@MainActor
+@Test func authStaleClearsTokenAndReopensPairing() throws {
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
     defaults.set(true, forKey: "DJConnectWelcomeSeen")
-    defaults.set("http://192.168.1.104:55046", forKey: "DJConnectLocalDeviceAPIURL")
+    defaults.set("651161", forKey: "DJConnectPairingToken")
     let tokenStore = DJConnectInMemoryTokenStore(token: "stale-token")
-    let model = DJConnectAppModel(defaults: defaults, tokenStore: tokenStore, startLocalAPI: false, startBackgroundTasks: false)
+    let model = DJConnectAppModel(defaults: defaults, tokenStore: tokenStore, startBackgroundTasks: false)
     defer {
         model.stopPairingWait()
-        model.stopLocalDeviceAPI()
     }
 
     #expect(model.pairingStatus == .paired)
-    #expect(model.isBonjourAdvertisingPreferredForTests == false)
 
     model.apply(error: .authStale(statusCode: 401, message: "The DJConnect device token is missing or invalid."))
 
     #expect(model.pairingStatus == .pairing || model.pairingStatus == .stale)
     #expect(model.isPairingScreenDismissed == false)
-    #expect(model.isBonjourAdvertisingPreferredForTests == false)
-    #expect(model.localDeviceAPIURL == nil)
-    #expect(defaults.string(forKey: "DJConnectLocalDeviceAPIURL") == nil)
+    #expect(model.pairingToken.isEmpty)
+    #expect(defaults.string(forKey: "DJConnectPairingToken") == nil)
     #expect(try tokenStore.loadToken() == nil)
+}
+
+@MainActor
+@Test func notConfiguredClearsStalePairCodeAndReopensPairing() throws {
+    let suiteName = "DJConnectTests-\(UUID().uuidString)"
+    let defaults = try #require(UserDefaults(suiteName: suiteName))
+    defaults.removePersistentDomain(forName: suiteName)
+    defaults.set(true, forKey: "DJConnectWelcomeSeen")
+    defaults.set("651161", forKey: "DJConnectPairingToken")
+    let tokenStore = DJConnectInMemoryTokenStore(token: "stale-token")
+    let model = DJConnectAppModel(defaults: defaults, tokenStore: tokenStore, startBackgroundTasks: false)
+    defer {
+        model.stopPairingWait()
+    }
+
+    #expect(model.pairingStatus == .paired)
+    #expect(model.pairingToken == "651161")
+
+    model.apply(error: .notConfigured(message: "DJConnect is not configured."))
+
+    #expect(model.pairingStatus == .stale)
+    #expect(model.isPairingScreenDismissed == false)
+    #expect(model.pairingToken.isEmpty)
+    #expect(defaults.string(forKey: "DJConnectPairingToken") == nil)
+    #expect(try tokenStore.loadToken() == nil)
+    #expect(model.pairingMessage == "DJConnect is not configured.")
+}
+
+@MainActor
+@Test func notConfiguredDuringActivePairingKeepsEnteredPairCode() throws {
+    let suiteName = "DJConnectTests-\(UUID().uuidString)"
+    let defaults = try #require(UserDefaults(suiteName: suiteName))
+    defaults.removePersistentDomain(forName: suiteName)
+    defaults.set(true, forKey: "DJConnectWelcomeSeen")
+    let tokenStore = DJConnectInMemoryTokenStore(token: "pairing-token")
+    let model = DJConnectAppModel(defaults: defaults, tokenStore: tokenStore, startBackgroundTasks: false)
+    defer {
+        model.stopPairingWait()
+    }
+    model.language = "nl"
+    model.pairingStatus = .pairing
+    model.isPairing = true
+    model.pairingToken = "651161"
+
+    model.apply(error: .notConfigured(message: "DJConnect is not configured."))
+
+    #expect(model.pairingStatus == .pairing)
+    #expect(model.isPairing == true)
+    #expect(model.isPairingScreenDismissed == false)
+    #expect(model.pairingToken == "651161")
+    #expect(defaults.string(forKey: "DJConnectPairingToken") == "651161")
+    #expect(try tokenStore.loadToken() == "pairing-token")
+    #expect(model.pairingMessage == "Wacht op afronden in Home Assistant.")
 }
 
 @Test func statusRequestIncludesContractFieldsAndHeaders() throws {
@@ -312,14 +712,13 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
         theme: "dark",
         logLevel: "info",
         haLocalURL: "http://192.168.1.10:8123",
-        localURL: "http://192.168.1.105:51193",
         voiceEnabled: true,
         wakewordEnabled: true,
         wakewordPhrase: "Okay Nabu",
         wakewordStatus: "listening",
         mood: 75,
         djStyle: "warm_radio_dj",
-        memoryKey: "user:peter"
+        musicDNAKey: "user:peter"
     )
 
     let request = try client.statusRequest(payload)
@@ -328,10 +727,10 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
 
     #expect(request.url?.path == "/api/djconnect/v1/status")
     #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer secret-token")
-    #expect(request.value(forHTTPHeaderField: "X-DJConnect-Client-ID") == nil)
+    #expect(request.value(forHTTPHeaderField: "X-DJConnect-Client-ID") == identity.deviceID)
     #expect(request.value(forHTTPHeaderField: "X-DJConnect-Device-ID") == identity.deviceID)
     #expect(request.value(forHTTPHeaderField: "Content-Type") == "application/json")
-    #expect(json?["client_id"] == nil)
+    #expect(json?["client_id"] as? String == identity.deviceID)
     #expect(json?["device_id"] as? String == identity.deviceID)
     #expect(json?["device_name"] as? String == identity.deviceName)
     #expect(json?["client_type"] as? String == "ios")
@@ -340,14 +739,64 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
     #expect(json?["ha_local_url"] as? String == "http://192.168.1.10:8123")
     #expect(json?["ha_remote_url"] == nil)
     #expect(json?["ha_active_url"] == nil)
-    #expect(json?["local_url"] as? String == "http://192.168.1.105:51193")
+    #expect(json?["local_url"] == nil)
     #expect(json?["voice_enabled"] as? Bool == true)
     #expect(json?["wakeword_enabled"] as? Bool == true)
     #expect(json?["wakeword_phrase"] as? String == "Okay Nabu")
     #expect(json?["wakeword_status"] as? String == "listening")
     #expect(json?["mood"] as? Int == 75)
     #expect(json?["dj_style"] as? String == "warm_radio_dj")
-    #expect(json?["memory_key"] as? String == "user:peter")
+    #expect(json?["music_dna_key"] as? String == "user:peter")
+}
+
+@Test func homeAssistantClientRoutesUseCanonicalV1Prefix() throws {
+    let checkedRoots = ["Sources", "Apps"]
+    let legacyRoutes = [
+        "/api/djconnect/pair",
+        "/api/djconnect/command",
+        "/api/djconnect/voice",
+        "/api/djconnect/status",
+        "/api/djconnect/ask",
+        "/api/djconnect/ask_dj/message",
+        "/api/djconnect/ask_dj/history",
+        "/api/djconnect/ask_dj/history/clear",
+        "/api/djconnect/ask_dj/idle_suggestion",
+        "/api/djconnect/track_insight",
+        "/api/djconnect/music_dna/profile",
+        "/api/djconnect/music_dna/settings",
+        "/api/djconnect/music_dna/clear",
+        "/api/djconnect/music_dna/export",
+        "/api/djconnect/music_dna/import",
+        "/api/djconnect/music_discovery",
+        "/api/djconnect/music_discovery/refresh",
+        "/api/djconnect/music_discovery/play",
+        "/api/djconnect/vibecast",
+        "/api/djconnect/push/register",
+        "/api/djconnect/push/unregister"
+    ]
+    let fileManager = FileManager.default
+    let root = URL(fileURLWithPath: fileManager.currentDirectoryPath)
+    var offenders: [String] = []
+
+    for checkedRoot in checkedRoots {
+        let rootURL = root.appendingPathComponent(checkedRoot)
+        guard let enumerator = fileManager.enumerator(at: rootURL, includingPropertiesForKeys: nil) else {
+            continue
+        }
+        for case let fileURL as URL in enumerator where fileURL.pathExtension == "swift" {
+            let contents = try String(contentsOf: fileURL, encoding: .utf8)
+            for (lineNumber, line) in contents.split(separator: "\n", omittingEmptySubsequences: false).enumerated() {
+                if line.contains("legacyPairPath") {
+                    continue
+                }
+                for route in legacyRoutes where line.contains(route) && !line.contains("/api/djconnect/v1") {
+                    offenders.append("\(fileURL.path):\(lineNumber + 1): \(route)")
+                }
+            }
+        }
+    }
+
+    #expect(offenders == [])
 }
 
 @Test func commandRequestSupportsTypedValues() throws {
@@ -370,7 +819,10 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
             identity: identity,
             command: "set_volume",
             value: .int(35),
-            play: true
+            play: true,
+            language: "nl-NL",
+            mood: 70,
+            musicDNAKey: "user:peter"
         )
     )
     let body = try #require(request.httpBody)
@@ -378,16 +830,76 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
 
     #expect(request.url?.path == "/api/djconnect/v1/command")
     #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer secret-token")
-    #expect(request.value(forHTTPHeaderField: "X-DJConnect-Client-ID") == nil)
+    #expect(request.value(forHTTPHeaderField: "X-DJConnect-Client-ID") == identity.deviceID)
     #expect(request.value(forHTTPHeaderField: "X-DJConnect-Device-ID") == identity.deviceID)
     #expect(request.value(forHTTPHeaderField: "Content-Type") == "application/json")
+    #expect(request.value(forHTTPHeaderField: "X-DJConnect-Language") == "nl-NL")
+    #expect(request.value(forHTTPHeaderField: "X-DJConnect-Locale") == "nl-NL")
+    #expect(request.value(forHTTPHeaderField: "Accept-Language") == "nl-NL")
+    #expect(request.value(forHTTPHeaderField: "X-DJConnect-Mood") == "70")
+    #expect(request.value(forHTTPHeaderField: "X-DJConnect-Music-DNA-Key") == "user:peter")
     #expect(json?["client_id"] as? String == identity.deviceID)
     #expect(json?["device_id"] as? String == identity.deviceID)
     #expect(json?["device_name"] as? String == identity.deviceName)
     #expect(json?["client_type"] as? String == "macos")
     #expect(json?["command"] as? String == "set_volume")
     #expect(json?["value"] as? Int == 35)
+    #expect(json?["language"] as? String == "nl-NL")
+    #expect(json?["mood"] as? Int == 70)
+    #expect(json?["music_dna_key"] as? String == "user:peter")
     #expect(json?["play"] as? Bool == true)
+    #expect(json?["mood"] as? Int == 70)
+}
+
+@Test func askDJRequestUsesAskEndpointAndMusicDNAContext() throws {
+    let identity = DJConnectIdentity(
+        deviceID: "djconnect-ios-8F3A2C91B45D",
+        deviceName: "DJConnect iPhone",
+        clientType: .ios,
+        firmware: "3.1.7",
+        appVersion: "3.1.7",
+        platform: .ios
+    )
+    let client = DJConnectClient(
+        baseURL: try #require(URL(string: "http://homeassistant.local:8123")),
+        identity: identity,
+        tokenStore: DJConnectInMemoryTokenStore(token: "secret-token")
+    )
+
+    let request = try client.askDJRequest(DJConnectAskDJRequest(
+        identity: identity,
+        text: "Speel iets rustigers",
+        mood: 20,
+        djStyle: "warm_radio_dj",
+        musicDNAKey: "djconnect_ios_8F3A2C91B45D",
+        language: "nl-NL"
+    ))
+    let body = try #require(request.httpBody)
+    let json = try JSONSerialization.jsonObject(with: body) as? [String: Any]
+
+    #expect(request.url?.path == "/api/djconnect/v1/ask")
+    #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer secret-token")
+    #expect(request.value(forHTTPHeaderField: "X-DJConnect-Device-ID") == identity.deviceID)
+    #expect(request.value(forHTTPHeaderField: "Content-Type") == "application/json")
+    #expect(json?["device_id"] as? String == identity.deviceID)
+    #expect(json?["device_name"] as? String == identity.deviceName)
+    #expect(json?["client_type"] as? String == "ios")
+    #expect(json?["client_id"] as? String == identity.deviceID)
+    let topIdentity = json?["identity"] as? [String: Any]
+    let payload = json?["payload"] as? [String: Any]
+    let payloadIdentity = payload?["identity"] as? [String: Any]
+    #expect(topIdentity?["device_id"] as? String == identity.deviceID)
+    #expect(topIdentity?["client_id"] as? String == identity.deviceID)
+    #expect(topIdentity?["client_type"] as? String == "ios")
+    #expect(topIdentity?["device_token"] as? String == "secret-token")
+    #expect(payload?["text"] as? String == "Speel iets rustigers")
+    #expect(payloadIdentity?["device_id"] as? String == identity.deviceID)
+    #expect(payloadIdentity?["device_token"] as? String == "secret-token")
+    #expect(json?["text"] as? String == "Speel iets rustigers")
+    #expect(json?["mood"] as? Int == 20)
+    #expect(json?["dj_style"] as? String == "warm_radio_dj")
+    #expect(json?["music_dna_key"] as? String == "djconnect_ios_8F3A2C91B45D")
+    #expect(json?["language"] as? String == "nl-NL")
 }
 
 @Test func askDJMessageRequestUsesSyncedHistoryEndpointAndClientMessageID() throws {
@@ -412,27 +924,40 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
         inputType: "text",
         mood: 70,
         djStyle: "warm_radio_dj",
-        memoryKey: "djconnect_ios_8F3A2C91B45D",
-        audioResponse: .auto
+        musicDNAKey: "djconnect_ios_8F3A2C91B45D",
+        audioResponse: .auto,
+        language: "nl-NL"
     ))
     let body = try #require(request.httpBody)
     let json = try JSONSerialization.jsonObject(with: body) as? [String: Any]
 
     #expect(request.url?.path == "/api/djconnect/v1/ask_dj/message")
+    #expect(request.timeoutInterval == 30)
     #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer secret-token")
     #expect(request.value(forHTTPHeaderField: "X-DJConnect-Device-ID") == identity.deviceID)
     #expect(json?["device_id"] as? String == identity.deviceID)
     #expect(json?["device_name"] as? String == identity.deviceName)
     #expect(json?["client_type"] as? String == "ios")
     #expect(json?["client_id"] as? String == identity.deviceID)
+    let topIdentity = json?["identity"] as? [String: Any]
+    let payload = json?["payload"] as? [String: Any]
+    let payloadIdentity = payload?["identity"] as? [String: Any]
+    #expect(topIdentity?["device_id"] as? String == identity.deviceID)
+    #expect(topIdentity?["client_id"] as? String == identity.deviceID)
+    #expect(topIdentity?["client_type"] as? String == "ios")
+    #expect(topIdentity?["device_token"] as? String == "secret-token")
+    #expect(payload?["client_message_id"] as? String == "client-message-1")
+    #expect(payloadIdentity?["device_id"] as? String == identity.deviceID)
+    #expect(payloadIdentity?["device_token"] as? String == "secret-token")
     #expect(json?["client_message_id"] as? String == "client-message-1")
     #expect(json?["input_type"] as? String == "text")
     #expect(json?["text"] as? String == "Verras me met nieuwe muziek")
     #expect(json?["mood"] as? Int == 70)
     #expect(json?["audio_response"] as? String == "auto")
+    #expect(json?["language"] as? String == "nl-NL")
 }
 
-@Test func clearAskDJHistoryRequestIncludesClientIdentityAndMemoryKey() throws {
+@Test func clearAskDJHistoryRequestIncludesClientIdentityAndMusicDNAKey() throws {
     let identity = DJConnectIdentity(
         deviceID: "djconnect-ios-8F3A2C91B45D",
         deviceName: "DJConnect iPhone",
@@ -447,7 +972,7 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
         tokenStore: DJConnectInMemoryTokenStore(token: "secret-token")
     )
 
-    let request = try client.clearAskDJHistoryRequest(memoryKey: "djconnect_ios_8F3A2C91B45D")
+    let request = try client.clearAskDJHistoryRequest(musicDNAKey: "djconnect_ios_8F3A2C91B45D")
     let body = try #require(request.httpBody)
     let json = try JSONSerialization.jsonObject(with: body) as? [String: Any]
 
@@ -456,17 +981,55 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
     #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer secret-token")
     #expect(request.value(forHTTPHeaderField: "X-DJConnect-Device-ID") == identity.deviceID)
     #expect(json?["device_id"] as? String == identity.deviceID)
+    #expect(json?["client_id"] as? String == identity.deviceID)
     #expect(json?["client_type"] as? String == "ios")
-    #expect(json?["memory_key"] as? String == "djconnect_ios_8F3A2C91B45D")
+    #expect(json?["device_name"] as? String == identity.deviceName)
+    let topIdentity = json?["identity"] as? [String: Any]
+    let payload = json?["payload"] as? [String: Any]
+    let payloadIdentity = payload?["identity"] as? [String: Any]
+    #expect(topIdentity?["device_id"] as? String == identity.deviceID)
+    #expect(topIdentity?["device_token"] as? String == "secret-token")
+    #expect(payload?["music_dna_key"] as? String == "djconnect_ios_8F3A2C91B45D")
+    #expect(payloadIdentity?["device_id"] as? String == identity.deviceID)
+    #expect(payloadIdentity?["device_token"] as? String == "secret-token")
+    #expect(json?["music_dna_key"] as? String == "djconnect_ios_8F3A2C91B45D")
 }
 
-@Test func askDJHistoryRequestUsesCanonicalV1EndpointAndSinceRevision() throws {
+@Test func clearAskDJHistoryMacOSRequestIncludesFullClientIdentity() throws {
+    let identity = DJConnectIdentity(
+        deviceID: "djconnect-macos-8F3A2C91B45D",
+        deviceName: "DJConnect Mac",
+        clientType: .macos,
+        firmware: "3.2.8",
+        appVersion: "3.2.8",
+        platform: .macos
+    )
+    let client = DJConnectClient(
+        baseURL: try #require(URL(string: "http://homeassistant.local:8123")),
+        identity: identity,
+        tokenStore: DJConnectInMemoryTokenStore(token: "secret-token")
+    )
+
+    let request = try client.clearAskDJHistoryRequest(musicDNAKey: "music-dna")
+    let body = try #require(request.httpBody)
+    let json = try JSONSerialization.jsonObject(with: body) as? [String: Any]
+
+    #expect(request.url?.path == "/api/djconnect/v1/ask_dj/history/clear")
+    #expect(request.httpMethod == "POST")
+    #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer secret-token")
+    #expect(json?["device_id"] as? String == "djconnect-macos-8F3A2C91B45D")
+    #expect(json?["client_id"] as? String == "djconnect-macos-8F3A2C91B45D")
+    #expect(json?["client_type"] as? String == "macos")
+    #expect(json?["device_name"] as? String == "DJConnect Mac")
+}
+
+@Test func exportAskDJHistoryRequestUsesHTTPAndNestedIdentityEnvelope() throws {
     let identity = DJConnectIdentity(
         deviceID: "djconnect-ios-8F3A2C91B45D",
         deviceName: "DJConnect iPhone",
         clientType: .ios,
-        firmware: "3.1.36",
-        appVersion: "3.1.36",
+        firmware: "3.2.15",
+        appVersion: "3.2.15",
         platform: .ios
     )
     let client = DJConnectClient(
@@ -475,163 +1038,1097 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
         tokenStore: DJConnectInMemoryTokenStore(token: "secret-token")
     )
 
-    let request = try client.askDJHistoryRequest(sinceRevision: 42)
-    let requestURL = try #require(request.url)
-    let components = try #require(URLComponents(url: requestURL, resolvingAgainstBaseURL: false))
+    let request = try client.exportAskDJHistoryRequest()
+    let body = try #require(request.httpBody)
+    let json = try JSONSerialization.jsonObject(with: body) as? [String: Any]
+    let exportIdentity = json?["identity"] as? [String: Any]
+    let payload = json?["payload"] as? [String: Any]
+    let payloadIdentity = payload?["identity"] as? [String: Any]
 
-    #expect(request.httpMethod == "GET")
-    #expect(components.path == "/api/djconnect/v1/ask_dj/history")
-    #expect(components.queryItems == [URLQueryItem(name: "since_revision", value: "42")])
+    #expect(request.url?.path == "/api/djconnect/v1/ask_dj/history/export")
+    #expect(request.httpMethod == "POST")
     #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer secret-token")
     #expect(request.value(forHTTPHeaderField: "X-DJConnect-Device-ID") == identity.deviceID)
+    #expect(exportIdentity?["device_id"] as? String == identity.deviceID)
+    #expect(exportIdentity?["device_token"] as? String == "secret-token")
+    #expect(payloadIdentity?["device_id"] as? String == identity.deviceID)
+    #expect(payloadIdentity?["client_type"] as? String == "ios")
+    #expect(payloadIdentity?["device_name"] as? String == identity.deviceName)
+    #expect(payload?["app_version"] as? String == "3.2.15")
+    #expect(payload?["music_dna_key"] == nil)
 }
 
-@Test func vibeCastRequestUsesCanonicalV1Endpoint() throws {
-    let identity = DJConnectIdentity(deviceID: "djconnect-ios-test", deviceName: "iPhone", clientType: .ios, firmware: "3.2.0", platform: .ios)
+@Test func musicDNARequestsUseBearerIdentityAndCanonicalClientType() throws {
+    let identity = DJConnectIdentity(
+        deviceID: "djconnect-macos-8F3A2C91B45D",
+        deviceName: "DJConnect Mac",
+        clientType: .macos,
+        firmware: "3.2.3",
+        appVersion: "3.2.3",
+        platform: .macos
+    )
     let client = DJConnectClient(
-        baseURL: try #require(URL(string: "http://ha.local:8123")),
+        baseURL: try #require(URL(string: "http://homeassistant.local:8123")),
         identity: identity,
         tokenStore: DJConnectInMemoryTokenStore(token: "secret-token")
     )
 
-    let request = try client.vibeCastRequest()
-
-    #expect(request.httpMethod == "GET")
-    #expect(request.url?.path == "/api/djconnect/v1/vibecast")
-    #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer secret-token")
-}
-
-@Test func vibeCastArtistImageUsesArtistFactImageURL() throws {
-    let data = Data("""
-    {
-      "revision": 12,
-      "ttl_seconds": 30,
-      "poll_after_seconds": 10,
-      "context": {
-        "artist_image_url": "/api/djconnect/v1/proxy/images/context-artist.jpg"
-      },
-      "items": [
-        {
-          "kind": "artist_fact",
-          "title": "Artist shout-out",
-          "text": "A precise artist fact.",
-          "image_url": "/api/djconnect/v1/proxy/images/artist-fact.jpg",
-          "thumbnail_url": "/api/djconnect/v1/proxy/images/artist-thumb.jpg",
-          "image_alt": "Portrait of Example Artist",
-          "image_source": "musicbrainz"
-        }
-      ]
-    }
-    """.utf8)
-
-    let response = try JSONDecoder().decode(DJConnectVibeCastResponse.self, from: data)
-    let renderState = DJConnectVibeCastRenderState.rendered(from: response)
-
-    #expect(response.revision == 12)
-    #expect(response.ttlSeconds == 30)
-    #expect(response.pollAfterSeconds == 10)
-    #expect(renderState.artistImage?.url.absoluteString == "/api/djconnect/v1/proxy/images/artist-fact.jpg")
-    #expect(renderState.artistImage?.alt == "Portrait of Example Artist")
-    #expect(renderState.artistImage?.source == "musicbrainz")
-}
-
-@Test func vibeCastArtistImageFallsBackToContextArtistImageURL() throws {
-    let data = Data("""
-    {
-      "revision": 13,
-      "context": {
-        "artist_image_url": "/api/djconnect/v1/proxy/images/context-artist.jpg"
-      },
-      "items": [
-        {
-          "kind": "artist_fact",
-          "title": "Artist shout-out",
-          "text": "No item image on this response."
-        }
-      ]
-    }
-    """.utf8)
-
-    let response = try JSONDecoder().decode(DJConnectVibeCastResponse.self, from: data)
-    let renderState = DJConnectVibeCastRenderState.rendered(from: response)
-
-    #expect(renderState.revision == 13)
-    #expect(renderState.artistImage?.url.absoluteString == "/api/djconnect/v1/proxy/images/context-artist.jpg")
-}
-
-@Test func vibeCastMissingImageFieldsKeepTextOnlyRendering() throws {
-    let data = Data("""
-    {
-      "revision": 14,
-      "items": [
-        {
-          "kind": "artist_fact",
-          "title": "Artist shout-out",
-          "text": "Still render the text exactly as before.",
-          "unknown_future_field": {"ignored": true}
-        }
-      ]
-    }
-    """.utf8)
-
-    let response = try JSONDecoder().decode(DJConnectVibeCastResponse.self, from: data)
-    let renderState = DJConnectVibeCastRenderState.rendered(from: response)
-
-    #expect(response.items.first?.text == "Still render the text exactly as before.")
-    #expect(renderState.artistImage == nil)
-}
-
-@Test func vibeCastIgnoresDirectExternalArtistImageURLs() throws {
-    let data = Data("""
-    {
-      "revision": 15,
-      "context": {
-        "artist_image_url": "https://images.example-catalog.test/artist.jpg"
-      },
-      "items": [
-        {
-          "kind": "artist_fact",
-          "title": "Artist shout-out",
-          "image_url": "https://open.spotify.com/image/direct.jpg",
-          "thumbnail_url": "https://wikipedia.org/thumb/direct.jpg"
-        }
-      ]
-    }
-    """.utf8)
-
-    let response = try JSONDecoder().decode(DJConnectVibeCastResponse.self, from: data)
-    let renderState = DJConnectVibeCastRenderState.rendered(from: response)
-
-    #expect(response.items.first?.imageURL == nil)
-    #expect(response.items.first?.thumbnailURL == nil)
-    #expect(response.context?.artistImageURL == nil)
-    #expect(renderState.artistImage == nil)
-}
-
-@Test func vibeCastTextOnlyResponseClearsPreviousArtistImageState() throws {
-    let imageResponse = DJConnectVibeCastResponse(
-        revision: 20,
-        items: [
-            DJConnectVibeCastItem(
-                kind: "artist_fact",
-                title: "Artist shout-out",
-                imageURL: URL(string: "/api/djconnect/v1/proxy/images/artist.jpg")
-            )
-        ]
+    let profile = try client.musicDNAProfileRequest()
+    let settings = try client.musicDNASettingsRequest(enabled: true)
+    let clear = try client.clearMusicDNARequest()
+    let moodProfile = try client.musicDNAProfileRequest(mood: 70, musicDNAKey: "user:abc123", language: "nl")
+    let moodSettings = try client.musicDNASettingsRequest(enabled: false, mood: 85, musicDNAKey: "user:abc123", language: "nl")
+    let moodClear = try client.clearMusicDNARequest(mood: -10, musicDNAKey: "user:abc123", language: "nl")
+    let export = try client.exportMusicDNARequest(musicDNAKey: "user:abc123", language: "nl")
+    let importedProfile = DJConnectMusicDNAProfileResponse(
+        enabled: true,
+        generation: 4,
+        profile: DJConnectMusicDNAProfile(summary: "Imported taste", trackCount: 9)
     )
-    let textOnlyResponse = DJConnectVibeCastResponse(
-        revision: 21,
-        items: [
-            DJConnectVibeCastItem(kind: "artist_fact", title: "Artist shout-out", text: "Text-only refresh.")
-        ]
+    let moodImport = try client.importMusicDNARequest(importedProfile, mood: 35, musicDNAKey: "user:abc123", language: "nl")
+
+    for request in [profile, settings, clear, moodImport] {
+        let body = try #require(request.httpBody)
+        let json = try JSONSerialization.jsonObject(with: body) as? [String: Any]
+        #expect(request.httpMethod == "POST")
+        #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer secret-token")
+        #expect(request.value(forHTTPHeaderField: "X-DJConnect-Device-ID") == identity.deviceID)
+        #expect(request.value(forHTTPHeaderField: "Content-Type") == "application/json")
+        #expect(json?["device_id"] as? String == identity.deviceID)
+        #expect(json?["client_id"] as? String == identity.deviceID)
+        #expect(json?["client_type"] as? String == "macos")
+        #expect(json?["device_name"] as? String == identity.deviceName)
+        let topIdentity = json?["identity"] as? [String: Any]
+        let payload = json?["payload"] as? [String: Any]
+        let payloadIdentity = payload?["identity"] as? [String: Any]
+        #expect(topIdentity?["device_id"] as? String == identity.deviceID)
+        #expect(topIdentity?["client_id"] as? String == identity.deviceID)
+        #expect(topIdentity?["client_type"] as? String == "macos")
+        #expect(topIdentity?["device_token"] as? String == "secret-token")
+        #expect(payloadIdentity?["device_id"] as? String == identity.deviceID)
+        #expect(payloadIdentity?["device_token"] as? String == "secret-token")
+    }
+    #expect(profile.url?.path == "/api/djconnect/v1/music_dna/profile")
+    #expect(settings.url?.path == "/api/djconnect/v1/music_dna/settings")
+    #expect(clear.url?.path == "/api/djconnect/v1/music_dna/clear")
+    #expect(moodImport.url?.path == "/api/djconnect/v1/music_dna/import")
+    #expect(export.url?.path == "/api/djconnect/v1/music_dna/export")
+
+    let settingsBody = try #require(settings.httpBody)
+    let settingsJSON = try JSONSerialization.jsonObject(with: settingsBody) as? [String: Any]
+    #expect(settingsJSON?["enabled"] as? Bool == true)
+
+    let moodProfileBody = try #require(moodProfile.httpBody)
+    let moodProfileJSON = try JSONSerialization.jsonObject(with: moodProfileBody) as? [String: Any]
+    #expect(moodProfileJSON?["mood"] as? Int == 70)
+    #expect(moodProfileJSON?["music_dna_key"] as? String == "user:abc123")
+    #expect(moodProfileJSON?["language"] as? String == "nl")
+    #expect(moodProfileJSON?["locale"] as? String == "nl")
+    #expect(moodProfile.value(forHTTPHeaderField: "X-DJConnect-Mood") == "70")
+    #expect(moodProfile.value(forHTTPHeaderField: "X-DJConnect-Music-DNA-Key") == "user:abc123")
+    #expect(moodProfile.value(forHTTPHeaderField: "X-DJConnect-Language") == "nl")
+
+    let moodSettingsBody = try #require(moodSettings.httpBody)
+    let moodSettingsJSON = try JSONSerialization.jsonObject(with: moodSettingsBody) as? [String: Any]
+    #expect(moodSettingsJSON?["enabled"] as? Bool == false)
+    #expect(moodSettingsJSON?["mood"] as? Int == 85)
+    #expect(moodSettingsJSON?["music_dna_key"] as? String == "user:abc123")
+
+    let moodClearBody = try #require(moodClear.httpBody)
+    let moodClearJSON = try JSONSerialization.jsonObject(with: moodClearBody) as? [String: Any]
+    #expect(moodClearJSON?["mood"] as? Int == 0)
+    #expect(moodClearJSON?["music_dna_key"] as? String == "user:abc123")
+
+    let moodImportBody = try #require(moodImport.httpBody)
+    let moodImportJSON = try JSONSerialization.jsonObject(with: moodImportBody) as? [String: Any]
+    let importProfile = moodImportJSON?["profile"] as? [String: Any]
+    let importProfileBody = importProfile?["profile"] as? [String: Any]
+    #expect(moodImportJSON?["mood"] as? Int == 35)
+    #expect(moodImportJSON?["music_dna_key"] as? String == "user:abc123")
+    #expect(moodImport.value(forHTTPHeaderField: "X-DJConnect-Mood") == "35")
+    #expect(importProfile?["enabled"] as? Bool == true)
+    #expect(importProfile?["generation"] as? Int == 4)
+    #expect(importProfileBody?["summary"] as? String == "Imported taste")
+    #expect(importProfileBody?["track_count"] as? Int == 9)
+
+    let exportBody = try #require(export.httpBody)
+    let exportJSON = try JSONSerialization.jsonObject(with: exportBody) as? [String: Any]
+    let exportIdentity = exportJSON?["identity"] as? [String: Any]
+    let exportPayload = exportJSON?["payload"] as? [String: Any]
+    #expect(export.httpMethod == "POST")
+    #expect(export.value(forHTTPHeaderField: "Authorization") == "Bearer secret-token")
+    #expect(export.value(forHTTPHeaderField: "X-DJConnect-Music-DNA-Key") == "user:abc123")
+    #expect(export.value(forHTTPHeaderField: "X-DJConnect-Language") == "nl")
+    #expect(exportJSON?["device_id"] as? String == identity.deviceID)
+    #expect(exportJSON?["client_type"] as? String == "macos")
+    #expect(exportJSON?["device_name"] as? String == identity.deviceName)
+    #expect(exportJSON?["music_dna_key"] as? String == "user:abc123")
+    #expect(exportJSON?["language"] as? String == "nl")
+    #expect(exportJSON?["app_version"] as? String == "3.2.3")
+    #expect(exportIdentity?["device_id"] as? String == identity.deviceID)
+    #expect(exportPayload?["music_dna_key"] as? String == "user:abc123")
+    #expect(exportPayload?["app_version"] as? String == "3.2.3")
+}
+
+@Test func musicDNAExportDownloadsExactBackendEnvelopeOverHTTP() async throws {
+    let host = "musicdna-export.local"
+    let recorder = RequestRecorder()
+    let exportedBody = Data("""
+    {
+      "success": true,
+      "format": "djconnect.music_dna.export",
+      "schema_version": 1,
+      "exported_at": "2026-07-04T20:21:00.123Z",
+      "exported_by_client_type": "ios",
+      "app_version": "3.2.3",
+      "profile": {
+        "success": true,
+        "music_dna_key": "user:abc123",
+        "enabled": true,
+        "generation": 12,
+        "updated_at": "2026-07-04T20:20:00Z",
+        "profile": {"summary": "Server-built export", "track_count": 42},
+        "sources": [{"source": "djconnect_music_dna", "kind": "source", "title": "Music DNA"}]
+      }
+    }
+    """.utf8)
+    let session = mockSession(host: host) { request in
+        recorder.append(request)
+        return (try httpResponse(for: request, statusCode: 200), exportedBody)
+    }
+    let identity = testIOSIdentity()
+    let client = DJConnectClient(
+        baseURL: try #require(URL(string: "http://\(host):8123")),
+        identity: identity,
+        tokenStore: DJConnectInMemoryTokenStore(token: "secret-token"),
+        session: session
     )
 
-    let imageState = DJConnectVibeCastRenderState.rendered(from: imageResponse)
-    let textOnlyState = DJConnectVibeCastRenderState.rendered(from: textOnlyResponse)
+    let data = try await client.exportMusicDNAData(musicDNAKey: "user:abc123", language: "nl")
+    let decoded = try await client.exportMusicDNA(musicDNAKey: "user:abc123", language: "nl")
+    let requests = recorder.requests
 
-    #expect(imageState.artistImage?.url.absoluteString == "/api/djconnect/v1/proxy/images/artist.jpg")
-    #expect(textOnlyState.revision == 21)
-    #expect(textOnlyState.artistImage == nil)
+    #expect(data == exportedBody)
+    #expect(decoded.format == "djconnect.music_dna.export")
+    #expect(decoded.schemaVersion == 1)
+    #expect(decoded.profile.musicDNAKey == "user:abc123")
+    #expect(decoded.profile.profile.summary == "Server-built export")
+    #expect(requests.count == 2)
+    for request in requests {
+        #expect(request.url?.path == "/api/djconnect/v1/music_dna/export")
+        #expect(request.httpMethod == "POST")
+        #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer secret-token")
+        #expect(request.value(forHTTPHeaderField: "X-DJConnect-Device-ID") == identity.deviceID)
+        #expect(request.value(forHTTPHeaderField: "X-DJConnect-Client-Type") == "ios")
+        #expect(request.value(forHTTPHeaderField: "X-DJConnect-Music-DNA-Key") == "user:abc123")
+        #expect(request.value(forHTTPHeaderField: "X-DJConnect-Language") == "nl")
+    }
+}
+
+@Test func musicDiscoveryRequestsUseDedicatedEndpointsAndIdentity() throws {
+    let identity = DJConnectIdentity(
+        deviceID: "djconnect-ios-8F3A2C91B45D",
+        deviceName: "iPhone",
+        clientType: .ios,
+        firmware: "3.2.3",
+        appVersion: "3.2.3",
+        platform: .ios
+    )
+    let client = DJConnectClient(
+        baseURL: try #require(URL(string: "http://homeassistant.local:8123")),
+        identity: identity,
+        tokenStore: DJConnectInMemoryTokenStore(token: "secret-token")
+    )
+
+    let feed = try client.musicDiscoveryFeedRequest(musicDNAKey: "user:abc123", language: "nl")
+    let refresh = try client.refreshMusicDiscoveryRequest(musicDNAKey: "user:abc123", language: "nl")
+    let play = try client.musicDiscoveryPlayRequest(DJConnectMusicDiscoveryPlayRequest(
+        discoveryItemID: "disc-track-1",
+        sectionID: "because_you_like",
+        identity: identity,
+        musicDNAKey: "user:abc123"
+    ))
+
+    #expect(feed.httpMethod == "GET")
+    #expect(feed.url?.path == "/api/djconnect/v1/music_discovery")
+    #expect(feed.value(forHTTPHeaderField: "X-DJConnect-Music-DNA-Key") == "user:abc123")
+    #expect(feed.value(forHTTPHeaderField: "X-DJConnect-Language") == "nl")
+    #expect(refresh.httpMethod == "POST")
+    #expect(refresh.url?.path == "/api/djconnect/v1/music_discovery/refresh")
+    #expect(play.httpMethod == "POST")
+    #expect(play.url?.path == "/api/djconnect/v1/music_discovery/play")
+
+    let playBody = try #require(play.httpBody)
+    let playJSON = try #require(JSONSerialization.jsonObject(with: playBody) as? [String: Any])
+    #expect(playJSON["discovery_item_id"] as? String == "disc-track-1")
+    #expect(playJSON["section_id"] as? String == "because_you_like")
+    #expect(playJSON["device_id"] as? String == "djconnect-ios-8F3A2C91B45D")
+    #expect(playJSON["client_type"] as? String == "ios")
+    #expect(playJSON["music_dna_key"] as? String == "user:abc123")
+}
+
+@Test func authenticatedRequestsRejectClientTypeDeviceIDPrefixMismatch() throws {
+    let identity = DJConnectIdentity(
+        deviceID: "djconnect-ios-8F3A2C91B45D",
+        deviceName: "DJConnect Mac",
+        clientType: .macos,
+        firmware: "3.2.3",
+        appVersion: "3.2.3",
+        platform: .macos
+    )
+    let client = DJConnectClient(
+        baseURL: try #require(URL(string: "http://homeassistant.local:8123")),
+        identity: identity,
+        tokenStore: DJConnectInMemoryTokenStore(token: "secret-token")
+    )
+
+    #expect(throws: DJConnectError.invalidConfiguration("DJConnect identity mismatch: device_id prefix does not match client_type.")) {
+        _ = try client.musicDNAProfileRequest()
+    }
+}
+
+@Test func musicDNAProfileDecodesPopulatedEmptyAndDisabledStates() throws {
+    let populated = try JSONDecoder().decode(
+        DJConnectMusicDNAProfileResponse.self,
+        from: Data("""
+        {
+          "success": true,
+          "music_dna_key": "user:abc123",
+          "enabled": true,
+          "generation": 2,
+          "updated_at": "2026-06-29T12:00:00+00:00",
+          "profile": {
+            "summary": "Warm late-night electronic taste.",
+            "favorite_genres": [{"name": "ambient"}],
+            "favorite_artists": [{"name": "The xx"}],
+            "recent_tracks": [{"title": "Intro", "artist": "The xx", "album": "xx"}],
+            "recent_favorite_tracks": [
+              {
+                "track_name": "Favorite One",
+                "artist_name": "Asha",
+                "album_name": "Night Drive",
+                "uri": "spotify:track:favorite-one",
+                "album_image_url": "https://example.test/favorite-one.jpg",
+                "created_at": "2026-07-04T05:45:00Z"
+              },
+              {
+                "title": "Favorite Two",
+                "artist": "Miro",
+                "album": "Dawn",
+                "image_url": "https://example.test/favorite-two.jpg"
+              }
+            ],
+            "playtime": {
+              "total_seconds": 5400,
+              "total_hours": 1.5,
+              "formatted_total": "1u 30m",
+              "top_artists": [
+                {"name": "The xx", "seconds": 2400, "hours": 0.67, "formatted": "40m"},
+                {"name": "Asha", "seconds": 1800, "hours": 0.5, "formatted": "30m"},
+                {"name": "Miro", "seconds": 900, "hours": 0.25, "formatted": "15m"},
+                {"name": "Fourth", "seconds": 300, "hours": 0.08, "formatted": "5m"}
+              ],
+              "top_albums": [
+                {"name": "xx", "seconds": 2100, "hours": 0.58, "formatted": "35m"},
+                {"name": "Night Drive", "seconds": 1500, "hours": 0.42, "formatted": "25m"},
+                {"name": "Dawn", "seconds": 900, "hours": 0.25, "formatted": "15m"},
+                {"name": "Overflow Album", "seconds": 300, "hours": 0.08, "formatted": "5m"}
+              ]
+            },
+            "listening_rhythm": {
+              "sample_count": 3,
+              "top_daypart": "avond",
+              "top_weekday": "vrijdag",
+              "dayparts": [
+                {"daypart": "avond", "count": 2, "percent": 66.7},
+                {"daypart": "middag", "count": 1, "percent": 33.3}
+              ],
+              "weekdays": [
+                {"weekday": "vrijdag", "count": 2, "percent": 66.7},
+                {"weekday": "zaterdag", "count": 1, "percent": 33.3}
+              ]
+            },
+            "mood_mix": {
+              "sample_count": 4,
+              "average": 57,
+              "top_zone": "groove",
+              "zones": [
+                {"zone": "chill", "count": 1, "percent": 25},
+                {"zone": "groove", "count": 2, "percent": 50},
+                {"zone": "energy", "count": 1, "percent": 25}
+              ]
+            },
+            "repeat_magnets": {
+              "eligible": true,
+              "items": [
+                {"kind": "artist", "name": "The xx", "count": 4},
+                {"kind": "album", "name": "xx", "seconds": 2400, "formatted": "40m"},
+                {"kind": "artist", "name": "Asha", "count": 2},
+                {"kind": "album", "name": "Overflow", "formatted": "5m"}
+              ]
+            },
+            "explicit_positives": {
+              "eligible": true,
+              "signal_count": 3,
+              "favorite_tracks": [
+                {"kind": "favorite_track", "title": "Favorite One", "artist": "Asha", "uri": "spotify:track:favorite-one"}
+              ],
+              "accepted_recommendations": [
+                {"kind": "accepted_recommendation", "title": "Try This", "subtitle": "Warm groove", "uri": "spotify:track:try-this", "reason": "matched_mood"}
+              ]
+            },
+            "taste_anchors": {
+              "eligible": true,
+              "items": [
+                {"kind": "artist", "name": "The xx", "play_count": 6, "formatted": "1u"},
+                {"kind": "genre", "name": "ambient"},
+                {"kind": "genre", "name": "melodic house"},
+                {"kind": "artist", "name": "Asha", "seconds": 1200, "formatted": "20m"},
+                {"kind": "genre", "name": "indie electronic"},
+                {"kind": "genre", "name": "overflow"}
+              ]
+            },
+            "mood": {
+              "value": 90,
+              "zone": "party",
+              "prompt_hint": "maximale energie",
+              "sample_count": 3,
+              "average": 57,
+              "average_zone": "groove",
+              "average_prompt_hint": "vloeiend, ritmisch",
+              "zone_counts": {
+                "chill": 1,
+                "groove": 0,
+                "energy": 1,
+                "party": 1
+              }
+            },
+            "energy_profile": {
+              "sample_count": 2,
+              "energy": 0.70,
+              "energy_percent": 70,
+              "zone": "energy",
+              "prompt_hint": "hoge energie",
+              "danceability": 0.54,
+              "danceability_percent": 54,
+              "intensity": 0.62,
+              "intensity_percent": 62,
+              "recent_signals": [
+                {
+                  "title": "Dream On",
+                  "artist": "Scala",
+                  "album": "Dream On",
+                  "energy": 0.81,
+                  "danceability": 0.62,
+                  "intensity": 0.74,
+                  "confidence": 0.9,
+                  "created_at": "2026-06-29T11:59:00+00:00"
+                }
+              ]
+            },
+            "recommendation_signals": [{"title": "soft vocals"}]
+          },
+          "sources": [{"source": "djconnect_music_dna", "kind": "source", "title": "Music DNA"}]
+        }
+        """.utf8)
+    )
+    let empty = try JSONDecoder().decode(
+        DJConnectMusicDNAProfileResponse.self,
+        from: Data(#"{"success":true,"enabled":true,"profile":{}}"#.utf8)
+    )
+    let disabled = try JSONDecoder().decode(
+        DJConnectMusicDNAProfileResponse.self,
+        from: Data(#"{"success":true,"enabled":false,"profile":{}}"#.utf8)
+    )
+    let summaryOnly = try JSONDecoder().decode(
+        DJConnectMusicDNAProfileResponse.self,
+        from: Data(#"{"success":true,"enabled":true,"profile":{"summary":"Compact Music DNA summary."}}"#.utf8)
+    )
+    let zeroPlaytime = try JSONDecoder().decode(
+        DJConnectMusicDNAProfileResponse.self,
+        from: Data(#"{"success":true,"enabled":true,"profile":{"playtime":{"total_seconds":0,"total_hours":0,"formatted_total":"0m","top_artists":[{"name":"Silent","seconds":0,"hours":0,"formatted":"0m"}]}}}"#.utf8)
+    )
+    let emptyDashboardBlocks = try JSONDecoder().decode(
+        DJConnectMusicDNAProfileResponse.self,
+        from: Data(#"{"success":true,"enabled":true,"profile":{"listening_rhythm":{"sample_count":0,"top_daypart":"avond","dayparts":[]},"mood_mix":{"sample_count":0,"top_zone":"groove","zones":[]}}}"#.utf8)
+    )
+    let lowSampleListeningRhythm = try JSONDecoder().decode(
+        DJConnectMusicDNAProfileResponse.self,
+        from: Data(#"{"success":true,"enabled":true,"profile":{"summary":"Short profile.","listening_rhythm":{"sample_count":2,"top_daypart":"avond","dayparts":[{"daypart":"avond","count":2,"percent":100}]}}}"#.utf8)
+    )
+    let ineligibleConditionalBlocks = try JSONDecoder().decode(
+        DJConnectMusicDNAProfileResponse.self,
+        from: Data(#"{"success":true,"enabled":true,"profile":{"repeat_magnets":{"eligible":false,"reason":"insufficient_repeat_signals","items":[{"kind":"artist","name":"Hidden","count":4}]},"explicit_positives":{"eligible":false,"reason":"no_explicit_positive_signals","signal_count":0,"favorite_tracks":[{"kind":"favorite_track","title":"Hidden"}],"accepted_recommendations":[]},"taste_anchors":{"eligible":false,"reason":"insufficient_anchor_signals","items":[{"kind":"genre","name":"hidden"}]}}}"#.utf8)
+    )
+    let eligibleEmptyConditionalBlocks = try JSONDecoder().decode(
+        DJConnectMusicDNAProfileResponse.self,
+        from: Data(#"{"success":true,"enabled":true,"profile":{"repeat_magnets":{"eligible":true,"items":[]},"explicit_positives":{"eligible":true,"favorite_tracks":[],"accepted_recommendations":[]},"taste_anchors":{"eligible":true,"items":[]}}}"#.utf8)
+    )
+
+    #expect(populated.enabled == true)
+    #expect(populated.profile.isEmpty == false)
+    #expect(populated.musicDNAKey == "user:abc123")
+    #expect(populated.profile.favoriteGenres?.first?.name == "ambient")
+    #expect(populated.profile.favoriteArtists?.first?.name == "The xx")
+    #expect(populated.profile.recentTracks?.first?.title == "Intro")
+    #expect(populated.profile.recentTracks?.first?.album == "xx")
+    #expect(populated.profile.recentFavoriteTracks?.count == 2)
+    #expect(populated.profile.recentFavoriteTracks?.first?.title == "Favorite One")
+    #expect(populated.profile.recentFavoriteTracks?.first?.artist == "Asha")
+    #expect(populated.profile.recentFavoriteTracks?.first?.album == "Night Drive")
+    #expect(populated.profile.recentFavoriteTracks?.first?.uri == "spotify:track:favorite-one")
+    #expect(populated.profile.recentFavoriteTracks?.first?.imageURL == "https://example.test/favorite-one.jpg")
+    #expect(populated.profile.recentFavoriteTracks?.first?.createdAt != nil)
+    #expect(populated.profile.recentFavoriteTracks?.dropFirst().first?.title == "Favorite Two")
+    #expect(populated.profile.recentFavoriteTracks?.dropFirst().first?.imageURL == "https://example.test/favorite-two.jpg")
+    #expect(populated.profile.playtime?.totalSeconds == 5400)
+    #expect(populated.profile.playtime?.totalHours == 1.5)
+    #expect(populated.profile.playtime?.formattedTotal == "1u 30m")
+    #expect(populated.profile.playtime?.isDisplayable == true)
+    #expect(populated.profile.playtime?.visibleTopArtists.map(\.name) == ["The xx", "Asha", "Miro"])
+    #expect(populated.profile.playtime?.visibleTopArtists.map(\.formatted) == ["40m", "30m", "15m"])
+    #expect(populated.profile.playtime?.visibleTopAlbums.map(\.name) == ["xx", "Night Drive", "Dawn"])
+    #expect(populated.profile.playtime?.visibleTopAlbums.map(\.formatted) == ["35m", "25m", "15m"])
+    #expect(populated.profile.listeningRhythm?.sampleCount == 3)
+    #expect(populated.profile.listeningRhythm?.topDaypart == "avond")
+    #expect(populated.profile.listeningRhythm?.topWeekday == "vrijdag")
+    #expect(populated.profile.listeningRhythm?.dayparts.map(\.daypart) == ["avond", "middag"])
+    #expect(populated.profile.listeningRhythm?.dayparts.map(\.percent) == [66.7, 33.3])
+    #expect(populated.profile.listeningRhythm?.visibleWeekdays.map(\.weekday) == ["vrijdag", "zaterdag"])
+    #expect(populated.profile.listeningRhythm?.isDisplayable == true)
+    #expect(populated.profile.moodMix?.sampleCount == 4)
+    #expect(populated.profile.moodMix?.average == 57)
+    #expect(populated.profile.moodMix?.topZone == "groove")
+    #expect(populated.profile.moodMix?.zones.map(\.zone) == ["chill", "groove", "energy"])
+    #expect(populated.profile.moodMix?.zones.map(\.percent) == [25, 50, 25])
+    #expect(populated.profile.moodMix?.isDisplayable == true)
+    #expect(populated.profile.repeatMagnets?.isDisplayable == true)
+    #expect(populated.profile.repeatMagnets?.visibleItems.map(\.kind) == ["artist", "album", "artist"])
+    #expect(populated.profile.repeatMagnets?.visibleItems.map(\.name) == ["The xx", "xx", "Asha"])
+    #expect(populated.profile.repeatMagnets?.visibleItems.first?.count == 4)
+    #expect(populated.profile.repeatMagnets?.visibleItems.dropFirst().first?.formatted == "40m")
+    #expect(populated.profile.explicitPositives?.isDisplayable == true)
+    #expect(populated.profile.explicitPositives?.signalCount == 3)
+    #expect(populated.profile.explicitPositives?.visibleFavoriteTracks.first?.title == "Favorite One")
+    #expect(populated.profile.explicitPositives?.visibleFavoriteTracks.first?.artist == "Asha")
+    #expect(populated.profile.explicitPositives?.visibleAcceptedRecommendations.first?.title == "Try This")
+    #expect(populated.profile.explicitPositives?.visibleAcceptedRecommendations.first?.subtitle == "Warm groove")
+    #expect(populated.profile.explicitPositives?.visibleAcceptedRecommendations.first?.reason == "matched_mood")
+    #expect(populated.profile.tasteAnchors?.isDisplayable == true)
+    #expect(populated.profile.tasteAnchors?.visibleItems.map(\.kind) == ["artist", "genre", "genre", "artist", "genre"])
+    #expect(populated.profile.tasteAnchors?.visibleItems.map(\.name) == ["The xx", "ambient", "melodic house", "Asha", "indie electronic"])
+    #expect(populated.profile.tasteAnchors?.visibleItems.first?.playCount == 6)
+    #expect(populated.profile.mood?.value == 90)
+    #expect(populated.profile.mood?.zone == "party")
+    #expect(populated.profile.mood?.sampleCount == 3)
+    #expect(populated.profile.mood?.average == 57)
+    #expect(populated.profile.mood?.averageZone == "groove")
+    #expect(populated.profile.mood?.zoneCounts["party"] == 1)
+    #expect(populated.profile.energyProfile?.sampleCount == 2)
+    #expect(populated.profile.energyProfile?.energyPercent == 70)
+    #expect(populated.profile.energyProfile?.zone == "energy")
+    #expect(populated.profile.energyProfile?.danceabilityPercent == 54)
+    #expect(populated.profile.energyProfile?.intensityPercent == 62)
+    #expect(populated.profile.energyProfile?.recentSignals.first?.title == "Dream On")
+    #expect(populated.profile.energyProfile?.recentSignals.first?.artist == "Scala")
+    #expect(populated.profile.energyProfile?.recentSignals.first?.album == "Dream On")
+    #expect(populated.sources.first?.title == "Music DNA")
+    #expect(empty.enabled == true)
+    #expect(empty.profile.isEmpty == true)
+    #expect(empty.profile.recentFavoriteTracks == nil)
+    #expect(empty.profile.playtime == nil)
+    #expect(disabled.enabled == false)
+    #expect(disabled.profile.isEmpty == true)
+    #expect(summaryOnly.enabled == true)
+    #expect(summaryOnly.profile.summary == "Compact Music DNA summary.")
+    #expect(summaryOnly.profile.isEmpty == false)
+    #expect(summaryOnly.profile.favoriteGenres == nil)
+    #expect(summaryOnly.profile.favoriteArtists == nil)
+    #expect(summaryOnly.profile.recentTracks == nil)
+    #expect(summaryOnly.profile.playtime == nil)
+    #expect(zeroPlaytime.profile.playtime?.isDisplayable == false)
+    #expect(zeroPlaytime.profile.isEmpty == true)
+    #expect(emptyDashboardBlocks.profile.listeningRhythm?.isDisplayable == false)
+    #expect(emptyDashboardBlocks.profile.moodMix?.isDisplayable == false)
+    #expect(emptyDashboardBlocks.profile.isEmpty == true)
+    #expect(lowSampleListeningRhythm.profile.isEmpty == false)
+    #expect(lowSampleListeningRhythm.profile.listeningRhythm?.isDisplayable == false)
+    #expect(ineligibleConditionalBlocks.profile.repeatMagnets?.isDisplayable == false)
+    #expect(ineligibleConditionalBlocks.profile.repeatMagnets?.reason == "insufficient_repeat_signals")
+    #expect(ineligibleConditionalBlocks.profile.explicitPositives?.isDisplayable == false)
+    #expect(ineligibleConditionalBlocks.profile.explicitPositives?.reason == "no_explicit_positive_signals")
+    #expect(ineligibleConditionalBlocks.profile.tasteAnchors?.isDisplayable == false)
+    #expect(ineligibleConditionalBlocks.profile.tasteAnchors?.reason == "insufficient_anchor_signals")
+    #expect(ineligibleConditionalBlocks.profile.isEmpty == true)
+    #expect(eligibleEmptyConditionalBlocks.profile.repeatMagnets?.isDisplayable == false)
+    #expect(eligibleEmptyConditionalBlocks.profile.explicitPositives?.isDisplayable == false)
+    #expect(eligibleEmptyConditionalBlocks.profile.tasteAnchors?.isDisplayable == false)
+    #expect(eligibleEmptyConditionalBlocks.profile.isEmpty == true)
+}
+
+@Test func musicDiscoveryResponseParsesDisabledFeedAndFiltersInvalidItems() throws {
+    let disabled = try JSONDecoder().decode(
+        DJConnectMusicDiscoveryResponse.self,
+        from: Data(#"{"success":true,"enabled":false,"reason":"music_dna_disabled","sections":[]}"#.utf8)
+    )
+    let feed = try JSONDecoder().decode(
+        DJConnectMusicDiscoveryResponse.self,
+        from: Data("""
+        {
+          "success": true,
+          "enabled": true,
+          "revision": 12,
+          "generated_at": "2026-07-04T12:00:00+00:00",
+          "ttl_seconds": 86400,
+          "source": "music_dna",
+          "sections": [
+            {
+              "id": "because_you_like",
+              "title": "Omdat je dit vaak luistert",
+              "items": [
+                {
+                  "id": "disc-track-1",
+                  "kind": "track",
+                  "title": "Intro",
+                  "subtitle": "The xx",
+                  "uri": "spotify:track:intro",
+                  "image_url": "/api/djconnect/image_proxy/intro",
+                  "reason": "Past bij je smaakankers.",
+                  "reason_sources": ["taste_anchors", "favorite_genres"],
+                  "confidence": "medium"
+                },
+                {
+                  "id": "missing-reason",
+                  "kind": "track",
+                  "title": "Hidden",
+                  "uri": "spotify:track:hidden",
+                  "reason": ""
+                },
+                {
+                  "id": "missing-uri",
+                  "kind": "album",
+                  "title": "Hidden Album",
+                  "reason": "No play uri."
+                }
+              ]
+            },
+            {
+              "id": "empty",
+              "title": "Empty",
+              "items": []
+            }
+          ]
+        }
+        """.utf8)
+    )
+
+    #expect(disabled.enabled == false)
+    #expect(disabled.isMusicDNADisabled == true)
+    #expect(disabled.visibleSections.isEmpty)
+    #expect(feed.enabled == true)
+    #expect(feed.revision == 12)
+    #expect(feed.generatedAt != nil)
+    #expect(feed.ttlSeconds == 86400)
+    #expect(feed.source == "music_dna")
+    #expect(feed.visibleSections.map(\.id) == ["because_you_like"])
+    let item = try #require(feed.visibleSections.first?.visibleItems.first)
+    #expect(item.id == "disc-track-1")
+    #expect(item.kind == .track)
+    #expect(item.title == "Intro")
+    #expect(item.subtitle == "The xx")
+    #expect(item.imageURL == "/api/djconnect/image_proxy/intro")
+    #expect(item.reasonSources == ["taste_anchors", "favorite_genres"])
+    #expect(item.confidence == .medium)
+    #expect(feed.sections.first?.items.count == 3)
+    #expect(feed.sections.first?.visibleItems.count == 1)
+}
+
+@MainActor
+@Test func musicDNAProfileLoadsPopulatedBackendProfile() async throws {
+    let defaults = try testDefaults()
+    let recorder = RequestRecorder()
+    let session = mockSession(host: "musicdna-populated.local") { request in
+        recorder.append(request)
+        return (try httpResponse(for: request, statusCode: 200), Data("""
+        {
+          "success": true,
+          "music_dna_key": "user:abc123",
+          "enabled": true,
+          "generation": 2,
+          "updated_at": "2026-07-04T05:00:00Z",
+          "profile": {
+            "summary": "Warm late-night electronic taste.",
+            "track_count": 12,
+            "artist_count": 4,
+            "genre_count": 3,
+            "favorite_genres": ["ambient", {"name": "melodic house", "count": 2}],
+            "favorite_artists": ["The xx"],
+            "recent_tracks": [{"title": "Intro", "artist": "The xx", "genres": ["indie"]}],
+            "recent_favorite_tracks": [{"title": "Favorited", "artist": "Nala", "album": "Late Set"}],
+            "playtime": {
+              "total_seconds": 7260,
+              "total_hours": 2.02,
+              "formatted_total": "2u 1m",
+              "top_artists": [
+                {"name": "The xx", "seconds": 3600, "hours": 1.0, "formatted": "1u"},
+                {"name": "Nala", "seconds": 2400, "hours": 0.67, "formatted": "40m"},
+                {"name": "Ben Bohmer", "seconds": 900, "hours": 0.25, "formatted": "15m"},
+                {"name": "Overflow", "seconds": 360, "hours": 0.1, "formatted": "6m"}
+              ],
+              "top_albums": [
+                {"name": "xx", "seconds": 3300, "hours": 0.92, "formatted": "55m"},
+                {"name": "Late Set", "seconds": 1800, "hours": 0.5, "formatted": "30m"}
+              ]
+            },
+            "listening_rhythm": {
+              "sample_count": 5,
+              "top_daypart": "avond",
+              "top_weekday": "vrijdag",
+              "dayparts": [
+                {"daypart": "avond", "count": 4, "percent": 80},
+                {"daypart": "middag", "count": 1, "percent": 20}
+              ],
+              "weekdays": [
+                {"weekday": "vrijdag", "count": 3, "percent": 60},
+                {"weekday": "zaterdag", "count": 2, "percent": 40}
+              ]
+            },
+            "mood_mix": {
+              "sample_count": 3,
+              "average": 57,
+              "top_zone": "groove",
+              "zones": [
+                {"zone": "groove", "count": 2, "percent": 66.7},
+                {"zone": "energy", "count": 1, "percent": 33.3}
+              ]
+            },
+            "repeat_magnets": {
+              "eligible": true,
+              "items": [
+                {"kind": "artist", "name": "The xx", "count": 5},
+                {"kind": "album", "name": "xx", "formatted": "55m"}
+              ]
+            },
+            "explicit_positives": {
+              "eligible": true,
+              "signal_count": 2,
+              "favorite_tracks": [{"kind": "favorite_track", "title": "Favorited", "artist": "Nala"}],
+              "accepted_recommendations": [{"kind": "accepted_recommendation", "title": "Accepted", "subtitle": "Warm"}]
+            },
+            "taste_anchors": {
+              "eligible": true,
+              "items": [
+                {"kind": "artist", "name": "The xx", "play_count": 7},
+                {"kind": "genre", "name": "ambient"}
+              ]
+            },
+            "mood_profile": {"average": 57, "average_zone": "groove", "sample_count": 3},
+            "taste_direction": "Warm electronic",
+            "based_on": ["soft vocals", {"title": "Intro", "artist": "The xx", "genres": ["indie"]}],
+            "updated_at": "2026-07-04T05:01:00Z"
+          }
+        }
+        """.utf8))
+    }
+    let model = makePairedMusicDNAModel(defaults: defaults, host: "musicdna-populated.local", session: session)
+
+    await model.refreshMusicDNAProfile()
+
+    #expect(model.musicDNAProfileResponse?.enabled == true)
+    #expect(model.musicDNAProfileResponse?.profile.isEmpty == false)
+    #expect(model.musicDNAProfileResponse?.profile.summary == "Warm late-night electronic taste.")
+    #expect(model.musicDNAProfileResponse?.profile.favoriteGenres?.first?.name == "ambient")
+    #expect(model.musicDNAProfileResponse?.profile.favoriteGenres?.dropFirst().first?.count == 2)
+    #expect(model.musicDNAProfileResponse?.profile.favoriteArtists?.first?.name == "The xx")
+    #expect(model.musicDNAProfileResponse?.profile.trackCount == 12)
+    #expect(model.musicDNAProfileResponse?.profile.recentFavoriteTracks?.map(\.title) == ["Favorited"])
+    #expect(model.musicDNAProfileResponse?.profile.playtime?.isDisplayable == true)
+    #expect(model.musicDNAProfileResponse?.profile.playtime?.formattedTotal == "2u 1m")
+    #expect(model.musicDNAProfileResponse?.profile.playtime?.visibleTopArtists.map(\.name) == ["The xx", "Nala", "Ben Bohmer"])
+    #expect(model.musicDNAProfileResponse?.profile.playtime?.visibleTopArtists.map(\.formatted) == ["1u", "40m", "15m"])
+    #expect(model.musicDNAProfileResponse?.profile.playtime?.visibleTopAlbums.map(\.name) == ["xx", "Late Set"])
+    #expect(model.musicDNAProfileResponse?.profile.playtime?.visibleTopAlbums.map(\.formatted) == ["55m", "30m"])
+    #expect(model.musicDNAProfileResponse?.profile.listeningRhythm?.isDisplayable == true)
+    #expect(model.musicDNAProfileResponse?.profile.listeningRhythm?.topDaypart == "avond")
+    #expect(model.musicDNAProfileResponse?.profile.listeningRhythm?.topWeekday == "vrijdag")
+    #expect(model.musicDNAProfileResponse?.profile.moodMix?.isDisplayable == true)
+    #expect(model.musicDNAProfileResponse?.profile.moodMix?.topZone == "groove")
+    #expect(model.musicDNAProfileResponse?.profile.moodMix?.average == 57)
+    #expect(model.musicDNAProfileResponse?.profile.repeatMagnets?.isDisplayable == true)
+    #expect(model.musicDNAProfileResponse?.profile.repeatMagnets?.visibleItems.map(\.name) == ["The xx", "xx"])
+    #expect(model.musicDNAProfileResponse?.profile.explicitPositives?.isDisplayable == true)
+    #expect(model.musicDNAProfileResponse?.profile.explicitPositives?.visibleFavoriteTracks.map(\.title) == ["Favorited"])
+    #expect(model.musicDNAProfileResponse?.profile.explicitPositives?.visibleAcceptedRecommendations.map(\.title) == ["Accepted"])
+    #expect(model.musicDNAProfileResponse?.profile.tasteAnchors?.isDisplayable == true)
+    #expect(model.musicDNAProfileResponse?.profile.tasteAnchors?.visibleItems.map(\.name) == ["The xx", "ambient"])
+    #expect(model.musicDNAProfileResponse?.profile.mood?.averageZone == "groove")
+    #expect(model.musicDNAProfileResponse?.profile.tasteDirection == "Warm electronic")
+    #expect(model.musicDNAProfileResponse?.profile.basedOn?.map { $0.title ?? $0.name ?? "" } == ["soft vocals", "Intro"])
+    #expect(model.musicDNAProfileResponse?.profile.updatedAt != nil)
+    #expect(recorder.requests.map { $0.url?.path } == ["/api/djconnect/v1/music_dna/profile"])
+}
+
+@MainActor
+@Test func musicDNAProfileLoadsEnabledEmptyState() async throws {
+    let defaults = try testDefaults()
+    let session = mockSession(host: "musicdna-empty.local") { request in
+        (try httpResponse(for: request, statusCode: 200), Data(#"{"success":true,"enabled":true,"profile":{}}"#.utf8))
+    }
+    let model = makePairedMusicDNAModel(defaults: defaults, host: "musicdna-empty.local", session: session)
+
+    await model.refreshMusicDNAProfile()
+
+    #expect(model.musicDNAProfileResponse?.enabled == true)
+    #expect(model.musicDNAProfileResponse?.profile.isEmpty == true)
+    #expect(model.musicDNAProfileResponse?.profile.recentFavoriteTracks == nil)
+    #expect(model.musicDNAProfileResponse?.profile.playtime == nil)
+    #expect(model.musicDNAProfileResponse?.profile.listeningRhythm == nil)
+    #expect(model.musicDNAProfileResponse?.profile.moodMix == nil)
+    #expect(model.musicDNAProfileResponse?.profile.repeatMagnets == nil)
+    #expect(model.musicDNAProfileResponse?.profile.explicitPositives == nil)
+    #expect(model.musicDNAProfileResponse?.profile.tasteAnchors == nil)
+}
+
+@MainActor
+@Test func musicDNAProfileLoadsDisabledOptInStateWithoutLocalProfile() async throws {
+    let defaults = try testDefaults()
+    let session = mockSession(host: "musicdna-disabled.local") { request in
+        (try httpResponse(for: request, statusCode: 200), Data(#"{"success":true,"enabled":false,"profile":{}}"#.utf8))
+    }
+    let model = makePairedMusicDNAModel(defaults: defaults, host: "musicdna-disabled.local", session: session)
+
+    await model.refreshMusicDNAProfile()
+
+    #expect(model.musicDNAProfileResponse?.enabled == false)
+    #expect(model.musicDNAProfileResponse?.profile.isEmpty == true)
+}
+
+@MainActor
+@Test func musicDiscoveryLoadsDisabledFeedAndEnabledRecommendations() async throws {
+    let defaults = try testDefaults()
+    let recorder = RequestRecorder()
+    var enabled = false
+    let session = mockSession(host: "discovery-feed.local") { request in
+        recorder.append(request)
+        if enabled {
+            return (try httpResponse(for: request, statusCode: 200), Data("""
+            {
+              "success": true,
+              "enabled": true,
+              "revision": 7,
+              "generated_at": "2026-07-04T12:00:00+00:00",
+              "ttl_seconds": 86400,
+              "source": "music_dna",
+              "sections": [
+                {
+                  "id": "because_you_like",
+                  "title": "Omdat je dit vaak luistert",
+                  "items": [
+                    {"id":"disc-track-1","kind":"track","title":"Intro","subtitle":"The xx","uri":"spotify:track:intro","reason":"Past bij je smaakankers.","confidence":"high"}
+                  ]
+                }
+              ]
+            }
+            """.utf8))
+        }
+        return (try httpResponse(for: request, statusCode: 200), Data(#"{"success":true,"enabled":false,"reason":"music_dna_disabled","sections":[]}"#.utf8))
+    }
+    let model = makePairedMusicDNAModel(defaults: defaults, host: "discovery-feed.local", session: session)
+
+    await model.loadMusicDiscovery(force: true)
+    #expect(model.musicDiscoveryResponse?.isMusicDNADisabled == true)
+    #expect(model.musicDiscoveryResponse?.visibleSections.isEmpty == true)
+
+    enabled = true
+    await model.loadMusicDiscovery(force: true)
+    #expect(model.musicDiscoveryResponse?.enabled == true)
+    #expect(model.musicDiscoveryResponse?.visibleSections.first?.visibleItems.first?.title == "Intro")
+    #expect(recorder.requests.map { $0.url?.path } == [
+        "/api/djconnect/v1/music_discovery",
+        "/api/djconnect/v1/music_discovery"
+    ])
+}
+
+@MainActor
+@Test func musicDiscoveryRefreshAndPlayUseDedicatedEndpoints() async throws {
+    let defaults = try testDefaults()
+    let recorder = RequestRecorder()
+    let session = mockSession(host: "discovery-actions.local") { request in
+        recorder.append(request)
+        switch request.url?.path {
+        case "/api/djconnect/v1/music_discovery/refresh":
+            return (try httpResponse(for: request, statusCode: 200), Data(#"{"success":true,"enabled":true,"sections":[]}"#.utf8))
+        case "/api/djconnect/v1/music_discovery":
+            return (try httpResponse(for: request, statusCode: 200), Data("""
+            {
+              "success": true,
+              "enabled": true,
+              "revision": 8,
+              "sections": [
+                {
+                  "id": "fresh",
+                  "title": "Fresh",
+                  "items": [
+                    {"id":"disc-track-2","kind":"track","title":"Angel","subtitle":"Massive Attack","uri":"spotify:track:angel","reason":"Past bij je donkere groove-signalen."}
+                  ]
+                }
+              ]
+            }
+            """.utf8))
+        case "/api/djconnect/v1/music_discovery/play":
+            return (try httpResponse(for: request, statusCode: 200), Data(#"{"success":true}"#.utf8))
+        default:
+            return (try httpResponse(for: request, statusCode: 404), Data(#"{"success":false}"#.utf8))
+        }
+    }
+    let model = makePairedMusicDNAModel(defaults: defaults, host: "discovery-actions.local", session: session)
+
+    await model.refreshMusicDiscovery()
+    let item = try #require(model.musicDiscoveryResponse?.visibleSections.first?.visibleItems.first)
+    await model.playMusicDiscoveryItem(item, sectionID: "fresh")
+
+    #expect(recorder.requests.map { $0.url?.path } == [
+        "/api/djconnect/v1/music_discovery/refresh",
+        "/api/djconnect/v1/music_discovery",
+        "/api/djconnect/v1/music_discovery/play"
+    ])
+}
+
+@MainActor
+@Test func musicDiscoveryRouteMissingUsesUserFacingMessage() async throws {
+    let defaults = try testDefaults()
+    let session = mockSession(host: "discovery-route-missing.local") { request in
+        #expect(request.url?.path == "/api/djconnect/v1/music_discovery/refresh")
+        return (
+            try httpResponse(for: request, statusCode: 404),
+            Data(#"{"success":false,"message":"route missing: 404: Not Found"}"#.utf8)
+        )
+    }
+    let model = makePairedMusicDNAModel(defaults: defaults, host: "discovery-route-missing.local", session: session)
+    model.language = "nl"
+
+    await model.refreshMusicDiscovery()
+
+    #expect(model.musicDiscoveryErrorMessage == "DJConnect route ontbreekt in Home Assistant. Controleer de integratie.")
+    #expect(model.musicDiscoveryErrorMessage?.contains("404") == false)
+    #expect(model.musicDiscoveryErrorMessage?.contains("route missing") == false)
+}
+
+@MainActor
+@Test func clearMusicDNAUsesClearEndpointAndRefreshesProfile() async throws {
+    let defaults = try testDefaults()
+    let recorder = RequestRecorder()
+    let session = mockSession(host: "musicdna-clear.local") { request in
+        recorder.append(request)
+        if request.url?.path == "/api/djconnect/v1/music_dna/clear" {
+            return (try httpResponse(for: request, statusCode: 200), Data(#"{"success":true,"enabled":true,"profile":{}}"#.utf8))
+        }
+        return (try httpResponse(for: request, statusCode: 200), Data(#"{"success":true,"enabled":true,"profile":{}}"#.utf8))
+    }
+    let model = makePairedMusicDNAModel(defaults: defaults, host: "musicdna-clear.local", session: session)
+
+    await model.clearMusicDNA()
+
+    #expect(recorder.requests.map { $0.url?.path } == [
+        "/api/djconnect/v1/music_dna/clear",
+        "/api/djconnect/v1/music_dna/profile"
+    ])
+    #expect(model.musicDNAProfileResponse?.enabled == true)
+    #expect(model.musicDNAProfileResponse?.profile.isEmpty == true)
+}
+
+@MainActor
+@Test func optOutMusicDNAUsesSettingsEndpointAndRefreshesDisabledProfile() async throws {
+    let defaults = try testDefaults()
+    let recorder = RequestRecorder()
+    let session = mockSession(host: "musicdna-optout.local") { request in
+        recorder.append(request)
+        return (try httpResponse(for: request, statusCode: 200), Data(#"{"success":true,"enabled":false,"profile":{}}"#.utf8))
+    }
+    let model = makePairedMusicDNAModel(defaults: defaults, host: "musicdna-optout.local", session: session)
+
+    await model.setMusicDNAEnabled(false)
+
+    #expect(recorder.requests.map { $0.url?.path } == [
+        "/api/djconnect/v1/music_dna/settings",
+        "/api/djconnect/v1/music_dna/profile"
+    ])
+    #expect(model.musicDNAProfileResponse?.enabled == false)
+    #expect(model.musicDNAProfileResponse?.profile.isEmpty == true)
+}
+
+@MainActor
+@Test func musicDNAOptInPromptWaitsForExplicitDisabledStatus() throws {
+    let defaults = try testDefaults()
+    let model = DJConnectAppModel(
+        defaults: defaults,
+        tokenStore: DJConnectInMemoryTokenStore(),
+        startBackgroundTasks: false
+    )
+
+    model.presentMusicDNAOptInPromptIfNeeded()
+    #expect(model.isShowingMusicDNAOptInPrompt == false)
+
+    model.pairingStatus = .paired
+    model.presentMusicDNAOptInPromptIfNeeded()
+    #expect(model.isShowingMusicDNAOptInPrompt == false)
+
+    model.dismissMusicDNAOptInPrompt()
+    #expect(model.isShowingMusicDNAOptInPrompt == false)
+
+    model.presentMusicDNAOptInPromptIfNeeded()
+    #expect(model.isShowingMusicDNAOptInPrompt == false)
+}
+
+@MainActor
+@Test func optInMusicDNAUsesSettingsEndpointAndRefreshesProfile() async throws {
+    let defaults = try testDefaults()
+    let recorder = RequestRecorder()
+    let session = mockSession(host: "musicdna-optin.local") { request in
+        recorder.append(request)
+        return (try httpResponse(for: request, statusCode: 200), Data("""
+        {"success":true,"enabled":true,"profile":{"summary":"Newly enabled profile"}}
+        """.utf8))
+    }
+    let model = makePairedMusicDNAModel(defaults: defaults, host: "musicdna-optin.local", session: session)
+
+    await model.setMusicDNAEnabled(true)
+
+    #expect(recorder.requests.map { $0.url?.path } == [
+        "/api/djconnect/v1/music_dna/settings",
+        "/api/djconnect/v1/music_dna/profile"
+    ])
+    #expect(model.musicDNAProfileResponse?.enabled == true)
+    #expect(model.musicDNAProfileResponse?.profile.summary == "Newly enabled profile")
+}
+
+@MainActor
+@Test func musicDNAOptInSurvivesStaleProfileRefresh() async throws {
+    let defaults = try testDefaults()
+    let recorder = RequestRecorder()
+    let session = mockSession(host: "musicdna-stale-optin.local") { request in
+        recorder.append(request)
+        if request.url?.path == "/api/djconnect/v1/music_dna/settings" {
+            return (try httpResponse(for: request, statusCode: 200), Data(#"{"success":true,"enabled":true,"profile":{"summary":"Enabled locally"}}"#.utf8))
+        }
+        return (try httpResponse(for: request, statusCode: 200), Data(#"{"success":true,"enabled":false,"profile":{}}"#.utf8))
+    }
+    let model = makePairedMusicDNAModel(defaults: defaults, host: "musicdna-stale-optin.local", session: session)
+
+    await model.setMusicDNAEnabled(true)
+    #expect(model.musicDNAProfileResponse?.enabled == true)
+    #expect(model.musicDNAProfileResponse?.profile.summary == "Enabled locally")
+
+    await model.refreshMusicDNAProfile()
+
+    #expect(recorder.requests.map { $0.url?.path } == [
+        "/api/djconnect/v1/music_dna/settings",
+        "/api/djconnect/v1/music_dna/profile",
+        "/api/djconnect/v1/music_dna/profile"
+    ])
+    #expect(model.musicDNAProfileResponse?.enabled == true)
+    #expect(model.musicDNAProfileResponse?.profile.summary == "Enabled locally")
+}
+
+@MainActor
+@Test func demoModeRequiresLocalMusicDNAOptInAndSupportsClear() async throws {
+    let defaults = try testDefaults()
+    let model = DJConnectAppModel(
+        defaults: defaults,
+        tokenStore: DJConnectInMemoryTokenStore(),
+        startBackgroundTasks: false
+    )
+
+    model.startDemoMode()
+
+    #expect(model.isDemoMode == true)
+    #expect(model.demoMusicDNAEnabled == false)
+    #expect(model.musicDNAProfileResponse?.enabled == false)
+    #expect(model.musicDNAProfileResponse?.profile.isEmpty == true)
+
+    await model.setMusicDNAEnabled(true)
+
+    #expect(model.demoMusicDNAEnabled == true)
+    #expect(model.musicDNAProfileResponse?.enabled == true)
+    #expect(model.musicDNAProfileResponse?.profile.summary?.contains("fictional") == true)
+    #expect(model.musicDNAProfileResponse?.profile.favoriteArtists?.map(\.name).contains("Luna Vale") == true)
+    #expect(model.musicDNAProfileResponse?.profile.recentTracks?.map(\.title).contains("Glass Avenue") == true)
+    #expect(model.musicDNAProfileResponse?.profile.recentFavoriteTracks?.isEmpty == false)
+    #expect(model.musicDNAProfileResponse?.profile.playtime?.isDisplayable == true)
+    #expect(model.musicDNAProfileResponse?.profile.listeningRhythm?.isDisplayable == true)
+    #expect(model.musicDNAProfileResponse?.profile.moodMix?.isDisplayable == true)
+    #expect(model.musicDNAProfileResponse?.profile.energyProfile?.sampleCount ?? 0 > 0)
+    #expect(model.musicDNAProfileResponse?.profile.repeatMagnets?.isDisplayable == true)
+    #expect(model.musicDNAProfileResponse?.profile.explicitPositives?.isDisplayable == true)
+    #expect(model.musicDNAProfileResponse?.profile.tasteAnchors?.isDisplayable == true)
+    #expect((model.musicDNAProfileResponse?.profile.timePatterns?.count ?? 0) >= 3)
+
+    await model.clearMusicDNA()
+
+    #expect(model.musicDNAProfileResponse?.enabled == true)
+    #expect(model.musicDNAProfileResponse?.profile.favoriteArtists?.map(\.name).contains("Luna Vale") == true)
+    #expect(model.musicDNAProfileResponse?.profile.recentTracks?.map(\.title).contains("Glass Avenue") == true)
+
+    await model.setMusicDNAEnabled(false)
+
+    #expect(model.demoMusicDNAEnabled == false)
+    #expect(model.musicDNAProfileResponse?.enabled == false)
+    #expect(model.musicDNAProfileResponse?.profile.isEmpty == true)
+}
+
+@MainActor
+@Test func authFailureClearsMusicDNALocalDisplay() async throws {
+    let defaults = try testDefaults()
+    let recorder = RequestRecorder()
+    let session = mockSession(host: "musicdna-auth.local") { request in
+        recorder.append(request)
+        if recorder.requests.count == 1 {
+            return (try httpResponse(for: request, statusCode: 200), Data("""
+            {"success":true,"enabled":true,"profile":{"summary":"Cached server display"}}
+            """.utf8))
+        }
+        return (try httpResponse(for: request, statusCode: 401), Data(#"{"success":false,"error":"auth_stale"}"#.utf8))
+    }
+    let model = makePairedMusicDNAModel(defaults: defaults, host: "musicdna-auth.local", session: session)
+
+    await model.refreshMusicDNAProfile()
+    #expect(model.musicDNAProfileResponse?.profile.summary == "Cached server display")
+
+    await model.refreshMusicDNAProfile()
+
+    #expect(model.musicDNAProfileResponse == nil)
+}
+
+@MainActor
+@Test func musicDNAExportAuthFailureUsesPairingRecoveryAndClearsLocalDisplay() async throws {
+    let defaults = try testDefaults()
+    let recorder = RequestRecorder()
+    let session = mockSession(host: "musicdna-export-auth.local") { request in
+        recorder.append(request)
+        if request.url?.path == "/api/djconnect/v1/music_dna/profile" {
+            return (try httpResponse(for: request, statusCode: 200), Data("""
+            {"success":true,"enabled":true,"profile":{"summary":"Cached server display"}}
+            """.utf8))
+        }
+        return (try httpResponse(for: request, statusCode: 403), Data(#"{"success":false,"error":"auth_stale","message":"Pair again"}"#.utf8))
+    }
+    let model = makePairedMusicDNAModel(defaults: defaults, host: "musicdna-export-auth.local", session: session)
+    model.isConnected = true
+
+    await model.refreshMusicDNAProfile()
+    #expect(model.musicDNAProfileResponse?.profile.summary == "Cached server display")
+
+    await #expect(throws: DJConnectError.self) {
+        _ = try await model.exportMusicDNAProfileData()
+    }
+
+    #expect(recorder.requests.map { $0.url?.path } == [
+        "/api/djconnect/v1/music_dna/profile",
+        "/api/djconnect/v1/music_dna/export"
+    ])
+    #expect(model.musicDNAProfileResponse == nil)
+    #expect(model.pairingStatus == .stale)
+    #expect(model.pairingMessage?.isEmpty == false)
 }
 
 @Test func askDJIdleSuggestionRequestUsesDedicatedEndpoint() throws {
@@ -654,7 +2151,7 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
         clientMessageID: "idle-suggestion-1",
         mood: 72,
         djStyle: "warm_radio_dj",
-        memoryKey: "djconnect_watchos_8F3A2C91B45D"
+        musicDNAKey: "djconnect_watchos_8F3A2C91B45D"
     ))
     let body = try #require(request.httpBody)
     let json = try JSONSerialization.jsonObject(with: body) as? [String: Any]
@@ -665,59 +2162,6 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
     #expect(json?["client_type"] as? String == "watchos")
     #expect(json?["mood"] as? Int == 72)
     #expect(json?["dj_style"] as? String == "warm_radio_dj")
-}
-
-@Test func clientCallRoutesUseCanonicalV1Prefix() throws {
-    let identity = DJConnectIdentity(
-        deviceID: "djconnect-ios-8F3A2C91B45D",
-        deviceName: "DJConnect iPhone",
-        clientType: .ios,
-        firmware: "3.1.36",
-        appVersion: "3.1.36",
-        platform: .ios
-    )
-    let client = DJConnectClient(
-        baseURL: try #require(URL(string: "http://homeassistant.local:8123")),
-        identity: identity,
-        tokenStore: DJConnectInMemoryTokenStore(token: "secret-token")
-    )
-    let statusPayload = DJConnectStatusPayload(identity: identity)
-    let commandPayload = DJConnectCommandPayload(identity: identity, command: "status")
-    let askPayload = DJConnectAskDJRequest(
-        identity: identity,
-        text: "Welke track draait dit?",
-        clientMessageID: "client-message-1"
-    )
-    let pushRegister = DJConnectPushRegistrationRequest(
-        identity: identity,
-        pushToken: "abcdef123456",
-        pushEnvironment: .sandbox,
-        appBundleID: "dev.djconnect.ios"
-    )
-    let pushUnregister = DJConnectPushUnregistrationRequest(
-        identity: identity,
-        pushToken: "abcdef123456"
-    )
-
-    let paths = try [
-        client.statusRequest(statusPayload),
-        client.commandRequest(commandPayload),
-        client.askDJMessageRequest(askPayload),
-        client.askDJHistoryRequest(sinceRevision: 1),
-        client.clearAskDJHistoryRequest(),
-        client.askDJIdleSuggestionRequest(DJConnectAskDJIdleSuggestionRequest(
-            identity: identity,
-            clientMessageID: "idle-suggestion-1"
-        )),
-        client.pushRegisterRequest(pushRegister),
-        client.pushUnregisterRequest(pushUnregister),
-        client.voiceRequest(wavData: Data())
-    ].map { try #require($0.url?.path) }
-
-    for path in paths {
-        #expect(path.hasPrefix("/api/djconnect/v1/"))
-        #expect(!path.hasPrefix("/api/djconnect/v1/ask_dj/") || path != "/api/djconnect/v1/ask_dj")
-    }
 }
 
 @Test func pushRegisterRequestUsesAuthenticatedEndpointAndSandboxEnvironment() throws {
@@ -837,6 +2281,12 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
     #expect(json["bootstrap_proof"] as? String == "short-lived-proof")
 }
 
+@Test func pushEnvironmentResolvesDevelopmentEntitlementToSandbox() {
+    #expect(DJConnectAppModel.pushEnvironment(apsEnvironment: "development") == .sandbox)
+    #expect(DJConnectAppModel.pushEnvironment(apsEnvironment: "sandbox") == .sandbox)
+    #expect(DJConnectAppModel.pushEnvironment(apsEnvironment: "production") == .production)
+}
+
 @Test func watchOSPushRegisterRequestUsesCanonicalIdentityAndBootstrapProofWhenProvided() throws {
     let identity = DJConnectIdentity(
         deviceID: "djconnect-watchos-8F3A2C91B45D",
@@ -954,6 +2404,111 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
     #expect(response.pushRegistered == false)
     #expect(response.pushEnvironment == .sandbox)
     #expect(response.lastPushError == "missing_bootstrap_proof")
+}
+
+@Test func commandResponseDecodesDevelopmentPushEnvironmentAsSandbox() throws {
+    let json = """
+    {
+      "success": true,
+      "data": {
+        "push_supported": true,
+        "push_registered": true,
+        "push_environment": "development"
+      }
+    }
+    """.data(using: .utf8)!
+
+    let response = try JSONDecoder().decode(DJConnectCommandResponse.self, from: json)
+
+    #expect(response.pushRegistered == true)
+    #expect(response.pushEnvironment == .sandbox)
+}
+
+@MainActor
+@Test func macOSDevelopmentPushRegistrationAcceptsCanonicalSandboxResponse() async throws {
+    let defaults = try testDefaults()
+    let recorder = RequestRecorder()
+    let session = mockSession(host: "push-sandbox.local") { request in
+        recorder.append(request)
+        return (try httpResponse(for: request, statusCode: 200), Data("""
+        {
+          "success": true,
+          "push_supported": true,
+          "push_registered": true,
+          "push_environment": "sandbox"
+        }
+        """.utf8))
+    }
+    let model = makePairedMusicDNAModel(defaults: defaults, host: "push-sandbox.local", session: session)
+
+    model.handleRemoteNotificationDeviceToken(Data([0xab, 0xcd, 0xef, 0x12]))
+    for _ in 0..<100 where defaults.string(forKey: "DJConnectPushEnvironmentStatus") == nil {
+        try await Task.sleep(for: .milliseconds(100))
+    }
+
+    #expect(recorder.requests.map { $0.url?.path } == ["/api/djconnect/v1/push/register"])
+    #expect(defaults.bool(forKey: "DJConnectPushRegistered") == true)
+    #expect(defaults.string(forKey: "DJConnectPushEnvironmentStatus") == "sandbox")
+    #expect(defaults.string(forKey: "DJConnectLastPushError") == nil)
+}
+
+@MainActor
+@Test func macOSPushInvalidBootstrapProofMarksTemporaryRecoveryWithoutClearingPairing() async throws {
+    let defaults = try testDefaults()
+    let recorder = RequestRecorder()
+    let session = mockSession(host: "push-invalid-bootstrap.local") { request in
+        recorder.append(request)
+        return (try httpResponse(for: request, statusCode: 200), Data("""
+        {
+          "success": false,
+          "error": "invalid_bootstrap_proof",
+          "push_supported": true,
+          "push_registered": false,
+          "push_environment": "sandbox",
+          "last_push_error": "invalid_bootstrap_proof"
+        }
+        """.utf8))
+    }
+    let model = makePairedMusicDNAModel(defaults: defaults, host: "push-invalid-bootstrap.local", session: session)
+
+    model.handleRemoteNotificationDeviceToken(Data([0xab, 0xcd, 0xef, 0x34]))
+    for _ in 0..<100 where defaults.string(forKey: "DJConnectLastPushError") == nil {
+        try await Task.sleep(for: .milliseconds(100))
+    }
+
+    #expect(recorder.requests.map { $0.url?.path } == ["/api/djconnect/v1/push/register"])
+    #expect(defaults.bool(forKey: "DJConnectPushRegistered") == false)
+    #expect(defaults.string(forKey: "DJConnectRegisteredPushSignature") == nil)
+    #expect(defaults.string(forKey: "DJConnectLastPushError") == "invalid_bootstrap_proof")
+    #expect(model.pairingStatus == .paired)
+}
+
+@MainActor
+@Test func sandboxPushRegistrationRejectsProductionResponseEnvironment() async throws {
+    let defaults = try testDefaults()
+    let recorder = RequestRecorder()
+    let session = mockSession(host: "push-production-mismatch.local") { request in
+        recorder.append(request)
+        return (try httpResponse(for: request, statusCode: 200), Data("""
+        {
+          "success": true,
+          "push_supported": true,
+          "push_registered": true,
+          "push_environment": "production"
+        }
+        """.utf8))
+    }
+    let model = makePairedMusicDNAModel(defaults: defaults, host: "push-production-mismatch.local", session: session)
+
+    model.handleRemoteNotificationDeviceToken(Data([0xab, 0xcd, 0xef, 0x56]))
+    for _ in 0..<100 where defaults.string(forKey: "DJConnectLastPushError") == nil {
+        try await Task.sleep(for: .milliseconds(100))
+    }
+
+    #expect(recorder.requests.map { $0.url?.path } == ["/api/djconnect/v1/push/register"])
+    #expect(defaults.bool(forKey: "DJConnectPushRegistered") == false)
+    #expect(defaults.string(forKey: "DJConnectRegisteredPushSignature") == nil)
+    #expect(defaults.string(forKey: "DJConnectLastPushError") == "push_environment_mismatch")
 }
 
 @Test func askDJHistoryResponseDecodesRevisionAndRichMessages() throws {
@@ -1136,882 +2691,1193 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
     #expect(response.assistantMessage?.audioURL == nil)
 }
 
-@Test func askDJMessageResponseDecodesTechnicalTrackAnalysisContract() throws {
-    let json = """
+@Test func askDJMessageResponseDecodesMoodMetadataForAssistantRendering() throws {
+    let payload = Data("""
     {
-      "history_revision": 44,
-      "clear_revision": 7,
-      "text": "Deze track werkt door de strakke 128 BPM puls en geleidelijke laag-opbouw.",
-      "dj_text": "Deze track werkt door de strakke 128 BPM puls en geleidelijke laag-opbouw.",
-      "action": "track_analysis",
-      "intent": {
-        "category": "informational",
-        "intent": "technical_track_analysis",
-        "action": "track_analysis"
+      "dj_text": "Dit past bij de energie van nu.",
+      "mood_context": {
+        "value": 82,
+        "zone": "energy"
       },
-      "analysis": {
-        "mode": "measured_plus_knowledge",
-        "confidence": "high",
-        "track": {
-          "title": "Strobe",
-          "artist": "deadmau5",
-          "album": "For Lack of a Better Name",
-          "uri": "spotify:track:123"
-        },
-        "measured": {
-          "bpm": 128,
-          "key": "C minor",
-          "time_signature": 4,
-          "sections": [
-            {
-              "label": "intro",
-              "index": 1,
-              "start_ms": 0,
-              "duration_ms": 32000,
-              "confidence": 0.7
-            }
-          ],
-          "features": {
-            "energy": 0.82,
-            "danceability": 0.71
-          }
-        },
-        "inferred": {
-          "provider": "ha_conversation",
-          "structure": "Lange intro, laag-opbouw, climax/drop en outro.",
-          "instrumentation": "Synthpads, basdruk en subtiele percussie.",
-          "melodic_build": "Herhaling bouwt spanning op.",
-          "energy_curve": "Geleidelijk stijgend.",
-          "mix_notes": "Brede pads met ruimte voor de kick."
-        },
-        "limitations": [
-          "Exact section labels are inferred, not measured."
-        ],
-        "sources": [
-          "spotify_playback_context",
-          "spotify_audio_features"
-        ]
-      },
-      "items": [
-        {
-          "kind": "technical_metric",
-          "title": "BPM",
-          "value": "128",
-          "source": "spotify_audio_features",
-          "confidence": "high"
-        },
-        {
-          "kind": "arrangement",
-          "title": "Opbouw",
-          "value": "Lange intro, geleidelijke laag-opbouw, climax/drop, outro",
-          "source": "ha_conversation"
-        }
-      ],
-      "images": [],
-      "links": [],
-      "sources": [
-        {
-          "source": "spotify_playback_context",
-          "title": "Spotify playback context",
-          "kind": "source"
-        }
-      ],
-      "playback_actions": [],
-      "confirmation_actions": []
-    }
-    """.data(using: .utf8)!
-
-    let response = try JSONDecoder().decode(DJConnectAskDJMessageResponse.self, from: json)
-    let assistantMessage = try #require(response.assistantMessage)
-
-    #expect(response.intentInfo?.category == "informational")
-    #expect(response.intentInfo?.intent == "technical_track_analysis")
-    #expect(response.intentInfo?.action == "track_analysis")
-    #expect(response.analysis?.mode == "measured_plus_knowledge")
-    #expect(response.analysis?.measured?.bpm == 128)
-    #expect(response.analysis?.measured?.key == "C minor")
-    #expect(response.analysis?.measured?.sections.first?.label == "intro")
-    #expect(response.analysis?.measured?.sections.first?.index == 1)
-    #expect(response.analysis?.inferred?.provider == "ha_conversation")
-    #expect(response.analysis?.inferred?.mixNotes == "Brede pads met ruimte voor de kick.")
-    #expect(response.analysis?.sources == ["spotify_playback_context", "spotify_audio_features"])
-    #expect(response.items?.first?.kind == "technical_metric")
-    #expect(response.items?.first?.value == "128")
-    #expect(response.items?.first?.source == "spotify_audio_features")
-    #expect(response.items?.first?.confidence == "high")
-    #expect(response.sources?.first?.url.scheme == "djconnect-source")
-    #expect(response.sources?.first?.source == "spotify_playback_context")
-    #expect(response.playbackActions?.isEmpty == true)
-    #expect(response.confirmationActions?.isEmpty == true)
-    #expect(assistantMessage.intentInfo?.intent == "technical_track_analysis")
-    #expect(assistantMessage.analysis?.confidence == "high")
-    #expect(assistantMessage.items.count == 2)
-    #expect(assistantMessage.sources.first?.url.scheme == "djconnect-source")
-    #expect(assistantMessage.playbackActions.isEmpty)
-    #expect(assistantMessage.confirmationActions.isEmpty)
-    #expect(assistantMessage.images.isEmpty)
-}
-
-@Test func localAskDJTechnicalTrackAnalysisPreservesExplicitRenderableActions() throws {
-    let message = DJConnectAskDJMessage(
-        role: .dj,
-        text: "Technische trackanalyse.",
-        playbackActions: [
-            DJConnectAskDJPlaybackAction(
-                title: "Unexpected Play",
-                uri: "spotify:track:unexpected",
-                kind: "track"
-            )
-        ],
-        intentInfo: DJConnectAskDJIntentInfo(
-            category: "informational",
-            intent: "technical_track_analysis",
-            action: "track_analysis"
-        ),
-        analysis: try JSONDecoder().decode(
-            DJConnectAskDJTrackAnalysis.self,
-            from: Data(
-                #"""
-                {
-                  "mode": "knowledge_plus_metadata",
-                  "confidence": "low",
-                  "limitations": [
-                    "Exact intro, verse, chorus, drop or outro timestamps were not measured."
-                  ]
-                }
-                """#.utf8
-            )
-        ),
-        items: [
-            DJConnectAskDJHistoryItem(
-                kind: "technical_metric",
-                title: "Energy",
-                value: "0.82",
-                source: "spotify_audio_features",
-                confidence: "high"
-            )
-        ]
-    )
-
-    let encoded = try JSONEncoder().encode(message)
-    let decoded = try JSONDecoder().decode(DJConnectAskDJMessage.self, from: encoded)
-
-    #expect(decoded.isTechnicalTrackAnalysis)
-    #expect(decoded.playbackActions.count == 1)
-    #expect(decoded.renderablePlaybackActions.count == 1)
-    #expect(decoded.analysis?.mode == "knowledge_plus_metadata")
-    #expect(decoded.analysis?.limitations.first == "Exact intro, verse, chorus, drop or outro timestamps were not measured.")
-    #expect(decoded.items.first?.confidence == "high")
-}
-
-@Test func askDJMessageResponseDecodesTechnicalTrackAnalysisV2SectionsTimelineAndTips() throws {
-    let json = """
-    {
-      "text": "Technische analyse, zonder timestamps in prose.",
-      "action": "track_analysis",
-      "intent": {
-        "intent": "technical_track_analysis",
-        "action": "track_analysis"
-      },
-      "analysis": {
-        "contract_version": 2,
-        "mode": "measured_plus_knowledge",
-        "confidence": "medium",
-        "sections": [
-          {
-            "id": "rhythm_bpm",
-            "kind": "technical_metric",
-            "title": "Rhythm / BPM",
-            "value": "128 BPM",
-            "summary": "Steady four-on-the-floor pulse.",
-            "source": "measured",
-            "confidence": "high",
-            "items": [
-              {
-                "kind": "technical_metric",
-                "title": "BPM",
-                "value": "128",
-                "source": "measured",
-                "confidence": "high"
-              }
-            ]
-          },
-          {
-            "id": "energy_curve",
-            "kind": "shape",
-            "title": "Energy curve",
-            "summary": "Builds gradually into a brighter peak.",
-            "source": "inferred",
-            "confidence": "low"
-          }
-        ],
-        "timeline": [
-          {
-            "id": "intro",
-            "label": "Intro",
-            "kind": "intro",
-            "start_ms": 0,
-            "end_ms": 32000,
-            "summary": "Filtered opening.",
-            "source": "measured",
-            "confidence": "medium"
-          }
-        ],
-        "dj_tips": [
-          {
-            "id": "mix_in",
-            "kind": "transition",
-            "title": "Mix in",
-            "text": "Start mixing over the first 16 bars.",
-            "source": "inferred",
-            "confidence": "low"
-          }
-        ],
-        "providers": [
-          {
-            "provider_id": "spotify_measured",
-            "display_name": "Spotify measured",
-            "status": "used",
-            "requires_config": false
-          },
-          {
-            "provider_id": "ha_conversation",
-            "display_name": "Home Assistant conversation",
-            "status": "skipped",
-            "reason": "Not needed for measured fields."
-          },
-          {
-            "provider_id": "local_fallback",
-            "display_name": "Local fallback",
-            "status": "used"
-          }
-        ],
-        "limitations": [
-          "Energy labels are inferred."
-        ],
-        "sources": ["spotify_audio_features", "inferred"]
-      },
-      "items": [
-        {
-          "kind": "technical_metric",
-          "title": "Energy",
-          "value": "0.82",
-          "source": "measured",
-          "confidence": "medium"
-        }
-      ],
-      "images": []
-    }
-    """.data(using: .utf8)!
-
-    let response = try JSONDecoder().decode(DJConnectAskDJMessageResponse.self, from: json)
-    let analysis = try #require(response.analysis)
-    let assistantMessage = try #require(response.assistantMessage)
-
-    #expect(response.intentInfo?.intent == "technical_track_analysis")
-    #expect(response.action == "track_analysis")
-    #expect(analysis.contractVersion == 2)
-    #expect(analysis.sections.count == 2)
-    #expect(analysis.sections.first?.id == "rhythm_bpm")
-    #expect(analysis.sections.first?.items.first?.title == "BPM")
-    #expect(analysis.sections.last?.source == "inferred")
-    #expect(analysis.sections.last?.confidence == "low")
-    #expect(analysis.timeline.first?.startMS == 0)
-    #expect(analysis.timeline.first?.endMS == 32000)
-    #expect(analysis.djTips.first?.kind == "transition")
-    #expect(analysis.providers.count == 3)
-    #expect(analysis.providers.first?.providerID == "spotify_measured")
-    #expect(analysis.providers.first?.status == "used")
-    #expect(analysis.providers.first?.requiresConfig == false)
-    #expect(analysis.providers[1].providerID == "ha_conversation")
-    #expect(analysis.providers[1].status == "skipped")
-    #expect(analysis.providers[1].reason == "Not needed for measured fields.")
-    #expect(analysis.providers[2].providerID == "local_fallback")
-    #expect(analysis.limitations == ["Energy labels are inferred."])
-    #expect(assistantMessage.analysis?.contractVersion == 2)
-    #expect(assistantMessage.analysis?.sections.count == 2)
-    #expect(assistantMessage.analysis?.providers.count == 3)
-    #expect(assistantMessage.items.first?.title == "Energy")
-    #expect(assistantMessage.images.isEmpty)
-    #expect(assistantMessage.playbackActions.isEmpty)
-}
-
-@Test func askDJMessageResponseDecodesTechnicalTrackAnalysisV2WithoutTimeline() throws {
-    let json = """
-    {
-      "dj_text": "Technische analyse zonder timeline.",
-      "intent": {
-        "intent": "technical_track_analysis"
-      },
-      "analysis": {
-        "contract_version": 2,
-        "mode": "knowledge_plus_metadata",
-        "sections": [
-          {
-            "id": "instrumentation",
-            "kind": "description",
-            "title": "Instrumentation",
-            "summary": "Pads and restrained percussion.",
-            "source": "inferred",
-            "confidence": "medium"
-          }
-        ],
-        "dj_tips": [
-          {
-            "kind": "cueing",
-            "text": "Use the pad tail for a smooth transition.",
-            "source": "inferred"
-          }
-        ]
-      }
-    }
-    """.data(using: .utf8)!
-
-    let response = try JSONDecoder().decode(DJConnectAskDJMessageResponse.self, from: json)
-
-    #expect(response.analysis?.contractVersion == 2)
-    #expect(response.analysis?.sections.first?.id == "instrumentation")
-    #expect(response.analysis?.timeline.isEmpty == true)
-    #expect(response.analysis?.djTips.first?.text == "Use the pad tail for a smooth transition.")
-    #expect(response.analysis?.providers.isEmpty == true)
-}
-
-@Test func askDJMessageResponseDecodesTechnicalTrackAnalysisMetaBrainzMetadataContext() throws {
-    let json = """
-    {
-      "text": "Technische analyse met open metadata-context.",
-      "intent": {
-        "intent": "technical_track_analysis",
-        "action": "track_analysis"
-      },
-      "analysis": {
-        "contract_version": 2,
-        "mode": "measured_plus_knowledge",
-        "confidence": "medium",
-        "sections": [
-          {
-            "id": "rhythm_bpm",
-            "kind": "technical_metric",
-            "title": "Rhythm / BPM",
-            "value": "126 BPM",
-            "source": "spotify_audio_features",
-            "confidence": "high"
-          },
-          {
-            "id": "metadata_context",
-            "kind": "metadata_context",
-            "title": "Open metadata",
-            "summary": "Public MusicBrainz and ListenBrainz context, not DSP analysis.",
-            "source": "metabrainz_metadata",
-            "confidence": "medium"
-          }
-        ],
-        "timeline": [
-          {
-            "id": "measured_segment_1",
-            "label": "Segment 1",
-            "start_ms": 0,
-            "source": "spotify_audio_analysis"
-          }
-        ],
-        "dj_tips": [
-          {
-            "id": "mix_tip",
-            "text": "Use the measured BPM for beat matching.",
-            "source": "spotify_audio_features"
-          }
-        ],
-        "metadata": {
-          "musicbrainz_recording_id": "mb-recording-123",
-          "match_score": 93,
-          "recording_title": "Example Track",
-          "artist": "Example Artist",
-          "first_release_date": "1999-04-01",
-          "release": {
-            "title": "Example Release",
-            "date": "1999",
-            "country": "NL",
-            "status": "official"
-          },
-          "genres": ["house", "techno"],
-          "tags": ["club", "classic"],
-          "listenbrainz_listen_count": 12345,
-          "future_metadata_field": "ignored"
-        },
-        "providers": [
-          {
-            "provider_id": "spotify_measured",
-            "display_name": "Spotify measured",
-            "status": "used"
-          },
-          {
-            "provider_id": "metabrainz_metadata",
-            "display_name": "MusicBrainz / ListenBrainz",
-            "status": "used"
-          }
-        ],
-        "limitations": [
-          "MusicBrainz and ListenBrainz metadata is contextual and is not audio DSP analysis."
-        ],
-        "sources": [
-          "spotify_playback_context",
-          "spotify_audio_features",
-          "spotify_audio_analysis",
-          "metabrainz_metadata"
-        ]
-      },
-      "playback_actions": []
-    }
-    """.data(using: .utf8)!
-
-    let response = try JSONDecoder().decode(DJConnectAskDJMessageResponse.self, from: json)
-    let analysis = try #require(response.analysis)
-    let metadata = try #require(analysis.metadata)
-
-    #expect(analysis.sections.count == 2)
-    #expect(analysis.sections[0].id == "rhythm_bpm")
-    #expect(analysis.sections[1].id == "metadata_context")
-    #expect(analysis.sections[1].source == "metabrainz_metadata")
-    #expect(analysis.timeline.count == 1)
-    #expect(analysis.timeline.first?.label == "Segment 1")
-    #expect(metadata.musicBrainzRecordingID == "mb-recording-123")
-    #expect(metadata.matchScore == 93)
-    #expect(metadata.recordingTitle == "Example Track")
-    #expect(metadata.artist == "Example Artist")
-    #expect(metadata.firstReleaseDate == "1999-04-01")
-    #expect(metadata.release?.title == "Example Release")
-    #expect(metadata.release?.country == "NL")
-    #expect(metadata.genres == ["house", "techno"])
-    #expect(metadata.tags == ["club", "classic"])
-    #expect(metadata.listenBrainzListenCount == 12345)
-    #expect(analysis.providers.contains { $0.providerID == "metabrainz_metadata" && $0.status == "used" })
-    #expect(analysis.sources.contains("metabrainz_metadata"))
-    #expect(analysis.limitations.first?.contains("contextual") == true)
-    #expect(response.assistantMessage?.playbackActions.isEmpty == true)
-}
-
-@Test func askDJMessageResponseDecodesMetaBrainzProviderSkippedRateLimited() throws {
-    let json = """
-    {
-      "text": "Analyse zonder externe metadata.",
-      "intent": {
-        "intent": "technical_track_analysis"
-      },
-      "analysis": {
-        "contract_version": 2,
-        "sections": [
-          {
-            "id": "rhythm_bpm",
-            "value": "126 BPM"
-          }
-        ],
-        "providers": [
-          {
-            "provider_id": "metabrainz_metadata",
-            "display_name": "MusicBrainz / ListenBrainz",
-            "status": "skipped",
-            "reason": "rate_limited"
-          }
-        ]
-      }
-    }
-    """.data(using: .utf8)!
-
-    let response = try JSONDecoder().decode(DJConnectAskDJMessageResponse.self, from: json)
-    let provider = try #require(response.analysis?.providers.first)
-
-    #expect(response.analysis?.metadata == nil)
-    #expect(response.analysis?.sections.first?.id == "rhythm_bpm")
-    #expect(provider.providerID == "metabrainz_metadata")
-    #expect(provider.status == "skipped")
-    #expect(provider.reason == "rate_limited")
-}
-
-@Test func askDJMessageResponseDecodesMetaBrainzProviderErrorWithoutBreakingAnalysis() throws {
-    let json = """
-    {
-      "text": "Analyse met providerfout.",
-      "intent": {
-        "intent": "technical_track_analysis"
-      },
-      "analysis": {
-        "contract_version": 2,
-        "sections": [
-          {
-            "id": "energy_curve",
-            "summary": "Energy still comes from the normal analysis payload."
-          }
-        ],
-        "providers": [
-          {
-            "provider_id": "metabrainz_metadata",
-            "status": "error",
-            "reason": "lookup_failed"
-          }
-        ]
-      },
-      "playback_actions": []
-    }
-    """.data(using: .utf8)!
-
-    let response = try JSONDecoder().decode(DJConnectAskDJMessageResponse.self, from: json)
-
-    #expect(response.analysis?.sections.first?.id == "energy_curve")
-    #expect(response.analysis?.providers.first?.providerID == "metabrainz_metadata")
-    #expect(response.analysis?.providers.first?.status == "error")
-    #expect(response.analysis?.providers.first?.reason == "lookup_failed")
-    #expect(response.assistantMessage?.playbackActions.isEmpty == true)
-}
-
-@Test func askDJTechnicalTrackAnalysisMetadataContextDoesNotCreateFakeTimelineLabels() throws {
-    let json = """
-    {
-      "text": "Metadata-context beschrijft release-informatie.",
-      "intent": {
-        "intent": "technical_track_analysis"
-      },
-      "analysis": {
-        "contract_version": 2,
-        "sections": [
-          {
-            "id": "metadata_context",
-            "kind": "metadata_context",
-            "title": "Open metadata",
-            "summary": "Known public metadata mentions intro and club tags, but no measured arrangement was returned.",
-            "source": "metabrainz_metadata"
-          }
-        ],
-        "metadata": {
-          "musicbrainz_recording_id": "mb-recording-456",
-          "tags": ["intro", "club"]
-        },
-        "sources": ["metabrainz_metadata"]
-      },
-      "playback_actions": []
-    }
-    """.data(using: .utf8)!
-
-    let response = try JSONDecoder().decode(DJConnectAskDJMessageResponse.self, from: json)
-    let analysis = try #require(response.analysis)
-
-    #expect(analysis.sections.first?.id == "metadata_context")
-    #expect(analysis.metadata?.tags == ["intro", "club"])
-    #expect(analysis.timeline.isEmpty)
-    #expect(analysis.measured?.sections.isEmpty != false)
-    #expect(response.assistantMessage?.playbackActions.isEmpty == true)
-}
-
-@Test func askDJMessageResponseDecodesUnknownTechnicalTrackAnalysisProviders() throws {
-    let json = """
-    {
-      "text": "Future provider analysis.",
-      "intent": {
-        "intent": "technical_track_analysis"
-      },
-      "analysis": {
-        "contract_version": 2,
-        "mode": "measured_plus_knowledge",
-        "sections": [
-          {
-            "id": "rhythm_bpm",
-            "kind": "technical_metric",
-            "title": "Rhythm / BPM",
-            "value": "128 BPM"
-          }
-        ],
-        "timeline": [
-          {
-            "id": "intro",
-            "label": "Intro",
-            "start_ms": 0
-          }
-        ],
-        "dj_tips": [
-          {
-            "id": "mix_in",
-            "text": "Keep the intro clean."
-          }
-        ],
-        "providers": [
-          {
-            "provider_id": "future_provider",
-            "display_name": "Future provider",
-            "status": "warming_up",
-            "requires_config": true,
-            "reason": "future_reason",
-            "ignored_field": "ignored"
-          }
-        ]
-      },
-      "playback_actions": []
-    }
-    """.data(using: .utf8)!
-
-    let response = try JSONDecoder().decode(DJConnectAskDJMessageResponse.self, from: json)
-    let analysis = try #require(response.analysis)
-
-    #expect(analysis.sections.first?.value == "128 BPM")
-    #expect(analysis.timeline.first?.label == "Intro")
-    #expect(analysis.djTips.first?.text == "Keep the intro clean.")
-    #expect(analysis.providers.count == 1)
-    #expect(analysis.providers.first?.providerID == "future_provider")
-    #expect(analysis.providers.first?.displayName == "Future provider")
-    #expect(analysis.providers.first?.status == "warming_up")
-    #expect(analysis.providers.first?.requiresConfig == true)
-    #expect(analysis.providers.first?.reason == "future_reason")
-    #expect(response.assistantMessage?.playbackActions.isEmpty == true)
-}
-
-@Test func askDJMessageResponseDecodesUnavailableTechnicalTrackAnalysisV2() throws {
-    let json = """
-    {
-      "text": "Ik kan nu geen track analyseren.",
-      "action": "track_analysis",
-      "intent": {
-        "intent": "technical_track_analysis",
-        "action": "track_analysis"
-      },
-      "analysis": {
-        "contract_version": 2,
-        "mode": "unavailable",
-        "confidence": "low",
-        "limitations": [
-          "No active Spotify playback context is available."
-        ],
-        "sources": ["unavailable"],
-        "providers": [
-          {
-            "provider_id": "spotify_measured",
-            "status": "skipped",
-            "reason": "No active playback context."
-          },
-          {
-            "provider_id": "ha_conversation",
-            "status": "skipped",
-            "reason": "No track metadata available."
-          }
-        ]
-      }
-    }
-    """.data(using: .utf8)!
-
-    let response = try JSONDecoder().decode(DJConnectAskDJMessageResponse.self, from: json)
-
-    #expect(response.analysis?.contractVersion == 2)
-    #expect(response.analysis?.mode == "unavailable")
-    #expect(response.analysis?.confidence == "low")
-    #expect(response.analysis?.sections.isEmpty == true)
-    #expect(response.analysis?.limitations.first == "No active Spotify playback context is available.")
-    #expect(response.analysis?.providers.allSatisfy { $0.status == "skipped" } == true)
-}
-
-@Test func askDJMessageResponseDecodesUnknownTechnicalTrackAnalysisV2Values() throws {
-    let json = """
-    {
-      "text": "Future analysis payload.",
-      "intent": {
-        "intent": "technical_track_analysis"
-      },
-      "analysis": {
-        "contract_version": 2,
-        "sections": [
-          {
-            "id": "future_section",
-            "kind": "spectral_flux",
-            "title": "Spectral Flux",
-            "value": "Wide",
-            "source": "local_fallback",
-            "confidence": "low"
-          }
-        ],
-        "timeline": [
-          {
-            "kind": "mystery_segment",
-            "label": "Unknown part",
-            "start_ms": 64000,
-            "source": "future_source"
-          }
-        ],
-        "dj_tips": [
-          {
-            "kind": "future_tip",
-            "text": "Treat this as a generic tip.",
-            "source": "local_fallback"
-          }
-        ]
-      }
-    }
-    """.data(using: .utf8)!
-
-    let response = try JSONDecoder().decode(DJConnectAskDJMessageResponse.self, from: json)
-
-    #expect(response.analysis?.sections.first?.id == "future_section")
-    #expect(response.analysis?.sections.first?.kind == "spectral_flux")
-    #expect(response.analysis?.sections.first?.source == "local_fallback")
-    #expect(response.analysis?.timeline.first?.kind == "mystery_segment")
-    #expect(response.analysis?.timeline.first?.source == "future_source")
-    #expect(response.analysis?.djTips.first?.kind == "future_tip")
-}
-
-@Test func askDJMessageResponseWithoutPlaybackActionsDoesNotReusePreviousActions() throws {
-    let previous = DJConnectAskDJMessage(
-        serverID: "same-server-id",
-        role: .dj,
-        text: "Previous answer",
-        playbackActions: [
-            DJConnectAskDJPlaybackAction(title: "Play previous", uri: "spotify:track:previous", kind: "track")
-        ]
-    )
-    let json = """
-    {
       "assistant_message": {
-        "id": "same-server-id",
+        "id": "server-assistant-mood",
         "role": "assistant",
-        "text": "Read-only analysis.",
-        "intent": {
-          "intent": "technical_track_analysis",
-          "action": "track_analysis"
-        },
-        "analysis": {
-          "contract_version": 2,
-          "mode": "measured",
-          "sections": [
-            {
-              "id": "rhythm_bpm",
-              "value": "128 BPM"
-            }
-          ]
-        }
-      }
-    }
-    """.data(using: .utf8)!
-
-    let response = try JSONDecoder().decode(DJConnectAskDJMessageResponse.self, from: json)
-    let message = DJConnectAskDJMessage(
-        serverID: response.assistantMessage?.id,
-        role: .dj,
-        text: response.assistantMessage?.text ?? "",
-        playbackActions: response.assistantMessage?.playbackActions ?? [],
-        intentInfo: response.assistantMessage?.intentInfo,
-        analysis: response.assistantMessage?.analysis
-    )
-
-    #expect(previous.playbackActions.count == 1)
-    #expect(message.isTechnicalTrackAnalysis)
-    #expect(message.playbackActions.isEmpty)
-    #expect(message.renderablePlaybackActions.isEmpty)
-}
-
-@Test func askDJMessageResponseIgnoresLegacyRecommendationActionAliases() throws {
-    let json = """
-    {
-      "history_revision": 44,
-      "clear_revision": 7,
-      "assistant_message": {
-        "id": "server-assistant-text-only",
-        "role": "assistant",
-        "text": "Ik heb drie suggesties, maar start niets zonder expliciete actie.",
-        "created_at": "2026-06-19T12:35:00Z",
-        "recommendation_actions": [
-          {
-            "id": "legacy-action",
-            "title": "Play legacy recommendation",
-            "uri": "spotify:track:legacy",
-            "kind": "track"
-          }
-        ]
+        "text": "Energy bubble.",
+        "created_at": "2026-07-03T20:00:00Z"
       },
-      "recommendations": [
+      "messages": [
         {
-          "id": "legacy-top-level",
-          "title": "Play legacy top-level recommendation",
-          "uri": "spotify:track:legacy-top-level",
-          "kind": "track"
+          "id": "server-user-mood",
+          "role": "user",
+          "text": "Wat past hierbij?",
+          "created_at": "2026-07-03T19:59:58Z"
+        },
+        {
+          "id": "server-assistant-list-mood",
+          "role": "assistant",
+          "text": "Energy bubble.",
+          "created_at": "2026-07-03T20:00:00Z"
         }
       ]
     }
-    """.data(using: .utf8)!
+    """.utf8)
 
-    let response = try JSONDecoder().decode(DJConnectAskDJMessageResponse.self, from: json)
+    let response = try JSONDecoder().decode(DJConnectAskDJMessageResponse.self, from: payload)
 
-    #expect(response.playbackActions == nil)
-    #expect(response.assistantMessage?.playbackActions.isEmpty == true)
+    #expect(response.mood == 82)
+    #expect(response.assistantMessage?.mood == 82)
+    #expect(response.messages.first(where: { $0.role == .user })?.mood == nil)
+    #expect(response.messages.first(where: { $0.role == .assistant })?.mood == 82)
 }
 
-@Test func recentlyPlayedHistoryResponseDecodesItemsWithoutImplicitPlaybackActions() throws {
-    let json = """
+@Test func askDJHistoryMessageDecodesOwnMoodMetadata() throws {
+    let payload = Data("""
     {
-      "history_revision": 51,
-      "clear_revision": 7,
-      "intent": {
-        "intent": "recently_played_history",
-        "item_type": "tracks"
+      "id": "assistant-party",
+      "role": "assistant",
+      "text": "Party bubble.",
+      "mood": 94,
+      "created_at": "2026-07-03T20:00:00Z"
+    }
+    """.utf8)
+
+    let message = try JSONDecoder().decode(DJConnectAskDJHistoryMessage.self, from: payload)
+
+    #expect(message.mood == 94)
+}
+
+@Test func trackInsightRequestUsesDirectEndpointAndPayload() throws {
+    let client = DJConnectClient(
+        baseURL: URL(string: "http://homeassistant.local:8123")!,
+        identity: DJConnectIdentity(
+            deviceID: "djconnect-ios-8F3A2C91B45D",
+            deviceName: "iPhone",
+            clientType: .ios,
+            firmware: "3.2.0",
+            appVersion: "3.2.0",
+            platform: .ios
+        ),
+        tokenStore: DJConnectInMemoryTokenStore(token: "token")
+    )
+
+    let request = try client.trackInsightRequest(DJConnectTrackInsightRequest(
+        title: "Innerbloom",
+        artist: "RUFUS DU SOL",
+        album: "Bloom",
+        artworkURL: URL(string: "https://example.com/innerbloom.jpg"),
+        durationMS: 544_000,
+        progressMS: 123_000,
+        entityID: "media_player.living_room",
+        playerID: "spotify-player",
+        musicBackend: "spotify",
+        clientType: "ios",
+        forceRefresh: true,
+        locale: "nl",
+        mood: 70,
+        musicDNAKey: "djconnect_ios_djconnect-ios-8F3A2C91B45D",
+        includeVisualProfile: true,
+        includeRawResponse: true
+    ))
+    let body = try #require(request.httpBody)
+    let object = try JSONSerialization.jsonObject(with: body) as? [String: Any]
+
+    #expect(request.httpMethod == "POST")
+    #expect(request.url?.path == "/api/djconnect/v1/track_insight")
+    #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer token")
+    #expect(request.value(forHTTPHeaderField: "X-DJConnect-Language") == "nl")
+    #expect(request.value(forHTTPHeaderField: "X-DJConnect-Locale") == "nl")
+    #expect(request.value(forHTTPHeaderField: "Accept-Language") == "nl")
+    #expect(request.value(forHTTPHeaderField: "X-DJConnect-Mood") == "70")
+    #expect(request.value(forHTTPHeaderField: "X-DJConnect-Music-DNA-Key") == "djconnect_ios_djconnect-ios-8F3A2C91B45D")
+    #expect((object?["device_id"] as? String) == "djconnect-ios-8F3A2C91B45D")
+    #expect((object?["client_id"] as? String) == "djconnect-ios-8F3A2C91B45D")
+    #expect((object?["device_name"] as? String) == "iPhone")
+    #expect((object?["client_type"] as? String) == "ios")
+    let topIdentity = object?["identity"] as? [String: Any]
+    let payload = object?["payload"] as? [String: Any]
+    let payloadIdentity = payload?["identity"] as? [String: Any]
+    #expect(topIdentity?["device_id"] as? String == "djconnect-ios-8F3A2C91B45D")
+    #expect(topIdentity?["client_id"] as? String == "djconnect-ios-8F3A2C91B45D")
+    #expect(topIdentity?["client_type"] as? String == "ios")
+    #expect(topIdentity?["device_token"] as? String == "token")
+    #expect(payload?["track_name"] as? String == "Innerbloom")
+    #expect(payloadIdentity?["device_id"] as? String == "djconnect-ios-8F3A2C91B45D")
+    #expect(payloadIdentity?["device_token"] as? String == "token")
+    #expect((object?["title"] as? String) == "Innerbloom")
+    #expect((object?["track_name"] as? String) == "Innerbloom")
+    #expect((object?["artist"] as? String) == "RUFUS DU SOL")
+    #expect((object?["artist_name"] as? String) == "RUFUS DU SOL")
+    #expect((object?["album"] as? String) == "Bloom")
+    #expect((object?["album_name"] as? String) == "Bloom")
+    #expect((object?["artwork_url"] as? String) == "https://example.com/innerbloom.jpg")
+    let track = object?["track"] as? [String: Any]
+    #expect(track?["title"] as? String == "Innerbloom")
+    #expect(track?["artist"] as? String == "RUFUS DU SOL")
+    #expect(track?["album"] as? String == "Bloom")
+    #expect(track?["artwork_url"] as? String == "https://example.com/innerbloom.jpg")
+    #expect(track?["duration_ms"] as? Int == 544_000)
+    #expect(track?["progress_ms"] as? Int == 123_000)
+    #expect(track?["entity_id"] as? String == "media_player.living_room")
+    #expect(track?["player_id"] as? String == "spotify-player")
+    #expect(track?["backend"] as? String == "spotify")
+    #expect((object?["duration_ms"] as? Int) == 544_000)
+    #expect((object?["progress_ms"] as? Int) == 123_000)
+    #expect((object?["entity_id"] as? String) == "media_player.living_room")
+    #expect((object?["player_id"] as? String) == "spotify-player")
+    #expect((object?["music_backend"] as? String) == "spotify")
+    #expect((object?["force_refresh"] as? Bool) == true)
+    #expect((object?["locale"] as? String) == "nl")
+    #expect((object?["language"] as? String) == "nl")
+    #expect((object?["mood"] as? Int) == 70)
+    #expect((object?["music_dna_key"] as? String) == "djconnect_ios_djconnect-ios-8F3A2C91B45D")
+    #expect((object?["include_visual_profile"] as? Bool) == true)
+    #expect((object?["include_raw_response"] as? Bool) == true)
+}
+
+@Test func trackInsightRequestUsesMacOSIdentityAliases() throws {
+    let client = DJConnectClient(
+        baseURL: URL(string: "http://homeassistant-mac.local:8123")!,
+        identity: DJConnectIdentity(
+            deviceID: "djconnect-macos-8F3A2C91B45D",
+            deviceName: "DJConnect Mac",
+            clientType: .macos,
+            firmware: "3.2.0",
+            appVersion: "3.2.0",
+            platform: .macos
+        ),
+        tokenStore: DJConnectInMemoryTokenStore(token: "token")
+    )
+
+    let request = try client.trackInsightRequest(DJConnectTrackInsightRequest(
+        title: "Natural Blues",
+        artist: "Moby",
+        forceRefresh: false,
+        includeVisualProfile: true
+    ))
+    let body = try #require(request.httpBody)
+    let object = try JSONSerialization.jsonObject(with: body) as? [String: Any]
+
+    #expect((object?["device_id"] as? String) == "djconnect-macos-8F3A2C91B45D")
+    #expect((object?["client_id"] as? String) == "djconnect-macos-8F3A2C91B45D")
+    #expect((object?["device_name"] as? String) == "DJConnect Mac")
+    #expect((object?["client_type"] as? String) == "macos")
+    #expect((object?["title"] as? String) == "Natural Blues")
+    #expect((object?["track_name"] as? String) == "Natural Blues")
+    #expect((object?["artist"] as? String) == "Moby")
+    #expect((object?["artist_name"] as? String) == "Moby")
+}
+
+@Test func vibeCastResponseDecodesSuccessAndStructuredText() throws {
+    let json = Data(#"""
+    {
+      "enabled": true,
+      "revision": 12,
+      "ttl_seconds": 45,
+      "poll_after_seconds": 20,
+      "context": {
+        "track_id": "track-1",
+        "title": "Song Title",
+        "artist": "Artist Name",
+        "album": "Album Name",
+        "music_backend": "music_assistant",
+        "music_backend_name": "Music Assistant",
+        "music_backend_revision": 2
       },
       "items": [
         {
-          "kind": "track",
-          "title": "Midnight City",
-          "subtitle": "M83",
-          "uri": "spotify:track:recent",
-          "source": "spotify_recently_played"
+          "id": "fact-1",
+          "kind": "track_fact",
+          "tone": "playful",
+          "priority": 50,
+          "display_seconds": 8,
+          "placement_hint": "side",
+          "text": [
+            { "type": "emoji", "value": "♪ ♫ " },
+            { "type": "text", "value": "This track rides on " },
+            { "type": "strong", "value": "space and pulse" },
+            { "type": "text", "value": "." }
+          ],
+          "source": { "kind": "generated", "confidence": "medium" }
         }
       ],
-      "assistant_message": {
-        "id": "recent-history",
-        "role": "assistant",
-        "text": "Dit draaide je net.",
-        "created_at": "2026-06-19T12:35:00Z",
-        "items": [
-          {
-            "kind": "track",
-            "title": "Midnight City",
-            "subtitle": "M83",
-            "source": "spotify_recently_played"
-          }
+      "cache": { "hit": false }
+    }
+    """#.utf8)
+
+    let response = try JSONDecoder().decode(DJConnectVibeCastResponse.self, from: json)
+
+    #expect(response.enabled == true)
+    #expect(response.revision == 12)
+    #expect(response.effectivePollAfterSeconds == 20)
+    #expect(response.context?.musicBackend == "music_assistant")
+    #expect(response.items.first?.kind == .trackFact)
+    #expect(response.items.first?.text[0].type == .emoji)
+    #expect(response.items.first?.text[2].type == .strong)
+    #expect(response.items.first?.plainText == "♪ ♫ This track rides on space and pulse.")
+}
+
+@Test func vibeCastResponseDecodesDisabledAndUnknownSegmentsGracefully() throws {
+    let disabled = try JSONDecoder().decode(
+        DJConnectVibeCastResponse.self,
+        from: Data(#"{"enabled":false,"reason":"no_active_playback","ttl_seconds":30,"poll_after_seconds":30,"items":[]}"#.utf8)
+    )
+    #expect(disabled.enabled == false)
+    #expect(disabled.reason == "no_active_playback")
+    #expect(disabled.items.isEmpty)
+
+    let unknown = try JSONDecoder().decode(
+        DJConnectVibeCastResponse.self,
+        from: Data(#"{"enabled":true,"items":[{"id":"x","kind":"future_kind","text":[{"type":"sparkle","value":"safe fallback"}]}]}"#.utf8)
+    )
+    #expect(unknown.items.first?.kind == .unknown("future_kind"))
+    #expect(unknown.items.first?.text.first?.type == .unknown("sparkle"))
+    #expect(unknown.items.first?.plainText == "safe fallback")
+}
+
+@Test func vibeCastResponseDecodesEmojiOnlyBubbleSegments() throws {
+    let single = try JSONDecoder().decode(
+        DJConnectVibeCastResponse.self,
+        from: Data(#"{"enabled":true,"items":[{"id":"single-emoji","kind":"mood_note","text":[{"type":"emoji","value":"🎧 "}]}]}"#.utf8)
+    )
+    #expect(single.items.first?.text.map(\.type) == [.emoji])
+    #expect(single.items.first?.plainText == "🎧 ")
+
+    let response = try JSONDecoder().decode(
+        DJConnectVibeCastResponse.self,
+        from: Data(#"{"enabled":true,"items":[{"id":"emoji","kind":"mood_note","text":[{"type":"emoji","value":"♪ ♫ "},{"type":"emoji","value":"✨ "},{"type":"emoji","value":"🎧 "}]}]}"#.utf8)
+    )
+
+    #expect(response.items.first?.text.map(\.type) == [.emoji, .emoji, .emoji])
+    #expect(response.items.first?.plainText == "♪ ♫ ✨ 🎧 ")
+}
+
+@Test func vibeCastResponseStillDecodesLegacyStructuredTextWithoutEmoji() throws {
+    let response = try JSONDecoder().decode(
+        DJConnectVibeCastResponse.self,
+        from: Data(#"{"enabled":true,"items":[{"id":"legacy","kind":"track_fact","text":[{"type":"text","value":"This track rides on "},{"type":"strong","value":"space and pulse"},{"type":"text","value":"."}]}]}"#.utf8)
+    )
+
+    #expect(response.items.first?.text.map(\.type) == [.text, .strong, .text])
+    #expect(response.items.first?.plainText == "This track rides on space and pulse.")
+}
+
+@Test func vibeCastRequestsUseEquivalentIOSAndMacOSMetadata() throws {
+    let iosClient = DJConnectClient(
+        baseURL: URL(string: "http://homeassistant.local:8123")!,
+        identity: DJConnectIdentity(
+            deviceID: "djconnect-ios-8F3A2C91B45D",
+            deviceName: "iPhone",
+            clientType: .ios,
+            firmware: "3.2.12",
+            appVersion: "3.2.12",
+            platform: .ios
+        ),
+        tokenStore: DJConnectInMemoryTokenStore(token: "token")
+    )
+    let macClient = DJConnectClient(
+        baseURL: URL(string: "http://homeassistant.local:8123")!,
+        identity: DJConnectIdentity(
+            deviceID: "djconnect-macos-8F3A2C91B45D",
+            deviceName: "Mac",
+            clientType: .macos,
+            firmware: "3.2.12",
+            appVersion: "3.2.12",
+            platform: .macos
+        ),
+        tokenStore: DJConnectInMemoryTokenStore(token: "token")
+    )
+
+    let payload = DJConnectVibeCastRequest(locale: "nl-NL", timezone: "Europe/Oslo")
+    let iosRequest = try iosClient.vibeCastRequest(payload)
+    let macRequest = try macClient.vibeCastRequest(payload)
+    let iosURL = try #require(iosRequest.url)
+    let macURL = try #require(macRequest.url)
+    let iosQuery = try #require(URLComponents(url: iosURL, resolvingAgainstBaseURL: false)?.queryItems)
+    let macQuery = try #require(URLComponents(url: macURL, resolvingAgainstBaseURL: false)?.queryItems)
+
+    #expect(iosRequest.httpMethod == "GET")
+    #expect(macRequest.httpMethod == "GET")
+    #expect(iosRequest.url?.path == "/api/djconnect/v1/vibecast")
+    #expect(macRequest.url?.path == "/api/djconnect/v1/vibecast")
+    #expect(iosRequest.value(forHTTPHeaderField: "Authorization") == "Bearer token")
+    #expect(macRequest.value(forHTTPHeaderField: "Authorization") == "Bearer token")
+    #expect(iosRequest.value(forHTTPHeaderField: "X-DJConnect-Locale") == "nl-NL")
+    #expect(macRequest.value(forHTTPHeaderField: "X-DJConnect-Locale") == "nl-NL")
+    #expect(iosRequest.value(forHTTPHeaderField: "X-DJConnect-Render-Capabilities") == macRequest.value(forHTTPHeaderField: "X-DJConnect-Render-Capabilities"))
+    #expect(iosRequest.value(forHTTPHeaderField: "X-DJConnect-Render-Capabilities")?.split(separator: ",").contains("emoji_safe") == true)
+    #expect(iosQuery.first(where: { $0.name == "client_type" })?.value == "ios")
+    #expect(macQuery.first(where: { $0.name == "client_type" })?.value == "macos")
+    #expect(iosQuery.first(where: { $0.name == "capabilities" })?.value == macQuery.first(where: { $0.name == "capabilities" })?.value)
+    #expect(iosQuery.first(where: { $0.name == "capabilities" })?.value?.split(separator: ",").contains("emoji_safe") == true)
+    #expect(iosQuery.first(where: { $0.name == "locale" })?.value == macQuery.first(where: { $0.name == "locale" })?.value)
+    #expect(iosQuery.first(where: { $0.name == "timezone" })?.value == macQuery.first(where: { $0.name == "timezone" })?.value)
+}
+
+@Test func vibeCastRequestCanOmitEmojiSafeCapabilityWithoutCrashing() throws {
+    let client = DJConnectClient(
+        baseURL: URL(string: "http://homeassistant.local:8123")!,
+        identity: testIOSIdentity(deviceID: "djconnect-ios-no-emoji"),
+        tokenStore: DJConnectInMemoryTokenStore(token: "token")
+    )
+
+    let request = try client.vibeCastRequest(DJConnectVibeCastRequest(capabilities: ["bold", "accent"]))
+    let capabilities = request.value(forHTTPHeaderField: "X-DJConnect-Render-Capabilities")?.split(separator: ",")
+
+    #expect(capabilities?.contains("emoji_safe") == false)
+    #expect(capabilities?.contains("bold") == true)
+    #expect(capabilities?.contains("accent") == true)
+}
+
+@Test func vibeCastWebSocketFastPathSucceedsWithoutHTTP() async throws {
+    let fastPath = MockWebSocketFastPathTransport(supportedRoutes: [.vibeCast])
+    let client = DJConnectClient(
+        baseURL: URL(string: "http://vibecast-fast.local:8123")!,
+        identity: testIOSIdentity(deviceID: "djconnect-ios-8F3A2C91B45D"),
+        tokenStore: DJConnectInMemoryTokenStore(token: "device-token"),
+        session: mockSession(host: "vibecast-fast.local") { request in
+            Issue.record("HTTP should not be used when WebSocket VibeCast succeeds")
+            return (try httpResponse(for: request, statusCode: 500), Data())
+        },
+        webSocketFastPath: fastPath
+    )
+
+    let response = try await client.vibeCast(DJConnectVibeCastRequest(locale: "nl-NL", timezone: "Europe/Oslo"))
+
+    #expect(response.enabled == true)
+    #expect(response.revision == 7)
+    #expect(response.context?.trackID == "fast-track")
+    #expect(response.items.first?.plainText == "Fast fact")
+    #expect(await fastPath.vibeCastCalls == 1)
+    #expect(await fastPath.receivedVibeCastIdentity?.clientType == .ios)
+    #expect(await fastPath.receivedVibeCastIdentity?.deviceID == "djconnect-ios-8F3A2C91B45D")
+    #expect(await fastPath.receivedVibeCastPayload?.locale == "nl-NL")
+    #expect(await fastPath.receivedVibeCastPayload?.timezone == "Europe/Oslo")
+    #expect(await fastPath.receivedTokens == ["device-token"])
+}
+
+@Test func vibeCastWebSocketFailureFallsBackToHTTPExactlyOnce() async throws {
+    let fastPath = MockWebSocketFastPathTransport(supportedRoutes: [.vibeCast])
+    await fastPath.setVibeCastError(DJConnectError.network(message: "timeout"))
+    final class Counter: @unchecked Sendable {
+        let lock = NSLock()
+        var value = 0
+        func increment() { lock.withLock { value += 1 } }
+        var count: Int { lock.withLock { value } }
+    }
+    let counter = Counter()
+    let client = DJConnectClient(
+        baseURL: URL(string: "http://vibecast-fallback.local:8123")!,
+        identity: testIOSIdentity(),
+        tokenStore: DJConnectInMemoryTokenStore(token: "device-token"),
+        session: mockSession(host: "vibecast-fallback.local") { request in
+            counter.increment()
+            #expect(request.url?.path == "/api/djconnect/v1/vibecast")
+            return (
+                try httpResponse(for: request, statusCode: 200),
+                Data(#"{"enabled":true,"revision":8,"poll_after_seconds":30,"context":{"track_id":"http-track"},"items":[{"id":"http-fact","kind":"trivia","text":[{"type":"text","value":"HTTP fact"}]}]}"#.utf8)
+            )
+        },
+        webSocketFastPath: fastPath
+    )
+
+    let response = try await client.vibeCast(DJConnectVibeCastRequest(locale: "en-US"))
+
+    #expect(response.revision == 8)
+    #expect(response.context?.trackID == "http-track")
+    #expect(response.items.first?.plainText == "HTTP fact")
+    #expect(await fastPath.vibeCastCalls == 1)
+    #expect(counter.count == 1)
+}
+
+@Test func appleClientCodeDoesNotReferenceRemovedDJConnectHAPlaybackEntities() throws {
+    let repositoryRoot = URL(fileURLWithPath: #filePath)
+        .deletingLastPathComponent()
+        .deletingLastPathComponent()
+        .deletingLastPathComponent()
+    let scannedRoots = ["Sources", "Apps"].map { repositoryRoot.appendingPathComponent($0) }
+    let removedEntities = [
+        "djconnect_volume",
+        "djconnect_shuffle",
+        "djconnect_repeat_state",
+        "djconnect_sound_output",
+        "djconnect_spotify_status",
+        "djconnect_playback_available",
+        "djconnect_queue",
+        "djconnect_playlists",
+        "djconnect_outputs",
+        "sensor.djconnect_",
+        "number.djconnect_volume",
+        "select.djconnect_sound_output",
+        "switch.djconnect_shuffle"
+    ]
+    let resourceKeys: Set<URLResourceKey> = [.isDirectoryKey, .isRegularFileKey]
+    let sourceExtensions = Set(["swift", "strings"])
+
+    for root in scannedRoots {
+        guard let enumerator = FileManager.default.enumerator(
+            at: root,
+            includingPropertiesForKeys: Array(resourceKeys),
+            options: [.skipsHiddenFiles]
+        ) else {
+            continue
+        }
+        for case let fileURL as URL in enumerator {
+            let values = try fileURL.resourceValues(forKeys: resourceKeys)
+            if values.isDirectory == true {
+                continue
+            }
+            guard values.isRegularFile == true, sourceExtensions.contains(fileURL.pathExtension) else {
+                continue
+            }
+            let contents = try String(contentsOf: fileURL, encoding: .utf8)
+            for entity in removedEntities {
+                #expect(contents.contains(entity) == false, "\(fileURL.path) references removed HA playback entity \(entity)")
+            }
+        }
+    }
+}
+
+@Test func commandWebSocketFastPathSucceedsWithoutHTTP() async throws {
+    let fastPath = MockWebSocketFastPathTransport(supportedRoutes: [.command])
+    let client = DJConnectClient(
+        baseURL: URL(string: "http://fast-path.local:8123")!,
+        identity: testIOSIdentity(deviceID: "djconnect-ios-8F3A2C91B45D"),
+        tokenStore: DJConnectInMemoryTokenStore(token: "device-token"),
+        session: mockSession(host: "fast-path.local") { request in
+            Issue.record("HTTP should not be used when WebSocket command succeeds")
+            return (try httpResponse(for: request, statusCode: 500), Data(#"{"success":false}"#.utf8))
+        },
+        webSocketFastPath: fastPath
+    )
+
+    let response = try await client.sendCommandResponse(DJConnectCommandPayload(
+        identity: testIOSIdentity(deviceID: "djconnect-ios-8F3A2C91B45D"),
+        command: "play",
+        language: "en-GB"
+    ))
+
+    #expect(response.success == true)
+    #expect(response.playback?.trackName == "WebSocket Track")
+    #expect(await fastPath.commandCalls == 1)
+    #expect(await fastPath.receivedTokens == ["device-token"])
+    #expect(await fastPath.receivedCommandPayload?.clientType == .ios)
+    #expect(await fastPath.receivedCommandPayload?.deviceID == "djconnect-ios-8F3A2C91B45D")
+    #expect(await fastPath.receivedCommandPayload?.language == "en-GB")
+}
+
+@Test func homeAssistantWebSocketURLUsesNativeAPIPath() throws {
+    let local = try DJConnectHomeAssistantWebSocketFastPath.websocketURL(from: #require(URL(string: "http://homeassistant.local:8123")))
+    let secure = try DJConnectHomeAssistantWebSocketFastPath.websocketURL(from: #require(URL(string: "https://ha.example.com/lovelace?x=1")))
+
+    #expect(local.absoluteString == "ws://homeassistant.local:8123/api/websocket")
+    #expect(secure.absoluteString == "wss://ha.example.com/api/websocket")
+}
+
+@Test func missingWebSocketCapabilityFallsBackToHTTPCommand() async throws {
+    let fastPath = MockWebSocketFastPathTransport(supportedRoutes: [])
+    final class Counter: @unchecked Sendable {
+        let lock = NSLock()
+        var value = 0
+        func increment() { lock.withLock { value += 1 } }
+        var count: Int { lock.withLock { value } }
+    }
+    let counter = Counter()
+    let client = DJConnectClient(
+        baseURL: URL(string: "http://fallback.local:8123")!,
+        identity: testIOSIdentity(deviceID: "djconnect-ios-8F3A2C91B45D"),
+        tokenStore: DJConnectInMemoryTokenStore(token: "device-token"),
+        session: mockSession(host: "fallback.local") { request in
+            counter.increment()
+            #expect(request.url?.path == "/api/djconnect/v1/command")
+            return (try httpResponse(for: request, statusCode: 200), Data(#"{"success":true,"playback":{"has_playback":true,"is_playing":false,"track_name":"HTTP Track"}}"#.utf8))
+        },
+        webSocketFastPath: fastPath
+    )
+
+    let response = try await client.sendCommandResponse(DJConnectCommandPayload(
+        identity: testIOSIdentity(deviceID: "djconnect-ios-8F3A2C91B45D"),
+        command: "pause"
+    ))
+
+    #expect(response.playback?.trackName == "HTTP Track")
+    #expect(await fastPath.commandCalls == 1)
+    #expect(counter.count == 1)
+}
+
+@Test func commandWebSocketFailureFallsBackToHTTPExactlyOnce() async throws {
+    let fastPath = MockWebSocketFastPathTransport(supportedRoutes: [.command])
+    await fastPath.setCommandError(DJConnectError.network(message: "timeout"))
+    final class Counter: @unchecked Sendable {
+        let lock = NSLock()
+        var value = 0
+        func increment() { lock.withLock { value += 1 } }
+        var count: Int { lock.withLock { value } }
+    }
+    let counter = Counter()
+    let client = DJConnectClient(
+        baseURL: URL(string: "http://command-fallback.local:8123")!,
+        identity: testIOSIdentity(),
+        tokenStore: DJConnectInMemoryTokenStore(token: "device-token"),
+        session: mockSession(host: "command-fallback.local") { request in
+            counter.increment()
+            #expect(request.url?.path == "/api/djconnect/v1/command")
+            return (try httpResponse(for: request, statusCode: 200), Data(#"{"success":true,"playback":{"has_playback":true,"is_playing":false,"track_name":"HTTP Command Track"}}"#.utf8))
+        },
+        webSocketFastPath: fastPath
+    )
+
+    let response = try await client.sendCommandResponse(DJConnectCommandPayload(
+        identity: testIOSIdentity(),
+        command: "pause"
+    ))
+
+    #expect(response.playback?.trackName == "HTTP Command Track")
+    #expect(await fastPath.commandCalls == 1)
+    #expect(counter.count == 1)
+}
+
+@Test func askDJMessageWebSocketFastPathDecodesMessagesAndRevisions() async throws {
+    let fastPath = MockWebSocketFastPathTransport(supportedRoutes: [.askDJMessage])
+    let client = DJConnectClient(
+        baseURL: URL(string: "http://ask-fast.local:8123")!,
+        identity: testIOSIdentity(),
+        tokenStore: DJConnectInMemoryTokenStore(token: "device-token"),
+        session: mockSession(host: "ask-fast.local") { request in
+            Issue.record("HTTP should not be used when WebSocket Ask DJ succeeds")
+            return (try httpResponse(for: request, statusCode: 500), Data())
+        },
+        webSocketFastPath: fastPath
+    )
+
+    let response = try await client.sendAskDJMessage(DJConnectAskDJRequest(
+        identity: testIOSIdentity(),
+        text: "Tell me about this track",
+        clientMessageID: "client-message-1",
+        mood: 72,
+        musicDNAKey: "music-dna",
+        audioResponse: .auto,
+        language: "de-DE"
+    ))
+
+    #expect(response.historyRevision == 12)
+    #expect(response.clearRevision == 3)
+    #expect(response.assistantMessage?.text == "Fast answer")
+    #expect(await fastPath.askDJCalls == 1)
+    #expect(await fastPath.receivedAskPayload?.musicDNAKey == "music-dna")
+    #expect(await fastPath.receivedAskPayload?.language == "de-DE")
+    #expect(await fastPath.receivedTokens == ["device-token"])
+}
+
+@Test func trackInsightWebSocketFastPathSucceeds() async throws {
+    let fastPath = MockWebSocketFastPathTransport(supportedRoutes: [.trackInsight])
+    let client = DJConnectClient(
+        baseURL: URL(string: "http://insight-fast.local:8123")!,
+        identity: testIOSIdentity(deviceID: "djconnect-ios-8F3A2C91B45D"),
+        tokenStore: DJConnectInMemoryTokenStore(token: "device-token"),
+        session: mockSession(host: "insight-fast.local") { request in
+            Issue.record("HTTP should not be used when WebSocket Track Insight succeeds")
+            return (try httpResponse(for: request, statusCode: 500), Data())
+        },
+        webSocketFastPath: fastPath
+    )
+
+    let insight = try await client.trackInsight(DJConnectTrackInsightRequest(
+        title: "Innerbloom",
+        artist: "RUFUS DU SOL",
+        album: "Bloom",
+        artworkURL: URL(string: "https://example.com/innerbloom.jpg"),
+        durationMS: 544_000,
+        progressMS: 123_000,
+        mood: 70
+    ))
+
+    #expect(insight.title == "Innerbloom")
+    #expect(insight.artist == "RUFUS DU SOL")
+    #expect(await fastPath.trackInsightCalls == 1)
+    #expect(await fastPath.receivedTrackIdentity?.clientType == .ios)
+    #expect(await fastPath.receivedTrackIdentity?.deviceID == "djconnect-ios-8F3A2C91B45D")
+    #expect(await fastPath.receivedTrackPayload?.deviceID == "djconnect-ios-8F3A2C91B45D")
+    #expect(await fastPath.receivedTrackPayload?.clientID == "djconnect-ios-8F3A2C91B45D")
+    #expect(await fastPath.receivedTrackPayload?.clientType == "ios")
+    #expect(await fastPath.receivedTrackPayload?.title == "Innerbloom")
+    #expect(await fastPath.receivedTrackPayload?.artist == "RUFUS DU SOL")
+    #expect(await fastPath.receivedTrackPayload?.album == "Bloom")
+    #expect(await fastPath.receivedTrackPayload?.artworkURL?.absoluteString == "https://example.com/innerbloom.jpg")
+    #expect(await fastPath.receivedTrackPayload?.durationMS == 544_000)
+    #expect(await fastPath.receivedTrackPayload?.progressMS == 123_000)
+    #expect(await fastPath.receivedTrackPayload?.mood == 70)
+    #expect(await fastPath.receivedTokens == ["device-token"])
+}
+
+@Test func trackInsightWebSocketFastPathUsesMacOSIdentity() async throws {
+    let fastPath = MockWebSocketFastPathTransport(supportedRoutes: [.trackInsight])
+    let client = DJConnectClient(
+        baseURL: URL(string: "http://insight-fast-mac.local:8123")!,
+        identity: DJConnectIdentity(
+            deviceID: "djconnect-macos-8F3A2C91B45D",
+            deviceName: "DJConnect Mac",
+            clientType: .macos,
+            firmware: "3.2.0",
+            appVersion: "3.2.0",
+            platform: .macos
+        ),
+        tokenStore: DJConnectInMemoryTokenStore(token: "device-token"),
+        session: mockSession(host: "insight-fast-mac.local") { request in
+            Issue.record("HTTP should not be used when WebSocket Track Insight succeeds")
+            return (try httpResponse(for: request, statusCode: 500), Data())
+        },
+        webSocketFastPath: fastPath
+    )
+
+    let insight = try await client.trackInsight(DJConnectTrackInsightRequest(title: "Natural Blues", artist: "Moby"))
+
+    #expect(insight.title == "Natural Blues")
+    #expect(insight.artist == "Moby")
+    #expect(await fastPath.trackInsightCalls == 1)
+    #expect(await fastPath.receivedTrackIdentity?.clientType == .macos)
+    #expect(await fastPath.receivedTrackIdentity?.deviceID == "djconnect-macos-8F3A2C91B45D")
+    #expect(await fastPath.receivedTrackPayload?.deviceID == "djconnect-macos-8F3A2C91B45D")
+    #expect(await fastPath.receivedTrackPayload?.clientID == "djconnect-macos-8F3A2C91B45D")
+    #expect(await fastPath.receivedTrackPayload?.deviceName == "DJConnect Mac")
+    #expect(await fastPath.receivedTrackPayload?.clientType == "macos")
+    #expect(await fastPath.receivedTokens == ["device-token"])
+}
+
+@Test func trackInsightWebSocketFailureFallsBackToHTTPExactlyOnce() async throws {
+    let fastPath = FailingTrackInsightFastPathTransport(error: DJConnectError.network(message: "timeout"))
+    final class Counter: @unchecked Sendable {
+        let lock = NSLock()
+        var value = 0
+        func increment() { lock.withLock { value += 1 } }
+        var count: Int { lock.withLock { value } }
+    }
+    let counter = Counter()
+    let client = DJConnectClient(
+        baseURL: URL(string: "http://insight-fallback.local:8123")!,
+        identity: testIOSIdentity(),
+        tokenStore: DJConnectInMemoryTokenStore(token: "device-token"),
+        session: mockSession(host: "insight-fallback.local") { request in
+            counter.increment()
+            #expect(request.url?.path == "/api/djconnect/v1/track_insight")
+            return (
+                try httpResponse(for: request, statusCode: 200),
+                Data(
+                    """
+                    {
+                      "success": true,
+                      "track_insight": {
+                        "title": "HTTP Insight",
+                        "artist": "HTTP Artist",
+                        "track": {
+                          "title": "HTTP Insight",
+                          "artist": "HTTP Artist"
+                        },
+                        "analysis": {
+                          "summary": "Fallback insight",
+                          "full_text": "Fallback insight"
+                        }
+                      }
+                    }
+                    """.utf8
+                )
+            )
+        },
+        webSocketFastPath: fastPath
+    )
+
+    let insight = try await client.trackInsight(DJConnectTrackInsightRequest(title: "Innerbloom", artist: "RUFUS DU SOL"))
+
+    #expect(insight.title == "HTTP Insight")
+    #expect(insight.artist == "HTTP Artist")
+    #expect(counter.count == 1)
+}
+
+@Test func fastPathDiagnosticsExposeAdvertisedCapabilities() async throws {
+    let fastPath = MockWebSocketFastPathTransport(supportedRoutes: [.askDJMessage, .trackInsight])
+    let client = DJConnectClient(
+        baseURL: URL(string: "http://diagnostics-fast.local:8123")!,
+        identity: testIOSIdentity(),
+        tokenStore: DJConnectInMemoryTokenStore(token: "device-token"),
+        webSocketFastPath: fastPath
+    )
+
+    let diagnostics = await client.fastPathDiagnostics
+
+    #expect(diagnostics.fastPathTransport == "websocket")
+    #expect(diagnostics.websocketConnected)
+    #expect(diagnostics.websocketCommands == ["djconnect/ask_dj/message", "djconnect/track_insight"])
+}
+
+@Test func webSocketFailureFallsBackToHTTPExactlyOnce() async throws {
+    let fastPath = MockWebSocketFastPathTransport(supportedRoutes: [.askDJMessage])
+    await fastPath.setAskDJError(DJConnectError.network(message: "timeout"))
+    final class Counter: @unchecked Sendable {
+        let lock = NSLock()
+        var value = 0
+        func increment() { lock.withLock { value += 1 } }
+        var count: Int { lock.withLock { value } }
+    }
+    let counter = Counter()
+    let client = DJConnectClient(
+        baseURL: URL(string: "http://ask-fallback.local:8123")!,
+        identity: testIOSIdentity(),
+        tokenStore: DJConnectInMemoryTokenStore(token: "device-token"),
+        session: mockSession(host: "ask-fallback.local") { request in
+            counter.increment()
+            #expect(request.url?.path == "/api/djconnect/v1/ask_dj/message")
+            return (try httpResponse(for: request, statusCode: 200), Data(#"{"history_revision":9,"clear_revision":1,"assistant_message":{"role":"assistant","text":"HTTP answer"}}"#.utf8))
+        },
+        webSocketFastPath: fastPath
+    )
+
+    let response = try await client.sendAskDJMessage(DJConnectAskDJRequest(
+        identity: testIOSIdentity(),
+        text: "hidden prompt"
+    ))
+
+    #expect(response.assistantMessage?.text == "HTTP answer")
+    #expect(await fastPath.askDJCalls == 1)
+    #expect(counter.count == 1)
+}
+
+@Test func remoteOnlyClientStaysHTTPWithoutFastPath() async throws {
+    final class Counter: @unchecked Sendable {
+        let lock = NSLock()
+        var value = 0
+        func increment() { lock.withLock { value += 1 } }
+        var count: Int { lock.withLock { value } }
+    }
+    let counter = Counter()
+    let client = DJConnectClient(
+        baseURL: URL(string: "https://remote.ui.nabu.casa")!,
+        identity: testIOSIdentity(),
+        tokenStore: DJConnectInMemoryTokenStore(token: "device-token"),
+        session: mockSession(host: "remote.ui.nabu.casa") { request in
+            counter.increment()
+            return (try httpResponse(for: request, statusCode: 200), Data(#"{"success":true,"playback":{"has_playback":false,"is_playing":false}}"#.utf8))
+        }
+    )
+
+    _ = try await client.sendCommandResponse(DJConnectCommandPayload(
+        identity: testIOSIdentity(),
+        command: "status"
+    ))
+
+    #expect(counter.count == 1)
+}
+
+@Test func askDJHistoryWebSocketFastPathSucceedsWhenAdvertised() async throws {
+    let fastPath = MockWebSocketFastPathTransport(supportedRoutes: [.askDJHistory])
+    let client = DJConnectClient(
+        baseURL: URL(string: "http://history-fast.local:8123")!,
+        identity: testIOSIdentity(),
+        tokenStore: DJConnectInMemoryTokenStore(token: "device-token"),
+        session: mockSession(host: "history-fast.local") { request in
+            Issue.record("HTTP should not be used when WebSocket Ask DJ history succeeds")
+            return (try httpResponse(for: request, statusCode: 500), Data())
+        },
+        webSocketFastPath: fastPath
+    )
+
+    let response = try await client.askDJHistory(sinceRevision: 44)
+
+    #expect(response.historyRevision == 44)
+    #expect(await fastPath.askDJHistoryCalls == 1)
+    #expect(await fastPath.receivedHistorySinceRevision == 44)
+    #expect(await fastPath.receivedTokens == ["device-token"])
+}
+
+@Test func clearAskDJHistoryWebSocketFailureFallsBackToHTTPExactlyOnce() async throws {
+    let fastPath = MockWebSocketFastPathTransport(supportedRoutes: [])
+    final class Counter: @unchecked Sendable {
+        let lock = NSLock()
+        var value = 0
+        func increment() { lock.withLock { value += 1 } }
+        var count: Int { lock.withLock { value } }
+    }
+    let counter = Counter()
+    let client = DJConnectClient(
+        baseURL: URL(string: "http://clear-history-fallback.local:8123")!,
+        identity: testIOSIdentity(),
+        tokenStore: DJConnectInMemoryTokenStore(token: "device-token"),
+        session: mockSession(host: "clear-history-fallback.local") { request in
+            counter.increment()
+            #expect(request.url?.path == "/api/djconnect/v1/ask_dj/history/clear")
+            return (try httpResponse(for: request, statusCode: 200), Data(#"{"messages":[],"history_revision":0,"clear_revision":7}"#.utf8))
+        },
+        webSocketFastPath: fastPath
+    )
+
+    let response = try await client.clearAskDJHistory(musicDNAKey: "music-dna")
+
+    #expect(response.clearRevision == 7)
+    #expect(await fastPath.clearAskDJHistoryCalls == 1)
+    #expect(counter.count == 1)
+}
+
+@MainActor
+@Test func httpClearAskDJHistoryResponseWithClearedTrueClearsLocalCacheImmediately() async throws {
+    let defaults = try testDefaults()
+    defaults.set(true, forKey: "DJConnectWelcomeSeen")
+    let staleMessage = DJConnectAskDJMessage(
+        role: .user,
+        text: "oude vraag",
+        status: .delivered,
+        createdAt: Date(timeIntervalSince1970: 100)
+    )
+    defaults.set(try JSONEncoder().encode([staleMessage]), forKey: "DJConnectAskDJMessages")
+    defaults.set(4, forKey: "DJConnectAskDJClearRevision")
+    let host = "clear-http.local"
+    let session = mockSession(host: host) { request in
+        #expect(request.url?.path == "/api/djconnect/v1/ask_dj/history/clear")
+        return (
+            try httpResponse(for: request, statusCode: 200),
+            Data(#"{"success":true,"cleared":true,"messages":[],"history_revision":22,"clear_revision":5,"ask_dj_clear_required":true,"server_time":"2026-07-02T10:00:00Z","user_id":"ha-user"}"#.utf8)
+        )
+    }
+    let model = makePairedMusicDNAModel(defaults: defaults, host: host, session: session)
+
+    model.clearAskDJHistory()
+    for _ in 0..<20 where model.isClearingAskDJHistory {
+        try await Task.sleep(for: .milliseconds(100))
+    }
+
+    #expect(model.askDJMessages.isEmpty)
+    #expect(defaults.integer(forKey: "DJConnectAskDJClearRevision") == 5)
+    #expect(defaults.integer(forKey: "DJConnectAskDJHistoryRevision") == 22)
+}
+
+@MainActor
+@Test func webSocketClearAskDJHistoryResponseWithClearedTrueClearsLocalCacheImmediately() async throws {
+    let defaults = try testDefaults()
+    let staleMessage = DJConnectAskDJMessage(
+        role: .dj,
+        text: "oud antwoord",
+        status: .sent,
+        createdAt: Date(timeIntervalSince1970: 200)
+    )
+    defaults.set(try JSONEncoder().encode([staleMessage]), forKey: "DJConnectAskDJMessages")
+    defaults.set(6, forKey: "DJConnectAskDJClearRevision")
+    let fastPath = MockWebSocketFastPathTransport(supportedRoutes: [.askDJHistoryClear])
+    await fastPath.setClearAskDJHistoryResponse(DJConnectAskDJHistoryResponse(
+        success: true,
+        cleared: true,
+        userID: "ha-user",
+        historyRevision: 33,
+        clearRevision: 7,
+        askDJClearRequired: true,
+        messages: []
+    ))
+    let host = "clear-ws.local"
+    let identity = DJConnectIdentity(
+        deviceID: "djconnect-macos-8F3A2C91B45D",
+        deviceName: "DJConnect Mac",
+        clientType: .macos,
+        firmware: "3.2.8",
+        appVersion: "3.2.8",
+        platform: .macos
+    )
+    let client = DJConnectClient(
+        baseURL: try #require(URL(string: "http://\(host):8123")),
+        identity: identity,
+        tokenStore: DJConnectInMemoryTokenStore(token: "device-token"),
+        session: mockSession(host: host) { request in
+            Issue.record("HTTP should not be used when WebSocket clear succeeds")
+            return (try httpResponse(for: request, statusCode: 500), Data())
+        },
+        webSocketFastPath: fastPath
+    )
+    let response = try await client.clearAskDJHistory(musicDNAKey: "music-dna")
+    let model = DJConnectAppModel(
+        defaults: defaults,
+        tokenStore: DJConnectInMemoryTokenStore(),
+        startBackgroundTasks: false
+    )
+
+    model.applyAskDJHistory(response, forceClear: response.isClearAcknowledged)
+
+    #expect(model.askDJMessages.isEmpty)
+    #expect(defaults.integer(forKey: "DJConnectAskDJClearRevision") == 7)
+    #expect(defaults.integer(forKey: "DJConnectAskDJHistoryRevision") == 33)
+    #expect(await fastPath.clearAskDJHistoryCalls == 1)
+    #expect(await fastPath.receivedClearIdentity?.deviceID == "djconnect-macos-8F3A2C91B45D")
+    #expect(await fastPath.receivedClearIdentity?.clientType == .macos)
+    #expect(await fastPath.receivedClearIdentity?.deviceName == "DJConnect Mac")
+}
+
+@Test func homeAssistantWebSocketFastPathAllowsOnlyLocalURLs() {
+    #expect(DJConnectHomeAssistantWebSocketFastPath.isLocalHomeAssistantURL(URL(string: "http://homeassistant.local:8123")!))
+    #expect(DJConnectHomeAssistantWebSocketFastPath.isLocalHomeAssistantURL(URL(string: "http://192.168.1.10:8123")!))
+    #expect(DJConnectHomeAssistantWebSocketFastPath.isLocalHomeAssistantURL(URL(string: "http://172.20.1.10:8123")!))
+    #expect(!DJConnectHomeAssistantWebSocketFastPath.isLocalHomeAssistantURL(URL(string: "https://remote.ui.nabu.casa")!))
+}
+
+@Test func fastPathPolicyRequiresOptInAuthAndMatchingLocalURL() {
+    let localURL = URL(string: "http://homeassistant.local:8123")!
+    let remoteURL = URL(string: "https://remote.ui.nabu.casa")!
+    let auth = DJConnectHomeAssistantWebSocketAuth { "ha-token" }
+
+    #expect(DJConnectFastPathPolicy.makeFastPath(
+        baseURL: localURL,
+        localURL: localURL,
+        configuration: DJConnectTransportConfiguration(webSocketFastPathEnabled: false, homeAssistantWebSocketAuth: auth)
+    ) == nil)
+    #expect(DJConnectFastPathPolicy.makeFastPath(
+        baseURL: localURL,
+        localURL: localURL,
+        configuration: DJConnectTransportConfiguration(webSocketFastPathEnabled: true)
+    ) == nil)
+    #expect(DJConnectFastPathPolicy.makeFastPath(
+        baseURL: remoteURL,
+        localURL: localURL,
+        configuration: DJConnectTransportConfiguration(webSocketFastPathEnabled: true, homeAssistantWebSocketAuth: auth)
+    ) == nil)
+    #expect(DJConnectFastPathPolicy.makeFastPath(
+        baseURL: localURL,
+        localURL: localURL,
+        configuration: DJConnectTransportConfiguration(webSocketFastPathEnabled: true, homeAssistantWebSocketAuth: auth)
+    ) != nil)
+}
+
+@Test func trackInsightEndpointResponseDecodesNormalizedBackendContract() throws {
+    let json = """
+    {
+      "success": true,
+      "track_insight": {
+        "id": "insight-innerbloom",
+        "source": "track_insight",
+        "track": {
+          "title": "Innerbloom",
+          "artist": "RUFUS DU SOL",
+          "album": "Bloom",
+          "duration_ms": 596000,
+          "progress_ms": 120000,
+          "is_playing": true,
+          "player_id": "spotify-player",
+          "entity_id": "media_player.living_room",
+          "backend": "spotify"
+        },
+        "analysis": {
+          "summary": "A slow-blooming electronic journey.",
+          "full_text": "Full Track Insight text.",
+          "genre": "Deep House",
+          "subgenre": "Melodic House",
+          "mood": "Dreamy",
+          "vibe": "Cinematic",
+          "texture": "Glowing synth textures",
+          "emotional_tone": "Euphoric",
+          "energy": 0.65,
+          "danceability": 0.72,
+          "intensity": 0.58,
+          "confidence": 0.91,
+          "production_notes": ["Wide pads"],
+          "instrumentation": ["Synth arpeggio"],
+          "arrangement_notes": ["Slow build"],
+          "listening_cues": ["Wait for the lift"],
+          "similar_tracks": [
+            { "title": "Underwater", "artist": "RUFUS DU SOL", "reason": "Shared atmosphere" }
+          ]
+        },
+        "music_dna": {
+          "match_percent": 96,
+          "label": "matches_music_dna",
+          "summary": "This matches your Music DNA."
+        },
+        "visual_profile": {
+          "palette": ["#4DA3FF", "#D184FF"],
+          "motion_style": "cinematic",
+          "pulse_speed": 0.8,
+          "wave_amplitude": 0.7,
+          "particle_density": 0.6,
+          "glow_strength": 0.9,
+          "spectrum_bias": "mid",
+          "seed": "innerbloom"
+        },
+        "sections": [
+          { "id": "intro", "title": "Intro", "summary": "Soft opening" },
+          { "id": "lift", "title": "Lift", "summary": "Energy rises" }
         ]
       }
     }
     """.data(using: .utf8)!
 
-    let response = try JSONDecoder().decode(DJConnectAskDJMessageResponse.self, from: json)
+    let response = try JSONDecoder().decode(TrackInsightEndpointResponse.self, from: json)
+    let insight = try #require(response.trackInsightValue)
 
-    #expect(response.intentInfo?.intent == "recently_played_history")
-    #expect(response.intentInfo?.itemType == "tracks")
-    #expect(response.items?.first?.source == "spotify_recently_played")
-    #expect(response.assistantMessage?.items.first?.title == "Midnight City")
-    #expect(response.playbackActions == nil)
-    #expect(response.assistantMessage?.playbackActions.isEmpty == true)
+    #expect(insight.id == "insight-innerbloom")
+    #expect(insight.title == "Innerbloom")
+    #expect(insight.artist == "RUFUS DU SOL")
+    #expect(insight.duration == 596)
+    #expect(insight.progress == 120)
+    #expect(insight.isPlaying == true)
+    #expect(insight.playerID == "spotify-player")
+    #expect(insight.entityID == "media_player.living_room")
+    #expect(insight.genre == "Deep House")
+    #expect(insight.subgenre == "Melodic House")
+    #expect(insight.emotionalTone == "Euphoric")
+    #expect(insight.confidence == 0.91)
+    #expect(insight.productionNotes == ["Wide pads"])
+    #expect(insight.similarTracks.first?.title == "Underwater")
+    #expect(insight.musicDNAMatchPercent == nil)
+    #expect(insight.musicDNALabel == nil)
+    #expect(insight.visualProfile?.motionStyle == .cinematic)
+    #expect(insight.visualProfile?.spectrumBias == .mid)
+    #expect(insight.sections.map(\.title) == ["Intro", "Lift"])
 }
 
-@Test func askDJResponseDecodesObjectIntentForTechnicalTrackAnalysis() throws {
+@Test func trackInsightEndpointResponseDecodesCamelCaseWrapper() throws {
     let json = """
     {
       "success": true,
-      "dj_text": "Er speelt nu geen track die ik kan analyseren.",
-      "action": "track_analysis",
-      "intent": {
-        "category": "informational",
-        "intent": "technical_track_analysis",
-        "action": "track_analysis"
-      },
-      "analysis": {
-        "mode": "unavailable",
-        "confidence": "low",
-        "limitations": ["No current track is available."],
-        "sources": ["spotify_playback_context"]
-      },
-      "playback_actions": []
+      "trackInsight": {
+        "track": {
+          "title": "Camel Song",
+          "artist": "Camel Artist"
+        },
+        "analysis": {
+          "summary": "Camel-case wrapper insight."
+        }
+      }
     }
     """.data(using: .utf8)!
 
-    let response = try JSONDecoder().decode(DJConnectAskDJResponse.self, from: json)
+    let response = try JSONDecoder().decode(TrackInsightEndpointResponse.self, from: json)
+    let insight = try #require(response.trackInsightValue)
 
-    #expect(response.success)
-    #expect(response.intent == "technical_track_analysis")
-    #expect(response.intentInfo?.category == "informational")
-    #expect(response.action == "track_analysis")
-    #expect(response.analysis?.mode == "unavailable")
-    #expect(response.playbackActions?.isEmpty == true)
+    #expect(insight.title == "Camel Song")
+    #expect(insight.artist == "Camel Artist")
+    #expect(insight.summary == "Camel-case wrapper insight.")
+}
+
+@Test func trackInsightEndpointResponseDecodesCanonicalStandalonePayload() throws {
+    let json = """
+    {
+      "id": "track_insight_direct",
+      "created_at": "2026-07-03T16:00:00Z",
+      "source": "http",
+      "track": {
+        "title": "Direct Song",
+        "artist": "Direct Artist",
+        "album": "Direct Album",
+        "artwork_url": "https://example.test/direct.jpg",
+        "duration_ms": 240000,
+        "progress_ms": 42000,
+        "is_playing": true,
+        "player_id": "media_player.direct",
+        "entity_id": "media_player.direct",
+        "backend": "music_assistant"
+      },
+      "analysis": {
+        "summary": "Canonical standalone insight.",
+        "full_text": "Canonical standalone full text.",
+        "mood": "Focused",
+        "vibe": "Late-night",
+        "texture": "Warm",
+        "emotional_tone": "Calm",
+        "energy": 0.44,
+        "danceability": 0.35,
+        "intensity": 0.41,
+        "confidence": 0.82,
+        "production_notes": [],
+        "instrumentation": [],
+        "arrangement_notes": [],
+        "listening_cues": [],
+        "similar_tracks": []
+      },
+      "music_dna": {
+        "match_percent": 99,
+        "label": "matches_music_dna",
+        "summary": "Must not be exposed."
+      }
+    }
+    """.data(using: .utf8)!
+
+    let response = try JSONDecoder().decode(TrackInsightEndpointResponse.self, from: json)
+    let insight = try #require(response.trackInsightValue)
+
+    #expect(insight.id == "track_insight_direct")
+    #expect(insight.title == "Direct Song")
+    #expect(insight.artist == "Direct Artist")
+    #expect(insight.backend == "music_assistant")
+    #expect(insight.summary == "Canonical standalone insight.")
+    #expect(insight.rawAnalysisText == "Canonical standalone full text.")
+    #expect(insight.musicDNAMatchPercent == nil)
+    #expect(insight.musicDNALabel == nil)
+    #expect(insight.musicDNASummary == nil)
+}
+
+@Test func trackInsightEndpointResponseBuildsInsightFromSuccessfulTextContract() throws {
+    let json = """
+    {
+      "success": true,
+      "text": "Deze track werkt door spanning en release.",
+      "dj_text": "Deze track werkt door spanning en release.",
+      "message": "Deze track werkt door spanning en release.",
+      "action": "track_insight",
+      "analysis": {
+        "mode": "knowledge_plus_metadata",
+        "confidence": "medium",
+        "limitations": [
+          "Exact section timestamps are unavailable."
+        ]
+      }
+    }
+    """.data(using: .utf8)!
+
+    let response = try JSONDecoder().decode(TrackInsightEndpointResponse.self, from: json)
+    let insight = try #require(response.trackInsightValue(
+        fallbackTitle: "Innerbloom",
+        fallbackArtist: "RUFUS DU SOL",
+        fallbackArtwork: URL(string: "https://example.com/art.jpg"),
+        fallbackDurationMS: 596000,
+        fallbackProgressMS: 120000
+    ))
+
+    #expect(insight.title == "Innerbloom")
+    #expect(insight.artist == "RUFUS DU SOL")
+    #expect(insight.artwork?.absoluteString == "https://example.com/art.jpg")
+    #expect(insight.duration == 596)
+    #expect(insight.progress == 120)
+    #expect(insight.summary == "Deze track werkt door spanning en release.")
+}
+
+@Test func askDJMessageResponseDecodesTrackInsightMetadataAndOpenScreen() throws {
+    let json = """
+    {
+      "history_revision": 44,
+      "clear_revision": 7,
+      "text": "Ik heb Track Insight geopend.",
+      "open_screen": "track_insight",
+      "type": "track_insight",
+      "intent": {
+        "category": "informational",
+        "intent": "track_insight",
+        "action": "track_insight"
+      },
+      "track_insight": {
+        "track": { "title": "Adagio for Strings", "artist": "Samuel Barber" },
+        "analysis": {
+          "summary": "A patient orchestral ascent.",
+          "genre": "Classical",
+          "mood": "Lamenting",
+          "vibe": "Slow string suspense",
+          "energy": 0.32
+        },
+        "music_dna": { "match_percent": 74, "label": "expands_music_dna" }
+      }
+    }
+    """.data(using: .utf8)!
+
+    let response = try JSONDecoder().decode(DJConnectAskDJMessageResponse.self, from: json)
+    let assistantMessage = try #require(response.assistantMessage)
+    let insight = try #require(response.trackInsight)
+
+    #expect(response.openScreen == "track_insight")
+    #expect(response.responseType == "track_insight")
+    #expect(response.intentInfo?.intent == "track_insight")
+    #expect(insight.title == "Adagio for Strings")
+    #expect(insight.musicDNAMatchPercent == nil)
+    #expect(assistantMessage.trackInsight?.artist == "Samuel Barber")
 }
 
 @Test func askDJMessageResponseFallsBackToTopLevelAudioURL() throws {
@@ -2287,6 +4153,47 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
         "text": .string("Meer van Kebu"),
         "artist": .string("Kebu")
     ]))
+    #expect(action.isAskDJMessageAction)
+    #expect(action.resolvedAskDJMessageText == "Meer van Kebu")
+    #expect(action.resolvedArtistName == "Kebu")
+}
+
+@Test func askDJMessageActionConstructsArtistPromptWhenLabelIsGeneric() throws {
+    let json = """
+    {
+      "id": "more-artist",
+      "title": "Meer van deze artiest",
+      "kind": "artist_more",
+      "command": "ask_dj_message",
+      "button_label": "Meer van deze artiest",
+      "artist_name": "Charly Lownoise & Mental Theo"
+    }
+    """.data(using: .utf8)!
+
+    let action = try JSONDecoder().decode(DJConnectAskDJPlaybackAction.self, from: json)
+
+    #expect(action.isAskDJMessageAction)
+    #expect(action.title == "Meer van deze artiest")
+    #expect(action.buttonLabel == "Meer van deze artiest")
+    #expect(action.artist == "Charly Lownoise & Mental Theo")
+    #expect(action.resolvedAskDJMessageText == "Meer van Charly Lownoise & Mental Theo")
+}
+
+@Test func askDJMessageActionFallsBackToSafePromptInsteadOfEmptyText() throws {
+    let json = """
+    {
+      "id": "more-artist",
+      "title": "Meer",
+      "kind": "artist_more",
+      "command": "ask_dj_message",
+      "text": "Meer"
+    }
+    """.data(using: .utf8)!
+
+    let action = try JSONDecoder().decode(DJConnectAskDJPlaybackAction.self, from: json)
+
+    #expect(action.isAskDJMessageAction)
+    #expect(action.resolvedAskDJMessageText == "Laat meer muziek van deze artiest zien")
 }
 
 @Test func askDJMessageResponsePrefersAssistantMessageImages() throws {
@@ -2427,6 +4334,84 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
     #expect(response.askDJClearRequired == true)
 }
 
+@Test func commandResponseDecodesPlayNowAssistantMessage() throws {
+    let json = """
+    {
+      "success": true,
+      "message": "Playing now",
+      "audio_url": "https://example.test/audio/top.mp3",
+      "assistant_message": {
+        "id": "play-now-assistant-1",
+        "role": "assistant",
+        "origin": "play_now",
+        "text": "Ik zet Winner nu voor je aan.",
+        "audio_url": "https://example.test/audio/assistant.mp3",
+        "images": [
+          { "url": "https://example.test/winner.jpg", "title": "Winner" }
+        ],
+        "links": [
+          { "title": "Open playlist", "url": "https://example.test/playlist" }
+        ],
+        "sources": [
+          { "title": "Ask DJ", "url": "https://example.test/source" }
+        ],
+        "playback_actions": []
+      },
+      "playback_actions": [
+        {
+          "id": "old-action",
+          "label": "Play old",
+          "command": "ask_dj_play_recommendation",
+          "uri": "spotify:track:old"
+        }
+      ]
+    }
+    """.data(using: .utf8)!
+
+    let response = try JSONDecoder().decode(DJConnectCommandResponse.self, from: json)
+    let assistant = try #require(response.assistantMessage)
+
+    #expect(assistant.text == "Ik zet Winner nu voor je aan.")
+    #expect(assistant.origin == "play_now")
+    #expect(assistant.audioURL?.absoluteString == "https://example.test/audio/assistant.mp3")
+    #expect(assistant.images.count == 1)
+    #expect(assistant.links.count == 2)
+    #expect(assistant.sources.count == 1)
+    #expect(assistant.playbackActions.isEmpty)
+    #expect(response.playbackActions?.count == 1)
+}
+
+@Test func commandResponseBuildsPlayNowAssistantMessageFromTopLevelFallbacks() throws {
+    let json = """
+    {
+      "success": true,
+      "dj_text": "Deze playlist start nu.",
+      "audio_url": "https://example.test/audio/fallback.mp3",
+      "images": [
+        { "url": "https://example.test/cover.jpg", "title": "Cover" }
+      ],
+      "links": [
+        { "title": "Open", "url": "https://example.test/open" }
+      ],
+      "sources": [
+        { "title": "Library", "url": "https://example.test/library" }
+      ],
+      "playback_actions": []
+    }
+    """.data(using: .utf8)!
+
+    let response = try JSONDecoder().decode(DJConnectCommandResponse.self, from: json)
+    let assistant = try #require(response.assistantMessage)
+
+    #expect(assistant.text == "Deze playlist start nu.")
+    #expect(assistant.origin == "play_now")
+    #expect(assistant.audioURL?.absoluteString == "https://example.test/audio/fallback.mp3")
+    #expect(assistant.images.count == 1)
+    #expect(assistant.links.count == 2)
+    #expect(assistant.sources.count == 1)
+    #expect(assistant.playbackActions.isEmpty)
+}
+
 @Test func playbackCommandRequestsUsePlaybackEndpointAndIdentity() throws {
     let identity = DJConnectIdentity(
         deviceID: "djconnect-ios-8F3A2C91B45D",
@@ -2562,7 +4547,8 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
     )
     let request = try client.commandRequest(DJConnectCommandPayload(
         identity: identity,
-        command: "save_current_track"
+        command: "save_current_track",
+        language: "fr-FR"
     ))
     let body = try #require(request.httpBody)
     let json = try JSONSerialization.jsonObject(with: body) as? [String: Any]
@@ -2572,6 +4558,7 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
     #expect(json?["device_id"] as? String == identity.deviceID)
     #expect(json?["client_type"] as? String == "watchos")
     #expect(json?["command"] as? String == "save_current_track")
+    #expect(json?["language"] as? String == "fr-FR")
     #expect(json?["value"] == nil)
 }
 
@@ -2872,7 +4859,7 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
                     .string("spotify:track:1"),
                     .string("spotify:track:2")
                 ]),
-                "memory_key": .string("djconnect_ios_8F3A2C91B45D")
+                "music_dna_key": .string("djconnect_ios_8F3A2C91B45D")
             ]),
             play: true
         )
@@ -2910,7 +4897,7 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
             value: .jsonObject([
                 "title": .string("Ja"),
                 "response_value": .string("yes"),
-                "memory_key": .string("djconnect_watchos_8F3A2C91B45D")
+                "music_dna_key": .string("djconnect_watchos_8F3A2C91B45D")
             ]),
             play: false
         )
@@ -2951,7 +4938,7 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
                 "device_name": .string("Woonkamer"),
                 "command": .string("set_output"),
                 "response_value": .string("spotify-device-1"),
-                "memory_key": .string("djconnect_ios_8F3A2C91B45D")
+                "music_dna_key": .string("djconnect_ios_8F3A2C91B45D")
             ])
         )
     )
@@ -3136,7 +5123,7 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
-    let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startLocalAPI: false, startBackgroundTasks: false)
+    let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startBackgroundTasks: false)
     model.language = "nl"
 
     model.apply(commandResponse: DJConnectCommandResponse(
@@ -3147,13 +5134,65 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
         ]
     ))
 
-    #expect(model.availableOutputs.map(\.name).prefix(2) == ["Geen", "Woonkamer"])
+    let noOutputName = DJConnectLocalization.localized(key: "ui.no.output.device.selected", language: "nl")
+    #expect(model.availableOutputs.map(\.name).prefix(2) == [noOutputName, "Woonkamer"])
     #expect(model.selectedOutput == "Woonkamer")
 
     model.selectOutput(model.availableOutputs[0])
-    #expect(model.selectedOutput == "Geen")
+    #expect(model.selectedOutput == noOutputName)
     #expect(model.availableOutputs[0].active == true)
     #expect(model.availableOutputs[1].active == false)
+}
+
+@MainActor
+@Test func playNowCommandResponseAppendsAssistantBubbleWithoutReusingOldActions() throws {
+    let suiteName = "DJConnectTests-\(UUID().uuidString)"
+    let defaults = try #require(UserDefaults(suiteName: suiteName))
+    defaults.removePersistentDomain(forName: suiteName)
+    let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startBackgroundTasks: false)
+    let oldAction = DJConnectAskDJPlaybackAction(
+        id: "old-action",
+        title: "Play old",
+        uri: "spotify:track:old",
+        command: "ask_dj_play_recommendation"
+    )
+    model.applyAskDJMessageResponse(DJConnectAskDJMessageResponse(
+        assistantMessage: DJConnectAskDJHistoryMessage(
+            id: "previous-assistant",
+            role: .assistant,
+            text: "Eerdere suggestie",
+            createdAt: Date(timeIntervalSince1970: 1),
+            playbackActions: [oldAction]
+        )
+    ), fallbackUserMessageID: nil)
+
+    let response = DJConnectCommandResponse(
+        success: true,
+        message: "Playing now",
+        assistantMessage: DJConnectAskDJHistoryMessage(
+            id: "play-now-assistant",
+            role: .assistant,
+            origin: "play_now",
+            text: "Ik zet Winner nu aan.",
+            createdAt: Date(timeIntervalSince1970: 2),
+            audioURL: URL(string: "https://example.test/audio/play-now.mp3"),
+            playbackActions: []
+        ),
+        playbackActions: []
+    )
+
+    #expect(model.applyAskDJPlayNowCommandResponse(response) == true)
+
+    #expect(model.askDJMessages.count == 2)
+    let previous = model.askDJMessages[0]
+    let playNow = model.askDJMessages[1]
+    #expect(previous.playbackActions.map(\.id) == ["old-action"])
+    #expect(playNow.role == .dj)
+    #expect(playNow.serverID == "play-now-assistant")
+    #expect(playNow.origin == "play_now")
+    #expect(playNow.text == "Ik zet Winner nu aan.")
+    #expect(playNow.audioURL?.absoluteString == "https://example.test/audio/play-now.mp3")
+    #expect(playNow.playbackActions.isEmpty)
 }
 
 @MainActor
@@ -3165,31 +5204,49 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
     let model = DJConnectAppModel(
         defaults: defaults,
         tokenStore: DJConnectInMemoryTokenStore(),
-        startLocalAPI: false,
         startBackgroundTasks: false
     )
-    model.language = "nl"
-
     await Task.yield()
 
-    #expect(["Geen", "None"].contains(model.selectedOutput))
+    #expect(model.selectedOutput == DJConnectLocalization.localized(key: "ui.no.output.device.selected", language: model.language))
 }
 
 @MainActor
-@Test func storedLanguagePreferenceDoesNotOverrideDeviceLanguage() throws {
+@Test func defaultLanguageUsesDeviceLanguageUntilAppOverrideIsSet() throws {
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
-    defaults.set("nl", forKey: "DJConnectLanguage")
+    let sharedDefaults = try #require(UserDefaults(suiteName: DJConnectLocalization.appGroupIdentifier))
+    let oldSharedOverride = sharedDefaults.string(forKey: DJConnectLocalization.appLanguageOverrideDefaultsKey)
+    sharedDefaults.removeObject(forKey: DJConnectLocalization.appLanguageOverrideDefaultsKey)
+    defer {
+        if let oldSharedOverride {
+            sharedDefaults.set(oldSharedOverride, forKey: DJConnectLocalization.appLanguageOverrideDefaultsKey)
+        } else {
+            sharedDefaults.removeObject(forKey: DJConnectLocalization.appLanguageOverrideDefaultsKey)
+        }
+    }
 
     let model = DJConnectAppModel(
         defaults: defaults,
         tokenStore: DJConnectInMemoryTokenStore(),
-        startLocalAPI: false,
         startBackgroundTasks: false
     )
 
-    #expect(model.language == DJConnectAppModel.normalizedReleaseNotesLanguageCode(Locale.preferredLanguages.first ?? "en"))
+    #expect(model.language == DJConnectLocalization.preferredLanguageCode())
+    #expect(model.appLanguageOverrideCode == "")
+
+    model.setAppLanguageOverride("nl")
+    #expect(model.language == "nl")
+    #expect(model.appLanguageOverrideCode == "nl")
+    #expect(defaults.string(forKey: DJConnectLocalization.appLanguageOverrideDefaultsKey) == "nl")
+    #expect(sharedDefaults.string(forKey: DJConnectLocalization.appLanguageOverrideDefaultsKey) == "nl")
+
+    model.setAppLanguageOverride("")
+    #expect(model.language == DJConnectLocalization.preferredLanguageCode())
+    #expect(model.appLanguageOverrideCode == "")
+    #expect(defaults.string(forKey: DJConnectLocalization.appLanguageOverrideDefaultsKey) == nil)
+    #expect(sharedDefaults.string(forKey: DJConnectLocalization.appLanguageOverrideDefaultsKey) == nil)
 }
 
 @MainActor
@@ -3200,7 +5257,6 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
     let model = DJConnectAppModel(
         defaults: defaults,
         tokenStore: DJConnectInMemoryTokenStore(token: "secret-token"),
-        startLocalAPI: false,
         startBackgroundTasks: false
     )
     model.language = "nl"
@@ -3213,7 +5269,7 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
     model.selectOutput(model.availableOutputs[0])
     model.sendPlaybackCommand("play")
 
-    #expect(model.selectedOutput == "Geen")
+    #expect(model.selectedOutput == DJConnectLocalization.localized(key: "ui.no.output.device.selected", language: "nl"))
     #expect(model.userNotice?.text == "Kies eerst een uitvoerapparaat")
 }
 
@@ -3228,8 +5284,8 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
                 "items": [
                   {
                     "title": "Song title",
-                    "artist": "Artist name",
-                    "album": "Album name",
+                    "artist_name": "Artist name",
+                    "album_name": "Album name",
                     "uri": "spotify:track:1",
                     "duration_ms": 213000,
                     "media_image_url": "https://example.test/media.jpg"
@@ -3249,6 +5305,7 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
     #expect(response.success)
     #expect(response.queueContext == "spotify:playlist:context")
     #expect(response.queue?.count == 2)
+    #expect(response.queue?.first?.artist == "Artist name")
     #expect(response.queue?.first?.album == "Album name")
     #expect(response.queue?.first?.durationMS == 213000)
     #expect(response.queue?.first?.albumImageURL?.absoluteString == "https://example.test/media.jpg")
@@ -3283,12 +5340,55 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
     #expect(response.queue?.first?.albumImageURL?.absoluteString == "https://example.test/queue.jpg")
 }
 
+@Test func queueContractDecodesArtistSubtitleFallbackAndNestedContextURI() throws {
+    let response = try JSONDecoder().decode(
+        DJConnectCommandResponse.self,
+        from: Data(
+            """
+            {
+              "success": true,
+              "queue": {
+                "context_uri": "spotify:playlist:nested",
+                "items": [
+                  {
+                    "id": "backend-row-1",
+                    "uri": "spotify:track:nothing-else-matters",
+                    "title": "Nothing Else Matters",
+                    "subtitle": "Scala & Kolacny Brothers",
+                    "album_name": "Scala on the Rocks",
+                    "image_url": "https://example.test/nothing.jpg"
+                  },
+                  {
+                    "id": "spotify:track:id-only",
+                    "title": "ID Only",
+                    "artist_name": "Artist Name",
+                    "thumbnail_url": "https://example.test/thumb.jpg"
+                  }
+                ]
+              }
+            }
+            """.utf8
+        )
+    )
+
+    #expect(response.queueContext == "spotify:playlist:nested")
+    #expect(response.queue?.count == 2)
+    #expect(response.queue?.first?.id == "spotify:track:nothing-else-matters")
+    #expect(response.queue?.first?.artist == "Scala & Kolacny Brothers")
+    #expect(response.queue?.first?.album == "Scala on the Rocks")
+    #expect(response.queue?.first?.displaySubtitle == "Scala & Kolacny Brothers • Scala on the Rocks")
+    #expect(response.queue?.first?.albumImageURL?.absoluteString == "https://example.test/nothing.jpg")
+    #expect(response.queue?.last?.id == "spotify:track:id-only")
+    #expect(response.queue?.last?.artist == "Artist Name")
+    #expect(response.queue?.last?.albumImageURL?.absoluteString == "https://example.test/thumb.jpg")
+}
+
 @MainActor
 @Test func emptyBackendQueueClearsRenderedQueueItems() throws {
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
-    let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startLocalAPI: false, startBackgroundTasks: false)
+    let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startBackgroundTasks: false)
 
     model.apply(commandResponse: DJConnectCommandResponse(
         success: true,
@@ -3307,7 +5407,7 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
-    let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startLocalAPI: false, startBackgroundTasks: false)
+    let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startBackgroundTasks: false)
     let repeatedItem = DJConnectQueueItem(
         title: "Summer Of 69",
         artist: "Bryan Adams",
@@ -3319,7 +5419,16 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
 
     model.apply(commandResponse: DJConnectCommandResponse(
         success: true,
-        queue: Array(repeating: repeatedItem, count: 8)
+        queue: Array(repeating: repeatedItem, count: 7) + [
+            DJConnectQueueItem(
+                title: "Summer Of 69",
+                artist: "Bryan Adams",
+                album: "Reckless",
+                uri: "spotify:track:summer-of-69",
+                durationMS: 216_000,
+                albumImageURL: URL(string: "https://example.test/summer-alt.jpg")
+            )
+        ]
     ))
 
     #expect(model.queueItems.count == 1)
@@ -3328,11 +5437,60 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
 }
 
 @MainActor
+@Test func playlistsCommandDoesNotOverwriteQueueWithPlaylistItems() async throws {
+    let suiteName = "DJConnectTests-\(UUID().uuidString)"
+    let defaults = try #require(UserDefaults(suiteName: suiteName))
+    defaults.removePersistentDomain(forName: suiteName)
+    defaults.set(DJConnectHAConnectionMode.local.rawValue, forKey: "DJConnectHAConnectionMode")
+    let host = "playlist-items-are-not-queue.local"
+    let session = mockSession(host: host) { request in
+        if request.url?.path == "/api/djconnect/v1/music_dna/profile" {
+            return (
+                try httpResponse(for: request, statusCode: 200),
+                Data(#"{"enabled":true,"profile":{}}"#.utf8)
+            )
+        }
+        #expect(request.url?.path == "/api/djconnect/v1/command")
+        let json = """
+        {
+          "success": true,
+          "items": [
+            {"id":"playlist-1","name":"Acid Trip","uri":"spotify:playlist:acid"},
+            {"id":"playlist-2","name":"Lucy","uri":"spotify:playlist:lucy"}
+          ]
+        }
+        """
+        return (try httpResponse(for: request, statusCode: 200), Data(json.utf8))
+    }
+    let model = DJConnectAppModel(
+        defaults: defaults,
+        tokenStore: DJConnectInMemoryTokenStore(token: "secret-token"),
+        urlSession: session,
+        startBackgroundTasks: false
+    )
+    model.homeAssistantURL = "http://\(host):8123"
+    model.pairingStatus = .paired
+    model.apply(commandResponse: DJConnectCommandResponse(
+        success: true,
+        queue: [DJConnectQueueItem(title: "Real queued track", artist: "Real Artist", uri: "spotify:track:real")]
+    ))
+    let existingQueueSnapshot = DJConnectQueueWidgetSnapshot.load(from: defaults)
+
+    let didLoad = await model.refreshPlaylists()
+
+    #expect(didLoad)
+    #expect(model.playlistItems.map(\.name) == ["Acid Trip", "Lucy"])
+    #expect(model.queueItems.map(\.title) == ["Real queued track"])
+    #expect(model.queue == ["Real queued track - Real Artist"])
+    #expect(DJConnectQueueWidgetSnapshot.load(from: defaults) == existingQueueSnapshot)
+}
+
+@MainActor
 @Test func queueEpisodeItemsCanStartWithoutPlaybackContext() throws {
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
-    let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startLocalAPI: false, startBackgroundTasks: false)
+    let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startBackgroundTasks: false)
     let episode = DJConnectQueueItem(
         title: "Podcast Episode",
         artist: "Podcast",
@@ -3656,6 +5814,7 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
     #expect(request.value(forHTTPHeaderField: "Content-Type") == "application/json")
     #expect(request.value(forHTTPHeaderField: "X-DJConnect-Client-ID") == nil)
     #expect(request.value(forHTTPHeaderField: "X-DJConnect-Device-ID") == identity.deviceID)
+    #expect(request.value(forHTTPHeaderField: "X-DJConnect-Client-Type") == "macos")
     #expect(json?["client_id"] == nil)
     #expect(json?["client_name"] == nil)
     #expect(json?["device_id"] as? String == identity.deviceID)
@@ -3665,6 +5824,252 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
     #expect(json?["pairing_code"] as? String == "123456")
     #expect(json?["pairing_token"] as? String == "123456")
     #expect(json?["firmware"] as? String == "3.1.7")
+}
+
+@Test func appleAppInfoPlistsDeclareOnlySupportedBonjourServices() throws {
+    let iOSPlist = try loadRepositoryPlist("Apps/DJConnectIOS/Info.plist")
+    let macPlist = try loadRepositoryPlist("Apps/DJConnectMac/Info.plist")
+    let iOSBonjourServices = try #require(iOSPlist["NSBonjourServices"] as? [String])
+    let macBonjourServices = try #require(macPlist["NSBonjourServices"] as? [String])
+
+    #expect(iOSBonjourServices == ["_home-assistant._tcp."])
+    #expect(macBonjourServices == ["_home-assistant._tcp."])
+    #expect(String(describing: iOSPlist).contains("_djconnect") == false)
+    #expect(String(describing: macPlist).contains("_djconnect") == false)
+}
+
+@Test func iOSPairingRequestUsesPairEndpointWithoutLocalCallbackFields() throws {
+    let identity = DJConnectIdentity(
+        deviceID: "djconnect-ios-8F3A2C91B45D",
+        deviceName: "DJConnect iPhone",
+        clientType: .ios,
+        firmware: "3.2.3",
+        appVersion: "3.2.3",
+        platform: .ios
+    )
+    let client = DJConnectClient(
+        baseURL: try #require(URL(string: "http://homeassistant.local:8123")),
+        identity: identity,
+        tokenStore: DJConnectInMemoryTokenStore()
+    )
+
+    let request = try client.pairingRequest(DJConnectPairingPayload(identity: identity, pairingToken: "123456"))
+    let body = try #require(request.httpBody)
+    let json = try JSONSerialization.jsonObject(with: body) as? [String: Any]
+
+    #expect(request.url?.path == "/api/djconnect/v1/pair")
+    #expect(request.value(forHTTPHeaderField: "Authorization") == nil)
+    #expect(request.value(forHTTPHeaderField: "X-DJConnect-Device-ID") == "djconnect-ios-8F3A2C91B45D")
+    #expect(request.value(forHTTPHeaderField: "X-DJConnect-Client-Type") == "ios")
+    #expect(json?["device_id"] as? String == "djconnect-ios-8F3A2C91B45D")
+    #expect(json?["device_name"] as? String == "DJConnect iPhone")
+    #expect(json?["client_type"] as? String == "ios")
+    #expect(json?["pair_code"] as? String == "123456")
+    #expect(json?["callback_url"] == nil)
+    #expect(json?["local_url"] == nil)
+    #expect(json?["pair_path"] == nil)
+}
+
+@Test func iOSPairingDeepLinkParsesHomeAssistantPayload() throws {
+    let url = try #require(URL(string: "djconnect://pair?ha_url=http%3A%2F%2Fhomeassistant.local%3A8123&pair_code=123456&client_type=ios&pair_path=%2Fapi%2Fdjconnect%2Fv1%2Fpair"))
+
+    let payload = try DJConnectPairingDeepLink.parse(url, expectedClientType: .ios)
+
+    #expect(payload.homeAssistantURL == "http://homeassistant.local:8123")
+    #expect(payload.pairCode == "123456")
+    #expect(payload.clientType == .ios)
+    #expect(payload.pairPath == "/api/djconnect/v1/pair")
+}
+
+@Test func iOSPairingDeepLinkStillParsesLegacyPairPath() throws {
+    let url = try #require(URL(string: "djconnect://pair?ha_url=http%3A%2F%2Fhomeassistant.local%3A8123&pair_code=123456&client_type=ios&pair_path=%2Fapi%2Fdjconnect%2Fpair"))
+
+    let payload = try DJConnectPairingDeepLink.parse(url, expectedClientType: .ios)
+
+    #expect(payload.homeAssistantURL == "http://homeassistant.local:8123")
+    #expect(payload.pairCode == "123456")
+    #expect(payload.clientType == .ios)
+    #expect(payload.pairPath == "/api/djconnect/pair")
+}
+
+@Test func pairingURLPolicyAllowsNgrokFreeDevelopmentTunnel() throws {
+    let url = try #require(URL(string: "https://victory-curvy-refold.ngrok-free.dev"))
+    let pairingLink = try #require(URL(string: "djconnect://pair?ha_url=https%3A%2F%2Fvictory-curvy-refold.ngrok-free.dev&pair_code=123456&client_type=ios&pair_path=%2Fapi%2Fdjconnect%2Fv1%2Fpair"))
+
+    #expect(DJConnectPairingURLPolicy.isAllowedPairingURL(url))
+    #expect(DJConnectPairingURLPolicy.isWhitelistedDevelopmentTunnelURL(url))
+
+    let payload = try DJConnectPairingDeepLink.parse(pairingLink, expectedClientType: .ios)
+
+    #expect(payload.homeAssistantURL == "https://victory-curvy-refold.ngrok-free.dev")
+    #expect(payload.pairCode == "123456")
+}
+
+@Test func pairingURLPolicyRequiresPlausibleHomeAssistantHostSyntax() throws {
+    let localMDNS = try #require(URL(string: "http://homeassistant.local:8123"))
+    let localIP = try #require(URL(string: "http://192.168.1.10:8123"))
+    let localhost = try #require(URL(string: "http://localhost:8123"))
+    let bareWord = try #require(URL(string: "http://ddd"))
+    let partialIP = try #require(URL(string: "http://192."))
+    let bareWordPairingLink = try #require(URL(string: "djconnect://pair?ha_url=http%3A%2F%2Fddd&pair_code=123456&client_type=ios&pair_path=%2Fapi%2Fdjconnect%2Fv1%2Fpair"))
+
+    #expect(DJConnectPairingURLPolicy.isAllowedPairingURL(localMDNS))
+    #expect(DJConnectPairingURLPolicy.isAllowedPairingURL(localIP))
+    #expect(DJConnectPairingURLPolicy.isAllowedPairingURL(localhost))
+    #expect(!DJConnectPairingURLPolicy.isAllowedPairingURL(bareWord))
+    #expect(!DJConnectPairingURLPolicy.isAllowedPairingURL(partialIP))
+    #expect(throws: DJConnectError.self) {
+        _ = try DJConnectPairingDeepLink.parse(bareWordPairingLink, expectedClientType: .ios)
+    }
+}
+
+@Test func pairingURLPolicyRejectsNonWhitelistedRemoteHTTPS() throws {
+    let nabuCasa = try #require(URL(string: "https://example.ui.nabu.casa"))
+
+    #expect(!DJConnectPairingURLPolicy.isAllowedPairingURL(nabuCasa))
+    #expect(!DJConnectPairingURLPolicy.isWhitelistedDevelopmentTunnelURL(nabuCasa))
+}
+
+@Test func iOSPairingDeepLinkRejectsInvalidPayloads() throws {
+    let missingURL = try #require(URL(string: "djconnect://pair?pair_code=123456&client_type=ios&pair_path=%2Fapi%2Fdjconnect%2Fv1%2Fpair"))
+    let remoteURL = try #require(URL(string: "djconnect://pair?ha_url=https%3A%2F%2Fexample.ui.nabu.casa&pair_code=123456&client_type=ios&pair_path=%2Fapi%2Fdjconnect%2Fv1%2Fpair"))
+    let badCode = try #require(URL(string: "djconnect://pair?ha_url=http%3A%2F%2Fhomeassistant.local%3A8123&pair_code=12AB56&client_type=ios&pair_path=%2Fapi%2Fdjconnect%2Fv1%2Fpair"))
+    let wrongClient = try #require(URL(string: "djconnect://pair?ha_url=http%3A%2F%2Fhomeassistant.local%3A8123&pair_code=123456&client_type=macos&pair_path=%2Fapi%2Fdjconnect%2Fv1%2Fpair"))
+    let wrongPath = try #require(URL(string: "djconnect://pair?ha_url=http%3A%2F%2Fhomeassistant.local%3A8123&pair_code=123456&client_type=ios&pair_path=%2Fapi%2Fdevice%2Fpair"))
+
+    for url in [missingURL, remoteURL, badCode, wrongClient, wrongPath] {
+        #expect(throws: DJConnectError.self) {
+            _ = try DJConnectPairingDeepLink.parse(url, expectedClientType: .ios)
+        }
+    }
+}
+
+@Test func watchPairingDeepLinkParsesHomeAssistantPayload() throws {
+    let url = try #require(URL(string: "djconnect://pair?ha_url=http%3A%2F%2Fhomeassistant.local%3A8123&pair_code=123456&client_type=watchos&pair_path=%2Fapi%2Fdjconnect%2Fv1%2Fpair"))
+
+    let payload = try DJConnectPairingDeepLink.parse(url, expectedClientType: .watchos)
+
+    #expect(payload.homeAssistantURL == "http://homeassistant.local:8123")
+    #expect(payload.pairCode == "123456")
+    #expect(payload.clientType == .watchos)
+    #expect(payload.pairPath == "/api/djconnect/v1/pair")
+}
+
+@Test func watchPairingDeepLinkRejectsWrongClientTypeAndPairPath() throws {
+    let wrongClient = try #require(URL(string: "djconnect://pair?ha_url=http%3A%2F%2Fhomeassistant.local%3A8123&pair_code=123456&client_type=ios&pair_path=%2Fapi%2Fdjconnect%2Fv1%2Fpair"))
+    let wrongPath = try #require(URL(string: "djconnect://pair?ha_url=http%3A%2F%2Fhomeassistant.local%3A8123&pair_code=123456&client_type=watchos&pair_path=%2Fapi%2Fdevice%2Fpair"))
+
+    #expect(throws: DJConnectError.self) {
+        _ = try DJConnectPairingDeepLink.parse(wrongClient, expectedClientType: .watchos)
+    }
+    #expect(throws: DJConnectError.self) {
+        _ = try DJConnectPairingDeepLink.parse(wrongPath, expectedClientType: .watchos)
+    }
+}
+
+@Test func watchPairingRequestUsesHomeAssistantPairEndpoint() throws {
+    let identity = DJConnectIdentity(
+        deviceID: "djconnect-watchos-8F3A2C91B45D",
+        deviceName: "Apple Watch van Peter",
+        clientType: .watchos,
+        firmware: "3.2.3",
+        appVersion: "3.2.3",
+        platform: .watchos
+    )
+    let client = DJConnectClient(
+        baseURL: try #require(URL(string: "http://homeassistant.local:8123")),
+        identity: identity,
+        tokenStore: DJConnectInMemoryTokenStore()
+    )
+
+    let request = try client.pairingRequest(DJConnectPairingPayload(identity: identity, pairingToken: "123456"))
+    let body = try #require(request.httpBody)
+    let json = try JSONSerialization.jsonObject(with: body) as? [String: Any]
+
+    #expect(request.url?.path == "/api/djconnect/v1/pair")
+    #expect(request.value(forHTTPHeaderField: "Authorization") == nil)
+    #expect(request.value(forHTTPHeaderField: "X-DJConnect-Device-ID") == "djconnect-watchos-8F3A2C91B45D")
+    #expect(request.value(forHTTPHeaderField: "X-DJConnect-Client-Type") == "watchos")
+    #expect(json?["device_id"] as? String == "djconnect-watchos-8F3A2C91B45D")
+    #expect(json?["device_name"] as? String == "Apple Watch van Peter")
+    #expect(json?["client_type"] as? String == "watchos")
+    #expect(json?["pair_code"] as? String == "123456")
+    #expect(json?["callback_url"] == nil)
+    #expect(json?["local_url"] == nil)
+    #expect(json?["pair_path"] == nil)
+}
+
+@Test func iPhoneWatchProxyPairRequestPreservesWatchIdentity() async throws {
+    let identity = DJConnectIdentity(
+        deviceID: "djconnect-watchos-8F3A2C91B45D",
+        deviceName: "Apple Watch van Peter",
+        clientType: .watchos,
+        firmware: "3.2.3",
+        appVersion: "3.2.3",
+        platform: .watchos
+    )
+    let tokenStore = DJConnectInMemoryTokenStore()
+    let host = "watch-pair-proxy.local"
+    let session = mockSession(host: host) { request in
+        #expect(request.url?.path == "/api/djconnect/v1/pair")
+        #expect(request.value(forHTTPHeaderField: "Authorization") == nil)
+        #expect(request.value(forHTTPHeaderField: "X-DJConnect-Device-ID") == "djconnect-watchos-8F3A2C91B45D")
+        #expect(request.value(forHTTPHeaderField: "X-DJConnect-Client-Type") == "watchos")
+        return (
+            try httpResponse(for: request, statusCode: 200),
+            Data(
+                """
+                {
+                  "success": true,
+                  "client_type": "watchos",
+                  "device_token": "watch-secret",
+                  "ha_local_url": "http://\(host):8123",
+                  "api_base": "/api/djconnect/v1",
+                  "voice_path": "/api/djconnect/v1/voice",
+                  "status_path": "/api/djconnect/v1/status",
+                  "event_path": "/api/djconnect/event",
+                  "ask_dj_supported": true,
+                  "ask_dj_voice_supported": true,
+                  "ask_dj_audio_response_supported": true
+                }
+                """.utf8
+            )
+        )
+    }
+    let client = DJConnectClient(
+        baseURL: try #require(URL(string: "http://\(host):8123")),
+        identity: identity,
+        tokenStore: tokenStore,
+        session: session
+    )
+
+    let response = try await client.pair(DJConnectPairingPayload(identity: identity, pairingToken: "123456"))
+
+    #expect(response.success)
+    #expect(response.clientType == .watchos)
+    #expect(response.apiBase == "/api/djconnect/v1")
+    #expect(response.askDJVoiceSupported == true)
+    #expect(try tokenStore.loadToken() == "watch-secret")
+}
+
+@Test func pairingRequestRejectsMismatchedClientTypeAndDeviceIDPrefix() throws {
+    let identity = DJConnectIdentity(
+        deviceID: "djconnect-ios-8F3A2C91B45D",
+        deviceName: "DJConnect Mac",
+        clientType: .macos,
+        firmware: "3.2.3",
+        appVersion: "3.2.3",
+        platform: .macos
+    )
+    let client = DJConnectClient(
+        baseURL: try #require(URL(string: "http://homeassistant.local:8123")),
+        identity: identity,
+        tokenStore: DJConnectInMemoryTokenStore()
+    )
+
+    #expect(throws: DJConnectError.invalidConfiguration("DJConnect pairing identity mismatch: device_id prefix does not match client_type.")) {
+        _ = try client.pairingRequest(DJConnectPairingPayload(identity: identity, pairingToken: "123456"))
+    }
 }
 
 @Test func pairingResponseAcceptsCommonTokenFieldNames() throws {
@@ -3693,7 +6098,7 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
-    let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startLocalAPI: false, startBackgroundTasks: false)
+    let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startBackgroundTasks: false)
     model.language = "en"
     let response = DJConnectPairingResponse(
         success: true,
@@ -3707,163 +6112,159 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
         haRemoteURL: "https://remote.ui.nabu.casa",
         deviceLanguage: "nl",
         language: "en",
-        assistPipelineID: "preferred"
+        assistPipelineID: "preferred",
+        apiBase: "/api/djconnect/v1",
+        voicePath: "/api/djconnect/v1/voice",
+        statusPath: "/api/djconnect/v1/status",
+        eventPath: "/api/djconnect/event",
+        askDJSupported: true,
+        askDJVoiceSupported: true,
+        askDJAudioResponseSupported: true
     )
 
     model.apply(pairingResponse: response, fallbackBaseURL: try #require(URL(string: "http://fallback.local:8123")))
 
     #expect(model.homeAssistantURL == "http://192.168.1.13:8123")
     #expect(model.haLocalURL == "http://192.168.1.13:8123")
+    #expect(model.haRemoteURL == "https://remote.ui.nabu.casa")
     #expect(model.language == "en")
     #expect(model.assistPipelineID == "preferred")
-}
-
-@Test func localPairRequestAcceptsHomeAssistantCallbackPayload() throws {
-    let request = try JSONDecoder().decode(
-        DJConnectLocalPairRequest.self,
-        from: Data(
-            """
-            {
-              "pair_code": 555293,
-              "device_id": "djconnect-macos-68B74487726D",
-              "device_name": "DJConnect Mac",
-              "client_type": "macos",
-              "device_language": "nl",
-              "language": "nl",
-              "device_token": "device-secret",
-              "ha_local_url": "http://192.168.1.13:8123",
-              "ha_remote_url": "https://remote.ui.nabu.casa",
-              "assist_pipeline_id": "preferred"
-            }
-            """.utf8
-        )
-    )
-
-    #expect(request.resolvedPairCode == "555293")
-    #expect(request.deviceID == "djconnect-macos-68B74487726D")
-    #expect(request.clientType == .macos)
-    #expect(request.resolvedDeviceToken == "device-secret")
-    #expect(request.haLocalURL == "http://192.168.1.13:8123")
-    #expect(request.haRemoteURL == "https://remote.ui.nabu.casa")
-    #expect(request.assistPipelineID == "preferred")
+    #expect(model.apiBase == "/api/djconnect/v1")
+    #expect(model.voicePath == "/api/djconnect/v1/voice")
+    #expect(model.statusPath == "/api/djconnect/v1/status")
+    #expect(model.eventPath == "/api/djconnect/event")
+    #expect(model.askDJSupported)
+    #expect(model.askDJVoiceSupported)
+    #expect(model.askDJAudioResponseSupported)
+    #expect(defaults.string(forKey: "DJConnectHARemoteURL") == "https://remote.ui.nabu.casa")
+    #expect(defaults.string(forKey: "DJConnectAPIBase") == "/api/djconnect/v1")
 }
 
 @MainActor
-@Test func appDoesNotStartClientHostedLocalAPIForPairing() async throws {
+@Test func macOSPairingPostsOnlyToHomeAssistantPairEndpoint() async throws {
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
+    defaults.set(true, forKey: "DJConnectWelcomeSeen")
+    defaults.set("ABCDEF1234567890", forKey: "DJConnectInstallID")
     let tokenStore = DJConnectInMemoryTokenStore()
-    let model = DJConnectAppModel(defaults: defaults, tokenStore: tokenStore, startBackgroundTasks: false)
+    let host = "pair-macos.local"
+    let recorder = RequestPathRecorder()
+    let session = mockSession(host: host) { request in
+        recorder.append(request.url?.path ?? "")
+        #expect(request.url?.path == "/api/djconnect/v1/pair")
+        #expect(request.value(forHTTPHeaderField: "Authorization") == nil)
+        #expect(request.value(forHTTPHeaderField: "X-DJConnect-Device-ID") == "djconnect-macos-ABCDEF123456")
+        return (
+            try httpResponse(for: request, statusCode: 200),
+            Data(
+                """
+                {
+                  "success": true,
+                  "client_type": "macos",
+                  "device_token": "device-secret",
+                  "ha_local_url": "http://\(host):8123",
+                  "ha_remote_url": "https://example.ui.nabu.casa",
+                  "api_base": "/api/djconnect/v1",
+                  "voice_path": "/api/djconnect/v1/voice",
+                  "status_path": "/api/djconnect/v1/status",
+                  "event_path": "/api/djconnect/event",
+                  "ask_dj_supported": true,
+                  "ask_dj_voice_supported": true,
+                  "ask_dj_audio_response_supported": true
+                }
+                """.utf8
+            )
+        )
+    }
+    let model = DJConnectAppModel(defaults: defaults, tokenStore: tokenStore, urlSession: session, startBackgroundTasks: false)
+    defer {
+        model.stopPairingWait()
+    }
+    model.homeAssistantURL = "http://\(host):8123"
+    model.pairingToken = "123456"
 
-    try await Task.sleep(for: .milliseconds(150))
-    #expect(model.isLocalDeviceAPIRunningForTests == false)
-    #expect(model.localDeviceAPIURL == nil)
-    #expect(defaults.string(forKey: "DJConnectLocalDeviceAPIURL") == nil)
-    #expect(try tokenStore.loadToken() == nil)
-    model.stopLocalDeviceAPI()
+    model.confirmPairingHomeAssistantURL()
+
+    for _ in 0..<20 where model.pairingStatus != .waitingForHomeAssistantCompletion {
+        try await Task.sleep(for: .milliseconds(100))
+    }
+
+    #expect(model.pairingStatus == .waitingForHomeAssistantCompletion)
+    #expect(model.pairingMessage?.contains("Home Assistant") == true)
+    #expect(model.pairingMessage?.contains("setup") == true)
+    #expect(recorder.paths == ["/api/djconnect/v1/pair"])
+    #expect(!recorder.paths.contains { $0.hasPrefix("/api/device/") })
+    #expect(try tokenStore.loadToken() == "device-secret")
+    #expect(model.haRemoteURL == "https://example.ui.nabu.casa")
+    #expect(model.apiBase == "/api/djconnect/v1")
+    #expect(model.askDJSupported)
 }
 
 @MainActor
-@Test func localDeviceAPIAndBonjourAreInactiveForAppleClients() async throws {
+@Test func macOSPairingCompletesOnlyAfterAuthenticatedStatusSucceeds() async throws {
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
-    let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startBackgroundTasks: false)
-    defer { model.stopLocalDeviceAPI() }
+    defaults.set(true, forKey: "DJConnectWelcomeSeen")
+    defaults.set("ABCDEF1234567890", forKey: "DJConnectInstallID")
+    let tokenStore = DJConnectInMemoryTokenStore()
+    let host = "pair-status-macos.local"
+    let recorder = RequestPathRecorder()
+    let session = mockSession(host: host) { request in
+        recorder.append(request.url?.path ?? "")
+        if request.url?.path == "/api/djconnect/v1/status" {
+            #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer device-secret")
+            return (
+                try httpResponse(for: request, statusCode: 200),
+                Data(#"{"success":true,"ha_major_minor":"3.2","playback":{"has_playback":false},"music_backend_available":true}"#.utf8)
+            )
+        }
+        if request.url?.path == "/api/djconnect/v1/command" {
+            return (
+                try httpResponse(for: request, statusCode: 200),
+                Data(#"{"success":true,"ha_major_minor":"3.2","playback":{"has_playback":false},"music_backend_available":true}"#.utf8)
+            )
+        }
+        if request.url?.path == "/api/djconnect/v1/music_dna/profile" {
+            return (
+                try httpResponse(for: request, statusCode: 200),
+                Data(#"{"enabled":true,"profile":{}}"#.utf8)
+            )
+        }
+        #expect(request.url?.path == "/api/djconnect/v1/pair")
+        return (
+            try httpResponse(for: request, statusCode: 200),
+            Data(
+                """
+                {
+                  "success": true,
+                  "setup_pending": true,
+                  "client_type": "macos",
+                  "device_token": "device-secret",
+                  "ha_local_url": "http://\(host):8123"
+                }
+                """.utf8
+            )
+        )
+    }
+    let model = DJConnectAppModel(defaults: defaults, tokenStore: tokenStore, urlSession: session, startBackgroundTasks: true)
+    defer {
+        model.stopPairingWait()
+    }
+    model.homeAssistantURL = "http://\(host):8123"
+    model.pairingToken = "123456"
 
-    try await Task.sleep(for: .milliseconds(150))
-    #expect(model.isLocalDeviceAPIRunningForTests == false)
-    #expect(model.isBonjourAdvertisingPreferredForTests == false)
-    #expect(model.localDeviceAPIURL == nil)
-}
+    model.confirmPairingHomeAssistantURL()
 
-@Test func bonjourTXTRecordIncludesWatchOSDiscoveryContract() throws {
-    let identity = DJConnectIdentity(
-        deviceID: "djconnect-watchos-8F3A2C91B45D",
-        deviceName: "DJConnect Watch",
-        clientType: .watchos,
-        firmware: "3.1.49",
-        appVersion: "3.1.49",
-        platform: .watchos
-    )
-    let info = DJConnectLocalDeviceAPIInfo(
-        identity: identity,
-        pairingToken: "123456",
-        pairingStatus: .pairing
-    )
-    let txtRecord = DJConnectLocalDeviceAPI.bonjourTXTRecord(
-        for: info,
-        localURL: "http://192.168.1.105:55805"
-    ).mapValues { String(decoding: $0, as: UTF8.self) }
+    for _ in 0..<30 where model.pairingStatus != .paired {
+        try await Task.sleep(for: .milliseconds(100))
+    }
 
-    #expect(txtRecord["device_id"] == "djconnect-watchos-8F3A2C91B45D")
-    #expect(txtRecord["device_id"]?.hasPrefix("djconnect-watchos-") == true)
-    #expect(txtRecord["client_type"] == "watchos")
-    #expect(txtRecord["platform"] == "watchos")
-    #expect(txtRecord["pairing_status"] == "pairing")
-    #expect(txtRecord["paired"] == "false")
-    #expect(txtRecord["pair_code"] == "123456")
-    #expect(txtRecord["pairing_code"] == "123456")
-    #expect(txtRecord["pairing_token"] == "123456")
-    #expect(txtRecord["local_url"] == "http://192.168.1.105:55805")
-    #expect(txtRecord["path"] == "/api/device/info")
-    #expect(txtRecord["pairing_path"] == "/api/device/pairing-info")
-    #expect(txtRecord["pair_path"] == "/api/device/pair")
-}
-
-@Test func bonjourTXTRecordIncludesIOSDiscoveryContract() throws {
-    let identity = DJConnectIdentity(
-        deviceID: "djconnect-ios-8F3A2C91B45D",
-        deviceName: "DJConnect iPhone",
-        clientType: .ios,
-        firmware: "3.1.49",
-        appVersion: "3.1.49",
-        platform: .ios
-    )
-    let info = DJConnectLocalDeviceAPIInfo(
-        identity: identity,
-        pairingToken: "654321",
-        pairingStatus: .unpaired
-    )
-    let txtRecord = DJConnectLocalDeviceAPI.bonjourTXTRecord(
-        for: info,
-        localURL: "http://192.168.1.106:55806"
-    ).mapValues { String(decoding: $0, as: UTF8.self) }
-
-    #expect(txtRecord["device_id"] == "djconnect-ios-8F3A2C91B45D")
-    #expect(txtRecord["device_id"]?.hasPrefix("djconnect-ios-") == true)
-    #expect(txtRecord["client_type"] == "ios")
-    #expect(txtRecord["platform"] == "ios")
-    #expect(txtRecord["pairing_status"] == "unpaired")
-    #expect(txtRecord["paired"] == "false")
-    #expect(txtRecord["pair_code"] == "654321")
-    #expect(txtRecord["local_url"] == "http://192.168.1.106:55806")
-}
-
-@MainActor
-@Test func bonjourAdvertisingIsDisabledForAppleClients() throws {
-    let suiteName = "DJConnectTests-\(UUID().uuidString)"
-    let defaults = try #require(UserDefaults(suiteName: suiteName))
-    defaults.removePersistentDomain(forName: suiteName)
-    let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startLocalAPI: false, startBackgroundTasks: false)
-
-    #expect(!model.isBonjourAdvertisingPreferredForTests)
-
-    model.dismissWelcome()
-    #expect(!model.isBonjourAdvertisingPreferredForTests)
-
-    model.startDemoMode()
-    #expect(!model.isBonjourAdvertisingPreferredForTests)
-
-    model.stopDemoMode()
-    #expect(!model.isBonjourAdvertisingPreferredForTests)
-
-    model.pairingStatus = DJConnectPairingStatus.paired
-    #expect(!model.isBonjourAdvertisingPreferredForTests)
-
-    model.pairingStatus = DJConnectPairingStatus.unpaired
-    #expect(!model.isBonjourAdvertisingPreferredForTests)
+    #expect(model.pairingStatus == .paired)
+    #expect(model.pairingMessage == "Pairing complete." || model.pairingMessage == "Koppeling voltooid.")
+    #expect(recorder.paths.contains("/api/djconnect/v1/pair"))
+    #expect(recorder.paths.contains("/api/djconnect/v1/status"))
 }
 
 @MainActor
@@ -3871,7 +6272,7 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
-    let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startLocalAPI: false, startBackgroundTasks: false)
+    let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startBackgroundTasks: false)
 
     #expect(model.isAppInForegroundForTests)
 
@@ -3880,23 +6281,6 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
 
     model.markActiveSession()
     #expect(model.isAppInForegroundForTests)
-}
-
-@MainActor
-@Test func appLifecycleKeepsClientHostedLocalAPIOff() throws {
-    let suiteName = "DJConnectTests-\(UUID().uuidString)"
-    let defaults = try #require(UserDefaults(suiteName: suiteName))
-    defaults.removePersistentDomain(forName: suiteName)
-    let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startLocalAPI: true, startBackgroundTasks: false)
-    defer { model.stopLocalDeviceAPI() }
-
-    #expect(!model.isLocalDeviceAPIRunningForTests)
-
-    model.markInactiveSession()
-    #expect(!model.isLocalDeviceAPIRunningForTests)
-
-    model.markActiveSession()
-    #expect(!model.isLocalDeviceAPIRunningForTests)
 }
 
 @Test func pairSuccessStoresReturnedBearerToken() async throws {
@@ -3970,7 +6354,7 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
     defaults.removePersistentDomain(forName: suiteName)
     defaults.set("123456", forKey: "DJConnectPairingToken")
     defaults.set("http://user:password@homeassistant.local:8123/path?token=secret", forKey: "DJConnectHomeAssistantURL")
-    let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(token: "secret-token"), startLocalAPI: false, startBackgroundTasks: false)
+    let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(token: "secret-token"), startBackgroundTasks: false)
 
     let export = model.diagnosticExportText()
 
@@ -3980,6 +6364,10 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
     #expect(export.contains("app_store_review_demo_available: true"))
     #expect(export.contains("ha_connection_mode: offline"))
     #expect(export.contains("playback_features_enabled:"))
+    #expect(export.contains("fast_path_transport:"))
+    #expect(export.contains("fast_path_websocket_connected:"))
+    #expect(export.contains("fast_path_websocket_commands:"))
+    #expect(export.contains("fast_path_last_error:"))
     #expect(export.contains("output_count:"))
     #expect(export.contains("microphone_permission:"))
     #expect(export.contains("speech_permission:"))
@@ -4005,7 +6393,6 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
     _ = DJConnectAppModel(
         defaults: defaults,
         tokenStore: DJConnectInMemoryTokenStore(),
-        startLocalAPI: false,
         startBackgroundTasks: false,
         diagnosticLogDirectory: logDirectory
     )
@@ -4017,7 +6404,6 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
     let relaunched = DJConnectAppModel(
         defaults: defaults,
         tokenStore: DJConnectInMemoryTokenStore(),
-        startLocalAPI: false,
         startBackgroundTasks: false,
         diagnosticLogDirectory: logDirectory
     )
@@ -4039,7 +6425,6 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
     let model = DJConnectAppModel(
         defaults: defaults,
         tokenStore: DJConnectInMemoryTokenStore(),
-        startLocalAPI: false,
         startBackgroundTasks: false,
         diagnosticLogDirectory: logDirectory
     )
@@ -4053,7 +6438,6 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
     let relaunched = DJConnectAppModel(
         defaults: defaults,
         tokenStore: DJConnectInMemoryTokenStore(),
-        startLocalAPI: false,
         startBackgroundTasks: false,
         diagnosticLogDirectory: logDirectory
     )
@@ -4080,7 +6464,8 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
         wavData: wav,
         mood: 120,
         djStyle: "warm_radio_dj",
-        memoryKey: "djconnect-watchos-8F3A2C91B45D"
+        musicDNAKey: "djconnect-watchos-8F3A2C91B45D",
+        language: "es-ES"
     )
 
     #expect(request.url?.path == "/api/djconnect/v1/voice")
@@ -4091,7 +6476,9 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
     #expect(request.value(forHTTPHeaderField: "X-DJConnect-Client-Type") == "ios")
     #expect(request.value(forHTTPHeaderField: "X-DJConnect-Mood") == "100")
     #expect(request.value(forHTTPHeaderField: "X-DJConnect-DJ-Style") == "warm_radio_dj")
-    #expect(request.value(forHTTPHeaderField: "X-DJConnect-Memory-Key") == "djconnect-watchos-8F3A2C91B45D")
+    #expect(request.value(forHTTPHeaderField: "X-DJConnect-Music-DNA-Key") == "djconnect-watchos-8F3A2C91B45D")
+    #expect(request.value(forHTTPHeaderField: "X-DJConnect-Language") == "es-ES")
+    #expect(request.value(forHTTPHeaderField: "X-DJConnect-Locale") == "es-ES")
     #expect(request.httpBody == wav)
 }
 
@@ -4131,6 +6518,39 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
             firmware: "3.1.7",
             firmwareMajorMinor: "3.0"
         )
+    ))
+}
+
+@Test func clientTypeMismatchIsClassifiedBeforeGenericBadRequest() throws {
+    let client = DJConnectClient(
+        baseURL: try #require(URL(string: "http://homeassistant.local:8123")),
+        identity: DJConnectIdentity(
+            deviceID: "djconnect-macos-8F3A2C91B45D",
+            deviceName: "DJConnect Mac",
+            clientType: .macos,
+            firmware: "3.1.7",
+            platform: .macos
+        ),
+        tokenStore: DJConnectInMemoryTokenStore(token: "secret-token")
+    )
+    let body = Data(
+        """
+        {
+          "success": false,
+          "error": "client_type_mismatch",
+          "message": "Selected iOS pairing flow does not match this macOS app.",
+          "expected_client_type": "macos",
+          "received_client_type": "ios"
+        }
+        """.utf8
+    )
+
+    let error = client.classify(statusCode: 400, body: body)
+
+    #expect(error == .clientTypeMismatch(
+        message: "Selected iOS pairing flow does not match this macOS app.",
+        expectedClientType: "macos",
+        receivedClientType: "ios"
     ))
 }
 
@@ -4332,7 +6752,7 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
-    let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startLocalAPI: false, startBackgroundTasks: false)
+    let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startBackgroundTasks: false)
 
     model.emitUserConnectionNotice(for: .decodingFailed(statusCode: 200, endpoint: "POST /api/djconnect/v1/command", message: "bad shape"))
     #expect(["Geen verbinding met Home Assistant", "No connection to Home Assistant"].contains(model.userNotice?.text ?? ""))
@@ -4351,10 +6771,10 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
-    let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startLocalAPI: false)
+    let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore())
     model.language = "nl"
 
-    model.apply(localDJResponse: DJConnectLocalDJResponseRequest(
+    model.apply(watchProxyDJResponse: DJConnectWatchProxyDJResponseRequest(
         text: #"Spotify API failed HTTP 400: {"error":{"status":400,"message":"Can't have offset for context type: ARTIST"}}"#,
         djText: nil,
         audioURL: nil,
@@ -4369,10 +6789,10 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
-    let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startLocalAPI: false)
+    let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore())
     model.language = "nl"
 
-    model.apply(localDJResponse: DJConnectLocalDJResponseRequest(
+    model.apply(watchProxyDJResponse: DJConnectWatchProxyDJResponseRequest(
         text: "Player command failed. No active device found",
         djText: nil,
         audioURL: nil,
@@ -4383,14 +6803,58 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
 }
 
 @MainActor
+@Test func djAnnouncementMapsPlaybackRestrictionServerMessage() throws {
+    let suiteName = "DJConnectTests-\(UUID().uuidString)"
+    let defaults = try #require(UserDefaults(suiteName: suiteName))
+    defaults.removePersistentDomain(forName: suiteName)
+    let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore())
+    model.language = "nl"
+
+    model.apply(watchProxyDJResponse: DJConnectWatchProxyDJResponseRequest(
+        text: #"Spotify API failed HTTP 403: {"error":{"status":403,"message":"Player command failed: Restriction violated","reason":"UNKNOWN"}}"#,
+        djText: nil,
+        audioURL: nil,
+        audioType: nil
+    ))
+
+    #expect(model.djResponseText == "De actieve speler staat deze opdracht nu niet toe")
+}
+
+@MainActor
+@Test func shuffleCommandRestrictionShowsSpecificUserNotice() async throws {
+    let defaults = try testDefaults()
+    let host = "shuffle-restricted.local"
+    let session = mockSession(host: host) { request in
+        #expect(request.url?.path == "/api/djconnect/v1/command")
+        return (try httpResponse(for: request, statusCode: 200), Data("""
+        {
+          "success": false,
+          "error": "backend_unavailable",
+          "message": "Spotify API failed HTTP 403: {\\\"error\\\":{\\\"status\\\":403,\\\"message\\\":\\\"Player command failed: Restriction violated\\\",\\\"reason\\\":\\\"UNKNOWN\\\"}}"
+        }
+        """.utf8))
+    }
+    let model = makePairedMusicDNAModel(defaults: defaults, host: host, session: session)
+    model.language = "nl"
+    model.isConnected = true
+
+    model.setShuffle(true)
+    for _ in 0..<100 where model.userNotice == nil {
+        try await Task.sleep(for: .milliseconds(100))
+    }
+
+    #expect(model.userNotice?.text == "De actieve speler staat deze opdracht nu niet toe")
+}
+
+@MainActor
 @Test func djAnnouncementSuppressesHTMLBackendErrorPages() throws {
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
-    let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startLocalAPI: false)
+    let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore())
     model.language = "nl"
 
-    model.apply(localDJResponse: DJConnectLocalDJResponseRequest(
+    model.apply(watchProxyDJResponse: DJConnectWatchProxyDJResponseRequest(
         text: """
         <!DOCTYPE html>
         <html class="h-full" lang="en-US" dir="ltr">
@@ -4404,6 +6868,249 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
     ))
 
     #expect(model.djResponseText == "Geen verbinding met Home Assistant")
+}
+
+@MainActor
+@Test func trackInsightSuppressesHTMLBackendErrorPages() async throws {
+    let suiteName = "DJConnectTests-\(UUID().uuidString)"
+    let defaults = try #require(UserDefaults(suiteName: suiteName))
+    defaults.removePersistentDomain(forName: suiteName)
+    defaults.set(DJConnectHAConnectionMode.local.rawValue, forKey: "DJConnectHAConnectionMode")
+    let host = "track-insight-html.local"
+    let session = mockSession(host: host) { request in
+        #expect(request.url?.path == "/api/djconnect/v1/track_insight")
+        let html = """
+        <!DOCTYPE html>
+        <html class="h-full" lang="en-US" dir="ltr">
+        <head><link rel="preload" href="https://assets.ngrok.com/fonts/euclid-square/EuclidSquare-Regular-WebS.woff"></head>
+        <body>Home Assistant tunnel unavailable</body>
+        </html>
+        """
+        return (try httpResponse(for: request, statusCode: 502), Data(html.utf8))
+    }
+    let model = DJConnectAppModel(
+        playback: DJConnectPlayback(trackName: "Midnight City", artistName: "M83"),
+        defaults: defaults,
+        tokenStore: DJConnectInMemoryTokenStore(token: "secret-token"),
+        urlSession: session,
+        startBackgroundTasks: false
+    )
+    model.language = "nl"
+    model.homeAssistantURL = "http://\(host):8123"
+    model.pairingStatus = .paired
+    model.apply(commandResponse: DJConnectCommandResponse(
+        success: true,
+        backendAvailable: true,
+        playback: DJConnectPlayback(trackName: "Midnight City", artistName: "M83")
+    ))
+
+    model.analyzeCurrentTrack(open: false)
+
+    for _ in 0..<20 where model.isLoadingTrackInsight {
+        try await Task.sleep(for: .milliseconds(50))
+    }
+
+    #expect(model.trackInsightErrorMessage == "Geen verbinding met Home Assistant")
+    #expect(model.trackInsightErrorMessage?.contains("<!DOCTYPE html>") != true)
+    #expect(model.trackInsightErrorMessage?.contains("assets.ngrok.com") != true)
+}
+
+@MainActor
+@Test func trackInsightLocalizesNoCurrentlyPlayingBackendMessage() async throws {
+    let suiteName = "DJConnectTests-\(UUID().uuidString)"
+    let defaults = try #require(UserDefaults(suiteName: suiteName))
+    defaults.removePersistentDomain(forName: suiteName)
+    defaults.set(DJConnectHAConnectionMode.local.rawValue, forKey: "DJConnectHAConnectionMode")
+    let host = "track-insight-no-current.local"
+    let session = mockSession(host: host) { request in
+        #expect(request.url?.path == "/api/djconnect/v1/track_insight")
+        let json = """
+        {
+          "success": false,
+          "error": "no_track_playing",
+          "message": "No currently playing track could be resolved."
+        }
+        """
+        return (try httpResponse(for: request, statusCode: 200), Data(json.utf8))
+    }
+    let model = DJConnectAppModel(
+        playback: DJConnectPlayback(trackName: "Midnight City", artistName: "M83"),
+        defaults: defaults,
+        tokenStore: DJConnectInMemoryTokenStore(token: "secret-token"),
+        urlSession: session,
+        startBackgroundTasks: false
+    )
+    model.language = "nl"
+    model.homeAssistantURL = "http://\(host):8123"
+    model.pairingStatus = .paired
+    model.apply(commandResponse: DJConnectCommandResponse(
+        success: true,
+        backendAvailable: true,
+        playback: DJConnectPlayback(trackName: "Midnight City", artistName: "M83")
+    ))
+
+    model.analyzeCurrentTrack(open: false)
+
+    for _ in 0..<20 where model.isLoadingTrackInsight {
+        try await Task.sleep(for: .milliseconds(50))
+    }
+
+    #expect(model.trackInsightErrorMessage == "Start eerst een nummer voordat je Track Insight opent.")
+    #expect(model.trackInsightErrorMessage?.contains("No currently playing") != true)
+}
+
+@MainActor
+@Test func activeVibeCastAutoAnalyzesCurrentAndNextTrackInsight() async throws {
+    let suiteName = "DJConnectTests-\(UUID().uuidString)"
+    let defaults = try #require(UserDefaults(suiteName: suiteName))
+    defaults.removePersistentDomain(forName: suiteName)
+    defaults.set(DJConnectHAConnectionMode.local.rawValue, forKey: "DJConnectHAConnectionMode")
+    final class Recorder: @unchecked Sendable {
+        let lock = NSLock()
+        var trackInsightTitles: [String] = []
+        func append(_ value: String) {
+            lock.withLock { trackInsightTitles.append(value) }
+        }
+        var titles: [String] {
+            lock.withLock { trackInsightTitles }
+        }
+    }
+    let recorder = Recorder()
+    let host = "vibecast-auto-insight.local"
+    let session = mockSession(host: host) { request in
+        switch request.url?.path {
+        case "/api/djconnect/v1/vibecast":
+            return (
+                try httpResponse(for: request, statusCode: 200),
+                Data(#"{"enabled":true,"revision":1,"poll_after_seconds":30,"items":[]}"#.utf8)
+            )
+        case "/api/djconnect/v1/track_insight":
+            let object = request.httpBody.flatMap { try? JSONSerialization.jsonObject(with: $0) as? [String: Any] }
+            let fallbackTitle = recorder.titles.isEmpty ? "Track One" : "Track Two"
+            let title = (object?["track_name"] as? String) ?? fallbackTitle
+            let artist = (object?["artist"] as? String) ?? title.replacingOccurrences(of: "Track", with: "Artist")
+            recorder.append(title)
+            let json = """
+            {
+              "success": true,
+              "track_insight": {
+                "title": "\(title)",
+                "artist": "\(artist)",
+                "analysis": {
+                  "summary": "Auto insight for \(title)",
+                  "full_text": "Auto insight for \(title)"
+                }
+              }
+            }
+            """
+            return (try httpResponse(for: request, statusCode: 200), Data(json.utf8))
+        case "/api/djconnect/v1/music_dna/profile":
+            return (
+                try httpResponse(for: request, statusCode: 200),
+                Data(#"{"enabled":false,"profile":null,"items":[]}"#.utf8)
+            )
+        default:
+            Issue.record("Unexpected route \(request.url?.path ?? "nil")")
+            return (try httpResponse(for: request, statusCode: 404), Data(#"{"error":"not_found"}"#.utf8))
+        }
+    }
+    let model = DJConnectAppModel(
+        playback: DJConnectPlayback(hasPlayback: true, isPlaying: true, trackName: "Track One", artistName: "Artist One"),
+        defaults: defaults,
+        tokenStore: DJConnectInMemoryTokenStore(token: "secret-token"),
+        urlSession: session,
+        startBackgroundTasks: false
+    )
+    model.homeAssistantURL = "http://\(host):8123"
+    model.pairingStatus = .paired
+
+    let pollingTask = Task { await model.runVibeCastPolling() }
+    defer { pollingTask.cancel() }
+
+    for _ in 0..<60 where recorder.titles.count < 1 || model.currentTrackInsight?.title != "Track One" {
+        try await Task.sleep(for: .milliseconds(50))
+    }
+    #expect(recorder.titles == ["Track One"])
+    #expect(model.currentTrackInsight?.title == "Track One")
+
+    model.apply(playback: DJConnectPlayback(hasPlayback: true, isPlaying: true, trackName: "Track Two", artistName: "Artist Two"))
+
+    for _ in 0..<60 where recorder.titles.count < 2 || model.currentTrackInsight?.title != "Track Two" {
+        try await Task.sleep(for: .milliseconds(50))
+    }
+    #expect(recorder.titles == ["Track One", "Track Two"])
+    #expect(model.currentTrackInsight?.title == "Track Two")
+
+    model.apply(playback: DJConnectPlayback(hasPlayback: true, isPlaying: true, trackName: "Track Two", artistName: "Artist Two"))
+    try await Task.sleep(for: .milliseconds(150))
+    #expect(recorder.titles == ["Track One", "Track Two"])
+
+    pollingTask.cancel()
+    for _ in 0..<20 where model.isVibeCastStreamingActive {
+        try await Task.sleep(for: .milliseconds(50))
+    }
+    model.apply(playback: DJConnectPlayback(hasPlayback: true, isPlaying: true, trackName: "Track Three", artistName: "Artist Three"))
+    try await Task.sleep(for: .milliseconds(200))
+    #expect(recorder.titles == ["Track One", "Track Two"])
+    #expect(model.currentTrackInsight == nil)
+}
+
+@MainActor
+@Test func vibeCastRefreshUpdatesItemsWhenTextChangesWithoutRevisionChange() async throws {
+    let suiteName = "DJConnectTests-\(UUID().uuidString)"
+    let defaults = try #require(UserDefaults(suiteName: suiteName))
+    defaults.removePersistentDomain(forName: suiteName)
+    defaults.set(DJConnectHAConnectionMode.local.rawValue, forKey: "DJConnectHAConnectionMode")
+
+    final class Counter: @unchecked Sendable {
+        let lock = NSLock()
+        var value = 0
+        func next() -> Int {
+            lock.withLock {
+                value += 1
+                return value
+            }
+        }
+    }
+
+    let counter = Counter()
+    let host = "vibecast-same-revision.local"
+    let session = mockSession(host: host) { request in
+        #expect(request.url?.path == "/api/djconnect/v1/vibecast")
+        let call = counter.next()
+        let textSegments = call == 1
+            ? #"[{"type":"text","value":"Deze track leunt op "},{"type":"strong","value":"ritme en ruimte"},{"type":"text","value":"."}]"#
+            : #"[{"type":"emoji","value":"♪ ♫ "},{"type":"text","value":"Deze track leunt op "},{"type":"strong","value":"ritme en ruimte"},{"type":"text","value":"."}]"#
+        let json = """
+        {
+          "enabled": true,
+          "revision": 7,
+          "poll_after_seconds": 30,
+          "context": { "track_id": "track-1", "title": "Strobe", "artist": "deadmau5" },
+          "items": [
+            { "id": "fact-1", "kind": "track_fact", "text": \(textSegments) }
+          ]
+        }
+        """
+        return (try httpResponse(for: request, statusCode: 200), Data(json.utf8))
+    }
+
+    let model = DJConnectAppModel(
+        playback: DJConnectPlayback(hasPlayback: true, isPlaying: true, trackName: "Strobe", artistName: "deadmau5"),
+        defaults: defaults,
+        tokenStore: DJConnectInMemoryTokenStore(token: "secret-token"),
+        urlSession: session,
+        startBackgroundTasks: false
+    )
+    model.homeAssistantURL = "http://\(host):8123"
+    model.pairingStatus = .paired
+
+    _ = await model.refreshVibeCastFeed()
+    #expect(model.vibeCastItems.first?.plainText == "Deze track leunt op ritme en ruimte.")
+
+    _ = await model.refreshVibeCastFeed()
+    #expect(model.vibeCastItems.first?.plainText == "♪ ♫ Deze track leunt op ritme en ruimte.")
+    #expect(model.vibeCastItems.first?.text.first?.type == .emoji)
 }
 
 @MainActor
@@ -4471,18 +7178,17 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
     let model = DJConnectAppModel(
         defaults: defaults,
         tokenStore: DJConnectInMemoryTokenStore(token: "secret-token"),
-        startLocalAPI: false,
         startBackgroundTasks: false
     )
     model.language = "nl"
 
-    model.apply(localDJResponse: DJConnectLocalDJResponseRequest(
+    model.apply(watchProxyDJResponse: DJConnectWatchProxyDJResponseRequest(
         text: "Spotify authorization has expired or was revoked.",
         djText: nil,
         audioURL: nil,
         audioType: nil
     ))
-    #expect(model.djResponseText == "Ververs Spotify koppeling in Home Assistant")
+    #expect(model.djResponseText == "Controleer de muziekdienst-autorisatie in Home Assistant")
 
     model.apply(commandResponse: DJConnectCommandResponse(
         success: true,
@@ -4503,7 +7209,6 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
     let model = DJConnectAppModel(
         defaults: defaults,
         tokenStore: DJConnectInMemoryTokenStore(token: "secret-token"),
-        startLocalAPI: false,
         startBackgroundTasks: false
     )
 
@@ -4514,19 +7219,53 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
 }
 
 @MainActor
+@Test func demoVoiceRecordingShowsMicrophoneConsentBeforeDemoResponse() throws {
+    let suiteName = "DJConnectTests-\(UUID().uuidString)"
+    let defaults = try #require(UserDefaults(suiteName: suiteName))
+    defaults.removePersistentDomain(forName: suiteName)
+    let model = DJConnectAppModel(
+        defaults: defaults,
+        tokenStore: DJConnectInMemoryTokenStore(),
+        startBackgroundTasks: false
+    )
+    model.startDemoMode()
+    guard model.microphonePermissionStatus == .unknown else {
+        return
+    }
+
+    model.startVoiceRecording()
+
+    #expect(model.isShowingPermissionExplanation == true)
+    #expect(model.permissionExplanationKind == .microphone)
+    #expect(model.askDJMessages.contains { $0.text == "Voice request" } == false)
+    #expect(model.djResponseText.isEmpty)
+}
+
+@MainActor
 @Test func welcomeScreenIsShownOncePerInstall() throws {
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
 
-    let firstLaunch = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startLocalAPI: false, startBackgroundTasks: false)
+    let firstLaunch = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startBackgroundTasks: false)
     #expect(firstLaunch.isShowingWelcome == true)
 
     firstLaunch.dismissWelcome()
     #expect(firstLaunch.isShowingWelcome == false)
 
-    let secondLaunch = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startLocalAPI: false, startBackgroundTasks: false)
+    let secondLaunch = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startBackgroundTasks: false)
     #expect(secondLaunch.isShowingWelcome == false)
+}
+
+@Test func onboardingTourPromotesDiscoverInsteadOfMiniGames() throws {
+    let source = try loadRepositoryText("Sources/DJConnectUI/DJConnectRootView.swift")
+    let stepsStart = try #require(source.range(of: "static func steps(language: String) -> [WelcomeTourStep]"))
+    let stepsEnd = try #require(source[stepsStart.lowerBound...].range(of: "private struct WelcomeTourPreview"))
+    let stepsSource = String(source[stepsStart.lowerBound..<stepsEnd.lowerBound])
+
+    #expect(stepsSource.contains("id: .discovery"))
+    #expect(stepsSource.contains("id: .games") == false)
+    #expect(stepsSource.contains("ui.mini.games") == false)
 }
 
 @MainActor
@@ -4535,7 +7274,7 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
 
-    let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startLocalAPI: false, startBackgroundTasks: false)
+    let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startBackgroundTasks: false)
 
     #expect(model.isShowingWhatsNew == false)
     #expect(defaults.string(forKey: "DJConnectLastSeenAppVersion") == model.version)
@@ -4549,7 +7288,7 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
     defaults.set(true, forKey: "DJConnectWelcomeSeen")
     defaults.set("3.1.17", forKey: "DJConnectLastSeenAppVersion")
 
-    let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startLocalAPI: false, startBackgroundTasks: false)
+    let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startBackgroundTasks: false)
 
     #expect(model.isShowingWhatsNew == true)
     #expect(model.whatsNewTitle.contains(model.version))
@@ -4599,26 +7338,26 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
 
-    let firstLaunch = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startLocalAPI: false, startBackgroundTasks: false)
+    let firstLaunch = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startBackgroundTasks: false)
     #expect(firstLaunch.isShowingCrashReportPrompt == false)
     firstLaunch.markActiveSession()
 
-    let secondLaunch = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startLocalAPI: false, startBackgroundTasks: false)
+    let secondLaunch = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startBackgroundTasks: false)
     #expect(secondLaunch.isShowingCrashReportPrompt == true)
     #expect(secondLaunch.crashIssueURL()?.host == "github.com")
     #expect(secondLaunch.crashIssueURL()?.path == "/pcvantol/djconnect/issues/new")
 
     secondLaunch.dismissCrashReportPrompt()
-    let thirdLaunch = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startLocalAPI: false, startBackgroundTasks: false)
+    let thirdLaunch = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startBackgroundTasks: false)
     #expect(thirdLaunch.isShowingCrashReportPrompt == false)
 }
 
 @MainActor
-@Test func wakeWordPromptAppearsAfterFreshPairingWhenDisabled() throws {
+@Test func wakeWordPromptDoesNotAppearAutomaticallyAfterFreshPairing() throws {
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
-    let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startLocalAPI: false, startBackgroundTasks: false)
+    let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startBackgroundTasks: false)
 
     model.pairingStatus = .paired
     model.presentWakeWordActivationPromptAfterPairing()
@@ -4626,30 +7365,21 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
 
     model.completePairingScreen()
 
-    #expect(model.isShowingWakeWordActivationPrompt == true)
+    #expect(model.isShowingWakeWordActivationPrompt == false)
 }
 
 @MainActor
-@Test func wakeWordPromptDismissalIsRememberedUntilPairingReset() throws {
+@Test func wakeWordPromptAppearsWhenVoiceActivationIsEnabledFromSettings() throws {
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
-    let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startLocalAPI: false, startBackgroundTasks: false)
+    let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startBackgroundTasks: false)
 
     model.pairingStatus = .paired
-    model.presentWakeWordActivationPromptAfterPairing()
-    model.completePairingScreen()
-    model.dismissWakeWordActivationPrompt()
-    model.presentWakeWordActivationPromptAfterPairing()
-
-    #expect(model.isShowingWakeWordActivationPrompt == false)
-
-    model.resetPairing()
-    model.pairingStatus = .paired
-    model.presentWakeWordActivationPromptAfterPairing()
-    model.completePairingScreen()
+    model.setWakeWordEnabled(true)
 
     #expect(model.isShowingWakeWordActivationPrompt == true)
+    #expect(model.wakeWordEnabled == false)
 }
 
 @MainActor
@@ -4657,11 +7387,10 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
-    let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startLocalAPI: false, startBackgroundTasks: false)
+    let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startBackgroundTasks: false)
 
     model.pairingStatus = .paired
-    model.presentWakeWordActivationPromptAfterPairing()
-    model.completePairingScreen()
+    model.setWakeWordEnabled(true)
     model.activateWakeWordFromPrompt()
 
     #expect(model.isShowingWakeWordActivationPrompt == false)
@@ -4673,7 +7402,7 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
-    let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startLocalAPI: false, startBackgroundTasks: false)
+    let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startBackgroundTasks: false)
 
     #expect(model.shouldShowPairingScreen == false)
 
@@ -4713,7 +7442,6 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
     let model = DJConnectAppModel(
         defaults: defaults,
         tokenStore: DJConnectInMemoryTokenStore(),
-        startLocalAPI: false,
         startBackgroundTasks: false
     )
 
@@ -4727,6 +7455,377 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
     #expect(model.askDJMessages[0].status == .sent)
     #expect(model.askDJMessages[1].role == .dj)
     #expect(model.askDJMessages[1].text.contains("Home Assistant"))
+}
+
+@MainActor
+@Test func manualAskDJRefreshCallsBackendEvenWhenForegroundFlagIsStale() async throws {
+    let suiteName = "DJConnectTests-\(UUID().uuidString)"
+    let defaults = try #require(UserDefaults(suiteName: suiteName))
+    defaults.removePersistentDomain(forName: suiteName)
+    defaults.set(DJConnectHAConnectionMode.local.rawValue, forKey: "DJConnectHAConnectionMode")
+    let host = "manual-ask-dj-refresh.local"
+    let recorder = RequestPathRecorder()
+    let session = mockSession(host: host) { request in
+        let path = request.url?.path ?? ""
+        recorder.append(path)
+        if path == "/api/djconnect/v1/ask_dj/history" {
+            return (
+                try httpResponse(for: request, statusCode: 200),
+                Data(#"{"history_revision":12,"clear_revision":0,"messages":[]}"#.utf8)
+            )
+        }
+        if path == "/api/djconnect/v1/ask_dj/idle_suggestion" {
+            return (
+                try httpResponse(for: request, statusCode: 200),
+                Data(#"{"history_revision":12,"clear_revision":0,"messages":[]}"#.utf8)
+            )
+        }
+        return (
+            try httpResponse(for: request, statusCode: 404),
+            Data(#"{"success":false,"error":"unexpected_path"}"#.utf8)
+        )
+    }
+    let model = DJConnectAppModel(
+        defaults: defaults,
+        tokenStore: DJConnectInMemoryTokenStore(token: "secret-token"),
+        urlSession: session,
+        startBackgroundTasks: false
+    )
+    model.homeAssistantURL = "http://\(host):8123"
+    model.pairingStatus = .paired
+    model.markInactiveSession()
+
+    #expect(model.isAppInForegroundForTests == false)
+
+    await model.refreshAskDJHistory()
+
+    #expect(recorder.paths.contains("/api/djconnect/v1/ask_dj/history"))
+    #expect(model.isCheckingAskDJHistoryState == false)
+}
+
+@MainActor
+@Test func askDJFeedbackDraftIncludesContextWithoutLocalIdentifiers() throws {
+    let suiteName = "DJConnectTests-\(UUID().uuidString)"
+    let defaults = try #require(UserDefaults(suiteName: suiteName))
+    defaults.removePersistentDomain(forName: suiteName)
+    let clientMessageID = "client-message-\(UUID().uuidString)"
+    let userMessage = DJConnectAskDJMessage(
+        id: UUID(),
+        clientMessageID: clientMessageID,
+        exchangeID: "exchange-feedback",
+        exchangeOrder: 0,
+        role: .user,
+        text: "Waarom past dit nummer bij de avond?",
+        status: .sent,
+        createdAt: Date(timeIntervalSince1970: 100)
+    )
+    let answerMessage = DJConnectAskDJMessage(
+        id: UUID(),
+        clientMessageID: clientMessageID,
+        exchangeID: "exchange-feedback",
+        exchangeOrder: 1,
+        role: .dj,
+        text: "Omdat de warme synths en rustige drums goed passen.",
+        status: .delivered,
+        createdAt: Date(timeIntervalSince1970: 101)
+    )
+    defaults.set(try JSONEncoder().encode([userMessage, answerMessage]), forKey: "DJConnectAskDJMessages")
+    let model = DJConnectAppModel(
+        defaults: defaults,
+        tokenStore: DJConnectInMemoryTokenStore(token: "secret-token"),
+        startBackgroundTasks: false
+    )
+
+    let body = model.askDJFeedbackIssueBody(for: answerMessage, userNote: "Het antwoord miste de context van mijn vraag.")
+
+    #expect(body.contains("Het antwoord miste de context van mijn vraag."))
+    #expect(body.contains("Waarom past dit nummer bij de avond?"))
+    #expect(body.contains("Omdat de warme synths en rustige drums goed passen."))
+    #expect(body.contains(#""client_type""#))
+    #expect(!body.contains(model.identity.deviceID))
+    #expect(!body.contains("secret-token"))
+    #expect(!body.contains(#""device_id""#))
+}
+
+@MainActor
+@Test func demoModeNextCommandAdvancesThroughQueue() async throws {
+    let suiteName = "DJConnectTests-\(UUID().uuidString)"
+    let defaults = try #require(UserDefaults(suiteName: suiteName))
+    defaults.removePersistentDomain(forName: suiteName)
+    let model = DJConnectAppModel(
+        defaults: defaults,
+        tokenStore: DJConnectInMemoryTokenStore(),
+        startBackgroundTasks: false
+    )
+
+    model.startDemoMode()
+
+    #expect(model.playback?.trackName == "Midnight City")
+
+    model.sendPlaybackCommand("next")
+    await Task.yield()
+    #expect(model.playback?.trackName == "Sweet Disposition")
+    #expect(model.playback?.progressMS == 0)
+
+    model.sendPlaybackCommand("next")
+    await Task.yield()
+    #expect(model.playback?.trackName == "Electric Feel")
+    #expect(model.playback?.progressMS == 0)
+
+    model.sendPlaybackCommand("next")
+    await Task.yield()
+    #expect(model.playback?.trackName == "Electric Feel")
+
+    model.sendPlaybackCommand("previous")
+    await Task.yield()
+    #expect(model.playback?.trackName == "Sweet Disposition")
+    #expect(model.playback?.progressMS == 0)
+}
+
+@MainActor
+@Test func demoModeSeekSetsExactPlaybackPosition() throws {
+    let suiteName = "DJConnectTests-\(UUID().uuidString)"
+    let defaults = try #require(UserDefaults(suiteName: suiteName))
+    defaults.removePersistentDomain(forName: suiteName)
+    let model = DJConnectAppModel(
+        defaults: defaults,
+        tokenStore: DJConnectInMemoryTokenStore(),
+        startBackgroundTasks: false
+    )
+
+    model.startDemoMode()
+
+    model.commitSeek(to: 96_000)
+    #expect(model.playback?.progressMS == 96_000)
+
+    model.commitSeek(to: 999_000)
+    #expect(model.playback?.progressMS == model.playback?.durationMS)
+}
+
+@MainActor
+@Test func demoModeSeekRelativeMovesPlaybackPosition() async throws {
+    let suiteName = "DJConnectTests-\(UUID().uuidString)"
+    let defaults = try #require(UserDefaults(suiteName: suiteName))
+    defaults.removePersistentDomain(forName: suiteName)
+    let model = DJConnectAppModel(
+        defaults: defaults,
+        tokenStore: DJConnectInMemoryTokenStore(),
+        startBackgroundTasks: false
+    )
+
+    model.startDemoMode()
+
+    model.seekRelative(milliseconds: 15_000)
+    #expect(model.playback?.progressMS == 63_000)
+
+    model.seekRelative(milliseconds: -15_000)
+    #expect(model.playback?.progressMS == 48_000)
+
+    model.seekRelative(milliseconds: -999_000)
+    #expect(model.playback?.progressMS == 0)
+}
+
+@MainActor
+@Test func askDJGeneratedTextMetadataMapsToLocalAssistantMessage() throws {
+    let suiteName = "DJConnectTests-\(UUID().uuidString)"
+    let defaults = try #require(UserDefaults(suiteName: suiteName))
+    defaults.removePersistentDomain(forName: suiteName)
+    let model = DJConnectAppModel(
+        defaults: defaults,
+        tokenStore: DJConnectInMemoryTokenStore(),
+        startBackgroundTasks: false
+    )
+    let assistantMessage = DJConnectAskDJHistoryMessage(
+        id: "assistant-generated",
+        role: .assistant,
+        textSource: "generated",
+        isGeneratedText: true,
+        text: "Pearl Jam komt binnen alsof de festivalweide net wakker wordt.",
+        createdAt: Date(timeIntervalSince1970: 20)
+    )
+
+    model.applyAskDJMessageResponse(DJConnectAskDJMessageResponse(
+        assistantMessage: assistantMessage,
+        historyRevision: 1
+    ), fallbackUserMessageID: nil)
+
+    let message = try #require(model.askDJMessages.first)
+    #expect(message.role == .dj)
+    #expect(message.textSource == "generated")
+    #expect(message.isGeneratedText == true)
+}
+
+@MainActor
+@Test func askDJMoodMetadataMapsToLocalAssistantMessage() throws {
+    let suiteName = "DJConnectTests-\(UUID().uuidString)"
+    let defaults = try #require(UserDefaults(suiteName: suiteName))
+    defaults.removePersistentDomain(forName: suiteName)
+    let model = DJConnectAppModel(
+        defaults: defaults,
+        tokenStore: DJConnectInMemoryTokenStore(),
+        startBackgroundTasks: false
+    )
+    let assistantMessage = DJConnectAskDJHistoryMessage(
+        id: "assistant-energy",
+        role: .assistant,
+        mood: 72,
+        text: "Dit antwoord krijgt de energy-kleurstelling.",
+        createdAt: Date(timeIntervalSince1970: 20)
+    )
+
+    model.applyAskDJMessageResponse(DJConnectAskDJMessageResponse(
+        assistantMessage: assistantMessage,
+        historyRevision: 1
+    ), fallbackUserMessageID: nil)
+
+    let message = try #require(model.askDJMessages.first)
+    #expect(message.role == .dj)
+    #expect(message.mood == 72)
+}
+
+@MainActor
+@Test func askDJTopLevelGeneratedTextMetadataIsUsedOnlyForSyntheticAssistantMessage() throws {
+    let payload = Data("""
+    {
+      "dj_text": "Pearl Jam komt binnen alsof de festivalweide net wakker wordt.",
+      "text_source": "generated",
+      "is_generated_text": true
+    }
+    """.utf8)
+    let response = try JSONDecoder().decode(DJConnectAskDJMessageResponse.self, from: payload)
+    let assistantMessage = try #require(response.assistantMessage)
+
+    #expect(response.textSource == "generated")
+    #expect(response.isGeneratedText == true)
+    #expect(assistantMessage.textSource == "generated")
+    #expect(assistantMessage.isGeneratedText == true)
+}
+
+@MainActor
+@Test func askDJTopLevelGeneratedTextMetadataFillsMissingAssistantMessageMetadata() throws {
+    let payload = Data("""
+    {
+      "dj_text": "Top-level generated text.",
+      "text_source": "generated",
+      "is_generated_text": true,
+      "assistant_message": {
+        "id": "assistant-without-metadata",
+        "role": "assistant",
+        "text": "Assistant text zonder metadata.",
+        "created_at": "2026-07-03T20:00:00Z"
+      }
+    }
+    """.utf8)
+    let response = try JSONDecoder().decode(DJConnectAskDJMessageResponse.self, from: payload)
+    let assistantMessage = try #require(response.assistantMessage)
+
+    #expect(response.isGeneratedText == true)
+    #expect(assistantMessage.textSource == "generated")
+    #expect(assistantMessage.isGeneratedText == true)
+}
+
+@MainActor
+@Test func askDJGeneratedWatSpeeltErResponseKeepsAssistantAudioAndGeneratedMetadata() throws {
+    let payload = Data("""
+    {
+      "dj_text": "Je luistert nu naar Alive van Pearl Jam.",
+      "text_source": "generated",
+      "is_generated_text": true,
+      "audio_url": "/api/djconnect/audio/wat-speelt-er.mp3",
+      "audio_type": "tts",
+      "assistant_message": {
+        "id": "assistant-wat-speelt-er",
+        "role": "assistant",
+        "text": "Je luistert nu naar Alive van Pearl Jam.",
+        "text_source": "generated",
+        "is_generated_text": true,
+        "audio_url": "/api/djconnect/audio/wat-speelt-er.mp3",
+        "audio_type": "tts",
+        "created_at": "2026-07-04T10:00:00Z"
+      }
+    }
+    """.utf8)
+    let response = try JSONDecoder().decode(DJConnectAskDJMessageResponse.self, from: payload)
+    let assistantMessage = try #require(response.assistantMessage)
+
+    #expect(response.textSource == "generated")
+    #expect(response.isGeneratedText == true)
+    #expect(response.audioURL?.path == "/api/djconnect/audio/wat-speelt-er.mp3")
+    #expect(assistantMessage.textSource == "generated")
+    #expect(assistantMessage.isGeneratedText == true)
+    #expect(assistantMessage.audioURL?.path == "/api/djconnect/audio/wat-speelt-er.mp3")
+}
+
+@MainActor
+@Test func askDJNonGeneratedAssistantMessageKeepsAudioReplayMetadata() throws {
+    let payload = Data("""
+    {
+      "assistant_message": {
+        "id": "assistant-audio-fallback",
+        "role": "assistant",
+        "text": "Ask DJ gaf een vaste fallback met audio.",
+        "text_source": "fallback",
+        "is_generated_text": false,
+        "audio_url": "https://example.test/audio/fallback.mp3",
+        "created_at": "2026-07-04T10:05:00Z"
+      }
+    }
+    """.utf8)
+    let response = try JSONDecoder().decode(DJConnectAskDJMessageResponse.self, from: payload)
+    let assistantMessage = try #require(response.assistantMessage)
+
+    #expect(assistantMessage.textSource == "fallback")
+    #expect(assistantMessage.isGeneratedText == false)
+    #expect(assistantMessage.audioURL?.absoluteString == "https://example.test/audio/fallback.mp3")
+}
+
+@MainActor
+@Test func askDJLegacyTopLevelFallbackFieldsHydrateSyntheticAssistantMessage() throws {
+    let payload = Data("""
+    {
+      "dj_text": "Legacy top-level antwoord met TTS.",
+      "text_source": "generated",
+      "is_generated_text": true,
+      "audio_url": "https://example.test/audio/legacy.mp3"
+    }
+    """.utf8)
+    let response = try JSONDecoder().decode(DJConnectAskDJMessageResponse.self, from: payload)
+    let assistantMessage = try #require(response.assistantMessage)
+
+    #expect(assistantMessage.text == "Legacy top-level antwoord met TTS.")
+    #expect(assistantMessage.textSource == "generated")
+    #expect(assistantMessage.isGeneratedText == true)
+    #expect(assistantMessage.audioURL?.absoluteString == "https://example.test/audio/legacy.mp3")
+}
+
+@MainActor
+@Test func askDJFallbackTextMetadataMapsWithoutGeneratedFlag() throws {
+    let suiteName = "DJConnectTests-\(UUID().uuidString)"
+    let defaults = try #require(UserDefaults(suiteName: suiteName))
+    defaults.removePersistentDomain(forName: suiteName)
+    let model = DJConnectAppModel(
+        defaults: defaults,
+        tokenStore: DJConnectInMemoryTokenStore(),
+        startBackgroundTasks: false
+    )
+    let assistantMessage = DJConnectAskDJHistoryMessage(
+        id: "assistant-fallback",
+        role: .assistant,
+        textSource: "fallback",
+        isGeneratedText: false,
+        text: "Ask DJ is even niet bereikbaar.",
+        createdAt: Date(timeIntervalSince1970: 20)
+    )
+
+    model.applyAskDJMessageResponse(DJConnectAskDJMessageResponse(
+        assistantMessage: assistantMessage,
+        historyRevision: 1
+    ), fallbackUserMessageID: nil)
+
+    let message = try #require(model.askDJMessages.first)
+    #expect(message.role == .dj)
+    #expect(message.textSource == "fallback")
+    #expect(message.isGeneratedText == false)
 }
 
 @MainActor
@@ -4750,7 +7849,6 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
     let model = DJConnectAppModel(
         defaults: defaults,
         tokenStore: DJConnectInMemoryTokenStore(),
-        startLocalAPI: false,
         startBackgroundTasks: false
     )
     let serverUserMessage = DJConnectAskDJHistoryMessage(
@@ -4795,6 +7893,82 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
 }
 
 @MainActor
+@Test func askDJHistorySyncHigherClearRevisionClearsLocalCacheBeforeMerge() throws {
+    let suiteName = "DJConnectTests-\(UUID().uuidString)"
+    let defaults = try #require(UserDefaults(suiteName: suiteName))
+    defaults.removePersistentDomain(forName: suiteName)
+    let clientMessageID = "client-message-\(UUID().uuidString)"
+    let localUserID = UUID()
+    let localUserMessage = DJConnectAskDJMessage(
+        id: localUserID,
+        clientMessageID: clientMessageID,
+        role: .user,
+        text: "wat speelt er nu?",
+        status: .sending,
+        createdAt: Date(timeIntervalSince1970: 100)
+    )
+    let assistantMessage = DJConnectAskDJHistoryMessage(
+        id: "assistant-now-playing",
+        clientMessageID: clientMessageID,
+        role: .assistant,
+        text: "Dit klinkt als een warme, melodische house track.",
+        createdAt: Date(timeIntervalSince1970: 101)
+    )
+
+    defaults.set(try JSONEncoder().encode([localUserMessage]), forKey: "DJConnectAskDJMessages")
+    let hydratedModel = DJConnectAppModel(
+        defaults: defaults,
+        tokenStore: DJConnectInMemoryTokenStore(),
+        startBackgroundTasks: false
+    )
+    hydratedModel.applyAskDJMessageResponse(DJConnectAskDJMessageResponse(
+        assistantMessage: assistantMessage,
+        historyRevision: 4,
+        clearRevision: 0
+    ), fallbackUserMessageID: localUserID)
+
+    hydratedModel.applyAskDJHistory(DJConnectAskDJHistoryResponse(
+        historyRevision: 5,
+        clearRevision: 1,
+        messages: []
+    ))
+
+    #expect(hydratedModel.askDJMessages.isEmpty)
+    #expect(defaults.integer(forKey: "DJConnectAskDJClearRevision") == 1)
+    #expect(defaults.integer(forKey: "DJConnectAskDJHistoryRevision") == 5)
+}
+
+@MainActor
+@Test func askDJHistorySyncEmptyMessagesAfterClearDoesNotRestoreOldLocalMessages() throws {
+    let suiteName = "DJConnectTests-\(UUID().uuidString)"
+    let defaults = try #require(UserDefaults(suiteName: suiteName))
+    defaults.removePersistentDomain(forName: suiteName)
+    let staleMessage = DJConnectAskDJMessage(
+        role: .dj,
+        text: "oude chat",
+        status: .sent,
+        createdAt: Date(timeIntervalSince1970: 100)
+    )
+    defaults.set(try JSONEncoder().encode([staleMessage]), forKey: "DJConnectAskDJMessages")
+    defaults.set(3, forKey: "DJConnectAskDJClearRevision")
+    let hydratedModel = DJConnectAppModel(
+        defaults: defaults,
+        tokenStore: DJConnectInMemoryTokenStore(),
+        startBackgroundTasks: false
+    )
+
+    hydratedModel.applyAskDJHistory(DJConnectAskDJHistoryResponse(
+        historyRevision: 12,
+        clearRevision: 4,
+        messages: []
+    ))
+
+    #expect(hydratedModel.askDJMessages.isEmpty)
+    #expect(defaults.integer(forKey: "DJConnectAskDJClearRevision") == 4)
+    #expect(defaults.integer(forKey: "DJConnectAskDJHistoryRevision") == 12)
+}
+
+@MainActor
 @Test func askDJMessageExchangeOrderKeepsUserQuestionAboveAssistantAnswer() throws {
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
@@ -4814,7 +7988,6 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
     let hydratedModel = DJConnectAppModel(
         defaults: defaults,
         tokenStore: DJConnectInMemoryTokenStore(),
-        startLocalAPI: false,
         startBackgroundTasks: false
     )
     let serverUserMessage = DJConnectAskDJHistoryMessage(
@@ -4856,14 +8029,13 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
 }
 
 @MainActor
-@Test func monkeyTestingModeStartsSafeLocalDemoWithoutPairingOrLocalAPI() throws {
+@Test func monkeyTestingModeStartsSafeLocalDemoWithoutPairing() throws {
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
     let model = DJConnectAppModel(
         defaults: defaults,
         tokenStore: DJConnectInMemoryTokenStore(),
-        startLocalAPI: true,
         startBackgroundTasks: true,
         monkeyTestingMode: true
     )
@@ -4873,11 +8045,13 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
     #expect(model.shouldShowPairingScreen == false)
     #expect(model.isShowingWelcome == false)
     #expect(model.isShowingCrashReportPrompt == false)
-    #expect(model.localDeviceAPIURL == nil)
     #expect(model.canUsePlaybackFeatures == true)
     #expect(model.playback?.trackName == "Midnight City")
     #expect(model.queueItems.isEmpty == false)
     #expect(model.playlistItems.isEmpty == false)
+    #expect(model.currentTrackInsight == nil)
+    model.openTrackInsight()
+    #expect(model.currentTrackInsight == nil)
 }
 
 @MainActor
@@ -4965,7 +8139,8 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
         wavData: Data([0x52, 0x49, 0x46, 0x46]),
         mood: 70,
         djStyle: "warm_radio_dj",
-        memoryKey: "djconnect-watchos-ABC123"
+        musicDNAKey: "djconnect-watchos-ABC123",
+        language: "nl-NL"
     )
     let request = DJConnectWatchProxyRequest(operation: .voice, payload: try JSONEncoder().encode(payload))
     let decodedRequest = try JSONDecoder().decode(DJConnectWatchProxyRequest.self, from: JSONEncoder().encode(request))
@@ -4975,6 +8150,120 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
     #expect(decodedPayload.wavData == Data([0x52, 0x49, 0x46, 0x46]))
     #expect(decodedPayload.mood == 70)
     #expect(decodedPayload.djStyle == "warm_radio_dj")
+    #expect(decodedPayload.language == "nl-NL")
+}
+
+@Test func watchProxyAskDJMessagePayloadCarriesTextContext() throws {
+    let identity = DJConnectIdentity(
+        deviceID: "djconnect-watchos-ABC123",
+        deviceName: "DJConnect Watch",
+        clientType: .watchos,
+        firmware: "3.2.3",
+        appVersion: "3.2.3",
+        platform: .watchos
+    )
+    let payload = DJConnectAskDJRequest(
+        identity: identity,
+        text: "Meer van Charly Lownoise & Mental Theo",
+        clientMessageID: "watch-message-1",
+        inputType: "text",
+        mood: 70,
+        musicDNAKey: "djconnect_watchos_ABC123",
+        audioResponse: .auto,
+        language: "nl-NL"
+    )
+    let request = DJConnectWatchProxyRequest(operation: .askDJMessage, payload: try JSONEncoder().encode(payload))
+    let decodedRequest = try JSONDecoder().decode(DJConnectWatchProxyRequest.self, from: JSONEncoder().encode(request))
+    let decodedPayload = try JSONDecoder().decode(DJConnectAskDJRequest.self, from: try #require(decodedRequest.payload))
+
+    #expect(decodedRequest.operation == .askDJMessage)
+    #expect(decodedPayload.text == "Meer van Charly Lownoise & Mental Theo")
+    #expect(decodedPayload.clientMessageID == "watch-message-1")
+    #expect(decodedPayload.mood == 70)
+    #expect(decodedPayload.musicDNAKey == "djconnect_watchos_ABC123")
+    #expect(decodedPayload.audioResponse == .auto)
+    #expect(decodedPayload.language == "nl-NL")
+}
+
+@Test func watchProxyMusicDNASettingsPayloadUsesWatchIdentity() throws {
+    let identity = DJConnectIdentity(
+        deviceID: "djconnect-watchos-ABC123",
+        deviceName: "DJConnect Watch",
+        clientType: .watchos,
+        firmware: "3.2.3",
+        appVersion: "3.2.3",
+        platform: .watchos
+    )
+    let payload = DJConnectMusicDNASettingsRequest(identity: identity, enabled: true, mood: 70)
+    let request = DJConnectWatchProxyRequest(operation: .musicDNASettings, payload: try JSONEncoder().encode(payload))
+    let decodedRequest = try JSONDecoder().decode(DJConnectWatchProxyRequest.self, from: JSONEncoder().encode(request))
+    let decodedPayload = try JSONDecoder().decode(DJConnectMusicDNASettingsRequest.self, from: try #require(decodedRequest.payload))
+
+    #expect(decodedRequest.operation == .musicDNASettings)
+    #expect(decodedPayload.deviceID == "djconnect-watchos-ABC123")
+    #expect(decodedPayload.clientType == .watchos)
+    #expect(decodedPayload.enabled == true)
+    #expect(decodedPayload.mood == 70)
+}
+
+@Test func watchProxyMusicDNASettingsPayloadSupportsWatchOptOut() throws {
+    let identity = DJConnectIdentity(
+        deviceID: "djconnect-watchos-ABC123",
+        deviceName: "DJConnect Watch",
+        clientType: .watchos,
+        firmware: "3.2.3",
+        appVersion: "3.2.3",
+        platform: .watchos
+    )
+    let payload = DJConnectMusicDNASettingsRequest(identity: identity, enabled: false)
+    let request = DJConnectWatchProxyRequest(operation: .musicDNASettings, payload: try JSONEncoder().encode(payload))
+    let decodedRequest = try JSONDecoder().decode(DJConnectWatchProxyRequest.self, from: JSONEncoder().encode(request))
+    let decodedPayload = try JSONDecoder().decode(DJConnectMusicDNASettingsRequest.self, from: try #require(decodedRequest.payload))
+
+    #expect(decodedRequest.operation == .musicDNASettings)
+    #expect(decodedPayload.deviceID == "djconnect-watchos-ABC123")
+    #expect(decodedPayload.clientType == .watchos)
+    #expect(decodedPayload.enabled == false)
+}
+
+@Test func watchProxyMusicDNAProfileOperationRoundTrips() throws {
+    let identity = DJConnectIdentity(
+        deviceID: "djconnect-watchos-ABC123",
+        deviceName: "DJConnect Watch",
+        clientType: .watchos,
+        firmware: "3.2.3",
+        appVersion: "3.2.3",
+        platform: .watchos
+    )
+    let payload = DJConnectMusicDNAIdentityRequest(identity: identity, mood: 40)
+    let request = DJConnectWatchProxyRequest(operation: .musicDNAProfile, payload: try JSONEncoder().encode(payload))
+    let decodedRequest = try JSONDecoder().decode(DJConnectWatchProxyRequest.self, from: JSONEncoder().encode(request))
+    let decodedPayload = try JSONDecoder().decode(DJConnectMusicDNAIdentityRequest.self, from: try #require(decodedRequest.payload))
+
+    #expect(decodedRequest.operation == .musicDNAProfile)
+    #expect(decodedPayload.deviceID == "djconnect-watchos-ABC123")
+    #expect(decodedPayload.clientType == .watchos)
+    #expect(decodedPayload.mood == 40)
+}
+
+@Test func watchProxyMusicDNAClearOperationRoundTrips() throws {
+    let identity = DJConnectIdentity(
+        deviceID: "djconnect-watchos-ABC123",
+        deviceName: "DJConnect Watch",
+        clientType: .watchos,
+        firmware: "3.2.3",
+        appVersion: "3.2.3",
+        platform: .watchos
+    )
+    let payload = DJConnectMusicDNAIdentityRequest(identity: identity, mood: 100)
+    let request = DJConnectWatchProxyRequest(operation: .clearMusicDNA, payload: try JSONEncoder().encode(payload))
+    let decodedRequest = try JSONDecoder().decode(DJConnectWatchProxyRequest.self, from: JSONEncoder().encode(request))
+    let decodedPayload = try JSONDecoder().decode(DJConnectMusicDNAIdentityRequest.self, from: try #require(decodedRequest.payload))
+
+    #expect(decodedRequest.operation == .clearMusicDNA)
+    #expect(decodedPayload.deviceID == "djconnect-watchos-ABC123")
+    #expect(decodedPayload.clientType == .watchos)
+    #expect(decodedPayload.mood == 100)
 }
 
 @Test func commandResponseExposesBackendSummaryForWatchSync() throws {
@@ -5061,4 +8350,547 @@ private func localDeviceJSON(from urlString: String) async throws -> LocalDevice
 
     #expect(response.clientType == .windows)
     #expect(response.deviceID == "djconnect-windows-ABCDEF123456")
+}
+
+@Test func trackInsightParserDecodesStructuredJSON() throws {
+    let json = """
+    {
+      "title": "Innerbloom",
+      "artist": "RUFUS DU SOL",
+      "album": "Bloom",
+      "genre": "Melodic house",
+      "energy": 0.64,
+      "danceability": 0.62,
+      "intensity": 0.70,
+      "mood": "Dreamy",
+      "vibe": "Expansive",
+      "texture": "Wide pads",
+      "confidence": 0.95,
+      "summary": "A slow-blooming electronic piece."
+    }
+    """.data(using: .utf8)!
+
+    let insight = try #require(TrackInsightParser.parse(data: json))
+
+    #expect(insight.title == "Innerbloom")
+    #expect(insight.artist == "RUFUS DU SOL")
+    #expect(insight.energy == 0.64)
+    #expect(insight.summary == "A slow-blooming electronic piece.")
+}
+
+@Test func trackInsightUsesTrackGenresWhenAnalysisGenreIsMissing() throws {
+    let json = """
+    {
+      "success": true,
+      "track_insight": {
+        "track": {
+          "title": "Genre Fallback",
+          "artist": "Backend",
+          "genres": ["dream pop", "ambient", "electronic", "extra"]
+        },
+        "analysis": {
+          "summary": "Genre comes from track context."
+        }
+      }
+    }
+    """.data(using: .utf8)!
+
+    let response = try JSONDecoder().decode(TrackInsightEndpointResponse.self, from: json)
+    let insight = try #require(response.trackInsightValue)
+
+    #expect(insight.genre == "dream pop, ambient, electronic")
+}
+
+@Test func trackInsightWidgetSnapshotKeepsOnlySafeVisibleFields() throws {
+    let insight = TrackInsight(
+        title: "  Innerbloom\n",
+        artist: "RUFUS DU SOL",
+        duration: 200,
+        progress: 138,
+        genre: "Deep House",
+        energy: 1.4,
+        danceability: -0.2,
+        intensity: 0.58,
+        mood: "Dreamy",
+        vibe: "Euphoric",
+        summary: String(repeating: "glow ", count: 80),
+        rawAnalysisText: "raw backend details should not be copied",
+        musicDNAMatchPercent: 140
+    )
+
+    let snapshot = DJConnectTrackInsightWidgetSnapshot(insight: insight)
+
+    #expect(snapshot.title == "Innerbloom")
+    #expect(snapshot.artist == "RUFUS DU SOL")
+    #expect(snapshot.energy == 1)
+    #expect(snapshot.danceability == 0)
+    #expect(snapshot.intensity == 0.58)
+    #expect(snapshot.musicDNAMatchPercent == nil)
+    #expect(snapshot.progress == 138)
+    #expect(snapshot.duration == 200)
+    #expect(snapshot.summary.count <= 180)
+    #expect(!snapshot.summary.contains("\n"))
+}
+
+@Test func trackInsightWidgetSnapshotStoresAndLoadsFromSharedDefaults() throws {
+    let suiteName = "DJConnectWidgetSnapshotTests-\(UUID().uuidString)"
+    let defaults = try #require(UserDefaults(suiteName: suiteName))
+    defaults.removePersistentDomain(forName: suiteName)
+    let snapshot = DJConnectTrackInsightWidgetSnapshot(
+        title: "Adagio for Strings",
+        artist: "Samuel Barber",
+        genre: "Classical",
+        mood: "Dreamy",
+        vibe: "Lamenting",
+        energy: 0.32,
+        danceability: 0.10,
+        intensity: 0.68,
+        musicDNAMatchPercent: 84,
+        summary: "A patient orchestral ascent."
+    )
+
+    try snapshot.save(to: defaults)
+    let loaded = try #require(DJConnectTrackInsightWidgetSnapshot.load(from: defaults))
+
+    #expect(loaded == snapshot)
+}
+
+@Test func askDJWidgetSnapshotStoresOnlyCompactVisibleText() throws {
+    let suiteName = "DJConnectAskDJWidgetSnapshotTests-\(UUID().uuidString)"
+    let defaults = try #require(UserDefaults(suiteName: suiteName))
+    defaults.removePersistentDomain(forName: suiteName)
+    let snapshot = DJConnectAskDJWidgetSnapshot(
+        prompt: "  Tell me about this track\n",
+        response: String(repeating: "warm ", count: 80),
+        context: "Innerbloom - RUFUS DU SOL",
+        trackTitle: "Innerbloom",
+        artist: "RUFUS DU SOL"
+    )
+
+    try snapshot.save(to: defaults)
+    let loaded = try #require(DJConnectAskDJWidgetSnapshot.load(from: defaults))
+
+    #expect(loaded.prompt == "Tell me about this track")
+    #expect(loaded.response.count <= 180)
+    #expect(!loaded.response.contains("\n"))
+    #expect(loaded.context == "Innerbloom - RUFUS DU SOL")
+    #expect(loaded.trackTitle == "Innerbloom")
+    #expect(loaded.artist == "RUFUS DU SOL")
+}
+
+@Test func nowPlayingWidgetSnapshotKeepsOnlySafeVisibleFields() throws {
+    let playback = DJConnectPlayback(
+        hasPlayback: true,
+        isPlaying: true,
+        trackName: "  Midnight City\n",
+        artistName: "M83",
+        albumImageURL: URL(string: "https://example.com/artwork.jpg"),
+        progressMS: -100,
+        durationMS: 244_000,
+        device: DJConnectPlaybackDevice(
+            id: "private-device-id",
+            name: "  Living Room\n",
+            type: "speaker",
+            volumePercent: 50
+        ),
+        contextURI: "spotify:private:context"
+    )
+
+    let snapshot = try #require(DJConnectNowPlayingWidgetSnapshot(playback: playback))
+
+    #expect(snapshot.title == "Midnight City")
+    #expect(snapshot.artist == "M83")
+    #expect(snapshot.artworkURL == URL(string: "https://example.com/artwork.jpg"))
+    #expect(snapshot.progressMS == 0)
+    #expect(snapshot.durationMS == 244_000)
+    #expect(snapshot.isPlaying)
+    #expect(snapshot.deviceName == "Living Room")
+}
+
+@Test func nowPlayingWidgetSnapshotStoresAndLoadsFromSharedDefaults() throws {
+    let suiteName = "DJConnectNowPlayingWidgetSnapshotTests-\(UUID().uuidString)"
+    let defaults = try #require(UserDefaults(suiteName: suiteName))
+    defaults.removePersistentDomain(forName: suiteName)
+    let snapshot = DJConnectNowPlayingWidgetSnapshot(
+        title: "Sweet Disposition",
+        artist: "The Temper Trap",
+        artworkURL: URL(string: "https://example.com/sweet.jpg"),
+        artworkData: Data([0x89, 0x50, 0x4e, 0x47]),
+        progressMS: 42_000,
+        durationMS: 232_000,
+        isPlaying: true,
+        deviceName: "Studio"
+    )
+
+    try snapshot.save(to: defaults)
+    let loaded = try #require(DJConnectNowPlayingWidgetSnapshot.load(from: defaults))
+
+    #expect(loaded == snapshot)
+}
+
+@Test func nowPlayingWidgetSnapshotKeepsProgressClockInputs() throws {
+    let updatedAt = Date(timeIntervalSince1970: 1_000)
+    let snapshot = DJConnectNowPlayingWidgetSnapshot(
+        updatedAt: updatedAt,
+        title: "Natural Blues",
+        artist: "Moby",
+        progressMS: 180_000,
+        durationMS: 240_000,
+        isPlaying: true
+    )
+
+    try #require(snapshot.progressMS == 180_000)
+    try #require(snapshot.durationMS == 240_000)
+    #expect(snapshot.updatedAt == updatedAt)
+    #expect(snapshot.isPlaying)
+}
+
+@Test func queueWidgetSnapshotKeepsOnlySafeVisibleItems() throws {
+    let items = (0..<7).map { index in
+        DJConnectQueueItem(
+            id: "private-\(index)",
+            title: "  Track \(index)\n",
+            artist: "Artist \(index)",
+            album: "Album \(index)",
+            uri: "spotify:track:private-\(index)",
+            durationMS: -100 + index,
+            albumImageURL: URL(string: "https://example.com/art-\(index).jpg")
+        )
+    }
+
+    let snapshot = DJConnectQueueWidgetSnapshot(items: items)
+
+    #expect(snapshot.items.count == 5)
+    #expect(snapshot.totalCount == 7)
+    #expect(snapshot.items.first?.title == "Track 0")
+    #expect(snapshot.items.first?.artist == "Artist 0")
+    #expect(snapshot.items.first?.album == "Album 0")
+    #expect(snapshot.items.first?.durationMS == 0)
+    #expect(snapshot.items.first?.artworkURL == URL(string: "https://example.com/art-0.jpg"))
+
+    var cachedArtworkItem = snapshot.items[0]
+    cachedArtworkItem.artworkData = Data([0x89, 0x50, 0x4e, 0x47])
+    #expect(cachedArtworkItem.artworkData == Data([0x89, 0x50, 0x4e, 0x47]))
+}
+
+@Test func queueWidgetSnapshotStoresAndLoadsFromSharedDefaults() throws {
+    let suiteName = "DJConnectQueueWidgetSnapshotTests-\(UUID().uuidString)"
+    let defaults = try #require(UserDefaults(suiteName: suiteName))
+    defaults.removePersistentDomain(forName: suiteName)
+    let snapshot = DJConnectQueueWidgetSnapshot(items: [
+        DJConnectQueueItem(title: "Innerbloom", artist: "RUFUS DU SOL", album: "Bloom", durationMS: 540_000),
+        DJConnectQueueItem(title: "Strobe", artist: "deadmau5", album: "For Lack of a Better Name", durationMS: 633_000)
+    ])
+
+    try snapshot.save(to: defaults)
+    let loaded = try #require(DJConnectQueueWidgetSnapshot.load(from: defaults))
+
+    #expect(loaded == snapshot)
+}
+
+@Test func playlistsWidgetSnapshotKeepsOnlySafeVisibleItems() throws {
+    let playlists = (0..<7).map { index in
+        DJConnectPlaylist(
+            id: "private-playlist-\(index)",
+            name: "  Playlist \(index)\n",
+            uri: "spotify:playlist:private-\(index)",
+            imageURL: URL(string: "https://example.com/playlist-\(index).jpg"),
+            subtitle: "Owner \(index)"
+        )
+    }
+
+    let snapshot = DJConnectPlaylistsWidgetSnapshot(playlists: playlists)
+
+    #expect(snapshot.items.count == 5)
+    #expect(snapshot.totalCount == 7)
+    #expect(snapshot.items.first?.name == "Playlist 0")
+    #expect(snapshot.items.first?.subtitle == "Owner 0")
+    #expect(snapshot.items.first?.imageURL == URL(string: "https://example.com/playlist-0.jpg"))
+}
+
+@Test func playlistsWidgetSnapshotStoresAndLoadsFromSharedDefaults() throws {
+    let suiteName = "DJConnectPlaylistsWidgetSnapshotTests-\(UUID().uuidString)"
+    let defaults = try #require(UserDefaults(suiteName: suiteName))
+    defaults.removePersistentDomain(forName: suiteName)
+    let snapshot = DJConnectPlaylistsWidgetSnapshot(playlists: [
+        DJConnectPlaylist(name: "Friday Night", uri: "spotify:playlist:friday", subtitle: "DJConnect"),
+        DJConnectPlaylist(name: "Dinner Vibes", uri: "spotify:playlist:dinner", subtitle: "Home")
+    ])
+    var snapshotWithArtwork = snapshot
+    snapshotWithArtwork.items[0].imageData = Data([0x89, 0x50, 0x4e, 0x47])
+
+    try snapshotWithArtwork.save(to: defaults)
+    let loaded = try #require(DJConnectPlaylistsWidgetSnapshot.load(from: defaults))
+
+    #expect(loaded == snapshotWithArtwork)
+    #expect(loaded.items.first?.imageData == Data([0x89, 0x50, 0x4e, 0x47]))
+}
+
+@Test func localizationNormalizesDutchLanguageVariants() {
+    #expect(DJConnectLocalization.localized(key: "About", language: "nl") == "Over")
+    #expect(DJConnectLocalization.localized(key: "About", language: "nl-NL") == "Over")
+    #expect(DJConnectLocalization.localized(key: "About", language: "NL") == "Over")
+    #expect(DJConnectLocalization.localized(key: "About", language: "en") == "About")
+    #expect(DJConnectLocalization.localized(key: "About", language: "de-DE") == "Info")
+    #expect(DJConnectLocalization.localized(key: "About", language: "fr-FR") == "A propos")
+    #expect(DJConnectLocalization.localized(key: "About", language: "es-ES") == "Acerca de")
+    #expect(DJConnectLocalization.localized(key: "About", language: "") == "About")
+    #expect(DJConnectLocalization.preferredLanguageCode(["nl-NL", "en-US"]) == "nl")
+    #expect(DJConnectLocalization.preferredLanguageCode(["NL", "en-US"]) == "nl")
+    #expect(DJConnectLocalization.preferredLanguageCode(["de-DE", "en-US"]) == "de")
+    #expect(DJConnectLocalization.preferredLanguageCode(["fr-FR", "en-US"]) == "fr")
+    #expect(DJConnectLocalization.preferredLanguageCode(["es-ES", "en-US"]) == "es")
+    #expect(DJConnectLocalization.preferredLanguageCode(["en-US", "nl-NL"]) == "en")
+    #expect(DJConnectLocalization.preferredLanguageCode([]) == "en")
+}
+
+@Test func localizationNormalizesEscapedNewlines() {
+    let message = DJConnectLocalization.localized(
+        key: "ui.playback.is.unavailable.ncheck.the.spotify.authorization.in.home.assistant",
+        language: "nl"
+    )
+    #expect(message.contains("\n"))
+    #expect(!message.contains("\\n"))
+}
+
+@Test func localizationResolvesWatchScreenKeys() {
+    let dutchExpectations = [
+        "watch.settings": "Instellingen",
+        "watch.legal": "Juridisch",
+        "watch.privacy": "Privacy",
+        "watch.feedback": "Feedback",
+        "watch.demo.mode.active": "Demo modus actief",
+        "watch.app.language": "App-taal"
+    ]
+
+    for (key, value) in dutchExpectations {
+        #expect(DJConnectLocalization.localized(key: key, language: "nl") == value)
+        #expect(DJConnectLocalization.localized(key: key, language: "nl") != key)
+    }
+
+    #expect(DJConnectLocalization.localized(key: "watch.settings", language: "en") == "Settings")
+    #expect(DJConnectLocalization.localized(key: "watch.legal", language: "en") == "Legal")
+    #expect(DJConnectLocalization.localized(key: "watch.app.language", language: "en") == "App Language")
+}
+
+@Test func defaultDisplayLanguageUsesSharedAppLanguageOverrideForWidgets() throws {
+    let sharedDefaults = try #require(UserDefaults(suiteName: DJConnectLocalization.appGroupIdentifier))
+    let oldSharedOverride = sharedDefaults.string(forKey: DJConnectLocalization.appLanguageOverrideDefaultsKey)
+    defer {
+        if let oldSharedOverride {
+            sharedDefaults.set(oldSharedOverride, forKey: DJConnectLocalization.appLanguageOverrideDefaultsKey)
+        } else {
+            sharedDefaults.removeObject(forKey: DJConnectLocalization.appLanguageOverrideDefaultsKey)
+        }
+    }
+
+    sharedDefaults.set("de", forKey: DJConnectLocalization.appLanguageOverrideDefaultsKey)
+    #expect(DJConnectLocalization.defaultDisplayLanguageCode(preferredLanguages: ["nl-NL"]) == "de")
+    #expect(DJConnectLocalization.localized(key: "About") == "Info")
+
+    sharedDefaults.removeObject(forKey: DJConnectLocalization.appLanguageOverrideDefaultsKey)
+    #expect(DJConnectLocalization.defaultDisplayLanguageCode(preferredLanguages: ["nl-NL"]) == "nl")
+}
+
+@Test func localizationMapsClientLanguagesToBCP47Locales() {
+    #expect(DJConnectLocalization.bcp47LocaleIdentifier(for: "nl") == "nl-NL")
+    #expect(DJConnectLocalization.bcp47LocaleIdentifier(for: "en-GB") == "en-GB")
+    #expect(DJConnectLocalization.bcp47LocaleIdentifier(for: "de_DE") == "de-DE")
+    #expect(DJConnectLocalization.bcp47LocaleIdentifier(for: "fr") == "fr-FR")
+    #expect(DJConnectLocalization.bcp47LocaleIdentifier(for: "es") == "es-ES")
+    #expect(DJConnectLocalization.bcp47LocaleIdentifier(for: "") == "en-US")
+}
+
+@Test func pairingErrorPresentationLocalizesKnownHTTPCodes() {
+    let context = DJConnectErrorPresentationContext.pairing(expectedPairingFlowName: "iPhone/iPad")
+
+    let clientMismatch = DJConnectError.clientTypeMismatch(
+        message: "client_type_mismatch",
+        expectedClientType: "ios",
+        receivedClientType: "watchos"
+    )
+    #expect(
+        DJConnectErrorPresentation.userMessage(for: clientMismatch, language: "nl", context: context)?
+            .contains("app-type") == true
+    )
+    #expect(
+        DJConnectErrorPresentation.userMessage(for: clientMismatch, language: "de", context: context)?
+            .contains("App-Typ") == true
+    )
+
+    let invalidPairCode = DJConnectError.server(statusCode: 400, message: #"{"error":"invalid_pair_code"}"#)
+    #expect(
+        DJConnectErrorPresentation.userMessage(for: invalidPairCode, language: "fr", context: context)?
+            .contains("code d'association") == true
+    )
+
+    let notConfigured = DJConnectError.notConfigured(message: #"{"error":"not_configured"}"#)
+    #expect(
+        DJConnectErrorPresentation.userMessage(for: notConfigured, language: "es", context: .general)?
+            .contains("configurado") == true
+    )
+}
+
+@Test func homeScreenActionsDecodeWidgetAndShortcutDeepLinks() throws {
+    #expect(DJConnectHomeScreenAction(deepLinkURL: try #require(URL(string: "djconnect://now-playing"))) == .nowPlaying)
+    #expect(DJConnectHomeScreenAction(deepLinkURL: try #require(URL(string: "djconnect://queue"))) == .queue)
+    #expect(DJConnectHomeScreenAction(deepLinkURL: try #require(URL(string: "djconnect://ask-dj"))) == .askDJ)
+    #expect(DJConnectHomeScreenAction(deepLinkURL: try #require(URL(string: "djconnect://track-insight"))) == .trackInsight)
+    #expect(DJConnectHomeScreenAction(deepLinkURL: try #require(URL(string: "djconnect://discover"))) == .discovery)
+    #expect(DJConnectHomeScreenAction(deepLinkURL: try #require(URL(string: "djconnect://ontdek"))) == .discovery)
+    #expect(DJConnectHomeScreenAction(deepLinkURL: try #require(URL(string: "djconnect://playlists"))) == .playlists)
+    #expect(DJConnectHomeScreenAction(deepLinkURL: try #require(URL(string: "djconnect:///queue"))) == .queue)
+    #expect(DJConnectHomeScreenAction(deepLinkURL: try #require(URL(string: "https://djconnect.dev/queue"))) == nil)
+    #expect(DJConnectHomeScreenAction(deepLinkURL: try #require(URL(string: "djconnect://unknown"))) == nil)
+}
+
+@Test func homeScreenActionRequestsAreUniqueEventsForRepeatedActions() {
+    let first = DJConnectHomeScreenActionRequest(action: .askDJ)
+    let second = DJConnectHomeScreenActionRequest(action: .askDJ)
+
+    #expect(first.action == second.action)
+    #expect(first != second)
+}
+
+@Test func iOSInfoPlistContainsCameraConsentAndNavigationMetadata() throws {
+    let plist = try loadRepositoryPlist("Apps/DJConnectIOS/Info.plist")
+    let cameraUsage = try #require(plist["NSCameraUsageDescription"] as? String)
+    let urlTypes = try #require(plist["CFBundleURLTypes"] as? [[String: Any]])
+    let shortcutItems = try #require(plist["UIApplicationShortcutItems"] as? [[String: Any]])
+
+    #expect(cameraUsage.localizedCaseInsensitiveContains("camera"))
+    #expect(cameraUsage.localizedCaseInsensitiveContains("QR"))
+    #expect(urlTypes.contains { type in
+        (type["CFBundleURLSchemes"] as? [String])?.contains("djconnect") == true
+    })
+    let shortcutTypes = shortcutItems.compactMap { $0["UIApplicationShortcutItemType"] as? String }
+    #expect(shortcutTypes == [
+        "dev.djconnect.action.now-playing",
+        "dev.djconnect.action.ask-dj",
+        "dev.djconnect.action.track-insight",
+        "dev.djconnect.action.discovery",
+        "dev.djconnect.action.queue"
+    ])
+    let discoveryShortcut = try #require(shortcutItems.first {
+        $0["UIApplicationShortcutItemType"] as? String == "dev.djconnect.action.discovery"
+    })
+    #expect(discoveryShortcut["UIApplicationShortcutItemIconSymbolName"] as? String == "sparkles")
+    #expect(discoveryShortcut["UIApplicationShortcutItemTitle"] as? String == "Discover")
+    #expect(discoveryShortcut["UIApplicationShortcutItemSubtitle"] as? String == "Music DNA recommendations")
+}
+
+@Test func iOSInfoPlistLocalizesDiscoverShortcutStrings() throws {
+    let expectedTitles = [
+        "en": "Discover",
+        "nl": "Ontdek",
+        "de": "Entdecken",
+        "fr": "Decouvrir",
+        "es": "Descubrir"
+    ]
+    for (locale, title) in expectedTitles {
+        let strings = try loadRepositoryText("Apps/DJConnectIOS/\(locale).lproj/InfoPlist.strings")
+        #expect(strings.contains(#""Discover" = "\#(title)";"#))
+        #expect(strings.contains(#""Music DNA recommendations" = "#))
+    }
+}
+
+@MainActor
+@Test func trackInsightShareTextStaysCompactAndPublic() {
+    let insight = TrackInsight(
+        title: "Innerbloom",
+        artist: "RUFUS DU SOL",
+        genre: "Deep House",
+        mood: "Dreamy",
+        vibe: "Euphoric",
+        summary: "A slow-building journey with glowing synth textures.",
+        rawAnalysisText: "Visible summary only.",
+        musicDNAMatchPercent: 96
+    )
+
+    let text = TrackInsightShareService.shareText(for: insight)
+
+    #expect(text.contains("Currently vibing to Innerbloom by RUFUS DU SOL."))
+    #expect(text.contains("Inspired by your Music DNA."))
+    #expect(text.contains("#DJConnect #TrackInsight"))
+    #expect(!text.localizedCaseInsensitiveContains("token"))
+    #expect(!text.localizedCaseInsensitiveContains("entity_id"))
+    #expect(!text.localizedCaseInsensitiveContains("home assistant"))
+}
+
+private func loadRepositoryPlist(_ relativePath: String) throws -> [String: Any] {
+    let url = URL(fileURLWithPath: #filePath)
+        .deletingLastPathComponent()
+        .deletingLastPathComponent()
+        .deletingLastPathComponent()
+        .appendingPathComponent(relativePath)
+    let data = try Data(contentsOf: url)
+    let object = try PropertyListSerialization.propertyList(from: data, options: [], format: nil)
+    return try #require(object as? [String: Any])
+}
+
+private func loadRepositoryText(_ relativePath: String) throws -> String {
+    let url = URL(fileURLWithPath: #filePath)
+        .deletingLastPathComponent()
+        .deletingLastPathComponent()
+        .deletingLastPathComponent()
+        .appendingPathComponent(relativePath)
+    return try String(contentsOf: url, encoding: .utf8)
+}
+
+@MainActor
+@Test func trackInsightShareCleanupKeepsRecentExportsAndRemovesOldExports() throws {
+    let directory = TrackInsightShareRenderer.temporaryOutputDirectory()
+    try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+    let oldURL = directory.appendingPathComponent("old-\(UUID().uuidString).mp4")
+    let recentURL = directory.appendingPathComponent("recent-\(UUID().uuidString).mp4")
+    try Data("old".utf8).write(to: oldURL)
+    try Data("recent".utf8).write(to: recentURL)
+    let now = Date()
+    try FileManager.default.setAttributes([.modificationDate: now.addingTimeInterval(-3_600)], ofItemAtPath: oldURL.path)
+    try FileManager.default.setAttributes([.modificationDate: now], ofItemAtPath: recentURL.path)
+
+    try TrackInsightShareRenderer.cleanupTemporaryExports(olderThan: 60, now: now)
+
+    #expect(!FileManager.default.fileExists(atPath: oldURL.path))
+    #expect(FileManager.default.fileExists(atPath: recentURL.path))
+    try? FileManager.default.removeItem(at: recentURL)
+}
+
+@Test func trackVibeProfileIsDeterministicForSameInsight() {
+    let insight = TrackInsight(
+        title: "Marea",
+        artist: "Fred again..",
+        genre: "House",
+        energy: 0.8,
+        danceability: 0.88,
+        intensity: 0.72,
+        mood: "Energetic",
+        vibe: "Human",
+        texture: "Vocal chops",
+        summary: "A club record with an intimate human center.",
+        rawAnalysisText: "Demo"
+    )
+
+    #expect(TrackVibeProfile.make(for: insight) == TrackVibeProfile.make(for: insight))
+}
+
+@Test func demoTrackInsightServiceMapsDemoQueueTracksToDistinctInsights() async throws {
+    let service = DemoTrackInsightService()
+    let demoTracks = [
+        DJConnectPlayback(trackName: "Midnight City", artistName: "M83"),
+        DJConnectPlayback(trackName: "Sweet Disposition", artistName: "The Temper Trap"),
+        DJConnectPlayback(trackName: "Electric Feel", artistName: "MGMT")
+    ]
+
+    var insights: [TrackInsight] = []
+    for playback in demoTracks {
+        insights.append(try await service.insight(for: playback))
+    }
+
+    #expect(insights.map(\.title) == ["Midnight City", "Sweet Disposition", "Electric Feel"])
+    #expect(Set(insights.map(\.genre)).count == 3)
+    let profiles = insights.map { TrackVibeProfile.make(for: $0) }
+    #expect(profiles[0] != profiles[1])
+    #expect(profiles[1] != profiles[2])
+    #expect(profiles[0] != profiles[2])
 }

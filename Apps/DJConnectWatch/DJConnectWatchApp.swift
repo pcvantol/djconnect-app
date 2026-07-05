@@ -18,7 +18,8 @@ struct DJConnectWatchApp: App {
 
     private static func makeModel() -> DJConnectWatchModel {
         #if DEBUG
-        if ProcessInfo.processInfo.arguments.contains("--monkey-testing") {
+        let arguments = ProcessInfo.processInfo.arguments
+        if arguments.contains("--monkey-testing") || arguments.contains(where: { $0.hasPrefix("--screenshot-screen=") }) {
             return DJConnectWatchModel(monkeyTestingMode: true)
         }
         #endif

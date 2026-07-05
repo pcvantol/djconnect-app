@@ -60,6 +60,19 @@ scene.
 Native macOS app target. It hosts the shared SwiftUI root view in a macOS app
 scene and exposes a native settings scene.
 
+Local Home Assistant transport can use a native `/api/websocket` fast path for
+latency-sensitive DJConnect command, Ask DJ message/history, and Track Insight
+actions when an explicit feature flag is enabled, the URL is local, HA WebSocket
+auth succeeds with a HA token/mechanism, and HA reports the matching
+`djconnect/*` capabilities. The paired DJConnect `device_token` is not HA
+WebSocket auth; it is sent only inside DJConnect payloads after HA auth succeeds.
+This is deliberately optional: HTTP remains the canonical implementation,
+remote/Nabu Casa URLs use HTTP only, and every WebSocket failure path falls back
+to the existing HTTP flow without treating the pairing as stale. WebSocket
+diagnostics must remain non-secret: route/capability state is fine, but HA
+tokens, DJConnect device tokens, raw prompts, Ask DJ history, raw audio, and
+Music DNA content are not.
+
 `DJConnectWatch`
 
 Native companion-only watchOS app target. It depends on `DJConnectCore`
@@ -69,19 +82,27 @@ and compact UI cache; the paired iPhone owns HA pairing, token storage,
 local/remote/offline selection, APNs registration, status refresh, Ask DJ
 history sync, playback action forwarding, clear history, idle suggestions, and
 voice upload. The Watch does not store `ha_remote_url`, does not host a local
-Web API, and does not advertise Bonjour/mDNS. Wake phrase work on watchOS is
+Web API, and does not advertise pairable discovery. Wake phrase work on watchOS is
 foreground-only by design; the app must not run an always-on background
 microphone listener.
 
-## Ask DJ And DJ Memory
+## Ask DJ And Music DNA
 
 `Ask DJ` is the user-facing voice/chat feature name. Apple clients may send
-lightweight context hints such as mood, DJ style, and a memory key hint with
-status or voice requests. Long-term DJ Memory remains server-side in the Home
+lightweight context hints such as mood, DJ style, and a Music DNA key hint with
+status or voice requests. Long-term Music DNA remains server-side in the Home
 Assistant DJConnect integration so Watch, iOS, and macOS can share context. A
 client may remember local UI preferences such as the current mood slider value,
 but it must not be the source of truth for conversation history, music profile,
 or cross-device follow-up context.
+
+Music DNA export/import follows the same boundary. Apple clients may request a
+server-built export envelope over authenticated HTTP and save it through native
+Files/Finder UI, but the export body is exactly the Home Assistant response.
+The app does not synthesize Music DNA backup JSON from cached profile state and
+does not add OAuth credentials, DJConnect bearer tokens, raw prompts, raw audio,
+diagnostics, or local caches. Import is allowed only while paired and connected,
+with stale/auth failures routed through the regular pairing recovery path.
 
 Ask DJ is also the only Apple-client DJ request surface. Now Playing focuses on
 playback status and controls; it must not carry a separate `DJ verzoek` card.
@@ -97,20 +118,20 @@ requests (`change_music_context`), and DJ announcement requests
 (`dj_announcement_request`). Personal listening-profile questions such as
 "waar luisterde ik de afgelopen maand naar?" are handled as
 `personal_music_profile_analysis`; the backend should summarize genres, moods,
-energy, artists, contexts, and taste shifts from DJ Memory for the requested
+energy, artists, contexts, and taste shifts from Music DNA for the requested
 period without changing playback. Personal recommendation questions such as
 "wat zou ik leuk vinden om nu te luisteren?" are handled as
 `personal_music_recommendations`; the backend should recommend concrete tracks,
-albums, artists, or playlists from DJ Memory and Spotify profile data without
+albums, artists, or playlists from Music DNA and Spotify profile data without
 changing playback unless the user explicitly asks to play or queue them. The
 selected backend can be Spotify Direct, Music Assistant, or a future HA-side
 backend; Apple clients render backend summaries and action payloads without
 requiring Spotify URIs. Rich
 now-playing and artist questions are handled as `track_context_info`, including
 release year, genre, DJ commentary, artist origin, trivia, samples, related
-artists, concerts, releases, and musical connections such as BPM transition or
+artists, concerts, releases, and musical connections such as energy flow or
 shared producer/label. Technical and production-analysis questions are handled
-as `technical_track_analysis`; the backend should distinguish measured/provider
+as `track_insight`; the backend should distinguish measured/provider
 metadata from inferred musical commentary and must keep the intent read-only
 unless real audio analysis is available. Apple clients send the user's text or
 voice audio and render the returned DJ text, images, links, and audio; they do
@@ -222,8 +243,7 @@ status, commands, Ask DJ history, clear history, idle suggestions, voice upload,
 and push registration on behalf of the Watch while preserving
 `client_type:"watchos"` metadata.
 
-No Apple target hosts a Home Assistant-callable `/api/device/*` Client API,
-shows a Client adres, or advertises `_djconnect._tcp`.
+No Apple target hosts a Home Assistant-callable inbound API, shows a callback address, or advertises a pairable discovery service.
 
 ## Battery And Responsiveness
 

@@ -24,6 +24,12 @@ actions. Ask DJ message and command payloads include `device_id`,
 `device_name`, `client_id`, and `client_type`; action taps send the
 backend-returned action object back where possible so Home Assistant keeps
 ownership of follow-up and output metadata.
+Ask DJ also carries the current client mood as structured `mood` metadata when
+available. Assistant answers may return their own `mood` / `mood_context`;
+clients use that structured value, or the current selected client mood as a
+fallback, to tint assistant bubbles consistently with Track Insight mood zones.
+Clients never infer generated/fallback state or mood by parsing visible answer
+text.
 
 AI and Assist answers can be incorrect and depend on your own Home Assistant
 and Assist configuration.
@@ -42,8 +48,6 @@ Website: [https://djconnect.dev](https://djconnect.dev)
   toolchain, simulator, signing, and hygiene setup.
 - [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md): local development, generation, build, and test commands.
 - [docs/RELEASE.md](docs/RELEASE.md): signing, TestFlight, notarization, and live HA validation checklist.
-- [docs/postman/djconnect-local-device-api.postman_collection.json](docs/postman/djconnect-local-device-api.postman_collection.json):
-  historical Postman collection for the removed local Client API contract.
 - `pcvantol/djconnect/SYNC_PROMPTS.md`: canonical source for cross-repo DJConnect
   sync prompts and contract instructions.
 - `pcvantol/djconnect/PRODUCT_ROADMAP.md`: canonical DJConnect product roadmap.
@@ -69,9 +73,11 @@ Assistant.
 
 If the app is not paired yet, the main runtime UI is blocked by a pairing
 sheet. On iOS/macOS that sheet asks for the local Home Assistant address and
-pairing code/QR. On watchOS it shows the Watch pairing code and iPhone
-companion status. After Home Assistant completes pairing, the sheet shows a
-success state before the runtime UI is released.
+pairing code/QR. Apple Watch pairing starts on the paired iPhone by scanning
+the Home Assistant-generated Apple Watch QR/deep-link; the Watch only shows
+companion status and never asks for a Home Assistant URL or code. After Home
+Assistant completes pairing, the sheet shows a success state before the runtime
+UI is released.
 
 Pairing is always LAN-first and local-only. Use `http://homeassistant.local:8123`
 or the Home Assistant LAN IP address while the Apple device is on the same
@@ -117,7 +123,7 @@ Sources/
   DJConnectCore/
     DJConnectClient.swift
     DJConnectErrors.swift
-    DJConnectKeychain.swift  # token-store abstraction; legacy filename
+    DJConnectKeychain.swift  # token-store abstraction; retained filename
     DJConnectModels.swift
 Tests/
   DJConnectCoreTests/
@@ -128,6 +134,9 @@ Tests/
 - stable client identity payloads with `client_type` set to `ios`, `macos`, or
   `watchos`;
 - authenticated Home Assistant requests;
+- opt-in local Home Assistant native `/api/websocket` fast-path transport for
+  latency-sensitive DJConnect actions after separate Home Assistant WebSocket
+  auth succeeds;
 - status, command, and raw WAV voice request serialization;
 - playback and voice response decoding;
 - error classification for auth stale, backend unavailable, version mismatch,
@@ -143,10 +152,45 @@ UI cache, playback controls, and push-to-talk voice capture through the
 fallback, status refresh, history sync, playback actions, and voice upload are
 mediated by the paired iPhone over WatchConnectivity. The Watch does not store
 `ha_remote_url`, does not choose Home Assistant transport, does not host a local
-Web API, and does not advertise Bonjour/mDNS. The Watch still reports
+inbound Web API. The Watch still reports
 `client_type:"watchos"` metadata through the iPhone proxy. Foreground wake
 phrase support may be added later, but the Watch target must not promise
 always-on background wakeword listening.
+
+Music DNA is first-class on iOS, macOS, and watchOS. The profile remains
+server-side in Home Assistant and is explicit opt-in. iOS/macOS call the Music
+DNA endpoints directly; watchOS uses the paired iPhone proxy while preserving
+the Watch `device_id` and `client_type:"watchos"`. The initial Music DNA consent
+sheet can be reached from Ask DJ or from the Music DNA screen, and Watch
+Settings can turn Music DNA off or on again. Turning it off clears learned Music
+DNA on the backend and stops further buildup until it is enabled again. The
+Settings explanation is contextual: when Music DNA is disabled, clients explain
+that no profile is being built and that the learned profile has already been
+cleared. The separate clear-profile action is shown only while Music DNA is
+enabled, because opting out already clears the learned profile. After opt-in or
+opt-out, clients may temporarily keep the just-selected enabled state visible
+while a stale profile refresh catches up; Home Assistant remains authoritative
+once it returns the matching state.
+
+iOS and macOS can export and import Music DNA backups from Settings. Export is
+an authenticated HTTP `POST /api/djconnect/v1/music_dna/export` call and saves the
+exact server-built JSON envelope through the native share/save panel; clients do
+not reconstruct exports from cached profile data and do not add tokens,
+bootstrap proofs, raw prompts, raw audio, diagnostics, or local cache fields.
+Import previews a selected JSON backup locally, then uploads it to Home
+Assistant only while paired and connected.
+
+Ontdek / Discover is the iOS/macOS Music Discovery surface. It appears directly
+after Track Insight in primary navigation and is backed only by Home Assistant
+Music DNA data. The client loads `GET /api/djconnect/v1/music_discovery`, refreshes
+with `POST /api/djconnect/v1/music_discovery/refresh`, and plays accepted items via
+`POST /api/djconnect/v1/music_discovery/play` so Home Assistant can record the
+acceptance as a positive Music DNA signal. Clients must not generate
+recommendations or reasons locally, and displayed items require a backend `id`,
+`kind`, `title`, playable `uri`, and `reason`. If Music DNA is disabled, Ontdek
+shows the opt-in/locked state instead of an empty grid. On iOS the Home Screen
+quick action `dev.djconnect.action.discovery` and deep links
+`djconnect://discover` / `djconnect://ontdek` jump directly to Ontdek.
 
 APNs push registration is supported for iOS, macOS, and watchOS clients. iOS
 uses `client_type: "ios"` and `device_id` values shaped like
@@ -214,7 +258,7 @@ last version seen on that device. If the version changed, the app shows a
 `Wat is er nieuw` / `What's New` sheet and loads the current release notes from
 static files on `djconnect.dev`. The app tries the selected language first,
 for example `/release-notes/ios/nl/vX.Y.Z.json` or
-`/release-notes/macos/en/vX.Y.Z.json`, then falls back to the legacy
+`/release-notes/macos/en/vX.Y.Z.json`, then falls back to the older
 platform-only JSON path and finally the GitHub release metadata API.
 
 ## Swift Package
@@ -257,13 +301,13 @@ Spotify Web API calls for voice commands. Canonical examples from
 | `playback_control` | `Stop muziek`, `Start muziek`, `Zet harder`, `Zet zachter`, `Volgende nummer`, `Vorig nummer` | `Stop music`, `Start music`, `Turn it up`, `Turn it down`, `Next song`, `Previous song` | Upload voice audio; HA maps the phrase to backend playback commands such as `pause`, `play`, `set_volume`, `next`, or `previous`. |
 | `favorite_current_track` | `Voeg dit nummer toe aan mijn favorieten`, `like dit nummer`, `sla deze track op` | `Add this song to my favorites`, `like this track`, `save this song` | HA likes/saves the current playback item and returns a DJ confirmation. |
 | `output_devices_info` / `current_output_info` | `Welke speakers zijn er?`, `Waarop wordt nu muziek gespeeld?`, `Op welke speaker speelt dit?` | `Which speakers are available?`, `Where is music playing now?`, `Which speaker is active?` | HA reads DJConnect output devices/current playback output and returns an informational DJ response without changing playback. |
-| `personalized_mood_playback` | `Ik voel me moe en geprikkeld, zet wat rustige muziek op die ik fijn vind`, `Doe iets ontspannends, ik ben overprikkeld` | `I am tired and overstimulated, play relaxing music I will enjoy`, `play something calming that I usually like` | HA combines the mood request with DJ Memory/user preferences and starts or queues a suitable playback context. |
+| `personalized_mood_playback` | `Ik voel me moe en geprikkeld, zet wat rustige muziek op die ik fijn vind`, `Doe iets ontspannends, ik ben overprikkeld` | `I am tired and overstimulated, play relaxing music I will enjoy`, `play something calming that I usually like` | HA combines the mood request with Music DNA/user preferences and starts or queues a suitable playback context. |
 | `change_music_context` | `Ik wil wat anders horen`, `Doe maar iets anders`, `Zet iets heel anders op` | `I want to hear something else`, `play something different`, `put on something completely different` | HA treats this as a playback-changing request, picks a different suitable track/album/playlist from current playback context and user taste, and starts or queues it. |
-| `personal_music_profile_analysis` | `Omschrijf eens waar ik zoal naar luisterde de afgelopen maand`, `Wat zegt mijn muziek van de laatste twee weken over mijn stemming?` | `Describe what I have been listening to over the last month`, `what does my music from the last two weeks say about my mood?` | HA summarizes listening patterns, genres, moods, energy, artists, and taste shifts from DJ Memory for the requested period without changing playback. |
-| `personal_music_recommendations` | `Geef me muziek aanbevelingen op basis van mijn luisterprofiel`, `Wat zou ik nu leuk vinden om te luisteren?`, `Raad me iets nieuws aan dat past bij mijn smaak` | `Recommend music based on my listening profile`, `what should I listen to now?`, `recommend something new that fits my taste` | HA recommends concrete tracks, albums, artists, or playlists from DJ Memory and Spotify profile data without changing playback unless the user explicitly asks to play or queue them. |
+| `personal_music_profile_analysis` | `Omschrijf eens waar ik zoal naar luisterde de afgelopen maand`, `Wat zegt mijn muziek van de laatste twee weken over mijn stemming?` | `Describe what I have been listening to over the last month`, `what does my music from the last two weeks say about my mood?` | HA summarizes listening patterns, genres, moods, energy, artists, and taste shifts from Music DNA for the requested period without changing playback. |
+| `personal_music_recommendations` | `Geef me muziek aanbevelingen op basis van mijn luisterprofiel`, `Wat zou ik nu leuk vinden om te luisteren?`, `Raad me iets nieuws aan dat past bij mijn smaak` | `Recommend music based on my listening profile`, `what should I listen to now?`, `recommend something new that fits my taste` | HA recommends concrete tracks, albums, artists, or playlists from Music DNA and Spotify profile data without changing playback unless the user explicitly asks to play or queue them. |
 | `dj_announcement_request` | `Geef me een leuke aankondiging voor het volgende nummer`, `Doe een radio intro voor wat er nu speelt` | `Give me a fun announcement for the next song`, `do a radio-style intro for what is playing now` | HA generates DJ text and optional `audio_url` without changing playback. |
 | `track_context_info` | `Vertel iets over dit nummer`, `Wanneer kwam dit uit?`, `Waarom koos je dit nummer?`, `Heeft deze artiest concerten in Nederland?` | `Tell me about this song`, `what year was this released?`, `why did you choose this track?` | HA enriches current playback with release, genre, commentary, trivia, samples, concerts, releases, and musical connections without changing playback. |
-| `technical_track_analysis` | `Geef een technische track analyse van dit nummer`, `Analyseer deze track`, `Wat is de bpm en opbouw van deze track?`, `Welke instrumenten hoor je hierin?` | `Give me a technical analysis of this song`, `What is the BPM, key and structure of this track?`, `Why does this track work so well?` | HA gives a read-only technical/musical analysis of the current track, distinguishing measured BPM/key/sections from inferred musical commentary and never changing playback. |
+| `track_insight` | `Geef Track Insight voor dit nummer`, `Analyseer deze track`, `Hoe is deze track opgebouwd?`, `Welke instrumenten hoor je hierin?` | `Give me Track Insight for this song`, `How is this track built up?`, `Why does this track work so well?` | HA gives a read-only Track Insight of the current track, focused on energy, arrangement, instrumentation, production and musical commentary without changing playback. Direct Track Insight requests include the canonical `client_type`. |
 
 Ask DJ output-device responses may include structured output `playback_actions`.
 Apple clients render those vertically, with the speaker name on the left and an
@@ -330,6 +374,44 @@ Command responses are transport success first and playback-state second.
 snapshot, not an error; playback fields such as progress, duration, volume,
 track metadata, context and artwork URLs may be `null`.
 
+When the app has a reachable local Home Assistant URL, an explicit feature flag,
+and a valid Home Assistant WebSocket auth token, it may use the native Home
+Assistant `/api/websocket` API as an optional fast path for supported DJConnect
+command, Ask DJ message/history, and Track Insight actions. HTTP remains the
+canonical transport and all remote/Nabu Casa sessions stay HTTP-only unless a
+future client explicitly proves HA WebSocket auth for that URL class. The paired
+DJConnect `device_token` never authenticates `/api/websocket`; it is included
+only inside DJConnect payloads after HA WebSocket auth succeeds. Any WebSocket
+auth, timeout, disconnect, protocol, malformed result, or capability failure
+falls back to the existing HTTP request once without clearing pairing or
+exposing tokens in logs. Clients must first request `djconnect/capabilities` on
+the authenticated Home Assistant WebSocket and only send advertised routes such
+as `djconnect/command`, `djconnect/ask_dj/message`,
+`djconnect/ask_dj/history`, `djconnect/ask_dj/history/clear`, and
+`djconnect/track_insight` and `djconnect/vibecast`. Diagnostics export only
+transport state, advertised route names, capability refresh time, and a redacted
+last error.
+
+VibeCast on iOS and macOS uses the same authenticated backend contract:
+`GET /api/djconnect/v1/vibecast`. The request sends the paired device identity
+and canonical `client_type` through the existing bearer-token headers plus
+locale, timezone, app version, and supported render capabilities. The response
+is backend-neutral structured JSON with `enabled`, `reason`, `revision`,
+`ttl_seconds`, `poll_after_seconds`, current-track `context`, and feed `items`.
+Items render safe rich-text segment types (`text`, `strong`, `emphasis`,
+`emoji`, `magnify`, `accent`, `line_break`) directly; clients advertise
+`emoji_safe` when emoji can be shown inline, do not parse HTML or Markdown, and
+unknown segment types fall back to plain text. Polling runs only
+while the VibeCast surface is visible, respects `poll_after_seconds`, clears old
+bubbles when `context.track_id` changes, and treats disabled/error reasons as a
+quiet empty state without clearing pairing unless the app-wide stale-pairing
+logic applies. When local HA WebSocket fast-path is enabled and Home Assistant
+advertises `djconnect/vibecast`, the same response contract may be fetched over
+WebSocket; missing capability or transport failure falls back to HTTP once.
+While VibeCast is visible, iOS/macOS also keep Track Insight warm client-side:
+the app auto-analyzes the current playing track and each next playing track
+with `open:false`, deduping repeated playback snapshots until VibeCast closes.
+
 All status and command payloads include `device_id`, `client_type`, and
 `firmware`. The `firmware` value remains the protocol compatibility version,
 even for app clients.
@@ -341,21 +423,33 @@ POST /api/djconnect/v1/pair
 ```
 
 The app sends `device_id`, `device_name`, canonical `client_type`, `firmware`,
-`app_version`, `platform`, and the pairing code as `pair_code`, `pairing_code`,
-and `pairing_token`. Pairing bootstrap is local-only: the Apple client posts to
-the local Home Assistant `/api/djconnect/v1/pair` endpoint and stores the returned
-DJConnect bearer token, `ha_local_url`, optional `ha_remote_url`, remote support
-flag, and music-backend summary. Remote URLs are never used for first pairing.
+`app_version`, `platform`, and the 6-digit Home Assistant setup code as
+`pair_code`, `pairing_code`, and `pairing_token`. Pairing bootstrap is
+local-only: the Apple client posts to the local Home Assistant
+`/api/djconnect/v1/pair` endpoint and stores the returned DJConnect bearer token,
+`ha_local_url`, optional `ha_remote_url`, remote support flag, API
+paths/capabilities, and music-backend summary. Remote URLs are never used for
+first pairing. For development, `https://*.ngrok-free.dev` is whitelisted as a
+tunnel URL; other remote HTTPS URLs are rejected for first pairing.
+
+The pairing flow is two-phase. A successful pair response stores the returned
+token, then the app waits for authenticated status to succeed before showing the
+runtime as paired. `client_type_mismatch` during pairing keeps the entered URL
+and code intact and tells the user to select the matching Home Assistant setup
+flow: iPhone/iPad uses `ios`, macOS uses `macos`, and Apple Watch pairing
+through iPhone uses `watchos`.
+
+iOS primarily pairs from the Home Assistant QR/deep-link payload
+`djconnect://pair?ha_url=<local-ha-url>&pair_code=<code>&client_type=ios&pair_path=/api/djconnect/v1/pair`.
+Manual local URL plus 6-digit code entry remains a fallback.
 
 iOS and macOS no longer host a Home Assistant-callable local Client API and do
-not advertise `_djconnect._tcp` as a pairable HA device. The removed Apple app
-routes are `/api/device/info`, `/api/device/pairing-info`, `/api/device/pair`,
-`/api/device/command`, `/api/device/dj_response`, and `/api/device/forget`.
+not expose any app-hosted Home Assistant callback API or pairable discovery service.
 The app does not implement ESP-only reboot or OTA routes.
 
 Users can choose `App opnieuw koppelen` / `Pair App Again` in Settings to clear
-the locally stored DJConnect token, generate a fresh app code, and reopen the
-pairing sheet.
+the locally stored DJConnect token and reopen the pairing sheet for a fresh
+Home Assistant setup code.
 
 After successful local pairing, iOS and macOS choose the local HA URL when it is
 reachable, fall back to `ha_remote_url` when local access fails and remote is

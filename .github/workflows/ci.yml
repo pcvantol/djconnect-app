@@ -15,7 +15,7 @@ jobs:
   test-and-unsigned-build:
     name: CI
     runs-on: macos-15
-    timeout-minutes: 30
+    timeout-minutes: 45
 
     steps:
       - name: Checkout
@@ -27,6 +27,19 @@ jobs:
           sudo xcode-select -s /Applications/Xcode.app
           xcodebuild -version
 
+      - name: Update third-party packages, dependencies and tools
+        run: |
+          set -euo pipefail
+          Tools/release/update_thirdparty.sh
+
+      - name: Upload third-party update report
+        if: always()
+        uses: actions/upload-artifact@v5
+        with:
+          name: thirdparty-update-report
+          path: build/release/thirdparty-update-report.txt
+          if-no-files-found: ignore
+
       - name: Clean local build output
         run: |
           set -euo pipefail
@@ -34,6 +47,9 @@ jobs:
 
       - name: Validate Postman collection
         run: node Tools/validate_postman_collection.js docs/postman/djconnect-local-device-api.postman_collection.json
+
+      - name: Validate Apple localizations
+        run: python3 scripts/validate_localizations.py
 
       - name: Swift tests
         run: swift test --no-parallel

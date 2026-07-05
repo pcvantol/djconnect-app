@@ -63,9 +63,9 @@ After renewing the Apple Developer Program membership:
 - Confirm iOS signing uses automatic signing for `DJConnectIOS`.
 - Confirm macOS signing uses automatic signing for `DJConnectMac`.
 - Confirm iOS capabilities and Info.plist strings:
-  Local Network, Bonjour services, Microphone, Speech Recognition.
+  Local Network, Microphone, Speech Recognition.
 - Confirm macOS capabilities and Info.plist strings:
-  Local Network, Bonjour services, Microphone, Speech Recognition.
+  Local Network, Microphone, Speech Recognition.
 - Confirm app icons, launch screen, welcome screen, About screen, and website
   link match the current DJConnect branding.
 - Confirm the HA integration compatibility line is documented:
@@ -109,6 +109,7 @@ After renewing the Apple Developer Program membership:
 
 ```sh
 swift test --no-parallel
+python3 scripts/validate_localizations.py
 xcodebuild -project DJConnectApp.xcodeproj -scheme DJConnectMac -configuration Debug -destination platform=macOS -derivedDataPath .xcode-derived CODE_SIGNING_ALLOWED=NO build
 xcodebuild -project DJConnectApp.xcodeproj -scheme DJConnectIOS -configuration Debug -destination generic/platform=iOS -derivedDataPath .xcode-derived CODE_SIGNING_ALLOWED=NO build
 xcodebuild -project DJConnectApp.xcodeproj -scheme DJConnectWatch -configuration Debug -destination generic/platform=watchOS -derivedDataPath .xcode-derived CODE_SIGNING_ALLOWED=NO build
@@ -170,11 +171,15 @@ git diff --check
   Authorization headers, secret-bearing URLs, and private HA details while
   retaining bundle, locale, permission, route, backend, output, and playback
   readiness fields.
-- Validate `App opnieuw koppelen` clears the local token, generates a fresh app
-  code, reopens the pairing sheet, and makes the app discoverable/pairable
-  again.
+- Validate `App opnieuw koppelen` clears the local token, reopens the pairing
+  sheet, and waits for a Home Assistant QR code or pairing code instead of
+  generating a client-side code.
+- Validate iPhone pairing shows the QR-code actions first and keeps manual
+  Home Assistant URL/code entry collapsed behind `Handmatig`.
 - Validate Ask DJ route/proxy/backend failures show only localized user-facing
   messages and never raw HTML or response bodies.
+- Validate Ask DJ answer feedback opens a compact, vertically scrollable sheet
+  on iPhone and does not force horizontal overflow.
 - Archive `DJConnectIOS` in Release configuration.
 - Upload through Xcode Organizer or Transporter.
 - Wait for App Store Connect processing.
@@ -232,7 +237,7 @@ The workflow:
   `CHANGELOG.nl.md` as the Dutch release notes;
 - publishes static `.md` and `.json` release-note files into
   `pcvantol/djconnect-website` at
-  `wwwroot/release-notes/{ios|macos}/{en|nl}/vX.Y.Z.{md,json}` plus a legacy
+  `wwwroot/release-notes/{ios|macos}/{en|nl}/vX.Y.Z.{md,json}` plus an older
   English fallback at `wwwroot/release-notes/{ios|macos}/vX.Y.Z.{md,json}`;
 - removes older platform-specific public releases and tags after successful
   publication, keeping the newest iOS and newest macOS public release online.
@@ -290,7 +295,7 @@ https://djconnect.dev/release-notes/macos/vX.Y.Z.json
 ```
 
 Current builds first read the matching platform and language-specific static
-file, then the legacy English platform-specific static file. The GitHub release
+file, then the older English platform-specific static file. The GitHub release
 metadata API is retained only as a final fallback:
 
 ```text
@@ -500,10 +505,7 @@ real playback validation.
 
 The app declares only the permissions it needs:
 
-- Local Network: required to reach Home Assistant on the LAN and expose the
-  local pairing and runtime HA connection.
-- Bonjour service `_home-assistant._tcp.`: used for local HA discovery on
-  iOS/macOS. Apple clients do not advertise `_djconnect._tcp`.
+- Local Network: required to reach Home Assistant on the LAN.
 - Microphone: required for push-to-talk WAV uploads.
 - Speech Recognition: required for the foreground wake phrase.
 
@@ -556,17 +558,13 @@ The private source repo uses GitHub Actions only for deterministic checks:
 - unsigned macOS Debug build
 - unsigned iOS Debug generic build
 
-On `main` pushes and manual CI runs, the CI workflow also removes older
-completed GitHub Actions runs after the deterministic checks finish, keeping the
-newest 2 completed runs per workflow. Pull requests never run this cleanup.
-
 The `TestFlight beta` workflow is intentionally manual-only. It has no push or
 tag trigger and must never be used without explicit maintainer approval, an
 explicit semantic version, and an explicit matching source tag. To run it,
 choose **Run workflow** and provide:
 
-- `version`: for example `3.2.0`;
-- `tag`: the exact matching source tag, for example `v3.2.0`;
+- `version`: for example `3.2.2`;
+- `tag`: the exact matching source tag, for example `v3.2.2`;
 - `confirm_upload`: exactly `UPLOAD_TESTFLIGHT`.
 
 The workflow uses the protected `testflight-beta` GitHub Environment, checks out
@@ -607,17 +605,17 @@ repository environments/secrets. Configure required reviewers on the
 
 ## Current Local Verification
 
-For release `3.2.0`, local verification was completed with:
+For release `3.2.2`, local verification was completed with:
 
 ```sh
 swift test --no-parallel
-xcodebuild -project DJConnectApp.xcodeproj -scheme DJConnectMac -configuration Debug -destination platform=macOS -derivedDataPath .xcode-derived-mac CODE_SIGNING_ALLOWED=NO build
-xcodebuild -project DJConnectApp.xcodeproj -scheme DJConnectIOS -configuration Debug -destination generic/platform=iOS -derivedDataPath .xcode-derived-ios-generic CODE_SIGNING_ALLOWED=NO build
-xcodebuild -project DJConnectApp.xcodeproj -scheme DJConnectWatch -configuration Debug -destination generic/platform=watchOS -derivedDataPath .xcode-derived-watch-generic CODE_SIGNING_ALLOWED=NO build
+xcodebuild -project DJConnectApp.xcodeproj -scheme DJConnectIOS -configuration Debug -destination generic/platform=iOS CODE_SIGNING_ALLOWED=NO build
+xcodebuild -project DJConnectApp.xcodeproj -scheme DJConnectMac -configuration Debug -destination platform=macOS -derivedDataPath /private/tmp/djconnect-mac-dd CODE_SIGNING_ALLOWED=NO build
+xcodebuild -project DJConnectApp.xcodeproj -scheme DJConnectWatch -configuration Debug -destination generic/platform=watchOS -derivedDataPath /private/tmp/djconnect-watch-dd CODE_SIGNING_ALLOWED=NO build
 git diff --check
 ```
 
-The Xcode toolchain was Xcode 26.5 (`17F42`). These checks do not replace
+The Xcode toolchain was Xcode 26.6 (`17F113`). These checks do not replace
 signed archive validation, TestFlight processing, notarization, or physical
 device permission testing.
 
@@ -634,7 +632,7 @@ The local helper script packages and uploads public macOS releases:
 PUBLIC_REPO=pcvantol/djconnect-app-releases \
 DEVELOPMENT_TEAM=<APPLE_TEAM_ID> \
 NOTARY_PROFILE=<notarytool-keychain-profile> \
-./Tools/release/release_macos_public.sh --version 3.2.0
+./Tools/release/release_macos_public.sh --version 3.2.2
 ```
 
 Create the notary profile once with:
@@ -679,7 +677,7 @@ Use a Home Assistant instance with the matching `djconnect` integration.
 
 - Pair from the app-generated code and confirm HA creates the app device.
 - Confirm iOS/macOS pair only through local `/api/djconnect/v1/pair`, store
-  `ha_local_url` plus optional `ha_remote_url`, and show no Client adres.
+  `ha_local_url` plus optional `ha_remote_url`, and show no callback address.
 - Confirm watchOS actions, status, Ask DJ history, clear history, voice/PTT,
   and push registration run through the paired iPhone proxy and preserve
   `client_type:"watchos"`.
@@ -695,7 +693,7 @@ Use a Home Assistant instance with the matching `djconnect` integration.
 - Start a playlist through `start_playlist`.
 - Start liked songs through `start_liked_proxy`.
 - Confirm setup, Settings, onboarding, and command payloads do not expose or
-  send legacy `spotify_source` or `liked_proxy_playlist_uri` overrides.
+  send older `spotify_source` or `liked_proxy_playlist_uri` overrides.
 - Record Push-to-Talk and verify WAV upload to `/api/djconnect/v1/voice`.
 - Copy diagnostics export and confirm no bearer token, pairing code, or query
   token appears.

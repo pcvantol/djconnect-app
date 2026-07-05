@@ -1,13 +1,19 @@
 import DJConnectCore
 import Combine
 import SwiftUI
+import UniformTypeIdentifiers
 
 #if canImport(AVFoundation)
-import AVFoundation
-import UniformTypeIdentifiers
+@preconcurrency import AVFoundation
+#endif
+#if canImport(AVKit)
+@preconcurrency import AVKit
 #endif
 #if canImport(WebKit)
 import WebKit
+#endif
+#if canImport(MetalKit)
+import MetalKit
 #endif
 #if os(iOS)
 import UIKit
@@ -16,22 +22,31 @@ import AppKit
 import Darwin
 #endif
 
-private func localized(_ language: String, _ english: String, _ dutch: String) -> String {
-    language == "nl" ? dutch : english
+@MainActor
+private func resignPlatformFirstResponder() {
+    #if os(iOS)
+    UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+    #elseif os(macOS)
+    NSApp.keyWindow?.makeFirstResponder(nil)
+    #endif
+}
+
+private func localizedKey(_ language: String, _ key: String, arguments: CVarArg...) -> String {
+    DJConnectLocalization.localized(key: key, language: language, arguments: arguments)
 }
 
 private func localizedOutputName(_ outputName: String, language: String) -> String {
     switch outputName {
     case "Not selected", "No output selected":
-        localized(language, "No output device selected", "Geen uitvoerapparaat geselecteerd")
+        localizedKey(language, "ui.no.output.device.selected")
     default:
         outputName
     }
 }
 
-private func screenTitle(_ language: String, _ english: String, _ dutch: String, isDemoMode: Bool) -> String {
-    let title = localized(language, english, dutch)
-    guard isDemoMode, title != localized(language, "More", "Meer") else {
+private func screenTitle(_ language: String, key: String, isDemoMode: Bool) -> String {
+    let title = localizedKey(language, key)
+    guard isDemoMode, title != localizedKey(language, "ui.more") else {
         return title
     }
     return "\(title) (demo)"
@@ -41,7 +56,7 @@ private func askDJTimestamp(_ date: Date, language: String, now: Date = Date()) 
     let elapsed = max(0, now.timeIntervalSince(date))
     if elapsed < 3_600 {
         let minutes = max(1, Int(elapsed / 60))
-        return localized(language, "\(minutes) min ago", "\(minutes) minuten geleden")
+        return localizedKey(language, "ui.value.min.ago", arguments: minutes)
     }
     if Calendar.current.isDate(date, inSameDayAs: now) {
         return date.formatted(date: .omitted, time: .shortened)
@@ -49,44 +64,69 @@ private func askDJTimestamp(_ date: Date, language: String, now: Date = Date()) 
     let days = max(1, Calendar.current.dateComponents([.day], from: date, to: now).day ?? 1)
     switch days {
     case 1:
-        return localized(language, "Yesterday", "Gisteren")
+        return localizedKey(language, "ui.yesterday")
     case 2...6:
-        return localized(language, "\(days) days ago", "\(days) dagen geleden")
+        return localizedKey(language, "ui.value.days.ago", arguments: days)
     case 7...13:
-        return localized(language, "Last week", "Vorige week")
+        return localizedKey(language, "ui.last.week")
     case 14...30:
         let weeks = max(2, days / 7)
-        return localized(language, "\(weeks) weeks ago", "\(weeks) weken geleden")
+        return localizedKey(language, "ui.value.weeks.ago", arguments: weeks)
     case 31...61:
-        return localized(language, "Last month", "Vorige maand")
+        return localizedKey(language, "ui.last.month")
     default:
         let months = max(2, days / 30)
-        return localized(language, "\(months) months ago", "\(months) maanden geleden")
+        return localizedKey(language, "ui.value.months.ago", arguments: months)
     }
 }
 
 private func localizedPairingStatus(_ status: DJConnectPairingStatus, language: String) -> String {
     switch status {
     case .paired:
-        localized(language, "Paired", "Gekoppeld")
+        localizedKey(language, "ui.paired")
     case .pairing:
-        localized(language, "Pairing", "Koppelen")
+        localizedKey(language, "ui.pairing")
+    case .waitingForHomeAssistantCompletion:
+        localizedKey(language, "ui.waiting.for.home.assistant")
     case .stale:
-        localized(language, "Stale", "Verlopen")
+        localizedKey(language, "ui.stale")
     case .unpaired:
-        localized(language, "Unpaired", "Niet gekoppeld")
+        localizedKey(language, "ui.unpaired")
     }
 }
 
-private let djConnectAccent = Color(red: 0.84, green: 0.22, blue: 0.96)
+let djConnectAccent = Color(red: 0.84, green: 0.22, blue: 0.96)
 private let djConnectButtonBlue = Color(red: 0.16, green: 0.56, blue: 1.0)
 private let djConnectButtonPurple = Color(red: 0.84, green: 0.18, blue: 1.0)
+private let djConnectIconGradient = LinearGradient(
+    colors: [
+        Color(red: 0.12, green: 0.45, blue: 1.00),
+        Color(red: 0.84, green: 0.22, blue: 0.96)
+    ],
+    startPoint: .topLeading,
+    endPoint: .bottomTrailing
+)
 private let djConnectScreenHorizontalPadding: CGFloat = 16
 private let djConnectScreenVerticalPadding: CGFloat = 12
 private let djConnectContentMaxWidth: CGFloat = 760
 private let djConnectCompactContentMaxWidth: CGFloat = 640
+private let djConnectMacDetailContentMaxWidth: CGFloat = 1_680
 private let djConnectMacDetailHorizontalPadding: CGFloat = djConnectScreenHorizontalPadding
 private let djConnectMacDetailVerticalPadding: CGFloat = djConnectScreenVerticalPadding
+
+private enum DJConnectRootSheet: String, Identifiable {
+    case updateRequired
+    case pairing
+    case welcome
+    case crashReportPrompt
+    case whatsNew
+    case wakeWordActivationPrompt
+    case feedback
+    case permissionExplanation
+    case musicDNAOptIn
+
+    var id: String { rawValue }
+}
 
 private var djConnectListRowInsets: EdgeInsets {
     #if os(iOS)
@@ -186,7 +226,7 @@ private extension View {
     }
 
     @ViewBuilder
-    func djConnectMacDetailContent(maxWidth: CGFloat = djConnectContentMaxWidth, alignment: Alignment = .top) -> some View {
+    func djConnectMacDetailContent(maxWidth: CGFloat = djConnectMacDetailContentMaxWidth, alignment: Alignment = .top) -> some View {
         #if os(macOS)
         self
             .frame(maxWidth: maxWidth, alignment: alignment)
@@ -206,6 +246,33 @@ private extension View {
         self.listRowBackground(Color.clear)
             .listRowSeparator(.hidden)
             .listSectionSeparator(.hidden)
+        #endif
+    }
+
+    @ViewBuilder
+    func djSettingsSectionTopSpacing() -> some View {
+        #if os(macOS)
+        self.padding(.top, 18)
+        #else
+        self
+        #endif
+    }
+
+    @ViewBuilder
+    func djCompactSettingsListRow() -> some View {
+        #if os(macOS)
+        self.listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 4, trailing: 0))
+        #else
+        self
+        #endif
+    }
+
+    @ViewBuilder
+    func djMusicDNASettingsListRow() -> some View {
+        #if os(macOS)
+        self.listRowInsets(EdgeInsets(top: 14, leading: 0, bottom: 14, trailing: 0))
+        #else
+        self
         #endif
     }
 }
@@ -388,9 +455,61 @@ private extension View {
             self
         }
     }
+
+    @ViewBuilder
+    func djTransparentMacListBackground() -> some View {
+        #if os(macOS)
+        self.background(DJConnectMacListBackgroundClearer())
+        #else
+        self
+        #endif
+    }
 }
 
-private struct DJConnectCanvasBackground: View {
+#if os(macOS)
+private struct DJConnectMacListBackgroundClearer: NSViewRepresentable {
+    func makeNSView(context: Context) -> NSView {
+        let view = NSView()
+        view.postsFrameChangedNotifications = true
+        return view
+    }
+
+    func updateNSView(_ nsView: NSView, context: Context) {
+        DispatchQueue.main.async {
+            clearBackgrounds(from: nsView)
+        }
+    }
+
+    private func clearBackgrounds(from view: NSView) {
+        var current: NSView? = view
+        while let candidate = current {
+            if let scrollView = candidate as? NSScrollView {
+                scrollView.drawsBackground = false
+                scrollView.backgroundColor = .clear
+                clearDescendantBackgrounds(in: scrollView)
+                return
+            }
+            current = candidate.superview
+        }
+    }
+
+    private func clearDescendantBackgrounds(in view: NSView) {
+        if let tableView = view as? NSTableView {
+            tableView.backgroundColor = .clear
+            tableView.enclosingScrollView?.drawsBackground = false
+            tableView.enclosingScrollView?.backgroundColor = .clear
+        }
+        if let collectionView = view as? NSCollectionView {
+            collectionView.backgroundColors = [.clear]
+            collectionView.enclosingScrollView?.drawsBackground = false
+            collectionView.enclosingScrollView?.backgroundColor = .clear
+        }
+        view.subviews.forEach(clearDescendantBackgrounds)
+    }
+}
+#endif
+
+struct DJConnectCanvasBackground: View {
     var body: some View {
         ZStack {
             LinearGradient(
@@ -445,8 +564,12 @@ private struct DJConnectCanvasBackground: View {
 
 private enum DJConnectSection: Hashable {
     case nowPlaying
+    case trackInsight
+    case discovery
+    case musicDNA
     case askDJ
     case queue
+    case more
     case playlists
     case games
     case settings
@@ -459,6 +582,7 @@ private enum DJConnectSection: Hashable {
 public struct DJConnectRootView: View {
     @ObservedObject private var model: DJConnectAppModel
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @State private var selectedSection = DJConnectSection.nowPlaying
     @State private var moreResetID = UUID()
     @State private var showingFeedback = false
@@ -475,64 +599,84 @@ public struct DJConnectRootView: View {
                 NavigationSplitView {
                     List {
                         SidebarItem(
-                            title: localized(model.language, "Now Playing", "Speelt Nu"),
+                            title: localizedKey(model.language, "ui.now.playing"),
                             systemImage: "music.note",
                             isSelected: selectedSection == .nowPlaying
                         ) { selectedSection = .nowPlaying }
                         SidebarItem(
-                            title: "Ask DJ",
-                            systemImage: "bubble.left.and.bubble.right.fill",
-                            isSelected: selectedSection == .askDJ
-                        ) { selectedSection = .askDJ }
-                        SidebarItem(
-                            title: localized(model.language, "Queue", "Wachtrij"),
-                            systemImage: "text.line.first.and.arrowtriangle.forward",
+                            title: localizedKey(model.language, "ui.queue"),
+                            systemImage: "music.note.list",
                             isSelected: selectedSection == .queue
                         ) { selectedSection = .queue }
                         SidebarItem(
-                            title: localized(model.language, "Playlists", "Afspeellijsten"),
+                            title: "Ask DJ",
+                            systemImage: "bubble.left.and.bubble.right",
+                            isSelected: selectedSection == .askDJ
+                        ) { selectedSection = .askDJ }
+                        SidebarItem(
+                            title: "Track Insight",
+                            systemImage: "waveform.path.ecg",
+                            isSelected: selectedSection == .trackInsight
+                        ) { selectedSection = .trackInsight }
+                        SidebarItem(
+                            title: localizedKey(model.language, "ui.discover"),
+                            systemImage: "wand.and.stars",
+                            isSelected: selectedSection == .discovery
+                        ) { selectDiscovery() }
+                        SidebarItem(
+                            title: "Music DNA",
+                            systemImage: "heart",
+                            isSelected: selectedSection == .musicDNA
+                        ) { selectedSection = .musicDNA }
+                        SidebarItem(
+                            title: localizedKey(model.language, "ui.playlists"),
                             systemImage: "rectangle.stack",
                             isSelected: selectedSection == .playlists
                         ) { selectedSection = .playlists }
                         SidebarItem(
-                            title: localized(model.language, "Games", "Games"),
+                            title: localizedKey(model.language, "ui.games"),
                             systemImage: "gamecontroller",
                             isSelected: selectedSection == .games
                         ) { selectedSection = .games }
                         SidebarItem(
-                            title: localized(model.language, "Settings", "Instellingen"),
+                            title: localizedKey(model.language, "ui.settings"),
                             systemImage: "gearshape",
                             isSelected: selectedSection == .settings
                         ) { selectedSection = .settings }
                         SidebarItem(
-                            title: localized(model.language, "Logs", "Logs"),
+                            title: localizedKey(model.language, "ui.logs"),
                             systemImage: "doc.text.magnifyingglass",
                             isSelected: selectedSection == .logs
                         ) { selectedSection = .logs }
                         SidebarItem(
-                            title: localized(model.language, "About", "Over"),
+                            title: localizedKey(model.language, "ui.about"),
                             systemImage: "info.circle",
                             isSelected: selectedSection == .about
                         ) { selectedSection = .about }
                         SidebarItem(
-                            title: localized(model.language, "Legal", "Juridisch"),
+                            title: localizedKey(model.language, "ui.legal"),
                             systemImage: "doc.text",
                             isSelected: selectedSection == .legal
                         ) { selectedSection = .legal }
                         SidebarItem(
-                            title: localized(model.language, "Privacy", "Privacy"),
+                            title: localizedKey(model.language, "ui.privacy"),
                             systemImage: "hand.raised",
                             isSelected: selectedSection == .privacy
                         ) { selectedSection = .privacy }
                         Button {
                             showingFeedback = true
                         } label: {
-                            Label(localized(model.language, "Share Feedback", "Feedback delen"), systemImage: "bubble.left.and.bubble.right")
+                            Label(localizedKey(model.language, "ui.share.feedback"), systemImage: "bubble.left.and.bubble.right")
                         }
                         .buttonStyle(.plain)
                     }
-                    .navigationTitle(screenTitle(model.language, "DJConnect", "DJConnect", isDemoMode: model.isDemoMode))
+                    .navigationTitle(screenTitle(model.language, key: "ui.djconnect", isDemoMode: model.isDemoMode))
                     .scrollContentBackgroundIfAvailable(.hidden)
+                    .safeAreaInset(edge: .top) {
+                        Color.clear
+                            .frame(height: 54)
+                            .allowsHitTesting(false)
+                    }
                     .navigationSplitViewColumnWidth(min: 220, ideal: 240, max: 280)
                 } detail: {
                     selectedView
@@ -540,103 +684,56 @@ public struct DJConnectRootView: View {
                 .tint(Color(red: 0.74, green: 0.22, blue: 0.96))
                 .accentColor(Color(red: 0.74, green: 0.22, blue: 0.96))
                 #else
-                TabView(selection: $selectedSection) {
-                    NowPlayingView(model: model)
-                        .tabItem {
-                            Label(localized(model.language, "Now Playing", "Speelt Nu"), systemImage: "music.note")
-                        }
-                        .tag(DJConnectSection.nowPlaying)
-                    AskDJView(model: model)
-                        .tabItem {
-                            Label("Ask DJ", systemImage: "bubble.left.and.bubble.right.fill")
-                        }
-                        .tag(DJConnectSection.askDJ)
-                    QueueView(model: model)
-                        .tabItem {
-                            Label(localized(model.language, "Queue", "Wachtrij"), systemImage: "text.line.first.and.arrowtriangle.forward")
-                        }
-                        .tag(DJConnectSection.queue)
-                    MoreView(model: model) {
-                        selectedSection = .nowPlaying
+                GeometryReader { proxy in
+                    if usesTopTabLayout(for: proxy.size) {
+                        iPadRootTabs
+                            .id("top-tabs-\(orientationID(for: proxy.size))")
+                    } else {
+                        compactRootTabs
+                            .id("compact-tabs-\(orientationID(for: proxy.size))")
                     }
-                    .id(moreResetID)
-                        .tabItem {
-                            Label(localized(model.language, "More", "Meer"), systemImage: "ellipsis")
-                        }
-                        .tag(DJConnectSection.settings)
                 }
-                .tint(djConnectAccent)
-                .accentColor(djConnectAccent)
                 #endif
             }
             #if os(iOS)
             .background(.clear)
             #endif
         }
-        .sheet(isPresented: $model.isShowingWelcome) {
-            WelcomeView(model: model)
-                .tint(djConnectAccent)
-                .accentColor(djConnectAccent)
-        }
-        .sheet(isPresented: $model.isShowingWhatsNew) {
-            WhatsNewView(model: model)
-                .tint(djConnectAccent)
-                .accentColor(djConnectAccent)
-        }
-        .sheet(isPresented: $model.isShowingCrashReportPrompt) {
-            CrashReportPromptView(model: model)
-                .tint(djConnectAccent)
-                .accentColor(djConnectAccent)
-        }
-        .sheet(isPresented: Binding(
-            get: { model.updateRequiredMessage != nil },
-            set: { _ in }
-        )) {
-            UpdateRequiredView(model: model)
-                .tint(djConnectAccent)
-                .accentColor(djConnectAccent)
-                .interactiveDismissDisabled(true)
-        }
-        .sheet(isPresented: Binding(
-            get: { model.shouldShowPairingScreen },
-            set: { isPresented in
-                if !isPresented {
-                    model.completePairingScreen()
-                }
-            }
-        )) {
-            PairingSheetView(model: model)
-                .tint(djConnectAccent)
-                .accentColor(djConnectAccent)
-                .interactiveDismissDisabled(true)
-                .presentationBackground {
-                    DJConnectCanvasBackground()
-                }
+        .sheet(item: rootSheetBinding) { sheet in
+            rootSheetView(sheet)
         }
         .onChange(of: model.shouldShowPairingScreen) {
             if model.shouldShowPairingScreen {
                 selectedSection = .nowPlaying
             }
         }
-        .onChange(of: selectedSection) {
-            if selectedSection == .settings {
-                moreResetID = UUID()
+        .onOpenURL { url in
+            if !model.handleAppNavigationDeepLink(url) {
+                model.handlePairingDeepLink(url)
             }
         }
-        .sheet(isPresented: $model.isShowingWakeWordActivationPrompt) {
-            WakeWordActivationPromptView(model: model)
-                .tint(djConnectAccent)
-                .accentColor(djConnectAccent)
+        .onAppear {
+            handleScreenshotScreenRequestIfNeeded()
+            handleHomeScreenActionRequestIfNeeded()
         }
-        .sheet(isPresented: $showingFeedback) {
-            FeedbackPromptView(model: model)
-                .tint(djConnectAccent)
-                .accentColor(djConnectAccent)
+        .onChange(of: model.trackInsightNavigationRequestID) {
+            selectedSection = .trackInsight
+        }
+        .onChange(of: model.homeScreenActionRequest) {
+            handleHomeScreenActionRequestIfNeeded()
+        }
+        .onChange(of: selectedSection) {
+            #if os(iOS)
+            if horizontalSizeClass != .regular, selectedSection == .more {
+                moreResetID = UUID()
+            }
+            #endif
         }
         .onChange(of: scenePhase) {
             switch scenePhase {
             case .active:
-                model.refreshPermissionStatuses()
+                handleHomeScreenActionRequestIfNeeded()
+                model.refreshPermissionStatuses(retryWakeWord: false)
                 model.markActiveSession()
                 model.recoverPairingClientAPIIfNeeded()
             case .inactive, .background:
@@ -647,9 +744,334 @@ public struct DJConnectRootView: View {
         }
         .environment(\.colorScheme, .dark)
         .preferredColorScheme(.dark)
-        .sheet(isPresented: $model.isShowingPermissionExplanation) {
-            PermissionExplanationView(model: model)
+    }
+
+    private func handleHomeScreenActionRequestIfNeeded() {
+        guard let request = model.homeScreenActionRequest else {
+            return
         }
+        switch request.action {
+        case .nowPlaying:
+            selectedSection = .nowPlaying
+        case .queue:
+            selectedSection = .queue
+        case .askDJ:
+            selectedSection = .askDJ
+        case .trackInsight:
+            selectedSection = .trackInsight
+        case .discovery:
+            selectedSection = .discovery
+        case .playlists:
+            selectedSection = .playlists
+        }
+        model.clearHomeScreenActionRequest(request)
+    }
+
+    private func handleScreenshotScreenRequestIfNeeded() {
+        #if DEBUG
+        guard let screen = ProcessInfo.processInfo.arguments
+            .first(where: { $0.hasPrefix("--screenshot-screen=") })?
+            .split(separator: "=", maxSplits: 1)
+            .last
+            .map(String.init) else {
+            return
+        }
+        switch screen {
+        case "now-playing":
+            selectedSection = .nowPlaying
+        case "queue":
+            selectedSection = .queue
+        case "ask-dj":
+            selectedSection = .askDJ
+        case "track-insight":
+            selectedSection = .trackInsight
+        case "discover", "discovery", "ontdek":
+            selectedSection = .discovery
+        case "music-dna":
+            selectedSection = .musicDNA
+        case "playlists":
+            selectedSection = .playlists
+        case "games":
+            selectedSection = .games
+        case "settings":
+            selectedSection = .settings
+        case "logs":
+            selectedSection = .logs
+        case "about":
+            selectedSection = .about
+        case "legal":
+            selectedSection = .legal
+        case "privacy":
+            selectedSection = .privacy
+        default:
+            break
+        }
+        #endif
+    }
+
+    #if os(iOS)
+    private func usesTopTabLayout(for size: CGSize) -> Bool {
+        horizontalSizeClass == .regular || size.width > size.height
+    }
+
+    private func orientationID(for size: CGSize) -> String {
+        size.width > size.height ? "landscape" : "portrait"
+    }
+
+    private var compactTabSelection: Binding<DJConnectSection> {
+        Binding(
+            get: {
+                isMoreSectionSelected ? .more : selectedSection
+            },
+            set: { newValue in
+                if newValue == .discovery {
+                    selectDiscovery()
+                } else {
+                    selectedSection = newValue
+                }
+            }
+        )
+    }
+
+    private var compactRootTabs: some View {
+        TabView(selection: compactTabSelection) {
+            NowPlayingView(model: model)
+                .tabItem {
+                    Label(localizedKey(model.language, "ui.now.playing"), systemImage: "music.note")
+                }
+                .tag(DJConnectSection.nowPlaying)
+            AskDJView(model: model) {
+                selectedSection = .trackInsight
+                model.openTrackInsight()
+            }
+                .tabItem {
+                    Label {
+                        Text("Ask DJ")
+                    } icon: {
+                        Image(systemName: "bubble.left.and.bubble.right")
+                            .symbolVariant(.none)
+                    }
+                    .environment(\.symbolVariants, .none)
+                }
+                .tag(DJConnectSection.askDJ)
+            TrackInsightView(model: model)
+                .tabItem {
+                    Label("Track Insight", systemImage: "waveform.path.ecg")
+                }
+                .tag(DJConnectSection.trackInsight)
+            MusicDiscoveryView(model: model)
+                .tabItem {
+                    Label(localizedKey(model.language, "ui.discover"), systemImage: "wand.and.stars")
+                }
+                .tag(DJConnectSection.discovery)
+            MoreView(model: model) {
+                selectedSection = .nowPlaying
+            }
+            .id(moreResetID)
+                .tabItem {
+                    Label(localizedKey(model.language, "ui.more"), systemImage: "ellipsis")
+                }
+                .tag(DJConnectSection.more)
+        }
+        .tint(djConnectAccent)
+        .accentColor(djConnectAccent)
+        .environment(\.symbolVariants, .none)
+    }
+
+    private var iPadRootTabs: some View {
+        VStack(spacing: 0) {
+            HStack(spacing: 8) {
+                DJConnectTopTabButton(
+                    title: localizedKey(model.language, "ui.now.playing"),
+                    systemImage: "music.note",
+                    isSelected: selectedSection == .nowPlaying
+                ) { selectedSection = .nowPlaying }
+                DJConnectTopTabButton(
+                    title: localizedKey(model.language, "ui.queue"),
+                    systemImage: "music.note.list",
+                    isSelected: selectedSection == .queue
+                ) { selectedSection = .queue }
+                DJConnectTopTabButton(
+                    title: "Ask DJ",
+                    systemImage: "bubble.left.and.bubble.right",
+                    symbolVariant: .none,
+                    isSelected: selectedSection == .askDJ
+                ) { selectedSection = .askDJ }
+                DJConnectTopTabButton(
+                    title: "Track Insight",
+                    systemImage: "waveform.path.ecg",
+                    isSelected: selectedSection == .trackInsight
+                ) { selectedSection = .trackInsight }
+                DJConnectTopTabButton(
+                    title: localizedKey(model.language, "ui.discover"),
+                    systemImage: "wand.and.stars",
+                    isSelected: selectedSection == .discovery
+                ) { selectDiscovery() }
+                DJConnectTopTabButton(
+                    title: localizedKey(model.language, "ui.more"),
+                    systemImage: "ellipsis",
+                    isSelected: isMoreSectionSelected
+                ) { selectedSection = .more }
+            }
+            .padding(6)
+            .background(
+                Capsule(style: .continuous)
+                    .fill(Color.white.opacity(0.12))
+                    .overlay {
+                        Capsule(style: .continuous)
+                            .stroke(Color.white.opacity(0.16), lineWidth: 1)
+                    }
+            )
+            .padding(.top, 18)
+            .padding(.bottom, 10)
+
+            selectedView
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+    }
+
+    private var isMoreSectionSelected: Bool {
+        switch selectedSection {
+        case .nowPlaying, .askDJ, .trackInsight, .discovery:
+            false
+        case .more, .queue, .musicDNA, .playlists, .games, .settings, .logs, .about, .legal, .privacy:
+            true
+        }
+    }
+
+    #endif
+
+    private var rootSheetBinding: Binding<DJConnectRootSheet?> {
+        Binding(
+            get: { activeRootSheet },
+            set: { newValue in
+                if newValue == nil, let activeRootSheet {
+                    dismiss(rootSheet: activeRootSheet)
+                }
+            }
+        )
+    }
+
+    private var activeRootSheet: DJConnectRootSheet? {
+        if model.updateRequiredMessage != nil {
+            return .updateRequired
+        }
+        if model.shouldShowPairingScreen {
+            return .pairing
+        }
+        if model.isShowingWelcome {
+            return .welcome
+        }
+        if model.isShowingCrashReportPrompt {
+            return .crashReportPrompt
+        }
+        if model.isShowingWhatsNew {
+            return .whatsNew
+        }
+        if model.isShowingWakeWordActivationPrompt {
+            return .wakeWordActivationPrompt
+        }
+        if showingFeedback {
+            return .feedback
+        }
+        if model.isShowingPermissionExplanation {
+            return .permissionExplanation
+        }
+        if model.isShowingMusicDNAOptInPrompt {
+            return .musicDNAOptIn
+        }
+        return nil
+    }
+
+    @ViewBuilder
+    private func rootSheetView(_ sheet: DJConnectRootSheet) -> some View {
+        switch sheet {
+        case .updateRequired:
+            UpdateRequiredView(model: model)
+                .tint(djConnectAccent)
+                .accentColor(djConnectAccent)
+                .interactiveDismissDisabled(true)
+        case .pairing:
+            PairingSheetView(model: model)
+                .tint(djConnectAccent)
+                .accentColor(djConnectAccent)
+                .interactiveDismissDisabled(true)
+                #if os(iOS)
+                .presentationDetents([.large])
+                .presentationSizing(.page)
+                #endif
+                .presentationBackground {
+                    DJConnectCanvasBackground()
+                }
+        case .welcome:
+            WelcomeView(model: model)
+                .tint(djConnectAccent)
+                .accentColor(djConnectAccent)
+                #if os(iOS)
+                .presentationDetents([.large])
+                .presentationSizing(.page)
+                #endif
+                .presentationBackground {
+                    DJConnectCanvasBackground()
+                }
+        case .crashReportPrompt:
+            CrashReportPromptView(model: model)
+                .tint(djConnectAccent)
+                .accentColor(djConnectAccent)
+        case .whatsNew:
+            WhatsNewView(model: model)
+                .tint(djConnectAccent)
+                .accentColor(djConnectAccent)
+        case .wakeWordActivationPrompt:
+            WakeWordActivationPromptView(model: model)
+                .tint(djConnectAccent)
+                .accentColor(djConnectAccent)
+        case .feedback:
+            FeedbackPromptView(model: model)
+                .tint(djConnectAccent)
+                .accentColor(djConnectAccent)
+        case .permissionExplanation:
+            PermissionExplanationView(model: model)
+        case .musicDNAOptIn:
+            MusicDNAOptInPromptView(model: model)
+                .tint(djConnectAccent)
+                .accentColor(djConnectAccent)
+                #if os(iOS)
+                .presentationDetents([.large])
+                .presentationSizing(.page)
+                #endif
+                .presentationBackground {
+                    DJConnectCanvasBackground()
+                }
+        }
+    }
+
+    private func dismiss(rootSheet sheet: DJConnectRootSheet) {
+        switch sheet {
+        case .updateRequired:
+            break
+        case .pairing:
+            model.completePairingScreen()
+        case .welcome:
+            model.dismissWelcome()
+        case .crashReportPrompt:
+            model.dismissCrashReportPrompt()
+        case .whatsNew:
+            model.dismissWhatsNew()
+        case .wakeWordActivationPrompt:
+            model.dismissWakeWordActivationPrompt()
+        case .feedback:
+            showingFeedback = false
+        case .permissionExplanation:
+            model.cancelPermissionExplanation()
+        case .musicDNAOptIn:
+            model.dismissMusicDNAOptInPrompt()
+        }
+    }
+
+    private func selectDiscovery() {
+        selectedSection = .discovery
+        model.presentMusicDNAOptInPromptIfNeeded()
     }
 
     @ViewBuilder
@@ -657,10 +1079,23 @@ public struct DJConnectRootView: View {
         switch selectedSection {
         case .nowPlaying:
             NowPlayingView(model: model)
+        case .trackInsight:
+            TrackInsightView(model: model)
+        case .discovery:
+            MusicDiscoveryView(model: model)
+        case .musicDNA:
+            MusicDNAView(model: model)
         case .askDJ:
-            AskDJView(model: model)
+            AskDJView(model: model) {
+                selectedSection = .trackInsight
+                model.openTrackInsight()
+            }
         case .queue:
             QueueView(model: model)
+        case .more:
+            MoreView(model: model) {
+                selectedSection = .nowPlaying
+            }
         case .playlists:
             PlaylistsView(model: model)
         case .games:
@@ -687,75 +1122,77 @@ private struct PermissionExplanationView: View {
     var body: some View {
         ZStack {
             DJConnectCanvasBackground()
+            ScrollView(.vertical) {
+                VStack(alignment: .leading, spacing: 22) {
+                    AboutBanner()
 
-            VStack(spacing: 18) {
-                Image(systemName: "bell.badge.circle.fill")
-                    .font(.system(size: 54, weight: .semibold))
-                    .foregroundStyle(
-                        LinearGradient(
-                            colors: [djConnectAccent, Color(red: 0.12, green: 0.55, blue: 1.0)],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
-
-                VStack(spacing: 8) {
-                    Text(localized(model.language, "App permissions", "App-toestemmingen"))
-                        .font(.title2.bold())
-                        .multilineTextAlignment(.center)
-                    Text(localized(
-                        model.language,
-                        "DJConnect asks for microphone access for voice requests and notifications for Ask DJ responses.",
-                        "DJConnect vraagt microfoontoegang voor stemverzoeken en meldingen voor Ask DJ-antwoorden."
-                    ))
-                    .font(.body)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-                    Text(localized(
-                        model.language,
-                        "Server push notifications use Apple APNs and contain only a small wake-up message; the app syncs the real Ask DJ history after opening.",
-                        "Server-pushmeldingen gebruiken Apple APNs en bevatten alleen een korte melding; de app synchroniseert de echte Ask DJ-geschiedenis na openen."
-                    ))
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-                    Text(localized(
-                        model.language,
-                        "After this screen, Apple will ask for permission. You can change this later in Settings.",
-                        "Na dit scherm vraagt Apple om toestemming. Je kunt dit later aanpassen in Instellingen."
-                    ))
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-                }
-
-                HStack(spacing: 12) {
-                    Button {
-                        model.cancelPermissionExplanation()
-                    } label: {
-                        Text(localized(model.language, "Not now", "Niet nu"))
-                            .frame(maxWidth: .infinity)
+                    VStack(alignment: .leading, spacing: 10) {
+                        Label {
+                            Text(localizedKey(model.language, "ui.app.permissions"))
+                                .font(.title.bold())
+                        } icon: {
+                            Image(systemName: "checkmark.shield.fill")
+                                .font(.title.weight(.semibold))
+                                .foregroundStyle(
+                                    LinearGradient(
+                                        colors: [djConnectAccent, Color(red: 0.12, green: 0.55, blue: 1.0)],
+                                        startPoint: .topLeading,
+                                        endPoint: .bottomTrailing
+                                    )
+                                )
+                        }
+                        .labelStyle(.titleAndIcon)
+                        Text(permissionExplanationPrimaryText)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                        if model.permissionExplanationKind == .notifications {
+                            Text(localizedKey(model.language, "ui.push.notifications.are.only.used.for.djconnect.notifications.such.as"))
+                                .font(.callout)
+                                .foregroundStyle(.secondary)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                        Text(localizedKey(model.language, "ui.after.this.screen.apple.will.ask.for.permission.you.can"))
+                            .font(.callout)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
                     }
-                    .buttonStyle(DJConnectLilacPillButtonStyle())
 
-                    Button {
-                        model.continueAfterPermissionExplanation()
-                    } label: {
-                        Text(localized(model.language, "Continue", "Doorgaan"))
-                            .frame(maxWidth: .infinity)
+                    VStack(spacing: 12) {
+                        Button {
+                            model.continueAfterPermissionExplanation()
+                        } label: {
+                            Label(localizedKey(model.language, "ui.continue"), systemImage: "checkmark.shield")
+                                .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(DJConnectLilacPillButtonStyle())
+                        .controlSize(.large)
+
+                        Button {
+                            model.cancelPermissionExplanation()
+                        } label: {
+                            Text(localizedKey(model.language, "ui.not.now"))
+                                .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(DJConnectLilacPillButtonStyle())
+                        .controlSize(.large)
                     }
-                    .buttonStyle(DJConnectLilacPillButtonStyle())
                 }
+                .padding(28)
+                .frame(minWidth: 360, idealWidth: 520, maxWidth: 620)
+                .frame(maxWidth: .infinity)
             }
-            .padding(24)
-            .frame(minWidth: 320, idealWidth: 420, maxWidth: 460)
-            .background(Color.black.opacity(0.20), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .stroke(Color.white.opacity(0.10), lineWidth: 1)
-            )
+            .defaultScrollAnchor(.top)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    private var permissionExplanationPrimaryText: String {
+        switch model.permissionExplanationKind {
+        case .notifications:
+            localizedKey(model.language, "ui.needed.for.server.push.notifications.when.ask.dj.answers")
+        case .microphone:
+            localizedKey(model.language, "watch.djconnect.only.uses.the.microphone.when.you.start")
+        }
     }
 }
 
@@ -805,14 +1242,59 @@ private struct SidebarItem: View {
 }
 #endif
 
+#if os(iOS)
+private struct DJConnectTopTabButton: View {
+    let title: String
+    let systemImage: String
+    var symbolVariant: SymbolVariants = .none
+    let isSelected: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Label {
+                Text(title)
+            } icon: {
+                Image(systemName: systemImage)
+                    .symbolVariant(symbolVariant)
+            }
+                .font(.headline.weight(.semibold))
+                .labelStyle(.titleAndIcon)
+                .lineLimit(1)
+                .foregroundStyle(isSelected ? djConnectAccent : .primary)
+                .frame(minWidth: 118)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 10)
+                .contentShape(Capsule(style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(isSelected ? [.isSelected] : [])
+    }
+}
+#endif
+
 private struct PairingSheetView: View {
     @ObservedObject var model: DJConnectAppModel
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    @State private var isManualPairingVisible = false
+    #if os(iOS)
+    @State private var isShowingQRScanner = false
+    @State private var isShowingCameraConsent = false
+    @State private var cameraConsentShowsSettings = false
+    #endif
+
+    private var contentIdealWidth: CGFloat {
+        horizontalSizeClass == .regular ? 780 : 560
+    }
+
+    private var contentMaxWidth: CGFloat {
+        horizontalSizeClass == .regular ? 940 : 680
+    }
 
     var body: some View {
         ScrollView(.vertical) {
             VStack(spacing: 22) {
                 AboutBanner()
-                    .frame(maxWidth: 520)
 
                 if model.isShowingPairingSuccess {
                     pairingSuccess
@@ -821,103 +1303,247 @@ private struct PairingSheetView: View {
                 }
             }
             .padding(28)
-            #if !os(macOS)
-            .padding(.bottom, 18)
-            #endif
-            .frame(minWidth: 360, idealWidth: 560, maxWidth: 680)
-            .frame(maxWidth: .infinity)
+            .frame(minWidth: 360, idealWidth: contentIdealWidth, maxWidth: contentMaxWidth)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         }
+        .defaultScrollAnchor(.top)
         .background(DJConnectCanvasBackground())
+        #if os(iOS)
+        .frame(
+            minHeight: horizontalSizeClass == .regular ? 760 : nil,
+            idealHeight: horizontalSizeClass == .regular ? 860 : nil
+        )
+        #endif
         #if os(macOS)
         .frame(minHeight: 560)
         #endif
-        .task {
-            model.recoverPairingClientAPIIfNeeded()
+        #if os(iOS)
+        .sheet(isPresented: $isShowingCameraConsent) {
+            PairingCameraConsentSheet(
+                language: model.language,
+                showsSettingsAction: cameraConsentShowsSettings,
+                continueAction: openScannerAfterCameraConsent,
+                settingsAction: openCameraSettings
+            )
+            .presentationDetents([.large, .medium])
+            .presentationDragIndicator(.visible)
         }
-        .onChange(of: model.homeAssistantURL) {
-            model.schedulePairingWait()
+        .fullScreenCover(isPresented: $isShowingQRScanner) {
+            PairingQRScannerView(language: model.language) { value in
+                isShowingQRScanner = false
+                if model.pairingFlowTarget == .appleWatch {
+                    model.handleWatchPairingQRCode(value)
+                } else {
+                    let accepted = model.handlePairingQRCode(value)
+                    if accepted {
+                        Task { @MainActor in
+                            await Task.yield()
+                            model.confirmPairingHomeAssistantURL()
+                        }
+                    }
+                }
+            }
+            .presentationBackground(.black)
+        }
+        #endif
+    }
+
+    #if os(iOS)
+    private func requestCameraConsentForScanner() {
+        switch AVCaptureDevice.authorizationStatus(for: .video) {
+        case .authorized:
+            isShowingQRScanner = true
+        case .notDetermined:
+            cameraConsentShowsSettings = false
+            isShowingCameraConsent = true
+        case .denied, .restricted:
+            cameraConsentShowsSettings = true
+            isShowingCameraConsent = true
+        @unknown default:
+            cameraConsentShowsSettings = true
+            isShowingCameraConsent = true
         }
     }
+
+    private func openScannerAfterCameraConsent() {
+        guard !cameraConsentShowsSettings else {
+            openCameraSettings()
+            return
+        }
+        AVCaptureDevice.requestAccess(for: .video) { granted in
+            DispatchQueue.main.async {
+                isShowingCameraConsent = false
+                if granted {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
+                        isShowingQRScanner = true
+                    }
+                } else {
+                    cameraConsentShowsSettings = true
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
+                        isShowingCameraConsent = true
+                    }
+                }
+            }
+        }
+    }
+
+    private func openCameraSettings() {
+        guard let url = URL(string: UIApplication.openSettingsURLString) else {
+            return
+        }
+        isShowingCameraConsent = false
+        UIApplication.shared.open(url)
+    }
+    #endif
 
     private var pairingPending: some View {
         VStack(spacing: 20) {
             VStack(spacing: 8) {
-                Text(localized(model.language, "Pair DJConnect", "DJConnect koppelen"))
+                Text(pairingTitle)
                     .font(.largeTitle.bold())
                     .multilineTextAlignment(.center)
-                Text(localized(
-                    model.language,
-                    "Enter or scan the code shown by Home Assistant while this device and Home Assistant are on the same LAN.",
-                    "Vul of scan de code uit Home Assistant terwijl dit apparaat en Home Assistant op hetzelfde LAN zitten."
-                ))
+                Text(pairingCodeInstruction)
                 .font(.headline)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
             }
 
             VStack(spacing: 12) {
-                PairingNetworkNotice(
-                    language: model.language,
-                    warning: model.localNetworkRequirementMessage
-                )
-
-                PairingEditableURLCard(
-                    title: localized(model.language, "Local Home Assistant URL", "Lokale Home Assistant URL"),
-                    language: model.language,
-                    text: $model.homeAssistantURL
-                ) {
-                    model.confirmPairingHomeAssistantURL()
+                if shouldShowPairingNetworkNotice {
+                    PairingNetworkNotice(
+                        language: model.language,
+                        warning: model.localNetworkRequirementMessage
+                    )
                 }
 
-                PairingValueCard(
-                    title: localized(model.language, "Pair Code", "Koppelcode"),
-                    language: model.language,
-                    value: model.pairingToken,
-                    copyLabel: localized(model.language, "Copy Pair Code", "Koppelcode kopiëren"),
-                    prominent: true
-                )
-            }
+                #if os(iOS)
+                if model.pairingFlowTarget == .appleWatch {
+                    Button {
+                        requestCameraConsentForScanner()
+                    } label: {
+                        Label(
+                            localizedKey(model.language, "ui.pair.apple.watch.via.qr.code"),
+                            systemImage: "applewatch"
+                        )
+                        .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(DJConnectLilacPillButtonStyle())
+                    .controlSize(.large)
+                    .disabled(model.isPairing)
+                } else {
+                    Button {
+                        requestCameraConsentForScanner()
+                    } label: {
+                        Label(
+                            localizedKey(model.language, "ui.pair.iphone.via.qr.code"),
+                            systemImage: "qrcode.viewfinder"
+                        )
+                        .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(DJConnectLilacPillButtonStyle())
+                    .controlSize(.large)
+                    .disabled(model.isPairing)
+                }
+                #endif
 
-            HStack(spacing: 12) {
-                ProgressView()
-                    .controlSize(.regular)
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(statusTitle)
-                        .font(.headline)
-                        .lineLimit(nil)
-                        .fixedSize(horizontal: false, vertical: true)
-                    if let pairingMessage = model.pairingMessage {
-                        Text(pairingMessage)
-                            .font(.callout)
-                            .foregroundStyle(.secondary)
+                HStack(spacing: 12) {
+                    statusIcon
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(statusTitle)
+                            .font(.headline)
                             .lineLimit(nil)
                             .fixedSize(horizontal: false, vertical: true)
+                        if let pairingMessage = pairingStatusMessage {
+                            Text(pairingMessage)
+                                .font(.callout)
+                                .foregroundStyle(.secondary)
+                                .lineLimit(nil)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
                     }
+                    .layoutPriority(1)
+                    Spacer(minLength: 0)
                 }
-                .layoutPriority(1)
-                Spacer(minLength: 0)
-            }
-            .padding(14)
-            .djConnectGradientCard()
+                .padding(14)
+                .djConnectGradientCard()
 
-            Button {
-                model.startDemoMode()
-            } label: {
-                Label(
-                    localized(model.language, "Start Demo Mode", "Demo modus starten"),
-                    systemImage: "play.circle"
+                #if os(iOS)
+                Button {
+                    withAnimation(.snappy(duration: 0.22)) {
+                        isManualPairingVisible.toggle()
+                    }
+                } label: {
+                    HStack(spacing: 8) {
+                        Text(localizedKey(model.language, "ui.manual"))
+                            .font(.headline.weight(.semibold))
+                        Image(systemName: "chevron.down")
+                            .font(.subheadline.weight(.semibold))
+                            .rotationEffect(.degrees(isManualPairingVisible ? 180 : 0))
+                    }
+                    .foregroundStyle(djConnectAccent)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 6)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(localizedKey(model.language, "ui.manual.pairing"))
+                #endif
+
+                if shouldShowManualPairing {
+                    PairingEditableURLCard(
+                        title: localizedKey(model.language, "ui.local.home.assistant.url"),
+                        language: model.language,
+                        text: $model.homeAssistantURL
+                    ) {}
+
+                PairingCodeEntryCard(
+                    title: localizedKey(model.language, "ui.pair.code"),
+                    language: model.language,
+                    deviceTypeLabel: manualPairingDeviceTypeLabel,
+                    text: $model.pairingToken
                 )
-                .frame(maxWidth: .infinity)
+                }
             }
-            .buttonStyle(DJConnectLilacPillButtonStyle())
-            .controlSize(.large)
+
+            if shouldShowManualPairing {
+                Button {
+                    if model.pairingFlowTarget == .appleWatch {
+                        model.confirmAppleWatchPairingHomeAssistantURL()
+                    } else {
+                        model.confirmPairingHomeAssistantURL()
+                    }
+                } label: {
+                    Label(
+                        manualPairingButtonTitle,
+                        systemImage: "link.circle"
+                    )
+                    .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(DJConnectLilacPillButtonStyle())
+                .controlSize(.large)
+                .disabled(model.isPairing || !canSubmitPairing)
+
+            }
+
+            if model.pairingFlowTarget != .appleWatch {
+                Button {
+                    model.startDemoMode()
+                } label: {
+                    Label(
+                        localizedKey(model.language, "ui.start.demo.mode"),
+                        systemImage: "play.circle"
+                    )
+                    .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(DJConnectLilacPillButtonStyle())
+                .controlSize(.large)
+            }
 
             #if os(macOS)
             Button {
                 quitApplication()
             } label: {
                 Label(
-                    localized(model.language, "Quit App", "App afsluiten"),
+                    localizedKey(model.language, "ui.quit.app"),
                     systemImage: "power"
                 )
                 .frame(maxWidth: .infinity)
@@ -926,6 +1552,14 @@ private struct PairingSheetView: View {
             .controlSize(.large)
             #endif
         }
+    }
+
+    private var shouldShowManualPairing: Bool {
+        #if os(iOS)
+        isManualPairingVisible
+        #else
+        true
+        #endif
     }
 
     #if os(macOS)
@@ -948,14 +1582,10 @@ private struct PairingSheetView: View {
                 .accessibilityHidden(true)
 
             VStack(spacing: 8) {
-                Text(localized(model.language, "Pairing successful", "Koppeling succesvol"))
+                Text(pairingSuccessTitle)
                     .font(.largeTitle.bold())
                     .multilineTextAlignment(.center)
-                Text(localized(
-                    model.language,
-                    "DJConnect is paired with Home Assistant. Remote access, if configured in Home Assistant, is used only after this local pairing.",
-                    "DJConnect is gekoppeld met Home Assistant. Remote toegang wordt alleen na deze lokale koppeling gebruikt, als Home Assistant die heeft meegegeven."
-                ))
+                Text(pairingSuccessMessage)
                 .font(.headline)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
@@ -975,15 +1605,171 @@ private struct PairingSheetView: View {
 
     private var statusTitle: String {
         if model.isDemoMode {
-            return localized(model.language, "Demo Mode", "Demo modus")
+            return localizedKey(model.language, "ui.demo.mode")
         }
         return switch model.pairingStatus {
         case .pairing:
-            localized(model.language, "Pairing in progress", "Wacht op koppeling in Home Assistant")
+            model.pairingFlowTarget == .appleWatch
+                ? localizedKey(model.language, "ui.pairing.apple.watch.with.home.assistant")
+                : localizedKey(model.language, "ui.pairing.with.home.assistant")
+        case .waitingForHomeAssistantCompletion:
+            localizedKey(model.language, "ui.finish.setup.in.home.assistant")
         case .stale:
-            localized(model.language, "Not connected to Home Assistant", "Niet gekoppeld aan Home Assistant")
+            localizedKey(model.language, "ui.not.connected.to.home.assistant")
         default:
-            localized(model.language, "Waiting for Home Assistant", "Wachten op Home Assistant")
+            model.pairingFlowTarget == .appleWatch
+                ? localizedKey(model.language, "ui.ready.to.pair.apple.watch")
+                : localizedKey(model.language, "ui.ready.to.pair")
+        }
+    }
+
+    @ViewBuilder
+    private var statusIcon: some View {
+        if model.pairingStatus == .pairing || model.pairingStatus == .waitingForHomeAssistantCompletion {
+            ProgressView()
+                .controlSize(.regular)
+        } else {
+            Image(systemName: statusIconName)
+                .font(.title2.weight(.semibold))
+                .foregroundStyle(statusIconColor)
+                .frame(width: 28, height: 28)
+        }
+    }
+
+    private var statusIconName: String {
+        if model.pairingStatus == .waitingForHomeAssistantCompletion {
+            return "hourglass.circle"
+        }
+        if model.pairingStatus == .stale {
+            return "wifi.exclamationmark"
+        }
+        if !isPairingURLValid || !isPairingCodeValid {
+            return "exclamationmark.circle"
+        }
+        return "link.circle"
+    }
+
+    private var statusIconColor: Color {
+        if model.pairingStatus == .stale || !isPairingURLValid || !isPairingCodeValid {
+            return .orange
+        }
+        return .blue
+    }
+
+    private var pairingStatusMessage: String? {
+        if model.pairingStatus == .pairing || model.pairingStatus == .waitingForHomeAssistantCompletion || model.pairingStatus == .stale {
+            return model.pairingMessage
+        }
+        if !isPairingURLValid {
+            return invalidURLStatusMessage
+        }
+        if !isPairingCodeValid {
+            return invalidPairCodeStatusMessage
+        }
+        if let pairingMessage = model.pairingMessage, !isFieldPrompt(pairingMessage) {
+            return pairingMessage
+        }
+        return model.pairingFlowTarget == .appleWatch
+            ? localizedKey(model.language, "ui.ready.click.pair.apple.watch.with.home.assistant")
+            : localizedKey(model.language, "ui.ready.click.pair.with.home.assistant")
+    }
+
+    private var shouldShowPairingNetworkNotice: Bool {
+        if model.localNetworkRequirementMessage != nil {
+            return true
+        }
+        guard let url = DJConnectAppModel.normalizedHomeAssistantURL(from: model.homeAssistantURL),
+              url.scheme?.lowercased() == "https" else {
+            return false
+        }
+        return !DJConnectPairingURLPolicy.isWhitelistedDevelopmentTunnelURL(url)
+    }
+
+    private var canSubmitPairing: Bool {
+        isPairingURLValid && isPairingCodeValid
+    }
+
+    private var isPairingURLValid: Bool {
+        guard let url = DJConnectAppModel.normalizedHomeAssistantURL(from: model.homeAssistantURL) else {
+            return false
+        }
+        return DJConnectPairingURLPolicy.isAllowedPairingURL(url)
+    }
+
+    private var isPairingCodeValid: Bool {
+        let code = model.pairingToken.trimmingCharacters(in: .whitespacesAndNewlines)
+        return code.count == 6 && code.allSatisfy(\.isNumber)
+    }
+
+    private var invalidURLStatusMessage: String {
+        return localizedKey(model.language, "ui.enter.your.home.assistant.url.for.example.192.168.1")
+    }
+
+    private var invalidPairCodeStatusMessage: String {
+        model.pairingFlowTarget == .appleWatch
+            ? localizedKey(model.language, "ui.enter.apple.watch.6.digit.pair.code")
+            : localizedKey(model.language, "ui.enter.the.6.digit.pair.code.shown.by.home")
+    }
+
+    private func isFieldPrompt(_ message: String) -> Bool {
+        message == invalidURLStatusMessage || message == invalidPairCodeStatusMessage
+    }
+
+    private var pairingCodeInstruction: String {
+        #if os(iOS)
+        if model.pairingFlowTarget == .appleWatch {
+            return localizedKey(model.language, "ui.open.djconnect.on.apple.watch.then.scan.or.enter.the")
+        }
+        return localizedKey(model.language, "ui.enter.or.scan.the.code.shown.by.home.assistant.while")
+        #else
+        localizedKey(model.language, "ui.enter.the.code.shown.by.home.assistant.while.this.device")
+        #endif
+    }
+
+    private var pairingTitle: String {
+        model.pairingFlowTarget == .appleWatch
+            ? localizedKey(model.language, "ui.pair.apple.watch")
+            : localizedKey(model.language, "ui.pair.djconnect")
+    }
+
+    private var manualPairingButtonTitle: String {
+        model.pairingFlowTarget == .appleWatch
+            ? localizedKey(model.language, "ui.pair.apple.watch.with.home.assistant")
+            : localizedKey(model.language, "ui.pair.with.home.assistant")
+    }
+
+    private var manualPairingDeviceTypeLabel: String {
+        model.pairingFlowTarget == .appleWatch
+            ? Self.pairingDeviceTypeLabel(for: .watchos)
+            : Self.pairingDeviceTypeLabel(for: model.identity.clientType)
+    }
+
+    private var pairingSuccessTitle: String {
+        model.pairingFlowTarget == .appleWatch
+            ? localizedKey(model.language, "ui.apple.watch.paired")
+            : localizedKey(model.language, "ui.pairing.successful")
+    }
+
+    private var pairingSuccessMessage: String {
+        model.pairingFlowTarget == .appleWatch
+            ? localizedKey(model.language, "ui.apple.watch.is.paired.with.home.assistant.through.this.iphone")
+            : localizedKey(model.language, "ui.djconnect.is.paired.with.home.assistant")
+    }
+
+    private static func pairingDeviceTypeLabel(for clientType: DJConnectClientType) -> String {
+        switch clientType {
+        case .ios:
+            "iOS"
+        case .macos:
+            "macOS"
+        case .watchos:
+            "watchOS"
+        case .esp32:
+            "ESP32"
+        case .raspberryPi:
+            "Raspberry Pi"
+        case .windows:
+            "Windows"
         }
     }
 }
@@ -994,11 +1780,7 @@ private struct PairingNetworkNotice: View {
 
     var body: some View {
         Label {
-            Text(warning ?? localized(
-                    language,
-                    "Pairing is local-only. Use the LAN address of Home Assistant, such as http://homeassistant.local:8123 or http://192.168.x.x:8123. Remote URLs are saved only after local pairing succeeds.",
-                    "Koppelen kan alleen lokaal. Gebruik het LAN-adres van Home Assistant, zoals http://homeassistant.local:8123 of http://192.168.x.x:8123. Remote URL's worden pas bewaard nadat lokale koppeling is gelukt."
-                ))
+            Text(warning ?? localizedKey(language, "ui.pairing.is.local.only.use.the.lan.address.of.home"))
             .fixedSize(horizontal: false, vertical: true)
         } icon: {
             Image(systemName: warning == nil ? "network" : "wifi.exclamationmark")
@@ -1033,7 +1815,10 @@ private struct PairingEditableURLCard: View {
     }
 
     private var isValid: Bool {
-        DJConnectAppModel.normalizedHomeAssistantURL(from: trimmedText) != nil
+        guard let url = DJConnectAppModel.normalizedHomeAssistantURL(from: trimmedText) else {
+            return false
+        }
+        return DJConnectPairingURLPolicy.isAllowedPairingURL(url)
     }
 
     var body: some View {
@@ -1068,7 +1853,7 @@ private struct PairingEditableURLCard: View {
                             .foregroundStyle(.secondary)
                     }
                     .buttonStyle(.plain)
-                    .accessibilityLabel(localized(language, "Clear Home Assistant URL", "Home Assistant URL wissen"))
+                    .accessibilityLabel(localizedKey(language, "ui.clear.home.assistant.url"))
                 }
 
                 Button {
@@ -1080,30 +1865,15 @@ private struct PairingEditableURLCard: View {
                 }
                 .buttonStyle(.plain)
                 .disabled(!isValid)
-                .accessibilityLabel(localized(language, "Confirm Home Assistant URL", "Home Assistant URL bevestigen"))
+                .accessibilityLabel(localizedKey(language, "ui.confirm.home.assistant.url"))
             }
             if !trimmedText.isEmpty, !isValid {
                 Label(
-                    localized(
-                        language,
-                        "Enter a valid local Home Assistant URL, for example http://homeassistant.local:8123.",
-                        "Vul een geldige lokale Home Assistant URL in, bijvoorbeeld http://homeassistant.local:8123."
-                    ),
+                    localizedKey(language, "ui.enter.a.valid.local.home.assistant.url.for.example.http"),
                     systemImage: "exclamationmark.triangle"
                 )
                 .font(.caption)
                 .foregroundStyle(.orange)
-            } else if didConfirm {
-                Label(
-                    localized(
-                        language,
-                        "Open the DJConnect integration in Home Assistant on this LAN and enter the app code.",
-                        "Open de DJConnect integratie in Home Assistant op dit LAN en vul de app-code in."
-                    ),
-                    systemImage: "checkmark.circle"
-                )
-                .font(.caption)
-                .foregroundStyle(.green)
             }
         }
         .padding(14)
@@ -1136,6 +1906,336 @@ private struct PairingEditableURLCard: View {
         onConfirm()
     }
 }
+
+private struct PairingCodeEntryCard: View {
+    let title: String
+    let language: String
+    let deviceTypeLabel: String
+    @Binding var text: String
+    @FocusState private var isCodeFocused: Bool
+
+    private var trimmedText: String {
+        text.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private var isValid: Bool {
+        trimmedText.count == 6 && trimmedText.allSatisfy(\.isNumber)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(title)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.white.opacity(0.62))
+            TextField(title, text: $text)
+                .font(.system(.title3, design: .monospaced).weight(.bold))
+                .textContentType(.oneTimeCode)
+                .focused($isCodeFocused)
+                #if os(iOS)
+                .keyboardType(.numberPad)
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+                #endif
+                .textFieldStyle(.plain)
+                .onChange(of: text) {
+                    let digits = text.filter(\.isNumber)
+                    if digits != text || digits.count > 6 {
+                        text = String(digits.prefix(6))
+                    }
+                }
+
+            if !trimmedText.isEmpty, !isValid {
+                Label(
+                    localizedKey(language, "ui.enter.the.6.digit.code.shown.by.home.assistant"),
+                    systemImage: "exclamationmark.triangle"
+                )
+                .font(.caption)
+                .foregroundStyle(.orange)
+            } else {
+                Label(
+                    localizedKey(
+                        language,
+                        "ui.choose.value.in.the.home.assistant.djconnect.setup.flow.and",
+                        arguments: deviceTypeLabel
+                    ),
+                    systemImage: "number"
+                )
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            }
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .djConnectGradientCard(strokeOpacity: !trimmedText.isEmpty && !isValid ? 0.0 : 0.16)
+        .overlay {
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .stroke(!trimmedText.isEmpty && !isValid ? .orange.opacity(0.75) : .clear, lineWidth: 1)
+        }
+        #if os(iOS)
+        .toolbar {
+            ToolbarItemGroup(placement: .keyboard) {
+                Spacer()
+                if isValid {
+                    Button(localizedKey(language, "ui.done")) {
+                        isCodeFocused = false
+                    }
+                    .font(.headline.weight(.semibold))
+                }
+            }
+        }
+        #endif
+    }
+
+}
+
+#if os(iOS) && canImport(AVFoundation)
+private struct PairingCameraConsentSheet: View {
+    let language: String
+    let showsSettingsAction: Bool
+    let continueAction: () -> Void
+    let settingsAction: () -> Void
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            VStack(spacing: 22) {
+                Image(systemName: "qrcode.viewfinder")
+                    .font(.system(size: 42, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .frame(width: 78, height: 78)
+                    .background(
+                        LinearGradient(
+                            colors: [djConnectAccent, Color(red: 0.82, green: 0.20, blue: 0.92)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        ),
+                        in: RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    )
+
+                VStack(spacing: 10) {
+                    Text(localizedKey(language, "ui.camera.access.for.pairing"))
+                        .font(.title2.bold())
+                        .multilineTextAlignment(.center)
+                    Text(message)
+                        .font(.body)
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                VStack(spacing: 12) {
+                    Button {
+                        showsSettingsAction ? settingsAction() : continueAction()
+                    } label: {
+                        Label(primaryButtonTitle, systemImage: showsSettingsAction ? "gear" : "camera.fill")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(DJConnectLilacPillButtonStyle())
+                    .controlSize(.large)
+
+                    Button {
+                        dismiss()
+                    } label: {
+                        Text(localizedKey(language, "ui.not.now"))
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(DJConnectLilacPillButtonStyle())
+                    .controlSize(.large)
+                }
+            }
+            .padding(.horizontal, 24)
+            .padding(.top, 28)
+            .padding(.bottom, 36)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(DJConnectCanvasBackground())
+            .navigationTitle(localizedKey(language, "ui.camera"))
+            .navigationBarTitleDisplayMode(.inline)
+        }
+    }
+
+    private var message: String {
+        if showsSettingsAction {
+            return localizedKey(language, "ui.camera.access.is.disabled.enable.it.in.settings.to.scan")
+        }
+        return localizedKey(language, "ui.djconnect.uses.the.camera.only.to.scan.the.pairing.qr")
+    }
+
+    private var primaryButtonTitle: String {
+        showsSettingsAction
+            ? localizedKey(language, "ui.open.settings")
+            : localizedKey(language, "ui.allow.camera")
+    }
+}
+
+private struct PairingQRScannerView: View {
+    let language: String
+    let onCode: (String) -> Void
+    @Environment(\.dismiss) private var dismiss
+    @State private var didDetectCode = false
+
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                PairingQRScannerRepresentable { value in
+                    guard !didDetectCode else { return }
+                    DJConnectHaptics.success()
+                    withAnimation(.spring(response: 0.28, dampingFraction: 0.82)) {
+                        didDetectCode = true
+                    }
+                    Task { @MainActor in
+                        try? await Task.sleep(for: .milliseconds(700))
+                        onCode(value)
+                    }
+                }
+                    .ignoresSafeArea()
+                VStack {
+                    if didDetectCode {
+                        PairingQRSuccessOverlay(language: language)
+                            .transition(.scale(scale: 0.92).combined(with: .opacity))
+                    }
+                    Spacer()
+                    Text(localizedKey(language, "ui.scan.the.djconnect.qr.code.shown.by.home.assistant"))
+                        .font(.headline)
+                        .multilineTextAlignment(.center)
+                        .padding(16)
+                        .frame(maxWidth: .infinity)
+                        .background(.ultraThinMaterial)
+                }
+            }
+            .navigationTitle(localizedKey(language, "ui.scan.qr.code"))
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button(localizedKey(language, "ui.cancel")) {
+                        dismiss()
+                    }
+                }
+            }
+        }
+    }
+}
+
+private struct PairingQRSuccessOverlay: View {
+    let language: String
+
+    var body: some View {
+        VStack(spacing: 12) {
+            Image(systemName: "checkmark.circle.fill")
+                .font(.system(size: 58, weight: .semibold))
+                .symbolRenderingMode(.hierarchical)
+            Text(localizedKey(language, "ui.pairing.successful"))
+                .font(.headline)
+        }
+        .foregroundStyle(.white)
+        .padding(.horizontal, 28)
+        .padding(.vertical, 22)
+        .background(.green.gradient, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .shadow(color: .black.opacity(0.35), radius: 24, y: 12)
+        .padding(.top, 56)
+    }
+}
+
+private struct PairingQRScannerRepresentable: UIViewControllerRepresentable {
+    let onCode: (String) -> Void
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(onCode: onCode)
+    }
+
+    func makeUIViewController(context: Context) -> PairingQRScannerViewController {
+        let controller = PairingQRScannerViewController()
+        controller.onCode = context.coordinator.handleCode(_:)
+        return controller
+    }
+
+    func updateUIViewController(_ uiViewController: PairingQRScannerViewController, context: Context) {}
+
+    final class Coordinator {
+        private var didSendCode = false
+        let onCode: (String) -> Void
+
+        init(onCode: @escaping (String) -> Void) {
+            self.onCode = onCode
+        }
+
+        func handleCode(_ value: String) {
+            guard !didSendCode else { return }
+            didSendCode = true
+            onCode(value)
+        }
+    }
+}
+
+private final class PairingQRScannerViewController: UIViewController, @preconcurrency AVCaptureMetadataOutputObjectsDelegate {
+    var onCode: ((String) -> Void)?
+    private let session = AVCaptureSession()
+    private var previewLayer: AVCaptureVideoPreviewLayer?
+
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        view.backgroundColor = .black
+        configureSession()
+    }
+
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        previewLayer?.frame = view.bounds
+    }
+
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        if !session.isRunning {
+            DispatchQueue.global(qos: .userInitiated).async { [session] in
+                session.startRunning()
+            }
+        }
+    }
+
+    override func viewWillDisappear(_ animated: Bool) {
+        super.viewWillDisappear(animated)
+        if session.isRunning {
+            session.stopRunning()
+        }
+    }
+
+    private func configureSession() {
+        guard let device = AVCaptureDevice.default(for: .video),
+              let input = try? AVCaptureDeviceInput(device: device),
+              session.canAddInput(input) else {
+            return
+        }
+        session.addInput(input)
+
+        let output = AVCaptureMetadataOutput()
+        guard session.canAddOutput(output) else {
+            return
+        }
+        session.addOutput(output)
+        output.setMetadataObjectsDelegate(self, queue: .main)
+        output.metadataObjectTypes = [.qr]
+
+        let layer = AVCaptureVideoPreviewLayer(session: session)
+        layer.videoGravity = .resizeAspectFill
+        layer.frame = view.bounds
+        view.layer.insertSublayer(layer, at: 0)
+        previewLayer = layer
+    }
+
+    func metadataOutput(
+        _ output: AVCaptureMetadataOutput,
+        didOutput metadataObjects: [AVMetadataObject],
+        from connection: AVCaptureConnection
+    ) {
+        guard let object = metadataObjects.compactMap({ $0 as? AVMetadataMachineReadableCodeObject }).first,
+              object.type == .qr,
+              let value = object.stringValue else {
+            return
+        }
+        session.stopRunning()
+        onCode?(value)
+    }
+}
+#endif
 
 private struct PairingValueCard: View {
     let title: String
@@ -1172,7 +2272,7 @@ private struct PairingValueCard: View {
             }
             if didCopy {
                 Label(
-                    localized(language, "Copied to clipboard", "Gekopieerd naar klembord"),
+                    localizedKey(language, "ui.copied.to.clipboard"),
                     systemImage: "checkmark.circle"
                 )
                 .font(.caption)
@@ -1211,19 +2311,15 @@ private struct WakeWordActivationPromptView: View {
             DJConnectCanvasBackground()
             VStack(alignment: .leading, spacing: 20) {
                 AboutBanner()
-                Text(localized(model.language, "Enable Voice Activation?", "Stemactivatie inschakelen?"))
+                Text(localizedKey(model.language, "ui.enable.voice.activation"))
                     .font(.title2.bold())
-                Text(localized(
-                    model.language,
-                    "Start hands-free with \"Hey DJ\" while DJConnect is open. Microphone and speech recognition permission may be requested.",
-                    "Start handsfree met \"Hey DJ\" terwijl DJConnect open is. Microfoon- en spraakherkenningstoestemming kunnen worden gevraagd."
-                ))
+                Text(localizedKey(model.language, "ui.start.hands.free.with.hey.dj.while.djconnect.is.open"))
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
                 Button {
                     model.activateWakeWordFromPrompt()
                 } label: {
-                    Label(localized(model.language, "Enable Voice Activation", "Stemactivatie inschakelen"), systemImage: "waveform")
+                    Label(localizedKey(model.language, "ui.enable.voice.activation.321a28"), systemImage: "waveform")
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(DJConnectLilacPillButtonStyle())
@@ -1231,7 +2327,7 @@ private struct WakeWordActivationPromptView: View {
                 Button {
                     model.dismissWakeWordActivationPrompt()
                 } label: {
-                    Text(localized(model.language, "Not Now", "Niet nu"))
+                    Text(localizedKey(model.language, "ui.not.now.b1e535"))
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(DJConnectLilacPillButtonStyle())
@@ -1257,29 +2353,21 @@ private struct UpdateRequiredView: View {
                     .font(.system(size: 44, weight: .semibold))
                     .foregroundStyle(.orange)
                 VStack(alignment: .leading, spacing: 6) {
-                    Text(localized(model.language, "Update Required", "Update vereist"))
+                    Text(localizedKey(model.language, "ui.update.required"))
                         .font(.title2.bold())
-                    Text(model.updateRequiredMessage ?? localized(
-                        model.language,
-                        "Update DJConnect before continuing.",
-                        "Update DJConnect voordat je verdergaat."
-                    ))
+                    Text(model.updateRequiredMessage ?? localizedKey(model.language, "ui.update.djconnect.before.continuing"))
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
                 }
             }
 
-            Text(localized(
-                model.language,
-                "Playback, queue, playlists, output selection and voice controls are blocked until the app and Home Assistant integration are compatible.",
-                "Playback, wachtrij, afspeellijsten, uitvoerapparaat en stemfuncties zijn geblokkeerd totdat de app en Home Assistant-integratie compatibel zijn."
-            ))
+            Text(localizedKey(model.language, "ui.playback.queue.playlists.output.selection.and.voice.controls.are.blocked"))
             .font(.callout)
             .foregroundStyle(.secondary)
             .fixedSize(horizontal: false, vertical: true)
 
             Link(destination: websiteURL) {
-                Label(localized(model.language, "Open DJConnect Update Page", "Open DJConnect updatepagina"), systemImage: "safari")
+                Label(localizedKey(model.language, "ui.open.djconnect.update.page"), systemImage: "safari")
                     .frame(maxWidth: .infinity)
             }
             .buttonStyle(DJConnectLilacPillButtonStyle())
@@ -1299,42 +2387,28 @@ private struct CrashReportPromptView: View {
             DJConnectCanvasBackground()
             VStack(alignment: .leading, spacing: 18) {
                 AboutBanner()
-                Label(localized(model.language, "The app may have crashed", "De app is mogelijk gecrasht"), systemImage: "exclamationmark.triangle.fill")
+                Label(localizedKey(model.language, "ui.the.app.may.have.crashed"), systemImage: "exclamationmark.triangle.fill")
                     .font(.title2.bold())
                     .foregroundStyle(.orange)
-                Text(localized(
-                    model.language,
-                    "You can share redacted diagnostics by opening a GitHub issue. Nothing is uploaded automatically.",
-                    "Je kunt geredigeerde diagnostiek delen via een GitHub issue. Er wordt niets automatisch geüpload."
-                ))
+                Text(localizedKey(model.language, "ui.you.can.share.redacted.diagnostics.by.opening.a.github.issue"))
                 .foregroundStyle(.secondary)
-                Text(localized(model.language, "GitHub issue target: pcvantol/djconnect", "GitHub issue doel: pcvantol/djconnect"))
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-                Text(localized(model.language, "Version", "Versie") + " \(DJConnectVersionInfo.displayVersion)")
+                Text(localizedKey(model.language, "ui.version") + " \(DJConnectVersionInfo.displayVersion)")
                     .font(.callout.weight(.semibold))
                     .foregroundStyle(.secondary)
-                Button {
-                    copyText(model.crashIssueBody())
-                } label: {
-                    Label(localized(model.language, "Copy Logs", "Logs kopiëren"), systemImage: "doc.on.doc")
-                        .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(DJConnectLilacPillButtonStyle())
                 Button {
                     if let url = model.crashIssueURL() {
                         openURL(url)
                     }
                     model.dismissCrashReportPrompt()
                 } label: {
-                    Label(localized(model.language, "Open GitHub Issue", "Open GitHub issue"), systemImage: "arrow.up.forward.app")
+                    Label(localizedKey(model.language, "ui.open.github.issue"), systemImage: "arrow.up.forward.app")
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(DJConnectLilacPillButtonStyle())
                 Button {
                     model.dismissCrashReportPrompt()
                 } label: {
-                    Text(localized(model.language, "Not Now", "Niet nu"))
+                    Text(localizedKey(model.language, "ui.not.now.b1e535"))
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(DJConnectLilacPillButtonStyle())
@@ -1350,101 +2424,108 @@ private struct CrashReportPromptView: View {
 
 private struct WelcomeView: View {
     @ObservedObject var model: DJConnectAppModel
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @State private var selectedStepIndex = 0
     private let startURL = URL(string: "https://djconnect.dev/start")!
     private var steps: [WelcomeTourStep] { WelcomeTourStep.steps(language: model.language) }
     private var selectedStep: WelcomeTourStep { steps[selectedStepIndex] }
     private var isLastStep: Bool { selectedStepIndex == steps.count - 1 }
+    private var contentIdealWidth: CGFloat {
+        horizontalSizeClass == .regular ? 780 : 580
+    }
+    private var contentMaxWidth: CGFloat {
+        horizontalSizeClass == .regular ? 940 : 680
+    }
 
     var body: some View {
         ZStack {
             DJConnectCanvasBackground()
-            VStack(spacing: 20) {
-                AboutBanner()
-                    .frame(maxWidth: 520)
+            ScrollView(.vertical) {
+                VStack(spacing: 20) {
+                    AboutBanner()
 
-                WelcomeTourPreview(
-                    steps: steps,
-                    selectedStep: selectedStep,
-                    language: model.language,
-                    selectStep: selectWelcomeTourStep
-                )
+                    WelcomeTourPreview(
+                        steps: steps,
+                        selectedStep: selectedStep,
+                        language: model.language,
+                        selectStep: selectWelcomeTourStep
+                    )
 
-                VStack(spacing: 10) {
-                    Label(selectedStep.title, systemImage: selectedStep.systemImage)
-                        .font(.title2.bold())
-                        .foregroundStyle(.primary)
-                        .multilineTextAlignment(.center)
-                    Text(selectedStep.body)
-                        .font(.body)
+                    VStack(spacing: 10) {
+                        Label(selectedStep.title, systemImage: selectedStep.systemImage)
+                            .font(.title2.bold())
+                            .foregroundStyle(.primary)
+                            .multilineTextAlignment(.center)
+                        Text(selectedStep.body)
+                            .font(.body)
+                            .foregroundStyle(.secondary)
+                            .multilineTextAlignment(.center)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .frame(minHeight: 52)
+                    }
+
+                    WelcomeTourProgress(count: steps.count, selectedIndex: selectedStepIndex)
+
+                    VStack(spacing: 8) {
+                        Text(localizedKey(model.language, "ui.setup.runs.through.home.assistant.spotify.playback.requires.spotify.premium"))
+                        .font(.callout.weight(.semibold))
                         .foregroundStyle(.secondary)
                         .multilineTextAlignment(.center)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .frame(minHeight: 52)
-                }
 
-                WelcomeTourProgress(count: steps.count, selectedIndex: selectedStepIndex)
-
-                VStack(spacing: 8) {
-                    Text(localized(
-                        model.language,
-                        "Setup runs through Home Assistant. Spotify playback requires Spotify Premium.",
-                        "Installatie loopt via Home Assistant. Spotify-weergave vereist Spotify Premium."
-                    ))
-                    .font(.callout.weight(.semibold))
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-
-                    Link("djconnect.dev/start", destination: startURL)
-                        .font(.callout.weight(.semibold))
-                        .foregroundStyle(djConnectAccent)
-                }
-
-                Button {
-                    model.dismissWelcome()
-                } label: {
-                    Text(localized(model.language, "Skip", "Overslaan"))
-                        .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(DJConnectLilacPillButtonStyle())
-                .controlSize(.large)
-
-                HStack(spacing: 12) {
-                    Button {
-                        moveWelcomeTour(by: -1)
-                    } label: {
-                        Label(localized(model.language, "Previous", "Vorige"), systemImage: "chevron.left")
-                            .frame(maxWidth: .infinity)
+                        Link("djconnect.dev/start", destination: startURL)
+                            .font(.callout.weight(.semibold))
+                            .foregroundStyle(djConnectAccent)
                     }
-                    .buttonStyle(DJConnectLilacPillButtonStyle())
-                    .controlSize(.large)
-                    .disabled(selectedStepIndex == 0)
-                    .opacity(selectedStepIndex == 0 ? 0.46 : 1)
 
-                    Button {
-                        if isLastStep {
-                            model.dismissWelcome()
-                        } else {
-                            moveWelcomeTour(by: 1)
+                    VStack(spacing: 12) {
+                        HStack(spacing: 12) {
+                            Button {
+                                moveWelcomeTour(by: -1)
+                            } label: {
+                                Label(localizedKey(model.language, "ui.previous"), systemImage: "chevron.left")
+                                    .frame(maxWidth: .infinity)
+                            }
+                            .buttonStyle(DJConnectLilacPillButtonStyle())
+                            .controlSize(.large)
+                            .disabled(selectedStepIndex == 0)
+                            .opacity(selectedStepIndex == 0 ? 0.46 : 1)
+
+                            Button {
+                                moveWelcomeTour(by: 1)
+                            } label: {
+                                Label(localizedKey(model.language, "ui.next"), systemImage: "chevron.right")
+                                    .frame(maxWidth: .infinity)
+                            }
+                            .buttonStyle(DJConnectLilacPillButtonStyle())
+                            .controlSize(.large)
+                            .disabled(isLastStep)
+                            .opacity(isLastStep ? 0 : 1)
+                            .accessibilityHidden(isLastStep)
                         }
-                    } label: {
-                        Label(
-                            isLastStep
-                                ? localized(model.language, "Let's Start!", "Aan de slag!")
-                                : localized(model.language, "Next", "Volgende"),
-                            systemImage: isLastStep ? "checkmark.circle.fill" : "chevron.right"
-                        )
-                            .frame(maxWidth: .infinity)
+
+                        Button {
+                            model.dismissWelcome()
+                        } label: {
+                            if isLastStep {
+                                Label(localizedKey(model.language, "ui.let.s.start"), systemImage: "music.note")
+                                    .frame(maxWidth: .infinity)
+                            } else {
+                                Text(localizedKey(model.language, "ui.skip"))
+                                    .frame(maxWidth: .infinity)
+                            }
+                        }
+                        .buttonStyle(DJConnectLilacPillButtonStyle())
+                        .controlSize(.large)
                     }
-                    .buttonStyle(DJConnectLilacPillButtonStyle())
-                    .controlSize(.large)
+                    .frame(maxWidth: .infinity)
                 }
+                .padding(28)
+                .frame(minWidth: 360, idealWidth: contentIdealWidth, maxWidth: contentMaxWidth)
+                #if os(macOS)
+                .frame(minHeight: 620)
+                #endif
             }
-            .padding(28)
-            .frame(minWidth: 360, idealWidth: 580, maxWidth: 680)
-            #if os(macOS)
-            .frame(minHeight: 620)
-            #endif
+            .defaultScrollAnchor(.top)
         }
     }
 
@@ -1476,53 +2557,33 @@ private struct WelcomeTourStep: Identifiable, Equatable {
         [
             WelcomeTourStep(
                 id: .nowPlaying,
-                title: localized(language, "Now Playing", "Speelt Nu"),
-                body: localized(
-                    language,
-                    "Control playback, volume and the active output from the main screen.",
-                    "Bedien playback, volume en het actieve uitvoerapparaat vanaf het hoofdscherm."
-                ),
+                title: localizedKey(language, "ui.now.playing"),
+                body: localizedKey(language, "ui.control.playback.volume.and.the.active.output.from.the.main"),
                 systemImage: "music.note"
             ),
             WelcomeTourStep(
                 id: .askDJ,
                 title: "Ask DJ",
-                body: localized(
-                    language,
-                    "Ask for music, context or a voice reply. DJConnect keeps the chat history in sync through Home Assistant.",
-                    "Vraag om muziek, context of een gesproken antwoord. DJConnect synchroniseert de chatgeschiedenis via Home Assistant."
-                ),
-                systemImage: "bubble.left.and.bubble.right.fill"
+                body: localizedKey(language, "ui.ask.for.music.context.or.a.voice.reply.djconnect.keeps"),
+                systemImage: "bubble.left.and.bubble.right"
             ),
             WelcomeTourStep(
-                id: .queue,
-                title: localized(language, "Queue", "Wachtrij"),
-                body: localized(
-                    language,
-                    "See what is coming up next and start queue items when Home Assistant returns playable actions.",
-                    "Bekijk wat hierna komt en start wachtrij-items wanneer Home Assistant afspeelacties teruggeeft."
-                ),
-                systemImage: "text.line.first.and.arrowtriangle.forward"
+                id: .trackInsight,
+                title: "Track Insight",
+                body: localizedKey(language, "ui.analyze.the.current.track.for.mood.energy.genre.and.musical"),
+                systemImage: "waveform.path.ecg"
             ),
             WelcomeTourStep(
-                id: .settings,
-                title: localized(language, "More and Settings", "Meer en Instellingen"),
-                body: localized(
-                    language,
-                    "Open playlists, local games, settings, logs, legal information and privacy controls.",
-                    "Open afspeellijsten, lokale games, instellingen, logs, juridische info en privacyopties."
-                ),
-                systemImage: "ellipsis.circle.fill"
+                id: .discovery,
+                title: localizedKey(language, "ui.discover"),
+                body: localizedKey(language, "ui.discovery.recommendations.will.appear.after.music.dna.has.more.signals"),
+                systemImage: "wand.and.stars"
             ),
             WelcomeTourStep(
-                id: .games,
-                title: localized(language, "Mini-games", "Mini-games"),
-                body: localized(
-                    language,
-                    "Play local mini-games while keeping DJConnect ready for your music setup.",
-                    "Speel lokale mini-games terwijl DJConnect klaar blijft voor je muziekopstelling."
-                ),
-                systemImage: "gamecontroller.fill"
+                id: .musicDNA,
+                title: "Music DNA",
+                body: localizedKey(language, "ui.learn.from.your.taste.and.listening.behavior.to.shape.recommendations"),
+                systemImage: "heart"
             )
         ]
     }
@@ -1686,7 +2747,7 @@ private struct WhatsNewView: View {
                 HStack(spacing: 12) {
                     Image(systemName: "sparkles")
                         .foregroundStyle(.purple)
-                    Text(localized(model.language, "What's New", "Wat is er nieuw?"))
+                    Text(localizedKey(model.language, "ui.what.s.new"))
                         .font(.title.bold())
                 }
 
@@ -1709,7 +2770,7 @@ private struct WhatsNewView: View {
                     if model.isLoadingWhatsNew {
                         HStack(spacing: 10) {
                             ProgressView()
-                            Text(localized(model.language, "Loading release notes...", "Release notes laden..."))
+                            Text(localizedKey(model.language, "ui.loading.release.notes"))
                                 .font(.callout)
                         }
                         .foregroundStyle(.secondary)
@@ -1720,7 +2781,7 @@ private struct WhatsNewView: View {
                 Button {
                     model.dismissWhatsNew()
                 } label: {
-                Text(localized(model.language, "Continue", "Doorgaan"))
+                Text(localizedKey(model.language, "ui.continue"))
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(DJConnectLilacPillButtonStyle())
@@ -1741,7 +2802,7 @@ private struct WhatsNewMarkdownBody: View {
     let clientType: DJConnectClientType
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 14) {
             ForEach(Array(blocks.enumerated()), id: \.offset) { _, block in
                 switch block {
                 case let .heading(value):
@@ -1814,10 +2875,12 @@ private struct WhatsNewMarkdownBody: View {
 
 struct NowPlayingView: View {
     @ObservedObject var model: DJConnectAppModel
+    @State private var statusToast: DJConnectVisualNotice?
 
     var body: some View {
         #if os(iOS)
         IOSNowPlayingView(model: model)
+            .accessibilityIdentifier("screen-now-playing")
         #else
         NavigationStack {
             ScrollView {
@@ -1832,12 +2895,15 @@ struct NowPlayingView: View {
                 .frame(maxWidth: djConnectContentMaxWidth)
                 .frame(maxWidth: .infinity)
             }
-            .navigationTitle(screenTitle(model.language, "Now Playing", "Speelt nu", isDemoMode: model.isDemoMode))
+            .navigationTitle(screenTitle(model.language, key: "Now Playing", isDemoMode: model.isDemoMode))
             .toolbar {
                 ToolbarItem {
-                    RefreshButton(model: model)
+                    RefreshButton(model: model) {
+                        Task { await refreshNowPlayingWithToast() }
+                    }
                 }
             }
+            .djStatusToastOverlay(statusToast)
             .task {
                 if model.pairingStatus == .paired {
                     model.refresh()
@@ -1845,16 +2911,46 @@ struct NowPlayingView: View {
             }
             .djUserNoticeToast(model: model)
         }
+        .accessibilityIdentifier("screen-now-playing")
         #endif
+    }
+
+    private func refreshNowPlayingWithToast() async {
+        let didRefresh = await model.refreshNowPlaying()
+        showStatusToast(
+            didRefresh ? localizedKey(model.language, "appModel.now.playing.updated") : localizedKey(model.language, "appModel.now.playing.update.failed"),
+            systemImage: didRefresh ? "checkmark.circle.fill" : "exclamationmark.triangle.fill"
+        )
+    }
+
+    private func showStatusToast(_ text: String, systemImage: String) {
+        let notice = DJConnectVisualNotice(text: text, systemImage: systemImage)
+        withAnimation(.easeOut(duration: 0.18)) {
+            statusToast = notice
+        }
+        Task { @MainActor in
+            try? await Task.sleep(for: .seconds(2))
+            guard statusToast?.id == notice.id else {
+                return
+            }
+            withAnimation(.easeIn(duration: 0.18)) {
+                statusToast = nil
+            }
+        }
     }
 }
 
 private struct RefreshButton: View {
     @ObservedObject var model: DJConnectAppModel
+    var action: (() -> Void)?
 
     var body: some View {
         Button {
-            model.refresh()
+            if let action {
+                action()
+            } else {
+                model.refresh()
+            }
         } label: {
             if model.isRefreshing {
                 ProgressView()
@@ -1864,8 +2960,9 @@ private struct RefreshButton: View {
             }
         }
         .disabled(model.isDemoMode || model.pairingStatus != .paired || model.isRefreshing)
-        .help(localized(model.language, "Refresh", "Vernieuwen"))
-        .accessibilityLabel(localized(model.language, "Refresh", "Vernieuwen"))
+        .tint(.primary)
+        .help(localizedKey(model.language, "ui.refresh"))
+        .accessibilityLabel(localizedKey(model.language, "ui.refresh"))
     }
 }
 
@@ -1895,12 +2992,43 @@ private struct DJConnectPressedTintButtonStyle: ButtonStyle {
     }
 }
 
-private struct DJConnectLilacPillButtonStyle: ButtonStyle {
+private struct PlaybackControlButtonStyle: ButtonStyle {
+    var isProminent = false
+    var isActive = false
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .background(
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .fill(backgroundColor(isPressed: configuration.isPressed))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .stroke(Color.white.opacity(isProminent || isActive ? 0.12 : 0.08), lineWidth: 1)
+            )
+            .scaleEffect(configuration.isPressed ? 0.96 : 1)
+            .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
+    }
+
+    private func backgroundColor(isPressed: Bool) -> Color {
+        if isProminent {
+            return djConnectAccent.opacity(isPressed ? 0.82 : 0.96)
+        }
+        if isActive {
+            return djConnectAccent.opacity(isPressed ? 0.30 : 0.24)
+        }
+        return Color.white.opacity(isPressed ? 0.16 : 0.10)
+    }
+}
+
+struct DJConnectLilacPillButtonStyle: ButtonStyle {
+    @Environment(\.isEnabled) private var isEnabled
+
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(.headline)
-            .foregroundStyle(.white)
-            .foregroundColor(.white)
+            .foregroundStyle(.white.opacity(isEnabled ? 1.0 : 0.52))
+            .foregroundColor(.white.opacity(isEnabled ? 1.0 : 0.52))
             .tint(.white)
             .accentColor(.white)
             .symbolRenderingMode(.monochrome)
@@ -1910,8 +3038,8 @@ private struct DJConnectLilacPillButtonStyle: ButtonStyle {
             .background(
                 LinearGradient(
                     colors: [
-                        djConnectButtonBlue.opacity(configuration.isPressed ? 0.82 : 1.0),
-                        djConnectButtonPurple.opacity(configuration.isPressed ? 0.82 : 1.0)
+                        (isEnabled ? djConnectButtonBlue : Color.white).opacity(isEnabled ? (configuration.isPressed ? 0.82 : 1.0) : 0.12),
+                        (isEnabled ? djConnectButtonPurple : Color.white).opacity(isEnabled ? (configuration.isPressed ? 0.82 : 1.0) : 0.08)
                     ],
                     startPoint: .leading,
                     endPoint: .trailing
@@ -1920,11 +3048,12 @@ private struct DJConnectLilacPillButtonStyle: ButtonStyle {
             )
             .overlay {
                 Capsule()
-                    .stroke(.white.opacity(configuration.isPressed ? 0.18 : 0.12), lineWidth: 1)
+                    .stroke(.white.opacity(isEnabled ? (configuration.isPressed ? 0.18 : 0.12) : 0.10), lineWidth: 1)
             }
-            .shadow(color: djConnectButtonPurple.opacity(0.26), radius: 10, y: 4)
-            .scaleEffect(configuration.isPressed ? 0.98 : 1)
+            .shadow(color: djConnectButtonPurple.opacity(isEnabled ? 0.26 : 0), radius: 10, y: 4)
+            .scaleEffect(configuration.isPressed && isEnabled ? 0.98 : 1)
             .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
+            .animation(.easeOut(duration: 0.16), value: isEnabled)
     }
 }
 
@@ -2030,12 +3159,12 @@ private struct AnimatedAlbumArtworkView: View {
     }
 }
 
-private enum CachedArtworkImageMode {
+enum CachedArtworkImageMode {
     case fit
     case fill
 }
 
-private struct CachedArtworkImage<Placeholder: View>: View {
+struct CachedArtworkImage<Placeholder: View>: View {
     let url: URL?
     let mode: CachedArtworkImageMode
     @ViewBuilder var placeholder: () -> Placeholder
@@ -2275,9 +3404,5106 @@ private func averageArtworkColor(from data: Data) -> Color? {
     )
 }
 
+private struct TrackInsightView: View {
+    @ObservedObject var model: DJConnectAppModel
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    @State private var isShowingShare = false
+    @State private var isAnimationActive = false
+    @State private var isMoodVisible = false
+    @State private var statusToast: DJConnectVisualNotice?
+    #if canImport(AVKit) && os(iOS)
+    @StateObject private var vibeCastAirPlaySession = VibeCastAirPlaySession()
+    #endif
+
+    private var insight: TrackInsight? {
+        model.currentTrackInsight
+    }
+
+    private var insightID: String? {
+        insight?.id
+    }
+
+    private var playbackShareIdentity: String {
+        Self.shareIdentity(title: model.playback?.trackName, artist: model.playback?.artistName)
+    }
+
+    private var insightShareIdentity: String {
+        Self.shareIdentity(title: insight?.title, artist: insight?.artist)
+    }
+
+    private func shouldUseWideLayout(for size: CGSize) -> Bool {
+        #if os(macOS)
+        size.width >= 1_000
+        #else
+        horizontalSizeClass == .regular && size.width > size.height
+        #endif
+    }
+
+    private func maxContentWidth(for size: CGSize) -> CGFloat {
+        shouldUseWideLayout(for: size) ? djConnectMacDetailContentMaxWidth : djConnectContentMaxWidth
+    }
+
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                DJConnectCanvasBackground()
+                GeometryReader { proxy in
+                    ScrollView {
+                        let contentWidth = min(maxContentWidth(for: proxy.size), proxy.size.width)
+                        VStack(alignment: .leading, spacing: 16) {
+                            if isMoodVisible {
+                                AskDJMoodModeControl(
+                                    model: model,
+                                    caption: localizedKey(model.language, "ui.mood.colors.track.insight.from.calm.listening.cues.to.energetic"),
+                                    closeAction: {
+                                        withAnimation(.spring(response: 0.28, dampingFraction: 0.86)) {
+                                            isMoodVisible = false
+                                        }
+                                    }
+                                )
+                                .frame(maxWidth: .infinity, alignment: .topLeading)
+                                .transition(.move(edge: .top).combined(with: .opacity))
+                            }
+
+                            if let insight {
+                                TrackInsightHero(
+                                    model: model,
+                                    insight: insight,
+                                    moodStepIndex: model.askDJMoodStepIndex,
+                                    isAnimationActive: isAnimationActive
+                                )
+                                .id(trackInsightHeroRenderID(for: insight))
+                                    .frame(maxWidth: .infinity, alignment: .topLeading)
+                                TrackInsightAnalysisCard(insight: insight, language: model.language)
+                                    .frame(maxWidth: .infinity, alignment: .topLeading)
+                                TrackInsightMetricsGrid(insight: insight, language: model.language, moodStepIndex: model.askDJMoodStepIndex)
+                                    .frame(maxWidth: .infinity, alignment: .topLeading)
+                                TrackInsightPrivacyFooter(language: model.language)
+                                    .frame(maxWidth: .infinity, alignment: .top)
+                            } else {
+                                TrackInsightEmptyState(model: model)
+                            }
+                        }
+                        .padding(.horizontal, djConnectScreenHorizontalPadding)
+                        .padding(.vertical, djConnectScreenVerticalPadding)
+                        .frame(width: contentWidth, alignment: .topLeading)
+                        .frame(maxWidth: .infinity, alignment: .top)
+                    }
+                    #if os(iOS)
+                    .refreshable {
+                        await refreshTrackInsightWithToast()
+                    }
+                    #endif
+                }
+                #if canImport(AVKit) && os(iOS)
+                if let player = vibeCastAirPlaySession.player {
+                    VideoPlayer(player: player)
+                        .frame(width: 2, height: 2)
+                        .opacity(0.01)
+                        .allowsHitTesting(false)
+                        .accessibilityHidden(true)
+                }
+                #endif
+            }
+            .djStatusToastOverlay(statusToast)
+            .navigationTitle(screenTitle(model.language, key: "Track Insight", isDemoMode: model.isDemoMode))
+            .accessibilityIdentifier("screen-track-insight")
+            #if os(iOS)
+            .navigationBarTitleDisplayMode(.large)
+            #endif
+            .toolbar {
+                #if os(iOS)
+                ToolbarItemGroup(placement: .topBarLeading) {
+                    #if canImport(AVKit)
+                    VibeCastAirPlayToolbarButton(
+                        language: model.language,
+                        hasInsight: insight != nil,
+                        isPreparing: vibeCastAirPlaySession.isPreparing,
+                        isReady: vibeCastAirPlaySession.player != nil
+                    )
+                    #else
+                    AirPlayToolbarButton(language: model.language)
+                    #endif
+
+                    trackInsightMoodToolbarButton
+                }
+
+                ToolbarItemGroup(placement: .topBarTrailing) {
+                    if insight != nil {
+                        Button {
+                            isShowingShare = true
+                        } label: {
+                            Image(systemName: "square.and.arrow.up")
+                                .foregroundStyle(.primary)
+                        }
+                        .tint(.primary)
+                        .help(localizedKey(model.language, "ui.share.insight"))
+                    }
+
+                    TrackInsightRefreshButton(model: model) {
+                        Task { await refreshTrackInsightWithToast() }
+                    }
+                }
+                #else
+                ToolbarItemGroup(placement: .primaryAction) {
+                    AirPlayToolbarButton(language: model.language)
+
+                    trackInsightMoodToolbarButton
+
+                    if insight != nil {
+                        Button {
+                            isShowingShare = true
+                        } label: {
+                            Image(systemName: "square.and.arrow.up")
+                                .foregroundStyle(.primary)
+                        }
+                        .tint(.primary)
+                        .help(localizedKey(model.language, "ui.share.insight"))
+                    }
+
+                    TrackInsightRefreshButton(model: model) {
+                        Task { await refreshTrackInsightWithToast() }
+                    }
+                }
+                #endif
+            }
+            .sheet(isPresented: $isShowingShare) {
+                if let insight {
+                    TrackInsightSharePreviewView(
+                        insight: insight,
+                        language: model.language,
+                        moodStepIndex: model.askDJMoodStepIndex
+                    )
+                }
+            }
+            .onChange(of: playbackShareIdentity) {
+                dismissShareIfPlaybackMovedOn()
+            }
+            .onChange(of: insightShareIdentity) {
+                dismissShareIfPlaybackMovedOn()
+            }
+            .onChange(of: model.trackInsightErrorMessage) { _, message in
+                guard let message, !message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+                    return
+                }
+                showStatusToast(message, systemImage: "exclamationmark.triangle.fill")
+            }
+            #if canImport(AVKit) && os(iOS)
+            .onChange(of: model.playback?.progressMS) {
+                vibeCastAirPlaySession.sync(to: model.playback)
+            }
+            .onChange(of: model.playback?.isPlaying) {
+                vibeCastAirPlaySession.sync(to: model.playback)
+            }
+            .onChange(of: model.playback?.durationMS) {
+                vibeCastAirPlaySession.sync(to: model.playback)
+            }
+            #endif
+            .djUserNoticeToast(model: model)
+        }
+        #if canImport(AVKit) && os(iOS)
+        .task(id: insightID) {
+            guard let insight else {
+                vibeCastAirPlaySession.reset()
+                return
+            }
+            await vibeCastAirPlaySession.prepare(insight: insight, language: model.language)
+            vibeCastAirPlaySession.sync(to: model.playback, force: true)
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .AVPlayerItemDidPlayToEndTime)) { notification in
+            vibeCastAirPlaySession.loopIfNeeded(notification.object)
+        }
+        #endif
+        .onAppear {
+            isAnimationActive = true
+        }
+        .onDisappear {
+            isAnimationActive = false
+        }
+    }
+
+    @ViewBuilder
+    private var trackInsightMoodToolbarButton: some View {
+        Button {
+            withAnimation(.spring(response: 0.28, dampingFraction: 0.86)) {
+                isMoodVisible.toggle()
+            }
+        } label: {
+            Image(systemName: "slider.horizontal.3")
+                .foregroundStyle(isMoodVisible ? djConnectAccent : .primary)
+        }
+        .help(localizedKey(model.language, "ui.mood"))
+        .accessibilityLabel(localizedKey(model.language, "ui.mood"))
+    }
+
+    private func trackInsightHeroRenderID(for insight: TrackInsight) -> String {
+        [
+            insight.id,
+            insight.title,
+            insight.artist,
+            insight.visualProfile?.motionStyle?.rawValue ?? "",
+            insight.visualProfile?.palette.joined(separator: ",") ?? "",
+            String(model.askDJMoodStepIndex),
+            String(model.askDJMoodInt)
+        ].joined(separator: "|")
+    }
+
+    private func dismissShareIfPlaybackMovedOn() {
+        guard isShowingShare, !playbackShareIdentity.isEmpty, !insightShareIdentity.isEmpty else {
+            return
+        }
+        if playbackShareIdentity != insightShareIdentity {
+            isShowingShare = false
+        }
+    }
+
+    private func refreshTrackInsightWithToast() async {
+        let didRefresh = await model.refreshTrackInsight(open: true, forceRefresh: true)
+        let failureMessage = model.trackInsightErrorMessage?.trimmingCharacters(in: .whitespacesAndNewlines)
+        showStatusToast(
+            didRefresh
+                ? localizedKey(model.language, "appModel.track.insight.updated")
+                : (failureMessage?.isEmpty == false ? failureMessage! : localizedKey(model.language, "appModel.track.insight.update.failed")),
+            systemImage: didRefresh ? "waveform.path.ecg" : "exclamationmark.triangle.fill"
+        )
+    }
+
+    private func showStatusToast(_ text: String, systemImage: String) {
+        let notice = DJConnectVisualNotice(text: text, systemImage: systemImage)
+        withAnimation(.easeOut(duration: 0.18)) {
+            statusToast = notice
+        }
+        Task { @MainActor in
+            try? await Task.sleep(for: .seconds(2))
+            guard statusToast?.id == notice.id else {
+                return
+            }
+            withAnimation(.easeIn(duration: 0.18)) {
+                statusToast = nil
+            }
+        }
+    }
+
+    private static func shareIdentity(title: String?, artist: String?) -> String {
+        let parts = [title, artist].map { value in
+            value?
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+                .folding(options: [.caseInsensitive, .diacriticInsensitive], locale: .current) ?? ""
+        }
+        guard parts.contains(where: { !$0.isEmpty }) else {
+            return ""
+        }
+        return parts.joined(separator: "\u{1F}")
+    }
+}
+
+private struct TrackInsightRefreshButton: View {
+    @ObservedObject var model: DJConnectAppModel
+    var action: () -> Void
+
+    var body: some View {
+        Button {
+            action()
+        } label: {
+            if model.isLoadingTrackInsight {
+                ProgressView()
+                    .controlSize(.small)
+            } else {
+                Image(systemName: "arrow.clockwise")
+            }
+        }
+        .disabled(model.isLoadingTrackInsight || !model.canStartTrackInsightAnalysis)
+        .tint(.primary)
+        .help(localizedKey(model.language, "ui.refresh.track.insight"))
+        .accessibilityLabel(localizedKey(model.language, "ui.refresh.track.insight"))
+    }
+}
+
+private struct MusicDNAView: View {
+    @ObservedObject var model: DJConnectAppModel
+    @State private var statusToast: DJConnectVisualNotice?
+
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                DJConnectCanvasBackground()
+                GeometryReader { proxy in
+                    ScrollView {
+                        let contentWidth = min(musicDNAMaxContentWidth, proxy.size.width)
+                        let heroWidth = min(musicDNAHeroMaxWidth(for: proxy.size), contentWidth)
+                        VStack(alignment: .leading, spacing: 16) {
+                            MusicDNAHeroView(model: model, moodStepIndex: model.askDJMoodStepIndex)
+                                .frame(maxWidth: heroWidth, alignment: .top)
+                                .frame(maxWidth: .infinity, alignment: .top)
+                            MusicDNAContentView(model: model)
+                                .frame(maxWidth: .infinity, alignment: .topLeading)
+                            if let updatedSummary {
+                                MusicDNAUpdatedFooter(language: model.language, updatedSummary: updatedSummary)
+                                    .frame(maxWidth: .infinity, alignment: .center)
+                            }
+                        }
+                        .padding(.horizontal, djConnectScreenHorizontalPadding)
+                        .padding(.top, djConnectScreenVerticalPadding)
+                        .padding(.bottom, djConnectScreenVerticalPadding + 28)
+                        .frame(width: contentWidth, alignment: .topLeading)
+                        .frame(maxWidth: .infinity, alignment: .top)
+                    }
+                }
+                #if os(iOS)
+                .refreshable {
+                    #if DEBUG
+                    guard !model.isMusicDNAPreviewMode else { return }
+                    #endif
+                    await model.refreshMusicDNAProfile(showToast: true)
+                }
+                #endif
+            }
+            .djStatusToastOverlay(statusToast)
+            .navigationTitle(screenTitle(model.language, key: "Music DNA", isDemoMode: model.isDemoMode))
+            .accessibilityIdentifier("screen-music-dna")
+            #if os(iOS)
+            .navigationBarTitleDisplayMode(.large)
+            #endif
+            .toolbar {
+                #if os(macOS)
+                ToolbarItem(placement: .primaryAction) {
+                    MusicDNARefreshButton(model: model)
+                }
+                #else
+                ToolbarItem(placement: .topBarTrailing) {
+                    MusicDNARefreshButton(model: model)
+                }
+                #endif
+            }
+        }
+        .task {
+            #if DEBUG
+            guard !model.isMusicDNAPreviewMode else { return }
+            #endif
+            await model.refreshMusicDNAProfile()
+            model.presentMusicDNAOptInPromptIfNeeded()
+        }
+        .onChange(of: model.musicDNAToast?.id) { _, _ in
+            guard let toast = model.musicDNAToast else {
+                return
+            }
+            showStatusToast(toast)
+        }
+    }
+
+    private var musicDNAMaxContentWidth: CGFloat {
+        #if os(macOS)
+        return djConnectMacDetailContentMaxWidth
+        #else
+        return 1_520
+        #endif
+    }
+
+    private func musicDNAHeroMaxWidth(for size: CGSize) -> CGFloat {
+        #if os(macOS)
+        return size.width >= 1_900 ? 1_420 : 1_280
+        #else
+        return min(1_320, size.width)
+        #endif
+    }
+
+    private var updatedSummary: String? {
+        guard let response = model.musicDNAProfileResponse,
+              let updatedAt = response.profile.updatedAt ?? response.updatedAt else {
+            return nil
+        }
+        if Calendar.current.isDate(updatedAt, inSameDayAs: Date()) {
+            return updatedAt.formatted(date: .omitted, time: .shortened)
+        }
+        return updatedAt.formatted(date: .abbreviated, time: .shortened)
+    }
+
+    private func showStatusToast(_ toast: DJConnectVisualNotice) {
+        withAnimation(.easeOut(duration: 0.18)) {
+            statusToast = toast
+        }
+        Task { @MainActor in
+            try? await Task.sleep(for: .seconds(2.2))
+            guard statusToast?.id == toast.id else {
+                return
+            }
+            withAnimation(.easeIn(duration: 0.18)) {
+                statusToast = nil
+            }
+        }
+    }
+}
+
+private struct MusicDNAUpdatedFooter: View {
+    let language: String
+    let updatedSummary: String
+
+    var body: some View {
+        Text("\(localizedKey(language, "ui.updated")): \(updatedSummary)")
+            .font(.caption2.weight(.semibold))
+            .foregroundStyle(.white.opacity(0.46))
+            .multilineTextAlignment(.center)
+            .frame(maxWidth: .infinity, alignment: .center)
+            .padding(.top, 8)
+            .padding(.bottom, 10)
+    }
+}
+
+private struct MusicDNARefreshButton: View {
+    @ObservedObject var model: DJConnectAppModel
+
+    var body: some View {
+        Button {
+            Task { await model.refreshMusicDNAProfile(showToast: true) }
+        } label: {
+            if model.isLoadingMusicDNA {
+                ProgressView()
+                    .controlSize(.small)
+            } else {
+                Image(systemName: "arrow.clockwise")
+            }
+        }
+        .disabled(model.isLoadingMusicDNA || model.isUpdatingMusicDNA)
+        .tint(.primary)
+        .help(localizedKey(model.language, "ui.refresh.music.dna"))
+        .accessibilityLabel(localizedKey(model.language, "ui.refresh.music.dna"))
+    }
+}
+
+private struct MusicDNAHeroView: View {
+    @ObservedObject var model: DJConnectAppModel
+    let moodStepIndex: Int
+
+    var body: some View {
+        if model.musicDNAProfileResponse?.enabled == true {
+            activeHero
+        } else {
+            inactiveHero
+        }
+    }
+
+    private var activeHero: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            MusicDNAHelixView(moodStepIndex: moodStepIndex)
+                .frame(height: 220)
+                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+        }
+        .padding(24)
+        .frame(maxWidth: .infinity, minHeight: 268, alignment: .center)
+        .djConnectGradientCard(cornerRadius: 8)
+    }
+
+    private var inactiveHero: some View {
+        VStack(spacing: 16) {
+            Image(systemName: "heart")
+                .font(.system(size: 50, weight: .semibold))
+                .foregroundStyle(djConnectIconGradient)
+                .frame(width: 72, height: 72)
+
+            Text("Music DNA")
+                .font(.title2.weight(.bold))
+                .foregroundStyle(.white)
+
+            Text(localizedKey(model.language, "ui.djconnect.in.your.home.assistant.environment.does.not.build.a"))
+                .font(.callout)
+                .foregroundStyle(.white.opacity(0.66))
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(24)
+        .frame(maxWidth: .infinity, minHeight: 190)
+        .background(
+            LinearGradient(
+                colors: [
+                    Color(red: 0.04, green: 0.03, blue: 0.13).opacity(0.98),
+                    Color(red: 0.10, green: 0.04, blue: 0.22).opacity(0.97),
+                    Color(red: 0.11, green: 0.06, blue: 0.26).opacity(0.94)
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            ),
+            in: RoundedRectangle(cornerRadius: 8, style: .continuous)
+        )
+        .overlay {
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .stroke(.white.opacity(0.16), lineWidth: 1.5)
+        }
+    }
+}
+
+private struct MusicDNAOptInPromptView: View {
+    @ObservedObject var model: DJConnectAppModel
+
+    var body: some View {
+        ZStack {
+            DJConnectCanvasBackground()
+            VStack(alignment: .leading, spacing: 18) {
+                AboutBanner()
+                MusicDNAPromptIcon()
+
+                VStack(alignment: .leading, spacing: 10) {
+                    Text(localizedKey(model.language, "ui.enable.music.dna"))
+                        .font(.title.bold())
+                        .foregroundStyle(.white)
+                    Text(localizedKey(model.language, "ui.with.music.dna.djconnect.can.learn.from.your.taste.and"))
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                    if model.isDemoMode {
+                        Text(localizedKey(model.language, "ui.in.demo.mode.this.only.unlocks.fictional.sample.data.on"))
+                        .font(.callout.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+
+                VStack(alignment: .leading, spacing: 10) {
+                    Label(
+                        localizedKey(model.language, "ui.you.can.clear.the.learned.profile.at.any"),
+                        systemImage: "trash"
+                    )
+                    Label(
+                        localizedKey(model.language, "ui.you.can.always.turn.music.dna.off.in"),
+                        systemImage: "switch.2"
+                    )
+                }
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.white.opacity(0.78))
+
+                Spacer(minLength: 0)
+
+                VStack(spacing: 10) {
+                    Button {
+                        model.acceptMusicDNAOptInPrompt()
+                    } label: {
+                        Label(localizedKey(model.language, "ui.enable.music.dna.1adf61"), systemImage: "sparkles")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(DJConnectLilacPillButtonStyle())
+                    .controlSize(.large)
+                    .disabled(model.isUpdatingMusicDNA)
+
+                    Button {
+                        model.dismissMusicDNAOptInPrompt()
+                    } label: {
+                        Text(localizedKey(model.language, "ui.not.now.b1e535"))
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(DJConnectLilacPillButtonStyle())
+                    .controlSize(.large)
+                }
+            }
+            .padding(28)
+            .frame(minWidth: 360, idealWidth: 520, maxWidth: 620, minHeight: 420, alignment: .topLeading)
+        }
+    }
+}
+
+private struct MusicDNAPromptIcon: View {
+    var body: some View {
+        Image(systemName: "heart")
+            .font(.system(size: 50, weight: .semibold))
+            .symbolRenderingMode(.hierarchical)
+            .foregroundStyle(djConnectIconGradient)
+            .frame(maxWidth: .infinity)
+            .accessibilityHidden(true)
+    }
+}
+
+private struct MusicDNAContentView: View {
+    @ObservedObject var model: DJConnectAppModel
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            if model.isLoadingMusicDNA, model.musicDNAProfileResponse == nil {
+                MusicDNALoadingView(model: model)
+            } else if let response = model.musicDNAProfileResponse {
+                if response.enabled {
+                    if response.profile.isEmpty {
+                        MusicDNANoProfileView(model: model)
+                    } else {
+                        MusicDNASectionGrid(model: model, response: response)
+                    }
+                } else {
+                    MusicDNADisabledView(model: model)
+                }
+            } else {
+                MusicDNAUnavailableView(model: model)
+            }
+
+        }
+    }
+}
+
+private struct MusicDNASectionGrid: View {
+    @ObservedObject var model: DJConnectAppModel
+    let response: DJConnectMusicDNAProfileResponse
+
+    private var profile: DJConnectMusicDNAProfile { response.profile }
+
+    var body: some View {
+        LazyVGrid(columns: gridColumns, spacing: 12) {
+            MusicDNAPanel(title: localizedKey(model.language, "ui.summary"), value: summaryText, icon: "waveform")
+            if let favoriteGenres = profile.favoriteGenres, !favoriteGenres.isEmpty {
+                MusicDNAPanel(title: localizedKey(model.language, "ui.favorite.genres"), value: names(favoriteGenres), icon: "music.quarternote.3")
+            }
+            if let favoriteArtists = profile.favoriteArtists, !favoriteArtists.isEmpty {
+                MusicDNAPanel(title: localizedKey(model.language, "ui.favorite.artists"), value: names(favoriteArtists), icon: "person.wave.2")
+            }
+            if let moodMetric {
+                MusicDNAMetricPanel(metric: moodMetric, moodStepIndex: model.askDJMoodStepIndex)
+            }
+            if let energyMetrics {
+                MusicDNAMetricPanel(metric: energyMetrics, moodStepIndex: model.askDJMoodStepIndex)
+            }
+            if let listeningRhythm = profile.listeningRhythm, listeningRhythm.isDisplayable {
+                MusicDNAListeningRhythmPanel(
+                    rhythm: listeningRhythm,
+                    title: localizedKey(model.language, "ui.listening.rhythm")
+                )
+            }
+            if let moodMix = profile.moodMix, moodMix.isDisplayable {
+                MusicDNAMoodMixPanel(
+                    moodMix: moodMix,
+                    title: localizedKey(model.language, "ui.mood.mix"),
+                    averageTitle: localizedKey(model.language, "ui.average")
+                )
+            }
+            if let playtime = profile.playtime, playtime.isDisplayable {
+                MusicDNAPlaytimePanel(
+                    playtime: playtime,
+                    title: localizedKey(model.language, "ui.playtime"),
+                    subtitle: localizedKey(model.language, "ui.total.in.your.music.dna"),
+                    topArtistsTitle: localizedKey(model.language, "ui.top.artists.by.playtime"),
+                    topAlbumsTitle: localizedKey(model.language, "ui.top.albums.by.playtime")
+                )
+            }
+            if let repeatMagnets = profile.repeatMagnets, repeatMagnets.isDisplayable {
+                MusicDNARepeatMagnetsPanel(
+                    repeatMagnets: repeatMagnets,
+                    title: localizedKey(model.language, "ui.repeat.magnets")
+                )
+            }
+            if let explicitPositives = profile.explicitPositives, explicitPositives.isDisplayable {
+                MusicDNAExplicitPositivesPanel(
+                    positives: explicitPositives,
+                    title: localizedKey(model.language, "ui.explicit.positives"),
+                    favoritesTitle: localizedKey(model.language, "ui.favorites"),
+                    acceptedRecommendationsTitle: localizedKey(model.language, "ui.accepted.recommendations")
+                )
+            }
+            if let tasteAnchors = profile.tasteAnchors, tasteAnchors.isDisplayable {
+                MusicDNATasteAnchorsPanel(
+                    anchors: tasteAnchors,
+                    title: localizedKey(model.language, "ui.taste.anchors")
+                )
+            }
+            if let recentTracks = profile.recentTracks, !recentTracks.isEmpty {
+                MusicDNAPanel(title: localizedKey(model.language, "ui.recent.tracks"), value: tracks(recentTracks), icon: "clock.arrow.circlepath")
+            }
+            if let recentFavoriteTracks = profile.recentFavoriteTracks, !recentFavoriteTracks.isEmpty {
+                MusicDNATrackListPanel(
+                    title: localizedKey(model.language, "ui.recent.favorite.tracks"),
+                    tracks: recentFavoriteTracks
+                )
+            }
+            if let basisSignals {
+                MusicDNAPanel(title: localizedKey(model.language, "ui.signals"), value: basisSignals, icon: "safari")
+            }
+        }
+    }
+
+    private var gridColumns: [GridItem] {
+        return [
+            GridItem(.adaptive(minimum: 280), spacing: 12, alignment: .top)
+        ]
+    }
+
+    private var summaryText: String {
+        let summary = profile.summary?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let counts = [
+            profile.trackCount.map { "\($0) tracks" },
+            profile.artistCount.map { "\($0) artiesten" },
+            profile.genreCount.map { "\($0) genres" }
+        ]
+        .compactMap { $0 }
+        .joined(separator: " · ")
+        if !summary.isEmpty, !counts.isEmpty {
+            return "\(summary)\n\(counts)"
+        }
+        if !summary.isEmpty {
+            return summary
+        }
+        return counts.ifEmpty(localizedKey(model.language, "ui.not.enough.signals"))
+    }
+
+    private var energyMetrics: MusicDNAMetricPanel.Metric? {
+        guard let energyProfile = profile.energyProfile,
+              (energyProfile.sampleCount ?? 0) > 0,
+              let energyPercent = energyProfile.energyPercent else {
+            return nil
+        }
+        let zone = musicDNAZoneLabel(energyProfile.zone) ?? localizedKey(model.language, "ui.energy.profile")
+        let primarySubtitle = energyProfile.sampleCount.map { analysisCountLabel($0) }
+        let secondary = [
+            energyProfile.danceabilityPercent.map {
+                MusicDNAMetricPanel.SecondaryMetric(
+                    title: localizedKey(model.language, "ui.dance"),
+                    percent: $0,
+                    icon: "figure.dance"
+                )
+            },
+            energyProfile.intensityPercent.map {
+                MusicDNAMetricPanel.SecondaryMetric(
+                    title: localizedKey(model.language, "ui.intensity"),
+                    percent: $0,
+                    icon: "flame.fill"
+                )
+            }
+        ]
+        .compactMap { $0 }
+        return MusicDNAMetricPanel.Metric(
+            title: localizedKey(model.language, "ui.energy.profile"),
+            headline: zone,
+            percent: energyPercent,
+            icon: "bolt.fill",
+            subtitle: primarySubtitle,
+            secondaryMetrics: secondary
+        )
+    }
+
+    private var moodSummary: String {
+        guard let mood = profile.mood else {
+            if let tasteDirection = profile.tasteDirection?.trimmingCharacters(in: .whitespacesAndNewlines), !tasteDirection.isEmpty {
+                return tasteDirection
+            }
+            return localizedKey(model.language, "ui.music.dna.needs.more.listening.for.profile.mood")
+        }
+        let value = mood.average ?? mood.value
+        let zone = mood.averageZone ?? mood.zone
+        let sampleCount = mood.sampleCount
+        let hasMoodSignal = value != nil || (sampleCount ?? 0) > 0
+        guard hasMoodSignal else {
+            return localizedKey(model.language, "ui.music.dna.needs.more.listening.for.profile.mood")
+        }
+        let zoneLabel = musicDNAZoneLabel(zone)
+        let zoneText = mood.average != nil && zoneLabel != nil ? "\(zoneLabel!) gemiddeld" : zoneLabel
+        return [
+            zoneText,
+            value.map { "\($0)%" },
+            sampleCount.map { signalCountLabel($0) }
+        ]
+        .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
+        .filter { !$0.isEmpty }
+        .joined(separator: " · ")
+        .ifEmpty(localizedKey(model.language, "ui.music.dna.needs.more.listening.for.profile.mood"))
+    }
+
+    private var moodMetric: MusicDNAMetricPanel.Metric? {
+        guard let mood = profile.mood else {
+            return nil
+        }
+        let value = mood.average ?? mood.value
+        guard let value else {
+            return nil
+        }
+        let zone = mood.averageZone ?? mood.zone
+        let zoneLabel = musicDNAZoneLabel(zone) ?? localizedKey(model.language, "ui.profile.mood")
+        let headline = mood.average != nil ? "\(zoneLabel) gemiddeld" : zoneLabel
+        return MusicDNAMetricPanel.Metric(
+            title: localizedKey(model.language, "ui.profile.mood"),
+            headline: headline,
+            percent: value,
+            icon: "sparkles",
+            subtitle: mood.sampleCount.map { signalCountLabel($0) },
+            secondaryMetrics: []
+        )
+    }
+
+    private var basisSignals: String? {
+        if let basedOn = profile.basedOn, !basedOn.isEmpty {
+            return signals(basedOn)
+        }
+        if let recentSignals = profile.energyProfile?.recentSignals, !recentSignals.isEmpty {
+            return energySignals(recentSignals)
+        }
+        if let recommendationSignals = profile.recommendationSignals, !recommendationSignals.isEmpty {
+            return signals(recommendationSignals)
+        }
+        return nil
+    }
+
+    private func names(_ values: [DJConnectMusicDNANameValue]) -> String {
+        values.map(\.name)
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+            .prefix(3)
+            .joined(separator: ", ")
+    }
+
+    private func tracks(_ values: [DJConnectMusicDNATrack]) -> String {
+        values.compactMap { track in
+            let title = track.title?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            let artist = track.artist?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            let album = track.album?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            if title.isEmpty { return artist.isEmpty ? nil : artist }
+            let titleArtist = artist.isEmpty ? title : "\(title) — \(artist)"
+            return album.isEmpty ? titleArtist : "\(titleArtist) · \(album)"
+        }
+        .prefix(3)
+        .joined(separator: "\n")
+        .ifEmpty(localizedKey(model.language, "ui.music.dna.needs.more.listening.for.recent.tracks"))
+    }
+
+    private func energySignals(_ values: [DJConnectMusicDNAEnergySignal]) -> String {
+        values.compactMap { signal in
+            let title = signal.title?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            let artist = signal.artist?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            let album = signal.album?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            guard !title.isEmpty || !artist.isEmpty || !album.isEmpty else {
+                return nil
+            }
+            if title.isEmpty {
+                return artist.isEmpty ? album : artist
+            }
+            let titleArtist = artist.isEmpty ? title : "\(title) — \(artist)"
+            return album.isEmpty ? titleArtist : "\(titleArtist) · \(album)"
+        }
+        .prefix(4)
+        .joined(separator: "\n")
+        .ifEmpty(localizedKey(model.language, "ui.music.dna.needs.more.listening.for.basis"))
+    }
+
+    private func signals(_ values: [DJConnectMusicDNASignal]) -> String {
+        values.compactMap { signal -> String? in
+            let title = signal.title ?? signal.name ?? signal.value
+            let artist = signal.artist?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            let album = signal.album?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            let genres = signal.genres
+                .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+                .filter { !$0.isEmpty }
+                .prefix(2)
+                .joined(separator: ", ")
+            let primary = title?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            if primary.isEmpty, artist.isEmpty, album.isEmpty, genres.isEmpty {
+                return nil
+            }
+            if !primary.isEmpty {
+                if !artist.isEmpty {
+                    return album.isEmpty ? "\(primary) — \(artist)" : "\(primary) — \(artist) · \(album)"
+                }
+                if !genres.isEmpty {
+                    return "\(primary) · \(genres)"
+                }
+                return primary
+            }
+            if !artist.isEmpty {
+                return album.isEmpty ? artist : "\(artist) · \(album)"
+            }
+            return genres
+        }
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+            .prefix(4)
+            .joined(separator: "\n")
+            .ifEmpty(localizedKey(model.language, "ui.music.dna.needs.more.listening.for.basis"))
+    }
+
+    private func musicDNAZoneLabel(_ zone: String?) -> String? {
+        switch zone?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() {
+        case "chill":
+            return "Chill"
+        case "groove":
+            return "Groove"
+        case "energy":
+            return "Energy"
+        case "party":
+            return "Party"
+        case let value? where !value.isEmpty:
+            return value
+                .split(separator: "_")
+                .map { String($0.prefix(1)).uppercased() + String($0.dropFirst()) }
+                .joined(separator: " ")
+        default:
+            return nil
+        }
+    }
+
+    private func signalCountLabel(_ count: Int) -> String {
+        count == 1 ? "1 signaal" : "\(count) signalen"
+    }
+
+    private func analysisCountLabel(_ count: Int) -> String {
+        count == 1 ? "1 analyse" : "\(count) analyses"
+    }
+}
+
+private struct MusicDNADisabledView: View {
+    @ObservedObject var model: DJConnectAppModel
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Label(localizedKey(model.language, "ui.music.dna.is.not.enabled"), systemImage: "lock")
+                .font(.headline.weight(.semibold))
+                .foregroundStyle(.white)
+            Text(localizedKey(model.language, "ui.enable.music.dna.to.get.recommendations.tailored.to.your.listening"))
+            .font(.callout)
+            .foregroundStyle(.white.opacity(0.72))
+            .fixedSize(horizontal: false, vertical: true)
+            Button {
+                model.showMusicDNAOptInPrompt()
+            } label: {
+                Label(localizedKey(model.language, "ui.enable.music.dna.1adf61"), systemImage: "sparkles")
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(DJConnectLilacPillButtonStyle())
+            .controlSize(.large)
+            .disabled(model.isUpdatingMusicDNA)
+        }
+        .padding(24)
+        .djConnectGradientCard(cornerRadius: 8)
+    }
+}
+
+private struct MusicDNANoProfileView: View {
+    @ObservedObject var model: DJConnectAppModel
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Label(
+                localizedKey(model.language, "ui.no.music.dna.profile.yet"),
+                systemImage: "waveform.path.ecg"
+            )
+                .font(.headline.weight(.semibold))
+                .foregroundStyle(.white)
+            Text(localizedKey(model.language, "ui.music.dna.is.enabled.but.home.assistant.has.not.built"))
+            .font(.callout)
+            .foregroundStyle(.white.opacity(0.72))
+            .fixedSize(horizontal: false, vertical: true)
+            Label(
+                localizedKey(model.language, "ui.ask.dj.track.insight.and.listening.signals.will"),
+                systemImage: "clock.arrow.circlepath"
+            )
+            .font(.footnote.weight(.semibold))
+            .foregroundStyle(.white.opacity(0.62))
+        }
+        .padding(24)
+        .djConnectGradientCard(cornerRadius: 8)
+    }
+}
+
+private struct MusicDNAUnavailableView: View {
+    @ObservedObject var model: DJConnectAppModel
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Label(
+                localizedKey(model.language, "ui.music.dna.could.not.be.loaded"),
+                systemImage: "wifi.exclamationmark"
+            )
+            .font(.headline.weight(.semibold))
+            .foregroundStyle(.white)
+            Text(localizedKey(model.language, "ui.djconnect.cannot.read.the.current.music.dna.state.from.home"))
+            .font(.callout)
+            .foregroundStyle(.white.opacity(0.72))
+            .fixedSize(horizontal: false, vertical: true)
+            Button {
+                Task { await model.refreshMusicDNAProfile(showToast: true) }
+            } label: {
+                Label(localizedKey(model.language, "ui.try.again"), systemImage: "arrow.clockwise")
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(DJConnectLilacPillButtonStyle())
+            .disabled(model.isLoadingMusicDNA)
+        }
+        .padding(24)
+        .djConnectGradientCard(cornerRadius: 8)
+    }
+}
+
+private struct MusicDNALoadingView: View {
+    @ObservedObject var model: DJConnectAppModel
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            ProgressView()
+            Text(localizedKey(model.language, "ui.loading.music.dna.from.home.assistant"))
+                .font(.headline.weight(.semibold))
+                .foregroundStyle(.white)
+            if let latest = model.currentTrackInsight ?? model.trackInsightHistory.first {
+                Text([latest.title, latest.artist].compactMap { $0 }.joined(separator: " - "))
+                    .font(.callout)
+                    .foregroundStyle(.white.opacity(0.56))
+                    .lineLimit(2)
+            }
+        }
+        .padding(24)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .djConnectGradientCard(cornerRadius: 8)
+    }
+}
+
+#if DEBUG && ((os(iOS) && targetEnvironment(simulator)) || os(macOS))
+#Preview("Music DNA - Populated") {
+    MusicDNAView(model: DJConnectAppModel.musicDNAPreviewModel(response: .previewPopulated))
+}
+
+#Preview("Music DNA - No Profile Yet") {
+    MusicDNAView(model: DJConnectAppModel.musicDNAPreviewModel(response: .previewEnabledEmpty))
+}
+
+#Preview("Music DNA - Disabled") {
+    MusicDNAView(model: DJConnectAppModel.musicDNAPreviewModel(response: .previewDisabled))
+}
+
+#Preview("Music DNA - Unavailable") {
+    MusicDNAView(model: DJConnectAppModel.musicDNAPreviewModel(
+        response: nil,
+        errorMessage: "Home Assistant is temporarily unavailable."
+    ))
+}
+
+private extension DJConnectAppModel {
+    static func musicDNAPreviewModel(response: DJConnectMusicDNAProfileResponse) -> DJConnectAppModel {
+        musicDNAPreviewModel(response: response, errorMessage: nil)
+    }
+
+    static func musicDNAPreviewModel(response: DJConnectMusicDNAProfileResponse?, errorMessage: String?) -> DJConnectAppModel {
+        let model = DJConnectAppModel(startBackgroundTasks: false)
+        model.setMusicDNAPreviewResponse(response)
+        model.setMusicDNAPreviewErrorMessage(errorMessage)
+        return model
+    }
+}
+
+private extension DJConnectMusicDNAProfileResponse {
+    static let previewPopulated = DJConnectMusicDNAProfileResponse(
+        success: true,
+        musicDNAKey: "user:preview",
+        enabled: true,
+        generation: 2,
+        updatedAt: Date(),
+        profile: DJConnectMusicDNAProfile(
+            summary: "Warm, nocturnal electronic tracks with soft vocals and spacious low-end.",
+            favoriteGenres: [
+                DJConnectMusicDNANameValue(name: "ambient"),
+                DJConnectMusicDNANameValue(name: "melodic house"),
+                DJConnectMusicDNANameValue(name: "indie electronic")
+            ],
+            favoriteArtists: [
+                DJConnectMusicDNANameValue(name: "The xx"),
+                DJConnectMusicDNANameValue(name: "Ben Bohmer")
+            ],
+            recentTracks: [
+                DJConnectMusicDNATrack(title: "Intro", artist: "The xx"),
+                DJConnectMusicDNATrack(title: "Beyond Beliefs", artist: "Ben Bohmer")
+            ],
+            recentFavoriteTracks: [
+                DJConnectMusicDNATrack(title: "VCR", artist: "The xx", album: "xx"),
+                DJConnectMusicDNATrack(title: "Breathing", artist: "Ben Bohmer", album: "Breathing")
+            ],
+            mood: DJConnectMusicDNAMood(value: 65, zone: "energy", promptHint: "keep it warm"),
+            energyProfile: DJConnectMusicDNAEnergyProfile(
+                sampleCount: 3,
+                energy: 0.68,
+                energyPercent: 68,
+                zone: "energy",
+                danceability: 0.62,
+                danceabilityPercent: 62,
+                intensity: 0.58,
+                intensityPercent: 58,
+                recentSignals: [
+                    DJConnectMusicDNAEnergySignal(title: "Intro", artist: "The xx", album: "xx"),
+                    DJConnectMusicDNAEnergySignal(title: "Beyond Beliefs", artist: "Ben Bohmer")
+                ]
+            ),
+            playtime: DJConnectMusicDNAPlaytime(
+                totalSeconds: 8_460,
+                totalHours: 2.35,
+                formattedTotal: "2u 21m",
+                topArtists: [
+                    DJConnectMusicDNAPlaytimeArtist(name: "The xx", seconds: 3_000, hours: 0.83, formatted: "50m"),
+                    DJConnectMusicDNAPlaytimeArtist(name: "Ben Bohmer", seconds: 2_400, hours: 0.67, formatted: "40m"),
+                    DJConnectMusicDNAPlaytimeArtist(name: "Tycho", seconds: 1_500, hours: 0.42, formatted: "25m")
+                ],
+                topAlbums: [
+                    DJConnectMusicDNAPlaytimeArtist(name: "xx", seconds: 2_700, hours: 0.75, formatted: "45m"),
+                    DJConnectMusicDNAPlaytimeArtist(name: "Breathing", seconds: 2_100, hours: 0.58, formatted: "35m")
+                ]
+            ),
+            listeningRhythm: DJConnectMusicDNAListeningRhythm(
+                sampleCount: 5,
+                topDaypart: "Avond",
+                topWeekday: "Vrijdag",
+                dayparts: [
+                    DJConnectMusicDNAListeningRhythmItem(daypart: "Avond", count: 3, percent: 60),
+                    DJConnectMusicDNAListeningRhythmItem(daypart: "Nacht", count: 2, percent: 40)
+                ],
+                weekdays: [
+                    DJConnectMusicDNAListeningRhythmItem(weekday: "Vrijdag", count: 2, percent: 40),
+                    DJConnectMusicDNAListeningRhythmItem(weekday: "Zaterdag", count: 2, percent: 40),
+                    DJConnectMusicDNAListeningRhythmItem(weekday: "Zondag", count: 1, percent: 20)
+                ]
+            ),
+            moodMix: DJConnectMusicDNAMoodMix(
+                sampleCount: 4,
+                average: 61,
+                topZone: "groove",
+                zones: [
+                    DJConnectMusicDNAMoodMixZone(zone: "chill", count: 1, percent: 25),
+                    DJConnectMusicDNAMoodMixZone(zone: "groove", count: 2, percent: 50),
+                    DJConnectMusicDNAMoodMixZone(zone: "energy", count: 1, percent: 25)
+                ]
+            ),
+            repeatMagnets: DJConnectMusicDNARepeatMagnets(
+                eligible: true,
+                items: [
+                    DJConnectMusicDNARepeatMagnetItem(kind: "artist", name: "The xx", count: 4),
+                    DJConnectMusicDNARepeatMagnetItem(kind: "album", name: "xx", formatted: "45m"),
+                    DJConnectMusicDNARepeatMagnetItem(kind: "artist", name: "Ben Bohmer", count: 3)
+                ]
+            ),
+            explicitPositives: DJConnectMusicDNAExplicitPositives(
+                eligible: true,
+                signalCount: 3,
+                favoriteTracks: [
+                    DJConnectMusicDNAFavoriteTrackSignal(title: "VCR", artist: "The xx"),
+                    DJConnectMusicDNAFavoriteTrackSignal(title: "Breathing", artist: "Ben Bohmer")
+                ],
+                acceptedRecommendations: [
+                    DJConnectMusicDNAAcceptedRecommendationSignal(title: "A Walk", subtitle: "Wide pads"),
+                    DJConnectMusicDNAAcceptedRecommendationSignal(title: "Glue", subtitle: "Soft vocal fragments")
+                ]
+            ),
+            tasteAnchors: DJConnectMusicDNATasteAnchors(
+                eligible: true,
+                items: [
+                    DJConnectMusicDNATasteAnchorItem(kind: "artist", name: "The xx", playCount: 5, formatted: "50m"),
+                    DJConnectMusicDNATasteAnchorItem(kind: "genre", name: "ambient"),
+                    DJConnectMusicDNATasteAnchorItem(kind: "genre", name: "melodic house"),
+                    DJConnectMusicDNATasteAnchorItem(kind: "artist", name: "Ben Bohmer", playCount: 4, formatted: "40m")
+                ]
+            ),
+            recommendationSignals: [
+                DJConnectMusicDNASignal(title: "soft vocals"),
+                DJConnectMusicDNASignal(title: "wide pads")
+            ]
+        )
+    )
+
+    static let previewEnabledEmpty = DJConnectMusicDNAProfileResponse(
+        success: true,
+        enabled: true,
+        profile: DJConnectMusicDNAProfile()
+    )
+
+    static let previewDisabled = DJConnectMusicDNAProfileResponse(
+        success: true,
+        enabled: false,
+        profile: DJConnectMusicDNAProfile()
+    )
+}
+#endif
+
+private extension String {
+    func ifEmpty(_ fallback: String) -> String {
+        isEmpty ? fallback : self
+    }
+}
+
+private let musicDNADashboardPanelMinHeight: CGFloat = 220
+
+private struct MusicDNAPanel: View {
+    let title: String
+    let value: String
+    let icon: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            MusicDNACompactPanelHeader(title: title, icon: icon)
+            Text(value.isEmpty ? "-" : value)
+                .font(.headline.weight(.semibold))
+                .lineSpacing(6)
+                .foregroundStyle(.white)
+                .fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: 0)
+        }
+        .padding(18)
+        .frame(maxWidth: .infinity, minHeight: musicDNADashboardPanelMinHeight, alignment: .topLeading)
+        .background(.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .stroke(.white.opacity(0.10), lineWidth: 1)
+        }
+    }
+}
+
+private struct MusicDNATrackListPanel: View {
+    let title: String
+    let tracks: [DJConnectMusicDNATrack]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            MusicDNACompactPanelHeader(title: title, icon: "heart.fill")
+
+            VStack(spacing: 10) {
+                ForEach(Array(tracks.prefix(3).enumerated()), id: \.offset) { _, track in
+                    MusicDNATrackListRow(track: track)
+                }
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(18)
+        .frame(maxWidth: .infinity, minHeight: musicDNADashboardPanelMinHeight, alignment: .topLeading)
+        .background(.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .stroke(.white.opacity(0.10), lineWidth: 1)
+        }
+        .accessibilityIdentifier("musicDNARecentFavoriteTracksSection")
+    }
+}
+
+private struct MusicDNAListeningRhythmPanel: View {
+    let rhythm: DJConnectMusicDNAListeningRhythm
+    let title: String
+
+    private var primaryValue: String {
+        rhythm.topDaypart?.trimmingCharacters(in: .whitespacesAndNewlines).ifEmpty("-") ?? "-"
+    }
+
+    private var secondaryValue: String? {
+        let value = rhythm.topWeekday?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return value.isEmpty ? nil : value
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            MusicDNACompactPanelHeader(title: title, icon: "clock")
+            VStack(alignment: .leading, spacing: 4) {
+                Text(primaryValue)
+                    .font(.title3.weight(.bold))
+                    .foregroundStyle(.white)
+                    .fixedSize(horizontal: false, vertical: true)
+                if let secondaryValue {
+                    Text(secondaryValue)
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.white.opacity(0.66))
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            if !rhythm.dayparts.isEmpty {
+                MusicDNADistributionList(
+                    items: rhythm.dayparts.map { item in
+                        MusicDNADistributionItem(
+                            label: item.daypart ?? "",
+                            percent: item.percent,
+                            tint: djConnectAccent
+                        )
+                    }
+                )
+            }
+            if !rhythm.visibleWeekdays.isEmpty {
+                MusicDNAChipRow(
+                    items: rhythm.visibleWeekdays.map { item in
+                        MusicDNAChipItem(label: item.weekday ?? "", detail: item.percent.map(percentText))
+                    }
+                )
+            }
+            Spacer(minLength: 0)
+        }
+        .musicDNADashboardPanel()
+        .accessibilityIdentifier("musicDNAListeningRhythmSection")
+    }
+}
+
+private struct MusicDNAMoodMixPanel: View {
+    let moodMix: DJConnectMusicDNAMoodMix
+    let title: String
+    let averageTitle: String
+
+    private var primaryValue: String {
+        musicDNAZoneDisplayLabel(moodMix.topZone)
+            ?? moodMix.topZone?.trimmingCharacters(in: .whitespacesAndNewlines).ifEmpty("-")
+            ?? "-"
+    }
+
+    private var averageValue: String? {
+        guard let average = moodMix.average else {
+            return nil
+        }
+        return "\(averageTitle): \(average)/100"
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            MusicDNACompactPanelHeader(title: title, icon: "sparkles")
+            VStack(alignment: .leading, spacing: 4) {
+                Text(primaryValue)
+                    .font(.title3.weight(.bold))
+                    .foregroundStyle(.white)
+                    .fixedSize(horizontal: false, vertical: true)
+                if let averageValue {
+                    Text(averageValue)
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.white.opacity(0.66))
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            MusicDNADistributionList(
+                items: moodMix.zones.map { zone in
+                    MusicDNADistributionItem(
+                        label: musicDNAZoneDisplayLabel(zone.zone) ?? zone.zone,
+                        percent: zone.percent,
+                        tint: musicDNAMoodTint(zone.zone)
+                    )
+                }
+            )
+            Spacer(minLength: 0)
+        }
+        .musicDNADashboardPanel()
+        .accessibilityIdentifier("musicDNAMoodMixSection")
+    }
+}
+
+private struct MusicDNAPlaytimePanel: View {
+    let playtime: DJConnectMusicDNAPlaytime
+    let title: String
+    let subtitle: String
+    let topArtistsTitle: String
+    let topAlbumsTitle: String
+
+    private var totalText: String {
+        let formatted = playtime.formattedTotal?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return formatted.isEmpty ? "\(playtime.totalSeconds)s" : formatted
+    }
+
+    private var visibleArtists: [DJConnectMusicDNAPlaytimeArtist] {
+        playtime.visibleTopArtists
+    }
+
+    private var visibleAlbums: [DJConnectMusicDNAPlaytimeArtist] {
+        playtime.visibleTopAlbums
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            MusicDNACompactPanelHeader(title: title, icon: "timer")
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(totalText)
+                    .font(.title2.weight(.bold))
+                    .foregroundStyle(.white)
+                    .fixedSize(horizontal: false, vertical: true)
+                Text(subtitle)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.white.opacity(0.62))
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            if !visibleArtists.isEmpty {
+                MusicDNAPlaytimeRanking(title: topArtistsTitle, items: visibleArtists)
+            }
+            if !visibleAlbums.isEmpty {
+                MusicDNAPlaytimeRanking(title: topAlbumsTitle, items: visibleAlbums)
+            }
+            Spacer(minLength: 0)
+        }
+        .musicDNADashboardPanel()
+        .accessibilityIdentifier("musicDNAPlaytimeSection")
+    }
+}
+
+private struct MusicDNARepeatMagnetsPanel: View {
+    let repeatMagnets: DJConnectMusicDNARepeatMagnets
+    let title: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            MusicDNACompactPanelHeader(title: title, icon: "repeat")
+            VStack(spacing: 10) {
+                ForEach(Array(repeatMagnets.visibleItems.enumerated()), id: \.offset) { _, item in
+                    MusicDNAProfileSignalRow(
+                        title: item.name,
+                        subtitle: repeatMagnetSubtitle(item),
+                        icon: item.kind == "album" ? "square.stack" : "person.wave.2"
+                    )
+                }
+            }
+            Spacer(minLength: 0)
+        }
+        .musicDNADashboardPanel()
+        .accessibilityIdentifier("musicDNARepeatMagnetsSection")
+    }
+
+    private func repeatMagnetSubtitle(_ item: DJConnectMusicDNARepeatMagnetItem) -> String? {
+        switch item.kind {
+        case "artist":
+            return item.count.map { $0 == 1 ? "1 keer" : "\($0) keer" } ?? item.formatted
+        case "album":
+            return item.formatted ?? item.count.map { $0 == 1 ? "1 keer" : "\($0) keer" }
+        default:
+            return item.formatted ?? item.count.map { $0 == 1 ? "1 keer" : "\($0) keer" }
+        }
+    }
+}
+
+private struct MusicDNAExplicitPositivesPanel: View {
+    let positives: DJConnectMusicDNAExplicitPositives
+    let title: String
+    let favoritesTitle: String
+    let acceptedRecommendationsTitle: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            MusicDNACompactPanelHeader(title: title, icon: "hand.thumbsup.fill")
+            if !positives.visibleFavoriteTracks.isEmpty {
+                MusicDNAProfileSignalSection(title: favoritesTitle) {
+                    ForEach(Array(positives.visibleFavoriteTracks.enumerated()), id: \.offset) { _, track in
+                        MusicDNAProfileSignalRow(
+                            title: track.title,
+                            subtitle: track.artist,
+                            icon: "heart.fill"
+                        )
+                    }
+                }
+            }
+            if !positives.visibleAcceptedRecommendations.isEmpty {
+                MusicDNAProfileSignalSection(title: acceptedRecommendationsTitle) {
+                    ForEach(Array(positives.visibleAcceptedRecommendations.enumerated()), id: \.offset) { _, recommendation in
+                        MusicDNAProfileSignalRow(
+                            title: recommendation.title?.trimmingCharacters(in: .whitespacesAndNewlines).ifEmpty(recommendation.subtitle ?? "-") ?? recommendation.subtitle ?? "-",
+                            subtitle: recommendation.subtitle,
+                            icon: "checkmark.seal.fill"
+                        )
+                    }
+                }
+            }
+            Spacer(minLength: 0)
+        }
+        .musicDNADashboardPanel()
+        .accessibilityIdentifier("musicDNAExplicitPositivesSection")
+    }
+}
+
+private struct MusicDNATasteAnchorsPanel: View {
+    let anchors: DJConnectMusicDNATasteAnchors
+    let title: String
+
+    private var artistItems: [DJConnectMusicDNATasteAnchorItem] {
+        anchors.visibleItems.filter { $0.kind == "artist" }
+    }
+
+    private var genreItems: [DJConnectMusicDNATasteAnchorItem] {
+        anchors.visibleItems.filter { $0.kind == "genre" }
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            MusicDNACompactPanelHeader(title: title, icon: "anchor")
+            if !artistItems.isEmpty {
+                VStack(spacing: 10) {
+                    ForEach(Array(artistItems.enumerated()), id: \.offset) { _, item in
+                        MusicDNAProfileSignalRow(
+                            title: item.name,
+                            subtitle: tasteAnchorSubtitle(item),
+                            icon: "person.wave.2"
+                        )
+                    }
+                }
+            }
+            if !genreItems.isEmpty {
+                MusicDNAChipRow(
+                    items: genreItems.map { MusicDNAChipItem(label: $0.name, detail: nil) }
+                )
+            }
+            Spacer(minLength: 0)
+        }
+        .musicDNADashboardPanel()
+        .accessibilityIdentifier("musicDNATasteAnchorsSection")
+    }
+
+    private func tasteAnchorSubtitle(_ item: DJConnectMusicDNATasteAnchorItem) -> String? {
+        if let playCount = item.playCount {
+            return playCount == 1 ? "1 keer" : "\(playCount) keer"
+        }
+        return item.formatted
+    }
+}
+
+private struct MusicDNACompactPanelHeader: View {
+    let title: String
+    let icon: String
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Image(systemName: icon)
+                .font(.title3.weight(.semibold))
+                .foregroundStyle(djConnectAccent)
+            Text(title)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.white.opacity(0.58))
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+}
+
+private struct MusicDNAProfileSignalSection<Content: View>: View {
+    let title: String
+    @ViewBuilder var content: Content
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(title)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.white.opacity(0.58))
+            VStack(spacing: 10) {
+                content
+            }
+        }
+    }
+}
+
+private struct MusicDNAProfileSignalRow: View {
+    let title: String
+    let subtitle: String?
+    let icon: String
+
+    private var cleanTitle: String {
+        title.trimmingCharacters(in: .whitespacesAndNewlines).ifEmpty("-")
+    }
+
+    private var cleanSubtitle: String? {
+        let value = subtitle?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return value.isEmpty ? nil : value
+    }
+
+    var body: some View {
+        HStack(spacing: 10) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 7, style: .continuous)
+                    .fill(.white.opacity(0.08))
+                Image(systemName: icon)
+                    .font(.caption.weight(.bold))
+                    .foregroundStyle(djConnectAccent)
+            }
+            .frame(width: 34, height: 34)
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text(cleanTitle)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.white)
+                    .lineLimit(1)
+                if let cleanSubtitle {
+                    Text(cleanSubtitle)
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.white.opacity(0.62))
+                        .lineLimit(1)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+}
+
+private struct MusicDNAPlaytimeRanking: View {
+    let title: String
+    let items: [DJConnectMusicDNAPlaytimeArtist]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(title)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.white.opacity(0.58))
+            ForEach(Array(items.enumerated()), id: \.offset) { index, item in
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                    Text("\(index + 1).")
+                        .font(.caption.weight(.bold))
+                        .foregroundStyle(djConnectAccent)
+                        .frame(width: 18, alignment: .leading)
+                    Text(item.name)
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.white)
+                        .lineLimit(1)
+                    Spacer(minLength: 8)
+                    Text(item.formatted?.trimmingCharacters(in: .whitespacesAndNewlines).ifEmpty("-") ?? "-")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.white.opacity(0.66))
+                        .lineLimit(1)
+                }
+            }
+        }
+    }
+}
+
+private struct MusicDNADistributionItem: Equatable {
+    var label: String
+    var percent: Double?
+    var tint: Color
+}
+
+private struct MusicDNADistributionList: View {
+    let items: [MusicDNADistributionItem]
+
+    var body: some View {
+        VStack(spacing: 8) {
+            ForEach(Array(items.enumerated()), id: \.offset) { _, item in
+                let sanitizedLabel = item.label.trimmingCharacters(in: .whitespacesAndNewlines)
+                if !sanitizedLabel.isEmpty {
+                    VStack(alignment: .leading, spacing: 4) {
+                        HStack(spacing: 8) {
+                            Text(sanitizedLabel)
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(.white.opacity(0.78))
+                                .lineLimit(1)
+                            Spacer(minLength: 8)
+                            Text(percentText(item.percent))
+                                .font(.caption.weight(.bold))
+                                .foregroundStyle(.white.opacity(0.64))
+                                .lineLimit(1)
+                        }
+                        GeometryReader { proxy in
+                            ZStack(alignment: .leading) {
+                                Capsule()
+                                    .fill(.white.opacity(0.10))
+                                Capsule()
+                                    .fill(item.tint.opacity(0.82))
+                                    .frame(width: max(4, proxy.size.width * CGFloat(clampedPercent(item.percent) / 100)))
+                            }
+                        }
+                        .frame(height: 6)
+                    }
+                }
+            }
+        }
+    }
+}
+
+private struct MusicDNAChipItem: Equatable {
+    var label: String
+    var detail: String?
+}
+
+private struct MusicDNAChipRow: View {
+    let items: [MusicDNAChipItem]
+
+    var body: some View {
+        LazyVGrid(columns: [GridItem(.adaptive(minimum: 118), spacing: 8)], alignment: .leading, spacing: 8) {
+            ForEach(Array(items.enumerated()), id: \.offset) { _, item in
+                let sanitizedLabel = item.label.trimmingCharacters(in: .whitespacesAndNewlines)
+                if !sanitizedLabel.isEmpty {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(sanitizedLabel)
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(.white)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.78)
+                        if let detail = item.detail?.trimmingCharacters(in: .whitespacesAndNewlines), !detail.isEmpty {
+                            Text(detail)
+                                .font(.caption2.weight(.bold))
+                                .foregroundStyle(.white.opacity(0.58))
+                                .lineLimit(1)
+                        }
+                    }
+                    .padding(.vertical, 8)
+                    .padding(.horizontal, 10)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 7, style: .continuous))
+                }
+            }
+        }
+    }
+}
+
+private struct MusicDNADashboardPanelModifier: ViewModifier {
+    func body(content: Content) -> some View {
+        content
+            .padding(18)
+            .frame(maxWidth: .infinity, minHeight: musicDNADashboardPanelMinHeight, alignment: .topLeading)
+            .background(.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .stroke(.white.opacity(0.10), lineWidth: 1)
+            }
+    }
+}
+
+private extension View {
+    func musicDNADashboardPanel() -> some View {
+        modifier(MusicDNADashboardPanelModifier())
+    }
+}
+
+private func clampedPercent(_ value: Double?) -> Double {
+    min(100, max(0, value ?? 0))
+}
+
+private func percentText(_ value: Double?) -> String {
+    let percent = clampedPercent(value)
+    if percent.rounded() == percent {
+        return "\(Int(percent))%"
+    }
+    return String(format: "%.1f%%", percent)
+}
+
+private func musicDNAZoneDisplayLabel(_ zone: String?) -> String? {
+    switch zone?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() {
+    case "chill":
+        return "Chill"
+    case "groove":
+        return "Groove"
+    case "energy":
+        return "Energy"
+    case "party":
+        return "Party"
+    case let value? where !value.isEmpty:
+        return value
+            .split(separator: "_")
+            .map { String($0.prefix(1)).uppercased() + String($0.dropFirst()) }
+            .joined(separator: " ")
+    default:
+        return nil
+    }
+}
+
+private func musicDNAMoodTint(_ zone: String) -> Color {
+    switch zone.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() {
+    case "chill":
+        return Color(red: 0.34, green: 0.74, blue: 1.0)
+    case "groove":
+        return Color(red: 0.36, green: 0.90, blue: 0.60)
+    case "energy":
+        return Color(red: 1.0, green: 0.70, blue: 0.24)
+    case "party":
+        return djConnectAccent
+    default:
+        return djConnectAccent
+    }
+}
+
+private struct MusicDiscoveryView: View {
+    @ObservedObject var model: DJConnectAppModel
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    @State private var selectedDetail: MusicDiscoveryDetailSelection?
+
+    private var visibleSections: [DJConnectMusicDiscoverySection] {
+        model.musicDiscoveryResponse?.visibleSections ?? []
+    }
+
+    private func shouldUseWideLayout(for size: CGSize) -> Bool {
+        #if os(macOS)
+        size.width >= 1_000
+        #else
+        horizontalSizeClass == .regular && size.width > size.height
+        #endif
+    }
+
+    private func maxContentWidth(for size: CGSize) -> CGFloat {
+        shouldUseWideLayout(for: size) ? djConnectMacDetailContentMaxWidth : djConnectContentMaxWidth
+    }
+
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                DJConnectCanvasBackground()
+                GeometryReader { proxy in
+                    ScrollView {
+                        let contentWidth = min(maxContentWidth(for: proxy.size), proxy.size.width)
+                        VStack(alignment: .leading, spacing: 18) {
+                            header
+                            content
+                        }
+                        .padding(.horizontal, djConnectScreenHorizontalPadding)
+                        .padding(.vertical, djConnectScreenVerticalPadding)
+                        .frame(width: contentWidth, alignment: .topLeading)
+                        .frame(maxWidth: .infinity, alignment: .top)
+                    }
+                }
+            }
+            .djStatusToastOverlay(model.musicDNAToast)
+            .accessibilityIdentifier("screen-discovery")
+            .navigationTitle(localizedKey(model.language, "ui.discover"))
+            #if os(iOS)
+            .navigationBarTitleDisplayMode(.inline)
+            #endif
+            .toolbar {
+                ToolbarItem(placement: .primaryAction) {
+                    Button {
+                        Task { await model.refreshMusicDiscovery() }
+                    } label: {
+                        Image(systemName: "arrow.clockwise")
+                    }
+                    .disabled(model.isRefreshingMusicDiscovery || model.isLoadingMusicDiscovery)
+                    .accessibilityLabel(localizedKey(model.language, "ui.refresh.discover"))
+                }
+            }
+            .task {
+                await model.loadMusicDiscovery(showToast: true)
+            }
+            .sheet(item: $selectedDetail) { selection in
+                MusicDiscoveryDetailView(
+                    model: model,
+                    sectionID: selection.sectionID,
+                    item: selection.item
+                )
+                #if os(iOS)
+                .presentationDetents([.medium, .large])
+                #endif
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var content: some View {
+        if model.isLoadingMusicDiscovery && model.musicDiscoveryResponse == nil {
+            ProgressView()
+                .tint(.white)
+                .frame(maxWidth: .infinity, minHeight: 220)
+        } else if let error = model.musicDiscoveryErrorMessage, !error.isEmpty {
+            DJConnectStatusCard(
+                title: localizedKey(model.language, "ui.discovery.could.not.be.loaded"),
+                message: error,
+                systemImage: "exclamationmark.triangle.fill",
+                tint: .orange
+            )
+        } else if shouldShowMusicDNALockedState {
+            MusicDiscoveryLockedState(model: model)
+        } else if model.musicDiscoveryResponse == nil || visibleSections.isEmpty {
+            MusicDiscoveryEmptyState(model: model)
+        } else {
+            LazyVStack(alignment: .leading, spacing: 22) {
+                ForEach(visibleSections) { section in
+                    MusicDiscoverySectionView(
+                        model: model,
+                        section: section,
+                        showDetail: { item in
+                            selectedDetail = MusicDiscoveryDetailSelection(sectionID: section.id, item: item)
+                        }
+                    )
+                }
+            }
+        }
+    }
+
+    private var shouldShowMusicDNALockedState: Bool {
+        if model.musicDNAProfileResponse?.enabled == true {
+            return false
+        }
+        return model.musicDiscoveryResponse?.isMusicDNADisabled == true
+            || model.musicDNAProfileResponse?.enabled == false
+    }
+
+    private var header: some View {
+        VStack(spacing: 16) {
+            Image(systemName: "wand.and.stars")
+                .font(.system(size: 50, weight: .semibold))
+                .foregroundStyle(djConnectIconGradient)
+                .frame(width: 72, height: 72)
+
+            Text(localizedKey(model.language, "ui.discover"))
+                .font(.title2.weight(.bold))
+                .foregroundStyle(.white)
+
+            Text(localizedKey(model.language, "ui.learn.from.your.taste.and.listening.behavior.to.shape.recommendations"))
+                .font(.callout)
+                .foregroundStyle(.white.opacity(0.66))
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+
+            if model.isRefreshingMusicDiscovery {
+                ProgressView()
+                    .tint(.white)
+            }
+        }
+        .padding(24)
+        .frame(maxWidth: .infinity, minHeight: 190)
+        .background(
+            LinearGradient(
+                colors: [
+                    Color(red: 0.04, green: 0.03, blue: 0.13).opacity(0.98),
+                    Color(red: 0.10, green: 0.04, blue: 0.22).opacity(0.97),
+                    Color(red: 0.11, green: 0.06, blue: 0.26).opacity(0.94)
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            ),
+            in: RoundedRectangle(cornerRadius: 8, style: .continuous)
+        )
+        .overlay {
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .stroke(.white.opacity(0.16), lineWidth: 1.5)
+        }
+    }
+}
+
+private struct MusicDiscoveryDetailSelection: Identifiable {
+    let sectionID: String
+    let item: DJConnectMusicDiscoveryItem
+
+    var id: String { "\(sectionID)-\(item.id)" }
+}
+
+private struct MusicDiscoverySectionView: View {
+    @ObservedObject var model: DJConnectAppModel
+    let section: DJConnectMusicDiscoverySection
+    let showDetail: (DJConnectMusicDiscoveryItem) -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text(section.title)
+                .font(.headline.weight(.bold))
+                .foregroundStyle(.white)
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                LazyHStack(alignment: .top, spacing: 12) {
+                    ForEach(section.visibleItems) { item in
+                        MusicDiscoveryCard(
+                            model: model,
+                            sectionID: section.id,
+                            item: item,
+                            showDetail: { showDetail(item) }
+                        )
+                    }
+                }
+                .padding(.vertical, 2)
+            }
+            .scrollClipDisabled()
+        }
+    }
+}
+
+private struct MusicDiscoveryCard: View {
+    @ObservedObject var model: DJConnectAppModel
+    let sectionID: String
+    let item: DJConnectMusicDiscoveryItem
+    let showDetail: () -> Void
+
+    private var artworkURL: URL? {
+        musicDiscoveryArtworkURL(item.imageURL, model: model)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            artwork
+                .contentShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                .onTapGesture {
+                    Task { await model.playMusicDiscoveryItem(item, sectionID: sectionID) }
+                }
+            #if os(iOS)
+                .onLongPressGesture(minimumDuration: 0.45) {
+                    DJConnectHaptics.selection()
+                    showDetail()
+                }
+            #endif
+            #if os(macOS)
+                .contextMenu {
+                    Button(localizedKey(model.language, "ui.why.this")) {
+                        showDetail()
+                    }
+                    Button(localizedKey(model.language, "ui.play.now")) {
+                        Task { await model.playMusicDiscoveryItem(item, sectionID: sectionID) }
+                    }
+                }
+            #endif
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text(item.title)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.white)
+                    .lineLimit(2)
+                if let subtitle = item.subtitle, !subtitle.isEmpty {
+                    Text(subtitle)
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.white.opacity(0.62))
+                        .lineLimit(1)
+                }
+                Text(item.kind.rawValue.capitalized)
+                    .font(.caption2.weight(.bold))
+                    .foregroundStyle(djConnectAccent)
+                    .textCase(.uppercase)
+            }
+            .frame(width: 142, alignment: .leading)
+        }
+    }
+
+    private var artwork: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .fill(.white.opacity(0.10))
+            if let artworkURL {
+                AsyncImage(url: artworkURL) { phase in
+                    switch phase {
+                    case let .success(image):
+                        image
+                            .resizable()
+                            .scaledToFill()
+                    case .empty:
+                        ProgressView()
+                            .tint(.white)
+                    default:
+                        Image(systemName: "wand.and.stars")
+                            .font(.title2)
+                            .foregroundStyle(.white.opacity(0.74))
+                    }
+                }
+            } else {
+                Image(systemName: "wand.and.stars")
+                    .font(.title2)
+                    .foregroundStyle(.white.opacity(0.74))
+            }
+            if model.playingMusicDiscoveryItemID == item.id {
+                Color.black.opacity(0.36)
+                ProgressView()
+                    .tint(.white)
+            }
+        }
+        .frame(width: 142, height: 142)
+        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .stroke(.white.opacity(0.16), lineWidth: 1)
+        }
+    }
+}
+
+private struct MusicDiscoveryDetailView: View {
+    @ObservedObject var model: DJConnectAppModel
+    let sectionID: String
+    let item: DJConnectMusicDiscoveryItem
+    @Environment(\.dismiss) private var dismiss
+
+    private var artworkURL: URL? {
+        musicDiscoveryArtworkURL(item.imageURL, model: model)
+    }
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                HStack(alignment: .top, spacing: 14) {
+                    MusicDiscoveryDetailArtwork(url: artworkURL)
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text(item.title)
+                            .font(.title3.weight(.bold))
+                            .foregroundStyle(.white)
+                        if let subtitle = item.subtitle, !subtitle.isEmpty {
+                            Text(subtitle)
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundStyle(.white.opacity(0.68))
+                        }
+                        Text(item.kind.rawValue.capitalized)
+                            .font(.caption.weight(.bold))
+                            .foregroundStyle(djConnectAccent)
+                    }
+                    Spacer()
+                }
+
+                Text(item.reason)
+                    .font(.body)
+                    .foregroundStyle(.white.opacity(0.86))
+                    .fixedSize(horizontal: false, vertical: true)
+
+                if !item.reasonSources.isEmpty {
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 7) {
+                            ForEach(item.reasonSources, id: \.self) { source in
+                                Text(source.replacingOccurrences(of: "_", with: " "))
+                                    .font(.caption.weight(.bold))
+                                    .foregroundStyle(.white.opacity(0.82))
+                                    .padding(.horizontal, 9)
+                                    .padding(.vertical, 5)
+                                    .background(.white.opacity(0.10), in: Capsule())
+                            }
+                        }
+                    }
+                    .scrollClipDisabled()
+                }
+
+                Button {
+                    Task {
+                        await model.playMusicDiscoveryItem(item, sectionID: sectionID)
+                        dismiss()
+                    }
+                } label: {
+                    Label(localizedKey(model.language, "ui.play.now"), systemImage: "play.fill")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(DJConnectLilacPillButtonStyle())
+                .disabled(model.playingMusicDiscoveryItemID == item.id)
+            }
+            .padding(22)
+        }
+        .background(DJConnectCanvasBackground())
+    }
+}
+
+private struct MusicDiscoveryDetailArtwork: View {
+    let url: URL?
+
+    var body: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .fill(.white.opacity(0.10))
+            if let url {
+                AsyncImage(url: url) { phase in
+                    switch phase {
+                    case let .success(image):
+                        image
+                            .resizable()
+                            .scaledToFill()
+                    default:
+                        Image(systemName: "wand.and.stars")
+                            .foregroundStyle(.white.opacity(0.74))
+                    }
+                }
+            } else {
+                Image(systemName: "wand.and.stars")
+                    .foregroundStyle(.white.opacity(0.74))
+            }
+        }
+        .frame(width: 92, height: 92)
+        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+    }
+}
+
+private struct DJConnectStatusCard<Action: View>: View {
+    let title: String
+    let message: String
+    let systemImage: String
+    let tint: Color
+    @ViewBuilder var action: Action
+
+    init(
+        title: String,
+        message: String,
+        systemImage: String,
+        tint: Color,
+        @ViewBuilder action: () -> Action
+    ) {
+        self.title = title
+        self.message = message
+        self.systemImage = systemImage
+        self.tint = tint
+        self.action = action()
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Image(systemName: systemImage)
+                .font(.title2.weight(.semibold))
+                .foregroundStyle(tint)
+            Text(title)
+                .font(.headline.weight(.bold))
+                .foregroundStyle(.white)
+            Text(message)
+                .font(.subheadline)
+                .foregroundStyle(.white.opacity(0.72))
+                .fixedSize(horizontal: false, vertical: true)
+            action
+                .padding(.top, 4)
+        }
+        .padding(16)
+        .frame(maxWidth: 520, alignment: .leading)
+        .background(.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .stroke(.white.opacity(0.14), lineWidth: 1)
+        }
+    }
+}
+
+private extension DJConnectStatusCard where Action == EmptyView {
+    init(title: String, message: String, systemImage: String, tint: Color) {
+        self.init(title: title, message: message, systemImage: systemImage, tint: tint) {
+            EmptyView()
+        }
+    }
+}
+
+private struct MusicDiscoveryLockedState: View {
+    @ObservedObject var model: DJConnectAppModel
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 20) {
+            ViewThatFits(in: .horizontal) {
+                HStack(alignment: .firstTextBaseline, spacing: 12) {
+                    lockIcon
+                    title
+                }
+                VStack(alignment: .leading, spacing: 14) {
+                    lockIcon
+                    title
+                }
+            }
+
+            Text(localizedKey(model.language, "ui.enable.music.dna.to.get.recommendations.tailored.to.your.listening"))
+                .font(.callout.weight(.semibold))
+                .foregroundStyle(.white.opacity(0.72))
+                .fixedSize(horizontal: false, vertical: true)
+
+            Button {
+                model.showMusicDNAOptInPrompt()
+            } label: {
+                Label(localizedKey(model.language, "ui.enable.music.dna.1adf61"), systemImage: "sparkles")
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(DJConnectLilacPillButtonStyle())
+        }
+        .padding(24)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            LinearGradient(
+                colors: [
+                    Color(red: 0.05, green: 0.03, blue: 0.13).opacity(0.98),
+                    Color(red: 0.12, green: 0.06, blue: 0.24).opacity(0.96),
+                    Color(red: 0.11, green: 0.15, blue: 0.33).opacity(0.92)
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            ),
+            in: RoundedRectangle(cornerRadius: 8, style: .continuous)
+        )
+        .overlay {
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .stroke(.white.opacity(0.16), lineWidth: 1.5)
+        }
+        .shadow(color: djConnectButtonPurple.opacity(0.18), radius: 18, y: 10)
+    }
+
+    private var lockIcon: some View {
+        Image(systemName: "lock.fill")
+            .font(.title2.weight(.semibold))
+            .foregroundStyle(djConnectIconGradient)
+            .frame(width: 30, alignment: .leading)
+    }
+
+    private var title: some View {
+        Text(localizedKey(model.language, "ui.music.dna.is.not.enabled"))
+            .font(.headline.weight(.bold))
+            .foregroundStyle(.white)
+    }
+}
+
+private struct MusicDiscoveryEmptyState: View {
+    @ObservedObject var model: DJConnectAppModel
+
+    var body: some View {
+        VStack(spacing: 14) {
+            Text(localizedKey(model.language, "ui.no.discovery.recommendations.available.currently"))
+                .font(.callout.weight(.semibold))
+                .foregroundStyle(.white.opacity(0.48))
+                .multilineTextAlignment(.center)
+                .frame(maxWidth: .infinity)
+
+            Button {
+                Task { await model.refreshMusicDiscovery() }
+            } label: {
+                Label(
+                    localizedKey(model.language, "ui.refresh.discover"),
+                    systemImage: "arrow.clockwise"
+                )
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(DJConnectLilacPillButtonStyle())
+            .disabled(model.isRefreshingMusicDiscovery)
+        }
+        .padding(.vertical, 18)
+        .frame(maxWidth: .infinity)
+    }
+}
+
+@MainActor
+private func musicDiscoveryArtworkURL(_ rawValue: String?, model: DJConnectAppModel) -> URL? {
+    guard let rawValue = rawValue?.trimmingCharacters(in: .whitespacesAndNewlines), !rawValue.isEmpty else {
+        return nil
+    }
+    if let absoluteURL = URL(string: rawValue), absoluteURL.scheme?.isEmpty == false {
+        return absoluteURL
+    }
+    guard let baseURL = DJConnectAppModel.normalizedHomeAssistantURL(from: model.homeAssistantURL) else {
+        return URL(string: rawValue)
+    }
+    return URL(string: rawValue, relativeTo: baseURL)?.absoluteURL
+}
+
+private struct MusicDNATrackListRow: View {
+    let track: DJConnectMusicDNATrack
+
+    private var title: String {
+        track.title?.trimmingCharacters(in: .whitespacesAndNewlines).ifEmpty("-") ?? "-"
+    }
+
+    private var subtitle: String {
+        [
+            track.artist?.trimmingCharacters(in: .whitespacesAndNewlines),
+            track.album?.trimmingCharacters(in: .whitespacesAndNewlines)
+        ]
+        .compactMap { $0 }
+        .filter { !$0.isEmpty }
+        .joined(separator: " · ")
+    }
+
+    private var artworkURL: URL? {
+        guard let imageURL = track.imageURL?.trimmingCharacters(in: .whitespacesAndNewlines), !imageURL.isEmpty else {
+            return nil
+        }
+        return URL(string: imageURL)
+    }
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Group {
+                if let artworkURL {
+                    AsyncImage(url: artworkURL) { phase in
+                        switch phase {
+                        case let .success(image):
+                            image
+                                .resizable()
+                                .scaledToFill()
+                        default:
+                            placeholder
+                        }
+                    }
+                } else {
+                    placeholder
+                }
+            }
+            .frame(width: 42, height: 42)
+            .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text(title)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.white)
+                    .lineLimit(1)
+                if !subtitle.isEmpty {
+                    Text(subtitle)
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.white.opacity(0.62))
+                        .lineLimit(1)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+
+    private var placeholder: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 7, style: .continuous)
+                .fill(.white.opacity(0.10))
+            Image(systemName: "music.note")
+                .font(.footnote.weight(.bold))
+                .foregroundStyle(.white.opacity(0.56))
+        }
+    }
+}
+
+private struct MusicDNAMetricPanel: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var ringGlowIsActive = false
+
+    struct SecondaryMetric: Equatable {
+        var title: String
+        var percent: Int
+        var icon: String
+    }
+
+    struct Metric: Equatable {
+        var title: String
+        var headline: String
+        var percent: Int
+        var icon: String
+        var subtitle: String?
+        var secondaryMetrics: [SecondaryMetric]
+    }
+
+    let metric: Metric
+    let moodStepIndex: Int
+
+    private var moodPalette: MusicDNAHelixMoodPalette {
+        MusicDNAHelixMoodPalette(stepIndex: moodStepIndex)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            MusicDNACompactPanelHeader(title: metric.title, icon: metric.icon)
+
+            if metric.secondaryMetrics.isEmpty {
+                HStack(alignment: .center, spacing: 16) {
+                    metricRing(
+                        percent: metric.percent,
+                        size: 118,
+                        lineWidth: 13,
+                        percentFont: .title3.weight(.bold)
+                    )
+
+                    VStack(alignment: .leading, spacing: 5) {
+                        Text(metric.headline)
+                            .font(.headline.weight(.semibold))
+                            .foregroundStyle(.white)
+                            .fixedSize(horizontal: false, vertical: true)
+                        if let subtitle = metric.subtitle?.trimmingCharacters(in: .whitespacesAndNewlines), !subtitle.isEmpty {
+                            Text(subtitle)
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundStyle(.white.opacity(0.66))
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
+            } else {
+                equalMetricsRow
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(18)
+        .frame(maxWidth: .infinity, minHeight: musicDNADashboardPanelMinHeight, alignment: .topLeading)
+        .background(.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .stroke(.white.opacity(0.10), lineWidth: 1)
+        }
+        .onAppear {
+            guard !reduceMotion else { return }
+            withAnimation(.easeInOut(duration: 3.2).repeatForever(autoreverses: true)) {
+                ringGlowIsActive = true
+            }
+        }
+    }
+
+    private var equalMetricsRow: some View {
+        GeometryReader { proxy in
+            let tileSpacing: CGFloat = 22
+            let ringSize = min(104, max(70, (proxy.size.width - (tileSpacing * 2)) / 3))
+            HStack(alignment: .top, spacing: tileSpacing) {
+                metricTile(
+                    title: metric.headline,
+                    subtitle: metric.subtitle,
+                    percent: metric.percent,
+                    ringSize: ringSize
+                )
+                ForEach(metric.secondaryMetrics.prefix(2), id: \.title) { secondary in
+                    metricTile(
+                        title: secondary.title,
+                        subtitle: nil,
+                        percent: secondary.percent,
+                        ringSize: ringSize
+                    )
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .top)
+        }
+        .frame(height: 164)
+    }
+
+    private func metricTile(
+        title: String,
+        subtitle: String?,
+        percent: Int,
+        ringSize: CGFloat
+    ) -> some View {
+        VStack(spacing: 8) {
+            metricRing(
+                percent: percent,
+                size: ringSize,
+                lineWidth: max(8, ringSize * 0.10),
+                percentFont: .headline.weight(.bold)
+            )
+            VStack(spacing: 3) {
+                Text(title)
+                    .font(.subheadline.weight(.bold))
+                    .foregroundStyle(.white)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.72)
+                if let subtitle = subtitle?.trimmingCharacters(in: .whitespacesAndNewlines), !subtitle.isEmpty {
+                    Text(subtitle)
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.white.opacity(0.66))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.72)
+                }
+            }
+            .multilineTextAlignment(.center)
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    private func metricRing(
+        percent: Int,
+        size: CGFloat,
+        lineWidth: CGFloat,
+        percentFont: Font
+    ) -> some View {
+        let normalizedValue = min(1, max(0, Double(percent) / 100))
+        let ringGradient = moodRingGradient(moodPalette.colors)
+        let glowColor = moodPalette.colors[safe: 1] ?? djConnectAccent
+        return ZStack {
+            Circle()
+                .stroke(.white.opacity(0.16), lineWidth: lineWidth)
+            Circle()
+                .trim(from: 0, to: normalizedValue)
+                .stroke(
+                    ringGradient,
+                    style: StrokeStyle(lineWidth: lineWidth, lineCap: .round)
+                )
+                .rotationEffect(.degrees(-90))
+                .shadow(
+                    color: glowColor.opacity(reduceMotion ? 0.18 : (ringGlowIsActive ? 0.56 : 0.24)),
+                    radius: reduceMotion ? 4 : (ringGlowIsActive ? 22 : 8),
+                    x: 0,
+                    y: 0
+                )
+            Circle()
+                .trim(from: 0, to: normalizedValue)
+                .stroke(
+                    ringGradient,
+                    style: StrokeStyle(lineWidth: lineWidth + 7, lineCap: .round)
+                )
+                .rotationEffect(.degrees(-90))
+                .blur(radius: reduceMotion ? 4 : (ringGlowIsActive ? 14 : 5))
+                .opacity(reduceMotion ? 0.14 : (ringGlowIsActive ? 0.34 : 0.12))
+            Text("\(min(100, max(0, percent)))%")
+                .font(percentFont)
+                .foregroundStyle(.white)
+                .monospacedDigit()
+                .minimumScaleFactor(0.68)
+                .lineLimit(1)
+                .padding(.horizontal, 6)
+        }
+        .frame(width: size, height: size)
+        .accessibilityLabel("\(percent)%")
+    }
+}
+
+private struct MusicDNATimelinePreview: View {
+    let language: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Label("Music DNA Evolution", systemImage: "point.3.connected.trianglepath.dotted")
+                .font(.headline.weight(.semibold))
+            Text(localizedKey(language, "ui.future.timeline.taste.evolution.artist.affinity.mood.shifts.year.in"))
+            .font(.callout)
+            .foregroundStyle(.white.opacity(0.68))
+            .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(14)
+        .djConnectGradientCard(cornerRadius: 8)
+    }
+}
+
+private struct MusicDNAHelixView: View {
+    let moodStepIndex: Int
+
+    private var moodPalette: MusicDNAHelixMoodPalette {
+        MusicDNAHelixMoodPalette(stepIndex: moodStepIndex)
+    }
+
+    var body: some View {
+        TimelineView(.animation) { timeline in
+            Canvas { context, size in
+                let time = timeline.date.timeIntervalSinceReferenceDate
+                let palette = moodPalette
+                let colors = palette.colors
+                let primary = colors[safe: 0] ?? Color(red: 0.18, green: 0.78, blue: 1.0)
+                let secondary = colors[safe: 1] ?? djConnectAccent
+                let tertiary = colors[safe: 2] ?? Color(red: 0.33, green: 0.96, blue: 0.72)
+                let rect = CGRect(origin: .zero, size: size)
+                context.fill(Path(rect), with: .linearGradient(
+                    Gradient(colors: [
+                        primary.opacity(0.16),
+                        secondary.opacity(0.22),
+                        tertiary.opacity(0.24)
+                    ]),
+                    startPoint: .zero,
+                    endPoint: CGPoint(x: size.width, y: size.height)
+                ))
+
+                let strandCount = 28
+                for index in 0..<strandCount {
+                    let progress = CGFloat(index) / CGFloat(max(strandCount - 1, 1))
+                    let y = size.height * (0.12 + progress * 0.76)
+                    let phase = Double(progress) * .pi * 4 + time * 0.9
+                    let leftX = size.width * (0.50 + CGFloat(sin(phase)) * 0.24)
+                    let rightX = size.width * (0.50 + CGFloat(sin(phase + .pi)) * 0.24)
+                    let color = interpolatedMusicDNAHelixColor(colors: colors, progress: progress)
+
+                    var connector = Path()
+                    connector.move(to: CGPoint(x: leftX, y: y))
+                    connector.addLine(to: CGPoint(x: rightX, y: y))
+                    context.stroke(connector, with: .color(color.opacity(0.10 + palette.glow * 0.16)), lineWidth: 1)
+                    context.fill(Path(ellipseIn: CGRect(x: leftX - 4, y: y - 4, width: 8, height: 8)), with: .color(color.opacity(0.92)))
+                    context.fill(Path(ellipseIn: CGRect(x: rightX - 3, y: y - 3, width: 6, height: 6)), with: .color(color.opacity(0.42 + palette.glow * 0.30)))
+                }
+            }
+        }
+    }
+}
+
+private struct MusicDNAHelixMoodPalette {
+    let colors: [Color]
+    let glow: Double
+
+    init(stepIndex: Int) {
+        switch max(0, min(3, stepIndex)) {
+        case 0:
+            colors = ["#4DA3FF", "#7B61FF", "#D184FF"].compactMap(Color.init(hex:))
+            glow = 0.36
+        case 1:
+            colors = ["#2EC4B6", "#7B61FF", "#D184FF"].compactMap(Color.init(hex:))
+            glow = 0.46
+        case 2:
+            colors = ["#8AC926", "#FFD166", "#FF6A3D"].compactMap(Color.init(hex:))
+            glow = 0.58
+        default:
+            colors = ["#FF2E63", "#A855F7", "#FFD166"].compactMap(Color.init(hex:))
+            glow = 0.66
+        }
+    }
+}
+
+private func interpolatedMusicDNAHelixColor(colors: [Color], progress: CGFloat) -> Color {
+    guard !colors.isEmpty else {
+        return djConnectAccent
+    }
+    guard colors.count > 1 else {
+        return colors[0]
+    }
+    let scaled = max(0, min(1, progress)) * CGFloat(colors.count - 1)
+    let lowerIndex = min(colors.count - 1, max(0, Int(floor(scaled))))
+    let upperIndex = min(colors.count - 1, lowerIndex + 1)
+    guard lowerIndex != upperIndex else {
+        return colors[lowerIndex]
+    }
+    let fraction = Double(scaled - CGFloat(lowerIndex))
+    return blendMusicDNAHelixColors(colors[lowerIndex], colors[upperIndex], fraction: fraction)
+}
+
+private func moodRingGradient(_ colors: [Color]) -> AngularGradient {
+    let primary = colors[safe: 0] ?? Color(red: 0.30, green: 0.63, blue: 1.0)
+    let secondary = colors[safe: 1] ?? Color(red: 0.82, green: 0.28, blue: 1.0)
+    let tertiary = colors[safe: 2] ?? Color(red: 0.23, green: 0.91, blue: 0.84)
+    return AngularGradient(
+        colors: [
+            primary,
+            secondary,
+            tertiary,
+            blendMusicDNAHelixColors(primary, secondary, fraction: 0.45),
+            primary
+        ],
+        center: .center
+    )
+}
+
+private func blendMusicDNAHelixColors(_ lhs: Color, _ rhs: Color, fraction: Double) -> Color {
+    #if canImport(UIKit)
+    let lhsPlatform = UIColor(lhs)
+    let rhsPlatform = UIColor(rhs)
+    var lhsRed: CGFloat = 0
+    var lhsGreen: CGFloat = 0
+    var lhsBlue: CGFloat = 0
+    var lhsAlpha: CGFloat = 0
+    var rhsRed: CGFloat = 0
+    var rhsGreen: CGFloat = 0
+    var rhsBlue: CGFloat = 0
+    var rhsAlpha: CGFloat = 0
+    lhsPlatform.getRed(&lhsRed, green: &lhsGreen, blue: &lhsBlue, alpha: &lhsAlpha)
+    rhsPlatform.getRed(&rhsRed, green: &rhsGreen, blue: &rhsBlue, alpha: &rhsAlpha)
+    #elseif canImport(AppKit)
+    let lhsPlatform = NSColor(lhs).usingColorSpace(.deviceRGB) ?? .white
+    let rhsPlatform = NSColor(rhs).usingColorSpace(.deviceRGB) ?? .white
+    let lhsRed = lhsPlatform.redComponent
+    let lhsGreen = lhsPlatform.greenComponent
+    let lhsBlue = lhsPlatform.blueComponent
+    let lhsAlpha = lhsPlatform.alphaComponent
+    let rhsRed = rhsPlatform.redComponent
+    let rhsGreen = rhsPlatform.greenComponent
+    let rhsBlue = rhsPlatform.blueComponent
+    let rhsAlpha = rhsPlatform.alphaComponent
+    #endif
+    let clamped = max(0, min(1, fraction))
+    return Color(
+        red: Double(lhsRed) + (Double(rhsRed) - Double(lhsRed)) * clamped,
+        green: Double(lhsGreen) + (Double(rhsGreen) - Double(lhsGreen)) * clamped,
+        blue: Double(lhsBlue) + (Double(rhsBlue) - Double(lhsBlue)) * clamped,
+        opacity: Double(lhsAlpha) + (Double(rhsAlpha) - Double(lhsAlpha)) * clamped
+    )
+}
+
+private struct TrackInsightHero: View {
+    @ObservedObject var model: DJConnectAppModel
+    let insight: TrackInsight
+    let moodStepIndex: Int
+    let isAnimationActive: Bool
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.colorScheme) private var colorScheme
+
+    private var profile: TrackVibeProfile {
+        TrackVibeProfile.make(for: insight)
+            .applyingTrackInsightMoodRenderOverride(stepIndex: moodStepIndex)
+    }
+
+    private var isVisualizerPlaying: Bool {
+        model.playback?.isPlaying == true
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            TrackInsightHeroScene(
+                insight: insight,
+                profile: profile,
+                playback: model.playback,
+                reduceMotion: reduceMotion || ProcessInfo.processInfo.isLowPowerModeEnabled,
+                isActive: isAnimationActive && isVisualizerPlaying,
+                language: model.language
+            )
+            .frame(height: 430)
+            .frame(maxWidth: .infinity)
+
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity)
+        .clipped()
+        .background(profile.gradient, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .stroke(.white.opacity(colorScheme == .dark ? 0.16 : 0.22), lineWidth: 1)
+        }
+    }
+}
+
+private struct TrackInsightHeroScene: View {
+    let insight: TrackInsight
+    let profile: TrackVibeProfile
+    let playback: DJConnectPlayback?
+    let reduceMotion: Bool
+    let isActive: Bool
+    let language: String
+    @State private var playbackAnchor = TrackVibePlaybackAnchor()
+
+    private var playbackSignature: String {
+        TrackVibePlaybackAnchor.signature(for: playback)
+    }
+
+    var body: some View {
+        Group {
+            if reduceMotion || !isActive {
+                TimelineView(.periodic(from: .now, by: 60)) { timeline in
+                    scene(date: timeline.date)
+                }
+            } else {
+                TimelineView(.animation(minimumInterval: 1.0 / 60.0)) { timeline in
+                    scene(date: timeline.date)
+                }
+            }
+        }
+        .onAppear {
+            playbackAnchor.update(from: playback, at: Date())
+        }
+        .onChange(of: playbackSignature) {
+            playbackAnchor.update(from: playback, at: Date())
+        }
+        .onChange(of: playback?.isPlaying) {
+            playbackAnchor.update(from: playback, at: Date())
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .stroke(.white.opacity(0.14), lineWidth: 1)
+        }
+        .shadow(color: .black.opacity(0.24), radius: 24, x: 0, y: 18)
+    }
+
+    private func scene(date: Date) -> some View {
+        let phase = TrackVibePlaybackPhase(playback: playback, anchor: playbackAnchor, date: date)
+        return GeometryReader { geometry in
+            let isCompact = geometry.size.width < 560 || geometry.size.width / max(geometry.size.height, 1) < 1.05
+            let artworkSize = min(
+                geometry.size.width * (isCompact ? 0.34 : 0.30),
+                geometry.size.height * (isCompact ? 0.25 : 0.34),
+                210
+            )
+            let artworkY = geometry.size.height * (isCompact ? 0.24 : 0.30)
+            let infoY = min(
+                geometry.size.height * (isCompact ? 0.56 : 0.57),
+                artworkY + artworkSize / 2 + (isCompact ? 64 : 74)
+            )
+            let spectrumHeight = max(isCompact ? 88 : 96, geometry.size.height * (isCompact ? 0.15 : 0.20))
+            let spectrumY = geometry.size.height * (isCompact ? 0.88 : 0.86)
+            ZStack {
+                TrackInsightPremiumBackground(profile: profile, phase: phase, date: date)
+                TrackInsightLightField(profile: profile, phase: phase, date: date)
+                TrackInsightHeroArtwork(
+                    insight: insight,
+                    profile: profile,
+                    playback: playback,
+                    reduceMotion: reduceMotion,
+                    isActive: isActive
+                )
+                .frame(width: artworkSize, height: artworkSize)
+                .position(x: geometry.size.width * 0.50, y: artworkY)
+
+                TrackInsightHeroInfo(insight: insight, language: language)
+                    .frame(maxWidth: min(720, geometry.size.width * 0.82))
+                    .position(x: geometry.size.width / 2, y: infoY)
+
+                TrackInsightPremiumSpectrum(profile: profile, phase: phase)
+                    .frame(height: spectrumHeight)
+                    .padding(.horizontal, max(isCompact ? 28 : 44, geometry.size.width * (isCompact ? 0.08 : 0.11)))
+                    .position(x: geometry.size.width / 2, y: spectrumY)
+            }
+        }
+    }
+}
+
+struct TrackInsightPremiumBackground: View {
+    let profile: TrackVibeProfile
+    let phase: TrackVibePlaybackPhase
+    let date: Date
+
+    var body: some View {
+        let colors = profile.colors
+        let time = date.timeIntervalSinceReferenceDate
+        ZStack {
+            LinearGradient(
+                colors: [
+                    Color(red: 0.015, green: 0.020, blue: 0.050),
+                    (colors.first ?? djConnectAccent).opacity(0.42),
+                    Color(red: 0.010, green: 0.018, blue: 0.035)
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+
+            RadialGradient(
+                colors: [
+                    (colors.last ?? djConnectAccent).opacity(0.44),
+                    .clear
+                ],
+                center: UnitPoint(x: 0.22 + phase.progress * 0.56, y: 0.28 + sin(time * 0.18) * 0.06),
+                startRadius: 16,
+                endRadius: 360
+            )
+
+            RadialGradient(
+                colors: [
+                    Color.white.opacity(0.16),
+                    .clear
+                ],
+                center: .topTrailing,
+                startRadius: 8,
+                endRadius: 420
+            )
+
+            LinearGradient(
+                colors: [.clear, .black.opacity(0.58)],
+                startPoint: .center,
+                endPoint: .bottom
+            )
+        }
+    }
+}
+
+struct TrackInsightLightField: View {
+    let profile: TrackVibeProfile
+    let phase: TrackVibePlaybackPhase
+    let date: Date
+
+    var body: some View {
+        Canvas(opaque: false, rendersAsynchronously: true) { context, size in
+            let time = date.timeIntervalSinceReferenceDate
+            let colors = profile.colors
+            let density = min(max(profile.particleDensity, 0.12), 0.95)
+            let motionSpeed = styleSpeed * (0.32 + profile.particleVelocity * 0.72 + profile.pulseSpeed * 0.18)
+            let circleCount = Int(10 + density * 22)
+            let starCount = Int(3 + profile.waveform * 8 + profile.glow * 4)
+            let sparkCount = Int(4 + profile.pulseSpeed * 5 + phase.energyLift * 7)
+
+            for index in 0..<circleCount {
+                let seed = Double(index + 1)
+                let lane = noise(seed, 2)
+                let drift = time * motionSpeed * (0.018 + noise(seed, 3) * 0.038)
+                let xPhase = noise(seed, 0) + drift + sin(time * 0.12 + seed) * 0.018
+                let x = wrap(CGFloat(xPhase)) * size.width
+                let yBase = noise(seed, 1)
+                let yDrift = sin(time * (0.18 + lane * 0.22) + seed * 0.71) * 0.035
+                let y = size.height * CGFloat(0.14 + yBase * 0.58 + yDrift)
+                let radius = CGFloat(2.0 + density * 5.5 + noise(seed, 4) * 7.0)
+                let color = colors[safe: index % max(colors.count, 1)] ?? djConnectAccent
+                let opacity = 0.08 + density * 0.08 + phase.energyLift * 0.10 + noise(seed, 5) * 0.08
+
+                context.fill(
+                    Path(ellipseIn: CGRect(x: x - radius, y: y - radius, width: radius * 2, height: radius * 2)),
+                    with: .color(color.opacity(opacity))
+                )
+            }
+
+            for index in 0..<starCount {
+                let seed = Double(index + 101)
+                let orbit = time * motionSpeed * (0.026 + noise(seed, 2) * 0.044)
+                let x = wrap(CGFloat(noise(seed, 0) + orbit)) * size.width
+                let yPhase = 0.12 + noise(seed, 1) * 0.48
+                let yDrift = cos(time * 0.16 + seed) * 0.026
+                let y = size.height * CGFloat(yPhase + yDrift)
+                let outer = CGFloat(4 + profile.glow * 7 + noise(seed, 3) * 7)
+                let innerRatio = 0.34 + noise(seed, 4) * 0.14
+                let inner = outer * CGFloat(innerRatio)
+                let points = profile.motionStyle == .organic ? 5 : 4
+                let rotation = CGFloat(time * motionSpeed * 0.24 + seed)
+                let color = colors[safe: (index + 1) % max(colors.count, 1)] ?? djConnectAccent
+                let star = starPath(center: CGPoint(x: x, y: y), outerRadius: outer, innerRadius: inner, points: points, rotation: rotation)
+                context.fill(star, with: .color(color.opacity(0.10 + profile.glow * 0.16 + phase.energyLift * 0.10)))
+            }
+
+            for index in 0..<sparkCount {
+                let seed = Double(index + 211)
+                let fall = time * motionSpeed * (0.05 + noise(seed, 2) * 0.08)
+                let x = wrap(CGFloat(noise(seed, 0) + fall * 0.52)) * size.width
+                let y = wrap(CGFloat(noise(seed, 1) + fall)) * size.height
+                let sparkLength = 12 + profile.pulseSpeed * 10 + phase.energyLift * 18 + noise(seed, 3) * 18
+                let length = CGFloat(sparkLength)
+                let tilt = CGFloat(-0.7 + noise(seed, 4) * 1.4)
+                let color = colors[safe: (index + 2) % max(colors.count, 1)] ?? djConnectAccent
+                let dx = cos(tilt) * length * 0.5
+                let dy = sin(tilt) * length * 0.5
+                let start = CGPoint(x: x - dx, y: y - dy)
+                let end = CGPoint(x: x + dx, y: y + dy)
+                var spark = Path()
+                spark.move(to: start)
+                spark.addLine(to: end)
+                context.stroke(
+                    spark,
+                    with: .linearGradient(
+                        Gradient(colors: [.clear, color.opacity(0.20 + phase.energyLift * 0.22), .clear]),
+                        startPoint: start,
+                        endPoint: end
+                    ),
+                    style: StrokeStyle(lineWidth: 1.1 + profile.glow * 1.4, lineCap: .round)
+                )
+            }
+        }
+        .blur(radius: 0.3)
+    }
+
+    private var styleSpeed: Double {
+        switch profile.motionStyle {
+        case .dreamy:
+            return 0.58
+        case .energetic:
+            return 1.42
+        case .organic:
+            return 0.82
+        case .dark:
+            return 0.70
+        case .balanced:
+            return 1.0
+        }
+    }
+
+    private func wrap(_ value: CGFloat) -> CGFloat {
+        let remainder = value.truncatingRemainder(dividingBy: 1)
+        return remainder < 0 ? remainder + 1 : remainder
+    }
+
+    private func noise(_ seed: Double, _ offset: Double) -> Double {
+        let value = sin(seed * 12.9898 + offset * 78.233) * 43_758.5453
+        return value - floor(value)
+    }
+
+    private func starPath(center: CGPoint, outerRadius: CGFloat, innerRadius: CGFloat, points: Int, rotation: CGFloat) -> Path {
+        var path = Path()
+        let totalPoints = max(points, 3) * 2
+        for index in 0..<totalPoints {
+            let radius = index.isMultiple(of: 2) ? outerRadius : innerRadius
+            let angle = rotation - .pi / 2 + CGFloat(index) * .pi / CGFloat(max(points, 3))
+            let point = CGPoint(
+                x: center.x + cos(angle) * radius,
+                y: center.y + sin(angle) * radius
+            )
+            if index == 0 {
+                path.move(to: point)
+            } else {
+                path.addLine(to: point)
+            }
+        }
+        path.closeSubpath()
+        return path
+    }
+}
+
+private struct TrackInsightHeroArtwork: View {
+    let insight: TrackInsight
+    let profile: TrackVibeProfile
+    let playback: DJConnectPlayback?
+    let reduceMotion: Bool
+    let isActive: Bool
+
+    var body: some View {
+        GeometryReader { geometry in
+            let side = min(geometry.size.width, geometry.size.height)
+            let cornerRadius = max(16, side * 0.12)
+            let iconPadding = max(12, side * 0.16)
+            ZStack {
+                RoundedRectangle(cornerRadius: cornerRadius + 2, style: .continuous)
+                    .fill(.white.opacity(0.12))
+                    .blur(radius: max(14, side * 0.11))
+                    .scaleEffect(1.14)
+                CachedArtworkImage(url: insight.artwork, mode: .fill) {
+                    TrackHeartbeatIcon(
+                        profile: profile,
+                        playback: playback,
+                        reduceMotion: reduceMotion,
+                        isActive: isActive
+                    )
+                    .padding(iconPadding)
+                    .background(profile.gradient)
+                }
+                .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+                .overlay {
+                    RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                        .stroke(.white.opacity(0.32), lineWidth: 1)
+                }
+                .shadow(color: (profile.colors.last ?? djConnectAccent).opacity(0.42), radius: max(18, side * 0.16), x: 0, y: max(8, side * 0.08))
+            }
+        }
+    }
+}
+
+struct TrackInsightPremiumSpectrum: View {
+    let profile: TrackVibeProfile
+    let phase: TrackVibePlaybackPhase
+
+    var body: some View {
+        GeometryReader { geometry in
+            let isCompact = geometry.size.width < 420
+            let count = isCompact ? 40 : 52
+            let spacing: CGFloat = isCompact ? 2.5 : 4
+            let spectrumWidth = geometry.size.width * 0.86
+            let barWidth = max(1.8, (spectrumWidth - CGFloat(count - 1) * spacing) / CGFloat(count))
+            let clampedProgress = min(max(phase.progress, 0), 1)
+            let progressX = spectrumWidth * clampedProgress
+            ZStack(alignment: .bottomLeading) {
+                progressRail(width: spectrumWidth, progressX: progressX, height: geometry.size.height)
+
+                HStack(alignment: .bottom, spacing: spacing) {
+                    ForEach(0..<count, id: \.self) { index in
+                        let normalized = spectrumValue(index: index, count: count)
+                        let position = Double(index) / Double(max(count - 1, 1))
+                        let hasPlayed = position <= clampedProgress
+                        RoundedRectangle(cornerRadius: barWidth / 2, style: .continuous)
+                            .fill(barGradient(index: index, count: count))
+                            .frame(width: barWidth, height: max(8, geometry.size.height * normalized))
+                            .opacity(hasPlayed ? 1.0 : 0.52)
+                            .shadow(
+                                color: (profile.colors[safe: index % max(profile.colors.count, 1)] ?? djConnectAccent)
+                                    .opacity(hasPlayed ? 0.34 : 0.12),
+                                radius: hasPlayed ? 8 : 3
+                            )
+                    }
+                }
+                .frame(width: spectrumWidth)
+                .frame(maxHeight: .infinity, alignment: .bottom)
+
+                playhead(width: spectrumWidth, progressX: progressX, height: geometry.size.height)
+            }
+            .frame(width: spectrumWidth)
+            .frame(maxHeight: .infinity, alignment: .bottom)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+        }
+        .allowsHitTesting(false)
+    }
+
+    private func progressRail(width: CGFloat, progressX: CGFloat, height: CGFloat) -> some View {
+        let railY = height - 3
+        return ZStack(alignment: .leading) {
+            Capsule()
+                .fill(.white.opacity(0.14))
+                .frame(width: width, height: 3)
+            Capsule()
+                .fill(
+                    LinearGradient(
+                        colors: [
+                            (profile.colors.first ?? djConnectAccent).opacity(0.95),
+                            .white.opacity(0.92),
+                            (profile.colors.last ?? djConnectAccent).opacity(0.95)
+                        ],
+                        startPoint: .leading,
+                        endPoint: .trailing
+                    )
+                )
+                .frame(width: max(8, progressX), height: 3)
+                .shadow(color: .white.opacity(0.34), radius: 8)
+        }
+        .position(x: width / 2, y: railY)
+    }
+
+    private func playhead(width: CGFloat, progressX: CGFloat, height: CGFloat) -> some View {
+        let x = max(7, min(width - 7, progressX))
+        return ZStack {
+            Rectangle()
+                .fill(
+                    LinearGradient(
+                        colors: [.clear, .white.opacity(0.62), .clear],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                )
+                .frame(width: 2, height: height * 0.86)
+                .position(x: x, y: height * 0.46)
+            Circle()
+                .fill(.white)
+                .frame(width: 12, height: 12)
+                .overlay {
+                    Circle()
+                        .stroke((profile.colors.last ?? djConnectAccent).opacity(0.85), lineWidth: 2)
+                }
+                .shadow(color: .white.opacity(0.72), radius: 8)
+                .shadow(color: (profile.colors.last ?? djConnectAccent).opacity(0.70), radius: 14)
+                .position(x: x, y: height - 3)
+        }
+        .frame(width: width, height: height, alignment: .bottomLeading)
+    }
+
+    private func spectrumValue(index: Int, count: Int) -> CGFloat {
+        let base = profile.spectrumProfile[safe: index % max(profile.spectrumProfile.count, 1)] ?? 0.5
+        let position = Double(index) / Double(max(count - 1, 1))
+        let playhead = max(0, 1 - abs(position - phase.progress) * 6)
+        let pulse = (sin(Double(index) * 0.55 + phase.positionSeconds * profile.pulseSpeed) + 1) * 0.5
+        return CGFloat(min(1.0, 0.14 + base * 0.42 + pulse * 0.20 + playhead * 0.36 + phase.energyLift * 0.16))
+    }
+
+    private func barGradient(index: Int, count: Int) -> LinearGradient {
+        let progress = Double(index) / Double(max(count - 1, 1))
+        let playhead = max(0, 1 - abs(progress - phase.progress) * 10)
+        let colors = profile.colors
+        return LinearGradient(
+            colors: [
+                playheadColor(colors.first ?? .blue, playhead: playhead).opacity(0.70 + playhead * 0.30),
+                playheadColor(colors[safe: 1] ?? djConnectAccent, playhead: playhead).opacity(0.78 + playhead * 0.22),
+                playheadColor(colors.last ?? .pink, playhead: playhead).opacity(0.86 + playhead * 0.14)
+            ],
+            startPoint: UnitPoint(x: progress, y: 1),
+            endPoint: UnitPoint(x: 1 - progress, y: 0)
+        )
+    }
+
+    private func playheadColor(_ color: Color, playhead: Double) -> Color {
+        color.mix(with: .white, by: min(max(playhead * 0.42, 0), 0.42))
+    }
+}
+
+private struct TrackInsightHeroInfo: View {
+    let insight: TrackInsight
+    let language: String
+
+    var body: some View {
+        VStack(spacing: 10) {
+            Text(insight.title)
+                .font(.system(size: 48, weight: .black, design: .rounded))
+                .foregroundStyle(.white)
+                .lineLimit(1)
+                .minimumScaleFactor(0.58)
+            Text(insight.artist)
+                .font(.system(size: 24, weight: .bold, design: .rounded))
+                .foregroundStyle(.white.opacity(0.78))
+                .lineLimit(1)
+                .minimumScaleFactor(0.66)
+            if let album = insight.album, !album.isEmpty {
+                Text(album)
+                    .font(.headline.weight(.semibold))
+                    .foregroundStyle(.white.opacity(0.56))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.72)
+            }
+            if let progressLabel {
+                Text(progressLabel)
+                    .font(.caption.weight(.bold))
+                    .monospacedDigit()
+                    .foregroundStyle(.white.opacity(0.72))
+                    .padding(.vertical, 5)
+                    .padding(.horizontal, 10)
+                    .background(.white.opacity(0.12), in: Capsule())
+            }
+        }
+        .multilineTextAlignment(.center)
+        .padding(.horizontal, 18)
+    }
+
+    private var progressLabel: String? {
+        guard let duration = insight.duration, duration > 0 else {
+            return nil
+        }
+        let progress = min(max(insight.progress ?? 0, 0), duration)
+        return "\(formatTime(progress)) / \(formatTime(duration))"
+    }
+
+    private func formatTime(_ seconds: TimeInterval) -> String {
+        let totalSeconds = max(Int(seconds.rounded()), 0)
+        let minutes = totalSeconds / 60
+        let seconds = totalSeconds % 60
+        return "\(minutes):\(seconds < 10 ? "0" : "")\(seconds)"
+    }
+}
+
+private struct TrackInsightPrivacyFooter: View {
+    let language: String
+
+    var body: some View {
+        Label(localizedKey(language, "ui.rendered.privately.on.your.device"), systemImage: "lock.fill")
+            .font(.caption2.weight(.semibold))
+            .foregroundStyle(.white.opacity(0.46))
+            .frame(maxWidth: .infinity, alignment: .center)
+            .padding(.top, 2)
+            .padding(.bottom, 6)
+    }
+}
+
+public struct VibeCastOutputView: View {
+    @ObservedObject var model: DJConnectAppModel
+    let insight: TrackInsight?
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    public init(model: DJConnectAppModel, insight: TrackInsight? = nil) {
+        self.model = model
+        self.insight = insight
+    }
+
+    public var body: some View {
+        ZStack {
+            DJConnectCanvasBackground()
+            if let insight = insight ?? model.currentTrackInsight {
+                VibeCastVisualizerSignalView(
+                    insight: insight,
+                    playback: model.playback,
+                    vibeCastItems: model.vibeCastItems,
+                    language: model.language,
+                    moodStepIndex: model.askDJMoodStepIndex,
+                    reduceMotion: reduceMotion || ProcessInfo.processInfo.isLowPowerModeEnabled
+                )
+            } else {
+                VibeCastEmptySignalView(language: model.language)
+            }
+        }
+        .ignoresSafeArea()
+        .task {
+            await model.runVibeCastPolling()
+        }
+    }
+}
+
+private struct VibeCastVisualizerSignalView: View {
+    let insight: TrackInsight
+    let playback: DJConnectPlayback?
+    let vibeCastItems: [DJConnectVibeCastResponse.Item]
+    let language: String
+    let moodStepIndex: Int
+    let reduceMotion: Bool
+    @State private var playbackAnchor = TrackVibePlaybackAnchor()
+
+    private var profile: TrackVibeProfile {
+        TrackVibeProfile.make(for: insight)
+            .applyingTrackInsightMoodRenderOverride(stepIndex: moodStepIndex)
+    }
+
+    private var isPlaying: Bool {
+        playback?.isPlaying == true
+    }
+
+    private var playbackSignature: String {
+        TrackVibePlaybackAnchor.signature(for: playback)
+    }
+
+    var body: some View {
+        Group {
+            if reduceMotion || !isPlaying {
+                TimelineView(.periodic(from: .now, by: 60)) { timeline in
+                    premiumScene(date: timeline.date)
+                }
+            } else {
+                TimelineView(.animation(minimumInterval: 1.0 / 60.0)) { timeline in
+                    premiumScene(date: timeline.date)
+                }
+            }
+        }
+        .onAppear {
+            playbackAnchor.update(from: playback, at: Date())
+        }
+        .onChange(of: playbackSignature) {
+            playbackAnchor.update(from: playback, at: Date())
+        }
+        .onChange(of: playback?.progressMS) {
+            playbackAnchor.update(from: playback, at: Date())
+        }
+        .onChange(of: playback?.isPlaying) {
+            playbackAnchor.update(from: playback, at: Date())
+        }
+        .onChange(of: playback?.durationMS) {
+            playbackAnchor.update(from: playback, at: Date())
+        }
+    }
+
+    private func premiumScene(date: Date) -> some View {
+        let phase = TrackVibePlaybackPhase(playback: playback, anchor: playbackAnchor, date: date)
+        return GeometryReader { geometry in
+            let artworkSize = artworkSize(in: geometry.size)
+            let artworkY = geometry.size.height * 0.29
+            let infoY = min(geometry.size.height * 0.56, artworkY + artworkSize / 2 + 78)
+            ZStack {
+                TrackInsightPremiumBackground(profile: profile, phase: phase, date: date)
+                TrackInsightLightField(profile: profile, phase: phase, date: date)
+
+                TrackInsightHeroArtwork(
+                    insight: insight,
+                    profile: profile,
+                    playback: playback,
+                    reduceMotion: reduceMotion,
+                    isActive: !reduceMotion && isPlaying
+                )
+                .frame(width: artworkSize, height: artworkSize)
+                .position(x: geometry.size.width * 0.50, y: artworkY)
+
+                TrackInsightHeroInfo(insight: insight, language: language)
+                    .frame(maxWidth: min(920, geometry.size.width * 0.78))
+                    .position(x: geometry.size.width / 2, y: infoY)
+
+                TrackInsightPremiumSpectrum(profile: profile, phase: phase)
+                    .frame(height: max(112, geometry.size.height * 0.17))
+                    .padding(.horizontal, max(52, geometry.size.width * 0.12))
+                    .position(x: geometry.size.width / 2, y: geometry.size.height * 0.86)
+
+                VibeCastBubbleField(
+                    items: vibeCastItems,
+                    profile: profile,
+                    canvasSize: geometry.size,
+                    reduceMotion: reduceMotion
+                )
+
+                brandHeader
+                    .padding(max(24, geometry.size.width * 0.035))
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            }
+        }
+    }
+
+    private func artworkSize(in size: CGSize) -> CGFloat {
+        min(size.width * 0.24, size.height * 0.36, 360)
+    }
+
+    private var brandHeader: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "airplayvideo")
+                .font(.headline.weight(.bold))
+            Text("DJCONNECT VIBECAST")
+                .font(.headline.weight(.bold))
+                .tracking(1.2)
+            Spacer(minLength: 0)
+        }
+        .foregroundStyle(.white.opacity(0.88))
+    }
+}
+
+private struct VibeCastBubbleField: View {
+    let items: [DJConnectVibeCastResponse.Item]
+    let profile: TrackVibeProfile
+    let canvasSize: CGSize
+    let reduceMotion: Bool
+
+    private var visibleItems: [DJConnectVibeCastResponse.Item] {
+        Array(items.prefix(canvasSize.width < 720 ? 3 : 5))
+    }
+
+    var body: some View {
+        ZStack {
+            ForEach(Array(visibleItems.enumerated()), id: \.element.id) { index, item in
+                let style = bubbleStyle(for: item, index: index)
+                VibeCastFactBubble(item: item, accent: bubbleAccent(index: index), style: style)
+                    .frame(width: style.width)
+                    .position(position(for: item, index: index))
+                    .transition(.opacity.combined(with: .scale(scale: 0.96)))
+                    .animation(reduceMotion ? nil : .easeInOut(duration: 0.7).delay(Double(index) * 0.12), value: visibleItems.map(\.id))
+            }
+        }
+        .allowsHitTesting(false)
+    }
+
+    private var bubbleWidth: CGFloat {
+        min(300, max(190, canvasSize.width * (canvasSize.width < 720 ? 0.34 : 0.22)))
+    }
+
+    private func position(for item: DJConnectVibeCastResponse.Item, index: Int) -> CGPoint {
+        let leftSide = stableSeed(item.id, salt: index) % 2 == 0
+        let width = bubbleStyle(for: item, index: index).width
+        let sideInset = max(18, canvasSize.width * 0.035)
+        let x = leftSide ? sideInset + width / 2 : canvasSize.width - sideInset - width / 2
+        let safeTop = max(92, canvasSize.height * 0.14)
+        let safeBottom = min(canvasSize.height * 0.74, canvasSize.height - 150)
+        let lanes = max(1, visibleItems.count)
+        let lane = CGFloat(index % lanes)
+        let laneHeight = max(1, (safeBottom - safeTop) / CGFloat(lanes))
+        let jitter = CGFloat(stableSeed(item.id, salt: 31) % 37) - 18
+        let y = min(safeBottom, max(safeTop, safeTop + laneHeight * (lane + 0.5) + jitter))
+        return CGPoint(x: x, y: y)
+    }
+
+    private func bubbleStyle(for item: DJConnectVibeCastResponse.Item, index: Int) -> VibeCastFactBubble.Style {
+        let widthSeed = stableSeed(item.id, salt: 17 + index)
+        let fontSeed = stableSeed(item.id, salt: 43 + index)
+        let shapeSeed = stableSeed(item.id, salt: 71 + index)
+        let widthScale = CGFloat(92 + (widthSeed % 19)) / 100
+        let fontSize = CGFloat(16 + (fontSeed % 4))
+        let cornerBase = CGFloat(16 + (shapeSeed % 10))
+        return VibeCastFactBubble.Style(
+            width: min(330, max(182, bubbleWidth * widthScale)),
+            fontSize: fontSize,
+            verticalPadding: CGFloat(12 + (shapeSeed % 4)),
+            horizontalPadding: CGFloat(15 + (widthSeed % 5)),
+            cornerRadii: RectangleCornerRadii(
+                topLeading: cornerBase + CGFloat(shapeSeed % 7),
+                bottomLeading: cornerBase * 0.72 + CGFloat((shapeSeed / 3) % 5),
+                bottomTrailing: cornerBase + CGFloat((shapeSeed / 5) % 9),
+                topTrailing: cornerBase * 0.82 + CGFloat((shapeSeed / 7) % 6)
+            )
+        )
+    }
+
+    private func bubbleAccent(index: Int) -> Color {
+        profile.colors[safe: index % max(profile.colors.count, 1)] ?? djConnectAccent
+    }
+
+    private func stableSeed(_ value: String, salt: Int) -> Int {
+        abs(value.unicodeScalars.reduce(salt) { ($0 &* 31) &+ Int($1.value) })
+    }
+}
+
+private struct VibeCastFactBubble: View {
+    struct Style: Equatable {
+        var width: CGFloat
+        var fontSize: CGFloat
+        var verticalPadding: CGFloat
+        var horizontalPadding: CGFloat
+        var cornerRadii: RectangleCornerRadii
+    }
+
+    let item: DJConnectVibeCastResponse.Item
+    let accent: Color
+    let style: Style
+
+    var body: some View {
+        richText
+            .font(.system(size: style.fontSize, weight: .semibold, design: .rounded))
+            .lineSpacing(3)
+            .foregroundStyle(.white.opacity(0.92))
+            .multilineTextAlignment(.leading)
+            .padding(.vertical, style.verticalPadding)
+            .padding(.horizontal, style.horizontalPadding)
+            .background {
+                UnevenRoundedRectangle(cornerRadii: style.cornerRadii, style: .continuous)
+                    .fill(.black.opacity(0.36))
+                    .overlay {
+                        UnevenRoundedRectangle(cornerRadii: style.cornerRadii, style: .continuous)
+                            .stroke(accent.opacity(0.46), lineWidth: 1)
+                    }
+                    .shadow(color: accent.opacity(0.22), radius: 18, y: 8)
+            }
+    }
+
+    private var richText: Text {
+        Text(attributedRichText)
+    }
+
+    private var attributedRichText: AttributedString {
+        item.text.reduce(into: AttributedString()) { partial, segment in
+            partial += attributedText(for: segment)
+        }
+    }
+
+    private func attributedText(for segment: DJConnectVibeCastResponse.TextSegment) -> AttributedString {
+        var text = AttributedString(segment.type == .lineBreak ? "\n" : segment.value)
+        switch segment.type {
+        case .lineBreak:
+            break
+        case .strong:
+            text.font = .system(size: style.fontSize + 1.5, weight: .black, design: .rounded)
+        case .emphasis:
+            text.inlinePresentationIntent = .emphasized
+        case .magnify:
+            text.font = .system(size: style.fontSize + 5, weight: .black, design: .rounded)
+            text.foregroundColor = .white
+        case .accent:
+            text.font = .system(size: style.fontSize + 1, weight: .bold, design: .rounded)
+            text.foregroundColor = accent.mix(with: .white, by: 0.24)
+        case .text, .emoji, .unknown:
+            break
+        }
+        return text
+    }
+}
+
+private struct VibeCastEmptySignalView: View {
+    let language: String
+
+    var body: some View {
+        VStack(spacing: 16) {
+            Image(systemName: "airplayvideo")
+                .font(.system(size: 58, weight: .semibold))
+                .foregroundStyle(djConnectAccent)
+            Text("VibeCast")
+                .font(.largeTitle.weight(.bold))
+                .foregroundStyle(.white)
+            Text(localizedKey(language, "ui.analyze.a.track.to.publish.the.visualizer.signal"))
+                .font(.headline)
+                .foregroundStyle(.white.opacity(0.68))
+        }
+        .padding(32)
+    }
+}
+
+#if canImport(AVKit) && os(iOS)
+private func makeAirPlayPreviewPlayer(url: URL) async -> AVPlayer {
+    await Task.detached(priority: .userInitiated) {
+        let item = AVPlayerItem(url: url)
+        let avPlayer = AVPlayer(playerItem: item)
+        avPlayer.actionAtItemEnd = .none
+        avPlayer.allowsExternalPlayback = true
+        avPlayer.usesExternalPlaybackWhileExternalScreenIsActive = true
+        try? AVAudioSession.sharedInstance().setCategory(.playback, mode: .moviePlayback, options: [.allowAirPlay])
+        try? AVAudioSession.sharedInstance().setActive(true)
+        return avPlayer
+    }.value
+}
+
+@MainActor
+private final class VibeCastAirPlaySession: ObservableObject {
+    @Published var player: AVPlayer?
+    @Published var isPreparing = false
+    @Published var progress = 0.0
+    @Published var errorMessage: String?
+
+    private var preparedInsightID: String?
+    private var renderedURL: URL?
+    private var playbackAnchor = TrackVibePlaybackAnchor()
+    private var lastSyncedSignature = ""
+    private var lastSyncedVideoTime: Double = -1
+
+    func prepare(insight: TrackInsight, language: String) async {
+        if preparedInsightID == insight.id, player != nil {
+            player?.play()
+            return
+        }
+        reset()
+        preparedInsightID = insight.id
+        isPreparing = true
+        progress = 0
+        errorMessage = nil
+        do {
+            let url = try await TrackInsightShareRenderer.renderVideo(
+                insight: insight,
+                format: .linkPreview,
+                language: language
+            ) { [weak self] value in
+                self?.progress = value
+            }
+            try Task.checkCancellation()
+            renderedURL = url
+            let avPlayer = await makeAirPlayPreviewPlayer(url: url)
+            player = avPlayer
+            isPreparing = false
+            avPlayer.play()
+        } catch is CancellationError {
+            reset()
+        } catch {
+            errorMessage = error.localizedDescription
+            isPreparing = false
+        }
+    }
+
+    func reset() {
+        player?.pause()
+        player = nil
+        renderedURL = nil
+        preparedInsightID = nil
+        playbackAnchor = TrackVibePlaybackAnchor()
+        lastSyncedSignature = ""
+        lastSyncedVideoTime = -1
+        progress = 0
+        errorMessage = nil
+        isPreparing = false
+    }
+
+    func sync(to playback: DJConnectPlayback?, force: Bool = false) {
+        guard let player, player.currentItem != nil else {
+            playbackAnchor.update(from: playback, at: Date())
+            return
+        }
+        let now = Date()
+        playbackAnchor.update(from: playback, at: now)
+        let signature = TrackVibePlaybackAnchor.signature(for: playback)
+        let trackDuration = max(Double(playback?.durationMS ?? 0) / 1_000, 1)
+        let phase = TrackVibePlaybackPhase(playback: playback, anchor: playbackAnchor, date: now)
+        let itemDuration = player.currentItem?.duration.seconds ?? 0
+        let loopDuration = itemDuration.isFinite && itemDuration > 0 ? itemDuration : 6
+        let targetSeconds = min(max(phase.progress * loopDuration, 0), max(loopDuration - 0.05, 0))
+        let desiredRate = Float(min(max(loopDuration / trackDuration, 0.02), 1.0))
+        let currentSeconds = player.currentTime().seconds
+        let didChangeTrack = signature != lastSyncedSignature
+        let didSeek = currentSeconds.isFinite && abs(currentSeconds - targetSeconds) > 0.65
+        let didProgressJump = abs(targetSeconds - lastSyncedVideoTime) > max(0.65, loopDuration / max(trackDuration, 1) * 8)
+        if force || didChangeTrack || didSeek || didProgressJump {
+            player.seek(
+                to: CMTime(seconds: targetSeconds, preferredTimescale: 600),
+                toleranceBefore: .zero,
+                toleranceAfter: CMTime(seconds: 0.05, preferredTimescale: 600)
+            )
+        }
+        if playback?.isPlaying == true {
+            player.rate = desiredRate
+        } else {
+            player.pause()
+        }
+        lastSyncedSignature = signature
+        lastSyncedVideoTime = targetSeconds
+    }
+
+    func loopIfNeeded(_ object: Any?) {
+        guard let item = object as? AVPlayerItem,
+              item == player?.currentItem else {
+            return
+        }
+        item.seek(to: .zero, completionHandler: nil)
+        player?.play()
+    }
+}
+
+private struct VibeCastAirPlayToolbarButton: View {
+    let language: String
+    let hasInsight: Bool
+    let isPreparing: Bool
+    let isReady: Bool
+
+    var body: some View {
+        if hasInsight, isReady {
+            NativeAirPlayRoutePicker()
+                .frame(width: 30, height: 30)
+                .accessibilityLabel(localizedKey(language, "ui.airplay.vibecast"))
+                .help(localizedKey(language, "ui.send.vibecast.video.to.airplay"))
+        } else if hasInsight, isPreparing {
+            ProgressView()
+                .controlSize(.small)
+                .frame(width: 30, height: 30)
+                .tint(.primary)
+                .accessibilityLabel(localizedKey(language, "ui.preparing.vibecast.video"))
+        } else {
+            Button {} label: {
+                Image(systemName: "airplayvideo")
+                    .frame(width: 30, height: 30)
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(.secondary)
+            .disabled(true)
+            .opacity(0.42)
+            .accessibilityLabel(localizedKey(language, "ui.analyze.track.insight.before.using.vibecast"))
+            .help(localizedKey(language, "ui.analyze.track.insight.before.using.vibecast"))
+        }
+    }
+}
+#endif
+
+#if canImport(AVKit)
+private struct VibeCastAVPlayerPreviewSheet: View {
+    let insight: TrackInsight
+    let language: String
+    @Environment(\.dismiss) private var dismiss
+    @State private var player: AVPlayer?
+    @State private var renderedURL: URL?
+    @State private var progress = 0.0
+    @State private var errorMessage: String?
+    @State private var renderTask: Task<Void, Never>?
+
+    var body: some View {
+        ZStack {
+            DJConnectCanvasBackground()
+            VStack(alignment: .leading, spacing: 16) {
+                HStack(alignment: .center, spacing: 12) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("VibeCast")
+                            .font(.title.bold())
+                            .foregroundStyle(.white)
+                        Text(localizedKey(language, "ui.local.avplayer.preview"))
+                            .font(.callout.weight(.semibold))
+                            .foregroundStyle(.white.opacity(0.62))
+                    }
+                    Spacer(minLength: 0)
+                    Button {
+                        dismiss()
+                    } label: {
+                        Image(systemName: "xmark")
+                            .font(.headline.weight(.semibold))
+                            .frame(width: 36, height: 36)
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(.white.opacity(0.82))
+                    .background(.white.opacity(0.10), in: Circle())
+                }
+
+                ZStack {
+                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                        .fill(.black.opacity(0.36))
+                    if let player {
+                        VideoPlayer(player: player)
+                            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                            .onAppear {
+                                player.play()
+                            }
+                    } else if let errorMessage {
+                        VStack(spacing: 10) {
+                            Image(systemName: "exclamationmark.triangle")
+                                .font(.title.weight(.semibold))
+                                .foregroundStyle(.orange)
+                            Text(errorMessage)
+                                .font(.callout.weight(.semibold))
+                                .foregroundStyle(.white.opacity(0.78))
+                                .multilineTextAlignment(.center)
+                        }
+                        .padding(20)
+                    } else {
+                        VStack(spacing: 12) {
+                            ProgressView(value: progress)
+                                .tint(djConnectAccent)
+                                .frame(maxWidth: 260)
+                            Text(localizedKey(language, "ui.rendering.vibecast.video"))
+                                .font(.callout.weight(.semibold))
+                                .foregroundStyle(.white.opacity(0.72))
+                            Text("\(Int((progress * 100).rounded()))%")
+                                .font(.caption.monospacedDigit().weight(.bold))
+                                .foregroundStyle(.white.opacity(0.54))
+                        }
+                        .padding(20)
+                    }
+                }
+                .aspectRatio(1200.0 / 628.0, contentMode: .fit)
+                .overlay {
+                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                        .stroke(.white.opacity(0.14), lineWidth: 1)
+                }
+
+                #if os(iOS)
+                HStack(spacing: 12) {
+                    Label(
+                        localizedKey(language, "ui.route.this.vibecast.video.with.airplay"),
+                        systemImage: "airplayvideo"
+                    )
+                    .font(.callout.weight(.semibold))
+                    .foregroundStyle(.white.opacity(player == nil ? 0.42 : 0.78))
+                    Spacer(minLength: 0)
+                    NativeAirPlayRoutePicker()
+                        .frame(width: 42, height: 42)
+                        .opacity(player == nil ? 0.38 : 1)
+                        .disabled(player == nil)
+                        .accessibilityLabel(localizedKey(language, "ui.choose.airplay.display"))
+                }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 10)
+                .background(.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                .overlay {
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .stroke(.white.opacity(0.12), lineWidth: 1)
+                }
+                #endif
+
+                Text(localizedKey(language, "ui.this.mp4.is.played.through.avplayer.use.the.airplay.control"))
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.white.opacity(0.54))
+                .fixedSize(horizontal: false, vertical: true)
+            }
+            .padding(22)
+            .frame(maxWidth: 860)
+        }
+        .task(id: insight.id) {
+            startRender()
+        }
+        .onDisappear {
+            renderTask?.cancel()
+            player?.pause()
+            player = nil
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .AVPlayerItemDidPlayToEndTime)) { notification in
+            guard let item = notification.object as? AVPlayerItem,
+                  item == player?.currentItem else {
+                return
+            }
+            item.seek(to: .zero, completionHandler: nil)
+            player?.play()
+        }
+    }
+
+    private func startRender() {
+        guard renderTask == nil else {
+            return
+        }
+        progress = 0
+        errorMessage = nil
+        renderTask = Task { @MainActor in
+            do {
+                let url = try await TrackInsightShareRenderer.renderVideo(
+                    insight: insight,
+                    format: .linkPreview,
+                    language: language
+                ) { value in
+                    progress = value
+                }
+                try Task.checkCancellation()
+                renderedURL = url
+                #if !os(macOS)
+                let avPlayer = await makeAirPlayPreviewPlayer(url: url)
+                #else
+                let item = AVPlayerItem(url: url)
+                let avPlayer = AVPlayer(playerItem: item)
+                avPlayer.actionAtItemEnd = .none
+                avPlayer.allowsExternalPlayback = true
+                #endif
+                player = avPlayer
+                avPlayer.play()
+            } catch is CancellationError {
+                return
+            } catch {
+                errorMessage = error.localizedDescription
+            }
+        }
+    }
+}
+#endif
+
+private struct AirPlayToolbarButton: View {
+    let language: String
+    #if os(macOS)
+    @Environment(\.openWindow) private var openWindow
+    #endif
+
+    var body: some View {
+        #if canImport(AVKit) && os(iOS)
+        NativeAirPlayRoutePicker()
+            .frame(width: 30, height: 30)
+            .accessibilityLabel(localizedKey(language, "ui.airplay"))
+            .help(airPlayHelpText)
+        #elseif canImport(AVKit) && os(macOS)
+        NativeAirPlayRoutePicker {
+            openWindow(id: "vibecast")
+        }
+        .frame(width: 30, height: 30)
+        .accessibilityLabel(localizedKey(language, "ui.airplay"))
+        .help(airPlayHelpText)
+        #elseif os(macOS)
+        Button {
+            openWindow(id: "vibecast")
+        } label: {
+            Image(systemName: "airplayvideo")
+        }
+        .buttonStyle(.borderless)
+        .foregroundStyle(.primary)
+        .accessibilityLabel(localizedKey(language, "ui.vibecast"))
+        .help(airPlayHelpText)
+        #else
+        Button {} label: {
+            Image(systemName: "airplayvideo")
+        }
+        .disabled(true)
+        .help(localizedKey(language, "ui.vibecast.unavailable"))
+        #endif
+    }
+
+    private var airPlayHelpText: String {
+        #if os(macOS)
+        localizedKey(language, "ui.choose.an.airplay.display.for.vibecast")
+        #else
+        localizedKey(language, "ui.vibecast.via.airplay")
+        #endif
+    }
+}
+
+#if canImport(AVKit) && os(iOS)
+private struct NativeAirPlayRoutePicker: UIViewRepresentable {
+    func makeUIView(context: Context) -> AVRoutePickerView {
+        let picker = AVRoutePickerView(frame: .zero)
+        picker.backgroundColor = .clear
+        picker.tintColor = .white
+        picker.activeTintColor = UIColor(red: 0.72, green: 0.28, blue: 1.0, alpha: 1.0)
+        picker.prioritizesVideoDevices = true
+        return picker
+    }
+
+    func updateUIView(_ uiView: AVRoutePickerView, context: Context) {}
+}
+#elseif canImport(AVKit) && os(macOS)
+private struct NativeAirPlayRoutePicker: NSViewRepresentable {
+    let onActivate: () -> Void
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(onActivate: onActivate)
+    }
+
+    func makeNSView(context: Context) -> AVRoutePickerView {
+        let picker = AVRoutePickerView(frame: .zero)
+        picker.wantsLayer = true
+        picker.layer?.backgroundColor = NSColor.clear.cgColor
+        let recognizer = NSClickGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.activate))
+        recognizer.delaysPrimaryMouseButtonEvents = false
+        picker.addGestureRecognizer(recognizer)
+        return picker
+    }
+
+    func updateNSView(_ nsView: AVRoutePickerView, context: Context) {
+        context.coordinator.onActivate = onActivate
+    }
+
+    final class Coordinator: NSObject {
+        var onActivate: () -> Void
+
+        init(onActivate: @escaping () -> Void) {
+            self.onActivate = onActivate
+        }
+
+        @objc func activate() {
+            onActivate()
+        }
+    }
+}
+#endif
+
+private struct TrackVibeVisualizerView: View {
+    let profile: TrackVibeProfile
+    let playback: DJConnectPlayback?
+    let reduceMotion: Bool
+    let isActive: Bool
+    @State private var playbackAnchor = TrackVibePlaybackAnchor()
+
+    private var isPlaying: Bool {
+        playback?.isPlaying == true
+    }
+
+    private var shouldAnimate: Bool {
+        isActive && isPlaying
+    }
+
+    private var playbackSignature: String {
+        TrackVibePlaybackAnchor.signature(for: playback)
+    }
+
+    var body: some View {
+        visualizer
+            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+            .overlay(alignment: .bottom) {
+                TrackVibePhaseSpectrum(profile: profile, progress: playbackPhase(at: Date()).progress)
+                    .padding(.horizontal, 14)
+                    .padding(.bottom, 10)
+            }
+            .onAppear {
+                playbackAnchor.update(from: playback, at: Date())
+            }
+            .onChange(of: playbackSignature) {
+                playbackAnchor.update(from: playback, at: Date())
+            }
+            .onChange(of: playback?.progressMS) {
+                playbackAnchor.update(from: playback, at: Date())
+            }
+            .onChange(of: playback?.isPlaying) {
+                playbackAnchor.update(from: playback, at: Date())
+            }
+            .onChange(of: playback?.durationMS) {
+                playbackAnchor.update(from: playback, at: Date())
+            }
+    }
+
+    @ViewBuilder
+    private var visualizer: some View {
+        #if canImport(MetalKit) && (os(iOS) || os(macOS))
+        TrackVibeMetalVisualizerView(
+            profile: profile,
+            playback: playback,
+            playbackAnchor: playbackAnchor,
+            reduceMotion: reduceMotion,
+            isActive: shouldAnimate
+        )
+        #else
+        canvasVisualizer
+            .drawingGroup(opaque: true, colorMode: .linear)
+        #endif
+    }
+
+    @ViewBuilder
+    private var canvasVisualizer: some View {
+        if !shouldAnimate {
+            TrackVibeCanvas(profile: profile, playbackPhase: playbackPhase(at: Date()), liveBeat: 0)
+        } else if reduceMotion {
+            TimelineView(.periodic(from: .now, by: 60)) { _ in
+                TrackVibeCanvas(profile: profile, playbackPhase: playbackPhase(at: Date()), liveBeat: 0)
+            }
+        } else {
+            #if os(macOS)
+            TimelineView(.animation(minimumInterval: 1.0 / 60.0)) { timeline in
+                let phase = playbackPhase(at: timeline.date)
+                TrackVibeCanvas(
+                    profile: profile,
+                    playbackPhase: phase,
+                    liveBeat: playback?.isPlaying == true ? timeline.date.timeIntervalSinceReferenceDate : phase.positionSeconds
+                )
+            }
+            #else
+            TimelineView(.animation(minimumInterval: 1.0 / 60.0)) { timeline in
+                let phase = playbackPhase(at: timeline.date)
+                TrackVibeCanvas(
+                    profile: profile,
+                    playbackPhase: phase,
+                    liveBeat: playback?.isPlaying == true ? timeline.date.timeIntervalSinceReferenceDate : phase.positionSeconds
+                )
+            }
+            #endif
+        }
+    }
+
+    private func playbackPhase(at date: Date) -> TrackVibePlaybackPhase {
+        TrackVibePlaybackPhase(playback: playback, anchor: playbackAnchor, date: date)
+    }
+}
+
+#if canImport(MetalKit) && (os(iOS) || os(macOS))
+#if os(iOS)
+private struct TrackVibeMetalVisualizerView: UIViewRepresentable {
+    let profile: TrackVibeProfile
+    let playback: DJConnectPlayback?
+    let playbackAnchor: TrackVibePlaybackAnchor
+    let reduceMotion: Bool
+    let isActive: Bool
+
+    func makeCoordinator() -> TrackVibeMetalRenderer {
+        TrackVibeMetalRenderer()
+    }
+
+    func makeUIView(context: Context) -> MTKView {
+        makeView(context: context)
+    }
+
+    func updateUIView(_ view: MTKView, context: Context) {
+        update(view, context: context)
+    }
+}
+#elseif os(macOS)
+private struct TrackVibeMetalVisualizerView: NSViewRepresentable {
+    let profile: TrackVibeProfile
+    let playback: DJConnectPlayback?
+    let playbackAnchor: TrackVibePlaybackAnchor
+    let reduceMotion: Bool
+    let isActive: Bool
+
+    func makeCoordinator() -> TrackVibeMetalRenderer {
+        TrackVibeMetalRenderer()
+    }
+
+    func makeNSView(context: Context) -> MTKView {
+        makeView(context: context)
+    }
+
+    func updateNSView(_ view: MTKView, context: Context) {
+        update(view, context: context)
+    }
+}
+#endif
+
+private extension TrackVibeMetalVisualizerView {
+    func makeView(context: Context) -> MTKView {
+        let device = MTLCreateSystemDefaultDevice()
+        let view = MTKView(frame: .zero, device: device)
+        view.delegate = context.coordinator
+        view.framebufferOnly = true
+        view.clearColor = MTLClearColor(red: 0.015, green: 0.018, blue: 0.045, alpha: 1)
+        view.colorPixelFormat = .bgra8Unorm
+        view.preferredFramesPerSecond = 60
+        view.enableSetNeedsDisplay = false
+        view.isPaused = false
+        context.coordinator.configure(device: view.device, colorPixelFormat: view.colorPixelFormat)
+        update(view, context: context)
+        return view
+    }
+
+    func update(_ view: MTKView, context: Context) {
+        context.coordinator.profile = profile
+        context.coordinator.playback = playback
+        context.coordinator.playbackAnchor = playbackAnchor
+        context.coordinator.reduceMotion = reduceMotion
+        view.preferredFramesPerSecond = reduceMotion ? 1 : 60
+        view.isPaused = !isActive
+        if !isActive || reduceMotion {
+            view.draw()
+        }
+    }
+}
+
+private final class TrackVibeMetalRenderer: NSObject, MTKViewDelegate {
+    var profile: TrackVibeProfile?
+    var playback: DJConnectPlayback?
+    var playbackAnchor = TrackVibePlaybackAnchor()
+    var reduceMotion = false
+
+    private var pipelineState: MTLRenderPipelineState?
+    private var commandQueue: MTLCommandQueue?
+    private let startDate = Date()
+
+    func configure(device: MTLDevice?, colorPixelFormat: MTLPixelFormat) {
+        guard pipelineState == nil, let device else { return }
+        let source = """
+        #include <metal_stdlib>
+        using namespace metal;
+
+        struct VertexOut {
+            float4 position [[position]];
+            float4 color;
+        };
+
+        vertex VertexOut vertex_main(const device float *data [[buffer(0)]], uint vertexID [[vertex_id]]) {
+            uint base = vertexID * 6;
+            VertexOut out;
+            out.position = float4(data[base], data[base + 1], 0.0, 1.0);
+            out.color = float4(data[base + 2], data[base + 3], data[base + 4], data[base + 5]);
+            return out;
+        }
+
+        fragment float4 fragment_main(VertexOut in [[stage_in]]) {
+            return in.color;
+        }
+        """
+        do {
+            let library = try device.makeLibrary(source: source, options: nil)
+            let descriptor = MTLRenderPipelineDescriptor()
+            descriptor.vertexFunction = library.makeFunction(name: "vertex_main")
+            descriptor.fragmentFunction = library.makeFunction(name: "fragment_main")
+            descriptor.colorAttachments[0].pixelFormat = colorPixelFormat
+            descriptor.colorAttachments[0].isBlendingEnabled = true
+            descriptor.colorAttachments[0].sourceRGBBlendFactor = .sourceAlpha
+            descriptor.colorAttachments[0].destinationRGBBlendFactor = .oneMinusSourceAlpha
+            descriptor.colorAttachments[0].sourceAlphaBlendFactor = .sourceAlpha
+            descriptor.colorAttachments[0].destinationAlphaBlendFactor = .oneMinusSourceAlpha
+            pipelineState = try device.makeRenderPipelineState(descriptor: descriptor)
+            commandQueue = device.makeCommandQueue()
+        } catch {
+            pipelineState = nil
+            commandQueue = nil
+        }
+    }
+
+    func mtkView(_ view: MTKView, drawableSizeWillChange size: CGSize) {}
+
+    func draw(in view: MTKView) {
+        guard let drawable = view.currentDrawable,
+              let descriptor = view.currentRenderPassDescriptor,
+              let pipelineState,
+              let commandQueue,
+              let commandBuffer = commandQueue.makeCommandBuffer(),
+              let encoder = commandBuffer.makeRenderCommandEncoder(descriptor: descriptor),
+              let device = view.device else {
+            return
+        }
+
+        let vertices = makeVertices(size: view.drawableSize)
+        guard !vertices.isEmpty,
+              let buffer = device.makeBuffer(
+                bytes: vertices,
+                length: vertices.count * MemoryLayout<Float>.stride,
+                options: .storageModeShared
+              ) else {
+            return
+        }
+
+        encoder.setRenderPipelineState(pipelineState)
+        encoder.setVertexBuffer(buffer, offset: 0, index: 0)
+        encoder.drawPrimitives(type: .triangle, vertexStart: 0, vertexCount: vertices.count / 6)
+        encoder.endEncoding()
+        commandBuffer.present(drawable)
+        commandBuffer.commit()
+    }
+
+    private func makeVertices(size: CGSize) -> [Float] {
+        guard size.width > 0, size.height > 0 else { return [] }
+        let profile = profile
+        let phase = TrackVibePlaybackPhase(playback: playback, anchor: playbackAnchor, date: Date())
+        let elapsed = reduceMotion ? phase.positionSeconds : Date().timeIntervalSince(startDate)
+        let songTime = phase.positionSeconds
+        let progress = phase.progress
+        let waveform = Float(profile?.waveform ?? 0.8)
+        let glow = Float(profile?.glow ?? 0.7)
+        var vertices: [Float] = []
+        vertices.reserveCapacity(6 * (6 + 2 + 90))
+
+        addGradientQuad(to: &vertices)
+        addOrb(to: &vertices, progress: Float(progress), elapsed: Float(elapsed), glow: glow)
+        addBars(to: &vertices, songTime: Float(songTime), progress: Float(progress), waveform: waveform)
+        addBottomFade(to: &vertices)
+        return vertices
+    }
+
+    private func addGradientQuad(to vertices: inout [Float]) {
+        appendQuad(
+            to: &vertices,
+            x0: -1, y0: -1, x1: 1, y1: 1,
+            colors: [
+                SIMD4<Float>(0.02, 0.02, 0.07, 1.0),
+                SIMD4<Float>(0.14, 0.22, 0.56, 1.0),
+                SIMD4<Float>(0.03, 0.05, 0.10, 1.0),
+                SIMD4<Float>(0.00, 0.02, 0.03, 1.0)
+            ]
+        )
+    }
+
+    private func addOrb(to vertices: inout [Float], progress: Float, elapsed: Float, glow: Float) {
+        let centerX = -0.64 + progress * 1.28 + sin(elapsed * 0.7) * 0.08
+        let centerY = 0.24 + cos(elapsed * 0.45) * 0.08
+        let size = 0.42 + glow * 0.18
+        appendQuad(
+            to: &vertices,
+            x0: centerX - size,
+            y0: centerY - size * 0.7,
+            x1: centerX + size,
+            y1: centerY + size * 0.7,
+            color: SIMD4<Float>(0.34, 0.32, 1.0, 0.18 + glow * 0.12)
+        )
+    }
+
+    private func addBars(to vertices: inout [Float], songTime: Float, progress: Float, waveform: Float) {
+        let barCount = 82
+        let startX: Float = -0.45
+        let endX: Float = 0.48
+        let width = (endX - startX) / Float(barCount)
+        let baseY: Float = -0.70
+        for index in 0..<barCount {
+            let t = Float(index) / Float(max(1, barCount - 1))
+            let x = startX + Float(index) * width
+            let distance = abs(t - progress)
+            let playheadBoost = max(0, 1 - distance * 7)
+            let signal = (sin(Float(index) * 0.57 + songTime * 2.1) + 1) * 0.5
+            let height = 0.05 + (signal * 0.16 + playheadBoost * 0.22) * max(0.35, waveform)
+            let color = interpolatedBarColor(t: t, boost: playheadBoost)
+            appendQuad(
+                to: &vertices,
+                x0: x,
+                y0: baseY,
+                x1: x + width * 0.42,
+                y1: baseY + height,
+                color: color
+            )
+        }
+    }
+
+    private func addBottomFade(to vertices: inout [Float]) {
+        appendQuad(
+            to: &vertices,
+            x0: -1, y0: -1, x1: 1, y1: -0.42,
+            colors: [
+                SIMD4<Float>(0.0, 0.0, 0.0, 0.70),
+                SIMD4<Float>(0.0, 0.0, 0.0, 0.70),
+                SIMD4<Float>(0.0, 0.0, 0.0, 0.0),
+                SIMD4<Float>(0.0, 0.0, 0.0, 0.0)
+            ]
+        )
+    }
+
+    private func interpolatedBarColor(t: Float, boost: Float) -> SIMD4<Float> {
+        let blue = SIMD3<Float>(0.12, 0.43, 1.0)
+        let purple = SIMD3<Float>(0.52, 0.24, 1.0)
+        let pink = SIMD3<Float>(1.0, 0.18, 0.70)
+        let color: SIMD3<Float>
+        if t < 0.5 {
+            let local = t / 0.5
+            color = blue * (1 - local) + purple * local
+        } else {
+            let local = (t - 0.5) / 0.5
+            color = purple * (1 - local) + pink * local
+        }
+        return SIMD4<Float>(color.x, color.y, color.z, 0.42 + boost * 0.42)
+    }
+
+    private func appendQuad(to vertices: inout [Float], x0: Float, y0: Float, x1: Float, y1: Float, color: SIMD4<Float>) {
+        appendQuad(to: &vertices, x0: x0, y0: y0, x1: x1, y1: y1, colors: [color, color, color, color])
+    }
+
+    private func appendQuad(to vertices: inout [Float], x0: Float, y0: Float, x1: Float, y1: Float, colors: [SIMD4<Float>]) {
+        let c0 = colors[0]
+        let c1 = colors[1]
+        let c2 = colors[2]
+        let c3 = colors[3]
+        appendVertex(to: &vertices, x0, y0, c0)
+        appendVertex(to: &vertices, x1, y0, c1)
+        appendVertex(to: &vertices, x0, y1, c2)
+        appendVertex(to: &vertices, x1, y0, c1)
+        appendVertex(to: &vertices, x1, y1, c3)
+        appendVertex(to: &vertices, x0, y1, c2)
+    }
+
+    private func appendVertex(to vertices: inout [Float], _ x: Float, _ y: Float, _ color: SIMD4<Float>) {
+        vertices.append(contentsOf: [x, y, color.x, color.y, color.z, color.w])
+    }
+}
+#endif
+
+private struct TrackVibeCanvas: View {
+    let profile: TrackVibeProfile
+    let playbackPhase: TrackVibePlaybackPhase
+    let liveBeat: TimeInterval
+
+    var body: some View {
+        Canvas(opaque: true, colorMode: .linear, rendersAsynchronously: true) { context, size in
+            draw(context: &context, size: size)
+        }
+    }
+
+    private func draw(context: inout GraphicsContext, size: CGSize) {
+        let colors = profile.colors
+        let rect = CGRect(origin: .zero, size: size)
+        context.fill(Path(rect), with: .linearGradient(
+            Gradient(colors: [
+                Color(red: 0.015, green: 0.018, blue: 0.045),
+                colors.first?.opacity(0.34) ?? djConnectAccent.opacity(0.34),
+                Color.black
+            ]),
+            startPoint: CGPoint(x: 0, y: 0),
+            endPoint: CGPoint(x: size.width, y: size.height)
+        ))
+
+        let songTime = playbackPhase.positionSeconds
+        let progress = playbackPhase.progress
+        let energyLift = playbackPhase.energyLift
+        let pulse = sin((songTime + liveBeat * 0.12) * profile.pulseSpeed) * 0.5 + 0.5
+        let horizonY = size.height * 0.54
+        let orbRadius = min(size.width, size.height) * (0.15 + pulse * 0.04 + energyLift * 0.07)
+        let orbCenter = CGPoint(
+            x: size.width * (0.18 + progress * 0.64 + sin(songTime * 0.12) * 0.04),
+            y: size.height * (0.40 + cos(songTime * 0.10) * 0.04)
+        )
+        context.addFilter(.blur(radius: 22 + profile.glow * 14))
+        context.fill(
+            Path(ellipseIn: CGRect(x: orbCenter.x - orbRadius, y: orbCenter.y - orbRadius, width: orbRadius * 2, height: orbRadius * 2)),
+            with: .color((colors.last ?? djConnectAccent).opacity(0.22 + pulse * 0.18 + energyLift * 0.18))
+        )
+        context.addFilter(.blur(radius: 0))
+        for ring in 0..<4 {
+            let radius = orbRadius * (0.78 + CGFloat(ring) * 0.18 + CGFloat(pulse) * 0.05)
+            context.stroke(
+                Path(ellipseIn: CGRect(x: orbCenter.x - radius, y: orbCenter.y - radius, width: radius * 2, height: radius * 2)),
+                with: .color((colors[safe: ring] ?? djConnectAccent).opacity(0.40 - Double(ring) * 0.06)),
+                lineWidth: 1.3
+            )
+        }
+
+        for layer in 0..<9 {
+            var path = Path()
+            let layerProgress = CGFloat(layer) / 8
+            let baseY = horizonY + layerProgress * size.height * 0.34
+            path.move(to: CGPoint(x: -20, y: baseY))
+            let steps = 72
+            for index in 0...steps {
+                let progress = CGFloat(index) / CGFloat(steps)
+                let x = size.width * progress
+                let depth = 1 + layerProgress * 2.4
+                let waveA = sin(Double(index) * 0.28 + songTime * profile.animationSpeed + Double(layer) * 0.58)
+                let waveB = cos(Double(index) * 0.13 + songTime * 0.42 + Double(layer))
+                let y = baseY + CGFloat(waveA) * 18 * profile.waveform * depth * CGFloat(0.72 + energyLift) + CGFloat(waveB) * 8
+                path.addLine(to: CGPoint(x: x, y: y))
+            }
+            let hueColor = colors[safe: layer % max(colors.count, 1)] ?? djConnectAccent
+            context.stroke(path, with: .color(hueColor.opacity(0.18 + Double(layer) * 0.045)), lineWidth: 1.1 + layerProgress * 1.6)
+        }
+
+        for column in stride(from: 0, through: Int(size.width), by: 7) {
+            let x = CGFloat(column)
+            let seed = Double(column + 17)
+            let distanceFromPlayhead = abs((x / max(size.width, 1)) - progress)
+            let playheadBoost = max(0, 1 - distanceFromPlayhead * 6)
+            let normalized = (sin(seed * 0.21 + songTime * 1.3) + 1) / 2
+            let barSignal = normalized + playheadBoost * 0.72 + energyLift * 0.42
+            let height = CGFloat(12 + barSignal * 64 * profile.waveform)
+            let top = horizonY - height * 0.55
+            var bar = Path()
+            bar.move(to: CGPoint(x: x, y: horizonY))
+            bar.addLine(to: CGPoint(x: x, y: top))
+            context.stroke(bar, with: .color((colors.last ?? djConnectAccent).opacity(0.10 + normalized * 0.14 + playheadBoost * 0.28)), lineWidth: 2)
+        }
+
+        let particleCount = max(10, Int(28 * profile.particleDensity))
+        for index in 0..<particleCount {
+            let seed = Double(index + 1)
+            let x = size.width * CGFloat((sin(seed * 12.989 + songTime * profile.particleVelocity) + 1) / 2)
+            let y = size.height * CGFloat((cos(seed * 7.233 + songTime * 0.37) + 1) / 2)
+            let radius = CGFloat(1.5 + (seed.truncatingRemainder(dividingBy: 4)))
+            context.fill(
+                Path(ellipseIn: CGRect(x: x, y: y, width: radius, height: radius)),
+                with: .color(.white.opacity(0.16 + profile.glow * 0.24))
+            )
+        }
+
+        context.fill(Path(rect), with: .linearGradient(
+            Gradient(colors: [.clear, .black.opacity(0.72)]),
+            startPoint: CGPoint(x: size.width / 2, y: size.height * 0.58),
+            endPoint: CGPoint(x: size.width / 2, y: size.height)
+        ))
+    }
+}
+
+private struct TrackHeartbeatIcon: View {
+    let profile: TrackVibeProfile
+    let playback: DJConnectPlayback?
+    let reduceMotion: Bool
+    let isActive: Bool
+
+    var body: some View {
+        Group {
+            if !isActive {
+                icon(phase: TrackVibePlaybackPhase(playback: playback, date: Date()), reduceMotion: true)
+            } else if reduceMotion {
+                TimelineView(.periodic(from: .now, by: 60)) { timeline in
+                    icon(phase: TrackVibePlaybackPhase(playback: playback, date: timeline.date), reduceMotion: true)
+                }
+            } else {
+                TimelineView(.animation) { timeline in
+                    icon(phase: TrackVibePlaybackPhase(playback: playback, date: timeline.date), reduceMotion: false)
+                }
+            }
+        }
+    }
+
+    private func icon(phase: TrackVibePlaybackPhase, reduceMotion: Bool) -> some View {
+        let pulse = reduceMotion ? 0.45 : (sin(phase.positionSeconds * profile.pulseSpeed * 1.8) * 0.5 + 0.5)
+        let strokeOpacity = 0.12 + pulse * 0.18
+
+        return RoundedRectangle(cornerRadius: 8, style: .continuous)
+            .fill(profile.gradient)
+            .overlay {
+                TrackHeartbeatRunner(
+                    progress: reduceMotion ? 0.58 : phase.positionSeconds * profile.pulseSpeed * 0.34,
+                    pulse: pulse,
+                    accent: profile.colors.last ?? djConnectAccent,
+                    reduceMotion: reduceMotion
+                )
+                .padding(24)
+            }
+            .overlay {
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .stroke(.white.opacity(strokeOpacity), lineWidth: 1)
+            }
+    }
+}
+
+private struct TrackHeartbeatRunner: View {
+    let progress: Double
+    let pulse: Double
+    let accent: Color
+    let reduceMotion: Bool
+
+    private let points = [
+        CGPoint(x: 0.04, y: 0.54),
+        CGPoint(x: 0.28, y: 0.54),
+        CGPoint(x: 0.38, y: 0.22),
+        CGPoint(x: 0.50, y: 0.82),
+        CGPoint(x: 0.60, y: 0.38),
+        CGPoint(x: 0.69, y: 0.54),
+        CGPoint(x: 0.96, y: 0.54)
+    ]
+
+    var body: some View {
+        GeometryReader { geometry in
+            let size = geometry.size
+            let path = heartbeatPath(in: size)
+            let dot = point(at: progress, in: size)
+            let dotRadius = max(5, min(size.width, size.height) * 0.075)
+            let bounce = reduceMotion ? 0 : CGFloat(sin(progress * .pi * 2)) * -2
+
+            ZStack {
+                path
+                    .stroke(.white.opacity(0.18), style: StrokeStyle(lineWidth: 7, lineCap: .round, lineJoin: .round))
+                    .blur(radius: 7)
+                path
+                    .stroke(.white.opacity(0.92), style: StrokeStyle(lineWidth: 5, lineCap: .round, lineJoin: .round))
+                path
+                    .trim(from: 0, to: CGFloat(reduceMotion ? 1 : normalizedProgress))
+                    .stroke(
+                        LinearGradient(colors: [.white, accent.opacity(0.95)], startPoint: .leading, endPoint: .trailing),
+                        style: StrokeStyle(lineWidth: 5, lineCap: .round, lineJoin: .round)
+                    )
+                    .shadow(color: accent.opacity(0.64), radius: 12)
+
+                Circle()
+                    .fill(.white)
+                    .frame(width: dotRadius * 2, height: dotRadius * 2)
+                    .overlay {
+                        Circle()
+                            .stroke(accent.opacity(0.72), lineWidth: 2)
+                    }
+                    .shadow(color: .white.opacity(0.74), radius: 8)
+                    .shadow(color: accent.opacity(0.82), radius: 18)
+                    .position(x: dot.x, y: dot.y + bounce)
+                    .opacity(reduceMotion ? 0.88 : 0.9 + pulse * 0.1)
+            }
+        }
+        .aspectRatio(1, contentMode: .fit)
+    }
+
+    private var normalizedProgress: Double {
+        progress - floor(progress)
+    }
+
+    private func heartbeatPath(in size: CGSize) -> Path {
+        var path = Path()
+        for (index, point) in points.enumerated() {
+            let mapped = CGPoint(x: point.x * size.width, y: point.y * size.height)
+            if index == 0 {
+                path.move(to: mapped)
+            } else {
+                path.addLine(to: mapped)
+            }
+        }
+        return path
+    }
+
+    private func point(at progress: Double, in size: CGSize) -> CGPoint {
+        let t = normalizedProgress
+        let segmentLengths = zip(points, points.dropFirst()).map { lhs, rhs in
+            hypot(rhs.x - lhs.x, rhs.y - lhs.y)
+        }
+        let totalLength = segmentLengths.reduce(0, +)
+        var remaining = t * totalLength
+
+        for index in segmentLengths.indices {
+            let length = segmentLengths[index]
+            if remaining <= length {
+                let local = length == 0 ? 0 : remaining / length
+                let lhs = points[index]
+                let rhs = points[index + 1]
+                return CGPoint(
+                    x: (lhs.x + (rhs.x - lhs.x) * local) * size.width,
+                    y: (lhs.y + (rhs.y - lhs.y) * local) * size.height
+                )
+            }
+            remaining -= length
+        }
+
+        let fallback = points.last ?? .zero
+        return CGPoint(x: fallback.x * size.width, y: fallback.y * size.height)
+    }
+}
+
+struct TrackVibePlaybackPhase {
+    let progress: Double
+    let positionSeconds: TimeInterval
+    let energyLift: Double
+
+    init(playback: DJConnectPlayback?, anchor: TrackVibePlaybackAnchor = TrackVibePlaybackAnchor(), date: Date) {
+        let durationMS = max(playback?.durationMS ?? 0, 0)
+        let progressMS = max(playback?.progressMS ?? 0, 0)
+        let durationSeconds = durationMS > 0 ? Double(durationMS) / 1_000 : 240
+        let positionSeconds = anchor.positionSeconds(for: playback, fallbackProgressMS: progressMS, durationSeconds: durationSeconds, at: date)
+        let progress = durationSeconds > 0 ? min(max(positionSeconds / durationSeconds, 0), 1) : 0
+        let phrase = sin(progress * .pi * 10)
+        let section = sin(progress * .pi * 2 - .pi / 2) * 0.5 + 0.5
+
+        self.progress = progress
+        self.positionSeconds = positionSeconds
+        self.energyLift = max(0, min(1, 0.28 + phrase * 0.18 + section * 0.54))
+    }
+
+    init(shareProgress: Double, duration: TimeInterval) {
+        let durationSeconds = max(duration, 1)
+        let loopedPosition = shareProgress.truncatingRemainder(dividingBy: durationSeconds)
+        let positionSeconds = loopedPosition < 0 ? loopedPosition + durationSeconds : loopedPosition
+        let progress = min(max(positionSeconds / durationSeconds, 0), 1)
+        let phrase = sin(progress * .pi * 10)
+        let section = sin(progress * .pi * 2 - .pi / 2) * 0.5 + 0.5
+
+        self.progress = progress
+        self.positionSeconds = positionSeconds
+        self.energyLift = max(0, min(1, 0.28 + phrase * 0.18 + section * 0.54))
+    }
+}
+
+struct TrackVibePlaybackAnchor: Equatable {
+    var signature: String = ""
+    var progressMS: Int = 0
+    var durationMS: Int = 0
+    var snapshotDate: Date = .distantPast
+    var isPlaying: Bool = false
+
+    static func signature(for playback: DJConnectPlayback?) -> String {
+        [
+            playback?.trackName,
+            playback?.artistName,
+            playback?.contextURI,
+            playback?.durationMS.map(String.init)
+        ]
+        .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() }
+        .filter { !$0.isEmpty }
+        .joined(separator: "|")
+    }
+
+    mutating func update(from playback: DJConnectPlayback?, at date: Date) {
+        let nextSignature = Self.signature(for: playback)
+        let nextProgressMS = max(playback?.progressMS ?? 0, 0)
+        let nextDurationMS = max(playback?.durationMS ?? 0, 0)
+        let nextIsPlaying = playback?.isPlaying == true
+        let estimatedMS = Int((positionSeconds(
+            for: playback,
+            fallbackProgressMS: progressMS,
+            durationSeconds: nextDurationMS > 0 ? Double(nextDurationMS) / 1_000 : 240,
+            at: date
+        ) * 1_000).rounded())
+
+        let didChangeTrack = nextSignature != signature
+        let didSeekBackward = nextProgressMS + 2_000 < estimatedMS
+        let anchoredProgressMS = didChangeTrack || didSeekBackward ? nextProgressMS : max(nextProgressMS, estimatedMS)
+
+        signature = nextSignature
+        progressMS = anchoredProgressMS
+        durationMS = nextDurationMS
+        snapshotDate = date
+        isPlaying = nextIsPlaying
+    }
+
+    func positionSeconds(
+        for playback: DJConnectPlayback?,
+        fallbackProgressMS: Int,
+        durationSeconds: TimeInterval,
+        at date: Date
+    ) -> TimeInterval {
+        let playbackSignature = Self.signature(for: playback)
+        let baseMS = playbackSignature == signature && !signature.isEmpty ? progressMS : max(playback?.progressMS ?? fallbackProgressMS, 0)
+        let elapsed = playback?.isPlaying == true && isPlaying ? max(0, date.timeIntervalSince(snapshotDate)) : 0
+        return min(Double(baseMS) / 1_000 + elapsed, durationSeconds)
+    }
+}
+
+private struct TrackVibePhaseSpectrum: View {
+    let profile: TrackVibeProfile
+    let progress: Double
+    var sectionTitles: [String] = []
+
+    private var visibleSectionTitles: [String] {
+        sectionTitles
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+    }
+
+    var body: some View {
+        VStack(spacing: 7) {
+            HStack(alignment: .bottom, spacing: 2) {
+                ForEach(0..<64, id: \.self) { index in
+                    let base = profile.spectrumProfile[index % profile.spectrumProfile.count]
+                    let position = Double(index) / 63
+                    let playheadBoost = max(0, 1 - abs(position - progress) * 9)
+                    let lift = sin(Double(index) * 0.31 + progress * .pi * 8) * 0.5 + 0.5
+                    let opacity = 0.56 + playheadBoost * 0.38
+                    let heightSignal = base * (0.55 + lift * 0.55) + playheadBoost * 0.82
+                    let height = 5 + CGFloat(heightSignal) * 36
+                    let color = Color(hue: 0.60 + Double(index) / 170, saturation: 0.85, brightness: 1.0)
+                    Capsule()
+                        .fill(color.opacity(opacity))
+                        .frame(width: 3, height: height)
+                }
+            }
+            if !visibleSectionTitles.isEmpty {
+                HStack {
+                    ForEach(visibleSectionTitles, id: \.self) { phase in
+                        Text(phase)
+                            .font(.caption2.weight(.medium))
+                            .foregroundStyle(.white.opacity(0.55))
+                            .lineLimit(1)
+                        if phase != visibleSectionTitles.last {
+                            Spacer(minLength: 0)
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+private extension TrackVibePhaseSpectrum {
+    func sections(_ sections: [TrackInsightSection]) -> TrackVibePhaseSpectrum {
+        var copy = self
+        copy.sectionTitles = sections.map(\.title)
+        return copy
+    }
+}
+
+private extension Array {
+    subscript(safe index: Int) -> Element? {
+        indices.contains(index) ? self[index] : nil
+    }
+}
+
+private struct TrackInsightMetricsGrid: View {
+    let insight: TrackInsight
+    let language: String
+    let moodStepIndex: Int
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            LazyVGrid(columns: metricColumns, spacing: 10) {
+                TrackInsightMetricRing(title: localizedKey(language, "ui.energy"), value: insight.energy, icon: "bolt.fill", moodStepIndex: moodStepIndex)
+                TrackInsightMetricRing(title: localizedKey(language, "ui.dance"), value: insight.danceability, icon: "figure.dance", moodStepIndex: moodStepIndex)
+                TrackInsightMetricRing(title: localizedKey(language, "ui.intensity"), value: insight.intensity, icon: "flame.fill", moodStepIndex: moodStepIndex)
+            }
+
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 172), spacing: 10, alignment: .top)], spacing: 10) {
+                if let genre = insight.genre?.trimmingCharacters(in: .whitespacesAndNewlines), !genre.isEmpty {
+                    TrackInsightMetricPill(title: localizedKey(language, "ui.genre"), value: genre, icon: "music.quarternote.3")
+                }
+                TrackInsightMetricPill(title: localizedKey(language, "ui.mood"), value: insight.mood, icon: "sparkles")
+                TrackInsightMetricPill(title: localizedKey(language, "ui.vibe"), value: insight.vibe, icon: "waveform.path")
+                TrackInsightMetricPill(title: localizedKey(language, "ui.texture"), value: insight.texture, icon: "square.stack.3d.up.fill")
+            }
+        }
+    }
+
+    private var metricColumns: [GridItem] {
+        Array(repeating: GridItem(.flexible(minimum: 132), spacing: 10, alignment: .top), count: 3)
+    }
+}
+
+private struct TrackInsightMetricRing: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var ringGlowIsActive = false
+
+    let title: String
+    let value: Double?
+    let icon: String
+    let moodStepIndex: Int
+
+    private var moodPalette: MusicDNAHelixMoodPalette {
+        MusicDNAHelixMoodPalette(stepIndex: moodStepIndex)
+    }
+
+    private var normalizedValue: Double {
+        min(1, max(0, value ?? 0))
+    }
+
+    private var percentText: String {
+        guard let value else { return "-" }
+        return "\(Int((min(1, max(0, value)) * 100).rounded()))%"
+    }
+
+    var body: some View {
+        let ringGradient = moodRingGradient(moodPalette.colors)
+        let glowColor = moodPalette.colors[safe: 1] ?? djConnectAccent
+
+        VStack(spacing: 8) {
+            Image(systemName: icon)
+                .font(.caption.weight(.bold))
+                .foregroundStyle(glowColor)
+                .frame(width: 22, height: 18)
+            ZStack {
+                Circle()
+                    .stroke(.white.opacity(0.16), lineWidth: 12)
+                Circle()
+                    .trim(from: 0, to: normalizedValue)
+                    .stroke(
+                        ringGradient,
+                        style: StrokeStyle(lineWidth: 12, lineCap: .round)
+                    )
+                    .rotationEffect(.degrees(-90))
+                    .shadow(color: glowColor.opacity(reduceMotion ? 0.18 : (ringGlowIsActive ? 0.52 : 0.22)), radius: reduceMotion ? 4 : (ringGlowIsActive ? 20 : 8), x: 0, y: 0)
+                Circle()
+                    .trim(from: 0, to: normalizedValue)
+                    .stroke(
+                        ringGradient,
+                        style: StrokeStyle(lineWidth: 17, lineCap: .round)
+                    )
+                    .rotationEffect(.degrees(-90))
+                    .blur(radius: reduceMotion ? 4 : (ringGlowIsActive ? 13 : 5))
+                    .opacity(reduceMotion ? 0.14 : (ringGlowIsActive ? 0.32 : 0.12))
+                Text(percentText)
+                    .font(.title3.weight(.bold))
+                    .foregroundStyle(.white)
+                    .monospacedDigit()
+                    .minimumScaleFactor(0.72)
+                    .lineLimit(1)
+                    .padding(.horizontal, 10)
+            }
+            .frame(width: 108, height: 108)
+
+            Text(title)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.white.opacity(0.66))
+                .lineLimit(1)
+                .minimumScaleFactor(0.78)
+        }
+        .padding(.vertical, 12)
+        .frame(maxWidth: .infinity, minHeight: 150)
+        .background(.white.opacity(0.09), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .onAppear {
+            guard !reduceMotion else { return }
+            withAnimation(.easeInOut(duration: 3.2).repeatForever(autoreverses: true)) {
+                ringGlowIsActive = true
+            }
+        }
+    }
+}
+
+private struct TrackInsightMetricPill: View {
+    let title: String
+    let value: String?
+    let icon: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: 7) {
+                Image(systemName: icon)
+                    .font(.caption.weight(.bold))
+                    .foregroundStyle(djConnectAccent)
+                    .frame(width: 16)
+                Text(title)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.white.opacity(0.56))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.82)
+            }
+            Text(value?.isEmpty == false ? value! : "-")
+                .font(.headline.weight(.semibold))
+                .foregroundStyle(.white)
+                .lineLimit(2)
+                .minimumScaleFactor(0.82)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(.horizontal, 11)
+        .padding(.vertical, 9)
+        .frame(maxWidth: .infinity, minHeight: 96, alignment: .topLeading)
+        .background(.white.opacity(0.10), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+    }
+}
+
+private struct TrackInsightAnalysisCard: View {
+    let insight: TrackInsight
+    let language: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Label {
+                Text(localizedKey(language, "watch.track.energy"))
+            } icon: {
+                Image(systemName: "bolt.fill")
+                    .foregroundStyle(djConnectAccent)
+            }
+            .font(.headline.weight(.semibold))
+            Text(insight.summary)
+                .font(.body)
+                .foregroundStyle(.white.opacity(0.78))
+                .fixedSize(horizontal: false, vertical: true)
+
+            let groups = insight.structuredAnalysisGroups(language: language)
+            if !groups.isEmpty {
+                Divider().overlay(.white.opacity(0.16))
+                ForEach(groups.prefix(8)) { section in
+                    VStack(alignment: .leading, spacing: 7) {
+                        Label {
+                            Text(section.title)
+                        } icon: {
+                            Image(systemName: section.iconName)
+                                .font(.callout.weight(.bold))
+                                .foregroundStyle(section.iconColor)
+                                .frame(width: 22)
+                        }
+                        .font(.title3.weight(.bold))
+                        ForEach(section.values.prefix(5), id: \.self) { value in
+                            Text(value)
+                                .font(.callout.weight(.semibold))
+                                .foregroundStyle(.white.opacity(0.68))
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                    }
+                }
+            }
+        }
+        .padding(18)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .djConnectGradientCard(cornerRadius: 8)
+    }
+}
+
+private struct TrackInsightStructuredGroup: Identifiable {
+    let id: String
+    let title: String
+    let values: [String]
+
+    var iconName: String {
+        switch id {
+        case "production":
+            "slider.horizontal.3"
+        case "instrumentation":
+            "music.note.list"
+        case "arrangement":
+            "square.stack.3d.up"
+        case "listening":
+            "ear"
+        case "similar":
+            "sparkles"
+        default:
+            "waveform"
+        }
+    }
+
+    var iconColor: Color {
+        switch id {
+        case "production":
+            Color(red: 0.30, green: 0.63, blue: 1.0)
+        case "instrumentation":
+            Color(red: 0.23, green: 0.91, blue: 0.84)
+        case "arrangement":
+            Color(red: 0.82, green: 0.28, blue: 1.0)
+        case "listening":
+            Color(red: 1.0, green: 0.82, blue: 0.34)
+        case "similar":
+            Color(red: 0.96, green: 0.38, blue: 0.72)
+        default:
+            djConnectAccent
+        }
+    }
+}
+
+private extension TrackInsight {
+    func structuredAnalysisGroups(language: String) -> [TrackInsightStructuredGroup] {
+        [
+            TrackInsightStructuredGroup(id: "production", title: localizedKey(language, "ui.production"), values: productionNotes),
+            TrackInsightStructuredGroup(id: "instrumentation", title: localizedKey(language, "ui.instrumentation"), values: instrumentation),
+            TrackInsightStructuredGroup(id: "arrangement", title: localizedKey(language, "ui.arrangement"), values: arrangementNotes),
+            TrackInsightStructuredGroup(id: "listening", title: localizedKey(language, "ui.listening.cues"), values: listeningCues),
+            TrackInsightStructuredGroup(
+                id: "similar",
+                title: localizedKey(language, "ui.similar.tracks"),
+                values: similarTracks.map { track in
+                    if let reason = track.reason, !reason.isEmpty {
+                        return "\(track.title) - \(track.artist): \(reason)"
+                    }
+                    return "\(track.title) - \(track.artist)"
+                }
+            )
+        ].filter { !$0.values.isEmpty }
+    }
+}
+
+private struct TrackInsightEmptyState: View {
+    @ObservedObject var model: DJConnectAppModel
+
+    var body: some View {
+        VStack(spacing: 16) {
+            Image(systemName: "waveform.path.ecg")
+                .font(.system(size: 50, weight: .semibold))
+                .foregroundStyle(djConnectIconGradient)
+            Text("Track Insight")
+                .font(.title2.weight(.bold))
+            Text(localizedKey(model.language, "ui.see.what.makes.the.current.track.feel.the.way.it"))
+                .font(.callout)
+                .foregroundStyle(.white.opacity(0.68))
+                .multilineTextAlignment(.center)
+                .frame(maxWidth: 420)
+            Button {
+                model.analyzeCurrentTrack(open: false)
+            } label: {
+                Label(localizedKey(model.language, "ui.analyze.track"), systemImage: "sparkles")
+                    .fixedSize(horizontal: true, vertical: false)
+            }
+            .buttonStyle(DJConnectLilacPillButtonStyle())
+            .disabled(model.isLoadingTrackInsight)
+            if model.isLoadingTrackInsight {
+                ProgressView()
+            }
+        }
+        .padding(24)
+        .frame(maxWidth: .infinity)
+        .djConnectGradientCard(cornerRadius: 8)
+    }
+}
+
+extension TrackVibeProfile {
+    var colors: [Color] {
+        palette.map { Color(hex: $0) ?? djConnectAccent }
+    }
+
+    var gradient: LinearGradient {
+        LinearGradient(colors: colors, startPoint: .topLeading, endPoint: .bottomTrailing)
+    }
+
+    func applyingTrackInsightMoodRenderOverride(stepIndex: Int) -> TrackVibeProfile {
+        var copy = self
+        let clampedStep = max(0, min(3, stepIndex))
+        switch clampedStep {
+        case 0:
+            copy.palette = ["#4DA3FF", "#7B61FF", "#D184FF"]
+            copy.glow = max(0.30, glow * 0.78)
+            copy.pulseSpeed = max(0.35, pulseSpeed * 0.72)
+            copy.waveform = max(0.20, waveform * 0.74)
+            copy.particleDensity = max(0.12, particleDensity * 0.70)
+            copy.particleVelocity = max(0.18, particleVelocity * 0.70)
+            copy.animationSpeed = max(0.45, animationSpeed * 0.70)
+            copy.motionStyle = .dreamy
+        case 1:
+            copy.palette = ["#2EC4B6", "#7B61FF", "#D184FF"]
+            copy.glow = max(0.38, glow * 0.95)
+            copy.pulseSpeed = max(0.55, pulseSpeed * 0.92)
+            copy.waveform = max(0.34, waveform * 0.96)
+            copy.particleDensity = max(0.22, particleDensity * 0.92)
+            copy.particleVelocity = max(0.26, particleVelocity * 0.88)
+            copy.animationSpeed = max(0.58, animationSpeed * 0.90)
+            copy.motionStyle = .balanced
+        case 2:
+            copy.palette = ["#8AC926", "#FFD166", "#FF6A3D"]
+            copy.glow = min(0.95, max(0.48, glow * 1.14))
+            copy.pulseSpeed = min(2.2, max(0.75, pulseSpeed * 1.16))
+            copy.waveform = min(1.0, max(0.46, waveform * 1.12))
+            copy.particleDensity = min(0.92, max(0.30, particleDensity * 1.12))
+            copy.particleVelocity = min(1.18, max(0.34, particleVelocity * 1.08))
+            copy.animationSpeed = min(1.9, max(0.75, animationSpeed * 1.12))
+            copy.motionStyle = .energetic
+        default:
+            copy.palette = ["#FF2E63", "#A855F7", "#FFD166"]
+            copy.glow = min(0.95, max(0.56, glow * 1.26))
+            copy.pulseSpeed = min(2.2, max(0.95, pulseSpeed * 1.34))
+            copy.waveform = min(1.0, max(0.56, waveform * 1.24))
+            copy.particleDensity = min(0.92, max(0.44, particleDensity * 1.28))
+            copy.particleVelocity = min(1.18, max(0.42, particleVelocity * 1.18))
+            copy.animationSpeed = min(1.9, max(0.90, animationSpeed * 1.24))
+            copy.motionStyle = .energetic
+        }
+        copy.spectrumProfile = copy.spectrumProfile.enumerated().map { index, value in
+            let position = Double(index) / Double(max(copy.spectrumProfile.count - 1, 1))
+            let lift: Double
+            switch clampedStep {
+            case 0:
+                lift = 0.78 - position * 0.08
+            case 1:
+                lift = 0.88 + (1.0 - abs(position - 0.5) * 2.0) * 0.18
+            case 2:
+                lift = 0.96 + position * 0.24
+            default:
+                lift = 1.02 + sin(position * .pi * 3.0) * 0.20
+            }
+            return min(1.0, max(0.12, value * lift))
+        }
+        return copy
+    }
+}
+
+private extension Color {
+    init?(hex: String) {
+        var raw = hex.trimmingCharacters(in: .whitespacesAndNewlines)
+        if raw.hasPrefix("#") {
+            raw.removeFirst()
+        }
+        guard raw.count == 6, let value = Int(raw, radix: 16) else {
+            return nil
+        }
+        self.init(
+            red: Double((value >> 16) & 0xff) / 255.0,
+            green: Double((value >> 8) & 0xff) / 255.0,
+            blue: Double(value & 0xff) / 255.0
+        )
+    }
+}
+
 #if os(iOS)
 private struct IOSNowPlayingView: View {
     @ObservedObject var model: DJConnectAppModel
+    @State private var statusToast: DJConnectVisualNotice?
 
     var body: some View {
         NavigationStack {
@@ -2298,14 +8524,19 @@ private struct IOSNowPlayingView: View {
                 }
                 .background(.clear)
                 .refreshable {
-                    model.refresh()
+                    if !model.isDemoMode {
+                        await refreshNowPlayingWithToast()
+                    }
                 }
             }
-            .navigationTitle(screenTitle(model.language, "Now Playing", "Speelt nu", isDemoMode: model.isDemoMode))
-            .navigationBarTitleDisplayMode(.inline)
+            .djStatusToastOverlay(statusToast)
+            .navigationTitle(screenTitle(model.language, key: "Now Playing", isDemoMode: model.isDemoMode))
+            .navigationBarTitleDisplayMode(.large)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    RefreshButton(model: model)
+                    RefreshButton(model: model) {
+                        Task { await refreshNowPlayingWithToast() }
+                    }
                 }
             }
             .task {
@@ -2314,6 +8545,30 @@ private struct IOSNowPlayingView: View {
                 }
             }
             .djUserNoticeToast(model: model)
+        }
+    }
+
+    private func refreshNowPlayingWithToast() async {
+        let didRefresh = await model.refreshNowPlaying()
+        showStatusToast(
+            didRefresh ? localizedKey(model.language, "appModel.now.playing.updated") : localizedKey(model.language, "appModel.now.playing.update.failed"),
+            systemImage: didRefresh ? "checkmark.circle.fill" : "exclamationmark.triangle.fill"
+        )
+    }
+
+    private func showStatusToast(_ text: String, systemImage: String) {
+        let notice = DJConnectVisualNotice(text: text, systemImage: systemImage)
+        withAnimation(.easeOut(duration: 0.18)) {
+            statusToast = notice
+        }
+        Task { @MainActor in
+            try? await Task.sleep(for: .seconds(2))
+            guard statusToast?.id == notice.id else {
+                return
+            }
+            withAnimation(.easeIn(duration: 0.18)) {
+                statusToast = nil
+            }
         }
     }
 }
@@ -2350,12 +8605,12 @@ private struct IOSConnectionCard: View {
 
             if model.pairingStatus != .paired {
                 HStack {
-                    Text(localized(model.language, "Code", "Code"))
+                    Text(localizedKey(model.language, "ui.code"))
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(.secondary)
                     CopyableValue(
                         text: model.pairingToken,
-                        copyLabel: localized(model.language, "Copy Pair Code", "Koppelcode kopiëren"),
+                        copyLabel: localizedKey(model.language, "ui.copy.pair.code"),
                         prominent: true
                     )
                     if model.isPairing {
@@ -2374,11 +8629,7 @@ private struct IOSConnectionCard: View {
                     .fixedSize(horizontal: false, vertical: true)
             } else if !model.backendAvailable {
                 Label(
-                    localized(
-                            model.language,
-                            "Playback is unavailable\nCheck the Spotify authorization in Home Assistant",
-                            "Afspelen niet beschikbaar\nControleer de Spotify autorisatie in Home Assistant"
-                        ),
+                    localizedKey(model.language, "ui.playback.is.unavailable.ncheck.the.spotify.authorization.in.home.assistant"),
                     systemImage: "exclamationmark.triangle"
                 )
                     .font(.footnote)
@@ -2405,43 +8656,47 @@ private struct IOSConnectionCard: View {
         if model.backendAvailable {
             GlowingStatusDot()
                 .frame(width: 22, height: 22)
-                .accessibilityLabel(localized(model.language, "Playback available", "Afspelen beschikbaar"))
+                .accessibilityLabel(localizedKey(model.language, "ui.playback.available"))
         } else {
             Circle()
                 .fill(Color.secondary.opacity(0.75))
                 .frame(width: 11, height: 11)
                 .shadow(color: Color.secondary.opacity(0.35), radius: 8)
                 .frame(width: 22, height: 22)
-                .accessibilityLabel(localized(model.language, "Playback unavailable", "Afspelen niet beschikbaar"))
+                .accessibilityLabel(localizedKey(model.language, "ui.playback.unavailable"))
         }
     }
 
     private var statusTitle: String {
         return switch model.pairingStatus {
         case .paired:
-            localized(model.language, "Paired", "Gekoppeld")
+            localizedKey(model.language, "ui.paired")
         case .pairing:
-            localized(model.language, "Waiting for Home Assistant", "Wachten op Home Assistant")
+            localizedKey(model.language, "ui.pairing.with.home.assistant")
+        case .waitingForHomeAssistantCompletion:
+            localizedKey(model.language, "ui.finish.setup.in.home.assistant")
         case .stale:
-            localized(model.language, "Not connected to Home Assistant", "Niet gekoppeld aan Home Assistant")
+            localizedKey(model.language, "ui.not.connected.to.home.assistant")
         case .unpaired:
-            localized(model.language, "Ready to Pair", "Klaar om te koppelen")
+            localizedKey(model.language, "ui.ready.to.pair")
         }
     }
 
     private var statusSubtitle: String? {
         if model.isDemoMode {
-            return localized(model.language, "App Store preview without Home Assistant", "App Store preview zonder Home Assistant")
+            return localizedKey(model.language, "ui.app.store.preview.without.home.assistant")
         }
         return switch model.pairingStatus {
         case .paired:
             nil
         case .pairing:
-            localized(model.language, "Enter this code in the DJConnect Home Assistant integration", "Vul deze code in bij de DJConnect Home Assistant integratie")
+            localizedKey(model.language, "ui.enter.this.code.in.the.djconnect.home.assistant")
+        case .waitingForHomeAssistantCompletion:
+            localizedKey(model.language, "ui.waiting.for.setup.to.be.completed.in.home")
         case .stale:
-            localized(model.language, "Open Settings to reset or recover pairing", "Open Instellingen om pairing te herstellen of resetten")
+            localizedKey(model.language, "ui.open.settings.to.reset.or.recover.pairing")
         case .unpaired:
-            localized(model.language, "Add your Home Assistant URL in Settings", "Vul je Home Assistant URL in bij Instellingen")
+            localizedKey(model.language, "ui.add.your.home.assistant.url.in.settings")
         }
     }
 
@@ -2454,6 +8709,8 @@ private struct IOSConnectionCard: View {
             "checkmark.seal.fill"
         case .pairing:
             "link"
+        case .waitingForHomeAssistantCompletion:
+            "hourglass.circle.fill"
         case .stale:
             "exclamationmark.lock.fill"
         case .unpaired:
@@ -2470,6 +8727,8 @@ private struct IOSConnectionCard: View {
             model.backendAvailable ? .green : .red
         case .pairing:
             djConnectAccent
+        case .waitingForHomeAssistantCompletion:
+            .orange
         case .stale:
             .orange
         case .unpaired:
@@ -2491,13 +8750,18 @@ private struct IOSTrackHero: View {
             AnimatedAlbumArtworkView(playback: playback, isDemoMode: model.isDemoMode, maxWidth: 300)
 
             VStack(alignment: .leading, spacing: 5) {
-                Text(playback?.trackName ?? localized(model.language, "Nothing Playing", "Niets speelt af"))
-                    .font(.title2.weight(.bold))
-                    .lineLimit(2)
-                Text(playback?.artistName ?? playback?.device?.name ?? localized(model.language, "Select an output device", "Kies een uitvoerapparaat"))
-                    .font(.headline)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(2)
+                HStack(alignment: .top, spacing: 12) {
+                    VStack(alignment: .leading, spacing: 5) {
+                        Text(playback?.trackName ?? localizedKey(model.language, "ui.nothing.playing"))
+                            .font(.title2.weight(.bold))
+                            .lineLimit(2)
+                        Text(playback?.artistName ?? playback?.device?.name ?? localizedKey(model.language, "ui.select.an.output.device"))
+                            .font(.headline)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(2)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
             }
 
             ProgressScrubberView(model: model)
@@ -2523,7 +8787,7 @@ private struct IOSPlaybackSurface: View {
                 playbackButton(
                     "backward.end.fill",
                     size: 54,
-                    accessibilityLabel: localized(model.language, "Previous Track", "Vorig nummer")
+                    accessibilityLabel: localizedKey(model.language, "ui.previous.track")
                 ) {
                     model.sendPlaybackCommand("previous")
                 }
@@ -2532,7 +8796,7 @@ private struct IOSPlaybackSurface: View {
                     model.isPlaying ? "pause.fill" : "play.fill",
                     size: 66,
                     prominent: true,
-                    accessibilityLabel: model.isPlaying ? localized(model.language, "Pause", "Pauze") : localized(model.language, "Play", "Afspelen")
+                    accessibilityLabel: model.isPlaying ? localizedKey(model.language, "ui.pause") : localizedKey(model.language, "ui.play")
                 ) {
                     model.togglePlayback()
                 }
@@ -2540,7 +8804,7 @@ private struct IOSPlaybackSurface: View {
                 playbackButton(
                     "forward.end.fill",
                     size: 54,
-                    accessibilityLabel: localized(model.language, "Next Track", "Volgend nummer")
+                    accessibilityLabel: localizedKey(model.language, "ui.next.track")
                 ) {
                     model.sendPlaybackCommand("next")
                 }
@@ -2549,12 +8813,13 @@ private struct IOSPlaybackSurface: View {
             HStack(spacing: 12) {
                 Image(systemName: "speaker.wave.1.fill")
                     .foregroundStyle(.secondary)
-                Slider(value: $model.volume, in: 0...100, step: 1) { editing in
+                Slider(value: $model.volume, in: 0...100) { editing in
                     if !editing {
                         DJConnectHaptics.selection()
                         model.commitVolumeChange()
                     }
                 }
+                .tint(djConnectAccent)
                 .disabled(!canUsePlayback)
                 Text("\(Int(model.volume))")
                     .font(.caption.monospacedDigit())
@@ -2569,6 +8834,9 @@ private struct IOSPlaybackSurface: View {
                 FavoriteTrackButton(model: model)
                     .disabled(!canUsePlayback)
 
+                TrackInsightIconButton(model: model)
+                    .disabled(!canUsePlayback)
+
                 RepeatModeButton(model: model)
                     .disabled(!canUsePlayback)
             }
@@ -2576,7 +8844,7 @@ private struct IOSPlaybackSurface: View {
         .disabled(!canUsePlayback)
         .opacity(canUsePlayback ? 1 : 0.55)
         .padding(14)
-        .background(Color(uiColor: .systemBackground), in: RoundedRectangle(cornerRadius: 8))
+        .background(Color.white.opacity(0.04), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
     }
 
     private func playbackButton(
@@ -2594,10 +8862,9 @@ private struct IOSPlaybackSurface: View {
             Image(systemName: systemImage)
                 .font(.system(size: prominent ? 24 : 18, weight: .semibold))
                 .frame(width: size, height: size)
-                .foregroundStyle(prominent ? .white : .primary)
-                .background(prominent ? Color.purple : Color(uiColor: .secondarySystemGroupedBackground), in: Circle())
+                .foregroundStyle(.white)
         }
-        .buttonStyle(DJConnectPressedTintButtonStyle(pressedColor: djConnectAccent, shape: .circle))
+        .buttonStyle(PlaybackControlButtonStyle(isProminent: prominent))
         .disabled(!canUsePlayback)
         .accessibilityLabel(accessibilityLabel)
     }
@@ -2637,11 +8904,7 @@ struct SetupStatusView: View {
                         .fixedSize(horizontal: false, vertical: true)
                 } else if !model.backendAvailable {
                     Label(
-                        localized(
-                            model.language,
-                            "Playback is unavailable\nCheck the Spotify authorization in Home Assistant",
-                            "Afspelen niet beschikbaar\nControleer de Spotify autorisatie in Home Assistant"
-                        ),
+                        localizedKey(model.language, "ui.playback.is.unavailable.ncheck.the.spotify.authorization.in.home.assistant"),
                         systemImage: "exclamationmark.triangle"
                     )
                         .foregroundStyle(.orange)
@@ -2657,35 +8920,7 @@ struct SetupStatusView: View {
                         .fixedSize(horizontal: false, vertical: true)
                 }
 
-                VStack(alignment: .leading, spacing: 6) {
-                    setupDetailRow(
-                        localized(model.language, "Route", "Route"),
-                        connectionModeTitle
-                    )
-                    setupDetailRow(
-                        localized(model.language, "Backend", "Backend"),
-                        backendTitle
-                    )
-                    setupDetailRow(
-                        localized(model.language, "Playback", "Afspelen"),
-                        playbackTitle
-                    )
-                }
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .accessibilityElement(children: .combine)
             }
-        }
-    }
-
-    private func setupDetailRow(_ label: String, _ value: String) -> some View {
-        HStack(alignment: .firstTextBaseline, spacing: 8) {
-            Text(label)
-                .fontWeight(.semibold)
-            Spacer(minLength: 8)
-            Text(value)
-                .multilineTextAlignment(.trailing)
-                .lineLimit(2)
         }
     }
 
@@ -2698,6 +8933,8 @@ struct SetupStatusView: View {
             "checkmark.seal"
         case .pairing:
             "link"
+        case .waitingForHomeAssistantCompletion:
+            "hourglass.circle"
         case .stale:
             "exclamationmark.lock"
         case .unpaired:
@@ -2721,6 +8958,8 @@ struct SetupStatusView: View {
             model.isConnected && model.backendAvailable ? .green : .red
         case .pairing:
             djConnectAccent
+        case .waitingForHomeAssistantCompletion:
+            .orange
         case .stale:
             .orange
         case .unpaired:
@@ -2730,70 +8969,32 @@ struct SetupStatusView: View {
 
     private var statusDotLabel: String {
         guard model.isConnected else {
-            return localized(model.language, "Disconnected", "Niet verbonden")
+            return localizedKey(model.language, "ui.disconnected")
         }
         guard model.backendAvailable else {
-            return localized(model.language, "Playback unavailable", "Afspelen niet beschikbaar")
+            return localizedKey(model.language, "ui.playback.unavailable")
         }
-        return localized(model.language, "Connected", "Verbonden")
+        return localizedKey(model.language, "ui.connected")
     }
 
     private var statusTitle: String {
         if model.isDemoMode {
-            return localized(model.language, "Demo Mode", "Demo modus")
+            return localizedKey(model.language, "ui.demo.mode")
         }
         return switch model.pairingStatus {
         case .paired:
-            localized(model.language, "Paired", "Gekoppeld")
+            localizedKey(model.language, "ui.paired")
         case .pairing:
-            localized(model.language, "Pairing", "Koppelen")
+            localizedKey(model.language, "ui.pairing.with.home.assistant")
+        case .waitingForHomeAssistantCompletion:
+            localizedKey(model.language, "ui.finish.setup.in.home.assistant")
         case .stale:
-            localized(model.language, "Stale", "Verlopen")
+            localizedKey(model.language, "ui.not.connected.to.home.assistant")
         case .unpaired:
-            localized(model.language, "Unpaired", "Niet gekoppeld")
+            localizedKey(model.language, "ui.ready.to.pair")
         }
     }
 
-    private var connectionModeTitle: String {
-        if model.isDemoMode {
-            return localized(model.language, "Local Demo Mode", "Lokale demo modus")
-        }
-        return switch model.haConnectionMode {
-        case .local:
-            localized(model.language, "Local Home Assistant", "Lokale Home Assistant")
-        case .remote:
-            localized(model.language, "Remote Home Assistant", "Remote Home Assistant")
-        case .offline:
-            localized(model.language, "Offline", "Offline")
-        }
-    }
-
-    private var backendTitle: String {
-        let name = model.musicBackendSummary.musicBackendName
-            ?? model.musicBackendSummary.musicBackend
-            ?? localized(model.language, "Not reported", "Niet gemeld")
-        guard let available = model.musicBackendSummary.musicBackendAvailable else {
-            return name
-        }
-        return available
-            ? localized(model.language, "\(name) available", "\(name) beschikbaar")
-            : localized(model.language, "\(name) unavailable", "\(name) niet beschikbaar")
-    }
-
-    private var playbackTitle: String {
-        guard model.pairingStatus == .paired || model.isDemoMode else {
-            return localized(model.language, "Locked until pairing", "Geblokkeerd tot koppeling")
-        }
-        guard model.canUsePlaybackFeatures else {
-            return localized(model.language, "Unavailable", "Niet beschikbaar")
-        }
-        if model.playback?.hasPlayback == true {
-            return model.isPlaying
-                ? localized(model.language, "Playing", "Speelt")
-                : localized(model.language, "Paused", "Gepauzeerd")
-        }
-        return localized(model.language, "No active playback", "Geen actieve playback")
-    }
 }
 
 struct TrackSummaryView: View {
@@ -2809,10 +9010,10 @@ struct TrackSummaryView: View {
             AnimatedAlbumArtworkView(playback: playback, isDemoMode: model.isDemoMode, maxWidth: 320)
 
             VStack(alignment: .leading, spacing: 6) {
-                Text(playback?.trackName ?? localized(model.language, "Nothing playing", "Niets speelt af"))
+                Text(playback?.trackName ?? localizedKey(model.language, "ui.nothing.playing.13ae37"))
                     .font(.title2.weight(.semibold))
                     .lineLimit(2)
-                Text(playback?.artistName ?? playback?.device?.name ?? localized(model.language, "Select an output device", "Kies een uitvoerapparaat"))
+                Text(playback?.artistName ?? playback?.device?.name ?? localizedKey(model.language, "ui.select.an.output.device"))
                     .font(.title3)
                     .foregroundStyle(.secondary)
                     .lineLimit(2)
@@ -2872,7 +9073,7 @@ private struct ProgressScrubberView: View {
             .tint(djConnectAccent)
             .disabled(!canSeek)
             .opacity(canSeek ? 1 : 0.55)
-            .accessibilityLabel(localized(model.language, "Playback position", "Afspeelpositie"))
+            .accessibilityLabel(localizedKey(model.language, "ui.playback.position"))
 
             Text("\(formatPlaybackTime(currentMS)) / \(formatPlaybackTime(durationMS))")
                 .font(.caption.monospacedDigit())
@@ -2909,8 +9110,8 @@ private struct SeekControlsView: View {
                     .frame(width: 48, height: 44)
                     .foregroundStyle(.white)
             }
-            .help(localized(model.language, "Back 15 seconds", "15 seconden terug"))
-            .accessibilityLabel(localized(model.language, "Back 15 seconds", "15 seconden terug"))
+            .help(localizedKey(model.language, "ui.back.15.seconds"))
+            .accessibilityLabel(localizedKey(model.language, "ui.back.15.seconds"))
 
             Button {
                 DJConnectHaptics.impact()
@@ -2921,15 +9122,69 @@ private struct SeekControlsView: View {
                     .frame(width: 48, height: 44)
                     .foregroundStyle(.white)
             }
-            .help(localized(model.language, "Forward 15 seconds", "15 seconden vooruit"))
-            .accessibilityLabel(localized(model.language, "Forward 15 seconds", "15 seconden vooruit"))
+            .help(localizedKey(model.language, "ui.forward.15.seconds"))
+            .accessibilityLabel(localizedKey(model.language, "ui.forward.15.seconds"))
         }
-        .buttonStyle(.bordered)
-        .controlSize(.small)
-        .tint(.white)
+        .buttonStyle(PlaybackControlButtonStyle())
         .disabled(!canSeek)
         .opacity(canSeek ? 1 : 0.45)
         .frame(maxWidth: .infinity, alignment: .center)
+    }
+}
+
+private struct TrackInsightIconButton: View {
+    @ObservedObject var model: DJConnectAppModel
+
+    private var helpText: String {
+        if model.isLoadingTrackInsight {
+            return localizedKey(model.language, "ui.refresh.track.insight")
+        }
+        if model.currentTrackInsight != nil {
+            return localizedKey(model.language, "ui.open.track.insight")
+        }
+        return localizedKey(model.language, "ui.sends.the.current.track.to.the.backend.for.analysis.and")
+    }
+
+    var body: some View {
+        Button {
+            DJConnectHaptics.selection()
+            model.analyzeCurrentTrack(open: true)
+        } label: {
+            if model.isLoadingTrackInsight {
+                ProgressView()
+                    .controlSize(.small)
+                    .frame(width: 44, height: 40)
+            } else {
+                TrackInsightPulseIcon()
+                    .stroke(style: StrokeStyle(lineWidth: 3.2, lineCap: .round, lineJoin: .round))
+                    .foregroundStyle(model.currentTrackInsight == nil ? .white.opacity(0.68) : djConnectAccent)
+                    .frame(width: 27, height: 23)
+                    .frame(width: 44, height: 40)
+            }
+        }
+        .buttonStyle(PlaybackControlButtonStyle(isActive: model.currentTrackInsight != nil))
+        .disabled(model.isLoadingTrackInsight || !model.canStartTrackInsightAnalysis)
+        .opacity(model.canStartTrackInsightAnalysis ? 1 : 0.45)
+        .accessibilityLabel(localizedKey(model.language, "ui.open.track.insight"))
+        .accessibilityHint(localizedKey(model.language, "ui.sends.the.current.track.to.the.backend.for.analysis.and"))
+        .help(helpText)
+    }
+}
+
+private struct TrackInsightPulseIcon: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let midY = rect.midY
+        let width = rect.width
+        let height = rect.height
+        path.move(to: CGPoint(x: rect.minX + width * 0.02, y: midY))
+        path.addLine(to: CGPoint(x: rect.minX + width * 0.24, y: midY))
+        path.addLine(to: CGPoint(x: rect.minX + width * 0.34, y: rect.minY + height * 0.26))
+        path.addLine(to: CGPoint(x: rect.minX + width * 0.46, y: rect.maxY - height * 0.18))
+        path.addLine(to: CGPoint(x: rect.minX + width * 0.56, y: rect.minY + height * 0.38))
+        path.addLine(to: CGPoint(x: rect.minX + width * 0.66, y: midY))
+        path.addLine(to: CGPoint(x: rect.minX + width * 0.98, y: midY))
+        return path
     }
 }
 
@@ -2947,11 +9202,11 @@ struct PlaybackControlsView: View {
                     Image(systemName: "backward.end.fill")
                         .font(.system(size: 22, weight: .semibold))
                         .frame(width: 44, height: 40)
+                        .foregroundStyle(.white)
                 }
-                .buttonStyle(.bordered)
-                .buttonStyle(DJConnectPressedTintButtonStyle(pressedColor: djConnectAccent))
-                .help(localized(model.language, "Previous", "Vorige"))
-                .accessibilityLabel(localized(model.language, "Previous Track", "Vorig nummer"))
+                .buttonStyle(PlaybackControlButtonStyle())
+                .help(localizedKey(model.language, "ui.previous.track"))
+                .accessibilityLabel(localizedKey(model.language, "ui.previous.track"))
                 .disabled(!canUsePlayback)
 
                 Button {
@@ -2961,12 +9216,11 @@ struct PlaybackControlsView: View {
                     Image(systemName: model.isPlaying ? "pause.fill" : "play.fill")
                         .font(.system(size: 24, weight: .semibold))
                         .frame(width: 50, height: 44)
+                        .foregroundStyle(.white)
                 }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.large)
-                .tint(djConnectAccent)
-                .help(model.isPlaying ? localized(model.language, "Pause", "Pauze") : localized(model.language, "Play", "Afspelen"))
-                .accessibilityLabel(model.isPlaying ? localized(model.language, "Pause", "Pauze") : localized(model.language, "Play", "Afspelen"))
+                .buttonStyle(PlaybackControlButtonStyle(isProminent: true))
+                .help(model.isPlaying ? localizedKey(model.language, "ui.pause") : localizedKey(model.language, "ui.play"))
+                .accessibilityLabel(model.isPlaying ? localizedKey(model.language, "ui.pause") : localizedKey(model.language, "ui.play"))
                 .disabled(!canUsePlayback)
 
                 Button {
@@ -2976,17 +9230,17 @@ struct PlaybackControlsView: View {
                     Image(systemName: "forward.end.fill")
                         .font(.system(size: 22, weight: .semibold))
                         .frame(width: 44, height: 40)
+                        .foregroundStyle(.white)
                 }
-                .buttonStyle(.bordered)
-                .buttonStyle(DJConnectPressedTintButtonStyle(pressedColor: djConnectAccent))
-                .help(localized(model.language, "Next", "Volgende"))
-                .accessibilityLabel(localized(model.language, "Next Track", "Volgend nummer"))
+                .buttonStyle(PlaybackControlButtonStyle())
+                .help(localizedKey(model.language, "ui.next.track"))
+                .accessibilityLabel(localizedKey(model.language, "ui.next.track"))
                 .disabled(!canUsePlayback)
             }
 
             HStack {
                 Image(systemName: "speaker.wave.1")
-                Slider(value: $model.volume, in: 0...100, step: 1) { editing in
+                Slider(value: $model.volume, in: 0...100) { editing in
                     if !editing {
                         DJConnectHaptics.selection()
                         model.commitVolumeChange()
@@ -3006,6 +9260,9 @@ struct PlaybackControlsView: View {
                 FavoriteTrackButton(model: model)
                     .disabled(!canUsePlayback)
 
+                TrackInsightIconButton(model: model)
+                    .disabled(!canUsePlayback)
+
                 RepeatModeButton(model: model)
                     .disabled(!canUsePlayback)
             }
@@ -3023,8 +9280,12 @@ private struct FavoriteTrackButton: View {
 
     private var label: String {
         isFavorite
-            ? localized(model.language, "Remove from favorites", "Haal uit favorieten")
-            : localized(model.language, "Add to favorites", "Zet in favorieten")
+            ? localizedKey(model.language, "ui.remove.from.favorites")
+            : localizedKey(model.language, "ui.add.to.favorites")
+    }
+
+    private var helpText: String {
+        model.isSavingCurrentTrack ? localizedKey(model.language, "appModel.favorite.status.updated") : label
     }
 
     var body: some View {
@@ -3035,13 +9296,18 @@ private struct FavoriteTrackButton: View {
             if model.isSavingCurrentTrack {
                 ProgressView()
                     .controlSize(.small)
+                    .frame(width: 44, height: 40)
             } else {
                 Image(systemName: isFavorite ? "heart.fill" : "heart")
+                    .font(.system(size: 22, weight: .semibold))
+                    .symbolRenderingMode(.monochrome)
+                    .foregroundStyle(isFavorite ? djConnectAccent : .white)
+                    .frame(width: 44, height: 40)
             }
         }
-        .buttonStyle(.bordered)
-        .tint(isFavorite ? .pink : nil)
-        .help(label)
+        .buttonStyle(PlaybackControlButtonStyle(isActive: isFavorite))
+        .tint(isFavorite ? djConnectAccent : .white)
+        .help(helpText)
         .accessibilityLabel(label)
         .disabled(model.isSavingCurrentTrack)
     }
@@ -3051,6 +9317,10 @@ private struct QueueItemRow: View {
     let item: DJConnectQueueItem
     var isLoading = false
 
+    private var subtitle: String? {
+        Self.trimmedNonEmpty(item.displaySubtitle)
+    }
+
     var body: some View {
         HStack(spacing: 12) {
             QueueArtworkView(url: item.albumImageURL)
@@ -3059,10 +9329,10 @@ private struct QueueItemRow: View {
                 Text(item.title)
                     .font(.body.weight(.medium))
                     .lineLimit(2)
-                if let artist = item.artist, !artist.isEmpty {
-                    Text(artist)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                if let subtitle {
+                    Text(subtitle)
+                        .font(.caption2.weight(.medium))
+                        .foregroundStyle(.secondary.opacity(0.82))
                         .lineLimit(1)
                 }
             }
@@ -3092,6 +9362,11 @@ private struct QueueItemRow: View {
             RoundedRectangle(cornerRadius: 12, style: .continuous)
                 .stroke(djConnectAccent.opacity(0.12), lineWidth: 1)
         }
+    }
+
+    private static func trimmedNonEmpty(_ value: String?) -> String? {
+        let trimmed = value?.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed?.isEmpty == false ? trimmed : nil
     }
 }
 
@@ -3160,39 +9435,43 @@ private struct OutputSelectorView: View {
     private var canUsePlayback: Bool { model.canUsePlaybackFeatures }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 14) {
             HStack {
-                Text(localized(model.language, "Output Device", "Uitvoerapparaat"))
+                Text(localizedKey(model.language, "ui.output.device"))
                     .font(.headline)
                 Spacer()
             }
 
             if model.availableOutputs.isEmpty {
-                Text(localizedOutputName(model.selectedOutput, language: model.language))
-                    .foregroundStyle(.secondary)
-                    .textSelection(.enabled)
+                OutputDeviceChoiceRow(
+                    language: model.language,
+                    output: nil,
+                    title: localizedOutputName(model.selectedOutput, language: model.language),
+                    isActive: false,
+                    isEnabled: false,
+                    action: {}
+                )
             } else {
-                Picker("", selection: Binding(
-                    get: { model.selectedOutput },
-                    set: { selected in
-                        if let output = model.availableOutputs.first(where: { $0.name == selected || $0.id == selected }) {
-                            DJConnectHaptics.selection()
-                            model.selectOutput(output)
-                        }
-                    }
-                )) {
+                VStack(spacing: 8) {
                     ForEach(model.availableOutputs) { output in
-                        Label(output.name, systemImage: output.active == true ? "speaker.wave.2.fill" : "speaker.wave.2")
-                            .tag(output.name)
+                        OutputDeviceChoiceRow(
+                            language: model.language,
+                            output: output,
+                            title: output.name,
+                            isActive: output.active == true,
+                            isEnabled: canUsePlayback,
+                            action: {
+                                guard canUsePlayback else {
+                                    return
+                                }
+                                if output.active != true {
+                                    DJConnectHaptics.selection()
+                                }
+                                model.selectOutput(output)
+                            }
+                        )
                     }
                 }
-                #if os(iOS)
-                .pickerStyle(.menu)
-                #endif
-                .labelsHidden()
-                .tint(djConnectAccent)
-                .foregroundStyle(djConnectAccent)
-                .disabled(!canUsePlayback)
             }
         }
         .opacity(canUsePlayback ? 1 : 0.55)
@@ -3209,6 +9488,97 @@ private struct OutputSelectorView: View {
                 .clipShape(RoundedRectangle(cornerRadius: 8))
         }
         #endif
+    }
+}
+
+private struct OutputDeviceChoiceRow: View {
+    let language: String
+    let output: DJConnectOutputDevice?
+    let title: String
+    let isActive: Bool
+    let isEnabled: Bool
+    let action: () -> Void
+
+    private var iconName: String {
+        switch output?.type?.lowercased() {
+        case "computer", "tv":
+            return "display"
+        case "headphones":
+            return "headphones"
+        case "phone":
+            return "iphone"
+        default:
+            return isActive ? "speaker.wave.2.fill" : "speaker.wave.2"
+        }
+    }
+
+    private var subtitle: String {
+        if isActive {
+            return localizedKey(language, "ui.active")
+        }
+        if let volume = output?.volumePercent {
+            return "\(volume)%"
+        }
+        if let type = output?.type, !type.isEmpty {
+            return type
+        }
+        return localizedKey(language, "ui.output")
+    }
+
+    private var activeColor: Color {
+        djConnectAccent
+    }
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 12) {
+                Image(systemName: iconName)
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundStyle(isActive ? activeColor : .white.opacity(0.68))
+                    .frame(width: 38, height: 38)
+                    .background(
+                        Circle()
+                            .fill(isActive ? activeColor.opacity(0.18) : Color.white.opacity(0.08))
+                    )
+
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(title)
+                        .font(.headline.weight(.semibold))
+                        .foregroundStyle(.white.opacity(0.94))
+                        .lineLimit(2)
+                        .multilineTextAlignment(.leading)
+                    Text(subtitle)
+                        .font(.subheadline.weight(.medium))
+                        .foregroundStyle(isActive ? activeColor.opacity(0.92) : .white.opacity(0.56))
+                        .lineLimit(1)
+                }
+                .layoutPriority(1)
+
+                Spacer(minLength: 8)
+
+                if isActive {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.title3.weight(.semibold))
+                        .foregroundStyle(activeColor)
+                }
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 11)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background {
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .fill(isActive ? Color.white.opacity(0.10) : Color.white.opacity(0.055))
+            }
+            .overlay {
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .stroke(isActive ? Color.white.opacity(0.22) : Color.white.opacity(0.10), lineWidth: 1)
+            }
+            .contentShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .disabled(!isEnabled)
+        .accessibilityLabel(title)
+        .accessibilityValue(subtitle)
     }
 }
 
@@ -3233,6 +9603,11 @@ private struct ShuffleModeButton: View {
         model.playback?.shuffle == true
     }
 
+    private var helpText: String {
+        let state = isShuffling ? localizedKey(model.language, "ui.on") : localizedKey(model.language, "ui.off")
+        return "\(localizedKey(model.language, "ui.shuffle")): \(state)"
+    }
+
     var body: some View {
         Button {
             DJConnectHaptics.impact()
@@ -3245,13 +9620,13 @@ private struct ShuffleModeButton: View {
             Image(systemName: "shuffle")
                 .symbolVariant(isShuffling ? .fill : .none)
                 .font(.system(size: 22, weight: .semibold))
+                .foregroundStyle(isShuffling ? djConnectAccent : .white.opacity(0.68))
                 .frame(width: 44, height: 40)
         }
-        .buttonStyle(.bordered)
-        .tint(isShuffling ? djConnectAccent : .secondary)
-        .help(localized(model.language, "Shuffle", "Shuffle"))
-        .accessibilityLabel(localized(model.language, "Shuffle", "Shuffle"))
-        .accessibilityValue(isShuffling ? localized(model.language, "On", "Aan") : localized(model.language, "Off", "Uit"))
+        .buttonStyle(PlaybackControlButtonStyle(isActive: isShuffling))
+        .help(helpText)
+        .accessibilityLabel(localizedKey(model.language, "ui.shuffle"))
+        .accessibilityValue(isShuffling ? localizedKey(model.language, "ui.on") : localizedKey(model.language, "ui.off"))
     }
 }
 
@@ -3274,23 +9649,19 @@ private struct RepeatModeButton: View {
             Image(systemName: repeatState.systemImage)
                 .symbolVariant(repeatState == .off ? .none : .fill)
                 .font(.system(size: 22, weight: .semibold))
+                .foregroundStyle(repeatState == .off ? .white.opacity(0.68) : djConnectAccent)
                 .frame(width: 44, height: 40)
         }
-        .buttonStyle(.bordered)
-        .tint(repeatState == .off ? .secondary : djConnectAccent)
+        .buttonStyle(PlaybackControlButtonStyle(isActive: repeatState != .off))
         .help(repeatHelpText)
-        .accessibilityLabel(localized(model.language, "Repeat", "Herhaal"))
+        .accessibilityLabel(localizedKey(model.language, "ui.repeat"))
         .accessibilityValue(repeatState.localizedName(language: model.language))
     }
 
     private var repeatHelpText: String {
         let state = repeatState.localizedName(language: model.language)
         let next = repeatState.next.localizedName(language: model.language)
-        return localized(
-            model.language,
-            "Repeat: \(state). Click for \(next).",
-            "Herhaal: \(state). Klik voor \(next)."
-        )
+        return localizedKey(model.language, "ui.repeat.value.click.for.value", arguments: state, next)
     }
 }
 
@@ -3318,17 +9689,18 @@ private extension DJConnectRepeatState {
     func localizedName(language: String) -> String {
         switch self {
         case .off:
-            localized(language, "Off", "Uit")
+            localizedKey(language, "ui.off")
         case .track:
-            localized(language, "Track", "Nummer")
+            localizedKey(language, "ui.track")
         case .context:
-            localized(language, "Context", "Context")
+            localizedKey(language, "ui.context")
         }
     }
 }
 
 private struct AskDJView: View {
     @ObservedObject var model: DJConnectAppModel
+    var openTrackInsightAction: () -> Void = {}
     @State private var showingClearConfirmation = false
     @State private var selectedWebLink: DJConnectResponseLink?
     @State private var feedbackMessage: DJConnectAskDJMessage?
@@ -3425,8 +9797,21 @@ private struct AskDJView: View {
     }
 
     private var chatTopPadding: CGFloat {
-        16
+        #if os(macOS)
+        let topInset: CGFloat = 76
+        #else
+        let topInset = djConnectScreenVerticalPadding
+        #endif
+        return topInset
             + (isSearchVisible ? 56 : 0)
+    }
+
+    private var floatingControlTopPadding: CGFloat {
+        #if os(macOS)
+        58
+        #else
+        10
+        #endif
     }
 
     private var shouldShowAskDJScrollToBottomButton: Bool {
@@ -3440,10 +9825,6 @@ private struct AskDJView: View {
                     ZStack(alignment: .top) {
                         ScrollView {
                             LazyVStack(spacing: 12) {
-                                if isAskDJHistoryStale {
-                                    AskDJOfflineNotice(language: model.language)
-                                        .padding(.top, 12)
-                                }
                                 if model.isCheckingAskDJHistoryState {
                                     ProgressView()
                                         .tint(.white)
@@ -3457,7 +9838,6 @@ private struct AskDJView: View {
                                             isInputFocused = true
                                         }
                                     )
-                                    .padding(.top, 48)
                                 } else {
                                     ForEach(askDJTimelineMessages) { message in
                                         let isTransientMessage = isTransientAskDJMessage(message)
@@ -3469,6 +9849,7 @@ private struct AskDJView: View {
                                             isAudioPlaying: isTransientMessage ? false : model.isPlayingAskDJAudio(message.audioURL),
                                             isRetryDisabled: isTransientMessage || isAskDJHistoryStale || model.isSendingAskDJText,
                                             playingActionID: model.playingAskDJActionID,
+                                            currentMood: model.askDJMoodInt,
                                             isSearchResult: searchResultIDs.contains(message.id),
                                             isActiveSearchResult: activeSearchResultID == message.id,
                                             searchText: askDJSearchText,
@@ -3487,6 +9868,10 @@ private struct AskDJView: View {
                                                 } else {
                                                     model.replayAskDJAudio(message.audioURL)
                                                 }
+                                            },
+                                            trackInsightAction: {
+                                                guard !isTransientMessage, !isAskDJHistoryStale else { return }
+                                                openTrackInsightAction()
                                             },
                                             openLink: { selectedWebLink = $0 },
                                             feedbackAction: { feedbackMessage = $0 },
@@ -3514,12 +9899,9 @@ private struct AskDJView: View {
                             .padding(.top, chatTopPadding)
                             .padding(.bottom, 16)
                             .contentShape(Rectangle())
-                            .onTapGesture {
-                                isInputFocused = false
-                                isSearchFocused = false
-                            }
                         }
                         .coordinateSpace(name: "askDJScroll")
+                        .contentShape(Rectangle())
                         .background(
                             GeometryReader { geometry in
                                 Color.clear.preference(
@@ -3535,16 +9917,12 @@ private struct AskDJView: View {
                             isAskDJAtBottom = bottomMaxY <= askDJViewportHeight + 140
                         }
                         .refreshable {
-                            isInputFocused = false
-                            isSearchFocused = false
-                            await model.refreshAskDJHistory()
+                            dismissAskDJKeyboard()
+                            if !model.isDemoMode {
+                                await model.refreshAskDJHistory(showToast: true)
+                            }
                         }
                         .scrollDismissesKeyboard(.interactively)
-                        .simultaneousGesture(
-                            DragGesture(minimumDistance: 8).onChanged { _ in
-                                isInputFocused = false
-                            }
-                        )
                         .overlay(alignment: .bottomTrailing) {
                             if shouldShowAskDJScrollToBottomButton, let lastID = model.askDJMessages.last?.id {
                                 Button {
@@ -3563,7 +9941,7 @@ private struct AskDJView: View {
                                 .buttonStyle(DJConnectFloatingCircleButtonStyle())
                                 .padding(.trailing, djConnectScreenHorizontalPadding)
                                 .padding(.bottom, 12)
-                                .help(localized(model.language, "Scroll to bottom", "Naar beneden"))
+                                .help(localizedKey(model.language, "ui.scroll.to.bottom"))
                             }
                         }
 
@@ -3579,7 +9957,7 @@ private struct AskDJView: View {
                                 closeAction: { dismissAskDJSearch() }
                             )
                             .padding(.horizontal, djConnectScreenHorizontalPadding)
-                            .padding(.top, 10)
+                            .padding(.top, floatingControlTopPadding)
                             .transition(.move(edge: .top).combined(with: .opacity))
                         }
 
@@ -3593,11 +9971,12 @@ private struct AskDJView: View {
                                 }
                             )
                             .padding(.horizontal, djConnectScreenHorizontalPadding)
-                            .padding(.top, isSearchVisible ? 72 : 10)
+                            .padding(.top, isSearchVisible ? floatingControlTopPadding + 62 : floatingControlTopPadding)
                             .zIndex(2)
                             .transition(.move(edge: .top).combined(with: .opacity))
                         }
                     }
+                    .contentShape(Rectangle())
                     .onChange(of: model.askDJMessages) {
                         normalizeAskDJSearchSelection()
                         scrollAskDJToInitialBottomIfNeeded(proxy: proxy)
@@ -3632,23 +10011,25 @@ private struct AskDJView: View {
                     }
                 }
 
+                if isAskDJHistoryStale {
+                    AskDJOfflineNotice(language: model.language)
+                        .padding(.horizontal, djConnectScreenHorizontalPadding)
+                        .padding(.top, 8)
+                        .padding(.bottom, 6)
+                }
+
                 AskDJInputBar(
                     model: model,
                     canSend: canSend,
                     canUseVoiceInput: canUseVoiceInput,
                     isInputFocused: $isInputFocused
                 )
+                .padding(.bottom, 8)
             }
             .background(DJConnectCanvasBackground())
-            .overlay(alignment: .bottom) {
-                if let toast {
-                    StatusToast(text: toast)
-                        .padding(.bottom, 76)
-                        .padding(.horizontal, djConnectScreenHorizontalPadding)
-                        .transition(.move(edge: .bottom).combined(with: .opacity))
-                }
-            }
-            .navigationTitle(screenTitle(model.language, "Ask DJ", "Ask DJ", isDemoMode: model.isDemoMode))
+            .djStatusToastOverlay(text: toast, systemImage: "bubble.left.and.bubble.right")
+            .navigationTitle(screenTitle(model.language, key: "Ask DJ", isDemoMode: model.isDemoMode))
+            .accessibilityIdentifier("screen-ask-dj")
             .toolbar {
                 #if os(macOS)
                 ToolbarItemGroup(placement: .primaryAction) {
@@ -3658,22 +10039,26 @@ private struct AskDJView: View {
                         Image(systemName: "magnifyingglass")
                             .foregroundStyle(isSearchVisible ? djConnectAccent : .primary)
                     }
-                    .help(localized(model.language, "Search Ask DJ", "Zoek in Ask DJ"))
-                    .accessibilityLabel(localized(model.language, "Search Ask DJ", "Zoek in Ask DJ"))
+                    .help(localizedKey(model.language, "ui.search.ask.dj"))
+                    .accessibilityLabel(localizedKey(model.language, "ui.search.ask.dj"))
 
                     askDJMoodToolbarButton
 
                     Button {
                         isInputFocused = false
                         Task {
-                            await model.refreshAskDJHistory()
+                            if !model.isDemoMode {
+                                await model.refreshAskDJHistory(showToast: true)
+                            }
                         }
                     } label: {
-                        Image(systemName: "arrow.clockwise")
+                        Image(systemName: model.isCheckingAskDJHistoryState ? "hourglass" : "arrow.clockwise")
+                            .foregroundStyle(model.isDemoMode ? .secondary : .primary)
                     }
-                    .disabled(model.isClearingAskDJHistory)
-                    .help(localized(model.language, "Refresh Ask DJ", "Ask DJ vernieuwen"))
-                    .accessibilityLabel(localized(model.language, "Refresh Ask DJ", "Ask DJ vernieuwen"))
+                    .tint(.primary)
+                    .disabled(model.isDemoMode || model.isClearingAskDJHistory || model.isCheckingAskDJHistoryState)
+                    .help(localizedKey(model.language, "ui.refresh.ask.dj"))
+                    .accessibilityLabel(localizedKey(model.language, "ui.refresh.ask.dj"))
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button {
@@ -3683,7 +10068,7 @@ private struct AskDJView: View {
                         Image(systemName: model.isClearingAskDJHistory ? "hourglass" : "trash")
                     }
                     .disabled(model.askDJMessages.isEmpty || model.isClearingAskDJHistory)
-                    .help(localized(model.language, "Clear chat", "Chat wissen"))
+                    .help(localizedKey(model.language, "ui.clear.chat"))
                 }
                 #else
                 ToolbarItemGroup(placement: .topBarLeading) {
@@ -3693,8 +10078,8 @@ private struct AskDJView: View {
                         Image(systemName: "magnifyingglass")
                             .foregroundStyle(isSearchVisible ? djConnectAccent : .primary)
                     }
-                    .help(localized(model.language, "Search Ask DJ", "Zoek in Ask DJ"))
-                    .accessibilityLabel(localized(model.language, "Search Ask DJ", "Zoek in Ask DJ"))
+                    .help(localizedKey(model.language, "ui.search.ask.dj"))
+                    .accessibilityLabel(localizedKey(model.language, "ui.search.ask.dj"))
 
                     askDJMoodToolbarButton
                 }
@@ -3707,41 +10092,44 @@ private struct AskDJView: View {
                     }
                     .tint(.red)
                     .disabled(model.askDJMessages.isEmpty || model.isClearingAskDJHistory)
-                    .help(localized(model.language, "Clear chat", "Chat wissen"))
-                    .accessibilityLabel(localized(model.language, "Clear chat", "Chat wissen"))
+                    .help(localizedKey(model.language, "ui.clear.chat"))
+                    .accessibilityLabel(localizedKey(model.language, "ui.clear.chat"))
 
                     Button {
                         isInputFocused = false
                         Task {
-                            await model.refreshAskDJHistory()
+                            if !model.isDemoMode {
+                                await model.refreshAskDJHistory(showToast: true)
+                            }
                         }
                     } label: {
-                        Image(systemName: "arrow.clockwise")
+                        Image(systemName: model.isCheckingAskDJHistoryState ? "hourglass" : "arrow.clockwise")
+                            .foregroundStyle(model.isDemoMode ? .secondary : .primary)
                     }
-                    .disabled(model.isClearingAskDJHistory)
-                    .help(localized(model.language, "Refresh Ask DJ", "Ask DJ vernieuwen"))
-                    .accessibilityLabel(localized(model.language, "Refresh Ask DJ", "Ask DJ vernieuwen"))
+                    .tint(.primary)
+                    .disabled(model.isDemoMode || model.isClearingAskDJHistory || model.isCheckingAskDJHistoryState)
+                    .help(localizedKey(model.language, "ui.refresh.ask.dj"))
+                    .accessibilityLabel(localizedKey(model.language, "ui.refresh.ask.dj"))
                 }
                 #endif
             }
             .alert(
-                localized(model.language, "Clear Ask DJ chat?", "Ask DJ chat wissen?"),
+                localizedKey(model.language, "ui.clear.ask.dj.chat"),
                 isPresented: $showingClearConfirmation
             ) {
-                Button(localized(model.language, "Clear Chat", "Chat wissen"), role: .destructive) {
+                Button(localizedKey(model.language, "ui.clear.chat.9ad354"), role: .destructive) {
                     isInputFocused = false
                     model.clearAskDJHistory()
                 }
-                Button(localized(model.language, "Cancel", "Annuleren"), role: .cancel) {}
+                Button(localizedKey(model.language, "ui.cancel"), role: .cancel) {}
             } message: {
-                Text(localized(
-                    model.language,
-                    "This clears the Ask DJ chat history on this Home Assistant account.",
-                    "Dit wist de Ask DJ chatgeschiedenis voor dit Home Assistant-account."
-                ))
+                Text(localizedKey(model.language, "ui.this.clears.the.ask.dj.chat.history.on.this.home"))
             }
         }
         .background(DJConnectCanvasBackground())
+        .onAppear {
+            model.presentMusicDNAOptInPromptIfNeeded()
+        }
         .task {
             await model.runAskDJHistorySyncLoop()
         }
@@ -3750,11 +10138,15 @@ private struct AskDJView: View {
         }
         .sheet(item: $feedbackMessage) { message in
             AskDJFeedbackPromptView(model: model, message: message)
+            #if os(iOS)
+                .presentationDetents([.large])
+                .presentationSizing(.page)
+            #endif
         }
-            .onChange(of: model.askDJToast?.id) { _, _ in
-                guard let text = model.askDJToast?.text else {
-                    return
-                }
+        .onChange(of: model.askDJToast?.id) { _, _ in
+            guard let text = model.askDJToast?.text else {
+                return
+            }
             showToast(text)
         }
     }
@@ -3770,8 +10162,8 @@ private struct AskDJView: View {
             Image(systemName: "slider.horizontal.3")
                 .foregroundStyle(isMoodVisible ? djConnectAccent : .primary)
         }
-        .help(localized(model.language, "Mood", "Mood"))
-        .accessibilityLabel(localized(model.language, "Mood", "Mood"))
+        .help(localizedKey(model.language, "ui.mood"))
+        .accessibilityLabel(localizedKey(model.language, "ui.mood"))
     }
 
     private func dismissAskDJSearch() {
@@ -3783,8 +10175,14 @@ private struct AskDJView: View {
         isSearchFocused = false
     }
 
-    private func toggleAskDJSearch() {
+    private func dismissAskDJKeyboard() {
         isInputFocused = false
+        isSearchFocused = false
+        resignPlatformFirstResponder()
+    }
+
+    private func toggleAskDJSearch() {
+        dismissAskDJKeyboard()
         if isSearchVisible {
             dismissAskDJSearch()
         } else {
@@ -3854,6 +10252,11 @@ private struct AskDJView: View {
             }
         }
     }
+
+    private static func trimmedNonEmpty(_ value: String?) -> String? {
+        let trimmed = value?.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed?.isEmpty == false ? trimmed : nil
+    }
 }
 
 
@@ -3894,16 +10297,16 @@ private struct AskDJSearchBar: View {
                 Image(systemName: "chevron.up")
             }
             .disabled(resultCount == 0)
-            .help(localized(language, "Previous result", "Vorig resultaat"))
+            .help(localizedKey(language, "ui.previous.result"))
             Button(action: nextAction) {
                 Image(systemName: "chevron.down")
             }
             .disabled(resultCount == 0)
-            .help(localized(language, "Next result", "Volgend resultaat"))
+            .help(localizedKey(language, "ui.next.result"))
             Button(action: closeAction) {
                 Image(systemName: "xmark")
             }
-            .help(localized(language, "Close search", "Zoeken sluiten"))
+            .help(localizedKey(language, "ui.close.search"))
         }
         .buttonStyle(.plain)
         .foregroundStyle(.white.opacity(0.86))
@@ -3961,13 +10364,13 @@ private struct AskDJSearchBar: View {
             return ""
         }
         guard resultCount > 0 else {
-            return localized(language, "0", "0")
+            return localizedKey(language, "ui.0")
         }
         return "\(selectedIndex + 1)/\(resultCount)"
     }
 
     private var searchPrompt: Text {
-        Text(localized(language, "Search \(scopeName)", "Zoek in \(scopeName)"))
+        Text(localizedKey(language, "ui.search.value", arguments: scopeName))
     }
 }
 
@@ -3978,48 +10381,17 @@ private struct AskDJEmptyState: View {
 
     private var examples: [String] {
         [
-            localized(
-                language,
-                "What did I listen to last week?",
-                "Waar heb ik afgelopen week naar geluisterd?"
-            ),
-            localized(language, "Surprise me with new music", "Verras me met nieuwe muziek"),
-            localized(
-                language,
-                "Give me a technical analysis of this song",
-                "Geef een technische track analyse van dit nummer"
-            ),
-            localized(language, "Which albums did this artist release?", "Welke albums bracht deze artiest uit?"),
-            localized(language, "Play something for cooking", "Speel iets dat past bij koken")
+            localizedKey(language, "ui.what.did.i.listen.to.last.week"),
+            localizedKey(language, "ui.surprise.me.with.new.music"),
+            localizedKey(language, "ui.give.me.track.insight.for.this.song"),
+            localizedKey(language, "ui.which.albums.did.this.artist.release"),
+            localizedKey(language, "ui.play.something.for.cooking")
         ]
     }
 
     var body: some View {
         VStack(spacing: 14) {
-            Image(systemName: "sparkles")
-                .font(.system(size: 36, weight: .semibold))
-                .foregroundStyle(
-                    LinearGradient(
-                        colors: [
-                            Color(red: 0.12, green: 0.45, blue: 1.00),
-                            Color(red: 0.84, green: 0.22, blue: 0.96)
-                        ],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
-            Text(localized(language, "Ask DJ", "Ask DJ"))
-                .font(.title3.weight(.semibold))
-                .foregroundStyle(.white)
-            Text(localized(
-                language,
-                "Ask about the music or give your DJ a request.",
-                "Vraag iets over de muziek of geef je DJ een opdracht."
-            ))
-                .font(.callout)
-                .foregroundStyle(.white.opacity(0.62))
-                .multilineTextAlignment(.center)
-                .frame(maxWidth: 360)
+            hero
 
             VStack(alignment: .leading, spacing: 8) {
                 ForEach(examples, id: \.self) { example in
@@ -4028,22 +10400,22 @@ private struct AskDJEmptyState: View {
                     } label: {
                         HStack(spacing: 8) {
                             Image(systemName: "quote.opening")
-                                .font(.caption2.weight(.bold))
+                                .font(.caption.weight(.bold))
                                 .foregroundStyle(.white.opacity(0.54))
                                 .frame(width: 18)
                             Text(example)
-                                .font(.caption.weight(.semibold))
+                                .font(.subheadline.weight(.semibold))
                                 .foregroundStyle(.white.opacity(0.86))
                                 .lineLimit(2)
                                 .fixedSize(horizontal: false, vertical: true)
                             Spacer(minLength: 4)
                             Image(systemName: "plus")
-                                .font(.caption2.weight(.bold))
+                                .font(.caption.weight(.bold))
                                 .foregroundStyle(.white.opacity(0.50))
                         }
-                        .padding(.horizontal, 11)
-                        .padding(.vertical, 8)
-                        .frame(maxWidth: 360, alignment: .leading)
+                        .padding(.horizontal, 13)
+                        .padding(.vertical, 10)
+                        .frame(maxWidth: 480, alignment: .leading)
                         .background {
                             RoundedRectangle(cornerRadius: 12, style: .continuous)
                                 .fill(.white.opacity(0.09))
@@ -4058,11 +10430,7 @@ private struct AskDJEmptyState: View {
             }
             .padding(.top, 2)
 
-            Text(localized(
-                language,
-                "Ask DJ can change the music when you ask for it.",
-                "Ask DJ kan muziek aanpassen als je daarom vraagt."
-            ))
+            Text(localizedKey(language, "ui.ask.dj.can.change.the.music.when.you.ask.for"))
                 .font(.caption2.weight(.medium))
                 .foregroundStyle(.white.opacity(0.48))
                 .multilineTextAlignment(.center)
@@ -4072,7 +10440,7 @@ private struct AskDJEmptyState: View {
                     ProgressView()
                         .controlSize(.small)
                         .tint(.white)
-                    Text(localized(language, "Finding something to play...", "Iets om af te spelen zoeken..."))
+                    Text(localizedKey(language, "ui.finding.something.to.play"))
                         .font(.caption2.weight(.semibold))
                         .foregroundStyle(.white.opacity(0.58))
                 }
@@ -4080,6 +10448,42 @@ private struct AskDJEmptyState: View {
             }
         }
         .frame(maxWidth: .infinity)
+    }
+
+    private var hero: some View {
+        VStack(spacing: 16) {
+            Image(systemName: "bubble.left.and.bubble.right")
+                .font(.system(size: 50, weight: .semibold))
+                .foregroundStyle(djConnectIconGradient)
+                .frame(width: 72, height: 72)
+            Text(localizedKey(language, "ui.ask.dj"))
+                .font(.title2.weight(.bold))
+                .foregroundStyle(.white)
+            Text(localizedKey(language, "ui.ask.about.the.music.or.give.your.dj.a.request"))
+                .font(.headline.weight(.semibold))
+                .foregroundStyle(.white.opacity(0.62))
+                .multilineTextAlignment(.center)
+                .frame(maxWidth: 480)
+        }
+        .padding(.horizontal, 28)
+        .padding(.vertical, 34)
+        .frame(maxWidth: .infinity, minHeight: 190)
+        .background(
+            LinearGradient(
+                colors: [
+                    Color(red: 0.04, green: 0.03, blue: 0.13).opacity(0.98),
+                    Color(red: 0.10, green: 0.04, blue: 0.22).opacity(0.97),
+                    Color(red: 0.11, green: 0.06, blue: 0.26).opacity(0.94)
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            ),
+            in: RoundedRectangle(cornerRadius: 8, style: .continuous)
+        )
+        .overlay {
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .stroke(.white.opacity(0.16), lineWidth: 1.5)
+        }
     }
 }
 
@@ -4092,14 +10496,10 @@ private struct AskDJOfflineNotice: View {
                 .font(.headline.weight(.semibold))
                 .foregroundStyle(.white.opacity(0.82))
             VStack(alignment: .leading, spacing: 2) {
-                Text(localized(language, "Ask DJ offline", "Ask DJ offline"))
+                Text(localizedKey(language, "ui.ask.dj.offline"))
                     .font(.subheadline.weight(.bold))
                     .foregroundStyle(.white)
-                Text(localized(
-                    language,
-                    "Shown messages may be stale until DJConnect is paired with Home Assistant again.",
-                    "Getoonde berichten kunnen verouderd zijn totdat DJConnect weer met Home Assistant is gekoppeld."
-                ))
+                Text(localizedKey(language, "ui.shown.messages.may.be.stale.until.djconnect.is.paired.with"))
                 .font(.caption.weight(.medium))
                 .foregroundStyle(.white.opacity(0.66))
                 .fixedSize(horizontal: false, vertical: true)
@@ -4128,12 +10528,14 @@ private struct AskDJMessageBubble: View {
     let isAudioPlaying: Bool
     let isRetryDisabled: Bool
     let playingActionID: String?
+    let currentMood: Int?
     let isSearchResult: Bool
     let isActiveSearchResult: Bool
     let searchText: String
     let retryAction: () -> Void
     let playAction: (DJConnectAskDJPlaybackAction) -> Void
     let audioAction: () -> Void
+    let trackInsightAction: () -> Void
     let openLink: (DJConnectResponseLink) -> Void
     let feedbackAction: (DJConnectAskDJMessage) -> Void
     let setPromptAction: (String) -> Void
@@ -4151,9 +10553,9 @@ private struct AskDJMessageBubble: View {
             return nil
         }
         if message.origin == "spotify_playback_context" {
-            return localized(language, "DJ fact", "DJ feitje")
+            return localizedKey(language, "ui.dj.fact")
         }
-        return localized(language, "DJ note", "DJ notitie")
+        return localizedKey(language, "ui.dj.note")
     }
 
     private var promptText: String {
@@ -4166,6 +10568,59 @@ private struct AskDJMessageBubble: View {
 
     private var canReportFeedback: Bool {
         !isUser && !isSystemMessage && !isStaleHistory
+    }
+
+    private var shouldShowGeneratedTextIcon: Bool {
+        !isUser
+            && !isSystemMessage
+            && message.isGeneratedText == true
+            && message.textSource?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() != "fallback"
+    }
+
+    private var hasPlayableAudio: Bool {
+        guard let audioURL = message.audioURL else {
+            return false
+        }
+        return !audioURL.absoluteString.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    private var assistantMood: Int? {
+        guard !isUser && !isSystemMessage else {
+            return nil
+        }
+        return (message.mood ?? currentMood).map { max(0, min(100, $0)) }
+    }
+
+    private var assistantMoodColors: [Color]? {
+        guard let assistantMood else {
+            return nil
+        }
+        switch assistantMood {
+        case ...24:
+            return [
+                Color(red: 0.24, green: 0.25, blue: 0.63),
+                Color(red: 0.38, green: 0.24, blue: 0.58),
+                Color(red: 0.58, green: 0.30, blue: 0.48)
+            ]
+        case 25...59:
+            return [
+                Color(red: 0.02, green: 0.47, blue: 0.55),
+                Color(red: 0.12, green: 0.34, blue: 0.82),
+                Color(red: 0.49, green: 0.25, blue: 0.86)
+            ]
+        case 60...84:
+            return [
+                Color(red: 0.11, green: 0.45, blue: 1.00),
+                Color(red: 0.44, green: 0.28, blue: 0.98),
+                Color(red: 0.84, green: 0.18, blue: 0.90)
+            ]
+        default:
+            return [
+                Color(red: 1.00, green: 0.46, blue: 0.26),
+                Color(red: 0.94, green: 0.20, blue: 0.55),
+                Color(red: 0.70, green: 0.18, blue: 0.86)
+            ]
+        }
     }
 
     private var isVoiceRequestMessage: Bool {
@@ -4233,6 +10688,17 @@ private struct AskDJMessageBubble: View {
         message.renderablePlaybackActions
     }
 
+    private var shouldShowTrackInsightShortcut: Bool {
+        guard !isUser, !isSystemMessage, !isStaleHistory else {
+            return false
+        }
+        return message.origin?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == "play_now"
+    }
+
+    private var shouldShowAudioReplayShortcut: Bool {
+        !isStaleHistory && !isUser && hasPlayableAudio
+    }
+
     var body: some View {
         HStack(alignment: .bottom, spacing: 8) {
             if isUser {
@@ -4241,7 +10707,7 @@ private struct AskDJMessageBubble: View {
             VStack(alignment: isUser ? .trailing : .leading, spacing: 4) {
                 VStack(alignment: .leading, spacing: 10) {
                     if let systemMessageLabel {
-                        Label(systemMessageLabel, systemImage: "sparkles")
+                        Label(systemMessageLabel, systemImage: "info.circle")
                             .font(.caption2.weight(.semibold))
                             .foregroundStyle(.white.opacity(0.66))
                             .lineLimit(1)
@@ -4254,12 +10720,19 @@ private struct AskDJMessageBubble: View {
                                     .foregroundStyle(.white.opacity(0.88))
                                 AskDJMarkdownText(text: displayText, highlight: searchText)
                             }
+                        } else if shouldShowGeneratedTextIcon {
+                            HStack(alignment: .firstTextBaseline, spacing: 7) {
+                                Image(systemName: "sparkles")
+                                    .font(.caption.weight(.bold))
+                                    .foregroundStyle(djConnectIconGradient)
+                                AskDJMarkdownText(text: displayText, highlight: searchText)
+                            }
                         } else {
                             AskDJMarkdownText(text: displayText, highlight: searchText)
                         }
                     }
-                    if !isUser, let analysis = message.analysis {
-                        AskDJAnalysisSummary(analysis: analysis, language: language)
+                    if !isUser, let trackInsight = message.trackInsight {
+                        AskDJTrackInsightSummary(insight: trackInsight, language: language)
                     }
                     if !isUser, !message.items.isEmpty {
                         AskDJItemList(items: message.items)
@@ -4281,12 +10754,15 @@ private struct AskDJMessageBubble: View {
                             playAction: playAction
                         )
                     }
-                    if !isStaleHistory, !isUser, message.audioURL != nil {
-                        AskDJAudioReplayButton(
+                    if shouldShowAudioReplayShortcut || shouldShowTrackInsightShortcut {
+                        AskDJResponseShortcutStack(
                             language: language,
-                            isLoading: isAudioLoading,
-                            isPlaying: isAudioPlaying,
-                            action: audioAction
+                            showAudioReplay: shouldShowAudioReplayShortcut,
+                            isAudioLoading: isAudioLoading,
+                            isAudioPlaying: isAudioPlaying,
+                            audioAction: audioAction,
+                            showTrackInsight: shouldShowTrackInsightShortcut,
+                            trackInsightAction: trackInsightAction
                         )
                     }
                 }
@@ -4305,7 +10781,7 @@ private struct AskDJMessageBubble: View {
                         .foregroundStyle(.white.opacity(0.46))
                     if isUser, message.status == .failed {
                         Button(action: retryAction) {
-                            Label(localized(language, "Retry", "Opnieuw"), systemImage: "arrow.clockwise")
+                            Label(localizedKey(language, "ui.retry"), systemImage: "arrow.clockwise")
                                 .font(.caption2.weight(.semibold))
                         }
                         .buttonStyle(.plain)
@@ -4317,13 +10793,13 @@ private struct AskDJMessageBubble: View {
                             DJConnectHaptics.selection()
                             feedbackAction(message)
                         } label: {
-                            Label(localized(language, "Feedback", "Feedback"), systemImage: "exclamationmark.bubble")
+                            Label(localizedKey(language, "ui.feedback"), systemImage: "exclamationmark.bubble")
                                 .font(.caption2.weight(.semibold))
                         }
                         .buttonStyle(.plain)
                         .foregroundStyle(.white.opacity(0.58))
-                        .help(localized(language, "Report this Ask DJ answer", "Meld dit Ask DJ antwoord"))
-                        .accessibilityLabel(localized(language, "Report this Ask DJ answer", "Meld dit Ask DJ antwoord"))
+                        .help(localizedKey(language, "ui.report.this.ask.dj.answer"))
+                        .accessibilityLabel(localizedKey(language, "ui.report.this.ask.dj.answer"))
                     }
                 }
                 .padding(.horizontal, 6)
@@ -4341,7 +10817,7 @@ private struct AskDJMessageBubble: View {
                     DJConnectHaptics.selection()
                     setPromptAction(promptText)
                 } label: {
-                    Label(localized(language, "Set in prompt", "Zet in prompt"), systemImage: "text.cursor")
+                    Label(localizedKey(language, "ui.set.in.prompt"), systemImage: "text.cursor")
                 }
             }
             if canReportFeedback {
@@ -4349,7 +10825,7 @@ private struct AskDJMessageBubble: View {
                     DJConnectHaptics.selection()
                     feedbackAction(message)
                 } label: {
-                    Label(localized(language, "Report answer", "Meld antwoord"), systemImage: "exclamationmark.bubble")
+                    Label(localizedKey(language, "ui.report.answer"), systemImage: "exclamationmark.bubble")
                 }
             }
         }
@@ -4363,13 +10839,13 @@ private struct AskDJMessageBubble: View {
         let statusText: String
         switch status {
         case .sending:
-            statusText = localized(language, "sending...", "bezig...")
+            statusText = localizedKey(language, "ui.sending")
         case .sent:
-            statusText = localized(language, "sent", "verzonden")
+            statusText = localizedKey(language, "ui.sent")
         case .delivered:
-            statusText = localized(language, "sent", "verzonden")
+            statusText = localizedKey(language, "ui.sent")
         case .failed:
-            statusText = localized(language, "failed", "mislukt")
+            statusText = localizedKey(language, "ui.failed")
         }
         return "\(timestamp) · \(statusText)"
     }
@@ -4388,6 +10864,16 @@ private struct AskDJMessageBubble: View {
             AnyShapeStyle(Color.white.opacity(0.36))
         } else if isStaleHistory {
             AnyShapeStyle(Color.white.opacity(0.16))
+        } else if let assistantMoodColors {
+            AnyShapeStyle(LinearGradient(
+                colors: [
+                    assistantMoodColors[0].opacity(0.42),
+                    assistantMoodColors[min(2, assistantMoodColors.count - 1)].opacity(0.52),
+                    Color.white.opacity(0.16)
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            ))
         } else {
             AnyShapeStyle(Color.white.opacity(isUser ? 0.12 : isSystemMessage ? 0.14 : 0.18))
         }
@@ -4423,6 +10909,20 @@ private struct AskDJMessageBubble: View {
                         endPoint: .bottomTrailing
                     )
                 )
+        } else if let assistantMoodColors {
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .fill(
+                    LinearGradient(
+                        colors: [
+                            assistantMoodColors[0].opacity(0.86),
+                            assistantMoodColors[1].opacity(0.76),
+                            assistantMoodColors[2].opacity(0.82),
+                            Color.black.opacity(0.18)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
         } else {
             RoundedRectangle(cornerRadius: 18, style: .continuous)
                 .fill(
@@ -4435,6 +10935,46 @@ private struct AskDJMessageBubble: View {
                         endPoint: .bottomTrailing
                     )
                 )
+        }
+    }
+}
+
+private struct AskDJResponseShortcutStack: View {
+    let language: String
+    let showAudioReplay: Bool
+    let isAudioLoading: Bool
+    let isAudioPlaying: Bool
+    let audioAction: () -> Void
+    let showTrackInsight: Bool
+    let trackInsightAction: () -> Void
+
+    var body: some View {
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: 10) {
+                shortcuts
+            }
+            VStack(alignment: .leading, spacing: 10) {
+                shortcuts
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var shortcuts: some View {
+        if showAudioReplay {
+            AskDJAudioReplayButton(
+                language: language,
+                isLoading: isAudioLoading,
+                isPlaying: isAudioPlaying,
+                action: audioAction
+            )
+        }
+        if showTrackInsight {
+            AskDJTrackInsightButton(
+                language: language,
+                isLoading: false,
+                action: trackInsightAction
+            )
         }
     }
 }
@@ -4485,423 +11025,93 @@ private struct AskDJAudioReplayButton: View {
 
     private var buttonText: String {
         if isLoading {
-            return localized(language, "Loading audio...", "Audio laden...")
+            return localizedKey(language, "ui.loading.audio")
         }
         if isPlaying {
-            return localized(language, "Stop DJ response", "DJ antwoord stoppen")
+            return localizedKey(language, "ui.stop.dj.response")
         }
-        return localized(language, "Play DJ response", "DJ antwoord afspelen")
+        return localizedKey(language, "ui.play.dj.response")
     }
 }
 
-private struct AskDJAnalysisSummary: View {
-    let analysis: DJConnectAskDJTrackAnalysis
+private struct AskDJTrackInsightButton: View {
     let language: String
-
-    private var modeText: String? {
-        switch analysis.mode?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() {
-        case "measured_plus_knowledge":
-            return localized(language, "Measured + context", "Gemeten + duiding")
-        case "measured":
-            return localized(language, "Measured", "Gemeten")
-        case "knowledge_plus_metadata":
-            return localized(language, "Context", "Duiding")
-        case "unavailable":
-            return localized(language, "Not available", "Niet beschikbaar")
-        default:
-            return nil
-        }
-    }
-
-    private var hasMeasuredData: Bool {
-        guard let measured = analysis.measured else {
-            return false
-        }
-        return measured.bpm != nil
-            || measured.key?.isEmpty == false
-            || measured.timeSignature != nil
-            || !measured.sections.isEmpty
-            || !measured.features.isEmpty
-    }
-
-    private var shouldRenderV1Fallback: Bool {
-        analysis.sections.isEmpty && analysis.timeline.isEmpty && analysis.djTips.isEmpty
-    }
-
-    private var hasInferredData: Bool {
-        guard let inferred = analysis.inferred else {
-            return false
-        }
-        return inferred.provider?.isEmpty == false
-            || inferred.structure?.isEmpty == false
-            || inferred.instrumentation?.isEmpty == false
-            || inferred.melodicBuild?.isEmpty == false
-            || inferred.energyCurve?.isEmpty == false
-            || inferred.mixNotes?.isEmpty == false
-    }
-
-    private var sourceText: String? {
-        let sources = analysis.sources
-            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-            .filter { !$0.isEmpty }
-        guard !sources.isEmpty else {
-            return nil
-        }
-        return sources.joined(separator: " · ")
-    }
+    let isLoading: Bool
+    let action: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack(spacing: 6) {
-                if let modeText {
-                    Label(modeText, systemImage: "waveform.path.ecg")
-                        .font(.caption2.weight(.semibold))
-                        .foregroundStyle(.white.opacity(0.76))
-                        .lineLimit(1)
-                }
-                if let confidence = analysis.confidence, !confidence.isEmpty {
-                    Text(confidence)
-                        .font(.caption2.weight(.medium))
-                        .foregroundStyle(.white.opacity(0.54))
-                        .lineLimit(1)
-                }
-            }
-            HStack(spacing: 6) {
-                if hasMeasuredData {
-                    Text(localized(language, "Measured", "Gemeten"))
-                        .font(.caption2.weight(.semibold))
-                        .foregroundStyle(.white.opacity(0.62))
-                }
-                if hasInferredData {
-                    Text(localized(language, "Context", "Duiding"))
-                        .font(.caption2.weight(.semibold))
-                        .foregroundStyle(.white.opacity(0.62))
-                }
-            }
-            if let sourceText {
-                Text(sourceText)
-                    .font(.caption2)
-                    .foregroundStyle(.white.opacity(0.44))
-                    .lineLimit(2)
-            }
-            if analysis.mode?.lowercased() != "unavailable" {
-                ForEach(analysis.sections, id: \.stableID) { section in
-                    if section.isMetadataContext {
-                        metadataContextRow(section)
+        Button(action: action) {
+            HStack(spacing: 9) {
+                ZStack {
+                    Circle().fill(.white.opacity(0.18))
+                    if isLoading {
+                        ProgressView()
+                            .controlSize(.small)
+                            .tint(.white)
                     } else {
-                        sectionRow(section)
+                        Image(systemName: "waveform.path.ecg")
+                            .font(.caption.weight(.bold))
+                            .foregroundStyle(.white)
                     }
                 }
-                if !analysis.timeline.isEmpty {
-                    timelineList
-                }
-                ForEach(analysis.djTips, id: \.stableID) { tip in
-                    tipRow(tip)
-                }
-                if shouldRenderV1Fallback {
-                    v1FallbackRows
-                }
-            }
-            if !analysis.limitations.isEmpty {
-                VStack(alignment: .leading, spacing: 4) {
-                    ForEach(analysis.limitations, id: \.self) { limitation in
-                        Text(limitation)
-                            .font(.caption2)
-                            .foregroundStyle(.white.opacity(0.50))
-                            .lineLimit(3)
-                    }
-                }
-            }
-        }
-        .padding(.horizontal, 9)
-        .padding(.vertical, 7)
-        .frame(maxWidth: 520, alignment: .leading)
-        .background {
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(.white.opacity(0.08))
-        }
-        .overlay {
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .stroke(.white.opacity(0.12), lineWidth: 1)
-        }
-    }
-
-    private var timelineList: some View {
-        VStack(alignment: .leading, spacing: 5) {
-            Text(localized(language, "Timeline", "Tijdlijn"))
-                .font(.caption2.weight(.semibold))
-                .foregroundStyle(.white.opacity(0.68))
-            ForEach(analysis.timeline, id: \.stableID) { entry in
-                HStack(alignment: .firstTextBaseline, spacing: 7) {
-                    Text(timestampText(for: entry))
-                        .font(.caption2.monospacedDigit().weight(.medium))
-                        .foregroundStyle(.white.opacity(0.58))
-                        .frame(minWidth: 42, alignment: .leading)
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(displayLabel(entry.label ?? entry.kind ?? "Segment"))
-                            .font(.caption2.weight(.semibold))
-                            .foregroundStyle(.white.opacity(isLowConfidence(entry.confidence) ? 0.72 : 0.86))
-                            .lineLimit(1)
-                        if let summary = entry.summary, !summary.isEmpty {
-                            Text(summary)
-                                .font(.caption2)
-                                .foregroundStyle(.white.opacity(0.62))
-                                .lineLimit(2)
-                        }
-                        if let meta = metaText(source: entry.source, confidence: entry.confidence) {
-                            Text(meta)
-                                .font(.caption2)
-                                .foregroundStyle(.white.opacity(0.46))
-                                .lineLimit(1)
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    private var v1FallbackRows: some View {
-        VStack(alignment: .leading, spacing: 5) {
-            if let measured = analysis.measured {
-                if let bpm = measured.bpm {
-                    compactRow(title: "BPM", value: bpm.formatted(.number.precision(.fractionLength(0...1))), meta: nil)
-                }
-                if let key = measured.key, !key.isEmpty {
-                    compactRow(title: localized(language, "Key", "Toonsoort"), value: key, meta: nil)
-                }
-                ForEach(measured.sections, id: \.stableID) { section in
-                    compactRow(
-                        title: displayLabel(section.label ?? localized(language, "Section", "Sectie")),
-                        value: measuredSectionTime(section),
-                        meta: section.confidence.map { localized(language, "confidence \($0)", "confidence \($0)") }
-                    )
-                }
-            }
-            if let inferred = analysis.inferred {
-                compactRow(title: localized(language, "Structure", "Structuur"), value: inferred.structure, meta: inferred.provider)
-                compactRow(title: localized(language, "Instrumentation", "Instrumentatie"), value: inferred.instrumentation, meta: inferred.provider)
-                compactRow(title: localized(language, "Energy curve", "Energy curve"), value: inferred.energyCurve, meta: inferred.provider)
-                compactRow(title: localized(language, "Mix notes", "Mix-notities"), value: inferred.mixNotes, meta: inferred.provider)
-            }
-        }
-    }
-
-    private func sectionRow(_ section: DJConnectAskDJTrackAnalysis.AnalysisSection) -> some View {
-        VStack(alignment: .leading, spacing: 3) {
-            HStack(alignment: .firstTextBaseline, spacing: 6) {
-                Text(displayLabel(section.displayTitle))
-                    .font(.caption2.weight(.semibold))
-                    .foregroundStyle(.white.opacity(isLowConfidence(section.confidence) ? 0.72 : 0.88))
-                    .lineLimit(2)
-                if let value = section.value, !value.isEmpty {
-                    Text(value)
-                        .font(.caption2.weight(.medium))
-                        .foregroundStyle(.white.opacity(0.76))
-                        .lineLimit(2)
-                }
-            }
-            if let summary = section.summary, !summary.isEmpty {
-                Text(summary)
-                    .font(.caption2)
-                    .foregroundStyle(.white.opacity(0.62))
-                    .lineLimit(3)
-            }
-            if !section.items.isEmpty {
-                HStack(spacing: 5) {
-                    ForEach(section.items.prefix(4)) { item in
-                        Text([item.title, item.value].compactMap { value in
-                            let trimmed = value?.trimmingCharacters(in: .whitespacesAndNewlines)
-                            return trimmed?.isEmpty == false ? trimmed : nil
-                        }.joined(separator: " "))
-                            .font(.caption2.weight(.medium))
-                            .foregroundStyle(.white.opacity(0.76))
-                            .lineLimit(1)
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 3)
-                            .background(Capsule().fill(.white.opacity(0.10)))
-                    }
-                }
-            }
-            if let meta = metaText(source: section.source, confidence: section.confidence) {
-                Text(meta)
-                    .font(.caption2)
-                    .foregroundStyle(.white.opacity(0.46))
+                .frame(width: 28, height: 28)
+                Text(localizedKey(language, "ui.track.insight"))
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.white)
                     .lineLimit(1)
+                Spacer(minLength: 4)
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 9)
+            .frame(maxWidth: 260, alignment: .leading)
+            .background {
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(.white.opacity(0.12))
+            }
+            .overlay {
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .stroke(.white.opacity(0.18), lineWidth: 1)
             }
         }
-        .padding(.horizontal, 7)
-        .padding(.vertical, 6)
-        .background {
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .fill(.white.opacity(0.07))
-        }
-    }
-
-    private func metadataContextRow(_ section: DJConnectAskDJTrackAnalysis.AnalysisSection) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            HStack(alignment: .firstTextBaseline, spacing: 6) {
-                Text(localized(language, "MusicBrainz / ListenBrainz", "MusicBrainz / ListenBrainz"))
-                    .font(.caption2.weight(.semibold))
-                    .foregroundStyle(.white.opacity(0.84))
-                    .lineLimit(1)
-                if let title = section.title, !title.isEmpty {
-                    Text(displayLabel(title))
-                        .font(.caption2.weight(.medium))
-                        .foregroundStyle(.white.opacity(0.58))
-                        .lineLimit(1)
-                }
-            }
-            if let summary = section.summary, !summary.isEmpty {
-                Text(summary)
-                    .font(.caption2)
-                    .foregroundStyle(.white.opacity(0.62))
-                    .lineLimit(3)
-            }
-            if let metadata = analysis.metadata {
-                metadataRows(metadata)
-            } else if !section.items.isEmpty {
-                metadataItemChips(section.items)
-            }
-            if let meta = metaText(source: section.source ?? "metabrainz_metadata", confidence: section.confidence) {
-                Text(meta)
-                    .font(.caption2)
-                    .foregroundStyle(.white.opacity(0.46))
-                    .lineLimit(1)
-            }
-        }
-        .padding(.horizontal, 7)
-        .padding(.vertical, 6)
-        .background {
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .fill(.white.opacity(0.055))
-        }
-    }
-
-    private func metadataRows(_ metadata: DJConnectAskDJTrackAnalysis.Metadata) -> some View {
-        VStack(alignment: .leading, spacing: 3) {
-            compactRow(title: localized(language, "Recording", "Opname"), value: metadata.recordingTitle, meta: metadata.artist)
-            compactRow(title: localized(language, "MusicBrainz ID", "MusicBrainz ID"), value: metadata.musicBrainzRecordingID, meta: nil)
-            compactRow(title: localized(language, "First release", "Eerste release"), value: metadata.firstReleaseDate, meta: metadata.release?.title)
-            compactRow(title: localized(language, "Release", "Release"), value: metadata.release?.title, meta: metadata.release?.date)
-            compactRow(title: localized(language, "Genres", "Genres"), value: metadata.genres.prefix(5).joined(separator: ", "), meta: nil)
-            compactRow(title: localized(language, "Tags", "Tags"), value: metadata.tags.prefix(5).joined(separator: ", "), meta: nil)
-            if let listenCount = metadata.listenBrainzListenCount {
-                compactRow(
-                    title: localized(language, "Public listens", "Publieke listens"),
-                    value: listenCount.formatted(.number),
-                    meta: "ListenBrainz"
-                )
-            }
-            if let matchScore = metadata.matchScore {
-                compactRow(
-                    title: localized(language, "Metadata confidence", "Metadata-confidence"),
-                    value: "\(matchScore)%",
-                    meta: "MetaBrainz"
-                )
-            }
-        }
-    }
-
-    private func metadataItemChips(_ items: [DJConnectAskDJHistoryItem]) -> some View {
-        HStack(spacing: 5) {
-            ForEach(items.prefix(4)) { item in
-                Text([item.title, item.value].compactMap { value in
-                    let trimmed = value?.trimmingCharacters(in: .whitespacesAndNewlines)
-                    return trimmed?.isEmpty == false ? trimmed : nil
-                }.joined(separator: " "))
-                    .font(.caption2.weight(.medium))
-                    .foregroundStyle(.white.opacity(0.70))
-                    .lineLimit(1)
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 3)
-                    .background(Capsule().fill(.white.opacity(0.08)))
-            }
-        }
-    }
-
-    private func tipRow(_ tip: DJConnectAskDJTrackAnalysis.DJTip) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(displayLabel(tip.displayTitle))
-                .font(.caption2.weight(.semibold))
-                .foregroundStyle(.white.opacity(isLowConfidence(tip.confidence) ? 0.72 : 0.86))
-            if let text = tip.text, !text.isEmpty {
-                Text(text)
-                    .font(.caption2)
-                    .foregroundStyle(.white.opacity(0.64))
-                    .lineLimit(3)
-            }
-            if let meta = metaText(source: tip.source, confidence: tip.confidence) {
-                Text(meta)
-                    .font(.caption2)
-                    .foregroundStyle(.white.opacity(0.46))
-                    .lineLimit(1)
-            }
-        }
-    }
-
-    private func compactRow(title: String, value: String?, meta: String?) -> some View {
-        Group {
-            if let value, !value.isEmpty {
-                VStack(alignment: .leading, spacing: 2) {
-                    HStack(alignment: .firstTextBaseline, spacing: 6) {
-                        Text(title)
-                            .font(.caption2.weight(.semibold))
-                            .foregroundStyle(.white.opacity(0.78))
-                        Text(value)
-                            .font(.caption2)
-                            .foregroundStyle(.white.opacity(0.64))
-                    }
-                    if let meta, !meta.isEmpty {
-                        Text(meta)
-                            .font(.caption2)
-                            .foregroundStyle(.white.opacity(0.46))
-                    }
-                }
-            }
-        }
-    }
-
-    private func measuredSectionTime(_ section: DJConnectAskDJTrackAnalysis.Section) -> String? {
-        guard let start = section.startMS else {
-            return nil
-        }
-        if let duration = section.durationMS {
-            return "\(formatMilliseconds(start)) · \(formatMilliseconds(duration))"
-        }
-        return formatMilliseconds(start)
-    }
-
-    private func timestampText(for entry: DJConnectAskDJTrackAnalysis.TimelineEntry) -> String {
-        if let start = entry.startMS {
-            return formatMilliseconds(start)
-        }
-        return "--:--"
-    }
-
-    private func formatMilliseconds(_ value: Int) -> String {
-        let totalSeconds = max(0, value / 1000)
-        return String(format: "%d:%02d", totalSeconds / 60, totalSeconds % 60)
-    }
-
-    private func displayLabel(_ value: String) -> String {
-        value.replacingOccurrences(of: "_", with: " ")
-    }
-
-    private func metaText(source: String?, confidence: String?) -> String? {
-        let parts = [source, confidence]
-            .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
-            .filter { !$0.isEmpty }
-        return parts.isEmpty ? nil : parts.joined(separator: " · ")
-    }
-
-    private func isLowConfidence(_ value: String?) -> Bool {
-        value?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == "low"
+        .buttonStyle(.plain)
+        .disabled(isLoading)
+        .help(localizedKey(language, "ui.sends.the.current.track.to.the.backend.for.analysis.and"))
+        .accessibilityLabel(localizedKey(language, "ui.open.track.insight"))
     }
 }
 
-private extension DJConnectAskDJTrackAnalysis.AnalysisSection {
-    var isMetadataContext: Bool {
-        id?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == "metadata_context"
+private struct AskDJTrackInsightSummary: View {
+    let insight: TrackInsight
+    let language: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Label("Track Insight", systemImage: "waveform.path.ecg")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(djConnectIconGradient)
+            Text(insight.title)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.white)
+                .lineLimit(1)
+            Text(insight.summary)
+                .font(.caption)
+                .foregroundStyle(.white.opacity(0.68))
+                .lineLimit(3)
+            HStack(spacing: 8) {
+                if let genre = insight.genre {
+                    Text(genre)
+                }
+            }
+            .font(.caption2.weight(.semibold))
+            .foregroundStyle(.white.opacity(0.58))
+        }
+        .padding(10)
+        .background(.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .stroke(.white.opacity(0.12), lineWidth: 1)
+        }
+        .accessibilityLabel(localizedKey(language, "ui.track.insight.preview"))
     }
 }
 
@@ -5176,7 +11386,7 @@ private struct AskDJPlaybackActionStack: View {
                             .foregroundStyle(.white)
                             .lineLimit(2)
                             .fixedSize(horizontal: false, vertical: true)
-                        Text(localized(language, "Speaker", "Speaker"))
+                        Text(localizedKey(language, "ui.speaker"))
                             .font(.caption2.weight(.bold))
                             .foregroundStyle(.white.opacity(0.62))
                             .lineLimit(1)
@@ -5260,7 +11470,7 @@ private struct AskDJPlaybackActionStack: View {
                             .lineLimit(2)
                     }
                     if action.isOutputAction {
-                        Text(localized(language, "Speaker", "Speaker"))
+                        Text(localizedKey(language, "ui.speaker"))
                             .font(.caption2.weight(.bold))
                             .foregroundStyle(.white.opacity(0.72))
                             .lineLimit(1)
@@ -5324,6 +11534,9 @@ private struct AskDJPlaybackActionStack: View {
         if action.isSaveCurrentTrackControlAction {
             return true
         }
+        if action.isAskDJMessageAction {
+            return true
+        }
         if action.isRecommendationAction {
             return true
         }
@@ -5348,15 +11561,15 @@ private struct AskDJPlaybackActionStack: View {
                 return trimmed
             }
         }
-        return localized(language, "Speaker", "Speaker")
+        return localizedKey(language, "ui.speaker")
     }
 
     private func buttonLabel(for action: DJConnectAskDJPlaybackAction) -> String {
         if action.isActiveOutputAction {
-            return localized(language, "Active", "Actief")
+            return localizedKey(language, "ui.active")
         }
         if action.isOutputAction {
-            return localized(language, "Activate", "Activeer")
+            return localizedKey(language, "ui.activate")
         }
         for candidate in [action.buttonLabel, action.title] {
             if let trimmed = candidate?.trimmingCharacters(in: .whitespacesAndNewlines), !trimmed.isEmpty {
@@ -5369,10 +11582,10 @@ private struct AskDJPlaybackActionStack: View {
     private func confirmationLabel(for action: DJConnectAskDJPlaybackAction) -> String {
         let responseValue = action.responseValue?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         if responseValue == "yes" {
-            return localized(language, "Yes please", "Ja graag")
+            return localizedKey(language, "ui.yes.please")
         }
         if responseValue == "no" {
-            return localized(language, "No thanks", "Nee dank je")
+            return localizedKey(language, "ui.no.thanks")
         }
         return buttonLabel(for: action)
     }
@@ -5515,15 +11728,15 @@ private enum AskDJPlaybackMediaType {
     func label(language: String) -> String {
         switch self {
         case .track:
-            return localized(language, "Track", "Nummer")
+            return localizedKey(language, "ui.track")
         case .album:
-            return localized(language, "Album", "Album")
+            return localizedKey(language, "ui.album")
         case .playlist:
-            return localized(language, "Playlist", "Playlist")
+            return localizedKey(language, "ui.playlist")
         case .podcast:
-            return localized(language, "Podcast", "Podcast")
+            return localizedKey(language, "ui.podcast")
         case .artist:
-            return localized(language, "Artist", "Artiest")
+            return localizedKey(language, "ui.artist")
         }
     }
 }
@@ -5594,7 +11807,7 @@ private struct AskDJSourcesStack: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 7) {
-            Text(localized(language, "Sources", "Bronnen"))
+            Text(localizedKey(language, "ui.sources"))
                 .font(.caption2.weight(.bold))
                 .foregroundStyle(.white.opacity(0.76))
                 .textCase(.uppercase)
@@ -5749,7 +11962,7 @@ private struct AskDJWebPreview: View {
     @Environment(\.openURL) private var openURL
 
     private var title: String {
-        link.title?.isEmpty == false ? link.title! : link.url.host ?? localized(language, "Link", "Link")
+        link.title?.isEmpty == false ? link.title! : link.url.host ?? localizedKey(language, "ui.link")
     }
 
     var body: some View {
@@ -5767,7 +11980,7 @@ private struct AskDJWebPreview: View {
                         .foregroundStyle(.white.opacity(0.72))
                         .multilineTextAlignment(.center)
                         .textSelection(.enabled)
-                    Button(localized(language, "Open in Browser", "Open in browser")) {
+                    Button(localizedKey(language, "ui.open.in.browser")) {
                         openURL(link.url)
                     }
                     .buttonStyle(DJConnectLilacPillButtonStyle())
@@ -5783,7 +11996,7 @@ private struct AskDJWebPreview: View {
             #endif
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button(localized(language, "Done", "Gereed")) {
+                    Button(localizedKey(language, "ui.done")) {
                         dismiss()
                     }
                 }
@@ -5791,7 +12004,7 @@ private struct AskDJWebPreview: View {
                     Button {
                         openURL(link.url)
                     } label: {
-                        Label(localized(language, "Open in Browser", "Open in browser"), systemImage: "safari")
+                        Label(localizedKey(language, "ui.open.in.browser"), systemImage: "safari")
                     }
                 }
             }
@@ -5853,6 +12066,15 @@ private extension DJConnectResponseLink {
 
 private struct AskDJImageStrip: View {
     let images: [DJConnectResponseImage]
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+
+    private var isCompact: Bool {
+        #if os(iOS)
+        horizontalSizeClass == .compact
+        #else
+        false
+        #endif
+    }
 
     var body: some View {
         GeometryReader { geometry in
@@ -5860,9 +12082,10 @@ private struct AskDJImageStrip: View {
             let visibleCount = min(max(images.count, 1), 3)
             let availableWidth = max(1, geometry.size.width)
             let cardWidth = min(
-                190,
+                maxCardWidth,
                 floor((availableWidth - spacing * CGFloat(visibleCount - 1)) / CGFloat(visibleCount))
             )
+            let stripHeight = imageStripHeight(for: cardWidth)
 
             ScrollView(.horizontal, showsIndicators: false) {
                 LazyHStack(alignment: .top, spacing: spacing) {
@@ -5873,15 +12096,25 @@ private struct AskDJImageStrip: View {
                 .padding(.vertical, 1)
             }
             .scrollClipDisabled()
+            .frame(height: stripHeight)
         }
         .frame(maxWidth: 520, alignment: .leading)
-        .frame(height: imageStripHeight)
+        .frame(height: reservedStripHeight)
     }
 
-    private var imageStripHeight: CGFloat {
-        images.contains { image in
+    private var reservedStripHeight: CGFloat {
+        imageStripHeight(for: maxCardWidth)
+    }
+
+    private var maxCardWidth: CGFloat {
+        isCompact ? 112 : 190
+    }
+
+    private func imageStripHeight(for cardWidth: CGFloat) -> CGFloat {
+        let textHeight: CGFloat = images.contains { image in
             image.title?.isEmpty == false || image.subtitle?.isEmpty == false
-        } ? 250 : 192
+        } ? 58 : 0
+        return cardWidth + textHeight + 4
     }
 }
 
@@ -5945,6 +12178,7 @@ private struct AskDJImageCard: View {
 
 private struct AskDJMoodModeControl: View {
     @ObservedObject var model: DJConnectAppModel
+    var caption: String? = nil
     var closeAction: (() -> Void)?
 
     var body: some View {
@@ -5953,7 +12187,7 @@ private struct AskDJMoodModeControl: View {
                 Image(systemName: askDJMoodIcon(for: model.askDJMoodStepIndex))
                     .font(.caption.weight(.bold))
                     .foregroundStyle(djConnectAccent)
-                Text(localized(model.language, "Mood", "Mood"))
+                Text(localizedKey(model.language, "ui.mood"))
                     .font(.caption.weight(.bold))
                     .foregroundStyle(.primary)
                 Spacer()
@@ -5967,8 +12201,8 @@ private struct AskDJMoodModeControl: View {
                     }
                     .buttonStyle(.plain)
                     .foregroundStyle(.secondary)
-                    .help(localized(model.language, "Close", "Sluiten"))
-                    .accessibilityLabel(localized(model.language, "Close", "Sluiten"))
+                    .help(localizedKey(model.language, "ui.close"))
+                    .accessibilityLabel(localizedKey(model.language, "ui.close"))
                 }
             }
 
@@ -6019,11 +12253,7 @@ private struct AskDJMoodModeControl: View {
 
             AskDJMoodLabelsView(steps: model.askDJMoodSteps, selectedIndex: model.askDJMoodStepIndex)
 
-            Text(localized(
-                model.language,
-                "Mood guides Ask DJ's recommendations, from calmer tracks to higher-energy picks.",
-                "Mood stuurt Ask DJ's aanbevelingen, van rustigere tracks tot energiekere keuzes."
-            ))
+            Text(caption ?? localizedKey(model.language, "ui.mood.guides.ask.dj.s.recommendations.from.calmer.tracks.to"))
             .font(.caption2)
             .foregroundStyle(.secondary)
             .fixedSize(horizontal: false, vertical: true)
@@ -6141,6 +12371,10 @@ private struct AskDJInputBar: View {
                         .allowsHitTesting(false)
                 }
 
+                #if os(iOS)
+                AskDJPromptTextView(text: $model.askDJDraft, isInputFocused: isInputFocused)
+                    .frame(minHeight: 44)
+                #else
                 TextField("", text: $model.askDJDraft, axis: .vertical)
                     .lineLimit(1...4)
                     .textFieldStyle(.plain)
@@ -6154,16 +12388,7 @@ private struct AskDJInputBar: View {
                             model.sendAskDJText()
                         }
                     }
-                    #if os(iOS)
-                    .toolbar {
-                        ToolbarItemGroup(placement: .keyboard) {
-                            Spacer()
-                            Button(localized(model.language, "Done", "Gereed")) {
-                                isInputFocused.wrappedValue = false
-                            }
-                        }
-                    }
-                    #endif
+                #endif
             }
             .background {
                 RoundedRectangle(cornerRadius: 18, style: .continuous)
@@ -6220,11 +12445,11 @@ private struct AskDJInputBar: View {
                     .opacity(canSend || model.isSendingAskDJText ? 1 : 0.38)
             }
             .disabled(!canSend)
-            .help(localized(model.language, "Send", "Verstuur"))
+            .help(localizedKey(model.language, "ui.send"))
         }
         .padding(.horizontal, djConnectScreenHorizontalPadding)
-        .padding(.top, 10)
-        .padding(.bottom, 12)
+        .padding(.top, 18)
+        .padding(.bottom, 18)
         .background {
             ZStack(alignment: .top) {
                 Rectangle()
@@ -6260,6 +12485,88 @@ private struct AskDJInputBar: View {
         }
     }
 }
+
+#if os(iOS)
+private struct AskDJPromptTextView: UIViewRepresentable {
+    @Binding var text: String
+    var isInputFocused: FocusState<Bool>.Binding
+
+    func makeUIView(context: Context) -> UITextView {
+        let textView = UITextView()
+        textView.delegate = context.coordinator
+        textView.backgroundColor = .clear
+        textView.textColor = .white
+        textView.tintColor = UIColor(djConnectAccent)
+        textView.font = .preferredFont(forTextStyle: .body)
+        textView.adjustsFontForContentSizeCategory = true
+        textView.isScrollEnabled = false
+        textView.textContainerInset = UIEdgeInsets(top: 11, left: 10, bottom: 11, right: 10)
+        textView.textContainer.lineFragmentPadding = 0
+        textView.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        return textView
+    }
+
+    func updateUIView(_ textView: UITextView, context: Context) {
+        if textView.text != text {
+            textView.text = text
+            context.coordinator.moveCaretToEnd(in: textView)
+        }
+
+        let requestedFocus = isInputFocused.wrappedValue
+        defer {
+            context.coordinator.lastRequestedFocus = requestedFocus
+        }
+
+        if requestedFocus {
+            if !textView.isFirstResponder {
+                textView.becomeFirstResponder()
+            }
+            context.coordinator.moveCaretToEnd(in: textView)
+        } else if textView.isFirstResponder {
+            textView.resignFirstResponder()
+        }
+    }
+
+    func sizeThatFits(_ proposal: ProposedViewSize, uiView: UITextView, context: Context) -> CGSize? {
+        let width = proposal.width ?? 240
+        let fittingSize = uiView.sizeThatFits(CGSize(width: width, height: .greatestFiniteMagnitude))
+        return CGSize(width: width, height: min(max(fittingSize.height, 44), 104))
+    }
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(text: $text, isInputFocused: isInputFocused)
+    }
+
+    final class Coordinator: NSObject, UITextViewDelegate {
+        @Binding var text: String
+        var isInputFocused: FocusState<Bool>.Binding
+        var lastRequestedFocus = false
+
+        init(text: Binding<String>, isInputFocused: FocusState<Bool>.Binding) {
+            _text = text
+            self.isInputFocused = isInputFocused
+        }
+
+        func textViewDidChange(_ textView: UITextView) {
+            text = textView.text
+        }
+
+        func textViewDidBeginEditing(_ textView: UITextView) {
+            isInputFocused.wrappedValue = true
+            moveCaretToEnd(in: textView)
+        }
+
+        func textViewDidEndEditing(_ textView: UITextView) {
+            isInputFocused.wrappedValue = false
+        }
+
+        func moveCaretToEnd(in textView: UITextView) {
+            let end = textView.endOfDocument
+            textView.selectedTextRange = textView.textRange(from: end, to: end)
+        }
+    }
+}
+#endif
 
 private struct AskDJVoiceInputButton: View {
     @ObservedObject var model: DJConnectAppModel
@@ -6326,11 +12633,7 @@ private struct AskDJVoiceInputButton: View {
         }
         .help(helpText)
         .accessibilityLabel(helpText)
-        .accessibilityHint(localized(
-            model.language,
-            "Hold to record a voice request for Ask DJ.",
-            "Houd ingedrukt om een stemverzoek voor Ask DJ op te nemen."
-        ))
+        .accessibilityHint(localizedKey(model.language, "ui.hold.to.record.a.voice.request.for.ask.dj"))
         .accessibilityAction {
             DJConnectHaptics.impact()
             model.toggleVoiceRecording()
@@ -6356,21 +12659,54 @@ private struct AskDJVoiceInputButton: View {
 
     private var helpText: String {
         if isProcessing {
-            return localized(model.language, "Processing voice request", "Stemverzoek verwerken")
+            return localizedKey(model.language, "ui.processing.voice.request")
         }
         if isActive {
-            return localized(model.language, "Release to send", "Laat los om te verzenden")
+            return localizedKey(model.language, "ui.release.to.send")
         }
-        return localized(model.language, "Hold to talk", "Houd ingedrukt om te praten")
+        return localizedKey(model.language, "ui.hold.to.talk")
     }
 }
 
 struct QueueView: View {
     @ObservedObject var model: DJConnectAppModel
-    @State private var statusToast: String?
+    @State private var statusToast: DJConnectVisualNotice?
+    @State private var isSearchVisible = false
+    @State private var queueSearchText = ""
+    @State private var selectedSearchResultIndex = 0
+    @FocusState private var isSearchFocused: Bool
     private var canUsePlayback: Bool { model.canUsePlaybackFeatures }
     private var areQueueItemsDisabled: Bool {
         !canUsePlayback || model.isRefreshing || model.isLoadingQueue || model.loadingQueueItemIndex != nil
+    }
+    private var queueSearchQuery: String {
+        queueSearchText.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+    private var indexedQueueItems: [(index: Int, item: DJConnectQueueItem)] {
+        Array(model.queueItems.enumerated()).map { (index: $0.offset, item: $0.element) }
+    }
+    private var filteredQueueItems: [(index: Int, item: DJConnectQueueItem)] {
+        guard !queueSearchQuery.isEmpty else {
+            return indexedQueueItems
+        }
+        return indexedQueueItems.filter { _, item in
+            queueSearchMatches(item)
+        }
+    }
+    private var queueSearchResultIDs: [Int] {
+        guard !queueSearchQuery.isEmpty else {
+            return []
+        }
+        return filteredQueueItems.map(\.index)
+    }
+    private var activeQueueSearchResultID: Int? {
+        guard queueSearchResultIDs.indices.contains(selectedSearchResultIndex) else {
+            return nil
+        }
+        return queueSearchResultIDs[selectedSearchResultIndex]
+    }
+    private var shouldShowFilteredEmptyQueueState: Bool {
+        !queueSearchQuery.isEmpty && model.queueItems.isEmpty == false && filteredQueueItems.isEmpty
     }
     private var shouldShowEmptyQueueState: Bool {
         guard !model.queueItems.isEmpty else {
@@ -6388,53 +12724,94 @@ struct QueueView: View {
         })
         return signatures.count == 1 && model.queueItems.allSatisfy { !model.canStartQueueItem($0) }
     }
+    private var canOpenQueueSearch: Bool {
+        !shouldShowEmptyQueueState
+    }
+    private var queueSearchButtonForeground: Color {
+        if isSearchVisible {
+            return djConnectAccent
+        }
+        return canOpenQueueSearch ? .primary : .secondary
+    }
 
     var body: some View {
         NavigationStack {
-            Group {
-                #if os(macOS)
-                queueScrollContent
-                #else
-                List {
-                    if shouldShowEmptyQueueState {
-                        DJConnectEmptyState(
-                            title: localized(model.language, "No Queue", "Geen wachtrij"),
-                            systemImage: "music.note.list"
+            ScrollViewReader { proxy in
+                VStack(spacing: 10) {
+                    if isSearchVisible {
+                        AskDJSearchBar(
+                            language: model.language,
+                            scopeName: localizedKey(model.language, "ui.queue.1b6dc1"),
+                            text: $queueSearchText,
+                            isFocused: $isSearchFocused,
+                            resultCount: queueSearchResultIDs.count,
+                            selectedIndex: selectedSearchResultIndex,
+                            previousAction: { moveQueueSearchSelection(by: -1, proxy: proxy) },
+                            nextAction: { moveQueueSearchSelection(by: 1, proxy: proxy) },
+                            closeAction: { dismissQueueSearch() }
                         )
-                        .frame(maxWidth: .infinity, minHeight: 360, alignment: .center)
-                        .listRowBackground(Color.clear)
-                        .listRowSeparator(.hidden)
-                    } else {
-                        ForEach(Array(model.queueItems.enumerated()), id: \.offset) { index, item in
-                            Button {
-                                DJConnectHaptics.impact()
-                                showStatusToast(localized(model.language, "Track is starting", "Nummer wordt gestart"))
-                                model.startQueueItem(item, at: index)
-                            } label: {
-                                QueueItemRow(item: item, isLoading: model.loadingQueueItemIndex == index)
-                                    .opacity(areQueueItemsDisabled || !model.canStartQueueItem(item) ? 0.45 : 1)
-                            }
-                            .buttonStyle(.plain)
+                        .padding(.horizontal, 20)
+                        .padding(.top, 10)
+                        .transition(.move(edge: .top).combined(with: .opacity))
+                    }
+
+                    #if os(macOS)
+                    queueScrollContent(proxy: proxy)
+                    #else
+                    List {
+                        if shouldShowEmptyQueueState || shouldShowFilteredEmptyQueueState {
+                            DJConnectEmptyState(
+                                title: shouldShowFilteredEmptyQueueState
+                                    ? localizedKey(model.language, "ui.no.search.results")
+                                    : localizedKey(model.language, "ui.no.queue"),
+                                systemImage: shouldShowFilteredEmptyQueueState ? "magnifyingglass" : "music.note.list"
+                            )
+                            .frame(maxWidth: .infinity, minHeight: 360, alignment: .center)
                             .listRowBackground(Color.clear)
                             .listRowSeparator(.hidden)
-                            .listRowInsets(djConnectListRowInsets)
-                            .disabled(areQueueItemsDisabled || !model.canStartQueueItem(item))
-                            .allowsHitTesting(!areQueueItemsDisabled && model.canStartQueueItem(item))
-                            .accessibilityLabel(item.displayTitle)
+                        } else {
+                            ForEach(filteredQueueItems, id: \.index) { index, item in
+                                Button {
+                                    DJConnectHaptics.impact()
+                                    showStatusToast(localizedKey(model.language, "ui.track.is.starting"), systemImage: "play.fill")
+                                    model.startQueueItem(item, at: index)
+                                } label: {
+                                    QueueItemRow(item: item, isLoading: model.loadingQueueItemIndex == index)
+                                        .opacity(areQueueItemsDisabled || !model.canStartQueueItem(item) ? 0.45 : 1)
+                                }
+                                .buttonStyle(.plain)
+                                .listRowBackground(Color.clear)
+                                .listRowSeparator(.hidden)
+                                .listRowInsets(djConnectListRowInsets)
+                                .disabled(areQueueItemsDisabled || !model.canStartQueueItem(item))
+                                .allowsHitTesting(!areQueueItemsDisabled && model.canStartQueueItem(item))
+                                .accessibilityLabel(item.displayTitle)
+                                .id(index)
+                            }
                         }
                     }
+                    .listStyle(.plain)
+                    .scrollIndicators(.visible)
+                    #endif
                 }
-                .listStyle(.plain)
-                .scrollIndicators(.visible)
-                #endif
+                .onChange(of: queueSearchText) {
+                    selectedSearchResultIndex = 0
+                    scrollToActiveQueueSearchResult(proxy)
+                }
+                .onChange(of: queueSearchResultIDs) {
+                    selectedSearchResultIndex = min(selectedSearchResultIndex, max(queueSearchResultIDs.count - 1, 0))
+                    scrollToActiveQueueSearchResult(proxy)
+                }
             }
             .refreshable {
                 guard !model.isDemoMode, canUsePlayback else {
+                    showStatusToast(localizedKey(model.language, "appModel.no.connection.to.home.assistant"), systemImage: "exclamationmark.triangle.fill")
                     return
                 }
-                await model.refreshQueue()
+                await refreshQueueWithToast()
             }
-            .navigationTitle(screenTitle(model.language, "Queue", "Wachtrij", isDemoMode: model.isDemoMode))
+            .navigationTitle(screenTitle(model.language, key: "Queue", isDemoMode: model.isDemoMode))
+            .accessibilityIdentifier("screen-queue")
             .scrollContentBackgroundIfAvailable(.hidden)
             .background(DJConnectCanvasBackground())
             #if os(iOS)
@@ -6442,17 +12819,22 @@ struct QueueView: View {
             #else
             .contentMargins(.horizontal, djConnectScreenHorizontalPadding, for: .scrollContent)
             #endif
-            .overlay(alignment: .top) {
-                if let statusToast {
-                    StatusToast(text: statusToast)
-                        .padding(.top, 8)
-                        .transition(.move(edge: .top).combined(with: .opacity))
-                }
-            }
+            .djStatusToastOverlay(statusToast)
             .toolbar {
                 ToolbarItem {
                     Button {
-                        model.loadQueue()
+                        toggleQueueSearch()
+                    } label: {
+                        Image(systemName: "magnifyingglass")
+                            .foregroundStyle(queueSearchButtonForeground)
+                    }
+                    .disabled(!isSearchVisible && !canOpenQueueSearch)
+                    .help(isSearchVisible ? localizedKey(model.language, "ui.close.search") : localizedKey(model.language, "ui.search.queue"))
+                    .accessibilityLabel(isSearchVisible ? localizedKey(model.language, "ui.close.search") : localizedKey(model.language, "ui.search.queue"))
+                }
+                ToolbarItem {
+                    Button {
+                        Task { await refreshQueueWithToast() }
                     } label: {
                         if model.isLoadingQueue {
                             ProgressView()
@@ -6462,8 +12844,9 @@ struct QueueView: View {
                         }
                     }
                     .disabled(model.isDemoMode || !canUsePlayback || model.isLoadingQueue)
-                    .help(localized(model.language, "Reload Queue", "Wachtrij herladen"))
-                    .accessibilityLabel(localized(model.language, "Reload Queue", "Wachtrij herladen"))
+                    .tint(.primary)
+                    .help(localizedKey(model.language, "ui.reload.queue"))
+                    .accessibilityLabel(localizedKey(model.language, "ui.reload.queue"))
                 }
             }
             .task {
@@ -6474,7 +12857,7 @@ struct QueueView: View {
             }
             .onChange(of: model.userNotice?.id) { _, _ in
                 if let text = model.userNotice?.text {
-                    showStatusToast(text)
+                    showStatusToast(text, systemImage: "exclamationmark.triangle.fill")
                 }
             }
         }
@@ -6482,20 +12865,22 @@ struct QueueView: View {
     }
 
     #if os(macOS)
-    private var queueScrollContent: some View {
+    private func queueScrollContent(proxy: ScrollViewProxy) -> some View {
         ScrollView(.vertical, showsIndicators: true) {
             LazyVStack(spacing: 10) {
-                if shouldShowEmptyQueueState {
+                if shouldShowEmptyQueueState || shouldShowFilteredEmptyQueueState {
                     DJConnectEmptyState(
-                        title: localized(model.language, "No Queue", "Geen wachtrij"),
-                        systemImage: "music.note.list"
+                        title: shouldShowFilteredEmptyQueueState
+                            ? localizedKey(model.language, "ui.no.search.results")
+                            : localizedKey(model.language, "ui.no.queue"),
+                        systemImage: shouldShowFilteredEmptyQueueState ? "magnifyingglass" : "music.note.list"
                     )
                     .frame(maxWidth: .infinity, minHeight: 360, alignment: .center)
                 } else {
-                    ForEach(Array(model.queueItems.enumerated()), id: \.offset) { index, item in
+                    ForEach(filteredQueueItems, id: \.index) { index, item in
                         Button {
                             DJConnectHaptics.impact()
-                            showStatusToast(localized(model.language, "Track is starting", "Nummer wordt gestart"))
+                            showStatusToast(localizedKey(model.language, "ui.track.is.starting"), systemImage: "play.fill")
                             model.startQueueItem(item, at: index)
                         } label: {
                             QueueItemRow(item: item, isLoading: model.loadingQueueItemIndex == index)
@@ -6505,6 +12890,7 @@ struct QueueView: View {
                         .disabled(areQueueItemsDisabled || !model.canStartQueueItem(item))
                         .allowsHitTesting(!areQueueItemsDisabled && model.canStartQueueItem(item))
                         .accessibilityLabel(item.displayTitle)
+                        .id(index)
                     }
                 }
             }
@@ -6514,13 +12900,88 @@ struct QueueView: View {
     }
     #endif
 
-    private func showStatusToast(_ text: String) {
+    private func queueSearchMatches(_ item: DJConnectQueueItem) -> Bool {
+        let searchable = [
+            item.displayTitle,
+            item.title,
+            item.artist,
+            item.album,
+            item.displaySubtitle,
+            item.uri
+        ]
+        return searchable.contains { value in
+            value?.localizedCaseInsensitiveContains(queueSearchQuery) == true
+        }
+    }
+
+    private func showQueueSearch() {
+        guard canOpenQueueSearch else {
+            return
+        }
+        withAnimation(.spring(response: 0.24, dampingFraction: 0.86)) {
+            isSearchVisible = true
+        }
+        DispatchQueue.main.async {
+            isSearchFocused = true
+        }
+    }
+
+    private func toggleQueueSearch() {
+        if isSearchVisible {
+            dismissQueueSearch()
+        } else {
+            showQueueSearch()
+        }
+    }
+
+    private func dismissQueueSearch() {
+        withAnimation(.spring(response: 0.24, dampingFraction: 0.86)) {
+            isSearchVisible = false
+        }
+        queueSearchText = ""
+        selectedSearchResultIndex = 0
+        isSearchFocused = false
+    }
+
+    private func moveQueueSearchSelection(by offset: Int, proxy: ScrollViewProxy) {
+        guard !queueSearchResultIDs.isEmpty else {
+            return
+        }
+        selectedSearchResultIndex = (selectedSearchResultIndex + offset + queueSearchResultIDs.count) % queueSearchResultIDs.count
+        scrollToActiveQueueSearchResult(proxy)
+    }
+
+    private func scrollToActiveQueueSearchResult(_ proxy: ScrollViewProxy) {
+        guard let activeQueueSearchResultID else {
+            return
+        }
+        DispatchQueue.main.async {
+            withAnimation(.easeOut(duration: 0.18)) {
+                proxy.scrollTo(activeQueueSearchResultID, anchor: .center)
+            }
+        }
+    }
+
+    private func refreshQueueWithToast() async {
+        guard !model.isDemoMode, canUsePlayback else {
+            showStatusToast(localizedKey(model.language, "appModel.no.connection.to.home.assistant"), systemImage: "exclamationmark.triangle.fill")
+            return
+        }
+        let didRefresh = await model.refreshQueue()
+        showStatusToast(
+            didRefresh ? localizedKey(model.language, "appModel.queue.updated") : localizedKey(model.language, "appModel.queue.update.failed"),
+            systemImage: didRefresh ? "music.note.list" : "exclamationmark.triangle.fill"
+        )
+    }
+
+    private func showStatusToast(_ text: String, systemImage: String) {
+        let notice = DJConnectVisualNotice(text: text, systemImage: systemImage)
         withAnimation(.easeOut(duration: 0.18)) {
-            statusToast = text
+            statusToast = notice
         }
         Task { @MainActor in
             try? await Task.sleep(for: .seconds(2))
-            guard statusToast == text else {
+            guard statusToast?.id == notice.id else {
                 return
             }
             withAnimation(.easeIn(duration: 0.18)) {
@@ -6532,57 +12993,126 @@ struct QueueView: View {
 
 struct PlaylistsView: View {
     @ObservedObject var model: DJConnectAppModel
-    @State private var statusToast: String?
+    @State private var statusToast: DJConnectVisualNotice?
+    @State private var isSearchVisible = false
+    @State private var playlistSearchText = ""
+    @State private var selectedSearchResultIndex = 0
+    @FocusState private var isSearchFocused: Bool
     private var canUsePlayback: Bool { model.canUsePlaybackFeatures }
     private var arePlaylistItemsDisabled: Bool {
         !canUsePlayback || model.isRefreshing || model.isLoadingPlaylists || model.loadingPlaylistID != nil
     }
+    private var playlistSearchQuery: String {
+        playlistSearchText.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+    private var filteredPlaylistItems: [DJConnectPlaylist] {
+        guard !playlistSearchQuery.isEmpty else {
+            return model.playlistItems
+        }
+        return model.playlistItems.filter(playlistSearchMatches)
+    }
+    private var playlistSearchResultIDs: [String] {
+        guard !playlistSearchQuery.isEmpty else {
+            return []
+        }
+        return filteredPlaylistItems.map(\.id)
+    }
+    private var activePlaylistSearchResultID: String? {
+        guard playlistSearchResultIDs.indices.contains(selectedSearchResultIndex) else {
+            return nil
+        }
+        return playlistSearchResultIDs[selectedSearchResultIndex]
+    }
+    private var shouldShowFilteredEmptyPlaylistState: Bool {
+        !playlistSearchQuery.isEmpty && model.playlistItems.isEmpty == false && filteredPlaylistItems.isEmpty
+    }
+    private var canOpenPlaylistSearch: Bool {
+        !model.playlistItems.isEmpty
+    }
+    private var playlistSearchButtonForeground: Color {
+        if isSearchVisible {
+            return djConnectAccent
+        }
+        return canOpenPlaylistSearch ? .primary : .secondary
+    }
 
     var body: some View {
         NavigationStack {
-            Group {
-                #if os(macOS)
-                playlistsScrollContent
-                #else
-                List {
-                    if model.playlistItems.isEmpty {
-                        DJConnectEmptyState(
-                            title: localized(model.language, "No Playlists", "Geen afspeellijsten"),
-                            systemImage: "rectangle.stack"
+            ScrollViewReader { proxy in
+                VStack(spacing: 10) {
+                    if isSearchVisible {
+                        AskDJSearchBar(
+                            language: model.language,
+                            scopeName: localizedKey(model.language, "ui.playlists.5e5f2e"),
+                            text: $playlistSearchText,
+                            isFocused: $isSearchFocused,
+                            resultCount: playlistSearchResultIDs.count,
+                            selectedIndex: selectedSearchResultIndex,
+                            previousAction: { movePlaylistSearchSelection(by: -1, proxy: proxy) },
+                            nextAction: { movePlaylistSearchSelection(by: 1, proxy: proxy) },
+                            closeAction: { dismissPlaylistSearch() }
                         )
-                        .frame(maxWidth: .infinity, minHeight: 360, alignment: .center)
-                        .listRowBackground(Color.clear)
-                        .listRowSeparator(.hidden)
-                    } else {
-                        ForEach(model.playlistItems) { playlist in
-                            Button {
-                                DJConnectHaptics.impact()
-                                showStatusToast(localized(model.language, "Playlist is starting", "Afspeellijst wordt gestart"))
-                                model.startPlaylist(playlist)
-                            } label: {
-                                PlaylistRow(playlist: playlist, isLoading: model.loadingPlaylistID == playlist.id)
-                                    .opacity(arePlaylistItemsDisabled ? 0.45 : 1)
-                            }
-                            .buttonStyle(.plain)
+                        .padding(.horizontal, 20)
+                        .padding(.top, 10)
+                        .transition(.move(edge: .top).combined(with: .opacity))
+                    }
+
+                    #if os(macOS)
+                    playlistsScrollContent(proxy: proxy)
+                    #else
+                    List {
+                        if model.playlistItems.isEmpty || shouldShowFilteredEmptyPlaylistState {
+                            DJConnectEmptyState(
+                                title: shouldShowFilteredEmptyPlaylistState
+                                    ? localizedKey(model.language, "ui.no.search.results")
+                                    : localizedKey(model.language, "ui.no.playlists"),
+                                systemImage: shouldShowFilteredEmptyPlaylistState ? "magnifyingglass" : "rectangle.stack"
+                            )
+                            .frame(maxWidth: .infinity, minHeight: 360, alignment: .center)
                             .listRowBackground(Color.clear)
                             .listRowSeparator(.hidden)
-                            .listRowInsets(djConnectListRowInsets)
-                            .disabled(arePlaylistItemsDisabled)
-                            .allowsHitTesting(!arePlaylistItemsDisabled)
+                        } else {
+                            ForEach(filteredPlaylistItems) { playlist in
+                                Button {
+                                    DJConnectHaptics.impact()
+                                    showStatusToast(localizedKey(model.language, "ui.playlist.is.starting"), systemImage: "play.fill")
+                                    model.startPlaylist(playlist)
+                                } label: {
+                                    PlaylistRow(playlist: playlist, isLoading: model.loadingPlaylistID == playlist.id)
+                                        .opacity(arePlaylistItemsDisabled ? 0.45 : 1)
+                                }
+                                .buttonStyle(.plain)
+                                .listRowBackground(Color.clear)
+                                .listRowSeparator(.hidden)
+                                .listRowInsets(djConnectListRowInsets)
+                                .disabled(arePlaylistItemsDisabled)
+                                .allowsHitTesting(!arePlaylistItemsDisabled)
+                                .id(playlist.id)
+                            }
                         }
                     }
+                    .listStyle(.plain)
+                    .scrollIndicators(.visible)
+                    #endif
                 }
-                .listStyle(.plain)
-                .scrollIndicators(.visible)
-                #endif
+                .onChange(of: playlistSearchText) {
+                    selectedSearchResultIndex = 0
+                    scrollToActivePlaylistSearchResult(proxy)
+                }
+                .onChange(of: playlistSearchResultIDs) {
+                    selectedSearchResultIndex = min(selectedSearchResultIndex, max(playlistSearchResultIDs.count - 1, 0))
+                    scrollToActivePlaylistSearchResult(proxy)
+                }
             }
             .refreshable {
                 guard !model.isDemoMode, canUsePlayback else {
+                    showStatusToast(localizedKey(model.language, "appModel.no.connection.to.home.assistant"), systemImage: "exclamationmark.triangle.fill")
                     return
                 }
-                await model.refreshPlaylists()
+                await refreshPlaylistsWithToast()
             }
-            .navigationTitle(screenTitle(model.language, "Playlists", "Afspeellijsten", isDemoMode: model.isDemoMode))
+            .navigationTitle(screenTitle(model.language, key: "ui.playlists", isDemoMode: model.isDemoMode))
+            .accessibilityIdentifier("screen-playlists")
             .scrollContentBackgroundIfAvailable(.hidden)
             .background(DJConnectCanvasBackground())
             #if os(iOS)
@@ -6590,17 +13120,22 @@ struct PlaylistsView: View {
             #else
             .contentMargins(.horizontal, djConnectScreenHorizontalPadding, for: .scrollContent)
             #endif
-            .overlay(alignment: .top) {
-                if let statusToast {
-                    StatusToast(text: statusToast)
-                        .padding(.top, 8)
-                        .transition(.move(edge: .top).combined(with: .opacity))
-                }
-            }
+            .djStatusToastOverlay(statusToast)
             .toolbar {
                 ToolbarItem {
                     Button {
-                        model.loadPlaylists()
+                        togglePlaylistSearch()
+                    } label: {
+                        Image(systemName: "magnifyingglass")
+                            .foregroundStyle(playlistSearchButtonForeground)
+                    }
+                    .disabled(!isSearchVisible && !canOpenPlaylistSearch)
+                    .help(isSearchVisible ? localizedKey(model.language, "ui.close.search") : localizedKey(model.language, "ui.search.playlists"))
+                    .accessibilityLabel(isSearchVisible ? localizedKey(model.language, "ui.close.search") : localizedKey(model.language, "ui.search.playlists"))
+                }
+                ToolbarItem {
+                    Button {
+                        Task { await refreshPlaylistsWithToast() }
                     } label: {
                         if model.isLoadingPlaylists {
                             ProgressView()
@@ -6610,8 +13145,9 @@ struct PlaylistsView: View {
                         }
                     }
                     .disabled(model.isDemoMode || !canUsePlayback || model.isLoadingPlaylists)
-                    .help(localized(model.language, "Reload Playlists", "Afspeellijsten herladen"))
-                    .accessibilityLabel(localized(model.language, "Reload Playlists", "Afspeellijsten herladen"))
+                    .tint(.primary)
+                    .help(localizedKey(model.language, "ui.reload.playlists"))
+                    .accessibilityLabel(localizedKey(model.language, "ui.reload.playlists"))
                 }
             }
             .task {
@@ -6622,27 +13158,29 @@ struct PlaylistsView: View {
             }
             .onChange(of: model.userNotice?.id) { _, _ in
                 if let text = model.userNotice?.text {
-                    showStatusToast(text)
+                    showStatusToast(text, systemImage: "exclamationmark.triangle.fill")
                 }
             }
         }
     }
 
     #if os(macOS)
-    private var playlistsScrollContent: some View {
+    private func playlistsScrollContent(proxy: ScrollViewProxy) -> some View {
         ScrollView(.vertical, showsIndicators: true) {
             LazyVStack(spacing: 10) {
-                if model.playlistItems.isEmpty {
+                if model.playlistItems.isEmpty || shouldShowFilteredEmptyPlaylistState {
                     DJConnectEmptyState(
-                        title: localized(model.language, "No Playlists", "Geen afspeellijsten"),
-                        systemImage: "rectangle.stack"
+                        title: shouldShowFilteredEmptyPlaylistState
+                            ? localizedKey(model.language, "ui.no.search.results")
+                            : localizedKey(model.language, "ui.no.playlists"),
+                        systemImage: shouldShowFilteredEmptyPlaylistState ? "magnifyingglass" : "rectangle.stack"
                     )
                     .frame(maxWidth: .infinity, minHeight: 360, alignment: .center)
                 } else {
-                    ForEach(model.playlistItems) { playlist in
+                    ForEach(filteredPlaylistItems) { playlist in
                         Button {
                             DJConnectHaptics.impact()
-                            showStatusToast(localized(model.language, "Playlist is starting", "Afspeellijst wordt gestart"))
+                            showStatusToast(localizedKey(model.language, "ui.playlist.is.starting"), systemImage: "play.fill")
                             model.startPlaylist(playlist)
                         } label: {
                             PlaylistRow(playlist: playlist, isLoading: model.loadingPlaylistID == playlist.id)
@@ -6651,6 +13189,7 @@ struct PlaylistsView: View {
                         .buttonStyle(.plain)
                         .disabled(arePlaylistItemsDisabled)
                         .allowsHitTesting(!arePlaylistItemsDisabled)
+                        .id(playlist.id)
                     }
                 }
             }
@@ -6660,13 +13199,85 @@ struct PlaylistsView: View {
     }
     #endif
 
-    private func showStatusToast(_ text: String) {
+    private func playlistSearchMatches(_ playlist: DJConnectPlaylist) -> Bool {
+        let searchable = [
+            playlist.name,
+            playlist.subtitle,
+            playlist.uri
+        ]
+        return searchable.contains { value in
+            value?.localizedCaseInsensitiveContains(playlistSearchQuery) == true
+        }
+    }
+
+    private func showPlaylistSearch() {
+        guard canOpenPlaylistSearch else {
+            return
+        }
+        withAnimation(.spring(response: 0.24, dampingFraction: 0.86)) {
+            isSearchVisible = true
+        }
+        DispatchQueue.main.async {
+            isSearchFocused = true
+        }
+    }
+
+    private func togglePlaylistSearch() {
+        if isSearchVisible {
+            dismissPlaylistSearch()
+        } else {
+            showPlaylistSearch()
+        }
+    }
+
+    private func dismissPlaylistSearch() {
+        withAnimation(.spring(response: 0.24, dampingFraction: 0.86)) {
+            isSearchVisible = false
+        }
+        playlistSearchText = ""
+        selectedSearchResultIndex = 0
+        isSearchFocused = false
+    }
+
+    private func movePlaylistSearchSelection(by offset: Int, proxy: ScrollViewProxy) {
+        guard !playlistSearchResultIDs.isEmpty else {
+            return
+        }
+        selectedSearchResultIndex = (selectedSearchResultIndex + offset + playlistSearchResultIDs.count) % playlistSearchResultIDs.count
+        scrollToActivePlaylistSearchResult(proxy)
+    }
+
+    private func scrollToActivePlaylistSearchResult(_ proxy: ScrollViewProxy) {
+        guard let activePlaylistSearchResultID else {
+            return
+        }
+        DispatchQueue.main.async {
+            withAnimation(.easeOut(duration: 0.18)) {
+                proxy.scrollTo(activePlaylistSearchResultID, anchor: .center)
+            }
+        }
+    }
+
+    private func refreshPlaylistsWithToast() async {
+        guard !model.isDemoMode, canUsePlayback else {
+            showStatusToast(localizedKey(model.language, "appModel.no.connection.to.home.assistant"), systemImage: "exclamationmark.triangle.fill")
+            return
+        }
+        let didRefresh = await model.refreshPlaylists()
+        showStatusToast(
+            didRefresh ? localizedKey(model.language, "appModel.playlists.updated") : localizedKey(model.language, "appModel.playlists.update.failed"),
+            systemImage: didRefresh ? "rectangle.stack.fill" : "exclamationmark.triangle.fill"
+        )
+    }
+
+    private func showStatusToast(_ text: String, systemImage: String) {
+        let notice = DJConnectVisualNotice(text: text, systemImage: systemImage)
         withAnimation(.easeOut(duration: 0.18)) {
-            statusToast = text
+            statusToast = notice
         }
         Task { @MainActor in
             try? await Task.sleep(for: .seconds(2))
-            guard statusToast == text else {
+            guard statusToast?.id == notice.id else {
                 return
             }
             withAnimation(.easeIn(duration: 0.18)) {
@@ -6727,19 +13338,37 @@ private struct StatusToast: View {
     }
 }
 
+private extension View {
+    func djStatusToastOverlay(_ toast: DJConnectVisualNotice?) -> some View {
+        overlay(alignment: .top) {
+            if let toast {
+                StatusToast(text: toast.text, systemImage: toast.systemImage)
+                    .padding(.top, 12)
+                    .padding(.horizontal, djConnectScreenHorizontalPadding)
+                    .transition(.move(edge: .top).combined(with: .opacity))
+            }
+        }
+    }
+
+    func djStatusToastOverlay(text: String?, systemImage: String = "play.fill") -> some View {
+        overlay(alignment: .top) {
+            if let text {
+                StatusToast(text: text, systemImage: systemImage)
+                    .padding(.top, 12)
+                    .padding(.horizontal, djConnectScreenHorizontalPadding)
+                    .transition(.move(edge: .top).combined(with: .opacity))
+            }
+        }
+    }
+}
+
 private struct DJConnectUserNoticeToastModifier: ViewModifier {
     @ObservedObject var model: DJConnectAppModel
     @State private var toast: String?
 
     func body(content: Content) -> some View {
         content
-            .overlay(alignment: .top) {
-                if let toast {
-                    StatusToast(text: toast)
-                        .padding(.top, 12)
-                        .transition(.move(edge: .top).combined(with: .opacity))
-                }
-            }
+            .djStatusToastOverlay(text: toast)
             .onChange(of: model.userNotice?.id) { _, _ in
                 guard let text = model.userNotice?.text else {
                     return
@@ -6856,24 +13485,42 @@ private enum LocalGameMode: String, CaseIterable, Identifiable {
 private struct GamesView: View {
     let language: String
     let isDemoMode: Bool
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @State private var selectedGame = LocalGameMode.pong
+
+    private func contentMaxWidth(for size: CGSize) -> CGFloat {
+        #if os(macOS)
+        size.width >= 1_000 ? djConnectMacDetailContentMaxWidth : djConnectContentMaxWidth
+        #else
+        horizontalSizeClass == .regular && size.width > size.height ? 1_320 : djConnectContentMaxWidth
+        #endif
+    }
+
+    private func pickerMaxWidth(for size: CGSize) -> CGFloat {
+        min(contentMaxWidth(for: size), 760)
+    }
 
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 18) {
-                    GameModePicker(selection: $selectedGame)
-                        .frame(maxWidth: 540)
-                        .frame(maxWidth: .infinity, alignment: .center)
+            GeometryReader { proxy in
+                let contentMaxWidth = contentMaxWidth(for: proxy.size)
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 18) {
+                        GameModePicker(selection: $selectedGame)
+                            .frame(maxWidth: pickerMaxWidth(for: proxy.size))
+                            .frame(maxWidth: .infinity, alignment: .center)
 
-                    LocalGameSurface(game: selectedGame, language: language)
+                        LocalGameSurface(game: selectedGame, language: language)
+                            .frame(maxWidth: .infinity, alignment: .top)
+                    }
+                    .djConnectScreenPadding()
+                    .frame(maxWidth: contentMaxWidth)
+                    .frame(maxWidth: .infinity)
                 }
-                .djConnectScreenPadding()
-                .frame(maxWidth: djConnectContentMaxWidth)
-                .frame(maxWidth: .infinity)
+                .background(DJConnectCanvasBackground())
             }
-            .background(DJConnectCanvasBackground())
-            .navigationTitle(localized(language, "Games", "Games"))
+            .navigationTitle(localizedKey(language, "ui.games"))
+            .accessibilityIdentifier("screen-games")
         }
         .id("games-\(isDemoMode)-\(language)")
     }
@@ -6881,9 +13528,17 @@ private struct GamesView: View {
 
 private struct GameModePicker: View {
     @Binding var selection: LocalGameMode
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+
+    private var columns: [GridItem] {
+        if horizontalSizeClass == .compact {
+            return Array(repeating: GridItem(.flexible(minimum: 120), spacing: 8), count: 2)
+        }
+        return Array(repeating: GridItem(.flexible(minimum: 120), spacing: 8), count: LocalGameMode.allCases.count)
+    }
 
     var body: some View {
-        HStack(spacing: 8) {
+        LazyVGrid(columns: columns, spacing: 8) {
             ForEach(LocalGameMode.allCases) { game in
                 Button {
                     DJConnectHaptics.selection()
@@ -6940,6 +13595,7 @@ private struct GameModePicker: View {
 private struct LocalGameSurface: View {
     let game: LocalGameMode
     let language: String
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @AppStorage("djconnect.app.game.pong.high") private var pongHighScore = 0
     @AppStorage("djconnect.app.game.asteroids.high") private var asteroidsHighScore = 0
     @AppStorage("djconnect.app.game.fly.high") private var flyHighScore = 0
@@ -6989,11 +13645,13 @@ private struct LocalGameSurface: View {
     @State private var pacmanDeathX: CGFloat = 46
     @State private var pacmanDeathY: CGFloat = 86
     @State private var pacmanDeathTicks = 0
-    @State private var pellets: Set<Int> = Set(0..<32)
+    @State private var pellets: Set<Int> = Set(0..<36)
     @State private var flashUntil = Date.distantPast
     @State private var isPlaying = false
     @FocusState private var isGameFocused: Bool
     private let tick = Timer.publish(every: 1.0 / 30.0, on: .main, in: .common).autoconnect()
+    private let gameAspectRatio: CGFloat = 320.0 / 170.0
+    private var isCompactLayout: Bool { horizontalSizeClass == .compact }
 
     private var highScore: Int {
         switch game {
@@ -7010,16 +13668,22 @@ private struct LocalGameSurface: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            HStack {
+            HStack(alignment: .firstTextBaseline, spacing: 12) {
                 Label(game.title, systemImage: gameIcon)
                     .font(.title2.bold())
                     .foregroundStyle(game.tint)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.76)
                 Spacer()
-                Text("\(localized(language, "Score", "Score")) \(score)")
+                Text("\(localizedKey(language, "ui.score")) \(score)")
                     .monospacedDigit()
-                Text("\(localized(language, "High", "High")) \(highScore)")
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.76)
+                Text("\(localizedKey(language, "ui.high")) \(highScore)")
                     .monospacedDigit()
                     .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.76)
             }
 
             ZStack {
@@ -7037,7 +13701,7 @@ private struct LocalGameSurface: View {
                     Button {
                         startGame()
                     } label: {
-                        Label(localized(language, "Tap to play", "Tik om te spelen"), systemImage: "play.fill")
+                        Label(localizedKey(language, "ui.tap.to.play"), systemImage: "play.fill")
                             .font(.headline)
                             .foregroundStyle(.white)
                             .frame(minWidth: 180)
@@ -7063,8 +13727,8 @@ private struct LocalGameSurface: View {
                     .controlSize(.large)
                 }
             }
-            .aspectRatio(320.0 / 170.0, contentMode: .fit)
-            .frame(maxWidth: 640)
+            .aspectRatio(gameAspectRatio, contentMode: .fit)
+            .frame(maxWidth: .infinity)
             .background(.black.opacity(0.25), in: RoundedRectangle(cornerRadius: 8))
             .gesture(
                 DragGesture(minimumDistance: 0)
@@ -7110,6 +13774,7 @@ private struct LocalGameSurface: View {
                 .stroke(.white.opacity(0.12), lineWidth: 1)
         }
         .focusable(true)
+        .focusEffectDisabled()
         .focused($isGameFocused)
         .onKeyPress(.upArrow) {
             handleArrowKey(.up)
@@ -7151,11 +13816,11 @@ private struct LocalGameSurface: View {
     }
 
     private var primaryMoveLabel: String {
-        game == .asteroids ? localized(language, "Left", "Links") : localized(language, "Up", "Omhoog")
+        game == .asteroids ? localizedKey(language, "ui.left") : localizedKey(language, "ui.up")
     }
 
     private var secondaryMoveLabel: String {
-        game == .asteroids ? localized(language, "Right", "Rechts") : localized(language, "Down", "Omlaag")
+        game == .asteroids ? localizedKey(language, "ui.right") : localizedKey(language, "ui.down")
     }
 
     private var primaryMoveIcon: String {
@@ -7169,30 +13834,30 @@ private struct LocalGameSurface: View {
     private var helpText: String {
         switch game {
         case .pong:
-            localized(language, "Move the paddle and keep the ball alive.", "Beweeg het batje en houd de bal in het spel.")
+            localizedKey(language, "ui.move.the.paddle.and.keep.the.ball.alive")
         case .asteroids:
-            localized(language, "Move left and right. Fire to hit meteors.", "Beweeg links en rechts. Schiet om meteorieten te raken.")
+            localizedKey(language, "ui.move.left.and.right.fire.to.hit.meteors")
         case .fly:
-            localized(language, "Fly through the gaps. Fire clears an obstacle.", "Vlieg door de openingen. Schieten ruimt een obstakel op.")
+            localizedKey(language, "ui.fly.through.the.gaps.fire.clears.an.obstacle")
         case .pacman:
-            localized(language, "Eat dots and dodge the ghost.", "Eet bolletjes en ontwijk de geest.")
+            localizedKey(language, "ui.eat.dots.and.dodge.the.ghost")
         }
     }
 
     @ViewBuilder
     private var controlsView: some View {
         if game == .pacman {
-            HStack(spacing: 10) {
-                directionButton(localized(language, "Up", "Omhoog"), icon: "chevron.up") {
+            LazyVGrid(columns: controlColumns(count: 5), spacing: 10) {
+                directionButton(localizedKey(language, "ui.up"), icon: "chevron.up") {
                     setPacmanDirection(dx: 0, dy: -1)
                 }
-                directionButton(localized(language, "Down", "Omlaag"), icon: "chevron.down") {
+                directionButton(localizedKey(language, "ui.down"), icon: "chevron.down") {
                     setPacmanDirection(dx: 0, dy: 1)
                 }
-                directionButton(localized(language, "Left", "Links"), icon: "chevron.left") {
+                directionButton(localizedKey(language, "ui.left"), icon: "chevron.left") {
                     setPacmanDirection(dx: -1, dy: 0)
                 }
-                directionButton(localized(language, "Right", "Rechts"), icon: "chevron.right") {
+                directionButton(localizedKey(language, "ui.right"), icon: "chevron.right") {
                     setPacmanDirection(dx: 1, dy: 0)
                 }
                 resetButton
@@ -7200,7 +13865,7 @@ private struct LocalGameSurface: View {
             .buttonStyle(DJConnectLilacPillButtonStyle())
             .controlSize(.large)
         } else {
-            HStack(spacing: 10) {
+            LazyVGrid(columns: controlColumns(count: game == .pong ? 3 : 4), spacing: 10) {
                 directionButton(primaryMoveLabel, icon: primaryMoveIcon) {
                     move(-1)
                 }
@@ -7213,11 +13878,11 @@ private struct LocalGameSurface: View {
                         DJConnectHaptics.impact()
                         fire()
                     } label: {
-                        Label(localized(language, "Fire", "Schiet"), systemImage: "sparkle")
+                        Label(localizedKey(language, "ui.fire"), systemImage: "sparkle")
                             .labelStyle(.iconOnly)
                             .frame(height: 24)
                     }
-                    .help(localized(language, "Fire", "Schiet"))
+                    .help(localizedKey(language, "ui.fire"))
                 }
 
                 resetButton
@@ -7225,6 +13890,12 @@ private struct LocalGameSurface: View {
             .buttonStyle(DJConnectLilacPillButtonStyle())
             .controlSize(.large)
         }
+    }
+
+    private func controlColumns(count: Int) -> [GridItem] {
+        let compactCount = min(count, 2)
+        let columnCount = isCompactLayout ? compactCount : count
+        return Array(repeating: GridItem(.flexible(minimum: 0), spacing: 10), count: columnCount)
     }
 
     private func directionButton(_ label: String, icon: String, action: @escaping () -> Void) -> some View {
@@ -7244,14 +13915,31 @@ private struct LocalGameSurface: View {
             DJConnectHaptics.selection()
             reset()
         } label: {
-            Label(localized(language, "Reset", "Reset"), systemImage: "arrow.clockwise")
+            Label(localizedKey(language, "ui.reset"), systemImage: "arrow.clockwise")
                 .labelStyle(.iconOnly)
                 .frame(height: 24)
         }
-        .help(localized(language, "Reset", "Reset"))
+        .help(localizedKey(language, "ui.reset"))
     }
 
-    private var pacmanPowerPellets: Set<Int> { [0, 7, 24, 31] }
+    private var pacmanColumnCount: Int { 9 }
+    private var pacmanRowCount: Int { 4 }
+    private var pacmanPelletCount: Int { pacmanColumnCount * pacmanRowCount }
+    private var pacmanPelletStartX: CGFloat { 48 }
+    private var pacmanPelletStartY: CGFloat { 52 }
+    private var pacmanPelletSpacing: CGFloat { 28 }
+    private var pacmanMinX: CGFloat { pacmanPelletStartX }
+    private var pacmanMaxX: CGFloat { pacmanPelletStartX + CGFloat(pacmanColumnCount - 1) * pacmanPelletSpacing }
+    private var pacmanMinY: CGFloat { pacmanPelletStartY - 8 }
+    private var pacmanMaxY: CGFloat { pacmanPelletStartY + CGFloat(pacmanRowCount - 1) * pacmanPelletSpacing + 8 }
+    private var pacmanPowerPellets: Set<Int> {
+        [
+            0,
+            pacmanColumnCount - 1,
+            pacmanPelletCount - pacmanColumnCount,
+            pacmanPelletCount - 1
+        ]
+    }
     private var pacmanPowerTicks: Int { 150 }
     private var isGhostVulnerable: Bool { ghostVulnerableTicks > 0 }
     private var isGhostBlinking: Bool {
@@ -7313,12 +14001,12 @@ private struct LocalGameSurface: View {
             }
         case .pacman:
             for pellet in pellets {
-                let column = pellet % 8
-                let row = pellet / 8
+                let column = pellet % pacmanColumnCount
+                let row = pellet / pacmanColumnCount
                 let isPowerPellet = pacmanPowerPellets.contains(pellet)
                 let pelletSize: CGFloat = isPowerPellet ? 8 : 4
                 context.fill(
-                    Path(ellipseIn: rect(CGFloat(48 + column * 28) - pelletSize / 2, CGFloat(52 + row * 28) - pelletSize / 2, pelletSize, pelletSize)),
+                    Path(ellipseIn: rect(pacmanPelletStartX + CGFloat(column) * pacmanPelletSpacing - pelletSize / 2, pacmanPelletStartY + CGFloat(row) * pacmanPelletSpacing - pelletSize / 2, pelletSize, pelletSize)),
                     with: .color(.white.opacity(isPowerPellet ? 0.98 : 0.82))
                 )
             }
@@ -7921,8 +14609,8 @@ private struct LocalGameSurface: View {
                 }
                 return
             }
-            pacmanX = min(max(pacmanX + pacmanDX * 4, 28), 292)
-            pacmanY = min(max(pacmanY + pacmanDY * 4, 44), 140)
+            pacmanX = min(max(pacmanX + pacmanDX * 4, pacmanMinX), pacmanMaxX)
+            pacmanY = min(max(pacmanY + pacmanDY * 4, pacmanMinY), pacmanMaxY)
             if ghostVulnerableTicks > 0 {
                 ghostVulnerableTicks -= 1
             }
@@ -7934,10 +14622,10 @@ private struct LocalGameSurface: View {
                 ghostY += ghostY < pacmanY ? ghostStep : -ghostStep
             }
             for pellet in pellets {
-                let column = pellet % 8
-                let row = pellet / 8
-                let pelletX = CGFloat(48 + column * 28)
-                let pelletY = CGFloat(52 + row * 28)
+                let column = pellet % pacmanColumnCount
+                let row = pellet / pacmanColumnCount
+                let pelletX = pacmanPelletStartX + CGFloat(column) * pacmanPelletSpacing
+                let pelletY = pacmanPelletStartY + CGFloat(row) * pacmanPelletSpacing
                 if abs(pelletX - pacmanX) < 10 && abs(pelletY - pacmanY) < 10 {
                     pellets.remove(pellet)
                     setScore(score + 1)
@@ -7953,7 +14641,7 @@ private struct LocalGameSurface: View {
                 }
             }
             if pellets.isEmpty {
-                pellets = Set(0..<32)
+                pellets = Set(0..<pacmanPelletCount)
                 ghostX = 250
                 ghostY = 86
                 ghostVulnerableTicks = 0
@@ -8011,7 +14699,7 @@ private struct LocalGameSurface: View {
         ghostY = 86
         ghostVulnerableTicks = 0
         pacmanDeathTicks = 0
-        pellets = Set(0..<32)
+        pellets = Set(0..<pacmanPelletCount)
     }
 
     private func resetPaddleBall() {
@@ -8124,47 +14812,66 @@ private struct MoreView: View {
     @State private var showingFeedback = false
 
     var body: some View {
+        moreList
+        .sheet(isPresented: $showingFeedback) {
+            FeedbackPromptView(model: model)
+        }
+    }
+
+    private var moreList: some View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
                     MoreNavigationRow(
-                        title: localized(model.language, "Playlists", "Afspeellijsten"),
+                        title: localizedKey(model.language, "ui.queue"),
+                        systemImage: "music.note.list"
+                    ) {
+                        QueueView(model: model)
+                    }
+                    MoreNavigationRow(
+                        title: "Music DNA",
+                        systemImage: "heart"
+                    ) {
+                        MusicDNAView(model: model)
+                    }
+                    MoreNavigationRow(
+                        title: localizedKey(model.language, "ui.playlists"),
                         systemImage: "rectangle.stack"
                     ) {
                         PlaylistsView(model: model)
                     }
                     MoreNavigationRow(
-                        title: localized(model.language, "Games", "Games"),
+                        title: localizedKey(model.language, "ui.games"),
                         systemImage: "gamecontroller"
                     ) {
                         GamesView(language: model.language, isDemoMode: model.isDemoMode)
                     }
                     MoreNavigationRow(
-                        title: localized(model.language, "Settings", "Instellingen"),
+                        title: localizedKey(model.language, "ui.settings"),
                         systemImage: "gearshape"
                     ) {
                         SettingsView(model: model, returnToNowPlaying: returnToNowPlaying)
                     }
                     MoreNavigationRow(
-                        title: localized(model.language, "Logs", "Logs"),
+                        title: localizedKey(model.language, "ui.logs"),
                         systemImage: "doc.text.magnifyingglass"
                     ) {
                         LogsView(model: model)
                     }
                     MoreNavigationRow(
-                        title: localized(model.language, "About", "Over"),
+                        title: localizedKey(model.language, "ui.about"),
                         systemImage: "info.circle"
                     ) {
                         AboutView(model: model)
                     }
                     MoreNavigationRow(
-                        title: localized(model.language, "Legal", "Juridisch"),
+                        title: localizedKey(model.language, "ui.legal"),
                         systemImage: "doc.text"
                     ) {
                         LegalNoticesView(language: model.language)
                     }
                     MoreNavigationRow(
-                        title: localized(model.language, "Privacy", "Privacy"),
+                        title: localizedKey(model.language, "ui.privacy"),
                         systemImage: "hand.raised"
                     ) {
                         PrivacyView(language: model.language)
@@ -8175,12 +14882,13 @@ private struct MoreView: View {
                         HStack(spacing: 14) {
                             Image(systemName: "bubble.left.and.bubble.right")
                                 .font(.title3)
+                                .foregroundStyle(djConnectAccent)
                                 .frame(width: 30)
-                            Text(localized(model.language, "Share Feedback", "Feedback delen"))
+                            Text(localizedKey(model.language, "ui.share.feedback"))
                                 .font(.body)
+                                .foregroundStyle(.primary)
                             Spacer()
                         }
-                        .foregroundStyle(djConnectAccent)
                         .padding(.vertical, 14)
                         .padding(.horizontal, 18)
                         .contentShape(Rectangle())
@@ -8207,11 +14915,7 @@ private struct MoreView: View {
                 .padding(.top, 12)
             }
             .background(DJConnectCanvasBackground())
-            .navigationTitle(screenTitle(model.language, "More", "Meer", isDemoMode: model.isDemoMode))
-        }
-        .background(DJConnectCanvasBackground())
-        .sheet(isPresented: $showingFeedback) {
-            FeedbackPromptView(model: model)
+            .navigationTitle(screenTitle(model.language, key: "More", isDemoMode: model.isDemoMode))
         }
     }
 }
@@ -8253,39 +14957,734 @@ private struct MoreNavigationRow<Destination: View>: View {
     }
 }
 
+private struct MusicDNAJSONDocument: FileDocument {
+    static var readableContentTypes: [UTType] { [.json] }
+
+    var data: Data
+
+    init(data: Data = Data()) {
+        self.data = data
+    }
+
+    init(configuration: ReadConfiguration) throws {
+        data = configuration.file.regularFileContents ?? Data()
+    }
+
+    func fileWrapper(configuration: WriteConfiguration) throws -> FileWrapper {
+        FileWrapper(regularFileWithContents: data)
+    }
+}
+
+private enum MusicDNAExportStatus: Equatable {
+    case idle
+    case exporting
+    case ready
+    case saved
+    case failed(String)
+}
+
+private enum MusicDNAImportStatus: Equatable {
+    case ready
+    case uploading
+    case uploaded
+    case failed(String)
+}
+
+private struct AskDJHistoryExportSheet: View {
+    var language: String
+    var filename: String
+    var status: MusicDNAExportStatus
+    var saveAction: () -> Void
+    var closeAction: () -> Void
+
+    var body: some View {
+        ZStack {
+            DJConnectCanvasBackground()
+            VStack(alignment: .leading, spacing: 18) {
+                AboutBanner()
+                statusIcon
+
+                VStack(alignment: .leading, spacing: 10) {
+                    Text(localizedKey(language, "ui.export.ask.dj.history"))
+                        .font(.title.bold())
+                        .foregroundStyle(.white)
+                    Text(localizedKey(language, "ui.ask.dj.history.export.description"))
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(localizedKey(language, "ui.filename"))
+                        .font(.caption.weight(.bold))
+                        .foregroundStyle(.white.opacity(0.54))
+                    Text(filename)
+                        .font(.callout.monospaced().weight(.semibold))
+                        .foregroundStyle(.white.opacity(0.86))
+                        .textSelection(.enabled)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .padding(14)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Color.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+
+                if case let .failed(message) = status {
+                    Label(message, systemImage: "xmark.octagon")
+                        .font(.callout.weight(.semibold))
+                        .foregroundStyle(.red.opacity(0.92))
+                        .fixedSize(horizontal: false, vertical: true)
+                } else if status == .exporting {
+                    Label(localizedKey(language, "ui.ask.dj.history.exporting"), systemImage: "arrow.down.circle")
+                        .font(.callout.weight(.semibold))
+                        .foregroundStyle(.white.opacity(0.74))
+                } else if status == .saved {
+                    Label(localizedKey(language, "ui.ask.dj.history.export.saved"), systemImage: "checkmark.circle.fill")
+                        .font(.callout.weight(.semibold))
+                        .foregroundStyle(.green)
+                }
+
+                Spacer(minLength: 0)
+
+                VStack(spacing: 10) {
+                    Button {
+                        saveAction()
+                    } label: {
+                        Label(localizedKey(language, "ui.save.json"), systemImage: "square.and.arrow.down")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(DJConnectLilacPillButtonStyle())
+                    .controlSize(.large)
+                    .disabled(!(status == .ready || status == .saved))
+
+                    Button {
+                        closeAction()
+                    } label: {
+                        Text(localizedKey(language, status == .saved ? "ui.done" : "ui.not.now"))
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(DJConnectLilacPillButtonStyle())
+                    .controlSize(.large)
+                }
+            }
+            .padding(28)
+            .frame(minWidth: 360, idealWidth: 520, maxWidth: 620, minHeight: 420, alignment: .topLeading)
+        }
+    }
+
+    @ViewBuilder
+    private var statusIcon: some View {
+        Image(systemName: systemImage)
+            .font(.system(size: 50, weight: .semibold))
+            .symbolRenderingMode(.hierarchical)
+            .foregroundStyle(status == .saved ? AnyShapeStyle(.green) : AnyShapeStyle(djConnectIconGradient))
+            .frame(maxWidth: .infinity)
+            .accessibilityHidden(true)
+    }
+
+    private var systemImage: String {
+        switch status {
+        case .idle, .ready:
+            return "bubble.left.and.bubble.right"
+        case .exporting:
+            return "arrow.down.circle"
+        case .saved:
+            return "checkmark.circle.fill"
+        case .failed:
+            return "xmark.octagon.fill"
+        }
+    }
+}
+
+private struct MusicDNAExportSheet: View {
+    var language: String
+    var filename: String
+    var status: MusicDNAExportStatus
+    var saveAction: () -> Void
+    var closeAction: () -> Void
+
+    var body: some View {
+        ZStack {
+            DJConnectCanvasBackground()
+            VStack(alignment: .leading, spacing: 18) {
+                AboutBanner()
+                statusIcon
+
+                VStack(alignment: .leading, spacing: 10) {
+                    Text(localizedKey(language, "ui.music.dna.export"))
+                        .font(.title.bold())
+                        .foregroundStyle(.white)
+                    Text(localizedKey(language, "ui.music.dna.export.description"))
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(localizedKey(language, "ui.filename"))
+                        .font(.caption.weight(.bold))
+                        .foregroundStyle(.white.opacity(0.54))
+                    Text(filename)
+                        .font(.callout.monospaced().weight(.semibold))
+                        .foregroundStyle(.white.opacity(0.86))
+                        .textSelection(.enabled)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .padding(14)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Color.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+
+                if case let .failed(message) = status {
+                    Label(message, systemImage: "xmark.octagon")
+                        .font(.callout.weight(.semibold))
+                        .foregroundStyle(.red.opacity(0.92))
+                        .fixedSize(horizontal: false, vertical: true)
+                } else if status == .exporting {
+                    Label(localizedKey(language, "ui.music.dna.exporting"), systemImage: "arrow.down.circle")
+                        .font(.callout.weight(.semibold))
+                        .foregroundStyle(.white.opacity(0.74))
+                } else if status == .saved {
+                    Label(localizedKey(language, "ui.music.dna.export.saved"), systemImage: "checkmark.circle.fill")
+                        .font(.callout.weight(.semibold))
+                        .foregroundStyle(.green)
+                }
+
+                Spacer(minLength: 0)
+
+                VStack(spacing: 10) {
+                    Button {
+                        saveAction()
+                    } label: {
+                        Label(localizedKey(language, "ui.save.json"), systemImage: "square.and.arrow.down")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(DJConnectLilacPillButtonStyle())
+                    .controlSize(.large)
+                    .disabled(!canSave)
+
+                    Button {
+                        closeAction()
+                    } label: {
+                        Text(localizedKey(language, status == .saved ? "ui.done" : "ui.not.now"))
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(DJConnectLilacPillButtonStyle())
+                    .controlSize(.large)
+                }
+            }
+            .padding(28)
+            .frame(minWidth: 360, idealWidth: 520, maxWidth: 620, minHeight: 420, alignment: .topLeading)
+        }
+    }
+
+    @ViewBuilder
+    private var statusIcon: some View {
+        Image(systemName: systemImage)
+            .font(.system(size: 50, weight: .semibold))
+            .symbolRenderingMode(.hierarchical)
+            .foregroundStyle(status == .saved ? AnyShapeStyle(.green) : AnyShapeStyle(djConnectIconGradient))
+            .frame(maxWidth: .infinity)
+            .accessibilityHidden(true)
+    }
+
+    private var systemImage: String {
+        switch status {
+        case .idle, .ready:
+            return "heart"
+        case .exporting:
+            return "arrow.down.circle"
+        case .saved:
+            return "checkmark.circle.fill"
+        case .failed:
+            return "xmark.octagon.fill"
+        }
+    }
+
+    private var canSave: Bool {
+        status == .ready || status == .saved
+    }
+}
+
+private struct MusicDNAImportSheet: View {
+    @ObservedObject var model: DJConnectAppModel
+    var preview: DJConnectMusicDNAImportPreview
+    var canUpload: Bool
+    var status: MusicDNAImportStatus
+    var uploadAction: () -> Void
+    var closeAction: () -> Void
+
+    private var profile: DJConnectMusicDNAProfile {
+        preview.profile.profile
+    }
+
+    private var updatedAt: Date? {
+        preview.profile.updatedAt ?? profile.updatedAt ?? preview.exportedAt
+    }
+
+    var body: some View {
+        ZStack {
+            DJConnectCanvasBackground()
+            VStack(alignment: .leading, spacing: 18) {
+                AboutBanner()
+                statusIcon
+
+                VStack(alignment: .leading, spacing: 10) {
+                    Text(localizedKey(model.language, "ui.music.dna.import"))
+                        .font(.title.bold())
+                        .foregroundStyle(.white)
+                    Text(statusText)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
+                    MusicDNAStatPill(title: localizedKey(model.language, "ui.tracks"), value: statValue(profile.trackCount))
+                    MusicDNAStatPill(title: localizedKey(model.language, "ui.artists"), value: statValue(profile.artistCount))
+                    MusicDNAStatPill(title: localizedKey(model.language, "ui.genres"), value: statValue(profile.genreCount))
+                    MusicDNAStatPill(title: localizedKey(model.language, "ui.generation"), value: statValue(preview.profile.generation))
+                }
+
+                VStack(alignment: .leading, spacing: 8) {
+                    if let updatedAt {
+                        Label("\(localizedKey(model.language, "ui.updated")): \(formattedDate(updatedAt))", systemImage: "clock")
+                    }
+                    if let exportedAt = preview.exportedAt {
+                        Label("\(localizedKey(model.language, "ui.exported")): \(formattedDate(exportedAt))", systemImage: "square.and.arrow.up")
+                    }
+                    if let client = preview.exportedByClientType {
+                        Label(client, systemImage: "iphone.and.arrow.forward")
+                    }
+                }
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.white.opacity(0.72))
+
+                if case let .failed(message) = status {
+                    Label(message, systemImage: "xmark.octagon")
+                        .font(.callout.weight(.semibold))
+                        .foregroundStyle(.red.opacity(0.94))
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                Spacer(minLength: 0)
+
+                VStack(spacing: 10) {
+                    Button {
+                        uploadAction()
+                    } label: {
+                        if status == .uploading {
+                            ProgressView()
+                                .tint(.white)
+                                .frame(maxWidth: .infinity)
+                        } else {
+                            Label(localizedKey(model.language, "ui.upload.to.home.assistant"), systemImage: "arrow.up.circle")
+                                .frame(maxWidth: .infinity)
+                        }
+                    }
+                    .buttonStyle(DJConnectLilacPillButtonStyle())
+                    .controlSize(.large)
+                    .disabled(!canUpload || status == .uploading || status == .uploaded)
+
+                    Button {
+                        closeAction()
+                    } label: {
+                        Text(localizedKey(model.language, status == .uploaded ? "ui.done" : "ui.cancel"))
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(DJConnectLilacPillButtonStyle())
+                    .controlSize(.large)
+                }
+            }
+            .padding(28)
+            .frame(minWidth: 360, idealWidth: 560, maxWidth: 660, minHeight: 520, alignment: .topLeading)
+        }
+    }
+
+    @ViewBuilder
+    private var statusIcon: some View {
+        let systemImage: String = {
+            switch status {
+            case .ready:
+                return "doc.text.magnifyingglass"
+            case .uploading:
+                return "arrow.up.circle"
+            case .uploaded:
+                return "checkmark.circle.fill"
+            case .failed:
+                return "xmark.octagon.fill"
+            }
+        }()
+        Image(systemName: systemImage)
+            .font(.system(size: 50, weight: .semibold))
+            .symbolRenderingMode(.hierarchical)
+            .foregroundStyle(statusColor)
+            .frame(maxWidth: .infinity)
+            .accessibilityHidden(true)
+    }
+
+    private var statusColor: AnyShapeStyle {
+        switch status {
+        case .ready, .uploading:
+            return AnyShapeStyle(djConnectIconGradient)
+        case .uploaded:
+            return AnyShapeStyle(.green)
+        case .failed:
+            return AnyShapeStyle(.red)
+        }
+    }
+
+    private var statusText: String {
+        switch status {
+        case .ready:
+            return canUpload
+                ? localizedKey(model.language, "ui.music.dna.import.ready.description")
+                : localizedKey(model.language, "ui.music.dna.import.requires.connection")
+        case .uploading:
+            return localizedKey(model.language, "ui.music.dna.import.uploading")
+        case .uploaded:
+            return localizedKey(model.language, "ui.music.dna.import.uploaded")
+        case .failed:
+            return localizedKey(model.language, "ui.music.dna.import.failed")
+        }
+    }
+
+    private func statValue(_ value: Int?) -> String {
+        guard let value else {
+            return "-"
+        }
+        return "\(value)"
+    }
+
+    private func formattedDate(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: model.language)
+        formatter.dateStyle = .medium
+        formatter.timeStyle = .short
+        return formatter.string(from: date)
+    }
+}
+
+private struct MusicDNAStatPill: View {
+    var title: String
+    var value: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(title)
+                .font(.caption.weight(.bold))
+                .foregroundStyle(.white.opacity(0.54))
+            Text(value)
+                .font(.title3.bold())
+                .foregroundStyle(.white)
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+    }
+}
+
 struct SettingsView: View {
     @ObservedObject var model: DJConnectAppModel
     var returnToNowPlaying: () -> Void = {}
     @Environment(\.openURL) private var openURL
     @State private var isShowingResetPairingConfirmation = false
+    @State private var isShowingMusicDNADisableConfirmation = false
+    @State private var isShowingMusicDNAClearConfirmation = false
+    @State private var isShowingAskDJHistoryExportSheet = false
+    @State private var isShowingAskDJHistoryFileExporter = false
+    @State private var askDJHistoryExportDocument: MusicDNAJSONDocument?
+    @State private var askDJHistoryExportFilename = "djconnect-ask-dj-history.json"
+    @State private var askDJHistoryExportStatus: MusicDNAExportStatus = .idle
+    @State private var isShowingMusicDNAExportSheet = false
+    @State private var isShowingMusicDNAFileExporter = false
+    @State private var isShowingMusicDNAFileImporter = false
+    @State private var musicDNAExportDocument: MusicDNAJSONDocument?
+    @State private var musicDNAExportFilename = "DJConnect-Music-DNA.json"
+    @State private var musicDNAExportStatus: MusicDNAExportStatus = .idle
+    @State private var musicDNAImportPreview: DJConnectMusicDNAImportPreview?
+    @State private var musicDNAImportStatus: MusicDNAImportStatus = .ready
+
+    private var musicDNAEnabled: Bool {
+        model.musicDNAProfileResponse?.enabled == true
+    }
+
+    private var canUseMusicDNAImport: Bool {
+        !model.isDemoMode && model.pairingStatus == .paired && model.isConnected
+    }
+
+    private var canUseMusicDNAExport: Bool {
+        !model.isDemoMode && model.pairingStatus == .paired && model.isConnected
+    }
+
+    private var canUseAskDJHistoryExport: Bool {
+        !model.isDemoMode && model.pairingStatus == .paired && model.isConnected
+    }
+
+    private var musicDNAHowItWorksText: String {
+        if musicDNAEnabled {
+            return localizedKey(model.language, "ui.music.dna.is.enabled.home.assistant.can.use.future.listening")
+        }
+        if model.musicDNAProfileResponse?.enabled == false {
+            return localizedKey(model.language, "ui.music.dna.is.disabled.no.listening.profile.is.being.built")
+        }
+        return localizedKey(model.language, "ui.djconnect.is.still.checking.the.current.music.dna.status")
+    }
+
+    private var canShowWebSocketFastPathToggle: Bool {
+        !model.isDemoMode
+            && model.pairingStatus == .paired
+            && model.haConnectionMode == .local
+    }
+
+    private var connectionTransportTitle: String {
+        if model.fastPathDiagnostics.websocketConnected {
+            return localizedKey(model.language, "ui.fast.local.link.websocket")
+        }
+        return localizedKey(model.language, "ui.normal.link.http")
+    }
+
+    private var connectionTransportColor: Color {
+        model.fastPathDiagnostics.websocketConnected ? .green : .secondary
+    }
+
+    private func prepareAskDJHistoryExport() {
+        guard canUseAskDJHistoryExport else {
+            askDJHistoryExportFilename = model.askDJHistoryExportFilename()
+            askDJHistoryExportDocument = nil
+            askDJHistoryExportStatus = .failed(localizedKey(model.language, "appModel.no.connection.to.home.assistant"))
+            isShowingAskDJHistoryExportSheet = true
+            return
+        }
+        askDJHistoryExportFilename = model.askDJHistoryExportFilename()
+        askDJHistoryExportDocument = nil
+        askDJHistoryExportStatus = .exporting
+        isShowingAskDJHistoryExportSheet = true
+        Task {
+            do {
+                let data = try await model.exportAskDJHistoryData()
+                askDJHistoryExportDocument = MusicDNAJSONDocument(data: data)
+                askDJHistoryExportStatus = .ready
+            } catch {
+                askDJHistoryExportDocument = nil
+                askDJHistoryExportStatus = .failed(askDJHistoryExportErrorText(error))
+            }
+        }
+    }
+
+    private func prepareMusicDNAExport() {
+        guard canUseMusicDNAExport else {
+            musicDNAExportFilename = model.musicDNAExportFilename()
+            musicDNAExportDocument = nil
+            musicDNAExportStatus = .failed(localizedKey(model.language, "appModel.no.connection.to.home.assistant"))
+            isShowingMusicDNAExportSheet = true
+            return
+        }
+        musicDNAExportFilename = model.musicDNAExportFilename()
+        musicDNAExportDocument = nil
+        musicDNAExportStatus = .exporting
+        isShowingMusicDNAExportSheet = true
+        Task {
+            do {
+                let data = try await model.exportMusicDNAProfileData()
+                musicDNAExportDocument = MusicDNAJSONDocument(data: data)
+                musicDNAExportStatus = .ready
+            } catch {
+                musicDNAExportDocument = nil
+                musicDNAExportStatus = .failed(musicDNATransferErrorText(error))
+            }
+        }
+    }
+
+    private func presentAskDJHistoryFileExporter() {
+        guard askDJHistoryExportDocument != nil else {
+            return
+        }
+        #if os(macOS)
+        isShowingAskDJHistoryExportSheet = false
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+            isShowingAskDJHistoryFileExporter = true
+        }
+        #else
+        isShowingAskDJHistoryFileExporter = true
+        #endif
+    }
+
+    private func presentMusicDNAFileExporter() {
+        guard musicDNAExportDocument != nil else {
+            return
+        }
+        #if os(macOS)
+        isShowingMusicDNAExportSheet = false
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+            isShowingMusicDNAFileExporter = true
+        }
+        #else
+        isShowingMusicDNAFileExporter = true
+        #endif
+    }
+
+    private func presentMusicDNAFileImporter() {
+        guard canUseMusicDNAImport else {
+            musicDNAImportStatus = .failed(localizedKey(model.language, "appModel.no.connection.to.home.assistant"))
+            return
+        }
+        #if os(macOS)
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [.json]
+        panel.allowsMultipleSelection = false
+        panel.canChooseDirectories = false
+        panel.canChooseFiles = true
+        panel.prompt = localizedKey(model.language, "ui.import")
+        panel.begin { response in
+            guard response == .OK, let url = panel.url else {
+                return
+            }
+            handleMusicDNAImportSelection(.success([url]))
+        }
+        #else
+        isShowingMusicDNAFileImporter = true
+        #endif
+    }
+
+    private func handleMusicDNAImportSelection(_ result: Result<[URL], Error>) {
+        guard canUseMusicDNAImport else {
+            musicDNAImportStatus = .failed(localizedKey(model.language, "appModel.no.connection.to.home.assistant"))
+            return
+        }
+        do {
+            guard let url = try result.get().first else {
+                return
+            }
+            let shouldStopAccessing = url.startAccessingSecurityScopedResource()
+            defer {
+                if shouldStopAccessing {
+                    url.stopAccessingSecurityScopedResource()
+                }
+            }
+            let data = try Data(contentsOf: url)
+            musicDNAImportPreview = try model.previewMusicDNAImport(data: data)
+            musicDNAImportStatus = .ready
+        } catch {
+            musicDNAImportPreview = nil
+            musicDNAImportStatus = .failed(musicDNATransferErrorText(error))
+        }
+    }
+
+    private func uploadMusicDNAImport(_ preview: DJConnectMusicDNAImportPreview) {
+        guard canUseMusicDNAImport else {
+            musicDNAImportStatus = .failed(localizedKey(model.language, "appModel.no.connection.to.home.assistant"))
+            return
+        }
+        musicDNAImportStatus = .uploading
+        Task {
+            do {
+                try await model.uploadMusicDNAImport(preview)
+                musicDNAImportStatus = .uploaded
+            } catch {
+                musicDNAImportStatus = .failed(musicDNATransferErrorText(error))
+            }
+        }
+    }
+
+    private func musicDNATransferErrorText(_ error: Error) -> String {
+        if let transferError = error as? DJConnectMusicDNATransferError {
+            switch transferError {
+            case .noProfileAvailable:
+                return localizedKey(model.language, "ui.no.music.dna.profile.yet")
+            case .invalidDocument:
+                return localizedKey(model.language, "ui.music.dna.import.invalid.file")
+            case .homeAssistantUnavailable:
+                return localizedKey(model.language, "appModel.no.connection.to.home.assistant")
+            }
+        }
+        if let djError = error as? DJConnectError {
+            switch djError {
+            case let .authStale(_, message),
+                 let .backendUnavailable(message),
+                 let .routeMissing(message),
+                 let .notConfigured(message),
+                 let .server(_, message),
+                 let .pairingFailed(message),
+                 let .trackInsightUnavailable(_, message):
+                let trimmed = message?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+                return trimmed.isEmpty ? localizedKey(model.language, "ui.music.dna.import.rejected") : trimmed
+            case let .network(message), let .invalidConfiguration(message):
+                return message
+            case .missingToken:
+                return localizedKey(model.language, "appModel.missing.djconnect.bearer.token.reset.pairing.to.set.up")
+            case .invalidResponse, .decodingFailed, .versionMismatch, .clientTypeMismatch:
+                return localizedKey(model.language, "ui.music.dna.import.rejected")
+            }
+        }
+        return error.localizedDescription
+    }
+
+    private func askDJHistoryExportErrorText(_ error: Error) -> String {
+        if let transferError = error as? DJConnectMusicDNATransferError {
+            switch transferError {
+            case .homeAssistantUnavailable:
+                return localizedKey(model.language, "appModel.no.connection.to.home.assistant")
+            case .noProfileAvailable, .invalidDocument:
+                return localizedKey(model.language, "ui.ask.dj.history.export.failed")
+            }
+        }
+        if let djError = error as? DJConnectError {
+            switch djError {
+            case let .authStale(_, message),
+                 let .notConfigured(message),
+                 let .server(_, message),
+                 let .pairingFailed(message):
+                let trimmed = message?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+                return trimmed.isEmpty ? localizedKey(model.language, "ui.ask.dj.history.export.failed") : trimmed
+            case let .network(message), let .invalidConfiguration(message):
+                return message
+            case .missingToken:
+                return localizedKey(model.language, "appModel.missing.djconnect.bearer.token.reset.pairing.to.set.up")
+            case .routeMissing, .backendUnavailable, .invalidResponse, .decodingFailed, .versionMismatch, .clientTypeMismatch, .trackInsightUnavailable:
+                return Self.localizedAskDJHistoryExportFallback(language: model.language)
+            }
+        }
+        return error.localizedDescription
+    }
+
+    private static func localizedAskDJHistoryExportFallback(language: String) -> String {
+        localizedKey(language, "ui.ask.dj.history.export.failed")
+    }
 
     var body: some View {
         NavigationStack {
-            List {
-                Section(localized(model.language, "App", "App")) {
+            ZStack {
+                DJConnectCanvasBackground()
+                List {
+                Section(localizedKey(model.language, "ui.app")) {
+                    Picker(localizedKey(model.language, "ui.app.language"), selection: $model.appLanguageSelectionCode) {
+                        Text(localizedKey(model.language, "ui.system.language")).tag("")
+                        ForEach(DJConnectLocalization.supportedLanguageCodes, id: \.self) { code in
+                            Text(DJConnectLocalization.nativeLanguageName(for: code)).tag(code)
+                        }
+                    }
+                    .djMusicDNASettingsListRow()
                     if model.isDemoMode {
-                        LabeledContent(localized(model.language, "Demo Mode", "Demo modus")) {
-                            Button(localized(model.language, "Stop Demo Mode", "Demo modus stoppen"), role: .destructive) {
+                        LabeledContent(localizedKey(model.language, "ui.demo.mode")) {
+                            Button(localizedKey(model.language, "ui.stop.demo.mode"), role: .destructive) {
                                 returnToNowPlaying()
                                 model.stopDemoMode()
                             }
                         }
+                        .djMusicDNASettingsListRow()
                     }
                     if !model.isDemoMode {
-                        LabeledContent(localized(model.language, "Pairing", "Koppeling")) {
+                        LabeledContent(localizedKey(model.language, "ui.pairing")) {
                             Button(role: .destructive) {
                                 isShowingResetPairingConfirmation = true
                             } label: {
-                                Text(localized(model.language, "Pair App Again", "App opnieuw koppelen"))
+                                Text(localizedKey(model.language, "ui.pair.app.again"))
                             }
                         }
+                        .djMusicDNASettingsListRow()
                     }
-                    LabeledContent(localized(model.language, "Wakeword", "Stemactivatie")) {
+                    LabeledContent(localizedKey(model.language, "ui.wakeword")) {
                         if model.wakeWordEnabled {
                             Button {
                                 model.setWakeWordEnabled(false)
                             } label: {
-                                Text(localized(model.language, "Disable Voice Activation", "Stemactivatie uitschakelen"))
+                                Text(localizedKey(model.language, "ui.disable.voice.activation"))
                                     .foregroundStyle(djConnectAccent)
                             }
                             .foregroundStyle(djConnectAccent)
@@ -8294,61 +15693,167 @@ struct SettingsView: View {
                             Button {
                                 model.setWakeWordEnabled(true)
                             } label: {
-                                Text(localized(model.language, "Enable Voice Activation", "Stemactivatie inschakelen"))
+                                Text(localizedKey(model.language, "ui.enable.voice.activation.321a28"))
                                     .foregroundStyle(djConnectAccent)
                             }
                             .foregroundStyle(djConnectAccent)
                             .tint(djConnectAccent)
                         }
                     }
+                    .djMusicDNASettingsListRow()
                     wakeWordPhraseField(model)
-                    LabeledContent(localized(model.language, "Wakeword status", "Stemactivatie-status")) {
+                        .djMusicDNASettingsListRow()
+                    LabeledContent(localizedKey(model.language, "ui.wakeword.status")) {
                         Text(wakeWordStatusText(model))
                             .foregroundStyle(.secondary)
                     }
-                    Picker(localized(model.language, "Log Level", "Logniveau"), selection: $model.logLevel) {
+                    .djMusicDNASettingsListRow()
+                    Picker(localizedKey(model.language, "ui.log.level"), selection: $model.logLevel) {
                         Text("Debug").tag("debug")
                         Text("Info").tag("info")
-                        Text(localized(model.language, "Warning", "Waarschuwing")).tag("warning")
-                        Text(localized(model.language, "Error", "Fout")).tag("error")
+                        Text(localizedKey(model.language, "ui.warning")).tag("warning")
+                        Text(localizedKey(model.language, "ui.error")).tag("error")
                     }
+                    .djMusicDNASettingsListRow()
                 }
                 .djSettingsListRowBackground()
 
-                Section(localized(model.language, "Permissions", "Toestemmingen")) {
+                Section("Ask DJ") {
+                    LabeledContent(localizedKey(model.language, "ui.chat.history")) {
+                        Button {
+                            prepareAskDJHistoryExport()
+                        } label: {
+                            Text(localizedKey(model.language, "ui.export"))
+                                .foregroundStyle(djConnectAccent)
+                        }
+                        .foregroundStyle(djConnectAccent)
+                        .tint(djConnectAccent)
+                        .disabled(!canUseAskDJHistoryExport)
+                    }
+                    .djCompactSettingsListRow()
+                }
+                .djSettingsSectionTopSpacing()
+                .djSettingsListRowBackground()
+
+                Section("Music DNA") {
+                    LabeledContent(localizedKey(model.language, "ui.how.it.works")) {
+                        Text(musicDNAHowItWorksText)
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.trailing)
+                        .fixedSize(horizontal: false, vertical: true)
+                    }
+                    .djMusicDNASettingsListRow()
+
+                    LabeledContent("Music DNA") {
+                        if musicDNAEnabled {
+                            Button(role: .destructive) {
+                                isShowingMusicDNADisableConfirmation = true
+                            } label: {
+                                Text(localizedKey(model.language, "ui.turn.off"))
+                            }
+                            .disabled(model.isUpdatingMusicDNA || (!model.isDemoMode && model.pairingStatus != .paired))
+                        } else {
+                            Button {
+                                model.showMusicDNAOptInPrompt()
+                            } label: {
+                                Text(localizedKey(model.language, "ui.turn.on"))
+                                    .foregroundStyle(djConnectAccent)
+                            }
+                            .foregroundStyle(djConnectAccent)
+                            .tint(djConnectAccent)
+                            .disabled(model.isUpdatingMusicDNA || (!model.isDemoMode && model.pairingStatus != .paired))
+                        }
+                    }
+                    .djMusicDNASettingsListRow()
+
+                    if musicDNAEnabled {
+                        LabeledContent(localizedKey(model.language, "ui.listening.profile")) {
+                            Button(role: .destructive) {
+                                isShowingMusicDNAClearConfirmation = true
+                            } label: {
+                                Text(localizedKey(model.language, "ui.clear"))
+                            }
+                            .disabled(model.isUpdatingMusicDNA || (!model.isDemoMode && model.pairingStatus != .paired))
+                        }
+                        .djMusicDNASettingsListRow()
+                    }
+
+                    LabeledContent(localizedKey(model.language, "ui.listening.profile")) {
+                        Button {
+                            prepareMusicDNAExport()
+                        } label: {
+                            Text(localizedKey(model.language, "ui.export"))
+                                .foregroundStyle(djConnectAccent)
+                        }
+                        .foregroundStyle(djConnectAccent)
+                        .tint(djConnectAccent)
+                        .disabled(!canUseMusicDNAExport)
+                    }
+                    .djMusicDNASettingsListRow()
+
+                    LabeledContent(localizedKey(model.language, "ui.listening.profile")) {
+                        Button {
+                            presentMusicDNAFileImporter()
+                        } label: {
+                            Text(localizedKey(model.language, "ui.import"))
+                                .foregroundStyle(djConnectAccent)
+                        }
+                        .foregroundStyle(djConnectAccent)
+                        .tint(djConnectAccent)
+                        .disabled(!canUseMusicDNAImport)
+                    }
+                    .djMusicDNASettingsListRow()
+                }
+                .djSettingsSectionTopSpacing()
+                .djSettingsListRowBackground()
+
+                if canShowWebSocketFastPathToggle {
+                    Section(localizedKey(model.language, "ui.connection")) {
+                        Toggle(isOn: $model.webSocketFastPathEnabled) {
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text(localizedKey(model.language, "ui.websocket.fast.path"))
+                                Text(localizedKey(model.language, "ui.use.websocket.fast.path.only.on.local.home.assistant"))
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
+                        }
+                        .tint(djConnectAccent)
+                        .djCompactSettingsListRow()
+
+                        LabeledContent(localizedKey(model.language, "ui.connection.speed")) {
+                            Text(connectionTransportTitle)
+                                .foregroundStyle(connectionTransportColor)
+                        }
+                        .djCompactSettingsListRow()
+                    }
+                    .djSettingsSectionTopSpacing()
+                    .djSettingsListRowBackground()
+                }
+
+                Section(localizedKey(model.language, "ui.permissions")) {
                     PermissionStatusRow(
-                        title: localized(model.language, "Microphone", "Microfoon"),
-                        detail: localized(
-                            model.language,
-                            "Needed for push-to-talk voice requests.",
-                            "Nodig voor push-to-talk muziekverzoeken."
-                        ),
-                        status: model.microphonePermissionStatus,
-                        language: model.language
-                    )
-                    PermissionStatusRow(
-                        title: localized(model.language, "Speech Recognition", "Spraakherkenning"),
-                        detail: localized(
-                            model.language,
-                            "Needed for the foreground wake phrase.",
-                            "Nodig voor stemactivatie."
-                        ),
-                        status: model.speechPermissionStatus,
-                        language: model.language
-                    )
-                    PermissionStatusRow(
-                        title: localized(model.language, "Notifications", "Meldingen"),
-                        detail: localized(
-                            model.language,
-                            "Needed for server push notifications when Ask DJ answers.",
-                            "Nodig voor server-pushmeldingen wanneer Ask DJ antwoordt."
-                        ),
+                        title: localizedKey(model.language, "ui.notifications"),
+                        detail: localizedKey(model.language, "ui.needed.for.server.push.notifications.when.ask.dj.answers"),
                         status: model.notificationPermissionStatus,
                         language: model.language
                     )
-                    if model.microphonePermissionStatus != .granted
-                        || model.speechPermissionStatus != .granted
-                        || model.notificationPermissionStatus != .granted {
+                    .djCompactSettingsListRow()
+                    PermissionStatusRow(
+                        title: localizedKey(model.language, "ui.microphone"),
+                        detail: localizedKey(model.language, "ui.needed.for.push.to.talk.voice.requests"),
+                        status: model.microphonePermissionStatus,
+                        language: model.language
+                    )
+                    .djCompactSettingsListRow()
+                    PermissionStatusRow(
+                        title: localizedKey(model.language, "ui.speech.recognition"),
+                        detail: localizedKey(model.language, "ui.needed.for.the.foreground.wake.phrase"),
+                        status: model.speechPermissionStatus,
+                        language: model.language
+                    )
+                    .djCompactSettingsListRow()
+                    if model.notificationPermissionStatus != .granted {
                         Button {
                             model.requestAppPermissions()
                         } label: {
@@ -8357,7 +15862,7 @@ struct SettingsView: View {
                                     .tint(djConnectAccent)
                             } else {
                                 Label(
-                                    localized(model.language, "Request Permissions", "Toestemmingen vragen"),
+                                    localizedKey(model.language, "ui.request.permissions"),
                                     systemImage: "checkmark.shield"
                                 )
                                 .foregroundStyle(djConnectAccent)
@@ -8366,36 +15871,148 @@ struct SettingsView: View {
                         .foregroundStyle(djConnectAccent)
                         .tint(djConnectAccent)
                         .disabled(model.isRequestingPermissions)
+                        .djCompactSettingsListRow()
                     }
                 }
+                .djSettingsSectionTopSpacing()
                 .djSettingsListRowBackground()
 
+                }
+                #if os(iOS)
+                .listStyle(.insetGrouped)
+                #else
+                .listStyle(.plain)
+                .contentMargins(.horizontal, 0, for: .scrollContent)
+                .contentMargins(.vertical, 0, for: .scrollContent)
+                #endif
+                .scrollContentBackgroundIfAvailable(.hidden)
+                .background(.clear)
+                .safeAreaInset(edge: .bottom) {
+                    Color.clear
+                        .frame(height: 28)
+                        .allowsHitTesting(false)
+                }
+                .djTransparentMacListBackground()
             }
-            #if os(iOS)
-            .listStyle(.insetGrouped)
-            #else
-            .listStyle(.plain)
-            .contentMargins(.horizontal, 0, for: .scrollContent)
-            .contentMargins(.vertical, 0, for: .scrollContent)
-            #endif
-            .scrollContentBackgroundIfAvailable(.hidden)
-            .background(.clear)
-            .navigationTitle(localized(model.language, "Settings", "Instellingen"))
+            .ignoresSafeArea(edges: .bottom)
+            .navigationTitle(localizedKey(model.language, "ui.settings"))
+            .accessibilityIdentifier("screen-settings")
             .alert(
-                localized(model.language, "Pair App Again?", "App opnieuw koppelen?"),
+                localizedKey(model.language, "ui.pair.app.again.c2c7b2"),
                 isPresented: $isShowingResetPairingConfirmation
             ) {
-                Button(localized(model.language, "Cancel", "Annuleer"), role: .cancel) {}
-                Button(localized(model.language, "Pair App Again", "App opnieuw koppelen"), role: .destructive) {
+                Button(localizedKey(model.language, "ui.cancel"), role: .cancel) {}
+                Button(localizedKey(model.language, "ui.pair.app.again"), role: .destructive) {
                     returnToNowPlaying()
                     model.resetPairing()
                 }
             } message: {
-                Text(localized(
-                    model.language,
-                    "This clears the local DJConnect pairing and opens pairing setup again.",
-                    "Dit wist de lokale DJConnect-koppeling en opent het koppelscherm opnieuw."
-                ))
+                Text(localizedKey(model.language, "ui.this.clears.the.local.djconnect.pairing.and.opens.pairing.setup"))
+            }
+            .alert(
+                localizedKey(model.language, "ui.turn.off.music.dna"),
+                isPresented: $isShowingMusicDNADisableConfirmation
+            ) {
+                Button(localizedKey(model.language, "ui.cancel"), role: .cancel) {}
+                Button(localizedKey(model.language, "ui.turn.off"), role: .destructive) {
+                    Task { await model.setMusicDNAEnabled(false) }
+                }
+            } message: {
+                Text(localizedKey(model.language, "ui.this.turns.off.music.dna.and.removes.your.listening.profile"))
+            }
+            .alert(
+                localizedKey(model.language, "ui.clear.music.dna"),
+                isPresented: $isShowingMusicDNAClearConfirmation
+            ) {
+                Button(localizedKey(model.language, "ui.cancel"), role: .cancel) {}
+                if model.isDemoMode {
+                    Button(localizedKey(model.language, "ui.keep.demo.profile")) {
+                        Task { await model.clearMusicDNA() }
+                    }
+                } else {
+                    Button(localizedKey(model.language, "ui.clear.music.dna.817df9"), role: .destructive) {
+                        Task { await model.clearMusicDNA() }
+                    }
+                }
+            } message: {
+                if model.isDemoMode {
+                    Text(localizedKey(model.language, "ui.in.the.real.app.this.clears.learned.music.dna.on"))
+                } else {
+                    Text(localizedKey(model.language, "ui.this.clears.learned.music.dna.on.your.home.assistant.backend"))
+                }
+            }
+            .sheet(isPresented: $isShowingAskDJHistoryExportSheet) {
+                AskDJHistoryExportSheet(
+                    language: model.language,
+                    filename: askDJHistoryExportFilename,
+                    status: askDJHistoryExportStatus,
+                    saveAction: { presentAskDJHistoryFileExporter() },
+                    closeAction: { isShowingAskDJHistoryExportSheet = false }
+                )
+                .presentationBackground {
+                    DJConnectCanvasBackground()
+                }
+            }
+            .sheet(isPresented: $isShowingMusicDNAExportSheet) {
+                MusicDNAExportSheet(
+                    language: model.language,
+                    filename: musicDNAExportFilename,
+                    status: musicDNAExportStatus,
+                    saveAction: { presentMusicDNAFileExporter() },
+                    closeAction: { isShowingMusicDNAExportSheet = false }
+                )
+                .presentationBackground {
+                    DJConnectCanvasBackground()
+                }
+            }
+            .sheet(item: $musicDNAImportPreview) { preview in
+                MusicDNAImportSheet(
+                    model: model,
+                    preview: preview,
+                    canUpload: canUseMusicDNAImport,
+                    status: musicDNAImportStatus,
+                    uploadAction: { uploadMusicDNAImport(preview) },
+                    closeAction: {
+                        musicDNAImportPreview = nil
+                        musicDNAImportStatus = .ready
+                    }
+                )
+                .presentationBackground {
+                    DJConnectCanvasBackground()
+                }
+            }
+            .fileExporter(
+                isPresented: $isShowingMusicDNAFileExporter,
+                document: musicDNAExportDocument,
+                contentType: .json,
+                defaultFilename: musicDNAExportFilename
+            ) { result in
+                switch result {
+                case .success:
+                    musicDNAExportStatus = .saved
+                case let .failure(error):
+                    musicDNAExportStatus = .failed(error.localizedDescription)
+                }
+            }
+            .fileExporter(
+                isPresented: $isShowingAskDJHistoryFileExporter,
+                document: askDJHistoryExportDocument,
+                contentType: .json,
+                defaultFilename: askDJHistoryExportFilename
+            ) { result in
+                switch result {
+                case .success:
+                    askDJHistoryExportStatus = .saved
+                case let .failure(error):
+                    askDJHistoryExportStatus = .failed(error.localizedDescription)
+                }
+            }
+            .fileImporter(
+                isPresented: $isShowingMusicDNAFileImporter,
+                allowedContentTypes: [.json],
+                allowsMultipleSelection: false
+            ) { result in
+                handleMusicDNAImportSelection(result)
             }
             .task {
                 model.refreshPermissionStatuses()
@@ -8412,6 +16029,7 @@ struct SettingsView: View {
 
 private struct LogsView: View {
     @ObservedObject var model: DJConnectAppModel
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @State private var showingClearConfirmation = false
     @State private var statusToast: String?
     @State private var showsCompactTitle = false
@@ -8439,8 +16057,18 @@ private struct LogsView: View {
 
     private var logSearchButtonTitle: String {
         isSearchVisible
-            ? localized(model.language, "Close search", "Zoeken sluiten")
-            : localized(model.language, "Search Logs", "Logs zoeken")
+            ? localizedKey(model.language, "ui.close.search")
+            : localizedKey(model.language, "ui.search.logs")
+    }
+
+    @ViewBuilder
+    private var logSearchButtonLabel: some View {
+        if horizontalSizeClass == .regular {
+            Label(localizedKey(model.language, "ui.search"), systemImage: "magnifyingglass")
+        } else {
+            Label(logSearchButtonTitle, systemImage: "magnifyingglass")
+                .labelStyle(.iconOnly)
+        }
     }
 
     private var selectableLogText: String {
@@ -8457,23 +16085,9 @@ private struct LogsView: View {
             VStack(alignment: .leading, spacing: 14) {
                 HStack {
                     Button {
-                        copyText(model.diagnosticExportText())
-                        showStatusToast(localized(model.language, "Logs copied to clipboard", "Logs gekopieerd naar klembord"))
-                    } label: {
-                        Label(localized(model.language, "Copy Logs", "Logs kopiëren"), systemImage: "doc.on.doc")
-                            .foregroundStyle(djConnectAccent)
-                    }
-                    .tint(djConnectAccent)
-                    .foregroundStyle(djConnectAccent)
-                    .disabled(model.diagnosticLogLines.isEmpty)
-
-                    Spacer()
-
-                    Button {
                         toggleLogSearch()
                     } label: {
-                        Label(logSearchButtonTitle, systemImage: "magnifyingglass")
-                            .labelStyle(.iconOnly)
+                        logSearchButtonLabel
                             .foregroundStyle(djConnectAccent)
                     }
                     .tint(djConnectAccent)
@@ -8483,9 +16097,22 @@ private struct LogsView: View {
                     .disabled(model.diagnosticLogLines.isEmpty)
 
                     Button {
+                        copyText(model.diagnosticExportText())
+                        showStatusToast(localizedKey(model.language, "ui.logs.copied.to.clipboard"))
+                    } label: {
+                        Label(localizedKey(model.language, "ui.copy.logs"), systemImage: "doc.on.doc")
+                            .foregroundStyle(djConnectAccent)
+                    }
+                    .tint(djConnectAccent)
+                    .foregroundStyle(djConnectAccent)
+                    .disabled(model.diagnosticLogLines.isEmpty)
+
+                    Spacer()
+
+                    Button {
                         showingClearConfirmation = true
                     } label: {
-                        Text(localized(model.language, "Clear Logs", "Logs wissen"))
+                        Label(localizedKey(model.language, "ui.clear.logs"), systemImage: "trash")
                             .foregroundStyle(djConnectAccent)
                     }
                     .tint(djConnectAccent)
@@ -8498,7 +16125,7 @@ private struct LogsView: View {
                     HStack {
                         Spacer()
                         ContentUnavailableView(
-                            localized(model.language, "No Logs", "Geen logs"),
+                            localizedKey(model.language, "ui.no.logs"),
                             systemImage: "doc.text.magnifyingglass"
                         )
                         .frame(maxWidth: 420)
@@ -8511,7 +16138,7 @@ private struct LogsView: View {
                             if isSearchVisible {
                                 AskDJSearchBar(
                                     language: model.language,
-                                    scopeName: localized(model.language, "logs", "logs"),
+                                    scopeName: localizedKey(model.language, "ui.logs.474c79"),
                                     text: $logSearchText,
                                     isFocused: $isSearchFocused,
                                     resultCount: logSearchResultIDs.count,
@@ -8540,6 +16167,7 @@ private struct LogsView: View {
                                     }
                                     LogSearchText(
                                         text: selectableLogText,
+                                        lineNumberWidth: logLineNumberDigits(total: model.diagnosticLogLines.count),
                                         highlight: logSearchText,
                                         isSearchResult: !logSearchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
                                     )
@@ -8554,6 +16182,7 @@ private struct LogsView: View {
                             .coordinateSpace(name: "LogsScrollView")
                             .scrollIndicators(.visible)
                             .frame(maxWidth: .infinity, maxHeight: .infinity)
+                            .djTransparentMacListBackground()
                             .onAppear {
                                 scrollLogsToBottom(proxy)
                             }
@@ -8579,7 +16208,8 @@ private struct LogsView: View {
             }
             .padding(.top, 12)
             .background(DJConnectCanvasBackground())
-            .navigationTitle(localized(model.language, "Logs", "Logs"))
+            .navigationTitle(localizedKey(model.language, "ui.logs"))
+            .accessibilityIdentifier("screen-logs")
             #if os(macOS)
             .djConnectMacDetailContent()
             #endif
@@ -8590,7 +16220,7 @@ private struct LogsView: View {
                 ZStack(alignment: .top) {
                     #if os(iOS)
                     if showsCompactTitle {
-                        Text(localized(model.language, "Logs", "Logs"))
+                        Text(localizedKey(model.language, "ui.logs"))
                             .font(.headline.weight(.semibold))
                             .foregroundStyle(.white)
                             .padding(.top, 2)
@@ -8600,24 +16230,16 @@ private struct LogsView: View {
                     }
                     #endif
 
-                    if let statusToast {
-                        StatusToast(text: statusToast, systemImage: "doc.on.doc.fill")
-                            .padding(.top, 34)
-                            .transition(.move(edge: .top).combined(with: .opacity))
-                    }
                 }
             }
-            .alert(localized(model.language, "Clear Logs?", "Logs wissen?"), isPresented: $showingClearConfirmation) {
-                Button(localized(model.language, "Clear Logs", "Logs wissen"), role: .destructive) {
+            .djStatusToastOverlay(text: statusToast, systemImage: "doc.on.doc.fill")
+            .alert(localizedKey(model.language, "ui.clear.logs.1489bd"), isPresented: $showingClearConfirmation) {
+                Button(localizedKey(model.language, "ui.clear.logs"), role: .destructive) {
                     model.clearDiagnosticLog()
                 }
-                Button(localized(model.language, "Cancel", "Annuleren"), role: .cancel) {}
+                Button(localizedKey(model.language, "ui.cancel"), role: .cancel) {}
             } message: {
-                Text(localized(
-                    model.language,
-                    "This removes the visible and persisted diagnostic logs.",
-                    "Dit verwijdert de zichtbare en opgeslagen diagnostische logs."
-                ))
+                Text(localizedKey(model.language, "ui.this.removes.the.visible.and.persisted.diagnostic.logs"))
             }
             .background {
                 Button("") {
@@ -8725,6 +16347,7 @@ private struct LogsView: View {
 
 private struct LogSearchText: View {
     let text: String
+    let lineNumberWidth: Int
     let highlight: String
     let isSearchResult: Bool
 
@@ -8736,6 +16359,7 @@ private struct LogSearchText: View {
     private var highlightedText: AttributedString {
         let query = highlight.trimmingCharacters(in: .whitespacesAndNewlines)
         var attributed = AttributedString(text)
+        applyLineNumberColor(to: &attributed)
         guard !query.isEmpty else {
             return attributed
         }
@@ -8751,161 +16375,234 @@ private struct LogSearchText: View {
         }
         return attributed
     }
+
+    private func applyLineNumberColor(to attributed: inout AttributedString) {
+        var lineStart = attributed.startIndex
+        while lineStart < attributed.endIndex {
+            let lineEnd = attributed[lineStart..<attributed.endIndex].characters.firstIndex(of: "\n") ?? attributed.endIndex
+            let numberEnd = attributed.characters.index(
+                lineStart,
+                offsetBy: lineNumberWidth,
+                limitedBy: lineEnd
+            ) ?? lineEnd
+            if lineStart < numberEnd {
+                attributed[lineStart..<numberEnd].foregroundColor = Color.white.opacity(0.48)
+            }
+            guard lineEnd < attributed.endIndex else {
+                break
+            }
+            lineStart = attributed.characters.index(after: lineEnd)
+        }
+    }
 }
 
 private struct AboutView: View {
     @ObservedObject var model: DJConnectAppModel
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     private let websiteURL = URL(string: "https://djconnect.dev")!
 
-    var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 28) {
-                AboutBanner()
-
-                SettingsSection(title: localized(model.language, "App", "App")) {
-                    AboutStackedRow(label: localized(model.language, "Version", "Versie")) {
-                        SelectableValue(model.version)
-                    }
-                    AboutStackedRow(label: localized(model.language, "Device Name", "Apparaatnaam")) {
-                        SelectableValue(model.identity.deviceName)
-                    }
-                    AboutStackedRow(label: localized(model.language, "Website", "Website")) {
-                        Link(destination: websiteURL) {
-                            Text("https://djconnect.dev")
-                                .font(.body)
-                                .foregroundStyle(djConnectAccent)
-                                .foregroundColor(djConnectAccent)
-                                .textSelection(.enabled)
-                        }
-                        .djConnectLilacButton()
-                    }
-                    AboutStackedRow(label: localized(model.language, "Device ID", "Device ID")) {
-                        SelectableValue(model.identity.deviceID)
-                    }
-                }
-
-                SettingsSection(title: localized(model.language, "Connection", "Verbinding")) {
-                    AboutStackedRow(label: localized(model.language, "Home Assistant address", "Home Assistant adres")) {
-                        SelectableValue(model.homeAssistantURL)
-                    }
-                    AboutStackedRow(label: localized(model.language, "Music", "Muziek")) {
-                        SelectableValue(
-                            model.backendAvailable
-                                ? localized(model.language, "Available", "Beschikbaar")
-                                : localized(model.language, "Unavailable", "Niet beschikbaar"),
-                            foregroundStyle: model.backendAvailable ? .green : .red
-                        )
-                    }
-                }
-
-                SettingsSection(title: localized(model.language, "Notices", "Notices")) {
-                    AboutStackedRow(label: "Copyright") {
-                        SelectableValue("2026 Peter van Tol")
-                    }
-                }
-            }
-            #if os(macOS)
-            .djConnectMacDetailContent(maxWidth: .infinity, alignment: .topLeading)
-            #else
-            .frame(maxWidth: 760, alignment: .leading)
-            .padding(.horizontal, 24)
-            .padding(.vertical, 28)
-            #endif
-        }
-        .navigationTitle(localized(model.language, "About", "Over"))
-        .background(DJConnectCanvasBackground())
+    private var contentMaxWidth: CGFloat {
+        horizontalSizeClass == .regular ? .infinity : 760
     }
-}
-
-private struct LegalNoticesView: View {
-    let language: String
 
     var body: some View {
-        NavigationStack {
+        ZStack {
+            DJConnectCanvasBackground()
             ScrollView {
-                VStack(alignment: .leading, spacing: 20) {
+                VStack(alignment: .leading, spacing: 28) {
                     AboutBanner()
 
-                    SettingsSection(title: localized(language, "Legal", "Juridisch")) {
-                        SelectableValue(localized(
-                            language,
-                            "DJConnect is not affiliated with, endorsed by, or sponsored by Spotify AB, Apple, or Home Assistant.",
-                            "DJConnect is niet gelieerd aan, goedgekeurd door of gesponsord door Spotify AB, Apple of Home Assistant."
-                        ))
-                        SelectableValue(localized(
-                            language,
-                            "Spotify is a trademark of Spotify AB. Home Assistant is a trademark of the Open Home Foundation.",
-                            "Spotify is een handelsmerk van Spotify AB. Home Assistant is een handelsmerk van de Open Home Foundation."
-                        ))
+                    SettingsSection(title: localizedKey(model.language, "ui.app")) {
+                        AboutStackedRow(label: localizedKey(model.language, "ui.version")) {
+                            SelectableValue(model.version)
+                        }
+                        AboutStackedRow(label: localizedKey(model.language, "ui.device.name")) {
+                            SelectableValue(model.identity.deviceName)
+                        }
+                        AboutStackedRow(label: localizedKey(model.language, "ui.website")) {
+                            Link(destination: websiteURL) {
+                                Text("https://djconnect.dev")
+                                    .font(.body)
+                                    .foregroundStyle(djConnectAccent)
+                                    .foregroundColor(djConnectAccent)
+                                    .textSelection(.enabled)
+                            }
+                            .djConnectLilacButton()
+                        }
+                        AboutStackedRow(label: localizedKey(model.language, "ui.device.id")) {
+                            SelectableValue(model.identity.deviceID)
+                        }
                     }
 
-                    SettingsSection(title: "OSS") {
-                        SelectableValue(localized(
-                            language,
-                            "DJConnect uses Apple platform frameworks and Swift Package Manager. Third-party notices are documented in the repository when dependencies are added.",
-                            "DJConnect gebruikt Apple platform-frameworks en Swift Package Manager. Third-party notices worden in de repository gedocumenteerd wanneer dependencies worden toegevoegd."
-                        ))
+                    SettingsSection(title: localizedKey(model.language, "ui.connection")) {
+                        AboutStackedRow(label: localizedKey(model.language, "ui.connection.type")) {
+                            SelectableValue(connectionModeTitle, foregroundStyle: connectionModeColor)
+                        }
+                        AboutStackedRow(label: localizedKey(model.language, "ui.connection.speed")) {
+                            SelectableValue(connectionTransportTitle, foregroundStyle: connectionTransportColor)
+                        }
+                        AboutStackedRow(label: localizedKey(model.language, "ui.home.assistant.address")) {
+                            SelectableValue(model.homeAssistantURL)
+                        }
+                        AboutStackedRow(label: localizedKey(model.language, "ui.music")) {
+                            SelectableValue(
+                                model.backendAvailable
+                                    ? localizedKey(model.language, "ui.available")
+                                    : localizedKey(model.language, "ui.unavailable"),
+                                foregroundStyle: model.backendAvailable ? .green : .red
+                            )
+                        }
+                    }
+
+                    SettingsSection(title: localizedKey(model.language, "ui.notices")) {
+                        AboutStackedRow(label: "Copyright") {
+                            SelectableValue("2026 Peter van Tol")
+                        }
                     }
                 }
                 #if os(macOS)
                 .djConnectMacDetailContent(maxWidth: .infinity, alignment: .topLeading)
                 #else
-                .padding(24)
-                .frame(maxWidth: 760, alignment: .leading)
+                .frame(maxWidth: contentMaxWidth, alignment: .leading)
+                .padding(.horizontal, 24)
+                .padding(.vertical, 28)
                 #endif
             }
-            .navigationTitle(localized(language, "Legal", "Juridisch"))
-            .background(DJConnectCanvasBackground())
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
-        .background(DJConnectCanvasBackground())
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .navigationTitle(localizedKey(model.language, "ui.about"))
+        .accessibilityIdentifier("screen-about")
+    }
+
+    private var connectionModeTitle: String {
+        if model.isDemoMode {
+            return localizedKey(model.language, "ui.local.demo.mode")
+        }
+        switch model.haConnectionMode {
+        case .local:
+            return localizedKey(model.language, "ui.local.home.assistant")
+        case .remote:
+            return localizedKey(model.language, "ui.remote.home.assistant")
+        case .offline:
+            return localizedKey(model.language, "ui.offline")
+        }
+    }
+
+    private var connectionModeColor: Color {
+        if model.isDemoMode {
+            return djConnectAccent
+        }
+        switch model.haConnectionMode {
+        case .local:
+            return .green
+        case .remote:
+            return djConnectAccent
+        case .offline:
+            return .red
+        }
+    }
+
+    private var connectionTransportTitle: String {
+        if model.isDemoMode {
+            return localizedKey(model.language, "ui.demo")
+        }
+        if model.haConnectionMode == .offline {
+            return localizedKey(model.language, "ui.not.active")
+        }
+        if model.fastPathDiagnostics.websocketConnected {
+            return localizedKey(model.language, "ui.fast.local.link.websocket")
+        }
+        return localizedKey(model.language, "ui.normal.link.http")
+    }
+
+    private var connectionTransportColor: Color {
+        if model.isDemoMode {
+            return djConnectAccent
+        }
+        if model.haConnectionMode == .offline {
+            return .red
+        }
+        return model.fastPathDiagnostics.websocketConnected ? .green : .secondary
+    }
+}
+
+private struct LegalNoticesView: View {
+    let language: String
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+
+    private var contentMaxWidth: CGFloat {
+        horizontalSizeClass == .regular ? .infinity : 760
+    }
+
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                DJConnectCanvasBackground()
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 20) {
+                        AboutBanner()
+
+                        SettingsSection(title: localizedKey(language, "ui.legal")) {
+                            SelectableValue(localizedKey(language, "ui.djconnect.is.not.affiliated.with.endorsed.by.or.sponsored.by"))
+                            SelectableValue(localizedKey(language, "ui.spotify.is.a.trademark.of.spotify.ab.home.assistant.is"))
+                        }
+
+                        SettingsSection(title: "OSS") {
+                            SelectableValue(localizedKey(language, "ui.djconnect.uses.apple.platform.frameworks.and.swift.package.manager.third"))
+                        }
+                    }
+                    #if os(macOS)
+                    .djConnectMacDetailContent(maxWidth: .infinity, alignment: .topLeading)
+                    #else
+                    .padding(24)
+                    .frame(maxWidth: contentMaxWidth, alignment: .leading)
+                    #endif
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .navigationTitle(localizedKey(language, "ui.legal"))
+            .accessibilityIdentifier("screen-legal")
+        }
     }
 }
 
 private struct PrivacyView: View {
     let language: String
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+
+    private var contentMaxWidth: CGFloat {
+        horizontalSizeClass == .regular ? .infinity : 760
+    }
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 24) {
-                AboutBanner()
-                SettingsSection(title: localized(language, "Privacy", "Privacy")) {
-                    SelectableValue(localized(
-                        language,
-                        "DJConnect does not collect, sell, or process personal data in the app.",
-                        "DJConnect verzamelt, verkoopt of verwerkt zelf geen persoonsgegevens in de app."
-                    ))
-                    SelectableValue(localized(
-                        language,
-                        "Device tokens are stored locally in the app's private storage. Diagnostics are only shared when you copy them or open a GitHub issue yourself.",
-                        "Device-tokens worden lokaal in de private app-opslag bewaard. Diagnostiek wordt alleen gedeeld wanneer je die zelf kopieert of een GitHub issue opent."
-                    ))
-                    SelectableValue(localized(
-                        language,
-                        "Push notifications are only used for DJConnect notifications, such as Ask DJ responses. DJConnect stores an Apple push token locally and shares it with your own Home Assistant DJConnect integration so notifications can be delivered through Apple Push Notification service. Push tokens are not used for tracking, advertising, or sale.",
-                        "Pushnotificaties worden alleen gebruikt voor DJConnect-meldingen, zoals Ask DJ-reacties. DJConnect bewaart hiervoor een Apple push-token lokaal en deelt dit met je eigen Home Assistant DJConnect-integratie zodat notificaties via Apple Push Notification service kunnen worden bezorgd. Push-tokens worden niet gebruikt voor tracking, advertenties of verkoop."
-                    ))
-                    SelectableValue(localized(
-                        language,
-                        "Music, playback, and voice requests are handled through your own Home Assistant DJConnect integration.",
-                        "Muziek, playback en stemverzoeken lopen via je eigen Home Assistant DJConnect-integratie."
-                    ))
-                    SelectableValue(localized(
-                        language,
-                        "AI and Assist answers can be incorrect and depend on your own Home Assistant and Assist configuration.",
-                        "AI- en Assist-antwoorden kunnen onjuist zijn en hangen af van je eigen Home Assistant- en Assist-configuratie."
-                    ))
+        ZStack {
+            DJConnectCanvasBackground()
+            ScrollView {
+                VStack(alignment: .leading, spacing: 24) {
+                    AboutBanner()
+                    SettingsSection(title: localizedKey(language, "ui.privacy")) {
+                        SelectableValue(localizedKey(language, "ui.djconnect.does.not.collect.sell.or.process.personal.data.in"))
+                        SelectableValue(localizedKey(language, "ui.device.tokens.are.stored.locally.in.the.app.s.private"))
+                        SelectableValue(localizedKey(language, "ui.push.notifications.are.only.used.for.djconnect.notifications.such.as"))
+                        SelectableValue(localizedKey(language, "ui.music.playback.and.voice.requests.are.handled.through.your.own"))
+                        SelectableValue(localizedKey(language, "ui.ai.and.assist.answers.can.be.incorrect.and.depend.on"))
+                    }
                 }
+                #if os(macOS)
+                .djConnectMacDetailContent(maxWidth: .infinity, alignment: .topLeading)
+                #else
+                .frame(maxWidth: contentMaxWidth, alignment: .leading)
+                .padding(.horizontal, 24)
+                .padding(.vertical, 28)
+                #endif
             }
-            #if os(macOS)
-            .djConnectMacDetailContent(maxWidth: .infinity, alignment: .topLeading)
-            #else
-            .frame(maxWidth: 760, alignment: .leading)
-            .padding(.horizontal, 24)
-            .padding(.vertical, 28)
-            #endif
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
-        .navigationTitle(localized(language, "Privacy", "Privacy"))
-        .background(DJConnectCanvasBackground())
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .navigationTitle(localizedKey(language, "ui.privacy"))
+        .accessibilityIdentifier("screen-privacy")
     }
 }
 
@@ -8914,8 +16611,37 @@ private struct AskDJFeedbackPromptView: View {
     let message: DJConnectAskDJMessage
     @Environment(\.dismiss) private var dismiss
     @Environment(\.openURL) private var openURL
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @State private var userNote = ""
     @State private var issueBody = ""
+
+    private var isCompact: Bool {
+        #if os(iOS)
+        horizontalSizeClass == .compact
+        #else
+        false
+        #endif
+    }
+
+    private var contentMinWidth: CGFloat? {
+        isCompact ? nil : 760
+    }
+
+    private var contentIdealWidth: CGFloat? {
+        isCompact ? nil : 920
+    }
+
+    private var contentMaxWidth: CGFloat {
+        isCompact ? .infinity : 1_080
+    }
+
+    private var noteEditorHeight: CGFloat {
+        isCompact ? 78 : 96
+    }
+
+    private var issueBodyEditorHeight: CGFloat {
+        isCompact ? 150 : 220
+    }
 
     var body: some View {
         ZStack {
@@ -8924,23 +16650,19 @@ private struct AskDJFeedbackPromptView: View {
                 VStack(alignment: .leading, spacing: 18) {
                     AboutBanner()
                     VStack(alignment: .leading, spacing: 8) {
-                        Text(localized(model.language, "Report Ask DJ answer", "Ask DJ antwoord melden"))
+                        Text(localizedKey(model.language, "ui.report.ask.dj.answer"))
                             .font(.title.bold())
-                        Text(localized(
-                            model.language,
-                            "Create a GitHub issue draft with redacted Ask DJ context. Nothing is sent automatically.",
-                            "Maak een GitHub issue-concept met geredigeerde Ask DJ-context. Er wordt niets automatisch verstuurd."
-                        ))
+                        Text(localizedKey(model.language, "ui.create.a.github.issue.draft.with.redacted.ask.dj.context"))
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                     }
 
                     VStack(alignment: .leading, spacing: 8) {
-                        Text(localized(model.language, "What was wrong or missing?", "Wat klopte er niet of wat miste er?"))
+                        Text(localizedKey(model.language, "ui.what.was.wrong.or.missing"))
                             .font(.headline)
                         TextEditor(text: $userNote)
                             .font(.body)
-                            .frame(minHeight: 96)
+                            .frame(height: noteEditorHeight)
                             .scrollContentBackground(.hidden)
                             .padding(10)
                             .background(Color.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
@@ -8952,28 +16674,25 @@ private struct AskDJFeedbackPromptView: View {
 
                     VStack(alignment: .leading, spacing: 8) {
                         HStack {
-                            Text(localized(model.language, "GitHub draft context", "GitHub conceptcontext"))
+                            Text(localizedKey(model.language, "ui.github.draft.context"))
                                 .font(.headline)
                             Spacer()
                             Button {
                                 refreshIssueBody()
                             } label: {
-                                Label(localized(model.language, "Update", "Bijwerken"), systemImage: "arrow.clockwise")
+                                Label(localizedKey(model.language, "ui.update"), systemImage: "arrow.clockwise")
                                     .labelStyle(.iconOnly)
                             }
                             .buttonStyle(.borderless)
-                            .help(localized(model.language, "Update draft context", "Werk conceptcontext bij"))
+                            .foregroundStyle(.white)
+                            .help(localizedKey(model.language, "ui.update.draft.context"))
                         }
-                        Text(localized(
-                            model.language,
-                            "Review this text before opening GitHub. Remove anything you do not want to share.",
-                            "Controleer deze tekst voordat GitHub opent. Verwijder alles wat je niet wilt delen."
-                        ))
+                        Text(localizedKey(model.language, "ui.review.this.text.before.opening.github.remove.anything.you.do"))
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         TextEditor(text: $issueBody)
                             .font(.system(.caption, design: .monospaced))
-                            .frame(minHeight: 260)
+                            .frame(height: issueBodyEditorHeight)
                             .scrollContentBackground(.hidden)
                             .padding(10)
                             .background(Color.black.opacity(0.20), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
@@ -8983,36 +16702,52 @@ private struct AskDJFeedbackPromptView: View {
                             }
                     }
 
-                    HStack(spacing: 12) {
-                        Button {
-                            if let url = model.askDJFeedbackIssueURL(for: message, body: issueBody) {
-                                openURL(url)
-                            }
-                            dismiss()
-                        } label: {
-                            Label(localized(model.language, "Open GitHub Draft", "Open GitHub concept"), systemImage: "arrow.up.right.square")
-                                .frame(maxWidth: .infinity)
-                        }
-                        .buttonStyle(DJConnectLilacPillButtonStyle())
-                        .controlSize(.large)
-
-                        Button {
-                            dismiss()
-                        } label: {
-                            Text(localized(model.language, "Cancel", "Annuleren"))
-                                .frame(maxWidth: .infinity)
-                        }
-                        .buttonStyle(DJConnectLilacPillButtonStyle())
-                        .controlSize(.large)
-                    }
+                    actionButtons
                 }
-                .padding(28)
-                .frame(minWidth: 360, idealWidth: 960, maxWidth: 1_080)
+                .padding(.horizontal, isCompact ? 18 : 28)
+                .padding(.vertical, isCompact ? 18 : 28)
+                .frame(
+                    minWidth: contentMinWidth,
+                    idealWidth: contentIdealWidth,
+                    maxWidth: contentMaxWidth,
+                    alignment: .leading
+                )
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             }
+            .defaultScrollAnchor(.top)
         }
+        #if os(macOS)
         .frame(minWidth: 760, idealWidth: 1_020, maxWidth: 1_160)
+        #endif
         .onAppear {
             refreshIssueBody()
+        }
+    }
+
+    @ViewBuilder
+    private var actionButtons: some View {
+        let layout = isCompact ? AnyLayout(VStackLayout(spacing: 12)) : AnyLayout(HStackLayout(spacing: 12))
+        layout {
+            Button {
+                if let url = model.askDJFeedbackIssueURL(for: message, body: issueBody) {
+                    openURL(url)
+                }
+                dismiss()
+            } label: {
+                Label(localizedKey(model.language, "ui.open.github.issue"), systemImage: "arrow.up.right.square")
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(DJConnectLilacPillButtonStyle())
+            .controlSize(.large)
+
+            Button {
+                dismiss()
+            } label: {
+                Text(localizedKey(model.language, "ui.not.now"))
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(DJConnectLilacPillButtonStyle())
+            .controlSize(.large)
         }
     }
 
@@ -9020,6 +16755,18 @@ private struct AskDJFeedbackPromptView: View {
         issueBody = model.askDJFeedbackIssueBody(for: message, userNote: userNote)
     }
 }
+
+#if DEBUG && os(iOS) && targetEnvironment(simulator)
+#Preview("Ask DJ Feedback - Compact") {
+    let model = DJConnectAppModel(startBackgroundTasks: false)
+    model.language = "nl"
+    let message = DJConnectAskDJMessage(
+        role: .dj,
+        text: "Ik koos dit nummer omdat de warme synths, de groove en de late-night energie goed aansluiten."
+    )
+    return AskDJFeedbackPromptView(model: model, message: message)
+}
+#endif
 
 private struct FeedbackPromptView: View {
     @ObservedObject var model: DJConnectAppModel
@@ -9031,14 +16778,11 @@ private struct FeedbackPromptView: View {
             DJConnectCanvasBackground()
             VStack(alignment: .leading, spacing: 22) {
                 AboutBanner()
+                FeedbackPromptIcon()
                 VStack(alignment: .leading, spacing: 10) {
-                    Text(localized(model.language, "Share Feedback", "Feedback delen"))
+                    Text(localizedKey(model.language, "ui.share.feedback"))
                         .font(.title.bold())
-                    Text(localized(
-                        model.language,
-                        "Open a GitHub issue with redacted app context. Nothing is uploaded automatically.",
-                        "Open een GitHub issue met geredigeerde app-context. Er wordt niets automatisch geüpload."
-                    ))
+                    Text(localizedKey(model.language, "ui.open.a.github.issue.with.redacted.app.context.nothing.is"))
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
                 }
@@ -9050,7 +16794,7 @@ private struct FeedbackPromptView: View {
                         }
                         dismiss()
                     } label: {
-                        Label(localized(model.language, "Open GitHub Issue", "Open GitHub issue"), systemImage: "arrow.up.right.square")
+                        Label(localizedKey(model.language, "ui.open.github.issue"), systemImage: "arrow.up.right.square")
                             .frame(maxWidth: .infinity)
                     }
                     .buttonStyle(DJConnectLilacPillButtonStyle())
@@ -9059,7 +16803,7 @@ private struct FeedbackPromptView: View {
                     Button {
                         dismiss()
                     } label: {
-                        Text(localized(model.language, "Not Now", "Niet nu"))
+                        Text(localizedKey(model.language, "ui.not.now.b1e535"))
                             .frame(maxWidth: .infinity)
                     }
                     .buttonStyle(DJConnectLilacPillButtonStyle())
@@ -9069,6 +16813,17 @@ private struct FeedbackPromptView: View {
             .padding(28)
             .frame(minWidth: 360, idealWidth: 520, maxWidth: 620)
         }
+    }
+}
+
+private struct FeedbackPromptIcon: View {
+    var body: some View {
+        Image(systemName: "bubble.left.and.bubble.right")
+            .font(.system(size: 46, weight: .semibold))
+            .symbolRenderingMode(.hierarchical)
+            .foregroundStyle(djConnectIconGradient)
+            .frame(maxWidth: .infinity)
+            .accessibilityHidden(true)
     }
 }
 
@@ -9089,7 +16844,7 @@ private struct AboutBanner: View {
                     .foregroundStyle(.white)
                     .lineLimit(1)
                     .minimumScaleFactor(0.72)
-                Text(localized(language, "Music control with character", "Muziekbediening met karakter"))
+                Text(localizedKey(language, "ui.music.control.with.character"))
                     .font(.headline)
                     .foregroundStyle(.white.opacity(0.72))
                     .lineLimit(2)
@@ -9186,26 +16941,47 @@ private struct SettingsRow<Content: View>: View {
 private struct AboutStackedRow<Content: View>: View {
     let label: String
     @ViewBuilder var content: Content
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+
+    private var usesHorizontalLayout: Bool {
+        #if os(macOS)
+        true
+        #else
+        horizontalSizeClass == .regular
+        #endif
+    }
+
+    private var labelColumnWidth: CGFloat {
+        #if os(macOS)
+        280
+        #else
+        240
+        #endif
+    }
 
     var body: some View {
-        #if os(macOS)
-        HStack(alignment: .firstTextBaseline, spacing: 18) {
-            Text(label)
-                .font(.body.weight(.semibold))
-                .foregroundStyle(.secondary)
-                .frame(width: 150, alignment: .trailing)
-            content
-                .frame(maxWidth: .infinity, alignment: .leading)
+        if usesHorizontalLayout {
+            HStack(alignment: .firstTextBaseline, spacing: 24) {
+                Text(label)
+                    .font(.body.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
+                    .multilineTextAlignment(.trailing)
+                    .frame(width: labelColumnWidth, alignment: .trailing)
+                content
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .layoutPriority(1)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        } else {
+            VStack(alignment: .leading, spacing: 6) {
+                Text(label)
+                    .font(.body.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                content
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
         }
-        #else
-        VStack(alignment: .leading, spacing: 6) {
-            Text(label)
-                .font(.body.weight(.semibold))
-                .foregroundStyle(.secondary)
-            content
-                .frame(maxWidth: .infinity, alignment: .leading)
-        }
-        #endif
     }
 }
 
@@ -9305,7 +17081,11 @@ private struct PermissionStatusRow: View {
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
         }
+        #if os(iOS)
         .padding(.vertical, 4)
+        #else
+        .padding(.vertical, 2)
+        #endif
     }
 }
 
@@ -9317,15 +17097,15 @@ private func wakeWordPhraseField(_ model: DJConnectAppModel) -> some View {
         set: { model.wakeWordPhrase = $0 }
     )
     #if os(iOS)
-    LabeledContent(localized(model.language, "Wake word", "Wake word")) {
-        TextField(localized(model.language, "Wake word", "Wake word"), text: phrase)
+    LabeledContent(localizedKey(model.language, "ui.wake.word")) {
+        TextField(localizedKey(model.language, "ui.wake.word"), text: phrase)
             .multilineTextAlignment(.trailing)
             .textInputAutocapitalization(.never)
             .autocorrectionDisabled()
     }
     #else
-    LabeledContent(localized(model.language, "Wake word", "Wake word")) {
-        TextField(localized(model.language, "Wake word", "Wake word"), text: phrase)
+    LabeledContent(localizedKey(model.language, "ui.wake.word")) {
+        TextField(localizedKey(model.language, "ui.wake.word"), text: phrase)
             .multilineTextAlignment(.trailing)
     }
     #endif
@@ -9337,40 +17117,40 @@ private func wakeWordStatusText(_ model: DJConnectAppModel) -> String {
     case .idle:
         if model.wakeWordEnabled {
             if model.pairingStatus != .paired || !model.isConnected {
-                return localized(model.language, "Waiting for Home Assistant", "Wachten op Home Assistant")
+                return localizedKey(model.language, "ui.pair.home.assistant.first")
             }
             if !model.backendAvailable {
-                return localized(model.language, "Playback backend unavailable", "Playback backend niet beschikbaar")
+                return localizedKey(model.language, "ui.playback.backend.unavailable")
             }
             if !model.voiceEnabled {
-                return localized(model.language, "Voice requests unavailable", "Stemverzoeken niet beschikbaar")
+                return localizedKey(model.language, "ui.voice.requests.unavailable")
             }
         }
-        return localized(model.language, "Idle", "Inactief")
+        return localizedKey(model.language, "ui.idle")
     case .listening:
-        return localized(model.language, "Listening for wake word", "Luistert naar wake word")
+        return localizedKey(model.language, "ui.listening.for.wake.word")
     case .detected:
-        return localized(model.language, "Wake word detected", "Wake word herkend")
+        return localizedKey(model.language, "ui.wake.word.detected")
     case .unavailable:
         if model.isDemoMode {
-            return localized(model.language, "Not available in Demo Mode", "Niet beschikbaar in demo modus")
+            return localizedKey(model.language, "ui.not.available.in.demo.mode")
         }
-        return localized(model.language, "Not available", "Niet beschikbaar")
+        return localizedKey(model.language, "ui.not.available")
     }
 }
 
 private func permissionStatusText(_ status: DJConnectPermissionStatus, language: String) -> String {
     switch status {
     case .unknown:
-        localized(language, "Ask when needed", "Vragen wanneer nodig")
+        localizedKey(language, "ui.ask.when.needed")
     case .granted:
-        localized(language, "Allowed", "Toegestaan")
+        localizedKey(language, "ui.allowed")
     case .denied:
-        localized(language, "Denied", "Geweigerd")
+        localizedKey(language, "ui.denied")
     case .restricted:
-        localized(language, "Restricted", "Beperkt")
+        localizedKey(language, "ui.restricted")
     case .unavailable:
-        localized(language, "Not available", "Niet beschikbaar")
+        localizedKey(language, "ui.not.available")
     }
 }
 

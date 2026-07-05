@@ -11,6 +11,8 @@ ALL_RUNTIMES=0
 FULL_UI=0
 LIST_ONLY=0
 KEEP_DEVICES=0
+FRESH_BOOT=1
+RETRIES=1
 MONKEY_SECONDS="${DJCONNECT_MONKEY_SECONDS:-12}"
 TEST_SELECTOR="DJConnectIOSUITests/DJConnectIOSUITests/testMonkeyModeSafeNavigationSmoke"
 
@@ -24,6 +26,8 @@ Options:
   --all-runtimes           Run every installed iOS runtime >= iOS 26 for every form factor.
   --include-beta-runtimes  Include simulator runtimes whose build number looks like a beta/pre-release.
   --monkey-seconds N       Duration for the monkey smoke test. Default: 12.
+  --retries N              Retry a failed simulator row N times. Default: 1.
+  --no-fresh-boot          Do not erase and boot each temporary simulator before testing.
   --keep-devices           Keep temporary simulators after the run for manual inspection.
   --list                   Print the resolved matrix without running tests.
   -h, --help               Show this help.
@@ -64,6 +68,18 @@ while [[ $# -gt 0 ]]; do
     --keep-devices)
       KEEP_DEVICES=1
       shift
+      ;;
+    --no-fresh-boot)
+      FRESH_BOOT=0
+      shift
+      ;;
+    --retries)
+      if [[ $# -lt 2 || ! "$2" =~ ^[0-9]+$ ]]; then
+        echo "--retries requires a non-negative number." >&2
+        exit 64
+      fi
+      RETRIES="$2"
+      shift 2
       ;;
     --list)
       LIST_ONLY=1
@@ -253,18 +269,12 @@ fi
 rm -rf "$DERIVED_DATA"
 mkdir -p "$DERIVED_DATA"
 
-for index in "${!MATRIX_LABELS[@]}"; do
-  label="${MATRIX_LABELS[$index]}"
-  device_name="${MATRIX_DEVICES[$index]}"
-  runtime_version="${MATRIX_RUNTIME_VERSIONS[$index]}"
-  runtime_id="${MATRIX_RUNTIME_IDS[$index]}"
-  device_type_id="$(device_type_id_for_name "$device_name")"
-  simulator_name="DJConnect Matrix ${label} iOS ${runtime_version} $$"
-  udid="$(xcrun simctl create "$simulator_name" "$device_type_id" "$runtime_id")"
-  CREATED_DEVICES+=("$udid")
-
-  echo
-  echo "Running $label on $device_name / iOS $runtime_version ($udid)"
+run_xcodebuild_row() {
+  local label="$1"
+  local runtime_version="$2"
+  local udid="$3"
+  local attempt="$4"
+  local log_file="$DERIVED_DATA/$label-$runtime_version-attempt-$attempt.log"
 
   args=(
     xcodebuild
@@ -279,7 +289,49 @@ for index in "${!MATRIX_LABELS[@]}"; do
   if [[ "$FULL_UI" -eq 0 ]]; then
     args+=(-only-testing:"$TEST_SELECTOR")
   fi
-  DJCONNECT_MONKEY_SECONDS="$MONKEY_SECONDS" "${args[@]}" test
+
+  echo "  attempt $attempt log: $log_file"
+  if DJCONNECT_MONKEY_SECONDS="$MONKEY_SECONDS" "${args[@]}" test >"$log_file" 2>&1; then
+    return 0
+  fi
+
+  echo "  attempt $attempt failed. Last log lines:"
+  tail -n 40 "$log_file" || true
+  return 1
+}
+
+for index in "${!MATRIX_LABELS[@]}"; do
+  label="${MATRIX_LABELS[$index]}"
+  device_name="${MATRIX_DEVICES[$index]}"
+  runtime_version="${MATRIX_RUNTIME_VERSIONS[$index]}"
+  runtime_id="${MATRIX_RUNTIME_IDS[$index]}"
+  device_type_id="$(device_type_id_for_name "$device_name")"
+  simulator_name="DJConnect Matrix ${label} iOS ${runtime_version} $$"
+  udid="$(xcrun simctl create "$simulator_name" "$device_type_id" "$runtime_id")"
+  CREATED_DEVICES+=("$udid")
+
+  echo
+  echo "Running $label on $device_name / iOS $runtime_version ($udid)"
+
+  if [[ "$FRESH_BOOT" -eq 1 ]]; then
+    xcrun simctl shutdown "$udid" >/dev/null 2>&1 || true
+    xcrun simctl erase "$udid" >/dev/null
+    xcrun simctl boot "$udid" >/dev/null
+    xcrun simctl bootstatus "$udid" -b >/dev/null
+  fi
+
+  attempt=0
+  until run_xcodebuild_row "$label" "$runtime_version" "$udid" "$attempt"; do
+    if [[ "$attempt" -ge "$RETRIES" ]]; then
+      echo "Row failed after $((attempt + 1)) attempt(s): $label / iOS $runtime_version" >&2
+      exit 1
+    fi
+    attempt=$((attempt + 1))
+    echo "  retrying after simulator shutdown/boot..."
+    xcrun simctl shutdown "$udid" >/dev/null 2>&1 || true
+    xcrun simctl boot "$udid" >/dev/null
+    xcrun simctl bootstatus "$udid" -b >/dev/null
+  done
 done
 
 echo
