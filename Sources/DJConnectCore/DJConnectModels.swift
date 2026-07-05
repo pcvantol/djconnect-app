@@ -2275,7 +2275,7 @@ public struct DJConnectVibeCastRequest: Codable, Equatable, Sendable {
         locale: String? = nil,
         language: String? = nil,
         timezone: String? = nil,
-        capabilities: [String] = ["bold", "emphasis", "magnify", "accent", "emoji", "emoji_safe"]
+        capabilities: [String] = ["bold", "emphasis", "magnify", "accent", "emoji_safe"]
     ) {
         self.locale = locale?.nilIfBlank
         self.language = language?.nilIfBlank ?? locale?.nilIfBlank

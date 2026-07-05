@@ -1845,6 +1845,26 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
 }
 
 @MainActor
+@Test func musicDiscoveryRouteMissingUsesUserFacingMessage() async throws {
+    let defaults = try testDefaults()
+    let session = mockSession(host: "discovery-route-missing.local") { request in
+        #expect(request.url?.path == "/api/djconnect/music_discovery/refresh")
+        return (
+            try httpResponse(for: request, statusCode: 404),
+            Data(#"{"success":false,"message":"route missing: 404: Not Found"}"#.utf8)
+        )
+    }
+    let model = makePairedMusicDNAModel(defaults: defaults, host: "discovery-route-missing.local", session: session)
+    model.language = "nl"
+
+    await model.refreshMusicDiscovery()
+
+    #expect(model.musicDiscoveryErrorMessage == "DJConnect route ontbreekt in Home Assistant. Controleer de integratie.")
+    #expect(model.musicDiscoveryErrorMessage?.contains("404") == false)
+    #expect(model.musicDiscoveryErrorMessage?.contains("route missing") == false)
+}
+
+@MainActor
 @Test func clearMusicDNAUsesClearEndpointAndRefreshesProfile() async throws {
     let defaults = try testDefaults()
     let recorder = RequestRecorder()
@@ -2928,15 +2948,28 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     #expect(iosRequest.value(forHTTPHeaderField: "X-DJConnect-Locale") == "nl-NL")
     #expect(macRequest.value(forHTTPHeaderField: "X-DJConnect-Locale") == "nl-NL")
     #expect(iosRequest.value(forHTTPHeaderField: "X-DJConnect-Render-Capabilities") == macRequest.value(forHTTPHeaderField: "X-DJConnect-Render-Capabilities"))
-    #expect(iosRequest.value(forHTTPHeaderField: "X-DJConnect-Render-Capabilities")?.split(separator: ",").contains("emoji") == true)
     #expect(iosRequest.value(forHTTPHeaderField: "X-DJConnect-Render-Capabilities")?.split(separator: ",").contains("emoji_safe") == true)
     #expect(iosQuery.first(where: { $0.name == "client_type" })?.value == "ios")
     #expect(macQuery.first(where: { $0.name == "client_type" })?.value == "macos")
     #expect(iosQuery.first(where: { $0.name == "capabilities" })?.value == macQuery.first(where: { $0.name == "capabilities" })?.value)
-    #expect(iosQuery.first(where: { $0.name == "capabilities" })?.value?.split(separator: ",").contains("emoji") == true)
     #expect(iosQuery.first(where: { $0.name == "capabilities" })?.value?.split(separator: ",").contains("emoji_safe") == true)
     #expect(iosQuery.first(where: { $0.name == "locale" })?.value == macQuery.first(where: { $0.name == "locale" })?.value)
     #expect(iosQuery.first(where: { $0.name == "timezone" })?.value == macQuery.first(where: { $0.name == "timezone" })?.value)
+}
+
+@Test func vibeCastRequestCanOmitEmojiSafeCapabilityWithoutCrashing() throws {
+    let client = DJConnectClient(
+        baseURL: URL(string: "http://homeassistant.local:8123")!,
+        identity: testIOSIdentity(deviceID: "djconnect-ios-no-emoji"),
+        tokenStore: DJConnectInMemoryTokenStore(token: "token")
+    )
+
+    let request = try client.vibeCastRequest(DJConnectVibeCastRequest(capabilities: ["bold", "accent"]))
+    let capabilities = request.value(forHTTPHeaderField: "X-DJConnect-Render-Capabilities")?.split(separator: ",")
+
+    #expect(capabilities?.contains("emoji_safe") == false)
+    #expect(capabilities?.contains("bold") == true)
+    #expect(capabilities?.contains("accent") == true)
 }
 
 @Test func vibeCastWebSocketFastPathSucceedsWithoutHTTP() async throws {
@@ -6951,6 +6984,64 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     try await Task.sleep(for: .milliseconds(200))
     #expect(recorder.titles == ["Track One", "Track Two"])
     #expect(model.currentTrackInsight == nil)
+}
+
+@MainActor
+@Test func vibeCastRefreshUpdatesItemsWhenTextChangesWithoutRevisionChange() async throws {
+    let suiteName = "DJConnectTests-\(UUID().uuidString)"
+    let defaults = try #require(UserDefaults(suiteName: suiteName))
+    defaults.removePersistentDomain(forName: suiteName)
+    defaults.set(DJConnectHAConnectionMode.local.rawValue, forKey: "DJConnectHAConnectionMode")
+
+    final class Counter: @unchecked Sendable {
+        let lock = NSLock()
+        var value = 0
+        func next() -> Int {
+            lock.withLock {
+                value += 1
+                return value
+            }
+        }
+    }
+
+    let counter = Counter()
+    let host = "vibecast-same-revision.local"
+    let session = mockSession(host: host) { request in
+        #expect(request.url?.path == "/api/djconnect/vibecast")
+        let call = counter.next()
+        let textSegments = call == 1
+            ? #"[{"type":"text","value":"Deze track leunt op "},{"type":"strong","value":"ritme en ruimte"},{"type":"text","value":"."}]"#
+            : #"[{"type":"emoji","value":"♪ ♫ "},{"type":"text","value":"Deze track leunt op "},{"type":"strong","value":"ritme en ruimte"},{"type":"text","value":"."}]"#
+        let json = """
+        {
+          "enabled": true,
+          "revision": 7,
+          "poll_after_seconds": 30,
+          "context": { "track_id": "track-1", "title": "Strobe", "artist": "deadmau5" },
+          "items": [
+            { "id": "fact-1", "kind": "track_fact", "text": \(textSegments) }
+          ]
+        }
+        """
+        return (try httpResponse(for: request, statusCode: 200), Data(json.utf8))
+    }
+
+    let model = DJConnectAppModel(
+        playback: DJConnectPlayback(hasPlayback: true, isPlaying: true, trackName: "Strobe", artistName: "deadmau5"),
+        defaults: defaults,
+        tokenStore: DJConnectInMemoryTokenStore(token: "secret-token"),
+        urlSession: session,
+        startBackgroundTasks: false
+    )
+    model.homeAssistantURL = "http://\(host):8123"
+    model.pairingStatus = .paired
+
+    _ = await model.refreshVibeCastFeed()
+    #expect(model.vibeCastItems.first?.plainText == "Deze track leunt op ritme en ruimte.")
+
+    _ = await model.refreshVibeCastFeed()
+    #expect(model.vibeCastItems.first?.plainText == "♪ ♫ Deze track leunt op ritme en ruimte.")
+    #expect(model.vibeCastItems.first?.text.first?.type == .emoji)
 }
 
 @MainActor

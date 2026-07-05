@@ -969,7 +969,7 @@ X-DJConnect-Client-Type: ios|macos
 X-DJConnect-Device-Name: <device_name>
 X-DJConnect-Locale: <bcp47-locale>
 X-DJConnect-Timezone: <iana-timezone>
-X-DJConnect-Render-Capabilities: bold,emphasis,magnify,accent,emoji,emoji_safe
+X-DJConnect-Render-Capabilities: bold,emphasis,magnify,accent,emoji_safe
 ```
 
 The same values may also be present as query parameters for compatibility with

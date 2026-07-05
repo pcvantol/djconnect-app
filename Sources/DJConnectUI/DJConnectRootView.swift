@@ -110,6 +110,7 @@ private let djConnectScreenHorizontalPadding: CGFloat = 16
 private let djConnectScreenVerticalPadding: CGFloat = 12
 private let djConnectContentMaxWidth: CGFloat = 760
 private let djConnectCompactContentMaxWidth: CGFloat = 640
+private let djConnectMacDetailContentMaxWidth: CGFloat = 1_680
 private let djConnectMacDetailHorizontalPadding: CGFloat = djConnectScreenHorizontalPadding
 private let djConnectMacDetailVerticalPadding: CGFloat = djConnectScreenVerticalPadding
 
@@ -225,7 +226,7 @@ private extension View {
     }
 
     @ViewBuilder
-    func djConnectMacDetailContent(maxWidth: CGFloat = djConnectContentMaxWidth, alignment: Alignment = .top) -> some View {
+    func djConnectMacDetailContent(maxWidth: CGFloat = djConnectMacDetailContentMaxWidth, alignment: Alignment = .top) -> some View {
         #if os(macOS)
         self
             .frame(maxWidth: maxWidth, alignment: alignment)
@@ -673,7 +674,7 @@ public struct DJConnectRootView: View {
                     .scrollContentBackgroundIfAvailable(.hidden)
                     .safeAreaInset(edge: .top) {
                         Color.clear
-                            .frame(height: 18)
+                            .frame(height: 54)
                             .allowsHitTesting(false)
                     }
                     .navigationSplitViewColumnWidth(min: 220, ideal: 240, max: 280)
@@ -3439,7 +3440,7 @@ private struct TrackInsightView: View {
     }
 
     private func maxContentWidth(for size: CGSize) -> CGFloat {
-        shouldUseWideLayout(for: size) ? 1_680 : djConnectContentMaxWidth
+        shouldUseWideLayout(for: size) ? djConnectMacDetailContentMaxWidth : djConnectContentMaxWidth
     }
 
     var body: some View {
@@ -3729,9 +3730,11 @@ private struct MusicDNAView: View {
                 GeometryReader { proxy in
                     ScrollView {
                         let contentWidth = min(musicDNAMaxContentWidth, proxy.size.width)
+                        let heroWidth = min(musicDNAHeroMaxWidth(for: proxy.size), contentWidth)
                         VStack(alignment: .leading, spacing: 16) {
                             MusicDNAHeroView(model: model, moodStepIndex: model.askDJMoodStepIndex)
-                                .frame(maxWidth: .infinity, alignment: .topLeading)
+                                .frame(maxWidth: heroWidth, alignment: .top)
+                                .frame(maxWidth: .infinity, alignment: .top)
                             MusicDNAContentView(model: model)
                                 .frame(maxWidth: .infinity, alignment: .topLeading)
                             if let updatedSummary {
@@ -3740,7 +3743,8 @@ private struct MusicDNAView: View {
                             }
                         }
                         .padding(.horizontal, djConnectScreenHorizontalPadding)
-                        .padding(.vertical, djConnectScreenVerticalPadding)
+                        .padding(.top, djConnectScreenVerticalPadding)
+                        .padding(.bottom, djConnectScreenVerticalPadding + 28)
                         .frame(width: contentWidth, alignment: .topLeading)
                         .frame(maxWidth: .infinity, alignment: .top)
                     }
@@ -3789,9 +3793,17 @@ private struct MusicDNAView: View {
 
     private var musicDNAMaxContentWidth: CGFloat {
         #if os(macOS)
-        return 1_680
+        return djConnectMacDetailContentMaxWidth
         #else
         return 1_520
+        #endif
+    }
+
+    private func musicDNAHeroMaxWidth(for size: CGSize) -> CGFloat {
+        #if os(macOS)
+        return size.width >= 1_900 ? 1_420 : 1_280
+        #else
+        return min(1_320, size.width)
         #endif
     }
 
@@ -3832,8 +3844,8 @@ private struct MusicDNAUpdatedFooter: View {
             .foregroundStyle(.white.opacity(0.46))
             .multilineTextAlignment(.center)
             .frame(maxWidth: .infinity, alignment: .center)
-            .padding(.top, 2)
-            .padding(.bottom, 6)
+            .padding(.top, 8)
+            .padding(.bottom, 10)
     }
 }
 
@@ -4606,10 +4618,11 @@ private struct MusicDNAPanel: View {
     let icon: String
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 14) {
             MusicDNACompactPanelHeader(title: title, icon: icon)
             Text(value.isEmpty ? "-" : value)
                 .font(.headline.weight(.semibold))
+                .lineSpacing(6)
                 .foregroundStyle(.white)
                 .fixedSize(horizontal: false, vertical: true)
             Spacer(minLength: 0)
@@ -5074,7 +5087,7 @@ private struct MusicDNAChipRow: View {
     let items: [MusicDNAChipItem]
 
     var body: some View {
-        LazyVGrid(columns: [GridItem(.adaptive(minimum: 86), spacing: 6)], alignment: .leading, spacing: 6) {
+        LazyVGrid(columns: [GridItem(.adaptive(minimum: 118), spacing: 8)], alignment: .leading, spacing: 8) {
             ForEach(Array(items.enumerated()), id: \.offset) { _, item in
                 let sanitizedLabel = item.label.trimmingCharacters(in: .whitespacesAndNewlines)
                 if !sanitizedLabel.isEmpty {
@@ -5083,6 +5096,7 @@ private struct MusicDNAChipRow: View {
                             .font(.caption.weight(.semibold))
                             .foregroundStyle(.white)
                             .lineLimit(1)
+                            .minimumScaleFactor(0.78)
                         if let detail = item.detail?.trimmingCharacters(in: .whitespacesAndNewlines), !detail.isEmpty {
                             Text(detail)
                                 .font(.caption2.weight(.bold))
@@ -5090,8 +5104,8 @@ private struct MusicDNAChipRow: View {
                                 .lineLimit(1)
                         }
                     }
-                    .padding(.vertical, 6)
-                    .padding(.horizontal, 8)
+                    .padding(.vertical, 8)
+                    .padding(.horizontal, 10)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .background(.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 7, style: .continuous))
                 }
@@ -5184,7 +5198,7 @@ private struct MusicDiscoveryView: View {
     }
 
     private func maxContentWidth(for size: CGSize) -> CGFloat {
-        shouldUseWideLayout(for: size) ? 1_680 : djConnectContentMaxWidth
+        shouldUseWideLayout(for: size) ? djConnectMacDetailContentMaxWidth : djConnectContentMaxWidth
     }
 
     var body: some View {
@@ -9784,12 +9798,20 @@ private struct AskDJView: View {
 
     private var chatTopPadding: CGFloat {
         #if os(macOS)
-        let topInset: CGFloat = 44
+        let topInset: CGFloat = 76
         #else
         let topInset = djConnectScreenVerticalPadding
         #endif
         return topInset
             + (isSearchVisible ? 56 : 0)
+    }
+
+    private var floatingControlTopPadding: CGFloat {
+        #if os(macOS)
+        58
+        #else
+        10
+        #endif
     }
 
     private var shouldShowAskDJScrollToBottomButton: Bool {
@@ -9935,7 +9957,7 @@ private struct AskDJView: View {
                                 closeAction: { dismissAskDJSearch() }
                             )
                             .padding(.horizontal, djConnectScreenHorizontalPadding)
-                            .padding(.top, 10)
+                            .padding(.top, floatingControlTopPadding)
                             .transition(.move(edge: .top).combined(with: .opacity))
                         }
 
@@ -9949,7 +9971,7 @@ private struct AskDJView: View {
                                 }
                             )
                             .padding(.horizontal, djConnectScreenHorizontalPadding)
-                            .padding(.top, isSearchVisible ? 72 : 10)
+                            .padding(.top, isSearchVisible ? floatingControlTopPadding + 62 : floatingControlTopPadding)
                             .zIndex(2)
                             .transition(.move(edge: .top).combined(with: .opacity))
                         }
@@ -13468,7 +13490,7 @@ private struct GamesView: View {
 
     private func contentMaxWidth(for size: CGSize) -> CGFloat {
         #if os(macOS)
-        size.width >= 1_000 ? 1_280 : djConnectContentMaxWidth
+        size.width >= 1_000 ? djConnectMacDetailContentMaxWidth : djConnectContentMaxWidth
         #else
         horizontalSizeClass == .regular && size.width > size.height ? 1_320 : djConnectContentMaxWidth
         #endif
@@ -16189,7 +16211,7 @@ private struct LogsView: View {
             .navigationTitle(localizedKey(model.language, "ui.logs"))
             .accessibilityIdentifier("screen-logs")
             #if os(macOS)
-            .djConnectMacDetailContent(maxWidth: 1280)
+            .djConnectMacDetailContent()
             #endif
             #if os(iOS)
             .navigationBarTitleDisplayMode(.large)

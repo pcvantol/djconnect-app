@@ -816,6 +816,7 @@ public final class DJConnectAppModel: ObservableObject {
     private var shouldBypassPermissionExplanationOnce = false
     private var lastVibeCastContextID: String?
     private var lastVibeCastRevision: Int?
+    private var lastVibeCastItemsSignature: String?
     private var lastVibeCastAutoInsightPlaybackID: String?
     private let demoTrackInsightService = DemoTrackInsightService()
 
@@ -4412,6 +4413,7 @@ public final class DJConnectAppModel: ObservableObject {
             vibeCastItems = []
             lastVibeCastContextID = response.context?.trackID
             lastVibeCastRevision = response.revision
+            lastVibeCastItemsSignature = nil
             return
         }
         let contextParts = [response.context?.title, response.context?.artist, response.context?.album]
@@ -4421,11 +4423,16 @@ public final class DJConnectAppModel: ObservableObject {
         if let contextID, lastVibeCastContextID != nil, contextID != lastVibeCastContextID {
             vibeCastItems = []
         }
-        if response.revision != lastVibeCastRevision || contextID != lastVibeCastContextID {
-            vibeCastItems = response.items.filter { !$0.plainText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+        let nextItems = response.items.filter { !$0.plainText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+        let nextItemsSignature = Self.vibeCastItemsSignature(nextItems)
+        if response.revision != lastVibeCastRevision
+            || contextID != lastVibeCastContextID
+            || nextItemsSignature != lastVibeCastItemsSignature {
+            vibeCastItems = nextItems
         }
         lastVibeCastContextID = contextID
         lastVibeCastRevision = response.revision
+        lastVibeCastItemsSignature = nextItemsSignature
     }
 
     private func clearVibeCastFeed(reason: String?) {
@@ -4434,6 +4441,17 @@ public final class DJConnectAppModel: ObservableObject {
         vibeCastDisabledReason = reason
         lastVibeCastContextID = nil
         lastVibeCastRevision = nil
+        lastVibeCastItemsSignature = nil
+    }
+
+    private static func vibeCastItemsSignature(_ items: [DJConnectVibeCastResponse.Item]) -> String {
+        items.map { item in
+            let textSignature = item.text
+                .map { "\($0.type.rawValue)=\($0.value)" }
+                .joined(separator: "\u{1E}")
+            return [item.id, item.kind.rawValue, textSignature].joined(separator: "\u{1F}")
+        }
+        .joined(separator: "\u{1D}")
     }
 
     private func applyDemoVibeCastFeed() {
@@ -4837,10 +4855,10 @@ public final class DJConnectAppModel: ObservableObject {
         } catch let error as DJConnectError {
             handleMusicDiscoveryError(error)
             if showToast {
-                showMusicDNAToast(messageForMusicDNARefreshFailure(error), systemImage: "exclamationmark.triangle.fill")
+                showMusicDNAToast(messageForMusicDiscoveryFailure(error), systemImage: "exclamationmark.triangle.fill")
             }
         } catch {
-            musicDiscoveryErrorMessage = error.localizedDescription
+            musicDiscoveryErrorMessage = localized(key: "ui.discovery.could.not.be.loaded")
             log(.warning, "Music Discovery load failed: \(error.localizedDescription)")
         }
         isLoadingMusicDiscovery = false
@@ -4870,7 +4888,7 @@ public final class DJConnectAppModel: ObservableObject {
             handleMusicDiscoveryError(error)
         } catch is CancellationError {
         } catch {
-            musicDiscoveryErrorMessage = error.localizedDescription
+            musicDiscoveryErrorMessage = localized(key: "ui.discovery.could.not.be.loaded")
             log(.warning, "Music Discovery refresh failed: \(error.localizedDescription)")
         }
         isRefreshingMusicDiscovery = false
@@ -4903,7 +4921,7 @@ public final class DJConnectAppModel: ObservableObject {
             handleMusicDiscoveryError(error)
         } catch is CancellationError {
         } catch {
-            musicDiscoveryErrorMessage = error.localizedDescription
+            musicDiscoveryErrorMessage = localized(key: "appModel.this.recommendation.cannot.be.played.yet")
             log(.warning, "Music Discovery play failed: \(error.localizedDescription)")
         }
         playingMusicDiscoveryItemID = nil
@@ -4927,10 +4945,33 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     private func handleMusicDiscoveryError(_ error: DJConnectError) {
-        musicDiscoveryErrorMessage = userFacingDJResponseText(Self.describe(error)) ?? Self.describe(error)
+        musicDiscoveryErrorMessage = messageForMusicDiscoveryFailure(error)
         log(.warning, "Music Discovery request failed: \(Self.describe(error))")
         if Self.shouldShowConnectionNotice(for: error) {
             musicDiscoveryResponse = nil
+        }
+    }
+
+    private func messageForMusicDiscoveryFailure(_ error: DJConnectError) -> String {
+        switch error {
+        case .routeMissing:
+            return localized(key: "appModel.djconnect.route.missing.in.home.assistant.check.the.integration")
+        case .backendUnavailable, .server, .network, .decodingFailed, .invalidResponse:
+            return localized(key: "ui.discovery.could.not.be.loaded")
+        case .missingToken:
+            return localized(key: "appModel.missing.djconnect.bearer.token.reset.pairing.to.set.up")
+        case .authStale, .notConfigured:
+            return localized(key: "appModel.not.connected.to.home.assistant")
+        case .versionMismatch:
+            return localized(key: "appModel.update.the.djconnect.app.or.home.assistant.integration")
+        case .clientTypeMismatch:
+            return localized(key: "pairing.error.clientTypeMismatch")
+        case .invalidConfiguration:
+            return localized(key: "appModel.no.connection.to.home.assistant")
+        case .pairingFailed:
+            return localized(key: "appModel.not.connected.to.home.assistant")
+        case .trackInsightUnavailable:
+            return localized(key: "ui.discovery.could.not.be.loaded")
         }
     }
 

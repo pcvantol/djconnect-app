@@ -39,9 +39,11 @@ struct DJConnectMacApp: App {
             VibeCastOutputView(model: model)
                 .frame(minWidth: 960, idealWidth: 1280, minHeight: 540, idealHeight: 720)
                 .background(Color.black)
+                .background(VibeCastWindowConfigurator())
         }
         .defaultSize(width: 1280, height: 720)
         .windowStyle(.hiddenTitleBar)
+        .restorationBehavior(.disabled)
         .commands {
             CommandGroup(replacing: .appInfo) {
                 Button(localizedAboutMenuTitle(for: model.language)) {
@@ -81,6 +83,7 @@ private func localizedAboutMenuTitle(for language: String) -> String {
 }
 
 private let mainWindowIdentifier = NSUserInterfaceItemIdentifier("DJConnectMainWindow")
+private let vibeCastWindowIdentifier = NSUserInterfaceItemIdentifier("DJConnectVibeCastWindow")
 
 @MainActor
 final class DJConnectMacAppDelegate: NSObject, NSApplicationDelegate, @preconcurrency UNUserNotificationCenterDelegate {
@@ -237,6 +240,40 @@ private struct MenuWindowCenteringConfigurator: NSViewRepresentable {
                 window.center(in: parentWindow)
                 self.centeredWindow = window
             }
+        }
+    }
+}
+
+private struct VibeCastWindowConfigurator: NSViewRepresentable {
+    func makeCoordinator() -> Coordinator {
+        Coordinator()
+    }
+
+    func makeNSView(context: Context) -> NSView {
+        let view = NSView()
+        DispatchQueue.main.async {
+            context.coordinator.configure(window: view.window)
+        }
+        return view
+    }
+
+    func updateNSView(_ nsView: NSView, context: Context) {
+        DispatchQueue.main.async {
+            context.coordinator.configure(window: nsView.window)
+        }
+    }
+
+    @MainActor
+    final class Coordinator {
+        private weak var configuredWindow: NSWindow?
+
+        func configure(window: NSWindow?) {
+            guard let window, configuredWindow !== window else {
+                return
+            }
+            configuredWindow = window
+            window.identifier = vibeCastWindowIdentifier
+            window.isRestorable = false
         }
     }
 }
