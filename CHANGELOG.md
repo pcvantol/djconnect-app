@@ -4,6 +4,25 @@ All notable changes to DJConnect App are documented here.
 
 ## Unreleased
 
+## 3.2.17 - 2026-07-05
+
+### Changed
+
+- Updated every Home Assistant DJConnect HTTP route used by the Apple clients to
+  the canonical `/api/djconnect/v1/...` prefix.
+- Updated pairing QR/deep-link payloads to advertise
+  `pair_path=/api/djconnect/v1/pair` while keeping legacy pair-path parsing for
+  existing setup links.
+- Refreshed API, architecture, handoff, release, README, and chat-bootstrap
+  documentation for the canonical v1 route prefix.
+
+### Fixed
+
+- Added regression coverage so hardcoded client-call routes cannot silently
+  fall back to the old `/api/djconnect/...` prefix.
+- Kept backend-provided image, TTS, and audio URLs intact instead of rewriting
+  server-returned media paths on the client.
+
 ## 3.2.16 - 2026-07-04
 
 ### Added
@@ -11,7 +30,7 @@ All notable changes to DJConnect App are documented here.
 - Added Music DNA export/import actions to iOS and macOS Settings using native
   Apple save/import sheets.
 - Added authenticated HTTP Music DNA export support for
-  `/api/djconnect/music_dna/export`, saving the exact server-built JSON envelope
+  `/api/djconnect/v1/music_dna/export`, saving the exact server-built JSON envelope
   instead of reconstructing exports from cached profile data.
 - Added Music DNA import preview and upload support for previously exported JSON
   backups, with connected/pairing guards and clear success/error states.
@@ -55,7 +74,7 @@ All notable changes to DJConnect App are documented here.
 
 ### Added
 
-- Added iOS/macOS VibeCast feed support for `/api/djconnect/vibecast`, including
+- Added iOS/macOS VibeCast feed support for `/api/djconnect/v1/vibecast`, including
   shared response models, authenticated parity request metadata, polling while
   the VibeCast surface is visible, and side bubbles for structured facts/trivia.
 - Added optional WebSocket fast-path support for the `djconnect/vibecast` route
@@ -72,7 +91,7 @@ All notable changes to DJConnect App are documented here.
 
 ### Added
 
-- Added iOS/macOS VibeCast feed support for `/api/djconnect/vibecast`, including
+- Added iOS/macOS VibeCast feed support for `/api/djconnect/v1/vibecast`, including
   shared response models, authenticated parity request metadata, polling while
   the VibeCast surface is visible, and side bubbles for structured facts/trivia.
 - Added optional WebSocket fast-path support for the `djconnect/vibecast` route
@@ -268,7 +287,7 @@ All notable changes to DJConnect App are documented here.
 - Updated Music DNA and Watch proxy tests plus the Home Assistant API contract
   documentation.
 - Removed the remaining Apple local API/Bonjour pairing legacy and documented
-  inbound-only pairing through Home Assistant `/api/djconnect/pair`.
+  inbound-only pairing through Home Assistant `/api/djconnect/v1/pair`.
 
 ### Removed
 
@@ -380,7 +399,7 @@ All notable changes to DJConnect App are documented here.
 ### Changed
 
 - Documented the Ask DJ history-clear endpoint as
-  `/api/djconnect/ask_dj/history/clear`, with `clear_revision` as the
+  `/api/djconnect/v1/ask_dj/history/clear`, with `clear_revision` as the
   authoritative full-clear signal for cached Apple-client history.
 - Updated the Ask DJ action contract so Apple clients preserve backend-returned
   action objects, including object-valued `value` payloads, when sending
@@ -1434,9 +1453,9 @@ All notable changes to DJConnect App are documented here.
   version mismatch handling, and reset/recovery flows.
 - Added native playback controls for play/pause, previous, next, volume,
   shuffle, repeat, output selection, queue loading, playlists, and liked proxy
-  through `/api/djconnect/command`.
+  through `/api/djconnect/v1/command`.
 - Added Push-to-Talk recording with mono PCM WAV upload to
-  `/api/djconnect/voice`.
+  `/api/djconnect/v1/voice`.
 - Added native iOS/macOS UI for setup status, now playing, playback controls,
   queue/playlists, DJ response, settings, language switching, log level, and
   diagnostics.

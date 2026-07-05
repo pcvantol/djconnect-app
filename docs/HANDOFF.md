@@ -136,8 +136,8 @@ Recommended iOS fields:
   "device_id": "djconnect-ios-8F3A2C91B45D",
   "device_name": "DJConnect iPhone",
   "client_type": "ios",
-  "firmware": "3.2.15",
-  "app_version": "3.2.15",
+  "firmware": "3.2.17",
+  "app_version": "3.2.17",
   "platform": "ios"
 }
 ```
@@ -149,8 +149,8 @@ Recommended macOS fields:
   "device_id": "djconnect-macos-8F3A2C91B45D",
   "device_name": "DJConnect Mac",
   "client_type": "macos",
-  "firmware": "3.2.15",
-  "app_version": "3.2.15",
+  "firmware": "3.2.17",
+  "app_version": "3.2.17",
   "platform": "macos"
 }
 ```
@@ -162,8 +162,8 @@ Recommended watchOS fields:
   "device_id": "djconnect-watchos-8F3A2C91B45D",
   "device_name": "DJConnect Watch",
   "client_type": "watchos",
-  "firmware": "3.2.15",
-  "app_version": "3.2.15",
+  "firmware": "3.2.17",
+  "app_version": "3.2.17",
   "platform": "watchos"
 }
 ```
@@ -192,7 +192,7 @@ chosen.
 
 Music DNA consent and settings must stay cross-device. iOS, macOS, and watchOS
 show the initial opt-in prompt from both Ask DJ and the Music DNA screen. On
-watchOS, the Watch asks the paired iPhone to call `/api/djconnect/music_dna/*`
+watchOS, the Watch asks the paired iPhone to call `/api/djconnect/v1/music_dna/*`
 while preserving the Watch `device_id` and canonical `client_type:"watchos"`.
 Watch Settings must expose the same Music DNA on/off control as iOS/macOS:
 opting out clears learned backend Music DNA and stops future profile buildup;
@@ -205,7 +205,7 @@ catches up; Home Assistant remains authoritative once it returns the matching
 state or the grace window expires.
 
 iOS and macOS Settings expose Music DNA export/import. Export must use HTTP
-`POST /api/djconnect/music_dna/export`, never the Home Assistant WebSocket fast
+`POST /api/djconnect/v1/music_dna/export`, never the Home Assistant WebSocket fast
 path, and save/share the exact backend JSON envelope only after the user chooses
 a native save/share destination. Clients must not build the export locally from
 `/music_dna/profile` and must not append tokens, bootstrap proofs, raw prompts,
@@ -236,7 +236,7 @@ command payloads include `device_id`, `device_name`, `client_id`, and
 `client_type`, with `client_id` currently matching `device_id`.
 
 The Apple clear-history action calls
-`POST /api/djconnect/ask_dj/history/clear`. Home Assistant should scope the
+`POST /api/djconnect/v1/ask_dj/history/clear`. Home Assistant should scope the
 clear to the relevant user/client/history namespace, increment
 `clear_revision`, and keep returning that revision on later history/message
 responses so all Apple clients can clear their local caches deterministically.
@@ -279,9 +279,9 @@ Expected response:
   "success": false,
   "error": "version_mismatch",
   "message": "DJConnect Home Assistant integration and device firmware major.minor versions must match.",
-  "ha_version": "3.2.15",
+  "ha_version": "3.2.17",
   "ha_major_minor": "3.2",
-  "firmware": "3.2.15",
+  "firmware": "3.2.17",
   "firmware_major_minor": "3.1"
 }
 ```
@@ -307,14 +307,14 @@ Recommended user flow:
 
 1. User starts Apple-client pairing in the Home Assistant DJConnect setup flow.
 2. Home Assistant shows a pairing code or QR code. For iOS, prefer the
-   `djconnect://pair?ha_url=<local-ha-url>&pair_code=<code>&client_type=ios&pair_path=/api/djconnect/pair`
+   `djconnect://pair?ha_url=<local-ha-url>&pair_code=<code>&client_type=ios&pair_path=/api/djconnect/v1/pair`
    QR/deep-link payload. For Apple Watch, use the same payload with
    `client_type=watchos` and scan/open it on the paired iPhone.
 3. The Apple app is on the same LAN and the user scans the QR code or enters
    the local URL plus code manually. Watch users do not enter URL/code on the
    Watch; the iPhone forwards the validated payload over WatchConnectivity.
 4. The app posts the code and canonical client identity to local
-   `/api/djconnect/pair`. For Watch pairing, the posting client identity remains
+   `/api/djconnect/v1/pair`. For Watch pairing, the posting client identity remains
    `client_type: "watchos"` with a `djconnect-watchos-*` device ID, even when
    the iPhone proxies the HTTP request.
 5. Integration creates or returns a DJConnect bearer token for the app runtime.
@@ -352,7 +352,7 @@ proxy rather than an iPhone-hosted Home Assistant callback endpoint.
 Implemented initial app contract:
 
 ```http
-POST /api/djconnect/pair
+POST /api/djconnect/v1/pair
 Content-Type: application/json
 X-DJConnect-Device-ID: <device_id>
 ```
@@ -361,8 +361,8 @@ X-DJConnect-Device-ID: <device_id>
 {  "device_id": "djconnect-macos-8F3A2C91B45D",
   "device_name": "DJConnect Mac",
   "client_type": "macos",
-  "firmware": "3.2.15",
-  "app_version": "3.2.15",
+  "firmware": "3.2.17",
+  "app_version": "3.2.17",
   "platform": "macos",
   "pair_code": "123456",
   "pairing_code": "123456",
@@ -491,7 +491,7 @@ Content-Type: audio/wav
 Post client status to:
 
 ```http
-POST /api/djconnect/status
+POST /api/djconnect/v1/status
 ```
 
 Minimum payload:
@@ -501,8 +501,8 @@ Minimum payload:
   "device_id": "djconnect-ios-8F3A2C91B45D",
   "client_type": "ios",
   "ha_pairing_status": "paired",
-  "firmware": "3.2.15",
-  "app_version": "3.2.15",
+  "firmware": "3.2.17",
+  "app_version": "3.2.17",
   "state": "online",
   "status": "online",
   "battery_percent": 85,
@@ -548,12 +548,12 @@ supports remote language sync. Otherwise keep it as informational state.
 Send generic playback commands to:
 
 ```http
-POST /api/djconnect/command
+POST /api/djconnect/v1/command
 ```
 
 All command payloads must include `device_id` and `client_type`. Keep command payloads focused on playback commands and client identity. Do not
-send partial device-status snapshots in `/api/djconnect/command`; use
-`/api/djconnect/status` as the authoritative source for client status and
+send partial device-status snapshots in `/api/djconnect/v1/command`; use
+`/api/djconnect/v1/status` as the authoritative source for client status and
 settings mirrored into Home Assistant entities.
 
 Do not expose or send Home Assistant's removed Spotify override settings in
@@ -635,7 +635,7 @@ Spotify API offset errors. The app no longer sends unsupported older
 `play_queue_item` or `play_uri` commands.
 
 The app does not expose an inbound callback API. Playback and queue actions always travel from the Apple
-client to Home Assistant through `/api/djconnect/command` using the selected
+client to Home Assistant through `/api/djconnect/v1/command` using the selected
 local or remote HA transport.
 
 Expected success shape:
@@ -731,7 +731,7 @@ If implementing push-to-talk:
 2. App uploads raw WAV to HA:
 
 ```http
-POST /api/djconnect/voice
+POST /api/djconnect/v1/voice
 Content-Type: audio/wav
 Authorization: Bearer <djconnect_bearer_token>
 X-DJConnect-Device-ID: <device_id>
@@ -844,7 +844,7 @@ status/command payloads. Missing or unsupported client types should be returned
 as `invalid_client_type`; clients localize the message and keep pairing state.
 
 VibeCast is a first-class iOS/macOS streaming surface. Apple clients poll
-`GET /api/djconnect/vibecast` while the VibeCast surface is visible, or use the
+`GET /api/djconnect/v1/vibecast` while the VibeCast surface is visible, or use the
 optional local WebSocket route `djconnect/vibecast` when HA advertises it. The
 response is backend-neutral structured JSON with `enabled`, disabled `reason`,
 `revision`, `ttl_seconds`, `poll_after_seconds`, current-track `context`, and
@@ -874,7 +874,7 @@ Expected response:
   "success": true,
   "text": "Daar gaan we.",
   "dj_text": "Daar gaan we.",
-  "audio_url": "http://homeassistant.local:8123/api/djconnect/tts/token.mp3",
+  "audio_url": "http://homeassistant.local:8123/api/djconnect/v1/tts/token.mp3",
   "audio_type": "mp3"
 }
 ```
@@ -1043,7 +1043,7 @@ target with a real or recorded mock Home Assistant server.
   until user reset.
 - 401/403 during unauthenticated pairing stops the attempt and asks the user to
   verify the 6-digit code shown by Home Assistant.
-- Voice/PTT uploads raw WAV to `/api/djconnect/voice`.
+- Voice/PTT uploads raw WAV to `/api/djconnect/v1/voice`.
 - Local Games show Paddle Rally, Meteor Run, Sky Dash, and Maze Chase without
   HA/backend traffic, render the Maze Chase player mouth and ghost eyes, and
   reset to tap-to-play when leaving the screen.

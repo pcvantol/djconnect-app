@@ -217,14 +217,14 @@ public final class DJConnectClient: Sendable {
     }
 
     public func statusRequest(_ payload: DJConnectStatusPayload) throws -> URLRequest {
-        try jsonRequest(path: "/api/djconnect/status", payload: payload)
+        try jsonRequest(path: Self.apiV1Path("status"), payload: payload)
     }
 
     public func pairingRequest(_ payload: DJConnectPairingPayload) throws -> URLRequest {
         guard Self.deviceID(payload.deviceID, matches: payload.clientType, allowLegacyRaspberryPiPrefix: false) else {
             throw DJConnectError.invalidConfiguration("DJConnect pairing identity mismatch: device_id prefix does not match client_type.")
         }
-        var request = URLRequest(url: endpoint(path: "/api/djconnect/pair"))
+        var request = URLRequest(url: endpoint(path: Self.apiV1Path("pair")))
         request.timeoutInterval = 10
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -261,7 +261,7 @@ public final class DJConnectClient: Sendable {
     }
 
     public func commandRequest(_ payload: DJConnectCommandPayload) throws -> URLRequest {
-        var request = try jsonRequest(path: "/api/djconnect/command", payload: payload)
+        var request = try jsonRequest(path: Self.apiV1Path("command"), payload: payload)
         if let language = Self.nonBlankLanguage(payload.language) {
             request.setValue(language, forHTTPHeaderField: "X-DJConnect-Language")
             request.setValue(language, forHTTPHeaderField: "X-DJConnect-Locale")
@@ -278,19 +278,19 @@ public final class DJConnectClient: Sendable {
     }
 
     public func askDJRequest(_ payload: DJConnectAskDJRequest) throws -> URLRequest {
-        var request = try jsonRequest(path: "/api/djconnect/ask", payload: payload)
+        var request = try jsonRequest(path: Self.apiV1Path("ask"), payload: payload)
         request.timeoutInterval = 15
         return request
     }
 
     public func askDJMessageRequest(_ payload: DJConnectAskDJRequest) throws -> URLRequest {
-        var request = try jsonRequest(path: "/api/djconnect/ask_dj/message", payload: payload)
+        var request = try jsonRequest(path: Self.apiV1Path("ask_dj/message"), payload: payload)
         request.timeoutInterval = 30
         return request
     }
 
     public func askDJHistoryRequest(sinceRevision: Int? = nil) throws -> URLRequest {
-        var components = URLComponents(url: endpoint(path: "/api/djconnect/ask_dj/history"), resolvingAgainstBaseURL: false)
+        var components = URLComponents(url: endpoint(path: Self.apiV1Path("ask_dj/history")), resolvingAgainstBaseURL: false)
         if let sinceRevision {
             components?.queryItems = [URLQueryItem(name: "since_revision", value: "\(sinceRevision)")]
         }
@@ -304,21 +304,21 @@ public final class DJConnectClient: Sendable {
 
     public func clearAskDJHistoryRequest(musicDNAKey: String? = nil) throws -> URLRequest {
         try jsonRequest(
-            path: "/api/djconnect/ask_dj/history/clear",
+            path: Self.apiV1Path("ask_dj/history/clear"),
             payload: DJConnectAskDJClearHistoryRequest(identity: identity, musicDNAKey: musicDNAKey)
         )
     }
 
     public func exportAskDJHistoryRequest() throws -> URLRequest {
         try jsonRequest(
-            path: "/api/djconnect/ask_dj/history/export",
+            path: Self.apiV1Path("ask_dj/history/export"),
             payload: DJConnectAskDJHistoryExportRequest(identity: identity)
         )
     }
 
     public func musicDNAProfileRequest(mood: Int? = nil, musicDNAKey: String? = nil, language: String? = nil) throws -> URLRequest {
         try musicDNARequest(
-            path: "/api/djconnect/music_dna/profile",
+            path: Self.apiV1Path("music_dna/profile"),
             payload: DJConnectMusicDNAIdentityRequest(identity: identity, mood: mood, musicDNAKey: musicDNAKey, language: language),
             mood: mood,
             musicDNAKey: musicDNAKey,
@@ -328,7 +328,7 @@ public final class DJConnectClient: Sendable {
 
     public func musicDNASettingsRequest(enabled: Bool, mood: Int? = nil, musicDNAKey: String? = nil, language: String? = nil) throws -> URLRequest {
         try musicDNARequest(
-            path: "/api/djconnect/music_dna/settings",
+            path: Self.apiV1Path("music_dna/settings"),
             payload: DJConnectMusicDNASettingsRequest(identity: identity, enabled: enabled, mood: mood, musicDNAKey: musicDNAKey, language: language),
             mood: mood,
             musicDNAKey: musicDNAKey,
@@ -338,7 +338,7 @@ public final class DJConnectClient: Sendable {
 
     public func clearMusicDNARequest(mood: Int? = nil, musicDNAKey: String? = nil, language: String? = nil) throws -> URLRequest {
         try musicDNARequest(
-            path: "/api/djconnect/music_dna/clear",
+            path: Self.apiV1Path("music_dna/clear"),
             payload: DJConnectMusicDNAIdentityRequest(identity: identity, mood: mood, musicDNAKey: musicDNAKey, language: language),
             mood: mood,
             musicDNAKey: musicDNAKey,
@@ -348,7 +348,7 @@ public final class DJConnectClient: Sendable {
 
     public func importMusicDNARequest(_ profile: DJConnectMusicDNAProfileResponse, mood: Int? = nil, musicDNAKey: String? = nil, language: String? = nil) throws -> URLRequest {
         try musicDNARequest(
-            path: "/api/djconnect/music_dna/import",
+            path: Self.apiV1Path("music_dna/import"),
             payload: DJConnectMusicDNAImportRequest(identity: identity, profile: profile, mood: mood, musicDNAKey: musicDNAKey, language: language),
             mood: mood,
             musicDNAKey: musicDNAKey,
@@ -358,7 +358,7 @@ public final class DJConnectClient: Sendable {
 
     public func exportMusicDNARequest(musicDNAKey: String? = nil, language: String? = nil) throws -> URLRequest {
         try musicDNARequest(
-            path: "/api/djconnect/music_dna/export",
+            path: Self.apiV1Path("music_dna/export"),
             payload: DJConnectMusicDNAExportRequest(identity: identity, musicDNAKey: musicDNAKey, language: language),
             mood: nil,
             musicDNAKey: musicDNAKey,
@@ -367,7 +367,7 @@ public final class DJConnectClient: Sendable {
     }
 
     public func musicDiscoveryFeedRequest(musicDNAKey: String? = nil, language: String? = nil) throws -> URLRequest {
-        var request = try authenticatedRequest(path: "/api/djconnect/music_discovery")
+        var request = try authenticatedRequest(path: Self.apiV1Path("music_discovery"))
         request.httpMethod = "GET"
         applyMusicDNAHeaders(to: &request, mood: nil, musicDNAKey: musicDNAKey, language: language)
         return request
@@ -375,7 +375,7 @@ public final class DJConnectClient: Sendable {
 
     public func refreshMusicDiscoveryRequest(musicDNAKey: String? = nil, language: String? = nil) throws -> URLRequest {
         try musicDNARequest(
-            path: "/api/djconnect/music_discovery/refresh",
+            path: Self.apiV1Path("music_discovery/refresh"),
             payload: DJConnectMusicDNAIdentityRequest(identity: identity, musicDNAKey: musicDNAKey, language: language),
             mood: nil,
             musicDNAKey: musicDNAKey,
@@ -385,7 +385,7 @@ public final class DJConnectClient: Sendable {
 
     public func musicDiscoveryPlayRequest(_ payload: DJConnectMusicDiscoveryPlayRequest) throws -> URLRequest {
         try musicDNARequest(
-            path: "/api/djconnect/music_discovery/play",
+            path: Self.apiV1Path("music_discovery/play"),
             payload: payload,
             mood: nil,
             musicDNAKey: payload.musicDNAKey,
@@ -420,14 +420,14 @@ public final class DJConnectClient: Sendable {
     }
 
     public func askDJIdleSuggestionRequest(_ payload: DJConnectAskDJIdleSuggestionRequest) throws -> URLRequest {
-        var request = try jsonRequest(path: "/api/djconnect/ask_dj/idle_suggestion", payload: payload)
+        var request = try jsonRequest(path: Self.apiV1Path("ask_dj/idle_suggestion"), payload: payload)
         request.timeoutInterval = 15
         return request
     }
 
     public func trackInsightRequest(_ payload: DJConnectTrackInsightRequest) throws -> URLRequest {
         let normalizedPayload = payload.normalizedForSend(identity: identity)
-        var request = try jsonRequest(path: "/api/djconnect/track_insight", payload: normalizedPayload)
+        var request = try jsonRequest(path: Self.apiV1Path("track_insight"), payload: normalizedPayload)
         if let language = Self.nonBlankLanguage(normalizedPayload.language ?? normalizedPayload.locale) {
             request.setValue(language, forHTTPHeaderField: "X-DJConnect-Language")
             request.setValue(language, forHTTPHeaderField: "X-DJConnect-Locale")
@@ -443,7 +443,7 @@ public final class DJConnectClient: Sendable {
     }
 
     public func vibeCastRequest(_ payload: DJConnectVibeCastRequest = DJConnectVibeCastRequest()) throws -> URLRequest {
-        var components = URLComponents(url: endpoint(path: "/api/djconnect/vibecast"), resolvingAgainstBaseURL: false)
+        var components = URLComponents(url: endpoint(path: Self.apiV1Path("vibecast")), resolvingAgainstBaseURL: false)
         var queryItems: [URLQueryItem] = [
             URLQueryItem(name: "device_id", value: identity.deviceID),
             URLQueryItem(name: "client_id", value: identity.deviceID),
@@ -481,11 +481,11 @@ public final class DJConnectClient: Sendable {
     }
 
     public func pushRegisterRequest(_ payload: DJConnectPushRegistrationRequest) throws -> URLRequest {
-        try jsonRequest(path: "/api/djconnect/push/register", payload: payload)
+        try jsonRequest(path: Self.apiV1Path("push/register"), payload: payload)
     }
 
     public func pushUnregisterRequest(_ payload: DJConnectPushUnregistrationRequest) throws -> URLRequest {
-        try jsonRequest(path: "/api/djconnect/push/unregister", payload: payload)
+        try jsonRequest(path: Self.apiV1Path("push/unregister"), payload: payload)
     }
 
     public func voiceRequest(
@@ -495,7 +495,7 @@ public final class DJConnectClient: Sendable {
         musicDNAKey: String? = nil,
         language: String? = nil
     ) throws -> URLRequest {
-        var request = try authenticatedRequest(path: "/api/djconnect/voice")
+        var request = try authenticatedRequest(path: Self.apiV1Path("voice"))
         request.httpMethod = "POST"
         request.setValue("audio/wav", forHTTPHeaderField: "Content-Type")
         request.setValue(identity.clientType.rawValue, forHTTPHeaderField: "X-DJConnect-Client-Type")
@@ -835,5 +835,9 @@ public final class DJConnectClient: Sendable {
         @unknown default:
             return decodingError.localizedDescription
         }
+    }
+
+    private static func apiV1Path(_ route: String) -> String {
+        "/api/djconnect/v1/" + route.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
     }
 }

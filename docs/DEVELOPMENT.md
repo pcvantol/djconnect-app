@@ -55,10 +55,10 @@ release binaries.
 8. Enter the local Home Assistant URL and the 6-digit code shown by Home
    Assistant in the app, then choose the pairing action.
 9. Finish the setup flow in Home Assistant. The app waits after the initial
-   `POST /api/djconnect/pair` until authenticated status succeeds.
+   `POST /api/djconnect/v1/pair` until authenticated status succeeds.
 10. When the green pairing success state appears, choose `Let's Start!`.
 
-The app posts once to `POST /api/djconnect/pair` from the Apple client to Home
+The app posts once to `POST /api/djconnect/v1/pair` from the Apple client to Home
 Assistant, stores the returned DJConnect bearer token in app-private storage,
 and sends the Home Assistant code as `pair_code`, `pairing_code`, and
 `pairing_token` for compatibility with current Home Assistant integration
@@ -258,7 +258,7 @@ output, and voice flows.
 ## Home Assistant Transport Check
 
 For a manual regression check, pair iOS/macOS through the local
-`/api/djconnect/pair` flow, then validate that status and command calls use the
+`/api/djconnect/v1/pair` flow, then validate that status and command calls use the
 stored `ha_local_url`, fall back to `ha_remote_url` when local access fails and
 remote is supported, and report offline when neither URL works.
 

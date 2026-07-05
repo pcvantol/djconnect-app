@@ -300,6 +300,9 @@ public struct DJConnectPairingPayload: Codable, Equatable, Sendable {
 }
 
 public struct DJConnectPairingDeepLink: Equatable, Sendable {
+    public static let canonicalPairPath = "/api/djconnect/v1/pair"
+    private static let legacyPairPath = "/api/djconnect/pair"
+
     public var homeAssistantURL: String
     public var pairCode: String
     public var clientType: DJConnectClientType
@@ -309,7 +312,7 @@ public struct DJConnectPairingDeepLink: Equatable, Sendable {
         homeAssistantURL: String,
         pairCode: String,
         clientType: DJConnectClientType,
-        pairPath: String = "/api/djconnect/pair"
+        pairPath: String = DJConnectPairingDeepLink.canonicalPairPath
     ) {
         self.homeAssistantURL = homeAssistantURL
         self.pairCode = pairCode
@@ -340,14 +343,15 @@ public struct DJConnectPairingDeepLink: Equatable, Sendable {
         guard let rawClientType = items["client_type"], let clientType = DJConnectClientType(rawValue: rawClientType), clientType == expectedClientType else {
             throw DJConnectError.invalidConfiguration("Invalid DJConnect client type.")
         }
-        guard items["pair_path"] == "/api/djconnect/pair" else {
+        guard let pairPath = items["pair_path"],
+              pairPath == Self.canonicalPairPath || pairPath == Self.legacyPairPath else {
             throw DJConnectError.invalidConfiguration("Invalid DJConnect pair path.")
         }
         return DJConnectPairingDeepLink(
             homeAssistantURL: rawHAURL,
             pairCode: pairCode,
             clientType: clientType,
-            pairPath: "/api/djconnect/pair"
+            pairPath: pairPath
         )
     }
 }

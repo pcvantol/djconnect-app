@@ -173,7 +173,7 @@ while a stale profile refresh catches up; Home Assistant remains authoritative
 once it returns the matching state.
 
 iOS and macOS can export and import Music DNA backups from Settings. Export is
-an authenticated HTTP `POST /api/djconnect/music_dna/export` call and saves the
+an authenticated HTTP `POST /api/djconnect/v1/music_dna/export` call and saves the
 exact server-built JSON envelope through the native share/save panel; clients do
 not reconstruct exports from cached profile data and do not add tokens,
 bootstrap proofs, raw prompts, raw audio, diagnostics, or local cache fields.
@@ -182,9 +182,9 @@ Assistant only while paired and connected.
 
 Ontdek / Discover is the iOS/macOS Music Discovery surface. It appears directly
 after Track Insight in primary navigation and is backed only by Home Assistant
-Music DNA data. The client loads `GET /api/djconnect/music_discovery`, refreshes
-with `POST /api/djconnect/music_discovery/refresh`, and plays accepted items via
-`POST /api/djconnect/music_discovery/play` so Home Assistant can record the
+Music DNA data. The client loads `GET /api/djconnect/v1/music_discovery`, refreshes
+with `POST /api/djconnect/v1/music_discovery/refresh`, and plays accepted items via
+`POST /api/djconnect/v1/music_discovery/play` so Home Assistant can record the
 acceptance as a positive Music DNA signal. Clients must not generate
 recommendations or reasons locally, and displayed items require a backend `id`,
 `kind`, `title`, playable `uri`, and `reason`. If Music DNA is disabled, Ontdek
@@ -274,19 +274,19 @@ swift test
 Status is posted to:
 
 ```http
-POST /api/djconnect/status
+POST /api/djconnect/v1/status
 ```
 
 Playback commands are posted to:
 
 ```http
-POST /api/djconnect/command
+POST /api/djconnect/v1/command
 ```
 
 Voice/PTT WAV audio, when implemented by an app target, is posted to:
 
 ```http
-POST /api/djconnect/voice
+POST /api/djconnect/v1/voice
 Content-Type: audio/wav
 ```
 
@@ -314,14 +314,14 @@ Apple clients render those vertically, with the speaker name on the left and an
 `Actief`/`Activeer` button on the right. Opening Ask DJ scrolls the synced chat
 history to the newest message by default, including after the first async
 history load. Clearing Ask DJ history calls
-`POST /api/djconnect/ask_dj/history/clear`; the returned `clear_revision` is
+`POST /api/djconnect/v1/ask_dj/history/clear`; the returned `clear_revision` is
 the authoritative full-clear signal for local cached history.
 
 The native app also uses command proxy flows for backend devices, queue,
 playlists, liked songs, and output selection:
 
 ```http
-POST /api/djconnect/command
+POST /api/djconnect/v1/command
 {"command":"devices"}
 {"command":"queue"}
 {"command":"playlists"}
@@ -355,7 +355,7 @@ commands until the user chooses a real backend output.
 Foreground wakeword support is available from Settings. When enabled for the
 current app session, the app uses Apple Speech while the app is open to listen
 for the configured wake phrase (`Hey DJ` by default), then records a short WAV
-voice request through the normal `/api/djconnect/voice` flow. The app does not
+voice request through the normal `/api/djconnect/v1/voice` flow. The app does not
 run an always-on background wakeword listener and does not auto-start wakeword
 listening after launch. Wakeword and the local progress timer are paused when
 the app leaves the foreground and resume only when the app becomes active
@@ -393,7 +393,7 @@ transport state, advertised route names, capability refresh time, and a redacted
 last error.
 
 VibeCast on iOS and macOS uses the same authenticated backend contract:
-`GET /api/djconnect/vibecast`. The request sends the paired device identity
+`GET /api/djconnect/v1/vibecast`. The request sends the paired device identity
 and canonical `client_type` through the existing bearer-token headers plus
 locale, timezone, app version, and supported render capabilities. The response
 is backend-neutral structured JSON with `enabled`, `reason`, `revision`,
@@ -419,14 +419,14 @@ even for app clients.
 Pairing is posted to:
 
 ```http
-POST /api/djconnect/pair
+POST /api/djconnect/v1/pair
 ```
 
 The app sends `device_id`, `device_name`, canonical `client_type`, `firmware`,
 `app_version`, `platform`, and the 6-digit Home Assistant setup code as
 `pair_code`, `pairing_code`, and `pairing_token`. Pairing bootstrap is
 local-only: the Apple client posts to the local Home Assistant
-`/api/djconnect/pair` endpoint and stores the returned DJConnect bearer token,
+`/api/djconnect/v1/pair` endpoint and stores the returned DJConnect bearer token,
 `ha_local_url`, optional `ha_remote_url`, remote support flag, API
 paths/capabilities, and music-backend summary. Remote URLs are never used for
 first pairing. For development, `https://*.ngrok-free.dev` is whitelisted as a
@@ -440,7 +440,7 @@ flow: iPhone/iPad uses `ios`, macOS uses `macos`, and Apple Watch pairing
 through iPhone uses `watchos`.
 
 iOS primarily pairs from the Home Assistant QR/deep-link payload
-`djconnect://pair?ha_url=<local-ha-url>&pair_code=<code>&client_type=ios&pair_path=/api/djconnect/pair`.
+`djconnect://pair?ha_url=<local-ha-url>&pair_code=<code>&client_type=ios&pair_path=/api/djconnect/v1/pair`.
 Manual local URL plus 6-digit code entry remains a fallback.
 
 iOS and macOS no longer host a Home Assistant-callable local Client API and do

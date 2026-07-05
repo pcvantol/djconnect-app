@@ -61,7 +61,7 @@ houdt iOS/macOS gelijk aan andere DJConnect clients.
 iOS, macOS en watchOS hosten geen lokale HTTP API voor Home Assistant callbacks,
 adverteren geen pairable Bonjour/mDNS-service en gebruiken geen lokale discovery
 voor pairing. Pairing is uitsluitend client-geinitieerd: de Apple client post
-naar `POST /api/djconnect/pair` op de lokale Home Assistant URL die de setupflow
+naar `POST /api/djconnect/v1/pair` op de lokale Home Assistant URL die de setupflow
 toont of via de QR/deep-link payload meegeeft.
 
 iOS pairt primair via de Home Assistant QR/deep-link payload. macOS gebruikt

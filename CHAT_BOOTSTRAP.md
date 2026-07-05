@@ -23,7 +23,7 @@ Context:
 - Clients mogen geen `spotify_source` / "Spotify source override" of `liked_proxy_playlist_uri` / "Standaard playlist override" meer tonen, documenteren of verwachten.
 - Backend playback loopt via de Home Assistant DJConnect integration; clients sturen generieke playback commands.
 - Apple clients bewaren alleen het door Home Assistant uitgegeven DJConnect device-token in app-private storage. Gebruik geen Keychain en toon geen Keychain-permissie of fallback-popup. `App opnieuw koppelen` wist lokale pairing/token-state, roteert de lokale clientidentiteit/koppelcode waar nodig en opent opnieuw de pairingflow.
-- Pairing gebruikt Home Assistant `/api/djconnect/pair` met canonical `client_type`: macOS=`macos`, iPhone/iPad=`ios`, Apple Watch via iPhone proxy=`watchos`. Eerste pairing is lokaal; `https://*.ngrok-free.dev` is alleen als dev-tunnel whitelisted. `client_type_mismatch` houdt URL/code intact en toont een platformspecifieke melding om de juiste HA setup-flow te kiezen.
+- Pairing gebruikt Home Assistant `/api/djconnect/v1/pair` met canonical `client_type`: macOS=`macos`, iPhone/iPad=`ios`, Apple Watch via iPhone proxy=`watchos`. Eerste pairing is lokaal; `https://*.ngrok-free.dev` is alleen als dev-tunnel whitelisted. `client_type_mismatch` houdt URL/code intact en toont een platformspecifieke melding om de juiste HA setup-flow te kiezen.
 - Houd cross-repo contracten actueel met `pcvantol/djconnect`, client/firmware repos, `SYNC_PROMPTS.md` en `PRODUCT_ROADMAP.md` indien protocol/roadmap geraakt wordt. Apple clients gebruiken Ask DJ als rijke chat/PTT-functie; er is geen losse Now Playing `DJ verzoek` ingang meer. rbpi had die losse ingang al niet; ESP32 krijgt geen Ask DJ rich UI en blijft buiten Apple UI-sync.
 - Ask DJ is cross-device: iOS, macOS en watchOS synchroniseren history via Home Assistant en cachen lokaal voor performance. Clients mergen serverberichten in de lokale cache en vervangen de lokale lijst niet door een bounded response-window. `clear_revision` blijft de full-clear authority.
 - Bij een nieuw ontvangen Ask DJ antwoord mag een latere history/status sync met hogere `clear_revision` de verse lokale vraag+antwoord exchange niet direct wissen; preserveer berichten met dezelfde `client_message_id` tot HA ze zelf in history teruggeeft.
@@ -35,15 +35,15 @@ Context:
 - Ask DJ tekst- en command-payloads sturen expliciet `device_id`, `device_name`, `client_id` en `client_type`; `client_id` is nu gelijk aan `device_id` voor backendcompatibiliteit.
 - Backend follow-up/confirmatievragen worden als Ask DJ `playback_actions` gerenderd. Voor algemene ja/nee verduidelijking gebruikt de backend acties met bijvoorbeeld `kind: "confirmation"`, `action_style: "confirmation"`, `response_value: "yes"|"no"` en `command: "ask_dj_followup_response"`. Clients tonen dan klikbare Ja/Nee knoppen; de pending follow-up state en uiteindelijke intentuitvoering blijven server-side.
 - Clients sturen bij action-taps waar mogelijk het volledige door de backend teruggegeven action-object terug, inclusief object-valued `value`; output-actions worden dus niet meer gereduceerd tot alleen een device-id tenzij legacy fallback nodig is.
-- Ask DJ clear-history gebruikt `POST /api/djconnect/ask_dj/history/clear`; de backend moet `clear_revision` verhogen en blijven teruggeven, want dat is de authoritative full-clear marker voor lokale caches.
+- Ask DJ clear-history gebruikt `POST /api/djconnect/v1/ask_dj/history/clear`; de backend moet `clear_revision` verhogen en blijven teruggeven, want dat is de authoritative full-clear marker voor lokale caches.
 - Raw backend/proxy/decode/HTML-fouten mogen nooit in de Ask DJ chat UI verschijnen. Toon korte gelokaliseerde meldingen zoals `Ask DJ niet bereikbaar` of `Home Assistant gaf geen antwoord`; technische details blijven in diagnostics/logs.
 - Track Insight requests sturen `client_type` mee; `invalid_client_type` en `client_type_mismatch` worden gelokaliseerd in UI/logs zonder pairing state te wissen.
 - Music DNA gebruikt HA als source of truth, maar na opt-in/opt-out mag de client kort de net gekozen enabled-state vasthouden zodat een stale profile-refresh de toggle niet terugzet. Music DNA gebruikt overal het outline `heart`; filled hearts zijn alleen voor favoriet/save-track.
 - Secrets/tokens/wachtwoorden/private URLs mogen nooit in commits, logs, screenshots, diagnostics of test fixtures.
 
 Huidige status om te controleren:
-- Release `3.2.15` is de actuele source release/protocollijn. iOS/macOS pairen
-  lokaal via `/api/djconnect/pair`, bewaren `ha_local_url` plus optioneel
+- Release `3.2.17` is de actuele source release/protocollijn. iOS/macOS pairen
+  lokaal via `/api/djconnect/v1/pair`, bewaren `ha_local_url` plus optioneel
   `ha_remote_url`, kiezen runtime local -> remote -> offline, en hosten geen
   client `/api/device/*` API of `_djconnect._tcp` service.
 - Ask DJ toont in het lege scherm een voorbeeldvraag voor technische
@@ -64,7 +64,7 @@ Huidige status om te controleren:
 - Demo Mode is volledig lokaal en non-interacting met Home Assistant. Ask DJ
   toont de vaste voorbeelden en geeft client-side demobubbles terug die
   uitleggen dat Ask DJ echt antwoordt zodra Home Assistant gekoppeld is.
-- De statische What's New release-notes voor `3.2.15` worden door de
+- De statische What's New release-notes voor `3.2.17` worden door de
   `Public unsigned release` workflow gepubliceerd naar `pcvantol/djconnect-website`
   en `djconnect.dev`. Controleer specifiek dat de `nl` JSON echte Nederlandse
   inhoud bevat en niet de Engelse fallback.
@@ -73,8 +73,8 @@ Huidige status om te controleren:
 - Check direct:
   - `git status --short --branch`
   - `gh run list --repo pcvantol/djconnect-app --limit 5`
-  - public release tags in `pcvantol/djconnect-app-releases` voor `ios/v3.2.15` en `macos/v3.2.15` indien release/publicatie geraakt wordt.
-  - `https://djconnect.dev/release-notes/ios/nl/v3.2.15.json` en het macOS
+  - public release tags in `pcvantol/djconnect-app-releases` voor `ios/v3.2.17` en `macos/v3.2.17` indien release/publicatie geraakt wordt.
+  - `https://djconnect.dev/release-notes/ios/nl/v3.2.17.json` en het macOS
     equivalent indien What's New release-notes geraakt worden.
 
 Werkstijl:

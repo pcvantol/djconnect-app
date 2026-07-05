@@ -725,7 +725,7 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     let body = try #require(request.httpBody)
     let json = try JSONSerialization.jsonObject(with: body) as? [String: Any]
 
-    #expect(request.url?.path == "/api/djconnect/status")
+    #expect(request.url?.path == "/api/djconnect/v1/status")
     #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer secret-token")
     #expect(request.value(forHTTPHeaderField: "X-DJConnect-Client-ID") == identity.deviceID)
     #expect(request.value(forHTTPHeaderField: "X-DJConnect-Device-ID") == identity.deviceID)
@@ -747,6 +747,56 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     #expect(json?["mood"] as? Int == 75)
     #expect(json?["dj_style"] as? String == "warm_radio_dj")
     #expect(json?["music_dna_key"] as? String == "user:peter")
+}
+
+@Test func homeAssistantClientRoutesUseCanonicalV1Prefix() throws {
+    let checkedRoots = ["Sources", "Apps"]
+    let legacyRoutes = [
+        "/api/djconnect/pair",
+        "/api/djconnect/command",
+        "/api/djconnect/voice",
+        "/api/djconnect/status",
+        "/api/djconnect/ask",
+        "/api/djconnect/ask_dj/message",
+        "/api/djconnect/ask_dj/history",
+        "/api/djconnect/ask_dj/history/clear",
+        "/api/djconnect/ask_dj/idle_suggestion",
+        "/api/djconnect/track_insight",
+        "/api/djconnect/music_dna/profile",
+        "/api/djconnect/music_dna/settings",
+        "/api/djconnect/music_dna/clear",
+        "/api/djconnect/music_dna/export",
+        "/api/djconnect/music_dna/import",
+        "/api/djconnect/music_discovery",
+        "/api/djconnect/music_discovery/refresh",
+        "/api/djconnect/music_discovery/play",
+        "/api/djconnect/vibecast",
+        "/api/djconnect/push/register",
+        "/api/djconnect/push/unregister"
+    ]
+    let fileManager = FileManager.default
+    let root = URL(fileURLWithPath: fileManager.currentDirectoryPath)
+    var offenders: [String] = []
+
+    for checkedRoot in checkedRoots {
+        let rootURL = root.appendingPathComponent(checkedRoot)
+        guard let enumerator = fileManager.enumerator(at: rootURL, includingPropertiesForKeys: nil) else {
+            continue
+        }
+        for case let fileURL as URL in enumerator where fileURL.pathExtension == "swift" {
+            let contents = try String(contentsOf: fileURL, encoding: .utf8)
+            for (lineNumber, line) in contents.split(separator: "\n", omittingEmptySubsequences: false).enumerated() {
+                if line.contains("legacyPairPath") {
+                    continue
+                }
+                for route in legacyRoutes where line.contains(route) && !line.contains("/api/djconnect/v1") {
+                    offenders.append("\(fileURL.path):\(lineNumber + 1): \(route)")
+                }
+            }
+        }
+    }
+
+    #expect(offenders == [])
 }
 
 @Test func commandRequestSupportsTypedValues() throws {
@@ -778,7 +828,7 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     let body = try #require(request.httpBody)
     let json = try JSONSerialization.jsonObject(with: body) as? [String: Any]
 
-    #expect(request.url?.path == "/api/djconnect/command")
+    #expect(request.url?.path == "/api/djconnect/v1/command")
     #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer secret-token")
     #expect(request.value(forHTTPHeaderField: "X-DJConnect-Client-ID") == identity.deviceID)
     #expect(request.value(forHTTPHeaderField: "X-DJConnect-Device-ID") == identity.deviceID)
@@ -827,7 +877,7 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     let body = try #require(request.httpBody)
     let json = try JSONSerialization.jsonObject(with: body) as? [String: Any]
 
-    #expect(request.url?.path == "/api/djconnect/ask")
+    #expect(request.url?.path == "/api/djconnect/v1/ask")
     #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer secret-token")
     #expect(request.value(forHTTPHeaderField: "X-DJConnect-Device-ID") == identity.deviceID)
     #expect(request.value(forHTTPHeaderField: "Content-Type") == "application/json")
@@ -881,7 +931,7 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     let body = try #require(request.httpBody)
     let json = try JSONSerialization.jsonObject(with: body) as? [String: Any]
 
-    #expect(request.url?.path == "/api/djconnect/ask_dj/message")
+    #expect(request.url?.path == "/api/djconnect/v1/ask_dj/message")
     #expect(request.timeoutInterval == 30)
     #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer secret-token")
     #expect(request.value(forHTTPHeaderField: "X-DJConnect-Device-ID") == identity.deviceID)
@@ -926,7 +976,7 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     let body = try #require(request.httpBody)
     let json = try JSONSerialization.jsonObject(with: body) as? [String: Any]
 
-    #expect(request.url?.path == "/api/djconnect/ask_dj/history/clear")
+    #expect(request.url?.path == "/api/djconnect/v1/ask_dj/history/clear")
     #expect(request.httpMethod == "POST")
     #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer secret-token")
     #expect(request.value(forHTTPHeaderField: "X-DJConnect-Device-ID") == identity.deviceID)
@@ -964,7 +1014,7 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     let body = try #require(request.httpBody)
     let json = try JSONSerialization.jsonObject(with: body) as? [String: Any]
 
-    #expect(request.url?.path == "/api/djconnect/ask_dj/history/clear")
+    #expect(request.url?.path == "/api/djconnect/v1/ask_dj/history/clear")
     #expect(request.httpMethod == "POST")
     #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer secret-token")
     #expect(json?["device_id"] as? String == "djconnect-macos-8F3A2C91B45D")
@@ -995,7 +1045,7 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     let payload = json?["payload"] as? [String: Any]
     let payloadIdentity = payload?["identity"] as? [String: Any]
 
-    #expect(request.url?.path == "/api/djconnect/ask_dj/history/export")
+    #expect(request.url?.path == "/api/djconnect/v1/ask_dj/history/export")
     #expect(request.httpMethod == "POST")
     #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer secret-token")
     #expect(request.value(forHTTPHeaderField: "X-DJConnect-Device-ID") == identity.deviceID)
@@ -1058,11 +1108,11 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
         #expect(payloadIdentity?["device_id"] as? String == identity.deviceID)
         #expect(payloadIdentity?["device_token"] as? String == "secret-token")
     }
-    #expect(profile.url?.path == "/api/djconnect/music_dna/profile")
-    #expect(settings.url?.path == "/api/djconnect/music_dna/settings")
-    #expect(clear.url?.path == "/api/djconnect/music_dna/clear")
-    #expect(moodImport.url?.path == "/api/djconnect/music_dna/import")
-    #expect(export.url?.path == "/api/djconnect/music_dna/export")
+    #expect(profile.url?.path == "/api/djconnect/v1/music_dna/profile")
+    #expect(settings.url?.path == "/api/djconnect/v1/music_dna/settings")
+    #expect(clear.url?.path == "/api/djconnect/v1/music_dna/clear")
+    #expect(moodImport.url?.path == "/api/djconnect/v1/music_dna/import")
+    #expect(export.url?.path == "/api/djconnect/v1/music_dna/export")
 
     let settingsBody = try #require(settings.httpBody)
     let settingsJSON = try JSONSerialization.jsonObject(with: settingsBody) as? [String: Any]
@@ -1165,7 +1215,7 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     #expect(decoded.profile.profile.summary == "Server-built export")
     #expect(requests.count == 2)
     for request in requests {
-        #expect(request.url?.path == "/api/djconnect/music_dna/export")
+        #expect(request.url?.path == "/api/djconnect/v1/music_dna/export")
         #expect(request.httpMethod == "POST")
         #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer secret-token")
         #expect(request.value(forHTTPHeaderField: "X-DJConnect-Device-ID") == identity.deviceID)
@@ -1200,13 +1250,13 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     ))
 
     #expect(feed.httpMethod == "GET")
-    #expect(feed.url?.path == "/api/djconnect/music_discovery")
+    #expect(feed.url?.path == "/api/djconnect/v1/music_discovery")
     #expect(feed.value(forHTTPHeaderField: "X-DJConnect-Music-DNA-Key") == "user:abc123")
     #expect(feed.value(forHTTPHeaderField: "X-DJConnect-Language") == "nl")
     #expect(refresh.httpMethod == "POST")
-    #expect(refresh.url?.path == "/api/djconnect/music_discovery/refresh")
+    #expect(refresh.url?.path == "/api/djconnect/v1/music_discovery/refresh")
     #expect(play.httpMethod == "POST")
-    #expect(play.url?.path == "/api/djconnect/music_discovery/play")
+    #expect(play.url?.path == "/api/djconnect/v1/music_discovery/play")
 
     let playBody = try #require(play.httpBody)
     let playJSON = try #require(JSONSerialization.jsonObject(with: playBody) as? [String: Any])
@@ -1715,7 +1765,7 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     #expect(model.musicDNAProfileResponse?.profile.tasteDirection == "Warm electronic")
     #expect(model.musicDNAProfileResponse?.profile.basedOn?.map { $0.title ?? $0.name ?? "" } == ["soft vocals", "Intro"])
     #expect(model.musicDNAProfileResponse?.profile.updatedAt != nil)
-    #expect(recorder.requests.map { $0.url?.path } == ["/api/djconnect/music_dna/profile"])
+    #expect(recorder.requests.map { $0.url?.path } == ["/api/djconnect/v1/music_dna/profile"])
 }
 
 @MainActor
@@ -1794,8 +1844,8 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     #expect(model.musicDiscoveryResponse?.enabled == true)
     #expect(model.musicDiscoveryResponse?.visibleSections.first?.visibleItems.first?.title == "Intro")
     #expect(recorder.requests.map { $0.url?.path } == [
-        "/api/djconnect/music_discovery",
-        "/api/djconnect/music_discovery"
+        "/api/djconnect/v1/music_discovery",
+        "/api/djconnect/v1/music_discovery"
     ])
 }
 
@@ -1806,9 +1856,9 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     let session = mockSession(host: "discovery-actions.local") { request in
         recorder.append(request)
         switch request.url?.path {
-        case "/api/djconnect/music_discovery/refresh":
+        case "/api/djconnect/v1/music_discovery/refresh":
             return (try httpResponse(for: request, statusCode: 200), Data(#"{"success":true,"enabled":true,"sections":[]}"#.utf8))
-        case "/api/djconnect/music_discovery":
+        case "/api/djconnect/v1/music_discovery":
             return (try httpResponse(for: request, statusCode: 200), Data("""
             {
               "success": true,
@@ -1825,7 +1875,7 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
               ]
             }
             """.utf8))
-        case "/api/djconnect/music_discovery/play":
+        case "/api/djconnect/v1/music_discovery/play":
             return (try httpResponse(for: request, statusCode: 200), Data(#"{"success":true}"#.utf8))
         default:
             return (try httpResponse(for: request, statusCode: 404), Data(#"{"success":false}"#.utf8))
@@ -1838,9 +1888,9 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     await model.playMusicDiscoveryItem(item, sectionID: "fresh")
 
     #expect(recorder.requests.map { $0.url?.path } == [
-        "/api/djconnect/music_discovery/refresh",
-        "/api/djconnect/music_discovery",
-        "/api/djconnect/music_discovery/play"
+        "/api/djconnect/v1/music_discovery/refresh",
+        "/api/djconnect/v1/music_discovery",
+        "/api/djconnect/v1/music_discovery/play"
     ])
 }
 
@@ -1848,7 +1898,7 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
 @Test func musicDiscoveryRouteMissingUsesUserFacingMessage() async throws {
     let defaults = try testDefaults()
     let session = mockSession(host: "discovery-route-missing.local") { request in
-        #expect(request.url?.path == "/api/djconnect/music_discovery/refresh")
+        #expect(request.url?.path == "/api/djconnect/v1/music_discovery/refresh")
         return (
             try httpResponse(for: request, statusCode: 404),
             Data(#"{"success":false,"message":"route missing: 404: Not Found"}"#.utf8)
@@ -1870,7 +1920,7 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     let recorder = RequestRecorder()
     let session = mockSession(host: "musicdna-clear.local") { request in
         recorder.append(request)
-        if request.url?.path == "/api/djconnect/music_dna/clear" {
+        if request.url?.path == "/api/djconnect/v1/music_dna/clear" {
             return (try httpResponse(for: request, statusCode: 200), Data(#"{"success":true,"enabled":true,"profile":{}}"#.utf8))
         }
         return (try httpResponse(for: request, statusCode: 200), Data(#"{"success":true,"enabled":true,"profile":{}}"#.utf8))
@@ -1880,8 +1930,8 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     await model.clearMusicDNA()
 
     #expect(recorder.requests.map { $0.url?.path } == [
-        "/api/djconnect/music_dna/clear",
-        "/api/djconnect/music_dna/profile"
+        "/api/djconnect/v1/music_dna/clear",
+        "/api/djconnect/v1/music_dna/profile"
     ])
     #expect(model.musicDNAProfileResponse?.enabled == true)
     #expect(model.musicDNAProfileResponse?.profile.isEmpty == true)
@@ -1900,8 +1950,8 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     await model.setMusicDNAEnabled(false)
 
     #expect(recorder.requests.map { $0.url?.path } == [
-        "/api/djconnect/music_dna/settings",
-        "/api/djconnect/music_dna/profile"
+        "/api/djconnect/v1/music_dna/settings",
+        "/api/djconnect/v1/music_dna/profile"
     ])
     #expect(model.musicDNAProfileResponse?.enabled == false)
     #expect(model.musicDNAProfileResponse?.profile.isEmpty == true)
@@ -1945,8 +1995,8 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     await model.setMusicDNAEnabled(true)
 
     #expect(recorder.requests.map { $0.url?.path } == [
-        "/api/djconnect/music_dna/settings",
-        "/api/djconnect/music_dna/profile"
+        "/api/djconnect/v1/music_dna/settings",
+        "/api/djconnect/v1/music_dna/profile"
     ])
     #expect(model.musicDNAProfileResponse?.enabled == true)
     #expect(model.musicDNAProfileResponse?.profile.summary == "Newly enabled profile")
@@ -1958,7 +2008,7 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     let recorder = RequestRecorder()
     let session = mockSession(host: "musicdna-stale-optin.local") { request in
         recorder.append(request)
-        if request.url?.path == "/api/djconnect/music_dna/settings" {
+        if request.url?.path == "/api/djconnect/v1/music_dna/settings" {
             return (try httpResponse(for: request, statusCode: 200), Data(#"{"success":true,"enabled":true,"profile":{"summary":"Enabled locally"}}"#.utf8))
         }
         return (try httpResponse(for: request, statusCode: 200), Data(#"{"success":true,"enabled":false,"profile":{}}"#.utf8))
@@ -1972,9 +2022,9 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     await model.refreshMusicDNAProfile()
 
     #expect(recorder.requests.map { $0.url?.path } == [
-        "/api/djconnect/music_dna/settings",
-        "/api/djconnect/music_dna/profile",
-        "/api/djconnect/music_dna/profile"
+        "/api/djconnect/v1/music_dna/settings",
+        "/api/djconnect/v1/music_dna/profile",
+        "/api/djconnect/v1/music_dna/profile"
     ])
     #expect(model.musicDNAProfileResponse?.enabled == true)
     #expect(model.musicDNAProfileResponse?.profile.summary == "Enabled locally")
@@ -2055,7 +2105,7 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     let recorder = RequestRecorder()
     let session = mockSession(host: "musicdna-export-auth.local") { request in
         recorder.append(request)
-        if request.url?.path == "/api/djconnect/music_dna/profile" {
+        if request.url?.path == "/api/djconnect/v1/music_dna/profile" {
             return (try httpResponse(for: request, statusCode: 200), Data("""
             {"success":true,"enabled":true,"profile":{"summary":"Cached server display"}}
             """.utf8))
@@ -2073,8 +2123,8 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     }
 
     #expect(recorder.requests.map { $0.url?.path } == [
-        "/api/djconnect/music_dna/profile",
-        "/api/djconnect/music_dna/export"
+        "/api/djconnect/v1/music_dna/profile",
+        "/api/djconnect/v1/music_dna/export"
     ])
     #expect(model.musicDNAProfileResponse == nil)
     #expect(model.pairingStatus == .stale)
@@ -2106,7 +2156,7 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     let body = try #require(request.httpBody)
     let json = try JSONSerialization.jsonObject(with: body) as? [String: Any]
 
-    #expect(request.url?.path == "/api/djconnect/ask_dj/idle_suggestion")
+    #expect(request.url?.path == "/api/djconnect/v1/ask_dj/idle_suggestion")
     #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer secret-token")
     #expect(json?["client_message_id"] as? String == "idle-suggestion-1")
     #expect(json?["client_type"] as? String == "watchos")
@@ -2139,7 +2189,7 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     let body = try #require(request.httpBody)
     let json = try #require(JSONSerialization.jsonObject(with: body) as? [String: Any])
 
-    #expect(request.url?.path == "/api/djconnect/push/register")
+    #expect(request.url?.path == "/api/djconnect/v1/push/register")
     #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer secret-token")
     #expect(request.value(forHTTPHeaderField: "X-DJConnect-Device-ID") == identity.deviceID)
     #expect(json["device_id"] as? String == identity.deviceID)
@@ -2177,7 +2227,7 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     let body = try #require(request.httpBody)
     let json = try #require(JSONSerialization.jsonObject(with: body) as? [String: Any])
 
-    #expect(request.url?.path == "/api/djconnect/push/register")
+    #expect(request.url?.path == "/api/djconnect/v1/push/register")
     #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer secret-token")
     #expect(request.value(forHTTPHeaderField: "X-DJConnect-Device-ID") == identity.deviceID)
     #expect(json["device_id"] as? String == "djconnect-ios-8F3A2C91B45D")
@@ -2217,7 +2267,7 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     let body = try #require(request.httpBody)
     let json = try #require(JSONSerialization.jsonObject(with: body) as? [String: Any])
 
-    #expect(request.url?.path == "/api/djconnect/push/register")
+    #expect(request.url?.path == "/api/djconnect/v1/push/register")
     #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer secret-token")
     #expect(request.value(forHTTPHeaderField: "X-DJConnect-Device-ID") == identity.deviceID)
     #expect(json["device_id"] as? String == "djconnect-macos-8F3A2C91B45D")
@@ -2263,7 +2313,7 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     let body = try #require(request.httpBody)
     let json = try #require(JSONSerialization.jsonObject(with: body) as? [String: Any])
 
-    #expect(request.url?.path == "/api/djconnect/push/register")
+    #expect(request.url?.path == "/api/djconnect/v1/push/register")
     #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer secret-token")
     #expect(request.value(forHTTPHeaderField: "X-DJConnect-Device-ID") == identity.deviceID)
     #expect(json["device_id"] as? String == "djconnect-watchos-8F3A2C91B45D")
@@ -2325,7 +2375,7 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     let body = try #require(request.httpBody)
     let json = try #require(JSONSerialization.jsonObject(with: body) as? [String: Any])
 
-    #expect(request.url?.path == "/api/djconnect/push/unregister")
+    #expect(request.url?.path == "/api/djconnect/v1/push/unregister")
     #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer secret-token")
     #expect(json["device_id"] as? String == identity.deviceID)
     #expect(json["client_type"] as? String == "macos")
@@ -2392,9 +2442,11 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     let model = makePairedMusicDNAModel(defaults: defaults, host: "push-sandbox.local", session: session)
 
     model.handleRemoteNotificationDeviceToken(Data([0xab, 0xcd, 0xef, 0x12]))
-    try await Task.sleep(for: .milliseconds(120))
+    for _ in 0..<100 where defaults.string(forKey: "DJConnectPushEnvironmentStatus") == nil {
+        try await Task.sleep(for: .milliseconds(100))
+    }
 
-    #expect(recorder.requests.map { $0.url?.path } == ["/api/djconnect/push/register"])
+    #expect(recorder.requests.map { $0.url?.path } == ["/api/djconnect/v1/push/register"])
     #expect(defaults.bool(forKey: "DJConnectPushRegistered") == true)
     #expect(defaults.string(forKey: "DJConnectPushEnvironmentStatus") == "sandbox")
     #expect(defaults.string(forKey: "DJConnectLastPushError") == nil)
@@ -2420,9 +2472,11 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     let model = makePairedMusicDNAModel(defaults: defaults, host: "push-invalid-bootstrap.local", session: session)
 
     model.handleRemoteNotificationDeviceToken(Data([0xab, 0xcd, 0xef, 0x34]))
-    try await Task.sleep(for: .milliseconds(120))
+    for _ in 0..<100 where defaults.string(forKey: "DJConnectLastPushError") == nil {
+        try await Task.sleep(for: .milliseconds(100))
+    }
 
-    #expect(recorder.requests.map { $0.url?.path } == ["/api/djconnect/push/register"])
+    #expect(recorder.requests.map { $0.url?.path } == ["/api/djconnect/v1/push/register"])
     #expect(defaults.bool(forKey: "DJConnectPushRegistered") == false)
     #expect(defaults.string(forKey: "DJConnectRegisteredPushSignature") == nil)
     #expect(defaults.string(forKey: "DJConnectLastPushError") == "invalid_bootstrap_proof")
@@ -2447,9 +2501,11 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     let model = makePairedMusicDNAModel(defaults: defaults, host: "push-production-mismatch.local", session: session)
 
     model.handleRemoteNotificationDeviceToken(Data([0xab, 0xcd, 0xef, 0x56]))
-    try await Task.sleep(for: .milliseconds(120))
+    for _ in 0..<100 where defaults.string(forKey: "DJConnectLastPushError") == nil {
+        try await Task.sleep(for: .milliseconds(100))
+    }
 
-    #expect(recorder.requests.map { $0.url?.path } == ["/api/djconnect/push/register"])
+    #expect(recorder.requests.map { $0.url?.path } == ["/api/djconnect/v1/push/register"])
     #expect(defaults.bool(forKey: "DJConnectPushRegistered") == false)
     #expect(defaults.string(forKey: "DJConnectRegisteredPushSignature") == nil)
     #expect(defaults.string(forKey: "DJConnectLastPushError") == "push_environment_mismatch")
@@ -2726,7 +2782,7 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     let object = try JSONSerialization.jsonObject(with: body) as? [String: Any]
 
     #expect(request.httpMethod == "POST")
-    #expect(request.url?.path == "/api/djconnect/track_insight")
+    #expect(request.url?.path == "/api/djconnect/v1/track_insight")
     #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer token")
     #expect(request.value(forHTTPHeaderField: "X-DJConnect-Language") == "nl")
     #expect(request.value(forHTTPHeaderField: "X-DJConnect-Locale") == "nl")
@@ -2941,8 +2997,8 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
 
     #expect(iosRequest.httpMethod == "GET")
     #expect(macRequest.httpMethod == "GET")
-    #expect(iosRequest.url?.path == "/api/djconnect/vibecast")
-    #expect(macRequest.url?.path == "/api/djconnect/vibecast")
+    #expect(iosRequest.url?.path == "/api/djconnect/v1/vibecast")
+    #expect(macRequest.url?.path == "/api/djconnect/v1/vibecast")
     #expect(iosRequest.value(forHTTPHeaderField: "Authorization") == "Bearer token")
     #expect(macRequest.value(forHTTPHeaderField: "Authorization") == "Bearer token")
     #expect(iosRequest.value(forHTTPHeaderField: "X-DJConnect-Locale") == "nl-NL")
@@ -3015,7 +3071,7 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
         tokenStore: DJConnectInMemoryTokenStore(token: "device-token"),
         session: mockSession(host: "vibecast-fallback.local") { request in
             counter.increment()
-            #expect(request.url?.path == "/api/djconnect/vibecast")
+            #expect(request.url?.path == "/api/djconnect/v1/vibecast")
             return (
                 try httpResponse(for: request, statusCode: 200),
                 Data(#"{"enabled":true,"revision":8,"poll_after_seconds":30,"context":{"track_id":"http-track"},"items":[{"id":"http-fact","kind":"trivia","text":[{"type":"text","value":"HTTP fact"}]}]}"#.utf8)
@@ -3132,7 +3188,7 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
         tokenStore: DJConnectInMemoryTokenStore(token: "device-token"),
         session: mockSession(host: "fallback.local") { request in
             counter.increment()
-            #expect(request.url?.path == "/api/djconnect/command")
+            #expect(request.url?.path == "/api/djconnect/v1/command")
             return (try httpResponse(for: request, statusCode: 200), Data(#"{"success":true,"playback":{"has_playback":true,"is_playing":false,"track_name":"HTTP Track"}}"#.utf8))
         },
         webSocketFastPath: fastPath
@@ -3164,7 +3220,7 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
         tokenStore: DJConnectInMemoryTokenStore(token: "device-token"),
         session: mockSession(host: "command-fallback.local") { request in
             counter.increment()
-            #expect(request.url?.path == "/api/djconnect/command")
+            #expect(request.url?.path == "/api/djconnect/v1/command")
             return (try httpResponse(for: request, statusCode: 200), Data(#"{"success":true,"playback":{"has_playback":true,"is_playing":false,"track_name":"HTTP Command Track"}}"#.utf8))
         },
         webSocketFastPath: fastPath
@@ -3302,7 +3358,7 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
         tokenStore: DJConnectInMemoryTokenStore(token: "device-token"),
         session: mockSession(host: "insight-fallback.local") { request in
             counter.increment()
-            #expect(request.url?.path == "/api/djconnect/track_insight")
+            #expect(request.url?.path == "/api/djconnect/v1/track_insight")
             return (
                 try httpResponse(for: request, statusCode: 200),
                 Data(
@@ -3368,7 +3424,7 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
         tokenStore: DJConnectInMemoryTokenStore(token: "device-token"),
         session: mockSession(host: "ask-fallback.local") { request in
             counter.increment()
-            #expect(request.url?.path == "/api/djconnect/ask_dj/message")
+            #expect(request.url?.path == "/api/djconnect/v1/ask_dj/message")
             return (try httpResponse(for: request, statusCode: 200), Data(#"{"history_revision":9,"clear_revision":1,"assistant_message":{"role":"assistant","text":"HTTP answer"}}"#.utf8))
         },
         webSocketFastPath: fastPath
@@ -3446,7 +3502,7 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
         tokenStore: DJConnectInMemoryTokenStore(token: "device-token"),
         session: mockSession(host: "clear-history-fallback.local") { request in
             counter.increment()
-            #expect(request.url?.path == "/api/djconnect/ask_dj/history/clear")
+            #expect(request.url?.path == "/api/djconnect/v1/ask_dj/history/clear")
             return (try httpResponse(for: request, statusCode: 200), Data(#"{"messages":[],"history_revision":0,"clear_revision":7}"#.utf8))
         },
         webSocketFastPath: fastPath
@@ -3473,7 +3529,7 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     defaults.set(4, forKey: "DJConnectAskDJClearRevision")
     let host = "clear-http.local"
     let session = mockSession(host: host) { request in
-        #expect(request.url?.path == "/api/djconnect/ask_dj/history/clear")
+        #expect(request.url?.path == "/api/djconnect/v1/ask_dj/history/clear")
         return (
             try httpResponse(for: request, statusCode: 200),
             Data(#"{"success":true,"cleared":true,"messages":[],"history_revision":22,"clear_revision":5,"ask_dj_clear_required":true,"server_time":"2026-07-02T10:00:00Z","user_id":"ha-user"}"#.utf8)
@@ -4381,7 +4437,7 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
         let body = try #require(request.httpBody)
         let json = try JSONSerialization.jsonObject(with: body) as? [String: Any]
 
-        #expect(request.url?.path == "/api/djconnect/command")
+        #expect(request.url?.path == "/api/djconnect/v1/command")
         #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer secret-token")
         #expect(request.value(forHTTPHeaderField: "X-DJConnect-Device-ID") == identity.deviceID)
         #expect(json?["device_id"] as? String == identity.deviceID)
@@ -4528,7 +4584,7 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     let body = try #require(request.httpBody)
     let json = try JSONSerialization.jsonObject(with: body) as? [String: Any]
 
-    #expect(request.url?.path == "/api/djconnect/command")
+    #expect(request.url?.path == "/api/djconnect/v1/command")
     #expect(json?["command"] as? String == "set_current_track_favorite")
     #expect(json?["value"] as? Bool == false)
 }
@@ -4890,7 +4946,7 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     let json = try #require(JSONSerialization.jsonObject(with: body) as? [String: Any])
     let value = try #require(json["value"] as? [String: Any])
 
-    #expect(request.url?.path == "/api/djconnect/command")
+    #expect(request.url?.path == "/api/djconnect/v1/command")
     #expect(json["command"] as? String == "set_output")
     #expect(value["kind"] as? String == "output")
     #expect(value["device_id"] as? String == "spotify-device-1")
@@ -5388,13 +5444,13 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     defaults.set(DJConnectHAConnectionMode.local.rawValue, forKey: "DJConnectHAConnectionMode")
     let host = "playlist-items-are-not-queue.local"
     let session = mockSession(host: host) { request in
-        if request.url?.path == "/api/djconnect/music_dna/profile" {
+        if request.url?.path == "/api/djconnect/v1/music_dna/profile" {
             return (
                 try httpResponse(for: request, statusCode: 200),
                 Data(#"{"enabled":true,"profile":{}}"#.utf8)
             )
         }
-        #expect(request.url?.path == "/api/djconnect/command")
+        #expect(request.url?.path == "/api/djconnect/v1/command")
         let json = """
         {
           "success": true,
@@ -5753,7 +5809,7 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     let body = try #require(request.httpBody)
     let json = try JSONSerialization.jsonObject(with: body) as? [String: Any]
 
-    #expect(request.url?.path == "/api/djconnect/pair")
+    #expect(request.url?.path == "/api/djconnect/v1/pair")
     #expect(request.value(forHTTPHeaderField: "Authorization") == nil)
     #expect(request.value(forHTTPHeaderField: "Content-Type") == "application/json")
     #expect(request.value(forHTTPHeaderField: "X-DJConnect-Client-ID") == nil)
@@ -5801,7 +5857,7 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     let body = try #require(request.httpBody)
     let json = try JSONSerialization.jsonObject(with: body) as? [String: Any]
 
-    #expect(request.url?.path == "/api/djconnect/pair")
+    #expect(request.url?.path == "/api/djconnect/v1/pair")
     #expect(request.value(forHTTPHeaderField: "Authorization") == nil)
     #expect(request.value(forHTTPHeaderField: "X-DJConnect-Device-ID") == "djconnect-ios-8F3A2C91B45D")
     #expect(request.value(forHTTPHeaderField: "X-DJConnect-Client-Type") == "ios")
@@ -5815,6 +5871,17 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
 }
 
 @Test func iOSPairingDeepLinkParsesHomeAssistantPayload() throws {
+    let url = try #require(URL(string: "djconnect://pair?ha_url=http%3A%2F%2Fhomeassistant.local%3A8123&pair_code=123456&client_type=ios&pair_path=%2Fapi%2Fdjconnect%2Fv1%2Fpair"))
+
+    let payload = try DJConnectPairingDeepLink.parse(url, expectedClientType: .ios)
+
+    #expect(payload.homeAssistantURL == "http://homeassistant.local:8123")
+    #expect(payload.pairCode == "123456")
+    #expect(payload.clientType == .ios)
+    #expect(payload.pairPath == "/api/djconnect/v1/pair")
+}
+
+@Test func iOSPairingDeepLinkStillParsesLegacyPairPath() throws {
     let url = try #require(URL(string: "djconnect://pair?ha_url=http%3A%2F%2Fhomeassistant.local%3A8123&pair_code=123456&client_type=ios&pair_path=%2Fapi%2Fdjconnect%2Fpair"))
 
     let payload = try DJConnectPairingDeepLink.parse(url, expectedClientType: .ios)
@@ -5827,7 +5894,7 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
 
 @Test func pairingURLPolicyAllowsNgrokFreeDevelopmentTunnel() throws {
     let url = try #require(URL(string: "https://victory-curvy-refold.ngrok-free.dev"))
-    let pairingLink = try #require(URL(string: "djconnect://pair?ha_url=https%3A%2F%2Fvictory-curvy-refold.ngrok-free.dev&pair_code=123456&client_type=ios&pair_path=%2Fapi%2Fdjconnect%2Fpair"))
+    let pairingLink = try #require(URL(string: "djconnect://pair?ha_url=https%3A%2F%2Fvictory-curvy-refold.ngrok-free.dev&pair_code=123456&client_type=ios&pair_path=%2Fapi%2Fdjconnect%2Fv1%2Fpair"))
 
     #expect(DJConnectPairingURLPolicy.isAllowedPairingURL(url))
     #expect(DJConnectPairingURLPolicy.isWhitelistedDevelopmentTunnelURL(url))
@@ -5844,7 +5911,7 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     let localhost = try #require(URL(string: "http://localhost:8123"))
     let bareWord = try #require(URL(string: "http://ddd"))
     let partialIP = try #require(URL(string: "http://192."))
-    let bareWordPairingLink = try #require(URL(string: "djconnect://pair?ha_url=http%3A%2F%2Fddd&pair_code=123456&client_type=ios&pair_path=%2Fapi%2Fdjconnect%2Fpair"))
+    let bareWordPairingLink = try #require(URL(string: "djconnect://pair?ha_url=http%3A%2F%2Fddd&pair_code=123456&client_type=ios&pair_path=%2Fapi%2Fdjconnect%2Fv1%2Fpair"))
 
     #expect(DJConnectPairingURLPolicy.isAllowedPairingURL(localMDNS))
     #expect(DJConnectPairingURLPolicy.isAllowedPairingURL(localIP))
@@ -5864,10 +5931,10 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
 }
 
 @Test func iOSPairingDeepLinkRejectsInvalidPayloads() throws {
-    let missingURL = try #require(URL(string: "djconnect://pair?pair_code=123456&client_type=ios&pair_path=%2Fapi%2Fdjconnect%2Fpair"))
-    let remoteURL = try #require(URL(string: "djconnect://pair?ha_url=https%3A%2F%2Fexample.ui.nabu.casa&pair_code=123456&client_type=ios&pair_path=%2Fapi%2Fdjconnect%2Fpair"))
-    let badCode = try #require(URL(string: "djconnect://pair?ha_url=http%3A%2F%2Fhomeassistant.local%3A8123&pair_code=12AB56&client_type=ios&pair_path=%2Fapi%2Fdjconnect%2Fpair"))
-    let wrongClient = try #require(URL(string: "djconnect://pair?ha_url=http%3A%2F%2Fhomeassistant.local%3A8123&pair_code=123456&client_type=macos&pair_path=%2Fapi%2Fdjconnect%2Fpair"))
+    let missingURL = try #require(URL(string: "djconnect://pair?pair_code=123456&client_type=ios&pair_path=%2Fapi%2Fdjconnect%2Fv1%2Fpair"))
+    let remoteURL = try #require(URL(string: "djconnect://pair?ha_url=https%3A%2F%2Fexample.ui.nabu.casa&pair_code=123456&client_type=ios&pair_path=%2Fapi%2Fdjconnect%2Fv1%2Fpair"))
+    let badCode = try #require(URL(string: "djconnect://pair?ha_url=http%3A%2F%2Fhomeassistant.local%3A8123&pair_code=12AB56&client_type=ios&pair_path=%2Fapi%2Fdjconnect%2Fv1%2Fpair"))
+    let wrongClient = try #require(URL(string: "djconnect://pair?ha_url=http%3A%2F%2Fhomeassistant.local%3A8123&pair_code=123456&client_type=macos&pair_path=%2Fapi%2Fdjconnect%2Fv1%2Fpair"))
     let wrongPath = try #require(URL(string: "djconnect://pair?ha_url=http%3A%2F%2Fhomeassistant.local%3A8123&pair_code=123456&client_type=ios&pair_path=%2Fapi%2Fdevice%2Fpair"))
 
     for url in [missingURL, remoteURL, badCode, wrongClient, wrongPath] {
@@ -5878,18 +5945,18 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
 }
 
 @Test func watchPairingDeepLinkParsesHomeAssistantPayload() throws {
-    let url = try #require(URL(string: "djconnect://pair?ha_url=http%3A%2F%2Fhomeassistant.local%3A8123&pair_code=123456&client_type=watchos&pair_path=%2Fapi%2Fdjconnect%2Fpair"))
+    let url = try #require(URL(string: "djconnect://pair?ha_url=http%3A%2F%2Fhomeassistant.local%3A8123&pair_code=123456&client_type=watchos&pair_path=%2Fapi%2Fdjconnect%2Fv1%2Fpair"))
 
     let payload = try DJConnectPairingDeepLink.parse(url, expectedClientType: .watchos)
 
     #expect(payload.homeAssistantURL == "http://homeassistant.local:8123")
     #expect(payload.pairCode == "123456")
     #expect(payload.clientType == .watchos)
-    #expect(payload.pairPath == "/api/djconnect/pair")
+    #expect(payload.pairPath == "/api/djconnect/v1/pair")
 }
 
 @Test func watchPairingDeepLinkRejectsWrongClientTypeAndPairPath() throws {
-    let wrongClient = try #require(URL(string: "djconnect://pair?ha_url=http%3A%2F%2Fhomeassistant.local%3A8123&pair_code=123456&client_type=ios&pair_path=%2Fapi%2Fdjconnect%2Fpair"))
+    let wrongClient = try #require(URL(string: "djconnect://pair?ha_url=http%3A%2F%2Fhomeassistant.local%3A8123&pair_code=123456&client_type=ios&pair_path=%2Fapi%2Fdjconnect%2Fv1%2Fpair"))
     let wrongPath = try #require(URL(string: "djconnect://pair?ha_url=http%3A%2F%2Fhomeassistant.local%3A8123&pair_code=123456&client_type=watchos&pair_path=%2Fapi%2Fdevice%2Fpair"))
 
     #expect(throws: DJConnectError.self) {
@@ -5919,7 +5986,7 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     let body = try #require(request.httpBody)
     let json = try JSONSerialization.jsonObject(with: body) as? [String: Any]
 
-    #expect(request.url?.path == "/api/djconnect/pair")
+    #expect(request.url?.path == "/api/djconnect/v1/pair")
     #expect(request.value(forHTTPHeaderField: "Authorization") == nil)
     #expect(request.value(forHTTPHeaderField: "X-DJConnect-Device-ID") == "djconnect-watchos-8F3A2C91B45D")
     #expect(request.value(forHTTPHeaderField: "X-DJConnect-Client-Type") == "watchos")
@@ -5944,7 +6011,7 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     let tokenStore = DJConnectInMemoryTokenStore()
     let host = "watch-pair-proxy.local"
     let session = mockSession(host: host) { request in
-        #expect(request.url?.path == "/api/djconnect/pair")
+        #expect(request.url?.path == "/api/djconnect/v1/pair")
         #expect(request.value(forHTTPHeaderField: "Authorization") == nil)
         #expect(request.value(forHTTPHeaderField: "X-DJConnect-Device-ID") == "djconnect-watchos-8F3A2C91B45D")
         #expect(request.value(forHTTPHeaderField: "X-DJConnect-Client-Type") == "watchos")
@@ -5957,9 +6024,9 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
                   "client_type": "watchos",
                   "device_token": "watch-secret",
                   "ha_local_url": "http://\(host):8123",
-                  "api_base": "/api/djconnect",
-                  "voice_path": "/api/djconnect/voice",
-                  "status_path": "/api/djconnect/status",
+                  "api_base": "/api/djconnect/v1",
+                  "voice_path": "/api/djconnect/v1/voice",
+                  "status_path": "/api/djconnect/v1/status",
                   "event_path": "/api/djconnect/event",
                   "ask_dj_supported": true,
                   "ask_dj_voice_supported": true,
@@ -5980,7 +6047,7 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
 
     #expect(response.success)
     #expect(response.clientType == .watchos)
-    #expect(response.apiBase == "/api/djconnect")
+    #expect(response.apiBase == "/api/djconnect/v1")
     #expect(response.askDJVoiceSupported == true)
     #expect(try tokenStore.loadToken() == "watch-secret")
 }
@@ -6046,9 +6113,9 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
         deviceLanguage: "nl",
         language: "en",
         assistPipelineID: "preferred",
-        apiBase: "/api/djconnect",
-        voicePath: "/api/djconnect/voice",
-        statusPath: "/api/djconnect/status",
+        apiBase: "/api/djconnect/v1",
+        voicePath: "/api/djconnect/v1/voice",
+        statusPath: "/api/djconnect/v1/status",
         eventPath: "/api/djconnect/event",
         askDJSupported: true,
         askDJVoiceSupported: true,
@@ -6062,15 +6129,15 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     #expect(model.haRemoteURL == "https://remote.ui.nabu.casa")
     #expect(model.language == "en")
     #expect(model.assistPipelineID == "preferred")
-    #expect(model.apiBase == "/api/djconnect")
-    #expect(model.voicePath == "/api/djconnect/voice")
-    #expect(model.statusPath == "/api/djconnect/status")
+    #expect(model.apiBase == "/api/djconnect/v1")
+    #expect(model.voicePath == "/api/djconnect/v1/voice")
+    #expect(model.statusPath == "/api/djconnect/v1/status")
     #expect(model.eventPath == "/api/djconnect/event")
     #expect(model.askDJSupported)
     #expect(model.askDJVoiceSupported)
     #expect(model.askDJAudioResponseSupported)
     #expect(defaults.string(forKey: "DJConnectHARemoteURL") == "https://remote.ui.nabu.casa")
-    #expect(defaults.string(forKey: "DJConnectAPIBase") == "/api/djconnect")
+    #expect(defaults.string(forKey: "DJConnectAPIBase") == "/api/djconnect/v1")
 }
 
 @MainActor
@@ -6085,7 +6152,7 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     let recorder = RequestPathRecorder()
     let session = mockSession(host: host) { request in
         recorder.append(request.url?.path ?? "")
-        #expect(request.url?.path == "/api/djconnect/pair")
+        #expect(request.url?.path == "/api/djconnect/v1/pair")
         #expect(request.value(forHTTPHeaderField: "Authorization") == nil)
         #expect(request.value(forHTTPHeaderField: "X-DJConnect-Device-ID") == "djconnect-macos-ABCDEF123456")
         return (
@@ -6098,9 +6165,9 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
                   "device_token": "device-secret",
                   "ha_local_url": "http://\(host):8123",
                   "ha_remote_url": "https://example.ui.nabu.casa",
-                  "api_base": "/api/djconnect",
-                  "voice_path": "/api/djconnect/voice",
-                  "status_path": "/api/djconnect/status",
+                  "api_base": "/api/djconnect/v1",
+                  "voice_path": "/api/djconnect/v1/voice",
+                  "status_path": "/api/djconnect/v1/status",
                   "event_path": "/api/djconnect/event",
                   "ask_dj_supported": true,
                   "ask_dj_voice_supported": true,
@@ -6126,11 +6193,11 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     #expect(model.pairingStatus == .waitingForHomeAssistantCompletion)
     #expect(model.pairingMessage?.contains("Home Assistant") == true)
     #expect(model.pairingMessage?.contains("setup") == true)
-    #expect(recorder.paths == ["/api/djconnect/pair"])
+    #expect(recorder.paths == ["/api/djconnect/v1/pair"])
     #expect(!recorder.paths.contains { $0.hasPrefix("/api/device/") })
     #expect(try tokenStore.loadToken() == "device-secret")
     #expect(model.haRemoteURL == "https://example.ui.nabu.casa")
-    #expect(model.apiBase == "/api/djconnect")
+    #expect(model.apiBase == "/api/djconnect/v1")
     #expect(model.askDJSupported)
 }
 
@@ -6146,26 +6213,26 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     let recorder = RequestPathRecorder()
     let session = mockSession(host: host) { request in
         recorder.append(request.url?.path ?? "")
-        if request.url?.path == "/api/djconnect/status" {
+        if request.url?.path == "/api/djconnect/v1/status" {
             #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer device-secret")
             return (
                 try httpResponse(for: request, statusCode: 200),
                 Data(#"{"success":true,"ha_major_minor":"3.2","playback":{"has_playback":false},"music_backend_available":true}"#.utf8)
             )
         }
-        if request.url?.path == "/api/djconnect/command" {
+        if request.url?.path == "/api/djconnect/v1/command" {
             return (
                 try httpResponse(for: request, statusCode: 200),
                 Data(#"{"success":true,"ha_major_minor":"3.2","playback":{"has_playback":false},"music_backend_available":true}"#.utf8)
             )
         }
-        if request.url?.path == "/api/djconnect/music_dna/profile" {
+        if request.url?.path == "/api/djconnect/v1/music_dna/profile" {
             return (
                 try httpResponse(for: request, statusCode: 200),
                 Data(#"{"enabled":true,"profile":{}}"#.utf8)
             )
         }
-        #expect(request.url?.path == "/api/djconnect/pair")
+        #expect(request.url?.path == "/api/djconnect/v1/pair")
         return (
             try httpResponse(for: request, statusCode: 200),
             Data(
@@ -6196,8 +6263,8 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
 
     #expect(model.pairingStatus == .paired)
     #expect(model.pairingMessage == "Pairing complete." || model.pairingMessage == "Koppeling voltooid.")
-    #expect(recorder.paths.contains("/api/djconnect/pair"))
-    #expect(recorder.paths.contains("/api/djconnect/status"))
+    #expect(recorder.paths.contains("/api/djconnect/v1/pair"))
+    #expect(recorder.paths.contains("/api/djconnect/v1/status"))
 }
 
 @MainActor
@@ -6228,7 +6295,7 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     let tokenStore = DJConnectInMemoryTokenStore()
     let host = "pair-success.local"
     let session = mockSession(host: host) { request in
-        #expect(request.url?.path == "/api/djconnect/pair")
+        #expect(request.url?.path == "/api/djconnect/v1/pair")
         #expect(request.value(forHTTPHeaderField: "Authorization") == nil)
         #expect(request.value(forHTTPHeaderField: "X-DJConnect-Client-ID") == nil)
         #expect(request.value(forHTTPHeaderField: "X-DJConnect-Device-ID") == identity.deviceID)
@@ -6401,7 +6468,7 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
         language: "es-ES"
     )
 
-    #expect(request.url?.path == "/api/djconnect/voice")
+    #expect(request.url?.path == "/api/djconnect/v1/voice")
     #expect(request.value(forHTTPHeaderField: "Content-Type") == "audio/wav")
     #expect(request.value(forHTTPHeaderField: "X-DJConnect-Client-ID") == identity.deviceID)
     #expect(request.value(forHTTPHeaderField: "X-DJConnect-Device-ID") == identity.deviceID)
@@ -6629,7 +6696,7 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
             return
         }
         #expect(statusCode == 200)
-        #expect(endpoint == "POST /api/djconnect/command")
+        #expect(endpoint == "POST /api/djconnect/v1/command")
         #expect(message?.contains("response_body=") == true)
         #expect(message?.contains(#""device_token":"[redacted]""#) == true)
         #expect(message?.contains("secret-token") == false)
@@ -6672,7 +6739,7 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
             return
         }
         #expect(statusCode == 200)
-        #expect(endpoint == "POST /api/djconnect/command")
+        #expect(endpoint == "POST /api/djconnect/v1/command")
         #expect(message?.contains("contract error") == true)
         #expect(message?.contains("<empty response body>") == true)
     } catch {
@@ -6687,7 +6754,7 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     defaults.removePersistentDomain(forName: suiteName)
     let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startBackgroundTasks: false)
 
-    model.emitUserConnectionNotice(for: .decodingFailed(statusCode: 200, endpoint: "POST /api/djconnect/command", message: "bad shape"))
+    model.emitUserConnectionNotice(for: .decodingFailed(statusCode: 200, endpoint: "POST /api/djconnect/v1/command", message: "bad shape"))
     #expect(["Geen verbinding met Home Assistant", "No connection to Home Assistant"].contains(model.userNotice?.text ?? ""))
 
     model.userNotice = nil
@@ -6758,7 +6825,7 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     let defaults = try testDefaults()
     let host = "shuffle-restricted.local"
     let session = mockSession(host: host) { request in
-        #expect(request.url?.path == "/api/djconnect/command")
+        #expect(request.url?.path == "/api/djconnect/v1/command")
         return (try httpResponse(for: request, statusCode: 200), Data("""
         {
           "success": false,
@@ -6772,7 +6839,9 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     model.isConnected = true
 
     model.setShuffle(true)
-    try await Task.sleep(for: .milliseconds(100))
+    for _ in 0..<100 where model.userNotice == nil {
+        try await Task.sleep(for: .milliseconds(100))
+    }
 
     #expect(model.userNotice?.text == "De actieve speler staat deze opdracht nu niet toe")
 }
@@ -6809,7 +6878,7 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     defaults.set(DJConnectHAConnectionMode.local.rawValue, forKey: "DJConnectHAConnectionMode")
     let host = "track-insight-html.local"
     let session = mockSession(host: host) { request in
-        #expect(request.url?.path == "/api/djconnect/track_insight")
+        #expect(request.url?.path == "/api/djconnect/v1/track_insight")
         let html = """
         <!DOCTYPE html>
         <html class="h-full" lang="en-US" dir="ltr">
@@ -6854,7 +6923,7 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     defaults.set(DJConnectHAConnectionMode.local.rawValue, forKey: "DJConnectHAConnectionMode")
     let host = "track-insight-no-current.local"
     let session = mockSession(host: host) { request in
-        #expect(request.url?.path == "/api/djconnect/track_insight")
+        #expect(request.url?.path == "/api/djconnect/v1/track_insight")
         let json = """
         {
           "success": false,
@@ -6910,12 +6979,12 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     let host = "vibecast-auto-insight.local"
     let session = mockSession(host: host) { request in
         switch request.url?.path {
-        case "/api/djconnect/vibecast":
+        case "/api/djconnect/v1/vibecast":
             return (
                 try httpResponse(for: request, statusCode: 200),
                 Data(#"{"enabled":true,"revision":1,"poll_after_seconds":30,"items":[]}"#.utf8)
             )
-        case "/api/djconnect/track_insight":
+        case "/api/djconnect/v1/track_insight":
             let object = request.httpBody.flatMap { try? JSONSerialization.jsonObject(with: $0) as? [String: Any] }
             let fallbackTitle = recorder.titles.isEmpty ? "Track One" : "Track Two"
             let title = (object?["track_name"] as? String) ?? fallbackTitle
@@ -6935,7 +7004,7 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
             }
             """
             return (try httpResponse(for: request, statusCode: 200), Data(json.utf8))
-        case "/api/djconnect/music_dna/profile":
+        case "/api/djconnect/v1/music_dna/profile":
             return (
                 try httpResponse(for: request, statusCode: 200),
                 Data(#"{"enabled":false,"profile":null,"items":[]}"#.utf8)
@@ -7007,7 +7076,7 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     let counter = Counter()
     let host = "vibecast-same-revision.local"
     let session = mockSession(host: host) { request in
-        #expect(request.url?.path == "/api/djconnect/vibecast")
+        #expect(request.url?.path == "/api/djconnect/v1/vibecast")
         let call = counter.next()
         let textSegments = call == 1
             ? #"[{"type":"text","value":"Deze track leunt op "},{"type":"strong","value":"ritme en ruimte"},{"type":"text","value":"."}]"#
@@ -7399,13 +7468,13 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     let session = mockSession(host: host) { request in
         let path = request.url?.path ?? ""
         recorder.append(path)
-        if path == "/api/djconnect/ask_dj/history" {
+        if path == "/api/djconnect/v1/ask_dj/history" {
             return (
                 try httpResponse(for: request, statusCode: 200),
                 Data(#"{"history_revision":12,"clear_revision":0,"messages":[]}"#.utf8)
             )
         }
-        if path == "/api/djconnect/ask_dj/idle_suggestion" {
+        if path == "/api/djconnect/v1/ask_dj/idle_suggestion" {
             return (
                 try httpResponse(for: request, statusCode: 200),
                 Data(#"{"history_revision":12,"clear_revision":0,"messages":[]}"#.utf8)
@@ -7430,7 +7499,7 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
 
     await model.refreshAskDJHistory()
 
-    #expect(recorder.paths.contains("/api/djconnect/ask_dj/history"))
+    #expect(recorder.paths.contains("/api/djconnect/v1/ask_dj/history"))
     #expect(model.isCheckingAskDJHistoryState == false)
 }
 

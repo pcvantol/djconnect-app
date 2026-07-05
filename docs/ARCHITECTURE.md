@@ -170,7 +170,7 @@ the newest timeline message by default, including after the first async history
 load.
 
 The clear-history command is a backend call to
-`POST /api/djconnect/ask_dj/history/clear`. Clients clear local cached history
+`POST /api/djconnect/v1/ask_dj/history/clear`. Clients clear local cached history
 only when the backend returns an advanced `clear_revision`; this keeps
 cross-device clears authoritative and avoids treating a bounded history window
 as a deletion signal.
@@ -232,7 +232,7 @@ through generic commands sent to Home Assistant.
 ## Home Assistant Transport
 
 iOS and macOS call Home Assistant directly after local pairing. Pairing uses the
-local `/api/djconnect/pair` endpoint only. Runtime traffic uses the stored
+local `/api/djconnect/v1/pair` endpoint only. Runtime traffic uses the stored
 `ha_local_url` first, falls back to the optional `ha_remote_url` when remote is
 supported and local access fails, and reports `offline` when neither route
 works.

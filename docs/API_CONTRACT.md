@@ -17,8 +17,8 @@ clears the bearer token and creates a fresh local install identity.
   "device_id": "djconnect-ios-8F3A2C91B45D",
   "device_name": "DJConnect iPhone",
   "client_type": "ios",
-  "firmware": "3.2.15",
-  "app_version": "3.2.15",
+  "firmware": "3.2.17",
+  "app_version": "3.2.17",
   "platform": "ios"
 }
 ```
@@ -66,7 +66,7 @@ client-provided Music DNA key. Clients must not store long-term Music DNA locall
 ## Pairing
 
 ```http
-POST /api/djconnect/pair
+POST /api/djconnect/v1/pair
 Content-Type: application/json
 X-DJConnect-Device-ID: <device_id>
 ```
@@ -78,8 +78,8 @@ Payload:
   "device_id": "djconnect-macos-8F3A2C91B45D",
   "device_name": "DJConnect Mac",
   "client_type": "macos",
-  "firmware": "3.2.15",
-  "app_version": "3.2.15",
+  "firmware": "3.2.17",
+  "app_version": "3.2.17",
   "platform": "macos",
   "pair_code": "123456",
   "pairing_code": "123456",
@@ -97,18 +97,18 @@ Home Assistant generates the 6-digit pair code in the DJConnect setup flow.
 The app sends that user-entered code as `pair_code`, `pairing_code`, and
 `pairing_token` for compatibility with current Home Assistant integration
 builds. iOS and macOS do not wait for a Home Assistant callback and do not host
-any inbound callback API; they make a client-initiated `POST /api/djconnect/pair`.
+any inbound callback API; they make a client-initiated `POST /api/djconnect/v1/pair`.
 
 iOS pairing should primarily use the Home Assistant-generated QR/deep-link
 payload:
 
 ```text
-djconnect://pair?ha_url=<local-ha-url>&pair_code=<code>&client_type=ios&pair_path=/api/djconnect/pair
+djconnect://pair?ha_url=<local-ha-url>&pair_code=<code>&client_type=ios&pair_path=/api/djconnect/v1/pair
 ```
 
 The iOS app rejects QR/deep-link payloads unless `ha_url` has valid URL syntax,
 `pair_code` is exactly six digits, `client_type` is `ios`, and `pair_path` is
-`/api/djconnect/pair`. Normal pairing should use a local `http` Home Assistant
+`/api/djconnect/v1/pair`. Normal pairing should use a local `http` Home Assistant
 URL such as `http://homeassistant.local:8123` or a LAN IP address. For local
 development only, `https://*.ngrok-free.dev` is whitelisted so a developer can
 pair against a tunneled Home Assistant dev instance. Other remote HTTPS URLs,
@@ -118,13 +118,13 @@ Apple Watch pairing uses the same Home Assistant-generated QR/deep-link shape
 with `client_type=watchos`:
 
 ```text
-djconnect://pair?ha_url=<local-ha-url>&pair_code=<code>&client_type=watchos&pair_path=/api/djconnect/pair
+djconnect://pair?ha_url=<local-ha-url>&pair_code=<code>&client_type=watchos&pair_path=/api/djconnect/v1/pair
 ```
 
 The iPhone app scans or opens that payload, validates `client_type=watchos` and
-`pair_path=/api/djconnect/pair`, then forwards the pairing details to the
+`pair_path=/api/djconnect/v1/pair`, then forwards the pairing details to the
 paired Watch over WatchConnectivity. The Watch performs `POST
-/api/djconnect/pair` with its own stable `djconnect-watchos-*` identity. If the
+/api/djconnect/v1/pair` with its own stable `djconnect-watchos-*` identity. If the
 Watch cannot reach Home Assistant directly, the iPhone may proxy the HTTP
 request, but it must preserve Watch identity and must not rewrite the request
 as `client_type: "ios"`. The Watch UI does not show Home Assistant URL or code
@@ -155,7 +155,7 @@ bearer token in app-private storage and persists `ha_local_url`, optional
 `ha_local_url` first after local pairing, then `ha_remote_url` when local access
 is unavailable and remote is supported. Do not use the older `ha_url` field.
 
-Pairing is two-phase. A successful `POST /api/djconnect/pair` means Home
+Pairing is two-phase. A successful `POST /api/djconnect/v1/pair` means Home
 Assistant accepted the client identity and code. The app stores the returned
 token and then polls authenticated status until Home Assistant has completed
 the setup flow. While Home Assistant still returns `not_configured`, route
@@ -207,7 +207,7 @@ Apple clients register APNs device tokens with Home Assistant through the
 authenticated Home Assistant endpoint:
 
 ```http
-POST /api/djconnect/push/register
+POST /api/djconnect/v1/push/register
 Authorization: Bearer <device_token>
 Content-Type: application/json
 ```
@@ -226,7 +226,7 @@ Expected macOS payload:
   "push_token": "<apns-device-token>",
   "push_environment": "sandbox",
   "app_bundle_id": "dev.djconnect.mac",
-  "app_version": "3.2.15",
+  "app_version": "3.2.17",
   "locale": "nl-NL",
   "notification_categories": ["ask_dj"],
   "bootstrap_proof": "<short-lived proof when available>"
@@ -248,7 +248,7 @@ disabled or best-effort.
 Unpairing or logout calls:
 
 ```http
-POST /api/djconnect/push/unregister
+POST /api/djconnect/v1/push/unregister
 Authorization: Bearer <device_token>
 ```
 
@@ -263,7 +263,7 @@ treated as successful HA voice validation.
 ## Status
 
 ```http
-POST /api/djconnect/status
+POST /api/djconnect/v1/status
 ```
 
 Minimum payload:
@@ -274,8 +274,8 @@ Minimum payload:
   "device_name": "DJConnect iPhone",
   "client_type": "ios",
   "ha_pairing_status": "paired",
-  "firmware": "3.2.15",
-  "app_version": "3.2.15",
+  "firmware": "3.2.17",
+  "app_version": "3.2.17",
   "state": "online",
   "status": "online",
   "battery_percent": 85,
@@ -327,12 +327,12 @@ watchOS requests remain mediated by iPhone.
 ## Commands
 
 ```http
-POST /api/djconnect/command
+POST /api/djconnect/v1/command
 ```
 
 Command payloads are focused on playback commands and client identity. Do not
-send partial status snapshots in `/api/djconnect/command`; use
-`/api/djconnect/status` as the authoritative source for client status and
+send partial status snapshots in `/api/djconnect/v1/command`; use
+`/api/djconnect/v1/status` as the authoritative source for client status and
 settings mirrored into Home Assistant entities.
 
 Examples:
@@ -464,7 +464,7 @@ still use the paired `ha_local_url` returned by Home Assistant after pairing.
 ## Ask DJ Text
 
 ```http
-POST /api/djconnect/ask_dj/message
+POST /api/djconnect/v1/ask_dj/message
 Content-Type: application/json
 ```
 
@@ -631,7 +631,7 @@ context if the request uses deictic language such as `dit nummer`, `deze track`,
 current Spotify track from liked songs. Current favorite state is backend-owned:
 clients may display `playback.is_liked`, `playback.favorite_status`, or Ask DJ
 action metadata, but must show an inactive neutral favorite button when status
-is unknown. Direct clients use `POST /api/djconnect/command` with
+is unknown. Direct clients use `POST /api/djconnect/v1/command` with
 `{"command":"set_current_track_favorite","value":true}` to add and
 `{"command":"set_current_track_favorite","value":false}` to remove. Older
 `save_current_track` may still work, but new clients should use
@@ -741,7 +741,7 @@ chooses one. Clients render `Play Now` only for `playback_actions` with
       "context_uri": "spotify:album:456",
       "offset_uri": "spotify:track:123",
       "kind": "track",
-      "image_url": "/api/djconnect/proxy/image/album-456.jpg",
+      "image_url": "/api/djconnect/v1/proxy/image/album-456.jpg",
       "reason": "Past bij je recente voorkeur voor melodische opbouw."
     },
     {
@@ -771,7 +771,7 @@ The follow-up command is:
     "context_uri": "spotify:album:456",
     "offset_uri": "spotify:track:123",
     "kind": "track",
-    "image_url": "/api/djconnect/proxy/image/album-456.jpg",
+    "image_url": "/api/djconnect/v1/proxy/image/album-456.jpg",
     "reason": "Past bij je recente voorkeur voor melodische opbouw."
   }
 }
@@ -786,7 +786,7 @@ If the command response returns `error:"no_active_output"` and
 speaker actions in Ask DJ. When the user taps a speaker action whose command is
 `ask_dj_play_request_on_output` or `ask_dj_play_recommendation_on_output`, the
 client posts that action's `command` and full returned `value` unchanged to
-`POST /api/djconnect/command`. The backend then sets output and replays the
+`POST /api/djconnect/v1/command`. The backend then sets output and replays the
 original request server-side.
 
 Home Assistant owns the final Spotify playback decision. It may start a track,
@@ -961,7 +961,7 @@ pairing state intact.
 iOS and macOS VibeCast use the same backend-owned feed contract:
 
 ```http
-GET /api/djconnect/vibecast
+GET /api/djconnect/v1/vibecast
 Authorization: Bearer <djconnect_bearer_token>
 X-DJConnect-Device-ID: <device_id>
 X-DJConnect-Client-ID: <device_id>
@@ -1254,7 +1254,7 @@ Expected successful DJ announcement response:
   "action": "none",
   "text": "En daar komt-ie aan: een warme, hypnotische plaat die precies tussen focus en zweven in hangt.",
   "dj_text": "En daar komt-ie aan: een warme, hypnotische plaat die precies tussen focus en zweven in hangt.",
-  "audio_url": "http://homeassistant.local:8123/api/djconnect/tts/announcement-123.mp3",
+  "audio_url": "http://homeassistant.local:8123/api/djconnect/v1/tts/announcement-123.mp3",
   "audio_type": "mp3"
 }
 ```
@@ -1270,7 +1270,7 @@ Expected successful track context response:
   "dj_text": "Strobe kwam uit in 2009 op het album For Lack of a Better Name. De lange opbouw en warme synthlijn maken het een progressive-house klassieker; ik koos hem omdat hij mooi aansluit op de rustige energie van de vorige track.",
   "images": [
     {
-      "url": "http://homeassistant.local:8123/api/djconnect/image_proxy/album/strobe",
+      "url": "http://homeassistant.local:8123/api/djconnect/v1/image_proxy/album/strobe",
       "title": "For Lack of a Better Name",
       "subtitle": "deadmau5",
       "kind": "album_art",
@@ -1320,8 +1320,8 @@ Expected successful Track Insight response:
 ## Ask DJ History Sync
 
 ```http
-GET /api/djconnect/ask_dj/history
-POST /api/djconnect/ask_dj/history/clear
+GET /api/djconnect/v1/ask_dj/history
+POST /api/djconnect/v1/ask_dj/history/clear
 ```
 
 iOS, macOS, and watchOS sync Ask DJ chat history from Home Assistant. When Ask
@@ -1405,7 +1405,7 @@ Clients may remove local cached messages older than `history_trimmed_before`.
 clients clear local Ask DJ history before applying returned messages.
 
 When the user clears Ask DJ history, Apple clients call
-`POST /api/djconnect/ask_dj/history/clear`. The request uses the same bearer
+`POST /api/djconnect/v1/ask_dj/history/clear`. The request uses the same bearer
 auth and client identity as other Ask DJ endpoints, and may include
 `music_dna_key` when the client is using a scoped Music DNA/history namespace:
 
@@ -1442,16 +1442,16 @@ gaf geen antwoord`.
 ## Music DNA Profile
 
 ```http
-POST /api/djconnect/music_dna/profile
-POST /api/djconnect/music_dna/settings
-POST /api/djconnect/music_dna/clear
-POST /api/djconnect/music_dna/export
-POST /api/djconnect/music_dna/import
+POST /api/djconnect/v1/music_dna/profile
+POST /api/djconnect/v1/music_dna/settings
+POST /api/djconnect/v1/music_dna/clear
+POST /api/djconnect/v1/music_dna/export
+POST /api/djconnect/v1/music_dna/import
 ```
 
 Music DNA is server-side in Home Assistant and explicitly opt-in. Apple clients
 do not persist a Music DNA profile locally; the Music DNA dashboard uses
-`/api/djconnect/music_dna/profile` as the source of truth whenever the screen
+`/api/djconnect/v1/music_dna/profile` as the source of truth whenever the screen
 opens. Track Insight responses must not expose or render per-track Music DNA
 match fields such as `music_dna.match_percent`, labels, or match reasons.
 
@@ -1540,7 +1540,7 @@ Export payload:
 ```
 
 iOS and macOS export Music DNA with HTTP `POST
-/api/djconnect/music_dna/export`; clients must not use the Home Assistant
+/api/djconnect/v1/music_dna/export`; clients must not use the Home Assistant
 WebSocket fast path for export. The backend is the source of truth and returns a
 complete export envelope. Apple clients save/share the exact JSON response body
 only after the user chooses a destination in the native share/save panel. The
@@ -1583,7 +1583,7 @@ error in the sheet and use the same pairing recovery behavior as other
 DJConnect endpoints.
 
 Ask DJ history sync remains separate:
-`/api/djconnect/ask_dj/history` and `/api/djconnect/ask_dj/history/clear` do not
+`/api/djconnect/v1/ask_dj/history` and `/api/djconnect/v1/ask_dj/history/clear` do not
 clear Music DNA.
 
 Expected profile response:
@@ -1621,7 +1621,7 @@ local Music DNA display/cache for the current Home Assistant installation.
 ## Voice
 
 ```http
-POST /api/djconnect/voice
+POST /api/djconnect/v1/voice
 Content-Type: audio/wav
 ```
 
@@ -1651,7 +1651,7 @@ Expected response:
   "success": true,
   "text": "Daar gaan we.",
   "dj_text": "Daar gaan we.",
-  "audio_url": "http://homeassistant.local:8123/api/djconnect/tts/token.mp3",
+  "audio_url": "http://homeassistant.local:8123/api/djconnect/v1/tts/token.mp3",
   "audio_type": "mp3"
 }
 ```
