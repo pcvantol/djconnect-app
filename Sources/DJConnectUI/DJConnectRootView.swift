@@ -5258,13 +5258,6 @@ private struct MusicDiscoveryView: View {
             ProgressView()
                 .tint(.white)
                 .frame(maxWidth: .infinity, minHeight: 220)
-        } else if let error = model.musicDiscoveryErrorMessage, !error.isEmpty {
-            DJConnectStatusCard(
-                title: localizedKey(model.language, "ui.discovery.could.not.be.loaded"),
-                message: error,
-                systemImage: "exclamationmark.triangle.fill",
-                tint: .orange
-            )
         } else if shouldShowMusicDNALockedState {
             MusicDiscoveryLockedState(model: model)
         } else if model.musicDiscoveryResponse == nil || visibleSections.isEmpty {
