@@ -2353,6 +2353,7 @@ public struct DJConnectVibeCastResponse: Codable, Equatable, Sendable {
         public var musicBackendName: String?
         public var musicBackendRevision: Int?
         public var artistImageURL: URL?
+        public var genreBadge: GenreBadge?
 
         public init(
             trackID: String? = nil,
@@ -2362,7 +2363,8 @@ public struct DJConnectVibeCastResponse: Codable, Equatable, Sendable {
             musicBackend: String? = nil,
             musicBackendName: String? = nil,
             musicBackendRevision: Int? = nil,
-            artistImageURL: URL? = nil
+            artistImageURL: URL? = nil,
+            genreBadge: GenreBadge? = nil
         ) {
             self.trackID = trackID
             self.title = title
@@ -2372,6 +2374,7 @@ public struct DJConnectVibeCastResponse: Codable, Equatable, Sendable {
             self.musicBackendName = musicBackendName
             self.musicBackendRevision = musicBackendRevision
             self.artistImageURL = artistImageURL
+            self.genreBadge = genreBadge
         }
 
         enum CodingKeys: String, CodingKey {
@@ -2384,6 +2387,7 @@ public struct DJConnectVibeCastResponse: Codable, Equatable, Sendable {
             case musicBackendRevision = "music_backend_revision"
             case artistImageURL = "artist_image_url"
             case artistImageUrl
+            case genreBadge = "genre_badge"
         }
 
         public init(from decoder: Decoder) throws {
@@ -2396,6 +2400,7 @@ public struct DJConnectVibeCastResponse: Codable, Equatable, Sendable {
             musicBackendName = try container.decodeIfPresent(String.self, forKey: .musicBackendName)
             musicBackendRevision = try container.decodeIfPresent(Int.self, forKey: .musicBackendRevision)
             artistImageURL = DJConnectVibeCastContext.decodeProxiedImageURL(container, keys: [.artistImageURL, .artistImageUrl])
+            genreBadge = try container.decodeIfPresent(GenreBadge.self, forKey: .genreBadge)
         }
 
         public func encode(to encoder: Encoder) throws {
@@ -2408,6 +2413,35 @@ public struct DJConnectVibeCastResponse: Codable, Equatable, Sendable {
             try container.encodeIfPresent(musicBackendName, forKey: .musicBackendName)
             try container.encodeIfPresent(musicBackendRevision, forKey: .musicBackendRevision)
             try container.encodeIfPresent(artistImageURL, forKey: .artistImageURL)
+            try container.encodeIfPresent(genreBadge, forKey: .genreBadge)
+        }
+
+        public struct GenreBadge: Codable, Equatable, Sendable {
+            public var label: String?
+            public var genre: String?
+            public var placement: String?
+
+            public init(label: String? = nil, genre: String? = nil, placement: String? = nil) {
+                self.label = label
+                self.genre = genre
+                self.placement = placement
+            }
+
+            public var displayLabel: String? {
+                let trimmed = label?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+                return trimmed.isEmpty ? nil : trimmed
+            }
+
+            public var canonicalGenre: String? {
+                let trimmed = genre?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+                return trimmed.isEmpty ? nil : trimmed
+            }
+
+            public var resolvedPlacement: String {
+                placement?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == "top_trailing"
+                    ? "top_trailing"
+                    : "top_trailing"
+            }
         }
     }
 

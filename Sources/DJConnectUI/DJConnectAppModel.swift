@@ -113,12 +113,88 @@ public struct DJConnectDiagnosticLogLine: Identifiable, Equatable, Sendable {
 private struct DJConnectReleaseNotes: Decodable {
     let name: String?
     let body: String?
+    let tagName: String?
+    let version: String?
+
+    private enum CodingKeys: String, CodingKey {
+        case name
+        case body
+        case tagName = "tag_name"
+        case version
+    }
 }
 
 private struct DJConnectReleaseNotesFetchResult {
     let release: DJConnectReleaseNotes
     let url: URL
     let statusCode: Int
+}
+
+private struct DJConnectReleaseNotesManifest: Decodable {
+    let latestVersion: String?
+    let version: String?
+    let releases: [DJConnectReleaseNotesManifestRelease]?
+
+    private enum CodingKeys: String, CodingKey {
+        case latestVersion = "latest_version"
+        case version
+        case releases
+    }
+}
+
+private struct DJConnectReleaseNotesManifestRelease: Decodable {
+    let version: String?
+}
+
+private struct DJConnectVersion: Comparable, Equatable, Hashable {
+    let major: Int
+    let minor: Int
+    let patch: Int
+
+    init(major: Int, minor: Int, patch: Int) {
+        self.major = major
+        self.minor = minor
+        self.patch = patch
+    }
+
+    init?(_ rawValue: String) {
+        let trimmed = rawValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        let cleaned = trimmed.hasPrefix("v") ? String(trimmed.dropFirst()) : trimmed
+        let parts = cleaned.split(separator: ".").compactMap { Int($0) }
+        guard parts.count >= 2 else {
+            return nil
+        }
+        major = parts[0]
+        minor = parts[1]
+        patch = parts.count >= 3 ? parts[2] : 0
+    }
+
+    var stringValue: String {
+        "\(major).\(minor).\(patch)"
+    }
+
+    static func < (lhs: DJConnectVersion, rhs: DJConnectVersion) -> Bool {
+        if lhs.major != rhs.major {
+            return lhs.major < rhs.major
+        }
+        if lhs.minor != rhs.minor {
+            return lhs.minor < rhs.minor
+        }
+        return lhs.patch < rhs.patch
+    }
+}
+
+private extension String {
+    var trimmingPrefixV: String {
+        hasPrefix("v") ? String(dropFirst()) : self
+    }
+}
+
+private struct DJConnectAvailableUpdate: Identifiable, Equatable {
+    let id: String
+    let version: String
+    let title: String
+    let body: String
 }
 
 public enum DJConnectMusicDNATransferError: Error, Equatable, Sendable {
@@ -667,6 +743,11 @@ public final class DJConnectAppModel: ObservableObject {
     @Published public private(set) var whatsNewTitle = ""
     @Published public private(set) var whatsNewBody = ""
     @Published public private(set) var isLoadingWhatsNew = false
+    @Published public private(set) var isCheckingForUpdates = false
+    @Published public private(set) var updateCheckMessage: String?
+    @Published public private(set) var updateNotesTitle = ""
+    @Published public private(set) var updateNotesBody = ""
+    @Published public var isShowingUpdateNotes = false
     @Published public private(set) var isShowingPairingSuccess = false
     @Published public private(set) var isPairingScreenDismissed = false
     @Published public private(set) var pairingFlowTarget: DJConnectPairingFlowTarget = .iPhone
@@ -948,8 +1029,8 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     public var shouldShowPairingScreen: Bool {
-        let shouldShowAppleWatchPairing = isAppleWatchPairingPending
-            || (pairingFlowTarget == .appleWatch && isShowingPairingSuccess)
+        let shouldShowAppleWatchPairing = pairingFlowTarget == .appleWatch
+            && (isAppleWatchPairingPending || isShowingPairingSuccess)
         let shouldShowIPhonePairing = !isDemoMode
             && (pairingStatus != .paired || isShowingPairingSuccess)
 
@@ -967,6 +1048,10 @@ public final class DJConnectAppModel: ObservableObject {
         }
         #endif
         return false
+    }
+
+    public var shouldShowAppleWatchPairingReminder: Bool {
+        pairingStatus == .paired && isAppleWatchPairingPending
     }
 
     public init(
@@ -1160,6 +1245,157 @@ public final class DJConnectAppModel: ObservableObject {
         }
     }
 
+    public func checkForUpdates() {
+        guard !isCheckingForUpdates else {
+            return
+        }
+        updateCheckMessage = nil
+        Task { [weak self] in
+            await self?.loadAvailableUpdates()
+        }
+    }
+
+    private func loadAvailableUpdates() async {
+        await MainActor.run {
+            isCheckingForUpdates = true
+            updateCheckMessage = localized(key: "ui.checking.for.updates")
+        }
+        defer {
+            Task { @MainActor [weak self] in
+                self?.isCheckingForUpdates = false
+            }
+        }
+
+        do {
+            let updates = try await availableUpdates()
+            await MainActor.run {
+                if updates.isEmpty {
+                    updateCheckMessage = localized(key: "ui.djconnect.is.up.to.date")
+                    return
+                }
+                let newestVersion = updates.last?.version ?? appVersion
+                updateNotesTitle = localized(key: "appModel.update.available.value", arguments: newestVersion)
+                updateNotesBody = updates.map { update in
+                    """
+                    ### \(update.title.isEmpty ? "DJConnect \(update.version)" : update.title)
+
+                    \(update.body)
+                    """
+                }.joined(separator: "\n\n")
+                updateCheckMessage = localized(
+                    key: "appModel.update.available.from.value.to.value",
+                    arguments: appVersion,
+                    newestVersion
+                )
+                isShowingUpdateNotes = true
+            }
+        } catch {
+            log(.warning, "Update check failed: \(error.localizedDescription)")
+            await MainActor.run {
+                updateCheckMessage = localized(key: "appModel.update.check.failed")
+            }
+        }
+    }
+
+    private func availableUpdates() async throws -> [DJConnectAvailableUpdate] {
+        guard let currentVersion = DJConnectVersion(appVersion) else {
+            return []
+        }
+        var candidateVersions = try await releaseManifestVersions()
+            .compactMap(DJConnectVersion.init)
+            .filter { $0 > currentVersion }
+
+        if let newestManifestVersion = candidateVersions
+            .filter({ $0.major == currentVersion.major && $0.minor == currentVersion.minor })
+            .max(), newestManifestVersion.patch > currentVersion.patch {
+            candidateVersions.append(contentsOf: ((currentVersion.patch + 1)...newestManifestVersion.patch).map {
+                DJConnectVersion(major: currentVersion.major, minor: currentVersion.minor, patch: $0)
+            })
+        }
+
+        if candidateVersions.isEmpty {
+            candidateVersions = (1...40).map {
+                DJConnectVersion(major: currentVersion.major, minor: currentVersion.minor, patch: currentVersion.patch + $0)
+            }
+        }
+
+        var updates: [DJConnectAvailableUpdate] = []
+        var consecutiveMisses = 0
+        for version in Array(Set(candidateVersions)).sorted() {
+            guard version.major == currentVersion.major, version.minor == currentVersion.minor else {
+                continue
+            }
+            if let update = try await fetchAvailableUpdate(version: version.stringValue) {
+                updates.append(update)
+                consecutiveMisses = 0
+            } else {
+                consecutiveMisses += 1
+                if updates.isEmpty == false, consecutiveMisses >= 6 {
+                    break
+                }
+            }
+        }
+        return updates.sorted { lhs, rhs in
+            (DJConnectVersion(lhs.version) ?? currentVersion) < (DJConnectVersion(rhs.version) ?? currentVersion)
+        }
+    }
+
+    private func releaseManifestVersions() async throws -> [String] {
+        let candidateURLs = [
+            DJConnectAppModel.publicReleaseManifestURL(clientType: identity.clientType, language: releaseNotesLanguageCode),
+            DJConnectAppModel.publicReleaseManifestURL(clientType: identity.clientType)
+        ].compactMap { $0 }
+
+        var versions: [String] = []
+        for url in candidateURLs {
+            do {
+                var request = URLRequest(url: url)
+                request.setValue("application/json", forHTTPHeaderField: "Accept")
+                request.timeoutInterval = 5
+                let (data, response) = try await urlSession.data(for: request)
+                guard let httpResponse = response as? HTTPURLResponse, (200..<300).contains(httpResponse.statusCode) else {
+                    continue
+                }
+                let manifest = try JSONDecoder().decode(DJConnectReleaseNotesManifest.self, from: data)
+                versions.append(contentsOf: [
+                    manifest.latestVersion,
+                    manifest.version
+                ].compactMap { $0 })
+                versions.append(contentsOf: manifest.releases?.compactMap(\.version) ?? [])
+            } catch {
+                log(.debug, "Release manifest candidate failed: \(url.absoluteString) - \(error.localizedDescription)")
+            }
+        }
+        return versions
+    }
+
+    private func fetchAvailableUpdate(version: String) async throws -> DJConnectAvailableUpdate? {
+        let candidateURLs = [
+            DJConnectAppModel.publicReleaseNotesURL(version: version, clientType: identity.clientType, language: releaseNotesLanguageCode),
+            DJConnectAppModel.publicReleaseNotesURL(version: version, clientType: identity.clientType)
+        ].compactMap { $0 }
+
+        do {
+            let result = try await fetchReleaseNotes(from: candidateURLs)
+            let body = localizedReleaseNotesBody((result.release.body ?? "").trimmingCharacters(in: .whitespacesAndNewlines))
+            guard !body.isEmpty else {
+                return nil
+            }
+            let title = (result.release.name ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+            let resolvedVersion = result.release.version
+                ?? result.release.tagName?.split(separator: "/").last.map(String.init)?.trimmingPrefixV
+                ?? version
+            return DJConnectAvailableUpdate(
+                id: resolvedVersion,
+                version: resolvedVersion,
+                title: title,
+                body: body
+            )
+        } catch {
+            return nil
+        }
+    }
+
     private func fetchReleaseNotes(from urls: [URL]) async throws -> DJConnectReleaseNotesFetchResult {
         var lastError: Error?
         for url in urls {
@@ -1167,7 +1403,7 @@ public final class DJConnectAppModel: ObservableObject {
                 var request = URLRequest(url: url)
                 request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
                 request.timeoutInterval = 8
-                let (data, response) = try await URLSession.shared.data(for: request)
+                let (data, response) = try await urlSession.data(for: request)
                 guard let httpResponse = response as? HTTPURLResponse else {
                     throw URLError(.badServerResponse)
                 }
@@ -1261,6 +1497,28 @@ public final class DJConnectAppModel: ObservableObject {
             shouldShowWakeWordPromptAfterPairingScreen = false
             presentWakeWordActivationPromptAfterPairing()
         }
+    }
+
+    public func dismissAppleWatchPairingForNow() {
+        guard isAppleWatchPairingPending else {
+            return
+        }
+        log(.debug, "User action: dismiss Apple Watch pairing for now")
+        isShowingPairingSuccess = false
+        isPairingScreenDismissed = true
+        pairingFlowTarget = .iPhone
+    }
+
+    public func presentAppleWatchPairingScreen() {
+        guard shouldShowAppleWatchPairingReminder else {
+            return
+        }
+        log(.debug, "User action: reopen Apple Watch pairing screen")
+        pairingFlowTarget = .appleWatch
+        pairingToken = ""
+        isShowingPairingSuccess = false
+        isPairingScreenDismissed = false
+        pairingMessage = localized(key: "appModel.apple.watch.is.ready.scan.the.apple.watch.qr")
     }
 
     public func startDemoMode() {
@@ -4864,17 +5122,19 @@ public final class DJConnectAppModel: ObservableObject {
         isLoadingMusicDiscovery = false
     }
 
-    public func refreshMusicDiscovery() async {
+    @discardableResult
+    public func refreshMusicDiscovery() async -> Bool {
         if isDemoMode {
             musicDiscoveryResponse = demoMusicDNAEnabled ? Self.demoMusicDiscoveryResponse(revision: (musicDiscoveryResponse?.revision ?? 12) + 1) : Self.disabledMusicDiscoveryResponse()
             musicDiscoveryErrorMessage = nil
-            return
+            return true
         }
         guard pairingStatus == .paired, isRuntimeCompatible else {
-            return
+            return false
         }
         isRefreshingMusicDiscovery = true
         musicDiscoveryErrorMessage = nil
+        defer { isRefreshingMusicDiscovery = false }
         do {
             _ = try await withHomeAssistantClient { client in
                 try await client.refreshMusicDiscovery(musicDNAKey: askDJMusicDNAKey, language: language)
@@ -4884,6 +5144,7 @@ public final class DJConnectAppModel: ObservableObject {
                 try await client.musicDiscoveryFeed(musicDNAKey: askDJMusicDNAKey, language: language)
             }
             apply(musicDiscovery: response)
+            return true
         } catch let error as DJConnectError {
             handleMusicDiscoveryError(error)
         } catch is CancellationError {
@@ -4891,7 +5152,7 @@ public final class DJConnectAppModel: ObservableObject {
             musicDiscoveryErrorMessage = localized(key: "ui.discovery.could.not.be.loaded")
             log(.warning, "Music Discovery refresh failed: \(error.localizedDescription)")
         }
-        isRefreshingMusicDiscovery = false
+        return false
     }
 
     public func playMusicDiscoveryItem(_ item: DJConnectMusicDiscoveryItem, sectionID: String) async {
@@ -8010,21 +8271,9 @@ public final class DJConnectAppModel: ObservableObject {
             pairCode: pairCode,
             paired: (message["paired"] as? Bool) ?? defaults.bool(forKey: watchProxyPairedKey)
         )
-        presentAppleWatchPairingIfNeeded()
         persistWatchProxyRegistration()
         sendWatchProxyReady()
         log(.info, "Watch proxy registered \(Self.redactedDJConnectDeviceID(deviceID))")
-    }
-
-    private func presentAppleWatchPairingIfNeeded() {
-        guard watchProxyRegistration?.paired == false else {
-            return
-        }
-        pairingFlowTarget = .appleWatch
-        pairingToken = ""
-        isShowingPairingSuccess = false
-        isPairingScreenDismissed = false
-        pairingMessage = localized(key: "appModel.apple.watch.is.ready.scan.the.apple.watch.qr")
     }
 
     private func restoreWatchProxyRegistration() {
@@ -8045,7 +8294,6 @@ public final class DJConnectAppModel: ObservableObject {
             pairCode: pairCode,
             paired: defaults.bool(forKey: watchProxyPairedKey)
         )
-        presentAppleWatchPairingIfNeeded()
     }
 
     private func persistWatchProxyRegistration() {
@@ -8378,7 +8626,7 @@ public final class DJConnectAppModel: ObservableObject {
             let response = try await client.askDJIdleSuggestion(payload)
             return try encoder.encode(response)
         case .musicDNAProfile:
-            let payload = try request.payload.flatMap {
+            let payload = request.payload.flatMap {
                 try? decoder.decode(DJConnectMusicDNAIdentityRequest.self, from: $0)
             }
             let response = try await client.musicDNAProfile(mood: payload?.mood)
@@ -8388,7 +8636,7 @@ public final class DJConnectAppModel: ObservableObject {
             let response = try await client.setMusicDNAEnabled(payload.enabled, mood: payload.mood)
             return try encoder.encode(response)
         case .clearMusicDNA:
-            let payload = try request.payload.flatMap {
+            let payload = request.payload.flatMap {
                 try? decoder.decode(DJConnectMusicDNAIdentityRequest.self, from: $0)
             }
             let response = try await client.clearMusicDNA(mood: payload?.mood)
@@ -9788,6 +10036,15 @@ public final class DJConnectAppModel: ObservableObject {
     nonisolated static func publicReleaseNotesURL(version: String, clientType: DJConnectClientType, language: String) -> URL? {
         let normalizedLanguage = normalizedReleaseNotesLanguageCode(language)
         return URL(string: "https://djconnect.dev/release-notes/\(clientType.rawValue)/\(normalizedLanguage)/v\(version).json")
+    }
+
+    nonisolated static func publicReleaseManifestURL(clientType: DJConnectClientType) -> URL? {
+        URL(string: "https://djconnect.dev/release-notes/\(clientType.rawValue)/latest.json")
+    }
+
+    nonisolated static func publicReleaseManifestURL(clientType: DJConnectClientType, language: String) -> URL? {
+        let normalizedLanguage = normalizedReleaseNotesLanguageCode(language)
+        return URL(string: "https://djconnect.dev/release-notes/\(clientType.rawValue)/\(normalizedLanguage)/latest.json")
     }
 
     nonisolated static func normalizedReleaseNotesLanguageCode(_ language: String) -> String {

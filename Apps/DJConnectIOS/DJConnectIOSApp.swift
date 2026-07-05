@@ -77,6 +77,13 @@ final class DJConnectIOSAppDelegate: NSObject, UIApplicationDelegate, @preconcur
 
     func application(
         _ application: UIApplication,
+        supportedInterfaceOrientationsFor window: UIWindow?
+    ) -> UIInterfaceOrientationMask {
+        UIDevice.current.userInterfaceIdiom == .pad ? .all : .allButUpsideDown
+    }
+
+    func application(
+        _ application: UIApplication,
         didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data
     ) {
         model?.handleRemoteNotificationDeviceToken(deviceToken)
@@ -186,6 +193,11 @@ final class DJConnectIOSSceneDelegate: NSObject, UIWindowSceneDelegate {
         if let url = connectionOptions.urlContexts.first?.url {
             _ = appDelegate?.handle(url)
         }
+        refreshSupportedOrientations(in: scene)
+    }
+
+    func sceneDidBecomeActive(_ scene: UIScene) {
+        refreshSupportedOrientations(in: scene)
     }
 
     func windowScene(
@@ -205,6 +217,18 @@ final class DJConnectIOSSceneDelegate: NSObject, UIWindowSceneDelegate {
 
     private var appDelegate: DJConnectIOSAppDelegate? {
         UIApplication.shared.delegate as? DJConnectIOSAppDelegate
+    }
+
+    private func refreshSupportedOrientations(in scene: UIScene) {
+        guard let windowScene = scene as? UIWindowScene else {
+            return
+        }
+        for window in windowScene.windows {
+            window.rootViewController?.setNeedsUpdateOfSupportedInterfaceOrientations()
+        }
+        if #available(iOS 16.0, *) {
+            windowScene.requestGeometryUpdate(.iOS(interfaceOrientations: .allButUpsideDown))
+        }
     }
 }
 

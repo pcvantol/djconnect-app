@@ -4,6 +4,32 @@ All notable changes to DJConnect App are documented here.
 
 ## Unreleased
 
+## 3.2.18 - 2026-07-05
+
+### Added
+
+- Added update checking from the About screen with localized release notes and
+  patch-delta summaries.
+- Added the VibeCast genre badge from the Home Assistant `context.genre_badge`
+  contract, including stale-data clearing coverage.
+- Added iPhone landscape-orientation support metadata and scene refresh.
+
+### Changed
+
+- Polished iPhone Discover, More, Ask DJ, Track Insight, Music DNA, pairing, and
+  Home Screen shortcut presentation.
+- Made compact iPhone Music DNA and Track Insight card groups horizontally
+  scrollable so cards keep usable sizing.
+- Matched Music DNA hero width to the Track Insight canvas layout.
+
+### Fixed
+
+- Fixed QR scanner focus/exposure for pairing codes.
+- Fixed Ask DJ keyboard focus state publishing and the prompt-field auto-dismiss
+  regression.
+- Fixed Xcode warnings around SwiftUI focus updates, app icon placeholders,
+  watch proxy payload decoding, and QR camera configuration.
+
 ## 3.2.17 - 2026-07-05
 
 ### Changed

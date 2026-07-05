@@ -960,7 +960,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
             hasReceivedCompanionPairingReady = true
             cancelCompanionPairingRegistrationWatchdog()
             applyCompanionSummary(message)
-                companionPairingStatus = "iPhone companion is klaar"
+                companionPairingStatus = "Klaar om te koppelen"
             if !paired {
                 connectionState = .pairing
                 statusMessage = "Wachten op Home Assistant via iPhone..."

@@ -1538,6 +1538,22 @@ private struct PairingSheetView: View {
                 .controlSize(.large)
             }
 
+            #if os(iOS)
+            if model.pairingFlowTarget == .appleWatch {
+                Button {
+                    model.dismissAppleWatchPairingForNow()
+                } label: {
+                    Text(localizedKey(model.language, "ui.not.now"))
+                        .font(.headline.weight(.semibold))
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(.secondary)
+                .controlSize(.large)
+                .disabled(model.isPairing)
+            }
+            #endif
+
             #if os(macOS)
             Button {
                 quitApplication()
@@ -1650,28 +1666,20 @@ private struct PairingSheetView: View {
     }
 
     private var statusIconColor: Color {
-        if model.pairingStatus == .stale || !isPairingURLValid || !isPairingCodeValid {
+        if model.pairingStatus == .stale {
             return .orange
         }
-        return .blue
+        return djConnectAccent
     }
 
     private var pairingStatusMessage: String? {
         if model.pairingStatus == .pairing || model.pairingStatus == .waitingForHomeAssistantCompletion || model.pairingStatus == .stale {
             return model.pairingMessage
         }
-        if !isPairingURLValid {
-            return invalidURLStatusMessage
-        }
-        if !isPairingCodeValid {
-            return invalidPairCodeStatusMessage
-        }
         if let pairingMessage = model.pairingMessage, !isFieldPrompt(pairingMessage) {
             return pairingMessage
         }
-        return model.pairingFlowTarget == .appleWatch
-            ? localizedKey(model.language, "ui.ready.click.pair.apple.watch.with.home.assistant")
-            : localizedKey(model.language, "ui.ready.click.pair.with.home.assistant")
+        return nil
     }
 
     private var shouldShowPairingNetworkNotice: Bool {
@@ -2170,6 +2178,7 @@ private final class PairingQRScannerViewController: UIViewController, @preconcur
     var onCode: ((String) -> Void)?
     private let session = AVCaptureSession()
     private var previewLayer: AVCaptureVideoPreviewLayer?
+    private weak var captureDevice: AVCaptureDevice?
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -2180,6 +2189,7 @@ private final class PairingQRScannerViewController: UIViewController, @preconcur
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
         previewLayer?.frame = view.bounds
+        configureFocusAndExposure()
     }
 
     override func viewWillAppear(_ animated: Bool) {
@@ -2199,11 +2209,13 @@ private final class PairingQRScannerViewController: UIViewController, @preconcur
     }
 
     private func configureSession() {
-        guard let device = AVCaptureDevice.default(for: .video),
+        guard let device = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .back)
+                ?? AVCaptureDevice.default(for: .video),
               let input = try? AVCaptureDeviceInput(device: device),
               session.canAddInput(input) else {
             return
         }
+        captureDevice = device
         session.addInput(input)
 
         let output = AVCaptureMetadataOutput()
@@ -2219,6 +2231,38 @@ private final class PairingQRScannerViewController: UIViewController, @preconcur
         layer.frame = view.bounds
         view.layer.insertSublayer(layer, at: 0)
         previewLayer = layer
+        configureFocusAndExposure()
+    }
+
+    private func configureFocusAndExposure() {
+        guard let device = captureDevice else {
+            return
+        }
+        do {
+            try device.lockForConfiguration()
+            defer { device.unlockForConfiguration() }
+            if device.isFocusPointOfInterestSupported {
+                device.focusPointOfInterest = CGPoint(x: 0.5, y: 0.5)
+            }
+            if device.isFocusModeSupported(.continuousAutoFocus) {
+                device.focusMode = .continuousAutoFocus
+            } else if device.isFocusModeSupported(.autoFocus) {
+                device.focusMode = .autoFocus
+            }
+            if device.isExposurePointOfInterestSupported {
+                device.exposurePointOfInterest = CGPoint(x: 0.5, y: 0.5)
+            }
+            if device.isExposureModeSupported(.continuousAutoExposure) {
+                device.exposureMode = .continuousAutoExposure
+            }
+            if device.isWhiteBalanceModeSupported(.continuousAutoWhiteBalance) {
+                device.whiteBalanceMode = .continuousAutoWhiteBalance
+            }
+            if device.isSubjectAreaChangeMonitoringEnabled == false {
+                device.isSubjectAreaChangeMonitoringEnabled = true
+            }
+        } catch {
+        }
     }
 
     func metadataOutput(
@@ -2574,16 +2618,16 @@ private struct WelcomeTourStep: Identifiable, Equatable {
                 systemImage: "waveform.path.ecg"
             ),
             WelcomeTourStep(
-                id: .discovery,
-                title: localizedKey(language, "ui.discover"),
-                body: localizedKey(language, "ui.discovery.recommendations.will.appear.after.music.dna.has.more.signals"),
-                systemImage: "wand.and.stars"
-            ),
-            WelcomeTourStep(
                 id: .musicDNA,
                 title: "Music DNA",
                 body: localizedKey(language, "ui.learn.from.your.taste.and.listening.behavior.to.shape.recommendations"),
                 systemImage: "heart"
+            ),
+            WelcomeTourStep(
+                id: .discovery,
+                title: localizedKey(language, "ui.discover"),
+                body: localizedKey(language, "ui.discovery.recommendations.will.appear.after.music.dna.has.more.signals"),
+                systemImage: "wand.and.stars"
             )
         ]
     }
@@ -2797,6 +2841,56 @@ private struct WhatsNewView: View {
 
 }
 
+private struct UpdateNotesView: View {
+    @ObservedObject var model: DJConnectAppModel
+
+    var body: some View {
+        ZStack {
+            DJConnectCanvasBackground()
+            VStack(alignment: .leading, spacing: 20) {
+                AboutBanner()
+                    .frame(maxWidth: 560)
+
+                HStack(spacing: 12) {
+                    Image(systemName: "bell.badge")
+                        .foregroundStyle(djConnectAccent)
+                    Text(localizedKey(model.language, "ui.update.available"))
+                        .font(.title.bold())
+                }
+
+                Text(model.updateNotesTitle)
+                    .font(.headline)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                ScrollView {
+                    WhatsNewMarkdownBody(text: model.updateNotesBody, clientType: model.identity.clientType)
+                        .padding(.vertical, 2)
+                }
+                #if os(macOS)
+                .frame(minHeight: 260)
+                #else
+                .frame(minHeight: 300)
+                #endif
+
+                Button {
+                    model.isShowingUpdateNotes = false
+                } label: {
+                    Text(localizedKey(model.language, "ui.done"))
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(DJConnectLilacPillButtonStyle())
+                .controlSize(.large)
+            }
+            .padding(28)
+        }
+        .frame(minWidth: 360, idealWidth: 560, maxWidth: 680)
+        #if os(macOS)
+        .frame(minHeight: 620)
+        #endif
+    }
+}
+
 private struct WhatsNewMarkdownBody: View {
     let text: String
     let clientType: DJConnectClientType
@@ -2937,6 +3031,32 @@ struct NowPlayingView: View {
                 statusToast = nil
             }
         }
+    }
+}
+
+private struct AppleWatchPairingReminderButton: View {
+    @ObservedObject var model: DJConnectAppModel
+
+    var body: some View {
+        Button {
+            model.presentAppleWatchPairingScreen()
+        } label: {
+            Image(systemName: "applewatch")
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(Color.orange)
+                .frame(width: 32, height: 32)
+                .background(
+                    Circle()
+                        .fill(Color.orange.opacity(0.16))
+                )
+                .overlay {
+                    Circle()
+                        .stroke(Color.orange.opacity(0.36), lineWidth: 1)
+                }
+        }
+        .buttonStyle(.plain)
+        .help(localizedKey(model.language, "ui.pair.apple.watch"))
+        .accessibilityLabel(localizedKey(model.language, "ui.pair.apple.watch"))
     }
 }
 
@@ -3721,7 +3841,20 @@ private struct TrackInsightRefreshButton: View {
 
 private struct MusicDNAView: View {
     @ObservedObject var model: DJConnectAppModel
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @State private var statusToast: DJConnectVisualNotice?
+
+    private func shouldUseWideLayout(for size: CGSize) -> Bool {
+        #if os(macOS)
+        size.width >= 1_000
+        #else
+        horizontalSizeClass == .regular && size.width > size.height
+        #endif
+    }
+
+    private func maxContentWidth(for size: CGSize) -> CGFloat {
+        shouldUseWideLayout(for: size) ? djConnectMacDetailContentMaxWidth : djConnectContentMaxWidth
+    }
 
     var body: some View {
         NavigationStack {
@@ -3729,11 +3862,9 @@ private struct MusicDNAView: View {
                 DJConnectCanvasBackground()
                 GeometryReader { proxy in
                     ScrollView {
-                        let contentWidth = min(musicDNAMaxContentWidth, proxy.size.width)
-                        let heroWidth = min(musicDNAHeroMaxWidth(for: proxy.size), contentWidth)
+                        let contentWidth = min(maxContentWidth(for: proxy.size), proxy.size.width)
                         VStack(alignment: .leading, spacing: 16) {
                             MusicDNAHeroView(model: model, moodStepIndex: model.askDJMoodStepIndex)
-                                .frame(maxWidth: heroWidth, alignment: .top)
                                 .frame(maxWidth: .infinity, alignment: .top)
                             MusicDNAContentView(model: model)
                                 .frame(maxWidth: .infinity, alignment: .topLeading)
@@ -3789,22 +3920,6 @@ private struct MusicDNAView: View {
             }
             showStatusToast(toast)
         }
-    }
-
-    private var musicDNAMaxContentWidth: CGFloat {
-        #if os(macOS)
-        return djConnectMacDetailContentMaxWidth
-        #else
-        return 1_520
-        #endif
-    }
-
-    private func musicDNAHeroMaxWidth(for size: CGSize) -> CGFloat {
-        #if os(macOS)
-        return size.width >= 1_900 ? 1_420 : 1_280
-        #else
-        return min(1_320, size.width)
-        #endif
     }
 
     private var updatedSummary: String? {
@@ -4037,38 +4152,70 @@ private struct MusicDNAContentView: View {
 private struct MusicDNASectionGrid: View {
     @ObservedObject var model: DJConnectAppModel
     let response: DJConnectMusicDNAProfileResponse
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 
     private var profile: DJConnectMusicDNAProfile { response.profile }
 
     var body: some View {
-        LazyVGrid(columns: gridColumns, spacing: 12) {
+        if usesHorizontalRows {
+            ScrollView(.horizontal, showsIndicators: false) {
+                LazyHStack(alignment: .top, spacing: 12) {
+                    panels
+                }
+                .padding(.vertical, 2)
+            }
+            .scrollClipDisabled()
+        } else {
+            LazyVGrid(columns: gridColumns, spacing: 12) {
+                panels
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var panels: some View {
+        musicDNAPanel {
             MusicDNAPanel(title: localizedKey(model.language, "ui.summary"), value: summaryText, icon: "waveform")
-            if let favoriteGenres = profile.favoriteGenres, !favoriteGenres.isEmpty {
+        }
+        if let favoriteGenres = profile.favoriteGenres, !favoriteGenres.isEmpty {
+            musicDNAPanel {
                 MusicDNAPanel(title: localizedKey(model.language, "ui.favorite.genres"), value: names(favoriteGenres), icon: "music.quarternote.3")
             }
-            if let favoriteArtists = profile.favoriteArtists, !favoriteArtists.isEmpty {
+        }
+        if let favoriteArtists = profile.favoriteArtists, !favoriteArtists.isEmpty {
+            musicDNAPanel {
                 MusicDNAPanel(title: localizedKey(model.language, "ui.favorite.artists"), value: names(favoriteArtists), icon: "person.wave.2")
             }
-            if let moodMetric {
+        }
+        if let moodMetric {
+            musicDNAPanel {
                 MusicDNAMetricPanel(metric: moodMetric, moodStepIndex: model.askDJMoodStepIndex)
             }
-            if let energyMetrics {
+        }
+        if let energyMetrics {
+            musicDNAPanel {
                 MusicDNAMetricPanel(metric: energyMetrics, moodStepIndex: model.askDJMoodStepIndex)
             }
-            if let listeningRhythm = profile.listeningRhythm, listeningRhythm.isDisplayable {
+        }
+        if let listeningRhythm = profile.listeningRhythm, listeningRhythm.isDisplayable {
+            musicDNAPanel {
                 MusicDNAListeningRhythmPanel(
                     rhythm: listeningRhythm,
                     title: localizedKey(model.language, "ui.listening.rhythm")
                 )
             }
-            if let moodMix = profile.moodMix, moodMix.isDisplayable {
+        }
+        if let moodMix = profile.moodMix, moodMix.isDisplayable {
+            musicDNAPanel {
                 MusicDNAMoodMixPanel(
                     moodMix: moodMix,
                     title: localizedKey(model.language, "ui.mood.mix"),
                     averageTitle: localizedKey(model.language, "ui.average")
                 )
             }
-            if let playtime = profile.playtime, playtime.isDisplayable {
+        }
+        if let playtime = profile.playtime, playtime.isDisplayable {
+            musicDNAPanel {
                 MusicDNAPlaytimePanel(
                     playtime: playtime,
                     title: localizedKey(model.language, "ui.playtime"),
@@ -4077,13 +4224,17 @@ private struct MusicDNASectionGrid: View {
                     topAlbumsTitle: localizedKey(model.language, "ui.top.albums.by.playtime")
                 )
             }
-            if let repeatMagnets = profile.repeatMagnets, repeatMagnets.isDisplayable {
+        }
+        if let repeatMagnets = profile.repeatMagnets, repeatMagnets.isDisplayable {
+            musicDNAPanel {
                 MusicDNARepeatMagnetsPanel(
                     repeatMagnets: repeatMagnets,
                     title: localizedKey(model.language, "ui.repeat.magnets")
                 )
             }
-            if let explicitPositives = profile.explicitPositives, explicitPositives.isDisplayable {
+        }
+        if let explicitPositives = profile.explicitPositives, explicitPositives.isDisplayable {
+            musicDNAPanel {
                 MusicDNAExplicitPositivesPanel(
                     positives: explicitPositives,
                     title: localizedKey(model.language, "ui.explicit.positives"),
@@ -4091,25 +4242,47 @@ private struct MusicDNASectionGrid: View {
                     acceptedRecommendationsTitle: localizedKey(model.language, "ui.accepted.recommendations")
                 )
             }
-            if let tasteAnchors = profile.tasteAnchors, tasteAnchors.isDisplayable {
+        }
+        if let tasteAnchors = profile.tasteAnchors, tasteAnchors.isDisplayable {
+            musicDNAPanel {
                 MusicDNATasteAnchorsPanel(
                     anchors: tasteAnchors,
                     title: localizedKey(model.language, "ui.taste.anchors")
                 )
             }
-            if let recentTracks = profile.recentTracks, !recentTracks.isEmpty {
+        }
+        if let recentTracks = profile.recentTracks, !recentTracks.isEmpty {
+            musicDNAPanel {
                 MusicDNAPanel(title: localizedKey(model.language, "ui.recent.tracks"), value: tracks(recentTracks), icon: "clock.arrow.circlepath")
             }
-            if let recentFavoriteTracks = profile.recentFavoriteTracks, !recentFavoriteTracks.isEmpty {
+        }
+        if let recentFavoriteTracks = profile.recentFavoriteTracks, !recentFavoriteTracks.isEmpty {
+            musicDNAPanel {
                 MusicDNATrackListPanel(
                     title: localizedKey(model.language, "ui.recent.favorite.tracks"),
                     tracks: recentFavoriteTracks
                 )
             }
-            if let basisSignals {
+        }
+        if let basisSignals {
+            musicDNAPanel {
                 MusicDNAPanel(title: localizedKey(model.language, "ui.signals"), value: basisSignals, icon: "safari")
             }
         }
+    }
+
+    private var usesHorizontalRows: Bool {
+        #if os(iOS)
+        horizontalSizeClass == .compact && UIDevice.current.userInterfaceIdiom == .phone
+        #else
+        false
+        #endif
+    }
+
+    @ViewBuilder
+    private func musicDNAPanel<Content: View>(@ViewBuilder content: () -> Content) -> some View {
+        content()
+            .frame(width: usesHorizontalRows ? 292 : nil, alignment: .top)
     }
 
     private var gridColumns: [GridItem] {
@@ -5184,6 +5357,7 @@ private struct MusicDiscoveryView: View {
     @ObservedObject var model: DJConnectAppModel
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @State private var selectedDetail: MusicDiscoveryDetailSelection?
+    @State private var statusToast: DJConnectVisualNotice?
 
     private var visibleSections: [DJConnectMusicDiscoverySection] {
         model.musicDiscoveryResponse?.visibleSections ?? []
@@ -5219,20 +5393,22 @@ private struct MusicDiscoveryView: View {
                     }
                 }
             }
-            .djStatusToastOverlay(model.musicDNAToast)
+            .djStatusToastOverlay(statusToast ?? model.musicDNAToast)
             .accessibilityIdentifier("screen-discovery")
-            .navigationTitle(localizedKey(model.language, "ui.discover"))
+            .navigationTitle(screenTitle(model.language, key: "ui.discover", isDemoMode: model.isDemoMode))
             #if os(iOS)
-            .navigationBarTitleDisplayMode(.inline)
+            .navigationBarTitleDisplayMode(.large)
             #endif
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
                     Button {
-                        Task { await model.refreshMusicDiscovery() }
+                        Task { await refreshMusicDiscoveryWithToast() }
                     } label: {
                         Image(systemName: "arrow.clockwise")
+                            .foregroundStyle(.primary)
                     }
                     .disabled(model.isRefreshingMusicDiscovery || model.isLoadingMusicDiscovery)
+                    .tint(.primary)
                     .accessibilityLabel(localizedKey(model.language, "ui.refresh.discover"))
                 }
             }
@@ -5248,6 +5424,33 @@ private struct MusicDiscoveryView: View {
                 #if os(iOS)
                 .presentationDetents([.medium, .large])
                 #endif
+            }
+        }
+    }
+
+    private func refreshMusicDiscoveryWithToast() async {
+        let didRefresh = await model.refreshMusicDiscovery()
+        let failureMessage = model.musicDiscoveryErrorMessage?.trimmingCharacters(in: .whitespacesAndNewlines)
+        showStatusToast(
+            didRefresh
+                ? localizedKey(model.language, "appModel.discovery.updated")
+                : (failureMessage?.isEmpty == false ? failureMessage! : localizedKey(model.language, "appModel.discovery.update.failed")),
+            systemImage: didRefresh ? "sparkles" : "exclamationmark.triangle.fill"
+        )
+    }
+
+    private func showStatusToast(_ text: String, systemImage: String) {
+        let notice = DJConnectVisualNotice(text: text, systemImage: systemImage)
+        withAnimation(.easeOut(duration: 0.18)) {
+            statusToast = notice
+        }
+        Task { @MainActor in
+            try? await Task.sleep(for: .seconds(2))
+            guard statusToast?.id == notice.id else {
+                return
+            }
+            withAnimation(.easeIn(duration: 0.18)) {
+                statusToast = nil
             }
         }
     }
@@ -6587,15 +6790,31 @@ private struct TrackInsightHeroInfo: View {
     let insight: TrackInsight
     let language: String
 
+    private var titleFontSize: CGFloat {
+        usesIPhoneTypography ? 40 : 48
+    }
+
+    private var artistFontSize: CGFloat {
+        usesIPhoneTypography ? 21 : 24
+    }
+
+    private var usesIPhoneTypography: Bool {
+        #if os(iOS)
+        UIDevice.current.userInterfaceIdiom == .phone
+        #else
+        false
+        #endif
+    }
+
     var body: some View {
         VStack(spacing: 10) {
             Text(insight.title)
-                .font(.system(size: 48, weight: .black, design: .rounded))
+                .font(.system(size: titleFontSize, weight: .black, design: .rounded))
                 .foregroundStyle(.white)
                 .lineLimit(1)
                 .minimumScaleFactor(0.58)
             Text(insight.artist)
-                .font(.system(size: 24, weight: .bold, design: .rounded))
+                .font(.system(size: artistFontSize, weight: .bold, design: .rounded))
                 .foregroundStyle(.white.opacity(0.78))
                 .lineLimit(1)
                 .minimumScaleFactor(0.66)
@@ -6667,6 +6886,7 @@ public struct VibeCastOutputView: View {
                     insight: insight,
                     playback: model.playback,
                     vibeCastItems: model.vibeCastItems,
+                    genreBadge: model.vibeCastResponse?.context?.genreBadge,
                     language: model.language,
                     moodStepIndex: model.askDJMoodStepIndex,
                     reduceMotion: reduceMotion || ProcessInfo.processInfo.isLowPowerModeEnabled
@@ -6686,6 +6906,7 @@ private struct VibeCastVisualizerSignalView: View {
     let insight: TrackInsight
     let playback: DJConnectPlayback?
     let vibeCastItems: [DJConnectVibeCastResponse.Item]
+    let genreBadge: DJConnectVibeCastResponse.Context.GenreBadge?
     let language: String
     let moodStepIndex: Int
     let reduceMotion: Bool
@@ -6772,6 +6993,13 @@ private struct VibeCastVisualizerSignalView: View {
                 brandHeader
                     .padding(max(24, geometry.size.width * 0.035))
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+
+                if let genreBadge, let label = genreBadge.displayLabel {
+                    VibeCastGenreBadge(label: label, canonicalGenre: genreBadge.canonicalGenre)
+                        .frame(maxWidth: min(260, max(128, geometry.size.width * 0.36)), alignment: .trailing)
+                        .padding(max(24, geometry.size.width * 0.035))
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+                }
             }
         }
     }
@@ -6790,6 +7018,33 @@ private struct VibeCastVisualizerSignalView: View {
             Spacer(minLength: 0)
         }
         .foregroundStyle(.white.opacity(0.88))
+    }
+}
+
+private struct VibeCastGenreBadge: View {
+    let label: String
+    let canonicalGenre: String?
+
+    var body: some View {
+        Text(label)
+            .font(.caption.weight(.bold))
+            .lineLimit(1)
+            .truncationMode(.tail)
+            .foregroundStyle(.white.opacity(0.88))
+            .padding(.vertical, 6)
+            .padding(.horizontal, 10)
+            .background {
+                Capsule()
+                    .fill(.black.opacity(0.34))
+                    .overlay {
+                        Capsule()
+                            .stroke(.white.opacity(0.18), lineWidth: 1)
+                    }
+                    .shadow(color: .black.opacity(0.22), radius: 10, y: 4)
+            }
+            .accessibilityLabel(label)
+            .accessibilityIdentifier("vibecast-genre-badge")
+            .help(canonicalGenre ?? label)
     }
 }
 
@@ -6947,6 +7202,64 @@ private struct VibeCastEmptySignalView: View {
         }
         .padding(32)
     }
+}
+
+#Preview("VibeCast - Genre Badge") {
+    VibeCastVisualizerSignalView(
+        insight: DemoTrackInsightService.defaultTracks[6],
+        playback: DJConnectPlayback(hasPlayback: true, isPlaying: true, progressMS: 62_000, durationMS: 360_000),
+        vibeCastItems: [
+            DJConnectVibeCastResponse.Item(
+                id: "preview-fact",
+                kind: .genreFact,
+                text: [.init(type: .text, value: "Warm melodic layers with a patient groove.")]
+            )
+        ],
+        genreBadge: .init(label: "melodic techno", genre: "melodic-techno", placement: "top_trailing"),
+        language: "en",
+        moodStepIndex: 5,
+        reduceMotion: true
+    )
+}
+
+#Preview("VibeCast - No Genre Badge") {
+    VibeCastVisualizerSignalView(
+        insight: DemoTrackInsightService.defaultTracks[3],
+        playback: DJConnectPlayback(hasPlayback: true, isPlaying: true, progressMS: 92_000, durationMS: 540_000),
+        vibeCastItems: [
+            DJConnectVibeCastResponse.Item(
+                id: "preview-fact",
+                kind: .trackFact,
+                text: [.init(type: .text, value: "The build stays spacious and slow-burning.")]
+            )
+        ],
+        genreBadge: nil,
+        language: "en",
+        moodStepIndex: 4,
+        reduceMotion: true
+    )
+}
+
+#Preview("VibeCast - Long Genre Badge") {
+    VibeCastVisualizerSignalView(
+        insight: DemoTrackInsightService.defaultTracks[9],
+        playback: DJConnectPlayback(hasPlayback: true, isPlaying: true, progressMS: 128_000, durationMS: 560_000),
+        vibeCastItems: [
+            DJConnectVibeCastResponse.Item(
+                id: "preview-fact",
+                kind: .genreFact,
+                text: [.init(type: .text, value: "A cinematic groove with live-disco motion.")]
+            )
+        ],
+        genreBadge: .init(
+            label: "deep progressive melodic techno with organic house textures",
+            genre: "deep-progressive-melodic-techno",
+            placement: "unknown"
+        ),
+        language: "en",
+        moodStepIndex: 7,
+        reduceMotion: true
+    )
 }
 
 #if canImport(AVKit) && os(iOS)
@@ -8129,24 +8442,67 @@ private struct TrackInsightMetricsGrid: View {
     let insight: TrackInsight
     let language: String
     let moodStepIndex: Int
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            LazyVGrid(columns: metricColumns, spacing: 10) {
-                TrackInsightMetricRing(title: localizedKey(language, "ui.energy"), value: insight.energy, icon: "bolt.fill", moodStepIndex: moodStepIndex)
-                TrackInsightMetricRing(title: localizedKey(language, "ui.dance"), value: insight.danceability, icon: "figure.dance", moodStepIndex: moodStepIndex)
-                TrackInsightMetricRing(title: localizedKey(language, "ui.intensity"), value: insight.intensity, icon: "flame.fill", moodStepIndex: moodStepIndex)
-            }
-
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 172), spacing: 10, alignment: .top)], spacing: 10) {
-                if let genre = insight.genre?.trimmingCharacters(in: .whitespacesAndNewlines), !genre.isEmpty {
-                    TrackInsightMetricPill(title: localizedKey(language, "ui.genre"), value: genre, icon: "music.quarternote.3")
+            if usesHorizontalRows {
+                horizontalMetricRow {
+                    TrackInsightMetricRing(title: localizedKey(language, "ui.energy"), value: insight.energy, icon: "bolt.fill", moodStepIndex: moodStepIndex)
+                        .frame(width: 148)
+                    TrackInsightMetricRing(title: localizedKey(language, "ui.dance"), value: insight.danceability, icon: "figure.dance", moodStepIndex: moodStepIndex)
+                        .frame(width: 148)
+                    TrackInsightMetricRing(title: localizedKey(language, "ui.intensity"), value: insight.intensity, icon: "flame.fill", moodStepIndex: moodStepIndex)
+                        .frame(width: 148)
                 }
-                TrackInsightMetricPill(title: localizedKey(language, "ui.mood"), value: insight.mood, icon: "sparkles")
-                TrackInsightMetricPill(title: localizedKey(language, "ui.vibe"), value: insight.vibe, icon: "waveform.path")
-                TrackInsightMetricPill(title: localizedKey(language, "ui.texture"), value: insight.texture, icon: "square.stack.3d.up.fill")
+
+                horizontalMetricRow {
+                    metricPills
+                }
+            } else {
+                LazyVGrid(columns: metricColumns, spacing: 10) {
+                    TrackInsightMetricRing(title: localizedKey(language, "ui.energy"), value: insight.energy, icon: "bolt.fill", moodStepIndex: moodStepIndex)
+                    TrackInsightMetricRing(title: localizedKey(language, "ui.dance"), value: insight.danceability, icon: "figure.dance", moodStepIndex: moodStepIndex)
+                    TrackInsightMetricRing(title: localizedKey(language, "ui.intensity"), value: insight.intensity, icon: "flame.fill", moodStepIndex: moodStepIndex)
+                }
+
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 172), spacing: 10, alignment: .top)], spacing: 10) {
+                    metricPills
+                }
             }
         }
+    }
+
+    @ViewBuilder
+    private var metricPills: some View {
+        if let genre = insight.genre?.trimmingCharacters(in: .whitespacesAndNewlines), !genre.isEmpty {
+            TrackInsightMetricPill(title: localizedKey(language, "ui.genre"), value: genre, icon: "music.quarternote.3")
+                .frame(width: usesHorizontalRows ? 204 : nil, alignment: .top)
+        }
+        TrackInsightMetricPill(title: localizedKey(language, "ui.mood"), value: insight.mood, icon: "sparkles")
+            .frame(width: usesHorizontalRows ? 204 : nil, alignment: .top)
+        TrackInsightMetricPill(title: localizedKey(language, "ui.vibe"), value: insight.vibe, icon: "waveform.path")
+            .frame(width: usesHorizontalRows ? 204 : nil, alignment: .top)
+        TrackInsightMetricPill(title: localizedKey(language, "ui.texture"), value: insight.texture, icon: "square.stack.3d.up.fill")
+            .frame(width: usesHorizontalRows ? 204 : nil, alignment: .top)
+    }
+
+    private var usesHorizontalRows: Bool {
+        #if os(iOS)
+        horizontalSizeClass == .compact && UIDevice.current.userInterfaceIdiom == .phone
+        #else
+        false
+        #endif
+    }
+
+    private func horizontalMetricRow<Content: View>(@ViewBuilder content: () -> Content) -> some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            LazyHStack(alignment: .top, spacing: 10) {
+                content()
+            }
+            .padding(.vertical, 2)
+        }
+        .scrollClipDisabled()
     }
 
     private var metricColumns: [GridItem] {
@@ -8526,6 +8882,11 @@ private struct IOSNowPlayingView: View {
             .navigationTitle(screenTitle(model.language, key: "Now Playing", isDemoMode: model.isDemoMode))
             .navigationBarTitleDisplayMode(.large)
             .toolbar {
+                if model.shouldShowAppleWatchPairingReminder {
+                    ToolbarItem(placement: .topBarLeading) {
+                        AppleWatchPairingReminderButton(model: model)
+                    }
+                }
                 ToolbarItem(placement: .topBarTrailing) {
                     RefreshButton(model: model) {
                         Task { await refreshNowPlayingWithToast() }
@@ -12515,7 +12876,7 @@ private struct AskDJPromptTextView: UIViewRepresentable {
                 textView.becomeFirstResponder()
             }
             context.coordinator.moveCaretToEnd(in: textView)
-        } else if textView.isFirstResponder {
+        } else if textView.isFirstResponder, context.coordinator.lastRequestedFocus {
             textView.resignFirstResponder()
         }
     }
@@ -12545,17 +12906,26 @@ private struct AskDJPromptTextView: UIViewRepresentable {
         }
 
         func textViewDidBeginEditing(_ textView: UITextView) {
-            isInputFocused.wrappedValue = true
+            setInputFocus(true)
             moveCaretToEnd(in: textView)
         }
 
         func textViewDidEndEditing(_ textView: UITextView) {
-            isInputFocused.wrappedValue = false
+            setInputFocus(false)
         }
 
         func moveCaretToEnd(in textView: UITextView) {
             let end = textView.endOfDocument
             textView.selectedTextRange = textView.textRange(from: end, to: end)
+        }
+
+        private func setInputFocus(_ isFocused: Bool) {
+            DispatchQueue.main.async { [weak self] in
+                guard let self, self.isInputFocused.wrappedValue != isFocused else {
+                    return
+                }
+                self.isInputFocused.wrappedValue = isFocused
+            }
         }
     }
 }
@@ -14816,16 +15186,16 @@ private struct MoreView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
                     MoreNavigationRow(
-                        title: localizedKey(model.language, "ui.queue"),
-                        systemImage: "music.note.list"
-                    ) {
-                        QueueView(model: model)
-                    }
-                    MoreNavigationRow(
                         title: "Music DNA",
                         systemImage: "heart"
                     ) {
                         MusicDNAView(model: model)
+                    }
+                    MoreNavigationRow(
+                        title: localizedKey(model.language, "ui.queue"),
+                        systemImage: "music.note.list"
+                    ) {
+                        QueueView(model: model)
                     }
                     MoreNavigationRow(
                         title: localizedKey(model.language, "ui.playlists"),
@@ -16422,6 +16792,32 @@ private struct AboutView: View {
                             }
                             .djConnectLilacButton()
                         }
+                        AboutStackedRow(label: localizedKey(model.language, "ui.updates")) {
+                            VStack(alignment: .leading, spacing: 10) {
+                                Button {
+                                    model.checkForUpdates()
+                                } label: {
+                                    HStack(spacing: 8) {
+                                        if model.isCheckingForUpdates {
+                                            ProgressView()
+                                                .controlSize(.small)
+                                        } else {
+                                            Image(systemName: "arrow.triangle.2.circlepath")
+                                        }
+                                        Text(localizedKey(model.language, "ui.check.for.updates"))
+                                    }
+                                }
+                                .disabled(model.isCheckingForUpdates)
+                                .djConnectLilacButton()
+
+                                if let message = model.updateCheckMessage, !message.isEmpty {
+                                    Text(message)
+                                        .font(.footnote)
+                                        .foregroundStyle(.secondary)
+                                        .fixedSize(horizontal: false, vertical: true)
+                                }
+                            }
+                        }
                         AboutStackedRow(label: localizedKey(model.language, "ui.device.id")) {
                             SelectableValue(model.identity.deviceID)
                         }
@@ -16466,6 +16862,9 @@ private struct AboutView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .navigationTitle(localizedKey(model.language, "ui.about"))
         .accessibilityIdentifier("screen-about")
+        .sheet(isPresented: $model.isShowingUpdateNotes) {
+            UpdateNotesView(model: model)
+        }
     }
 
     private var connectionModeTitle: String {

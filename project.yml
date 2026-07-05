@@ -11,7 +11,7 @@ settings:
   base:
     SWIFT_VERSION: "6.0"
     CURRENT_PROJECT_VERSION: "1"
-    MARKETING_VERSION: "3.2.17"
+    MARKETING_VERSION: "3.2.18"
     DEVELOPMENT_TEAM: ""
     CODE_SIGN_STYLE: Automatic
 packages: {}
@@ -109,6 +109,7 @@ targets:
             UIApplicationShortcutItemTitle: Now Playing
             UIApplicationShortcutItemType: dev.djconnect.action.now-playing
           - UIApplicationShortcutItemIconSymbolName: bubble.left.and.bubble.right
+            UIApplicationShortcutItemSubtitle: Ask for music
             UIApplicationShortcutItemTitle: Ask DJ
             UIApplicationShortcutItemType: dev.djconnect.action.ask-dj
           - UIApplicationShortcutItemIconSymbolName: waveform.path.ecg
@@ -124,6 +125,10 @@ targets:
             UIApplicationShortcutItemTitle: Queue
             UIApplicationShortcutItemType: dev.djconnect.action.queue
         UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        UISupportedInterfaceOrientations~iphone:
           - UIInterfaceOrientationPortrait
           - UIInterfaceOrientationLandscapeLeft
           - UIInterfaceOrientationLandscapeRight
@@ -188,6 +193,7 @@ targets:
     sources:
       - path: Apps/DJConnectWatch
       - path: Apps/Shared/Assets.xcassets
+      - path: Sources/DJConnectCore/Resources
     dependencies:
       - target: DJConnectCoreWatch
       - target: DJConnectWatchComplications
@@ -218,6 +224,7 @@ targets:
     platform: watchOS
     sources:
       - path: Apps/DJConnectWatchComplications
+      - path: Sources/DJConnectCore/Resources
     dependencies:
       - target: DJConnectCoreWatch
     info:

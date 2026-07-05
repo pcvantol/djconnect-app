@@ -128,6 +128,14 @@
 "ui.mini.games" = "Mini-games";
 "ui.what.s.new" = "What's New";
 "ui.loading.release.notes" = "Loading release notes...";
+"ui.updates" = "Updates";
+"ui.check.for.updates" = "Check for updates";
+"ui.checking.for.updates" = "Checking for updates...";
+"ui.djconnect.is.up.to.date" = "DJConnect is up to date.";
+"ui.update.available" = "Update Available";
+"appModel.update.available.value" = "DJConnect %@ is available";
+"appModel.update.available.from.value.to.value" = "Newer version found: %@ -> %@.";
+"appModel.update.check.failed" = "Updates could not be checked.";
 "ui.refresh" = "Aktualisieren";
 "ui.share.insight" = "Share Insight";
 "ui.refresh.track.insight" = "Track Insight aktualisieren";
@@ -678,6 +686,8 @@
 "appModel.ask.dj.updated" = "Ask DJ aktualisiert";
 "appModel.queue.updated" = "Warteschlange aktualisiert";
 "appModel.queue.update.failed" = "Warteschlange konnte nicht aktualisiert werden";
+"appModel.discovery.updated" = "Entdecken aktualisiert";
+"appModel.discovery.update.failed" = "Entdecken konnte nicht aktualisiert werden";
 "appModel.playlists.updated" = "Playlists aktualisiert";
 "appModel.playlists.update.failed" = "Playlists konnten nicht aktualisiert werden";
 "appModel.music.dna.updated" = "Music DNA aktualisiert";
@@ -738,7 +748,7 @@
 "watch.enable.music.dna.to.let.home.assistant.build.a.private" = "Enable Music DNA to let Home Assistant build a private profile from future signals.";
 "watch.music.dna.is.on.but.home.assistant.has.not.built" = "Music DNA is on, but Home Assistant has not built data yet. This can happen after enabling or clearing.";
 "watch.this.is.a.temporary.backend.or.connection.issue.not.the" = "This is a temporary backend or connection issue, not the same as Music DNA being turned off.";
-"watch.open.djconnect.on.your.iphone.the.iphone.will.show.apple" = "Open DJConnect on your iPhone. The iPhone will show Apple Watch pairing with only the Apple Watch QR option. Keep iPhone, Watch and Home Assistant on the same local network.";
+"watch.open.djconnect.on.your.iphone.the.iphone.will.show.apple" = "Open DJConnect on your iPhone. Keep iPhone, Watch and Home Assistant on the same local network.";
 "watch.music.dna.is.enabled.home.assistant.can.build.a.private" = "Music DNA is enabled. Home Assistant can build a private profile from future listening signals.";
 "watch.music.dna.is.disabled.no.profile.is.being.built.and" = "Music DNA is disabled. No profile is being built, and the learned profile has already been cleared.";
 "watch.djconnect.is.still.checking.the.current.music.dna.status" = "DJConnect is still checking the current Music DNA status.";

@@ -2881,7 +2881,12 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
         "album": "Album Name",
         "music_backend": "music_assistant",
         "music_backend_name": "Music Assistant",
-        "music_backend_revision": 2
+        "music_backend_revision": 2,
+        "genre_badge": {
+          "label": "melodic techno",
+          "genre": "melodic-techno",
+          "placement": "top_trailing"
+        }
       },
       "items": [
         {
@@ -2910,10 +2915,37 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     #expect(response.revision == 12)
     #expect(response.effectivePollAfterSeconds == 20)
     #expect(response.context?.musicBackend == "music_assistant")
+    #expect(response.context?.genreBadge?.displayLabel == "melodic techno")
+    #expect(response.context?.genreBadge?.canonicalGenre == "melodic-techno")
+    #expect(response.context?.genreBadge?.resolvedPlacement == "top_trailing")
     #expect(response.items.first?.kind == .trackFact)
     #expect(response.items.first?.text[0].type == .emoji)
     #expect(response.items.first?.text[2].type == .strong)
     #expect(response.items.first?.plainText == "♪ ♫ This track rides on space and pulse.")
+}
+
+@Test func vibeCastGenreBadgeHidesWhenMissingOrLabelIsEmptyAndSupportsLongLabels() throws {
+    let missing = try JSONDecoder().decode(
+        DJConnectVibeCastResponse.self,
+        from: Data(#"{"enabled":true,"context":{"track_id":"track-1"},"items":[]}"#.utf8)
+    )
+    #expect(missing.context?.genreBadge == nil)
+
+    let empty = try JSONDecoder().decode(
+        DJConnectVibeCastResponse.self,
+        from: Data(#"{"enabled":true,"context":{"genre_badge":{"label":"   ","genre":"ambient-dub","placement":"middle"}},"items":[]}"#.utf8)
+    )
+    #expect(empty.context?.genreBadge?.displayLabel == nil)
+    #expect(empty.context?.genreBadge?.canonicalGenre == "ambient-dub")
+    #expect(empty.context?.genreBadge?.resolvedPlacement == "top_trailing")
+
+    let long = try JSONDecoder().decode(
+        DJConnectVibeCastResponse.self,
+        from: Data(#"{"enabled":true,"context":{"genre_badge":{"label":"deep progressive melodic techno with organic house textures","genre":"deep-progressive-melodic-techno","placement":"sideways"}},"items":[]}"#.utf8)
+    )
+    #expect(long.context?.genreBadge?.displayLabel == "deep progressive melodic techno with organic house textures")
+    #expect(long.context?.genreBadge?.canonicalGenre == "deep-progressive-melodic-techno")
+    #expect(long.context?.genreBadge?.resolvedPlacement == "top_trailing")
 }
 
 @Test func vibeCastResponseDecodesDisabledAndUnknownSegmentsGracefully() throws {
@@ -7133,6 +7165,63 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
 }
 
 @MainActor
+@Test func vibeCastRefreshClearsGenreBadgeWhenNextResponseOmitsIt() async throws {
+    let suiteName = "DJConnectTests-\(UUID().uuidString)"
+    let defaults = try #require(UserDefaults(suiteName: suiteName))
+    defaults.removePersistentDomain(forName: suiteName)
+    defaults.set(DJConnectHAConnectionMode.local.rawValue, forKey: "DJConnectHAConnectionMode")
+
+    final class Counter: @unchecked Sendable {
+        let lock = NSLock()
+        var value = 0
+        func next() -> Int {
+            lock.withLock {
+                value += 1
+                return value
+            }
+        }
+    }
+
+    let counter = Counter()
+    let host = "vibecast-genre-badge.local"
+    let session = mockSession(host: host) { request in
+        #expect(request.url?.path == "/api/djconnect/v1/vibecast")
+        let context = counter.next() == 1
+            ? #""context":{"track_id":"track-1","genre_badge":{"label":"melodic techno","genre":"melodic-techno","placement":"top_trailing"}},"#
+            : #""context":{"track_id":"track-1"},"#
+        let json = """
+        {
+          "enabled": true,
+          "revision": 7,
+          "poll_after_seconds": 30,
+          \(context)
+          "items": [
+            { "id": "fact-1", "kind": "track_fact", "text": [{ "type": "text", "value": "Vibe fact." }] }
+          ]
+        }
+        """
+        return (try httpResponse(for: request, statusCode: 200), Data(json.utf8))
+    }
+
+    let model = DJConnectAppModel(
+        playback: DJConnectPlayback(hasPlayback: true, isPlaying: true, trackName: "Strobe", artistName: "deadmau5"),
+        defaults: defaults,
+        tokenStore: DJConnectInMemoryTokenStore(token: "secret-token"),
+        urlSession: session,
+        startBackgroundTasks: false
+    )
+    model.homeAssistantURL = "http://\(host):8123"
+    model.pairingStatus = .paired
+
+    _ = await model.refreshVibeCastFeed()
+    #expect(model.vibeCastResponse?.context?.genreBadge?.displayLabel == "melodic techno")
+
+    _ = await model.refreshVibeCastFeed()
+    #expect(model.vibeCastResponse?.context?.genreBadge == nil)
+    #expect(model.vibeCastItems.first?.plainText == "Vibe fact.")
+}
+
+@MainActor
 @Test func haVersionOutsideAppMinorRangeDisablesRuntimeControls() throws {
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
@@ -8692,6 +8781,33 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     #expect(DJConnectLocalization.localized(key: "watch.app.language", language: "en") == "App Language")
 }
 
+@Test func watchAppTargetsEmbedSharedLocalizableStrings() throws {
+    let project = try loadRepositoryText("project.yml")
+    #expect(project.contains("""
+  DJConnectWatch:
+    type: application
+    platform: watchOS
+    sources:
+      - path: Apps/DJConnectWatch
+      - path: Apps/Shared/Assets.xcassets
+      - path: Sources/DJConnectCore/Resources
+"""))
+    #expect(project.contains("""
+  DJConnectWatchComplications:
+    type: app-extension
+    platform: watchOS
+    sources:
+      - path: Apps/DJConnectWatchComplications
+      - path: Sources/DJConnectCore/Resources
+"""))
+
+    let pbxproj = try loadRepositoryText("DJConnectApp.xcodeproj/project.pbxproj")
+    let watchResources = try #require(pbxproj.pbxResourcesBuildPhase(named: "12C9797D02B6425447348CA2"))
+    let complicationResources = try #require(pbxproj.pbxResourcesBuildPhase(named: "964A461C623039EE319842A2"))
+    #expect(watchResources.contains("Localizable.strings in Resources"))
+    #expect(complicationResources.contains("Localizable.strings in Resources"))
+}
+
 @Test func defaultDisplayLanguageUsesSharedAppLanguageOverrideForWidgets() throws {
     let sharedDefaults = try #require(UserDefaults(suiteName: DJConnectLocalization.appGroupIdentifier))
     let oldSharedOverride = sharedDefaults.string(forKey: DJConnectLocalization.appLanguageOverrideDefaultsKey)
@@ -8790,12 +8906,23 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
         "dev.djconnect.action.discovery",
         "dev.djconnect.action.queue"
     ])
+    let askDJShortcut = try #require(shortcutItems.first {
+        $0["UIApplicationShortcutItemType"] as? String == "dev.djconnect.action.ask-dj"
+    })
+    #expect(askDJShortcut["UIApplicationShortcutItemSubtitle"] as? String == "Ask for music")
     let discoveryShortcut = try #require(shortcutItems.first {
         $0["UIApplicationShortcutItemType"] as? String == "dev.djconnect.action.discovery"
     })
     #expect(discoveryShortcut["UIApplicationShortcutItemIconSymbolName"] as? String == "sparkles")
     #expect(discoveryShortcut["UIApplicationShortcutItemTitle"] as? String == "Discover")
     #expect(discoveryShortcut["UIApplicationShortcutItemSubtitle"] as? String == "Music DNA recommendations")
+
+    let iPhoneOrientations = try #require(plist["UISupportedInterfaceOrientations~iphone"] as? [String])
+    #expect(iPhoneOrientations == [
+        "UIInterfaceOrientationPortrait",
+        "UIInterfaceOrientationLandscapeLeft",
+        "UIInterfaceOrientationLandscapeRight"
+    ])
 }
 
 @Test func iOSInfoPlistLocalizesDiscoverShortcutStrings() throws {
@@ -8854,6 +8981,16 @@ private func loadRepositoryText(_ relativePath: String) throws -> String {
         .deletingLastPathComponent()
         .appendingPathComponent(relativePath)
     return try String(contentsOf: url, encoding: .utf8)
+}
+
+private extension String {
+    func pbxResourcesBuildPhase(named identifier: String) -> String? {
+        guard let start = range(of: "\(identifier) /* Resources */ = {"),
+              let end = self[start.upperBound...].range(of: "\n\t\t};") else {
+            return nil
+        }
+        return String(self[start.lowerBound..<end.upperBound])
+    }
 }
 
 @MainActor
