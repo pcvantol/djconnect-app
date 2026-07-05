@@ -47,6 +47,17 @@ final class DJConnectMacUITests: XCTestCase {
 
         XCTAssertTrue(app.windows.firstMatch.exists)
     }
+
+    func testSettingsShowsRepairPairingAction() {
+        let app = launchMonkeyApp()
+
+        XCTAssertTrue(app.windows.firstMatch.waitForExistence(timeout: 8))
+        app.buttons["Instellingen"].tapIfExists()
+        app.staticTexts["Instellingen"].tapIfExists()
+
+        XCTAssertTrue(app.staticTexts["Koppeling"].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.buttons["App opnieuw koppelen"].exists)
+    }
 }
 
 private extension XCUIElement {

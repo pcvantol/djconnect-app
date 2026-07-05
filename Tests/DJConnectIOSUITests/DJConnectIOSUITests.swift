@@ -163,6 +163,30 @@ final class DJConnectIOSUITests: XCTestCase {
     }
 }
 
+private func attachAndWriteScreenshot(_ screenshot: XCUIScreenshot, named name: String) throws {
+    let attachment = XCTAttachment(screenshot: screenshot)
+    attachment.name = name
+    attachment.lifetime = .keepAlways
+    XCTContext.runActivity(named: name) { activity in
+        activity.add(attachment)
+    }
+
+    let directory = ProcessInfo.processInfo.environment["DJCONNECT_SCREENSHOT_DIR"]
+        .map(URL.init(fileURLWithPath:))
+        ?? defaultScreenshotDirectory
+    try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+    try screenshot.pngRepresentation.write(to: directory.appendingPathComponent("\(name).png"))
+}
+
+private var defaultScreenshotDirectory: URL {
+    URL(fileURLWithPath: #filePath)
+        .deletingLastPathComponent()
+        .deletingLastPathComponent()
+        .deletingLastPathComponent()
+        .appendingPathComponent("tmp")
+        .appendingPathComponent("ask-dj-airplay-screenshots")
+}
+
 private extension XCUIElement {
     func tapIfExists() {
         if exists && isHittable {

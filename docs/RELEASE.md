@@ -63,13 +63,13 @@ After renewing the Apple Developer Program membership:
 - Confirm iOS signing uses automatic signing for `DJConnectIOS`.
 - Confirm macOS signing uses automatic signing for `DJConnectMac`.
 - Confirm iOS capabilities and Info.plist strings:
-  Local Network, Bonjour services, Microphone, Speech Recognition, Face ID.
+  Local Network, Bonjour services, Microphone, Speech Recognition.
 - Confirm macOS capabilities and Info.plist strings:
   Local Network, Bonjour services, Microphone, Speech Recognition.
 - Confirm app icons, launch screen, welcome screen, About screen, and website
   link match the current DJConnect branding.
 - Confirm the HA integration compatibility line is documented:
-  app `3.1.x` requires HA integration `3.1.x`.
+  app `3.2.x` requires HA integration `3.2.x`.
 - Confirm the public macOS release helper works in dry/local mode before the
   first public binary release.
 
@@ -111,6 +111,8 @@ After renewing the Apple Developer Program membership:
 swift test --no-parallel
 xcodebuild -project DJConnectApp.xcodeproj -scheme DJConnectMac -configuration Debug -destination platform=macOS -derivedDataPath .xcode-derived CODE_SIGNING_ALLOWED=NO build
 xcodebuild -project DJConnectApp.xcodeproj -scheme DJConnectIOS -configuration Debug -destination generic/platform=iOS -derivedDataPath .xcode-derived CODE_SIGNING_ALLOWED=NO build
+xcodebuild -project DJConnectApp.xcodeproj -scheme DJConnectWatch -configuration Debug -destination generic/platform=watchOS -derivedDataPath .xcode-derived CODE_SIGNING_ALLOWED=NO build
+git diff --check
 ```
 
 - Commit and push the release changes to `main`.
@@ -143,6 +145,11 @@ xcodebuild -project DJConnectApp.xcodeproj -scheme DJConnectIOS -configuration D
 - Build and run on a physical iPad.
 - Validate first-run welcome, pairing sheet, Demo Mode, Settings, About, Queue,
   Playlists, Now Playing, Push-to-Talk, permissions, and logs.
+- Validate pairing guidance uses a local Home Assistant LAN URL and does not
+  suggest remote pairing. Confirm remote fallback is only shown/used after a
+  successful local pairing response provides `ha_remote_url`.
+- Validate the runtime status surface shows Home Assistant route
+  (`local`/`remote`/`offline`), music backend availability, and playback state.
 - Validate the DJConnect blue/purple gradient canvas is visible behind every
   primary iPhone/iPad screen and that permission rows stay compact.
 - Validate Demo Mode microphone playback shows and speaks the local sample DJ
@@ -153,18 +160,31 @@ xcodebuild -project DJConnectApp.xcodeproj -scheme DJConnectIOS -configuration D
   connected.
 - Run a short Debug `--monkey-testing` session in an iPhone simulator to confirm
   non-destructive navigation/tapping does not call Home Assistant, reset
-  pairing, or mutate Keychain tokens.
+  pairing, or mutate locally stored DJConnect tokens.
 - Validate Local Network permission against a real Home Assistant instance.
 - Pair with a matching `pcvantol/djconnect` HA integration.
 - Validate playback commands, output switching, queue, playlists, liked songs,
   voice/PTT WAV upload, diagnostics export, version mismatch UI, and pairing
   reset recovery.
+- Validate diagnostics export redacts bearer tokens, pairing codes,
+  Authorization headers, secret-bearing URLs, and private HA details while
+  retaining bundle, locale, permission, route, backend, output, and playback
+  readiness fields.
+- Validate `App opnieuw koppelen` clears the local token, generates a fresh app
+  code, reopens the pairing sheet, and makes the app discoverable/pairable
+  again.
+- Validate Ask DJ route/proxy/backend failures show only localized user-facing
+  messages and never raw HTML or response bodies.
 - Archive `DJConnectIOS` in Release configuration.
 - Upload through Xcode Organizer or Transporter.
 - Wait for App Store Connect processing.
 - Complete beta/app review compliance prompts.
 - Assign TestFlight testers or submit for App Review.
 - Smoke-test the TestFlight build on a physical iPhone and iPad.
+- For App Review notes, mention that Demo Mode is available from the unpaired
+  pairing sheet for UI inspection without a private Home Assistant instance,
+  while full playback/voice validation requires the matching Home Assistant
+  DJConnect integration on the same LAN for first pairing.
 
 ### Every Release: macOS Public Notarized Binary
 
@@ -190,7 +210,7 @@ NOTARY_PROFILE=<notarytool-keychain-profile> \
 - Confirm Gatekeeper assessment succeeds.
 - Download the public zip from `pcvantol/djconnect-app-releases` on a clean Mac
   user account.
-- Launch the app, grant Keychain/Local Network/Microphone/Speech permissions as
+- Launch the app, grant Local Network/Microphone/Speech permissions as
   needed, pair with Home Assistant, and validate playback/queue/playlists/PTT.
 
 ## Public Unsigned CI Artifacts
@@ -305,7 +325,7 @@ Before an iOS/TestFlight release, make sure these are available:
   Microphone, and Speech Recognition permission validation.
 - A matching Home Assistant `djconnect` integration in the same `major.minor`
   protocol range as the app.
-- A Spotify Premium account configured through the Home Assistant integration.
+- A supported music backend configured through the Home Assistant integration.
 
 ## App Store Submission Metadata
 
@@ -330,7 +350,7 @@ Muziekbediening met karakter
 Short description / promotional text:
 
 ```text
-Bedien je muziek via Home Assistant en vraag persoonlijke DJ verzoeken aan.
+Bedien je muziek via Home Assistant en praat met Ask DJ voor persoonlijke muziekvragen en verzoeken.
 ```
 
 Full description:
@@ -341,10 +361,10 @@ de DJConnect integratie, kies je uitvoerapparaat, bedien je muziek, bekijk de
 wachtrij en afspeellijsten, en gebruik push-to-talk voor persoonlijke DJ
 aankondigingen.
 
-DJConnect bewaart geen Spotify- of Home Assistant-wachtwoorden in de app.
-Spotify Premium en de DJConnect Home Assistant integratie zijn vereist voor
-echte playback. Demo modus is beschikbaar zodat je de app-interface kunt
-bekijken zonder actieve Home Assistant backend.
+DJConnect bewaart geen muziekbackend- of Home Assistant-wachtwoorden in de app.
+Een Home Assistant DJConnect-integratie met ondersteunde muziekbackend is
+vereist voor echte playback. Demo modus is beschikbaar zodat je de app-interface
+kunt bekijken zonder actieve Home Assistant backend.
 ```
 
 Keywords:
@@ -398,17 +418,16 @@ Age rating:
 ### Review Notes
 
 ```text
-DJConnect requires the DJConnect Home Assistant integration and a Spotify
-Premium account for live playback. For review, open the app and choose Demo
+DJConnect requires the DJConnect Home Assistant integration and a supported
+Home Assistant music backend for live playback. For review, open the app and choose Demo
 modus starten from the pairing screen. Demo Mode shows local sample playback,
 queue, playlists, games, and a sample DJ announcement without requiring access
 to a private Home Assistant instance.
 
 Live setup instructions are available at https://djconnect.dev/start.
-The app requests Local Network access to reach Home Assistant and expose the
-Client adres during pairing. Microphone is used for push-to-talk voice
-requests. Speech Recognition is used only for optional foreground
-Stemactivatie.
+The app requests Local Network access to reach Home Assistant for local
+pairing. Microphone is used for push-to-talk voice requests. Speech Recognition
+is used only for optional foreground Stemactivatie.
 ```
 
 ### App Privacy Labels
@@ -435,15 +454,15 @@ None.
 Permissions and purpose strings:
 
 ```text
-Local Network: used to connect to Home Assistant on your local network and
-offer the Client adres while the app is active.
+Local Network: used to connect to Home Assistant on your local network for
+local pairing and runtime access.
 
 Microphone: used to record push-to-talk DJ requests.
 
 Speech Recognition: used for optional foreground Stemactivatie.
 
-Face ID / Touch ID / Keychain user presence: used to protect the DJConnect
-bearer token stored in the system Keychain.
+DJConnect device token: stored locally in app-private storage and cleared when
+the user chooses to pair the app again.
 ```
 
 ### macOS-Specific Notes
@@ -456,9 +475,9 @@ the website/download page.
 ## First-Run Welcome
 
 The first-launch welcome screen must show DJConnect branding, link setup to
-`https://djconnect.dev/start`, and mention that Spotify Premium is
-required. It must not ask for Spotify credentials; Spotify OAuth is configured
-in Home Assistant.
+`https://djconnect.dev/start`, and mention that playback is configured through
+Home Assistant. It must not ask for Spotify, Music Assistant, or other backend
+credentials; backend credentials are configured in Home Assistant.
 
 ## Pairing And Demo Mode
 
@@ -467,9 +486,9 @@ The sheet must show:
 
 - DJConnect banner/branding.
 - Home Assistant setup context.
-- Copyable `Client adres`.
-- Copyable app-generated pairing code.
-- Pairing progress while Home Assistant calls back.
+- Local Home Assistant URL plus pairing code/QR entry on iOS/macOS, or Watch
+  pairing code plus iPhone companion status on watchOS.
+- Pairing progress while the app or iPhone companion polls Home Assistant.
 - A green success state with `Let's Start!` after pairing completes.
 
 Demo Mode is allowed from the pairing sheet for App Store review and UI
@@ -482,9 +501,9 @@ real playback validation.
 The app declares only the permissions it needs:
 
 - Local Network: required to reach Home Assistant on the LAN and expose the
-  local Client adres while the app is active.
-- Bonjour services `_home-assistant._tcp.` and `_djconnect._tcp.`: required for
-  local HA discovery and HA -> app callbacks.
+  local pairing and runtime HA connection.
+- Bonjour service `_home-assistant._tcp.`: used for local HA discovery on
+  iOS/macOS. Apple clients do not advertise `_djconnect._tcp`.
 - Microphone: required for push-to-talk WAV uploads.
 - Speech Recognition: required for the foreground wake phrase.
 
@@ -537,13 +556,17 @@ The private source repo uses GitHub Actions only for deterministic checks:
 - unsigned macOS Debug build
 - unsigned iOS Debug generic build
 
+On `main` pushes and manual CI runs, the CI workflow also removes older
+completed GitHub Actions runs after the deterministic checks finish, keeping the
+newest 2 completed runs per workflow. Pull requests never run this cleanup.
+
 The `TestFlight beta` workflow is intentionally manual-only. It has no push or
 tag trigger and must never be used without explicit maintainer approval, an
 explicit semantic version, and an explicit matching source tag. To run it,
 choose **Run workflow** and provide:
 
-- `version`: for example `3.1.31`;
-- `tag`: the exact matching source tag, for example `v3.1.31`;
+- `version`: for example `3.2.0`;
+- `tag`: the exact matching source tag, for example `v3.2.0`;
 - `confirm_upload`: exactly `UPLOAD_TESTFLIGHT`.
 
 The workflow uses the protected `testflight-beta` GitHub Environment, checks out
@@ -584,22 +607,19 @@ repository environments/secrets. Configure required reviewers on the
 
 ## Current Local Verification
 
-For release `3.1.23`, local verification was completed with:
+For release `3.2.0`, local verification was completed with:
 
 ```sh
 swift test --no-parallel
 xcodebuild -project DJConnectApp.xcodeproj -scheme DJConnectMac -configuration Debug -destination platform=macOS -derivedDataPath .xcode-derived-mac CODE_SIGNING_ALLOWED=NO build
 xcodebuild -project DJConnectApp.xcodeproj -scheme DJConnectIOS -configuration Debug -destination generic/platform=iOS -derivedDataPath .xcode-derived-ios-generic CODE_SIGNING_ALLOWED=NO build
-xcodebuild -quiet -project DJConnectApp.xcodeproj -scheme DJConnectIOS -configuration Debug -destination 'platform=iOS Simulator,name=iPhone 17 Pro' -derivedDataPath .xcode-derived-monkey -only-testing:DJConnectIOSUITests/DJConnectIOSUITests/testMonkeyModeSafeNavigationSmoke -test-iterations 22 -test-repetition-relaunch-enabled YES test
-xcodebuild -quiet -project DJConnectApp.xcodeproj -scheme DJConnectMac -configuration Debug -destination platform=macOS -derivedDataPath .xcode-derived-mac-monkey -only-testing:DJConnectMacUITests/DJConnectMacUITests/testMonkeyModeSafeNavigationSmoke test
+xcodebuild -project DJConnectApp.xcodeproj -scheme DJConnectWatch -configuration Debug -destination generic/platform=watchOS -derivedDataPath .xcode-derived-watch-generic CODE_SIGNING_ALLOWED=NO build
+git diff --check
 ```
 
-The Xcode toolchain was Xcode 26.5 (`17F42`). The repeated iPhone simulator
-monkey-smoke run completed successfully in 615 seconds. The short macOS
-monkey-smoke run completed successfully; the longer repeated macOS soak was
-started and then intentionally interrupted, so it is not counted as release
-verification. These checks do not replace signed archive validation, TestFlight
-processing, notarization, or physical device permission testing.
+The Xcode toolchain was Xcode 26.5 (`17F42`). These checks do not replace
+signed archive validation, TestFlight processing, notarization, or physical
+device permission testing.
 
 ## macOS Notarization
 
@@ -614,7 +634,7 @@ The local helper script packages and uploads public macOS releases:
 PUBLIC_REPO=pcvantol/djconnect-app-releases \
 DEVELOPMENT_TEAM=<APPLE_TEAM_ID> \
 NOTARY_PROFILE=<notarytool-keychain-profile> \
-./Tools/release/release_macos_public.sh --version 3.1.23
+./Tools/release/release_macos_public.sh --version 3.2.0
 ```
 
 Create the notary profile once with:
@@ -658,8 +678,11 @@ successful release unless `--no-cleanup` is passed.
 Use a Home Assistant instance with the matching `djconnect` integration.
 
 - Pair from the app-generated code and confirm HA creates the app device.
-- Confirm the Client adres shown during pairing remains stable after pairing
-  and after app restart until explicit pairing reset.
+- Confirm iOS/macOS pair only through local `/api/djconnect/v1/pair`, store
+  `ha_local_url` plus optional `ha_remote_url`, and show no Client adres.
+- Confirm watchOS actions, status, Ask DJ history, clear history, voice/PTT,
+  and push registration run through the paired iPhone proxy and preserve
+  `client_type:"watchos"`.
 - Confirm Demo Mode can be entered from the unpaired pairing sheet and exited
   from Settings without creating HA state.
 - Confirm the app accepts only matching `major.minor` HA integration versions
@@ -673,7 +696,7 @@ Use a Home Assistant instance with the matching `djconnect` integration.
 - Start liked songs through `start_liked_proxy`.
 - Confirm setup, Settings, onboarding, and command payloads do not expose or
   send legacy `spotify_source` or `liked_proxy_playlist_uri` overrides.
-- Record Push-to-Talk and verify WAV upload to `/api/djconnect/voice`.
+- Record Push-to-Talk and verify WAV upload to `/api/djconnect/v1/voice`.
 - Copy diagnostics export and confirm no bearer token, pairing code, or query
   token appears.
 
@@ -683,12 +706,15 @@ The source tree can only provide deterministic unit tests without a HA fixture.
 For end-to-end UI tests, provide either:
 
 - a real HA URL plus test integration credentials on the local network; or
-- a recorded/mock HA server that implements `/api/djconnect/pair`,
-  `/api/djconnect/status`, `/api/djconnect/command`, and
-  `/api/djconnect/voice`.
+- a recorded/mock HA server that implements `/api/djconnect/v1/pair`,
+  `/api/djconnect/v1/status`, `/api/djconnect/v1/command`, and
+  `/api/djconnect/v1/voice`.
 
 The `DJConnectIOSUITests` target now launches the iOS app in deterministic
-`--uitesting` mode with isolated defaults and a mock Home Assistant URL. Extend
-that target with a real mock server fixture for pairing, output selection,
-queue, playlist/liked proxy, voice upload, stale auth, and backend unavailable
-states.
+`--uitesting` mode with isolated defaults and a mock Home Assistant URL. The
+iOS and macOS UI tests include smoke coverage for primary navigation, local
+Demo Mode, Games entry, Settings, and the `App opnieuw koppelen` action.
+Extend those targets with a real mock server fixture for pairing, output
+selection, queue, playlist/liked proxy, Ask DJ history sync, voice upload,
+stale auth, backend unavailable states, and sanitized backend/HTML error
+responses.

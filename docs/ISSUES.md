@@ -111,10 +111,11 @@ need a mock Home Assistant server or a live test Home Assistant environment.
 
 Acceptance:
 
-- UI tests cover first-run welcome, settings URL entry, app-generated pairing
-  code, Client adres copy, Demo Mode entry/exit, successful pairing, version
-  mismatch, stale auth, compact permission rows, Demo Mode microphone response,
-  and the local Games menu.
+- UI tests cover first-run welcome, local Home Assistant URL/code entry,
+  Watch/iPhone companion pairing status, Demo Mode entry/exit, successful
+  pairing, version mismatch, stale auth, compact permission rows, Demo Mode
+  microphone response, `App opnieuw koppelen`, Ask DJ error sanitizing, and the
+  local Games menu.
 - Tests can run deterministically without a production Home Assistant instance.
 
 ### ISS-014: Add Hardware Keyboard UI Coverage For Games
@@ -133,35 +134,36 @@ Acceptance:
 
 ## Security Hardening
 
-### ISS-011: Validate Keychain Biometry UX On Devices
+### ISS-011: Validate App-Storage Token Reset UX
 
 Priority: medium
 
-New DJConnect bearer token writes use Keychain user-presence access control.
-Validate the actual prompts and fallback behavior on supported Macs, iPhones,
-and iPads.
+DJConnect bearer tokens now live in app-private storage instead of Keychain.
+Validate that pairing, relaunch, reset, and stale-auth recovery behave
+predictably on supported Macs, iPhones, iPads, and Apple Watch.
 
 Acceptance:
 
-- macOS shows Touch ID where available and password fallback otherwise.
-- iOS shows Face ID/Touch ID where available and passcode fallback otherwise.
-- Denying Keychain access shows the app-level recovery sheet and retrying opens
-  the platform prompt again.
-- A successful unlock does not repeatedly prompt during the same app session.
+- Pairing never triggers a Keychain access prompt.
+- App relaunch keeps the stored DJConnect token and stays paired.
+- `App opnieuw koppelen` clears the locally stored token and opens the pairing
+  sheet.
+- Stale auth and backend errors do not clear the token until explicit reset.
 
-### ISS-012: Bound Local API Request Size
+### ISS-012: Bound Incoming Payload Size
 
 Priority: high
 
-The local Client API should reject oversized headers and request bodies to
-avoid unnecessary memory growth from malformed LAN traffic.
+Home Assistant responses, iPhone-mediated Watch proxy payloads, and local
+diagnostics imports should reject oversized payloads to avoid unnecessary memory
+growth from malformed traffic or fixtures.
 
 Acceptance:
 
-- Local API request headers have a maximum size.
-- Local API request bodies have a maximum size.
-- Oversized requests receive a clear `413` or equivalent failure response.
-- Normal pairing, command, DJ response, and forget requests still pass.
+- HTTP response bodies and Watch proxy payloads have a maximum size.
+- Oversized payloads receive a clear user-facing failure without token loss.
+- Normal pairing, command, Ask DJ history, voice, and push registration flows
+  still pass.
 
 ### ISS-013: Centralize Runtime Log Redaction
 

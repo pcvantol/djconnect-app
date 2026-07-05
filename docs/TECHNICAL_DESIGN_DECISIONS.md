@@ -36,7 +36,7 @@ Niet aangetroffen in de repo op 2026-06-14:
 
 De app is opgesplitst in twee gedeelde Swift targets:
 
-- `DJConnectCore`: platformonafhankelijke contractmodellen, Keychain-opslag,
+- `DJConnectCore`: platformonafhankelijke contractmodellen, app-tokenopslag,
   API-contracten en basislogica.
 - `DJConnectUI`: gedeelde SwiftUI UI, app-state, client-API hosting,
   platformadaptatie, audio, speech, logging en featureflows.
@@ -99,12 +99,12 @@ bijgewerkt.
 | Declarative UI composition | SwiftUI views in `Sources/DJConnectUI` | Houdt iOS/macOS UI consistent en state-driven. |
 | DTO / Codable contract models | Core/UI response- en requestmodellen | Maakt Home Assistant API-contracten expliciet en testbaar. |
 | Gateway / API client | DJConnect command- en refresh-aanroepen via clientlaag | Isoleert HTTP, bearer-token headers, redactie en decodefouten. |
-| Service adapters | Keychain, logging, local API, permissions, speech/audio, Bonjour | Houdt platform-API's buiten de viewlaag. |
+| Service adapters | App storage, logging, local API, permissions, speech/audio, Bonjour | Houdt platform-API's buiten de viewlaag. |
 | State machine UI | Pairing, unpaired, paired, stale, demo, connecting, unavailable | Maakt disabling, overlays, foutmeldingen en herstelpaden voorspelbaar. |
 | Async/await concurrency | Netwerk, refresh, voice upload, file logging | Voorkomt blokkeren van de main thread en houdt UI responsief. |
 | `@MainActor` UI isolation | Appmodel en UI-mutaties | Beschermt SwiftUI state tegen thread-races. |
 | Conditional compilation | `#if os(iOS)`, `#if os(macOS)` | Eén gedeelde codebase met native platformgedrag. |
-| Secure storage | Keychain wrappers in Core | Device-token staat niet in plain UserDefaults. |
+| Token storage | App-private storage wrapper in Core | Device-token blijft lokaal en resetbaar zonder Keychain prompts. |
 | Redacted diagnostics | Log export en rolling file logging | Debuggbaar zonder tokens of secrets te lekken. |
 | Local fixture/demo data | Demo mode, games, UI-test flows | App Store review en testbaarheid zonder live Home Assistant. |
 
@@ -223,7 +223,7 @@ vastlegt, staat "niet gepind".
 
 | Component | Gebruik | Versie / pin in repo | Licentie / voorwaarden | Source |
 | --- | --- | --- | --- | --- |
-| DJConnect app code | iOS/macOS app, Core, UI en tooling | `MARKETING_VERSION` in `project.yml` | MIT License | <https://github.com/pcvantol/djconnect-app> |
+| DJConnect app code | iOS/macOS/watchOS app, Core, UI en tooling | `MARKETING_VERSION` in `project.yml` | MIT License | <https://github.com/pcvantol/djconnect-app> |
 | Swift | Programmeertaal en standaardbibliotheek | Swift tools 6.0, `SWIFT_VERSION` 6.0 | Apache License 2.0 met Runtime Library Exception | <https://github.com/swiftlang/swift> |
 | Swift Package Manager | Module/build layout | Swift tools 6.0 | Apache License 2.0 | <https://www.swift.org/package-manager/> |
 | Foundation | Data, URL, JSON, filesystem, dates | Apple SDK, iOS 26+/macOS 26+ | Apple SDK terms | <https://developer.apple.com/documentation/foundation> |
@@ -234,7 +234,7 @@ vastlegt, staat "niet gepind".
 | AVFoundation | Audio playback/recording en speech/audio flows | Apple SDK | Apple SDK terms | <https://developer.apple.com/documentation/avfoundation> |
 | Speech | Speech recognition permission en wake phrase support | Apple SDK | Apple SDK terms | <https://developer.apple.com/documentation/speech> |
 | Network | Lokale HTTP listener en netwerkconstructies | Apple SDK | Apple SDK terms | <https://developer.apple.com/documentation/network> |
-| Security | Keychain tokenopslag | Apple SDK | Apple SDK terms | <https://developer.apple.com/documentation/security> |
+| Storage | App-private tokenopslag | Apple Foundation | Apple SDK terms | <https://developer.apple.com/documentation/foundation/userdefaults> |
 | OSLog | Platform logging | Apple SDK | Apple SDK terms | <https://developer.apple.com/documentation/os/logging> |
 | Darwin | Platform/system calls en conditional utilities | Apple SDK | Apple SDK terms | <https://developer.apple.com/documentation/darwin> |
 | CoreGraphics | Icon/tool image processing | Apple SDK, tooling only | Apple SDK terms | <https://developer.apple.com/documentation/coregraphics> |

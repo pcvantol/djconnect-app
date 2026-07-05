@@ -18,8 +18,8 @@ install identity.
   "device_id": "djconnect-ios-8F3A2C91B45D",
   "device_name": "DJConnect iPhone",
   "client_type": "ios",
-  "firmware": "3.1.23",
-  "app_version": "3.1.23",
+  "firmware": "3.2.0",
+  "app_version": "3.2.0",
   "platform": "ios"
 }
 ```
@@ -67,7 +67,7 @@ client-provided memory key. Clients must not store long-term DJ Memory locally.
 ## Pairing
 
 ```http
-POST /api/djconnect/pair
+POST /api/djconnect/v1/pair
 Content-Type: application/json
 X-DJConnect-Device-ID: <device_id>
 ```
@@ -79,8 +79,8 @@ Payload:
   "device_id": "djconnect-macos-8F3A2C91B45D",
   "device_name": "DJConnect Mac",
   "client_type": "macos",
-  "firmware": "3.1.23",
-  "app_version": "3.1.23",
+  "firmware": "3.2.0",
+  "app_version": "3.2.0",
   "platform": "macos",
   "pair_code": "123456",
   "pairing_code": "123456",
@@ -88,9 +88,11 @@ Payload:
 }
 ```
 
-Standalone watchOS clients use the same pairing endpoint and token contract,
-with `device_id` such as `djconnect-watchos-8F3A2C91B45D`,
-`client_type: "watchos"`, and `platform: "watchos"`.
+watchOS is a companion-only client. The Watch uses a stable Watch identity such
+as `djconnect-watchos-8F3A2C91B45D` with `client_type: "watchos"` and
+`platform: "watchos"`, but pairing, token ownership, transport selection,
+status, commands, Ask DJ history, voice upload, and push registration are
+mediated by the paired iPhone companion over WatchConnectivity.
 
 The app-generated code is sent as `pair_code`, `pairing_code`, and
 `pairing_token` for compatibility with current Home Assistant integration
@@ -107,6 +109,8 @@ Expected response:
   "device_id": "djconnect-macos-8F3A2C91B45D",
   "client_type": "macos",
   "ha_local_url": "http://192.168.1.13:8123",
+  "ha_remote_url": "https://example.ui.nabu.casa",
+  "remote_supported": true,
   "device_language": "nl",
   "language": "nl"
 }
@@ -115,87 +119,80 @@ Expected response:
 The app also accepts `bearer_token` or `token` for compatibility, but
 `device_token` is preferred while the Home Assistant route keeps that field
 name. After successful pairing, the app stores only the returned DJConnect
-bearer token in Keychain and persists `ha_local_url`, `device_id`, and
-`client_type`. App-to-HA runtime traffic must always use `ha_local_url`;
-cloud/remote URLs are reserved for Home Assistant-owned Spotify OAuth config
-flows and are not used for status, command, or voice requests. Do not use legacy
-`ha_url`.
+bearer token in app-private storage and persists `ha_local_url`, optional
+`ha_remote_url`, `device_id`, and `client_type`. App-to-HA runtime traffic uses
+`ha_local_url` first after local pairing, then `ha_remote_url` when local access
+is unavailable and remote is supported. Do not use legacy `ha_url`.
 
 ## Local App Web API
 
-The iOS/macOS app hosts a small local Web API for Home Assistant -> app
-traffic while the app is active/reachable. While the app is pairable, it
-advertises Bonjour/mDNS service `_djconnect._tcp` with TXT fields including
-`name`, `device_id`, `version`, `paired`, `api`, `model`, and `client_type`.
-Once pairing is complete, the app keeps the local HTTP API available while it
-is running, but disables Bonjour advertising to reduce network and battery
-impact. Explicit pairing reset enables Bonjour advertising again.
+iOS and macOS no longer host a Home Assistant-callable local Web API and no
+longer advertise `_djconnect._tcp`. These Apple clients must not expose
+`/api/device/info`, `/api/device/pairing-info`, `/api/device/pair`,
+`/api/device/command`, `/api/device/dj_response`, or `/api/device/forget` as HA
+callback routes.
 
-User-facing app text calls this endpoint the `Client adres`. The URL shown
-in the pairing sheet must be the URL Home Assistant uses for the local
-callback. After successful local pairing, the app pins that URL in local state
-and keeps it stable until explicit pairing reset.
+watchOS remains iPhone-mediated. The Watch itself never exposes a LAN endpoint
+or direct HA remote/local contract; when Watch identity metadata is needed it
+keeps `client_type: "watchos"` and the paired iPhone handles transport. The
+active Watch runtime is not a Home Assistant callback endpoint; it is a
+WatchConnectivity request proxy from Watch to iPhone to Home Assistant.
 
-Open endpoints:
+## APNs Push Registration
 
-```http
-GET /api/device/info
-GET /api/device/pairing-info
-```
-
-Pairing callback:
+Apple clients register APNs device tokens with Home Assistant through the
+authenticated Home Assistant endpoint:
 
 ```http
-POST /api/device/pair
+POST /api/djconnect/v1/push/register
+Authorization: Bearer <device_token>
 Content-Type: application/json
 ```
 
-`POST /api/device/pair` accepts this app installation's `device_id`,
-`client_type`, visible app `pair_code`, returned `device_token`, HA URLs, and
-language metadata. It stores only the DJConnect bearer token and HA/app
-settings.
+macOS clients must send `client_type: "macos"` and a matching `device_id` in
+the form `djconnect-macos-XXXXXXXXXXXX`, where the suffix is the first 12
+alphanumeric characters of the stable app install/client ID. iOS and watchOS use
+the same contract with their own `client_type` and device ID prefixes.
 
-Expected callback payload:
-
-```json
-{
-  "pair_code": "555293",
-  "device_id": "djconnect-macos-8F3A2C91B45D",
-  "device_name": "DJConnect Mac",
-  "client_type": "macos",
-  "device_language": "nl",
-  "language": "nl",
-  "device_token": "<djconnect bearer token>",
-  "ha_local_url": "http://192.168.1.13:8123",
-  "assist_pipeline_id": "preferred"
-}
-```
-
-Success response:
+Expected macOS payload:
 
 ```json
 {
-  "success": true,
-  "device_id": "djconnect-macos-8F3A2C91B45D",
   "client_type": "macos",
-  "paired": true
+  "device_id": "djconnect-macos-8F3A2C91B45D",
+  "push_token": "<apns-device-token>",
+  "push_environment": "sandbox",
+  "app_bundle_id": "dev.djconnect.mac",
+  "app_version": "3.2.0",
+  "locale": "nl-NL",
+  "notification_categories": ["ask_dj"],
+  "bootstrap_proof": "<short-lived proof when available>"
 }
 ```
 
-Protected endpoints require:
+The app registers after APNs returns a device token and Home Assistant auth is
+available. It retries registration when the APNs token, environment, bundle ID,
+app version, locale, Home Assistant pairing, or local registration state
+changes. Registration failures must be logged without bearer tokens, APNs
+tokens, or `bootstrap_proof` values.
+
+Home Assistant may respond with `push_supported`, `push_registered`,
+`push_environment`, and `last_push_error`. Expected recoverable failures include
+`missing_bootstrap_proof`, `missing_install_token`, and
+`push_relay_unavailable`; normal Ask DJ traffic must continue even when push is
+disabled or best-effort.
+
+Unpairing or logout calls:
 
 ```http
+POST /api/djconnect/v1/push/unregister
 Authorization: Bearer <device_token>
 ```
 
-```http
-POST /api/device/command
-POST /api/device/dj_response
-POST /api/device/forget
-```
-
 The Apple app does not implement ESP-only `/api/device/reboot` or
-`/api/device/ota` routes.
+`/api/device/ota` routes. Starting with protocol 3.2, iOS and macOS also do not
+host Home Assistant-callable `/api/device/*` pairing, command, DJ response, or
+forget callbacks and do not advertise themselves through `_djconnect._tcp`.
 
 Demo Mode is not part of the Home Assistant API contract. It is local sample
 state for App Store review and UI inspection, and must not create HA devices,
@@ -206,7 +203,7 @@ treated as successful HA voice validation.
 ## Status
 
 ```http
-POST /api/djconnect/status
+POST /api/djconnect/v1/status
 ```
 
 Minimum payload:
@@ -217,28 +214,105 @@ Minimum payload:
   "device_name": "DJConnect iPhone",
   "client_type": "ios",
   "ha_pairing_status": "paired",
-  "firmware": "3.1.23",
-  "app_version": "3.1.23",
+  "firmware": "3.2.0",
+  "app_version": "3.2.0",
   "state": "online",
   "status": "online",
   "battery_percent": 85,
   "language": "nl",
   "theme": "dark",
   "log_level": "info",
-  "ha_local_url": "http://192.168.1.13:8123",
-  "local_url": "http://192.168.1.105:51193"
+  "ha_local_url": "http://192.168.1.13:8123"
 }
 ```
+
+Pairing, status, command, and Ask DJ responses may include the 3.2 backend and
+transport summary:
+
+```json
+{
+  "ha_local_url": "http://192.168.1.13:8123",
+  "ha_remote_url": "https://example.ui.nabu.casa",
+  "remote_supported": true,
+  "music_backend": "music_assistant",
+  "music_backend_name": "Music Assistant",
+  "music_backend_available": true,
+  "music_backend_revision": 4,
+  "music_backend_capabilities": {
+    "supports_search": true,
+    "supports_queue": true,
+    "supports_outputs": true,
+    "supports_favorites": false,
+    "supports_recently_played": true,
+    "supports_top_items": false
+  },
+  "music_target_player": {
+    "id": "media_player.mass_woonkamer",
+    "name": "Woonkamer"
+  },
+  "music_backend_error": null
+}
+```
+
+`music_backend_error` may also be a safe object from Home Assistant, for
+example `{"code":"supports_recently_played","message":"The selected music
+backend does not provide recent listening history."}`. Apple clients display
+the user-facing `message` when present and keep the compact `code` as fallback
+diagnostic context.
+
+iOS/macOS use `ha_local_url` first after successful local pairing, then
+`ha_remote_url` when local access is unreachable and remote is supported.
+watchOS requests remain mediated by iPhone.
+
+## VibeCast
+
+```http
+GET /api/djconnect/v1/vibecast
+```
+
+Home Assistant may return artist shout-out artwork through proxied DJConnect
+image URL fields. Clients must render only those proxied DJConnect URLs and
+must not follow direct external catalog, Wikipedia, Spotify, or artist-search
+URLs.
+
+```json
+{
+  "revision": 42,
+  "ttl_seconds": 60,
+  "poll_after_seconds": 20,
+  "context": {
+    "artist_image_url": "/api/djconnect/v1/proxy/images/artist.jpg"
+  },
+  "items": [
+    {
+      "kind": "artist_fact",
+      "title": "Artist shout-out",
+      "text": "Artist fact text.",
+      "image_url": "/api/djconnect/v1/proxy/images/artist-fact.jpg",
+      "thumbnail_url": "/api/djconnect/v1/proxy/images/artist-thumb.jpg",
+      "image_alt": "Portrait of Artist Name",
+      "image_source": "musicbrainz"
+    }
+  ]
+}
+```
+
+The preferred artist visual is `items[].image_url` on the `artist_fact` item,
+falling back to that item's `thumbnail_url`, then `context.artist_image_url`.
+If all image fields are missing, existing text-only VibeCast rendering remains
+unchanged. `image_alt` may be used for accessibility labels; `image_source` is
+debug metadata and not prominent user-facing copy. Polling and cache freshness
+stay based on `revision`, `ttl_seconds`, and `poll_after_seconds`.
 
 ## Commands
 
 ```http
-POST /api/djconnect/command
+POST /api/djconnect/v1/command
 ```
 
 Command payloads are focused on playback commands and client identity. Do not
-send partial status snapshots in `/api/djconnect/command`; use
-`/api/djconnect/status` as the authoritative source for client status and
+send partial status snapshots in `/api/djconnect/v1/command`; use
+`/api/djconnect/v1/status` as the authoritative source for client status and
 settings mirrored into Home Assistant entities.
 
 Examples:
@@ -354,13 +428,14 @@ Compatibility rules:
   refresh Now Playing and the queue; Home Assistant should return a queue
   context whenever queue row playback is supported.
 
-## Client adres Stability
+## Home Assistant URL Stability
 
-The app must keep the local Client adres stable across successful pairing.
-Home Assistant pairs by calling the URL shown by the app, then continues to use
-that same endpoint for app callbacks and status/control flows. The app may
-restart the local listener when pairing is reset or the install identity changes,
-but not as a side effect of accepting `/api/device/pair`.
+After successful local pairing, the app stores the Home Assistant installation
+metadata returned by the integration: `ha_local_url`, optional `ha_remote_url`,
+remote support, client identity, protocol version, and music-backend summary.
+The app must not use `ha_remote_url` for first pairing. Runtime calls use local
+first, remote second for iOS/macOS, and offline when neither endpoint is
+reachable.
 
 Fresh installs should present `http://homeassistant.local:8123` as the default
 Home Assistant URL. This is only a UI default; runtime app-to-HA requests must
@@ -369,26 +444,58 @@ still use the paired `ha_local_url` returned by Home Assistant after pairing.
 ## Ask DJ Text
 
 ```http
-POST /api/djconnect/ask
+POST /api/djconnect/v1/ask_dj/message
 Content-Type: application/json
 ```
 
 The Apple clients send free-form Ask DJ text to Home Assistant. Home Assistant
 owns intent classification, current playback lookup, output-device lookup,
 Spotify mutations, DJ response generation, and optional TTS. The app must not
-hardcode Ask DJ intent families client-side.
+hardcode Ask DJ intent families client-side, parse visible response text to
+infer actions, or attach artwork/media from previous bubbles. Clients render
+only the text, messages, images, links, sources, audio, items, and actions
+returned by the current backend response.
+
+iOS, macOS, and watchOS surface DJ requests through Ask DJ. Now Playing does
+not expose a separate `DJ verzoek` block on Apple clients. rbpi does not have a
+separate rich DJ request UI, and ESP32 remains outside this Ask DJ rich chat UI
+contract.
 
 Minimum payload:
 
 ```json
 {
   "device_id": "djconnect-ios-8F3A2C91B45D",
+  "device_name": "Peter's iPhone",
+  "client_id": "djconnect-ios-8F3A2C91B45D",
   "client_type": "ios",
   "text": "Voeg dit nummer toe aan mijn favorieten",
+  "audio_response": "auto",
   "dj_style": "warm_radio_dj",
-  "memory_key": "djconnect_ios_djconnect-ios-8F3A2C91B45D"
+  "memory_key": "djconnect_ios_djconnect-ios-8F3A2C91B45D",
+  "metadata": {
+    "trigger": "manual"
+  }
 }
 ```
+
+`audio_response` may be `auto`, `always`, or `never`; Apple text chat defaults
+to `auto`. Missing `audio_url` is a normal successful response for
+informational text answers. Replay UI is shown only when
+`assistant_message.audio_url` or top-level `audio_url` is present.
+
+Apple clients include stable identity fields in Ask DJ message and command
+payloads: `device_id`, `device_name`, `client_id`, and `client_type`.
+`client_id` currently matches `device_id` and is included for compatibility
+with backends that key history, follow-up state, or diagnostics by client.
+
+`metadata` is optional and backend-owned. Clients may use it to signal context
+triggers without adding client-side intent logic. The planned morning startup
+flow sends `metadata.trigger == "morning_startup"` with text such as
+`Goedemorgen` or `Good morning` when the app starts in the morning and no active
+playback is known. Home Assistant should treat this as a normal Ask DJ request
+and may answer with text, media, audio, recommendations, or follow-up actions.
+Clients must not automatically start music solely because this trigger is sent.
 
 The Home Assistant integration should support at least these Ask DJ intent
 families in addition to general informational questions and playback control:
@@ -413,6 +520,13 @@ families in addition to general informational questions and playback control:
   waar ik rustig van word`, `Ik wil even kalme muziek zonder vocals`. English
   examples: `I am tired and overstimulated, play relaxing music I will enjoy`,
   `play something calming that I usually like`, `put on something low energy`.
+- `change_music_context`: interpret broad requests to hear something else as a
+  playback-changing intent. Dutch examples: `Ik wil wat anders horen`, `Doe
+  maar iets anders`, `Zet iets anders op`, `Verras me met iets heel anders`,
+  `Ik ben dit zat, draai wat anders`. English examples: `I want to hear
+  something else`, `play something different`, `put on something else`,
+  `surprise me with something completely different`, `I am tired of this, play
+  something else`.
 - `personal_music_profile_analysis`: describe the user's listening profile over
   a requested period without changing playback. Dutch examples: `Omschrijf eens
   waar ik zoal naar luisterde de afgelopen maand`, `Wat zegt mijn muziek van de
@@ -449,25 +563,35 @@ families in addition to general informational questions and playback control:
   English examples: `tell me about this song`, `what year was this released?`,
   `where is this artist from?`, `what samples are used?`, `does this artist
   have concerts in the Netherlands?`, `why did you choose this track?`.
-- `track_musical_analysis`: answer musicological or production-analysis
-  questions about the current track without changing playback. Dutch examples:
-  `Analyseer dit nummer muzikaal`, `Welke instrumenten hoor ik?`, `Hoe is dit
-  nummer opgebouwd?`, `Wat maakt deze productie zo goed?`, `Welke trucjes
-  gebruikt de producer hier?`, `Waarom werkt deze drop zo goed?`, `Leg de
-  akkoorden en opbouw uit`. English examples: `analyze this track musically`,
-  `what instruments are used here?`, `how is this song structured?`, `what
-  production tricks are used?`, `why does this drop work?`.
+- `technical_track_analysis`: answer technical/musical analysis questions about
+  the current track without changing playback. Dutch examples: `Geef een
+  technische track analyse van dit nummer`, `Analyseer deze track`, `Wat is de
+  bpm en opbouw van deze track?`, `Welke instrumenten hoor je hierin?`, `Hoe
+  zit intro, couplet, refrein en breakdown in elkaar?`. English examples:
+  `Give me a technical analysis of this song`, `What is the BPM, key and
+  structure of this track?`, `Why does this track work so well?`.
 
 For `favorite_current_track`, Home Assistant should use the current playback
 context if the request uses deictic language such as `dit nummer`, `deze track`,
-`this song`, or `current track`. It should return a normal DJ text response
-after the mutation succeeds. If no current track exists, return `success:false`
-or a clear `dj_text` explaining that nothing is playing.
+`this song`, or `current track`. It should support adding and removing the
+current Spotify track from liked songs. Current favorite state is backend-owned:
+clients may display `playback.is_liked`, `playback.favorite_status`, or Ask DJ
+action metadata, but must show an inactive neutral favorite button when status
+is unknown. Direct clients use `POST /api/djconnect/v1/command` with
+`{"command":"set_current_track_favorite","value":true}` to add and
+`{"command":"set_current_track_favorite","value":false}` to remove. Legacy
+`save_current_track` may still work, but new clients should use
+`set_current_track_favorite`. It should return a normal DJ text response after
+the mutation succeeds. If no current track exists, return `success:false` or a
+clear `dj_text` explaining that nothing is playing.
 
 For output-device information, Home Assistant should return a textual summary
-in `dj_text` and may include structured `devices` on the response in the
-future, but current Apple clients only require text. Do not treat output-info
-questions as playback-transfer commands.
+in `dj_text` and may include structured output `playback_actions` when it wants
+Apple clients to offer direct speaker activation from Ask DJ. Clients render
+output actions as vertical rows with the speaker name on the left and an
+`Actief`/`Activeer` button on the right. Do not treat output-info questions as
+playback-transfer commands unless the user selects an explicit output action or
+otherwise asks to switch speakers.
 
 For `personalized_mood_playback`, Home Assistant should combine the user's
 described mood, current time/context, playback history, likes/skips, DJ Memory,
@@ -477,6 +601,18 @@ It should avoid brittle keyword-only routing: phrases such as `moe`,
 `overstimulated`, and `low energy` should be interpreted semantically. If no
 preferred output is active, use the current/preferred DJConnect output or return
 a clear DJ response asking the user to choose a speaker.
+
+For `change_music_context`, Home Assistant should treat broad phrases like `Ik
+wil wat anders horen` as an explicit request to change playback, not merely as
+an informational recommendation question. It should use current playback,
+recent listening, skips/likes, DJ Memory, mood, and output context to pick
+something meaningfully different while still fitting the user. "Different" may
+mean a different artist, genre, era, energy level, playlist, or album context;
+avoid simply restarting the same track, replaying the current artist by default,
+or making a tiny queue-only change unless that is clearly requested. If no
+output is active, use the current/preferred DJConnect output or ask the user to
+choose one. Return DJ text explaining the switch and include playback metadata
+or `audio_url` when available.
 
 For `personal_music_profile_analysis`, Home Assistant should answer questions
 about the user's listening patterns over a user-provided or inferred period
@@ -534,7 +670,8 @@ When the response contains concrete playable recommendations, Home Assistant
 should also return `playback_actions`. Apple clients render these as explicit
 `Play Now` buttons. Tapping such a button sends a follow-up command to Home
 Assistant, so recommendations remain informational until the user explicitly
-chooses one.
+chooses one. Clients render `Play Now` only for `playback_actions` with
+`kind` equal to `track`, `album`, `playlist`, `artist`, or `track_mix`.
 
 ```json
 {
@@ -573,20 +710,154 @@ The follow-up command is:
   "command": "ask_dj_play_recommendation",
   "play": true,
   "value": {
+    "id": "spotify:track:123",
     "title": "Track Title",
     "subtitle": "Artist Name",
     "uri": "spotify:track:123",
     "context_uri": "spotify:album:456",
     "offset_uri": "spotify:track:123",
     "kind": "track",
-    "memory_key": "djconnect_ios_djconnect-ios-8F3A2C91B45D"
+    "image_url": "/api/djconnect/proxy/image/album-456.jpg",
+    "reason": "Past bij je recente voorkeur voor melodische opbouw."
   }
 }
 ```
 
+The `value` is the full selected `playback_action` object returned by Home
+Assistant. Clients must not reconstruct original prompts or add local memory
+fields to the action payload.
+
+If the command response returns `error:"no_active_output"` and
+`action:"select_output"` with speaker `playback_actions`, clients render those
+speaker actions in Ask DJ. When the user taps a speaker action whose command is
+`ask_dj_play_request_on_output` or `ask_dj_play_recommendation_on_output`, the
+client posts that action's `command` and full returned `value` unchanged to
+`POST /api/djconnect/v1/command`. The backend then sets output and replays the
+original request server-side.
+
 Home Assistant owns the final Spotify playback decision. It may start a track,
 album, artist, or playlist directly from `uri`, or use `context_uri` plus
 `offset_uri` when Spotify requires contextual playback.
+
+Backend follow-up and confirmation questions are also returned as
+`playback_actions`. Apple clients render them as buttons and send the selected
+action back to Home Assistant; the backend owns pending follow-up state,
+validation, and final intent execution. A generic yes/no clarification can use
+the same action shape:
+
+```json
+{
+  "intent": "change_music_context",
+  "action": "needs_confirmation",
+  "dj_text": "Wil je dat ik nu iets anders opzet?",
+  "playback_actions": [
+    {
+      "id": "yes",
+      "title": "Ja",
+      "kind": "confirmation",
+      "action_style": "confirmation",
+      "response_value": "yes",
+      "command": "ask_dj_followup_response"
+    },
+    {
+      "id": "no",
+      "title": "Nee",
+      "kind": "confirmation",
+      "action_style": "confirmation",
+      "response_value": "no",
+      "command": "ask_dj_followup_response"
+    }
+  ]
+}
+```
+
+The follow-up command should preserve the returned action object where
+possible. If the backend returned an object-valued action `value`, Apple
+clients preserve it and can derive a textual response from `response_value`,
+`text`, `prompt`, or `value` inside that object when needed for display or
+confirmation routing:
+
+```json
+{
+  "device_id": "djconnect-ios-8F3A2C91B45D",
+  "device_name": "Peter's iPhone",
+  "client_id": "djconnect-ios-8F3A2C91B45D",
+  "client_type": "ios",
+  "command": "ask_dj_followup_response",
+  "value": {
+    "id": "yes",
+    "title": "Ja",
+    "kind": "confirmation",
+    "action_style": "confirmation",
+    "response_value": "yes",
+    "value": {
+      "text": "Ja",
+      "response_value": "yes"
+    }
+  }
+}
+```
+
+Output-switch actions also use `playback_actions`. Use `kind: "output"` and
+provide `value`, `device_id`, or `response_value`; `device_name`, `title`, or
+`subtitle` should contain the human-readable speaker name. `active: true` marks
+the currently active output. For plain speaker-list output actions with
+`command:"set_output"`, clients call `set_output` with the returned `value`.
+
+```json
+{
+  "intent": "output_devices_info",
+  "action": "none",
+  "dj_text": "Dit zijn de beschikbare speakers.",
+  "playback_actions": [
+    {
+      "id": "output-tuin",
+      "kind": "output",
+      "title": "Tuin",
+      "device_id": "spotify-device-tuin",
+      "device_name": "Tuin",
+      "active": true,
+      "command": "set_output"
+    },
+    {
+      "id": "output-keuken",
+      "kind": "output",
+      "title": "Keuken",
+      "device_id": "spotify-device-keuken",
+      "device_name": "Keuken",
+      "active": false,
+      "command": "set_output"
+    }
+  ]
+}
+```
+
+When the user taps an output action, Apple clients send:
+
+```json
+{
+  "device_id": "djconnect-ios-8F3A2C91B45D",
+  "device_name": "Peter's iPhone",
+  "client_id": "djconnect-ios-8F3A2C91B45D",
+  "client_type": "ios",
+  "command": "set_output",
+  "value": {
+    "id": "output-keuken",
+    "kind": "output",
+    "title": "Keuken",
+    "device_id": "spotify-device-keuken",
+    "device_name": "Keuken",
+    "active": false,
+    "command": "set_output",
+    "response_value": "spotify-device-keuken"
+  }
+}
+```
+
+Backends should accept either legacy scalar output values or the structured
+action object. New Apple clients prefer the structured object so Home Assistant
+can retain context such as `kind`, speaker name, `memory_key`, and
+backend-owned follow-up metadata.
 
 For `dj_announcement_request`, Home Assistant should not mutate playback. It
 should read current playback and, when available, queue/next-track context,
@@ -616,12 +887,32 @@ structured metadata object. If external artwork, concert pages, artist pages, or
 release pages are included, images should be proxied by Home Assistant and links
 should be normal `http`/`https` URLs.
 
-For `track_musical_analysis`, Home Assistant should give a musical/production
-commentary based on current playback metadata, known facts, available analysis
-sources, Spotify audio features if available, and/or carefully phrased audible
-inferences. It should not claim exact stem separation, exact chords, exact
-instrument lists, or a full transcription unless a real audio-analysis pipeline
-or trusted source is available. Useful response material includes:
+For `technical_track_analysis`, Home Assistant should give a technical/musical
+analysis based on current playback metadata, known facts, available provider
+metadata, audio features/analysis if available, and/or carefully phrased
+knowledge-based inferences. This intent is informational/read-only for iOS,
+macOS, watchOS, Raspberry Pi, and Windows Ask DJ clients. It must never start,
+pause, skip, queue, save, like, transfer output, or otherwise mutate playback.
+ESP32 remains outside the Ask DJ chat/history UI.
+
+Zero-conf setups must work without a central DJConnect backend. Use only
+Home Assistant-local config and user-provided provider keys. Possible providers
+include `spotify_playback_context`, `ha_conversation`,
+`spotify_audio_features`, `spotify_audio_analysis`, `getsongbpm`,
+`acousticbrainz`, and `local_audio_analyzer`. Spotify audio feature/analysis
+endpoints may be unavailable for some apps; treat them as optional. Never store
+OAuth tokens, API keys, raw prompts, or raw audio in Ask DJ history or DJ
+Memory. History may keep only compact response metadata.
+
+The response should distinguish `measured` values, such as provider-backed
+BPM/key/sections/features, from `inferred` musical commentary. Do not invent
+exact BPM, key, timestamps, section labels, stem separation, exact chords,
+exact instrument lists, or a full transcription unless a real audio-analysis
+pipeline or trusted source supplies enough confidence. If no current track is
+available, return friendly text such as `er speelt nu geen track die ik kan
+analyseren`.
+
+Useful response material includes:
 
 - instrumentation and sound palette;
 - arrangement and song structure, such as intro, build, verse, chorus, break,
@@ -636,10 +927,97 @@ or trusted source is available. Useful response material includes:
 - why the composition or production works emotionally or functionally in the
   current DJ set.
 
-The response should distinguish known documented facts from likely audible
-interpretation. Prefer language such as `waarschijnlijk`, `hoorbaar`, or `lijkt`
-when the backend is inferring from metadata/LLM knowledge rather than analyzing
-the audio directly.
+Clients render this as a text-first Ask DJ answer. Optional `items[]` may be
+shown as compact technical metrics/lists, for example `kind:
+"technical_metric"` for BPM/key or `kind: "arrangement"` for structure. Clients
+must not add Play Now buttons for this intent and should not parse text content;
+use `intent.intent`, `action`, `analysis.mode`, `analysis.sources`, and
+`items[].kind` where structured behavior is needed. `analysis.mode:
+"unavailable"` and `limitations[]` are normal response metadata, not an error
+state.
+
+Expected successful technical analysis response:
+
+```json
+{
+  "success": true,
+  "text": "De track werkt door een strakke 128 BPM puls, een geleidelijke laag-opbouw en een drop die de opgebouwde spanning loslaat.",
+  "dj_text": "De track werkt door een strakke 128 BPM puls, een geleidelijke laag-opbouw en een drop die de opgebouwde spanning loslaat.",
+  "message": "De track werkt door een strakke 128 BPM puls, een geleidelijke laag-opbouw en een drop die de opgebouwde spanning loslaat.",
+  "action": "track_analysis",
+  "intent": {
+    "category": "informational",
+    "intent": "technical_track_analysis",
+    "action": "track_analysis"
+  },
+  "analysis": {
+    "mode": "measured_plus_knowledge",
+    "confidence": "high",
+    "track": {
+      "title": "Track Title",
+      "artist": "Artist Name",
+      "album": "Album Title",
+      "uri": "spotify:track:123"
+    },
+    "measured": {
+      "bpm": 128,
+      "key": "C minor",
+      "time_signature": 4,
+      "sections": [
+        {
+          "label": "intro",
+          "start_ms": 0,
+          "duration_ms": 32000,
+          "confidence": 0.7
+        }
+      ],
+      "features": {
+        "energy": 0.82,
+        "danceability": 0.71
+      }
+    },
+    "inferred": {
+      "structure": "Lange intro, geleidelijke laag-opbouw, climax/drop en outro.",
+      "instrumentation": "Synthpads, basdruk en subtiele percussie.",
+      "melodic_build": "Herhaling bouwt spanning op.",
+      "energy_curve": "Geleidelijk stijgend.",
+      "mix_notes": "Brede pads met ruimte voor de kick."
+    },
+    "limitations": [
+      "Exact section labels are inferred, not measured."
+    ],
+    "sources": [
+      "spotify_playback_context",
+      "spotify_audio_features"
+    ]
+  },
+  "items": [
+    {
+      "kind": "technical_metric",
+      "title": "BPM",
+      "value": "128",
+      "source": "spotify_audio_features"
+    },
+    {
+      "kind": "arrangement",
+      "title": "Opbouw",
+      "value": "Lange intro, geleidelijke laag-opbouw, climax/drop, outro",
+      "source": "ha_conversation"
+    }
+  ],
+  "images": [],
+  "links": [],
+  "sources": [
+    {
+      "source": "spotify_playback_context",
+      "title": "Spotify playback context",
+      "kind": "source"
+    }
+  ],
+  "playback_actions": [],
+  "confirmation_actions": []
+}
+```
 
 Expected successful favorite response:
 
@@ -649,7 +1027,20 @@ Expected successful favorite response:
   "intent": "favorite_current_track",
   "action": "spotify_like_current_track",
   "text": "Ik heb Strobe toegevoegd aan je favorieten.",
-  "dj_text": "Ik heb Strobe toegevoegd aan je favorieten."
+  "dj_text": "Ik heb Strobe toegevoegd aan je favorieten.",
+  "playback_actions": [
+    {
+      "id": "favorite-current-track",
+      "title": "Haal uit favorieten",
+      "kind": "control",
+      "command": "set_current_track_favorite",
+      "toggle": true,
+      "toggle_state": true,
+      "favorite_status": true,
+      "value": false,
+      "client_prompt": "haal huidig nummer uit favorieten"
+    }
+  ]
 }
 ```
 
@@ -661,7 +1052,25 @@ Expected successful output-info response:
   "intent": "output_devices_info",
   "action": "none",
   "text": "Je kunt afspelen op Marantz Cinema 60, Keuken en Tuin. Marantz Cinema 60 is nu actief.",
-  "dj_text": "Je kunt afspelen op Marantz Cinema 60, Keuken en Tuin. Marantz Cinema 60 is nu actief."
+  "dj_text": "Je kunt afspelen op Marantz Cinema 60, Keuken en Tuin. Marantz Cinema 60 is nu actief.",
+  "playback_actions": [
+    {
+      "id": "output-marantz",
+      "title": "Marantz Cinema 60",
+      "kind": "output",
+      "device_id": "marantz-cinema-60",
+      "active": true,
+      "command": "set_output"
+    },
+    {
+      "id": "output-keuken",
+      "title": "Keuken",
+      "kind": "output",
+      "device_id": "keuken",
+      "active": false,
+      "command": "set_output"
+    }
+  ]
 }
 ```
 
@@ -720,22 +1129,149 @@ Expected successful track context response:
 }
 ```
 
-Expected successful musical analysis response:
+Expected successful technical analysis response:
 
 ```json
 {
   "success": true,
-  "intent": "track_musical_analysis",
-  "action": "none",
-  "text": "Muzikaal werkt dit nummer door de langzame spanningsopbouw: eerst een minimale puls, daarna laag voor laag synthpads, percussie en basdruk. De producer gebruikt filtering, herhaling en subtiele automatisering om de drop onvermijdelijk te laten voelen. Zonder audio-stemanalyse zou ik de exacte akkoorden voorzichtig formuleren, maar de harmonie voelt duidelijk gebouwd rond langdurige spanning en release.",
-  "dj_text": "Muzikaal werkt dit nummer door de langzame spanningsopbouw: eerst een minimale puls, daarna laag voor laag synthpads, percussie en basdruk. De producer gebruikt filtering, herhaling en subtiele automatisering om de drop onvermijdelijk te laten voelen. Zonder audio-stemanalyse zou ik de exacte akkoorden voorzichtig formuleren, maar de harmonie voelt duidelijk gebouwd rond langdurige spanning en release."
+  "intent": {
+    "category": "informational",
+    "intent": "technical_track_analysis",
+    "action": "track_analysis"
+  },
+  "action": "track_analysis",
+  "text": "Muzikaal werkt dit nummer door de langzame spanningsopbouw: eerst een minimale puls, daarna laag voor laag synthpads, percussie en basdruk.",
+  "dj_text": "Muzikaal werkt dit nummer door de langzame spanningsopbouw: eerst een minimale puls, daarna laag voor laag synthpads, percussie en basdruk.",
+  "analysis": {
+    "mode": "knowledge_plus_metadata",
+    "confidence": "medium",
+    "limitations": [
+      "Exact BPM and section timestamps are unavailable."
+    ],
+    "sources": [
+      "spotify_playback_context",
+      "ha_conversation"
+    ]
+  },
+  "playback_actions": [],
+  "confirmation_actions": []
 }
 ```
+
+## Ask DJ History Sync
+
+```http
+GET /api/djconnect/v1/ask_dj/history
+POST /api/djconnect/v1/ask_dj/history/clear
+```
+
+iOS, macOS, and watchOS sync Ask DJ chat history from Home Assistant. When Ask
+DJ opens, Apple clients scroll the loaded timeline to the newest message by
+default, including after the first async history response. The backend is the
+cross-device source of truth for delivered messages, clear revisions,
+ambient/system messages, and retention. Clients may keep a local cache for
+performance, but must merge server messages into that cache instead of
+replacing the full local list with a bounded response window.
+
+History messages may be normal user/assistant messages or assistant-only system
+messages. System messages are rendered as subtle DJ/system bubbles and do not
+require a preceding user bubble.
+
+```json
+{
+  "id": "server-...",
+  "role": "assistant",
+  "message_kind": "system",
+  "origin": "spotify_playback_context",
+  "text": "Leuk feitje over OK Computer.",
+  "intent": {
+    "category": "informational",
+    "intent": "ambient_music_fact"
+  },
+  "action": "none",
+  "audio_url": null
+}
+```
+
+Missing `message_kind` defaults to `assistant`.
+`origin: spotify_playback_context` represents backend-generated ambient music facts.
+`audio_url` is optional; replay UI appears only when an audio URL is present.
+
+The backend should bound history per Home Assistant user/memory key. When a
+history limit is reached, the backend should add an assistant-only system
+message and return explicit trim metadata so clients can prune their local
+cache without parsing display text:
+
+```json
+{
+  "success": true,
+  "user_id": "peter",
+  "history_revision": 42,
+  "clear_revision": 0,
+  "history_limit": 200,
+  "history_trimmed_before": "2026-06-20T12:34:56Z",
+  "history_trimmed_count": 12,
+  "messages": [
+    {
+      "id": "server-retention-...",
+      "role": "assistant",
+      "message_kind": "system",
+      "origin": "history_retention",
+      "text": "Ask DJ heeft de limiet van 200 berichten bereikt. Oudste berichten worden verwijderd.",
+      "intent": {
+        "category": "system",
+        "intent": "history_limit_reached"
+      },
+      "action": "none",
+      "audio_url": null
+    }
+  ]
+}
+```
+
+Clients may remove local cached messages older than `history_trimmed_before`.
+`clear_revision` remains the authoritative full-clear signal; if it advances,
+clients clear local Ask DJ history before applying returned messages.
+
+When the user clears Ask DJ history, Apple clients call
+`POST /api/djconnect/v1/ask_dj/history/clear`. The request uses the same bearer
+auth and client identity as other Ask DJ endpoints, and may include
+`memory_key` when the client is using a scoped DJ Memory/history namespace:
+
+```json
+{
+  "device_id": "djconnect-ios-8F3A2C91B45D",
+  "device_name": "Peter's iPhone",
+  "client_id": "djconnect-ios-8F3A2C91B45D",
+  "client_type": "ios",
+  "memory_key": "djconnect_ios_djconnect-ios-8F3A2C91B45D"
+}
+```
+
+Expected successful clear response:
+
+```json
+{
+  "success": true,
+  "history_revision": 43,
+  "clear_revision": 7,
+  "messages": []
+}
+```
+
+After a clear, older messages must not reappear in later history responses for
+the same scope. New messages after the clear should use normal
+`history_revision` advancement and include the latest `clear_revision`.
+
+Backend or proxy error bodies must never be shown raw in Ask DJ UI. Clients log
+technical details for diagnostics, but user-facing Ask DJ errors are limited to
+short localized messages such as `Ask DJ niet bereikbaar` or `Home Assistant
+gaf geen antwoord`.
 
 ## Voice
 
 ```http
-POST /api/djconnect/voice
+POST /api/djconnect/v1/voice
 Content-Type: audio/wav
 ```
 
@@ -755,7 +1291,8 @@ and returning a DJ response. Home Assistant handles canonical
 Home Assistant should route STT results into the same Ask DJ intent families as
 text requests, including `favorite_current_track`, `output_devices_info`, and
 `current_output_info`, `personalized_mood_playback`, and
-`dj_announcement_request`, `track_context_info`, and `track_musical_analysis`.
+`dj_announcement_request`, `track_context_info`, and
+`technical_track_analysis`.
 
 Expected response:
 
@@ -784,7 +1321,7 @@ integration must be updated. Disable playback/output/queue/playlist/liked/voice
 controls, but keep Settings and pairing reset available.
 
 The app also validates `ha_version` / `ha_major_minor` on successful status and
-command responses. App `3.1.x` accepts HA `3.1.x` only (`>=3.1.0`, `<3.2.0`).
+command responses. App `3.2.x` accepts HA `3.2.x` only (`>=3.2.0`, `<3.3.0`).
 
 HTTP `401`/`403`
 

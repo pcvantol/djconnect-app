@@ -13,6 +13,18 @@ store Spotify, Home Assistant, Sonos, OpenAI, or other backend credentials. The
 only app-owned credential is the DJConnect client bearer token issued by the
 integration.
 
+Ask DJ is the Apple clients' rich DJ interaction surface on iOS, macOS, and
+watchOS. Text chat, push-to-talk voice requests, replayable DJ response audio,
+images, links, sources, synced history, Play Now recommendation actions, and
+speaker/output action rows live there; Now Playing no longer has a separate DJ
+request block. Home Assistant owns Ask DJ intent interpretation,
+follow-up/confirmation state, morning-start context, output switching, and
+playback execution; Apple clients render the returned messages, media, and
+actions. Ask DJ message and command payloads include `device_id`,
+`device_name`, `client_id`, and `client_type`; action taps send the
+backend-returned action object back where possible so Home Assistant keeps
+ownership of follow-up and output metadata.
+
 AI and Assist answers can be incorrect and depend on your own Home Assistant
 and Assist configuration.
 
@@ -31,7 +43,7 @@ Website: [https://djconnect.dev](https://djconnect.dev)
 - [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md): local development, generation, build, and test commands.
 - [docs/RELEASE.md](docs/RELEASE.md): signing, TestFlight, notarization, and live HA validation checklist.
 - [docs/postman/djconnect-local-device-api.postman_collection.json](docs/postman/djconnect-local-device-api.postman_collection.json):
-  Postman collection for the local Client API hosted by the iOS/macOS app.
+  historical Postman collection for the removed local Client API contract.
 - `pcvantol/djconnect/SYNC_PROMPTS.md`: canonical source for cross-repo DJConnect
   sync prompts and contract instructions.
 - `pcvantol/djconnect/PRODUCT_ROADMAP.md`: canonical DJConnect product roadmap.
@@ -51,14 +63,21 @@ Home Assistant setup link:
 - [https://djconnect.dev/start](https://djconnect.dev/start)
 
 DJConnect playback requires a configured Home Assistant `djconnect`
-integration and a Spotify Premium account. The app does not ask for Spotify
-credentials; Spotify OAuth stays owned by Home Assistant.
+integration and a supported HA-side music backend. The app does not ask for
+Spotify or Music Assistant credentials; backend credentials stay owned by Home
+Assistant.
 
 If the app is not paired yet, the main runtime UI is blocked by a pairing
-sheet. That sheet shows the DJConnect banner, copyable Client adres,
-copyable app-generated pairing code, and live pairing status. After Home
-Assistant completes pairing, the sheet shows a success state with a green
-checkmark and a `Let's Start!` action before the runtime UI is released.
+sheet. On iOS/macOS that sheet asks for the local Home Assistant address and
+pairing code/QR. On watchOS it shows the Watch pairing code and iPhone
+companion status. After Home Assistant completes pairing, the sheet shows a
+success state before the runtime UI is released.
+
+Pairing is always LAN-first and local-only. Use `http://homeassistant.local:8123`
+or the Home Assistant LAN IP address while the Apple device is on the same
+Wi-Fi/LAN. Remote Home Assistant URLs are accepted only from the successful
+pairing response and are used later as fallback for runtime status/playback
+traffic when local access is unavailable.
 
 For App Store review and local UI inspection, the pairing sheet also exposes
 Demo Mode. Demo Mode fills Now Playing, queue, playlists, and DJ announcement
@@ -98,7 +117,7 @@ Sources/
   DJConnectCore/
     DJConnectClient.swift
     DJConnectErrors.swift
-    DJConnectKeychain.swift
+    DJConnectKeychain.swift  # token-store abstraction; legacy filename
     DJConnectModels.swift
 Tests/
   DJConnectCoreTests/
@@ -113,17 +132,33 @@ Tests/
 - playback and voice response decoding;
 - error classification for auth stale, backend unavailable, version mismatch,
   missing routes, and network failures;
-- token storage through a small abstraction ready for Keychain-backed apps.
+- token storage through a small abstraction backed by app-private storage.
 
 `DJConnectUI` contains the shared native SwiftUI screens used by the iOS and
 macOS app targets. `Apps/DJConnectIOS`, `Apps/DJConnectMac`, and
 `Apps/DJConnectWatch` contain the platform app entrypoints. The Watch app is a
-standalone watchOS client with its own compact SwiftUI surface, Keychain token
-storage, Home Assistant pairing, playback controls, and push-to-talk voice
-upload through the `Ask DJ` action. The Watch also sends an `Ask DJ` mood value
-and DJ Memory key to Home Assistant so the backend can build shared DJ context
-across Watch, iOS, and macOS. Foreground wake phrase support may be added later,
-but the Watch target must not promise always-on background wakeword listening.
+companion-only watchOS client with its own compact SwiftUI surface, app-local
+UI cache, playback controls, and push-to-talk voice capture through the
+`Ask DJ` action. HA pairing, bearer token ownership, APNs registration, remote
+fallback, status refresh, history sync, playback actions, and voice upload are
+mediated by the paired iPhone over WatchConnectivity. The Watch does not store
+`ha_remote_url`, does not choose Home Assistant transport, does not host a local
+Web API, and does not advertise Bonjour/mDNS. The Watch still reports
+`client_type:"watchos"` metadata through the iPhone proxy. Foreground wake
+phrase support may be added later, but the Watch target must not promise
+always-on background wakeword listening.
+
+APNs push registration is supported for iOS, macOS, and watchOS clients. iOS
+uses `client_type: "ios"` and `device_id` values shaped like
+`djconnect-ios-XXXXXXXXXXXX`; macOS and watchOS use their own matching prefixes.
+The watchOS client uses its own stable Watch install ID and sends the Watch
+APNs token to HA through the paired iPhone as `client_type: "watchos"`, never
+the companion iPhone identity.
+The app registers with Home Assistant after APNs returns a token and Home
+Assistant auth is available, and retries when the token fingerprint, APNs
+environment, bundle ID, app version, locale, or pairing target changes. Debug
+logs must stay privacy-safe: do not print bearer tokens, APNs tokens,
+`bootstrap_proof` values, or central `djci_` install tokens.
 
 ## Xcode
 
@@ -133,7 +168,7 @@ Schemes:
 
 - `DJConnectIOS`: native iOS app target.
 - `DJConnectMac`: native macOS app target.
-- `DJConnectWatch`: native standalone watchOS app target.
+- `DJConnectWatch`: native companion-only watchOS app target.
 
 The project is generated from [project.yml](project.yml) with XcodeGen:
 
@@ -195,19 +230,19 @@ swift test
 Status is posted to:
 
 ```http
-POST /api/djconnect/status
+POST /api/djconnect/v1/status
 ```
 
 Playback commands are posted to:
 
 ```http
-POST /api/djconnect/command
+POST /api/djconnect/v1/command
 ```
 
 Voice/PTT WAV audio, when implemented by an app target, is posted to:
 
 ```http
-POST /api/djconnect/voice
+POST /api/djconnect/v1/voice
 Content-Type: audio/wav
 ```
 
@@ -223,17 +258,26 @@ Spotify Web API calls for voice commands. Canonical examples from
 | `favorite_current_track` | `Voeg dit nummer toe aan mijn favorieten`, `like dit nummer`, `sla deze track op` | `Add this song to my favorites`, `like this track`, `save this song` | HA likes/saves the current playback item and returns a DJ confirmation. |
 | `output_devices_info` / `current_output_info` | `Welke speakers zijn er?`, `Waarop wordt nu muziek gespeeld?`, `Op welke speaker speelt dit?` | `Which speakers are available?`, `Where is music playing now?`, `Which speaker is active?` | HA reads DJConnect output devices/current playback output and returns an informational DJ response without changing playback. |
 | `personalized_mood_playback` | `Ik voel me moe en geprikkeld, zet wat rustige muziek op die ik fijn vind`, `Doe iets ontspannends, ik ben overprikkeld` | `I am tired and overstimulated, play relaxing music I will enjoy`, `play something calming that I usually like` | HA combines the mood request with DJ Memory/user preferences and starts or queues a suitable playback context. |
+| `change_music_context` | `Ik wil wat anders horen`, `Doe maar iets anders`, `Zet iets heel anders op` | `I want to hear something else`, `play something different`, `put on something completely different` | HA treats this as a playback-changing request, picks a different suitable track/album/playlist from current playback context and user taste, and starts or queues it. |
 | `personal_music_profile_analysis` | `Omschrijf eens waar ik zoal naar luisterde de afgelopen maand`, `Wat zegt mijn muziek van de laatste twee weken over mijn stemming?` | `Describe what I have been listening to over the last month`, `what does my music from the last two weeks say about my mood?` | HA summarizes listening patterns, genres, moods, energy, artists, and taste shifts from DJ Memory for the requested period without changing playback. |
 | `personal_music_recommendations` | `Geef me muziek aanbevelingen op basis van mijn luisterprofiel`, `Wat zou ik nu leuk vinden om te luisteren?`, `Raad me iets nieuws aan dat past bij mijn smaak` | `Recommend music based on my listening profile`, `what should I listen to now?`, `recommend something new that fits my taste` | HA recommends concrete tracks, albums, artists, or playlists from DJ Memory and Spotify profile data without changing playback unless the user explicitly asks to play or queue them. |
 | `dj_announcement_request` | `Geef me een leuke aankondiging voor het volgende nummer`, `Doe een radio intro voor wat er nu speelt` | `Give me a fun announcement for the next song`, `do a radio-style intro for what is playing now` | HA generates DJ text and optional `audio_url` without changing playback. |
 | `track_context_info` | `Vertel iets over dit nummer`, `Wanneer kwam dit uit?`, `Waarom koos je dit nummer?`, `Heeft deze artiest concerten in Nederland?` | `Tell me about this song`, `what year was this released?`, `why did you choose this track?` | HA enriches current playback with release, genre, commentary, trivia, samples, concerts, releases, and musical connections without changing playback. |
-| `track_musical_analysis` | `Analyseer dit nummer muzikaal`, `Welke instrumenten hoor ik?`, `Hoe is dit nummer opgebouwd?`, `Welke trucjes gebruikt de producer hier?` | `Analyze this track musically`, `what instruments are used here?`, `how is this song structured?` | HA explains instrumentation, arrangement, groove, harmony, sound design, production, and mix details without changing playback, while avoiding unsupported exact audio-analysis claims. |
+| `technical_track_analysis` | `Geef een technische track analyse van dit nummer`, `Analyseer deze track`, `Wat is de bpm en opbouw van deze track?`, `Welke instrumenten hoor je hierin?` | `Give me a technical analysis of this song`, `What is the BPM, key and structure of this track?`, `Why does this track work so well?` | HA gives a read-only technical/musical analysis of the current track, distinguishing measured BPM/key/sections from inferred musical commentary and never changing playback. |
+
+Ask DJ output-device responses may include structured output `playback_actions`.
+Apple clients render those vertically, with the speaker name on the left and an
+`Actief`/`Activeer` button on the right. Opening Ask DJ scrolls the synced chat
+history to the newest message by default, including after the first async
+history load. Clearing Ask DJ history calls
+`POST /api/djconnect/v1/ask_dj/history/clear`; the returned `clear_revision` is
+the authoritative full-clear signal for local cached history.
 
 The native app also uses command proxy flows for backend devices, queue,
 playlists, liked songs, and output selection:
 
 ```http
-POST /api/djconnect/command
+POST /api/djconnect/v1/command
 {"command":"devices"}
 {"command":"queue"}
 {"command":"playlists"}
@@ -254,7 +298,7 @@ Setup, Settings, onboarding, and command payloads must not expose or send
 `spotify_source` or `liked_proxy_playlist_uri`; playback remains mediated by
 the Home Assistant DJConnect integration through generic commands.
 
-The iOS/macOS app can expose seek controls for the current track. It sends
+The iOS/macOS/watchOS app can expose seek controls for the current track. It sends
 `command:"seek_relative"` with `value` in milliseconds. Positive values seek
 forward, negative values seek backward. This is an Apple-app-only UI affordance;
 ESP clients may omit it.
@@ -267,7 +311,7 @@ commands until the user chooses a real backend output.
 Foreground wakeword support is available from Settings. When enabled for the
 current app session, the app uses Apple Speech while the app is open to listen
 for the configured wake phrase (`Hey DJ` by default), then records a short WAV
-voice request through the normal `/api/djconnect/voice` flow. The app does not
+voice request through the normal `/api/djconnect/v1/voice` flow. The app does not
 run an always-on background wakeword listener and does not auto-start wakeword
 listening after launch. Wakeword and the local progress timer are paused when
 the app leaves the foreground and resume only when the app becomes active
@@ -293,39 +337,39 @@ even for app clients.
 Pairing is posted to:
 
 ```http
-POST /api/djconnect/pair
+POST /api/djconnect/v1/pair
 ```
 
-The app sends `device_id`, `device_name`, `client_type`, `firmware`,
-`app_version`, `platform`, and the app-generated code as `pair_code`,
-`pairing_code`, and `pairing_token`. The app keeps polling until Home Assistant
-accepts that code and returns a DJConnect bearer token plus the HA local URL
-metadata. The current preferred response field is `device_token`; `bearer_token`
-and `token` are accepted for compatibility.
+The app sends `device_id`, `device_name`, canonical `client_type`, `firmware`,
+`app_version`, `platform`, and the pairing code as `pair_code`, `pairing_code`,
+and `pairing_token`. Pairing bootstrap is local-only: the Apple client posts to
+the local Home Assistant `/api/djconnect/v1/pair` endpoint and stores the returned
+DJConnect bearer token, `ha_local_url`, optional `ha_remote_url`, remote support
+flag, and music-backend summary. Remote URLs are never used for first pairing.
 
-The iOS/macOS app also hosts a local Web API for Home Assistant -> app traffic:
+iOS and macOS no longer host a Home Assistant-callable local Client API and do
+not advertise `_djconnect._tcp` as a pairable HA device. The removed Apple app
+routes are `/api/device/info`, `/api/device/pairing-info`, `/api/device/pair`,
+`/api/device/command`, `/api/device/dj_response`, and `/api/device/forget`.
+The app does not implement ESP-only reboot or OTA routes.
 
-```http
-GET /api/device/info
-GET /api/device/pairing-info
-POST /api/device/pair
-POST /api/device/command
-POST /api/device/dj_response
-POST /api/device/forget
-```
+Users can choose `App opnieuw koppelen` / `Pair App Again` in Settings to clear
+the locally stored DJConnect token, generate a fresh app code, and reopen the
+pairing sheet.
 
-Protected local endpoints require `Authorization: Bearer <device_token>`.
-The Apple app does not implement ESP-only reboot or OTA routes.
-
-The user-facing name for this local endpoint is `Client adres`. The URL shown
-during pairing is pinned after successful pairing and remains stable in app
-storage until the user explicitly resets pairing.
-
-The app advertises `_djconnect._tcp` with Bonjour/mDNS only while it is
-pairable, such as when the unpaired pairing sheet is visible. After pairing,
-the local API remains available while the app is running, but Bonjour
-advertising is disabled to reduce LAN chatter and battery impact. Resetting the
-pairing enables discovery again.
+After successful local pairing, iOS and macOS choose the local HA URL when it is
+reachable, fall back to `ha_remote_url` when local access fails and remote is
+supported, and mark the app offline when neither URL works. watchOS remains
+iPhone-mediated and does not use a direct Home Assistant remote/local contract.
+The status surface reports the active route, music backend availability, and
+whether playback controls are available, paused, playing, or waiting for an
+active playback snapshot.
+The iPhone syncs a compact summary to the Watch for About/status UI:
+connection mode (`local`, `remote`, `offline`), backend id/name/availability,
+backend revision, target player, capabilities, and safe backend error messages
+or codes. Watch playback actions keep the complete backend-owned action
+`value`, so Spotify Direct URI actions and Music Assistant object actions are
+both forwarded unchanged through iPhone.
 
 ## Version Contract
 
@@ -337,7 +381,7 @@ must keep pairing and token state, show an update-required state, and pause
 command/voice retries until the app or integration is updated.
 
 Successful status and command responses may also include `ha_version` or
-`ha_major_minor`. App `3.1.x` requires HA integration `3.1.x` and disables
+`ha_major_minor`. App `3.2.x` requires HA integration `3.2.x` and disables
 playback, queue, playlist, output, liked, and voice controls when the runtime
 contract is outside that range. Settings and pairing reset remain available.
 
@@ -353,10 +397,15 @@ Support at `DJConnect/Logs/djconnect.log`. It is loaded back into the Logs
 screen on restart, capped at 500 lines and 128 KB, and cleared when the user
 clears logs in the app.
 
-DEBUG logs include user actions, navigation/recovery flows, Home Assistant API
-calls, and local Client API calls. API log lines include HTTP status codes and
-must not include bearer tokens, pairing codes, Authorization headers, or raw
-secret-bearing bodies.
+Diagnostics export includes redacted route, backend, output, permission,
+bundle, locale, Demo Mode, and playback snapshot fields so TestFlight/App Store
+review and support can verify readiness without receiving tokens, pairing
+codes, Authorization headers, raw secret-bearing bodies, or unredacted private
+URLs.
+
+DEBUG logs include user actions, navigation/recovery flows, and Home Assistant
+API calls. API log lines include HTTP status codes and must not include bearer
+tokens, pairing codes, Authorization headers, or raw secret-bearing bodies.
 
 On iOS, returning from the Home screen or another app schedules a full playback
 refresh so Now Playing state catches up with changes made outside DJConnect.

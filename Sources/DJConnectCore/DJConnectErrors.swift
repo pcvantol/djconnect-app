@@ -22,6 +22,20 @@ public struct DJConnectVersionMismatch: Codable, Equatable, Sendable {
     public var firmware: String?
     public var firmwareMajorMinor: String?
 
+    public init(
+        message: String? = nil,
+        haVersion: String? = nil,
+        haMajorMinor: String? = nil,
+        firmware: String? = nil,
+        firmwareMajorMinor: String? = nil
+    ) {
+        self.message = message
+        self.haVersion = haVersion
+        self.haMajorMinor = haMajorMinor
+        self.firmware = firmware
+        self.firmwareMajorMinor = firmwareMajorMinor
+    }
+
     enum CodingKeys: String, CodingKey {
         case message
         case haVersion = "ha_version"

@@ -95,7 +95,7 @@ public struct DJConnectLocalPairRequest: Decodable, Sendable {
     }
 }
 
-public struct DJConnectLocalCommandRequest: Decodable, Sendable {
+public struct DJConnectLocalCommandRequest: Codable, Sendable {
     public var command: String?
     public var value: DJConnectCommandValue?
     public var play: Bool?
@@ -115,7 +115,7 @@ public struct DJConnectLocalCommandRequest: Decodable, Sendable {
     }
 }
 
-public struct DJConnectLocalDJResponseRequest: Decodable, Sendable {
+public struct DJConnectLocalDJResponseRequest: Codable, Sendable {
     public var text: String?
     public var djText: String?
     public var audioURL: String?
@@ -129,7 +129,7 @@ public struct DJConnectLocalDJResponseRequest: Decodable, Sendable {
     }
 }
 
-public struct DJConnectLocalDeviceAPIResponse: Encodable, Sendable {
+public struct DJConnectLocalDeviceAPIResponse: Codable, Sendable {
     public var success: Bool
     public var error: String?
     public var message: String?
@@ -171,9 +171,12 @@ public struct DJConnectLocalDeviceInfoResponse: Encodable, Sendable {
     public var deviceID: String
     public var deviceName: String
     public var clientType: String
+    public var version: String
     public var firmware: String
     public var appVersion: String
     public var platform: String
+    public var status: String
+    public var pairingStatus: String
     public var paired: Bool
     public var localURL: String
     public var pairCode: String?
@@ -182,9 +185,12 @@ public struct DJConnectLocalDeviceInfoResponse: Encodable, Sendable {
         case deviceID = "device_id"
         case deviceName = "device_name"
         case clientType = "client_type"
+        case version
         case firmware
         case appVersion = "app_version"
         case platform
+        case status
+        case pairingStatus = "pairing_status"
         case paired
         case localURL = "local_url"
         case pairCode = "pair_code"
@@ -217,12 +223,15 @@ public final class DJConnectLocalDeviceAPI: @unchecked Sendable {
     private var activeConnections: Set<Int32> = []
     #if os(watchOS)
     private var networkListener: NWListener?
+    private var isNetworkListenerStarting = false
     #else
     private var bonjourService: NetService?
+    private lazy var bonjourDelegate = DJConnectLocalDeviceAPIBonjourDelegate(logHandler: logHandler)
     #endif
     private var port: UInt16?
     private var localURL: String?
     private var isBonjourAdvertisingEnabled: Bool
+    private var listenerGeneration = 0
 
     public init(
         infoProvider: @escaping InfoProvider,
@@ -254,7 +263,16 @@ public final class DJConnectLocalDeviceAPI: @unchecked Sendable {
         }
 
         #if os(watchOS)
-        Task { await startNetworkListener() }
+        queue.async { [weak self] in
+            guard let self else { return }
+            guard self.networkListener == nil, !self.isNetworkListenerStarting else {
+                return
+            }
+            self.isNetworkListenerStarting = true
+            self.listenerGeneration += 1
+            let generation = self.listenerGeneration
+            Task { await self.startNetworkListener(generation: generation) }
+        }
         return
         #else
         let socketFD = socket(AF_INET, SOCK_STREAM, 0)
@@ -300,7 +318,13 @@ public final class DJConnectLocalDeviceAPI: @unchecked Sendable {
 
         listenSocket = socketFD
         port = boundPort
-        Task { await publishReadyURL() }
+        let host = Self.localIPv4Address() ?? "127.0.0.1"
+        let readyURL = "http://\(host):\(boundPort)"
+        localURL = readyURL
+        Task {
+            await urlHandler(readyURL)
+            await publishReadyURL()
+        }
         queue.async { [weak self] in
             self?.acceptLoop(socketFD: socketFD)
         }
@@ -309,12 +333,18 @@ public final class DJConnectLocalDeviceAPI: @unchecked Sendable {
 
     public func stop() {
         #if os(watchOS)
-        networkListener?.cancel()
-        networkListener = nil
-        listenSocket = -1
-        port = nil
-        localURL = nil
-        Task { await urlHandler(nil) }
+        queue.async { [weak self] in
+            guard let self else { return }
+            self.listenerGeneration += 1
+            self.stopBonjourService()
+            self.networkListener?.cancel()
+            self.networkListener = nil
+            self.isNetworkListenerStarting = false
+            self.listenSocket = -1
+            self.port = nil
+            self.localURL = nil
+            Task { await self.urlHandler(nil) }
+        }
         return
         #else
         let socketFD = listenSocket
@@ -337,13 +367,14 @@ public final class DJConnectLocalDeviceAPI: @unchecked Sendable {
 
     public func setBonjourAdvertisingEnabled(_ enabled: Bool) {
         queue.async { [weak self] in
-            guard let self, self.isBonjourAdvertisingEnabled != enabled else {
+            guard let self else {
                 return
             }
+            let didChange = self.isBonjourAdvertisingEnabled != enabled
             self.isBonjourAdvertisingEnabled = enabled
             if enabled {
                 Task { await self.publishReadyURL(logStart: false) }
-            } else {
+            } else if didChange {
                 self.stopBonjourService()
                 Task { await self.logHandler("Local device API mDNS advertising disabled") }
             }
@@ -355,7 +386,7 @@ public final class DJConnectLocalDeviceAPI: @unchecked Sendable {
             return
         }
         let info = await infoProvider()
-        let host = Self.localIPv4Address() ?? "\(info.identity.deviceID).local"
+        let host = Self.localIPv4Address() ?? Self.localDNSFallbackHost(for: info)
         let readyURL = "http://\(host):\(port)"
         localURL = readyURL
         if isBonjourAdvertisingEnabled {
@@ -364,6 +395,9 @@ public final class DJConnectLocalDeviceAPI: @unchecked Sendable {
         await urlHandler(readyURL)
         if logStart {
             await logHandler("Local device API started at \(readyURL)")
+            if Self.localIPv4Address() == nil {
+                await logHandler("Local device API using local DNS fallback because no usable LAN IPv4 address was found; \(Self.localIPv4DiagnosticSummary())")
+            }
         } else {
             await logHandler("Local device API mDNS advertising enabled")
         }
@@ -371,32 +405,35 @@ public final class DJConnectLocalDeviceAPI: @unchecked Sendable {
 
     private func publishBonjourService(for info: DJConnectLocalDeviceAPIInfo) {
         guard let port else { return }
-        let advertisedLocalURL = info.localURL ?? localURL ?? ""
-        let txtRecord = Self.bonjourTXTRecord(for: info, localURL: advertisedLocalURL)
+        let advertisedLocalURL = localURL ?? info.localURL ?? ""
         #if os(watchOS)
-        networkListener?.service = NWListener.Service(
-            name: info.identity.deviceID,
-            type: "_djconnect._tcp",
-            txtRecord: NWTXTRecord(txtRecord.mapValues { String(decoding: $0, as: UTF8.self) })
-        )
+        networkListener?.service = Self.networkService(for: info, localURL: advertisedLocalURL)
         #else
+        let txtRecord = Self.bonjourTXTRecord(for: info, localURL: advertisedLocalURL)
         stopBonjourService()
         let service = NetService(domain: "local.", type: "_djconnect._tcp.", name: info.identity.deviceID, port: Int32(port))
         service.setTXTRecord(NetService.data(fromTXTRecord: txtRecord))
+        service.delegate = bonjourDelegate
+        service.schedule(in: .main, forMode: .default)
         service.publish()
         bonjourService = service
         #endif
     }
 
-    private static func bonjourTXTRecord(for info: DJConnectLocalDeviceAPIInfo, localURL: String) -> [String: Data] {
+    static func bonjourTXTRecord(for info: DJConnectLocalDeviceAPIInfo, localURL: String) -> [String: Data] {
         [
             "name": info.identity.deviceName,
+            "device_name": info.identity.deviceName,
             "device_id": info.identity.deviceID,
             "version": info.identity.firmware,
+            "firmware": info.identity.firmware,
             "app_version": info.identity.appVersion ?? info.identity.firmware,
             "paired": info.pairingStatus == .paired ? "true" : "false",
+            "pairing_status": info.pairingStatus.rawValue,
             "local_url": localURL,
             "pair_code": info.pairingToken,
+            "pairing_code": info.pairingToken,
+            "pairing_token": info.pairingToken,
             "api": "device",
             "path": "/api/device/info",
             "pairing_path": "/api/device/pairing-info",
@@ -412,24 +449,44 @@ public final class DJConnectLocalDeviceAPI: @unchecked Sendable {
         networkListener?.service = nil
         #else
         bonjourService?.stop()
+        bonjourService?.remove(from: .main, forMode: .default)
+        bonjourService?.delegate = nil
         bonjourService = nil
         #endif
     }
 
     #if os(watchOS)
-    private func startNetworkListener() async {
+    private func startNetworkListener(generation: Int) async {
         guard networkListener == nil else {
+            isNetworkListenerStarting = false
             return
         }
         do {
             let info = await infoProvider()
+            guard generation == listenerGeneration else {
+                isNetworkListenerStarting = false
+                return
+            }
             let listenerPort = NWEndpoint.Port(rawValue: preferredPort ?? 0) ?? .any
-            let listener = try NWListener(using: .tcp, on: listenerPort)
+            let parameters = NWParameters.tcp
+            parameters.allowLocalEndpointReuse = true
+            parameters.includePeerToPeer = true
+            let listener = try NWListener(using: parameters, on: listenerPort)
+            guard generation == listenerGeneration else {
+                isNetworkListenerStarting = false
+                listener.cancel()
+                return
+            }
             listener.newConnectionHandler = { [weak self] connection in
+                Task { await self?.logHandler("Local device API accepted network connection") }
                 self?.handleNetworkConnection(connection)
             }
             listener.stateUpdateHandler = { [weak self] state in
                 guard let self else { return }
+                guard generation == self.listenerGeneration else {
+                    listener.cancel()
+                    return
+                }
                 switch state {
                 case .ready:
                     guard let port = listener.port else {
@@ -438,7 +495,8 @@ public final class DJConnectLocalDeviceAPI: @unchecked Sendable {
                     }
                     self.listenSocket = 0
                     self.port = UInt16(port.rawValue)
-                    let host = Self.localIPv4Address() ?? "\(info.identity.deviceID).local"
+                    let ipv4Host = Self.localIPv4Address()
+                    let host = ipv4Host ?? Self.localDNSFallbackHost(for: info)
                     let readyURL = "http://\(host):\(port.rawValue)"
                     self.localURL = readyURL
                     if self.isBonjourAdvertisingEnabled {
@@ -447,23 +505,48 @@ public final class DJConnectLocalDeviceAPI: @unchecked Sendable {
                     Task {
                         await self.urlHandler(readyURL)
                         await self.logHandler("Local device API started at \(readyURL)")
+                        if ipv4Host == nil {
+                            await self.logHandler("Local device API using local DNS fallback because no usable LAN IPv4 address was found; \(Self.localIPv4DiagnosticSummary())")
+                        }
+                        if self.isBonjourAdvertisingEnabled {
+                            await self.logHandler("Local device API mDNS advertising ready service=_djconnect._tcp client_type=\(info.identity.clientType.rawValue) port=\(port.rawValue) pairing_status=\(info.pairingStatus.rawValue)")
+                        }
                     }
                 case let .failed(error):
-                    Task { await self.logHandler("Local device API listener failed: \(error.localizedDescription)") }
+                    Task { await self.logHandler("Local device API listener failed on port \(self.port.map(String.init) ?? "<none>"): \(error.localizedDescription)") }
+                case let .waiting(error):
+                    Task { await self.logHandler("Local device API listener waiting on port \(self.port.map(String.init) ?? "<none>"): \(error.localizedDescription)") }
                 case .cancelled:
+                    let previousPort = self.port.map(String.init) ?? "<none>"
                     self.listenSocket = -1
                     self.port = nil
                     self.localURL = nil
-                    Task { await self.urlHandler(nil) }
+                    Task {
+                        await self.urlHandler(nil)
+                        await self.logHandler("Local device API listener cancelled on port \(previousPort)")
+                    }
                 default:
                     break
                 }
             }
             networkListener = listener
+            isNetworkListenerStarting = false
             listener.start(queue: queue)
         } catch {
+            isNetworkListenerStarting = false
             await logHandler("Local device API could not start Network listener: \(error.localizedDescription)")
         }
+    }
+
+    private static func networkService(
+        for info: DJConnectLocalDeviceAPIInfo,
+        localURL: String
+    ) -> NWListener.Service {
+        NWListener.Service(
+            name: info.identity.deviceID,
+            type: "_djconnect._tcp",
+            txtRecord: NWTXTRecord(bonjourTXTRecord(for: info, localURL: localURL).mapValues { String(decoding: $0, as: UTF8.self) })
+        )
     }
 
     private func handleNetworkConnection(_ connection: NWConnection) {
@@ -506,7 +589,7 @@ public final class DJConnectLocalDeviceAPI: @unchecked Sendable {
         }
         defer { freeifaddrs(interfaces) }
 
-        var fallback: String?
+        var bestCandidate: (address: String, score: Int)?
         var interface = firstInterface
         while true {
             defer {
@@ -543,16 +626,145 @@ public final class DJConnectLocalDeviceAPI: @unchecked Sendable {
                 let bytes = buffer.prefix { $0 != 0 }.map { UInt8(bitPattern: $0) }
                 return String(decoding: bytes, as: UTF8.self)
             }
-            if name == "en0" || name == "en1" {
-                return ipAddress
+            guard isUsableLANIPv4Address(ipAddress) else {
+                if interface.pointee.ifa_next == nil { break }
+                continue
             }
-            fallback = fallback ?? ipAddress
+            let score = localIPv4AddressScore(ipAddress, interfaceName: name)
+            if bestCandidate == nil || score > bestCandidate!.score {
+                bestCandidate = (ipAddress, score)
+            }
 
             if interface.pointee.ifa_next == nil {
                 break
             }
         }
-        return fallback
+        return bestCandidate?.address
+    }
+
+    private static func localDNSFallbackHost(for info: DJConnectLocalDeviceAPIInfo) -> String {
+        #if targetEnvironment(simulator)
+        var name = [CChar](repeating: 0, count: Int(NI_MAXHOST))
+        if gethostname(&name, name.count) == 0 {
+            let hostname = String(cString: name)
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+                .trimmingCharacters(in: CharacterSet(charactersIn: "."))
+            if !hostname.isEmpty {
+                return hostname.lowercased().hasSuffix(".local") ? hostname : "\(hostname).local"
+            }
+        }
+        #endif
+        return "\(info.identity.deviceID).local"
+    }
+
+    private static func localIPv4DiagnosticSummary() -> String {
+        var interfaces: UnsafeMutablePointer<ifaddrs>?
+        guard getifaddrs(&interfaces) == 0, let firstInterface = interfaces else {
+            return "IPv4 diagnostics unavailable: getifaddrs failed"
+        }
+        defer { freeifaddrs(interfaces) }
+
+        var entries: [String] = []
+        var interface = firstInterface
+        while true {
+            defer {
+                if let next = interface.pointee.ifa_next {
+                    interface = next
+                }
+            }
+
+            let name = String(cString: interface.pointee.ifa_name)
+            let flags = Int32(interface.pointee.ifa_flags)
+            let isUp = (flags & IFF_UP) == IFF_UP
+            let isLoopback = (flags & IFF_LOOPBACK) == IFF_LOOPBACK
+            guard let address = interface.pointee.ifa_addr, address.pointee.sa_family == UInt8(AF_INET) else {
+                if interface.pointee.ifa_next == nil { break }
+                continue
+            }
+
+            var hostname = [CChar](repeating: 0, count: Int(NI_MAXHOST))
+            let result = getnameinfo(
+                address,
+                socklen_t(address.pointee.sa_len),
+                &hostname,
+                socklen_t(hostname.count),
+                nil,
+                0,
+                NI_NUMERICHOST
+            )
+            let ipAddress: String
+            if result == 0 {
+                ipAddress = hostname.withUnsafeBufferPointer { buffer in
+                    let bytes = buffer.prefix { $0 != 0 }.map { UInt8(bitPattern: $0) }
+                    return String(decoding: bytes, as: UTF8.self)
+                }
+            } else {
+                ipAddress = "unresolved"
+            }
+
+            let verdict: String
+            if !isUp {
+                verdict = "down"
+            } else if isLoopback {
+                verdict = "loopback"
+            } else if result != 0 {
+                verdict = "unresolved"
+            } else if isUsableLANIPv4Address(ipAddress) {
+                verdict = "usable"
+            } else {
+                verdict = "not-lan"
+            }
+            entries.append("\(name)=\(ipAddress)(\(verdict))")
+
+            if interface.pointee.ifa_next == nil {
+                break
+            }
+        }
+
+        if entries.isEmpty {
+            return "IPv4 interfaces: none"
+        }
+        return "IPv4 interfaces: \(entries.joined(separator: ", "))"
+    }
+
+    private static func isUsableLANIPv4Address(_ ipAddress: String) -> Bool {
+        let octets = ipAddress.split(separator: ".").compactMap { UInt8($0) }
+        guard octets.count == 4 else {
+            return false
+        }
+        if octets[0] == 10 {
+            return true
+        }
+        if octets[0] == 172 && (16...31).contains(octets[1]) {
+            return true
+        }
+        if octets[0] == 192 && octets[1] == 168 {
+            return true
+        }
+        if octets[0] == 169 && octets[1] == 254 {
+            return true
+        }
+        return false
+    }
+
+    private static func localIPv4AddressScore(_ ipAddress: String, interfaceName: String) -> Int {
+        let octets = ipAddress.split(separator: ".").compactMap { UInt8($0) }
+        var score = 0
+        if interfaceName == "en0" || interfaceName == "en1" {
+            score += 100
+        }
+        if octets.count == 4, octets[0] == 192, octets[1] == 168, octets[2] == 1 {
+            score += 1_000
+        } else if octets.count == 4, octets[0] == 192, octets[1] == 168 {
+            score += 500
+        } else if octets.count == 4, octets[0] == 10 {
+            score += 300
+        } else if octets.count == 4, octets[0] == 172, (16...31).contains(octets[1]) {
+            score += 250
+        } else if octets.count == 4, octets[0] == 169, octets[1] == 254 {
+            score += 100
+        }
+        return score
     }
 
     private static func boundPort(for socketFD: Int32) -> UInt16? {
@@ -765,9 +977,12 @@ public final class DJConnectLocalDeviceAPI: @unchecked Sendable {
             deviceID: info.identity.deviceID,
             deviceName: info.identity.deviceName,
             clientType: info.identity.clientType.rawValue,
+            version: info.identity.firmware,
             firmware: info.identity.firmware,
             appVersion: info.identity.appVersion ?? info.identity.firmware,
             platform: info.identity.platform.rawValue,
+            status: "ready",
+            pairingStatus: info.pairingStatus.rawValue,
             paired: info.pairingStatus == .paired,
             localURL: localURL ?? info.localURL ?? "",
             pairCode: includePairingCode ? info.pairingToken : nil
@@ -828,6 +1043,40 @@ public final class DJConnectLocalDeviceAPI: @unchecked Sendable {
         return HTTPRequest(method: String(requestParts[0]), path: path, headers: headers, body: body)
     }
 }
+
+#if !os(watchOS)
+private final class DJConnectLocalDeviceAPIBonjourDelegate: NSObject, NetServiceDelegate {
+    private let logHandler: DJConnectLocalDeviceAPI.LogHandler
+
+    init(logHandler: @escaping DJConnectLocalDeviceAPI.LogHandler) {
+        self.logHandler = logHandler
+    }
+
+    func netServiceDidPublish(_ sender: NetService) {
+        let message = "Local device API mDNS published name=\(sender.name) type=\(sender.type) domain=\(sender.domain) port=\(sender.port)"
+        let logHandler = logHandler
+        Task {
+            await logHandler(message)
+        }
+    }
+
+    func netService(_ sender: NetService, didNotPublish errorDict: [String: NSNumber]) {
+        let message = "Local device API mDNS publish failed name=\(sender.name) type=\(sender.type) errors=\(errorDict)"
+        let logHandler = logHandler
+        Task {
+            await logHandler(message)
+        }
+    }
+
+    func netServiceDidStop(_ sender: NetService) {
+        let message = "Local device API mDNS stopped name=\(sender.name) type=\(sender.type)"
+        let logHandler = logHandler
+        Task {
+            await logHandler(message)
+        }
+    }
+}
+#endif
 
 private extension Data {
     static func + (lhs: Data, rhs: Data) -> Data {

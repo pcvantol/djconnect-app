@@ -11,7 +11,7 @@ settings:
   base:
     SWIFT_VERSION: "6.0"
     CURRENT_PROJECT_VERSION: "1"
-    MARKETING_VERSION: "3.1.36"
+    MARKETING_VERSION: "3.2.0"
     DEVELOPMENT_TEAM: ""
     CODE_SIGN_STYLE: Automatic
 packages: {}
@@ -104,9 +104,10 @@ targets:
         NSLocalNetworkUsageDescription: DJConnect maakt verbinding met Home Assistant op je lokale netwerk.
         NSMicrophoneUsageDescription: DJConnect neemt je stem op voor push-to-talk muziekverzoeken aan Home Assistant.
         NSSpeechRecognitionUsageDescription: DJConnect gebruikt spraakherkenning om de wake-zin te herkennen.
+        UIRequiredDeviceCapabilities:
+          - wifi
         NSBonjourServices:
           - _home-assistant._tcp.
-          - _djconnect._tcp.
         NSAppTransportSecurity:
           NSAllowsArbitraryLoadsInLocalNetworking: true
     settings:
@@ -115,6 +116,7 @@ targets:
         PRODUCT_NAME: DJConnect
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         TARGETED_DEVICE_FAMILY: "1,2"
+        CODE_SIGN_ENTITLEMENTS: Apps/DJConnectIOS/DJConnectIOS.entitlements
   DJConnectMac:
     type: application
     platform: macOS
@@ -137,7 +139,6 @@ targets:
         NSSpeechRecognitionUsageDescription: DJConnect gebruikt spraakherkenning om de wake-zin te herkennen.
         NSBonjourServices:
           - _home-assistant._tcp.
-          - _djconnect._tcp.
         NSAppTransportSecurity:
           NSAllowsArbitraryLoadsInLocalNetworking: true
     settings:
@@ -155,6 +156,8 @@ targets:
       - path: Apps/Shared/Assets.xcassets
     dependencies:
       - target: DJConnectCoreWatch
+      - target: DJConnectWatchComplications
+        embed: true
     info:
       path: Apps/DJConnectWatch/Info.plist
       properties:
@@ -162,11 +165,12 @@ targets:
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         WKApplication: true
-        WKWatchOnly: true
+        WKWatchOnly: false
         NSLocalNetworkUsageDescription: DJConnect maakt verbinding met Home Assistant op je lokale netwerk.
         NSMicrophoneUsageDescription: DJConnect neemt je stem op voor push-to-talk muziekverzoeken aan Home Assistant.
-        NSBonjourServices:
-          - _home-assistant._tcp.
+        NSSpeechRecognitionUsageDescription: DJConnect gebruikt spraakherkenning alleen voor foreground stemactivatie met Hey DJ.
+        UIRequiredDeviceCapabilities:
+          - wifi
         NSAppTransportSecurity:
           NSAllowsArbitraryLoadsInLocalNetworking: true
     settings:
@@ -174,6 +178,25 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: dev.djconnect.watch
         PRODUCT_NAME: DJConnect
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        CODE_SIGN_ENTITLEMENTS: Apps/DJConnectWatch/DJConnectWatch.entitlements
+  DJConnectWatchComplications:
+    type: app-extension
+    platform: watchOS
+    sources:
+      - path: Apps/DJConnectWatchComplications
+    info:
+      path: Apps/DJConnectWatchComplications/Info.plist
+      properties:
+        CFBundleDisplayName: DJConnect
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: dev.djconnect.watch.complications
+        PRODUCT_NAME: DJConnectComplications
+        SKIP_INSTALL: YES
   DJConnectCoreTests:
     type: bundle.unit-test
     platform: macOS

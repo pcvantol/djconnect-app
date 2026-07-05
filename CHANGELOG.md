@@ -4,6 +4,324 @@ All notable changes to DJConnect App are documented here.
 
 ## Unreleased
 
+### Changed
+
+- Clarified LAN-only pairing and post-pairing remote URL fallback guidance in
+  the iOS/macOS pairing sheet and watchOS companion pairing view.
+- Added route, backend, and playback-state details to the runtime status
+  surface.
+- Expanded diagnostics export and release docs with TestFlight/App Store
+  readiness fields and redaction expectations.
+- Synced the Apple client contract with Home Assistant `3.2.x` backend error
+  shapes by accepting object-form `music_backend_error` and the shared
+  `windows` client type in core models.
+- Added VibeCast artist shout-out image decoding from proxied Home Assistant
+  artwork URLs with text-only fallback behavior.
+
+## 3.2.0 - 2026-06-26
+
+### Changed
+
+- Bumped the Apple client protocol/app version line to `3.2.0`.
+- Added Home Assistant local/remote transport selection for iOS and macOS after
+  successful local pairing, with `local`, `remote`, and `offline` diagnostics.
+- Parsed and surfaced the 3.2 music-backend summary fields for pairing,
+  status, command, and Ask DJ responses.
+- Disabled Apple client-hosted local `/api/device/*` pairing/callback API and
+  `_djconnect._tcp` advertising for iOS/macOS/watchOS.
+- Moved watchOS runtime HA traffic to the paired iPhone proxy for status,
+  commands, Ask DJ history, clear history, idle suggestions, voice upload, and
+  push registration; the Watch now shows compact iPhone connection/backend
+  state and no longer uses direct HA networking.
+- Preserved backend-owned Ask DJ action payloads for Spotify Direct and Music
+  Assistant and forwarded `music_backend_revision` with action commands.
+
+## 3.1.53 - 2026-06-26
+
+### Changed
+
+- Added forward-compatible client decoding for Ask DJ technical track analysis
+  provider status metadata via optional `analysis.providers[]`, while keeping
+  `sections[]`, `timeline[]`, and `dj_tips[]` authoritative for the normal
+  analysis UI.
+- Added coverage for provider status fixtures with known, missing, unavailable,
+  and future/unknown provider values.
+
+## 3.1.52 - 2026-06-26
+
+### Changed
+
+- Reworked watchOS pairing to be fully companion-only: the Watch no longer hosts
+  a local Web API, no longer advertises Bonjour/mDNS, and no longer runs a
+  direct Home Assistant pairing poll.
+- Added the iPhone-mediated Watch proxy contract: the iPhone publishes the Watch
+  identity, handles Home Assistant local callbacks, and forwards commands, DJ
+  responses, pairing results, and forget requests to the Watch over
+  WatchConnectivity.
+- Updated Watch pairing UI to show only the Watch pairing code and iPhone
+  companion status, removing the Watch-side Home Assistant URL and Client adres
+  controls.
+- Updated Watch companion-only documentation across the API contract, handoff,
+  README, and chat bootstrap.
+
+## 3.1.51 - 2026-06-25
+
+### Changed
+
+- Documented the Ask DJ history-clear endpoint as
+  `/api/djconnect/v1/ask_dj/history/clear`, with `clear_revision` as the
+  authoritative full-clear signal for cached Apple-client history.
+- Updated the Ask DJ action contract so Apple clients preserve backend-returned
+  action objects, including object-valued `value` payloads, when sending
+  follow-up, recommendation, confirmation, or output commands back to Home
+  Assistant.
+- Included explicit `client_id`, `device_id`, `device_name`, and `client_type`
+  identity fields in Ask DJ text and command payload documentation.
+- Added the Ask DJ `technical_track_analysis` read-only intent contract and
+  client decoding for structured analysis metadata and technical metric items.
+
+## 3.1.50 - 2026-06-25
+
+### Changed
+
+- Ask DJ now scrolls to the newest message every time the chat opens on iOS,
+  macOS, and watchOS, including after async history loading settles.
+- Restyled the Ask DJ scroll-to-bottom affordance to match the DJConnect
+  gradient button language.
+- Added privacy-safe diagnostics for APNs push registration and backend push
+  status on Apple clients.
+
+### Fixed
+
+- Hardened standalone watchOS pairing by keeping the local device API on a
+  stable stored port, publishing mDNS only after the listener is ready, binding
+  the listener to IPv4 LAN interfaces, keeping it alive during active pairing,
+  and logging listener state transitions.
+- Added watchOS LAN IPv4 diagnostics when the Watch is connected through
+  iPhone/Bluetooth relay or another non-LAN path.
+
+## 3.1.49 - 2026-06-25
+
+### Changed
+
+- Ask DJ speaker/output responses now render as vertical rows with the speaker
+  name on the left and the active/activate button on the right.
+- Ask DJ now scrolls to the bottom when opening the chat history, including
+  after the first async history load.
+
+## 3.1.48 - 2026-06-25
+
+### Added
+
+- Added app, status, and pairing fields to the local device API so Home
+  Assistant can show iPhone and Watch sensors with concrete values instead of
+  unknown placeholders.
+
+### Changed
+
+- Made Apple Watch Now Playing refresh show a busy state, prevent duplicate
+  refreshes, and temporarily disable transport and volume controls while the
+  status request is running.
+- Rendered Ask DJ speaker/output responses as list rows with a right-aligned
+  activate button, matching playlist and album action cards.
+- Prefer usable LAN IPv4 addresses for local pairing and hide unusable Watch
+  fallback addresses when no reachable local network address is available.
+- Only throttle backend collection refreshes after at least one devices, queue,
+  or playlist refresh succeeds.
+
+### Fixed
+
+- Fixed Dutch What's New publication by adding localized release-note source
+  files for this release so the public workflow no longer falls back to English
+  content for `nl` URLs.
+
+## 3.1.47 - 2026-06-24
+
+### Added
+
+- Added the interactive first-run onboarding tour across iOS, macOS, and
+  watchOS with tappable feature highlights for Now Playing, Ask DJ, Queue,
+  settings, and Mini-games.
+- Added watchOS top refresh controls for Now Playing, output devices, playlists,
+  and queue, with automatic refresh when opening those screens.
+
+### Changed
+
+- Updated watchOS Now Playing, queue, playlist, output, logs, About, settings,
+  and Ask DJ layouts for smaller watch screens and more reliable navigation.
+- Made watchOS playback commands refresh their playback snapshot after commands
+  so next/previous, queue item starts, output changes, and volume updates stay in
+  sync with Spotify/Home Assistant.
+- Simplified Ask DJ confirmation actions to direct "Ja graag" and "Nee dank je"
+  buttons without media-card styling.
+
+### Fixed
+
+- Fixed Ask DJ chat ordering for the server-side message exchange contract by
+  respecting `exchange_id` and `exchange_order` while deduplicating HTTP,
+  push, and history sync updates.
+- Fixed watchOS mDNS/local API lifecycle churn that could leave duplicate
+  listeners or drive high CPU and memory usage.
+- Fixed watchOS queue context retention and automatic queue refresh after
+  starting an item from the queue.
+- Fixed watchOS voice recording and log level crashes on simulator/watchOS by
+  avoiding unstable render/audio state transitions.
+- Fixed log rendering, selection, search dismissal, and focus styling so logs
+  remain selectable and easier to inspect.
+
+## 3.1.46 - 2026-06-23
+
+### Changed
+
+- Documented the expanded Bonjour/mDNS discovery TXT contract, including
+  `pairing_status`, pairing-code aliases, local device API paths, and
+  standalone watchOS troubleshooting.
+- Made iOS fallback local-device identity platform-correct if the local API info
+  provider is invoked after the app model is gone.
+
+### Fixed
+
+- Fixed standalone watchOS mDNS discovery by advertising the Watch as
+  `client_type=watchos` with the `djconnect-watchos-` device ID, the reachable
+  local URL, pairing metadata, and `/api/device/*` paths.
+- Prevented stale watchOS Network.framework listeners from leaving duplicate
+  `_djconnect._tcp` services on different ports.
+- Restarted watchOS local discovery when the app returns to foreground, pairing
+  starts or resets, or WiFi becomes available again.
+- Reduced watchOS demo-mode CPU and memory churn by lazily rendering the Now
+  Playing page, disabling demo Crown focus churn, and stopping demo diagnostics
+  publishers.
+- Removed the oversized watchOS top refresh button and suppressed demo haptics
+  that could produce noisy OSStatus logs on Apple Watch.
+
+## 3.1.45 - 2026-06-23
+
+### Changed
+
+- Documented Ask DJ morning-start metadata and backend-owned follow-up/
+  confirmation actions in the README, architecture notes, and API contract.
+- Hardened Apple APNs push registration for iOS, macOS, and watchOS by using a
+  full registration fingerprint, decoding Home Assistant push status fields,
+  avoiding raw APNs token storage, and keeping push troubleshooting logs
+  privacy-safe.
+- Matched Ask DJ assistant response bubbles and setup/status blocks to the
+  warmer Games gradient styling.
+
+### Fixed
+
+- Removed the blue selected focus ring from the Ask DJ search bar, made the
+  toolbar search button toggle the search field closed again, and highlighted
+  matches while typing.
+- Made the Ask DJ search placeholder emphasize `Ask DJ`.
+- Replaced the default macOS About popup with the in-app About view, fixed the
+  transparent/wide About window edges, and made the Settings window tall enough
+  to avoid immediate scrolling.
+- Reduced repeated Home Assistant connection noise by suppressing unavailable
+  image retries and avoiding playback polling while the backend is unavailable.
+
+## 3.1.44 - 2026-06-23
+
+### Added
+
+- Render Ask DJ recently played history for tracks, albums, artists, and
+  playlists as compact informational lists without reconstructing playback
+  actions client-side.
+
+### Changed
+
+- Improved Ask DJ rich chat rendering for mood/status messages, playlist and
+  album action rows, and album artwork sizing across iOS and macOS.
+- Kept macOS mood controls aligned and prevented the expanded mood panel from
+  shifting the sidebar or Ask DJ chat layout.
+
+### Fixed
+
+- Fixed macOS Home Assistant pairing discovery by keeping the local mDNS
+  advertisement alive during pairing and regenerating stale local pairing codes
+  without stopping the pairing flow too early.
+- Prevented Ask DJ text-only and recent-history responses from showing stale
+  artwork from previous chat bubbles.
+
+### Removed
+
+- Removed the discontinued Apple display feature from the Apple apps, including
+  its UI, local serving path, demo launch flag, and screenshot coverage.
+
+## 3.1.43 - 2026-06-20
+
+### Changed
+
+- Render Ask DJ assistant answers as rich chat content with preserved headings,
+  blank lines, paragraphs, bullets, links, sources, images, audio replay, and
+  structured playback/action rows across Apple clients.
+- Send the full known Ask DJ action object back to Home Assistant command
+  handling, including labels, reasons, artwork URLs, output state, and
+  confirmation response values.
+- Avoid reusing images, links, or action rows from older Ask DJ bubbles when a
+  refreshed server message omits them or sends empty arrays.
+- Improved watchOS runtime behavior for pairing, local API lifecycle, demo
+  mode, wakeword scheduling, diagnostics, and notification delegate handling.
+
+## 3.1.42 - 2026-06-20
+
+### Changed
+
+- Added a confirmation dialog before resetting the app pairing from Settings on
+  iOS, macOS, and watchOS.
+
+## 3.1.41 - 2026-06-20
+
+### Added
+
+- Added APNs push registration on iOS, macOS, and watchOS, including privacy
+  disclosure text and Home Assistant registration/unregistration calls.
+- Added a much richer watchOS experience with welcome/pairing/about/legal/
+  privacy/logs/settings screens, output selection, playlists, queue, games,
+  complications, volume control, foreground-only voice activation, haptics, and
+  Crown mood scrubbing.
+- Added CI validation for the committed Postman collection.
+
+### Changed
+
+- Updated iOS/macOS button styling to use readable blue-purple gradient pills
+  with white text, matching the watchOS visual language.
+- Made pairing stricter on fresh iOS/macOS installs by ignoring orphaned
+  persistent device tokens without a matching install identity.
+- Improved Watch pairing copy, WiFi/local-network handling, demo-mode exit
+  behavior, and Now Playing artwork/output layout.
+
+## 3.1.40 - 2026-06-20
+
+### Added
+
+## 3.1.38 - 2026-06-20
+
+### Changed
+
+- Added Ask DJ support for backend-generated ambient/system messages, including
+  Spotify playback-context DJ facts with distinct chat styling across Apple
+  clients.
+- Changed the Ask DJ clear-history confirmation from a popover-style
+  confirmation dialog to a standard modal alert with explicit cancel and
+  destructive actions.
+- Changed Ask DJ Demo Mode to stay fully client-side: it shows the starter
+  prompts, avoids backend history sync, and answers locally until Home
+  Assistant is paired.
+- Removed raw inline Ask DJ error text above the prompt; failures are surfaced
+  through the existing snackbar/toast.
+- Added a microphone icon to Ask DJ voice-request chat bubbles.
+- Replaced Keychain-backed DJConnect device-token storage with app-private
+  storage on iOS, macOS, and watchOS to avoid platform Keychain prompts.
+- Added an `App opnieuw koppelen` Settings action that resets pairing and opens
+  the pairing sheet again.
+
+### Fixed
+
+- Ignored cancelled Ask DJ history refresh tasks so pull-to-refresh does not
+  show a spurious network-cancelled error.
+- Prevented raw backend/HTML error bodies from appearing in Ask DJ chat or
+  inline error UI; technical details remain in diagnostics logs only.
+
 ## 3.1.36 - 2026-06-19
 
 ### Added
@@ -21,6 +339,23 @@ All notable changes to DJConnect App are documented here.
 - Updated Ask DJ text chat to request `audio_response: auto`, treat missing
   `audio_url` as normal for informational answers, and use top-level audio URLs
   as fallback for assistant message replay.
+- Added pull-to-refresh to the Ask DJ chat so users can manually sync chat
+  history with Home Assistant.
+- Added a long-press context menu on Ask DJ chat bubbles to place an existing
+  message back into the prompt for editing or resending.
+- Removed the redundant Now Playing DJ request block so voice and text music
+  requests live in the richer Ask DJ screen.
+- Updated handoff, API contract, architecture, release, and bootstrap prompts
+  to reflect Ask DJ as the single rich Apple-client DJ request surface.
+- Documented the Ask DJ `change_music_context` intent for requests such as
+  `Ik wil wat anders horen`.
+
+### Fixed
+
+- Fixed macOS stale-token recovery so a rejected device token clears locally and
+  re-enables Bonjour pairing discovery for Home Assistant.
+- Fixed iPhone Ask DJ keyboard handling so tapping or scrolling the chat closes
+  the keyboard, and added a keyboard `Done` control.
 
 ## 3.1.35 - 2026-06-19
 
@@ -788,9 +1123,9 @@ All notable changes to DJConnect App are documented here.
   version mismatch handling, and reset/recovery flows.
 - Added native playback controls for play/pause, previous, next, volume,
   shuffle, repeat, output selection, queue loading, playlists, and liked proxy
-  through `/api/djconnect/command`.
+  through `/api/djconnect/v1/command`.
 - Added Push-to-Talk recording with mono PCM WAV upload to
-  `/api/djconnect/voice`.
+  `/api/djconnect/v1/voice`.
 - Added native iOS/macOS UI for setup status, now playing, playback controls,
   queue/playlists, DJ response, settings, language switching, log level, and
   diagnostics.

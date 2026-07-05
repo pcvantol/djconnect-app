@@ -15,30 +15,62 @@ Lees eerst:
 - `CONTRIBUTING.md`
 
 Context:
-- Dit is de native DJConnect app repo voor iOS/iPadOS/macOS.
+- Dit is de native DJConnect app repo voor iOS/iPadOS/macOS/watchOS.
 - DJConnect wordt ontwikkeld en onderhouden met AI-assisted/agentic engineering workflows, inclusief Codex; accepted changes blijven maintainer-reviewed en prompts/logs/issues mogen geen secrets of private data bevatten.
 - Project is MIT-licensed; zie `LICENSE`.
-- User-facing term is `Client adres`, niet `Client API URL`.
+- Apple app clients tonen geen `Client adres` meer; iOS/macOS pairen lokaal
+  met Home Assistant en watchOS loopt via de iPhone companion.
 - Clients mogen geen `spotify_source` / "Spotify source override" of `liked_proxy_playlist_uri` / "Standaard playlist override" meer tonen, documenteren of verwachten.
 - Backend playback loopt via de Home Assistant DJConnect integration; clients sturen generieke playback commands.
-- Houd cross-repo contracten actueel met `pcvantol/djconnect`, client/firmware repos, `SYNC_PROMPTS.md` en `PRODUCT_ROADMAP.md` indien protocol/roadmap geraakt wordt.
+- Apple clients bewaren alleen het door Home Assistant uitgegeven DJConnect device-token in app-private storage. Gebruik geen Keychain en toon geen Keychain-permissie of fallback-popup. `App opnieuw koppelen` wist lokale pairing/token-state, roteert de lokale clientidentiteit/koppelcode waar nodig en opent opnieuw de pairingflow.
+- Houd cross-repo contracten actueel met `pcvantol/djconnect`, client/firmware repos, `SYNC_PROMPTS.md` en `PRODUCT_ROADMAP.md` indien protocol/roadmap geraakt wordt. Apple clients gebruiken Ask DJ als rijke chat/PTT-functie; er is geen losse Now Playing `DJ verzoek` ingang meer. rbpi had die losse ingang al niet; ESP32 krijgt geen Ask DJ rich UI en blijft buiten Apple UI-sync.
+- Ask DJ is cross-device: iOS, macOS en watchOS synchroniseren history via Home Assistant en cachen lokaal voor performance. Clients mergen serverberichten in de lokale cache en vervangen de lokale lijst niet door een bounded response-window. `clear_revision` blijft de full-clear authority.
+- Ask DJ history ondersteunt assistant-only systeemmeldingen met `message_kind: "system"`, onder andere `origin: "spotify_playback_context"` voor DJ-feitjes en `origin: "history_retention"` voor limietmeldingen. Deze berichten hebben geen voorafgaande user bubble nodig en zijn niet retrybaar.
+- History retention gebruikt backendmetadata zoals `history_limit`, `history_trimmed_before` en `history_trimmed_count`; clients mogen lokale cache ouder dan `history_trimmed_before` opschonen zonder displaytekst te parsen.
+- Ask DJ tekstchat stuurt standaard `audio_response: "auto"`. Ontbrekende `audio_url` is normaal; replay/audio UI verschijnt alleen als `assistant_message.audio_url` of top-level `audio_url` aanwezig is.
+- Ask DJ mag informatieve vragen, contextuele vervolgreacties, playback-intents, persoonlijke muziekanalyse, aanbevelingen, Play Now-acties, afbeeldingen, links, bronnen en DJ-audio bevatten. Intentinterpretatie blijft backend-owned; clients hardcoden geen intentfamilies behalve UI-weergave van teruggegeven media/actions.
+- Ask DJ request payloads mogen optionele `metadata` bevatten voor backend-owned context triggers. De geplande ochtend-start gebruikt `metadata.trigger == "morning_startup"` met tekst `Goedemorgen`/`Good morning` als de app 's ochtends start zonder actieve playback; Home Assistant hoort daarop een normale Ask DJ response/follow-up te maken en niet client-side automatisch muziek te starten.
+- Ask DJ tekst- en command-payloads sturen expliciet `device_id`, `device_name`, `client_id` en `client_type`; `client_id` is nu gelijk aan `device_id` voor backendcompatibiliteit.
+- Backend follow-up/confirmatievragen worden als Ask DJ `playback_actions` gerenderd. Voor algemene ja/nee verduidelijking gebruikt de backend acties met bijvoorbeeld `kind: "confirmation"`, `action_style: "confirmation"`, `response_value: "yes"|"no"` en `command: "ask_dj_followup_response"`. Clients tonen dan klikbare Ja/Nee knoppen; de pending follow-up state en uiteindelijke intentuitvoering blijven server-side.
+- Clients sturen bij action-taps waar mogelijk het volledige door de backend teruggegeven action-object terug, inclusief object-valued `value`; output-actions worden dus niet meer gereduceerd tot alleen een device-id tenzij legacy fallback nodig is.
+- Ask DJ clear-history gebruikt `POST /api/djconnect/v1/ask_dj/history/clear`; de backend moet `clear_revision` verhogen en blijven teruggeven, want dat is de authoritative full-clear marker voor lokale caches.
+- Raw backend/proxy/decode/HTML-fouten mogen nooit in de Ask DJ chat UI verschijnen. Toon korte gelokaliseerde meldingen zoals `Ask DJ niet bereikbaar` of `Home Assistant gaf geen antwoord`; technische details blijven in diagnostics/logs.
 - Secrets/tokens/wachtwoorden/private URLs mogen nooit in commits, logs, screenshots, diagnostics of test fixtures.
 
 Huidige status om te controleren:
-- Release `3.1.35` is de actuele source release met de native watchOS client,
-  Ask DJ chat op iOS/macOS/watchOS, rijke Ask DJ media/actions en backend
-  contracten voor DJ Memory, Spotify profieldata en Play Now aanbevelingen.
-- De statische What's New release-notes voor `3.1.35` worden door de
+- Release `3.2.0` is de actuele source release/protocollijn. iOS/macOS pairen
+  lokaal via `/api/djconnect/v1/pair`, bewaren `ha_local_url` plus optioneel
+  `ha_remote_url`, kiezen runtime local -> remote -> offline, en hosten geen
+  client `/api/device/*` API of `_djconnect._tcp` service.
+- Ask DJ toont in het lege scherm een voorbeeldvraag voor technische
+  trackanalyse. Backend/providerdata voor `technical_track_analysis` blijft
+  read-only: geen playback starten, pauzeren, skippen, queuen, saven of output
+  wijzigen.
+- watchOS is volledig companion-only. De Watch host geen lokale Web API,
+  adverteert geen mDNS/Bonjour, bewaart geen `ha_remote_url`, en kiest geen
+  directe HA local/remote transport. De gekoppelde iPhone is eigenaar van HA
+  pairing, Watch-tokenopslag, APNs registratie, runtime transport, status,
+  Ask DJ history/clear/idle suggestion, playback actions, follow-up yes/no en
+  voice/PTT upload. De iPhone behoudt `client_type:"watchos"` metadata richting
+  HA.
+- Apple clients renderen de 3.2 music-backend summary (`music_backend`,
+  `music_backend_name`, availability, revision, capabilities, target player,
+  error) zonder Spotify-only aannames. Backend-owned action `value` payloads
+  voor Spotify Direct en Music Assistant blijven intact.
+- Demo Mode is volledig lokaal en non-interacting met Home Assistant. Ask DJ
+  toont de vaste voorbeelden en geeft client-side demobubbles terug die
+  uitleggen dat Ask DJ echt antwoordt zodra Home Assistant gekoppeld is.
+- De statische What's New release-notes voor `3.2.0` worden door de
   `Public unsigned release` workflow gepubliceerd naar `pcvantol/djconnect-website`
-  en `djconnect.dev`. Controleer de workflowstatus als release/publicatie
-  geraakt wordt.
+  en `djconnect.dev`. Controleer specifiek dat de `nl` JSON echte Nederlandse
+  inhoud bevat en niet de Engelse fallback.
 - Lokale branch hoort gelijk te lopen met `origin/main`; controleer dat bij
   start van iedere sessie.
 - Check direct:
   - `git status --short --branch`
   - `gh run list --repo pcvantol/djconnect-app --limit 5`
-  - public release tags in `pcvantol/djconnect-app-releases` voor `ios/v3.1.35` en `macos/v3.1.35` indien release/publicatie geraakt wordt.
-  - `https://djconnect.dev/release-notes/ios/nl/v3.1.35.json` en het macOS
+  - public release tags in `pcvantol/djconnect-app-releases` voor `ios/v3.2.0` en `macos/v3.2.0` indien release/publicatie geraakt wordt.
+  - `https://djconnect.dev/release-notes/ios/nl/v3.2.0.json` en het macOS
     equivalent indien What's New release-notes geraakt worden.
 
 Werkstijl:

@@ -13,16 +13,17 @@
 		14C24A642398851F7208C2CF /* DJConnectRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A925089414284E0693A9FD97 /* DJConnectRootView.swift */; };
 		1925925463C20A81C360C321 /* DJConnectCoreMac.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A3FBCBF6FC49FA0FB5B32850 /* DJConnectCoreMac.framework */; };
 		1AB8A61C43E8B50CC22AEE75 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = F7F455E8249D117C4BC5A577 /* InfoPlist.strings */; };
+		1E2442AFB4FFED06F8AD0A44 /* DJConnectLocalDeviceAPI.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5AE4C74D98276DA1BF23655B /* DJConnectLocalDeviceAPI.swift */; };
 		1EBA30C15C3D35490BFAB014 /* DJConnectIOSUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75854DE35F5A2B4F10D86022 /* DJConnectIOSUITests.swift */; };
 		2573CE0B0A2FD7979C72084D /* DJConnectModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 26056425DEFDCF738458EB87 /* DJConnectModels.swift */; };
+		34D70F3706318F09C00191D7 /* DJConnectLogRedactor.swift in Sources */ = {isa = PBXBuildFile; fileRef = F35AC3F11DF3D57017CB5E27 /* DJConnectLogRedactor.swift */; };
 		3F3CB5CC6A1448E6E1F4A412 /* DJConnectLaunchView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2660C7D523969EF6A9C4E6B /* DJConnectLaunchView.swift */; };
 		4293921BEF6B3C041AF4B407 /* DJConnectUIMac.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C659C3787E9F642A8E1AAFCB /* DJConnectUIMac.framework */; };
-		4A7F2B5C8D1E4A9B9C0D1234 /* DJConnectLocalDeviceAPI.swift in Sources */ = {isa = PBXBuildFile; fileRef = A88B1E338BAF9A4B16A8EB37 /* DJConnectLocalDeviceAPI.swift */; };
+		442DFD79FFD229971488AB87 /* DJConnectTransport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 23742113397B7D6D33BD468B /* DJConnectTransport.swift */; };
+		46A449DDC4D5CF09C5DCAD8A /* DJConnectIOSSettingsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 423DAFBE1369FE47AA43E6CF /* DJConnectIOSSettingsTests.swift */; };
 		46E99FCD23D83A1863B00D0F /* DJConnectKeychain.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E3C709B1C49EF89F2A88DA2 /* DJConnectKeychain.swift */; };
 		4F7D5058CADA67AC6434387E /* DJConnectMacUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 903EAA227408174074DF1101 /* DJConnectMacUITests.swift */; };
 		540F1802406DBC2A7A8E7444 /* DJConnectCoreMac.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = A3FBCBF6FC49FA0FB5B32850 /* DJConnectCoreMac.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
-		5B8E3C6D9E2F4B0C8D1A2345 /* DJConnectLocalDeviceAPI.swift in Sources */ = {isa = PBXBuildFile; fileRef = A88B1E338BAF9A4B16A8EB37 /* DJConnectLocalDeviceAPI.swift */; };
-		6C9F4D7E0F3A4C1D9E2B3456 /* DJConnectLocalDeviceAPI.swift in Sources */ = {isa = PBXBuildFile; fileRef = A88B1E338BAF9A4B16A8EB37 /* DJConnectLocalDeviceAPI.swift */; };
 		5E2CFA0E6184A9045601966C /* DJConnectCoreWatch.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F1FA46912E85C39830ED5792 /* DJConnectCoreWatch.framework */; };
 		5FFA57810AFEF34716CA9FAF /* DJConnectCoreIOS.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = DE473A51768FAF83BB87904A /* DJConnectCoreIOS.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		629FA9D469AA5698A554D78F /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 3D263714C576ADB2355C54E7 /* InfoPlist.strings */; };
@@ -34,15 +35,20 @@
 		75A00534BE8229509AAB4EC5 /* DJConnectModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 26056425DEFDCF738458EB87 /* DJConnectModels.swift */; };
 		7D7B27514CCB9BB420FBA399 /* DJConnectCoreMac.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A3FBCBF6FC49FA0FB5B32850 /* DJConnectCoreMac.framework */; };
 		867A89D554EE7367C2411B0C /* DJConnectCoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 698C60314289E09A85A97440 /* DJConnectCoreTests.swift */; };
+		89CD539E9B51233FCE05A1EB /* DJConnectLocalDeviceAPI.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5AE4C74D98276DA1BF23655B /* DJConnectLocalDeviceAPI.swift */; };
 		8B7A782756C7896FF1B51CEC /* DJConnectCoreIOS.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = DE473A51768FAF83BB87904A /* DJConnectCoreIOS.framework */; };
 		91902E73987090C9E154E5B1 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 93BE51ADEAE2C4D8EA9988F1 /* Assets.xcassets */; };
 		9542AEB084944D171B242903 /* DJConnectClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = FBE907808268D4334CA5B184 /* DJConnectClient.swift */; };
 		96E767533FE9B51F0EC1A379 /* DJConnectWatchRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F0251944CAC3B0BAF17E08B /* DJConnectWatchRootView.swift */; };
 		98FD076D84CC9F9E2CF14F6F /* DJConnectErrors.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AA78D455672D5B5BBD091CA /* DJConnectErrors.swift */; };
+		9E93FCBEF87FF7A0CA35BD6E /* DJConnectLogRedactor.swift in Sources */ = {isa = PBXBuildFile; fileRef = F35AC3F11DF3D57017CB5E27 /* DJConnectLogRedactor.swift */; };
 		A09C47447F27E4F8B8E6DCB5 /* DJConnectKeychain.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E3C709B1C49EF89F2A88DA2 /* DJConnectKeychain.swift */; };
+		A3525972DA1AA628E9B4AFC3 /* DJConnectWatchComplications.swift in Sources */ = {isa = PBXBuildFile; fileRef = 16845A0EFC30777F34D9B019 /* DJConnectWatchComplications.swift */; };
 		A73CF8DB680C92236CBA8850 /* DJConnectErrors.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AA78D455672D5B5BBD091CA /* DJConnectErrors.swift */; };
+		AC7A04E15082502938CFE99C /* DJConnectTransport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 23742113397B7D6D33BD468B /* DJConnectTransport.swift */; };
 		ACB0E6520D437396646E9C94 /* DJConnectLaunchView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2660C7D523969EF6A9C4E6B /* DJConnectLaunchView.swift */; };
 		B48EED24BBFA437FF0492AAB /* DJConnectAppModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B3838678C774C89F2046E061 /* DJConnectAppModel.swift */; };
+		B4E1C5CD16B3FEDE73A454A8 /* DJConnectTransport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 23742113397B7D6D33BD468B /* DJConnectTransport.swift */; };
 		BC4774802815A6A6F91720DE /* DJConnectCoreMac.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = A3FBCBF6FC49FA0FB5B32850 /* DJConnectCoreMac.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		C7D147EF5D688B9A4EA8B2DF /* DJConnectAppModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B3838678C774C89F2046E061 /* DJConnectAppModel.swift */; };
 		CF5D7468F43A5723274586BA /* DJConnectMacApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 732A99F815E33F6A2776DDFA /* DJConnectMacApp.swift */; };
@@ -52,11 +58,14 @@
 		D90767C18105D1A76C9FDED8 /* DJConnectWatchModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7E1C5F0578AC3B08A73377D /* DJConnectWatchModel.swift */; };
 		D910F48A8E3D0035A78E09C6 /* DJConnectClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = FBE907808268D4334CA5B184 /* DJConnectClient.swift */; };
 		DFED6311A0F77F6557E9CB5E /* DJConnectClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = FBE907808268D4334CA5B184 /* DJConnectClient.swift */; };
+		E8FF838C8FC0729FDD1BB7BF /* DJConnectLogRedactor.swift in Sources */ = {isa = PBXBuildFile; fileRef = F35AC3F11DF3D57017CB5E27 /* DJConnectLogRedactor.swift */; };
 		E9D9FCD90E787DA8EC46C50A /* DJConnectUIMac.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = C659C3787E9F642A8E1AAFCB /* DJConnectUIMac.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		EED2D9CB3D98F66E5461D2B9 /* DJConnectCoreMac.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A3FBCBF6FC49FA0FB5B32850 /* DJConnectCoreMac.framework */; };
+		EFCDA64B429961384760DD64 /* DJConnectLocalDeviceAPI.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5AE4C74D98276DA1BF23655B /* DJConnectLocalDeviceAPI.swift */; };
 		F8505F3454ADD573DC9F6DEE /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 93BE51ADEAE2C4D8EA9988F1 /* Assets.xcassets */; };
 		FAB670845EFEBE996CA7D94A /* DJConnectUIMac.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C659C3787E9F642A8E1AAFCB /* DJConnectUIMac.framework */; };
 		FBEC3E564D080A8A5E3167C2 /* DJConnectUIIOS.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 48D4F75F261BB3FACEF2EA26 /* DJConnectUIIOS.framework */; };
+		FF76A13AF5A55A90DC522564 /* DJConnectWatchComplications.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 1C1AEB2C655A789533668440 /* DJConnectWatchComplications.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -80,6 +89,13 @@
 			proxyType = 1;
 			remoteGlobalIDString = CE5E7113747A4708DCD7040A;
 			remoteInfo = DJConnectCoreMac;
+		};
+		4D5EE687EE20A04677A709D8 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = F41A7AA988456BFBB831C5B0 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 9E90062B3C435BCACA82E017;
+			remoteInfo = DJConnectWatchComplications;
 		};
 		64FB67BA8247A00F63F9C0B1 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -164,6 +180,17 @@
 			name = "Embed Frameworks";
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		718EC23C26D94E16C1EBFC38 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				FF76A13AF5A55A90DC522564 /* DJConnectWatchComplications.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		B9C7A303D7B3328FB7B5253A /* Embed Frameworks */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 2147483647;
@@ -180,12 +207,19 @@
 
 /* Begin PBXFileReference section */
 		016893CADAA01E3C5DD26999 /* LaunchScreen.storyboard */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; path = LaunchScreen.storyboard; sourceTree = "<group>"; };
+		16845A0EFC30777F34D9B019 /* DJConnectWatchComplications.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DJConnectWatchComplications.swift; sourceTree = "<group>"; };
+		1C1AEB2C655A789533668440 /* DJConnectWatchComplications.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = DJConnectWatchComplications.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		1DB174465C70FE0A0870D342 /* DJConnectIOS.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = DJConnectIOS.entitlements; sourceTree = "<group>"; };
+		23742113397B7D6D33BD468B /* DJConnectTransport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DJConnectTransport.swift; sourceTree = "<group>"; };
 		26056425DEFDCF738458EB87 /* DJConnectModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DJConnectModels.swift; sourceTree = "<group>"; };
 		2A850188DA3CF90644DDB2A1 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		2E3C709B1C49EF89F2A88DA2 /* DJConnectKeychain.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DJConnectKeychain.swift; sourceTree = "<group>"; };
 		3D263714C576ADB2355C54E7 /* InfoPlist.strings */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = InfoPlist.strings; path = nl.lproj/InfoPlist.strings; sourceTree = "<group>"; };
-		45528CBD4F8D40CACCF5FFD1 /* DJConnect.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = DJConnect.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		48D4F75F261BB3FACEF2EA26 /* DJConnectUIIOS.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; name = DJConnectUIIOS.framework; path = DJConnectUI.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		423DAFBE1369FE47AA43E6CF /* DJConnectIOSSettingsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DJConnectIOSSettingsTests.swift; sourceTree = "<group>"; };
+		45528CBD4F8D40CACCF5FFD1 /* DJConnectIOS.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = DJConnectIOS.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		48D4F75F261BB3FACEF2EA26 /* DJConnectUIIOS.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = DJConnectUIIOS.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		5AE4C74D98276DA1BF23655B /* DJConnectLocalDeviceAPI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DJConnectLocalDeviceAPI.swift; sourceTree = "<group>"; };
+		5E48B927D9C02E6EDFF53AE2 /* DJConnectWatch.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = DJConnectWatch.entitlements; sourceTree = "<group>"; };
 		698C60314289E09A85A97440 /* DJConnectCoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DJConnectCoreTests.swift; sourceTree = "<group>"; };
 		71BC8F114A1FED5837EEFEAD /* DJConnectIOSUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = DJConnectIOSUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		732A99F815E33F6A2776DDFA /* DJConnectMacApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DJConnectMacApp.swift; sourceTree = "<group>"; };
@@ -196,22 +230,23 @@
 		8AA78D455672D5B5BBD091CA /* DJConnectErrors.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DJConnectErrors.swift; sourceTree = "<group>"; };
 		8F0251944CAC3B0BAF17E08B /* DJConnectWatchRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DJConnectWatchRootView.swift; sourceTree = "<group>"; };
 		903EAA227408174074DF1101 /* DJConnectMacUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DJConnectMacUITests.swift; sourceTree = "<group>"; };
-		90FB813F4F6C89EC152146DD /* DJConnectMac.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; name = DJConnectMac.app; path = DJConnect.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		90FB813F4F6C89EC152146DD /* DJConnectMac.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = DJConnectMac.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		93BE51ADEAE2C4D8EA9988F1 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
-		A3FBCBF6FC49FA0FB5B32850 /* DJConnectCoreMac.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; name = DJConnectCoreMac.framework; path = DJConnectCore.framework; sourceTree = BUILT_PRODUCTS_DIR; };
-		A88B1E338BAF9A4B16A8EB37 /* DJConnectLocalDeviceAPI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DJConnectLocalDeviceAPI.swift; sourceTree = "<group>"; };
+		9D4DDF4458E05FC14D5BE562 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		A3FBCBF6FC49FA0FB5B32850 /* DJConnectCoreMac.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = DJConnectCoreMac.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		A925089414284E0693A9FD97 /* DJConnectRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DJConnectRootView.swift; sourceTree = "<group>"; };
 		AFEE1759CCFC100C9F2E3C03 /* DJConnectCoreTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = DJConnectCoreTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		B3838678C774C89F2046E061 /* DJConnectAppModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DJConnectAppModel.swift; sourceTree = "<group>"; };
 		B7E1C5F0578AC3B08A73377D /* DJConnectWatchModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DJConnectWatchModel.swift; sourceTree = "<group>"; };
-		C659C3787E9F642A8E1AAFCB /* DJConnectUIMac.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; name = DJConnectUIMac.framework; path = DJConnectUI.framework; sourceTree = BUILT_PRODUCTS_DIR; };
-		DE473A51768FAF83BB87904A /* DJConnectCoreIOS.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; name = DJConnectCoreIOS.framework; path = DJConnectCore.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		C659C3787E9F642A8E1AAFCB /* DJConnectUIMac.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = DJConnectUIMac.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		DE473A51768FAF83BB87904A /* DJConnectCoreIOS.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = DJConnectCoreIOS.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		E1372E7133BB3581B0031DBA /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		E261C2E77577F5E05601B484 /* DJConnectWatchApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DJConnectWatchApp.swift; sourceTree = "<group>"; };
-		F1FA46912E85C39830ED5792 /* DJConnectCoreWatch.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; name = DJConnectCoreWatch.framework; path = DJConnectCore.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		F1FA46912E85C39830ED5792 /* DJConnectCoreWatch.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = DJConnectCoreWatch.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		F2660C7D523969EF6A9C4E6B /* DJConnectLaunchView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DJConnectLaunchView.swift; sourceTree = "<group>"; };
+		F35AC3F11DF3D57017CB5E27 /* DJConnectLogRedactor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DJConnectLogRedactor.swift; sourceTree = "<group>"; };
 		F7F455E8249D117C4BC5A577 /* InfoPlist.strings */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = InfoPlist.strings; path = nl.lproj/InfoPlist.strings; sourceTree = "<group>"; };
-		F9F25D6F893095773FAE9540 /* DJConnect.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = DJConnect.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		F9F25D6F893095773FAE9540 /* DJConnectWatch.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = DJConnectWatch.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		FAD0D96339C96E2CD2EE47E6 /* DJConnectMacUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = DJConnectMacUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		FBE907808268D4334CA5B184 /* DJConnectClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DJConnectClient.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -278,15 +313,25 @@
 				A3FBCBF6FC49FA0FB5B32850 /* DJConnectCoreMac.framework */,
 				AFEE1759CCFC100C9F2E3C03 /* DJConnectCoreTests.xctest */,
 				F1FA46912E85C39830ED5792 /* DJConnectCoreWatch.framework */,
-				45528CBD4F8D40CACCF5FFD1 /* DJConnect.app */,
+				45528CBD4F8D40CACCF5FFD1 /* DJConnectIOS.app */,
 				71BC8F114A1FED5837EEFEAD /* DJConnectIOSUITests.xctest */,
 				90FB813F4F6C89EC152146DD /* DJConnectMac.app */,
 				FAD0D96339C96E2CD2EE47E6 /* DJConnectMacUITests.xctest */,
 				48D4F75F261BB3FACEF2EA26 /* DJConnectUIIOS.framework */,
 				C659C3787E9F642A8E1AAFCB /* DJConnectUIMac.framework */,
-				F9F25D6F893095773FAE9540 /* DJConnect.app */,
+				F9F25D6F893095773FAE9540 /* DJConnectWatch.app */,
+				1C1AEB2C655A789533668440 /* DJConnectWatchComplications.appex */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		0409C756F414658298E45275 /* DJConnectWatchComplications */ = {
+			isa = PBXGroup;
+			children = (
+				16845A0EFC30777F34D9B019 /* DJConnectWatchComplications.swift */,
+				9D4DDF4458E05FC14D5BE562 /* Info.plist */,
+			);
+			path = DJConnectWatchComplications;
 			sourceTree = "<group>";
 		};
 		2B9E5D83730F0D68C3C783AD /* DJConnectCore */ = {
@@ -295,8 +340,10 @@
 				FBE907808268D4334CA5B184 /* DJConnectClient.swift */,
 				8AA78D455672D5B5BBD091CA /* DJConnectErrors.swift */,
 				2E3C709B1C49EF89F2A88DA2 /* DJConnectKeychain.swift */,
-				A88B1E338BAF9A4B16A8EB37 /* DJConnectLocalDeviceAPI.swift */,
+				5AE4C74D98276DA1BF23655B /* DJConnectLocalDeviceAPI.swift */,
+				F35AC3F11DF3D57017CB5E27 /* DJConnectLogRedactor.swift */,
 				26056425DEFDCF738458EB87 /* DJConnectModels.swift */,
+				23742113397B7D6D33BD468B /* DJConnectTransport.swift */,
 			);
 			path = DJConnectCore;
 			sourceTree = "<group>";
@@ -312,6 +359,7 @@
 		48BF82D507BF438F2FED0757 /* DJConnectIOS */ = {
 			isa = PBXGroup;
 			children = (
+				1DB174465C70FE0A0870D342 /* DJConnectIOS.entitlements */,
 				872A79FAE7E92E9EBB96CE3B /* DJConnectIOSApp.swift */,
 				74772CBD8D695A8A4DAA4045 /* Info.plist */,
 				F7F455E8249D117C4BC5A577 /* InfoPlist.strings */,
@@ -352,6 +400,7 @@
 				48BF82D507BF438F2FED0757 /* DJConnectIOS */,
 				D4B9ACD1C1D2AD15AA0181E3 /* DJConnectMac */,
 				A71C820C5D545BF29A3B8A28 /* DJConnectWatch */,
+				0409C756F414658298E45275 /* DJConnectWatchComplications */,
 				462C66C37EDC061C7898F3BA /* Shared */,
 			);
 			path = Apps;
@@ -389,6 +438,7 @@
 		A71C820C5D545BF29A3B8A28 /* DJConnectWatch */ = {
 			isa = PBXGroup;
 			children = (
+				5E48B927D9C02E6EDFF53AE2 /* DJConnectWatch.entitlements */,
 				E261C2E77577F5E05601B484 /* DJConnectWatchApp.swift */,
 				B7E1C5F0578AC3B08A73377D /* DJConnectWatchModel.swift */,
 				8F0251944CAC3B0BAF17E08B /* DJConnectWatchRootView.swift */,
@@ -400,6 +450,7 @@
 		C808DAC77AE8E2124B490E09 /* DJConnectIOSUITests */ = {
 			isa = PBXGroup;
 			children = (
+				423DAFBE1369FE47AA43E6CF /* DJConnectIOSSettingsTests.swift */,
 				75854DE35F5A2B4F10D86022 /* DJConnectIOSUITests.swift */,
 			);
 			path = DJConnectIOSUITests;
@@ -477,6 +528,23 @@
 			productReference = 90FB813F4F6C89EC152146DD /* DJConnectMac.app */;
 			productType = "com.apple.product-type.application";
 		};
+		9E90062B3C435BCACA82E017 /* DJConnectWatchComplications */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 834561D9A7977DFCA69924ED /* Build configuration list for PBXNativeTarget "DJConnectWatchComplications" */;
+			buildPhases = (
+				0293FBAE03812FB5D572783B /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = DJConnectWatchComplications;
+			packageProductDependencies = (
+			);
+			productName = DJConnectWatchComplications;
+			productReference = 1C1AEB2C655A789533668440 /* DJConnectWatchComplications.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 		A07771721F1C0FC921CF5A27 /* DJConnectMacUITests */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 7E6C374DEB4F77CD8535E364 /* Build configuration list for PBXNativeTarget "DJConnectMacUITests" */;
@@ -535,7 +603,7 @@
 			packageProductDependencies = (
 			);
 			productName = DJConnectIOS;
-			productReference = 45528CBD4F8D40CACCF5FFD1 /* DJConnect.app */;
+			productReference = 45528CBD4F8D40CACCF5FFD1 /* DJConnectIOS.app */;
 			productType = "com.apple.product-type.application";
 		};
 		CE5E7113747A4708DCD7040A /* DJConnectCoreMac */ = {
@@ -562,17 +630,19 @@
 				FB13FC233F673B00FECD7CD4 /* Sources */,
 				12C9797D02B6425447348CA2 /* Resources */,
 				10194D8E27199C10A2926661 /* Frameworks */,
+				718EC23C26D94E16C1EBFC38 /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
 				DB4A801D9D0DC25A6DBD93B1 /* PBXTargetDependency */,
+				D509F62923D3D6DE03153F50 /* PBXTargetDependency */,
 			);
 			name = DJConnectWatch;
 			packageProductDependencies = (
 			);
 			productName = DJConnectWatch;
-			productReference = F9F25D6F893095773FAE9540 /* DJConnect.app */;
+			productReference = F9F25D6F893095773FAE9540 /* DJConnectWatch.app */;
 			productType = "com.apple.product-type.application";
 		};
 		E019DE7788CAE02BDB8136E8 /* DJConnectCoreIOS */ = {
@@ -650,6 +720,10 @@
 						DevelopmentTeam = "";
 						ProvisioningStyle = Automatic;
 					};
+					9E90062B3C435BCACA82E017 = {
+						DevelopmentTeam = "";
+						ProvisioningStyle = Automatic;
+					};
 					A07771721F1C0FC921CF5A27 = {
 						DevelopmentTeam = "";
 						ProvisioningStyle = Automatic;
@@ -660,6 +734,7 @@
 						ProvisioningStyle = Automatic;
 					};
 					B919E13468CBE80714ACE664 = {
+						DevelopmentTeam = "";
 						ProvisioningStyle = Automatic;
 					};
 					CE5E7113747A4708DCD7040A = {
@@ -667,6 +742,7 @@
 						ProvisioningStyle = Automatic;
 					};
 					D088C2BF35ECFBFE71C99497 = {
+						DevelopmentTeam = "";
 						ProvisioningStyle = Automatic;
 					};
 					E019DE7788CAE02BDB8136E8 = {
@@ -710,6 +786,7 @@
 				E655923512E93EBB26A18C6E /* DJConnectUIIOS */,
 				345DDFD455A81AD0CFC3191C /* DJConnectUIMac */,
 				D088C2BF35ECFBFE71C99497 /* DJConnectWatch */,
+				9E90062B3C435BCACA82E017 /* DJConnectWatchComplications */,
 			);
 		};
 /* End PBXProject section */
@@ -745,6 +822,14 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		0293FBAE03812FB5D572783B /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A3525972DA1AA628E9B4AFC3 /* DJConnectWatchComplications.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		056D656AB7F6ABA1479ACF94 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -768,8 +853,10 @@
 				9542AEB084944D171B242903 /* DJConnectClient.swift in Sources */,
 				98FD076D84CC9F9E2CF14F6F /* DJConnectErrors.swift in Sources */,
 				05D1B65EE76F8999E05799CC /* DJConnectKeychain.swift in Sources */,
-				4A7F2B5C8D1E4A9B9C0D1234 /* DJConnectLocalDeviceAPI.swift in Sources */,
+				89CD539E9B51233FCE05A1EB /* DJConnectLocalDeviceAPI.swift in Sources */,
+				34D70F3706318F09C00191D7 /* DJConnectLogRedactor.swift in Sources */,
 				2573CE0B0A2FD7979C72084D /* DJConnectModels.swift in Sources */,
+				B4E1C5CD16B3FEDE73A454A8 /* DJConnectTransport.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -788,8 +875,10 @@
 				DFED6311A0F77F6557E9CB5E /* DJConnectClient.swift in Sources */,
 				A73CF8DB680C92236CBA8850 /* DJConnectErrors.swift in Sources */,
 				46E99FCD23D83A1863B00D0F /* DJConnectKeychain.swift in Sources */,
-				5B8E3C6D9E2F4B0C8D1A2345 /* DJConnectLocalDeviceAPI.swift in Sources */,
+				EFCDA64B429961384760DD64 /* DJConnectLocalDeviceAPI.swift in Sources */,
+				9E93FCBEF87FF7A0CA35BD6E /* DJConnectLogRedactor.swift in Sources */,
 				6F37B694061BED0331A111D2 /* DJConnectModels.swift in Sources */,
+				AC7A04E15082502938CFE99C /* DJConnectTransport.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -800,8 +889,10 @@
 				D910F48A8E3D0035A78E09C6 /* DJConnectClient.swift in Sources */,
 				063D8AC13AF9C2D701CD378A /* DJConnectErrors.swift in Sources */,
 				A09C47447F27E4F8B8E6DCB5 /* DJConnectKeychain.swift in Sources */,
-				6C9F4D7E0F3A4C1D9E2B3456 /* DJConnectLocalDeviceAPI.swift in Sources */,
+				1E2442AFB4FFED06F8AD0A44 /* DJConnectLocalDeviceAPI.swift in Sources */,
+				E8FF838C8FC0729FDD1BB7BF /* DJConnectLogRedactor.swift in Sources */,
 				75A00534BE8229509AAB4EC5 /* DJConnectModels.swift in Sources */,
+				442DFD79FFD229971488AB87 /* DJConnectTransport.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -829,6 +920,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				46A449DDC4D5CF09C5DCAD8A /* DJConnectIOSSettingsTests.swift in Sources */,
 				1EBA30C15C3D35490BFAB014 /* DJConnectIOSUITests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -899,6 +991,11 @@
 			target = B919E13468CBE80714ACE664 /* DJConnectIOS */;
 			targetProxy = 829EE759106ADB3032A431F6 /* PBXContainerItemProxy */;
 		};
+		D509F62923D3D6DE03153F50 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 9E90062B3C435BCACA82E017 /* DJConnectWatchComplications */;
+			targetProxy = 4D5EE687EE20A04677A709D8 /* PBXContainerItemProxy */;
+		};
 		DB4A801D9D0DC25A6DBD93B1 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 3B80ACE85D28ABEBB28059B0 /* DJConnectCoreWatch */;
@@ -916,8 +1013,8 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = Apps/DJConnectIOS/DJConnectIOS.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
-				DEVELOPMENT_TEAM = ZEML4LPXH4;
 				INFOPLIST_FILE = Apps/DJConnectIOS/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -955,8 +1052,8 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = Apps/DJConnectIOS/DJConnectIOS.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
-				DEVELOPMENT_TEAM = ZEML4LPXH4;
 				INFOPLIST_FILE = Apps/DJConnectIOS/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -1135,7 +1232,7 @@
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
 				MACOSX_DEPLOYMENT_TARGET = 26.0;
-				MARKETING_VERSION = 3.1.36;
+				MARKETING_VERSION = 3.2.0;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
@@ -1278,7 +1375,7 @@
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
 				MACOSX_DEPLOYMENT_TARGET = 26.0;
-				MARKETING_VERSION = 3.1.36;
+				MARKETING_VERSION = 3.2.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -1339,6 +1436,23 @@
 			};
 			name = Debug;
 		};
+		96FDA25CC43365D2ADABFBE3 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				INFOPLIST_FILE = Apps/DJConnectWatchComplications/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = dev.djconnect.watch.complications;
+				PRODUCT_NAME = DJConnectComplications;
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				TARGETED_DEVICE_FAMILY = 4;
+			};
+			name = Debug;
+		};
 		A947B623A6554FE3F1388E5E /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -1360,7 +1474,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				DEVELOPMENT_TEAM = ZEML4LPXH4;
+				CODE_SIGN_ENTITLEMENTS = Apps/DJConnectWatch/DJConnectWatch.entitlements;
 				INFOPLIST_FILE = Apps/DJConnectWatch/Info.plist;
 				PRODUCT_BUNDLE_IDENTIFIER = dev.djconnect.watch;
 				PRODUCT_NAME = DJConnect;
@@ -1432,7 +1546,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				DEVELOPMENT_TEAM = ZEML4LPXH4;
+				CODE_SIGN_ENTITLEMENTS = Apps/DJConnectWatch/DJConnectWatch.entitlements;
 				INFOPLIST_FILE = Apps/DJConnectWatch/Info.plist;
 				PRODUCT_BUNDLE_IDENTIFIER = dev.djconnect.watch;
 				PRODUCT_NAME = DJConnect;
@@ -1457,6 +1571,23 @@
 				SDKROOT = macosx;
 			};
 			name = Debug;
+		};
+		F3B22869BC3ECF4D728300D9 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				INFOPLIST_FILE = Apps/DJConnectWatchComplications/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = dev.djconnect.watch.complications;
+				PRODUCT_NAME = DJConnectComplications;
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				TARGETED_DEVICE_FAMILY = 4;
+			};
+			name = Release;
 		};
 		F859856028BC2472AE172C4A /* Release */ = {
 			isa = XCBuildConfiguration;
@@ -1527,6 +1658,15 @@
 			buildConfigurations = (
 				5957122B3C2C96CC6F26A02C /* Debug */,
 				3964CF260D19C14ED7E2BF6E /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		834561D9A7977DFCA69924ED /* Build configuration list for PBXNativeTarget "DJConnectWatchComplications" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				96FDA25CC43365D2ADABFBE3 /* Debug */,
+				F3B22869BC3ECF4D728300D9 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;

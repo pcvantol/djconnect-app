@@ -9,12 +9,21 @@ with acceptance criteria live in [ISSUES.md](ISSUES.md).
 
 - Validate live backend devices, queue, playlists, liked proxy, and voice flows
   against a real Home Assistant `djconnect` setup.
+- Field-test both Spotify Direct and Music Assistant against HA `3.2.x`,
+  including `music_backend_capabilities`, `unsupported_backend_capability`,
+  stale `music_backend_revision` Ask DJ actions, and backend switch recovery.
+- Field-test LAN pairing plus post-pairing `ha_remote_url` fallback on physical
+  iPhone/iPad and Mac using the canonical
+  `pcvantol/djconnect/FIELD_TEST_APP_CLIENTS.md` checklist.
+- Field-test APNs wake/sync hints for iOS/macOS/watchOS with central
+  `djconnect-api`, confirming push never carries raw prompts, raw audio,
+  Ask DJ history, DJ Memory, Spotify tokens, HA tokens, or bearer tokens.
 - Validate HA entity creation and status sync for iOS, iPadOS, and macOS app
   clients after pairing.
 - Validate the blocking pairing sheet and Demo Mode on physical iPhone, iPad,
   and Mac before App Store/TestFlight review.
 - Keep the Apple app and Home Assistant integration on the same `major.minor`
-  protocol line; app `3.1.x` requires HA `3.1.x`.
+  protocol line; app `3.2.x` requires HA `3.2.x`.
 - Work through the high-priority local issues in [ISSUES.md](ISSUES.md),
   especially refresh latency, network fixtures, and physical-device validation.
 
@@ -52,6 +61,8 @@ with acceptance criteria live in [ISSUES.md](ISSUES.md).
   Assistant pairing and network flow fixture.
 - Add UI tests for compact permission rows, Demo Mode microphone response, and
   hardware-keyboard game input where XCTest can cover those surfaces reliably.
+- Add UI tests for Ask DJ search, bubble context menus, replay controls, and
+  server-synced system/retention messages once a mock HA fixture exists.
 - Add URLProtocol-backed async tests for network error and malformed response
   handling.
 - Add focused app-model tests for permission status mapping once platform
@@ -60,8 +71,8 @@ with acceptance criteria live in [ISSUES.md](ISSUES.md).
   auth recovery.
 - Add more diagnostics export tests for `audio_url`, `Authorization`, and
   arbitrary token-like JSON fields.
-- Add security hardening tests for local API request-size limits and Keychain
-  accessibility attributes.
+- Add security hardening tests for local API request-size limits and deeper
+  app-storage token reset/re-pair behavior.
 - Add performance regression checks for refresh coalescing and repeated artwork
   URLs.
 
@@ -74,9 +85,6 @@ with acceptance criteria live in [ISSUES.md](ISSUES.md).
 - Keep English and Dutch What's New release notes aligned with the latest
   GitHub release and only add new work to an `Unreleased` changelog section
   after tags are published.
-- Restore a green public unsigned release for `3.1.33` or the next patch so
-  `ios/vX.Y.Z` and `macos/vX.Y.Z` diagnostic artifact releases are published
-  again; `3.1.33` static What's New files are already live on `djconnect.dev`.
 
 ## Known Issues
 

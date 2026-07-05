@@ -14,7 +14,7 @@ backend command execution.
 
 Reasoning:
 
-- keeps secrets out of the iOS/macOS app;
+- keeps secrets out of the iOS/macOS/watchOS app;
 - preserves the existing ESP32 integration contract;
 - lets iOS, macOS, and ESP32 clients coexist against one backend;
 - keeps future backend changes behind the Home Assistant integration.
@@ -70,7 +70,7 @@ xcodegen generate
 
 Status: accepted
 
-The app does not automatically clear Keychain token state for backend
+The app does not automatically clear locally stored token state for backend
 unavailable, version mismatch, authenticated 401/403, or 404 responses. During
 unauthenticated pairing polling, 401/403 responses stop the polling loop and
 show code/setup mismatch recovery without rotating the device id automatically.
@@ -95,16 +95,16 @@ Reasoning:
 - lets macOS use native `Settings` scenes while iOS uses tab navigation;
 - leaves room for platform-specific UX without forking the full UI.
 
-## ADR-007: Current App/Protocol Version Is `3.1.35`
+## ADR-007: Current App/Protocol Version Is `3.2.0`
 
 Status: accepted
 
-The app uses version `3.1.35` for app/protocol examples and Xcode marketing
+The app uses version `3.2.0` for app/protocol examples and Xcode marketing
 version in this release.
 
 Reasoning:
 
-- aligns with the DJConnect `3.1.z` integration contract;
+- aligns with the DJConnect `3.2.z` integration contract;
 - leaves patch versioning for app releases;
 - keeps the initial repo baseline clear.
 
@@ -128,24 +128,24 @@ Reasoning:
 - Local Network access is still declared in Info.plist and explained in the UI,
   but the first real LAN/Bonjour use remains the system trigger.
 
-## ADR-009: Host A Local App API While Active
+## ADR-009: Do Not Host A Home Assistant-Callable Local App API
 
 Status: accepted
 
-The Apple app hosts local `/api/device/*` endpoints while active so Home
-Assistant can pair, send callbacks, and inspect the app client. The app reports
-a stable Client adres after successful local pairing and keeps that URL until
-pairing is reset.
+iOS and macOS pair by calling Home Assistant's local `/api/djconnect/v1/pair`
+endpoint directly, then use HA's local URL first and optional remote URL as
+fallback. watchOS is mediated by the paired iPhone over WatchConnectivity. No
+Apple target hosts `/api/device/*` as a Home Assistant callback API, advertises
+`_djconnect._tcp`, or shows a Client adres.
 
 Reasoning:
 
-- Home Assistant needs a reachable callback target for app-client pairing and
-  two-way status updates;
-- the URL used by HA during pairing must remain stable or HA will call a stale
-  endpoint;
-- the local API belongs in `DJConnectUI` because it coordinates app state,
-  pairing lifecycle, and platform networking rather than reusable HTTP request
-  serialization.
+- Home Assistant owns the DJConnect app-client pairing and command contract at
+  `/api/djconnect/*`;
+- remote access belongs to HA URL selection after local pairing, not to a
+  client-hosted callback surface;
+- watchOS cannot reliably own direct local/remote HA transport and is simpler
+  and safer as an iPhone-mediated companion.
 
 ## ADR-010: User-Mediated Crash Reporting
 
@@ -185,14 +185,14 @@ Reasoning:
 Status: accepted
 
 The Apple app blocks playback, queue, playlists, output, and voice UI while no
-DJConnect bearer token is available. The pairing sheet owns Home Assistant URL
-entry, the copyable Client adres, the copyable app-generated pairing code,
-pairing progress, and the final success state.
+DJConnect bearer token is available. The iOS/macOS pairing sheet owns local
+Home Assistant URL/code entry, pairing progress, and the final success state.
+The watchOS pairing sheet shows the Watch code and paired-iPhone status.
 
 Reasoning:
 
 - prevents users from interacting with runtime controls that cannot work yet;
-- gives Home Assistant one clear callback URL and one visible app code;
+- gives Home Assistant one visible app code and one local pairing flow;
 - keeps the wakeword activation prompt from competing with pairing success;
 - lets Settings remain available after pairing reset through the same recovery
   path.
@@ -258,7 +258,7 @@ Home Assistant calls.
 
 Reasoning:
 
-- monkey tests should never reset real pairing or mutate Keychain tokens;
+- monkey tests should never reset real pairing or mutate locally stored tokens;
 - random UI tapping should not create HA entities or send Spotify commands;
 - local sample data keeps the runtime UI inspectable without a backend;
 - Games lazy start behind a tap-to-play overlay so entering the Games screen is
