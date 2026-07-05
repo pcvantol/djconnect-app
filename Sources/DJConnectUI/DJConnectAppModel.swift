@@ -6590,7 +6590,7 @@ public final class DJConnectAppModel: ObservableObject {
         @unknown default:
             return .unknown
         }
-        #endif
+        #else
         switch AVCaptureDevice.authorizationStatus(for: .audio) {
         case .authorized:
             return .granted
@@ -6603,6 +6603,7 @@ public final class DJConnectAppModel: ObservableObject {
         @unknown default:
             return .unknown
         }
+        #endif
         #else
         .unavailable
         #endif
