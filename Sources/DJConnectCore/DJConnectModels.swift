@@ -2305,6 +2305,10 @@ public struct DJConnectVibeCastResponse: Codable, Equatable, Sendable {
     public var items: [Item]
     public var cache: Cache?
 
+    public var artistShoutOutImage: DJConnectVibeCastArtistImage? {
+        DJConnectVibeCastArtistImage.selected(from: self)
+    }
+
     public init(
         enabled: Bool,
         reason: String? = nil,
@@ -2348,6 +2352,7 @@ public struct DJConnectVibeCastResponse: Codable, Equatable, Sendable {
         public var musicBackend: String?
         public var musicBackendName: String?
         public var musicBackendRevision: Int?
+        public var artistImageURL: URL?
 
         public init(
             trackID: String? = nil,
@@ -2356,7 +2361,8 @@ public struct DJConnectVibeCastResponse: Codable, Equatable, Sendable {
             album: String? = nil,
             musicBackend: String? = nil,
             musicBackendName: String? = nil,
-            musicBackendRevision: Int? = nil
+            musicBackendRevision: Int? = nil,
+            artistImageURL: URL? = nil
         ) {
             self.trackID = trackID
             self.title = title
@@ -2365,6 +2371,7 @@ public struct DJConnectVibeCastResponse: Codable, Equatable, Sendable {
             self.musicBackend = musicBackend
             self.musicBackendName = musicBackendName
             self.musicBackendRevision = musicBackendRevision
+            self.artistImageURL = artistImageURL
         }
 
         enum CodingKeys: String, CodingKey {
@@ -2375,6 +2382,32 @@ public struct DJConnectVibeCastResponse: Codable, Equatable, Sendable {
             case musicBackend = "music_backend"
             case musicBackendName = "music_backend_name"
             case musicBackendRevision = "music_backend_revision"
+            case artistImageURL = "artist_image_url"
+            case artistImageUrl
+        }
+
+        public init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            trackID = try container.decodeIfPresent(String.self, forKey: .trackID)
+            title = try container.decodeIfPresent(String.self, forKey: .title)
+            artist = try container.decodeIfPresent(String.self, forKey: .artist)
+            album = try container.decodeIfPresent(String.self, forKey: .album)
+            musicBackend = try container.decodeIfPresent(String.self, forKey: .musicBackend)
+            musicBackendName = try container.decodeIfPresent(String.self, forKey: .musicBackendName)
+            musicBackendRevision = try container.decodeIfPresent(Int.self, forKey: .musicBackendRevision)
+            artistImageURL = DJConnectVibeCastContext.decodeProxiedImageURL(container, keys: [.artistImageURL, .artistImageUrl])
+        }
+
+        public func encode(to encoder: Encoder) throws {
+            var container = encoder.container(keyedBy: CodingKeys.self)
+            try container.encodeIfPresent(trackID, forKey: .trackID)
+            try container.encodeIfPresent(title, forKey: .title)
+            try container.encodeIfPresent(artist, forKey: .artist)
+            try container.encodeIfPresent(album, forKey: .album)
+            try container.encodeIfPresent(musicBackend, forKey: .musicBackend)
+            try container.encodeIfPresent(musicBackendName, forKey: .musicBackendName)
+            try container.encodeIfPresent(musicBackendRevision, forKey: .musicBackendRevision)
+            try container.encodeIfPresent(artistImageURL, forKey: .artistImageURL)
         }
     }
 
@@ -2679,49 +2712,6 @@ public struct DJConnectAskDJHistoryItem: Codable, Equatable, Sendable, Identifia
     }
 }
 
-public struct DJConnectVibeCastResponse: Codable, Equatable, Sendable {
-    public var revision: Int?
-    public var ttlSeconds: Int?
-    public var pollAfterSeconds: Int?
-    public var context: DJConnectVibeCastContext?
-    public var items: [DJConnectVibeCastItem]
-
-    public var artistShoutOutImage: DJConnectVibeCastArtistImage? {
-        DJConnectVibeCastArtistImage.selected(from: self)
-    }
-
-    enum CodingKeys: String, CodingKey {
-        case revision
-        case ttlSeconds = "ttl_seconds"
-        case pollAfterSeconds = "poll_after_seconds"
-        case context
-        case items
-    }
-
-    public init(
-        revision: Int? = nil,
-        ttlSeconds: Int? = nil,
-        pollAfterSeconds: Int? = nil,
-        context: DJConnectVibeCastContext? = nil,
-        items: [DJConnectVibeCastItem] = []
-    ) {
-        self.revision = revision
-        self.ttlSeconds = ttlSeconds
-        self.pollAfterSeconds = pollAfterSeconds
-        self.context = context
-        self.items = items
-    }
-
-    public init(from decoder: Decoder) throws {
-        let container = try decoder.container(keyedBy: CodingKeys.self)
-        revision = try container.decodeIfPresent(Int.self, forKey: .revision)
-        ttlSeconds = try container.decodeIfPresent(Int.self, forKey: .ttlSeconds)
-        pollAfterSeconds = try container.decodeIfPresent(Int.self, forKey: .pollAfterSeconds)
-        context = try container.decodeIfPresent(DJConnectVibeCastContext.self, forKey: .context)
-        items = container.decodeLossyArrayIfPresent(DJConnectVibeCastItem.self, forKey: .items) ?? []
-    }
-}
-
 public struct DJConnectVibeCastContext: Codable, Equatable, Sendable {
     public var artistImageURL: URL?
 
@@ -2831,10 +2821,6 @@ public struct DJConnectVibeCastArtistImage: Codable, Equatable, Sendable {
     }
 
     public static func selected(from response: DJConnectVibeCastResponse) -> DJConnectVibeCastArtistImage? {
-        if let artistFact = response.items.first(where: \.isArtistFact),
-           let url = artistFact.resolvedImageURL {
-            return DJConnectVibeCastArtistImage(url: url, alt: artistFact.imageAlt, source: artistFact.imageSource)
-        }
         guard let contextURL = response.context?.artistImageURL else {
             return nil
         }
