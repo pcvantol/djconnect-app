@@ -4,6 +4,13 @@ All notable changes to DJConnect App are documented here.
 
 ## Unreleased
 
+## 3.2.20 - 2026-07-05
+
+### Fixed
+
+- Fixed public update-check publishing by writing localized and fallback
+  `latest.json` release-note manifests to djconnect.dev.
+
 ## 3.2.19 - 2026-07-05
 
 ### Changed

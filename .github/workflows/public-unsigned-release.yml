@@ -276,10 +276,14 @@ jobs:
               RELEASE_BODY_PATH="${localized_dir}/v${version}.md" \
               RELEASE_JSON_PATH="${localized_dir}/v${version}.json" \
                 node -e 'const fs=require("fs"); const payload={version:process.env.RELEASE_VERSION, platform:process.env.RELEASE_PLATFORM, language:process.env.RELEASE_LANGUAGE, name:process.env.RELEASE_TITLE, body:fs.readFileSync(process.env.RELEASE_BODY_PATH, "utf8").trim()}; fs.writeFileSync(process.env.RELEASE_JSON_PATH, JSON.stringify(payload, null, 2) + "\n");'
+              cp "${localized_dir}/v${version}.md" "${localized_dir}/latest.md"
+              cp "${localized_dir}/v${version}.json" "${localized_dir}/latest.json"
             done
 
             cp "${target_dir}/en/v${version}.md" "${target_dir}/v${version}.md"
             cp "${target_dir}/en/v${version}.json" "${target_dir}/v${version}.json"
+            cp "${target_dir}/en/v${version}.md" "${target_dir}/latest.md"
+            cp "${target_dir}/en/v${version}.json" "${target_dir}/latest.json"
           done
           cd "$website_dir"
           git config user.name "github-actions[bot]"
