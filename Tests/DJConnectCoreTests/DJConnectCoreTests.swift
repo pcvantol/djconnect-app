@@ -143,6 +143,7 @@ private actor MockWebSocketFastPathTransport: DJConnectWebSocketFastPathTranspor
     var askDJCalls = 0
     var askDJHistoryCalls = 0
     var clearAskDJHistoryCalls = 0
+    var musicDiscoveryRefreshCalls = 0
     var trackInsightCalls = 0
     var vibeCastCalls = 0
     var receivedTokens: [String] = []
@@ -154,6 +155,9 @@ private actor MockWebSocketFastPathTransport: DJConnectWebSocketFastPathTranspor
     var receivedHistoryIdentity: DJConnectAPIIdentity?
     var receivedClearMusicDNAKey: String?
     var receivedClearIdentity: DJConnectAPIIdentity?
+    var receivedMusicDiscoveryMusicDNAKey: String?
+    var receivedMusicDiscoveryLanguage: String?
+    var receivedMusicDiscoveryIdentity: DJConnectAPIIdentity?
     var receivedTrackPayload: DJConnectTrackInsightRequest?
     var receivedTrackIdentity: DJConnectAPIIdentity?
     var receivedVibeCastPayload: DJConnectVibeCastRequest?
@@ -255,6 +259,38 @@ private actor MockWebSocketFastPathTransport: DJConnectWebSocketFastPathTranspor
         return clearAskDJHistoryResponse
     }
 
+    func refreshMusicDiscovery(identity: DJConnectAPIIdentity, musicDNAKey: String?, language: String?) async throws -> DJConnectMusicDiscoveryResponse {
+        musicDiscoveryRefreshCalls += 1
+        receivedTokens.append(identity.deviceToken ?? "")
+        receivedMusicDiscoveryIdentity = identity
+        receivedMusicDiscoveryMusicDNAKey = musicDNAKey
+        receivedMusicDiscoveryLanguage = language
+        guard supportedRoutes.contains(.musicDiscoveryRefresh) else {
+            throw DJConnectError.routeMissing(message: "missing websocket music discovery refresh capability")
+        }
+        return DJConnectMusicDiscoveryResponse(
+            success: true,
+            enabled: true,
+            revision: 22,
+            sections: [
+                DJConnectMusicDiscoverySection(
+                    id: "fast",
+                    title: "Fast",
+                    items: [
+                        DJConnectMusicDiscoveryItem(
+                            id: "fast-track",
+                            kind: .track,
+                            title: "Fast Discovery",
+                            subtitle: "WebSocket",
+                            uri: "spotify:track:fast",
+                            reason: "Fast path"
+                        )
+                    ]
+                )
+            ]
+        )
+    }
+
     func trackInsight(_ payload: DJConnectTrackInsightRequest, identity: DJConnectAPIIdentity) async throws -> TrackInsight {
         trackInsightCalls += 1
         receivedTokens.append(identity.deviceToken ?? "")
@@ -341,6 +377,10 @@ private struct FailingTrackInsightFastPathTransport: DJConnectWebSocketFastPathT
         throw DJConnectError.routeMissing(message: "ask dj clear unsupported")
     }
 
+    func refreshMusicDiscovery(identity: DJConnectAPIIdentity, musicDNAKey: String?, language: String?) async throws -> DJConnectMusicDiscoveryResponse {
+        throw DJConnectError.routeMissing(message: "music discovery unsupported")
+    }
+
     func trackInsight(_ payload: DJConnectTrackInsightRequest, identity: DJConnectAPIIdentity) async throws -> TrackInsight {
         throw error
     }
@@ -392,6 +432,38 @@ private func testDefaults() throws -> UserDefaults {
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
     return defaults
+}
+
+private func musicDiscoveryPushPayload() -> [AnyHashable: Any] {
+    [
+        "event_type": "music_discovery_ready",
+        "open_target": "music_discovery",
+        "refresh_target": "music_discovery",
+        "deeplink": "djconnect://music-discovery",
+        "title": "DJConnect",
+        "body": "Je nieuwe aanbevelingen staan klaar!",
+        "sections": [
+            [
+                "id": "push-section",
+                "title": "Push section must be ignored",
+                "items": [
+                    [
+                        "id": "push-track",
+                        "kind": "track",
+                        "title": "Push payload track must be ignored",
+                        "uri": "spotify:track:push",
+                        "reason": "Push payload reason must be ignored"
+                    ]
+                ]
+            ]
+        ],
+        "aps": [
+            "alert": [
+                "title": "DJConnect",
+                "body": "Je nieuwe aanbevelingen staan klaar!"
+            ]
+        ]
+    ]
 }
 
 @MainActor
@@ -1857,8 +1929,6 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
         recorder.append(request)
         switch request.url?.path {
         case "/api/djconnect/v1/music_discovery/refresh":
-            return (try httpResponse(for: request, statusCode: 200), Data(#"{"success":true,"enabled":true,"sections":[]}"#.utf8))
-        case "/api/djconnect/v1/music_discovery":
             return (try httpResponse(for: request, statusCode: 200), Data("""
             {
               "success": true,
@@ -1875,6 +1945,8 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
               ]
             }
             """.utf8))
+        case "/api/djconnect/v1/music_discovery":
+            return (try httpResponse(for: request, statusCode: 200), Data(#"{"success":true,"enabled":true,"sections":[]}"#.utf8))
         case "/api/djconnect/v1/music_discovery/play":
             return (try httpResponse(for: request, statusCode: 200), Data(#"{"success":true}"#.utf8))
         default:
@@ -1889,29 +1961,171 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
 
     #expect(recorder.requests.map { $0.url?.path } == [
         "/api/djconnect/v1/music_discovery/refresh",
-        "/api/djconnect/v1/music_discovery",
         "/api/djconnect/v1/music_discovery/play"
     ])
 }
 
 @MainActor
-@Test func musicDiscoveryRouteMissingUsesUserFacingMessage() async throws {
+@Test func musicDiscoveryRateLimitedRefreshFallsBackToFeed() async throws {
     let defaults = try testDefaults()
-    let session = mockSession(host: "discovery-route-missing.local") { request in
+    let recorder = RequestRecorder()
+    let session = mockSession(host: "discovery-rate-limited.local") { request in
+        recorder.append(request)
+        switch request.url?.path {
+        case "/api/djconnect/v1/music_discovery/refresh":
+            return (
+                try httpResponse(for: request, statusCode: 429),
+                Data(#"{"success":false,"error":"rate_limited","message":"Please wait"}"#.utf8)
+            )
+        case "/api/djconnect/v1/music_discovery":
+            return (try httpResponse(for: request, statusCode: 200), Data("""
+            {
+              "success": true,
+              "enabled": true,
+              "revision": 9,
+              "sections": [
+                {
+                  "id": "cached",
+                  "title": "Cached",
+                  "items": [
+                    {"id":"disc-track-cache","kind":"track","title":"Cached recommendation","subtitle":"DJConnect","uri":"spotify:track:cached","reason":"Cached backend feed."}
+                  ]
+                }
+              ]
+            }
+            """.utf8))
+        default:
+            return (try httpResponse(for: request, statusCode: 404), Data())
+        }
+    }
+    let model = makePairedMusicDNAModel(defaults: defaults, host: "discovery-rate-limited.local", session: session)
+
+    let didRefresh = await model.refreshMusicDiscovery()
+
+    #expect(didRefresh == true)
+    #expect(model.musicDiscoveryResponse?.visibleSections.first?.visibleItems.first?.title == "Cached recommendation")
+    #expect(recorder.requests.map { $0.url?.path } == [
+        "/api/djconnect/v1/music_discovery/refresh",
+        "/api/djconnect/v1/music_discovery"
+    ])
+}
+
+@MainActor
+@Test func musicDiscoveryDisabledRefreshDoesNotUseLocalFallbackRecommendations() async throws {
+    let defaults = try testDefaults()
+    let session = mockSession(host: "discovery-disabled.local") { request in
         #expect(request.url?.path == "/api/djconnect/v1/music_discovery/refresh")
         return (
-            try httpResponse(for: request, statusCode: 404),
-            Data(#"{"success":false,"message":"route missing: 404: Not Found"}"#.utf8)
+            try httpResponse(for: request, statusCode: 200),
+            Data(#"{"success":true,"enabled":false,"reason":"music_dna_disabled","sections":[]}"#.utf8)
         )
     }
-    let model = makePairedMusicDNAModel(defaults: defaults, host: "discovery-route-missing.local", session: session)
-    model.language = "nl"
+    let model = makePairedMusicDNAModel(defaults: defaults, host: "discovery-disabled.local", session: session)
 
-    await model.refreshMusicDiscovery()
+    let didRefresh = await model.refreshMusicDiscovery()
 
-    #expect(model.musicDiscoveryErrorMessage == "DJConnect route ontbreekt in Home Assistant. Controleer de integratie.")
-    #expect(model.musicDiscoveryErrorMessage?.contains("404") == false)
-    #expect(model.musicDiscoveryErrorMessage?.contains("route missing") == false)
+    #expect(didRefresh == true)
+    #expect(model.musicDiscoveryResponse?.isMusicDNADisabled == true)
+    #expect(model.musicDiscoveryResponse?.visibleSections.isEmpty == true)
+}
+
+@MainActor
+@Test func musicDiscoveryPushReceivedInBackgroundRefreshesBackend() async throws {
+    let defaults = try testDefaults()
+    let recorder = RequestRecorder()
+    let session = mockSession(host: "discovery-push-background.local") { request in
+        recorder.append(request)
+        #expect(request.url?.path == "/api/djconnect/v1/music_discovery/refresh")
+        return (try httpResponse(for: request, statusCode: 200), Data("""
+        {
+          "success": true,
+          "enabled": true,
+          "sections": [
+            {
+              "id": "daily",
+              "title": "Daily",
+              "items": [
+                {"id":"daily-1","kind":"track","title":"Backend only","subtitle":"No push content","uri":"spotify:track:daily","reason":"Daily backend recommendation."}
+              ]
+            }
+          ]
+        }
+        """.utf8))
+    }
+    let model = makePairedMusicDNAModel(defaults: defaults, host: "discovery-push-background.local", session: session)
+
+    let handled = await model.handleRemoteNotificationPayload(musicDiscoveryPushPayload())
+
+    #expect(handled == true)
+    #expect(model.musicDiscoveryResponse?.visibleSections.first?.visibleItems.first?.title == "Backend only")
+    #expect(model.musicDiscoveryResponse?.visibleSections.first?.visibleItems.first?.reason == "Daily backend recommendation.")
+    #expect(model.musicDiscoveryResponse?.visibleSections.first?.visibleItems.first?.title != "Push payload track must be ignored")
+    #expect(recorder.requests.count == 1)
+}
+
+@MainActor
+@Test func musicDiscoveryPushTapNavigatesToDiscover() async throws {
+    let defaults = try testDefaults()
+    let session = mockSession(host: "discovery-push-tap.local") { request in
+        #expect(request.url?.path == "/api/djconnect/v1/music_discovery/refresh")
+        return (try httpResponse(for: request, statusCode: 200), Data(#"{"success":true,"enabled":true,"sections":[]}"#.utf8))
+    }
+    let model = makePairedMusicDNAModel(defaults: defaults, host: "discovery-push-tap.local", session: session)
+
+    let handled = await model.handleRemoteNotificationPayload(musicDiscoveryPushPayload(), openedFromTap: true)
+
+    #expect(handled == true)
+    #expect(model.homeScreenActionRequest?.action == .discovery)
+    #expect(DJConnectHomeScreenAction(deepLinkURL: try #require(URL(string: "djconnect://music-discovery"))) == .discovery)
+}
+
+@MainActor
+@Test func musicDiscoveryPushNestedDataPayloadRefreshesBackend() async throws {
+    let defaults = try testDefaults()
+    let recorder = RequestRecorder()
+    let session = mockSession(host: "discovery-push-nested.local") { request in
+        recorder.append(request)
+        #expect(request.url?.path == "/api/djconnect/v1/music_discovery/refresh")
+        return (try httpResponse(for: request, statusCode: 200), Data(#"{"success":true,"enabled":true,"sections":[]}"#.utf8))
+    }
+    let model = makePairedMusicDNAModel(defaults: defaults, host: "discovery-push-nested.local", session: session)
+    let nestedPayload: [AnyHashable: Any] = [
+        "data": [
+            "event_type": "music_discovery_ready",
+            "open_target": "music_discovery",
+            "refresh_target": "music_discovery",
+            "deeplink": "djconnect://music-discovery"
+        ],
+        "aps": [
+            "alert": [
+                "title": "DJConnect",
+                "body": "Je nieuwe aanbevelingen staan klaar!"
+            ]
+        ]
+    ]
+
+    let handled = await model.handleRemoteNotificationPayload(nestedPayload)
+
+    #expect(handled == true)
+    #expect(recorder.requests.count == 1)
+}
+
+@MainActor
+@Test func musicDiscoveryPushReceiveAndTapCoalesceRefreshes() async throws {
+    let defaults = try testDefaults()
+    let recorder = RequestRecorder()
+    let session = mockSession(host: "discovery-push-coalesce.local") { request in
+        recorder.append(request)
+        #expect(request.url?.path == "/api/djconnect/v1/music_discovery/refresh")
+        return (try httpResponse(for: request, statusCode: 200), Data(#"{"success":true,"enabled":true,"sections":[]}"#.utf8))
+    }
+    let model = makePairedMusicDNAModel(defaults: defaults, host: "discovery-push-coalesce.local", session: session)
+
+    _ = await model.handleRemoteNotificationPayload(musicDiscoveryPushPayload())
+    _ = await model.handleRemoteNotificationPayload(musicDiscoveryPushPayload(), openedFromTap: true)
+
+    #expect(recorder.requests.count == 1)
+    #expect(model.homeScreenActionRequest?.action == .discovery)
 }
 
 @MainActor
@@ -2050,7 +2264,7 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
 
     #expect(model.demoMusicDNAEnabled == true)
     #expect(model.musicDNAProfileResponse?.enabled == true)
-    #expect(model.musicDNAProfileResponse?.profile.summary?.contains("fictional") == true)
+    #expect(model.musicDNAProfileResponse?.profile.summary == DJConnectLocalization.localized(key: "demo.music.dna.summary"))
     #expect(model.musicDNAProfileResponse?.profile.favoriteArtists?.map(\.name).contains("Luna Vale") == true)
     #expect(model.musicDNAProfileResponse?.profile.recentTracks?.map(\.title).contains("Glass Avenue") == true)
     #expect(model.musicDNAProfileResponse?.profile.recentFavoriteTracks?.isEmpty == false)
@@ -3062,6 +3276,30 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     #expect(iosQuery.first(where: { $0.name == "capabilities" })?.value?.split(separator: ",").contains("emoji_safe") == true)
     #expect(iosQuery.first(where: { $0.name == "locale" })?.value == macQuery.first(where: { $0.name == "locale" })?.value)
     #expect(iosQuery.first(where: { $0.name == "timezone" })?.value == macQuery.first(where: { $0.name == "timezone" })?.value)
+}
+
+@Test func musicDiscoveryRefreshUsesWebSocketFastPathWhenAdvertised() async throws {
+    let fastPath = MockWebSocketFastPathTransport(supportedRoutes: [.musicDiscoveryRefresh])
+    let client = DJConnectClient(
+        baseURL: URL(string: "http://homeassistant.local:8123")!,
+        identity: testIOSIdentity(deviceID: "djconnect-ios-discovery-fast"),
+        tokenStore: DJConnectInMemoryTokenStore(token: "fast-token"),
+        session: mockSession(host: "homeassistant.local") { _ in
+            Issue.record("HTTP should not be used when WebSocket Music Discovery refresh succeeds")
+            return (HTTPURLResponse(), Data())
+        },
+        webSocketFastPath: fastPath
+    )
+
+    let response = try await client.refreshMusicDiscovery(musicDNAKey: "music-dna-key", language: "nl")
+
+    #expect(response.visibleSections.first?.visibleItems.first?.title == "Fast Discovery")
+    #expect(await fastPath.musicDiscoveryRefreshCalls == 1)
+    #expect(await fastPath.receivedTokens == ["fast-token"])
+    #expect(await fastPath.receivedMusicDiscoveryIdentity?.deviceID == "djconnect-ios-discovery-fast")
+    #expect(await fastPath.receivedMusicDiscoveryIdentity?.clientType == .ios)
+    #expect(await fastPath.receivedMusicDiscoveryMusicDNAKey == "music-dna-key")
+    #expect(await fastPath.receivedMusicDiscoveryLanguage == "nl")
 }
 
 @Test func vibeCastRequestCanOmitEmojiSafeCapabilityWithoutCrashing() throws {
@@ -8872,6 +9110,7 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     #expect(DJConnectHomeScreenAction(deepLinkURL: try #require(URL(string: "djconnect://ask-dj"))) == .askDJ)
     #expect(DJConnectHomeScreenAction(deepLinkURL: try #require(URL(string: "djconnect://track-insight"))) == .trackInsight)
     #expect(DJConnectHomeScreenAction(deepLinkURL: try #require(URL(string: "djconnect://discover"))) == .discovery)
+    #expect(DJConnectHomeScreenAction(deepLinkURL: try #require(URL(string: "djconnect://music-discovery"))) == .discovery)
     #expect(DJConnectHomeScreenAction(deepLinkURL: try #require(URL(string: "djconnect://ontdek"))) == .discovery)
     #expect(DJConnectHomeScreenAction(deepLinkURL: try #require(URL(string: "djconnect://playlists"))) == .playlists)
     #expect(DJConnectHomeScreenAction(deepLinkURL: try #require(URL(string: "djconnect:///queue"))) == .queue)
@@ -9049,4 +9288,18 @@ private extension String {
     #expect(profiles[0] != profiles[1])
     #expect(profiles[1] != profiles[2])
     #expect(profiles[0] != profiles[2])
+}
+
+@Test func demoTrackInsightServiceLocalizesDutchDemoCopy() async throws {
+    let service = DemoTrackInsightService(
+        tracks: DemoTrackInsightService.localizedDefaultTracks(language: "nl")
+    )
+
+    let insight = try await service.insight(for: DJConnectPlayback(trackName: "Midnight City", artistName: "M83"))
+
+    #expect(insight.genre == "Synthpop")
+    #expect(insight.mood == "Nostalgisch")
+    #expect(insight.vibe == "Nachtelijk")
+    #expect(insight.texture == "Neon-synthlijnen en gated drums")
+    #expect(insight.summary == "Een gloeiend nachtelijke drive-anthem met een heldere synthhook, brede pads en een filmische rush.")
 }

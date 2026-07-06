@@ -327,13 +327,6 @@ struct DJConnectWatchRootView: View {
                     }
                     .buttonStyle(DJConnectWatchGradientButtonStyle(kind: .secondary))
 
-                    if shouldShowHomeStatusMessage {
-                        Text(model.statusMessage)
-                            .font(.footnote)
-                            .foregroundStyle(.white.opacity(0.72))
-                            .multilineTextAlignment(.center)
-                    }
-
                     if !model.responseImages.isEmpty {
                         AskDJWatchImageStack(images: model.responseImages)
                     }
@@ -410,6 +403,15 @@ struct DJConnectWatchRootView: View {
                                 .frame(maxWidth: .infinity, minHeight: 34)
                         }
                         .buttonStyle(DJConnectWatchGradientButtonStyle(kind: .secondary))
+                    }
+
+                    if shouldShowHomeStatusMessage {
+                        Text(model.statusMessage)
+                            .font(.footnote)
+                            .foregroundStyle(.white.opacity(0.72))
+                            .multilineTextAlignment(.center)
+                            .frame(maxWidth: .infinity)
+                            .padding(.top, 4)
                     }
                 }
                 .padding(.vertical, 8)
@@ -670,7 +672,7 @@ struct DJConnectWatchRootView: View {
             if let currentTrackInsight = model.currentTrackInsight {
                 return currentTrackInsight
             }
-            if model.isDemoMode, let demoInsight = DemoTrackInsightService.defaultTracks.first {
+            if model.isDemoMode, let demoInsight = DemoTrackInsightService.localizedDefaultTracks(language: model.language).first {
                 return demoInsight
             }
             return TrackInsight(
@@ -1426,7 +1428,31 @@ struct DJConnectWatchRootView: View {
                     metricPanel(title: watchLocalizedKey(model.language, "watch.genres"), value: names(profile.favoriteGenres ?? []), icon: "music.note.list")
                     metricPanel(title: watchLocalizedKey(model.language, "watch.artists"), value: names(profile.favoriteArtists ?? []), icon: "person.2")
                     metricPanel(title: watchLocalizedKey(model.language, "watch.mood"), value: mood(profile.mood), icon: "sparkles")
+                    if let energyProfile = profile.energyProfile {
+                        metricPanel(title: watchLocalizedKey(model.language, "ui.energy.profile"), value: energy(energyProfile), icon: "bolt.fill")
+                    }
+                    if let listeningRhythm = profile.listeningRhythm, listeningRhythm.isDisplayable {
+                        metricPanel(title: watchLocalizedKey(model.language, "ui.listening.rhythm"), value: listeningRhythmText(listeningRhythm), icon: "clock")
+                    }
+                    if let moodMix = profile.moodMix, moodMix.isDisplayable {
+                        metricPanel(title: watchLocalizedKey(model.language, "ui.mood.mix"), value: moodMixText(moodMix), icon: "sparkles")
+                    }
+                    if let playtime = profile.playtime, playtime.isDisplayable {
+                        metricPanel(title: watchLocalizedKey(model.language, "ui.playtime"), value: playtimeText(playtime), icon: "timer")
+                    }
+                    if let repeatMagnets = profile.repeatMagnets, repeatMagnets.isDisplayable {
+                        metricPanel(title: watchLocalizedKey(model.language, "ui.repeat.magnets"), value: repeatMagnetsText(repeatMagnets), icon: "repeat")
+                    }
+                    if let explicitPositives = profile.explicitPositives, explicitPositives.isDisplayable {
+                        metricPanel(title: watchLocalizedKey(model.language, "ui.explicit.positives"), value: explicitPositivesText(explicitPositives), icon: "hand.thumbsup.fill")
+                    }
+                    if let tasteAnchors = profile.tasteAnchors, tasteAnchors.isDisplayable {
+                        metricPanel(title: watchLocalizedKey(model.language, "ui.taste.anchors"), value: tasteAnchorsText(tasteAnchors), icon: "anchor")
+                    }
                     metricPanel(title: watchLocalizedKey(model.language, "watch.recent"), value: tracks(profile.recentTracks ?? []), icon: "clock.arrow.circlepath")
+                    if let recentFavorites = profile.recentFavoriteTracks, !recentFavorites.isEmpty {
+                        metricPanel(title: watchLocalizedKey(model.language, "ui.recent.favorite.tracks"), value: tracks(recentFavorites), icon: "heart.fill")
+                    }
                     metricPanel(title: watchLocalizedKey(model.language, "watch.signals"), value: signals(profile.recommendationSignals ?? []), icon: "slider.horizontal.3")
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -1504,6 +1530,94 @@ struct DJConnectWatchRootView: View {
                 .filter { !$0.isEmpty }
                 .joined(separator: " - ")
             return watchNonEmpty(summary, fallback: watchLocalizedKey(model.language, "watch.not.enough.signals"))
+        }
+
+        private func energy(_ energyProfile: DJConnectMusicDNAEnergyProfile) -> String {
+            let items = [
+                energyProfile.energyPercent.map { "Energy \($0)%" },
+                energyProfile.danceabilityPercent.map { "Dans \($0)%" },
+                energyProfile.intensityPercent.map { "Intensiteit \($0)%" }
+            ]
+            .compactMap { $0 }
+            return watchNonEmpty(items.joined(separator: ", "), fallback: watchLocalizedKey(model.language, "watch.not.enough.signals"))
+        }
+
+        private func listeningRhythmText(_ rhythm: DJConnectMusicDNAListeningRhythm) -> String {
+            let headline = [rhythm.topDaypart, rhythm.topWeekday]
+                .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
+                .filter { !$0.isEmpty }
+                .joined(separator: " - ")
+            let dayparts = rhythm.dayparts.prefix(2).compactMap { item -> String? in
+                guard let label = item.daypart?.trimmingCharacters(in: .whitespacesAndNewlines), !label.isEmpty else {
+                    return nil
+                }
+                return item.percent.map { "\(label) \(formatPercent($0))" } ?? label
+            }
+            return watchNonEmpty(([headline] + dayparts).filter { !$0.isEmpty }.joined(separator: ", "), fallback: watchLocalizedKey(model.language, "watch.not.enough.signals"))
+        }
+
+        private func moodMixText(_ moodMix: DJConnectMusicDNAMoodMix) -> String {
+            let headline = [
+                moodMix.topZone?.trimmingCharacters(in: .whitespacesAndNewlines),
+                moodMix.average.map { "Gemiddeld \($0)/100" }
+            ]
+            .compactMap { $0 }
+            .filter { !$0.isEmpty }
+            .joined(separator: " - ")
+            let zones = moodMix.zones.prefix(3).map { "\($0.zone) \(formatPercent($0.percent))" }
+            return watchNonEmpty(([headline] + zones).filter { !$0.isEmpty }.joined(separator: ", "), fallback: watchLocalizedKey(model.language, "watch.not.enough.signals"))
+        }
+
+        private func playtimeText(_ playtime: DJConnectMusicDNAPlaytime) -> String {
+            let total = playtime.formattedTotal?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
+                ? playtime.formattedTotal!
+                : "\(playtime.totalSeconds)s"
+            let artists = playtime.visibleTopArtists.prefix(2).map { item in
+                [item.name, item.formatted].compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty }.joined(separator: " ")
+            }
+            return watchNonEmpty(([total] + artists).filter { !$0.isEmpty }.joined(separator: ", "), fallback: watchLocalizedKey(model.language, "watch.not.enough.signals"))
+        }
+
+        private func repeatMagnetsText(_ repeatMagnets: DJConnectMusicDNARepeatMagnets) -> String {
+            let value = repeatMagnets.visibleItems.prefix(3).map { item in
+                if let formatted = item.formatted?.trimmingCharacters(in: .whitespacesAndNewlines), !formatted.isEmpty {
+                    return "\(item.name) \(formatted)"
+                }
+                if let count = item.count {
+                    return count == 1 ? "\(item.name) 1 keer" : "\(item.name) \(count) keer"
+                }
+                return item.name
+            }
+            .joined(separator: ", ")
+            return watchNonEmpty(value, fallback: watchLocalizedKey(model.language, "watch.not.enough.signals"))
+        }
+
+        private func explicitPositivesText(_ positives: DJConnectMusicDNAExplicitPositives) -> String {
+            let favorites = positives.visibleFavoriteTracks.prefix(2).map { track in
+                [track.title, track.artist].compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty }.joined(separator: " - ")
+            }
+            let recommendations = positives.visibleAcceptedRecommendations.prefix(2).map { item in
+                [item.title, item.subtitle].compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty }.joined(separator: " - ")
+            }
+            return watchNonEmpty((favorites + recommendations).filter { !$0.isEmpty }.joined(separator: ", "), fallback: watchLocalizedKey(model.language, "watch.not.enough.signals"))
+        }
+
+        private func tasteAnchorsText(_ anchors: DJConnectMusicDNATasteAnchors) -> String {
+            let value = anchors.visibleItems.prefix(4).map { item in
+                if let playCount = item.playCount {
+                    return playCount == 1 ? "\(item.name) 1 keer" : "\(item.name) \(playCount) keer"
+                }
+                return item.name
+            }
+            .joined(separator: ", ")
+            return watchNonEmpty(value, fallback: watchLocalizedKey(model.language, "watch.not.enough.signals"))
+        }
+
+        private func formatPercent(_ value: Double) -> String {
+            if value.rounded() == value {
+                return "\(Int(value))%"
+            }
+            return String(format: "%.1f%%", value)
         }
     }
 

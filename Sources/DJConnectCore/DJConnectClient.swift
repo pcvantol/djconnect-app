@@ -145,6 +145,9 @@ public final class DJConnectClient: Sendable {
     }
 
     public func refreshMusicDiscovery(musicDNAKey: String? = nil, language: String? = nil) async throws -> DJConnectMusicDiscoveryResponse {
+        if let response = try await webSocketMusicDiscoveryRefreshIfSupported(musicDNAKey: musicDNAKey, language: language) {
+            return response
+        }
         let request = try refreshMusicDiscoveryRequest(musicDNAKey: musicDNAKey, language: language)
         return try await decodedResponse(for: request)
     }
@@ -662,6 +665,16 @@ public final class DJConnectClient: Sendable {
     private func webSocketClearAskDJHistoryIfSupported(musicDNAKey: String?) async throws -> DJConnectAskDJHistoryResponse? {
         try await webSocketFastPathResult { fastPath, token in
             try await fastPath.clearAskDJHistory(identity: makeDJConnectIdentity(deviceToken: token), musicDNAKey: musicDNAKey)
+        }
+    }
+
+    private func webSocketMusicDiscoveryRefreshIfSupported(musicDNAKey: String?, language: String?) async throws -> DJConnectMusicDiscoveryResponse? {
+        try await webSocketFastPathResult { fastPath, token in
+            try await fastPath.refreshMusicDiscovery(
+                identity: makeDJConnectIdentity(deviceToken: token),
+                musicDNAKey: musicDNAKey,
+                language: language
+            )
         }
     }
 

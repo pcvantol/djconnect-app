@@ -192,7 +192,20 @@ shows the opt-in/locked state instead of an empty grid. Load failures stay in
 the app model and refresh controls instead of replacing the page with an error
 card. On iOS the Home Screen
 quick action `dev.djconnect.action.discovery` and deep links
-`djconnect://discover` / `djconnect://ontdek` jump directly to Ontdek.
+`djconnect://discover` / `djconnect://ontdek` / `djconnect://music-discovery`
+jump directly to Ontdek.
+
+Home Assistant may send the daily APNs reminder event `music_discovery_ready`
+with notification body `Je nieuwe aanbevelingen staan klaar!`, open target
+`music_discovery`, refresh target `music_discovery`, and deeplink
+`djconnect://music-discovery`. iOS and macOS show the notification, and receiving
+or tapping it refreshes Ontdek through the websocket fast path
+`djconnect/music_discovery/refresh` when Home Assistant advertises it. If the
+fast path is unavailable, the clients use
+`POST /api/djconnect/v1/music_discovery/refresh`; if refresh is rate-limited or
+temporarily unavailable, they fall back to `GET /api/djconnect/v1/music_discovery`.
+Recommendation titles, artwork, sections, and reasons are rendered only from the
+backend response `sections[].items[]`, never from the push payload itself.
 
 APNs push registration is supported for iOS, macOS, and watchOS clients. iOS
 uses `client_type: "ios"` and `device_id` values shaped like

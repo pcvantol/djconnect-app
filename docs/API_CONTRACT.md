@@ -245,6 +245,45 @@ Home Assistant may respond with `push_supported`, `push_registered`,
 `push_relay_unavailable`; normal Ask DJ traffic must continue even when push is
 disabled or best-effort.
 
+### Music Discovery Reminder Push
+
+Home Assistant may send a daily APNs reminder when new Music Discovery
+recommendations are ready. The push is a wake/open hint only; Apple clients must
+render Music Discovery content only from the backend Music Discovery response,
+not from APNs custom payload fields.
+
+```json
+{
+  "event_type": "music_discovery_ready",
+  "open_target": "music_discovery",
+  "refresh_target": "music_discovery",
+  "deeplink": "djconnect://music-discovery",
+  "title": "DJConnect",
+  "body": "Je nieuwe aanbevelingen staan klaar!"
+}
+```
+
+Expected client behavior:
+
+- Display the notification body `Je nieuwe aanbevelingen staan klaar!`.
+- On tap or deeplink, navigate directly to Ontdek / Music Discovery.
+- On receive and on tap, refresh Music Discovery. Prefer websocket command
+  `djconnect/music_discovery/refresh` when advertised; otherwise use
+  `POST /api/djconnect/v1/music_discovery/refresh`.
+- If refresh is rate-limited or temporarily unavailable, load the current feed
+  through `GET /api/djconnect/v1/music_discovery`.
+- Include the paired DJConnect bearer token and canonical `device_id`,
+  `client_type`, optional `client_id`, optional `device_token`, and optional
+  `music_dna_key` with refresh/feed requests.
+- Render recommendations exclusively from backend response
+  `sections[].items[]`. Do not render push-provided recommendation titles,
+  artwork, sections, or reasons.
+- If the backend returns `enabled: false` and `reason: "music_dna_disabled"`,
+  show the existing disabled/empty Ontdek UI without local fallback
+  recommendations.
+- Coalesce quick receive/tap races for the same Home Assistant install and
+  Music DNA key for a short window, currently 8 seconds.
+
 Unpairing or logout calls:
 
 ```http

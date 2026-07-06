@@ -358,7 +358,7 @@ public enum DJConnectHomeScreenAction: String, Equatable, Sendable {
             self = .askDJ
         case "track-insight", "trackinsight":
             self = .trackInsight
-        case "discover", "discovery", "ontdek":
+        case "discover", "discovery", "ontdek", "music-discovery", "music_discovery", "musicdiscovery":
             self = .discovery
         case "playlists", "afspeellijsten":
             self = .playlists
@@ -781,6 +781,7 @@ public final class DJConnectAppModel: ObservableObject {
     private let networkMonitorQueue = DispatchQueue(label: "dev.djconnect.app.network")
     private var shouldShowWakeWordPromptAfterPairingScreen = false
     private var currentAPNsPushToken: String?
+    private var musicDiscoveryPushRefreshes: [String: Date] = [:]
     private var webSocketFastPathCache: [String: any DJConnectWebSocketFastPathTransport] = [:]
     @Published public private(set) var fastPathDiagnostics = DJConnectFastPathDiagnostics()
     @Published public var webSocketFastPathEnabled = false {
@@ -899,7 +900,6 @@ public final class DJConnectAppModel: ObservableObject {
     private var lastVibeCastRevision: Int?
     private var lastVibeCastItemsSignature: String?
     private var lastVibeCastAutoInsightPlaybackID: String?
-    private let demoTrackInsightService = DemoTrackInsightService()
 
     public var volume: Double {
         get { Double(pendingVolumePercent ?? playback?.volumePercent ?? 0) }
@@ -3016,7 +3016,10 @@ public final class DJConnectAppModel: ObservableObject {
         do {
             let insight: TrackInsight
             if isDemoMode {
-                insight = try await demoTrackInsightService.insight(for: playback)
+                insight = try await DemoTrackInsightService(
+                    tracks: DemoTrackInsightService.localizedDefaultTracks(language: language)
+                )
+                .insight(for: playback)
             } else {
                 guard canUsePlaybackFeatures else {
                     throw DJConnectError.invalidConfiguration(
@@ -5124,6 +5127,16 @@ public final class DJConnectAppModel: ObservableObject {
 
     @discardableResult
     public func refreshMusicDiscovery() async -> Bool {
+        await refreshMusicDiscovery(coalesce: false)
+    }
+
+    @discardableResult
+    public func refreshMusicDiscoveryFromPush() async -> Bool {
+        await refreshMusicDiscovery(coalesce: true)
+    }
+
+    @discardableResult
+    private func refreshMusicDiscovery(coalesce: Bool) async -> Bool {
         if isDemoMode {
             musicDiscoveryResponse = demoMusicDNAEnabled ? Self.demoMusicDiscoveryResponse(revision: (musicDiscoveryResponse?.revision ?? 12) + 1) : Self.disabledMusicDiscoveryResponse()
             musicDiscoveryErrorMessage = nil
@@ -5132,20 +5145,36 @@ public final class DJConnectAppModel: ObservableObject {
         guard pairingStatus == .paired, isRuntimeCompatible else {
             return false
         }
+        if coalesce, shouldCoalesceMusicDiscoveryPushRefresh() {
+            logPush("music_discovery_ready refresh coalesced")
+            return true
+        }
         isRefreshingMusicDiscovery = true
         musicDiscoveryErrorMessage = nil
         defer { isRefreshingMusicDiscovery = false }
         do {
-            _ = try await withHomeAssistantClient { client in
+            let refreshResponse = try await withHomeAssistantClient { client in
                 try await client.refreshMusicDiscovery(musicDNAKey: askDJMusicDNAKey, language: language)
             }
             try Task.checkCancellation()
-            let response = try await withHomeAssistantClient { client in
-                try await client.musicDiscoveryFeed(musicDNAKey: askDJMusicDNAKey, language: language)
-            }
-            apply(musicDiscovery: response)
+            apply(musicDiscovery: refreshResponse)
             return true
         } catch let error as DJConnectError {
+            if shouldLoadMusicDiscoveryFeedAfterRefreshError(error) {
+                do {
+                    let response = try await withHomeAssistantClient { client in
+                        try await client.musicDiscoveryFeed(musicDNAKey: askDJMusicDNAKey, language: language)
+                    }
+                    apply(musicDiscovery: response)
+                    return true
+                } catch let fallbackError as DJConnectError {
+                    handleMusicDiscoveryError(fallbackError)
+                } catch {
+                    musicDiscoveryErrorMessage = localized(key: "ui.discovery.could.not.be.loaded")
+                    log(.warning, "Music Discovery refresh fallback feed failed: \(error.localizedDescription)")
+                }
+                return false
+            }
             handleMusicDiscoveryError(error)
         } catch is CancellationError {
         } catch {
@@ -5153,6 +5182,36 @@ public final class DJConnectAppModel: ObservableObject {
             log(.warning, "Music Discovery refresh failed: \(error.localizedDescription)")
         }
         return false
+    }
+
+    private func shouldCoalesceMusicDiscoveryPushRefresh(now: Date = Date()) -> Bool {
+        let key = musicDiscoveryPushCoalescingKey()
+        if let lastRefresh = musicDiscoveryPushRefreshes[key], now.timeIntervalSince(lastRefresh) < 8 {
+            return true
+        }
+        musicDiscoveryPushRefreshes[key] = now
+        return false
+    }
+
+    private func musicDiscoveryPushCoalescingKey() -> String {
+        [
+            localHomeAssistantURL(),
+            askDJMusicDNAKey,
+            identity.clientType.rawValue
+        ].joined(separator: "|")
+    }
+
+    private func shouldLoadMusicDiscoveryFeedAfterRefreshError(_ error: DJConnectError) -> Bool {
+        switch error {
+        case .routeMissing, .backendUnavailable:
+            return true
+        case let .server(statusCode, message):
+            return statusCode == 429
+                || statusCode == 503
+                || Self.containsAny(message, ["rate_limited", "rate limited", "unavailable"])
+        default:
+            return false
+        }
     }
 
     public func playMusicDiscoveryItem(_ item: DJConnectMusicDiscoveryItem, sectionID: String) async {
@@ -5292,7 +5351,7 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     private func applyDemoMusicDNAProfile() {
-        musicDNAProfileResponse = demoMusicDNAEnabled ? Self.demoMusicDNAProfileResponse() : Self.disabledMusicDNAProfileResponse()
+        musicDNAProfileResponse = demoMusicDNAEnabled ? Self.demoMusicDNAProfileResponse(language: language) : Self.disabledMusicDNAProfileResponse()
         musicDiscoveryResponse = demoMusicDNAEnabled ? Self.demoMusicDiscoveryResponse() : Self.disabledMusicDiscoveryResponse()
         musicDNAErrorMessage = nil
         musicDiscoveryErrorMessage = nil
@@ -5406,14 +5465,14 @@ public final class DJConnectAppModel: ObservableObject {
         )
     }
 
-    public static func demoMusicDNAProfileResponse() -> DJConnectMusicDNAProfileResponse {
+    public static func demoMusicDNAProfileResponse(language: String = DJConnectLocalization.defaultDisplayLanguageCode()) -> DJConnectMusicDNAProfileResponse {
         DJConnectMusicDNAProfileResponse(
             success: true,
             musicDNAKey: "demo:music-dna",
             enabled: true,
             generation: 3,
             profile: DJConnectMusicDNAProfile(
-                summary: "A fictional profile that leans toward late-night synth grooves, bright hooks, warm basslines, and playful discoveries.",
+                summary: DJConnectLocalization.localized(key: "demo.music.dna.summary", language: language),
                 favoriteGenres: [
                     DJConnectMusicDNANameValue(name: "Neon downtempo"),
                     DJConnectMusicDNANameValue(name: "Velvet electro"),
@@ -5448,11 +5507,11 @@ public final class DJConnectAppModel: ObservableObject {
                 mood: DJConnectMusicDNAMood(
                     value: 68,
                     zone: "energy",
-                    promptHint: "Recommend melodic tracks with motion, glow, and soft-edged rhythm.",
+                    promptHint: DJConnectLocalization.localized(key: "demo.music.dna.mood.promptHint", language: language),
                     sampleCount: 3,
                     average: 57,
                     averageZone: "groove",
-                    averagePromptHint: "Keep recommendations flowing, rhythmic, social, and medium energy.",
+                    averagePromptHint: DJConnectLocalization.localized(key: "demo.music.dna.mood.averagePromptHint", language: language),
                     zoneCounts: ["chill": 1, "groove": 1, "energy": 1]
                 ),
                 energyProfile: DJConnectMusicDNAEnergyProfile(
@@ -5460,7 +5519,7 @@ public final class DJConnectAppModel: ObservableObject {
                     energy: 0.70,
                     energyPercent: 70,
                     zone: "energy",
-                    promptHint: "Bright pulse with enough lift for the room.",
+                    promptHint: DJConnectLocalization.localized(key: "demo.music.dna.energy.promptHint", language: language),
                     danceability: 0.54,
                     danceabilityPercent: 54,
                     intensity: 0.62,
@@ -5487,16 +5546,16 @@ public final class DJConnectAppModel: ObservableObject {
                 ),
                 listeningRhythm: DJConnectMusicDNAListeningRhythm(
                     sampleCount: 6,
-                    topDaypart: "Avond",
-                    topWeekday: "Vrijdag",
+                    topDaypart: DJConnectLocalization.localized(key: "demo.music.dna.daypart.evening", language: language),
+                    topWeekday: DJConnectLocalization.localized(key: "demo.music.dna.weekday.friday", language: language),
                     dayparts: [
-                        DJConnectMusicDNAListeningRhythmItem(daypart: "Avond", count: 4, percent: 66.7),
-                        DJConnectMusicDNAListeningRhythmItem(daypart: "Middag", count: 2, percent: 33.3)
+                        DJConnectMusicDNAListeningRhythmItem(daypart: DJConnectLocalization.localized(key: "demo.music.dna.daypart.evening", language: language), count: 4, percent: 66.7),
+                        DJConnectMusicDNAListeningRhythmItem(daypart: DJConnectLocalization.localized(key: "demo.music.dna.daypart.afternoon", language: language), count: 2, percent: 33.3)
                     ],
                     weekdays: [
-                        DJConnectMusicDNAListeningRhythmItem(weekday: "Vrijdag", count: 3, percent: 50),
-                        DJConnectMusicDNAListeningRhythmItem(weekday: "Zaterdag", count: 2, percent: 33.3),
-                        DJConnectMusicDNAListeningRhythmItem(weekday: "Donderdag", count: 1, percent: 16.7)
+                        DJConnectMusicDNAListeningRhythmItem(weekday: DJConnectLocalization.localized(key: "demo.music.dna.weekday.friday", language: language), count: 3, percent: 50),
+                        DJConnectMusicDNAListeningRhythmItem(weekday: DJConnectLocalization.localized(key: "demo.music.dna.weekday.saturday", language: language), count: 2, percent: 33.3),
+                        DJConnectMusicDNAListeningRhythmItem(weekday: DJConnectLocalization.localized(key: "demo.music.dna.weekday.thursday", language: language), count: 1, percent: 16.7)
                     ]
                 ),
                 moodMix: DJConnectMusicDNAMoodMix(
@@ -5525,8 +5584,8 @@ public final class DJConnectAppModel: ObservableObject {
                         DJConnectMusicDNAFavoriteTrackSignal(title: "Velvet Room", artist: "Nova Harbor", uri: "spotify:track:demo-favorite-2")
                     ],
                     acceptedRecommendations: [
-                        DJConnectMusicDNAAcceptedRecommendationSignal(title: "Glass Avenue", subtitle: "Warm synth groove", uri: "spotify:track:demo-accepted-1", reason: "matches_music_dna"),
-                        DJConnectMusicDNAAcceptedRecommendationSignal(title: "Silver Static", subtitle: "Bright late-night pulse", uri: "spotify:track:demo-accepted-2", reason: "expands_music_dna")
+                        DJConnectMusicDNAAcceptedRecommendationSignal(title: "Glass Avenue", subtitle: DJConnectLocalization.localized(key: "demo.music.dna.accepted.warmSynthGroove", language: language), uri: "spotify:track:demo-accepted-1", reason: "matches_music_dna"),
+                        DJConnectMusicDNAAcceptedRecommendationSignal(title: "Silver Static", subtitle: DJConnectLocalization.localized(key: "demo.music.dna.accepted.brightLateNightPulse", language: language), uri: "spotify:track:demo-accepted-2", reason: "expands_music_dna")
                     ]
                 ),
                 tasteAnchors: DJConnectMusicDNATasteAnchors(
@@ -5540,14 +5599,14 @@ public final class DJConnectAppModel: ObservableObject {
                     ]
                 ),
                 timePatterns: [
-                    DJConnectMusicDNASignal(title: "Evening listening", kind: "time", value: "20:00-23:00"),
-                    DJConnectMusicDNASignal(title: "Weekend discovery", kind: "pattern", value: "new artists"),
-                    DJConnectMusicDNASignal(title: "Friday lift", kind: "pattern", value: "higher energy")
+                    DJConnectMusicDNASignal(title: DJConnectLocalization.localized(key: "demo.music.dna.time.eveningListening", language: language), kind: "time", value: "20:00-23:00"),
+                    DJConnectMusicDNASignal(title: DJConnectLocalization.localized(key: "demo.music.dna.time.weekendDiscovery", language: language), kind: "pattern", value: DJConnectLocalization.localized(key: "demo.music.dna.time.newArtists", language: language)),
+                    DJConnectMusicDNASignal(title: DJConnectLocalization.localized(key: "demo.music.dna.time.fridayLift", language: language), kind: "pattern", value: DJConnectLocalization.localized(key: "demo.music.dna.time.higherEnergy", language: language))
                 ],
                 recommendationSignals: [
-                    DJConnectMusicDNASignal(title: "Bright synth hooks", kind: "sound"),
-                    DJConnectMusicDNASignal(title: "Warm rolling bass", kind: "texture"),
-                    DJConnectMusicDNASignal(title: "Playful vocal fragments", kind: "mood")
+                    DJConnectMusicDNASignal(title: DJConnectLocalization.localized(key: "demo.music.dna.signal.brightSynthHooks", language: language), kind: "sound"),
+                    DJConnectMusicDNASignal(title: DJConnectLocalization.localized(key: "demo.music.dna.signal.warmRollingBass", language: language), kind: "texture"),
+                    DJConnectMusicDNASignal(title: DJConnectLocalization.localized(key: "demo.music.dna.signal.playfulVocalFragments", language: language), kind: "mood")
                 ],
                 blockedArtists: [],
                 blockedItems: []
@@ -5556,7 +5615,7 @@ public final class DJConnectAppModel: ObservableObject {
                 DJConnectResponseLink(
                     url: URL(string: "https://djconnect.dev")!,
                     title: "Music DNA Demo",
-                    subtitle: "Fictional sample profile",
+                    subtitle: DJConnectLocalization.localized(key: "demo.music.dna.source.subtitle", language: language),
                     source: "djconnect_demo"
                 )
             ]
@@ -7418,6 +7477,26 @@ public final class DJConnectAppModel: ObservableObject {
         return nil
     }
 
+    private static func pushEventType(in userInfo: [AnyHashable: Any]) -> String? {
+        if let eventType = userInfo["event_type"] as? String {
+            return eventType
+        }
+        if let eventType = userInfo["eventType"] as? String {
+            return eventType
+        }
+        if let data = userInfo["data"] as? [String: Any] {
+            return data["event_type"] as? String ?? data["eventType"] as? String
+        }
+        return nil
+    }
+
+    private static func containsAny(_ message: String?, _ needles: [String]) -> Bool {
+        guard let message = message?.lowercased() else {
+            return false
+        }
+        return needles.contains { message.contains($0.lowercased()) }
+    }
+
     private func resolvedAudioURL(from audioURL: URL?) -> URL? {
         guard let audioURL else {
             return nil
@@ -7471,6 +7550,20 @@ public final class DJConnectAppModel: ObservableObject {
 
     public func handleRemoteNotificationRegistrationError(_ error: Error) {
         logPush("system remote notification registration failed error=\(error.localizedDescription)", level: .warning)
+    }
+
+    @discardableResult
+    public func handleRemoteNotificationPayload(_ userInfo: [AnyHashable: Any], openedFromTap: Bool = false) async -> Bool {
+        guard Self.pushEventType(in: userInfo) == "music_discovery_ready" else {
+            await refreshAskDJHistory()
+            return false
+        }
+        logPush("received music_discovery_ready opened_from_tap=\(openedFromTap)")
+        if openedFromTap {
+            performHomeScreenAction(.discovery)
+        }
+        _ = await refreshMusicDiscoveryFromPush()
+        return true
     }
 
     public func unregisterPushNotifications() {

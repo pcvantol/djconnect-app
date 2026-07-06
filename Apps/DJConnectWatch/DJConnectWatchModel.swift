@@ -347,6 +347,10 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         DJConnectLocalization.bcp47LocaleIdentifier(for: language)
     }
 
+    private var localizedDemoTrackInsights: [TrackInsight] {
+        DemoTrackInsightService.localizedDefaultTracks(language: language)
+    }
+
     @Published private(set) var connectionState: ConnectionState = .unpaired
     @Published private(set) var voiceState: VoiceState = .idle
     @Published private(set) var playback: DJConnectPlayback?
@@ -1289,11 +1293,12 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
             if !hasAppliedDemoState {
                 applyDemoState()
             } else if let playback {
-                currentTrackInsight = DemoTrackInsightService.defaultTracks.first { insight in
+                let demoTracks = localizedDemoTrackInsights
+                currentTrackInsight = demoTracks.first { insight in
                     insight.title == playback.trackName && insight.artist == playback.artistName
-                } ?? DemoTrackInsightService.defaultTracks.first
+                } ?? demoTracks.first
             } else {
-                currentTrackInsight = DemoTrackInsightService.defaultTracks.first
+                currentTrackInsight = localizedDemoTrackInsights.first
             }
             return
         }
@@ -2247,7 +2252,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
     }
 
     private func applyDemoMusicDNAProfile() {
-        musicDNAProfileResponse = demoMusicDNAEnabled ? Self.demoMusicDNAProfileResponse() : Self.disabledMusicDNAProfileResponse()
+        musicDNAProfileResponse = demoMusicDNAEnabled ? Self.demoMusicDNAProfileResponse(language: language) : Self.disabledMusicDNAProfileResponse()
         musicDNAErrorMessage = nil
         isLoadingMusicDNA = false
         isUpdatingMusicDNA = false
@@ -2737,7 +2742,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
             ),
             contextURI: "spotify:playlist:djconnect-demo"
         )
-        currentTrackInsight = DemoTrackInsightService.defaultTracks.first
+        currentTrackInsight = localizedDemoTrackInsights.first
         applyDemoOutputs()
         applyDemoQueue()
         applyDemoPlaylists()
@@ -2891,7 +2896,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
             device: activeDevice,
             contextURI: queueContext
         )
-        currentTrackInsight = DemoTrackInsightService.defaultTracks.first { insight in
+        currentTrackInsight = localizedDemoTrackInsights.first { insight in
             insight.title == item.title && insight.artist == item.artist
         }
     }
@@ -2910,7 +2915,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         statusMessage = "Demo verwerkt..."
         appendAskDJMessage(role: .user, text: "Stemverzoek")
         let response = "Ja hoor. Ik zou nu Midnight City van M83 aankondigen: glanzende synths, avondlucht, en precies genoeg energie om de kamer op te tillen."
-        currentTrackInsight = DemoTrackInsightService.defaultTracks.first
+        currentTrackInsight = localizedDemoTrackInsights.first
         appendAskDJMessage(role: .dj, text: response)
         notifyAskDJResponse(response)
         voiceState = .idle
@@ -4071,14 +4076,14 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         )
     }
 
-    private static func demoMusicDNAProfileResponse() -> DJConnectMusicDNAProfileResponse {
+    private static func demoMusicDNAProfileResponse(language: String = DJConnectLocalization.defaultDisplayLanguageCode()) -> DJConnectMusicDNAProfileResponse {
         DJConnectMusicDNAProfileResponse(
             success: true,
             musicDNAKey: "demo:music-dna",
             enabled: true,
             generation: 3,
             profile: DJConnectMusicDNAProfile(
-                summary: "A fictional profile for warm synth grooves, bright hooks and playful discovery.",
+                summary: DJConnectLocalization.localized(key: "demo.music.dna.watch.summary", language: language),
                 favoriteGenres: [
                     DJConnectMusicDNANameValue(name: "Neon downtempo"),
                     DJConnectMusicDNANameValue(name: "Velvet electro"),
@@ -4094,12 +4099,128 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
                     DJConnectMusicDNATrack(title: "Afterglow Signals", artist: "Nova Harbor"),
                     DJConnectMusicDNATrack(title: "Silver Static", artist: "Echo Parade")
                 ],
-                mood: DJConnectMusicDNAMood(value: 68, zone: "warm energy", promptHint: "Recommend melodic tracks with motion and glow."),
+                recentFavoriteTracks: [
+                    DJConnectMusicDNATrack(title: "Neon Bloom", artist: "Luna Vale", album: "Night Map", uri: "spotify:track:demo-favorite-1"),
+                    DJConnectMusicDNATrack(title: "Velvet Room", artist: "Nova Harbor", album: "Harbor Lights", uri: "spotify:track:demo-favorite-2")
+                ],
+                topTracksByRange: [
+                    "week": [
+                        DJConnectMusicDNATrack(title: "Glass Avenue", artist: "Luna Vale"),
+                        DJConnectMusicDNATrack(title: "Afterglow Signals", artist: "Nova Harbor")
+                    ]
+                ],
+                topArtistsByRange: [
+                    "week": [
+                        DJConnectMusicDNANameValue(name: "Luna Vale"),
+                        DJConnectMusicDNANameValue(name: "Nova Harbor")
+                    ]
+                ],
+                mood: DJConnectMusicDNAMood(
+                    value: 68,
+                    zone: "energy",
+                    promptHint: DJConnectLocalization.localized(key: "demo.music.dna.mood.promptHint", language: language),
+                    sampleCount: 3,
+                    average: 57,
+                    averageZone: "groove",
+                    averagePromptHint: DJConnectLocalization.localized(key: "demo.music.dna.mood.averagePromptHint", language: language),
+                    zoneCounts: ["chill": 1, "groove": 1, "energy": 1]
+                ),
+                energyProfile: DJConnectMusicDNAEnergyProfile(
+                    sampleCount: 2,
+                    energy: 0.70,
+                    energyPercent: 70,
+                    zone: "energy",
+                    promptHint: DJConnectLocalization.localized(key: "demo.music.dna.energy.promptHint", language: language),
+                    danceability: 0.54,
+                    danceabilityPercent: 54,
+                    intensity: 0.62,
+                    intensityPercent: 62,
+                    recentSignals: [
+                        DJConnectMusicDNAEnergySignal(title: "Glass Avenue", artist: "Luna Vale", album: "Night Map"),
+                        DJConnectMusicDNAEnergySignal(title: "Afterglow Signals", artist: "Nova Harbor", album: "Harbor Lights")
+                    ]
+                ),
+                playtime: DJConnectMusicDNAPlaytime(
+                    totalSeconds: 12_840,
+                    totalHours: 3.57,
+                    formattedTotal: "3u 34m",
+                    topArtists: [
+                        DJConnectMusicDNAPlaytimeArtist(name: "Luna Vale", seconds: 4_800, hours: 1.33, formatted: "1u 20m"),
+                        DJConnectMusicDNAPlaytimeArtist(name: "Nova Harbor", seconds: 3_240, hours: 0.90, formatted: "54m"),
+                        DJConnectMusicDNAPlaytimeArtist(name: "Echo Parade", seconds: 2_100, hours: 0.58, formatted: "35m")
+                    ],
+                    topAlbums: [
+                        DJConnectMusicDNAPlaytimeArtist(name: "Night Map", seconds: 3_900, hours: 1.08, formatted: "1u 5m"),
+                        DJConnectMusicDNAPlaytimeArtist(name: "Harbor Lights", seconds: 2_700, hours: 0.75, formatted: "45m"),
+                        DJConnectMusicDNAPlaytimeArtist(name: "Signal Garden", seconds: 1_560, hours: 0.43, formatted: "26m")
+                    ]
+                ),
+                listeningRhythm: DJConnectMusicDNAListeningRhythm(
+                    sampleCount: 6,
+                    topDaypart: DJConnectLocalization.localized(key: "demo.music.dna.daypart.evening", language: language),
+                    topWeekday: DJConnectLocalization.localized(key: "demo.music.dna.weekday.friday", language: language),
+                    dayparts: [
+                        DJConnectMusicDNAListeningRhythmItem(daypart: DJConnectLocalization.localized(key: "demo.music.dna.daypart.evening", language: language), count: 4, percent: 66.7),
+                        DJConnectMusicDNAListeningRhythmItem(daypart: DJConnectLocalization.localized(key: "demo.music.dna.daypart.afternoon", language: language), count: 2, percent: 33.3)
+                    ],
+                    weekdays: [
+                        DJConnectMusicDNAListeningRhythmItem(weekday: DJConnectLocalization.localized(key: "demo.music.dna.weekday.friday", language: language), count: 3, percent: 50),
+                        DJConnectMusicDNAListeningRhythmItem(weekday: DJConnectLocalization.localized(key: "demo.music.dna.weekday.saturday", language: language), count: 2, percent: 33.3),
+                        DJConnectMusicDNAListeningRhythmItem(weekday: DJConnectLocalization.localized(key: "demo.music.dna.weekday.thursday", language: language), count: 1, percent: 16.7)
+                    ]
+                ),
+                moodMix: DJConnectMusicDNAMoodMix(
+                    sampleCount: 5,
+                    average: 63,
+                    topZone: "groove",
+                    zones: [
+                        DJConnectMusicDNAMoodMixZone(zone: "chill", count: 1, percent: 20),
+                        DJConnectMusicDNAMoodMixZone(zone: "groove", count: 2, percent: 40),
+                        DJConnectMusicDNAMoodMixZone(zone: "energy", count: 2, percent: 40)
+                    ]
+                ),
+                repeatMagnets: DJConnectMusicDNARepeatMagnets(
+                    eligible: true,
+                    items: [
+                        DJConnectMusicDNARepeatMagnetItem(kind: "artist", name: "Luna Vale", count: 5),
+                        DJConnectMusicDNARepeatMagnetItem(kind: "album", name: "Night Map", seconds: 3_900, formatted: "1u 5m"),
+                        DJConnectMusicDNARepeatMagnetItem(kind: "artist", name: "Nova Harbor", count: 3)
+                    ]
+                ),
+                explicitPositives: DJConnectMusicDNAExplicitPositives(
+                    eligible: true,
+                    signalCount: 4,
+                    favoriteTracks: [
+                        DJConnectMusicDNAFavoriteTrackSignal(title: "Neon Bloom", artist: "Luna Vale", uri: "spotify:track:demo-favorite-1"),
+                        DJConnectMusicDNAFavoriteTrackSignal(title: "Velvet Room", artist: "Nova Harbor", uri: "spotify:track:demo-favorite-2")
+                    ],
+                    acceptedRecommendations: [
+                        DJConnectMusicDNAAcceptedRecommendationSignal(title: "Glass Avenue", subtitle: DJConnectLocalization.localized(key: "demo.music.dna.accepted.warmSynthGroove", language: language), uri: "spotify:track:demo-accepted-1", reason: "matches_music_dna"),
+                        DJConnectMusicDNAAcceptedRecommendationSignal(title: "Silver Static", subtitle: DJConnectLocalization.localized(key: "demo.music.dna.accepted.brightLateNightPulse", language: language), uri: "spotify:track:demo-accepted-2", reason: "expands_music_dna")
+                    ]
+                ),
+                tasteAnchors: DJConnectMusicDNATasteAnchors(
+                    eligible: true,
+                    items: [
+                        DJConnectMusicDNATasteAnchorItem(kind: "artist", name: "Luna Vale", playCount: 7, formatted: "1u 20m"),
+                        DJConnectMusicDNATasteAnchorItem(kind: "genre", name: "Neon downtempo"),
+                        DJConnectMusicDNATasteAnchorItem(kind: "genre", name: "Velvet electro"),
+                        DJConnectMusicDNATasteAnchorItem(kind: "artist", name: "Nova Harbor", playCount: 4, formatted: "54m"),
+                        DJConnectMusicDNATasteAnchorItem(kind: "genre", name: "Skyline pop")
+                    ]
+                ),
+                timePatterns: [
+                    DJConnectMusicDNASignal(title: DJConnectLocalization.localized(key: "demo.music.dna.time.eveningListening", language: language), kind: "time", value: "20:00-23:00"),
+                    DJConnectMusicDNASignal(title: DJConnectLocalization.localized(key: "demo.music.dna.time.weekendDiscovery", language: language), kind: "pattern", value: DJConnectLocalization.localized(key: "demo.music.dna.time.newArtists", language: language)),
+                    DJConnectMusicDNASignal(title: DJConnectLocalization.localized(key: "demo.music.dna.time.fridayLift", language: language), kind: "pattern", value: DJConnectLocalization.localized(key: "demo.music.dna.time.higherEnergy", language: language))
+                ],
                 recommendationSignals: [
-                    DJConnectMusicDNASignal(title: "Bright synth hooks", kind: "sound"),
-                    DJConnectMusicDNASignal(title: "Warm rolling bass", kind: "texture"),
-                    DJConnectMusicDNASignal(title: "Playful vocal fragments", kind: "mood")
-                ]
+                    DJConnectMusicDNASignal(title: DJConnectLocalization.localized(key: "demo.music.dna.signal.brightSynthHooks", language: language), kind: "sound"),
+                    DJConnectMusicDNASignal(title: DJConnectLocalization.localized(key: "demo.music.dna.signal.warmRollingBass", language: language), kind: "texture"),
+                    DJConnectMusicDNASignal(title: DJConnectLocalization.localized(key: "demo.music.dna.signal.playfulVocalFragments", language: language), kind: "mood")
+                ],
+                blockedArtists: [],
+                blockedItems: []
             )
         )
     }

@@ -2648,6 +2648,121 @@ public struct DemoTrackInsightService: TrackInsightService {
         TrackInsight(title: "Master of Puppets", artist: "Metallica", genre: "Metal", energy: 0.96, danceability: 0.42, intensity: 0.98, mood: "Dark", vibe: "Aggressive", texture: "Palm-muted riffs and sharp rhythmic attacks", confidenceLabel: "demo", summary: "A high-intensity metal architecture built from precision, contrast and relentless forward drive.", rawAnalysisText: "Demo Track Insight for Metallica."),
         TrackInsight(title: "Adagio for Strings", artist: "Samuel Barber", genre: "Classical", energy: 0.32, danceability: 0.10, intensity: 0.68, mood: "Dreamy", vibe: "Lamenting", texture: "Slow string suspensions and rising harmonic pressure", confidenceLabel: "demo", summary: "A patient orchestral ascent where tension comes from harmony, breath and restraint.", rawAnalysisText: "Demo Track Insight for orchestral music.")
     ]
+
+    public static func localizedDefaultTracks(language: String) -> [TrackInsight] {
+        let normalizedLanguage = language.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard normalizedLanguage == "nl" || normalizedLanguage.hasPrefix("nl-") || normalizedLanguage.hasPrefix("nl_") else {
+            return defaultTracks
+        }
+
+        let localized: [String: (genre: String, mood: String, vibe: String, texture: String, summary: String)] = [
+            "Midnight City": (
+                "Synthpop",
+                "Nostalgisch",
+                "Nachtelijk",
+                "Neon-synthlijnen en gated drums",
+                "Een gloeiend nachtelijke drive-anthem met een heldere synthhook, brede pads en een filmische rush."
+            ),
+            "Sweet Disposition": (
+                "Indierock",
+                "Opbeurend",
+                "Anthemisch",
+                "Rinkelende gitaren en open vocal lift",
+                "Een ruime indie-opbouw die gewichtloos, optimistisch en gemaakt voor grote emotionele ontlading voelt."
+            ),
+            "Electric Feel": (
+                "Psychedelische pop",
+                "Speels",
+                "Funky",
+                "Elastische bas, losse percussie en glinsterende synthkleur",
+                "Een sluwe psychedelische groove met elastische bas, speelse beweging en een warme elektrische glans."
+            ),
+            "Innerbloom": (
+                "Melodic house",
+                "Dromerig",
+                "Ruimtelijk",
+                "Brede pads en geduldige percussie",
+                "Een langzaam openbloeiend elektronisch stuk waarin terughoudendheid de ontlading groots laat voelen."
+            ),
+            "Strobe": (
+                "Progressive house",
+                "Dromerig",
+                "Euforisch",
+                "Arpeggio-synths en lang opgebouwde dynamiek",
+                "Een progressieve opbouw die herhaling verandert in verwachting en ontlading."
+            ),
+            "Sun & Moon": (
+                "Trance",
+                "Energiek",
+                "Anthemisch",
+                "Heldere supersaws en vocal lift",
+                "Een peak-time anthem rond lift, release en gedeelde emotie."
+            ),
+            "Beyond Beliefs": (
+                "Melodic techno",
+                "Organisch",
+                "Warm",
+                "Zachte plucks en afgeronde low-end",
+                "Een warme melodische groove die gedetailleerd voelt zonder de mix vol te zetten."
+            ),
+            "Marea": (
+                "House",
+                "Energiek",
+                "Menselijk",
+                "Vocal chops en kinetische drums",
+                "Een clubtrack met een intiem menselijk hart, gebouwd uit stem, ritme en momentum."
+            ),
+            "Hey Now": (
+                "Elektronische pop",
+                "Donker",
+                "Spookachtig",
+                "Spaarzame percussie en ruime vocal reverb",
+                "Een ruimtelijke, schaduwrijke productie waarin stilte de vocale emotie omlijst."
+            ),
+            "Giorgio by Moroder": (
+                "Disco",
+                "Organisch",
+                "Filmisch",
+                "Live bas, synthlagen en verhalende boog",
+                "Een geschiedenisles vermomd als groove, van gesproken herinnering naar volledige bandbeweging."
+            ),
+            "Sultans of Swing": (
+                "Rock",
+                "Organisch",
+                "Losjes",
+                "Heldere gitaarfrasering en droge ritmische pocket",
+                "Een gitaartrack waarvan het karakter leeft in aanslag, timing en converserende frasering."
+            ),
+            "Master of Puppets": (
+                "Metal",
+                "Donker",
+                "Agressief",
+                "Palm-muted riffs en scherpe ritmische aanvallen",
+                "Een metalstructuur op hoge intensiteit, gebouwd uit precisie, contrast en meedogenloze voorwaartse drive."
+            ),
+            "Adagio for Strings": (
+                "Klassiek",
+                "Dromerig",
+                "Klagend",
+                "Trage strijkerssuspensies en stijgende harmonische druk",
+                "Een geduldige orkestrale klim waarin spanning komt uit harmonie, adem en beheersing."
+            )
+        ]
+
+        return defaultTracks.map { track in
+            guard let copy = localized[track.title] else {
+                return track
+            }
+            var localizedTrack = track
+            localizedTrack.genre = copy.genre
+            localizedTrack.mood = copy.mood
+            localizedTrack.vibe = copy.vibe
+            localizedTrack.texture = copy.texture
+            localizedTrack.summary = copy.summary
+            localizedTrack.rawAnalysisText = "Demo Track Insight voor \(track.title)."
+            return localizedTrack
+        }
+    }
 }
 
 public struct DJConnectAskDJHistoryItem: Codable, Equatable, Sendable, Identifiable {

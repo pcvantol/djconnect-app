@@ -133,7 +133,18 @@ final class DJConnectMacAppDelegate: NSObject, NSApplicationDelegate, @preconcur
         didReceiveRemoteNotification userInfo: [String: Any]
     ) {
         Task { @MainActor in
-            await model?.refreshAskDJHistory()
+            _ = await model?.handleRemoteNotificationPayload(userInfo.reduce(into: [AnyHashable: Any]()) { $0[AnyHashable($1.key)] = $1.value })
+        }
+    }
+
+    func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        willPresent notification: UNNotification,
+        withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
+    ) {
+        Task { @MainActor in
+            _ = await model?.handleRemoteNotificationPayload(notification.request.content.userInfo)
+            completionHandler([.banner, .list, .sound])
         }
     }
 
@@ -143,11 +154,13 @@ final class DJConnectMacAppDelegate: NSObject, NSApplicationDelegate, @preconcur
         withCompletionHandler completionHandler: @escaping () -> Void
     ) {
         NSApp.activate(ignoringOtherApps: true)
-        model?.performHomeScreenAction(.askDJ)
         Task { @MainActor [weak self] in
-            await self?.model?.refreshAskDJHistory()
+            let handled = await self?.model?.handleRemoteNotificationPayload(response.notification.request.content.userInfo, openedFromTap: true) ?? false
+            if !handled {
+                self?.model?.performHomeScreenAction(.askDJ)
+            }
+            completionHandler()
         }
-        completionHandler()
     }
 
     private func flushPendingRemoteNotificationRegistration() {

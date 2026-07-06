@@ -4,6 +4,19 @@ All notable changes to DJConnect App are documented here.
 
 ## Unreleased
 
+### Added
+
+- Added support for the Home Assistant `music_discovery_ready` APNs reminder,
+  including `djconnect://music-discovery` deep links, Ontdek refresh on receive
+  or tap, websocket refresh preference, REST/feed fallback behavior, and
+  coalescing for quick receive/tap races.
+
+### Changed
+
+- Documented that Music Discovery reminder pushes are trigger-only: Ontdek
+  renders recommendations solely from backend `sections[].items[]`, never from
+  push payload content.
+
 ## 3.2.20 - 2026-07-05
 
 ### Fixed

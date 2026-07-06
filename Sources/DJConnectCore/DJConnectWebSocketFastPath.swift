@@ -6,6 +6,7 @@ public enum DJConnectFastPathRoute: String, CaseIterable, Sendable {
     case askDJHistory = "djconnect/ask_dj/history"
     case askDJHistoryClear = "djconnect/ask_dj/history/clear"
     case askDJHistoryState = "djconnect/ask_dj/history/state"
+    case musicDiscoveryRefresh = "djconnect/music_discovery/refresh"
     case trackInsight = "djconnect/track_insight"
     case vibeCast = "djconnect/vibecast"
 }
@@ -48,6 +49,7 @@ public protocol DJConnectWebSocketFastPathTransport: Sendable {
     func askDJMessage(_ payload: DJConnectAskDJRequest, identity: DJConnectAPIIdentity) async throws -> DJConnectAskDJMessageResponse
     func askDJHistory(identity: DJConnectAPIIdentity, sinceRevision: Int?) async throws -> DJConnectAskDJHistoryResponse
     func clearAskDJHistory(identity: DJConnectAPIIdentity, musicDNAKey: String?) async throws -> DJConnectAskDJHistoryResponse
+    func refreshMusicDiscovery(identity: DJConnectAPIIdentity, musicDNAKey: String?, language: String?) async throws -> DJConnectMusicDiscoveryResponse
     func trackInsight(_ payload: DJConnectTrackInsightRequest, identity: DJConnectAPIIdentity) async throws -> TrackInsight
     func vibeCast(_ payload: DJConnectVibeCastRequest, identity: DJConnectAPIIdentity) async throws -> DJConnectVibeCastResponse
 }
@@ -146,6 +148,23 @@ public actor DJConnectHomeAssistantWebSocketFastPath: DJConnectWebSocketFastPath
             musicDNAKey: musicDNAKey
         )
         return try await sendResult(request, timeout: 10, responseType: DJConnectAskDJHistoryResponse.self)
+    }
+
+    public func refreshMusicDiscovery(
+        identity: DJConnectAPIIdentity,
+        musicDNAKey: String?,
+        language: String?
+    ) async throws -> DJConnectMusicDiscoveryResponse {
+        guard try await ensureCapabilities().contains(.musicDiscoveryRefresh) else {
+            throw DJConnectError.routeMissing(message: "WebSocket Music Discovery refresh capability unavailable")
+        }
+        let request = DJConnectWebSocketMusicDiscoveryRefreshMessage(
+            id: allocateID(),
+            identity: identity,
+            musicDNAKey: musicDNAKey,
+            language: language
+        )
+        return try await sendResult(request, timeout: 10, responseType: DJConnectMusicDiscoveryResponse.self)
     }
 
     public func trackInsight(
@@ -576,6 +595,58 @@ private struct DJConnectAskDJHistorySyncPayload: Encodable {
     enum CodingKeys: String, CodingKey {
         case sinceRevision = "since_revision"
         case musicDNAKey = "music_dna_key"
+    }
+}
+
+private struct DJConnectWebSocketMusicDiscoveryRefreshMessage: Encodable {
+    var id: Int
+    var type = DJConnectFastPathRoute.musicDiscoveryRefresh.rawValue
+    var identity: DJConnectAPIIdentity
+    var payload: DJConnectIdentifiedRequestPayload<DJConnectMusicDiscoveryRefreshPayload>
+    var deviceID: String
+    var clientType: DJConnectClientType
+    var clientID: String
+    var deviceName: String
+    var deviceToken: String?
+    var musicDNAKey: String?
+    var language: String?
+
+    init(id: Int, identity: DJConnectAPIIdentity, musicDNAKey: String?, language: String?) {
+        self.id = id
+        self.identity = identity
+        let refreshPayload = DJConnectMusicDiscoveryRefreshPayload(musicDNAKey: musicDNAKey, language: language)
+        payload = DJConnectIdentifiedRequestPayload(identity: identity, payload: refreshPayload, includeNestedPayload: false)
+        deviceID = identity.deviceID
+        clientType = identity.clientType
+        clientID = identity.clientID
+        deviceName = identity.deviceName
+        deviceToken = identity.deviceToken
+        self.musicDNAKey = musicDNAKey
+        self.language = language
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case type
+        case identity
+        case payload
+        case deviceID = "device_id"
+        case clientType = "client_type"
+        case clientID = "client_id"
+        case deviceName = "device_name"
+        case deviceToken = "device_token"
+        case musicDNAKey = "music_dna_key"
+        case language
+    }
+}
+
+private struct DJConnectMusicDiscoveryRefreshPayload: Encodable {
+    var musicDNAKey: String?
+    var language: String?
+
+    enum CodingKeys: String, CodingKey {
+        case musicDNAKey = "music_dna_key"
+        case language
     }
 }
 
