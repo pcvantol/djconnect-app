@@ -8600,7 +8600,7 @@ private struct TrackInsightMetricsGrid: View {
                 horizontalMetricRow {
                     TrackInsightMetricRing(title: localizedKey(language, "ui.energy"), value: insight.energy, icon: "bolt.fill", moodStepIndex: moodStepIndex)
                         .frame(width: 148)
-                    TrackInsightMetricRing(title: localizedKey(language, "ui.dance"), value: insight.danceability, icon: "figure.dance", moodStepIndex: moodStepIndex)
+                    TrackInsightMetricRing(title: localizedKey(language, "trackInsight.share.danceability"), value: insight.danceability, icon: "figure.dance", moodStepIndex: moodStepIndex)
                         .frame(width: 148)
                     TrackInsightMetricRing(title: localizedKey(language, "ui.intensity"), value: insight.intensity, icon: "flame.fill", moodStepIndex: moodStepIndex)
                         .frame(width: 148)
@@ -8612,7 +8612,7 @@ private struct TrackInsightMetricsGrid: View {
             } else {
                 LazyVGrid(columns: metricColumns, spacing: 10) {
                     TrackInsightMetricRing(title: localizedKey(language, "ui.energy"), value: insight.energy, icon: "bolt.fill", moodStepIndex: moodStepIndex)
-                    TrackInsightMetricRing(title: localizedKey(language, "ui.dance"), value: insight.danceability, icon: "figure.dance", moodStepIndex: moodStepIndex)
+                    TrackInsightMetricRing(title: localizedKey(language, "trackInsight.share.danceability"), value: insight.danceability, icon: "figure.dance", moodStepIndex: moodStepIndex)
                     TrackInsightMetricRing(title: localizedKey(language, "ui.intensity"), value: insight.intensity, icon: "flame.fill", moodStepIndex: moodStepIndex)
                 }
 

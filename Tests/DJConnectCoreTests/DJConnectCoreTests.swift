@@ -7480,6 +7480,8 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     #expect(model.vibeCastResponse?.context?.genreBadge?.displayLabel == "Synthpop")
     #expect(model.vibeCastResponse?.context?.genreBadge?.canonicalGenre == "synthpop")
     #expect(model.vibeCastResponse?.context?.genreBadge?.resolvedPlacement == "top_trailing")
+    #expect(model.vibeCastItems.allSatisfy { $0.text.filter { $0.type == .emoji }.count == 1 })
+    #expect(model.vibeCastItems.allSatisfy { $0.text.first?.type == .emoji })
 }
 
 @MainActor

@@ -77,7 +77,7 @@ struct TrackInsightSharePreviewView: View {
                     .buttonStyle(DJConnectLilacPillButtonStyle())
                     .controlSize(.large)
                 }
-                .padding(.top, -56)
+                .padding(.top, actionStackTopPadding)
 
                 if let errorText {
                     Text(errorText)
@@ -121,6 +121,10 @@ struct TrackInsightSharePreviewView: View {
         case .animatedVideo:
             localizedKey("trackInsight.share.share.track.insight")
         }
+    }
+
+    private var actionStackTopPadding: CGFloat {
+        format == .linkPreview ? 12 : -56
     }
 
     @ViewBuilder
@@ -465,12 +469,6 @@ struct TrackInsightShareCardView: View {
         ZStack {
             TrackInsightPremiumBackground(profile: profile, phase: phase, date: renderDate)
             TrackInsightLightField(profile: profile, phase: phase, date: renderDate)
-            TrackInsightPremiumSpectrum(profile: profile, phase: phase)
-                .frame(height: spectrumHeight)
-                .padding(.horizontal, spectrumHorizontalPadding)
-                .frame(maxHeight: .infinity, alignment: .bottom)
-                .padding(.bottom, spectrumBottomPadding)
-                .opacity(spectrumOpacity)
             VStack(spacing: cardSpacing) {
                 artwork
                 VStack(spacing: 5) {
@@ -486,11 +484,23 @@ struct TrackInsightShareCardView: View {
                         .lineLimit(1)
                         .minimumScaleFactor(0.72)
                 }
-                Text(metricLine)
-                    .font(.subheadline.weight(.medium))
-                    .foregroundStyle(.white.opacity(0.70))
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.7)
+                if let genreBadgeText {
+                    Text(genreBadgeText)
+                        .font(genreBadgeFont)
+                        .foregroundStyle(.white.opacity(0.86))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.78)
+                        .padding(.horizontal, genreBadgeHorizontalPadding)
+                        .padding(.vertical, genreBadgeVerticalPadding)
+                        .background(
+                            Capsule(style: .continuous)
+                                .fill(.white.opacity(0.12))
+                        )
+                        .overlay(
+                            Capsule(style: .continuous)
+                                .stroke(.white.opacity(0.22), lineWidth: 1)
+                        )
+                }
                 if let vibeLine {
                     Text(vibeLine)
                         .font(.subheadline.weight(.semibold))
@@ -618,57 +628,42 @@ struct TrackInsightShareCardView: View {
         }
     }
 
-    private var spectrumHeight: CGFloat {
+    private var genreBadgeFont: Font {
         switch format {
         case .story:
-            170
+            .subheadline.weight(.bold)
         case .square:
-            112
+            .caption.weight(.bold)
         case .linkPreview:
-            84
+            .caption2.weight(.bold)
         }
     }
 
-    private var spectrumHorizontalPadding: CGFloat {
+    private var genreBadgeHorizontalPadding: CGFloat {
         switch format {
         case .story:
-            128
+            14
         case .square:
-            112
+            11
         case .linkPreview:
-            144
+            10
         }
     }
 
-    private var spectrumBottomPadding: CGFloat {
+    private var genreBadgeVerticalPadding: CGFloat {
         switch format {
         case .story:
-            216
+            7
         case .square:
-            92
+            5
         case .linkPreview:
-            52
+            4
         }
     }
 
-    private var spectrumOpacity: Double {
-        switch format {
-        case .story:
-            0.72
-        case .square:
-            0.64
-        case .linkPreview:
-            0.52
-        }
-    }
-
-    private var metricLine: String {
-        [
-            insight.genre
-        ]
-        .compactMap { $0 }
-        .filter { !$0.isEmpty }
-        .joined(separator: "  -  ")
+    private var genreBadgeText: String? {
+        let genre = insight.genre?.trimmingCharacters(in: .whitespacesAndNewlines)
+        return genre?.isEmpty == false ? genre : nil
     }
 
     private var vibeLine: String? {
@@ -842,7 +837,9 @@ private struct TrackInsightShareMeters: View {
 
     private func meter(_ title: String, _ value: Double?) -> some View {
         let value = normalizedMeterValue(value)
-        let ringGradient = AngularGradient(colors: Self.liveMetricRingColors, center: .center)
+        let ringColors = exportMetricRingColors
+        let ringGradient = moodRingGradient(ringColors)
+        let glowColor = ringColors.indices.contains(1) ? ringColors[1] : djConnectAccent
         return VStack(spacing: 5) {
             ZStack {
                 Circle()
@@ -854,7 +851,7 @@ private struct TrackInsightShareMeters: View {
                         style: StrokeStyle(lineWidth: meterLineWidth, lineCap: .round)
                     )
                     .rotationEffect(.degrees(-90))
-                    .shadow(color: (Self.liveMetricRingColors.last ?? djConnectAccent).opacity(reduceMotion ? 0.18 : (ringGlowIsActive ? 0.34 : 0.16)), radius: reduceMotion ? 4 : (ringGlowIsActive ? 13 : 5), x: 0, y: 0)
+                    .shadow(color: glowColor.opacity(reduceMotion ? 0.18 : (ringGlowIsActive ? 0.34 : 0.16)), radius: reduceMotion ? 4 : (ringGlowIsActive ? 13 : 5), x: 0, y: 0)
                 Circle()
                     .trim(from: 0, to: CGFloat(max(0.04, value)))
                     .stroke(
@@ -955,10 +952,26 @@ private struct TrackInsightShareMeters: View {
         DJConnectLocalization.localized(key: key, language: language, arguments: arguments)
     }
 
-    private static let liveMetricRingColors: [Color] = [
-        Color(red: 0.30, green: 0.63, blue: 1.0),
-        Color(red: 0.82, green: 0.28, blue: 1.0),
-        Color(red: 0.23, green: 0.91, blue: 0.84),
-        Color(red: 0.30, green: 0.63, blue: 1.0)
-    ]
+    private var exportMetricRingColors: [Color] {
+        profile.colors.isEmpty ? [
+            Color(red: 0.30, green: 0.63, blue: 1.0),
+            Color(red: 0.82, green: 0.28, blue: 1.0),
+            Color(red: 0.23, green: 0.91, blue: 0.84)
+        ] : profile.colors
+    }
+
+    private func moodRingGradient(_ colors: [Color]) -> AngularGradient {
+        let primary = colors.indices.contains(0) ? colors[0] : Color(red: 0.30, green: 0.63, blue: 1.0)
+        let secondary = colors.indices.contains(1) ? colors[1] : Color(red: 0.82, green: 0.28, blue: 1.0)
+        let tertiary = colors.indices.contains(2) ? colors[2] : Color(red: 0.23, green: 0.91, blue: 0.84)
+        return AngularGradient(
+            colors: [
+                primary,
+                secondary,
+                tertiary,
+                primary
+            ],
+            center: .center
+        )
+    }
 }

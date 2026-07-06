@@ -4765,6 +4765,7 @@ public final class DJConnectAppModel: ObservableObject {
                     displaySeconds: 8,
                     placementHint: "side",
                     text: [
+                        .init(type: .emoji, value: "♪"),
                         .init(type: .text, value: "VibeCast follows "),
                         .init(type: .strong, value: title),
                         .init(type: .text, value: " with live side bubbles.")
@@ -4779,6 +4780,7 @@ public final class DJConnectAppModel: ObservableObject {
                     displaySeconds: 8,
                     placementHint: "side",
                     text: [
+                        .init(type: .emoji, value: "🎧"),
                         .init(type: .text, value: "Listen for the "),
                         .init(type: .magnify, value: "pulse"),
                         .init(type: .text, value: " behind \(artist).")

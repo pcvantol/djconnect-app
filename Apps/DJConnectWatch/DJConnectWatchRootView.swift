@@ -1564,7 +1564,9 @@ struct DJConnectWatchRootView: View {
             .compactMap { $0 }
             .filter { !$0.isEmpty }
             .joined(separator: " - ")
-            let zones = moodMix.zones.prefix(3).map { "\($0.zone) \(formatPercent($0.percent))" }
+            let zones = moodMix.zones.prefix(3).map { zone in
+                zone.percent.map { "\(zone.zone) \(formatPercent($0))" } ?? zone.zone
+            }
             return watchNonEmpty(([headline] + zones).filter { !$0.isEmpty }.joined(separator: ", "), fallback: watchLocalizedKey(model.language, "watch.not.enough.signals"))
         }
 
