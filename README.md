@@ -194,6 +194,9 @@ card. On iOS the Home Screen
 quick action `dev.djconnect.action.discovery` and deep links
 `djconnect://discover` / `djconnect://ontdek` / `djconnect://music-discovery`
 jump directly to Ontdek.
+The Discover/Ontdek Play Now action uses the same native start-feedback model as
+other playback-start actions, while Track Insight analysis/open actions stay
+visually rich but do not add extra haptic feedback.
 
 Home Assistant may send the daily APNs reminder event `music_discovery_ready`
 with notification body `Je nieuwe aanbevelingen staan klaar!`, open target
@@ -206,6 +209,15 @@ fast path is unavailable, the clients use
 temporarily unavailable, they fall back to `GET /api/djconnect/v1/music_discovery`.
 Recommendation titles, artwork, sections, and reasons are rendered only from the
 backend response `sections[].items[]`, never from the push payload itself.
+
+Mood is a user-selected app and recommendation context. Apple clients default to
+the neutral midpoint (`50`) after install, map Mood to the four zones
+`0...24 = chill`, `25...59 = groove`, `60...84 = energy`, and `85...100 = party`,
+and pass the numeric value to Ask DJ, playback commands, Music DNA, and Music
+Discovery requests where supported. The selected Mood also drives visual accents
+for Now Playing, Queue, Ask DJ, Track Insight, VibeCast, and widgets. Mood
+changes and intentional playback/Ask DJ actions use native haptic feedback on
+iOS/watchOS and supported macOS hardware.
 
 APNs push registration is supported for iOS, macOS, and watchOS clients. iOS
 uses `client_type: "ios"` and `device_id` values shaped like
@@ -470,6 +482,8 @@ After successful local pairing, iOS and macOS choose the local HA URL when it is
 reachable, fall back to `ha_remote_url` when local access fails and remote is
 supported, and mark the app offline when neither URL works. watchOS remains
 iPhone-mediated and does not use a direct Home Assistant remote/local contract.
+From the offline state, the Wi-Fi/settings shortcut tries system network
+settings and does not intentionally fall back to the DJConnect app settings page.
 The status surface reports the active route, music backend availability, and
 whether playback controls are available, paused, playing, or waiting for an
 active playback snapshot.
