@@ -4,18 +4,35 @@ All notable changes to DJConnect App are documented here.
 
 ## Unreleased
 
+### Changed
+
+- Hardened the app release script to verify the release commit is based on
+  `origin/main`, push the exact release commit to `main`, and publish private
+  source release notes from only the matching `CHANGELOG.md` version section.
+
+## 3.2.21 - 2026-07-06
+
 ### Added
 
 - Added support for the Home Assistant `music_discovery_ready` APNs reminder,
   including `djconnect://music-discovery` deep links, Ontdek refresh on receive
   or tap, websocket refresh preference, REST/feed fallback behavior, and
   coalescing for quick receive/tap races.
+- Added the shared Mood control to Speelt nu / Now Playing on iOS and macOS.
 
 ### Changed
 
 - Documented that Music Discovery reminder pushes are trigger-only: Ontdek
   renders recommendations solely from backend `sections[].items[]`, never from
   push payload content.
+- Made the Speelt nu / Now Playing artwork card background respond to the
+  selected Mood palette.
+- Gave the VibeCast genre badge a larger, more distinctive gradient style.
+
+### Fixed
+
+- Fixed demo VibeCast so changing to the next track while VibeCast is open
+  automatically starts Track Insight analysis and refreshes the genre badge.
 
 ## 3.2.20 - 2026-07-05
 

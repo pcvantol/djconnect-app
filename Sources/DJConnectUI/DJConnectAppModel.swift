@@ -822,7 +822,7 @@ public final class DJConnectAppModel: ObservableObject {
     private let startBackgroundTasks: Bool
     private let monkeyTestingMode: Bool
     private let diagnosticLogFileURL: URL?
-    nonisolated private static let protocolVersion = "3.2.17"
+    nonisolated private static let protocolVersion = "3.2.21"
     private static let defaultHomeAssistantURL = "http://homeassistant.local:8123"
     private let appVersion = DJConnectAppModel.protocolVersion
     private let installIDKey = "DJConnectInstallID"
@@ -4724,7 +4724,8 @@ public final class DJConnectAppModel: ObservableObject {
             artist: artist,
             album: currentTrackInsight?.album,
             musicBackend: "demo",
-            musicBackendName: "Demo Mode"
+            musicBackendName: "Demo Mode",
+            genreBadge: Self.demoVibeCastGenreBadge(from: currentTrackInsight)
         )
         apply(vibeCastResponse: DJConnectVibeCastResponse(
             enabled: true,
@@ -4764,6 +4765,22 @@ public final class DJConnectAppModel: ObservableObject {
             ],
             cache: .init(hit: false)
         ))
+    }
+
+    private static func demoVibeCastGenreBadge(from insight: TrackInsight?) -> DJConnectVibeCastResponse.Context.GenreBadge? {
+        guard let label = nonBlank(insight?.genre) ?? nonBlank(insight?.subgenre) else {
+            return nil
+        }
+        let canonical = label
+            .lowercased()
+            .components(separatedBy: CharacterSet.alphanumerics.inverted)
+            .filter { !$0.isEmpty }
+            .joined(separator: "-")
+        return DJConnectVibeCastResponse.Context.GenreBadge(
+            label: label,
+            genre: canonical.isEmpty ? nil : canonical,
+            placement: "top_trailing"
+        )
     }
 
     private static func vibeCastReason(for error: DJConnectError) -> String {
@@ -6062,6 +6079,9 @@ public final class DJConnectAppModel: ObservableObject {
             trackInsightNavigationRequestID = UUID()
         }
         scheduleMusicDNAProfileRefresh(reason: "Track Insight changed")
+        if isDemoMode, isVibeCastStreamingActive {
+            applyDemoVibeCastFeed()
+        }
     }
 
     private func saveTrackInsightWidgetSnapshot(for insight: TrackInsight) {
@@ -8053,6 +8073,7 @@ public final class DJConnectAppModel: ObservableObject {
         currentTrackInsight = nil
         updateDemoWidgetSnapshots()
         syncTrackInsightLiveActivity(reason: "Demo playback changed")
+        scheduleVibeCastAutoTrackInsightIfNeeded(reason: "Demo playback changed")
         if startBackgroundTasks {
             updatePlaybackProgressTimer()
         }

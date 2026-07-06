@@ -22,6 +22,11 @@ Use this for a full local release hygiene pass:
 ./release.sh <X.Y.Z>
 ```
 
+Before source release publication, the script fetches `origin/main`, verifies
+the current `HEAD` contains that remote base, and pushes the release commit
+explicitly with `git push origin HEAD:main`. Source release notes are generated
+from only the matching `CHANGELOG.md` version section.
+
 Homebrew-managed tools are upgraded only if installed locally. The script never installs new tools by itself.
 Use `DJCONNECT_SKIP_SYSTEM_TOOL_UPGRADE=1` only for emergency local validation
 when Homebrew or a tool registry is unavailable.

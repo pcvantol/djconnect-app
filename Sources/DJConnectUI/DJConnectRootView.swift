@@ -136,6 +136,14 @@ private var djConnectListRowInsets: EdgeInsets {
     #endif
 }
 
+private var djConnectSearchContentHorizontalPadding: CGFloat {
+    #if os(macOS)
+    djConnectScreenHorizontalPadding * 2
+    #else
+    djConnectScreenHorizontalPadding
+    #endif
+}
+
 private struct DJConnectTableRowBackground: View {
     var body: some View {
         LinearGradient(
@@ -2975,6 +2983,7 @@ struct NowPlayingView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 24) {
                     TrackSummaryView(model: model)
+                    NowPlayingMoodControlSection(model: model)
                     OutputSelectorView(model: model)
                     SetupStatusView(model: model)
                 }
@@ -3435,17 +3444,55 @@ private actor DJConnectArtworkDataCache {
     }
 }
 
-private func nowPlayingCardBackground(tint: Color) -> LinearGradient {
-    return LinearGradient(
-        colors: [
-            tint.opacity(0.70),
-            tint.opacity(0.36),
-            Color.black.opacity(0.76),
-            tint.opacity(0.30)
-        ],
-        startPoint: .topLeading,
-        endPoint: .bottomTrailing
-    )
+private struct NowPlayingMoodCardBackground: View {
+    let tint: Color
+    let moodStepIndex: Int
+
+    private var palette: MusicDNAHelixMoodPalette {
+        MusicDNAHelixMoodPalette(stepIndex: moodStepIndex)
+    }
+
+    var body: some View {
+        let primary = palette.colors[safe: 0] ?? tint
+        let secondary = palette.colors[safe: 1] ?? djConnectAccent
+        let tertiary = palette.colors[safe: 2] ?? tint
+
+        ZStack {
+            LinearGradient(
+                colors: [
+                    blendMusicDNAHelixColors(tint, primary, fraction: 0.50).opacity(0.76),
+                    blendMusicDNAHelixColors(tint, secondary, fraction: 0.34).opacity(0.42),
+                    Color.black.opacity(0.78),
+                    blendMusicDNAHelixColors(tint, tertiary, fraction: 0.44).opacity(0.34)
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+
+            RadialGradient(
+                colors: [
+                    primary.opacity(0.30 + palette.glow * 0.16),
+                    primary.opacity(0.08),
+                    .clear
+                ],
+                center: .topLeading,
+                startRadius: 24,
+                endRadius: 420
+            )
+
+            RadialGradient(
+                colors: [
+                    tertiary.opacity(0.26 + palette.glow * 0.12),
+                    tertiary.opacity(0.06),
+                    .clear
+                ],
+                center: .bottomTrailing,
+                startRadius: 40,
+                endRadius: 520
+            )
+        }
+        .animation(.easeInOut(duration: 0.28), value: moodStepIndex)
+    }
 }
 
 private func artworkTintColor(for playback: DJConnectPlayback?) -> Color {
@@ -4381,7 +4428,7 @@ private struct MusicDNASectionGrid: View {
             title: localizedKey(model.language, "ui.profile.mood"),
             headline: headline,
             percent: value,
-            icon: "sparkles",
+            icon: musicDNAMoodIcon(zone),
             subtitle: mood.sampleCount.map { signalCountLabel($0) },
             secondaryMetrics: []
         )
@@ -4904,7 +4951,7 @@ private struct MusicDNAMoodMixPanel: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            MusicDNACompactPanelHeader(title: title, icon: "sparkles")
+            MusicDNACompactPanelHeader(title: title, icon: musicDNAMoodIcon(moodMix.topZone))
             VStack(alignment: .leading, spacing: 4) {
                 Text(primaryValue)
                     .font(.title3.weight(.bold))
@@ -5330,6 +5377,21 @@ private func musicDNAZoneDisplayLabel(_ zone: String?) -> String? {
             .joined(separator: " ")
     default:
         return nil
+    }
+}
+
+private func musicDNAMoodIcon(_ zone: String?) -> String {
+    switch zone?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() {
+    case "chill":
+        return "moon.zzz.fill"
+    case "groove":
+        return "waveform"
+    case "energy":
+        return "bolt.fill"
+    case "party":
+        return "party.popper.fill"
+    default:
+        return "sparkles"
     }
 }
 
@@ -6408,7 +6470,11 @@ private struct TrackInsightHeroScene: View {
                 geometry.size.height * (isCompact ? 0.25 : 0.34),
                 210
             )
+            #if os(macOS)
+            let artworkY = geometry.size.height * (isCompact ? 0.21 : 0.25)
+            #else
             let artworkY = geometry.size.height * (isCompact ? 0.24 : 0.30)
+            #endif
             let infoY = min(
                 geometry.size.height * (isCompact ? 0.56 : 0.57),
                 artworkY + artworkSize / 2 + (isCompact ? 64 : 74)
@@ -7002,8 +7068,12 @@ private struct VibeCastVisualizerSignalView: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
 
                 if let genreBadge, let label = genreBadge.displayLabel {
-                    VibeCastGenreBadge(label: label, canonicalGenre: genreBadge.canonicalGenre)
-                        .frame(maxWidth: min(260, max(128, geometry.size.width * 0.36)), alignment: .trailing)
+                    VibeCastGenreBadge(
+                        label: label,
+                        canonicalGenre: genreBadge.canonicalGenre,
+                        moodStepIndex: moodStepIndex
+                    )
+                        .frame(maxWidth: min(360, max(190, geometry.size.width * 0.40)), alignment: .trailing)
                         .padding(max(24, geometry.size.width * 0.035))
                         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
                 }
@@ -7031,23 +7101,59 @@ private struct VibeCastVisualizerSignalView: View {
 private struct VibeCastGenreBadge: View {
     let label: String
     let canonicalGenre: String?
+    let moodStepIndex: Int
+
+    private var moodPalette: MusicDNAHelixMoodPalette {
+        MusicDNAHelixMoodPalette(stepIndex: moodStepIndex)
+    }
 
     var body: some View {
-        Text(label)
-            .font(.caption.weight(.bold))
-            .lineLimit(1)
-            .truncationMode(.tail)
-            .foregroundStyle(.white.opacity(0.88))
-            .padding(.vertical, 6)
-            .padding(.horizontal, 10)
+        let primary = moodPalette.colors[safe: 0] ?? djConnectAccent
+        let secondary = moodPalette.colors[safe: 1] ?? Color(red: 0.45, green: 0.28, blue: 1.0)
+        let tertiary = moodPalette.colors[safe: 2] ?? Color(red: 0.0, green: 0.78, blue: 0.94)
+
+        HStack(spacing: 9) {
+            Image(systemName: "music.note.list")
+                .font(.system(size: 14, weight: .black))
+                .foregroundStyle(.white)
+                .frame(width: 24, height: 24)
+                .background {
+                    Circle()
+                        .fill(.white.opacity(0.18))
+                        .overlay {
+                            Circle()
+                                .stroke(.white.opacity(0.34), lineWidth: 1)
+                        }
+                }
+
+            Text(label)
+                .font(.system(size: 20, weight: .black, design: .rounded))
+                .lineLimit(1)
+                .minimumScaleFactor(0.72)
+                .truncationMode(.tail)
+                .foregroundStyle(.white)
+        }
+            .padding(.vertical, 12)
+            .padding(.horizontal, 16)
             .background {
                 Capsule()
-                    .fill(.black.opacity(0.34))
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                primary,
+                                secondary,
+                                tertiary
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
                     .overlay {
                         Capsule()
-                            .stroke(.white.opacity(0.18), lineWidth: 1)
+                            .stroke(.white.opacity(0.55), lineWidth: 1.5)
                     }
-                    .shadow(color: .black.opacity(0.22), radius: 10, y: 4)
+                    .shadow(color: primary.opacity(0.30 + moodPalette.glow * 0.24), radius: 22, y: 8)
+                    .shadow(color: tertiary.opacity(0.18 + moodPalette.glow * 0.16), radius: 18, y: 2)
             }
             .accessibilityLabel(label)
             .accessibilityIdentifier("vibecast-genre-badge")
@@ -8486,7 +8592,7 @@ private struct TrackInsightMetricsGrid: View {
             TrackInsightMetricPill(title: localizedKey(language, "ui.genre"), value: genre, icon: "music.quarternote.3")
                 .frame(width: usesHorizontalRows ? 204 : nil, alignment: .top)
         }
-        TrackInsightMetricPill(title: localizedKey(language, "ui.mood"), value: insight.mood, icon: "sparkles")
+        TrackInsightMetricPill(title: localizedKey(language, "ui.mood"), value: insight.mood, icon: musicDNAMoodIcon(insight.mood))
             .frame(width: usesHorizontalRows ? 204 : nil, alignment: .top)
         TrackInsightMetricPill(title: localizedKey(language, "ui.vibe"), value: insight.vibe, icon: "waveform.path")
             .frame(width: usesHorizontalRows ? 204 : nil, alignment: .top)
@@ -8856,6 +8962,15 @@ private extension Color {
     }
 }
 
+private struct NowPlayingMoodControlSection: View {
+    @ObservedObject var model: DJConnectAppModel
+
+    var body: some View {
+        AskDJMoodModeControl(model: model)
+            .frame(maxWidth: .infinity, alignment: .topLeading)
+    }
+}
+
 #if os(iOS)
 private struct IOSNowPlayingView: View {
     @ObservedObject var model: DJConnectAppModel
@@ -8868,6 +8983,7 @@ private struct IOSNowPlayingView: View {
                 ScrollView {
                     VStack(spacing: 16) {
                         IOSTrackHero(model: model)
+                        NowPlayingMoodControlSection(model: model)
                         OutputSelectorView(model: model)
                         if !model.isDemoMode {
                             IOSConnectionCard(model: model)
@@ -9131,7 +9247,10 @@ private struct IOSTrackHero: View {
             IOSPlaybackSurface(model: model)
         }
         .padding(14)
-        .background(nowPlayingCardBackground(tint: cardTint), in: RoundedRectangle(cornerRadius: 8))
+        .background {
+            NowPlayingMoodCardBackground(tint: cardTint, moodStepIndex: model.askDJMoodStepIndex)
+                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+        }
         .task(id: nowPlayingTrackKey(for: playback)) {
             cardTint = await sampledArtworkTint(for: playback)
         }
@@ -9386,7 +9505,10 @@ struct TrackSummaryView: View {
             PlaybackControlsView(model: model)
         }
         .padding(16)
-        .background(nowPlayingCardBackground(tint: cardTint), in: RoundedRectangle(cornerRadius: 8))
+        .background {
+            NowPlayingMoodCardBackground(tint: cardTint, moodStepIndex: model.askDJMoodStepIndex)
+                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+        }
         .task(id: nowPlayingTrackKey(for: playback)) {
             cardTint = await sampledArtworkTint(for: playback)
         }
@@ -10336,7 +10458,7 @@ private struct AskDJView: View {
                                     closeAction: { dismissAskDJSearch() }
                                 )
                                 .padding(.horizontal, djConnectScreenHorizontalPadding)
-                                .padding(.top, floatingControlTopPadding)
+                                .padding(.top, floatingControlTopPadding + 10)
                                 .frame(width: contentWidth, alignment: .top)
                                 .frame(maxWidth: .infinity, alignment: .top)
                                 .transition(.move(edge: .top).combined(with: .opacity))
@@ -10352,7 +10474,7 @@ private struct AskDJView: View {
                                     }
                                 )
                                 .padding(.horizontal, djConnectScreenHorizontalPadding)
-                                .padding(.top, isSearchVisible ? floatingControlTopPadding + 62 : floatingControlTopPadding)
+                                .padding(.top, isSearchVisible ? floatingControlTopPadding + 72 : floatingControlTopPadding)
                                 .frame(width: contentWidth, alignment: .top)
                                 .frame(maxWidth: .infinity, alignment: .top)
                                 .zIndex(2)
@@ -12725,7 +12847,7 @@ private func askDJMoodIcon(for index: Int) -> String {
     case 2:
         return "bolt.fill"
     default:
-        return "sparkles"
+        return "party.popper.fill"
     }
 }
 
@@ -13143,7 +13265,7 @@ struct QueueView: View {
                             nextAction: { moveQueueSearchSelection(by: 1, proxy: proxy) },
                             closeAction: { dismissQueueSearch() }
                         )
-                        .padding(.horizontal, 20)
+                        .padding(.horizontal, djConnectSearchContentHorizontalPadding)
                         .padding(.top, 10)
                         .transition(.move(edge: .top).combined(with: .opacity))
                     }
@@ -13445,7 +13567,7 @@ struct PlaylistsView: View {
                             nextAction: { movePlaylistSearchSelection(by: 1, proxy: proxy) },
                             closeAction: { dismissPlaylistSearch() }
                         )
-                        .padding(.horizontal, 20)
+                        .padding(.horizontal, djConnectSearchContentHorizontalPadding)
                         .padding(.top, 10)
                         .transition(.move(edge: .top).combined(with: .opacity))
                     }
@@ -16422,7 +16544,6 @@ struct SettingsView: View {
 
 private struct LogsView: View {
     @ObservedObject var model: DJConnectAppModel
-    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @State private var showingClearConfirmation = false
     @State private var statusToast: String?
     @State private var showsCompactTitle = false
@@ -16454,16 +16575,6 @@ private struct LogsView: View {
             : localizedKey(model.language, "ui.search.logs")
     }
 
-    @ViewBuilder
-    private var logSearchButtonLabel: some View {
-        if horizontalSizeClass == .regular {
-            Label(localizedKey(model.language, "ui.search"), systemImage: "magnifyingglass")
-        } else {
-            Label(logSearchButtonTitle, systemImage: "magnifyingglass")
-                .labelStyle(.iconOnly)
-        }
-    }
-
     private var selectableLogText: String {
         let digits = logLineNumberDigits(total: model.diagnosticLogLines.count)
         return model.diagnosticLogLines.enumerated().map { index, line in
@@ -16476,44 +16587,6 @@ private struct LogsView: View {
     var body: some View {
         NavigationStack {
             VStack(alignment: .leading, spacing: 14) {
-                HStack {
-                    Button {
-                        toggleLogSearch()
-                    } label: {
-                        logSearchButtonLabel
-                            .foregroundStyle(djConnectAccent)
-                    }
-                    .tint(djConnectAccent)
-                    .foregroundStyle(djConnectAccent)
-                    .help(logSearchButtonTitle)
-                    .accessibilityLabel(logSearchButtonTitle)
-                    .disabled(model.diagnosticLogLines.isEmpty)
-
-                    Button {
-                        copyText(model.diagnosticExportText())
-                        showStatusToast(localizedKey(model.language, "ui.logs.copied.to.clipboard"))
-                    } label: {
-                        Label(localizedKey(model.language, "ui.copy.logs"), systemImage: "doc.on.doc")
-                            .foregroundStyle(djConnectAccent)
-                    }
-                    .tint(djConnectAccent)
-                    .foregroundStyle(djConnectAccent)
-                    .disabled(model.diagnosticLogLines.isEmpty)
-
-                    Spacer()
-
-                    Button {
-                        showingClearConfirmation = true
-                    } label: {
-                        Label(localizedKey(model.language, "ui.clear.logs"), systemImage: "trash")
-                            .foregroundStyle(djConnectAccent)
-                    }
-                    .tint(djConnectAccent)
-                    .foregroundStyle(djConnectAccent)
-                    .disabled(model.diagnosticLogLines.isEmpty)
-                }
-                .padding(.horizontal, 20)
-
                 if model.diagnosticLogLines.isEmpty {
                     HStack {
                         Spacer()
@@ -16599,7 +16672,6 @@ private struct LogsView: View {
                     }
                 }
             }
-            .padding(.top, 12)
             .background(DJConnectCanvasBackground())
             .navigationTitle(localizedKey(model.language, "ui.logs"))
             .accessibilityIdentifier("screen-logs")
@@ -16609,6 +16681,17 @@ private struct LogsView: View {
             #if os(iOS)
             .navigationBarTitleDisplayMode(.large)
             #endif
+            .toolbar {
+                #if os(macOS)
+                ToolbarItemGroup(placement: .navigation) {
+                    logToolbarButtons
+                }
+                #else
+                ToolbarItemGroup(placement: .topBarTrailing) {
+                    logToolbarButtons
+                }
+                #endif
+            }
             .overlay(alignment: .top) {
                 ZStack(alignment: .top) {
                     #if os(iOS)
@@ -16649,6 +16732,40 @@ private struct LogsView: View {
             }
         }
         .background(DJConnectCanvasBackground())
+    }
+
+    @ViewBuilder
+    private var logToolbarButtons: some View {
+        Button {
+            toggleLogSearch()
+        } label: {
+            Image(systemName: "magnifyingglass")
+                .foregroundStyle(isSearchVisible ? djConnectAccent : .primary)
+        }
+        .help(logSearchButtonTitle)
+        .accessibilityLabel(logSearchButtonTitle)
+        .disabled(model.diagnosticLogLines.isEmpty)
+
+        Button {
+            copyText(model.diagnosticExportText())
+            showStatusToast(localizedKey(model.language, "ui.logs.copied.to.clipboard"))
+        } label: {
+            Image(systemName: "doc.on.doc")
+                .foregroundStyle(.primary)
+        }
+        .help(localizedKey(model.language, "ui.copy.logs"))
+        .accessibilityLabel(localizedKey(model.language, "ui.copy.logs"))
+        .disabled(model.diagnosticLogLines.isEmpty)
+
+        Button {
+            showingClearConfirmation = true
+        } label: {
+            Image(systemName: "trash")
+                .foregroundStyle(.primary)
+        }
+        .help(localizedKey(model.language, "ui.clear.logs"))
+        .accessibilityLabel(localizedKey(model.language, "ui.clear.logs"))
+        .disabled(model.diagnosticLogLines.isEmpty)
     }
 
     private func showStatusToast(_ text: String) {

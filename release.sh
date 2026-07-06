@@ -83,6 +83,30 @@ run() {
   fi
 }
 
+ensure_head_based_on_remote_main() {
+  run git fetch origin main
+  if [[ "$DRY_RUN" -ne 0 ]]; then
+    return
+  fi
+  if ! git merge-base --is-ancestor origin/main HEAD; then
+    echo "Current HEAD is not based on origin/main. Rebase or merge origin/main before releasing." >&2
+    exit 1
+  fi
+}
+
+write_changelog_release_notes() {
+  local version="$1"
+  local target_file="$2"
+  awk -v version="$version" '
+    $0 ~ "^## " version "($| - )" { capture=1; next }
+    capture && /^## / { capture=0 }
+    capture { print }
+  ' "$ROOT_DIR/CHANGELOG.md" > "$target_file"
+  if [[ ! -s "$target_file" ]]; then
+    printf "DJConnect App %s\n" "$version" > "$target_file"
+  fi
+}
+
 shift_version "$@"
 
 if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
@@ -141,17 +165,18 @@ if [[ "$SKIP_SOURCE_RELEASE" -eq 0 ]]; then
     echo "Working tree is dirty. Commit changes before creating a release." >&2
     exit 1
   fi
+  ensure_head_based_on_remote_main
   TAG="v$VERSION"
   if ! git rev-parse "$TAG" >/dev/null 2>&1; then
     run git tag "$TAG"
   fi
-  run git push origin HEAD
+  run git push origin HEAD:main
   run git push origin "$TAG"
   if gh release view "$TAG" --repo pcvantol/djconnect-app >/dev/null 2>&1; then
     echo "GitHub release $TAG already exists in pcvantol/djconnect-app"
   else
     NOTES_FILE="$ROOT_DIR/.release/release-$VERSION-notes.md"
-    printf "# DJConnect App %s\n\nSee CHANGELOG.md for details.\n" "$VERSION" > "$NOTES_FILE"
+    write_changelog_release_notes "$VERSION" "$NOTES_FILE"
     run gh release create "$TAG" \
       --repo pcvantol/djconnect-app \
       --title "DJConnect App $VERSION" \

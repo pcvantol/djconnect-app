@@ -89,6 +89,10 @@ After renewing the Apple Developer Program membership:
 - Run the standard release script so third-party libraries, frameworks and
   installed release helper tools are updated/upgraded before build artifacts
   are compiled.
+- The standard release script verifies the current `HEAD` is based on
+  `origin/main`, pushes the exact release commit with `git push origin
+  HEAD:main`, and creates the private source release from only the matching
+  `CHANGELOG.md` version section.
 - Update `docs/THIRD_PARTY_NOTICES.md` and
   `docs/TECHNICAL_DESIGN_DECISIONS.md` when architecture, code patterns,
   platform versions, tooling, dependencies, or license/source metadata changed.
@@ -228,6 +232,9 @@ The workflow:
 - runs the Swift unit test suite;
 - builds unsigned `DJConnectMac` and `DJConnectIOS` Debug artifacts with
   `CODE_SIGNING_ALLOWED=NO`;
+- is triggered from the source release tag after `release.sh` has already
+  verified that the release commit is based on `origin/main` and pushed that
+  exact commit to `main`;
 - publishes `macos/vX.Y.Z` in `pcvantol/djconnect-app-releases` with
   `DJConnect-macOS-X.Y.Z-unsigned.zip` and a macOS checksum file;
 - publishes `ios/vX.Y.Z` in `pcvantol/djconnect-app-releases` with

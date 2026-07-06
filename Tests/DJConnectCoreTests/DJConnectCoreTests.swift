@@ -7460,6 +7460,29 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
 }
 
 @MainActor
+@Test func demoVibeCastFeedIncludesGenreBadgeFromDemoTrackInsight() async throws {
+    let suiteName = "DJConnectTests-\(UUID().uuidString)"
+    let defaults = try #require(UserDefaults(suiteName: suiteName))
+    defaults.removePersistentDomain(forName: suiteName)
+    let model = DJConnectAppModel(
+        playback: DJConnectPlayback(hasPlayback: true, isPlaying: true, trackName: "Midnight City", artistName: "M83"),
+        defaults: defaults,
+        tokenStore: DJConnectInMemoryTokenStore(token: nil),
+        startBackgroundTasks: false
+    )
+    model.startDemoMode()
+
+    let refreshedInsight = await model.refreshTrackInsight(open: false)
+    #expect(refreshedInsight == true)
+
+    _ = await model.refreshVibeCastFeed()
+
+    #expect(model.vibeCastResponse?.context?.genreBadge?.displayLabel == "Synthpop")
+    #expect(model.vibeCastResponse?.context?.genreBadge?.canonicalGenre == "synthpop")
+    #expect(model.vibeCastResponse?.context?.genreBadge?.resolvedPlacement == "top_trailing")
+}
+
+@MainActor
 @Test func haVersionOutsideAppMinorRangeDisablesRuntimeControls() throws {
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
@@ -7926,6 +7949,36 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     await Task.yield()
     #expect(model.playback?.trackName == "Sweet Disposition")
     #expect(model.playback?.progressMS == 0)
+}
+
+@MainActor
+@Test func demoModeVibeCastAutoAnalyzesNextTrack() async throws {
+    let suiteName = "DJConnectTests-\(UUID().uuidString)"
+    let defaults = try #require(UserDefaults(suiteName: suiteName))
+    defaults.removePersistentDomain(forName: suiteName)
+    let model = DJConnectAppModel(
+        defaults: defaults,
+        tokenStore: DJConnectInMemoryTokenStore(),
+        startBackgroundTasks: false
+    )
+
+    model.startDemoMode()
+    let pollingTask = Task { await model.runVibeCastPolling() }
+    defer { pollingTask.cancel() }
+
+    for _ in 0..<30 where model.currentTrackInsight?.title != "Midnight City" {
+        try await Task.sleep(for: .milliseconds(50))
+    }
+    #expect(model.currentTrackInsight?.title == "Midnight City")
+
+    model.sendPlaybackCommand("next")
+
+    for _ in 0..<30 where model.currentTrackInsight?.title != "Sweet Disposition" {
+        try await Task.sleep(for: .milliseconds(50))
+    }
+    #expect(model.playback?.trackName == "Sweet Disposition")
+    #expect(model.currentTrackInsight?.title == "Sweet Disposition")
+    #expect(model.vibeCastResponse?.context?.genreBadge?.displayLabel == model.currentTrackInsight?.genre)
 }
 
 @MainActor
@@ -9302,4 +9355,15 @@ private extension String {
     #expect(insight.vibe == "Nachtelijk")
     #expect(insight.texture == "Neon-synthlijnen en gated drums")
     #expect(insight.summary == "Een gloeiend nachtelijke drive-anthem met een heldere synthhook, brede pads en een filmische rush.")
+}
+
+@Test func releaseScriptPinsRemoteBasePushAndVersionScopedNotes() throws {
+    let script = try loadRepositoryText("release.sh")
+
+    #expect(script.contains("git fetch origin main"))
+    #expect(script.contains("git merge-base --is-ancestor origin/main HEAD"))
+    #expect(script.contains("run git push origin HEAD:main"))
+    #expect(script.contains("write_changelog_release_notes"))
+    #expect(script.contains(#"$0 ~ "^## " version "($| - )" { capture=1; next }"#))
+    #expect(!script.contains("See CHANGELOG.md for details."))
 }
