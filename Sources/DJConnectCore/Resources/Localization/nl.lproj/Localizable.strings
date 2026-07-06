@@ -832,8 +832,8 @@
 "ui.ask.about.the.music.or.give.your.dj.a.request" = "Vraag iets over de muziek of geef je DJ een opdracht.";
 "ui.ask.dj.can.change.the.music.when.you.ask.for" = "Ask DJ kan muziek aanpassen als je daarom vraagt.";
 "ui.shown.messages.may.be.stale.until.djconnect.is.paired.with" = "Getoonde berichten kunnen verouderd zijn totdat DJConnect weer met Home Assistant is gekoppeld.";
-"ui.mood.guides.ask.dj.s.recommendations.from.calmer.tracks.to" = "Mood stuurt Ask DJ's aanbevelingen, van rustigere tracks tot energiekere keuzes.";
-"ui.mood.colors.track.insight.from.calm.listening.cues.to.energetic" = "Mood kleurt Track Insight: van rustige luisterpunten tot energieke visualisaties.";
+"ui.mood.guides.ask.dj.s.recommendations.from.calmer.tracks.to" = "Mood stylet de app en personaliseert muziekaanbevelingen en DJ-aankondigingen.";
+"ui.mood.colors.track.insight.from.calm.listening.cues.to.energetic" = "Mood stylet de app en personaliseert muziekaanbevelingen en DJ-aankondigingen.";
 "ui.hold.to.record.a.voice.request.for.ask.dj" = "Houd ingedrukt om een stemverzoek voor Ask DJ op te nemen.";
 "ui.music.dna.is.enabled.home.assistant.can.use.future.listening" = "Music DNA staat aan. Met Music DNA kan DJConnect leren van je smaak en luistergedrag om aanbevelingen te kunnen geven afgestemd op jouw luisterprofiel.";
 "ui.music.dna.is.disabled.no.listening.profile.is.being.built" = "Music DNA staat uit. Er wordt geen luisterprofiel opgebouwd en uitschakelen heeft het geleerde profiel al gewist.";

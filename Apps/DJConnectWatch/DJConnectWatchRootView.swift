@@ -594,7 +594,6 @@ struct DJConnectWatchRootView: View {
         }
         model.setAskDJMoodStep(nextIndex)
         moodCrownValue = Double(nextIndex)
-        playWatchHaptic(.click, enabled: !model.isDemoMode)
     }
 
     private func setMoodStep(_ index: Int) {
@@ -605,7 +604,6 @@ struct DJConnectWatchRootView: View {
         model.setAskDJMoodStep(index)
         moodCrownValue = Double(model.askDJMoodStepIndex)
         isMoodControlFocused = false
-        playWatchHaptic(.click, enabled: !model.isDemoMode)
     }
 
     private func moodIcon(for index: Int) -> String {

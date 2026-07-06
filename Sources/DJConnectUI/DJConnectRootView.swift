@@ -27,22 +27,34 @@ private func openDJConnectSystemNetworkSettings() {
     #if os(iOS)
     let urls = [
         URL(string: "App-Prefs:root=WIFI"),
-        URL(string: UIApplication.openSettingsURLString)
+        URL(string: "prefs:root=WIFI"),
+        URL(string: "App-Prefs:")
     ].compactMap { $0 }
-    guard let url = urls.first else {
-        return
+    openFirstAvailableURL(urls) { url, completion in
+        UIApplication.shared.open(url, options: [:], completionHandler: completion)
     }
-    UIApplication.shared.open(url)
     #elseif os(macOS)
     let urls = [
         URL(string: "x-apple.systempreferences:com.apple.Network-Settings.extension"),
         URL(string: "x-apple.systempreferences:com.apple.preference.network")
     ].compactMap { $0 }
+    openFirstAvailableURL(urls) { url, completion in
+        completion(NSWorkspace.shared.open(url))
+    }
+    #endif
+}
+
+@MainActor
+private func openFirstAvailableURL(_ urls: [URL], opener: @escaping (URL, @escaping (Bool) -> Void) -> Void) {
     guard let url = urls.first else {
         return
     }
-    NSWorkspace.shared.open(url)
-    #endif
+    opener(url) { didOpen in
+        guard !didOpen else {
+            return
+        }
+        openFirstAvailableURL(Array(urls.dropFirst()), opener: opener)
+    }
 }
 
 @MainActor
@@ -313,6 +325,8 @@ private enum DJConnectHaptics {
     static func impact() {
         #if os(iOS)
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        #elseif os(macOS)
+        NSHapticFeedbackManager.defaultPerformer.perform(.generic, performanceTime: .now)
         #endif
     }
 
@@ -320,6 +334,8 @@ private enum DJConnectHaptics {
     static func selection() {
         #if os(iOS)
         UISelectionFeedbackGenerator().selectionChanged()
+        #elseif os(macOS)
+        NSHapticFeedbackManager.defaultPerformer.perform(.alignment, performanceTime: .now)
         #endif
     }
 
@@ -327,6 +343,8 @@ private enum DJConnectHaptics {
     static func success() {
         #if os(iOS)
         UINotificationFeedbackGenerator().notificationOccurred(.success)
+        #elseif os(macOS)
+        NSHapticFeedbackManager.defaultPerformer.perform(.levelChange, performanceTime: .now)
         #endif
     }
 
@@ -334,6 +352,8 @@ private enum DJConnectHaptics {
     static func warning() {
         #if os(iOS)
         UINotificationFeedbackGenerator().notificationOccurred(.warning)
+        #elseif os(macOS)
+        NSHapticFeedbackManager.defaultPerformer.perform(.generic, performanceTime: .now)
         #endif
     }
 
@@ -341,6 +361,10 @@ private enum DJConnectHaptics {
     static func error() {
         #if os(iOS)
         UINotificationFeedbackGenerator().notificationOccurred(.error)
+        #elseif os(macOS)
+        let performer = NSHapticFeedbackManager.defaultPerformer
+        performer.perform(.generic, performanceTime: .now)
+        performer.perform(.alignment, performanceTime: .now)
         #endif
     }
 }
@@ -9082,6 +9106,7 @@ extension TrackVibeProfile {
         }
         return copy
     }
+
 }
 
 private extension Color {
@@ -9769,7 +9794,6 @@ private struct TrackInsightIconButton: View {
 
     var body: some View {
         Button {
-            DJConnectHaptics.selection()
             model.analyzeCurrentTrack(open: true)
         } label: {
             if model.isLoadingTrackInsight {

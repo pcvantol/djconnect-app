@@ -832,8 +832,8 @@
 "ui.ask.about.the.music.or.give.your.dj.a.request" = "Ask about the music or give your DJ a request.";
 "ui.ask.dj.can.change.the.music.when.you.ask.for" = "Ask DJ can change the music when you ask for it.";
 "ui.shown.messages.may.be.stale.until.djconnect.is.paired.with" = "Shown messages may be stale until DJConnect is paired with Home Assistant again.";
-"ui.mood.guides.ask.dj.s.recommendations.from.calmer.tracks.to" = "Mood guides Ask DJ's recommendations, from calmer tracks to higher-energy picks.";
-"ui.mood.colors.track.insight.from.calm.listening.cues.to.energetic" = "Mood colors Track Insight: from calm listening cues to energetic visualizations.";
+"ui.mood.guides.ask.dj.s.recommendations.from.calmer.tracks.to" = "Mood stylise l'app et personnalise les recommandations musicales et annonces DJ.";
+"ui.mood.colors.track.insight.from.calm.listening.cues.to.energetic" = "Mood stylise l'app et personnalise les recommandations musicales et annonces DJ.";
 "ui.hold.to.record.a.voice.request.for.ask.dj" = "Hold to record a voice request for Ask DJ.";
 "ui.music.dna.is.enabled.home.assistant.can.use.future.listening" = "Music DNA is enabled. Home Assistant can use future listening signals to build a private server-side taste profile for better Ask DJ context.";
 "ui.music.dna.is.disabled.no.listening.profile.is.being.built" = "Music DNA is disabled. No listening profile is being built, and turning it off has already cleared the learned profile.";

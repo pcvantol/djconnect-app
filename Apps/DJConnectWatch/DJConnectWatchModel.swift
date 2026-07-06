@@ -863,6 +863,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         guard clampedIndex != askDJMoodStepIndex else {
             return
         }
+        playMoodHaptic(stepIndex: clampedIndex)
         askDJMood = Double(askDJMoodSteps[clampedIndex].value)
         showMoodChangedMessage()
     }
@@ -1382,6 +1383,9 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
     }
 
     func sendCommand(_ command: String) async {
+        if command == "play" || command == "pause" {
+            playPlaybackToggleHaptic(isStarting: command == "play")
+        }
         if isDemoMode {
             applyDemoCommand(command, value: nil)
             appendDiagnosticLog("Demo opdracht: \(command)")
@@ -1706,6 +1710,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
             appendDiagnosticLog("Wachtrij-item starten overgeslagen: geen URI", level: .warning)
             return
         }
+        playQueueItemStartHaptic()
         if isDemoMode {
             loadingQueueItemIndex = index
             applyDemoCommand("play_context_at", value: .object(queueStartPayload(for: item, uri: uri, index: index)))
@@ -1746,6 +1751,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
     }
 
     func startPlaylist(_ playlist: DJConnectPlaylist) async {
+        playPlaylistStartHaptic()
         if isDemoMode {
             loadingPlaylistID = playlist.id
             applyDemoCommand("start_playlist", value: .string(playlist.commandValue))
@@ -2052,6 +2058,43 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         }
     }
 
+    private func playMoodHaptic(stepIndex: Int) {
+        switch stepIndex {
+        case 0:
+            playWatchHaptic(.click)
+        case 1:
+            playWatchHaptic(.directionUp)
+        case 2:
+            playWatchHaptic(.start)
+        default:
+            playWatchHaptic(.success)
+        }
+    }
+
+    private func playPlaybackToggleHaptic(isStarting: Bool) {
+        playWatchHaptic(isStarting ? .start : .click)
+    }
+
+    private func playQueueItemStartHaptic() {
+        playWatchHaptic(.directionUp)
+    }
+
+    private func playPlaylistStartHaptic() {
+        playWatchHaptic(.start)
+    }
+
+    private func playAskDJSendHaptic() {
+        playWatchHaptic(.click)
+    }
+
+    private func playAskDJActionHaptic() {
+        playWatchHaptic(.directionUp)
+    }
+
+    private func playAskDJResponseHaptic() {
+        playWatchHaptic(.success)
+    }
+
     private func playWatchHaptic(_ haptic: WKHapticType) {
         guard !isDemoMode else {
             return
@@ -2354,6 +2397,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
             return
         }
         playingAskDJActionID = action.id
+        playAskDJActionHaptic()
         defer { playingAskDJActionID = nil }
         do {
             let command = action.command?.isEmpty == false ? action.command! : Self.defaultAskDJCommand(for: action)
@@ -2372,10 +2416,12 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
             applyBackendSummary(response.musicBackendSummary)
             if response.success {
                 if renderAskDJCommandPlaybackActions(response) {
+                    playAskDJResponseHaptic()
                     await refreshStatus(confirmAskDJBeat: true)
                     return
                 }
                 showAskDJToast("Aanbeveling afspelen")
+                playAskDJResponseHaptic()
                 await refreshStatus(confirmAskDJBeat: true)
             } else {
                 if handleBackendActionError(response) {
@@ -2397,6 +2443,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
             return
         }
         playingAskDJActionID = action.id
+        playAskDJSendHaptic()
         defer { playingAskDJActionID = nil }
         let clientMessageID = UUID().uuidString
         appendAskDJMessage(role: .user, text: text)
@@ -2416,6 +2463,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
                 )
             )
             applyAskDJMessageResponse(response)
+            playAskDJResponseHaptic()
             await refreshStatus(confirmAskDJBeat: true)
         } catch {
             showAskDJToast(Self.askDJToastText(for: error))
@@ -2424,6 +2472,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
 
     private func saveCurrentTrackFromAskDJ(_ action: DJConnectAskDJPlaybackAction) async {
         playingAskDJActionID = action.id
+        playAskDJActionHaptic()
         defer { playingAskDJActionID = nil }
         do {
             let command = action.command?.isEmpty == false ? action.command! : "set_current_track_favorite"
@@ -2444,6 +2493,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
                 applyPlayback(response.playback)
                 markAskDJActionCompleted(action.id)
                 showAskDJToast("Favorietstatus bijgewerkt")
+                playAskDJResponseHaptic()
             } else {
                 if handleBackendActionError(response) {
                     return
@@ -2477,6 +2527,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
             return
         }
         playingAskDJActionID = action.id
+        playAskDJActionHaptic()
         defer { playingAskDJActionID = nil }
         do {
             let command = action.command?.isEmpty == false ? action.command! : "set_output"
@@ -2496,6 +2547,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
                 applyPlayback(response.playback)
                 markAskDJOutputActionActive(outputDeviceID)
                 showAskDJToast("Uitvoer gewijzigd")
+                playAskDJResponseHaptic()
                 await refreshStatus(confirmAskDJBeat: true)
             } else {
                 if handleBackendActionError(response) {

@@ -24,6 +24,92 @@ private enum DJConnectWidgetIcon {
     static let askDJ = "bubble.left.and.bubble.right"
 }
 
+private struct DJConnectWidgetMoodPalette {
+    let colors: [Color]
+    let backgroundColors: [Color]
+    let glow: Double
+
+    init(stepIndex: Int) {
+        switch max(0, min(3, stepIndex)) {
+        case 0:
+            colors = [
+                Color(red: 0.07, green: 0.19, blue: 0.31),
+                Color(red: 0.10, green: 0.42, blue: 0.48),
+                Color(red: 0.32, green: 0.72, blue: 0.62)
+            ]
+            backgroundColors = [
+                Color(red: 0.01, green: 0.04, blue: 0.08),
+                Color(red: 0.04, green: 0.13, blue: 0.21),
+                Color(red: 0.07, green: 0.30, blue: 0.34),
+                Color(red: 0.19, green: 0.46, blue: 0.40)
+            ]
+            glow = 0.38
+        case 1:
+            colors = [
+                Color(red: 0.10, green: 0.14, blue: 0.30),
+                Color(red: 0.24, green: 0.38, blue: 0.72),
+                Color(red: 0.76, green: 0.50, blue: 0.22)
+            ]
+            backgroundColors = [
+                Color(red: 0.02, green: 0.04, blue: 0.10),
+                Color(red: 0.07, green: 0.10, blue: 0.25),
+                Color(red: 0.17, green: 0.25, blue: 0.50),
+                Color(red: 0.42, green: 0.29, blue: 0.17)
+            ]
+            glow = 0.52
+        case 2:
+            colors = [
+                Color(red: 0.17, green: 0.10, blue: 0.31),
+                Color(red: 0.58, green: 0.24, blue: 0.72),
+                Color(red: 0.20, green: 0.76, blue: 0.82)
+            ]
+            backgroundColors = [
+                Color(red: 0.03, green: 0.03, blue: 0.10),
+                Color(red: 0.10, green: 0.07, blue: 0.28),
+                Color(red: 0.34, green: 0.13, blue: 0.44),
+                Color(red: 0.09, green: 0.44, blue: 0.50)
+            ]
+            glow = 0.68
+        default:
+            colors = [
+                Color(red: 0.30, green: 0.08, blue: 0.20),
+                Color(red: 0.92, green: 0.22, blue: 0.44),
+                Color(red: 1.00, green: 0.68, blue: 0.18)
+            ]
+            backgroundColors = [
+                Color(red: 0.08, green: 0.02, blue: 0.06),
+                Color(red: 0.24, green: 0.06, blue: 0.16),
+                Color(red: 0.54, green: 0.12, blue: 0.25),
+                Color(red: 0.62, green: 0.36, blue: 0.08)
+            ]
+            glow = 0.86
+        }
+    }
+
+    var accentGradient: LinearGradient {
+        LinearGradient(colors: [colors[1], colors[2]], startPoint: .leading, endPoint: .trailing)
+    }
+}
+
+private enum DJConnectWidgetMood {
+    static let storageKey = "DJConnectAskDJMood"
+
+    static var currentStepIndex: Int {
+        let defaults = UserDefaults(suiteName: DJConnectTrackInsightWidgetSnapshot.appGroupIdentifier)
+        let mood = defaults?.object(forKey: storageKey) == nil ? 50.0 : defaults?.double(forKey: storageKey) ?? 50.0
+        switch max(0, min(100, Int(mood.rounded()))) {
+        case 0...24:
+            return 0
+        case 25...59:
+            return 1
+        case 60...84:
+            return 2
+        default:
+            return 3
+        }
+    }
+}
+
 private func DJConnectWidgetImage(data: Data) -> Image? {
     #if canImport(UIKit)
     guard let image = UIImage(data: data) else { return nil }
@@ -363,15 +449,12 @@ private struct DJConnectNowPlayingArtwork: View {
 
 private struct DJConnectNowPlayingArtworkFallback: View {
     let entry: DJConnectNowPlayingWidgetEntry
+    private let palette = DJConnectWidgetMoodPalette(stepIndex: DJConnectWidgetMood.currentStepIndex)
 
     var body: some View {
         ZStack {
             LinearGradient(
-                colors: [
-                    Color(red: 0.14, green: 0.22, blue: 0.58),
-                    Color(red: 0.45, green: 0.20, blue: 0.76),
-                    Color(red: 0.18, green: 0.78, blue: 0.76)
-                ],
+                colors: palette.colors,
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             )
@@ -395,6 +478,7 @@ private struct DJConnectNowPlayingArtworkFallback: View {
 
 private struct DJConnectNowPlayingProgressBar: View {
     let progress: Double
+    private let palette = DJConnectWidgetMoodPalette(stepIndex: DJConnectWidgetMood.currentStepIndex)
 
     var body: some View {
         GeometryReader { geometry in
@@ -402,16 +486,7 @@ private struct DJConnectNowPlayingProgressBar: View {
                 Capsule()
                     .fill(.white.opacity(0.18))
                 Capsule()
-                    .fill(
-                        LinearGradient(
-                            colors: [
-                                Color(red: 0.24, green: 0.64, blue: 1.0),
-                                Color(red: 0.86, green: 0.23, blue: 1.0)
-                            ],
-                            startPoint: .leading,
-                            endPoint: .trailing
-                        )
-                    )
+                    .fill(palette.accentGradient)
                     .frame(width: max(geometry.size.width * progress, progress > 0 ? 5 : 0))
             }
         }
@@ -451,14 +526,11 @@ private struct DJConnectNowPlayingWaveform: View {
 
 private struct DJConnectNowPlayingWidgetBackground: View {
     let entry: DJConnectNowPlayingWidgetEntry
+    private let palette = DJConnectWidgetMoodPalette(stepIndex: DJConnectWidgetMood.currentStepIndex)
 
     var body: some View {
         LinearGradient(
-            colors: [
-                Color(red: 0.02, green: 0.04, blue: 0.10),
-                Color(red: 0.08, green: 0.09, blue: 0.30),
-                Color(red: 0.15, green: 0.26, blue: 0.43)
-            ],
+            colors: palette.backgroundColors,
             startPoint: .topLeading,
             endPoint: .bottomTrailing
         )
@@ -789,17 +861,14 @@ struct DJConnectQueueWidgetView: View {
 
 private struct DJConnectQueueArtwork: View {
     let item: DJConnectQueueWidgetItem
+    private let palette = DJConnectWidgetMoodPalette(stepIndex: DJConnectWidgetMood.currentStepIndex)
 
     var body: some View {
         ZStack {
             RoundedRectangle(cornerRadius: 12, style: .continuous)
                 .fill(
                     LinearGradient(
-                        colors: [
-                            Color(red: 0.08, green: 0.12, blue: 0.26),
-                            Color(red: 0.21, green: 0.16, blue: 0.42),
-                            Color(red: 0.07, green: 0.34, blue: 0.42)
-                        ],
+                        colors: palette.colors,
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
                     )
@@ -836,10 +905,21 @@ private struct DJConnectQueueArtwork: View {
 }
 
 private struct DJConnectQueueEmptyIcon: View {
+    private let palette = DJConnectWidgetMoodPalette(stepIndex: DJConnectWidgetMood.currentStepIndex)
+
     var body: some View {
         ZStack {
             RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(.white.opacity(0.12))
+                .fill(
+                    LinearGradient(
+                        colors: [
+                            palette.colors[1].opacity(0.34),
+                            palette.colors[2].opacity(0.34)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
             Image(systemName: DJConnectWidgetIcon.queue)
                 .font(.system(size: 25, weight: .bold))
                 .foregroundStyle(.white.opacity(0.78))
@@ -848,13 +928,11 @@ private struct DJConnectQueueEmptyIcon: View {
 }
 
 private struct DJConnectQueueWidgetBackground: View {
+    private let palette = DJConnectWidgetMoodPalette(stepIndex: DJConnectWidgetMood.currentStepIndex)
+
     var body: some View {
         LinearGradient(
-            colors: [
-                Color(red: 0.02, green: 0.04, blue: 0.10),
-                Color(red: 0.08, green: 0.12, blue: 0.30),
-                Color(red: 0.07, green: 0.28, blue: 0.36)
-            ],
+            colors: palette.backgroundColors,
             startPoint: .topLeading,
             endPoint: .bottomTrailing
         )
@@ -1255,14 +1333,11 @@ struct DJConnectTrackInsightWidgetView: View {
 
 private struct DJConnectTrackInsightWidgetBackground: View {
     let entry: DJConnectTrackInsightWidgetEntry
+    private let palette = DJConnectWidgetMoodPalette(stepIndex: DJConnectWidgetMood.currentStepIndex)
 
     var body: some View {
         LinearGradient(
-            colors: [
-                Color(red: 0.03, green: 0.05, blue: 0.11),
-                Color(red: 0.10, green: 0.08, blue: 0.31),
-                Color(red: 0.38, green: 0.12, blue: 0.42)
-            ],
+            colors: palette.backgroundColors,
             startPoint: .topLeading,
             endPoint: .bottomTrailing
         )
@@ -1331,6 +1406,7 @@ private struct DJConnectTrackInsightWavefield: View {
 
 private struct DJConnectTrackInsightOrb: View {
     let entry: DJConnectTrackInsightWidgetEntry
+    private let palette = DJConnectWidgetMoodPalette(stepIndex: DJConnectWidgetMood.currentStepIndex)
 
     var body: some View {
         ZStack {
@@ -1339,7 +1415,7 @@ private struct DJConnectTrackInsightOrb: View {
                     RadialGradient(
                         colors: [
                             .black.opacity(0.10),
-                            Color(red: 0.17, green: 0.07, blue: 0.28).opacity(0.96),
+                            palette.colors[0].opacity(0.96),
                             Color(red: 0.02, green: 0.03, blue: 0.07).opacity(0.98)
                         ],
                         center: .center,
@@ -1353,10 +1429,10 @@ private struct DJConnectTrackInsightOrb: View {
                     .stroke(
                         AngularGradient(
                             colors: [
-                                Color(red: 0.31, green: 0.63, blue: 1.0),
-                                Color(red: 0.75, green: 0.36, blue: 1.0),
-                                Color(red: 1.0, green: 0.35, blue: 0.42),
-                                Color(red: 0.31, green: 0.63, blue: 1.0)
+                                palette.colors[1],
+                                palette.colors[2],
+                                palette.colors[0],
+                                palette.colors[1]
                             ],
                             center: .center
                         ),
@@ -1375,6 +1451,7 @@ private struct DJConnectTrackInsightOrb: View {
 
 private struct DJConnectTrackInsightArtwork: View {
     let entry: DJConnectTrackInsightWidgetEntry
+    private let palette = DJConnectWidgetMoodPalette(stepIndex: DJConnectWidgetMood.currentStepIndex)
 
     var body: some View {
         ZStack {
@@ -1398,7 +1475,7 @@ private struct DJConnectTrackInsightArtwork: View {
             RoundedRectangle(cornerRadius: 18, style: .continuous)
                 .stroke(.white.opacity(0.24), lineWidth: 1)
         )
-        .shadow(color: Color(red: 0.82, green: 0.25, blue: 1.0).opacity(0.30), radius: 16, x: 0, y: 10)
+        .shadow(color: palette.colors[1].opacity(0.24 + palette.glow * 0.12), radius: 16, x: 0, y: 10)
     }
 
     @ViewBuilder
@@ -1426,11 +1503,7 @@ private struct DJConnectTrackInsightArtwork: View {
     private var fallback: some View {
         ZStack {
             LinearGradient(
-                colors: [
-                    Color(red: 0.03, green: 0.05, blue: 0.11),
-                    Color(red: 0.18, green: 0.08, blue: 0.32),
-                    Color(red: 0.35, green: 0.12, blue: 0.44)
-                ],
+                colors: palette.backgroundColors,
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             )
@@ -1442,6 +1515,7 @@ private struct DJConnectTrackInsightArtwork: View {
 
 private struct DJConnectTrackInsightArtworkSpectrum: View {
     let entry: DJConnectTrackInsightWidgetEntry
+    private let palette = DJConnectWidgetMoodPalette(stepIndex: DJConnectWidgetMood.currentStepIndex)
 
     var body: some View {
         GeometryReader { geometry in
@@ -1456,8 +1530,8 @@ private struct DJConnectTrackInsightArtworkSpectrum: View {
                         .fill(
                             LinearGradient(
                                 colors: [
-                                    Color(red: 0.28, green: 0.65, blue: 1.0).opacity(0.88),
-                                    Color(red: 0.84, green: 0.25, blue: 1.0).opacity(0.94)
+                                    palette.colors[1].opacity(0.88),
+                                    palette.colors[2].opacity(0.94)
                                 ],
                                 startPoint: .bottom,
                                 endPoint: .top
@@ -1490,6 +1564,7 @@ private struct DJConnectTrackInsightArtworkSpectrum: View {
 
 private struct DJConnectTrackInsightMeterRow: View {
     let entry: DJConnectTrackInsightWidgetEntry
+    private let palette = DJConnectWidgetMoodPalette(stepIndex: DJConnectWidgetMood.currentStepIndex)
 
     var body: some View {
         HStack(spacing: 10) {
@@ -1509,16 +1584,7 @@ private struct DJConnectTrackInsightMeterRow: View {
                     Capsule()
                         .fill(.white.opacity(0.16))
                     Capsule()
-                        .fill(
-                            LinearGradient(
-                                colors: [
-                                    Color(red: 0.28, green: 0.65, blue: 1.0),
-                                    Color(red: 0.82, green: 0.25, blue: 1.0)
-                                ],
-                                startPoint: .leading,
-                                endPoint: .trailing
-                            )
-                        )
+                        .fill(palette.accentGradient)
                         .frame(width: geometry.size.width * max(0.06, min(1, value)))
                 }
             }
@@ -1834,13 +1900,11 @@ struct DJConnectAskDJWidgetView: View {
 }
 
 private struct DJConnectAskDJWidgetBackground: View {
+    private let palette = DJConnectWidgetMoodPalette(stepIndex: DJConnectWidgetMood.currentStepIndex)
+
     var body: some View {
         LinearGradient(
-            colors: [
-                Color(red: 0.02, green: 0.04, blue: 0.10),
-                Color(red: 0.09, green: 0.08, blue: 0.29),
-                Color(red: 0.24, green: 0.08, blue: 0.36)
-            ],
+            colors: palette.backgroundColors,
             startPoint: .topLeading,
             endPoint: .bottomTrailing
         )
@@ -1848,16 +1912,14 @@ private struct DJConnectAskDJWidgetBackground: View {
 }
 
 private struct DJConnectAskDJOrb: View {
+    private let palette = DJConnectWidgetMoodPalette(stepIndex: DJConnectWidgetMood.currentStepIndex)
+
     var body: some View {
         ZStack {
             RoundedRectangle(cornerRadius: 24, style: .continuous)
                 .fill(
                     LinearGradient(
-                        colors: [
-                            Color(red: 0.29, green: 0.62, blue: 1.0),
-                            Color(red: 0.49, green: 0.34, blue: 1.0),
-                            Color(red: 0.82, green: 0.28, blue: 1.0)
-                        ],
+                        colors: palette.colors,
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
                     )

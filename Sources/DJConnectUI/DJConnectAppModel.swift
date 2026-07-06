@@ -695,7 +695,13 @@ public final class DJConnectAppModel: ObservableObject {
     @Published public private(set) var transientAskDJListeningMessage: DJConnectAskDJMessage?
     @Published public private(set) var transientAskDJMoodMessage: DJConnectAskDJMessage?
     @Published public var askDJMood = 50.0 {
-        didSet { defaults.set(askDJMood, forKey: askDJMoodKey) }
+        didSet {
+            defaults.set(askDJMood, forKey: askDJMoodKey)
+            Self.syncAskDJMoodToSharedDefaults(askDJMood)
+            if Self.askDJMoodStepIndex(for: oldValue) != Self.askDJMoodStepIndex(for: askDJMood) {
+                reloadWidgetTimelinesForMoodChange()
+            }
+        }
     }
     @Published public var isRecordingVoice = false
     @Published public var voiceStatus: DJConnectVoiceStatus = .idle
@@ -924,7 +930,11 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     public var askDJMoodStepIndex: Int {
-        switch askDJMoodInt {
+        Self.askDJMoodStepIndex(for: askDJMood)
+    }
+
+    private static func askDJMoodStepIndex(for mood: Double) -> Int {
+        switch max(0, min(100, Int(mood.rounded()))) {
         case 0...24:
             return 0
         case 25...59:
@@ -954,6 +964,7 @@ public final class DJConnectAppModel: ObservableObject {
         guard clampedIndex != askDJMoodStepIndex else {
             return
         }
+        playMoodHaptic(stepIndex: clampedIndex)
         askDJMood = Double(askDJMoodSteps[clampedIndex].value)
         showMoodChangedMessage()
         scheduleMusicDNAProfileRefresh(reason: "Mood changed")
@@ -1116,6 +1127,7 @@ public final class DJConnectAppModel: ObservableObject {
         self.selectedOutput = Self.noOutputName(for: language)
         self.logLevel = defaults.string(forKey: logLevelKey) ?? "info"
         self.askDJMood = defaults.object(forKey: askDJMoodKey) == nil ? 50.0 : defaults.double(forKey: askDJMoodKey)
+        Self.syncAskDJMoodToSharedDefaults(self.askDJMood)
         self.autoTrackInsightEnabled = defaults.bool(forKey: autoTrackInsightEnabledKey)
         self.webSocketFastPathEnabled = defaults.bool(forKey: webSocketFastPathEnabledKey)
         self.showVisualizerOnAirPlay = defaults.bool(forKey: showVisualizerOnAirPlayKey)
@@ -2695,6 +2707,7 @@ public final class DJConnectAppModel: ObservableObject {
 
     public func togglePlayback() {
         log(.debug, "User action: toggle playback")
+        playPlaybackToggleHaptic(isStarting: !isPlaying)
         sendPlaybackCommand(isPlaying ? "pause" : "play")
     }
 
@@ -2865,6 +2878,7 @@ public final class DJConnectAppModel: ObservableObject {
     public func startPlaylist(_ playlist: DJConnectPlaylist) {
         log(.debug, "User action: start playlist")
         log(.info, "Starting playlist \(playlist.name)")
+        playPlaylistStartHaptic()
         loadingPlaylistID = playlist.id
         Task {
             let didStart = await performCommand("start_playlist", value: .string(playlist.commandValue), play: true)
@@ -2922,6 +2936,7 @@ public final class DJConnectAppModel: ObservableObject {
             log(.warning, "Queue item \(item.title) cannot start because it has no URI")
             return
         }
+        playQueueItemStartHaptic()
         var payload = [
             "uri": uri,
             "title": item.title
@@ -2991,11 +3006,13 @@ public final class DJConnectAppModel: ObservableObject {
         guard !text.isEmpty, !isSendingAskDJText else {
             return
         }
+        playAskDJSendHaptic()
         if isDemoMode {
             askDJDraft = ""
             askDJErrorMessage = nil
             appendAskDJMessage(role: .user, text: text, status: .sent)
             appendAskDJMessage(role: .dj, text: demoAskDJResponse)
+            playAskDJResponseHaptic()
             notifyAskDJResponse(demoAskDJResponse)
             return
         }
@@ -3171,6 +3188,7 @@ public final class DJConnectAppModel: ObservableObject {
 
         playingAskDJActionID = action.id
         askDJErrorMessage = nil
+        playAskDJActionHaptic()
         log(.info, "Sending Ask DJ Play Now recommendation action")
 
         Task {
@@ -3181,6 +3199,7 @@ public final class DJConnectAppModel: ObservableObject {
                 if applyAskDJPlayNowCommandResponse(response) {
                     if response.success {
                         showAskDJToast(localized(key: "appModel.playing.recommendation"))
+                        playAskDJResponseHaptic()
                         await refreshAfterDJResponse()
                         log(.info, "Ask DJ Play Now assistant response rendered")
                         return
@@ -3195,6 +3214,7 @@ public final class DJConnectAppModel: ObservableObject {
                     return
                 }
                 if renderAskDJCommandPlaybackActions(response) {
+                    playAskDJResponseHaptic()
                     await refreshAfterDJResponse()
                     return
                 }
@@ -3204,6 +3224,7 @@ public final class DJConnectAppModel: ObservableObject {
                 } else {
                     showAskDJToast(localized(key: "appModel.playing.recommendation"))
                 }
+                playAskDJResponseHaptic()
                 await refreshAfterDJResponse()
                 log(.info, "Ask DJ action completed")
             } catch let error as DJConnectError {
@@ -3229,6 +3250,7 @@ public final class DJConnectAppModel: ObservableObject {
         }
         playingAskDJActionID = action.id
         askDJErrorMessage = nil
+        playAskDJSendHaptic()
         let clientMessageID = UUID().uuidString
         let messageID = appendAskDJMessage(role: .user, text: text, clientMessageID: clientMessageID, status: .sending)
         log(.info, "Sending Ask DJ follow-up action")
@@ -4516,6 +4538,17 @@ public final class DJConnectAppModel: ObservableObject {
         }
     }
 
+    private static func syncAskDJMoodToSharedDefaults(_ mood: Double) {
+        guard let sharedDefaults = UserDefaults(suiteName: DJConnectLocalization.appGroupIdentifier) else {
+            return
+        }
+        sharedDefaults.set(max(0, min(100, mood)), forKey: "DJConnectAskDJMood")
+    }
+
+    private func reloadWidgetTimelinesForMoodChange() {
+        WidgetCenter.shared.reloadAllTimelines()
+    }
+
     private func reloadWidgetTimelinesForLanguageChange() {
         WidgetCenter.shared.reloadAllTimelines()
     }
@@ -5267,6 +5300,7 @@ public final class DJConnectAppModel: ObservableObject {
     public func playMusicDiscoveryItem(_ item: DJConnectMusicDiscoveryItem, sectionID: String) async {
         guard item.isDisplayable else { return }
         if isDemoMode {
+            playMusicDiscoveryStartHaptic()
             playingMusicDiscoveryItemID = item.id
             try? await Task.sleep(for: .milliseconds(120))
             playingMusicDiscoveryItemID = nil
@@ -5275,6 +5309,7 @@ public final class DJConnectAppModel: ObservableObject {
         guard pairingStatus == .paired, isRuntimeCompatible else {
             return
         }
+        playMusicDiscoveryStartHaptic()
         playingMusicDiscoveryItemID = item.id
         musicDiscoveryErrorMessage = nil
         do {
@@ -6037,6 +6072,7 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     func applyAskDJMessageResponse(_ response: DJConnectAskDJMessageResponse, fallbackUserMessageID: UUID?) {
+        let shouldPlayResponseHaptic = fallbackUserMessageID != nil && responseContainsAssistantMessage(response)
         var nextMessages = askDJMessages
         if response.messages.isEmpty {
             if let userMessage = response.userMessage {
@@ -6069,7 +6105,17 @@ public final class DJConnectAppModel: ObservableObject {
         if fallbackUserMessageID != nil {
             requestAskDJScrollToBottom()
         }
+        if shouldPlayResponseHaptic {
+            playAskDJResponseHaptic()
+        }
         applyTrackInsightIfNeeded(from: response, open: false)
+    }
+
+    private func responseContainsAssistantMessage(_ response: DJConnectAskDJMessageResponse) -> Bool {
+        if response.assistantMessage != nil {
+            return true
+        }
+        return response.messages.contains { $0.role != .user }
     }
 
     func applyAskDJHistory(_ response: DJConnectAskDJHistoryResponse, forceClear: Bool = false) {
@@ -10177,6 +10223,98 @@ public final class DJConnectAppModel: ObservableObject {
         }
         #else
         _ = haptic
+        #endif
+    }
+
+    private func playMoodHaptic(stepIndex: Int) {
+        #if canImport(UIKit) && os(iOS)
+        switch stepIndex {
+        case 0:
+            UISelectionFeedbackGenerator().selectionChanged()
+        case 1:
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        case 2:
+            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+        default:
+            UIImpactFeedbackGenerator(style: .rigid).impactOccurred(intensity: 1.0)
+        }
+        #elseif canImport(AppKit) && os(macOS)
+        let performer = NSHapticFeedbackManager.defaultPerformer
+        switch stepIndex {
+        case 0:
+            performer.perform(.alignment, performanceTime: .now)
+        case 1:
+            performer.perform(.levelChange, performanceTime: .now)
+        case 2:
+            performer.perform(.generic, performanceTime: .now)
+        default:
+            performer.perform(.generic, performanceTime: .now)
+            performer.perform(.levelChange, performanceTime: .now)
+        }
+        #else
+        _ = stepIndex
+        #endif
+    }
+
+    private func playPlaybackToggleHaptic(isStarting: Bool) {
+        #if canImport(UIKit) && os(iOS)
+        if isStarting {
+            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+        } else {
+            UISelectionFeedbackGenerator().selectionChanged()
+        }
+        #elseif canImport(AppKit) && os(macOS)
+        NSHapticFeedbackManager.defaultPerformer.perform(isStarting ? .levelChange : .alignment, performanceTime: .now)
+        #else
+        _ = isStarting
+        #endif
+    }
+
+    private func playQueueItemStartHaptic() {
+        #if canImport(UIKit) && os(iOS)
+        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+        #elseif canImport(AppKit) && os(macOS)
+        NSHapticFeedbackManager.defaultPerformer.perform(.generic, performanceTime: .now)
+        #endif
+    }
+
+    private func playPlaylistStartHaptic() {
+        #if canImport(UIKit) && os(iOS)
+        UINotificationFeedbackGenerator().notificationOccurred(.success)
+        #elseif canImport(AppKit) && os(macOS)
+        NSHapticFeedbackManager.defaultPerformer.perform(.levelChange, performanceTime: .now)
+        #endif
+    }
+
+    private func playMusicDiscoveryStartHaptic() {
+        #if canImport(UIKit) && os(iOS)
+        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+        #elseif canImport(AppKit) && os(macOS)
+        NSHapticFeedbackManager.defaultPerformer.perform(.levelChange, performanceTime: .now)
+        #endif
+    }
+
+    private func playAskDJSendHaptic() {
+        #if canImport(UIKit) && os(iOS)
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        #elseif canImport(AppKit) && os(macOS)
+        NSHapticFeedbackManager.defaultPerformer.perform(.alignment, performanceTime: .now)
+        #endif
+    }
+
+    private func playAskDJActionHaptic() {
+        #if canImport(UIKit) && os(iOS)
+        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+        #elseif canImport(AppKit) && os(macOS)
+        NSHapticFeedbackManager.defaultPerformer.perform(.generic, performanceTime: .now)
+        #endif
+    }
+
+    private func playAskDJResponseHaptic() {
+        #if canImport(UIKit) && os(iOS)
+        UINotificationFeedbackGenerator().notificationOccurred(.success)
+        #elseif canImport(AppKit) && os(macOS)
+        NSHapticFeedbackManager.defaultPerformer.perform(.levelChange, performanceTime: .now)
         #endif
     }
 
