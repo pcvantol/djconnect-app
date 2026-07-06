@@ -108,6 +108,9 @@
 "ui.camera.access.for.pairing" = "Kamerazugriff zum Koppeln";
 "ui.camera" = "Camera";
 "ui.open.settings" = "Open Settings";
+"ui.device.offline.enable.wifi" = "Gerat offline, WLAN aktivieren";
+"ui.offline.network.banner" = "Gerat offline";
+"ui.refresh.network" = "Netzwerk aktualisieren";
 "ui.allow.camera" = "Kamera erlauben";
 "ui.scan.qr.code" = "Scan QR Code";
 "ui.cancel" = "Abbrechen";

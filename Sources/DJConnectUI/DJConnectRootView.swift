@@ -23,6 +23,29 @@ import Darwin
 #endif
 
 @MainActor
+private func openDJConnectSystemNetworkSettings() {
+    #if os(iOS)
+    let urls = [
+        URL(string: "App-Prefs:root=WIFI"),
+        URL(string: UIApplication.openSettingsURLString)
+    ].compactMap { $0 }
+    guard let url = urls.first else {
+        return
+    }
+    UIApplication.shared.open(url)
+    #elseif os(macOS)
+    let urls = [
+        URL(string: "x-apple.systempreferences:com.apple.Network-Settings.extension"),
+        URL(string: "x-apple.systempreferences:com.apple.preference.network")
+    ].compactMap { $0 }
+    guard let url = urls.first else {
+        return
+    }
+    NSWorkspace.shared.open(url)
+    #endif
+}
+
+@MainActor
 private func resignPlatformFirstResponder() {
     #if os(iOS)
     UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
@@ -682,7 +705,19 @@ public struct DJConnectRootView: View {
                     .scrollContentBackgroundIfAvailable(.hidden)
                     .navigationSplitViewColumnWidth(min: 220, ideal: 240, max: 280)
                 } detail: {
-                    selectedView
+                    ZStack(alignment: .bottom) {
+                        selectedView
+                        if shouldShowOfflineNetworkBanner {
+                            OfflineNetworkBanner(
+                                language: model.language,
+                                refreshAction: model.refreshNetworkAvailability,
+                                settingsAction: openDJConnectSystemNetworkSettings
+                            )
+                            .padding(.horizontal, 18)
+                            .transition(.move(edge: .bottom).combined(with: .opacity))
+                        }
+                    }
+                    .animation(.snappy(duration: 0.22), value: shouldShowOfflineNetworkBanner)
                 }
                 .tint(Color(red: 0.74, green: 0.22, blue: 0.96))
                 .accentColor(Color(red: 0.74, green: 0.22, blue: 0.96))
@@ -701,7 +736,7 @@ public struct DJConnectRootView: View {
                             OfflineNetworkBanner(
                                 language: model.language,
                                 refreshAction: model.refreshNetworkAvailability,
-                                settingsAction: openSystemNetworkSettings
+                                settingsAction: openDJConnectSystemNetworkSettings
                             )
                             .padding(.horizontal, usesTopTabLayout(for: proxy.size) ? 18 : 0)
                             .padding(.bottom, usesTopTabLayout(for: proxy.size) ? 0 : 49)
@@ -956,6 +991,8 @@ public struct DJConnectRootView: View {
         }
     }
 
+    #endif
+
     private var shouldShowOfflineNetworkBanner: Bool {
         guard model.isOfflineModeActive else {
             return false
@@ -967,19 +1004,6 @@ public struct DJConnectRootView: View {
             return false
         }
     }
-
-    private func openSystemNetworkSettings() {
-        let urls = [
-            URL(string: "App-Prefs:root=WIFI"),
-            URL(string: UIApplication.openSettingsURLString)
-        ].compactMap { $0 }
-        guard let url = urls.first else {
-            return
-        }
-        UIApplication.shared.open(url)
-    }
-
-    #endif
 
     private var rootSheetBinding: Binding<DJConnectRootSheet?> {
         Binding(
@@ -1449,6 +1473,24 @@ private struct PairingSheetView: View {
             }
 
             VStack(spacing: 12) {
+                #if os(iOS)
+                if model.shouldShowPairingWiFiSettingsLink {
+                    Button {
+                        openDJConnectSystemNetworkSettings()
+                    } label: {
+                        Label(
+                            localizedKey(model.language, "ui.device.offline.enable.wifi"),
+                            systemImage: "wifi.slash"
+                        )
+                        .font(.headline.weight(.bold))
+                        .foregroundStyle(.white)
+                        .multilineTextAlignment(.center)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(localizedKey(model.language, "ui.device.offline.enable.wifi"))
+                }
+                #endif
+
                 if shouldShowPairingNetworkNotice {
                     PairingNetworkNotice(
                         language: model.language,
@@ -1849,6 +1891,64 @@ private struct PairingNetworkNotice: View {
         .accessibilityElement(children: .combine)
     }
 }
+
+#if os(iOS) || os(macOS)
+private struct OfflineNetworkBanner: View {
+    let language: String
+    let refreshAction: () -> Void
+    let settingsAction: () -> Void
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "wifi.slash")
+                .font(.system(size: 17, weight: .bold))
+                .accessibilityHidden(true)
+
+            Text(localizedKey(language, "ui.offline.network.banner"))
+                .font(.footnote.weight(.semibold))
+                .lineLimit(2)
+                .minimumScaleFactor(0.82)
+                .layoutPriority(1)
+
+            Button(action: settingsAction) {
+                Text(localizedKey(language, "ui.open.settings"))
+                    .font(.caption.weight(.bold))
+                    .lineLimit(1)
+            }
+            .buttonStyle(.plain)
+
+            Button(action: refreshAction) {
+                Image(systemName: "arrow.clockwise")
+                    .font(.system(size: 15, weight: .bold))
+                    .frame(width: 32, height: 32)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(localizedKey(language, "ui.refresh.network"))
+        }
+        .foregroundStyle(.white)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 9)
+        .frame(maxWidth: .infinity)
+        .background(
+            LinearGradient(
+                colors: [
+                    Color(red: 0.05, green: 0.34, blue: 0.94),
+                    Color(red: 0.03, green: 0.54, blue: 0.96)
+                ],
+                startPoint: .leading,
+                endPoint: .trailing
+            )
+        )
+        .overlay(alignment: .top) {
+            Rectangle()
+                .fill(Color.white.opacity(0.2))
+                .frame(height: 1)
+        }
+        .shadow(color: .black.opacity(0.28), radius: 10, x: 0, y: -3)
+        .accessibilityElement(children: .combine)
+    }
+}
+#endif
 
 private struct PairingEditableURLCard: View {
     let title: String
@@ -4694,7 +4794,7 @@ private struct MusicDNALoadingView: View {
     }
 }
 
-#if DEBUG && ((os(iOS) && targetEnvironment(simulator)) || os(macOS))
+#if DEBUG && os(iOS) && targetEnvironment(simulator)
 #Preview("Music DNA - Populated") {
     MusicDNAView(model: DJConnectAppModel.musicDNAPreviewModel(response: .previewPopulated))
 }
@@ -4713,6 +4813,7 @@ private struct MusicDNALoadingView: View {
         errorMessage: "Home Assistant is temporarily unavailable."
     ))
 }
+#endif
 
 private extension DJConnectAppModel {
     static func musicDNAPreviewModel(response: DJConnectMusicDNAProfileResponse) -> DJConnectAppModel {
@@ -4854,7 +4955,6 @@ private extension DJConnectMusicDNAProfileResponse {
         profile: DJConnectMusicDNAProfile()
     )
 }
-#endif
 
 private extension String {
     func ifEmpty(_ fallback: String) -> String {
@@ -7354,6 +7454,7 @@ private struct VibeCastEmptySignalView: View {
     }
 }
 
+#if DEBUG && os(iOS) && targetEnvironment(simulator)
 #Preview("VibeCast - Genre Badge") {
     VibeCastVisualizerSignalView(
         insight: DemoTrackInsightService.defaultTracks[6],
@@ -7411,6 +7512,7 @@ private struct VibeCastEmptySignalView: View {
         reduceMotion: true
     )
 }
+#endif
 
 #if canImport(AVKit) && os(iOS)
 private func makeAirPlayPreviewPlayer(url: URL) async -> AVPlayer {

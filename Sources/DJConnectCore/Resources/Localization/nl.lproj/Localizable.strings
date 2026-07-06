@@ -108,6 +108,9 @@
 "ui.camera.access.for.pairing" = "Cameratoegang voor koppelen";
 "ui.camera" = "Camera";
 "ui.open.settings" = "Open Instellingen";
+"ui.device.offline.enable.wifi" = "Apparaat offline, activeer wifi";
+"ui.offline.network.banner" = "Apparaat offline";
+"ui.refresh.network" = "Netwerk vernieuwen";
 "ui.allow.camera" = "Camera toestaan";
 "ui.scan.qr.code" = "Scan QR-code";
 "ui.cancel" = "Annuleren";

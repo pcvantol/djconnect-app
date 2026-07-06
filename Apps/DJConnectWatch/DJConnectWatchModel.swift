@@ -214,6 +214,7 @@ extension DJConnectWatchModel: WCSessionDelegate {
                 return
             }
             companionPairingStatus = session.isReachable ? "iPhone verbonden" : "Open DJConnect op je iPhone"
+            isCompanionReachable = session.isReachable
             sendCompanionPairingRegistration()
         }
     }
@@ -221,6 +222,7 @@ extension DJConnectWatchModel: WCSessionDelegate {
     nonisolated func sessionReachabilityDidChange(_ session: WCSession) {
         Task { @MainActor in
             companionPairingStatus = session.isReachable ? "iPhone verbonden" : "Open DJConnect op je iPhone"
+            isCompanionReachable = session.isReachable
             if session.isReachable {
                 sendCompanionPairingRegistration()
             }
@@ -395,6 +397,8 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
     @Published private(set) var musicBackendSummary = DJConnectMusicBackendSummary()
     @Published private(set) var remoteSupported = false
     @Published private(set) var isWiFiAvailable = false
+    @Published private(set) var hasEvaluatedNetwork = false
+    @Published private(set) var isCompanionReachable = false
     @Published var isShowingMicrophonePermissionExplanation = false
     @Published var isShowingVoiceActivationPermissionExplanation = false
     @Published var isShowingAskDJNotificationPermissionExplanation = false
@@ -731,9 +735,13 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         networkMonitor.pathUpdateHandler = { [weak self] path in
             let isLocalNetworkReachable = path.status == .satisfied && !path.usesInterfaceType(.cellular)
             Task { @MainActor in
-                guard let self, self.isWiFiAvailable != isLocalNetworkReachable else {
+                guard let self else {
                     return
                 }
+                guard self.isWiFiAvailable != isLocalNetworkReachable || !self.hasEvaluatedNetwork else {
+                    return
+                }
+                self.hasEvaluatedNetwork = true
                 self.isWiFiAvailable = isLocalNetworkReachable
                 if isLocalNetworkReachable {
                     self.appendDiagnosticLog("Lokaal netwerk beschikbaar")
@@ -779,6 +787,10 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         return isCompanionPairingAvailable
     }
 
+    var isOfflineModeActive: Bool {
+        !isDemoMode && hasEvaluatedNetwork && !isWiFiAvailable && !isCompanionReachable
+    }
+
     var canUseLocalPairingAPI: Bool {
         isCompanionPairingAvailable
     }
@@ -789,7 +801,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
 
     var isCompanionPairingAvailable: Bool {
         #if canImport(WatchConnectivity)
-        WCSession.isSupported() && WCSession.default.isReachable
+        WCSession.isSupported() && isCompanionReachable
         #else
         false
         #endif
@@ -880,8 +892,25 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         hasActivatedCompanionSession = true
         WCSession.default.delegate = self
         WCSession.default.activate()
+        isCompanionReachable = WCSession.default.isReachable
         companionPairingStatus = WCSession.default.isReachable ? "iPhone verbonden" : "Open DJConnect op je iPhone"
         #endif
+    }
+
+    func refreshNetworkAvailability() {
+        #if canImport(WatchConnectivity)
+        if WCSession.isSupported() {
+            activateCompanionSession()
+            isCompanionReachable = WCSession.default.activationState == .activated && WCSession.default.isReachable
+            companionPairingStatus = isCompanionReachable ? "iPhone verbonden" : "Open DJConnect op je iPhone"
+            if isCompanionReachable {
+                sendCompanionPairingRegistration()
+            }
+        }
+        #endif
+        appendDiagnosticLog(
+            isOfflineModeActive ? "Netwerkcheck: offline" : "Netwerkcheck: verbinding beschikbaar"
+        )
     }
 
     private func sendCompanionPairingRegistration() {

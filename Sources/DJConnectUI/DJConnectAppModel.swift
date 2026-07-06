@@ -753,6 +753,8 @@ public final class DJConnectAppModel: ObservableObject {
     @Published public private(set) var pairingFlowTarget: DJConnectPairingFlowTarget = .iPhone
     @Published public private(set) var isLocalNetworkAvailable = false
     @Published public private(set) var hasEvaluatedLocalNetwork = false
+    @Published public private(set) var isDeviceNetworkAvailable = false
+    @Published public private(set) var hasEvaluatedDeviceNetwork = false
     @Published public private(set) var networkRefreshRequestID = UUID()
     @Published public private(set) var diagnosticLogLines: [DJConnectDiagnosticLogLine] = []
 
@@ -1030,6 +1032,10 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     public var isOfflineModeActive: Bool {
+        !isDemoMode && hasEvaluatedDeviceNetwork && !isDeviceNetworkAvailable
+    }
+
+    public var shouldShowPairingWiFiSettingsLink: Bool {
         !isDemoMode && hasEvaluatedLocalNetwork && !isLocalNetworkAvailable
     }
 
@@ -1168,7 +1174,9 @@ public final class DJConnectAppModel: ObservableObject {
         restoreWatchProxyRegistration()
         activateWatchProxySession()
         #endif
-        startNetworkMonitor()
+        if startBackgroundTasks {
+            startNetworkMonitor()
+        }
     }
 
     private func prepareWhatsNewPrompt() {
@@ -8305,18 +8313,26 @@ public final class DJConnectAppModel: ObservableObject {
 
     private func startNetworkMonitor() {
         networkMonitor.pathUpdateHandler = { [weak self] path in
+            let isDeviceNetwork = path.status == .satisfied
             let isLocalNetwork = path.status == .satisfied
                 && (path.usesInterfaceType(.wifi) || path.usesInterfaceType(.wiredEthernet))
             Task { @MainActor in
                 guard let self else {
                     return
                 }
-                let didChange = self.isLocalNetworkAvailable != isLocalNetwork || !self.hasEvaluatedLocalNetwork
+                let didChange = self.isDeviceNetworkAvailable != isDeviceNetwork
+                    || self.isLocalNetworkAvailable != isLocalNetwork
+                    || !self.hasEvaluatedDeviceNetwork
+                    || !self.hasEvaluatedLocalNetwork
                 guard didChange else {
                     return
                 }
+                self.hasEvaluatedDeviceNetwork = true
                 self.hasEvaluatedLocalNetwork = true
+                self.isDeviceNetworkAvailable = isDeviceNetwork
                 self.isLocalNetworkAvailable = isLocalNetwork
+                self.updateNowPlayingPollTimer()
+                self.updatePlaybackProgressTimer()
                 if isLocalNetwork {
                     self.log(.info, "Local Wi-Fi/LAN available")
                     if self.pairingMessage?.localizedCaseInsensitiveContains("WiFi") == true

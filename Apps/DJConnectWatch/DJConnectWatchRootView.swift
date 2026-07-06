@@ -439,6 +439,23 @@ struct DJConnectWatchRootView: View {
                 .foregroundStyle(.white.opacity(0.92))
 
             Spacer(minLength: 8)
+
+            if model.isOfflineModeActive {
+                Label {
+                    Text(watchLocalizedKey(model.language, "ui.offline").lowercased())
+                } icon: {
+                    Image(systemName: "wifi.slash")
+                }
+                .font(.caption2.weight(.bold))
+                .foregroundStyle(.gray.opacity(0.95))
+                .padding(.horizontal, 7)
+                .padding(.vertical, 4)
+                .background(
+                    Capsule(style: .continuous)
+                        .fill(Color.white.opacity(0.08))
+                )
+                .accessibilityElement(children: .combine)
+            }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, 4)
@@ -446,7 +463,11 @@ struct DJConnectWatchRootView: View {
 
     private var refreshStatusButton: some View {
         Button {
-            Task { await model.refreshStatus() }
+            if model.isOfflineModeActive {
+                model.refreshNetworkAvailability()
+            } else {
+                Task { await model.refreshStatus() }
+            }
         } label: {
             if model.isRefreshingStatus {
                 ProgressView()
@@ -461,7 +482,7 @@ struct DJConnectWatchRootView: View {
         .buttonStyle(.plain)
         .frame(width: 28, height: 28)
         .contentShape(Circle())
-        .disabled(!model.canUseBackend || model.isRefreshingStatus)
+        .disabled((!model.canUseBackend && !model.isOfflineModeActive) || model.isRefreshingStatus)
         .accessibilityLabel(watchLocalizedKey(model.language, "watch.refresh"))
     }
 

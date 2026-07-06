@@ -108,6 +108,9 @@
 "ui.camera.access.for.pairing" = "Acces camera pour l'association";
 "ui.camera" = "Camera";
 "ui.open.settings" = "Open Settings";
+"ui.device.offline.enable.wifi" = "Appareil hors ligne, activez le Wi-Fi";
+"ui.offline.network.banner" = "Appareil hors ligne";
+"ui.refresh.network" = "Actualiser le reseau";
 "ui.allow.camera" = "Autoriser la camera";
 "ui.scan.qr.code" = "Scan QR Code";
 "ui.cancel" = "Annuler";
