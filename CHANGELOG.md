@@ -4,11 +4,23 @@ All notable changes to DJConnect App are documented here.
 
 ## Unreleased
 
+## 3.2.23 - 2026-07-07
+
 ### Changed
 
 - Hardened the app release script to verify the release commit is based on
   `origin/main`, push the exact release commit to `main`, and publish private
   source release notes from only the matching `CHANGELOG.md` version section.
+- Made Music DNA cards taller on iPhone and allowed each card to scroll
+  internally when its content does not fit on small or landscape screens.
+- Tightened Track Insight share-preview sizing and action-button padding.
+- Added regression coverage for the iOS Music DNA card sizing, white copy-logs
+  toolbar icon, and Track Insight share spacing.
+
+### Fixed
+
+- Fixed the iOS copy-logs toolbar icon so it stays white instead of inheriting
+  the app accent tint.
 
 ## 3.2.22 - 2026-07-07
 
