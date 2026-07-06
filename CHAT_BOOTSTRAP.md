@@ -42,7 +42,7 @@ Context:
 - Secrets/tokens/wachtwoorden/private URLs mogen nooit in commits, logs, screenshots, diagnostics of test fixtures.
 
 Huidige status om te controleren:
-- Release `3.2.21` is de actuele source release/protocollijn. iOS/macOS pairen
+- Release `3.2.22` is de actuele source release/protocollijn. iOS/macOS pairen
   lokaal via `/api/djconnect/v1/pair`, bewaren `ha_local_url` plus optioneel
   `ha_remote_url`, kiezen runtime local -> remote -> offline, en hosten geen
   client `/api/device/*` API of `_djconnect._tcp` service.
@@ -71,7 +71,7 @@ Huidige status om te controleren:
 - De Mood-keuze is gedeeld tussen Ask DJ, Track Insight en Speelt nu / Now
   Playing. Speelt nu gebruikt dezelfde control op iOS en macOS; de track-art
   kaart kleurt mee met de actieve Mood-palette.
-- De statische What's New release-notes voor `3.2.21` worden door de
+- De statische What's New release-notes voor `3.2.22` worden door de
   `Public unsigned release` workflow gepubliceerd naar `pcvantol/djconnect-website`
   en `djconnect.dev`. Controleer specifiek dat de `nl` JSON echte Nederlandse
   inhoud bevat en niet de Engelse fallback.
@@ -80,8 +80,8 @@ Huidige status om te controleren:
 - Check direct:
   - `git status --short --branch`
   - `gh run list --repo pcvantol/djconnect-app --limit 5`
-  - public release tags in `pcvantol/djconnect-app-releases` voor `ios/v3.2.21` en `macos/v3.2.21` indien release/publicatie geraakt wordt.
-  - `https://djconnect.dev/release-notes/ios/nl/v3.2.21.json` en het macOS
+  - public release tags in `pcvantol/djconnect-app-releases` voor `ios/v3.2.22` en `macos/v3.2.22` indien release/publicatie geraakt wordt.
+  - `https://djconnect.dev/release-notes/ios/nl/v3.2.22.json` en het macOS
     equivalent indien What's New release-notes geraakt worden.
 
 Werkstijl:

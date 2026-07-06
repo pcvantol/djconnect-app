@@ -10,6 +10,28 @@ All notable changes to DJConnect App are documented here.
   `origin/main`, push the exact release commit to `main`, and publish private
   source release notes from only the matching `CHANGELOG.md` version section.
 
+## 3.2.22 - 2026-07-07
+
+### Added
+
+- Added iOS 18/macOS dark and tinted app icon renditions generated from the
+  shared DJConnect app icon source.
+- Added native haptic feedback for Mood changes, playback starts, queue and
+  playlist starts, Discover/Ontdek Play Now, Ask DJ request/response actions,
+  and supported watchOS/macOS equivalents.
+
+### Changed
+
+- Made Now Playing, Queue, Ask DJ, Track Insight, and VibeCast widget/visual
+  accents follow the selected Mood palette while keeping Track Insight actions
+  free of extra haptic feedback.
+- Clarified Mood selection copy in all supported app languages.
+
+### Fixed
+
+- Fixed the offline Wi-Fi/settings link on iOS so it no longer falls back to
+  the DJConnect app settings page before trying system network settings.
+
 ## 3.2.21 - 2026-07-06
 
 ### Added
@@ -19,11 +41,6 @@ All notable changes to DJConnect App are documented here.
   or tap, websocket refresh preference, REST/feed fallback behavior, and
   coalescing for quick receive/tap races.
 - Added the shared Mood control to Speelt nu / Now Playing on iOS and macOS.
-- Added iOS 18/macOS dark and tinted app icon renditions generated from the
-  shared DJConnect app icon source.
-- Added native haptic feedback for Mood changes, playback starts, queue and
-  playlist starts, Discover/Ontdek Play Now, Ask DJ request/response actions,
-  and supported watchOS/macOS equivalents.
 
 ### Changed
 
@@ -32,10 +49,6 @@ All notable changes to DJConnect App are documented here.
   push payload content.
 - Made the Speelt nu / Now Playing artwork card background respond to the
   selected Mood palette.
-- Made Now Playing, Queue, Ask DJ, Track Insight, and VibeCast widget/visual
-  accents follow the selected Mood palette while keeping Track Insight actions
-  free of extra haptic feedback.
-- Clarified Mood selection copy in all supported app languages.
 - Gave the VibeCast genre badge a larger, more distinctive gradient style that
   follows the selected Mood palette.
 - Tightened the Track Insight share popover spacing so the share actions sit
@@ -45,8 +58,6 @@ All notable changes to DJConnect App are documented here.
 
 - Fixed demo VibeCast so changing to the next track while VibeCast is open
   automatically starts Track Insight analysis and refreshes the genre badge.
-- Fixed the offline Wi-Fi/settings link on iOS so it no longer falls back to
-  the DJConnect app settings page before trying system network settings.
 
 ## 3.2.20 - 2026-07-05
 
