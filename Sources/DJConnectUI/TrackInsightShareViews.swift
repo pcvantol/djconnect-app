@@ -77,6 +77,7 @@ struct TrackInsightSharePreviewView: View {
                     .buttonStyle(DJConnectLilacPillButtonStyle())
                     .controlSize(.large)
                 }
+                .padding(.top, -56)
 
                 if let errorText {
                     Text(errorText)

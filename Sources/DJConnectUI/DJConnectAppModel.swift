@@ -753,6 +753,7 @@ public final class DJConnectAppModel: ObservableObject {
     @Published public private(set) var pairingFlowTarget: DJConnectPairingFlowTarget = .iPhone
     @Published public private(set) var isLocalNetworkAvailable = false
     @Published public private(set) var hasEvaluatedLocalNetwork = false
+    @Published public private(set) var networkRefreshRequestID = UUID()
     @Published public private(set) var diagnosticLogLines: [DJConnectDiagnosticLogLine] = []
 
     @Published public private(set) var identity: DJConnectIdentity
@@ -1017,7 +1018,7 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     public var canUsePlaybackFeatures: Bool {
-        isDemoMode || (pairingStatus == .paired && backendAvailable && isRuntimeCompatible && haConnectionMode != .offline)
+        isDemoMode || (pairingStatus == .paired && backendAvailable && isRuntimeCompatible && haConnectionMode != .offline && !isOfflineModeActive)
     }
 
     public var canStartTrackInsightAnalysis: Bool {
@@ -1026,6 +1027,10 @@ public final class DJConnectAppModel: ObservableObject {
 
     public var localNetworkRequirementMessage: String? {
         (!hasEvaluatedLocalNetwork || isLocalNetworkAvailable) ? nil : localized(key: "appModel.local.wi.fi.lan.is.required.connect.this.device")
+    }
+
+    public var isOfflineModeActive: Bool {
+        !isDemoMode && hasEvaluatedLocalNetwork && !isLocalNetworkAvailable
     }
 
     public var shouldShowPairingScreen: Bool {
@@ -2506,6 +2511,16 @@ public final class DJConnectAppModel: ObservableObject {
         }
     }
 
+    public func refreshNetworkAvailability() {
+        log(.debug, "User action: network availability refresh")
+        networkRefreshRequestID = UUID()
+        updateNowPlayingPollTimer()
+        updatePlaybackProgressTimer()
+        if !isOfflineModeActive {
+            schedulePairingWait()
+        }
+    }
+
     @discardableResult
     public func refreshNowPlaying() async -> Bool {
         await runRefresh(reason: "Refresh completed", notifyUserOnError: true, forceCollections: true)
@@ -2554,6 +2569,10 @@ public final class DJConnectAppModel: ObservableObject {
             log(.info, reason)
             return true
         }
+        guard !isOfflineModeActive else {
+            log(.debug, "Refresh skipped because device network is offline")
+            return false
+        }
         log(.debug, "Manual refresh requested")
         isRefreshing = true
         defer { isRefreshing = false }
@@ -2589,6 +2608,10 @@ public final class DJConnectAppModel: ObservableObject {
         runFollowUpRefresh: Bool = true
     ) {
         startupRefreshTask?.cancel()
+        guard !isOfflineModeActive else {
+            log(.debug, "Paired refresh skipped because device network is offline")
+            return
+        }
         startupRefreshTask = Task { [weak self] in
             try? await Task.sleep(nanoseconds: 350_000_000)
             guard !Task.isCancelled else {
@@ -2611,7 +2634,7 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     private func scheduleBackendRecoveryRefresh(reason: String) {
-        guard startBackgroundTasks, !isDemoMode, pairingStatus == .paired, !backendAvailable else {
+        guard startBackgroundTasks, !isDemoMode, pairingStatus == .paired, !backendAvailable, !isOfflineModeActive else {
             return
         }
         guard backendRecoveryTask == nil else {
@@ -2624,7 +2647,7 @@ public final class DJConnectAppModel: ObservableObject {
                 guard !Task.isCancelled, let self else {
                     return
                 }
-                guard self.pairingStatus == .paired, !self.isDemoMode, !self.backendAvailable else {
+                guard self.pairingStatus == .paired, !self.isDemoMode, !self.backendAvailable, !self.isOfflineModeActive else {
                     self.backendRecoveryTask = nil
                     return
                 }
@@ -4516,7 +4539,7 @@ public final class DJConnectAppModel: ObservableObject {
 
     private func updatePlaybackProgressTimer() {
         playbackProgressTask?.cancel()
-        guard isAppInForeground, playback?.isPlaying == true else {
+        guard isAppInForeground, playback?.isPlaying == true, !isOfflineModeActive else {
             return
         }
 
@@ -4542,7 +4565,7 @@ public final class DJConnectAppModel: ObservableObject {
 
     private func updateNowPlayingPollTimer() {
         nowPlayingPollTask?.cancel()
-        guard startBackgroundTasks, isAppInForeground, pairingStatus == .paired, !isDemoMode else {
+        guard startBackgroundTasks, isAppInForeground, pairingStatus == .paired, !isDemoMode, !isOfflineModeActive else {
             return
         }
 
@@ -4578,7 +4601,7 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     private func refreshNowPlayingFromProgressTimer() async {
-        guard pairingStatus == .paired, !isDemoMode, !isRefreshing, isRuntimeCompatible, isConnected, backendAvailable else {
+        guard pairingStatus == .paired, !isDemoMode, !isRefreshing, isRuntimeCompatible, isConnected, backendAvailable, !isOfflineModeActive else {
             return
         }
         do {
@@ -4593,7 +4616,7 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     private func refreshNowPlayingFromPollTimer() async {
-        guard pairingStatus == .paired, !isDemoMode, !isRefreshing, isRuntimeCompatible, isConnected, backendAvailable else {
+        guard pairingStatus == .paired, !isDemoMode, !isRefreshing, isRuntimeCompatible, isConnected, backendAvailable, !isOfflineModeActive else {
             return
         }
         do {

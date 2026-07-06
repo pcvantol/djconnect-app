@@ -688,13 +688,27 @@ public struct DJConnectRootView: View {
                 .accentColor(Color(red: 0.74, green: 0.22, blue: 0.96))
                 #else
                 GeometryReader { proxy in
-                    if usesTopTabLayout(for: proxy.size) {
-                        iPadRootTabs
-                            .id("top-tabs-\(orientationID(for: proxy.size))")
-                    } else {
-                        compactRootTabs
-                            .id("compact-tabs-\(orientationID(for: proxy.size))")
+                    ZStack(alignment: .bottom) {
+                        if usesTopTabLayout(for: proxy.size) {
+                            iPadRootTabs
+                                .id("top-tabs-\(orientationID(for: proxy.size))")
+                        } else {
+                            compactRootTabs
+                                .id("compact-tabs-\(orientationID(for: proxy.size))")
+                        }
+
+                        if shouldShowOfflineNetworkBanner {
+                            OfflineNetworkBanner(
+                                language: model.language,
+                                refreshAction: model.refreshNetworkAvailability,
+                                settingsAction: openSystemNetworkSettings
+                            )
+                            .padding(.horizontal, usesTopTabLayout(for: proxy.size) ? 18 : 0)
+                            .padding(.bottom, usesTopTabLayout(for: proxy.size) ? 0 : 49)
+                            .transition(.move(edge: .bottom).combined(with: .opacity))
+                        }
                     }
+                    .animation(.snappy(duration: 0.22), value: shouldShowOfflineNetworkBanner)
                 }
                 #endif
             }
@@ -940,6 +954,29 @@ public struct DJConnectRootView: View {
         case .more, .queue, .musicDNA, .playlists, .games, .settings, .logs, .about, .legal, .privacy:
             true
         }
+    }
+
+    private var shouldShowOfflineNetworkBanner: Bool {
+        guard model.isOfflineModeActive else {
+            return false
+        }
+        switch selectedSection {
+        case .nowPlaying, .askDJ, .trackInsight, .discovery, .musicDNA, .queue, .playlists:
+            return true
+        case .more, .games, .settings, .logs, .about, .legal, .privacy:
+            return false
+        }
+    }
+
+    private func openSystemNetworkSettings() {
+        let urls = [
+            URL(string: "App-Prefs:root=WIFI"),
+            URL(string: UIApplication.openSettingsURLString)
+        ].compactMap { $0 }
+        guard let url = urls.first else {
+            return
+        }
+        UIApplication.shared.open(url)
     }
 
     #endif
@@ -2983,8 +3020,8 @@ struct NowPlayingView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 24) {
                     TrackSummaryView(model: model)
-                    NowPlayingMoodControlSection(model: model)
                     OutputSelectorView(model: model)
+                    NowPlayingMoodControlSection(model: model)
                     SetupStatusView(model: model)
                 }
                 .djConnectScreenPadding()
@@ -8983,8 +9020,8 @@ private struct IOSNowPlayingView: View {
                 ScrollView {
                     VStack(spacing: 16) {
                         IOSTrackHero(model: model)
-                        NowPlayingMoodControlSection(model: model)
                         OutputSelectorView(model: model)
+                        NowPlayingMoodControlSection(model: model)
                         if !model.isDemoMode {
                             IOSConnectionCard(model: model)
                         }
@@ -16757,11 +16794,11 @@ private struct LogsView: View {
         .accessibilityLabel(localizedKey(model.language, "ui.copy.logs"))
         .disabled(model.diagnosticLogLines.isEmpty)
 
-        Button {
+        Button(role: .destructive) {
             showingClearConfirmation = true
         } label: {
             Image(systemName: "trash")
-                .foregroundStyle(.primary)
+                .foregroundStyle(.red)
         }
         .help(localizedKey(model.language, "ui.clear.logs"))
         .accessibilityLabel(localizedKey(model.language, "ui.clear.logs"))

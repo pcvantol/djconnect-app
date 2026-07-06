@@ -27,7 +27,10 @@ All notable changes to DJConnect App are documented here.
   push payload content.
 - Made the Speelt nu / Now Playing artwork card background respond to the
   selected Mood palette.
-- Gave the VibeCast genre badge a larger, more distinctive gradient style.
+- Gave the VibeCast genre badge a larger, more distinctive gradient style that
+  follows the selected Mood palette.
+- Tightened the Track Insight share popover spacing so the share actions sit
+  closer to the preview card.
 
 ### Fixed
 
