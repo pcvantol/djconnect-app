@@ -78,6 +78,7 @@ struct TrackInsightSharePreviewView: View {
                     .controlSize(.large)
                 }
                 .padding(.top, actionStackTopPadding)
+                .padding(.bottom, 14)
 
                 if let errorText {
                     Text(errorText)
@@ -88,7 +89,7 @@ struct TrackInsightSharePreviewView: View {
                 }
                 .padding(.horizontal, 20)
                 .padding(.top, horizontalSizeClass == .regular ? 8 : 20)
-                .padding(.bottom, 20)
+                .padding(.bottom, 28)
                 .frame(maxWidth: contentMaxWidth)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             }
@@ -124,7 +125,14 @@ struct TrackInsightSharePreviewView: View {
     }
 
     private var actionStackTopPadding: CGFloat {
-        format == .linkPreview ? 12 : -56
+        switch format {
+        case .story:
+            -20
+        case .square:
+            8
+        case .linkPreview:
+            12
+        }
     }
 
     @ViewBuilder
@@ -298,6 +306,7 @@ private struct TrackInsightShareExportProgress: View {
 private struct TrackInsightShareScaledPreview<Content: View>: View {
     let format: TrackInsightShareFormat
     @ViewBuilder var content: Content
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 
     private var designSize: CGSize {
         format.cardDesignSize
@@ -309,6 +318,11 @@ private struct TrackInsightShareScaledPreview<Content: View>: View {
 
     var body: some View {
         GeometryReader { outerProxy in
+            let maxHeight = maxPreviewHeight(in: outerProxy.size)
+            let availableWidth = max(1, outerProxy.size.width)
+            let previewWidth = min(availableWidth, maxHeight * aspectRatio)
+            let previewHeight = previewWidth / aspectRatio
+
             ZStack {
                 GeometryReader { proxy in
                     let scale = min(
@@ -322,26 +336,26 @@ private struct TrackInsightShareScaledPreview<Content: View>: View {
                         .frame(width: proxy.size.width, height: proxy.size.height)
                 }
             }
-            .aspectRatio(aspectRatio, contentMode: .fit)
-            .frame(maxWidth: .infinity)
-            .frame(maxHeight: maxPreviewHeight(in: outerProxy.size))
+            .frame(width: previewWidth, height: previewHeight)
             .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
             .overlay {
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
                     .stroke(.white.opacity(0.14), lineWidth: 1)
             }
+            .frame(maxWidth: .infinity, alignment: .center)
         }
         .frame(height: preferredContainerHeight)
     }
 
     private var preferredContainerHeight: CGFloat {
+        let isCompact = horizontalSizeClass == .compact
         switch format {
         case .story:
-            640
+            return isCompact ? 560 : 640
         case .square:
-            540
+            return isCompact ? 380 : 620
         case .linkPreview:
-            360
+            return isCompact ? 240 : 360
         }
     }
 
@@ -350,11 +364,11 @@ private struct TrackInsightShareScaledPreview<Content: View>: View {
         let responsiveHeight = availableHeight * 0.92
         switch format {
         case .story:
-            return min(720, max(460, responsiveHeight))
+            return min(horizontalSizeClass == .compact ? 560 : 720, max(420, responsiveHeight))
         case .square:
-            return min(560, max(420, responsiveHeight))
+            return min(horizontalSizeClass == .compact ? 380 : 620, max(320, responsiveHeight))
         case .linkPreview:
-            return min(420, max(260, responsiveHeight))
+            return min(horizontalSizeClass == .compact ? 260 : 420, max(180, responsiveHeight))
         }
     }
 }

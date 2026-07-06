@@ -4356,6 +4356,7 @@ private struct MusicDNASectionGrid: View {
     @ObservedObject var model: DJConnectAppModel
     let response: DJConnectMusicDNAProfileResponse
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    @Environment(\.verticalSizeClass) private var verticalSizeClass
 
     private var profile: DJConnectMusicDNAProfile { response.profile }
 
@@ -4486,6 +4487,15 @@ private struct MusicDNASectionGrid: View {
     private func musicDNAPanel<Content: View>(@ViewBuilder content: () -> Content) -> some View {
         content()
             .frame(width: usesHorizontalRows ? 292 : nil, alignment: .top)
+            .frame(height: usesHorizontalRows ? horizontalPanelHeight : nil, alignment: .top)
+    }
+
+    private var horizontalPanelHeight: CGFloat {
+        #if os(iOS)
+        verticalSizeClass == .compact ? 260 : 320
+        #else
+        musicDNADashboardPanelMinHeight
+        #endif
     }
 
     private var gridColumns: [GridItem] {
@@ -4987,6 +4997,8 @@ private extension String {
 }
 
 private let musicDNADashboardPanelMinHeight: CGFloat = 220
+private let musicDNAIPhoneDashboardPanelHeight: CGFloat = 320
+private let musicDNAIPhoneLandscapeDashboardPanelHeight: CGFloat = 260
 
 private struct MusicDNAPanel: View {
     let title: String
@@ -5003,13 +5015,7 @@ private struct MusicDNAPanel: View {
                 .fixedSize(horizontal: false, vertical: true)
             Spacer(minLength: 0)
         }
-        .padding(18)
-        .frame(maxWidth: .infinity, minHeight: musicDNADashboardPanelMinHeight, alignment: .topLeading)
-        .background(.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .stroke(.white.opacity(0.10), lineWidth: 1)
-        }
+        .musicDNADashboardPanel()
     }
 }
 
@@ -5028,13 +5034,7 @@ private struct MusicDNATrackListPanel: View {
             }
             Spacer(minLength: 0)
         }
-        .padding(18)
-        .frame(maxWidth: .infinity, minHeight: musicDNADashboardPanelMinHeight, alignment: .topLeading)
-        .background(.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .stroke(.white.opacity(0.10), lineWidth: 1)
-        }
+        .musicDNADashboardPanel()
         .accessibilityIdentifier("musicDNARecentFavoriteTracksSection")
     }
 }
@@ -5491,15 +5491,35 @@ private struct MusicDNAChipRow: View {
 }
 
 private struct MusicDNADashboardPanelModifier: ViewModifier {
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    @Environment(\.verticalSizeClass) private var verticalSizeClass
+
     func body(content: Content) -> some View {
-        content
-            .padding(18)
-            .frame(maxWidth: .infinity, minHeight: musicDNADashboardPanelMinHeight, alignment: .topLeading)
+        ScrollView(.vertical, showsIndicators: false) {
+            content
+                .padding(18)
+                .frame(maxWidth: .infinity, alignment: .topLeading)
+        }
+        #if os(iOS)
+        .scrollBounceBehavior(.basedOnSize)
+        #endif
+            .frame(maxWidth: .infinity, minHeight: panelMinHeight, alignment: .topLeading)
             .background(.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
             .overlay {
                 RoundedRectangle(cornerRadius: 8, style: .continuous)
                     .stroke(.white.opacity(0.10), lineWidth: 1)
             }
+    }
+
+    private var panelMinHeight: CGFloat {
+        #if os(iOS)
+        if horizontalSizeClass == .compact, UIDevice.current.userInterfaceIdiom == .phone {
+            return verticalSizeClass == .compact
+                ? musicDNAIPhoneLandscapeDashboardPanelHeight
+                : musicDNAIPhoneDashboardPanelHeight
+        }
+        #endif
+        return musicDNADashboardPanelMinHeight
     }
 }
 
@@ -6264,13 +6284,7 @@ private struct MusicDNAMetricPanel: View {
             }
             Spacer(minLength: 0)
         }
-        .padding(18)
-        .frame(maxWidth: .infinity, minHeight: musicDNADashboardPanelMinHeight, alignment: .topLeading)
-        .background(.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .stroke(.white.opacity(0.10), lineWidth: 1)
-        }
+        .musicDNADashboardPanel()
         .onAppear {
             guard !reduceMotion else { return }
             withAnimation(.easeInOut(duration: 3.2).repeatForever(autoreverses: true)) {
@@ -16914,8 +16928,10 @@ private struct LogsView: View {
             showStatusToast(localizedKey(model.language, "ui.logs.copied.to.clipboard"))
         } label: {
             Image(systemName: "doc.on.doc")
-                .foregroundStyle(.primary)
+                .symbolRenderingMode(.monochrome)
+                .foregroundStyle(.white)
         }
+        .tint(.white)
         .help(localizedKey(model.language, "ui.copy.logs"))
         .accessibilityLabel(localizedKey(model.language, "ui.copy.logs"))
         .disabled(model.diagnosticLogLines.isEmpty)
