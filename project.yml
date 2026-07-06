@@ -151,7 +151,7 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: dev.djconnect.ios
         PRODUCT_NAME: DJConnect
-        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIconIOS
         TARGETED_DEVICE_FAMILY: "1,2"
         CODE_SIGN_ENTITLEMENTS: Apps/DJConnectIOS/DJConnectIOS.entitlements
   DJConnectMac:
@@ -169,7 +169,7 @@ targets:
       path: Apps/DJConnectMac/Info.plist
       properties:
         CFBundleDisplayName: DJConnect
-        CFBundleIconFile: AppIcon
+        CFBundleIconFile: AppIconMac
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         LSApplicationCategoryType: public.app-category.music
@@ -184,7 +184,7 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: dev.djconnect.mac
         PRODUCT_NAME: DJConnect
-        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIconMac
         CODE_SIGN_ENTITLEMENTS: Apps/DJConnectMac/DJConnectMac.entitlements
         ENABLE_HARDENED_RUNTIME: YES
   DJConnectWatch:
@@ -217,7 +217,7 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: dev.djconnect.ios.watch
         PRODUCT_NAME: DJConnect
-        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIconWatch
         CODE_SIGN_ENTITLEMENTS: Apps/DJConnectWatch/DJConnectWatch.entitlements
   DJConnectWatchComplications:
     type: app-extension

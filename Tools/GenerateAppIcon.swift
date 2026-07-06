@@ -8,13 +8,12 @@ let sourceIcon = root
     .appendingPathComponent("Tools")
     .appendingPathComponent("IconSource")
     .appendingPathComponent("djconnect-icon-1024.png")
-let iconset = root
+let assetsCatalog = root
     .appendingPathComponent("Apps")
     .appendingPathComponent("Shared")
     .appendingPathComponent("Assets.xcassets")
-    .appendingPathComponent("AppIcon.appiconset")
 
-try FileManager.default.createDirectory(at: iconset, withIntermediateDirectories: true)
+try FileManager.default.createDirectory(at: assetsCatalog, withIntermediateDirectories: true)
 
 struct IconImage {
     let idiom: String
@@ -96,6 +95,32 @@ let images: [IconImage] = [
     IconImage("watch", "98x98", "2x", 196, role: "quickLook", subtype: "42mm"),
     IconImage("watch", "108x108", "2x", 216, role: "quickLook", subtype: "44mm"),
     IconImage("watch-marketing", "1024x1024", "1x", 1024)
+]
+
+let iosAppearanceImages: [IconAppearance] = [.dark, .tinted]
+
+struct IconSet {
+    let name: String
+    let entries: [IconImage]
+    let iosAppearanceSupport: Bool
+}
+
+let iconSets: [IconSet] = [
+    IconSet(
+        name: "AppIconIOS",
+        entries: images.filter { $0.idiom == "iphone" || $0.idiom == "ipad" || $0.idiom == "ios-marketing" },
+        iosAppearanceSupport: true
+    ),
+    IconSet(
+        name: "AppIconMac",
+        entries: images.filter { $0.idiom == "mac" },
+        iosAppearanceSupport: false
+    ),
+    IconSet(
+        name: "AppIconWatch",
+        entries: images.filter { $0.idiom == "watch" || $0.idiom == "watch-marketing" },
+        iosAppearanceSupport: false
+    )
 ]
 
 func loadSourceIcon() throws -> CGImage {
@@ -183,20 +208,22 @@ func writePNG(image: CGImage, to url: URL) throws {
 }
 
 let source = try loadSourceIcon()
-let imageEntries = images.flatMap { entry -> [[String: Any]] in
-    let appearances: [IconAppearance]
-    if entry.idiom == "iphone" || entry.idiom == "ipad" || entry.idiom == "ios-marketing" || entry.idiom == "mac" {
-        appearances = IconAppearance.allCases
-    } else {
-        appearances = [.light]
-    }
 
-    return appearances.map { appearance -> [String: Any] in
+let legacyIconset = assetsCatalog.appendingPathComponent("AppIcon.appiconset")
+if FileManager.default.fileExists(atPath: legacyIconset.path) {
+    try FileManager.default.removeItem(at: legacyIconset)
+}
+
+for iconSet in iconSets {
+    let iconsetURL = assetsCatalog.appendingPathComponent("\(iconSet.name).appiconset")
+    try FileManager.default.createDirectory(at: iconsetURL, withIntermediateDirectories: true)
+
+    let baseImageEntries = iconSet.entries.map { entry -> [String: Any] in
         var imageEntry: [String: Any] = [
-        "idiom": entry.idiom,
-        "size": entry.size,
-        "scale": entry.scale,
-        "filename": "icon\(appearance.filenameSuffix)-\(entry.pixels).png"
+            "idiom": entry.idiom,
+            "size": entry.size,
+            "scale": entry.scale,
+            "filename": "icon-\(entry.pixels).png"
         ]
         if let role = entry.role {
             imageEntry["role"] = role
@@ -204,54 +231,68 @@ let imageEntries = images.flatMap { entry -> [[String: Any]] in
         if let subtype = entry.subtype {
             imageEntry["subtype"] = subtype
         }
-        if let assetValue = appearance.assetValue {
-            imageEntry["appearances"] = [
-                [
-                    "appearance": "luminosity",
-                    "value": assetValue
-                ]
-            ]
-        }
         return imageEntry
     }
-}
 
-let referencedIconFiles = Set(imageEntries.compactMap { $0["filename"] as? String })
-for filename in referencedIconFiles.sorted() {
-    let appearance: IconAppearance
-    let pixelsText: String
-    if filename.hasPrefix("icon-dark-") {
-        appearance = .dark
-        pixelsText = filename
-            .replacingOccurrences(of: "icon-dark-", with: "")
-            .replacingOccurrences(of: ".png", with: "")
-    } else if filename.hasPrefix("icon-tinted-") {
-        appearance = .tinted
-        pixelsText = filename
-            .replacingOccurrences(of: "icon-tinted-", with: "")
-            .replacingOccurrences(of: ".png", with: "")
-    } else {
-        appearance = .light
-        pixelsText = filename
-            .replacingOccurrences(of: "icon-", with: "")
-            .replacingOccurrences(of: ".png", with: "")
-    }
-    guard let pixels = Int(pixelsText) else {
-        continue
-    }
-    try writePNG(
-        image: try renderIcon(from: source, pixels: pixels, appearance: appearance),
-        to: iconset.appendingPathComponent(filename)
-    )
-}
+    let iosAppearanceImageEntries = iconSet.iosAppearanceSupport ? iosAppearanceImages.map { appearance -> [String: Any] in
+        [
+            "idiom": "universal",
+            "platform": "ios",
+            "size": "1024x1024",
+            "filename": "icon\(appearance.filenameSuffix)-1024.png",
+            "appearances": [
+                [
+                    "appearance": "luminosity",
+                    "value": appearance.assetValue ?? ""
+                ]
+            ]
+        ]
+    } : []
 
-let contents: [String: Any] = [
-    "images": imageEntries,
-    "info": [
-        "author": "xcode",
-        "version": 1
+    let imageEntries = baseImageEntries + iosAppearanceImageEntries
+    let referencedIconFiles = Set(imageEntries.compactMap { $0["filename"] as? String })
+    let existingIconFiles = try FileManager.default.contentsOfDirectory(atPath: iconsetURL.path)
+        .filter { $0.hasPrefix("icon-") && $0.hasSuffix(".png") }
+    for filename in existingIconFiles where !referencedIconFiles.contains(filename) {
+        try FileManager.default.removeItem(at: iconsetURL.appendingPathComponent(filename))
+    }
+
+    for filename in referencedIconFiles.sorted() {
+        let appearance: IconAppearance
+        let pixelsText: String
+        if filename.hasPrefix("icon-dark-") {
+            appearance = .dark
+            pixelsText = filename
+                .replacingOccurrences(of: "icon-dark-", with: "")
+                .replacingOccurrences(of: ".png", with: "")
+        } else if filename.hasPrefix("icon-tinted-") {
+            appearance = .tinted
+            pixelsText = filename
+                .replacingOccurrences(of: "icon-tinted-", with: "")
+                .replacingOccurrences(of: ".png", with: "")
+        } else {
+            appearance = .light
+            pixelsText = filename
+                .replacingOccurrences(of: "icon-", with: "")
+                .replacingOccurrences(of: ".png", with: "")
+        }
+        guard let pixels = Int(pixelsText) else {
+            continue
+        }
+        try writePNG(
+            image: try renderIcon(from: source, pixels: pixels, appearance: appearance),
+            to: iconsetURL.appendingPathComponent(filename)
+        )
+    }
+
+    let contents: [String: Any] = [
+        "images": imageEntries,
+        "info": [
+            "author": "xcode",
+            "version": 1
+        ]
     ]
-]
 
-let json = try JSONSerialization.data(withJSONObject: contents, options: [.prettyPrinted, .sortedKeys])
-try json.write(to: iconset.appendingPathComponent("Contents.json"), options: .atomic)
+    let json = try JSONSerialization.data(withJSONObject: contents, options: [.prettyPrinted, .sortedKeys])
+    try json.write(to: iconsetURL.appendingPathComponent("Contents.json"), options: .atomic)
+}

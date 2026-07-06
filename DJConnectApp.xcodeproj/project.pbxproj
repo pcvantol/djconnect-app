@@ -1479,7 +1479,7 @@
 		038958C7586A8055BFB4D9F8 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIconIOS;
 				CODE_SIGN_ENTITLEMENTS = Apps/DJConnectIOS/DJConnectIOS.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				INFOPLIST_FILE = Apps/DJConnectIOS/Info.plist;
@@ -1536,7 +1536,7 @@
 		26FB2040B236AC8ED062F91B /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIconIOS;
 				CODE_SIGN_ENTITLEMENTS = Apps/DJConnectIOS/DJConnectIOS.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				INFOPLIST_FILE = Apps/DJConnectIOS/Info.plist;
@@ -1579,7 +1579,7 @@
 		325BAB9DBC435CA56A80FAB8 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIconMac;
 				CODE_SIGN_ENTITLEMENTS = Apps/DJConnectMac/DJConnectMac.entitlements;
 				COMBINE_HIDPI_IMAGES = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
@@ -1732,7 +1732,7 @@
 		3E933C22FD66E4EEEC46EBB5 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIconMac;
 				CODE_SIGN_ENTITLEMENTS = Apps/DJConnectMac/DJConnectMac.entitlements;
 				COMBINE_HIDPI_IMAGES = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
@@ -1976,7 +1976,7 @@
 		B47E3D5578D9B2B3E1EF27F2 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIconWatch;
 				CODE_SIGN_ENTITLEMENTS = Apps/DJConnectWatch/DJConnectWatch.entitlements;
 				INFOPLIST_FILE = Apps/DJConnectWatch/Info.plist;
 				PRODUCT_BUNDLE_IDENTIFIER = dev.djconnect.ios.watch;
@@ -2048,7 +2048,7 @@
 		D9568E2023F707D75227E525 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIconWatch;
 				CODE_SIGN_ENTITLEMENTS = Apps/DJConnectWatch/DJConnectWatch.entitlements;
 				INFOPLIST_FILE = Apps/DJConnectWatch/Info.plist;
 				PRODUCT_BUNDLE_IDENTIFIER = dev.djconnect.ios.watch;

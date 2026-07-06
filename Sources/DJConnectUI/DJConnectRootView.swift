@@ -4837,7 +4837,6 @@ private struct MusicDNALoadingView: View {
         errorMessage: "Home Assistant is temporarily unavailable."
     ))
 }
-#endif
 
 private extension DJConnectAppModel {
     static func musicDNAPreviewModel(response: DJConnectMusicDNAProfileResponse) -> DJConnectAppModel {
@@ -4851,6 +4850,7 @@ private extension DJConnectAppModel {
         return model
     }
 }
+#endif
 
 private extension DJConnectMusicDNAProfileResponse {
     static let previewPopulated = DJConnectMusicDNAProfileResponse(

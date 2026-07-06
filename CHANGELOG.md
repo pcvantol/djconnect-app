@@ -14,8 +14,8 @@ All notable changes to DJConnect App are documented here.
 
 ### Added
 
-- Added iOS 18/macOS dark and tinted app icon renditions generated from the
-  shared DJConnect app icon source.
+- Added iOS 18 dark and tinted app icon renditions generated from the shared
+  DJConnect app icon source.
 - Added native haptic feedback for Mood changes, playback starts, queue and
   playlist starts, Discover/Ontdek Play Now, Ask DJ request/response actions,
   and supported watchOS/macOS equivalents.
@@ -26,6 +26,8 @@ All notable changes to DJConnect App are documented here.
   accents follow the selected Mood palette while keeping Track Insight actions
   free of extra haptic feedback.
 - Clarified Mood selection copy in all supported app languages.
+- Split iOS, macOS, and watchOS app icons into platform-specific asset sets so
+  Xcode no longer reports unassigned AppIcon children.
 
 ### Fixed
 
