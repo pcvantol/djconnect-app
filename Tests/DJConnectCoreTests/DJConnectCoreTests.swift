@@ -9234,6 +9234,36 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     }
 }
 
+@Test func musicDNAIPhonePanelsStayTallAndInternallyScrollable() throws {
+    let source = try loadRepositoryText("Sources/DJConnectUI/DJConnectRootView.swift")
+
+    #expect(source.contains("private let musicDNAIPhoneDashboardPanelHeight: CGFloat = 320"))
+    #expect(source.contains("private let musicDNAIPhoneLandscapeDashboardPanelHeight: CGFloat = 260"))
+    #expect(source.contains(".frame(height: usesHorizontalRows ? horizontalPanelHeight : nil, alignment: .top)"))
+    #expect(source.contains("ScrollView(.vertical, showsIndicators: false)"))
+    #expect(source.contains(".scrollBounceBehavior(.basedOnSize)"))
+}
+
+@Test func logsCopyToolbarIconStaysWhiteOnIOS() throws {
+    let source = try loadRepositoryText("Sources/DJConnectUI/DJConnectRootView.swift")
+    let copyLogsRange = try #require(source.range(of: #"Image(systemName: "doc.on.doc")"#))
+    let copyLogsSnippet = String(source[copyLogsRange.lowerBound...].prefix(220))
+
+    #expect(copyLogsSnippet.contains(".symbolRenderingMode(.monochrome)"))
+    #expect(copyLogsSnippet.contains(".foregroundStyle(.white)"))
+    #expect(copyLogsSnippet.contains(".tint(.white)"))
+}
+
+@Test func trackInsightSharePreviewUsesFormatSpecificSpacing() throws {
+    let source = try loadRepositoryText("Sources/DJConnectUI/TrackInsightShareViews.swift")
+
+    #expect(source.contains("private var actionStackTopPadding: CGFloat"))
+    #expect(source.contains("case .square:\n            8"))
+    #expect(source.contains(".padding(.bottom, 14)"))
+    #expect(source.contains("let previewWidth = min(availableWidth, maxHeight * aspectRatio)"))
+    #expect(source.contains("horizontalSizeClass == .compact ? 380 : 620"))
+}
+
 @MainActor
 @Test func trackInsightShareTextStaysCompactAndPublic() {
     let insight = TrackInsight(
