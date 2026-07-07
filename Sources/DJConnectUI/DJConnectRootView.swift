@@ -45,7 +45,10 @@ private func openDJConnectSystemNetworkSettings() {
 }
 
 @MainActor
-private func openFirstAvailableURL(_ urls: [URL], opener: @escaping (URL, @escaping (Bool) -> Void) -> Void) {
+private func openFirstAvailableURL(
+    _ urls: [URL],
+    opener: @MainActor @escaping @Sendable (URL, @escaping @Sendable (Bool) -> Void) -> Void
+) {
     guard let url = urls.first else {
         return
     }
@@ -53,7 +56,9 @@ private func openFirstAvailableURL(_ urls: [URL], opener: @escaping (URL, @escap
         guard !didOpen else {
             return
         }
-        openFirstAvailableURL(Array(urls.dropFirst()), opener: opener)
+        Task { @MainActor in
+            openFirstAvailableURL(Array(urls.dropFirst()), opener: opener)
+        }
     }
 }
 
@@ -3766,57 +3771,71 @@ private struct TrackInsightView: View {
         shouldUseWideLayout(for: size) ? djConnectMacDetailContentMaxWidth : djConnectContentMaxWidth
     }
 
+    private var floatingControlTopPadding: CGFloat {
+        #if os(macOS)
+        14
+        #else
+        8
+        #endif
+    }
+
     var body: some View {
         NavigationStack {
             ZStack {
                 DJConnectCanvasBackground()
                 GeometryReader { proxy in
-                    ScrollView {
-                        let contentWidth = min(maxContentWidth(for: proxy.size), proxy.size.width)
-                        VStack(alignment: .leading, spacing: 16) {
-                            if isMoodVisible {
-                                AskDJMoodModeControl(
-                                    model: model,
-                                    caption: localizedKey(model.language, "ui.mood.colors.track.insight.from.calm.listening.cues.to.energetic"),
-                                    closeAction: {
-                                        withAnimation(.spring(response: 0.28, dampingFraction: 0.86)) {
-                                            isMoodVisible = false
-                                        }
-                                    }
-                                )
-                                .frame(maxWidth: .infinity, alignment: .topLeading)
-                                .transition(.move(edge: .top).combined(with: .opacity))
+                    let contentWidth = min(maxContentWidth(for: proxy.size), proxy.size.width)
+                    ZStack(alignment: .top) {
+                        ScrollView {
+                            VStack(alignment: .leading, spacing: 16) {
+                                if let insight {
+                                    TrackInsightHero(
+                                        model: model,
+                                        insight: insight,
+                                        moodStepIndex: model.askDJMoodStepIndex,
+                                        isAnimationActive: isAnimationActive
+                                    )
+                                    .id(trackInsightHeroRenderID(for: insight))
+                                        .frame(maxWidth: .infinity, alignment: .topLeading)
+                                    TrackInsightAnalysisCard(insight: insight, language: model.language)
+                                        .frame(maxWidth: .infinity, alignment: .topLeading)
+                                    TrackInsightMetricsGrid(insight: insight, language: model.language, moodStepIndex: model.askDJMoodStepIndex)
+                                        .frame(maxWidth: .infinity, alignment: .topLeading)
+                                    TrackInsightPrivacyFooter(language: model.language)
+                                        .frame(maxWidth: .infinity, alignment: .top)
+                                } else {
+                                    TrackInsightEmptyState(model: model)
+                                }
                             }
-
-                            if let insight {
-                                TrackInsightHero(
-                                    model: model,
-                                    insight: insight,
-                                    moodStepIndex: model.askDJMoodStepIndex,
-                                    isAnimationActive: isAnimationActive
-                                )
-                                .id(trackInsightHeroRenderID(for: insight))
-                                    .frame(maxWidth: .infinity, alignment: .topLeading)
-                                TrackInsightAnalysisCard(insight: insight, language: model.language)
-                                    .frame(maxWidth: .infinity, alignment: .topLeading)
-                                TrackInsightMetricsGrid(insight: insight, language: model.language, moodStepIndex: model.askDJMoodStepIndex)
-                                    .frame(maxWidth: .infinity, alignment: .topLeading)
-                                TrackInsightPrivacyFooter(language: model.language)
-                                    .frame(maxWidth: .infinity, alignment: .top)
-                            } else {
-                                TrackInsightEmptyState(model: model)
-                            }
+                            .padding(.horizontal, djConnectScreenHorizontalPadding)
+                            .padding(.vertical, djConnectScreenVerticalPadding)
+                            .frame(width: contentWidth, alignment: .topLeading)
+                            .frame(maxWidth: .infinity, alignment: .top)
                         }
-                        .padding(.horizontal, djConnectScreenHorizontalPadding)
-                        .padding(.vertical, djConnectScreenVerticalPadding)
-                        .frame(width: contentWidth, alignment: .topLeading)
-                        .frame(maxWidth: .infinity, alignment: .top)
+                        #if os(iOS)
+                        .refreshable {
+                            await refreshTrackInsightWithToast()
+                        }
+                        #endif
+
+                        if isMoodVisible {
+                            AskDJMoodModeControl(
+                                model: model,
+                                caption: localizedKey(model.language, "ui.mood.colors.track.insight.from.calm.listening.cues.to.energetic"),
+                                closeAction: {
+                                    withAnimation(.spring(response: 0.28, dampingFraction: 0.86)) {
+                                        isMoodVisible = false
+                                    }
+                                }
+                            )
+                            .padding(.horizontal, djConnectScreenHorizontalPadding)
+                            .padding(.top, floatingControlTopPadding)
+                            .frame(width: contentWidth, alignment: .top)
+                            .frame(maxWidth: .infinity, alignment: .top)
+                            .zIndex(2)
+                            .transition(.move(edge: .top).combined(with: .opacity))
+                        }
                     }
-                    #if os(iOS)
-                    .refreshable {
-                        await refreshTrackInsightWithToast()
-                    }
-                    #endif
                 }
                 #if canImport(AVKit) && os(iOS)
                 if let player = vibeCastAirPlaySession.player {
@@ -14192,6 +14211,17 @@ private struct GamesView: View {
         min(contentMaxWidth(for: size), 760)
     }
 
+    private func gameCanvasMaxHeight(for size: CGSize) -> CGFloat? {
+        #if os(macOS)
+        nil
+        #else
+        guard horizontalSizeClass == .regular, size.width > size.height else {
+            return nil
+        }
+        return min(560, max(360, size.height * 0.42))
+        #endif
+    }
+
     var body: some View {
         NavigationStack {
             GeometryReader { proxy in
@@ -14202,7 +14232,11 @@ private struct GamesView: View {
                             .frame(maxWidth: pickerMaxWidth(for: proxy.size))
                             .frame(maxWidth: .infinity, alignment: .center)
 
-                        LocalGameSurface(game: selectedGame, language: language)
+                        LocalGameSurface(
+                            game: selectedGame,
+                            language: language,
+                            maxCanvasHeight: gameCanvasMaxHeight(for: proxy.size)
+                        )
                             .frame(maxWidth: .infinity, alignment: .top)
                     }
                     .djConnectScreenPadding()
@@ -14287,6 +14321,7 @@ private struct GameModePicker: View {
 private struct LocalGameSurface: View {
     let game: LocalGameMode
     let language: String
+    var maxCanvasHeight: CGFloat? = nil
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @AppStorage("djconnect.app.game.pong.high") private var pongHighScore = 0
     @AppStorage("djconnect.app.game.asteroids.high") private var asteroidsHighScore = 0
@@ -14421,6 +14456,7 @@ private struct LocalGameSurface: View {
             }
             .aspectRatio(gameAspectRatio, contentMode: .fit)
             .frame(maxWidth: .infinity)
+            .frame(maxHeight: maxCanvasHeight)
             .background(.black.opacity(0.25), in: RoundedRectangle(cornerRadius: 8))
             .gesture(
                 DragGesture(minimumDistance: 0)

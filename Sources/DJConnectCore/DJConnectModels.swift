@@ -26,6 +26,9 @@ public enum DJConnectWatchProxyOperation: String, Codable, Sendable {
     case musicDNAProfile = "music_dna_profile"
     case musicDNASettings = "music_dna_settings"
     case clearMusicDNA = "clear_music_dna"
+    case musicDiscovery = "music_discovery"
+    case musicDiscoveryRefresh = "music_discovery_refresh"
+    case musicDiscoveryPlay = "music_discovery_play"
     case voice
     case pushRegister = "push_register"
     case pushUnregister = "push_unregister"

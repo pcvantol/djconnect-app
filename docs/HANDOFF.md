@@ -114,7 +114,9 @@ available in Demo Mode because they are not backend validation. Games should
 lazy start behind a tap-to-play overlay, and leaving the Games page should stop
 the local loop and reset every game to its idle overlay. When a game is active,
 keyboard arrows and space should be handled by the game surface and should not
-trigger sidebar, tab, or page navigation.
+trigger sidebar, tab, or page navigation. On iPad landscape, cap the game canvas
+height so the movement/action buttons remain visible below the playfield; keep
+portrait sizing unchanged.
 
 ## Identity
 
@@ -203,6 +205,12 @@ visible while Music DNA is enabled. After opt-in or opt-out, clients may keep
 the just-selected enabled state visible briefly while a stale profile refresh
 catches up; Home Assistant remains authoritative once it returns the matching
 state or the grace window expires.
+
+Ontdek / Music Discovery on watchOS is also iPhone-proxied. The Watch shows the
+backend-provided recommendation sections as a compact list, opens item details
+with the backend `reason` and `reason_sources`, and uses the same Play Now
+contract as iOS/macOS. Watch clients must preserve the watchOS identity and must
+not generate local recommendations or reasons.
 
 iOS and macOS Settings expose Music DNA export/import. Export must use HTTP
 `POST /api/djconnect/v1/music_dna/export`, never the Home Assistant WebSocket fast
@@ -934,8 +942,8 @@ while `djconnect.dev/release-notes/.../vX.Y.Z.json` and the public
 The Apple apps persist the last seen app version locally. When a newer app
 version starts, they fetch platform-specific static release notes from
 `djconnect.dev` using the current app language first: iOS reads
-`/release-notes/ios/{en|nl}/vX.Y.Z.json`, macOS reads
-`/release-notes/macos/{en|nl}/vX.Y.Z.json`. The older
+`/release-notes/ios/{en|nl|de|fr|es}/vX.Y.Z.json`, macOS reads
+`/release-notes/macos/{en|nl|de|fr|es}/vX.Y.Z.json`. The older
 `/release-notes/{ios|macos}/vX.Y.Z.json` path and GitHub release metadata
 remain fallbacks. The release body is shown once in a native
 `Wat is er nieuw` / `What's New` sheet. This request sends no DJConnect token,
@@ -1024,10 +1032,11 @@ Do not put SwiftUI view logic into the HTTP client.
 `DJConnectIOSUITests` launches the iOS app with `--uitesting`. In that mode the
 app uses isolated `UserDefaults`, an in-memory token store, and
 `DJCONNECT_UITEST_HA_URL` for deterministic Home Assistant URL seeding. The
-current UI tests cover primary navigation, Settings URL wiring, and the local
-Games menu choices. Full pairing, output, queue, playlist, liked proxy,
-stale-auth, backend-unavailable, and voice/PTT UI tests should build on this
-target with a real or recorded mock Home Assistant server.
+current UI tests cover primary navigation, Settings URL wiring, local Games menu
+choices, and source-level regressions for layout constraints that are expensive
+to exercise reliably in every simulator matrix. Full pairing, output, queue,
+playlist, liked proxy, stale-auth, backend-unavailable, and voice/PTT UI tests
+should build on this target with a real or recorded mock Home Assistant server.
 
 ## Acceptance Criteria
 

@@ -41,8 +41,9 @@ Only set that variable after updating:
 - `docs/THIRD_PARTY_NOTICES.md`
 - `docs/TECHNICAL_DESIGN_DECISIONS.md`
 - `CHANGELOG.md`
-- English and Dutch release-note Markdown for the exact app version, when the
-  public What's New copy differs from `CHANGELOG.md`
+- five-language release-note Markdown for the exact app version (`en`, `nl`,
+  `de`, `fr`, `es`), when the public What's New copy differs from
+  `CHANGELOG.md`
 - GitHub release notes for the exact app version
 
 This keeps shipped binaries, localized release notes, and legal notices in sync.
@@ -53,9 +54,9 @@ Before release, beta distribution, or a maintainer-facing workflow change:
 
 - update `CHAT_BOOTSTRAP.md` with the current release, workflow, and repository
   status assumptions;
-- add or update Dutch What's New release notes in
-  `docs/release-notes/nl/vX.Y.Z.md` before publishing, so localized app screens
-  do not fall back to English changelog text;
+- add or update localized What's New release notes in
+  `docs/release-notes/{nl|de|fr|es}/vX.Y.Z.md` before publishing, so localized
+  app screens do not fall back to English changelog text;
 - review app-facing translations in all five supported languages (`nl`, `en`,
   `de`, `es`, `fr`) whenever UI copy, notices, errors, prompts, or release
   strings change; do not leave new keys as English fallbacks in non-English

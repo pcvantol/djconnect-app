@@ -118,10 +118,9 @@ jobs:
             fi
           }
 
+          languages=(en nl de fr es)
           en_base=".public-release/release-notes/base-en.md"
-          nl_base=".public-release/release-notes/base-nl.md"
           : > "$en_base"
-          : > "$nl_base"
 
           if [[ -f "docs/release-notes/en/v${version}.md" ]]; then
             cp "docs/release-notes/en/v${version}.md" "$en_base"
@@ -132,17 +131,24 @@ jobs:
             printf "DJConnect App %s\n" "$version" > "$en_base"
           fi
 
-          if [[ -f "docs/release-notes/nl/v${version}.md" ]]; then
-            cp "docs/release-notes/nl/v${version}.md" "$nl_base"
-          else
-            extract_changelog_notes "CHANGELOG.nl.md" "$nl_base"
-          fi
-          if [[ ! -s "$nl_base" ]]; then
-            cp "$en_base" "$nl_base"
-          fi
+          for lang in "${languages[@]}"; do
+            base=".public-release/release-notes/base-${lang}.md"
+            if [[ "$lang" == "en" ]]; then
+              continue
+            fi
+            : > "$base"
+            if [[ -f "docs/release-notes/${lang}/v${version}.md" ]]; then
+              cp "docs/release-notes/${lang}/v${version}.md" "$base"
+            elif [[ "$lang" == "nl" ]]; then
+              extract_changelog_notes "CHANGELOG.nl.md" "$base"
+            fi
+            if [[ ! -s "$base" ]]; then
+              cp "$en_base" "$base"
+            fi
+          done
 
           for platform in macOS iOS; do
-            for lang in en nl; do
+            for lang in "${languages[@]}"; do
               notes=".public-release/release-notes-${platform}-${lang}.md"
               base=".public-release/release-notes/base-${lang}.md"
               {
@@ -152,21 +158,48 @@ jobs:
                 echo
                 echo "Platform: ${platform}"
                 echo
-                if [[ "$lang" == "nl" ]]; then
-                  echo "Niet-ondertekende CI-artifacts zijn bedoeld voor diagnostics en interne validatie."
-                  if [[ "$platform" == "macOS" ]]; then
-                    echo "Voor normale macOS-distributie heeft de genotariseerde Developer ID-build de voorkeur wanneer die is bijgevoegd."
-                  else
-                    echo "Niet-ondertekende iOS-binaries worden hier gepubliceerd voor diagnostics en interne validatie. Gebruik voor normale iOS-distributie TestFlight/App Store."
-                  fi
-                else
-                  echo "Unsigned CI artifacts are intended for diagnostics and internal validation."
-                  if [[ "$platform" == "macOS" ]]; then
-                    echo "For normal macOS distribution, prefer the notarized Developer ID build when attached."
-                  else
-                    echo "Unsigned iOS binaries are published here for diagnostics and internal validation. For normal iOS distribution, use TestFlight/App Store."
-                  fi
-                fi
+                case "$lang" in
+                  nl)
+                    echo "Niet-ondertekende CI-artifacts zijn bedoeld voor diagnostics en interne validatie."
+                    if [[ "$platform" == "macOS" ]]; then
+                      echo "Voor normale macOS-distributie heeft de genotariseerde Developer ID-build de voorkeur wanneer die is bijgevoegd."
+                    else
+                      echo "Niet-ondertekende iOS-binaries worden hier gepubliceerd voor diagnostics en interne validatie. Gebruik voor normale iOS-distributie TestFlight/App Store."
+                    fi
+                    ;;
+                  de)
+                    echo "Nicht signierte CI-Artefakte sind fur Diagnose und interne Validierung gedacht."
+                    if [[ "$platform" == "macOS" ]]; then
+                      echo "Fur die normale macOS-Verteilung ist der notarisierte Developer-ID-Build vorzuziehen, wenn er angehangt ist."
+                    else
+                      echo "Nicht signierte iOS-Binaries werden hier fur Diagnose und interne Validierung veroffentlicht. Fur normale iOS-Verteilung TestFlight/App Store verwenden."
+                    fi
+                    ;;
+                  fr)
+                    echo "Les artefacts CI non signes sont destines au diagnostic et a la validation interne."
+                    if [[ "$platform" == "macOS" ]]; then
+                      echo "Pour une distribution macOS normale, preferez le build Developer ID notarise lorsqu'il est joint."
+                    else
+                      echo "Les binaires iOS non signes sont publies ici pour le diagnostic et la validation interne. Pour une distribution iOS normale, utilisez TestFlight/App Store."
+                    fi
+                    ;;
+                  es)
+                    echo "Los artefactos CI sin firmar son para diagnostico y validacion interna."
+                    if [[ "$platform" == "macOS" ]]; then
+                      echo "Para la distribucion normal de macOS, prefiere la build Developer ID notarizada cuando este adjunta."
+                    else
+                      echo "Los binarios iOS sin firmar se publican aqui para diagnostico y validacion interna. Para distribucion normal de iOS, usa TestFlight/App Store."
+                    fi
+                    ;;
+                  *)
+                    echo "Unsigned CI artifacts are intended for diagnostics and internal validation."
+                    if [[ "$platform" == "macOS" ]]; then
+                      echo "For normal macOS distribution, prefer the notarized Developer ID build when attached."
+                    else
+                      echo "Unsigned iOS binaries are published here for diagnostics and internal validation. For normal iOS distribution, use TestFlight/App Store."
+                    fi
+                    ;;
+                esac
               } > "$notes"
             done
             cp ".public-release/release-notes-${platform}-en.md" ".public-release/release-notes-${platform}.md"
@@ -264,7 +297,7 @@ jobs:
             esac
             target_dir="${website_dir}/wwwroot/release-notes/${platform}"
             mkdir -p "$target_dir"
-            for lang in en nl; do
+            for lang in en nl de fr es; do
               localized_dir="${target_dir}/${lang}"
               mkdir -p "$localized_dir"
               source_notes=".public-release/release-notes-${platform_name}-${lang}.md"

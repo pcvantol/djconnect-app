@@ -7678,13 +7678,22 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     let macURL = try #require(DJConnectAppModel.publicReleaseNotesURL(version: "3.1.20", clientType: .macos))
     let iosDutchURL = try #require(DJConnectAppModel.publicReleaseNotesURL(version: "3.1.20", clientType: .ios, language: "nl"))
     let macEnglishURL = try #require(DJConnectAppModel.publicReleaseNotesURL(version: "3.1.20", clientType: .macos, language: "en-US"))
+    let iosGermanURL = try #require(DJConnectAppModel.publicReleaseNotesURL(version: "3.1.20", clientType: .ios, language: "de-DE"))
+    let macFrenchURL = try #require(DJConnectAppModel.publicReleaseNotesURL(version: "3.1.20", clientType: .macos, language: "fr-FR"))
+    let iosSpanishURL = try #require(DJConnectAppModel.publicReleaseNotesURL(version: "3.1.20", clientType: .ios, language: "es-ES"))
 
     #expect(iosURL.absoluteString == "https://djconnect.dev/release-notes/ios/v3.1.20.json")
     #expect(macURL.absoluteString == "https://djconnect.dev/release-notes/macos/v3.1.20.json")
     #expect(iosDutchURL.absoluteString == "https://djconnect.dev/release-notes/ios/nl/v3.1.20.json")
     #expect(macEnglishURL.absoluteString == "https://djconnect.dev/release-notes/macos/en/v3.1.20.json")
+    #expect(iosGermanURL.absoluteString == "https://djconnect.dev/release-notes/ios/de/v3.1.20.json")
+    #expect(macFrenchURL.absoluteString == "https://djconnect.dev/release-notes/macos/fr/v3.1.20.json")
+    #expect(iosSpanishURL.absoluteString == "https://djconnect.dev/release-notes/ios/es/v3.1.20.json")
     #expect(DJConnectAppModel.normalizedReleaseNotesLanguageCode("nl-NL") == "nl")
-    #expect(DJConnectAppModel.normalizedReleaseNotesLanguageCode("de") == "en")
+    #expect(DJConnectAppModel.normalizedReleaseNotesLanguageCode("de") == "de")
+    #expect(DJConnectAppModel.normalizedReleaseNotesLanguageCode("fr-CA") == "fr")
+    #expect(DJConnectAppModel.normalizedReleaseNotesLanguageCode("es-MX") == "es")
+    #expect(DJConnectAppModel.normalizedReleaseNotesLanguageCode("it") == "en")
 }
 
 @Test func whatsNewGitHubFallbackReleaseURLsEncodePlatformTags() throws {
@@ -8667,6 +8676,53 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     #expect(decodedPayload.mood == 100)
 }
 
+@Test func watchProxyMusicDiscoveryOperationsRoundTripWithWatchIdentity() throws {
+    let identity = DJConnectIdentity(
+        deviceID: "djconnect-watchos-ABC123",
+        deviceName: "DJConnect Watch",
+        clientType: .watchos,
+        firmware: "3.2.23",
+        appVersion: "3.2.23",
+        platform: .watchos
+    )
+    let feedPayload = DJConnectMusicDNAIdentityRequest(
+        identity: identity,
+        mood: 70,
+        musicDNAKey: "djconnect-watchos-ABC123",
+        language: "nl",
+        locale: "nl-NL"
+    )
+    let feedRequest = DJConnectWatchProxyRequest(operation: .musicDiscovery, payload: try JSONEncoder().encode(feedPayload))
+    let refreshRequest = DJConnectWatchProxyRequest(operation: .musicDiscoveryRefresh, payload: try JSONEncoder().encode(feedPayload))
+    let playPayload = DJConnectMusicDiscoveryPlayRequest(
+        discoveryItemID: "watch-reco-1",
+        sectionID: "because_you_like",
+        identity: identity,
+        musicDNAKey: "djconnect-watchos-ABC123"
+    )
+    let playRequest = DJConnectWatchProxyRequest(operation: .musicDiscoveryPlay, payload: try JSONEncoder().encode(playPayload))
+
+    let decodedFeed = try JSONDecoder().decode(DJConnectWatchProxyRequest.self, from: JSONEncoder().encode(feedRequest))
+    let decodedRefresh = try JSONDecoder().decode(DJConnectWatchProxyRequest.self, from: JSONEncoder().encode(refreshRequest))
+    let decodedPlay = try JSONDecoder().decode(DJConnectWatchProxyRequest.self, from: JSONEncoder().encode(playRequest))
+    let decodedFeedPayload = try JSONDecoder().decode(DJConnectMusicDNAIdentityRequest.self, from: try #require(decodedFeed.payload))
+    let decodedPlayPayload = try JSONDecoder().decode(DJConnectMusicDiscoveryPlayRequest.self, from: try #require(decodedPlay.payload))
+
+    #expect(decodedFeed.operation == .musicDiscovery)
+    #expect(decodedRefresh.operation == .musicDiscoveryRefresh)
+    #expect(decodedPlay.operation == .musicDiscoveryPlay)
+    #expect(decodedFeedPayload.deviceID == "djconnect-watchos-ABC123")
+    #expect(decodedFeedPayload.clientType == .watchos)
+    #expect(decodedFeedPayload.mood == 70)
+    #expect(decodedFeedPayload.musicDNAKey == "djconnect-watchos-ABC123")
+    #expect(decodedFeedPayload.language == "nl")
+    #expect(decodedFeedPayload.locale == "nl-NL")
+    #expect(decodedPlayPayload.discoveryItemID == "watch-reco-1")
+    #expect(decodedPlayPayload.sectionID == "because_you_like")
+    #expect(decodedPlayPayload.clientType == .watchos)
+    #expect(decodedPlayPayload.musicDNAKey == "djconnect-watchos-ABC123")
+}
+
 @Test func commandResponseExposesBackendSummaryForWatchSync() throws {
     let json = """
     {
@@ -9242,6 +9298,33 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     #expect(source.contains(".frame(height: usesHorizontalRows ? horizontalPanelHeight : nil, alignment: .top)"))
     #expect(source.contains("ScrollView(.vertical, showsIndicators: false)"))
     #expect(source.contains(".scrollBounceBehavior(.basedOnSize)"))
+}
+
+@Test func gamesCanvasIsCappedOnIPadLandscapeOnly() throws {
+    let source = try loadRepositoryText("Sources/DJConnectUI/DJConnectRootView.swift")
+
+    #expect(source.contains("private func gameCanvasMaxHeight(for size: CGSize) -> CGFloat?"))
+    #expect(source.contains("guard horizontalSizeClass == .regular, size.width > size.height else"))
+    #expect(source.contains("return min(560, max(360, size.height * 0.42))"))
+    #expect(source.contains("maxCanvasHeight: gameCanvasMaxHeight(for: proxy.size)"))
+    #expect(source.contains(".frame(maxHeight: maxCanvasHeight)"))
+}
+
+@Test func publicReleaseWorkflowPublishesFiveLocalizedReleaseNoteJSONFiles() throws {
+    let workflow = try loadRepositoryText(".github/workflows/public-unsigned-release.yml")
+    let readme = try loadRepositoryText("README.md")
+    let releaseDocs = try loadRepositoryText("docs/RELEASE.md")
+
+    #expect(workflow.contains("languages=(en nl de fr es)"))
+    #expect(workflow.contains("for lang in en nl de fr es; do"))
+    #expect(workflow.contains("RELEASE_JSON_PATH=\"${localized_dir}/v${version}.json\""))
+    #expect(workflow.contains("cp \"${localized_dir}/v${version}.json\" \"${localized_dir}/latest.json\""))
+    #expect(readme.contains("Supported static What's New languages are"))
+    #expect(readme.contains("`en`, `nl`, `de`, `fr`, and `es`"))
+    #expect(releaseDocs.contains("{en|nl|de|fr|es}"))
+    #expect(DJConnectAppModel.normalizedReleaseNotesLanguageCode("de-DE") == "de")
+    #expect(DJConnectAppModel.normalizedReleaseNotesLanguageCode("fr-FR") == "fr")
+    #expect(DJConnectAppModel.normalizedReleaseNotesLanguageCode("es-ES") == "es")
 }
 
 @Test func logsCopyToolbarIconStaysWhiteOnIOS() throws {

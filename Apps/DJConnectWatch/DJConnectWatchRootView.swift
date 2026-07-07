@@ -194,6 +194,8 @@ struct DJConnectWatchRootView: View {
             DJConnectWatchQueueView()
         case "ask-dj":
             DJConnectWatchAskDJChatView()
+        case "discover":
+            DJConnectWatchDiscoveryView()
         case "track-insight":
             DJConnectWatchTrackInsightView()
         case "music-dna":
@@ -286,6 +288,8 @@ struct DJConnectWatchRootView: View {
                     }
                     .buttonStyle(.plain)
 
+                    askDJMoodControl
+
                     NavigationLink {
                         DJConnectWatchQueueView()
                     } label: {
@@ -295,7 +299,23 @@ struct DJConnectWatchRootView: View {
                     }
                     .buttonStyle(DJConnectWatchGradientButtonStyle(kind: .secondary))
 
-                    askDJMoodControl
+                    NavigationLink {
+                        DJConnectWatchPlaylistsView()
+                    } label: {
+                        Label(watchLocalizedKey(model.language, "watch.playlists"), systemImage: "music.note.list")
+                            .font(.footnote.weight(.semibold))
+                            .frame(maxWidth: .infinity, minHeight: 34)
+                    }
+                    .buttonStyle(DJConnectWatchGradientButtonStyle(kind: .secondary))
+
+                    NavigationLink {
+                        DJConnectWatchDiscoveryView()
+                    } label: {
+                        Label(watchLocalizedKey(model.language, "ui.discover"), systemImage: "sparkles")
+                            .font(.footnote.weight(.semibold))
+                            .frame(maxWidth: .infinity, minHeight: 34)
+                    }
+                    .buttonStyle(DJConnectWatchGradientButtonStyle(kind: .secondary))
 
                     NavigationLink {
                         DJConnectWatchAskDJChatView()
@@ -330,15 +350,6 @@ struct DJConnectWatchRootView: View {
                     if !model.responseImages.isEmpty {
                         AskDJWatchImageStack(images: model.responseImages)
                     }
-
-                    NavigationLink {
-                        DJConnectWatchPlaylistsView()
-                    } label: {
-                        Label(watchLocalizedKey(model.language, "watch.playlists"), systemImage: "music.note.list")
-                            .font(.footnote.weight(.semibold))
-                            .frame(maxWidth: .infinity, minHeight: 34)
-                    }
-                    .buttonStyle(DJConnectWatchGradientButtonStyle(kind: .secondary))
 
                     NavigationLink {
                         DJConnectWatchSettingsView()
@@ -2856,6 +2867,270 @@ private struct DJConnectWatchOutputRow: View {
         .padding(.vertical, 8)
         .background(DJConnectWatchPanel(cornerRadius: 12))
     }
+}
+
+private struct DJConnectWatchDiscoveryView: View {
+    @EnvironmentObject private var model: DJConnectWatchModel
+
+    private var sections: [DJConnectMusicDiscoverySection] {
+        model.musicDiscoveryResponse?.visibleSections ?? []
+    }
+
+    var body: some View {
+        ZStack {
+            DJConnectWatchCanvas()
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 10) {
+                    if model.isLoadingMusicDiscovery && model.musicDiscoveryResponse == nil {
+                        ProgressView()
+                            .tint(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 18)
+                    } else if model.musicDiscoveryResponse?.isMusicDNADisabled == true {
+                        discoveryState(
+                            title: watchLocalizedKey(model.language, "ui.music.dna.is.not.enabled"),
+                            message: watchLocalizedKey(model.language, "ui.enable.music.dna.to.get.recommendations.tailored.to.your.listening"),
+                            systemImage: "lock.fill"
+                        )
+                    } else if sections.isEmpty {
+                        discoveryState(
+                            title: watchLocalizedKey(model.language, "ui.discover"),
+                            message: model.musicDiscoveryErrorMessage
+                                ?? watchLocalizedKey(model.language, "ui.no.discovery.recommendations.available.currently"),
+                            systemImage: "sparkles"
+                        )
+                    } else {
+                        ForEach(sections) { section in
+                            VStack(alignment: .leading, spacing: 7) {
+                                Text(section.title)
+                                    .font(.caption2.weight(.bold))
+                                    .foregroundStyle(.white.opacity(0.72))
+                                    .lineLimit(2)
+
+                                ForEach(section.visibleItems) { item in
+                                    NavigationLink {
+                                        DJConnectWatchDiscoveryDetailView(sectionID: section.id, item: item)
+                                    } label: {
+                                        DJConnectWatchDiscoveryRow(
+                                            item: item,
+                                            isLoading: model.playingMusicDiscoveryItemID == item.id
+                                        )
+                                    }
+                                    .buttonStyle(.plain)
+                                }
+                            }
+                        }
+                    }
+
+                    if let message = model.musicDiscoveryErrorMessage, !sections.isEmpty {
+                        Text(message)
+                            .font(.caption2.weight(.semibold))
+                            .foregroundStyle(.white.opacity(0.62))
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.horizontal, 8)
+                    }
+                }
+                .padding(.vertical, 8)
+                .padding(.horizontal, 4)
+            }
+        }
+        .navigationTitle(watchLocalizedKey(model.language, "ui.discover"))
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button {
+                    Task { await model.refreshMusicDiscovery() }
+                } label: {
+                    if model.isRefreshingMusicDiscovery {
+                        ProgressView()
+                            .controlSize(.mini)
+                            .tint(.white.opacity(0.82))
+                    } else {
+                        Image(systemName: "arrow.clockwise")
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundStyle(.white.opacity(0.82))
+                    }
+                }
+                .buttonStyle(.plain)
+                .frame(width: 28, height: 28)
+                .contentShape(Circle())
+                .disabled(model.isRefreshingMusicDiscovery || model.isLoadingMusicDiscovery)
+                .accessibilityLabel(watchLocalizedKey(model.language, "ui.refresh.discover"))
+            }
+        }
+        .task {
+            await model.loadMusicDiscovery()
+        }
+    }
+
+    private func discoveryState(title: String, message: String, systemImage: String) -> some View {
+        VStack(spacing: 8) {
+            Image(systemName: systemImage)
+                .font(.title2)
+                .foregroundStyle(watchAccentPurple)
+            Text(title)
+                .font(.caption.weight(.bold))
+                .foregroundStyle(.white)
+                .multilineTextAlignment(.center)
+            Text(message)
+                .font(.caption2)
+                .foregroundStyle(.white.opacity(0.72))
+                .multilineTextAlignment(.center)
+        }
+        .padding(.vertical, 18)
+        .padding(.horizontal, 8)
+        .frame(maxWidth: .infinity)
+        .background(DJConnectWatchPanel(cornerRadius: 12))
+    }
+}
+
+private struct DJConnectWatchDiscoveryDetailView: View {
+    @EnvironmentObject private var model: DJConnectWatchModel
+    @Environment(\.dismiss) private var dismiss
+    let sectionID: String
+    let item: DJConnectMusicDiscoveryItem
+
+    var body: some View {
+        ZStack {
+            DJConnectWatchCanvas()
+            ScrollView {
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack(alignment: .top, spacing: 10) {
+                        DJConnectWatchArtwork(
+                            url: watchMusicDiscoveryArtworkURL(item.imageURL),
+                            fallbackSystemImage: "sparkles"
+                        )
+                        .frame(width: 44, height: 44)
+
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text(item.title)
+                                .font(.headline.weight(.bold))
+                                .foregroundStyle(.white)
+                                .lineLimit(3)
+                            if let subtitle = item.subtitle {
+                                Text(subtitle)
+                                    .font(.caption.weight(.semibold))
+                                    .foregroundStyle(.white.opacity(0.68))
+                                    .lineLimit(2)
+                            }
+                            Text(item.kind.rawValue.capitalized)
+                                .font(.caption2.weight(.bold))
+                                .foregroundStyle(watchAccentPurple)
+                        }
+                    }
+
+                    Text(item.reason)
+                        .font(.caption)
+                        .foregroundStyle(.white.opacity(0.86))
+                        .fixedSize(horizontal: false, vertical: true)
+
+                    if !item.reasonSources.isEmpty {
+                        VStack(alignment: .leading, spacing: 5) {
+                            Text(watchLocalizedKey(model.language, "watch.signals"))
+                                .font(.caption2.weight(.bold))
+                                .foregroundStyle(.white.opacity(0.54))
+                            ForEach(item.reasonSources, id: \.self) { source in
+                                Text(source.replacingOccurrences(of: "_", with: " "))
+                                    .font(.caption2.weight(.semibold))
+                                    .foregroundStyle(.white.opacity(0.78))
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .padding(.horizontal, 8)
+                                    .padding(.vertical, 5)
+                                    .background(Color.white.opacity(0.10), in: Capsule())
+                            }
+                        }
+                    }
+
+                    Button {
+                        Task {
+                            await model.playMusicDiscoveryItem(item, sectionID: sectionID)
+                            if model.musicDiscoveryErrorMessage == nil {
+                                dismiss()
+                            }
+                        }
+                    } label: {
+                        if model.playingMusicDiscoveryItemID == item.id {
+                            ProgressView()
+                                .controlSize(.mini)
+                                .tint(.white)
+                                .frame(maxWidth: .infinity, minHeight: 34)
+                        } else {
+                            Label(watchLocalizedKey(model.language, "ui.play.now"), systemImage: "play.fill")
+                                .font(.footnote.weight(.semibold))
+                                .frame(maxWidth: .infinity, minHeight: 34)
+                        }
+                    }
+                    .buttonStyle(DJConnectWatchGradientButtonStyle(kind: .secondary))
+                    .disabled(model.playingMusicDiscoveryItemID != nil)
+
+                    if let message = model.musicDiscoveryErrorMessage {
+                        Text(message)
+                            .font(.caption2.weight(.semibold))
+                            .foregroundStyle(.white.opacity(0.62))
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                }
+                .padding(.vertical, 8)
+                .padding(.horizontal, 4)
+            }
+        }
+        .navigationTitle(watchLocalizedKey(model.language, "ui.discover"))
+    }
+}
+
+private struct DJConnectWatchDiscoveryRow: View {
+    let item: DJConnectMusicDiscoveryItem
+    let isLoading: Bool
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 8) {
+            DJConnectWatchArtwork(url: watchMusicDiscoveryArtworkURL(item.imageURL), fallbackSystemImage: "sparkles")
+                .frame(width: 40, height: 40)
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text(item.title)
+                    .font(.caption.weight(.bold))
+                    .foregroundStyle(.white)
+                    .lineLimit(2)
+                if let subtitle = item.subtitle {
+                    Text(subtitle)
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(.white.opacity(0.62))
+                        .lineLimit(1)
+                }
+                Text(item.reason)
+                    .font(.caption2)
+                    .foregroundStyle(.white.opacity(0.58))
+                    .lineLimit(2)
+            }
+
+            Spacer(minLength: 4)
+
+            if isLoading {
+                ProgressView()
+                    .controlSize(.mini)
+                    .tint(.white)
+                    .padding(.top, 8)
+            } else {
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 10, weight: .bold))
+                    .foregroundStyle(.white.opacity(0.46))
+                    .padding(.top, 12)
+            }
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 8)
+        .frame(maxWidth: .infinity, minHeight: 66, alignment: .topLeading)
+        .background(DJConnectWatchPanel(cornerRadius: 12))
+    }
+}
+
+private func watchMusicDiscoveryArtworkURL(_ rawValue: String?) -> URL? {
+    guard let rawValue = rawValue?.trimmingCharacters(in: .whitespacesAndNewlines),
+          let url = URL(string: rawValue),
+          url.scheme?.isEmpty == false else {
+        return nil
+    }
+    return url
 }
 
 private struct DJConnectWatchPlaylistsView: View {

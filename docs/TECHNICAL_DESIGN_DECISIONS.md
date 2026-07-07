@@ -174,7 +174,7 @@ Conventies:
   push/tag-trigger krijgen.
 - De public unsigned releaseflow publiceert app-release-notes ook als statische
   `.md` en `.json` bestanden naar `pcvantol/djconnect-website`, zodat de app
-  `djconnect.dev/release-notes/{ios|macos}/{en|nl}/vX.Y.Z.json` kan lezen op
+  `djconnect.dev/release-notes/{ios|macos}/{en|nl|de|fr|es}/vX.Y.Z.json` kan lezen op
   basis van de gekozen app-taal, met de oude platform-only URL als fallback en
   zonder afhankelijk te zijn van anonieme GitHub API rate limits.
 

@@ -98,8 +98,9 @@ After renewing the Apple Developer Program membership:
   platform versions, tooling, dependencies, or license/source metadata changed.
 - Update `CHAT_BOOTSTRAP.md` so fresh Codex chats start with current release,
   handoff, workflow, and repository-status instructions.
-- Add/update `docs/release-notes/nl/vX.Y.Z.md` for Dutch What's New content
-  before publishing; otherwise the public workflow falls back to English text.
+- Add/update localized What's New content in
+  `docs/release-notes/{nl|de|fr|es}/vX.Y.Z.md` before publishing; otherwise
+  the public workflow falls back to English text for that language.
 - Review repository hygiene docs (`CONTRIBUTING.md`, `SECURITY.md`,
   `CODE_OF_CONDUCT.md`, `docs/BUILD_RELEASE_HYGIENE.md`, `docs/TODO.md`, and
   `docs/TECHNICAL_DESIGN_DECISIONS.md`) whenever contribution, security,
@@ -240,11 +241,11 @@ The workflow:
 - publishes `ios/vX.Y.Z` in `pcvantol/djconnect-app-releases` with
   `DJConnect-iOS-X.Y.Z-unsigned.zip` and an iOS checksum file;
 - uses the matching release section from `CHANGELOG.md` as the English public
-  release notes and optionally `docs/release-notes/nl/vX.Y.Z.md` or
-  `CHANGELOG.nl.md` as the Dutch release notes;
+  release notes and optionally `docs/release-notes/{nl|de|fr|es}/vX.Y.Z.md`
+  as localized release notes;
 - publishes static `.md` and `.json` release-note files into
   `pcvantol/djconnect-website` at
-  `wwwroot/release-notes/{ios|macos}/{en|nl}/vX.Y.Z.{md,json}` plus an older
+  `wwwroot/release-notes/{ios|macos}/{en|nl|de|fr|es}/vX.Y.Z.{md,json}` plus an older
   English fallback at `wwwroot/release-notes/{ios|macos}/vX.Y.Z.{md,json}`;
 - removes older platform-specific public releases and tags after successful
   publication, keeping the newest iOS and newest macOS public release online.
@@ -297,6 +298,12 @@ https://djconnect.dev/release-notes/ios/nl/vX.Y.Z.json
 https://djconnect.dev/release-notes/macos/nl/vX.Y.Z.json
 https://djconnect.dev/release-notes/ios/en/vX.Y.Z.json
 https://djconnect.dev/release-notes/macos/en/vX.Y.Z.json
+https://djconnect.dev/release-notes/ios/de/vX.Y.Z.json
+https://djconnect.dev/release-notes/macos/de/vX.Y.Z.json
+https://djconnect.dev/release-notes/ios/fr/vX.Y.Z.json
+https://djconnect.dev/release-notes/macos/fr/vX.Y.Z.json
+https://djconnect.dev/release-notes/ios/es/vX.Y.Z.json
+https://djconnect.dev/release-notes/macos/es/vX.Y.Z.json
 https://djconnect.dev/release-notes/ios/vX.Y.Z.json
 https://djconnect.dev/release-notes/macos/vX.Y.Z.json
 ```

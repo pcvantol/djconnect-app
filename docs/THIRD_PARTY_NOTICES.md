@@ -14,8 +14,8 @@ this file in the same change as:
 
 - `docs/TECHNICAL_DESIGN_DECISIONS.md`
 - `CHANGELOG.md`
-- English and Dutch release notes for the shipped version, if maintained
-  separately from `CHANGELOG.md`
+- localized release notes for the shipped version (`en`, `nl`, `de`, `fr`,
+  `es`), if maintained separately from `CHANGELOG.md`
 
 ## Runtime Libraries And Frameworks
 

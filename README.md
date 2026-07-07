@@ -99,7 +99,9 @@ highscores in app-local
 preferences, and do not call Home Assistant or create HA entities. Games lazy
 start behind a tap-to-play overlay, and leaving the Games screen resets them
 back to that idle state. When a game surface has keyboard focus, arrow keys and
-space are consumed by the game and must not trigger app navigation.
+space are consumed by the game and must not trigger app navigation. On iPad
+landscape, the game canvas is height-capped so the movement/action buttons stay
+visible below the playfield.
 
 Debug and UI stress runs can launch with `--monkey-testing`. This starts a
 non-destructive local Demo Mode, hides first-run/pairing blockers, avoids local
@@ -180,9 +182,12 @@ bootstrap proofs, raw prompts, raw audio, diagnostics, or local cache fields.
 Import previews a selected JSON backup locally, then uploads it to Home
 Assistant only while paired and connected.
 
-Ontdek / Discover is the iOS/macOS Music Discovery surface. It appears directly
-after Track Insight in primary navigation and is backed only by Home Assistant
-Music DNA data. The client loads `GET /api/djconnect/v1/music_discovery`, refreshes
+Ontdek / Discover is the iOS/macOS Music Discovery surface and is also available
+as a compact Apple Watch list/detail flow. It appears directly after Track
+Insight in primary navigation on iOS/macOS and lets watchOS users open a
+recommendation to read the backend reason before tapping Play Now. It is backed
+only by Home Assistant Music DNA data. The client loads
+`GET /api/djconnect/v1/music_discovery`, refreshes
 with `POST /api/djconnect/v1/music_discovery/refresh`, and plays accepted items via
 `POST /api/djconnect/v1/music_discovery/play` so Home Assistant can record the
 acceptance as a positive Music DNA signal. Clients must not generate
@@ -215,9 +220,11 @@ the neutral midpoint (`50`) after install, map Mood to the four zones
 `0...24 = chill`, `25...59 = groove`, `60...84 = energy`, and `85...100 = party`,
 and pass the numeric value to Ask DJ, playback commands, Music DNA, and Music
 Discovery requests where supported. The selected Mood also drives visual accents
-for Now Playing, Queue, Ask DJ, Track Insight, VibeCast, and widgets. Mood
-changes and intentional playback/Ask DJ actions use native haptic feedback on
-iOS/watchOS and supported macOS hardware.
+for Now Playing, Queue, Ask DJ, Track Insight, VibeCast, and widgets. Track
+Insight uses the same floating Mood control pattern as Ask DJ. Mood changes and
+intentional playback/Ask DJ actions use native haptic feedback on iOS/watchOS
+and supported macOS hardware; watchOS demo mode keeps haptics enabled on real
+hardware.
 
 APNs push registration is supported for iOS, macOS, and watchOS clients. iOS
 uses `client_type: "ios"` and `device_id` values shaped like
@@ -284,9 +291,12 @@ On startup after an app update, DJConnect compares the running version with the
 last version seen on that device. If the version changed, the app shows a
 `Wat is er nieuw` / `What's New` sheet and loads the current release notes from
 static files on `djconnect.dev`. The app tries the selected language first,
-for example `/release-notes/ios/nl/vX.Y.Z.json` or
-`/release-notes/macos/en/vX.Y.Z.json`, then falls back to the older
-platform-only JSON path and finally the GitHub release metadata API.
+for example `/release-notes/ios/nl/vX.Y.Z.json`,
+`/release-notes/macos/de/vX.Y.Z.json`, or
+`/release-notes/ios/es/vX.Y.Z.json`. Supported static What's New languages are
+`en`, `nl`, `de`, `fr`, and `es`; unsupported languages fall back to English,
+then the older platform-only JSON path and finally the GitHub release metadata
+API.
 
 ## Swift Package
 

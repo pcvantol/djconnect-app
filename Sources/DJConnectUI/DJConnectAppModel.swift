@@ -1300,7 +1300,7 @@ public final class DJConnectAppModel: ObservableObject {
                 }
                 let newestVersion = updates.last?.version ?? appVersion
                 updateNotesTitle = localized(key: "appModel.update.available.value", arguments: newestVersion)
-                updateNotesBody = updates.map { update in
+                updateNotesBody = updates.reversed().map { update in
                     """
                     ### \(update.title.isEmpty ? "DJConnect \(update.version)" : update.title)
 
@@ -8842,6 +8842,28 @@ public final class DJConnectAppModel: ObservableObject {
             }
             let response = try await client.clearMusicDNA(mood: payload?.mood)
             return try encoder.encode(response)
+        case .musicDiscovery:
+            let payload = request.payload.flatMap {
+                try? decoder.decode(DJConnectMusicDNAIdentityRequest.self, from: $0)
+            }
+            let response = try await client.musicDiscoveryFeed(
+                musicDNAKey: payload?.musicDNAKey,
+                language: payload?.language
+            )
+            return try encoder.encode(response)
+        case .musicDiscoveryRefresh:
+            let payload = request.payload.flatMap {
+                try? decoder.decode(DJConnectMusicDNAIdentityRequest.self, from: $0)
+            }
+            let response = try await client.refreshMusicDiscovery(
+                musicDNAKey: payload?.musicDNAKey,
+                language: payload?.language
+            )
+            return try encoder.encode(response)
+        case .musicDiscoveryPlay:
+            let payload = try decoder.decode(DJConnectMusicDiscoveryPlayRequest.self, from: request.payload ?? Data())
+            let response = try await client.playMusicDiscoveryItem(payload)
+            return try encoder.encode(response)
         case .voice:
             let payload = try decoder.decode(DJConnectWatchProxyVoicePayload.self, from: request.payload ?? Data())
             let response = try await client.sendVoice(
@@ -10341,7 +10363,13 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     nonisolated static func normalizedReleaseNotesLanguageCode(_ language: String) -> String {
-        language.lowercased().hasPrefix("nl") ? "nl" : "en"
+        let code = language.lowercased().split(separator: "-", maxSplits: 1).first.map(String.init) ?? language.lowercased()
+        switch code {
+        case "nl", "de", "fr", "es":
+            return code
+        default:
+            return "en"
+        }
     }
 
     nonisolated static func githubReleaseNotesURL(version: String, clientType: DJConnectClientType) -> URL? {

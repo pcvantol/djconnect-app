@@ -384,6 +384,11 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
     @Published private(set) var isUpdatingMusicDNA = false
     @Published private(set) var musicDNAErrorMessage: String?
     @Published private(set) var demoMusicDNAEnabled = false
+    @Published private(set) var musicDiscoveryResponse: DJConnectMusicDiscoveryResponse?
+    @Published private(set) var isLoadingMusicDiscovery = false
+    @Published private(set) var isRefreshingMusicDiscovery = false
+    @Published private(set) var musicDiscoveryErrorMessage: String?
+    @Published private(set) var playingMusicDiscoveryItemID: String?
     @Published var isShowingMusicDNAOptInPrompt = false
     @Published private(set) var playingAskDJActionID: String?
     @Published private(set) var isSavingCurrentTrack = false
@@ -2083,6 +2088,10 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         playWatchHaptic(.start)
     }
 
+    private func playMusicDiscoveryStartHaptic() {
+        playWatchHaptic(.start)
+    }
+
     private func playAskDJSendHaptic() {
         playWatchHaptic(.click)
     }
@@ -2096,9 +2105,6 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
     }
 
     private func playWatchHaptic(_ haptic: WKHapticType) {
-        guard !isDemoMode else {
-            return
-        }
         #if targetEnvironment(simulator)
         return
         #else
@@ -2325,15 +2331,125 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
 
     private func applyDemoMusicDNAProfile() {
         musicDNAProfileResponse = demoMusicDNAEnabled ? Self.demoMusicDNAProfileResponse(language: language) : Self.disabledMusicDNAProfileResponse()
+        musicDiscoveryResponse = demoMusicDNAEnabled ? Self.demoMusicDiscoveryResponse() : Self.disabledMusicDiscoveryResponse()
         musicDNAErrorMessage = nil
+        musicDiscoveryErrorMessage = nil
         isLoadingMusicDNA = false
         isUpdatingMusicDNA = false
         isUpdatingMusicDNAConsent = false
+        isLoadingMusicDiscovery = false
+        isRefreshingMusicDiscovery = false
     }
 
     private func applyMusicDNAProfile(_ response: DJConnectMusicDNAProfileResponse) {
         musicDNAProfileResponse = response
         musicDNAErrorMessage = nil
+        if response.enabled, musicDiscoveryResponse?.isMusicDNADisabled == true {
+            musicDiscoveryResponse = nil
+        }
+    }
+
+    func loadMusicDiscovery(force: Bool = false) async {
+        if isDemoMode {
+            musicDiscoveryResponse = demoMusicDNAEnabled ? Self.demoMusicDiscoveryResponse() : Self.disabledMusicDiscoveryResponse()
+            musicDiscoveryErrorMessage = nil
+            isLoadingMusicDiscovery = false
+            isRefreshingMusicDiscovery = false
+            return
+        }
+        guard canUseBackend else {
+            musicDiscoveryResponse = nil
+            musicDiscoveryErrorMessage = nil
+            isLoadingMusicDiscovery = false
+            isRefreshingMusicDiscovery = false
+            return
+        }
+        if !force, musicDiscoveryResponse != nil {
+            return
+        }
+        isLoadingMusicDiscovery = true
+        musicDiscoveryErrorMessage = nil
+        defer { isLoadingMusicDiscovery = false }
+        do {
+            let response: DJConnectMusicDiscoveryResponse = try await sendCompanionHARequest(
+                .musicDiscovery,
+                payload: DJConnectMusicDNAIdentityRequest(
+                    identity: identity,
+                    mood: askDJMoodInt,
+                    musicDNAKey: musicDNAKey,
+                    language: language,
+                    locale: currentRequestLocale
+                )
+            )
+            applyMusicDiscovery(response)
+        } catch {
+            musicDiscoveryResponse = nil
+            musicDiscoveryErrorMessage = Self.userMessage(for: error)
+        }
+    }
+
+    func refreshMusicDiscovery() async {
+        if isDemoMode {
+            let revision = (musicDiscoveryResponse?.revision ?? 12) + 1
+            musicDiscoveryResponse = demoMusicDNAEnabled ? Self.demoMusicDiscoveryResponse(revision: revision) : Self.disabledMusicDiscoveryResponse()
+            musicDiscoveryErrorMessage = nil
+            return
+        }
+        guard canUseBackend else {
+            return
+        }
+        isRefreshingMusicDiscovery = true
+        musicDiscoveryErrorMessage = nil
+        defer { isRefreshingMusicDiscovery = false }
+        do {
+            let response: DJConnectMusicDiscoveryResponse = try await sendCompanionHARequest(
+                .musicDiscoveryRefresh,
+                payload: DJConnectMusicDNAIdentityRequest(
+                    identity: identity,
+                    mood: askDJMoodInt,
+                    musicDNAKey: musicDNAKey,
+                    language: language,
+                    locale: currentRequestLocale
+                )
+            )
+            applyMusicDiscovery(response)
+        } catch {
+            musicDiscoveryErrorMessage = Self.userMessage(for: error)
+            await loadMusicDiscovery(force: true)
+        }
+    }
+
+    func playMusicDiscoveryItem(_ item: DJConnectMusicDiscoveryItem, sectionID: String) async {
+        guard item.isDisplayable, playingMusicDiscoveryItemID == nil else {
+            return
+        }
+        playMusicDiscoveryStartHaptic()
+        playingMusicDiscoveryItemID = item.id
+        musicDiscoveryErrorMessage = nil
+        defer { playingMusicDiscoveryItemID = nil }
+        if isDemoMode {
+            try? await Task.sleep(for: .milliseconds(160))
+            return
+        }
+        guard canUseBackend else {
+            return
+        }
+        do {
+            let payload = DJConnectMusicDiscoveryPlayRequest(
+                discoveryItemID: item.id,
+                sectionID: sectionID,
+                identity: identity,
+                musicDNAKey: musicDNAKey
+            )
+            let _: DJConnectCommandResponse = try await sendCompanionHARequest(.musicDiscoveryPlay, payload: payload)
+        } catch {
+            musicDiscoveryErrorMessage = Self.userMessage(for: error)
+        }
+    }
+
+    private func applyMusicDiscovery(_ response: DJConnectMusicDiscoveryResponse) {
+        musicDiscoveryResponse = response
+        musicDiscoveryErrorMessage = nil
     }
 
     func runAskDJHistorySyncLoop() async {
@@ -4154,6 +4270,70 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
             success: true,
             enabled: false,
             profile: DJConnectMusicDNAProfile()
+        )
+    }
+
+    private static func disabledMusicDiscoveryResponse() -> DJConnectMusicDiscoveryResponse {
+        DJConnectMusicDiscoveryResponse(
+            success: true,
+            enabled: false,
+            reason: "music_dna_disabled",
+            sections: []
+        )
+    }
+
+    private static func demoMusicDiscoveryResponse(revision: Int = 12) -> DJConnectMusicDiscoveryResponse {
+        DJConnectMusicDiscoveryResponse(
+            success: true,
+            enabled: true,
+            revision: revision,
+            generatedAt: Date(),
+            ttlSeconds: 86_400,
+            source: "music_dna",
+            sections: [
+                DJConnectMusicDiscoverySection(
+                    id: "because_you_like",
+                    title: "Omdat je dit vaak luistert",
+                    items: [
+                        DJConnectMusicDiscoveryItem(
+                            id: "watch-demo-discovery-1",
+                            kind: .track,
+                            title: "Midnight Relay",
+                            subtitle: "Luna Vale",
+                            uri: "spotify:track:watch-demo-discovery-1",
+                            reason: "Past bij je smaakankers: neon downtempo, Luna Vale en late-night synth grooves.",
+                            reasonSources: ["taste_anchors", "favorite_artists"],
+                            confidence: .high
+                        ),
+                        DJConnectMusicDiscoveryItem(
+                            id: "watch-demo-discovery-2",
+                            kind: .track,
+                            title: "Harbor Afterglow",
+                            subtitle: "Nova Harbor",
+                            uri: "spotify:track:watch-demo-discovery-2",
+                            reason: "Sluit aan op je recente favorieten met warm baswerk en melodische avondenergie.",
+                            reasonSources: ["recent_favorite_tracks", "mood_mix"],
+                            confidence: .medium
+                        )
+                    ]
+                ),
+                DJConnectMusicDiscoverySection(
+                    id: "fresh_for_your_mood",
+                    title: "Nieuw voor je mood",
+                    items: [
+                        DJConnectMusicDiscoveryItem(
+                            id: "watch-demo-discovery-3",
+                            kind: .playlist,
+                            title: "Neon Drive",
+                            subtitle: "Playlist",
+                            uri: "spotify:playlist:watch-demo-discovery-3",
+                            reason: "Gebouwd rond je groove-zone met genoeg energie om de set vooruit te duwen.",
+                            reasonSources: ["mood_mix", "energy_profile"],
+                            confidence: .high
+                        )
+                    ]
+                )
+            ]
         )
     }
 
