@@ -6,6 +6,7 @@ final class DJConnectIOSSettingsTests: XCTestCase {
         let app = XCUIApplication()
         app.launchArguments.append(contentsOf: ["--uitesting", "-AppleLanguages", "(nl)", "-AppleLocale", "nl_NL"])
         app.launchEnvironment["DJCONNECT_UITEST_HA_URL"] = "http://127.0.0.1:8123"
+        app.terminate()
         app.launch()
 
         enterDemoModeIfNeeded(app)

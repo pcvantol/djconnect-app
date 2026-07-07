@@ -25,7 +25,7 @@ with acceptance criteria live in [ISSUES.md](ISSUES.md).
 - Keep the Apple app and Home Assistant integration on the same `major.minor`
   protocol line; app `3.2.x` requires HA `3.2.x`.
 - Work through the high-priority local issues in [ISSUES.md](ISSUES.md),
-  especially physical-device validation and remaining XCUITest fixture work.
+  especially physical-device validation.
 
 ## Playback
 

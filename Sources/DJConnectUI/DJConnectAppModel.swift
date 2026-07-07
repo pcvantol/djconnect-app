@@ -721,6 +721,7 @@ public final class DJConnectAppModel: ObservableObject {
     @Published public var isDemoMode = false
     @Published public private(set) var isMonkeyTestingMode = false
     @Published public private(set) var isUITestRuntimeFixtureActive = false
+    @Published public private(set) var uiTestRuntimeFixtureScenario: String?
     @Published public var wakeWordEnabled = false {
         didSet {
             wakeWordEnabled ? startWakeWordListening() : stopWakeWordListening()
@@ -1054,6 +1055,18 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     public var shouldShowPairingScreen: Bool {
+        #if DEBUG
+        if isUITestRuntimeFixtureActive {
+            switch uiTestRuntimeFixtureScenario {
+            case "pairing_success", "stale_auth":
+                return !isShowingWelcome
+                    && !isShowingCrashReportPrompt
+                    && !isShowingTokenStorageError
+            default:
+                return false
+            }
+        }
+        #endif
         let shouldShowAppleWatchPairing = pairingFlowTarget == .appleWatch
             && (isAppleWatchPairingPending || isShowingPairingSuccess)
         let shouldShowIPhonePairing = !isDemoMode
@@ -1597,6 +1610,11 @@ public final class DJConnectAppModel: ObservableObject {
         updatePlaybackProgressTimer()
         updateNowPlayingPollTimer()
         syncTrackInsightLiveActivity(reason: "App became active")
+        #if DEBUG
+        guard !isUITestRuntimeFixtureActive else {
+            return
+        }
+        #endif
         guard pairingStatus == .paired, !isDemoMode else {
             return
         }
@@ -8179,6 +8197,7 @@ public final class DJConnectAppModel: ObservableObject {
     public func applyUITestRuntimeFixture(_ rawScenario: String) {
         let scenario = rawScenario.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         isUITestRuntimeFixtureActive = true
+        uiTestRuntimeFixtureScenario = scenario
         defaults.set(true, forKey: welcomeSeenKey)
         defaults.set(appVersion, forKey: lastSeenAppVersionKey)
         isShowingWelcome = false

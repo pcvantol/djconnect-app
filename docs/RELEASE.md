@@ -718,19 +718,12 @@ Use a Home Assistant instance with the matching `djconnect` integration.
 
 ## UI Test Automation
 
-The source tree can only provide deterministic unit tests without a HA fixture.
-For end-to-end UI tests, provide either:
-
-- a real HA URL plus test integration credentials on the local network; or
-- a recorded/mock HA server that implements `/api/djconnect/v1/pair`,
-  `/api/djconnect/v1/status`, `/api/djconnect/v1/command`, and
-  `/api/djconnect/v1/voice`.
-
 The `DJConnectIOSUITests` target now launches the iOS app in deterministic
-`--uitesting` mode with isolated defaults and a mock Home Assistant URL. The
-iOS and macOS UI tests include smoke coverage for primary navigation, local
-Demo Mode, Games entry, Settings, and the `App opnieuw koppelen` action.
-Extend those targets with a real mock server fixture for pairing, output
-selection, queue, playlist/liked proxy, Ask DJ history sync, voice upload,
-stale auth, backend unavailable states, and sanitized backend/HTML error
-responses.
+`--uitesting` mode with isolated defaults, an in-memory token store, a mock
+Home Assistant URL, and recorded runtime fixtures. The iOS and macOS UI tests
+include smoke coverage for primary navigation, local Demo Mode, Games entry,
+Settings, and the `App opnieuw koppelen` action. The focused iOS runtime
+fixture set covers successful pairing dismissal, paired runtime status,
+backend unavailable recovery copy, stale auth pairing recovery, version
+mismatch gating, output/queue/playlist navigation, Ask DJ, and voice
+unavailable UI state.

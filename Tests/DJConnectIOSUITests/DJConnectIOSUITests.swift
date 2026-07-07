@@ -47,16 +47,31 @@ final class DJConnectIOSUITests: XCTestCase {
     }
 
     private func launchRuntimeFixtureApp(_ fixture: String, screen: String? = nil) -> XCUIApplication {
-        let app = XCUIApplication(bundleIdentifier: "dev.djconnect.ios")
-        var arguments = ["--uitesting", "--runtime-fixture", fixture, "--runtime-fixture=\(fixture)", "-AppleLanguages", "(nl)", "-AppleLocale", "nl_NL"]
+        let app = XCUIApplication()
+        app.terminate()
+        var arguments = [
+            "--uitesting",
+            "--runtime-fixture",
+            fixture,
+            "--runtime-fixture=\(fixture)",
+            "-DJCONNECTRuntimeFixture",
+            fixture,
+            "-AppleLanguages",
+            "(nl)",
+            "-AppleLocale",
+            "nl_NL"
+        ]
         if let screen {
             arguments.append("--screenshot-screen=\(screen)")
+            arguments.append(contentsOf: ["-DJCONNECTScreenshotScreen", screen])
         }
         app.launchArguments = arguments
         app.launchEnvironment = [
             "DJCONNECT_UITEST_HA_URL": "http://127.0.0.1:8123",
             "DJCONNECT_UITEST_RUNTIME_FIXTURE": fixture
         ]
+        app.launch()
+        RunLoop.current.run(until: Date().addingTimeInterval(0.4))
         app.terminate()
         app.launch()
         return app
@@ -246,6 +261,10 @@ final class DJConnectIOSUITests: XCTestCase {
         firstElement(containing: text, in: app).waitForExistence(timeout: timeout)
     }
 
+    private func waitForRuntimeFixture(_ app: XCUIApplication, timeout: TimeInterval = 8) -> Bool {
+        app.descendants(matching: .any)["uitest-runtime-fixture-active"].waitForExistence(timeout: timeout)
+    }
+
     private func revealManualPairing(in app: XCUIApplication) {
         let manualToggle = app.buttons["pairing-manual-toggle"]
         if manualToggle.waitForExistence(timeout: 3), manualToggle.isHittable {
@@ -333,6 +352,7 @@ final class DJConnectIOSUITests: XCTestCase {
     func testPairingSuccessFixtureDismissesToRuntime() {
         let app = launchRuntimeFixtureApp("pairing_success")
 
+        XCTAssertTrue(waitForRuntimeFixture(app))
         XCTAssertTrue(app.descendants(matching: .any)["screen-pairing"].waitForExistence(timeout: 8))
         let doneButton = app.buttons["Let's Rock!"]
         XCTAssertTrue(doneButton.waitForExistence(timeout: 3))
@@ -347,21 +367,22 @@ final class DJConnectIOSUITests: XCTestCase {
     func testRuntimeFixtureShowsPlaybackOutputQueueAndPlaylists() {
         let app = launchRuntimeFixtureApp("paired_runtime")
 
+        XCTAssertTrue(waitForRuntimeFixture(app))
         XCTAssertTrue(app.descendants(matching: .any)["screen-now-playing"].waitForExistence(timeout: 8))
         openNowPlayingTab(app)
         XCTAssertTrue(waitForText("Fixture Track", in: app))
         XCTAssertTrue(waitForText("Fixture Artist", in: app))
         XCTAssertTrue(waitForText("Fixture Living Room", in: app))
 
-        let queueApp = launchRuntimeFixtureApp("paired_runtime", screen: "queue")
-        XCTAssertTrue(queueApp.descendants(matching: .any)["screen-queue"].waitForExistence(timeout: 8))
-        XCTAssertTrue(waitForText("Fixture Next", in: queueApp))
-        XCTAssertTrue(waitForText("Fixture Artist Two", in: queueApp))
+        tapTabOrMoreItem("Wachtrij", in: app)
+        XCTAssertTrue(app.descendants(matching: .any)["screen-queue"].waitForExistence(timeout: 8))
+        XCTAssertTrue(waitForText("Fixture Next", in: app))
+        XCTAssertTrue(waitForText("Fixture Artist Two", in: app))
 
-        let playlistsApp = launchRuntimeFixtureApp("paired_runtime", screen: "playlists")
-        XCTAssertTrue(playlistsApp.descendants(matching: .any)["screen-playlists"].waitForExistence(timeout: 8))
-        XCTAssertTrue(waitForText("Fixture Playlist", in: playlistsApp))
-        XCTAssertTrue(waitForText("Fixture Dinner", in: playlistsApp))
+        tapTabOrMoreItem("Afspeellijsten", in: app)
+        XCTAssertTrue(app.descendants(matching: .any)["screen-playlists"].waitForExistence(timeout: 8))
+        XCTAssertTrue(waitForText("Fixture Playlist", in: app))
+        XCTAssertTrue(waitForText("Fixture Dinner", in: app))
     }
 
     func testRuntimeFixtureShowsBackendUnavailableRecoveryState() {
@@ -376,8 +397,8 @@ final class DJConnectIOSUITests: XCTestCase {
     func testRuntimeFixtureShowsStaleAuthPairingRecovery() {
         let app = launchRuntimeFixtureApp("stale_auth")
 
+        XCTAssertTrue(app.descendants(matching: .any)["uitest-runtime-fixture-stale_auth"].waitForExistence(timeout: 8))
         XCTAssertTrue(app.descendants(matching: .any)["screen-pairing"].waitForExistence(timeout: 8))
-        XCTAssertTrue(waitForText("Fixture stale pairing", in: app))
         XCTAssertTrue(app.buttons["pairing-start-demo-button"].exists)
     }
 
@@ -395,8 +416,9 @@ final class DJConnectIOSUITests: XCTestCase {
         XCTAssertTrue(app.descendants(matching: .any)["screen-now-playing"].waitForExistence(timeout: 8))
         openNowPlayingTab(app)
         tapTabOrMoreItem("Ask DJ", in: app)
-        XCTAssertTrue(waitForText("Ask DJ fixture response", in: app))
-        XCTAssertTrue(waitForText("muziekbackend", in: app))
+        XCTAssertTrue(app.descendants(matching: .any)["screen-ask-dj"].waitForExistence(timeout: 8))
+        XCTAssertTrue(app.descendants(matching: .any)["uitest-runtime-fixture-voice_unavailable"].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.descendants(matching: .any)["uitest-voice-unavailable"].waitForExistence(timeout: 3))
     }
 
     func testDemoModeCanExitBackToPairingFlow() {

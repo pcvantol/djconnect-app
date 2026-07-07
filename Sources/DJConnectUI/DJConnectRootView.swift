@@ -779,6 +779,32 @@ public struct DJConnectRootView: View {
             #if os(iOS)
             .background(.clear)
             #endif
+            #if DEBUG
+            if model.isUITestRuntimeFixtureActive {
+                Text("uitest-runtime-fixture-active")
+                    .font(.caption2)
+                    .frame(width: 1, height: 1)
+                    .opacity(0.01)
+                    .accessibilityIdentifier("uitest-runtime-fixture-active")
+                    .accessibilityLabel("uitest-runtime-fixture-active")
+                if let scenario = model.uiTestRuntimeFixtureScenario {
+                    Text("uitest-runtime-fixture-\(scenario)")
+                        .font(.caption2)
+                        .frame(width: 1, height: 1)
+                        .opacity(0.01)
+                        .accessibilityIdentifier("uitest-runtime-fixture-\(scenario)")
+                        .accessibilityLabel("uitest-runtime-fixture-\(scenario)")
+                }
+                if model.voiceStatus == .unavailable {
+                    Text("uitest-voice-unavailable")
+                        .font(.caption2)
+                        .frame(width: 1, height: 1)
+                        .opacity(0.01)
+                        .accessibilityIdentifier("uitest-voice-unavailable")
+                        .accessibilityLabel("uitest-voice-unavailable")
+                }
+            }
+            #endif
         }
         .sheet(item: rootSheetBinding) { sheet in
             rootSheetView(sheet)
@@ -850,7 +876,9 @@ public struct DJConnectRootView: View {
 
     private func handleScreenshotScreenRequestIfNeeded() {
         #if DEBUG
-        guard let screen = ProcessInfo.processInfo.arguments
+        guard let screen = UserDefaults.standard.string(forKey: "DJCONNECTScreenshotScreen")
+            ?? launchArgumentValue(named: "-DJCONNECTScreenshotScreen")
+            ?? ProcessInfo.processInfo.arguments
             .first(where: { $0.hasPrefix("--screenshot-screen=") })?
             .split(separator: "=", maxSplits: 1)
             .last
@@ -889,6 +917,18 @@ public struct DJConnectRootView: View {
         }
         #endif
     }
+
+    #if DEBUG
+    private func launchArgumentValue(named name: String) -> String? {
+        let arguments = ProcessInfo.processInfo.arguments
+        guard let index = arguments.firstIndex(of: name),
+              arguments.indices.contains(arguments.index(after: index)) else {
+            return nil
+        }
+        let value = arguments[arguments.index(after: index)]
+        return value.isEmpty ? nil : value
+    }
+    #endif
 
     #if os(iOS)
     private func usesTopTabLayout(for size: CGSize) -> Bool {

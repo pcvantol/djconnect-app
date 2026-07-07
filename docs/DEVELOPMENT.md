@@ -257,9 +257,9 @@ at a mock Home Assistant URL. The current tests verify deterministic launch,
 first-run dismissal, manual pairing form wiring, Demo Mode entry/exit, compact
 permission rows, primary navigation, jump URL routing, Settings URL seeding,
 local Games menu choices, hardware-keyboard game input, safe monkey navigation,
-and screenshot capture cleanup. Add a local mock HA server fixture before
-asserting successful pairing, runtime status loading, stale auth, backend
-unavailable, version mismatch, queue, playlist, output, Ask DJ, and voice flows.
+screenshot capture cleanup, and recorded runtime fixture flows for successful
+pairing, paired status loading, stale auth, backend unavailable, version
+mismatch, queue, playlist, output, Ask DJ, and voice unavailable states.
 
 ## Home Assistant Transport Check
 

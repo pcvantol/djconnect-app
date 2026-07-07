@@ -36,6 +36,7 @@ struct DJConnectIOSApp: App {
             }
             let runtimeFixture = processInfo.environment["DJCONNECT_UITEST_RUNTIME_FIXTURE"]
                 ?? launchArgumentValue(named: "--runtime-fixture", arguments: processInfo.arguments)
+                ?? launchArgumentValue(named: "-DJCONNECTRuntimeFixture", arguments: processInfo.arguments)
             let tokenStore = DJConnectInMemoryTokenStore(
                 token: nil
             )
@@ -69,6 +70,7 @@ struct DJConnectIOSApp: App {
         let value = arguments[arguments.index(after: index)]
         return value.isEmpty ? nil : value
     }
+
 }
 
 final class DJConnectIOSAppDelegate: NSObject, UIApplicationDelegate, @preconcurrency UNUserNotificationCenterDelegate {

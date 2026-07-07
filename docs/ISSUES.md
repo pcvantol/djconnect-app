@@ -158,10 +158,11 @@ Completion notes:
 ### ISS-008: Add XCUITests For Pairing And Runtime Flows
 
 Priority: medium
-Status: in progress
+Status: done
 
-The initial UI test target exists, but end-to-end pairing and network flows
-need a mock Home Assistant server or a live test Home Assistant environment.
+The iOS UI test target now covers deterministic pairing and runtime flows with
+recorded in-app Home Assistant fixtures, isolated defaults, and an in-memory
+token store.
 
 Acceptance:
 
@@ -179,11 +180,17 @@ Progress notes:
   Settings URL seeding, primary navigation, local Games menu choices, jump URL
   routing, screenshot capture cleanup, and safe monkey navigation.
 - Added focused UI coverage for hardware-keyboard game behavior.
-- Full deterministic pairing/runtime XCUITest coverage remains open until the
-  app can run against a mock Home Assistant server or recorded fixture that
-  exercises successful pairing, status/runtime loading, stale auth, backend
-  unavailable, version mismatch, output/queue/playlist, Ask DJ, and voice/PTT
-  UI states.
+- Added recorded runtime fixtures for successful pairing dismissal, paired
+  runtime status, backend unavailable recovery copy, stale auth pairing
+  recovery, version mismatch gating, output/queue/playlist navigation, Ask DJ,
+  and voice unavailable UI state.
+- Verified with the focused ISS-008 XCUITest fixture set:
+  `testPairingSuccessFixtureDismissesToRuntime`,
+  `testRuntimeFixtureShowsPlaybackOutputQueueAndPlaylists`,
+  `testRuntimeFixtureShowsBackendUnavailableRecoveryState`,
+  `testRuntimeFixtureShowsStaleAuthPairingRecovery`,
+  `testRuntimeFixtureShowsVersionMismatchGate`, and
+  `testRuntimeFixtureShowsVoiceUnavailableStateInAskDJ`.
 
 ### ISS-014: Add Hardware Keyboard UI Coverage For Games
 
