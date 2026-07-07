@@ -4,6 +4,21 @@ All notable changes to DJConnect App are documented here.
 
 ## Unreleased
 
+## 3.2.25 - 2026-07-07
+
+### Added
+
+- Added a direct iOS Speelt Nu / Now Playing shortcut button to Wachtrij /
+  Queue next to shuffle.
+
+### Changed
+
+- Made the Now Playing widget fallback artwork use a DJConnect music/play
+  placeholder instead of a grey album-art block.
+- Brought the Lock Screen Live Activity and Dynamic Island in line with the
+  Now Playing widget, including Mood-based colours, keyline tint, artwork
+  loading, compact Dynamic Island artwork, and consistent fallback visuals.
+
 ## 3.2.24 - 2026-07-07
 
 ### Added

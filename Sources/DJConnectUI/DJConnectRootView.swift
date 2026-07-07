@@ -916,7 +916,9 @@ public struct DJConnectRootView: View {
 
     private var compactRootTabs: some View {
         TabView(selection: compactTabSelection) {
-            NowPlayingView(model: model)
+            NowPlayingView(model: model) {
+                selectedSection = .queue
+            }
                 .tabItem {
                     Label(localizedKey(model.language, "ui.now.playing"), systemImage: "music.note")
                 }
@@ -1171,7 +1173,9 @@ public struct DJConnectRootView: View {
     private var selectedView: some View {
         switch selectedSection {
         case .nowPlaying:
-            NowPlayingView(model: model)
+            NowPlayingView(model: model) {
+                selectedSection = .queue
+            }
         case .trackInsight:
             TrackInsightView(model: model)
         case .discovery:
@@ -3138,11 +3142,12 @@ private struct WhatsNewMarkdownBody: View {
 
 struct NowPlayingView: View {
     @ObservedObject var model: DJConnectAppModel
+    var openQueueAction: () -> Void = {}
     @State private var statusToast: DJConnectVisualNotice?
 
     var body: some View {
         #if os(iOS)
-        IOSNowPlayingView(model: model)
+        IOSNowPlayingView(model: model, openQueueAction: openQueueAction)
             .accessibilityIdentifier("screen-now-playing")
         #else
         NavigationStack {
@@ -9171,6 +9176,7 @@ private struct NowPlayingMoodControlSection: View {
 #if os(iOS)
 private struct IOSNowPlayingView: View {
     @ObservedObject var model: DJConnectAppModel
+    var openQueueAction: () -> Void
     @State private var statusToast: DJConnectVisualNotice?
 
     var body: some View {
@@ -9179,7 +9185,7 @@ private struct IOSNowPlayingView: View {
                 DJConnectCanvasBackground()
                 ScrollView {
                     VStack(spacing: 16) {
-                        IOSTrackHero(model: model)
+                        IOSTrackHero(model: model, openQueueAction: openQueueAction)
                         OutputSelectorView(model: model)
                         NowPlayingMoodControlSection(model: model)
                         if !model.isDemoMode {
@@ -9413,6 +9419,7 @@ private struct IOSConnectionCard: View {
 
 private struct IOSTrackHero: View {
     @ObservedObject var model: DJConnectAppModel
+    var openQueueAction: () -> Void
     @State private var cardTint = Color(red: 0.22, green: 0.52, blue: 0.92)
 
     private var playback: DJConnectPlayback? {
@@ -9441,7 +9448,7 @@ private struct IOSTrackHero: View {
             ProgressScrubberView(model: model)
 
             SeekControlsView(model: model)
-            IOSPlaybackSurface(model: model)
+            IOSPlaybackSurface(model: model, openQueueAction: openQueueAction)
         }
         .padding(14)
         .background {
@@ -9456,6 +9463,7 @@ private struct IOSTrackHero: View {
 
 private struct IOSPlaybackSurface: View {
     @ObservedObject var model: DJConnectAppModel
+    var openQueueAction: () -> Void
     private var canUsePlayback: Bool { model.canUsePlaybackFeatures && !model.isRefreshing }
 
     var body: some View {
@@ -9508,6 +9516,8 @@ private struct IOSPlaybackSurface: View {
                 ShuffleModeButton(model: model)
                     .disabled(!canUsePlayback)
 
+                QueueNavigationButton(model: model, action: openQueueAction)
+
                 FavoriteTrackButton(model: model)
                     .disabled(!canUsePlayback)
 
@@ -9518,7 +9528,6 @@ private struct IOSPlaybackSurface: View {
                     .disabled(!canUsePlayback)
             }
         }
-        .disabled(!canUsePlayback)
         .opacity(canUsePlayback ? 1 : 0.55)
         .padding(14)
         .background(Color.white.opacity(0.04), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
@@ -9544,6 +9553,26 @@ private struct IOSPlaybackSurface: View {
         .buttonStyle(PlaybackControlButtonStyle(isProminent: prominent))
         .disabled(!canUsePlayback)
         .accessibilityLabel(accessibilityLabel)
+    }
+}
+
+private struct QueueNavigationButton: View {
+    @ObservedObject var model: DJConnectAppModel
+    var action: () -> Void
+
+    var body: some View {
+        Button {
+            DJConnectHaptics.selection()
+            action()
+        } label: {
+            Image(systemName: "music.note.list")
+                .font(.system(size: 22, weight: .semibold))
+                .foregroundStyle(.white.opacity(0.82))
+                .frame(width: 44, height: 40)
+        }
+        .buttonStyle(PlaybackControlButtonStyle())
+        .help(localizedKey(model.language, "ui.queue"))
+        .accessibilityLabel(localizedKey(model.language, "ui.queue"))
     }
 }
 

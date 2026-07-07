@@ -432,11 +432,11 @@ private struct DJConnectNowPlayingArtwork: View {
                             .resizable()
                             .scaledToFill()
                     } else {
-                        DJConnectNowPlayingArtworkFallback(entry: entry)
+                        DJConnectNowPlayingArtworkFallback()
                     }
                 }
             } else {
-                DJConnectNowPlayingArtworkFallback(entry: entry)
+                DJConnectNowPlayingArtworkFallback()
             }
         }
         .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
@@ -448,31 +448,48 @@ private struct DJConnectNowPlayingArtwork: View {
 }
 
 private struct DJConnectNowPlayingArtworkFallback: View {
-    let entry: DJConnectNowPlayingWidgetEntry
     private let palette = DJConnectWidgetMoodPalette(stepIndex: DJConnectWidgetMood.currentStepIndex)
 
     var body: some View {
         ZStack {
             LinearGradient(
-                colors: palette.colors,
+                colors: palette.backgroundColors,
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             )
             RadialGradient(
                 colors: [
-                    .white.opacity(0.22),
+                    palette.colors[2].opacity(0.42),
                     .clear
                 ],
                 center: .topLeading,
                 startRadius: 2,
-                endRadius: 64
+                endRadius: 86
             )
-            Image(systemName: entry.isPlaying ? "play.fill" : "pause.fill")
-                .font(.system(size: 30, weight: .black))
-                .foregroundStyle(.white.opacity(0.92))
-                .shadow(color: .black.opacity(0.25), radius: 8, x: 0, y: 4)
+            DJConnectMusicPlayArtworkIcon()
+                .frame(width: 58, height: 58)
+                .shadow(color: palette.colors[1].opacity(0.36), radius: 14, x: 0, y: 8)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+}
+
+private struct DJConnectMusicPlayArtworkIcon: View {
+    var body: some View {
+        ZStack {
+            Circle()
+                .fill(.white.opacity(0.13))
+            Circle()
+                .stroke(.white.opacity(0.24), lineWidth: 1)
+            Image(systemName: "music.note")
+                .font(.system(size: 30, weight: .semibold))
+                .foregroundStyle(.white.opacity(0.88))
+                .offset(x: -5, y: -4)
+            Image(systemName: "play.fill")
+                .font(.system(size: 18, weight: .black))
+                .foregroundStyle(.white.opacity(0.94))
+                .offset(x: 12, y: 11)
+        }
     }
 }
 
@@ -2089,12 +2106,12 @@ struct DJConnectTrackInsightLiveActivityWidget: Widget {
                 .containerBackground(for: .widget) {
                     DJConnectNowPlayingLiveActivityBackground(state: context.state)
                 }
-                .activityBackgroundTint(Color(red: 0.14, green: 0.12, blue: 0.34))
+                .activityBackgroundTint(DJConnectLiveActivityMoodBackgroundTint())
                 .activitySystemActionForegroundColor(.white)
         } dynamicIsland: { context in
             DynamicIsland {
                 DynamicIslandExpandedRegion(.leading) {
-                    DJConnectNowPlayingArtwork(entry: context.state.widgetEntry, allowsRemoteArtwork: false)
+                    DJConnectNowPlayingArtwork(entry: context.state.widgetEntry)
                         .frame(width: 56, height: 56)
                         .padding(.leading, 2)
                         .background {
@@ -2115,16 +2132,26 @@ struct DJConnectTrackInsightLiveActivityWidget: Widget {
                     DJConnectNowPlayingLiveActivityExpandedIslandView(state: context.state)
                 }
             } compactLeading: {
-                Image(systemName: "music.note")
-                    .font(.caption.weight(.bold))
-                    .foregroundStyle(DJConnectLiveActivityAccentGradient())
+                DJConnectNowPlayingLiveActivityCompactArtwork(state: context.state)
             } compactTrailing: {
                 DJConnectNowPlayingLiveActivityCompactPlaybackIcon(state: context.state)
             } minimal: {
                 DJConnectNowPlayingLiveActivityCompactPlaybackIcon(state: context.state)
             }
-            .keylineTint(Color(red: 0.24, green: 0.64, blue: 1.0))
+            .keylineTint(DJConnectLiveActivityMoodKeylineColor())
         }
+    }
+}
+
+@available(iOS 16.1, *)
+private struct DJConnectNowPlayingLiveActivityCompactArtwork: View {
+    let state: TrackInsightLiveActivityAttributes.ContentState
+
+    var body: some View {
+        DJConnectNowPlayingArtwork(entry: state.widgetEntry)
+            .frame(width: 22, height: 22)
+            .shadow(color: DJConnectLiveActivityMoodKeylineColor().opacity(0.36), radius: 5, x: 0, y: 2)
+            .accessibilityHidden(true)
     }
 }
 
@@ -2135,7 +2162,7 @@ private struct DJConnectNowPlayingLiveActivityLockScreenView: View {
     var body: some View {
         let entry = state.widgetEntry
         HStack(spacing: 14) {
-            DJConnectNowPlayingArtwork(entry: entry, allowsRemoteArtwork: false)
+            DJConnectNowPlayingArtwork(entry: entry)
                 .frame(width: 72, height: 72)
             VStack(alignment: .leading, spacing: 6) {
                 Label(DJConnectLocalization.localized(key: "widget.now.playing"), systemImage: state.isPlaying ? "music.note" : "pause.fill")
@@ -2307,6 +2334,7 @@ private struct DJConnectNowPlayingLiveActivityOrb: View {
 @available(iOS 16.1, *)
 private struct DJConnectNowPlayingLiveActivityWaveform: View {
     let state: TrackInsightLiveActivityAttributes.ContentState
+    private let palette = DJConnectWidgetMoodPalette(stepIndex: DJConnectWidgetMood.currentStepIndex)
 
     var body: some View {
         TimelineView(.periodic(from: .now, by: 1.0)) { timeline in
@@ -2325,7 +2353,7 @@ private struct DJConnectNowPlayingLiveActivityWaveform: View {
                         width: max(2, barWidth * 0.48),
                         height: height
                     )
-                    let color = Color(hue: 0.58 + Double(index) / Double(bars) * 0.24, saturation: 0.86, brightness: 1)
+                    let color = palette.colors[index % palette.colors.count]
                     context.fill(Path(roundedRect: rect, cornerRadius: 2), with: .color(color.opacity(0.78)))
                 }
             }
@@ -2349,12 +2377,11 @@ private struct DJConnectNowPlayingLiveActivityBackground: View {
 
 @available(iOS 16.1, *)
 private struct DJConnectLiveActivityAccentGradient: ShapeStyle {
+    private let palette = DJConnectWidgetMoodPalette(stepIndex: DJConnectWidgetMood.currentStepIndex)
+
     func resolve(in environment: EnvironmentValues) -> some ShapeStyle {
         LinearGradient(
-            colors: [
-                Color(red: 0.30, green: 0.63, blue: 1.0),
-                Color(red: 0.78, green: 0.34, blue: 1.0)
-            ],
+            colors: [palette.colors[1], palette.colors[2]],
             startPoint: .topLeading,
             endPoint: .bottomTrailing
         )
@@ -2362,22 +2389,29 @@ private struct DJConnectLiveActivityAccentGradient: ShapeStyle {
 }
 
 @available(iOS 16.1, *)
+private func DJConnectLiveActivityMoodKeylineColor() -> Color {
+    DJConnectWidgetMoodPalette(stepIndex: DJConnectWidgetMood.currentStepIndex).colors[1]
+}
+
+@available(iOS 16.1, *)
+private func DJConnectLiveActivityMoodBackgroundTint() -> Color {
+    DJConnectWidgetMoodPalette(stepIndex: DJConnectWidgetMood.currentStepIndex).backgroundColors[1]
+}
+
+@available(iOS 16.1, *)
 private struct DJConnectLiveActivityGradient: View {
+    private let palette = DJConnectWidgetMoodPalette(stepIndex: DJConnectWidgetMood.currentStepIndex)
+
     var body: some View {
         ZStack {
             LinearGradient(
-                colors: [
-                    Color(red: 0.08, green: 0.12, blue: 0.34),
-                    Color(red: 0.24, green: 0.18, blue: 0.58),
-                    Color(red: 0.73, green: 0.22, blue: 0.96),
-                    Color(red: 0.08, green: 0.74, blue: 0.72)
-                ],
+                colors: palette.backgroundColors,
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             )
             RadialGradient(
                 colors: [
-                    Color.white.opacity(0.18),
+                    palette.colors[2].opacity(0.26 + palette.glow * 0.16),
                     Color.clear
                 ],
                 center: .topTrailing,
