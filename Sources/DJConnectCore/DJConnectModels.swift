@@ -3678,6 +3678,14 @@ public struct DJConnectMusicDiscoveryItem: Codable, Identifiable, Equatable, Sen
         case subtitle
         case uri
         case imageURL = "image_url"
+        case imageUrl
+        case thumbnailURL = "thumbnail_url"
+        case thumbnailUrl
+        case albumImageURL = "album_image_url"
+        case albumImageUrl
+        case albumArtURL = "album_art_url"
+        case albumArtUrl
+        case artwork
         case reason
         case reasonSources = "reason_sources"
         case confidence
@@ -3712,10 +3720,46 @@ public struct DJConnectMusicDiscoveryItem: Codable, Identifiable, Equatable, Sen
         title = try container.decode(String.self, forKey: .title).trimmingCharacters(in: .whitespacesAndNewlines)
         subtitle = try container.decodeIfPresent(String.self, forKey: .subtitle)?.nilIfBlank
         uri = try container.decodeIfPresent(String.self, forKey: .uri)?.nilIfBlank
-        imageURL = try container.decodeIfPresent(String.self, forKey: .imageURL)?.nilIfBlank
+        imageURL = Self.decodeStringAliasIfPresent(
+            container,
+            .imageURL,
+            .imageUrl,
+            .thumbnailURL,
+            .thumbnailUrl,
+            .albumImageURL,
+            .albumImageUrl,
+            .albumArtURL,
+            .albumArtUrl,
+            .artwork
+        )
         reason = try container.decode(String.self, forKey: .reason).trimmingCharacters(in: .whitespacesAndNewlines)
         reasonSources = container.decodeLossyArrayIfPresent(String.self, forKey: .reasonSources) ?? []
         confidence = try container.decodeIfPresent(DJConnectMusicDiscoveryConfidence.self, forKey: .confidence)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(id, forKey: .id)
+        try container.encode(kind, forKey: .kind)
+        try container.encode(title, forKey: .title)
+        try container.encodeIfPresent(subtitle, forKey: .subtitle)
+        try container.encodeIfPresent(uri, forKey: .uri)
+        try container.encodeIfPresent(imageURL, forKey: .imageURL)
+        try container.encode(reason, forKey: .reason)
+        try container.encode(reasonSources, forKey: .reasonSources)
+        try container.encodeIfPresent(confidence, forKey: .confidence)
+    }
+
+    private static func decodeStringAliasIfPresent(
+        _ container: KeyedDecodingContainer<CodingKeys>,
+        _ keys: CodingKeys...
+    ) -> String? {
+        for key in keys {
+            if let value = try? container.decodeIfPresent(String.self, forKey: key)?.nilIfBlank {
+                return value
+            }
+        }
+        return nil
     }
 
     public var isDisplayable: Bool {

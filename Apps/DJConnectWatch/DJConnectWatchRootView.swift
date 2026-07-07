@@ -1328,7 +1328,16 @@ struct DJConnectWatchRootView: View {
             }
         }
 
+        @ViewBuilder
         private var header: some View {
+            if model.musicDNAProfileResponse?.enabled == true {
+                activeHeader
+            } else {
+                inactiveHeader
+            }
+        }
+
+        private var activeHeader: some View {
             VStack(alignment: .leading, spacing: 7) {
                 Label("Music DNA", systemImage: "heart")
                     .font(.headline.weight(.bold))
@@ -1350,11 +1359,47 @@ struct DJConnectWatchRootView: View {
             .background(DJConnectWatchPanel(cornerRadius: 12))
         }
 
-        private var headerText: String {
-            if model.musicDNAProfileResponse?.enabled == false {
-                return watchLocalizedKey(model.language, "ui.djconnect.in.your.home.assistant.environment.does.not.build.a")
+        private var inactiveHeader: some View {
+            VStack(spacing: 10) {
+                Image(systemName: "heart")
+                    .font(.system(size: 38, weight: .semibold))
+                    .foregroundStyle(watchIconGradient)
+                    .frame(width: 52, height: 52)
+
+                Text("Music DNA")
+                    .font(.headline.weight(.bold))
+                    .foregroundStyle(.white)
+                    .multilineTextAlignment(.center)
+
+                Text(watchLocalizedKey(model.language, "ui.djconnect.in.your.home.assistant.environment.does.not.build.a"))
+                    .font(.caption2)
+                    .foregroundStyle(.white.opacity(0.68))
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
             }
-            return watchLocalizedKey(model.language, "ui.with.music.dna.djconnect.can.learn.from.your.taste.and")
+            .frame(maxWidth: .infinity, minHeight: 142)
+            .padding(.vertical, 16)
+            .padding(.horizontal, 10)
+            .background(
+                LinearGradient(
+                    colors: [
+                        Color(red: 0.04, green: 0.03, blue: 0.13).opacity(0.98),
+                        Color(red: 0.10, green: 0.04, blue: 0.22).opacity(0.97),
+                        Color(red: 0.11, green: 0.06, blue: 0.26).opacity(0.94)
+                    ],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                ),
+                in: RoundedRectangle(cornerRadius: 12, style: .continuous)
+            )
+            .overlay {
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .stroke(.white.opacity(0.16), lineWidth: 1)
+            }
+        }
+
+        private var headerText: String {
+            watchLocalizedKey(model.language, "ui.with.music.dna.djconnect.can.learn.from.your.taste.and")
         }
 
         @ViewBuilder
@@ -2890,7 +2935,8 @@ private struct DJConnectWatchDiscoveryView: View {
                         discoveryState(
                             title: watchLocalizedKey(model.language, "ui.music.dna.is.not.enabled"),
                             message: watchLocalizedKey(model.language, "ui.enable.music.dna.to.get.recommendations.tailored.to.your.listening"),
-                            systemImage: "lock.fill"
+                            systemImage: "lock.fill",
+                            showsMusicDNAActivation: true
                         )
                     } else if sections.isEmpty {
                         discoveryState(
@@ -2959,10 +3005,16 @@ private struct DJConnectWatchDiscoveryView: View {
         }
         .task {
             await model.loadMusicDiscovery()
+            await model.prepareMusicDNAConsentPromptIfNeeded()
         }
     }
 
-    private func discoveryState(title: String, message: String, systemImage: String) -> some View {
+    private func discoveryState(
+        title: String,
+        message: String,
+        systemImage: String,
+        showsMusicDNAActivation: Bool = false
+    ) -> some View {
         VStack(spacing: 8) {
             Image(systemName: systemImage)
                 .font(.title2)
@@ -2975,6 +3027,18 @@ private struct DJConnectWatchDiscoveryView: View {
                 .font(.caption2)
                 .foregroundStyle(.white.opacity(0.72))
                 .multilineTextAlignment(.center)
+            if showsMusicDNAActivation {
+                Button {
+                    model.showMusicDNAOptInPrompt()
+                } label: {
+                    Label(watchLocalizedKey(model.language, "ui.enable.music.dna.1adf61"), systemImage: "sparkles")
+                        .font(.caption.weight(.semibold))
+                        .frame(maxWidth: .infinity, minHeight: 30)
+                }
+                .buttonStyle(DJConnectWatchGradientButtonStyle(kind: .primary))
+                .disabled(model.isUpdatingMusicDNA)
+                .padding(.top, 2)
+            }
         }
         .padding(.vertical, 18)
         .padding(.horizontal, 8)

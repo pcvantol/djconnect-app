@@ -1304,14 +1304,9 @@ private struct PermissionExplanationView: View {
                         .buttonStyle(DJConnectLilacPillButtonStyle())
                         .controlSize(.large)
 
-                        Button {
+                        DJConnectNotNowLinkButton(language: model.language) {
                             model.cancelPermissionExplanation()
-                        } label: {
-                            Text(localizedKey(model.language, "ui.not.now"))
-                                .frame(maxWidth: .infinity)
                         }
-                        .buttonStyle(DJConnectLilacPillButtonStyle())
-                        .controlSize(.large)
                     }
                 }
                 .padding(28)
@@ -2260,14 +2255,9 @@ private struct PairingCameraConsentSheet: View {
                     .buttonStyle(DJConnectLilacPillButtonStyle())
                     .controlSize(.large)
 
-                    Button {
+                    DJConnectNotNowLinkButton(language: language) {
                         dismiss()
-                    } label: {
-                        Text(localizedKey(language, "ui.not.now"))
-                            .frame(maxWidth: .infinity)
                     }
-                    .buttonStyle(DJConnectLilacPillButtonStyle())
-                    .controlSize(.large)
                 }
             }
             .padding(.horizontal, 24)
@@ -2587,14 +2577,9 @@ private struct WakeWordActivationPromptView: View {
                 }
                 .buttonStyle(DJConnectLilacPillButtonStyle())
                 .controlSize(.large)
-                Button {
+                DJConnectNotNowLinkButton(language: model.language, key: "ui.not.now.b1e535") {
                     model.dismissWakeWordActivationPrompt()
-                } label: {
-                    Text(localizedKey(model.language, "ui.not.now.b1e535"))
-                        .frame(maxWidth: .infinity)
                 }
-                .buttonStyle(DJConnectLilacPillButtonStyle())
-                .controlSize(.large)
             }
             .padding(28)
         }
@@ -2668,13 +2653,9 @@ private struct CrashReportPromptView: View {
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(DJConnectLilacPillButtonStyle())
-                Button {
+                DJConnectNotNowLinkButton(language: model.language, key: "ui.not.now.b1e535") {
                     model.dismissCrashReportPrompt()
-                } label: {
-                    Text(localizedKey(model.language, "ui.not.now.b1e535"))
-                        .frame(maxWidth: .infinity)
                 }
-                .buttonStyle(DJConnectLilacPillButtonStyle())
             }
             .padding(28)
         }
@@ -3400,6 +3381,40 @@ struct DJConnectLilacPillButtonStyle: ButtonStyle {
     }
 }
 
+private struct DJConnectSecondaryLinkButtonStyle: ButtonStyle {
+    @Environment(\.isEnabled) private var isEnabled
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.headline.weight(.semibold))
+            .foregroundStyle(.secondary.opacity(isEnabled ? (configuration.isPressed ? 0.72 : 1.0) : 0.42))
+            .padding(.vertical, 8)
+            .frame(maxWidth: .infinity)
+            .contentShape(Rectangle())
+            .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
+    }
+}
+
+private struct DJConnectNotNowLinkButton: View {
+    let language: String
+    let key: String
+    let action: () -> Void
+
+    init(language: String, key: String = "ui.not.now", action: @escaping () -> Void) {
+        self.language = language
+        self.key = key
+        self.action = action
+    }
+
+    var body: some View {
+        Button(action: action) {
+            Text(localizedKey(language, key))
+        }
+        .buttonStyle(DJConnectSecondaryLinkButtonStyle())
+        .controlSize(.large)
+    }
+}
+
 private struct DJConnectFloatingCircleButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
@@ -3568,7 +3583,7 @@ private extension Image {
 }
 
 @MainActor
-private func makeArtworkImage(from data: Data) -> Image? {
+func makeArtworkImage(from data: Data) -> Image? {
     #if os(iOS)
     guard let image = UIImage(data: data) else {
         return nil
@@ -3584,7 +3599,7 @@ private func makeArtworkImage(from data: Data) -> Image? {
     #endif
 }
 
-private actor DJConnectArtworkDataCache {
+actor DJConnectArtworkDataCache {
     static let shared = DJConnectArtworkDataCache()
 
     private struct Entry {
@@ -3794,6 +3809,7 @@ private struct TrackInsightView: View {
     @State private var statusToast: DJConnectVisualNotice?
     #if canImport(AVKit) && os(iOS)
     @StateObject private var vibeCastAirPlaySession = VibeCastAirPlaySession()
+    @State private var shouldMaintainAirPlayVibeCast = false
     #endif
 
     private var insight: TrackInsight? {
@@ -3803,6 +3819,12 @@ private struct TrackInsightView: View {
     private var insightID: String? {
         insight?.id
     }
+
+    #if canImport(AVKit) && os(iOS)
+    private var airPlayRenderID: String {
+        "\(insightID ?? "none")|\(model.askDJMoodStepIndex)"
+    }
+    #endif
 
     private var playbackShareIdentity: String {
         Self.shareIdentity(title: model.playback?.trackName, artist: model.playback?.artistName)
@@ -3914,7 +3936,12 @@ private struct TrackInsightView: View {
                         language: model.language,
                         hasInsight: insight != nil,
                         isPreparing: vibeCastAirPlaySession.isPreparing,
-                        isReady: vibeCastAirPlaySession.player != nil
+                        isAnalyzing: model.isLoadingTrackInsight,
+                        isReady: vibeCastAirPlaySession.player != nil,
+                        canPrepare: model.canStartTrackInsightAnalysis,
+                        prepareAction: {
+                            Task { await prepareAirPlayVibeCast() }
+                        }
                     )
                     #else
                     AirPlayToolbarButton(language: model.language)
@@ -3973,6 +4000,9 @@ private struct TrackInsightView: View {
             }
             .onChange(of: playbackShareIdentity) {
                 dismissShareIfPlaybackMovedOn()
+                #if canImport(AVKit) && os(iOS)
+                scheduleAirPlayVibeCastRefreshIfNeeded()
+                #endif
             }
             .onChange(of: insightShareIdentity) {
                 dismissShareIfPlaybackMovedOn()
@@ -3997,12 +4027,20 @@ private struct TrackInsightView: View {
             .djUserNoticeToast(model: model)
         }
         #if canImport(AVKit) && os(iOS)
-        .task(id: insightID) {
+        .task(id: airPlayRenderID) {
             guard let insight else {
                 vibeCastAirPlaySession.reset()
                 return
             }
-            await vibeCastAirPlaySession.prepare(insight: insight, language: model.language)
+            guard shouldMaintainAirPlayVibeCast else {
+                return
+            }
+            await vibeCastAirPlaySession.prepare(
+                insight: insight,
+                language: model.language,
+                moodStepIndex: model.askDJMoodStepIndex,
+                fallbackArtworkURL: model.playback?.albumImageURL
+            )
             vibeCastAirPlaySession.sync(to: model.playback, force: true)
         }
         .onReceive(NotificationCenter.default.publisher(for: .AVPlayerItemDidPlayToEndTime)) { notification in
@@ -4062,6 +4100,42 @@ private struct TrackInsightView: View {
             systemImage: didRefresh ? "waveform.path.ecg" : "exclamationmark.triangle.fill"
         )
     }
+
+    #if canImport(AVKit) && os(iOS)
+    private func prepareAirPlayVibeCast() async {
+        shouldMaintainAirPlayVibeCast = true
+        if insight == nil || (!playbackShareIdentity.isEmpty && playbackShareIdentity != insightShareIdentity) {
+            _ = await model.refreshTrackInsight(open: false, forceRefresh: false)
+        }
+        guard let insight = model.currentTrackInsight else {
+            let failureMessage = model.trackInsightErrorMessage?.trimmingCharacters(in: .whitespacesAndNewlines)
+            if let failureMessage, !failureMessage.isEmpty {
+                showStatusToast(failureMessage, systemImage: "exclamationmark.triangle.fill")
+            }
+            return
+        }
+        await vibeCastAirPlaySession.prepare(
+            insight: insight,
+            language: model.language,
+            moodStepIndex: model.askDJMoodStepIndex,
+            fallbackArtworkURL: model.playback?.albumImageURL
+        )
+        vibeCastAirPlaySession.sync(to: model.playback, force: true)
+    }
+
+    private func scheduleAirPlayVibeCastRefreshIfNeeded() {
+        guard shouldMaintainAirPlayVibeCast else {
+            return
+        }
+        guard model.canStartTrackInsightAnalysis else {
+            vibeCastAirPlaySession.reset()
+            return
+        }
+        Task { @MainActor in
+            await prepareAirPlayVibeCast()
+        }
+    }
+    #endif
 
     private func showStatusToast(_ text: String, systemImage: String) {
         let notice = DJConnectVisualNotice(text: text, systemImage: systemImage)
@@ -4372,14 +4446,9 @@ private struct MusicDNAOptInPromptView: View {
                     .controlSize(.large)
                     .disabled(model.isUpdatingMusicDNA)
 
-                    Button {
+                    DJConnectNotNowLinkButton(language: model.language, key: "ui.not.now.b1e535") {
                         model.dismissMusicDNAOptInPrompt()
-                    } label: {
-                        Text(localizedKey(model.language, "ui.not.now.b1e535"))
-                            .frame(maxWidth: .infinity)
                     }
-                    .buttonStyle(DJConnectLilacPillButtonStyle())
-                    .controlSize(.large)
                 }
             }
             .padding(28)
@@ -6214,16 +6283,7 @@ private struct MusicDiscoveryEmptyState: View {
 
 @MainActor
 private func musicDiscoveryArtworkURL(_ rawValue: String?, model: DJConnectAppModel) -> URL? {
-    guard let rawValue = rawValue?.trimmingCharacters(in: .whitespacesAndNewlines), !rawValue.isEmpty else {
-        return nil
-    }
-    if let absoluteURL = URL(string: rawValue), absoluteURL.scheme?.isEmpty == false {
-        return absoluteURL
-    }
-    guard let baseURL = DJConnectAppModel.normalizedHomeAssistantURL(from: model.homeAssistantURL) else {
-        return URL(string: rawValue)
-    }
-    return URL(string: rawValue, relativeTo: baseURL)?.absoluteURL
+    model.resolvedHomeAssistantImageURL(rawValue)
 }
 
 private struct MusicDNATrackListRow: View {
@@ -6736,7 +6796,8 @@ private struct TrackInsightHeroScene: View {
                     profile: profile,
                     playback: playback,
                     reduceMotion: reduceMotion,
-                    isActive: isActive
+                    isActive: isActive,
+                    renderedArtworkImage: nil
                 )
                 .frame(width: artworkSize, height: artworkSize)
                 .position(x: geometry.size.width * 0.50, y: artworkY)
@@ -6935,6 +6996,7 @@ private struct TrackInsightHeroArtwork: View {
     let playback: DJConnectPlayback?
     let reduceMotion: Bool
     let isActive: Bool
+    let renderedArtworkImage: Image?
 
     var body: some View {
         GeometryReader { geometry in
@@ -6946,15 +7008,23 @@ private struct TrackInsightHeroArtwork: View {
                     .fill(.white.opacity(0.12))
                     .blur(radius: max(14, side * 0.11))
                     .scaleEffect(1.14)
-                CachedArtworkImage(url: insight.artwork, mode: .fill) {
-                    TrackHeartbeatIcon(
-                        profile: profile,
-                        playback: playback,
-                        reduceMotion: reduceMotion,
-                        isActive: isActive
-                    )
-                    .padding(iconPadding)
-                    .background(profile.gradient)
+                Group {
+                    if let renderedArtworkImage {
+                        renderedArtworkImage
+                            .resizable()
+                            .scaledToFill()
+                    } else {
+                        CachedArtworkImage(url: insight.artwork, mode: .fill) {
+                            TrackHeartbeatIcon(
+                                profile: profile,
+                                playback: playback,
+                                reduceMotion: reduceMotion,
+                                isActive: isActive
+                            )
+                            .padding(iconPadding)
+                            .background(profile.gradient)
+                        }
+                    }
                 }
                 .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
                 .overlay {
@@ -7206,7 +7276,7 @@ public struct VibeCastOutputView: View {
                     insight: insight,
                     playback: model.playback,
                     vibeCastItems: model.vibeCastItems,
-                    genreBadge: model.vibeCastResponse?.context?.genreBadge,
+                    genreBadge: model.vibeCastResponse?.context?.genreBadge ?? fallbackGenreBadge(from: insight),
                     language: model.language,
                     moodStepIndex: model.askDJMoodStepIndex,
                     reduceMotion: reduceMotion || ProcessInfo.processInfo.isLowPowerModeEnabled
@@ -7220,9 +7290,27 @@ public struct VibeCastOutputView: View {
             await model.runVibeCastPolling()
         }
     }
+
+    private func fallbackGenreBadge(from insight: TrackInsight) -> DJConnectVibeCastResponse.Context.GenreBadge? {
+        guard let label = [insight.genre, insight.subgenre]
+            .compactMap({ $0?.trimmingCharacters(in: .whitespacesAndNewlines) })
+            .first(where: { !$0.isEmpty }) else {
+            return nil
+        }
+        let canonical = label
+            .lowercased()
+            .components(separatedBy: CharacterSet.alphanumerics.inverted)
+            .filter { !$0.isEmpty }
+            .joined(separator: "-")
+        return DJConnectVibeCastResponse.Context.GenreBadge(
+            label: label,
+            genre: canonical.isEmpty ? nil : canonical,
+            placement: "top_trailing"
+        )
+    }
 }
 
-private struct VibeCastVisualizerSignalView: View {
+struct VibeCastVisualizerSignalView: View {
     let insight: TrackInsight
     let playback: DJConnectPlayback?
     let vibeCastItems: [DJConnectVibeCastResponse.Item]
@@ -7230,6 +7318,7 @@ private struct VibeCastVisualizerSignalView: View {
     let language: String
     let moodStepIndex: Int
     let reduceMotion: Bool
+    var renderedArtworkImage: Image? = nil
     @State private var playbackAnchor = TrackVibePlaybackAnchor()
 
     private var profile: TrackVibeProfile {
@@ -7289,7 +7378,8 @@ private struct VibeCastVisualizerSignalView: View {
                     profile: profile,
                     playback: playback,
                     reduceMotion: reduceMotion,
-                    isActive: !reduceMotion && isPlaying
+                    isActive: !reduceMotion && isPlaying,
+                    renderedArtworkImage: renderedArtworkImage
                 )
                 .frame(width: artworkSize, height: artworkSize)
                 .position(x: geometry.size.width * 0.50, y: artworkY)
@@ -7645,27 +7735,33 @@ private final class VibeCastAirPlaySession: ObservableObject {
     @Published var progress = 0.0
     @Published var errorMessage: String?
 
-    private var preparedInsightID: String?
+    private var preparedRenderID: String?
     private var renderedURL: URL?
     private var playbackAnchor = TrackVibePlaybackAnchor()
     private var lastSyncedSignature = ""
     private var lastSyncedVideoTime: Double = -1
 
-    func prepare(insight: TrackInsight, language: String) async {
-        if preparedInsightID == insight.id, player != nil {
+    func prepare(insight: TrackInsight, language: String, moodStepIndex: Int, fallbackArtworkURL: URL?) async {
+        let renderID = [
+            insight.id,
+            "\(moodStepIndex)",
+            insight.artwork?.absoluteString ?? fallbackArtworkURL?.absoluteString ?? ""
+        ].joined(separator: "|")
+        if preparedRenderID == renderID, player != nil {
             player?.play()
             return
         }
         reset()
-        preparedInsightID = insight.id
+        preparedRenderID = renderID
         isPreparing = true
         progress = 0
         errorMessage = nil
         do {
-            let url = try await TrackInsightShareRenderer.renderVideo(
+            let url = try await TrackInsightShareRenderer.renderAirPlayVideo(
                 insight: insight,
-                format: .linkPreview,
-                language: language
+                language: language,
+                moodStepIndex: moodStepIndex,
+                fallbackArtworkURL: fallbackArtworkURL
             ) { [weak self] value in
                 self?.progress = value
             }
@@ -7687,7 +7783,7 @@ private final class VibeCastAirPlaySession: ObservableObject {
         player?.pause()
         player = nil
         renderedURL = nil
-        preparedInsightID = nil
+        preparedRenderID = nil
         playbackAnchor = TrackVibePlaybackAnchor()
         lastSyncedSignature = ""
         lastSyncedVideoTime = -1
@@ -7744,7 +7840,10 @@ private struct VibeCastAirPlayToolbarButton: View {
     let language: String
     let hasInsight: Bool
     let isPreparing: Bool
+    let isAnalyzing: Bool
     let isReady: Bool
+    let canPrepare: Bool
+    let prepareAction: () -> Void
 
     var body: some View {
         if hasInsight, isReady {
@@ -7752,23 +7851,23 @@ private struct VibeCastAirPlayToolbarButton: View {
                 .frame(width: 30, height: 30)
                 .accessibilityLabel(localizedKey(language, "ui.airplay.vibecast"))
                 .help(localizedKey(language, "ui.send.vibecast.video.to.airplay"))
-        } else if hasInsight, isPreparing {
+        } else if isPreparing || isAnalyzing {
             ProgressView()
                 .controlSize(.small)
                 .frame(width: 30, height: 30)
                 .tint(.primary)
                 .accessibilityLabel(localizedKey(language, "ui.preparing.vibecast.video"))
         } else {
-            Button {} label: {
+            Button(action: prepareAction) {
                 Image(systemName: "airplayvideo")
                     .frame(width: 30, height: 30)
             }
             .buttonStyle(.plain)
-            .foregroundStyle(.secondary)
-            .disabled(true)
-            .opacity(0.42)
-            .accessibilityLabel(localizedKey(language, "ui.analyze.track.insight.before.using.vibecast"))
-            .help(localizedKey(language, "ui.analyze.track.insight.before.using.vibecast"))
+            .foregroundStyle(canPrepare ? .primary : .secondary)
+            .disabled(!canPrepare)
+            .opacity(canPrepare ? 1 : 0.42)
+            .accessibilityLabel(localizedKey(language, hasInsight ? "ui.prepare.vibecast.video" : "ui.analyze.track.insight.before.using.vibecast"))
+            .help(localizedKey(language, hasInsight ? "ui.prepare.vibecast.video" : "ui.analyze.track.insight.before.using.vibecast"))
         }
     }
 }
@@ -7910,9 +8009,8 @@ private struct VibeCastAVPlayerPreviewSheet: View {
         errorMessage = nil
         renderTask = Task { @MainActor in
             do {
-                let url = try await TrackInsightShareRenderer.renderVideo(
+                let url = try await TrackInsightShareRenderer.renderAirPlayVideo(
                     insight: insight,
-                    format: .linkPreview,
                     language: language
                 ) { value in
                     progress = value
@@ -10485,6 +10583,7 @@ private struct AskDJView: View {
     @State private var askDJSearchText = ""
     @State private var selectedSearchResultIndex = 0
     @State private var isAskDJAtBottom = true
+    @State private var isAskDJScrollToBottomButtonSuppressed = false
     @State private var askDJViewportHeight: CGFloat = 0
     @State private var didScrollAskDJToInitialBottom = false
     @FocusState private var isInputFocused: Bool
@@ -10598,7 +10697,15 @@ private struct AskDJView: View {
     }
 
     private var shouldShowAskDJScrollToBottomButton: Bool {
-        model.askDJMessages.count > 8 && !isAskDJAtBottom
+        !askDJTimelineMessages.isEmpty && !isAskDJAtBottom && !isAskDJScrollToBottomButtonSuppressed
+    }
+
+    private var askDJScrollToBottomButtonBottomPadding: CGFloat {
+        #if os(macOS)
+        28
+        #else
+        12
+        #endif
     }
 
     var body: some View {
@@ -10671,6 +10778,7 @@ private struct AskDJView: View {
                                     }
                                     Color.clear
                                         .frame(height: 1)
+                                        .id("ask-dj-bottom")
                                         .background(
                                             GeometryReader { geometry in
                                                 Color.clear.preference(
@@ -10701,7 +10809,11 @@ private struct AskDJView: View {
                                 askDJViewportHeight = height
                             }
                             .onPreferenceChange(AskDJBottomPreferenceKey.self) { bottomMaxY in
-                                isAskDJAtBottom = bottomMaxY <= askDJViewportHeight + 140
+                                let isAtBottom = bottomMaxY <= askDJViewportHeight + 140
+                                isAskDJAtBottom = isAtBottom
+                                if isAtBottom {
+                                    isAskDJScrollToBottomButtonSuppressed = false
+                                }
                             }
                             .refreshable {
                                 dismissAskDJKeyboard()
@@ -10713,13 +10825,14 @@ private struct AskDJView: View {
                             .overlay(alignment: .bottom) {
                                 HStack {
                                     Spacer()
-                                    if shouldShowAskDJScrollToBottomButton, let lastID = model.askDJMessages.last?.id {
+                                    if shouldShowAskDJScrollToBottomButton {
                                         Button {
                                             isInputFocused = false
                                             isSearchFocused = false
                                             withAnimation(.easeOut(duration: 0.22)) {
+                                                isAskDJScrollToBottomButtonSuppressed = true
                                                 isAskDJAtBottom = true
-                                                proxy.scrollTo(lastID, anchor: .bottom)
+                                                proxy.scrollTo("ask-dj-bottom", anchor: .bottom)
                                             }
                                         } label: {
                                             Image(systemName: "arrow.down")
@@ -10729,7 +10842,7 @@ private struct AskDJView: View {
                                         }
                                         .buttonStyle(DJConnectFloatingCircleButtonStyle())
                                         .padding(.trailing, djConnectScreenHorizontalPadding)
-                                        .padding(.bottom, 12)
+                                        .padding(.bottom, askDJScrollToBottomButtonBottomPadding)
                                         .help(localizedKey(model.language, "ui.scroll.to.bottom"))
                                     }
                                 }
@@ -10774,6 +10887,7 @@ private struct AskDJView: View {
                         }
                         .contentShape(Rectangle())
                         .onChange(of: model.askDJMessages) {
+                            isAskDJScrollToBottomButtonSuppressed = false
                             normalizeAskDJSearchSelection()
                             scrollAskDJToInitialBottomIfNeeded(proxy: proxy)
                         }
@@ -10794,11 +10908,13 @@ private struct AskDJView: View {
                             guard !isSearchVisible else {
                                 return
                             }
-                            guard let lastID = askDJTimelineMessages.last?.id else {
+                            guard !askDJTimelineMessages.isEmpty else {
                                 return
                             }
                             withAnimation(.easeOut(duration: 0.22)) {
-                                proxy.scrollTo(lastID, anchor: .bottom)
+                                isAskDJScrollToBottomButtonSuppressed = true
+                                isAskDJAtBottom = true
+                                proxy.scrollTo("ask-dj-bottom", anchor: .bottom)
                             }
                         }
                         .onChange(of: askDJSearchText) {
@@ -11021,17 +11137,17 @@ private struct AskDJView: View {
         guard !didScrollAskDJToInitialBottom else {
             return
         }
-        guard !isSearchVisible, let lastID = askDJTimelineMessages.last?.id else {
+        guard !isSearchVisible, !askDJTimelineMessages.isEmpty else {
             return
         }
         didScrollAskDJToInitialBottom = true
         DispatchQueue.main.async {
             isAskDJAtBottom = true
-            proxy.scrollTo(lastID, anchor: .bottom)
+            proxy.scrollTo("ask-dj-bottom", anchor: .bottom)
         }
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.16) {
             isAskDJAtBottom = true
-            proxy.scrollTo(lastID, anchor: .bottom)
+            proxy.scrollTo("ask-dj-bottom", anchor: .bottom)
         }
     }
 
@@ -15811,6 +15927,7 @@ private struct MoreNavigationRow<Destination: View>: View {
 
 private struct MusicDNAJSONDocument: FileDocument {
     static var readableContentTypes: [UTType] { [.json] }
+    static var writableContentTypes: [UTType] { [.json] }
 
     var data: Data
 
@@ -15840,6 +15957,13 @@ private enum MusicDNAImportStatus: Equatable {
     case uploading
     case uploaded
     case failed(String)
+}
+
+private enum SettingsExportSheet: String, Identifiable {
+    case askDJHistory
+    case musicDNA
+
+    var id: String { rawValue }
 }
 
 private struct AskDJHistoryExportSheet: View {
@@ -15907,14 +16031,20 @@ private struct AskDJHistoryExportSheet: View {
                     .controlSize(.large)
                     .disabled(!(status == .ready || status == .saved))
 
-                    Button {
-                        closeAction()
-                    } label: {
-                        Text(localizedKey(language, status == .saved ? "ui.done" : "ui.not.now"))
-                            .frame(maxWidth: .infinity)
+                    if status == .saved {
+                        Button {
+                            closeAction()
+                        } label: {
+                            Text(localizedKey(language, "ui.done"))
+                                .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(DJConnectLilacPillButtonStyle())
+                        .controlSize(.large)
+                    } else {
+                        DJConnectNotNowLinkButton(language: language) {
+                            closeAction()
+                        }
                     }
-                    .buttonStyle(DJConnectLilacPillButtonStyle())
-                    .controlSize(.large)
                 }
             }
             .padding(28)
@@ -16011,14 +16141,20 @@ private struct MusicDNAExportSheet: View {
                     .controlSize(.large)
                     .disabled(!canSave)
 
-                    Button {
-                        closeAction()
-                    } label: {
-                        Text(localizedKey(language, status == .saved ? "ui.done" : "ui.not.now"))
-                            .frame(maxWidth: .infinity)
+                    if status == .saved {
+                        Button {
+                            closeAction()
+                        } label: {
+                            Text(localizedKey(language, "ui.done"))
+                                .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(DJConnectLilacPillButtonStyle())
+                        .controlSize(.large)
+                    } else {
+                        DJConnectNotNowLinkButton(language: language) {
+                            closeAction()
+                        }
                     }
-                    .buttonStyle(DJConnectLilacPillButtonStyle())
-                    .controlSize(.large)
                 }
             }
             .padding(28)
@@ -16238,17 +16374,18 @@ struct SettingsView: View {
     @State private var isShowingResetPairingConfirmation = false
     @State private var isShowingMusicDNADisableConfirmation = false
     @State private var isShowingMusicDNAClearConfirmation = false
-    @State private var isShowingAskDJHistoryExportSheet = false
-    @State private var isShowingAskDJHistoryFileExporter = false
     @State private var askDJHistoryExportDocument: MusicDNAJSONDocument?
     @State private var askDJHistoryExportFilename = "djconnect-ask-dj-history.json"
     @State private var askDJHistoryExportStatus: MusicDNAExportStatus = .idle
-    @State private var isShowingMusicDNAExportSheet = false
-    @State private var isShowingMusicDNAFileExporter = false
+    @State private var activeExportSheet: SettingsExportSheet?
     @State private var isShowingMusicDNAFileImporter = false
     @State private var musicDNAExportDocument: MusicDNAJSONDocument?
     @State private var musicDNAExportFilename = "DJConnect-Music-DNA.json"
     @State private var musicDNAExportStatus: MusicDNAExportStatus = .idle
+    @State private var isShowingSettingsFileExporter = false
+    @State private var settingsFileExporterSheet: SettingsExportSheet?
+    @State private var settingsFileExporterDocument = MusicDNAJSONDocument()
+    @State private var settingsFileExporterFilename = "DJConnect-export.json"
     @State private var musicDNAImportPreview: DJConnectMusicDNAImportPreview?
     @State private var musicDNAImportStatus: MusicDNAImportStatus = .ready
 
@@ -16257,15 +16394,19 @@ struct SettingsView: View {
     }
 
     private var canUseMusicDNAImport: Bool {
-        !model.isDemoMode && model.pairingStatus == .paired && model.isConnected
+        musicDNAEnabled && !model.isDemoMode && model.pairingStatus == .paired && model.isConnected
     }
 
     private var canUseMusicDNAExport: Bool {
-        !model.isDemoMode && model.pairingStatus == .paired && model.isConnected
+        musicDNAEnabled && !model.isDemoMode && model.pairingStatus == .paired && model.isConnected
+    }
+
+    private var hasAskDJHistoryMessages: Bool {
+        !model.askDJMessages.isEmpty
     }
 
     private var canUseAskDJHistoryExport: Bool {
-        !model.isDemoMode && model.pairingStatus == .paired && model.isConnected
+        hasAskDJHistoryMessages && !model.isDemoMode && model.pairingStatus == .paired && model.isConnected
     }
 
     private var musicDNAHowItWorksText: String {
@@ -16300,13 +16441,13 @@ struct SettingsView: View {
             askDJHistoryExportFilename = model.askDJHistoryExportFilename()
             askDJHistoryExportDocument = nil
             askDJHistoryExportStatus = .failed(localizedKey(model.language, "appModel.no.connection.to.home.assistant"))
-            isShowingAskDJHistoryExportSheet = true
+            activeExportSheet = .askDJHistory
             return
         }
         askDJHistoryExportFilename = model.askDJHistoryExportFilename()
         askDJHistoryExportDocument = nil
         askDJHistoryExportStatus = .exporting
-        isShowingAskDJHistoryExportSheet = true
+        activeExportSheet = .askDJHistory
         Task {
             do {
                 let data = try await model.exportAskDJHistoryData()
@@ -16324,13 +16465,13 @@ struct SettingsView: View {
             musicDNAExportFilename = model.musicDNAExportFilename()
             musicDNAExportDocument = nil
             musicDNAExportStatus = .failed(localizedKey(model.language, "appModel.no.connection.to.home.assistant"))
-            isShowingMusicDNAExportSheet = true
+            activeExportSheet = .musicDNA
             return
         }
         musicDNAExportFilename = model.musicDNAExportFilename()
         musicDNAExportDocument = nil
         musicDNAExportStatus = .exporting
-        isShowingMusicDNAExportSheet = true
+        activeExportSheet = .musicDNA
         Task {
             do {
                 let data = try await model.exportMusicDNAProfileData()
@@ -16344,31 +16485,58 @@ struct SettingsView: View {
     }
 
     private func presentAskDJHistoryFileExporter() {
-        guard askDJHistoryExportDocument != nil else {
+        guard let document = askDJHistoryExportDocument else {
             return
         }
-        #if os(macOS)
-        isShowingAskDJHistoryExportSheet = false
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
-            isShowingAskDJHistoryFileExporter = true
-        }
-        #else
-        isShowingAskDJHistoryFileExporter = true
-        #endif
+        presentSettingsFileExporter(
+            sheet: .askDJHistory,
+            document: document,
+            filename: askDJHistoryExportFilename
+        )
     }
 
     private func presentMusicDNAFileExporter() {
-        guard musicDNAExportDocument != nil else {
+        guard let document = musicDNAExportDocument else {
             return
         }
-        #if os(macOS)
-        isShowingMusicDNAExportSheet = false
+        presentSettingsFileExporter(
+            sheet: .musicDNA,
+            document: document,
+            filename: musicDNAExportFilename
+        )
+    }
+
+    private func presentSettingsFileExporter(
+        sheet: SettingsExportSheet,
+        document: MusicDNAJSONDocument,
+        filename: String
+    ) {
+        settingsFileExporterSheet = sheet
+        settingsFileExporterDocument = document
+        settingsFileExporterFilename = filename
+        activeExportSheet = nil
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
-            isShowingMusicDNAFileExporter = true
+            isShowingSettingsFileExporter = true
         }
-        #else
-        isShowingMusicDNAFileExporter = true
-        #endif
+    }
+
+    private func handleSettingsFileExportResult(_ result: Result<URL, Error>) {
+        let sheet = settingsFileExporterSheet
+        settingsFileExporterSheet = nil
+        switch (sheet, result) {
+        case (.askDJHistory, .success):
+            askDJHistoryExportStatus = .saved
+        case (.askDJHistory, let .failure(error)):
+            askDJHistoryExportStatus = .failed(error.localizedDescription)
+        case (.musicDNA, .success):
+            musicDNAExportStatus = .saved
+        case (.musicDNA, let .failure(error)):
+            musicDNAExportStatus = .failed(error.localizedDescription)
+        case (nil, .success):
+            break
+        case (nil, let .failure(error)):
+            musicDNAExportStatus = .failed(error.localizedDescription)
+        }
     }
 
     private func presentMusicDNAFileImporter() {
@@ -16796,26 +16964,27 @@ struct SettingsView: View {
                     Text(localizedKey(model.language, "ui.this.clears.learned.music.dna.on.your.home.assistant.backend"))
                 }
             }
-            .sheet(isPresented: $isShowingAskDJHistoryExportSheet) {
-                AskDJHistoryExportSheet(
-                    language: model.language,
-                    filename: askDJHistoryExportFilename,
-                    status: askDJHistoryExportStatus,
-                    saveAction: { presentAskDJHistoryFileExporter() },
-                    closeAction: { isShowingAskDJHistoryExportSheet = false }
-                )
-                .presentationBackground {
-                    DJConnectCanvasBackground()
+            .sheet(item: $activeExportSheet) { sheet in
+                Group {
+                    switch sheet {
+                    case .askDJHistory:
+                        AskDJHistoryExportSheet(
+                            language: model.language,
+                            filename: askDJHistoryExportFilename,
+                            status: askDJHistoryExportStatus,
+                            saveAction: { presentAskDJHistoryFileExporter() },
+                            closeAction: { activeExportSheet = nil }
+                        )
+                    case .musicDNA:
+                        MusicDNAExportSheet(
+                            language: model.language,
+                            filename: musicDNAExportFilename,
+                            status: musicDNAExportStatus,
+                            saveAction: { presentMusicDNAFileExporter() },
+                            closeAction: { activeExportSheet = nil }
+                        )
+                    }
                 }
-            }
-            .sheet(isPresented: $isShowingMusicDNAExportSheet) {
-                MusicDNAExportSheet(
-                    language: model.language,
-                    filename: musicDNAExportFilename,
-                    status: musicDNAExportStatus,
-                    saveAction: { presentMusicDNAFileExporter() },
-                    closeAction: { isShowingMusicDNAExportSheet = false }
-                )
                 .presentationBackground {
                     DJConnectCanvasBackground()
                 }
@@ -16837,30 +17006,12 @@ struct SettingsView: View {
                 }
             }
             .fileExporter(
-                isPresented: $isShowingMusicDNAFileExporter,
-                document: musicDNAExportDocument,
+                isPresented: $isShowingSettingsFileExporter,
+                document: settingsFileExporterDocument,
                 contentType: .json,
-                defaultFilename: musicDNAExportFilename
+                defaultFilename: settingsFileExporterFilename
             ) { result in
-                switch result {
-                case .success:
-                    musicDNAExportStatus = .saved
-                case let .failure(error):
-                    musicDNAExportStatus = .failed(error.localizedDescription)
-                }
-            }
-            .fileExporter(
-                isPresented: $isShowingAskDJHistoryFileExporter,
-                document: askDJHistoryExportDocument,
-                contentType: .json,
-                defaultFilename: askDJHistoryExportFilename
-            ) { result in
-                switch result {
-                case .success:
-                    askDJHistoryExportStatus = .saved
-                case let .failure(error):
-                    askDJHistoryExportStatus = .failed(error.localizedDescription)
-                }
+                handleSettingsFileExportResult(result)
             }
             .fileImporter(
                 isPresented: $isShowingMusicDNAFileImporter,
@@ -17621,14 +17772,9 @@ private struct AskDJFeedbackPromptView: View {
             .buttonStyle(DJConnectLilacPillButtonStyle())
             .controlSize(.large)
 
-            Button {
+            DJConnectNotNowLinkButton(language: model.language) {
                 dismiss()
-            } label: {
-                Text(localizedKey(model.language, "ui.not.now"))
-                    .frame(maxWidth: .infinity)
             }
-            .buttonStyle(DJConnectLilacPillButtonStyle())
-            .controlSize(.large)
         }
     }
 
@@ -17681,14 +17827,9 @@ private struct FeedbackPromptView: View {
                     .buttonStyle(DJConnectLilacPillButtonStyle())
                     .controlSize(.large)
 
-                    Button {
+                    DJConnectNotNowLinkButton(language: model.language, key: "ui.not.now.b1e535") {
                         dismiss()
-                    } label: {
-                        Text(localizedKey(model.language, "ui.not.now.b1e535"))
-                            .frame(maxWidth: .infinity)
                     }
-                    .buttonStyle(DJConnectLilacPillButtonStyle())
-                    .controlSize(.large)
                 }
             }
             .padding(28)

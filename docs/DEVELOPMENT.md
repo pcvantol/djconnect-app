@@ -85,8 +85,8 @@ setup flow and scan/open the generated `djconnect://pair?...client_type=watchos`
 payload on the paired iPhone. The Watch does not show Home Assistant URL or
 pair-code entry fields and the iPhone proxy pairing screen does not show Demo
 Mode. The iPhone forwards the validated payload to the Watch and may proxy the
-HTTP request, but the payload identity remains
-`client_type: "watchos"` with a `djconnect-watchos-*` device ID.
+HTTP request, but the posting identity remains `client_type: "watchos"` with a
+`djconnect-watchos-*` device ID.
 
 The pairing sheet also offers Demo Mode. Use it only for local UI work or App
 Store review/auditing when a real Home Assistant backend is unavailable. Demo

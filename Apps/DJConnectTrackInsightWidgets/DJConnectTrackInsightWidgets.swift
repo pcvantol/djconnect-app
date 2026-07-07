@@ -451,44 +451,54 @@ private struct DJConnectNowPlayingArtworkFallback: View {
     private let palette = DJConnectWidgetMoodPalette(stepIndex: DJConnectWidgetMood.currentStepIndex)
 
     var body: some View {
-        ZStack {
-            LinearGradient(
-                colors: palette.backgroundColors,
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-            RadialGradient(
-                colors: [
-                    palette.colors[2].opacity(0.42),
-                    .clear
-                ],
-                center: .topLeading,
-                startRadius: 2,
-                endRadius: 86
-            )
-            DJConnectMusicPlayArtworkIcon()
-                .frame(width: 58, height: 58)
-                .shadow(color: palette.colors[1].opacity(0.36), radius: 14, x: 0, y: 8)
+        GeometryReader { geometry in
+            let side = min(geometry.size.width, geometry.size.height)
+            ZStack {
+                LinearGradient(
+                    colors: palette.backgroundColors,
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+                RadialGradient(
+                    colors: [
+                        palette.colors[2].opacity(0.42),
+                        .clear
+                    ],
+                    center: .topLeading,
+                    startRadius: 2,
+                    endRadius: max(32, side * 1.5)
+                )
+                DJConnectMusicPlayArtworkIcon()
+                    .frame(width: max(14, side * 0.72), height: max(14, side * 0.72))
+                    .shadow(color: palette.colors[1].opacity(0.36), radius: max(4, side * 0.18), x: 0, y: max(1, side * 0.08))
+            }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
 
 private struct DJConnectMusicPlayArtworkIcon: View {
+    private let palette = DJConnectWidgetMoodPalette(stepIndex: DJConnectWidgetMood.currentStepIndex)
+
     var body: some View {
-        ZStack {
-            Circle()
-                .fill(.white.opacity(0.13))
-            Circle()
-                .stroke(.white.opacity(0.24), lineWidth: 1)
-            Image(systemName: "music.note")
-                .font(.system(size: 30, weight: .semibold))
-                .foregroundStyle(.white.opacity(0.88))
-                .offset(x: -5, y: -4)
-            Image(systemName: "play.fill")
-                .font(.system(size: 18, weight: .black))
-                .foregroundStyle(.white.opacity(0.94))
-                .offset(x: 12, y: 11)
+        GeometryReader { geometry in
+            let side = min(geometry.size.width, geometry.size.height)
+            ZStack {
+                Circle()
+                    .fill(.white.opacity(0.14))
+                Circle()
+                    .stroke(palette.accentGradient, lineWidth: max(1.5, side * 0.035))
+                Image(systemName: "music.note")
+                    .font(.system(size: side * 0.52, weight: .semibold))
+                    .foregroundStyle(palette.accentGradient)
+                    .offset(x: -side * 0.09, y: -side * 0.07)
+                Image(systemName: "play.fill")
+                    .font(.system(size: side * 0.31, weight: .black))
+                    .foregroundStyle(.white.opacity(0.94))
+                    .offset(x: side * 0.21, y: side * 0.19)
+            }
+            .frame(width: side, height: side)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
     }
 }
@@ -2110,18 +2120,8 @@ struct DJConnectTrackInsightLiveActivityWidget: Widget {
                 .activitySystemActionForegroundColor(.white)
         } dynamicIsland: { context in
             DynamicIsland {
-                DynamicIslandExpandedRegion(.leading) {
-                    DJConnectNowPlayingArtwork(entry: context.state.widgetEntry)
-                        .frame(width: 56, height: 56)
-                        .padding(.leading, 2)
-                        .background {
-                            DJConnectNowPlayingLiveActivityBackground(state: context.state)
-                                .frame(width: 112, height: 104)
-                                .offset(x: 38, y: 28)
-                        }
-                }
                 DynamicIslandExpandedRegion(.center) {
-                    DJConnectNowPlayingLiveActivityExpandedTitleView(state: context.state)
+                    DJConnectNowPlayingLiveActivityExpandedHeaderView(state: context.state)
                 }
                 DynamicIslandExpandedRegion(.trailing) {
                     DJConnectNowPlayingLiveActivityCompactPlaybackIcon(state: context.state)
@@ -2148,10 +2148,94 @@ private struct DJConnectNowPlayingLiveActivityCompactArtwork: View {
     let state: TrackInsightLiveActivityAttributes.ContentState
 
     var body: some View {
-        DJConnectNowPlayingArtwork(entry: state.widgetEntry)
+        DJConnectNowPlayingLiveActivityArtwork(state: state, cornerRadius: 10)
             .frame(width: 22, height: 22)
             .shadow(color: DJConnectLiveActivityMoodKeylineColor().opacity(0.36), radius: 5, x: 0, y: 2)
             .accessibilityHidden(true)
+    }
+}
+
+@available(iOS 16.1, *)
+private struct DJConnectNowPlayingLiveActivityArtwork: View {
+    let state: TrackInsightLiveActivityAttributes.ContentState
+    var cornerRadius: CGFloat = 18
+
+    private var entry: DJConnectNowPlayingWidgetEntry {
+        state.widgetEntry
+    }
+
+    var body: some View {
+        ZStack {
+            if let artworkData = entry.artworkData,
+               let image = DJConnectWidgetImage(data: artworkData) {
+                image
+                    .resizable()
+                    .scaledToFill()
+            } else {
+                DJConnectNowPlayingLiveActivityArtworkFallback(isPlaying: state.isPlaying)
+            }
+        }
+        .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                .stroke(.white.opacity(0.20), lineWidth: 1)
+        }
+    }
+}
+
+@available(iOS 16.1, *)
+private struct DJConnectNowPlayingLiveActivityArtworkFallback: View {
+    let isPlaying: Bool
+    private let palette = DJConnectWidgetMoodPalette(stepIndex: DJConnectWidgetMood.currentStepIndex)
+
+    var body: some View {
+        GeometryReader { geometry in
+            let side = min(geometry.size.width, geometry.size.height)
+            ZStack {
+                LinearGradient(
+                    colors: palette.backgroundColors,
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+                RadialGradient(
+                    colors: [
+                        palette.colors[2].opacity(0.46),
+                        .clear
+                    ],
+                    center: .topLeading,
+                    startRadius: 2,
+                    endRadius: max(24, side * 1.45)
+                )
+                Circle()
+                    .fill(.white.opacity(0.13))
+                    .frame(width: side * 0.74, height: side * 0.74)
+                Circle()
+                    .stroke(
+                        LinearGradient(
+                            colors: [palette.colors[1], palette.colors[2]],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        ),
+                        lineWidth: max(1.4, side * 0.035)
+                    )
+                    .frame(width: side * 0.74, height: side * 0.74)
+                Image(systemName: "music.note")
+                    .font(.system(size: side * 0.36, weight: .semibold))
+                    .foregroundStyle(
+                        LinearGradient(
+                            colors: [palette.colors[1], palette.colors[2]],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .offset(x: -side * 0.06, y: -side * 0.08)
+                Image(systemName: isPlaying ? "play.fill" : "pause.fill")
+                    .font(.system(size: side * 0.22, weight: .black))
+                    .foregroundStyle(.white.opacity(0.94))
+                    .offset(x: side * 0.16, y: side * 0.14)
+            }
+            .frame(width: geometry.size.width, height: geometry.size.height)
+        }
     }
 }
 
@@ -2160,9 +2244,8 @@ private struct DJConnectNowPlayingLiveActivityLockScreenView: View {
     let state: TrackInsightLiveActivityAttributes.ContentState
 
     var body: some View {
-        let entry = state.widgetEntry
         HStack(spacing: 14) {
-            DJConnectNowPlayingArtwork(entry: entry)
+            DJConnectNowPlayingLiveActivityArtwork(state: state)
                 .frame(width: 72, height: 72)
             VStack(alignment: .leading, spacing: 6) {
                 Label(DJConnectLocalization.localized(key: "widget.now.playing"), systemImage: state.isPlaying ? "music.note" : "pause.fill")
@@ -2202,7 +2285,7 @@ private struct DJConnectNowPlayingLiveActivityExpandedIslandView: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(maxWidth: 286, alignment: .leading)
         .background {
             Color.white.opacity(0.10)
         }
@@ -2219,28 +2302,47 @@ private struct DJConnectNowPlayingLiveActivityExpandedTitleView: View {
     let state: TrackInsightLiveActivityAttributes.ContentState
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 3) {
+        VStack(alignment: .leading, spacing: 2) {
             Label(DJConnectLocalization.localized(key: "widget.now.playing"), systemImage: state.isPlaying ? "music.note" : "pause.fill")
-                .font(.caption2.weight(.bold))
+                .font(.system(size: 11, weight: .bold))
                 .foregroundStyle(.white.opacity(0.78))
                 .textCase(.uppercase)
                 .lineLimit(1)
             Text(state.title)
-                .font(.headline.weight(.bold))
+                .font(.system(size: 16, weight: .bold))
                 .foregroundStyle(.white)
                 .lineLimit(1)
                 .minimumScaleFactor(0.76)
             Text(state.artist)
-                .font(.caption.weight(.semibold))
+                .font(.system(size: 12, weight: .semibold))
                 .foregroundStyle(.white.opacity(0.68))
                 .lineLimit(1)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.vertical, 4)
+    }
+}
+
+@available(iOS 16.1, *)
+private struct DJConnectNowPlayingLiveActivityExpandedHeaderView: View {
+    let state: TrackInsightLiveActivityAttributes.ContentState
+
+    var body: some View {
+        HStack(spacing: 9) {
+            DJConnectNowPlayingLiveActivityArtwork(state: state, cornerRadius: 17)
+                .frame(width: 38, height: 38)
+                .shadow(color: DJConnectLiveActivityMoodKeylineColor().opacity(0.28), radius: 8, x: 0, y: 4)
+                .accessibilityHidden(true)
+            DJConnectNowPlayingLiveActivityExpandedTitleView(state: state)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 6)
+        .frame(width: 338, alignment: .leading)
         .background {
             DJConnectNowPlayingLiveActivityBackground(state: state)
-                .frame(width: 260, height: 112)
-                .offset(x: -4, y: 34)
+                .frame(width: 338, height: 114)
+                .offset(y: 32)
         }
     }
 }
@@ -2265,6 +2367,7 @@ private struct DJConnectNowPlayingLiveActivityDescriptorRow: View {
         .font(.caption2.weight(.semibold))
         .foregroundStyle(.white.opacity(0.72))
         .lineLimit(1)
+        .minimumScaleFactor(0.76)
     }
 }
 

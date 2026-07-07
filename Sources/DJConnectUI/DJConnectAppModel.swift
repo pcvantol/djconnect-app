@@ -785,9 +785,16 @@ public final class DJConnectAppModel: ObservableObject {
     private var lastFullRefreshAt: Date?
     private var lastBackendCollectionsRefreshAt: Date?
     private var lastBackendUnavailableNoticeAt: Date?
+    #if os(iOS) && canImport(ActivityKit)
+    private var lastLiveActivitySyncKey: String?
+    private var lastLiveActivitySyncAt: Date?
+    private let liveActivityProgressBucketMS = 15_000
+    private let minimumLiveActivitySyncInterval: TimeInterval = 12
+    #endif
     #if os(iOS) && canImport(WatchConnectivity)
     @Published private var watchProxyRegistration: DJConnectWatchProxyRegistration?
     private var watchProxySessionDelegate: DJConnectWatchProxySessionDelegate?
+    private var pendingWatchProxyPairingPayload: DJConnectPairingDeepLink?
     #endif
     private let networkMonitor = NWPathMonitor()
     private let networkMonitorQueue = DispatchQueue(label: "dev.djconnect.app.network")
@@ -835,9 +842,10 @@ public final class DJConnectAppModel: ObservableObject {
     private let monkeyTestingMode: Bool
     private let diagnosticLogFileURL: URL?
     nonisolated private static let protocolVersion = "3.2.26"
+    nonisolated private static let maxWidgetArtworkDataBytes = 750_000
     private static let defaultHomeAssistantURL = "http://homeassistant.local:8123"
     private let appVersion = DJConnectAppModel.protocolVersion
-    private let installIDKey = "DJConnectInstallID"
+    private let installIDKey = DJConnectAppModel.installIDKey
     private let homeAssistantURLKey = "DJConnectHomeAssistantURL"
     private let haLocalURLKey = "DJConnectHALocalURL"
     private let haRemoteURLKey = "DJConnectHARemoteURL"
@@ -1110,7 +1118,7 @@ public final class DJConnectAppModel: ObservableObject {
         self.diagnosticLogFileURL = (diagnosticLogDirectory ?? Self.defaultDiagnosticLogDirectory())?
             .appendingPathComponent("djconnect.log")
         let resolvedTokenStore = tokenStore ?? DJConnectUserDefaultsTokenStore()
-        let hasExistingInstallID = defaults.string(forKey: "DJConnectInstallID")?.isEmpty == false
+        let hasExistingInstallID = Self.hasExistingInstallID(defaults: defaults)
         if !hasExistingInstallID && !monkeyTestingMode && resolvedTokenStore is DJConnectUserDefaultsTokenStore {
             try? resolvedTokenStore.clearToken()
         }
@@ -1302,8 +1310,8 @@ public final class DJConnectAppModel: ObservableObject {
             updateCheckMessage = localized(key: "ui.checking.for.updates")
         }
         defer {
-            Task { @MainActor [weak self] in
-                self?.isCheckingForUpdates = false
+            Task { @MainActor in
+                self.isCheckingForUpdates = false
             }
         }
 
@@ -2060,7 +2068,7 @@ public final class DJConnectAppModel: ObservableObject {
         return parts.count == 4 && parts[0] == 172 && (16...31).contains(parts[1])
     }
 
-    private static var platformName: String {
+    nonisolated private static var platformName: String {
         #if os(macOS)
         "macOS"
         #elseif os(watchOS)
@@ -2070,6 +2078,19 @@ public final class DJConnectAppModel: ObservableObject {
         #else
         "unknown"
         #endif
+    }
+
+    nonisolated private static var installIDKey: String {
+        "DJConnectInstallID-\(platformName)"
+    }
+
+    nonisolated private static let legacyInstallIDKey = "DJConnectInstallID"
+
+    private static func hasExistingInstallID(defaults: UserDefaults) -> Bool {
+        if defaults.string(forKey: installIDKey)?.isEmpty == false {
+            return true
+        }
+        return defaults.string(forKey: legacyInstallIDKey)?.isEmpty == false
     }
 
     private static var expectedPairingFlowName: String {
@@ -2289,24 +2310,32 @@ public final class DJConnectAppModel: ObservableObject {
         activateWatchProxySession()
         homeAssistantURL = payload.homeAssistantURL
         pairingToken = payload.pairCode
-        guard WCSession.default.activationState == .activated, WCSession.default.isReachable else {
-            watchPairingMessage = localized(key: "appModel.apple.watch.is.not.reachable.open.djconnect.on.the")
-            pairingMessage = watchPairingMessage
-            log(.warning, "Watch pairing link accepted but WatchConnectivity is not reachable")
-            return
-        }
-        guard var registration = watchProxyRegistration else {
+        pairingFlowTarget = .appleWatch
+        pendingWatchProxyPairingPayload = payload
+        guard watchProxyRegistration != nil else {
             watchPairingMessage = localized(key: "appModel.open.djconnect.on.apple.watch.first.then.scan.the")
             pairingMessage = watchPairingMessage
             log(.warning, "Watch pairing link accepted but no Watch proxy registration is available")
             return
         }
+        startPendingWatchProxyPairingIfPossible()
+    }
+
+    private func startPendingWatchProxyPairingIfPossible() {
+        guard let payload = pendingWatchProxyPairingPayload,
+              var registration = watchProxyRegistration else {
+            return
+        }
+        pendingWatchProxyPairingPayload = nil
         registration.pairCode = payload.pairCode
         registration.paired = false
         watchProxyRegistration = registration
         persistWatchProxyRegistration()
         watchPairingMessage = localized(key: "appModel.pair.apple.watch.sending.pairing.request.to.home.assistant")
         pairingMessage = watchPairingMessage
+        if !WCSession.default.isReachable {
+            log(.debug, "Watch pairing accepted while WatchConnectivity is not reachable; continuing with iPhone Home Assistant proxy request")
+        }
         sendWatchProxyMessage([
             "type": "watch_proxy_pair_request",
             "ha_url": payload.homeAssistantURL,
@@ -2411,6 +2440,10 @@ public final class DJConnectAppModel: ObservableObject {
             ))
             apply(pairingResponse: response, fallbackBaseURL: baseURL)
             log(.info, "Pairing accepted by Home Assistant")
+            if response.setupPending == false {
+                completeHomeAssistantPairing()
+                return
+            }
             pairingStatus = .waitingForHomeAssistantCompletion
             isConnected = false
             pairingMessage = localized(key: "appModel.home.assistant.recognized.this.device.finish.setup.in.home")
@@ -2438,13 +2471,7 @@ public final class DJConnectAppModel: ObservableObject {
             }
             do {
                 try await refreshStatus(client: client)
-                pairingStatus = .paired
-                isConnected = true
-                isPairing = false
-                pairingMessage = localized(key: "appModel.pairing.complete")
-                presentPairingSuccessScreenAfterPairing()
-                presentWakeWordActivationPromptAfterPairing()
-                registerStoredPushTokenIfPossible()
+                completeHomeAssistantPairing()
                 return
             } catch let error as DJConnectError {
                 if isWaitingForHomeAssistantCompletion(error) {
@@ -2464,6 +2491,16 @@ public final class DJConnectAppModel: ObservableObject {
         isConnected = false
         isPairing = false
         pairingMessage = localized(key: "appModel.not.completed.in.home.assistant.yet.finish.setup.there")
+    }
+
+    private func completeHomeAssistantPairing() {
+        pairingStatus = .paired
+        isConnected = true
+        isPairing = false
+        pairingMessage = localized(key: "appModel.pairing.complete")
+        presentPairingSuccessScreenAfterPairing()
+        presentWakeWordActivationPromptAfterPairing()
+        registerStoredPushTokenIfPossible()
     }
 
     private func isWaitingForHomeAssistantCompletion(_ error: DJConnectError) -> Bool {
@@ -2501,6 +2538,7 @@ public final class DJConnectAppModel: ObservableObject {
         defaults.removeObject(forKey: demoModeKey)
         clearStoredHomeAssistantURLs()
         defaults.removeObject(forKey: installIDKey)
+        defaults.removeObject(forKey: Self.legacyInstallIDKey)
         currentAPNsPushToken = nil
         defaults.removeObject(forKey: legacyPushTokenKey)
         defaults.removeObject(forKey: registeredPushTokenKey)
@@ -2935,8 +2973,8 @@ public final class DJConnectAppModel: ObservableObject {
             scheduleCommandRefresh(
                 reason: "Playlist Now Playing refresh completed",
                 delay: .milliseconds(1_100)
-            ) { [weak self] in
-                self?.loadingPlaylistID = nil
+            ) {
+                self.loadingPlaylistID = nil
             }
         }
     }
@@ -3014,9 +3052,9 @@ public final class DJConnectAppModel: ObservableObject {
                 reason: "Queue item Now Playing refresh completed",
                 delay: .milliseconds(1_100),
                 includeCollections: true
-            ) { [weak self] in
-                self?.loadingQueueItemID = nil
-                self?.loadingQueueItemIndex = nil
+            ) {
+                self.loadingQueueItemID = nil
+                self.loadingQueueItemIndex = nil
             }
         }
     }
@@ -3793,6 +3831,8 @@ public final class DJConnectAppModel: ObservableObject {
             return
         }
         var normalizedPlayback = DJConnectVolumeNormalizer.sanitizedPlayback(playback)
+        let resolvedAlbumImageURL = resolvedArtworkURL(normalizedPlayback?.albumImageURL)
+        normalizedPlayback?.albumImageURL = resolvedAlbumImageURL
         let deviceVolume = DJConnectVolumeNormalizer.validBackendPercent(normalizedPlayback?.device?.volumePercent)
         if normalizedPlayback?.volumePercent == nil, let deviceVolume {
             normalizedPlayback?.volumePercent = deviceVolume
@@ -5384,7 +5424,7 @@ public final class DJConnectAppModel: ObservableObject {
                 try await client.refreshMusicDiscovery(musicDNAKey: askDJMusicDNAKey, language: language)
             }
             try Task.checkCancellation()
-            apply(musicDiscovery: refreshResponse)
+            apply(musicDiscovery: refreshResponse, preservesVisibleRecommendationsOnEmptyEnabledResponse: coalesce)
             return true
         } catch let error as DJConnectError {
             if shouldLoadMusicDiscoveryFeedAfterRefreshError(error) {
@@ -5392,7 +5432,7 @@ public final class DJConnectAppModel: ObservableObject {
                     let response = try await withHomeAssistantClient { client in
                         try await client.musicDiscoveryFeed(musicDNAKey: askDJMusicDNAKey, language: language)
                     }
-                    apply(musicDiscovery: response)
+                    apply(musicDiscovery: response, preservesVisibleRecommendationsOnEmptyEnabledResponse: coalesce)
                     return true
                 } catch let fallbackError as DJConnectError {
                     handleMusicDiscoveryError(fallbackError)
@@ -5467,7 +5507,7 @@ public final class DJConnectAppModel: ObservableObject {
                 try await client.playMusicDiscoveryItem(payload)
             }
         } catch let error as DJConnectError {
-            handleMusicDiscoveryError(error)
+            handleMusicDiscoveryPlayError(error)
         } catch is CancellationError {
         } catch {
             musicDiscoveryErrorMessage = localized(key: "appModel.this.recommendation.cannot.be.played.yet")
@@ -5476,7 +5516,23 @@ public final class DJConnectAppModel: ObservableObject {
         playingMusicDiscoveryItemID = nil
     }
 
-    private func apply(musicDiscovery response: DJConnectMusicDiscoveryResponse) {
+    private func handleMusicDiscoveryPlayError(_ error: DJConnectError) {
+        musicDiscoveryErrorMessage = localized(key: "appModel.this.recommendation.cannot.be.played.yet")
+        log(.warning, "Music Discovery play failed: \(Self.describe(error))")
+    }
+
+    private func apply(
+        musicDiscovery response: DJConnectMusicDiscoveryResponse,
+        preservesVisibleRecommendationsOnEmptyEnabledResponse: Bool = false
+    ) {
+        if preservesVisibleRecommendationsOnEmptyEnabledResponse,
+           response.enabled,
+           response.visibleSections.isEmpty,
+           musicDiscoveryResponse?.visibleSections.isEmpty == false {
+            musicDiscoveryErrorMessage = nil
+            log(.debug, "Music Discovery empty enabled refresh ignored to keep visible recommendations")
+            return
+        }
         musicDiscoveryResponse = response
         musicDiscoveryErrorMessage = nil
         let sectionCount = response.sections.count
@@ -6414,21 +6470,83 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     private func widgetArtworkData(from url: URL) async -> Data? {
+        guard let artworkURL = resolvedArtworkURL(url) else {
+            return nil
+        }
         do {
-            let (data, response) = try await urlSession.data(from: url)
+            let (data, response) = try await urlSession.data(from: artworkURL)
             if let httpResponse = response as? HTTPURLResponse,
                !(200..<300).contains(httpResponse.statusCode) {
                 return nil
             }
-            guard data.count <= 750_000 else {
-                log(.debug, "Widget artwork cache skipped: image too large")
+            guard let cachedData = normalizedWidgetArtworkData(data) else {
+                log(.debug, "Widget artwork cache skipped: image could not be decoded")
                 return nil
             }
-            return data
+            return cachedData
         } catch {
             log(.debug, "Widget artwork cache failed: \(error.localizedDescription)")
             return nil
         }
+    }
+
+    private func normalizedWidgetArtworkData(_ data: Data) -> Data? {
+        guard data.count > Self.maxWidgetArtworkDataBytes else {
+            return data
+        }
+        #if canImport(UIKit)
+        guard let image = UIImage(data: data) else {
+            return nil
+        }
+        let maxDimension: CGFloat = 512
+        let longestSide = max(image.size.width, image.size.height)
+        let scale = longestSide > maxDimension ? maxDimension / longestSide : 1
+        let targetSize = CGSize(width: image.size.width * scale, height: image.size.height * scale)
+        let renderer = UIGraphicsImageRenderer(size: targetSize)
+        let resized = renderer.image { _ in
+            image.draw(in: CGRect(origin: .zero, size: targetSize))
+        }
+        return resized.jpegData(compressionQuality: 0.78)
+            ?? resized.pngData()
+        #elseif canImport(AppKit)
+        guard let image = NSImage(data: data),
+              let cgImage = image.cgImage(forProposedRect: nil, context: nil, hints: nil) else {
+            return nil
+        }
+        let maxDimension: CGFloat = 512
+        let longestSide = max(CGFloat(cgImage.width), CGFloat(cgImage.height))
+        let scale = longestSide > maxDimension ? maxDimension / longestSide : 1
+        let targetSize = CGSize(width: CGFloat(cgImage.width) * scale, height: CGFloat(cgImage.height) * scale)
+        let resized = NSImage(size: targetSize)
+        resized.lockFocus()
+        NSGraphicsContext.current?.imageInterpolation = .high
+        image.draw(in: CGRect(origin: .zero, size: targetSize))
+        resized.unlockFocus()
+        guard let tiff = resized.tiffRepresentation,
+              let bitmap = NSBitmapImageRep(data: tiff) else {
+            return nil
+        }
+        return bitmap.representation(using: .jpeg, properties: [.compressionFactor: 0.78])
+            ?? bitmap.representation(using: .png, properties: [:])
+        #else
+        return nil
+        #endif
+    }
+
+    private func resolvedArtworkURL(_ artworkURL: URL?) -> URL? {
+        guard let artworkURL else {
+            return nil
+        }
+        if let scheme = artworkURL.scheme?.lowercased(), scheme == "http" || scheme == "https" {
+            return artworkURL
+        }
+        guard artworkURL.host == nil else {
+            return nil
+        }
+        guard let baseURL = homeAssistantBaseURLs().first else {
+            return artworkURL
+        }
+        return URL(string: artworkURL.relativeString, relativeTo: baseURL)?.absoluteURL
     }
 
     private func clearNowPlayingWidgetSnapshot(reason: String) {
@@ -6475,9 +6593,8 @@ public final class DJConnectAppModel: ObservableObject {
             for item in snapshot.items {
                 guard let artworkURL = item.artworkURL else { continue }
                 let itemID = item.id
-                group.addTask { [weak self] in
-                    guard let self,
-                          let artworkData = await self.widgetArtworkData(from: artworkURL) else {
+                group.addTask {
+                    guard let artworkData = await self.widgetArtworkData(from: artworkURL) else {
                         return nil
                     }
                     return (itemID, artworkURL, artworkData)
@@ -6540,12 +6657,43 @@ public final class DJConnectAppModel: ObservableObject {
             currentTrackInsight = nil
         }
         let activityPlayback = hasPlayingNow ? playback : nil
-        Task {
-            await TrackInsightLiveActivityController.sync(playback: activityPlayback)
+        let syncKey = liveActivitySyncKey(for: activityPlayback)
+        let now = Date()
+        if let activityPlayback,
+           syncKey == lastLiveActivitySyncKey,
+           let lastLiveActivitySyncAt,
+           now.timeIntervalSince(lastLiveActivitySyncAt) < minimumLiveActivitySyncInterval {
+            return
         }
-        log(.debug, "Synced Now Playing Live Activity: \(reason), playback=\(activityPlayback == nil ? "none" : "present")")
+        lastLiveActivitySyncKey = syncKey
+        lastLiveActivitySyncAt = now
+        Task {
+            let result = await TrackInsightLiveActivityController.sync(playback: activityPlayback)
+            await MainActor.run {
+                self.log(.debug, "Now Playing Live Activity sync result=\(result.logDescription) reason=\(reason) playback=\(activityPlayback == nil ? "none" : "present") is_playing=\(activityPlayback?.isPlaying == true)")
+            }
+        }
         #endif
     }
+
+    #if os(iOS) && canImport(ActivityKit)
+    private func liveActivitySyncKey(for playback: DJConnectPlayback?) -> String {
+        guard let playback, playback.isPlaying == true else {
+            return "ended"
+        }
+        let progressBucket = (playback.progressMS ?? 0) / liveActivityProgressBucketMS
+        return [
+            playback.trackName ?? "",
+            playback.artistName ?? "",
+            playback.device?.name ?? "",
+            String(playback.durationMS ?? 0),
+            String(progressBucket),
+            String(playback.volumePercent ?? playback.device?.volumePercent ?? -1),
+            String(playback.isLiked ?? playback.favoriteStatus ?? false),
+            String(playback.isPlaying == true)
+        ].joined(separator: "|")
+    }
+    #endif
 
     private func currentTrackInsightMatchesPlayback() -> Bool {
         guard let insight = currentTrackInsight else {
@@ -7299,6 +7447,24 @@ public final class DJConnectAppModel: ObservableObject {
             updatedAction.imageURL = resolvedURL
             return updatedAction
         }
+    }
+
+    public func resolvedHomeAssistantImageURL(_ rawValue: String?) -> URL? {
+        guard let rawValue = rawValue?.trimmingCharacters(in: .whitespacesAndNewlines), !rawValue.isEmpty else {
+            return nil
+        }
+        guard let url = URL(string: rawValue) else {
+            return nil
+        }
+        let baseURLs = homeAssistantBaseURLs()
+        let allowedHosts = Set(baseURLs.compactMap { $0.host?.lowercased() })
+        guard let primaryBaseURL = baseURLs.first else {
+            return url
+        }
+        if allowedHosts.isEmpty {
+            return URL(string: rawValue, relativeTo: primaryBaseURL)?.absoluteURL
+        }
+        return resolvedResponseImageURL(url, baseURL: primaryBaseURL, allowedHosts: allowedHosts)
     }
 
     private func resolvedResponseImageURL(_ url: URL, baseURL: URL, allowedHosts: Set<String>) -> URL? {
@@ -8553,12 +8719,12 @@ public final class DJConnectAppModel: ObservableObject {
             session: urlSession,
             webSocketFastPath: webSocketFastPathIfLocal(baseURL),
             responseLogger: { [weak self] requestSummary, statusCode in
-                Task { @MainActor [weak self] in
+                Task { @MainActor in
                     self?.log(.debug, "Home Assistant API \(requestSummary) -> HTTP \(statusCode)")
                 }
             },
             failureLogger: { [weak self] details in
-                Task { @MainActor [weak self] in
+                Task { @MainActor in
                     self?.logAPIFailure(details)
                 }
             }
@@ -8766,6 +8932,7 @@ public final class DJConnectAppModel: ObservableObject {
         handleWatchProxyMessage(WCSession.default.receivedApplicationContext)
         if watchProxyRegistration != nil {
             sendWatchProxyReady()
+            startPendingWatchProxyPairingIfPossible()
         }
     }
 
@@ -8817,6 +8984,7 @@ public final class DJConnectAppModel: ObservableObject {
         )
         persistWatchProxyRegistration()
         sendWatchProxyReady()
+        startPendingWatchProxyPairingIfPossible()
         log(.info, "Watch proxy registered \(Self.redactedDJConnectDeviceID(deviceID))")
     }
 
@@ -9255,7 +9423,7 @@ public final class DJConnectAppModel: ObservableObject {
                 )
             },
             modeReporter: { [weak self] mode, baseURL in
-                Task { @MainActor [weak self] in
+                Task { @MainActor in
                     self?.recordConnectionMode(mode, baseURL: baseURL)
                     self?.sendWatchProxyReady()
                 }
@@ -9321,7 +9489,7 @@ public final class DJConnectAppModel: ObservableObject {
         }
         if WCSession.default.isReachable {
             WCSession.default.sendMessage(message, replyHandler: nil) { [weak self] error in
-                Task { @MainActor [weak self] in
+                Task { @MainActor in
                     self?.log(.warning, "Watch proxy message failed: \(error.localizedDescription)")
                 }
             }
@@ -10671,10 +10839,12 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     private static func makeIdentity(defaults: UserDefaults) -> DJConnectIdentity {
-        let installIDKey = "DJConnectInstallID"
         let installID: String
         if let existing = defaults.string(forKey: installIDKey), !existing.isEmpty {
             installID = existing
+        } else if let legacy = defaults.string(forKey: legacyInstallIDKey), !legacy.isEmpty {
+            installID = legacy
+            defaults.set(legacy, forKey: installIDKey)
         } else {
             installID = UUID().uuidString.replacingOccurrences(of: "-", with: "")
             defaults.set(installID, forKey: installIDKey)

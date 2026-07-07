@@ -316,7 +316,7 @@ Recommended user flow:
 1. User starts Apple-client pairing in the Home Assistant DJConnect setup flow.
 2. Home Assistant shows a pairing code or QR code. For iOS, prefer the
    `djconnect://pair?ha_url=<local-ha-url>&pair_code=<code>&client_type=ios&pair_path=/api/djconnect/v1/pair`
-   QR/deep-link payload. For Apple Watch, use the same payload with
+   QR/deep-link payload. For Apple Watch, use the separate Watch setup flow with
    `client_type=watchos` and scan/open it on the paired iPhone.
 3. The Apple app is on the same LAN and the user scans the QR code or enters
    the local URL plus code manually. Watch users do not enter URL/code on the
@@ -869,6 +869,11 @@ enters an "auto analyze on next track start" mode: it requests Track Insight for
 the current playing track and once for each new playing track with `open:false`,
 dedupes repeated snapshots for the same track, and stops the mode when VibeCast
 is closed.
+iOS AirPlay VibeCast renders a local MP4 before handing it to AVPlayer/AirPlay.
+The renderer must resolve album art before frame encoding, using Track Insight
+artwork first and the current Now Playing artwork URL as fallback. Do not rely on
+async image loading inside the SwiftUI frame renderer, because the placeholder
+would otherwise be baked into the video.
 
 The response may include `analysis` metadata with `mode`, `confidence`,
 `measured`, `inferred`, `limitations`, and `sources`, plus optional compact

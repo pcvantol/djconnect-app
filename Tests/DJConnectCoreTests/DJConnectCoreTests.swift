@@ -606,6 +606,25 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
 }
 
 @MainActor
+@Test func resetPairingClearsLegacyAndPlatformInstallIDs() throws {
+    let suiteName = "DJConnectTests-\(UUID().uuidString)"
+    let defaults = try #require(UserDefaults(suiteName: suiteName))
+    defaults.removePersistentDomain(forName: suiteName)
+    defaults.set("LEGACY1234567890", forKey: "DJConnectInstallID")
+    let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startBackgroundTasks: false)
+    let platformInstallIDKey = try #require(defaults.dictionaryRepresentation().keys.first {
+        $0.hasPrefix("DJConnectInstallID-")
+    })
+    let migratedInstallID = defaults.string(forKey: platformInstallIDKey)
+
+    model.resetPairing()
+
+    #expect(defaults.string(forKey: "DJConnectInstallID") == nil)
+    #expect(defaults.string(forKey: platformInstallIDKey)?.isEmpty == false)
+    #expect(defaults.string(forKey: platformInstallIDKey) != migratedInstallID)
+}
+
+@MainActor
 @Test func freshInstallIgnoresOrphanedPersistentDeviceToken() throws {
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
@@ -1746,6 +1765,23 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
                   "kind": "album",
                   "title": "Hidden Album",
                   "reason": "No play uri."
+                },
+                {
+                  "id": "disc-album-1",
+                  "kind": "album",
+                  "title": "Alias Album",
+                  "subtitle": "Alias Artist",
+                  "uri": "spotify:album:alias",
+                  "album_image_url": "/api/djconnect/image_proxy/album-alias",
+                  "reason": "Album image alias."
+                },
+                {
+                  "id": "disc-playlist-1",
+                  "kind": "playlist",
+                  "title": "Alias Playlist",
+                  "uri": "spotify:playlist:alias",
+                  "thumbnail_url": "/api/djconnect/image_proxy/playlist-alias",
+                  "reason": "Thumbnail alias."
                 }
               ]
             },
@@ -1776,8 +1812,10 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     #expect(item.imageURL == "/api/djconnect/image_proxy/intro")
     #expect(item.reasonSources == ["taste_anchors", "favorite_genres"])
     #expect(item.confidence == .medium)
-    #expect(feed.sections.first?.items.count == 3)
-    #expect(feed.sections.first?.visibleItems.count == 1)
+    #expect(feed.sections.first?.items.count == 5)
+    #expect(feed.sections.first?.visibleItems.count == 3)
+    #expect(feed.sections.first?.visibleItems[1].imageURL == "/api/djconnect/image_proxy/album-alias")
+    #expect(feed.sections.first?.visibleItems[2].imageURL == "/api/djconnect/image_proxy/playlist-alias")
 }
 
 @MainActor
@@ -2031,6 +2069,61 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
 }
 
 @MainActor
+@Test func musicDiscoveryPlayNotFoundKeepsExistingRecommendations() async throws {
+    let defaults = try testDefaults()
+    let recorder = RequestRecorder()
+    let session = mockSession(host: "discovery-play-stale.local") { request in
+        recorder.append(request)
+        switch request.url?.path {
+        case "/api/djconnect/v1/music_discovery/refresh":
+            return (try httpResponse(for: request, statusCode: 200), Data("""
+            {
+              "success": true,
+              "enabled": true,
+              "revision": 18,
+              "sections": [
+                {
+                  "id": "fresh",
+                  "title": "Fresh",
+                  "items": [
+                    {"id":"stale-track","kind":"track","title":"Still Visible","subtitle":"DJConnect","uri":"spotify:track:stale","reason":"Visible before stale play."}
+                  ]
+                }
+              ]
+            }
+            """.utf8))
+        case "/api/djconnect/v1/music_discovery/play":
+            return (try httpResponse(for: request, statusCode: 404), Data(#"{"success":false,"error":"discovery_item_not_found","message":"Discovery item is no longer available."}"#.utf8))
+        default:
+            return (try httpResponse(for: request, statusCode: 404), Data(#"{"success":false}"#.utf8))
+        }
+    }
+    let model = makePairedMusicDNAModel(defaults: defaults, host: "discovery-play-stale.local", session: session)
+
+    await model.refreshMusicDiscovery()
+    let item = try #require(model.musicDiscoveryResponse?.visibleSections.first?.visibleItems.first)
+    await model.playMusicDiscoveryItem(item, sectionID: "fresh")
+
+    #expect(model.musicDiscoveryResponse?.visibleSections.first?.visibleItems.first?.title == "Still Visible")
+    #expect(model.musicDiscoveryErrorMessage == "Deze aanbeveling kan nog niet worden afgespeeld")
+    #expect(recorder.requests.map { $0.url?.path } == [
+        "/api/djconnect/v1/music_discovery/refresh",
+        "/api/djconnect/v1/music_discovery/play"
+    ])
+}
+
+@MainActor
+@Test func musicDiscoveryArtworkResolvesRelativeProxyAgainstHomeAssistantBaseURL() throws {
+    let defaults = try testDefaults()
+    defaults.set("http://discovery-art.local:8123", forKey: "DJConnectHomeAssistantURL")
+    let model = DJConnectAppModel(defaults: defaults, startBackgroundTasks: false)
+
+    let url = try #require(model.resolvedHomeAssistantImageURL("/api/djconnect/image_proxy/album-alias"))
+
+    #expect(url.absoluteString == "http://discovery-art.local:8123/api/djconnect/image_proxy/album-alias")
+}
+
+@MainActor
 @Test func musicDiscoveryRateLimitedRefreshFallsBackToFeed() async throws {
     let defaults = try testDefaults()
     let recorder = RequestRecorder()
@@ -2126,6 +2219,56 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     #expect(model.musicDiscoveryResponse?.visibleSections.first?.visibleItems.first?.reason == "Daily backend recommendation.")
     #expect(model.musicDiscoveryResponse?.visibleSections.first?.visibleItems.first?.title != "Push payload track must be ignored")
     #expect(recorder.requests.count == 1)
+}
+
+@MainActor
+@Test func musicDiscoveryPushEmptyEnabledRefreshKeepsExistingRecommendations() async throws {
+    let defaults = try testDefaults()
+    let recorder = RequestRecorder()
+    let refreshCount = RequestCounter()
+    let session = mockSession(host: "discovery-push-empty.local") { request in
+        recorder.append(request)
+        #expect(request.url?.path == "/api/djconnect/v1/music_discovery/refresh")
+        refreshCount.increment()
+        if refreshCount.count == 1 {
+            return (try httpResponse(for: request, statusCode: 200), Data("""
+            {
+              "success": true,
+              "enabled": true,
+              "revision": 14,
+              "sections": [
+                {
+                  "id": "daily",
+                  "title": "Daily",
+                  "items": [
+                    {"id":"daily-keep","kind":"track","title":"Keep Me","subtitle":"DJConnect","uri":"spotify:track:keep","reason":"Visible before playback."}
+                  ]
+                }
+              ]
+            }
+            """.utf8))
+        }
+        return (try httpResponse(for: request, statusCode: 200), Data("""
+        {
+          "success": true,
+          "enabled": true,
+          "revision": 15,
+          "sections": []
+        }
+        """.utf8))
+    }
+    let model = makePairedMusicDNAModel(defaults: defaults, host: "discovery-push-empty.local", session: session)
+
+    let didRefresh = await model.refreshMusicDiscovery()
+    #expect(didRefresh == true)
+    #expect(model.musicDiscoveryResponse?.visibleSections.first?.visibleItems.first?.title == "Keep Me")
+
+    let handled = await model.handleRemoteNotificationPayload(musicDiscoveryPushPayload())
+
+    #expect(handled == true)
+    #expect(model.musicDiscoveryResponse?.revision == 14)
+    #expect(model.musicDiscoveryResponse?.visibleSections.first?.visibleItems.first?.title == "Keep Me")
+    #expect(recorder.requests.count == 2)
 }
 
 @MainActor
@@ -6688,6 +6831,53 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
 }
 
 @MainActor
+@Test func pairingCompletesImmediatelyWhenHomeAssistantReportsSetupNotPending() async throws {
+    let suiteName = "DJConnectTests-\(UUID().uuidString)"
+    let defaults = try #require(UserDefaults(suiteName: suiteName))
+    defaults.removePersistentDomain(forName: suiteName)
+    defaults.set(true, forKey: "DJConnectWelcomeSeen")
+    defaults.set("ABCDEF1234567890", forKey: "DJConnectInstallID")
+    let tokenStore = DJConnectInMemoryTokenStore()
+    let host = "pair-complete.local"
+    let recorder = RequestPathRecorder()
+    let session = mockSession(host: host) { request in
+        recorder.append(request.url?.path ?? "")
+        #expect(request.url?.path == "/api/djconnect/v1/pair")
+        return (
+            try httpResponse(for: request, statusCode: 200),
+            Data(
+                """
+                {
+                  "success": true,
+                  "setup_pending": false,
+                  "client_type": "macos",
+                  "device_token": "device-secret",
+                  "ha_local_url": "http://\(host):8123"
+                }
+                """.utf8
+            )
+        )
+    }
+    let model = DJConnectAppModel(defaults: defaults, tokenStore: tokenStore, urlSession: session, startBackgroundTasks: true)
+    defer {
+        model.stopPairingWait()
+    }
+    model.homeAssistantURL = "http://\(host):8123"
+    model.pairingToken = "123456"
+
+    model.confirmPairingHomeAssistantURL()
+
+    for _ in 0..<20 where model.pairingStatus != .paired {
+        try await Task.sleep(for: .milliseconds(100))
+    }
+
+    #expect(model.pairingStatus == .paired)
+    #expect(model.pairingMessage == "Pairing complete." || model.pairingMessage == "Koppeling voltooid.")
+    #expect(recorder.paths == ["/api/djconnect/v1/pair"])
+    #expect(try tokenStore.loadToken() == "device-secret")
+}
+
+@MainActor
 @Test func appLifecycleTracksForegroundStateForBatterySensitiveWork() throws {
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
@@ -9909,10 +10099,10 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     let source = try loadRepositoryText("Sources/DJConnectUI/TrackInsightShareViews.swift")
 
     #expect(source.contains("private var actionStackTopPadding: CGFloat"))
-    #expect(source.contains("case .square:\n            8"))
+    #expect(source.contains("#if os(macOS)\n            -4\n            #else\n            8\n            #endif"))
     #expect(source.contains(".padding(.bottom, 14)"))
     #expect(source.contains("let previewWidth = min(availableWidth, maxHeight * aspectRatio)"))
-    #expect(source.contains("horizontalSizeClass == .compact ? 380 : 620"))
+    #expect(source.contains("#if os(macOS)\n            return 430\n            #else\n            return isCompact ? 380 : 620\n            #endif"))
 }
 
 @MainActor

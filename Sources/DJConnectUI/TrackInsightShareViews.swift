@@ -129,7 +129,11 @@ struct TrackInsightSharePreviewView: View {
         case .story:
             -20
         case .square:
+            #if os(macOS)
+            -4
+            #else
             8
+            #endif
         case .linkPreview:
             12
         }
@@ -353,7 +357,11 @@ private struct TrackInsightShareScaledPreview<Content: View>: View {
         case .story:
             return isCompact ? 560 : 640
         case .square:
+            #if os(macOS)
+            return 430
+            #else
             return isCompact ? 380 : 620
+            #endif
         case .linkPreview:
             return isCompact ? 240 : 360
         }
@@ -366,7 +374,11 @@ private struct TrackInsightShareScaledPreview<Content: View>: View {
         case .story:
             return min(horizontalSizeClass == .compact ? 560 : 720, max(420, responsiveHeight))
         case .square:
+            #if os(macOS)
+            return min(430, max(320, responsiveHeight))
+            #else
             return min(horizontalSizeClass == .compact ? 380 : 620, max(320, responsiveHeight))
+            #endif
         case .linkPreview:
             return min(horizontalSizeClass == .compact ? 260 : 420, max(180, responsiveHeight))
         }

@@ -216,6 +216,7 @@
 "ui.airplay.vibecast" = "AirPlay VibeCast";
 "ui.send.vibecast.video.to.airplay" = "Send VibeCast video to AirPlay";
 "ui.preparing.vibecast.video" = "Preparing VibeCast video";
+"ui.prepare.vibecast.video" = "Prepare VibeCast video";
 "ui.analyze.track.insight.before.using.vibecast" = "Analyze Track Insight before using VibeCast";
 "ui.local.avplayer.preview" = "Local AVPlayer preview";
 "ui.rendering.vibecast.video" = "Rendering VibeCast video...";

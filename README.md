@@ -74,10 +74,11 @@ Assistant.
 If the app is not paired yet, the main runtime UI is blocked by a pairing
 sheet. On iOS/macOS that sheet asks for the local Home Assistant address and
 pairing code/QR. Apple Watch pairing starts on the paired iPhone by scanning
-the Home Assistant-generated Apple Watch QR/deep-link; the Watch only shows
-companion status and never asks for a Home Assistant URL or code. After Home
-Assistant completes pairing, the sheet shows a success state before the runtime
-UI is released.
+the Home Assistant-generated Apple Watch QR/deep-link with
+`client_type=watchos`; the iPhone proxy still posts the pairing request with
+the Watch identity. The Watch only shows companion status and never asks for a
+Home Assistant URL or code. After Home Assistant completes pairing, the sheet
+shows a success state before the runtime UI is released.
 
 Pairing is always LAN-first and local-only. Use `http://homeassistant.local:8123`
 or the Home Assistant LAN IP address while the Apple device is on the same
@@ -448,6 +449,10 @@ WebSocket; missing capability or transport failure falls back to HTTP once.
 While VibeCast is visible, iOS/macOS also keep Track Insight warm client-side:
 the app auto-analyzes the current playing track and each next playing track
 with `open:false`, deduping repeated playback snapshots until VibeCast closes.
+The iOS AirPlay VibeCast video renderer preloads album artwork before encoding
+the MP4 frames; if Track Insight has no artwork URL it falls back to the current
+Now Playing artwork URL so AirPlay does not bake in the placeholder while the
+live VibeCast window loads images asynchronously.
 
 All status and command payloads include `device_id`, `client_type`, and
 `firmware`. The `firmware` value remains the protocol compatibility version,
