@@ -661,6 +661,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
     }
 
     private func appendDiagnosticLog(_ message: String, level: DJConnectWatchLogLevel = .info) {
+        let message = DJConnectLogRedactor.redactText(message)
         switch level {
         case .debug:
             Self.logger.debug("\(message, privacy: .public)")
@@ -1595,15 +1596,16 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
     }
 
     private func normalizedQueueItems(_ items: [DJConnectQueueItem]) -> [DJConnectQueueItem] {
-        var seen: Set<String> = []
-        return items.compactMap { item -> DJConnectQueueItem? in
+        var seenCounts: [String: Int] = [:]
+        return items.map { item in
             var item = item
             item.albumImageURL = resolvedArtworkURL(item.albumImageURL)
             let signature = queueItemSignature(item)
-            guard !seen.contains(signature) else {
-                return nil
+            let occurrence = seenCounts[signature, default: 0]
+            seenCounts[signature] = occurrence + 1
+            if occurrence > 0 {
+                item.id = "\(item.id)#\(occurrence + 1)"
             }
-            seen.insert(signature)
             return item
         }
     }
@@ -3255,11 +3257,10 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
                 return
             }
             do {
-                let data = try Data(contentsOf: url)
-                guard data.count <= maxWatchVoiceWAVBytes else {
-                    appendDiagnosticLog("Stemopname te groot: \(data.count) bytes", level: .warning)
-                    throw DJConnectError.invalidConfiguration("Opname is te lang. Probeer een kortere Ask DJ opname.")
-                }
+                let data = try DJConnectAudioFileLoader.loadVoiceWAVData(
+                    from: url,
+                    maxBytes: maxWatchVoiceWAVBytes
+                )
                 appendAskDJMessage(role: .user, text: "Stemverzoek")
                 let response: DJConnectVoiceResponse = try await sendCompanionHARequest(
                     .voice,
@@ -3782,17 +3783,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
     }
 
     private static func redactedPushFailureReason(_ reason: String) -> String {
-        reason
-            .replacingOccurrences(
-                of: #"Bearer\s+[A-Za-z0-9._~+/=-]+"#,
-                with: "Bearer [redacted]",
-                options: .regularExpression
-            )
-            .replacingOccurrences(
-                of: #"(djci_[A-Za-z0-9._~+/=-]+|[A-Fa-f0-9]{32,}|[A-Za-z0-9_-]{80,})"#,
-                with: "[redacted]",
-                options: .regularExpression
-            )
+        DJConnectLogRedactor.redactText(reason)
     }
 
     private static func isInvalidBootstrapProof(_ reason: String) -> Bool {
@@ -3863,6 +3854,13 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         player?.pause()
 
         if let audioURL = resolvedAudioURL(audioURL) {
+            guard Self.isSupportedResponseAudioURL(audioURL) else {
+                askDJAudioPlaybackState = .idle
+                if let text = fallbackText {
+                    speakResponseFallback(text)
+                }
+                return
+            }
             do {
                 askDJAudioPlaybackState = .loading(audioURL)
                 try AVAudioSession.sharedInstance().setCategory(.playback, mode: .spokenAudio)
@@ -3916,6 +3914,15 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         guard let text = fallbackText else {
             return
         }
+        speakResponseFallback(text)
+    }
+
+    private static func isSupportedResponseAudioURL(_ audioURL: URL) -> Bool {
+        let pathExtension = audioURL.pathExtension.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        return pathExtension == "mp3" || pathExtension == "wav"
+    }
+
+    private func speakResponseFallback(_ text: String) {
         let utterance = AVSpeechUtterance(string: text)
         utterance.voice = AVSpeechSynthesisVoice(language: currentRequestLocale)
         let synthesizer = AVSpeechSynthesizer()
@@ -3994,7 +4001,9 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
             return "Ask DJ niet bereikbaar"
         }
         switch error {
-        case .backendUnavailable, .server, .decodingFailed, .invalidResponse:
+        case .backendUnavailable:
+            return "De muziekbackend in Home Assistant is tijdelijk niet beschikbaar. DJConnect probeert automatisch opnieuw."
+        case .server, .decodingFailed, .invalidResponse, .payloadTooLarge:
             return "Home Assistant gaf geen antwoord"
         case .trackInsightUnavailable:
             return "Track Insight niet beschikbaar"
@@ -4491,7 +4500,9 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
             switch error {
             case .missingToken:
                 return "Koppel eerst met Home Assistant."
-            case .backendUnavailable, .server, .decodingFailed, .invalidResponse:
+            case .backendUnavailable:
+                return "De muziekbackend in Home Assistant is tijdelijk niet beschikbaar. DJConnect probeert automatisch opnieuw."
+            case .server, .decodingFailed, .invalidResponse, .payloadTooLarge:
                 return "Home Assistant gaf geen antwoord."
             case .trackInsightUnavailable:
                 return "Track Insight niet beschikbaar."

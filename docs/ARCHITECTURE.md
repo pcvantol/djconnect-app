@@ -191,7 +191,8 @@ antwoord`.
 
 Pairing/auth failures are intentionally conservative:
 
-- `backend_unavailable`: keep pairing and token, show playback backend state.
+- `backend_unavailable`: keep pairing and token, show temporary playback
+  backend recovery state, throttle repeated notices, and retry automatically.
 - HTTP `426` / `version_mismatch`, or successful responses with incompatible
   `ha_version`: keep pairing and token, show that the HA integration must be
   updated, and disable runtime playback/voice controls.
@@ -250,9 +251,11 @@ No Apple target hosts a Home Assistant-callable inbound API, shows a callback ad
 The app treats Home Assistant as the source of truth but avoids polling when
 local state can stay responsive by itself. Explicit user refreshes still run
 immediately, while automatic startup/resume refreshes are throttled and backend
-collection refreshes are rate-limited. During playback, the progress bar
-advances locally once per second and only performs a low-frequency status check
-or refreshes when the expected track duration is reached.
+collection refreshes are rate-limited. Playback backend recovery uses lightweight
+throttled refreshes so temporary `backend_unavailable` states can clear without
+stacking full collection refreshes. During playback, the progress bar advances
+locally once per second and only performs a low-frequency status check or
+refreshes when the expected track duration is reached.
 
 Foreground wakeword listening is lifecycle-bound. The app starts it only when
 the app is active, paired, not in Demo Mode, and the user enabled

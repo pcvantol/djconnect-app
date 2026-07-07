@@ -610,6 +610,7 @@ public final class DJConnectAppModel: ObservableObject {
             } else if pairingStatus != .paired {
                 nowPlayingPollTask?.cancel()
                 nowPlayingPollTask = nil
+                refreshScheduler.cancelPairedRefresh()
                 stopWakeWordListening()
             }
             updateWakeWordListeningForAvailability()
@@ -626,8 +627,7 @@ public final class DJConnectAppModel: ObservableObject {
     @Published public var backendAvailable = true {
         didSet {
             if backendAvailable {
-                backendRecoveryTask?.cancel()
-                backendRecoveryTask = nil
+                refreshScheduler.cancelBackendRecovery()
             }
             updateWakeWordListeningForAvailability()
         }
@@ -772,8 +772,7 @@ public final class DJConnectAppModel: ObservableObject {
     private var volumeCommandTask: Task<Void, Never>?
     private var playbackProgressTask: Task<Void, Never>?
     private var nowPlayingPollTask: Task<Void, Never>?
-    private var startupRefreshTask: Task<Void, Never>?
-    private var backendRecoveryTask: Task<Void, Never>?
+    private let refreshScheduler = DJConnectRefreshScheduler()
     private var openPermissionSettingsTask: Task<Void, Never>?
     private var pendingSelectedOutput: String?
     private var pendingVolumePercent: Int?
@@ -782,6 +781,7 @@ public final class DJConnectAppModel: ObservableObject {
     private var isAppInForeground = true
     private var lastFullRefreshAt: Date?
     private var lastBackendCollectionsRefreshAt: Date?
+    private var lastBackendUnavailableNoticeAt: Date?
     #if os(iOS) && canImport(WatchConnectivity)
     @Published private var watchProxyRegistration: DJConnectWatchProxyRegistration?
     private var watchProxySessionDelegate: DJConnectWatchProxySessionDelegate?
@@ -897,6 +897,7 @@ public final class DJConnectAppModel: ObservableObject {
     private let maxPersistentDiagnosticLogFileBytes = 128 * 1024
     private let minimumAutomaticRefreshInterval: TimeInterval = 8
     private let backendCollectionsRefreshInterval: TimeInterval = 30
+    private let backendUnavailableNoticeInterval: TimeInterval = 20
     private let nowPlayingPollInterval: UInt64 = 10
     private let progressTimerNetworkRefreshInterval = 5
     private let askDJHistorySyncInterval: UInt64 = 8_000_000_000
@@ -1610,10 +1611,7 @@ public final class DJConnectAppModel: ObservableObject {
         isAppInForeground = false
         scheduledPairingTask?.cancel()
         scheduledPairingTask = nil
-        startupRefreshTask?.cancel()
-        startupRefreshTask = nil
-        backendRecoveryTask?.cancel()
-        backendRecoveryTask = nil
+        refreshScheduler.cancelAll()
         volumeCommandTask?.cancel()
         volumeCommandTask = nil
         seekCommandTask?.cancel()
@@ -2107,7 +2105,6 @@ public final class DJConnectAppModel: ObservableObject {
         volumeCommandTask?.cancel()
         seekCommandTask?.cancel()
         playbackProgressTask?.cancel()
-        startupRefreshTask?.cancel()
     }
 
     private func pausePairingWaitForBackgroundIfNeeded() {
@@ -2496,6 +2493,7 @@ public final class DJConnectAppModel: ObservableObject {
         identity = Self.makeIdentity(defaults: defaults)
         clearRuntimeState()
         clearAskDJHistoryLocally()
+        isShowingTokenStorageError = false
         isShowingWakeWordActivationPrompt = false
         isShowingPairingSuccess = false
         isPairingScreenDismissed = false
@@ -2627,55 +2625,89 @@ public final class DJConnectAppModel: ObservableObject {
         refreshCollections: Bool = true,
         runFollowUpRefresh: Bool = true
     ) {
-        startupRefreshTask?.cancel()
         guard !isOfflineModeActive else {
             log(.debug, "Paired refresh skipped because device network is offline")
+            refreshScheduler.cancelPairedRefresh()
             return
         }
-        startupRefreshTask = Task { [weak self] in
-            try? await Task.sleep(nanoseconds: 350_000_000)
-            guard !Task.isCancelled else {
-                return
+        refreshScheduler.schedulePairedRefresh(
+            runFollowUpRefresh: runFollowUpRefresh,
+            isStillValid: { [weak self] in
+                guard let self else {
+                    return false
+                }
+                return !self.isOfflineModeActive
+            },
+            refresh: { [weak self] in
+                _ = await self?.runRefresh(
+                    reason: reason,
+                    allowThrottle: allowThrottle,
+                    refreshCollections: refreshCollections
+                )
+            },
+            followUpRefresh: { [weak self] in
+                _ = await self?.runRefresh(reason: "Startup Now Playing refresh completed", allowThrottle: true)
             }
-            _ = await self?.runRefresh(
-                reason: reason,
-                allowThrottle: allowThrottle,
-                refreshCollections: refreshCollections
-            )
-            guard runFollowUpRefresh else {
-                return
-            }
-            try? await Task.sleep(for: .milliseconds(1_200))
-            guard !Task.isCancelled, self?.pairingStatus == .paired else {
-                return
-            }
-            _ = await self?.runRefresh(reason: "Startup Now Playing refresh completed", allowThrottle: true)
-        }
+        )
     }
 
     private func scheduleBackendRecoveryRefresh(reason: String) {
         guard startBackgroundTasks, !isDemoMode, pairingStatus == .paired, !backendAvailable, !isOfflineModeActive else {
             return
         }
-        guard backendRecoveryTask == nil else {
-            return
-        }
-        backendRecoveryTask = Task { [weak self] in
-            var delay: UInt64 = 2_000_000_000
-            while !Task.isCancelled {
-                try? await Task.sleep(nanoseconds: delay)
-                guard !Task.isCancelled, let self else {
-                    return
+        refreshScheduler.scheduleBackendRecovery(
+            isStillNeeded: { [weak self] in
+                guard let self else {
+                    return false
                 }
-                guard self.pairingStatus == .paired, !self.isDemoMode, !self.backendAvailable, !self.isOfflineModeActive else {
-                    self.backendRecoveryTask = nil
+                return self.pairingStatus == .paired
+                    && !self.isDemoMode
+                    && !self.backendAvailable
+                    && !self.isOfflineModeActive
+            },
+            refresh: { [weak self] in
+                guard let self else {
                     return
                 }
                 self.log(.debug, reason)
-                _ = await self.runRefresh(reason: "Playback backend recovery refresh completed")
-                delay = min(delay * 2, 10_000_000_000)
+                _ = await self.runRefresh(
+                    reason: "Playback backend recovery refresh completed",
+                    allowThrottle: true,
+                    refreshCollections: false
+                )
             }
-        }
+        )
+    }
+
+    private func scheduleCommandRefresh(
+        reason: String,
+        delay: Duration = .milliseconds(850),
+        includeCollections: Bool = false,
+        cleanup: (@MainActor () -> Void)? = nil
+    ) {
+        refreshScheduler.scheduleCommandRefresh(
+            delay: delay,
+            includeCollections: includeCollections,
+            cleanup: cleanup,
+            isStillValid: { [weak self] in
+                guard let self else {
+                    return false
+                }
+                return self.isAppInForeground
+                    && self.pairingStatus == .paired
+                    && !self.isOfflineModeActive
+            },
+            refresh: { [weak self] includeCollections in
+                guard let self else {
+                    return
+                }
+                _ = await self.runRefresh(
+                    reason: reason,
+                    allowThrottle: true,
+                    refreshCollections: includeCollections
+                )
+            }
+        )
     }
 
     public func sendPlaybackCommand(
@@ -2725,19 +2757,10 @@ public final class DJConnectAppModel: ObservableObject {
                 return
             }
             await self.performCommand("set_volume", value: .int(value))
-            try? await Task.sleep(for: .milliseconds(850))
-            guard !Task.isCancelled else {
-                return
-            }
-            guard self.isAppInForeground else {
+            self.scheduleCommandRefresh(reason: "Volume command Now Playing refresh completed") {
                 if self.pendingVolumePercent == value {
                     self.pendingVolumePercent = nil
                 }
-                return
-            }
-            await self.performCommand("status")
-            if self.pendingVolumePercent == value {
-                self.pendingVolumePercent = nil
             }
         }
     }
@@ -2785,19 +2808,10 @@ public final class DJConnectAppModel: ObservableObject {
                 return
             }
             await self.performCommand("seek_relative", value: .int(delta))
-            try? await Task.sleep(for: .milliseconds(850))
-            guard !Task.isCancelled else {
-                return
-            }
-            guard self.isAppInForeground else {
+            self.scheduleCommandRefresh(reason: "Seek command Now Playing refresh completed") {
                 if self.pendingSeekTargetMS == target {
                     self.pendingSeekTargetMS = nil
                 }
-                return
-            }
-            await self.performCommand("status")
-            if self.pendingSeekTargetMS == target {
-                self.pendingSeekTargetMS = nil
             }
         }
     }
@@ -2886,13 +2900,12 @@ public final class DJConnectAppModel: ObservableObject {
                 loadingPlaylistID = nil
                 return
             }
-            try? await Task.sleep(for: .milliseconds(1_100))
-            guard pairingStatus == .paired, isAppInForeground else {
-                loadingPlaylistID = nil
-                return
+            scheduleCommandRefresh(
+                reason: "Playlist Now Playing refresh completed",
+                delay: .milliseconds(1_100)
+            ) { [weak self] in
+                self?.loadingPlaylistID = nil
             }
-            _ = await runRefresh(reason: "Playlist Now Playing refresh completed")
-            loadingPlaylistID = nil
         }
     }
 
@@ -2965,16 +2978,14 @@ public final class DJConnectAppModel: ObservableObject {
                 loadingQueueItemIndex = nil
                 return
             }
-            try? await Task.sleep(for: .milliseconds(1100))
-            guard pairingStatus == .paired, isAppInForeground else {
-                loadingQueueItemID = nil
-                loadingQueueItemIndex = nil
-                return
+            scheduleCommandRefresh(
+                reason: "Queue item Now Playing refresh completed",
+                delay: .milliseconds(1_100),
+                includeCollections: true
+            ) { [weak self] in
+                self?.loadingQueueItemID = nil
+                self?.loadingQueueItemIndex = nil
             }
-            _ = await runRefresh(reason: "Queue item Now Playing refresh completed")
-            await refreshQueue()
-            loadingQueueItemID = nil
-            loadingQueueItemIndex = nil
         }
     }
 
@@ -3687,7 +3698,7 @@ public final class DJConnectAppModel: ObservableObject {
 
         Task {
             do {
-                let data = try Data(contentsOf: url)
+                let data = try DJConnectAudioFileLoader.loadVoiceWAVData(from: url)
                 try? FileManager.default.removeItem(at: url)
                 log(.info, "Uploading voice recording WAV (\(data.count) bytes)")
                 let response = try await sendVoiceWithFallback(wavData: data)
@@ -3824,6 +3835,11 @@ public final class DJConnectAppModel: ObservableObject {
         ))
         if response.success == false {
             switch response.error {
+            case "backend_unavailable", "playback_backend_unavailable":
+                apply(error: .backendUnavailable(message: response.message))
+                if shouldEmitBackendUnavailableNotice() {
+                    userNotice = DJConnectUserNotice(text: backendUnavailableRecoveryMessage(for: response.message))
+                }
             case "stale_backend_action":
                 userNotice = DJConnectUserNotice(text: localized(key: "appModel.this.action.belongs.to.a.previous.music.backend.ask"))
             case "unsupported_backend_capability":
@@ -3872,7 +3888,7 @@ public final class DJConnectAppModel: ObservableObject {
             playlistItems = responsePlaylists
             playlists = responsePlaylists.map(\.name)
         }
-        if let message = response.message, !message.isEmpty {
+        if let message = response.message, !message.isEmpty, !Self.isMusicBackendUnavailableText(response.error) {
             djResponseText = userFacingDJResponseText(message) ?? message
         }
         if response.success != false, Self.shouldRefreshMusicDNAAfterCommand(command) {
@@ -3905,14 +3921,16 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     private func normalizedQueueItems(_ items: [DJConnectQueueItem]) -> [DJConnectQueueItem] {
-        var seen: Set<String> = []
-        return items.filter { item in
+        var seenCounts: [String: Int] = [:]
+        return items.map { item in
+            var item = item
             let signature = queueItemSignature(item)
-            guard !seen.contains(signature) else {
-                return false
+            let occurrence = seenCounts[signature, default: 0]
+            seenCounts[signature] = occurrence + 1
+            if occurrence > 0 {
+                item.id = "\(item.id)#\(occurrence + 1)"
             }
-            seen.insert(signature)
-            return true
+            return item
         }
     }
 
@@ -4064,6 +4082,7 @@ public final class DJConnectAppModel: ObservableObject {
         case let .backendUnavailable(message):
             backendAvailable = false
             voiceStatus = .unavailable
+            voiceErrorMessage = backendUnavailableRecoveryMessage()
             if let message, !message.isEmpty {
                 log(.warning, "Backend unavailable: \(message)")
             }
@@ -4124,8 +4143,12 @@ public final class DJConnectAppModel: ObservableObject {
         if let error, !Self.shouldShowConnectionNotice(for: error) {
             return
         }
-        let text = error.map { Self.isMusicBackendUnavailableError($0) } == true
-            ? localized(key: "appModel.music.backend.unavailable")
+        let isBackendUnavailable = error.map { Self.isMusicBackendUnavailableError($0) } == true
+        if isBackendUnavailable, !shouldEmitBackendUnavailableNotice() {
+            return
+        }
+        let text = isBackendUnavailable
+            ? backendUnavailableRecoveryMessage()
             : localized(key: "appModel.no.connection.to.home.assistant")
         userNotice = DJConnectUserNotice(text: text)
     }
@@ -4153,7 +4176,7 @@ public final class DJConnectAppModel: ObservableObject {
 
     private static func shouldShowConnectionNotice(for error: DJConnectError) -> Bool {
         switch error {
-        case .backendUnavailable, .server, .network, .decodingFailed, .invalidResponse, .routeMissing:
+        case .backendUnavailable, .server, .network, .decodingFailed, .invalidResponse, .routeMissing, .payloadTooLarge:
             true
         case .authStale, .versionMismatch, .notConfigured, .invalidConfiguration, .missingToken, .pairingFailed, .clientTypeMismatch, .trackInsightUnavailable:
             false
@@ -4338,14 +4361,103 @@ public final class DJConnectAppModel: ObservableObject {
             log(.debug, "Backend collection refresh throttled")
             return
         }
-        let didLoadDevices = await performCommand("devices", notifyUserOnError: false, applyErrorState: false)
-        let didLoadQueue = await performCommand("queue", notifyUserOnError: false, applyErrorState: false)
-        let didLoadPlaylists = await performCommand("playlists", notifyUserOnError: false, applyErrorState: false)
-        if didLoadDevices || didLoadQueue || didLoadPlaylists {
-            lastBackendCollectionsRefreshAt = Date()
-        } else {
-            log(.debug, "Backend collection refresh did not update throttle because all collection commands failed")
+
+        guard pairingStatus == .paired else {
+            log(.warning, "Backend collection refresh skipped because app is not paired")
+            return
         }
+        guard isRuntimeCompatible else {
+            log(.warning, "Backend collection refresh skipped because update is required")
+            return
+        }
+
+        do {
+            let devicesPayload = backendCollectionCommandPayload(command: "devices")
+            let queuePayload = backendCollectionCommandPayload(command: "queue")
+            let playlistsPayload = backendCollectionCommandPayload(command: "playlists")
+            let results = try await withHomeAssistantClient { client in
+                async let devices = Self.fetchBackendCollectionCommand(
+                    client: client,
+                    payload: devicesPayload
+                )
+                async let queue = Self.fetchBackendCollectionCommand(
+                    client: client,
+                    payload: queuePayload
+                )
+                async let playlists = Self.fetchBackendCollectionCommand(
+                    client: client,
+                    payload: playlistsPayload
+                )
+                return await [devices, queue, playlists]
+            }
+
+            let didLoadAnyCollection = applyBackendCollectionCommandResults(results)
+            if didLoadAnyCollection {
+                lastBackendCollectionsRefreshAt = Date()
+            } else {
+                log(.debug, "Backend collection refresh did not update throttle because all collection commands failed")
+            }
+        } catch let error as DJConnectError {
+            log(.warning, "Backend collection refresh failed: \(Self.describe(error))")
+        } catch {
+            log(.error, "Backend collection refresh failed unexpectedly: \(error.localizedDescription)")
+        }
+    }
+
+    private func backendCollectionCommandPayload(command: String) -> DJConnectCommandPayload {
+        DJConnectCommandPayload(
+            identity: identity,
+            command: command,
+            limit: Self.commandLimit(for: command),
+            language: currentRequestLocale,
+            mood: askDJMoodInt,
+            musicDNAKey: askDJMusicDNAKey
+        )
+    }
+
+    private struct BackendCollectionCommandResult: Sendable {
+        let command: String
+        let response: DJConnectCommandResponse?
+        let errorDescription: String?
+    }
+
+    private static func fetchBackendCollectionCommand(
+        client: DJConnectClient,
+        payload: DJConnectCommandPayload
+    ) async -> BackendCollectionCommandResult {
+        do {
+            let response = try await client.sendCommandResponse(payload)
+            return BackendCollectionCommandResult(
+                command: payload.command,
+                response: response,
+                errorDescription: nil
+            )
+        } catch let error as DJConnectError {
+            return BackendCollectionCommandResult(
+                command: payload.command,
+                response: nil,
+                errorDescription: Self.describe(error)
+            )
+        } catch {
+            return BackendCollectionCommandResult(
+                command: payload.command,
+                response: nil,
+                errorDescription: error.localizedDescription
+            )
+        }
+    }
+
+    private func applyBackendCollectionCommandResults(_ results: [BackendCollectionCommandResult]) -> Bool {
+        var didLoadAnyCollection = false
+        for result in results {
+            if let response = result.response {
+                apply(commandResponse: response, command: result.command)
+                didLoadAnyCollection = true
+            } else {
+                log(.warning, "Backend collection command \(result.command) failed: \(result.errorDescription ?? "unknown error")")
+            }
+        }
+        return didLoadAnyCollection
     }
 
     private func refreshStatusWithFallback() async throws {
@@ -4992,7 +5104,7 @@ public final class DJConnectAppModel: ObservableObject {
 
     private func messageForMusicDNARefreshFailure(_ error: DJConnectError) -> String {
         if Self.isMusicBackendUnavailableError(error) {
-            return localized(key: "appModel.music.backend.unavailable")
+            return backendUnavailableRecoveryMessage()
         }
         if let message = userFacingDJResponseText(Self.describe(error)) {
             return message
@@ -5361,7 +5473,7 @@ public final class DJConnectAppModel: ObservableObject {
         switch error {
         case .routeMissing:
             return localized(key: "appModel.djconnect.route.missing.in.home.assistant.check.the.integration")
-        case .backendUnavailable, .server, .network, .decodingFailed, .invalidResponse:
+        case .backendUnavailable, .server, .network, .decodingFailed, .invalidResponse, .payloadTooLarge:
             return localized(key: "ui.discovery.could.not.be.loaded")
         case .missingToken:
             return localized(key: "appModel.missing.djconnect.bearer.token.reset.pairing.to.set.up")
@@ -6507,6 +6619,8 @@ public final class DJConnectAppModel: ObservableObject {
             return localized(key: "appModel.pair.with.home.assistant.again.before.using.track.insight")
         case .invalidResponse:
             return localized(key: "appModel.home.assistant.returned.an.invalid.track.insight.response")
+        case .payloadTooLarge:
+            return localized(key: "appModel.home.assistant.returned.an.unexpected.track.insight.response")
         case let .invalidConfiguration(message):
             return message
         case let .pairingFailed(message):
@@ -7075,17 +7189,7 @@ public final class DJConnectAppModel: ObservableObject {
     #endif
 
     private static func redactedPushFailureReason(_ reason: String) -> String {
-        reason
-            .replacingOccurrences(
-                of: #"Bearer\s+[A-Za-z0-9._~+/=-]+"#,
-                with: "Bearer [redacted]",
-                options: .regularExpression
-            )
-            .replacingOccurrences(
-                of: #"(djci_[A-Za-z0-9._~+/=-]+|[A-Fa-f0-9]{32,}|[A-Za-z0-9_-]{80,})"#,
-                with: "[redacted]",
-                options: .regularExpression
-            )
+        DJConnectLogRedactor.redactText(reason)
     }
 
     private static func isInvalidBootstrapProof(_ reason: String) -> Bool {
@@ -7192,13 +7296,16 @@ public final class DJConnectAppModel: ObservableObject {
 
     private func showAskDJToast(for error: DJConnectError) {
         switch error {
-        case let .backendUnavailable(message):
-            showAskDJToast(userFacingDJResponseText(message) ?? localized(key: "appModel.home.assistant.did.not.respond"))
+        case .backendUnavailable:
+            guard shouldEmitBackendUnavailableNotice() else {
+                return
+            }
+            showAskDJToast(backendUnavailableRecoveryMessage())
         case let .server(_, message):
             showAskDJToast(userFacingDJResponseText(message) ?? localized(key: "appModel.home.assistant.did.not.respond"))
         case let .decodingFailed(_, _, message):
             showAskDJToast(userFacingDJResponseText(message) ?? localized(key: "appModel.home.assistant.did.not.respond"))
-        case .invalidResponse:
+        case .invalidResponse, .payloadTooLarge:
             showAskDJToast(localized(key: "appModel.home.assistant.did.not.respond"))
         case .network, .routeMissing, .notConfigured, .invalidConfiguration, .missingToken, .pairingFailed, .clientTypeMismatch:
             showAskDJToast(localized(key: "appModel.ask.dj.is.unreachable"))
@@ -7213,13 +7320,13 @@ public final class DJConnectAppModel: ObservableObject {
 
     private func askDJErrorText(for error: DJConnectError) -> String {
         switch error {
-        case let .backendUnavailable(message):
-            userFacingDJResponseText(message) ?? localized(key: "appModel.home.assistant.did.not.respond")
+        case .backendUnavailable:
+            backendUnavailableRecoveryMessage()
         case let .server(_, message):
             userFacingDJResponseText(message) ?? localized(key: "appModel.home.assistant.did.not.respond")
         case let .decodingFailed(_, _, message):
             userFacingDJResponseText(message) ?? localized(key: "appModel.home.assistant.did.not.respond")
-        case .invalidResponse:
+        case .invalidResponse, .payloadTooLarge:
             localized(key: "appModel.home.assistant.did.not.respond")
         case .network,
              .routeMissing,
@@ -7494,11 +7601,17 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     private func clearRecoverableVoiceErrorIfNeeded() {
-        guard isRecoverableVoiceErrorText(djResponseText) else {
+        let shouldClearDJResponse = isRecoverableVoiceErrorText(djResponseText)
+        let shouldClearVoiceError = voiceErrorMessage.map(isRecoverableVoiceErrorText) == true
+        guard shouldClearDJResponse || shouldClearVoiceError else {
             return
         }
-        djResponseText = ""
-        voiceErrorMessage = nil
+        if shouldClearDJResponse {
+            djResponseText = ""
+        }
+        if shouldClearVoiceError {
+            voiceErrorMessage = nil
+        }
         if voiceStatus == .unavailable {
             voiceStatus = .idle
         }
@@ -7517,6 +7630,34 @@ public final class DJConnectAppModel: ObservableObject {
             || normalized == "ververs de muziekdienst-koppeling in home assistant"
             || normalized == "playback backend unavailable"
             || normalized == "playback backend niet beschikbaar"
+            || normalized == backendUnavailableRecoveryMessage().lowercased()
+            || normalized == "the music backend in home assistant is temporarily unavailable. djconnect will retry automatically."
+            || normalized == "de muziekbackend in home assistant is tijdelijk niet beschikbaar. djconnect probeert automatisch opnieuw."
+    }
+
+    public var backendUnavailableRecoveryText: String {
+        backendUnavailableRecoveryMessage()
+    }
+
+    private func backendUnavailableRecoveryMessage() -> String {
+        localized(key: "appModel.music.backend.temporarily.unavailable.retrying")
+    }
+
+    private func backendUnavailableRecoveryMessage(for message: String?) -> String {
+        if let userFacingMessage = userFacingDJResponseText(message ?? ""),
+           !Self.isMusicBackendUnavailableText(userFacingMessage) {
+            return userFacingMessage
+        }
+        return backendUnavailableRecoveryMessage()
+    }
+
+    private func shouldEmitBackendUnavailableNotice(now: Date = Date()) -> Bool {
+        if let lastBackendUnavailableNoticeAt,
+           now.timeIntervalSince(lastBackendUnavailableNoticeAt) < backendUnavailableNoticeInterval {
+            return false
+        }
+        lastBackendUnavailableNoticeAt = now
+        return true
     }
 
     private static func isMusicBackendUnavailableError(_ error: DJConnectError) -> Bool {
@@ -7753,6 +7894,11 @@ public final class DJConnectAppModel: ObservableObject {
         return URL(string: audioURL.absoluteString, relativeTo: baseURL)?.absoluteURL
     }
 
+    private static func isSupportedResponseAudioURL(_ audioURL: URL) -> Bool {
+        let pathExtension = audioURL.pathExtension.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        return pathExtension == "mp3" || pathExtension == "wav"
+    }
+
     private func playResponseAudioIfNeeded(_ audioURL: URL?) async {
         guard localResponseAudioEnabled else {
             log(.debug, "Skipping DJ response audio because local response audio is disabled")
@@ -7763,6 +7909,10 @@ public final class DJConnectAppModel: ObservableObject {
 
     private func playResponseAudio(_ audioURL: URL?) async {
         guard let audioURL else {
+            return
+        }
+        guard Self.isSupportedResponseAudioURL(audioURL) else {
+            log(.warning, "Skipping unsupported DJ response audio type")
             return
         }
         #if canImport(AVFoundation)
@@ -7862,16 +8012,12 @@ public final class DJConnectAppModel: ObservableObject {
                     )
                 )
                 apply(commandResponse: response, command: command)
-                if Self.shouldRefreshPlaybackAfterCommand(command) {
-                    try await refreshPlaybackSnapshot(client: client)
-                    if Self.shouldRefreshPlaybackAgainAfterCommand(command) {
-                        try? await Task.sleep(for: .milliseconds(850))
-                        guard pairingStatus == .paired else {
-                            return
-                        }
-                        try await refreshPlaybackSnapshot(client: client)
-                    }
-                }
+            }
+            if Self.shouldRefreshPlaybackAfterCommand(command) {
+                scheduleCommandRefresh(
+                    reason: "Command \(command) Now Playing refresh completed",
+                    delay: Self.shouldRefreshPlaybackAgainAfterCommand(command) ? .milliseconds(850) : .milliseconds(350)
+                )
             }
             log(.debug, "Command \(command) succeeded")
             return true
@@ -7881,6 +8027,9 @@ public final class DJConnectAppModel: ObservableObject {
                 apply(error: error)
             }
             if notifyUserOnError {
+                if case .backendUnavailable = error, !shouldEmitBackendUnavailableNotice() {
+                    return false
+                }
                 userNotice = DJConnectUserNotice(text: playbackCommandFailureMessage(command: command, error: error))
             }
             return false
@@ -7896,8 +8045,9 @@ public final class DJConnectAppModel: ObservableObject {
 
     private func playbackCommandFailureMessage(command: String, error: DJConnectError) -> String {
         switch error {
-        case let .backendUnavailable(message),
-             let .server(_, message),
+        case let .backendUnavailable(message):
+            return backendUnavailableRecoveryMessage(for: message)
+        case let .server(_, message),
              let .decodingFailed(_, _, message):
             if let message = userFacingDJResponseText(message ?? Self.describe(error)) {
                 return message
@@ -7907,7 +8057,7 @@ public final class DJConnectAppModel: ObservableObject {
         }
 
         if Self.isMusicBackendUnavailableError(error) {
-            return localized(key: "appModel.music.backend.unavailable")
+            return backendUnavailableRecoveryMessage()
         }
         if Self.shouldShowConnectionNotice(for: error) {
             return localized(key: "appModel.no.connection.to.home.assistant")
@@ -8960,6 +9110,8 @@ public final class DJConnectAppModel: ObservableObject {
             return "client_type_mismatch"
         case .trackInsightUnavailable:
             return "track_insight_unavailable"
+        case .payloadTooLarge:
+            return "payload_too_large"
         case .server, .decodingFailed, .invalidResponse:
             return "server"
         }
@@ -9152,6 +9304,7 @@ public final class DJConnectAppModel: ObservableObject {
         guard level.priority >= configuredLevel.priority else {
             return
         }
+        let message = DJConnectLogRedactor.redactText(message)
 
         switch level {
         case .debug:
@@ -9259,6 +9412,8 @@ public final class DJConnectAppModel: ObservableObject {
             return mismatch.message ?? "Werk DJConnect bij."
         case .backendUnavailable, .server, .decodingFailed, .invalidResponse:
             return "Home Assistant gaf geen antwoord."
+        case .payloadTooLarge:
+            return "Home Assistant gaf te veel data terug."
         case .trackInsightUnavailable:
             return "Track Insight is niet beschikbaar voor dit nummer."
         case .network, .routeMissing, .notConfigured:
@@ -9304,6 +9459,8 @@ public final class DJConnectAppModel: ObservableObject {
             "client type mismatch expected=\(expectedClientType ?? "?") received=\(receivedClientType ?? "?")\(message.map { ": \($0)" } ?? "")"
         case let .trackInsightUnavailable(code, message):
             "track insight unavailable\(code.map { " \($0)" } ?? "")\(message.map { ": \($0)" } ?? "")"
+        case let .payloadTooLarge(limitBytes, actualBytes):
+            "payload too large limit=\(limitBytes) actual=\(actualBytes.map(String.init) ?? "unknown")"
         }
     }
 
@@ -9340,6 +9497,8 @@ public final class DJConnectAppModel: ObservableObject {
             return "pairing_failed"
         case .clientTypeMismatch:
             return "client_type_mismatch"
+        case .payloadTooLarge:
+            return "payload_too_large"
         }
     }
 
@@ -9368,6 +9527,8 @@ public final class DJConnectAppModel: ObservableObject {
                 message = "invalid_response"
             case .missingToken:
                 message = "missing_token"
+            case let .payloadTooLarge(limitBytes, actualBytes):
+                message = "payload_too_large limit=\(limitBytes) actual=\(actualBytes.map(String.init) ?? "unknown")"
             }
         } else {
             message = error.localizedDescription

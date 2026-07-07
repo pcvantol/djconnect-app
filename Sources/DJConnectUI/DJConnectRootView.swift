@@ -1405,6 +1405,7 @@ private struct PairingSheetView: View {
         }
         .defaultScrollAnchor(.top)
         .background(DJConnectCanvasBackground())
+        .accessibilityIdentifier("screen-pairing")
         #if os(iOS)
         .frame(
             minHeight: horizontalSizeClass == .regular ? 760 : nil,
@@ -1601,6 +1602,7 @@ private struct PairingSheetView: View {
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel(localizedKey(model.language, "ui.manual.pairing"))
+                .accessibilityIdentifier("pairing-manual-toggle")
                 #endif
 
                 if shouldShowManualPairing {
@@ -1636,6 +1638,7 @@ private struct PairingSheetView: View {
                 .buttonStyle(DJConnectLilacPillButtonStyle())
                 .controlSize(.large)
                 .disabled(model.isPairing || !canSubmitPairing)
+                .accessibilityIdentifier("pairing-submit-button")
 
             }
 
@@ -1651,6 +1654,7 @@ private struct PairingSheetView: View {
                 }
                 .buttonStyle(DJConnectLilacPillButtonStyle())
                 .controlSize(.large)
+                .accessibilityIdentifier("pairing-start-demo-button")
             }
 
             #if os(iOS)
@@ -2019,6 +2023,7 @@ private struct PairingEditableURLCard: View {
                     .submitLabel(.done)
                     #endif
                     .textFieldStyle(.plain)
+                    .accessibilityIdentifier("pairing-home-assistant-url-field")
                     .onSubmit {
                         confirmURL()
                     }
@@ -2118,6 +2123,7 @@ private struct PairingCodeEntryCard: View {
                 .autocorrectionDisabled()
                 #endif
                 .textFieldStyle(.plain)
+                .accessibilityIdentifier("pairing-code-field")
                 .onChange(of: text) {
                     let digits = text.filter(\.isNumber)
                     if digits != text || digits.count > 6 {
@@ -2733,6 +2739,7 @@ private struct WelcomeView: View {
                         }
                         .buttonStyle(DJConnectLilacPillButtonStyle())
                         .controlSize(.large)
+                        .accessibilityIdentifier("welcome-dismiss-button")
                     }
                     .frame(maxWidth: .infinity)
                 }
@@ -2743,6 +2750,7 @@ private struct WelcomeView: View {
                 #endif
             }
             .defaultScrollAnchor(.top)
+            .accessibilityIdentifier("screen-welcome")
         }
     }
 
@@ -9309,7 +9317,7 @@ private struct IOSConnectionCard: View {
                     .fixedSize(horizontal: false, vertical: true)
             } else if !model.backendAvailable {
                 Label(
-                    localizedKey(model.language, "ui.playback.is.unavailable.ncheck.the.spotify.authorization.in.home.assistant"),
+                    model.backendUnavailableRecoveryText,
                     systemImage: "exclamationmark.triangle"
                 )
                     .font(.footnote)
@@ -9610,7 +9618,7 @@ struct SetupStatusView: View {
                         .fixedSize(horizontal: false, vertical: true)
                 } else if !model.backendAvailable {
                     Label(
-                        localizedKey(model.language, "ui.playback.is.unavailable.ncheck.the.spotify.authorization.in.home.assistant"),
+                        model.backendUnavailableRecoveryText,
                         systemImage: "exclamationmark.triangle"
                     )
                         .foregroundStyle(.orange)
@@ -13433,13 +13441,13 @@ struct QueueView: View {
             queueSearchMatches(item)
         }
     }
-    private var queueSearchResultIDs: [Int] {
+    private var queueSearchResultIDs: [String] {
         guard !queueSearchQuery.isEmpty else {
             return []
         }
-        return filteredQueueItems.map(\.index)
+        return filteredQueueItems.map(\.item.id)
     }
-    private var activeQueueSearchResultID: Int? {
+    private var activeQueueSearchResultID: String? {
         guard queueSearchResultIDs.indices.contains(selectedSearchResultIndex) else {
             return nil
         }
@@ -13510,7 +13518,7 @@ struct QueueView: View {
                             .listRowBackground(Color.clear)
                             .listRowSeparator(.hidden)
                         } else {
-                            ForEach(filteredQueueItems, id: \.index) { index, item in
+                            ForEach(filteredQueueItems, id: \.item.id) { index, item in
                                 Button {
                                     DJConnectHaptics.impact()
                                     showStatusToast(localizedKey(model.language, "ui.track.is.starting"), systemImage: "play.fill")
@@ -13526,7 +13534,7 @@ struct QueueView: View {
                                 .disabled(areQueueItemsDisabled || !model.canStartQueueItem(item))
                                 .allowsHitTesting(!areQueueItemsDisabled && model.canStartQueueItem(item))
                                 .accessibilityLabel(item.displayTitle)
-                                .id(index)
+                                .id(item.id)
                             }
                         }
                     }
@@ -13617,7 +13625,7 @@ struct QueueView: View {
                     )
                     .frame(maxWidth: .infinity, minHeight: 360, alignment: .center)
                 } else {
-                    ForEach(filteredQueueItems, id: \.index) { index, item in
+                    ForEach(filteredQueueItems, id: \.item.id) { index, item in
                         Button {
                             DJConnectHaptics.impact()
                             showStatusToast(localizedKey(model.language, "ui.track.is.starting"), systemImage: "play.fill")
@@ -13630,7 +13638,7 @@ struct QueueView: View {
                         .disabled(areQueueItemsDisabled || !model.canStartQueueItem(item))
                         .allowsHitTesting(!areQueueItemsDisabled && model.canStartQueueItem(item))
                         .accessibilityLabel(item.displayTitle)
-                        .id(index)
+                        .id(item.id)
                     }
                 }
             }
@@ -14422,6 +14430,23 @@ private struct LocalGameSurface: View {
         }
     }
 
+    private var gameAccessibilityValue: String {
+        [
+            "game=\(game.rawValue)",
+            "playing=\(isPlaying)",
+            "score=\(score)",
+            "paddle_y=\(Int(paddleY.rounded()))",
+            "ship_x=\(Int(shipX.rounded()))",
+            "plane_y=\(Int(planeY.rounded()))",
+            "pacman_x=\(Int(pacmanX.rounded()))",
+            "pacman_y=\(Int(pacmanY.rounded()))",
+            "pacman_dx=\(Int(pacmanDX.rounded()))",
+            "pacman_dy=\(Int(pacmanDY.rounded()))",
+            "asteroid_bullet=\(asteroidBulletActive)",
+            "fly_shot=\(flyShotActive)"
+        ].joined(separator: ";")
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(alignment: .firstTextBaseline, spacing: 12) {
@@ -14487,6 +14512,9 @@ private struct LocalGameSurface: View {
             .frame(maxWidth: .infinity)
             .frame(maxHeight: maxCanvasHeight)
             .background(.black.opacity(0.25), in: RoundedRectangle(cornerRadius: 8))
+            .accessibilityIdentifier("games-surface")
+            .accessibilityLabel(game.title)
+            .accessibilityValue(gameAccessibilityValue)
             .gesture(
                 DragGesture(minimumDistance: 0)
                     .onChanged { value in
@@ -14512,6 +14540,13 @@ private struct LocalGameSurface: View {
             Text(helpText)
                 .font(.callout)
                 .foregroundStyle(.secondary)
+
+            Color.clear
+                .frame(width: 1, height: 1)
+                .accessibilityElement()
+                .accessibilityIdentifier("games-state")
+                .accessibilityLabel("Game state")
+                .accessibilityValue(gameAccessibilityValue)
         }
         .padding(18)
         .background(
@@ -16365,7 +16400,7 @@ struct SettingsView: View {
                 return message
             case .missingToken:
                 return localizedKey(model.language, "appModel.missing.djconnect.bearer.token.reset.pairing.to.set.up")
-            case .invalidResponse, .decodingFailed, .versionMismatch, .clientTypeMismatch:
+            case .invalidResponse, .decodingFailed, .versionMismatch, .clientTypeMismatch, .payloadTooLarge:
                 return localizedKey(model.language, "ui.music.dna.import.rejected")
             }
         }
@@ -16393,7 +16428,7 @@ struct SettingsView: View {
                 return message
             case .missingToken:
                 return localizedKey(model.language, "appModel.missing.djconnect.bearer.token.reset.pairing.to.set.up")
-            case .routeMissing, .backendUnavailable, .invalidResponse, .decodingFailed, .versionMismatch, .clientTypeMismatch, .trackInsightUnavailable:
+            case .routeMissing, .backendUnavailable, .invalidResponse, .decodingFailed, .versionMismatch, .clientTypeMismatch, .trackInsightUnavailable, .payloadTooLarge:
                 return Self.localizedAskDJHistoryExportFallback(language: model.language)
             }
         }
@@ -16595,6 +16630,7 @@ struct SettingsView: View {
                         status: model.notificationPermissionStatus,
                         language: model.language
                     )
+                    .accessibilityIdentifier("settings-permission-notifications")
                     .djCompactSettingsListRow()
                     PermissionStatusRow(
                         title: localizedKey(model.language, "ui.microphone"),
@@ -16602,6 +16638,7 @@ struct SettingsView: View {
                         status: model.microphonePermissionStatus,
                         language: model.language
                     )
+                    .accessibilityIdentifier("settings-permission-microphone")
                     .djCompactSettingsListRow()
                     PermissionStatusRow(
                         title: localizedKey(model.language, "ui.speech.recognition"),
@@ -16609,6 +16646,7 @@ struct SettingsView: View {
                         status: model.speechPermissionStatus,
                         language: model.language
                     )
+                    .accessibilityIdentifier("settings-permission-speech")
                     .djCompactSettingsListRow()
                     if model.notificationPermissionStatus != .granted {
                         Button {

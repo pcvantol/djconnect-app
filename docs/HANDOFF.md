@@ -699,11 +699,15 @@ Backend unavailable is not an auth failure:
 When backend unavailable:
 
 - keep pairing/token;
-- show playback unavailable and point the user to Spotify authorization in
-  Home Assistant;
+- show playback temporarily unavailable with recovery copy that says DJConnect
+  retries automatically;
+- throttle repeated user-facing notices so command retries and recovery polling
+  do not churn the UI;
+- retry backend recovery with lightweight status refreshes instead of forcing
+  full collection refreshes every time;
 - if the backend later reports healthy/available again, clear recoverable
-  Spotify authorization DJ request text and restore the default microphone
-  instruction;
+  backend/Spotify authorization DJ request text and restore the default
+  microphone instruction;
 - do not send the user through app pairing again;
 - throttle retries enough to avoid UI churn.
 

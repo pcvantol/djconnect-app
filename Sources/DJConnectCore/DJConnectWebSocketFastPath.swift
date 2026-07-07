@@ -293,8 +293,10 @@ public actor DJConnectHomeAssistantWebSocketFastPath: DJConnectWebSocketFastPath
             let data: Data
             switch message {
             case let .string(text):
+                try DJConnectIncomingPayloadLimiter.validate(text)
                 data = Data(text.utf8)
             case let .data(value):
+                try DJConnectIncomingPayloadLimiter.validate(value)
                 data = value
             @unknown default:
                 throw DJConnectError.invalidResponse
@@ -367,10 +369,7 @@ public actor DJConnectHomeAssistantWebSocketFastPath: DJConnectWebSocketFastPath
     }
 
     private static func redactedError(_ error: Error) -> String {
-        let raw = error.localizedDescription
-        return raw
-            .replacingOccurrences(of: #"Bearer\s+[A-Za-z0-9._~+/=-]+"#, with: "Bearer [redacted]", options: .regularExpression)
-            .replacingOccurrences(of: #"(device_token|access_token|token)[^,\s]*"#, with: "$1=[redacted]", options: .regularExpression)
+        DJConnectLogRedactor.redactText(error.localizedDescription)
     }
 }
 

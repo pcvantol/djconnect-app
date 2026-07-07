@@ -18,6 +18,16 @@ final class DJConnectIOSUITests: XCTestCase {
         return app
     }
 
+    private func launchFirstRunApp() -> XCUIApplication {
+        let app = XCUIApplication()
+        app.launchArguments.append(contentsOf: ["--uitesting", "-AppleLanguages", "(nl)", "-AppleLocale", "nl_NL"])
+        app.launchEnvironment["DJCONNECT_UITEST_HA_URL"] = "http://127.0.0.1:8123"
+        app.launchEnvironment["DJCONNECT_UITEST_SHOW_WELCOME"] = "1"
+        app.terminate()
+        app.launch()
+        return app
+    }
+
     private func launchMonkeyApp() -> XCUIApplication {
         let app = XCUIApplication()
         app.launchArguments.append(contentsOf: ["--uitesting", "--monkey-testing", "-AppleLanguages", "(nl)", "-AppleLocale", "nl_NL"])
@@ -37,10 +47,6 @@ final class DJConnectIOSUITests: XCTestCase {
     }
 
     private func enterDemoModeIfNeeded(_ app: XCUIApplication) {
-        if app.tabBars.firstMatch.waitForExistence(timeout: 3) {
-            return
-        }
-
         for dismissTitle in ["Niet nu", "Not now"] {
             let dismissButton = app.buttons[dismissTitle]
             if dismissButton.waitForExistence(timeout: 1), dismissButton.isHittable {
@@ -49,7 +55,10 @@ final class DJConnectIOSUITests: XCTestCase {
             }
         }
 
-        if app.tabBars.firstMatch.waitForExistence(timeout: 2) {
+        let demoButton = app.buttons["pairing-start-demo-button"]
+        if demoButton.waitForExistence(timeout: 1) {
+            demoButton.tap()
+            XCTAssertTrue(waitForAnyScreen(in: app, titles: ["Speelt Nu", "Now Playing"], timeout: 8))
             return
         }
 
@@ -60,6 +69,10 @@ final class DJConnectIOSUITests: XCTestCase {
                 XCTAssertTrue(waitForAnyScreen(in: app, titles: ["Speelt Nu", "Now Playing"], timeout: 8))
                 return
             }
+        }
+
+        if app.tabBars.firstMatch.waitForExistence(timeout: 2) {
+            return
         }
     }
 
@@ -143,6 +156,17 @@ final class DJConnectIOSUITests: XCTestCase {
         return false
     }
 
+    private func waitForElementValue(_ element: XCUIElement, containing text: String, timeout: TimeInterval = 3) -> Bool {
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            if (element.value as? String)?.contains(text) == true {
+                return true
+            }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.1))
+        }
+        return false
+    }
+
     private func screenIdentifier(for title: String) -> String? {
         switch title.replacingOccurrences(of: " (demo)", with: "") {
         case "Speelt Nu", "Now Playing":
@@ -182,6 +206,15 @@ final class DJConnectIOSUITests: XCTestCase {
         let staticText = app.staticTexts[title]
         if staticText.exists { return staticText }
         return app.descendants(matching: .any)[title]
+    }
+
+    private func revealManualPairing(in app: XCUIApplication) {
+        let manualToggle = app.buttons["pairing-manual-toggle"]
+        if manualToggle.waitForExistence(timeout: 3), manualToggle.isHittable {
+            manualToggle.tap()
+        }
+        XCTAssertTrue(app.textFields["pairing-home-assistant-url-field"].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.textFields["pairing-code-field"].waitForExistence(timeout: 3))
     }
 
     private func waitForScreenshotScreen(_ screen: ScreenshotScreen, in app: XCUIApplication, timeout: TimeInterval = 8) -> Bool {
@@ -228,6 +261,63 @@ final class DJConnectIOSUITests: XCTestCase {
         XCTAssertTrue(app.descendants(matching: .any)["Over"].exists)
     }
 
+    func testFirstRunWelcomeDismissesToPairingFlow() {
+        let app = launchFirstRunApp()
+
+        XCTAssertTrue(app.descendants(matching: .any)["screen-welcome"].waitForExistence(timeout: 8))
+
+        let dismissButton = app.buttons["welcome-dismiss-button"]
+        XCTAssertTrue(dismissButton.waitForExistence(timeout: 3))
+        dismissButton.tap()
+
+        XCTAssertTrue(app.descendants(matching: .any)["screen-pairing"].waitForExistence(timeout: 8))
+        XCTAssertTrue(app.buttons["pairing-start-demo-button"].exists)
+    }
+
+    func testPairingManualEntryUsesLocalFixtureURLAndValidatesCode() {
+        let app = launchApp()
+
+        XCTAssertTrue(app.descendants(matching: .any)["screen-pairing"].waitForExistence(timeout: 8))
+        revealManualPairing(in: app)
+
+        let urlField = app.textFields["pairing-home-assistant-url-field"]
+        XCTAssertEqual(urlField.value as? String, "http://127.0.0.1:8123")
+
+        let codeField = app.textFields["pairing-code-field"]
+        codeField.tap()
+        codeField.typeText("123456")
+
+        let submitButton = app.buttons["pairing-submit-button"]
+        XCTAssertTrue(submitButton.waitForExistence(timeout: 3))
+        XCTAssertTrue(submitButton.isEnabled)
+    }
+
+    func testDemoModeCanExitBackToPairingFlow() {
+        let app = launchApp()
+        enterDemoModeIfNeeded(app)
+
+        XCTAssertTrue(app.tabBars.firstMatch.waitForExistence(timeout: 8))
+        openSettings(app)
+
+        let stopDemoButton = app.buttons["Demo modus stoppen"]
+        XCTAssertTrue(stopDemoButton.waitForExistence(timeout: 3))
+        stopDemoButton.tap()
+
+        XCTAssertTrue(app.descendants(matching: .any)["screen-pairing"].waitForExistence(timeout: 8))
+        XCTAssertTrue(app.buttons["pairing-start-demo-button"].exists)
+    }
+
+    func testRuntimeSettingsExposeCompactPermissionRows() {
+        let app = launchApp()
+        enterDemoModeIfNeeded(app)
+
+        openSettings(app)
+
+        XCTAssertTrue(app.descendants(matching: .any)["settings-permission-notifications"].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.descendants(matching: .any)["settings-permission-microphone"].exists)
+        XCTAssertTrue(app.descendants(matching: .any)["settings-permission-speech"].exists)
+    }
+
     func testEnglishDeviceLanguageUsesEnglishNavigationAndSettingsCopy() {
         let app = launchEnglishApp()
 
@@ -264,6 +354,27 @@ final class DJConnectIOSUITests: XCTestCase {
         XCTAssertTrue(app.buttons["Sky Dash"].exists || app.staticTexts["Sky Dash"].exists)
         XCTAssertTrue(app.buttons["Maze Chase"].exists || app.staticTexts["Maze Chase"].exists)
         XCTAssertTrue(app.buttons["Tik om te spelen"].exists || app.staticTexts["Tik om te spelen"].exists)
+    }
+
+    func testGamesSurfaceRespondsToHardwareKeyboardArrowKeys() {
+        let app = launchMonkeyApp()
+        enterDemoModeIfNeeded(app)
+
+        tapTabOrMoreItem("Games", in: app)
+
+        let state = app.descendants(matching: .any)["games-state"]
+        XCTAssertTrue(state.waitForExistence(timeout: 3))
+        XCTAssertTrue((state.value as? String)?.contains("game=pong") == true)
+        XCTAssertTrue((state.value as? String)?.contains("paddle_y=86") == true)
+
+        let surface = app.descendants(matching: .any)["games-surface"]
+        XCTAssertTrue(surface.waitForExistence(timeout: 3))
+        surface.tap()
+        XCTAssertTrue(waitForElementValue(state, containing: "playing=true", timeout: 3))
+
+        app.typeKey(.upArrow, modifierFlags: [])
+
+        XCTAssertTrue(waitForElementValue(state, containing: "paddle_y=74", timeout: 3))
     }
 
     func testJumpURLsNavigateToCorrectPagesOnIOS() throws {

@@ -29,7 +29,8 @@ struct DJConnectIOSApp: App {
             let suiteName = "dev.djconnect.uitests"
             let defaults = UserDefaults(suiteName: suiteName) ?? .standard
             defaults.removePersistentDomain(forName: suiteName)
-            defaults.set(true, forKey: "DJConnectWelcomeSeen")
+            let shouldShowWelcome = processInfo.environment["DJCONNECT_UITEST_SHOW_WELCOME"] == "1"
+            defaults.set(!shouldShowWelcome, forKey: "DJConnectWelcomeSeen")
             if let homeAssistantURL = processInfo.environment["DJCONNECT_UITEST_HA_URL"], !homeAssistantURL.isEmpty {
                 defaults.set(homeAssistantURL, forKey: "DJConnectHomeAssistantURL")
             }

@@ -460,10 +460,14 @@ should clamp the target position to the current track duration and return a
 normal command/status response. ESP clients may omit this UI feature.
 
 When the playback backend is unavailable, clients keep the pairing token and
-show playback as unavailable with guidance to refresh Spotify authorization in
-Home Assistant. When later status/command responses report the backend healthy
-again, clients should clear recoverable Spotify authorization messages and
-return the DJ request panel to its default microphone instruction.
+show playback as temporarily unavailable with recovery copy that says DJConnect
+will retry automatically. Clients should throttle repeated user-facing notices
+for `backend_unavailable` so command retries and automatic recovery refreshes do
+not churn the UI. Recovery refreshes should avoid unnecessary collection loads
+while probing backend availability. When later status/command responses report
+the backend healthy again, clients should clear recoverable backend/Spotify
+authorization messages and return the DJ request panel to its default microphone
+instruction.
 
 ## Queue
 

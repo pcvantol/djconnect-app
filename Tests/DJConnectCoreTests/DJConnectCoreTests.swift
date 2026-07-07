@@ -112,9 +112,24 @@ private final class RequestRecorder: @unchecked Sendable {
     }
 }
 
+private final class APIFailureDetailsRecorder: @unchecked Sendable {
+    private let lock = NSLock()
+    private var storage: [DJConnectAPIFailureLogDetails] = []
+
+    func append(_ details: DJConnectAPIFailureLogDetails) {
+        lock.withLock { storage.append(details) }
+    }
+
+    var details: [DJConnectAPIFailureLogDetails] {
+        lock.withLock { storage }
+    }
+}
+
 private final class SequenceTokenStore: DJConnectTokenStore, @unchecked Sendable {
     private let lock = NSLock()
     private var loadResults: [Result<String?, Error>]
+    private var clearCount = 0
+    private var savedTokens: [String] = []
 
     init(loadResults: [Result<String?, Error>]) {
         self.loadResults = loadResults
@@ -129,8 +144,21 @@ private final class SequenceTokenStore: DJConnectTokenStore, @unchecked Sendable
         }
     }
 
-    func saveToken(_ token: String) throws {}
-    func clearToken() throws {}
+    func saveToken(_ token: String) throws {
+        lock.withLock { savedTokens.append(token) }
+    }
+
+    func clearToken() throws {
+        lock.withLock { clearCount += 1 }
+    }
+
+    var clearTokenCallCount: Int {
+        lock.withLock { clearCount }
+    }
+
+    var savedTokenValues: [String] {
+        lock.withLock { savedTokens }
+    }
 }
 
 private actor MockWebSocketFastPathTransport: DJConnectWebSocketFastPathTransport {
@@ -519,6 +547,43 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     #expect(model.isShowingTokenStorageError == false)
     #expect(model.pairingStatus == .paired)
     #expect(model.isConnected == true)
+}
+
+@MainActor
+@Test func tokenStorageFailureResetPairingClearsTokenAndShowsPairingUX() throws {
+    let suiteName = "DJConnectTests-\(UUID().uuidString)"
+    let defaults = try #require(UserDefaults(suiteName: suiteName))
+    defaults.removePersistentDomain(forName: suiteName)
+    defaults.set(true, forKey: "DJConnectWelcomeSeen")
+    defaults.set("manual-code", forKey: "DJConnectPairingToken")
+    let tokenStore = SequenceTokenStore(loadResults: [
+        .failure(TokenStoreTestError.denied)
+    ])
+    let model = DJConnectAppModel(
+        defaults: defaults,
+        tokenStore: tokenStore,
+        startBackgroundTasks: false
+    )
+    let originalDeviceID = model.identity.deviceID
+
+    #expect(model.isShowingTokenStorageError)
+    #expect(model.shouldShowPairingScreen == false)
+
+    model.resetPairing()
+
+    #expect(tokenStore.clearTokenCallCount == 1)
+    #expect(model.isShowingTokenStorageError == false)
+    #expect(model.shouldShowPairingScreen)
+    #expect(model.canUsePlaybackFeatures == false)
+    #expect(model.pairingStatus == .unpaired)
+    #expect(model.isConnected == false)
+    #expect(model.pairingToken.isEmpty)
+    #expect(defaults.string(forKey: "DJConnectPairingToken") == nil)
+    #expect(model.identity.deviceID != originalDeviceID)
+    #expect(model.pairingMessage == DJConnectLocalization.localized(
+        key: "appModel.pairing.reset",
+        language: model.language
+    ))
 }
 
 @MainActor
@@ -2565,6 +2630,62 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     ])
     #expect(!rendered.contains("abcdef1234567890"))
     #expect(!rendered.contains("secret-token-value"))
+}
+
+@Test func logRedactionRedactsFreeTextSecrets() throws {
+    let text = """
+    Authorization: Bearer secret-token-value device_token=abc12345678901234567890123456789 audio_url=https://ha.local/api/djconnect/audio/clip.mp3?token=temporary-audio-token {"push_token":"push-secret-value","bootstrap_proof":"proof-secret-value","response_audio_url":"https://ha.local/api/djconnect/audio/clip.wav?token=temporary-audio-token"} djci_secret_identifier
+    """
+
+    let redacted = DJConnectLogRedactor.redactText(text)
+
+    #expect(!redacted.contains("secret-token-value"))
+    #expect(!redacted.contains("abc12345678901234567890123456789"))
+    #expect(!redacted.contains("push-secret-value"))
+    #expect(!redacted.contains("proof-secret-value"))
+    #expect(!redacted.contains("temporary-audio-token"))
+    #expect(!redacted.contains("/api/djconnect/audio/clip"))
+    #expect(!redacted.contains("djci_secret_identifier"))
+    #expect(redacted.contains("Bearer [redacted]"))
+    #expect(redacted.contains("device_token=[redacted]"))
+    #expect(redacted.contains("audio_url=[redacted]"))
+    #expect(redacted.contains(#""push_token":"[redacted]""#))
+    #expect(redacted.contains(#""bootstrap_proof":"[redacted]""#))
+    #expect(redacted.contains(#""response_audio_url":"[redacted]""#))
+}
+
+@MainActor
+@Test func runtimeDiagnosticLogsRedactSecretsBeforePersistence() throws {
+    let suiteName = "DJConnectTests-\(UUID().uuidString)"
+    let defaults = try #require(UserDefaults(suiteName: suiteName))
+    defaults.removePersistentDomain(forName: suiteName)
+    let logDirectory = FileManager.default.temporaryDirectory
+        .appendingPathComponent("DJConnectTests-\(UUID().uuidString)", isDirectory: true)
+    defer {
+        try? FileManager.default.removeItem(at: logDirectory)
+    }
+    let model = DJConnectAppModel(
+        defaults: defaults,
+        tokenStore: DJConnectInMemoryTokenStore(),
+        startBackgroundTasks: false,
+        diagnosticLogDirectory: logDirectory
+    )
+
+    model.apply(error: .server(
+        statusCode: 500,
+        message: #"Authorization: Bearer secret-token-value device_token=abc12345678901234567890123456789 {"push_token":"push-secret-value"}"#
+    ))
+
+    let visibleLog = model.diagnosticLogLines.map(\.text).joined(separator: "\n")
+    let logFile = logDirectory.appendingPathComponent("djconnect.log")
+    let persistedLog = try String(contentsOf: logFile, encoding: .utf8)
+
+    for log in [visibleLog, persistedLog] {
+        #expect(!log.contains("secret-token-value"))
+        #expect(!log.contains("abc12345678901234567890123456789"))
+        #expect(!log.contains("push-secret-value"))
+        #expect(log.contains("Bearer [redacted]"))
+    }
 }
 
 @Test func pushUnregisterRequestUsesAuthenticatedEndpoint() throws {
@@ -5692,7 +5813,7 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
 }
 
 @MainActor
-@Test func repeatedBackendQueueItemsAreRenderedOnce() throws {
+@Test func repeatedBackendQueueItemsKeepStableDistinctRowIdentity() throws {
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
@@ -5720,9 +5841,19 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
         ]
     ))
 
-    #expect(model.queueItems.count == 1)
-    #expect(model.queueItems.first?.title == "Summer Of 69")
-    #expect(model.queue == ["Summer Of 69 - Bryan Adams"])
+    #expect(model.queueItems.count == 8)
+    #expect(Set(model.queueItems.map(\.id)).count == 8)
+    #expect(model.queueItems.map(\.title) == Array(repeating: "Summer Of 69", count: 8))
+    #expect(model.queueItems.map(\.id).prefix(3) == [
+        "spotify:track:summer-of-69",
+        "spotify:track:summer-of-69#2",
+        "spotify:track:summer-of-69#3"
+    ])
+    #expect(model.queue == Array(repeating: "Summer Of 69 - Bryan Adams", count: 8))
+
+    let snapshot = DJConnectQueueWidgetSnapshot(items: model.queueItems)
+    #expect(snapshot.totalCount == 8)
+    #expect(Set(snapshot.items.map(\.id)).count == snapshot.items.count)
 }
 
 @MainActor
@@ -6771,6 +6902,92 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     #expect(request.httpBody == wav)
 }
 
+@Test func voiceAudioFileLoaderReadsOnlyUpToConfiguredBound() throws {
+    let directory = FileManager.default.temporaryDirectory
+        .appendingPathComponent("DJConnectAudioFileLoader-\(UUID().uuidString)")
+    try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+    defer {
+        try? FileManager.default.removeItem(at: directory)
+    }
+
+    let acceptedURL = directory.appendingPathComponent("accepted.wav")
+    let rejectedURL = directory.appendingPathComponent("rejected.wav")
+    try Data([0, 1, 2, 3, 4, 5, 6, 7]).write(to: acceptedURL)
+    try Data([0, 1, 2, 3, 4, 5, 6, 7, 8]).write(to: rejectedURL)
+
+    let accepted = try DJConnectAudioFileLoader.loadVoiceWAVData(from: acceptedURL, maxBytes: 8)
+    #expect(accepted == Data([0, 1, 2, 3, 4, 5, 6, 7]))
+
+    do {
+        _ = try DJConnectAudioFileLoader.loadVoiceWAVData(from: rejectedURL, maxBytes: 8)
+        Issue.record("Expected oversized voice recording to be rejected")
+    } catch let error as DJConnectError {
+        guard case let .invalidConfiguration(message) = error else {
+            Issue.record("Expected invalidConfiguration, got \(error)")
+            return
+        }
+        #expect(message.contains("Voice recording is too large"))
+    }
+}
+
+@Test func voiceRequestRejectsOversizedWavPayload() throws {
+    let identity = DJConnectIdentity(
+        deviceID: "djconnect-ios-8F3A2C91B45D",
+        deviceName: "DJConnect iPhone",
+        clientType: .ios,
+        firmware: "3.1.7",
+        platform: .ios
+    )
+    let client = DJConnectClient(
+        baseURL: try #require(URL(string: "http://homeassistant.local:8123")),
+        identity: identity,
+        tokenStore: DJConnectInMemoryTokenStore(token: "secret-token")
+    )
+    let oversized = Data(repeating: 0, count: DJConnectAudioFileLoader.defaultMaxVoiceWAVBytes + 1)
+
+    do {
+        _ = try client.voiceRequest(wavData: oversized)
+        Issue.record("Expected oversized voice payload to be rejected")
+    } catch let error as DJConnectError {
+        guard case let .invalidConfiguration(message) = error else {
+            Issue.record("Expected invalidConfiguration, got \(error)")
+            return
+        }
+        #expect(message.contains("Voice recording is too large"))
+    }
+}
+
+@MainActor
+@Test func commandRefreshSchedulerCoalescesPendingRefreshes() async throws {
+    let scheduler = DJConnectRefreshScheduler()
+    var refreshIncludesCollections: [Bool] = []
+    var cleanupCount = 0
+
+    scheduler.scheduleCommandRefresh(
+        delay: .milliseconds(40),
+        isStillValid: { true },
+        refresh: { includeCollections in
+            refreshIncludesCollections.append(includeCollections)
+        }
+    )
+    try await Task.sleep(for: .milliseconds(10))
+    scheduler.scheduleCommandRefresh(
+        delay: .milliseconds(40),
+        includeCollections: true,
+        cleanup: {
+            cleanupCount += 1
+        },
+        isStillValid: { true },
+        refresh: { includeCollections in
+            refreshIncludesCollections.append(includeCollections)
+        }
+    )
+    try await Task.sleep(for: .milliseconds(90))
+
+    #expect(refreshIncludesCollections == [true])
+    #expect(cleanupCount == 1)
+}
+
 @Test func versionMismatchIsClassifiedWithoutClearingPairing() throws {
     let client = DJConnectClient(
         baseURL: try #require(URL(string: "http://homeassistant.local:8123")),
@@ -6843,6 +7060,271 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     ))
 }
 
+@Test func networkFixtureStatusDecodesPlaybackEnvelope() async throws {
+    let identity = testIOSIdentity()
+    let host = "status-fixture.local"
+    let requestRecorder = RequestRecorder()
+    let session = mockSession(host: host) { request in
+        requestRecorder.append(request)
+        return (
+            try httpResponse(for: request, statusCode: 200),
+            Data(
+                """
+                {
+                  "success": true,
+                  "ha_version": "3.2.25",
+                  "playback": {
+                    "has_playback": true,
+                    "is_playing": true,
+                    "track_name": "Fixture Song",
+                    "artist_name": "Fixture Artist",
+                    "progress_ms": 42000,
+                    "duration_ms": 180000
+                  }
+                }
+                """.utf8
+            )
+        )
+    }
+    let client = DJConnectClient(
+        baseURL: try #require(URL(string: "http://\(host):8123")),
+        identity: identity,
+        tokenStore: DJConnectInMemoryTokenStore(token: "secret-token"),
+        session: session
+    )
+
+    let response = try await client.postStatus(DJConnectStatusPayload(identity: identity))
+
+    #expect(response.success)
+    #expect(response.haVersion == "3.2.25")
+    #expect(response.playback?.trackName == "Fixture Song")
+    #expect(response.playback?.artistName == "Fixture Artist")
+    let request = try #require(requestRecorder.requests.first)
+    #expect(request.url?.path == "/api/djconnect/v1/status")
+    #expect(request.httpMethod == "POST")
+    #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer secret-token")
+}
+
+@Test func incomingPayloadLimiterRejectsOversizedText() throws {
+    let maxBytes = 16
+    let text = String(repeating: "x", count: maxBytes + 1)
+
+    do {
+        try DJConnectIncomingPayloadLimiter.validate(text, maxBytes: maxBytes)
+        Issue.record("Expected oversized text payload to be rejected")
+    } catch let error as DJConnectError {
+        #expect(error == .payloadTooLarge(limitBytes: maxBytes, actualBytes: maxBytes + 1))
+    }
+}
+
+@Test func networkFixtureOversizedCommandResponseIsRejectedBeforeDecode() async throws {
+    let identity = testIOSIdentity()
+    let host = "oversized-payload-fixture.local"
+    let oversizedBody = Data(
+        repeating: UInt8(ascii: "x"),
+        count: DJConnectIncomingPayloadLimiter.defaultMaxPayloadBytes + 1
+    )
+    let session = mockSession(host: host) { request in
+        (
+            try httpResponse(for: request, statusCode: 200),
+            oversizedBody
+        )
+    }
+    let client = DJConnectClient(
+        baseURL: try #require(URL(string: "http://\(host):8123")),
+        identity: identity,
+        tokenStore: DJConnectInMemoryTokenStore(token: "secret-token"),
+        session: session
+    )
+
+    do {
+        _ = try await client.sendCommandResponse(DJConnectCommandPayload(identity: identity, command: "play"))
+        Issue.record("Expected oversized command response to be rejected")
+    } catch let error as DJConnectError {
+        #expect(error == .payloadTooLarge(
+            limitBytes: DJConnectIncomingPayloadLimiter.defaultMaxPayloadBytes,
+            actualBytes: oversizedBody.count
+        ))
+    }
+}
+
+@Test func networkFixtureCommandDecodesQueueAndPlaylistsCollections() async throws {
+    let identity = testIOSIdentity()
+    let host = "collections-fixture.local"
+    let requestRecorder = RequestRecorder()
+    let requestCounter = RequestCounter()
+    let session = mockSession(host: host) { request in
+        requestRecorder.append(request)
+        requestCounter.increment()
+        let responseBody: String
+        if requestCounter.count == 1 {
+            responseBody = """
+            {
+              "success": true,
+              "queue_context": "spotify:playlist:abc",
+              "queue": [
+                {"id":"1","title":"First Track","artist":"Artist One","uri":"spotify:track:1"},
+                {"id":"2","title":"Second Track","artist":"Artist Two","uri":"spotify:track:2"}
+              ]
+            }
+            """
+        } else {
+            responseBody = """
+            {
+              "success": true,
+              "playlists": [
+                {"id":"liked","name":"Liked Songs","uri":"spotify:collection:tracks"},
+                {"id":"party","name":"Party","uri":"spotify:playlist:party"}
+              ]
+            }
+            """
+        }
+        return (try httpResponse(for: request, statusCode: 200), Data(responseBody.utf8))
+    }
+    let client = DJConnectClient(
+        baseURL: try #require(URL(string: "http://\(host):8123")),
+        identity: identity,
+        tokenStore: DJConnectInMemoryTokenStore(token: "secret-token"),
+        session: session
+    )
+
+    let queue = try await client.sendCommandResponse(DJConnectCommandPayload(identity: identity, command: "queue"))
+    let playlists = try await client.sendCommandResponse(DJConnectCommandPayload(identity: identity, command: "playlists"))
+
+    #expect(queue.queue?.map(\.title) == ["First Track", "Second Track"])
+    #expect(queue.queueContext == "spotify:playlist:abc")
+    #expect(playlists.playlists?.map(\.name) == ["Liked Songs", "Party"])
+    #expect(requestRecorder.requests.map { $0.url?.path } == [
+        "/api/djconnect/v1/command",
+        "/api/djconnect/v1/command"
+    ])
+}
+
+@Test func networkFixtureBackendUnavailableMapsHTTPStatusAndLogsFailureDetails() async throws {
+    let identity = testIOSIdentity()
+    let host = "backend-unavailable-fixture.local"
+    let failures = APIFailureDetailsRecorder()
+    let session = mockSession(host: host) { request in
+        (
+            try httpResponse(for: request, statusCode: 503),
+            Data(
+                """
+                {
+                  "success": false,
+                  "error": "backend_unavailable",
+                  "message": "Playback backend unavailable",
+                  "backend_available": false,
+                  "device_token": "secret-token"
+                }
+                """.utf8
+            )
+        )
+    }
+    let client = DJConnectClient(
+        baseURL: try #require(URL(string: "http://\(host):8123")),
+        identity: identity,
+        tokenStore: DJConnectInMemoryTokenStore(token: "secret-token"),
+        session: session,
+        failureLogger: { failures.append($0) }
+    )
+
+    do {
+        _ = try await client.sendCommandResponse(DJConnectCommandPayload(identity: identity, command: "status"))
+        Issue.record("Expected backend unavailable")
+    } catch let error as DJConnectError {
+        #expect(error == .backendUnavailable(message: "Playback backend unavailable"))
+    }
+
+    let failure = try #require(failures.details.first)
+    #expect(failure.route == "POST /api/djconnect/v1/command")
+    #expect(failure.httpStatus == 503)
+    #expect(failure.serverError == "backend_unavailable")
+    #expect(failure.serverMessage == "Playback backend unavailable")
+    #expect(failure.identityPresent)
+    #expect(failure.tokenPresent)
+    #expect(failure.clientType == "ios")
+    #expect(failure.redactedClientID.contains("8F3A2C91B45D") == false)
+}
+
+@Test func networkFixtureVoiceServerErrorRedactsMessageAndFailureLog() async throws {
+    let identity = testIOSIdentity()
+    let host = "voice-error-fixture.local"
+    let failures = APIFailureDetailsRecorder()
+    let session = mockSession(host: host) { request in
+        (
+            try httpResponse(for: request, statusCode: 500),
+            Data(
+                """
+                {
+                  "success": false,
+                  "error": "server_error",
+                  "message": "Voice failed Authorization: Bearer secret-token with password=\\"open-sesame\\""
+                }
+                """.utf8
+            )
+        )
+    }
+    let client = DJConnectClient(
+        baseURL: try #require(URL(string: "http://\(host):8123")),
+        identity: identity,
+        tokenStore: DJConnectInMemoryTokenStore(token: "secret-token"),
+        session: session,
+        failureLogger: { failures.append($0) }
+    )
+
+    do {
+        _ = try await client.sendVoice(wavData: Data([0x52, 0x49, 0x46, 0x46]))
+        Issue.record("Expected server error")
+    } catch let error as DJConnectError {
+        guard case let .server(statusCode, message) = error else {
+            Issue.record("Expected server error, got \(error)")
+            return
+        }
+        #expect(statusCode == 500)
+        #expect(message?.contains("Bearer [redacted]") == true)
+        #expect(message?.contains("secret-token") == false)
+        #expect(message?.contains("open-sesame") == false)
+    }
+
+    let failure = try #require(failures.details.first)
+    #expect(failure.serverMessage?.contains("Bearer [redacted]") == true)
+    #expect(failure.serverMessage?.contains("secret-token") == false)
+    #expect(failure.serverMessage?.contains("open-sesame") == false)
+}
+
+@Test func networkFixtureMalformedCommandResponseRedactsBodySecrets() async throws {
+    let identity = testIOSIdentity()
+    let host = "malformed-command-fixture.local"
+    let session = mockSession(host: host) { request in
+        (
+            try httpResponse(for: request, statusCode: 200),
+            Data(#"{"success":true,"playback":"bad","refresh_token":"refresh-secret","authorization":"Bearer secret-token"}"#.utf8)
+        )
+    }
+    let client = DJConnectClient(
+        baseURL: try #require(URL(string: "http://\(host):8123")),
+        identity: identity,
+        tokenStore: DJConnectInMemoryTokenStore(token: "secret-token"),
+        session: session
+    )
+
+    do {
+        _ = try await client.sendCommandResponse(DJConnectCommandPayload(identity: identity, command: "status"))
+        Issue.record("Expected decoding failure")
+    } catch let error as DJConnectError {
+        guard case let .decodingFailed(statusCode, endpoint, message) = error else {
+            Issue.record("Expected decodingFailed, got \(error)")
+            return
+        }
+        #expect(statusCode == 200)
+        #expect(endpoint == "POST /api/djconnect/v1/command")
+        #expect(message?.contains(#""refresh_token":"[redacted]""#) == true)
+        #expect(message?.contains(#""authorization":"[redacted]""#) == true)
+        #expect(message?.contains("refresh-secret") == false)
+        #expect(message?.contains("secret-token") == false)
+    }
+}
+
 @Test func backendUnavailableIsNotAuthStale() throws {
     let client = DJConnectClient(
         baseURL: try #require(URL(string: "http://homeassistant.local:8123")),
@@ -6899,6 +7381,76 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     let error = client.classify(statusCode: 200, body: body)
 
     #expect(error == .backendUnavailable(message: "Playback backend unavailable"))
+}
+
+@MainActor
+@Test func backendUnavailableUsesRecoveryCopyAndThrottlesRepeatedNotices() throws {
+    let suiteName = "DJConnectTests-\(UUID().uuidString)"
+    let defaults = try #require(UserDefaults(suiteName: suiteName))
+    defaults.removePersistentDomain(forName: suiteName)
+    let model = DJConnectAppModel(
+        defaults: defaults,
+        tokenStore: DJConnectInMemoryTokenStore(token: "secret-token"),
+        startBackgroundTasks: false
+    )
+    model.language = "nl"
+    model.pairingStatus = .paired
+    model.isConnected = true
+
+    let error = DJConnectError.backendUnavailable(message: "Playback backend unavailable")
+    model.apply(error: error)
+
+    #expect(model.backendAvailable == false)
+    #expect(model.voiceStatus == .unavailable)
+    #expect(model.voiceErrorMessage == "De muziekbackend in Home Assistant is tijdelijk niet beschikbaar. DJConnect probeert automatisch opnieuw.")
+    #expect(model.backendUnavailableRecoveryText == model.voiceErrorMessage)
+
+    model.emitUserConnectionNotice(for: error)
+    #expect(model.userNotice?.text == model.backendUnavailableRecoveryText)
+    model.userNotice = nil
+    model.emitUserConnectionNotice(for: error)
+    #expect(model.userNotice == nil)
+
+    model.apply(commandResponse: DJConnectCommandResponse(success: true, backendAvailable: true))
+    #expect(model.backendAvailable)
+    #expect(model.voiceStatus == .idle)
+    #expect(model.voiceErrorMessage == nil)
+}
+
+@MainActor
+@Test func playbackBackendUnavailableCommandUsesRecoveryCopyWithoutResettingPairing() async throws {
+    let defaults = try testDefaults()
+    let host = "playback-backend-unavailable.local"
+    let session = mockSession(host: host) { request in
+        #expect(request.url?.path == "/api/djconnect/v1/command")
+        return (try httpResponse(for: request, statusCode: 200), Data("""
+        {
+          "success": false,
+          "error": "backend_unavailable",
+          "message": "Playback backend unavailable",
+          "backend_available": false
+        }
+        """.utf8))
+    }
+    let model = makePairedMusicDNAModel(defaults: defaults, host: host, session: session)
+    model.language = "nl"
+    model.isConnected = true
+
+    model.sendPlaybackCommand("next")
+    for _ in 0..<100 where model.userNotice == nil {
+        try await Task.sleep(for: .milliseconds(100))
+    }
+
+    #expect(model.userNotice?.text == model.backendUnavailableRecoveryText)
+    #expect(model.pairingStatus == .paired)
+    #expect(model.isConnected)
+    #expect(model.backendAvailable == false)
+
+    model.userNotice = nil
+    model.sendPlaybackCommand("previous")
+    try await Task.sleep(for: .milliseconds(250))
+    #expect(model.userNotice == nil)
+    #expect(model.pairingStatus == .paired)
 }
 
 @Test func authAndRouteErrorsAreClassifiedAsStaleSetupStates() throws {

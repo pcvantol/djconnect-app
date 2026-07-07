@@ -4,6 +4,30 @@ All notable changes to DJConnect App are documented here.
 
 ## Unreleased
 
+## 3.2.26 - 2026-07-07
+
+### Changed
+
+- Coalesced refresh work so playback commands and backend recovery do not stack
+  repeated delayed refreshes.
+- Updated the local issue and TODO documentation to reflect the completed
+  refresh, fixture, redaction, payload-size, queue identity, audio playback, and
+  keyboard-coverage work.
+
+### Fixed
+
+- Added retry throttling and recovery copy for temporary
+  `backend_unavailable` playback-backend outages while keeping pairing and
+  tokens intact.
+- Made generic playback-backend unavailable command failures show the recovery
+  copy while preserving more specific backend messages such as playback
+  restrictions.
+- Bounded voice WAV loading and response payload handling, and tightened
+  runtime redaction so temporary audio URLs and token-like values stay out of
+  logs.
+- Kept duplicate queue tracks as distinct rows instead of dropping or reusing
+  duplicate identities.
+
 ## 3.2.25 - 2026-07-07
 
 ### Added

@@ -498,6 +498,9 @@ public final class DJConnectClient: Sendable {
         musicDNAKey: String? = nil,
         language: String? = nil
     ) throws -> URLRequest {
+        guard wavData.count <= DJConnectAudioFileLoader.defaultMaxVoiceWAVBytes else {
+            throw DJConnectError.invalidConfiguration("Voice recording is too large. Try a shorter Ask DJ recording.")
+        }
         var request = try authenticatedRequest(path: Self.apiV1Path("voice"))
         request.httpMethod = "POST"
         request.setValue("audio/wav", forHTTPHeaderField: "Content-Type")
@@ -527,7 +530,7 @@ public final class DJConnectClient: Sendable {
         }
 
         let envelope = body.flatMap { try? decoder.decode(DJConnectErrorEnvelope.self, from: $0) }
-        let message = envelope?.message ?? body.flatMap(Self.redactedResponseBodyMessage(from:))
+        let message = Self.redactedDiagnosticText(envelope?.message) ?? body.flatMap(Self.redactedResponseBodyMessage(from:))
 
         if (200...299).contains(statusCode) {
             guard let envelope else {
@@ -586,18 +589,16 @@ public final class DJConnectClient: Sendable {
             !rawBody.isEmpty else {
             return nil
         }
-        let redacted = rawBody
-            .replacingOccurrences(
-                of: #"Bearer\s+[A-Za-z0-9._~+/=-]+"#,
-                with: "Bearer [redacted]",
-                options: .regularExpression
-            )
-            .replacingOccurrences(
-                of: #""(device_token|push_token|bearer_token|token|access_token|refresh_token|client_secret|password)"\s*:\s*"[^"]*""#,
-                with: #""$1":"[redacted]""#,
-                options: .regularExpression
-            )
+        let redacted = redactedDiagnosticText(rawBody) ?? rawBody
         return String(redacted.prefix(500))
+    }
+
+    private static func redactedDiagnosticText(_ value: String?) -> String? {
+        guard let value = value?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !value.isEmpty else {
+            return nil
+        }
+        return DJConnectLogRedactor.redactText(value)
     }
 
     private static func nonBlankLanguage(_ value: String?) -> String? {
@@ -635,6 +636,8 @@ public final class DJConnectClient: Sendable {
             throw DJConnectError.invalidResponse
         }
         responseLogger?(Self.requestSummary(request), httpResponse.statusCode)
+        try DJConnectIncomingPayloadLimiter.validate(contentLength: httpResponse.expectedContentLength)
+        try DJConnectIncomingPayloadLimiter.validate(data)
 
         if let error = classify(statusCode: httpResponse.statusCode, body: data) {
             logAPIFailure(request: request, statusCode: httpResponse.statusCode, body: data, error: error)
@@ -759,7 +762,7 @@ public final class DJConnectClient: Sendable {
             httpStatus: statusCode,
             websocketCode: nil,
             serverError: envelope?.error ?? Self.errorCode(for: error),
-            serverMessage: envelope?.message ?? Self.redactedResponseBodyMessage(from: body),
+            serverMessage: Self.redactedDiagnosticText(envelope?.message) ?? Self.redactedResponseBodyMessage(from: body),
             identityPresent: true,
             tokenPresent: request.value(forHTTPHeaderField: "Authorization")?.isEmpty == false,
             clientType: identity.clientType.rawValue,
@@ -807,6 +810,8 @@ public final class DJConnectClient: Sendable {
             return "client_type_mismatch"
         case let .trackInsightUnavailable(code, _):
             return code ?? "track_insight_unavailable"
+        case .payloadTooLarge:
+            return "payload_too_large"
         }
     }
 

@@ -15,6 +15,90 @@ public enum DJConnectError: Error, Equatable, Sendable {
     case pairingFailed(message: String?)
     case clientTypeMismatch(message: String?, expectedClientType: String?, receivedClientType: String?)
     case trackInsightUnavailable(code: String?, message: String?)
+    case payloadTooLarge(limitBytes: Int, actualBytes: Int?)
+}
+
+public enum DJConnectIncomingPayloadLimiter {
+    public static let defaultMaxPayloadBytes = 2_097_152
+
+    public static func validate(_ data: Data, maxBytes: Int = defaultMaxPayloadBytes) throws {
+        try validate(count: data.count, maxBytes: maxBytes)
+    }
+
+    public static func validate(_ text: String, maxBytes: Int = defaultMaxPayloadBytes) throws {
+        try validate(count: text.utf8.count, maxBytes: maxBytes)
+    }
+
+    public static func validate(contentLength: Int64?, maxBytes: Int = defaultMaxPayloadBytes) throws {
+        guard maxBytes > 0 else {
+            throw DJConnectError.invalidConfiguration("Incoming payload size limit is invalid.")
+        }
+        guard let contentLength, contentLength > Int64(maxBytes) else {
+            return
+        }
+        throw DJConnectError.payloadTooLarge(limitBytes: maxBytes, actualBytes: Int(contentLength))
+    }
+
+    private static func validate(count: Int, maxBytes: Int) throws {
+        guard maxBytes > 0 else {
+            throw DJConnectError.invalidConfiguration("Incoming payload size limit is invalid.")
+        }
+        guard count <= maxBytes else {
+            throw DJConnectError.payloadTooLarge(limitBytes: maxBytes, actualBytes: count)
+        }
+    }
+}
+
+public enum DJConnectAudioFileLoader {
+    public static let defaultMaxVoiceWAVBytes = 1_048_576
+
+    public static func loadVoiceWAVData(
+        from url: URL,
+        maxBytes: Int = defaultMaxVoiceWAVBytes
+    ) throws -> Data {
+        try loadFile(at: url, maxBytes: maxBytes, label: "Voice recording")
+    }
+
+    public static func loadFile(
+        at url: URL,
+        maxBytes: Int,
+        label: String = "Audio file"
+    ) throws -> Data {
+        guard maxBytes > 0 else {
+            throw DJConnectError.invalidConfiguration("\(label) size limit is invalid.")
+        }
+
+        if let fileSize = try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize,
+           fileSize > maxBytes {
+            throw DJConnectError.invalidConfiguration("\(label) is too large. Try a shorter Ask DJ recording.")
+        }
+
+        let handle = try FileHandle(forReadingFrom: url)
+        defer {
+            try? handle.close()
+        }
+
+        var data = Data()
+        data.reserveCapacity(min(maxBytes, 64 * 1024))
+        let chunkSize = min(64 * 1024, maxBytes)
+
+        while true {
+            let remaining = maxBytes - data.count
+            if remaining <= 0 {
+                let overflow = handle.readData(ofLength: 1)
+                if overflow.isEmpty {
+                    return data
+                }
+                throw DJConnectError.invalidConfiguration("\(label) is too large. Try a shorter Ask DJ recording.")
+            }
+
+            let chunk = handle.readData(ofLength: min(chunkSize, remaining))
+            if chunk.isEmpty {
+                return data
+            }
+            data.append(chunk)
+        }
+    }
 }
 
 public enum DJConnectErrorPresentationContext: Sendable {

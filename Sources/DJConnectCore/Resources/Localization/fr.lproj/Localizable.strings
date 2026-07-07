@@ -706,6 +706,7 @@
 "appModel.pairing.is.stale.open.home.assistant.setup.and.enter" = "Pairing is stale. Open Home Assistant setup and enter the new pair code here.";
 "appModel.no.connection.to.home.assistant" = "Aucune connexion a Home Assistant";
 "appModel.music.backend.unavailable" = "Backend musical indisponible";
+"appModel.music.backend.temporarily.unavailable.retrying" = "The music backend in Home Assistant is temporarily unavailable. DJConnect will retry automatically.";
 "appModel.now.playing.updated" = "Speelt Nu mis a jour";
 "appModel.now.playing.update.failed" = "La mise a jour de Speelt Nu a echoue";
 "appModel.track.insight.updated" = "Track Insight mis a jour";

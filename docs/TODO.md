@@ -25,19 +25,17 @@ with acceptance criteria live in [ISSUES.md](ISSUES.md).
 - Keep the Apple app and Home Assistant integration on the same `major.minor`
   protocol line; app `3.2.x` requires HA `3.2.x`.
 - Work through the high-priority local issues in [ISSUES.md](ISSUES.md),
-  especially refresh latency, network fixtures, and physical-device validation.
+  especially physical-device validation and remaining XCUITest fixture work.
 
 ## Playback
 
-- Add retry throttling and user-facing recovery copy for `backend_unavailable`.
-- Parallelize collection refreshes and centralize refresh debouncing.
-- Expand command/status integration tests with URLProtocol-backed response
-  fixtures.
+- Field-test retry throttling and user-facing recovery copy for
+  `backend_unavailable` against live backend outage/recovery.
 
 ## Voice/PTT
 
-- Optionally play returned WAV/MP3 response audio without logging `audio_url`.
-- Add response-audio size bounds or temporary-file playback for larger clips.
+- Field-test returned WAV/MP3 response audio playback on iPhone, iPad, Mac, and
+  Apple Watch.
 
 ## iOS
 
@@ -60,21 +58,17 @@ with acceptance criteria live in [ISSUES.md](ISSUES.md).
 - Extend the initial `DJConnectIOSUITests` target with a real or recorded Home
   Assistant pairing and network flow fixture.
 - Add UI tests for compact permission rows, Demo Mode microphone response, and
-  hardware-keyboard game input where XCTest can cover those surfaces reliably.
+  any remaining local app surfaces not covered by the current UI suite.
 - Add UI tests for Ask DJ search, bubble context menus, replay controls, and
   server-synced system/retention messages once a mock HA fixture exists.
-- Add URLProtocol-backed async tests for network error and malformed response
-  handling.
 - Add focused app-model tests for permission status mapping once platform
   authorization APIs are wrapped behind injectable adapters.
 - Add focused app-model tests for pairing retry state and stale authenticated
   auth recovery.
-- Add more diagnostics export tests for `audio_url`, `Authorization`, and
-  arbitrary token-like JSON fields.
-- Add security hardening tests for request-size limits and deeper
-  app-storage token reset/re-pair behavior.
-- Add performance regression checks for refresh coalescing and repeated artwork
-  URLs.
+- Add deeper diagnostics export tests for any newly introduced token-like fields.
+- Add deeper app-storage token reset/re-pair coverage for physical-device-only
+  edge cases after field testing.
+- Add performance regression checks for repeated artwork URLs.
 
 ## Release/Build
 
