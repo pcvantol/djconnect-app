@@ -1036,11 +1036,15 @@ Do not put SwiftUI view logic into the HTTP client.
 `DJConnectIOSUITests` launches the iOS app with `--uitesting`. In that mode the
 app uses isolated `UserDefaults`, an in-memory token store, and
 `DJCONNECT_UITEST_HA_URL` for deterministic Home Assistant URL seeding. The
-current UI tests cover primary navigation, Settings URL wiring, local Games menu
-choices, and source-level regressions for layout constraints that are expensive
-to exercise reliably in every simulator matrix. Full pairing, output, queue,
-playlist, liked proxy, stale-auth, backend-unavailable, and voice/PTT UI tests
-should build on this target with a real or recorded mock Home Assistant server.
+current UI tests cover first-run welcome dismissal, manual pairing form wiring,
+Demo Mode entry/exit, compact permission rows, primary navigation, jump URLs,
+Settings URL wiring, local Games menu choices, hardware-keyboard game input,
+safe monkey navigation, screenshot capture cleanup, and source-level regressions
+for layout constraints that are expensive to exercise reliably in every
+simulator matrix. Full successful pairing, output, queue, playlist, liked proxy,
+stale-auth, backend-unavailable, version-mismatch, Ask DJ, and voice/PTT UI
+tests should build on this target with a real or recorded mock Home Assistant
+server.
 
 ## Acceptance Criteria
 

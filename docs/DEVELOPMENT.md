@@ -152,9 +152,12 @@ state transitions. Keep these tests free of live Home Assistant dependencies.
 
 The iOS and macOS UI test targets cover deterministic navigation smoke checks
 and Settings affordances, including the `App opnieuw koppelen` / `Pair App
-Again` action. UI tests should use `--uitesting` or `--monkey-testing`,
-isolated `UserDefaults`, and local/demo data unless a dedicated mock Home
-Assistant server fixture is introduced.
+Again` action. The iOS target also covers first-run dismissal, manual pairing
+form wiring, Demo Mode entry/exit, compact permission rows, jump URL routing,
+local Games menu choices, hardware-keyboard game input, safe monkey navigation,
+and screenshot capture cleanup. UI tests should use `--uitesting` or
+`--monkey-testing`, isolated `UserDefaults`, and local/demo data unless a
+dedicated mock Home Assistant server fixture is introduced.
 
 If `xcodebuild test` hangs or reports a UI runner bootstrap/finalization issue
 locally, rerun the affected target with `build-for-testing` to distinguish
@@ -251,9 +254,12 @@ against Xcode beta runtimes.
 `DJConnectIOSUITests` launches the app with `--uitesting`, isolated
 `UserDefaults`, an in-memory token store, and `DJCONNECT_UITEST_HA_URL` pointing
 at a mock Home Assistant URL. The current tests verify deterministic launch,
-primary navigation, Settings URL seeding, and local Games menu choices. Add a
-local mock HA server fixture before asserting full pairing, queue, playlist,
-output, and voice flows.
+first-run dismissal, manual pairing form wiring, Demo Mode entry/exit, compact
+permission rows, primary navigation, jump URL routing, Settings URL seeding,
+local Games menu choices, hardware-keyboard game input, safe monkey navigation,
+and screenshot capture cleanup. Add a local mock HA server fixture before
+asserting successful pairing, runtime status loading, stale auth, backend
+unavailable, version mismatch, queue, playlist, output, Ask DJ, and voice flows.
 
 ## Home Assistant Transport Check
 

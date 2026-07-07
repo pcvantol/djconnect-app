@@ -34,17 +34,40 @@ struct DJConnectIOSApp: App {
             if let homeAssistantURL = processInfo.environment["DJCONNECT_UITEST_HA_URL"], !homeAssistantURL.isEmpty {
                 defaults.set(homeAssistantURL, forKey: "DJConnectHomeAssistantURL")
             }
+            let runtimeFixture = processInfo.environment["DJCONNECT_UITEST_RUNTIME_FIXTURE"]
+                ?? launchArgumentValue(named: "--runtime-fixture", arguments: processInfo.arguments)
+            let tokenStore = DJConnectInMemoryTokenStore(
+                token: nil
+            )
             let model = DJConnectAppModel(
                 defaults: defaults,
-                tokenStore: DJConnectInMemoryTokenStore(),
+                tokenStore: tokenStore,
+                startBackgroundTasks: runtimeFixture == nil,
                 monkeyTestingMode: processInfo.arguments.contains("--monkey-testing")
             )
+            if let runtimeFixture, !runtimeFixture.isEmpty {
+                model.applyUITestRuntimeFixture(runtimeFixture)
+            }
             return model
         }
         #endif
         return DJConnectAppModel(
             tokenStore: DJConnectUserDefaultsTokenStore(key: "DJConnectIOSDeviceToken")
         )
+    }
+
+    private static func launchArgumentValue(named name: String, arguments: [String]) -> String? {
+        let prefix = "\(name)="
+        if let value = arguments.first(where: { $0.hasPrefix(prefix) })?.dropFirst(prefix.count),
+           !value.isEmpty {
+            return String(value)
+        }
+        guard let index = arguments.firstIndex(of: name),
+              arguments.indices.contains(arguments.index(after: index)) else {
+            return nil
+        }
+        let value = arguments[arguments.index(after: index)]
+        return value.isEmpty ? nil : value
     }
 }
 

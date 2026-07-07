@@ -104,8 +104,11 @@ Acceptance:
 Progress notes:
 
 - Extracted refresh orchestration into `DJConnectRefreshScheduler`.
+- Extracted permission status and request-action policy into
+  `DJConnectPermissionCoordinator`.
 - Remaining coordinators (`PairingCoordinator`, `PlaybackCoordinator`,
-  `VoiceCoordinator`, `PermissionCoordinator`) are still open.
+  `VoiceCoordinator`) are still open; permission prompt sequencing still lives
+  in `DJConnectAppModel`.
 - Existing Swift tests remain green.
 
 ### ISS-005: Stabilize Queue Row Identity
@@ -171,9 +174,16 @@ Acceptance:
 
 Progress notes:
 
+- Added deterministic UI coverage for first-run welcome dismissal, manual
+  pairing URL/code entry, Demo Mode entry/exit, compact permission rows,
+  Settings URL seeding, primary navigation, local Games menu choices, jump URL
+  routing, screenshot capture cleanup, and safe monkey navigation.
 - Added focused UI coverage for hardware-keyboard game behavior.
-- Full deterministic pairing/runtime XCUITest coverage still needs a mock Home
-  Assistant server or recorded fixture.
+- Full deterministic pairing/runtime XCUITest coverage remains open until the
+  app can run against a mock Home Assistant server or recorded fixture that
+  exercises successful pairing, status/runtime loading, stale auth, backend
+  unavailable, version mismatch, output/queue/playlist, Ask DJ, and voice/PTT
+  UI states.
 
 ### ISS-014: Add Hardware Keyboard UI Coverage For Games
 

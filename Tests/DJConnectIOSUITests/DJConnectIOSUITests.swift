@@ -46,6 +46,22 @@ final class DJConnectIOSUITests: XCTestCase {
         return app
     }
 
+    private func launchRuntimeFixtureApp(_ fixture: String, screen: String? = nil) -> XCUIApplication {
+        let app = XCUIApplication(bundleIdentifier: "dev.djconnect.ios")
+        var arguments = ["--uitesting", "--runtime-fixture", fixture, "--runtime-fixture=\(fixture)", "-AppleLanguages", "(nl)", "-AppleLocale", "nl_NL"]
+        if let screen {
+            arguments.append("--screenshot-screen=\(screen)")
+        }
+        app.launchArguments = arguments
+        app.launchEnvironment = [
+            "DJCONNECT_UITEST_HA_URL": "http://127.0.0.1:8123",
+            "DJCONNECT_UITEST_RUNTIME_FIXTURE": fixture
+        ]
+        app.terminate()
+        app.launch()
+        return app
+    }
+
     private func enterDemoModeIfNeeded(_ app: XCUIApplication) {
         for dismissTitle in ["Niet nu", "Not now"] {
             let dismissButton = app.buttons[dismissTitle]
@@ -78,6 +94,14 @@ final class DJConnectIOSUITests: XCTestCase {
 
     private func openSettings(_ app: XCUIApplication) {
         tapTabOrMoreItem("Instellingen", in: app)
+    }
+
+    private func openNowPlayingTab(_ app: XCUIApplication) {
+        let nowPlaying = app.tabBars.buttons["Speelt Nu"]
+        if nowPlaying.waitForExistence(timeout: 5) {
+            nowPlaying.tap()
+        }
+        XCTAssertTrue(app.navigationBars["Speelt Nu"].waitForExistence(timeout: 5))
     }
 
     private func tapTabOrMoreItem(_ title: String, in app: XCUIApplication) {
@@ -208,6 +232,20 @@ final class DJConnectIOSUITests: XCTestCase {
         return app.descendants(matching: .any)[title]
     }
 
+    private func firstElement(containing text: String, in app: XCUIApplication) -> XCUIElement {
+        let predicate = NSPredicate(
+            format: "label CONTAINS[c] %@ OR value CONTAINS[c] %@ OR identifier CONTAINS[c] %@",
+            text,
+            text,
+            text
+        )
+        return app.descendants(matching: .any).matching(predicate).firstMatch
+    }
+
+    private func waitForText(_ text: String, in app: XCUIApplication, timeout: TimeInterval = 3) -> Bool {
+        firstElement(containing: text, in: app).waitForExistence(timeout: timeout)
+    }
+
     private func revealManualPairing(in app: XCUIApplication) {
         let manualToggle = app.buttons["pairing-manual-toggle"]
         if manualToggle.waitForExistence(timeout: 3), manualToggle.isHittable {
@@ -290,6 +328,75 @@ final class DJConnectIOSUITests: XCTestCase {
         let submitButton = app.buttons["pairing-submit-button"]
         XCTAssertTrue(submitButton.waitForExistence(timeout: 3))
         XCTAssertTrue(submitButton.isEnabled)
+    }
+
+    func testPairingSuccessFixtureDismissesToRuntime() {
+        let app = launchRuntimeFixtureApp("pairing_success")
+
+        XCTAssertTrue(app.descendants(matching: .any)["screen-pairing"].waitForExistence(timeout: 8))
+        let doneButton = app.buttons["Let's Rock!"]
+        XCTAssertTrue(doneButton.waitForExistence(timeout: 3))
+        doneButton.tap()
+
+        XCTAssertTrue(app.descendants(matching: .any)["screen-now-playing"].waitForExistence(timeout: 8))
+        openNowPlayingTab(app)
+        XCTAssertTrue(waitForText("Fixture Track", in: app))
+        XCTAssertTrue(waitForText("Fixture Artist", in: app))
+    }
+
+    func testRuntimeFixtureShowsPlaybackOutputQueueAndPlaylists() {
+        let app = launchRuntimeFixtureApp("paired_runtime")
+
+        XCTAssertTrue(app.descendants(matching: .any)["screen-now-playing"].waitForExistence(timeout: 8))
+        openNowPlayingTab(app)
+        XCTAssertTrue(waitForText("Fixture Track", in: app))
+        XCTAssertTrue(waitForText("Fixture Artist", in: app))
+        XCTAssertTrue(waitForText("Fixture Living Room", in: app))
+
+        let queueApp = launchRuntimeFixtureApp("paired_runtime", screen: "queue")
+        XCTAssertTrue(queueApp.descendants(matching: .any)["screen-queue"].waitForExistence(timeout: 8))
+        XCTAssertTrue(waitForText("Fixture Next", in: queueApp))
+        XCTAssertTrue(waitForText("Fixture Artist Two", in: queueApp))
+
+        let playlistsApp = launchRuntimeFixtureApp("paired_runtime", screen: "playlists")
+        XCTAssertTrue(playlistsApp.descendants(matching: .any)["screen-playlists"].waitForExistence(timeout: 8))
+        XCTAssertTrue(waitForText("Fixture Playlist", in: playlistsApp))
+        XCTAssertTrue(waitForText("Fixture Dinner", in: playlistsApp))
+    }
+
+    func testRuntimeFixtureShowsBackendUnavailableRecoveryState() {
+        let app = launchRuntimeFixtureApp("backend_unavailable")
+
+        XCTAssertTrue(app.descendants(matching: .any)["screen-now-playing"].waitForExistence(timeout: 8))
+        openNowPlayingTab(app)
+        XCTAssertTrue(waitForText("Fixture Track", in: app))
+        XCTAssertTrue(waitForText("muziekbackend", in: app))
+    }
+
+    func testRuntimeFixtureShowsStaleAuthPairingRecovery() {
+        let app = launchRuntimeFixtureApp("stale_auth")
+
+        XCTAssertTrue(app.descendants(matching: .any)["screen-pairing"].waitForExistence(timeout: 8))
+        XCTAssertTrue(waitForText("Fixture stale pairing", in: app))
+        XCTAssertTrue(app.buttons["pairing-start-demo-button"].exists)
+    }
+
+    func testRuntimeFixtureShowsVersionMismatchGate() {
+        let app = launchRuntimeFixtureApp("version_mismatch")
+
+        XCTAssertTrue(waitForText("Update vereist", in: app, timeout: 8))
+        XCTAssertTrue(waitForText("Fixture update required", in: app))
+        XCTAssertTrue(waitForText("Playback, wachtrij", in: app))
+    }
+
+    func testRuntimeFixtureShowsVoiceUnavailableStateInAskDJ() {
+        let app = launchRuntimeFixtureApp("voice_unavailable")
+
+        XCTAssertTrue(app.descendants(matching: .any)["screen-now-playing"].waitForExistence(timeout: 8))
+        openNowPlayingTab(app)
+        tapTabOrMoreItem("Ask DJ", in: app)
+        XCTAssertTrue(waitForText("Ask DJ fixture response", in: app))
+        XCTAssertTrue(waitForText("muziekbackend", in: app))
     }
 
     func testDemoModeCanExitBackToPairingFlow() {

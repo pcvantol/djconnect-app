@@ -9466,6 +9466,21 @@ private struct IOSTrackHero: View {
         .task(id: nowPlayingTrackKey(for: playback)) {
             cardTint = await sampledArtworkTint(for: playback)
         }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(nowPlayingAccessibilityLabel)
+    }
+
+    private var nowPlayingAccessibilityLabel: String {
+        [
+            playback?.trackName,
+            playback?.artistName,
+            model.selectedOutput
+        ]
+        .compactMap { value in
+            let trimmed = value?.trimmingCharacters(in: .whitespacesAndNewlines)
+            return trimmed?.isEmpty == false ? trimmed : nil
+        }
+        .joined(separator: ", ")
     }
 }
 
@@ -10078,6 +10093,8 @@ private struct QueueItemRow: View {
             RoundedRectangle(cornerRadius: 12, style: .continuous)
                 .stroke(djConnectAccent.opacity(0.12), lineWidth: 1)
         }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(item.displayTitle)
     }
 
     private static func trimmedNonEmpty(_ value: String?) -> String? {
@@ -14188,6 +14205,8 @@ private struct PlaylistRow: View {
                 .stroke(djConnectAccent.opacity(0.12), lineWidth: 1)
         }
         .contentShape(Rectangle())
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(playlist.name)
     }
 }
 

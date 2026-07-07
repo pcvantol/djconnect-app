@@ -9056,6 +9056,22 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     ) == .openSystemSettings)
 }
 
+@Test func permissionCoordinatorRequestActionMatchesPermissionPolicy() {
+    #expect(DJConnectPermissionCoordinator.requestAction(
+        microphone: .unknown,
+        speech: .granted
+    ) == .requestSystemPrompt)
+    #expect(DJConnectPermissionCoordinator.requestAction(
+        microphone: .granted,
+        speech: .granted,
+        notifications: .granted
+    ) == .alreadyGranted)
+    #expect(DJConnectPermissionCoordinator.requestAction(
+        microphone: .granted,
+        speech: .restricted
+    ) == .openSystemSettings)
+}
+
 @Test func watchProxyRequestEncodesBackendAgnosticMusicAssistantAction() throws {
     let actionValue: DJConnectCommandValue = .object([
         "item_id": "track-123",

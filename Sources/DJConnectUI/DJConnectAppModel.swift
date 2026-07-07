@@ -720,6 +720,7 @@ public final class DJConnectAppModel: ObservableObject {
     @Published public var localResponseAudioEnabled = true
     @Published public var isDemoMode = false
     @Published public private(set) var isMonkeyTestingMode = false
+    @Published public private(set) var isUITestRuntimeFixtureActive = false
     @Published public var wakeWordEnabled = false {
         didSet {
             wakeWordEnabled ? startWakeWordListening() : stopWakeWordListening()
@@ -773,6 +774,7 @@ public final class DJConnectAppModel: ObservableObject {
     private var playbackProgressTask: Task<Void, Never>?
     private var nowPlayingPollTask: Task<Void, Never>?
     private let refreshScheduler = DJConnectRefreshScheduler()
+    private let permissionCoordinator = DJConnectPermissionCoordinator()
     private var openPermissionSettingsTask: Task<Void, Never>?
     private var pendingSelectedOutput: String?
     private var pendingVolumePercent: Int?
@@ -2523,6 +2525,10 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     public func refresh() {
+        guard !isUITestRuntimeFixtureActive else {
+            log(.debug, "Refresh ignored because a UI test runtime fixture is active")
+            return
+        }
         log(.debug, "User action: refresh")
         Task {
             await refreshNowPlaying()
@@ -2832,6 +2838,10 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     public func loadQueue() {
+        guard !isUITestRuntimeFixtureActive else {
+            log(.debug, "Queue load ignored because a UI test runtime fixture is active")
+            return
+        }
         log(.debug, "User action: load queue")
         Task {
             await refreshQueue()
@@ -2852,6 +2862,10 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     public func loadPlaylists() {
+        guard !isUITestRuntimeFixtureActive else {
+            log(.debug, "Playlist load ignored because a UI test runtime fixture is active")
+            return
+        }
         log(.debug, "User action: load playlists")
         Task {
             await refreshPlaylists()
@@ -8161,6 +8175,164 @@ public final class DJConnectAppModel: ObservableObject {
         }
     }
 
+    #if DEBUG
+    public func applyUITestRuntimeFixture(_ rawScenario: String) {
+        let scenario = rawScenario.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        isUITestRuntimeFixtureActive = true
+        defaults.set(true, forKey: welcomeSeenKey)
+        defaults.set(appVersion, forKey: lastSeenAppVersionKey)
+        isShowingWelcome = false
+        isShowingWhatsNew = false
+        isLoadingWhatsNew = false
+        isShowingCrashReportPrompt = false
+        isShowingTokenStorageError = false
+        isDemoMode = false
+        isMonkeyTestingMode = false
+        pairingFlowTarget = .iPhone
+        pairingStatus = .paired
+        isConnected = true
+        isPairing = false
+        isPairingScreenDismissed = scenario != "pairing_success"
+        isShowingPairingSuccess = scenario == "pairing_success"
+        pairingMessage = nil
+        backendAvailable = true
+        updateRequiredMessage = nil
+        let fixtureResponse = Self.uiTestRuntimeCommandResponse
+        apply(commandResponse: fixtureResponse)
+        if let playback = fixtureResponse.playback {
+            self.playback = playback
+        }
+        if let devices = fixtureResponse.devices {
+            availableOutputs = normalizedOutputDevices(devices)
+            selectedOutput = availableOutputs.first(where: { $0.active == true })?.name ?? noOutputName()
+        }
+        if let fixtureQueue = fixtureResponse.queue {
+            queueItems = normalizedQueueItems(fixtureQueue)
+            queue = queueItems.map(\.displayTitle)
+            queueContext = fixtureResponse.queueContext
+        }
+        if let fixturePlaylists = fixtureResponse.playlists {
+            playlistItems = fixturePlaylists
+            playlists = fixturePlaylists.map(\.name)
+        }
+        djResponseText = "Ask DJ fixture response: backend text stays sanitized."
+        voiceStatus = .idle
+        voiceErrorMessage = nil
+
+        switch scenario {
+        case "pairing_success":
+            isPairingScreenDismissed = false
+            isShowingPairingSuccess = true
+            pairingMessage = localized(key: "appModel.pairing.complete")
+        case "backend_unavailable":
+            apply(error: .backendUnavailable(message: "Fixture playback backend unavailable"))
+            userNotice = nil
+        case "stale_auth":
+            apply(error: .authStale(statusCode: 401, message: "Fixture stale pairing"))
+        case "version_mismatch":
+            apply(error: .versionMismatch(DJConnectVersionMismatch(
+                message: "Fixture update required",
+                haVersion: "3.3.0",
+                haMajorMinor: "3.3",
+                firmware: appVersion,
+                firmwareMajorMinor: "3.2"
+            )))
+            isPairingScreenDismissed = true
+        case "voice_unavailable":
+            apply(error: .backendUnavailable(message: "Fixture voice backend unavailable"))
+            djResponseText = "Ask DJ fixture response: backend text stays sanitized."
+            userNotice = nil
+        default:
+            break
+        }
+    }
+
+    private static var uiTestRuntimeCommandResponse: DJConnectCommandResponse {
+        let output = DJConnectOutputDevice(
+            id: "fixture-living-room",
+            name: "Fixture Living Room",
+            type: "speaker",
+            active: true,
+            supportsVolume: true,
+            volumePercent: 54
+        )
+        return DJConnectCommandResponse(
+            success: true,
+            message: "Fixture runtime loaded",
+            backendAvailable: true,
+            haVersion: protocolVersion,
+            haMajorMinor: "3.2",
+            musicBackend: "music_assistant",
+            musicBackendName: "Music Assistant",
+            musicBackendAvailable: true,
+            playback: DJConnectPlayback(
+                hasPlayback: true,
+                isPlaying: true,
+                trackName: "Fixture Track",
+                artistName: "Fixture Artist",
+                progressMS: 42_000,
+                durationMS: 210_000,
+                volumePercent: 54,
+                shuffle: true,
+                repeatState: .off,
+                device: DJConnectPlaybackDevice(
+                    id: output.id,
+                    name: output.name,
+                    type: output.type,
+                    active: true,
+                    supportsVolume: true,
+                    volumePercent: output.volumePercent
+                ),
+                contextURI: "spotify:playlist:fixture"
+            ),
+            devices: [
+                output,
+                DJConnectOutputDevice(
+                    id: "fixture-kitchen",
+                    name: "Fixture Kitchen",
+                    type: "speaker",
+                    active: false,
+                    supportsVolume: true,
+                    volumePercent: 35
+                )
+            ],
+            queue: [
+                DJConnectQueueItem(
+                    id: "fixture-queue-1",
+                    title: "Fixture Track",
+                    artist: "Fixture Artist",
+                    album: "Fixture Album",
+                    uri: "spotify:track:fixture-1",
+                    durationMS: 210_000
+                ),
+                DJConnectQueueItem(
+                    id: "fixture-queue-2",
+                    title: "Fixture Next",
+                    artist: "Fixture Artist Two",
+                    album: "Fixture Album Two",
+                    uri: "spotify:track:fixture-2",
+                    durationMS: 190_000
+                )
+            ],
+            queueContext: "spotify:playlist:fixture",
+            playlists: [
+                DJConnectPlaylist(
+                    id: "fixture-playlist-1",
+                    name: "Fixture Playlist",
+                    uri: "spotify:playlist:fixture",
+                    subtitle: "Home Assistant fixture"
+                ),
+                DJConnectPlaylist(
+                    id: "fixture-playlist-2",
+                    name: "Fixture Dinner",
+                    uri: "spotify:playlist:fixture-dinner",
+                    subtitle: "Recorded fixture"
+                )
+            ]
+        )
+    }
+    #endif
+
     private func refreshDemoCollections() {
         let currentPlayback = playback
         applyDemoState()
@@ -8360,12 +8532,12 @@ public final class DJConnectAppModel: ObservableObject {
             session: urlSession,
             webSocketFastPath: webSocketFastPathIfLocal(baseURL),
             responseLogger: { [weak self] requestSummary, statusCode in
-                Task { @MainActor in
+                Task { @MainActor [weak self] in
                     self?.log(.debug, "Home Assistant API \(requestSummary) -> HTTP \(statusCode)")
                 }
             },
             failureLogger: { [weak self] details in
-                Task { @MainActor in
+                Task { @MainActor [weak self] in
                     self?.logAPIFailure(details)
                 }
             }
@@ -9062,7 +9234,7 @@ public final class DJConnectAppModel: ObservableObject {
                 )
             },
             modeReporter: { [weak self] mode, baseURL in
-                Task { @MainActor in
+                Task { @MainActor [weak self] in
                     self?.recordConnectionMode(mode, baseURL: baseURL)
                     self?.sendWatchProxyReady()
                 }
@@ -9128,7 +9300,7 @@ public final class DJConnectAppModel: ObservableObject {
         }
         if WCSession.default.isReachable {
             WCSession.default.sendMessage(message, replyHandler: nil) { [weak self] error in
-                Task { @MainActor in
+                Task { @MainActor [weak self] in
                     self?.log(.warning, "Watch proxy message failed: \(error.localizedDescription)")
                 }
             }
@@ -9621,16 +9793,16 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     public func refreshPermissionStatuses(retryWakeWord: Bool = true) {
-        microphonePermissionStatus = Self.currentMicrophonePermissionStatus()
-        speechPermissionStatus = Self.currentSpeechPermissionStatus()
-        Task { @MainActor in
-            notificationPermissionStatus = await Self.currentNotificationPermissionStatus()
-        }
+        microphonePermissionStatus = permissionCoordinator.currentMicrophonePermissionStatus()
+        speechPermissionStatus = permissionCoordinator.currentSpeechPermissionStatus()
         localNetworkPermissionStatus = .unknown
         log(.debug, "Permission status refreshed: microphone=\(microphonePermissionStatus.rawValue) speech=\(speechPermissionStatus.rawValue) notifications=\(notificationPermissionStatus.rawValue) local_network=\(localNetworkPermissionStatus.rawValue)")
         if retryWakeWord, wakeWordEnabled, wakeWordStatus == .unavailable, microphonePermissionStatus == .granted, speechPermissionStatus == .granted {
             log(.info, "Retrying wakeword listening after permission status refresh")
             resumeWakeWordListeningIfNeeded()
+        }
+        Task { @MainActor in
+            notificationPermissionStatus = await permissionCoordinator.currentNotificationPermissionStatus()
         }
     }
 
@@ -9761,18 +9933,11 @@ public final class DJConnectAppModel: ObservableObject {
         speech: DJConnectPermissionStatus,
         notifications: DJConnectPermissionStatus = .granted
     ) -> DJConnectPermissionRequestAction {
-        if microphone == .granted, speech == .granted, notifications == .granted {
-            return .alreadyGranted
-        }
-        if microphone == .denied
-            || microphone == .restricted
-            || speech == .denied
-            || speech == .restricted
-            || notifications == .denied
-            || notifications == .restricted {
-            return .openSystemSettings
-        }
-        return .requestSystemPrompt
+        DJConnectPermissionCoordinator.requestAction(
+            microphone: microphone,
+            speech: speech,
+            notifications: notifications
+        )
     }
 
     private func openAppPermissionSettings() {
@@ -9811,81 +9976,9 @@ public final class DJConnectAppModel: ObservableObject {
         }
     }
 
-    private static func currentMicrophonePermissionStatus() -> DJConnectPermissionStatus {
-        #if canImport(AVFoundation)
-        #if os(iOS)
-        switch AVAudioApplication.shared.recordPermission {
-        case .granted:
-            return .granted
-        case .denied:
-            return .denied
-        case .undetermined:
-            return .unknown
-        @unknown default:
-            return .unknown
-        }
-        #else
-        switch AVCaptureDevice.authorizationStatus(for: .audio) {
-        case .authorized:
-            return .granted
-        case .denied:
-            return .denied
-        case .restricted:
-            return .restricted
-        case .notDetermined:
-            return .unknown
-        @unknown default:
-            return .unknown
-        }
-        #endif
-        #else
-        return .unavailable
-        #endif
-    }
-
-    private static func currentSpeechPermissionStatus() -> DJConnectPermissionStatus {
-        #if canImport(Speech)
-        switch SFSpeechRecognizer.authorizationStatus() {
-        case .authorized:
-            .granted
-        case .denied:
-            .denied
-        case .restricted:
-            .restricted
-        case .notDetermined:
-            .unknown
-        @unknown default:
-            .unknown
-        }
-        #else
-        .unavailable
-        #endif
-    }
-
-    private static func currentNotificationPermissionStatus() async -> DJConnectPermissionStatus {
-        #if canImport(UserNotifications)
-        guard !isRunningUnderSwiftPMTests else {
-            return .unavailable
-        }
-        let settings = await UNUserNotificationCenter.current().notificationSettings()
-        switch settings.authorizationStatus {
-        case .authorized, .provisional, .ephemeral:
-            return .granted
-        case .notDetermined:
-            return .unknown
-        case .denied:
-            return .denied
-        @unknown default:
-            return .unavailable
-        }
-        #else
-        return .unavailable
-        #endif
-    }
-
     private func requestMicrophoneAccess() async -> Bool {
         #if canImport(AVFoundation)
-        switch Self.currentMicrophonePermissionStatus() {
+        switch permissionCoordinator.currentMicrophonePermissionStatus() {
         case .granted:
             log(.debug, "Microphone permission already granted; skipping system prompt")
             return true
@@ -9965,13 +10058,13 @@ public final class DJConnectAppModel: ObservableObject {
         }
         Task { @MainActor in
             let microphoneGranted: Bool
-            if Self.currentMicrophonePermissionStatus() == .granted {
+            if permissionCoordinator.currentMicrophonePermissionStatus() == .granted {
                 microphoneGranted = true
             } else {
                 microphoneGranted = await requestMicrophoneAccess()
             }
             let speechGranted: Bool
-            if Self.currentSpeechPermissionStatus() == .granted {
+            if permissionCoordinator.currentSpeechPermissionStatus() == .granted {
                 speechGranted = true
             } else {
                 speechGranted = await requestSpeechAccess()
