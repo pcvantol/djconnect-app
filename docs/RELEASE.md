@@ -725,5 +725,5 @@ include smoke coverage for primary navigation, local Demo Mode, Games entry,
 Settings, and the `App opnieuw koppelen` action. The focused iOS runtime
 fixture set covers successful pairing dismissal, paired runtime status,
 backend unavailable recovery copy, stale auth pairing recovery, version
-mismatch gating, output/queue/playlist navigation, Ask DJ, and voice
-unavailable UI state.
+mismatch gating, output/queue/playlist navigation, Now Playing favorite state,
+Ask DJ, and voice unavailable UI state.

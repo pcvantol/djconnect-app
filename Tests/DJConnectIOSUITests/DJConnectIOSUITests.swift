@@ -373,6 +373,11 @@ final class DJConnectIOSUITests: XCTestCase {
         XCTAssertTrue(waitForText("Fixture Track", in: app))
         XCTAssertTrue(waitForText("Fixture Artist", in: app))
         XCTAssertTrue(waitForText("Fixture Living Room", in: app))
+        let favoriteButton = app.buttons.matching(identifier: "now-playing-favorite-button")
+            .matching(NSPredicate(format: "label == %@", "Zet in favorieten"))
+            .firstMatch
+        XCTAssertTrue(favoriteButton.waitForExistence(timeout: 3))
+        XCTAssertEqual(favoriteButton.label, "Zet in favorieten")
 
         tapTabOrMoreItem("Wachtrij", in: app)
         XCTAssertTrue(app.descendants(matching: .any)["screen-queue"].waitForExistence(timeout: 8))

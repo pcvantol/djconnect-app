@@ -8302,7 +8302,9 @@ public final class DJConnectAppModel: ObservableObject {
                     supportsVolume: true,
                     volumePercent: output.volumePercent
                 ),
-                contextURI: "spotify:playlist:fixture"
+                contextURI: "spotify:playlist:fixture",
+                isLiked: false,
+                favoriteStatus: false
             ),
             devices: [
                 output,

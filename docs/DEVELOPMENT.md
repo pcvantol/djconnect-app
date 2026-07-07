@@ -259,7 +259,8 @@ permission rows, primary navigation, jump URL routing, Settings URL seeding,
 local Games menu choices, hardware-keyboard game input, safe monkey navigation,
 screenshot capture cleanup, and recorded runtime fixture flows for successful
 pairing, paired status loading, stale auth, backend unavailable, version
-mismatch, queue, playlist, output, Ask DJ, and voice unavailable states.
+mismatch, queue, playlist, output, Now Playing favorite state, Ask DJ, and
+voice unavailable states.
 
 ## Home Assistant Transport Check
 

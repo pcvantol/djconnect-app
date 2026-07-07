@@ -10080,6 +10080,7 @@ private struct FavoriteTrackButton: View {
         .tint(isFavorite ? djConnectAccent : .white)
         .help(helpText)
         .accessibilityLabel(label)
+        .accessibilityIdentifier("now-playing-favorite-button")
         .disabled(model.isSavingCurrentTrack)
     }
 }

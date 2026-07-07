@@ -182,8 +182,8 @@ Progress notes:
 - Added focused UI coverage for hardware-keyboard game behavior.
 - Added recorded runtime fixtures for successful pairing dismissal, paired
   runtime status, backend unavailable recovery copy, stale auth pairing
-  recovery, version mismatch gating, output/queue/playlist navigation, Ask DJ,
-  and voice unavailable UI state.
+  recovery, version mismatch gating, output/queue/playlist navigation, Speelt
+  Nu favorite-button state, Ask DJ, and voice unavailable UI state.
 - Verified with the focused ISS-008 XCUITest fixture set:
   `testPairingSuccessFixtureDismissesToRuntime`,
   `testRuntimeFixtureShowsPlaybackOutputQueueAndPlaylists`,
