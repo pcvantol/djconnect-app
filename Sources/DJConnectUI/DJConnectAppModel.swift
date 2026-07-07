@@ -834,7 +834,7 @@ public final class DJConnectAppModel: ObservableObject {
     private let startBackgroundTasks: Bool
     private let monkeyTestingMode: Bool
     private let diagnosticLogFileURL: URL?
-    nonisolated private static let protocolVersion = "3.2.25"
+    nonisolated private static let protocolVersion = "3.2.26"
     private static let defaultHomeAssistantURL = "http://homeassistant.local:8123"
     private let appVersion = DJConnectAppModel.protocolVersion
     private let installIDKey = "DJConnectInstallID"

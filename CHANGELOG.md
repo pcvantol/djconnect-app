@@ -13,6 +13,9 @@ All notable changes to DJConnect App are documented here.
 - Updated the local issue and TODO documentation to reflect the completed
   refresh, fixture, redaction, payload-size, queue identity, audio playback, and
   keyboard-coverage work.
+- Expanded deterministic iOS runtime fixture coverage to include successful
+  pairing, stale auth, version mismatch, backend unavailable, output, queue,
+  playlists, Ask DJ, voice unavailable, and the Speelt Nu favorite-button state.
 
 ### Fixed
 
