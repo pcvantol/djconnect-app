@@ -8681,8 +8681,8 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
         deviceID: "djconnect-watchos-ABC123",
         deviceName: "DJConnect Watch",
         clientType: .watchos,
-        firmware: "3.2.23",
-        appVersion: "3.2.23",
+        firmware: "3.2.24",
+        appVersion: "3.2.24",
         platform: .watchos
     )
     let feedPayload = DJConnectMusicDNAIdentityRequest(

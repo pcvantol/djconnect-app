@@ -24,7 +24,8 @@ Context:
 - Backend playback loopt via de Home Assistant DJConnect integration; clients sturen generieke playback commands.
 - Apple clients bewaren alleen het door Home Assistant uitgegeven DJConnect device-token in app-private storage. Gebruik geen Keychain en toon geen Keychain-permissie of fallback-popup. `App opnieuw koppelen` wist lokale pairing/token-state, roteert de lokale clientidentiteit/koppelcode waar nodig en opent opnieuw de pairingflow.
 - Pairing gebruikt Home Assistant `/api/djconnect/v1/pair` met canonical `client_type`: macOS=`macos`, iPhone/iPad=`ios`, Apple Watch via iPhone proxy=`watchos`. Eerste pairing is lokaal; `https://*.ngrok-free.dev` is alleen als dev-tunnel whitelisted. `client_type_mismatch` houdt URL/code intact en toont een platformspecifieke melding om de juiste HA setup-flow te kiezen.
-- Houd cross-repo contracten actueel met `pcvantol/djconnect`, client/firmware repos, `SYNC_PROMPTS.md` en `PRODUCT_ROADMAP.md` indien protocol/roadmap geraakt wordt. Apple clients gebruiken Ask DJ als rijke chat/PTT-functie; er is geen losse Now Playing `DJ verzoek` ingang meer. rbpi had die losse ingang al niet; ESP32 krijgt geen Ask DJ rich UI en blijft buiten Apple UI-sync.
+- Gebruik `/Users/pcvantol/Documents/GitHub/djconnect/SYNC_PROMPTS.md` als enige centrale bron voor cross-repo contracten. Maak geen lokale kopie in deze repo en herintroduceer geen oude losse syncprompt-bestanden. Repo-scheiding: Home Assistant integration=`pcvantol/djconnect`, centrale API=`pcvantol/djconnect-api`, Apple app=`pcvantol/djconnect-app`, Windows=`pcvantol/djconnect-windows`, ESP firmware=`pcvantol/djconnect-esp32`, website/docs=`pcvantol/djconnect-website`, Raspberry Pi=`pcvantol/djconnect-pi`.
+- Houd cross-repo contracten actueel met `pcvantol/djconnect/SYNC_PROMPTS.md` en `pcvantol/djconnect/PRODUCT_ROADMAP.md` indien protocol/roadmap geraakt wordt. Apple clients gebruiken Ask DJ als rijke chat/PTT-functie; er is geen losse Now Playing `DJ verzoek` ingang meer. rbpi had die losse ingang al niet; ESP32 krijgt geen Ask DJ rich UI en blijft buiten Apple UI-sync.
 - Ask DJ is cross-device: iOS, macOS en watchOS synchroniseren history via Home Assistant en cachen lokaal voor performance. Clients mergen serverberichten in de lokale cache en vervangen de lokale lijst niet door een bounded response-window. `clear_revision` blijft de full-clear authority.
 - Bij een nieuw ontvangen Ask DJ antwoord mag een latere history/status sync met hogere `clear_revision` de verse lokale vraag+antwoord exchange niet direct wissen; preserveer berichten met dezelfde `client_message_id` tot HA ze zelf in history teruggeeft.
 - Ask DJ history ondersteunt assistant-only systeemmeldingen met `message_kind: "system"`, onder andere `origin: "spotify_playback_context"` voor DJ-feitjes en `origin: "history_retention"` voor limietmeldingen. Deze berichten hebben geen voorafgaande user bubble nodig en zijn niet retrybaar.
@@ -42,10 +43,13 @@ Context:
 - Secrets/tokens/wachtwoorden/private URLs mogen nooit in commits, logs, screenshots, diagnostics of test fixtures.
 
 Huidige status om te controleren:
-- Release `3.2.22` is de actuele source release/protocollijn. iOS/macOS pairen
-  lokaal via `/api/djconnect/v1/pair`, bewaren `ha_local_url` plus optioneel
-  `ha_remote_url`, kiezen runtime local -> remote -> offline, en hosten geen
-  client `/api/device/*` API of `_djconnect._tcp` service.
+- De actuele Apple app release-prep is `3.2.24`; de gedeelde protocol/releaselijn
+  is `3.2.x`, laatst centraal uitgelijnd na Home Assistant integration
+  `v3.2.28`. Clients op `3.2.x` zijn compatibel met Home Assistant integration
+  `>=3.2.0` en `<3.3.0`.
+- iOS/macOS pairen lokaal via `/api/djconnect/v1/pair`, bewaren `ha_local_url`
+  plus optioneel `ha_remote_url`, kiezen runtime local -> remote -> offline, en
+  hosten geen client `/api/device/*` API of `_djconnect._tcp` service.
 - Ask DJ toont in het lege scherm een voorbeeldvraag voor technische
   trackanalyse. Backend/providerdata voor `technical_track_analysis` blijft
   read-only: geen playback starten, pauzeren, skippen, queuen, saven of output
@@ -68,20 +72,32 @@ Huidige status om te controleren:
   genrebadge. In Demo Mode gebruikt VibeCast de lokale Track Insight genredata
   en start automatisch een nieuwe Track Insight analyse als VibeCast open staat
   en de demo-track wisselt.
+- VibeCast gebruikt `GET /api/djconnect/v1/vibecast`, rendert
+  `items[].text[]` als veilige gestructureerde tekst, stuurt
+  `X-DJConnect-Render-Capabilities`, laadt alleen DJConnect image-proxy URLs en
+  wist shout-out artwork als een volgende response geen imagevelden bevat.
+- Ontdek / Music Discovery is backend-owned via
+  `GET /api/djconnect/v1/music_discovery`,
+  `POST /api/djconnect/v1/music_discovery/refresh` en
+  `POST /api/djconnect/v1/music_discovery/play`. APNs
+  `music_discovery_ready` is alleen een trigger om Ontdek te openen/verversen;
+  recommendations worden niet uit de pushpayload gerenderd.
 - De Mood-keuze is gedeeld tussen Ask DJ, Track Insight en Speelt nu / Now
   Playing. Speelt nu gebruikt dezelfde control op iOS en macOS; de track-art
   kaart kleurt mee met de actieve Mood-palette.
-- De statische What's New release-notes voor `3.2.22` worden door de
-  `Public unsigned release` workflow gepubliceerd naar `pcvantol/djconnect-website`
-  en `djconnect.dev`. Controleer specifiek dat de `nl` JSON echte Nederlandse
-  inhoud bevat en niet de Engelse fallback.
+- De statische What's New release-notes voor de actuele app-release worden door
+  de `Public unsigned release` workflow gepubliceerd naar
+  `pcvantol/djconnect-website` en `djconnect.dev`. Controleer specifiek dat de
+  `nl` JSON echte Nederlandse inhoud bevat en niet de Engelse fallback.
 - Lokale branch hoort gelijk te lopen met `origin/main`; controleer dat bij
   start van iedere sessie.
 - Check direct:
   - `git status --short --branch`
   - `gh run list --repo pcvantol/djconnect-app --limit 5`
-  - public release tags in `pcvantol/djconnect-app-releases` voor `ios/v3.2.22` en `macos/v3.2.22` indien release/publicatie geraakt wordt.
-  - `https://djconnect.dev/release-notes/ios/nl/v3.2.22.json` en het macOS
+  - public release tags in `pcvantol/djconnect-app-releases` voor de actuele
+    `ios/v...` en `macos/v...` app-release indien release/publicatie geraakt
+    wordt.
+  - `https://djconnect.dev/release-notes/ios/nl/v<versie>.json` en het macOS
     equivalent indien What's New release-notes geraakt worden.
 
 Werkstijl:

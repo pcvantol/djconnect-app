@@ -86,6 +86,10 @@ After renewing the Apple Developer Program membership:
   `pcvantol/djconnect/PRODUCT_ROADMAP.md`. If either change originates here,
   create a follow-up change/commit in `pcvantol/djconnect`. Do not keep local
   `SYNC_PROMPTS.md` or `PRODUCT_ROADMAP.md` copies in this repo.
+- Include `pcvantol/djconnect-api` in cross-repo contract reviews whenever
+  APNs push relay, Apple wake/sync behavior, Home Assistant relay events,
+  privacy/security boundaries, API deployment, Cloudflare Workers/D1 schema, or
+  release hygiene changes.
 - Run the standard release script so third-party libraries, frameworks and
   installed release helper tools are updated/upgraded before build artifacts
   are compiled.

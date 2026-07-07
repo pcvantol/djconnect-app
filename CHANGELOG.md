@@ -4,6 +4,29 @@ All notable changes to DJConnect App are documented here.
 
 ## Unreleased
 
+## 3.2.24 - 2026-07-07
+
+### Added
+
+- Added Apple Watch Ontdek / Discover with a recommendation list, item detail
+  reasoning, and Play Now through the iPhone proxy.
+- Added five-language static What's New publishing for English, Dutch, German,
+  French, and Spanish JSON release-note files.
+
+### Changed
+
+- Prepared the Xcode project and shared schemes for Xcode 27 migration settings.
+- Moved the Watch home order to keep Mood, Queue, Playlists, and Discover
+  together before Ask DJ and analysis views.
+- Made Track Insight use the same floating Mood selector pattern as Ask DJ.
+- Capped the local Games playfield height on iPad landscape so movement/action
+  buttons stay visible below the game.
+
+### Fixed
+
+- Fixed Watch demo mode haptics so real Apple Watch hardware still plays haptic
+  feedback.
+
 ## 3.2.23 - 2026-07-07
 
 ### Changed
