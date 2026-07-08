@@ -3141,6 +3141,68 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
 }
 
 @MainActor
+@Test func macOSPushRegistrationCoalescesDuplicateTokenCallbacksDuringBootstrapRecovery() async throws {
+    let defaults = try testDefaults()
+    let recorder = RequestRecorder()
+    let registerAttempts = RequestCounter()
+    let session = mockSession(host: "push-coalesce-bootstrap.local") { request in
+        recorder.append(request)
+        if request.url?.path == "/api/djconnect/v1/push/register" {
+            registerAttempts.increment()
+        }
+        if request.url?.path == "/api/djconnect/v1/push/register", registerAttempts.count == 1 {
+            Thread.sleep(forTimeInterval: 0.15)
+            return (try httpResponse(for: request, statusCode: 200), Data("""
+            {
+              "success": false,
+              "error": "missing_bootstrap_proof",
+              "push_supported": true,
+              "push_registered": false,
+              "push_environment": "sandbox",
+              "last_push_error": "missing_bootstrap_proof"
+            }
+            """.utf8))
+        }
+        if request.url?.path == "/api/djconnect/v1/push/bootstrap" {
+            return (try httpResponse(for: request, statusCode: 200), Data("""
+            {
+              "success": true,
+              "bootstrap_proof": "coalesced-proof",
+              "bootstrap_proof_expires_at": "2026-07-08T12:10:00Z",
+              "push_supported": true,
+              "push_registered": false,
+              "push_environment": "sandbox"
+            }
+            """.utf8))
+        }
+        return (try httpResponse(for: request, statusCode: 200), Data("""
+        {
+          "success": true,
+          "push_supported": true,
+          "push_registered": true,
+          "push_environment": "sandbox"
+        }
+        """.utf8))
+    }
+    let model = makePairedMusicDNAModel(defaults: defaults, host: "push-coalesce-bootstrap.local", session: session)
+    let token = Data([0xab, 0xcd, 0xef, 0x78])
+
+    model.handleRemoteNotificationDeviceToken(token)
+    model.handleRemoteNotificationDeviceToken(token)
+    for _ in 0..<100 where defaults.bool(forKey: "DJConnectPushRegistered") == false {
+        try await Task.sleep(for: .milliseconds(100))
+    }
+
+    #expect(recorder.requests.map { $0.url?.path } == [
+        "/api/djconnect/v1/push/register",
+        "/api/djconnect/v1/push/bootstrap",
+        "/api/djconnect/v1/push/register",
+    ])
+    #expect(defaults.bool(forKey: "DJConnectPushRegistered") == true)
+    #expect(defaults.string(forKey: "DJConnectLastPushError") == nil)
+}
+
+@MainActor
 @Test func sandboxPushRegistrationRejectsProductionResponseEnvironment() async throws {
     let defaults = try testDefaults()
     let recorder = RequestRecorder()

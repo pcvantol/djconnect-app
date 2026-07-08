@@ -801,6 +801,7 @@ public final class DJConnectAppModel: ObservableObject {
     private var shouldShowWakeWordPromptAfterPairingScreen = false
     private var currentAPNsPushToken: String?
     private var remoteNotificationRegistrationRequestedThisLaunch = false
+    private var pushRegistrationInFlightSignature: String?
     private var musicDiscoveryPushRefreshes: [String: Date] = [:]
     private var webSocketFastPathCache: [String: any DJConnectWebSocketFastPathTransport] = [:]
     @Published public private(set) var fastPathDiagnostics = DJConnectFastPathDiagnostics()
@@ -7214,7 +7215,17 @@ public final class DJConnectAppModel: ObservableObject {
            defaults.bool(forKey: pushRegisteredKey) {
             return
         }
+        if pushRegistrationInFlightSignature == registrationSignature {
+            logPush("registration skipped in_flight=true")
+            return
+        }
+        pushRegistrationInFlightSignature = registrationSignature
         Task { @MainActor in
+            defer {
+                if pushRegistrationInFlightSignature == registrationSignature {
+                    pushRegistrationInFlightSignature = nil
+                }
+            }
             do {
                 let initialBootstrapProof = currentBootstrapProofForPushRegistration()
                 let response = try await registerPushTokenWithHomeAssistant(
