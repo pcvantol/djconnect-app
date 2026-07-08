@@ -3141,6 +3141,70 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
 }
 
 @MainActor
+@Test func macOSPushInvalidBootstrapProofRetriesOneAdditionalFreshProof() async throws {
+    let defaults = try testDefaults()
+    let recorder = RequestRecorder()
+    let registerAttempts = RequestCounter()
+    let bootstrapAttempts = RequestCounter()
+    let session = mockSession(host: "push-invalid-bootstrap-second.local") { request in
+        recorder.append(request)
+        if request.url?.path == "/api/djconnect/v1/push/register" {
+            registerAttempts.increment()
+            if registerAttempts.count <= 2 {
+                return (try httpResponse(for: request, statusCode: 200), Data("""
+                {
+                  "success": false,
+                  "error": "invalid_bootstrap_proof",
+                  "push_supported": true,
+                  "push_registered": false,
+                  "push_environment": "sandbox",
+                  "last_push_error": "invalid_bootstrap_proof"
+                }
+                """.utf8))
+            }
+            return (try httpResponse(for: request, statusCode: 200), Data("""
+            {
+              "success": true,
+              "push_supported": true,
+              "push_registered": true,
+              "push_environment": "sandbox"
+            }
+            """.utf8))
+        }
+        if request.url?.path == "/api/djconnect/v1/push/bootstrap" {
+            bootstrapAttempts.increment()
+            return (try httpResponse(for: request, statusCode: 200), Data("""
+            {
+              "success": true,
+              "bootstrap_proof": "fresh-proof-\(bootstrapAttempts.count)",
+              "bootstrap_proof_expires_at": "2026-07-08T12:10:00Z",
+              "push_supported": true,
+              "push_registered": false,
+              "push_environment": "sandbox"
+            }
+            """.utf8))
+        }
+        return (try httpResponse(for: request, statusCode: 404), Data())
+    }
+    let model = makePairedMusicDNAModel(defaults: defaults, host: "push-invalid-bootstrap-second.local", session: session)
+
+    model.handleRemoteNotificationDeviceToken(Data([0xab, 0xcd, 0xef, 0x67]))
+    for _ in 0..<100 where defaults.bool(forKey: "DJConnectPushRegistered") == false {
+        try await Task.sleep(for: .milliseconds(100))
+    }
+
+    #expect(recorder.requests.map { $0.url?.path } == [
+        "/api/djconnect/v1/push/register",
+        "/api/djconnect/v1/push/bootstrap",
+        "/api/djconnect/v1/push/register",
+        "/api/djconnect/v1/push/bootstrap",
+        "/api/djconnect/v1/push/register",
+    ])
+    #expect(defaults.bool(forKey: "DJConnectPushRegistered") == true)
+    #expect(defaults.string(forKey: "DJConnectLastPushError") == nil)
+}
+
+@MainActor
 @Test func macOSPushRegistrationCoalescesDuplicateTokenCallbacksDuringBootstrapRecovery() async throws {
     let defaults = try testDefaults()
     let recorder = RequestRecorder()

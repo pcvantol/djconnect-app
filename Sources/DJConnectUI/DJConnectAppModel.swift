@@ -7413,11 +7413,53 @@ public final class DJConnectAppModel: ObservableObject {
             bootstrapProof: bootstrapProof
         )
         applyPushRegistrationStatus(from: retryResponse)
-        let responseEnvironment = retryResponse.pushEnvironment
+        if Self.isInvalidBootstrapProof(retryResponse.error ?? retryResponse.lastPushError ?? retryResponse.message ?? "") {
+            clearPairingBootstrapProof()
+            logPush("registration bootstrap_retry_required=true reason=invalid_bootstrap_proof", level: .warning)
+            guard let secondBootstrapProof = try await fetchBootstrapProofForPushRegistration(
+                pushEnvironment: pushEnvironment,
+                appBundleID: appBundleID,
+                locale: locale
+            ) else {
+                markPushRegistrationBootstrapRecoveryFailed(reason: "invalid_bootstrap_proof")
+                return
+            }
+            let secondRetryResponse = try await registerPushTokenWithHomeAssistant(
+                token: token,
+                pushEnvironment: pushEnvironment,
+                appBundleID: appBundleID,
+                locale: locale,
+                categories: categories,
+                bootstrapProof: secondBootstrapProof
+            )
+            applyPushRegistrationStatus(from: secondRetryResponse)
+            try await handleFinalPushRegistrationRecoveryResponse(
+                secondRetryResponse,
+                tokenHash: tokenHash,
+                pushEnvironment: pushEnvironment,
+                registrationSignature: registrationSignature
+            )
+            return
+        }
+        try await handleFinalPushRegistrationRecoveryResponse(
+            retryResponse,
+            tokenHash: tokenHash,
+            pushEnvironment: pushEnvironment,
+            registrationSignature: registrationSignature
+        )
+    }
+
+    private func handleFinalPushRegistrationRecoveryResponse(
+        _ response: DJConnectCommandResponse,
+        tokenHash: String,
+        pushEnvironment: DJConnectPushEnvironment,
+        registrationSignature: String
+    ) async throws {
+        let responseEnvironment = response.pushEnvironment
         let canonicalEnvironment = responseEnvironment ?? pushEnvironment
         let environmentMatches = pushEnvironment.isCompatible(with: responseEnvironment)
-        guard retryResponse.success, retryResponse.pushRegistered != false, environmentMatches else {
-            let retryReason = retryResponse.error ?? retryResponse.lastPushError ?? retryResponse.message ?? "unknown"
+        guard response.success, response.pushRegistered != false, environmentMatches else {
+            let retryReason = response.error ?? response.lastPushError ?? response.message ?? "unknown"
             if Self.requiresBootstrapProof(retryReason) {
                 markPushRegistrationBootstrapRecoveryFailed(reason: retryReason)
             } else {
