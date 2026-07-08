@@ -637,7 +637,10 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     #expect(model.pairingStatus == .unpaired)
     #expect(model.isConnected == false)
     #expect(try tokenStore.loadToken() == nil)
-    #expect(defaults.string(forKey: "DJConnectInstallID")?.isEmpty == false)
+    let platformInstallIDKey = try #require(defaults.dictionaryRepresentation().keys.first {
+        $0.hasPrefix("DJConnectInstallID-")
+    })
+    #expect(defaults.string(forKey: platformInstallIDKey)?.isEmpty == false)
 }
 
 @MainActor
@@ -7172,7 +7175,9 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
             refreshIncludesCollections.append(includeCollections)
         }
     )
-    try await Task.sleep(for: .milliseconds(90))
+    for _ in 0..<20 where refreshIncludesCollections.isEmpty || cleanupCount == 0 {
+        try await Task.sleep(for: .milliseconds(25))
+    }
 
     #expect(refreshIncludesCollections == [true])
     #expect(cleanupCount == 1)
