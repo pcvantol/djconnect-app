@@ -7750,13 +7750,12 @@ private func makePairedMusicDNAModel(
     var cleanupCount = 0
 
     scheduler.scheduleCommandRefresh(
-        delay: .milliseconds(40),
+        delay: .milliseconds(250),
         isStillValid: { true },
         refresh: { includeCollections in
             refreshIncludesCollections.append(includeCollections)
         }
     )
-    try await Task.sleep(for: .milliseconds(10))
     scheduler.scheduleCommandRefresh(
         delay: .milliseconds(40),
         includeCollections: true,
