@@ -2189,6 +2189,7 @@ private func makePairedMusicDNAModel(
         }
     }
     let model = makePairedMusicDNAModel(defaults: defaults, host: "discovery-play-stale.local", session: session)
+    model.language = "nl"
 
     await model.refreshMusicDiscovery()
     let item = try #require(model.musicDiscoveryResponse?.visibleSections.first?.visibleItems.first)
