@@ -254,6 +254,11 @@ Central returns `invalid_bootstrap_proof`, `bootstrap_proof_expired`,
 the issuer is unavailable, APNs push stays disabled or best-effort for that
 attempt while normal Ask DJ/history/status flows continue. The trusted issuer
 does not receive the APNs token; that token is only sent to `/push/register`.
+The current push status is visible to users in the About/Over screen under the
+Connection/Verbinding section on iOS, macOS, and watchOS. The UI shows a
+privacy-safe functional state: registered with sandbox/production when known,
+not active, not supported, or action needed. It does not expose APNs tokens,
+bootstrap proofs, install tokens, bearer tokens, or raw request payloads.
 
 ## Xcode
 

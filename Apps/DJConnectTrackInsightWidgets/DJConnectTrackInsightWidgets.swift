@@ -2140,6 +2140,7 @@ struct DJConnectTrackInsightLiveActivityWidget: Widget {
             }
             .keylineTint(DJConnectLiveActivityMoodKeylineColor())
         }
+        .contentMarginsDisabled()
     }
 }
 
@@ -2172,7 +2173,7 @@ private struct DJConnectNowPlayingLiveActivityArtwork: View {
                     .resizable()
                     .scaledToFill()
             } else {
-                DJConnectNowPlayingLiveActivityArtworkFallback(isPlaying: state.isPlaying)
+                DJConnectNowPlayingLiveActivityArtworkFallback()
             }
         }
         .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
@@ -2185,7 +2186,6 @@ private struct DJConnectNowPlayingLiveActivityArtwork: View {
 
 @available(iOS 16.1, *)
 private struct DJConnectNowPlayingLiveActivityArtworkFallback: View {
-    let isPlaying: Bool
     private let palette = DJConnectWidgetMoodPalette(stepIndex: DJConnectWidgetMood.currentStepIndex)
 
     var body: some View {
@@ -2228,11 +2228,6 @@ private struct DJConnectNowPlayingLiveActivityArtworkFallback: View {
                             endPoint: .bottomTrailing
                         )
                     )
-                    .offset(x: -side * 0.06, y: -side * 0.08)
-                Image(systemName: isPlaying ? "play.fill" : "pause.fill")
-                    .font(.system(size: side * 0.22, weight: .black))
-                    .foregroundStyle(.white.opacity(0.94))
-                    .offset(x: side * 0.16, y: side * 0.14)
             }
             .frame(width: geometry.size.width, height: geometry.size.height)
         }
@@ -2341,8 +2336,8 @@ private struct DJConnectNowPlayingLiveActivityExpandedHeaderView: View {
         .frame(width: 338, alignment: .leading)
         .background {
             DJConnectNowPlayingLiveActivityBackground(state: state)
-                .frame(width: 338, height: 114)
-                .offset(y: 32)
+                .frame(width: 338, height: 152)
+                .offset(y: 4)
         }
     }
 }

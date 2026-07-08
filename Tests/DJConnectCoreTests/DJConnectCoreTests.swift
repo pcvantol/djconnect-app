@@ -3003,6 +3003,79 @@ private func makePairedMusicDNAModel(
     #expect(response.pushEnvironment == .sandbox)
 }
 
+@MainActor
+@Test func aboutPushNotificationStatusReflectsStoredRegistrationState() throws {
+    let defaults = try testDefaults()
+
+    var model = DJConnectAppModel(defaults: defaults, startBackgroundTasks: false)
+    #expect(model.pushNotificationStatus.state == .inactive)
+    #expect(model.pushNotificationStatus.environment == nil)
+
+    defaults.set(true, forKey: "DJConnectPushRegistered")
+    defaults.set("sandbox", forKey: "DJConnectPushEnvironmentStatus")
+    model = DJConnectAppModel(defaults: defaults, startBackgroundTasks: false)
+    #expect(model.pushNotificationStatus.state == .registered)
+    #expect(model.pushNotificationStatus.environment == .sandbox)
+    #expect(model.pushNotificationStatus.lastError == nil)
+
+    defaults.set(false, forKey: "DJConnectPushRegistered")
+    defaults.set("install_id_mismatch", forKey: "DJConnectLastPushError")
+    model = DJConnectAppModel(defaults: defaults, startBackgroundTasks: false)
+    #expect(model.pushNotificationStatus.state == .actionNeeded)
+    #expect(model.pushNotificationStatus.environment == .sandbox)
+    #expect(model.pushNotificationStatus.lastError == "install_id_mismatch")
+
+    defaults.set(false, forKey: "DJConnectPushSupported")
+    model = DJConnectAppModel(defaults: defaults, startBackgroundTasks: false)
+    #expect(model.pushNotificationStatus.state == .unavailable)
+}
+
+@Test func aboutPushNotificationStatusLabelsAreLocalizedForSupportedLanguages() throws {
+    let expected: [String: [String: String]] = [
+        "en": [
+            "ui.push.notifications": "Push notifications",
+            "ui.registered": "Registered",
+            "ui.not.supported": "Not supported",
+            "ui.action.needed": "Action needed",
+            "ui.sandbox": "Sandbox"
+        ],
+        "nl": [
+            "ui.push.notifications": "Pushnotificaties",
+            "ui.registered": "Geregistreerd",
+            "ui.not.supported": "Niet ondersteund",
+            "ui.action.needed": "Actie nodig",
+            "ui.sandbox": "Sandbox"
+        ],
+        "de": [
+            "ui.push.notifications": "Push-Mitteilungen",
+            "ui.registered": "Registriert",
+            "ui.not.supported": "Nicht unterstützt",
+            "ui.action.needed": "Aktion erforderlich",
+            "ui.sandbox": "Sandbox"
+        ],
+        "fr": [
+            "ui.push.notifications": "Notifications push",
+            "ui.registered": "Enregistré",
+            "ui.not.supported": "Non pris en charge",
+            "ui.action.needed": "Action requise",
+            "ui.sandbox": "Sandbox"
+        ],
+        "es": [
+            "ui.push.notifications": "Notificaciones push",
+            "ui.registered": "Registrado",
+            "ui.not.supported": "No compatible",
+            "ui.action.needed": "Acción necesaria",
+            "ui.sandbox": "Sandbox"
+        ]
+    ]
+
+    for (language, values) in expected {
+        for (key, value) in values {
+            #expect(DJConnectLocalization.localized(key: key, language: language) == value)
+        }
+    }
+}
+
 @Test func statusEnvelopeDecodesBootstrapProofForPushRegistration() throws {
     let json = """
     {

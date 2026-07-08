@@ -419,11 +419,16 @@
 "ui.connection.type" = "Connection Type";
 "ui.connection.speed" = "Connection Speed";
 "ui.home.assistant.address" = "Home Assistant address";
+"ui.push.notifications" = "Push notifications";
 "ui.music" = "Music";
 "ui.available" = "Available";
+"ui.registered" = "Registered";
+"ui.not.supported" = "Not supported";
+"ui.action.needed" = "Action needed";
 "ui.notices" = "Notices";
 "ui.demo" = "Demo";
 "ui.not.active" = "Not active";
+"ui.sandbox" = "Sandbox";
 "ui.fast.local.link.websocket" = "Local connection (WebSocket)";
 "ui.websocket.fast.path" = "WebSocket";
 "ui.use.websocket.fast.path.only.on.local.home.assistant" = "Use WebSocket for faster local Home Assistant actions. Only available on the local connection.";
@@ -927,6 +932,8 @@
 "ui.why.this" = "Why this?";
 "ui.play.now" = "Play Now";
 "ui.chat.history" = "Chat history";
+"ui.auto.play.dj.answers" = "Auto play DJ answers";
+"ui.play.dj.answer.audio.as.soon.as.it.arrives" = "Play DJ answer audio as soon as it arrives.";
 "ui.export.ask.dj.history" = "Export Ask DJ History";
 "ui.ask.dj.history.export.description" = "Download the server-built Ask DJ history export from Home Assistant as JSON.";
 "ui.ask.dj.history.exporting" = "Exporting Ask DJ history...";

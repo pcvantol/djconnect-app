@@ -16739,6 +16739,18 @@ struct SettingsView: View {
                 .djSettingsListRowBackground()
 
                 Section("Ask DJ") {
+                    Toggle(isOn: $model.localResponseAudioEnabled) {
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text(localizedKey(model.language, "ui.auto.play.dj.answers"))
+                            Text(localizedKey(model.language, "ui.play.dj.answer.audio.as.soon.as.it.arrives"))
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                    }
+                    .tint(djConnectAccent)
+                    .djCompactSettingsListRow()
+
                     LabeledContent(localizedKey(model.language, "ui.chat.history")) {
                         Button {
                             prepareAskDJHistoryExport()
@@ -17473,6 +17485,9 @@ private struct AboutView: View {
                         AboutStackedRow(label: localizedKey(model.language, "ui.home.assistant.address")) {
                             SelectableValue(model.homeAssistantURL)
                         }
+                        AboutStackedRow(label: localizedKey(model.language, "ui.push.notifications")) {
+                            SelectableValue(pushNotificationStatusTitle, foregroundStyle: pushNotificationStatusColor)
+                        }
                         AboutStackedRow(label: localizedKey(model.language, "ui.music")) {
                             SelectableValue(
                                 model.backendAvailable
@@ -17556,6 +17571,45 @@ private struct AboutView: View {
             return .red
         }
         return model.fastPathDiagnostics.websocketConnected ? .green : .secondary
+    }
+
+    private var pushNotificationStatusTitle: String {
+        let status = model.pushNotificationStatus
+        switch status.state {
+        case .registered:
+            if let environment = status.environment {
+                return "\(localizedKey(model.language, "ui.registered")) (\(pushEnvironmentTitle(environment)))"
+            }
+            return localizedKey(model.language, "ui.registered")
+        case .unavailable:
+            return localizedKey(model.language, "ui.not.supported")
+        case .actionNeeded:
+            return localizedKey(model.language, "ui.action.needed")
+        case .inactive:
+            return localizedKey(model.language, "ui.not.active")
+        }
+    }
+
+    private var pushNotificationStatusColor: Color {
+        switch model.pushNotificationStatus.state {
+        case .registered:
+            return .green
+        case .unavailable:
+            return .secondary
+        case .actionNeeded:
+            return .orange
+        case .inactive:
+            return .secondary
+        }
+    }
+
+    private func pushEnvironmentTitle(_ environment: DJConnectPushEnvironment) -> String {
+        switch environment {
+        case .sandbox:
+            return localizedKey(model.language, "ui.sandbox")
+        case .production:
+            return localizedKey(model.language, "ui.production")
+        }
     }
 }
 

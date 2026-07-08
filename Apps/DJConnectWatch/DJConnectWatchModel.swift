@@ -19,6 +19,19 @@ import WatchKit
 import WidgetKit
 #endif
 
+struct DJConnectWatchPushNotificationStatus: Equatable {
+    enum State: Equatable {
+        case registered
+        case unavailable
+        case actionNeeded
+        case inactive
+    }
+
+    var state: State = .inactive
+    var environment: DJConnectPushEnvironment?
+    var lastError: String?
+}
+
 struct DJConnectWatchAskDJMessage: Identifiable, Codable, Equatable {
     enum Role: String, Codable {
         case user
@@ -399,6 +412,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
     @Published private(set) var diagnosticLogLines: [DJConnectWatchLogLine] = []
     @Published private(set) var companionPairingStatus = "iPhone companion zoeken..."
     @Published private(set) var iPhoneConnectionMode: DJConnectHAConnectionMode = .offline
+    @Published private(set) var pushNotificationStatus = DJConnectWatchPushNotificationStatus()
     @Published private(set) var musicBackendSummary = DJConnectMusicBackendSummary()
     @Published private(set) var remoteSupported = false
     @Published private(set) var isWiFiAvailable = false
@@ -467,6 +481,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
     init(monkeyTestingMode: Bool = false) {
         self.monkeyTestingMode = monkeyTestingMode
         super.init()
+        pushNotificationStatus = Self.pushNotificationStatus()
         syncAppLanguageOverrideToSharedDefaults()
         demoMusicDNAEnabled = storedDemoMusicDNAEnabled
         askDJMessages = Self.loadAskDJMessages(key: askDJMessagesKey)
@@ -1825,6 +1840,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         UserDefaults.standard.removeObject(forKey: pushRegisteredKey)
         UserDefaults.standard.removeObject(forKey: pushEnvironmentStatusKey)
         UserDefaults.standard.removeObject(forKey: lastPushErrorKey)
+        refreshPushNotificationStatus()
         apiBase = ""
         voicePath = ""
         statusPath = ""
@@ -3605,6 +3621,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
                     } else {
                         appendDiagnosticLog("Push registratie niet geaccepteerd door Home Assistant: \(Self.redactedPushFailureReason(reason))", level: .warning)
                     }
+                    refreshPushNotificationStatus()
                     return
                 }
                 UserDefaults.standard.removeObject(forKey: registeredPushTokenKey)
@@ -3613,6 +3630,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
                 UserDefaults.standard.set(registrationSignature, forKey: registeredPushSignatureKey)
                 UserDefaults.standard.set(true, forKey: pushRegisteredKey)
                 UserDefaults.standard.removeObject(forKey: lastPushErrorKey)
+                refreshPushNotificationStatus()
                 logPush("registered with Home Assistant client_type=\(identity.clientType.rawValue) env=\(canonicalEnvironment.rawValue) push_registered=true", level: .info)
             } catch let error as DJConnectError {
                 if case .routeMissing = error {
@@ -3621,6 +3639,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
                     UserDefaults.standard.set(false, forKey: pushRegisteredKey)
                     UserDefaults.standard.removeObject(forKey: registeredPushSignatureKey)
                     UserDefaults.standard.set("invalid_bootstrap_proof", forKey: lastPushErrorKey)
+                    refreshPushNotificationStatus()
                     logPush("registration recovery_required=true reason=invalid_bootstrap_proof message=pair_with_home_assistant_again push_registered=false", level: .warning)
                 } else {
                     logPush("registration failed error=\(Self.userMessage(for: error))", level: .warning)
@@ -3645,6 +3664,8 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         UserDefaults.standard.removeObject(forKey: registeredPushSignatureKey)
         UserDefaults.standard.removeObject(forKey: pushRegisteredKey)
         UserDefaults.standard.removeObject(forKey: pushEnvironmentStatusKey)
+        UserDefaults.standard.removeObject(forKey: lastPushErrorKey)
+        refreshPushNotificationStatus()
         Task { @MainActor in
             do {
                 let _: DJConnectCommandResponse = try await sendCompanionHARequest(
@@ -3705,7 +3726,32 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         } else if response.pushRegistered == true {
             UserDefaults.standard.removeObject(forKey: lastPushErrorKey)
         }
+        refreshPushNotificationStatus()
         logPush("status push_supported=\(Self.optionalBoolForLog(response.pushSupported)) push_registered=\(Self.optionalBoolForLog(response.pushRegistered)) push_environment=\(response.pushEnvironment?.rawValue ?? "<missing>") last_push_error=\(Self.redactedPushFailureReason(response.lastPushError ?? "<missing>"))")
+    }
+
+    private func refreshPushNotificationStatus() {
+        pushNotificationStatus = Self.pushNotificationStatus()
+    }
+
+    private static func pushNotificationStatus(defaults: UserDefaults = .standard) -> DJConnectWatchPushNotificationStatus {
+        let hasSupportedValue = defaults.object(forKey: "DJConnectWatchPushSupported") != nil
+        let supported = defaults.bool(forKey: "DJConnectWatchPushSupported")
+        let registered = defaults.bool(forKey: "DJConnectWatchPushRegistered")
+        let environment = defaults
+            .string(forKey: "DJConnectWatchPushEnvironmentStatus")
+            .flatMap(DJConnectPushEnvironment.init(rawValue:))
+        let error = defaults.string(forKey: "DJConnectWatchLastPushError")
+        if hasSupportedValue, !supported {
+            return DJConnectWatchPushNotificationStatus(state: .unavailable, environment: environment, lastError: error)
+        }
+        if registered {
+            return DJConnectWatchPushNotificationStatus(state: .registered, environment: environment, lastError: nil)
+        }
+        if let error, !error.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return DJConnectWatchPushNotificationStatus(state: .actionNeeded, environment: environment, lastError: error)
+        }
+        return DJConnectWatchPushNotificationStatus(state: .inactive, environment: environment, lastError: nil)
     }
 
     private static var pushEnvironment: DJConnectPushEnvironment {

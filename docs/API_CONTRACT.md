@@ -321,6 +321,19 @@ history, and status flows. `not_configured`, `401`, and `403` are stale-pairing
 signals: clients clear the local pairing state and local Ask DJ cache for that
 Home Assistant install.
 
+Apple clients must surface the current APNs push registration state in their
+About/Connection UI on iOS, macOS, and watchOS. The user-facing state is derived
+from the stored `push_supported`, `push_registered`, `push_environment`, and
+`last_push_error` values and must remain privacy-safe:
+
+- `Registered (Sandbox|Production)` when `push_registered` is true.
+- `Not active` when no registration result is known yet.
+- `Not supported` when Home Assistant reports `push_supported: false`.
+- `Action needed` when a sanitized push error is stored.
+
+This UI must never show APNs tokens, bootstrap proofs, install tokens, bearer
+tokens, request bodies, or other secret material.
+
 ### Music Discovery Reminder Push
 
 Home Assistant may send a daily APNs reminder when new Music Discovery

@@ -2087,6 +2087,11 @@ private struct DJConnectWatchAboutView: View {
                             foregroundStyle: connectionTransportColor
                         )
                         aboutRow(
+                            watchLocalizedKey(model.language, "ui.push.notifications"),
+                            pushNotificationStatusTitle,
+                            foregroundStyle: pushNotificationStatusColor
+                        )
+                        aboutRow(
                             watchLocalizedKey(model.language, "ui.music"),
                             musicStatusTitle,
                             foregroundStyle: musicStatusColor
@@ -2139,6 +2144,45 @@ private struct DJConnectWatchAboutView: View {
 
     private var connectionTransportColor: Color {
         model.iPhoneConnectionMode == .offline ? .red : .white.opacity(0.82)
+    }
+
+    private var pushNotificationStatusTitle: String {
+        let status = model.pushNotificationStatus
+        switch status.state {
+        case .registered:
+            if let environment = status.environment {
+                return "\(watchLocalizedKey(model.language, "ui.registered")) (\(pushEnvironmentTitle(environment)))"
+            }
+            return watchLocalizedKey(model.language, "ui.registered")
+        case .unavailable:
+            return watchLocalizedKey(model.language, "ui.not.supported")
+        case .actionNeeded:
+            return watchLocalizedKey(model.language, "ui.action.needed")
+        case .inactive:
+            return watchLocalizedKey(model.language, "ui.not.active")
+        }
+    }
+
+    private var pushNotificationStatusColor: Color {
+        switch model.pushNotificationStatus.state {
+        case .registered:
+            return .green
+        case .unavailable:
+            return .white.opacity(0.62)
+        case .actionNeeded:
+            return .orange
+        case .inactive:
+            return .white.opacity(0.62)
+        }
+    }
+
+    private func pushEnvironmentTitle(_ environment: DJConnectPushEnvironment) -> String {
+        switch environment {
+        case .sandbox:
+            return watchLocalizedKey(model.language, "ui.sandbox")
+        case .production:
+            return watchLocalizedKey(model.language, "ui.production")
+        }
     }
 
     private var musicStatusTitle: String {

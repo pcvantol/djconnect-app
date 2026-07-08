@@ -575,6 +575,30 @@ public struct DJConnectAskDJMessage: Identifiable, Codable, Equatable, Sendable 
 }
 
 @MainActor
+public struct DJConnectPushNotificationStatus: Equatable, Sendable {
+    public enum State: Equatable, Sendable {
+        case registered
+        case unavailable
+        case actionNeeded
+        case inactive
+    }
+
+    public var state: State
+    public var environment: DJConnectPushEnvironment?
+    public var lastError: String?
+
+    public init(
+        state: State = .inactive,
+        environment: DJConnectPushEnvironment? = nil,
+        lastError: String? = nil
+    ) {
+        self.state = state
+        self.environment = environment
+        self.lastError = lastError
+    }
+}
+
+@MainActor
 public final class DJConnectAppModel: ObservableObject {
     @Published public var homeAssistantURL = "" {
         didSet { defaults.set(homeAssistantURL, forKey: homeAssistantURLKey) }
@@ -582,6 +606,7 @@ public final class DJConnectAppModel: ObservableObject {
     @Published public private(set) var haLocalURL = ""
     @Published public private(set) var haRemoteURL = ""
     @Published public private(set) var haConnectionMode: DJConnectHAConnectionMode = .offline
+    @Published public private(set) var pushNotificationStatus = DJConnectPushNotificationStatus()
     @Published public private(set) var remoteSupported = false
     @Published public private(set) var musicBackendSummary = DJConnectMusicBackendSummary()
     @Published public private(set) var assistPipelineID = ""
@@ -717,7 +742,15 @@ public final class DJConnectAppModel: ObservableObject {
     @Published public var voiceEnabled = true {
         didSet { updateWakeWordListeningForAvailability() }
     }
-    @Published public var localResponseAudioEnabled = true
+    @Published public var localResponseAudioEnabled = false {
+        didSet {
+            guard oldValue != localResponseAudioEnabled else {
+                return
+            }
+            defaults.set(localResponseAudioEnabled, forKey: localResponseAudioEnabledKey)
+            log(.info, "Ask DJ response audio auto play \(localResponseAudioEnabled ? "enabled" : "disabled")")
+        }
+    }
     @Published public var isDemoMode = false
     @Published public private(set) var isMonkeyTestingMode = false
     @Published public private(set) var isUITestRuntimeFixtureActive = false
@@ -889,6 +922,7 @@ public final class DJConnectAppModel: ObservableObject {
     private let askDJHistoryRevisionKey = "DJConnectAskDJHistoryRevision"
     private let askDJClearRevisionKey = "DJConnectAskDJClearRevision"
     private let askDJAudioResponseModeKey = "DJConnectAskDJAudioResponseMode"
+    private let localResponseAudioEnabledKey = "DJConnectLocalResponseAudioEnabled"
     private let autoTrackInsightEnabledKey = "DJConnectAutoTrackInsightEnabled"
     private let showVisualizerOnAirPlayKey = "DJConnectShowVisualizerOnAirPlay"
     private let webSocketFastPathEnabledKey = "DJConnectWebSocketFastPathEnabled"
@@ -1144,6 +1178,7 @@ public final class DJConnectAppModel: ObservableObject {
         if let storedMode = defaults.string(forKey: haConnectionModeKey).flatMap(DJConnectHAConnectionMode.init(rawValue:)) {
             self.haConnectionMode = storedMode
         }
+        self.pushNotificationStatus = Self.pushNotificationStatus(defaults: defaults)
         self.assistPipelineID = defaults.string(forKey: assistPipelineIDKey) ?? ""
         self.apiBase = defaults.string(forKey: apiBaseKey) ?? ""
         self.voicePath = defaults.string(forKey: voicePathKey) ?? ""
@@ -1160,6 +1195,7 @@ public final class DJConnectAppModel: ObservableObject {
         self.logLevel = defaults.string(forKey: logLevelKey) ?? "info"
         self.askDJMood = defaults.object(forKey: askDJMoodKey) == nil ? 50.0 : defaults.double(forKey: askDJMoodKey)
         Self.syncAskDJMoodToSharedDefaults(self.askDJMood)
+        self.localResponseAudioEnabled = defaults.bool(forKey: localResponseAudioEnabledKey)
         self.autoTrackInsightEnabled = defaults.bool(forKey: autoTrackInsightEnabledKey)
         self.webSocketFastPathEnabled = defaults.bool(forKey: webSocketFastPathEnabledKey)
         self.showVisualizerOnAirPlay = defaults.bool(forKey: showVisualizerOnAirPlayKey)
@@ -2559,6 +2595,7 @@ public final class DJConnectAppModel: ObservableObject {
         defaults.removeObject(forKey: pushRegisteredKey)
         defaults.removeObject(forKey: pushEnvironmentStatusKey)
         defaults.removeObject(forKey: lastPushErrorKey)
+        refreshPushNotificationStatus()
         identity = Self.makeIdentity(defaults: defaults)
         clearRuntimeState()
         clearAskDJHistoryLocally()
@@ -7571,6 +7608,7 @@ public final class DJConnectAppModel: ObservableObject {
         defaults.set(registrationSignature, forKey: registeredPushSignatureKey)
         defaults.set(true, forKey: pushRegisteredKey)
         defaults.removeObject(forKey: lastPushErrorKey)
+        refreshPushNotificationStatus()
         logPush("registered with Home Assistant client_type=\(identity.clientType.rawValue) env=\(canonicalEnvironment.rawValue) push_registered=true", level: .info)
     }
 
@@ -7590,6 +7628,7 @@ public final class DJConnectAppModel: ObservableObject {
             defaults.set(Self.redactedPushFailureReason(reason), forKey: lastPushErrorKey)
             log(.warning, "Push registration was not accepted by Home Assistant: \(Self.redactedPushFailureReason(reason))")
         }
+        refreshPushNotificationStatus()
     }
 
     private func markPushRegistrationBootstrapRecoveryFailed(reason: String) {
@@ -7597,6 +7636,7 @@ public final class DJConnectAppModel: ObservableObject {
         defaults.removeObject(forKey: registeredPushSignatureKey)
         let code = Self.bootstrapProofFailureCode(reason)
         defaults.set(code, forKey: lastPushErrorKey)
+        refreshPushNotificationStatus()
         logPush("registration recovery_required=true reason=\(code) message=pair_with_home_assistant_again push_registered=false", level: .warning)
     }
 
@@ -7604,6 +7644,7 @@ public final class DJConnectAppModel: ObservableObject {
         defaults.set(false, forKey: pushRegisteredKey)
         defaults.removeObject(forKey: registeredPushSignatureKey)
         defaults.set("bootstrap_proof_unavailable", forKey: lastPushErrorKey)
+        refreshPushNotificationStatus()
         logPush("bootstrap unavailable reason=bootstrap_proof_unavailable message=push_bootstrap_not_available_for_home_assistant_installation push_registered=false", level: .warning)
     }
 
@@ -7649,7 +7690,32 @@ public final class DJConnectAppModel: ObservableObject {
         } else if response.pushRegistered == true {
             defaults.removeObject(forKey: lastPushErrorKey)
         }
+        refreshPushNotificationStatus()
         logPush("status push_supported=\(Self.optionalBoolForLog(response.pushSupported)) push_registered=\(Self.optionalBoolForLog(response.pushRegistered)) push_environment=\(response.pushEnvironment?.rawValue ?? "<missing>") last_push_error=\(Self.redactedPushFailureReason(response.lastPushError ?? "<missing>"))")
+    }
+
+    private func refreshPushNotificationStatus() {
+        pushNotificationStatus = Self.pushNotificationStatus(defaults: defaults)
+    }
+
+    private static func pushNotificationStatus(defaults: UserDefaults) -> DJConnectPushNotificationStatus {
+        let hasSupportedValue = defaults.object(forKey: "DJConnectPushSupported") != nil
+        let supported = defaults.bool(forKey: "DJConnectPushSupported")
+        let registered = defaults.bool(forKey: "DJConnectPushRegistered")
+        let environment = defaults
+            .string(forKey: "DJConnectPushEnvironmentStatus")
+            .flatMap(DJConnectPushEnvironment.init(rawValue:))
+        let error = defaults.string(forKey: "DJConnectLastPushError")
+        if hasSupportedValue, !supported {
+            return DJConnectPushNotificationStatus(state: .unavailable, environment: environment, lastError: error)
+        }
+        if registered {
+            return DJConnectPushNotificationStatus(state: .registered, environment: environment, lastError: nil)
+        }
+        if let error, !error.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return DJConnectPushNotificationStatus(state: .actionNeeded, environment: environment, lastError: error)
+        }
+        return DJConnectPushNotificationStatus(state: .inactive, environment: environment, lastError: nil)
     }
 
     static var pushEnvironment: DJConnectPushEnvironment {
@@ -8521,6 +8587,8 @@ public final class DJConnectAppModel: ObservableObject {
         defaults.removeObject(forKey: registeredPushSignatureKey)
         defaults.removeObject(forKey: pushRegisteredKey)
         defaults.removeObject(forKey: pushEnvironmentStatusKey)
+        defaults.removeObject(forKey: lastPushErrorKey)
+        refreshPushNotificationStatus()
         let authStore = DJConnectInMemoryTokenStore(token: bearerToken)
         let baseURLs = homeAssistantBaseURLs()
         Task { @MainActor in
