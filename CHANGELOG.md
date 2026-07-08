@@ -4,6 +4,25 @@ All notable changes to DJConnect App are documented here.
 
 ## Unreleased
 
+## 3.2.29 - 2026-07-08
+
+### Changed
+
+- Documented the Home Assistant bootstrap context contract for
+  `ha_install_id`, `integration_version`, and optional `pairing_session_id`.
+
+### Fixed
+
+- Persisted Home Assistant bootstrap context from pairing/status responses and
+  include it in Central bootstrap-proof requests without sending APNs tokens.
+- Restored Watch push bootstrap recovery through the iPhone proxy, improved
+  Watch APNs notification prompting, fixed the Music DNA repeat opt-in prompt,
+  and filled Watch Track Insight metric/detail fields from nested backend
+  payloads.
+- Stored Central bootstrap errors such as `invalid_client_type`,
+  `invalid_app_bundle_id`, `invalid_push_environment`, and
+  `bootstrap_rate_limited` as privacy-safe status codes.
+
 ## 3.2.28 - 2026-07-08
 
 ### Changed
