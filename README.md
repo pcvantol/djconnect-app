@@ -238,6 +238,13 @@ Assistant auth is available, and retries when the token fingerprint, APNs
 environment, bundle ID, app version, locale, or pairing target changes. Debug
 logs must stay privacy-safe: do not print bearer tokens, APNs tokens,
 `bootstrap_proof` values, or central `djci_` install tokens.
+The client first calls `/push/register` with the APNs token and any fresh proof
+already received during pairing/status. If Home Assistant returns
+`missing_bootstrap_proof` or `invalid_bootstrap_proof`, the client calls the
+authenticated `POST /api/djconnect/v1/push/bootstrap` endpoint and immediately
+retries `/push/register` with the returned short-lived proof. The bootstrap
+endpoint does not receive the APNs token; that token is only sent to
+`/push/register`.
 
 ## Xcode
 

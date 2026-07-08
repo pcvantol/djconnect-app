@@ -800,6 +800,7 @@ public final class DJConnectAppModel: ObservableObject {
     private let networkMonitorQueue = DispatchQueue(label: "dev.djconnect.app.network")
     private var shouldShowWakeWordPromptAfterPairingScreen = false
     private var currentAPNsPushToken: String?
+    private var remoteNotificationRegistrationRequestedThisLaunch = false
     private var musicDiscoveryPushRefreshes: [String: Date] = [:]
     private var webSocketFastPathCache: [String: any DJConnectWebSocketFastPathTransport] = [:]
     @Published public private(set) var fastPathDiagnostics = DJConnectFastPathDiagnostics()
@@ -4432,6 +4433,9 @@ public final class DJConnectAppModel: ObservableObject {
             } else {
                 log(.debug, "Status response did not include a playback snapshot")
             }
+            if !Self.isRunningUnderSwiftPMTests, !defaults.bool(forKey: pushRegisteredKey) {
+                requestRemoteNotificationRegistration()
+            }
             registerStoredPushTokenIfPossible()
             markHomeAssistantReachable(backendAvailableAfterResponse: hasPlaybackSnapshot ? true : (response.backendAvailable ?? true))
             if backendAvailable {
@@ -7174,7 +7178,7 @@ public final class DJConnectAppModel: ObservableObject {
     #endif
 
     private func registerForSystemRemoteNotifications() {
-        logPush("starting system remote notification registration")
+        logPush("starting system remote notification registration", level: .info)
         #if os(iOS) && canImport(UIKit)
         UIApplication.shared.registerForRemoteNotifications()
         #elseif os(macOS) && canImport(AppKit)
@@ -7212,84 +7216,217 @@ public final class DJConnectAppModel: ObservableObject {
         }
         Task { @MainActor in
             do {
-                let authPresent = (try? tokenStore.loadToken())?.isEmpty == false
-                let bootstrapProof = try await bootstrapProofForPushRegistrationIfNeeded(
+                let initialBootstrapProof = currentBootstrapProofForPushRegistration()
+                let response = try await registerPushTokenWithHomeAssistant(
+                    token: token,
                     pushEnvironment: environment,
                     appBundleID: appBundleID,
-                    locale: locale
+                    locale: locale,
+                    categories: categories,
+                    bootstrapProof: initialBootstrapProof
                 )
-                logPush(
-                    "register payload endpoint=/api/djconnect/v1/push/register ha_host=\(Self.hostForLog(from: localHomeAssistantURL())) device_id=\(identity.deviceID) client_type=\(identity.clientType.rawValue) env=\(environment.rawValue) app_bundle_id=\(appBundleID) app_version=\(appVersion) locale=\(locale) categories=\(categories) push_token_present=\(!token.isEmpty) bootstrap_proof_present=\(bootstrapProof?.isEmpty == false) auth_present=\(authPresent)"
+                try await handlePushRegistrationResponse(
+                    response,
+                    token: token,
+                    tokenHash: tokenHash,
+                    pushEnvironment: environment,
+                    appBundleID: appBundleID,
+                    locale: locale,
+                    categories: categories,
+                    registrationSignature: registrationSignature
                 )
-                let response = try await withHomeAssistantClient { client in
-                    try await client.registerPushNotifications(DJConnectPushRegistrationRequest(
-                        identity: identity,
-                        pushToken: token,
-                        pushEnvironment: environment,
-                        appBundleID: appBundleID,
-                        appVersion: appVersion,
-                        locale: locale,
-                        notificationCategories: categories,
-                        bootstrapProof: bootstrapProof
-                    ))
-                }
-                applyPushRegistrationStatus(from: response)
-                let responseError = Self.redactedPushFailureReason(response.lastPushError ?? response.error ?? "<missing>")
-                let responseEnvironment = response.pushEnvironment
-                let canonicalEnvironment = responseEnvironment ?? environment
-                let environmentMatches = environment.isCompatible(with: responseEnvironment)
-                logPush("register response http_status=decoded success=\(response.success) push_supported=\(Self.optionalBoolForLog(response.pushSupported)) push_registered=\(Self.optionalBoolForLog(response.pushRegistered)) client_type=\(identity.clientType.rawValue) canonical_push_environment=\(canonicalEnvironment.rawValue) push_environment=\(responseEnvironment?.rawValue ?? "<missing>") last_push_error=\(responseError)")
-                guard response.success, response.pushRegistered != false, environmentMatches else {
-                    let reason = response.error ?? response.lastPushError ?? response.message ?? "unknown"
-                    defaults.set(false, forKey: pushRegisteredKey)
-                    defaults.removeObject(forKey: registeredPushSignatureKey)
-                    if Self.isInvalidBootstrapProof(reason) {
-                        clearPairingBootstrapProof()
-                        defaults.set(Self.redactedPushFailureReason(reason), forKey: lastPushErrorKey)
-                        logPush("registration recovery_required=true reason=invalid_bootstrap_proof message=pair_with_home_assistant_again push_registered=false", level: .warning)
-                    } else if !environmentMatches {
-                        let responseValue = responseEnvironment?.rawValue ?? "<missing>"
-                        defaults.set("push_environment_mismatch", forKey: lastPushErrorKey)
-                        logPush("registration rejected push_environment_mismatch expected=\(environment.rawValue) response=\(responseValue) push_registered=false", level: .warning)
-                    } else {
-                        log(.warning, "Push registration was not accepted by Home Assistant: \(Self.redactedPushFailureReason(reason))")
-                    }
-                    return
-                }
-                defaults.removeObject(forKey: registeredPushTokenKey)
-                defaults.set(tokenHash, forKey: registeredPushTokenHashKey)
-                defaults.set(environment.rawValue, forKey: registeredPushEnvironmentKey)
-                defaults.set(registrationSignature, forKey: registeredPushSignatureKey)
-                defaults.set(true, forKey: pushRegisteredKey)
-                clearPairingBootstrapProof()
-                defaults.removeObject(forKey: lastPushErrorKey)
-                logPush("registered with Home Assistant client_type=\(identity.clientType.rawValue) env=\(canonicalEnvironment.rawValue) push_registered=true", level: .info)
             } catch let error as DJConnectError {
-                if case .routeMissing = error {
-                    logPush("registration skipped route_missing=true")
-                } else if Self.isInvalidBootstrapProof(Self.describe(error)) {
-                    defaults.set(false, forKey: pushRegisteredKey)
-                    defaults.removeObject(forKey: registeredPushSignatureKey)
-                    clearPairingBootstrapProof()
-                    defaults.set("invalid_bootstrap_proof", forKey: lastPushErrorKey)
-                    logPush("registration recovery_required=true reason=invalid_bootstrap_proof message=pair_with_home_assistant_again push_registered=false", level: .warning)
-                } else {
-                    logPush("registration failed error=\(Self.describe(error))", level: .warning)
-                }
+                await handlePushRegistrationError(
+                    error,
+                    token: token,
+                    tokenHash: tokenHash,
+                    pushEnvironment: environment,
+                    appBundleID: appBundleID,
+                    locale: locale,
+                    categories: categories,
+                    registrationSignature: registrationSignature
+                )
             } catch {
                 logPush("registration failed error=\(error.localizedDescription)", level: .warning)
             }
         }
     }
 
-    private func bootstrapProofForPushRegistrationIfNeeded(
+    private func registerPushTokenWithHomeAssistant(
+        token: String,
+        pushEnvironment: DJConnectPushEnvironment,
+        appBundleID: String,
+        locale: String,
+        categories: [String],
+        bootstrapProof: String?
+    ) async throws -> DJConnectCommandResponse {
+        let authPresent = (try? tokenStore.loadToken())?.isEmpty == false
+        logPush(
+            "register payload endpoint=/api/djconnect/v1/push/register ha_host=\(Self.hostForLog(from: localHomeAssistantURL())) device_id=\(identity.deviceID) client_type=\(identity.clientType.rawValue) env=\(pushEnvironment.rawValue) app_bundle_id=\(appBundleID) app_version=\(appVersion) locale=\(locale) categories=\(categories) push_token_present=\(!token.isEmpty) bootstrap_proof_present=\(bootstrapProof?.isEmpty == false) auth_present=\(authPresent)"
+        )
+        let response = try await withHomeAssistantClient { client in
+            try await client.registerPushNotifications(DJConnectPushRegistrationRequest(
+                identity: identity,
+                pushToken: token,
+                pushEnvironment: pushEnvironment,
+                appBundleID: appBundleID,
+                appVersion: appVersion,
+                locale: locale,
+                notificationCategories: categories,
+                bootstrapProof: bootstrapProof
+            ))
+        }
+        logPushRegistrationResponse(response, expectedEnvironment: pushEnvironment)
+        return response
+    }
+
+    private func handlePushRegistrationResponse(
+        _ response: DJConnectCommandResponse,
+        token: String,
+        tokenHash: String,
+        pushEnvironment: DJConnectPushEnvironment,
+        appBundleID: String,
+        locale: String,
+        categories: [String],
+        registrationSignature: String
+    ) async throws {
+        applyPushRegistrationStatus(from: response)
+        let responseEnvironment = response.pushEnvironment
+        let canonicalEnvironment = responseEnvironment ?? pushEnvironment
+        let environmentMatches = pushEnvironment.isCompatible(with: responseEnvironment)
+        guard response.success, response.pushRegistered != false, environmentMatches else {
+            let reason = response.error ?? response.lastPushError ?? response.message ?? "unknown"
+            if Self.requiresBootstrapProof(reason) {
+                try await retryPushRegistrationAfterBootstrap(
+                    reason: reason,
+                    token: token,
+                    tokenHash: tokenHash,
+                    pushEnvironment: pushEnvironment,
+                    appBundleID: appBundleID,
+                    locale: locale,
+                    categories: categories,
+                    registrationSignature: registrationSignature
+                )
+                return
+            }
+            rejectPushRegistration(reason: reason, environmentMatches: environmentMatches, responseEnvironment: responseEnvironment, expectedEnvironment: pushEnvironment)
+            return
+        }
+        acceptPushRegistration(
+            tokenHash: tokenHash,
+            pushEnvironment: pushEnvironment,
+            canonicalEnvironment: canonicalEnvironment,
+            registrationSignature: registrationSignature
+        )
+    }
+
+    private func handlePushRegistrationError(
+        _ error: DJConnectError,
+        token: String,
+        tokenHash: String,
+        pushEnvironment: DJConnectPushEnvironment,
+        appBundleID: String,
+        locale: String,
+        categories: [String],
+        registrationSignature: String
+    ) async {
+        let reason = Self.describe(error)
+        if Self.isStalePairingPushError(error) {
+            logPush("registration stale_pairing=true error=\(reason)", level: .warning)
+            recoverFromStalePairing(message: localized(key: "appModel.pairing.is.stale.open.home.assistant.setup.and.enter"))
+            return
+        }
+        if Self.requiresBootstrapProof(reason) {
+            do {
+                try await retryPushRegistrationAfterBootstrap(
+                    reason: reason,
+                    token: token,
+                    tokenHash: tokenHash,
+                    pushEnvironment: pushEnvironment,
+                    appBundleID: appBundleID,
+                    locale: locale,
+                    categories: categories,
+                    registrationSignature: registrationSignature
+                )
+            } catch let retryError as DJConnectError {
+                if Self.isStalePairingPushError(retryError) {
+                    logPush("registration stale_pairing=true error=\(Self.describe(retryError))", level: .warning)
+                    recoverFromStalePairing(message: localized(key: "appModel.pairing.is.stale.open.home.assistant.setup.and.enter"))
+                } else if case .routeMissing = retryError {
+                    logPush("bootstrap skipped route_missing=true", level: .warning)
+                } else {
+                    markPushRegistrationBootstrapRecoveryFailed(reason: Self.describe(retryError))
+                }
+            } catch {
+                markPushRegistrationBootstrapRecoveryFailed(reason: error.localizedDescription)
+            }
+            return
+        }
+        if case .routeMissing = error {
+            logPush("registration skipped route_missing=true")
+        } else {
+            logPush("registration failed error=\(reason)", level: .warning)
+        }
+    }
+
+    private func retryPushRegistrationAfterBootstrap(
+        reason: String,
+        token: String,
+        tokenHash: String,
+        pushEnvironment: DJConnectPushEnvironment,
+        appBundleID: String,
+        locale: String,
+        categories: [String],
+        registrationSignature: String
+    ) async throws {
+        defaults.set(false, forKey: pushRegisteredKey)
+        defaults.removeObject(forKey: registeredPushSignatureKey)
+        if Self.isInvalidBootstrapProof(reason) {
+            clearPairingBootstrapProof()
+        }
+        logPush("registration bootstrap_required=true reason=\(Self.bootstrapProofFailureCode(reason))", level: .warning)
+        guard let bootstrapProof = try await fetchBootstrapProofForPushRegistration(
+            pushEnvironment: pushEnvironment,
+            appBundleID: appBundleID,
+            locale: locale
+        ) else {
+            markPushRegistrationBootstrapRecoveryFailed(reason: reason)
+            return
+        }
+        let retryResponse = try await registerPushTokenWithHomeAssistant(
+            token: token,
+            pushEnvironment: pushEnvironment,
+            appBundleID: appBundleID,
+            locale: locale,
+            categories: categories,
+            bootstrapProof: bootstrapProof
+        )
+        applyPushRegistrationStatus(from: retryResponse)
+        let responseEnvironment = retryResponse.pushEnvironment
+        let canonicalEnvironment = responseEnvironment ?? pushEnvironment
+        let environmentMatches = pushEnvironment.isCompatible(with: responseEnvironment)
+        guard retryResponse.success, retryResponse.pushRegistered != false, environmentMatches else {
+            let retryReason = retryResponse.error ?? retryResponse.lastPushError ?? retryResponse.message ?? "unknown"
+            if Self.requiresBootstrapProof(retryReason) {
+                markPushRegistrationBootstrapRecoveryFailed(reason: retryReason)
+            } else {
+                rejectPushRegistration(reason: retryReason, environmentMatches: environmentMatches, responseEnvironment: responseEnvironment, expectedEnvironment: pushEnvironment)
+            }
+            return
+        }
+        acceptPushRegistration(
+            tokenHash: tokenHash,
+            pushEnvironment: pushEnvironment,
+            canonicalEnvironment: canonicalEnvironment,
+            registrationSignature: registrationSignature
+        )
+    }
+
+    private func fetchBootstrapProofForPushRegistration(
         pushEnvironment: DJConnectPushEnvironment,
         appBundleID: String,
         locale: String
     ) async throws -> String? {
-        if let existing = currentBootstrapProofForPushRegistration() {
-            return existing
-        }
         logPush("bootstrap request endpoint=/api/djconnect/v1/push/bootstrap ha_host=\(Self.hostForLog(from: localHomeAssistantURL())) device_id=\(identity.deviceID) client_type=\(identity.clientType.rawValue) env=\(pushEnvironment.rawValue) app_bundle_id=\(appBundleID) app_version=\(appVersion) locale=\(locale)")
         let response = try await withHomeAssistantClient { client in
             try await client.pushBootstrap(DJConnectPushBootstrapRequest(
@@ -7307,8 +7444,59 @@ public final class DJConnectAppModel: ObservableObject {
             return nil
         }
         storePairingBootstrapProof(proof)
-        logPush("bootstrap received bootstrap_proof_present=true")
+        logPush("bootstrap received bootstrap_proof_present=true bootstrap_proof_expires_at_present=\(response.bootstrapProofExpiresAt?.isEmpty == false)")
         return proof
+    }
+
+    private func logPushRegistrationResponse(_ response: DJConnectCommandResponse, expectedEnvironment: DJConnectPushEnvironment) {
+        applyPushRegistrationStatus(from: response)
+        let responseError = Self.redactedPushFailureReason(response.lastPushError ?? response.error ?? "<missing>")
+        let responseEnvironment = response.pushEnvironment
+        let canonicalEnvironment = responseEnvironment ?? expectedEnvironment
+        logPush("register response http_status=decoded success=\(response.success) push_supported=\(Self.optionalBoolForLog(response.pushSupported)) push_registered=\(Self.optionalBoolForLog(response.pushRegistered)) client_type=\(identity.clientType.rawValue) canonical_push_environment=\(canonicalEnvironment.rawValue) push_environment=\(responseEnvironment?.rawValue ?? "<missing>") last_push_error=\(responseError)")
+    }
+
+    private func acceptPushRegistration(
+        tokenHash: String,
+        pushEnvironment: DJConnectPushEnvironment,
+        canonicalEnvironment: DJConnectPushEnvironment,
+        registrationSignature: String
+    ) {
+        defaults.removeObject(forKey: registeredPushTokenKey)
+        defaults.set(tokenHash, forKey: registeredPushTokenHashKey)
+        defaults.set(pushEnvironment.rawValue, forKey: registeredPushEnvironmentKey)
+        defaults.set(registrationSignature, forKey: registeredPushSignatureKey)
+        defaults.set(true, forKey: pushRegisteredKey)
+        clearPairingBootstrapProof()
+        defaults.removeObject(forKey: lastPushErrorKey)
+        logPush("registered with Home Assistant client_type=\(identity.clientType.rawValue) env=\(canonicalEnvironment.rawValue) push_registered=true", level: .info)
+    }
+
+    private func rejectPushRegistration(
+        reason: String,
+        environmentMatches: Bool,
+        responseEnvironment: DJConnectPushEnvironment?,
+        expectedEnvironment: DJConnectPushEnvironment
+    ) {
+        defaults.set(false, forKey: pushRegisteredKey)
+        defaults.removeObject(forKey: registeredPushSignatureKey)
+        if !environmentMatches {
+            let responseValue = responseEnvironment?.rawValue ?? "<missing>"
+            defaults.set("push_environment_mismatch", forKey: lastPushErrorKey)
+            logPush("registration rejected push_environment_mismatch expected=\(expectedEnvironment.rawValue) response=\(responseValue) push_registered=false", level: .warning)
+        } else {
+            defaults.set(Self.redactedPushFailureReason(reason), forKey: lastPushErrorKey)
+            log(.warning, "Push registration was not accepted by Home Assistant: \(Self.redactedPushFailureReason(reason))")
+        }
+    }
+
+    private func markPushRegistrationBootstrapRecoveryFailed(reason: String) {
+        defaults.set(false, forKey: pushRegisteredKey)
+        defaults.removeObject(forKey: registeredPushSignatureKey)
+        clearPairingBootstrapProof()
+        let code = Self.bootstrapProofFailureCode(reason)
+        defaults.set(code, forKey: lastPushErrorKey)
+        logPush("registration recovery_required=true reason=\(code) message=pair_with_home_assistant_again push_registered=false", level: .warning)
     }
 
     private func pushRegistrationSignature(
@@ -7400,10 +7588,6 @@ public final class DJConnectAppModel: ObservableObject {
         log(level, "[DJConnectPush] \(message)")
     }
 
-    private static func redactedPushToken(_ token: String) -> String {
-        DJConnectLogRedactor.redactSecret(token)
-    }
-
     private static func hostForLog(from urlString: String) -> String {
         guard let url = normalizedHomeAssistantURL(from: urlString), let host = url.host, !host.isEmpty else {
             return "<missing>"
@@ -7440,6 +7624,41 @@ public final class DJConnectAppModel: ObservableObject {
 
     private static func isInvalidBootstrapProof(_ reason: String) -> Bool {
         reason.trimmingCharacters(in: .whitespacesAndNewlines).lowercased().contains("invalid_bootstrap_proof")
+    }
+
+    private static func isMissingBootstrapProof(_ reason: String) -> Bool {
+        reason.trimmingCharacters(in: .whitespacesAndNewlines).lowercased().contains("missing_bootstrap_proof")
+    }
+
+    private static func requiresBootstrapProof(_ reason: String) -> Bool {
+        isMissingBootstrapProof(reason) || isInvalidBootstrapProof(reason)
+    }
+
+    private static func bootstrapProofFailureCode(_ reason: String) -> String {
+        if isInvalidBootstrapProof(reason) {
+            return "invalid_bootstrap_proof"
+        }
+        if isMissingBootstrapProof(reason) {
+            return "missing_bootstrap_proof"
+        }
+        return redactedPushFailureReason(reason)
+    }
+
+    private static func isStalePairingPushError(_ error: DJConnectError) -> Bool {
+        switch error {
+        case .authStale, .notConfigured:
+            return true
+        case let .server(statusCode, message):
+            guard statusCode == 401 || statusCode == 403 else {
+                return false
+            }
+            if let message, requiresBootstrapProof(message) {
+                return false
+            }
+            return true
+        default:
+            return false
+        }
     }
 
     private static func notificationPreview(from text: String) -> String {
@@ -8024,9 +8243,14 @@ public final class DJConnectAppModel: ObservableObject {
 
     public func requestRemoteNotificationRegistration() {
         #if canImport(UserNotifications)
+        guard !remoteNotificationRegistrationRequestedThisLaunch else {
+            registerStoredPushTokenIfPossible()
+            return
+        }
+        remoteNotificationRegistrationRequestedThisLaunch = true
         Task { @MainActor in
             let center = UNUserNotificationCenter.current()
-            logPush("init platform=\(identity.platform.rawValue) client_type=\(identity.clientType.rawValue) bundle_id=\(Bundle.main.bundleIdentifier ?? "<missing>") app_version=\(appVersion) app_build=\(Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "<missing>") env=\(Self.pushEnvironment.rawValue)")
+            logPush("init platform=\(identity.platform.rawValue) client_type=\(identity.clientType.rawValue) bundle_id=\(Bundle.main.bundleIdentifier ?? "<missing>") app_version=\(appVersion) app_build=\(Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "<missing>") env=\(Self.pushEnvironment.rawValue)", level: .info)
             let authorized = await requestRemoteNotificationAuthorizationIfNeeded(center: center)
             refreshPermissionStatuses()
             guard authorized else {
@@ -8048,7 +8272,7 @@ public final class DJConnectAppModel: ObservableObject {
         }
         currentAPNsPushToken = token
         defaults.removeObject(forKey: legacyPushTokenKey)
-        logPush("received APNs token bytes=\(deviceToken.count) hex_length=\(token.count) token=\(Self.redactedPushToken(token))", level: .info)
+        logPush("received APNs token bytes=\(deviceToken.count) hex_length=\(token.count) push_token_present=true", level: .info)
         registerStoredPushTokenIfPossible()
     }
 

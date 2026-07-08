@@ -2701,6 +2701,36 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     #expect(json["push_token"] == nil)
 }
 
+@Test func pushBootstrapRouteMissingSurfacesAsContractMismatch() async throws {
+    let identity = DJConnectIdentity(
+        deviceID: "djconnect-macos-8F3A2C91B45D",
+        deviceName: "DJConnect Mac",
+        clientType: .macos,
+        firmware: "3.2.34",
+        appVersion: "3.2.34",
+        platform: .macos
+    )
+    let session = mockSession(host: "homeassistant.local") { request in
+        #expect(request.url?.path == "/api/djconnect/v1/push/bootstrap")
+        return (try httpResponse(for: request, statusCode: 404), Data(#"{"success":false,"message":"404: Not Found"}"#.utf8))
+    }
+    let client = DJConnectClient(
+        baseURL: try #require(URL(string: "http://homeassistant.local:8123")),
+        identity: identity,
+        tokenStore: DJConnectInMemoryTokenStore(token: "secret-token"),
+        session: session
+    )
+
+    await #expect(throws: DJConnectError.routeMissing(message: "404: Not Found")) {
+        _ = try await client.pushBootstrap(DJConnectPushBootstrapRequest(
+            identity: identity,
+            pushEnvironment: .sandbox,
+            appBundleID: "dev.djconnect.mac",
+            locale: "nl-NL"
+        ))
+    }
+}
+
 @Test func macOSPushRegisterRequestUsesCanonicalIdentityAndBootstrapProofWhenProvided() throws {
     let identity = DJConnectIdentity(
         deviceID: "djconnect-macos-8F3A2C91B45D",
@@ -2908,7 +2938,8 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
         "push_registered": false,
         "push_environment": "sandbox",
         "last_push_error": "missing_bootstrap_proof",
-        "bootstrap_proof": "short-lived-proof"
+        "bootstrap_proof": "short-lived-proof",
+        "bootstrap_proof_expires_at": "2026-07-08T12:10:00Z"
       }
     }
     """.data(using: .utf8)!
@@ -2922,6 +2953,7 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     #expect(response.pushEnvironment == .sandbox)
     #expect(response.lastPushError == "missing_bootstrap_proof")
     #expect(response.bootstrapProof == "short-lived-proof")
+    #expect(response.bootstrapProofExpiresAt == "2026-07-08T12:10:00Z")
 }
 
 @Test func commandResponseDecodesDevelopmentPushEnvironmentAsSandbox() throws {
@@ -2967,17 +2999,6 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     let recorder = RequestRecorder()
     let session = mockSession(host: "push-sandbox.local") { request in
         recorder.append(request)
-        if request.url?.path == "/api/djconnect/v1/push/bootstrap" {
-            return (try httpResponse(for: request, statusCode: 200), Data("""
-            {
-              "success": true,
-              "bootstrap_proof": "short-lived-proof",
-              "push_supported": true,
-              "push_registered": false,
-              "push_environment": "sandbox"
-            }
-            """.utf8))
-        }
         return (try httpResponse(for: request, statusCode: 200), Data("""
         {
           "success": true,
@@ -2994,40 +3015,128 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
         try await Task.sleep(for: .milliseconds(100))
     }
 
-    #expect(recorder.requests.map { $0.url?.path } == ["/api/djconnect/v1/push/bootstrap", "/api/djconnect/v1/push/register"])
+    #expect(recorder.requests.map { $0.url?.path } == ["/api/djconnect/v1/push/register"])
     #expect(defaults.bool(forKey: "DJConnectPushRegistered") == true)
     #expect(defaults.string(forKey: "DJConnectPushEnvironmentStatus") == "sandbox")
     #expect(defaults.string(forKey: "DJConnectLastPushError") == nil)
 }
 
 @MainActor
-@Test func macOSPushInvalidBootstrapProofMarksTemporaryRecoveryWithoutClearingPairing() async throws {
+@Test func macOSPushMissingBootstrapProofFetchesProofAndRetriesRegistration() async throws {
     let defaults = try testDefaults()
     let recorder = RequestRecorder()
-    let session = mockSession(host: "push-invalid-bootstrap.local") { request in
+    let registerAttempts = RequestCounter()
+    let session = mockSession(host: "push-missing-bootstrap.local") { request in
         recorder.append(request)
+        if request.url?.path == "/api/djconnect/v1/push/register" {
+            registerAttempts.increment()
+        }
+        if request.url?.path == "/api/djconnect/v1/push/register", registerAttempts.count == 1 {
+            return (try httpResponse(for: request, statusCode: 200), Data("""
+            {
+              "success": false,
+              "error": "missing_bootstrap_proof",
+              "push_supported": true,
+              "push_registered": false,
+              "push_environment": "sandbox",
+              "last_push_error": "missing_bootstrap_proof"
+            }
+            """.utf8))
+        }
+        if request.url?.path == "/api/djconnect/v1/push/bootstrap" {
+            return (try httpResponse(for: request, statusCode: 200), Data("""
+            {
+              "success": true,
+              "bootstrap_proof": "short-lived-proof",
+              "bootstrap_proof_expires_at": "2026-07-08T12:10:00Z",
+              "push_supported": true,
+              "push_registered": false,
+              "push_environment": "sandbox"
+            }
+            """.utf8))
+        }
         return (try httpResponse(for: request, statusCode: 200), Data("""
         {
-          "success": false,
-          "error": "invalid_bootstrap_proof",
+          "success": true,
           "push_supported": true,
-          "push_registered": false,
-          "push_environment": "sandbox",
-          "last_push_error": "invalid_bootstrap_proof"
+          "push_registered": true,
+          "push_environment": "sandbox"
+        }
+        """.utf8))
+    }
+    let model = makePairedMusicDNAModel(defaults: defaults, host: "push-missing-bootstrap.local", session: session)
+
+    model.handleRemoteNotificationDeviceToken(Data([0xab, 0xcd, 0xef, 0x34]))
+    for _ in 0..<100 where defaults.bool(forKey: "DJConnectPushRegistered") == false {
+        try await Task.sleep(for: .milliseconds(100))
+    }
+
+    #expect(recorder.requests.map { $0.url?.path } == [
+        "/api/djconnect/v1/push/register",
+        "/api/djconnect/v1/push/bootstrap",
+        "/api/djconnect/v1/push/register",
+    ])
+    #expect(defaults.bool(forKey: "DJConnectPushRegistered") == true)
+    #expect(defaults.string(forKey: "DJConnectLastPushError") == nil)
+}
+
+@MainActor
+@Test func macOSPushInvalidBootstrapProofFetchesFreshProofAndRetriesRegistration() async throws {
+    let defaults = try testDefaults()
+    let recorder = RequestRecorder()
+    let registerAttempts = RequestCounter()
+    let session = mockSession(host: "push-invalid-bootstrap.local") { request in
+        recorder.append(request)
+        if request.url?.path == "/api/djconnect/v1/push/register" {
+            registerAttempts.increment()
+        }
+        if request.url?.path == "/api/djconnect/v1/push/register", registerAttempts.count == 1 {
+            return (try httpResponse(for: request, statusCode: 200), Data("""
+            {
+              "success": false,
+              "error": "invalid_bootstrap_proof",
+              "push_supported": true,
+              "push_registered": false,
+              "push_environment": "sandbox",
+              "last_push_error": "invalid_bootstrap_proof"
+            }
+            """.utf8))
+        }
+        if request.url?.path == "/api/djconnect/v1/push/bootstrap" {
+            return (try httpResponse(for: request, statusCode: 200), Data("""
+            {
+              "success": true,
+              "bootstrap_proof": "fresh-proof",
+              "bootstrap_proof_expires_at": "2026-07-08T12:10:00Z",
+              "push_supported": true,
+              "push_registered": false,
+              "push_environment": "sandbox"
+            }
+            """.utf8))
+        }
+        return (try httpResponse(for: request, statusCode: 200), Data("""
+        {
+          "success": true,
+          "push_supported": true,
+          "push_registered": true,
+          "push_environment": "sandbox"
         }
         """.utf8))
     }
     let model = makePairedMusicDNAModel(defaults: defaults, host: "push-invalid-bootstrap.local", session: session)
 
     model.handleRemoteNotificationDeviceToken(Data([0xab, 0xcd, 0xef, 0x34]))
-    for _ in 0..<100 where defaults.string(forKey: "DJConnectLastPushError") == nil {
+    for _ in 0..<100 where defaults.bool(forKey: "DJConnectPushRegistered") == false {
         try await Task.sleep(for: .milliseconds(100))
     }
 
-    #expect(recorder.requests.map { $0.url?.path } == ["/api/djconnect/v1/push/bootstrap", "/api/djconnect/v1/push/register"])
-    #expect(defaults.bool(forKey: "DJConnectPushRegistered") == false)
-    #expect(defaults.string(forKey: "DJConnectRegisteredPushSignature") == nil)
-    #expect(defaults.string(forKey: "DJConnectLastPushError") == "invalid_bootstrap_proof")
+    #expect(recorder.requests.map { $0.url?.path } == [
+        "/api/djconnect/v1/push/register",
+        "/api/djconnect/v1/push/bootstrap",
+        "/api/djconnect/v1/push/register",
+    ])
+    #expect(defaults.bool(forKey: "DJConnectPushRegistered") == true)
+    #expect(defaults.string(forKey: "DJConnectLastPushError") == nil)
     #expect(model.pairingStatus == .paired)
 }
 
@@ -3053,7 +3162,7 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
         try await Task.sleep(for: .milliseconds(100))
     }
 
-    #expect(recorder.requests.map { $0.url?.path } == ["/api/djconnect/v1/push/bootstrap", "/api/djconnect/v1/push/register"])
+    #expect(recorder.requests.map { $0.url?.path } == ["/api/djconnect/v1/push/register"])
     #expect(defaults.bool(forKey: "DJConnectPushRegistered") == false)
     #expect(defaults.string(forKey: "DJConnectRegisteredPushSignature") == nil)
     #expect(defaults.string(forKey: "DJConnectLastPushError") == "push_environment_mismatch")

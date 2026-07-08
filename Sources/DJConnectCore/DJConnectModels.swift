@@ -6213,6 +6213,7 @@ public struct DJConnectEnvelope<T: Codable & Sendable>: Codable, Sendable {
     public var pushEnvironment: DJConnectPushEnvironment?
     public var lastPushError: String?
     public var bootstrapProof: String?
+    public var bootstrapProofExpiresAt: String?
 
     enum CodingKeys: String, CodingKey {
         case success
@@ -6239,6 +6240,7 @@ public struct DJConnectEnvelope<T: Codable & Sendable>: Codable, Sendable {
         case pushEnvironment = "push_environment"
         case lastPushError = "last_push_error"
         case bootstrapProof = "bootstrap_proof"
+        case bootstrapProofExpiresAt = "bootstrap_proof_expires_at"
     }
 }
 
@@ -6937,6 +6939,7 @@ public struct DJConnectCommandResponse: Codable, Equatable, Sendable {
     public var pushEnvironment: DJConnectPushEnvironment?
     public var lastPushError: String?
     public var bootstrapProof: String?
+    public var bootstrapProofExpiresAt: String?
 
     public var musicBackendSummary: DJConnectMusicBackendSummary {
         DJConnectMusicBackendSummary(
@@ -6983,7 +6986,8 @@ public struct DJConnectCommandResponse: Codable, Equatable, Sendable {
         pushRegistered: Bool? = nil,
         pushEnvironment: DJConnectPushEnvironment? = nil,
         lastPushError: String? = nil,
-        bootstrapProof: String? = nil
+        bootstrapProof: String? = nil,
+        bootstrapProofExpiresAt: String? = nil
     ) {
         self.success = success
         self.error = error
@@ -7018,6 +7022,7 @@ public struct DJConnectCommandResponse: Codable, Equatable, Sendable {
         self.pushEnvironment = pushEnvironment
         self.lastPushError = lastPushError
         self.bootstrapProof = bootstrapProof
+        self.bootstrapProofExpiresAt = bootstrapProofExpiresAt
     }
 
     public init(from decoder: Decoder) throws {
@@ -7068,6 +7073,9 @@ public struct DJConnectCommandResponse: Codable, Equatable, Sendable {
         bootstrapProof = container.decodeStringAliasIfPresent(.bootstrapProof)
             ?? data?.decodeStringAliasIfPresent(.bootstrapProof)
             ?? result?.decodeStringAliasIfPresent(.bootstrapProof)
+        bootstrapProofExpiresAt = container.decodeStringAliasIfPresent(.bootstrapProofExpiresAt)
+            ?? data?.decodeStringAliasIfPresent(.bootstrapProofExpiresAt)
+            ?? result?.decodeStringAliasIfPresent(.bootstrapProofExpiresAt)
         haVersion = container.decodeStringAliasIfPresent(.haVersion)
             ?? data?.decodeStringAliasIfPresent(.haVersion)
             ?? result?.decodeStringAliasIfPresent(.haVersion)
@@ -7188,6 +7196,7 @@ public struct DJConnectCommandResponse: Codable, Equatable, Sendable {
         try container.encodeIfPresent(pushEnvironment, forKey: .pushEnvironment)
         try container.encodeIfPresent(lastPushError, forKey: .lastPushError)
         try container.encodeIfPresent(bootstrapProof, forKey: .bootstrapProof)
+        try container.encodeIfPresent(bootstrapProofExpiresAt, forKey: .bootstrapProofExpiresAt)
     }
 
     private mutating func normalizeAskDJAssistantMessage() {
@@ -7295,6 +7304,7 @@ public struct DJConnectCommandResponse: Codable, Equatable, Sendable {
         case pushEnvironment = "push_environment"
         case lastPushError = "last_push_error"
         case bootstrapProof = "bootstrap_proof"
+        case bootstrapProofExpiresAt = "bootstrap_proof_expires_at"
     }
 }
 
