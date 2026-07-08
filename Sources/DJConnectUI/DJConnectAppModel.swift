@@ -2464,7 +2464,7 @@ public final class DJConnectAppModel: ObservableObject {
         } catch {
             log(.error, "Unexpected pairing error: \(error.localizedDescription)")
             isConnected = false
-            pairingMessage = error.localizedDescription
+            pairingMessage = safePairingMessage(from: error.localizedDescription)
         }
     }
 
@@ -4344,7 +4344,7 @@ public final class DJConnectAppModel: ObservableObject {
             ) ?? userFacingPairingMessage(from: message) ?? pairingCodeRejectedMessage()
         case let .invalidConfiguration(message):
             pairingStatus = .unpaired
-            pairingMessage = message
+            pairingMessage = safePairingMessage(from: message)
         default:
             pairingStatus = .unpaired
             pairingMessage = localized(key: "appModel.home.assistant.could.not.complete.pairing.check.the.url")
@@ -8035,6 +8035,10 @@ public final class DJConnectAppModel: ObservableObject {
             return userFacingPairingMessage(from: message)
         }
         let normalized = text.lowercased()
+        if Self.looksLikeHTMLDocument(normalized) {
+            log(.warning, "Suppressed HTML response in pairing message")
+            return localized(key: "appModel.home.assistant.could.not.complete.pairing.check.the.url")
+        }
         if normalized.contains("missing_pair_data") {
             return localized(key: "appModel.enter.the.home.assistant.url.and.pair.code")
         }
@@ -8071,6 +8075,25 @@ public final class DJConnectAppModel: ObservableObject {
             return localized(key: "appModel.home.assistant.rejected.this.app.pair.djconnect.again.from")
         }
         return localized(key: "appModel.pairing.could.not.be.completed.check.home.assistant.and")
+    }
+
+    private func safePairingMessage(from text: String?) -> String {
+        guard let text else {
+            return localized(key: "appModel.home.assistant.could.not.complete.pairing.check.the.url")
+        }
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
+            return localized(key: "appModel.home.assistant.could.not.complete.pairing.check.the.url")
+        }
+        if let message = Self.extractServerJSONMessage(from: trimmed) {
+            return userFacingPairingMessage(from: message)
+                ?? localized(key: "appModel.home.assistant.could.not.complete.pairing.check.the.url")
+        }
+        if Self.looksLikeHTMLDocument(trimmed.lowercased()) {
+            log(.warning, "Suppressed HTML response in raw pairing message")
+            return localized(key: "appModel.home.assistant.could.not.complete.pairing.check.the.url")
+        }
+        return trimmed
     }
 
     private func userFacingPairingNetworkMessage(from message: String) -> String {
@@ -10024,9 +10047,9 @@ public final class DJConnectAppModel: ObservableObject {
         let formatter = DateFormatter()
         formatter.dateFormat = "HH:mm:ss"
         let line = "[\(formatter.string(from: Date()))] \(Self.logAbbreviation(for: level)) \(message)"
-        diagnosticLogLines.append(DJConnectDiagnosticLogLine(text: line))
+        diagnosticLogLines.insert(DJConnectDiagnosticLogLine(text: line), at: 0)
         if diagnosticLogLines.count > maxDiagnosticLogLines {
-            diagnosticLogLines.removeFirst(diagnosticLogLines.count - maxDiagnosticLogLines)
+            diagnosticLogLines.removeLast(diagnosticLogLines.count - maxDiagnosticLogLines)
         }
         appendPersistentDiagnosticLogLine(line)
     }
@@ -10044,7 +10067,7 @@ public final class DJConnectAppModel: ObservableObject {
             .split(whereSeparator: \.isNewline)
             .map(String.init)
             .suffix(maxDiagnosticLogLines)
-        diagnosticLogLines = lines.map { DJConnectDiagnosticLogLine(text: $0) }
+        diagnosticLogLines = lines.reversed().map { DJConnectDiagnosticLogLine(text: $0) }
     }
 
     private func appendPersistentDiagnosticLogLine(_ line: String) {

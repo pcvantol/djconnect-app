@@ -717,6 +717,31 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
 }
 
 @MainActor
+@Test func pairingErrorsSuppressHTMLBackendPages() throws {
+    let suiteName = "DJConnectTests-\(UUID().uuidString)"
+    let defaults = try #require(UserDefaults(suiteName: suiteName))
+    defaults.removePersistentDomain(forName: suiteName)
+    let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startBackgroundTasks: false)
+    model.language = "nl"
+    let html = """
+    <!DOCTYPE html>
+    <html class="h-full" lang="en-US" dir="ltr">
+      <head><link rel="preload" href="https://assets.ngrok.com/fonts/euclid-square/EuclidSquare-Regular-WebS.woff" /></head>
+      <body>Bad gateway</body>
+    </html>
+    """
+
+    model.applyPairingWait(error: .server(statusCode: 502, message: html), pairingToken: "123456")
+    #expect(model.pairingMessage == "Home Assistant kreeg een interne fout tijdens het koppelen. Controleer Home Assistant en probeer opnieuw.")
+    #expect(model.pairingMessage?.contains("<!DOCTYPE html>") == false)
+    #expect(model.pairingMessage?.contains("assets.ngrok.com") == false)
+
+    model.applyPairingWait(error: .invalidConfiguration(html), pairingToken: "123456")
+    #expect(model.pairingMessage == "Home Assistant kon de koppeling niet afronden. Controleer de URL en koppelcode en probeer opnieuw.")
+    #expect(model.pairingMessage?.contains("<html") == false)
+}
+
+@MainActor
 @Test func pairingNotConfiguredDuringManualPairingShowsInvalidCode() throws {
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
@@ -7364,6 +7389,47 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     )
 
     #expect(relaunched.diagnosticLogLines.contains { $0.text.contains("Diagnostic log cleared") })
+}
+
+@MainActor
+@Test func visibleDiagnosticLogsShowNewestEntriesFirst() throws {
+    let suiteName = "DJConnectTests-\(UUID().uuidString)"
+    let defaults = try #require(UserDefaults(suiteName: suiteName))
+    defaults.removePersistentDomain(forName: suiteName)
+    let logDirectory = FileManager.default.temporaryDirectory
+        .appendingPathComponent("DJConnectTests-\(UUID().uuidString)", isDirectory: true)
+    defer {
+        try? FileManager.default.removeItem(at: logDirectory)
+    }
+
+    let model = DJConnectAppModel(
+        defaults: defaults,
+        tokenStore: DJConnectInMemoryTokenStore(),
+        startBackgroundTasks: false,
+        diagnosticLogDirectory: logDirectory
+    )
+    model.clearDiagnosticLog()
+    model.apply(error: .server(statusCode: 503, message: "newest-visible-log-marker"))
+
+    #expect(model.diagnosticLogLines.first?.text.contains("newest-visible-log-marker") == true)
+    #expect(model.diagnosticLogLines.last?.text.contains("Diagnostic log cleared") == true)
+
+    let relaunched = DJConnectAppModel(
+        defaults: defaults,
+        tokenStore: DJConnectInMemoryTokenStore(),
+        startBackgroundTasks: false,
+        diagnosticLogDirectory: logDirectory
+    )
+
+    let markerIndex = relaunched.diagnosticLogLines.firstIndex {
+        $0.text.contains("newest-visible-log-marker")
+    }
+    let clearedIndex = relaunched.diagnosticLogLines.firstIndex {
+        $0.text.contains("Diagnostic log cleared")
+    }
+    #expect(markerIndex != nil)
+    #expect(clearedIndex != nil)
+    #expect((markerIndex ?? Int.max) < (clearedIndex ?? Int.max))
 }
 
 @Test func voiceRequestUsesRawWavContentType() throws {

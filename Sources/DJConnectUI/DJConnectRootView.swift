@@ -17141,11 +17141,11 @@ private struct LogsView: View {
                             .frame(maxWidth: .infinity, maxHeight: .infinity)
                             .djTransparentMacListBackground()
                             .onAppear {
-                                scrollLogsToBottom(proxy)
+                                scrollLogsToTop(proxy)
                             }
-                            .onChange(of: model.diagnosticLogLines.last?.id) {
+                            .onChange(of: model.diagnosticLogLines.first?.id) {
                                 if logSearchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                                    scrollLogsToBottom(proxy)
+                                    scrollLogsToTop(proxy)
                                 }
                             }
                             .onPreferenceChange(ScrollOffsetPreferenceKey.self) { offset in
@@ -17324,13 +17324,13 @@ private struct LogsView: View {
         }
     }
 
-    private func scrollLogsToBottom(_ proxy: ScrollViewProxy) {
-        guard let lastLogID = model.diagnosticLogLines.last?.id else {
+    private func scrollLogsToTop(_ proxy: ScrollViewProxy) {
+        guard let firstLogID = model.diagnosticLogLines.first?.id else {
             return
         }
         DispatchQueue.main.async {
             withAnimation(.easeOut(duration: 0.2)) {
-                proxy.scrollTo(lastLogID, anchor: .bottom)
+                proxy.scrollTo(firstLogID, anchor: .top)
             }
         }
     }

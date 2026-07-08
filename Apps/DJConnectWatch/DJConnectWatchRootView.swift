@@ -2700,10 +2700,10 @@ private struct DJConnectWatchLogsView: View {
                         }
                         .frame(maxHeight: .infinity)
                         .onAppear {
-                            scrollToBottom(proxy)
+                            scrollToTop(proxy)
                         }
-                        .onChange(of: model.diagnosticLogLines.last?.id) {
-                            scrollToBottom(proxy)
+                        .onChange(of: model.diagnosticLogLines.first?.id) {
+                            scrollToTop(proxy)
                         }
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
@@ -2740,13 +2740,13 @@ private struct DJConnectWatchLogsView: View {
         }
     }
 
-    private func scrollToBottom(_ proxy: ScrollViewProxy) {
-        guard let lastID = model.diagnosticLogLines.last?.id else {
+    private func scrollToTop(_ proxy: ScrollViewProxy) {
+        guard let firstID = model.diagnosticLogLines.first?.id else {
             return
         }
         DispatchQueue.main.async {
             withAnimation(.easeOut(duration: 0.16)) {
-                proxy.scrollTo(lastID, anchor: .bottom)
+                proxy.scrollTo(firstID, anchor: .top)
             }
         }
     }

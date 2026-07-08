@@ -678,9 +678,9 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
             return
         }
         let timestamp = Date().formatted(date: .omitted, time: .standard)
-        diagnosticLogLines.append(DJConnectWatchLogLine(text: "\(timestamp) \(message)"))
+        diagnosticLogLines.insert(DJConnectWatchLogLine(text: "\(timestamp) \(message)"), at: 0)
         if diagnosticLogLines.count > maxDiagnosticLogLines {
-            diagnosticLogLines.removeFirst(diagnosticLogLines.count - maxDiagnosticLogLines)
+            diagnosticLogLines.removeLast(diagnosticLogLines.count - maxDiagnosticLogLines)
         }
     }
 
