@@ -435,6 +435,9 @@ public struct DJConnectPairingResponse: Codable, Equatable, Sendable {
     public var statusPath: String?
     public var eventPath: String?
     public var bootstrapProof: String?
+    public var haInstallID: String?
+    public var integrationVersion: String?
+    public var pairingSessionID: String?
     public var askDJSupported: Bool?
     public var askDJVoiceSupported: Bool?
     public var askDJAudioResponseSupported: Bool?
@@ -482,6 +485,9 @@ public struct DJConnectPairingResponse: Codable, Equatable, Sendable {
         statusPath: String? = nil,
         eventPath: String? = nil,
         bootstrapProof: String? = nil,
+        haInstallID: String? = nil,
+        integrationVersion: String? = nil,
+        pairingSessionID: String? = nil,
         askDJSupported: Bool? = nil,
         askDJVoiceSupported: Bool? = nil,
         askDJAudioResponseSupported: Bool? = nil
@@ -512,6 +518,9 @@ public struct DJConnectPairingResponse: Codable, Equatable, Sendable {
         self.statusPath = statusPath
         self.eventPath = eventPath
         self.bootstrapProof = bootstrapProof
+        self.haInstallID = haInstallID
+        self.integrationVersion = integrationVersion
+        self.pairingSessionID = pairingSessionID
         self.askDJSupported = askDJSupported
         self.askDJVoiceSupported = askDJVoiceSupported
         self.askDJAudioResponseSupported = askDJAudioResponseSupported
@@ -544,6 +553,9 @@ public struct DJConnectPairingResponse: Codable, Equatable, Sendable {
         case statusPath = "status_path"
         case eventPath = "event_path"
         case bootstrapProof = "bootstrap_proof"
+        case haInstallID = "ha_install_id"
+        case integrationVersion = "integration_version"
+        case pairingSessionID = "pairing_session_id"
         case askDJSupported = "ask_dj_supported"
         case askDJVoiceSupported = "ask_dj_voice_supported"
         case askDJAudioResponseSupported = "ask_dj_audio_response_supported"
@@ -1665,6 +1677,8 @@ public enum TrackInsightParser {
     ) -> TrackInsight {
         let track = payload.track
         let analysis = payload.analysis
+        let metrics = analysis?.metrics ?? payload.metrics
+        let sections = payload.sections
         return TrackInsight(
             id: payload.id,
             timestamp: payload.createdAt ?? Date(),
@@ -1679,14 +1693,14 @@ public enum TrackInsightParser {
             playerID: track?.playerID,
             entityID: track?.entityID,
             backend: track?.backend,
-            genre: firstNonBlank(analysis?.genre, payload.genre, track?.compactGenres),
+            genre: firstNonBlank(analysis?.genre, metrics?.genre, payload.genre, sectionValue(in: sections, ids: ["genre"], titles: ["genre"]), track?.compactGenres),
             subgenre: analysis?.subgenre,
-            energy: normalizedMetric(analysis?.energy ?? payload.energy),
-            danceability: normalizedMetric(analysis?.danceability ?? payload.danceability),
-            intensity: normalizedMetric(analysis?.intensity ?? payload.intensity),
-            mood: analysis?.mood ?? payload.mood,
-            vibe: analysis?.vibe ?? payload.vibe,
-            texture: analysis?.texture ?? payload.texture,
+            energy: normalizedMetric(analysis?.energy ?? metrics?.energy ?? payload.energy),
+            danceability: normalizedMetric(analysis?.danceability ?? metrics?.danceability ?? payload.danceability),
+            intensity: normalizedMetric(analysis?.intensity ?? metrics?.intensity ?? payload.intensity),
+            mood: firstNonBlank(analysis?.mood, metrics?.mood, payload.mood, sectionValue(in: sections, ids: ["mood"], titles: ["mood", "stemming"])),
+            vibe: firstNonBlank(analysis?.vibe, metrics?.vibe, payload.vibe, sectionValue(in: sections, ids: ["vibe"], titles: ["vibe"])),
+            texture: firstNonBlank(analysis?.texture, metrics?.texture, payload.texture, sectionValue(in: sections, ids: ["texture"], titles: ["texture", "textuur"])),
             emotionalTone: analysis?.emotionalTone,
             confidence: normalizedMetric(analysis?.confidence ?? payload.confidence),
             summary: analysis?.summary ?? payload.summary ?? "Track Insight is ready.",
@@ -1700,7 +1714,7 @@ public enum TrackInsightParser {
             musicDNALabel: nil,
             musicDNASummary: nil,
             visualProfile: payload.visualProfile,
-            sections: payload.sections
+            sections: sections
         )
     }
 
@@ -1720,6 +1734,17 @@ public enum TrackInsightParser {
 
     private static func firstNonBlank(_ values: String?...) -> String? {
         values.lazy.compactMap { $0?.nilIfBlank }.first
+    }
+
+    private static func sectionValue(in sections: [TrackInsightSection], ids: Set<String>, titles: Set<String>) -> String? {
+        sections.lazy.compactMap { section -> String? in
+            let id = section.id.lowercased()
+            let title = section.title.lowercased()
+            guard ids.contains(id) || titles.contains(title) else {
+                return nil
+            }
+            return firstNonBlank(section.value, section.summary)
+        }.first
     }
 }
 
@@ -1747,6 +1772,7 @@ struct TrackInsightPayload: Decodable {
     var analysis: Analysis?
     var musicDNA: MusicDNA?
     var visualProfile: TrackInsightVisualProfile?
+    var metrics: Metrics?
     var sections: [TrackInsightSection]
 
     struct Track: Decodable {
@@ -1816,7 +1842,7 @@ struct TrackInsightPayload: Decodable {
         }
     }
 
-    struct Analysis: Codable {
+    struct Analysis: Decodable {
         var summary: String?
         var fullText: String?
         var genre: String?
@@ -1829,6 +1855,7 @@ struct TrackInsightPayload: Decodable {
         var danceability: Double?
         var intensity: Double?
         var confidence: Double?
+        var metrics: Metrics?
         var productionNotes: [String]
         var instrumentation: [String]
         var arrangementNotes: [String]
@@ -1848,6 +1875,8 @@ struct TrackInsightPayload: Decodable {
             case danceability
             case intensity
             case confidence
+            case metrics
+            case audioFeatures = "audio_features"
             case productionNotes = "production_notes"
             case instrumentation
             case arrangementNotes = "arrangement_notes"
@@ -1869,11 +1898,50 @@ struct TrackInsightPayload: Decodable {
             danceability = try container.decodeIfPresent(Double.self, forKey: .danceability)
             intensity = try container.decodeIfPresent(Double.self, forKey: .intensity)
             confidence = try container.decodeIfPresent(Double.self, forKey: .confidence)
+            metrics = try container.decodeIfPresent(Metrics.self, forKey: .metrics)
+                ?? container.decodeIfPresent(Metrics.self, forKey: .audioFeatures)
             productionNotes = try container.decodeIfPresent([String].self, forKey: .productionNotes) ?? []
             instrumentation = try container.decodeIfPresent([String].self, forKey: .instrumentation) ?? []
             arrangementNotes = try container.decodeIfPresent([String].self, forKey: .arrangementNotes) ?? []
             listeningCues = try container.decodeIfPresent([String].self, forKey: .listeningCues) ?? []
             similarTracks = try container.decodeIfPresent([TrackInsightSimilarTrack].self, forKey: .similarTracks) ?? []
+        }
+    }
+
+    struct Metrics: Decodable {
+        var genre: String?
+        var mood: String?
+        var vibe: String?
+        var texture: String?
+        var energy: Double?
+        var danceability: Double?
+        var intensity: Double?
+
+        enum CodingKeys: String, CodingKey {
+            case genre
+            case mood
+            case vibe
+            case texture
+            case energy
+            case energyPercent = "energy_percent"
+            case danceability
+            case danceabilityPercent = "danceability_percent"
+            case intensity
+            case intensityPercent = "intensity_percent"
+        }
+
+        init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            genre = try container.decodeIfPresent(String.self, forKey: .genre)
+            mood = try container.decodeIfPresent(String.self, forKey: .mood)
+            vibe = try container.decodeIfPresent(String.self, forKey: .vibe)
+            texture = try container.decodeIfPresent(String.self, forKey: .texture)
+            energy = try container.decodeIfPresent(Double.self, forKey: .energy)
+                ?? container.decodeIfPresent(Double.self, forKey: .energyPercent)
+            danceability = try container.decodeIfPresent(Double.self, forKey: .danceability)
+                ?? container.decodeIfPresent(Double.self, forKey: .danceabilityPercent)
+            intensity = try container.decodeIfPresent(Double.self, forKey: .intensity)
+                ?? container.decodeIfPresent(Double.self, forKey: .intensityPercent)
         }
     }
 
@@ -1913,6 +1981,8 @@ struct TrackInsightPayload: Decodable {
         case track
         case musicDNA = "music_dna"
         case visualProfile = "visual_profile"
+        case metrics
+        case audioFeatures = "audio_features"
         case sections
         case trackInsight = "track_insight"
     }
@@ -1946,6 +2016,8 @@ struct TrackInsightPayload: Decodable {
         analysis = try container.decodeIfPresent(Analysis.self, forKey: .analysis)
         musicDNA = try container.decodeIfPresent(MusicDNA.self, forKey: .musicDNA)
         visualProfile = try container.decodeIfPresent(TrackInsightVisualProfile.self, forKey: .visualProfile)
+        metrics = try container.decodeIfPresent(Metrics.self, forKey: .metrics)
+            ?? container.decodeIfPresent(Metrics.self, forKey: .audioFeatures)
         sections = try container.decodeIfPresent([TrackInsightSection].self, forKey: .sections) ?? []
     }
 
@@ -6252,6 +6324,9 @@ public struct DJConnectEnvelope<T: Codable & Sendable>: Codable, Sendable {
     public var lastPushError: String?
     public var bootstrapProof: String?
     public var bootstrapProofExpiresAt: String?
+    public var haInstallID: String?
+    public var integrationVersion: String?
+    public var pairingSessionID: String?
 
     enum CodingKeys: String, CodingKey {
         case success
@@ -6279,6 +6354,9 @@ public struct DJConnectEnvelope<T: Codable & Sendable>: Codable, Sendable {
         case lastPushError = "last_push_error"
         case bootstrapProof = "bootstrap_proof"
         case bootstrapProofExpiresAt = "bootstrap_proof_expires_at"
+        case haInstallID = "ha_install_id"
+        case integrationVersion = "integration_version"
+        case pairingSessionID = "pairing_session_id"
     }
 }
 
@@ -6978,6 +7056,9 @@ public struct DJConnectCommandResponse: Codable, Equatable, Sendable {
     public var lastPushError: String?
     public var bootstrapProof: String?
     public var bootstrapProofExpiresAt: String?
+    public var haInstallID: String?
+    public var integrationVersion: String?
+    public var pairingSessionID: String?
 
     public var musicBackendSummary: DJConnectMusicBackendSummary {
         DJConnectMusicBackendSummary(
@@ -7025,7 +7106,10 @@ public struct DJConnectCommandResponse: Codable, Equatable, Sendable {
         pushEnvironment: DJConnectPushEnvironment? = nil,
         lastPushError: String? = nil,
         bootstrapProof: String? = nil,
-        bootstrapProofExpiresAt: String? = nil
+        bootstrapProofExpiresAt: String? = nil,
+        haInstallID: String? = nil,
+        integrationVersion: String? = nil,
+        pairingSessionID: String? = nil
     ) {
         self.success = success
         self.error = error
@@ -7061,6 +7145,9 @@ public struct DJConnectCommandResponse: Codable, Equatable, Sendable {
         self.lastPushError = lastPushError
         self.bootstrapProof = bootstrapProof
         self.bootstrapProofExpiresAt = bootstrapProofExpiresAt
+        self.haInstallID = haInstallID
+        self.integrationVersion = integrationVersion
+        self.pairingSessionID = pairingSessionID
     }
 
     public init(from decoder: Decoder) throws {
@@ -7114,6 +7201,15 @@ public struct DJConnectCommandResponse: Codable, Equatable, Sendable {
         bootstrapProofExpiresAt = container.decodeStringAliasIfPresent(.bootstrapProofExpiresAt)
             ?? data?.decodeStringAliasIfPresent(.bootstrapProofExpiresAt)
             ?? result?.decodeStringAliasIfPresent(.bootstrapProofExpiresAt)
+        haInstallID = container.decodeStringAliasIfPresent(.haInstallID)
+            ?? data?.decodeStringAliasIfPresent(.haInstallID)
+            ?? result?.decodeStringAliasIfPresent(.haInstallID)
+        integrationVersion = container.decodeStringAliasIfPresent(.integrationVersion)
+            ?? data?.decodeStringAliasIfPresent(.integrationVersion)
+            ?? result?.decodeStringAliasIfPresent(.integrationVersion)
+        pairingSessionID = container.decodeStringAliasIfPresent(.pairingSessionID)
+            ?? data?.decodeStringAliasIfPresent(.pairingSessionID)
+            ?? result?.decodeStringAliasIfPresent(.pairingSessionID)
         haVersion = container.decodeStringAliasIfPresent(.haVersion)
             ?? data?.decodeStringAliasIfPresent(.haVersion)
             ?? result?.decodeStringAliasIfPresent(.haVersion)
@@ -7235,6 +7331,9 @@ public struct DJConnectCommandResponse: Codable, Equatable, Sendable {
         try container.encodeIfPresent(lastPushError, forKey: .lastPushError)
         try container.encodeIfPresent(bootstrapProof, forKey: .bootstrapProof)
         try container.encodeIfPresent(bootstrapProofExpiresAt, forKey: .bootstrapProofExpiresAt)
+        try container.encodeIfPresent(haInstallID, forKey: .haInstallID)
+        try container.encodeIfPresent(integrationVersion, forKey: .integrationVersion)
+        try container.encodeIfPresent(pairingSessionID, forKey: .pairingSessionID)
     }
 
     private mutating func normalizeAskDJAssistantMessage() {
@@ -7343,6 +7442,9 @@ public struct DJConnectCommandResponse: Codable, Equatable, Sendable {
         case lastPushError = "last_push_error"
         case bootstrapProof = "bootstrap_proof"
         case bootstrapProofExpiresAt = "bootstrap_proof_expires_at"
+        case haInstallID = "ha_install_id"
+        case integrationVersion = "integration_version"
+        case pairingSessionID = "pairing_session_id"
     }
 }
 

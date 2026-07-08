@@ -1000,8 +1000,12 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
             hasReceivedCompanionPairingReady = true
             cancelCompanionPairingRegistrationWatchdog()
             applyCompanionSummary(message)
+            if paired {
+                companionPairingStatus = WCSession.default.isReachable ? "Gekoppeld via iPhone" : "Open DJConnect op je iPhone"
+                connectionState = .paired
+                statusMessage = "Gereed"
+            } else {
                 companionPairingStatus = "Klaar om te koppelen"
-            if !paired {
                 connectionState = .pairing
                 statusMessage = "Wachten op Home Assistant via iPhone..."
             }
@@ -2293,7 +2297,6 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
             musicDNAOptInPromptSeen = true
             showAskDJToast(enabled ? "Music DNA geactiveerd" : "Music DNA uitgeschakeld")
         } catch {
-            musicDNAOptInPromptSeen = false
             statusMessage = Self.userMessage(for: error)
             musicDNAErrorMessage = Self.userMessage(for: error)
             showAskDJToast(Self.askDJToastText(for: error))
@@ -3527,8 +3530,8 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         case .authorized, .provisional, .ephemeral:
             return true
         case .notDetermined:
-            logPush("notification permission not requested by remote registration; waiting for Ask DJ explanation")
-            return false
+            logPush("notification permission explanation requested by remote registration")
+            return await requestAskDJNotificationAuthorizationIfNeeded(center: center)
         case .denied:
             return false
         @unknown default:
@@ -3550,7 +3553,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         let tokenHash = Self.pushTokenHash(token)
         let appBundleID = Bundle.main.bundleIdentifier ?? "dev.djconnect.watch"
         let locale = Locale.current.identifier
-        let bootstrapProof = currentBootstrapProofForPushRegistration()
+        let bootstrapProof: String? = nil
         let categories = DJConnectPushRegistrationRequest.defaultNotificationCategories
         let registrationSignature = pushRegistrationSignature(
             pushToken: token,
@@ -3734,10 +3737,6 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         #else
         return nil
         #endif
-    }
-
-    private func currentBootstrapProofForPushRegistration() -> String? {
-        pairingCode.isEmpty ? nil : pairingCode
     }
 
     private func logPush(_ message: String, level: DJConnectWatchLogLevel = .debug) {

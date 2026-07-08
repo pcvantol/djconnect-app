@@ -11,12 +11,20 @@ All notable changes to DJConnect App are documented here.
 - Documented the Central API v1.0.11 push bootstrap contract for Apple clients:
   APNs registration now obtains short-lived `djcboot_...` proofs through a
   trusted pairing issuer instead of a Home Assistant bootstrap endpoint.
+- Documented the Home Assistant bootstrap context contract for
+  `ha_install_id`, `integration_version`, and optional `pairing_session_id`.
 
 ### Fixed
 
 - Updated push registration tests to cover the trusted issuer retry path,
   client-side proof validation, no retry loops for invalid proofs, privacy-safe
   payload logging, and removal of the legacy HA `/push/bootstrap` client path.
+- Persisted Home Assistant bootstrap context from pairing/status responses and
+  include it in Central bootstrap-proof requests without sending APNs tokens.
+- Restored Watch push bootstrap recovery through the iPhone proxy, improved
+  Watch APNs notification prompting, fixed the Music DNA repeat opt-in prompt,
+  and filled Watch Track Insight metric/detail fields from nested backend
+  payloads.
 
 ## 3.2.27 - 2026-07-08
 

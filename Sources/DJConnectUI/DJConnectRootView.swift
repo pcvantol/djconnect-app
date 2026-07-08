@@ -17199,7 +17199,7 @@ private struct LogsView: View {
 
                 }
             }
-            .djStatusToastOverlay(text: statusToast, systemImage: "doc.on.doc.fill")
+            .djStatusToastOverlay(text: statusToast, systemImage: "doc.on.doc")
             .alert(localizedKey(model.language, "ui.clear.logs.1489bd"), isPresented: $showingClearConfirmation) {
                 Button(localizedKey(model.language, "ui.clear.logs"), role: .destructive) {
                     model.clearDiagnosticLog()

@@ -2962,7 +2962,10 @@ private func makePairedMusicDNAModel(
         "push_environment": "sandbox",
         "last_push_error": "missing_bootstrap_proof",
         "bootstrap_proof": "short-lived-proof",
-        "bootstrap_proof_expires_at": "2026-07-08T12:10:00Z"
+        "bootstrap_proof_expires_at": "2026-07-08T12:10:00Z",
+        "ha_install_id": "ha_install_status_123",
+        "integration_version": "2026.7.1",
+        "pairing_session_id": "pairing_session_status"
       }
     }
     """.data(using: .utf8)!
@@ -2977,6 +2980,9 @@ private func makePairedMusicDNAModel(
     #expect(response.lastPushError == "missing_bootstrap_proof")
     #expect(response.bootstrapProof == "short-lived-proof")
     #expect(response.bootstrapProofExpiresAt == "2026-07-08T12:10:00Z")
+    #expect(response.haInstallID == "ha_install_status_123")
+    #expect(response.integrationVersion == "2026.7.1")
+    #expect(response.pairingSessionID == "pairing_session_status")
 }
 
 @Test func commandResponseDecodesDevelopmentPushEnvironmentAsSandbox() throws {
@@ -3002,6 +3008,9 @@ private func makePairedMusicDNAModel(
     {
       "success": true,
       "bootstrap_proof": "status-proof",
+      "ha_install_id": "ha_install_envelope_123",
+      "integration_version": "2026.7.2",
+      "pairing_session_id": "pairing_session_envelope",
       "push_supported": true,
       "push_registered": false,
       "push_environment": "development"
@@ -3011,6 +3020,9 @@ private func makePairedMusicDNAModel(
     let response = try JSONDecoder().decode(DJConnectEnvelope<DJConnectPlayback>.self, from: json)
 
     #expect(response.bootstrapProof == "status-proof")
+    #expect(response.haInstallID == "ha_install_envelope_123")
+    #expect(response.integrationVersion == "2026.7.2")
+    #expect(response.pairingSessionID == "pairing_session_envelope")
     #expect(response.pushSupported == true)
     #expect(response.pushRegistered == false)
     #expect(response.pushEnvironment == .sandbox)
@@ -3094,6 +3106,13 @@ private func makePairedMusicDNAModel(
         session: session,
         trustedPairingIssuerBaseURL: URL(string: "http://push-missing-bootstrap.local:8123")!
     )
+    model.apply(pairingResponse: DJConnectPairingResponse(
+        success: true,
+        haLocalURL: "http://push-missing-bootstrap.local:8123",
+        haInstallID: "ha_install_123",
+        integrationVersion: "2026.7.1",
+        pairingSessionID: "pairing_session_abc"
+    ), fallbackBaseURL: URL(string: "http://push-missing-bootstrap.local:8123")!)
 
     model.handleRemoteNotificationDeviceToken(Data([0xab, 0xcd, 0xef, 0x34]))
     for _ in 0..<100 where defaults.bool(forKey: "DJConnectPushRegistered") == false {
@@ -3107,6 +3126,9 @@ private func makePairedMusicDNAModel(
     ])
     let issuerJSON = try #require(issuerPayloads.payloads.first)
     #expect(issuerJSON["integration"] as? String == "djconnect_hacs")
+    #expect(issuerJSON["ha_install_id"] as? String == "ha_install_123")
+    #expect(issuerJSON["integration_version"] as? String == "2026.7.1")
+    #expect(issuerJSON["pairing_session_id"] as? String == "pairing_session_abc")
     #expect(issuerJSON["client_type"] as? String == "macos")
     let firstRegisterJSON = try #require(registerPayloads.payloads.first)
     let retryRegisterJSON = try #require(registerPayloads.payloads.last)
@@ -3124,6 +3146,77 @@ private func makePairedMusicDNAModel(
     #expect(firstRegisterJSON["device_id"] as? String == retryRegisterJSON["device_id"] as? String)
     #expect(defaults.bool(forKey: "DJConnectPushRegistered") == true)
     #expect(defaults.string(forKey: "DJConnectLastPushError") == nil)
+}
+
+@MainActor
+@Test func statusResponseBootstrapContextIsUsedForPushIssuerRequest() async throws {
+    let defaults = try testDefaults()
+    let recorder = RequestRecorder()
+    let issuerPayloads = RequestJSONRecorder()
+    let registerAttempts = RequestCounter()
+    let session = mockSession(host: "push-status-context.local") { request in
+        recorder.append(request)
+        if request.url?.path == "/api/djconnect/v1/push/register" {
+            registerAttempts.increment()
+            if registerAttempts.count > 1 {
+                return (try httpResponse(for: request, statusCode: 200), Data("""
+                {
+                  "success": true,
+                  "push_supported": true,
+                  "push_registered": true,
+                  "push_environment": "sandbox"
+                }
+                """.utf8))
+            }
+            return (try httpResponse(for: request, statusCode: 200), Data("""
+            {
+              "success": false,
+              "error": "missing_bootstrap_proof",
+              "push_supported": true,
+              "push_registered": false,
+              "push_environment": "sandbox",
+              "last_push_error": "missing_bootstrap_proof"
+            }
+            """.utf8))
+        }
+        if request.url?.path == "/v1/pairing/bootstrap-proof" {
+            try issuerPayloads.append(request)
+            return (try httpResponse(for: request, statusCode: 200), Data("""
+            {
+              "success": true,
+              "bootstrap_proof": "djcboot_status_context_proof",
+              "expires_at": "\(shortLivedBootstrapExpiry())"
+            }
+            """.utf8))
+        }
+        return (try httpResponse(for: request, statusCode: 200), Data("""
+        {
+          "success": true,
+          "backend_available": true,
+          "ha_install_id": "ha_install_from_status",
+          "integration_version": "2026.7.4",
+          "pairing_session_id": "pairing_session_from_status"
+        }
+        """.utf8))
+    }
+    let model = makePairedMusicDNAModel(
+        defaults: defaults,
+        host: "push-status-context.local",
+        session: session,
+        trustedPairingIssuerBaseURL: URL(string: "http://push-status-context.local:8123")!
+    )
+
+    #expect(await model.refreshNowPlaying())
+    model.handleRemoteNotificationDeviceToken(Data([0xab, 0xcd, 0xef, 0x35]))
+    for _ in 0..<100 where defaults.bool(forKey: "DJConnectPushRegistered") == false {
+        try await Task.sleep(for: .milliseconds(100))
+    }
+
+    let issuerJSON = try #require(issuerPayloads.payloads.first)
+    #expect(issuerJSON["ha_install_id"] as? String == "ha_install_from_status")
+    #expect(issuerJSON["integration_version"] as? String == "2026.7.4")
+    #expect(issuerJSON["pairing_session_id"] as? String == "pairing_session_from_status")
+    #expect(issuerJSON["push_token"] == nil)
 }
 
 @MainActor
@@ -3284,6 +3377,66 @@ private func makePairedMusicDNAModel(
     #expect(defaults.bool(forKey: "DJConnectPushRegistered") == false)
     #expect(defaults.string(forKey: "DJConnectLastPushError") == "bootstrap_proof_unavailable")
     #expect(model.pairingStatus == .paired)
+}
+
+@MainActor
+@Test func macOSPushCentralBootstrapErrorsPersistSpecificSafeCodes() async throws {
+    for code in [
+        "bootstrap_proof_unavailable",
+        "invalid_client_type",
+        "invalid_app_bundle_id",
+        "invalid_push_environment",
+        "bootstrap_rate_limited",
+    ] {
+        let defaults = try testDefaults()
+        let recorder = RequestRecorder()
+        let host = "push-central-\(code.replacingOccurrences(of: "_", with: "-")).local"
+        let session = mockSession(host: host) { request in
+            recorder.append(request)
+            if request.url?.path == "/api/djconnect/v1/push/register" {
+                return (try httpResponse(for: request, statusCode: 200), Data("""
+                {
+                  "success": false,
+                  "error": "missing_bootstrap_proof",
+                  "push_supported": true,
+                  "push_registered": false,
+                  "push_environment": "sandbox",
+                  "last_push_error": "missing_bootstrap_proof"
+                }
+                """.utf8))
+            }
+            if request.url?.path == "/v1/pairing/bootstrap-proof" {
+                return (try httpResponse(for: request, statusCode: 200), Data("""
+                {
+                  "success": false,
+                  "error": "\(code)"
+                }
+                """.utf8))
+            }
+            return (try httpResponse(for: request, statusCode: 404), Data())
+        }
+        let model = makePairedMusicDNAModel(
+            defaults: defaults,
+            host: host,
+            session: session,
+            trustedPairingIssuerBaseURL: URL(string: "http://\(host):8123")!
+        )
+
+        model.handleRemoteNotificationDeviceToken(Data([0xab, 0xcd, 0xef, UInt8(code.count)]))
+        for _ in 0..<100 where recorder.requests.count < 2 {
+            try await Task.sleep(for: .milliseconds(100))
+        }
+        for _ in 0..<100 where defaults.string(forKey: "DJConnectLastPushError") != code {
+            try await Task.sleep(for: .milliseconds(100))
+        }
+
+        #expect(recorder.requests.map { $0.url?.path } == [
+            "/api/djconnect/v1/push/register",
+            "/v1/pairing/bootstrap-proof",
+        ])
+        #expect(defaults.bool(forKey: "DJConnectPushRegistered") == false)
+        #expect(defaults.string(forKey: "DJConnectLastPushError") == code)
+    }
 }
 
 @MainActor
@@ -4794,6 +4947,58 @@ private func makePairedMusicDNAModel(
     #expect(insight.title == "Camel Song")
     #expect(insight.artist == "Camel Artist")
     #expect(insight.summary == "Camel-case wrapper insight.")
+}
+
+@Test func trackInsightEndpointResponseFillsWatchMetricsFromNestedAudioFeaturesAndSections() throws {
+    let json = """
+    {
+      "success": true,
+      "track_insight": {
+        "track": {
+          "title": "Watch Song",
+          "artist": "Watch Artist",
+          "artwork_url": "https://example.test/watch.jpg"
+        },
+        "analysis": {
+          "summary": "Visual profile has enough data for the card.",
+          "audio_features": {
+            "energy_percent": 67,
+            "danceability": 0.58,
+            "intensity_percent": 74
+          }
+        },
+        "visual_profile": {
+          "palette": ["#4DA3FF", "#D184FF"],
+          "motion_style": "pulsing",
+          "pulse_speed": 0.9,
+          "wave_amplitude": 0.6,
+          "particle_density": 0.7,
+          "glow_strength": 0.8,
+          "spectrum_bias": "high",
+          "seed": "watch-song"
+        },
+        "sections": [
+          { "id": "genre", "title": "Genre", "value": "Melodic house" },
+          { "id": "mood", "title": "Mood", "summary": "Lifted" },
+          { "id": "vibe", "title": "Vibe", "value": "Night drive" },
+          { "id": "texture", "title": "Texture", "value": "Glossy synths" }
+        ]
+      }
+    }
+    """.data(using: .utf8)!
+
+    let response = try JSONDecoder().decode(TrackInsightEndpointResponse.self, from: json)
+    let insight = try #require(response.trackInsightValue)
+
+    #expect(insight.title == "Watch Song")
+    #expect(insight.energy == 0.67)
+    #expect(insight.danceability == 0.58)
+    #expect(insight.intensity == 0.74)
+    #expect(insight.genre == "Melodic house")
+    #expect(insight.mood == "Lifted")
+    #expect(insight.vibe == "Night drive")
+    #expect(insight.texture == "Glossy synths")
+    #expect(insight.visualProfile?.motionStyle == .pulsing)
 }
 
 @Test func trackInsightEndpointResponseDecodesCanonicalStandalonePayload() throws {
@@ -7145,13 +7350,16 @@ private func makePairedMusicDNAModel(
     )
     let bootstrapProof = try decoder.decode(
         DJConnectPairingResponse.self,
-        from: Data(#"{"success":true,"bootstrap_proof":"short-lived-proof"}"#.utf8)
+        from: Data(#"{"success":true,"bootstrap_proof":"short-lived-proof","ha_install_id":"ha_install_pair_123","integration_version":"2026.7.3","pairing_session_id":"pairing_session_pair"}"#.utf8)
     )
 
     #expect(deviceToken.resolvedDeviceToken == "device-secret")
     #expect(bearerToken.resolvedDeviceToken == "bearer-secret")
     #expect(token.resolvedDeviceToken == "plain-secret")
     #expect(bootstrapProof.bootstrapProof == "short-lived-proof")
+    #expect(bootstrapProof.haInstallID == "ha_install_pair_123")
+    #expect(bootstrapProof.integrationVersion == "2026.7.3")
+    #expect(bootstrapProof.pairingSessionID == "pairing_session_pair")
 }
 
 @MainActor

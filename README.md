@@ -244,12 +244,16 @@ client asks its configured trusted pairing issuer for a short-lived central
 `djcboot_...` proof, retries `/push/register` exactly once with the same
 APNs/device metadata plus that proof, and then forgets the proof. The Apple app
 must not contain central issuer/relay secrets or APNs provider keys, and it must
-not store HA-owned `djci_...` install tokens. If Home Assistant returns
-`invalid_bootstrap_proof`, `bootstrap_proof_expired`, `bootstrap_proof_used`,
-`install_id_mismatch`, `bootstrap_rate_limited`, or the issuer is unavailable,
-APNs push stays disabled or best-effort for that attempt while normal Ask
-DJ/history/status flows continue. The trusted issuer does not receive the APNs
-token; that token is only sent to `/push/register`.
+not store HA-owned `djci_...` install tokens. Home Assistant pairing/status
+responses can provide `ha_install_id`, `integration_version`, and optional
+`pairing_session_id`; the Apple client includes those values in the Central
+bootstrap-proof request, but never includes the APNs token. If Home Assistant or
+Central returns `invalid_bootstrap_proof`, `bootstrap_proof_expired`,
+`bootstrap_proof_used`, `install_id_mismatch`, `bootstrap_rate_limited`,
+`invalid_client_type`, `invalid_app_bundle_id`, `invalid_push_environment`, or
+the issuer is unavailable, APNs push stays disabled or best-effort for that
+attempt while normal Ask DJ/history/status flows continue. The trusted issuer
+does not receive the APNs token; that token is only sent to `/push/register`.
 
 ## Xcode
 

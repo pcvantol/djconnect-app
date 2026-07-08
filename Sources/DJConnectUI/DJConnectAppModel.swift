@@ -861,6 +861,9 @@ public final class DJConnectAppModel: ObservableObject {
     private let askDJSupportedKey = "DJConnectAskDJSupported"
     private let askDJVoiceSupportedKey = "DJConnectAskDJVoiceSupported"
     private let askDJAudioResponseSupportedKey = "DJConnectAskDJAudioResponseSupported"
+    private let haInstallIDKey = "DJConnectHAInstallID"
+    private let integrationVersionKey = "DJConnectIntegrationVersion"
+    private let pairingSessionIDKey = "DJConnectPairingSessionID"
     private let pairingTokenKey = "DJConnectPairingToken"
     private let watchProxyDeviceIDKey = "DJConnectWatchProxyDeviceID"
     private let watchProxyDeviceNameKey = "DJConnectWatchProxyDeviceName"
@@ -3904,6 +3907,11 @@ public final class DJConnectAppModel: ObservableObject {
             return
         }
         applyPushRegistrationStatus(from: response)
+        applyBootstrapContext(
+            haInstallID: response.haInstallID,
+            integrationVersion: response.integrationVersion,
+            pairingSessionID: response.pairingSessionID
+        )
         apply(musicBackendSummary: DJConnectMusicBackendSummary(
             remoteSupported: response.remoteSupported,
             musicBackend: response.musicBackend,
@@ -4083,6 +4091,11 @@ public final class DJConnectAppModel: ObservableObject {
             defaults.removeObject(forKey: haRemoteURLKey)
         }
         remoteSupported = response.remoteSupported ?? !haRemoteURL.isEmpty
+        applyBootstrapContext(
+            haInstallID: response.haInstallID,
+            integrationVersion: response.integrationVersion,
+            pairingSessionID: response.pairingSessionID
+        )
         apply(musicBackendSummary: DJConnectMusicBackendSummary(
             remoteSupported: response.remoteSupported,
             musicBackend: response.musicBackend,
@@ -4130,6 +4143,23 @@ public final class DJConnectAppModel: ObservableObject {
             askDJAudioResponseSupported = value
             defaults.set(value, forKey: askDJAudioResponseSupportedKey)
         }
+    }
+
+    private func applyBootstrapContext(
+        haInstallID: String?,
+        integrationVersion: String?,
+        pairingSessionID: String?
+    ) {
+        storeNonEmpty(haInstallID, forKey: haInstallIDKey)
+        storeNonEmpty(integrationVersion, forKey: integrationVersionKey)
+        storeNonEmpty(pairingSessionID, forKey: pairingSessionIDKey)
+    }
+
+    private func storeNonEmpty(_ value: String?, forKey key: String) {
+        guard let trimmed = value?.trimmingCharacters(in: .whitespacesAndNewlines), !trimmed.isEmpty else {
+            return
+        }
+        defaults.set(trimmed, forKey: key)
     }
 
     public func apply(musicBackendSummary summary: DJConnectMusicBackendSummary) {
@@ -4406,6 +4436,11 @@ public final class DJConnectAppModel: ObservableObject {
             ) else {
                 return
             }
+            applyBootstrapContext(
+                haInstallID: response.haInstallID,
+                integrationVersion: response.integrationVersion,
+                pairingSessionID: response.pairingSessionID
+            )
             apply(musicBackendSummary: response.musicBackendSummary)
             let hasPlaybackSnapshot = response.playback != nil
             if let playback = response.playback {
@@ -7133,13 +7168,20 @@ public final class DJConnectAppModel: ObservableObject {
         }
     }
 
-    private func requestRemoteNotificationAuthorizationIfNeeded(center: UNUserNotificationCenter) async -> Bool {
+    private func requestRemoteNotificationAuthorizationIfNeeded(
+        center: UNUserNotificationCenter,
+        allowSystemPrompt: Bool = false
+    ) async -> Bool {
         let settings = await center.notificationSettings()
         logPush("notification permission status=\(Self.notificationAuthorizationStatusName(settings.authorizationStatus))")
         switch settings.authorizationStatus {
         case .authorized, .provisional, .ephemeral:
             return true
         case .notDetermined:
+            guard allowSystemPrompt else {
+                logPush("notification permission deferred reason=app_consent_required")
+                return false
+            }
             do {
                 let granted = try await center.requestAuthorization(options: [.alert, .sound, .badge])
                 let updatedSettings = await center.notificationSettings()
@@ -7374,6 +7416,7 @@ public final class DJConnectAppModel: ObservableObject {
         let bootstrapProof: String?
         do {
             bootstrapProof = try await fetchBootstrapProofForPushRegistration(
+                identity: identity,
                 pushEnvironment: pushEnvironment,
                 appBundleID: appBundleID
             )
@@ -7385,7 +7428,14 @@ public final class DJConnectAppModel: ObservableObject {
             return
         }
         guard let bootstrapProof else {
-            if defaults.string(forKey: lastPushErrorKey) == "bootstrap_proof_unavailable" {
+            if let issuerError = defaults.string(forKey: lastPushErrorKey),
+               issuerError != "missing_bootstrap_proof" {
+                if issuerError == "bootstrap_proof_unavailable" {
+                    markPushRegistrationBootstrapUnavailable()
+                } else {
+                    logPush("registration recovery_required=true reason=\(issuerError) message=issuer_rejected_bootstrap_context push_registered=false", level: .warning)
+                }
+            } else if defaults.string(forKey: lastPushErrorKey) == "bootstrap_proof_unavailable" {
                 markPushRegistrationBootstrapUnavailable()
             } else {
                 markPushRegistrationBootstrapRecoveryFailed(reason: reason)
@@ -7448,6 +7498,7 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     private func fetchBootstrapProofForPushRegistration(
+        identity: DJConnectIdentity,
         pushEnvironment: DJConnectPushEnvironment,
         appBundleID: String
     ) async throws -> String? {
@@ -7457,10 +7508,10 @@ public final class DJConnectAppModel: ObservableObject {
         }
 
         let payload = DJConnectPairingBootstrapProofRequest(
-            haInstallID: nil,
-            integrationVersion: nil,
+            haInstallID: defaults.string(forKey: haInstallIDKey),
+            integrationVersion: defaults.string(forKey: integrationVersionKey),
             identity: identity,
-            pairingSessionID: nil,
+            pairingSessionID: defaults.string(forKey: pairingSessionIDKey),
             appBundleID: appBundleID,
             pushEnvironment: pushEnvironment
         )
@@ -7469,8 +7520,8 @@ public final class DJConnectAppModel: ObservableObject {
         guard response.success else {
             let reason = response.error ?? response.message ?? "bootstrap_proof_unavailable"
             logPush("bootstrap issuer_unavailable issuer_error_code=\(Self.bootstrapProofFailureCode(reason)) bootstrap_proof_present=false", level: .warning)
-            if Self.isBootstrapProofUnavailable(reason) {
-                defaults.set("bootstrap_proof_unavailable", forKey: lastPushErrorKey)
+            if Self.isBootstrapProofUnavailable(reason) || Self.isKnownBootstrapIssuerClientError(reason) {
+                defaults.set(Self.bootstrapProofFailureCode(reason), forKey: lastPushErrorKey)
             }
             return nil
         }
@@ -7721,7 +7772,16 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     private static func isBootstrapProofUnavailable(_ reason: String) -> Bool {
-        reason.trimmingCharacters(in: .whitespacesAndNewlines).lowercased().contains("bootstrap_proof_unavailable")
+        let normalizedReason = reason.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        return normalizedReason.contains("bootstrap_proof_unavailable")
+            || normalizedReason.contains("bootstrap_rate_limited")
+    }
+
+    private static func isKnownBootstrapIssuerClientError(_ reason: String) -> Bool {
+        let normalizedReason = reason.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        return normalizedReason.contains("invalid_client_type")
+            || normalizedReason.contains("invalid_app_bundle_id")
+            || normalizedReason.contains("invalid_push_environment")
     }
 
     private static func bootstrapProofFailureCode(_ reason: String) -> String {
@@ -7740,6 +7800,18 @@ public final class DJConnectAppModel: ObservableObject {
         }
         if normalizedReason.contains("trusted_issuer_excessive_bootstrap_proof_lifetime") {
             return "trusted_issuer_excessive_bootstrap_proof_lifetime"
+        }
+        if normalizedReason.contains("bootstrap_rate_limited") {
+            return "bootstrap_rate_limited"
+        }
+        if normalizedReason.contains("invalid_client_type") {
+            return "invalid_client_type"
+        }
+        if normalizedReason.contains("invalid_app_bundle_id") {
+            return "invalid_app_bundle_id"
+        }
+        if normalizedReason.contains("invalid_push_environment") {
+            return "invalid_push_environment"
         }
         if isBootstrapProofUnavailable(reason) {
             return "bootstrap_proof_unavailable"
@@ -8373,7 +8445,7 @@ public final class DJConnectAppModel: ObservableObject {
         }
     }
 
-    public func requestRemoteNotificationRegistration() {
+    public func requestRemoteNotificationRegistration(allowSystemPrompt: Bool = false) {
         #if canImport(UserNotifications)
         guard !remoteNotificationRegistrationRequestedThisLaunch else {
             if currentAPNsPushToken == nil && (defaults.string(forKey: legacyPushTokenKey)?.isEmpty ?? true) {
@@ -8388,7 +8460,10 @@ public final class DJConnectAppModel: ObservableObject {
         Task { @MainActor in
             let center = UNUserNotificationCenter.current()
             logPush("init platform=\(identity.platform.rawValue) client_type=\(identity.clientType.rawValue) bundle_id=\(Bundle.main.bundleIdentifier ?? "<missing>") app_version=\(appVersion) app_build=\(Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "<missing>") env=\(Self.pushEnvironment.rawValue)", level: .info)
-            let authorized = await requestRemoteNotificationAuthorizationIfNeeded(center: center)
+            let authorized = await requestRemoteNotificationAuthorizationIfNeeded(
+                center: center,
+                allowSystemPrompt: allowSystemPrompt
+            )
             refreshPermissionStatuses()
             guard authorized else {
                 logPush("remote notification registration not started permission_granted=false", level: .warning)
@@ -9813,13 +9888,57 @@ public final class DJConnectAppModel: ObservableObject {
             return try encoder.encode(response)
         case .pushRegister:
             let payload = try decoder.decode(DJConnectPushRegistrationRequest.self, from: request.payload ?? Data())
-            let response = try await client.registerPushNotifications(payload)
-            return try encoder.encode(response)
+            return try await performWatchProxyPushRegistration(payload, client: client)
         case .pushUnregister:
             let payload = try decoder.decode(DJConnectPushUnregistrationRequest.self, from: request.payload ?? Data())
             let response = try await client.unregisterPushNotifications(payload)
             return try encoder.encode(response)
         }
+    }
+
+    private func performWatchProxyPushRegistration(
+        _ payload: DJConnectPushRegistrationRequest,
+        client: DJConnectClient
+    ) async throws -> Data {
+        let encoder = JSONEncoder()
+        let response = try await client.registerPushNotifications(payload)
+        let responseEnvironment = response.pushEnvironment
+        let environmentMatches = payload.pushEnvironment.isCompatible(with: responseEnvironment)
+        guard !response.success || response.pushRegistered == false || !environmentMatches else {
+            return try encoder.encode(response)
+        }
+        let reason = response.error ?? response.lastPushError ?? response.message ?? "unknown"
+        guard Self.isMissingBootstrapProof(reason), payload.bootstrapProof?.isEmpty != false else {
+            return try encoder.encode(response)
+        }
+        let watchIdentity = DJConnectIdentity(
+            deviceID: payload.deviceID,
+            deviceName: "DJConnect Watch",
+            clientType: payload.clientType,
+            firmware: payload.appVersion ?? Self.protocolVersion,
+            appVersion: payload.appVersion,
+            platform: .watchos
+        )
+        guard let bootstrapProof = try await fetchBootstrapProofForPushRegistration(
+            identity: watchIdentity,
+            pushEnvironment: payload.pushEnvironment,
+            appBundleID: payload.appBundleID
+        ) else {
+            return try encoder.encode(DJConnectCommandResponse(
+                success: false,
+                error: "bootstrap_proof_unavailable",
+                message: "Watch push bootstrap proof unavailable.",
+                pushSupported: response.pushSupported,
+                pushRegistered: false,
+                pushEnvironment: response.pushEnvironment,
+                lastPushError: "bootstrap_proof_unavailable"
+            ))
+        }
+        var retryPayload = payload
+        retryPayload.bootstrapProof = bootstrapProof
+        logPush("watch_proxy registration retry_with_bootstrap_proof=true device_id_present=\(!payload.deviceID.isEmpty) client_type=\(payload.clientType.rawValue) env=\(payload.pushEnvironment.rawValue)")
+        let retryResponse = try await client.registerPushNotifications(retryPayload)
+        return try encoder.encode(retryResponse)
     }
 
     private func withWatchProxyHomeAssistantClient<T: Sendable>(
@@ -9967,6 +10086,9 @@ public final class DJConnectAppModel: ObservableObject {
         defaults.removeObject(forKey: askDJSupportedKey)
         defaults.removeObject(forKey: askDJVoiceSupportedKey)
         defaults.removeObject(forKey: askDJAudioResponseSupportedKey)
+        defaults.removeObject(forKey: haInstallIDKey)
+        defaults.removeObject(forKey: integrationVersionKey)
+        defaults.removeObject(forKey: pairingSessionIDKey)
     }
 
     public func clearDiagnosticLog() {
@@ -10517,7 +10639,10 @@ public final class DJConnectAppModel: ObservableObject {
             log(.debug, "Permission request step: notifications begin")
             let notificationGranted: Bool
             #if canImport(UserNotifications)
-            notificationGranted = await requestRemoteNotificationAuthorizationIfNeeded(center: UNUserNotificationCenter.current())
+            notificationGranted = await requestRemoteNotificationAuthorizationIfNeeded(
+                center: UNUserNotificationCenter.current(),
+                allowSystemPrompt: true
+            )
             let askDJNotificationPreview = pendingAskDJNotificationPreview
             if askDJNotificationPreview != nil {
                 pendingAskDJNotificationPreview = nil
