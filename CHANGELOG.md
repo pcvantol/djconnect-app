@@ -4,6 +4,18 @@ All notable changes to DJConnect App are documented here.
 
 ## Unreleased
 
+## 3.2.27 - 2026-07-08
+
+### Changed
+
+- Included the active Assist pipeline and pairing bootstrap proof in iOS
+  pairing requests for parity with Watch proxy pairing.
+
+### Fixed
+
+- Stabilized command-refresh scheduler coverage so the full Swift test suite
+  waits for the delayed refresh work instead of racing the assertion.
+
 ## 3.2.26 - 2026-07-07
 
 ### Changed

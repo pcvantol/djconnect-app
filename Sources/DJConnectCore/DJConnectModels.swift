@@ -434,6 +434,7 @@ public struct DJConnectPairingResponse: Codable, Equatable, Sendable {
     public var voicePath: String?
     public var statusPath: String?
     public var eventPath: String?
+    public var bootstrapProof: String?
     public var askDJSupported: Bool?
     public var askDJVoiceSupported: Bool?
     public var askDJAudioResponseSupported: Bool?
@@ -480,6 +481,7 @@ public struct DJConnectPairingResponse: Codable, Equatable, Sendable {
         voicePath: String? = nil,
         statusPath: String? = nil,
         eventPath: String? = nil,
+        bootstrapProof: String? = nil,
         askDJSupported: Bool? = nil,
         askDJVoiceSupported: Bool? = nil,
         askDJAudioResponseSupported: Bool? = nil
@@ -509,6 +511,7 @@ public struct DJConnectPairingResponse: Codable, Equatable, Sendable {
         self.voicePath = voicePath
         self.statusPath = statusPath
         self.eventPath = eventPath
+        self.bootstrapProof = bootstrapProof
         self.askDJSupported = askDJSupported
         self.askDJVoiceSupported = askDJVoiceSupported
         self.askDJAudioResponseSupported = askDJAudioResponseSupported
@@ -540,6 +543,7 @@ public struct DJConnectPairingResponse: Codable, Equatable, Sendable {
         case voicePath = "voice_path"
         case statusPath = "status_path"
         case eventPath = "event_path"
+        case bootstrapProof = "bootstrap_proof"
         case askDJSupported = "ask_dj_supported"
         case askDJVoiceSupported = "ask_dj_voice_supported"
         case askDJAudioResponseSupported = "ask_dj_audio_response_supported"
@@ -5333,6 +5337,39 @@ public struct DJConnectPushRegistrationRequest: Codable, Equatable, Sendable {
     }
 }
 
+public struct DJConnectPushBootstrapRequest: Codable, Equatable, Sendable {
+    public var deviceID: String
+    public var clientType: DJConnectClientType
+    public var pushEnvironment: DJConnectPushEnvironment
+    public var appBundleID: String
+    public var appVersion: String?
+    public var locale: String?
+
+    public init(
+        identity: DJConnectIdentity,
+        pushEnvironment: DJConnectPushEnvironment,
+        appBundleID: String,
+        appVersion: String? = nil,
+        locale: String? = nil
+    ) {
+        self.deviceID = identity.deviceID
+        self.clientType = identity.clientType
+        self.pushEnvironment = pushEnvironment
+        self.appBundleID = appBundleID
+        self.appVersion = appVersion ?? identity.appVersion
+        self.locale = locale
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case deviceID = "device_id"
+        case clientType = "client_type"
+        case pushEnvironment = "push_environment"
+        case appBundleID = "app_bundle_id"
+        case appVersion = "app_version"
+        case locale
+    }
+}
+
 public struct DJConnectPushUnregistrationRequest: Codable, Equatable, Sendable {
     public var deviceID: String
     public var clientType: DJConnectClientType
@@ -6171,6 +6208,11 @@ public struct DJConnectEnvelope<T: Codable & Sendable>: Codable, Sendable {
     public var language: String?
     public var playback: DJConnectPlayback?
     public var data: T?
+    public var pushSupported: Bool?
+    public var pushRegistered: Bool?
+    public var pushEnvironment: DJConnectPushEnvironment?
+    public var lastPushError: String?
+    public var bootstrapProof: String?
 
     enum CodingKeys: String, CodingKey {
         case success
@@ -6192,6 +6234,11 @@ public struct DJConnectEnvelope<T: Codable & Sendable>: Codable, Sendable {
         case language
         case playback
         case data
+        case pushSupported = "push_supported"
+        case pushRegistered = "push_registered"
+        case pushEnvironment = "push_environment"
+        case lastPushError = "last_push_error"
+        case bootstrapProof = "bootstrap_proof"
     }
 }
 
@@ -6889,6 +6936,7 @@ public struct DJConnectCommandResponse: Codable, Equatable, Sendable {
     public var pushRegistered: Bool?
     public var pushEnvironment: DJConnectPushEnvironment?
     public var lastPushError: String?
+    public var bootstrapProof: String?
 
     public var musicBackendSummary: DJConnectMusicBackendSummary {
         DJConnectMusicBackendSummary(
@@ -6934,7 +6982,8 @@ public struct DJConnectCommandResponse: Codable, Equatable, Sendable {
         pushSupported: Bool? = nil,
         pushRegistered: Bool? = nil,
         pushEnvironment: DJConnectPushEnvironment? = nil,
-        lastPushError: String? = nil
+        lastPushError: String? = nil,
+        bootstrapProof: String? = nil
     ) {
         self.success = success
         self.error = error
@@ -6968,6 +7017,7 @@ public struct DJConnectCommandResponse: Codable, Equatable, Sendable {
         self.pushRegistered = pushRegistered
         self.pushEnvironment = pushEnvironment
         self.lastPushError = lastPushError
+        self.bootstrapProof = bootstrapProof
     }
 
     public init(from decoder: Decoder) throws {
@@ -7015,6 +7065,9 @@ public struct DJConnectCommandResponse: Codable, Equatable, Sendable {
         lastPushError = container.decodeStringAliasIfPresent(.lastPushError)
             ?? data?.decodeStringAliasIfPresent(.lastPushError)
             ?? result?.decodeStringAliasIfPresent(.lastPushError)
+        bootstrapProof = container.decodeStringAliasIfPresent(.bootstrapProof)
+            ?? data?.decodeStringAliasIfPresent(.bootstrapProof)
+            ?? result?.decodeStringAliasIfPresent(.bootstrapProof)
         haVersion = container.decodeStringAliasIfPresent(.haVersion)
             ?? data?.decodeStringAliasIfPresent(.haVersion)
             ?? result?.decodeStringAliasIfPresent(.haVersion)
@@ -7134,6 +7187,7 @@ public struct DJConnectCommandResponse: Codable, Equatable, Sendable {
         try container.encodeIfPresent(pushRegistered, forKey: .pushRegistered)
         try container.encodeIfPresent(pushEnvironment, forKey: .pushEnvironment)
         try container.encodeIfPresent(lastPushError, forKey: .lastPushError)
+        try container.encodeIfPresent(bootstrapProof, forKey: .bootstrapProof)
     }
 
     private mutating func normalizeAskDJAssistantMessage() {
@@ -7240,6 +7294,7 @@ public struct DJConnectCommandResponse: Codable, Equatable, Sendable {
         case pushRegistered = "push_registered"
         case pushEnvironment = "push_environment"
         case lastPushError = "last_push_error"
+        case bootstrapProof = "bootstrap_proof"
     }
 }
 

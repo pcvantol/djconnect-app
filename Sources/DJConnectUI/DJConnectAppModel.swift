@@ -841,7 +841,7 @@ public final class DJConnectAppModel: ObservableObject {
     private let startBackgroundTasks: Bool
     private let monkeyTestingMode: Bool
     private let diagnosticLogFileURL: URL?
-    nonisolated private static let protocolVersion = "3.2.26"
+    nonisolated private static let protocolVersion = "3.2.27"
     nonisolated private static let maxWidgetArtworkDataBytes = 750_000
     private static let defaultHomeAssistantURL = "http://homeassistant.local:8123"
     private let appVersion = DJConnectAppModel.protocolVersion
@@ -859,6 +859,7 @@ public final class DJConnectAppModel: ObservableObject {
     private let askDJVoiceSupportedKey = "DJConnectAskDJVoiceSupported"
     private let askDJAudioResponseSupportedKey = "DJConnectAskDJAudioResponseSupported"
     private let pairingTokenKey = "DJConnectPairingToken"
+    private let pairingBootstrapProofKey = "DJConnectPairingBootstrapProof"
     private let watchProxyDeviceIDKey = "DJConnectWatchProxyDeviceID"
     private let watchProxyDeviceNameKey = "DJConnectWatchProxyDeviceName"
     private let watchProxyPairCodeKey = "DJConnectWatchProxyPairCode"
@@ -2436,8 +2437,13 @@ public final class DJConnectAppModel: ObservableObject {
             let response = try await client.pair(DJConnectPairingPayload(
                 identity: identity,
                 pairingToken: pairCode,
-                haLocalURL: Self.normalizedHomeAssistantURL(from: homeAssistantURL).map(Self.redactedURL)
+                haLocalURL: Self.normalizedHomeAssistantURL(from: homeAssistantURL).map(Self.redactedURL),
+                assistPipelineID: assistPipelineID.isEmpty ? nil : assistPipelineID,
+                bootstrapProof: pairCode
             ))
+            if let bootstrapProof = response.bootstrapProof {
+                storePairingBootstrapProof(bootstrapProof)
+            }
             apply(pairingResponse: response, fallbackBaseURL: baseURL)
             log(.info, "Pairing accepted by Home Assistant")
             if response.setupPending == false {
@@ -2500,6 +2506,9 @@ public final class DJConnectAppModel: ObservableObject {
         pairingMessage = localized(key: "appModel.pairing.complete")
         presentPairingSuccessScreenAfterPairing()
         presentWakeWordActivationPromptAfterPairing()
+        if !Self.isRunningUnderSwiftPMTests {
+            requestRemoteNotificationRegistration()
+        }
         registerStoredPushTokenIfPossible()
     }
 
@@ -2558,6 +2567,7 @@ public final class DJConnectAppModel: ObservableObject {
         shouldShowWakeWordPromptAfterPairingScreen = false
         defaults.set(false, forKey: wakeWordPromptDismissedKey)
         clearPairingToken()
+        clearPairingBootstrapProof()
         pairingStatus = .unpaired
         isConnected = false
         isPairing = false
@@ -2568,6 +2578,19 @@ public final class DJConnectAppModel: ObservableObject {
         pairingToken = ""
         defaults.removeObject(forKey: pairingTokenKey)
         log(.info, "Cleared local pairing code placeholder")
+    }
+
+    private func storePairingBootstrapProof(_ proof: String) {
+        let trimmed = proof.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.isEmpty {
+            clearPairingBootstrapProof()
+        } else {
+            defaults.set(trimmed, forKey: pairingBootstrapProofKey)
+        }
+    }
+
+    private func clearPairingBootstrapProof() {
+        defaults.removeObject(forKey: pairingBootstrapProofKey)
     }
 
     public func rotatePairingTokenAndWait() {
@@ -4197,6 +4220,7 @@ public final class DJConnectAppModel: ObservableObject {
         scheduledPairingTask = nil
         try? tokenStore.clearToken()
         clearPairingToken()
+        clearPairingBootstrapProof()
         clearAskDJHistoryLocally()
         clearMusicDNADisplay()
         pairingStatus = .stale
@@ -4387,7 +4411,8 @@ public final class DJConnectAppModel: ObservableObject {
                     wakewordPhrase: wakeWordPhrase,
                     wakewordStatus: "\(wakeWordStatus)",
                     mood: askDJMoodInt,
-                    musicDNAKey: askDJMusicDNAKey
+                    musicDNAKey: askDJMusicDNAKey,
+                    bootstrapProof: currentBootstrapProofForPushRegistration()
                 )
             )
             guard validateHomeAssistantVersion(
@@ -4398,6 +4423,9 @@ public final class DJConnectAppModel: ObservableObject {
                 return
             }
             apply(musicBackendSummary: response.musicBackendSummary)
+            if let bootstrapProof = response.bootstrapProof {
+                storePairingBootstrapProof(bootstrapProof)
+            }
             let hasPlaybackSnapshot = response.playback != nil
             if let playback = response.playback {
                 apply(playback: playback)
@@ -7169,14 +7197,12 @@ public final class DJConnectAppModel: ObservableObject {
         let tokenHash = Self.pushTokenHash(token)
         let appBundleID = Bundle.main.bundleIdentifier ?? "dev.djconnect.\(identity.clientType.rawValue)"
         let locale = Locale.current.identifier
-        let bootstrapProof = currentBootstrapProofForPushRegistration()
         let categories = DJConnectPushRegistrationRequest.defaultNotificationCategories
         let registrationSignature = pushRegistrationSignature(
             pushToken: token,
             pushEnvironment: environment,
             appBundleID: appBundleID,
-            locale: locale,
-            bootstrapProof: bootstrapProof
+            locale: locale
         )
         if defaults.string(forKey: registeredPushTokenHashKey) == tokenHash,
            defaults.string(forKey: registeredPushEnvironmentKey) == environment.rawValue,
@@ -7187,8 +7213,13 @@ public final class DJConnectAppModel: ObservableObject {
         Task { @MainActor in
             do {
                 let authPresent = (try? tokenStore.loadToken())?.isEmpty == false
+                let bootstrapProof = try await bootstrapProofForPushRegistrationIfNeeded(
+                    pushEnvironment: environment,
+                    appBundleID: appBundleID,
+                    locale: locale
+                )
                 logPush(
-                    "register payload endpoint=/api/djconnect/v1/push/register ha_host=\(Self.hostForLog(from: localHomeAssistantURL())) device_id=\(identity.deviceID) client_type=\(identity.clientType.rawValue) env=\(environment.rawValue) app_bundle_id=\(appBundleID) app_version=\(appVersion) locale=\(locale) categories=\(categories) push_token_present=\(!token.isEmpty) token=\(DJConnectLogRedactor.redactSecret(token)) bootstrap_proof_present=\(bootstrapProof?.isEmpty == false) bootstrap_proof=\(DJConnectLogRedactor.redactSecret(bootstrapProof)) auth_present=\(authPresent)"
+                    "register payload endpoint=/api/djconnect/v1/push/register ha_host=\(Self.hostForLog(from: localHomeAssistantURL())) device_id=\(identity.deviceID) client_type=\(identity.clientType.rawValue) env=\(environment.rawValue) app_bundle_id=\(appBundleID) app_version=\(appVersion) locale=\(locale) categories=\(categories) push_token_present=\(!token.isEmpty) bootstrap_proof_present=\(bootstrapProof?.isEmpty == false) auth_present=\(authPresent)"
                 )
                 let response = try await withHomeAssistantClient { client in
                     try await client.registerPushNotifications(DJConnectPushRegistrationRequest(
@@ -7213,6 +7244,7 @@ public final class DJConnectAppModel: ObservableObject {
                     defaults.set(false, forKey: pushRegisteredKey)
                     defaults.removeObject(forKey: registeredPushSignatureKey)
                     if Self.isInvalidBootstrapProof(reason) {
+                        clearPairingBootstrapProof()
                         defaults.set(Self.redactedPushFailureReason(reason), forKey: lastPushErrorKey)
                         logPush("registration recovery_required=true reason=invalid_bootstrap_proof message=pair_with_home_assistant_again push_registered=false", level: .warning)
                     } else if !environmentMatches {
@@ -7229,6 +7261,7 @@ public final class DJConnectAppModel: ObservableObject {
                 defaults.set(environment.rawValue, forKey: registeredPushEnvironmentKey)
                 defaults.set(registrationSignature, forKey: registeredPushSignatureKey)
                 defaults.set(true, forKey: pushRegisteredKey)
+                clearPairingBootstrapProof()
                 defaults.removeObject(forKey: lastPushErrorKey)
                 logPush("registered with Home Assistant client_type=\(identity.clientType.rawValue) env=\(canonicalEnvironment.rawValue) push_registered=true", level: .info)
             } catch let error as DJConnectError {
@@ -7237,6 +7270,7 @@ public final class DJConnectAppModel: ObservableObject {
                 } else if Self.isInvalidBootstrapProof(Self.describe(error)) {
                     defaults.set(false, forKey: pushRegisteredKey)
                     defaults.removeObject(forKey: registeredPushSignatureKey)
+                    clearPairingBootstrapProof()
                     defaults.set("invalid_bootstrap_proof", forKey: lastPushErrorKey)
                     logPush("registration recovery_required=true reason=invalid_bootstrap_proof message=pair_with_home_assistant_again push_registered=false", level: .warning)
                 } else {
@@ -7248,12 +7282,40 @@ public final class DJConnectAppModel: ObservableObject {
         }
     }
 
+    private func bootstrapProofForPushRegistrationIfNeeded(
+        pushEnvironment: DJConnectPushEnvironment,
+        appBundleID: String,
+        locale: String
+    ) async throws -> String? {
+        if let existing = currentBootstrapProofForPushRegistration() {
+            return existing
+        }
+        logPush("bootstrap request endpoint=/api/djconnect/v1/push/bootstrap ha_host=\(Self.hostForLog(from: localHomeAssistantURL())) device_id=\(identity.deviceID) client_type=\(identity.clientType.rawValue) env=\(pushEnvironment.rawValue) app_bundle_id=\(appBundleID) app_version=\(appVersion) locale=\(locale)")
+        let response = try await withHomeAssistantClient { client in
+            try await client.pushBootstrap(DJConnectPushBootstrapRequest(
+                identity: identity,
+                pushEnvironment: pushEnvironment,
+                appBundleID: appBundleID,
+                appVersion: appVersion,
+                locale: locale
+            ))
+        }
+        applyPushRegistrationStatus(from: response)
+        guard response.success, let proof = response.bootstrapProof?.trimmingCharacters(in: .whitespacesAndNewlines), !proof.isEmpty else {
+            let reason = response.error ?? response.lastPushError ?? response.message ?? "missing_bootstrap_proof"
+            logPush("bootstrap unavailable reason=\(Self.redactedPushFailureReason(reason)) bootstrap_proof_present=false", level: .warning)
+            return nil
+        }
+        storePairingBootstrapProof(proof)
+        logPush("bootstrap received bootstrap_proof_present=true")
+        return proof
+    }
+
     private func pushRegistrationSignature(
         pushToken: String,
         pushEnvironment: DJConnectPushEnvironment,
         appBundleID: String,
-        locale: String,
-        bootstrapProof: String?
+        locale: String
     ) -> String {
         [
             identity.deviceID,
@@ -7263,7 +7325,6 @@ public final class DJConnectAppModel: ObservableObject {
             appBundleID,
             appVersion,
             locale,
-            bootstrapProof ?? "",
             localHomeAssistantURL()
         ].joined(separator: "|")
     }
@@ -7327,7 +7388,12 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     private func currentBootstrapProofForPushRegistration() -> String? {
-        nil
+        let storedProof = defaults.string(forKey: pairingBootstrapProofKey)?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        if storedProof?.isEmpty == false {
+            return storedProof
+        }
+        return nil
     }
 
     private func logPush(_ message: String, level: DJConnectAppLogLevel = .debug) {
