@@ -6671,7 +6671,7 @@ public final class DJConnectAppModel: ObservableObject {
         let activityPlayback = hasPlayingNow ? playback : nil
         let syncKey = liveActivitySyncKey(for: activityPlayback)
         let now = Date()
-        if let activityPlayback,
+        if activityPlayback != nil,
            syncKey == lastLiveActivitySyncKey,
            let lastLiveActivitySyncAt,
            now.timeIntervalSince(lastLiveActivitySyncAt) < minimumLiveActivitySyncInterval {
@@ -6694,16 +6694,16 @@ public final class DJConnectAppModel: ObservableObject {
             return "ended"
         }
         let progressBucket = (playback.progressMS ?? 0) / liveActivityProgressBucketMS
-        return [
-            playback.trackName ?? "",
-            playback.artistName ?? "",
-            playback.device?.name ?? "",
-            String(playback.durationMS ?? 0),
-            String(progressBucket),
-            String(playback.volumePercent ?? playback.device?.volumePercent ?? -1),
-            String(playback.isLiked ?? playback.favoriteStatus ?? false),
-            String(playback.isPlaying == true)
-        ].joined(separator: "|")
+        let title = playback.trackName ?? ""
+        let artist = playback.artistName ?? ""
+        let deviceName = playback.device?.name ?? ""
+        let duration = String(playback.durationMS ?? 0)
+        let progress = String(progressBucket)
+        let volume = String(playback.volumePercent ?? playback.device?.volumePercent ?? -1)
+        let liked = String(playback.isLiked ?? playback.favoriteStatus ?? false)
+        let isPlaying = String(playback.isPlaying == true)
+        let components: [String] = [title, artist, deviceName, duration, progress, volume, liked, isPlaying]
+        return components.joined(separator: "|")
     }
     #endif
 
