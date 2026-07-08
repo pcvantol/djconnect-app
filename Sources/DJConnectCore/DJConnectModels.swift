@@ -5291,7 +5291,7 @@ public struct DJConnectAskDJIdleSuggestionRequest: Codable, Equatable, Sendable 
 }
 
 public struct DJConnectPushRegistrationRequest: Codable, Equatable, Sendable {
-    public static let defaultNotificationCategories = ["ask_dj_response", "ask_dj_confirm"]
+    public static let defaultNotificationCategories = ["ask_dj"]
 
     public var deviceID: String
     public var clientType: DJConnectClientType
@@ -5332,41 +5332,79 @@ public struct DJConnectPushRegistrationRequest: Codable, Equatable, Sendable {
         case appBundleID = "app_bundle_id"
         case appVersion = "app_version"
         case locale
-        case notificationCategories = "notification_categories"
+        case notificationCategories = "categories"
         case bootstrapProof = "bootstrap_proof"
     }
 }
 
-public struct DJConnectPushBootstrapRequest: Codable, Equatable, Sendable {
-    public var deviceID: String
+public struct DJConnectPairingBootstrapProofRequest: Codable, Equatable, Sendable {
+    public var haInstallID: String?
+    public var integration: String
+    public var integrationVersion: String?
     public var clientType: DJConnectClientType
-    public var pushEnvironment: DJConnectPushEnvironment
+    public var deviceID: String
+    public var pairingSessionID: String?
     public var appBundleID: String
-    public var appVersion: String?
-    public var locale: String?
+    public var pushEnvironment: DJConnectPushEnvironment
 
     public init(
+        haInstallID: String?,
+        integration: String = "djconnect_hacs",
+        integrationVersion: String?,
         identity: DJConnectIdentity,
-        pushEnvironment: DJConnectPushEnvironment,
+        pairingSessionID: String?,
         appBundleID: String,
-        appVersion: String? = nil,
-        locale: String? = nil
+        pushEnvironment: DJConnectPushEnvironment
     ) {
-        self.deviceID = identity.deviceID
+        self.haInstallID = haInstallID
+        self.integration = integration
+        self.integrationVersion = integrationVersion
         self.clientType = identity.clientType
-        self.pushEnvironment = pushEnvironment
+        self.deviceID = identity.deviceID
+        self.pairingSessionID = pairingSessionID
         self.appBundleID = appBundleID
-        self.appVersion = appVersion ?? identity.appVersion
-        self.locale = locale
+        self.pushEnvironment = pushEnvironment
     }
 
     enum CodingKeys: String, CodingKey {
-        case deviceID = "device_id"
+        case haInstallID = "ha_install_id"
+        case integration
+        case integrationVersion = "integration_version"
         case clientType = "client_type"
-        case pushEnvironment = "push_environment"
+        case deviceID = "device_id"
+        case pairingSessionID = "pairing_session_id"
         case appBundleID = "app_bundle_id"
-        case appVersion = "app_version"
-        case locale
+        case pushEnvironment = "push_environment"
+    }
+}
+
+public struct DJConnectPairingBootstrapProofResponse: Codable, Equatable, Sendable {
+    public var success: Bool
+    public var error: String?
+    public var message: String?
+    public var bootstrapProof: String?
+    public var expiresAt: String?
+
+    public init(
+        success: Bool,
+        error: String? = nil,
+        message: String? = nil,
+        bootstrapProof: String? = nil,
+        expiresAt: String? = nil
+    ) {
+        self.success = success
+        self.error = error
+        self.message = message
+        self.bootstrapProof = bootstrapProof
+        self.expiresAt = expiresAt
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case success
+        case error
+        case message
+        case bootstrapProof = "bootstrap_proof"
+        case expiresAt = "expires_at"
     }
 }
 

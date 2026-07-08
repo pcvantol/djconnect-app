@@ -238,13 +238,18 @@ Assistant auth is available, and retries when the token fingerprint, APNs
 environment, bundle ID, app version, locale, or pairing target changes. Debug
 logs must stay privacy-safe: do not print bearer tokens, APNs tokens,
 `bootstrap_proof` values, or central `djci_` install tokens.
-The client first calls `/push/register` with the APNs token and any fresh proof
-already received during pairing/status. If Home Assistant returns
-`missing_bootstrap_proof` or `invalid_bootstrap_proof`, the client calls the
-authenticated `POST /api/djconnect/v1/push/bootstrap` endpoint and immediately
-retries `/push/register` with the returned short-lived proof. The bootstrap
-endpoint does not receive the APNs token; that token is only sent to
-`/push/register`.
+The client first calls `/push/register` with the APNs token and no locally
+generated proof. If Home Assistant returns `missing_bootstrap_proof`, the Apple
+client asks its configured trusted pairing issuer for a short-lived central
+`djcboot_...` proof, retries `/push/register` exactly once with the same
+APNs/device metadata plus that proof, and then forgets the proof. The Apple app
+must not contain central issuer/relay secrets or APNs provider keys, and it must
+not store HA-owned `djci_...` install tokens. If Home Assistant returns
+`invalid_bootstrap_proof`, `bootstrap_proof_expired`, `bootstrap_proof_used`,
+`install_id_mismatch`, `bootstrap_rate_limited`, or the issuer is unavailable,
+APNs push stays disabled or best-effort for that attempt while normal Ask
+DJ/history/status flows continue. The trusted issuer does not receive the APNs
+token; that token is only sent to `/push/register`.
 
 ## Xcode
 

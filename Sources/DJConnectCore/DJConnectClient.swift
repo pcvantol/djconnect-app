@@ -203,11 +203,6 @@ public final class DJConnectClient: Sendable {
         return try await decodedResponse(for: request)
     }
 
-    public func pushBootstrap(_ payload: DJConnectPushBootstrapRequest) async throws -> DJConnectCommandResponse {
-        let request = try pushBootstrapRequest(payload)
-        return try await decodedResponse(for: request)
-    }
-
     public func unregisterPushNotifications(_ payload: DJConnectPushUnregistrationRequest) async throws -> DJConnectCommandResponse {
         let request = try pushUnregisterRequest(payload)
         return try await decodedResponse(for: request)
@@ -490,10 +485,6 @@ public final class DJConnectClient: Sendable {
 
     public func pushRegisterRequest(_ payload: DJConnectPushRegistrationRequest) throws -> URLRequest {
         try jsonRequest(path: Self.apiV1Path("push/register"), payload: payload)
-    }
-
-    public func pushBootstrapRequest(_ payload: DJConnectPushBootstrapRequest) throws -> URLRequest {
-        try jsonRequest(path: Self.apiV1Path("push/bootstrap"), payload: payload)
     }
 
     public func pushUnregisterRequest(_ payload: DJConnectPushUnregistrationRequest) throws -> URLRequest {

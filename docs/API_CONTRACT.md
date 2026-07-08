@@ -228,8 +228,7 @@ Expected macOS payload:
   "app_bundle_id": "dev.djconnect.mac",
   "app_version": "3.2.22",
   "locale": "nl-NL",
-  "notification_categories": ["ask_dj_response", "ask_dj_confirm"],
-  "bootstrap_proof": "<short-lived proof when available>"
+  "categories": ["ask_dj"]
 }
 ```
 
@@ -239,70 +238,69 @@ app version, locale, Home Assistant pairing, or local registration state
 changes. Registration failures must be logged without bearer tokens, APNs
 tokens, or `bootstrap_proof` values.
 
-Clients first call `push/register` with the APNs token and any fresh
-`bootstrap_proof` already received during pairing/status. If Home Assistant
-returns `missing_bootstrap_proof` or `invalid_bootstrap_proof`, the client calls
-the authenticated bootstrap endpoint below and immediately retries
-`push/register` with the returned proof. Home Assistant can supply the proof in
-any of these contexts:
-
-- the local pairing response;
-- a subsequent status response; or
-- the authenticated bootstrap endpoint below.
+Clients first call `push/register` with the APNs token and no bootstrap proof.
+Home Assistant and clients must not invent `djcboot_` proofs: the central
+DJConnect API only accepts trusted proofs that central issued or registered
+beforehand. If Home Assistant returns `missing_bootstrap_proof`, the Apple client
+asks its configured trusted pairing issuer for a short-lived central-issued
+`bootstrap_proof`, then retries `push/register` exactly once with the same APNs
+and device metadata plus that proof. The Apple client must not call central
+`/v1/pairing/bootstrap-proof` with an embedded issuer secret and must not contain
+`DJCONNECT_PAIRING_ISSUER_SECRET`, `DJCONNECT_RELAY_SECRET`, or an APNs provider
+key.
 
 ```http
-POST /api/djconnect/v1/push/bootstrap
-Authorization: Bearer <device_token>
+POST <trusted-issuer-base-url>/v1/pairing/bootstrap-proof
 Content-Type: application/json
 ```
 
-Expected macOS bootstrap payload:
+Expected macOS trusted issuer payload:
 
 ```json
 {
+  "ha_install_id": "<ha-install-id-if-known>",
+  "integration": "djconnect_hacs",
+  "integration_version": "<ha-integration-version-if-known>",
   "client_type": "macos",
   "device_id": "djconnect-macos-8F3A2C91B45D",
-  "push_environment": "sandbox",
+  "pairing_session_id": "<pairing-session-id-if-known>",
   "app_bundle_id": "dev.djconnect.mac",
-  "app_version": "3.2.27",
-  "locale": "nl-NL"
+  "push_environment": "sandbox"
 }
 ```
 
-Expected bootstrap response:
+Expected trusted issuer response:
 
 ```json
 {
   "success": true,
-  "push_supported": true,
-  "push_registered": false,
-  "push_environment": "sandbox",
-  "bootstrap_proof": "<short-lived proof>",
-  "bootstrap_proof_expires_at": "2026-07-08T12:10:00Z"
+  "bootstrap_proof": "djcboot_<short-lived-proof>",
+  "expires_at": "2026-07-08T12:10:00Z"
 }
 ```
 
-`push/bootstrap` must not receive or return the APNs device token. The APNs
-token is only sent to `push/register`. `push/bootstrap` must not be exposed as
-an unauthenticated endpoint and must not log, persist in diagnostics, or return
-the proof anywhere except the direct response. A `404` response for
-`push/bootstrap` is a contract mismatch unless pairing/status already returns a
-fresh `bootstrap_proof`.
+The trusted issuer must use any central issuer secret server-side only. It must
+not receive the APNs token. The Apple client validates `success == true`, a
+non-empty `djcboot_` proof, and a short future expiry, then keeps the proof only
+in memory for the one retry. HA owns any resulting `djci_...` install token.
 
 Home Assistant may respond with `push_supported`, `push_registered`,
 `push_environment`, and `last_push_error`. Expected recoverable failures include
-`missing_bootstrap_proof`, `invalid_bootstrap_proof`, `missing_install_token`,
-and `push_relay_unavailable`; normal Ask DJ traffic must continue even when push
-is disabled or best-effort.
+`missing_bootstrap_proof`, `invalid_bootstrap_proof`,
+`bootstrap_proof_unavailable`, `missing_install_token`, and
+`push_relay_unavailable`; normal Ask DJ traffic must continue even when push is
+disabled or best-effort.
 
-`missing_bootstrap_proof` means Home Assistant needs a proof to mint or recover
-its per-install relay token. `invalid_bootstrap_proof` means the proof is stale
-or invalid; the client should clear the local proof, obtain a fresh proof via
-`push/bootstrap`, and retry registration once. If bootstrap recovery still
-fails, the client should ask the user to pair with Home Assistant again. Home
-Assistant must not report `paired` while authenticated status still returns
-`not_configured`, because that prevents clients from recovering
-deterministically. `not_configured`, `401`, and `403` are stale-pairing signals:
+`missing_bootstrap_proof` means Home Assistant needs a central-issued proof to
+mint or recover its per-install relay token. `invalid_bootstrap_proof`,
+`bootstrap_proof_expired`, `bootstrap_proof_used`, `install_id_mismatch`, and
+`bootstrap_rate_limited` are terminal for that registration attempt: clients log
+a privacy-safe status, do not loop, and wait for a later APNs/token/pairing
+trigger. `bootstrap_proof_unavailable` means the trusted issuer or Home
+Assistant path cannot currently obtain a trusted proof; clients mark APNs push
+as disabled/best-effort, avoid tight retries, and continue normal Ask DJ,
+history, and status flows. `not_configured`, `401`, and `403` are stale-pairing
+signals:
 clients clear the local pairing state and local Ask DJ cache for that Home
 Assistant install.
 

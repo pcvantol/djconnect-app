@@ -4,6 +4,20 @@ All notable changes to DJConnect App are documented here.
 
 ## Unreleased
 
+## 3.2.28 - 2026-07-08
+
+### Changed
+
+- Documented the Central API v1.0.11 push bootstrap contract for Apple clients:
+  APNs registration now obtains short-lived `djcboot_...` proofs through a
+  trusted pairing issuer instead of a Home Assistant bootstrap endpoint.
+
+### Fixed
+
+- Updated push registration tests to cover the trusted issuer retry path,
+  client-side proof validation, no retry loops for invalid proofs, privacy-safe
+  payload logging, and removal of the legacy HA `/push/bootstrap` client path.
+
 ## 3.2.27 - 2026-07-08
 
 ### Changed

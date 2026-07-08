@@ -839,11 +839,12 @@ public final class DJConnectAppModel: ObservableObject {
     private let defaults: UserDefaults
     private let tokenStore: DJConnectTokenStore
     private let urlSession: URLSession
+    private let trustedPairingIssuerBaseURL: URL?
     private let homeAssistantWebSocketAuth: DJConnectHomeAssistantWebSocketAuth?
     private let startBackgroundTasks: Bool
     private let monkeyTestingMode: Bool
     private let diagnosticLogFileURL: URL?
-    nonisolated private static let protocolVersion = "3.2.27"
+    nonisolated private static let protocolVersion = "3.2.28"
     nonisolated private static let maxWidgetArtworkDataBytes = 750_000
     private static let defaultHomeAssistantURL = "http://homeassistant.local:8123"
     private let appVersion = DJConnectAppModel.protocolVersion
@@ -861,7 +862,6 @@ public final class DJConnectAppModel: ObservableObject {
     private let askDJVoiceSupportedKey = "DJConnectAskDJVoiceSupported"
     private let askDJAudioResponseSupportedKey = "DJConnectAskDJAudioResponseSupported"
     private let pairingTokenKey = "DJConnectPairingToken"
-    private let pairingBootstrapProofKey = "DJConnectPairingBootstrapProof"
     private let watchProxyDeviceIDKey = "DJConnectWatchProxyDeviceID"
     private let watchProxyDeviceNameKey = "DJConnectWatchProxyDeviceName"
     private let watchProxyPairCodeKey = "DJConnectWatchProxyPairCode"
@@ -1108,6 +1108,7 @@ public final class DJConnectAppModel: ObservableObject {
         defaults: UserDefaults = .standard,
         tokenStore: DJConnectTokenStore? = nil,
         urlSession: URLSession = .shared,
+        trustedPairingIssuerBaseURL: URL? = nil,
         homeAssistantWebSocketAuth: DJConnectHomeAssistantWebSocketAuth? = nil,
         startBackgroundTasks: Bool = true,
         monkeyTestingMode: Bool = false,
@@ -1127,6 +1128,7 @@ public final class DJConnectAppModel: ObservableObject {
         }
         self.tokenStore = resolvedTokenStore
         self.urlSession = urlSession
+        self.trustedPairingIssuerBaseURL = trustedPairingIssuerBaseURL ?? DJConnectAppModel.defaultTrustedPairingIssuerBaseURL()
         self.identity = Self.makeIdentity(defaults: defaults)
         self.logger = Logger(
             subsystem: Bundle.main.bundleIdentifier ?? "dev.djconnect",
@@ -2440,12 +2442,8 @@ public final class DJConnectAppModel: ObservableObject {
                 identity: identity,
                 pairingToken: pairCode,
                 haLocalURL: Self.normalizedHomeAssistantURL(from: homeAssistantURL).map(Self.redactedURL),
-                assistPipelineID: assistPipelineID.isEmpty ? nil : assistPipelineID,
-                bootstrapProof: pairCode
+                assistPipelineID: assistPipelineID.isEmpty ? nil : assistPipelineID
             ))
-            if let bootstrapProof = response.bootstrapProof {
-                storePairingBootstrapProof(bootstrapProof)
-            }
             apply(pairingResponse: response, fallbackBaseURL: baseURL)
             log(.info, "Pairing accepted by Home Assistant")
             if response.setupPending == false {
@@ -2495,10 +2493,9 @@ public final class DJConnectAppModel: ObservableObject {
                 throw error
             }
         }
-        pairingStatus = .waitingForHomeAssistantCompletion
-        isConnected = false
-        isPairing = false
-        pairingMessage = localized(key: "appModel.not.completed.in.home.assistant.yet.finish.setup.there")
+        log(.warning, "Completing pairing after Home Assistant accepted device token but runtime status stayed setup-pending")
+        backendAvailable = false
+        completeHomeAssistantPairing()
     }
 
     private func completeHomeAssistantPairing() {
@@ -2569,7 +2566,6 @@ public final class DJConnectAppModel: ObservableObject {
         shouldShowWakeWordPromptAfterPairingScreen = false
         defaults.set(false, forKey: wakeWordPromptDismissedKey)
         clearPairingToken()
-        clearPairingBootstrapProof()
         pairingStatus = .unpaired
         isConnected = false
         isPairing = false
@@ -2582,18 +2578,6 @@ public final class DJConnectAppModel: ObservableObject {
         log(.info, "Cleared local pairing code placeholder")
     }
 
-    private func storePairingBootstrapProof(_ proof: String) {
-        let trimmed = proof.trimmingCharacters(in: .whitespacesAndNewlines)
-        if trimmed.isEmpty {
-            clearPairingBootstrapProof()
-        } else {
-            defaults.set(trimmed, forKey: pairingBootstrapProofKey)
-        }
-    }
-
-    private func clearPairingBootstrapProof() {
-        defaults.removeObject(forKey: pairingBootstrapProofKey)
-    }
 
     public func rotatePairingTokenAndWait() {
         guard pairingStatus != .paired else {
@@ -4222,7 +4206,6 @@ public final class DJConnectAppModel: ObservableObject {
         scheduledPairingTask = nil
         try? tokenStore.clearToken()
         clearPairingToken()
-        clearPairingBootstrapProof()
         clearAskDJHistoryLocally()
         clearMusicDNADisplay()
         pairingStatus = .stale
@@ -4413,8 +4396,7 @@ public final class DJConnectAppModel: ObservableObject {
                     wakewordPhrase: wakeWordPhrase,
                     wakewordStatus: "\(wakeWordStatus)",
                     mood: askDJMoodInt,
-                    musicDNAKey: askDJMusicDNAKey,
-                    bootstrapProof: currentBootstrapProofForPushRegistration()
+                    musicDNAKey: askDJMusicDNAKey
                 )
             )
             guard validateHomeAssistantVersion(
@@ -4425,9 +4407,6 @@ public final class DJConnectAppModel: ObservableObject {
                 return
             }
             apply(musicBackendSummary: response.musicBackendSummary)
-            if let bootstrapProof = response.bootstrapProof {
-                storePairingBootstrapProof(bootstrapProof)
-            }
             let hasPlaybackSnapshot = response.playback != nil
             if let playback = response.playback {
                 apply(playback: playback)
@@ -7227,14 +7206,13 @@ public final class DJConnectAppModel: ObservableObject {
                 }
             }
             do {
-                let initialBootstrapProof = currentBootstrapProofForPushRegistration()
                 let response = try await registerPushTokenWithHomeAssistant(
                     token: token,
                     pushEnvironment: environment,
                     appBundleID: appBundleID,
                     locale: locale,
                     categories: categories,
-                    bootstrapProof: initialBootstrapProof
+                    bootstrapProof: nil
                 )
                 try await handlePushRegistrationResponse(
                     response,
@@ -7273,7 +7251,7 @@ public final class DJConnectAppModel: ObservableObject {
     ) async throws -> DJConnectCommandResponse {
         let authPresent = (try? tokenStore.loadToken())?.isEmpty == false
         logPush(
-            "register payload endpoint=/api/djconnect/v1/push/register ha_host=\(Self.hostForLog(from: localHomeAssistantURL())) device_id=\(identity.deviceID) client_type=\(identity.clientType.rawValue) env=\(pushEnvironment.rawValue) app_bundle_id=\(appBundleID) app_version=\(appVersion) locale=\(locale) categories=\(categories) push_token_present=\(!token.isEmpty) bootstrap_proof_present=\(bootstrapProof?.isEmpty == false) auth_present=\(authPresent)"
+            "register payload endpoint=/api/djconnect/v1/push/register ha_host=\(Self.hostForLog(from: localHomeAssistantURL())) device_id_present=\(!identity.deviceID.isEmpty) client_type=\(identity.clientType.rawValue) env=\(pushEnvironment.rawValue) app_bundle_id=\(appBundleID) app_version=\(appVersion) locale=\(locale) categories=\(categories) push_token_present=\(!token.isEmpty) bootstrap_proof_present=\(bootstrapProof?.isEmpty == false) auth_present=\(authPresent)"
         )
         let response = try await withHomeAssistantClient { client in
             try await client.registerPushNotifications(DJConnectPushRegistrationRequest(
@@ -7307,7 +7285,7 @@ public final class DJConnectAppModel: ObservableObject {
         let environmentMatches = pushEnvironment.isCompatible(with: responseEnvironment)
         guard response.success, response.pushRegistered != false, environmentMatches else {
             let reason = response.error ?? response.lastPushError ?? response.message ?? "unknown"
-            if Self.requiresBootstrapProof(reason) {
+            if Self.isMissingBootstrapProof(reason) {
                 try await retryPushRegistrationAfterBootstrap(
                     reason: reason,
                     token: token,
@@ -7347,7 +7325,7 @@ public final class DJConnectAppModel: ObservableObject {
             recoverFromStalePairing(message: localized(key: "appModel.pairing.is.stale.open.home.assistant.setup.and.enter"))
             return
         }
-        if Self.requiresBootstrapProof(reason) {
+        if Self.isMissingBootstrapProof(reason) {
             do {
                 try await retryPushRegistrationAfterBootstrap(
                     reason: reason,
@@ -7392,18 +7370,29 @@ public final class DJConnectAppModel: ObservableObject {
     ) async throws {
         defaults.set(false, forKey: pushRegisteredKey)
         defaults.removeObject(forKey: registeredPushSignatureKey)
-        if Self.isInvalidBootstrapProof(reason) {
-            clearPairingBootstrapProof()
-        }
         logPush("registration bootstrap_required=true reason=\(Self.bootstrapProofFailureCode(reason))", level: .warning)
-        guard let bootstrapProof = try await fetchBootstrapProofForPushRegistration(
-            pushEnvironment: pushEnvironment,
-            appBundleID: appBundleID,
-            locale: locale
-        ) else {
-            markPushRegistrationBootstrapRecoveryFailed(reason: reason)
+        let bootstrapProof: String?
+        do {
+            bootstrapProof = try await fetchBootstrapProofForPushRegistration(
+                pushEnvironment: pushEnvironment,
+                appBundleID: appBundleID
+            )
+        } catch let error as DJConnectError {
+            markPushRegistrationBootstrapRecoveryFailed(reason: Self.describe(error))
+            return
+        } catch {
+            markPushRegistrationBootstrapRecoveryFailed(reason: error.localizedDescription)
             return
         }
+        guard let bootstrapProof else {
+            if defaults.string(forKey: lastPushErrorKey) == "bootstrap_proof_unavailable" {
+                markPushRegistrationBootstrapUnavailable()
+            } else {
+                markPushRegistrationBootstrapRecoveryFailed(reason: reason)
+            }
+            return
+        }
+        logPush("registration retry_with_bootstrap_proof=true bootstrap_proof_present=true")
         let retryResponse = try await registerPushTokenWithHomeAssistant(
             token: token,
             pushEnvironment: pushEnvironment,
@@ -7413,32 +7402,13 @@ public final class DJConnectAppModel: ObservableObject {
             bootstrapProof: bootstrapProof
         )
         applyPushRegistrationStatus(from: retryResponse)
-        if Self.isInvalidBootstrapProof(retryResponse.error ?? retryResponse.lastPushError ?? retryResponse.message ?? "") {
-            clearPairingBootstrapProof()
-            logPush("registration bootstrap_retry_required=true reason=invalid_bootstrap_proof", level: .warning)
-            guard let secondBootstrapProof = try await fetchBootstrapProofForPushRegistration(
-                pushEnvironment: pushEnvironment,
-                appBundleID: appBundleID,
-                locale: locale
-            ) else {
-                markPushRegistrationBootstrapRecoveryFailed(reason: "invalid_bootstrap_proof")
-                return
-            }
-            let secondRetryResponse = try await registerPushTokenWithHomeAssistant(
-                token: token,
-                pushEnvironment: pushEnvironment,
-                appBundleID: appBundleID,
-                locale: locale,
-                categories: categories,
-                bootstrapProof: secondBootstrapProof
-            )
-            applyPushRegistrationStatus(from: secondRetryResponse)
-            try await handleFinalPushRegistrationRecoveryResponse(
-                secondRetryResponse,
-                tokenHash: tokenHash,
-                pushEnvironment: pushEnvironment,
-                registrationSignature: registrationSignature
-            )
+        let retryReason = retryResponse.error ?? retryResponse.lastPushError ?? retryResponse.message ?? ""
+        if Self.isBootstrapProofUnavailable(retryReason) {
+            markPushRegistrationBootstrapUnavailable()
+            return
+        }
+        if Self.isInvalidBootstrapProof(retryReason) {
+            markPushRegistrationBootstrapRecoveryFailed(reason: "invalid_bootstrap_proof")
             return
         }
         try await handleFinalPushRegistrationRecoveryResponse(
@@ -7460,7 +7430,9 @@ public final class DJConnectAppModel: ObservableObject {
         let environmentMatches = pushEnvironment.isCompatible(with: responseEnvironment)
         guard response.success, response.pushRegistered != false, environmentMatches else {
             let retryReason = response.error ?? response.lastPushError ?? response.message ?? "unknown"
-            if Self.requiresBootstrapProof(retryReason) {
+            if Self.isBootstrapProofUnavailable(retryReason) {
+                markPushRegistrationBootstrapUnavailable()
+            } else if Self.requiresBootstrapProof(retryReason) {
                 markPushRegistrationBootstrapRecoveryFailed(reason: retryReason)
             } else {
                 rejectPushRegistration(reason: retryReason, environmentMatches: environmentMatches, responseEnvironment: responseEnvironment, expectedEnvironment: pushEnvironment)
@@ -7477,28 +7449,55 @@ public final class DJConnectAppModel: ObservableObject {
 
     private func fetchBootstrapProofForPushRegistration(
         pushEnvironment: DJConnectPushEnvironment,
-        appBundleID: String,
-        locale: String
+        appBundleID: String
     ) async throws -> String? {
-        logPush("bootstrap request endpoint=/api/djconnect/v1/push/bootstrap ha_host=\(Self.hostForLog(from: localHomeAssistantURL())) device_id=\(identity.deviceID) client_type=\(identity.clientType.rawValue) env=\(pushEnvironment.rawValue) app_bundle_id=\(appBundleID) app_version=\(appVersion) locale=\(locale)")
-        let response = try await withHomeAssistantClient { client in
-            try await client.pushBootstrap(DJConnectPushBootstrapRequest(
-                identity: identity,
-                pushEnvironment: pushEnvironment,
-                appBundleID: appBundleID,
-                appVersion: appVersion,
-                locale: locale
-            ))
-        }
-        applyPushRegistrationStatus(from: response)
-        guard response.success, let proof = response.bootstrapProof?.trimmingCharacters(in: .whitespacesAndNewlines), !proof.isEmpty else {
-            let reason = response.error ?? response.lastPushError ?? response.message ?? "missing_bootstrap_proof"
-            logPush("bootstrap unavailable reason=\(Self.redactedPushFailureReason(reason)) bootstrap_proof_present=false", level: .warning)
+        guard let issuerBaseURL = trustedPairingIssuerBaseURL else {
+            logPush("bootstrap issuer unavailable reason=trusted_issuer_not_configured", level: .warning)
             return nil
         }
-        storePairingBootstrapProof(proof)
-        logPush("bootstrap received bootstrap_proof_present=true bootstrap_proof_expires_at_present=\(response.bootstrapProofExpiresAt?.isEmpty == false)")
+
+        let payload = DJConnectPairingBootstrapProofRequest(
+            haInstallID: nil,
+            integrationVersion: nil,
+            identity: identity,
+            pairingSessionID: nil,
+            appBundleID: appBundleID,
+            pushEnvironment: pushEnvironment
+        )
+        logPush("bootstrap issuer_request endpoint=/v1/pairing/bootstrap-proof issuer_host=\(Self.hostForLog(from: issuerBaseURL.absoluteString)) device_id_present=\(!identity.deviceID.isEmpty) client_type=\(identity.clientType.rawValue) env=\(pushEnvironment.rawValue) app_bundle_id=\(appBundleID)")
+        let response = try await requestTrustedIssuerBootstrapProof(baseURL: issuerBaseURL, payload: payload)
+        guard response.success else {
+            let reason = response.error ?? response.message ?? "bootstrap_proof_unavailable"
+            logPush("bootstrap issuer_unavailable issuer_error_code=\(Self.bootstrapProofFailureCode(reason)) bootstrap_proof_present=false", level: .warning)
+            if Self.isBootstrapProofUnavailable(reason) {
+                defaults.set("bootstrap_proof_unavailable", forKey: lastPushErrorKey)
+            }
+            return nil
+        }
+        let proof = try Self.validatedIssuerBootstrapProof(response)
+        logPush("bootstrap issuer_received bootstrap_proof_present=true expires_at_present=\(response.expiresAt?.isEmpty == false)")
         return proof
+    }
+
+    private func requestTrustedIssuerBootstrapProof(
+        baseURL: URL,
+        payload: DJConnectPairingBootstrapProofRequest
+    ) async throws -> DJConnectPairingBootstrapProofResponse {
+        let endpoint = baseURL.appendingPathComponent("v1/pairing/bootstrap-proof")
+        var request = URLRequest(url: endpoint)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        request.httpBody = try JSONEncoder().encode(payload)
+        let (data, response) = try await urlSession.data(for: request)
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw DJConnectError.invalidResponse
+        }
+        guard (200..<300).contains(httpResponse.statusCode) else {
+            logPush("bootstrap issuer_http_failed status=\(httpResponse.statusCode)", level: .warning)
+            return DJConnectPairingBootstrapProofResponse(success: false, error: "issuer_http_\(httpResponse.statusCode)")
+        }
+        return try JSONDecoder().decode(DJConnectPairingBootstrapProofResponse.self, from: data)
     }
 
     private func logPushRegistrationResponse(_ response: DJConnectCommandResponse, expectedEnvironment: DJConnectPushEnvironment) {
@@ -7520,7 +7519,6 @@ public final class DJConnectAppModel: ObservableObject {
         defaults.set(pushEnvironment.rawValue, forKey: registeredPushEnvironmentKey)
         defaults.set(registrationSignature, forKey: registeredPushSignatureKey)
         defaults.set(true, forKey: pushRegisteredKey)
-        clearPairingBootstrapProof()
         defaults.removeObject(forKey: lastPushErrorKey)
         logPush("registered with Home Assistant client_type=\(identity.clientType.rawValue) env=\(canonicalEnvironment.rawValue) push_registered=true", level: .info)
     }
@@ -7546,10 +7544,16 @@ public final class DJConnectAppModel: ObservableObject {
     private func markPushRegistrationBootstrapRecoveryFailed(reason: String) {
         defaults.set(false, forKey: pushRegisteredKey)
         defaults.removeObject(forKey: registeredPushSignatureKey)
-        clearPairingBootstrapProof()
         let code = Self.bootstrapProofFailureCode(reason)
         defaults.set(code, forKey: lastPushErrorKey)
         logPush("registration recovery_required=true reason=\(code) message=pair_with_home_assistant_again push_registered=false", level: .warning)
+    }
+
+    private func markPushRegistrationBootstrapUnavailable() {
+        defaults.set(false, forKey: pushRegisteredKey)
+        defaults.removeObject(forKey: registeredPushSignatureKey)
+        defaults.set("bootstrap_proof_unavailable", forKey: lastPushErrorKey)
+        logPush("bootstrap unavailable reason=bootstrap_proof_unavailable message=push_bootstrap_not_available_for_home_assistant_installation push_registered=false", level: .warning)
     }
 
     private func pushRegistrationSignature(
@@ -7628,15 +7632,6 @@ public final class DJConnectAppModel: ObservableObject {
         #endif
     }
 
-    private func currentBootstrapProofForPushRegistration() -> String? {
-        let storedProof = defaults.string(forKey: pairingBootstrapProofKey)?
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-        if storedProof?.isEmpty == false {
-            return storedProof
-        }
-        return nil
-    }
-
     private func logPush(_ message: String, level: DJConnectAppLogLevel = .debug) {
         log(level, "[DJConnectPush] \(message)")
     }
@@ -7675,6 +7670,44 @@ public final class DJConnectAppModel: ObservableObject {
         DJConnectLogRedactor.redactText(reason)
     }
 
+    private static func defaultTrustedPairingIssuerBaseURL() -> URL? {
+        guard let rawValue = Bundle.main.object(forInfoDictionaryKey: "DJConnectTrustedPairingIssuerBaseURL") as? String else {
+            return nil
+        }
+        let trimmed = rawValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
+            return nil
+        }
+        return URL(string: trimmed)
+    }
+
+    private static func validatedIssuerBootstrapProof(
+        _ response: DJConnectPairingBootstrapProofResponse,
+        now: Date = Date()
+    ) throws -> String {
+        let proof = response.bootstrapProof?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        guard !proof.isEmpty, proof.hasPrefix("djcboot_") else {
+            throw DJConnectError.invalidConfiguration("trusted_issuer_invalid_bootstrap_proof")
+        }
+        guard let expiresAt = response.expiresAt?.trimmingCharacters(in: .whitespacesAndNewlines), !expiresAt.isEmpty else {
+            throw DJConnectError.invalidConfiguration("trusted_issuer_missing_bootstrap_proof_expiry")
+        }
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        let fallbackFormatter = ISO8601DateFormatter()
+        fallbackFormatter.formatOptions = [.withInternetDateTime]
+        guard let expiry = formatter.date(from: expiresAt) ?? fallbackFormatter.date(from: expiresAt) else {
+            throw DJConnectError.invalidConfiguration("trusted_issuer_invalid_bootstrap_proof_expiry")
+        }
+        guard expiry > now else {
+            throw DJConnectError.invalidConfiguration("trusted_issuer_expired_bootstrap_proof")
+        }
+        guard expiry.timeIntervalSince(now) <= 15 * 60 else {
+            throw DJConnectError.invalidConfiguration("trusted_issuer_excessive_bootstrap_proof_lifetime")
+        }
+        return proof
+    }
+
     private static func isInvalidBootstrapProof(_ reason: String) -> Bool {
         reason.trimmingCharacters(in: .whitespacesAndNewlines).lowercased().contains("invalid_bootstrap_proof")
     }
@@ -7684,10 +7717,33 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     private static func requiresBootstrapProof(_ reason: String) -> Bool {
-        isMissingBootstrapProof(reason) || isInvalidBootstrapProof(reason)
+        isMissingBootstrapProof(reason)
+    }
+
+    private static func isBootstrapProofUnavailable(_ reason: String) -> Bool {
+        reason.trimmingCharacters(in: .whitespacesAndNewlines).lowercased().contains("bootstrap_proof_unavailable")
     }
 
     private static func bootstrapProofFailureCode(_ reason: String) -> String {
+        let normalizedReason = reason.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        if normalizedReason.contains("trusted_issuer_invalid_bootstrap_proof") {
+            return "trusted_issuer_invalid_bootstrap_proof"
+        }
+        if normalizedReason.contains("trusted_issuer_expired_bootstrap_proof") {
+            return "trusted_issuer_expired_bootstrap_proof"
+        }
+        if normalizedReason.contains("trusted_issuer_missing_bootstrap_proof_expiry") {
+            return "trusted_issuer_missing_bootstrap_proof_expiry"
+        }
+        if normalizedReason.contains("trusted_issuer_invalid_bootstrap_proof_expiry") {
+            return "trusted_issuer_invalid_bootstrap_proof_expiry"
+        }
+        if normalizedReason.contains("trusted_issuer_excessive_bootstrap_proof_lifetime") {
+            return "trusted_issuer_excessive_bootstrap_proof_lifetime"
+        }
+        if isBootstrapProofUnavailable(reason) {
+            return "bootstrap_proof_unavailable"
+        }
         if isInvalidBootstrapProof(reason) {
             return "invalid_bootstrap_proof"
         }
@@ -8320,7 +8376,12 @@ public final class DJConnectAppModel: ObservableObject {
     public func requestRemoteNotificationRegistration() {
         #if canImport(UserNotifications)
         guard !remoteNotificationRegistrationRequestedThisLaunch else {
-            registerStoredPushTokenIfPossible()
+            if currentAPNsPushToken == nil && (defaults.string(forKey: legacyPushTokenKey)?.isEmpty ?? true) {
+                logPush("retrying system remote notification registration token_present=false", level: .info)
+                registerForSystemRemoteNotifications()
+            } else {
+                registerStoredPushTokenIfPossible()
+            }
             return
         }
         remoteNotificationRegistrationRequestedThisLaunch = true
@@ -9422,8 +9483,7 @@ public final class DJConnectAppModel: ObservableObject {
                 identity: registration.identity,
                 pairingToken: pairCode,
                 haLocalURL: Self.redactedURL(baseURL),
-                assistPipelineID: assistPipelineID.isEmpty ? nil : assistPipelineID,
-                bootstrapProof: pairCode
+                assistPipelineID: assistPipelineID.isEmpty ? nil : assistPipelineID
             ))
             guard let token = try tokenStore.loadToken(), !token.isEmpty else {
                 return

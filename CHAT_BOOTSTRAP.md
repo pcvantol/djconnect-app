@@ -43,7 +43,7 @@ Context:
 - Secrets/tokens/wachtwoorden/private URLs mogen nooit in commits, logs, screenshots, diagnostics of test fixtures.
 
 Huidige status om te controleren:
-- De actuele Apple app release-prep is `3.2.26`; de gedeelde protocol/releaselijn
+- De actuele Apple app release-prep is `3.2.28`; de gedeelde protocol/releaselijn
   is `3.2.x`, laatst centraal uitgelijnd na Home Assistant integration
   `v3.2.28`. Clients op `3.2.x` zijn compatibel met Home Assistant integration
   `>=3.2.0` en `<3.3.0`.

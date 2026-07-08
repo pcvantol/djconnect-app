@@ -112,6 +112,23 @@ private final class RequestRecorder: @unchecked Sendable {
     }
 }
 
+private final class RequestJSONRecorder: @unchecked Sendable {
+    private let lock = NSLock()
+    private var storage: [[String: Any]] = []
+
+    func append(_ request: URLRequest) throws {
+        guard let body = try requestBodyData(request),
+              let json = try JSONSerialization.jsonObject(with: body) as? [String: Any] else {
+            return
+        }
+        lock.withLock { storage.append(json) }
+    }
+
+    var payloads: [[String: Any]] {
+        lock.withLock { storage }
+    }
+}
+
 private final class APIFailureDetailsRecorder: @unchecked Sendable {
     private let lock = NSLock()
     private var storage: [DJConnectAPIFailureLogDetails] = []
@@ -444,6 +461,36 @@ private func httpResponse(for request: URLRequest, statusCode: Int) throws -> HT
     return response
 }
 
+private func requestBodyData(_ request: URLRequest) throws -> Data? {
+    if let body = request.httpBody {
+        return body
+    }
+    guard let stream = request.httpBodyStream else {
+        return nil
+    }
+    stream.open()
+    defer { stream.close() }
+    var data = Data()
+    var buffer = [UInt8](repeating: 0, count: 4096)
+    while stream.hasBytesAvailable {
+        let count = stream.read(&buffer, maxLength: buffer.count)
+        if count < 0 {
+            throw stream.streamError ?? URLError(.cannotDecodeRawData)
+        }
+        if count == 0 {
+            break
+        }
+        data.append(buffer, count: count)
+    }
+    return data
+}
+
+private func shortLivedBootstrapExpiry() -> String {
+    let formatter = ISO8601DateFormatter()
+    formatter.formatOptions = [.withInternetDateTime]
+    return formatter.string(from: Date().addingTimeInterval(10 * 60))
+}
+
 private func testIOSIdentity(deviceID: String = "djconnect-ios-8F3A2C91B45D", deviceName: String = "iPhone") -> DJConnectIdentity {
     DJConnectIdentity(
         deviceID: deviceID,
@@ -495,11 +542,17 @@ private func musicDiscoveryPushPayload() -> [AnyHashable: Any] {
 }
 
 @MainActor
-private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, session: URLSession) -> DJConnectAppModel {
+private func makePairedMusicDNAModel(
+    defaults: UserDefaults,
+    host: String,
+    session: URLSession,
+    trustedPairingIssuerBaseURL: URL? = nil
+) -> DJConnectAppModel {
     let model = DJConnectAppModel(
         defaults: defaults,
         tokenStore: DJConnectInMemoryTokenStore(token: "secret-token"),
         urlSession: session,
+        trustedPairingIssuerBaseURL: trustedPairingIssuerBaseURL,
         startBackgroundTasks: false
     )
     model.homeAssistantURL = "http://\(host):8123"
@@ -721,6 +774,15 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
+    let sharedDefaults = try #require(UserDefaults(suiteName: DJConnectLocalization.appGroupIdentifier))
+    let oldSharedOverride = sharedDefaults.string(forKey: DJConnectLocalization.appLanguageOverrideDefaultsKey)
+    defer {
+        if let oldSharedOverride {
+            sharedDefaults.set(oldSharedOverride, forKey: DJConnectLocalization.appLanguageOverrideDefaultsKey)
+        } else {
+            sharedDefaults.removeObject(forKey: DJConnectLocalization.appLanguageOverrideDefaultsKey)
+        }
+    }
     let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startBackgroundTasks: false)
     model.language = "nl"
     let html = """
@@ -2648,7 +2710,7 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     #expect(json["push_environment"] as? String == "sandbox")
     #expect(json["app_bundle_id"] as? String == "dev.djconnect.ios")
     #expect(json["locale"] as? String == "nl-NL")
-    #expect(json["notification_categories"] as? [String] == ["ask_dj_response", "ask_dj_confirm"])
+    #expect(json["categories"] as? [String] == ["ask_dj"])
 }
 
 @Test func iOSPushRegisterRequestUsesCanonicalIdentityAndBootstrapProofWhenProvided() throws {
@@ -2687,73 +2749,8 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     #expect(json["app_bundle_id"] as? String == "dev.djconnect.ios")
     #expect(json["app_version"] as? String == "3.1.66")
     #expect(json["locale"] as? String == "nl-NL")
-    #expect(json["notification_categories"] as? [String] == ["ask_dj_response", "ask_dj_confirm"])
+    #expect(json["categories"] as? [String] == ["ask_dj"])
     #expect(json["bootstrap_proof"] as? String == "short-lived-proof")
-}
-
-@Test func macOSPushBootstrapRequestUsesCanonicalIdentityWithoutPushToken() throws {
-    let identity = DJConnectIdentity(
-        deviceID: "djconnect-macos-8F3A2C91B45D",
-        deviceName: "DJConnect Mac",
-        clientType: .macos,
-        firmware: "3.2.34",
-        appVersion: "3.2.34",
-        platform: .macos
-    )
-    let client = DJConnectClient(
-        baseURL: try #require(URL(string: "http://homeassistant.local:8123")),
-        identity: identity,
-        tokenStore: DJConnectInMemoryTokenStore(token: "secret-token")
-    )
-
-    let request = try client.pushBootstrapRequest(DJConnectPushBootstrapRequest(
-        identity: identity,
-        pushEnvironment: .sandbox,
-        appBundleID: "dev.djconnect.mac",
-        locale: "nl-NL"
-    ))
-    let body = try #require(request.httpBody)
-    let json = try #require(JSONSerialization.jsonObject(with: body) as? [String: Any])
-
-    #expect(request.url?.path == "/api/djconnect/v1/push/bootstrap")
-    #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer secret-token")
-    #expect(json["device_id"] as? String == "djconnect-macos-8F3A2C91B45D")
-    #expect(json["client_type"] as? String == "macos")
-    #expect(json["push_environment"] as? String == "sandbox")
-    #expect(json["app_bundle_id"] as? String == "dev.djconnect.mac")
-    #expect(json["app_version"] as? String == "3.2.34")
-    #expect(json["locale"] as? String == "nl-NL")
-    #expect(json["push_token"] == nil)
-}
-
-@Test func pushBootstrapRouteMissingSurfacesAsContractMismatch() async throws {
-    let identity = DJConnectIdentity(
-        deviceID: "djconnect-macos-8F3A2C91B45D",
-        deviceName: "DJConnect Mac",
-        clientType: .macos,
-        firmware: "3.2.34",
-        appVersion: "3.2.34",
-        platform: .macos
-    )
-    let session = mockSession(host: "homeassistant.local") { request in
-        #expect(request.url?.path == "/api/djconnect/v1/push/bootstrap")
-        return (try httpResponse(for: request, statusCode: 404), Data(#"{"success":false,"message":"404: Not Found"}"#.utf8))
-    }
-    let client = DJConnectClient(
-        baseURL: try #require(URL(string: "http://homeassistant.local:8123")),
-        identity: identity,
-        tokenStore: DJConnectInMemoryTokenStore(token: "secret-token"),
-        session: session
-    )
-
-    await #expect(throws: DJConnectError.routeMissing(message: "404: Not Found")) {
-        _ = try await client.pushBootstrap(DJConnectPushBootstrapRequest(
-            identity: identity,
-            pushEnvironment: .sandbox,
-            appBundleID: "dev.djconnect.mac",
-            locale: "nl-NL"
-        ))
-    }
 }
 
 @Test func macOSPushRegisterRequestUsesCanonicalIdentityAndBootstrapProofWhenProvided() throws {
@@ -2792,7 +2789,7 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     #expect(json["app_bundle_id"] as? String == "dev.djconnect.mac")
     #expect(json["app_version"] as? String == "3.1.66")
     #expect(json["locale"] as? String == "nl-NL")
-    #expect(json["notification_categories"] as? [String] == ["ask_dj_response", "ask_dj_confirm"])
+    #expect(json["categories"] as? [String] == ["ask_dj"])
     #expect(json["bootstrap_proof"] as? String == "short-lived-proof")
 }
 
@@ -2838,7 +2835,7 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     #expect(json["app_bundle_id"] as? String == "dev.djconnect.watch")
     #expect(json["app_version"] as? String == "3.1.66")
     #expect(json["locale"] as? String == "nl-NL")
-    #expect(json["notification_categories"] as? [String] == ["ask_dj_response", "ask_dj_confirm"])
+    #expect(json["categories"] as? [String] == ["ask_dj"])
     #expect(json["bootstrap_proof"] as? String == "short-lived-proof")
 }
 
@@ -3050,10 +3047,13 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
 @Test func macOSPushMissingBootstrapProofFetchesProofAndRetriesRegistration() async throws {
     let defaults = try testDefaults()
     let recorder = RequestRecorder()
+    let registerPayloads = RequestJSONRecorder()
+    let issuerPayloads = RequestJSONRecorder()
     let registerAttempts = RequestCounter()
     let session = mockSession(host: "push-missing-bootstrap.local") { request in
         recorder.append(request)
         if request.url?.path == "/api/djconnect/v1/push/register" {
+            try registerPayloads.append(request)
             registerAttempts.increment()
         }
         if request.url?.path == "/api/djconnect/v1/push/register", registerAttempts.count == 1 {
@@ -3068,15 +3068,13 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
             }
             """.utf8))
         }
-        if request.url?.path == "/api/djconnect/v1/push/bootstrap" {
+        if request.url?.path == "/v1/pairing/bootstrap-proof" {
+            try issuerPayloads.append(request)
             return (try httpResponse(for: request, statusCode: 200), Data("""
             {
               "success": true,
-              "bootstrap_proof": "short-lived-proof",
-              "bootstrap_proof_expires_at": "2026-07-08T12:10:00Z",
-              "push_supported": true,
-              "push_registered": false,
-              "push_environment": "sandbox"
+              "bootstrap_proof": "djcboot_short_lived_proof",
+              "expires_at": "\(shortLivedBootstrapExpiry())"
             }
             """.utf8))
         }
@@ -3089,7 +3087,12 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
         }
         """.utf8))
     }
-    let model = makePairedMusicDNAModel(defaults: defaults, host: "push-missing-bootstrap.local", session: session)
+    let model = makePairedMusicDNAModel(
+        defaults: defaults,
+        host: "push-missing-bootstrap.local",
+        session: session,
+        trustedPairingIssuerBaseURL: URL(string: "http://push-missing-bootstrap.local:8123")!
+    )
 
     model.handleRemoteNotificationDeviceToken(Data([0xab, 0xcd, 0xef, 0x34]))
     for _ in 0..<100 where defaults.bool(forKey: "DJConnectPushRegistered") == false {
@@ -3098,15 +3101,32 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
 
     #expect(recorder.requests.map { $0.url?.path } == [
         "/api/djconnect/v1/push/register",
-        "/api/djconnect/v1/push/bootstrap",
+        "/v1/pairing/bootstrap-proof",
         "/api/djconnect/v1/push/register",
     ])
+    let issuerJSON = try #require(issuerPayloads.payloads.first)
+    #expect(issuerJSON["integration"] as? String == "djconnect_hacs")
+    #expect(issuerJSON["client_type"] as? String == "macos")
+    let firstRegisterJSON = try #require(registerPayloads.payloads.first)
+    let retryRegisterJSON = try #require(registerPayloads.payloads.last)
+    let deviceID = try #require(firstRegisterJSON["device_id"] as? String)
+    #expect(deviceID.hasPrefix("djconnect-macos-"))
+    #expect(issuerJSON["device_id"] as? String == deviceID)
+    let expectedBundleID = Bundle.main.bundleIdentifier ?? "dev.djconnect.macos"
+    #expect(issuerJSON["app_bundle_id"] as? String == expectedBundleID)
+    #expect(issuerJSON["push_environment"] as? String == "sandbox")
+    #expect(issuerJSON["push_token"] == nil)
+    #expect(issuerJSON["apns_token"] == nil)
+    #expect(firstRegisterJSON["bootstrap_proof"] == nil)
+    #expect(retryRegisterJSON["bootstrap_proof"] as? String == "djcboot_short_lived_proof")
+    #expect(firstRegisterJSON["push_token"] as? String == retryRegisterJSON["push_token"] as? String)
+    #expect(firstRegisterJSON["device_id"] as? String == retryRegisterJSON["device_id"] as? String)
     #expect(defaults.bool(forKey: "DJConnectPushRegistered") == true)
     #expect(defaults.string(forKey: "DJConnectLastPushError") == nil)
 }
 
 @MainActor
-@Test func macOSPushInvalidBootstrapProofFetchesFreshProofAndRetriesRegistration() async throws {
+@Test func macOSPushInvalidBootstrapProofStopsWithoutIssuerRetry() async throws {
     let defaults = try testDefaults()
     let recorder = RequestRecorder()
     let registerAttempts = RequestCounter()
@@ -3127,46 +3147,23 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
             }
             """.utf8))
         }
-        if request.url?.path == "/api/djconnect/v1/push/bootstrap" {
-            return (try httpResponse(for: request, statusCode: 200), Data("""
-            {
-              "success": true,
-              "bootstrap_proof": "fresh-proof",
-              "bootstrap_proof_expires_at": "2026-07-08T12:10:00Z",
-              "push_supported": true,
-              "push_registered": false,
-              "push_environment": "sandbox"
-            }
-            """.utf8))
-        }
-        return (try httpResponse(for: request, statusCode: 200), Data("""
-        {
-          "success": true,
-          "push_supported": true,
-          "push_registered": true,
-          "push_environment": "sandbox"
-        }
-        """.utf8))
+        return (try httpResponse(for: request, statusCode: 404), Data())
     }
     let model = makePairedMusicDNAModel(defaults: defaults, host: "push-invalid-bootstrap.local", session: session)
 
     model.handleRemoteNotificationDeviceToken(Data([0xab, 0xcd, 0xef, 0x34]))
-    for _ in 0..<100 where defaults.bool(forKey: "DJConnectPushRegistered") == false {
+    for _ in 0..<100 where defaults.string(forKey: "DJConnectLastPushError") == nil {
         try await Task.sleep(for: .milliseconds(100))
     }
 
-    #expect(recorder.requests.map { $0.url?.path } == [
-        "/api/djconnect/v1/push/register",
-        "/api/djconnect/v1/push/bootstrap",
-        "/api/djconnect/v1/push/register",
-    ])
-    #expect(defaults.bool(forKey: "DJConnectPushRegistered") == true)
-    #expect(defaults.string(forKey: "DJConnectLastPushError") == nil)
+    #expect(recorder.requests.map { $0.url?.path } == ["/api/djconnect/v1/push/register"])
+    #expect(defaults.bool(forKey: "DJConnectPushRegistered") == false)
+    #expect(defaults.string(forKey: "DJConnectLastPushError") == "invalid_bootstrap_proof")
     #expect(model.pairingStatus == .paired)
 }
 
 @MainActor
-@Test func macOSPushInvalidBootstrapProofRetriesOneAdditionalFreshProof() async throws {
+@Test func macOSPushInvalidBootstrapProofAfterFreshProofStopsBestEffort() async throws {
     let defaults = try testDefaults()
     let recorder = RequestRecorder()
     let registerAttempts = RequestCounter()
@@ -3175,58 +3172,222 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
         recorder.append(request)
         if request.url?.path == "/api/djconnect/v1/push/register" {
             registerAttempts.increment()
-            if registerAttempts.count <= 2 {
+            if registerAttempts.count == 1 {
                 return (try httpResponse(for: request, statusCode: 200), Data("""
                 {
                   "success": false,
-                  "error": "invalid_bootstrap_proof",
+                  "error": "missing_bootstrap_proof",
                   "push_supported": true,
                   "push_registered": false,
                   "push_environment": "sandbox",
-                  "last_push_error": "invalid_bootstrap_proof"
+                  "last_push_error": "missing_bootstrap_proof"
                 }
                 """.utf8))
             }
             return (try httpResponse(for: request, statusCode: 200), Data("""
             {
-              "success": true,
+              "success": false,
+              "error": "invalid_bootstrap_proof",
               "push_supported": true,
-              "push_registered": true,
-              "push_environment": "sandbox"
+              "push_registered": false,
+              "push_environment": "sandbox",
+              "last_push_error": "invalid_bootstrap_proof"
             }
             """.utf8))
         }
-        if request.url?.path == "/api/djconnect/v1/push/bootstrap" {
+        if request.url?.path == "/v1/pairing/bootstrap-proof" {
             bootstrapAttempts.increment()
             return (try httpResponse(for: request, statusCode: 200), Data("""
             {
               "success": true,
-              "bootstrap_proof": "fresh-proof-\(bootstrapAttempts.count)",
-              "bootstrap_proof_expires_at": "2026-07-08T12:10:00Z",
-              "push_supported": true,
-              "push_registered": false,
-              "push_environment": "sandbox"
+              "bootstrap_proof": "djcboot_fresh_proof_\(bootstrapAttempts.count)",
+              "expires_at": "\(shortLivedBootstrapExpiry())"
             }
             """.utf8))
         }
         return (try httpResponse(for: request, statusCode: 404), Data())
     }
-    let model = makePairedMusicDNAModel(defaults: defaults, host: "push-invalid-bootstrap-second.local", session: session)
+    let model = makePairedMusicDNAModel(
+        defaults: defaults,
+        host: "push-invalid-bootstrap-second.local",
+        session: session,
+        trustedPairingIssuerBaseURL: URL(string: "http://push-invalid-bootstrap-second.local:8123")!
+    )
 
     model.handleRemoteNotificationDeviceToken(Data([0xab, 0xcd, 0xef, 0x67]))
-    for _ in 0..<100 where defaults.bool(forKey: "DJConnectPushRegistered") == false {
+    for _ in 0..<100 where recorder.requests.count < 3 {
+        try await Task.sleep(for: .milliseconds(100))
+    }
+    for _ in 0..<100 where defaults.string(forKey: "DJConnectLastPushError") != "invalid_bootstrap_proof" {
         try await Task.sleep(for: .milliseconds(100))
     }
 
     #expect(recorder.requests.map { $0.url?.path } == [
         "/api/djconnect/v1/push/register",
-        "/api/djconnect/v1/push/bootstrap",
-        "/api/djconnect/v1/push/register",
-        "/api/djconnect/v1/push/bootstrap",
+        "/v1/pairing/bootstrap-proof",
         "/api/djconnect/v1/push/register",
     ])
-    #expect(defaults.bool(forKey: "DJConnectPushRegistered") == true)
-    #expect(defaults.string(forKey: "DJConnectLastPushError") == nil)
+    #expect(defaults.bool(forKey: "DJConnectPushRegistered") == false)
+    #expect(defaults.string(forKey: "DJConnectLastPushError") == "invalid_bootstrap_proof")
+    #expect(model.pairingStatus == .paired)
+}
+
+@MainActor
+@Test func macOSPushBootstrapProofUnavailableStopsBestEffort() async throws {
+    let defaults = try testDefaults()
+    let recorder = RequestRecorder()
+    let session = mockSession(host: "push-bootstrap-unavailable.local") { request in
+        recorder.append(request)
+        if request.url?.path == "/api/djconnect/v1/push/register" {
+            return (try httpResponse(for: request, statusCode: 200), Data("""
+            {
+              "success": false,
+              "error": "missing_bootstrap_proof",
+              "push_supported": true,
+              "push_registered": false,
+              "push_environment": "sandbox",
+              "last_push_error": "missing_bootstrap_proof"
+            }
+            """.utf8))
+        }
+        if request.url?.path == "/v1/pairing/bootstrap-proof" {
+            return (try httpResponse(for: request, statusCode: 200), Data("""
+            {
+              "success": false,
+              "error": "bootstrap_proof_unavailable",
+              "message": "issuer unavailable"
+            }
+            """.utf8))
+        }
+        return (try httpResponse(for: request, statusCode: 404), Data())
+    }
+    let model = makePairedMusicDNAModel(
+        defaults: defaults,
+        host: "push-bootstrap-unavailable.local",
+        session: session,
+        trustedPairingIssuerBaseURL: URL(string: "http://push-bootstrap-unavailable.local:8123")!
+    )
+
+    model.handleRemoteNotificationDeviceToken(Data([0xab, 0xcd, 0xef, 0x68]))
+    for _ in 0..<100 where recorder.requests.count < 2 {
+        try await Task.sleep(for: .milliseconds(100))
+    }
+    for _ in 0..<100 where defaults.string(forKey: "DJConnectLastPushError") != "bootstrap_proof_unavailable" {
+        try await Task.sleep(for: .milliseconds(100))
+    }
+
+    #expect(recorder.requests.map { $0.url?.path } == [
+        "/api/djconnect/v1/push/register",
+        "/v1/pairing/bootstrap-proof",
+    ])
+    #expect(defaults.bool(forKey: "DJConnectPushRegistered") == false)
+    #expect(defaults.string(forKey: "DJConnectLastPushError") == "bootstrap_proof_unavailable")
+    #expect(model.pairingStatus == .paired)
+}
+
+@MainActor
+@Test func macOSPushIssuerRejectsInvalidProofPrefixClientSide() async throws {
+    let defaults = try testDefaults()
+    let recorder = RequestRecorder()
+    let session = mockSession(host: "push-invalid-issuer-proof.local") { request in
+        recorder.append(request)
+        if request.url?.path == "/api/djconnect/v1/push/register" {
+            return (try httpResponse(for: request, statusCode: 200), Data("""
+            {
+              "success": false,
+              "error": "missing_bootstrap_proof",
+              "push_supported": true,
+              "push_registered": false,
+              "push_environment": "sandbox",
+              "last_push_error": "missing_bootstrap_proof"
+            }
+            """.utf8))
+        }
+        if request.url?.path == "/v1/pairing/bootstrap-proof" {
+            return (try httpResponse(for: request, statusCode: 200), Data("""
+            {
+              "success": true,
+              "bootstrap_proof": "not-central-proof",
+              "expires_at": "\(shortLivedBootstrapExpiry())"
+            }
+            """.utf8))
+        }
+        return (try httpResponse(for: request, statusCode: 404), Data())
+    }
+    let model = makePairedMusicDNAModel(
+        defaults: defaults,
+        host: "push-invalid-issuer-proof.local",
+        session: session,
+        trustedPairingIssuerBaseURL: URL(string: "http://push-invalid-issuer-proof.local:8123")!
+    )
+
+    model.handleRemoteNotificationDeviceToken(Data([0xab, 0xcd, 0xef, 0x69]))
+    for _ in 0..<100 where recorder.requests.count < 2 {
+        try await Task.sleep(for: .milliseconds(100))
+    }
+    for _ in 0..<100 where defaults.string(forKey: "DJConnectLastPushError") != "trusted_issuer_invalid_bootstrap_proof" {
+        try await Task.sleep(for: .milliseconds(100))
+    }
+
+    #expect(recorder.requests.map { $0.url?.path } == [
+        "/api/djconnect/v1/push/register",
+        "/v1/pairing/bootstrap-proof",
+    ])
+    #expect(defaults.bool(forKey: "DJConnectPushRegistered") == false)
+    #expect(defaults.string(forKey: "DJConnectLastPushError") == "trusted_issuer_invalid_bootstrap_proof")
+}
+
+@MainActor
+@Test func macOSPushIssuerRejectsExpiredProofClientSide() async throws {
+    let defaults = try testDefaults()
+    let recorder = RequestRecorder()
+    let expired = ISO8601DateFormatter().string(from: Date().addingTimeInterval(-60))
+    let session = mockSession(host: "push-expired-issuer-proof.local") { request in
+        recorder.append(request)
+        if request.url?.path == "/api/djconnect/v1/push/register" {
+            return (try httpResponse(for: request, statusCode: 200), Data("""
+            {
+              "success": false,
+              "error": "missing_bootstrap_proof",
+              "push_supported": true,
+              "push_registered": false,
+              "push_environment": "sandbox",
+              "last_push_error": "missing_bootstrap_proof"
+            }
+            """.utf8))
+        }
+        if request.url?.path == "/v1/pairing/bootstrap-proof" {
+            return (try httpResponse(for: request, statusCode: 200), Data("""
+            {
+              "success": true,
+              "bootstrap_proof": "djcboot_expired_proof",
+              "expires_at": "\(expired)"
+            }
+            """.utf8))
+        }
+        return (try httpResponse(for: request, statusCode: 404), Data())
+    }
+    let model = makePairedMusicDNAModel(
+        defaults: defaults,
+        host: "push-expired-issuer-proof.local",
+        session: session,
+        trustedPairingIssuerBaseURL: URL(string: "http://push-expired-issuer-proof.local:8123")!
+    )
+
+    model.handleRemoteNotificationDeviceToken(Data([0xab, 0xcd, 0xef, 0x70]))
+    for _ in 0..<100 where recorder.requests.count < 2 {
+        try await Task.sleep(for: .milliseconds(100))
+    }
+    for _ in 0..<100 where defaults.string(forKey: "DJConnectLastPushError") != "trusted_issuer_expired_bootstrap_proof" {
+        try await Task.sleep(for: .milliseconds(100))
+    }
+
+    #expect(recorder.requests.map { $0.url?.path } == [
+        "/api/djconnect/v1/push/register",
+        "/v1/pairing/bootstrap-proof",
+    ])
+    #expect(defaults.bool(forKey: "DJConnectPushRegistered") == false)
+    #expect(defaults.string(forKey: "DJConnectLastPushError") == "trusted_issuer_expired_bootstrap_proof")
 }
 
 @MainActor
@@ -3252,15 +3413,12 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
             }
             """.utf8))
         }
-        if request.url?.path == "/api/djconnect/v1/push/bootstrap" {
+        if request.url?.path == "/v1/pairing/bootstrap-proof" {
             return (try httpResponse(for: request, statusCode: 200), Data("""
             {
               "success": true,
-              "bootstrap_proof": "coalesced-proof",
-              "bootstrap_proof_expires_at": "2026-07-08T12:10:00Z",
-              "push_supported": true,
-              "push_registered": false,
-              "push_environment": "sandbox"
+              "bootstrap_proof": "djcboot_coalesced_proof",
+              "expires_at": "\(shortLivedBootstrapExpiry())"
             }
             """.utf8))
         }
@@ -3273,7 +3431,12 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
         }
         """.utf8))
     }
-    let model = makePairedMusicDNAModel(defaults: defaults, host: "push-coalesce-bootstrap.local", session: session)
+    let model = makePairedMusicDNAModel(
+        defaults: defaults,
+        host: "push-coalesce-bootstrap.local",
+        session: session,
+        trustedPairingIssuerBaseURL: URL(string: "http://push-coalesce-bootstrap.local:8123")!
+    )
     let token = Data([0xab, 0xcd, 0xef, 0x78])
 
     model.handleRemoteNotificationDeviceToken(token)
@@ -3284,7 +3447,7 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
 
     #expect(recorder.requests.map { $0.url?.path } == [
         "/api/djconnect/v1/push/register",
-        "/api/djconnect/v1/push/bootstrap",
+        "/v1/pairing/bootstrap-proof",
         "/api/djconnect/v1/push/register",
     ])
     #expect(defaults.bool(forKey: "DJConnectPushRegistered") == true)
@@ -6696,9 +6859,7 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
         tokenStore: DJConnectInMemoryTokenStore()
     )
 
-    let request = try client.pairingRequest(
-        DJConnectPairingPayload(identity: identity, pairingToken: "123456", bootstrapProof: "123456")
-    )
+    let request = try client.pairingRequest(DJConnectPairingPayload(identity: identity, pairingToken: "123456"))
     let body = try #require(request.httpBody)
     let json = try JSONSerialization.jsonObject(with: body) as? [String: Any]
 
@@ -6716,7 +6877,7 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     #expect(json?["pair_code"] as? String == "123456")
     #expect(json?["pairing_code"] as? String == "123456")
     #expect(json?["pairing_token"] as? String == "123456")
-    #expect(json?["bootstrap_proof"] as? String == "123456")
+    #expect(json?["bootstrap_proof"] == nil)
     #expect(json?["firmware"] as? String == "3.1.7")
 }
 
@@ -7164,6 +7325,63 @@ private func makePairedMusicDNAModel(defaults: UserDefaults, host: String, sessi
     #expect(model.pairingMessage == "Pairing complete." || model.pairingMessage == "Koppeling voltooid.")
     #expect(recorder.paths.contains("/api/djconnect/v1/pair"))
     #expect(recorder.paths.contains("/api/djconnect/v1/status"))
+}
+
+@MainActor
+@Test func macOSPairingDoesNotHangWhenRuntimeStatusRemainsNotConfiguredAfterAcceptedPair() async throws {
+    let suiteName = "DJConnectTests-\(UUID().uuidString)"
+    let defaults = try #require(UserDefaults(suiteName: suiteName))
+    defaults.removePersistentDomain(forName: suiteName)
+    defaults.set(true, forKey: "DJConnectWelcomeSeen")
+    defaults.set("ABCDEF1234567890", forKey: "DJConnectInstallID")
+    let tokenStore = DJConnectInMemoryTokenStore()
+    let host = "pair-status-pending-macos.local"
+    let recorder = RequestPathRecorder()
+    let session = mockSession(host: host) { request in
+        recorder.append(request.url?.path ?? "")
+        if request.url?.path == "/api/djconnect/v1/status" {
+            #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer device-secret")
+            return (
+                try httpResponse(for: request, statusCode: 503),
+                Data(#"{"success":false,"error":"not_configured","message":"DJConnect is not configured."}"#.utf8)
+            )
+        }
+        #expect(request.url?.path == "/api/djconnect/v1/pair")
+        return (
+            try httpResponse(for: request, statusCode: 200),
+            Data(
+                """
+                {
+                  "success": true,
+                  "setup_pending": true,
+                  "client_type": "macos",
+                  "device_token": "device-secret",
+                  "ha_local_url": "http://\(host):8123"
+                }
+                """.utf8
+            )
+        )
+    }
+    let model = DJConnectAppModel(defaults: defaults, tokenStore: tokenStore, urlSession: session, startBackgroundTasks: true)
+    defer {
+        model.stopPairingWait()
+    }
+    model.homeAssistantURL = "http://\(host):8123"
+    model.pairingToken = "123456"
+
+    model.confirmPairingHomeAssistantURL()
+
+    for _ in 0..<260 where model.pairingStatus != .paired {
+        try await Task.sleep(for: .milliseconds(100))
+    }
+
+    #expect(model.pairingStatus == .paired)
+    #expect(model.isConnected)
+    #expect(!model.backendAvailable)
+    #expect(model.pairingMessage == "Pairing complete." || model.pairingMessage == "Koppeling voltooid.")
+    #expect(recorder.paths.first == "/api/djconnect/v1/pair")
+    #expect(recorder.paths.contains("/api/djconnect/v1/status"))
+    #expect(try tokenStore.loadToken() == "device-secret")
 }
 
 @MainActor
