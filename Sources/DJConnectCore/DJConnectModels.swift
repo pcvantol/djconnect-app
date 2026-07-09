@@ -4007,6 +4007,7 @@ public struct DJConnectMusicDiscoveryResponse: Codable, Equatable, Sendable {
     public var generatedAt: Date?
     public var ttlSeconds: Int?
     public var source: String?
+    public var musicDNAKey: String?
     public var cache: Cache?
     public var sections: [DJConnectMusicDiscoverySection]
     public var error: String?
@@ -4020,6 +4021,7 @@ public struct DJConnectMusicDiscoveryResponse: Codable, Equatable, Sendable {
         case generatedAt = "generated_at"
         case ttlSeconds = "ttl_seconds"
         case source
+        case musicDNAKey = "music_dna_key"
         case cache
         case sections
         case error
@@ -4034,6 +4036,7 @@ public struct DJConnectMusicDiscoveryResponse: Codable, Equatable, Sendable {
         generatedAt: Date? = nil,
         ttlSeconds: Int? = nil,
         source: String? = nil,
+        musicDNAKey: String? = nil,
         cache: Cache? = nil,
         sections: [DJConnectMusicDiscoverySection] = [],
         error: String? = nil,
@@ -4046,6 +4049,7 @@ public struct DJConnectMusicDiscoveryResponse: Codable, Equatable, Sendable {
         self.generatedAt = generatedAt
         self.ttlSeconds = ttlSeconds.map { max(0, $0) }
         self.source = source?.nilIfBlank
+        self.musicDNAKey = musicDNAKey?.nilIfBlank
         self.cache = cache
         self.sections = sections
         self.error = error?.nilIfBlank
@@ -4061,6 +4065,7 @@ public struct DJConnectMusicDiscoveryResponse: Codable, Equatable, Sendable {
         generatedAt = DJConnectAskDJHistoryResponse.decodeDate(container, key: .generatedAt)
         ttlSeconds = try container.decodeIfPresent(Int.self, forKey: .ttlSeconds).map { max(0, $0) }
         source = try container.decodeIfPresent(String.self, forKey: .source)?.nilIfBlank
+        musicDNAKey = try container.decodeIfPresent(String.self, forKey: .musicDNAKey)?.nilIfBlank
         cache = try container.decodeIfPresent(Cache.self, forKey: .cache)
         sections = container.decodeLossyArrayIfPresent(DJConnectMusicDiscoverySection.self, forKey: .sections) ?? []
         error = try container.decodeIfPresent(String.self, forKey: .error)?.nilIfBlank
@@ -4524,8 +4529,10 @@ public struct DJConnectMusicDNADiscoveryFeedback: Codable, Equatable, Sendable {
 
     enum CodingKeys: String, CodingKey {
         case acceptedRecommendations = "accepted_recommendations"
+        case acceptedItems = "accepted_items"
         case negativeSignals = "negative_signals"
         case hiddenArtists = "hidden_artists"
+        case blockedArtists = "blocked_artists"
         case counts
         case updatedAt = "updated_at"
     }
@@ -4547,12 +4554,25 @@ public struct DJConnectMusicDNADiscoveryFeedback: Codable, Equatable, Sendable {
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         self.init(
-            acceptedRecommendations: container.decodeLossyArrayIfPresent(DJConnectMusicDNAAcceptedRecommendationSignal.self, forKey: .acceptedRecommendations) ?? [],
+            acceptedRecommendations: container.decodeLossyArrayIfPresent(DJConnectMusicDNAAcceptedRecommendationSignal.self, forKey: .acceptedRecommendations)
+                ?? container.decodeLossyArrayIfPresent(DJConnectMusicDNAAcceptedRecommendationSignal.self, forKey: .acceptedItems)
+                ?? [],
             negativeSignals: container.decodeLossyArrayIfPresent(DJConnectMusicDNASignal.self, forKey: .negativeSignals) ?? [],
-            hiddenArtists: container.decodeLossyArrayIfPresent(DJConnectMusicDNANameValue.self, forKey: .hiddenArtists) ?? [],
+            hiddenArtists: container.decodeLossyArrayIfPresent(DJConnectMusicDNANameValue.self, forKey: .hiddenArtists)
+                ?? container.decodeLossyArrayIfPresent(DJConnectMusicDNANameValue.self, forKey: .blockedArtists)
+                ?? [],
             counts: try container.decodeIfPresent([String: Int].self, forKey: .counts) ?? [:],
             updatedAt: DJConnectAskDJHistoryResponse.decodeDate(container, key: .updatedAt)
         )
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(acceptedRecommendations, forKey: .acceptedRecommendations)
+        try container.encode(negativeSignals, forKey: .negativeSignals)
+        try container.encode(hiddenArtists, forKey: .hiddenArtists)
+        try container.encode(counts, forKey: .counts)
+        try container.encodeIfPresent(updatedAt, forKey: .updatedAt)
     }
 
     public var isDisplayable: Bool {
@@ -4622,8 +4642,9 @@ public struct DJConnectMusicDNAPrivacyDashboard: Codable, Equatable, Sendable {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         self.init(
             enabled: try container.decodeIfPresent(Bool.self, forKey: .enabled),
-            activeDataSources: try container.decodeIfPresent([String].self, forKey: .activeDataSources)
-                ?? container.decodeLossyArrayIfPresent(String.self, forKey: .dataSources)
+            activeDataSources: (try? container.decodeIfPresent([String].self, forKey: .activeDataSources))
+                ?? (try? container.decodeIfPresent([String].self, forKey: .dataSources))
+                ?? (container.decodeLossyArrayIfPresent(DJConnectMusicDNADataSource.self, forKey: .dataSources)?.map(\.displayName))
                 ?? [],
             controls: try container.decodeIfPresent([String: Bool].self, forKey: .controls) ?? [:],
             rawCounts: try container.decodeIfPresent([String: Int].self, forKey: .rawCounts) ?? [:],
@@ -4656,6 +4677,18 @@ public struct DJConnectMusicDNAPrivacyDashboard: Codable, Equatable, Sendable {
 
     public var isDisplayable: Bool {
         enabled != nil || !activeDataSources.isEmpty || !controls.isEmpty || !rawCounts.isEmpty || !retentionLimits.isEmpty || supportsClear != nil || supportsExport != nil || supportsImport != nil || storesRawAudio != nil || storesOAuthTokens != nil || storesFullPrompts != nil || !flags.isEmpty
+    }
+}
+
+private struct DJConnectMusicDNADataSource: Codable, Equatable, Sendable {
+    var id: String?
+    var label: String?
+    var enabled: Bool?
+
+    var displayName: String {
+        let name = label?.nilIfBlank ?? id?.nilIfBlank ?? "unknown"
+        guard let enabled else { return name }
+        return enabled ? name : "\(name) (disabled)"
     }
 }
 

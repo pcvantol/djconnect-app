@@ -1,0 +1,24 @@
+{
+  "success": true,
+  "enabled": true,
+  "music_dna_key": "user:ha-user-1",
+  "profile": {
+    "summary": "Music DNA staat aan, maar er is nog niet genoeg luistercontext.",
+    "privacy_dashboard": {
+      "enabled": true,
+      "data_sources": [
+        {
+          "id": "recent_tracks",
+          "label": "Recent tracks",
+          "enabled": false
+        }
+      ],
+      "controls": {
+        "clear_supported": true
+      },
+      "stores_raw_audio": false,
+      "stores_oauth_tokens": false,
+      "stores_full_prompts": false
+    }
+  }
+}

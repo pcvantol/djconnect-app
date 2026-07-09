@@ -1,0 +1,43 @@
+{
+  "success": true,
+  "enabled": true,
+  "revision": 1,
+  "generated_at": "2026-07-09T10:00:00+00:00",
+  "ttl_seconds": 86400,
+  "source": "music_dna",
+  "music_dna_key": "user:ha-user-1",
+  "cache": {
+    "hit": false
+  },
+  "sections": [
+    {
+      "id": "new_for_you",
+      "title": "Nieuw voor jou",
+      "items": [
+        {
+          "id": "disc-example",
+          "kind": "track",
+          "title": "Fresh Discovery",
+          "subtitle": "New Artist",
+          "uri": "spotify:track:fresh-discovery",
+          "image_url": "/api/djconnect/v1/image_proxy/example",
+          "reason": "Omdat je vaak naar The xx luistert en indie in je Music DNA zit.",
+          "reason_sources": [
+            "spotify_recommendations",
+            "djconnect_music_dna",
+            "music_dna_artists",
+            "music_dna_genres"
+          ],
+          "confidence": "medium",
+          "quality_score": 88,
+          "quality_band": "high",
+          "quality_factors": [
+            "spotify_recommendation",
+            "fresh_candidate",
+            "has_artwork"
+          ]
+        }
+      ]
+    }
+  ]
+}
