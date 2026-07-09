@@ -4,6 +4,21 @@ All notable changes to DJConnect App are documented here.
 
 ## Unreleased
 
+## 3.2.34 - 2026-07-09
+
+### Changed
+
+- Added VibeCast AirPlay streaming over local HTTP range requests so iOS and
+  macOS can cast the rendered track insight preview to TV receivers.
+- Updated local-network consent copy for the initial pairing flow to cover Home
+  Assistant discovery and later VibeCast AirPlay device playback in all
+  supported app languages.
+
+### Fixed
+
+- Included a silent audio track and TV-compatible playback settings in the
+  VibeCast preview export for AirPlay receivers.
+
 ## 3.2.33 - 2026-07-09
 
 ### Fixed
