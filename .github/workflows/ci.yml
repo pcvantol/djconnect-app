@@ -54,6 +54,9 @@ jobs:
             echo "Skipping Postman collection validation; no collection validator is present in this repository."
           fi
 
+      - name: WebSocket contract e2e
+        run: node Tools/websocket_e2e_contract.js
+
       - name: Validate Apple localizations
         run: python3 scripts/validate_localizations.py
 

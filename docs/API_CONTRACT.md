@@ -170,16 +170,47 @@ opt-in local latency optimization for DJConnect actions. HTTP remains the
 canonical transport, and remote/Nabu Casa sessions stay HTTP-only unless a
 client has explicitly proven HA WebSocket auth for that URL class.
 
-Clients must authenticate `/api/websocket` with a valid Home Assistant
-WebSocket auth token/mechanism first, then request `djconnect/capabilities`, and
-only send routes advertised by the server. The paired DJConnect `device_token`
-must not be used as HA WebSocket auth; it is required only inside DJConnect
+Production Apple clients do not store or embed a long-lived Home Assistant
+token. When the user has enabled the local WebSocket fast path, the app should
+re-evaluate it when the app starts, becomes active, resumes, or pairing changes:
+if the client is paired and the selected Home Assistant URL is the local URL,
+the app calls `POST /api/djconnect/v1/websocket/session` using the existing
+DJConnect bearer token. Home Assistant returns a short-lived HA WebSocket access
+token such as:
+
+```json
+{
+  "success": true,
+  "access_token": "<short-lived-ha-websocket-token>",
+  "expires_at": "2026-07-09T10:30:00Z",
+  "commands": ["djconnect/command", "djconnect/track_insight"]
+}
+```
+
+The Apple client keeps this token in memory only, refreshes it before expiry,
+and never logs it. The request body must not contain a HA access token. The
+paired DJConnect `device_token` authenticates only this DJConnect HTTP endpoint;
+it must not be used as HA WebSocket auth.
+
+Clients then authenticate `/api/websocket` with the short-lived HA WebSocket
+token, request `djconnect/capabilities`, and only send routes advertised by the
+server. The paired DJConnect `device_token` is required only inside DJConnect
 WebSocket payloads after HA auth succeeds. Current fast-path route names are
 `djconnect/command`, `djconnect/ask_dj/message`, `djconnect/ask_dj/history`,
-`djconnect/ask_dj/history/clear`, `djconnect/ask_dj/history/state`, and
-`djconnect/track_insight`. If capability detection is missing, stale, refused,
-or does not list the needed route, the client must make the normal HTTP request
+`djconnect/ask_dj/history/clear`, `djconnect/ask_dj/history/state`,
+`djconnect/music_dna/profile`, `djconnect/music_dna/settings`,
+`djconnect/music_dna/clear`, `djconnect/music_discovery/feed`,
+`djconnect/music_discovery/refresh`, `djconnect/music_discovery/play`,
+`djconnect/music_discovery/feedback`, `djconnect/track_insight`, and
+`djconnect/vibecast`. If capability detection is missing, stale, refused, or
+does not list the needed route, the client must make the normal HTTP request
 instead.
+
+Music DNA export and import are intentionally absent from the WebSocket route
+list. Even if profile/settings/clear routes are advertised, clients must use
+authenticated HTTP for `/api/djconnect/v1/music_dna/export` and
+`/api/djconnect/v1/music_dna/import` so backup files remain exact server-built
+envelopes rather than reconstructed client state.
 
 Any WebSocket auth failure, timeout, disconnect, protocol error, decoding error,
 or route failure falls back to exactly one HTTP request for the same user
@@ -1750,6 +1781,8 @@ Import accepts a previously exported `djconnect.music_dna.export` JSON file and
 shows a local preview before upload. The upload is only available while the
 Apple client is paired and connected. Backend import overwrites server Music DNA
 with the supplied profile data after Music DNA has been activated server-side.
+Import also remains authenticated HTTP-only; clients must not send backup JSON
+over the Home Assistant WebSocket fast path.
 If Home Assistant rejects the import, returns `401`/`403`, reports
 `not_configured`, or marks pairing stale, clients must show the import/export
 error in the sheet and use the same pairing recovery behavior as other

@@ -181,7 +181,9 @@ exact server-built JSON envelope through the native share/save panel; clients do
 not reconstruct exports from cached profile data and do not add tokens,
 bootstrap proofs, raw prompts, raw audio, diagnostics, or local cache fields.
 Import previews a selected JSON backup locally, then uploads it to Home
-Assistant only while paired and connected.
+Assistant only while paired and connected. Export and import deliberately stay
+HTTP-only even when Home Assistant advertises Music DNA WebSocket fast-path
+routes; the fast path is limited to live profile, settings, and clear requests.
 
 Ontdek / Discover is the iOS/macOS Music Discovery recommendation surface and is
 also available as a compact Apple Watch list/detail flow. It is not a
@@ -191,13 +193,15 @@ backend reason before tapping Play Now. The client loads
 `GET /api/djconnect/v1/music_discovery`, refreshes
 with `POST /api/djconnect/v1/music_discovery/refresh`, and plays accepted items via
 `POST /api/djconnect/v1/music_discovery/play` so Home Assistant can record the
-acceptance as a positive Music DNA signal. Clients must not generate
-recommendations or reasons locally, and must render backend `sections[]` in
-order without hardcoding section IDs. Current sections include `new_for_you` and
-`accepted_recommendations`; older IDs such as `because_you_like` and
-`recent_vibe` are not required. Displayed cards come only from backend
-`sections[].items[]` and use the item `id`, `kind`, `title`, `subtitle`,
-`image_url`, `reason`, `reason_sources`, `confidence`, and `uri`; raw recently
+acceptance as a positive Music DNA signal. Negative feedback is sent to
+`POST /api/djconnect/v1/music_discovery/feedback` when Home Assistant advertises
+the capability. Clients must not generate recommendations or reasons locally,
+and must render backend `sections[]` in order without hardcoding section IDs.
+Current sections include `new_for_you` and `accepted_recommendations`; older IDs
+such as `because_you_like` and `recent_vibe` are not required. Displayed cards
+come only from backend `sections[].items[]` and use the item `id`, `kind`,
+`title`, `subtitle`, `image_url`, `reason`, `reason_sources`, `confidence`,
+`quality_score`, `quality_band`, `quality_factors`, and `uri`; raw recently
 played, top-track, Music DNA, or cached UI items are never reconstructed into
 Discovery cards. If Music DNA is disabled, Ontdek shows the opt-in/locked state
 instead of an empty grid. Load failures stay in the app model and refresh
@@ -298,9 +302,10 @@ alerts/security updates, and branch protection enabled for `main`. Required
 status checks must be green before protected-branch changes are merged or
 pushed without an explicit maintainer bypass.
 
-Private GitHub Actions CI runs Swift tests plus unsigned iOS/macOS build
-checks. Release tags also publish unsigned macOS and iOS diagnostic artifacts
-to [pcvantol/djconnect-app-releases](https://github.com/pcvantol/djconnect-app-releases)
+Private GitHub Actions CI runs Swift tests, the autonomous WebSocket contract
+e2e, and unsigned iOS/macOS build checks. Release tags also publish unsigned
+macOS and iOS diagnostic artifacts to
+[pcvantol/djconnect-app-releases](https://github.com/pcvantol/djconnect-app-releases)
 when the private repo has a `PUBLIC_RELEASES_TOKEN` secret with write access to
 that public repository. The public unsigned releases are platform-specific:
 `macos/vX.Y.Z` contains the unsigned macOS artifact and macOS release notes,
@@ -331,6 +336,13 @@ The reusable core and UI modules also compile as a Swift Package:
 
 ```sh
 swift test
+```
+
+Autonomous WebSocket contract e2e, using an in-process Home Assistant contract
+server and no local HA dev dependency:
+
+```sh
+node Tools/websocket_e2e_contract.js
 ```
 
 ## Integration Contract
@@ -438,23 +450,23 @@ Command responses are transport success first and playback-state second.
 snapshot, not an error; playback fields such as progress, duration, volume,
 track metadata, context and artwork URLs may be `null`.
 
-When the app has a reachable local Home Assistant URL, an explicit feature flag,
-and a valid Home Assistant WebSocket auth token, it may use the native Home
-Assistant `/api/websocket` API as an optional fast path for supported DJConnect
-command, Ask DJ message/history, and Track Insight actions. HTTP remains the
-canonical transport and all remote/Nabu Casa sessions stay HTTP-only unless a
-future client explicitly proves HA WebSocket auth for that URL class. The paired
-DJConnect `device_token` never authenticates `/api/websocket`; it is included
-only inside DJConnect payloads after HA WebSocket auth succeeds. Any WebSocket
-auth, timeout, disconnect, protocol, malformed result, or capability failure
-falls back to the existing HTTP request once without clearing pairing or
-exposing tokens in logs. Clients must first request `djconnect/capabilities` on
-the authenticated Home Assistant WebSocket and only send advertised routes such
-as `djconnect/command`, `djconnect/ask_dj/message`,
-`djconnect/ask_dj/history`, `djconnect/ask_dj/history/clear`, and
-`djconnect/track_insight` and `djconnect/vibecast`. Diagnostics export only
-transport state, advertised route names, capability refresh time, and a redacted
-last error.
+When the app has a reachable local Home Assistant URL and the user enables the
+WebSocket fast path, it may use the native Home Assistant `/api/websocket` API as
+an optional fast path for supported DJConnect command, Ask DJ, Music Discovery,
+Track Insight, and VibeCast actions. Production Apple clients do not embed or
+store a long-lived Home Assistant token. On app start, resume, active transition,
+and pairing changes, the client re-evaluates the fast path by calling
+`POST /api/djconnect/v1/websocket/session` with the existing DJConnect bearer
+token, receives a short-lived HA WebSocket token, keeps it in memory only, and
+uses it to authenticate `/api/websocket`. The paired DJConnect `device_token`
+never authenticates `/api/websocket`; it is included only inside DJConnect
+payloads after HA WebSocket auth succeeds. Any WebSocket auth, timeout,
+disconnect, protocol, malformed result, or capability failure falls back to the
+existing HTTP request once without clearing pairing or exposing tokens in logs.
+Clients must first request `djconnect/capabilities` on the authenticated Home
+Assistant WebSocket and only send advertised `djconnect/*` routes. Diagnostics
+export only transport state, advertised route names, capability refresh time,
+and a redacted last error.
 
 VibeCast on iOS and macOS uses the same authenticated backend contract:
 `GET /api/djconnect/v1/vibecast`. The request sends the paired device identity

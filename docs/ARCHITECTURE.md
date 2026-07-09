@@ -61,9 +61,13 @@ Native macOS app target. It hosts the shared SwiftUI root view in a macOS app
 scene and exposes a native settings scene.
 
 Local Home Assistant transport can use a native `/api/websocket` fast path for
-latency-sensitive DJConnect command, Ask DJ message/history, and Track Insight
-actions when an explicit feature flag is enabled, the URL is local, HA WebSocket
-auth succeeds with a HA token/mechanism, and HA reports the matching
+latency-sensitive DJConnect command, Ask DJ, Music Discovery, Track Insight, and
+VibeCast actions when an explicit feature flag is enabled and the URL is local.
+The production Apple client does not persist a Home Assistant token. It
+re-evaluates the fast path on app start, resume, active transition, and pairing
+changes by calling `POST /api/djconnect/v1/websocket/session` with the existing
+DJConnect bearer token, caching the returned short-lived HA WebSocket token in
+memory only, authenticating `/api/websocket`, and then checking matching
 `djconnect/*` capabilities. The paired DJConnect `device_token` is not HA
 WebSocket auth; it is sent only inside DJConnect payloads after HA auth succeeds.
 This is deliberately optional: HTTP remains the canonical implementation,
@@ -103,6 +107,8 @@ The app does not synthesize Music DNA backup JSON from cached profile state and
 does not add OAuth credentials, DJConnect bearer tokens, raw prompts, raw audio,
 diagnostics, or local caches. Import is allowed only while paired and connected,
 with stale/auth failures routed through the regular pairing recovery path.
+Export/import never use the Home Assistant WebSocket fast path; only Music DNA
+profile, settings, and clear can use advertised fast-path routes.
 
 Ask DJ is also the only Apple-client DJ request surface. Now Playing focuses on
 playback status and controls; it must not carry a separate `DJ verzoek` card.

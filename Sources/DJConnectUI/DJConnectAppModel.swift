@@ -324,6 +324,12 @@ public enum DJConnectPermissionRequestAction: Equatable, Sendable {
     case openSystemSettings
 }
 
+public typealias DJConnectWebSocketFastPathFactory = @Sendable (
+    _ baseURL: URL,
+    _ localURL: URL?,
+    _ configuration: DJConnectTransportConfiguration
+) -> (any DJConnectWebSocketFastPathTransport)?
+
 public enum DJConnectPermissionExplanationKind: Equatable, Sendable {
     case notifications
     case microphone
@@ -632,11 +638,15 @@ public final class DJConnectAppModel: ObservableObject {
             if startBackgroundTasks, oldValue != .paired, pairingStatus == .paired {
                 schedulePairedRefresh(reason: "Pairing became online")
                 updateNowPlayingPollTimer()
+                refreshWebSocketFastPathStatus()
             } else if pairingStatus != .paired {
                 nowPlayingPollTask?.cancel()
                 nowPlayingPollTask = nil
                 refreshScheduler.cancelPairedRefresh()
                 stopWakeWordListening()
+                webSocketFastPathCache.removeAll()
+                webSocketSessionAuthProviders.removeAll()
+                fastPathDiagnostics = DJConnectFastPathDiagnostics()
             }
             updateWakeWordListeningForAvailability()
         }
@@ -681,8 +691,10 @@ public final class DJConnectAppModel: ObservableObject {
     @Published public private(set) var isRefreshingMusicDiscovery = false
     @Published public private(set) var musicDiscoveryErrorMessage: String?
     @Published public private(set) var playingMusicDiscoveryItemID: String?
+    @Published public private(set) var supportsMusicDiscoveryFeedback = false
     private var pendingMusicDNAEnabled: Bool?
     private var pendingMusicDNAEnabledAt: Date?
+    private var resolvedMusicDNAKey: String?
     #if DEBUG
     public private(set) var isMusicDNAPreviewMode = false
     #endif
@@ -837,6 +849,7 @@ public final class DJConnectAppModel: ObservableObject {
     private var pushRegistrationInFlightSignature: String?
     private var musicDiscoveryPushRefreshes: [String: Date] = [:]
     private var webSocketFastPathCache: [String: any DJConnectWebSocketFastPathTransport] = [:]
+    private var webSocketSessionAuthProviders: [String: DJConnectWebSocketSessionAuthProvider] = [:]
     @Published public private(set) var fastPathDiagnostics = DJConnectFastPathDiagnostics()
     @Published public var webSocketFastPathEnabled = false {
         didSet {
@@ -845,6 +858,7 @@ public final class DJConnectAppModel: ObservableObject {
             }
             defaults.set(webSocketFastPathEnabled, forKey: webSocketFastPathEnabledKey)
             webSocketFastPathCache.removeAll()
+            webSocketSessionAuthProviders.removeAll()
             fastPathDiagnostics = DJConnectFastPathDiagnostics()
             log(.info, "WebSocket fast path \(webSocketFastPathEnabled ? "enabled" : "disabled")")
             if webSocketFastPathEnabled {
@@ -874,6 +888,7 @@ public final class DJConnectAppModel: ObservableObject {
     private let urlSession: URLSession
     private let trustedPairingIssuerBaseURL: URL?
     private let homeAssistantWebSocketAuth: DJConnectHomeAssistantWebSocketAuth?
+    private let webSocketFastPathFactory: DJConnectWebSocketFastPathFactory
     private let startBackgroundTasks: Bool
     private let monkeyTestingMode: Bool
     private let diagnosticLogFileURL: URL?
@@ -1147,6 +1162,7 @@ public final class DJConnectAppModel: ObservableObject {
         urlSession: URLSession = .shared,
         trustedPairingIssuerBaseURL: URL? = nil,
         homeAssistantWebSocketAuth: DJConnectHomeAssistantWebSocketAuth? = nil,
+        webSocketFastPathFactory: @escaping DJConnectWebSocketFastPathFactory = DJConnectFastPathPolicy.makeFastPath,
         startBackgroundTasks: Bool = true,
         monkeyTestingMode: Bool = false,
         diagnosticLogDirectory: URL? = nil
@@ -1167,6 +1183,7 @@ public final class DJConnectAppModel: ObservableObject {
         self.urlSession = urlSession
         self.trustedPairingIssuerBaseURL = trustedPairingIssuerBaseURL ?? DJConnectAppModel.defaultTrustedPairingIssuerBaseURL()
         self.identity = Self.makeIdentity(defaults: defaults)
+        self.webSocketFastPathFactory = webSocketFastPathFactory
         self.logger = Logger(
             subsystem: Bundle.main.bundleIdentifier ?? "dev.djconnect",
             category: "DJConnectApp"
@@ -1670,6 +1687,7 @@ public final class DJConnectAppModel: ObservableObject {
         guard pairingStatus == .paired, !isDemoMode else {
             return
         }
+        refreshWebSocketFastPathStatus()
         log(.debug, "App became active; scheduling playback refresh")
         schedulePairedRefresh(
             reason: "Resume Now Playing refresh completed",
@@ -5172,7 +5190,7 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     private var askDJMusicDNAKey: String {
-        "djconnect_\(identity.clientType.rawValue)_\(identity.deviceID)"
+        resolvedMusicDNAKey ?? "djconnect_\(identity.clientType.rawValue)_\(identity.deviceID)"
     }
 
     private var demoAskDJResponse: String {
@@ -5447,11 +5465,13 @@ public final class DJConnectAppModel: ObservableObject {
             musicDiscoveryErrorMessage = nil
             isLoadingMusicDiscovery = false
             isRefreshingMusicDiscovery = false
+            supportsMusicDiscoveryFeedback = demoMusicDNAEnabled
             return
         }
         guard pairingStatus == .paired, isRuntimeCompatible else {
             musicDiscoveryResponse = nil
             musicDiscoveryErrorMessage = nil
+            supportsMusicDiscoveryFeedback = false
             return
         }
         if !force, let response = musicDiscoveryResponse, !isMusicDiscoveryExpired(response) {
@@ -5461,7 +5481,8 @@ public final class DJConnectAppModel: ObservableObject {
         musicDiscoveryErrorMessage = nil
         do {
             let response = try await withHomeAssistantClient { client in
-                try await client.musicDiscoveryFeed(musicDNAKey: askDJMusicDNAKey, language: language)
+                supportsMusicDiscoveryFeedback = await client.supportsMusicDiscoveryFeedback()
+                return try await client.musicDiscoveryFeed(musicDNAKey: askDJMusicDNAKey, language: language)
             }
             apply(musicDiscovery: response)
         } catch let error as DJConnectError {
@@ -5505,7 +5526,8 @@ public final class DJConnectAppModel: ObservableObject {
         defer { isRefreshingMusicDiscovery = false }
         do {
             let refreshResponse = try await withHomeAssistantClient { client in
-                try await client.refreshMusicDiscovery(musicDNAKey: askDJMusicDNAKey, language: language)
+                supportsMusicDiscoveryFeedback = await client.supportsMusicDiscoveryFeedback()
+                return try await client.refreshMusicDiscovery(musicDNAKey: askDJMusicDNAKey, language: language)
             }
             try Task.checkCancellation()
             apply(musicDiscovery: refreshResponse, preservesVisibleRecommendationsOnEmptyEnabledResponse: coalesce)
@@ -5514,7 +5536,8 @@ public final class DJConnectAppModel: ObservableObject {
             if shouldLoadMusicDiscoveryFeedAfterRefreshError(error) {
                 do {
                     let response = try await withHomeAssistantClient { client in
-                        try await client.musicDiscoveryFeed(musicDNAKey: askDJMusicDNAKey, language: language)
+                        supportsMusicDiscoveryFeedback = await client.supportsMusicDiscoveryFeedback()
+                        return try await client.musicDiscoveryFeed(musicDNAKey: askDJMusicDNAKey, language: language)
                     }
                     apply(musicDiscovery: response, preservesVisibleRecommendationsOnEmptyEnabledResponse: coalesce)
                     return true
@@ -5566,7 +5589,7 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     public func playMusicDiscoveryItem(_ item: DJConnectMusicDiscoveryItem, sectionID: String) async {
-        guard item.isDisplayable else { return }
+        guard item.isDisplayable, item.isPlayable else { return }
         if isDemoMode {
             playMusicDiscoveryStartHaptic()
             playingMusicDiscoveryItemID = item.id
@@ -5590,6 +5613,7 @@ public final class DJConnectAppModel: ObservableObject {
             _ = try await withHomeAssistantClient { client in
                 try await client.playMusicDiscoveryItem(payload)
             }
+            _ = await refreshMusicDiscovery()
         } catch let error as DJConnectError {
             handleMusicDiscoveryPlayError(error)
         } catch is CancellationError {
@@ -5598,6 +5622,54 @@ public final class DJConnectAppModel: ObservableObject {
             log(.warning, "Music Discovery play failed: \(error.localizedDescription)")
         }
         playingMusicDiscoveryItemID = nil
+    }
+
+    public func sendMusicDiscoveryFeedback(
+        _ feedback: DJConnectMusicDiscoveryFeedback,
+        item: DJConnectMusicDiscoveryItem,
+        sectionID: String
+    ) async {
+        guard item.isDisplayable, supportsMusicDiscoveryFeedback else { return }
+        if isDemoMode {
+            removeMusicDiscoveryItem(id: item.id, sectionID: sectionID)
+            return
+        }
+        guard pairingStatus == .paired, isRuntimeCompatible else {
+            return
+        }
+        removeMusicDiscoveryItem(id: item.id, sectionID: sectionID)
+        do {
+            let payload = DJConnectMusicDiscoveryFeedbackRequest(
+                discoveryItemID: item.id,
+                sectionID: sectionID,
+                feedback: feedback,
+                identity: identity,
+                musicDNAKey: askDJMusicDNAKey
+            )
+            _ = try await withHomeAssistantClient { client in
+                try await client.sendMusicDiscoveryFeedback(payload)
+            }
+            _ = await refreshMusicDiscovery()
+        } catch let error as DJConnectError {
+            handleMusicDiscoveryError(error)
+            await loadMusicDiscovery(force: true)
+        } catch is CancellationError {
+        } catch {
+            musicDiscoveryErrorMessage = localized(key: "ui.discovery.could.not.be.loaded")
+            log(.warning, "Music Discovery feedback failed: \(error.localizedDescription)")
+            await loadMusicDiscovery(force: true)
+        }
+    }
+
+    private func removeMusicDiscoveryItem(id: String, sectionID: String) {
+        guard var response = musicDiscoveryResponse else { return }
+        response.sections = response.sections.map { section in
+            guard section.id == sectionID else { return section }
+            var updated = section
+            updated.items.removeAll { $0.id == id }
+            return updated
+        }
+        musicDiscoveryResponse = response
     }
 
     private func handleMusicDiscoveryPlayError(_ error: DJConnectError) {
@@ -5685,6 +5757,10 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     private func apply(musicDNAProfile response: DJConnectMusicDNAProfileResponse) {
+        if let musicDNAKey = response.musicDNAKey?.trimmingCharacters(in: .whitespacesAndNewlines),
+           !musicDNAKey.isEmpty {
+            resolvedMusicDNAKey = musicDNAKey
+        }
         if let pendingEnabled = pendingMusicDNAEnabled {
             let age = pendingMusicDNAEnabledAt.map { Date().timeIntervalSince($0) } ?? 0
             if response.enabled == pendingEnabled || age > 60 {
@@ -5996,6 +6072,7 @@ public final class DJConnectAppModel: ObservableObject {
         musicDNAErrorMessage = nil
         isLoadingMusicDNA = false
         isUpdatingMusicDNA = false
+        resolvedMusicDNAKey = nil
     }
 
     #if DEBUG
@@ -9309,7 +9386,6 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     private func webSocketFastPathIfLocal(_ baseURL: URL) -> (any DJConnectWebSocketFastPathTransport)? {
-        let configuration = transportConfiguration()
         let localURL = Self.normalizedHomeAssistantURL(from: localHomeAssistantURL())
             ?? Self.normalizedHomeAssistantURL(from: homeAssistantURL)
             ?? Self.normalizedHomeAssistantURL(from: haLocalURL)
@@ -9320,23 +9396,38 @@ public final class DJConnectAppModel: ObservableObject {
         if let cached = webSocketFastPathCache[key] {
             return cached
         }
-        guard let fastPath = DJConnectFastPathPolicy.makeFastPath(
-            baseURL: baseURL,
-            localURL: localURL,
-            configuration: configuration
-        ) else {
+        let configuration = transportConfiguration(webSocketBaseURL: baseURL)
+        guard let fastPath = webSocketFastPathFactory(baseURL, localURL, configuration) else {
             return nil
         }
         webSocketFastPathCache[key] = fastPath
         return fastPath
     }
 
-    private func transportConfiguration(allowsRemoteHTTPFallback: Bool = true) -> DJConnectTransportConfiguration {
+    private func transportConfiguration(
+        allowsRemoteHTTPFallback: Bool = true,
+        webSocketBaseURL: URL? = nil
+    ) -> DJConnectTransportConfiguration {
         DJConnectTransportConfiguration(
             webSocketFastPathEnabled: webSocketFastPathEnabled,
-            homeAssistantWebSocketAuth: homeAssistantWebSocketAuth,
+            homeAssistantWebSocketAuth: homeAssistantWebSocketAuth ?? webSocketBaseURL.map(webSocketSessionAuthProvider(for:))?.auth,
             allowsRemoteHTTPFallback: allowsRemoteHTTPFallback
         )
+    }
+
+    private func webSocketSessionAuthProvider(for baseURL: URL) -> DJConnectWebSocketSessionAuthProvider {
+        let key = DJConnectFastPathPolicy.cacheKey(for: baseURL)
+        if let provider = webSocketSessionAuthProviders[key] {
+            return provider
+        }
+        let provider = DJConnectWebSocketSessionAuthProvider(
+            baseURL: baseURL,
+            identity: identity,
+            tokenStore: tokenStore,
+            session: urlSession
+        )
+        webSocketSessionAuthProviders[key] = provider
+        return provider
     }
 
     private func updateFastPathDiagnostics(from client: DJConnectClient) async {

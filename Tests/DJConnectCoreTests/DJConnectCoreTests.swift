@@ -188,9 +188,16 @@ private actor MockWebSocketFastPathTransport: DJConnectWebSocketFastPathTranspor
     var askDJCalls = 0
     var askDJHistoryCalls = 0
     var clearAskDJHistoryCalls = 0
+    var musicDNAProfileCalls = 0
+    var musicDNASettingsCalls = 0
+    var musicDNAClearCalls = 0
+    var musicDiscoveryFeedCalls = 0
     var musicDiscoveryRefreshCalls = 0
+    var musicDiscoveryPlayCalls = 0
+    var musicDiscoveryFeedbackCalls = 0
     var trackInsightCalls = 0
     var vibeCastCalls = 0
+    var prepareCalls = 0
     var receivedTokens: [String] = []
     var receivedCommandPayload: DJConnectCommandPayload?
     var receivedCommandIdentity: DJConnectAPIIdentity?
@@ -200,9 +207,16 @@ private actor MockWebSocketFastPathTransport: DJConnectWebSocketFastPathTranspor
     var receivedHistoryIdentity: DJConnectAPIIdentity?
     var receivedClearMusicDNAKey: String?
     var receivedClearIdentity: DJConnectAPIIdentity?
+    var receivedMusicDNAEnabled: Bool?
+    var receivedMusicDNAMood: Int?
+    var receivedMusicDNAKey: String?
+    var receivedMusicDNALanguage: String?
+    var receivedMusicDNAIdentity: DJConnectAPIIdentity?
     var receivedMusicDiscoveryMusicDNAKey: String?
     var receivedMusicDiscoveryLanguage: String?
     var receivedMusicDiscoveryIdentity: DJConnectAPIIdentity?
+    var receivedMusicDiscoveryPlayPayload: DJConnectMusicDiscoveryPlayRequest?
+    var receivedMusicDiscoveryFeedbackPayload: DJConnectMusicDiscoveryFeedbackRequest?
     var receivedTrackPayload: DJConnectTrackInsightRequest?
     var receivedTrackIdentity: DJConnectAPIIdentity?
     var receivedVibeCastPayload: DJConnectVibeCastRequest?
@@ -245,7 +259,9 @@ private actor MockWebSocketFastPathTransport: DJConnectWebSocketFastPathTranspor
         supportedRoutes.contains(route)
     }
 
-    func prepare() async throws {}
+    func prepare() async throws {
+        prepareCalls += 1
+    }
 
     func command<T>(_ payload: DJConnectCommandPayload, identity: DJConnectAPIIdentity, responseType: T.Type) async throws -> T where T: Decodable, T: Sendable {
         commandCalls += 1
@@ -304,6 +320,58 @@ private actor MockWebSocketFastPathTransport: DJConnectWebSocketFastPathTranspor
         return clearAskDJHistoryResponse
     }
 
+    func musicDNAProfile(identity: DJConnectAPIIdentity, mood: Int?, musicDNAKey: String?, language: String?) async throws -> DJConnectMusicDNAProfileResponse {
+        musicDNAProfileCalls += 1
+        receivedTokens.append(identity.deviceToken ?? "")
+        receivedMusicDNAIdentity = identity
+        receivedMusicDNAMood = mood
+        receivedMusicDNAKey = musicDNAKey
+        receivedMusicDNALanguage = language
+        guard supportedRoutes.contains(.musicDNAProfile) else {
+            throw DJConnectError.routeMissing(message: "music dna profile unsupported")
+        }
+        return Self.musicDNAResponse(enabled: true)
+    }
+
+    func setMusicDNAEnabled(_ enabled: Bool, identity: DJConnectAPIIdentity, mood: Int?, musicDNAKey: String?, language: String?) async throws -> DJConnectMusicDNAProfileResponse {
+        musicDNASettingsCalls += 1
+        receivedTokens.append(identity.deviceToken ?? "")
+        receivedMusicDNAIdentity = identity
+        receivedMusicDNAEnabled = enabled
+        receivedMusicDNAMood = mood
+        receivedMusicDNAKey = musicDNAKey
+        receivedMusicDNALanguage = language
+        guard supportedRoutes.contains(.musicDNASettings) else {
+            throw DJConnectError.routeMissing(message: "music dna settings unsupported")
+        }
+        return Self.musicDNAResponse(enabled: enabled)
+    }
+
+    func clearMusicDNA(identity: DJConnectAPIIdentity, mood: Int?, musicDNAKey: String?, language: String?) async throws -> DJConnectMusicDNAProfileResponse {
+        musicDNAClearCalls += 1
+        receivedTokens.append(identity.deviceToken ?? "")
+        receivedMusicDNAIdentity = identity
+        receivedMusicDNAMood = mood
+        receivedMusicDNAKey = musicDNAKey
+        receivedMusicDNALanguage = language
+        guard supportedRoutes.contains(.musicDNAClear) else {
+            throw DJConnectError.routeMissing(message: "music dna clear unsupported")
+        }
+        return Self.musicDNAResponse(enabled: true)
+    }
+
+    func musicDiscoveryFeed(identity: DJConnectAPIIdentity, musicDNAKey: String?, language: String?) async throws -> DJConnectMusicDiscoveryResponse {
+        musicDiscoveryFeedCalls += 1
+        receivedTokens.append(identity.deviceToken ?? "")
+        receivedMusicDiscoveryIdentity = identity
+        receivedMusicDiscoveryMusicDNAKey = musicDNAKey
+        receivedMusicDiscoveryLanguage = language
+        guard supportedRoutes.contains(.musicDiscoveryFeed) else {
+            throw DJConnectError.routeMissing(message: "missing websocket music discovery feed capability")
+        }
+        return Self.musicDiscoveryResponse()
+    }
+
     func refreshMusicDiscovery(identity: DJConnectAPIIdentity, musicDNAKey: String?, language: String?) async throws -> DJConnectMusicDiscoveryResponse {
         musicDiscoveryRefreshCalls += 1
         receivedTokens.append(identity.deviceToken ?? "")
@@ -313,7 +381,33 @@ private actor MockWebSocketFastPathTransport: DJConnectWebSocketFastPathTranspor
         guard supportedRoutes.contains(.musicDiscoveryRefresh) else {
             throw DJConnectError.routeMissing(message: "missing websocket music discovery refresh capability")
         }
-        return DJConnectMusicDiscoveryResponse(
+        return Self.musicDiscoveryResponse()
+    }
+
+    func playMusicDiscoveryItem(_ payload: DJConnectMusicDiscoveryPlayRequest, identity: DJConnectAPIIdentity) async throws -> DJConnectCommandResponse {
+        musicDiscoveryPlayCalls += 1
+        receivedTokens.append(identity.deviceToken ?? "")
+        receivedMusicDiscoveryIdentity = identity
+        receivedMusicDiscoveryPlayPayload = payload
+        guard supportedRoutes.contains(.musicDiscoveryPlay) else {
+            throw DJConnectError.routeMissing(message: "missing websocket music discovery play capability")
+        }
+        return DJConnectCommandResponse(success: true)
+    }
+
+    func sendMusicDiscoveryFeedback(_ payload: DJConnectMusicDiscoveryFeedbackRequest, identity: DJConnectAPIIdentity) async throws -> DJConnectCommandResponse {
+        musicDiscoveryFeedbackCalls += 1
+        receivedTokens.append(identity.deviceToken ?? "")
+        receivedMusicDiscoveryIdentity = identity
+        receivedMusicDiscoveryFeedbackPayload = payload
+        guard supportedRoutes.contains(.musicDiscoveryFeedback) else {
+            throw DJConnectError.routeMissing(message: "missing websocket music discovery feedback capability")
+        }
+        return DJConnectCommandResponse(success: true)
+    }
+
+    private static func musicDiscoveryResponse() -> DJConnectMusicDiscoveryResponse {
+        DJConnectMusicDiscoveryResponse(
             success: true,
             enabled: true,
             revision: 22,
@@ -333,6 +427,16 @@ private actor MockWebSocketFastPathTransport: DJConnectWebSocketFastPathTranspor
                     ]
                 )
             ]
+        )
+    }
+
+    private static func musicDNAResponse(enabled: Bool) -> DJConnectMusicDNAProfileResponse {
+        DJConnectMusicDNAProfileResponse(
+            success: true,
+            musicDNAKey: "fast-music-dna-key",
+            enabled: enabled,
+            generation: 44,
+            profile: DJConnectMusicDNAProfile(summary: "Fast Music DNA profile", trackCount: 12)
         )
     }
 
@@ -422,8 +526,32 @@ private struct FailingTrackInsightFastPathTransport: DJConnectWebSocketFastPathT
         throw DJConnectError.routeMissing(message: "ask dj clear unsupported")
     }
 
+    func musicDNAProfile(identity: DJConnectAPIIdentity, mood: Int?, musicDNAKey: String?, language: String?) async throws -> DJConnectMusicDNAProfileResponse {
+        throw DJConnectError.routeMissing(message: "music dna profile unsupported")
+    }
+
+    func setMusicDNAEnabled(_ enabled: Bool, identity: DJConnectAPIIdentity, mood: Int?, musicDNAKey: String?, language: String?) async throws -> DJConnectMusicDNAProfileResponse {
+        throw DJConnectError.routeMissing(message: "music dna settings unsupported")
+    }
+
+    func clearMusicDNA(identity: DJConnectAPIIdentity, mood: Int?, musicDNAKey: String?, language: String?) async throws -> DJConnectMusicDNAProfileResponse {
+        throw DJConnectError.routeMissing(message: "music dna clear unsupported")
+    }
+
+    func musicDiscoveryFeed(identity: DJConnectAPIIdentity, musicDNAKey: String?, language: String?) async throws -> DJConnectMusicDiscoveryResponse {
+        throw DJConnectError.routeMissing(message: "music discovery unsupported")
+    }
+
     func refreshMusicDiscovery(identity: DJConnectAPIIdentity, musicDNAKey: String?, language: String?) async throws -> DJConnectMusicDiscoveryResponse {
         throw DJConnectError.routeMissing(message: "music discovery unsupported")
+    }
+
+    func playMusicDiscoveryItem(_ payload: DJConnectMusicDiscoveryPlayRequest, identity: DJConnectAPIIdentity) async throws -> DJConnectCommandResponse {
+        throw DJConnectError.routeMissing(message: "music discovery play unsupported")
+    }
+
+    func sendMusicDiscoveryFeedback(_ payload: DJConnectMusicDiscoveryFeedbackRequest, identity: DJConnectAPIIdentity) async throws -> DJConnectCommandResponse {
+        throw DJConnectError.routeMissing(message: "music discovery feedback unsupported")
     }
 
     func trackInsight(_ payload: DJConnectTrackInsightRequest, identity: DJConnectAPIIdentity) async throws -> TrackInsight {
@@ -1494,6 +1622,13 @@ private func makePairedMusicDNAModel(
         identity: identity,
         musicDNAKey: "user:abc123"
     ))
+    let feedback = try client.musicDiscoveryFeedbackRequest(DJConnectMusicDiscoveryFeedbackRequest(
+        discoveryItemID: "disc-track-1",
+        sectionID: "new_for_you",
+        feedback: .lessLikeThis,
+        identity: identity,
+        musicDNAKey: "user:abc123"
+    ))
 
     #expect(feed.httpMethod == "GET")
     #expect(feed.url?.path == "/api/djconnect/v1/music_discovery")
@@ -1503,14 +1638,294 @@ private func makePairedMusicDNAModel(
     #expect(refresh.url?.path == "/api/djconnect/v1/music_discovery/refresh")
     #expect(play.httpMethod == "POST")
     #expect(play.url?.path == "/api/djconnect/v1/music_discovery/play")
+    #expect(feedback.httpMethod == "POST")
+    #expect(feedback.url?.path == "/api/djconnect/v1/music_discovery/feedback")
 
     let playBody = try #require(play.httpBody)
     let playJSON = try #require(JSONSerialization.jsonObject(with: playBody) as? [String: Any])
     #expect(playJSON["discovery_item_id"] as? String == "disc-track-1")
     #expect(playJSON["section_id"] as? String == "new_for_you")
     #expect(playJSON["device_id"] as? String == "djconnect-ios-8F3A2C91B45D")
+    #expect(playJSON["client_id"] as? String == "djconnect-ios-8F3A2C91B45D")
     #expect(playJSON["client_type"] as? String == "ios")
     #expect(playJSON["music_dna_key"] as? String == "user:abc123")
+
+    let feedbackBody = try #require(feedback.httpBody)
+    let feedbackJSON = try #require(JSONSerialization.jsonObject(with: feedbackBody) as? [String: Any])
+    #expect(feedbackJSON["discovery_item_id"] as? String == "disc-track-1")
+    #expect(feedbackJSON["section_id"] as? String == "new_for_you")
+    #expect(feedbackJSON["feedback"] as? String == "less_like_this")
+    #expect(feedbackJSON["device_id"] as? String == "djconnect-ios-8F3A2C91B45D")
+    #expect(feedbackJSON["client_id"] as? String == "djconnect-ios-8F3A2C91B45D")
+    #expect(feedbackJSON["client_type"] as? String == "ios")
+    #expect(feedbackJSON["music_dna_key"] as? String == "user:abc123")
+}
+
+@Test func webSocketSessionRequestUsesAuthenticatedDJConnectEndpointWithoutHAToken() throws {
+    let client = DJConnectClient(
+        baseURL: try #require(URL(string: "http://homeassistant.local:8123")),
+        identity: testIOSIdentity(),
+        tokenStore: DJConnectInMemoryTokenStore(token: "secret-token")
+    )
+
+    let request = try client.webSocketSessionRequest()
+    let maybeBodyData = try requestBodyData(request)
+    let bodyData = try #require(maybeBodyData)
+    let body = try #require(JSONSerialization.jsonObject(with: bodyData) as? [String: Any])
+    let requestedCommands = try #require(body["requested_commands"] as? [String])
+
+    #expect(request.httpMethod == "POST")
+    #expect(request.url?.path == "/api/djconnect/v1/websocket/session")
+    #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer secret-token")
+    #expect(body["device_id"] as? String == "djconnect-ios-8F3A2C91B45D")
+    #expect(body["client_type"] as? String == "ios")
+    #expect(body["access_token"] == nil)
+    #expect(body["home_assistant_token"] == nil)
+    #expect(requestedCommands.contains("djconnect/command"))
+    #expect(requestedCommands.contains("djconnect/track_insight"))
+}
+
+@Test func webSocketSessionAuthProviderCachesShortLivedTokenUntilExpiryWindow() async throws {
+    let recorder = RequestRecorder()
+    let session = mockSession(host: "homeassistant.local") { request in
+        recorder.append(request)
+        let response = try httpResponse(for: request, statusCode: 200)
+        let body = """
+        {
+          "success": true,
+          "access_token": "ha_ws_short_lived",
+          "expires_at": "\(ISO8601DateFormatter().string(from: Date().addingTimeInterval(10 * 60)))",
+          "commands": ["djconnect/command"]
+        }
+        """.data(using: .utf8)!
+        return (response, body)
+    }
+    let provider = DJConnectWebSocketSessionAuthProvider(
+        baseURL: try #require(URL(string: "http://homeassistant.local:8123")),
+        identity: testIOSIdentity(),
+        tokenStore: DJConnectInMemoryTokenStore(token: "secret-token"),
+        session: session
+    )
+
+    let first = try await provider.accessToken()
+    let second = try await provider.accessToken()
+
+    #expect(first == "ha_ws_short_lived")
+    #expect(second == "ha_ws_short_lived")
+    #expect(recorder.requests.count == 1)
+    #expect(recorder.requests.first?.url?.path == "/api/djconnect/v1/websocket/session")
+    #expect(recorder.requests.first?.value(forHTTPHeaderField: "Authorization") == "Bearer secret-token")
+}
+
+@Test func webSocketSessionAuthProviderRefreshesWhenTokenExpiresInsideSafetyWindow() async throws {
+    let recorder = RequestRecorder()
+    let session = mockSession(host: "expiring-homeassistant.local") { request in
+        recorder.append(request)
+        let call = recorder.requests.count
+        let response = try httpResponse(for: request, statusCode: 200)
+        let body = """
+        {
+          "success": true,
+          "access_token": "ha_ws_expiring_\(call)",
+          "expires_at": "\(ISO8601DateFormatter().string(from: Date().addingTimeInterval(30)))",
+          "commands": ["djconnect/command"]
+        }
+        """.data(using: .utf8)!
+        return (response, body)
+    }
+    let provider = DJConnectWebSocketSessionAuthProvider(
+        baseURL: try #require(URL(string: "http://expiring-homeassistant.local:8123")),
+        identity: testIOSIdentity(),
+        tokenStore: DJConnectInMemoryTokenStore(token: "secret-token"),
+        session: session
+    )
+
+    let first = try await provider.accessToken()
+    let second = try await provider.accessToken()
+
+    #expect(first == "ha_ws_expiring_1")
+    #expect(second == "ha_ws_expiring_2")
+    #expect(recorder.requests.count == 2)
+}
+
+@Test func webSocketSessionAuthProviderRefreshesExpiredToken() async throws {
+    let recorder = RequestRecorder()
+    let session = mockSession(host: "expired-homeassistant.local") { request in
+        recorder.append(request)
+        let call = recorder.requests.count
+        let response = try httpResponse(for: request, statusCode: 200)
+        let body = """
+        {
+          "success": true,
+          "access_token": "ha_ws_expired_\(call)",
+          "expires_at": "\(ISO8601DateFormatter().string(from: Date().addingTimeInterval(-60)))",
+          "commands": ["djconnect/command"]
+        }
+        """.data(using: .utf8)!
+        return (response, body)
+    }
+    let provider = DJConnectWebSocketSessionAuthProvider(
+        baseURL: try #require(URL(string: "http://expired-homeassistant.local:8123")),
+        identity: testIOSIdentity(),
+        tokenStore: DJConnectInMemoryTokenStore(token: "secret-token"),
+        session: session
+    )
+
+    let first = try await provider.accessToken()
+    let second = try await provider.accessToken()
+
+    #expect(first == "ha_ws_expired_1")
+    #expect(second == "ha_ws_expired_2")
+    #expect(recorder.requests.count == 2)
+}
+
+@Test func webSocketSessionAuthProviderCachesTokenWithoutExpiry() async throws {
+    let recorder = RequestRecorder()
+    let session = mockSession(host: "no-expiry-homeassistant.local") { request in
+        recorder.append(request)
+        let call = recorder.requests.count
+        let response = try httpResponse(for: request, statusCode: 200)
+        let body = """
+        {
+          "success": true,
+          "access_token": "ha_ws_no_expiry_\(call)",
+          "commands": ["djconnect/command"]
+        }
+        """.data(using: .utf8)!
+        return (response, body)
+    }
+    let provider = DJConnectWebSocketSessionAuthProvider(
+        baseURL: try #require(URL(string: "http://no-expiry-homeassistant.local:8123")),
+        identity: testIOSIdentity(),
+        tokenStore: DJConnectInMemoryTokenStore(token: "secret-token"),
+        session: session
+    )
+
+    let first = try await provider.accessToken()
+    let second = try await provider.accessToken()
+
+    #expect(first == "ha_ws_no_expiry_1")
+    #expect(second == "ha_ws_no_expiry_1")
+    #expect(recorder.requests.count == 1)
+}
+
+@Test func webSocketSessionAuthProviderInvalidateForcesRefreshBeforeExpiry() async throws {
+    let recorder = RequestRecorder()
+    let session = mockSession(host: "invalidate-homeassistant.local") { request in
+        recorder.append(request)
+        let call = recorder.requests.count
+        let response = try httpResponse(for: request, statusCode: 200)
+        let body = """
+        {
+          "success": true,
+          "access_token": "ha_ws_invalidated_\(call)",
+          "expires_at": "\(ISO8601DateFormatter().string(from: Date().addingTimeInterval(10 * 60)))",
+          "commands": ["djconnect/command"]
+        }
+        """.data(using: .utf8)!
+        return (response, body)
+    }
+    let provider = DJConnectWebSocketSessionAuthProvider(
+        baseURL: try #require(URL(string: "http://invalidate-homeassistant.local:8123")),
+        identity: testIOSIdentity(),
+        tokenStore: DJConnectInMemoryTokenStore(token: "secret-token"),
+        session: session
+    )
+
+    let first = try await provider.accessToken()
+    await provider.invalidate()
+    let second = try await provider.accessToken()
+
+    #expect(first == "ha_ws_invalidated_1")
+    #expect(second == "ha_ws_invalidated_2")
+    #expect(recorder.requests.count == 2)
+}
+
+@MainActor
+@Test func appModelActiveLifecycleRefreshesWebSocketFastPathWhenPairedAndEnabled() async throws {
+    let suiteName = "DJConnectTests-\(UUID().uuidString)"
+    let defaults = try #require(UserDefaults(suiteName: suiteName))
+    defaults.removePersistentDomain(forName: suiteName)
+    let fastPath = MockWebSocketFastPathTransport(supportedRoutes: [.command])
+    let model = DJConnectAppModel(
+        defaults: defaults,
+        tokenStore: DJConnectInMemoryTokenStore(token: "secret-token"),
+        homeAssistantWebSocketAuth: DJConnectHomeAssistantWebSocketAuth { "ha-ws-token" },
+        webSocketFastPathFactory: { _, _, _ in fastPath },
+        startBackgroundTasks: false
+    )
+    model.homeAssistantURL = "http://homeassistant.local:8123"
+    model.pairingStatus = .paired
+    model.webSocketFastPathEnabled = true
+    try await Task.sleep(for: .milliseconds(100))
+    let baseline = await fastPath.prepareCalls
+
+    model.markActiveSession()
+    try await Task.sleep(for: .milliseconds(100))
+
+    #expect(await fastPath.prepareCalls >= baseline + 1)
+    #expect(model.fastPathDiagnostics.fastPathTransport == "websocket")
+    #expect(model.pairingStatus == .paired)
+}
+
+@MainActor
+@Test func appModelPairingBecamePairedRefreshesWebSocketFastPathWhenEnabled() async throws {
+    let suiteName = "DJConnectTests-\(UUID().uuidString)"
+    let defaults = try #require(UserDefaults(suiteName: suiteName))
+    defaults.removePersistentDomain(forName: suiteName)
+    let fastPath = MockWebSocketFastPathTransport(supportedRoutes: [.command, .trackInsight])
+    let session = mockSession(host: "homeassistant.local") { request in
+        let response = try httpResponse(for: request, statusCode: 200)
+        let body = #"{"success":true,"playback":{"has_playback":false}}"#.data(using: .utf8)!
+        return (response, body)
+    }
+    let model = DJConnectAppModel(
+        defaults: defaults,
+        tokenStore: DJConnectInMemoryTokenStore(token: "secret-token"),
+        urlSession: session,
+        homeAssistantWebSocketAuth: DJConnectHomeAssistantWebSocketAuth { "ha-ws-token" },
+        webSocketFastPathFactory: { _, _, _ in fastPath },
+        startBackgroundTasks: true
+    )
+    model.homeAssistantURL = "http://homeassistant.local:8123"
+    model.webSocketFastPathEnabled = true
+
+    model.pairingStatus = .paired
+    try await Task.sleep(for: .milliseconds(100))
+
+    #expect(await fastPath.prepareCalls >= 1)
+    #expect(model.pairingStatus == .paired)
+}
+
+@MainActor
+@Test func appModelInactiveAndUnpairedLifecycleDoesNotRefreshWebSocketFastPath() async throws {
+    let suiteName = "DJConnectTests-\(UUID().uuidString)"
+    let defaults = try #require(UserDefaults(suiteName: suiteName))
+    defaults.removePersistentDomain(forName: suiteName)
+    let fastPath = MockWebSocketFastPathTransport(supportedRoutes: [.command])
+    let model = DJConnectAppModel(
+        defaults: defaults,
+        tokenStore: DJConnectInMemoryTokenStore(token: "secret-token"),
+        homeAssistantWebSocketAuth: DJConnectHomeAssistantWebSocketAuth { "ha-ws-token" },
+        webSocketFastPathFactory: { _, _, _ in fastPath },
+        startBackgroundTasks: false
+    )
+    model.homeAssistantURL = "http://homeassistant.local:8123"
+    model.pairingStatus = .paired
+    model.webSocketFastPathEnabled = true
+    try await Task.sleep(for: .milliseconds(100))
+    let baseline = await fastPath.prepareCalls
+
+    model.markInactiveSession()
+    try await Task.sleep(for: .milliseconds(100))
+    #expect(await fastPath.prepareCalls == baseline)
+
+    model.pairingStatus = .unpaired
+    model.markActiveSession()
+    try await Task.sleep(for: .milliseconds(100))
+
+    #expect(await fastPath.prepareCalls == baseline)
+    #expect(model.fastPathDiagnostics == DJConnectFastPathDiagnostics())
 }
 
 @Test func authenticatedRequestsRejectClientTypeDeviceIDPrefixMismatch() throws {
@@ -1812,7 +2227,21 @@ private func makePairedMusicDNAModel(
     #expect(eligibleEmptyConditionalBlocks.profile.isEmpty == true)
 }
 
-@Test func musicDiscoveryResponseParsesDisabledFeedAndFiltersInvalidItems() throws {
+@Test func musicDNADiscoveryFeedbackDecodesCompactAcceptedRecommendations() throws {
+    let feedback = try JSONDecoder().decode(
+        DJConnectMusicDNADiscoveryFeedback.self,
+        from: Data(#"{"accepted_recommendations":[{"title":"Accepted Discovery","subtitle":"Warm"}],"negative_signals":[{"kind":"less_like_this","title":"Too bright","count":2}],"hidden_artists":[{"name":"Hidden Artist"}],"counts":{"not_for_me":2}}"#.utf8)
+    )
+
+    #expect(feedback.acceptedRecommendations.first?.kind == "accepted_recommendation")
+    #expect(feedback.acceptedRecommendations.first?.title == "Accepted Discovery")
+    #expect(feedback.acceptedRecommendations.first?.subtitle == "Warm")
+    #expect(feedback.negativeSignals.first?.kind == "less_like_this")
+    #expect(feedback.hiddenArtists.first?.name == "Hidden Artist")
+    #expect(feedback.counts["not_for_me"] == 2)
+}
+
+@Test func musicDiscoveryResponseParsesDisabledFeedAndPreservesBackendItems() throws {
     let disabled = try JSONDecoder().decode(
         DJConnectMusicDiscoveryResponse.self,
         from: Data(#"{"success":true,"enabled":false,"reason":"music_dna_disabled","sections":[]}"#.utf8)
@@ -1842,7 +2271,10 @@ private func makePairedMusicDNAModel(
                   "image_url": "/api/djconnect/image_proxy/intro",
                   "reason": "Past bij je smaakankers.",
                   "reason_sources": ["taste_anchors", "favorite_genres"],
-                  "confidence": "medium"
+                  "confidence": "medium",
+                  "quality_score": 0.82,
+                  "quality_band": "strong_fit",
+                  "quality_factors": ["taste_anchor"]
                 },
                 {
                   "id": "missing-reason",
@@ -1924,11 +2356,16 @@ private func makePairedMusicDNAModel(
     #expect(item.imageURL == "/api/djconnect/image_proxy/intro")
     #expect(item.reasonSources == ["taste_anchors", "favorite_genres"])
     #expect(item.confidence == .medium)
+    #expect(item.qualityScore == 0.82)
+    #expect(item.qualityBand == "strong_fit")
+    #expect(item.qualityFactors == ["taste_anchor"])
     #expect(feed.sections.first?.items.count == 6)
-    #expect(feed.sections.first?.visibleItems.count == 4)
-    #expect(feed.sections.first?.visibleItems[1].imageURL == "/api/djconnect/image_proxy/album-alias")
-    #expect(feed.sections.first?.visibleItems[2].imageURL == "/api/djconnect/image_proxy/playlist-alias")
-    #expect(feed.sections.first?.visibleItems[3].kind.rawValue == "show")
+    #expect(feed.sections.first?.visibleItems.count == 6)
+    #expect(feed.sections.first?.visibleItems[1].reason == "")
+    #expect(feed.sections.first?.visibleItems[2].isPlayable == false)
+    #expect(feed.sections.first?.visibleItems[3].imageURL == "/api/djconnect/image_proxy/album-alias")
+    #expect(feed.sections.first?.visibleItems[4].imageURL == "/api/djconnect/image_proxy/playlist-alias")
+    #expect(feed.sections.first?.visibleItems[5].kind.rawValue == "show")
 }
 
 @MainActor
@@ -2013,6 +2450,40 @@ private func makePairedMusicDNAModel(
             "mood_profile": {"average": 57, "average_zone": "groove", "sample_count": 3},
             "taste_direction": "Warm electronic",
             "based_on": ["soft vocals", {"title": "Intro", "artist": "The xx", "genres": ["indie"]}],
+            "top_tracks_by_range": {
+              "short_term": [{"title": "Short", "artist": "Term"}]
+            },
+            "top_artists_by_range": {
+              "medium_term": [{"name": "Medium Artist", "count": 8}]
+            },
+            "snapshot_history": [
+              {
+                "captured_at": "2026-07-04T04:00:00Z",
+                "source": "spotify_top_profile",
+                "summary": "Warm snapshot",
+                "track_count": 20,
+                "top_genres": ["ambient"]
+              }
+            ],
+            "discovery_feedback": {
+              "accepted_recommendations": [{"title": "Accepted Discovery", "subtitle": "Warm"}],
+              "negative_signals": [{"kind": "less_like_this", "title": "Too bright", "count": 2}],
+              "hidden_artists": [{"name": "Hidden Artist"}],
+              "counts": {"not_for_me": 2}
+            },
+            "privacy_dashboard": {
+              "enabled": true,
+              "data_sources": ["ask_dj_context", "spotify_top_profile"],
+              "controls": {"clear": true, "export": true, "import": true},
+              "raw_counts": {"recent_tracks": 12},
+              "retention_limits": {"snapshot_history": 10, "raw_audio": "none"},
+              "supports_clear": true,
+              "supports_export": true,
+              "supports_import": true,
+              "stores_raw_audio": false,
+              "stores_oauth_tokens": false,
+              "stores_full_prompts": false
+            },
             "updated_at": "2026-07-04T05:01:00Z"
           }
         }
@@ -2022,6 +2493,7 @@ private func makePairedMusicDNAModel(
 
     await model.refreshMusicDNAProfile()
 
+    #expect(model.musicDNAErrorMessage == nil)
     #expect(model.musicDNAProfileResponse?.enabled == true)
     #expect(model.musicDNAProfileResponse?.profile.isEmpty == false)
     #expect(model.musicDNAProfileResponse?.profile.summary == "Warm late-night electronic taste.")
@@ -2052,6 +2524,22 @@ private func makePairedMusicDNAModel(
     #expect(model.musicDNAProfileResponse?.profile.mood?.averageZone == "groove")
     #expect(model.musicDNAProfileResponse?.profile.tasteDirection == "Warm electronic")
     #expect(model.musicDNAProfileResponse?.profile.basedOn?.map { $0.title ?? $0.name ?? "" } == ["soft vocals", "Intro"])
+    #expect(model.musicDNAProfileResponse?.profile.topTracksByRange["short_term"]?.first?.title == "Short")
+    #expect(model.musicDNAProfileResponse?.profile.topArtistsByRange["medium_term"]?.first?.name == "Medium Artist")
+    #expect(model.musicDNAProfileResponse?.profile.snapshotHistory.first?.source == "spotify_top_profile")
+    #expect(model.musicDNAProfileResponse?.profile.snapshotHistory.first?.topGenres.first?.name == "ambient")
+    #expect(model.musicDNAProfileResponse?.profile.discoveryFeedback?.acceptedRecommendations.first?.title == "Accepted Discovery")
+    #expect(model.musicDNAProfileResponse?.profile.discoveryFeedback?.negativeSignals.first?.kind == "less_like_this")
+    #expect(model.musicDNAProfileResponse?.profile.discoveryFeedback?.hiddenArtists.first?.name == "Hidden Artist")
+    #expect(model.musicDNAProfileResponse?.profile.discoveryFeedback?.counts["not_for_me"] == 2)
+    #expect(model.musicDNAProfileResponse?.profile.privacyDashboard?.enabled == true)
+    #expect(model.musicDNAProfileResponse?.profile.privacyDashboard?.activeDataSources == ["ask_dj_context", "spotify_top_profile"])
+    #expect(model.musicDNAProfileResponse?.profile.privacyDashboard?.controls["clear"] == true)
+    #expect(model.musicDNAProfileResponse?.profile.privacyDashboard?.controls["export"] == true)
+    #expect(model.musicDNAProfileResponse?.profile.privacyDashboard?.controls["import"] == true)
+    #expect(model.musicDNAProfileResponse?.profile.privacyDashboard?.rawCounts["recent_tracks"] == 12)
+    #expect(model.musicDNAProfileResponse?.profile.privacyDashboard?.retentionLimits["snapshot_history"]?.description == "10")
+    #expect(model.musicDNAProfileResponse?.profile.privacyDashboard?.storesRawAudio == false)
     #expect(model.musicDNAProfileResponse?.profile.updatedAt != nil)
     #expect(recorder.requests.map { $0.url?.path } == ["/api/djconnect/v1/music_dna/profile"])
 }
@@ -2177,7 +2665,8 @@ private func makePairedMusicDNAModel(
 
     #expect(recorder.requests.map { $0.url?.path } == [
         "/api/djconnect/v1/music_discovery/refresh",
-        "/api/djconnect/v1/music_discovery/play"
+        "/api/djconnect/v1/music_discovery/play",
+        "/api/djconnect/v1/music_discovery/refresh"
     ])
 }
 
@@ -4309,6 +4798,139 @@ private func makePairedMusicDNAModel(
     #expect(await fastPath.receivedMusicDiscoveryLanguage == "nl")
 }
 
+@Test func musicDNAProfileUsesWebSocketFastPathWhenAdvertised() async throws {
+    let fastPath = MockWebSocketFastPathTransport(supportedRoutes: [.musicDNAProfile])
+    let client = DJConnectClient(
+        baseURL: URL(string: "http://homeassistant.local:8123")!,
+        identity: testIOSIdentity(deviceID: "djconnect-ios-musicdna-fast"),
+        tokenStore: DJConnectInMemoryTokenStore(token: "fast-token"),
+        session: mockSession(host: "homeassistant.local") { _ in
+            Issue.record("HTTP should not be used when WebSocket Music DNA profile succeeds")
+            return (HTTPURLResponse(), Data())
+        },
+        webSocketFastPath: fastPath
+    )
+
+    let response = try await client.musicDNAProfile(mood: 72, musicDNAKey: "music-dna-key", language: "nl")
+
+    #expect(response.profile.summary == "Fast Music DNA profile")
+    #expect(await fastPath.musicDNAProfileCalls == 1)
+    #expect(await fastPath.receivedTokens == ["fast-token"])
+    #expect(await fastPath.receivedMusicDNAIdentity?.deviceID == "djconnect-ios-musicdna-fast")
+    #expect(await fastPath.receivedMusicDNAMood == 72)
+    #expect(await fastPath.receivedMusicDNAKey == "music-dna-key")
+    #expect(await fastPath.receivedMusicDNALanguage == "nl")
+}
+
+@Test func musicDNASettingsUsesWebSocketFastPathWhenAdvertised() async throws {
+    let fastPath = MockWebSocketFastPathTransport(supportedRoutes: [.musicDNASettings])
+    let client = DJConnectClient(
+        baseURL: URL(string: "http://homeassistant.local:8123")!,
+        identity: testIOSIdentity(deviceID: "djconnect-ios-musicdna-settings-fast"),
+        tokenStore: DJConnectInMemoryTokenStore(token: "fast-token"),
+        session: mockSession(host: "homeassistant.local") { _ in
+            Issue.record("HTTP should not be used when WebSocket Music DNA settings succeeds")
+            return (HTTPURLResponse(), Data())
+        },
+        webSocketFastPath: fastPath
+    )
+
+    let response = try await client.setMusicDNAEnabled(true, mood: 66, musicDNAKey: "music-dna-key", language: "en")
+
+    #expect(response.enabled)
+    #expect(await fastPath.musicDNASettingsCalls == 1)
+    #expect(await fastPath.receivedMusicDNAEnabled == true)
+    #expect(await fastPath.receivedMusicDNAMood == 66)
+    #expect(await fastPath.receivedMusicDNAKey == "music-dna-key")
+    #expect(await fastPath.receivedMusicDNALanguage == "en")
+}
+
+@Test func musicDNAClearUsesWebSocketFastPathWhenAdvertised() async throws {
+    let fastPath = MockWebSocketFastPathTransport(supportedRoutes: [.musicDNAClear])
+    let client = DJConnectClient(
+        baseURL: URL(string: "http://homeassistant.local:8123")!,
+        identity: testIOSIdentity(deviceID: "djconnect-ios-musicdna-clear-fast"),
+        tokenStore: DJConnectInMemoryTokenStore(token: "fast-token"),
+        session: mockSession(host: "homeassistant.local") { _ in
+            Issue.record("HTTP should not be used when WebSocket Music DNA clear succeeds")
+            return (HTTPURLResponse(), Data())
+        },
+        webSocketFastPath: fastPath
+    )
+
+    let response = try await client.clearMusicDNA(mood: 12, musicDNAKey: "music-dna-key", language: "de")
+
+    #expect(response.success)
+    #expect(await fastPath.musicDNAClearCalls == 1)
+    #expect(await fastPath.receivedMusicDNAMood == 12)
+    #expect(await fastPath.receivedMusicDNAKey == "music-dna-key")
+    #expect(await fastPath.receivedMusicDNALanguage == "de")
+}
+
+@Test func musicDNAExportAndImportStayHTTPWhenWebSocketMusicDNARoutesAreAdvertised() async throws {
+    let fastPath = MockWebSocketFastPathTransport(supportedRoutes: [.musicDNAProfile, .musicDNASettings, .musicDNAClear])
+    let host = "musicdna-http-only.local"
+    let recorder = RequestRecorder()
+    let client = DJConnectClient(
+        baseURL: URL(string: "http://\(host):8123")!,
+        identity: testIOSIdentity(deviceID: "djconnect-ios-musicdna-http-only"),
+        tokenStore: DJConnectInMemoryTokenStore(token: "fast-token"),
+        session: mockSession(host: host) { request in
+            recorder.append(request)
+            switch request.url?.path {
+            case "/api/djconnect/v1/music_dna/export":
+                return (try httpResponse(for: request, statusCode: 200), Data("""
+                {
+                  "success": true,
+                  "format": "djconnect.music_dna.export",
+                  "schema_version": 1,
+                  "exported_at": "2026-07-04T20:21:00.123Z",
+                  "exported_by_client_type": "ios",
+                  "app_version": "3.2.3",
+                  "profile": {
+                    "success": true,
+                    "music_dna_key": "music-dna-key",
+                    "enabled": true,
+                    "profile": {"summary": "Exact server export"}
+                  }
+                }
+                """.utf8))
+            case "/api/djconnect/v1/music_dna/import":
+                return (try httpResponse(for: request, statusCode: 200), Data("""
+                {
+                  "success": true,
+                  "music_dna_key": "music-dna-key",
+                  "enabled": true,
+                  "profile": {"summary": "Imported by server"}
+                }
+                """.utf8))
+            default:
+                Issue.record("Unexpected HTTP path \(request.url?.path ?? "<nil>")")
+                return (try httpResponse(for: request, statusCode: 404), Data())
+            }
+        },
+        webSocketFastPath: fastPath
+    )
+    let profile = DJConnectMusicDNAProfileResponse(
+        musicDNAKey: "music-dna-key",
+        enabled: true,
+        profile: DJConnectMusicDNAProfile(summary: "Imported backup")
+    )
+
+    let exported = try await client.exportMusicDNA(musicDNAKey: "music-dna-key", language: "nl")
+    let imported = try await client.importMusicDNA(profile, musicDNAKey: "music-dna-key", language: "nl")
+
+    #expect(exported.profile.profile.summary == "Exact server export")
+    #expect(imported.profile.summary == "Imported by server")
+    #expect(recorder.requests.map { $0.url?.path } == [
+        "/api/djconnect/v1/music_dna/export",
+        "/api/djconnect/v1/music_dna/import"
+    ])
+    #expect(await fastPath.musicDNAProfileCalls == 0)
+    #expect(await fastPath.musicDNASettingsCalls == 0)
+    #expect(await fastPath.musicDNAClearCalls == 0)
+}
+
 @Test func vibeCastRequestCanOmitEmojiSafeCapabilityWithoutCrashing() throws {
     let client = DJConnectClient(
         baseURL: URL(string: "http://homeassistant.local:8123")!,
@@ -4702,6 +5324,200 @@ private func makePairedMusicDNAModel(
     #expect(diagnostics.fastPathTransport == "websocket")
     #expect(diagnostics.websocketConnected)
     #expect(diagnostics.websocketCommands == ["djconnect/ask_dj/message", "djconnect/track_insight"])
+}
+
+@Test func webSocketRouteMissingFallsBackToHTTPExactlyOncePerRouteMatrix() async throws {
+    struct RouteFallbackCase {
+        var name: String
+        var expectedPath: String
+        var operation: (DJConnectClient) async throws -> Void
+        var webSocketCallCount: (MockWebSocketFastPathTransport) async -> Int
+    }
+
+    final class Counter: @unchecked Sendable {
+        private let lock = NSLock()
+        private var value = 0
+
+        func increment() {
+            lock.withLock { value += 1 }
+        }
+
+        var count: Int {
+            lock.withLock { value }
+        }
+    }
+
+    func responseBody(for path: String) -> Data {
+        switch path {
+        case "/api/djconnect/v1/command":
+            Data(#"{"success":true,"playback":{"has_playback":true,"track_name":"HTTP Command"}}"#.utf8)
+        case "/api/djconnect/v1/ask_dj/message":
+            Data(#"{"history_revision":9,"clear_revision":1,"assistant_message":{"role":"assistant","text":"HTTP Ask DJ"}}"#.utf8)
+        case "/api/djconnect/v1/ask_dj/history":
+            Data(#"{"messages":[],"history_revision":44,"clear_revision":1}"#.utf8)
+        case "/api/djconnect/v1/ask_dj/history/clear":
+            Data(#"{"messages":[],"history_revision":0,"clear_revision":7}"#.utf8)
+        case "/api/djconnect/v1/music_dna/profile",
+             "/api/djconnect/v1/music_dna/settings",
+             "/api/djconnect/v1/music_dna/clear":
+            Data(#"{"success":true,"music_dna_key":"http-music-dna","enabled":true,"generation":3,"profile":{"summary":"HTTP Music DNA","track_count":2}}"#.utf8)
+        case "/api/djconnect/v1/music_discovery",
+             "/api/djconnect/v1/music_discovery/refresh":
+            Data(#"{"success":true,"enabled":true,"revision":4,"sections":[{"id":"new_for_you","title":"New for you","items":[{"id":"http-discovery","kind":"track","title":"HTTP Discovery","subtitle":"Artist","reason":"Reason","reason_sources":["music_dna"],"confidence":"high","uri":"spotify:track:http"}]}]}"#.utf8)
+        case "/api/djconnect/v1/music_discovery/play",
+             "/api/djconnect/v1/music_discovery/feedback":
+            Data(#"{"success":true}"#.utf8)
+        case "/api/djconnect/v1/track_insight":
+            Data(#"{"success":true,"track_insight":{"title":"HTTP Insight","artist":"HTTP Artist","analysis":{"summary":"Fallback insight","full_text":"Fallback insight"}}}"#.utf8)
+        case "/api/djconnect/v1/vibecast":
+            Data(#"{"enabled":true,"revision":8,"context":{"track_id":"http-track"},"items":[{"id":"http-fact","kind":"trivia","text":[{"type":"text","value":"HTTP fact"}]}]}"#.utf8)
+        default:
+            Data(#"{"success":false,"error":"unexpected_path"}"#.utf8)
+        }
+    }
+
+    let identity = testIOSIdentity(deviceID: "djconnect-ios-fallback-matrix")
+    let cases: [RouteFallbackCase] = [
+        RouteFallbackCase(
+            name: "command",
+            expectedPath: "/api/djconnect/v1/command",
+            operation: { client in
+                _ = try await client.sendCommandResponse(DJConnectCommandPayload(identity: identity, command: "pause"))
+            },
+            webSocketCallCount: { await $0.commandCalls }
+        ),
+        RouteFallbackCase(
+            name: "ask_dj/message",
+            expectedPath: "/api/djconnect/v1/ask_dj/message",
+            operation: { client in
+                _ = try await client.sendAskDJMessage(DJConnectAskDJRequest(identity: identity, text: "Tell me"))
+            },
+            webSocketCallCount: { await $0.askDJCalls }
+        ),
+        RouteFallbackCase(
+            name: "ask_dj/history",
+            expectedPath: "/api/djconnect/v1/ask_dj/history",
+            operation: { client in
+                _ = try await client.askDJHistory(sinceRevision: 12)
+            },
+            webSocketCallCount: { await $0.askDJHistoryCalls }
+        ),
+        RouteFallbackCase(
+            name: "ask_dj/history/clear",
+            expectedPath: "/api/djconnect/v1/ask_dj/history/clear",
+            operation: { client in
+                _ = try await client.clearAskDJHistory(musicDNAKey: "music-dna")
+            },
+            webSocketCallCount: { await $0.clearAskDJHistoryCalls }
+        ),
+        RouteFallbackCase(
+            name: "music_dna/profile",
+            expectedPath: "/api/djconnect/v1/music_dna/profile",
+            operation: { client in
+                _ = try await client.musicDNAProfile(mood: 70, musicDNAKey: "music-dna", language: "nl")
+            },
+            webSocketCallCount: { await $0.musicDNAProfileCalls }
+        ),
+        RouteFallbackCase(
+            name: "music_dna/settings",
+            expectedPath: "/api/djconnect/v1/music_dna/settings",
+            operation: { client in
+                _ = try await client.setMusicDNAEnabled(true, mood: 70, musicDNAKey: "music-dna", language: "nl")
+            },
+            webSocketCallCount: { await $0.musicDNASettingsCalls }
+        ),
+        RouteFallbackCase(
+            name: "music_dna/clear",
+            expectedPath: "/api/djconnect/v1/music_dna/clear",
+            operation: { client in
+                _ = try await client.clearMusicDNA(mood: 70, musicDNAKey: "music-dna", language: "nl")
+            },
+            webSocketCallCount: { await $0.musicDNAClearCalls }
+        ),
+        RouteFallbackCase(
+            name: "music_discovery/feed",
+            expectedPath: "/api/djconnect/v1/music_discovery",
+            operation: { client in
+                _ = try await client.musicDiscoveryFeed(musicDNAKey: "music-dna", language: "nl")
+            },
+            webSocketCallCount: { await $0.musicDiscoveryFeedCalls }
+        ),
+        RouteFallbackCase(
+            name: "music_discovery/refresh",
+            expectedPath: "/api/djconnect/v1/music_discovery/refresh",
+            operation: { client in
+                _ = try await client.refreshMusicDiscovery(musicDNAKey: "music-dna", language: "nl")
+            },
+            webSocketCallCount: { await $0.musicDiscoveryRefreshCalls }
+        ),
+        RouteFallbackCase(
+            name: "music_discovery/play",
+            expectedPath: "/api/djconnect/v1/music_discovery/play",
+            operation: { client in
+                _ = try await client.playMusicDiscoveryItem(DJConnectMusicDiscoveryPlayRequest(
+                    discoveryItemID: "http-discovery",
+                    sectionID: "new_for_you",
+                    identity: identity,
+                    musicDNAKey: "music-dna"
+                ))
+            },
+            webSocketCallCount: { await $0.musicDiscoveryPlayCalls }
+        ),
+        RouteFallbackCase(
+            name: "music_discovery/feedback",
+            expectedPath: "/api/djconnect/v1/music_discovery/feedback",
+            operation: { client in
+                _ = try await client.sendMusicDiscoveryFeedback(DJConnectMusicDiscoveryFeedbackRequest(
+                    discoveryItemID: "http-discovery",
+                    sectionID: "new_for_you",
+                    feedback: .lessLikeThis,
+                    identity: identity,
+                    musicDNAKey: "music-dna"
+                ))
+            },
+            webSocketCallCount: { await $0.musicDiscoveryFeedbackCalls }
+        ),
+        RouteFallbackCase(
+            name: "track_insight",
+            expectedPath: "/api/djconnect/v1/track_insight",
+            operation: { client in
+                _ = try await client.trackInsight(DJConnectTrackInsightRequest(title: "Track", artist: "Artist"))
+            },
+            webSocketCallCount: { await $0.trackInsightCalls }
+        ),
+        RouteFallbackCase(
+            name: "vibecast",
+            expectedPath: "/api/djconnect/v1/vibecast",
+            operation: { client in
+                _ = try await client.vibeCast(DJConnectVibeCastRequest(locale: "nl-NL"))
+            },
+            webSocketCallCount: { await $0.vibeCastCalls }
+        )
+    ]
+
+    for routeCase in cases {
+        let host = "\(routeCase.name.replacingOccurrences(of: "/", with: "-"))-fallback-matrix.local"
+        let counter = Counter()
+        let recorder = RequestRecorder()
+        let fastPath = MockWebSocketFastPathTransport(supportedRoutes: [])
+        let client = DJConnectClient(
+            baseURL: URL(string: "http://\(host):8123")!,
+            identity: identity,
+            tokenStore: DJConnectInMemoryTokenStore(token: "device-token"),
+            session: mockSession(host: host) { request in
+                counter.increment()
+                recorder.append(request)
+                return (try httpResponse(for: request, statusCode: 200), responseBody(for: request.url?.path ?? ""))
+            },
+            webSocketFastPath: fastPath
+        )
+
+        try await routeCase.operation(client)
+
+        #expect(await routeCase.webSocketCallCount(fastPath) == 1, "\(routeCase.name) should try WebSocket once")
+        #expect(counter.count == 1, "\(routeCase.name) should fall back to exactly one HTTP request")
+        #expect(recorder.requests.first?.url?.path == routeCase.expectedPath, "\(routeCase.name) should fall back to \(routeCase.expectedPath)")
+    }
 }
 
 @Test func webSocketFailureFallsBackToHTTPExactlyOnce() async throws {
@@ -5625,6 +6441,78 @@ private func makePairedMusicDNAModel(
     #expect(image.kind == "album_art")
 }
 
+@Test func askDJRecentlyPlayedHistoryRendersItemsWithoutPlaybackActions() throws {
+    let json = """
+    {
+      "history_revision": 48,
+      "clear_revision": 3,
+      "intent": {
+        "category": "informational",
+        "intent": "recently_played_history",
+        "action": "recently_played_history"
+      },
+      "text": "Dit speelde je net.",
+      "items": [
+        {
+          "kind": "track",
+          "title": "Intro",
+          "subtitle": "The xx",
+          "uri": "spotify:track:intro",
+          "image_url": "/api/djconnect/image_proxy/recent/intro",
+          "thumbnail_url": "/api/djconnect/image_proxy/recent/intro/thumb",
+          "played_at_label": "5 min geleden"
+        },
+        {
+          "kind": "track",
+          "title": "Midnight City",
+          "subtitle": "M83",
+          "image_url": "/api/djconnect/image_proxy/recent/midnight"
+        }
+      ],
+      "playback_actions": [],
+      "confirmation_actions": []
+    }
+    """.data(using: .utf8)!
+
+    let response = try JSONDecoder().decode(DJConnectAskDJMessageResponse.self, from: json)
+    let assistant = try #require(response.assistantMessage)
+
+    #expect(assistant.intentInfo?.intent == "recently_played_history")
+    #expect(assistant.items.map(\.title) == ["Intro", "Midnight City"])
+    #expect(assistant.items.first?.imageURL?.path == "/api/djconnect/image_proxy/recent/intro")
+    #expect(assistant.items.first?.thumbnailURL?.path == "/api/djconnect/image_proxy/recent/intro/thumb")
+    #expect(assistant.items.first?.playedAtLabel == "5 min geleden")
+    #expect(assistant.playbackActions.isEmpty)
+    #expect(assistant.confirmationActions.isEmpty)
+}
+
+@Test func commandResponseRecentlyPlayedItemsStayOnCurrentResponseOnly() throws {
+    let json = """
+    {
+      "success": true,
+      "message": "Recent afgespeeld.",
+      "items": [
+        {
+          "kind": "track",
+          "title": "Current Only",
+          "subtitle": "Backend",
+          "image_url": "/api/djconnect/image_proxy/recent/current"
+        }
+      ],
+      "playback_actions": []
+    }
+    """.data(using: .utf8)!
+
+    let response = try JSONDecoder().decode(DJConnectCommandResponse.self, from: json)
+    let assistant = try #require(response.assistantMessage)
+
+    #expect(assistant.text == "Recent afgespeeld.")
+    #expect(assistant.items.map(\.title) == ["Current Only"])
+    #expect(assistant.items.first?.imageURL?.path == "/api/djconnect/image_proxy/recent/current")
+    #expect(assistant.images.isEmpty)
+    #expect(assistant.playbackActions.isEmpty)
+}
+
 @Test func askDJHistoryResponseDecodesTrackMixUrisAndTrimMetadata() throws {
     let json = """
     {
@@ -6541,6 +7429,61 @@ private func makePairedMusicDNAModel(
     #expect(playNow.text == "Ik zet Winner nu aan.")
     #expect(playNow.audioURL?.absoluteString == "https://example.test/audio/play-now.mp3")
     #expect(playNow.playbackActions.isEmpty)
+}
+
+@MainActor
+@Test func askDJTextOnlyResponseDoesNotReuseStaleArtworkActionsOrRecentItems() throws {
+    let suiteName = "DJConnectTests-\(UUID().uuidString)"
+    let defaults = try #require(UserDefaults(suiteName: suiteName))
+    defaults.removePersistentDomain(forName: suiteName)
+    let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startBackgroundTasks: false)
+    model.homeAssistantURL = "http://homeassistant.local:8123"
+    let oldAction = DJConnectAskDJPlaybackAction(
+        id: "old-play",
+        title: "Play old",
+        uri: "spotify:track:old",
+        command: "ask_dj_play_recommendation"
+    )
+    model.applyAskDJMessageResponse(DJConnectAskDJMessageResponse(
+        assistantMessage: DJConnectAskDJHistoryMessage(
+            id: "previous-with-art",
+            role: .assistant,
+            text: "Eerdere aanbeveling",
+            createdAt: Date(timeIntervalSince1970: 1),
+            images: [
+                DJConnectResponseImage(
+                    url: URL(string: "http://homeassistant.local:8123/api/djconnect/image_proxy/old")!,
+                    title: "Old art",
+                    kind: "album_art"
+                )
+            ],
+            playbackActions: [oldAction],
+            items: [
+                DJConnectAskDJHistoryItem(
+                    kind: "track",
+                    title: "Old recent",
+                    imageURL: URL(string: "http://homeassistant.local:8123/api/djconnect/image_proxy/old-recent")
+                )
+            ]
+        )
+    ), fallbackUserMessageID: nil)
+
+    model.applyAskDJMessageResponse(DJConnectAskDJMessageResponse(
+        assistantMessage: DJConnectAskDJHistoryMessage(
+            id: "current-text-only",
+            role: .assistant,
+            text: "Alleen tekst uit de huidige response.",
+            createdAt: Date(timeIntervalSince1970: 2)
+        )
+    ), fallbackUserMessageID: nil)
+
+    let current = try #require(model.askDJMessages.last)
+    #expect(model.askDJMessages.count == 2)
+    #expect(current.serverID == "current-text-only")
+    #expect(current.text == "Alleen tekst uit de huidige response.")
+    #expect(current.images.isEmpty)
+    #expect(current.playbackActions.isEmpty)
+    #expect(current.items.isEmpty)
 }
 
 @MainActor

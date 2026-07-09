@@ -4609,6 +4609,31 @@ private struct MusicDNASectionGrid: View {
                 )
             }
         }
+        if let topTracksByRange = topTracksByRangeText {
+            musicDNAPanel {
+                MusicDNAPanel(title: localizedKey(model.language, "ui.music.dna.top.tracks.by.range"), value: topTracksByRange, icon: "chart.bar.xaxis")
+            }
+        }
+        if let topArtistsByRange = topArtistsByRangeText {
+            musicDNAPanel {
+                MusicDNAPanel(title: localizedKey(model.language, "ui.music.dna.top.artists.by.range"), value: topArtistsByRange, icon: "person.2.wave.2")
+            }
+        }
+        if !profile.snapshotHistory.isEmpty {
+            musicDNAPanel {
+                MusicDNAPanel(title: localizedKey(model.language, "ui.music.dna.snapshot.history"), value: snapshots(profile.snapshotHistory), icon: "clock.badge.checkmark")
+            }
+        }
+        if let discoveryFeedback = profile.discoveryFeedback, discoveryFeedback.isDisplayable {
+            musicDNAPanel {
+                MusicDNAPanel(title: localizedKey(model.language, "ui.music.dna.discovery.feedback"), value: discoveryFeedbackText(discoveryFeedback), icon: "sparkles")
+            }
+        }
+        if let privacyDashboard = profile.privacyDashboard, privacyDashboard.isDisplayable {
+            musicDNAPanel {
+                MusicDNAPanel(title: localizedKey(model.language, "ui.music.dna.privacy.dashboard"), value: privacyDashboardText(privacyDashboard), icon: "lock.shield")
+            }
+        }
         if let basisSignals {
             musicDNAPanel {
                 MusicDNAPanel(title: localizedKey(model.language, "ui.signals"), value: basisSignals, icon: "safari")
@@ -4779,6 +4804,91 @@ private struct MusicDNASectionGrid: View {
         .prefix(3)
         .joined(separator: "\n")
         .ifEmpty(localizedKey(model.language, "ui.music.dna.needs.more.listening.for.recent.tracks"))
+    }
+
+    private var topTracksByRangeText: String? {
+        rangeText(profile.topTracksByRange) { tracks($0) }
+    }
+
+    private var topArtistsByRangeText: String? {
+        rangeText(profile.topArtistsByRange) { names($0) }
+    }
+
+    private func rangeText<T>(_ ranges: [String: [T]], formatter: ([T]) -> String) -> String? {
+        let lines = ranges.keys.sorted().compactMap { key -> String? in
+            guard let values = ranges[key], !values.isEmpty else { return nil }
+            let formatted = formatter(values).trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !formatted.isEmpty else { return nil }
+            return "\(key.replacingOccurrences(of: "_", with: " ")): \(formatted)"
+        }
+        .prefix(4)
+        return lines.isEmpty ? nil : lines.joined(separator: "\n")
+    }
+
+    private func snapshots(_ values: [DJConnectMusicDNASnapshot]) -> String {
+        values.prefix(4).compactMap { snapshot in
+            let parts = [
+                snapshot.source,
+                snapshot.summary,
+                snapshot.trackCount.map { "\($0) tracks" },
+                snapshot.artistCount.map { "\($0) artists" },
+                snapshot.genreCount.map { "\($0) genres" }
+            ].compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty }
+            return parts.isEmpty ? nil : parts.joined(separator: " · ")
+        }
+        .joined(separator: "\n")
+        .ifEmpty(localizedKey(model.language, "ui.not.enough.signals"))
+    }
+
+    private func discoveryFeedbackText(_ feedback: DJConnectMusicDNADiscoveryFeedback) -> String {
+        var lines: [String] = []
+        if !feedback.acceptedRecommendations.isEmpty {
+            let accepted = feedback.acceptedRecommendations.prefix(3).compactMap { $0.title ?? $0.subtitle ?? $0.reason }.joined(separator: ", ")
+            if !accepted.isEmpty {
+                lines.append("\(localizedKey(model.language, "ui.accepted.recommendations")): \(accepted)")
+            }
+        }
+        if !feedback.negativeSignals.isEmpty {
+            lines.append("\(localizedKey(model.language, "ui.discovery.less.like.this")): \(signals(feedback.negativeSignals))")
+        }
+        if !feedback.hiddenArtists.isEmpty {
+            lines.append("\(localizedKey(model.language, "ui.discovery.hide.artist")): \(names(feedback.hiddenArtists))")
+        }
+        if !feedback.counts.isEmpty {
+            let counts = feedback.counts.keys.sorted().map { "\($0.replacingOccurrences(of: "_", with: " ")): \(feedback.counts[$0] ?? 0)" }.joined(separator: ", ")
+            lines.append(counts)
+        }
+        return lines.joined(separator: "\n").ifEmpty(localizedKey(model.language, "ui.not.enough.signals"))
+    }
+
+    private func privacyDashboardText(_ dashboard: DJConnectMusicDNAPrivacyDashboard) -> String {
+        var lines: [String] = []
+        if let enabled = dashboard.enabled {
+            lines.append("enabled: \(enabled ? "yes" : "no")")
+        }
+        if !dashboard.activeDataSources.isEmpty {
+            lines.append("\(localizedKey(model.language, "ui.music.dna.active.data.sources")): \(dashboard.activeDataSources.prefix(5).joined(separator: ", "))")
+        }
+        if !dashboard.controls.isEmpty {
+            lines.append(dashboard.controls.keys.sorted().map { "\($0.replacingOccurrences(of: "_", with: " ")): \(dashboard.controls[$0] == true ? "yes" : "no")" }.joined(separator: ", "))
+        }
+        if !dashboard.rawCounts.isEmpty {
+            lines.append(dashboard.rawCounts.keys.sorted().map { "\($0.replacingOccurrences(of: "_", with: " ")): \(dashboard.rawCounts[$0] ?? 0)" }.joined(separator: ", "))
+        }
+        if !dashboard.retentionLimits.isEmpty {
+            lines.append(dashboard.retentionLimits.keys.sorted().map { "\($0.replacingOccurrences(of: "_", with: " ")): \(dashboard.retentionLimits[$0]?.description ?? "")" }.joined(separator: ", "))
+        }
+        let booleans: [(String, Bool?)] = [
+            ("clear", dashboard.supportsClear),
+            ("export", dashboard.supportsExport),
+            ("import", dashboard.supportsImport),
+            ("stores raw audio", dashboard.storesRawAudio),
+            ("stores OAuth tokens", dashboard.storesOAuthTokens),
+            ("stores full prompts", dashboard.storesFullPrompts)
+        ]
+        lines.append(contentsOf: booleans.compactMap { key, value in value.map { "\(key): \($0 ? "yes" : "no")" } })
+        lines.append(contentsOf: dashboard.flags.keys.sorted().map { "\($0.replacingOccurrences(of: "_", with: " ")): \(dashboard.flags[$0] == true ? "yes" : "no")" })
+        return lines.joined(separator: "\n").ifEmpty(localizedKey(model.language, "ui.not.enough.signals"))
     }
 
     private func energySignals(_ values: [DJConnectMusicDNAEnergySignal]) -> String {
@@ -5978,6 +6088,13 @@ private struct MusicDiscoveryCard: View {
                         .foregroundStyle(.white.opacity(0.62))
                         .lineLimit(1)
                 }
+                if !item.reason.isEmpty {
+                    Text(item.reason)
+                        .font(.caption2)
+                        .foregroundStyle(.white.opacity(0.58))
+                        .lineLimit(2)
+                }
+                MusicDiscoveryFitLabel(item: item)
                 Text(item.kind.rawValue.capitalized)
                     .font(.caption2.weight(.bold))
                     .foregroundStyle(djConnectAccent)
@@ -6058,10 +6175,14 @@ private struct MusicDiscoveryDetailView: View {
                     Spacer()
                 }
 
-                Text(item.reason)
-                    .font(.body)
-                    .foregroundStyle(.white.opacity(0.86))
-                    .fixedSize(horizontal: false, vertical: true)
+                if !item.reason.isEmpty {
+                    Text(item.reason)
+                        .font(.body)
+                        .foregroundStyle(.white.opacity(0.86))
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                MusicDiscoveryQualityView(item: item)
 
                 if !item.reasonSources.isEmpty {
                     ScrollView(.horizontal, showsIndicators: false) {
@@ -6079,17 +6200,46 @@ private struct MusicDiscoveryDetailView: View {
                     .scrollClipDisabled()
                 }
 
-                Button {
-                    Task {
-                        await model.playMusicDiscoveryItem(item, sectionID: sectionID)
-                        dismiss()
+                if item.isPlayable {
+                    Button {
+                        Task {
+                            await model.playMusicDiscoveryItem(item, sectionID: sectionID)
+                            dismiss()
+                        }
+                    } label: {
+                        Label(localizedKey(model.language, "ui.play.now"), systemImage: "play.fill")
+                            .frame(maxWidth: .infinity)
                     }
-                } label: {
-                    Label(localizedKey(model.language, "ui.play.now"), systemImage: "play.fill")
-                        .frame(maxWidth: .infinity)
+                    .buttonStyle(DJConnectLilacPillButtonStyle())
+                    .disabled(model.playingMusicDiscoveryItemID == item.id)
                 }
-                .buttonStyle(DJConnectLilacPillButtonStyle())
-                .disabled(model.playingMusicDiscoveryItemID == item.id)
+
+                if model.supportsMusicDiscoveryFeedback {
+                    Menu {
+                        Button(localizedKey(model.language, "ui.discovery.not.for.me")) {
+                            Task {
+                                await model.sendMusicDiscoveryFeedback(.notForMe, item: item, sectionID: sectionID)
+                                dismiss()
+                            }
+                        }
+                        Button(localizedKey(model.language, "ui.discovery.less.like.this")) {
+                            Task {
+                                await model.sendMusicDiscoveryFeedback(.lessLikeThis, item: item, sectionID: sectionID)
+                                dismiss()
+                            }
+                        }
+                        Button(localizedKey(model.language, "ui.discovery.hide.artist")) {
+                            Task {
+                                await model.sendMusicDiscoveryFeedback(.hideArtist, item: item, sectionID: sectionID)
+                                dismiss()
+                            }
+                        }
+                    } label: {
+                        Label(localizedKey(model.language, "ui.feedback"), systemImage: "hand.thumbsdown")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(DJConnectLilacPillButtonStyle())
+                }
 
                 Button {
                     dismiss()
@@ -6103,6 +6253,70 @@ private struct MusicDiscoveryDetailView: View {
             .padding(22)
         }
         .background(DJConnectCanvasBackground())
+    }
+}
+
+private struct MusicDiscoveryFitLabel: View {
+    let item: DJConnectMusicDiscoveryItem
+
+    var body: some View {
+        if let text = fitText {
+            Text(text)
+                .font(.caption2.weight(.semibold))
+                .foregroundStyle(.white.opacity(0.54))
+                .lineLimit(1)
+        }
+    }
+
+    private var fitText: String? {
+        if let band = item.qualityBand?.trimmingCharacters(in: .whitespacesAndNewlines), !band.isEmpty {
+            return band.replacingOccurrences(of: "_", with: " ")
+        }
+        if let confidence = item.confidence {
+            return confidence.rawValue
+        }
+        if let score = item.qualityScore {
+            return "\(Int((score * 100).rounded()))%"
+        }
+        return nil
+    }
+}
+
+private struct MusicDiscoveryQualityView: View {
+    let item: DJConnectMusicDiscoveryItem
+
+    var body: some View {
+        let chips = qualityChips
+        if !chips.isEmpty {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 7) {
+                    ForEach(chips, id: \.self) { chip in
+                        Text(chip)
+                            .font(.caption.weight(.bold))
+                            .foregroundStyle(.white.opacity(0.78))
+                            .padding(.horizontal, 9)
+                            .padding(.vertical, 5)
+                            .background(.white.opacity(0.08), in: Capsule())
+                    }
+                }
+            }
+            .scrollClipDisabled()
+        }
+    }
+
+    private var qualityChips: [String] {
+        var chips: [String] = []
+        if let confidence = item.confidence {
+            chips.append(confidence.rawValue.replacingOccurrences(of: "_", with: " "))
+        }
+        if let score = item.qualityScore {
+            chips.append("\(Int((score * 100).rounded()))%")
+        }
+        if let band = item.qualityBand?.trimmingCharacters(in: .whitespacesAndNewlines), !band.isEmpty {
+            chips.append(band.replacingOccurrences(of: "_", with: " "))
+        }
+        chips.append(contentsOf: item.qualityFactors.map { $0.replacingOccurrences(of: "_", with: " ") })
+        return chips
     }
 }
 

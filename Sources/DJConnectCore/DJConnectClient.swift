@@ -110,16 +110,25 @@ public final class DJConnectClient: Sendable {
     }
 
     public func musicDNAProfile(mood: Int? = nil, musicDNAKey: String? = nil, language: String? = nil) async throws -> DJConnectMusicDNAProfileResponse {
+        if let response = try await webSocketMusicDNAProfileIfSupported(mood: mood, musicDNAKey: musicDNAKey, language: language) {
+            return response
+        }
         let request = try musicDNAProfileRequest(mood: mood, musicDNAKey: musicDNAKey, language: language)
         return try await decodedResponse(for: request)
     }
 
     public func setMusicDNAEnabled(_ enabled: Bool, mood: Int? = nil, musicDNAKey: String? = nil, language: String? = nil) async throws -> DJConnectMusicDNAProfileResponse {
+        if let response = try await webSocketMusicDNASettingsIfSupported(enabled, mood: mood, musicDNAKey: musicDNAKey, language: language) {
+            return response
+        }
         let request = try musicDNASettingsRequest(enabled: enabled, mood: mood, musicDNAKey: musicDNAKey, language: language)
         return try await decodedResponse(for: request)
     }
 
     public func clearMusicDNA(mood: Int? = nil, musicDNAKey: String? = nil, language: String? = nil) async throws -> DJConnectMusicDNAProfileResponse {
+        if let response = try await webSocketMusicDNAClearIfSupported(mood: mood, musicDNAKey: musicDNAKey, language: language) {
+            return response
+        }
         let request = try clearMusicDNARequest(mood: mood, musicDNAKey: musicDNAKey, language: language)
         return try await decodedResponse(for: request)
     }
@@ -140,6 +149,9 @@ public final class DJConnectClient: Sendable {
     }
 
     public func musicDiscoveryFeed(musicDNAKey: String? = nil, language: String? = nil) async throws -> DJConnectMusicDiscoveryResponse {
+        if let response = try await webSocketMusicDiscoveryFeedIfSupported(musicDNAKey: musicDNAKey, language: language) {
+            return response
+        }
         let request = try musicDiscoveryFeedRequest(musicDNAKey: musicDNAKey, language: language)
         return try await decodedResponse(for: request)
     }
@@ -153,8 +165,43 @@ public final class DJConnectClient: Sendable {
     }
 
     public func playMusicDiscoveryItem(_ payload: DJConnectMusicDiscoveryPlayRequest) async throws -> DJConnectCommandResponse {
+        if let response = try await webSocketMusicDiscoveryPlayIfSupported(payload) {
+            return response
+        }
         let request = try musicDiscoveryPlayRequest(payload)
         return try await decodedResponse(for: request)
+    }
+
+    public func sendMusicDiscoveryFeedback(_ payload: DJConnectMusicDiscoveryFeedbackRequest) async throws -> DJConnectCommandResponse {
+        if let response = try await webSocketMusicDiscoveryFeedbackIfSupported(payload) {
+            return response
+        }
+        let request = try musicDiscoveryFeedbackRequest(payload)
+        return try await decodedResponse(for: request)
+    }
+
+    public func supportsMusicDiscoveryFeedback() async -> Bool {
+        guard let webSocketFastPath else {
+            return false
+        }
+        do {
+            try await webSocketFastPath.prepare()
+            return await webSocketFastPath.supports(.musicDiscoveryFeedback)
+        } catch {
+            return false
+        }
+    }
+
+    public func webSocketSession() async throws -> DJConnectWebSocketSessionResponse {
+        let request = try webSocketSessionRequest()
+        let response: DJConnectWebSocketSessionResponse = try await decodedResponse(for: request)
+        guard response.success, response.resolvedAccessToken != nil else {
+            throw DJConnectError.authStale(
+                statusCode: 401,
+                message: response.message ?? response.error ?? "Home Assistant WebSocket session unavailable"
+            )
+        }
+        return response
     }
 
     public func askDJIdleSuggestion(_ payload: DJConnectAskDJIdleSuggestionRequest) async throws -> DJConnectAskDJMessageResponse {
@@ -394,6 +441,25 @@ public final class DJConnectClient: Sendable {
             musicDNAKey: payload.musicDNAKey,
             language: nil
         )
+    }
+
+    public func musicDiscoveryFeedbackRequest(_ payload: DJConnectMusicDiscoveryFeedbackRequest) throws -> URLRequest {
+        try musicDNARequest(
+            path: Self.apiV1Path("music_discovery/feedback"),
+            payload: payload,
+            mood: nil,
+            musicDNAKey: payload.musicDNAKey,
+            language: nil
+        )
+    }
+
+    public func webSocketSessionRequest() throws -> URLRequest {
+        var request = try jsonRequest(
+            path: Self.apiV1Path("websocket/session"),
+            payload: DJConnectWebSocketSessionRequest()
+        )
+        request.timeoutInterval = 8
+        return request
     }
 
     private func musicDNARequest<T: Encodable>(
@@ -671,6 +737,40 @@ public final class DJConnectClient: Sendable {
         }
     }
 
+    private func webSocketMusicDNAProfileIfSupported(mood: Int?, musicDNAKey: String?, language: String?) async throws -> DJConnectMusicDNAProfileResponse? {
+        try await webSocketFastPathResult { fastPath, token in
+            try await fastPath.musicDNAProfile(
+                identity: makeDJConnectIdentity(deviceToken: token),
+                mood: mood,
+                musicDNAKey: musicDNAKey,
+                language: language
+            )
+        }
+    }
+
+    private func webSocketMusicDNASettingsIfSupported(_ enabled: Bool, mood: Int?, musicDNAKey: String?, language: String?) async throws -> DJConnectMusicDNAProfileResponse? {
+        try await webSocketFastPathResult { fastPath, token in
+            try await fastPath.setMusicDNAEnabled(
+                enabled,
+                identity: makeDJConnectIdentity(deviceToken: token),
+                mood: mood,
+                musicDNAKey: musicDNAKey,
+                language: language
+            )
+        }
+    }
+
+    private func webSocketMusicDNAClearIfSupported(mood: Int?, musicDNAKey: String?, language: String?) async throws -> DJConnectMusicDNAProfileResponse? {
+        try await webSocketFastPathResult { fastPath, token in
+            try await fastPath.clearMusicDNA(
+                identity: makeDJConnectIdentity(deviceToken: token),
+                mood: mood,
+                musicDNAKey: musicDNAKey,
+                language: language
+            )
+        }
+    }
+
     private func webSocketMusicDiscoveryRefreshIfSupported(musicDNAKey: String?, language: String?) async throws -> DJConnectMusicDiscoveryResponse? {
         try await webSocketFastPathResult { fastPath, token in
             try await fastPath.refreshMusicDiscovery(
@@ -678,6 +778,28 @@ public final class DJConnectClient: Sendable {
                 musicDNAKey: musicDNAKey,
                 language: language
             )
+        }
+    }
+
+    private func webSocketMusicDiscoveryFeedIfSupported(musicDNAKey: String?, language: String?) async throws -> DJConnectMusicDiscoveryResponse? {
+        try await webSocketFastPathResult { fastPath, token in
+            try await fastPath.musicDiscoveryFeed(
+                identity: makeDJConnectIdentity(deviceToken: token),
+                musicDNAKey: musicDNAKey,
+                language: language
+            )
+        }
+    }
+
+    private func webSocketMusicDiscoveryPlayIfSupported(_ payload: DJConnectMusicDiscoveryPlayRequest) async throws -> DJConnectCommandResponse? {
+        try await webSocketFastPathResult { fastPath, token in
+            try await fastPath.playMusicDiscoveryItem(payload, identity: makeDJConnectIdentity(deviceToken: token))
+        }
+    }
+
+    private func webSocketMusicDiscoveryFeedbackIfSupported(_ payload: DJConnectMusicDiscoveryFeedbackRequest) async throws -> DJConnectCommandResponse? {
+        try await webSocketFastPathResult { fastPath, token in
+            try await fastPath.sendMusicDiscoveryFeedback(payload, identity: makeDJConnectIdentity(deviceToken: token))
         }
     }
 

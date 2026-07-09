@@ -39,8 +39,9 @@ The CLI build disables signing for local verification. Configure
 `DEVELOPMENT_TEAM` in Xcode or `project.yml` before running on devices.
 
 Private repository CI runs the same unsigned build checks through
-`.github/workflows/ci.yml`. It intentionally does not sign, notarize, or upload
-release binaries.
+`.github/workflows/ci.yml`, plus Swift tests, localization validation, Postman
+collection validation, and the autonomous WebSocket contract e2e. It
+intentionally does not sign, notarize, or upload release binaries.
 
 ## Pairing The macOS App
 
@@ -218,6 +219,17 @@ Swift Package tests:
 ```sh
 swift test
 ```
+
+Autonomous WebSocket contract e2e:
+
+```sh
+node Tools/websocket_e2e_contract.js
+```
+
+This starts an in-process Home Assistant contract server, obtains a short-lived
+WebSocket session token through `POST /api/djconnect/v1/websocket/session`, then
+authenticates `/api/websocket` and validates advertised DJConnect routes without
+depending on a local HA dev environment.
 
 Xcode project test scheme:
 
