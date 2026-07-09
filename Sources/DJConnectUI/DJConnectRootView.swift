@@ -15,8 +15,12 @@ import WebKit
 #if canImport(MetalKit)
 import MetalKit
 #endif
+#if canImport(Network)
+import Network
+#endif
 #if os(iOS)
 import UIKit
+import Darwin
 #elseif os(macOS)
 import AppKit
 import Darwin
@@ -2398,11 +2402,13 @@ private final class PairingQRScannerViewController: UIViewController, @preconcur
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
         previewLayer?.frame = view.bounds
+        updatePreviewOrientation()
         configureFocusAndExposure()
     }
 
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
+        updatePreviewOrientation()
         if !session.isRunning {
             DispatchQueue.global(qos: .userInitiated).async { [session] in
                 session.startRunning()
@@ -2414,6 +2420,19 @@ private final class PairingQRScannerViewController: UIViewController, @preconcur
         super.viewWillDisappear(animated)
         if session.isRunning {
             session.stopRunning()
+        }
+    }
+
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        updatePreviewOrientation()
+    }
+
+    override func viewWillTransition(to size: CGSize, with coordinator: UIViewControllerTransitionCoordinator) {
+        super.viewWillTransition(to: size, with: coordinator)
+        coordinator.animate(alongsideTransition: nil) { [weak self] _ in
+            self?.previewLayer?.frame = self?.view.bounds ?? .zero
+            self?.updatePreviewOrientation()
         }
     }
 
@@ -2440,7 +2459,37 @@ private final class PairingQRScannerViewController: UIViewController, @preconcur
         layer.frame = view.bounds
         view.layer.insertSublayer(layer, at: 0)
         previewLayer = layer
+        updatePreviewOrientation()
         configureFocusAndExposure()
+    }
+
+    private func updatePreviewOrientation() {
+        guard let connection = previewLayer?.connection,
+              let angle = captureVideoRotationAngle,
+              connection.isVideoRotationAngleSupported(angle) else {
+            return
+        }
+        connection.videoRotationAngle = angle
+    }
+
+    private var captureVideoRotationAngle: CGFloat? {
+        guard let interfaceOrientation = view.window?.windowScene?.effectiveGeometry.interfaceOrientation else {
+            return nil
+        }
+        switch interfaceOrientation {
+        case .portrait:
+            return 90
+        case .portraitUpsideDown:
+            return 270
+        case .landscapeLeft:
+            return 0
+        case .landscapeRight:
+            return 180
+        case .unknown:
+            return nil
+        @unknown default:
+            return nil
+        }
     }
 
     private func configureFocusAndExposure() {
@@ -3887,9 +3936,8 @@ private struct TrackInsightView: View {
                 }
                 #if canImport(AVKit) && os(iOS)
                 if let player = vibeCastAirPlaySession.player {
-                    VideoPlayer(player: player)
-                        .frame(width: 2, height: 2)
-                        .opacity(0.01)
+                    HiddenAirPlayVideoPlayer(player: player)
+                        .frame(width: 44, height: 44)
                         .allowsHitTesting(false)
                         .accessibilityHidden(true)
                 }
@@ -3968,9 +4016,6 @@ private struct TrackInsightView: View {
             }
             .onChange(of: playbackShareIdentity) {
                 dismissShareIfPlaybackMovedOn()
-                #if canImport(AVKit) && os(iOS)
-                scheduleAirPlayVibeCastRefreshIfNeeded()
-                #endif
             }
             .onChange(of: insightShareIdentity) {
                 dismissShareIfPlaybackMovedOn()
@@ -4010,9 +4055,6 @@ private struct TrackInsightView: View {
                 fallbackArtworkURL: model.playback?.albumImageURL
             )
             vibeCastAirPlaySession.sync(to: model.playback, force: true)
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .AVPlayerItemDidPlayToEndTime)) { notification in
-            vibeCastAirPlaySession.loopIfNeeded(notification.object)
         }
         #endif
         .onAppear {
@@ -7883,11 +7925,278 @@ private struct VibeCastEmptySignalView: View {
 #endif
 
 #if canImport(AVKit) && os(iOS)
+private func vibeCastAirPlayDebug(_ message: String) {
+    print("VibeCast AirPlay: \(message)")
+}
+
+private final class VibeCastAirPlayStreamServer: @unchecked Sendable {
+    private let fileURL: URL
+    private let token = UUID().uuidString
+    private let queue = DispatchQueue(label: "DJConnect.VibeCastAirPlayStreamServer")
+    private let listener: NWListener
+
+    private init(fileURL: URL, listener: NWListener) {
+        self.fileURL = fileURL
+        self.listener = listener
+    }
+
+    deinit {
+        stop()
+    }
+
+    static func start(fileURL: URL) async throws -> (server: VibeCastAirPlayStreamServer, url: URL) {
+        let listener = try NWListener(using: .tcp, on: .any)
+        let server = VibeCastAirPlayStreamServer(fileURL: fileURL, listener: listener)
+        let port = try await server.startListening()
+        guard let host = Self.localIPv4Address(),
+              let url = URL(string: "http://\(host):\(port)/\(server.token).mp4") else {
+            server.stop()
+            throw URLError(.cannotFindHost)
+        }
+        vibeCastAirPlayDebug("streaming over http url=\(url.absoluteString)")
+        return (server, url)
+    }
+
+    func stop() {
+        listener.cancel()
+    }
+
+    private func startListening() async throws -> UInt16 {
+        try await withCheckedThrowingContinuation { continuation in
+            let state = LockedResultContinuation<UInt16>(continuation)
+            listener.newConnectionHandler = { [weak self] connection in
+                self?.handle(connection)
+            }
+            listener.stateUpdateHandler = { listenerState in
+                switch listenerState {
+                case .ready:
+                    if let port = self.listener.port?.rawValue {
+                        state.resume(returning: port)
+                    } else {
+                        state.resume(throwing: URLError(.badServerResponse))
+                    }
+                case .failed(let error):
+                    state.resume(throwing: error)
+                case .cancelled:
+                    state.resume(throwing: CancellationError())
+                default:
+                    break
+                }
+            }
+            listener.start(queue: queue)
+        }
+    }
+
+    private func handle(_ connection: NWConnection) {
+        connection.start(queue: queue)
+        connection.receive(minimumIncompleteLength: 1, maximumLength: 8_192) { [weak self] data, _, _, _ in
+            guard let self else {
+                connection.cancel()
+                return
+            }
+            guard let data,
+                  let request = String(data: data, encoding: .utf8),
+                  let requestLine = request.components(separatedBy: "\r\n").first else {
+                self.sendStatus(404, body: "not found", on: connection)
+                return
+            }
+            let isGet = requestLine.hasPrefix("GET /\(self.token).mp4 ")
+            let isHead = requestLine.hasPrefix("HEAD /\(self.token).mp4 ")
+            guard isGet || isHead else {
+                self.sendStatus(404, body: "not found", on: connection)
+                return
+            }
+            do {
+                let fileData = try Data(contentsOf: self.fileURL)
+                let fileCount = fileData.count
+                let range = Self.byteRange(from: request, fileCount: fileCount)
+                let statusLine = range == nil ? "HTTP/1.1 200 OK" : "HTTP/1.1 206 Partial Content"
+                let bodyRange = range ?? (0..<fileCount)
+                let bodyCount = max(bodyRange.upperBound - bodyRange.lowerBound, 0)
+                vibeCastAirPlayDebug("http \(isHead ? "HEAD" : "GET") \(statusLine) range=\(range.map { "\($0.lowerBound)-\($0.upperBound - 1)" } ?? "full") bytes=\(bodyCount)")
+                let header = Self.httpHeader(
+                    statusLine: statusLine,
+                    contentLength: bodyCount,
+                    contentRange: range.map { "bytes \($0.lowerBound)-\($0.upperBound - 1)/\(fileCount)" },
+                    contentType: "video/mp4"
+                )
+                guard !isHead else {
+                    self.send(Data(header.utf8), on: connection)
+                    return
+                }
+                var responseData = Data(header.utf8)
+                responseData.append(fileData.subdata(in: bodyRange))
+                let response = HTTPResponse(data: responseData)
+                self.send(response.data, on: connection)
+            } catch {
+                self.sendStatus(500, body: error.localizedDescription, on: connection)
+            }
+        }
+    }
+
+    private func sendStatus(_ status: Int, body: String, on connection: NWConnection) {
+        let bodyData = Data(body.utf8)
+        var response = Data(Self.httpHeader(
+            statusLine: "HTTP/1.1 \(status) Error",
+            contentLength: bodyData.count,
+            contentRange: nil,
+            contentType: "text/plain; charset=utf-8"
+        ).utf8)
+        response.append(bodyData)
+        let httpResponse = HTTPResponse(data: response)
+        send(httpResponse.data, on: connection)
+    }
+
+    private func send(_ data: Data, on connection: NWConnection) {
+        let response = HTTPResponse(data: data)
+        connection.send(content: response.data, completion: .contentProcessed { _ in
+            connection.cancel()
+        })
+    }
+
+    private static func byteRange(from request: String, fileCount: Int) -> Range<Int>? {
+        for line in request.components(separatedBy: "\r\n") {
+            let lower = line.lowercased()
+            guard lower.hasPrefix("range: bytes=") else {
+                continue
+            }
+            let value = line.dropFirst("Range: bytes=".count)
+            let parts = value.split(separator: "-", omittingEmptySubsequences: false)
+            guard let first = parts.first,
+                  let start = Int(first.trimmingCharacters(in: .whitespaces)),
+                  start < fileCount else {
+                return nil
+            }
+            let end: Int
+            if parts.count > 1,
+               let parsedEnd = Int(parts[1].trimmingCharacters(in: .whitespaces)) {
+                end = min(parsedEnd + 1, fileCount)
+            } else {
+                end = fileCount
+            }
+            guard start < end else {
+                return nil
+            }
+            return start..<end
+        }
+        return nil
+    }
+
+    private static func httpHeader(
+        statusLine: String,
+        contentLength: Int,
+        contentRange: String?,
+        contentType: String
+    ) -> String {
+        var lines = [
+            statusLine,
+            "Content-Type: \(contentType)",
+            "Accept-Ranges: bytes",
+            "Content-Length: \(contentLength)",
+            "Cache-Control: no-store",
+            "Connection: close"
+        ]
+        if let contentRange {
+            lines.insert("Content-Range: \(contentRange)", at: 4)
+        }
+        return lines.joined(separator: "\r\n") + "\r\n\r\n"
+    }
+
+    private static func localIPv4Address() -> String? {
+        var interfaces: UnsafeMutablePointer<ifaddrs>?
+        guard getifaddrs(&interfaces) == 0, let first = interfaces else {
+            return nil
+        }
+        defer { freeifaddrs(interfaces) }
+
+        var candidate: String?
+        var pointer: UnsafeMutablePointer<ifaddrs>? = first
+        while let interface = pointer?.pointee {
+            defer { pointer = interface.ifa_next }
+            guard let address = interface.ifa_addr,
+                  address.pointee.sa_family == UInt8(AF_INET) else {
+                continue
+            }
+            let flags = Int32(interface.ifa_flags)
+            guard (flags & IFF_UP) != 0, (flags & IFF_LOOPBACK) == 0 else {
+                continue
+            }
+            var host = [CChar](repeating: 0, count: Int(NI_MAXHOST))
+            let result = getnameinfo(
+                address,
+                socklen_t(address.pointee.sa_len),
+                &host,
+                socklen_t(host.count),
+                nil,
+                0,
+                NI_NUMERICHOST
+            )
+            guard result == 0 else {
+                continue
+            }
+            let name = Self.string(fromNullTerminatedCString: interface.ifa_name)
+            let ip = Self.string(fromNullTerminatedCString: host)
+            if name == "en0" {
+                return ip
+            }
+            candidate = candidate ?? ip
+        }
+        return candidate
+    }
+
+    private static func string(fromNullTerminatedCString pointer: UnsafePointer<CChar>) -> String {
+        var bytes: [UInt8] = []
+        var index = 0
+        while pointer[index] != 0 {
+            bytes.append(UInt8(bitPattern: pointer[index]))
+            index += 1
+        }
+        return String(decoding: bytes, as: UTF8.self)
+    }
+
+    private struct HTTPResponse: @unchecked Sendable {
+        let data: Data
+    }
+}
+
+private final class LockedResultContinuation<Value: Sendable>: @unchecked Sendable {
+    private let lock = NSLock()
+    private var continuation: CheckedContinuation<Value, Error>?
+
+    init(_ continuation: CheckedContinuation<Value, Error>) {
+        self.continuation = continuation
+    }
+
+    func resume(returning value: Value) {
+        resume(with: .success(value))
+    }
+
+    func resume(throwing error: Error) {
+        resume(with: .failure(error))
+    }
+
+    private func resume(with result: Result<Value, Error>) {
+        lock.lock()
+        let continuation = continuation
+        self.continuation = nil
+        lock.unlock()
+
+        switch result {
+        case .success(let value):
+            continuation?.resume(returning: value)
+        case .failure(let error):
+            continuation?.resume(throwing: error)
+        }
+    }
+}
+
 private func makeAirPlayPreviewPlayer(url: URL) async -> AVPlayer {
     await Task.detached(priority: .userInitiated) {
         let item = AVPlayerItem(url: url)
+        item.preferredForwardBufferDuration = 1
         let avPlayer = AVPlayer(playerItem: item)
         avPlayer.actionAtItemEnd = .none
+        avPlayer.automaticallyWaitsToMinimizeStalling = false
         avPlayer.allowsExternalPlayback = true
         avPlayer.usesExternalPlaybackWhileExternalScreenIsActive = true
         try? AVAudioSession.sharedInstance().setCategory(.playback, mode: .moviePlayback, options: [.allowAirPlay])
@@ -7904,10 +8213,11 @@ private final class VibeCastAirPlaySession: ObservableObject {
     @Published var errorMessage: String?
 
     private var preparedRenderID: String?
+    private var preparingRenderID: String?
     private var renderedURL: URL?
-    private var playbackAnchor = TrackVibePlaybackAnchor()
-    private var lastSyncedSignature = ""
-    private var lastSyncedVideoTime: Double = -1
+    private var streamServer: VibeCastAirPlayStreamServer?
+    private var playerDiagnostics: [NSKeyValueObservation] = []
+    private var playerDiagnosticObservers: [NSObjectProtocol] = []
 
     func prepare(insight: TrackInsight, language: String, moodStepIndex: Int, fallbackArtworkURL: URL?) async {
         let renderID = [
@@ -7919,7 +8229,12 @@ private final class VibeCastAirPlaySession: ObservableObject {
             player?.play()
             return
         }
+        guard preparingRenderID != renderID else {
+            vibeCastAirPlayDebug("prepare ignored; render already in progress id=\(renderID)")
+            return
+        }
         reset()
+        preparingRenderID = renderID
         preparedRenderID = renderID
         isPreparing = true
         progress = 0
@@ -7935,63 +8250,46 @@ private final class VibeCastAirPlaySession: ObservableObject {
             }
             try Task.checkCancellation()
             renderedURL = url
-            let avPlayer = await makeAirPlayPreviewPlayer(url: url)
+            let served = try await VibeCastAirPlayStreamServer.start(fileURL: url)
+            streamServer = served.server
+            let avPlayer = await makeAirPlayPreviewPlayer(url: served.url)
+            installDiagnostics(for: avPlayer, url: served.url)
             player = avPlayer
             isPreparing = false
+            preparingRenderID = nil
             avPlayer.play()
         } catch is CancellationError {
             reset()
         } catch {
+            preparingRenderID = nil
             errorMessage = error.localizedDescription
             isPreparing = false
         }
     }
 
     func reset() {
+        clearDiagnostics()
+        streamServer?.stop()
+        streamServer = nil
         player?.pause()
         player = nil
         renderedURL = nil
         preparedRenderID = nil
-        playbackAnchor = TrackVibePlaybackAnchor()
-        lastSyncedSignature = ""
-        lastSyncedVideoTime = -1
+        preparingRenderID = nil
         progress = 0
         errorMessage = nil
         isPreparing = false
     }
 
-    func sync(to playback: DJConnectPlayback?, force: Bool = false) {
-        guard let player, player.currentItem != nil else {
-            playbackAnchor.update(from: playback, at: Date())
+    func sync(to playback: DJConnectPlayback?, force _: Bool = false) {
+        guard let player else {
             return
         }
-        let now = Date()
-        playbackAnchor.update(from: playback, at: now)
-        let signature = TrackVibePlaybackAnchor.signature(for: playback)
-        let trackDuration = max(Double(playback?.durationMS ?? 0) / 1_000, 1)
-        let phase = TrackVibePlaybackPhase(playback: playback, anchor: playbackAnchor, date: now)
-        let itemDuration = player.currentItem?.duration.seconds ?? 0
-        let loopDuration = itemDuration.isFinite && itemDuration > 0 ? itemDuration : 6
-        let targetSeconds = min(max(phase.progress * loopDuration, 0), max(loopDuration - 0.05, 0))
-        let desiredRate = Float(min(max(loopDuration / trackDuration, 0.02), 1.0))
-        let currentSeconds = player.currentTime().seconds
-        let didChangeTrack = signature != lastSyncedSignature
-        let didSeek = currentSeconds.isFinite && abs(currentSeconds - targetSeconds) > 0.65
-        let didProgressJump = abs(targetSeconds - lastSyncedVideoTime) > max(0.65, loopDuration / max(trackDuration, 1) * 8)
-        if force || didChangeTrack || didSeek || didProgressJump {
-            player.seek(
-                to: CMTime(seconds: targetSeconds, preferredTimescale: 600),
-                toleranceBefore: .zero,
-                toleranceAfter: CMTime(seconds: 0.05, preferredTimescale: 600)
-            )
-        }
         if playback?.isPlaying == true {
-            player.rate = desiredRate
+            player.play()
         } else {
             player.pause()
         }
-        lastSyncedSignature = signature
-        lastSyncedVideoTime = targetSeconds
     }
 
     func loopIfNeeded(_ object: Any?) {
@@ -8002,7 +8300,117 @@ private final class VibeCastAirPlaySession: ObservableObject {
         item.seek(to: .zero, completionHandler: nil)
         player?.play()
     }
+
+    private func installDiagnostics(for player: AVPlayer, url: URL) {
+        clearDiagnostics()
+        vibeCastAirPlayDebug("prepared url=\(url.lastPathComponent)")
+        if let item = player.currentItem {
+            playerDiagnostics.append(item.observe(\.status, options: [.initial, .new]) { item, _ in
+                vibeCastAirPlayDebug("item status=\(Self.describe(item.status)) error=\(item.error?.localizedDescription ?? "none")")
+            })
+            playerDiagnostics.append(item.observe(\.isPlaybackLikelyToKeepUp, options: [.initial, .new]) { item, _ in
+                vibeCastAirPlayDebug("item likelyToKeepUp=\(item.isPlaybackLikelyToKeepUp)")
+            })
+            playerDiagnostics.append(item.observe(\.isPlaybackBufferEmpty, options: [.initial, .new]) { item, _ in
+                vibeCastAirPlayDebug("item bufferEmpty=\(item.isPlaybackBufferEmpty)")
+            })
+            playerDiagnosticObservers.append(NotificationCenter.default.addObserver(
+                forName: .AVPlayerItemFailedToPlayToEndTime,
+                object: item,
+                queue: .main
+            ) { notification in
+                let error = notification.userInfo?[AVPlayerItemFailedToPlayToEndTimeErrorKey] as? Error
+                vibeCastAirPlayDebug("failedToPlayToEnd error=\(error?.localizedDescription ?? "unknown")")
+            })
+            playerDiagnosticObservers.append(NotificationCenter.default.addObserver(
+                forName: .AVPlayerItemNewErrorLogEntry,
+                object: item,
+                queue: .main
+            ) { _ in
+                let event = item.errorLog()?.events.last
+                vibeCastAirPlayDebug("errorLog status=\(event?.errorStatusCode ?? 0) domain=\(event?.errorDomain ?? "unknown") comment=\(event?.errorComment ?? "none")")
+            })
+            playerDiagnosticObservers.append(NotificationCenter.default.addObserver(
+                forName: .AVPlayerItemNewAccessLogEntry,
+                object: item,
+                queue: .main
+            ) { _ in
+                let event = item.accessLog()?.events.last
+                vibeCastAirPlayDebug("accessLog playbackType=\(event?.playbackType ?? "unknown") observedBitrate=\(event?.observedBitrate ?? 0) indicatedBitrate=\(event?.indicatedBitrate ?? 0)")
+            })
+        }
+        playerDiagnostics.append(player.observe(\.timeControlStatus, options: [.initial, .new]) { player, _ in
+            vibeCastAirPlayDebug("timeControlStatus=\(Self.describe(player.timeControlStatus)) reason=\(player.reasonForWaitingToPlay?.rawValue ?? "none")")
+        })
+        playerDiagnostics.append(player.observe(\.isExternalPlaybackActive, options: [.initial, .new]) { player, _ in
+            vibeCastAirPlayDebug("externalPlaybackActive=\(player.isExternalPlaybackActive)")
+        })
+    }
+
+    private func clearDiagnostics() {
+        playerDiagnostics.removeAll()
+        playerDiagnosticObservers.forEach(NotificationCenter.default.removeObserver)
+        playerDiagnosticObservers.removeAll()
+    }
+
+    nonisolated private static func describe(_ status: AVPlayerItem.Status) -> String {
+        switch status {
+        case .unknown:
+            return "unknown"
+        case .readyToPlay:
+            return "readyToPlay"
+        case .failed:
+            return "failed"
+        @unknown default:
+            return "unknown(\(status.rawValue))"
+        }
+    }
+
+    nonisolated private static func describe(_ status: AVPlayer.TimeControlStatus) -> String {
+        switch status {
+        case .paused:
+            return "paused"
+        case .waitingToPlayAtSpecifiedRate:
+            return "waitingToPlayAtSpecifiedRate"
+        case .playing:
+            return "playing"
+        @unknown default:
+            return "unknown"
+        }
+    }
 }
+
+#if canImport(AVFoundation) && os(iOS)
+private struct HiddenAirPlayVideoPlayer: UIViewRepresentable {
+    let player: AVPlayer
+
+    func makeUIView(context: Context) -> PlayerLayerHostView {
+        let view = PlayerLayerHostView()
+        view.playerLayer.player = player
+        view.playerLayer.videoGravity = .resizeAspect
+        view.isUserInteractionEnabled = false
+        view.alpha = 0.001
+        return view
+    }
+
+    func updateUIView(_ uiView: PlayerLayerHostView, context: Context) {
+        if uiView.playerLayer.player !== player {
+            uiView.playerLayer.player = player
+        }
+        uiView.alpha = 0.001
+    }
+
+    final class PlayerLayerHostView: UIView {
+        override class var layerClass: AnyClass {
+            AVPlayerLayer.self
+        }
+
+        var playerLayer: AVPlayerLayer {
+            layer as! AVPlayerLayer
+        }
+    }
+}
+#endif
 
 private struct VibeCastAirPlayToolbarButton: View {
     let language: String

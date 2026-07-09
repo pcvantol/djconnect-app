@@ -2,6 +2,9 @@ import Foundation
 import Testing
 @testable import DJConnectCore
 @testable import DJConnectUI
+#if canImport(AVFoundation)
+import AVFoundation
+#endif
 
 private final class MockURLProtocol: URLProtocol, @unchecked Sendable {
     nonisolated(unsafe) static var handlers: [String: (URLRequest) throws -> (HTTPURLResponse, Data)] = [:]
@@ -12239,6 +12242,54 @@ private extension String {
     #expect(FileManager.default.fileExists(atPath: recentURL.path))
     try? FileManager.default.removeItem(at: recentURL)
 }
+
+#if canImport(AVFoundation)
+@MainActor
+@Test func airPlayVibeCastExportContainsSilentAudioTrackForTVReceivers() async throws {
+    let insight = TrackInsight(
+        title: "Marea",
+        artist: "Fred again..",
+        genre: "House",
+        energy: 0.8,
+        danceability: 0.88,
+        intensity: 0.72,
+        mood: "Energetic",
+        vibe: "Human",
+        texture: "Vocal chops",
+        summary: "A club record with an intimate human center.",
+        rawAnalysisText: "Demo"
+    )
+
+    let url = try await TrackInsightShareRenderer.renderAirPlayVideo(
+        insight: insight,
+        language: "en"
+    )
+    defer { try? FileManager.default.removeItem(at: url) }
+
+    let asset = AVURLAsset(url: url)
+    let tracks = try await asset.load(.tracks)
+    let videoTrack = try #require(tracks.first { $0.mediaType == .video })
+    let naturalSize = try await videoTrack.load(.naturalSize)
+    let duration = try await asset.load(.duration).seconds
+    let isPlayable = try await asset.load(.isPlayable)
+    let isExportable = try await asset.load(.isExportable)
+    let nominalFrameRate = try await videoTrack.load(.nominalFrameRate)
+    let estimatedDataRate = try await videoTrack.load(.estimatedDataRate)
+    let mediaTimeScale = try await videoTrack.load(.naturalTimeScale)
+
+    #expect(Int(naturalSize.width) == 1920)
+    #expect(Int(naturalSize.height) == 1080)
+    #expect(duration >= 89.8)
+    #expect(duration <= 90.2)
+    #expect(isPlayable)
+    #expect(isExportable)
+    #expect(nominalFrameRate >= 23.5)
+    #expect(nominalFrameRate <= 24.5)
+    #expect(mediaTimeScale == 600)
+    #expect(estimatedDataRate <= 10_000_000)
+    #expect(tracks.contains { $0.mediaType == .audio })
+}
+#endif
 
 @Test func trackVibeProfileIsDeterministicForSameInsight() {
     let insight = TrackInsight(

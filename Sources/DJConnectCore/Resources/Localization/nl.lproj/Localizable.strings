@@ -810,7 +810,7 @@
 "ui.enter.the.code.shown.by.home.assistant.while.this.device" = "Vul de code uit Home Assistant in terwijl dit apparaat en Home Assistant op hetzelfde LAN zitten.";
 "ui.apple.watch.is.paired.with.home.assistant.through.this.iphone" = "Apple Watch is via deze iPhone gekoppeld met Home Assistant.";
 "ui.djconnect.is.paired.with.home.assistant" = "DJConnect is gekoppeld met Home Assistant.";
-"ui.pairing.is.local.only.use.the.lan.address.of.home" = "Koppelen kan alleen lokaal. Gebruik het LAN-adres van Home Assistant. Na het koppelen kan DJConnect eventueel ook buitenshuis verbinden met Home Assistant als Home Assistant remote toegang aanbiedt.";
+"ui.pairing.is.local.only.use.the.lan.address.of.home" = "Koppelen kan alleen lokaal. Gebruik het LAN-adres van Home Assistant. Apple kan om lokale-netwerktoegang vragen zodat DJConnect Home Assistant nu kan vinden en later VibeCast naar AirPlay-tv's op dit netwerk kan streamen.";
 "ui.enter.a.valid.local.home.assistant.url.for.example.http" = "Vul een geldige lokale Home Assistant URL in, bijvoorbeeld http://homeassistant.local:8123.";
 "ui.enter.the.6.digit.code.shown.by.home.assistant" = "Vul de 6-cijferige code uit Home Assistant in.";
 "ui.choose.value.in.the.home.assistant.djconnect.setup.flow.and" = "Kies %@ in de Home Assistant DJConnect setup-flow en vul de Home Assistant code hier in.";

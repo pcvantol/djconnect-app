@@ -1,5 +1,5 @@
 "CFBundleDisplayName" = "DJConnect";
-"NSLocalNetworkUsageDescription" = "DJConnect verbindet sich mit Home Assistant in deinem lokalen Netzwerk.";
+"NSLocalNetworkUsageDescription" = "DJConnect verbindet sich mit Home Assistant und AirPlay-Geräten in deinem lokalen Netzwerk.";
 "NSMicrophoneUsageDescription" = "DJConnect nimmt deine Stimme für Push-to-Talk-Musikwünsche an Home Assistant auf.";
 "NSSpeechRecognitionUsageDescription" = "DJConnect verwendet Spracherkennung, um den Aktivierungssatz zu erkennen.";
 "NSCameraUsageDescription" = "DJConnect verwendet die Kamera nur, um den Kopplungs-QR-Code von Home Assistant oder der Apple Watch zu scannen.";
