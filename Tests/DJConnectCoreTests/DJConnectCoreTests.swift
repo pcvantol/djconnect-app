@@ -3400,6 +3400,51 @@ private func makePairedMusicDNAModel(
     #expect(redacted.contains(#""response_audio_url":"[redacted]""#))
 }
 
+@Test func webSocketLogRedactionRedactsSessionAndBearerTokens() throws {
+    let text = """
+    WebSocket auth failed Authorization: Bearer ha-bearer-secret access_token=ha_ws_session_secret device_token=djci_device_secret {"access_token":"ha_ws_json_secret","device_token":"djci_json_secret"}
+    """
+
+    let redacted = DJConnectLogRedactor.redactText(text)
+
+    #expect(!redacted.contains("ha-bearer-secret"))
+    #expect(!redacted.contains("ha_ws_session_secret"))
+    #expect(!redacted.contains("djci_device_secret"))
+    #expect(!redacted.contains("ha_ws_json_secret"))
+    #expect(!redacted.contains("djci_json_secret"))
+    #expect(redacted.contains("Bearer [redacted]"))
+    #expect(redacted.contains("access_token=[redacted]"))
+    #expect(redacted.contains("device_token=[redacted]"))
+    #expect(redacted.contains(#""access_token":"[redacted]""#))
+    #expect(redacted.contains(#""device_token":"[redacted]""#))
+}
+
+@Test func webSocketDiagnosticsRedactAuthProviderErrors() async throws {
+    let fastPath = DJConnectHomeAssistantWebSocketFastPath(
+        baseURL: try #require(URL(string: "http://homeassistant.local:8123")),
+        homeAssistantAuth: DJConnectHomeAssistantWebSocketAuth {
+            throw DJConnectError.network(
+                message: #"Authorization: Bearer ha-bearer-secret access_token=ha_ws_session_secret device_token=djci_device_secret"#
+            )
+        }
+    )
+
+    do {
+        try await fastPath.prepare()
+        Issue.record("WebSocket prepare should fail when auth provider throws")
+    } catch {
+        let diagnostics = await fastPath.diagnostics
+        let lastError = try #require(diagnostics.lastWebSocketError)
+
+        #expect(!lastError.contains("ha-bearer-secret"))
+        #expect(!lastError.contains("ha_ws_session_secret"))
+        #expect(!lastError.contains("djci_device_secret"))
+        #expect(lastError.contains("Bearer [redacted]"))
+        #expect(lastError.contains("access_token=[redacted]"))
+        #expect(lastError.contains("device_token=[redacted]"))
+    }
+}
+
 @MainActor
 @Test func runtimeDiagnosticLogsRedactSecretsBeforePersistence() throws {
     let suiteName = "DJConnectTests-\(UUID().uuidString)"

@@ -40,7 +40,8 @@ The CLI build disables signing for local verification. Configure
 
 Private repository CI runs the same unsigned build checks through
 `.github/workflows/ci.yml`, plus Swift tests, localization validation, Postman
-collection validation, and the autonomous WebSocket contract e2e. It
+collection validation, and autonomous HTTP/WebSocket Home Assistant contract
+e2e. It
 intentionally does not sign, notarize, or upload release binaries.
 
 ## Pairing The macOS App
@@ -226,10 +227,39 @@ Autonomous WebSocket contract e2e:
 node Tools/websocket_e2e_contract.js
 ```
 
+Autonomous HTTP contract e2e:
+
+```sh
+node Tools/http_e2e_contract.js
+```
+
 This starts an in-process Home Assistant contract server, obtains a short-lived
 WebSocket session token through `POST /api/djconnect/v1/websocket/session`, then
-authenticates `/api/websocket` and validates advertised DJConnect routes without
-depending on a local HA dev environment.
+authenticates `/api/websocket` and validates the DJConnect commands Home
+Assistant advertises in `custom_components/djconnect/websocket_api.py`. The HTTP
+runner uses the same fixture to validate canonical REST endpoints from the HA
+repo route constants and view handlers without opening the WebSocket path. Keep
+the fixture aligned with the Home Assistant `djconnect` repo contract files
+(`const.py`, `http.py`, `api_handlers.py`, `websocket_api.py`, and tests), not
+with client-side assumptions. Current autonomous coverage includes pairing,
+status, command/event, Ask DJ message/history/state/export/idle, Music DNA
+profile/settings/clear/import/export, Music Discovery feed/refresh/play/
+feedback, Track Insight, HTTP-only VibeCast, push register/bootstrap/
+unregister, voice, TTS, image proxy, and voice debug routes.
+
+The reusable fixture lives in `Tools/ha_contract_fixture.js`. It exports
+`startContractServer`, `RawWebSocketClient`, and the shared contract constants,
+and can be started manually with:
+
+```sh
+node Tools/ha_contract_fixture.js
+```
+
+Security/redaction validation for the fixture:
+
+```sh
+node Tools/validate_ha_contract_fixture_security.js
+```
 
 Xcode project test scheme:
 

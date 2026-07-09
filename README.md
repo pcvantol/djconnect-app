@@ -302,8 +302,8 @@ alerts/security updates, and branch protection enabled for `main`. Required
 status checks must be green before protected-branch changes are merged or
 pushed without an explicit maintainer bypass.
 
-Private GitHub Actions CI runs Swift tests, the autonomous WebSocket contract
-e2e, and unsigned iOS/macOS build checks. Release tags also publish unsigned
+Private GitHub Actions CI runs Swift tests, autonomous HTTP and WebSocket
+Home Assistant contract e2e, and unsigned iOS/macOS build checks. Release tags also publish unsigned
 macOS and iOS diagnostic artifacts to
 [pcvantol/djconnect-app-releases](https://github.com/pcvantol/djconnect-app-releases)
 when the private repo has a `PUBLIC_RELEASES_TOKEN` secret with write access to
@@ -339,10 +339,40 @@ swift test
 ```
 
 Autonomous WebSocket contract e2e, using an in-process Home Assistant contract
-server and no local HA dev dependency:
+fixture server and no local HA dev dependency:
 
 ```sh
 node Tools/websocket_e2e_contract.js
+```
+
+Autonomous HTTP contract e2e against the same fixture:
+
+```sh
+node Tools/http_e2e_contract.js
+```
+
+The fixture is contract-driven from the Home Assistant `djconnect` repo:
+`custom_components/djconnect/const.py`, `http.py`, `api_handlers.py`,
+`websocket_api.py`, and their tests are the source of truth. The HTTP e2e covers
+pairing, status, command/event, Ask DJ message/history/state/export/idle,
+Music DNA profile/settings/clear/import/export, Music Discovery
+feed/refresh/play/feedback, Track Insight, VibeCast, push register/bootstrap/
+unregister, voice, TTS, image proxy, and voice debug routes. The WebSocket e2e
+covers only the commands Home Assistant advertises through
+`_supported_websocket_commands`; VibeCast remains HTTP-only until HA exposes a
+WebSocket command for it.
+
+The reusable fixture can also be imported from
+`Tools/ha_contract_fixture.js` or started manually:
+
+```sh
+node Tools/ha_contract_fixture.js
+```
+
+Fixture startup output and route metadata are checked for token leakage with:
+
+```sh
+node Tools/validate_ha_contract_fixture_security.js
 ```
 
 ## Integration Contract

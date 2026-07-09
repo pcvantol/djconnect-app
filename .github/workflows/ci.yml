@@ -57,6 +57,12 @@ jobs:
       - name: WebSocket contract e2e
         run: node Tools/websocket_e2e_contract.js
 
+      - name: HTTP contract e2e
+        run: node Tools/http_e2e_contract.js
+
+      - name: HA contract fixture security validation
+        run: node Tools/validate_ha_contract_fixture_security.js
+
       - name: Validate Apple localizations
         run: python3 scripts/validate_localizations.py
 

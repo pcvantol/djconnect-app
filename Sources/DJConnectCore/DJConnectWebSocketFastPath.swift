@@ -490,7 +490,45 @@ public actor DJConnectHomeAssistantWebSocketFastPath: DJConnectWebSocketFastPath
     }
 
     private static func redactedError(_ error: Error) -> String {
-        DJConnectLogRedactor.redactText(error.localizedDescription)
+        if let error = error as? DJConnectError {
+            return DJConnectLogRedactor.redactText(describe(error))
+        }
+        return DJConnectLogRedactor.redactText(error.localizedDescription)
+    }
+
+    private static func describe(_ error: DJConnectError) -> String {
+        switch error {
+        case let .backendUnavailable(message):
+            message ?? "Backend unavailable"
+        case let .authStale(statusCode, message):
+            message ?? "Authentication stale (HTTP \(statusCode))"
+        case let .routeMissing(message):
+            message ?? "Route missing"
+        case let .versionMismatch(mismatch):
+            "Version mismatch: \(mismatch)"
+        case let .notConfigured(message):
+            message ?? "DJConnect is not configured"
+        case let .server(statusCode, message):
+            message ?? "Server error (HTTP \(statusCode))"
+        case let .decodingFailed(statusCode, endpoint, message):
+            message ?? "Decoding failed for \(endpoint) (HTTP \(statusCode))"
+        case let .network(message):
+            message
+        case .invalidResponse:
+            "Invalid response"
+        case let .invalidConfiguration(message):
+            message
+        case .missingToken:
+            "Missing token"
+        case let .pairingFailed(message):
+            message ?? "Pairing failed"
+        case let .clientTypeMismatch(message, expectedClientType, receivedClientType):
+            message ?? "Client type mismatch expected=\(expectedClientType ?? "unknown") received=\(receivedClientType ?? "unknown")"
+        case let .trackInsightUnavailable(code, message):
+            message ?? code ?? "Track Insight unavailable"
+        case let .payloadTooLarge(limitBytes, actualBytes):
+            "Payload too large limit=\(limitBytes) actual=\(actualBytes.map(String.init) ?? "unknown")"
+        }
     }
 }
 
