@@ -3723,11 +3723,48 @@ public struct DJConnectMusicDNAExportResponse: Codable, Equatable, Sendable {
     }
 }
 
-public enum DJConnectMusicDiscoveryItemKind: String, Codable, Equatable, Sendable {
+public enum DJConnectMusicDiscoveryItemKind: Codable, Equatable, Sendable {
     case track
     case album
     case artist
     case playlist
+    case unknown(String)
+
+    public var rawValue: String {
+        switch self {
+        case .track:
+            return "track"
+        case .album:
+            return "album"
+        case .artist:
+            return "artist"
+        case .playlist:
+            return "playlist"
+        case let .unknown(value):
+            return value
+        }
+    }
+
+    public init(from decoder: Decoder) throws {
+        let value = try decoder.singleValueContainer().decode(String.self)
+        switch value {
+        case "track":
+            self = .track
+        case "album":
+            self = .album
+        case "artist":
+            self = .artist
+        case "playlist":
+            self = .playlist
+        default:
+            self = .unknown(value)
+        }
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
 }
 
 public enum DJConnectMusicDiscoveryConfidence: String, Codable, Equatable, Sendable {
@@ -3869,6 +3906,14 @@ public struct DJConnectMusicDiscoverySection: Codable, Identifiable, Equatable, 
 }
 
 public struct DJConnectMusicDiscoveryResponse: Codable, Equatable, Sendable {
+    public struct Cache: Codable, Equatable, Sendable {
+        public var hit: Bool?
+
+        public init(hit: Bool? = nil) {
+            self.hit = hit
+        }
+    }
+
     public var success: Bool
     public var enabled: Bool
     public var reason: String?
@@ -3876,6 +3921,7 @@ public struct DJConnectMusicDiscoveryResponse: Codable, Equatable, Sendable {
     public var generatedAt: Date?
     public var ttlSeconds: Int?
     public var source: String?
+    public var cache: Cache?
     public var sections: [DJConnectMusicDiscoverySection]
     public var error: String?
     public var message: String?
@@ -3888,6 +3934,7 @@ public struct DJConnectMusicDiscoveryResponse: Codable, Equatable, Sendable {
         case generatedAt = "generated_at"
         case ttlSeconds = "ttl_seconds"
         case source
+        case cache
         case sections
         case error
         case message
@@ -3901,6 +3948,7 @@ public struct DJConnectMusicDiscoveryResponse: Codable, Equatable, Sendable {
         generatedAt: Date? = nil,
         ttlSeconds: Int? = nil,
         source: String? = nil,
+        cache: Cache? = nil,
         sections: [DJConnectMusicDiscoverySection] = [],
         error: String? = nil,
         message: String? = nil
@@ -3912,6 +3960,7 @@ public struct DJConnectMusicDiscoveryResponse: Codable, Equatable, Sendable {
         self.generatedAt = generatedAt
         self.ttlSeconds = ttlSeconds.map { max(0, $0) }
         self.source = source?.nilIfBlank
+        self.cache = cache
         self.sections = sections
         self.error = error?.nilIfBlank
         self.message = message?.nilIfBlank
@@ -3926,6 +3975,7 @@ public struct DJConnectMusicDiscoveryResponse: Codable, Equatable, Sendable {
         generatedAt = DJConnectAskDJHistoryResponse.decodeDate(container, key: .generatedAt)
         ttlSeconds = try container.decodeIfPresent(Int.self, forKey: .ttlSeconds).map { max(0, $0) }
         source = try container.decodeIfPresent(String.self, forKey: .source)?.nilIfBlank
+        cache = try container.decodeIfPresent(Cache.self, forKey: .cache)
         sections = container.decodeLossyArrayIfPresent(DJConnectMusicDiscoverySection.self, forKey: .sections) ?? []
         error = try container.decodeIfPresent(String.self, forKey: .error)?.nilIfBlank
         message = try container.decodeIfPresent(String.self, forKey: .message)?.nilIfBlank

@@ -183,20 +183,25 @@ bootstrap proofs, raw prompts, raw audio, diagnostics, or local cache fields.
 Import previews a selected JSON backup locally, then uploads it to Home
 Assistant only while paired and connected.
 
-Ontdek / Discover is the iOS/macOS Music Discovery surface and is also available
-as a compact Apple Watch list/detail flow. It appears directly after Track
-Insight in primary navigation on iOS/macOS and lets watchOS users open a
-recommendation to read the backend reason before tapping Play Now. It is backed
-only by Home Assistant Music DNA data. The client loads
+Ontdek / Discover is the iOS/macOS Music Discovery recommendation surface and is
+also available as a compact Apple Watch list/detail flow. It is not a
+listening-history view. It appears directly after Track Insight in primary
+navigation on iOS/macOS and lets watchOS users open a recommendation to read the
+backend reason before tapping Play Now. The client loads
 `GET /api/djconnect/v1/music_discovery`, refreshes
 with `POST /api/djconnect/v1/music_discovery/refresh`, and plays accepted items via
 `POST /api/djconnect/v1/music_discovery/play` so Home Assistant can record the
 acceptance as a positive Music DNA signal. Clients must not generate
-recommendations or reasons locally, and displayed items require a backend `id`,
-`kind`, `title`, playable `uri`, and `reason`. If Music DNA is disabled, Ontdek
-shows the opt-in/locked state instead of an empty grid. Load failures stay in
-the app model and refresh controls instead of replacing the page with an error
-card. On iOS the Home Screen
+recommendations or reasons locally, and must render backend `sections[]` in
+order without hardcoding section IDs. Current sections include `new_for_you` and
+`accepted_recommendations`; older IDs such as `because_you_like` and
+`recent_vibe` are not required. Displayed cards come only from backend
+`sections[].items[]` and use the item `id`, `kind`, `title`, `subtitle`,
+`image_url`, `reason`, `reason_sources`, `confidence`, and `uri`; raw recently
+played, top-track, Music DNA, or cached UI items are never reconstructed into
+Discovery cards. If Music DNA is disabled, Ontdek shows the opt-in/locked state
+instead of an empty grid. Load failures stay in the app model and refresh
+controls instead of replacing the page with an error card. On iOS the Home Screen
 quick action `dev.djconnect.action.discovery` and deep links
 `djconnect://discover` / `djconnect://ontdek` / `djconnect://music-discovery`
 jump directly to Ontdek.

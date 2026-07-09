@@ -341,6 +341,14 @@ recommendations are ready. The push is a wake/open hint only; Apple clients must
 render Music Discovery content only from the backend Music Discovery response,
 not from APNs custom payload fields.
 
+Music Discovery is a recommendation feed, not a listening-history view. Apple
+clients render the backend-provided `sections[]` in order and do not hardcode
+section IDs. Current backend sections include `new_for_you` and
+`accepted_recommendations`; clients must not require older IDs such as
+`because_you_like` or `recent_vibe`. Clients must not render raw recently played
+tracks, top tracks, Music DNA data, or previous UI cache as Discovery cards
+unless those cards are explicitly present in `sections[].items[]`.
+
 ```json
 {
   "event_type": "music_discovery_ready",
@@ -365,8 +373,12 @@ Expected client behavior:
   `client_type`, optional `client_id`, optional `device_token`, and optional
   `music_dna_key` with refresh/feed requests.
 - Render recommendations exclusively from backend response
-  `sections[].items[]`. Do not render push-provided recommendation titles,
-  artwork, sections, or reasons.
+  `sections[].items[]` using the backend item `id`, `kind`, `title`,
+  `subtitle`, optional `image_url`, `reason`, `reason_sources`, `confidence`,
+  and `uri`. Preserve backend section and item order. Do not render
+  push-provided recommendation titles, artwork, sections, or reasons.
+- Treat `revision` and `cache.hit` as backend metadata; they must not be used to
+  reconstruct local Discovery items.
 - If the backend returns `enabled: false` and `reason: "music_dna_disabled"`,
   show the existing disabled/empty Ontdek UI without local fallback
   recommendations.

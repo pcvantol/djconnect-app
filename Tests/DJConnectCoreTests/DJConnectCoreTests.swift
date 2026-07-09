@@ -1490,7 +1490,7 @@ private func makePairedMusicDNAModel(
     let refresh = try client.refreshMusicDiscoveryRequest(musicDNAKey: "user:abc123", language: "nl")
     let play = try client.musicDiscoveryPlayRequest(DJConnectMusicDiscoveryPlayRequest(
         discoveryItemID: "disc-track-1",
-        sectionID: "because_you_like",
+        sectionID: "new_for_you",
         identity: identity,
         musicDNAKey: "user:abc123"
     ))
@@ -1507,7 +1507,7 @@ private func makePairedMusicDNAModel(
     let playBody = try #require(play.httpBody)
     let playJSON = try #require(JSONSerialization.jsonObject(with: playBody) as? [String: Any])
     #expect(playJSON["discovery_item_id"] as? String == "disc-track-1")
-    #expect(playJSON["section_id"] as? String == "because_you_like")
+    #expect(playJSON["section_id"] as? String == "new_for_you")
     #expect(playJSON["device_id"] as? String == "djconnect-ios-8F3A2C91B45D")
     #expect(playJSON["client_type"] as? String == "ios")
     #expect(playJSON["music_dna_key"] as? String == "user:abc123")
@@ -1824,13 +1824,14 @@ private func makePairedMusicDNAModel(
           "success": true,
           "enabled": true,
           "revision": 12,
+          "cache": {"hit": true},
           "generated_at": "2026-07-04T12:00:00+00:00",
           "ttl_seconds": 86400,
           "source": "music_dna",
           "sections": [
             {
-              "id": "because_you_like",
-              "title": "Omdat je dit vaak luistert",
+              "id": "new_for_you",
+              "title": "Nieuw voor jou",
               "items": [
                 {
                   "id": "disc-track-1",
@@ -1872,6 +1873,13 @@ private func makePairedMusicDNAModel(
                   "uri": "spotify:playlist:alias",
                   "thumbnail_url": "/api/djconnect/image_proxy/playlist-alias",
                   "reason": "Thumbnail alias."
+                },
+                {
+                  "id": "disc-show-1",
+                  "kind": "show",
+                  "title": "Unknown Kind",
+                  "uri": "spotify:show:alias",
+                  "reason": "Backend may add item kinds."
                 }
               ]
             },
@@ -1879,6 +1887,19 @@ private func makePairedMusicDNAModel(
               "id": "empty",
               "title": "Empty",
               "items": []
+            },
+            {
+              "id": "accepted_recommendations",
+              "title": "Omdat je eerder iets koos",
+              "items": [
+                {
+                  "id": "disc-track-accepted",
+                  "kind": "track",
+                  "title": "Accepted",
+                  "uri": "spotify:track:accepted",
+                  "reason": "Related to an accepted recommendation."
+                }
+              ]
             }
           ]
         }
@@ -1890,10 +1911,11 @@ private func makePairedMusicDNAModel(
     #expect(disabled.visibleSections.isEmpty)
     #expect(feed.enabled == true)
     #expect(feed.revision == 12)
+    #expect(feed.cache?.hit == true)
     #expect(feed.generatedAt != nil)
     #expect(feed.ttlSeconds == 86400)
     #expect(feed.source == "music_dna")
-    #expect(feed.visibleSections.map(\.id) == ["because_you_like"])
+    #expect(feed.visibleSections.map(\.id) == ["new_for_you", "accepted_recommendations"])
     let item = try #require(feed.visibleSections.first?.visibleItems.first)
     #expect(item.id == "disc-track-1")
     #expect(item.kind == .track)
@@ -1902,10 +1924,11 @@ private func makePairedMusicDNAModel(
     #expect(item.imageURL == "/api/djconnect/image_proxy/intro")
     #expect(item.reasonSources == ["taste_anchors", "favorite_genres"])
     #expect(item.confidence == .medium)
-    #expect(feed.sections.first?.items.count == 5)
-    #expect(feed.sections.first?.visibleItems.count == 3)
+    #expect(feed.sections.first?.items.count == 6)
+    #expect(feed.sections.first?.visibleItems.count == 4)
     #expect(feed.sections.first?.visibleItems[1].imageURL == "/api/djconnect/image_proxy/album-alias")
     #expect(feed.sections.first?.visibleItems[2].imageURL == "/api/djconnect/image_proxy/playlist-alias")
+    #expect(feed.sections.first?.visibleItems[3].kind.rawValue == "show")
 }
 
 @MainActor
@@ -2086,8 +2109,8 @@ private func makePairedMusicDNAModel(
               "source": "music_dna",
               "sections": [
                 {
-                  "id": "because_you_like",
-                  "title": "Omdat je dit vaak luistert",
+                  "id": "new_for_you",
+                  "title": "Nieuw voor jou",
                   "items": [
                     {"id":"disc-track-1","kind":"track","title":"Intro","subtitle":"The xx","uri":"spotify:track:intro","reason":"Past bij je smaakankers.","confidence":"high"}
                   ]
@@ -10332,7 +10355,7 @@ private func makePairedMusicDNAModel(
     let refreshRequest = DJConnectWatchProxyRequest(operation: .musicDiscoveryRefresh, payload: try JSONEncoder().encode(feedPayload))
     let playPayload = DJConnectMusicDiscoveryPlayRequest(
         discoveryItemID: "watch-reco-1",
-        sectionID: "because_you_like",
+        sectionID: "new_for_you",
         identity: identity,
         musicDNAKey: "djconnect-watchos-ABC123"
     )
@@ -10354,7 +10377,7 @@ private func makePairedMusicDNAModel(
     #expect(decodedFeedPayload.language == "nl")
     #expect(decodedFeedPayload.locale == "nl-NL")
     #expect(decodedPlayPayload.discoveryItemID == "watch-reco-1")
-    #expect(decodedPlayPayload.sectionID == "because_you_like")
+    #expect(decodedPlayPayload.sectionID == "new_for_you")
     #expect(decodedPlayPayload.clientType == .watchos)
     #expect(decodedPlayPayload.musicDNAKey == "djconnect-watchos-ABC123")
 }

@@ -5764,8 +5764,8 @@ public final class DJConnectAppModel: ObservableObject {
             source: "music_dna",
             sections: [
                 DJConnectMusicDiscoverySection(
-                    id: "because_you_like",
-                    title: "Omdat je dit vaak luistert",
+                    id: "new_for_you",
+                    title: "Nieuw voor jou",
                     items: [
                         DJConnectMusicDiscoveryItem(
                             id: "demo-disc-track-1",
@@ -5803,8 +5803,8 @@ public final class DJConnectAppModel: ObservableObject {
                     ]
                 ),
                 DJConnectMusicDiscoverySection(
-                    id: "fresh_for_your_mood",
-                    title: "Nieuw voor je mood",
+                    id: "accepted_recommendations",
+                    title: "Omdat je eerder iets koos",
                     items: [
                         DJConnectMusicDiscoveryItem(
                             id: "demo-disc-playlist-1",

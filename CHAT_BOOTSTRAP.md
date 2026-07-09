@@ -81,7 +81,10 @@ Huidige status om te controleren:
   `POST /api/djconnect/v1/music_discovery/refresh` en
   `POST /api/djconnect/v1/music_discovery/play`. APNs
   `music_discovery_ready` is alleen een trigger om Ontdek te openen/verversen;
-  recommendations worden niet uit de pushpayload gerenderd.
+  recommendations worden niet uit de pushpayload gerenderd. De clients renderen
+  backend `sections[]` in volgorde, zonder section IDs te hardcoden; huidige
+  backend-sections zijn onder andere `new_for_you` en
+  `accepted_recommendations`.
 - De Mood-keuze is gedeeld tussen Ask DJ, Track Insight en Speelt nu / Now
   Playing. Speelt nu gebruikt dezelfde control op iOS en macOS; de track-art
   kaart kleurt mee met de actieve Mood-palette.

@@ -4,6 +4,13 @@ All notable changes to DJConnect App are documented here.
 
 ## Unreleased
 
+### Changed
+
+- Updated Music Discovery rendering for the current backend feed contract:
+  clients render backend `sections[]` in order, tolerate unknown item `kind`
+  values, treat `revision` and `cache.hit` as metadata, and no longer assume
+  older section IDs such as `because_you_like` or `recent_vibe`.
+
 ## 3.2.29 - 2026-07-08
 
 ### Changed

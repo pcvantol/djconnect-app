@@ -4346,8 +4346,8 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
             source: "music_dna",
             sections: [
                 DJConnectMusicDiscoverySection(
-                    id: "because_you_like",
-                    title: "Omdat je dit vaak luistert",
+                    id: "new_for_you",
+                    title: "Nieuw voor jou",
                     items: [
                         DJConnectMusicDiscoveryItem(
                             id: "watch-demo-discovery-1",
@@ -4372,8 +4372,8 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
                     ]
                 ),
                 DJConnectMusicDiscoverySection(
-                    id: "fresh_for_your_mood",
-                    title: "Nieuw voor je mood",
+                    id: "accepted_recommendations",
+                    title: "Omdat je eerder iets koos",
                     items: [
                         DJConnectMusicDiscoveryItem(
                             id: "watch-demo-discovery-3",
