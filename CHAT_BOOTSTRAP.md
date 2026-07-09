@@ -25,6 +25,7 @@ Context:
 - Apple clients bewaren alleen het door Home Assistant uitgegeven DJConnect device-token in app-private storage. Gebruik geen Keychain en toon geen Keychain-permissie of fallback-popup. `App opnieuw koppelen` wist lokale pairing/token-state, roteert de lokale clientidentiteit/koppelcode waar nodig en opent opnieuw de pairingflow.
 - Pairing gebruikt Home Assistant `/api/djconnect/v1/pair` met canonical `client_type`: macOS=`macos`, iPhone/iPad=`ios`, Apple Watch via iPhone proxy=`watchos`. Eerste pairing is lokaal; `https://*.ngrok-free.dev` is alleen als dev-tunnel whitelisted. `client_type_mismatch` houdt URL/code intact en toont een platformspecifieke melding om de juiste HA setup-flow te kiezen.
 - Gebruik `/Users/pcvantol/Documents/GitHub/djconnect/SYNC_PROMPTS.md` als enige centrale bron voor cross-repo contracten. Maak geen lokale kopie in deze repo en herintroduceer geen oude losse syncprompt-bestanden. Repo-scheiding: Home Assistant integration=`pcvantol/djconnect`, centrale API=`pcvantol/djconnect-api`, Apple app=`pcvantol/djconnect-app`, Windows=`pcvantol/djconnect-windows`, ESP firmware=`pcvantol/djconnect-esp32`, website/docs=`pcvantol/djconnect-website`, Raspberry Pi=`pcvantol/djconnect-pi`.
+- Nieuwe review/QA-stap: check deze repo bij release- of Ask DJ/audio-werk tegen de `DJ Announcement Output Sync` sectie in `/Users/pcvantol/Documents/GitHub/djconnect/SYNC_PROMPTS.md`.
 - Houd cross-repo contracten actueel met `pcvantol/djconnect/SYNC_PROMPTS.md` en `pcvantol/djconnect/PRODUCT_ROADMAP.md` indien protocol/roadmap geraakt wordt. Apple clients gebruiken Ask DJ als rijke chat/PTT-functie; er is geen losse Now Playing `DJ verzoek` ingang meer. rbpi had die losse ingang al niet; ESP32 krijgt geen Ask DJ rich UI en blijft buiten Apple UI-sync.
 - Ask DJ is cross-device: iOS, macOS en watchOS synchroniseren history via Home Assistant en cachen lokaal voor performance. Clients mergen serverberichten in de lokale cache en vervangen de lokale lijst niet door een bounded response-window. `clear_revision` blijft de full-clear authority.
 - Bij een nieuw ontvangen Ask DJ antwoord mag een latere history/status sync met hogere `clear_revision` de verse lokale vraag+antwoord exchange niet direct wissen; preserveer berichten met dezelfde `client_message_id` tot HA ze zelf in history teruggeeft.
@@ -43,7 +44,7 @@ Context:
 - Secrets/tokens/wachtwoorden/private URLs mogen nooit in commits, logs, screenshots, diagnostics of test fixtures.
 
 Huidige status om te controleren:
-- De actuele Apple app release-prep is `3.2.28`; de gedeelde protocol/releaselijn
+- De actuele Apple app release-prep is `3.2.33`; de gedeelde protocol/releaselijn
   is `3.2.x`, laatst centraal uitgelijnd na Home Assistant integration
   `v3.2.28`. Clients op `3.2.x` zijn compatibel met Home Assistant integration
   `>=3.2.0` en `<3.3.0`.

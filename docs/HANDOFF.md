@@ -187,6 +187,10 @@ Now Playing should not reintroduce a separate `DJ verzoek` block. rbpi did not
 have that separate UI block, and ESP32 remains a firmware/device client without
 the Apple Ask DJ rich chat UI.
 
+Mood selection is centralized in Now Playing on iOS and macOS. Ask DJ and Track
+Insight consume the shared selected mood for request context and visual styling,
+but must not expose their own duplicate Mood picker routes.
+
 For `Ask DJ`, the Watch may send mood, DJ style, and a Music DNA key hint, but
 Music DNA itself belongs to the Home Assistant integration. This lets a user
 ask for a calmer track on Watch and later ask from Mac why that track was
@@ -242,6 +246,16 @@ output command and preserves the backend-returned action object where possible;
 clients do not infer speaker switching from free text. Ask DJ message and
 command payloads include `device_id`, `device_name`, `client_id`, and
 `client_type`, with `client_id` currently matching `device_id`.
+
+DJ announcement output mode is client-selectable, but the HA speaker entity is
+not. Apple clients parse `dj_announcement` capabilities from pairing/status,
+send only `dj_announcement_output`, and never send or mutate
+`dj_announcement_speaker_entity_id`. Available modes are `client_device` and
+`text_only` without an HA speaker, plus `both` and `ha_speaker` when HA reports
+a configured speaker. Autoplay remains local and requires the auto-play setting,
+a client-deliverable `announcement.audio_url`, and `delivery` of
+`client_device` or `both`; `ha_speaker` and `text_only` never start client
+audio. Push payloads are only wake/sync hints.
 
 The Apple clear-history action calls
 `POST /api/djconnect/v1/ask_dj/history/clear`. Home Assistant should scope the

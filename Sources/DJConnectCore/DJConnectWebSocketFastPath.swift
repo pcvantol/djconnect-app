@@ -6,9 +6,12 @@ public enum DJConnectFastPathRoute: String, CaseIterable, Sendable {
     case askDJHistory = "djconnect/ask_dj/history"
     case askDJHistoryClear = "djconnect/ask_dj/history/clear"
     case askDJHistoryState = "djconnect/ask_dj/history/state"
+    case askDJIdleSuggestion = "djconnect/ask_dj/idle_suggestion"
     case musicDNAProfile = "djconnect/music_dna/profile"
     case musicDNASettings = "djconnect/music_dna/settings"
     case musicDNAClear = "djconnect/music_dna/clear"
+    case musicDNAImport = "djconnect/music_dna/import"
+    case musicDNAExport = "djconnect/music_dna/export"
     case musicDiscoveryFeed = "djconnect/music_discovery/feed"
     case musicDiscoveryRefresh = "djconnect/music_discovery/refresh"
     case musicDiscoveryPlay = "djconnect/music_discovery/play"
@@ -597,6 +600,8 @@ private struct DJConnectWebSocketCapabilitiesResponse: Decodable {
             values.insert(DJConnectFastPathRoute.musicDNAProfile.rawValue)
             values.insert(DJConnectFastPathRoute.musicDNASettings.rawValue)
             values.insert(DJConnectFastPathRoute.musicDNAClear.rawValue)
+            values.insert(DJConnectFastPathRoute.musicDNAImport.rawValue)
+            values.insert(DJConnectFastPathRoute.musicDNAExport.rawValue)
         }
         return values.sorted()
     }

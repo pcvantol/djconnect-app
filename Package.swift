@@ -33,7 +33,10 @@ let package = Package(
         ),
         .testTarget(
             name: "DJConnectCoreTests",
-            dependencies: ["DJConnectCore", "DJConnectUI"]
+            dependencies: ["DJConnectCore", "DJConnectUI"],
+            resources: [
+                .process("../Fixtures")
+            ]
         )
     ]
 )

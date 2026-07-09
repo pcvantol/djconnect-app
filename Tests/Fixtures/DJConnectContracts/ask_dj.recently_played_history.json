@@ -1,0 +1,45 @@
+{
+  "success": true,
+  "text": "Dit heb je het afgelopen uur afgespeeld:\n- Finnebassen - Bella",
+  "dj_text": "Dit heb je het afgelopen uur afgespeeld:\n- Finnebassen - Bella",
+  "message": "Dit heb je het afgelopen uur afgespeeld:\n- Finnebassen - Bella",
+  "action": "none",
+  "intent": {
+    "category": "informational",
+    "intent": "recently_played_history",
+    "action": "recently_played",
+    "item_type": "tracks"
+  },
+  "items": [
+    {
+      "title": "Bella",
+      "subtitle": "Finnebassen",
+      "kind": "track",
+      "uri": "spotify:track:bella",
+      "image_url": "/api/djconnect/v1/image_proxy/example",
+      "thumbnail_url": "/api/djconnect/v1/image_proxy/example",
+      "played_at": "2026-07-09T09:50:00+00:00",
+      "played_at_label": "11:50"
+    }
+  ],
+  "images": [
+    {
+      "url": "/api/djconnect/v1/image_proxy/example",
+      "thumbnail_url": "/api/djconnect/v1/image_proxy/example",
+      "title": "Bella",
+      "subtitle": "Finnebassen",
+      "kind": "track",
+      "source": "spotify_recently_played"
+    }
+  ],
+  "links": [],
+  "sources": [
+    {
+      "source": "spotify_recently_played",
+      "kind": "source",
+      "title": "Spotify recently played"
+    }
+  ],
+  "playback_actions": [],
+  "confirmation_actions": []
+}

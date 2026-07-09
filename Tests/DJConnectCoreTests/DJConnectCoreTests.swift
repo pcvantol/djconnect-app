@@ -10840,6 +10840,144 @@ private func makePairedMusicDNAModel(
 }
 
 @MainActor
+@Test func askDJAnnouncementBothUsesNestedReplayAudioURL() throws {
+    let payload = Data("""
+    {
+      "audio_url": "https://example.test/audio/legacy.mp3",
+      "announcement": {
+        "output": "both",
+        "delivery": "both",
+        "audio_url": "/api/djconnect/v1/tts/token.mp3",
+        "audio_type": "mp3",
+        "target": {
+          "kind": "ha_media_player",
+          "entity_id": "media_player.voice_preview",
+          "name": "Voice Preview"
+        }
+      },
+      "assistant_message": {
+        "id": "assistant-announcement",
+        "role": "assistant",
+        "text": "Nieuwe plaat, nieuwe energie.",
+        "created_at": "2026-07-09T12:00:00Z"
+      }
+    }
+    """.utf8)
+    let response = try JSONDecoder().decode(DJConnectAskDJMessageResponse.self, from: payload)
+    let assistantMessage = try #require(response.assistantMessage)
+
+    #expect(response.audioURL?.path == "/api/djconnect/v1/tts/token.mp3")
+    #expect(response.announcement?.delivery == .both)
+    #expect(assistantMessage.audioURL?.path == "/api/djconnect/v1/tts/token.mp3")
+    #expect(assistantMessage.announcement?.target?.name == "Voice Preview")
+}
+
+@MainActor
+@Test func askDJAnnouncementHASpeakerAndTextOnlySuppressClientReplayAudioURL() throws {
+    for delivery in ["ha_speaker", "text_only"] {
+        let payload = Data("""
+        {
+          "audio_url": "https://example.test/audio/legacy.mp3",
+          "announcement": {
+            "output": "\(delivery)",
+            "delivery": "\(delivery)"
+          },
+          "assistant_message": {
+            "id": "assistant-\(delivery)",
+            "role": "assistant",
+            "text": "Alleen tekst of HA speaker.",
+            "created_at": "2026-07-09T12:00:00Z"
+          }
+        }
+        """.utf8)
+        let response = try JSONDecoder().decode(DJConnectAskDJMessageResponse.self, from: payload)
+        let assistantMessage = try #require(response.assistantMessage)
+
+        #expect(response.audioURL == nil)
+        #expect(assistantMessage.audioURL == nil)
+    }
+}
+
+@MainActor
+@Test func djAnnouncementCapabilitiesWithoutSpeakerLockSpeakerModes() throws {
+    let suiteName = "DJConnectTests-\(UUID().uuidString)"
+    let defaults = try #require(UserDefaults(suiteName: suiteName))
+    defaults.removePersistentDomain(forName: suiteName)
+    let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startBackgroundTasks: false)
+
+    model.apply(pairingResponse: DJConnectPairingResponse(
+        success: true,
+        djAnnouncement: DJAnnouncementCapabilities(
+            speakerConfigured: false,
+            supportedOutputs: [.clientDevice, .textOnly],
+            lockedOutputs: [.both, .haSpeaker],
+            defaultOutput: .clientDevice
+        )
+    ), fallbackBaseURL: try #require(URL(string: "http://fallback.local:8123")))
+
+    #expect(model.isDJAnnouncementOutputSelectable(.clientDevice))
+    #expect(model.isDJAnnouncementOutputSelectable(.textOnly))
+    #expect(!model.isDJAnnouncementOutputSelectable(.both))
+    #expect(!model.isDJAnnouncementOutputSelectable(.haSpeaker))
+}
+
+@MainActor
+@Test func djAnnouncementCapabilitiesWithSpeakerExposeAllModesAndDefaultBoth() throws {
+    let suiteName = "DJConnectTests-\(UUID().uuidString)"
+    let defaults = try #require(UserDefaults(suiteName: suiteName))
+    defaults.removePersistentDomain(forName: suiteName)
+    let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startBackgroundTasks: false)
+
+    model.apply(pairingResponse: DJConnectPairingResponse(
+        success: true,
+        djAnnouncement: DJAnnouncementCapabilities(
+            speakerConfigured: true,
+            speakerEntityID: "media_player.voice_preview",
+            speakerName: "Voice Preview",
+            supportedOutputs: DJAnnouncementOutput.allCases,
+            defaultOutput: .both
+        )
+    ), fallbackBaseURL: try #require(URL(string: "http://fallback.local:8123")))
+
+    #expect(model.selectableDJAnnouncementOutputs == DJAnnouncementOutput.allCases)
+    #expect(model.djAnnouncementOutput == .both)
+    #expect(model.djAnnouncementSpeakerDisplayName == "Voice Preview")
+}
+
+@Test func askDJRequestEncodesDJAnnouncementOutputWithoutSpeakerEntity() throws {
+    let identity = DJConnectIdentity(
+        deviceID: "ios-test",
+        deviceName: "iPhone",
+        clientType: .ios,
+        firmware: "3.2.29",
+        platform: .ios
+    )
+    let request = DJConnectAskDJRequest(
+        identity: identity,
+        text: "Doe een intro",
+        djAnnouncementOutput: .haSpeaker
+    )
+    let data = try JSONEncoder().encode(request)
+    let json = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
+
+    #expect(json["dj_announcement_output"] as? String == "ha_speaker")
+    #expect(json["dj_announcement_speaker_entity_id"] == nil)
+    #expect(json["speaker_entity_id"] == nil)
+
+    let command = DJConnectCommandPayload(
+        identity: identity,
+        command: "ask_dj_play_recommendation",
+        djAnnouncementOutput: .both
+    )
+    let commandData = try JSONEncoder().encode(command)
+    let commandJSON = try #require(JSONSerialization.jsonObject(with: commandData) as? [String: Any])
+
+    #expect(commandJSON["dj_announcement_output"] as? String == "both")
+    #expect(commandJSON["dj_announcement_speaker_entity_id"] == nil)
+    #expect(commandJSON["speaker_entity_id"] == nil)
+}
+
+@MainActor
 @Test func askDJFallbackTextMetadataMapsWithoutGeneratedFlag() throws {
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
@@ -11947,6 +12085,19 @@ private func makePairedMusicDNAModel(
     #expect(source.contains(".scrollBounceBehavior(.basedOnSize)"))
 }
 
+@Test func moodPickerIsCentralizedInNowPlayingOnly() throws {
+    let source = try loadRepositoryText("Sources/DJConnectUI/DJConnectRootView.swift")
+    let nowPlayingSection = try #require(source.structBody(named: "NowPlayingMoodControlSection"))
+    let trackInsightSection = try #require(source.structBody(named: "TrackInsightView"))
+    let askDJSection = try #require(source.structBody(named: "AskDJView"))
+
+    #expect(nowPlayingSection.contains("AskDJMoodModeControl(model: model)"))
+    #expect(!trackInsightSection.contains("AskDJMoodModeControl("))
+    #expect(!trackInsightSection.contains("trackInsightMoodToolbarButton"))
+    #expect(!askDJSection.contains("AskDJMoodModeControl("))
+    #expect(!askDJSection.contains("askDJMoodToolbarButton"))
+}
+
 @Test func gamesCanvasIsCappedOnIPadLandscapeOnly() throws {
     let source = try loadRepositoryText("Sources/DJConnectUI/DJConnectRootView.swift")
 
@@ -12038,6 +12189,29 @@ private func loadRepositoryText(_ relativePath: String) throws -> String {
 }
 
 private extension String {
+    func structBody(named name: String) -> String? {
+        guard let declaration = range(of: "private struct \(name): View {") else {
+            return nil
+        }
+        var depth = 0
+        var didEnterBody = false
+        var index = declaration.upperBound
+        while index < endIndex {
+            let character = self[index]
+            if character == "{" {
+                depth += 1
+                didEnterBody = true
+            } else if character == "}" {
+                if depth == 0, didEnterBody {
+                    return String(self[declaration.lowerBound...index])
+                }
+                depth -= 1
+            }
+            formIndex(after: &index)
+        }
+        return nil
+    }
+
     func pbxResourcesBuildPhase(named identifier: String) -> String? {
         guard let start = range(of: "\(identifier) /* Resources */ = {"),
               let end = self[start.upperBound...].range(of: "\n\t\t};") else {

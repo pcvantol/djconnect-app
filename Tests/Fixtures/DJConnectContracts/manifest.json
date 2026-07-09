@@ -1,0 +1,48 @@
+{
+  "format": "djconnect.client_contract_fixtures",
+  "schema_version": 1,
+  "integration_version": "3.2.45",
+  "generated_at": "2026-07-09T10:00:00+00:00",
+  "fixtures": [
+    {
+      "id": "capabilities.websocket",
+      "file": "capabilities.websocket.json",
+      "transport": "websocket",
+      "contract": "capabilities"
+    },
+    {
+      "id": "music_dna.profile.disabled",
+      "file": "music_dna.profile.disabled.json",
+      "transport": "http_or_websocket",
+      "contract": "music_dna.profile",
+      "state": "disabled"
+    },
+    {
+      "id": "music_dna.profile.empty",
+      "file": "music_dna.profile.empty.json",
+      "transport": "http_or_websocket",
+      "contract": "music_dna.profile",
+      "state": "empty"
+    },
+    {
+      "id": "music_dna.profile.rich",
+      "file": "music_dna.profile.rich.json",
+      "transport": "http_or_websocket",
+      "contract": "music_dna.profile",
+      "state": "rich"
+    },
+    {
+      "id": "music_discovery.feed",
+      "file": "music_discovery.feed.json",
+      "transport": "http_or_websocket",
+      "contract": "music_discovery.feed"
+    },
+    {
+      "id": "ask_dj.recently_played_history",
+      "file": "ask_dj.recently_played_history.json",
+      "transport": "http_or_websocket",
+      "contract": "ask_dj.response",
+      "intent": "recently_played_history"
+    }
+  ]
+}

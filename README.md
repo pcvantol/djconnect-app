@@ -230,8 +230,9 @@ the neutral midpoint (`50`) after install, map Mood to the four zones
 `0...24 = chill`, `25...59 = groove`, `60...84 = energy`, and `85...100 = party`,
 and pass the numeric value to Ask DJ, playback commands, Music DNA, and Music
 Discovery requests where supported. The selected Mood also drives visual accents
-for Now Playing, Queue, Ask DJ, Track Insight, VibeCast, and widgets. Track
-Insight uses the same floating Mood control pattern as Ask DJ. Mood changes and
+for Now Playing, Queue, Ask DJ, Track Insight, VibeCast, and widgets. Users
+change Mood from Now Playing only; Ask DJ and Track Insight render with that
+shared mood state but do not expose duplicate Mood controls. Mood changes and
 intentional playback/Ask DJ actions use native haptic feedback on iOS/watchOS
 and supported macOS hardware; watchOS demo mode keeps haptics enabled on real
 hardware.
@@ -356,8 +357,8 @@ The fixture is contract-driven from the Home Assistant `djconnect` repo:
 `websocket_api.py`, and their tests are the source of truth. The HTTP e2e covers
 pairing, status, command/event, Ask DJ message/history/state/export/idle,
 Music DNA profile/settings/clear/import/export, Music Discovery
-feed/refresh/play/feedback, Track Insight, VibeCast, push register/bootstrap/
-unregister, voice, TTS, image proxy, and voice debug routes. The WebSocket e2e
+feed/refresh/play/feedback, Track Insight, VibeCast, push register/unregister,
+voice, TTS, image proxy, and voice debug routes. The WebSocket e2e
 covers only the commands Home Assistant advertises through
 `_supported_websocket_commands`; VibeCast remains HTTP-only until HA exposes a
 WebSocket command for it.
@@ -422,6 +423,15 @@ history to the newest message by default, including after the first async
 history load. Clearing Ask DJ history calls
 `POST /api/djconnect/v1/ask_dj/history/clear`; the returned `clear_revision` is
 the authoritative full-clear signal for local cached history.
+
+DJ announcement responses may include a nested `announcement` object with
+`output`, `delivery`, and optional `audio_url`. Apple clients only choose and
+send `dj_announcement_output`; Home Assistant remains owner of the configured
+speaker entity. Without an HA speaker, clients expose `client_device` and
+`text_only`; with one configured they also expose `both` and `ha_speaker`, with
+`both` as the default when HA selected a speaker during setup. Local autoplay
+still depends on the app's auto-play setting and only uses client audio for
+`client_device` or `both`. Push notifications are wake/sync hints only.
 
 The native app also uses command proxy flows for backend devices, queue,
 playlists, liked songs, and output selection:

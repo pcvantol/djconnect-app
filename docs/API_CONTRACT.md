@@ -708,6 +708,9 @@ Clients should include the selected mood as a numeric `mood` value from 0 to
 Ask DJ generation, recommendations, Track Insight, Music DNA refreshes, and
 playback commands that accept mood-aware behavior. Apple clients persist the
 current selected mood locally and do not infer mood from visible response text.
+On Apple clients, users change the selected mood from Now Playing only; Ask DJ
+and Track Insight use the shared mood for request context and visual styling but
+do not expose duplicate mood controls.
 
 `audio_response` may be `auto`, `always`, or `never`; Apple text chat defaults
 to `auto`. Missing `audio_url` is a normal successful response for

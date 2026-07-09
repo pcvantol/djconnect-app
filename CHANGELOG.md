@@ -4,6 +4,14 @@ All notable changes to DJConnect App are documented here.
 
 ## Unreleased
 
+## 3.2.33 - 2026-07-09
+
+### Fixed
+
+- Removed the legacy Home Assistant `/push/bootstrap` route from the local Node
+  HTTP contract e2e fixture so it matches the Central trusted-issuer bootstrap
+  flow documented for current Apple clients.
+
 ## 3.2.31 - 2026-07-09
 
 ### Changed
