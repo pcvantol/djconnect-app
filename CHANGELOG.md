@@ -4,6 +4,8 @@ All notable changes to DJConnect App are documented here.
 
 ## Unreleased
 
+## 3.2.31 - 2026-07-09
+
 ### Changed
 
 - Updated Music Discovery rendering for the current backend feed contract:
