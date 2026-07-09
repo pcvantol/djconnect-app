@@ -3855,7 +3855,7 @@ private struct TrackInsightView: View {
     @State private var isShowingShare = false
     @State private var isAnimationActive = false
     @State private var statusToast: DJConnectVisualNotice?
-    #if canImport(AVKit) && os(iOS)
+    #if canImport(AVKit) && (os(iOS) || os(macOS))
     @StateObject private var vibeCastAirPlaySession = VibeCastAirPlaySession()
     @State private var shouldMaintainAirPlayVibeCast = false
     #endif
@@ -3868,7 +3868,7 @@ private struct TrackInsightView: View {
         insight?.id
     }
 
-    #if canImport(AVKit) && os(iOS)
+    #if canImport(AVKit) && (os(iOS) || os(macOS))
     private var airPlayRenderID: String {
         "\(insightID ?? "none")|\(model.askDJMoodStepIndex)"
     }
@@ -3934,7 +3934,7 @@ private struct TrackInsightView: View {
                         #endif
                     }
                 }
-                #if canImport(AVKit) && os(iOS)
+                #if canImport(AVKit) && (os(iOS) || os(macOS))
                 if let player = vibeCastAirPlaySession.player {
                     HiddenAirPlayVideoPlayer(player: player)
                         .frame(width: 44, height: 44)
@@ -3987,7 +3987,21 @@ private struct TrackInsightView: View {
                 }
                 #else
                 ToolbarItemGroup(placement: .primaryAction) {
+                    #if canImport(AVKit)
+                    VibeCastAirPlayToolbarButton(
+                        language: model.language,
+                        hasInsight: insight != nil,
+                        isPreparing: vibeCastAirPlaySession.isPreparing,
+                        isAnalyzing: model.isLoadingTrackInsight,
+                        isReady: vibeCastAirPlaySession.player != nil,
+                        canPrepare: model.canStartTrackInsightAnalysis,
+                        prepareAction: {
+                            Task { await prepareAirPlayVibeCast() }
+                        }
+                    )
+                    #else
                     AirPlayToolbarButton(language: model.language)
+                    #endif
                     if insight != nil {
                         Button {
                             isShowingShare = true
@@ -4026,7 +4040,7 @@ private struct TrackInsightView: View {
                 }
                 showStatusToast(message, systemImage: "exclamationmark.triangle.fill")
             }
-            #if canImport(AVKit) && os(iOS)
+            #if canImport(AVKit) && (os(iOS) || os(macOS))
             .onChange(of: model.playback?.progressMS) {
                 vibeCastAirPlaySession.sync(to: model.playback)
             }
@@ -4039,7 +4053,7 @@ private struct TrackInsightView: View {
             #endif
             .djUserNoticeToast(model: model)
         }
-        #if canImport(AVKit) && os(iOS)
+        #if canImport(AVKit) && (os(iOS) || os(macOS))
         .task(id: airPlayRenderID) {
             guard let insight else {
                 vibeCastAirPlaySession.reset()
@@ -4097,7 +4111,7 @@ private struct TrackInsightView: View {
         )
     }
 
-    #if canImport(AVKit) && os(iOS)
+    #if canImport(AVKit) && (os(iOS) || os(macOS))
     private func prepareAirPlayVibeCast() async {
         shouldMaintainAirPlayVibeCast = true
         if insight == nil || (!playbackShareIdentity.isEmpty && playbackShareIdentity != insightShareIdentity) {
@@ -7924,7 +7938,7 @@ private struct VibeCastEmptySignalView: View {
 }
 #endif
 
-#if canImport(AVKit) && os(iOS)
+#if canImport(AVKit) && (os(iOS) || os(macOS))
 private func vibeCastAirPlayDebug(_ message: String) {
     print("VibeCast AirPlay: \(message)")
 }
@@ -8198,9 +8212,11 @@ private func makeAirPlayPreviewPlayer(url: URL) async -> AVPlayer {
         avPlayer.actionAtItemEnd = .none
         avPlayer.automaticallyWaitsToMinimizeStalling = false
         avPlayer.allowsExternalPlayback = true
+        #if os(iOS)
         avPlayer.usesExternalPlaybackWhileExternalScreenIsActive = true
         try? AVAudioSession.sharedInstance().setCategory(.playback, mode: .moviePlayback, options: [.allowAirPlay])
         try? AVAudioSession.sharedInstance().setActive(true)
+        #endif
         return avPlayer
     }.value
 }
@@ -8407,6 +8423,42 @@ private struct HiddenAirPlayVideoPlayer: UIViewRepresentable {
 
         var playerLayer: AVPlayerLayer {
             layer as! AVPlayerLayer
+        }
+    }
+}
+#elseif canImport(AVFoundation) && os(macOS)
+private struct HiddenAirPlayVideoPlayer: NSViewRepresentable {
+    let player: AVPlayer
+
+    func makeNSView(context: Context) -> PlayerLayerHostView {
+        let view = PlayerLayerHostView()
+        view.playerLayer.player = player
+        view.playerLayer.videoGravity = .resizeAspect
+        view.wantsLayer = true
+        view.alphaValue = 0.001
+        return view
+    }
+
+    func updateNSView(_ nsView: PlayerLayerHostView, context: Context) {
+        if nsView.playerLayer.player !== player {
+            nsView.playerLayer.player = player
+        }
+        nsView.alphaValue = 0.001
+    }
+
+    final class PlayerLayerHostView: NSView {
+        let playerLayer = AVPlayerLayer()
+
+        override init(frame frameRect: NSRect) {
+            super.init(frame: frameRect)
+            wantsLayer = true
+            layer = playerLayer
+        }
+
+        required init?(coder: NSCoder) {
+            super.init(coder: coder)
+            wantsLayer = true
+            layer = playerLayer
         }
     }
 }
@@ -8676,6 +8728,10 @@ private struct NativeAirPlayRoutePicker: UIViewRepresentable {
 #elseif canImport(AVKit) && os(macOS)
 private struct NativeAirPlayRoutePicker: NSViewRepresentable {
     let onActivate: () -> Void
+
+    init(onActivate: @escaping () -> Void = {}) {
+        self.onActivate = onActivate
+    }
 
     func makeCoordinator() -> Coordinator {
         Coordinator(onActivate: onActivate)
