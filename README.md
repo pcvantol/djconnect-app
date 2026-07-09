@@ -357,8 +357,8 @@ The fixture is contract-driven from the Home Assistant `djconnect` repo:
 `websocket_api.py`, and their tests are the source of truth. The HTTP e2e covers
 pairing, status, command/event, Ask DJ message/history/state/export/idle,
 Music DNA profile/settings/clear/import/export, Music Discovery
-feed/refresh/play/feedback, Track Insight, VibeCast, push register/bootstrap/
-unregister, voice, TTS, image proxy, and voice debug routes. The WebSocket e2e
+feed/refresh/play/feedback, Track Insight, VibeCast, push register/unregister,
+voice, TTS, image proxy, and voice debug routes. The WebSocket e2e
 covers only the commands Home Assistant advertises through
 `_supported_websocket_commands`; VibeCast remains HTTP-only until HA exposes a
 WebSocket command for it.

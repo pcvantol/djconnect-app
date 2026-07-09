@@ -203,12 +203,6 @@ async function run() {
     }));
     assert(pushRegister.push_registered === true, "Push register HTTP contract failed");
 
-    const pushBootstrap = await post(baseURL, "/api/djconnect/v1/push/bootstrap", payload({
-      app_bundle_id: "dev.djconnect.ios",
-      push_environment: "sandbox",
-    }), 400);
-    assert(pushBootstrap.error === "bootstrap_proof_unavailable", "Push bootstrap HTTP contract failed");
-
     const pushUnregister = await post(baseURL, "/api/djconnect/v1/push/unregister", payload({
       apns_token: "apns-contract-token",
       app_bundle_id: "dev.djconnect.ios",
@@ -259,7 +253,6 @@ async function run() {
       "/api/djconnect/v1/track_insight",
       "/api/djconnect/v1/vibecast",
       "/api/djconnect/v1/push/register",
-      "/api/djconnect/v1/push/bootstrap",
       "/api/djconnect/v1/push/unregister",
       "/api/djconnect/v1/voice",
       "/api/djconnect/v1/tts/contract.wav",

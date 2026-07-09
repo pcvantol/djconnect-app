@@ -427,20 +427,6 @@ async function handleHTTPContractRoute(request, response, observed) {
     return true;
   }
 
-  if (request.method === "POST" && path === "/api/djconnect/v1/push/bootstrap") {
-    const body = JSON.parse((await readRequestBody(request)).toString("utf8"));
-    assertHTTPIdentity(body, path);
-    jsonResponse(response, 400, {
-      success: false,
-      push_supported: true,
-      push_registered: false,
-      push_environment: body.push_environment || "sandbox",
-      error: "bootstrap_proof_unavailable",
-      last_push_error: "bootstrap_proof_unavailable",
-    });
-    return true;
-  }
-
   if (request.method === "POST" && path === "/api/djconnect/v1/push/unregister") {
     const body = JSON.parse((await readRequestBody(request)).toString("utf8"));
     assertHTTPIdentity(body, path);
