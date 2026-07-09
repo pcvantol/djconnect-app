@@ -247,6 +247,16 @@ clients do not infer speaker switching from free text. Ask DJ message and
 command payloads include `device_id`, `device_name`, `client_id`, and
 `client_type`, with `client_id` currently matching `device_id`.
 
+DJ announcement output mode is client-selectable, but the HA speaker entity is
+not. Apple clients parse `dj_announcement` capabilities from pairing/status,
+send only `dj_announcement_output`, and never send or mutate
+`dj_announcement_speaker_entity_id`. Available modes are `client_device` and
+`text_only` without an HA speaker, plus `both` and `ha_speaker` when HA reports
+a configured speaker. Autoplay remains local and requires the auto-play setting,
+a client-deliverable `announcement.audio_url`, and `delivery` of
+`client_device` or `both`; `ha_speaker` and `text_only` never start client
+audio. Push payloads are only wake/sync hints.
+
 The Apple clear-history action calls
 `POST /api/djconnect/v1/ask_dj/history/clear`. Home Assistant should scope the
 clear to the relevant user/client/history namespace, increment

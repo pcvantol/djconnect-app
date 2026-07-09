@@ -16539,6 +16539,19 @@ struct SettingsView: View {
         hasAskDJHistoryMessages && !model.isDemoMode && model.pairingStatus == .paired && model.isConnected
     }
 
+    private func djAnnouncementOutputTitle(_ output: DJAnnouncementOutput) -> String {
+        switch output {
+        case .clientDevice:
+            return "Alleen dit apparaat"
+        case .both:
+            return "Dit apparaat + Home Assistant speaker"
+        case .haSpeaker:
+            return "Alleen Home Assistant speaker"
+        case .textOnly:
+            return "Alleen tekst"
+        }
+    }
+
     private var musicDNAHowItWorksText: String {
         if musicDNAEnabled {
             return localizedKey(model.language, "ui.music.dna.is.enabled.home.assistant.can.use.future.listening")
@@ -16868,7 +16881,7 @@ struct SettingsView: View {
                 }
                 .djSettingsListRowBackground()
 
-                Section("Ask DJ") {
+                Section("DJ-aankondigingen") {
                     Toggle(isOn: $model.localResponseAudioEnabled) {
                         VStack(alignment: .leading, spacing: 3) {
                             Text(localizedKey(model.language, "ui.auto.play.dj.answers"))
@@ -16880,6 +16893,32 @@ struct SettingsView: View {
                     }
                     .tint(djConnectAccent)
                     .djCompactSettingsListRow()
+
+                    Picker("Output", selection: $model.djAnnouncementOutput) {
+                        ForEach(DJAnnouncementOutput.allCases, id: \.self) { output in
+                            Text(djAnnouncementOutputTitle(output))
+                                .tag(output)
+                                .disabled(!model.isDJAnnouncementOutputSelectable(output))
+                        }
+                    }
+                    .pickerStyle(.menu)
+                    .djCompactSettingsListRow()
+
+                    LabeledContent("Home Assistant speaker") {
+                        Text(model.djAnnouncementCapabilities.isSpeakerConfigured ? model.djAnnouncementSpeakerDisplayName : "Niet geconfigureerd")
+                            .foregroundStyle(.secondary)
+                            .multilineTextAlignment(.trailing)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    .djCompactSettingsListRow()
+
+                    if !model.djAnnouncementCapabilities.isSpeakerConfigured {
+                        Text("Configureer een speaker in de DJConnect opties in Home Assistant om de Home Assistant speaker-modi te gebruiken.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .djCompactSettingsListRow()
+                    }
 
                     LabeledContent(localizedKey(model.language, "ui.chat.history")) {
                         Button {

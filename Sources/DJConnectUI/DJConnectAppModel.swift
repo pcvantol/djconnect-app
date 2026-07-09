@@ -448,6 +448,7 @@ public struct DJConnectAskDJMessage: Identifiable, Codable, Equatable, Sendable 
     public var links: [DJConnectResponseLink]
     public var playbackActions: [DJConnectAskDJPlaybackAction]
     public var audioURL: URL?
+    public var announcement: DJAnnouncement?
     public var status: DJConnectAskDJMessageStatus?
     public var createdAt: Date
     public var intentInfo: DJConnectAskDJIntentInfo?
@@ -471,6 +472,7 @@ public struct DJConnectAskDJMessage: Identifiable, Codable, Equatable, Sendable 
         links: [DJConnectResponseLink] = [],
         playbackActions: [DJConnectAskDJPlaybackAction] = [],
         audioURL: URL? = nil,
+        announcement: DJAnnouncement? = nil,
         status: DJConnectAskDJMessageStatus? = nil,
         createdAt: Date = Date(),
         intentInfo: DJConnectAskDJIntentInfo? = nil,
@@ -492,7 +494,8 @@ public struct DJConnectAskDJMessage: Identifiable, Codable, Equatable, Sendable 
         self.images = images
         self.links = links
         self.playbackActions = playbackActions
-        self.audioURL = audioURL
+        self.announcement = announcement
+        self.audioURL = announcement?.clientReplayAudioURL ?? audioURL
         self.status = status
         self.createdAt = createdAt
         self.intentInfo = intentInfo
@@ -521,6 +524,7 @@ public struct DJConnectAskDJMessage: Identifiable, Codable, Equatable, Sendable 
         case links
         case playbackActions = "playback_actions"
         case audioURL = "audio_url"
+        case announcement
         case status
         case createdAt = "created_at"
         case intentInfo = "intent"
@@ -546,6 +550,10 @@ public struct DJConnectAskDJMessage: Identifiable, Codable, Equatable, Sendable 
         links = try container.decodeIfPresent([DJConnectResponseLink].self, forKey: .links) ?? []
         playbackActions = try container.decodeIfPresent([DJConnectAskDJPlaybackAction].self, forKey: .playbackActions) ?? []
         audioURL = try container.decodeIfPresent(URL.self, forKey: .audioURL)
+        announcement = try container.decodeIfPresent(DJAnnouncement.self, forKey: .announcement)
+        if let announcement {
+            audioURL = announcement.clientReplayAudioURL
+        }
         status = try container.decodeIfPresent(DJConnectAskDJMessageStatus.self, forKey: .status)
         createdAt = try container.decodeIfPresent(Date.self, forKey: .createdAt) ?? Date()
         intentInfo = try container.decodeIfPresent(DJConnectAskDJIntentInfo.self, forKey: .intentInfo)
@@ -571,6 +579,7 @@ public struct DJConnectAskDJMessage: Identifiable, Codable, Equatable, Sendable 
         try container.encode(links, forKey: .links)
         try container.encode(playbackActions, forKey: .playbackActions)
         try container.encodeIfPresent(audioURL, forKey: .audioURL)
+        try container.encodeIfPresent(announcement, forKey: .announcement)
         try container.encodeIfPresent(status, forKey: .status)
         try container.encode(createdAt, forKey: .createdAt)
         try container.encodeIfPresent(intentInfo, forKey: .intentInfo)
@@ -623,6 +632,7 @@ public final class DJConnectAppModel: ObservableObject {
     @Published public private(set) var askDJSupported = false
     @Published public private(set) var askDJVoiceSupported = false
     @Published public private(set) var askDJAudioResponseSupported = false
+    @Published public private(set) var djAnnouncementCapabilities = DJAnnouncementCapabilities()
     @Published public private(set) var watchPairingMessage: String?
     @Published public var pairingToken = "" {
         didSet {
@@ -761,6 +771,18 @@ public final class DJConnectAppModel: ObservableObject {
             }
             defaults.set(localResponseAudioEnabled, forKey: localResponseAudioEnabledKey)
             log(.info, "Ask DJ response audio auto play \(localResponseAudioEnabled ? "enabled" : "disabled")")
+        }
+    }
+    @Published public var djAnnouncementOutput: DJAnnouncementOutput = .clientDevice {
+        didSet {
+            guard oldValue != djAnnouncementOutput else {
+                return
+            }
+            if !isDJAnnouncementOutputSelectable(djAnnouncementOutput) {
+                djAnnouncementOutput = oldValue
+                return
+            }
+            defaults.set(djAnnouncementOutput.rawValue, forKey: djAnnouncementOutputKey)
         }
     }
     @Published public var isDemoMode = false
@@ -938,6 +960,7 @@ public final class DJConnectAppModel: ObservableObject {
     private let askDJClearRevisionKey = "DJConnectAskDJClearRevision"
     private let askDJAudioResponseModeKey = "DJConnectAskDJAudioResponseMode"
     private let localResponseAudioEnabledKey = "DJConnectLocalResponseAudioEnabled"
+    private let djAnnouncementOutputKey = "DJConnectDJAnnouncementOutput"
     private let autoTrackInsightEnabledKey = "DJConnectAutoTrackInsightEnabled"
     private let showVisualizerOnAirPlayKey = "DJConnectShowVisualizerOnAirPlay"
     private let webSocketFastPathEnabledKey = "DJConnectWebSocketFastPathEnabled"
@@ -1213,6 +1236,7 @@ public final class DJConnectAppModel: ObservableObject {
         self.askDJMood = defaults.object(forKey: askDJMoodKey) == nil ? 50.0 : defaults.double(forKey: askDJMoodKey)
         Self.syncAskDJMoodToSharedDefaults(self.askDJMood)
         self.localResponseAudioEnabled = defaults.bool(forKey: localResponseAudioEnabledKey)
+        self.djAnnouncementOutput = defaults.string(forKey: djAnnouncementOutputKey).flatMap(DJAnnouncementOutput.init(rawValue:)) ?? .clientDevice
         self.autoTrackInsightEnabled = defaults.bool(forKey: autoTrackInsightEnabledKey)
         self.webSocketFastPathEnabled = defaults.bool(forKey: webSocketFastPathEnabledKey)
         self.showVisualizerOnAirPlay = defaults.bool(forKey: showVisualizerOnAirPlayKey)
@@ -3501,7 +3525,7 @@ public final class DJConnectAppModel: ObservableObject {
                 djResponseText = responseText
                 notifyAskDJResponse(responseText)
                 Task {
-                    await playResponseAudioIfNeeded(resolvedAudioURL(from: assistant?.audioURL ?? response.audioURL))
+                    await playResponseAudioIfNeeded(resolvedAskDJResponseAudioURL(response))
                 }
                 await syncAskDJHistory(showErrors: false)
                 await refreshAfterDJResponse()
@@ -4198,6 +4222,7 @@ public final class DJConnectAppModel: ObservableObject {
             askDJAudioResponseSupported = value
             defaults.set(value, forKey: askDJAudioResponseSupportedKey)
         }
+        apply(djAnnouncementCapabilities: response.djAnnouncement)
     }
 
     private func applyBootstrapContext(
@@ -4497,6 +4522,7 @@ public final class DJConnectAppModel: ObservableObject {
                 pairingSessionID: response.pairingSessionID
             )
             apply(musicBackendSummary: response.musicBackendSummary)
+            apply(djAnnouncementCapabilities: response.djAnnouncement)
             let hasPlaybackSnapshot = response.playback != nil
             if let playback = response.playback {
                 apply(playback: playback)
@@ -5204,6 +5230,42 @@ public final class DJConnectAppModel: ObservableObject {
         return DJConnectAskDJRequest.AudioResponse(rawValue: rawValue) ?? .auto
     }
 
+    public var selectableDJAnnouncementOutputs: [DJAnnouncementOutput] {
+        djAnnouncementCapabilities.effectiveSupportedOutputs.filter { !djAnnouncementCapabilities.lockedOutputs.contains($0) }
+    }
+
+    public var djAnnouncementSpeakerDisplayName: String {
+        djAnnouncementCapabilities.speakerName?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
+            ? djAnnouncementCapabilities.speakerName!
+            : "Home Assistant speaker"
+    }
+
+    public func isDJAnnouncementOutputSelectable(_ output: DJAnnouncementOutput) -> Bool {
+        selectableDJAnnouncementOutputs.contains(output)
+    }
+
+    private func apply(djAnnouncementCapabilities capabilities: DJAnnouncementCapabilities?) {
+        guard let capabilities else {
+            return
+        }
+        djAnnouncementCapabilities = capabilities
+        if defaults.object(forKey: djAnnouncementOutputKey) == nil,
+           let defaultOutput = capabilities.defaultOutput,
+           isDJAnnouncementOutputSelectable(defaultOutput) {
+            djAnnouncementOutput = defaultOutput
+            return
+        }
+        let currentOutput = djAnnouncementOutput
+        if isDJAnnouncementOutputSelectable(currentOutput) {
+            return
+        }
+        let fallback = capabilities.defaultOutput.flatMap { isDJAnnouncementOutputSelectable($0) ? $0 : nil }
+            ?? capabilities.output.flatMap { isDJAnnouncementOutputSelectable($0) ? $0 : nil }
+            ?? selectableDJAnnouncementOutputs.first
+            ?? .clientDevice
+        djAnnouncementOutput = fallback
+    }
+
     private func sendAskDJTextWithFallback(_ text: String, clientMessageID: String) async throws -> DJConnectAskDJMessageResponse {
         try await withHomeAssistantClient { client in
             try await client.sendAskDJMessage(DJConnectAskDJRequest(
@@ -5215,6 +5277,7 @@ public final class DJConnectAppModel: ObservableObject {
                 djStyle: "warm_radio_dj",
                 musicDNAKey: askDJMusicDNAKey,
                 audioResponse: askDJAudioResponseMode,
+                djAnnouncementOutput: djAnnouncementOutput,
                 language: currentRequestLocale
             ))
         }
@@ -6139,7 +6202,8 @@ public final class DJConnectAppModel: ObservableObject {
                 musicBackendRevision: action.musicBackendRevision ?? musicBackendSummary.musicBackendRevision,
                 language: currentRequestLocale,
                 mood: askDJMoodInt,
-                musicDNAKey: askDJMusicDNAKey
+                musicDNAKey: askDJMusicDNAKey,
+                djAnnouncementOutput: djAnnouncementOutput
             ))
         }
     }
@@ -6470,6 +6534,13 @@ public final class DJConnectAppModel: ObservableObject {
             playAskDJResponseHaptic()
         }
         applyTrackInsightIfNeeded(from: response, open: false)
+    }
+
+    private func resolvedAskDJResponseAudioURL(_ response: DJConnectAskDJMessageResponse) -> URL? {
+        if let announcement = response.assistantMessage?.announcement ?? response.announcement {
+            return resolvedAudioURL(from: announcement.clientReplayAudioURL)
+        }
+        return resolvedAudioURL(from: response.assistantMessage?.audioURL ?? response.audioURL)
     }
 
     private func responseContainsAssistantMessage(_ response: DJConnectAskDJMessageResponse) -> Bool {
@@ -7067,12 +7138,21 @@ public final class DJConnectAppModel: ObservableObject {
             links: safeResponseLinks(historyMessage.links),
             playbackActions: proxiedPlaybackActions(historyMessage.playbackActions + historyMessage.confirmationActions),
             audioURL: resolvedAudioURL(from: historyMessage.audioURL),
+            announcement: resolvedAnnouncement(historyMessage.announcement),
             status: status,
             createdAt: historyMessage.createdAt,
             intentInfo: historyMessage.intentInfo,
             trackInsight: historyMessage.trackInsight,
             items: proxiedAskDJHistoryItems(historyMessage.items)
         )
+    }
+
+    private func resolvedAnnouncement(_ announcement: DJAnnouncement?) -> DJAnnouncement? {
+        guard var announcement else {
+            return nil
+        }
+        announcement.audioURL = resolvedAudioURL(from: announcement.audioURL)
+        return announcement
     }
 
     private func combinedResponseLinks(
@@ -7162,7 +7242,10 @@ public final class DJConnectAppModel: ObservableObject {
         if merged.exchangeOrder == nil {
             merged.exchangeOrder = fallback.exchangeOrder
         }
-        if merged.audioURL == nil {
+        if merged.announcement == nil {
+            merged.announcement = fallback.announcement
+        }
+        if merged.audioURL == nil, merged.announcement == nil {
             merged.audioURL = fallback.audioURL
         }
         if merged.status == nil {

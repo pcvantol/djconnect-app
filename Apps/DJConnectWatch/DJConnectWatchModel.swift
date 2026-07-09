@@ -50,6 +50,7 @@ struct DJConnectWatchAskDJMessage: Identifiable, Codable, Equatable {
         case intentInfo = "intent"
         case items
         case audioURL
+        case announcement
         case messageKind = "message_kind"
         case origin
         case textSource = "text_source"
@@ -69,6 +70,7 @@ struct DJConnectWatchAskDJMessage: Identifiable, Codable, Equatable {
     var intentInfo: DJConnectAskDJIntentInfo?
     var items: [DJConnectAskDJHistoryItem]
     var audioURL: URL?
+    var announcement: DJAnnouncement?
     var messageKind: DJConnectAskDJMessageKind
     var origin: String?
     var textSource: String?
@@ -92,6 +94,7 @@ struct DJConnectWatchAskDJMessage: Identifiable, Codable, Equatable {
         intentInfo: DJConnectAskDJIntentInfo? = nil,
         items: [DJConnectAskDJHistoryItem] = [],
         audioURL: URL? = nil,
+        announcement: DJAnnouncement? = nil,
         messageKind: DJConnectAskDJMessageKind = .assistant,
         origin: String? = nil,
         textSource: String? = nil,
@@ -109,7 +112,8 @@ struct DJConnectWatchAskDJMessage: Identifiable, Codable, Equatable {
         self.playbackActions = playbackActions
         self.intentInfo = intentInfo
         self.items = items
-        self.audioURL = audioURL
+        self.announcement = announcement
+        self.audioURL = announcement?.clientReplayAudioURL ?? audioURL
         self.messageKind = messageKind
         self.origin = origin
         self.textSource = textSource
@@ -131,6 +135,10 @@ struct DJConnectWatchAskDJMessage: Identifiable, Codable, Equatable {
         intentInfo = try container.decodeIfPresent(DJConnectAskDJIntentInfo.self, forKey: .intentInfo)
         items = try container.decodeIfPresent([DJConnectAskDJHistoryItem].self, forKey: .items) ?? []
         audioURL = try container.decodeIfPresent(URL.self, forKey: .audioURL)
+        announcement = try container.decodeIfPresent(DJAnnouncement.self, forKey: .announcement)
+        if let announcement {
+            audioURL = announcement.clientReplayAudioURL
+        }
         messageKind = try container.decodeIfPresent(DJConnectAskDJMessageKind.self, forKey: .messageKind) ?? .assistant
         origin = try container.decodeIfPresent(String.self, forKey: .origin)
         textSource = try container.decodeIfPresent(String.self, forKey: .textSource)
@@ -152,6 +160,7 @@ struct DJConnectWatchAskDJMessage: Identifiable, Codable, Equatable {
         try container.encodeIfPresent(intentInfo, forKey: .intentInfo)
         try container.encode(items, forKey: .items)
         try container.encodeIfPresent(audioURL, forKey: .audioURL)
+        try container.encodeIfPresent(announcement, forKey: .announcement)
         try container.encode(messageKind, forKey: .messageKind)
         try container.encodeIfPresent(origin, forKey: .origin)
         try container.encodeIfPresent(textSource, forKey: .textSource)
@@ -2547,7 +2556,8 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
                     play: command == "ask_dj_play_recommendation",
                     musicBackendRevision: action.musicBackendRevision ?? musicBackendSummary.musicBackendRevision,
                     language: currentRequestLocale,
-                    mood: askDJMoodInt
+                    mood: askDJMoodInt,
+                    djAnnouncementOutput: .clientDevice
                 )
             )
             applyBackendSummary(response.musicBackendSummary)
@@ -2596,6 +2606,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
                     djStyle: djStyle,
                     musicDNAKey: musicDNAKey,
                     audioResponse: .auto,
+                    djAnnouncementOutput: .clientDevice,
                     language: currentRequestLocale
                 )
             )
@@ -2885,6 +2896,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
             intentInfo: historyMessage.intentInfo,
             items: historyMessage.items,
             audioURL: resolvedAudioURL(historyMessage.audioURL),
+            announcement: resolvedAnnouncement(historyMessage.announcement),
             messageKind: historyMessage.role == .user ? .assistant : historyMessage.messageKind,
             origin: historyMessage.role == .user ? nil : historyMessage.origin,
             textSource: historyMessage.role == .user ? nil : historyMessage.textSource,
@@ -2897,6 +2909,14 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         } else {
             messages.append(mapped)
         }
+    }
+
+    private func resolvedAnnouncement(_ announcement: DJAnnouncement?) -> DJAnnouncement? {
+        guard var announcement else {
+            return nil
+        }
+        announcement.audioURL = resolvedAudioURL(announcement.audioURL)
+        return announcement
     }
 
     private func applyCurrentTrackInsight(from response: DJConnectAskDJMessageResponse) {
@@ -3394,7 +3414,10 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         if merged.clientMessageID == nil {
             merged.clientMessageID = fallback.clientMessageID
         }
-        if merged.audioURL == nil {
+        if merged.announcement == nil {
+            merged.announcement = fallback.announcement
+        }
+        if merged.audioURL == nil, merged.announcement == nil {
             merged.audioURL = fallback.audioURL
         }
         if merged.intentInfo == nil {

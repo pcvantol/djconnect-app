@@ -424,6 +424,15 @@ history load. Clearing Ask DJ history calls
 `POST /api/djconnect/v1/ask_dj/history/clear`; the returned `clear_revision` is
 the authoritative full-clear signal for local cached history.
 
+DJ announcement responses may include a nested `announcement` object with
+`output`, `delivery`, and optional `audio_url`. Apple clients only choose and
+send `dj_announcement_output`; Home Assistant remains owner of the configured
+speaker entity. Without an HA speaker, clients expose `client_device` and
+`text_only`; with one configured they also expose `both` and `ha_speaker`, with
+`both` as the default when HA selected a speaker during setup. Local autoplay
+still depends on the app's auto-play setting and only uses client audio for
+`client_device` or `both`. Push notifications are wake/sync hints only.
+
 The native app also uses command proxy flows for backend devices, queue,
 playlists, liked songs, and output selection:
 
