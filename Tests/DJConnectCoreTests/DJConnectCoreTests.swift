@@ -11947,6 +11947,19 @@ private func makePairedMusicDNAModel(
     #expect(source.contains(".scrollBounceBehavior(.basedOnSize)"))
 }
 
+@Test func moodPickerIsCentralizedInNowPlayingOnly() throws {
+    let source = try loadRepositoryText("Sources/DJConnectUI/DJConnectRootView.swift")
+    let nowPlayingSection = try #require(source.structBody(named: "NowPlayingMoodControlSection"))
+    let trackInsightSection = try #require(source.structBody(named: "TrackInsightView"))
+    let askDJSection = try #require(source.structBody(named: "AskDJView"))
+
+    #expect(nowPlayingSection.contains("AskDJMoodModeControl(model: model)"))
+    #expect(!trackInsightSection.contains("AskDJMoodModeControl("))
+    #expect(!trackInsightSection.contains("trackInsightMoodToolbarButton"))
+    #expect(!askDJSection.contains("AskDJMoodModeControl("))
+    #expect(!askDJSection.contains("askDJMoodToolbarButton"))
+}
+
 @Test func gamesCanvasIsCappedOnIPadLandscapeOnly() throws {
     let source = try loadRepositoryText("Sources/DJConnectUI/DJConnectRootView.swift")
 
@@ -12038,6 +12051,29 @@ private func loadRepositoryText(_ relativePath: String) throws -> String {
 }
 
 private extension String {
+    func structBody(named name: String) -> String? {
+        guard let declaration = range(of: "private struct \(name): View {") else {
+            return nil
+        }
+        var depth = 0
+        var didEnterBody = false
+        var index = declaration.upperBound
+        while index < endIndex {
+            let character = self[index]
+            if character == "{" {
+                depth += 1
+                didEnterBody = true
+            } else if character == "}" {
+                if depth == 0, didEnterBody {
+                    return String(self[declaration.lowerBound...index])
+                }
+                depth -= 1
+            }
+            formIndex(after: &index)
+        }
+        return nil
+    }
+
     func pbxResourcesBuildPhase(named identifier: String) -> String? {
         guard let start = range(of: "\(identifier) /* Resources */ = {"),
               let end = self[start.upperBound...].range(of: "\n\t\t};") else {

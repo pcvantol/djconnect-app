@@ -230,8 +230,9 @@ the neutral midpoint (`50`) after install, map Mood to the four zones
 `0...24 = chill`, `25...59 = groove`, `60...84 = energy`, and `85...100 = party`,
 and pass the numeric value to Ask DJ, playback commands, Music DNA, and Music
 Discovery requests where supported. The selected Mood also drives visual accents
-for Now Playing, Queue, Ask DJ, Track Insight, VibeCast, and widgets. Track
-Insight uses the same floating Mood control pattern as Ask DJ. Mood changes and
+for Now Playing, Queue, Ask DJ, Track Insight, VibeCast, and widgets. Users
+change Mood from Now Playing only; Ask DJ and Track Insight render with that
+shared mood state but do not expose duplicate Mood controls. Mood changes and
 intentional playback/Ask DJ actions use native haptic feedback on iOS/watchOS
 and supported macOS hardware; watchOS demo mode keeps haptics enabled on real
 hardware.

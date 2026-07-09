@@ -187,6 +187,10 @@ Now Playing should not reintroduce a separate `DJ verzoek` block. rbpi did not
 have that separate UI block, and ESP32 remains a firmware/device client without
 the Apple Ask DJ rich chat UI.
 
+Mood selection is centralized in Now Playing on iOS and macOS. Ask DJ and Track
+Insight consume the shared selected mood for request context and visual styling,
+but must not expose their own duplicate Mood picker routes.
+
 For `Ask DJ`, the Watch may send mood, DJ style, and a Music DNA key hint, but
 Music DNA itself belongs to the Home Assistant integration. This lets a user
 ask for a calmer track on Watch and later ask from Mac why that track was
