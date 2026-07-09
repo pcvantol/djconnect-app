@@ -3,7 +3,7 @@ import Testing
 @testable import DJConnectCore
 @testable import DJConnectUI
 #if canImport(AVFoundation)
-import AVFoundation
+@preconcurrency import AVFoundation
 #endif
 
 private final class MockURLProtocol: URLProtocol, @unchecked Sendable {
