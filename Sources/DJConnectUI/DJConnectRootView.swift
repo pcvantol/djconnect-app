@@ -3805,7 +3805,6 @@ private struct TrackInsightView: View {
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @State private var isShowingShare = false
     @State private var isAnimationActive = false
-    @State private var isMoodVisible = false
     @State private var statusToast: DJConnectVisualNotice?
     #if canImport(AVKit) && os(iOS)
     @StateObject private var vibeCastAirPlaySession = VibeCastAirPlaySession()
@@ -3846,14 +3845,6 @@ private struct TrackInsightView: View {
         shouldUseWideLayout(for: size) ? djConnectMacDetailContentMaxWidth : djConnectContentMaxWidth
     }
 
-    private var floatingControlTopPadding: CGFloat {
-        #if os(macOS)
-        14
-        #else
-        8
-        #endif
-    }
-
     var body: some View {
         NavigationStack {
             ZStack {
@@ -3892,24 +3883,6 @@ private struct TrackInsightView: View {
                             await refreshTrackInsightWithToast()
                         }
                         #endif
-
-                        if isMoodVisible {
-                            AskDJMoodModeControl(
-                                model: model,
-                                caption: localizedKey(model.language, "ui.mood.colors.track.insight.from.calm.listening.cues.to.energetic"),
-                                closeAction: {
-                                    withAnimation(.spring(response: 0.28, dampingFraction: 0.86)) {
-                                        isMoodVisible = false
-                                    }
-                                }
-                            )
-                            .padding(.horizontal, djConnectScreenHorizontalPadding)
-                            .padding(.top, floatingControlTopPadding)
-                            .frame(width: contentWidth, alignment: .top)
-                            .frame(maxWidth: .infinity, alignment: .top)
-                            .zIndex(2)
-                            .transition(.move(edge: .top).combined(with: .opacity))
-                        }
                     }
                 }
                 #if canImport(AVKit) && os(iOS)
@@ -3946,8 +3919,6 @@ private struct TrackInsightView: View {
                     #else
                     AirPlayToolbarButton(language: model.language)
                     #endif
-
-                    trackInsightMoodToolbarButton
                 }
 
                 ToolbarItemGroup(placement: .topBarTrailing) {
@@ -3969,9 +3940,6 @@ private struct TrackInsightView: View {
                 #else
                 ToolbarItemGroup(placement: .primaryAction) {
                     AirPlayToolbarButton(language: model.language)
-
-                    trackInsightMoodToolbarButton
-
                     if insight != nil {
                         Button {
                             isShowingShare = true
@@ -4053,20 +4021,6 @@ private struct TrackInsightView: View {
         .onDisappear {
             isAnimationActive = false
         }
-    }
-
-    @ViewBuilder
-    private var trackInsightMoodToolbarButton: some View {
-        Button {
-            withAnimation(.spring(response: 0.28, dampingFraction: 0.86)) {
-                isMoodVisible.toggle()
-            }
-        } label: {
-            Image(systemName: "slider.horizontal.3")
-                .foregroundStyle(isMoodVisible ? djConnectAccent : .primary)
-        }
-        .help(localizedKey(model.language, "ui.mood"))
-        .accessibilityLabel(localizedKey(model.language, "ui.mood"))
     }
 
     private func trackInsightHeroRenderID(for insight: TrackInsight) -> String {
@@ -10793,7 +10747,6 @@ private struct AskDJView: View {
     @State private var feedbackMessage: DJConnectAskDJMessage?
     @State private var toast: String?
     @State private var isSearchVisible = false
-    @State private var isMoodVisible = false
     @State private var askDJSearchText = ""
     @State private var selectedSearchResultIndex = 0
     @State private var isAskDJAtBottom = true
@@ -11081,23 +11034,6 @@ private struct AskDJView: View {
                                 .frame(maxWidth: .infinity, alignment: .top)
                                 .transition(.move(edge: .top).combined(with: .opacity))
                             }
-
-                            if isMoodVisible {
-                                AskDJMoodModeControl(
-                                    model: model,
-                                    closeAction: {
-                                        withAnimation(.spring(response: 0.28, dampingFraction: 0.86)) {
-                                            isMoodVisible = false
-                                        }
-                                    }
-                                )
-                                .padding(.horizontal, djConnectScreenHorizontalPadding)
-                                .padding(.top, isSearchVisible ? floatingControlTopPadding + 72 : floatingControlTopPadding)
-                                .frame(width: contentWidth, alignment: .top)
-                                .frame(maxWidth: .infinity, alignment: .top)
-                                .zIndex(2)
-                                .transition(.move(edge: .top).combined(with: .opacity))
-                            }
                         }
                         .contentShape(Rectangle())
                         .onChange(of: model.askDJMessages) {
@@ -11168,9 +11104,6 @@ private struct AskDJView: View {
                     }
                     .help(localizedKey(model.language, "ui.search.ask.dj"))
                     .accessibilityLabel(localizedKey(model.language, "ui.search.ask.dj"))
-
-                    askDJMoodToolbarButton
-
                     Button {
                         isInputFocused = false
                         Task {
@@ -11207,8 +11140,6 @@ private struct AskDJView: View {
                     }
                     .help(localizedKey(model.language, "ui.search.ask.dj"))
                     .accessibilityLabel(localizedKey(model.language, "ui.search.ask.dj"))
-
-                    askDJMoodToolbarButton
                 }
                 ToolbarItemGroup(placement: .topBarTrailing) {
                     Button {
@@ -11276,21 +11207,6 @@ private struct AskDJView: View {
             }
             showToast(text)
         }
-    }
-
-    @ViewBuilder
-    private var askDJMoodToolbarButton: some View {
-        Button {
-            isInputFocused = false
-            withAnimation(.spring(response: 0.28, dampingFraction: 0.86)) {
-                isMoodVisible.toggle()
-            }
-        } label: {
-            Image(systemName: "slider.horizontal.3")
-                .foregroundStyle(isMoodVisible ? djConnectAccent : .primary)
-        }
-        .help(localizedKey(model.language, "ui.mood"))
-        .accessibilityLabel(localizedKey(model.language, "ui.mood"))
     }
 
     private func dismissAskDJSearch() {
