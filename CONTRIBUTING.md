@@ -123,6 +123,11 @@ Before opening a pull request:
 4. List the checks you ran, including any tests you could not run.
 5. Call out impact on other DJConnect repositories and any required cross-repo
    follow-up.
+6. For release or Ask DJ/audio behavior changes, review the app against the
+   `DJ Announcement Output Sync` section in
+   `pcvantol/djconnect/SYNC_PROMPTS.md`. Confirm exposed output modes,
+   speaker-capability gating, nested `announcement.audio_url`, local autoplay
+   decisions and push wake/sync behavior match the shared contract.
 
 ## Releases
 
