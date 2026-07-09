@@ -4,6 +4,12 @@ All notable changes to DJConnect App are documented here.
 
 ## Unreleased
 
+## 3.2.35 - 2026-07-09
+
+### Fixed
+
+- Fixed the AirPlay VibeCast export test for the Xcode 16 public release runner.
+
 ## 3.2.34 - 2026-07-09
 
 ### Changed
