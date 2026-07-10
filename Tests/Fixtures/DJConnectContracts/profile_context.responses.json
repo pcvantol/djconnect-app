@@ -1,0 +1,76 @@
+{
+  "format": "djconnect.profile_context.responses",
+  "schema_version": 1,
+  "contract_version": 1,
+  "responses": {
+    "personal_profile": {
+      "success": true,
+      "profile_id": "profile-peter",
+      "music_dna_key": "profile:profile-peter",
+      "resolved_profile": {
+        "id": "profile-peter",
+        "name": "Peter",
+        "type": "personal",
+        "privacy_mode": "normal"
+      },
+      "resolution": {
+        "source": "device_mapping",
+        "fallback_used": false
+      }
+    },
+    "shared_profile": {
+      "success": true,
+      "profile_id": "profile-kitchen",
+      "music_dna_key": "profile:profile-kitchen",
+      "resolved_profile": {
+        "id": "profile-kitchen",
+        "name": "Kitchen",
+        "type": "room",
+        "privacy_mode": "shared"
+      },
+      "resolution": {
+        "source": "area_mapping",
+        "fallback_used": false
+      }
+    },
+    "fallback_profile": {
+      "success": true,
+      "profile_id": "profile-household",
+      "music_dna_key": "profile:profile-household",
+      "resolved_profile": {
+        "id": "profile-household",
+        "name": "Household",
+        "type": "household",
+        "privacy_mode": "shared"
+      },
+      "resolution": {
+        "source": "fallback",
+        "fallback_used": true
+      }
+    },
+    "private_session": {
+      "success": true,
+      "profile_id": "profile-peter",
+      "music_dna_key": "profile:profile-peter",
+      "profile_privacy_mode": "private",
+      "profile_privacy": {
+        "mode": "private",
+        "private_session": true,
+        "allow_history": false,
+        "allow_music_dna_updates": false,
+        "allow_recommendation_updates": false,
+        "allow_likes_dislikes": false,
+        "allow_mood_persistence": false
+      },
+      "resolution": {
+        "source": "explicit_profile",
+        "fallback_used": false
+      }
+    }
+  },
+  "redaction_rules": [
+    "Do not expose full Music DNA in resolved_profile.",
+    "Do not expose Ask DJ history in profile metadata.",
+    "Do not expose provider account identifiers, OAuth tokens, Home Assistant tokens, APNs tokens or device tokens."
+  ]
+}

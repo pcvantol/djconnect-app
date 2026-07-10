@@ -4369,7 +4369,7 @@ public final class DJConnectAppModel: ObservableObject {
         switch error {
         case .backendUnavailable, .server, .network, .decodingFailed, .invalidResponse, .routeMissing, .payloadTooLarge:
             true
-        case .authStale, .versionMismatch, .notConfigured, .invalidConfiguration, .missingToken, .pairingFailed, .clientTypeMismatch, .trackInsightUnavailable:
+        case .authStale, .versionMismatch, .notConfigured, .invalidConfiguration, .missingToken, .pairingFailed, .clientTypeMismatch, .trackInsightUnavailable, .profile:
             false
         }
     }
@@ -5796,6 +5796,10 @@ public final class DJConnectAppModel: ObservableObject {
             return localized(key: "appModel.not.connected.to.home.assistant")
         case .trackInsightUnavailable:
             return localized(key: "ui.discovery.could.not.be.loaded")
+        case let .profile(_, _, message):
+            return message?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
+                ? message!
+                : localized(key: "ui.discovery.could.not.be.loaded")
         }
     }
 
@@ -7006,6 +7010,9 @@ public final class DJConnectAppModel: ObservableObject {
                 ?? localized(key: "appModel.the.music.backend.in.home.assistant.is.not.available")
         case .clientTypeMismatch:
             return trackInsightClientTypeMessage()
+        case let .profile(_, _, message):
+            return userFacingTrackInsightErrorText(message)
+                ?? localized(key: "appModel.track.insight.is.unavailable.for.this.track")
         case let .server(statusCode, message):
             if statusCode == 404 {
                 return localized(key: "appModel.start.playback.before.opening.track.insight")
@@ -8199,7 +8206,7 @@ public final class DJConnectAppModel: ObservableObject {
             showAskDJToast(localized(key: "appModel.home.assistant.did.not.respond"))
         case .network, .routeMissing, .notConfigured, .invalidConfiguration, .missingToken, .pairingFailed, .clientTypeMismatch:
             showAskDJToast(localized(key: "appModel.ask.dj.is.unreachable"))
-        case .authStale, .versionMismatch, .trackInsightUnavailable:
+        case .authStale, .versionMismatch, .trackInsightUnavailable, .profile:
             showAskDJToast(localized(key: "appModel.ask.dj.is.unreachable"))
         }
     }
@@ -8227,7 +8234,8 @@ public final class DJConnectAppModel: ObservableObject {
              .clientTypeMismatch,
              .authStale,
              .versionMismatch,
-             .trackInsightUnavailable:
+             .trackInsightUnavailable,
+             .profile:
             askDJUnavailableText()
         }
     }
@@ -10577,6 +10585,8 @@ public final class DJConnectAppModel: ObservableObject {
             return message ?? "Koppelen via iPhone is nog niet klaar."
         case let .clientTypeMismatch(message, _, _):
             return message ?? "Verkeerd app-type gekozen in Home Assistant."
+        case let .profile(_, _, message):
+            return message ?? "Profielinstellingen ontbreken in Home Assistant."
         }
     }
 
@@ -10612,6 +10622,8 @@ public final class DJConnectAppModel: ObservableObject {
             "track insight unavailable\(code.map { " \($0)" } ?? "")\(message.map { ": \($0)" } ?? "")"
         case let .payloadTooLarge(limitBytes, actualBytes):
             "payload too large limit=\(limitBytes) actual=\(actualBytes.map(String.init) ?? "unknown")"
+        case let .profile(code, statusCode, message):
+            "profile \(code.rawValue) HTTP \(statusCode)\(message.map { ": \($0)" } ?? "")"
         }
     }
 
@@ -10650,6 +10662,8 @@ public final class DJConnectAppModel: ObservableObject {
             return "client_type_mismatch"
         case .payloadTooLarge:
             return "payload_too_large"
+        case let .profile(code, _, _):
+            return code.rawValue
         }
     }
 
@@ -10669,6 +10683,8 @@ public final class DJConnectAppModel: ObservableObject {
                  let .clientTypeMismatch(value, _, _):
                 message = value
             case let .network(value):
+                message = value
+            case let .profile(_, _, value):
                 message = value
             case let .invalidConfiguration(value):
                 message = value

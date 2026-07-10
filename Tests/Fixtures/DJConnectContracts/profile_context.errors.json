@@ -1,0 +1,89 @@
+{
+  "format": "djconnect.profile_context.errors",
+  "schema_version": 1,
+  "contract_version": 1,
+  "errors": {
+    "profile_required": {
+      "success": false,
+      "error": "profile_required",
+      "message": "A DJConnect Profile is required.",
+      "http_status": 428,
+      "retryable": false,
+      "client_behavior": "Ask the user to select or configure a profile, or retry after pairing/profile setup."
+    },
+    "profile_not_found": {
+      "success": false,
+      "error": "invalid_profile",
+      "message": "Profile not found: profile-missing",
+      "profile_id": "profile-missing",
+      "http_status": 404,
+      "retryable": false,
+      "client_behavior": "Clear stale explicit profile selection and request fresh profile state."
+    },
+    "device_not_mapped": {
+      "success": false,
+      "error": "device_not_mapped",
+      "message": "Device is not mapped to a profile: djconnect-ios-ABCDEF123456",
+      "device_id": "djconnect-ios-ABCDEF123456",
+      "http_status": 409,
+      "retryable": false,
+      "client_behavior": "Keep pairing but ask user/admin to map the device to a profile."
+    },
+    "backend_not_configured": {
+      "success": false,
+      "error": "profile_backend_missing",
+      "message": "Profile has no configured music backend: profile-peter",
+      "http_status": 400,
+      "retryable": false,
+      "client_behavior": "Show backend setup/repair guidance."
+    },
+    "music_account_not_configured": {
+      "success": false,
+      "error": "profile_music_account_missing",
+      "message": "Profile music account is missing: account-peter",
+      "http_status": 400,
+      "retryable": false,
+      "client_behavior": "Show account setup/repair guidance."
+    },
+    "backend_account_mismatch": {
+      "success": false,
+      "error": "profile_backend_account_mismatch",
+      "message": "Profile backend/account mismatch: profile-peter",
+      "http_status": 400,
+      "retryable": false,
+      "client_behavior": "Show backend/account repair guidance."
+    },
+    "invalid_client_type": {
+      "success": false,
+      "error": "invalid_client_type",
+      "message": "Invalid DJConnect client type.",
+      "http_status": 400,
+      "retryable": false,
+      "client_behavior": "Stop the request and update the client identity contract."
+    },
+    "invalid_request_context": {
+      "success": false,
+      "error": "invalid_request_context",
+      "message": "The request context is invalid.",
+      "http_status": 400,
+      "retryable": false,
+      "client_behavior": "Correct malformed request fields before retrying."
+    },
+    "profile_access_denied": {
+      "success": false,
+      "error": "profile_access_denied",
+      "message": "This client cannot access the requested profile.",
+      "http_status": 403,
+      "retryable": false,
+      "client_behavior": "Do not retry automatically; request explicit user action."
+    },
+    "private_session_restriction": {
+      "success": false,
+      "error": "private_session_restriction",
+      "message": "This action is not available during a private session.",
+      "http_status": 409,
+      "retryable": false,
+      "client_behavior": "Hide persistence-only actions while private session is active."
+    }
+  }
+}

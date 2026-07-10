@@ -43,6 +43,24 @@
       "transport": "http_or_websocket",
       "contract": "ask_dj.response",
       "intent": "recently_played_history"
+    },
+    {
+      "id": "profile_context.requests",
+      "file": "profile_context.requests.json",
+      "transport": "http_or_websocket",
+      "contract": "profile_context.requests"
+    },
+    {
+      "id": "profile_context.responses",
+      "file": "profile_context.responses.json",
+      "transport": "http_or_websocket",
+      "contract": "profile_context.responses"
+    },
+    {
+      "id": "profile_context.errors",
+      "file": "profile_context.errors.json",
+      "transport": "http_or_websocket",
+      "contract": "profile_context.errors"
     }
   ]
 }

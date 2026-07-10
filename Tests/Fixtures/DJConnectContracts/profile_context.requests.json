@@ -1,0 +1,56 @@
+{
+  "format": "djconnect.profile_context.requests",
+  "schema_version": 1,
+  "contract_version": 1,
+  "requests": {
+    "apple_explicit_profile": {
+      "profile_id": "profile-peter",
+      "device_id": "djconnect-ios-ABCDEF123456",
+      "client_type": "ios",
+      "session_id": "session-apple-1",
+      "private_session": false,
+      "request_source": "ask_dj"
+    },
+    "windows_device_mapped": {
+      "device_id": "djconnect-windows-ABCDEF123456",
+      "client_type": "windows",
+      "private_session": false,
+      "request_source": "track_insight"
+    },
+    "pi_shared_ambient": {
+      "device_id": "djconnect-raspberry-pi-ABCDEF123456",
+      "client_type": "raspberry_pi",
+      "private_session": false,
+      "request_source": "discover"
+    },
+    "esp32_ptt": {
+      "device_id": "djconnect-lilygo-t-embed-s3-ABCDEF123456",
+      "client_type": "esp32",
+      "request_source": "voice"
+    },
+    "ha_voice_derived": {
+      "client_type": "ha_voice",
+      "private_session": false,
+      "request_source": "voice",
+      "server_context": {
+        "satellite_id": "assist-satellite-kitchen",
+        "ha_device_id": "ha-device-kitchen",
+        "area_id": "kitchen",
+        "room_id": "kitchen",
+        "session_id": "assist-session-1"
+      }
+    },
+    "private_session": {
+      "profile_id": "profile-peter",
+      "device_id": "djconnect-macos-ABCDEF123456",
+      "client_type": "macos",
+      "private_session": true,
+      "request_source": "ask_dj"
+    }
+  },
+  "notes": [
+    "Clients send only fields they can reliably know.",
+    "server_context is documented for HA-derived metadata and is not a client payload requirement.",
+    "Clients must not send provider credentials, OAuth tokens, Music DNA contents or Ask DJ history in the profile context envelope."
+  ]
+}

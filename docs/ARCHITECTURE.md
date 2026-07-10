@@ -32,6 +32,27 @@ The Apple app owns:
 - local Demo Mode state for App Store review and UI inspection without a live
   backend.
 
+The Apple app does not own Profile resolution. Application session state is
+device/client runtime state. Profile state is backend-owned and may be selected
+explicitly only through the canonical Profile context fields supported by the
+Home Assistant Profile Platform. The local architecture is:
+
+```text
+Application Session
+  -> Profile context signal
+  -> Device identity
+  -> Home Assistant backend
+  -> selected music backend
+```
+
+Local cache is a rendering optimization. It must not become Profile ownership:
+Ask DJ history, Music DNA, Discover recommendations, Track Insight context,
+mood persistence, response style, household membership, music account state and
+backend routing remain Home Assistant-owned. Private Session requests use the
+resolved backend Profile for routing but suppress backend persistence according
+to Home Assistant policy; clients should avoid adding durable local personal
+cache for those request results.
+
 The app must never store Spotify, Sonos, Home Assistant long-lived access
 tokens, OpenAI, or playback backend credentials.
 
@@ -174,6 +195,15 @@ including ambient music facts and history-retention notices, render in the same
 timeline with distinct styling. When the Ask DJ screen opens, clients scroll to
 the newest timeline message by default, including after the first async history
 load.
+
+Profile-aware Ask DJ, Music DNA, Discover, Track Insight, command, and voice
+requests use the canonical Profile Adoption Contract from
+`pcvantol/djconnect/docs/implementation/epic3b/01-profile-adoption-contract.md`.
+Clients may send only known context fields: `profile_id`, `session_id`,
+`private_session`, `request_source`, `device_id`, and `client_type`. They must
+not send OAuth tokens, provider refresh tokens, Home Assistant tokens, APNs
+tokens, raw prompts, raw audio, Ask DJ history, Music DNA contents, or provider
+credentials as Profile context.
 
 The clear-history command is a backend call to
 `POST /api/djconnect/v1/ask_dj/history/clear`. Clients clear local cached history

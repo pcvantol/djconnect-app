@@ -7,6 +7,15 @@ talk to the Home Assistant `djconnect` custom integration. Home Assistant stays 
 trusted backend for pairing, DJConnect bearer-token lifecycle, Spotify OAuth,
 playback commands, Assist/STT/TTS, and native HA entities.
 
+The Apple clients are the reference DJConnect Intelligence Client for Profile
+Platform adoption. iOS, macOS, and watchOS send canonical Profile request
+context where personal state is involved, including `profile_id`,
+`private_session`, `session_id`, `device_id`, `client_type`, and
+`request_source` when available. Home Assistant resolves the Profile, Household,
+Music Backend, Music DNA, recommendations, Ask DJ history, mood persistence, and
+privacy policy. Apple renders returned state and keeps local caches isolated to
+client/runtime concerns.
+
 The app owns native UI, local app state, local bonus games, optional local voice
 recording, and optional playback of returned DJ response audio. It must not
 store Spotify, Home Assistant, Sonos, OpenAI, or other backend credentials. The

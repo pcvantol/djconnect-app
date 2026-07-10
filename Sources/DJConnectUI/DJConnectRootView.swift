@@ -17228,7 +17228,8 @@ struct SettingsView: View {
                  let .notConfigured(message),
                  let .server(_, message),
                  let .pairingFailed(message),
-                 let .trackInsightUnavailable(_, message):
+                 let .trackInsightUnavailable(_, message),
+                 let .profile(_, _, message):
                 let trimmed = message?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
                 return trimmed.isEmpty ? localizedKey(model.language, "ui.music.dna.import.rejected") : trimmed
             case let .network(message), let .invalidConfiguration(message):
@@ -17256,7 +17257,8 @@ struct SettingsView: View {
             case let .authStale(_, message),
                  let .notConfigured(message),
                  let .server(_, message),
-                 let .pairingFailed(message):
+                 let .pairingFailed(message),
+                 let .profile(_, _, message):
                 let trimmed = message?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
                 return trimmed.isEmpty ? localizedKey(model.language, "ui.ask.dj.history.export.failed") : trimmed
             case let .network(message), let .invalidConfiguration(message):

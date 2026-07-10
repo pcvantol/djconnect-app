@@ -531,6 +531,8 @@ public actor DJConnectHomeAssistantWebSocketFastPath: DJConnectWebSocketFastPath
             message ?? code ?? "Track Insight unavailable"
         case let .payloadTooLarge(limitBytes, actualBytes):
             "Payload too large limit=\(limitBytes) actual=\(actualBytes.map(String.init) ?? "unknown")"
+        case let .profile(code, statusCode, message):
+            message ?? "Profile error \(code.rawValue) (HTTP \(statusCode))"
         }
     }
 }
