@@ -11020,6 +11020,9 @@ private struct OutputDeviceChoiceRow: View {
         if isActive {
             return localizedKey(language, "ui.active")
         }
+        if output?.isCachedSpotifyOutput == true {
+            return localizedKey(language, "ui.output.recently.seen")
+        }
         if let volume = output?.volumePercent {
             return "\(volume)%"
         }

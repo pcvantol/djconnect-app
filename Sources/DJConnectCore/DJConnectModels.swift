@@ -6704,6 +6704,11 @@ public struct DJConnectAskDJPlaybackAction: Codable, Equatable, Identifiable, Se
     public var deviceID: String?
     public var deviceName: String?
     public var active: Bool?
+    public var cached: Bool?
+    public var provider: String?
+    public var source: String?
+    public var firstSeenAt: String?
+    public var lastSeenAt: String?
     public var uri: String?
     public var uris: [String]
     public var contextURI: String?
@@ -6740,6 +6745,12 @@ public struct DJConnectAskDJPlaybackAction: Codable, Equatable, Identifiable, Se
         case deviceName = "device_name"
         case deviceNameCamel = "deviceName"
         case active
+        case isActive = "is_active"
+        case cached
+        case provider
+        case source
+        case firstSeenAt = "first_seen_at"
+        case lastSeenAt = "last_seen_at"
         case uri
         case uris
         case spotifyURI = "spotify_uri"
@@ -6793,6 +6804,11 @@ public struct DJConnectAskDJPlaybackAction: Codable, Equatable, Identifiable, Se
         deviceID: String? = nil,
         deviceName: String? = nil,
         active: Bool? = nil,
+        cached: Bool? = nil,
+        provider: String? = nil,
+        source: String? = nil,
+        firstSeenAt: String? = nil,
+        lastSeenAt: String? = nil,
         uri: String? = nil,
         uris: [String] = [],
         contextURI: String? = nil,
@@ -6821,6 +6837,11 @@ public struct DJConnectAskDJPlaybackAction: Codable, Equatable, Identifiable, Se
         self.deviceID = deviceID
         self.deviceName = deviceName
         self.active = active
+        self.cached = cached
+        self.provider = provider
+        self.source = source
+        self.firstSeenAt = firstSeenAt
+        self.lastSeenAt = lastSeenAt
         self.uri = uri
         self.uris = uris
         self.contextURI = contextURI
@@ -6862,6 +6883,12 @@ public struct DJConnectAskDJPlaybackAction: Codable, Equatable, Identifiable, Se
         deviceName = try container.decodeIfPresent(String.self, forKey: .deviceName)
             ?? container.decodeIfPresentIgnoringErrors(String.self, forKey: .deviceNameCamel)
         active = try container.decodeIfPresent(Bool.self, forKey: .active)
+            ?? container.decodeIfPresentIgnoringErrors(Bool.self, forKey: .isActive)
+        cached = try container.decodeIfPresent(Bool.self, forKey: .cached)
+        provider = try container.decodeIfPresent(String.self, forKey: .provider)
+        source = try container.decodeIfPresent(String.self, forKey: .source)
+        firstSeenAt = try container.decodeIfPresent(String.self, forKey: .firstSeenAt)
+        lastSeenAt = try container.decodeIfPresent(String.self, forKey: .lastSeenAt)
         uri = try container.decodeIfPresent(String.self, forKey: .uri)
             ?? container.decodeIfPresentIgnoringErrors(String.self, forKey: .spotifyURI)
         uris = container.decodeLossyArrayIfPresent(String.self, forKey: .uris) ?? []
@@ -6925,6 +6952,11 @@ public struct DJConnectAskDJPlaybackAction: Codable, Equatable, Identifiable, Se
         try container.encodeIfPresent(deviceID, forKey: .deviceID)
         try container.encodeIfPresent(deviceName, forKey: .deviceName)
         try container.encodeIfPresent(active, forKey: .active)
+        try container.encodeIfPresent(cached, forKey: .cached)
+        try container.encodeIfPresent(provider, forKey: .provider)
+        try container.encodeIfPresent(source, forKey: .source)
+        try container.encodeIfPresent(firstSeenAt, forKey: .firstSeenAt)
+        try container.encodeIfPresent(lastSeenAt, forKey: .lastSeenAt)
         try container.encodeIfPresent(uri, forKey: .uri)
         if !uris.isEmpty {
             try container.encode(uris, forKey: .uris)
@@ -7547,6 +7579,11 @@ public struct DJConnectPlaybackDevice: Codable, Equatable, Sendable {
     public var name: String?
     public var type: String?
     public var active: Bool?
+    public var cached: Bool?
+    public var provider: String?
+    public var source: String?
+    public var firstSeenAt: String?
+    public var lastSeenAt: String?
     public var supportsVolume: Bool?
     public var volumePercent: Int?
 
@@ -7555,6 +7592,11 @@ public struct DJConnectPlaybackDevice: Codable, Equatable, Sendable {
         name: String? = nil,
         type: String? = nil,
         active: Bool? = nil,
+        cached: Bool? = nil,
+        provider: String? = nil,
+        source: String? = nil,
+        firstSeenAt: String? = nil,
+        lastSeenAt: String? = nil,
         supportsVolume: Bool? = nil,
         volumePercent: Int? = nil
     ) {
@@ -7562,6 +7604,11 @@ public struct DJConnectPlaybackDevice: Codable, Equatable, Sendable {
         self.name = name
         self.type = type
         self.active = active
+        self.cached = cached
+        self.provider = provider
+        self.source = source
+        self.firstSeenAt = firstSeenAt
+        self.lastSeenAt = lastSeenAt
         self.supportsVolume = supportsVolume
         self.volumePercent = volumePercent
     }
@@ -7571,8 +7618,45 @@ public struct DJConnectPlaybackDevice: Codable, Equatable, Sendable {
         case name
         case type
         case active
+        case isActive = "is_active"
+        case cached
+        case provider
+        case source
+        case firstSeenAt = "first_seen_at"
+        case lastSeenAt = "last_seen_at"
         case supportsVolume = "supports_volume"
         case volumePercent = "volume_percent"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decodeIfPresent(String.self, forKey: .id)
+        name = try container.decodeIfPresent(String.self, forKey: .name)
+        type = try container.decodeIfPresent(String.self, forKey: .type)
+        active = try container.decodeIfPresent(Bool.self, forKey: .active)
+            ?? container.decodeIfPresentIgnoringErrors(Bool.self, forKey: .isActive)
+        cached = try container.decodeIfPresent(Bool.self, forKey: .cached)
+        provider = try container.decodeIfPresent(String.self, forKey: .provider)
+        source = try container.decodeIfPresent(String.self, forKey: .source)
+        firstSeenAt = try container.decodeIfPresent(String.self, forKey: .firstSeenAt)
+        lastSeenAt = try container.decodeIfPresent(String.self, forKey: .lastSeenAt)
+        supportsVolume = try container.decodeIfPresent(Bool.self, forKey: .supportsVolume)
+        volumePercent = try container.decodeIfPresent(Int.self, forKey: .volumePercent)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encodeIfPresent(id, forKey: .id)
+        try container.encodeIfPresent(name, forKey: .name)
+        try container.encodeIfPresent(type, forKey: .type)
+        try container.encodeIfPresent(active, forKey: .active)
+        try container.encodeIfPresent(cached, forKey: .cached)
+        try container.encodeIfPresent(provider, forKey: .provider)
+        try container.encodeIfPresent(source, forKey: .source)
+        try container.encodeIfPresent(firstSeenAt, forKey: .firstSeenAt)
+        try container.encodeIfPresent(lastSeenAt, forKey: .lastSeenAt)
+        try container.encodeIfPresent(supportsVolume, forKey: .supportsVolume)
+        try container.encodeIfPresent(volumePercent, forKey: .volumePercent)
     }
 }
 
@@ -7581,6 +7665,11 @@ public struct DJConnectOutputDevice: Codable, Equatable, Identifiable, Sendable 
     public var name: String
     public var type: String?
     public var active: Bool?
+    public var cached: Bool?
+    public var provider: String?
+    public var source: String?
+    public var firstSeenAt: String?
+    public var lastSeenAt: String?
     public var supportsVolume: Bool?
     public var volumePercent: Int?
 
@@ -7589,6 +7678,11 @@ public struct DJConnectOutputDevice: Codable, Equatable, Identifiable, Sendable 
         name: String,
         type: String? = nil,
         active: Bool? = nil,
+        cached: Bool? = nil,
+        provider: String? = nil,
+        source: String? = nil,
+        firstSeenAt: String? = nil,
+        lastSeenAt: String? = nil,
         supportsVolume: Bool? = nil,
         volumePercent: Int? = nil
     ) {
@@ -7596,6 +7690,11 @@ public struct DJConnectOutputDevice: Codable, Equatable, Identifiable, Sendable 
         self.name = name
         self.type = type
         self.active = active
+        self.cached = cached
+        self.provider = provider
+        self.source = source
+        self.firstSeenAt = firstSeenAt
+        self.lastSeenAt = lastSeenAt
         self.supportsVolume = supportsVolume
         self.volumePercent = volumePercent
     }
@@ -7613,7 +7712,13 @@ public struct DJConnectOutputDevice: Codable, Equatable, Identifiable, Sendable 
             id: id,
             name: name,
             type: try container.decodeIfPresent(String.self, forKey: .type),
-            active: try container.decodeIfPresent(Bool.self, forKey: .active),
+            active: try container.decodeIfPresent(Bool.self, forKey: .active)
+                ?? container.decodeIfPresentIgnoringErrors(Bool.self, forKey: .isActive),
+            cached: try container.decodeIfPresent(Bool.self, forKey: .cached),
+            provider: try container.decodeIfPresent(String.self, forKey: .provider),
+            source: try container.decodeIfPresent(String.self, forKey: .source),
+            firstSeenAt: try container.decodeIfPresent(String.self, forKey: .firstSeenAt),
+            lastSeenAt: try container.decodeIfPresent(String.self, forKey: .lastSeenAt),
             supportsVolume: try container.decodeIfPresent(Bool.self, forKey: .supportsVolume),
             volumePercent: try container.decodeIfPresent(Int.self, forKey: .volumePercent)
         )
@@ -7625,6 +7730,11 @@ public struct DJConnectOutputDevice: Codable, Equatable, Identifiable, Sendable 
         try container.encode(name, forKey: .name)
         try container.encodeIfPresent(type, forKey: .type)
         try container.encodeIfPresent(active, forKey: .active)
+        try container.encodeIfPresent(cached, forKey: .cached)
+        try container.encodeIfPresent(provider, forKey: .provider)
+        try container.encodeIfPresent(source, forKey: .source)
+        try container.encodeIfPresent(firstSeenAt, forKey: .firstSeenAt)
+        try container.encodeIfPresent(lastSeenAt, forKey: .lastSeenAt)
         try container.encodeIfPresent(supportsVolume, forKey: .supportsVolume)
         try container.encodeIfPresent(volumePercent, forKey: .volumePercent)
     }
@@ -7634,8 +7744,34 @@ public struct DJConnectOutputDevice: Codable, Equatable, Identifiable, Sendable 
         case name
         case type
         case active
+        case isActive = "is_active"
+        case cached
+        case provider
+        case source
+        case firstSeenAt = "first_seen_at"
+        case lastSeenAt = "last_seen_at"
         case supportsVolume = "supports_volume"
         case volumePercent = "volume_percent"
+    }
+
+    public var isCachedSpotifyOutput: Bool {
+        guard cached == true else {
+            return false
+        }
+        return provider?.localizedCaseInsensitiveCompare("spotify") == .orderedSame
+            || source?.localizedCaseInsensitiveCompare("spotify") == .orderedSame
+    }
+
+    public func matchesPlaybackDevice(id playbackID: String?, name playbackName: String?) -> Bool {
+        let outputID = id.trimmingCharacters(in: .whitespacesAndNewlines)
+        let outputName = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        if let playbackID, !playbackID.isEmpty, outputID.localizedCaseInsensitiveCompare(playbackID) == .orderedSame {
+            return true
+        }
+        if let playbackName, !playbackName.isEmpty, outputName.localizedCaseInsensitiveCompare(playbackName) == .orderedSame {
+            return true
+        }
+        return false
     }
 }
 
@@ -8217,6 +8353,12 @@ public struct DJConnectCommandResponse: Codable, Equatable, Sendable {
             ?? result?.decodeIfPresentIgnoringErrors(DJConnectPlayback.self, forKey: .playback)
         var decodedDevices = container.decodeLossyArrayIfPresent(DJConnectOutputDevice.self, forKey: .devices)
         if decodedDevices == nil {
+            decodedDevices = container.decodeLossyArrayIfPresent(DJConnectOutputDevice.self, forKey: .availableOutputs)
+        }
+        if decodedDevices == nil {
+            decodedDevices = container.decodeLossyArrayIfPresent(DJConnectOutputDevice.self, forKey: .outputDevices)
+        }
+        if decodedDevices == nil {
             decodedDevices = container.decodeLossyArrayIfPresent(DJConnectOutputDevice.self, forKey: .outputs)
         }
         if decodedDevices == nil {
@@ -8226,6 +8368,12 @@ public struct DJConnectCommandResponse: Codable, Equatable, Sendable {
             decodedDevices = data?.decodeLossyArrayIfPresent(DJConnectOutputDevice.self, forKey: .devices)
         }
         if decodedDevices == nil {
+            decodedDevices = data?.decodeLossyArrayIfPresent(DJConnectOutputDevice.self, forKey: .availableOutputs)
+        }
+        if decodedDevices == nil {
+            decodedDevices = data?.decodeLossyArrayIfPresent(DJConnectOutputDevice.self, forKey: .outputDevices)
+        }
+        if decodedDevices == nil {
             decodedDevices = data?.decodeLossyArrayIfPresent(DJConnectOutputDevice.self, forKey: .outputs)
         }
         if decodedDevices == nil {
@@ -8233,6 +8381,12 @@ public struct DJConnectCommandResponse: Codable, Equatable, Sendable {
         }
         if decodedDevices == nil {
             decodedDevices = result?.decodeLossyArrayIfPresent(DJConnectOutputDevice.self, forKey: .devices)
+        }
+        if decodedDevices == nil {
+            decodedDevices = result?.decodeLossyArrayIfPresent(DJConnectOutputDevice.self, forKey: .availableOutputs)
+        }
+        if decodedDevices == nil {
+            decodedDevices = result?.decodeLossyArrayIfPresent(DJConnectOutputDevice.self, forKey: .outputDevices)
         }
         if decodedDevices == nil {
             decodedDevices = result?.decodeLossyArrayIfPresent(DJConnectOutputDevice.self, forKey: .outputs)
@@ -8412,6 +8566,8 @@ public struct DJConnectCommandResponse: Codable, Equatable, Sendable {
         case data
         case result
         case devices
+        case availableOutputs = "available_outputs"
+        case outputDevices = "output_devices"
         case outputs
         case queue
         case queueContext = "queue_context"
@@ -8498,10 +8654,21 @@ private struct DJConnectOutputDeviceCandidate: Decodable {
 
         let type = try container.decodeIfPresent(String.self, forKey: .type)
         let active = try container.decodeIfPresent(Bool.self, forKey: .active)
+            ?? container.decodeIfPresent(Bool.self, forKey: .isActive)
+        let cached = try container.decodeIfPresent(Bool.self, forKey: .cached)
+        let provider = try container.decodeIfPresent(String.self, forKey: .provider)
+        let source = try container.decodeIfPresent(String.self, forKey: .source)
+        let firstSeenAt = try container.decodeIfPresent(String.self, forKey: .firstSeenAt)
+        let lastSeenAt = try container.decodeIfPresent(String.self, forKey: .lastSeenAt)
         let supportsVolume = try container.decodeIfPresent(Bool.self, forKey: .supportsVolume)
         let volumePercent = try container.decodeIfPresent(Int.self, forKey: .volumePercent)
         let hasOutputShape = type != nil
             || active != nil
+            || cached != nil
+            || provider != nil
+            || source != nil
+            || firstSeenAt != nil
+            || lastSeenAt != nil
             || supportsVolume != nil
             || volumePercent != nil
         guard hasOutputShape else {
@@ -8518,6 +8685,12 @@ private struct DJConnectOutputDeviceCandidate: Decodable {
         case contextURI = "context_uri"
         case type
         case active
+        case isActive = "is_active"
+        case cached
+        case provider
+        case source
+        case firstSeenAt = "first_seen_at"
+        case lastSeenAt = "last_seen_at"
         case supportsVolume = "supports_volume"
         case volumePercent = "volume_percent"
     }

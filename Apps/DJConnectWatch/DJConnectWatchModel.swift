@@ -1693,12 +1693,12 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
     func selectOutput(_ output: DJConnectOutputDevice) async {
         appendDiagnosticLog("Uitvoer geselecteerd: \(output.name)")
         selectedOutput = output.name
-        availableOutputs = availableOutputs.map { candidate in
-            var updated = candidate
-            updated.active = candidate.id == output.id || candidate.name == output.name
-            return updated
-        }
         if Self.isSyntheticOutput(output) {
+            availableOutputs = availableOutputs.map { candidate in
+                var updated = candidate
+                updated.active = candidate.id == output.id || candidate.name == output.name
+                return updated
+            }
             return
         }
         if isDemoMode {
@@ -1728,10 +1728,15 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
             )
             applyBackendSummary(response.musicBackendSummary)
             applyPlayback(response.playback)
+            guard response.success else {
+                statusMessage = cachedSpotifyOutputFailureMessage(for: output)
+                appendDiagnosticLog("Uitvoer instellen mislukt: \(statusMessage)", level: .error)
+                return
+            }
             statusMessage = "Uitvoer ingesteld"
             appendDiagnosticLog("Uitvoer ingesteld: \(output.name)")
         } catch {
-            statusMessage = Self.userMessage(for: error)
+            statusMessage = output.isCachedSpotifyOutput ? cachedSpotifyOutputFailureMessage(for: output) : Self.userMessage(for: error)
             appendDiagnosticLog("Uitvoer instellen mislukt: \(statusMessage)", level: .error)
         }
     }
@@ -1888,7 +1893,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
     }
 
     private func applyOutputs(_ devices: [DJConnectOutputDevice]) {
-        let normalizedDevices = normalizedOutputDevices(devices)
+        let normalizedDevices = normalizedOutputDevices(devicesApplyingCurrentPlayback(to: devices))
         availableOutputs = normalizedDevices
         if let active = normalizedDevices.first(where: { $0.active == true }) {
             selectedOutput = active.name
@@ -1908,6 +1913,30 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         )
         localNone.supportsVolume = false
         return [localNone] + backendDevices
+    }
+
+    private func devicesApplyingCurrentPlayback(to devices: [DJConnectOutputDevice]) -> [DJConnectOutputDevice] {
+        guard let playbackDevice = playback?.device else {
+            return devices
+        }
+        let playbackID = playbackDevice.id?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let playbackName = playbackDevice.name?.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard playbackID?.isEmpty == false || playbackName?.isEmpty == false else {
+            return devices
+        }
+        return devices.map { output in
+            var updated = output
+            if output.matchesPlaybackDevice(id: playbackID, name: playbackName) {
+                updated.active = true
+            }
+            return updated
+        }
+    }
+
+    private func cachedSpotifyOutputFailureMessage(for output: DJConnectOutputDevice) -> String {
+        output.isCachedSpotifyOutput
+            ? DJConnectLocalization.localized(key: "appModel.cached.spotify.output.unavailable", language: language)
+            : "Home Assistant gaf geen antwoord."
     }
 
     private static let syntheticNoOutputID = "djconnect-output-none"
@@ -4075,7 +4104,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
             return "Home Assistant gaf geen antwoord"
         case .trackInsightUnavailable:
             return "Track Insight niet beschikbaar"
-        case .network, .routeMissing, .notConfigured, .invalidConfiguration, .missingToken, .pairingFailed, .clientTypeMismatch, .authStale, .versionMismatch:
+        case .network, .routeMissing, .notConfigured, .invalidConfiguration, .missingToken, .pairingFailed, .clientTypeMismatch, .authStale, .versionMismatch, .profile:
             return "Ask DJ niet bereikbaar"
         }
     }
@@ -4579,7 +4608,8 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
                  .notConfigured,
                  .pairingFailed,
                  .clientTypeMismatch,
-                 .routeMissing:
+                 .routeMissing,
+                 .profile:
                 return "Ask DJ niet bereikbaar."
             case let .versionMismatch(mismatch):
                 return mismatch.message ?? "Werk DJConnect bij."

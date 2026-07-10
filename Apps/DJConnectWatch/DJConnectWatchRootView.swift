@@ -2926,6 +2926,8 @@ private struct DJConnectWatchOutputRow: View {
                 HStack(spacing: 4) {
                     if isActive {
                         Text(watchLocalizedKey(model.language, "watch.active"))
+                    } else if output.isCachedSpotifyOutput {
+                        Text(watchLocalizedKey(model.language, "ui.output.recently.seen"))
                     } else if let volume = output.volumePercent {
                         Text("\(volume)%")
                     } else {

@@ -845,6 +845,7 @@ public final class DJConnectAppModel: ObservableObject {
     private let permissionCoordinator = DJConnectPermissionCoordinator()
     private var openPermissionSettingsTask: Task<Void, Never>?
     private var pendingSelectedOutput: String?
+    private var pendingSelectedOutputIsCachedSpotify = false
     private var pendingVolumePercent: Int?
     private var pendingSeekTargetMS: Int?
     private var seekCommandTask: Task<Void, Never>?
@@ -3036,14 +3037,16 @@ public final class DJConnectAppModel: ObservableObject {
         log(.debug, "User action: select output")
         selectedOutput = output.name
         pendingSelectedOutput = output.name
-        availableOutputs = availableOutputs.map { candidate in
-            var updated = candidate
-            updated.active = candidate.id == output.id || candidate.name == output.name
-            return updated
-        }
+        pendingSelectedOutputIsCachedSpotify = output.isCachedSpotifyOutput
         if Self.isSyntheticOutput(output) {
             log(.info, "Selecting local output option \(output.name)")
             pendingSelectedOutput = nil
+            pendingSelectedOutputIsCachedSpotify = false
+            availableOutputs = availableOutputs.map { candidate in
+                var updated = candidate
+                updated.active = candidate.id == output.id || candidate.name == output.name
+                return updated
+            }
             return
         }
         log(.info, "Selecting output \(output.name)")
@@ -3957,6 +3960,7 @@ public final class DJConnectAppModel: ObservableObject {
             if pendingSelectedOutput == nil || pendingSelectedOutput == deviceName {
                 selectedOutput = deviceName
                 pendingSelectedOutput = nil
+                pendingSelectedOutputIsCachedSpotify = false
             }
         }
         markHomeAssistantReachable(backendAvailableAfterResponse: true)
@@ -4013,6 +4017,9 @@ public final class DJConnectAppModel: ObservableObject {
             case "unsupported_backend_capability":
                 userNotice = DJConnectUserNotice(text: response.message ?? localized(key: "appModel.this.music.backend.does.not.support.that.action"))
             default:
+                if command == "set_output", pendingSelectedOutputIsCachedSpotify {
+                    userNotice = DJConnectUserNotice(text: localized(key: "appModel.cached.spotify.output.unavailable"))
+                }
                 break
             }
         }
@@ -4028,12 +4035,13 @@ public final class DJConnectAppModel: ObservableObject {
             clearRecoverableVoiceErrorIfNeeded()
         }
         if let devices = response.devices {
-            let normalizedDevices = normalizedOutputDevices(devices)
+            let normalizedDevices = normalizedOutputDevices(devicesApplyingCurrentPlayback(to: devices))
             availableOutputs = normalizedDevices
             if let active = normalizedDevices.first(where: { $0.active == true }) {
                 if pendingSelectedOutput == nil || pendingSelectedOutput == active.name {
                     selectedOutput = active.name
                     pendingSelectedOutput = nil
+                    pendingSelectedOutputIsCachedSpotify = false
                 } else if let pendingSelectedOutput {
                     selectedOutput = pendingSelectedOutput
                 }
@@ -4086,6 +4094,24 @@ public final class DJConnectAppModel: ObservableObject {
         localNone.supportsVolume = false
 
         return [localNone] + backendDevices
+    }
+
+    private func devicesApplyingCurrentPlayback(to devices: [DJConnectOutputDevice]) -> [DJConnectOutputDevice] {
+        guard let playbackDevice = playback?.device else {
+            return devices
+        }
+        let playbackID = playbackDevice.id?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let playbackName = playbackDevice.name?.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard playbackID?.isEmpty == false || playbackName?.isEmpty == false else {
+            return devices
+        }
+        return devices.map { output in
+            var updated = output
+            if output.matchesPlaybackDevice(id: playbackID, name: playbackName) {
+                updated.active = true
+            }
+            return updated
+        }
     }
 
     private func normalizedQueueItems(_ items: [DJConnectQueueItem]) -> [DJConnectQueueItem] {
@@ -4714,6 +4740,7 @@ public final class DJConnectAppModel: ObservableObject {
         volumeCommandTask?.cancel()
         volumeCommandTask = nil
         pendingSelectedOutput = nil
+        pendingSelectedOutputIsCachedSpotify = false
         pendingVolumePercent = nil
         playback = nil
         currentTrackInsight = nil
@@ -9017,6 +9044,9 @@ public final class DJConnectAppModel: ObservableObject {
         case "play", "pause", "start_playlist", "start_liked_proxy", "play_context_at":
             return localized(key: "appModel.playback.could.not.be.changed")
         case "set_output":
+            if pendingSelectedOutputIsCachedSpotify {
+                return localized(key: "appModel.cached.spotify.output.unavailable")
+            }
             return localized(key: "appModel.output.could.not.be.changed")
         default:
             return localized(key: "appModel.action.could.not.be.completed")

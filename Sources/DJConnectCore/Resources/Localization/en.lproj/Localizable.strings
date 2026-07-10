@@ -948,3 +948,5 @@
 "ui.ask.dj.history.exporting" = "Exporting Ask DJ history...";
 "ui.ask.dj.history.export.saved" = "Ask DJ history export saved.";
 "ui.ask.dj.history.export.failed" = "Ask DJ history could not be exported.";
+"ui.output.recently.seen" = "Recently seen";
+"appModel.cached.spotify.output.unavailable" = "Spotify does not expose this output right now. Open Spotify on that device once and try again.";

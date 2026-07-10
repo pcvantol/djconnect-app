@@ -948,3 +948,5 @@
 "ui.ask.dj.history.exporting" = "Ask DJ-geschiedenis exporteren...";
 "ui.ask.dj.history.export.saved" = "Ask DJ-geschiedenisexport opgeslagen.";
 "ui.ask.dj.history.export.failed" = "Ask DJ-geschiedenis kon niet worden geexporteerd.";
+"ui.output.recently.seen" = "Recent gezien";
+"appModel.cached.spotify.output.unavailable" = "Spotify toont deze speaker nu niet via de API. Open Spotify één keer op dat apparaat en probeer opnieuw.";

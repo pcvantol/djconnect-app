@@ -8137,6 +8137,143 @@ private func makePairedMusicDNAModel(
     #expect(itemsResponse.devices?.first?.name == "speaker-id")
 }
 
+@Test func outputDevicesDecodeCachedSpotifyMetadataFromAliases() throws {
+    let response = try JSONDecoder().decode(
+        DJConnectCommandResponse.self,
+        from: Data(#"""
+        {
+          "success": true,
+          "available_outputs": [
+            {
+              "id": "live-speaker",
+              "name": "Living Room",
+              "type": "speaker",
+              "is_active": true,
+              "supports_volume": true,
+              "volume_percent": 42,
+              "provider": "spotify",
+              "source": "spotify",
+              "cached": false,
+              "first_seen_at": "2026-07-01T10:00:00Z",
+              "last_seen_at": "2026-07-10T10:00:00Z"
+            },
+            {
+              "id": "cached-speaker",
+              "name": "Kitchen",
+              "type": "speaker",
+              "provider": "spotify",
+              "source": "spotify",
+              "cached": true,
+              "first_seen_at": "2026-06-12T10:00:00Z",
+              "last_seen_at": "2026-07-01T10:00:00Z"
+            }
+          ]
+        }
+        """#.utf8)
+    )
+
+    let devices = try #require(response.devices)
+    #expect(devices.count == 2)
+    #expect(devices[0].active == true)
+    #expect(devices[0].cached == false)
+    #expect(devices[0].provider == "spotify")
+    #expect(devices[0].source == "spotify")
+    #expect(devices[0].firstSeenAt == "2026-07-01T10:00:00Z")
+    #expect(devices[0].lastSeenAt == "2026-07-10T10:00:00Z")
+    #expect(devices[1].isCachedSpotifyOutput == true)
+    #expect(devices[1].active == nil)
+}
+
+@MainActor
+@Test func cachedSpotifyOutputsRenderSelectableWithoutBecomingActiveOrStale() throws {
+    let suiteName = "DJConnectTests-\(UUID().uuidString)"
+    let defaults = try #require(UserDefaults(suiteName: suiteName))
+    defaults.removePersistentDomain(forName: suiteName)
+    let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startBackgroundTasks: false)
+
+    model.apply(commandResponse: DJConnectCommandResponse(
+        success: true,
+        backendAvailable: true,
+        devices: [
+            DJConnectOutputDevice(id: "live-speaker", name: "Living Room", active: true, cached: false, provider: "spotify", source: "spotify"),
+            DJConnectOutputDevice(id: "cached-speaker", name: "Kitchen", cached: true, provider: "spotify", source: "spotify")
+        ]
+    ))
+
+    #expect(model.availableOutputs.map(\.name).contains("Living Room"))
+    #expect(model.availableOutputs.map(\.name).contains("Kitchen"))
+    let cached = try #require(model.availableOutputs.first { $0.id == "cached-speaker" })
+    #expect(cached.active != true)
+    #expect(cached.isCachedSpotifyOutput == true)
+
+    model.selectOutput(cached)
+    #expect(model.selectedOutput == "Kitchen")
+    #expect(model.availableOutputs.first { $0.id == "cached-speaker" }?.active != true)
+
+    model.apply(commandResponse: DJConnectCommandResponse(
+        success: true,
+        backendAvailable: true,
+        devices: [
+            DJConnectOutputDevice(id: "live-speaker", name: "Living Room", active: true, cached: false, provider: "spotify", source: "spotify")
+        ]
+    ))
+
+    #expect(model.availableOutputs.contains { $0.id == "cached-speaker" } == false)
+}
+
+@MainActor
+@Test func playbackDeviceMatchCanMarkCachedOutputActiveWhenHAReportsItCurrent() throws {
+    let suiteName = "DJConnectTests-\(UUID().uuidString)"
+    let defaults = try #require(UserDefaults(suiteName: suiteName))
+    defaults.removePersistentDomain(forName: suiteName)
+    let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startBackgroundTasks: false)
+
+    model.apply(commandResponse: DJConnectCommandResponse(
+        success: true,
+        backendAvailable: true,
+        playback: DJConnectPlayback(device: DJConnectPlaybackDevice(id: "cached-speaker", name: "Kitchen")),
+        devices: [
+            DJConnectOutputDevice(id: "cached-speaker", name: "Kitchen", cached: true, provider: "spotify", source: "spotify")
+        ]
+    ))
+
+    #expect(model.availableOutputs.first { $0.id == "cached-speaker" }?.active == true)
+}
+
+@Test func askDJOutputActionsPreserveCachedSpotifyMetadata() throws {
+    let response = try JSONDecoder().decode(
+        DJConnectCommandResponse.self,
+        from: Data(#"""
+        {
+          "success": true,
+          "playback_actions": [
+            {
+              "id": "speaker-kitchen",
+              "title": "Kitchen",
+              "kind": "output",
+              "command": "set_output",
+              "device_id": "cached-speaker",
+              "provider": "spotify",
+              "source": "spotify",
+              "cached": true,
+              "first_seen_at": "2026-06-12T10:00:00Z",
+              "last_seen_at": "2026-07-01T10:00:00Z"
+            }
+          ]
+        }
+        """#.utf8)
+    )
+
+    let action = try #require(response.playbackActions?.first)
+    #expect(action.isOutputAction)
+    #expect(action.outputDeviceID == "cached-speaker")
+    #expect(action.cached == true)
+    #expect(action.provider == "spotify")
+    #expect(action.source == "spotify")
+    #expect(action.firstSeenAt == "2026-06-12T10:00:00Z")
+    #expect(action.lastSeenAt == "2026-07-01T10:00:00Z")
+}
+
 @Test func pairingRequestUsesPairEndpointWithoutBearerToken() throws {
     let identity = DJConnectIdentity(
         deviceID: "djconnect-macos-8F3A2C91B45D",
