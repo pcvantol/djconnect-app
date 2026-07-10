@@ -1,6 +1,19 @@
 import Foundation
 
 public enum DJConnectError: Error, Equatable, Sendable {
+    public enum ProfileCode: String, Equatable, Sendable {
+        case profileRequired = "profile_required"
+        case invalidProfile = "invalid_profile"
+        case deviceNotMapped = "device_not_mapped"
+        case backendNotConfigured = "profile_backend_missing"
+        case musicAccountNotConfigured = "profile_music_account_missing"
+        case backendAccountMismatch = "profile_backend_account_mismatch"
+        case profileAccessDenied = "profile_access_denied"
+        case privateSessionRestriction = "private_session_restriction"
+        case invalidClientType = "invalid_client_type"
+        case invalidRequestContext = "invalid_request_context"
+    }
+
     case backendUnavailable(message: String?)
     case authStale(statusCode: Int, message: String?)
     case routeMissing(message: String?)
@@ -16,6 +29,7 @@ public enum DJConnectError: Error, Equatable, Sendable {
     case clientTypeMismatch(message: String?, expectedClientType: String?, receivedClientType: String?)
     case trackInsightUnavailable(code: String?, message: String?)
     case payloadTooLarge(limitBytes: Int, actualBytes: Int?)
+    case profile(code: ProfileCode, statusCode: Int, message: String?)
 }
 
 public enum DJConnectIncomingPayloadLimiter {

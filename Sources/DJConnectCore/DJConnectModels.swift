@@ -186,6 +186,71 @@ public struct DJConnectAPIIdentity: Codable, Equatable, Sendable {
     }
 }
 
+public enum DJConnectProfileRequestSource: String, Codable, Equatable, Sendable {
+    case askDJ = "ask_dj"
+    case deviceCommand = "device_command"
+    case voice
+    case trackInsight = "track_insight"
+    case discover
+}
+
+public struct DJConnectProfileContext: Codable, Equatable, Sendable {
+    public var profileID: String?
+    public var sessionID: String?
+    public var privateSession: Bool?
+    public var requestSource: DJConnectProfileRequestSource?
+
+    public init(
+        profileID: String? = nil,
+        sessionID: String? = nil,
+        privateSession: Bool? = nil,
+        requestSource: DJConnectProfileRequestSource? = nil
+    ) {
+        self.profileID = profileID?.nilIfBlank
+        self.sessionID = sessionID?.nilIfBlank
+        self.privateSession = privateSession
+        self.requestSource = requestSource
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case profileID = "profile_id"
+        case sessionID = "session_id"
+        case privateSession = "private_session"
+        case requestSource = "request_source"
+    }
+}
+
+public struct DJConnectResolvedProfile: Codable, Equatable, Sendable {
+    public var id: String
+    public var name: String?
+    public var type: String?
+    public var privacyMode: String?
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case name
+        case type
+        case privacyMode = "privacy_mode"
+    }
+}
+
+public struct DJConnectProfileResolution: Codable, Equatable, Sendable {
+    public var source: String?
+    public var fallbackUsed: Bool?
+
+    enum CodingKeys: String, CodingKey {
+        case source
+        case fallbackUsed = "fallback_used"
+    }
+}
+
+public protocol DJConnectProfileContextCarrier {
+    var profileID: String? { get set }
+    var sessionID: String? { get set }
+    var privateSession: Bool? { get set }
+    var requestSource: DJConnectProfileRequestSource? { get set }
+}
+
 public struct DJConnectIdentifiedRequestPayload<Payload: Encodable>: Encodable {
     public var identity: DJConnectAPIIdentity
     public var sourcePayload: Payload
@@ -207,6 +272,12 @@ public struct DJConnectIdentifiedRequestPayload<Payload: Encodable>: Encodable {
         try container.encodeIfPresent(identity.deviceToken, forKey: DJConnectDynamicCodingKey("device_token"))
 
         let payloadFields = try Self.payloadFields(from: sourcePayload)
+        if let profileContext = sourcePayload as? DJConnectProfileContextCarrier {
+            try container.encodeIfPresent(profileContext.profileID?.nilIfBlank, forKey: DJConnectDynamicCodingKey("profile_id"))
+            try container.encodeIfPresent(profileContext.sessionID?.nilIfBlank, forKey: DJConnectDynamicCodingKey("session_id"))
+            try container.encodeIfPresent(profileContext.privateSession, forKey: DJConnectDynamicCodingKey("private_session"))
+            try container.encodeIfPresent(profileContext.requestSource, forKey: DJConnectDynamicCodingKey("request_source"))
+        }
         for (key, value) in payloadFields where key != "identity" && key != "payload" {
             try container.encode(value, forKey: DJConnectDynamicCodingKey(key))
         }
@@ -839,7 +910,7 @@ public struct DJConnectStatusPayload: Codable, Equatable, Sendable {
     }
 }
 
-public struct DJConnectCommandPayload: Codable, Equatable, Sendable {
+public struct DJConnectCommandPayload: Codable, Equatable, Sendable, DJConnectProfileContextCarrier {
     public var deviceID: String
     public var deviceName: String
     public var clientType: DJConnectClientType
@@ -853,6 +924,10 @@ public struct DJConnectCommandPayload: Codable, Equatable, Sendable {
     public var mood: Int?
     public var musicDNAKey: String?
     public var djAnnouncementOutput: DJAnnouncementOutput?
+    public var profileID: String?
+    public var sessionID: String?
+    public var privateSession: Bool?
+    public var requestSource: DJConnectProfileRequestSource?
 
     public init(
         identity: DJConnectIdentity,
@@ -864,7 +939,8 @@ public struct DJConnectCommandPayload: Codable, Equatable, Sendable {
         language: String? = nil,
         mood: Int? = nil,
         musicDNAKey: String? = nil,
-        djAnnouncementOutput: DJAnnouncementOutput? = nil
+        djAnnouncementOutput: DJAnnouncementOutput? = nil,
+        profileContext: DJConnectProfileContext? = nil
     ) {
         self.deviceID = identity.deviceID
         self.deviceName = identity.deviceName
@@ -879,6 +955,10 @@ public struct DJConnectCommandPayload: Codable, Equatable, Sendable {
         self.mood = mood.map { max(0, min(100, $0)) }
         self.musicDNAKey = musicDNAKey
         self.djAnnouncementOutput = djAnnouncementOutput
+        self.profileID = profileContext?.profileID
+        self.sessionID = profileContext?.sessionID
+        self.privateSession = profileContext?.privateSession
+        self.requestSource = profileContext?.requestSource ?? .deviceCommand
     }
 
     enum CodingKeys: String, CodingKey {
@@ -895,10 +975,14 @@ public struct DJConnectCommandPayload: Codable, Equatable, Sendable {
         case mood
         case musicDNAKey = "music_dna_key"
         case djAnnouncementOutput = "dj_announcement_output"
+        case profileID = "profile_id"
+        case sessionID = "session_id"
+        case privateSession = "private_session"
+        case requestSource = "request_source"
     }
 }
 
-public struct DJConnectAskDJRequest: Codable, Equatable, Sendable {
+public struct DJConnectAskDJRequest: Codable, Equatable, Sendable, DJConnectProfileContextCarrier {
     public enum AudioResponse: String, Codable, Equatable, Sendable {
         case auto
         case always
@@ -919,6 +1003,10 @@ public struct DJConnectAskDJRequest: Codable, Equatable, Sendable {
     public var djAnnouncementOutput: DJAnnouncementOutput?
     public var metadata: [String: String]?
     public var language: String?
+    public var profileID: String?
+    public var sessionID: String?
+    public var privateSession: Bool?
+    public var requestSource: DJConnectProfileRequestSource?
 
     public init(
         identity: DJConnectIdentity,
@@ -931,7 +1019,8 @@ public struct DJConnectAskDJRequest: Codable, Equatable, Sendable {
         audioResponse: AudioResponse? = nil,
         djAnnouncementOutput: DJAnnouncementOutput? = nil,
         metadata: [String: String]? = nil,
-        language: String? = nil
+        language: String? = nil,
+        profileContext: DJConnectProfileContext? = nil
     ) {
         self.deviceID = identity.deviceID
         self.deviceName = identity.deviceName
@@ -947,6 +1036,10 @@ public struct DJConnectAskDJRequest: Codable, Equatable, Sendable {
         self.djAnnouncementOutput = djAnnouncementOutput
         self.metadata = metadata
         self.language = language
+        self.profileID = profileContext?.profileID
+        self.sessionID = profileContext?.sessionID
+        self.privateSession = profileContext?.privateSession
+        self.requestSource = profileContext?.requestSource ?? .askDJ
     }
 
     enum CodingKeys: String, CodingKey {
@@ -964,6 +1057,10 @@ public struct DJConnectAskDJRequest: Codable, Equatable, Sendable {
         case djAnnouncementOutput = "dj_announcement_output"
         case metadata
         case language
+        case profileID = "profile_id"
+        case sessionID = "session_id"
+        case privateSession = "private_session"
+        case requestSource = "request_source"
     }
 }
 
@@ -2261,7 +2358,7 @@ public protocol TrackInsightService: Sendable {
     func insight(for playback: DJConnectPlayback?) async throws -> TrackInsight
 }
 
-public struct DJConnectTrackInsightRequest: Codable, Equatable, Sendable {
+public struct DJConnectTrackInsightRequest: Codable, Equatable, Sendable, DJConnectProfileContextCarrier {
     public var deviceID: String?
     public var clientID: String?
     public var deviceName: String?
@@ -2282,6 +2379,10 @@ public struct DJConnectTrackInsightRequest: Codable, Equatable, Sendable {
     public var musicDNAKey: String?
     public var includeVisualProfile: Bool
     public var includeRawResponse: Bool
+    public var profileID: String?
+    public var sessionID: String?
+    public var privateSession: Bool?
+    public var requestSource: DJConnectProfileRequestSource?
 
     public init(
         deviceID: String? = nil,
@@ -2303,7 +2404,8 @@ public struct DJConnectTrackInsightRequest: Codable, Equatable, Sendable {
         mood: Int? = nil,
         musicDNAKey: String? = nil,
         includeVisualProfile: Bool = true,
-        includeRawResponse: Bool = true
+        includeRawResponse: Bool = true,
+        profileContext: DJConnectProfileContext? = nil
     ) {
         self.deviceID = deviceID
         self.clientID = clientID
@@ -2325,6 +2427,10 @@ public struct DJConnectTrackInsightRequest: Codable, Equatable, Sendable {
         self.musicDNAKey = musicDNAKey
         self.includeVisualProfile = includeVisualProfile
         self.includeRawResponse = includeRawResponse
+        self.profileID = profileContext?.profileID
+        self.sessionID = profileContext?.sessionID
+        self.privateSession = profileContext?.privateSession
+        self.requestSource = profileContext?.requestSource ?? .trackInsight
     }
 
     public func normalizedForSend(identity: DJConnectIdentity) -> DJConnectTrackInsightRequest {
@@ -2342,6 +2448,9 @@ public struct DJConnectTrackInsightRequest: Codable, Equatable, Sendable {
         copy.language = copy.language?.nilIfBlank ?? copy.locale?.nilIfBlank
         copy.mood = copy.mood.map { max(0, min(100, $0)) }
         copy.musicDNAKey = copy.musicDNAKey?.nilIfBlank
+        copy.profileID = copy.profileID?.nilIfBlank
+        copy.sessionID = copy.sessionID?.nilIfBlank
+        copy.requestSource = copy.requestSource ?? .trackInsight
         return copy
     }
 
@@ -2360,6 +2469,9 @@ public struct DJConnectTrackInsightRequest: Codable, Equatable, Sendable {
         copy.language = copy.language?.nilIfBlank ?? copy.locale?.nilIfBlank
         copy.mood = copy.mood.map { max(0, min(100, $0)) }
         copy.musicDNAKey = copy.musicDNAKey?.nilIfBlank
+        copy.profileID = copy.profileID?.nilIfBlank
+        copy.sessionID = copy.sessionID?.nilIfBlank
+        copy.requestSource = copy.requestSource ?? .trackInsight
         return copy
     }
 
@@ -2392,6 +2504,10 @@ public struct DJConnectTrackInsightRequest: Codable, Equatable, Sendable {
         case musicDNAKey = "music_dna_key"
         case includeVisualProfile = "include_visual_profile"
         case includeRawResponse = "include_raw_response"
+        case profileID = "profile_id"
+        case sessionID = "session_id"
+        case privateSession = "private_session"
+        case requestSource = "request_source"
         case track
     }
 
@@ -2425,6 +2541,10 @@ public struct DJConnectTrackInsightRequest: Codable, Equatable, Sendable {
         musicDNAKey = try container.decodeIfPresent(String.self, forKey: .musicDNAKey)
         includeVisualProfile = try container.decodeIfPresent(Bool.self, forKey: .includeVisualProfile) ?? true
         includeRawResponse = try container.decodeIfPresent(Bool.self, forKey: .includeRawResponse) ?? true
+        profileID = try container.decodeIfPresent(String.self, forKey: .profileID)
+        sessionID = try container.decodeIfPresent(String.self, forKey: .sessionID)
+        privateSession = try container.decodeIfPresent(Bool.self, forKey: .privateSession)
+        requestSource = try container.decodeIfPresent(DJConnectProfileRequestSource.self, forKey: .requestSource)
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -2455,6 +2575,10 @@ public struct DJConnectTrackInsightRequest: Codable, Equatable, Sendable {
         try container.encodeIfPresent(musicDNAKey, forKey: .musicDNAKey)
         try container.encode(includeVisualProfile, forKey: .includeVisualProfile)
         try container.encode(includeRawResponse, forKey: .includeRawResponse)
+        try container.encodeIfPresent(profileID, forKey: .profileID)
+        try container.encodeIfPresent(sessionID, forKey: .sessionID)
+        try container.encodeIfPresent(privateSession, forKey: .privateSession)
+        try container.encodeIfPresent(requestSource, forKey: .requestSource)
     }
 
     private struct TrackPayload: Encodable {
@@ -3571,6 +3695,10 @@ public struct DJConnectAskDJHistoryResponse: Codable, Equatable, Sendable {
     public var historyLimit: Int?
     public var historyTrimmedBefore: Date?
     public var historyTrimmedCount: Int?
+    public var profileID: String?
+    public var musicDNAKey: String?
+    public var resolvedProfile: DJConnectResolvedProfile?
+    public var resolution: DJConnectProfileResolution?
 
     enum CodingKeys: String, CodingKey {
         case success
@@ -3584,6 +3712,10 @@ public struct DJConnectAskDJHistoryResponse: Codable, Equatable, Sendable {
         case historyLimit = "history_limit"
         case historyTrimmedBefore = "history_trimmed_before"
         case historyTrimmedCount = "history_trimmed_count"
+        case profileID = "profile_id"
+        case musicDNAKey = "music_dna_key"
+        case resolvedProfile = "resolved_profile"
+        case resolution
     }
 
     public init(
@@ -3597,7 +3729,11 @@ public struct DJConnectAskDJHistoryResponse: Codable, Equatable, Sendable {
         serverTime: Date? = nil,
         historyLimit: Int? = nil,
         historyTrimmedBefore: Date? = nil,
-        historyTrimmedCount: Int? = nil
+        historyTrimmedCount: Int? = nil,
+        profileID: String? = nil,
+        musicDNAKey: String? = nil,
+        resolvedProfile: DJConnectResolvedProfile? = nil,
+        resolution: DJConnectProfileResolution? = nil
     ) {
         self.success = success
         self.cleared = cleared
@@ -3610,6 +3746,10 @@ public struct DJConnectAskDJHistoryResponse: Codable, Equatable, Sendable {
         self.historyLimit = historyLimit
         self.historyTrimmedBefore = historyTrimmedBefore
         self.historyTrimmedCount = historyTrimmedCount
+        self.profileID = profileID?.nilIfBlank
+        self.musicDNAKey = musicDNAKey?.nilIfBlank
+        self.resolvedProfile = resolvedProfile
+        self.resolution = resolution
     }
 
     public init(from decoder: Decoder) throws {
@@ -3625,6 +3765,10 @@ public struct DJConnectAskDJHistoryResponse: Codable, Equatable, Sendable {
         historyLimit = try container.decodeIfPresent(Int.self, forKey: .historyLimit)
         historyTrimmedBefore = Self.decodeDate(container, key: .historyTrimmedBefore)
         historyTrimmedCount = try container.decodeIfPresent(Int.self, forKey: .historyTrimmedCount)
+        profileID = try container.decodeIfPresent(String.self, forKey: .profileID)?.nilIfBlank
+        musicDNAKey = try container.decodeIfPresent(String.self, forKey: .musicDNAKey)?.nilIfBlank
+        resolvedProfile = try container.decodeIfPresent(DJConnectResolvedProfile.self, forKey: .resolvedProfile)
+        resolution = try container.decodeIfPresent(DJConnectProfileResolution.self, forKey: .resolution)
     }
 
     public var isClearAcknowledged: Bool {
@@ -3648,12 +3792,16 @@ public struct DJConnectAskDJHistoryResponse: Codable, Equatable, Sendable {
     }
 }
 
-public struct DJConnectAskDJClearHistoryRequest: Codable, Equatable, Sendable {
+public struct DJConnectAskDJClearHistoryRequest: Codable, Equatable, Sendable, DJConnectProfileContextCarrier {
     public var deviceID: String
     public var clientType: DJConnectClientType
     public var clientID: String
     public var deviceName: String
     public var musicDNAKey: String?
+    public var profileID: String?
+    public var sessionID: String?
+    public var privateSession: Bool?
+    public var requestSource: DJConnectProfileRequestSource?
 
     enum CodingKeys: String, CodingKey {
         case deviceID = "device_id"
@@ -3661,14 +3809,22 @@ public struct DJConnectAskDJClearHistoryRequest: Codable, Equatable, Sendable {
         case clientID = "client_id"
         case deviceName = "device_name"
         case musicDNAKey = "music_dna_key"
+        case profileID = "profile_id"
+        case sessionID = "session_id"
+        case privateSession = "private_session"
+        case requestSource = "request_source"
     }
 
-    public init(identity: DJConnectIdentity, musicDNAKey: String? = nil) {
+    public init(identity: DJConnectIdentity, musicDNAKey: String? = nil, profileContext: DJConnectProfileContext? = nil) {
         self.deviceID = identity.deviceID
         self.clientType = identity.clientType
         self.clientID = identity.deviceID
         self.deviceName = identity.deviceName
         self.musicDNAKey = musicDNAKey
+        self.profileID = profileContext?.profileID
+        self.sessionID = profileContext?.sessionID
+        self.privateSession = profileContext?.privateSession
+        self.requestSource = profileContext?.requestSource ?? .askDJ
     }
 
     public init(from decoder: Decoder) throws {
@@ -3678,10 +3834,14 @@ public struct DJConnectAskDJClearHistoryRequest: Codable, Equatable, Sendable {
         clientID = try container.decodeIfPresent(String.self, forKey: .clientID) ?? deviceID
         deviceName = try container.decodeIfPresent(String.self, forKey: .deviceName) ?? ""
         musicDNAKey = try container.decodeIfPresent(String.self, forKey: .musicDNAKey)
+        profileID = try container.decodeIfPresent(String.self, forKey: .profileID)
+        sessionID = try container.decodeIfPresent(String.self, forKey: .sessionID)
+        privateSession = try container.decodeIfPresent(Bool.self, forKey: .privateSession)
+        requestSource = try container.decodeIfPresent(DJConnectProfileRequestSource.self, forKey: .requestSource)
     }
 }
 
-public struct DJConnectMusicDNAIdentityRequest: Codable, Equatable, Sendable {
+public struct DJConnectMusicDNAIdentityRequest: Codable, Equatable, Sendable, DJConnectProfileContextCarrier {
     public var deviceID: String
     public var clientID: String
     public var clientType: DJConnectClientType
@@ -3690,6 +3850,10 @@ public struct DJConnectMusicDNAIdentityRequest: Codable, Equatable, Sendable {
     public var language: String?
     public var locale: String?
     public var mood: Int?
+    public var profileID: String?
+    public var sessionID: String?
+    public var privateSession: Bool?
+    public var requestSource: DJConnectProfileRequestSource?
 
     enum CodingKeys: String, CodingKey {
         case deviceID = "device_id"
@@ -3700,6 +3864,10 @@ public struct DJConnectMusicDNAIdentityRequest: Codable, Equatable, Sendable {
         case language
         case locale
         case mood
+        case profileID = "profile_id"
+        case sessionID = "session_id"
+        case privateSession = "private_session"
+        case requestSource = "request_source"
     }
 
     public init(
@@ -3707,7 +3875,8 @@ public struct DJConnectMusicDNAIdentityRequest: Codable, Equatable, Sendable {
         mood: Int? = nil,
         musicDNAKey: String? = nil,
         language: String? = nil,
-        locale: String? = nil
+        locale: String? = nil,
+        profileContext: DJConnectProfileContext? = nil
     ) {
         self.deviceID = identity.deviceID
         self.clientID = identity.deviceID
@@ -3717,10 +3886,14 @@ public struct DJConnectMusicDNAIdentityRequest: Codable, Equatable, Sendable {
         self.language = language?.nilIfBlank
         self.locale = locale?.nilIfBlank ?? language?.nilIfBlank
         self.mood = mood.map { max(0, min(100, $0)) }
+        self.profileID = profileContext?.profileID
+        self.sessionID = profileContext?.sessionID
+        self.privateSession = profileContext?.privateSession
+        self.requestSource = profileContext?.requestSource
     }
 }
 
-public struct DJConnectMusicDNASettingsRequest: Codable, Equatable, Sendable {
+public struct DJConnectMusicDNASettingsRequest: Codable, Equatable, Sendable, DJConnectProfileContextCarrier {
     public var deviceID: String
     public var clientID: String
     public var clientType: DJConnectClientType
@@ -3730,6 +3903,10 @@ public struct DJConnectMusicDNASettingsRequest: Codable, Equatable, Sendable {
     public var locale: String?
     public var enabled: Bool
     public var mood: Int?
+    public var profileID: String?
+    public var sessionID: String?
+    public var privateSession: Bool?
+    public var requestSource: DJConnectProfileRequestSource?
 
     enum CodingKeys: String, CodingKey {
         case deviceID = "device_id"
@@ -3741,6 +3918,10 @@ public struct DJConnectMusicDNASettingsRequest: Codable, Equatable, Sendable {
         case locale
         case enabled
         case mood
+        case profileID = "profile_id"
+        case sessionID = "session_id"
+        case privateSession = "private_session"
+        case requestSource = "request_source"
     }
 
     public init(
@@ -3749,7 +3930,8 @@ public struct DJConnectMusicDNASettingsRequest: Codable, Equatable, Sendable {
         mood: Int? = nil,
         musicDNAKey: String? = nil,
         language: String? = nil,
-        locale: String? = nil
+        locale: String? = nil,
+        profileContext: DJConnectProfileContext? = nil
     ) {
         self.deviceID = identity.deviceID
         self.clientID = identity.deviceID
@@ -3760,10 +3942,14 @@ public struct DJConnectMusicDNASettingsRequest: Codable, Equatable, Sendable {
         self.locale = locale?.nilIfBlank ?? language?.nilIfBlank
         self.enabled = enabled
         self.mood = mood.map { max(0, min(100, $0)) }
+        self.profileID = profileContext?.profileID
+        self.sessionID = profileContext?.sessionID
+        self.privateSession = profileContext?.privateSession
+        self.requestSource = profileContext?.requestSource
     }
 }
 
-public struct DJConnectMusicDNAImportRequest: Codable, Equatable, Sendable {
+public struct DJConnectMusicDNAImportRequest: Codable, Equatable, Sendable, DJConnectProfileContextCarrier {
     public var deviceID: String
     public var clientID: String
     public var clientType: DJConnectClientType
@@ -3773,6 +3959,10 @@ public struct DJConnectMusicDNAImportRequest: Codable, Equatable, Sendable {
     public var locale: String?
     public var mood: Int?
     public var profile: DJConnectMusicDNAProfileResponse
+    public var profileID: String?
+    public var sessionID: String?
+    public var privateSession: Bool?
+    public var requestSource: DJConnectProfileRequestSource?
 
     enum CodingKeys: String, CodingKey {
         case deviceID = "device_id"
@@ -3784,6 +3974,10 @@ public struct DJConnectMusicDNAImportRequest: Codable, Equatable, Sendable {
         case locale
         case mood
         case profile
+        case profileID = "profile_id"
+        case sessionID = "session_id"
+        case privateSession = "private_session"
+        case requestSource = "request_source"
     }
 
     public init(
@@ -3792,7 +3986,8 @@ public struct DJConnectMusicDNAImportRequest: Codable, Equatable, Sendable {
         mood: Int? = nil,
         musicDNAKey: String? = nil,
         language: String? = nil,
-        locale: String? = nil
+        locale: String? = nil,
+        profileContext: DJConnectProfileContext? = nil
     ) {
         self.deviceID = identity.deviceID
         self.clientID = identity.deviceID
@@ -3803,6 +3998,10 @@ public struct DJConnectMusicDNAImportRequest: Codable, Equatable, Sendable {
         self.locale = locale?.nilIfBlank ?? language?.nilIfBlank
         self.mood = mood.map { max(0, min(100, $0)) }
         self.profile = profile
+        self.profileID = profileContext?.profileID
+        self.sessionID = profileContext?.sessionID
+        self.privateSession = profileContext?.privateSession
+        self.requestSource = profileContext?.requestSource
     }
 }
 
@@ -3839,7 +4038,7 @@ public struct DJConnectAskDJHistoryExportRequest: Codable, Equatable, Sendable {
     }
 }
 
-public struct DJConnectMusicDNAExportRequest: Codable, Equatable, Sendable {
+public struct DJConnectMusicDNAExportRequest: Codable, Equatable, Sendable, DJConnectProfileContextCarrier {
     public var deviceID: String
     public var clientID: String
     public var clientType: DJConnectClientType
@@ -3848,6 +4047,10 @@ public struct DJConnectMusicDNAExportRequest: Codable, Equatable, Sendable {
     public var language: String?
     public var locale: String?
     public var appVersion: String?
+    public var profileID: String?
+    public var sessionID: String?
+    public var privateSession: Bool?
+    public var requestSource: DJConnectProfileRequestSource?
 
     enum CodingKeys: String, CodingKey {
         case deviceID = "device_id"
@@ -3858,13 +4061,18 @@ public struct DJConnectMusicDNAExportRequest: Codable, Equatable, Sendable {
         case language
         case locale
         case appVersion = "app_version"
+        case profileID = "profile_id"
+        case sessionID = "session_id"
+        case privateSession = "private_session"
+        case requestSource = "request_source"
     }
 
     public init(
         identity: DJConnectIdentity,
         musicDNAKey: String? = nil,
         language: String? = nil,
-        locale: String? = nil
+        locale: String? = nil,
+        profileContext: DJConnectProfileContext? = nil
     ) {
         self.deviceID = identity.deviceID
         self.clientID = identity.deviceID
@@ -3874,6 +4082,10 @@ public struct DJConnectMusicDNAExportRequest: Codable, Equatable, Sendable {
         self.language = language?.nilIfBlank
         self.locale = locale?.nilIfBlank ?? language?.nilIfBlank
         self.appVersion = identity.appVersion?.nilIfBlank
+        self.profileID = profileContext?.profileID
+        self.sessionID = profileContext?.sessionID
+        self.privateSession = profileContext?.privateSession
+        self.requestSource = profileContext?.requestSource
     }
 }
 
@@ -4171,7 +4383,10 @@ public struct DJConnectMusicDiscoveryResponse: Codable, Equatable, Sendable {
     public var generatedAt: Date?
     public var ttlSeconds: Int?
     public var source: String?
+    public var profileID: String?
     public var musicDNAKey: String?
+    public var resolvedProfile: DJConnectResolvedProfile?
+    public var resolution: DJConnectProfileResolution?
     public var cache: Cache?
     public var sections: [DJConnectMusicDiscoverySection]
     public var error: String?
@@ -4185,7 +4400,10 @@ public struct DJConnectMusicDiscoveryResponse: Codable, Equatable, Sendable {
         case generatedAt = "generated_at"
         case ttlSeconds = "ttl_seconds"
         case source
+        case profileID = "profile_id"
         case musicDNAKey = "music_dna_key"
+        case resolvedProfile = "resolved_profile"
+        case resolution
         case cache
         case sections
         case error
@@ -4200,7 +4418,10 @@ public struct DJConnectMusicDiscoveryResponse: Codable, Equatable, Sendable {
         generatedAt: Date? = nil,
         ttlSeconds: Int? = nil,
         source: String? = nil,
+        profileID: String? = nil,
         musicDNAKey: String? = nil,
+        resolvedProfile: DJConnectResolvedProfile? = nil,
+        resolution: DJConnectProfileResolution? = nil,
         cache: Cache? = nil,
         sections: [DJConnectMusicDiscoverySection] = [],
         error: String? = nil,
@@ -4213,7 +4434,10 @@ public struct DJConnectMusicDiscoveryResponse: Codable, Equatable, Sendable {
         self.generatedAt = generatedAt
         self.ttlSeconds = ttlSeconds.map { max(0, $0) }
         self.source = source?.nilIfBlank
+        self.profileID = profileID?.nilIfBlank
         self.musicDNAKey = musicDNAKey?.nilIfBlank
+        self.resolvedProfile = resolvedProfile
+        self.resolution = resolution
         self.cache = cache
         self.sections = sections
         self.error = error?.nilIfBlank
@@ -4229,7 +4453,10 @@ public struct DJConnectMusicDiscoveryResponse: Codable, Equatable, Sendable {
         generatedAt = DJConnectAskDJHistoryResponse.decodeDate(container, key: .generatedAt)
         ttlSeconds = try container.decodeIfPresent(Int.self, forKey: .ttlSeconds).map { max(0, $0) }
         source = try container.decodeIfPresent(String.self, forKey: .source)?.nilIfBlank
+        profileID = try container.decodeIfPresent(String.self, forKey: .profileID)?.nilIfBlank
         musicDNAKey = try container.decodeIfPresent(String.self, forKey: .musicDNAKey)?.nilIfBlank
+        resolvedProfile = try container.decodeIfPresent(DJConnectResolvedProfile.self, forKey: .resolvedProfile)
+        resolution = try container.decodeIfPresent(DJConnectProfileResolution.self, forKey: .resolution)
         cache = try container.decodeIfPresent(Cache.self, forKey: .cache)
         sections = container.decodeLossyArrayIfPresent(DJConnectMusicDiscoverySection.self, forKey: .sections) ?? []
         error = try container.decodeIfPresent(String.self, forKey: .error)?.nilIfBlank
@@ -4246,13 +4473,17 @@ public struct DJConnectMusicDiscoveryResponse: Codable, Equatable, Sendable {
     }
 }
 
-public struct DJConnectMusicDiscoveryPlayRequest: Codable, Equatable, Sendable {
+public struct DJConnectMusicDiscoveryPlayRequest: Codable, Equatable, Sendable, DJConnectProfileContextCarrier {
     public var discoveryItemID: String
     public var sectionID: String
     public var deviceID: String
     public var clientID: String?
     public var clientType: DJConnectClientType
     public var musicDNAKey: String?
+    public var profileID: String?
+    public var sessionID: String?
+    public var privateSession: Bool?
+    public var requestSource: DJConnectProfileRequestSource?
 
     enum CodingKeys: String, CodingKey {
         case discoveryItemID = "discovery_item_id"
@@ -4261,15 +4492,23 @@ public struct DJConnectMusicDiscoveryPlayRequest: Codable, Equatable, Sendable {
         case clientID = "client_id"
         case clientType = "client_type"
         case musicDNAKey = "music_dna_key"
+        case profileID = "profile_id"
+        case sessionID = "session_id"
+        case privateSession = "private_session"
+        case requestSource = "request_source"
     }
 
-    public init(discoveryItemID: String, sectionID: String, identity: DJConnectIdentity, musicDNAKey: String? = nil) {
+    public init(discoveryItemID: String, sectionID: String, identity: DJConnectIdentity, musicDNAKey: String? = nil, profileContext: DJConnectProfileContext? = nil) {
         self.discoveryItemID = discoveryItemID
         self.sectionID = sectionID
         self.deviceID = identity.deviceID
         self.clientID = identity.deviceID.nilIfBlank
         self.clientType = identity.clientType
         self.musicDNAKey = musicDNAKey?.nilIfBlank
+        self.profileID = profileContext?.profileID
+        self.sessionID = profileContext?.sessionID
+        self.privateSession = profileContext?.privateSession
+        self.requestSource = profileContext?.requestSource ?? .discover
     }
 }
 
@@ -4279,7 +4518,7 @@ public enum DJConnectMusicDiscoveryFeedback: String, Codable, Equatable, CaseIte
     case hideArtist = "hide_artist"
 }
 
-public struct DJConnectMusicDiscoveryFeedbackRequest: Codable, Equatable, Sendable {
+public struct DJConnectMusicDiscoveryFeedbackRequest: Codable, Equatable, Sendable, DJConnectProfileContextCarrier {
     public var discoveryItemID: String
     public var sectionID: String
     public var feedback: DJConnectMusicDiscoveryFeedback
@@ -4287,6 +4526,10 @@ public struct DJConnectMusicDiscoveryFeedbackRequest: Codable, Equatable, Sendab
     public var clientID: String?
     public var clientType: DJConnectClientType
     public var musicDNAKey: String?
+    public var profileID: String?
+    public var sessionID: String?
+    public var privateSession: Bool?
+    public var requestSource: DJConnectProfileRequestSource?
 
     enum CodingKeys: String, CodingKey {
         case discoveryItemID = "discovery_item_id"
@@ -4296,6 +4539,10 @@ public struct DJConnectMusicDiscoveryFeedbackRequest: Codable, Equatable, Sendab
         case clientID = "client_id"
         case clientType = "client_type"
         case musicDNAKey = "music_dna_key"
+        case profileID = "profile_id"
+        case sessionID = "session_id"
+        case privateSession = "private_session"
+        case requestSource = "request_source"
     }
 
     public init(
@@ -4303,7 +4550,8 @@ public struct DJConnectMusicDiscoveryFeedbackRequest: Codable, Equatable, Sendab
         sectionID: String,
         feedback: DJConnectMusicDiscoveryFeedback,
         identity: DJConnectIdentity,
-        musicDNAKey: String? = nil
+        musicDNAKey: String? = nil,
+        profileContext: DJConnectProfileContext? = nil
     ) {
         self.discoveryItemID = discoveryItemID
         self.sectionID = sectionID
@@ -4312,11 +4560,16 @@ public struct DJConnectMusicDiscoveryFeedbackRequest: Codable, Equatable, Sendab
         self.clientID = identity.deviceID.nilIfBlank
         self.clientType = identity.clientType
         self.musicDNAKey = musicDNAKey?.nilIfBlank
+        self.profileID = profileContext?.profileID
+        self.sessionID = profileContext?.sessionID
+        self.privateSession = profileContext?.privateSession
+        self.requestSource = profileContext?.requestSource ?? .discover
     }
 }
 
 public struct DJConnectMusicDNAProfileResponse: Codable, Equatable, Sendable {
     public var success: Bool
+    public var profileID: String?
     public var musicDNAKey: String?
     public var enabled: Bool
     public var generation: Int?
@@ -4324,11 +4577,14 @@ public struct DJConnectMusicDNAProfileResponse: Codable, Equatable, Sendable {
     public var updatedAt: Date?
     public var profile: DJConnectMusicDNAProfile
     public var sources: [DJConnectResponseLink]
+    public var resolvedProfile: DJConnectResolvedProfile?
+    public var resolution: DJConnectProfileResolution?
     public var error: String?
     public var message: String?
 
     enum CodingKeys: String, CodingKey {
         case success
+        case profileID = "profile_id"
         case musicDNAKey = "music_dna_key"
         case enabled
         case generation
@@ -4336,12 +4592,15 @@ public struct DJConnectMusicDNAProfileResponse: Codable, Equatable, Sendable {
         case updatedAt = "updated_at"
         case profile
         case sources
+        case resolvedProfile = "resolved_profile"
+        case resolution
         case error
         case message
     }
 
     public init(
         success: Bool = true,
+        profileID: String? = nil,
         musicDNAKey: String? = nil,
         enabled: Bool = false,
         generation: Int? = nil,
@@ -4349,10 +4608,13 @@ public struct DJConnectMusicDNAProfileResponse: Codable, Equatable, Sendable {
         updatedAt: Date? = nil,
         profile: DJConnectMusicDNAProfile = DJConnectMusicDNAProfile(),
         sources: [DJConnectResponseLink] = [],
+        resolvedProfile: DJConnectResolvedProfile? = nil,
+        resolution: DJConnectProfileResolution? = nil,
         error: String? = nil,
         message: String? = nil
     ) {
         self.success = success
+        self.profileID = profileID?.nilIfBlank
         self.musicDNAKey = musicDNAKey
         self.enabled = enabled
         self.generation = generation
@@ -4360,6 +4622,8 @@ public struct DJConnectMusicDNAProfileResponse: Codable, Equatable, Sendable {
         self.updatedAt = updatedAt
         self.profile = profile
         self.sources = sources
+        self.resolvedProfile = resolvedProfile
+        self.resolution = resolution
         self.error = error
         self.message = message
     }
@@ -4367,6 +4631,7 @@ public struct DJConnectMusicDNAProfileResponse: Codable, Equatable, Sendable {
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         success = try container.decodeIfPresent(Bool.self, forKey: .success) ?? true
+        profileID = try container.decodeIfPresent(String.self, forKey: .profileID)?.nilIfBlank
         musicDNAKey = try container.decodeIfPresent(String.self, forKey: .musicDNAKey)
         enabled = try container.decodeIfPresent(Bool.self, forKey: .enabled) ?? false
         generation = try container.decodeIfPresent(Int.self, forKey: .generation)
@@ -4374,6 +4639,8 @@ public struct DJConnectMusicDNAProfileResponse: Codable, Equatable, Sendable {
         updatedAt = DJConnectAskDJHistoryResponse.decodeDate(container, key: .updatedAt)
         profile = try container.decodeIfPresent(DJConnectMusicDNAProfile.self, forKey: .profile) ?? DJConnectMusicDNAProfile()
         sources = container.decodeLossyArrayIfPresent(DJConnectResponseLink.self, forKey: .sources) ?? []
+        resolvedProfile = try container.decodeIfPresent(DJConnectResolvedProfile.self, forKey: .resolvedProfile)
+        resolution = try container.decodeIfPresent(DJConnectProfileResolution.self, forKey: .resolution)
         error = try container.decodeIfPresent(String.self, forKey: .error)
         message = try container.decodeIfPresent(String.self, forKey: .message)
     }

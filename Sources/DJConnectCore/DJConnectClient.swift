@@ -96,11 +96,11 @@ public final class DJConnectClient: Sendable {
         return try await decodedResponse(for: request)
     }
 
-    public func clearAskDJHistory(musicDNAKey: String? = nil) async throws -> DJConnectAskDJHistoryResponse {
+    public func clearAskDJHistory(musicDNAKey: String? = nil, profileContext: DJConnectProfileContext? = nil) async throws -> DJConnectAskDJHistoryResponse {
         if let response = try await webSocketClearAskDJHistoryIfSupported(musicDNAKey: musicDNAKey) {
             return response
         }
-        let request = try clearAskDJHistoryRequest(musicDNAKey: musicDNAKey)
+        let request = try clearAskDJHistoryRequest(musicDNAKey: musicDNAKey, profileContext: profileContext)
         return try await decodedResponse(for: request)
     }
 
@@ -109,27 +109,27 @@ public final class DJConnectClient: Sendable {
         return try await dataResponse(for: request)
     }
 
-    public func musicDNAProfile(mood: Int? = nil, musicDNAKey: String? = nil, language: String? = nil) async throws -> DJConnectMusicDNAProfileResponse {
+    public func musicDNAProfile(mood: Int? = nil, musicDNAKey: String? = nil, language: String? = nil, profileContext: DJConnectProfileContext? = nil) async throws -> DJConnectMusicDNAProfileResponse {
         if let response = try await webSocketMusicDNAProfileIfSupported(mood: mood, musicDNAKey: musicDNAKey, language: language) {
             return response
         }
-        let request = try musicDNAProfileRequest(mood: mood, musicDNAKey: musicDNAKey, language: language)
+        let request = try musicDNAProfileRequest(mood: mood, musicDNAKey: musicDNAKey, language: language, profileContext: profileContext)
         return try await decodedResponse(for: request)
     }
 
-    public func setMusicDNAEnabled(_ enabled: Bool, mood: Int? = nil, musicDNAKey: String? = nil, language: String? = nil) async throws -> DJConnectMusicDNAProfileResponse {
+    public func setMusicDNAEnabled(_ enabled: Bool, mood: Int? = nil, musicDNAKey: String? = nil, language: String? = nil, profileContext: DJConnectProfileContext? = nil) async throws -> DJConnectMusicDNAProfileResponse {
         if let response = try await webSocketMusicDNASettingsIfSupported(enabled, mood: mood, musicDNAKey: musicDNAKey, language: language) {
             return response
         }
-        let request = try musicDNASettingsRequest(enabled: enabled, mood: mood, musicDNAKey: musicDNAKey, language: language)
+        let request = try musicDNASettingsRequest(enabled: enabled, mood: mood, musicDNAKey: musicDNAKey, language: language, profileContext: profileContext)
         return try await decodedResponse(for: request)
     }
 
-    public func clearMusicDNA(mood: Int? = nil, musicDNAKey: String? = nil, language: String? = nil) async throws -> DJConnectMusicDNAProfileResponse {
+    public func clearMusicDNA(mood: Int? = nil, musicDNAKey: String? = nil, language: String? = nil, profileContext: DJConnectProfileContext? = nil) async throws -> DJConnectMusicDNAProfileResponse {
         if let response = try await webSocketMusicDNAClearIfSupported(mood: mood, musicDNAKey: musicDNAKey, language: language) {
             return response
         }
-        let request = try clearMusicDNARequest(mood: mood, musicDNAKey: musicDNAKey, language: language)
+        let request = try clearMusicDNARequest(mood: mood, musicDNAKey: musicDNAKey, language: language, profileContext: profileContext)
         return try await decodedResponse(for: request)
     }
 
@@ -148,11 +148,11 @@ public final class DJConnectClient: Sendable {
         return try await dataResponse(for: request)
     }
 
-    public func musicDiscoveryFeed(musicDNAKey: String? = nil, language: String? = nil) async throws -> DJConnectMusicDiscoveryResponse {
+    public func musicDiscoveryFeed(musicDNAKey: String? = nil, language: String? = nil, profileContext: DJConnectProfileContext? = nil) async throws -> DJConnectMusicDiscoveryResponse {
         if let response = try await webSocketMusicDiscoveryFeedIfSupported(musicDNAKey: musicDNAKey, language: language) {
             return response
         }
-        let request = try musicDiscoveryFeedRequest(musicDNAKey: musicDNAKey, language: language)
+        let request = try musicDiscoveryFeedRequest(musicDNAKey: musicDNAKey, language: language, profileContext: profileContext)
         return try await decodedResponse(for: request)
     }
 
@@ -260,9 +260,10 @@ public final class DJConnectClient: Sendable {
         mood: Int? = nil,
         djStyle: String? = nil,
         musicDNAKey: String? = nil,
-        language: String? = nil
+        language: String? = nil,
+        profileContext: DJConnectProfileContext? = nil
     ) async throws -> DJConnectVoiceResponse {
-        let request = try voiceRequest(wavData: wavData, mood: mood, djStyle: djStyle, musicDNAKey: musicDNAKey, language: language)
+        let request = try voiceRequest(wavData: wavData, mood: mood, djStyle: djStyle, musicDNAKey: musicDNAKey, language: language, profileContext: profileContext)
         return try await decodedResponse(for: request)
     }
 
@@ -352,10 +353,10 @@ public final class DJConnectClient: Sendable {
         return request
     }
 
-    public func clearAskDJHistoryRequest(musicDNAKey: String? = nil) throws -> URLRequest {
+    public func clearAskDJHistoryRequest(musicDNAKey: String? = nil, profileContext: DJConnectProfileContext? = nil) throws -> URLRequest {
         try jsonRequest(
             path: Self.apiV1Path("ask_dj/history/clear"),
-            payload: DJConnectAskDJClearHistoryRequest(identity: identity, musicDNAKey: musicDNAKey)
+            payload: DJConnectAskDJClearHistoryRequest(identity: identity, musicDNAKey: musicDNAKey, profileContext: profileContext)
         )
     }
 
@@ -366,30 +367,30 @@ public final class DJConnectClient: Sendable {
         )
     }
 
-    public func musicDNAProfileRequest(mood: Int? = nil, musicDNAKey: String? = nil, language: String? = nil) throws -> URLRequest {
+    public func musicDNAProfileRequest(mood: Int? = nil, musicDNAKey: String? = nil, language: String? = nil, profileContext: DJConnectProfileContext? = nil) throws -> URLRequest {
         try musicDNARequest(
             path: Self.apiV1Path("music_dna/profile"),
-            payload: DJConnectMusicDNAIdentityRequest(identity: identity, mood: mood, musicDNAKey: musicDNAKey, language: language),
+            payload: DJConnectMusicDNAIdentityRequest(identity: identity, mood: mood, musicDNAKey: musicDNAKey, language: language, profileContext: profileContext),
             mood: mood,
             musicDNAKey: musicDNAKey,
             language: language
         )
     }
 
-    public func musicDNASettingsRequest(enabled: Bool, mood: Int? = nil, musicDNAKey: String? = nil, language: String? = nil) throws -> URLRequest {
+    public func musicDNASettingsRequest(enabled: Bool, mood: Int? = nil, musicDNAKey: String? = nil, language: String? = nil, profileContext: DJConnectProfileContext? = nil) throws -> URLRequest {
         try musicDNARequest(
             path: Self.apiV1Path("music_dna/settings"),
-            payload: DJConnectMusicDNASettingsRequest(identity: identity, enabled: enabled, mood: mood, musicDNAKey: musicDNAKey, language: language),
+            payload: DJConnectMusicDNASettingsRequest(identity: identity, enabled: enabled, mood: mood, musicDNAKey: musicDNAKey, language: language, profileContext: profileContext),
             mood: mood,
             musicDNAKey: musicDNAKey,
             language: language
         )
     }
 
-    public func clearMusicDNARequest(mood: Int? = nil, musicDNAKey: String? = nil, language: String? = nil) throws -> URLRequest {
+    public func clearMusicDNARequest(mood: Int? = nil, musicDNAKey: String? = nil, language: String? = nil, profileContext: DJConnectProfileContext? = nil) throws -> URLRequest {
         try musicDNARequest(
             path: Self.apiV1Path("music_dna/clear"),
-            payload: DJConnectMusicDNAIdentityRequest(identity: identity, mood: mood, musicDNAKey: musicDNAKey, language: language),
+            payload: DJConnectMusicDNAIdentityRequest(identity: identity, mood: mood, musicDNAKey: musicDNAKey, language: language, profileContext: profileContext),
             mood: mood,
             musicDNAKey: musicDNAKey,
             language: language
@@ -416,10 +417,11 @@ public final class DJConnectClient: Sendable {
         )
     }
 
-    public func musicDiscoveryFeedRequest(musicDNAKey: String? = nil, language: String? = nil) throws -> URLRequest {
-        var request = try authenticatedRequest(path: Self.apiV1Path("music_discovery"))
+    public func musicDiscoveryFeedRequest(musicDNAKey: String? = nil, language: String? = nil, profileContext: DJConnectProfileContext? = nil) throws -> URLRequest {
+        var request = try authenticatedRequest(url: endpointWithProfileContext(path: Self.apiV1Path("music_discovery"), profileContext: profileContext))
         request.httpMethod = "GET"
         applyMusicDNAHeaders(to: &request, mood: nil, musicDNAKey: musicDNAKey, language: language)
+        applyProfileContextHeaders(to: &request, profileContext: profileContext)
         return request
     }
 
@@ -562,7 +564,8 @@ public final class DJConnectClient: Sendable {
         mood: Int? = nil,
         djStyle: String? = nil,
         musicDNAKey: String? = nil,
-        language: String? = nil
+        language: String? = nil,
+        profileContext: DJConnectProfileContext? = nil
     ) throws -> URLRequest {
         guard wavData.count <= DJConnectAudioFileLoader.defaultMaxVoiceWAVBytes else {
             throw DJConnectError.invalidConfiguration("Voice recording is too large. Try a shorter Ask DJ recording.")
@@ -586,8 +589,50 @@ public final class DJConnectClient: Sendable {
             request.setValue(language, forHTTPHeaderField: "X-DJConnect-Language")
             request.setValue(language, forHTTPHeaderField: "X-DJConnect-Locale")
         }
+        applyProfileContextHeaders(to: &request, profileContext: profileContext)
         request.httpBody = wavData
         return request
+    }
+
+    private func endpointWithProfileContext(path: String, profileContext: DJConnectProfileContext?) -> URL {
+        let url = endpoint(path: path)
+        guard let profileContext else {
+            return url
+        }
+        var components = URLComponents(url: url, resolvingAgainstBaseURL: false)
+        var queryItems = components?.queryItems ?? []
+        if let profileID = Self.nonBlankLanguage(profileContext.profileID) {
+            queryItems.append(URLQueryItem(name: "profile_id", value: profileID))
+        }
+        if let sessionID = Self.nonBlankLanguage(profileContext.sessionID) {
+            queryItems.append(URLQueryItem(name: "session_id", value: sessionID))
+        }
+        if let privateSession = profileContext.privateSession {
+            queryItems.append(URLQueryItem(name: "private_session", value: privateSession ? "true" : "false"))
+        }
+        if let requestSource = profileContext.requestSource {
+            queryItems.append(URLQueryItem(name: "request_source", value: requestSource.rawValue))
+        }
+        components?.queryItems = queryItems.isEmpty ? nil : queryItems
+        return components?.url ?? url
+    }
+
+    private func applyProfileContextHeaders(to request: inout URLRequest, profileContext: DJConnectProfileContext?) {
+        guard let profileContext else {
+            return
+        }
+        if let profileID = Self.nonBlankLanguage(profileContext.profileID) {
+            request.setValue(profileID, forHTTPHeaderField: "X-DJConnect-Profile-ID")
+        }
+        if let sessionID = Self.nonBlankLanguage(profileContext.sessionID) {
+            request.setValue(sessionID, forHTTPHeaderField: "X-DJConnect-Session-ID")
+        }
+        if let privateSession = profileContext.privateSession {
+            request.setValue(privateSession ? "true" : "false", forHTTPHeaderField: "X-DJConnect-Private-Session")
+        }
+        if let requestSource = profileContext.requestSource {
+            request.setValue(requestSource.rawValue, forHTTPHeaderField: "X-DJConnect-Request-Source")
+        }
     }
 
     public func classify(statusCode: Int, body: Data? = nil, networkError: Error? = nil) -> DJConnectError? {
@@ -628,6 +673,11 @@ public final class DJConnectClient: Sendable {
                 expectedClientType: envelope?.expectedClientType,
                 receivedClientType: envelope?.receivedClientType
             )
+        }
+
+        if let rawError = envelope?.error,
+           let profileCode = DJConnectError.ProfileCode(rawValue: rawError) {
+            return .profile(code: profileCode, statusCode: statusCode, message: message)
         }
 
         if statusCode == 401 || statusCode == 403 {
@@ -934,6 +984,8 @@ public final class DJConnectClient: Sendable {
             return code ?? "track_insight_unavailable"
         case .payloadTooLarge:
             return "payload_too_large"
+        case let .profile(code, _, _):
+            return code.rawValue
         }
     }
 

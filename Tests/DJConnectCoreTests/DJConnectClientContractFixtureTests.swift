@@ -61,6 +61,50 @@ private struct DJConnectCapabilitiesFixture: Decodable {
     }
 }
 
+private struct DJConnectProfileContextRequestsFixture: Decodable {
+    var contractVersion: Int
+    var requests: [String: DJConnectJSONValue]
+
+    enum CodingKeys: String, CodingKey {
+        case contractVersion = "contract_version"
+        case requests
+    }
+}
+
+private struct DJConnectProfileContextResponsesFixture: Decodable {
+    var contractVersion: Int
+    var responses: [String: DJConnectMusicDNAProfileResponse]
+
+    enum CodingKeys: String, CodingKey {
+        case contractVersion = "contract_version"
+        case responses
+    }
+}
+
+private struct DJConnectProfileContextErrorsFixture: Decodable {
+    var contractVersion: Int
+    var errors: [String: DJConnectProfileContextErrorFixture]
+
+    enum CodingKeys: String, CodingKey {
+        case contractVersion = "contract_version"
+        case errors
+    }
+}
+
+private struct DJConnectProfileContextErrorFixture: Decodable {
+    var error: String
+    var message: String
+    var httpStatus: Int
+    var retryable: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case error
+        case message
+        case httpStatus = "http_status"
+        case retryable
+    }
+}
+
 @Suite("DJConnect HA Client Contract Fixtures")
 struct DJConnectClientContractFixtureTests {
     private static let decoder: JSONDecoder = {
@@ -78,7 +122,10 @@ struct DJConnectClientContractFixtureTests {
             "music_dna.profile.empty.json",
             "music_dna.profile.rich.json",
             "music_discovery.feed.json",
-            "ask_dj.recently_played_history.json"
+            "ask_dj.recently_played_history.json",
+            "profile_context.requests.json",
+            "profile_context.responses.json",
+            "profile_context.errors.json"
         ])
 
         for fixture in manifest.fixtures {
@@ -86,6 +133,119 @@ struct DJConnectClientContractFixtureTests {
             let object = try JSONSerialization.jsonObject(with: data)
             #expect(object is [String: Any], "Fixture \(fixture.file) must be a JSON object.")
         }
+    }
+
+    @Test("Profile context fixtures decode canonical request, response and error contracts")
+    func profileContextFixturesDecode() throws {
+        let requests = try Self.decode(DJConnectProfileContextRequestsFixture.self, file: "profile_context.requests.json")
+        #expect(requests.contractVersion == 1)
+        guard case let .object(appleRequest) = try #require(requests.requests["apple_explicit_profile"]) else {
+            Issue.record("Expected apple_explicit_profile object")
+            return
+        }
+        #expect(appleRequest["profile_id"] == .string("profile-peter"))
+        #expect(appleRequest["device_id"] == .string("djconnect-ios-ABCDEF123456"))
+        #expect(appleRequest["client_type"] == .string("ios"))
+        #expect(appleRequest["private_session"] == .bool(false))
+        #expect(appleRequest["request_source"] == .string("ask_dj"))
+
+        let responses = try Self.decode(DJConnectProfileContextResponsesFixture.self, file: "profile_context.responses.json")
+        let personal = try #require(responses.responses["personal_profile"])
+        #expect(personal.profileID == "profile-peter")
+        #expect(personal.musicDNAKey == "profile:profile-peter")
+        #expect(personal.resolvedProfile?.privacyMode == "normal")
+        #expect(personal.resolution?.source == "device_mapping")
+        #expect(personal.resolution?.fallbackUsed == false)
+
+        let errors = try Self.decode(DJConnectProfileContextErrorsFixture.self, file: "profile_context.errors.json")
+        #expect(errors.contractVersion == 1)
+        #expect(errors.errors["profile_required"]?.error == "profile_required")
+        #expect(errors.errors["device_not_mapped"]?.error == "device_not_mapped")
+        #expect(errors.errors["private_session_restriction"]?.retryable == false)
+    }
+
+    @Test("Profile-aware requests generate canonical context envelope for Apple and watchOS")
+    func profileAwareRequestsGenerateCanonicalEnvelope() throws {
+        let tokenStore = DJConnectInMemoryTokenStore(token: "test-token")
+        let identity = DJConnectIdentity(
+            deviceID: "djconnect-ios-ABCDEF123456",
+            deviceName: "DJConnect iPhone",
+            clientType: .ios,
+            firmware: "3.3.0",
+            platform: .ios
+        )
+        let client = DJConnectClient(baseURL: URL(string: "http://ha.local:8123")!, identity: identity, tokenStore: tokenStore)
+        let profileContext = DJConnectProfileContext(
+            profileID: "profile-peter",
+            sessionID: "session-apple-1",
+            privateSession: true,
+            requestSource: .askDJ
+        )
+        let askRequest = DJConnectAskDJRequest(
+            identity: identity,
+            text: "Wat past nu?",
+            profileContext: profileContext
+        )
+        let request = try client.askDJMessageRequest(askRequest)
+        let body = try #require(request.httpBody)
+        let json = try #require(JSONSerialization.jsonObject(with: body) as? [String: Any])
+        #expect(json["profile_id"] as? String == "profile-peter")
+        #expect(json["device_id"] as? String == "djconnect-ios-ABCDEF123456")
+        #expect(json["client_type"] as? String == "ios")
+        #expect(json["session_id"] as? String == "session-apple-1")
+        #expect(json["private_session"] as? Bool == true)
+        #expect(json["request_source"] as? String == "ask_dj")
+
+        let feedRequest = try client.musicDiscoveryFeedRequest(
+            musicDNAKey: "profile:profile-peter",
+            language: "nl-NL",
+            profileContext: DJConnectProfileContext(profileID: "profile-peter", privateSession: true, requestSource: .discover)
+        )
+        let feedURL = try #require(feedRequest.url)
+        let components = try #require(URLComponents(url: feedURL, resolvingAgainstBaseURL: false))
+        let query = Dictionary(uniqueKeysWithValues: (components.queryItems ?? []).compactMap { item in item.value.map { (item.name, $0) } })
+        #expect(query["profile_id"] == "profile-peter")
+        #expect(query["private_session"] == "true")
+        #expect(query["request_source"] == "discover")
+        #expect(feedRequest.value(forHTTPHeaderField: "X-DJConnect-Profile-ID") == "profile-peter")
+        #expect(feedRequest.value(forHTTPHeaderField: "X-DJConnect-Private-Session") == "true")
+
+        let watchIdentity = DJConnectIdentity(
+            deviceID: "djconnect-watchos-ABCDEF123456",
+            deviceName: "DJConnect Watch",
+            clientType: .watchos,
+            firmware: "3.3.0",
+            platform: .watchos
+        )
+        let watchPayload = DJConnectMusicDNAIdentityRequest(
+            identity: watchIdentity,
+            profileContext: DJConnectProfileContext(profileID: "profile-peter", privateSession: false, requestSource: .discover)
+        )
+        let encoded = try JSONEncoder().encode(watchPayload)
+        let decoded = try JSONSerialization.jsonObject(with: encoded) as? [String: Any]
+        #expect(decoded?["device_id"] as? String == "djconnect-watchos-ABCDEF123456")
+        #expect(decoded?["client_type"] as? String == "watchos")
+        #expect(decoded?["profile_id"] as? String == "profile-peter")
+        #expect(decoded?["private_session"] as? Bool == false)
+        #expect(decoded?["request_source"] as? String == "discover")
+    }
+
+    @Test("Profile platform errors classify into typed non-auth failures")
+    func profilePlatformErrorsClassify() throws {
+        let client = DJConnectClient(
+            baseURL: URL(string: "http://ha.local:8123")!,
+            identity: DJConnectIdentity(deviceID: "djconnect-ios-ABCDEF123456", deviceName: "iPhone", clientType: .ios, firmware: "3.3.0", platform: .ios),
+            tokenStore: DJConnectInMemoryTokenStore(token: "test-token")
+        )
+
+        let required = client.classify(statusCode: 428, body: Data(#"{"success":false,"error":"profile_required","message":"A DJConnect Profile is required."}"#.utf8))
+        #expect(required == .profile(code: .profileRequired, statusCode: 428, message: "A DJConnect Profile is required."))
+
+        let mapped = client.classify(statusCode: 409, body: Data(#"{"success":false,"error":"device_not_mapped","message":"Device is not mapped to a profile."}"#.utf8))
+        #expect(mapped == .profile(code: .deviceNotMapped, statusCode: 409, message: "Device is not mapped to a profile."))
+
+        let privateSession = client.classify(statusCode: 409, body: Data(#"{"success":false,"error":"private_session_restriction","message":"This action is not available during a private session."}"#.utf8))
+        #expect(privateSession == .profile(code: .privateSessionRestriction, statusCode: 409, message: "This action is not available during a private session."))
     }
 
     @Test("Capabilities fixture advertises WebSocket routes and HTTP fallbacks without version gating")
