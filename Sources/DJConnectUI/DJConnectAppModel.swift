@@ -1256,12 +1256,17 @@ public final class DJConnectAppModel: ObservableObject {
         if !monkeyTestingMode {
             self.isShowingWelcome = !defaults.bool(forKey: welcomeSeenKey)
         }
+        let isUITesting = ProcessInfo.processInfo.arguments.contains("--uitesting")
+        if isUITesting {
+            defaults.set(true, forKey: cleanShutdownKey)
+            defaults.set(false, forKey: crashPromptPendingKey)
+        }
         prepareWhatsNewPrompt()
         let previousLaunchMayHaveCrashed = defaults.object(forKey: cleanShutdownKey) != nil
             && defaults.bool(forKey: cleanShutdownKey) == false
         self.isShowingCrashReportPrompt = !Self.isRunningUnderDebugger
             && (previousLaunchMayHaveCrashed || defaults.bool(forKey: crashPromptPendingKey))
-        if monkeyTestingMode {
+        if monkeyTestingMode || isUITesting {
             self.isShowingCrashReportPrompt = false
         }
         defaults.set(false, forKey: cleanShutdownKey)

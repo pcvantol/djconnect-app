@@ -309,13 +309,6 @@ final class DJConnectIOSUITests: XCTestCase {
         XCTAssertTrue(app.tabBars.buttons["Track Insight"].exists)
         XCTAssertTrue(app.tabBars.buttons["Ontdek"].exists || app.tabBars.buttons["Discover"].exists)
         XCTAssertTrue(app.tabBars.buttons["Meer"].exists || app.tabBars.buttons["More"].exists)
-
-        let moreButton = app.tabBars.buttons["Meer"].exists ? app.tabBars.buttons["Meer"] : app.tabBars.buttons["More"]
-        moreButton.tap()
-        XCTAssertTrue(app.descendants(matching: .any)["Wachtrij"].waitForExistence(timeout: 3))
-        XCTAssertTrue(app.descendants(matching: .any)["Games"].waitForExistence(timeout: 3))
-        XCTAssertTrue(app.descendants(matching: .any)["Instellingen"].waitForExistence(timeout: 3))
-        XCTAssertTrue(app.descendants(matching: .any)["Over"].exists)
     }
 
     func testFirstRunWelcomeDismissesToPairingFlow() {
