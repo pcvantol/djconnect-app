@@ -10298,6 +10298,8 @@ public final class DJConnectAppModel: ObservableObject {
             return "track_insight_unavailable"
         case .payloadTooLarge:
             return "payload_too_large"
+        case .profile:
+            return "profile_error"
         case .server, .decodingFailed, .invalidResponse:
             return "server"
         }
