@@ -1,0 +1,39 @@
+name: Self-hosted runner qualification
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  qualify-apple-runner:
+    if: ${{ github.actor == github.repository_owner }}
+    runs-on: [self-hosted, internal-release, qualification, apple]
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd
+
+      - name: Collect redacted runner evidence
+        env:
+          REQUIRED_RUNNER_ROLE: apple
+        run: |
+          set -euo pipefail
+          mkdir -p runner-evidence
+          jq -n \
+            --arg runner_name "$RUNNER_NAME" \
+            --arg runner_os "$RUNNER_OS" \
+            --arg runner_arch "$RUNNER_ARCH" \
+            --arg required_role "$REQUIRED_RUNNER_ROLE" \
+            --arg git_sha "$GITHUB_SHA" \
+            --arg xcode "$(xcodebuild -version | tr '\n' ';')" \
+            --arg swift "$(swift --version | head -n 1)" \
+            --arg workspace "$GITHUB_WORKSPACE" \
+            '{runner_name:$runner_name,runner_os:$runner_os,runner_arch:$runner_arch,required_role:$required_role,git_sha:$git_sha,xcode:$xcode,swift:$swift,workspace:$workspace}' \
+            > runner-evidence/runner-evidence.json
+
+      - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4
+        with:
+          name: runner-evidence-apple
+          path: runner-evidence/runner-evidence.json
+          if-no-files-found: error
