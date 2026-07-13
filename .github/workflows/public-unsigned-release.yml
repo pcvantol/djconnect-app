@@ -26,7 +26,7 @@ jobs:
 
   unsigned-release:
     name: Publish unsigned builds to public releases repo
-    runs-on: macos-15
+    runs-on: [self-hosted, internal-release, qualification, apple]
     timeout-minutes: 45
     permissions:
       actions: write
@@ -59,7 +59,7 @@ jobs:
       - name: Select Xcode
         run: |
           set -euo pipefail
-          sudo xcode-select -s /Applications/Xcode.app
+          echo "DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer" >> "$GITHUB_ENV"
           xcodebuild -version
 
       - name: Validate Apple localizations

@@ -23,7 +23,8 @@ jobs:
 
   test-and-unsigned-build:
     name: CI
-    runs-on: macos-15
+    if: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
+    runs-on: [self-hosted, internal-release, qualification, apple]
     timeout-minutes: 45
 
     steps:
@@ -33,7 +34,7 @@ jobs:
       - name: Select Xcode
         run: |
           set -euo pipefail
-          sudo xcode-select -s /Applications/Xcode.app
+          echo "DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer" >> "$GITHUB_ENV"
           xcodebuild -version
 
       - name: Update third-party packages, dependencies and tools
@@ -99,6 +100,42 @@ jobs:
             -derivedDataPath .xcode-derived \
             CODE_SIGNING_ALLOWED=NO \
             build
+
+      - name: Upload unsigned Apple build artifacts
+        if: always()
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4
+        with:
+          name: apple-unsigned-build-artifacts
+          path: |
+            .xcode-derived/Build/Products/Debug/DJConnect.app
+            .xcode-derived/Build/Products/Debug-iphoneos/DJConnect.app
+          if-no-files-found: error
+
+      - name: Record runner qualification evidence
+        if: always()
+        env:
+          REQUIRED_RUNNER_ROLE: apple
+        run: |
+          set -euo pipefail
+          mkdir -p runner-evidence
+          jq -n \
+            --arg runner_name "$RUNNER_NAME" \
+            --arg runner_os "$RUNNER_OS" \
+            --arg runner_arch "$RUNNER_ARCH" \
+            --arg required_role "$REQUIRED_RUNNER_ROLE" \
+            --arg git_sha "$GITHUB_SHA" \
+            --arg xcode "$(xcodebuild -version | tr '\n' ';')" \
+            --arg swift "$(swift --version | head -n 1)" \
+            '{runner_name:$runner_name,runner_os:$runner_os,runner_arch:$runner_arch,required_role:$required_role,git_sha:$git_sha,xcode:$xcode,swift:$swift}' \
+            > runner-evidence/runner-evidence.json
+
+      - name: Upload runner qualification evidence
+        if: always()
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4
+        with:
+          name: runner-evidence-apple
+          path: runner-evidence/runner-evidence.json
+          if-no-files-found: error
 
   cleanup-workflow-runs:
     name: Cleanup old workflow runs
