@@ -26,7 +26,7 @@ jobs:
 
   unsigned-release:
     name: Publish unsigned builds to public releases repo
-    runs-on: macos-15
+    runs-on: [self-hosted, internal-release, qualification, apple]
     timeout-minutes: 45
     permissions:
       actions: write
