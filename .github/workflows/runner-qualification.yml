@@ -2,6 +2,9 @@ name: Self-hosted runner qualification
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - runner/**
 
 permissions:
   contents: read
