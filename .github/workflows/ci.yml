@@ -137,6 +137,25 @@ jobs:
           path: runner-evidence/runner-evidence.json
           if-no-files-found: error
 
+  post-merge-coverage:
+    name: Post-merge coverage evidence
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: [self-hosted, internal-release, qualification, apple]
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd
+      - name: Run macOS core tests with coverage
+        run: |
+          xcodebuild test -project DJConnectApp.xcodeproj -scheme DJConnectMac -destination platform=macOS -enableCodeCoverage YES -resultBundlePath coverage.xcresult
+          xcrun xccov view --report --json coverage.xcresult > coverage.json
+          printf '%s\n' "$GITHUB_SHA" > coverage-main-sha.txt
+      - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4
+        with:
+          name: apple-xccov-coverage
+          path: |
+            coverage.json
+            coverage-main-sha.txt
+          if-no-files-found: error
+
   cleanup-workflow-runs:
     name: Cleanup old workflow runs
     needs:
