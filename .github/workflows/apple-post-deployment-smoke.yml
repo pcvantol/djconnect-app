@@ -1,0 +1,52 @@
+name: Apple post-deployment smoke
+
+on:
+  workflow_dispatch:
+    inputs:
+      candidate_sha: {required: true, type: string}
+      manifest_id: {required: true, type: string}
+      artifact_id: {required: true, type: string}
+      artifact_sha256: {required: true, type: string}
+      target: {required: true, type: choice, options: [apple_private_device]}
+      target_device: {required: true, type: choice, options: [macbook, iphone, ipad]}
+      paired_watch_validation: {required: true, type: choice, options: [required, optional, disabled]}
+      platform_version: {required: true, type: string}
+      release_profile: {required: true, type: choice, options: [INTERNAL_RELEASE]}
+      deployment_workflow_run: {required: true, type: string}
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: [self-hosted, macOS, ARM64, internal-release]
+    environment: apple-secure-distribution
+    steps:
+      - name: Validate immutable smoke request
+        env:
+          CANDIDATE_SHA: ${{ inputs.candidate_sha }}
+          MANIFEST_ID: ${{ inputs.manifest_id }}
+          ARTIFACT_ID: ${{ inputs.artifact_id }}
+          ARTIFACT_SHA256: ${{ inputs.artifact_sha256 }}
+          TARGET: ${{ inputs.target }}
+          TARGET_DEVICE: ${{ inputs.target_device }}
+          PAIRED_WATCH_VALIDATION: ${{ inputs.paired_watch_validation }}
+          PLATFORM_VERSION: ${{ inputs.platform_version }}
+          RELEASE_PROFILE: ${{ inputs.release_profile }}
+          DEPLOYMENT_WORKFLOW_RUN: ${{ inputs.deployment_workflow_run }}
+        run: |
+          set -euo pipefail
+          printf '%s' "$CANDIDATE_SHA" | grep -Eq '^[0-9a-f]{40}$'
+          printf '%s' "$MANIFEST_ID" | grep -Eq '^release-[A-Za-z0-9._-]+$'
+          printf '%s' "$ARTIFACT_ID" | grep -Eq '^[0-9]+$'
+          printf '%s' "$ARTIFACT_SHA256" | grep -Eq '^[0-9a-f]{64}$'
+          test "$TARGET" = apple_private_device
+          case "$TARGET_DEVICE" in macbook|iphone|ipad) ;; *) exit 1;; esac
+          case "$PAIRED_WATCH_VALIDATION" in required|optional|disabled) ;; *) exit 1;; esac
+          printf '%s' "$PLATFORM_VERSION" | grep -Eq '^[0-9]+\.[0-9]+$'
+          test "$RELEASE_PROFILE" = INTERNAL_RELEASE
+          printf '%s' "$DEPLOYMENT_WORKFLOW_RUN" | grep -Eq '^[0-9]+$'
+      - name: Fail closed without verified deployment evidence
+        run: |
+          echo "SMOKE_INCONCLUSIVE: no approved manifest, deployment evidence or typed Apple target scope is available."
+          exit 1
