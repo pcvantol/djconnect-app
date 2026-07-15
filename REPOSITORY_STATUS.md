@@ -18,46 +18,46 @@ Does not own: backend intelligence, Music DNA storage, Spotify OAuth secrets, ce
 
 ## Current Phase
 
-Platform Governance Phase: Cross-Repository Bootstrap Alignment; Apple verification work remains tracked by the canonical platform prompt index.
+Generation 2 Governance: establish the canonical `BOOTSTRAP.md` repository
+bootstrap.
 
 This phase is documentation and governance only. It is not a product
 implementation phase and not a verification execution phase.
 
 ## Status
 
-Active for repository-local bootstrap alignment.
+Ready for review; no execution work is active in this increment.
 
 ## Blocking Dependencies
 
-- Cross-repository completion depends on all active DJConnect repositories being
-  aligned and reviewed.
-- Pull request creation requires network/GitHub access and maintainer approval
-  from the local environment.
+- Review and merge of the repository-local governance pull request.
 
 ## Current Prompt
 
-Platform Governance Phase - Cross-Repository Bootstrap Alignment
+Governance: Establish canonical BOOTSTRAP.md
 
 ## Completion Report
 
-Repository-local documentation branch and commit
+Repository-local documentation branch, commit, pull request and immutable
+Prompt History record.
 
 ## Last Qualification
 
-No repository-local verification qualification was executed for this
-documentation-only bootstrap alignment pass.
+Repository-document verification confirms that the canonical bootstrap,
+status-navigation references and deprecated compatibility pointer are
+self-describing.
 
 ## Validated Base SHA
 
-`9d305764ce30134f5b68fc1366a9bf315c4a26ca`
+`ab8f3c63dfeb083f4e3fbddb13aa5f1aa8a60f3b`
 
 This value records the repository SHA inspected at the start of the
 repository-local bootstrap alignment pass.
 
 ## Repository-Local Next Action
 
-Review and merge the repository-local bootstrap alignment branch, then keep
-future work scoped to this repository's ownership boundary.
+Review and merge this governance increment, then wait for an explicit next
+prompt within this repository's ownership boundary.
 
 ## Notes
 
