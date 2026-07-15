@@ -35,6 +35,19 @@ iOS:
 xcodebuild -project DJConnectApp.xcodeproj -scheme DJConnectIOS -destination generic/platform=iOS -derivedDataPath .xcode-derived CODE_SIGNING_ALLOWED=NO build
 ```
 
+iOS Simulator, including the embedded Watch dependency:
+
+```sh
+xcodebuild -project DJConnectApp.xcodeproj -scheme DJConnectIOS -configuration Debug -destination 'generic/platform=iOS Simulator' -derivedDataPath .xcode-derived-ios-simulator CODE_SIGNING_ALLOWED=NO clean build
+```
+
+Use an iOS Simulator destination rather than a global
+`-sdk iphonesimulator` override. The destination lets Xcode build the iOS and
+watchOS targets with their respective SDKs and product directories; a global
+SDK override forces both product types into the iOS Simulator directory and
+causes a false duplicate-output failure for `DJConnect.app` and
+`DJConnectCore.framework`.
+
 The CLI build disables signing for local verification. Configure
 `DEVELOPMENT_TEAM` in Xcode or `project.yml` before running on devices.
 

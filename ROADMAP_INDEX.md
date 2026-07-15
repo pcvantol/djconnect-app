@@ -12,9 +12,9 @@ canonical DJConnect platform roadmap, which remains in
 
 ## Current Increment
 
-Generation 2 Product Development: restore Apple release-version integrity
-across macOS, iOS and watchOS. Its active state is recorded in
-`PROMPT_INDEX.md`.
+Generation 2 Build Engineering: qualify the unsigned iOS Simulator build and
+resolve the reported iOS/watchOS duplicate-output failure. Its active state is
+recorded in `PROMPT_INDEX.md`.
 
 ## Next Candidate
 

@@ -1,35 +1,42 @@
 # DJConnect App Engineering Status
 
-Status: product-development increment reviewable; pending merge
+Status: build-engineering increment reviewable; pending merge
 
 Repository: `pcvantol/djconnect-app`
 
 ## Current Engineering State
 
-The Generation 2 Governance increment was merged into `main` as `adf60b1`.
-The active increment was Generation 2 Product Development: restore Apple
-release-version integrity across macOS, iOS and watchOS. The implementation is
-complete and awaits review and merge of its single pull request.
+Apple Release Version Integrity merged into `main` as `7ee3dcd`. The active
+increment is Generation 2 Build Engineering: qualify the unsigned iOS
+Simulator build and resolve the reported iOS/watchOS duplicate-output failure.
 
-Review branch: `codex/restore-apple-release-version-integrity`.
+Review branch: `codex/qualify-ios-watch-simulator-build`.
 
-Implementation commit: `ec49442e316d8dda959d1d562c447c7e95449577`.
+Qualification evidence commit: `be96729b9b9cbadd87772e02e02380cd6ea774d7`.
 
-Pull request: [#24](https://github.com/pcvantol/djconnect-app/pull/24).
+Qualified base commit: `afa648fe5dbe49cc3dff6535ca1a35fdf43fffed`.
+
+Pull request: [#27](https://github.com/pcvantol/djconnect-app/pull/27).
 
 ## Qualification Context
 
 - Base branch verified before work: `main` at
-  `adf60b14dab8b0a1bed8f74fa1d0fe394f281b62`.
+  `afa648fe5dbe49cc3dff6535ca1a35fdf43fffed`.
 - Repository state before work: clean and tracking `origin/main`.
-- Validation scope: repository-document inspection and bootstrap consistency
-  checks, source/contract integrity tests, macOS build and watchOS build.
+- A clean unsigned iOS Simulator build succeeded with
+  `-destination 'generic/platform=iOS Simulator'` and
+  `CODE_SIGNING_ALLOWED=NO`.
+- The build emitted no `warning:` or `error:` diagnostics.
 
 ## Current Decision
 
-Bundle-derived release and build versions are now distinct from the existing
-Home Assistant protocol compatibility version. Stop after the reviewable pull
-request; do not begin a subsequent increment automatically.
+The reported duplicate-output failure is an invocation defect, not an Xcode
+project-configuration defect. A global `-sdk iphonesimulator` override forces
+the iOS and watchOS dependency products into one directory. Xcode's iOS
+Simulator destination keeps them in their respective product directories.
+
+Decision: PASS. Stop after the reviewable pull request; do not begin a
+subsequent increment automatically.
 
 ## Planning Entry Point
 
