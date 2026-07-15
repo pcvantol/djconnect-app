@@ -9,11 +9,12 @@ canonical platform roadmap from `pcvantol/djconnect/PROMPT_INDEX.md`.
 
 ## Current Repository Phase
 
-Platform Governance Phase: Cross-Repository Bootstrap Alignment; Apple verification work remains tracked by the canonical platform prompt index.
+Generation 2 Governance: establish the canonical `BOOTSTRAP.md` repository
+bootstrap.
 
 ## Status
 
-ACTIVE
+REVIEWABLE_PENDING_MERGE
 
 ## Depends On
 
@@ -23,15 +24,20 @@ ACTIVE
 
 ## Current Prompt
 
-Platform Governance Phase - Cross-Repository Bootstrap Alignment
+Governance: Establish canonical BOOTSTRAP.md
 
 ## Completion Report
 
-Repository-local documentation branch and commit
+Repository-local documentation branch, commit and immutable Prompt History
+record.
+
+Review branch: `codex/governance-canonical-bootstrap`.
+
+Pull request: [#23](https://github.com/pcvantol/djconnect-app/pull/23).
 
 ## Next Repository Phase
 
-Complete repository-local bootstrap alignment, then wait for the next
+After this increment is reviewed and merged, wait for an explicit
 repository-specific implementation, verification, release or documentation
 prompt.
 

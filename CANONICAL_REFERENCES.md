@@ -81,10 +81,15 @@ Canonical foundation documents include:
 
 ## Clean-Session Entrypoints
 
-- Repository work: read `BOOTSTRAP_CODEX_SESSION.md`.
-- Repository state: read `REPOSITORY_STATUS.md`.
-- Repository-local phase state: read `PROMPT_INDEX.md`.
+- Repository work: read `BOOTSTRAP.md`.
+- Repository-local status: read `ENGINEERING_STATUS.md`,
+  `REPOSITORY_STATUS.md` and `MANAGEMENT_SUMMARY.md` in the order defined by
+  `BOOTSTRAP.md`.
+- Repository-local planning and phase state: read `ROADMAP_INDEX.md` and
+  `PROMPT_INDEX.md`.
 - Platform or verification work: read the canonical documents in
   `pcvantol/djconnect` referenced above.
 
 `CHAT_BOOTSTRAP.md` is deprecated and is not a canonical entrypoint.
+`BOOTSTRAP_CODEX_SESSION.md` is also deprecated and remains only as a
+compatibility pointer to `BOOTSTRAP.md`.
