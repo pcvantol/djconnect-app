@@ -12265,6 +12265,25 @@ private func makePairedMusicDNAModel(
     #expect(DJConnectAppModel.normalizedReleaseNotesLanguageCode("es-ES") == "es")
 }
 
+@Test func internalMacBookDistributionRelayIsManifestBoundAndDeveloperSigned() throws {
+    let deployment = try loadRepositoryText(".github/workflows/apple-secure-distribution-relay.yml")
+    let smoke = try loadRepositoryText(".github/workflows/apple-post-deployment-smoke.yml")
+    let releaseDocs = try loadRepositoryText("docs/RELEASE.md")
+
+    #expect(deployment.contains("Require approved central operational manifest source"))
+    #expect(deployment.contains("DJCONNECT_APPLE_MACBOOK_HARDWARE_UUID"))
+    #expect(deployment.contains("DJCONNECT_APPLE_DEVELOPMENT_SIGNING_IDENTITY"))
+    #expect(deployment.contains("codesign --force --deep"))
+    #expect(deployment.contains("target_device"))
+    #expect(deployment.contains("test \"$TARGET_DEVICE\" = macbook"))
+    #expect(deployment.contains("test \"$PAIRED_WATCH_VALIDATION\" = disabled"))
+    #expect(!deployment.contains("Refuse distribution without an approved operational manifest"))
+    #expect(smoke.contains("Download deployment evidence"))
+    #expect(smoke.contains("codesign --verify --deep --strict"))
+    #expect(smoke.contains("open -gj \"$app_path\""))
+    #expect(releaseDocs.contains("Internal Release: MacBook Developer Deployment"))
+}
+
 @Test func logsCopyToolbarIconStaysWhiteOnIOS() throws {
     let source = try loadRepositoryText("Sources/DJConnectUI/DJConnectRootView.swift")
     let copyLogsRange = try #require(source.range(of: #"Image(systemName: "doc.on.doc")"#))
