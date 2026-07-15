@@ -2040,7 +2040,7 @@ private struct DJConnectWatchAboutView: View {
     @EnvironmentObject private var model: DJConnectWatchModel
 
     private var appVersion: String {
-        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0.0.0"
+        DJConnectApplicationVersion.releaseVersion
     }
 
     var body: some View {

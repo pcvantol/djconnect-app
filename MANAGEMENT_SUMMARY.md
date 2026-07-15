@@ -1,29 +1,23 @@
 # DJConnect App Management Summary
 
-Status: governance documentation increment ready for review
+Status: product-development increment completed; pending pull request
 
 ## Decision
 
-Establish `BOOTSTRAP.md` as the sole canonical repository bootstrap. Retire
-the duplicated Codex bootstrap as a compatibility pointer so a clean session
-has one self-describing starting point.
+Restore one bundle-derived application release version across macOS, iOS and
+watchOS while keeping the Home Assistant protocol version independent.
 
 ## Scope and Outcome
 
-This increment changes repository governance documentation only. It introduces
-the missing status and planning navigation documents required by the canonical
-bootstrap and does not alter Apple client product behaviour, release artefacts
-or deployment workflows.
-
-Review is available in [PR #23](https://github.com/pcvantol/djconnect-app/pull/23).
+This completed increment is limited to Apple client runtime version sources, UI,
+diagnostics and identity metadata. It does not change product behaviour,
+release artefacts, deployment workflows or protocol semantics.
 
 ## Known Limitation
 
-Platform strategy, roadmap and cross-repository planning remain canonical in
-`pcvantol/djconnect`; this repository intentionally references rather than
-copies them.
+The previous governance status documents were stale after PR #23 merged; they
+were updated before this increment's implementation reality check.
 
 ## Recommended Next Prompt
 
-Generation 2 Product Development: restore Apple release-version integrity,
-after this governance pull request is reviewed and merged.
+Determine a follow-up only after this increment has been reviewed and merged.

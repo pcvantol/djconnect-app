@@ -520,7 +520,8 @@ public final class DJConnectClient: Sendable {
             URLQueryItem(name: "client_id", value: identity.deviceID),
             URLQueryItem(name: "client_type", value: identity.clientType.rawValue),
             URLQueryItem(name: "device_name", value: identity.deviceName),
-            URLQueryItem(name: "app_version", value: identity.appVersion)
+            URLQueryItem(name: "app_version", value: identity.appVersion),
+            URLQueryItem(name: "protocol_version", value: identity.protocolVersion ?? identity.firmware)
         ]
         if let locale = Self.nonBlankLanguage(payload.locale ?? payload.language) {
             queryItems.append(URLQueryItem(name: "locale", value: locale))
@@ -539,6 +540,7 @@ public final class DJConnectClient: Sendable {
         var request = try authenticatedRequest(url: url)
         request.httpMethod = "GET"
         request.setValue(identity.appVersion, forHTTPHeaderField: "X-DJConnect-App-Version")
+        request.setValue(identity.protocolVersion ?? identity.firmware, forHTTPHeaderField: "X-DJConnect-Protocol-Version")
         request.setValue(payload.capabilities.joined(separator: ","), forHTTPHeaderField: "X-DJConnect-Render-Capabilities")
         if let locale = Self.nonBlankLanguage(payload.locale ?? payload.language) {
             request.setValue(locale, forHTTPHeaderField: "X-DJConnect-Language")
