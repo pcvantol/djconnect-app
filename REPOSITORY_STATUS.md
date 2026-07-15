@@ -25,7 +25,7 @@ change protocol compatibility, deployment, release workflows or Home Assistant.
 
 ## Status
 
-Completed; pending pull request.
+Reviewable; pending merge.
 
 ## Blocking Dependencies
 
@@ -40,10 +40,15 @@ Product Development: Restore Apple release-version integrity
 Repository-local implementation branch, commit, pull request and immutable
 Prompt History record.
 
+Review branch: `codex/restore-apple-release-version-integrity`.
+
+Pull request: [#24](https://github.com/pcvantol/djconnect-app/pull/24).
+
 ## Last Qualification
 
-Repository synchronization and canonical planning verification completed before
-the versioning implementation reality check.
+Source and contract integrity tests passed. Unsigned macOS and watchOS builds
+passed. The iOS scheme build is blocked by an existing duplicate-output project
+configuration, recorded as deferred work rather than changed in this increment.
 
 ## Validated Base SHA
 
@@ -54,8 +59,7 @@ repository-local bootstrap alignment pass.
 
 ## Repository-Local Next Action
 
-Create one reviewable pull request for the completed Apple release-version
-integrity increment, then stop.
+Review and merge this Apple release-version integrity pull request, then stop.
 
 ## Notes
 

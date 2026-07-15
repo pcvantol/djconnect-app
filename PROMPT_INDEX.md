@@ -13,7 +13,7 @@ Generation 2 Product Development: restore Apple release-version integrity.
 
 ## Status
 
-REVIEWABLE_PENDING_PULL_REQUEST
+REVIEWABLE_PENDING_MERGE
 
 ## Depends On
 
@@ -29,6 +29,10 @@ Product Development: Restore Apple release-version integrity
 
 Repository-local implementation branch, commit, pull request and immutable
 Prompt History record.
+
+Review branch: `codex/restore-apple-release-version-integrity`.
+
+Pull request: [#24](https://github.com/pcvantol/djconnect-app/pull/24).
 
 ## Next Repository Phase
 
