@@ -14,7 +14,7 @@ in the build invocation. The destination-based invocation preserves Xcode's
 separate iOS and watchOS product directories and succeeds without warnings.
 No Xcode project, release, signing, protocol or product code change was needed.
 
-The Build Engineering review pull request is created before review.
+Review is available in [PR #27](https://github.com/pcvantol/djconnect-app/pull/27).
 
 ## Known Limitation
 

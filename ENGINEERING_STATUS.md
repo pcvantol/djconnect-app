@@ -12,9 +12,11 @@ Simulator build and resolve the reported iOS/watchOS duplicate-output failure.
 
 Review branch: `codex/qualify-ios-watch-simulator-build`.
 
+Qualification evidence commit: `be96729c1bce1a4f1f0a825ec4c886bea527d6eb`.
+
 Qualified base commit: `afa648fe5dbe49cc3dff6535ca1a35fdf43fffed`.
 
-Pull request: created before review.
+Pull request: [#27](https://github.com/pcvantol/djconnect-app/pull/27).
 
 ## Qualification Context
 

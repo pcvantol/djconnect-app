@@ -24,13 +24,15 @@ Build Engineering
 
 ## Commit SHA
 
+Qualification evidence commit:
+`be96729c1bce1a4f1f0a825ec4c886bea527d6eb`.
+
 Qualified repository baseline:
 `afa648fe5dbe49cc3dff6535ca1a35fdf43fffed`.
 
 ## Pull Request
 
-Created before review; its URL is recorded in the completion update on this
-branch.
+[#27](https://github.com/pcvantol/djconnect-app/pull/27)
 
 ## Decision
 

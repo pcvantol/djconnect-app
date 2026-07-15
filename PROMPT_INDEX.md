@@ -33,7 +33,7 @@ Prompt History record.
 
 Review branch: `codex/qualify-ios-watch-simulator-build`.
 
-Pull request: created before review.
+Pull request: [#27](https://github.com/pcvantol/djconnect-app/pull/27).
 
 ## Next Repository Phase
 
