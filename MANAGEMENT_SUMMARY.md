@@ -15,6 +15,8 @@ the missing status and planning navigation documents required by the canonical
 bootstrap and does not alter Apple client product behaviour, release artefacts
 or deployment workflows.
 
+Review is available in [PR #23](https://github.com/pcvantol/djconnect-app/pull/23).
+
 ## Known Limitation
 
 Platform strategy, roadmap and cross-repository planning remain canonical in

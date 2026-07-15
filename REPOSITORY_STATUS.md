@@ -41,6 +41,10 @@ Governance: Establish canonical BOOTSTRAP.md
 Repository-local documentation branch, commit, pull request and immutable
 Prompt History record.
 
+Review branch: `codex/governance-canonical-bootstrap`.
+
+Pull request: [#23](https://github.com/pcvantol/djconnect-app/pull/23).
+
 ## Last Qualification
 
 Repository-document verification confirms that the canonical bootstrap,

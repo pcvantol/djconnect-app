@@ -14,7 +14,7 @@ bootstrap.
 
 ## Status
 
-REVIEWABLE_PENDING_PULL_REQUEST
+REVIEWABLE_PENDING_MERGE
 
 ## Depends On
 
@@ -30,6 +30,10 @@ Governance: Establish canonical BOOTSTRAP.md
 
 Repository-local documentation branch, commit and immutable Prompt History
 record.
+
+Review branch: `codex/governance-canonical-bootstrap`.
+
+Pull request: [#23](https://github.com/pcvantol/djconnect-app/pull/23).
 
 ## Next Repository Phase
 

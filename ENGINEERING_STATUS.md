@@ -10,6 +10,12 @@ The Generation 2 Governance increment to establish the canonical repository
 bootstrap is complete in this branch and awaits review. No product,
 architecture, release, deployment or software-assurance work is included.
 
+Review branch: `codex/governance-canonical-bootstrap`.
+
+Implementation commit: `aae9ada04d0905703f77d7503c3dd36a9090961f`.
+
+Pull request: [#23](https://github.com/pcvantol/djconnect-app/pull/23).
+
 ## Qualification Context
 
 - Base branch verified before work: `main` at
