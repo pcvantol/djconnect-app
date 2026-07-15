@@ -254,6 +254,21 @@ public release publication. A separate explicitly authorized smoke workflow
 verifies the installed bundle/version/signature and performs a safe local
 launch.
 
+### Internal Release: iPhone with paired Apple Watch
+
+`Apple iPhone Secure Distribution Relay` consumes only the approved unsigned
+iOS artifact for `target_device=iphone` and requires the manifest's paired
+Watch validation. It re-signs the app, widget, Watch app and complications
+with local development profiles that cover the configured physical iPhone and
+Watch, then installs only on that iPhone through `xcrun devicectl`. The runner
+uses `DJCONNECT_APPLE_IPHONE_UDID`, `DJCONNECT_APPLE_WATCH_UDID` and the local
+Apple Development signing identity; profile files stay on the MacBook. Xcode
+27 stores its managed profiles under `~/Library/Developer/Xcode/UserData/Provisioning Profiles`.
+
+The separately authorized smoke workflow requires both `dev.djconnect.ios`
+and the embedded `dev.djconnect.ios.watch` application to be present on their
+configured physical devices before publishing redacted evidence.
+
 ## Public Unsigned CI Artifacts
 
 The private source repository contains `.github/workflows/public-unsigned-release.yml`.

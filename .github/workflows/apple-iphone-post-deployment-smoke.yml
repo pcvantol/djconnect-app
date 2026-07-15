@@ -1,0 +1,51 @@
+name: Apple iPhone post-deployment smoke
+
+on:
+  workflow_dispatch:
+    inputs:
+      candidate_sha: {required: true, type: string}
+      manifest_id: {required: true, type: string}
+      artifact_id: {required: true, type: string}
+      artifact_sha256: {required: true, type: string}
+      deployment_workflow_run: {required: true, type: string}
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: [self-hosted, macOS, ARM64, internal-release]
+    environment: apple-secure-distribution
+    steps:
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: apple-iphone-deployment-evidence
+          github-token: ${{ github.token }}
+          run-id: ${{ inputs.deployment_workflow_run }}
+          path: deployment-evidence
+      - name: Verify deployment evidence and installed iPhone plus paired Watch apps
+        env:
+          IPHONE_UDID: ${{ secrets.DJCONNECT_APPLE_IPHONE_UDID }}
+          WATCH_UDID: ${{ secrets.DJCONNECT_APPLE_WATCH_UDID }}
+          CANDIDATE_SHA: ${{ inputs.candidate_sha }}
+          MANIFEST_ID: ${{ inputs.manifest_id }}
+          ARTIFACT_ID: ${{ inputs.artifact_id }}
+          ARTIFACT_SHA256: ${{ inputs.artifact_sha256 }}
+        run: |
+          set -euo pipefail
+          evidence=deployment-evidence/apple-iphone-deployment-evidence.json
+          test "$(jq -r '.candidate_sha' "$evidence")" = "$CANDIDATE_SHA"
+          test "$(jq -r '.manifest_id' "$evidence")" = "$MANIFEST_ID"
+          test "$(jq -r '.artifact_id' "$evidence")" = "$ARTIFACT_ID"
+          test "$(jq -r '.artifact_sha256' "$evidence")" = "$ARTIFACT_SHA256"
+          test "$(jq -r '.deployment_result' "$evidence")" = DEPLOYED_PENDING_SMOKE
+          xcrun devicectl device info apps --device "$IPHONE_UDID" --bundle-id dev.djconnect.ios
+          xcrun devicectl device info apps --device "$WATCH_UDID" --bundle-id dev.djconnect.ios.watch
+      - name: Publish redacted iPhone smoke evidence
+        run: |
+          printf '%s\n' '{"kind":"apple_private_iphone_smoke","target":"apple_private_device","target_device":"iphone","paired_watch_result":"PASS","final_result":"SMOKE_PASSED"}' > apple-iphone-smoke-evidence.json
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: apple-iphone-smoke-evidence
+          path: apple-iphone-smoke-evidence.json
