@@ -40,8 +40,20 @@ jobs:
           test "$(jq -r '.artifact_id' "$evidence")" = "$ARTIFACT_ID"
           test "$(jq -r '.artifact_sha256' "$evidence")" = "$ARTIFACT_SHA256"
           test "$(jq -r '.deployment_result' "$evidence")" = DEPLOYED_PENDING_SMOKE
-          xcrun devicectl device info apps --device "$IPHONE_UDID" --bundle-id dev.djconnect.ios
-          xcrun devicectl device info apps --device "$WATCH_UDID" --bundle-id dev.djconnect.ios.watch
+          manifest="$(mktemp)"
+          trap 'rm -f "$manifest" iphone-apps.json watch-apps.json' EXIT
+          curl --fail --silent --show-error --location https://raw.githubusercontent.com/pcvantol/djconnect/main/docs/release/PLATFORM_3_3_CURRENT_MAIN_MANIFEST_PROPOSAL.json --output "$manifest"
+          manifest_status="$(jq -r '.status' "$manifest")"
+          case "$manifest_status" in
+            APPROVED_DEPLOYMENT_DISPATCH_PENDING|APPROVED_PARTIAL_DEPLOYMENT_OPERATIONAL) ;;
+            *) echo "Manifest is not open for an authorized target deployment: $manifest_status" >&2; exit 1 ;;
+          esac
+          test "$(jq -r '.approval.state' "$manifest")" = APPROVED
+          expected_version="$(jq -er --arg sha "$CANDIDATE_SHA" '.repositories[] | select(.repository == "pcvantol/djconnect-app" and .source_sha == $sha) | .version' "$manifest")"
+          xcrun devicectl device info apps --device "$IPHONE_UDID" --bundle-id dev.djconnect.ios --json-output iphone-apps.json
+          xcrun devicectl device info apps --device "$WATCH_UDID" --bundle-id dev.djconnect.ios.watch --json-output watch-apps.json
+          jq -e --arg version "$expected_version" '[.result.apps[] | select(.bundleIdentifier == "dev.djconnect.ios" and .version == $version)] | length == 1' iphone-apps.json >/dev/null
+          jq -e --arg version "$expected_version" '[.result.apps[] | select(.bundleIdentifier == "dev.djconnect.ios.watch" and .version == $version)] | length == 1' watch-apps.json >/dev/null
       - name: Publish redacted iPhone smoke evidence
         run: |
           printf '%s\n' '{"kind":"apple_private_iphone_smoke","target":"apple_private_device","target_device":"iphone","paired_watch_result":"PASS","final_result":"SMOKE_PASSED"}' > apple-iphone-smoke-evidence.json
