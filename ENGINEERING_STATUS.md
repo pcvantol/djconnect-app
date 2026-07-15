@@ -12,7 +12,7 @@ Simulator build and resolve the reported iOS/watchOS duplicate-output failure.
 
 Review branch: `codex/qualify-ios-watch-simulator-build`.
 
-Qualification evidence commit: `be96729c1bce1a4f1f0a825ec4c886bea527d6eb`.
+Qualification evidence commit: `be96729b9b9cbadd87772e02e02380cd6ea774d7`.
 
 Qualified base commit: `afa648fe5dbe49cc3dff6535ca1a35fdf43fffed`.
 
