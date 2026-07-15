@@ -12309,6 +12309,16 @@ private func makePairedMusicDNAModel(
     #expect(releaseDocs.contains("Internal Release: MacBook Developer Deployment"))
 }
 
+@Test func internalIPhoneWatchSmokeRequiresExactInstalledManifestVersion() throws {
+    let smoke = try loadRepositoryText(".github/workflows/apple-iphone-post-deployment-smoke.yml")
+
+    #expect(smoke.contains("--json-output iphone-apps.json"))
+    #expect(smoke.contains("--json-output watch-apps.json"))
+    #expect(smoke.contains("expected_version="))
+    #expect(smoke.contains(".bundleIdentifier == \"dev.djconnect.ios\" and .version == $version"))
+    #expect(smoke.contains(".bundleIdentifier == \"dev.djconnect.ios.watch\" and .version == $version"))
+}
+
 @Test func logsCopyToolbarIconStaysWhiteOnIOS() throws {
     let source = try loadRepositoryText("Sources/DJConnectUI/DJConnectRootView.swift")
     let copyLogsRange = try #require(source.range(of: #"Image(systemName: "doc.on.doc")"#))

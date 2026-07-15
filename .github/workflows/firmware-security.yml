@@ -15,13 +15,13 @@ jobs:
     name: Software Assurance governance
     permissions:
       contents: read
-    uses: pcvantol/djconnect/.github/workflows/software-assurance-governance.yml@78852b8f714981794c63b92ff0d3083d06516099
+    uses: pcvantol/djconnect/.github/workflows/software-assurance-governance.yml@04b78708bfed26f96dd6436ad4372a648920110e
     with:
       execution_profile: balanced
       owner: pcvantol/djconnect-app
 
   semgrep:
     name: Semgrep
-    uses: pcvantol/djconnect/.github/workflows/djconnect-semgrep-ci.yml@78852b8f714981794c63b92ff0d3083d06516099 # Repaired reachable workflow closure
+    uses: pcvantol/djconnect/.github/workflows/djconnect-semgrep-ci.yml@04b78708bfed26f96dd6436ad4372a648920110e # Repaired reachable workflow closure
     with:
       continue-on-error: true
