@@ -541,9 +541,10 @@ the MP4 frames; if Track Insight has no artwork URL it falls back to the current
 Now Playing artwork URL so AirPlay does not bake in the placeholder while the
 live VibeCast window loads images asynchronously.
 
-All status and command payloads include `device_id`, `client_type`, and
-`firmware`. The `firmware` value remains the protocol compatibility version,
-even for app clients.
+All status and command payloads include `device_id`, `client_type`,
+`app_version`, `protocol_version` and `firmware`. `app_version` is the bundle
+release version. `protocol_version` and the compatibility `firmware` value
+remain the protocol compatibility version, even for app clients.
 
 Pairing is posted to:
 
@@ -552,7 +553,7 @@ POST /api/djconnect/v1/pair
 ```
 
 The app sends `device_id`, `device_name`, canonical `client_type`, `firmware`,
-`app_version`, `platform`, and the 6-digit Home Assistant setup code as
+`app_version`, `protocol_version`, `platform`, and the 6-digit Home Assistant setup code as
 `pair_code`, `pairing_code`, and `pairing_token`. Pairing bootstrap is
 local-only: the Apple client posts to the local Home Assistant
 `/api/djconnect/v1/pair` endpoint and stores the returned DJConnect bearer token,

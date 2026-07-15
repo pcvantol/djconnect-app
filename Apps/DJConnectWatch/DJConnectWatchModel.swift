@@ -517,6 +517,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
                 sendCompanionPairingRegistration()
             }
         }
+        appendDiagnosticLog("Version metadata: release_version=\(DJConnectApplicationVersion.releaseVersion); build_version=\(DJConnectApplicationVersion.buildVersion); protocol_version=\(DJConnectProtocolVersion.current)")
         if !isDemoMode {
             startNetworkMonitor()
         }
@@ -571,7 +572,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
     func requestRemoteNotificationRegistration() {
         Task { @MainActor in
             let center = UNUserNotificationCenter.current()
-            logPush("init platform=\(identity.platform.rawValue) client_type=\(identity.clientType.rawValue) bundle_id=\(Bundle.main.bundleIdentifier ?? "<missing>") app_version=\(identity.appVersion ?? "<missing>") app_build=\(Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "<missing>") env=\(Self.pushEnvironment.rawValue)")
+            logPush("init platform=\(identity.platform.rawValue) client_type=\(identity.clientType.rawValue) bundle_id=\(Bundle.main.bundleIdentifier ?? "<missing>") app_version=\(identity.appVersion ?? "<missing>") app_build=\(DJConnectApplicationVersion.buildVersion) protocol_version=\(identity.protocolVersion ?? identity.firmware) env=\(Self.pushEnvironment.rawValue)")
             let authorized = await requestRemoteNotificationAuthorizationIfNeeded(center: center)
             guard authorized else {
                 logPush("remote notification registration not started permission_granted=false", level: .warning)
@@ -796,13 +797,13 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
     }
 
     var identity: DJConnectIdentity {
-        let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0.0.0"
         return DJConnectIdentity(
             deviceID: "djconnect-watchos-\(stableInstallID)",
             deviceName: WKInterfaceDevice.current().name,
             clientType: .watchos,
-            firmware: version,
-            appVersion: version,
+            firmware: DJConnectProtocolVersion.current,
+            appVersion: DJConnectApplicationVersion.releaseVersion,
+            protocolVersion: DJConnectProtocolVersion.current,
             platform: .watchos
         )
     }
@@ -962,6 +963,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
             "client_type": identity.clientType.rawValue,
             "firmware": identity.firmware,
             "app_version": identity.appVersion ?? identity.firmware,
+            "protocol_version": identity.protocolVersion ?? identity.firmware,
             "platform": identity.platform.rawValue,
             "pair_code": pairingCode,
             "paired": paired
@@ -3203,6 +3205,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
             batteryPercent: Int(WKInterfaceDevice.current().batteryLevel * 100),
             language: currentRequestLocale,
             osVersion: WKInterfaceDevice.current().systemVersion,
+            appBuild: DJConnectApplicationVersion.buildVersion,
             localAudioSupported: true,
             voiceSupported: true,
             screenState: screenState,

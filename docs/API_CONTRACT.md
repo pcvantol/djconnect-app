@@ -19,9 +19,14 @@ clears the bearer token and creates a fresh local install identity.
   "client_type": "ios",
   "firmware": "3.2.22",
   "app_version": "3.2.22",
+  "protocol_version": "3.2.22",
   "platform": "ios"
 }
 ```
+
+`app_version` is the Apple bundle release version. `protocol_version` is the
+explicit Home Assistant compatibility contract; `firmware` remains populated
+with that same protocol version for backward-compatible server validation.
 
 Use `client_type` for DJConnect client identity:
 

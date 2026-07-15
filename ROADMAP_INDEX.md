@@ -12,14 +12,14 @@ canonical DJConnect platform roadmap, which remains in
 
 ## Current Increment
 
-Generation 2 Governance: establish the canonical `BOOTSTRAP.md` repository
-bootstrap. Its review state is recorded in `PROMPT_INDEX.md`.
+Generation 2 Product Development: restore Apple release-version integrity
+across macOS, iOS and watchOS. Its active state is recorded in
+`PROMPT_INDEX.md`.
 
 ## Next Candidate
 
-After governance review and merge, the recommended next repository-local
-increment is Generation 2 Product Development: restore Apple release-version
-integrity. It is deferred until an explicit prompt starts it.
+No next increment is selected. Choose one only after the active increment has
+completed verification and review.
 
 ## Planning Procedure
 

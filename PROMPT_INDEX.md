@@ -9,8 +9,7 @@ canonical platform roadmap from `pcvantol/djconnect/PROMPT_INDEX.md`.
 
 ## Current Repository Phase
 
-Generation 2 Governance: establish the canonical `BOOTSTRAP.md` repository
-bootstrap.
+Generation 2 Product Development: restore Apple release-version integrity.
 
 ## Status
 
@@ -24,22 +23,21 @@ REVIEWABLE_PENDING_MERGE
 
 ## Current Prompt
 
-Governance: Establish canonical BOOTSTRAP.md
+Product Development: Restore Apple release-version integrity
 
 ## Completion Report
 
-Repository-local documentation branch, commit and immutable Prompt History
-record.
+Repository-local implementation branch, commit, pull request and immutable
+Prompt History record.
 
-Review branch: `codex/governance-canonical-bootstrap`.
+Review branch: `codex/restore-apple-release-version-integrity`.
 
-Pull request: [#23](https://github.com/pcvantol/djconnect-app/pull/23).
+Pull request: [#24](https://github.com/pcvantol/djconnect-app/pull/24).
 
 ## Next Repository Phase
 
 After this increment is reviewed and merged, wait for an explicit
-repository-specific implementation, verification, release or documentation
-prompt.
+repository-specific prompt. Do not begin a next increment automatically.
 
 ## Boundary
 

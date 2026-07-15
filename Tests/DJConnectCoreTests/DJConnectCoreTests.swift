@@ -1074,6 +1074,7 @@ private func makePairedMusicDNAModel(
         clientType: .ios,
         firmware: "3.1.7",
         appVersion: "3.1.7",
+        protocolVersion: "3.1.7",
         platform: .ios
     )
     let client = DJConnectClient(
@@ -1113,6 +1114,7 @@ private func makePairedMusicDNAModel(
     #expect(json?["client_type"] as? String == "ios")
     #expect(json?["firmware"] as? String == "3.1.7")
     #expect(json?["app_version"] as? String == "3.1.7")
+    #expect(json?["protocol_version"] as? String == "3.1.7")
     #expect(json?["ha_local_url"] as? String == "http://192.168.1.10:8123")
     #expect(json?["ha_remote_url"] == nil)
     #expect(json?["ha_active_url"] == nil)
@@ -1124,6 +1126,29 @@ private func makePairedMusicDNAModel(
     #expect(json?["mood"] as? Int == 75)
     #expect(json?["dj_style"] as? String == "warm_radio_dj")
     #expect(json?["music_dna_key"] as? String == "user:peter")
+}
+
+@Test func appleReleaseVersionIntegrityUsesBundleMetadataAndIndependentProtocolMetadata() throws {
+    let coreSource = try loadRepositoryText("Sources/DJConnectCore/DJConnectModels.swift")
+    let appModelSource = try loadRepositoryText("Sources/DJConnectUI/DJConnectAppModel.swift")
+    let launchSource = try loadRepositoryText("Sources/DJConnectUI/DJConnectLaunchView.swift")
+    let watchModelSource = try loadRepositoryText("Apps/DJConnectWatch/DJConnectWatchModel.swift")
+    let watchAboutSource = try loadRepositoryText("Apps/DJConnectWatch/DJConnectWatchRootView.swift")
+
+    #expect(coreSource.contains("bundleValue(for: \"CFBundleShortVersionString\")"))
+    #expect(coreSource.contains("bundleValue(for: \"CFBundleVersion\")"))
+    #expect(coreSource.contains("case protocolVersion = \"protocol_version\""))
+    #expect(appModelSource.contains("private let appVersion = DJConnectApplicationVersion.releaseVersion"))
+    #expect(appModelSource.contains("private let buildVersion = DJConnectApplicationVersion.buildVersion"))
+    #expect(appModelSource.contains("firmware: protocolVersion"))
+    #expect(appModelSource.contains("appVersion: DJConnectApplicationVersion.releaseVersion"))
+    #expect(appModelSource.contains("release_version: \\(appVersion)"))
+    #expect(appModelSource.contains("build_version: \\(buildVersion)"))
+    #expect(appModelSource.contains("protocol_version: \\(Self.protocolVersion)"))
+    #expect(launchSource.contains("DJConnectApplicationVersion.releaseVersion"))
+    #expect(watchModelSource.contains("appVersion: DJConnectApplicationVersion.releaseVersion"))
+    #expect(watchModelSource.contains("protocolVersion: DJConnectProtocolVersion.current"))
+    #expect(watchAboutSource.contains("DJConnectApplicationVersion.releaseVersion"))
 }
 
 @Test func homeAssistantClientRoutesUseCanonicalV1Prefix() throws {

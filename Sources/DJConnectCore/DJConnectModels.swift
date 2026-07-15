@@ -1,5 +1,28 @@
 import Foundation
 
+public enum DJConnectApplicationVersion {
+    public static var releaseVersion: String {
+        bundleValue(for: "CFBundleShortVersionString")
+    }
+
+    public static var buildVersion: String {
+        bundleValue(for: "CFBundleVersion")
+    }
+
+    private static func bundleValue(for key: String) -> String {
+        guard let value = Bundle.main.object(forInfoDictionaryKey: key) as? String,
+              !value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        else {
+            return "unknown"
+        }
+        return value
+    }
+}
+
+public enum DJConnectProtocolVersion {
+    public static let current = "3.2.33"
+}
+
 public enum DJConnectClientType: String, Codable, Sendable {
     case ios
     case macos
@@ -131,6 +154,7 @@ public struct DJConnectIdentity: Codable, Equatable, Sendable {
     public var clientType: DJConnectClientType
     public var firmware: String
     public var appVersion: String?
+    public var protocolVersion: String?
     public var platform: DJConnectPlatform
 
     public init(
@@ -140,6 +164,7 @@ public struct DJConnectIdentity: Codable, Equatable, Sendable {
         clientType: DJConnectClientType,
         firmware: String,
         appVersion: String? = nil,
+        protocolVersion: String? = nil,
         platform: DJConnectPlatform
     ) {
         self.clientName = clientName ?? deviceName
@@ -148,6 +173,7 @@ public struct DJConnectIdentity: Codable, Equatable, Sendable {
         self.clientType = clientType
         self.firmware = firmware
         self.appVersion = appVersion
+        self.protocolVersion = protocolVersion
         self.platform = platform
     }
 
@@ -158,6 +184,7 @@ public struct DJConnectIdentity: Codable, Equatable, Sendable {
         case clientType = "client_type"
         case firmware
         case appVersion = "app_version"
+        case protocolVersion = "protocol_version"
         case platform
     }
 }
@@ -168,6 +195,8 @@ public struct DJConnectAPIIdentity: Codable, Equatable, Sendable {
     public var deviceID: String
     public var deviceName: String
     public var deviceToken: String?
+    public var appVersion: String?
+    public var protocolVersion: String?
 
     public init(identity: DJConnectIdentity, deviceToken: String? = nil) {
         self.clientType = identity.clientType
@@ -175,6 +204,8 @@ public struct DJConnectAPIIdentity: Codable, Equatable, Sendable {
         self.deviceID = identity.deviceID
         self.deviceName = identity.deviceName
         self.deviceToken = deviceToken
+        self.appVersion = identity.appVersion
+        self.protocolVersion = identity.protocolVersion ?? identity.firmware
     }
 
     enum CodingKeys: String, CodingKey {
@@ -183,6 +214,8 @@ public struct DJConnectAPIIdentity: Codable, Equatable, Sendable {
         case deviceID = "device_id"
         case deviceName = "device_name"
         case deviceToken = "device_token"
+        case appVersion = "app_version"
+        case protocolVersion = "protocol_version"
     }
 }
 
@@ -390,6 +423,7 @@ public struct DJConnectPairingPayload: Codable, Equatable, Sendable {
     public var clientType: DJConnectClientType
     public var firmware: String
     public var appVersion: String?
+    public var protocolVersion: String?
     public var platform: DJConnectPlatform
     public var pairingToken: String
     public var pairCode: String
@@ -412,6 +446,7 @@ public struct DJConnectPairingPayload: Codable, Equatable, Sendable {
         self.clientType = identity.clientType
         self.firmware = identity.firmware
         self.appVersion = identity.appVersion
+        self.protocolVersion = identity.protocolVersion ?? identity.firmware
         self.platform = identity.platform
         self.pairingToken = pairingToken
         self.pairCode = pairingToken
@@ -428,6 +463,7 @@ public struct DJConnectPairingPayload: Codable, Equatable, Sendable {
         case clientType = "client_type"
         case firmware
         case appVersion = "app_version"
+        case protocolVersion = "protocol_version"
         case platform
         case pairingToken = "pairing_token"
         case pairCode = "pair_code"
@@ -800,6 +836,7 @@ public struct DJConnectStatusPayload: Codable, Equatable, Sendable {
     public var haPairingStatus: DJConnectPairingStatus
     public var firmware: String
     public var appVersion: String?
+    public var protocolVersion: String?
     public var state: DJConnectState
     public var status: DJConnectState
     public var batteryPercent: Int?
@@ -854,6 +891,7 @@ public struct DJConnectStatusPayload: Codable, Equatable, Sendable {
         self.haPairingStatus = haPairingStatus
         self.firmware = identity.firmware
         self.appVersion = identity.appVersion
+        self.protocolVersion = identity.protocolVersion ?? identity.firmware
         self.state = state
         self.status = status
         self.batteryPercent = batteryPercent
@@ -885,6 +923,7 @@ public struct DJConnectStatusPayload: Codable, Equatable, Sendable {
         case haPairingStatus = "ha_pairing_status"
         case firmware
         case appVersion = "app_version"
+        case protocolVersion = "protocol_version"
         case state
         case status
         case batteryPercent = "battery_percent"
@@ -6325,6 +6364,7 @@ public struct DJConnectPushRegistrationRequest: Codable, Equatable, Sendable {
     public var pushEnvironment: DJConnectPushEnvironment
     public var appBundleID: String
     public var appVersion: String?
+    public var protocolVersion: String?
     public var locale: String?
     public var notificationCategories: [String]
     public var bootstrapProof: String?
@@ -6345,6 +6385,7 @@ public struct DJConnectPushRegistrationRequest: Codable, Equatable, Sendable {
         self.pushEnvironment = pushEnvironment
         self.appBundleID = appBundleID
         self.appVersion = appVersion ?? identity.appVersion
+        self.protocolVersion = identity.protocolVersion ?? identity.firmware
         self.locale = locale
         self.notificationCategories = notificationCategories
         self.bootstrapProof = bootstrapProof
@@ -6357,6 +6398,7 @@ public struct DJConnectPushRegistrationRequest: Codable, Equatable, Sendable {
         case pushEnvironment = "push_environment"
         case appBundleID = "app_bundle_id"
         case appVersion = "app_version"
+        case protocolVersion = "protocol_version"
         case locale
         case notificationCategories = "categories"
         case bootstrapProof = "bootstrap_proof"

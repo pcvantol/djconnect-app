@@ -915,10 +915,11 @@ public final class DJConnectAppModel: ObservableObject {
     private let startBackgroundTasks: Bool
     private let monkeyTestingMode: Bool
     private let diagnosticLogFileURL: URL?
-    nonisolated private static let protocolVersion = "3.2.33"
+    nonisolated private static let protocolVersion = DJConnectProtocolVersion.current
     nonisolated private static let maxWidgetArtworkDataBytes = 750_000
     private static let defaultHomeAssistantURL = "http://homeassistant.local:8123"
-    private let appVersion = DJConnectAppModel.protocolVersion
+    private let appVersion = DJConnectApplicationVersion.releaseVersion
+    private let buildVersion = DJConnectApplicationVersion.buildVersion
     private let installIDKey = DJConnectAppModel.installIDKey
     private let homeAssistantURLKey = "DJConnectHomeAssistantURL"
     private let haLocalURLKey = "DJConnectHALocalURL"
@@ -941,6 +942,7 @@ public final class DJConnectAppModel: ObservableObject {
     private let watchProxyPairCodeKey = "DJConnectWatchProxyPairCode"
     private let watchProxyFirmwareKey = "DJConnectWatchProxyFirmware"
     private let watchProxyAppVersionKey = "DJConnectWatchProxyAppVersion"
+    private let watchProxyProtocolVersionKey = "DJConnectWatchProxyProtocolVersion"
     private let watchProxyPairedKey = "DJConnectWatchProxyPaired"
     private let watchProxyDeviceTokenKey = "DJConnectWatchProxyDeviceToken"
     private let watchProxyLocalURLKey = "DJConnectWatchProxyLocalURL"
@@ -1562,7 +1564,7 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     private func localizedReleaseNotesBody(_ body: String) -> String {
-        guard releaseNotesLanguageCode == "nl", appVersion == "3.1.30" else {
+        guard releaseNotesLanguageCode == "nl" else {
             return body
         }
         let normalizedBody = body.lowercased()
@@ -1815,7 +1817,9 @@ public final class DJConnectAppModel: ObservableObject {
 
 
         ```text
-        version: \(appVersion)
+        release_version: \(appVersion)
+        build_version: \(buildVersion)
+        protocol_version: \(Self.protocolVersion)
         client_type: \(identity.clientType.rawValue)
         device_id: \(identity.deviceID)
         pairing_status: \(pairingStatus.rawValue)
@@ -1922,7 +1926,9 @@ public final class DJConnectAppModel: ObservableObject {
     ) -> [String: Any] {
         [
             "app": [
-                "version": appVersion,
+                "release_version": appVersion,
+                "build_version": buildVersion,
+                "protocol_version": Self.protocolVersion,
                 "client_type": identity.clientType.rawValue,
                 "platform": Self.platformName,
                 "pairing_status": pairingStatus.rawValue,
@@ -4529,6 +4535,7 @@ public final class DJConnectAppModel: ObservableObject {
                     haPairingStatus: .paired,
                     language: currentRequestLocale,
                     logLevel: logLevel,
+                    appBuild: buildVersion,
                     localAudioSupported: true,
                     voiceSupported: voiceEnabled,
                     haLocalURL: haLocalURL.isEmpty ? nil : haLocalURL,
@@ -8725,7 +8732,7 @@ public final class DJConnectAppModel: ObservableObject {
         remoteNotificationRegistrationRequestedThisLaunch = true
         Task { @MainActor in
             let center = UNUserNotificationCenter.current()
-            logPush("init platform=\(identity.platform.rawValue) client_type=\(identity.clientType.rawValue) bundle_id=\(Bundle.main.bundleIdentifier ?? "<missing>") app_version=\(appVersion) app_build=\(Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "<missing>") env=\(Self.pushEnvironment.rawValue)", level: .info)
+            logPush("init platform=\(identity.platform.rawValue) client_type=\(identity.clientType.rawValue) bundle_id=\(Bundle.main.bundleIdentifier ?? "<missing>") app_version=\(appVersion) app_build=\(buildVersion) protocol_version=\(Self.protocolVersion) env=\(Self.pushEnvironment.rawValue)", level: .info)
             let authorized = await requestRemoteNotificationAuthorizationIfNeeded(
                 center: center,
                 allowSystemPrompt: allowSystemPrompt
@@ -9192,7 +9199,7 @@ public final class DJConnectAppModel: ObservableObject {
                 message: "Fixture update required",
                 haVersion: "3.3.0",
                 haMajorMinor: "3.3",
-                firmware: appVersion,
+                firmware: Self.protocolVersion,
                 firmwareMajorMinor: "3.2"
             )))
             isPairingScreenDismissed = true
@@ -9756,12 +9763,14 @@ public final class DJConnectAppModel: ObservableObject {
         }
         let firmware = message["firmware"] as? String ?? appVersion
         let appVersion = message["app_version"] as? String ?? firmware
+        let protocolVersion = message["protocol_version"] as? String ?? firmware
         let identity = DJConnectIdentity(
             deviceID: deviceID,
             deviceName: message["device_name"] as? String ?? "DJConnect Watch",
             clientType: .watchos,
             firmware: firmware,
             appVersion: appVersion,
+            protocolVersion: protocolVersion,
             platform: .watchos
         )
         watchProxyRegistration = DJConnectWatchProxyRegistration(
@@ -9781,6 +9790,7 @@ public final class DJConnectAppModel: ObservableObject {
             return
         }
         let firmware = defaults.string(forKey: watchProxyFirmwareKey) ?? appVersion
+        let protocolVersion = defaults.string(forKey: watchProxyProtocolVersionKey) ?? firmware
         watchProxyRegistration = DJConnectWatchProxyRegistration(
             identity: DJConnectIdentity(
                 deviceID: deviceID,
@@ -9788,6 +9798,7 @@ public final class DJConnectAppModel: ObservableObject {
                 clientType: .watchos,
                 firmware: firmware,
                 appVersion: defaults.string(forKey: watchProxyAppVersionKey) ?? firmware,
+                protocolVersion: protocolVersion,
                 platform: .watchos
             ),
             pairCode: pairCode,
@@ -9803,6 +9814,7 @@ public final class DJConnectAppModel: ObservableObject {
         defaults.set(registration.identity.deviceName, forKey: watchProxyDeviceNameKey)
         defaults.set(registration.identity.firmware, forKey: watchProxyFirmwareKey)
         defaults.set(registration.identity.appVersion, forKey: watchProxyAppVersionKey)
+        defaults.set(registration.identity.protocolVersion, forKey: watchProxyProtocolVersionKey)
         defaults.set(registration.pairCode, forKey: watchProxyPairCodeKey)
         defaults.set(registration.paired, forKey: watchProxyPairedKey)
     }
@@ -10018,6 +10030,7 @@ public final class DJConnectAppModel: ObservableObject {
             watchProxyPairCodeKey,
             watchProxyFirmwareKey,
             watchProxyAppVersionKey,
+            watchProxyProtocolVersionKey,
             watchProxyPairedKey,
             watchProxyDeviceTokenKey,
             watchProxyLocalURLKey,
@@ -10200,8 +10213,9 @@ public final class DJConnectAppModel: ObservableObject {
             deviceID: payload.deviceID,
             deviceName: "DJConnect Watch",
             clientType: payload.clientType,
-            firmware: payload.appVersion ?? Self.protocolVersion,
+            firmware: DJConnectProtocolVersion.current,
             appVersion: payload.appVersion,
+            protocolVersion: DJConnectProtocolVersion.current,
             platform: .watchos
         )
         guard let bootstrapProof = try await fetchBootstrapProofForPushRegistration(
@@ -10393,7 +10407,9 @@ public final class DJConnectAppModel: ObservableObject {
         let activeOutput = availableOutputs.first { $0.active == true }
         return """
         DJConnect Diagnostics
-        version: \(appVersion)
+        release_version: \(appVersion)
+        build_version: \(buildVersion)
+        protocol_version: \(Self.protocolVersion)
         client_type: \(identity.clientType.rawValue)
         device_id: \(identity.deviceID)
         bundle_id: \(Bundle.main.bundleIdentifier ?? "unknown")
@@ -10407,7 +10423,6 @@ public final class DJConnectAppModel: ObservableObject {
         ha_remote_url: \(haRemoteURL.isEmpty ? "missing" : Self.redactSensitive(haRemoteURL))
         ha_connection_mode: \(haConnectionMode.rawValue)
         remote_supported: \(remoteSupported)
-        protocol_version: \(appVersion)
         music_backend: \(musicBackendSummary.musicBackend ?? "missing")
         music_backend_name: \(musicBackendSummary.musicBackendName ?? "missing")
         music_backend_available: \(musicBackendSummary.musicBackendAvailable.map(String.init) ?? "unknown")
@@ -11703,7 +11718,8 @@ public final class DJConnectAppModel: ObservableObject {
             deviceName: "DJConnect Mac",
             clientType: .macos,
             firmware: protocolVersion,
-            appVersion: protocolVersion,
+            appVersion: DJConnectApplicationVersion.releaseVersion,
+            protocolVersion: protocolVersion,
             platform: .macos
         )
         #else
@@ -11714,7 +11730,8 @@ public final class DJConnectAppModel: ObservableObject {
             deviceName: deviceName,
             clientType: .ios,
             firmware: protocolVersion,
-            appVersion: protocolVersion,
+            appVersion: DJConnectApplicationVersion.releaseVersion,
+            protocolVersion: protocolVersion,
             platform: .ios
         )
         #endif
