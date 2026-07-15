@@ -31,7 +31,9 @@ state if any of these checks fail.
 2. Read `AGENTS.md` for repository rules and ownership boundaries.
 3. Read `CANONICAL_REFERENCES.md` for the platform, verification and Meta
    Engineering reference map.
-4. Read `ENGINEERING_STATUS.md` for the current local engineering state.
+4. Read `docs/governance/ADOPTION.md` for the local Version 2.2 adoption,
+   lifecycle and hygiene contract.
+5. Read `ENGINEERING_STATUS.md` for the current local engineering state.
 5. Read `REPOSITORY_STATUS.md` for repository role, ownership and readiness.
 6. Read `MANAGEMENT_SUMMARY.md` for the decision-level summary.
 7. Read `ROADMAP_INDEX.md` for repository-local planning navigation.
@@ -49,6 +51,7 @@ state if any of these checks fail.
 | `MANAGEMENT_SUMMARY.md` | Concise decision-level status for maintainers. |
 | `ROADMAP_INDEX.md` | Repository-local planning entry point; it links to work without copying the platform roadmap. |
 | `PROMPT_INDEX.md` | The single active repository-local prompt or its review/stop state. |
+| `docs/governance/` | Apple Definition of Done plus native validation and release profile. |
 
 ## Planning and Verification Entry Points
 
