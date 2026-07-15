@@ -19,7 +19,7 @@ jobs:
     name: Software Assurance governance
     permissions:
       contents: read
-    uses: pcvantol/djconnect/.github/workflows/software-assurance-governance.yml@5b235069a79f3f650e497a5b64a4bce4aeb1e031
+    uses: pcvantol/djconnect/.github/workflows/software-assurance-governance.yml@a73237f907554b2fba16e0e168d5fde22ce75455
     with:
       execution_profile: balanced
       owner: pcvantol/djconnect-app
@@ -83,7 +83,7 @@ jobs:
         uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd
 
       - name: Set up Python
-        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
           python-version: "3.x"
 
