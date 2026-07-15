@@ -16,7 +16,7 @@ jobs:
     name: Software Assurance governance
     permissions:
       contents: read
-    uses: pcvantol/djconnect/.github/workflows/software-assurance-governance.yml@5b235069a79f3f650e497a5b64a4bce4aeb1e031
+    uses: pcvantol/djconnect/.github/workflows/software-assurance-governance.yml@78852b8f714981794c63b92ff0d3083d06516099
     with:
       execution_profile: balanced
       owner: pcvantol/djconnect-app
@@ -44,7 +44,7 @@ jobs:
 
       - name: Upload third-party update report
         if: always()
-        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
           name: thirdparty-update-report
           path: build/release/thirdparty-update-report.txt
@@ -103,7 +103,7 @@ jobs:
 
       - name: Upload unsigned Apple build artifacts
         if: always()
-        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
           name: apple-unsigned-build-artifacts
           path: |
@@ -131,7 +131,7 @@ jobs:
 
       - name: Upload runner qualification evidence
         if: always()
-        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
           name: runner-evidence-apple
           path: runner-evidence/runner-evidence.json
@@ -153,7 +153,7 @@ jobs:
           xcodebuild test -project DJConnectApp.xcodeproj -scheme DJConnectMac -only-testing:DJConnectCoreTests -destination platform=macOS -enableCodeCoverage YES -resultBundlePath coverage.xcresult CODE_SIGNING_ALLOWED=NO
           xcrun xccov view --report --json coverage.xcresult > coverage.json
           printf '%s\n' "$GITHUB_SHA" > coverage-main-sha.txt
-      - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
           name: apple-xccov-coverage
           path: |
