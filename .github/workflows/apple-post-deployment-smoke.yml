@@ -15,6 +15,7 @@ on:
       deployment_workflow_run: {required: true, type: string}
 
 permissions:
+  actions: read
   contents: read
 
 jobs:
@@ -22,7 +23,7 @@ jobs:
     runs-on: [self-hosted, macOS, ARM64, internal-release]
     environment: apple-secure-distribution
     steps:
-      - name: Validate immutable smoke request
+      - name: Validate immutable MacBook smoke request
         env:
           CANDIDATE_SHA: ${{ inputs.candidate_sha }}
           MANIFEST_ID: ${{ inputs.manifest_id }}
@@ -38,15 +39,104 @@ jobs:
           set -euo pipefail
           printf '%s' "$CANDIDATE_SHA" | grep -Eq '^[0-9a-f]{40}$'
           printf '%s' "$MANIFEST_ID" | grep -Eq '^release-[A-Za-z0-9._-]+$'
-          printf '%s' "$ARTIFACT_ID" | grep -Eq '^[0-9]+$'
+          printf '%s' "$ARTIFACT_ID" | grep -Eq '^release-asset:pcvantol/djconnect-app-releases:macos/v[0-9]+\.[0-9]+\.[0-9]+:DJConnect-macOS-[0-9]+\.[0-9]+\.[0-9]+-unsigned\.zip$'
           printf '%s' "$ARTIFACT_SHA256" | grep -Eq '^[0-9a-f]{64}$'
           test "$TARGET" = apple_private_device
-          case "$TARGET_DEVICE" in macbook|iphone|ipad) ;; *) exit 1;; esac
-          case "$PAIRED_WATCH_VALIDATION" in required|optional|disabled) ;; *) exit 1;; esac
+          test "$TARGET_DEVICE" = macbook
+          test "$PAIRED_WATCH_VALIDATION" = disabled
           printf '%s' "$PLATFORM_VERSION" | grep -Eq '^[0-9]+\.[0-9]+$'
           test "$RELEASE_PROFILE" = INTERNAL_RELEASE
           printf '%s' "$DEPLOYMENT_WORKFLOW_RUN" | grep -Eq '^[0-9]+$'
-      - name: Fail closed without verified deployment evidence
+      - id: manifest
+        name: Require approved central operational manifest source
+        env:
+          CANDIDATE_SHA: ${{ inputs.candidate_sha }}
+          MANIFEST_ID: ${{ inputs.manifest_id }}
+          ARTIFACT_ID: ${{ inputs.artifact_id }}
+          ARTIFACT_SHA256: ${{ inputs.artifact_sha256 }}
+          TARGET: ${{ inputs.target }}
+          TARGET_DEVICE: ${{ inputs.target_device }}
+          RELEASE_PROFILE: ${{ inputs.release_profile }}
         run: |
-          echo "SMOKE_INCONCLUSIVE: no approved manifest, deployment evidence or typed Apple target scope is available."
-          exit 1
+          set -euo pipefail
+          manifest="$(mktemp)"
+          trap 'rm -f "$manifest"' EXIT
+          curl --fail --silent --show-error --location https://raw.githubusercontent.com/pcvantol/djconnect/main/docs/release/PLATFORM_3_3_CURRENT_MAIN_MANIFEST_PROPOSAL.json --output "$manifest"
+          test "$(jq -r '.status' "$manifest")" = APPROVED_DEPLOYMENT_DISPATCH_PENDING
+          test "$(jq -r '.approval.state' "$manifest")" = APPROVED
+          test "$(jq -r '.manifest_id' "$manifest")" = "$MANIFEST_ID"
+          test "$(jq -r '.release_profile' "$manifest")" = "$RELEASE_PROFILE"
+          release_version="$(jq -r --arg sha "$CANDIDATE_SHA" '.repositories[] | select(.repository == "pcvantol/djconnect-app" and .source_sha == $sha) | .version' "$manifest")"
+          printf '%s' "$release_version" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'
+          jq -e --arg target "$TARGET" --arg device "$TARGET_DEVICE" --arg artifact "$ARTIFACT_ID" --arg sha "$ARTIFACT_SHA256" '.artifact_bindings[] | select(.target == $target and .target_device == $device and .artifact_id == $artifact and .artifact_sha256 == $sha and .signing == "local_developer_provisioning_required")' "$manifest" >/dev/null
+          printf 'release_version=%s\n' "$release_version" >> "$GITHUB_OUTPUT"
+      - name: Download deployment evidence
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: apple-macbook-deployment-evidence
+          github-token: ${{ github.token }}
+          run-id: ${{ inputs.deployment_workflow_run }}
+          path: deployment-evidence
+      - name: Verify deployment evidence identity
+        env:
+          CANDIDATE_SHA: ${{ inputs.candidate_sha }}
+          MANIFEST_ID: ${{ inputs.manifest_id }}
+          ARTIFACT_ID: ${{ inputs.artifact_id }}
+          ARTIFACT_SHA256: ${{ inputs.artifact_sha256 }}
+          TARGET: ${{ inputs.target }}
+          TARGET_DEVICE: ${{ inputs.target_device }}
+          PAIRED_WATCH_VALIDATION: ${{ inputs.paired_watch_validation }}
+        run: |
+          set -euo pipefail
+          evidence=deployment-evidence/apple-macbook-deployment-evidence.json
+          test "$(jq -r '.candidate_sha' "$evidence")" = "$CANDIDATE_SHA"
+          test "$(jq -r '.manifest_id' "$evidence")" = "$MANIFEST_ID"
+          test "$(jq -r '.artifact_id' "$evidence")" = "$ARTIFACT_ID"
+          test "$(jq -r '.artifact_sha256' "$evidence")" = "$ARTIFACT_SHA256"
+          test "$(jq -r '.target' "$evidence")" = "$TARGET"
+          test "$(jq -r '.target_device' "$evidence")" = "$TARGET_DEVICE"
+          test "$(jq -r '.paired_watch_validation' "$evidence")" = "$PAIRED_WATCH_VALIDATION"
+          test "$(jq -r '.deployment_result' "$evidence")" = DEPLOYED_PENDING_SMOKE
+      - name: Verify installed signed MacBook application and safe launch
+        env:
+          EXPECTED_MACBOOK_UUID: ${{ secrets.DJCONNECT_APPLE_MACBOOK_HARDWARE_UUID }}
+          RELEASE_VERSION: ${{ steps.manifest.outputs.release_version }}
+        run: |
+          set -euo pipefail
+          observed_uuid="$(ioreg -rd1 -c IOPlatformExpertDevice | awk -F'"' '/IOPlatformUUID/{print $4; exit}')"
+          test "$observed_uuid" = "$EXPECTED_MACBOOK_UUID"
+          app_path="$HOME/Applications/DJConnect.app"
+          test -d "$app_path"
+          test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$app_path/Contents/Info.plist")" = dev.djconnect.mac
+          test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$app_path/Contents/Info.plist")" = "$RELEASE_VERSION"
+          codesign --verify --deep --strict "$app_path"
+          open -gj "$app_path"
+          for attempt in 1 2 3 4 5; do pgrep -x DJConnect >/dev/null && break; sleep 2; done
+          pgrep -x DJConnect >/dev/null
+      - name: Publish redacted MacBook smoke evidence
+        env:
+          CANDIDATE_SHA: ${{ inputs.candidate_sha }}
+          MANIFEST_ID: ${{ inputs.manifest_id }}
+          ARTIFACT_ID: ${{ inputs.artifact_id }}
+          ARTIFACT_SHA256: ${{ inputs.artifact_sha256 }}
+          TARGET: ${{ inputs.target }}
+          TARGET_DEVICE: ${{ inputs.target_device }}
+          PAIRED_WATCH_VALIDATION: ${{ inputs.paired_watch_validation }}
+          PLATFORM_VERSION: ${{ inputs.platform_version }}
+          RELEASE_PROFILE: ${{ inputs.release_profile }}
+          DEPLOYMENT_WORKFLOW_RUN: ${{ inputs.deployment_workflow_run }}
+          SMOKE_WORKFLOW_RUN: ${{ github.run_id }}
+          RELEASE_VERSION: ${{ steps.manifest.outputs.release_version }}
+        run: |
+          python3 - <<'PY'
+          from datetime import UTC, datetime
+          import json, os
+          with open("apple-macbook-smoke-evidence.json", "w", encoding="utf-8") as file:
+              timestamp = datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+              json.dump({"schema_version": 1, "kind": "apple_private_macbook_smoke", "repository": os.environ["GITHUB_REPOSITORY"], "candidate_sha": os.environ["CANDIDATE_SHA"], "manifest_id": os.environ["MANIFEST_ID"], "artifact_id": os.environ["ARTIFACT_ID"], "artifact_sha256": os.environ["ARTIFACT_SHA256"], "target": os.environ["TARGET"], "target_device": os.environ["TARGET_DEVICE"], "paired_watch_validation": os.environ["PAIRED_WATCH_VALIDATION"], "platform_version": os.environ["PLATFORM_VERSION"], "release_profile": os.environ["RELEASE_PROFILE"], "release_version": os.environ["RELEASE_VERSION"], "deployment_workflow_run": os.environ["DEPLOYMENT_WORKFLOW_RUN"], "smoke_workflow_run": os.environ["SMOKE_WORKFLOW_RUN"], "runner_identity": "self-hosted-macos-apple-secure-distribution", "signing_result": "PASS", "install_result": "PASS", "safe_launch_result": "PASS", "paired_watch_result": "NOT_APPLICABLE", "final_result": "SMOKE_PASSED", "timestamp": timestamp}, file, sort_keys=True)
+          PY
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: apple-macbook-smoke-evidence
+          path: apple-macbook-smoke-evidence.json
+          if-no-files-found: error

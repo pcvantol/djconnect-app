@@ -227,6 +227,33 @@ NOTARY_PROFILE=<notarytool-keychain-profile> \
 - Launch the app, grant Local Network/Microphone/Speech permissions as
   needed, pair with Home Assistant, and validate playback/queue/playlists/PTT.
 
+### Internal Release: MacBook Developer Deployment
+
+The internal-release MacBook path is distinct from public notarization and the
+Mac App Store. It consumes only the checksum-bound unsigned macOS artifact
+selected by the approved central operational manifest, then signs it locally on
+the qualified MacBook runner with an already-installed Apple Development
+identity. Certificates, private keys and provisioning material stay in the
+local keychain and are never placed in GitHub secrets or artifacts.
+
+The `Apple Secure Distribution Relay` accepts `target_device=macbook` with
+`paired_watch_validation=disabled` only for this path. Its
+`apple-secure-distribution` environment requires:
+
+- `DJCONNECT_APPLE_MACBOOK_HARDWARE_UUID`: the exact local MacBook hardware
+  UUID, used to prevent installation on another self-hosted runner;
+- `DJCONNECT_APPLE_DEVELOPMENT_SIGNING_IDENTITY`: the name of the existing
+  local Apple Development codesigning identity.
+
+The relay verifies central manifest approval, source SHA, artifact identity and
+checksum before downloading. It signs only `DJConnect.app`, installs it into
+the runner user's `~/Applications/DJConnect.app`, keeps a run-scoped previous
+copy for operator-led recovery, and publishes redacted deployment evidence.
+It never invokes TestFlight, App Store Connect, Developer ID notarization or a
+public release publication. A separate explicitly authorized smoke workflow
+verifies the installed bundle/version/signature and performs a safe local
+launch.
+
 ## Public Unsigned CI Artifacts
 
 The private source repository contains `.github/workflows/public-unsigned-release.yml`.

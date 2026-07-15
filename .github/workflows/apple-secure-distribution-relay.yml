@@ -42,14 +42,112 @@ jobs:
           test "$ACTION" = deployment && test "$EXECUTION_MODE" = execute
           test "$RELEASE_PROFILE" = INTERNAL_RELEASE
           test "$TARGET" = apple_private_device
-          case "$TARGET_DEVICE" in macbook|iphone|ipad) ;; *) exit 1;; esac
-          case "$PAIRED_WATCH_VALIDATION" in required|optional|disabled) ;; *) exit 1;; esac
+          test "$TARGET_DEVICE" = macbook
+          test "$PAIRED_WATCH_VALIDATION" = disabled
           printf '%s' "$CANDIDATE_SHA" | grep -Eq '^[0-9a-f]{40}$'
           printf '%s' "$MANIFEST_ID" | grep -Eq '^release-[A-Za-z0-9._-]+$'
-          printf '%s' "$ARTIFACT_ID" | grep -Eq '^[0-9]+$'
+          printf '%s' "$ARTIFACT_ID" | grep -Eq '^release-asset:pcvantol/djconnect-app-releases:macos/v[0-9]+\.[0-9]+\.[0-9]+:DJConnect-macOS-[0-9]+\.[0-9]+\.[0-9]+-unsigned\.zip$'
           printf '%s' "$ARTIFACT_SHA256" | grep -Eq '^[0-9a-f]{64}$'
           printf '%s' "$PLATFORM_VERSION" | grep -Eq '^[0-9]+\.[0-9]+$'
-      - name: Refuse distribution without an approved operational manifest
+      - id: manifest
+        name: Require approved central operational manifest source
+        env:
+          CANDIDATE_SHA: ${{ inputs.candidate_sha }}
+          MANIFEST_ID: ${{ inputs.manifest_id }}
+          ARTIFACT_ID: ${{ inputs.artifact_id }}
+          ARTIFACT_SHA256: ${{ inputs.artifact_sha256 }}
+          TARGET: ${{ inputs.target }}
+          TARGET_DEVICE: ${{ inputs.target_device }}
+          PAIRED_WATCH_VALIDATION: ${{ inputs.paired_watch_validation }}
+          RELEASE_PROFILE: ${{ inputs.release_profile }}
         run: |
-          echo "APPLE_SECURE_DISTRIBUTION_NOT_AUTHORIZED: no approved current-main operational release manifest is available."
-          exit 1
+          set -euo pipefail
+          manifest="$(mktemp)"
+          trap 'rm -f "$manifest"' EXIT
+          curl --fail --silent --show-error --location \
+            https://raw.githubusercontent.com/pcvantol/djconnect/main/docs/release/PLATFORM_3_3_CURRENT_MAIN_MANIFEST_PROPOSAL.json \
+            --output "$manifest"
+          test "$(jq -r '.status' "$manifest")" = APPROVED_DEPLOYMENT_DISPATCH_PENDING
+          test "$(jq -r '.approval.state' "$manifest")" = APPROVED
+          test "$(jq -r '.manifest_id' "$manifest")" = "$MANIFEST_ID"
+          test "$(jq -r '.release_profile' "$manifest")" = "$RELEASE_PROFILE"
+          release_version="$(jq -r --arg sha "$CANDIDATE_SHA" '.repositories[] | select(.repository == "pcvantol/djconnect-app" and .source_sha == $sha) | .version' "$manifest")"
+          printf '%s' "$release_version" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'
+          binding="$(jq -cer --arg target "$TARGET" --arg device "$TARGET_DEVICE" --arg artifact "$ARTIFACT_ID" --arg sha "$ARTIFACT_SHA256" '.artifact_bindings[] | select(.target == $target and .target_device == $device and .artifact_id == $artifact and .artifact_sha256 == $sha)' "$manifest")"
+          test "$(jq -r '.signing' <<<"$binding")" = local_developer_provisioning_required
+          test "${PAIRED_WATCH_VALIDATION}" = disabled
+          artifact_url="$(jq -r '.artifact_url' <<<"$binding")"
+          printf '%s' "$artifact_url" | grep -Eq '^https://github\.com/pcvantol/djconnect-app-releases/releases/download/macos/v[0-9]+\.[0-9]+\.[0-9]+/DJConnect-macOS-[0-9]+\.[0-9]+\.[0-9]+-unsigned\.zip$'
+          printf 'release_version=%s\n' "$release_version" >> "$GITHUB_OUTPUT"
+          printf 'artifact_url=%s\n' "$artifact_url" >> "$GITHUB_OUTPUT"
+      - name: Validate exact MacBook and local Developer signing scope
+        env:
+          EXPECTED_MACBOOK_UUID: ${{ secrets.DJCONNECT_APPLE_MACBOOK_HARDWARE_UUID }}
+          SIGNING_IDENTITY: ${{ secrets.DJCONNECT_APPLE_DEVELOPMENT_SIGNING_IDENTITY }}
+        run: |
+          set -euo pipefail
+          test -n "$EXPECTED_MACBOOK_UUID"
+          test -n "$SIGNING_IDENTITY"
+          observed_uuid="$(ioreg -rd1 -c IOPlatformExpertDevice | awk -F'"' '/IOPlatformUUID/{print $4; exit}')"
+          test "$observed_uuid" = "$EXPECTED_MACBOOK_UUID"
+          security find-identity -v -p codesigning | grep -F -- "$SIGNING_IDENTITY" >/dev/null
+      - name: Download manifest-bound unsigned macOS artifact
+        env:
+          ARTIFACT_URL: ${{ steps.manifest.outputs.artifact_url }}
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error --location "$ARTIFACT_URL" --output artifact.zip
+      - name: Verify, locally sign and install DJConnect on this MacBook
+        env:
+          ARTIFACT_SHA256: ${{ inputs.artifact_sha256 }}
+          RELEASE_VERSION: ${{ steps.manifest.outputs.release_version }}
+          SIGNING_IDENTITY: ${{ secrets.DJCONNECT_APPLE_DEVELOPMENT_SIGNING_IDENTITY }}
+        run: |
+          set -euo pipefail
+          test "$(shasum -a 256 artifact.zip | awk '{print $1}')" = "$ARTIFACT_SHA256"
+          staging="$(mktemp -d)"
+          trap 'rm -rf "$staging"' EXIT
+          ditto -x -k artifact.zip "$staging"
+          app_bundle="$staging/DJConnect.app"
+          test -d "$app_bundle"
+          find "$app_bundle" -name '._*' -type f -delete
+          xattr -cr "$app_bundle"
+          test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$app_bundle/Contents/Info.plist")" = dev.djconnect.mac
+          test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$app_bundle/Contents/Info.plist")" = "$RELEASE_VERSION"
+          codesign --force --deep --sign "$SIGNING_IDENTITY" --timestamp=none "$app_bundle"
+          codesign --verify --deep --strict "$app_bundle"
+          install_root="$HOME/Applications"
+          install_path="$install_root/DJConnect.app"
+          replacement_path="$install_root/.DJConnect-${GITHUB_RUN_ID}.app"
+          recovery_path="$install_root/.DJConnect-pre-${GITHUB_RUN_ID}.app"
+          mkdir -p "$install_root"
+          test ! -e "$replacement_path"
+          test ! -e "$recovery_path"
+          ditto "$app_bundle" "$replacement_path"
+          if test -e "$install_path"; then mv "$install_path" "$recovery_path"; fi
+          mv "$replacement_path" "$install_path"
+          codesign --verify --deep --strict "$install_path"
+      - name: Publish redacted MacBook deployment evidence
+        env:
+          CANDIDATE_SHA: ${{ inputs.candidate_sha }}
+          MANIFEST_ID: ${{ inputs.manifest_id }}
+          ARTIFACT_ID: ${{ inputs.artifact_id }}
+          ARTIFACT_SHA256: ${{ inputs.artifact_sha256 }}
+          TARGET: ${{ inputs.target }}
+          TARGET_DEVICE: ${{ inputs.target_device }}
+          PAIRED_WATCH_VALIDATION: ${{ inputs.paired_watch_validation }}
+          PLATFORM_VERSION: ${{ inputs.platform_version }}
+          RELEASE_PROFILE: ${{ inputs.release_profile }}
+          RELEASE_VERSION: ${{ steps.manifest.outputs.release_version }}
+        run: |
+          python3 - <<'PY'
+          from datetime import UTC, datetime
+          import json, os
+          with open("apple-macbook-deployment-evidence.json", "w", encoding="utf-8") as file:
+              json.dump({"schema_version": 1, "kind": "apple_private_macbook_deployment", "repository": os.environ["GITHUB_REPOSITORY"], "candidate_sha": os.environ["CANDIDATE_SHA"], "manifest_id": os.environ["MANIFEST_ID"], "artifact_id": os.environ["ARTIFACT_ID"], "artifact_sha256": os.environ["ARTIFACT_SHA256"], "target": os.environ["TARGET"], "target_device": os.environ["TARGET_DEVICE"], "paired_watch_validation": os.environ["PAIRED_WATCH_VALIDATION"], "platform_version": os.environ["PLATFORM_VERSION"], "release_profile": os.environ["RELEASE_PROFILE"], "release_version": os.environ["RELEASE_VERSION"], "installed_bundle_identifier": "dev.djconnect.mac", "signing_scope": "runner_local_apple_development_identity", "deployment_result": "DEPLOYED_PENDING_SMOKE", "timestamp": datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")}, file, sort_keys=True)
+          PY
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: apple-macbook-deployment-evidence
+          path: apple-macbook-deployment-evidence.json
+          if-no-files-found: error
