@@ -39,6 +39,7 @@ jobs:
           test "$(jq -r '.manifest_id' "$evidence")" = "$MANIFEST_ID"
           test "$(jq -r '.artifact_id' "$evidence")" = "$ARTIFACT_ID"
           test "$(jq -r '.artifact_sha256' "$evidence")" = "$ARTIFACT_SHA256"
+          test "$(jq -r '.paired_watch_installation' "$evidence")" = completed
           test "$(jq -r '.deployment_result' "$evidence")" = DEPLOYED_PENDING_SMOKE
           manifest="$(mktemp)"
           trap 'rm -f "$manifest" iphone-apps.json watch-apps.json' EXIT

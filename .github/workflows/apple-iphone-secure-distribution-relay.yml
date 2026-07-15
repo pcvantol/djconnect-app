@@ -74,9 +74,13 @@ jobs:
           trap 'rm -rf "$staging"' EXIT
           ditto -x -k artifact.zip "$staging"
           app_bundle="$staging/DJConnect.app"
+          watch_app_bundle="$app_bundle/Watch/DJConnect.app"
           test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$app_bundle/Info.plist")" = dev.djconnect.ios
+          test -d "$watch_app_bundle"
+          test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$watch_app_bundle/Info.plist")" = dev.djconnect.ios.watch
           Tools/release/resign_internal_ios_bundle.sh "$app_bundle" "$SIGNING_IDENTITY" "$IPHONE_UDID" "$WATCH_UDID"
           xcrun devicectl device install app --device "$IPHONE_UDID" "$app_bundle"
+          xcrun devicectl device install app --device "$WATCH_UDID" "$watch_app_bundle"
       - name: Publish redacted iPhone deployment evidence
         env:
           CANDIDATE_SHA: ${{ inputs.candidate_sha }}
@@ -86,7 +90,7 @@ jobs:
         run: |
           python3 - <<'PY'
           import json, os
-          json.dump({"kind":"apple_private_iphone_deployment","candidate_sha":os.environ["CANDIDATE_SHA"],"manifest_id":os.environ["MANIFEST_ID"],"artifact_id":os.environ["ARTIFACT_ID"],"artifact_sha256":os.environ["ARTIFACT_SHA256"],"target":"apple_private_device","target_device":"iphone","paired_watch_validation":"required","deployment_result":"DEPLOYED_PENDING_SMOKE"}, open("apple-iphone-deployment-evidence.json", "w"), sort_keys=True)
+          json.dump({"kind":"apple_private_iphone_deployment","candidate_sha":os.environ["CANDIDATE_SHA"],"manifest_id":os.environ["MANIFEST_ID"],"artifact_id":os.environ["ARTIFACT_ID"],"artifact_sha256":os.environ["ARTIFACT_SHA256"],"target":"apple_private_device","target_device":"iphone","paired_watch_validation":"required","paired_watch_installation":"completed","deployment_result":"DEPLOYED_PENDING_SMOKE"}, open("apple-iphone-deployment-evidence.json", "w"), sort_keys=True)
           PY
       - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
