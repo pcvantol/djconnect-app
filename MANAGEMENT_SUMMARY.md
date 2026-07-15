@@ -1,29 +1,27 @@
 # DJConnect App Management Summary
 
-Status: product-development increment reviewable; pending merge
+Status: build-engineering increment reviewable; pending merge
 
 ## Decision
 
-Restore one bundle-derived application release version across macOS, iOS and
-watchOS while keeping the Home Assistant protocol version independent.
+Qualify the unsigned iOS Simulator build without changing the Apple project
+architecture.
 
 ## Scope and Outcome
 
-This completed increment is limited to Apple client runtime version sources, UI,
-diagnostics and identity metadata. It does not change product behaviour,
-release artefacts, deployment workflows or protocol semantics.
+The reported duplicate output was caused by a globally forced iOS Simulator SDK
+in the build invocation. The destination-based invocation preserves Xcode's
+separate iOS and watchOS product directories and succeeds without warnings.
+No Xcode project, release, signing, protocol or product code change was needed.
 
-Review is available in [PR #24](https://github.com/pcvantol/djconnect-app/pull/24).
+The Build Engineering review pull request is created before review.
 
 ## Known Limitation
 
-The previous governance status documents were stale after PR #23 merged; they
-were updated before this increment's implementation reality check.
-
-The iOS scheme currently has a pre-existing duplicate-output conflict with the
-embedded Watch target. macOS and watchOS builds and the version-integrity tests
-passed; the project-output conflict is deferred.
+No known limitation from this increment. The previous `-sdk iphonesimulator`
+failure mode is documented in `docs/DEVELOPMENT.md` to prevent recurrence.
 
 ## Recommended Next Prompt
 
-Determine a follow-up only after this increment has been reviewed and merged.
+No next increment is selected. Wait for an explicit repository-specific prompt
+after review and merge.

@@ -9,7 +9,8 @@ canonical platform roadmap from `pcvantol/djconnect/PROMPT_INDEX.md`.
 
 ## Current Repository Phase
 
-Generation 2 Product Development: restore Apple release-version integrity.
+Generation 2 Build Engineering: resolve the reported iOS/watchOS
+duplicate-output conflict and qualify an unsigned iOS Simulator build.
 
 ## Status
 
@@ -23,16 +24,16 @@ REVIEWABLE_PENDING_MERGE
 
 ## Current Prompt
 
-Product Development: Restore Apple release-version integrity
+Build Engineering: Resolve iOS/watchOS duplicate-output conflict
 
 ## Completion Report
 
 Repository-local implementation branch, commit, pull request and immutable
 Prompt History record.
 
-Review branch: `codex/restore-apple-release-version-integrity`.
+Review branch: `codex/qualify-ios-watch-simulator-build`.
 
-Pull request: [#24](https://github.com/pcvantol/djconnect-app/pull/24).
+Pull request: created before review.
 
 ## Next Repository Phase
 

@@ -18,10 +18,11 @@ Does not own: backend intelligence, Music DNA storage, Spotify OAuth secrets, ce
 
 ## Current Phase
 
-Generation 2 Product Development: restore Apple release-version integrity.
+Generation 2 Build Engineering: qualify the unsigned iOS Simulator build.
 
-This phase corrects Apple client version-source separation only. It does not
-change protocol compatibility, deployment, release workflows or Home Assistant.
+This phase documents and verifies the correct Xcode invocation only. It does
+not change project architecture, product behaviour, release, signing or
+protocol compatibility.
 
 ## Status
 
@@ -29,37 +30,40 @@ Reviewable; pending merge.
 
 ## Blocking Dependencies
 
-- None identified before implementation reality verification.
+- None. The reported duplicate-output failure is resolved by using the proper
+  destination-based Xcode invocation.
 
 ## Current Prompt
 
-Product Development: Restore Apple release-version integrity
+Build Engineering: Resolve iOS/watchOS duplicate-output conflict
 
 ## Completion Report
 
 Repository-local implementation branch, commit, pull request and immutable
 Prompt History record.
 
-Review branch: `codex/restore-apple-release-version-integrity`.
+Review branch: `codex/qualify-ios-watch-simulator-build`.
 
-Pull request: [#24](https://github.com/pcvantol/djconnect-app/pull/24).
+Pull request: created before review.
 
 ## Last Qualification
 
-Source and contract integrity tests passed. Unsigned macOS and watchOS builds
-passed. The iOS scheme build is blocked by an existing duplicate-output project
-configuration, recorded as deferred work rather than changed in this increment.
+A clean unsigned iOS Simulator build succeeded with the `DJConnectIOS` scheme,
+`-destination 'generic/platform=iOS Simulator'` and
+`CODE_SIGNING_ALLOWED=NO`. Xcode built iOS products in
+`Debug-iphonesimulator` and Watch products in `Debug-watchsimulator`; no
+`warning:` or `error:` diagnostics were emitted.
 
 ## Validated Base SHA
 
-`adf60b14dab8b0a1bed8f74fa1d0fe394f281b62`
+`afa648fe5dbe49cc3dff6535ca1a35fdf43fffed`
 
 This value records the repository SHA inspected at the start of the
 repository-local bootstrap alignment pass.
 
 ## Repository-Local Next Action
 
-Review and merge this Apple release-version integrity pull request, then stop.
+Review and merge this build-qualification pull request, then stop.
 
 ## Notes
 
