@@ -47,7 +47,7 @@ cat >"$PLIST" <<PLIST
   <key>StartCalendarInterval</key>
   <dict>
     <key>Hour</key>
-    <integer>3</integer>
+    <integer>10</integer>
     <key>Minute</key>
     <integer>30</integer>
   </dict>

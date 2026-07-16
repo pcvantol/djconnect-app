@@ -8,7 +8,7 @@ on the same host share the same maintained toolchain.
 
 ## Managed tooling
 
-Daily at 03:30 and at user login, the task updates Homebrew metadata and
+Daily at 10:00 local time and at user login, the task updates Homebrew metadata and
 upgrades only already-installed CI helper formulae:
 
 - `gh`
@@ -37,7 +37,7 @@ Run this as the same logged-in macOS user that runs the GitHub Actions runner:
 
 ```sh
 cd <djconnect-app-clone>
-./scripts/runner/install_macos_ci_tooling_maintenance.sh --run-now
+bash scripts/runner/install_macos_ci_tooling_maintenance.sh --run-now
 ```
 
 Do not use `sudo`. The installer copies the maintenance script to
