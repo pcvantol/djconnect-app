@@ -1,27 +1,26 @@
 # DJConnect App Management Summary
 
-Status: build-engineering increment reviewable; pending merge
+Status: macOS runner CI-tooling maintenance increment reviewable
 
 ## Decision
 
-Qualify the unsigned iOS Simulator build without changing the Apple project
-architecture.
+Keep the macOS self-hosted runner's installed Homebrew CI tooling current
+without changing the Apple project architecture or toolchain-selection policy.
 
 ## Scope and Outcome
 
-The reported duplicate output was caused by a globally forced iOS Simulator SDK
-in the build invocation. The destination-based invocation preserves Xcode's
-separate iOS and watchOS product directories and succeeds without warnings.
-No Xcode project, release, signing, protocol or product code change was needed.
-
-Review is available in [PR #27](https://github.com/pcvantol/djconnect-app/pull/27).
+PR #27 is merged. The current reviewable increment adds a daily user-level
+launchd task that updates only already-installed Homebrew CI helper tools,
+captures tool versions and verifies its first execution. Xcode is deliberately
+not updated unattended because its version controls signing, SDK and simulator
+qualification.
 
 ## Known Limitation
 
-No known limitation from this increment. The previous `-sdk iphonesimulator`
-failure mode is documented in `docs/DEVELOPMENT.md` to prevent recurrence.
+An administrator is not needed, but the same logged-in user that owns the
+Apple GitHub Actions runner must install the LaunchAgent once after merge.
 
 ## Recommended Next Prompt
 
-No next increment is selected. Wait for an explicit repository-specific prompt
-after review and merge.
+Install and verify the maintenance task after merge. No further engineering
+increment is selected automatically.

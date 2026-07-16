@@ -1,42 +1,34 @@
 # DJConnect App Engineering Status
 
-Status: build-engineering increment reviewable; pending merge
+Status: macOS runner CI-tooling maintenance increment reviewable
 
 Repository: `pcvantol/djconnect-app`
 
 ## Current Engineering State
 
-Apple Release Version Integrity merged into `main` as `7ee3dcd`. The active
-increment is Generation 2 Build Engineering: qualify the unsigned iOS
-Simulator build and resolve the reported iOS/watchOS duplicate-output failure.
-
-Review branch: `codex/qualify-ios-watch-simulator-build`.
-
-Qualification evidence commit: `be96729b9b9cbadd87772e02e02380cd6ea774d7`.
-
-Qualified base commit: `afa648fe5dbe49cc3dff6535ca1a35fdf43fffed`.
-
-Pull request: [#27](https://github.com/pcvantol/djconnect-app/pull/27).
+Apple Release Version Integrity and the subsequent unsigned iOS Simulator
+build qualification are merged into `main`; PR #27 merged as
+`b04bf915c711a3a669e5a4bd43a140325f30deb9`. The active bounded increment adds
+launchd-based maintenance for the Apple self-hosted runner's Homebrew CI
+tooling. It does not change Xcode, signing, source code, release artifacts or
+deployment authorization.
 
 ## Qualification Context
 
-- Base branch verified before work: `main` at
-  `afa648fe5dbe49cc3dff6535ca1a35fdf43fffed`.
-- Repository state before work: clean and tracking `origin/main`.
-- A clean unsigned iOS Simulator build succeeded with
-  `-destination 'generic/platform=iOS Simulator'` and
-  `CODE_SIGNING_ALLOWED=NO`.
-- The build emitted no `warning:` or `error:` diagnostics.
+- The predecessor PR #27 is objectively merged and no Apple repository PR is
+  open.
+- The maintenance scripts pass `bash -n` and their launchd schedule, version
+  logging and bounded Homebrew formula allowlist are statically verified.
 
 ## Current Decision
 
-The reported duplicate-output failure is an invocation defect, not an Xcode
-project-configuration defect. A global `-sdk iphonesimulator` override forces
-the iOS and watchOS dependency products into one directory. Xcode's iOS
-Simulator destination keeps them in their respective product directories.
+The maintenance task runs as the runner's logged-in user, updates only
+installed CI helper formulae daily, records tool versions and requires an
+explicit first-run verification. Xcode is intentionally recorded but not
+updated unattended because Apple toolchain changes require qualification.
 
-Decision: PASS. Stop after the reviewable pull request; do not begin a
-subsequent increment automatically.
+Decision: `MACOS_CI_TOOLING_MAINTENANCE_REVIEWABLE`. Stop after the reviewable
+pull request; do not begin a subsequent increment automatically.
 
 ## Planning Entry Point
 

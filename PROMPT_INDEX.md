@@ -9,12 +9,11 @@ canonical platform roadmap from `pcvantol/djconnect/PROMPT_INDEX.md`.
 
 ## Current Repository Phase
 
-Generation 2 Build Engineering: resolve the reported iOS/watchOS
-duplicate-output conflict and qualify an unsigned iOS Simulator build.
+macOS runner CI-tooling maintenance automation.
 
 ## Status
 
-REVIEWABLE_PENDING_MERGE
+REVIEWABLE
 
 ## Depends On
 
@@ -24,21 +23,18 @@ REVIEWABLE_PENDING_MERGE
 
 ## Current Prompt
 
-Build Engineering: Resolve iOS/watchOS duplicate-output conflict
+Install a user-level launchd task that keeps installed Homebrew CI helper tools
+current and records Apple toolchain versions. Do not update Xcode unattended.
 
 ## Completion Report
 
-Repository-local implementation branch, commit, pull request and immutable
-Prompt History record.
-
-Review branch: `codex/qualify-ios-watch-simulator-build`.
-
-Pull request: [#27](https://github.com/pcvantol/djconnect-app/pull/27).
+`docs/history/prompts/2026-07-16-macos-ci-tooling-maintenance.md`
 
 ## Next Repository Phase
 
-After this increment is reviewed and merged, wait for an explicit
-repository-specific prompt. Do not begin a next increment automatically.
+After this increment is reviewed and merged, install and verify the launchd
+task on the Apple runner. Do not begin a subsequent engineering increment
+automatically.
 
 ## Boundary
 
