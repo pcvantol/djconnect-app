@@ -1,8 +1,10 @@
 # macOS Runner CI Tooling Maintenance
 
-The Apple self-hosted runner uses a user LaunchAgent, not root automation,
-because builds and internal Apple distribution use the runner user's Xcode
-toolchain, keychain and Homebrew installation.
+Every DJConnect macOS runner host uses this user LaunchAgent, not root
+automation, because Apple builds, private-network relays and internal Apple
+distribution use the runner user's Xcode toolchain, keychain and Homebrew
+installation. Install it once per macOS host; multiple runner registrations
+on the same host share the same maintained toolchain.
 
 ## Managed tooling
 
@@ -24,8 +26,10 @@ not installed implicitly.
 
 Xcode itself is deliberately not changed unattended. A new Xcode, simulator
 runtime or beta/stable transition can change signing, SDK and simulator
-semantics. Update Xcode through the approved Apple toolchain qualification
-process, then let this task record the resulting version.
+semantics. The current platform toolchain is therefore the latest *qualified*
+Xcode line: qualify a new Xcode line first, then make it active and let this
+task record the resulting version. This is not permission to retain an
+unqualified, stale Xcode indefinitely.
 
 ## One-time installation
 
