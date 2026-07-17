@@ -75,15 +75,23 @@ jobs:
           test "${ARTIFACT_URL##*/}" = "DJConnect-iOS-${RELEASE_VERSION}-unsigned.zip"
           curl --fail --silent --show-error --location --retry 3 --retry-all-errors \
             --output artifact.zip "$ARTIFACT_URL"
-          test "$(shasum -a 256 artifact.zip | awk '{print $1}')" = "$ARTIFACT_SHA256"
+          actual_sha256="$(shasum -a 256 artifact.zip | awk '{print $1}')"
+          if test "$actual_sha256" != "$ARTIFACT_SHA256"; then
+            echo 'Downloaded artifact checksum does not match the approved manifest binding.' >&2
+            exit 1
+          fi
+          echo 'Verified approved artifact checksum.'
           staging="$(mktemp -d)"
           trap 'rm -rf "$staging"' EXIT
           ditto -x -k artifact.zip "$staging"
+          echo 'Extracted approved artifact.'
           app_bundle="$staging/DJConnect.app"
           test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$app_bundle/Info.plist")" = dev.djconnect.ios
           test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$app_bundle/Info.plist")" = "$RELEASE_VERSION"
+          echo 'Verified approved bundle identity and version.'
           Tools/release/resign_internal_ios_bundle.sh "$app_bundle" "$SIGNING_IDENTITY" "$IPAD_UDID"
           test ! -e "$app_bundle/Watch"
+          echo 'Signed standalone iPad bundle.'
           xcrun devicectl device install app --device "$IPAD_UDID" "$app_bundle"
       - name: Publish redacted iPad deployment evidence
         env:
