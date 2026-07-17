@@ -10,62 +10,35 @@ Status: Active engineering repository
 
 Apple Intelligence Client UX for iOS, iPadOS, macOS and watchOS.
 
-## Ownership
-
-Owns: Apple client implementation, Apple presentation/runtime behavior and localized rendering for Apple surfaces.
-
-Does not own: backend intelligence, Music DNA storage, Spotify OAuth secrets, central relay logic, canonical Profile resolution or foundation docs.
-
 ## Current Phase
 
-iPad internal deployment consumer qualification.
+iPad release-asset download repair.
 
-This phase adds a manifest-bound internal iPad deployment relay and a separate
-post-deployment smoke consumer. It does not dispatch a release, change a
-release manifest, modify application functionality, or change the platform
-architecture.
+PR #37 merged the iPad consumer. Authorized deployment run `29592595620`
+passed physical-device validation and stopped before signing or installation
+because the manifest artifact's browser URL returned HTTP 404 on the runner.
+The repair uses the existing scoped GitHub Releases token/API route for the
+same exact release asset.
 
 ## Status
 
-Reviewable.
+In progress.
 
 ## Blocking Dependencies
 
-- `DJCONNECT_APPLE_IPAD_UDID` must be configured as a protected
-  `apple-secure-distribution` environment secret after merge.
-- A physical iPad with Developer Mode enabled must be connected to the
-  self-hosted macOS runner when deployment is authorized.
-- A separate exact owner authorization for the iPad artifact binding is
-  required before dispatch; this increment does not provide it.
+- The repair PR must be merged before retrying the already authorized iPad
+  deployment.
 
 ## Current Prompt
 
-iPad internal deployment consumer qualification
+Repair authenticated retrieval of the manifest-bound iPad release asset.
 
 ## Completion Report
 
-The iPad relay/smoke workflows, `docs/RELEASE.md`, repository tests, and an
-immutable Prompt History record.
-
-## Last Qualification
-
-The manifest contains the iPad 3.3.0 artifact binding, but the repository has
-no iPad-specific deployment or smoke consumer. The pre-existing generic Apple
-relay is deliberately MacBook-only and the iPhone relay requires a paired
-Watch, so neither can be used for iPad.
-
-## Validated Base SHA
-
-`4d4020837766e3616361cae0b2c069e55371297f`
-
-The completion record captures the exact implementation commit.
+Workflow source, repository tests, release documentation and immutable Prompt
+History record.
 
 ## Repository-Local Next Action
 
-Review and merge PR #37. Then configure the iPad environment
-secret and wait for the target-specific operational authorization before any
-deployment dispatch.
-
-## Notes
-
-Apple verification phases are governed by pcvantol/djconnect/PROMPT_INDEX.md; this repository prompt index must stay repository-local.
+Review and merge the repair PR. Then retry only the already authorized iPad
+deployment binding and run separately authorized smoke after deployment.

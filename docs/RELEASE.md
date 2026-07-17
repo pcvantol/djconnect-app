@@ -280,6 +280,10 @@ iPad. The `apple-secure-distribution` environment requires
 identity. Neither the iPad UDID nor any profile/private key is written to a
 workflow artifact or log.
 
+The relay downloads the checksum-bound asset through the GitHub Releases API
+using the existing scoped `PUBLIC_RELEASES_TOKEN`; it does not rely on an
+unauthenticated browser-release URL.
+
 An iPad is not a paired Watch deployment target. The relay removes the embedded
 Watch companion before local re-signing, so every signed bundle is covered by
 the approved iPad development profile. The separately authorized iPad smoke
