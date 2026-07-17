@@ -1,0 +1,64 @@
+name: Apple iPad post-deployment smoke
+
+on:
+  workflow_dispatch:
+    inputs:
+      candidate_sha: {required: true, type: string}
+      manifest_id: {required: true, type: string}
+      artifact_id: {required: true, type: string}
+      artifact_sha256: {required: true, type: string}
+      deployment_workflow_run: {required: true, type: string}
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: [self-hosted, macOS, ARM64, internal-release]
+    environment: apple-secure-distribution
+    steps:
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+        with:
+          name: apple-ipad-deployment-evidence
+          github-token: ${{ github.token }}
+          run-id: ${{ inputs.deployment_workflow_run }}
+          path: deployment-evidence
+      - name: Verify deployment evidence and installed iPad application
+        env:
+          IPAD_UDID: ${{ secrets.DJCONNECT_APPLE_IPAD_UDID }}
+          CANDIDATE_SHA: ${{ inputs.candidate_sha }}
+          MANIFEST_ID: ${{ inputs.manifest_id }}
+          ARTIFACT_ID: ${{ inputs.artifact_id }}
+          ARTIFACT_SHA256: ${{ inputs.artifact_sha256 }}
+        run: |
+          set -euo pipefail
+          evidence=deployment-evidence/apple-ipad-deployment-evidence.json
+          test "$(jq -r '.candidate_sha' "$evidence")" = "$CANDIDATE_SHA"
+          test "$(jq -r '.manifest_id' "$evidence")" = "$MANIFEST_ID"
+          test "$(jq -r '.artifact_id' "$evidence")" = "$ARTIFACT_ID"
+          test "$(jq -r '.artifact_sha256' "$evidence")" = "$ARTIFACT_SHA256"
+          test "$(jq -r '.target_device' "$evidence")" = ipad
+          test "$(jq -r '.paired_watch_validation' "$evidence")" = not_applicable
+          test "$(jq -r '.deployment_result' "$evidence")" = DEPLOYED_PENDING_SMOKE
+          manifest="$(mktemp)"
+          trap 'rm -f "$manifest" ipad-apps.json' EXIT
+          curl --fail --silent --show-error --location https://raw.githubusercontent.com/pcvantol/djconnect/main/docs/release/PLATFORM_3_3_CURRENT_MAIN_MANIFEST_PROPOSAL.json --output "$manifest"
+          manifest_status="$(jq -r '.status' "$manifest")"
+          case "$manifest_status" in
+            APPROVED_DEPLOYMENT_DISPATCH_PENDING|APPROVED_PARTIAL_DEPLOYMENT_OPERATIONAL) ;;
+            *) echo "Manifest is not open for an authorized target deployment: $manifest_status" >&2; exit 1 ;;
+          esac
+          test "$(jq -r '.approval.state' "$manifest")" = APPROVED
+          expected_version="$(jq -er --arg sha "$CANDIDATE_SHA" '.repositories[] | select(.repository == "pcvantol/djconnect-app" and .source_sha == $sha) | .version' "$manifest")"
+          jq -e --arg artifact "$ARTIFACT_ID" --arg checksum "$ARTIFACT_SHA256" '.artifact_bindings[] | select(.target == "apple_private_device" and .target_device == "ipad" and .artifact_id == $artifact and .artifact_sha256 == $checksum and .signing == "local_developer_provisioning_required" and (has("paired_watch_validation") | not))' "$manifest" >/dev/null
+          xcrun devicectl device info apps --device "$IPAD_UDID" --bundle-id dev.djconnect.ios --json-output ipad-apps.json
+          jq -e --arg version "$expected_version" '[.result.apps[] | select(.bundleIdentifier == "dev.djconnect.ios" and .version == $version)] | length == 1' ipad-apps.json >/dev/null
+      - name: Publish redacted iPad smoke evidence
+        run: |
+          printf '%s\n' '{"kind":"apple_private_ipad_smoke","target":"apple_private_device","target_device":"ipad","paired_watch_result":"NOT_APPLICABLE","installed_version_result":"PASS","final_result":"SMOKE_PASSED"}' > apple-ipad-smoke-evidence.json
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: apple-ipad-smoke-evidence
+          path: apple-ipad-smoke-evidence.json
+          if-no-files-found: error

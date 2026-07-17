@@ -9,11 +9,11 @@ canonical platform roadmap from `pcvantol/djconnect/PROMPT_INDEX.md`.
 
 ## Current Repository Phase
 
-macOS runner CI-tooling maintenance automation.
+iPad internal deployment consumer qualification.
 
 ## Status
 
-REVIEWABLE
+IN_PROGRESS
 
 ## Depends On
 
@@ -23,18 +23,19 @@ REVIEWABLE
 
 ## Current Prompt
 
-Install a user-level launchd task that keeps installed Homebrew CI helper tools
-current and records Apple toolchain versions. Do not update Xcode unattended.
+Add the missing manifest-bound internal iPad deployment relay and its separate
+post-deployment smoke consumer. Do not dispatch deployment, modify the central
+manifest, or alter Apple product behavior.
 
 ## Completion Report
 
-`docs/history/prompts/2026-07-16-macos-ci-tooling-maintenance.md`
+`docs/history/prompts/2026-07-17-platform-release-engineering-ipad-deployment-consumer.md`
 
 ## Next Repository Phase
 
-After this increment is reviewed and merged, install and verify the launchd
-task on the Apple runner. Do not begin a subsequent engineering increment
-automatically.
+After this increment is reviewed and merged, configure the protected iPad UDID
+environment secret and obtain a separate exact operational authorization. Do
+not begin deployment automatically.
 
 ## Boundary
 

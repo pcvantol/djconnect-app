@@ -1,34 +1,38 @@
 # DJConnect App Engineering Status
 
-Status: macOS runner CI-tooling maintenance increment reviewable
+Status: iPad internal deployment consumer increment in progress
 
 Repository: `pcvantol/djconnect-app`
 
 ## Current Engineering State
 
-Apple Release Version Integrity and the subsequent unsigned iOS Simulator
-build qualification are merged into `main`; PR #27 merged as
-`b04bf915c711a3a669e5a4bd43a140325f30deb9`. The active bounded increment adds
-launchd-based maintenance for the Apple self-hosted runner's Homebrew CI
-tooling. It does not change Xcode, signing, source code, release artifacts or
-deployment authorization.
+The macOS runner CI-tooling maintenance increments are merged into `main`
+(most recently PR #36). The active bounded increment adds the missing
+manifest-bound iPad internal deployment consumer and its post-deployment smoke
+consumer for Platform Release 3.3. It does not dispatch a deployment, modify a
+release manifest, publish an artifact, or change Apple product behavior.
 
 ## Qualification Context
 
-- The predecessor PR #27 is objectively merged and no Apple repository PR is
-  open.
-- The maintenance scripts pass `bash -n` and their launchd schedule, version
-  logging and bounded Homebrew formula allowlist are statically verified.
+- The Apple Release Version Integrity and Build Engineering qualifications are
+  merged.
+- The iPhone + paired Watch consumer is qualified; the iPad artifact binding
+  exists in the approved central manifest, but no iPad consumer previously
+  existed.
+- The active work validates the iPad physical-device scope, manifest binding,
+  checksum, local Apple Development signing, installed version, and redacted
+  deployment/smoke evidence.
 
 ## Current Decision
 
-The maintenance task runs as the runner's logged-in user, updates only
-installed CI helper formulae daily, records tool versions and requires an
-explicit first-run verification. Xcode is intentionally recorded but not
-updated unattended because Apple toolchain changes require qualification.
+The iPad is a standalone Apple target. Its consumer must not inherit paired
+Watch validation or signing. It removes the embedded Watch companion before
+local iPad-profile signing, validates the installed iPad application version,
+and fails closed if the central binding changes to require Watch validation.
 
-Decision: `MACOS_CI_TOOLING_MAINTENANCE_REVIEWABLE`. Stop after the reviewable
-pull request; do not begin a subsequent increment automatically.
+Decision pending validation: `IPAD_INTERNAL_DEPLOYMENT_CONSUMER_REVIEWABLE`.
+Stop after the reviewable pull request; do not begin a deployment or a
+subsequent increment automatically.
 
 ## Planning Entry Point
 

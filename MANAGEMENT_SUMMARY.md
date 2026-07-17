@@ -1,26 +1,30 @@
 # DJConnect App Management Summary
 
-Status: macOS runner CI-tooling maintenance increment reviewable
+Status: iPad internal deployment consumer increment in progress
 
 ## Decision
 
-Keep the macOS self-hosted runner's installed Homebrew CI tooling current
-without changing the Apple project architecture or toolchain-selection policy.
+Complete the missing deployment and smoke consumer for the approved Platform
+Release 3.3 iPad artifact binding, without changing release authorization or
+product behavior.
 
 ## Scope and Outcome
 
-PR #27 is merged. The current reviewable increment adds a daily user-level
-launchd task that updates only already-installed Homebrew CI helper tools,
-captures tool versions and verifies its first execution. Xcode is deliberately
-not updated unattended because its version controls signing, SDK and simulator
-qualification.
+The iPad consumer validates the exact central manifest binding and checksum,
+requires one configured physical iPad and the local Apple Development signing
+identity, strips the unsupported Watch companion before iPad signing, installs
+only the iPad app, and verifies the exact installed application version after
+deployment. All evidence is redacted. No workflow can dispatch without its
+separate operational approval.
 
 ## Known Limitation
 
-An administrator is not needed, but the same logged-in user that owns the
-Apple GitHub Actions runner must install the LaunchAgent once after merge.
+The iPad UDID is not configured yet as the protected
+`DJCONNECT_APPLE_IPAD_UDID` environment secret. The iPad must be present with
+Developer Mode enabled when a separately authorized dispatch occurs.
 
 ## Recommended Next Prompt
 
-Install and verify the maintenance task after merge. No further engineering
-increment is selected automatically.
+Review the iPad consumer PR. After it is merged and the environment is
+configured, request an exact iPad deployment authorization; do not dispatch
+until that authorization is supplied.

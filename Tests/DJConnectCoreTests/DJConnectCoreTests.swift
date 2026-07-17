@@ -12319,6 +12319,25 @@ private func makePairedMusicDNAModel(
     #expect(smoke.contains(".bundleIdentifier == \"dev.djconnect.ios.watch\" and .version == $version"))
 }
 
+@Test func internalIPadRelayIsManifestBoundAndDoesNotRequireWatchValidation() throws {
+    let deployment = try loadRepositoryText(".github/workflows/apple-ipad-secure-distribution-relay.yml")
+    let smoke = try loadRepositoryText(".github/workflows/apple-ipad-post-deployment-smoke.yml")
+    let resigning = try loadRepositoryText("Tools/release/resign_internal_ios_bundle.sh")
+    let releaseDocs = try loadRepositoryText("docs/RELEASE.md")
+
+    #expect(deployment.contains("DJCONNECT_APPLE_IPAD_UDID"))
+    #expect(deployment.contains(".hardwareProperties.deviceType == \"iPad\""))
+    #expect(deployment.contains("target_device == \"ipad\""))
+    #expect(deployment.contains("has(\"paired_watch_validation\") | not"))
+    #expect(deployment.contains("test ! -e \"$app_bundle/Watch\""))
+    #expect(smoke.contains("--json-output ipad-apps.json"))
+    #expect(smoke.contains(".bundleIdentifier == \"dev.djconnect.ios\" and .version == $version"))
+    #expect(smoke.contains("paired_watch_result\":\"NOT_APPLICABLE"))
+    #expect(resigning.contains("<ios-device-udid> [watch-udid]"))
+    #expect(resigning.contains("rm -rf \"$app_bundle/Watch\""))
+    #expect(releaseDocs.contains("Internal Release: iPad"))
+}
+
 @Test func logsCopyToolbarIconStaysWhiteOnIOS() throws {
     let source = try loadRepositoryText("Sources/DJConnectUI/DJConnectRootView.swift")
     let copyLogsRange = try #require(source.range(of: #"Image(systemName: "doc.on.doc")"#))
