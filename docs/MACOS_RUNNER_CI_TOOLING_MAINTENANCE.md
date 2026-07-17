@@ -9,8 +9,8 @@ on the same host share the same maintained toolchain.
 ## Managed tooling
 
 Daily at 10:00 local time and at user login, the task updates Homebrew metadata
-and upgrades every already-installed Homebrew formula and cask. It never
-installs missing packages.
+and every already-installed formula. It then updates each outdated Homebrew
+cask independently. It never installs missing packages.
 
 It also maintains the development-network tooling without handling secrets:
 
@@ -19,6 +19,20 @@ It also maintains the development-network tooling without handling secrets:
 - Tailscale remains on its signed-app auto-update channel. The task verifies
   that automatic update is enabled but never replaces an independently
   installed Tailscale app with Homebrew.
+
+Some casks, such as `dotnet-sdk`, can require an interactive macOS
+administrator authorization to replace system-owned files. The user
+LaunchAgent deliberately has no passwordless `sudo` access. It records those
+casks as `SUCCESS (ADMIN MAINTENANCE REQUIRED: ...)`, continues all other
+updates and remains healthy. Perform the named cask update from an interactive
+administrator terminal, for example:
+
+```sh
+brew upgrade --cask dotnet-sdk
+```
+
+Do not add `brew` to `sudoers`; that would turn the user-maintained Homebrew
+environment into a root execution path.
 
 It records Xcode, Swift, Git, GitHub CLI, XcodeGen, Node and Python versions
 in `~/Library/Logs/DJConnect/ci-tooling-maintenance.log` and writes a compact
