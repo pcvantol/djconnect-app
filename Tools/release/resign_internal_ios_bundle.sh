@@ -16,15 +16,7 @@ ios_device_udid="$3"
 watch_udid="${4:-}"
 
 test -d "$app_bundle"
-signing_keychain="$(security login-keychain | tr -d '\"')"
-codesign_keychain_args=()
-if test -f "$signing_keychain" && security find-identity -v -p codesigning "$signing_keychain" | grep -F -- "$signing_identity" >/dev/null; then
-  codesign_keychain_args=(--keychain "$signing_keychain")
-  echo 'Using the explicit login keychain for Apple signing.'
-else
-  security find-identity -v -p codesigning | grep -F -- "$signing_identity" >/dev/null
-  echo 'Using the runner default keychain for Apple signing.'
-fi
+security find-identity -v -p codesigning | grep -F -- "$signing_identity" >/dev/null
 
 profiles=(
   "$HOME/Library/Developer/Xcode/UserData/Provisioning Profiles"
@@ -79,7 +71,7 @@ sign_bundle() {
   security cms -D -i "$profile" > "$decoded"
   plutil -extract Entitlements xml1 -o "$entitlements" "$decoded"
   cp "$profile" "$bundle/embedded.mobileprovision"
-  /usr/bin/codesign --force "${codesign_keychain_args[@]}" --sign "$signing_identity" --entitlements "$entitlements" --timestamp=none --generate-entitlement-der "$bundle"
+  /usr/bin/codesign --force --sign "$signing_identity" --entitlements "$entitlements" --timestamp=none --generate-entitlement-der "$bundle"
 }
 
 find "$app_bundle" -name '._*' -type f -delete
@@ -90,10 +82,10 @@ if test -z "$watch_udid"; then
   rm -rf "$app_bundle/Watch"
 fi
 find "$app_bundle" -type d -name '*.framework' -print0 | while IFS= read -r -d '' framework; do
-  /usr/bin/codesign --force "${codesign_keychain_args[@]}" --sign "$signing_identity" --timestamp=none "$framework"
+  /usr/bin/codesign --force --sign "$signing_identity" --timestamp=none "$framework"
 done
 find "$app_bundle" -type f -name '*.dylib' -print0 | while IFS= read -r -d '' library; do
-  /usr/bin/codesign --force "${codesign_keychain_args[@]}" --sign "$signing_identity" --timestamp=none "$library"
+  /usr/bin/codesign --force --sign "$signing_identity" --timestamp=none "$library"
 done
 find "$app_bundle" \( -name '*.app' -o -name '*.appex' \) -type d -depth -print0 | while IFS= read -r -d '' bundle; do
   sign_bundle "$bundle"
