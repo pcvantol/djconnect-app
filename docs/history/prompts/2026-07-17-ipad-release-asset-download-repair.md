@@ -5,7 +5,7 @@
 - **Generation:** 2
 - **Engineering program:** Platform Release Engineering
 - **Branch:** `codex/fix-ipad-release-asset-download`
-- **Commit SHA:** Pending implementation commit
+- **Commit SHA:** `e9e2ef7bf8f633704301531f6a44bdd054649586`
 - **Pull request:** Pending reviewable pull request
 - **Decision:** `IPAD_RELEASE_ASSET_DOWNLOAD_REPAIRED`
 
