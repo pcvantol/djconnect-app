@@ -8,28 +8,27 @@ on the same host share the same maintained toolchain.
 
 ## Managed tooling
 
-Daily at 10:00 local time and at user login, the task updates Homebrew metadata and
-upgrades only already-installed CI helper formulae:
+Daily at 10:00 local time and at user login, the task updates Homebrew metadata
+and upgrades every already-installed Homebrew formula and cask. It never
+installs missing packages.
 
-- `gh`
-- `xcodegen`
-- `swiftlint`
-- `xcbeautify`
-- `create-dmg`
-- `mas`
-- `node`
+It also maintains the development-network tooling without handling secrets:
+
+- the installed Homebrew `ngrok` cask is upgraded as part of the cask pass;
+  its tunnel, auth token and LaunchAgent configuration are untouched;
+- Tailscale remains on its signed-app auto-update channel. The task verifies
+  that automatic update is enabled but never replaces an independently
+  installed Tailscale app with Homebrew.
 
 It records Xcode, Swift, Git, GitHub CLI, XcodeGen, Node and Python versions
 in `~/Library/Logs/DJConnect/ci-tooling-maintenance.log` and writes a compact
 success or failure status beside it. Missing optional formulae are recorded,
 not installed implicitly.
 
-Xcode itself is deliberately not changed unattended. A new Xcode, simulator
-runtime or beta/stable transition can change signing, SDK and simulator
-semantics. The current platform toolchain is therefore the latest *qualified*
-Xcode line: qualify a new Xcode line first, then make it active and let this
-task record the resulting version. This is not permission to retain an
-unqualified, stale Xcode indefinitely.
+Xcode installed through Xcodes, the App Store or Apple developer downloads is
+not changed by Homebrew. If an operator deliberately installs Xcode as a
+Homebrew cask, the all-cask policy includes it; qualifying a new Xcode line
+before it becomes the selected runner toolchain remains required.
 
 ## One-time installation
 

@@ -48,8 +48,8 @@ cat >"$PLIST" <<PLIST
   <dict>
     <key>Hour</key>
     <integer>10</integer>
-    <key>Minute</key>
-    <integer>30</integer>
+  <key>Minute</key>
+  <integer>0</integer>
   </dict>
   <key>RunAtLoad</key>
   <true/>
