@@ -63,6 +63,29 @@ for formula in gh xcodegen swiftlint xcbeautify create-dmg mas node; do
   fi
 done
 
+# ngrok is a Homebrew-managed development-network dependency. Upgrade it only
+# when it is already installed: the maintenance task must not create a tunnel,
+# request an auth token or change a developer's local ngrok configuration.
+if brew list --cask ngrok >/dev/null 2>&1; then
+  printf '%s Upgrading Homebrew cask: ngrok\n' "$(timestamp)"
+  brew upgrade --cask ngrok
+else
+  printf '%s ngrok cask is not installed; leaving it absent.\n' "$(timestamp)"
+fi
+
+# Tailscale's signed macOS application has its own update channel. Keep that
+# explicit preference enabled; this task deliberately does not replace an
+# independently installed app with a Homebrew cask.
+if command -v tailscale >/dev/null 2>&1; then
+  if tailscale set --auto-update; then
+    printf '%s Tailscale signed-app auto-update is enabled.\n' "$(timestamp)"
+  else
+    printf '%s WARNING: Tailscale auto-update could not be enabled; rerun DJConnect onboarding repair to restore the declared setting.\n' "$(timestamp)"
+  fi
+else
+  printf '%s Tailscale CLI is unavailable; leaving it absent.\n' "$(timestamp)"
+fi
+
 for command in xcodebuild swift git gh xcodegen node python3; do
   if command -v "$command" >/dev/null 2>&1; then
     printf '%s %s: %s\n' "$(timestamp)" "$command" "$("$command" --version 2>&1 | head -n 1)"

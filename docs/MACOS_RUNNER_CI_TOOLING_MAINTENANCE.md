@@ -19,6 +19,14 @@ upgrades only already-installed CI helper formulae:
 - `mas`
 - `node`
 
+It also maintains the development-network tooling without handling secrets:
+
+- the already-installed Homebrew `ngrok` cask is upgraded daily; its tunnel,
+  auth token and LaunchAgent configuration are untouched;
+- Tailscale remains on its signed-app auto-update channel. The task verifies
+  that automatic update is enabled but never replaces an independently
+  installed Tailscale app with Homebrew.
+
 It records Xcode, Swift, Git, GitHub CLI, XcodeGen, Node and Python versions
 in `~/Library/Logs/DJConnect/ci-tooling-maintenance.log` and writes a compact
 success or failure status beside it. Missing optional formulae are recorded,
