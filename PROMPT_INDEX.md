@@ -13,7 +13,7 @@ iPad internal deployment consumer qualification.
 
 ## Status
 
-IN_PROGRESS
+REVIEWABLE
 
 ## Depends On
 

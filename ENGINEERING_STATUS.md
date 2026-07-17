@@ -1,6 +1,6 @@
 # DJConnect App Engineering Status
 
-Status: iPad internal deployment consumer increment in progress
+Status: iPad internal deployment consumer increment reviewable
 
 Repository: `pcvantol/djconnect-app`
 
@@ -30,7 +30,7 @@ Watch validation or signing. It removes the embedded Watch companion before
 local iPad-profile signing, validates the installed iPad application version,
 and fails closed if the central binding changes to require Watch validation.
 
-Decision pending validation: `IPAD_INTERNAL_DEPLOYMENT_CONSUMER_REVIEWABLE`.
+Decision: `IPAD_INTERNAL_DEPLOYMENT_CONSUMER_REVIEWABLE`.
 Stop after the reviewable pull request; do not begin a deployment or a
 subsequent increment automatically.
 

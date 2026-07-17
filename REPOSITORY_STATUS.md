@@ -27,7 +27,7 @@ architecture.
 
 ## Status
 
-In progress.
+Reviewable.
 
 ## Blocking Dependencies
 
@@ -62,7 +62,7 @@ The completion record captures the exact implementation commit.
 
 ## Repository-Local Next Action
 
-Review and merge the iPad consumer PR. Then configure the iPad environment
+Review and merge PR #37. Then configure the iPad environment
 secret and wait for the target-specific operational authorization before any
 deployment dispatch.
 

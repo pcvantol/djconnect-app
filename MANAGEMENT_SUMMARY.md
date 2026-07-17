@@ -1,6 +1,6 @@
 # DJConnect App Management Summary
 
-Status: iPad internal deployment consumer increment in progress
+Status: iPad internal deployment consumer increment reviewable
 
 ## Decision
 
@@ -25,6 +25,6 @@ Developer Mode enabled when a separately authorized dispatch occurs.
 
 ## Recommended Next Prompt
 
-Review the iPad consumer PR. After it is merged and the environment is
+Review and merge PR #37. After it is merged and the environment is
 configured, request an exact iPad deployment authorization; do not dispatch
 until that authorization is supplied.
