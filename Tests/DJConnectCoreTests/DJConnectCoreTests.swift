@@ -12338,6 +12338,8 @@ private func makePairedMusicDNAModel(
     #expect(smoke.contains(".bundleIdentifier == \"dev.djconnect.ios\" and .version == $version"))
     #expect(smoke.contains("paired_watch_result\":\"NOT_APPLICABLE"))
     #expect(resigning.contains("<ios-device-udid> [watch-udid]"))
+    #expect(resigning.contains("security login-keychain"))
+    #expect(resigning.contains("--keychain \"$signing_keychain\""))
     #expect(resigning.contains("rm -rf \"$app_bundle/Watch\""))
     #expect(releaseDocs.contains("Internal Release: iPad"))
 }
