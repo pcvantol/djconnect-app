@@ -5,7 +5,7 @@
 - **Generation:** 2
 - **Engineering program:** Platform Release Engineering
 - **Branch:** `codex/add-ipad-internal-release-consumer`
-- **Commit SHA:** Pending implementation commit
+- **Commit SHA:** `bc3e6e1875070675d4283a75a831d6841570a69e`
 - **Pull request:** Pending reviewable pull request
 - **Decision:** `IPAD_INTERNAL_DEPLOYMENT_CONSUMER_REVIEWABLE`
 
