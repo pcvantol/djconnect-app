@@ -51,27 +51,14 @@ fi
 
 brew update
 
-# Match the repository's release-hygiene tool set and upgrade only tools already
-# installed as Homebrew formulae. Xcode is recorded below but never changed by
-# this unattended task: its version must remain an explicit runner qualification.
-for formula in gh xcodegen swiftlint xcbeautify create-dmg mas node; do
-  if brew list --formula "$formula" >/dev/null 2>&1; then
-    printf '%s Upgrading Homebrew formula: %s\n' "$(timestamp)" "$formula"
-    brew upgrade "$formula"
-  else
-    printf '%s Formula not installed; leaving it absent: %s\n' "$(timestamp)" "$formula"
-  fi
-done
-
-# ngrok is a Homebrew-managed development-network dependency. Upgrade it only
-# when it is already installed: the maintenance task must not create a tunnel,
-# request an auth token or change a developer's local ngrok configuration.
-if brew list --cask ngrok >/dev/null 2>&1; then
-  printf '%s Upgrading Homebrew cask: ngrok\n' "$(timestamp)"
-  brew upgrade --cask ngrok
-else
-  printf '%s ngrok cask is not installed; leaving it absent.\n' "$(timestamp)"
-fi
+# This is the designated tooling-currency owner for the macOS runner host.
+# Upgrade every already-installed Homebrew formula and cask, rather than a
+# brittle allowlist. `brew upgrade` never installs a missing package, and no
+# ngrok tunnel/auth-token configuration is read or changed here.
+printf '%s Upgrading all installed Homebrew formulae.\n' "$(timestamp)"
+brew upgrade
+printf '%s Upgrading all installed Homebrew casks.\n' "$(timestamp)"
+brew upgrade --cask
 
 # Tailscale's signed macOS application has its own update channel. Keep that
 # explicit preference enabled; this task deliberately does not replace an
