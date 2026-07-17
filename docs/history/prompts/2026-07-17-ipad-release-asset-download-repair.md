@@ -6,7 +6,7 @@
 - **Engineering program:** Platform Release Engineering
 - **Branch:** `codex/fix-ipad-release-asset-download`
 - **Commit SHA:** `e9e2ef7bf8f633704301531f6a44bdd054649586`
-- **Pull request:** Pending reviewable pull request
+- **Pull request:** https://github.com/pcvantol/djconnect-app/pull/38
 - **Decision:** `IPAD_RELEASE_ASSET_DOWNLOAD_REPAIRED`
 
 ## Validation summary

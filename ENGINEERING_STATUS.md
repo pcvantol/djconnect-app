@@ -1,6 +1,6 @@
 # DJConnect App Engineering Status
 
-Status: iPad release-asset download repair in progress
+Status: iPad release-asset download repair reviewable
 
 Repository: `pcvantol/djconnect-app`
 
@@ -17,6 +17,6 @@ alter the manifest, artifact, signing scope, device selection or authorization.
 
 ## Current Decision
 
-Decision pending validation: `IPAD_RELEASE_ASSET_DOWNLOAD_REPAIRED`.
+Decision: `IPAD_RELEASE_ASSET_DOWNLOAD_REPAIRED`.
 Stop after one reviewable repair pull request; do not retry deployment until
 the repair is merged.

@@ -1,6 +1,6 @@
 # DJConnect App Management Summary
 
-Status: iPad release-asset download repair in progress
+Status: iPad release-asset download repair reviewable
 
 ## Decision
 
@@ -22,5 +22,5 @@ artifact has been signed or installed during the failed attempts.
 
 ## Recommended Next Prompt
 
-Merge the repair, retry the existing authorized iPad deployment, then request
+Merge PR #38, retry the existing authorized iPad deployment, then request
 separate post-deployment smoke authorization.

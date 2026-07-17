@@ -22,7 +22,7 @@ same exact release asset.
 
 ## Status
 
-In progress.
+Reviewable.
 
 ## Blocking Dependencies
 
@@ -40,5 +40,5 @@ History record.
 
 ## Repository-Local Next Action
 
-Review and merge the repair PR. Then retry only the already authorized iPad
+Review and merge PR #38. Then retry only the already authorized iPad
 deployment binding and run separately authorized smoke after deployment.

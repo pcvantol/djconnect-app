@@ -10,7 +10,7 @@ iPad release-asset download repair.
 
 ## Status
 
-IN_PROGRESS
+REVIEWABLE
 
 ## Current Prompt
 
