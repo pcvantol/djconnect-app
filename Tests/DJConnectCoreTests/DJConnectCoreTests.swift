@@ -12342,6 +12342,7 @@ private func makePairedMusicDNAModel(
     #expect(resigning.contains("<ios-device-udid> [watch-udid]"))
     #expect(resigning.contains("security login-keychain"))
     #expect(resigning.contains("--keychain \"$signing_keychain\""))
+    #expect(resigning.contains("Using the runner default keychain for Apple signing."))
     #expect(resigning.contains("rm -rf \"$app_bundle/Watch\""))
     #expect(releaseDocs.contains("Internal Release: iPad"))
 }
