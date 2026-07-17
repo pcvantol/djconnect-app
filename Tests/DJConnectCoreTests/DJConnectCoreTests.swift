@@ -12332,6 +12332,8 @@ private func makePairedMusicDNAModel(
     #expect(deployment.contains("test ! -e \"$app_bundle/Watch\""))
     #expect(deployment.contains("GH_TOKEN: ${{ secrets.PUBLIC_RELEASES_TOKEN }}"))
     #expect(deployment.contains("gh release download \"ios/v${RELEASE_VERSION}\""))
+    #expect(deployment.contains("github\\.com/pcvantol/djconnect-app-releases/download/ios/v"))
+    #expect(!deployment.contains("djconnect-app-releases/releases/download/ios/"))
     #expect(smoke.contains("--json-output ipad-apps.json"))
     #expect(smoke.contains(".bundleIdentifier == \"dev.djconnect.ios\" and .version == $version"))
     #expect(smoke.contains("paired_watch_result\":\"NOT_APPLICABLE"))

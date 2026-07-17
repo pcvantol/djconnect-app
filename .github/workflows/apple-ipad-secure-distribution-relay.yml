@@ -54,7 +54,7 @@ jobs:
           test "$ARTIFACT_ID" = "release-asset:pcvantol/djconnect-app-releases:ios/v${release_version}:DJConnect-iOS-${release_version}-unsigned.zip"
           binding="$(jq -cer --arg artifact "$ARTIFACT_ID" --arg checksum "$ARTIFACT_SHA256" '.artifact_bindings[] | select(.target == "apple_private_device" and .target_device == "ipad" and .artifact_id == $artifact and .artifact_sha256 == $checksum and .signing == "local_developer_provisioning_required" and (has("paired_watch_validation") | not))' "$manifest")"
           artifact_url="$(jq -r '.artifact_url' <<<"$binding")"
-          printf '%s' "$artifact_url" | grep -Eq '^https://github\.com/pcvantol/djconnect-app-releases/releases/download/ios/v[0-9]+\.[0-9]+\.[0-9]+/DJConnect-iOS-[0-9]+\.[0-9]+\.[0-9]+-unsigned\.zip$'
+          printf '%s' "$artifact_url" | grep -Eq '^https://github\.com/pcvantol/djconnect-app-releases/download/ios/v[0-9]+\.[0-9]+\.[0-9]+/DJConnect-iOS-[0-9]+\.[0-9]+\.[0-9]+-unsigned\.zip$'
           printf 'artifact_url=%s\n' "$artifact_url" >> "$GITHUB_OUTPUT"
           printf 'release_version=%s\n' "$release_version" >> "$GITHUB_OUTPUT"
       - name: Verify exact physical iPad and local signing scope
