@@ -1,0 +1,103 @@
+name: Apple iPad Secure Distribution Relay
+
+on:
+  workflow_dispatch:
+    inputs:
+      candidate_sha: {required: true, type: string}
+      manifest_id: {required: true, type: string}
+      artifact_id: {required: true, type: string}
+      artifact_sha256: {required: true, type: string}
+      platform_version: {required: true, type: string}
+      release_profile: {required: true, type: choice, options: [INTERNAL_RELEASE]}
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: [self-hosted, macOS, ARM64, internal-release]
+    environment: apple-secure-distribution
+    env:
+      IPAD_UDID: ${{ secrets.DJCONNECT_APPLE_IPAD_UDID }}
+      SIGNING_IDENTITY: ${{ secrets.DJCONNECT_APPLE_DEVELOPMENT_SIGNING_IDENTITY }}
+    steps:
+      - id: validate
+        name: Validate immutable iPad request and approved manifest binding
+        env:
+          CANDIDATE_SHA: ${{ inputs.candidate_sha }}
+          MANIFEST_ID: ${{ inputs.manifest_id }}
+          ARTIFACT_ID: ${{ inputs.artifact_id }}
+          ARTIFACT_SHA256: ${{ inputs.artifact_sha256 }}
+          PLATFORM_VERSION: ${{ inputs.platform_version }}
+          RELEASE_PROFILE: ${{ inputs.release_profile }}
+        run: |
+          set -euo pipefail
+          test "$RELEASE_PROFILE" = INTERNAL_RELEASE
+          printf '%s' "$CANDIDATE_SHA" | grep -Eq '^[0-9a-f]{40}$'
+          printf '%s' "$ARTIFACT_ID" | grep -Eq '^release-asset:pcvantol/djconnect-app-releases:ios/v[0-9]+\.[0-9]+\.[0-9]+:DJConnect-iOS-[0-9]+\.[0-9]+\.[0-9]+-unsigned\.zip$'
+          printf '%s' "$ARTIFACT_SHA256" | grep -Eq '^[0-9a-f]{64}$'
+          printf '%s' "$PLATFORM_VERSION" | grep -Eq '^[0-9]+\.[0-9]+$'
+          manifest="$(mktemp)"
+          trap 'rm -f "$manifest"' EXIT
+          curl --fail --silent --show-error --location https://raw.githubusercontent.com/pcvantol/djconnect/main/docs/release/PLATFORM_3_3_CURRENT_MAIN_MANIFEST_PROPOSAL.json --output "$manifest"
+          manifest_status="$(jq -r '.status' "$manifest")"
+          case "$manifest_status" in
+            APPROVED_DEPLOYMENT_DISPATCH_PENDING|APPROVED_PARTIAL_DEPLOYMENT_OPERATIONAL) ;;
+            *) echo "Manifest is not open for an authorized target deployment: $manifest_status" >&2; exit 1 ;;
+          esac
+          test "$(jq -r '.approval.state' "$manifest")" = APPROVED
+          test "$(jq -r '.manifest_id' "$manifest")" = "$MANIFEST_ID"
+          test "$(jq -r '.release_profile' "$manifest")" = "$RELEASE_PROFILE"
+          release_version="$(jq -r --arg sha "$CANDIDATE_SHA" '.repositories[] | select(.repository == "pcvantol/djconnect-app" and .source_sha == $sha and .version == "3.3.0") | .version' "$manifest")"
+          printf '%s' "$release_version" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'
+          binding="$(jq -cer --arg artifact "$ARTIFACT_ID" --arg checksum "$ARTIFACT_SHA256" '.artifact_bindings[] | select(.target == "apple_private_device" and .target_device == "ipad" and .artifact_id == $artifact and .artifact_sha256 == $checksum and .signing == "local_developer_provisioning_required" and (has("paired_watch_validation") | not))' "$manifest")"
+          printf 'artifact_url=%s\n' "$(jq -r '.artifact_url' <<<"$binding")" >> "$GITHUB_OUTPUT"
+          printf 'release_version=%s\n' "$release_version" >> "$GITHUB_OUTPUT"
+      - name: Verify exact physical iPad and local signing scope
+        run: |
+          set -euo pipefail
+          test -n "$IPAD_UDID" && test -n "$SIGNING_IDENTITY"
+          security find-identity -v -p codesigning | grep -F -- "$SIGNING_IDENTITY" >/dev/null
+          xcrun devicectl list devices --json-output devices.json >/dev/null
+          jq -e --arg udid "$IPAD_UDID" '[.result.devices[] | select(.hardwareProperties.udid == $udid and .hardwareProperties.deviceType == "iPad" and .hardwareProperties.reality == "physical" and .deviceProperties.developerModeStatus == "enabled")] | length == 1' devices.json >/dev/null
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v4.2.2
+      - name: Verify, locally sign and install the approved iPad artifact
+        env:
+          ARTIFACT_URL: ${{ steps.validate.outputs.artifact_url }}
+          ARTIFACT_SHA256: ${{ inputs.artifact_sha256 }}
+          RELEASE_VERSION: ${{ steps.validate.outputs.release_version }}
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error --location "$ARTIFACT_URL" --output artifact.zip
+          test "$(shasum -a 256 artifact.zip | awk '{print $1}')" = "$ARTIFACT_SHA256"
+          staging="$(mktemp -d)"
+          trap 'rm -rf "$staging"' EXIT
+          ditto -x -k artifact.zip "$staging"
+          app_bundle="$staging/DJConnect.app"
+          test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$app_bundle/Info.plist")" = dev.djconnect.ios
+          test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$app_bundle/Info.plist")" = "$RELEASE_VERSION"
+          Tools/release/resign_internal_ios_bundle.sh "$app_bundle" "$SIGNING_IDENTITY" "$IPAD_UDID"
+          test ! -e "$app_bundle/Watch"
+          xcrun devicectl device install app --device "$IPAD_UDID" "$app_bundle"
+      - name: Publish redacted iPad deployment evidence
+        env:
+          CANDIDATE_SHA: ${{ inputs.candidate_sha }}
+          MANIFEST_ID: ${{ inputs.manifest_id }}
+          ARTIFACT_ID: ${{ inputs.artifact_id }}
+          ARTIFACT_SHA256: ${{ inputs.artifact_sha256 }}
+          PLATFORM_VERSION: ${{ inputs.platform_version }}
+          RELEASE_PROFILE: ${{ inputs.release_profile }}
+          RELEASE_VERSION: ${{ steps.validate.outputs.release_version }}
+        run: |
+          python3 - <<'PY'
+          from datetime import UTC, datetime
+          import json, os
+          with open("apple-ipad-deployment-evidence.json", "w", encoding="utf-8") as file:
+              json.dump({"schema_version": 1, "kind": "apple_private_ipad_deployment", "repository": os.environ["GITHUB_REPOSITORY"], "candidate_sha": os.environ["CANDIDATE_SHA"], "manifest_id": os.environ["MANIFEST_ID"], "artifact_id": os.environ["ARTIFACT_ID"], "artifact_sha256": os.environ["ARTIFACT_SHA256"], "target": "apple_private_device", "target_device": "ipad", "paired_watch_validation": "not_applicable", "platform_version": os.environ["PLATFORM_VERSION"], "release_profile": os.environ["RELEASE_PROFILE"], "release_version": os.environ["RELEASE_VERSION"], "installed_bundle_identifier": "dev.djconnect.ios", "signing_scope": "runner_local_apple_development_identity", "deployment_result": "DEPLOYED_PENDING_SMOKE", "timestamp": datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")}, file, sort_keys=True)
+          PY
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: apple-ipad-deployment-evidence
+          path: apple-ipad-deployment-evidence.json
+          if-no-files-found: error

@@ -18,11 +18,12 @@ Does not own: backend intelligence, Music DNA storage, Spotify OAuth secrets, ce
 
 ## Current Phase
 
-macOS runner CI-tooling maintenance automation.
+iPad internal deployment consumer qualification.
 
-This phase creates a user-level launchd task that updates installed Homebrew
-CI tooling and records Apple toolchain versions. It does not change project
-architecture, product behaviour, release, signing or protocol compatibility.
+This phase adds a manifest-bound internal iPad deployment relay and a separate
+post-deployment smoke consumer. It does not dispatch a release, change a
+release manifest, modify application functionality, or change the platform
+architecture.
 
 ## Status
 
@@ -30,36 +31,40 @@ Reviewable.
 
 ## Blocking Dependencies
 
-- The maintenance installer must run once as the logged-in Apple runner user.
-- Xcode updates remain a separately qualified Apple toolchain operation.
+- `DJCONNECT_APPLE_IPAD_UDID` must be configured as a protected
+  `apple-secure-distribution` environment secret after merge.
+- A physical iPad with Developer Mode enabled must be connected to the
+  self-hosted macOS runner when deployment is authorized.
+- A separate exact owner authorization for the iPad artifact binding is
+  required before dispatch; this increment does not provide it.
 
 ## Current Prompt
 
-macOS runner CI-tooling maintenance automation
+iPad internal deployment consumer qualification
 
 ## Completion Report
 
-Repository-local implementation branch, commit, pull request and immutable
-Prompt History record.
-
-`docs/MACOS_RUNNER_CI_TOOLING_MAINTENANCE.md` and immutable Prompt History.
+The iPad relay/smoke workflows, `docs/RELEASE.md`, repository tests, and an
+immutable Prompt History record.
 
 ## Last Qualification
 
-PR #27 is merged. The maintenance scripts pass shell syntax validation and
-their launchd configuration is statically verified. Live runner maintenance is
-pending the one-time user-level installation after merge.
+The manifest contains the iPad 3.3.0 artifact binding, but the repository has
+no iPad-specific deployment or smoke consumer. The pre-existing generic Apple
+relay is deliberately MacBook-only and the iPhone relay requires a paired
+Watch, so neither can be used for iPad.
 
 ## Validated Base SHA
 
-`cd9fde94144fdf97f5e3a71a698b0a2fd0e3b010`
+`4d4020837766e3616361cae0b2c069e55371297f`
 
 The completion record captures the exact implementation commit.
 
 ## Repository-Local Next Action
 
-Review and merge the maintenance PR. Then install and verify the launchd task
-as the Apple runner user; do not update Xcode unattended.
+Review and merge PR #37. Then configure the iPad environment
+secret and wait for the target-specific operational authorization before any
+deployment dispatch.
 
 ## Notes
 

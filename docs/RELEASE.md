@@ -269,6 +269,24 @@ The separately authorized smoke workflow requires both `dev.djconnect.ios`
 and the embedded `dev.djconnect.ios.watch` application to be present on their
 configured physical devices before publishing redacted evidence.
 
+### Internal Release: iPad
+
+`Apple iPad Secure Distribution Relay` is the separate, manifest-bound path
+for an internal iPad deployment. It accepts only an approved
+`target_device=ipad` binding for the unsigned iOS artifact, verifies the exact
+checksum and source candidate, and installs only on the configured physical
+iPad. The `apple-secure-distribution` environment requires
+`DJCONNECT_APPLE_IPAD_UDID` and the existing local Apple Development signing
+identity. Neither the iPad UDID nor any profile/private key is written to a
+workflow artifact or log.
+
+An iPad is not a paired Watch deployment target. The relay removes the embedded
+Watch companion before local re-signing, so every signed bundle is covered by
+the approved iPad development profile. The separately authorized iPad smoke
+workflow checks the installed `dev.djconnect.ios` bundle and its exact manifest
+version through `xcrun devicectl`, then emits redacted evidence with
+`paired_watch_result=NOT_APPLICABLE`.
+
 ## Public Unsigned CI Artifacts
 
 The private source repository contains `.github/workflows/public-unsigned-release.yml`.
