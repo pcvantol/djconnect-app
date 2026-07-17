@@ -52,13 +52,39 @@ fi
 brew update
 
 # This is the designated tooling-currency owner for the macOS runner host.
-# Upgrade every already-installed Homebrew formula and cask, rather than a
-# brittle allowlist. `brew upgrade` never installs a missing package, and no
-# ngrok tunnel/auth-token configuration is read or changed here.
+# Formulae are safe to update as the runner user. Casks are upgraded one at a
+# time so a package which requires an interactive macOS administrator prompt
+# does not prevent the remaining non-privileged maintenance from succeeding.
+# No ngrok tunnel/auth-token configuration is read or changed here.
 printf '%s Upgrading all installed Homebrew formulae.\n' "$(timestamp)"
-brew upgrade
-printf '%s Upgrading all installed Homebrew casks.\n' "$(timestamp)"
-brew upgrade --cask
+brew upgrade --formula
+
+manual_admin_casks=()
+outdated_casks="$(brew outdated --cask --quiet)"
+if [[ -n "$outdated_casks" ]]; then
+  printf '%s Upgrading all installed Homebrew casks.\n' "$(timestamp)"
+  while IFS= read -r cask; do
+    [[ -n "$cask" ]] || continue
+    printf '%s Upgrading Homebrew cask: %s\n' "$(timestamp)" "$cask"
+    set +e
+    cask_output="$(brew upgrade --cask "$cask" 2>&1)"
+    cask_status=$?
+    set -e
+    [[ -n "$cask_output" ]] && printf '%s\n' "$cask_output"
+    if [[ "$cask_status" -eq 0 ]]; then
+      continue
+    fi
+    if grep -Eqi 'sudo: a terminal is required|sudo: a password is required' <<<"$cask_output"; then
+      manual_admin_casks+=("$cask")
+      printf '%s ADMIN MAINTENANCE REQUIRED: Homebrew cask %s requires an interactive administrator update.\n' "$(timestamp)" "$cask"
+      continue
+    fi
+    printf '%s FAILED: Homebrew cask %s upgrade exited with %s.\n' "$(timestamp)" "$cask" "$cask_status"
+    exit "$cask_status"
+  done <<<"$outdated_casks"
+else
+  printf '%s All Homebrew casks are current.\n' "$(timestamp)"
+fi
 
 # Tailscale's signed macOS application has its own update channel. Keep that
 # explicit preference enabled; this task deliberately does not replace an
@@ -81,5 +107,9 @@ for command in xcodebuild swift git gh xcodegen node python3; do
   fi
 done
 
-write_status 'SUCCESS'
+if (( ${#manual_admin_casks[@]} > 0 )); then
+  write_status "SUCCESS (ADMIN MAINTENANCE REQUIRED: ${manual_admin_casks[*]})"
+else
+  write_status 'SUCCESS'
+fi
 printf '%s macOS CI tooling maintenance completed.\n' "$(timestamp)"

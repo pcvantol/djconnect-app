@@ -73,7 +73,7 @@ if [[ "$run_now" == true ]]; then
   deadline=$((start_epoch + 1800))
   while (( $(date +%s) < deadline )); do
     if [[ -f "$STATUS_FILE" ]] && [[ "$(stat -f %m "$STATUS_FILE")" -ge "$start_epoch" ]]; then
-      if grep -q ' SUCCESS$' "$STATUS_FILE"; then
+      if grep -q ' SUCCESS' "$STATUS_FILE"; then
         cat "$STATUS_FILE"
         exit 0
       fi
