@@ -1,26 +1,28 @@
 # DJConnect App Management Summary
 
-Status: iPad release-asset download repair reviewable
+Status: iPad release-asset download repair merged
 
 ## Decision
 
-Replace the unreliable browser-release download in the iPad internal relay with
-the authenticated GitHub Releases API route, while preserving the approved
-manifest identity, checksum and local-development signing boundary.
+PR #38, `fix: retrieve iPad release asset through GitHub API`, is `MERGED`.
+It merged into `main` on 2026-07-17 at
+`30ed05d2c0fb2b683ec789f97e0803271006d7a7`.
 
 ## Scope and Outcome
 
-PR #37's consumer and device validation are correct. The repair requires the
-existing scoped `PUBLIC_RELEASES_TOKEN` and downloads the exact
-`ios/v<release-version>` asset through `gh release download`; SHA-256
-verification before extraction, signing and installation is unchanged.
+The merged repair replaced unreliable browser-release retrieval in the iPad
+internal relay with the authenticated GitHub Releases API route. It preserves
+the approved manifest identity, checksum and local-development signing
+boundary; SHA-256 verification before extraction, signing and installation is
+unchanged.
 
 ## Known Limitation
 
-The authorized iPad deployment remains pending until the repair merges. No
-artifact has been signed or installed during the failed attempts.
+No artifact was signed or installed during the failed attempts. This
+administrative reconciliation changes no product or runtime behaviour.
 
 ## Recommended Next Prompt
 
-Merge PR #38, retry the existing authorized iPad deployment, then request
-separate post-deployment smoke authorization.
+After this reconciliation is reviewed and merged, retry the existing
+authorized iPad deployment, then request separate post-deployment smoke
+authorization only after successful deployment evidence.

@@ -1,22 +1,24 @@
 # DJConnect App Engineering Status
 
-Status: iPad release-asset download repair reviewable
+Status: iPad release-asset download repair merged
 
 Repository: `pcvantol/djconnect-app`
 
-## Current Engineering State
+## Reconciled Engineering State
 
-The manifest-bound iPad deployment consumer merged through PR #37. Its first
-authorized deployment attempts proved the physical iPad, Developer Mode,
-manifest and checksum binding correctly, but failed before signing because the
-browser release-asset URL returned HTTP 404 from the self-hosted runner.
+PR #38, `fix: retrieve iPad release asset through GitHub API`, merged into
+`main` on 2026-07-17. Its authoritative merge commit is
+`30ed05d2c0fb2b683ec789f97e0803271006d7a7`.
 
-The active bounded increment replaces browser URL retrieval with the GitHub
-Releases API through the existing scoped `PUBLIC_RELEASES_TOKEN`. It does not
-alter the manifest, artifact, signing scope, device selection or authorization.
+The merged repair retrieves the exact manifest-bound iPad release asset through
+the GitHub Releases API using the existing scoped `PUBLIC_RELEASES_TOKEN` and
+retains SHA-256 verification. It did not change the manifest, artifact,
+signing scope, device selection or authorization.
 
-## Current Decision
+## Reconciled Decision
 
-Decision: `IPAD_RELEASE_ASSET_DOWNLOAD_REPAIRED`.
-Stop after one reviewable repair pull request; do not retry deployment until
-the repair is merged.
+Decision: `IPAD_RELEASE_ASSET_DOWNLOAD_REPAIRED_MERGED`.
+
+The predecessor is `MERGED`; no repair implementation remains active. The
+separately authorized iPad deployment may be retried only under its existing
+authorization. No deployment or smoke action is started by this reconciliation.
