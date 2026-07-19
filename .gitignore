@@ -74,6 +74,8 @@ fastlane/screenshots/**/*.png
 fastlane/test_output/
 
 # DJConnect shared local metadata
+# Local Technical Debt Engine evidence, baselines and qualifications
+/.tde/
 .DS_Store
 **/.DS_Store
 .AppleDouble

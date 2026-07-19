@@ -55,7 +55,6 @@
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "D088C2BF35ECFBFE71C99497"
             BuildableName = "DJConnect.app"
-            BlueprintName = "DJConnectWatch"
             ReferencedContainer = "container:DJConnectApp.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
@@ -72,7 +71,6 @@
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "D088C2BF35ECFBFE71C99497"
             BuildableName = "DJConnect.app"
-            BlueprintName = "DJConnectWatch"
             ReferencedContainer = "container:DJConnectApp.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
