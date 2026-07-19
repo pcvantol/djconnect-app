@@ -10,35 +10,38 @@ Status: Active engineering repository
 
 Apple Intelligence Client UX for iOS, iPadOS, macOS and watchOS.
 
-## Current Phase
+## Reconciled Predecessor
 
-iPad release-asset download repair.
+PR #38, `fix: retrieve iPad release asset through GitHub API`, is `MERGED`.
+It merged into `main` on 2026-07-17 as
+`30ed05d2c0fb2b683ec789f97e0803271006d7a7`.
 
-PR #37 merged the iPad consumer. Authorized deployment run `29592595620`
-passed physical-device validation and stopped before signing or installation
-because the manifest artifact's browser URL returned HTTP 404 on the runner.
-The repair uses the existing scoped GitHub Releases token/API route for the
-same exact release asset.
+The merged repair uses the existing scoped GitHub Releases token/API route for
+the same exact manifest-bound release asset and preserves the existing SHA-256
+validation. No product or runtime behaviour changed in this reconciliation.
 
 ## Status
 
-Reviewable.
+MERGED.
 
 ## Blocking Dependencies
 
-- The repair PR must be merged before retrying the already authorized iPad
-  deployment.
+- The separately authorized iPad deployment remains subject to its existing
+  authorization and operational prerequisites.
 
 ## Current Prompt
 
-Repair authenticated retrieval of the manifest-bound iPad release asset.
+No implementation prompt is active. This reconciliation records PR #38 as
+merged and leaves follow-on deployment decisions separate.
 
 ## Completion Report
 
-Workflow source, repository tests, release documentation and immutable Prompt
-History record.
+The immutable Prompt History record is complete:
+`docs/history/prompts/2026-07-17-ipad-release-asset-download-repair.md`.
 
 ## Repository-Local Next Action
 
-Review and merge PR #38. Then retry only the already authorized iPad
-deployment binding and run separately authorized smoke after deployment.
+No new Innovation Engineering increment may begin until this reconciliation is
+reviewed and merged. Afterwards, retry only the already authorized iPad
+deployment binding and request separate smoke authorization only after
+deployment evidence exists.
