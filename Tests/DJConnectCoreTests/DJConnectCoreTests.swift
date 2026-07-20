@@ -12577,3 +12577,45 @@ private extension String {
     #expect(script.contains(#"$0 ~ "^## " version "($| - )" { capture=1; next }"#))
     #expect(!script.contains("See CHANGELOG.md for details."))
 }
+
+@Test func sessionBroadcastSnapshotAndEventsUpdateOnlyServerOwnedSessionState() throws {
+    let flow = DJConnectSessionFlow(
+        flowID: "flow-session-1",
+        planningHorizonMinutes: 15,
+        createdAt: "2026-07-20T00:00:00Z",
+        items: []
+    )
+    let broadcast = DJConnectBroadcastState(
+        session: .init(sessionID: "session-1", runtimeState: "active", selectedMood: "groove"),
+        planner: .init(planningState: "ready", planningHorizonMinutes: 15, currentDirection: "maintain"),
+        sessionFlow: flow
+    )
+    let runtime = DJConnectSessionRuntime(
+        sessionID: "session-1",
+        room: "living-room",
+        selectedMood: "chill",
+        musicBackend: "spotify_direct",
+        runtimeState: "active",
+        startedAt: "2026-07-20T00:00:00Z",
+        planner: .init(planningHorizonMinutes: 15, currentDirection: "maintain"),
+        broadcast: broadcast
+    )
+    let updatedFlow = DJConnectSessionFlow(
+        flowID: "flow-session-1b",
+        planningHorizonMinutes: 15,
+        createdAt: "2026-07-20T00:01:00Z",
+        items: []
+    )
+    let event = DJConnectSessionBroadcastEvent(
+        eventType: "session_flow_updated",
+        sessionID: "session-1",
+        payload: .init(sessionFlow: updatedFlow)
+    )
+
+    let updated = runtime.applying(broadcastEvent: event)
+
+    #expect(updated.sessionID == "session-1")
+    #expect(updated.room == "living-room")
+    #expect(updated.musicBackend == "spotify_direct")
+    #expect(updated.broadcast.sessionFlow.flowID == "flow-session-1b")
+}

@@ -132,3 +132,61 @@ public struct DJConnectSessionResponse: Codable, Equatable, Sendable {
 
     public var resolvedSession: DJConnectSessionRuntime? { session ?? activeSession }
 }
+
+public struct DJConnectSessionBroadcastSubscription: Codable, Equatable, Sendable {
+    public var success: Bool
+    public var subscriptionID: String
+    public var sessionID: String
+    public var snapshot: DJConnectBroadcastState
+
+    enum CodingKeys: String, CodingKey {
+        case success, snapshot
+        case subscriptionID = "subscription_id"
+        case sessionID = "session_id"
+    }
+}
+
+public struct DJConnectSessionBroadcastEvent: Codable, Equatable, Sendable {
+    public struct Payload: Codable, Equatable, Sendable {
+        public var session: DJConnectBroadcastState.Session?
+        public var planner: DJConnectBroadcastState.Planner?
+        public var sessionFlow: DJConnectSessionFlow?
+
+        enum CodingKeys: String, CodingKey {
+            case session, planner
+            case sessionFlow = "session_flow"
+        }
+    }
+
+    public var eventType: String
+    public var sessionID: String
+    public var payload: Payload
+
+    enum CodingKeys: String, CodingKey {
+        case eventType = "event_type"
+        case sessionID = "session_id"
+        case payload
+    }
+}
+
+public extension DJConnectSessionRuntime {
+    func applying(broadcastState: DJConnectBroadcastState) -> DJConnectSessionRuntime {
+        var runtime = self
+        runtime.runtimeState = broadcastState.session.runtimeState
+        runtime.selectedMood = broadcastState.session.selectedMood
+        runtime.planner = DJConnectPlannerRuntime(
+            planningHorizonMinutes: broadcastState.planner.planningHorizonMinutes,
+            currentDirection: broadcastState.planner.currentDirection
+        )
+        runtime.broadcast = broadcastState
+        return runtime
+    }
+
+    func applying(broadcastEvent: DJConnectSessionBroadcastEvent) -> DJConnectSessionRuntime {
+        var state = broadcast
+        if let session = broadcastEvent.payload.session { state.session = session }
+        if let planner = broadcastEvent.payload.planner { state.planner = planner }
+        if let sessionFlow = broadcastEvent.payload.sessionFlow { state.sessionFlow = sessionFlow }
+        return applying(broadcastState: state)
+    }
+}

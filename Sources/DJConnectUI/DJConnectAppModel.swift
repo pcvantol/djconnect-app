@@ -877,6 +877,7 @@ public final class DJConnectAppModel: ObservableObject {
     private var musicDiscoveryPushRefreshes: [String: Date] = [:]
     private var webSocketFastPathCache: [String: any DJConnectWebSocketFastPathTransport] = [:]
     private var webSocketSessionAuthProviders: [String: DJConnectWebSocketSessionAuthProvider] = [:]
+    private var sessionBroadcastTransport: DJConnectSessionBroadcastTransport?
     @Published public private(set) var fastPathDiagnostics = DJConnectFastPathDiagnostics()
     @Published public var webSocketFastPathEnabled = false {
         didSet {
@@ -4540,6 +4541,7 @@ public final class DJConnectAppModel: ObservableObject {
             }
             activeDJSession = response.resolvedSession
             djSessionErrorMessage = nil
+            startSessionBroadcastIfNeeded()
         } catch {
             djSessionErrorMessage = error.localizedDescription
         }
@@ -4554,6 +4556,7 @@ public final class DJConnectAppModel: ObservableObject {
             }
             activeDJSession = response.resolvedSession
             djSessionErrorMessage = response.resolvedSession == nil ? response.message : nil
+            startSessionBroadcastIfNeeded()
         } catch {
             djSessionErrorMessage = error.localizedDescription
         }
@@ -4569,9 +4572,68 @@ public final class DJConnectAppModel: ObservableObject {
             }
             activeDJSession = nil
             djSessionErrorMessage = nil
+            stopSessionBroadcast()
         } catch {
             djSessionErrorMessage = error.localizedDescription
         }
+    }
+
+    private func startSessionBroadcastIfNeeded() {
+        guard let session = activeDJSession,
+              let baseURL = homeAssistantBaseURLs().first,
+              let deviceToken = try? tokenStore.loadToken() else {
+            stopSessionBroadcast()
+            return
+        }
+        let auth = homeAssistantWebSocketAuth ?? webSocketSessionAuthProvider(for: baseURL).auth
+        let transport = DJConnectSessionBroadcastTransport(baseURL: baseURL, auth: auth, session: urlSession)
+        let previousTransport = sessionBroadcastTransport
+        sessionBroadcastTransport = transport
+        Task { await previousTransport?.stop() }
+        let apiIdentity = DJConnectAPIIdentity(identity: identity, deviceToken: deviceToken)
+        Task {
+            await transport.start(
+                sessionID: session.sessionID,
+                identity: apiIdentity,
+                onSnapshot: { [weak self] subscription in
+                    Task { @MainActor in
+                        self?.applySessionBroadcastSnapshot(subscription.snapshot)
+                    }
+                },
+                onEvent: { [weak self] event in
+                    Task { @MainActor in
+                        self?.applySessionBroadcastEvent(event)
+                    }
+                },
+                onTerminated: { [weak self] in
+                    Task { @MainActor in
+                        self?.activeDJSession = nil
+                        self?.sessionBroadcastTransport = nil
+                    }
+                }
+            )
+        }
+    }
+
+    private func stopSessionBroadcast() {
+        let transport = sessionBroadcastTransport
+        sessionBroadcastTransport = nil
+        Task { await transport?.stop() }
+    }
+
+    private func applySessionBroadcastSnapshot(_ snapshot: DJConnectBroadcastState) {
+        guard let active = activeDJSession, active.sessionID == snapshot.session.sessionID else { return }
+        activeDJSession = active.applying(broadcastState: snapshot)
+    }
+
+    private func applySessionBroadcastEvent(_ event: DJConnectSessionBroadcastEvent) {
+        guard let active = activeDJSession, active.sessionID == event.sessionID else { return }
+        if event.eventType == "runtime_ended" || event.eventType == "broadcast_stopped" {
+            activeDJSession = nil
+            stopSessionBroadcast()
+            return
+        }
+        activeDJSession = active.applying(broadcastEvent: event)
     }
 
     private func refreshStatus(client: DJConnectClient) async throws {
