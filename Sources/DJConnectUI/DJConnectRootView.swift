@@ -9962,10 +9962,12 @@ private struct IOSNowPlayingView: View {
             ZStack {
                 DJConnectCanvasBackground()
                 ScrollView {
-                    if let session = model.activeDJSession {
-                        IOSActiveDJSessionView(model: model, session: session, openQueueAction: openQueueAction)
-                    } else {
-                        IOSIdleDJSessionView(model: model)
+                    Group {
+                        if let session = model.activeDJSession {
+                            IOSActiveDJSessionView(model: model, session: session, openQueueAction: openQueueAction)
+                        } else {
+                            IOSIdleDJSessionView(model: model)
+                        }
                     }
                     .padding(.horizontal, 16)
                     .padding(.vertical, 12)
