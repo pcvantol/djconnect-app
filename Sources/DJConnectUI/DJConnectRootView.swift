@@ -9962,12 +9962,11 @@ private struct IOSNowPlayingView: View {
             ZStack {
                 DJConnectCanvasBackground()
                 ScrollView {
-                    VStack(spacing: 16) {
-                        IOSTrackHero(model: model, openQueueAction: openQueueAction)
-                        OutputSelectorView(model: model)
-                        NowPlayingMoodControlSection(model: model)
-                        if !model.isDemoMode {
-                            IOSConnectionCard(model: model)
+                    Group {
+                        if let session = model.activeDJSession {
+                            IOSActiveDJSessionView(model: model, session: session, openQueueAction: openQueueAction)
+                        } else {
+                            IOSIdleDJSessionView(model: model)
                         }
                     }
                     .padding(.horizontal, 16)
@@ -9983,7 +9982,7 @@ private struct IOSNowPlayingView: View {
                 }
             }
             .djStatusToastOverlay(statusToast)
-            .navigationTitle(screenTitle(model.language, key: "Now Playing", isDemoMode: model.isDemoMode))
+            .navigationTitle(localizedKey(model.language, "ui.session.title"))
             .navigationBarTitleDisplayMode(.large)
             .toolbar {
                 if model.shouldShowAppleWatchPairingReminder {
@@ -10000,6 +9999,7 @@ private struct IOSNowPlayingView: View {
             .task {
                 if model.pairingStatus == .paired {
                     model.refresh()
+                    await model.refreshActiveDJSession()
                 }
             }
             .djUserNoticeToast(model: model)
@@ -10028,6 +10028,66 @@ private struct IOSNowPlayingView: View {
                 statusToast = nil
             }
         }
+    }
+}
+
+private struct IOSIdleDJSessionView: View {
+    @ObservedObject var model: DJConnectAppModel
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 20) {
+            Text(localizedKey(model.language, "ui.session.title")).font(.largeTitle.bold())
+            Text(localizedKey(model.language, "ui.session.idle")).foregroundStyle(.secondary)
+            Picker(localizedKey(model.language, "ui.session.select_mood"), selection: $model.selectedSessionMood) {
+                Text(localizedKey(model.language, "ui.session.mood.chill")).tag("chill")
+                Text(localizedKey(model.language, "ui.session.mood.groove")).tag("groove")
+                Text(localizedKey(model.language, "ui.session.mood.energy")).tag("energy")
+                Text(localizedKey(model.language, "ui.session.mood.party")).tag("party")
+            }
+            .pickerStyle(.segmented)
+            Button(localizedKey(model.language, "ui.session.start")) { Task { await model.startDJSession() } }
+                .buttonStyle(.borderedProminent)
+                .disabled(model.isLoadingDJSession)
+            if let error = model.djSessionErrorMessage {
+                Text(error).font(.footnote).foregroundStyle(.red)
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 28)
+        .accessibilityIdentifier("screen-idle-dj-session")
+    }
+}
+
+private struct IOSActiveDJSessionView: View {
+    @ObservedObject var model: DJConnectAppModel
+    let session: DJConnectSessionRuntime
+    let openQueueAction: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            Text(localizedKey(model.language, "ui.session.active")).font(.largeTitle.bold())
+            LabeledContent(localizedKey(model.language, "ui.session.mood"), value: session.selectedMood.capitalized)
+            LabeledContent(localizedKey(model.language, "ui.session.backend"), value: session.musicBackend)
+            LabeledContent(localizedKey(model.language, "ui.session.started_at"), value: session.startedAt)
+            Divider()
+            Text(localizedKey(model.language, "ui.session.planner")).font(.headline)
+            LabeledContent(localizedKey(model.language, "ui.session.horizon"), value: "\(session.planner.planningHorizonMinutes) min")
+            LabeledContent(localizedKey(model.language, "ui.session.direction"), value: session.planner.currentDirection.replacingOccurrences(of: "_", with: " ").capitalized)
+            Text(localizedKey(model.language, "ui.session.flow")).font(.headline)
+            ForEach(session.broadcast.sessionFlow.items) { item in
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(item.position.uppercased()).font(.caption.bold()).foregroundStyle(.secondary)
+                    Text(item.label).font(.body.weight(.medium))
+                }
+            }
+            Button(localizedKey(model.language, "ui.session.queue"), action: openQueueAction).buttonStyle(.bordered)
+            Button(localizedKey(model.language, "ui.session.end"), role: .destructive) { Task { await model.endDJSession() } }
+                .buttonStyle(.bordered)
+                .disabled(model.isLoadingDJSession)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 28)
+        .accessibilityIdentifier("screen-active-dj-session")
     }
 }
 

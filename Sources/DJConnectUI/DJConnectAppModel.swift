@@ -681,6 +681,10 @@ public final class DJConnectAppModel: ObservableObject {
     @Published public var pairingMessage: String?
     @Published public var userNotice: DJConnectUserNotice?
     @Published public var playback: DJConnectPlayback?
+    @Published public private(set) var activeDJSession: DJConnectSessionRuntime?
+    @Published public var selectedSessionMood = "groove"
+    @Published public private(set) var isLoadingDJSession = false
+    @Published public private(set) var djSessionErrorMessage: String?
     @Published public private(set) var currentTrackInsight: TrackInsight?
     @Published public private(set) var trackInsightHistory: [TrackInsight] = []
     @Published public private(set) var isLoadingTrackInsight = false
@@ -4524,6 +4528,50 @@ public final class DJConnectAppModel: ObservableObject {
 
     func isTerminalPairingError(_ error: DJConnectError) -> Bool {
         return false
+    }
+
+    public func refreshActiveDJSession() async {
+        guard pairingStatus == .paired else { return }
+        isLoadingDJSession = true
+        defer { isLoadingDJSession = false }
+        do {
+            let response = try await withHomeAssistantClient { client in
+                try await client.activeSession()
+            }
+            activeDJSession = response.resolvedSession
+            djSessionErrorMessage = nil
+        } catch {
+            djSessionErrorMessage = error.localizedDescription
+        }
+    }
+
+    public func startDJSession() async {
+        isLoadingDJSession = true
+        defer { isLoadingDJSession = false }
+        do {
+            let response = try await withHomeAssistantClient { client in
+                try await client.startSession(DJConnectSessionStartRequest(mood: selectedSessionMood))
+            }
+            activeDJSession = response.resolvedSession
+            djSessionErrorMessage = response.resolvedSession == nil ? response.message : nil
+        } catch {
+            djSessionErrorMessage = error.localizedDescription
+        }
+    }
+
+    public func endDJSession() async {
+        guard let sessionID = activeDJSession?.sessionID else { return }
+        isLoadingDJSession = true
+        defer { isLoadingDJSession = false }
+        do {
+            _ = try await withHomeAssistantClient { client in
+                try await client.endSession(DJConnectSessionEndRequest(sessionID: sessionID))
+            }
+            activeDJSession = nil
+            djSessionErrorMessage = nil
+        } catch {
+            djSessionErrorMessage = error.localizedDescription
+        }
     }
 
     private func refreshStatus(client: DJConnectClient) async throws {
