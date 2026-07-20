@@ -655,6 +655,14 @@ Home Assistant runtime lifecycle; the app never generates or interprets the
 Flow. Playback remains contextual, and the backend Playback Queue is available
 as a secondary action rather than the primary experience.
 
+While a Session is active, the app uses the authenticated Home Assistant
+WebSocket Broadcast Transport. It first applies the complete server Broadcast
+State snapshot and then applies incremental Session metadata, Planner and
+Session Flow events. Temporary interruptions reconnect automatically and use a
+fresh snapshot; a terminated Runtime returns the app to the Idle Session
+screen. This owner-only transport is not VibeCast, a guest feed, Voice or an
+Audience feature.
+
 ## Security
 
 Never log bearer tokens, Home Assistant tokens, Spotify refresh tokens, OAuth
