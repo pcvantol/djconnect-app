@@ -235,6 +235,21 @@ public final class DJConnectClient: Sendable {
         return try await decodedResponse(for: request)
     }
 
+    public func startSession(_ payload: DJConnectSessionStartRequest) async throws -> DJConnectSessionResponse {
+        let request = try sessionStartRequest(payload)
+        return try await decodedResponse(for: request)
+    }
+
+    public func activeSession() async throws -> DJConnectSessionResponse {
+        let request = try activeSessionRequest()
+        return try await decodedResponse(for: request)
+    }
+
+    public func endSession(_ payload: DJConnectSessionEndRequest) async throws -> DJConnectSessionResponse {
+        let request = try sessionEndRequest(payload)
+        return try await decodedResponse(for: request)
+    }
+
     public var fastPathDiagnostics: DJConnectFastPathDiagnostics {
         get async {
             await webSocketFastPath?.diagnostics ?? DJConnectFastPathDiagnostics()
@@ -551,6 +566,20 @@ public final class DJConnectClient: Sendable {
             request.setValue(timezone, forHTTPHeaderField: "X-DJConnect-Timezone")
         }
         return request
+    }
+
+    public func sessionStartRequest(_ payload: DJConnectSessionStartRequest) throws -> URLRequest {
+        try jsonRequest(path: Self.apiV1Path("session/start"), payload: payload)
+    }
+
+    public func activeSessionRequest() throws -> URLRequest {
+        var request = try authenticatedRequest(path: Self.apiV1Path("session/active"))
+        request.httpMethod = "GET"
+        return request
+    }
+
+    public func sessionEndRequest(_ payload: DJConnectSessionEndRequest) throws -> URLRequest {
+        try jsonRequest(path: Self.apiV1Path("session/end"), payload: payload)
     }
 
     public func pushRegisterRequest(_ payload: DJConnectPushRegistrationRequest) throws -> URLRequest {

@@ -645,6 +645,16 @@ Playing, queue, playlists, and dominant artwork tint sampling. This avoids
 fetching and decoding the same album art repeatedly while scrolling or after
 short status refreshes.
 
+## DJ Session experience
+
+The primary iPhone experience is Session-first. At launch the app resolves the
+paired Profile's active DJ Session: it shows an Idle Session screen when none
+exists, or the Active Session with its server-owned metadata, Planner horizon,
+current direction and typed Session Flow. Starting and ending a Session use the
+Home Assistant runtime lifecycle; the app never generates or interprets the
+Flow. Playback remains contextual, and the backend Playback Queue is available
+as a secondary action rather than the primary experience.
+
 ## Security
 
 Never log bearer tokens, Home Assistant tokens, Spotify refresh tokens, OAuth
