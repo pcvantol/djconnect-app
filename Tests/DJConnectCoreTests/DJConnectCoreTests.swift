@@ -12372,7 +12372,7 @@ private func makePairedMusicDNAModel(
 }
 
 @MainActor
-@Test func trackInsightShareTextStaysCompactAndPublic() {
+@Test func trackInsightShareTextUsesOnlyRendererSafeTrackInsightContent() {
     let insight = TrackInsight(
         title: "Innerbloom",
         artist: "RUFUS DU SOL",
@@ -12387,11 +12387,45 @@ private func makePairedMusicDNAModel(
     let text = TrackInsightShareService.shareText(for: insight)
 
     #expect(text.contains("Currently vibing to Innerbloom by RUFUS DU SOL."))
-    #expect(text.contains("Inspired by your Music DNA."))
+    #expect(text.contains("dreamy, euphoric, deep house"))
+    #expect(text.contains("A slow-building journey with glowing synth textures."))
     #expect(text.contains("#DJConnect #TrackInsight"))
-    #expect(!text.localizedCaseInsensitiveContains("token"))
-    #expect(!text.localizedCaseInsensitiveContains("entity_id"))
-    #expect(!text.localizedCaseInsensitiveContains("home assistant"))
+    for prohibitedTerm in [
+        "music dna",
+        "profile",
+        "performance memory",
+        "planner",
+        "runtime",
+        "provider",
+        "ask dj",
+        "token",
+        "credential",
+        "device id",
+        "installation id",
+        "entity_id",
+        "home assistant"
+    ] {
+        #expect(!text.localizedCaseInsensitiveContains(prohibitedTerm))
+    }
+}
+
+@Test func trackInsightSharePathRequiresLocalUserSelectionAndKeepsAppleOwnership() throws {
+    let rootView = try loadRepositoryText("Sources/DJConnectUI/DJConnectRootView.swift")
+    let shareView = try loadRepositoryText("Sources/DJConnectUI/TrackInsightShareViews.swift")
+    let shareService = try loadRepositoryText("Sources/DJConnectUI/TrackInsightShareService.swift")
+
+    #expect(rootView.contains("TrackInsightSharePreviewView("))
+    #expect(shareView.contains("if let payload {"))
+    #expect(shareView.contains("ShareLink("))
+    #expect(shareView.contains("item: payload.mediaURL"))
+    #expect(shareView.contains("message: Text(payload.text)"))
+    #expect(shareView.contains("TrackInsightShareService.makePayload("))
+    #expect(shareView.contains("renderTask?.cancel()"))
+    #expect(shareService.contains("TrackInsightShareRenderer.renderImage("))
+    #expect(shareService.contains("TrackInsightShareRenderer.renderVideo("))
+    #expect(!shareView.contains("model."))
+    #expect(!shareView.localizedCaseInsensitiveContains("analytics"))
+    #expect(!shareView.localizedCaseInsensitiveContains("share history"))
 }
 
 private func loadRepositoryPlist(_ relativePath: String) throws -> [String: Any] {
