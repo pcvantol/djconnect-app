@@ -12,14 +12,15 @@ canonical DJConnect platform roadmap, which remains in
 
 ## Current Increment
 
-Generation 2 Build Engineering: qualify the unsigned iOS Simulator build and
-resolve the reported iOS/watchOS duplicate-output failure. Its active state is
-recorded in `PROMPT_INDEX.md`.
+Apple Native Share capability evidence (PR #50) is reconciled. The active
+authorized product increment is **Track Insight → Apple Native Sharing
+Implementation**, recorded in `PROMPT_INDEX.md`.
 
-## Next Candidate
+## Execution Horizon
 
-No next increment is selected. Choose one only after the active increment has
-completed verification and review.
+1. Track Insight (CAP-IN-01) → Apple Native Sharing Implementation — the
+   sole CMB-11-authorized producer-to-renderer slice; depends on completed PR
+   #50 evidence and main-repository PR #492 authorization.
 
 ## Planning Procedure
 
