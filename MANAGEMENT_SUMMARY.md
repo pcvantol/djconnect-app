@@ -1,30 +1,56 @@
 # DJConnect App Management Summary
 
-Status: Apple Native Share capability evidence reconciled
+Status: Track Insight to Apple Native Sharing implemented
 
 ## Decision
 
-PR [#50](https://github.com/pcvantol/djconnect-app/pull/50), **Assess Apple
-native share capability**, is `MERGED` at
-`d98d1428a09b93429b23784a190241ef49a4bc74`.
+PR [#52](https://github.com/pcvantol/djconnect-app/pull/52), **Implement Track
+Insight Apple native sharing**, is `MERGED` at
+`0cdf0b529d51cf8631010d08bd64cc75d1e6a5c4`; full CI passed.
 
 ## Scope and Outcome
 
-The assessment inventories the existing `TrackInsightShareRenderer`,
-`TrackInsightShareService` and SwiftUI `ShareLink`. It establishes Apple as
-the reference native renderer and records
-`GO_CROSS_REPOSITORY_EVIDENCE_COMPLETE`. Main-repository PR #492 uses this
-evidence for `GO_SHARING_IMPLEMENTATION` of exactly Track Insight (CAP-IN-01)
-→ Apple Native Sharing.
+The existing `TrackInsightShareRenderer`, `TrackInsightShareService` and
+SwiftUI `ShareLink` now qualify a renderer-safe Track Insight share message.
+Track Insight is the sole producer; Apple owns the native Share Sheet. No
+Runtime, Broadcast, API or DJ Intelligence behavior changed.
 
 ## Known Limitation
 
-This Finalization reconciliation changes no product code, Swift, UI, Runtime,
-Broadcast, API or DJ Intelligence behavior.
+The payload excludes Music DNA, Profile, Performance Memory, Planner/Runtime
+context, provider payloads, Ask DJ history, credentials, tokens, device IDs and
+installation IDs. Sharing remains explicitly user initiated.
 
 ## Recommended Next Prompt
 
-After this reconciliation merges, the first local Execution Horizon item is
-**Track Insight → Apple Native Sharing Implementation**. Repository State is
-`MERGED_RECONCILED` and Workspace State is `WORKSPACE_READY` after merge and
-cleanup.
+The next Apple work must be separately authorized from the canonical
+`djconnect` Execution Horizon. Repository State is `MERGED_RECONCILED` and
+Workspace State is `WORKSPACE_READY` after this Finalization and cleanup.
+
+## Roadmap Position
+
+Generation 2, Phase 1 — DJ Intelligence Evolution. Automated Session
+Intelligence E2E Verification remains the supporting engineering increment.
+
+## Rolling Horizon (Execution Horizon — Next 5 Planned)
+
+1. CMB-04 — Re-express Renderer Experience roadmap atomically; Planned;
+   no recorded dependency. Reason: next canonical renderer planning record.
+2. CMB-08 — Decompose Universal Receiver and VibeCast; Planned; depends on
+   receiver evidence. Reason: receiver decomposition precedes profile work.
+3. HACS-CI-PR-REF-001 — HACS pull-request validation reliability; Planned;
+   depends on retained validation evidence. Reason: supports assurance.
+4. Client Connectivity & Resilience qualification; Planned; depends on Public
+   Release Readiness Assessment. Reason: external-HTTP qualification after gate.
+5. Next canonical planned backlog item; derive afresh from `djconnect` at the
+   next Finalization. Reason: this repository must not duplicate the backlog.
+
+## Blocked Items
+
+Playback Observation Stage 2 / Continue Stage 2 — backend-owned Playback
+Instance Identity is the deconditioner.
+
+## Deferred Items
+
+Audience Experience and Ambient Reactions, Lyrics Knowledge, and Playback
+Observation Stage 2 / Continue Stage 2 remain deferred and excluded above.
