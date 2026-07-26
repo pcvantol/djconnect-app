@@ -1,6 +1,6 @@
 # DJConnect Repository Status
 
-Status: Active engineering repository
+Status: Track Insight Apple native sharing merged
 
 ## Repository
 
@@ -12,15 +12,14 @@ Apple Intelligence Client UX for iOS, iPadOS, macOS and watchOS.
 
 ## Reconciled Predecessor
 
-PR [#50](https://github.com/pcvantol/djconnect-app/pull/50), **Assess Apple
-native share capability**, is `MERGED` as
-`d98d1428a09b93429b23784a190241ef49a4bc74`.
+PR [#52](https://github.com/pcvantol/djconnect-app/pull/52), **Implement Track
+Insight Apple native sharing**, is `MERGED` as
+`0cdf0b529d51cf8631010d08bd64cc75d1e6a5c4`.
 
-It records `GO_CROSS_REPOSITORY_EVIDENCE_COMPLETE`: the existing
-`TrackInsightShareRenderer`, `TrackInsightShareService` and SwiftUI `ShareLink`
-form the Apple Native Share capability inventory. Main-repository PR #492 uses
-that evidence to authorize `GO_SHARING_IMPLEMENTATION` for only Track Insight
-(CAP-IN-01) → Apple Native Sharing.
+Full CI passed. The existing `TrackInsightShareRenderer`,
+`TrackInsightShareService` and SwiftUI `ShareLink` remain the sole Apple path;
+the user explicitly invokes the Share Sheet and no Runtime, Broadcast, API or
+DJ Intelligence behavior changed.
 
 ## Status
 
@@ -29,10 +28,8 @@ Cleanup completes.
 
 ## Current Prompt
 
-Track Insight → Apple Native Sharing Implementation is the next authorized
-product slice. It is limited to the existing Apple renderer/service/ShareLink
-path and must preserve its producer, local privacy and Apple Share Sheet
-ownership boundaries.
+No Apple implementation prompt is active. The next work must come from the
+canonical `djconnect` Execution Horizon.
 
 ## Completion Report
 

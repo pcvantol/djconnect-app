@@ -12,15 +12,14 @@ canonical DJConnect platform roadmap, which remains in
 
 ## Current Increment
 
-Apple Native Share capability evidence (PR #50) is reconciled. The active
-authorized product increment is **Track Insight → Apple Native Sharing
-Implementation**, recorded in `PROMPT_INDEX.md`.
+Track Insight (CAP-IN-01) → Apple Native Sharing is complete in PR #52. It
+used the existing renderer/service/ShareLink path and changed no Runtime,
+Broadcast, API or DJ Intelligence behavior.
 
 ## Execution Horizon
 
-1. Track Insight (CAP-IN-01) → Apple Native Sharing Implementation — the
-   sole CMB-11-authorized producer-to-renderer slice; depends on completed PR
-   #50 evidence and main-repository PR #492 authorization.
+No further Apple-local item is selected. Follow the canonical `djconnect`
+Execution Horizon; do not create a parallel Apple backlog.
 
 ## Planning Procedure
 
