@@ -70,8 +70,6 @@ public enum TrackInsightShareService {
 
         DJConnect says: \(descriptorText) - \(insight.summary)
 
-        Inspired by your Music DNA.
-
         #DJConnect #TrackInsight
         """
     }

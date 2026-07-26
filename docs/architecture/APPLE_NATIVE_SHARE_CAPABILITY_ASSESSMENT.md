@@ -17,3 +17,20 @@ Performance Memory, Planner/Runtime context, provider payloads, Ask DJ history,
 credentials and tokens are excluded. The current local renderer/service is the
 Apple capability inventory required by PR #492; no new Apple capability is
 needed before the bounded implementation decision in the main repository.
+
+## Track Insight to Apple Native Sharing implementation
+
+The bounded implementation uses only the existing Track Insight presentation,
+`TrackInsightShareService`, `TrackInsightShareRenderer`, and SwiftUI
+`ShareLink` path. Track Insight remains the sole producer and Apple remains the
+sole Renderer Host. The service qualifies the share message from the already
+visible title, artist, selected descriptors, and summary; it does not include
+Music DNA, Profile, Performance Memory, Planner or Runtime context, provider
+payloads, Ask DJ history, credentials, tokens, device identifiers, or
+installation identifiers.
+
+The renderer creates the local media only after the existing preview is opened.
+The user then explicitly invokes `ShareLink`; Apple Share Sheet owns the
+destination, sending, cancellation, and all subsequent user interaction. This
+path records no share history, analytics, or payload logging and creates no
+Runtime, Broadcast, API, or DJ Intelligence change.
