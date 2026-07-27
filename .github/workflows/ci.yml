@@ -29,7 +29,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
 
       - name: Select Xcode
         run: |
@@ -44,7 +44,7 @@ jobs:
 
       - name: Upload third-party update report
         if: always()
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: thirdparty-update-report
           path: build/release/thirdparty-update-report.txt
@@ -103,7 +103,7 @@ jobs:
 
       - name: Upload unsigned Apple build artifacts
         if: always()
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: apple-unsigned-build-artifacts
           path: |
@@ -131,7 +131,7 @@ jobs:
 
       - name: Upload runner qualification evidence
         if: always()
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: runner-evidence-apple
           path: runner-evidence/runner-evidence.json
@@ -142,7 +142,7 @@ jobs:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: [self-hosted, internal-release, qualification, apple]
     steps:
-      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - name: Run macOS core tests with coverage
         run: |
           # Coverage evidence is an unsigned CI build. It must not require the
@@ -153,7 +153,7 @@ jobs:
           xcodebuild test -project DJConnectApp.xcodeproj -scheme DJConnectMac -only-testing:DJConnectCoreTests -destination platform=macOS -enableCodeCoverage YES -resultBundlePath coverage.xcresult CODE_SIGNING_ALLOWED=NO
           xcrun xccov view --report --json coverage.xcresult > coverage.json
           printf '%s\n' "$GITHUB_SHA" > coverage-main-sha.txt
-      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: apple-xccov-coverage
           path: |
