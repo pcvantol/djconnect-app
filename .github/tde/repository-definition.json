@@ -1,0 +1,13 @@
+{
+  "identifier": "djconnect-app",
+  "name": "DJConnect App",
+  "repositoryRoot": "../..",
+  "repositoryType": "source",
+  "primaryLanguage": "Swift",
+  "defaultAssessmentProfile": "standard",
+  "metadata": {
+    "consumer": "DJConnect",
+    "rolloutPhase": "observe"
+  }
+}
+
