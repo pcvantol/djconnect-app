@@ -428,10 +428,10 @@ struct DJConnectClientContractFixtureTests {
     }
 
     private static func fixtureData(_ file: String) throws -> Data {
-        let fixtureURL = try #require(
-            Bundle.module.url(forResource: file, withExtension: nil, subdirectory: "DJConnectContracts")
-                ?? Bundle.module.url(forResource: file, withExtension: nil, subdirectory: "Fixtures/DJConnectContracts")
-        )
+        let fixtureURL = URL(filePath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .appending(path: "Fixtures/DJConnectContracts/\(file)")
         return try Data(contentsOf: fixtureURL)
     }
 }
