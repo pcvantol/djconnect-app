@@ -186,6 +186,22 @@ jobs:
             gh api "/repos/${REPO}/actions/runs/${CURRENT_RUN_ID}" --jq '.workflow_id'
           )"
 
+          # Preserve the originating pull request's exact-SHA checks until
+          # post-merge reconciliation has read their qualification evidence.
+          protected_run_ids=()
+          pr_head_sha="$(
+            gh api -H 'Accept: application/vnd.github+json' \
+              "/repos/${REPO}/commits/${GITHUB_SHA}/pulls" \
+              --jq '[.[] | select(.merged_at and .base.ref == "main" and .merge_commit_sha == env.GITHUB_SHA)] | if length == 1 then .[0].head.sha else empty end' \
+              || true
+          )"
+          if [[ -n "$pr_head_sha" ]]; then
+            mapfile -t protected_run_ids < <(
+              gh api "/repos/${REPO}/actions/runs?head_sha=${pr_head_sha}&per_page=100" \
+                --paginate --jq '.workflow_runs[] | .id'
+            )
+          fi
+
           mapfile -t workflows < <(
             gh api --paginate "/repos/${REPO}/actions/workflows?per_page=100" \
               --jq '.workflows[] | @base64'
@@ -212,7 +228,7 @@ jobs:
             )
 
             for run_id in "${completed_run_ids[@]}"; do
-              if [[ "$run_id" == "$CURRENT_RUN_ID" ]]; then
+              if [[ "$run_id" == "$CURRENT_RUN_ID" || " ${protected_run_ids[*]} " == *" ${run_id} "* ]]; then
                 continue
               fi
 
