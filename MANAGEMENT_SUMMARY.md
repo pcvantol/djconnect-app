@@ -54,3 +54,16 @@ Instance Identity is the deconditioner.
 
 Audience Experience and Ambient Reactions, Lyrics Knowledge, and Playback
 Observation Stage 2 / Continue Stage 2 remain deferred and excluded above.
+
+## Dependabot Maintenance Status — 2026-07-27
+
+**Decision:** `GO_PLATFORM_DEPENDABOT_MAINTENANCE_COMPLETE`.
+
+The platform-wide Dependabot maintenance round is complete. This repository
+merged [#63](https://github.com/pcvantol/djconnect-app/pull/63), updating nine
+immutable GitHub Actions pins after exact-SHA Owner Authorization. No Apple
+product, Renderer or release behavior changed.
+
+Current GitHub evidence: zero open Dependabot security alerts and zero open
+Dependabot pull requests. The canonical platform record is maintained in
+`pcvantol/djconnect`.
