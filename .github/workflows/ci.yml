@@ -74,7 +74,7 @@ jobs:
         run: node Tools/validate_ha_contract_fixture_security.js
 
       - name: Validate Apple localizations
-        run: python3 scripts/validate_localizations.py
+        run: /usr/bin/python3 scripts/validate_localizations.py
 
       - name: Swift tests
         run: swift test --no-parallel
