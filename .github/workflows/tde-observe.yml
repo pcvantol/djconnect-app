@@ -50,7 +50,7 @@ jobs:
           curl --fail --silent --show-error --location \
             https://github.com/AlDanial/cloc/releases/download/v2.10/cloc-2.10.pl \
             --output "$RUNNER_TEMP/tde-tools/cloc"
-          echo "bf59272455172108072a0a106379f7509fd4349bdcfd85203bac038ccd286d83  $RUNNER_TEMP/tde-tools/cloc" | sha256sum --check
+          echo "bf59272455172108072a0a106379f7509fd4349bdcfd85203bac038ccd286d83  $RUNNER_TEMP/tde-tools/cloc" | shasum -a 256 -c
           chmod +x "$RUNNER_TEMP/tde-tools/cloc"
           "$RUNNER_TEMP/tde-tools/cloc" --version
           echo "$RUNNER_TEMP/tde-tools" >> "$GITHUB_PATH"
