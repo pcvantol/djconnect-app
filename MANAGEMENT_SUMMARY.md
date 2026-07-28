@@ -1,8 +1,26 @@
 # DJConnect App Management Summary
 
-Status: Track Insight to Apple Native Sharing implemented
+Status: macOS runner workspace retention reconciled
 
 ## Decision
+
+PR [#70](https://github.com/pcvantol/djconnect-app/pull/70), **Add runner
+workspace retention cleanup**, merged as
+`1711458d8d6a2171914e6788b4fe9942f20022d4`.
+
+The existing daily macOS CI-tooling maintenance job now bounds persistent
+self-hosted runner storage without changing Apple product behavior or release
+evidence. It removes only Git-ignored output from inactive, non-recent
+worktrees and runner diagnostics older than fourteen days. Its first canonical
+run succeeded: one inactive ESP32 workspace was cleaned, the recent Apple
+workspace was retained, and fifteen expired diagnostics were removed. A Docker
+Desktop cask upgrade remains separately flagged for interactive administrator
+maintenance; it does not block the maintenance outcome.
+
+Repository State: `MERGED_RECONCILED`.
+Workspace State: `WORKSPACE_READY`.
+
+## Earlier Decision
 
 PR [#52](https://github.com/pcvantol/djconnect-app/pull/52), **Implement Track
 Insight Apple native sharing**, is `MERGED` at
