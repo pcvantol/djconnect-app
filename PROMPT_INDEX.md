@@ -6,14 +6,24 @@ Repository: `pcvantol/djconnect-app`
 
 ## Reconciled Repository Phase
 
-Track Insight to Apple Native Sharing implementation (PR #52).
+macOS runner workspace retention (PR #70).
 
 ## Status
 
-`MERGED_RECONCILED` after this Finalization reconciliation merges and Workspace
-Cleanup completes.
+`MERGED_RECONCILED`; `WORKSPACE_READY`.
 
 ## Current Prompt
+
+No Apple product implementation prompt is active. PR #70 merged as
+`1711458d8d6a2171914e6788b4fe9942f20022d4` and its dedicated Finalization
+records the installed daily runner workspace-retention path. Select any future
+Apple work from the canonical `djconnect` Execution Horizon.
+
+## Earlier Reconciled Repository Phase
+
+Track Insight to Apple Native Sharing implementation (PR #52).
+
+## Earlier Current Prompt
 
 PR [#52](https://github.com/pcvantol/djconnect-app/pull/52), **Implement Track
 Insight Apple native sharing**, merged as
