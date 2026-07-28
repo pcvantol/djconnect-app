@@ -6,12 +6,23 @@ readonly LOG_DIR="$HOME/Library/Logs/DJConnect"
 readonly LOG_FILE="$LOG_DIR/ci-tooling-maintenance.log"
 readonly STATUS_FILE="$LOG_DIR/ci-tooling-maintenance.status"
 readonly LOCK_DIR="$SUPPORT_DIR/ci-tooling-maintenance.lock"
+readonly RUNNER_ROOT="${DJCONNECT_RUNNER_ROOT:-$HOME/actions-runners}"
+readonly RUNNER_WORKSPACE_RETENTION_DAYS="${DJCONNECT_RUNNER_WORKSPACE_RETENTION_DAYS:-1}"
+readonly RUNNER_DIAGNOSTIC_RETENTION_DAYS="${DJCONNECT_RUNNER_DIAGNOSTIC_RETENTION_DAYS:-14}"
 
 mkdir -p "$SUPPORT_DIR" "$LOG_DIR"
 exec >>"$LOG_FILE" 2>&1
 
 timestamp() {
   date -u '+%Y-%m-%dT%H:%M:%SZ'
+}
+
+require_positive_integer() {
+  local value="$1" name="$2"
+  if [[ ! "$value" =~ ^[1-9][0-9]*$ ]]; then
+    printf '%s %s must be a positive integer.\n' "$(timestamp)" "$name"
+    exit 2
+  fi
 }
 
 write_status() {
@@ -30,6 +41,9 @@ on_error() {
 trap 'on_error $LINENO' ERR
 trap cleanup EXIT
 
+require_positive_integer "$RUNNER_WORKSPACE_RETENTION_DAYS" 'DJCONNECT_RUNNER_WORKSPACE_RETENTION_DAYS'
+require_positive_integer "$RUNNER_DIAGNOSTIC_RETENTION_DAYS" 'DJCONNECT_RUNNER_DIAGNOSTIC_RETENTION_DAYS'
+
 if ! mkdir "$LOCK_DIR" 2>/dev/null; then
   printf '%s CI tooling maintenance already running; skipping duplicate launch.\n' "$(timestamp)"
   exit 0
@@ -37,6 +51,65 @@ fi
 
 write_status 'RUNNING'
 printf '%s Starting macOS CI tooling maintenance.\n' "$(timestamp)"
+
+runner_has_active_worker() {
+  local runner_dir="$1"
+  pgrep -f "$runner_dir/bin/Runner.Worker" >/dev/null 2>&1
+}
+
+workspace_has_recent_activity() {
+  local workspace="$1"
+  find "$workspace" -type f -mtime "-$RUNNER_WORKSPACE_RETENTION_DAYS" -print -quit | grep -q .
+}
+
+cleanup_runner_workspaces() {
+  local runner_dir runner_name workspace git_dir repository before_kb after_kb
+  local removed_workspaces=0 skipped_active=0 skipped_recent=0 cleaned_diagnostics=0
+
+  [[ -d "$RUNNER_ROOT" ]] || {
+    printf '%s No local GitHub Actions runner root at %s; skipping workspace cleanup.\n' "$(timestamp)" "$RUNNER_ROOT"
+    return
+  }
+
+  printf '%s Checking temporary GitHub Actions runner workspaces under %s.\n' "$(timestamp)" "$RUNNER_ROOT"
+  for runner_dir in "$RUNNER_ROOT"/*; do
+    [[ -d "$runner_dir" && -f "$runner_dir/.runner" && -d "$runner_dir/_work" ]] || continue
+    runner_name="$(basename "$runner_dir")"
+
+    if runner_has_active_worker "$runner_dir"; then
+      skipped_active=$((skipped_active + 1))
+      printf '%s Skipping active runner %s.\n' "$(timestamp)" "$runner_name"
+      continue
+    fi
+
+    while IFS= read -r -d '' git_dir; do
+      repository="${git_dir%/.git}"
+      if workspace_has_recent_activity "$repository"; then
+        skipped_recent=$((skipped_recent + 1))
+        printf '%s Preserving recently active workspace %s.\n' "$(timestamp)" "$repository"
+        continue
+      fi
+
+      before_kb="$(du -sk "$repository" | awk '{print $1}')"
+      git -C "$repository" clean -ffdX
+      after_kb="$(du -sk "$repository" | awk '{print $1}')"
+      removed_workspaces=$((removed_workspaces + 1))
+      printf '%s Cleaned ignored build output in %s (%sKB -> %sKB).\n' "$(timestamp)" "$repository" "$before_kb" "$after_kb"
+    done < <(find "$runner_dir/_work" -mindepth 2 -maxdepth 6 -type d -name .git -print0)
+
+    if [[ -d "$runner_dir/_diag" ]]; then
+      while IFS= read -r -d '' diagnostic; do
+        rm -f -- "$diagnostic"
+        cleaned_diagnostics=$((cleaned_diagnostics + 1))
+      done < <(find "$runner_dir/_diag" -type f -mtime "+$RUNNER_DIAGNOSTIC_RETENTION_DAYS" -print0)
+    fi
+  done
+
+  printf '%s Runner workspace cleanup complete: %s cleaned, %s active runner(s) skipped, %s recently active workspace(s) preserved, %s expired diagnostic log(s) removed.\n' \
+    "$(timestamp)" "$removed_workspaces" "$skipped_active" "$skipped_recent" "$cleaned_diagnostics"
+}
+
+cleanup_runner_workspaces
 
 if ! command -v brew >/dev/null 2>&1; then
   if [[ -x /opt/homebrew/bin/brew ]]; then

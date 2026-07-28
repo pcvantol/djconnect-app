@@ -20,6 +20,31 @@ It also maintains the development-network tooling without handling secrets:
   that automatic update is enabled but never replaces an independently
   installed Tailscale app with Homebrew.
 
+## Runner workspace retention
+
+The same daily task also keeps persistent self-hosted runner storage bounded.
+It operates only below `~/actions-runners` and only when a runner has no active
+`Runner.Worker` process. For each Git worktree that has had no file activity
+for at least one day, it removes Git-ignored output with `git clean -ffdX`.
+This safely removes build intermediates such as Xcode derived output and Swift
+build products, while preserving tracked source and non-ignored files.
+
+The task never deletes runner binaries, runner update state, Actions caches,
+repository source, published artifacts, release assets or formal qualification
+and release evidence. It preserves a recently active workspace and skips an
+entire runner while a job is executing. Runner diagnostic logs older than
+fourteen days are removed as ephemeral operational data.
+
+For a local dry-run or retention adjustment, operators may set the following
+environment variables when invoking the installed script manually:
+
+- `DJCONNECT_RUNNER_ROOT` — default `~/actions-runners`.
+- `DJCONNECT_RUNNER_WORKSPACE_RETENTION_DAYS` — default `1`.
+- `DJCONNECT_RUNNER_DIAGNOSTIC_RETENTION_DAYS` — default `14`.
+
+The scheduled LaunchAgent uses the defaults. Do not set a runner root outside
+the dedicated runner installation path.
+
 Some casks, such as `dotnet-sdk`, can require an interactive macOS
 administrator authorization to replace system-owned files. The user
 LaunchAgent deliberately has no passwordless `sudo` access. It records those
