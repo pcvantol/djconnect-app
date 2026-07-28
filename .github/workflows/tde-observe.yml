@@ -34,10 +34,9 @@ jobs:
 
       - name: Install published TDE runtime
         run: |
-          python3 -m pip install --user --upgrade pip
-          echo "$(python3 -m site --user-base)/bin" >> "$GITHUB_PATH"
+          python3 -m pip install --upgrade pip
           for attempt in 1 2 3 4 5; do
-            if python3 -m pip install --user --no-cache-dir "technical-debt-engine-runtime==1.0.5"; then
+            if python3 -m pip install --no-cache-dir "technical-debt-engine-runtime==1.0.5"; then
               break
             fi
             if [ "$attempt" = "5" ]; then
