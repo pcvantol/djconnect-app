@@ -9485,15 +9485,7 @@ public final class DJConnectAppModel: ObservableObject {
             }
         case "set_output":
             if case let .string(name) = value {
-                selectedOutput = name
-                availableOutputs = availableOutputs.map { device in
-                    var device = device
-                    device.active = device.name == name || device.id == name
-                    return device
-                }
-                updated.device = availableOutputs.first(where: { $0.active == true }).map {
-                    DJConnectPlaybackDevice(id: $0.id, name: $0.name, type: $0.type, active: true, supportsVolume: $0.supportsVolume, volumePercent: $0.volumePercent)
-                }
+                applyDemoOutput(name, to: &updated)
             }
         case "queue", "playlists", "devices", "status":
             break
@@ -9515,6 +9507,18 @@ public final class DJConnectAppModel: ObservableObject {
                 device.volumePercent = volume
             }
             return device
+        }
+    }
+
+    private func applyDemoOutput(_ name: String, to playback: inout DJConnectPlayback) {
+        selectedOutput = name
+        availableOutputs = availableOutputs.map { device in
+            var device = device
+            device.active = device.name == name || device.id == name
+            return device
+        }
+        playback.device = availableOutputs.first(where: { $0.active == true }).map {
+            DJConnectPlaybackDevice(id: $0.id, name: $0.name, type: $0.type, active: true, supportsVolume: $0.supportsVolume, volumePercent: $0.volumePercent)
         }
     }
 
