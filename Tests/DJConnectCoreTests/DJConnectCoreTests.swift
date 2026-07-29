@@ -10487,6 +10487,57 @@ private func makePairedMusicDNAModel(
 }
 
 @MainActor
+@Test func whatsNewReleaseNotesLoadFromThePublicCanonicalEndpoint() async throws {
+    let requests = RequestPathRecorder()
+    let session = mockSession(host: "djconnect.dev") { request in
+        requests.append(request.url?.path ?? "")
+        let response = try httpResponse(for: request, statusCode: 200)
+        let data = Data("""
+        {
+          "name": "DJConnect release notes",
+          "body": "Focused reliability improvements.",
+          "tag_name": "macos/v3.4.0",
+          "version": "3.4.0"
+        }
+        """.utf8)
+        return (response, data)
+    }
+    let model = DJConnectAppModel(
+        defaults: try testDefaults(),
+        tokenStore: DJConnectInMemoryTokenStore(),
+        urlSession: session,
+        startBackgroundTasks: false
+    )
+
+    await model.loadWhatsNewReleaseNotes()
+
+    #expect(model.isLoadingWhatsNew == false)
+    #expect(model.whatsNewTitle == "DJConnect release notes")
+    #expect(model.whatsNewBody == "Focused reliability improvements.")
+    #expect(requests.paths.count == 1)
+    #expect(requests.paths.first?.contains("/release-notes/") == true)
+}
+
+@MainActor
+@Test func whatsNewReleaseNotesUseLocalizedFallbackAfterEndpointFailures() async throws {
+    let session = mockSession(host: "djconnect.dev") { request in
+        throw URLError(.cannotConnectToHost)
+    }
+    let model = DJConnectAppModel(
+        defaults: try testDefaults(),
+        tokenStore: DJConnectInMemoryTokenStore(),
+        urlSession: session,
+        startBackgroundTasks: false
+    )
+
+    await model.loadWhatsNewReleaseNotes()
+
+    #expect(model.isLoadingWhatsNew == false)
+    #expect(model.whatsNewBody.isEmpty == false)
+    #expect(model.whatsNewBody.lowercased().contains("release") || model.whatsNewBody.lowercased().contains("versie"))
+}
+
+@MainActor
 @Test func whatsNewDoesNotAppearOnFirstInstall() throws {
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
