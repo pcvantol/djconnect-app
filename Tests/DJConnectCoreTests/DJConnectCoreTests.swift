@@ -12372,6 +12372,49 @@ private func makePairedMusicDNAModel(
 }
 
 @MainActor
+@Test func trackInsightShareFormatsExposeLocalizedTitlesAndCanonicalSizes() {
+    let formats = TrackInsightShareFormat.allCases
+
+    #expect(formats.map(\.rawValue) == ["story", "square", "linkPreview"])
+    #expect(formats.map { $0.title(language: "en") }.allSatisfy { !$0.isEmpty })
+    #expect(TrackInsightShareFormat.story.size == CGSize(width: 1080, height: 1920))
+    #expect(TrackInsightShareFormat.square.size == CGSize(width: 1080, height: 1080))
+    #expect(TrackInsightShareFormat.linkPreview.size == CGSize(width: 1200, height: 628))
+    #expect(TrackInsightShareMediaKind.allCases.map(\.rawValue) == ["staticImage", "animatedVideo"])
+    #expect(TrackInsightShareMediaKind.allCases.map { $0.title(language: "en") }.allSatisfy { !$0.isEmpty })
+}
+
+@MainActor
+@Test func trackInsightStaticSharePayloadPublishesRendererOutputAndProgress() async throws {
+    let insight = TrackInsight(
+        title: "Innerbloom",
+        artist: "RUFUS DU SOL",
+        genre: "Deep House",
+        mood: "Dreamy",
+        vibe: "Euphoric",
+        summary: "A slow-building journey with glowing synth textures.",
+        rawAnalysisText: "Visible summary only."
+    )
+    var progress: [Double] = []
+
+    let payload = try await TrackInsightShareService.makePayload(
+        for: insight,
+        format: .square,
+        mediaKind: .staticImage,
+        language: "en",
+        moodStepIndex: 3,
+        progress: { progress.append($0) }
+    )
+    defer { try? FileManager.default.removeItem(at: payload.mediaURL) }
+
+    #expect(payload.format == .square)
+    #expect(payload.mediaKind == .staticImage)
+    #expect(FileManager.default.fileExists(atPath: payload.mediaURL.path))
+    #expect(progress == [1])
+    #expect(payload.text.contains("Currently vibing to Innerbloom by RUFUS DU SOL."))
+}
+
+@MainActor
 @Test func trackInsightShareTextUsesOnlyRendererSafeTrackInsightContent() {
     let insight = TrackInsight(
         title: "Innerbloom",
