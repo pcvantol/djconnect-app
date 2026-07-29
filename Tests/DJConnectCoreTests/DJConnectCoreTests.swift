@@ -10586,6 +10586,32 @@ private func makePairedMusicDNAModel(
 }
 
 @MainActor
+@Test func demoPlaybackCommandsRemainLocallyActionableWithoutBackendAccess() async throws {
+    let model = DJConnectAppModel(
+        defaults: try testDefaults(),
+        tokenStore: DJConnectInMemoryTokenStore(),
+        startBackgroundTasks: false
+    )
+
+    model.startDemoMode()
+    model.startLikedProxy()
+    for _ in 0..<10 where model.playback?.isPlaying != true {
+        try await Task.sleep(for: .milliseconds(25))
+    }
+
+    #expect(model.isDemoMode == true)
+    #expect(model.playback?.isPlaying == true)
+
+    model.toggleCurrentTrackFavorite()
+    for _ in 0..<10 where model.playback?.currentTrackFavoriteStatus != true {
+        try await Task.sleep(for: .milliseconds(25))
+    }
+
+    #expect(model.playback?.currentTrackFavoriteStatus == true)
+    #expect(model.userNotice?.text.isEmpty == false)
+}
+
+@MainActor
 @Test func whatsNewDoesNotAppearOnFirstInstall() throws {
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
