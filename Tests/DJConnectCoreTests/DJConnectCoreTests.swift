@@ -10436,6 +10436,57 @@ private func makePairedMusicDNAModel(
 }
 
 @MainActor
+@Test func uiTestRuntimeFixtureBuildsDeterministicPlayableContent() throws {
+    let model = DJConnectAppModel(
+        defaults: try testDefaults(),
+        tokenStore: DJConnectInMemoryTokenStore(),
+        startBackgroundTasks: false
+    )
+
+    model.applyUITestRuntimeFixture("  DEFAULT  ")
+
+    #expect(model.isUITestRuntimeFixtureActive == true)
+    #expect(model.uiTestRuntimeFixtureScenario == "default")
+    #expect(model.backendAvailable == true)
+    #expect(model.isDemoMode == false)
+    #expect(model.playback?.trackName == "Fixture Track")
+    #expect(model.playback?.isPlaying == true)
+    #expect(model.availableOutputs.suffix(2).map(\.name) == ["Fixture Living Room", "Fixture Kitchen"])
+    #expect(model.selectedOutput == "Fixture Living Room")
+    #expect(model.queueItems.map(\.title) == ["Fixture Track", "Fixture Next"])
+    #expect(model.playlistItems.map(\.name) == ["Fixture Playlist", "Fixture Dinner"])
+    #expect(model.djResponseText.contains("backend text stays sanitized"))
+    #expect(model.shouldShowPairingScreen == false)
+}
+
+@MainActor
+@Test func uiTestRuntimeFixtureExposesExplicitFailureAndPairingScenarios() throws {
+    let model = DJConnectAppModel(
+        defaults: try testDefaults(),
+        tokenStore: DJConnectInMemoryTokenStore(),
+        startBackgroundTasks: false
+    )
+
+    model.applyUITestRuntimeFixture("pairing_success")
+    #expect(model.isShowingPairingSuccess == true)
+    #expect(model.isPairingScreenDismissed == false)
+    #expect(model.shouldShowPairingScreen == true)
+    #expect(model.pairingMessage?.isEmpty == false)
+
+    model.applyUITestRuntimeFixture("backend_unavailable")
+    #expect(model.backendAvailable == false)
+    #expect(model.shouldShowPairingScreen == false)
+
+    model.applyUITestRuntimeFixture("stale_auth")
+    #expect(model.shouldShowPairingScreen == true)
+
+    model.applyUITestRuntimeFixture("version_mismatch")
+    #expect(model.updateRequiredMessage == "Fixture update required")
+    #expect(model.isPairingScreenDismissed == true)
+    #expect(model.shouldShowPairingScreen == false)
+}
+
+@MainActor
 @Test func whatsNewDoesNotAppearOnFirstInstall() throws {
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
