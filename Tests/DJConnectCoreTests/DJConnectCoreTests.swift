@@ -10612,6 +10612,31 @@ private func makePairedMusicDNAModel(
 }
 
 @MainActor
+@Test func pairingLinksPopulateTheCanonicalPairingFlowAndRejectInvalidInput() throws {
+    let session = mockSession(host: "homeassistant.local") { request in
+        (try httpResponse(for: request, statusCode: 503), Data())
+    }
+    let model = DJConnectAppModel(
+        defaults: try testDefaults(),
+        tokenStore: DJConnectInMemoryTokenStore(),
+        urlSession: session,
+        startBackgroundTasks: false
+    )
+    let pairingURL = try #require(URL(string: "djconnect://pair?ha_url=http%3A%2F%2Fhomeassistant.local%3A8123&pair_code=123456&client_type=macos&pair_path=%2Fapi%2Fdjconnect%2Fv1%2Fpair"))
+
+    #expect(model.handlePairingDeepLink(pairingURL) == true)
+    #expect(model.homeAssistantURL == "http://homeassistant.local:8123")
+    #expect(model.pairingToken == "123456")
+    #expect(model.isPairing == true)
+    #expect(model.pairingMessage?.isEmpty == false)
+    model.stopPairingWait()
+
+    #expect(model.handlePairingQRCode("not a pairing URL") == false)
+    #expect(model.isPairing == false)
+    #expect(model.pairingMessage?.isEmpty == false)
+}
+
+@MainActor
 @Test func whatsNewDoesNotAppearOnFirstInstall() throws {
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
