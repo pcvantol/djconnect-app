@@ -9459,14 +9459,7 @@ public final class DJConnectAppModel: ObservableObject {
             return
         case "set_volume":
             if case let .int(volume) = value {
-                updated.volumePercent = volume
-                availableOutputs = availableOutputs.map { device in
-                    var device = device
-                    if device.active == true {
-                        device.volumePercent = volume
-                    }
-                    return device
-                }
+                applyDemoVolume(volume, to: &updated)
             }
         case "set_shuffle":
             if case let .bool(shuffle) = value {
@@ -9511,6 +9504,17 @@ public final class DJConnectAppModel: ObservableObject {
         updateDemoWidgetSnapshots()
         if startBackgroundTasks {
             updatePlaybackProgressTimer()
+        }
+    }
+
+    private func applyDemoVolume(_ volume: Int, to playback: inout DJConnectPlayback) {
+        playback.volumePercent = volume
+        availableOutputs = availableOutputs.map { device in
+            var device = device
+            if device.active == true {
+                device.volumePercent = volume
+            }
+            return device
         }
     }
 
