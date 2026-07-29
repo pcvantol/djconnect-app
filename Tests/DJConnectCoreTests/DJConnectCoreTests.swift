@@ -10609,6 +10609,13 @@ private func makePairedMusicDNAModel(
 
     #expect(model.playback?.currentTrackFavoriteStatus == true)
     #expect(model.userNotice?.text.isEmpty == false)
+
+    model.askDJDraft = "Play a relaxed evening mix"
+    model.sendAskDJText()
+
+    #expect(model.askDJDraft.isEmpty)
+    #expect(model.askDJMessages.suffix(2).map(\.role) == [.user, .dj])
+    #expect(model.askDJMessages.suffix(2).allSatisfy { !$0.text.isEmpty })
 }
 
 @MainActor
