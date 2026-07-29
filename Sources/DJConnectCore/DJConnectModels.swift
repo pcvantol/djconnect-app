@@ -6114,14 +6114,12 @@ public struct DJConnectAskDJMessageResponse: Codable, Equatable, Sendable {
         confirmationActions = container.decodeLossyArrayIfPresent(DJConnectAskDJPlaybackAction.self, forKey: .confirmationActions)
         historyRevision = try container.decodeIfPresent(Int.self, forKey: .historyRevision) ?? 0
         clearRevision = try container.decodeIfPresent(Int.self, forKey: .clearRevision) ?? 0
-        audioURL = try container.decodeIfPresent(URL.self, forKey: .audioURL)
+        let decodedAudioURL = try container.decodeIfPresent(URL.self, forKey: .audioURL)
             ?? container.decodeIfPresentIgnoringErrors(URL.self, forKey: .audioUrl)
             ?? container.decodeIfPresentIgnoringErrors(URL.self, forKey: .responseAudioURL)
             ?? container.decodeIfPresentIgnoringErrors(URL.self, forKey: .responseAudioUrl)
         announcement = try container.decodeIfPresent(DJAnnouncement.self, forKey: .announcement)
-        if let announcement {
-            audioURL = announcement.clientReplayAudioURL
-        }
+        audioURL = Self.resolvedAudioURL(announcement, fallback: decodedAudioURL)
         historyLimit = try container.decodeIfPresent(Int.self, forKey: .historyLimit)
         historyTrimmedBefore = DJConnectAskDJHistoryResponse.decodeDate(container, key: .historyTrimmedBefore)
         historyTrimmedCount = try container.decodeIfPresent(Int.self, forKey: .historyTrimmedCount)
@@ -6131,16 +6129,7 @@ public struct DJConnectAskDJMessageResponse: Codable, Equatable, Sendable {
         action = try container.decodeIfPresent(String.self, forKey: .action)
         itemType = try container.decodeIfPresent(String.self, forKey: .itemType)
             ?? container.decodeIfPresentIgnoringErrors(String.self, forKey: .itemTypeCamel)
-        if intentInfo != nil, (intentInfo?.action == nil || intentInfo?.itemType == nil) {
-            intentInfo = DJConnectAskDJIntentInfo(
-                category: intentInfo?.category,
-                intent: intentInfo?.intent,
-                action: intentInfo?.action ?? action,
-                itemType: intentInfo?.itemType ?? itemType
-            )
-        } else if intentInfo == nil, action != nil || itemType != nil {
-            intentInfo = DJConnectAskDJIntentInfo(intent: nil, action: action, itemType: itemType)
-        }
+        intentInfo = Self.resolvedIntentInfo(intentInfo, action: action, itemType: itemType)
         openScreen = try container.decodeIfPresent(String.self, forKey: .openScreen)
         responseType = try container.decodeIfPresent(String.self, forKey: .responseType)
         if let payload = try container.decodeIfPresent(TrackInsightPayload.self, forKey: .trackInsight) {
@@ -6242,6 +6231,32 @@ public struct DJConnectAskDJMessageResponse: Codable, Equatable, Sendable {
                 return updated
             }
         }
+    }
+
+    private static func resolvedAudioURL(_ announcement: DJAnnouncement?, fallback: URL?) -> URL? {
+        guard let announcement else {
+            return fallback
+        }
+        return announcement.clientReplayAudioURL
+    }
+
+    private static func resolvedIntentInfo(
+        _ intentInfo: DJConnectAskDJIntentInfo?,
+        action: String?,
+        itemType: String?
+    ) -> DJConnectAskDJIntentInfo? {
+        if let intentInfo, intentInfo.action == nil || intentInfo.itemType == nil {
+            return DJConnectAskDJIntentInfo(
+                category: intentInfo.category,
+                intent: intentInfo.intent,
+                action: intentInfo.action ?? action,
+                itemType: intentInfo.itemType ?? itemType
+            )
+        }
+        if intentInfo == nil, action != nil || itemType != nil {
+            return DJConnectAskDJIntentInfo(intent: nil, action: action, itemType: itemType)
+        }
+        return intentInfo
     }
 
     public func encode(to encoder: Encoder) throws {
