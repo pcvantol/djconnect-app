@@ -16119,175 +16119,206 @@ private struct LocalGameSurface: View {
     private func update() {
         switch game {
         case .pong:
-            if paddleMissTicks > 0 {
-                paddleMissTicks -= 1
-                if paddleMissTicks == 0 {
-                    resetPaddleBall()
-                }
-                return
-            }
-            if paddleHitTicks > 0 {
-                paddleHitTicks -= 1
-            }
-            if ballWallBounceTicks > 0 {
-                ballWallBounceTicks -= 1
-            }
-            ballX += ballVX
-            ballY += ballVY
-            if ballY <= 42 || ballY >= 156 {
-                ballVY *= -1
-                ballWallBounceTicks = 8
-                DJConnectHaptics.selection()
-                DJConnectGameSounds.play(.bounce)
-            }
-            if ballX >= 306 {
-                ballVX = -abs(ballVX)
-                ballWallBounceTicks = 8
-                DJConnectHaptics.selection()
-                DJConnectGameSounds.play(.bounce)
-            }
-            if ballX <= 30 {
-                if ballY >= paddleY - 20 && ballY <= paddleY + 20 {
-                    ballVX = abs(ballVX)
-                    paddleHitTicks = 10
-                    DJConnectHaptics.impact()
-                    DJConnectGameSounds.play(.hit)
-                    setScore(score + 1)
-                } else {
-                    flash()
-                    DJConnectHaptics.error()
-                    DJConnectGameSounds.play(.gameOver)
-                    setScore(0)
-                    paddleMissTicks = 24
-                    ballVX = 0
-                    ballVY = 0
-                }
-            }
+            updatePong()
         case .asteroids:
-            if asteroidExplosionTicks > 0 {
-                asteroidExplosionTicks -= 1
-            }
-            meteorStarPhase = (meteorStarPhase + 0.08).truncatingRemainder(dividingBy: CGFloat.pi * 2)
-            asteroidY += asteroidSpeed + CGFloat(min(score / 8, 3)) * 0.18
-            if asteroidBulletActive {
-                asteroidBulletY -= 8
-                if asteroidBulletY < 36 {
-                    asteroidBulletActive = false
-                } else if abs(asteroidX - shipX) < max(14, asteroidSize) && abs(asteroidY - asteroidBulletY) < max(14, asteroidSize) {
-                    asteroidBulletActive = false
-                    startMeteorExplosion()
-                    DJConnectHaptics.success()
-                    DJConnectGameSounds.play(.explosion)
-                    setScore(score + 1)
-                    resetAsteroid()
-                }
-            }
-            if asteroidY > 150 {
-                flash()
-                DJConnectHaptics.warning()
-                DJConnectGameSounds.play(.gameOver)
-                setScore(0)
-                resetAsteroid()
-            }
+            updateAsteroids()
         case .fly:
-            if skyCrashTicks > 0 {
-                skyCrashTicks -= 1
-                if skyCrashTicks == 0 {
-                    resetObstacle()
-                }
-                return
-            }
-            if skyObstacleExplosionTicks > 0 {
-                skyObstacleExplosionTicks -= 1
-            }
-            spaceScroll = (spaceScroll + 4 + CGFloat(min(score / 8, 4))).truncatingRemainder(dividingBy: 302)
-            obstacleX -= 4 + CGFloat(min(score / 6, 4))
-            if flyShotActive {
-                flyShotX += 9
-                if flyShotX > 310 {
-                    flyShotActive = false
-                } else if abs(flyShotX - obstacleX) < 22 && abs(planeY - obstacleY) < 26 {
-                    flyShotActive = false
-                    startSkyObstacleExplosion()
-                    DJConnectHaptics.success()
-                    DJConnectGameSounds.play(.explosion)
-                    setScore(score + 1)
-                    resetObstacle()
-                }
-            }
-            if obstacleX < 24 {
-                setScore(score + 1)
-                resetObstacle()
-            }
-            if obstacleX < 70 && obstacleX > 28 && abs(planeY - obstacleY) < 30 {
-                flash()
-                startSkyCrash()
-                DJConnectHaptics.error()
-                DJConnectGameSounds.play(.crash)
-                setScore(0)
-            }
+            updateFly()
         case .pacman:
-            if pacmanDeathTicks > 0 {
-                pacmanDeathTicks -= 1
-                if pacmanDeathTicks == 0 {
-                    resetPacman()
-                }
-                return
+            updatePacman()
+        }
+    }
+
+    private func updatePong() {
+        if paddleMissTicks > 0 {
+            paddleMissTicks -= 1
+            if paddleMissTicks == 0 { resetPaddleBall() }
+            return
+        }
+        if paddleHitTicks > 0 { paddleHitTicks -= 1 }
+        if ballWallBounceTicks > 0 { ballWallBounceTicks -= 1 }
+        ballX += ballVX
+        ballY += ballVY
+        if ballY <= 42 || ballY >= 156 { bouncePongBallVertically() }
+        if ballX >= 306 { bouncePongBallFromRightWall() }
+        if ballX <= 30 { resolvePongPaddleContact() }
+    }
+
+    private func bouncePongBallVertically() {
+        ballVY *= -1
+        ballWallBounceTicks = 8
+        DJConnectHaptics.selection()
+        DJConnectGameSounds.play(.bounce)
+    }
+
+    private func bouncePongBallFromRightWall() {
+        ballVX = -abs(ballVX)
+        ballWallBounceTicks = 8
+        DJConnectHaptics.selection()
+        DJConnectGameSounds.play(.bounce)
+    }
+
+    private func resolvePongPaddleContact() {
+        if ballY >= paddleY - 20 && ballY <= paddleY + 20 {
+            ballVX = abs(ballVX)
+            paddleHitTicks = 10
+            DJConnectHaptics.impact()
+            DJConnectGameSounds.play(.hit)
+            setScore(score + 1)
+            return
+        }
+        flash()
+        DJConnectHaptics.error()
+        DJConnectGameSounds.play(.gameOver)
+        setScore(0)
+        paddleMissTicks = 24
+        ballVX = 0
+        ballVY = 0
+    }
+
+    private func updateAsteroids() {
+        if asteroidExplosionTicks > 0 { asteroidExplosionTicks -= 1 }
+        meteorStarPhase = (meteorStarPhase + 0.08).truncatingRemainder(dividingBy: CGFloat.pi * 2)
+        asteroidY += asteroidSpeed + CGFloat(min(score / 8, 3)) * 0.18
+        updateAsteroidBullet()
+        if asteroidY > 150 { finishAsteroidRun() }
+    }
+
+    private func updateAsteroidBullet() {
+        guard asteroidBulletActive else { return }
+        asteroidBulletY -= 8
+        if asteroidBulletY < 36 {
+            asteroidBulletActive = false
+        } else if abs(asteroidX - shipX) < max(14, asteroidSize) && abs(asteroidY - asteroidBulletY) < max(14, asteroidSize) {
+            asteroidBulletActive = false
+            startMeteorExplosion()
+            DJConnectHaptics.success()
+            DJConnectGameSounds.play(.explosion)
+            setScore(score + 1)
+            resetAsteroid()
+        }
+    }
+
+    private func finishAsteroidRun() {
+        flash()
+        DJConnectHaptics.warning()
+        DJConnectGameSounds.play(.gameOver)
+        setScore(0)
+        resetAsteroid()
+    }
+
+    private func updateFly() {
+        if advanceSkyCrash() { return }
+        if skyObstacleExplosionTicks > 0 { skyObstacleExplosionTicks -= 1 }
+        spaceScroll = (spaceScroll + 4 + CGFloat(min(score / 8, 4))).truncatingRemainder(dividingBy: 302)
+        obstacleX -= 4 + CGFloat(min(score / 6, 4))
+        updateFlyShot()
+        if obstacleX < 24 {
+            setScore(score + 1)
+            resetObstacle()
+        }
+        if obstacleX < 70 && obstacleX > 28 && abs(planeY - obstacleY) < 30 { crashFly() }
+    }
+
+    private func advanceSkyCrash() -> Bool {
+        guard skyCrashTicks > 0 else { return false }
+        skyCrashTicks -= 1
+        if skyCrashTicks == 0 { resetObstacle() }
+        return true
+    }
+
+    private func updateFlyShot() {
+        guard flyShotActive else { return }
+        flyShotX += 9
+        if flyShotX > 310 {
+            flyShotActive = false
+        } else if abs(flyShotX - obstacleX) < 22 && abs(planeY - obstacleY) < 26 {
+            flyShotActive = false
+            startSkyObstacleExplosion()
+            DJConnectHaptics.success()
+            DJConnectGameSounds.play(.explosion)
+            setScore(score + 1)
+            resetObstacle()
+        }
+    }
+
+    private func crashFly() {
+        flash()
+        startSkyCrash()
+        DJConnectHaptics.error()
+        DJConnectGameSounds.play(.crash)
+        setScore(0)
+    }
+
+    private func updatePacman() {
+        if advancePacmanDeath() { return }
+        movePacmanAndGhost()
+        collectPacmanPellet()
+        resetPacmanRoundIfNeeded()
+        resolvePacmanGhostCollision()
+    }
+
+    private func advancePacmanDeath() -> Bool {
+        guard pacmanDeathTicks > 0 else { return false }
+        pacmanDeathTicks -= 1
+        if pacmanDeathTicks == 0 { resetPacman() }
+        return true
+    }
+
+    private func movePacmanAndGhost() {
+        pacmanX = min(max(pacmanX + pacmanDX * 4, pacmanMinX), pacmanMaxX)
+        pacmanY = min(max(pacmanY + pacmanDY * 4, pacmanMinY), pacmanMaxY)
+        if ghostVulnerableTicks > 0 { ghostVulnerableTicks -= 1 }
+        let ghostStep: CGFloat = (isGhostVulnerable ? 0.62 : 0.88) + CGFloat(min(score / 12, 3)) * 0.20
+        if abs(ghostX - pacmanX) > 2 { ghostX += ghostX < pacmanX ? ghostStep : -ghostStep }
+        if abs(ghostY - pacmanY) > 2 { ghostY += ghostY < pacmanY ? ghostStep : -ghostStep }
+    }
+
+    private func collectPacmanPellet() {
+        for pellet in pellets {
+            let column = pellet % pacmanColumnCount
+            let row = pellet / pacmanColumnCount
+            let pelletX = pacmanPelletStartX + CGFloat(column) * pacmanPelletSpacing
+            let pelletY = pacmanPelletStartY + CGFloat(row) * pacmanPelletSpacing
+            guard abs(pelletX - pacmanX) < 10 && abs(pelletY - pacmanY) < 10 else { continue }
+            pellets.remove(pellet)
+            setScore(score + 1)
+            if pacmanPowerPellets.contains(pellet) {
+                DJConnectHaptics.success()
+                DJConnectGameSounds.play(.power)
+                ghostVulnerableTicks = pacmanPowerTicks
+            } else {
+                DJConnectHaptics.selection()
+                DJConnectGameSounds.play(.collect)
             }
-            pacmanX = min(max(pacmanX + pacmanDX * 4, pacmanMinX), pacmanMaxX)
-            pacmanY = min(max(pacmanY + pacmanDY * 4, pacmanMinY), pacmanMaxY)
-            if ghostVulnerableTicks > 0 {
-                ghostVulnerableTicks -= 1
-            }
-            let ghostStep: CGFloat = (isGhostVulnerable ? 0.62 : 0.88) + CGFloat(min(score / 12, 3)) * 0.20
-            if abs(ghostX - pacmanX) > 2 {
-                ghostX += ghostX < pacmanX ? ghostStep : -ghostStep
-            }
-            if abs(ghostY - pacmanY) > 2 {
-                ghostY += ghostY < pacmanY ? ghostStep : -ghostStep
-            }
-            for pellet in pellets {
-                let column = pellet % pacmanColumnCount
-                let row = pellet / pacmanColumnCount
-                let pelletX = pacmanPelletStartX + CGFloat(column) * pacmanPelletSpacing
-                let pelletY = pacmanPelletStartY + CGFloat(row) * pacmanPelletSpacing
-                if abs(pelletX - pacmanX) < 10 && abs(pelletY - pacmanY) < 10 {
-                    pellets.remove(pellet)
-                    setScore(score + 1)
-                    if pacmanPowerPellets.contains(pellet) {
-                        DJConnectHaptics.success()
-                        DJConnectGameSounds.play(.power)
-                        ghostVulnerableTicks = pacmanPowerTicks
-                    } else {
-                        DJConnectHaptics.selection()
-                        DJConnectGameSounds.play(.collect)
-                    }
-                    break
-                }
-            }
-            if pellets.isEmpty {
-                pellets = Set(0..<pacmanPelletCount)
-                ghostX = 250
-                ghostY = 86
-                ghostVulnerableTicks = 0
-            }
-            if abs(ghostX - pacmanX) < 14 && abs(ghostY - pacmanY) < 14 {
-                if isGhostVulnerable {
-                    flash()
-                    DJConnectHaptics.success()
-                    DJConnectGameSounds.play(.explosion)
-                    setScore(score + 5)
-                    ghostX = 250
-                    ghostY = 86
-                    ghostVulnerableTicks = max(ghostVulnerableTicks - 60, 0)
-                } else {
-                    flash()
-                    startPacmanDeath()
-                    DJConnectHaptics.error()
-                    DJConnectGameSounds.play(.gameOver)
-                    setScore(0)
-                }
-            }
+            return
+        }
+    }
+
+    private func resetPacmanRoundIfNeeded() {
+        guard pellets.isEmpty else { return }
+        pellets = Set(0..<pacmanPelletCount)
+        ghostX = 250
+        ghostY = 86
+        ghostVulnerableTicks = 0
+    }
+
+    private func resolvePacmanGhostCollision() {
+        guard abs(ghostX - pacmanX) < 14 && abs(ghostY - pacmanY) < 14 else { return }
+        if isGhostVulnerable {
+            flash()
+            DJConnectHaptics.success()
+            DJConnectGameSounds.play(.explosion)
+            setScore(score + 5)
+            ghostX = 250
+            ghostY = 86
+            ghostVulnerableTicks = max(ghostVulnerableTicks - 60, 0)
+        } else {
+            flash()
+            startPacmanDeath()
+            DJConnectHaptics.error()
+            DJConnectGameSounds.play(.gameOver)
+            setScore(0)
         }
     }
 
