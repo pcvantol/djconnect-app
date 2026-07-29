@@ -10538,6 +10538,54 @@ private func makePairedMusicDNAModel(
 }
 
 @MainActor
+@Test func updateCheckPublishesNewReleaseNotesFromCanonicalFixtures() async throws {
+    let requests = RequestPathRecorder()
+    let session = mockSession(host: "djconnect.dev") { request in
+        throw URLError(.badServerResponse)
+    }
+    let model = DJConnectAppModel(
+        defaults: try testDefaults(),
+        tokenStore: DJConnectInMemoryTokenStore(),
+        urlSession: session,
+        startBackgroundTasks: false
+    )
+    let versionParts = model.version.split(separator: ".").compactMap { Int($0) }
+    let major = try #require(versionParts.first)
+    let minor = versionParts.dropFirst().first ?? 0
+    let patch = versionParts.dropFirst(2).first ?? 0
+    let nextVersion = "\(major).\(minor).\(patch + 1)"
+    MockURLProtocol.setHandler(for: "djconnect.dev") { request in
+        let path = request.url?.path ?? ""
+        requests.append(path)
+        let response = try httpResponse(for: request, statusCode: 200)
+        if path.hasSuffix("/latest.json") {
+            return (response, Data("{\"latest_version\": \"\(nextVersion)\"}".utf8))
+        }
+        return (response, Data("""
+        {
+          "name": "DJConnect \(nextVersion)",
+          "body": "Stable update fixture.",
+          "tag_name": "macos/v\(nextVersion)",
+          "version": "\(nextVersion)"
+        }
+        """.utf8))
+    }
+
+    model.checkForUpdates()
+    for _ in 0..<20 where !model.isShowingUpdateNotes {
+        try await Task.sleep(for: .milliseconds(50))
+    }
+
+    #expect(model.isCheckingForUpdates == false)
+    #expect(model.isShowingUpdateNotes == true)
+    #expect(model.updateNotesTitle.contains(nextVersion))
+    #expect(model.updateNotesBody.contains("Stable update fixture."))
+    #expect(model.updateCheckMessage?.contains(nextVersion) == true)
+    #expect(requests.paths.contains(where: { $0.hasSuffix("/latest.json") }))
+    #expect(requests.paths.contains(where: { $0.contains("release-notes") }))
+}
+
+@MainActor
 @Test func whatsNewDoesNotAppearOnFirstInstall() throws {
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
