@@ -6234,7 +6234,10 @@ public struct DJConnectAskDJMessageResponse: Codable, Equatable, Sendable {
     }
 
     private static func resolvedAudioURL(_ announcement: DJAnnouncement?, fallback: URL?) -> URL? {
-        announcement?.clientReplayAudioURL ?? fallback
+        guard let announcement else {
+            return fallback
+        }
+        return announcement.clientReplayAudioURL
     }
 
     private static func resolvedIntentInfo(
