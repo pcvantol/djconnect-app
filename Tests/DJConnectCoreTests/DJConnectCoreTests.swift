@@ -10436,6 +10436,216 @@ private func makePairedMusicDNAModel(
 }
 
 @MainActor
+@Test func uiTestRuntimeFixtureBuildsDeterministicPlayableContent() throws {
+    let model = DJConnectAppModel(
+        defaults: try testDefaults(),
+        tokenStore: DJConnectInMemoryTokenStore(),
+        startBackgroundTasks: false
+    )
+
+    model.applyUITestRuntimeFixture("  DEFAULT  ")
+
+    #expect(model.isUITestRuntimeFixtureActive == true)
+    #expect(model.uiTestRuntimeFixtureScenario == "default")
+    #expect(model.backendAvailable == true)
+    #expect(model.isDemoMode == false)
+    #expect(model.playback?.trackName == "Fixture Track")
+    #expect(model.playback?.isPlaying == true)
+    #expect(model.availableOutputs.suffix(2).map(\.name) == ["Fixture Living Room", "Fixture Kitchen"])
+    #expect(model.selectedOutput == "Fixture Living Room")
+    #expect(model.queueItems.map(\.title) == ["Fixture Track", "Fixture Next"])
+    #expect(model.playlistItems.map(\.name) == ["Fixture Playlist", "Fixture Dinner"])
+    #expect(model.djResponseText.contains("backend text stays sanitized"))
+    #expect(model.shouldShowPairingScreen == false)
+}
+
+@MainActor
+@Test func uiTestRuntimeFixtureExposesExplicitFailureAndPairingScenarios() throws {
+    let model = DJConnectAppModel(
+        defaults: try testDefaults(),
+        tokenStore: DJConnectInMemoryTokenStore(),
+        startBackgroundTasks: false
+    )
+
+    model.applyUITestRuntimeFixture("pairing_success")
+    #expect(model.isShowingPairingSuccess == true)
+    #expect(model.isPairingScreenDismissed == false)
+    #expect(model.shouldShowPairingScreen == true)
+    #expect(model.pairingMessage?.isEmpty == false)
+
+    model.applyUITestRuntimeFixture("backend_unavailable")
+    #expect(model.backendAvailable == false)
+    #expect(model.shouldShowPairingScreen == false)
+
+    model.applyUITestRuntimeFixture("stale_auth")
+    #expect(model.shouldShowPairingScreen == true)
+
+    model.applyUITestRuntimeFixture("version_mismatch")
+    #expect(model.updateRequiredMessage == "Fixture update required")
+    #expect(model.isPairingScreenDismissed == true)
+    #expect(model.shouldShowPairingScreen == false)
+}
+
+@MainActor
+@Test func whatsNewReleaseNotesLoadFromThePublicCanonicalEndpoint() async throws {
+    let requests = RequestPathRecorder()
+    let session = mockSession(host: "djconnect.dev") { request in
+        requests.append(request.url?.path ?? "")
+        let response = try httpResponse(for: request, statusCode: 200)
+        let data = Data("""
+        {
+          "name": "DJConnect release notes",
+          "body": "Focused reliability improvements.",
+          "tag_name": "macos/v3.4.0",
+          "version": "3.4.0"
+        }
+        """.utf8)
+        return (response, data)
+    }
+    let model = DJConnectAppModel(
+        defaults: try testDefaults(),
+        tokenStore: DJConnectInMemoryTokenStore(),
+        urlSession: session,
+        startBackgroundTasks: false
+    )
+
+    await model.loadWhatsNewReleaseNotes()
+
+    #expect(model.isLoadingWhatsNew == false)
+    #expect(model.whatsNewTitle == "DJConnect release notes")
+    #expect(model.whatsNewBody == "Focused reliability improvements.")
+    #expect(requests.paths.count == 1)
+    #expect(requests.paths.first?.contains("/release-notes/") == true)
+}
+
+@MainActor
+@Test func whatsNewReleaseNotesUseLocalizedFallbackAfterEndpointFailures() async throws {
+    let session = mockSession(host: "djconnect.dev") { request in
+        throw URLError(.cannotConnectToHost)
+    }
+    let model = DJConnectAppModel(
+        defaults: try testDefaults(),
+        tokenStore: DJConnectInMemoryTokenStore(),
+        urlSession: session,
+        startBackgroundTasks: false
+    )
+
+    await model.loadWhatsNewReleaseNotes()
+
+    #expect(model.isLoadingWhatsNew == false)
+    #expect(model.whatsNewBody.isEmpty == false)
+    #expect(model.whatsNewBody.lowercased().contains("release") || model.whatsNewBody.lowercased().contains("versie"))
+}
+
+@MainActor
+@Test func updateCheckPublishesNewReleaseNotesFromCanonicalFixtures() async throws {
+    let requests = RequestPathRecorder()
+    let session = mockSession(host: "djconnect.dev") { request in
+        throw URLError(.badServerResponse)
+    }
+    let model = DJConnectAppModel(
+        defaults: try testDefaults(),
+        tokenStore: DJConnectInMemoryTokenStore(),
+        urlSession: session,
+        startBackgroundTasks: false
+    )
+    let versionParts = model.version.split(separator: ".").compactMap { Int($0) }
+    guard let major = versionParts.first else {
+        return
+    }
+    let minor = versionParts.dropFirst().first ?? 0
+    let patch = versionParts.dropFirst(2).first ?? 0
+    let nextVersion = "\(major).\(minor).\(patch + 1)"
+    MockURLProtocol.setHandler(for: "djconnect.dev") { request in
+        let path = request.url?.path ?? ""
+        requests.append(path)
+        let response = try httpResponse(for: request, statusCode: 200)
+        if path.hasSuffix("/latest.json") {
+            return (response, Data("{\"latest_version\": \"\(nextVersion)\"}".utf8))
+        }
+        return (response, Data("""
+        {
+          "name": "DJConnect \(nextVersion)",
+          "body": "Stable update fixture.",
+          "tag_name": "macos/v\(nextVersion)",
+          "version": "\(nextVersion)"
+        }
+        """.utf8))
+    }
+
+    model.checkForUpdates()
+    for _ in 0..<20 where !model.isShowingUpdateNotes {
+        try await Task.sleep(for: .milliseconds(50))
+    }
+
+    #expect(model.isCheckingForUpdates == false)
+    #expect(model.isShowingUpdateNotes == true)
+    #expect(model.updateNotesTitle.contains(nextVersion))
+    #expect(model.updateNotesBody.contains("Stable update fixture."))
+    #expect(model.updateCheckMessage?.contains(nextVersion) == true)
+    #expect(requests.paths.contains(where: { $0.hasSuffix("/latest.json") }))
+    #expect(requests.paths.contains(where: { $0.contains("release-notes") }))
+}
+
+@MainActor
+@Test func demoPlaybackCommandsRemainLocallyActionableWithoutBackendAccess() async throws {
+    let model = DJConnectAppModel(
+        defaults: try testDefaults(),
+        tokenStore: DJConnectInMemoryTokenStore(),
+        startBackgroundTasks: false
+    )
+
+    model.startDemoMode()
+    model.startLikedProxy()
+    for _ in 0..<10 where model.playback?.isPlaying != true {
+        try await Task.sleep(for: .milliseconds(25))
+    }
+
+    #expect(model.isDemoMode == true)
+    #expect(model.playback?.isPlaying == true)
+
+    model.toggleCurrentTrackFavorite()
+    for _ in 0..<10 where model.playback?.currentTrackFavoriteStatus != true {
+        try await Task.sleep(for: .milliseconds(25))
+    }
+
+    #expect(model.playback?.currentTrackFavoriteStatus == true)
+    #expect(model.userNotice?.text.isEmpty == false)
+
+    model.askDJDraft = "Play a relaxed evening mix"
+    model.sendAskDJText()
+
+    #expect(model.askDJDraft.isEmpty)
+    #expect(model.askDJMessages.suffix(2).map(\.role) == [.user, .dj])
+    #expect(model.askDJMessages.suffix(2).allSatisfy { !$0.text.isEmpty })
+}
+
+@MainActor
+@Test func pairingLinksPopulateTheCanonicalPairingFlowAndRejectInvalidInput() throws {
+    let session = mockSession(host: "homeassistant.local") { request in
+        (try httpResponse(for: request, statusCode: 503), Data())
+    }
+    let model = DJConnectAppModel(
+        defaults: try testDefaults(),
+        tokenStore: DJConnectInMemoryTokenStore(),
+        urlSession: session,
+        startBackgroundTasks: false
+    )
+    let pairingURL = try #require(URL(string: "djconnect://pair?ha_url=http%3A%2F%2Fhomeassistant.local%3A8123&pair_code=123456&client_type=macos&pair_path=%2Fapi%2Fdjconnect%2Fv1%2Fpair"))
+
+    #expect(model.handlePairingDeepLink(pairingURL) == true)
+    #expect(model.homeAssistantURL == "http://homeassistant.local:8123")
+    #expect(model.pairingToken == "123456")
+    #expect(model.isPairing == true)
+    #expect(model.pairingMessage?.isEmpty == false)
+    model.stopPairingWait()
+
+    #expect(model.handlePairingQRCode("not a pairing URL") == false)
+    #expect(model.isPairing == false)
+    #expect(model.pairingMessage?.isEmpty == false)
+}
+
+@MainActor
 @Test func whatsNewDoesNotAppearOnFirstInstall() throws {
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
@@ -10677,6 +10887,176 @@ private func makePairedMusicDNAModel(
 
     #expect(recorder.paths.contains("/api/djconnect/v1/ask_dj/history"))
     #expect(model.isCheckingAskDJHistoryState == false)
+}
+
+@MainActor
+@Test func askDJHistoryRefreshAppliesServerConversationInChronologicalOrder() async throws {
+    let host = "ask-dj-history-fixture.local"
+    let requests = RequestPathRecorder()
+    let session = mockSession(host: host) { request in
+        requests.append(request.url?.path ?? "")
+        return (
+            try httpResponse(for: request, statusCode: 200),
+            Data(#"""
+            {
+              "history_revision": 23,
+              "clear_revision": 0,
+              "messages": [
+                {"id":"assistant-1","role":"assistant","text":"Try a relaxed mix.","created_at":"2026-07-30T10:01:00Z"},
+                {"id":"user-1","role":"user","text":"Play something calm.","created_at":"2026-07-30T10:00:00Z"}
+              ]
+            }
+            """#.utf8)
+        )
+    }
+    let defaults = try testDefaults()
+    defaults.set(DJConnectHAConnectionMode.local.rawValue, forKey: "DJConnectHAConnectionMode")
+    let model = DJConnectAppModel(
+        defaults: defaults,
+        tokenStore: DJConnectInMemoryTokenStore(token: "secret-token"),
+        urlSession: session,
+        startBackgroundTasks: false
+    )
+    model.homeAssistantURL = "http://\(host):8123"
+    model.pairingStatus = .paired
+
+    #expect(await model.refreshAskDJHistory(showToast: true) == true)
+
+    #expect(requests.paths.contains("/api/djconnect/v1/ask_dj/history"))
+    #expect(model.askDJMessages.map(\.text) == ["Play something calm.", "Try a relaxed mix."])
+    #expect(model.askDJMessages.map(\.role) == [.user, .dj])
+    #expect(model.askDJErrorMessage == nil)
+    #expect(model.isCheckingAskDJHistoryState == false)
+}
+
+@Test func coreResponseModelsRoundTripCanonicalPayloads() throws {
+    let message = DJConnectAskDJHistoryMessage(
+        id: "history-1",
+        clientMessageID: "client-1",
+        exchangeID: "exchange-1",
+        exchangeOrder: 1,
+        role: .assistant,
+        mood: 70,
+        text: "A focused response.",
+        createdAt: Date(timeIntervalSince1970: 1_722_000_000)
+    )
+    let history = DJConnectAskDJHistoryResponse(
+        success: true,
+        historyRevision: 8,
+        clearRevision: 2,
+        messages: [message]
+    )
+    let discovery = DJConnectMusicDiscoveryItem(
+        id: "discovery-1",
+        kind: .track,
+        title: "Midnight City",
+        subtitle: "M83",
+        uri: "spotify:track:midnight-city",
+        reason: "Matches the selected mood.",
+        reasonSources: ["music_dna"],
+        confidence: .high,
+        qualityScore: 0.95,
+        qualityBand: "high",
+        qualityFactors: ["energy"]
+    )
+    let privacy = DJConnectMusicDNAPrivacyDashboard(
+        enabled: true,
+        activeDataSources: ["listening_history"],
+        controls: ["music_dna": true],
+        rawCounts: ["tracks": 42],
+        retentionLimits: ["history_days": DJConnectMusicDNAValue("30")],
+        supportsClear: true,
+        supportsExport: true,
+        supportsImport: true,
+        storesRawAudio: false,
+        storesOAuthTokens: false,
+        storesFullPrompts: false,
+        flags: ["local_only": true]
+    )
+
+    let encoder = JSONEncoder()
+    encoder.dateEncodingStrategy = .iso8601
+    let decoder = JSONDecoder()
+    decoder.dateDecodingStrategy = .iso8601
+
+    #expect(try decoder.decode(DJConnectAskDJHistoryResponse.self, from: encoder.encode(history)) == history)
+    #expect(try decoder.decode(DJConnectMusicDiscoveryItem.self, from: encoder.encode(discovery)) == discovery)
+    #expect(try decoder.decode(DJConnectMusicDNAPrivacyDashboard.self, from: encoder.encode(privacy)) == privacy)
+}
+
+@Test func askDJResponseModelsEncodeCanonicalOptionalFields() throws {
+    let response = DJConnectAskDJResponse(
+        text: "Queued.",
+        djText: "The next track is ready.",
+        message: "Playback is ready.",
+        audioURL: URL(string: "https://example.test/reply.mp3"),
+        intent: "play_music",
+        action: "queue",
+        musicDNAKey: "music-dna-1"
+    )
+    let message = DJConnectAskDJMessageResponse(
+        text: "Queued.",
+        djText: "The next track is ready.",
+        message: "Playback is ready.",
+        historyRevision: 3,
+        clearRevision: 1,
+        audioURL: URL(string: "https://example.test/reply.mp3"),
+        action: "queue",
+        itemType: "track",
+        openScreen: "now_playing",
+        responseType: "action"
+    )
+
+    let encoder = JSONEncoder()
+    let responseJSON = try JSONSerialization.jsonObject(with: encoder.encode(response)) as? [String: Any]
+    let messageJSON = try JSONSerialization.jsonObject(with: encoder.encode(message)) as? [String: Any]
+
+    #expect(responseJSON?["music_dna_key"] as? String == "music-dna-1")
+    #expect((responseJSON?["intent"] as? [String: Any])?["intent"] as? String == "play_music")
+    #expect(messageJSON?["history_revision"] as? Int == 3)
+    #expect(messageJSON?["open_screen"] as? String == "now_playing")
+}
+
+@Test func errorPresentationCoversPairingAndAuthorizationVariants() {
+    let pairing = DJConnectErrorPresentationContext.pairing(expectedPairingFlowName: "Mac")
+
+    #expect(DJConnectErrorPresentation.userMessage(for: .clientTypeMismatch(message: nil, expectedClientType: nil, receivedClientType: nil), language: "en", context: pairing) != nil)
+    #expect(DJConnectErrorPresentation.userMessage(for: .authStale(statusCode: 500, message: "expired token"), language: "en") != nil)
+    #expect(DJConnectErrorPresentation.userMessage(for: .notConfigured(message: "setup flow required"), language: "en", context: pairing) != nil)
+    #expect(DJConnectErrorPresentation.userMessage(for: .pairingFailed(message: "invalid_client_type"), language: "en", context: pairing) != nil)
+    #expect(DJConnectErrorPresentation.userMessage(for: .pairingFailed(message: "unknown"), language: "en") != nil)
+    #expect(DJConnectErrorPresentation.userMessage(for: .server(statusCode: 500, message: "bearer token missing"), language: "en") != nil)
+    #expect(DJConnectErrorPresentation.userMessage(for: .server(statusCode: 500, message: "not configured"), language: "en") != nil)
+    #expect(DJConnectErrorPresentation.userMessage(for: .routeMissing(message: nil), language: "en") == nil)
+}
+
+@Test func trackInsightRequestDecodesLegacyAliasesAndNormalizesForTheCurrentDevice() throws {
+    let payload = """
+    {
+      "track_name": "Midnight City",
+      "artist_name": "M83",
+      "media_album": "Hurry Up, We're Dreaming",
+      "album_image_url": "https://example.test/artwork.jpg",
+      "duration_ms": -10,
+      "progress_ms": -1,
+      "mood": 101,
+      "locale": "  ",
+      "language": "nl-NL"
+    }
+    """
+    let decoded = try JSONDecoder().decode(DJConnectTrackInsightRequest.self, from: Data(payload.utf8))
+    let normalized = decoded.normalizedForSend(identity: testIOSIdentity())
+
+    #expect(decoded.title == "Midnight City")
+    #expect(decoded.artist == "M83")
+    #expect(decoded.album == "Hurry Up, We're Dreaming")
+    #expect(decoded.durationMS == 0)
+    #expect(decoded.progressMS == 0)
+    #expect(decoded.mood == 100)
+    #expect(normalized.deviceID == testIOSIdentity().deviceID)
+    #expect(normalized.clientType == DJConnectClientType.ios.rawValue)
+    #expect(normalized.locale == "nl-NL")
+    #expect(normalized.requestSource == .trackInsight)
 }
 
 @MainActor
@@ -12372,6 +12752,49 @@ private func makePairedMusicDNAModel(
 }
 
 @MainActor
+@Test func trackInsightShareFormatsExposeLocalizedTitlesAndCanonicalSizes() {
+    let formats = TrackInsightShareFormat.allCases
+
+    #expect(formats.map(\.rawValue) == ["story", "square", "linkPreview"])
+    #expect(formats.map { $0.title(language: "en") }.allSatisfy { !$0.isEmpty })
+    #expect(TrackInsightShareFormat.story.size == CGSize(width: 1080, height: 1920))
+    #expect(TrackInsightShareFormat.square.size == CGSize(width: 1080, height: 1080))
+    #expect(TrackInsightShareFormat.linkPreview.size == CGSize(width: 1200, height: 628))
+    #expect(TrackInsightShareMediaKind.allCases.map(\.rawValue) == ["staticImage", "animatedVideo"])
+    #expect(TrackInsightShareMediaKind.allCases.map { $0.title(language: "en") }.allSatisfy { !$0.isEmpty })
+}
+
+@MainActor
+@Test func trackInsightStaticSharePayloadPublishesRendererOutputAndProgress() async throws {
+    let insight = TrackInsight(
+        title: "Innerbloom",
+        artist: "RUFUS DU SOL",
+        genre: "Deep House",
+        mood: "Dreamy",
+        vibe: "Euphoric",
+        summary: "A slow-building journey with glowing synth textures.",
+        rawAnalysisText: "Visible summary only."
+    )
+    var progress: [Double] = []
+
+    let payload = try await TrackInsightShareService.makePayload(
+        for: insight,
+        format: .square,
+        mediaKind: .staticImage,
+        language: "en",
+        moodStepIndex: 3,
+        progress: { progress.append($0) }
+    )
+    defer { try? FileManager.default.removeItem(at: payload.mediaURL) }
+
+    #expect(payload.format == .square)
+    #expect(payload.mediaKind == .staticImage)
+    #expect(FileManager.default.fileExists(atPath: payload.mediaURL.path))
+    #expect(progress == [1])
+    #expect(payload.text.contains("Currently vibing to Innerbloom by RUFUS DU SOL."))
+}
+
+@MainActor
 @Test func trackInsightShareTextUsesOnlyRendererSafeTrackInsightContent() {
     let insight = TrackInsight(
         title: "Innerbloom",
@@ -12652,4 +13075,24 @@ private extension String {
     #expect(updated.room == "living-room")
     #expect(updated.musicBackend == "spotify_direct")
     #expect(updated.broadcast.sessionFlow.flowID == "flow-session-1b")
+
+    let encodedRuntime = try JSONEncoder().encode(runtime)
+    #expect(try JSONDecoder().decode(DJConnectSessionRuntime.self, from: encodedRuntime) == runtime)
+}
+
+@Test func sessionBroadcastTransportStopsCleanlyWhenAuthenticationIsUnavailable() async {
+    let transport = DJConnectSessionBroadcastTransport(
+        baseURL: URL(string: "http://homeassistant.local:8123")!,
+        auth: DJConnectHomeAssistantWebSocketAuth(accessToken: { nil })
+    )
+
+    await transport.start(
+        sessionID: "session-1",
+        identity: DJConnectAPIIdentity(identity: testIOSIdentity()),
+        onSnapshot: { _ in Issue.record("A subscription cannot be created without authentication.") },
+        onEvent: { _ in Issue.record("No broadcast event is expected without authentication.") },
+        onTerminated: { Issue.record("The transport must simply retry while it remains started.") }
+    )
+    await Task.yield()
+    await transport.stop()
 }
