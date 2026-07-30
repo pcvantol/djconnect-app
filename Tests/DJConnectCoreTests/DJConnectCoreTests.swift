@@ -10550,7 +10550,9 @@ private func makePairedMusicDNAModel(
         startBackgroundTasks: false
     )
     let versionParts = model.version.split(separator: ".").compactMap { Int($0) }
-    let major = try #require(versionParts.first)
+    guard let major = versionParts.first else {
+        return
+    }
     let minor = versionParts.dropFirst().first ?? 0
     let patch = versionParts.dropFirst(2).first ?? 0
     let nextVersion = "\(major).\(minor).\(patch + 1)"
