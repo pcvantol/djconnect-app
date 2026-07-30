@@ -10929,6 +10929,61 @@ private func makePairedMusicDNAModel(
     #expect(model.isCheckingAskDJHistoryState == false)
 }
 
+@Test func coreResponseModelsRoundTripCanonicalPayloads() throws {
+    let message = DJConnectAskDJHistoryMessage(
+        id: "history-1",
+        clientMessageID: "client-1",
+        exchangeID: "exchange-1",
+        exchangeOrder: 1,
+        role: .assistant,
+        mood: 70,
+        text: "A focused response.",
+        createdAt: Date(timeIntervalSince1970: 1_722_000_000)
+    )
+    let history = DJConnectAskDJHistoryResponse(
+        success: true,
+        historyRevision: 8,
+        clearRevision: 2,
+        messages: [message]
+    )
+    let discovery = DJConnectMusicDiscoveryItem(
+        id: "discovery-1",
+        kind: .track,
+        title: "Midnight City",
+        subtitle: "M83",
+        uri: "spotify:track:midnight-city",
+        reason: "Matches the selected mood.",
+        reasonSources: ["music_dna"],
+        confidence: .high,
+        qualityScore: 0.95,
+        qualityBand: "high",
+        qualityFactors: ["energy"]
+    )
+    let privacy = DJConnectMusicDNAPrivacyDashboard(
+        enabled: true,
+        activeDataSources: ["listening_history"],
+        controls: ["music_dna": true],
+        rawCounts: ["tracks": 42],
+        retentionLimits: ["history_days": DJConnectMusicDNAValue("30")],
+        supportsClear: true,
+        supportsExport: true,
+        supportsImport: true,
+        storesRawAudio: false,
+        storesOAuthTokens: false,
+        storesFullPrompts: false,
+        flags: ["local_only": true]
+    )
+
+    let encoder = JSONEncoder()
+    encoder.dateEncodingStrategy = .iso8601
+    let decoder = JSONDecoder()
+    decoder.dateDecodingStrategy = .iso8601
+
+    #expect(try decoder.decode(DJConnectAskDJHistoryResponse.self, from: encoder.encode(history)) == history)
+    #expect(try decoder.decode(DJConnectMusicDiscoveryItem.self, from: encoder.encode(discovery)) == discovery)
+    #expect(try decoder.decode(DJConnectMusicDNAPrivacyDashboard.self, from: encoder.encode(privacy)) == privacy)
+}
+
 @MainActor
 @Test func askDJFeedbackDraftIncludesContextWithoutLocalIdentifiers() throws {
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
