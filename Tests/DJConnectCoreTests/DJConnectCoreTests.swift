@@ -10890,6 +10890,46 @@ private func makePairedMusicDNAModel(
 }
 
 @MainActor
+@Test func askDJHistoryRefreshAppliesServerConversationInChronologicalOrder() async throws {
+    let host = "ask-dj-history-fixture.local"
+    let requests = RequestPathRecorder()
+    let session = mockSession(host: host) { request in
+        requests.append(request.url?.path ?? "")
+        return (
+            try httpResponse(for: request, statusCode: 200),
+            Data(#"""
+            {
+              "history_revision": 23,
+              "clear_revision": 0,
+              "messages": [
+                {"id":"assistant-1","role":"assistant","text":"Try a relaxed mix.","created_at":"2026-07-30T10:01:00Z"},
+                {"id":"user-1","role":"user","text":"Play something calm.","created_at":"2026-07-30T10:00:00Z"}
+              ]
+            }
+            """#.utf8)
+        )
+    }
+    let defaults = try testDefaults()
+    defaults.set(DJConnectHAConnectionMode.local.rawValue, forKey: "DJConnectHAConnectionMode")
+    let model = DJConnectAppModel(
+        defaults: defaults,
+        tokenStore: DJConnectInMemoryTokenStore(token: "secret-token"),
+        urlSession: session,
+        startBackgroundTasks: false
+    )
+    model.homeAssistantURL = "http://\(host):8123"
+    model.pairingStatus = .paired
+
+    #expect(await model.refreshAskDJHistory(showToast: true) == true)
+
+    #expect(requests.paths.contains("/api/djconnect/v1/ask_dj/history"))
+    #expect(model.askDJMessages.map(\.text) == ["Play something calm.", "Try a relaxed mix."])
+    #expect(model.askDJMessages.map(\.role) == [.user, .dj])
+    #expect(model.askDJErrorMessage == nil)
+    #expect(model.isCheckingAskDJHistoryState == false)
+}
+
+@MainActor
 @Test func askDJFeedbackDraftIncludesContextWithoutLocalIdentifiers() throws {
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
