@@ -1,6 +1,9 @@
 import Foundation
 
 public enum DJConnectApplicationVersion {
+    /// Public cross-platform identity for the native numeric 4.0.0 / 40001 package.
+    public static let publicReleaseIdentity = "4.0.0-rc.1"
+
     public static var releaseVersion: String {
         bundleValue(for: "CFBundleShortVersionString")
     }
@@ -20,7 +23,7 @@ public enum DJConnectApplicationVersion {
 }
 
 public enum DJConnectProtocolVersion {
-    public static let current = "3.2.33"
+    public static let current = "4.0.0-rc.1"
 }
 
 public enum DJConnectClientType: String, Codable, Sendable {

@@ -4,6 +4,15 @@ All notable changes to DJConnect App are documented here.
 
 ## Unreleased
 
+## 4.0.0-rc.1 - 2026-08-06
+
+### Changed
+
+- Prepare the native Apple `4.0.0` / build `40001` package for the Platform
+  `4.0.0-rc.1` candidate and report the RC identity in diagnostics.
+- Move the Apple runtime protocol contract to `4.0.0-rc.1`, which enforces the
+  shared `4.0` compatibility line with Home Assistant.
+
 ## 3.2.35 - 2026-07-09
 
 ### Fixed

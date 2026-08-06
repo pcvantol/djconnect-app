@@ -1151,6 +1151,11 @@ private func makePairedMusicDNAModel(
     #expect(watchAboutSource.contains("DJConnectApplicationVersion.releaseVersion"))
 }
 
+@Test func platformFourReleaseCandidateUsesNativePackageAndPublicProtocolMapping() {
+    #expect(DJConnectApplicationVersion.publicReleaseIdentity == "4.0.0-rc.1")
+    #expect(DJConnectProtocolVersion.current == "4.0.0-rc.1")
+}
+
 @Test func homeAssistantClientRoutesUseCanonicalV1Prefix() throws {
     let checkedRoots = ["Sources", "Apps"]
     let legacyRoutes = [

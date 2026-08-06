@@ -68,8 +68,10 @@ After renewing the Apple Developer Program membership:
   Local Network, Microphone, Speech Recognition.
 - Confirm app icons, launch screen, welcome screen, About screen, and website
   link match the current DJConnect branding.
-- Confirm the HA integration compatibility line is documented:
-  app `3.2.x` requires HA integration `3.2.x`.
+- Confirm the HA integration compatibility line is documented. For this
+  candidate, Apple clients and HA integration use the shared `4.0` line; the
+  native Apple package remains numeric `4.0.0` while the platform identity is
+  `4.0.0-rc.1`.
 - Confirm the public macOS release helper works in dry/local mode before the
   first public binary release.
 

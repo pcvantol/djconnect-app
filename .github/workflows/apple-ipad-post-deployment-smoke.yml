@@ -43,7 +43,7 @@ jobs:
           test "$(jq -r '.deployment_result' "$evidence")" = DEPLOYED_PENDING_SMOKE
           manifest="$(mktemp)"
           trap 'rm -f "$manifest" ipad-apps.json' EXIT
-          curl --fail --silent --show-error --location https://raw.githubusercontent.com/pcvantol/djconnect/main/docs/release/PLATFORM_3_3_CURRENT_MAIN_MANIFEST_PROPOSAL.json --output "$manifest"
+          curl --fail --silent --show-error --location https://raw.githubusercontent.com/pcvantol/djconnect/main/docs/release/PLATFORM_4_0_RC1_APPLE_OPERATIONAL_MANIFEST.json --output "$manifest"
           manifest_status="$(jq -r '.status' "$manifest")"
           case "$manifest_status" in
             APPROVED_DEPLOYMENT_DISPATCH_PENDING|APPROVED_PARTIAL_DEPLOYMENT_OPERATIONAL) ;;

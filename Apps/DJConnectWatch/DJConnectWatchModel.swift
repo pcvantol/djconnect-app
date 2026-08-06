@@ -517,7 +517,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
                 sendCompanionPairingRegistration()
             }
         }
-        appendDiagnosticLog("Version metadata: release_version=\(DJConnectApplicationVersion.releaseVersion); build_version=\(DJConnectApplicationVersion.buildVersion); protocol_version=\(DJConnectProtocolVersion.current)")
+        appendDiagnosticLog("Version metadata: release_version=\(DJConnectApplicationVersion.releaseVersion); public_release=\(DJConnectApplicationVersion.publicReleaseIdentity); build_version=\(DJConnectApplicationVersion.buildVersion); protocol_version=\(DJConnectProtocolVersion.current)")
         if !isDemoMode {
             startNetworkMonitor()
         }
