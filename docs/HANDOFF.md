@@ -279,7 +279,7 @@ protocol version:
 
 - HA `3.0.z` accepts clients `3.0.z`.
 - HA `3.1.z` accepts clients `3.1.z`.
-- HA `3.2.z` accepts clients `3.2.z`.
+- HA `4.0.z` accepts clients `4.0.z`.
 - Patch versions may differ.
 - `0.0.0` is reserved as a dev-client escape hatch.
 
@@ -288,8 +288,8 @@ reset pairing or discard the token. Show an update-required state and pause
 command/voice retries until the user updates the app or integration.
 
 The Apple app also validates `ha_version` / `ha_major_minor` fields on normal
-status and command responses. App `3.2.x` requires HA integration `3.2.x`
-(`>=3.2.0`, `<3.3.0`). If HA is outside that range, the app must show a clear
+status and command responses. App `4.0.x` requires HA integration `4.0.x`
+(`>=4.0.0`, `<4.1.0`). If HA is outside that range, the app must show a clear
 message to update the Home Assistant integration, disable playback/output/
 queue/playlist/liked/voice controls, and keep Settings plus pairing reset
 available.

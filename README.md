@@ -607,7 +607,7 @@ must keep pairing and token state, show an update-required state, and pause
 command/voice retries until the app or integration is updated.
 
 Successful status and command responses may also include `ha_version` or
-`ha_major_minor`. App `3.2.x` requires HA integration `3.2.x` and disables
+`ha_major_minor`. App `4.0.x` requires HA integration `4.0.x` and disables
 playback, queue, playlist, output, liked, and voice controls when the runtime
 contract is outside that range. Settings and pairing reset remain available.
 

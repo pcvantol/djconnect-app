@@ -1151,6 +1151,11 @@ private func makePairedMusicDNAModel(
     #expect(watchAboutSource.contains("DJConnectApplicationVersion.releaseVersion"))
 }
 
+@Test func platformFourReleaseCandidateUsesNativePackageAndPublicProtocolMapping() {
+    #expect(DJConnectApplicationVersion.publicReleaseIdentity == "4.0.0-rc.1")
+    #expect(DJConnectProtocolVersion.current == "4.0.0-rc.1")
+}
+
 @Test func homeAssistantClientRoutesUseCanonicalV1Prefix() throws {
     let checkedRoots = ["Sources", "Apps"]
     let legacyRoutes = [
@@ -10303,9 +10308,9 @@ private func makePairedMusicDNAModel(
     ))
 
     let updateMessage = try #require(model.updateRequiredMessage)
-    #expect(updateMessage.contains("3.2.x"))
-    #expect(updateMessage.contains(">=3.2.0"))
-    #expect(updateMessage.contains("<3.3.0"))
+    #expect(updateMessage.contains("4.0.x"))
+    #expect(updateMessage.contains(">=4.0.0"))
+    #expect(updateMessage.contains("<4.1.0"))
     #expect(model.canUsePlaybackFeatures == false)
     #expect(model.backendAvailable == false)
     #expect(model.playback == nil)
@@ -10327,7 +10332,7 @@ private func makePairedMusicDNAModel(
     model.apply(commandResponse: DJConnectCommandResponse(
         success: true,
         backendAvailable: true,
-        haVersion: "3.2.99",
+        haVersion: "4.0.99",
         playback: DJConnectPlayback(trackName: "Compatible Track")
     ))
     model.apply(musicBackendSummary: DJConnectMusicBackendSummary(remoteSupported: true))

@@ -10,8 +10,8 @@ options:
 settings:
   base:
     SWIFT_VERSION: "6.0"
-    CURRENT_PROJECT_VERSION: "1"
-    MARKETING_VERSION: "3.3.0"
+    CURRENT_PROJECT_VERSION: "40001"
+    MARKETING_VERSION: "4.0.0"
     DEVELOPMENT_TEAM: ""
     CODE_SIGN_STYLE: Automatic
 packages: {}
