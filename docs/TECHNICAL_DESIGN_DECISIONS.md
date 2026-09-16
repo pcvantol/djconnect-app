@@ -1,6 +1,6 @@
 # Technische designbeslissingen
 
-Laatst bijgewerkt: 2026-06-29
+Laatst bijgewerkt: 2026-09-16
 
 Dit document is in eerste instantie reverse-engineered uit de codebase. Het legt
 vast welke ontwerpkeuzes, codepatronen, conventies en dependencies op dit moment
@@ -168,6 +168,8 @@ Conventies:
   primaire bron in het Xcode project onderhouden.
 - Workflowstappen zijn expliciet benoemd en scheiden CI van public unsigned
   releasepublicatie.
+- De firmware-CodeQL-workflow houdt `init`, `autobuild` en `analyze` samen op
+  CodeQL Action `4.38.0`, telkens gepind op dezelfde immutable commit.
 - De TestFlight beta workflow is `workflow_dispatch`-only, gebruikt de
   beschermde GitHub Environment `testflight-beta`, vereist expliciete
   `version`/`tag`/`UPLOAD_TESTFLIGHT` invoer, en mag geen automatische
@@ -258,6 +260,7 @@ vastlegt, staat "niet gepind".
 | Xcode / xcodebuild | Project build, archive, test, signing | Niet gepind in repo | Apple Developer tools terms | <https://developer.apple.com/xcode/> |
 | XcodeGen | Genereert Xcode project uit `project.yml` | Niet gepind in repo | MIT License | <https://github.com/yonaskolb/XcodeGen> |
 | GitHub Actions | CI en unsigned public release artifacts | Workflowversies niet centraal gepind | GitHub Terms of Service | <https://github.com/features/actions> |
+| GitHub CodeQL Action | C/C++ security analysis voor tracked firmware source | `4.38.0` (`b96794f015dfd88f77b49b1c93e0fa7110f94c63`) | Upstream license en notices | <https://github.com/github/codeql-action> |
 | GitHub CLI (`gh`) | Release- en cleanup-scripts | Niet gepind in repo | MIT License | <https://github.com/cli/cli> |
 | Apple notarytool | macOS notarization releaseflow | Xcode toolchain | Apple Developer tools terms | <https://developer.apple.com/documentation/security/notarizing_macos_software_before_distribution> |
 
