@@ -34,9 +34,12 @@ jobs:
 
       - name: Install published TDE runtime
         run: |
-          python3 -m pip install --upgrade pip
+          python_bin="$(command -v python3)"
+          "$python_bin" -S -m venv "$RUNNER_TEMP/tde-venv"
+          echo "$RUNNER_TEMP/tde-venv/bin" >> "$GITHUB_PATH"
+          "$RUNNER_TEMP/tde-venv/bin/python" -m pip install --upgrade pip
           for attempt in 1 2 3 4 5; do
-            if python3 -m pip install --no-cache-dir "technical-debt-engine-runtime==1.1.1"; then
+            if "$RUNNER_TEMP/tde-venv/bin/python" -m pip install --no-cache-dir "technical-debt-engine-runtime==1.1.1"; then
               break
             fi
             if [ "$attempt" = "5" ]; then

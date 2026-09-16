@@ -32,6 +32,7 @@ this file in the same change as:
 | Swift Package Manager | Swift package resolution and test/build orchestration | Swift project license |
 | Git | Source control | Git license |
 | GitHub CLI | Release creation and artifact upload | GitHub CLI license |
+| GitHub CodeQL Action `4.38.0` | C/C++ security analysis for tracked firmware source; pinned by immutable commit in the workflow and not distributed with the app | Upstream license and notices |
 | Homebrew-managed tools, when installed locally | Optional release helper tooling such as `swiftlint`, `xcbeautify`, `create-dmg`, and `mas` | Tool-specific licenses |
 
 ## Release Maintenance
