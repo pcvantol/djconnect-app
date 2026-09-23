@@ -59,7 +59,7 @@ jobs:
           CANDIDATE_SHA: ${{ inputs.candidate_sha }}
           PLATFORM_VERSION: ${{ inputs.platform_version }}
         run: |
-          python - <<'PY'
+          python3 - <<'PY'
           from datetime import UTC, datetime
           import json, os
           with open("platform-release-execution-evidence.json", "w", encoding="utf-8") as file:
