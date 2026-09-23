@@ -1,10 +1,7 @@
-name: Firmware CI (Mac mini)
+name: Firmware PR CI
 
 on:
-  push:
-    branches:
-      - main
-  workflow_dispatch:
+  pull_request:
 
 permissions:
   contents: read
@@ -25,7 +22,7 @@ jobs:
 
   detect:
     name: Detect firmware inputs
-    runs-on: [self-hosted, macOS, ARM64, internal-release, qualification, apple, macmini-build]
+    runs-on: ubuntu-latest
     outputs:
       has-platformio: ${{ steps.detect.outputs.has-platformio }}
       has-firmware-metadata: ${{ steps.detect.outputs.has-firmware-metadata }}
@@ -75,7 +72,7 @@ jobs:
     name: PlatformIO build
     needs: detect
     if: needs.detect.outputs.has-platformio == 'true'
-    runs-on: [self-hosted, macOS, ARM64, internal-release, qualification, apple, macmini-build]
+    runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
       - name: Checkout
@@ -98,14 +95,14 @@ jobs:
     name: PlatformIO build
     needs: detect
     if: needs.detect.outputs.has-platformio != 'true'
-    runs-on: [self-hosted, macOS, ARM64, internal-release, qualification, apple, macmini-build]
+    runs-on: ubuntu-latest
     steps:
       - name: Skip PlatformIO build
         run: echo "No platformio.ini found; skipping ESP firmware build."
 
   firmware-metadata:
     name: Firmware metadata checks
-    runs-on: [self-hosted, macOS, ARM64, internal-release, qualification, apple, macmini-build]
+    runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
       - name: Checkout
@@ -115,12 +112,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          files=()
-          while IFS= read -r -d '' file; do
-            files+=("$file")
-          done < <(
+          mapfile -t files < <(
             git ls-files \
-              -z \
               'firmware/**/*.json' \
               'firmware/**/manifest*.json' \
               'firmware/**/*metadata*.json' \
@@ -134,7 +127,7 @@ jobs:
             exit 0
           fi
 
-          python3 - "${files[@]}" <<'PY'
+          python - "${files[@]}" <<'PY'
           import json
           import re
           import sys
@@ -174,7 +167,7 @@ jobs:
 
   release-dry-run:
     name: Release script dry-run
-    runs-on: [self-hosted, macOS, ARM64, internal-release, qualification, apple, macmini-build]
+    runs-on: macos-15
     timeout-minutes: 15
     steps:
       - name: Checkout

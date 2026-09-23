@@ -24,7 +24,7 @@ jobs:
   test-and-unsigned-build:
     name: CI
     if: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
-    runs-on: [self-hosted, internal-release, qualification, apple]
+    runs-on: [self-hosted, internal-release, qualification, apple, macmini-build]
     timeout-minutes: 45
 
     steps:
@@ -140,7 +140,7 @@ jobs:
   post-merge-coverage:
     name: Post-merge coverage evidence
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    runs-on: [self-hosted, internal-release, qualification, apple]
+    runs-on: [self-hosted, internal-release, qualification, apple, macmini-build]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - name: Run macOS core tests with coverage

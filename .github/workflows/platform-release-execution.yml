@@ -31,7 +31,7 @@ permissions:
 jobs:
   validate-and-evidence:
     name: Validate qualified release dispatch
-    runs-on: [self-hosted, internal-release, qualification, macos]
+    runs-on: [self-hosted, internal-release, qualification, macos, macmini-build]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v5
         with:
