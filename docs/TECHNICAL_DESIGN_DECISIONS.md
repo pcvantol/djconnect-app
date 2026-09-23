@@ -1,6 +1,6 @@
 # Technische designbeslissingen
 
-Laatst bijgewerkt: 2026-09-16
+Laatst bijgewerkt: 2026-09-23
 
 Dit document is in eerste instantie reverse-engineered uit de codebase. Het legt
 vast welke ontwerpkeuzes, codepatronen, conventies en dependencies op dit moment
@@ -102,6 +102,19 @@ product roadmap. Deze repo houdt geen lokale kopie van `SYNC_PROMPTS.md` of
 `PRODUCT_ROADMAP.md` bij. `docs/RELEASE.md` verplicht dat contractdocs, handoff,
 README, TODO/issues en dit technische ontwerpdocument bij releases worden
 bijgewerkt.
+
+### Dual-Mac interne macOS-deployment
+
+De Mac mini is de enige Apple build- en release-runner. Een goedgekeurd,
+checksum-gebonden unsigned artefact wordt daar lokaal met de bestaande Apple
+Development-identiteit ondertekend. Dezelfde ondertekende app wordt op de mini
+en via SSH op de MacBook geïnstalleerd. Beide hosts controleren UUID,
+bundelidentiteit, versie en handtekening; de MacBook controleert ook de hash
+van het overgebrachte archief. De mini vertrouwt uitsluitend een vooraf
+geverifieerde MacBook-hostsleutel. Elke host bewaart zijn vorige app onder een
+run-specifieke herstelnaam. Er is geen runner of private signing key op de
+MacBook nodig. De centrale manifestgoedkeuring blijft de release-authority;
+zonder die goedkeuring vindt geen dual-host deployment plaats.
 
 ## Code-level design patterns
 

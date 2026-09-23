@@ -21,7 +21,7 @@ permissions:
 
 jobs:
   deploy:
-    runs-on: [self-hosted, macOS, ARM64, internal-release]
+    runs-on: [self-hosted, macOS, ARM64, internal-release, macmini-build]
     environment: apple-secure-distribution
     steps:
       - name: Validate typed immutable deployment request
@@ -84,28 +84,37 @@ jobs:
           printf '%s' "$artifact_url" | grep -Eq '^https://github\.com/pcvantol/djconnect-app-releases/releases/download/macos/v[0-9]+\.[0-9]+\.[0-9]+/DJConnect-macOS-[0-9]+\.[0-9]+\.[0-9]+-unsigned\.zip$'
           printf 'release_version=%s\n' "$release_version" >> "$GITHUB_OUTPUT"
           printf 'artifact_url=%s\n' "$artifact_url" >> "$GITHUB_OUTPUT"
-      - name: Validate exact MacBook and local Developer signing scope
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4.2.2
+      - name: Validate Mac mini signing and exact SSH MacBook target
         env:
           EXPECTED_MACBOOK_UUID: ${{ secrets.DJCONNECT_APPLE_MACBOOK_HARDWARE_UUID }}
           SIGNING_IDENTITY: ${{ secrets.DJCONNECT_APPLE_DEVELOPMENT_SIGNING_IDENTITY }}
         run: |
           set -euo pipefail
-          test -n "$EXPECTED_MACBOOK_UUID"
-          test -n "$SIGNING_IDENTITY"
-          observed_uuid="$(ioreg -rd1 -c IOPlatformExpertDevice | awk -F'"' '/IOPlatformUUID/{print $4; exit}')"
-          test "$observed_uuid" = "$EXPECTED_MACBOOK_UUID"
+          printf '%s' "$EXPECTED_MACBOOK_UUID" | grep -Eq '^[0-9A-Fa-f]{8}(-[0-9A-Fa-f]{4}){3}-[0-9A-Fa-f]{12}$'
+          printf '%s' "$SIGNING_IDENTITY" | grep -Eq '^[0-9A-Fa-f]{40}$'
+          mini_uuid="$(ioreg -rd1 -c IOPlatformExpertDevice | awk -F'"' '/IOPlatformUUID/{print $4; exit}')"
+          test -n "$mini_uuid" && test "$mini_uuid" != "$EXPECTED_MACBOOK_UUID"
           security find-identity -v -p codesigning | grep -F -- "$SIGNING_IDENTITY" >/dev/null
+          signing_probe="$(mktemp)"
+          trap 'rm -f "$signing_probe"' EXIT
+          cp /usr/bin/true "$signing_probe"
+          codesign --force --sign "$SIGNING_IDENTITY" --timestamp=none "$signing_probe"
+          codesign --verify --strict "$signing_probe"
+          book_uuid="$(ssh -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=10 pcvantol@MacBook-Pro-van-Peter.local ioreg -rd1 -c IOPlatformExpertDevice | awk -F'"' '/IOPlatformUUID/{print $4; exit}')"
+          test "$book_uuid" = "$EXPECTED_MACBOOK_UUID"
       - name: Download manifest-bound unsigned macOS artifact
         env:
           ARTIFACT_URL: ${{ steps.manifest.outputs.artifact_url }}
         run: |
           set -euo pipefail
           curl --fail --silent --show-error --location "$ARTIFACT_URL" --output artifact.zip
-      - name: Verify, locally sign and install DJConnect on this MacBook
+      - name: Sign on Mac mini and install the same app on both Macs
         env:
           ARTIFACT_SHA256: ${{ inputs.artifact_sha256 }}
           RELEASE_VERSION: ${{ steps.manifest.outputs.release_version }}
           SIGNING_IDENTITY: ${{ secrets.DJCONNECT_APPLE_DEVELOPMENT_SIGNING_IDENTITY }}
+          EXPECTED_MACBOOK_UUID: ${{ secrets.DJCONNECT_APPLE_MACBOOK_HARDWARE_UUID }}
         run: |
           set -euo pipefail
           test "$(shasum -a 256 artifact.zip | awk '{print $1}')" = "$ARTIFACT_SHA256"
@@ -120,17 +129,19 @@ jobs:
           test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$app_bundle/Contents/Info.plist")" = "$RELEASE_VERSION"
           codesign --force --deep --sign "$SIGNING_IDENTITY" --timestamp=none "$app_bundle"
           codesign --verify --deep --strict "$app_bundle"
-          install_root="$HOME/Applications"
-          install_path="$install_root/DJConnect.app"
-          replacement_path="$install_root/.DJConnect-${GITHUB_RUN_ID}.app"
-          recovery_path="$install_root/.DJConnect-pre-${GITHUB_RUN_ID}.app"
-          mkdir -p "$install_root"
-          test ! -e "$replacement_path"
-          test ! -e "$recovery_path"
-          ditto "$app_bundle" "$replacement_path"
-          if test -e "$install_path"; then mv "$install_path" "$recovery_path"; fi
-          mv "$replacement_path" "$install_path"
-          codesign --verify --deep --strict "$install_path"
+          signed_archive="$staging/DJConnect-signed.zip"
+          ditto -c -k --keepParent "$app_bundle" "$signed_archive"
+          signed_sha="$(shasum -a 256 "$signed_archive" | awk '{print $1}')"
+          mini_uuid="$(ioreg -rd1 -c IOPlatformExpertDevice | awk -F'"' '/IOPlatformUUID/{print $4; exit}')"
+          bash Tools/release/install_signed_macos_archive.sh "$signed_archive" "$signed_sha" "$RELEASE_VERSION" "$mini_uuid" "$GITHUB_RUN_ID"
+          ssh_options=(-o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=10)
+          book=pcvantol@MacBook-Pro-van-Peter.local
+          remote_dir="$(ssh "${ssh_options[@]}" "$book" 'mktemp -d /private/tmp/djconnect-deploy.XXXXXXXX')"
+          [[ "$remote_dir" =~ ^/private/tmp/djconnect-deploy\.[A-Za-z0-9]{8}$ ]]
+          scp "${ssh_options[@]}" "$signed_archive" "$book:$remote_dir/DJConnect.zip"
+          ssh "${ssh_options[@]}" "$book" bash -s -- "$remote_dir/DJConnect.zip" "$signed_sha" "$RELEASE_VERSION" "$EXPECTED_MACBOOK_UUID" "$GITHUB_RUN_ID" < Tools/release/install_signed_macos_archive.sh
+          ssh "${ssh_options[@]}" "$book" rm -f -- "$remote_dir/DJConnect.zip"
+          ssh "${ssh_options[@]}" "$book" rmdir -- "$remote_dir"
       - name: Publish redacted MacBook deployment evidence
         env:
           CANDIDATE_SHA: ${{ inputs.candidate_sha }}
@@ -148,7 +159,7 @@ jobs:
           from datetime import UTC, datetime
           import json, os
           with open("apple-macbook-deployment-evidence.json", "w", encoding="utf-8") as file:
-              json.dump({"schema_version": 1, "kind": "apple_private_macbook_deployment", "repository": os.environ["GITHUB_REPOSITORY"], "candidate_sha": os.environ["CANDIDATE_SHA"], "manifest_id": os.environ["MANIFEST_ID"], "artifact_id": os.environ["ARTIFACT_ID"], "artifact_sha256": os.environ["ARTIFACT_SHA256"], "target": os.environ["TARGET"], "target_device": os.environ["TARGET_DEVICE"], "paired_watch_validation": os.environ["PAIRED_WATCH_VALIDATION"], "platform_version": os.environ["PLATFORM_VERSION"], "release_profile": os.environ["RELEASE_PROFILE"], "release_version": os.environ["RELEASE_VERSION"], "installed_bundle_identifier": "dev.djconnect.mac", "signing_scope": "runner_local_apple_development_identity", "deployment_result": "DEPLOYED_PENDING_SMOKE", "timestamp": datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")}, file, sort_keys=True)
+              json.dump({"schema_version": 1, "kind": "apple_private_macbook_deployment", "repository": os.environ["GITHUB_REPOSITORY"], "candidate_sha": os.environ["CANDIDATE_SHA"], "manifest_id": os.environ["MANIFEST_ID"], "artifact_id": os.environ["ARTIFACT_ID"], "artifact_sha256": os.environ["ARTIFACT_SHA256"], "target": os.environ["TARGET"], "target_device": os.environ["TARGET_DEVICE"], "paired_watch_validation": os.environ["PAIRED_WATCH_VALIDATION"], "platform_version": os.environ["PLATFORM_VERSION"], "release_profile": os.environ["RELEASE_PROFILE"], "release_version": os.environ["RELEASE_VERSION"], "installed_bundle_identifier": "dev.djconnect.mac", "installed_hosts": ["macmini", "macbook"], "signing_scope": "runner_local_apple_development_identity", "deployment_result": "DEPLOYED_PENDING_SMOKE", "timestamp": datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")}, file, sort_keys=True)
           PY
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
