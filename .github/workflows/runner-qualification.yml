@@ -12,7 +12,7 @@ permissions:
 jobs:
   qualify-apple-runner:
     if: ${{ github.actor == github.repository_owner }}
-    runs-on: [self-hosted, internal-release, qualification, apple]
+    runs-on: [self-hosted, internal-release, qualification, apple, macmini-build]
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
