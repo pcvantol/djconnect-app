@@ -17,8 +17,11 @@ concurrency:
 jobs:
   observe:
     name: TDE observe (non-blocking)
+    if: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
     runs-on: [self-hosted, internal-release, qualification, apple]
     timeout-minutes: 15
+    env:
+      DEVELOPER_DIR: /Applications/Xcode.app/Contents/Developer
 
     steps:
       - name: Checkout source
