@@ -72,6 +72,12 @@ with acceptance criteria live in [ISSUES.md](ISSUES.md).
 
 ## Release/Build
 
+- Restore or approve the central Apple operational manifest and validate one
+  manifest-bound dual-Mac deployment plus separate smoke run before declaring
+  this release path operational. The current workflows must not bypass that
+  gate with an arbitrary CI artifact.
+- Verify the Mac mini's Apple Development signature on the MacBook after SSH
+  transfer, and validate operator-led recovery of both run-scoped previous apps.
 - Configure Apple developer team and signing.
 - Add privacy manifests if required by release tooling.
 - Configure required reviewers and secrets for the protected `testflight-beta`

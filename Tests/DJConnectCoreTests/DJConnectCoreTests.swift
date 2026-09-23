@@ -12675,9 +12675,11 @@ private func makePairedMusicDNAModel(
     #expect(DJConnectAppModel.normalizedReleaseNotesLanguageCode("es-ES") == "es")
 }
 
-@Test func internalMacBookDistributionRelayIsManifestBoundAndDeveloperSigned() throws {
+@Test func internalDualMacDistributionRelayIsManifestBoundAndDeveloperSigned() throws {
     let deployment = try loadRepositoryText(".github/workflows/apple-secure-distribution-relay.yml")
     let smoke = try loadRepositoryText(".github/workflows/apple-post-deployment-smoke.yml")
+    let installer = try loadRepositoryText("Tools/release/install_signed_macos_archive.sh")
+    let smokeHelper = try loadRepositoryText("Tools/release/smoke_installed_macos_app.sh")
     let releaseDocs = try loadRepositoryText("docs/RELEASE.md")
 
     #expect(deployment.contains("Require approved central operational manifest source"))
@@ -12688,10 +12690,20 @@ private func makePairedMusicDNAModel(
     #expect(deployment.contains("test \"$TARGET_DEVICE\" = macbook"))
     #expect(deployment.contains("test \"$PAIRED_WATCH_VALIDATION\" = disabled"))
     #expect(!deployment.contains("Refuse distribution without an approved operational manifest"))
+    #expect(deployment.contains("macmini-build"))
+    #expect(deployment.contains("StrictHostKeyChecking=yes"))
+    #expect(deployment.contains("bash Tools/release/install_signed_macos_archive.sh"))
+    #expect(deployment.contains("installed_hosts\": [\"macmini\", \"macbook\"]"))
+    #expect(installer.contains("signed archive checksum mismatch"))
+    #expect(installer.contains("unexpected deployment host"))
+    #expect(installer.contains("codesign --verify --deep --strict"))
+    #expect(installer.contains("recovery_path="))
     #expect(smoke.contains("Download deployment evidence"))
-    #expect(smoke.contains("codesign --verify --deep --strict"))
-    #expect(smoke.contains("open -gj \"$app_path\""))
-    #expect(releaseDocs.contains("Internal Release: MacBook Developer Deployment"))
+    #expect(smoke.contains("StrictHostKeyChecking=yes"))
+    #expect(smoke.contains("bash Tools/release/smoke_installed_macos_app.sh"))
+    #expect(smokeHelper.contains("codesign --verify --deep --strict"))
+    #expect(smokeHelper.contains("open -gj \"$app_path\""))
+    #expect(releaseDocs.contains("Internal Release: Dual-Mac Developer Deployment"))
 }
 
 @Test func internalIPhoneWatchSmokeRequiresExactInstalledManifestVersion() throws {
