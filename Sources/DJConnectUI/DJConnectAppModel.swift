@@ -942,6 +942,7 @@ public final class DJConnectAppModel: ObservableObject {
     private let integrationVersionKey = "DJConnectIntegrationVersion"
     private let pairingSessionIDKey = "DJConnectPairingSessionID"
     private let pairingTokenKey = "DJConnectPairingToken"
+    private let pendingHomeAssistantSetupKey = "DJConnectHomeAssistantSetupPending"
     private let watchProxyDeviceIDKey = "DJConnectWatchProxyDeviceID"
     private let watchProxyDeviceNameKey = "DJConnectWatchProxyDeviceName"
     private let watchProxyPairCodeKey = "DJConnectWatchProxyPairCode"
@@ -1286,7 +1287,7 @@ public final class DJConnectAppModel: ObservableObject {
             } else if let existingToken = try resolvedTokenStore.loadToken(), !existingToken.isEmpty {
                 beginStoredPairingValidation()
                 log(.info, "App started with existing DJConnect bearer token for \(identity.clientType.rawValue)")
-                if startBackgroundTasks {
+                if startBackgroundTasks, pairingStatus == .paired {
                     schedulePairedRefresh(reason: "Refreshing initial Home Assistant state")
                 }
                 if !Self.isRunningUnderSwiftPMTests {
@@ -1296,6 +1297,7 @@ public final class DJConnectAppModel: ObservableObject {
                 applyDemoState()
                 log(.info, "App started in demo mode")
             } else {
+                defaults.removeObject(forKey: pendingHomeAssistantSetupKey)
                 clearPairingToken()
                 log(.info, "App started without DJConnect bearer token for \(identity.clientType.rawValue)")
             }
@@ -1599,11 +1601,12 @@ public final class DJConnectAppModel: ObservableObject {
                 beginStoredPairingValidation()
                 pairingMessage = localized(key: "appModel.djconnect.token.restored.checking.home.assistant.pairing")
                 log(.info, "Token storage access restored")
-                if startBackgroundTasks {
+                if startBackgroundTasks, pairingStatus == .paired {
                     schedulePairedRefresh(reason: "Refreshing after token storage restore")
                 }
             } else {
                 isShowingTokenStorageError = false
+                defaults.removeObject(forKey: pendingHomeAssistantSetupKey)
                 pairingStatus = .unpaired
                 isConnected = false
                 pairingMessage = localized(key: "appModel.no.djconnect.token.found.pair.again.to.continue")
@@ -1624,6 +1627,14 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     private func beginStoredPairingValidation() {
+        if defaults.bool(forKey: pendingHomeAssistantSetupKey) {
+            pairingStatus = .waitingForHomeAssistantCompletion
+            isConnected = false
+            isPairing = false
+            pairingMessage = localized(key: "appModel.waiting.for.setup.to.be.completed.in.home.assistant")
+            resumePendingHomeAssistantPairingIfNeeded()
+            return
+        }
         pairingStatus = .paired
         isConnected = true
         isPairing = false
@@ -2452,10 +2463,38 @@ public final class DJConnectAppModel: ObservableObject {
     #endif
 
     public func recoverPairingClientAPIIfNeeded() {
-        guard !isDemoMode, pairingStatus != .paired, pairingStatus != .waitingForHomeAssistantCompletion else {
+        guard !isDemoMode, pairingStatus != .paired else {
+            return
+        }
+        if pairingStatus == .waitingForHomeAssistantCompletion {
+            resumePendingHomeAssistantPairingIfNeeded()
             return
         }
         startPairingWait()
+    }
+
+    private func resumePendingHomeAssistantPairingIfNeeded() {
+        guard startBackgroundTasks,
+              defaults.bool(forKey: pendingHomeAssistantSetupKey),
+              pairingStatus == .waitingForHomeAssistantCompletion,
+              pairingTask == nil,
+              let baseURL = Self.normalizedHomeAssistantURL(from: localHomeAssistantURL()) else {
+            return
+        }
+        log(.info, "Resuming Home Assistant setup completion check")
+        isPairing = true
+        pairingTask = Task { [weak self] in
+            guard let self else { return }
+            do {
+                try await self.waitForHomeAssistantPairingCompletion(client: self.makeClient(baseURL: baseURL))
+            } catch {
+                guard !Task.isCancelled else { return }
+                self.log(.warning, "Home Assistant setup completion check failed: \(error.localizedDescription)")
+                self.isPairing = false
+                self.pairingTask = nil
+                self.pairingMessage = self.safePairingMessage(from: error.localizedDescription)
+            }
+        }
     }
 
     public func startPairingWait() {
@@ -2512,8 +2551,12 @@ public final class DJConnectAppModel: ObservableObject {
         scheduledPairingTask = nil
         pairingTask?.cancel()
         pairingTask = nil
-        if pairingStatus == .pairing {
+        if pairingStatus == .pairing || pairingStatus == .waitingForHomeAssistantCompletion {
             log(.info, "Pairing wait stopped")
+            if defaults.bool(forKey: pendingHomeAssistantSetupKey) {
+                defaults.removeObject(forKey: pendingHomeAssistantSetupKey)
+                try? tokenStore.clearToken()
+            }
             pairingStatus = .unpaired
             isPairing = false
             pairingMessage = localized(key: "appModel.pairing.wait.stopped")
@@ -2548,6 +2591,7 @@ public final class DJConnectAppModel: ObservableObject {
                 completeHomeAssistantPairing()
                 return
             }
+            defaults.set(true, forKey: pendingHomeAssistantSetupKey)
             pairingStatus = .waitingForHomeAssistantCompletion
             isConnected = false
             pairingMessage = localized(key: "appModel.home.assistant.recognized.this.device.finish.setup.in.home")
@@ -2555,9 +2599,11 @@ public final class DJConnectAppModel: ObservableObject {
                 try await waitForHomeAssistantPairingCompletion(client: client)
             }
         } catch let error as DJConnectError {
+            guard !Task.isCancelled else { return }
             logPairingError(error)
             applyPairingWait(error: error, pairingToken: pairCode)
         } catch {
+            guard !Task.isCancelled else { return }
             log(.error, "Unexpected pairing error: \(error.localizedDescription)")
             isConnected = false
             pairingMessage = safePairingMessage(from: error.localizedDescription)
@@ -2565,12 +2611,15 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     private func waitForHomeAssistantPairingCompletion(client: DJConnectClient) async throws {
-        let delays: [UInt64] = [0, 2, 3, 5, 5, 5]
-        for delay in delays {
+        let initialDelays: [UInt64] = [0, 2, 3, 5, 5, 5]
+        var attempt = 0
+        while !Task.isCancelled && pairingStatus == .waitingForHomeAssistantCompletion {
+            let delay = initialDelays[min(attempt, initialDelays.count - 1)]
+            attempt += 1
             if delay > 0 {
                 try await Task.sleep(for: .seconds(delay))
             }
-            guard !Task.isCancelled else {
+            guard !Task.isCancelled, pairingStatus == .waitingForHomeAssistantCompletion else {
                 return
             }
             do {
@@ -2578,6 +2627,7 @@ public final class DJConnectAppModel: ObservableObject {
                 completeHomeAssistantPairing()
                 return
             } catch let error as DJConnectError {
+                guard !Task.isCancelled else { return }
                 if isWaitingForHomeAssistantCompletion(error) {
                     pairingStatus = .waitingForHomeAssistantCompletion
                     pairingMessage = localized(key: "appModel.waiting.for.setup.to.be.completed.in.home.assistant")
@@ -2585,18 +2635,18 @@ public final class DJConnectAppModel: ObservableObject {
                     continue
                 }
                 if isPairingTokenRejectedAfterPair(error) {
+                    defaults.removeObject(forKey: pendingHomeAssistantSetupKey)
+                    try? tokenStore.clearToken()
                     applyPairingWait(error: error, pairingToken: pairingToken)
                     return
                 }
                 throw error
             }
         }
-        log(.warning, "Completing pairing after Home Assistant accepted device token but runtime status stayed setup-pending")
-        backendAvailable = false
-        completeHomeAssistantPairing()
     }
 
     private func completeHomeAssistantPairing() {
+        defaults.removeObject(forKey: pendingHomeAssistantSetupKey)
         pairingStatus = .paired
         isConnected = true
         isPairing = false
@@ -2612,6 +2662,8 @@ public final class DJConnectAppModel: ObservableObject {
     private func isWaitingForHomeAssistantCompletion(_ error: DJConnectError) -> Bool {
         switch error {
         case .notConfigured, .routeMissing:
+            return true
+        case .network, .backendUnavailable:
             return true
         case let .server(statusCode, message):
             return statusCode == 503 || message?.lowercased().contains("not_configured") == true
@@ -2640,6 +2692,7 @@ public final class DJConnectAppModel: ObservableObject {
         pairingTask = nil
         unregisterPushNotifications()
         try? tokenStore.clearToken()
+        defaults.removeObject(forKey: pendingHomeAssistantSetupKey)
         isDemoMode = false
         defaults.removeObject(forKey: demoModeKey)
         clearStoredHomeAssistantURLs()
@@ -4357,6 +4410,7 @@ public final class DJConnectAppModel: ObservableObject {
         scheduledPairingTask?.cancel()
         scheduledPairingTask = nil
         try? tokenStore.clearToken()
+        defaults.removeObject(forKey: pendingHomeAssistantSetupKey)
         clearPairingToken()
         clearAskDJHistoryLocally()
         clearMusicDNADisplay()
@@ -4694,6 +4748,9 @@ public final class DJConnectAppModel: ObservableObject {
                 pairingStatus = .paired
                 isConnected = true
             case let .routeMissing(message):
+                if pairingStatus == .waitingForHomeAssistantCompletion {
+                    throw error
+                }
                 applyConnectionUnavailableState(message: message ?? Self.describe(error))
                 pairingStatus = .paired
                 isConnected = false
