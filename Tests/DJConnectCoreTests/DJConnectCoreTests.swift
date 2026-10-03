@@ -8791,7 +8791,7 @@ private func makePairedMusicDNAModel(
 }
 
 @MainActor
-@Test func macOSPairingDoesNotHangWhenRuntimeStatusRemainsNotConfiguredAfterAcceptedPair() async throws {
+@Test func macOSPairingStaysPendingBeyondInitialStatusRetries() async throws {
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
@@ -8834,16 +8834,94 @@ private func makePairedMusicDNAModel(
 
     model.confirmPairingHomeAssistantURL()
 
-    for _ in 0..<260 where model.pairingStatus != .paired {
+    for _ in 0..<240 where model.pairingStatus != .waitingForHomeAssistantCompletion {
         try await Task.sleep(for: .milliseconds(100))
     }
 
-    #expect(model.pairingStatus == .paired)
-    #expect(model.isConnected)
-    #expect(!model.backendAvailable)
-    #expect(model.pairingMessage == "Pairing complete." || model.pairingMessage == "Koppeling voltooid.")
+    #expect(model.pairingStatus == .waitingForHomeAssistantCompletion)
+    #expect(defaults.bool(forKey: "DJConnectHomeAssistantSetupPending"))
+    try await Task.sleep(for: .seconds(23))
+
+    #expect(model.pairingStatus == .waitingForHomeAssistantCompletion)
+    #expect(!model.isConnected)
+    #expect(!model.isShowingPairingSuccess)
     #expect(recorder.paths.first == "/api/djconnect/v1/pair")
     #expect(recorder.paths.contains("/api/djconnect/v1/status"))
+    #expect(try tokenStore.loadToken() == "device-secret")
+}
+
+@MainActor
+@Test func pendingHomeAssistantPairingResumesAfterBackgroundWithoutReposting() async throws {
+    let suiteName = "DJConnectTests-\(UUID().uuidString)"
+    let defaults = try #require(UserDefaults(suiteName: suiteName))
+    defaults.removePersistentDomain(forName: suiteName)
+    defaults.set(true, forKey: "DJConnectWelcomeSeen")
+    defaults.set("ABCDEF1234567890", forKey: "DJConnectInstallID")
+    let tokenStore = DJConnectInMemoryTokenStore()
+    let host = "pair-background-macos.local"
+    let recorder = RequestPathRecorder()
+    let statusCounter = RequestCounter()
+    let session = mockSession(host: host) { request in
+        let path = request.url?.path ?? ""
+        recorder.append(path)
+        if path == "/api/djconnect/v1/status" {
+            statusCounter.increment()
+            #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer device-secret")
+            if statusCounter.count == 1 {
+                return (
+                    try httpResponse(for: request, statusCode: 503),
+                    Data(#"{"success":false,"error":"not_configured"}"#.utf8)
+                )
+            }
+            return (
+                try httpResponse(for: request, statusCode: 200),
+                Data(#"{"success":true,"ha_major_minor":"3.2","playback":{"has_playback":false},"music_backend_available":true}"#.utf8)
+            )
+        }
+        if path == "/api/djconnect/v1/music_dna/profile" {
+            return (
+                try httpResponse(for: request, statusCode: 200),
+                Data(#"{"enabled":true,"profile":{}}"#.utf8)
+            )
+        }
+        if path != "/api/djconnect/v1/pair" {
+            return (
+                try httpResponse(for: request, statusCode: 200),
+                Data(#"{"success":true,"ha_major_minor":"3.2","playback":{"has_playback":false},"music_backend_available":true}"#.utf8)
+            )
+        }
+        return (
+            try httpResponse(for: request, statusCode: 200),
+            Data("""
+                {"success":true,"setup_pending":true,"client_type":"macos","device_token":"device-secret","ha_local_url":"http://\(host):8123"}
+                """.utf8)
+        )
+    }
+    let model = DJConnectAppModel(defaults: defaults, tokenStore: tokenStore, urlSession: session, startBackgroundTasks: true)
+    defer { model.stopPairingWait() }
+    model.homeAssistantURL = "http://\(host):8123"
+    model.pairingToken = "123456"
+    model.confirmPairingHomeAssistantURL()
+
+    for _ in 0..<50 where statusCounter.count < 1 {
+        try await Task.sleep(for: .milliseconds(100))
+    }
+    #expect(statusCounter.count == 1)
+    #expect(model.pairingStatus == .waitingForHomeAssistantCompletion)
+
+    model.markInactiveSession()
+    #expect(defaults.bool(forKey: "DJConnectHomeAssistantSetupPending"))
+    #expect(try tokenStore.loadToken() == "device-secret")
+    model.markActiveSession()
+    model.recoverPairingClientAPIIfNeeded()
+
+    for _ in 0..<80 where model.pairingStatus != .paired {
+        try await Task.sleep(for: .milliseconds(100))
+    }
+    #expect(model.pairingStatus == .paired)
+    #expect(recorder.paths.filter { $0 == "/api/djconnect/v1/pair" }.count == 1)
+    #expect(statusCounter.count >= 2)
+    #expect(!defaults.bool(forKey: "DJConnectHomeAssistantSetupPending"))
     #expect(try tokenStore.loadToken() == "device-secret")
 }
 
