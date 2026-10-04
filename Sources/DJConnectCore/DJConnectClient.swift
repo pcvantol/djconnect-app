@@ -250,6 +250,11 @@ public final class DJConnectClient: Sendable {
         return try await decodedResponse(for: request)
     }
 
+    public func approveVibeCastHandoff(_ payload: DJConnectVibeCastHandoffApprovalRequest) async throws -> DJConnectVibeCastHandoffApprovalResponse {
+        let request = try vibeCastHandoffApprovalRequest(payload)
+        return try await decodedResponse(for: request)
+    }
+
     public var fastPathDiagnostics: DJConnectFastPathDiagnostics {
         get async {
             await webSocketFastPath?.diagnostics ?? DJConnectFastPathDiagnostics()
@@ -573,13 +578,25 @@ public final class DJConnectClient: Sendable {
     }
 
     public func activeSessionRequest() throws -> URLRequest {
-        var request = try authenticatedRequest(path: Self.apiV1Path("session/active"))
+        var components = URLComponents(url: endpoint(path: Self.apiV1Path("session/active")), resolvingAgainstBaseURL: false)
+        components?.queryItems = [
+            URLQueryItem(name: "device_id", value: identity.deviceID),
+            URLQueryItem(name: "client_type", value: identity.clientType.rawValue)
+        ]
+        guard let url = components?.url else {
+            throw DJConnectError.invalidConfiguration("Invalid Session URL.")
+        }
+        var request = try authenticatedRequest(url: url)
         request.httpMethod = "GET"
         return request
     }
 
     public func sessionEndRequest(_ payload: DJConnectSessionEndRequest) throws -> URLRequest {
         try jsonRequest(path: Self.apiV1Path("session/end"), payload: payload)
+    }
+
+    public func vibeCastHandoffApprovalRequest(_ payload: DJConnectVibeCastHandoffApprovalRequest) throws -> URLRequest {
+        try jsonRequest(path: Self.apiV1Path("session/broadcast/handoff/approve"), payload: payload)
     }
 
     public func pushRegisterRequest(_ payload: DJConnectPushRegistrationRequest) throws -> URLRequest {

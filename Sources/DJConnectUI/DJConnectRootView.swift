@@ -9965,6 +9965,7 @@ private struct IOSNowPlayingView: View {
                     Group {
                         if let session = model.activeDJSession {
                             IOSActiveDJSessionView(model: model, session: session, openQueueAction: openQueueAction)
+                                .id(session.sessionID)
                         } else {
                             IOSIdleDJSessionView(model: model)
                         }
@@ -10062,6 +10063,7 @@ private struct IOSActiveDJSessionView: View {
     @ObservedObject var model: DJConnectAppModel
     let session: DJConnectSessionRuntime
     let openQueueAction: () -> Void
+    @State private var vibeCastHandoffCode = ""
 
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
@@ -10079,6 +10081,31 @@ private struct IOSActiveDJSessionView: View {
                     Text(item.position.uppercased()).font(.caption.bold()).foregroundStyle(.secondary)
                     Text(item.label).font(.body.weight(.medium))
                 }
+            }
+            Divider()
+            Text(localizedKey(model.language, "ui.vibecast.handoff.title")).font(.headline)
+            Text(localizedKey(model.language, "ui.vibecast.handoff.instructions"))
+                .font(.footnote).foregroundStyle(.secondary)
+            TextField(localizedKey(model.language, "ui.vibecast.handoff.code"), text: $vibeCastHandoffCode)
+                .keyboardType(.numberPad)
+                .textContentType(.oneTimeCode)
+                .accessibilityIdentifier("vibecast-handoff-code")
+                .onChange(of: vibeCastHandoffCode) { _, value in
+                    vibeCastHandoffCode = String(value.filter { $0.isASCII && $0.isNumber }.prefix(6))
+                }
+            Button(localizedKey(model.language, "ui.vibecast.handoff.approve")) {
+                Task { await model.approveVibeCastHandoff(code: vibeCastHandoffCode) }
+            }
+            .buttonStyle(.borderedProminent)
+            .disabled(vibeCastHandoffCode.count != 6 || model.isLoadingVibeCastHandoff)
+            .accessibilityIdentifier("vibecast-handoff-approve")
+            if model.vibeCastHandoffApproved {
+                Text(localizedKey(model.language, "ui.vibecast.handoff.approved"))
+                    .font(.footnote).foregroundStyle(.green)
+            }
+            if model.vibeCastHandoffFailed {
+                Text(localizedKey(model.language, "ui.vibecast.handoff.failed"))
+                    .font(.footnote).foregroundStyle(.red)
             }
             Button(localizedKey(model.language, "ui.session.queue"), action: openQueueAction).buttonStyle(.bordered)
             Button(localizedKey(model.language, "ui.session.end"), role: .destructive) { Task { await model.endDJSession() } }

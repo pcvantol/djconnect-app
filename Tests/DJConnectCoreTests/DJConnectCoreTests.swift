@@ -5024,6 +5024,51 @@ private func makePairedMusicDNAModel(
     #expect(capabilities?.contains("accent") == true)
 }
 
+@Test func vibeCastPiHandoffApprovalUsesPairedOwnerWithoutCarryingBroadcastToken() throws {
+    let client = DJConnectClient(
+        baseURL: URL(string: "http://homeassistant.local:8123")!,
+        identity: testIOSIdentity(deviceID: "djconnect-ios-8F3A2C91B45D"),
+        tokenStore: DJConnectInMemoryTokenStore(token: "owner-device-token")
+    )
+    let request = try client.vibeCastHandoffApprovalRequest(
+        DJConnectVibeCastHandoffApprovalRequest(sessionID: "session-123", code: "123456")
+    )
+    let body = try JSONSerialization.jsonObject(with: requestBodyData(request)!) as! [String: Any]
+    #expect(request.url?.path == "/api/djconnect/v1/session/broadcast/handoff/approve")
+    #expect(request.httpMethod == "POST")
+    #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer owner-device-token")
+    #expect(body["session_id"] as? String == "session-123")
+    #expect(body["code"] as? String == "123456")
+    #expect(body["client_type"] as? String == "ios")
+    #expect(body["broadcast_token"] == nil)
+
+    let response = try JSONDecoder().decode(
+        DJConnectVibeCastHandoffApprovalResponse.self,
+        from: Data("{\"success\":true,\"session_id\":\"session-123\",\"handoff\":\"approved\"}".utf8)
+    )
+    #expect(response.success)
+    #expect(response.handoff == "approved")
+    #expect(response.sessionID == "session-123")
+
+    let activeRequest = try client.activeSessionRequest()
+    let activeQuery = URLComponents(url: activeRequest.url!, resolvingAgainstBaseURL: false)?.queryItems ?? []
+    #expect(activeRequest.httpMethod == "GET")
+    #expect(activeRequest.value(forHTTPHeaderField: "Authorization") == "Bearer owner-device-token")
+    #expect(activeQuery.first(where: { $0.name == "device_id" })?.value == "djconnect-ios-8F3A2C91B45D")
+    #expect(activeQuery.first(where: { $0.name == "client_type" })?.value == "ios")
+}
+
+@Test func vibeCastPiHandoffPromptsExistInAllFiveProductLanguages() {
+    for language in ["en", "nl", "de", "fr", "es"] {
+        for key in ["title", "instructions", "code", "approve", "approved", "failed"] {
+            let fullKey = "ui.vibecast.handoff.\(key)"
+            let localized = DJConnectLocalization.localized(key: fullKey, language: language)
+            #expect(!localized.isEmpty)
+            #expect(localized != fullKey)
+        }
+    }
+}
+
 @Test func vibeCastWebSocketFastPathSucceedsWithoutHTTP() async throws {
     let fastPath = MockWebSocketFastPathTransport(supportedRoutes: [.vibeCast])
     let client = DJConnectClient(
