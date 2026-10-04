@@ -20,10 +20,14 @@
   after corrections.
 - **Created documents:** This immutable source Finalization record.
 - **Updated documents:** `REPOSITORY_STATUS.md` and `PROMPT_INDEX.md`.
-- **Outstanding blocker:** Installed HA still serves the pre-handoff renderer.
-  A designated HA test installation, paired Apple owner and physical portrait
-  Pi must prove approval, snapshot/updates, reconnect, Runtime end/privacy and
-  token non-persistence. Source CI is not installed acceptance.
+- **Outstanding blocker:** The exact Core artifact now runs in HA-dev Docker;
+  the renderer responds and the exact-main iPhone simulator is paired. Live
+  session start exposed Apple `keyNotFound(current_direction)` at
+  `session.planner`: HA provides direction in `broadcast.planner`. The Apple
+  contract must be corrected, then approval, snapshot/updates, reconnect,
+  Runtime end/privacy and token non-persistence must be proven on the physical
+  portrait Pi. See the [live readback](https://github.com/pcvantol/djconnect-app/issues/87#issuecomment-5980280138).
+  Source CI and simulator pairing alone are not integrated acceptance.
 - **Recommended next prompt:** Continue this same first-slice integrated
   acceptance, record its exact receipt in the owning
   [Apple register](https://github.com/pcvantol/djconnect-app/issues/87) and
@@ -31,4 +35,6 @@
   stop before the later Google Cast slice.
 
 The pre-existing Google Cast WIP branch remains untouched. No public release,
-signing, deployment, workflow change or new product selection occurred.
+signing, production deployment, deployment workflow, workflow change or new
+product selection occurred; the authorized HA-dev test installation is recorded
+above.

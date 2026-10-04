@@ -12,13 +12,19 @@ as exact main `1963d7a986c81b6ecb8407a21451ca84e03bdef7`. Its paired Core
 [Mac mini CI](https://github.com/pcvantol/djconnect-app/actions/runs/37192645450)
 and [post-merge evidence](https://github.com/pcvantol/djconnect-app/actions/runs/37192909516)
 succeeded; the single SHA-bound internal evidence prerelease contains its
-qualification JSON. No public release, signing or deployment ran.
+qualification JSON. No public release, signing, production deployment or
+deployment workflow ran; HA-dev received the explicit test installation below.
 
-The selected first slice remains `PI_QUAL=OPEN`, because the installed HA still
-serves the older VibeCast page. A paired Apple owner must approve the six-digit
-code on the physical portrait Pi against the exact installed Core candidate;
-snapshot/updates, reconnect, Runtime end/privacy and no durable token remain
-unproven. Product qualification is `BLOCKED` on that receipt. This Finalization
+The selected first slice remains `PI_QUAL=OPEN`. The exact Core candidate is
+installed in HA-dev Docker and an iPhone simulator built from exact Apple main
+is paired. Live session start revealed a decoder contract error: HA returns
+`broadcast.planner.current_direction`, while Apple requires absent
+`session.planner.current_direction`. A backend-shaped Swift probe reproduces
+`keyNotFound(current_direction)` at `session.planner`; the simulator displays
+error 6. The Apple contract needs correction before the physical portrait Pi
+can prove code approval, snapshot/updates, reconnect, Runtime end/privacy and
+no durable token. Product qualification remains `BLOCKED`; see the
+[live readback](https://github.com/pcvantol/djconnect-app/issues/87#issuecomment-5980280138). This Finalization
 reconciles the merged source without selecting the later Cast slice. Repository
 State: `MERGED_RECONCILED` after this Finalization merges. Workspace State:
 `WORKSPACE_READY` only after mandatory cleanup.
