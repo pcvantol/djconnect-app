@@ -1,10 +1,39 @@
 # DJConnect Repository Prompt Index
 
-Status: repository-local prompt navigation
+## VibeCast Pi owner handoff source reconciliation
+
+The owner merged [PR #89](https://github.com/pcvantol/djconnect-app/pull/89)
+from the independently reviewed `af5a6da4d59d42b55e22cb5b784309120e86dab2`
+as exact main `1963d7a986c81b6ecb8407a21451ca84e03bdef7`. Its paired Core
+[PR #1104](https://github.com/pcvantol/djconnect/pull/1104) merged as
+`c46b41cb77354b57f3388ddde8e67a462b2ff919`. Exact-main Apple
+[CI](https://github.com/pcvantol/djconnect-app/actions/runs/37192645432),
+[CodeQL](https://github.com/pcvantol/djconnect-app/actions/runs/37192645434),
+[Mac mini CI](https://github.com/pcvantol/djconnect-app/actions/runs/37192645450)
+and [post-merge evidence](https://github.com/pcvantol/djconnect-app/actions/runs/37192909516)
+succeeded; the single SHA-bound internal evidence prerelease contains its
+qualification JSON. No public release, signing, production deployment or
+deployment workflow ran; HA-dev received the explicit test installation below.
+
+The selected first slice remains `PI_QUAL=OPEN`. The exact Core candidate is
+installed in HA-dev Docker and an iPhone simulator built from exact Apple main
+is paired. Live session start revealed a decoder contract error: HA returns
+`broadcast.planner.current_direction`, while Apple requires absent
+`session.planner.current_direction`. A backend-shaped Swift probe reproduces
+`keyNotFound(current_direction)` at `session.planner`; the simulator displays
+error 6. The Apple contract needs correction before the physical portrait Pi
+can prove code approval, snapshot/updates, reconnect, Runtime end/privacy and
+no durable token. Product qualification remains `BLOCKED`; see the
+[live readback](https://github.com/pcvantol/djconnect-app/issues/87#issuecomment-5980280138). This Finalization
+reconciles the merged source without selecting the later Cast slice. Repository
+State: `MERGED_RECONCILED` after this Finalization merges. Workspace State:
+`WORKSPACE_READY` only after mandatory cleanup.
+
+Status: first VibeCast Pi owner handoff slice active; physical acceptance open
 
 Repository: `pcvantol/djconnect-app`
 
-## Reconciled Repository Phase
+## Earlier Reconciled Repository Phase
 
 macOS runner workspace retention (PR #70).
 
@@ -14,10 +43,9 @@ macOS runner workspace retention (PR #70).
 
 ## Current Prompt
 
-No Apple product implementation prompt is active. PR #70 merged as
-`1711458d8d6a2171914e6788b4fe9942f20022d4` and its dedicated Finalization
-records the installed daily runner workspace-retention path. Select any future
-Apple work from the canonical `djconnect` Execution Horizon.
+Continue only `DJC-VIBECAST-PI-OWNER-HANDOFF-V1-20261004` for its outstanding
+physical Apple owner→HA→Pi receipt. The source is merged as PR #89; do not
+start the later Google Cast slice or select a new product item here.
 
 ## Earlier Reconciled Repository Phase
 
@@ -32,12 +60,14 @@ CMB-11-authorized Track Insight (CAP-IN-01) → Apple Native Sharing slice.
 
 ## Completion Report
 
-`docs/history/prompts/2026-07-26-track-insight-apple-native-sharing-implementation.md`
+The current merged-source Finalization report is
+`docs/history/prompts/2026-10-04-vibecast-pi-owner-handoff-source-finalization.md`.
+Earlier Track Insight to Apple Native Sharing implementation history remains in
+`docs/history/prompts/2026-07-26-track-insight-apple-native-sharing-implementation.md`.
 
-The Prompt History record is already archived under the repository's immutable
-convention; no new archival structure is required.
+Both records use the repository's existing immutable Prompt History convention.
 
-## Next Repository Phase
+## Earlier Next Repository Phase
 
-No subsequent Apple implementation is selected locally. Use the canonical
-`djconnect` Execution Horizon for the next authorized slice.
+At the earlier Track Insight freeze point, no subsequent Apple implementation
+had been selected locally. The current selected first slice is recorded above.
