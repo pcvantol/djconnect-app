@@ -1,6 +1,33 @@
 # DJConnect Repository Prompt Index
 
-## VibeCast Pi owner handoff source reconciliation
+## VibeCast Pi decoder source reconciliation
+
+Apple [PR #91](https://github.com/pcvantol/djconnect-app/pull/91) merged the
+independently reviewed Session decoder correction as exact main
+`29f3ad55d74c155fbab51c039358cea871d4c512` from head
+`6221beacb178bd26e614411c32c97ee646138165`. Exact-main
+[CI](https://github.com/pcvantol/djconnect-app/actions/runs/37214330425),
+[Mac mini CI](https://github.com/pcvantol/djconnect-app/actions/runs/37214330165)
+and [SHA-bound evidence](https://github.com/pcvantol/djconnect-app/actions/runs/37214736801)
+succeeded. The existing internal prerelease has one qualification JSON; no
+signing, public release, production deployment or workflow change ran.
+
+The precommit local candidate was observed with a paired iPhone and physical
+portrait Pi through owner approval, live snapshot, WebSocket reconnect,
+Runtime-end cleanup and no durable browser token. The installed binary was
+not separately bound to the later reviewed head or merge SHA. A separate
+nonterminal update remains unproven on HA-dev: its Profile
+Platform default backend is `later_manual`. The Spotify-authorized iOS entry
+already has `spotify_direct` in its options, but the normal options flow does
+not change the profile default backend. No HA-dev setting was changed.
+Source/browser contract tests do not replace that live receipt. `PI_QUAL=OPEN`
+and the same first slice remain active. The
+canonical Core Execution Horizon remains the only portfolio authority; this
+record selects no second slice. Repository State: `MERGED_RECONCILED` after this
+governance-only Finalization merges. Workspace State: `WORKSPACE_READY` only
+after mandatory local cleanup.
+
+## Earlier VibeCast owner-handoff source reconciliation (PR #90 freeze point)
 
 The owner merged [PR #89](https://github.com/pcvantol/djconnect-app/pull/89)
 from the independently reviewed `af5a6da4d59d42b55e22cb5b784309120e86dab2`
@@ -29,7 +56,8 @@ reconciles the merged source without selecting the later Cast slice. Repository
 State: `MERGED_RECONCILED` after this Finalization merges. Workspace State:
 `WORKSPACE_READY` only after mandatory cleanup.
 
-Status: first VibeCast Pi owner handoff slice active; physical acceptance open
+Status at PR #90 freeze point: first VibeCast Pi owner handoff slice active;
+physical acceptance open
 
 Repository: `pcvantol/djconnect-app`
 
@@ -44,8 +72,13 @@ macOS runner workspace retention (PR #70).
 ## Current Prompt
 
 Continue only `DJC-VIBECAST-PI-OWNER-HANDOFF-V1-20261004` for its outstanding
-physical Apple owner→HA→Pi receipt. The source is merged as PR #89; do not
-start the later Google Cast slice or select a new product item here.
+nonterminal active-Session update on the physical Pi. The precommit local
+candidate showed owner approval, snapshot, reconnect, end cleanup and the
+browser-token boundary; its installed binary was not bound to the later source
+SHA. The source is merged as PRs #89 and #91. Bind a Spotify Direct backend to
+the HA-dev test profile through a supported reversible path before claiming the
+live update. `PI_QUAL=OPEN`. Do not start the later Google Cast slice or
+select a new product item here.
 
 ## Earlier Reconciled Repository Phase
 
@@ -60,7 +93,9 @@ CMB-11-authorized Track Insight (CAP-IN-01) → Apple Native Sharing slice.
 
 ## Completion Report
 
-The current merged-source Finalization report is
+The current decoder Finalization report is
+`docs/history/prompts/2026-10-04-vibecast-pi-session-decoder-finalization.md`.
+The earlier owner-handoff source Finalization is
 `docs/history/prompts/2026-10-04-vibecast-pi-owner-handoff-source-finalization.md`.
 Earlier Track Insight to Apple Native Sharing implementation history remains in
 `docs/history/prompts/2026-07-26-track-insight-apple-native-sharing-implementation.md`.

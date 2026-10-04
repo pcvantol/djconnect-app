@@ -1,5 +1,34 @@
 # DJConnect App Management Summary
 
+## VibeCast Pi decoder source reconciliation
+
+Apple [PR #91](https://github.com/pcvantol/djconnect-app/pull/91) merged the
+independently reviewed Session decoder correction as exact main
+`29f3ad55d74c155fbab51c039358cea871d4c512` from head
+`6221beacb178bd26e614411c32c97ee646138165`. Exact-main
+[CI](https://github.com/pcvantol/djconnect-app/actions/runs/37214330425),
+[Mac mini CI](https://github.com/pcvantol/djconnect-app/actions/runs/37214330165)
+and [SHA-bound evidence](https://github.com/pcvantol/djconnect-app/actions/runs/37214736801)
+succeeded. The existing internal prerelease has one qualification JSON; no
+signing, public release, production deployment or workflow change ran.
+
+The precommit local candidate was observed with a paired iPhone and physical
+portrait Pi through owner approval, live snapshot, WebSocket reconnect,
+Runtime-end cleanup and no durable browser token. The installed binary was
+not separately bound to the later reviewed head or merge SHA. A separate
+nonterminal update remains unproven on HA-dev: its Profile
+Platform default backend is `later_manual`. The Spotify-authorized iOS entry
+already has `spotify_direct` in its options, but the normal options flow does
+not change the profile default backend. No HA-dev setting was changed.
+Source/browser contract tests do not replace that live receipt. `PI_QUAL=OPEN`
+and the same first slice remain active. The
+canonical Core Execution Horizon remains the only portfolio authority; this
+record selects no second slice. Repository State: `MERGED_RECONCILED` after this
+governance-only Finalization merges. Workspace State: `WORKSPACE_READY` only
+after mandatory local cleanup.
+
+## Earlier management context
+
 Status: macOS runner workspace retention reconciled
 
 ## Decision
@@ -39,7 +68,7 @@ The payload excludes Music DNA, Profile, Performance Memory, Planner/Runtime
 context, provider payloads, Ask DJ history, credentials, tokens, device IDs and
 installation IDs. Sharing remains explicitly user initiated.
 
-## Recommended Next Prompt
+## Earlier recommended next prompt (Track Insight freeze point)
 
 The next Apple work must be separately authorized from the canonical
 `djconnect` Execution Horizon. Repository State is `MERGED_RECONCILED` and
@@ -50,7 +79,7 @@ Workspace State is `WORKSPACE_READY` after this Finalization and cleanup.
 Generation 2, Phase 1 — DJ Intelligence Evolution. Automated Session
 Intelligence E2E Verification remains the supporting engineering increment.
 
-## Rolling Horizon (Execution Horizon — Next 5 Planned)
+## Historical Rolling Horizon at the earlier runner Finalization
 
 1. CMB-04 — Re-express Renderer Experience roadmap atomically; Planned;
    no recorded dependency. Reason: next canonical renderer planning record.
