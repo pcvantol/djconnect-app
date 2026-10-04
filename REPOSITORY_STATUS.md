@@ -1,6 +1,33 @@
 # DJConnect Repository Status
 
-## VibeCast Pi owner handoff source reconciliation
+## VibeCast Pi decoder source reconciliation
+
+Apple [PR #91](https://github.com/pcvantol/djconnect-app/pull/91) merged the
+independently reviewed Session decoder correction as exact main
+`29f3ad55d74c155fbab51c039358cea871d4c512` from head
+`6221beacb178bd26e614411c32c97ee646138165`. Exact-main
+[CI](https://github.com/pcvantol/djconnect-app/actions/runs/37214330425),
+[Mac mini CI](https://github.com/pcvantol/djconnect-app/actions/runs/37214330165)
+and [SHA-bound evidence](https://github.com/pcvantol/djconnect-app/actions/runs/37214736801)
+succeeded. The existing internal prerelease has one qualification JSON; no
+signing, public release, production deployment or workflow change ran.
+
+The precommit local candidate was observed with a paired iPhone and physical
+portrait Pi through owner approval, live snapshot, WebSocket reconnect,
+Runtime-end cleanup and no durable browser token. The installed binary was
+not separately bound to the later reviewed head or merge SHA. A separate
+nonterminal update remains unproven on HA-dev: its Profile
+Platform default backend is `later_manual`. The Spotify-authorized iOS entry
+already has `spotify_direct` in its options, but the normal options flow does
+not change the profile default backend. No HA-dev setting was changed.
+Source/browser contract tests do not replace that live receipt. `PI_QUAL=OPEN`
+and the same first slice remain active. The
+canonical Core Execution Horizon remains the only portfolio authority; this
+record selects no second slice. Repository State: `MERGED_RECONCILED` after this
+governance-only Finalization merges. Workspace State: `WORKSPACE_READY` only
+after mandatory local cleanup.
+
+## Earlier VibeCast owner-handoff source reconciliation (PR #90 freeze point)
 
 The owner merged [PR #89](https://github.com/pcvantol/djconnect-app/pull/89)
 from the independently reviewed `af5a6da4d59d42b55e22cb5b784309120e86dab2`
@@ -29,7 +56,8 @@ reconciles the merged source without selecting the later Cast slice. Repository
 State: `MERGED_RECONCILED` after this Finalization merges. Workspace State:
 `WORKSPACE_READY` only after mandatory cleanup.
 
-Status: VibeCast Pi owner handoff source merged; integrated acceptance open
+Status at PR #90 freeze point: VibeCast Pi owner handoff source merged;
+integrated acceptance open
 
 ## Repository
 
@@ -70,18 +98,26 @@ DJ Intelligence behavior changed.
 
 ## Current Prompt
 
-Continue only the already selected first VibeCast Pi owner handoff slice. Its
-implementation is merged; exact installed HA, paired Apple owner and physical
-Pi acceptance remain open. No second Apple implementation prompt is active.
+Continue only the already selected first VibeCast Pi owner handoff slice. The
+precommit local candidate showed paired Apple owner approval, physical Pi
+snapshot, reconnect, end cleanup and browser-token boundary. Its installed
+binary was not bound to the later source SHA. The separate nonterminal
+active-Session update remains open because the HA-dev test profile selects
+`later_manual`.
+Use a supported reversible Profile Platform binding before claiming that live
+receipt. No second Apple implementation prompt is active.
 
 ## Completion Report
 
-The current merged-source Finalization report is
+The current decoder Finalization report is
+`docs/history/prompts/2026-10-04-vibecast-pi-session-decoder-finalization.md`.
+The earlier owner-handoff source Finalization is
 `docs/history/prompts/2026-10-04-vibecast-pi-owner-handoff-source-finalization.md`.
 The earlier PR #50 assessment remains in
 `docs/history/prompts/2026-07-26-apple-native-share-capability-assessment.md`.
 
 ## Repository-Local Next Action
 
-Complete the existing first-slice physical acceptance and preserve the separate
-Google Cast WIP branch. Do not start another slice from this record.
+Complete the first slice's separate nonterminal active-Session update on the
+physical Pi, preserve the separate Google Cast WIP branch and stop before
+another slice.
