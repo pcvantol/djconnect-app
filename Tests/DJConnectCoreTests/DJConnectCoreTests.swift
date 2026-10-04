@@ -13194,7 +13194,7 @@ private extension String {
         musicBackend: "spotify_direct",
         runtimeState: "active",
         startedAt: "2026-07-20T00:00:00Z",
-        planner: .init(planningHorizonMinutes: 15, currentDirection: "maintain"),
+        planner: .init(planningHorizonMinutes: 15),
         broadcast: broadcast
     )
     let updatedFlow = DJConnectSessionFlow(
@@ -13215,9 +13215,55 @@ private extension String {
     #expect(updated.room == "living-room")
     #expect(updated.musicBackend == "spotify_direct")
     #expect(updated.broadcast.sessionFlow.flowID == "flow-session-1b")
+    #expect(updated.broadcast.planner.currentDirection == "maintain")
 
     let encodedRuntime = try JSONEncoder().encode(runtime)
     #expect(try JSONDecoder().decode(DJConnectSessionRuntime.self, from: encodedRuntime) == runtime)
+}
+
+@Test func sessionResponseDecodesBackendOwnedDirectionFromBroadcast() throws {
+    let payload = """
+    {
+      "success": true,
+      "session": {
+        "session_id": "session-1",
+        "room": "living-room",
+        "selected_mood": "groove",
+        "music_backend": "spotify_direct",
+        "runtime_state": "active",
+        "started_at": "2026-10-04T00:00:00Z",
+        "planner": {
+          "planner_state": "ready",
+          "planning_horizon_minutes": 15,
+          "created_at": "2026-10-04T00:00:00Z"
+        },
+        "broadcast": {
+          "session": {
+            "session_id": "session-1",
+            "runtime_state": "active",
+            "selected_mood": "groove"
+          },
+          "planner": {
+            "planning_state": "ready",
+            "planning_horizon_minutes": 15,
+            "current_direction": "maintain"
+          },
+          "session_flow": {
+            "flow_id": "flow-1",
+            "flow_revision": 1,
+            "planning_horizon_minutes": 15,
+            "created_at": "2026-10-04T00:00:00Z",
+            "items": []
+          }
+        }
+      }
+    }
+    """
+
+    let response = try JSONDecoder().decode(DJConnectSessionResponse.self, from: Data(payload.utf8))
+    let session = try #require(response.resolvedSession)
+    #expect(session.planner.planningHorizonMinutes == 15)
+    #expect(session.broadcast.planner.currentDirection == "maintain")
 }
 
 @Test func sessionBroadcastTransportStopsCleanlyWhenAuthenticationIsUnavailable() async {
