@@ -20,6 +20,33 @@ public struct DJConnectSessionEndRequest: Codable, Equatable, Sendable {
     }
 }
 
+public struct DJConnectVibeCastHandoffApprovalRequest: Codable, Equatable, Sendable {
+    public var sessionID: String
+    public var code: String
+
+    public init(sessionID: String, code: String) {
+        self.sessionID = sessionID
+        self.code = code
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case sessionID = "session_id"
+        case code
+    }
+}
+
+public struct DJConnectVibeCastHandoffApprovalResponse: Codable, Equatable, Sendable {
+    public var success: Bool
+    public var sessionID: String?
+    public var handoff: String?
+    public var error: String?
+
+    enum CodingKeys: String, CodingKey {
+        case success, handoff, error
+        case sessionID = "session_id"
+    }
+}
+
 public struct DJConnectSessionFlowItem: Codable, Equatable, Sendable, Identifiable {
     public var itemID: String
     public var itemType: String

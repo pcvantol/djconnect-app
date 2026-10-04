@@ -968,3 +968,9 @@
 "ui.ask.dj.history.export.failed" = "No se pudo exportar el historial de Ask DJ.";
 "ui.output.recently.seen" = "Visto recientemente";
 "appModel.cached.spotify.output.unavailable" = "Spotify no muestra esta salida mediante la API ahora mismo. Abre Spotify una vez en ese dispositivo e inténtalo de nuevo.";
+"ui.vibecast.handoff.title" = "Mostrar la sesión en VibeCast";
+"ui.vibecast.handoff.instructions" = "Abre VibeCast en el Pi e introduce el código que aparece. Solo se comparte esta sesión activa.";
+"ui.vibecast.handoff.code" = "Código de seis dígitos";
+"ui.vibecast.handoff.approve" = "Mostrar sesión";
+"ui.vibecast.handoff.approved" = "Código aprobado. Esperando a que VibeCast se conecte.";
+"ui.vibecast.handoff.failed" = "El código ha caducado o no se ha podido completar la transferencia.";

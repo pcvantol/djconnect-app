@@ -685,6 +685,9 @@ public final class DJConnectAppModel: ObservableObject {
     @Published public var selectedSessionMood = "groove"
     @Published public private(set) var isLoadingDJSession = false
     @Published public private(set) var djSessionErrorMessage: String?
+    @Published public private(set) var isLoadingVibeCastHandoff = false
+    @Published public private(set) var vibeCastHandoffApproved = false
+    @Published public private(set) var vibeCastHandoffFailed = false
     @Published public private(set) var currentTrackInsight: TrackInsight?
     @Published public private(set) var trackInsightHistory: [TrackInsight] = []
     @Published public private(set) var isLoadingTrackInsight = false
@@ -4593,6 +4596,10 @@ public final class DJConnectAppModel: ObservableObject {
             let response = try await withHomeAssistantClient { client in
                 try await client.activeSession()
             }
+            if activeDJSession?.sessionID != response.resolvedSession?.sessionID {
+                vibeCastHandoffApproved = false
+                vibeCastHandoffFailed = false
+            }
             activeDJSession = response.resolvedSession
             djSessionErrorMessage = nil
             startSessionBroadcastIfNeeded()
@@ -4608,6 +4615,8 @@ public final class DJConnectAppModel: ObservableObject {
             let response = try await withHomeAssistantClient { client in
                 try await client.startSession(DJConnectSessionStartRequest(mood: selectedSessionMood))
             }
+            vibeCastHandoffApproved = false
+            vibeCastHandoffFailed = false
             activeDJSession = response.resolvedSession
             djSessionErrorMessage = response.resolvedSession == nil ? response.message : nil
             startSessionBroadcastIfNeeded()
@@ -4626,9 +4635,38 @@ public final class DJConnectAppModel: ObservableObject {
             }
             activeDJSession = nil
             djSessionErrorMessage = nil
+            vibeCastHandoffApproved = false
+            vibeCastHandoffFailed = false
             stopSessionBroadcast()
         } catch {
             djSessionErrorMessage = error.localizedDescription
+        }
+    }
+
+    public func approveVibeCastHandoff(code: String) async {
+        let normalized = code.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard pairingStatus == .paired,
+              let sessionID = activeDJSession?.sessionID,
+              normalized.count == 6,
+              normalized.unicodeScalars.allSatisfy({ $0.value >= 48 && $0.value <= 57 }) else {
+            vibeCastHandoffApproved = false
+            vibeCastHandoffFailed = true
+            return
+        }
+        isLoadingVibeCastHandoff = true
+        vibeCastHandoffApproved = false
+        vibeCastHandoffFailed = false
+        defer { isLoadingVibeCastHandoff = false }
+        do {
+            let response = try await withHomeAssistantClient { client in
+                try await client.approveVibeCastHandoff(
+                    DJConnectVibeCastHandoffApprovalRequest(sessionID: sessionID, code: normalized)
+                )
+            }
+            vibeCastHandoffApproved = activeDJSession?.sessionID == sessionID && response.success && response.handoff == "approved"
+            vibeCastHandoffFailed = !vibeCastHandoffApproved
+        } catch {
+            vibeCastHandoffFailed = true
         }
     }
 
