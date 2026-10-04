@@ -136,11 +136,9 @@ public struct DJConnectSessionRuntime: Codable, Equatable, Sendable, Identifiabl
 
 public struct DJConnectPlannerRuntime: Codable, Equatable, Sendable {
     public var planningHorizonMinutes: Int
-    public var currentDirection: String
 
     enum CodingKeys: String, CodingKey {
         case planningHorizonMinutes = "planning_horizon_minutes"
-        case currentDirection = "current_direction"
     }
 }
 
@@ -202,8 +200,7 @@ public extension DJConnectSessionRuntime {
         runtime.runtimeState = broadcastState.session.runtimeState
         runtime.selectedMood = broadcastState.session.selectedMood
         runtime.planner = DJConnectPlannerRuntime(
-            planningHorizonMinutes: broadcastState.planner.planningHorizonMinutes,
-            currentDirection: broadcastState.planner.currentDirection
+            planningHorizonMinutes: broadcastState.planner.planningHorizonMinutes
         )
         runtime.broadcast = broadcastState
         return runtime

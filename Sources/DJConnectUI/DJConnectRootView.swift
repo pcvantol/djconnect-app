@@ -10074,7 +10074,7 @@ private struct IOSActiveDJSessionView: View {
             Divider()
             Text(localizedKey(model.language, "ui.session.planner")).font(.headline)
             LabeledContent(localizedKey(model.language, "ui.session.horizon"), value: "\(session.planner.planningHorizonMinutes) min")
-            LabeledContent(localizedKey(model.language, "ui.session.direction"), value: session.planner.currentDirection.replacingOccurrences(of: "_", with: " ").capitalized)
+            LabeledContent(localizedKey(model.language, "ui.session.direction"), value: session.broadcast.planner.currentDirection.replacingOccurrences(of: "_", with: " ").capitalized)
             Text(localizedKey(model.language, "ui.session.flow")).font(.headline)
             ForEach(session.broadcast.sessionFlow.items) { item in
                 VStack(alignment: .leading, spacing: 3) {
