@@ -5009,6 +5009,25 @@ private func makePairedMusicDNAModel(
     #expect(await fastPath.musicDNAClearCalls == 0)
 }
 
+@Test func sessionStartRequestIncludesMoodAndLanguage() throws {
+    let client = DJConnectClient(
+        baseURL: URL(string: "http://homeassistant.local:8123")!,
+        identity: testIOSIdentity(deviceID: "djconnect-ios-session-locale"),
+        tokenStore: DJConnectInMemoryTokenStore(token: "owner-device-token")
+    )
+
+    let request = try client.sessionStartRequest(
+        DJConnectSessionStartRequest(mood: "groove", language: "nl-NL")
+    )
+    let body = try #require(try requestBodyData(request))
+    let json = try #require(JSONSerialization.jsonObject(with: body) as? [String: Any])
+
+    #expect(request.url?.path == "/api/djconnect/v1/session/start")
+    #expect(request.httpMethod == "POST")
+    #expect(json["mood"] as? String == "groove")
+    #expect(json["language"] as? String == "nl-NL")
+}
+
 @Test func vibeCastRequestCanOmitEmojiSafeCapabilityWithoutCrashing() throws {
     let client = DJConnectClient(
         baseURL: URL(string: "http://homeassistant.local:8123")!,
