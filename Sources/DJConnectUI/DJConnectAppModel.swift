@@ -4613,7 +4613,12 @@ public final class DJConnectAppModel: ObservableObject {
         defer { isLoadingDJSession = false }
         do {
             let response = try await withHomeAssistantClient { client in
-                try await client.startSession(DJConnectSessionStartRequest(mood: selectedSessionMood))
+                try await client.startSession(
+                    DJConnectSessionStartRequest(
+                        mood: selectedSessionMood,
+                        language: currentRequestLocale
+                    )
+                )
             }
             vibeCastHandoffApproved = false
             vibeCastHandoffFailed = false

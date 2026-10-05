@@ -2,9 +2,11 @@ import Foundation
 
 public struct DJConnectSessionStartRequest: Codable, Equatable, Sendable {
     public var mood: String
+    public var language: String
 
-    public init(mood: String) {
+    public init(mood: String, language: String) {
         self.mood = mood
+        self.language = language
     }
 }
 
