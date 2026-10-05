@@ -1,5 +1,35 @@
 # DJConnect App Engineering Status
 
+## VibeCast Session locale handoff
+
+Apple [PR #93](https://github.com/pcvantol/djconnect-app/pull/93) merged the
+independently reviewed Session-start locale handoff as exact main
+`f8e4bf9d8e4096983a04502245babd864abb04b2` from head
+`d7292b29851ce81f55c436b97e72e1ef8ddcc23a`. The reviewed source and merge
+trees are identical. Exact-main
+[CI](https://github.com/pcvantol/djconnect-app/actions/runs/37355321818),
+[Mac mini CI](https://github.com/pcvantol/djconnect-app/actions/runs/37355322019)
+and [SHA-bound evidence](https://github.com/pcvantol/djconnect-app/actions/runs/37355998819)
+succeeded. The internal prerelease `internal-ha-f8e4bf9d8e4096983a04502245babd864abb04b2`
+targets that merge and contains one qualification JSON with SHA-256
+`ff90ebfadb70d29c167abee96fe4ffd900d347d461a7afecb99733388d96cde1`.
+No signing, public release, production deployment or workflow change ran.
+
+The Apple Session-start request now sends the app's normalized BCP-47 locale
+alongside the selected mood. Core exact main
+`dfd78cca1f128285527631fdc4a06de560cad435` consumes that value and freezes the
+five-language family in the backend-owned Session. Local qualification passed
+all 401 Swift tests, the unsigned iOS Simulator build, 976 localization keys
+and 29 HTTP contract routes; independent review found no actionable issue.
+
+`PI_QUAL=OPEN` remains accurate until a signed candidate built from the exact
+Apple merge is installed on the physical iPhone and proves the live
+nonterminal update, reconnect, Runtime-end cleanup and token boundary on the
+physical portrait Pi. This same first slice remains active and selects no
+second product item. Repository State: `MERGED_RECONCILED` after this
+governance-only Finalization merges. Workspace State: `WORKSPACE_READY` only
+after mandatory cleanup.
+
 ## VibeCast Pi decoder source reconciliation
 
 Apple [PR #91](https://github.com/pcvantol/djconnect-app/pull/91) merged the
