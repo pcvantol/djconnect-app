@@ -84,6 +84,20 @@ visual Moment event. The native renderer shows the supplied committed Silence
 Flow label and quiet current zone rather than manufacturing a Moment.
 Navigation metrics record zero playback mutations. These are synthetic fixture
 receipts, not live provider, physical device or full accessibility qualification.
+Screenshot review additionally corrected duplicated primary speech for the
+producer's actual `dj` role. The iPad test now waits for rotation to settle and
+asserts Meer remains hittable in landscape; device-level screenshots avoid
+XCTest's incorrect landscape application-bounds crop. English navigation tests
+check Queue/Playlists/Now Playing under More, matching the actual route model.
+The final screen-capture iPhone/iPad sequences both PASS with no runtime
+warnings (`iphone-screen-qualified.xcresult`, `ipad-screen-qualified.xcresult`).
+An earlier combined English/iPhone attempt hung and was interrupted without a
+valid result bundle; it is not counted as PASS. The screenshot-helper compile
+failure used `XCUIDevice` incorrectly and was repaired to `XCUIScreen` before
+the successful final sequences. Logs remain retained separately.
+The separate English navigation attempts also stalled without a finalized
+result bundle, including with the existing ready fixture. English native
+navigation is therefore NOT QUALIFIED; no success is inferred from compilation.
 
 Unsigned Mac build-for-testing passes. The unsigned Mac UI runner hung before
 establishing a connection. A direct isolated unsigned candidate receives owner
@@ -98,8 +112,11 @@ isolated temporary Apple clone by the same writer. The no-checkout Core clone
 is an immutable archive source only, not a Core checkout or writer.
 
 Draft [#95](https://github.com/pcvantol/djconnect-app/pull/95) preserves this
-same source pickup. Its initial head CI/TDE/security checks passed; those
-receipts do not qualify later heads or resolve the product gates above.
+same source pickup. All non-skipped CI/TDE/security/projection checks passed at
+`636258d8c93044004adb8fa31babed612def9d37`; those receipts do not qualify later
+heads or resolve the product gates above. The Core producer now has its own
+ACK under `DJC-CORE-NATIVE-MOMENT-DELIVERY-V1-20261008`; its unqualified WIP is
+not substituted for the immutable producer receipt.
 No source merge, exact-main acceptance, internal evidence publication or separate
 Finalization is claimed. Those remain required after contract/native/independent
 review gates pass, and each concrete main publication needs its own authority.

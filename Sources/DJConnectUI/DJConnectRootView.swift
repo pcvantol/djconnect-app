@@ -782,6 +782,7 @@ public struct DJConnectRootView: View {
                             .transition(.move(edge: .bottom).combined(with: .opacity))
                         }
                     }
+                    .frame(width: proxy.size.width, height: proxy.size.height)
                     .animation(.snappy(duration: 0.22), value: shouldShowOfflineNetworkBanner)
                 }
                 #endif

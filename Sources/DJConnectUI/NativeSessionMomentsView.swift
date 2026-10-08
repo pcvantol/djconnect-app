@@ -193,7 +193,7 @@ private struct MomentCard: View {
             if !moment.title.isEmpty { Text(moment.title).font(.title2.bold()) }
             Text(moment.content).font(.title3).fixedSize(horizontal: false, vertical: true)
             if let speech = presentation?.speech {
-                ForEach(speech.segments.filter { !($0.speakerRole == "primary_dj" && $0.text == moment.content) }.sorted { $0.ordinal < $1.ordinal }, id: \.ordinal) { segment in
+                ForEach(speech.segments.filter { !(["dj", "primary_dj"].contains($0.speakerRole) && $0.text == moment.content) }.sorted { $0.ordinal < $1.ordinal }, id: \.ordinal) { segment in
                     Text(segment.text).fixedSize(horizontal: false, vertical: true)
                 }
             }

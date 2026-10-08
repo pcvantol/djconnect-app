@@ -39,8 +39,12 @@ final class DJConnectIOSUITests: XCTestCase {
 
     private func launchEnglishApp() -> XCUIApplication {
         let app = XCUIApplication()
-        app.launchArguments.append(contentsOf: ["--uitesting", "--monkey-testing", "-AppleLanguages", "(en)", "-AppleLocale", "en_US"])
+        app.launchArguments.append(contentsOf: ["--uitesting", "--runtime-fixture", "ready", "-AppleLanguages", "(en)", "-AppleLocale", "en_US"])
         app.launchEnvironment["DJCONNECT_UITEST_HA_URL"] = "http://127.0.0.1:8123"
+        app.launchEnvironment["DJCONNECT_UITEST_RUNTIME_FIXTURE"] = "ready"
+        app.terminate()
+        app.launch()
+        RunLoop.current.run(until: Date().addingTimeInterval(0.4))
         app.terminate()
         app.launch()
         return app
@@ -446,11 +450,16 @@ final class DJConnectIOSUITests: XCTestCase {
 
     func testEnglishDeviceLanguageUsesEnglishNavigationAndSettingsCopy() {
         let app = launchEnglishApp()
+        enterDemoModeIfNeeded(app)
 
         XCTAssertTrue(app.tabBars.buttons["DJ Session"].waitForExistence(timeout: 6))
-        XCTAssertTrue(app.tabBars.buttons["Queue"].exists)
-        XCTAssertTrue(app.tabBars.buttons["Playlists"].exists)
+        XCTAssertTrue(app.tabBars.buttons["Ask DJ"].exists)
+        XCTAssertTrue(app.tabBars.buttons["Track Insight"].exists)
         XCTAssertTrue(app.tabBars.buttons["More"].exists)
+        app.tabBars.buttons["More"].tap()
+        XCTAssertTrue(app.buttons["Now Playing"].firstMatch.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["Queue"].firstMatch.exists)
+        XCTAssertTrue(app.buttons["Playlists"].firstMatch.exists)
 
         tapTabOrMoreItem("Settings", in: app)
         XCTAssertTrue(app.navigationBars["Settings"].waitForExistence(timeout: 3))
@@ -684,9 +693,21 @@ final class DJConnectIOSUITests: XCTestCase {
         try saveMomentScreenshot(app, "ios-02-next-moment")
         if app.frame.width > 600 {
             XCUIDevice.shared.orientation = .landscapeLeft
+            let landscapeDeadline = Date().addingTimeInterval(8)
+            while app.frame.width <= app.frame.height, Date() < landscapeDeadline {
+                try await Task.sleep(for: .milliseconds(200))
+            }
+            XCTAssertGreaterThan(app.frame.width, app.frame.height)
+            try await Task.sleep(for: .seconds(1))
             XCTAssertTrue(app.staticTexts["Current"].firstMatch.waitForExistence(timeout: 8))
+            XCTAssertTrue(app.buttons["Meer"].firstMatch.isHittable, "Standalone player navigation must remain visible in landscape.")
             try saveMomentScreenshot(app, "ios-02a-moment-landscape")
             XCUIDevice.shared.orientation = .portrait
+            let portraitDeadline = Date().addingTimeInterval(8)
+            while app.frame.width >= app.frame.height, Date() < portraitDeadline {
+                try await Task.sleep(for: .milliseconds(200))
+            }
+            XCTAssertLessThan(app.frame.width, app.frame.height)
         }
         XCUIDevice.shared.press(.home)
         app.activate()
@@ -727,7 +748,8 @@ final class DJConnectIOSUITests: XCTestCase {
 
     private func saveMomentScreenshot(_ app: XCUIApplication, _ name: String) throws {
         let name = app.frame.width > 600 ? name.replacingOccurrences(of: "ios-", with: "ipad-") : name
-        let screenshot = app.screenshot()
+        // Device capture avoids XCTest's landscape application-bounds crop.
+        let screenshot = XCUIScreen.main.screenshot()
         let attachment = XCTAttachment(screenshot: screenshot)
         attachment.name = name
         attachment.lifetime = .keepAlways
