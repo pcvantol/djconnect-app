@@ -1,5 +1,10 @@
 import SwiftUI
 import DJConnectCore
+#if os(iOS)
+import UIKit
+#elseif os(macOS)
+import AppKit
+#endif
 
 extension View {
     @ViewBuilder func djSessionNavigationTitleStyle() -> some View {
@@ -102,7 +107,7 @@ struct NativeSessionMomentsView: View {
             session.broadcast.sessionFlow.items.first { $0.itemType == "dj_moment" && $0.momentID == moment.id }
         }
     }
-    private func currentMoment(at date: Date) -> DJConnectMoment? { session.broadcast.nativeCurrentMoment(at: date) }
+    private func currentMoment(at date: Date) -> DJConnectMoment? { session.broadcast.nativeCurrentMoment(at: date, spotifyAttributionAvailable: spotifyAttributionLogo != nil) }
 
     private func kind(_ moment: DJConnectMoment) -> String {
         let mapped = ["track": "track_context", "artist": "artist_story", "album": "album_story", "genre": "genre_story", "session": "session_direction"][moment.type] ?? moment.type
@@ -166,6 +171,16 @@ private struct MomentCard: View {
                     Text(segment.text).fixedSize(horizontal: false, vertical: true)
                 }
             }
+            if moment.sourceAttribution?["provider"] == "Spotify",
+               let logo = spotifyAttributionLogo, let url = moment.nativeSourceURLs.first {
+                Link(destination: url) {
+                    logo.resizable().scaledToFit().frame(width: 110, height: 31)
+                        .padding(16).background(Color.black, in: RoundedRectangle(cornerRadius: 8))
+                }
+                .accessibilityLabel("Spotify")
+                .accessibilityValue(url.absoluteString)
+                .accessibilityIdentifier("session-spotify-attribution")
+            }
             ForEach(moment.nativeSourceURLs, id: \.absoluteString) { url in
                 Link(sourceLabel(url), destination: url)
                     .accessibilityValue(url.absoluteString)
@@ -177,8 +192,19 @@ private struct MomentCard: View {
         .accessibilityElement(children: .contain)
     }
     private func sourceLabel(_ url: URL) -> String {
+        if moment.sourceAttribution?["provider"] == "Spotify" { return "Spotify" }
         let key = url.absoluteString == moment.sourceAttribution?["url_previous"] ? "ui.session.source_previous" : "ui.session.source_current"
         let provider = moment.sourceAttribution?["provider"] ?? url.host ?? ""
         return provider + " · " + DJConnectLocalization.localized(key: key, language: language)
     }
+}
+
+private var spotifyAttributionLogo: Image? {
+    #if os(iOS)
+    UIImage(named: "SpotifyAttribution").map { Image(uiImage: $0) }
+    #elseif os(macOS)
+    NSImage(named: NSImage.Name("SpotifyAttribution")).map { Image(nsImage: $0) }
+    #else
+    nil
+    #endif
 }

@@ -120,3 +120,25 @@ func nativeOwnerHTTPWebSocketBackgroundExpiryReconnectAndUnsequencedTerminal() a
     model.markInactiveSession()
     defaults.removePersistentDomain(forName: "native-owner-contract-test")
 }
+
+@Test func actualSpotifyProducerCardRequiresLogoAlbumLinkAndNeverGrantsRecall() throws {
+    let receipt = try nativeReceipt()
+    let spotify = try #require(receipt["spotify"] as? [String: Any])
+    let snapshot = try decodeSnapshot(spotify["snapshot"]!)
+    let moment = try #require(snapshot.djMoments.first)
+    let date = try nativeDate(moment.createdAt)
+    #expect(snapshot.nativeCurrentMoment(at: date) == nil)
+    #expect(snapshot.nativeCurrentMoment(at: date, spotifyAttributionAvailable: true)?.id == moment.id)
+    #expect(snapshot.nativeFlowMoments(at: date).isEmpty)
+    #expect(moment.sourceAttribution?["license"] == "Spotify metadata display")
+    #expect(moment.nativeSourceURLs.map(\.absoluteString) == ["https://open.spotify.com/album/BBBBBBBBBBBBBBBBBBBBBB"])
+    var malicious = snapshot
+    malicious.djMoments[0].sourceAttribution?["url"] = "https://open.spotify.com/track/BBBBBBBBBBBBBBBBBBBBBB"
+    #expect(malicious.nativeCurrentMoment(at: date, spotifyAttributionAvailable: true) == nil)
+    malicious = snapshot; malicious.nativeDelivery?.activeFlowMomentIDs = [moment.id]
+    malicious.nativeDelivery?.admissions[0].activeFlowDisplayAllowed = true
+    #expect(malicious.nativeFlowMoments(at: date).isEmpty)
+    let expired = try decodeSnapshot(spotify["expired"]!)
+    #expect(expired.nativeCurrentMoment(at: date, spotifyAttributionAvailable: true) == nil)
+    #expect(expired.djMoments.isEmpty)
+}

@@ -149,7 +149,7 @@ final class DJConnectMacUITests: XCTestCase {
     }
     func testMomentFirstSessionAndIndependentPlayerNavigation() async throws {
         let base = URL(string: "http://127.0.0.1:18787")!
-        _ = try await URLSession.shared.data(from: base.appendingPathComponent("fixture/reset"))
+        _ = try await URLSession.shared.data(from: base.appendingPathComponent("fixture/native_reset"))
         let app = XCUIApplication()
         app.terminate()
         app.launchArguments = ["--uitesting", "--runtime-fixture", "moment_contract", "-AppleLanguages", "(nl)", "-AppleLocale", "nl_NL"]
@@ -163,21 +163,21 @@ final class DJConnectMacUITests: XCTestCase {
             XCTFail("The isolated runtime fixture was not activated; no navigation actions performed.")
             return
         }
-        XCTAssertTrue(app.staticTexts["De genrecontext bij Current van Artist is soul."].waitForExistence(timeout: 15))
+        XCTAssertTrue(app.staticTexts["Even meekijken in de credits: Nora Vale en Sam Reed zijn hier als producers gecrediteerd."].waitForExistence(timeout: 15))
         try saveMomentScreenshot(app, "mac-01-moment")
         _ = try await URLSession.shared.data(from: base.appendingPathComponent("fixture/advance"))
-        XCTAssertTrue(app.staticTexts["The bass and percussion leave space for the melody."].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label == %@", "Nora Vale kwamen we eerder tegen bij «Amber Lines», als producer. Bij «Slow Lanterns» staat die naam opnieuw in de producercredits.")).firstMatch.waitForExistence(timeout: 10))
         try saveMomentScreenshot(app, "mac-02-next-moment")
         app.buttons["Speelt Nu"].firstMatch.tap()
-        XCTAssertTrue(app.staticTexts["Current"].firstMatch.waitForExistence(timeout: 6))
+        XCTAssertTrue(app.staticTexts["Slow Lanterns"].firstMatch.waitForExistence(timeout: 6))
         try saveMomentScreenshot(app, "mac-03-player-active-session")
         app.buttons["DJ-sessie"].firstMatch.tap()
-        _ = try await URLSession.shared.data(from: base.appendingPathComponent("fixture/track_change"))
-        XCTAssertTrue(app.staticTexts["Next"].firstMatch.waitForExistence(timeout: 10))
-        try saveMomentScreenshot(app, "mac-03a-track-change")
+        _ = try await URLSession.shared.data(from: base.appendingPathComponent("fixture/expire"))
+        XCTAssertTrue(app.staticTexts["Slow Lanterns"].firstMatch.waitForExistence(timeout: 10))
+        try saveMomentScreenshot(app, "mac-03a-source-expiry")
         _ = try await URLSession.shared.data(from: base.appendingPathComponent("fixture/reconnect"))
         try await Task.sleep(for: .seconds(2))
-        XCTAssertTrue(app.staticTexts["Next"].firstMatch.waitForExistence(timeout: 10))
+        XCTAssertTrue(app.staticTexts["Slow Lanterns"].firstMatch.waitForExistence(timeout: 10))
         let (data, _) = try await URLSession.shared.data(from: base.appendingPathComponent("fixture/metrics"))
         let metrics = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
         XCTAssertEqual(metrics["playbackMutations"] as? Int, 0)
@@ -185,9 +185,14 @@ final class DJConnectMacUITests: XCTestCase {
         app.buttons["Sessie beëindigen"].firstMatch.tap()
         XCTAssertTrue(app.buttons["Start DJ-sessie"].waitForExistence(timeout: 10))
         app.buttons["Speelt Nu"].firstMatch.tap()
-        XCTAssertTrue(app.staticTexts["Current"].firstMatch.waitForExistence(timeout: 6))
-        XCTAssertTrue(app.staticTexts["Current"].firstMatch.waitForExistence(timeout: 6))
+        XCTAssertTrue(app.staticTexts["Slow Lanterns"].firstMatch.waitForExistence(timeout: 6))
+        XCTAssertTrue(app.staticTexts["Slow Lanterns"].firstMatch.waitForExistence(timeout: 6))
         try saveMomentScreenshot(app, "mac-04-player-ended-session")
+        app.terminate(); app.launch()
+        XCTAssertTrue(app.buttons["Start DJ-sessie"].waitForExistence(timeout: 10))
+        app.buttons["Speelt Nu"].firstMatch.tap()
+        XCTAssertTrue(app.staticTexts["Slow Lanterns"].firstMatch.waitForExistence(timeout: 6))
+        try saveMomentScreenshot(app, "mac-05-player-no-session")
     }
 
     private func saveMomentScreenshot(_ app: XCUIApplication, _ name: String) throws {

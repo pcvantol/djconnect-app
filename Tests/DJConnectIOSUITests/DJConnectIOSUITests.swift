@@ -463,7 +463,7 @@ final class DJConnectIOSUITests: XCTestCase {
 
         tapTabOrMoreItem("Settings", in: app)
         XCTAssertTrue(app.navigationBars["Settings"].waitForExistence(timeout: 3))
-        XCTAssertTrue(app.staticTexts["Language"].exists)
+        XCTAssertTrue(app.descendants(matching: .any)["App Language"].exists)
     }
 
     func testSettingsUsesMockHomeAssistantURLFixture() {
@@ -771,12 +771,39 @@ final class DJConnectIOSUITests: XCTestCase {
         _ = try await URLSession.shared.data(from: base.appendingPathComponent("fixture/advance"))
         let secondText = "Nora Vale kwamen we eerder tegen bij «Amber Lines», als producer. Bij «Slow Lanterns» staat die naam opnieuw in de producercredits."
         XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label == %@", secondText)).firstMatch.waitForExistence(timeout: 10))
-        app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "session-flow-")).firstMatch.tap()
+        app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "Even de credits erbij")).firstMatch.tap()
         XCTAssertTrue(app.staticTexts["Even meekijken in de credits: Nora Vale en Sam Reed zijn hier als producers gecrediteerd."].waitForExistence(timeout: 5))
         try saveMomentScreenshot(app, "ios-02b-active-flow-recall")
         _ = try await URLSession.shared.data(from: base.appendingPathComponent("fixture/expire"))
         try await Task.sleep(for: .seconds(1))
         XCTAssertFalse(app.staticTexts["Even meekijken in de credits: Nora Vale en Sam Reed zijn hier als producers gecrediteerd."].exists)
+    }
+
+    func testSpotifyCurrentAttributionAndSourceExpiry() async throws {
+        let base = URL(string: "http://127.0.0.1:18787")!
+        _ = try await URLSession.shared.data(from: base.appendingPathComponent("fixture/spotify_reset"))
+        let app = XCUIApplication()
+        app.terminate()
+        app.launchArguments = ["--uitesting", "--runtime-fixture", "moment_contract", "-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
+        app.launchEnvironment["DJCONNECT_UITEST_HA_URL"] = base.absoluteString
+        app.launchEnvironment["DJCONNECT_UITEST_RUNTIME_FIXTURE"] = "moment_contract"
+        app.launch()
+        try await Task.sleep(for: .milliseconds(400))
+        app.terminate()
+        app.launch()
+        guard app.descendants(matching: .any)["uitest-runtime-fixture-active"].waitForExistence(timeout: 10) else {
+            XCTFail("The isolated runtime fixture was not activated; no navigation actions performed.")
+            return
+        }
+        let body = "A little date beside this edition of Test edition: Spotify lists 2001-03-04."
+        XCTAssertTrue(app.staticTexts[body].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.descendants(matching: .any).matching(NSPredicate(format: "value == %@", "https://open.spotify.com/album/BBBBBBBBBBBBBBBBBBBBBB")).firstMatch.exists)
+        try saveMomentScreenshot(app, "ios-06-spotify-current")
+        _ = try await URLSession.shared.data(from: base.appendingPathComponent("fixture/expire"))
+        try await Task.sleep(for: .seconds(1))
+        XCTAssertFalse(app.staticTexts[body].exists)
+        XCTAssertFalse(app.descendants(matching: .any).matching(NSPredicate(format: "value == %@", "https://open.spotify.com/album/BBBBBBBBBBBBBBBBBBBBBB")).firstMatch.exists)
+        try saveMomentScreenshot(app, "ios-07-spotify-expired")
     }
 
     private func saveMomentScreenshot(_ app: XCUIApplication, _ name: String) throws {

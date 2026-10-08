@@ -207,14 +207,14 @@ public extension DJConnectBroadcastState {
         djMoments = []
         presentations = []
     }
-    func nativeCurrentMoment(at date: Date) -> DJConnectMoment? {
+    func nativeCurrentMoment(at date: Date, spotifyAttributionAvailable: Bool = false) -> DJConnectMoment? {
         guard session.runtimeState == "active", playback?.state == "playing",
               let authority = nativeDelivery, authority.schemaVersion == 1,
               authority.sessionID == session.sessionID, authority.revocationScope == "session",
               !authority.revision.isEmpty, let id = authority.currentMomentID,
               let moment = djMoments.first(where: { $0.id == id }),
               moment.playbackItemID == playback?.itemID,
-              admitted(moment, authority: authority, at: date, current: true) else { return nil }
+              admitted(moment, authority: authority, at: date, current: true, spotifyAttributionAvailable: spotifyAttributionAvailable) else { return nil }
         return moment
     }
     func nativeFlowMoments(at date: Date) -> [DJConnectMoment] {
@@ -231,16 +231,25 @@ public extension DJConnectBroadcastState {
             return moment
         }
     }
-    private func admitted(_ moment: DJConnectMoment, authority: DJConnectNativeMomentDelivery, at date: Date, current: Bool) -> Bool {
+    private func admitted(_ moment: DJConnectMoment, authority: DJConnectNativeMomentDelivery, at date: Date, current: Bool, spotifyAttributionAvailable: Bool = false) -> Bool {
         let matches = authority.admissions.filter { $0.momentID == moment.id }
         guard matches.count == 1, let admission = matches.first,
               admission.qualification == "qualified", admission.executableActions.isEmpty,
               moment.sessionID == session.sessionID, !moment.content.isEmpty,
               ["owner_only", "session_shared", "public_broadcast"].contains(moment.presentationIntent.visibility),
               current ? admission.currentDisplayAllowed : admission.activeFlowDisplayAllowed else { return false }
-        // This renderer has no qualified Spotify mark asset. Do not silently
-        // grant its current-only cards or turn them into CC0 historical recall.
-        guard !admission.requiresSpotifyAttribution else { return false }
+        if admission.requiresSpotifyAttribution {
+            guard current, spotifyAttributionAvailable,
+                  moment.sourceAttribution?["provider"] == "Spotify",
+                  moment.sourceAttribution?["license"] == "Spotify metadata display",
+                  let raw = moment.sourceAttribution?["url"],
+                  let url = URL(string: raw), url.scheme == "https", url.host == "open.spotify.com",
+                  url.user == nil, url.password == nil, url.query == nil, url.fragment == nil,
+                  url.path.range(of: "^/album/[A-Za-z0-9]{22}$", options: .regularExpression) != nil,
+                  let expiry = admission.sourceExpiresAt.flatMap(nativeDeadline), date < expiry,
+                  let deadline = admission.displayExpiresAt.flatMap(nativeDeadline), date < deadline else { return false }
+            return true
+        }
         if let source = admission.sourceExpiresAt {
             guard let expiry = nativeDeadline(source), date < expiry,
                   let provider = moment.sourceAttribution?["provider"], ["MusicBrainz", "Wikidata"].contains(provider),
