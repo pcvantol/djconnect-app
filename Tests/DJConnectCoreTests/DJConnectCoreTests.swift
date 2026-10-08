@@ -13223,6 +13223,7 @@ private extension String {
         items: []
     )
     let event = DJConnectSessionBroadcastEvent(
+        deliverySequence: 1,
         eventType: "session_flow_updated",
         sessionID: "session-1",
         payload: .init(sessionFlow: updatedFlow)

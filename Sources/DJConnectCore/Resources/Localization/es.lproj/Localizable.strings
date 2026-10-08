@@ -974,3 +974,24 @@
 "ui.vibecast.handoff.approve" = "Mostrar sesión";
 "ui.vibecast.handoff.approved" = "Código aprobado. Esperando a que VibeCast se conecte.";
 "ui.vibecast.handoff.failed" = "El código ha caducado o no se ha podido completar la transferencia.";
+
+// Native Moment-first Session
+"ui.session.quiet" = "El DJ escucha contigo.";
+"ui.session.back_current" = "Volver a la contribución actual";
+"ui.session.music_progress" = "Progreso musical";
+"ui.session.moment.generic" = "Contribución del DJ";
+"ui.session.moment.track_context" = "Historia de la canción";
+"ui.session.moment.artist_story" = "Historia del artista";
+"ui.session.moment.album_story" = "Historia del álbum";
+"ui.session.moment.genre_story" = "Historia del género";
+"ui.session.moment.transition" = "Transición";
+"ui.session.moment.session_direction" = "Dirección de la sesión";
+"ui.session.moment.recommendation" = "Recomendación";
+"ui.session.unavailable" = "La sesión DJ no está disponible temporalmente.";
+"ui.session.demo_unavailable" = "Las sesiones DJ no están disponibles en el modo demo.";
+"ui.session.requires_connection" = "Conéctate a Home Assistant para iniciar una sesión DJ.";
+
+"ui.session.source_current" = "Grabación";
+"ui.session.source_previous" = "Grabación anterior";
+
+"ui.session.reconnecting" = "Reconectando con la sesión DJ…";

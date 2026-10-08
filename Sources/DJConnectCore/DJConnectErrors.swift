@@ -319,3 +319,13 @@ struct DJConnectErrorEnvelope: Codable {
         case receivedClientType = "received_client_type"
     }
 }
+
+public extension DJConnectError {
+    /// These failures revoke the local Session projection, not the server Runtime.
+    var invalidatesSessionAuthority: Bool {
+        switch self {
+        case .authStale, .missingToken, .profile: return true
+        default: return false
+        }
+    }
+}

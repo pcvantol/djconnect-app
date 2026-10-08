@@ -1,5 +1,40 @@
 # DJConnect Repository Prompt Index
 
+## Current Apple assignment — 2026-10-08
+
+`DJC-APPLE-MOMENT-FIRST-SESSION-V1-20261008`, same sole writer/pickup,
+[PR #95](https://github.com/pcvantol/djconnect-app/pull/95): native live Moment/Flow
+and independent Speelt nu. Base `2fc7fdf173d9ddb9c309e5837f1c7a449e170be9`,
+branch `codex/apple-moment-first-session`. Original dataless-checkout WIP remains
+preserved; the isolated temporary checkout is the only active source writer.
+
+Status `IN_PROGRESS`: iPhone lifecycle, native Mac real-window sequence, prior
+iPad adaptive-layout sequence, English/detail/Spotify native cases and large-text
+audit pass. 408 regular tests pass with six opt-in skips; localized copy validates
+in all five languages. Review-request loading/error/sequence/recovery findings
+are corrected; fresh exact-candidate independent review and current iPad rerun
+remain open. Protected merge, specific internal SHA publication authority,
+exact-main readback and mandatory separate Finalization remain pending.
+
+Immutable native producer capture `3d17994d28c71402a9076c0082c490820204ccda`
+now belongs to independently delivered Core #1128/#1129. Apple performs no Core
+writes or HA deployment. Human approval covers temporary local Mac ad-hoc test
+bundles and two read-only reviewers, not Store/TestFlight or physical installation.
+See [bounded assessment](docs/APPLE_MOMENT_FIRST_SESSION_ASSESSMENT.md).
+
+Latest conversation/history addendum6061498264 requires a registered dependent
+Apple follow-up after Profile-owned producer list/detail/Ask DJ context/turn/history
+contracts are available through the existing Core slot. Targeted contract handoff
+[6064346207](https://github.com/pcvantol/djconnect/issues/1101#issuecomment-6064346207)
+does not dispatch/reopen Core. #95 does not claim archived Sessions or private
+contextual text/voice bubbles. Shared VibeCast identity/meaning stays aligned;
+Cast/Pages and LG host work retain separate follow-up and effect boundaries.
+
+The previous VibeCast slice is closed by #87 comments 6010273946 and
+6010386668. The following predecessor sections retain their historical freeze
+points and do not reopen that assignment.
+
+
 ## VibeCast Session locale handoff
 
 Apple [PR #93](https://github.com/pcvantol/djconnect-app/pull/93) merged the
@@ -99,7 +134,7 @@ macOS runner workspace retention (PR #70).
 
 `MERGED_RECONCILED`; `WORKSPACE_READY`.
 
-## Current Prompt
+## Historical prompt at predecessor freeze point
 
 Continue only `DJC-VIBECAST-PI-OWNER-HANDOFF-V1-20261004` for its outstanding
 nonterminal active-Session update on the physical Pi. The precommit local

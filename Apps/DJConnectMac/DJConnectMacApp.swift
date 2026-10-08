@@ -20,6 +20,9 @@ struct DJConnectMacApp: App {
                 }
         }
         .windowStyle(.hiddenTitleBar)
+        #if DEBUG
+        .defaultLaunchBehavior(ProcessInfo.processInfo.arguments.contains(where: { $0.hasPrefix("--runtime-fixture") }) ? .presented : .automatic)
+        #endif
 
         Settings {
             DJConnectSettingsView(model: model)
@@ -56,6 +59,16 @@ struct DJConnectMacApp: App {
     private static func makeModel() -> DJConnectAppModel {
         #if DEBUG
         let processInfo = ProcessInfo.processInfo
+        if processInfo.arguments.contains("--runtime-fixture") || processInfo.arguments.contains(where: { $0.hasPrefix("--runtime-fixture=") }) {
+            let suiteName = "dev.djconnect.mac.runtime-tests"
+            let defaults = UserDefaults(suiteName: suiteName) ?? .standard
+            defaults.removePersistentDomain(forName: suiteName)
+            defaults.set(true, forKey: "DJConnectWelcomeSeen")
+            if let url = processInfo.environment["DJCONNECT_UITEST_HA_URL"] { defaults.set(url, forKey: "DJConnectHomeAssistantURL") }
+            let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startBackgroundTasks: false)
+            model.applyUITestRuntimeFixture("moment_contract")
+            return model
+        }
         if processInfo.arguments.contains("--monkey-testing") {
             let suiteName = "dev.djconnect.mac.monkeytests"
             let defaults = UserDefaults(suiteName: suiteName) ?? .standard

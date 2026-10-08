@@ -39,8 +39,12 @@ final class DJConnectIOSUITests: XCTestCase {
 
     private func launchEnglishApp() -> XCUIApplication {
         let app = XCUIApplication()
-        app.launchArguments.append(contentsOf: ["--uitesting", "--monkey-testing", "-AppleLanguages", "(en)", "-AppleLocale", "en_US"])
+        app.launchArguments.append(contentsOf: ["--uitesting", "--runtime-fixture", "ready", "-AppleLanguages", "(en)", "-AppleLocale", "en_US"])
         app.launchEnvironment["DJCONNECT_UITEST_HA_URL"] = "http://127.0.0.1:8123"
+        app.launchEnvironment["DJCONNECT_UITEST_RUNTIME_FIXTURE"] = "ready"
+        app.terminate()
+        app.launch()
+        RunLoop.current.run(until: Date().addingTimeInterval(0.4))
         app.terminate()
         app.launch()
         return app
@@ -89,7 +93,7 @@ final class DJConnectIOSUITests: XCTestCase {
         let demoButton = app.buttons["pairing-start-demo-button"]
         if demoButton.waitForExistence(timeout: 1) {
             demoButton.tap()
-            XCTAssertTrue(waitForAnyScreen(in: app, titles: ["Speelt Nu", "Now Playing"], timeout: 8))
+            XCTAssertTrue(waitForAnyScreen(in: app, titles: ["DJ-sessie", "DJ Session"], timeout: 8))
             return
         }
 
@@ -97,7 +101,7 @@ final class DJConnectIOSUITests: XCTestCase {
             let demoButton = app.buttons[title]
             if demoButton.waitForExistence(timeout: 6) {
                 demoButton.tap()
-                XCTAssertTrue(waitForAnyScreen(in: app, titles: ["Speelt Nu", "Now Playing"], timeout: 8))
+                XCTAssertTrue(waitForAnyScreen(in: app, titles: ["DJ-sessie", "DJ Session"], timeout: 8))
                 return
             }
         }
@@ -112,10 +116,7 @@ final class DJConnectIOSUITests: XCTestCase {
     }
 
     private func openNowPlayingTab(_ app: XCUIApplication) {
-        let nowPlaying = app.tabBars.buttons["Speelt Nu"]
-        if nowPlaying.waitForExistence(timeout: 5) {
-            nowPlaying.tap()
-        }
+        tapTabOrMoreItem("Speelt Nu", in: app)
         XCTAssertTrue(app.navigationBars["Speelt Nu"].waitForExistence(timeout: 5))
     }
 
@@ -208,6 +209,8 @@ final class DJConnectIOSUITests: XCTestCase {
 
     private func screenIdentifier(for title: String) -> String? {
         switch title.replacingOccurrences(of: " (demo)", with: "") {
+        case "DJ-sessie", "DJ Session":
+            return "screen-dj-session"
         case "Speelt Nu", "Now Playing":
             return "screen-now-playing"
         case "Wachtrij", "Queue":
@@ -304,7 +307,7 @@ final class DJConnectIOSUITests: XCTestCase {
         let app = launchApp()
         enterDemoModeIfNeeded(app)
 
-        XCTAssertTrue(app.tabBars.buttons["Speelt Nu"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.tabBars.buttons["DJ-sessie"].waitForExistence(timeout: 10))
         XCTAssertTrue(app.tabBars.buttons["Ask DJ"].exists)
         XCTAssertTrue(app.tabBars.buttons["Track Insight"].exists)
         XCTAssertTrue(app.tabBars.buttons["Ontdek"].exists || app.tabBars.buttons["Discover"].exists)
@@ -351,8 +354,8 @@ final class DJConnectIOSUITests: XCTestCase {
         XCTAssertTrue(doneButton.waitForExistence(timeout: 3))
         doneButton.tap()
 
-        XCTAssertTrue(app.descendants(matching: .any)["screen-now-playing"].waitForExistence(timeout: 8))
         openNowPlayingTab(app)
+        XCTAssertTrue(app.navigationBars["Speelt Nu"].waitForExistence(timeout: 8))
         XCTAssertTrue(waitForText("Fixture Track", in: app))
         XCTAssertTrue(waitForText("Fixture Artist", in: app))
     }
@@ -361,8 +364,8 @@ final class DJConnectIOSUITests: XCTestCase {
         let app = launchRuntimeFixtureApp("paired_runtime")
 
         XCTAssertTrue(waitForRuntimeFixture(app))
-        XCTAssertTrue(app.descendants(matching: .any)["screen-now-playing"].waitForExistence(timeout: 8))
         openNowPlayingTab(app)
+        XCTAssertTrue(app.navigationBars["Speelt Nu"].waitForExistence(timeout: 8))
         XCTAssertTrue(waitForText("Fixture Track", in: app))
         XCTAssertTrue(waitForText("Fixture Artist", in: app))
         XCTAssertTrue(waitForText("Fixture Living Room", in: app))
@@ -386,8 +389,8 @@ final class DJConnectIOSUITests: XCTestCase {
     func testRuntimeFixtureShowsBackendUnavailableRecoveryState() {
         let app = launchRuntimeFixtureApp("backend_unavailable")
 
-        XCTAssertTrue(app.descendants(matching: .any)["screen-now-playing"].waitForExistence(timeout: 8))
         openNowPlayingTab(app)
+        XCTAssertTrue(app.navigationBars["Speelt Nu"].waitForExistence(timeout: 8))
         XCTAssertTrue(waitForText("Fixture Track", in: app))
         XCTAssertTrue(waitForText("muziekbackend", in: app))
     }
@@ -411,8 +414,8 @@ final class DJConnectIOSUITests: XCTestCase {
     func testRuntimeFixtureShowsVoiceUnavailableStateInAskDJ() {
         let app = launchRuntimeFixtureApp("voice_unavailable")
 
-        XCTAssertTrue(app.descendants(matching: .any)["screen-now-playing"].waitForExistence(timeout: 8))
         openNowPlayingTab(app)
+        XCTAssertTrue(app.navigationBars["Speelt Nu"].waitForExistence(timeout: 8))
         tapTabOrMoreItem("Ask DJ", in: app)
         XCTAssertTrue(app.descendants(matching: .any)["screen-ask-dj"].waitForExistence(timeout: 8))
         XCTAssertTrue(app.descendants(matching: .any)["uitest-runtime-fixture-voice_unavailable"].waitForExistence(timeout: 3))
@@ -447,15 +450,20 @@ final class DJConnectIOSUITests: XCTestCase {
 
     func testEnglishDeviceLanguageUsesEnglishNavigationAndSettingsCopy() {
         let app = launchEnglishApp()
+        enterDemoModeIfNeeded(app)
 
-        XCTAssertTrue(app.tabBars.buttons["Now Playing"].waitForExistence(timeout: 6))
-        XCTAssertTrue(app.tabBars.buttons["Queue"].exists)
-        XCTAssertTrue(app.tabBars.buttons["Playlists"].exists)
+        XCTAssertTrue(app.tabBars.buttons["DJ Session"].waitForExistence(timeout: 6))
+        XCTAssertTrue(app.tabBars.buttons["Ask DJ"].exists)
+        XCTAssertTrue(app.tabBars.buttons["Track Insight"].exists)
         XCTAssertTrue(app.tabBars.buttons["More"].exists)
+        app.tabBars.buttons["More"].tap()
+        XCTAssertTrue(app.buttons["Now Playing"].firstMatch.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["Queue"].firstMatch.exists)
+        XCTAssertTrue(app.buttons["Playlists"].firstMatch.exists)
 
         tapTabOrMoreItem("Settings", in: app)
         XCTAssertTrue(app.navigationBars["Settings"].waitForExistence(timeout: 3))
-        XCTAssertTrue(app.staticTexts["Language"].exists)
+        XCTAssertTrue(app.descendants(matching: .any)["App Language"].exists)
     }
 
     func testSettingsUsesMockHomeAssistantURLFixture() {
@@ -555,7 +563,7 @@ final class DJConnectIOSUITests: XCTestCase {
             ?? TimeInterval(ProcessInfo.processInfo.environment["DJCONNECT_MONKEY_SECONDS"] ?? "20")
             ?? 20
         let deadline = Date().addingTimeInterval(duration)
-        let tabs = ["Speelt Nu", "Ask DJ", "Track Insight", "Ontdek", "Meer"]
+        let tabs = ["DJ-sessie", "Ask DJ", "Track Insight", "Ontdek", "Meer"]
         var index = 0
 
         XCTAssertTrue(app.tabBars.firstMatch.waitForExistence(timeout: 12))
@@ -662,6 +670,202 @@ final class DJConnectIOSUITests: XCTestCase {
 
         XCTAssertTrue(app.state == .runningForeground)
     }
+    func testMomentFirstSessionAndIndependentPlayerNavigation() async throws {
+        let base = URL(string: "http://127.0.0.1:18787")!
+        _ = try await URLSession.shared.data(from: base.appendingPathComponent("fixture/native_reset"))
+        let app = XCUIApplication()
+        app.terminate()
+        app.launchArguments = ["--uitesting", "--runtime-fixture", "moment_contract", "-AppleLanguages", "(nl)", "-AppleLocale", "nl_NL"]
+        app.launchEnvironment["DJCONNECT_UITEST_HA_URL"] = base.absoluteString
+        app.launchEnvironment["DJCONNECT_UITEST_RUNTIME_FIXTURE"] = "moment_contract"
+        app.launch()
+        try await Task.sleep(for: .milliseconds(400))
+        app.terminate()
+        app.launch()
+        guard app.descendants(matching: .any)["uitest-runtime-fixture-active"].waitForExistence(timeout: 10) else {
+            XCTFail("The isolated runtime fixture was not activated; no navigation actions performed.")
+            return
+        }
+        XCTAssertTrue(app.staticTexts["Even meekijken in de credits: Nora Vale en Sam Reed zijn hier als producers gecrediteerd."].waitForExistence(timeout: 15))
+        try saveMomentScreenshot(app, "ios-01-moment")
+        _ = try await URLSession.shared.data(from: base.appendingPathComponent("fixture/advance"))
+        XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label == %@", "Nora Vale kwamen we eerder tegen bij «Amber Lines», als producer. Bij «Slow Lanterns» staat die naam opnieuw in de producercredits.")).firstMatch.waitForExistence(timeout: 10))
+        XCTAssertTrue(app.descendants(matching: .any)["moment-source-https://musicbrainz.org/recording/00000000-0000-0000-0000-000000000002"].exists)
+        XCTAssertTrue(app.descendants(matching: .any)["moment-source-https://musicbrainz.org/recording/00000000-0000-0000-0000-000000000001"].exists)
+        try saveMomentScreenshot(app, "ios-02-next-moment")
+        if app.frame.width > 600 {
+            XCUIDevice.shared.orientation = .landscapeLeft
+            let landscapeDeadline = Date().addingTimeInterval(8)
+            while app.frame.width <= app.frame.height, Date() < landscapeDeadline {
+                try await Task.sleep(for: .milliseconds(200))
+            }
+            XCTAssertGreaterThan(app.frame.width, app.frame.height)
+            try await Task.sleep(for: .seconds(1))
+            XCTAssertTrue(app.staticTexts["Slow Lanterns"].firstMatch.waitForExistence(timeout: 8))
+            XCTAssertTrue(app.buttons["Meer"].firstMatch.isHittable, "Standalone player navigation must remain visible in landscape.")
+            try saveMomentScreenshot(app, "ios-02a-moment-landscape")
+            XCUIDevice.shared.orientation = .portrait
+            let portraitDeadline = Date().addingTimeInterval(8)
+            while app.frame.width >= app.frame.height, Date() < portraitDeadline {
+                try await Task.sleep(for: .milliseconds(200))
+            }
+            XCTAssertLessThan(app.frame.width, app.frame.height)
+        }
+        XCUIDevice.shared.press(.home)
+        app.activate()
+        try await Task.sleep(for: .seconds(2))
+        XCTAssertTrue(app.staticTexts["Slow Lanterns"].firstMatch.waitForExistence(timeout: 10))
+        let more = app.tabBars.buttons["Meer"].exists ? app.tabBars.buttons["Meer"] : app.buttons["Meer"].firstMatch
+        more.tap()
+        app.buttons["Speelt Nu"].firstMatch.tap()
+        XCTAssertTrue(app.navigationBars["Speelt Nu"].waitForExistence(timeout: 6))
+        try saveMomentScreenshot(app, "ios-03-player-active-session")
+        let sessionTab = app.tabBars.buttons["DJ-sessie"].exists ? app.tabBars.buttons["DJ-sessie"] : app.buttons["DJ-sessie"].firstMatch
+        sessionTab.tap()
+        _ = try await URLSession.shared.data(from: base.appendingPathComponent("fixture/expire"))
+        XCTAssertTrue(app.staticTexts["Slow Lanterns"].firstMatch.waitForExistence(timeout: 10))
+        try await Task.sleep(for: .seconds(1))
+        XCTAssertFalse(app.staticTexts["Even meekijken in de credits: Nora Vale en Sam Reed zijn hier als producers gecrediteerd."].exists)
+        XCTAssertFalse(app.descendants(matching: .any)["moment-source-https://musicbrainz.org/recording/00000000-0000-0000-0000-000000000002"].exists)
+        try saveMomentScreenshot(app, "ios-03a-source-expiry")
+        _ = try await URLSession.shared.data(from: base.appendingPathComponent("fixture/reconnect"))
+        try await Task.sleep(for: .seconds(2))
+        XCTAssertTrue(app.staticTexts["Slow Lanterns"].firstMatch.waitForExistence(timeout: 10))
+        XCTAssertFalse(app.descendants(matching: .any)["moment-source-https://musicbrainz.org/recording/00000000-0000-0000-0000-000000000002"].exists)
+        let (data, _) = try await URLSession.shared.data(from: base.appendingPathComponent("fixture/metrics"))
+        let metrics = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        XCTAssertEqual(metrics["playbackMutations"] as? Int, 0)
+        XCTAssertEqual(metrics["ended"] as? Bool, false)
+        app.buttons["Sessie beëindigen"].firstMatch.tap()
+        XCTAssertTrue(app.buttons["Start DJ-sessie"].waitForExistence(timeout: 10))
+        more.tap()
+        app.buttons["Speelt Nu"].firstMatch.tap()
+        XCTAssertTrue(app.navigationBars["Speelt Nu"].waitForExistence(timeout: 6))
+        try saveMomentScreenshot(app, "ios-04-player-ended-session")
+        app.terminate()
+        app.launch()
+        XCTAssertTrue(app.buttons["Start DJ-sessie"].waitForExistence(timeout: 10))
+        let freshMore = app.tabBars.buttons["Meer"].exists ? app.tabBars.buttons["Meer"] : app.buttons["Meer"].firstMatch
+        freshMore.tap()
+        app.buttons["Speelt Nu"].firstMatch.tap()
+        XCTAssertTrue(app.navigationBars["Speelt Nu"].waitForExistence(timeout: 6))
+        try saveMomentScreenshot(app, "ios-05-player-no-session")
+    }
+
+    func testAuthorizedFlowDetailAndOpenSourceExpiry() async throws {
+        let base = URL(string: "http://127.0.0.1:18787")!
+        _ = try await URLSession.shared.data(from: base.appendingPathComponent("fixture/native_reset"))
+        let app = XCUIApplication()
+        app.terminate()
+        app.launchArguments = ["--uitesting", "--runtime-fixture", "moment_contract", "-AppleLanguages", "(nl)", "-AppleLocale", "nl_NL"]
+        app.launchEnvironment["DJCONNECT_UITEST_HA_URL"] = base.absoluteString
+        app.launchEnvironment["DJCONNECT_UITEST_RUNTIME_FIXTURE"] = "moment_contract"
+        app.launch()
+        try await Task.sleep(for: .milliseconds(400))
+        app.terminate()
+        app.launch()
+        guard app.descendants(matching: .any)["uitest-runtime-fixture-active"].waitForExistence(timeout: 10) else {
+            XCTFail("The isolated runtime fixture was not activated; no navigation actions performed.")
+            return
+        }
+        _ = try await URLSession.shared.data(from: base.appendingPathComponent("fixture/advance"))
+        let secondText = "Nora Vale kwamen we eerder tegen bij «Amber Lines», als producer. Bij «Slow Lanterns» staat die naam opnieuw in de producercredits."
+        XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label == %@", secondText)).firstMatch.waitForExistence(timeout: 10))
+        app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "Even de credits erbij")).firstMatch.tap()
+        XCTAssertTrue(app.staticTexts["Even meekijken in de credits: Nora Vale en Sam Reed zijn hier als producers gecrediteerd."].waitForExistence(timeout: 5))
+        try saveMomentScreenshot(app, "ios-02b-active-flow-recall")
+        _ = try await URLSession.shared.data(from: base.appendingPathComponent("fixture/expire"))
+        try await Task.sleep(for: .seconds(1))
+        XCTAssertFalse(app.staticTexts["Even meekijken in de credits: Nora Vale en Sam Reed zijn hier als producers gecrediteerd."].exists)
+    }
+
+    func testSpotifyCurrentAttributionAndSourceExpiry() async throws {
+        let base = URL(string: "http://127.0.0.1:18787")!
+        _ = try await URLSession.shared.data(from: base.appendingPathComponent("fixture/spotify_reset"))
+        let app = XCUIApplication()
+        app.terminate()
+        app.launchArguments = ["--uitesting", "--runtime-fixture", "moment_contract", "-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
+        app.launchEnvironment["DJCONNECT_UITEST_HA_URL"] = base.absoluteString
+        app.launchEnvironment["DJCONNECT_UITEST_RUNTIME_FIXTURE"] = "moment_contract"
+        app.launch()
+        try await Task.sleep(for: .milliseconds(400))
+        app.terminate()
+        app.launch()
+        guard app.descendants(matching: .any)["uitest-runtime-fixture-active"].waitForExistence(timeout: 10) else {
+            XCTFail("The isolated runtime fixture was not activated; no navigation actions performed.")
+            return
+        }
+        let body = "A little date beside this edition of Test edition: Spotify lists 2001-03-04."
+        XCTAssertTrue(app.staticTexts[body].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.descendants(matching: .any).matching(NSPredicate(format: "value == %@", "https://open.spotify.com/album/BBBBBBBBBBBBBBBBBBBBBB")).firstMatch.exists)
+        try saveMomentScreenshot(app, "ios-06-spotify-current")
+        _ = try await URLSession.shared.data(from: base.appendingPathComponent("fixture/expire"))
+        try await Task.sleep(for: .seconds(1))
+        XCTAssertFalse(app.staticTexts[body].exists)
+        XCTAssertFalse(app.descendants(matching: .any).matching(NSPredicate(format: "value == %@", "https://open.spotify.com/album/BBBBBBBBBBBBBBBBBBBBBB")).firstMatch.exists)
+        try saveMomentScreenshot(app, "ios-07-spotify-expired")
+    }
+
+    func testNativeLargeTextAccessibilityAudit() async throws {
+        let base = URL(string: "http://127.0.0.1:18787")!
+        _ = try await URLSession.shared.data(from: base.appendingPathComponent("fixture/native_reset"))
+        let app = XCUIApplication()
+        app.launchArguments = ["--uitesting", "--runtime-fixture", "moment_contract", "-AppleLanguages", "(nl)", "-AppleLocale", "nl_NL"]
+        app.launchEnvironment["DJCONNECT_UITEST_HA_URL"] = base.absoluteString
+        app.launchEnvironment["DJCONNECT_UITEST_RUNTIME_FIXTURE"] = "moment_contract"
+        app.terminate(); app.launch()
+        try await Task.sleep(for: .milliseconds(400))
+        app.terminate(); app.launch()
+        XCTAssertTrue(app.descendants(matching: .any)["uitest-runtime-fixture-active"].waitForExistence(timeout: 10))
+        _ = try await URLSession.shared.data(from: base.appendingPathComponent("fixture/advance"))
+        let text = "Nora Vale kwamen we eerder tegen bij «Amber Lines», als producer. Bij «Slow Lanterns» staat die naam opnieuw in de producercredits."
+        XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label == %@", text)).firstMatch.waitForExistence(timeout: 10))
+        try saveMomentScreenshot(app, "ios-08-large-text")
+        try app.performAccessibilityAudit(for: [.sufficientElementDescription, .textClipped, .trait])
+    }
+
+    func testNativeReduceMotionPreferenceAndFlowNavigation() async throws {
+        let base = URL(string: "http://127.0.0.1:18787")!
+        _ = try await URLSession.shared.data(from: base.appendingPathComponent("fixture/native_reset"))
+        let app = XCUIApplication()
+        app.terminate()
+        app.launchArguments = ["--uitesting", "--uitest-reduce-motion", "--runtime-fixture", "moment_contract", "-AppleLanguages", "(nl)", "-AppleLocale", "nl_NL"]
+        app.launchEnvironment["DJCONNECT_UITEST_HA_URL"] = base.absoluteString
+        app.launchEnvironment["DJCONNECT_UITEST_RUNTIME_FIXTURE"] = "moment_contract"
+        app.launch()
+        try await Task.sleep(for: .milliseconds(400))
+        app.terminate()
+        app.launch()
+        guard app.descendants(matching: .any)["uitest-runtime-fixture-active"].waitForExistence(timeout: 10) else {
+            XCTFail("The isolated runtime fixture was not activated; no navigation actions performed.")
+            return
+        }
+        XCTAssertTrue(app.descendants(matching: .any)["uitest-renderer-reduce-motion-on"].waitForExistence(timeout: 5))
+        _ = try await URLSession.shared.data(from: base.appendingPathComponent("fixture/advance"))
+        let secondText = "Nora Vale kwamen we eerder tegen bij «Amber Lines», als producer. Bij «Slow Lanterns» staat die naam opnieuw in de producercredits."
+        XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label == %@", secondText)).firstMatch.waitForExistence(timeout: 10))
+        app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "Even de credits erbij")).firstMatch.tap()
+        XCTAssertTrue(app.staticTexts["Even meekijken in de credits: Nora Vale en Sam Reed zijn hier als producers gecrediteerd."].waitForExistence(timeout: 5))
+        try saveMomentScreenshot(app, "ios-09-reduced-motion-flow")
+        _ = try await URLSession.shared.data(from: base.appendingPathComponent("fixture/expire"))
+        try await Task.sleep(for: .seconds(1))
+        XCTAssertFalse(app.staticTexts["Even meekijken in de credits: Nora Vale en Sam Reed zijn hier als producers gecrediteerd."].exists)
+    }
+
+    private func saveMomentScreenshot(_ app: XCUIApplication, _ name: String) throws {
+        let name = app.frame.width > 600 ? name.replacingOccurrences(of: "ios-", with: "ipad-") : name
+        // Device capture avoids XCTest's landscape application-bounds crop.
+        let screenshot = XCUIScreen.main.screenshot()
+        let attachment = XCTAttachment(screenshot: screenshot)
+        attachment.name = name
+        attachment.lifetime = .keepAlways
+        add(attachment)
+        let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+        let directory = root.appendingPathComponent("build/moment-first/screenshots")
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        try screenshot.pngRepresentation.write(to: directory.appendingPathComponent(name + ".png"))
+    }
+
 }
 
 @MainActor
