@@ -1,8 +1,11 @@
 # Apple Moment-first Session assessment
 
 Assignment: `DJC-APPLE-MOMENT-FIRST-SESSION-V1-20261008`.
-Current boundary: source candidate under independent re-review; protected merge,
-exact-main readback and mandatory separate Finalization are still pending.
+Current boundary: source #95 protected merged as `a4cb7ed2cc332499f784eb40c822a1983a9e5289`
+from independently reviewed `d57e7a441a05c455ed05e33fb6bc30fba3d74873`;
+trees equal. Exact-main CI [37811802408](https://github.com/pcvantol/djconnect-app/actions/runs/37811802408)
+and SHA-evidence [37812663643](https://github.com/pcvantol/djconnect-app/actions/runs/37812663643)
+PASS; this separate Finalization records the software/native handoff.
 
 ## Scope and pins
 
@@ -95,8 +98,8 @@ not a claim of successful XCTest runner or changed security configuration.
 The human explicitly approved ad-hoc signing of temporary Mac test bundles and
 exactly two read-only independent technical/UX reviewer agents. Their a6abe40
 NO-GO findings prompted the loading/error/sequence/Silence/reconnect corrections.
-Fresh independent acceptance must name the exact corrected candidate; older CI
-and reviews do not qualify a later head.
+Independent technical and UX reviewers both gave GO for exact corrected
+`d57e7a441a05c455ed05e33fb6bc30fba3d74873`; reviews cover this source tree.
 
 ## Latest product addenda and dependent follow-up
 
@@ -120,8 +123,8 @@ not added to #95. No Core/receiver writes, extra writers, TV install or publicat
 
 ## Delivery authority
 
-No source merge, exact-main acceptance or Finalization is claimed yet. The existing
-main CI triggers the unchanged internal SHA-bound evidence prerelease; each concrete
+Source merge and exact-main acceptance are confirmed; this separate Finalization records the closure.
+The existing main CI triggers the unchanged internal SHA-bound evidence prerelease; each concrete
 source/Finalization publication requires its own owner authority. Public unsigned
 release requires a version tag/manual dispatch; TestFlight/Store signing and physical
 installation are outside the current grant. No protection/workflow change is needed.

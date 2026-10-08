@@ -12,14 +12,12 @@ canonical DJConnect platform roadmap, which remains in
 
 ## Current Increment
 
-Track Insight (CAP-IN-01) → Apple Native Sharing is complete in PR #52. It
-used the existing renderer/service/ShareLink path and changed no Runtime,
-Broadcast, API or DJ Intelligence behavior.
-
-## Execution Horizon
-
-No further Apple-local item is selected. Follow the canonical `djconnect`
-Execution Horizon; do not create a parallel Apple backlog.
+Moment-first native Apple Session and independent Speelt nu were delivered as
+source in [#95](https://github.com/pcvantol/djconnect-app/pull/95). Exact-main
+qualification passed; this separate Finalization documents the reconciliation. The
+conversation/archive extension is registered as a dependent follow-up through
+the canonical Core contract request and existing Apple writer slot. Cast and LG
+host work remain distinct. This index does not create a parallel Apple backlog.
 
 ## Planning Procedure
 

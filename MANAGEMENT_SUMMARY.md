@@ -2,6 +2,37 @@
 
 ## Current Apple assignment — 2026-10-08
 
+`DJC-APPLE-MOMENT-FIRST-SESSION-V1-20261008` bron is beschermd gemergd:
+[Apple #95](https://github.com/pcvantol/djconnect-app/pull/95), reviewed head
+`d57e7a441a05c455ed05e33fb6bc30fba3d74873`, exact main
+`a4cb7ed2cc332499f784eb40c822a1983a9e5289`, gedeelde tree
+`18a1fd935c52ff5f63db77d422349e4c3737eb65`. De oorspronkelijke
+Apple WIP bleef bewaard; slechts de geïsoleerde checkout was schrijver.
+
+De source-merge is exact-main gekwalificeerd: main-CI
+[37811802408](https://github.com/pcvantol/djconnect-app/actions/runs/37811802408)
+en interne SHA-evidence
+[37812663643](https://github.com/pcvantol/djconnect-app/actions/runs/37812663643)
+zijn PASS. Deze afzonderlijke Finalization-documenten verzoenen de bronstatus,
+het oorspronkelijke WIP en de aanvullende productafhankelijkheden. De owning
+[#87](https://github.com/pcvantol/djconnect-app/issues/87) bevat het definitieve
+protected-merge-, publicatie- en cleanup-readback voor dit documentpakket.
+Native iPhone/iPad/Mac met werkelijke pinned producer→owner transport→state→
+SwiftUI, beide spelersituaties, zes netwerkgevallen, 408 reguliere tests,
+vijf talen en onafhankelijke technische/UX reviews slagen. Bewijs en grenzen:
+[Finalization-record](docs/history/prompts/2026-10-08-apple-moment-first-session-finalization.md),
+[assessment](docs/APPLE_MOMENT_FIRST_SESSION_ASSESSMENT.md) en
+[owning #87](https://github.com/pcvantol/djconnect-app/issues/87).
+
+Gespreks-/historieaanvulling6061498264 is afhankelijk van nog te leveren
+Core-contracten, geregistreerd in [#1101 comment6064346207](https://github.com/pcvantol/djconnect/issues/1101#issuecomment-6064346207)
+voor een gerelateerde Apple vervolg-PR vóór pickup. #95 levert de actuele
+Moment/Flow en onafhankelijke speler, geen persoonlijke archief/conversatieclaim.
+Cast/Pages en LG hostkwalificatie behouden aparte grenzen. Geen nieuwe schrijver,
+Store-release, certificaat, fysieke installatie of HA-deployment.
+
+## Current Apple assignment — 2026-10-08
+
 `DJC-APPLE-MOMENT-FIRST-SESSION-V1-20261008`, same sole writer/pickup,
 [PR #95](https://github.com/pcvantol/djconnect-app/pull/95): native live Moment/Flow
 and independent Speelt nu. Base `2fc7fdf173d9ddb9c309e5837f1c7a449e170be9`,
