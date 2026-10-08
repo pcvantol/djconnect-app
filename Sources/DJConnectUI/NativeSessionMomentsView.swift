@@ -176,7 +176,7 @@ struct NativeSessionMomentsView: View {
     }
 }
 
-private struct MomentCard: View {
+struct MomentCard: View {
     let moment: DJConnectMoment
     let kind: String
     let presentation: DJConnectPresentation?

@@ -12204,7 +12204,8 @@ private struct AskDJOfflineNotice: View {
     }
 }
 
-private struct AskDJMessageBubble: View {
+/// Native conversation rendering shared with Session timelines.
+struct AskDJMessageBubble: View {
     let message: DJConnectAskDJMessage
     let language: String
     let isStaleHistory: Bool
@@ -12223,6 +12224,7 @@ private struct AskDJMessageBubble: View {
     let openLink: (DJConnectResponseLink) -> Void
     let feedbackAction: (DJConnectAskDJMessage) -> Void
     let setPromptAction: (String) -> Void
+    var isReadOnly = false
 
     private var isUser: Bool {
         message.role == .user
@@ -12251,7 +12253,7 @@ private struct AskDJMessageBubble: View {
     }
 
     private var canReportFeedback: Bool {
-        !isUser && !isSystemMessage && !isStaleHistory
+        !isReadOnly && !isUser && !isSystemMessage && !isStaleHistory
     }
 
     private var shouldShowGeneratedTextIcon: Bool {
@@ -12373,14 +12375,14 @@ private struct AskDJMessageBubble: View {
     }
 
     private var shouldShowTrackInsightShortcut: Bool {
-        guard !isUser, !isSystemMessage, !isStaleHistory else {
+        guard !isReadOnly, !isUser, !isSystemMessage, !isStaleHistory else {
             return false
         }
         return message.origin?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == "play_now"
     }
 
     private var shouldShowAudioReplayShortcut: Bool {
-        !isStaleHistory && !isUser && hasPlayableAudio
+        !isReadOnly && !isStaleHistory && !isUser && hasPlayableAudio
     }
 
     var body: some View {
@@ -12430,7 +12432,7 @@ private struct AskDJMessageBubble: View {
                     if !sourceLinks.isEmpty {
                         AskDJSourcesStack(links: sourceLinks, language: language, openLink: openLink)
                     }
-                    if !isStaleHistory, !isUser, !renderablePlaybackActions.isEmpty {
+                    if !isReadOnly, !isStaleHistory, !isUser, !renderablePlaybackActions.isEmpty {
                         AskDJPlaybackActionStack(
                             actions: renderablePlaybackActions,
                             language: language,
@@ -12463,7 +12465,7 @@ private struct AskDJMessageBubble: View {
                     Text(messageMetadataText)
                         .font(.caption2.weight(.medium))
                         .foregroundStyle(.white.opacity(0.46))
-                    if isUser, message.status == .failed {
+                    if !isReadOnly, isUser, message.status == .failed {
                         Button(action: retryAction) {
                             Label(localizedKey(language, "ui.retry"), systemImage: "arrow.clockwise")
                                 .font(.caption2.weight(.semibold))
@@ -12496,7 +12498,7 @@ private struct AskDJMessageBubble: View {
         .frame(maxWidth: .infinity, alignment: isUser ? .trailing : .leading)
         .contentShape(Rectangle())
         .contextMenu {
-            if canSetPrompt && !isStaleHistory {
+            if !isReadOnly && canSetPrompt && !isStaleHistory {
                 Button {
                     DJConnectHaptics.selection()
                     setPromptAction(promptText)
