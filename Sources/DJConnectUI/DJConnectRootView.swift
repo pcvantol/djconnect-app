@@ -14029,11 +14029,23 @@ private func askDJMoodIcon(for index: Int) -> String {
     }
 }
 
-private struct AskDJInputBar: View {
+/// Shared native composer. A Session surface supplies context-bound actions;
+/// the general Ask DJ surface continues using the existing model actions.
+struct AskDJInputBar: View {
     @ObservedObject var model: DJConnectAppModel
     let canSend: Bool
     let canUseVoiceInput: Bool
     var isInputFocused: FocusState<Bool>.Binding
+    var sendAction: (() -> Void)? = nil
+    var startVoiceAction: (() -> Void)? = nil
+    var stopVoiceAction: (() -> Void)? = nil
+    var toggleVoiceAction: (() -> Void)? = nil
+    var cancelVoiceAction: (() -> Void)? = nil
+
+    private func send() {
+        isInputFocused.wrappedValue = false
+        if let sendAction { sendAction() } else { model.sendAskDJText() }
+    }
 
     @ViewBuilder private var placeholderView: some View {
         HStack(spacing: 0) {
@@ -14068,8 +14080,7 @@ private struct AskDJInputBar: View {
                     .padding(.vertical, 11)
                     .onSubmit {
                         if canSend {
-                            isInputFocused.wrappedValue = false
-                            model.sendAskDJText()
+                            send()
                         }
                     }
                 #endif
@@ -14096,11 +14107,12 @@ private struct AskDJInputBar: View {
                     .stroke(.white.opacity(0.20), lineWidth: 1)
             }
 
-            AskDJVoiceInputButton(model: model, isEnabled: canUseVoiceInput)
+            AskDJVoiceInputButton(model: model, isEnabled: canUseVoiceInput,
+                                 startAction: startVoiceAction, stopAction: stopVoiceAction,
+                                 toggleAction: toggleVoiceAction, cancelAction: cancelVoiceAction)
 
             Button {
-                isInputFocused.wrappedValue = false
-                model.sendAskDJText()
+                send()
             } label: {
                 if model.isSendingAskDJText {
                     ProgressView()
@@ -14264,6 +14276,10 @@ private struct AskDJPromptTextView: UIViewRepresentable {
 private struct AskDJVoiceInputButton: View {
     @ObservedObject var model: DJConnectAppModel
     let isEnabled: Bool
+    var startAction: (() -> Void)? = nil
+    var stopAction: (() -> Void)? = nil
+    var toggleAction: (() -> Void)? = nil
+    var cancelAction: (() -> Void)? = nil
     @State private var isPressing = false
 
     private var isActive: Bool {
@@ -14307,7 +14323,7 @@ private struct AskDJVoiceInputButton: View {
                     }
                     isPressing = true
                     DJConnectHaptics.impact()
-                    model.startVoiceRecording()
+                    if let startAction { startAction() } else { model.startVoiceRecording() }
                 }
                 .onEnded { _ in
                     guard isPressing else {
@@ -14315,22 +14331,24 @@ private struct AskDJVoiceInputButton: View {
                     }
                     isPressing = false
                     DJConnectHaptics.selection()
-                    model.stopVoiceRecordingAndUpload()
+                    stop()
                 }
         )
         .onDisappear {
-            if isPressing {
-                isPressing = false
-                model.stopVoiceRecordingAndUpload()
-            }
+            isPressing = false
+            if let cancelAction { cancelAction() } else { model.cancelVoiceRecording() }
         }
         .help(helpText)
         .accessibilityLabel(helpText)
         .accessibilityHint(localizedKey(model.language, "ui.hold.to.record.a.voice.request.for.ask.dj"))
         .accessibilityAction {
             DJConnectHaptics.impact()
-            model.toggleVoiceRecording()
+            if let toggleAction { toggleAction() } else { model.toggleVoiceRecording() }
         }
+    }
+
+    private func stop() {
+        if let stopAction { stopAction() } else { model.stopVoiceRecordingAndUpload() }
     }
 
     private var buttonBackground: LinearGradient {

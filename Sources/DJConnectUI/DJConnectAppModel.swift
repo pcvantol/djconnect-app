@@ -3890,6 +3890,17 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     private func cancelWakeWordVoiceRecordingAfterSilence() {
+        cancelVoiceRecording()
+    }
+
+    /// Leaving a composer discards an unfinished capture rather than creating
+    /// a conversation turn as a side effect of navigation.
+    public func cancelVoiceRecording() {
+        if case .voiceRecording = pendingPermissionRequest {
+            pendingPermissionRequest = nil
+            isShowingPermissionExplanation = false
+        }
+        guard isRecordingVoice else { return }
         #if canImport(AVFoundation)
         voiceStartTask?.cancel()
         voiceStartTask = nil
@@ -3908,7 +3919,7 @@ public final class DJConnectAppModel: ObservableObject {
             try? await setDJConnectAudioSessionActive(false, options: .notifyOthersOnDeactivation)
         }
         #endif
-        log(.info, "Wakeword voice capture dismissed after silence")
+        log(.info, "Unfinished voice capture discarded")
         resumeWakeWordListeningIfNeeded()
         #endif
     }
