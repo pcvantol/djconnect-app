@@ -16,6 +16,8 @@ let rejectOwner = false;
 let cacheable = false;
 let malformed = false;
 let delayActive = false;
+let activeFailure = false;
+let lateFailureOnce = false;
 let subscriptions = 0;
 let playbackMutations = 0;
 let commandKinds = [];
@@ -28,19 +30,23 @@ const server = http.createServer(async (request,response) => {
   const body = rawBody ? JSON.parse(rawBody) : {};
   const path = request.url.split('?')[0];
   let data = {success:true};
+  let responseStatus=200;
+  let requestDelay=0;
+  if (path === "/api/djconnect/v1/session/active" && lateFailureOnce) { lateFailureOnce=false; requestDelay=1000; responseStatus=401; }
+  if (path === "/api/djconnect/v1/session/active" && activeFailure) responseStatus=401;
   if (path === '/fixture/spotify_reset') {
     require('child_process').execFileSync('python3', ['Tools/generate_native_moment_receipt.py','--core',process.argv[3],'--output',process.argv[2]+'.native'], {timeout:45000});
-    nativeFlavor='spotify'; nativeCapture=JSON.parse(fs.readFileSync(process.argv[2]+'.native','utf8')).spotify;
+    nativeFlavor='spotify'; activeFailure=false; lateFailureOnce=false; nativeCapture=JSON.parse(fs.readFileSync(process.argv[2]+'.native','utf8')).spotify;
     snapshot=nativeCapture.snapshot; receipt.runtime=nativeCapture.runtime;
     ended=false; rejectOwner=false; cacheable=false; malformed=false; delayActive=false; subscriptions=0; playbackMutations=0; commandKinds=[];
     for (const socket of sockets) socket.destroy();
   } else if (path === '/fixture/native_reset') {
-    nativeFlavor='cc0';
+    nativeFlavor='cc0'; activeFailure=false; lateFailureOnce=false;
     require('child_process').execFileSync('python3', ['Tools/generate_native_moment_receipt.py','--core',process.argv[3],'--output',process.argv[2]+'.native'], {timeout:45000});
     nativeCapture = JSON.parse(fs.readFileSync(process.argv[2]+'.native','utf8')).after;
     snapshot = nativeCapture.http_initial.snapshot;
     receipt.runtime = {...receipt.runtime,session_id:snapshot.session.session_id,broadcast:snapshot};
-    ended=false; rejectOwner=false; cacheable=false; malformed=false; subscriptions=0; playbackMutations=0; commandKinds=[];
+    ended=false; rejectOwner=false; cacheable=false; malformed=false; delayActive=false; subscriptions=0; playbackMutations=0; commandKinds=[];
     for (const socket of sockets) socket.destroy();
   } else if (path === '/fixture/reset') {
     nativeCapture = null; nativeFlavor = null;
@@ -64,6 +70,12 @@ const server = http.createServer(async (request,response) => {
   } else if (path === '/fixture/track_change') {
     snapshot = receipt.track_change_snapshot;
     for (const socket of sockets) for (const item of receipt.track_change_events) event(socket,item);
+  } else if (path === '/fixture/active_failure') {
+    activeFailure=true;
+  } else if (path === '/fixture/clear_active_failure') {
+    activeFailure=false;
+  } else if (path === '/fixture/late_failure') {
+    lateFailureOnce=true;
   } else if (path === '/fixture/delay_active') {
     delayActive = true;
   } else if (path === '/fixture/malformed') {
@@ -88,8 +100,10 @@ const server = http.createServer(async (request,response) => {
         track_name:p.title,artist_name:p.artist,progress_ms:p.position_ms,duration_ms:p.duration_ms,
         volume_percent:54,shuffle:false,repeat_state:'off'}};
   }
+  if (responseStatus !== 200) data={success:false,error:"auth_stale"};
+  if (requestDelay) await new Promise(resolve => setTimeout(resolve,requestDelay));
   if (delayActive && path === '/api/djconnect/v1/session/active') await new Promise(resolve => setTimeout(resolve, 1000));
-  response.writeHead(200,{'Content-Type':'application/json','Cache-Control':cacheable ? 'public,max-age=600' : 'no-store'});
+  response.writeHead(responseStatus,{'Content-Type':'application/json','Cache-Control':cacheable ? 'public,max-age=600' : 'no-store'});
   response.end(JSON.stringify(data));
 });
 server.on('upgrade',(request,socket) => {

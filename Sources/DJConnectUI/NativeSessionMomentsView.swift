@@ -20,6 +20,7 @@ extension View {
 struct NativeSessionMomentsView: View {
     let session: DJConnectSessionRuntime
     let language: String
+    var isRecovering = false
     var artworkBaseURL: URL? = nil
     var returnToCurrent: () -> Void = {}
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -44,8 +45,8 @@ struct NativeSessionMomentsView: View {
                     }
                 }
                 .id("native-session-current")
-                .animation(reduceMotion ? nil : .easeInOut(duration: 0.2), value: current?.id)
-                Text(text("ui.session.flow")).font(.title2.bold())
+                .animation(djSessionReducedMotion(reduceMotion) ? nil : .easeInOut(duration: 0.2), value: current?.id)
+                Text(text("ui.session.flow")).font(.title2.bold()).accessibilityAddTraits(.isHeader)
                 ForEach(flowItems) { item in
                     if let moment = flowMoments.first(where: { $0.id == item.momentID }) {
                     Button {
@@ -75,6 +76,13 @@ struct NativeSessionMomentsView: View {
             .frame(maxWidth: .infinity)
         }
         .accessibilityIdentifier("session-moment-content")
+        #if DEBUG
+        .overlay(alignment: .bottomTrailing) {
+            if ProcessInfo.processInfo.arguments.contains("--uitesting"), djSessionReducedMotion(reduceMotion) {
+                Text("uitest-renderer-reduce-motion-on").font(.caption2).accessibilityIdentifier("uitest-renderer-reduce-motion-on")
+            }
+        }
+        #endif
         .sheet(item: Binding(
             get: { flowMoments.first { $0.id == selectedMomentID } },
             set: { selectedMomentID = $0?.id }
@@ -103,8 +111,12 @@ struct NativeSessionMomentsView: View {
 
     private var flowMoments: [DJConnectMoment] { session.broadcast.nativeFlowMoments(at: Date()) }
     private var flowItems: [DJConnectSessionFlowItem] {
-        flowMoments.compactMap { moment in
-            session.broadcast.sessionFlow.items.first { $0.itemType == "dj_moment" && $0.momentID == moment.id }
+        guard let authority = session.broadcast.nativeDelivery, authority.schemaVersion == 1,
+              authority.sessionID == session.id, authority.revocationScope == "session",
+              session.runtimeState == "active", !authority.revision.isEmpty else { return [] }
+        let ids = Set(flowMoments.map(\.id))
+        return session.broadcast.sessionFlow.items.filter {
+            $0.itemType == "dj_moment" && (ids.contains($0.momentID ?? "") || $0.momentType == "silence")
         }
     }
     private func currentMoment(at date: Date) -> DJConnectMoment? { session.broadcast.nativeCurrentMoment(at: date, spotifyAttributionAvailable: spotifyAttributionLogo != nil) }
@@ -121,14 +133,22 @@ struct NativeSessionMomentsView: View {
     }
 
     @ViewBuilder private func currentCard(_ moment: DJConnectMoment?) -> some View {
-        if let moment {
+        if isRecovering {
+            VStack(alignment: .leading, spacing: 12) {
+                ProgressView()
+                Text(text("ui.session.reconnecting")).font(.title2.weight(.semibold))
+                    .accessibilityAddTraits(.isHeader)
+            }
+            .padding(24).frame(maxWidth: .infinity, alignment: .leading)
+            .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 24))
+        } else if let moment {
             MomentCard(moment: moment, kind: kind(moment), presentation: presentation(for: moment), language: language)
                 .id(moment.id)
                 .transition(.opacity)
                 .accessibilityIdentifier("session-current-moment")
         } else {
             VStack(alignment: .leading, spacing: 12) {
-                Image(systemName: "sparkles").font(.title)
+                Image(systemName: "sparkles").font(.title).accessibilityHidden(true)
                 Text(text("ui.session.quiet")).font(.title2.weight(.semibold))
             }
             .padding(24).frame(maxWidth: .infinity, alignment: .leading)
@@ -164,7 +184,7 @@ private struct MomentCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             Text(kind).font(.caption.weight(.bold)).foregroundStyle(.secondary)
-            if !moment.title.isEmpty { Text(moment.title).font(.title2.bold()) }
+            if !moment.title.isEmpty { Text(moment.title).font(.title2.bold()).accessibilityAddTraits(.isHeader) }
             Text(moment.content).font(.title3).fixedSize(horizontal: false, vertical: true)
             if let speech = presentation?.speech {
                 ForEach(speech.segments.filter { !(["dj", "primary_dj"].contains($0.speakerRole) && $0.text == moment.content) }.sorted { $0.ordinal < $1.ordinal }, id: \.ordinal) { segment in
@@ -206,5 +226,13 @@ private var spotifyAttributionLogo: Image? {
     NSImage(named: NSImage.Name("SpotifyAttribution")).map { Image(nsImage: $0) }
     #else
     nil
+    #endif
+}
+
+func djSessionReducedMotion(_ systemPreference: Bool) -> Bool {
+    #if DEBUG
+    return systemPreference || ProcessInfo.processInfo.arguments.contains("--uitest-reduce-motion")
+    #else
+    return systemPreference
     #endif
 }

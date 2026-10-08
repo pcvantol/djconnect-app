@@ -314,8 +314,10 @@ public extension DJConnectSessionRuntime {
             }
             return result
         }
-        if let sequence = broadcastEvent.deliverySequence,
-           sequence <= (broadcast.delivery?.snapshotWatermark ?? -1) { return self }
+        guard let sequence = broadcastEvent.deliverySequence else {
+            var denied = self; denied.broadcast.clearNativeAuthority(); return denied
+        }
+        guard sequence > (broadcast.delivery?.snapshotWatermark ?? -1) else { return self }
         var state = broadcast
         state.nativeDelivery = broadcastEvent.payload.nativeDelivery
         if let sequence = broadcastEvent.deliverySequence { state.delivery = .init(snapshotWatermark: sequence) }

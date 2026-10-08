@@ -20,6 +20,9 @@ struct DJConnectMacApp: App {
                 }
         }
         .windowStyle(.hiddenTitleBar)
+        #if DEBUG
+        .defaultLaunchBehavior(ProcessInfo.processInfo.arguments.contains(where: { $0.hasPrefix("--runtime-fixture") }) ? .presented : .automatic)
+        #endif
 
         Settings {
             DJConnectSettingsView(model: model)
@@ -56,7 +59,7 @@ struct DJConnectMacApp: App {
     private static func makeModel() -> DJConnectAppModel {
         #if DEBUG
         let processInfo = ProcessInfo.processInfo
-        if processInfo.arguments.contains("--runtime-fixture") {
+        if processInfo.arguments.contains("--runtime-fixture") || processInfo.arguments.contains(where: { $0.hasPrefix("--runtime-fixture=") }) {
             let suiteName = "dev.djconnect.mac.runtime-tests"
             let defaults = UserDefaults(suiteName: suiteName) ?? .standard
             defaults.removePersistentDomain(forName: suiteName)

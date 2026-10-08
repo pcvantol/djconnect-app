@@ -1,167 +1,131 @@
 # Apple Moment-first Session assessment
 
 Assignment: `DJC-APPLE-MOMENT-FIRST-SESSION-V1-20261008`.
-Status: implementation WIP; no complete product/native qualification or merge.
+Current boundary: source candidate under independent re-review; protected merge,
+exact-main readback and mandatory separate Finalization are still pending.
 
-## Scope and source pins
+## Scope and pins
 
-Both native Moment-first DJ Session and independent Speelt nu belong to this
-one Apple slice. Apple base: `2fc7fdf173d9ddb9c309e5837f1c7a449e170be9`.
-Original assessment pin: `ee05c9422cd7a7a08bbe769925248632fa651961`.
-Current producer contract candidate: `3d17994d28c71402a9076c0082c490820204ccda`,
-tree `18620004f02663cc0d263073142527b95581cffa`, draft Core #1128.
-This is an exact producer candidate, not merged/installed HA.
-Owner selection and ACK/STARTED are in [#87](https://github.com/pcvantol/djconnect-app/issues/87).
-Core remains a separate source lane. This consumer does not write Core.
+One Apple writer, one pickup, branch `codex/apple-moment-first-session`, base
+`2fc7fdf173d9ddb9c309e5837f1c7a449e170be9`, [PR #95](https://github.com/pcvantol/djconnect-app/pull/95).
+Original generic decoder fixture pin: `ee05c9422cd7a7a08bbe769925248632fa651961`.
+Actual native producer capture: `3d17994d28c71402a9076c0082c490820204ccda`,
+tree `18620004f02663cc0d263073142527b95581cffa`. Core independently delivered
+#1128/#1129, source merge `3ea178fa3098b2c432008827ce009f867f66f63e`,
+Finalization `3488fd82ed04804973039b909f61a34e76379659` per owning
+[receipt6061202421](https://github.com/pcvantol/djconnect-app/issues/87#issuecomment-6061202421).
+Apple imports immutable producer archives only and does not write Core.
 
-## Experience gap and implementation
+## Native behavior
 
-The former iOS primary Speelt nu label opened a technical Session screen;
-macOS retained a standalone player but had no native Session destination.
-The shared decoder consumed only Session, Planner and Flow labels.
+DJ-sessie and Speelt nu have separate destinations. iOS/iPadOS Meer contains
+Speelt nu beside Wachtrij/Afspeellijsten. The existing native player components
+were restored using pre-#48 history without replacing the entire root view.
+Mac retains its standalone sidebar player. Navigation does not start/end a
+Session or mutate playback; Ask DJ, Track Insight, queue, playlists and handoff
+retain their routes. iPad keeps Meer visible while the other tabs can scroll.
 
-The Apple WIP separates DJ-sessie and Speelt nu, restores the existing iOS
-player components from the pre-#48 route without reverting the root view,
-and adds shared native current-Moment and committed Flow/detail presentation.
-Current music is owner Broadcast context. The same model owns one live
-subscription, snapshot/event sequence reduction, callback generation guards,
-foreground recovery, background cancellation and confirmed end/unpair cleanup.
-Navigation does not call start/end or playback mutation methods.
-The primary iPad navigation keeps Meer visible while other tabs can scroll.
+The current DJMoment is prominent, current music provides context, and permitted
+earlier contributions open native detail with a return-current action. Text,
+Persona, attribution, both recording URLs and HA meaning remain server-owned.
+Committed server Silence labels can appear as Flow rows without manufacturing a
+Moment. Spotify is current-only, requires original album attribution plus the
+loaded official full logo, and never grants historical recall. See
+[asset provenance](SPOTIFY_NATIVE_ATTRIBUTION.md).
 
-The Moment payload stays ephemeral in memory: no new disk cache, analytics,
-export, history owner, Persona rewrite, local Planner or invented actions.
-The owner subscription uses normal HA authentication plus paired DJConnect
-identity; receiver grants and VibeCast web pages are not used.
+`native_delivery` v1 supplies replacement authority, current identity, Flow
+membership, qualifications and original deadlines. Missing/malformed/unknown
+admission denies display. Current display additionally requires playing/item
+binding. Source/display expiry prunes withdrawn content including open detail.
+No executable actions are inferred. There is no local intelligence or VibeCast
+WebView. Moment/Presentation copies are ephemeral; no local canonical history,
+new disk cache, analytics or exported personal payload.
 
-## Pinned producer admission consumed
+One authenticated owner subscription uses serial awaited callbacks, Session IDs,
+sequence watermarks and generation guards. Ordinary events without sequence deny
+native authority and reconnect; terminal denial clears before sequence filtering.
+Background/disconnect clear private copies; fresh projection is required before
+recovery. A distinct native reconnect message prevents confusing missing authority
+with intentional Silence. Subscription withdrawal does not declare Runtime end.
+Confirmed end, unpair and lost Profile authority clear the appropriate projection.
+Request invalidation also releases loading; obsolete success/error responses cannot
+clear or repopulate a newer recovered Session.
 
-The initial [Apple gap](https://github.com/pcvantol/djconnect-app/issues/87#issuecomment-6055967587)
-and [Core gap](https://github.com/pcvantol/djconnect/issues/1101#issuecomment-6055968322)
-are now addressed by the [exact producer receipt](https://github.com/pcvantol/djconnect-app/issues/87#issuecomment-6059342828).
-Apple decodes `native_delivery` v1 as replacement authority, separate from
-Moment identity, text/Persona, Flow revision and event watermark. Current uses
-the supplied current ID, playing/item binding, admission and original deadlines.
-Earlier-only Flow uses ordered permitted IDs and original source expiry. Missing,
-unknown or malformed authority cannot grant display. Attributed CC0 source cards
-retain both recording URLs with native localized link labels. Spotify current-only
-cards remain suppressed pending a qualified renderer mark/attribution asset;
-this is an explicit Apple presentation finding, not a missing Core rights field.
-The executable-action allowlist remains empty; existing player/Ask DJ/queue/handoff
-routes retain their independent authority.
+## Qualification receipts
 
-Background/disconnect clear both native authority and Moment/Presentation copies;
-a fresh owner projection is required to resume. Expiry events replace admission
-and prune withdrawn content, including open Flow detail. Terminal denial clears
-before sequence filtering even without a sequence. Subscription withdrawal clears
-that display channel without declaring the server Runtime ended; normal Session
-end clears the whole Session. No individual source-revoke API is invented.
+Evidence is in ignored `build/moment-first/`. Synthetic provider data comes from
+actual pinned Core Runtime/HTTP/subscription capture, transported over localhost
+owner HTTP/WebSocket into the real AppModel and SwiftUI. It is not a mock renderer,
+live-provider test, physical-device receipt or Apple-authorized HA deployment.
 
-`Tools/generate_native_moment_receipt.py` executes the exact pin's existing producer
-capture through an immutable archive; no mutable Core source is imported or
-written. Synthetic recovery cursors are omitted. Its actual owner HTTP/subscription
-snapshots/events cover credits, shared producer, source expiry, snapshot-required
-reconnect and normal end. These remain software fixtures, not live provider,
-installed HA or Mac native proof.
+- Final regular serial suite: 414 reported, 408 pass and six opt-in network skips
+  (`review-final-regular-serial.log`). Localization validation: 993 keys/five languages.
+- Request-loading, obsolete-error and ordinary-unsequenced-event regressions pass
+  with actual HTTP/WS (`review-fix-negative-network.log`); the opt-in privacy tests
+  separately cover no URLCache storage and no private response bodies in errors.
+- iPhone latest lifecycle PASS (`iphone-review-fixed-lifecycle.xcresult`): two
+  same-track producer contributions, both source links, background recovery,
+  expiry/reconnect without revival, end and player without/during/after Session.
+- English More/player/queue/playlists, open Flow detail with expiry, and real
+  Spotify producer card/logo/album-link/expiry PASS (`review-native-details.xcresult`).
+- iPad portrait/landscape and fixed Meer passed (`ipad-final-producer-pin.xcresult`);
+  final review-fixed lifecycle is recorded separately when complete.
+- Actual iPad accessibility XXXL content size, long copy and native audit
+  (description/clipping/traits) PASS (`ipad-native-accessibility.xcresult`);
+  its original content-size preference was restored afterward.
+- Effective Reduce Motion renderer preference plus real Flow navigation PASS
+  in `native-motion-lifecycle-fixed.xcresult`. This uses a DEBUG test preference;
+  it does not establish physical VoiceOver traversal or OS Reduce Motion.
+- Real Mac NSWindow/public accessibility sequence passes in
+  `mac-review-fixed-sequence.log`; final-source sequence also PASS (`mac-final-source-sequence.log`);
+  correctly configured cold no-Session state/player and metrics are recorded in
+  `mac-cold-no-session.txt`, `mac-player-cold-no-session.txt` and
+  `mac-cold-navigation-metrics.json`. Navigation metrics
+  report zero playback mutations before explicit end. Screenshots capture actual
+  windows, not ImageRenderer/offscreen substitutes.
 
-## Red scenarios and evidence boundaries
+Before screenshots are preserved from original main. After screenshots and native
+accessibility state/metrics live under `build/moment-first/screenshots/` and adjacent
+receipts. Earlier failed/hung attempts remain retained and are not counted as pass:
+unsigned/ad-hoc Mac XCTest runner never connected; the first combined iPhone
+motion/lifecycle launch failed and its reporting stalled. The isolated lifecycle
+retry passed. Native Mac public-accessibility proof replaces only that UI evidence,
+not a claim of successful XCTest runner or changed security configuration.
 
-Required acceptance includes two distinct real producer-chain Moments during
-one track, later events, track change, duplicate/stale rejection, reconnect,
-background return, confirmed normal/failed end, unpair and Profile authority
-change. Native iPhone and Mac must show correct copy/meaning/source links;
-iPad adaptive layouts, long text, VoiceOver and Reduce Motion remain required.
-Independent player navigation must work without, during and after a Session,
-with no start/end/playback mutation and preserved other feature routes.
+The human explicitly approved ad-hoc signing of temporary Mac test bundles and
+exactly two read-only independent technical/UX reviewer agents. Their a6abe40
+NO-GO findings prompted the loading/error/sequence/Silence/reconnect corrections.
+Fresh independent acceptance must name the exact corrected candidate; older CI
+and reviews do not qualify a later head.
 
-`Tools/generate_moment_contract_receipt.py` imports an immutable archive of the
-pinned producer through its existing test dependency loader. Its synthetic,
-nonpersonal Runtime/Planner/Knowledge/Moment/Broadcast receipts are explicitly
-fixtures, not live provider or hardware proof. `Tools/moment_contract_server.js`
-models owner HTTP/WebSocket envelopes on localhost, counts active subscriptions
-and distinguishes read-only command requests from playback mutations.
-Run it with an ignored receipt path and the explicit Core reference path; never
-point it at a real HA instance. The opt-in network test requires
-`DJCONNECT_MOMENT_NETWORK_TEST=1`; normal unit runs explicitly disable it.
+## Latest product addenda and dependent follow-up
 
-The current isolated validation has 404 regular Swift cases passing and four
-opt-in network privacy/authority cases passing separately. The latter prove
-owner HTTP/WebSocket reconnect/end, rejected owner authority clearing private
-projection without ending the Runtime, no parent URLCache storage under
-explicitly cacheable headers, and omitted Moment response bodies in decode
-errors. Delivery callbacks are awaited serially; optional new locale/Flow
-fields fail independently and cannot discard the valid Session.
+[6061498264](https://github.com/pcvantol/djconnect-app/issues/87#issuecomment-6061498264)
+adds interactive text/voice Ask DJ bubbles, contextual questions, saved Sessions,
+readonly historical timelines and authorized history matches/open-session actions.
+These are not delivered by current #95 active Moment/Flow admission. The same
+product line needs a registered dependent Apple follow-up before pickup after the
+existing Core slot supplies authenticated list/detail/context/turn/order/deletion,
+retention and allowed-action contracts. Targeted request is
+[6064346207](https://github.com/pcvantol/djconnect/issues/1101#issuecomment-6064346207).
+No fake archive/responses or local preservation of expired live payload is allowed.
+New historical questions belong to current conversation; private Q/A/history never
+become room Broadcast. Current independent source work remains allowed.
 
-Native iPhone and iPad simulator tests completed successfully through the
-actual decode/state/native route: first snapshot Moment, a second contribution
-on the same track, background/foreground, standalone player, producer-observed
-track change, reconnect, confirmed end, player after end, fresh app launch
-without a Session and the player again. iPad additionally records portrait and
-landscape. The track-change producer selects Silence; it is not emitted as a
-visual Moment event. The native renderer shows the supplied committed Silence
-Flow label and quiet current zone rather than manufacturing a Moment.
-Navigation metrics record zero playback mutations. These are synthetic fixture
-receipts, not live provider, physical device or full accessibility qualification.
-Screenshot review additionally corrected duplicated primary speech for the
-producer's actual `dj` role. The iPad test now waits for rotation to settle and
-asserts Meer remains hittable in landscape; device-level screenshots avoid
-XCTest's incorrect landscape application-bounds crop. English navigation tests
-check Queue/Playlists/Now Playing under More, matching the actual route model.
-The final screen-capture iPhone/iPad sequences both PASS with no runtime
-warnings (`iphone-screen-qualified.xcresult`, `ipad-screen-qualified.xcresult`).
-An earlier combined English/iPhone attempt hung and was interrupted without a
-valid result bundle; it is not counted as PASS. The screenshot-helper compile
-failure used `XCUIDevice` incorrectly and was repaired to `XCUIScreen` before
-the successful final sequences. Logs remain retained separately.
-The separate English navigation attempts also stalled without a finalized
-result bundle, including with the existing ready fixture. English native
-navigation is therefore NOT QUALIFIED; no success is inferred from compilation.
+VibeCast alignment/Cast/LG addenda retain shared Moment identity/text/Persona/source
+meaning while allowing host presentation differences. Core owns the shared web
+renderer; static receiver distribution remains the controlled Pages/Cast route.
+Cast SDK sender qualification and LG webOS host are separate follow-up boundaries,
+not added to #95. No Core/receiver writes, extra writers, TV install or publication.
 
-Unsigned Mac build-for-testing passes. The unsigned Mac UI runner hung before
-establishing a connection. A direct isolated unsigned candidate receives owner
-data but has not produced an accepted visible native window. Local ad-hoc test
-signing and read-only independent review agents were requested; no answer or
-new authority has been inferred. Full Mac native acceptance and the remaining
-accessibility/locale/long-copy review remain open.
+## Delivery authority
 
-Primary macOS dataless source/index reads blocked verification. WIP was
-preserved as a recovery patch plus all six new files and reintegrated in an
-isolated temporary Apple clone by the same writer. The no-checkout Core clone
-is an immutable archive source only, not a Core checkout or writer.
+No source merge, exact-main acceptance or Finalization is claimed yet. The existing
+main CI triggers the unchanged internal SHA-bound evidence prerelease; each concrete
+source/Finalization publication requires its own owner authority. Public unsigned
+release requires a version tag/manual dispatch; TestFlight/Store signing and physical
+installation are outside the current grant. No protection/workflow change is needed.
 
-Draft [#95](https://github.com/pcvantol/djconnect-app/pull/95) preserves this
-same source pickup. All non-skipped CI/TDE/security/projection checks passed at
-`636258d8c93044004adb8fa31babed612def9d37`; those receipts do not qualify later
-heads or resolve the product gates above. The Core producer now has its own
-ACK under `DJC-CORE-NATIVE-MOMENT-DELIVERY-V1-20261008`; its unqualified WIP is
-not substituted for the immutable producer receipt.
-No source merge, exact-main acceptance, internal evidence publication or separate
-Finalization is claimed. Those remain required after contract/native/independent
-review gates pass, and each concrete main publication needs its own authority.
-No Store/TestFlight/public release, signing certificate, physical installation,
-Core/HA deployment or workflow/protection change belongs to this WIP.
-
-## Native delivery candidate readback
-
-Pinned receipt tests prove current/earlier CC0 display, two links, unchanged Persona,
-original shared-source shortest deadline, presentation expiry separate from recall,
-missing/unknown/schema/Spotify-attribution denial, event admission replacement,
-source-text pruning and unsequenced terminal clearing. The broad concurrent run
-failed with eight timing/fixture issues in three existing tests; the full serial
-run passed 406 regular tests with four opt-in network skips (410 reported).
-
-Latest native iPhone and iPad actual HTTP/WebSocket→state→SwiftUI sequences PASS
-for admitted source cards/both links, background recovery, independent player,
-source expiry/reconnect without revival, end and no-Session player. iPad includes
-settled portrait/landscape and visible Meer. Source/Mac/physical/install acceptance
-remain distinct; earlier Track Insight fixtures now decode but grant no native
-card without v1 admission, as the producer contract requires.
-
-The additional native open-Flow-detail/expiry attempt stalled without a valid
-final bundle and is NOT QUALIFIED. It is retained as a separate UI test, not
-counted as the successful current/list/navigation sequence. The renderer's
-Spotify mark finding and Mac/English/accessibility/independent review remain
-open. A new delayed-HTTP network scenario proves that a response requested
-before background cannot repopulate authority afterward; request generations
-and loading completion are guarded. The three final-pin contract/state/network
-tests pass, including this late response and unsequenced terminal denial.
+The primary macOS dataless checkout WIP remains preserved by patch/new-file recovery;
+only the isolated temporary Apple checkout is the source writer. Safe reconciliation
+must preserve that original WIP rather than reset it during cleanup.

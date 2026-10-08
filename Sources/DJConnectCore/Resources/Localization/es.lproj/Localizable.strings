@@ -993,3 +993,5 @@
 
 "ui.session.source_current" = "Grabación";
 "ui.session.source_previous" = "Grabación anterior";
+
+"ui.session.reconnecting" = "Reconectando con la sesión DJ…";

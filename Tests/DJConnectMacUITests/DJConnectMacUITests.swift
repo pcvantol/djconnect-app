@@ -152,7 +152,7 @@ final class DJConnectMacUITests: XCTestCase {
         _ = try await URLSession.shared.data(from: base.appendingPathComponent("fixture/native_reset"))
         let app = XCUIApplication()
         app.terminate()
-        app.launchArguments = ["--uitesting", "--runtime-fixture", "moment_contract", "-AppleLanguages", "(nl)", "-AppleLocale", "nl_NL"]
+        app.launchArguments = ["--uitesting", "--runtime-fixture=moment_contract", "-AppleLanguages", "(nl)", "-AppleLocale", "nl_NL"]
         app.launchEnvironment["DJCONNECT_UITEST_HA_URL"] = base.absoluteString
         app.launchEnvironment["DJCONNECT_UITEST_RUNTIME_FIXTURE"] = "moment_contract"
         app.launch()

@@ -142,3 +142,60 @@ func nativeOwnerHTTPWebSocketBackgroundExpiryReconnectAndUnsequencedTerminal() a
     #expect(expired.nativeCurrentMoment(at: date, spotifyAttributionAvailable: true) == nil)
     #expect(expired.djMoments.isEmpty)
 }
+
+@Test func unsequencedOrdinaryEventCannotRestoreWithdrawnCardAuthority() throws {
+    let after = try #require(try nativeReceipt()["after"] as? [String:Any])
+    let shared = try decodeSnapshot((after["http_shared_producer"] as! [String:Any])["snapshot"]!)
+    let events = try JSONDecoder().decode([DJConnectSessionBroadcastEvent].self, from: JSONSerialization.data(withJSONObject: after["events"]!))
+    let legacy = URL(fileURLWithPath:#filePath).deletingLastPathComponent().deletingLastPathComponent().appendingPathComponent("Fixtures/moment-contract-receipt.json")
+    let object = try JSONSerialization.jsonObject(with:Data(contentsOf:legacy)) as! [String:Any]
+    var runtime = try JSONDecoder().decode(DJConnectSessionRuntime.self, from:JSONSerialization.data(withJSONObject:object["runtime"]!))
+    runtime.sessionID=shared.session.sessionID; runtime.broadcast=shared
+    runtime.broadcast.clearNativeAuthority()
+    var replay=try #require(events.first(where:{$0.payload.djMoment != nil}))
+    replay.deliverySequence=nil
+    let rejected=runtime.applying(broadcastEvent:replay)
+    #expect(rejected.broadcast.nativeDelivery == nil)
+    #expect(rejected.broadcast.djMoments.isEmpty)
+    #expect(rejected.broadcast.delivery == runtime.broadcast.delivery)
+}
+
+@Test(.enabled(if: ProcessInfo.processInfo.environment["DJCONNECT_NATIVE_NETWORK_TEST"] == "1")) @MainActor
+func nativeOwnerCurrentFailureResetsLoadingAndObsoleteFailureCannotClearRecovery() async throws {
+    let base=URL(string:"http://127.0.0.1:18787")!
+    _=try await URLSession.shared.data(from:base.appendingPathComponent("fixture/native_reset"))
+    let defaults=UserDefaults(suiteName:"native-owner-error-generation-test")!
+    defaults.removePersistentDomain(forName:"native-owner-error-generation-test")
+    defaults.set(base.absoluteString,forKey:"DJConnectHomeAssistantURL")
+    defaults.set(base.absoluteString,forKey:"DJConnectHALocalURL")
+    let model=DJConnectAppModel(defaults:defaults,tokenStore:DJConnectInMemoryTokenStore(token:"local-moment-contract-fixture"),startBackgroundTasks:false)
+    await model.refreshActiveDJSession()
+    try await Task.sleep(for:.seconds(1))
+    let id=try #require(model.activeDJSession?.id)
+    _=try await URLSession.shared.data(from:base.appendingPathComponent("fixture/late_failure"))
+    let obsolete=Task { await model.refreshActiveDJSession() }
+    try await Task.sleep(for:.milliseconds(100))
+    model.markInactiveSession(); model.markActiveSession()
+    await model.refreshActiveDJSession()
+    await obsolete.value
+    #expect(model.activeDJSession?.id == id)
+    #expect(!model.isLoadingDJSession)
+    #expect(model.djSessionErrorMessage == nil)
+    _=try await URLSession.shared.data(from:base.appendingPathComponent("fixture/active_failure"))
+    await model.refreshActiveDJSession()
+    #expect(model.activeDJSession == nil)
+    #expect(!model.isLoadingDJSession)
+    _=try await URLSession.shared.data(from:base.appendingPathComponent("fixture/clear_active_failure"))
+    await model.refreshActiveDJSession()
+    #expect(model.activeDJSession?.id == id)
+    #expect(!model.isLoadingDJSession)
+    _=try await URLSession.shared.data(from:base.appendingPathComponent("fixture/delay_active"))
+    let pending=Task { await model.refreshActiveDJSession() }
+    try await Task.sleep(for:.milliseconds(100))
+    _=try await URLSession.shared.data(from:base.appendingPathComponent("fixture/terminal_denial"))
+    await pending.value
+    #expect(model.activeDJSession == nil)
+    #expect(!model.isLoadingDJSession)
+    model.markInactiveSession()
+    defaults.removePersistentDomain(forName:"native-owner-error-generation-test")
+}

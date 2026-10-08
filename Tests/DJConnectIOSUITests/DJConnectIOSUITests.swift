@@ -806,6 +806,52 @@ final class DJConnectIOSUITests: XCTestCase {
         try saveMomentScreenshot(app, "ios-07-spotify-expired")
     }
 
+    func testNativeLargeTextAccessibilityAudit() async throws {
+        let base = URL(string: "http://127.0.0.1:18787")!
+        _ = try await URLSession.shared.data(from: base.appendingPathComponent("fixture/native_reset"))
+        let app = XCUIApplication()
+        app.launchArguments = ["--uitesting", "--runtime-fixture", "moment_contract", "-AppleLanguages", "(nl)", "-AppleLocale", "nl_NL"]
+        app.launchEnvironment["DJCONNECT_UITEST_HA_URL"] = base.absoluteString
+        app.launchEnvironment["DJCONNECT_UITEST_RUNTIME_FIXTURE"] = "moment_contract"
+        app.terminate(); app.launch()
+        try await Task.sleep(for: .milliseconds(400))
+        app.terminate(); app.launch()
+        XCTAssertTrue(app.descendants(matching: .any)["uitest-runtime-fixture-active"].waitForExistence(timeout: 10))
+        _ = try await URLSession.shared.data(from: base.appendingPathComponent("fixture/advance"))
+        let text = "Nora Vale kwamen we eerder tegen bij «Amber Lines», als producer. Bij «Slow Lanterns» staat die naam opnieuw in de producercredits."
+        XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label == %@", text)).firstMatch.waitForExistence(timeout: 10))
+        try saveMomentScreenshot(app, "ios-08-large-text")
+        try app.performAccessibilityAudit(for: [.sufficientElementDescription, .textClipped, .trait])
+    }
+
+    func testNativeReduceMotionPreferenceAndFlowNavigation() async throws {
+        let base = URL(string: "http://127.0.0.1:18787")!
+        _ = try await URLSession.shared.data(from: base.appendingPathComponent("fixture/native_reset"))
+        let app = XCUIApplication()
+        app.terminate()
+        app.launchArguments = ["--uitesting", "--uitest-reduce-motion", "--runtime-fixture", "moment_contract", "-AppleLanguages", "(nl)", "-AppleLocale", "nl_NL"]
+        app.launchEnvironment["DJCONNECT_UITEST_HA_URL"] = base.absoluteString
+        app.launchEnvironment["DJCONNECT_UITEST_RUNTIME_FIXTURE"] = "moment_contract"
+        app.launch()
+        try await Task.sleep(for: .milliseconds(400))
+        app.terminate()
+        app.launch()
+        guard app.descendants(matching: .any)["uitest-runtime-fixture-active"].waitForExistence(timeout: 10) else {
+            XCTFail("The isolated runtime fixture was not activated; no navigation actions performed.")
+            return
+        }
+        XCTAssertTrue(app.descendants(matching: .any)["uitest-renderer-reduce-motion-on"].waitForExistence(timeout: 5))
+        _ = try await URLSession.shared.data(from: base.appendingPathComponent("fixture/advance"))
+        let secondText = "Nora Vale kwamen we eerder tegen bij «Amber Lines», als producer. Bij «Slow Lanterns» staat die naam opnieuw in de producercredits."
+        XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label == %@", secondText)).firstMatch.waitForExistence(timeout: 10))
+        app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "Even de credits erbij")).firstMatch.tap()
+        XCTAssertTrue(app.staticTexts["Even meekijken in de credits: Nora Vale en Sam Reed zijn hier als producers gecrediteerd."].waitForExistence(timeout: 5))
+        try saveMomentScreenshot(app, "ios-09-reduced-motion-flow")
+        _ = try await URLSession.shared.data(from: base.appendingPathComponent("fixture/expire"))
+        try await Task.sleep(for: .seconds(1))
+        XCTAssertFalse(app.staticTexts["Even meekijken in de credits: Nora Vale en Sam Reed zijn hier als producers gecrediteerd."].exists)
+    }
+
     private func saveMomentScreenshot(_ app: XCUIApplication, _ name: String) throws {
         let name = app.frame.width > 600 ? name.replacingOccurrences(of: "ios-", with: "ipad-") : name
         // Device capture avoids XCTest's landscape application-bounds crop.

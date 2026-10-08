@@ -78,6 +78,9 @@ public actor DJConnectSessionBroadcastTransport {
                 while shouldRun, !Task.isCancelled {
                     let event = try await receiveEvent()
                     await onEvent(event)
+                    if event.deliverySequence == nil && !["runtime_ended", "broadcast_stopped"].contains(event.eventType) {
+                        throw DJConnectError.invalidResponse
+                    }
                     if event.eventType == "runtime_ended" || event.eventType == "broadcast_stopped" {
                         stop()
                         if event.payload.nativeDelivery?.revocationScope == "subscription" {

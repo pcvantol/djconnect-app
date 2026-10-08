@@ -993,3 +993,5 @@
 
 "ui.session.source_current" = "Aufnahme";
 "ui.session.source_previous" = "Vorherige Aufnahme";
+
+"ui.session.reconnecting" = "Verbindung zur DJ-Sitzung wird wiederhergestellt…";

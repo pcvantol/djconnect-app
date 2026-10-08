@@ -993,3 +993,5 @@
 
 "ui.session.source_current" = "Opname";
 "ui.session.source_previous" = "Eerdere opname";
+
+"ui.session.reconnecting" = "Verbinding met de DJ-sessie herstellen…";

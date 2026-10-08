@@ -9981,7 +9981,7 @@ private struct DJSessionView: View {
                     Group {
                         if let session = model.activeDJSession {
                             ActiveDJSessionView(model: model, session: session, openQueueAction: openQueueAction, returnToCurrent: {
-                                withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.2)) { scroll.scrollTo("native-session-current", anchor: .top) }
+                                withAnimation(djSessionReducedMotion(reduceMotion) ? nil : .easeInOut(duration: 0.2)) { scroll.scrollTo("native-session-current", anchor: .top) }
                             })
                                 .id(session.sessionID)
                         } else {
@@ -10088,7 +10088,7 @@ private struct ActiveDJSessionView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
-            NativeSessionMomentsView(session: session, language: model.language, artworkBaseURL: URL(string: model.haLocalURL.isEmpty ? model.homeAssistantURL : model.haLocalURL), returnToCurrent: returnToCurrent)
+            NativeSessionMomentsView(session: session, language: model.language, isRecovering: model.djSessionIsRecovering, artworkBaseURL: URL(string: model.haLocalURL.isEmpty ? model.homeAssistantURL : model.haLocalURL), returnToCurrent: returnToCurrent)
             Divider()
             Text(localizedKey(model.language, "ui.vibecast.handoff.title")).font(.headline)
             Text(localizedKey(model.language, "ui.vibecast.handoff.instructions"))
