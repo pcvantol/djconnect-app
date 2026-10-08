@@ -627,6 +627,7 @@ struct DJConnectCanvasBackground: View {
 }
 
 private enum DJConnectSection: Hashable {
+    case djSession
     case nowPlaying
     case trackInsight
     case discovery
@@ -647,7 +648,7 @@ public struct DJConnectRootView: View {
     @ObservedObject private var model: DJConnectAppModel
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
-    @State private var selectedSection = DJConnectSection.nowPlaying
+    @State private var selectedSection = DJConnectSection.djSession
     @State private var moreResetID = UUID()
     @State private var showingFeedback = false
 
@@ -662,6 +663,11 @@ public struct DJConnectRootView: View {
                 #if os(macOS)
                 NavigationSplitView {
                     List {
+                        SidebarItem(
+                            title: localizedKey(model.language, "ui.session.title"),
+                            systemImage: "sparkles",
+                            isSelected: selectedSection == .djSession
+                        ) { selectedSection = .djSession }
                         SidebarItem(
                             title: localizedKey(model.language, "ui.now.playing"),
                             systemImage: "music.note",
@@ -823,6 +829,7 @@ public struct DJConnectRootView: View {
                 model.handlePairingDeepLink(url)
             }
         }
+        .task { await model.refreshActiveDJSession() }
         .onAppear {
             handleScreenshotScreenRequestIfNeeded()
             handleHomeScreenActionRequestIfNeeded()
@@ -890,6 +897,10 @@ public struct DJConnectRootView: View {
             return
         }
         switch screen {
+        case "dj-session":
+            selectedSection = .djSession
+        case "more":
+            selectedSection = .more
         case "now-playing":
             selectedSection = .nowPlaying
         case "queue":
@@ -960,13 +971,13 @@ public struct DJConnectRootView: View {
 
     private var compactRootTabs: some View {
         TabView(selection: compactTabSelection) {
-            NowPlayingView(model: model) {
+            DJSessionView(model: model) {
                 selectedSection = .queue
             }
                 .tabItem {
-                    Label(localizedKey(model.language, "ui.now.playing"), systemImage: "music.note")
+                    Label(localizedKey(model.language, "ui.session.title"), systemImage: "sparkles")
                 }
-                .tag(DJConnectSection.nowPlaying)
+                .tag(DJConnectSection.djSession)
             AskDJView(model: model) {
                 selectedSection = .trackInsight
                 model.openTrackInsight()
@@ -1008,11 +1019,13 @@ public struct DJConnectRootView: View {
     private var iPadRootTabs: some View {
         VStack(spacing: 0) {
             HStack(spacing: 8) {
+            ScrollView(.horizontal) {
+            HStack(spacing: 8) {
                 DJConnectTopTabButton(
-                    title: localizedKey(model.language, "ui.now.playing"),
-                    systemImage: "music.note",
-                    isSelected: selectedSection == .nowPlaying
-                ) { selectedSection = .nowPlaying }
+                    title: localizedKey(model.language, "ui.session.title"),
+                    systemImage: "sparkles",
+                    isSelected: selectedSection == .djSession
+                ) { selectedSection = .djSession }
                 DJConnectTopTabButton(
                     title: localizedKey(model.language, "ui.queue"),
                     systemImage: "music.note.list",
@@ -1034,11 +1047,15 @@ public struct DJConnectRootView: View {
                     systemImage: "wand.and.stars",
                     isSelected: selectedSection == .discovery
                 ) { selectDiscovery() }
+            }
+            }
+            .scrollIndicators(.hidden)
                 DJConnectTopTabButton(
                     title: localizedKey(model.language, "ui.more"),
                     systemImage: "ellipsis",
                     isSelected: isMoreSectionSelected
                 ) { selectedSection = .more }
+                .fixedSize(horizontal: true, vertical: false)
             }
             .padding(6)
             .background(
@@ -1059,9 +1076,9 @@ public struct DJConnectRootView: View {
 
     private var isMoreSectionSelected: Bool {
         switch selectedSection {
-        case .nowPlaying, .askDJ, .trackInsight, .discovery:
+        case .djSession, .askDJ, .trackInsight, .discovery:
             false
-        case .more, .queue, .musicDNA, .playlists, .games, .settings, .logs, .about, .legal, .privacy:
+        case .nowPlaying, .more, .queue, .musicDNA, .playlists, .games, .settings, .logs, .about, .legal, .privacy:
             true
         }
     }
@@ -1073,7 +1090,7 @@ public struct DJConnectRootView: View {
             return false
         }
         switch selectedSection {
-        case .nowPlaying, .askDJ, .trackInsight, .discovery, .musicDNA, .queue, .playlists:
+        case .djSession, .nowPlaying, .askDJ, .trackInsight, .discovery, .musicDNA, .queue, .playlists:
             return true
         case .more, .games, .settings, .logs, .about, .legal, .privacy:
             return false
@@ -1216,6 +1233,8 @@ public struct DJConnectRootView: View {
     @ViewBuilder
     private var selectedView: some View {
         switch selectedSection {
+        case .djSession:
+            DJSessionView(model: model) { selectedSection = .queue }
         case .nowPlaying:
             NowPlayingView(model: model) {
                 selectedSection = .queue
@@ -3251,11 +3270,6 @@ struct NowPlayingView: View {
                 }
             }
             .djStatusToastOverlay(statusToast)
-            .task {
-                if model.pairingStatus == .paired {
-                    model.refresh()
-                }
-            }
             .djUserNoticeToast(model: model)
         }
         .accessibilityIdentifier("screen-now-playing")
@@ -9951,6 +9965,161 @@ private struct NowPlayingMoodControlSection: View {
     }
 }
 
+private struct DJSessionView: View {
+    @ObservedObject var model: DJConnectAppModel
+    var openQueueAction: () -> Void
+    @State private var statusToast: DJConnectVisualNotice?
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                DJConnectCanvasBackground()
+                ScrollViewReader { scroll in
+                ScrollView {
+                    Group {
+                        if let session = model.activeDJSession {
+                            ActiveDJSessionView(model: model, session: session, openQueueAction: openQueueAction, returnToCurrent: {
+                                withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.2)) { scroll.scrollTo("native-session-current", anchor: .top) }
+                            })
+                                .id(session.sessionID)
+                        } else {
+                            IdleDJSessionView(model: model)
+                        }
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 12)
+                }
+                .background(.clear)
+                .refreshable {
+                    if !model.isDemoMode {
+                        await refreshNowPlayingWithToast()
+                    }
+                }
+                }
+            }
+            .djStatusToastOverlay(statusToast)
+            .navigationTitle(localizedKey(model.language, "ui.session.title"))
+            .djSessionNavigationTitleStyle()
+            .toolbar {
+                #if os(iOS)
+                if model.shouldShowAppleWatchPairingReminder {
+                    ToolbarItem(placement: .topBarLeading) {
+                        AppleWatchPairingReminderButton(model: model)
+                    }
+                }
+                #endif
+                ToolbarItem {
+                    RefreshButton(model: model) {
+                        Task { await refreshNowPlayingWithToast() }
+                    }
+                }
+            }
+            .djUserNoticeToast(model: model)
+        }
+        .accessibilityIdentifier("screen-dj-session")
+    }
+
+    private func refreshNowPlayingWithToast() async {
+        let didRefresh = await model.refreshNowPlaying()
+        await model.refreshActiveDJSession()
+        showStatusToast(
+            didRefresh ? localizedKey(model.language, "appModel.now.playing.updated") : localizedKey(model.language, "appModel.now.playing.update.failed"),
+            systemImage: didRefresh ? "checkmark.circle.fill" : "exclamationmark.triangle.fill"
+        )
+    }
+
+    private func showStatusToast(_ text: String, systemImage: String) {
+        let notice = DJConnectVisualNotice(text: text, systemImage: systemImage)
+        withAnimation(.easeOut(duration: 0.18)) {
+            statusToast = notice
+        }
+        Task { @MainActor in
+            try? await Task.sleep(for: .seconds(2))
+            guard statusToast?.id == notice.id else {
+                return
+            }
+            withAnimation(.easeIn(duration: 0.18)) {
+                statusToast = nil
+            }
+        }
+    }
+}
+
+private struct IdleDJSessionView: View {
+    @ObservedObject var model: DJConnectAppModel
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 20) {
+            Text(localizedKey(model.language, "ui.session.idle")).foregroundStyle(.secondary)
+            Picker(localizedKey(model.language, "ui.session.select_mood"), selection: $model.selectedSessionMood) {
+                Text(localizedKey(model.language, "ui.session.mood.chill")).tag("chill")
+                Text(localizedKey(model.language, "ui.session.mood.groove")).tag("groove")
+                Text(localizedKey(model.language, "ui.session.mood.energy")).tag("energy")
+                Text(localizedKey(model.language, "ui.session.mood.party")).tag("party")
+            }
+            .pickerStyle(.segmented)
+            Button(localizedKey(model.language, "ui.session.start")) { Task { await model.startDJSession() } }
+                .buttonStyle(.borderedProminent)
+                .disabled(model.isLoadingDJSession || !model.canUsePlaybackFeatures)
+            if let error = model.djSessionErrorMessage {
+                Text(error).font(.footnote).foregroundStyle(.red)
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 28)
+        .accessibilityIdentifier("screen-idle-dj-session")
+    }
+}
+
+private struct ActiveDJSessionView: View {
+    @ObservedObject var model: DJConnectAppModel
+    let session: DJConnectSessionRuntime
+    let openQueueAction: () -> Void
+    var returnToCurrent: () -> Void = {}
+    @State private var vibeCastHandoffCode = ""
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            NativeSessionMomentsView(session: session, language: model.language, artworkBaseURL: URL(string: model.haLocalURL.isEmpty ? model.homeAssistantURL : model.haLocalURL), returnToCurrent: returnToCurrent)
+            Divider()
+            Text(localizedKey(model.language, "ui.vibecast.handoff.title")).font(.headline)
+            Text(localizedKey(model.language, "ui.vibecast.handoff.instructions"))
+                .font(.footnote).foregroundStyle(.secondary)
+            TextField(localizedKey(model.language, "ui.vibecast.handoff.code"), text: $vibeCastHandoffCode)
+                #if os(iOS)
+                .keyboardType(.numberPad)
+                .textContentType(.oneTimeCode)
+                #endif
+                .accessibilityIdentifier("vibecast-handoff-code")
+                .onChange(of: vibeCastHandoffCode) { _, value in
+                    vibeCastHandoffCode = String(value.filter { $0.isASCII && $0.isNumber }.prefix(6))
+                }
+            Button(localizedKey(model.language, "ui.vibecast.handoff.approve")) {
+                Task { await model.approveVibeCastHandoff(code: vibeCastHandoffCode) }
+            }
+            .buttonStyle(.borderedProminent)
+            .disabled(vibeCastHandoffCode.count != 6 || model.isLoadingVibeCastHandoff)
+            .accessibilityIdentifier("vibecast-handoff-approve")
+            if model.vibeCastHandoffApproved {
+                Text(localizedKey(model.language, "ui.vibecast.handoff.approved"))
+                    .font(.footnote).foregroundStyle(.green)
+            }
+            if model.vibeCastHandoffFailed {
+                Text(localizedKey(model.language, "ui.vibecast.handoff.failed"))
+                    .font(.footnote).foregroundStyle(.red)
+            }
+            Button(localizedKey(model.language, "ui.session.queue"), action: openQueueAction).buttonStyle(.bordered)
+            Button(localizedKey(model.language, "ui.session.end"), role: .destructive) { Task { await model.endDJSession() } }
+                .buttonStyle(.bordered)
+                .disabled(model.isLoadingDJSession || !model.canUsePlaybackFeatures)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 28)
+        .accessibilityIdentifier("screen-active-dj-session")
+    }
+}
+
 #if os(iOS)
 private struct IOSNowPlayingView: View {
     @ObservedObject var model: DJConnectAppModel
@@ -9962,12 +10131,12 @@ private struct IOSNowPlayingView: View {
             ZStack {
                 DJConnectCanvasBackground()
                 ScrollView {
-                    Group {
-                        if let session = model.activeDJSession {
-                            IOSActiveDJSessionView(model: model, session: session, openQueueAction: openQueueAction)
-                                .id(session.sessionID)
-                        } else {
-                            IOSIdleDJSessionView(model: model)
+                    VStack(spacing: 16) {
+                        IOSTrackHero(model: model, openQueueAction: openQueueAction)
+                        OutputSelectorView(model: model)
+                        NowPlayingMoodControlSection(model: model)
+                        if !model.isDemoMode {
+                            IOSConnectionCard(model: model)
                         }
                     }
                     .padding(.horizontal, 16)
@@ -9983,7 +10152,7 @@ private struct IOSNowPlayingView: View {
                 }
             }
             .djStatusToastOverlay(statusToast)
-            .navigationTitle(localizedKey(model.language, "ui.session.title"))
+            .navigationTitle(screenTitle(model.language, key: "Now Playing", isDemoMode: model.isDemoMode))
             .navigationBarTitleDisplayMode(.large)
             .toolbar {
                 if model.shouldShowAppleWatchPairingReminder {
@@ -9995,12 +10164,6 @@ private struct IOSNowPlayingView: View {
                     RefreshButton(model: model) {
                         Task { await refreshNowPlayingWithToast() }
                     }
-                }
-            }
-            .task {
-                if model.pairingStatus == .paired {
-                    model.refresh()
-                    await model.refreshActiveDJSession()
                 }
             }
             .djUserNoticeToast(model: model)
@@ -10029,92 +10192,6 @@ private struct IOSNowPlayingView: View {
                 statusToast = nil
             }
         }
-    }
-}
-
-private struct IOSIdleDJSessionView: View {
-    @ObservedObject var model: DJConnectAppModel
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 20) {
-            Text(localizedKey(model.language, "ui.session.title")).font(.largeTitle.bold())
-            Text(localizedKey(model.language, "ui.session.idle")).foregroundStyle(.secondary)
-            Picker(localizedKey(model.language, "ui.session.select_mood"), selection: $model.selectedSessionMood) {
-                Text(localizedKey(model.language, "ui.session.mood.chill")).tag("chill")
-                Text(localizedKey(model.language, "ui.session.mood.groove")).tag("groove")
-                Text(localizedKey(model.language, "ui.session.mood.energy")).tag("energy")
-                Text(localizedKey(model.language, "ui.session.mood.party")).tag("party")
-            }
-            .pickerStyle(.segmented)
-            Button(localizedKey(model.language, "ui.session.start")) { Task { await model.startDJSession() } }
-                .buttonStyle(.borderedProminent)
-                .disabled(model.isLoadingDJSession)
-            if let error = model.djSessionErrorMessage {
-                Text(error).font(.footnote).foregroundStyle(.red)
-            }
-        }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 28)
-        .accessibilityIdentifier("screen-idle-dj-session")
-    }
-}
-
-private struct IOSActiveDJSessionView: View {
-    @ObservedObject var model: DJConnectAppModel
-    let session: DJConnectSessionRuntime
-    let openQueueAction: () -> Void
-    @State private var vibeCastHandoffCode = ""
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            Text(localizedKey(model.language, "ui.session.active")).font(.largeTitle.bold())
-            LabeledContent(localizedKey(model.language, "ui.session.mood"), value: session.selectedMood.capitalized)
-            LabeledContent(localizedKey(model.language, "ui.session.backend"), value: session.musicBackend)
-            LabeledContent(localizedKey(model.language, "ui.session.started_at"), value: session.startedAt)
-            Divider()
-            Text(localizedKey(model.language, "ui.session.planner")).font(.headline)
-            LabeledContent(localizedKey(model.language, "ui.session.horizon"), value: "\(session.planner.planningHorizonMinutes) min")
-            LabeledContent(localizedKey(model.language, "ui.session.direction"), value: session.broadcast.planner.currentDirection.replacingOccurrences(of: "_", with: " ").capitalized)
-            Text(localizedKey(model.language, "ui.session.flow")).font(.headline)
-            ForEach(session.broadcast.sessionFlow.items) { item in
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(item.position.uppercased()).font(.caption.bold()).foregroundStyle(.secondary)
-                    Text(item.label).font(.body.weight(.medium))
-                }
-            }
-            Divider()
-            Text(localizedKey(model.language, "ui.vibecast.handoff.title")).font(.headline)
-            Text(localizedKey(model.language, "ui.vibecast.handoff.instructions"))
-                .font(.footnote).foregroundStyle(.secondary)
-            TextField(localizedKey(model.language, "ui.vibecast.handoff.code"), text: $vibeCastHandoffCode)
-                .keyboardType(.numberPad)
-                .textContentType(.oneTimeCode)
-                .accessibilityIdentifier("vibecast-handoff-code")
-                .onChange(of: vibeCastHandoffCode) { _, value in
-                    vibeCastHandoffCode = String(value.filter { $0.isASCII && $0.isNumber }.prefix(6))
-                }
-            Button(localizedKey(model.language, "ui.vibecast.handoff.approve")) {
-                Task { await model.approveVibeCastHandoff(code: vibeCastHandoffCode) }
-            }
-            .buttonStyle(.borderedProminent)
-            .disabled(vibeCastHandoffCode.count != 6 || model.isLoadingVibeCastHandoff)
-            .accessibilityIdentifier("vibecast-handoff-approve")
-            if model.vibeCastHandoffApproved {
-                Text(localizedKey(model.language, "ui.vibecast.handoff.approved"))
-                    .font(.footnote).foregroundStyle(.green)
-            }
-            if model.vibeCastHandoffFailed {
-                Text(localizedKey(model.language, "ui.vibecast.handoff.failed"))
-                    .font(.footnote).foregroundStyle(.red)
-            }
-            Button(localizedKey(model.language, "ui.session.queue"), action: openQueueAction).buttonStyle(.bordered)
-            Button(localizedKey(model.language, "ui.session.end"), role: .destructive) { Task { await model.endDJSession() } }
-                .buttonStyle(.bordered)
-                .disabled(model.isLoadingDJSession)
-        }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 28)
-        .accessibilityIdentifier("screen-active-dj-session")
     }
 }
 
@@ -16493,9 +16570,11 @@ private struct MoreView: View {
     @ObservedObject var model: DJConnectAppModel
     var returnToNowPlaying: () -> Void
     @State private var showingFeedback = false
+    @State private var showingPlayerQueue = false
 
     var body: some View {
         moreList
+        .sheet(isPresented: $showingPlayerQueue) { QueueView(model: model) }
         .sheet(isPresented: $showingFeedback) {
             FeedbackPromptView(model: model)
         }
@@ -16505,6 +16584,9 @@ private struct MoreView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
+                    MoreNavigationRow(title: localizedKey(model.language, "ui.now.playing"), systemImage: "music.note") {
+                        NowPlayingView(model: model) { showingPlayerQueue = true }
+                    }
                     MoreNavigationRow(
                         title: "Music DNA",
                         systemImage: "heart"

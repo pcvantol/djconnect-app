@@ -650,6 +650,9 @@ public final class DJConnectAppModel: ObservableObject {
                 updateNowPlayingPollTimer()
                 refreshWebSocketFastPathStatus()
             } else if pairingStatus != .paired {
+                sessionRequestGeneration = UUID()
+                activeDJSession = nil
+                stopSessionBroadcast()
                 nowPlayingPollTask?.cancel()
                 nowPlayingPollTask = nil
                 refreshScheduler.cancelPairedRefresh()
@@ -881,6 +884,9 @@ public final class DJConnectAppModel: ObservableObject {
     private var webSocketFastPathCache: [String: any DJConnectWebSocketFastPathTransport] = [:]
     private var webSocketSessionAuthProviders: [String: DJConnectWebSocketSessionAuthProvider] = [:]
     private var sessionBroadcastTransport: DJConnectSessionBroadcastTransport?
+    private var sessionBroadcastGeneration = UUID()
+    private var sessionBroadcastSessionID: String?
+    private var sessionRequestGeneration = UUID()
     @Published public private(set) var fastPathDiagnostics = DJConnectFastPathDiagnostics()
     @Published public var webSocketFastPathEnabled = false {
         didSet {
@@ -1739,6 +1745,7 @@ public final class DJConnectAppModel: ObservableObject {
             return
         }
         refreshWebSocketFastPathStatus()
+        Task { await refreshActiveDJSession() }
         log(.debug, "App became active; scheduling playback refresh")
         schedulePairedRefresh(
             reason: "Resume Now Playing refresh completed",
@@ -1750,6 +1757,7 @@ public final class DJConnectAppModel: ObservableObject {
 
     public func markInactiveSession() {
         isAppInForeground = false
+        stopSessionBroadcast()
         scheduledPairingTask?.cancel()
         scheduledPairingTask = nil
         refreshScheduler.cancelAll()
@@ -4589,26 +4597,37 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     public func refreshActiveDJSession() async {
-        guard pairingStatus == .paired else { return }
+        guard pairingStatus == .paired, !isLoadingDJSession else { return }
+        let request = UUID()
+        sessionRequestGeneration = request
         isLoadingDJSession = true
         defer { isLoadingDJSession = false }
         do {
             let response = try await withHomeAssistantClient { client in
                 try await client.activeSession()
             }
+            guard request == sessionRequestGeneration, pairingStatus == .paired else { return }
+            guard response.success else { djSessionErrorMessage = localized(key: "ui.session.unavailable"); return }
             if activeDJSession?.sessionID != response.resolvedSession?.sessionID {
                 vibeCastHandoffApproved = false
                 vibeCastHandoffFailed = false
             }
-            activeDJSession = response.resolvedSession
+            if let old = activeDJSession, let incoming = response.resolvedSession, old.id == incoming.id {
+                activeDJSession = old.applying(broadcastState: incoming.broadcast)
+            } else {
+                activeDJSession = response.resolvedSession
+            }
             djSessionErrorMessage = nil
             startSessionBroadcastIfNeeded()
         } catch {
-            djSessionErrorMessage = error.localizedDescription
+            djSessionErrorMessage = localized(key: "ui.session.unavailable")
         }
     }
 
     public func startDJSession() async {
+        guard pairingStatus == .paired, canUsePlaybackFeatures, !isLoadingDJSession else { return }
+        let request = UUID()
+        sessionRequestGeneration = request
         isLoadingDJSession = true
         defer { isLoadingDJSession = false }
         do {
@@ -4620,31 +4639,37 @@ public final class DJConnectAppModel: ObservableObject {
                     )
                 )
             }
+            guard request == sessionRequestGeneration, pairingStatus == .paired else { return }
+            guard response.success else { djSessionErrorMessage = localized(key: "ui.session.unavailable"); return }
             vibeCastHandoffApproved = false
             vibeCastHandoffFailed = false
             activeDJSession = response.resolvedSession
-            djSessionErrorMessage = response.resolvedSession == nil ? response.message : nil
+            djSessionErrorMessage = response.resolvedSession == nil ? localized(key: "ui.session.unavailable") : nil
             startSessionBroadcastIfNeeded()
         } catch {
-            djSessionErrorMessage = error.localizedDescription
+            djSessionErrorMessage = localized(key: "ui.session.unavailable")
         }
     }
 
     public func endDJSession() async {
-        guard let sessionID = activeDJSession?.sessionID else { return }
+        guard let sessionID = activeDJSession?.sessionID, !isLoadingDJSession else { return }
+        let request = UUID()
+        sessionRequestGeneration = request
         isLoadingDJSession = true
         defer { isLoadingDJSession = false }
         do {
-            _ = try await withHomeAssistantClient { client in
+            let response = try await withHomeAssistantClient { client in
                 try await client.endSession(DJConnectSessionEndRequest(sessionID: sessionID))
             }
+            guard request == sessionRequestGeneration, activeDJSession?.id == sessionID else { return }
+            guard response.success else { throw DJConnectError.invalidResponse }
             activeDJSession = nil
             djSessionErrorMessage = nil
             vibeCastHandoffApproved = false
             vibeCastHandoffFailed = false
             stopSessionBroadcast()
         } catch {
-            djSessionErrorMessage = error.localizedDescription
+            djSessionErrorMessage = localized(key: "ui.session.unavailable")
         }
     }
 
@@ -4682,30 +4707,41 @@ public final class DJConnectAppModel: ObservableObject {
             stopSessionBroadcast()
             return
         }
+        guard isAppInForeground, pairingStatus == .paired else { stopSessionBroadcast(); return }
+        guard sessionBroadcastSessionID != session.id || sessionBroadcastTransport == nil else { return }
+        sessionBroadcastGeneration = UUID()
+        let generation = sessionBroadcastGeneration
+        sessionBroadcastSessionID = session.id
         let auth = homeAssistantWebSocketAuth ?? webSocketSessionAuthProvider(for: baseURL).auth
         let transport = DJConnectSessionBroadcastTransport(baseURL: baseURL, auth: auth, session: urlSession)
         let previousTransport = sessionBroadcastTransport
         sessionBroadcastTransport = transport
         Task { await previousTransport?.stop() }
         let apiIdentity = DJConnectAPIIdentity(identity: identity, deviceToken: deviceToken)
-        Task {
+        Task { [self] in
+            guard sessionBroadcastGeneration == generation else { return }
             await transport.start(
                 sessionID: session.sessionID,
                 identity: apiIdentity,
                 onSnapshot: { [weak self] subscription in
                     Task { @MainActor in
-                        self?.applySessionBroadcastSnapshot(subscription.snapshot)
+                        guard let self, self.sessionBroadcastGeneration == generation else { return }
+                        self.applySessionBroadcastSnapshot(subscription.snapshot)
                     }
                 },
                 onEvent: { [weak self] event in
                     Task { @MainActor in
-                        self?.applySessionBroadcastEvent(event)
+                        guard let self, self.sessionBroadcastGeneration == generation else { return }
+                        self.applySessionBroadcastEvent(event)
                     }
                 },
                 onTerminated: { [weak self] in
                     Task { @MainActor in
-                        self?.activeDJSession = nil
-                        self?.sessionBroadcastTransport = nil
+                        guard let self, self.sessionBroadcastGeneration == generation else { return }
+                        self.activeDJSession = nil
+                        self.vibeCastHandoffApproved = false
+                        self.vibeCastHandoffFailed = false
+                        self.stopSessionBroadcast()
                     }
                 }
             )
@@ -4713,6 +4749,8 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     private func stopSessionBroadcast() {
+        sessionBroadcastGeneration = UUID()
+        sessionBroadcastSessionID = nil
         let transport = sessionBroadcastTransport
         sessionBroadcastTransport = nil
         Task { await transport?.stop() }
@@ -4725,8 +4763,12 @@ public final class DJConnectAppModel: ObservableObject {
 
     private func applySessionBroadcastEvent(_ event: DJConnectSessionBroadcastEvent) {
         guard let active = activeDJSession, active.sessionID == event.sessionID else { return }
+        if let sequence = event.deliverySequence, sequence <= (active.broadcast.delivery?.snapshotWatermark ?? -1) { return }
         if event.eventType == "runtime_ended" || event.eventType == "broadcast_stopped" {
+            sessionRequestGeneration = UUID()
             activeDJSession = nil
+            vibeCastHandoffApproved = false
+            vibeCastHandoffFailed = false
             stopSessionBroadcast()
             return
         }
@@ -4957,6 +4999,11 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     private func clearRuntimeState(backendAvailableAfterClear: Bool = true) {
+        sessionRequestGeneration = UUID()
+        activeDJSession = nil
+        stopSessionBroadcast()
+        vibeCastHandoffApproved = false
+        vibeCastHandoffFailed = false
         playbackProgressTask?.cancel()
         playbackProgressTask = nil
         volumeCommandTask?.cancel()
@@ -9395,6 +9442,11 @@ public final class DJConnectAppModel: ObservableObject {
         voiceErrorMessage = nil
 
         switch scenario {
+        case "moment_contract":
+            try? tokenStore.saveToken("local-moment-contract-fixture")
+            updateRequiredMessage = nil
+            isAppInForeground = true
+            Task { await refreshActiveDJSession() }
         case "pairing_success":
             isPairingScreenDismissed = false
             isShowingPairingSuccess = true

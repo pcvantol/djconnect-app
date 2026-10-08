@@ -147,6 +147,58 @@ final class DJConnectMacUITests: XCTestCase {
             try captureVerifiedScreenshot(named: name, allowDuplicate: name == "01-now-playing")
         }
     }
+    func testMomentFirstSessionAndIndependentPlayerNavigation() async throws {
+        let base = URL(string: "http://127.0.0.1:18787")!
+        _ = try await URLSession.shared.data(from: base.appendingPathComponent("fixture/reset"))
+        let app = XCUIApplication()
+        app.terminate()
+        app.launchArguments = ["--uitesting", "--runtime-fixture", "moment_contract", "-AppleLanguages", "(nl)", "-AppleLocale", "nl_NL"]
+        app.launchEnvironment["DJCONNECT_UITEST_HA_URL"] = base.absoluteString
+        app.launchEnvironment["DJCONNECT_UITEST_RUNTIME_FIXTURE"] = "moment_contract"
+        app.launch()
+        try await Task.sleep(for: .milliseconds(400))
+        app.terminate()
+        app.launch()
+        guard app.descendants(matching: .any)["uitest-runtime-fixture-active"].waitForExistence(timeout: 10) else {
+            XCTFail("The isolated runtime fixture was not activated; no navigation actions performed.")
+            return
+        }
+        XCTAssertTrue(app.staticTexts["De genrecontext bij Current van Artist is soul."].waitForExistence(timeout: 15))
+        try saveMomentScreenshot(app, "mac-01-moment")
+        _ = try await URLSession.shared.data(from: base.appendingPathComponent("fixture/advance"))
+        XCTAssertTrue(app.staticTexts["The bass and percussion leave space for the melody."].waitForExistence(timeout: 10))
+        try saveMomentScreenshot(app, "mac-02-next-moment")
+        app.buttons["Speelt Nu"].firstMatch.tap()
+        XCTAssertTrue(app.staticTexts["Current"].firstMatch.waitForExistence(timeout: 6))
+        try saveMomentScreenshot(app, "mac-03-player-active-session")
+        app.buttons["DJ-sessie"].firstMatch.tap()
+        _ = try await URLSession.shared.data(from: base.appendingPathComponent("fixture/reconnect"))
+        try await Task.sleep(for: .seconds(2))
+        XCTAssertTrue(app.staticTexts["The bass and percussion leave space for the melody."].waitForExistence(timeout: 10))
+        let (data, _) = try await URLSession.shared.data(from: base.appendingPathComponent("fixture/metrics"))
+        let metrics = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        XCTAssertEqual(metrics["playbackMutations"] as? Int, 0)
+        XCTAssertEqual(metrics["ended"] as? Bool, false)
+        app.buttons["Sessie beëindigen"].firstMatch.tap()
+        XCTAssertTrue(app.buttons["Start DJ-sessie"].waitForExistence(timeout: 10))
+        app.buttons["Speelt Nu"].firstMatch.tap()
+        XCTAssertTrue(app.staticTexts["Current"].firstMatch.waitForExistence(timeout: 6))
+        XCTAssertTrue(app.staticTexts["Current"].firstMatch.waitForExistence(timeout: 6))
+        try saveMomentScreenshot(app, "mac-04-player-ended-session")
+    }
+
+    private func saveMomentScreenshot(_ app: XCUIApplication, _ name: String) throws {
+        let screenshot = app.screenshot()
+        let attachment = XCTAttachment(screenshot: screenshot)
+        attachment.name = name
+        attachment.lifetime = .keepAlways
+        add(attachment)
+        let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+        let directory = root.appendingPathComponent("build/moment-first/screenshots")
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        try screenshot.pngRepresentation.write(to: directory.appendingPathComponent(name + ".png"))
+    }
+
 }
 
 @MainActor

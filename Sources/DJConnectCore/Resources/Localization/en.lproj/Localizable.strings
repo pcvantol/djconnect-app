@@ -974,3 +974,17 @@
 "ui.vibecast.handoff.approve" = "Show Session";
 "ui.vibecast.handoff.approved" = "Code approved. Waiting for VibeCast to connect.";
 "ui.vibecast.handoff.failed" = "The code expired or the handoff could not be completed.";
+
+// Native Moment-first Session
+"ui.session.quiet" = "The DJ is listening with you.";
+"ui.session.back_current" = "Back to current contribution";
+"ui.session.music_progress" = "Music progress";
+"ui.session.moment.generic" = "DJ contribution";
+"ui.session.moment.track_context" = "Track story";
+"ui.session.moment.artist_story" = "Artist story";
+"ui.session.moment.album_story" = "Album story";
+"ui.session.moment.genre_story" = "Genre story";
+"ui.session.moment.transition" = "Transition";
+"ui.session.moment.session_direction" = "Session direction";
+"ui.session.moment.recommendation" = "Recommendation";
+"ui.session.unavailable" = "DJ Session is temporarily unavailable.";

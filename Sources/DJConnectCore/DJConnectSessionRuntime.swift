@@ -54,6 +54,8 @@ public struct DJConnectSessionFlowItem: Codable, Equatable, Sendable, Identifiab
     public var itemType: String
     public var position: String
     public var label: String
+    public var momentID: String? = nil
+    public var momentType: String? = nil
 
     public var id: String { itemID }
 
@@ -61,16 +63,19 @@ public struct DJConnectSessionFlowItem: Codable, Equatable, Sendable, Identifiab
         case itemID = "item_id"
         case itemType = "item_type"
         case position, label
+        case momentID = "moment_id", momentType = "moment_type"
     }
 }
 
 public struct DJConnectSessionFlow: Codable, Equatable, Sendable {
+    public var flowRevision: Int? = nil
     public var flowID: String
     public var planningHorizonMinutes: Int
     public var createdAt: String
     public var items: [DJConnectSessionFlowItem]
 
     enum CodingKeys: String, CodingKey {
+        case flowRevision = "flow_revision"
         case flowID = "flow_id"
         case planningHorizonMinutes = "planning_horizon_minutes"
         case createdAt = "created_at"
@@ -83,11 +88,13 @@ public struct DJConnectBroadcastState: Codable, Equatable, Sendable {
         public var sessionID: String
         public var runtimeState: String
         public var selectedMood: String
+        public var locale: String? = nil
 
         enum CodingKeys: String, CodingKey {
             case sessionID = "session_id"
             case runtimeState = "runtime_state"
             case selectedMood = "selected_mood"
+            case locale
         }
     }
 
@@ -103,13 +110,40 @@ public struct DJConnectBroadcastState: Codable, Equatable, Sendable {
         }
     }
 
+    public struct Delivery: Codable, Equatable, Sendable {
+        public var snapshotWatermark: Int?
+        enum CodingKeys: String, CodingKey { case snapshotWatermark = "snapshot_watermark" }
+    }
+    public var djMoments: [DJConnectMoment] = []
+    public var presentations: [DJConnectPresentation] = []
+    public var playback: DJConnectSessionPlayback? = nil
+    public var delivery: Delivery? = nil
     public var session: Session
     public var planner: Planner
     public var sessionFlow: DJConnectSessionFlow
 
     enum CodingKeys: String, CodingKey {
         case session, planner
+        case djMoments = "dj_moments", presentations, playback
+        case delivery = "broadcast"
         case sessionFlow = "session_flow"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        session = try c.decode(Session.self, forKey: .session)
+        planner = try c.decode(Planner.self, forKey: .planner)
+        sessionFlow = try c.decode(DJConnectSessionFlow.self, forKey: .sessionFlow)
+        var seen = Set<String>()
+        djMoments = ((try? c.decode([LossyBroadcastValue<DJConnectMoment>].self, forKey: .djMoments))?.compactMap(\.value) ?? []).filter {
+            $0.sessionID == session.sessionID && !$0.id.isEmpty && seen.insert($0.id).inserted
+        }
+        presentations = (try? c.decode([LossyBroadcastValue<DJConnectPresentation>].self, forKey: .presentations))?.compactMap(\.value) ?? []
+        playback = try? c.decode(DJConnectSessionPlayback.self, forKey: .playback)
+        delivery = try? c.decode(Delivery.self, forKey: .delivery)
+    }
+    public init(session: Session, planner: Planner, sessionFlow: DJConnectSessionFlow) {
+        self.session = session; self.planner = planner; self.sessionFlow = sessionFlow
     }
 }
 
@@ -178,18 +212,37 @@ public struct DJConnectSessionBroadcastEvent: Codable, Equatable, Sendable {
         public var session: DJConnectBroadcastState.Session?
         public var planner: DJConnectBroadcastState.Planner?
         public var sessionFlow: DJConnectSessionFlow?
+        public var djMoment: DJConnectMoment? = nil
+        public var presentation: DJConnectPresentation? = nil
+        public var playback: DJConnectSessionPlayback? = nil
 
         enum CodingKeys: String, CodingKey {
-            case session, planner
+            case session, planner, playback, presentation
+            case djMoment = "dj_moment"
             case sessionFlow = "session_flow"
+        }
+
+        public init(from decoder: Decoder) throws {
+            let c = try decoder.container(keyedBy: CodingKeys.self)
+            session = try? c.decode(DJConnectBroadcastState.Session.self, forKey: .session)
+            planner = try? c.decode(DJConnectBroadcastState.Planner.self, forKey: .planner)
+            sessionFlow = try? c.decode(DJConnectSessionFlow.self, forKey: .sessionFlow)
+            djMoment = try? c.decode(DJConnectMoment.self, forKey: .djMoment)
+            presentation = try? c.decode(DJConnectPresentation.self, forKey: .presentation)
+            playback = try? c.decode(DJConnectSessionPlayback.self, forKey: .playback)
+        }
+        public init(session: DJConnectBroadcastState.Session? = nil, planner: DJConnectBroadcastState.Planner? = nil, sessionFlow: DJConnectSessionFlow? = nil) {
+            self.session = session; self.planner = planner; self.sessionFlow = sessionFlow
         }
     }
 
+    public var deliverySequence: Int? = nil
     public var eventType: String
     public var sessionID: String
     public var payload: Payload
 
     enum CodingKeys: String, CodingKey {
+        case deliverySequence = "delivery_sequence"
         case eventType = "event_type"
         case sessionID = "session_id"
         case payload
@@ -199,6 +252,8 @@ public struct DJConnectSessionBroadcastEvent: Codable, Equatable, Sendable {
 public extension DJConnectSessionRuntime {
     func applying(broadcastState: DJConnectBroadcastState) -> DJConnectSessionRuntime {
         var runtime = self
+        guard broadcastState.session.sessionID == sessionID,
+              (broadcastState.delivery?.snapshotWatermark ?? 0) >= (broadcast.delivery?.snapshotWatermark ?? 0) else { return self }
         runtime.runtimeState = broadcastState.session.runtimeState
         runtime.selectedMood = broadcastState.session.selectedMood
         runtime.planner = DJConnectPlannerRuntime(
@@ -209,7 +264,16 @@ public extension DJConnectSessionRuntime {
     }
 
     func applying(broadcastEvent: DJConnectSessionBroadcastEvent) -> DJConnectSessionRuntime {
+        guard broadcastEvent.sessionID == sessionID else { return self }
+        if let sequence = broadcastEvent.deliverySequence,
+           sequence <= (broadcast.delivery?.snapshotWatermark ?? -1) { return self }
         var state = broadcast
+        if let sequence = broadcastEvent.deliverySequence { state.delivery = .init(snapshotWatermark: sequence) }
+        if let playback = broadcastEvent.payload.playback { state.playback = playback }
+        if let moment = broadcastEvent.payload.djMoment, moment.sessionID == sessionID,
+           !state.djMoments.contains(where: { $0.id == moment.id }) { state.djMoments.append(moment) }
+        if let presentation = broadcastEvent.payload.presentation,
+           !state.presentations.contains(where: { $0.id == presentation.id }) { state.presentations.append(presentation) }
         if let session = broadcastEvent.payload.session { state.session = session }
         if let planner = broadcastEvent.payload.planner { state.planner = planner }
         if let sessionFlow = broadcastEvent.payload.sessionFlow { state.sessionFlow = sessionFlow }

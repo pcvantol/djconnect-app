@@ -974,3 +974,17 @@
 "ui.vibecast.handoff.approve" = "Sessie tonen";
 "ui.vibecast.handoff.approved" = "Code goedgekeurd. Wachten tot VibeCast verbinding maakt.";
 "ui.vibecast.handoff.failed" = "De code is verlopen of de overdracht is mislukt.";
+
+// Native Moment-first Session
+"ui.session.quiet" = "De DJ luistert met je mee.";
+"ui.session.back_current" = "Terug naar de actuele bijdrage";
+"ui.session.music_progress" = "Muziekvoortgang";
+"ui.session.moment.generic" = "DJ-bijdrage";
+"ui.session.moment.track_context" = "Trackverhaal";
+"ui.session.moment.artist_story" = "Artiestenverhaal";
+"ui.session.moment.album_story" = "Albumverhaal";
+"ui.session.moment.genre_story" = "Genreverhaal";
+"ui.session.moment.transition" = "Overgang";
+"ui.session.moment.session_direction" = "Sessierichting";
+"ui.session.moment.recommendation" = "Aanbeveling";
+"ui.session.unavailable" = "DJ-sessie is tijdelijk niet bereikbaar.";

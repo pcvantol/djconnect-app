@@ -1,5 +1,28 @@
 # DJConnect App Engineering Status
 
+## Current Apple assignment — 2026-10-08
+
+`DJC-APPLE-MOMENT-FIRST-SESSION-V1-20261008` is the one selected Apple
+assignment: native Moment-first Session plus independent Speelt nu restoration.
+Status: `IN_PROGRESS`; integrated/native acceptance, independent review,
+protected delivery and separate Finalization remain open.
+
+Exact Apple base: `2fc7fdf173d9ddb9c309e5837f1c7a449e170be9`.
+Branch: `codex/apple-moment-first-session`. The same sole writer preserved the
+primary WIP and moved active verification to an isolated temporary clone after
+macOS dataless source/index reads stalled. Producer receipt source remains
+immutable `ee05c9422cd7a7a08bbe769925248632fa651961`.
+See [bounded assessment](docs/APPLE_MOMENT_FIRST_SESSION_ASSESSMENT.md) and
+[owning register](https://github.com/pcvantol/djconnect-app/issues/87).
+Core source rights/lifetime/active-Flow/action admission remains separately owned.
+No publication, signing certificate, physical installation or HA deployment is
+inferred from this pickup.
+
+The previous VibeCast slice is closed by #87 comments 6010273946 and
+6010386668. The following predecessor sections retain their historical freeze
+points and do not reopen that assignment.
+
+
 ## VibeCast Session locale handoff
 
 Apple [PR #93](https://github.com/pcvantol/djconnect-app/pull/93) merged the
