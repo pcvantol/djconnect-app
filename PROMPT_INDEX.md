@@ -14,9 +14,9 @@ De source-merge is exact-main gekwalificeerd: main-CI
 en interne SHA-evidence
 [37812663643](https://github.com/pcvantol/djconnect-app/actions/runs/37812663643)
 zijn PASS. Deze afzonderlijke Finalization-documenten verzoenen de bronstatus,
-het oorspronkelijke WIP en de aanvullende productafhankelijkheden. De owning
-[#87](https://github.com/pcvantol/djconnect-app/issues/87) bevat het definitieve
-protected-merge-, publicatie- en cleanup-readback voor dit documentpakket.
+het oorspronkelijke WIP en de aanvullende productafhankelijkheden. Het definitieve protected-merge-, publicatie- en cleanup-readback voor
+dit documentpakket wordt na uitvoering in owning
+[#87](https://github.com/pcvantol/djconnect-app/issues/87) geregistreerd.
 Native iPhone/iPad/Mac met werkelijke pinned producer→owner transport→state→
 SwiftUI, beide spelersituaties, zes netwerkgevallen, 408 reguliere tests,
 vijf talen en onafhankelijke technische/UX reviews slagen. Bewijs en grenzen:

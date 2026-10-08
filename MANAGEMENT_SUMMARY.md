@@ -14,9 +14,9 @@ De source-merge is exact-main gekwalificeerd: main-CI
 en interne SHA-evidence
 [37812663643](https://github.com/pcvantol/djconnect-app/actions/runs/37812663643)
 zijn PASS. Deze afzonderlijke Finalization-documenten verzoenen de bronstatus,
-het oorspronkelijke WIP en de aanvullende productafhankelijkheden. De owning
-[#87](https://github.com/pcvantol/djconnect-app/issues/87) bevat het definitieve
-protected-merge-, publicatie- en cleanup-readback voor dit documentpakket.
+het oorspronkelijke WIP en de aanvullende productafhankelijkheden. Het definitieve protected-merge-, publicatie- en cleanup-readback voor
+dit documentpakket wordt na uitvoering in owning
+[#87](https://github.com/pcvantol/djconnect-app/issues/87) geregistreerd.
 Native iPhone/iPad/Mac met werkelijke pinned producer→owner transport→state→
 SwiftUI, beide spelersituaties, zes netwerkgevallen, 408 reguliere tests,
 vijf talen en onafhankelijke technische/UX reviews slagen. Bewijs en grenzen:
@@ -30,36 +30,6 @@ voor een gerelateerde Apple vervolg-PR vóór pickup. #95 levert de actuele
 Moment/Flow en onafhankelijke speler, geen persoonlijke archief/conversatieclaim.
 Cast/Pages en LG hostkwalificatie behouden aparte grenzen. Geen nieuwe schrijver,
 Store-release, certificaat, fysieke installatie of HA-deployment.
-
-## Current Apple assignment — 2026-10-08
-
-`DJC-APPLE-MOMENT-FIRST-SESSION-V1-20261008`, same sole writer/pickup,
-[PR #95](https://github.com/pcvantol/djconnect-app/pull/95): native live Moment/Flow
-and independent Speelt nu. Base `2fc7fdf173d9ddb9c309e5837f1c7a449e170be9`,
-branch `codex/apple-moment-first-session`. Original dataless-checkout WIP remains
-preserved; the isolated temporary checkout is the only active source writer.
-
-Status `IN_PROGRESS`: iPhone lifecycle, native Mac real-window sequence, prior
-iPad adaptive-layout sequence, English/detail/Spotify native cases and large-text
-audit pass. 408 regular tests pass with six opt-in skips; localized copy validates
-in all five languages. Review-request loading/error/sequence/recovery findings
-are corrected; fresh exact-candidate independent review and current iPad rerun
-remain open. Protected merge, specific internal SHA publication authority,
-exact-main readback and mandatory separate Finalization remain pending.
-
-Immutable native producer capture `3d17994d28c71402a9076c0082c490820204ccda`
-now belongs to independently delivered Core #1128/#1129. Apple performs no Core
-writes or HA deployment. Human approval covers temporary local Mac ad-hoc test
-bundles and two read-only reviewers, not Store/TestFlight or physical installation.
-See [bounded assessment](docs/APPLE_MOMENT_FIRST_SESSION_ASSESSMENT.md).
-
-Latest conversation/history addendum6061498264 requires a registered dependent
-Apple follow-up after Profile-owned producer list/detail/Ask DJ context/turn/history
-contracts are available through the existing Core slot. Targeted contract handoff
-[6064346207](https://github.com/pcvantol/djconnect/issues/1101#issuecomment-6064346207)
-does not dispatch/reopen Core. #95 does not claim archived Sessions or private
-contextual text/voice bubbles. Shared VibeCast identity/meaning stays aligned;
-Cast/Pages and LG host work retain separate follow-up and effect boundaries.
 
 ## VibeCast Session locale handoff
 
