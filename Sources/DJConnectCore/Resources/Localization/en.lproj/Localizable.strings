@@ -990,3 +990,6 @@
 "ui.session.unavailable" = "DJ Session is temporarily unavailable.";
 "ui.session.demo_unavailable" = "DJ Sessions are unavailable in Demo Mode.";
 "ui.session.requires_connection" = "Connect to Home Assistant to start a DJ Session.";
+
+"ui.session.source_current" = "Recording";
+"ui.session.source_previous" = "Previous recording";

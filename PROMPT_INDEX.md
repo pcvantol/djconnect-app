@@ -11,10 +11,13 @@ Exact Apple base: `2fc7fdf173d9ddb9c309e5837f1c7a449e170be9`.
 Branch: `codex/apple-moment-first-session`. The same sole writer preserved the
 primary WIP and moved active verification to an isolated temporary clone after
 macOS dataless source/index reads stalled. Producer receipt source remains
-immutable `ee05c9422cd7a7a08bbe769925248632fa651961`.
+immutable final candidate `3d17994d28c71402a9076c0082c490820204ccda`
+(native_delivery v1, Core #1128; not merged/installed HA).
 See [bounded assessment](docs/APPLE_MOMENT_FIRST_SESSION_ASSESSMENT.md) and
 [owning register](https://github.com/pcvantol/djconnect-app/issues/87).
-Core source rights/lifetime/active-Flow/action admission remains separately owned.
+Core source rights/lifetime/active-Flow/action admission remains separately owned;
+its exact receipt is consumed by this same Apple writer. Native Mac, independent
+review and full Flow-detail/accessibility/Spotify renderer acceptance remain open.
 No publication, signing certificate, physical installation or HA deployment is
 inferred from this pickup.
 

@@ -990,3 +990,6 @@
 "ui.session.unavailable" = "DJ-sessie is tijdelijk niet bereikbaar.";
 "ui.session.demo_unavailable" = "DJ-sessies zijn niet beschikbaar in Demo-modus.";
 "ui.session.requires_connection" = "Verbind met Home Assistant om een DJ-sessie te starten.";
+
+"ui.session.source_current" = "Opname";
+"ui.session.source_previous" = "Eerdere opname";

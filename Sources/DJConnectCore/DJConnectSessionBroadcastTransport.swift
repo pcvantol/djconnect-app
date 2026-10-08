@@ -33,7 +33,8 @@ public actor DJConnectSessionBroadcastTransport {
         onSnapshot: @escaping SnapshotHandler,
         onEvent: @escaping EventHandler,
         onTerminated: @escaping TerminationHandler,
-        onUnavailable: @escaping TerminationHandler = {}
+        onUnavailable: @escaping TerminationHandler = {},
+        onDisconnected: @escaping TerminationHandler = {}
     ) {
         stop()
         shouldRun = true
@@ -44,7 +45,8 @@ public actor DJConnectSessionBroadcastTransport {
                 onSnapshot: onSnapshot,
                 onEvent: onEvent,
                 onTerminated: onTerminated,
-                onUnavailable: onUnavailable
+                onUnavailable: onUnavailable,
+                onDisconnected: onDisconnected
             )
         }
     }
@@ -63,7 +65,8 @@ public actor DJConnectSessionBroadcastTransport {
         onSnapshot: @escaping SnapshotHandler,
         onEvent: @escaping EventHandler,
         onTerminated: @escaping TerminationHandler,
-        onUnavailable: @escaping TerminationHandler
+        onUnavailable: @escaping TerminationHandler,
+        onDisconnected: @escaping TerminationHandler
     ) async {
         var retryDelay: UInt64 = 1_000_000_000
         while shouldRun, !Task.isCancelled {
@@ -77,7 +80,9 @@ public actor DJConnectSessionBroadcastTransport {
                     await onEvent(event)
                     if event.eventType == "runtime_ended" || event.eventType == "broadcast_stopped" {
                         stop()
-                        await onTerminated()
+                        if event.payload.nativeDelivery?.revocationScope == "subscription" {
+                            await onDisconnected()
+                        } else { await onTerminated() }
                         return
                     }
                 }
@@ -85,6 +90,7 @@ public actor DJConnectSessionBroadcastTransport {
                 guard shouldRun, !Task.isCancelled else { return }
                 socket?.cancel(with: .goingAway, reason: nil)
                 socket = nil
+                await onDisconnected()
                 if error is DJConnectSessionBroadcastEndedError {
                     stop()
                     await onTerminated()

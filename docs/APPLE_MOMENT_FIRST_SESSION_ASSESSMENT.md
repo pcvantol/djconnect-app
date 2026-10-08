@@ -7,7 +7,10 @@ Status: implementation WIP; no complete product/native qualification or merge.
 
 Both native Moment-first DJ Session and independent Speelt nu belong to this
 one Apple slice. Apple base: `2fc7fdf173d9ddb9c309e5837f1c7a449e170be9`.
-Producer assessment/receipt pin: `ee05c9422cd7a7a08bbe769925248632fa651961`.
+Original assessment pin: `ee05c9422cd7a7a08bbe769925248632fa651961`.
+Current producer contract candidate: `3d17994d28c71402a9076c0082c490820204ccda`,
+tree `18620004f02663cc0d263073142527b95581cffa`, draft Core #1128.
+This is an exact producer candidate, not merged/installed HA.
 Owner selection and ACK/STARTED are in [#87](https://github.com/pcvantol/djconnect-app/issues/87).
 Core remains a separate source lane. This consumer does not write Core.
 
@@ -31,20 +34,35 @@ export, history owner, Persona rewrite, local Planner or invented actions.
 The owner subscription uses normal HA authentication plus paired DJConnect
 identity; receiver grants and VibeCast web pages are not used.
 
-## Precise producer admission still open
+## Pinned producer admission consumed
 
-See [Apple gap](https://github.com/pcvantol/djconnect-app/issues/87#issuecomment-6055967587)
-and [Core gap](https://github.com/pcvantol/djconnect/issues/1101#issuecomment-6055968322).
-The pinned projection has no authoritative source fact expiry/revocation or
-native active-Flow historical-display allowance. The qualified source contract
-limits VibeCast visual source cards, expires facts after 30 minutes and does
-not qualify historical display. Semantic Moment actions have no established
-consumer execution endpoint/capability contract. Do not infer these rights
-from an owner-authorized array, receiver grant or old release consent.
+The initial [Apple gap](https://github.com/pcvantol/djconnect-app/issues/87#issuecomment-6055967587)
+and [Core gap](https://github.com/pcvantol/djconnect/issues/1101#issuecomment-6055968322)
+are now addressed by the [exact producer receipt](https://github.com/pcvantol/djconnect-app/issues/87#issuecomment-6059342828).
+Apple decodes `native_delivery` v1 as replacement authority, separate from
+Moment identity, text/Persona, Flow revision and event watermark. Current uses
+the supplied current ID, playing/item binding, admission and original deadlines.
+Earlier-only Flow uses ordered permitted IDs and original source expiry. Missing,
+unknown or malformed authority cannot grant display. Attributed CC0 source cards
+retain both recording URLs with native localized link labels. Spotify current-only
+cards remain suppressed pending a qualified renderer mark/attribution asset;
+this is an explicit Apple presentation finding, not a missing Core rights field.
+The executable-action allowlist remains empty; existing player/Ask DJ/queue/handoff
+routes retain their independent authority.
 
-Until the producer owner resolves these exact conditions, attributed/source
-cards and unqualified semantic action execution stay suppressed. This is a
-blocking admission limitation, not completed Moment-first product delivery.
+Background/disconnect clear both native authority and Moment/Presentation copies;
+a fresh owner projection is required to resume. Expiry events replace admission
+and prune withdrawn content, including open Flow detail. Terminal denial clears
+before sequence filtering even without a sequence. Subscription withdrawal clears
+that display channel without declaring the server Runtime ended; normal Session
+end clears the whole Session. No individual source-revoke API is invented.
+
+`Tools/generate_native_moment_receipt.py` executes the exact pin's existing producer
+capture through an immutable archive; no mutable Core source is imported or
+written. Synthetic recovery cursors are omitted. Its actual owner HTTP/subscription
+snapshots/events cover credits, shared producer, source expiry, snapshot-required
+reconnect and normal end. These remain software fixtures, not live provider,
+installed HA or Mac native proof.
 
 ## Red scenarios and evidence boundaries
 
@@ -122,3 +140,28 @@ Finalization is claimed. Those remain required after contract/native/independent
 review gates pass, and each concrete main publication needs its own authority.
 No Store/TestFlight/public release, signing certificate, physical installation,
 Core/HA deployment or workflow/protection change belongs to this WIP.
+
+## Native delivery candidate readback
+
+Pinned receipt tests prove current/earlier CC0 display, two links, unchanged Persona,
+original shared-source shortest deadline, presentation expiry separate from recall,
+missing/unknown/schema/Spotify-attribution denial, event admission replacement,
+source-text pruning and unsequenced terminal clearing. The broad concurrent run
+failed with eight timing/fixture issues in three existing tests; the full serial
+run passed 406 regular tests with four opt-in network skips (410 reported).
+
+Latest native iPhone and iPad actual HTTP/WebSocket→state→SwiftUI sequences PASS
+for admitted source cards/both links, background recovery, independent player,
+source expiry/reconnect without revival, end and no-Session player. iPad includes
+settled portrait/landscape and visible Meer. Source/Mac/physical/install acceptance
+remain distinct; earlier Track Insight fixtures now decode but grant no native
+card without v1 admission, as the producer contract requires.
+
+The additional native open-Flow-detail/expiry attempt stalled without a valid
+final bundle and is NOT QUALIFIED. It is retained as a separate UI test, not
+counted as the successful current/list/navigation sequence. The renderer's
+Spotify mark finding and Mac/English/accessibility/independent review remain
+open. A new delayed-HTTP network scenario proves that a response requested
+before background cannot repopulate authority afterward; request generations
+and loading completion are guarded. The three final-pin contract/state/network
+tests pass, including this late response and unsequenced terminal denial.

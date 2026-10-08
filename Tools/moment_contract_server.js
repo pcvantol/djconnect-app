@@ -8,11 +8,13 @@ const fs = require('fs');
 const {decodeFrame, encodeFrame} = require('./ha_contract_fixture');
 let receipt = JSON.parse(fs.readFileSync(process.argv[2], 'utf8'));
 if (!Array.isArray(receipt.end_events)) throw new Error('Generate a fresh pinned receipt with Runtime end events before starting the fixture');
+let nativeCapture = null;
 let snapshot = receipt.snapshot;
 let ended = false;
 let rejectOwner = false;
 let cacheable = false;
 let malformed = false;
+let delayActive = false;
 let subscriptions = 0;
 let playbackMutations = 0;
 let commandKinds = [];
@@ -25,7 +27,15 @@ const server = http.createServer(async (request,response) => {
   const body = rawBody ? JSON.parse(rawBody) : {};
   const path = request.url.split('?')[0];
   let data = {success:true};
-  if (path === '/fixture/reset') {
+  if (path === '/fixture/native_reset') {
+    require('child_process').execFileSync('python3', ['Tools/generate_native_moment_receipt.py','--core',process.argv[3],'--output',process.argv[2]+'.native'], {timeout:45000});
+    nativeCapture = JSON.parse(fs.readFileSync(process.argv[2]+'.native','utf8')).after;
+    snapshot = nativeCapture.http_initial.snapshot;
+    receipt.runtime = {...receipt.runtime,session_id:snapshot.session.session_id,broadcast:snapshot};
+    ended=false; rejectOwner=false; cacheable=false; malformed=false; subscriptions=0; playbackMutations=0; commandKinds=[];
+    for (const socket of sockets) socket.destroy();
+  } else if (path === '/fixture/reset') {
+    nativeCapture = null;
     require('child_process').execFileSync('python3', ['Tools/generate_moment_contract_receipt.py','--core',process.argv[3] || process.env.DJCONNECT_CORE_ROOT || require('path').resolve(__dirname, '../../djconnect'),'--output',process.argv[2]], {timeout:45000});
     receipt = JSON.parse(fs.readFileSync(process.argv[2], 'utf8')); snapshot = receipt.snapshot; ended = false; rejectOwner = false; cacheable = false; malformed = false; subscriptions = 0; playbackMutations = 0; commandKinds = [];
     for (const socket of sockets) socket.destroy();
@@ -33,13 +43,21 @@ const server = http.createServer(async (request,response) => {
   else if (path === '/api/djconnect/v1/websocket/session') data = {success:true,access_token:'local-fixture-ha-auth',expires_in:3600,commands:[]};
   else if (path === '/api/djconnect/v1/session/end') {
     ended = true;
-    for (const socket of sockets) for (const item of receipt.end_events) event(socket,item);
+    for (const socket of sockets) for (const item of (nativeCapture ? nativeCapture.events.slice(-2) : receipt.end_events)) event(socket,item);
   } else if (path === '/fixture/advance') {
-    snapshot = receipt.updated_snapshot;
-    for (const socket of sockets) for (const item of receipt.events) event(socket,item);
+    snapshot = nativeCapture ? nativeCapture.http_shared_producer.snapshot : receipt.updated_snapshot;
+    for (const socket of sockets) for (const item of (nativeCapture ? nativeCapture.events.slice(0,5) : receipt.events)) event(socket,item);
+  } else if (path === '/fixture/expire') {
+    snapshot = nativeCapture.expired;
+    for (const socket of sockets) for (const item of nativeCapture.events.slice(5,7)) event(socket,item);
+  } else if (path === '/fixture/terminal_denial') {
+    const terminal = {...nativeCapture.events.at(-1)}; delete terminal.delivery_sequence;
+    ended=true; for (const socket of sockets) event(socket,terminal);
   } else if (path === '/fixture/track_change') {
     snapshot = receipt.track_change_snapshot;
     for (const socket of sockets) for (const item of receipt.track_change_events) event(socket,item);
+  } else if (path === '/fixture/delay_active') {
+    delayActive = true;
   } else if (path === '/fixture/malformed') {
     malformed = true;
   } else if (path === '/fixture/cacheable') {
@@ -62,6 +80,7 @@ const server = http.createServer(async (request,response) => {
         track_name:p.title,artist_name:p.artist,progress_ms:p.position_ms,duration_ms:p.duration_ms,
         volume_percent:54,shuffle:false,repeat_state:'off'}};
   }
+  if (delayActive && path === '/api/djconnect/v1/session/active') await new Promise(resolve => setTimeout(resolve, 1000));
   response.writeHead(200,{'Content-Type':'application/json','Cache-Control':cacheable ? 'public,max-age=600' : 'no-store'});
   response.end(JSON.stringify(data));
 });

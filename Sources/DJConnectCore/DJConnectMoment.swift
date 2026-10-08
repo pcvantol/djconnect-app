@@ -131,3 +131,138 @@ struct LossyBroadcastValue<Value: Decodable>: Decodable {
     let value: Value?
     init(from decoder: Decoder) throws { value = try? Value(from: decoder) }
 }
+
+
+/// Ephemeral replacement authority supplied by the owner Broadcast route.
+public struct DJConnectNativeMomentDelivery: Codable, Equatable, Sendable {
+    public var schemaVersion: Int
+    public var sessionID: String
+    public var revision: String
+    public var currentMomentID: String?
+    public var activeFlowMomentIDs: [String]
+    public var admissions: [Admission]
+    public var revocationScope: String
+    public struct Admission: Codable, Equatable, Sendable {
+        public var momentID: String
+        public var qualification: String
+        public var currentDisplayAllowed: Bool
+        public var activeFlowDisplayAllowed: Bool
+        public var sourceExpiresAt: String?
+        public var displayExpiresAt: String?
+        public var executableActions: [String]
+        public var requiresSpotifyAttribution: Bool
+        public init(from decoder: Decoder) throws {
+            let c = try decoder.container(keyedBy: CodingKeys.self)
+            guard c.contains(.sourceExpiresAt), c.contains(.displayExpiresAt) else { throw DecodingError.dataCorrupted(.init(codingPath: decoder.codingPath, debugDescription: "Incomplete native deadline authority")) }
+            momentID = try c.decode(String.self, forKey: .momentID)
+            qualification = try c.decode(String.self, forKey: .qualification)
+            currentDisplayAllowed = try c.decode(Bool.self, forKey: .currentDisplayAllowed)
+            activeFlowDisplayAllowed = try c.decode(Bool.self, forKey: .activeFlowDisplayAllowed)
+            sourceExpiresAt = try c.decodeIfPresent(String.self, forKey: .sourceExpiresAt)
+            displayExpiresAt = try c.decodeIfPresent(String.self, forKey: .displayExpiresAt)
+            executableActions = try c.decode([String].self, forKey: .executableActions)
+            requiresSpotifyAttribution = try c.decode(Bool.self, forKey: .requiresSpotifyAttribution)
+        }
+        enum CodingKeys: String, CodingKey {
+            case momentID = "moment_id", qualification
+            case currentDisplayAllowed = "current_display_allowed", activeFlowDisplayAllowed = "active_flow_display_allowed"
+            case sourceExpiresAt = "source_expires_at", displayExpiresAt = "display_expires_at"
+            case executableActions = "executable_actions", requiresSpotifyAttribution = "requires_spotify_attribution"
+        }
+    }
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        guard c.contains(.currentMomentID) else { throw DecodingError.dataCorrupted(.init(codingPath: decoder.codingPath, debugDescription: "Incomplete native current authority")) }
+        schemaVersion = try c.decode(Int.self, forKey: .schemaVersion)
+        sessionID = try c.decode(String.self, forKey: .sessionID)
+        revision = try c.decode(String.self, forKey: .revision)
+        currentMomentID = try c.decodeIfPresent(String.self, forKey: .currentMomentID)
+        activeFlowMomentIDs = try c.decode([String].self, forKey: .activeFlowMomentIDs)
+        admissions = try c.decode([Admission].self, forKey: .admissions)
+        revocationScope = try c.decode(String.self, forKey: .revocationScope)
+    }
+    enum CodingKeys: String, CodingKey {
+        case schemaVersion = "schema_version", sessionID = "session_id", revision
+        case currentMomentID = "current_moment_id", activeFlowMomentIDs = "active_flow_moment_ids"
+        case admissions, revocationScope = "revocation_scope"
+    }
+}
+
+public extension DJConnectMoment {
+    /// Preserve producer references and both recording attributions without inventing URLs.
+    var nativeSourceURLs: [URL] {
+        let references = sourceReferences + [sourceAttribution?["url"], sourceAttribution?["url_previous"]].compactMap { $0 }
+        var seen = Set<String>()
+        return references.compactMap { raw in
+            guard let url = URL(string: raw), url.scheme == "https", url.host != nil,
+                  url.user == nil, url.password == nil, seen.insert(raw).inserted else { return nil }
+            return url
+        }
+    }
+}
+
+public extension DJConnectBroadcastState {
+    mutating func clearNativeAuthority() {
+        nativeDelivery = nil
+        djMoments = []
+        presentations = []
+    }
+    func nativeCurrentMoment(at date: Date) -> DJConnectMoment? {
+        guard session.runtimeState == "active", playback?.state == "playing",
+              let authority = nativeDelivery, authority.schemaVersion == 1,
+              authority.sessionID == session.sessionID, authority.revocationScope == "session",
+              !authority.revision.isEmpty, let id = authority.currentMomentID,
+              let moment = djMoments.first(where: { $0.id == id }),
+              moment.playbackItemID == playback?.itemID,
+              admitted(moment, authority: authority, at: date, current: true) else { return nil }
+        return moment
+    }
+    func nativeFlowMoments(at date: Date) -> [DJConnectMoment] {
+        guard session.runtimeState == "active", let authority = nativeDelivery,
+              authority.schemaVersion == 1, authority.sessionID == session.sessionID,
+              authority.revocationScope == "session", !authority.revision.isEmpty else { return [] }
+        let currentID = nativeCurrentMoment(at: date)?.id
+        var seen = Set<String>()
+        return authority.activeFlowMomentIDs.compactMap { id in
+            guard id != currentID, seen.insert(id).inserted,
+                  sessionFlow.items.contains(where: { $0.itemType == "dj_moment" && $0.momentID == id }),
+                  let moment = djMoments.first(where: { $0.id == id }),
+                  admitted(moment, authority: authority, at: date, current: false) else { return nil }
+            return moment
+        }
+    }
+    private func admitted(_ moment: DJConnectMoment, authority: DJConnectNativeMomentDelivery, at date: Date, current: Bool) -> Bool {
+        let matches = authority.admissions.filter { $0.momentID == moment.id }
+        guard matches.count == 1, let admission = matches.first,
+              admission.qualification == "qualified", admission.executableActions.isEmpty,
+              moment.sessionID == session.sessionID, !moment.content.isEmpty,
+              ["owner_only", "session_shared", "public_broadcast"].contains(moment.presentationIntent.visibility),
+              current ? admission.currentDisplayAllowed : admission.activeFlowDisplayAllowed else { return false }
+        // This renderer has no qualified Spotify mark asset. Do not silently
+        // grant its current-only cards or turn them into CC0 historical recall.
+        guard !admission.requiresSpotifyAttribution else { return false }
+        if let source = admission.sourceExpiresAt {
+            guard let expiry = nativeDeadline(source), date < expiry,
+                  let provider = moment.sourceAttribution?["provider"], ["MusicBrainz", "Wikidata"].contains(provider),
+                  moment.sourceAttribution?["license"] == "CC0-1.0",
+                  let url = moment.sourceAttribution?["url"], moment.nativeSourceURLs.contains(where: { $0.absoluteString == url }) else { return false }
+            if let previous = moment.sourceAttribution?["url_previous"], !moment.nativeSourceURLs.contains(where: { $0.absoluteString == previous }) { return false }
+        } else {
+            guard moment.type == "session", moment.sourceAttribution == nil,
+                  moment.sourceReferences == ["session_direction"],
+                  moment.knowledgeIntent?["type"] == "session_direction",
+                  moment.generationMetadata?["context_source"] == "session_direction",
+                  moment.generationMetadata?["validated"] == "true" else { return false }
+        }
+        if current {
+            guard let deadline = admission.displayExpiresAt.flatMap(nativeDeadline), date < deadline else { return false }
+        }
+        return true
+    }
+}
+
+private func nativeDeadline(_ value: String) -> Date? {
+    let parser = ISO8601DateFormatter()
+    parser.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+    return parser.date(from: value) ?? ISO8601DateFormatter().date(from: value)
+}

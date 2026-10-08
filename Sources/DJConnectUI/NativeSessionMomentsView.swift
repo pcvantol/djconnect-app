@@ -76,7 +76,11 @@ struct NativeSessionMomentsView: View {
         )) { selected in
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
-                    MomentCard(moment: selected, kind: kind(selected), presentation: presentation(for: selected))
+                    TimelineView(.periodic(from: .now, by: 1)) { clock in
+                        if session.broadcast.nativeFlowMoments(at: clock.date).contains(where: { $0.id == selected.id }) {
+                            MomentCard(moment: selected, kind: kind(selected), presentation: presentation(for: selected), language: language)
+                        } else { Text(text("ui.session.quiet")) }
+                    }
                     Button(text("ui.session.back_current")) {
                         selectedMomentID = nil
                         returnToCurrent()
@@ -92,49 +96,13 @@ struct NativeSessionMomentsView: View {
         }
     }
 
-    // Only already committed server Flow links can expose previous content.
-    // Source-card historical native-display rights remain a producer admission gate.
+    private var flowMoments: [DJConnectMoment] { session.broadcast.nativeFlowMoments(at: Date()) }
     private var flowItems: [DJConnectSessionFlowItem] {
-        var seen = Set<String>()
-        return session.broadcast.sessionFlow.items.filter { item in
-            item.itemType == "dj_moment" && seen.insert(item.momentID ?? item.id).inserted
-                && (item.momentType == "silence" || flowMoments.contains { $0.id == item.momentID })
+        flowMoments.compactMap { moment in
+            session.broadcast.sessionFlow.items.first { $0.itemType == "dj_moment" && $0.momentID == moment.id }
         }
     }
-
-    private var flowMoments: [DJConnectMoment] {
-        var seen = Set<String>()
-        return session.broadcast.sessionFlow.items.compactMap { item in
-            guard item.itemType == "dj_moment", let id = item.momentID, seen.insert(id).inserted else { return nil }
-            return session.broadcast.djMoments.first { $0.id == id && permitted($0) && !requiresSourceQualification($0) }
-        }
-    }
-
-    private func requiresSourceQualification(_ moment: DJConnectMoment) -> Bool {
-        moment.sourceAttribution != nil || (moment.generationMetadata?["provider"].map { $0 != "track_insight" } ?? false)
-    }
-
-    private func permitted(_ moment: DJConnectMoment) -> Bool {
-        moment.sessionID == session.id && moment.type != "silence"
-            && ["owner_only", "session_shared", "public_broadcast"].contains(moment.presentationIntent.visibility)
-            && !moment.content.isEmpty
-    }
-
-    private func currentMoment(at date: Date) -> DJConnectMoment? {
-        session.broadcast.djMoments.last { moment in
-            guard permitted(moment), !requiresSourceQualification(moment),
-                  let created = momentDate(moment.createdAt), created <= date,
-                  let duration = moment.presentationIntent.maximumDurationSeconds, duration > 0 else { return false }
-            if let item = session.broadcast.playback?.itemID, !item.isEmpty, moment.playbackItemID != item { return false }
-            return date.timeIntervalSince(created) < Double(min(duration, 90))
-        }
-    }
-
-    private func momentDate(_ value: String) -> Date? {
-        let formatter = ISO8601DateFormatter()
-        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        return formatter.date(from: value) ?? ISO8601DateFormatter().date(from: value)
-    }
+    private func currentMoment(at date: Date) -> DJConnectMoment? { session.broadcast.nativeCurrentMoment(at: date) }
 
     private func kind(_ moment: DJConnectMoment) -> String {
         let mapped = ["track": "track_context", "artist": "artist_story", "album": "album_story", "genre": "genre_story", "session": "session_direction"][moment.type] ?? moment.type
@@ -149,7 +117,7 @@ struct NativeSessionMomentsView: View {
 
     @ViewBuilder private func currentCard(_ moment: DJConnectMoment?) -> some View {
         if let moment {
-            MomentCard(moment: moment, kind: kind(moment), presentation: presentation(for: moment))
+            MomentCard(moment: moment, kind: kind(moment), presentation: presentation(for: moment), language: language)
                 .id(moment.id)
                 .transition(.opacity)
                 .accessibilityIdentifier("session-current-moment")
@@ -187,6 +155,7 @@ private struct MomentCard: View {
     let moment: DJConnectMoment
     let kind: String
     let presentation: DJConnectPresentation?
+    let language: String
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             Text(kind).font(.caption.weight(.bold)).foregroundStyle(.secondary)
@@ -197,16 +166,19 @@ private struct MomentCard: View {
                     Text(segment.text).fixedSize(horizontal: false, vertical: true)
                 }
             }
-            ForEach(moment.sourceReferences.filter { safeSourceURL($0) != nil }, id: \.self) { reference in
-                if let url = safeSourceURL(reference) { Link(url.host ?? reference, destination: url) }
+            ForEach(moment.nativeSourceURLs, id: \.absoluteString) { url in
+                Link(sourceLabel(url), destination: url)
+                    .accessibilityValue(url.absoluteString)
+                    .accessibilityIdentifier("moment-source-" + url.absoluteString)
             }
         }
         .padding(24).frame(maxWidth: .infinity, alignment: .leading)
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 24))
         .accessibilityElement(children: .contain)
     }
-    private func safeSourceURL(_ raw: String) -> URL? {
-        guard let url = URL(string: raw), url.scheme == "https", url.user == nil, url.password == nil, url.host != nil else { return nil }
-        return url
+    private func sourceLabel(_ url: URL) -> String {
+        let key = url.absoluteString == moment.sourceAttribution?["url_previous"] ? "ui.session.source_previous" : "ui.session.source_current"
+        let provider = moment.sourceAttribution?["provider"] ?? url.host ?? ""
+        return provider + " · " + DJConnectLocalization.localized(key: key, language: language)
     }
 }

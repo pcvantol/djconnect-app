@@ -672,7 +672,7 @@ final class DJConnectIOSUITests: XCTestCase {
     }
     func testMomentFirstSessionAndIndependentPlayerNavigation() async throws {
         let base = URL(string: "http://127.0.0.1:18787")!
-        _ = try await URLSession.shared.data(from: base.appendingPathComponent("fixture/reset"))
+        _ = try await URLSession.shared.data(from: base.appendingPathComponent("fixture/native_reset"))
         let app = XCUIApplication()
         app.terminate()
         app.launchArguments = ["--uitesting", "--runtime-fixture", "moment_contract", "-AppleLanguages", "(nl)", "-AppleLocale", "nl_NL"]
@@ -686,10 +686,12 @@ final class DJConnectIOSUITests: XCTestCase {
             XCTFail("The isolated runtime fixture was not activated; no navigation actions performed.")
             return
         }
-        XCTAssertTrue(app.staticTexts["De genrecontext bij Current van Artist is soul."].waitForExistence(timeout: 15))
+        XCTAssertTrue(app.staticTexts["Even meekijken in de credits: Nora Vale en Sam Reed zijn hier als producers gecrediteerd."].waitForExistence(timeout: 15))
         try saveMomentScreenshot(app, "ios-01-moment")
         _ = try await URLSession.shared.data(from: base.appendingPathComponent("fixture/advance"))
-        XCTAssertTrue(app.staticTexts["The bass and percussion leave space for the melody."].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label == %@", "Nora Vale kwamen we eerder tegen bij «Amber Lines», als producer. Bij «Slow Lanterns» staat die naam opnieuw in de producercredits.")).firstMatch.waitForExistence(timeout: 10))
+        XCTAssertTrue(app.descendants(matching: .any)["moment-source-https://musicbrainz.org/recording/00000000-0000-0000-0000-000000000002"].exists)
+        XCTAssertTrue(app.descendants(matching: .any)["moment-source-https://musicbrainz.org/recording/00000000-0000-0000-0000-000000000001"].exists)
         try saveMomentScreenshot(app, "ios-02-next-moment")
         if app.frame.width > 600 {
             XCUIDevice.shared.orientation = .landscapeLeft
@@ -699,7 +701,7 @@ final class DJConnectIOSUITests: XCTestCase {
             }
             XCTAssertGreaterThan(app.frame.width, app.frame.height)
             try await Task.sleep(for: .seconds(1))
-            XCTAssertTrue(app.staticTexts["Current"].firstMatch.waitForExistence(timeout: 8))
+            XCTAssertTrue(app.staticTexts["Slow Lanterns"].firstMatch.waitForExistence(timeout: 8))
             XCTAssertTrue(app.buttons["Meer"].firstMatch.isHittable, "Standalone player navigation must remain visible in landscape.")
             try saveMomentScreenshot(app, "ios-02a-moment-landscape")
             XCUIDevice.shared.orientation = .portrait
@@ -712,7 +714,7 @@ final class DJConnectIOSUITests: XCTestCase {
         XCUIDevice.shared.press(.home)
         app.activate()
         try await Task.sleep(for: .seconds(2))
-        XCTAssertTrue(app.staticTexts["Current"].firstMatch.waitForExistence(timeout: 10))
+        XCTAssertTrue(app.staticTexts["Slow Lanterns"].firstMatch.waitForExistence(timeout: 10))
         let more = app.tabBars.buttons["Meer"].exists ? app.tabBars.buttons["Meer"] : app.buttons["Meer"].firstMatch
         more.tap()
         app.buttons["Speelt Nu"].firstMatch.tap()
@@ -720,12 +722,16 @@ final class DJConnectIOSUITests: XCTestCase {
         try saveMomentScreenshot(app, "ios-03-player-active-session")
         let sessionTab = app.tabBars.buttons["DJ-sessie"].exists ? app.tabBars.buttons["DJ-sessie"] : app.buttons["DJ-sessie"].firstMatch
         sessionTab.tap()
-        _ = try await URLSession.shared.data(from: base.appendingPathComponent("fixture/track_change"))
-        XCTAssertTrue(app.staticTexts["Next"].firstMatch.waitForExistence(timeout: 10))
-        try saveMomentScreenshot(app, "ios-03a-track-change")
+        _ = try await URLSession.shared.data(from: base.appendingPathComponent("fixture/expire"))
+        XCTAssertTrue(app.staticTexts["Slow Lanterns"].firstMatch.waitForExistence(timeout: 10))
+        try await Task.sleep(for: .seconds(1))
+        XCTAssertFalse(app.staticTexts["Even meekijken in de credits: Nora Vale en Sam Reed zijn hier als producers gecrediteerd."].exists)
+        XCTAssertFalse(app.descendants(matching: .any)["moment-source-https://musicbrainz.org/recording/00000000-0000-0000-0000-000000000002"].exists)
+        try saveMomentScreenshot(app, "ios-03a-source-expiry")
         _ = try await URLSession.shared.data(from: base.appendingPathComponent("fixture/reconnect"))
         try await Task.sleep(for: .seconds(2))
-        XCTAssertTrue(app.staticTexts["Next"].firstMatch.waitForExistence(timeout: 10))
+        XCTAssertTrue(app.staticTexts["Slow Lanterns"].firstMatch.waitForExistence(timeout: 10))
+        XCTAssertFalse(app.descendants(matching: .any)["moment-source-https://musicbrainz.org/recording/00000000-0000-0000-0000-000000000002"].exists)
         let (data, _) = try await URLSession.shared.data(from: base.appendingPathComponent("fixture/metrics"))
         let metrics = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
         XCTAssertEqual(metrics["playbackMutations"] as? Int, 0)
@@ -744,6 +750,33 @@ final class DJConnectIOSUITests: XCTestCase {
         app.buttons["Speelt Nu"].firstMatch.tap()
         XCTAssertTrue(app.navigationBars["Speelt Nu"].waitForExistence(timeout: 6))
         try saveMomentScreenshot(app, "ios-05-player-no-session")
+    }
+
+    func testAuthorizedFlowDetailAndOpenSourceExpiry() async throws {
+        let base = URL(string: "http://127.0.0.1:18787")!
+        _ = try await URLSession.shared.data(from: base.appendingPathComponent("fixture/native_reset"))
+        let app = XCUIApplication()
+        app.terminate()
+        app.launchArguments = ["--uitesting", "--runtime-fixture", "moment_contract", "-AppleLanguages", "(nl)", "-AppleLocale", "nl_NL"]
+        app.launchEnvironment["DJCONNECT_UITEST_HA_URL"] = base.absoluteString
+        app.launchEnvironment["DJCONNECT_UITEST_RUNTIME_FIXTURE"] = "moment_contract"
+        app.launch()
+        try await Task.sleep(for: .milliseconds(400))
+        app.terminate()
+        app.launch()
+        guard app.descendants(matching: .any)["uitest-runtime-fixture-active"].waitForExistence(timeout: 10) else {
+            XCTFail("The isolated runtime fixture was not activated; no navigation actions performed.")
+            return
+        }
+        _ = try await URLSession.shared.data(from: base.appendingPathComponent("fixture/advance"))
+        let secondText = "Nora Vale kwamen we eerder tegen bij «Amber Lines», als producer. Bij «Slow Lanterns» staat die naam opnieuw in de producercredits."
+        XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label == %@", secondText)).firstMatch.waitForExistence(timeout: 10))
+        app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "session-flow-")).firstMatch.tap()
+        XCTAssertTrue(app.staticTexts["Even meekijken in de credits: Nora Vale en Sam Reed zijn hier als producers gecrediteerd."].waitForExistence(timeout: 5))
+        try saveMomentScreenshot(app, "ios-02b-active-flow-recall")
+        _ = try await URLSession.shared.data(from: base.appendingPathComponent("fixture/expire"))
+        try await Task.sleep(for: .seconds(1))
+        XCTAssertFalse(app.staticTexts["Even meekijken in de credits: Nora Vale en Sam Reed zijn hier als producers gecrediteerd."].exists)
     }
 
     private func saveMomentScreenshot(_ app: XCUIApplication, _ name: String) throws {

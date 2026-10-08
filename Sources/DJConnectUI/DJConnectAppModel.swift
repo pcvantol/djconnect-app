@@ -1756,6 +1756,8 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     public func markInactiveSession() {
+        sessionRequestGeneration = UUID()
+        isLoadingDJSession = false
         isAppInForeground = false
         stopSessionBroadcast()
         scheduledPairingTask?.cancel()
@@ -4601,7 +4603,7 @@ public final class DJConnectAppModel: ObservableObject {
         let request = UUID()
         sessionRequestGeneration = request
         isLoadingDJSession = true
-        defer { isLoadingDJSession = false }
+        defer { if request == sessionRequestGeneration { isLoadingDJSession = false } }
         do {
             let response = try await withHomeAssistantClient { client in
                 try await client.activeSession()
@@ -4641,7 +4643,7 @@ public final class DJConnectAppModel: ObservableObject {
         let request = UUID()
         sessionRequestGeneration = request
         isLoadingDJSession = true
-        defer { isLoadingDJSession = false }
+        defer { if request == sessionRequestGeneration { isLoadingDJSession = false } }
         do {
             let response = try await withHomeAssistantClient { client in
                 try await client.startSession(
@@ -4673,7 +4675,7 @@ public final class DJConnectAppModel: ObservableObject {
         let request = UUID()
         sessionRequestGeneration = request
         isLoadingDJSession = true
-        defer { isLoadingDJSession = false }
+        defer { if request == sessionRequestGeneration { isLoadingDJSession = false } }
         do {
             let response = try await withHomeAssistantClient { client in
                 try await client.endSession(DJConnectSessionEndRequest(sessionID: sessionID))
@@ -4769,6 +4771,12 @@ public final class DJConnectAppModel: ObservableObject {
                         self.clearSessionProjection()
                         self.djSessionErrorMessage = self.localized(key: "ui.session.unavailable")
                     }
+                },
+                onDisconnected: { [weak self] in
+                    await MainActor.run {
+                        guard let self, self.sessionBroadcastGeneration == generation else { return }
+                        self.activeDJSession?.broadcast.clearNativeAuthority()
+                    }
                 }
             )
         }
@@ -4783,6 +4791,7 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     private func stopSessionBroadcast() {
+        activeDJSession?.broadcast.clearNativeAuthority()
         sessionBroadcastGeneration = UUID()
         sessionBroadcastSessionID = nil
         let transport = sessionBroadcastTransport
@@ -4797,8 +4806,12 @@ public final class DJConnectAppModel: ObservableObject {
 
     private func applySessionBroadcastEvent(_ event: DJConnectSessionBroadcastEvent) {
         guard let active = activeDJSession, active.sessionID == event.sessionID else { return }
-        if let sequence = event.deliverySequence, sequence <= (active.broadcast.delivery?.snapshotWatermark ?? -1) { return }
         if event.eventType == "runtime_ended" || event.eventType == "broadcast_stopped" {
+            if event.payload.nativeDelivery?.revocationScope == "subscription" {
+                activeDJSession = active.applying(broadcastEvent: event)
+                stopSessionBroadcast()
+                return
+            }
             sessionRequestGeneration = UUID()
             activeDJSession = nil
             djSessionErrorMessage = nil
