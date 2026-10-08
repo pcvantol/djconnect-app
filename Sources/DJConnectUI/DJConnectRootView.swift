@@ -10061,7 +10061,13 @@ private struct IdleDJSessionView: View {
             .pickerStyle(.segmented)
             Button(localizedKey(model.language, "ui.session.start")) { Task { await model.startDJSession() } }
                 .buttonStyle(.borderedProminent)
-                .disabled(model.isLoadingDJSession || !model.canUsePlaybackFeatures)
+                .disabled(model.isLoadingDJSession || model.isDemoMode || model.pairingStatus != .paired || !model.canUsePlaybackFeatures)
+            if model.isLoadingDJSession { ProgressView() }
+            if model.isDemoMode {
+                Text(localizedKey(model.language, "ui.session.demo_unavailable")).font(.footnote).foregroundStyle(.secondary)
+            } else if model.pairingStatus != .paired || !model.canUsePlaybackFeatures {
+                Text(localizedKey(model.language, "ui.session.requires_connection")).font(.footnote).foregroundStyle(.secondary)
+            }
             if let error = model.djSessionErrorMessage {
                 Text(error).font(.footnote).foregroundStyle(.red)
             }
@@ -10112,7 +10118,10 @@ private struct ActiveDJSessionView: View {
             Button(localizedKey(model.language, "ui.session.queue"), action: openQueueAction).buttonStyle(.bordered)
             Button(localizedKey(model.language, "ui.session.end"), role: .destructive) { Task { await model.endDJSession() } }
                 .buttonStyle(.bordered)
-                .disabled(model.isLoadingDJSession || !model.canUsePlaybackFeatures)
+                .disabled(model.isLoadingDJSession)
+            if let error = model.djSessionErrorMessage {
+                Text(error).font(.footnote).foregroundStyle(.red)
+            }
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 28)

@@ -988,3 +988,5 @@
 "ui.session.moment.session_direction" = "Direction de la session";
 "ui.session.moment.recommendation" = "Recommandation";
 "ui.session.unavailable" = "La session DJ est temporairement indisponible.";
+"ui.session.demo_unavailable" = "Les sessions DJ ne sont pas disponibles en mode démo.";
+"ui.session.requires_connection" = "Connectez-vous à Home Assistant pour démarrer une session DJ.";

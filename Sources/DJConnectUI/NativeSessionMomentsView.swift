@@ -41,7 +41,8 @@ struct NativeSessionMomentsView: View {
                 .id("native-session-current")
                 .animation(reduceMotion ? nil : .easeInOut(duration: 0.2), value: current?.id)
                 Text(text("ui.session.flow")).font(.title2.bold())
-                ForEach(flowMoments) { moment in
+                ForEach(flowItems) { item in
+                    if let moment = flowMoments.first(where: { $0.id == item.momentID }) {
                     Button {
                         selectedMomentID = moment.id
                     } label: {
@@ -59,6 +60,10 @@ struct NativeSessionMomentsView: View {
                     }
                     .buttonStyle(.plain)
                     .accessibilityIdentifier("session-flow-\(moment.id)")
+                    } else {
+                        Text(item.label).font(.callout).foregroundStyle(.secondary)
+                            .padding(14).frame(maxWidth: .infinity, alignment: .leading)
+                    }
                 }
             }
             .frame(maxWidth: 1000, alignment: .leading)
@@ -89,6 +94,14 @@ struct NativeSessionMomentsView: View {
 
     // Only already committed server Flow links can expose previous content.
     // Source-card historical native-display rights remain a producer admission gate.
+    private var flowItems: [DJConnectSessionFlowItem] {
+        var seen = Set<String>()
+        return session.broadcast.sessionFlow.items.filter { item in
+            item.itemType == "dj_moment" && seen.insert(item.momentID ?? item.id).inserted
+                && (item.momentType == "silence" || flowMoments.contains { $0.id == item.momentID })
+        }
+    }
+
     private var flowMoments: [DJConnectMoment] {
         var seen = Set<String>()
         return session.broadcast.sessionFlow.items.compactMap { item in
@@ -180,7 +193,7 @@ private struct MomentCard: View {
             if !moment.title.isEmpty { Text(moment.title).font(.title2.bold()) }
             Text(moment.content).font(.title3).fixedSize(horizontal: false, vertical: true)
             if let speech = presentation?.speech {
-                ForEach(speech.segments.filter { $0.text != moment.content }.sorted { $0.ordinal < $1.ordinal }, id: \.ordinal) { segment in
+                ForEach(speech.segments.filter { !($0.speakerRole == "primary_dj" && $0.text == moment.content) }.sorted { $0.ordinal < $1.ordinal }, id: \.ordinal) { segment in
                     Text(segment.text).fixedSize(horizontal: false, vertical: true)
                 }
             }

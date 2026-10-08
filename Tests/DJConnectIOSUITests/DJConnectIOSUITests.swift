@@ -682,6 +682,16 @@ final class DJConnectIOSUITests: XCTestCase {
         _ = try await URLSession.shared.data(from: base.appendingPathComponent("fixture/advance"))
         XCTAssertTrue(app.staticTexts["The bass and percussion leave space for the melody."].waitForExistence(timeout: 10))
         try saveMomentScreenshot(app, "ios-02-next-moment")
+        if app.frame.width > 600 {
+            XCUIDevice.shared.orientation = .landscapeLeft
+            XCTAssertTrue(app.staticTexts["Current"].firstMatch.waitForExistence(timeout: 8))
+            try saveMomentScreenshot(app, "ios-02a-moment-landscape")
+            XCUIDevice.shared.orientation = .portrait
+        }
+        XCUIDevice.shared.press(.home)
+        app.activate()
+        try await Task.sleep(for: .seconds(2))
+        XCTAssertTrue(app.staticTexts["Current"].firstMatch.waitForExistence(timeout: 10))
         let more = app.tabBars.buttons["Meer"].exists ? app.tabBars.buttons["Meer"] : app.buttons["Meer"].firstMatch
         more.tap()
         app.buttons["Speelt Nu"].firstMatch.tap()
@@ -689,9 +699,12 @@ final class DJConnectIOSUITests: XCTestCase {
         try saveMomentScreenshot(app, "ios-03-player-active-session")
         let sessionTab = app.tabBars.buttons["DJ-sessie"].exists ? app.tabBars.buttons["DJ-sessie"] : app.buttons["DJ-sessie"].firstMatch
         sessionTab.tap()
+        _ = try await URLSession.shared.data(from: base.appendingPathComponent("fixture/track_change"))
+        XCTAssertTrue(app.staticTexts["Next"].firstMatch.waitForExistence(timeout: 10))
+        try saveMomentScreenshot(app, "ios-03a-track-change")
         _ = try await URLSession.shared.data(from: base.appendingPathComponent("fixture/reconnect"))
         try await Task.sleep(for: .seconds(2))
-        XCTAssertTrue(app.staticTexts["The bass and percussion leave space for the melody."].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.staticTexts["Next"].firstMatch.waitForExistence(timeout: 10))
         let (data, _) = try await URLSession.shared.data(from: base.appendingPathComponent("fixture/metrics"))
         let metrics = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
         XCTAssertEqual(metrics["playbackMutations"] as? Int, 0)
@@ -702,6 +715,14 @@ final class DJConnectIOSUITests: XCTestCase {
         app.buttons["Speelt Nu"].firstMatch.tap()
         XCTAssertTrue(app.navigationBars["Speelt Nu"].waitForExistence(timeout: 6))
         try saveMomentScreenshot(app, "ios-04-player-ended-session")
+        app.terminate()
+        app.launch()
+        XCTAssertTrue(app.buttons["Start DJ-sessie"].waitForExistence(timeout: 10))
+        let freshMore = app.tabBars.buttons["Meer"].exists ? app.tabBars.buttons["Meer"] : app.buttons["Meer"].firstMatch
+        freshMore.tap()
+        app.buttons["Speelt Nu"].firstMatch.tap()
+        XCTAssertTrue(app.navigationBars["Speelt Nu"].waitForExistence(timeout: 6))
+        try saveMomentScreenshot(app, "ios-05-player-no-session")
     }
 
     private func saveMomentScreenshot(_ app: XCUIApplication, _ name: String) throws {

@@ -1736,6 +1736,7 @@ public final class DJConnectAppModel: ObservableObject {
         updatePlaybackProgressTimer()
         updateNowPlayingPollTimer()
         syncTrackInsightLiveActivity(reason: "App became active")
+        if pairingStatus == .paired, !isDemoMode { Task { await refreshActiveDJSession() } }
         #if DEBUG
         guard !isUITestRuntimeFixtureActive else {
             return
@@ -1745,7 +1746,6 @@ public final class DJConnectAppModel: ObservableObject {
             return
         }
         refreshWebSocketFastPathStatus()
-        Task { await refreshActiveDJSession() }
         log(.debug, "App became active; scheduling playback refresh")
         schedulePairedRefresh(
             reason: "Resume Now Playing refresh completed",
@@ -4607,7 +4607,16 @@ public final class DJConnectAppModel: ObservableObject {
                 try await client.activeSession()
             }
             guard request == sessionRequestGeneration, pairingStatus == .paired else { return }
-            guard response.success else { djSessionErrorMessage = localized(key: "ui.session.unavailable"); return }
+            guard response.success else {
+                clearSessionProjection()
+                djSessionErrorMessage = localized(key: "ui.session.unavailable")
+                return
+            }
+            if let incoming = response.resolvedSession, incoming.broadcast.session.sessionID != incoming.sessionID {
+                clearSessionProjection()
+                djSessionErrorMessage = localized(key: "ui.session.unavailable")
+                return
+            }
             if activeDJSession?.sessionID != response.resolvedSession?.sessionID {
                 vibeCastHandoffApproved = false
                 vibeCastHandoffFailed = false
@@ -4620,6 +4629,9 @@ public final class DJConnectAppModel: ObservableObject {
             djSessionErrorMessage = nil
             startSessionBroadcastIfNeeded()
         } catch {
+            if (error as? DJConnectError)?.invalidatesSessionAuthority == true {
+                clearSessionProjection()
+            }
             djSessionErrorMessage = localized(key: "ui.session.unavailable")
         }
     }
@@ -4641,9 +4653,14 @@ public final class DJConnectAppModel: ObservableObject {
             }
             guard request == sessionRequestGeneration, pairingStatus == .paired else { return }
             guard response.success else { djSessionErrorMessage = localized(key: "ui.session.unavailable"); return }
+            guard let incoming = response.resolvedSession, incoming.broadcast.session.sessionID == incoming.sessionID else {
+                clearSessionProjection()
+                djSessionErrorMessage = localized(key: "ui.session.unavailable")
+                return
+            }
             vibeCastHandoffApproved = false
             vibeCastHandoffFailed = false
-            activeDJSession = response.resolvedSession
+            activeDJSession = incoming
             djSessionErrorMessage = response.resolvedSession == nil ? localized(key: "ui.session.unavailable") : nil
             startSessionBroadcastIfNeeded()
         } catch {
@@ -4669,6 +4686,7 @@ public final class DJConnectAppModel: ObservableObject {
             vibeCastHandoffFailed = false
             stopSessionBroadcast()
         } catch {
+            if (error as? DJConnectError)?.invalidatesSessionAuthority == true { clearSessionProjection() }
             djSessionErrorMessage = localized(key: "ui.session.unavailable")
         }
     }
@@ -4724,28 +4742,44 @@ public final class DJConnectAppModel: ObservableObject {
                 sessionID: session.sessionID,
                 identity: apiIdentity,
                 onSnapshot: { [weak self] subscription in
-                    Task { @MainActor in
+                    await MainActor.run {
                         guard let self, self.sessionBroadcastGeneration == generation else { return }
                         self.applySessionBroadcastSnapshot(subscription.snapshot)
                     }
                 },
                 onEvent: { [weak self] event in
-                    Task { @MainActor in
+                    await MainActor.run {
                         guard let self, self.sessionBroadcastGeneration == generation else { return }
                         self.applySessionBroadcastEvent(event)
                     }
                 },
                 onTerminated: { [weak self] in
-                    Task { @MainActor in
+                    await MainActor.run {
                         guard let self, self.sessionBroadcastGeneration == generation else { return }
                         self.activeDJSession = nil
+                        self.djSessionErrorMessage = nil
                         self.vibeCastHandoffApproved = false
                         self.vibeCastHandoffFailed = false
                         self.stopSessionBroadcast()
                     }
+                },
+                onUnavailable: { [weak self] in
+                    await MainActor.run {
+                        guard let self, self.sessionBroadcastGeneration == generation else { return }
+                        self.clearSessionProjection()
+                        self.djSessionErrorMessage = self.localized(key: "ui.session.unavailable")
+                    }
                 }
             )
         }
+    }
+
+    private func clearSessionProjection() {
+        sessionRequestGeneration = UUID()
+        activeDJSession = nil
+        vibeCastHandoffApproved = false
+        vibeCastHandoffFailed = false
+        stopSessionBroadcast()
     }
 
     private func stopSessionBroadcast() {
@@ -4767,6 +4801,7 @@ public final class DJConnectAppModel: ObservableObject {
         if event.eventType == "runtime_ended" || event.eventType == "broadcast_stopped" {
             sessionRequestGeneration = UUID()
             activeDJSession = nil
+            djSessionErrorMessage = nil
             vibeCastHandoffApproved = false
             vibeCastHandoffFailed = false
             stopSessionBroadcast()

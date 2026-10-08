@@ -7,8 +7,12 @@ const crypto = require('crypto');
 const fs = require('fs');
 const {decodeFrame, encodeFrame} = require('./ha_contract_fixture');
 let receipt = JSON.parse(fs.readFileSync(process.argv[2], 'utf8'));
+if (!Array.isArray(receipt.end_events)) throw new Error('Generate a fresh pinned receipt with Runtime end events before starting the fixture');
 let snapshot = receipt.snapshot;
 let ended = false;
+let rejectOwner = false;
+let cacheable = false;
+let malformed = false;
 let subscriptions = 0;
 let playbackMutations = 0;
 let commandKinds = [];
@@ -23,16 +27,25 @@ const server = http.createServer(async (request,response) => {
   let data = {success:true};
   if (path === '/fixture/reset') {
     require('child_process').execFileSync('python3', ['Tools/generate_moment_contract_receipt.py','--core',process.argv[3] || process.env.DJCONNECT_CORE_ROOT || require('path').resolve(__dirname, '../../djconnect'),'--output',process.argv[2]], {timeout:45000});
-    receipt = JSON.parse(fs.readFileSync(process.argv[2], 'utf8')); snapshot = receipt.snapshot; ended = false; subscriptions = 0; playbackMutations = 0; commandKinds = [];
+    receipt = JSON.parse(fs.readFileSync(process.argv[2], 'utf8')); snapshot = receipt.snapshot; ended = false; rejectOwner = false; cacheable = false; malformed = false; subscriptions = 0; playbackMutations = 0; commandKinds = [];
     for (const socket of sockets) socket.destroy();
   } else if (path === '/api/djconnect/v1/session/active') data.active_session = ended ? null : {...receipt.runtime,broadcast:snapshot};
   else if (path === '/api/djconnect/v1/websocket/session') data = {success:true,access_token:'local-fixture-ha-auth',expires_in:3600,commands:[]};
   else if (path === '/api/djconnect/v1/session/end') {
     ended = true;
-    for (const socket of sockets) event(socket,{event_type:'runtime_ended',session_id:receipt.runtime.session_id,payload:{session:{...snapshot.session,runtime_state:'ended'}}});
+    for (const socket of sockets) for (const item of receipt.end_events) event(socket,item);
   } else if (path === '/fixture/advance') {
     snapshot = receipt.updated_snapshot;
     for (const socket of sockets) for (const item of receipt.events) event(socket,item);
+  } else if (path === '/fixture/track_change') {
+    snapshot = receipt.track_change_snapshot;
+    for (const socket of sockets) for (const item of receipt.track_change_events) event(socket,item);
+  } else if (path === '/fixture/malformed') {
+    malformed = true;
+  } else if (path === '/fixture/cacheable') {
+    cacheable = true;
+  } else if (path === '/fixture/reject_owner') {
+    rejectOwner = true; for (const socket of sockets) socket.destroy();
   } else if (path === '/fixture/reconnect') {
     for (const socket of sockets) socket.destroy();
   } else if (path === '/fixture/metrics') data = {subscriptions,active_connections:sockets.size,playbackMutations,commandKinds,ended};
@@ -40,6 +53,7 @@ const server = http.createServer(async (request,response) => {
     const kind = body.command || body.type || 'unknown'; commandKinds.push(kind);
     if (!['get_outputs','get_queue','get_playlists','get_playback','get_now_playing','outputs','devices','queue','playlists','now_playing','status'].includes(kind)) playbackMutations++;
   }
+  if (malformed && data.active_session) delete data.active_session.room;
   if (path.includes('/command') || path.endsWith('/status')) {
     const p = snapshot.playback || {};
     data = {success:true,ha_version:'4.0.0-rc.1',ha_major_minor:'4.0',backend_available:true,
@@ -48,7 +62,7 @@ const server = http.createServer(async (request,response) => {
         track_name:p.title,artist_name:p.artist,progress_ms:p.position_ms,duration_ms:p.duration_ms,
         volume_percent:54,shuffle:false,repeat_state:'off'}};
   }
-  response.writeHead(200,{'Content-Type':'application/json','Cache-Control':'no-store'});
+  response.writeHead(200,{'Content-Type':'application/json','Cache-Control':cacheable ? 'public,max-age=600' : 'no-store'});
   response.end(JSON.stringify(data));
 });
 server.on('upgrade',(request,socket) => {
@@ -69,6 +83,9 @@ server.on('upgrade',(request,socket) => {
       const message = JSON.parse(frame.text);
       if (message.type === 'auth') send(socket,{type:'auth_ok',ha_version:'2026.10.0'});
       else if (message.type === 'djconnect/session/broadcast/subscribe') {
+        if (rejectOwner) {
+          send(socket,{id:message.id,type:'result',success:false,error:{code:'profile_access_denied'}}); continue;
+        }
         if (message.session_id !== receipt.runtime.session_id || ended) {
           send(socket,{id:message.id,type:'result',success:false,error:{code:'active_session_not_found'}}); continue;
         }

@@ -4,9 +4,9 @@ import Foundation
 /// It reconnects after transient socket failures and always reapplies the
 /// server snapshot before delivering incremental Broadcast events.
 public actor DJConnectSessionBroadcastTransport {
-    public typealias SnapshotHandler = @Sendable (DJConnectSessionBroadcastSubscription) -> Void
-    public typealias EventHandler = @Sendable (DJConnectSessionBroadcastEvent) -> Void
-    public typealias TerminationHandler = @Sendable () -> Void
+    public typealias SnapshotHandler = @Sendable (DJConnectSessionBroadcastSubscription) async -> Void
+    public typealias EventHandler = @Sendable (DJConnectSessionBroadcastEvent) async -> Void
+    public typealias TerminationHandler = @Sendable () async -> Void
 
     private let baseURL: URL
     private let auth: DJConnectHomeAssistantWebSocketAuth
@@ -32,7 +32,8 @@ public actor DJConnectSessionBroadcastTransport {
         identity: DJConnectAPIIdentity,
         onSnapshot: @escaping SnapshotHandler,
         onEvent: @escaping EventHandler,
-        onTerminated: @escaping TerminationHandler
+        onTerminated: @escaping TerminationHandler,
+        onUnavailable: @escaping TerminationHandler = {}
     ) {
         stop()
         shouldRun = true
@@ -42,7 +43,8 @@ public actor DJConnectSessionBroadcastTransport {
                 identity: identity,
                 onSnapshot: onSnapshot,
                 onEvent: onEvent,
-                onTerminated: onTerminated
+                onTerminated: onTerminated,
+                onUnavailable: onUnavailable
             )
         }
     }
@@ -60,33 +62,39 @@ public actor DJConnectSessionBroadcastTransport {
         identity: DJConnectAPIIdentity,
         onSnapshot: @escaping SnapshotHandler,
         onEvent: @escaping EventHandler,
-        onTerminated: @escaping TerminationHandler
+        onTerminated: @escaping TerminationHandler,
+        onUnavailable: @escaping TerminationHandler
     ) async {
         var retryDelay: UInt64 = 1_000_000_000
         while shouldRun, !Task.isCancelled {
             do {
                 try await connect()
                 let subscription = try await subscribe(sessionID: sessionID, identity: identity)
-                onSnapshot(subscription)
+                await onSnapshot(subscription)
                 retryDelay = 1_000_000_000
                 while shouldRun, !Task.isCancelled {
                     let event = try await receiveEvent()
-                    onEvent(event)
+                    await onEvent(event)
                     if event.eventType == "runtime_ended" || event.eventType == "broadcast_stopped" {
                         stop()
-                        onTerminated()
+                        await onTerminated()
                         return
                     }
                 }
             } catch {
+                guard shouldRun, !Task.isCancelled else { return }
                 socket?.cancel(with: .goingAway, reason: nil)
                 socket = nil
                 if error is DJConnectSessionBroadcastEndedError {
                     stop()
-                    onTerminated()
+                    await onTerminated()
                     return
                 }
-                guard shouldRun, !Task.isCancelled else { return }
+                if error is DJConnectSessionBroadcastUnavailableError || (error as? DJConnectError)?.invalidatesSessionAuthority == true {
+                    stop()
+                    await onUnavailable()
+                    return
+                }
                 try? await Task.sleep(nanoseconds: retryDelay)
                 retryDelay = min(retryDelay * 2, 15_000_000_000)
             }
@@ -99,6 +107,7 @@ public actor DJConnectSessionBroadcastTransport {
             .trimmingCharacters(in: .whitespacesAndNewlines), !token.isEmpty else {
             throw DJConnectError.routeMissing(message: "Home Assistant WebSocket auth token is unavailable")
         }
+        guard shouldRun, !Task.isCancelled else { throw CancellationError() }
         let task = session.webSocketTask(with: try DJConnectHomeAssistantWebSocketFastPath.websocketURL(from: baseURL))
         socket = task
         task.resume()
@@ -116,7 +125,10 @@ public actor DJConnectSessionBroadcastTransport {
             if envelope.error?.code == "active_session_not_found" {
                 throw DJConnectSessionBroadcastEndedError()
             }
-            throw DJConnectError.server(statusCode: 200, message: envelope.error?.message ?? envelope.error?.code)
+            throw DJConnectSessionBroadcastUnavailableError()
+        }
+        guard result.success, result.sessionID == sessionID, result.snapshot.session.sessionID == sessionID else {
+            throw DJConnectSessionBroadcastUnavailableError()
         }
         return result
     }
@@ -144,6 +156,7 @@ public actor DJConnectSessionBroadcastTransport {
         case let .string(value): data = Data(value.utf8)
         @unknown default: throw DJConnectError.invalidResponse
         }
+        try DJConnectIncomingPayloadLimiter.validate(data)
         return try decoder.decode(T.self, from: data)
     }
 }
@@ -171,5 +184,6 @@ private struct DJConnectSessionBroadcastSubscribeRequest: Encodable {
 }
 private struct DJConnectSessionBroadcastError: Decodable { var code: String?; var message: String? }
 private struct DJConnectSessionBroadcastEndedError: Error {}
+private struct DJConnectSessionBroadcastUnavailableError: Error {}
 private struct DJConnectSessionBroadcastResultEnvelope<Result: Decodable>: Decodable { var success: Bool; var result: Result?; var error: DJConnectSessionBroadcastError? }
 private struct DJConnectSessionBroadcastEventEnvelope: Decodable { struct Event: Decodable { var eventType: String; var data: DJConnectSessionBroadcastEvent; enum CodingKeys: String, CodingKey { case eventType = "event_type"; case data } }; var type: String; var event: Event? }

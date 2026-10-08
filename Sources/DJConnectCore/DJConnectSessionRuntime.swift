@@ -65,6 +65,19 @@ public struct DJConnectSessionFlowItem: Codable, Equatable, Sendable, Identifiab
         case position, label
         case momentID = "moment_id", momentType = "moment_type"
     }
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        itemID = try c.decode(String.self, forKey: .itemID)
+        itemType = try c.decode(String.self, forKey: .itemType)
+        position = try c.decode(String.self, forKey: .position)
+        label = try c.decode(String.self, forKey: .label)
+        momentID = try? c.decode(String.self, forKey: .momentID)
+        momentType = try? c.decode(String.self, forKey: .momentType)
+    }
+    public init(itemID: String, itemType: String, position: String, label: String, momentID: String? = nil, momentType: String? = nil) {
+        self.itemID = itemID; self.itemType = itemType; self.position = position; self.label = label
+        self.momentID = momentID; self.momentType = momentType
+    }
 }
 
 public struct DJConnectSessionFlow: Codable, Equatable, Sendable {
@@ -81,6 +94,18 @@ public struct DJConnectSessionFlow: Codable, Equatable, Sendable {
         case createdAt = "created_at"
         case items
     }
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        flowID = try c.decode(String.self, forKey: .flowID)
+        planningHorizonMinutes = try c.decode(Int.self, forKey: .planningHorizonMinutes)
+        createdAt = try c.decode(String.self, forKey: .createdAt)
+        flowRevision = try? c.decode(Int.self, forKey: .flowRevision)
+        items = (try? c.decode([LossyBroadcastValue<DJConnectSessionFlowItem>].self, forKey: .items))?.compactMap(\.value) ?? []
+    }
+    public init(flowRevision: Int? = nil, flowID: String, planningHorizonMinutes: Int, createdAt: String, items: [DJConnectSessionFlowItem]) {
+        self.flowRevision = flowRevision; self.flowID = flowID
+        self.planningHorizonMinutes = planningHorizonMinutes; self.createdAt = createdAt; self.items = items
+    }
 }
 
 public struct DJConnectBroadcastState: Codable, Equatable, Sendable {
@@ -95,6 +120,16 @@ public struct DJConnectBroadcastState: Codable, Equatable, Sendable {
             case runtimeState = "runtime_state"
             case selectedMood = "selected_mood"
             case locale
+        }
+        public init(from decoder: Decoder) throws {
+            let c = try decoder.container(keyedBy: CodingKeys.self)
+            sessionID = try c.decode(String.self, forKey: .sessionID)
+            runtimeState = try c.decode(String.self, forKey: .runtimeState)
+            selectedMood = try c.decode(String.self, forKey: .selectedMood)
+            locale = try? c.decode(String.self, forKey: .locale)
+        }
+        public init(sessionID: String, runtimeState: String, selectedMood: String, locale: String? = nil) {
+            self.sessionID = sessionID; self.runtimeState = runtimeState; self.selectedMood = selectedMood; self.locale = locale
         }
     }
 

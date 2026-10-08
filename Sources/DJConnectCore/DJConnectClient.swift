@@ -18,6 +18,7 @@ public final class DJConnectClient: Sendable {
     public let tokenStore: DJConnectTokenStore
 
     private let session: URLSession
+    private let sessionProjectionSession: URLSession
     private let encoder: JSONEncoder
     private let decoder: JSONDecoder
     private let responseLogger: (@Sendable (_ requestSummary: String, _ statusCode: Int) -> Void)?
@@ -37,12 +38,23 @@ public final class DJConnectClient: Sendable {
         self.identity = identity
         self.tokenStore = tokenStore
         self.session = session
+        // Owner Session responses contain ephemeral Moment text. Keep this
+        // transport out of URLCache/cookies even if a server omits no-store.
+        let projectionConfiguration = session.configuration
+        projectionConfiguration.urlCache = nil
+        projectionConfiguration.requestCachePolicy = .reloadIgnoringLocalCacheData
+        projectionConfiguration.httpCookieStorage = nil
+        projectionConfiguration.httpShouldSetCookies = false
+        projectionConfiguration.urlCredentialStorage = nil
+        self.sessionProjectionSession = URLSession(configuration: projectionConfiguration, delegate: session.delegate, delegateQueue: session.delegateQueue)
         self.encoder = JSONEncoder()
         self.decoder = JSONDecoder()
         self.webSocketFastPath = webSocketFastPath
         self.responseLogger = responseLogger
         self.failureLogger = failureLogger
     }
+
+    deinit { sessionProjectionSession.invalidateAndCancel() }
 
     public func postStatus(_ payload: DJConnectStatusPayload) async throws -> DJConnectEnvelope<DJConnectPlayback> {
         let request = try statusRequest(payload)
@@ -237,17 +249,17 @@ public final class DJConnectClient: Sendable {
 
     public func startSession(_ payload: DJConnectSessionStartRequest) async throws -> DJConnectSessionResponse {
         let request = try sessionStartRequest(payload)
-        return try await decodedResponse(for: request)
+        return try await decodedResponse(for: request, using: sessionProjectionSession)
     }
 
     public func activeSession() async throws -> DJConnectSessionResponse {
         let request = try activeSessionRequest()
-        return try await decodedResponse(for: request)
+        return try await decodedResponse(for: request, using: sessionProjectionSession)
     }
 
     public func endSession(_ payload: DJConnectSessionEndRequest) async throws -> DJConnectSessionResponse {
         let request = try sessionEndRequest(payload)
-        return try await decodedResponse(for: request)
+        return try await decodedResponse(for: request, using: sessionProjectionSession)
     }
 
     public func approveVibeCastHandoff(_ payload: DJConnectVibeCastHandoffApprovalRequest) async throws -> DJConnectVibeCastHandoffApprovalResponse {
@@ -770,15 +782,15 @@ public final class DJConnectClient: Sendable {
         return trimmed?.isEmpty == false ? trimmed : nil
     }
 
-    private func decodedResponse<T: Decodable>(for request: URLRequest) async throws -> T {
-        let (data, statusCode) = try await dataAndStatusCodeResponse(for: request)
+    private func decodedResponse<T: Decodable>(for request: URLRequest, using requestSession: URLSession? = nil) async throws -> T {
+        let (data, statusCode) = try await dataAndStatusCodeResponse(for: request, using: requestSession)
         do {
             return try decoder.decode(T.self, from: data)
         } catch {
             throw DJConnectError.decodingFailed(
                 statusCode: statusCode,
                 endpoint: Self.requestSummary(request),
-                message: Self.decodingFailureMessage(error: error, body: data)
+                message: requestSession == nil ? Self.decodingFailureMessage(error: error, body: data) : "Session projection decode failed; response_body=<omitted>"
             )
         }
     }
@@ -788,10 +800,10 @@ public final class DJConnectClient: Sendable {
         return data
     }
 
-    private func dataAndStatusCodeResponse(for request: URLRequest) async throws -> (Data, Int) {
+    private func dataAndStatusCodeResponse(for request: URLRequest, using requestSession: URLSession? = nil) async throws -> (Data, Int) {
         let (data, response): (Data, URLResponse)
         do {
-            (data, response) = try await session.data(for: request)
+            (data, response) = try await (requestSession ?? session).data(for: request)
         } catch {
             throw DJConnectError.network(message: error.localizedDescription)
         }
@@ -804,11 +816,23 @@ public final class DJConnectClient: Sendable {
         try DJConnectIncomingPayloadLimiter.validate(data)
 
         if let error = classify(statusCode: httpResponse.statusCode, body: data) {
-            logAPIFailure(request: request, statusCode: httpResponse.statusCode, body: data, error: error)
-            throw error
+            let safeError = requestSession == nil ? error : Self.sessionProjectionError(error)
+            logAPIFailure(request: request, statusCode: httpResponse.statusCode, body: requestSession == nil ? data : Data(), error: safeError)
+            throw safeError
         }
 
         return (data, httpResponse.statusCode)
+    }
+
+    private static func sessionProjectionError(_ error: DJConnectError) -> DJConnectError {
+        switch error {
+        case .backendUnavailable: return .backendUnavailable(message: nil)
+        case let .authStale(status, _): return .authStale(statusCode: status, message: nil)
+        case .notConfigured: return .notConfigured(message: nil)
+        case let .server(status, _): return .server(statusCode: status, message: nil)
+        case let .profile(code, status, _): return .profile(code: code, statusCode: status, message: nil)
+        default: return error
+        }
     }
 
     private func webSocketCommandIfSupported<T: Decodable & Sendable>(_ payload: DJConnectCommandPayload) async throws -> T? {

@@ -45,8 +45,25 @@ async def generate():
     second = await fixture._later(manager, runtime, media)
     assert second and first.moment_id != second.moment_id
     second_snapshot = runtime.broadcast.as_dict()
+    second_events = list(events)
+    track_offset = len(events)
+    next_media = "spotify:track:CCCCCCCC"
+    await manager.async_update_playback_projection(owner_profile_id=runtime.owner_profile_id, session_id=runtime.session_id,
+        state="playing", media_identity=next_media, title="Next", artist="Another Artist", album="Next Album", duration_ms=240_000, position_ms=0)
+    async def next_insight():
+        return {"track":{"title":"Next","artist":"Another Artist","album":"Next Album","backend":"spotify_direct","genres":["rock"]},
+                "analysis":{"summary":"A new rhythm opens the next song.","full_text":"The guitar leaves room for the next melody.","genre":"rock"}}
+    await manager.async_process_track_started(owner_profile_id=runtime.owner_profile_id, session_id=runtime.session_id,
+        insight_provider=next_insight, media_identity=next_media, require_current_playback=True)
+    track_change_events = events[track_offset:]
+    track_change_snapshot = runtime.broadcast.as_dict()
+    assert track_change_snapshot["playback"]["title"] == "Next"
+    end_offset = len(events)
+    await manager.async_end(owner_profile_id=runtime.owner_profile_id, session_id=runtime.session_id)
+    end_events = events[end_offset:]
+    assert {event["event_type"] for event in end_events} >= {"runtime_ended", "broadcast_stopped"}
     return dict(producer_sha=pin, classification='PRODUCER_GENERATED_SYNTHETIC_RECEIPT',
-                runtime=initial, snapshot=snapshot, events=events, updated_snapshot=second_snapshot)
+                runtime=initial, snapshot=snapshot, events=second_events, updated_snapshot=second_snapshot, track_change_events=track_change_events, track_change_snapshot=track_change_snapshot, end_events=end_events)
 
 args.output.parent.mkdir(parents=True, exist_ok=True)
 args.output.write_text(json.dumps(asyncio.run(generate()), ensure_ascii=False, indent=2)+'\n')

@@ -66,14 +66,40 @@ Run it with an ignored receipt path and the explicit Core reference path; never
 point it at a real HA instance. The opt-in network test requires
 `DJCONNECT_MOMENT_NETWORK_TEST=1`; normal unit runs explicitly disable it.
 
-Initial unit/contract/network and unsigned build checks passed. Preliminary
-native screenshots found duplicate Speech text and clipped iPad layout; fixes
-require fresh qualification on the frozen candidate. The initial Mac UI runner
-hung before establishing a connection; screenshots/build success are not a
-passed native UI suite. Primary macOS dataless source/index reads later blocked
-verification. WIP was preserved as a recovery patch plus all six new files and
-reintegrated in a temporary isolated Apple clone by the same sole writer.
+The current isolated validation has 404 regular Swift cases passing and four
+opt-in network privacy/authority cases passing separately. The latter prove
+owner HTTP/WebSocket reconnect/end, rejected owner authority clearing private
+projection without ending the Runtime, no parent URLCache storage under
+explicitly cacheable headers, and omitted Moment response bodies in decode
+errors. Delivery callbacks are awaited serially; optional new locale/Flow
+fields fail independently and cannot discard the valid Session.
 
+Native iPhone and iPad simulator tests completed successfully through the
+actual decode/state/native route: first snapshot Moment, a second contribution
+on the same track, background/foreground, standalone player, producer-observed
+track change, reconnect, confirmed end, player after end, fresh app launch
+without a Session and the player again. iPad additionally records portrait and
+landscape. The track-change producer selects Silence; it is not emitted as a
+visual Moment event. The native renderer shows the supplied committed Silence
+Flow label and quiet current zone rather than manufacturing a Moment.
+Navigation metrics record zero playback mutations. These are synthetic fixture
+receipts, not live provider, physical device or full accessibility qualification.
+
+Unsigned Mac build-for-testing passes. The unsigned Mac UI runner hung before
+establishing a connection. A direct isolated unsigned candidate receives owner
+data but has not produced an accepted visible native window. Local ad-hoc test
+signing and read-only independent review agents were requested; no answer or
+new authority has been inferred. Full Mac native acceptance and the remaining
+accessibility/locale/long-copy review remain open.
+
+Primary macOS dataless source/index reads blocked verification. WIP was
+preserved as a recovery patch plus all six new files and reintegrated in an
+isolated temporary Apple clone by the same writer. The no-checkout Core clone
+is an immutable archive source only, not a Core checkout or writer.
+
+Draft [#95](https://github.com/pcvantol/djconnect-app/pull/95) preserves this
+same source pickup. Its initial head CI/TDE/security checks passed; those
+receipts do not qualify later heads or resolve the product gates above.
 No source merge, exact-main acceptance, internal evidence publication or separate
 Finalization is claimed. Those remain required after contract/native/independent
 review gates pass, and each concrete main publication needs its own authority.
