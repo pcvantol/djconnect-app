@@ -546,6 +546,29 @@ private final class HistoryAuthorityGate: @unchecked Sendable {
     #expect(model.sessionHistory.hasAuthorizedOwner)
 }
 
+@Test @MainActor func sessionHistoryReadingAnchorsRemainPresentationOnlyAndClearWithAuthority() async throws {
+    let profile = try historyData(try #require(historyObject()["later_historical_answer"]))
+    let caps = Data(#"{"capabilities":{"session_conversation_history":true,"session_flow_text_search":true},"contract_versions":{"session_conversation_history":1,"session_flow_text_search":1}}"#.utf8)
+    let fixture = HistoryWireFixture { request in (200, request.url!.path.hasSuffix("/capabilities") ? caps : profile, 0) }
+    defer { fixture.close() }
+    let (model, defaults, name) = fixture.model(); defer { defaults.removePersistentDomain(forName: name) }
+    await model.sessionHistory.prepare()
+    let count = fixture.requests.count
+    model.sessionHistory.rememberReadingAnchor("entry-a", sessionID: "session-a")
+    model.sessionHistory.rememberReadingAnchor("entry-b", sessionID: "session-b")
+    model.sessionHistory.rememberReadingAnchor("pending-unconfirmed", sessionID: "session-a")
+    #expect(model.sessionHistory.readingAnchor(sessionID: "session-a") == "entry-a")
+    #expect(model.sessionHistory.readingAnchor(sessionID: "session-b") == "entry-b")
+    #expect(fixture.requests.count == count)
+    model.sessionHistory.suspend()
+    await model.sessionHistory.prepare()
+    #expect(model.sessionHistory.readingAnchor(sessionID: "session-a") == nil)
+    model.sessionHistory.rememberReadingAnchor("entry-a", sessionID: "session-a")
+    model.sessionHistory.reset()
+    await model.sessionHistory.prepare()
+    #expect(model.sessionHistory.readingAnchor(sessionID: "session-a") == nil)
+}
+
 @Test @MainActor func sessionHistoryQueuedTurnOfflineBeforeDispatchFailsAndCanRetry() async throws {
     let profile = try historyData(try #require(historyObject()["later_historical_answer"]))
     let caps = Data(#"{"capabilities":{"session_conversation_history":true,"session_flow_text_search":true},"contract_versions":{"session_conversation_history":1,"session_flow_text_search":1}}"#.utf8)

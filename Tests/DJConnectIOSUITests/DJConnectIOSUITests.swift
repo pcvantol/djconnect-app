@@ -1105,6 +1105,33 @@ extension DJConnectIOSUITests {
         try saveHistoryScreenshot("ios-history-11-player-without-session")
     }
 
+    func testActualCoreSessionHistoryLongDraftRemainsReachable() async throws {
+        let base = URL(string: "http://127.0.0.1:18191")!
+        var request = URLRequest(url: base.appendingPathComponent("__apple_fixture/start"))
+        request.httpMethod = "POST"
+        request.setValue("Bearer synthetic-fixture-token", forHTTPHeaderField: "Authorization")
+        let (_, response) = try await URLSession.shared.data(for: request)
+        XCTAssertEqual((response as? HTTPURLResponse)?.statusCode, 200)
+        let app = XCUIApplication()
+        app.launchArguments = ["--uitesting", "--runtime-fixture=session_history_contract", "-AppleLanguages", "(nl)", "-AppleLocale", "nl_NL"]
+        app.launchEnvironment["DJCONNECT_UITEST_HA_URL"] = base.absoluteString
+        app.launchEnvironment["DJCONNECT_UITEST_RUNTIME_FIXTURE"] = "session_history_contract"
+        app.launch()
+        if app.buttons["Niet nu"].waitForExistence(timeout: 2) { app.buttons["Niet nu"].tap() }
+        XCTAssertTrue(app.descendants(matching: .any)["screen-session-conversation"].waitForExistence(timeout: 15))
+        let input = app.textViews["ask-dj-composer-input"].firstMatch
+        XCTAssertTrue(input.waitForExistence(timeout: 10))
+        input.tap()
+        let draft = (1...12).map { "Regel \($0) over de bijdrage" }.joined(separator: "\n") + "\nLaatste zichtbare regel"
+        input.typeText(draft)
+        XCTAssertEqual(input.value as? String, draft)
+        XCTAssertTrue(app.buttons["ask-dj-composer-send"].isEnabled)
+        try saveHistoryScreenshot("ios-history-13-long-draft-keyboard")
+        app.terminate()
+        request.url = base.appendingPathComponent("__apple_fixture/end")
+        _ = try await URLSession.shared.data(for: request)
+    }
+
     func testActualCoreSessionHistoryNativeAccessibility() async throws {
         let base = URL(string: "http://127.0.0.1:18191")!
         func control(_ operation: String) async throws {

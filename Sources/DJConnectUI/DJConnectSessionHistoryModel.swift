@@ -56,6 +56,7 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
     private var listGeneration = UUID()
     private var timelineGenerations: [String: UUID] = [:]
     private var timelineNavigations: [String: UUID] = [:]
+    private var readingAnchors: [String: String] = [:]
     private var searchGeneration = UUID()
     private var searchRevision: String?
     private var searchTask: Task<Void, Never>?
@@ -75,6 +76,12 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
     }
 
     init(host: DJConnectAppModel) { self.host = host }
+
+    func rememberReadingAnchor(_ anchor: String?, sessionID: String) {
+        guard hasAuthorizedOwner, let anchor, !anchor.hasPrefix("pending-") else { return }
+        readingAnchors[sessionID] = anchor
+    }
+    func readingAnchor(sessionID: String) -> String? { hasAuthorizedOwner ? readingAnchors[sessionID] : nil }
 
     public func prepare() async {
         if let preparationTask { await preparationTask.value; return }
@@ -116,7 +123,7 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
         epoch = UUID(); searchGeneration = UUID(); listGeneration = UUID(); navigationGeneration = UUID()
         searchTask?.cancel(); searchTask = nil
         available = false; searchAvailable = false; profileScopeActive = false; ownerScope = nil
-        sessions = []; timelines = [:]; historicalMatches = [:]; pendingTurns = []
+        sessions = []; timelines = [:]; historicalMatches = [:]; pendingTurns = []; readingAnchors = [:]
         selectedEntry = nil; openTarget = nil; voiceContext = nil; voiceClientID = nil; voicePayload = nil
         listNextCursor = nil; listRevision = nil; listLoading = false; listErrorKey = nil
         clearSearch(); navigationErrorKey = nil; timelineGenerations = [:]; timelineNavigations = [:]
@@ -128,7 +135,7 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
         listGeneration = UUID(); timelineGenerations = [:]; timelineNavigations = [:]; navigationGeneration = UUID()
         listLoading = false; listNextCursor = nil; listRevision = nil
         searchTask?.cancel(); searchTask = nil
-        timelines = [:]; sessions = []; historicalMatches = [:]; searchMatches = []
+        timelines = [:]; sessions = []; historicalMatches = [:]; searchMatches = []; readingAnchors = [:]
         selectedEntry = nil; openTarget = nil; voiceContext = nil; voiceClientID = nil; voicePayload = nil
         clearSearch()
         pendingTurns = []; host?.setProfileConversationSending(false)

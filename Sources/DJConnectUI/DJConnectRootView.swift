@@ -755,7 +755,6 @@ public struct DJConnectRootView: View {
                 } detail: {
                     ZStack(alignment: .bottom) {
                         selectedView
-                            .id(selectedSection)
                         if shouldShowOfflineNetworkBanner {
                             OfflineNetworkBanner(
                                 language: model.language,
@@ -768,6 +767,7 @@ public struct DJConnectRootView: View {
                     }
                     .animation(.snappy(duration: 0.22), value: shouldShowOfflineNetworkBanner)
                 }
+                .id(selectedSection)
                 .tint(Color(red: 0.74, green: 0.22, blue: 0.96))
                 .accentColor(Color(red: 0.74, green: 0.22, blue: 0.96))
                 #else
@@ -802,10 +802,9 @@ public struct DJConnectRootView: View {
             #endif
             #if DEBUG
             if model.isUITestRuntimeFixtureActive {
-                Text("uitest-runtime-fixture-active")
-                    .font(.caption2)
+                Color.clear
                     .frame(width: 1, height: 1)
-                    .opacity(0.01)
+                    .accessibilityElement(children: .ignore)
                     .accessibilityIdentifier("uitest-runtime-fixture-active")
                     .accessibilityLabel("uitest-runtime-fixture-active")
                 if model.uiTestRuntimeFixtureScenario == "session_history_contract",
@@ -816,18 +815,16 @@ public struct DJConnectRootView: View {
                         .accessibilityHidden(true)
                 }
                 if let scenario = model.uiTestRuntimeFixtureScenario {
-                    Text("uitest-runtime-fixture-\(scenario)")
-                        .font(.caption2)
+                    Color.clear
                         .frame(width: 1, height: 1)
-                        .opacity(0.01)
+                        .accessibilityElement(children: .ignore)
                         .accessibilityIdentifier("uitest-runtime-fixture-\(scenario)")
                         .accessibilityLabel("uitest-runtime-fixture-\(scenario)")
                 }
                 if model.voiceStatus == .unavailable {
-                    Text("uitest-voice-unavailable")
-                        .font(.caption2)
+                    Color.clear
                         .frame(width: 1, height: 1)
-                        .opacity(0.01)
+                        .accessibilityElement(children: .ignore)
                         .accessibilityIdentifier("uitest-voice-unavailable")
                         .accessibilityLabel("uitest-voice-unavailable")
                 }
@@ -14145,6 +14142,7 @@ struct AskDJInputBar: View {
                         .foregroundStyle(.white.opacity(0.58))
                         .padding(.horizontal, 14)
                         .allowsHitTesting(false)
+                        .accessibilityHidden(true)
                 }
 
                 #if os(iOS)

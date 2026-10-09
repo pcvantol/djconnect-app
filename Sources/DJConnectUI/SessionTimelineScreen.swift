@@ -203,8 +203,14 @@ struct SessionTimelineScreen: View {
                     .keyboardShortcut("f", modifiers: .command)
             }
             .task(id: sessionID) {
+                let restoreGeneration = anchorGeneration
                 await history.prepare(); await history.loadTimeline(sessionID, window: activeSession == nil ? nil : .tail)
-                if let initialAnchor { await selectAnchor(initialAnchor, proxy: proxy) }
+                guard !Task.isCancelled, restoreGeneration == anchorGeneration else { return }
+                if let initialAnchor { await selectAnchor(initialAnchor, proxy: proxy, restoreRequest: true) }
+                else if let anchor = history.readingAnchor(sessionID: sessionID) {
+                    if ["current", "tail"].contains(anchor) { jump(anchor, proxy: proxy) }
+                    else { await selectAnchor(anchor, proxy: proxy, restoreRequest: true) }
+                }
             }
             .task(id: activeSession?.id) {
                 guard activeSession != nil else { return }
@@ -252,7 +258,10 @@ struct SessionTimelineScreen: View {
                     }
                 }
             }
-            .onDisappear { sceneRestoreTask?.cancel(); anchorGeneration = UUID(); history.clearSearch() }
+            .onDisappear {
+                history.rememberReadingAnchor(visibleEntry, sessionID: sessionID)
+                sceneRestoreTask?.cancel(); anchorGeneration = UUID(); history.clearSearch()
+            }
             .accessibilityElement(children: .contain)
             .accessibilityIdentifier(activeSession == nil ? "screen-history-timeline" : "screen-session-conversation")
         }
