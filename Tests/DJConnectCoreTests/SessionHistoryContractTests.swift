@@ -5,6 +5,21 @@ import Combine
 @testable import DJConnectCore
 @testable import DJConnectUI
 
+@Test @MainActor func sessionHistoryPhysicalTestEndpointRequiresExplicitBoundedLaunch() {
+    let host = "192.168.1.134"
+    let environment = ["DJCONNECT_UITEST_PHYSICAL_HISTORY_HOST": host]
+    let arguments = ["--physical-session-history-test"]
+    #expect(DJConnectAppModel.allowsSessionHistoryTestEndpoint("http://127.0.0.1:18191", environment: [:], arguments: []))
+    #expect(DJConnectAppModel.allowsSessionHistoryTestEndpoint("http://" + host + ":18192", environment: environment, arguments: arguments))
+    for rejected in ["http://" + host + ":8123", "http://" + host + ":18191", "https://" + host + ":18192", "http://example.com:18192", "http://8.8.8.8:18192", "http://user:password@" + host + ":18192"] {
+        #expect(!DJConnectAppModel.allowsSessionHistoryTestEndpoint(rejected, environment: environment, arguments: arguments))
+    }
+    #expect(!DJConnectAppModel.allowsSessionHistoryTestEndpoint("http://" + host + ":18192", environment: [:], arguments: arguments))
+    #expect(!DJConnectAppModel.allowsSessionHistoryTestEndpoint("http://" + host + ":18192", environment: environment, arguments: []))
+    let spoof = "192.168.1.134.example.com"
+    #expect(!DJConnectAppModel.allowsSessionHistoryTestEndpoint("http://" + spoof + ":18192", environment: ["DJCONNECT_UITEST_PHYSICAL_HISTORY_HOST": spoof], arguments: arguments))
+}
+
 private func historyFixture(_ name: String = "producer-receipt") throws -> Data {
     let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
     return try Data(contentsOf: root.appendingPathComponent("Fixtures/session-history-" + name + ".json"))

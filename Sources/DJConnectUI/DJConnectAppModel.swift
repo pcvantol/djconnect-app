@@ -9640,6 +9640,18 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     #if DEBUG
+    static func allowsSessionHistoryTestEndpoint(_ value: String, environment: [String: String], arguments: [String]) -> Bool {
+        guard let url = URL(string: value), let host = url.host, url.user == nil, url.password == nil else { return false }
+        if ["127.0.0.1", "localhost"].contains(host) { return true }
+        guard arguments.contains("--physical-session-history-test"), url.scheme == "http", url.port == 18192,
+              environment["DJCONNECT_UITEST_PHYSICAL_HISTORY_HOST"] == host else { return false }
+        let components = host.split(separator: ".", omittingEmptySubsequences: false)
+        guard components.count == 4 else { return false }
+        let octets = components.compactMap { UInt8($0) }
+        guard octets.count == 4 else { return false }
+        return octets[0] == 10 || (octets[0] == 172 && (16...31).contains(octets[1])) || (octets[0] == 192 && octets[1] == 168)
+    }
+
     public func applyUITestRuntimeFixture(_ rawScenario: String) {
         let scenario = rawScenario.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         isUITestRuntimeFixtureActive = true
@@ -9663,7 +9675,8 @@ public final class DJConnectAppModel: ObservableObject {
         backendAvailable = true
         updateRequiredMessage = nil
         if scenario == "session_history_contract" {
-            guard let url = URL(string: homeAssistantURL), ["127.0.0.1", "localhost"].contains(url.host ?? "") else {
+            guard Self.allowsSessionHistoryTestEndpoint(homeAssistantURL, environment: ProcessInfo.processInfo.environment,
+                                                       arguments: ProcessInfo.processInfo.arguments) else {
                 pairingStatus = .unpaired; isConnected = false; return
             }
             webSocketFastPathEnabled = ProcessInfo.processInfo.environment["DJCONNECT_UITEST_HISTORY_TRANSPORT"] == "websocket"
