@@ -755,6 +755,7 @@ public struct DJConnectRootView: View {
                 } detail: {
                     ZStack(alignment: .bottom) {
                         selectedView
+                            .id(selectedSection)
                         if shouldShowOfflineNetworkBanner {
                             OfflineNetworkBanner(
                                 language: model.language,
@@ -14280,7 +14281,7 @@ private struct AskDJPromptTextView: UIViewRepresentable {
         textView.tintColor = UIColor(djConnectAccent)
         textView.font = .preferredFont(forTextStyle: .body)
         textView.adjustsFontForContentSizeCategory = true
-        textView.isScrollEnabled = false
+        textView.isScrollEnabled = true
         textView.textContainerInset = UIEdgeInsets(top: 11, left: 10, bottom: 11, right: 10)
         textView.textContainer.lineFragmentPadding = 0
         textView.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
@@ -14311,7 +14312,8 @@ private struct AskDJPromptTextView: UIViewRepresentable {
     func sizeThatFits(_ proposal: ProposedViewSize, uiView: UITextView, context: Context) -> CGSize? {
         let width = proposal.width ?? 240
         let fittingSize = uiView.sizeThatFits(CGSize(width: width, height: .greatestFiniteMagnitude))
-        return CGSize(width: width, height: min(max(fittingSize.height, 44), 104))
+        let maximumHeight = max(104, (uiView.font?.lineHeight ?? 20) * 3 + uiView.textContainerInset.top + uiView.textContainerInset.bottom)
+        return CGSize(width: width, height: min(max(fittingSize.height, 44), maximumHeight))
     }
 
     func makeCoordinator() -> Coordinator {
@@ -14344,6 +14346,7 @@ private struct AskDJPromptTextView: UIViewRepresentable {
         func moveCaretToEnd(in textView: UITextView) {
             let end = textView.endOfDocument
             textView.selectedTextRange = textView.textRange(from: end, to: end)
+            textView.scrollRangeToVisible(NSRange(location: textView.text.utf16.count, length: 0))
         }
 
         private func setInputFocus(_ isFocused: Bool) {
