@@ -7,6 +7,15 @@ import AppKit
 #endif
 
 extension View {
+    func djSessionFrostedSurface(cornerRadius: CGFloat) -> some View {
+        background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .strokeBorder(.white.opacity(0.16), lineWidth: 0.75)
+                    .allowsHitTesting(false)
+            }
+    }
+
     @ViewBuilder func djSessionNavigationTitleStyle() -> some View {
         #if os(iOS)
         navigationBarTitleDisplayMode(.large)
@@ -153,7 +162,7 @@ struct NativeSessionMomentsView: View {
                     .accessibilityAddTraits(.isHeader)
             }
             .padding(24).frame(maxWidth: .infinity, alignment: .leading)
-            .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 24))
+            .djSessionFrostedSurface(cornerRadius: 24)
         } else if let moment {
             MomentCard(moment: moment, kind: kind(moment), presentation: presentation(for: moment), language: language)
                 .id(moment.id)
@@ -165,7 +174,7 @@ struct NativeSessionMomentsView: View {
                 Text(text("ui.session.quiet")).font(.title2.weight(.semibold))
             }
             .padding(24).frame(maxWidth: .infinity, alignment: .leading)
-            .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 24))
+            .djSessionFrostedSurface(cornerRadius: 24)
         }
     }
 
@@ -208,7 +217,7 @@ struct MomentCard: View {
                let logo = spotifyAttributionLogo, let url = moment.nativeSourceURLs.first {
                 Link(destination: url) {
                     logo.resizable().scaledToFit().frame(width: 110, height: 31)
-                        .padding(16).background(Color.black, in: RoundedRectangle(cornerRadius: 8))
+                        .padding(16)
                 }
                 .accessibilityLabel("Spotify")
                 .accessibilityValue(url.absoluteString)
@@ -221,7 +230,7 @@ struct MomentCard: View {
             }
         }
         .padding(24).frame(maxWidth: .infinity, alignment: .leading)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 24))
+        .djSessionFrostedSurface(cornerRadius: 24)
         .accessibilityElement(children: .contain)
     }
     private func sourceLabel(_ url: URL) -> String {

@@ -414,11 +414,11 @@ struct SessionEntryView: View {
                         }
                         if entry.requiresSpotifyAttribution == true, let logo = spotifyAttributionLogo,
                            let url = sourceURLs.first {
-                            Link(destination: url) { logo.resizable().scaledToFit().frame(width: 110, height: 31).padding(16).background(.black) }
+                            Link(destination: url) { logo.resizable().scaledToFit().frame(width: 110, height: 31).padding(16) }
                                 .accessibilityLabel("Spotify")
                         }
                     }.padding(20).frame(maxWidth: .infinity, alignment: .leading)
-                        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 20))
+                        .djSessionFrostedSurface(cornerRadius: 20)
                 }
                 Button(text(selected ? "ui.session.history.selected_context" : "ui.session.history.ask_entry"), action: askAction)
                     .font(.caption).accessibilityIdentifier("ask-entry-" + entry.id)
@@ -451,7 +451,7 @@ struct SessionHistoryMatchCard: View {
                 Text(text("ui.session.history.observed")).font(.caption).foregroundStyle(.secondary)
                 if entry.requiresSpotifyAttribution == true, let logo = spotifyAttributionLogo,
                    let raw = entry.playback?.sourceURL, let url = URL(string: raw), url.scheme == "https", url.host == "open.spotify.com" {
-                    Link(destination: url) { logo.resizable().scaledToFit().frame(width: 110, height: 31).padding(16).background(.black) }
+                    Link(destination: url) { logo.resizable().scaledToFit().frame(width: 110, height: 31).padding(16) }
                         .accessibilityLabel("Spotify")
                 }
                 if let action = entry.openAction, action.reference == entry.reference {
@@ -462,7 +462,7 @@ struct SessionHistoryMatchCard: View {
                         .accessibilityIdentifier("open-session-" + entry.id)
                 }
             }.padding(14).frame(maxWidth: .infinity, alignment: .leading)
-                .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 14))
+                .djSessionFrostedSurface(cornerRadius: 14)
         }
         }
     }

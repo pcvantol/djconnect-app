@@ -12641,64 +12641,11 @@ struct AskDJMessageBubble: View {
         }
     }
 
-    @ViewBuilder
     private var bubbleBackground: some View {
-        if isStaleHistory {
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(
-                    LinearGradient(
-                        colors: [
-                            Color.white.opacity(0.18),
-                            Color.white.opacity(0.09)
-                        ],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
-        } else if isUser {
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(Color(red: 0.06, green: 0.43, blue: 1.00))
-        } else if isSystemMessage {
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(
-                    LinearGradient(
-                        colors: [
-                            Color(red: 0.12, green: 0.45, blue: 1.00).opacity(0.34),
-                            Color(red: 0.47, green: 0.30, blue: 0.98).opacity(0.26),
-                            Color.white.opacity(0.10)
-                        ],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
-        } else if let assistantMoodColors {
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(
-                    LinearGradient(
-                        colors: [
-                            assistantMoodColors[0].opacity(0.86),
-                            assistantMoodColors[1].opacity(0.76),
-                            assistantMoodColors[2].opacity(0.82),
-                            Color.black.opacity(0.18)
-                        ],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
-        } else {
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(
-                    LinearGradient(
-                        colors: [
-                            Color(red: 0.98, green: 0.49, blue: 0.27),
-                            Color(red: 0.74, green: 0.20, blue: 0.77)
-                        ],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
-        }
+        RoundedRectangle(cornerRadius: 18, style: .continuous)
+            .fill(.ultraThinMaterial)
     }
+
 }
 
 private struct AskDJResponseShortcutStack: View {
