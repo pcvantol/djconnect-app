@@ -332,7 +332,7 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
             try await accept(response, fallback: turn.localMessageID)
             pendingTurns.removeAll { $0.id == turn.id }
         } catch {
-            guard captured == epoch, ownerScope == turn.ownerScope, host.canUseProfileConversation,
+            guard captured == epoch, ownerScope == turn.ownerScope,
                   pendingTurns.contains(where: { $0.id == turn.id }) else { return }
             if withdrawAuthority(for: error) { return }
             if let index = pendingTurns.firstIndex(where: { $0.id == turn.id }) {
