@@ -337,8 +337,14 @@ public final class DJConnectClient: Sendable {
     }
 
     public func profileConversationHistory() async throws -> DJConnectProfileConversationHistory {
-        let response: DJConnectProfileConversationHistory = try await decodedResponse(for: sessionHistoryReadRequest(route: "ask_dj/history",
-            queryItems: [URLQueryItem(name: "conversation_scope", value: "profile")]), using: sessionProjectionSession)
+        let response: DJConnectProfileConversationHistory
+        if let scoped = try await webSocketFastPathResult({ fastPath, token in
+            try await fastPath.profileConversationHistory(identity: makeDJConnectIdentity(deviceToken: token))
+        }) { response = scoped }
+        else {
+            response = try await decodedResponse(for: sessionHistoryReadRequest(route: "ask_dj/history",
+                queryItems: [URLQueryItem(name: "conversation_scope", value: "profile")]), using: sessionProjectionSession)
+        }
         guard response.base.success == true, !response.ownerScope.isEmpty,
               response.base.messages.count <= 1000, response.historicalMatches.values.joined().allSatisfy(\.isContractValid) else {
             throw DJConnectError.invalidResponse

@@ -132,7 +132,7 @@ async def main():
             hass.data["djconnect"]["ask_dj_history_manager"] = history
         elif operation != "state":
             raise web.HTTPNotFound()
-        return web.json_response({"active": await active_state(), "websocket_access_token": websocket_token if operation == "state" else None}, headers={"Cache-Control":"no-store"})
+        return web.json_response({"active": await active_state(), "websocket_access_token": hass.auth.async_create_access_token(refresh) if operation == "state" else None}, headers={"Cache-Control":"no-store"})
 
     hass.http.app.router.add_route("*", "/__apple_fixture/{operation}", control)
     await seed()

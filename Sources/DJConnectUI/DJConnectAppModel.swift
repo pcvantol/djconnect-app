@@ -9661,6 +9661,7 @@ public final class DJConnectAppModel: ObservableObject {
             guard let url = URL(string: homeAssistantURL), ["127.0.0.1", "localhost"].contains(url.host ?? "") else {
                 pairingStatus = .unpaired; isConnected = false; return
             }
+            webSocketFastPathEnabled = true
             try? tokenStore.saveToken("synthetic-fixture-token")
             playback = nil; queueItems = []; playlistItems = []; askDJMessages = []
             isAppInForeground = true; voiceStatus = .idle; voiceErrorMessage = nil

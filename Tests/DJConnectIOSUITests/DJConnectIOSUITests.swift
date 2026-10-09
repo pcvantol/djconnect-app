@@ -979,9 +979,14 @@ extension DJConnectIOSUITests {
         XCTAssertTrue(app.descendants(matching: .any)["session-question-context"].waitForExistence(timeout: 5))
         let input = app.textViews.firstMatch
         XCTAssertTrue(input.waitForExistence(timeout: 5)); input.tap(); input.typeText("Vertel over deze bijdrage")
-        XCTAssertTrue(app.buttons["ask-dj-composer-send"].isEnabled)
+        print("CLIENT FLAGS", app.staticTexts["session-history-runtime-diagnostics"].label)
+        guard app.buttons["ask-dj-composer-send"].isEnabled else {
+            XCTFail("Authorized conversation composer is disabled: " + app.staticTexts["session-history-runtime-diagnostics"].label); return
+        }
         app.buttons["ask-dj-composer-send"].tap()
-        XCTAssertTrue(app.staticTexts["Deze bijdrage: " + momentText].firstMatch.waitForExistence(timeout: 15))
+        guard app.staticTexts["Deze bijdrage: " + momentText].firstMatch.waitForExistence(timeout: 15) else {
+            XCTFail("No confirmed native reply; diagnostic only, not acceptance."); return
+        }
         try saveHistoryScreenshot("ios-history-02-confirmed-text-turn")
         app.buttons["session-search-toggle"].tap()
         let search = app.textFields["session-search-field"]

@@ -389,3 +389,26 @@ private final class HistoryReplySequence: @unchecked Sendable {
     model.markInactiveSession()
     #expect(!model.canUseProfileConversation)
 }
+
+@Test func sessionHistoryWebSocketCapabilitiesAcceptActualOperationMapsAndLegacyArrays() throws {
+    let actual = try JSONDecoder().decode(DJConnectWebSocketFallback.self, from: Data(#"{"http_paths":{"history":"/api/djconnect/v1/ask_dj/history","clear":"/api/djconnect/v1/ask_dj/history/clear"}}"#.utf8))
+    #expect(actual.hasHTTPPath)
+    #expect(actual.httpPaths == ["/api/djconnect/v1/ask_dj/history/clear", "/api/djconnect/v1/ask_dj/history"])
+    let legacy = try JSONDecoder().decode(DJConnectWebSocketFallback.self, from: Data(#"{"http_paths":["/api/djconnect/v1/music_dna/profile"]}"#.utf8))
+    #expect(legacy.hasHTTPPath)
+    let empty = try JSONDecoder().decode(DJConnectWebSocketFallback.self, from: Data(#"{"http_paths":{"history":""}}"#.utf8))
+    #expect(!empty.hasHTTPPath)
+    #expect(throws: DecodingError.self) {
+        try JSONDecoder().decode(DJConnectWebSocketFallback.self, from: Data(#"{"http_paths":{"history":true}}"#.utf8))
+    }
+}
+
+@Test func sessionHistoryWebSocketRequestEncodesProfileScope() throws {
+    let identity = DJConnectIdentity(clientName: "Contract iPhone", deviceID: "djconnect-ios-ABCDEF123456", deviceName: "Contract iPhone", clientType: .ios, firmware: "3.4.0", appVersion: "4.0.0", protocolVersion: "3.4.0", platform: .ios)
+    let message = DJConnectWebSocketProfileHistoryMessage(id: 17, identity: DJConnectAPIIdentity(identity: identity, deviceToken: "synthetic-fixture-token"))
+    let data = try JSONEncoder().encode(message)
+    let object = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
+    #expect((object["payload"] as? [String: String])?["conversation_scope"] == "profile")
+    #expect(object["type"] as? String == "djconnect/ask_dj/history")
+    #expect((object["identity"] as? [String: Any])?["device_id"] as? String == identity.deviceID)
+}
