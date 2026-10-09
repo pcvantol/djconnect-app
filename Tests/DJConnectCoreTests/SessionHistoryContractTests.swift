@@ -713,3 +713,27 @@ func sessionHistoryActualComposerHandlesFailureAfterTransportGoesOffline(_ failu
     let unavailable = try JSONDecoder().decode(DJConnectSessionConversationResponse.self, from: historyData(object))
     #expect(unavailable.base.audioURL == nil)
 }
+
+@Test func sessionHistoryNestedAudioDenialWinsOverTopLevelReplayFallback() throws {
+    let receipt = try historyObject("generic-no-audio-response")
+    for outcome in ["unavailable", "server_only"] {
+        var object = try #require(receipt["response"] as? [String: Any])
+        var announcement = try #require(object.removeValue(forKey: "announcement") as? [String: Any])
+        announcement["audio_response_effective"] = outcome
+        announcement["audio_url"] = "https://example.test/nested.wav"
+        object["audio_url"] = "https://example.test/top-level.wav"
+        var assistant = try #require(object["assistant_message"] as? [String: Any])
+        assistant["announcement"] = announcement
+        assistant["audio_url"] = "https://example.test/message.wav"
+        object["assistant_message"] = assistant
+        object["messages"] = [try #require(object["user_message"] as? [String: Any]), assistant]
+        let data = try historyData(object)
+        let response = try JSONDecoder().decode(DJConnectSessionConversationResponse.self, from: data)
+        #expect(response.base.assistantMessage?.audioURL == nil)
+        #expect(response.base.messages.filter { $0.role != .user }.allSatisfy { $0.audioURL == nil })
+        #expect(response.base.assistantMessage?.announcement?.audioResponseEffective?.rawValue == outcome)
+        let command = try JSONDecoder().decode(DJConnectCommandResponse.self, from: data)
+        #expect(command.assistantMessage?.audioURL == nil)
+        #expect(command.assistantMessage?.announcement?.audioResponseEffective?.rawValue == outcome)
+    }
+}

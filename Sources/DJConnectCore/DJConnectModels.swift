@@ -6156,7 +6156,7 @@ public struct DJConnectAskDJMessageResponse: Codable, Equatable, Sendable {
         if assistantMessage?.announcement == nil, let announcement {
             assistantMessage?.announcement = announcement
             assistantMessage?.audioURL = announcement.clientReplayAudioURL
-        } else if assistantMessage?.audioURL == nil, let audioURL {
+        } else if assistantMessage?.announcement == nil, assistantMessage?.audioURL == nil, let audioURL {
             assistantMessage?.audioURL = audioURL
         }
         if assistantMessage?.textSource == nil, let textSource {
@@ -6224,7 +6224,7 @@ public struct DJConnectAskDJMessageResponse: Codable, Equatable, Sendable {
                 if updated.announcement == nil, let announcement {
                     updated.announcement = announcement
                     updated.audioURL = announcement.clientReplayAudioURL
-                } else if updated.audioURL == nil, let audioURL {
+                } else if updated.announcement == nil, updated.audioURL == nil, let audioURL {
                     updated.audioURL = audioURL
                 }
                 if updated.textSource == nil, let textSource {
@@ -8575,7 +8575,7 @@ public struct DJConnectCommandResponse: Codable, Equatable, Sendable {
         if assistantMessage?.announcement == nil, let topLevelAnnouncement {
             assistantMessage?.announcement = topLevelAnnouncement
             assistantMessage?.audioURL = topLevelAnnouncement.clientReplayAudioURL
-        } else if assistantMessage?.audioURL == nil {
+        } else if assistantMessage?.announcement == nil, assistantMessage?.audioURL == nil {
             assistantMessage?.audioURL = topLevelAudioURL
         }
         if assistantMessage?.origin == nil {
