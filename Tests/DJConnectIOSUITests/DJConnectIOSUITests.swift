@@ -1075,8 +1075,13 @@ extension DJConnectIOSUITests {
         more.tap(); app.buttons["Eerdere sessies"].firstMatch.tap()
         let savedA = app.buttons["saved-session-" + sessionA]
         guard savedA.waitForExistence(timeout: 10) else { XCTFail("Ended Session A missing from real archive"); return }
+        XCUIDevice.shared.press(.home); app.activate()
+        XCTAssertTrue(savedA.waitForExistence(timeout: 15), "Visible archive must reload after background")
         savedA.tap()
         XCTAssertTrue(app.descendants(matching: .any)["screen-history-timeline"].waitForExistence(timeout: 10))
+        XCUIDevice.shared.press(.home); app.activate()
+        let restoredEntry = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "ask-entry-")).firstMatch
+        XCTAssertTrue(restoredEntry.waitForExistence(timeout: 15), "Visible readonly timeline must reload after background")
         let readback1 = try await activeID()
         XCTAssertEqual(readback1, sessionB)
         try saveHistoryScreenshot("ios-history-09-readonly-A-while-B-active")

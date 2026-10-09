@@ -4,6 +4,7 @@ import DJConnectCore
 struct SavedSessionsView: View {
     @ObservedObject var model: DJConnectAppModel
     @ObservedObject private var history: DJConnectSessionHistoryModel
+    @Environment(\.scenePhase) private var scenePhase
     init(model: DJConnectAppModel) { self.model = model; history = model.sessionHistory }
     private func text(_ key: String) -> String { DJConnectLocalization.localized(key: key, language: model.language) }
     var body: some View {
@@ -47,7 +48,10 @@ struct SavedSessionsView: View {
             .background(DJConnectCanvasBackground())
             .navigationTitle(text("ui.session.history.title"))
             .refreshable { await history.prepare(); await history.loadSessions() }
-            .task { await history.prepare(); await history.loadSessions() }
+            .task { await history.restoreVisibleSessions() }
+            .onChange(of: scenePhase) { _, phase in
+                if phase == .active { Task { await history.restoreVisibleSessions() } }
+            }
             .accessibilityElement(children: .contain)
             .accessibilityIdentifier("screen-saved-sessions")
         }
@@ -227,9 +231,14 @@ struct SessionTimelineScreen: View {
             }
             .onChange(of: scenePhase) {
                 if scenePhase == .inactive { resumePosition = visibleEntry }
-                if scenePhase == .active, let resumePosition {
+                if scenePhase == .active {
                     Task {
-                        await history.prepare()
+                        await history.restoreVisibleTimeline(sessionID, active: activeSession != nil, anchor: resumePosition)
+                        guard let resumePosition else {
+                            if let initialAnchor { await selectAnchor(initialAnchor, proxy: proxy) }
+                            else if activeSession != nil { jump("current", proxy: proxy) }
+                            return
+                        }
                         if resumePosition.hasPrefix("pending-") {
                             if history.pendingTurns.contains(where: { "pending-" + $0.id == resumePosition }) { jump(resumePosition, proxy: proxy) }
                             else if activeSession != nil { jump("current", proxy: proxy) }

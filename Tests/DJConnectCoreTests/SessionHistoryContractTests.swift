@@ -452,3 +452,79 @@ private final class HistoryReplySequence: @unchecked Sendable {
         try JSONDecoder().decode(DJConnectProfileConversationHistory.self, from: historyData(try #require(legacy["body"])))
     }
 }
+
+private final class HistoryAuthorityGate: @unchecked Sendable {
+    private let lock = NSLock()
+    private var value = false
+    var denied: Bool { get { lock.withLock { value } } set { lock.withLock { value = newValue } } }
+}
+
+@Test(arguments: ["refresh", "list", "timeline", "search", "open", "fetch", "send", "voice", "clear"])
+@MainActor func sessionHistoryProfileFailureWithdrawsAllPrivateStateAndRecovers(_ operation: String) async throws {
+    let receipt = try historyObject()
+    let timelineObject = try #require(receipt["archived_timeline"] as? [String: Any])
+    let timeline = try historyData(timelineObject)
+    let page = try JSONDecoder().decode(DJConnectSessionTimelinePage.self, from: timeline)
+    let profile = try historyData(try #require(receipt["later_historical_answer"]))
+    let sessions = try historyData(["success": true, "schema_version": 1, "sessions": [try #require(timelineObject["session"])],
+        "revision": try #require(timelineObject["revision"]), "retention_days": 30])
+    let caps = Data(#"{"capabilities":{"session_conversation_history":true,"session_flow_text_search":true},"contract_versions":{"session_conversation_history":1,"session_flow_text_search":1}}"#.utf8)
+    let gate = HistoryAuthorityGate()
+    let fixture = HistoryWireFixture { request in
+        if request.url!.path.hasSuffix("/capabilities") { return (200, caps, 0) }
+        if gate.denied { return (403, Data(#"{"success":false,"error":"invalid_profile","message":"Private denied detail"}"#.utf8), 0) }
+        if request.url!.path.hasSuffix("ask_dj/history") { return (200, profile, 0) }
+        if request.url!.path.hasSuffix("/session/history") { return (200, sessions, 0) }
+        return (200, timeline, 0)
+    }
+    defer { fixture.close() }
+    let (model, defaults, name) = fixture.model(); defer { defaults.removePersistentDomain(forName: name) }
+    await model.sessionHistory.prepare()
+    await model.sessionHistory.loadSessions()
+    await model.sessionHistory.loadTimeline(page.session.id)
+    #expect(model.sessionHistory.hasAuthorizedOwner)
+    #expect(!model.sessionHistory.timelines.isEmpty && !model.sessionHistory.sessions.isEmpty)
+    model.sessionHistory.selectedEntry = page.entries[0].reference
+    gate.denied = true
+    switch operation {
+    case "refresh": await model.sessionHistory.refreshConversation()
+    case "list": await model.sessionHistory.loadSessions()
+    case "timeline": await model.sessionHistory.loadTimeline(page.session.id)
+    case "search": model.sessionHistory.search(sessionID: page.session.id, query: "One"); try await Task.sleep(for: .milliseconds(500))
+    case "open": _ = await model.sessionHistory.open(.init(reference: page.entries[0].reference))
+    case "fetch": _ = try? await model.sessionHistory.fetchExistingHistory()
+    case "send": _ = try? await model.sessionHistory.sendExistingText("Question", clientMessageID: "authority-test")
+    case "voice": model.sessionHistory.captureVoiceContext(); try? await model.sessionHistory.uploadVoice(Data([82, 73, 70, 70]))
+    default: try? await model.sessionHistory.clearExistingHistory()
+    }
+    #expect(!model.sessionHistory.hasAuthorizedOwner)
+    #expect(model.sessionHistory.timelines.isEmpty && model.sessionHistory.sessions.isEmpty)
+    #expect(model.sessionHistory.searchMatches.isEmpty && model.sessionHistory.historicalMatches.isEmpty)
+    #expect(model.sessionHistory.selectedEntry == nil && model.sessionHistory.openTarget == nil)
+    #expect(model.askDJMessages.isEmpty && !model.canUseProfileConversation)
+    gate.denied = false
+    await model.sessionHistory.restoreVisibleSessions()
+    #expect(model.sessionHistory.hasAuthorizedOwner && !model.sessionHistory.sessions.isEmpty)
+    await model.sessionHistory.restoreVisibleTimeline(page.session.id, active: false, anchor: nil)
+    #expect(model.sessionHistory.timelines[page.session.id]?.entries.count == page.entries.count)
+}
+
+@Test @MainActor func sessionHistoryQueuedTurnCannotSendAfterSynchronousBackground() async throws {
+    let profile = try historyData(try #require(historyObject()["later_historical_answer"]))
+    let caps = Data(#"{"capabilities":{"session_conversation_history":true,"session_flow_text_search":true},"contract_versions":{"session_conversation_history":1,"session_flow_text_search":1}}"#.utf8)
+    let fixture = HistoryWireFixture { request in (200, request.url!.path.hasSuffix("/capabilities") ? caps : profile, 0) }
+    defer { fixture.close() }
+    let (model, defaults, name) = fixture.model(); defer { defaults.removePersistentDomain(forName: name) }
+    await model.sessionHistory.prepare()
+    model.askDJDraft = "Must never leave this client after background"
+    model.sessionHistory.sendText()
+    #expect(model.sessionHistory.pendingTurns.count == 1)
+    model.markInactiveSession()
+    try await Task.sleep(for: .milliseconds(100))
+    #expect(fixture.requests.allSatisfy { $0.httpMethod != "POST" })
+    #expect(model.sessionHistory.pendingTurns.isEmpty && model.askDJMessages.isEmpty)
+    #expect(!model.sessionHistory.hasAuthorizedOwner && !model.isSendingAskDJText)
+    model.markActiveSession()
+    await model.sessionHistory.prepare()
+    #expect(model.sessionHistory.hasAuthorizedOwner)
+}

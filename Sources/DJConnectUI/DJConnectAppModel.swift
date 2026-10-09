@@ -3284,6 +3284,11 @@ public final class DJConnectAppModel: ObservableObject {
         isSendingAskDJText = false
     }
     func clearProfileConversationDisplay() { clearAskDJHistoryLocally() }
+    func revokeProfileConversationAuthority() {
+        cancelVoiceRecording()
+        clearAskDJHistoryLocally()
+        clearSessionProjection()
+    }
     func applyConfirmedProfileConversationClear(_ response: DJConnectAskDJHistoryResponse) {
         clearAskDJHistoryLocally(); applyAskDJHistory(response, forceClear: response.isClearAcknowledged)
     }

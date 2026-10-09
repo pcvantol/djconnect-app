@@ -21,6 +21,8 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
         public let context: DJConnectConversationContext
         public let localMessageID: UUID?
         public let payload: DJConnectAskDJRequest
+        public let requestEpoch: UUID
+        public let ownerScope: String
         public var failed = false
         public var contextChanged = false
     }
@@ -84,8 +86,9 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
 
     private func performPreparation() async {
         guard let host, host.canRefreshSessionHistory else { return }
+        let operation = preparationID
         preparing = true
-        defer { preparing = false }
+        defer { if preparationID == operation { preparing = false } }
         let captured = epoch
         do {
             let caps = try await host.withHomeAssistantClient { try await $0.sessionHistoryCapabilities() }
@@ -102,6 +105,7 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
             if available { await refreshConversation() }
         } catch {
             guard captured == epoch else { return }
+            if withdrawAuthority(for: error) { return }
             listErrorKey = "ui.session.history.unavailable"
         }
     }
@@ -118,7 +122,11 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
     }
 
     public func suspend() {
-        epoch = UUID(); searchTask?.cancel(); searchTask = nil
+        preparationTask?.cancel(); preparationTask = nil; preparationID = UUID(); preparing = false
+        epoch = UUID(); ownerScope = nil
+        listGeneration = UUID(); timelineGenerations = [:]; navigationGeneration = UUID()
+        listLoading = false; listNextCursor = nil; listRevision = nil
+        searchTask?.cancel(); searchTask = nil
         timelines = [:]; sessions = []; historicalMatches = [:]; searchMatches = []
         selectedEntry = nil; openTarget = nil; voiceContext = nil; voiceClientID = nil; voicePayload = nil
         clearSearch()
@@ -143,7 +151,7 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
             guard captured == epoch else { return }
             historicalMatches = [:]
             host.clearProfileConversationDisplay()
-            if isAuthorizationFailure(error) { suspend() }
+            _ = withdrawAuthority(for: error)
         }
     }
 
@@ -164,6 +172,7 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
             listRevision = page.revision.value; listNextCursor = page.nextCursor
         } catch {
             guard captured == epoch, generation == listGeneration else { return }
+            if withdrawAuthority(for: error) { return }
             sessions = []; listNextCursor = nil
             listErrorKey = errorKey(error)
         }
@@ -194,6 +203,7 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
                                             revision: page.revision.value, loading: false, errorKey: nil, windowed: window != nil)
         } catch {
             guard captured == epoch, timelineGenerations[sessionID] == generation else { return }
+            if withdrawAuthority(for: error) { return }
             timelines[sessionID] = Timeline(errorKey: errorKey(error))
         }
     }
@@ -224,6 +234,7 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
             return true
         } catch {
             guard captured == epoch, generation == navigationGeneration, timelineGenerations[action.sessionID] == generation else { return false }
+            if withdrawAuthority(for: error) { return false }
             timelines[action.sessionID] = nil
             searchMatches.removeAll { $0.sessionID == action.sessionID && $0.id == action.entryID }
             historicalMatches = historicalMatches.mapValues { $0.filter { $0.reference != action.reference } }
@@ -266,6 +277,7 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
             searchTotal = page.totalCount; searchErrorKey = nil
         } catch {
             guard captured == epoch, generation == searchGeneration, !Task.isCancelled else { return }
+            if withdrawAuthority(for: error) { return }
             clearSearchResults(); searchErrorKey = errorKey(error)
         }
     }
@@ -280,22 +292,24 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
 
     public func sendText() {
         guard profileScopeActive, let host, host.canUseProfileConversation, !host.isSendingAskDJText else { return }
-        guard ownerScope != nil else { host.failProfileConversationText(id: nil, errorKey: "ui.session.history.unavailable"); return }
+        guard let capturedOwner = ownerScope else { host.failProfileConversationText(id: nil, errorKey: "ui.session.history.unavailable"); return }
         let text = host.askDJDraft.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { return }
         let id = UUID().uuidString
         let localID = host.beginProfileConversationText(text: text, clientMessageID: id)
         let context = currentContext()
         let turn = PendingTurn(id: id, text: text, context: context, localMessageID: localID,
-            payload: host.profileConversationPayload(text: text, clientMessageID: id, context: context))
+            payload: host.profileConversationPayload(text: text, clientMessageID: id, context: context), requestEpoch: epoch, ownerScope: capturedOwner)
         pendingTurns.append(turn)
         Task { await submit(turn) }
     }
 
     public func retry(_ turn: PendingTurn) {
-        guard turn.failed, !turn.contextChanged, let host, !host.isSendingAskDJText else { return }
+        guard turn.failed, !turn.contextChanged, let host, host.canUseProfileConversation, !host.isSendingAskDJText,
+              turn.requestEpoch == epoch, ownerScope == turn.ownerScope, pendingTurns.contains(where: { $0.id == turn.id }) else { return }
         pendingTurns.removeAll { $0.id == turn.id }; pendingTurns.append(PendingTurn(
-            id: turn.id, text: turn.text, context: turn.context, localMessageID: turn.localMessageID, payload: turn.payload))
+            id: turn.id, text: turn.text, context: turn.context, localMessageID: turn.localMessageID, payload: turn.payload,
+            requestEpoch: turn.requestEpoch, ownerScope: turn.ownerScope))
         host.setProfileConversationSending(true)
         Task { await submit(turn) }
     }
@@ -307,16 +321,20 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
     }
 
     private func submit(_ turn: PendingTurn) async {
-        guard let host else { return }
-        let captured = epoch
+        guard let host, host.canUseProfileConversation, turn.requestEpoch == epoch, ownerScope == turn.ownerScope,
+              pendingTurns.contains(where: { $0.id == turn.id }) else { return }
+        let captured = turn.requestEpoch
         do {
             let payload = turn.payload
             let response = try await host.withHomeAssistantClient { try await $0.sendSessionConversation(payload) }
-            guard captured == epoch else { return }
+            guard captured == epoch, ownerScope == turn.ownerScope, host.canUseProfileConversation,
+                  pendingTurns.contains(where: { $0.id == turn.id }) else { return }
             try await accept(response, fallback: turn.localMessageID)
             pendingTurns.removeAll { $0.id == turn.id }
         } catch {
-            guard captured == epoch else { return }
+            guard captured == epoch, ownerScope == turn.ownerScope, host.canUseProfileConversation,
+                  pendingTurns.contains(where: { $0.id == turn.id }) else { return }
+            if withdrawAuthority(for: error) { return }
             if let index = pendingTurns.firstIndex(where: { $0.id == turn.id }) {
                 pendingTurns[index].failed = true; pendingTurns[index].contextChanged = isConflict(error)
             }
@@ -335,47 +353,67 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
     public func uploadVoice(_ data: Data) async throws {
         guard let host, let context = voiceContext, let id = voiceClientID, let payload = voicePayload else { throw DJConnectError.invalidResponse }
         let captured = epoch
-        defer { if voiceClientID == id { cancelVoiceContext() } }
-        let response = try await host.withHomeAssistantClient {
-            try await $0.sendSessionVoice(wavData: data, context: context, clientMessageID: id, language: payload.language ?? "en",
-                                          mood: payload.mood, djStyle: payload.djStyle, musicDNAKey: payload.musicDNAKey)
+        do {
+            defer { if voiceClientID == id { cancelVoiceContext() } }
+            let response = try await host.withHomeAssistantClient {
+                try await $0.sendSessionVoice(wavData: data, context: context, clientMessageID: id, language: payload.language ?? "en",
+                                              mood: payload.mood, djStyle: payload.djStyle, musicDNAKey: payload.musicDNAKey)
+            }
+            guard captured == epoch else { throw CancellationError() }
+            try await accept(response, fallback: nil)
+        } catch {
+            if captured == epoch { _ = withdrawAuthority(for: error) }
+            throw error
         }
-        guard captured == epoch else { throw CancellationError() }
-        try await accept(response, fallback: nil)
     }
 
     public func clearExistingHistory() async throws {
-        guard profileScopeActive, let host, let scope = ownerScope else { throw CancellationError() }
+        guard profileScopeActive, let host, host.canUseProfileConversation, let scope = ownerScope else { throw CancellationError() }
         let captured = epoch
-        let response = try await host.withHomeAssistantClient { try await $0.clearProfileConversationHistory() }
-        guard captured == epoch, ownerScope == scope, response.ownerScope == scope else { throw CancellationError() }
-        guard response.base.isClearAcknowledged else { throw DJConnectError.invalidResponse }
-        suspend()
-        host.applyConfirmedProfileConversationClear(response.base)
+        do {
+            let response = try await host.withHomeAssistantClient { try await $0.clearProfileConversationHistory() }
+            guard captured == epoch, ownerScope == scope, response.ownerScope == scope else { throw CancellationError() }
+            guard response.base.isClearAcknowledged else { throw DJConnectError.invalidResponse }
+            suspend(); ownerScope = scope
+            host.applyConfirmedProfileConversationClear(response.base)
+        } catch {
+            if captured == epoch { _ = withdrawAuthority(for: error) }
+            throw error
+        }
     }
 
     public func fetchExistingHistory() async throws -> DJConnectAskDJHistoryResponse {
-        guard let host else { throw DJConnectError.invalidResponse }
+        guard let host, host.canRefreshSessionHistory else { throw CancellationError() }
         let captured = epoch
-        let response = try await host.withHomeAssistantClient { try await $0.profileConversationHistory() }
-        guard captured == epoch, !response.ownerScope.isEmpty else { throw CancellationError() }
-        let scope = response.ownerScope
-        if ownerScope != nil && ownerScope != scope { suspend(); host.enterProfileConversationScope() }
-        ownerScope = scope
-        guard host.applyProfileConversationHistory(response.base) else { throw DJConnectError.server(statusCode: 409, message: nil) }
-        historicalMatches = response.historicalMatches
-        reconcilePending(with: response.base)
-        return response.base
+        do {
+            let response = try await host.withHomeAssistantClient { try await $0.profileConversationHistory() }
+            guard captured == epoch, !response.ownerScope.isEmpty else { throw CancellationError() }
+            let scope = response.ownerScope
+            if ownerScope != nil && ownerScope != scope { suspend(); host.enterProfileConversationScope() }
+            ownerScope = scope
+            guard host.applyProfileConversationHistory(response.base) else { throw DJConnectError.server(statusCode: 409, message: nil) }
+            historicalMatches = response.historicalMatches
+            reconcilePending(with: response.base)
+            return response.base
+        } catch {
+            if captured == epoch { _ = withdrawAuthority(for: error) }
+            throw error
+        }
     }
 
     public func sendExistingText(_ text: String, clientMessageID: String) async throws -> DJConnectAskDJMessageResponse {
-        guard let host else { throw DJConnectError.invalidResponse }
+        guard let host, host.canUseProfileConversation, ownerScope != nil else { throw CancellationError() }
         let captured = epoch
-        let payload = host.profileConversationPayload(text: text, clientMessageID: clientMessageID, context: currentContext())
-        let response = try await host.withHomeAssistantClient { try await $0.sendSessionConversation(payload) }
-        guard captured == epoch else { throw CancellationError() }
-        try await accept(response, fallback: nil, apply: false)
-        return response.base
+        do {
+            let payload = host.profileConversationPayload(text: text, clientMessageID: clientMessageID, context: currentContext())
+            let response = try await host.withHomeAssistantClient { try await $0.sendSessionConversation(payload) }
+            guard captured == epoch else { throw CancellationError() }
+            try await accept(response, fallback: nil, apply: false)
+            return response.base
+        } catch {
+            if captured == epoch { _ = withdrawAuthority(for: error) }
+            throw error
+        }
     }
 
     private func accept(_ response: DJConnectSessionConversationResponse, fallback: UUID?, apply: Bool = true) async throws {
@@ -425,8 +463,28 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
         if case DJConnectError.server(let status, _) = error { return status == 409 }
         return false
     }
-    private func isAuthorizationFailure(_ error: Error) -> Bool {
-        if case DJConnectError.authStale = error { return true }; return false
+    @discardableResult private func withdrawAuthority(for error: Error) -> Bool {
+        guard (error as? DJConnectError)?.invalidatesSessionAuthority == true else { return false }
+        suspend()
+        host?.revokeProfileConversationAuthority()
+        listErrorKey = "ui.session.history.unavailable"
+        navigationErrorKey = "ui.session.history.unavailable"
+        return true
+    }
+
+    public func restoreVisibleSessions() async {
+        await prepare()
+        await loadSessions()
+    }
+
+    public func restoreVisibleTimeline(_ sessionID: String, active: Bool, anchor: String?) async {
+        await prepare()
+        guard hasAuthorizedOwner else { return }
+        if let anchor, !["current", "tail"].contains(anchor), !anchor.hasPrefix("pending-") {
+            await loadTimeline(sessionID, window: .anchor, anchorEntryID: anchor)
+            if timelines[sessionID]?.entries.contains(where: { $0.id == anchor && $0.isRetained() }) == true { return }
+        }
+        await loadTimeline(sessionID, window: active ? .tail : nil)
     }
     private func errorKey(_ error: Error) -> String {
         isConflict(error) ? "ui.session.history.changed" : "ui.session.history.unavailable"
