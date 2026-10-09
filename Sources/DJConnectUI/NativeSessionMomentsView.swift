@@ -23,6 +23,7 @@ struct NativeSessionMomentsView: View {
     var isRecovering = false
     var artworkBaseURL: URL? = nil
     var returnToCurrent: () -> Void = {}
+    var showsFlow = true
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var selectedMomentID: String?
 
@@ -46,6 +47,7 @@ struct NativeSessionMomentsView: View {
                 }
                 .id("native-session-current")
                 .animation(djSessionReducedMotion(reduceMotion) ? nil : .easeInOut(duration: 0.2), value: current?.id)
+                if showsFlow {
                 Text(text("ui.session.flow")).font(.title2.bold()).accessibilityAddTraits(.isHeader)
                 ForEach(flowItems) { item in
                     if let moment = flowMoments.first(where: { $0.id == item.momentID }) {
@@ -70,6 +72,7 @@ struct NativeSessionMomentsView: View {
                         Text(item.label).font(.callout).foregroundStyle(.secondary)
                             .padding(14).frame(maxWidth: .infinity, alignment: .leading)
                     }
+                }
                 }
             }
             .frame(maxWidth: 1000, alignment: .leading)
@@ -219,7 +222,7 @@ struct MomentCard: View {
     }
 }
 
-private var spotifyAttributionLogo: Image? {
+var spotifyAttributionLogo: Image? {
     #if os(iOS)
     UIImage(named: "SpotifyAttribution").map { Image(uiImage: $0) }
     #elseif os(macOS)

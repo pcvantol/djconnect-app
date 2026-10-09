@@ -153,7 +153,8 @@ public actor DJConnectSessionBroadcastTransport {
     private func send<T: Encodable>(_ value: T) async throws {
         guard let socket else { throw DJConnectError.network(message: "WebSocket is not connected") }
         let data = try encoder.encode(value)
-        try await socket.send(.data(data))
+        guard let text = String(data: data, encoding: .utf8) else { throw DJConnectError.invalidResponse }
+        try await socket.send(.string(text))
     }
 
     private func receive<T: Decodable>(_ type: T.Type = T.self) async throws -> T {

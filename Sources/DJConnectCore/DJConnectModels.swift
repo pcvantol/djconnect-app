@@ -1049,6 +1049,7 @@ public struct DJConnectAskDJRequest: Codable, Equatable, Sendable, DJConnectProf
     public var sessionID: String?
     public var privateSession: Bool?
     public var requestSource: DJConnectProfileRequestSource?
+    public var conversationContext: DJConnectConversationContext? = nil
 
     public init(
         identity: DJConnectIdentity,
@@ -1103,6 +1104,7 @@ public struct DJConnectAskDJRequest: Codable, Equatable, Sendable, DJConnectProf
         case sessionID = "session_id"
         case privateSession = "private_session"
         case requestSource = "request_source"
+        case conversationContext = "conversation_context"
     }
 }
 

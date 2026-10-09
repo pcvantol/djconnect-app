@@ -995,3 +995,32 @@
 "ui.session.source_previous" = "Eerdere opname";
 
 "ui.session.reconnecting" = "Verbinding met de DJ-sessie herstellen…";
+
+// Native Session conversation and owner history
+"ui.session.history.title" = "Eerdere sessies";
+"ui.session.history.coverage" = "Alleen toegestane bewaarde bijdragen worden getoond; dit is geen volledige luisterhistorie.";
+"ui.session.history.loading" = "Sessies laden";
+"ui.session.history.unavailable" = "De sessiehistorie is niet beschikbaar. Probeer opnieuw.";
+"ui.session.history.empty" = "Geen bewaarde sessies";
+"ui.session.history.ended" = "Afgesloten";
+"ui.session.history.interrupted" = "Onderbroken";
+"ui.session.history.more" = "Meer laden";
+"ui.session.history.readonly" = "Alleen-lezen sessie";
+"ui.session.history.no_entries" = "Geen toegestane bewaarde bijdragen";
+"ui.session.history.changed" = "De context of historie is gewijzigd. Probeer opnieuw.";
+"ui.session.history.current_context" = "Huidige context gebruiken";
+"ui.session.history.awaiting" = "Wachten op het DJ-antwoord";
+"ui.session.history.new_entries" = "Nieuwe bijdragen";
+"ui.session.history.selected_context" = "Geselecteerde bijdrage";
+"ui.session.history.search" = "Zoeken in deze sessie";
+"ui.session.history.no_match" = "Geen treffers in deze sessie";
+"ui.session.history.complete" = "Zoeken voltooid";
+"ui.session.history.partial" = "Er kunnen meer treffers volgen";
+"ui.session.history.voice" = "Stemvraag";
+"ui.session.history.playback" = "Waargenomen playback";
+"ui.session.history.ask_entry" = "Vraag over deze bijdrage";
+"ui.session.history.observed" = "Playback is waargenomen; volledig beluisteren is niet bewezen.";
+"ui.session.history.open" = "Open sessie";
+"ui.session.history.earlier" = "Eerdere bijdragen laden";
+
+"ui.session.history.voice_failed" = "De opname of spraakvraag is mislukt. Probeer opnieuw op te nemen.";

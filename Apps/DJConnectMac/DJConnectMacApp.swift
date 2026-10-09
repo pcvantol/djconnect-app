@@ -65,8 +65,10 @@ struct DJConnectMacApp: App {
             defaults.removePersistentDomain(forName: suiteName)
             defaults.set(true, forKey: "DJConnectWelcomeSeen")
             if let url = processInfo.environment["DJCONNECT_UITEST_HA_URL"] { defaults.set(url, forKey: "DJConnectHomeAssistantURL") }
-            let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startBackgroundTasks: false)
-            model.applyUITestRuntimeFixture("moment_contract")
+            let fixture = processInfo.environment["DJCONNECT_UITEST_RUNTIME_FIXTURE"] ?? "moment_contract"
+            if fixture == "session_history_contract" { defaults.set("ABCDEF123456", forKey: "DJConnectInstallID") }
+            let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), homeAssistantWebSocketAuth: fixture == "session_history_contract" ? DJConnectHomeAssistantWebSocketAuth { processInfo.environment["DJCONNECT_UITEST_HA_WS_TOKEN"] } : nil, startBackgroundTasks: false)
+            model.applyUITestRuntimeFixture(fixture)
             return model
         }
         if processInfo.arguments.contains("--monkey-testing") {

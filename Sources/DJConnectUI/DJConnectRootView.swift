@@ -168,6 +168,7 @@ private enum DJConnectRootSheet: String, Identifiable {
     case feedback
     case permissionExplanation
     case musicDNAOptIn
+    case sessionHistory
 
     var id: String { rawValue }
 }
@@ -628,6 +629,7 @@ struct DJConnectCanvasBackground: View {
 
 private enum DJConnectSection: Hashable {
     case djSession
+    case savedSessions
     case nowPlaying
     case trackInsight
     case discovery
@@ -646,6 +648,7 @@ private enum DJConnectSection: Hashable {
 
 public struct DJConnectRootView: View {
     @ObservedObject private var model: DJConnectAppModel
+    @ObservedObject private var history: DJConnectSessionHistoryModel
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @State private var selectedSection = DJConnectSection.djSession
@@ -654,6 +657,7 @@ public struct DJConnectRootView: View {
 
     public init(model: DJConnectAppModel) {
         self.model = model
+        self.history = model.sessionHistory
     }
 
     public var body: some View {
@@ -668,6 +672,11 @@ public struct DJConnectRootView: View {
                             systemImage: "sparkles",
                             isSelected: selectedSection == .djSession
                         ) { selectedSection = .djSession }
+                        SidebarItem(
+                            title: localizedKey(model.language, "ui.session.history.title"),
+                            systemImage: "clock.arrow.circlepath",
+                            isSelected: selectedSection == .savedSessions
+                        ) { selectedSection = .savedSessions }
                         SidebarItem(
                             title: localizedKey(model.language, "ui.now.playing"),
                             systemImage: "music.note",
@@ -831,6 +840,17 @@ public struct DJConnectRootView: View {
             }
         }
         .task { await model.refreshActiveDJSession() }
+        .task(id: model.pairingStatus) { await history.prepare() }
+        .overlay(alignment: .bottom) {
+            if let key = history.navigationErrorKey {
+                HStack {
+                    Text(localizedKey(model.language, key))
+                    Button(localizedKey(model.language, "ui.close")) { history.clearNavigationError() }
+                }
+                .font(.callout).padding(16).frame(maxWidth: 650)
+                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16)).padding(.bottom, 80)
+            }
+        }
         .onAppear {
             handleScreenshotScreenRequestIfNeeded()
             handleHomeScreenActionRequestIfNeeded()
@@ -855,7 +875,10 @@ public struct DJConnectRootView: View {
                 model.refreshPermissionStatuses(retryWakeWord: false)
                 model.markActiveSession()
                 model.recoverPairingClientAPIIfNeeded()
-            case .inactive, .background:
+                Task { await history.prepare() }
+            case .inactive:
+                model.markInactiveSession(enteringBackground: false)
+            case .background:
                 model.markInactiveSession()
             @unknown default:
                 break
@@ -1079,7 +1102,7 @@ public struct DJConnectRootView: View {
         switch selectedSection {
         case .djSession, .askDJ, .trackInsight, .discovery:
             false
-        case .nowPlaying, .more, .queue, .musicDNA, .playlists, .games, .settings, .logs, .about, .legal, .privacy:
+        case .savedSessions, .nowPlaying, .more, .queue, .musicDNA, .playlists, .games, .settings, .logs, .about, .legal, .privacy:
             true
         }
     }
@@ -1091,7 +1114,7 @@ public struct DJConnectRootView: View {
             return false
         }
         switch selectedSection {
-        case .djSession, .nowPlaying, .askDJ, .trackInsight, .discovery, .musicDNA, .queue, .playlists:
+        case .djSession, .savedSessions, .nowPlaying, .askDJ, .trackInsight, .discovery, .musicDNA, .queue, .playlists:
             return true
         case .more, .games, .settings, .logs, .about, .legal, .privacy:
             return false
@@ -1137,6 +1160,7 @@ public struct DJConnectRootView: View {
         if model.isShowingMusicDNAOptInPrompt {
             return .musicDNAOptIn
         }
+        if history.openTarget != nil { return .sessionHistory }
         return nil
     }
 
@@ -1200,6 +1224,18 @@ public struct DJConnectRootView: View {
                 .presentationBackground {
                     DJConnectCanvasBackground()
                 }
+        case .sessionHistory:
+            if let target = history.openTarget {
+                NavigationStack {
+                    SessionTimelineScreen(model: model, sessionID: target.sessionID,
+                                          initialAnchor: target.entryID)
+                        .navigationTitle(localizedKey(model.language, "ui.session.history.title"))
+                        .toolbar { Button(localizedKey(model.language, "ui.close")) { history.openTarget = nil } }
+                }
+                #if os(macOS)
+                .frame(minWidth: 500, idealWidth: 900, minHeight: 550, idealHeight: 800)
+                #endif
+            }
         }
     }
 
@@ -1223,6 +1259,8 @@ public struct DJConnectRootView: View {
             model.cancelPermissionExplanation()
         case .musicDNAOptIn:
             model.dismissMusicDNAOptInPrompt()
+        case .sessionHistory:
+            history.openTarget = nil
         }
     }
 
@@ -1236,6 +1274,8 @@ public struct DJConnectRootView: View {
         switch selectedSection {
         case .djSession:
             DJSessionView(model: model) { selectedSection = .queue }
+        case .savedSessions:
+            SavedSessionsView(model: model)
         case .nowPlaying:
             NowPlayingView(model: model) {
                 selectedSection = .queue
@@ -9968,14 +10008,22 @@ private struct NowPlayingMoodControlSection: View {
 
 private struct DJSessionView: View {
     @ObservedObject var model: DJConnectAppModel
+    @ObservedObject private var history: DJConnectSessionHistoryModel
     var openQueueAction: () -> Void
     @State private var statusToast: DJConnectVisualNotice?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    init(model: DJConnectAppModel, openQueueAction: @escaping () -> Void) {
+        self.model = model; self.history = model.sessionHistory; self.openQueueAction = openQueueAction
+    }
 
     var body: some View {
         NavigationStack {
             ZStack {
                 DJConnectCanvasBackground()
+                if history.available, let session = model.activeDJSession {
+                    SessionTimelineScreen(model: model, sessionID: session.id, activeSession: session, openQueueAction: openQueueAction)
+                } else {
                 ScrollViewReader { scroll in
                 ScrollView {
                     Group {
@@ -9990,6 +10038,7 @@ private struct DJSessionView: View {
                     }
                     .padding(.horizontal, 16)
                     .padding(.vertical, 12)
+                }
                 }
                 .background(.clear)
                 .refreshable {
@@ -10079,16 +10128,19 @@ private struct IdleDJSessionView: View {
     }
 }
 
-private struct ActiveDJSessionView: View {
+struct ActiveDJSessionView: View {
     @ObservedObject var model: DJConnectAppModel
     let session: DJConnectSessionRuntime
     let openQueueAction: () -> Void
     var returnToCurrent: () -> Void = {}
+    var showsMoments = true
     @State private var vibeCastHandoffCode = ""
 
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
-            NativeSessionMomentsView(session: session, language: model.language, isRecovering: model.djSessionIsRecovering, artworkBaseURL: URL(string: model.haLocalURL.isEmpty ? model.homeAssistantURL : model.haLocalURL), returnToCurrent: returnToCurrent)
+            if showsMoments {
+                NativeSessionMomentsView(session: session, language: model.language, isRecovering: model.djSessionIsRecovering, artworkBaseURL: URL(string: model.haLocalURL.isEmpty ? model.homeAssistantURL : model.haLocalURL), returnToCurrent: returnToCurrent)
+            }
             Divider()
             Text(localizedKey(model.language, "ui.vibecast.handoff.title")).font(.headline)
             Text(localizedKey(model.language, "ui.vibecast.handoff.instructions"))
@@ -11463,19 +11515,19 @@ private struct AskDJView: View {
     private var canSend: Bool {
         !model.askDJDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
             && !model.isSendingAskDJText
-            && model.canUsePlaybackFeatures
+            && model.canUseAskDJFeatures
     }
 
     private var canUseVoiceInput: Bool {
         model.voiceEnabled
-            && model.canUsePlaybackFeatures
+            && model.canUseAskDJFeatures
             && !model.isRefreshing
             && !model.isSendingAskDJText
             && model.voiceStatus != .processing
     }
 
     private var isAskDJHistoryStale: Bool {
-        !model.isDemoMode && !model.canUsePlaybackFeatures
+        !model.isDemoMode && !model.canUseAskDJFeatures
     }
 
     private var chatTopPadding: CGFloat {
@@ -11579,7 +11631,9 @@ private struct AskDJView: View {
                                                     guard !isAskDJHistoryStale else { return }
                                                     model.askDJDraft = text
                                                     isInputFocused = true
-                                                }
+                                                },
+                                                historicalMatches: model.sessionHistory.historicalMatches[message.serverID ?? ""] ?? [],
+                                                openHistoryAction: { action in Task { await model.sessionHistory.open(action) } }
                                             )
                                             .id(message.id)
                                         }
@@ -12225,6 +12279,14 @@ struct AskDJMessageBubble: View {
     let feedbackAction: (DJConnectAskDJMessage) -> Void
     let setPromptAction: (String) -> Void
     var isReadOnly = false
+    var serverHighlights: [DJConnectHistoryHighlight]? = nil
+    var historicalMatches: [DJConnectHistoryEntry] = []
+    var openHistoryAction: ((DJConnectSessionOpenAction) -> Void)? = nil
+
+    @ViewBuilder private var renderedMessageText: some View {
+        if let serverHighlights { SessionHighlightedText(text: displayText, highlights: serverHighlights) }
+        else { AskDJMarkdownText(text: displayText, highlight: searchText) }
+    }
 
     private var isUser: Bool {
         message.role == .user
@@ -12404,17 +12466,17 @@ struct AskDJMessageBubble: View {
                                 Image(systemName: "mic.fill")
                                     .font(.caption.weight(.bold))
                                     .foregroundStyle(.white.opacity(0.88))
-                                AskDJMarkdownText(text: displayText, highlight: searchText)
+                                renderedMessageText
                             }
                         } else if shouldShowGeneratedTextIcon {
                             HStack(alignment: .firstTextBaseline, spacing: 7) {
                                 Image(systemName: "sparkles")
                                     .font(.caption.weight(.bold))
                                     .foregroundStyle(djConnectIconGradient)
-                                AskDJMarkdownText(text: displayText, highlight: searchText)
+                                renderedMessageText
                             }
                         } else {
-                            AskDJMarkdownText(text: displayText, highlight: searchText)
+                            renderedMessageText
                         }
                     }
                     if !isUser, let trackInsight = message.trackInsight {
@@ -12422,6 +12484,9 @@ struct AskDJMessageBubble: View {
                     }
                     if !isUser, !message.items.isEmpty {
                         AskDJItemList(items: message.items)
+                    }
+                    ForEach(historicalMatches.filter { $0.isRetained() }) { match in
+                        SessionHistoryMatchCard(entry: match, language: language) { action in openHistoryAction?(action) }
                     }
                     if !message.images.isEmpty && !shouldAttachImagesToPlaybackActions && !isRecentlyPlayedHistoryMessage {
                         AskDJImageStrip(images: message.images)
@@ -14060,6 +14125,8 @@ struct AskDJInputBar: View {
     }
 
     var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            SessionComposerContext(model: model)
         HStack(spacing: 10) {
             ZStack(alignment: .leading) {
                 if model.askDJDraft.isEmpty {
@@ -14087,6 +14154,7 @@ struct AskDJInputBar: View {
                     }
                 #endif
             }
+            .accessibilityIdentifier("ask-dj-composer-input")
             .background {
                 RoundedRectangle(cornerRadius: 18, style: .continuous)
                     .fill(.white.opacity(0.12))
@@ -14144,6 +14212,9 @@ struct AskDJInputBar: View {
             }
             .disabled(!canSend)
             .help(localizedKey(model.language, "ui.send"))
+            .accessibilityLabel(localizedKey(model.language, "ui.send"))
+            .accessibilityIdentifier("ask-dj-composer-send")
+        }
         }
         .padding(.horizontal, djConnectScreenHorizontalPadding)
         .padding(.top, 18)
@@ -14343,6 +14414,7 @@ private struct AskDJVoiceInputButton: View {
         .help(helpText)
         .accessibilityLabel(helpText)
         .accessibilityHint(localizedKey(model.language, "ui.hold.to.record.a.voice.request.for.ask.dj"))
+        .accessibilityIdentifier("ask-dj-composer-microphone")
         .accessibilityAction {
             DJConnectHaptics.impact()
             if let toggleAction { toggleAction() } else { model.toggleVoiceRecording() }
@@ -16616,6 +16688,9 @@ private struct MoreView: View {
                 VStack(alignment: .leading, spacing: 0) {
                     MoreNavigationRow(title: localizedKey(model.language, "ui.now.playing"), systemImage: "music.note") {
                         NowPlayingView(model: model) { showingPlayerQueue = true }
+                    }
+                    MoreNavigationRow(title: localizedKey(model.language, "ui.session.history.title"), systemImage: "clock.arrow.circlepath") {
+                        SavedSessionsView(model: model)
                     }
                     MoreNavigationRow(
                         title: "Music DNA",

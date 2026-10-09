@@ -37,12 +37,16 @@ struct DJConnectIOSApp: App {
             let runtimeFixture = processInfo.environment["DJCONNECT_UITEST_RUNTIME_FIXTURE"]
                 ?? launchArgumentValue(named: "--runtime-fixture", arguments: processInfo.arguments)
                 ?? launchArgumentValue(named: "-DJCONNECTRuntimeFixture", arguments: processInfo.arguments)
+            if runtimeFixture == "session_history_contract" {
+                defaults.set("ABCDEF123456", forKey: "DJConnectInstallID")
+            }
             let tokenStore = DJConnectInMemoryTokenStore(
                 token: nil
             )
             let model = DJConnectAppModel(
                 defaults: defaults,
                 tokenStore: tokenStore,
+                homeAssistantWebSocketAuth: runtimeFixture == "session_history_contract" ? DJConnectHomeAssistantWebSocketAuth { processInfo.environment["DJCONNECT_UITEST_HA_WS_TOKEN"] } : nil,
                 startBackgroundTasks: runtimeFixture == nil,
                 monkeyTestingMode: processInfo.arguments.contains("--monkey-testing")
             )

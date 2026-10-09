@@ -921,3 +921,119 @@ private extension XCUIElement {
         }
     }
 }
+
+extension DJConnectIOSUITests {
+    func testActualCoreConversationArchiveSearchAndIndependentPlayer() async throws {
+        let base = URL(string: "http://127.0.0.1:18191")!
+        func control(_ operation: String) async throws {
+            var request = URLRequest(url: base.appendingPathComponent("__apple_fixture/" + operation))
+            request.httpMethod = "POST"; request.setValue("Bearer synthetic-fixture-token", forHTTPHeaderField: "Authorization")
+            let (_, response) = try await URLSession.shared.data(for: request)
+            XCTAssertEqual((response as? HTTPURLResponse)?.statusCode, 200)
+        }
+        var authRequest = URLRequest(url: base.appendingPathComponent("__apple_fixture/state"))
+        authRequest.setValue("Bearer synthetic-fixture-token", forHTTPHeaderField: "Authorization")
+        let (authData, _) = try await URLSession.shared.data(for: authRequest)
+        let labAuth = try XCTUnwrap(JSONSerialization.jsonObject(with: authData) as? [String: Any])
+        let websocketToken = try XCTUnwrap(labAuth["websocket_access_token"] as? String)
+        let app = XCUIApplication()
+        app.terminate()
+        app.launchArguments = ["--uitesting", "--runtime-fixture=session_history_contract", "-AppleLanguages", "(nl)", "-AppleLocale", "nl_NL"]
+        app.launchEnvironment["DJCONNECT_UITEST_HA_URL"] = base.absoluteString
+        app.launchEnvironment["DJCONNECT_UITEST_RUNTIME_FIXTURE"] = "session_history_contract"
+        app.launchEnvironment["DJCONNECT_UITEST_HA_WS_TOKEN"] = websocketToken
+        app.launch()
+        try await Task.sleep(for: .milliseconds(400))
+        app.terminate()
+        try await control("start")
+        var request = URLRequest(url: URL(string: base.absoluteString + "/api/djconnect/v1/session/active?device_id=djconnect-ios-ABCDEF123456&client_type=ios")!)
+        request.setValue("Bearer synthetic-fixture-token", forHTTPHeaderField: "Authorization")
+        let (data, _) = try await URLSession.shared.data(for: request)
+        let envelope = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        let session = try XCTUnwrap(envelope["session"] as? [String: Any])
+        let sessionID = try XCTUnwrap(session["session_id"] as? String)
+        request.url = URL(string: base.absoluteString + "/api/djconnect/v1/session/history/" + sessionID + "?device_id=djconnect-ios-ABCDEF123456&client_type=ios&window=tail")!
+        let (timelineData, _) = try await URLSession.shared.data(for: request)
+        let timeline = try XCTUnwrap(JSONSerialization.jsonObject(with: timelineData) as? [String: Any])
+        let entries = try XCTUnwrap(timeline["entries"] as? [[String: Any]])
+        let moment = try XCTUnwrap(entries.first { $0["kind"] as? String == "dj_moment" })
+        let entryID = try XCTUnwrap(moment["entry_id"] as? String)
+        let momentText = try XCTUnwrap(moment["text"] as? String)
+        app.launch()
+        if app.buttons["Niet nu"].waitForExistence(timeout: 2) { app.buttons["Niet nu"].tap() }
+        guard app.descendants(matching: .any)["uitest-runtime-fixture-active"].waitForExistence(timeout: 10),
+              app.descendants(matching: .any)["screen-session-conversation"].waitForExistence(timeout: 15) else {
+            XCTFail("Actual loopback fixture/timeline was not activated; no mock or stale screen acceptance."); return
+        }
+        XCTAssertTrue(app.staticTexts[momentText].firstMatch.exists)
+        try saveHistoryScreenshot("ios-history-01-live-moment")
+        app.buttons["session-search-toggle"].tap()
+        let momentSearch = app.textFields["session-search-field"]
+        momentSearch.tap(); momentSearch.typeText("geleidelijk")
+        let selected = app.buttons["ask-entry-" + entryID]
+        guard selected.waitForExistence(timeout: 15), selected.isHittable else {
+            XCTFail("Canonical Moment search/anchor was not reached."); return
+        }
+        selected.tap()
+        app.buttons["Zoeken sluiten"].firstMatch.tap()
+        XCTAssertTrue(app.descendants(matching: .any)["session-question-context"].waitForExistence(timeout: 5))
+        let input = app.textViews.firstMatch
+        XCTAssertTrue(input.waitForExistence(timeout: 5)); input.tap(); input.typeText("Vertel over deze bijdrage")
+        XCTAssertTrue(app.buttons["ask-dj-composer-send"].isEnabled)
+        app.buttons["ask-dj-composer-send"].tap()
+        XCTAssertTrue(app.staticTexts["Deze bijdrage: " + momentText].firstMatch.waitForExistence(timeout: 15))
+        try saveHistoryScreenshot("ios-history-02-confirmed-text-turn")
+        app.buttons["session-search-toggle"].tap()
+        let search = app.textFields["session-search-field"]
+        XCTAssertTrue(search.waitForExistence(timeout: 5)); search.tap(); search.typeText("ONE")
+        XCTAssertTrue(app.staticTexts["session-search-count"].waitForExistence(timeout: 15))
+        XCTAssertTrue(app.staticTexts["One · Metallica · …And Justice for All"].firstMatch.waitForExistence(timeout: 10))
+        try saveHistoryScreenshot("ios-history-03-search-beyond-loaded-page")
+        app.buttons["Zoeken sluiten"].firstMatch.tap()
+        if app.frame.width > 600 {
+            XCUIDevice.shared.orientation = .landscapeLeft
+            try await Task.sleep(for: .seconds(1))
+            try saveHistoryScreenshot("ipad-history-04-landscape")
+            XCUIDevice.shared.orientation = .portrait
+        }
+        let more = app.tabBars.buttons["Meer"].exists ? app.tabBars.buttons["Meer"] : app.buttons["Meer"].firstMatch
+        more.tap(); app.buttons["Speelt Nu"].firstMatch.tap()
+        XCTAssertTrue(app.navigationBars["Speelt Nu"].waitForExistence(timeout: 5))
+        try saveHistoryScreenshot("ios-history-05-player-during-session")
+        let tab = app.tabBars.buttons["DJ-sessie"].exists ? app.tabBars.buttons["DJ-sessie"] : app.buttons["DJ-sessie"].firstMatch
+        tab.tap()
+        let end = app.buttons["Sessie beëindigen"].firstMatch
+        for _ in 0..<15 where !end.isHittable { app.swipeUp() }
+        XCTAssertTrue(end.isHittable); end.tap()
+        XCTAssertTrue(app.buttons["Start DJ-sessie"].waitForExistence(timeout: 15))
+        try await control("restart")
+        more.tap(); app.buttons["Eerdere sessies"].firstMatch.tap()
+        let saved = app.buttons["saved-session-" + sessionID]
+        XCTAssertTrue(saved.waitForExistence(timeout: 10)); saved.tap()
+        XCTAssertTrue(app.descendants(matching: .any)["screen-history-timeline"].waitForExistence(timeout: 10))
+        try saveHistoryScreenshot("ios-history-06-readonly-after-server-restart")
+        app.terminate(); app.launch()
+        XCTAssertTrue(app.buttons["Start DJ-sessie"].waitForExistence(timeout: 10))
+        let ask = app.tabBars.buttons["Ask DJ"].exists ? app.tabBars.buttons["Ask DJ"] : app.buttons["Ask DJ"].firstMatch
+        ask.tap()
+        let question = app.textViews.firstMatch
+        XCTAssertTrue(question.waitForExistence(timeout: 5)); question.tap(); question.typeText("Wanneer heb ik eerder naar Metallica geluisterd?")
+        app.buttons["ask-dj-composer-send"].tap()
+        let open = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "open-session-")).firstMatch
+        XCTAssertTrue(open.waitForExistence(timeout: 15))
+        try saveHistoryScreenshot("ios-history-07-real-historical-matches")
+        open.tap()
+        XCTAssertTrue(app.descendants(matching: .any)["screen-history-timeline"].waitForExistence(timeout: 10))
+        try saveHistoryScreenshot("ios-history-08-open-matched-entry")
+    }
+
+    private func saveHistoryScreenshot(_ name: String) throws {
+        let screenshot = XCUIScreen.main.screenshot()
+        let attachment = XCTAttachment(screenshot: screenshot); attachment.name = name; attachment.lifetime = .keepAlways; add(attachment)
+        let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+        let directory = root.appendingPathComponent("build/session-conversation-history/screenshots")
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let name = XCUIApplication().frame.width > 600 ? name.replacingOccurrences(of: "ios-", with: "ipad-") : name
+        try screenshot.pngRepresentation.write(to: directory.appendingPathComponent(name + ".png"))
+    }
+}
