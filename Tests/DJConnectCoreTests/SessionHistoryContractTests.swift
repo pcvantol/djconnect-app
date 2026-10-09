@@ -737,3 +737,30 @@ func sessionHistoryActualComposerHandlesFailureAfterTransportGoesOffline(_ failu
         #expect(command.assistantMessage?.announcement?.audioResponseEffective?.rawValue == outcome)
     }
 }
+
+@Test @MainActor func sessionHistoryActualProviderErrorPreservesReachableProfileConversation() async throws {
+    let history = try historyData(try #require(historyObject()["later_historical_answer"]))
+    let backendError = try historyData(try #require(historyObject("backend-unavailable-response")["response"]))
+    let caps = Data(#"{"capabilities":{"session_conversation_history":true},"contract_versions":{"session_conversation_history":1}}"#.utf8)
+    let fixture = HistoryWireFixture { request in
+        (200, request.url!.path.hasSuffix("/command") ? backendError : (request.url!.path.hasSuffix("/capabilities") ? caps : history), 0)
+    }
+    defer { fixture.close() }
+    let (model, defaults, name) = fixture.model(); defer { defaults.removePersistentDomain(forName: name) }
+    await model.sessionHistory.prepare()
+    let command = DJConnectCommandPayload(identity: model.identity, command: "refresh")
+    do {
+        _ = try await model.withHomeAssistantClient { try await $0.sendCommandResponse(command) }
+        Issue.record("Expected the actual music-provider error")
+    } catch let error as DJConnectError {
+        guard case .backendUnavailable = error else { throw error }
+        model.apply(error: error)
+    }
+    try await Task.sleep(for: .milliseconds(100))
+    #expect(model.haConnectionMode == .local)
+    #expect(!model.backendAvailable && !model.canUsePlaybackFeatures)
+    #expect(model.canUseProfileConversation && model.canUseAskDJFeatures)
+    #expect(fixture.requests.contains { $0.url!.path.hasSuffix("/command") })
+    model.markInactiveSession()
+    #expect(!model.canUseProfileConversation)
+}
