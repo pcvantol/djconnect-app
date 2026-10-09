@@ -1036,7 +1036,69 @@ extension DJConnectIOSUITests {
         open.tap()
         XCTAssertTrue(app.descendants(matching: .any)["screen-history-timeline"].waitForExistence(timeout: 10))
         XCTAssertTrue(app.descendants(matching: .any)["session-entry-" + expectedAnchor].waitForExistence(timeout: 10))
+        let anchorButton = app.buttons["ask-entry-" + expectedAnchor]
+        let visibleAnchor = XCTNSPredicateExpectation(predicate: NSPredicate(format: "hittable == true"), object: anchorButton)
+        XCTAssertEqual(XCTWaiter.wait(for: [visibleAnchor], timeout: 8), .completed, "Open session must place its exact backend entry on screen")
         try saveHistoryScreenshot("ios-history-08-open-matched-entry")
+    }
+
+    func testActualCoreArchiveAndPlayerNavigationPreservesSessionB() async throws {
+        let base = URL(string: "http://127.0.0.1:18191")!
+        func control(_ operation: String, method: String = "POST") async throws -> [String: Any] {
+            var request = URLRequest(url: base.appendingPathComponent("__apple_fixture/" + operation))
+            request.httpMethod = method; request.setValue("Bearer synthetic-fixture-token", forHTTPHeaderField: "Authorization")
+            let (data, response) = try await URLSession.shared.data(for: request)
+            XCTAssertEqual((response as? HTTPURLResponse)?.statusCode, 200)
+            return try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        }
+        func activeID() async throws -> String? {
+            let state = try await control("state", method: "GET")
+            return (state["active"] as? [String: Any])?["session_id"] as? String
+        }
+        let auth = try await control("state", method: "GET")
+        let app = XCUIApplication(); app.terminate()
+        app.launchArguments = ["--uitesting", "--runtime-fixture=session_history_contract", "-AppleLanguages", "(nl)", "-AppleLocale", "nl_NL"]
+        app.launchEnvironment["DJCONNECT_UITEST_HA_URL"] = base.absoluteString
+        app.launchEnvironment["DJCONNECT_UITEST_RUNTIME_FIXTURE"] = "session_history_contract"
+        app.launchEnvironment["DJCONNECT_UITEST_HA_WS_TOKEN"] = try XCTUnwrap(auth["websocket_access_token"] as? String)
+        app.launch(); try await Task.sleep(for: .milliseconds(400)); app.terminate()
+        let a = try await control("start")
+        let sessionA = try XCTUnwrap((a["active"] as? [String: Any])?["session_id"] as? String)
+        _ = try await control("end"); _ = try await control("restart")
+        let b = try await control("start")
+        let sessionB = try XCTUnwrap((b["active"] as? [String: Any])?["session_id"] as? String)
+        XCTAssertNotEqual(sessionA, sessionB)
+        app.launch()
+        guard app.descendants(matching: .any)["screen-session-conversation"].waitForExistence(timeout: 15) else {
+            XCTFail("Actual current Session B was not rendered"); return
+        }
+        let more = app.tabBars.buttons["Meer"].exists ? app.tabBars.buttons["Meer"] : app.buttons["Meer"].firstMatch
+        more.tap(); app.buttons["Eerdere sessies"].firstMatch.tap()
+        let savedA = app.buttons["saved-session-" + sessionA]
+        guard savedA.waitForExistence(timeout: 10) else { XCTFail("Ended Session A missing from real archive"); return }
+        savedA.tap()
+        XCTAssertTrue(app.descendants(matching: .any)["screen-history-timeline"].waitForExistence(timeout: 10))
+        let readback1 = try await activeID()
+        XCTAssertEqual(readback1, sessionB)
+        try saveHistoryScreenshot("ios-history-09-readonly-A-while-B-active")
+        let dj = app.tabBars.buttons["DJ-sessie"].exists ? app.tabBars.buttons["DJ-sessie"] : app.buttons["DJ-sessie"].firstMatch
+        dj.tap()
+        XCTAssertTrue(app.descendants(matching: .any)["screen-session-conversation"].waitForExistence(timeout: 10))
+        let readback2 = try await activeID()
+        XCTAssertEqual(readback2, sessionB)
+        more.tap(); app.buttons["Speelt Nu"].firstMatch.tap()
+        XCTAssertTrue(app.navigationBars["Speelt Nu"].waitForExistence(timeout: 5))
+        let readback3 = try await activeID()
+        XCTAssertEqual(readback3, sessionB)
+        try saveHistoryScreenshot("ios-history-10-player-preserves-B")
+        _ = try await control("end")
+        dj.tap()
+        XCTAssertTrue(app.buttons["Start DJ-sessie"].waitForExistence(timeout: 15))
+        more.tap(); app.buttons["Speelt Nu"].firstMatch.tap()
+        XCTAssertTrue(app.navigationBars["Speelt Nu"].waitForExistence(timeout: 5))
+        let finalReadback = try await activeID()
+        XCTAssertNil(finalReadback)
+        try saveHistoryScreenshot("ios-history-11-player-without-session")
     }
 
     private func saveHistoryScreenshot(_ name: String) throws {

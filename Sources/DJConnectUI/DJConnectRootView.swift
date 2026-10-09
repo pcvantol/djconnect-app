@@ -10183,6 +10183,7 @@ struct ActiveDJSessionView: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 28)
+        .accessibilityElement(children: .contain)
         .accessibilityIdentifier("screen-active-dj-session")
     }
 }

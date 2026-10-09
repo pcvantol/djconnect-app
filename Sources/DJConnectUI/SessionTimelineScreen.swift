@@ -118,7 +118,7 @@ struct SessionTimelineScreen: View {
                             ForEach(timeline.entries.filter { $0.isRetained(at: clock.date) }) { entry in
                                 SessionEntryView(entry: entry, language: model.language,
                                     highlights: matches.first(where: { $0.id == entry.id && $0.text == entry.text })?.highlights ?? [],
-                                    isSelectedMatch: selectedMatchID == entry.id,
+                                    isSelectedMatch: selectedMatchID == entry.id || initialAnchor == entry.id,
                                     selected: history.selectedEntry == entry.reference) {
                                         history.selectedEntry = entry.reference
                                         if activeSession == nil {

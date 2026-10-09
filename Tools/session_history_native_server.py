@@ -62,6 +62,34 @@ async def main():
     await websocket_api.async_setup(hass, {})
     from custom_components.djconnect.websocket_api import async_register
     async_register(hass)
+    stt_qualification = "not configured; no mocked transcript"
+    if os.environ.get("DJC_WYOMING_HOST"):
+        # Opt-in to the existing local provider through actual HA SDK entities.
+        # No transcript hook, raw audio archive, new provider or live HA setup.
+        assert os.environ["DJC_WYOMING_HOST"] == "host.docker.internal"
+        assert os.environ.get("DJC_WYOMING_PORT", "10300") == "10300"
+        from types import MappingProxyType
+        from homeassistant.components import stt
+        from homeassistant.components.wyoming.data import WyomingService
+        from homeassistant.components.wyoming.stt import WyomingSttProvider
+        from homeassistant.config_entries import ConfigEntry
+        from wyoming.client import AsyncTcpClient
+        from wyoming.info import Describe, Info
+        async with AsyncTcpClient("host.docker.internal", 10300) as client:
+            await client.write_event(Describe().event())
+            event = await asyncio.wait_for(client.read_event(), 5)
+            assert event is not None and Info.is_type(event.type)
+            info = Info.from_event(event)
+        hass.data.setdefault(stt.DATA_PROVIDERS, {})
+        await stt.async_setup(hass, {})
+        config_entry = ConfigEntry(data={"host": "host.docker.internal", "port": 10300},
+            discovery_keys=MappingProxyType({}), domain="wyoming", minor_version=1,
+            options={}, source="user", subentries_data=[], title="Existing local STT — isolated Apple lab", unique_id="apple-native-lab-stt", version=1)
+        provider = WyomingSttProvider(config_entry, WyomingService("host.docker.internal", 10300, info))
+        await hass.data[stt.DATA_COMPONENT].async_add_entities([provider])
+        assert provider.entity_id in hass.states.async_entity_ids("stt")
+        assert not callable(hass.data["djconnect"].get("stt_handler"))
+        stt_qualification = "actual HA Wyoming STT entity ready; real native microphone acceptance still required"
     user = await hass.auth.async_create_user("Apple native isolated lab", group_ids=["system-users"])
     refresh = await hass.auth.async_create_refresh_token(user, client_id="https://apple-native-fixture.invalid", client_name="Temporary Apple native proof")
     websocket_token = hass.auth.async_create_access_token(refresh)
@@ -139,7 +167,7 @@ async def main():
     runner = web.AppRunner(hass.http.app)
     await runner.setup()
     await web.TCPSite(runner, "0.0.0.0", 18191).start()
-    print(json.dumps({"ready": True, "port": 18191, "producer_sha": PIN, "native_stt": "not configured; no mocked transcript"}), flush=True)
+    print(json.dumps({"ready": True, "port": 18191, "producer_sha": PIN, "native_stt": stt_qualification}), flush=True)
     try:
         await asyncio.Event().wait()
     finally:
