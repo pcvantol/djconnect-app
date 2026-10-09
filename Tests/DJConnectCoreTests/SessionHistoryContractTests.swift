@@ -764,3 +764,69 @@ func sessionHistoryActualComposerHandlesFailureAfterTransportGoesOffline(_ failu
     model.markInactiveSession()
     #expect(!model.canUseProfileConversation)
 }
+
+@Test @MainActor func sessionHistoryTestAuthRequiresActualCredential() async throws {
+    #expect(DJConnectAppModel.sessionHistoryTestWebSocketAuth(token: nil) == nil)
+    #expect(DJConnectAppModel.sessionHistoryTestWebSocketAuth(token: "  ") == nil)
+    let auth = try #require(DJConnectAppModel.sessionHistoryTestWebSocketAuth(token: "fixture-issued-credential"))
+    #expect(try await auth.accessToken() == "fixture-issued-credential")
+}
+
+@Test @MainActor func sessionHistoryServiceFailuresKeepHAReachableAndNeverConfirmConsent() async throws {
+    let history = try historyData(try #require(historyObject()["later_historical_answer"]))
+    let dnaError = try historyData(try #require(historyObject("music-dna-unavailable-response")["response"]))
+    let sttError = try historyData(try #require(historyObject("stt-failed-response")["response"]))
+    let caps = Data(#"{"capabilities":{"session_conversation_history":true},"contract_versions":{"session_conversation_history":1}}"#.utf8)
+    let fixture = HistoryWireFixture { request in
+        if request.url!.path.hasSuffix("/settings") { return (503, dnaError, 0) }
+        if request.url!.path.hasSuffix("/voice") { return (422, sttError, 0) }
+        return (200, request.url!.path.hasSuffix("/capabilities") ? caps : history, 0)
+    }
+    defer { fixture.close() }
+    let (model, defaults, name) = fixture.model(); defer { defaults.removePersistentDomain(forName: name) }
+    await model.sessionHistory.prepare()
+    model.showMusicDNAOptInPrompt()
+    await model.acceptMusicDNAOptInPrompt()
+    #expect(model.isShowingMusicDNAOptInPrompt)
+    #expect(!defaults.bool(forKey: "DJConnectMusicDNAOptInPromptSeen"))
+    try await Task.sleep(for: .milliseconds(100))
+    #expect(model.musicDNAErrorMessage == DJConnectLocalization.localized(key: "ui.music.dna.temporarily_unavailable", language: model.language))
+    #expect(model.musicDNAProfileResponse?.enabled != true)
+    #expect(!model.isUpdatingMusicDNA && model.haConnectionMode == .local)
+    #expect(model.canUseProfileConversation)
+    let failedVoice = DJConnectConversationContext(sessionID: nil)
+    do {
+        _ = try await model.withHomeAssistantClient {
+            try await $0.sendSessionVoice(wavData: Data([82,73,70,70]), context: failedVoice, clientMessageID: "failed-stt-attempt", language: "nl")
+        }
+        Issue.record("The real STT failure must remain a failure")
+    } catch let error as DJConnectError {
+        guard case .server(statusCode: 422, message: _) = error else { throw error }
+    }
+    try await Task.sleep(for: .milliseconds(100))
+    #expect(model.haConnectionMode == .local && model.canUseProfileConversation)
+}
+
+@Test @MainActor func sessionHistoryMissingLiveAuthPreservesSessionAndStopsSpinner() async throws {
+    let active = try historyData(try #require(historyObject("active-session-before-auth-failure")["response"]))
+    let fixture = HistoryWireFixture { _ in (200, active, 0) }; defer { fixture.close() }
+    let name = "session-auth-missing-" + UUID().uuidString
+    let defaults = UserDefaults(suiteName: name)!
+    defaults.set(fixture.baseURL.absoluteString, forKey: "DJConnectHomeAssistantURL")
+    defaults.set("local", forKey: "DJConnectHAConnectionMode")
+    defer { defaults.removePersistentDomain(forName: name) }
+    let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(token: "synthetic-fixture-token"),
+        urlSession: fixture.session(), homeAssistantWebSocketAuth: DJConnectHomeAssistantWebSocketAuth { nil }, startBackgroundTasks: false)
+    await model.refreshActiveDJSession()
+    let sessionID = try #require(model.activeDJSession?.id)
+    try await Task.sleep(for: .milliseconds(200))
+    #expect(model.activeDJSession?.id == sessionID)
+    #expect(model.djSessionLiveUnavailable && !model.djSessionIsRecovering)
+    #expect(model.activeDJSession?.broadcast.nativeDelivery == nil)
+    await model.retryDJSessionConnection()
+    try await Task.sleep(for: .milliseconds(200))
+    #expect(model.activeDJSession?.id == sessionID && model.djSessionLiveUnavailable && !model.djSessionIsRecovering)
+    #expect(fixture.requests.filter { $0.url!.path.hasSuffix("/active") }.count == 2)
+    #expect(fixture.requests.allSatisfy { !$0.url!.path.hasSuffix("/start") && !$0.url!.path.hasSuffix("/end") })
+    model.markInactiveSession()
+}

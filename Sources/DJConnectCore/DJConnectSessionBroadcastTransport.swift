@@ -34,7 +34,8 @@ public actor DJConnectSessionBroadcastTransport {
         onEvent: @escaping EventHandler,
         onTerminated: @escaping TerminationHandler,
         onUnavailable: @escaping TerminationHandler = {},
-        onDisconnected: @escaping TerminationHandler = {}
+        onDisconnected: @escaping TerminationHandler = {},
+        onConnectionUnavailable: @escaping TerminationHandler = {}
     ) {
         stop()
         shouldRun = true
@@ -46,7 +47,8 @@ public actor DJConnectSessionBroadcastTransport {
                 onEvent: onEvent,
                 onTerminated: onTerminated,
                 onUnavailable: onUnavailable,
-                onDisconnected: onDisconnected
+                onDisconnected: onDisconnected,
+                onConnectionUnavailable: onConnectionUnavailable
             )
         }
     }
@@ -66,7 +68,8 @@ public actor DJConnectSessionBroadcastTransport {
         onEvent: @escaping EventHandler,
         onTerminated: @escaping TerminationHandler,
         onUnavailable: @escaping TerminationHandler,
-        onDisconnected: @escaping TerminationHandler
+        onDisconnected: @escaping TerminationHandler,
+        onConnectionUnavailable: @escaping TerminationHandler
     ) async {
         var retryDelay: UInt64 = 1_000_000_000
         while shouldRun, !Task.isCancelled {
@@ -91,8 +94,15 @@ public actor DJConnectSessionBroadcastTransport {
                 }
             } catch {
                 guard shouldRun, !Task.isCancelled else { return }
+                let hadSocket = socket != nil
                 socket?.cancel(with: .goingAway, reason: nil)
                 socket = nil
+                // Missing auth issuance is not a transient socket disconnect.
+                if !hadSocket, case .routeMissing = error as? DJConnectError {
+                    stop()
+                    await onConnectionUnavailable()
+                    return
+                }
                 await onDisconnected()
                 if error is DJConnectSessionBroadcastEndedError {
                     stop()

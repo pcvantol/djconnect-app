@@ -30,6 +30,8 @@ struct NativeSessionMomentsView: View {
     let session: DJConnectSessionRuntime
     let language: String
     var isRecovering = false
+    var isLiveUnavailable = false
+    var retryConnection: () -> Void = {}
     var artworkBaseURL: URL? = nil
     var returnToCurrent: () -> Void = {}
     var showsFlow = true
@@ -155,7 +157,15 @@ struct NativeSessionMomentsView: View {
     }
 
     @ViewBuilder private func currentCard(_ moment: DJConnectMoment?) -> some View {
-        if isRecovering {
+        if isLiveUnavailable {
+            VStack(alignment: .leading, spacing: 12) {
+                Text(text("ui.session.live_unavailable")).font(.title2.weight(.semibold))
+                    .accessibilityAddTraits(.isHeader)
+                Button(text("ui.retry"), action: retryConnection)
+            }
+            .padding(24).frame(maxWidth: .infinity, alignment: .leading)
+            .djSessionFrostedSurface(cornerRadius: 24)
+        } else if isRecovering {
             VStack(alignment: .leading, spacing: 12) {
                 ProgressView()
                 Text(text("ui.session.reconnecting")).font(.title2.weight(.semibold))

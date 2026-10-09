@@ -11,7 +11,6 @@ struct SavedSessionsView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
-                    Text(text("ui.session.history.coverage")).font(.footnote).foregroundStyle(.secondary)
                     if history.listLoading || history.preparing { ProgressView().accessibilityLabel(text("ui.session.history.loading")) }
                     if let key = history.listErrorKey {
                         Text(text(key)); Button(text("ui.retry")) { Task { await history.prepare(); await history.loadSessions() } }
@@ -107,6 +106,8 @@ struct SessionTimelineScreen: View {
                             if let activeSession {
                                 NativeSessionMomentsView(session: activeSession, language: model.language,
                                     isRecovering: model.djSessionIsRecovering,
+                                    isLiveUnavailable: model.djSessionLiveUnavailable,
+                                    retryConnection: { Task { await model.retryDJSessionConnection() } },
                                     artworkBaseURL: URL(string: model.haLocalURL.isEmpty ? model.homeAssistantURL : model.haLocalURL),
                                     returnToCurrent: { jump("current", proxy: proxy) }, showsFlow: false)
                                     .id("current")
@@ -114,7 +115,6 @@ struct SessionTimelineScreen: View {
                                 Label(text("ui.session.history.readonly"), systemImage: "lock")
                                     .font(.headline).accessibilityAddTraits(.isHeader)
                             }
-                            Text(text("ui.session.history.coverage")).font(.footnote).foregroundStyle(.secondary)
                             if positionUnavailable { Text(text("ui.session.history.changed")) }
                             if timeline.loading { ProgressView() }
                             if let key = timeline.errorKey {
@@ -134,7 +134,7 @@ struct SessionTimelineScreen: View {
                                     .id(entry.id).accessibilityElement(children: .contain).accessibilityIdentifier("session-entry-" + entry.id)
                             }
                             if timeline.entries.isEmpty && !timeline.loading && timeline.errorKey == nil {
-                                Text(text("ui.session.history.no_entries"))
+                                Text(text(activeSession == nil ? "ui.session.history.no_entries" : "ui.session.history.no_entries_active"))
                             }
                             if timeline.nextCursor != nil {
                                 Button(text("ui.session.history.more")) { Task { await history.loadTimeline(sessionID, more: true) } }

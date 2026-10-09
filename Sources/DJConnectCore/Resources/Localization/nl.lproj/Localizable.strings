@@ -1006,7 +1006,7 @@
 "ui.session.history.interrupted" = "Onderbroken";
 "ui.session.history.more" = "Meer laden";
 "ui.session.history.readonly" = "Alleen-lezen sessie";
-"ui.session.history.no_entries" = "Geen toegestane bewaarde bijdragen";
+"ui.session.history.no_entries" = "Deze sessie bevat geen bewaarde bijdragen.";
 "ui.session.history.changed" = "De context of historie is gewijzigd. Probeer opnieuw.";
 "ui.session.history.current_context" = "Huidige context gebruiken";
 "ui.session.history.awaiting" = "Wachten op het DJ-antwoord";
@@ -1024,3 +1024,8 @@
 "ui.session.history.earlier" = "Eerdere bijdragen laden";
 
 "ui.session.history.voice_failed" = "De opname of spraakvraag is mislukt. Probeer opnieuw op te nemen.";
+
+"ui.session.history.no_entries_active" = "Er zijn nog geen bijdragen in deze sessie.";
+"ui.music.dna.temporarily_unavailable" = "Music DNA is nu niet beschikbaar. Probeer het opnieuw.";
+
+"ui.session.live_unavailable" = "De DJ-sessie kan nu niet worden bijgewerkt.";

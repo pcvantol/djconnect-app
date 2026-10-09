@@ -48,7 +48,7 @@ struct DJConnectIOSApp: App {
             let model = DJConnectAppModel(
                 defaults: defaults,
                 tokenStore: tokenStore,
-                homeAssistantWebSocketAuth: runtimeFixture == "session_history_contract" ? DJConnectHomeAssistantWebSocketAuth { processInfo.environment["DJCONNECT_UITEST_HA_WS_TOKEN"] } : nil,
+                homeAssistantWebSocketAuth: runtimeFixture == "session_history_contract" ? DJConnectAppModel.sessionHistoryTestWebSocketAuth(token: processInfo.environment["DJCONNECT_UITEST_HA_WS_TOKEN"]) : nil,
                 startBackgroundTasks: runtimeFixture == nil,
                 monkeyTestingMode: processInfo.arguments.contains("--monkey-testing")
             )

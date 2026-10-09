@@ -1006,7 +1006,7 @@
 "ui.session.history.interrupted" = "Interrupted";
 "ui.session.history.more" = "Load more";
 "ui.session.history.readonly" = "Read-only session";
-"ui.session.history.no_entries" = "No permitted saved entries";
+"ui.session.history.no_entries" = "This session has no saved contributions.";
 "ui.session.history.changed" = "The context or history has changed. Please try again.";
 "ui.session.history.current_context" = "Use current context";
 "ui.session.history.awaiting" = "Waiting for the DJ response";
@@ -1024,3 +1024,8 @@
 "ui.session.history.earlier" = "Load earlier entries";
 
 "ui.session.history.voice_failed" = "Recording or voice request failed. Try recording again.";
+
+"ui.session.history.no_entries_active" = "There are no contributions in this session yet.";
+"ui.music.dna.temporarily_unavailable" = "Music DNA is unavailable right now. Please try again.";
+
+"ui.session.live_unavailable" = "The DJ session cannot be updated right now.";

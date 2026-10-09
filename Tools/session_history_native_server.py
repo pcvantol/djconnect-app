@@ -59,6 +59,13 @@ async def main():
     mac.device_status.update(device_id=mac_id, client_type="macos")
     mac.ask_dj_history = state["history"]
     hass.data["djconnect"]["mac-owner-entry"] = mac
+    # Initialize the actual backend-owned opt-in service, as normal Core startup does.
+    from custom_components.djconnect.music_dna import MusicDNAManager
+    memory = MusicDNAManager(hass)
+    await memory.async_load()
+    hass.data["djconnect"]["memory_manager"] = memory
+    for client_runtime in (state["runtime"], mac):
+        client_runtime.memory = memory
     await storage.async_upsert_device(mac_id, "macos", display_name="Synthetic Mac", linked_profile_id="profile-a")
     from homeassistant.components import websocket_api
     await websocket_api.async_setup(hass, {})
@@ -91,7 +98,32 @@ async def main():
         await hass.data[stt.DATA_COMPONENT].async_add_entities([provider])
         assert provider.entity_id in hass.states.async_entity_ids("stt")
         assert not callable(hass.data["djconnect"].get("stt_handler"))
-        stt_qualification = "actual HA Wyoming STT entity ready; real native microphone acceptance still required"
+        # Use a genuine configured Assist pipeline; the generic TTS-locale fallback
+        # is not a valid language for this real Wyoming STT engine.
+        from homeassistant.components import assist_pipeline, conversation, tts
+        from homeassistant.components.assist_pipeline.pipeline import async_setup_pipeline_store
+        from homeassistant.components.homeassistant import ExposedEntities, DATA_EXPOSED_ENTITIES
+        exposed_entities = ExposedEntities(hass)
+        await exposed_entities.async_initialize()
+        hass.data[DATA_EXPOSED_ENTITIES] = exposed_entities
+        await conversation.async_setup(hass, {})
+        await tts.async_setup(hass, {})
+        await assist_pipeline.async_setup(hass, {})
+        pipeline_data = await async_setup_pipeline_store(hass)
+        pipelines = pipeline_data.pipeline_store
+        pipeline = await pipelines.async_create_item({
+            "name": "Isolated Apple native voice qualification", "language": "nl",
+            "conversation_engine": "homeassistant", "conversation_language": "nl",
+            "stt_engine": provider.entity_id, "stt_language": "nl",
+            "tts_engine": None, "tts_language": None, "tts_voice": None,
+            "wake_word_entity": None, "wake_word_id": None, "prefer_local_intents": False,
+        })
+        pipelines.async_set_preferred_item(pipeline.id)
+        metadata = stt.SpeechMetadata(language="nl", format=stt.AudioFormats.WAV,
+            codec=stt.AudioCodecs.PCM, bit_rate=stt.AudioBitRates.BITRATE_16,
+            sample_rate=stt.AudioSampleRates.SAMPLERATE_16000, channel=stt.AudioChannels.CHANNEL_MONO)
+        assert provider.check_metadata(metadata)
+        stt_qualification = "actual configured HA Assist/Wyoming nl pipeline ready; real native microphone acceptance still required"
     user = await hass.auth.async_create_user("Apple native isolated lab", group_ids=["system-users"])
     refresh = await hass.auth.async_create_refresh_token(user, client_id="https://apple-native-fixture.invalid", client_name="Temporary Apple native proof")
     websocket_token = hass.auth.async_create_access_token(refresh)

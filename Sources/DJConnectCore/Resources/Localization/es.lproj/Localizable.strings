@@ -1006,7 +1006,7 @@
 "ui.session.history.interrupted" = "Interrumpida";
 "ui.session.history.more" = "Cargar más";
 "ui.session.history.readonly" = "Sesión de solo lectura";
-"ui.session.history.no_entries" = "No hay aportaciones guardadas autorizadas";
+"ui.session.history.no_entries" = "Esta sesión no contiene aportaciones guardadas.";
 "ui.session.history.changed" = "El contexto o el historial ha cambiado. Inténtalo de nuevo.";
 "ui.session.history.current_context" = "Usar el contexto actual";
 "ui.session.history.awaiting" = "Esperando la respuesta del DJ";
@@ -1024,3 +1024,8 @@
 "ui.session.history.earlier" = "Cargar aportaciones anteriores";
 
 "ui.session.history.voice_failed" = "La grabación o solicitud de voz ha fallado. Vuelve a grabarla.";
+
+"ui.session.history.no_entries_active" = "Todavía no hay aportaciones en esta sesión.";
+"ui.music.dna.temporarily_unavailable" = "Music DNA no está disponible ahora. Inténtalo de nuevo.";
+
+"ui.session.live_unavailable" = "La sesión de DJ no se puede actualizar ahora.";

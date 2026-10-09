@@ -4506,9 +4506,16 @@ private struct MusicDNAOptInPromptView: View {
 
                 Spacer(minLength: 0)
 
+                if let message = model.musicDNAErrorMessage {
+                    Label(message, systemImage: "exclamationmark.circle")
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .accessibilityIdentifier("music-dna-opt-in-error")
+                }
+
                 VStack(spacing: 10) {
                     Button {
-                        model.acceptMusicDNAOptInPrompt()
+                        Task { await model.acceptMusicDNAOptInPrompt() }
                     } label: {
                         Label(localizedKey(model.language, "ui.enable.music.dna.1adf61"), systemImage: "sparkles")
                             .frame(maxWidth: .infinity)
@@ -4544,6 +4551,13 @@ private struct MusicDNAContentView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
+            if let error = model.musicDNAErrorMessage {
+                Label(error, systemImage: "exclamationmark.triangle")
+                    .font(.callout)
+                    .foregroundStyle(.white.opacity(0.88))
+                    .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityIdentifier("music-dna-error")
+            }
             if model.isLoadingMusicDNA, model.musicDNAProfileResponse == nil {
                 MusicDNALoadingView(model: model)
             } else if let response = model.musicDNAProfileResponse {
@@ -10145,7 +10159,7 @@ struct ActiveDJSessionView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
             if showsMoments {
-                NativeSessionMomentsView(session: session, language: model.language, isRecovering: model.djSessionIsRecovering, artworkBaseURL: URL(string: model.haLocalURL.isEmpty ? model.homeAssistantURL : model.haLocalURL), returnToCurrent: returnToCurrent)
+                NativeSessionMomentsView(session: session, language: model.language, isRecovering: model.djSessionIsRecovering, isLiveUnavailable: model.djSessionLiveUnavailable, retryConnection: { Task { await model.retryDJSessionConnection() } }, artworkBaseURL: URL(string: model.haLocalURL.isEmpty ? model.homeAssistantURL : model.haLocalURL), returnToCurrent: returnToCurrent)
             }
             Divider()
             Text(localizedKey(model.language, "ui.vibecast.handoff.title")).font(.headline)

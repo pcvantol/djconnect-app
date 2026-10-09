@@ -702,6 +702,7 @@ public final class DJConnectAppModel: ObservableObject {
     @Published public private(set) var isLoadingDJSession = false
     @Published public private(set) var djSessionErrorMessage: String?
     @Published public private(set) var djSessionIsRecovering = false
+    @Published public private(set) var djSessionLiveUnavailable = false
     @Published public private(set) var isLoadingVibeCastHandoff = false
     @Published public private(set) var vibeCastHandoffApproved = false
     @Published public private(set) var vibeCastHandoffFailed = false
@@ -4823,6 +4824,11 @@ public final class DJConnectAppModel: ObservableObject {
         }
     }
 
+    public func retryDJSessionConnection() async {
+        stopSessionBroadcast()
+        await refreshActiveDJSession()
+    }
+
     public func endDJSession() async {
         guard let sessionID = activeDJSession?.sessionID, !isLoadingDJSession else { return }
         let request = UUID()
@@ -4933,6 +4939,14 @@ public final class DJConnectAppModel: ObservableObject {
                         self.activeDJSession?.broadcast.clearNativeAuthority()
                         self.djSessionIsRecovering = self.activeDJSession != nil
                     }
+                },
+                onConnectionUnavailable: { [weak self] in
+                    await MainActor.run {
+                        guard let self, self.sessionBroadcastGeneration == generation else { return }
+                        self.activeDJSession?.broadcast.clearNativeAuthority()
+                        self.djSessionIsRecovering = false
+                        self.djSessionLiveUnavailable = self.activeDJSession != nil
+                    }
                 }
             )
         }
@@ -4952,6 +4966,7 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     private func stopSessionBroadcast() {
+        djSessionLiveUnavailable = false
         djSessionIsRecovering = activeDJSession != nil
         activeDJSession?.broadcast.clearNativeAuthority()
         sessionBroadcastGeneration = UUID()
@@ -4965,6 +4980,7 @@ public final class DJConnectAppModel: ObservableObject {
         guard let active = activeDJSession, active.sessionID == snapshot.session.sessionID else { return }
         activeDJSession = active.applying(broadcastState: snapshot)
         djSessionIsRecovering = false
+        djSessionLiveUnavailable = false
     }
 
     private func applySessionBroadcastEvent(_ event: DJConnectSessionBroadcastEvent) {
@@ -5845,7 +5861,7 @@ public final class DJConnectAppModel: ObservableObject {
                 showMusicDNAToast(messageForMusicDNARefreshFailure(error), systemImage: "exclamationmark.triangle.fill")
             }
         } catch {
-            musicDNAErrorMessage = error.localizedDescription
+            musicDNAErrorMessage = localized(key: "ui.music.dna.temporarily_unavailable")
             log(.warning, "Music DNA profile refresh failed: \(error.localizedDescription)")
             if showToast {
                 showMusicDNAToast(localized(key: "appModel.music.dna.update.failed"), systemImage: "exclamationmark.triangle.fill")
@@ -5902,9 +5918,11 @@ public final class DJConnectAppModel: ObservableObject {
         isShowingMusicDNAOptInPrompt = true
     }
 
-    public func acceptMusicDNAOptInPrompt() {
-        dismissMusicDNAOptInPrompt()
-        Task { await setMusicDNAEnabled(true) }
+    public func acceptMusicDNAOptInPrompt() async {
+        await setMusicDNAEnabled(true)
+        if musicDNAProfileResponse?.enabled == true && musicDNAErrorMessage == nil {
+            dismissMusicDNAOptInPrompt()
+        }
     }
 
     public func setMusicDNAEnabled(_ enabled: Bool) async {
@@ -5933,7 +5951,7 @@ public final class DJConnectAppModel: ObservableObject {
             handleMusicDNAError(error)
         } catch is CancellationError {
         } catch {
-            musicDNAErrorMessage = error.localizedDescription
+            musicDNAErrorMessage = localized(key: "ui.music.dna.temporarily_unavailable")
             log(.warning, "Music DNA settings update failed: \(error.localizedDescription)")
         }
         isUpdatingMusicDNA = false
@@ -5962,7 +5980,7 @@ public final class DJConnectAppModel: ObservableObject {
             handleMusicDNAError(error)
         } catch is CancellationError {
         } catch {
-            musicDNAErrorMessage = error.localizedDescription
+            musicDNAErrorMessage = localized(key: "ui.music.dna.temporarily_unavailable")
             log(.warning, "Music DNA clear failed: \(error.localizedDescription)")
         }
         isUpdatingMusicDNA = false
@@ -6688,7 +6706,7 @@ public final class DJConnectAppModel: ObservableObject {
             clearMusicDNADisplay()
             apply(error: error)
         default:
-            musicDNAErrorMessage = userFacingDJResponseText(Self.describe(error)) ?? Self.describe(error)
+            musicDNAErrorMessage = localized(key: "ui.music.dna.temporarily_unavailable")
         }
     }
 
@@ -9640,6 +9658,12 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     #if DEBUG
+    /// A missing lab credential must leave the normal auth fallback available.
+    public static func sessionHistoryTestWebSocketAuth(token: String?) -> DJConnectHomeAssistantWebSocketAuth? {
+        guard let token = token?.trimmingCharacters(in: .whitespacesAndNewlines), !token.isEmpty else { return nil }
+        return DJConnectHomeAssistantWebSocketAuth { token }
+    }
+
     static func allowsSessionHistoryTestEndpoint(_ value: String, environment: [String: String], arguments: [String]) -> Bool {
         guard let url = URL(string: value), let host = url.host, url.user == nil, url.password == nil else { return false }
         if ["127.0.0.1", "localhost"].contains(host) { return true }
@@ -10979,6 +11003,12 @@ public final class DJConnectAppModel: ObservableObject {
         active_output: \(activeOutput?.name ?? "missing") / \(activeOutput?.id ?? "missing")
         assist_pipeline_id: \(assistPipelineID.isEmpty ? "missing" : "present")
         backend_available: \(backendAvailable)
+        active_session_present: \(activeDJSession != nil)
+        session_live_unavailable: \(djSessionLiveUnavailable)
+        session_recovering: \(djSessionIsRecovering)
+        session_history_available: \(sessionHistory.available)
+        profile_conversation_scope: \(sessionHistory.profileScopeActive)
+        profile_conversation_authorized: \(sessionHistory.hasAuthorizedOwner)
         selected_output: \(selectedOutput)
         language: \(language)
         log_level: \(logLevel)

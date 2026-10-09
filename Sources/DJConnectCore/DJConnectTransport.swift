@@ -125,6 +125,10 @@ public final class DJConnectHATransportManager: Sendable {
                     modeReporter?(candidate.mode, baseURL)
                     throw error
                 }
+                if case let .server(statusCode, _) = error, (100...599).contains(statusCode) {
+                    modeReporter?(candidate.mode, baseURL)
+                    throw error
+                }
                 let canRetry = index + 1 < candidates.count && Self.isRetryable(error)
                 if !canRetry {
                     if candidate.mode == .remote || index + 1 >= candidates.count {
