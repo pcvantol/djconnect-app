@@ -296,7 +296,15 @@ final class DJConnectMacUITests: XCTestCase {
         XCTAssertTrue(app.buttons["Start DJ-sessie"].waitForExistence(timeout: 10))
         app.buttons["Ask DJ"].firstMatch.tap()
         let question = app.textFields.firstMatch
-        XCTAssertTrue(question.waitForExistence(timeout: 5)); question.tap(); question.typeText("Wanneer heb ik eerder naar Metallica geluisterd?")
+        XCTAssertTrue(question.waitForExistence(timeout: 5))
+        let generalQuestion = "Wat heb ik eerder geluisterd? Clientproef " + UUID().uuidString
+        question.tap(); question.typeText(generalQuestion)
+        app.buttons["ask-dj-composer-send"].tap()
+        XCTAssertTrue(app.staticTexts[generalQuestion].firstMatch.waitForExistence(timeout: 10))
+        XCTAssertTrue(app.staticTexts["Ik zie geen Spotify tracks die het afgelopen uur zijn afgespeeld."].firstMatch.waitForExistence(timeout: 15))
+        XCTAssertFalse(app.staticTexts["Ask DJ offline"].exists)
+        try saveHistoryScreenshot("mac-history-14-general-text-without-audio")
+        question.tap(); question.typeText("Wanneer heb ik eerder naar Metallica geluisterd?")
         app.buttons["ask-dj-composer-send"].tap()
         let openButtons = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "open-session-"))
         guard openButtons.firstMatch.waitForExistence(timeout: 15) else {

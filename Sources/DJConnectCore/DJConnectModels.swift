@@ -1131,17 +1131,27 @@ public struct DJAnnouncementTarget: Codable, Equatable, Sendable {
     }
 }
 
+/// Server outcome of response-audio preparation, distinct from the requested policy.
+public enum DJAnnouncementAudioResponse: String, Codable, Equatable, Sendable {
+    case auto
+    case always
+    case never
+    case unavailable
+    case serverOnly = "server_only"
+}
+
 public struct DJAnnouncement: Codable, Equatable, Sendable {
     public var output: DJAnnouncementOutput?
     public var delivery: DJAnnouncementOutput?
-    public var audioResponseEffective: DJConnectAskDJRequest.AudioResponse?
+    public var audioResponseEffective: DJAnnouncementAudioResponse?
     public var audioURL: URL?
     public var audioType: String?
     public var target: DJAnnouncementTarget?
     public var warnings: [String]
 
     public var clientReplayAudioURL: URL? {
-        guard (delivery ?? output)?.allowsClientAudio == true else {
+        guard audioResponseEffective != .unavailable, audioResponseEffective != .serverOnly,
+              (delivery ?? output)?.allowsClientAudio == true else {
             return nil
         }
         return audioURL
@@ -1161,7 +1171,7 @@ public struct DJAnnouncement: Codable, Equatable, Sendable {
     public init(
         output: DJAnnouncementOutput? = nil,
         delivery: DJAnnouncementOutput? = nil,
-        audioResponseEffective: DJConnectAskDJRequest.AudioResponse? = nil,
+        audioResponseEffective: DJAnnouncementAudioResponse? = nil,
         audioURL: URL? = nil,
         audioType: String? = nil,
         target: DJAnnouncementTarget? = nil,
@@ -1180,7 +1190,7 @@ public struct DJAnnouncement: Codable, Equatable, Sendable {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         output = try container.decodeIfPresent(DJAnnouncementOutput.self, forKey: .output)
         delivery = try container.decodeIfPresent(DJAnnouncementOutput.self, forKey: .delivery)
-        audioResponseEffective = try container.decodeIfPresent(DJConnectAskDJRequest.AudioResponse.self, forKey: .audioResponseEffective)
+        audioResponseEffective = try container.decodeIfPresent(DJAnnouncementAudioResponse.self, forKey: .audioResponseEffective)
         audioURL = try container.decodeIfPresent(URL.self, forKey: .audioURL)
             ?? container.decodeIfPresentIgnoringErrors(URL.self, forKey: .audioUrl)
         audioType = try container.decodeIfPresent(String.self, forKey: .audioType)
@@ -3589,7 +3599,7 @@ public struct DJConnectAskDJHistoryMessage: Codable, Equatable, Identifiable, Se
         self.links = links
         self.sources = sources
         self.announcement = announcement
-        self.audioURL = announcement?.clientReplayAudioURL ?? audioURL
+        self.audioURL = announcement == nil ? audioURL : announcement?.clientReplayAudioURL
         self.playbackActions = playbackActions
         self.confirmationActions = confirmationActions
         self.intentInfo = intentInfo
@@ -6086,7 +6096,7 @@ public struct DJConnectAskDJMessageResponse: Codable, Equatable, Sendable {
         self.historyRevision = historyRevision
         self.clearRevision = clearRevision
         self.announcement = announcement
-        self.audioURL = announcement?.clientReplayAudioURL ?? audioURL
+        self.audioURL = announcement == nil ? audioURL : announcement?.clientReplayAudioURL
         self.historyLimit = historyLimit
         self.historyTrimmedBefore = historyTrimmedBefore
         self.historyTrimmedCount = historyTrimmedCount
@@ -8281,7 +8291,7 @@ public struct DJConnectCommandResponse: Codable, Equatable, Sendable {
         self.sources = sources
         self.items = items
         self.announcement = announcement
-        self.audioURL = announcement?.clientReplayAudioURL ?? audioURL
+        self.audioURL = announcement == nil ? audioURL : announcement?.clientReplayAudioURL
         self.backendAvailable = backendAvailable
         self.haVersion = haVersion
         self.haMajorMinor = haMajorMinor
@@ -8528,7 +8538,7 @@ public struct DJConnectCommandResponse: Codable, Equatable, Sendable {
 
     private mutating func normalizeAskDJAssistantMessage() {
         let topLevelAnnouncement = announcement
-        let topLevelAudioURL = topLevelAnnouncement?.clientReplayAudioURL ?? audioURL
+        let topLevelAudioURL = topLevelAnnouncement == nil ? audioURL : topLevelAnnouncement?.clientReplayAudioURL
         let topLevelImages = images ?? []
         let topLevelLinks = links ?? []
         let topLevelSources = sources ?? []

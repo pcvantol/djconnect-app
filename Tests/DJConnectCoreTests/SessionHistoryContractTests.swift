@@ -677,3 +677,39 @@ func sessionHistoryActualComposerHandlesFailureAfterTransportGoesOffline(_ failu
     #expect(await navigation.value)
     #expect(model.sessionHistory.openTarget == target.entry.reference)
 }
+
+@Test func sessionHistoryGeneralReplyWithoutAudioPreservesConfirmedText() throws {
+    let receipt = try historyObject("generic-no-audio-response")
+    let response = try JSONDecoder().decode(DJConnectSessionConversationResponse.self,
+        from: historyData(try #require(receipt["response"])))
+    #expect(response.ownerScope == "profile-a")
+    #expect(response.conversation.context.sessionID == nil)
+    #expect(response.conversation.inputType == "text")
+    #expect(response.base.userMessage?.text == "Wat heb ik eerder geluisterd?")
+    #expect(response.base.assistantMessage?.text == "Ik zie geen Spotify tracks die het afgelopen uur zijn afgespeeld.")
+    #expect(response.historicalMatches.isEmpty)
+    #expect(response.base.announcement?.audioResponseEffective == .unavailable)
+    #expect(response.base.announcement?.clientReplayAudioURL == nil)
+    var announcement = try #require(response.base.announcement)
+    announcement.audioURL = URL(string: "https://example.test/response.wav")
+    #expect(announcement.clientReplayAudioURL == nil)
+    #expect(DJConnectAskDJRequest.AudioResponse(rawValue: "unavailable") == nil)
+}
+
+@Test func sessionHistoryServerOnlyAudioOutcomeCannotReplayOnClient() throws {
+    var object = try #require(try historyObject("generic-no-audio-response")["response"] as? [String: Any])
+    var announcement = try #require(object["announcement"] as? [String: Any])
+    announcement["audio_response_effective"] = "server_only"
+    announcement["audio_url"] = "https://example.test/response.wav"
+    object["announcement"] = announcement
+    object["audio_url"] = "https://example.test/top-level.wav"
+    let response = try JSONDecoder().decode(DJConnectSessionConversationResponse.self, from: historyData(object))
+    #expect(response.base.announcement?.audioResponseEffective == .serverOnly)
+    #expect(response.base.announcement?.clientReplayAudioURL == nil)
+    #expect(response.base.audioURL == nil)
+    #expect(DJConnectAskDJRequest.AudioResponse(rawValue: "server_only") == nil)
+    announcement["audio_response_effective"] = "unavailable"
+    object["announcement"] = announcement
+    let unavailable = try JSONDecoder().decode(DJConnectSessionConversationResponse.self, from: historyData(object))
+    #expect(unavailable.base.audioURL == nil)
+}

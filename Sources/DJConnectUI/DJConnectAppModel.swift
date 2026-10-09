@@ -495,7 +495,7 @@ public struct DJConnectAskDJMessage: Identifiable, Codable, Equatable, Sendable 
         self.links = links
         self.playbackActions = playbackActions
         self.announcement = announcement
-        self.audioURL = announcement?.clientReplayAudioURL ?? audioURL
+        self.audioURL = announcement == nil ? audioURL : announcement?.clientReplayAudioURL
         self.status = status
         self.createdAt = createdAt
         self.intentInfo = intentInfo
