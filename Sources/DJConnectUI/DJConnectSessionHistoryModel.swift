@@ -325,8 +325,15 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
     }
 
     private func submit(_ turn: PendingTurn) async {
-        guard let host, host.canUseProfileConversation, turn.requestEpoch == epoch, ownerScope == turn.ownerScope,
+        guard let host, turn.requestEpoch == epoch, ownerScope == turn.ownerScope,
               pendingTurns.contains(where: { $0.id == turn.id }) else { return }
+        guard host.canUseProfileConversation else {
+            if let index = pendingTurns.firstIndex(where: { $0.id == turn.id }) {
+                pendingTurns[index].failed = true
+            }
+            host.failProfileConversationText(id: turn.localMessageID, errorKey: "ui.session.history.unavailable")
+            return
+        }
         let captured = turn.requestEpoch
         do {
             let payload = turn.payload

@@ -546,6 +546,29 @@ private final class HistoryAuthorityGate: @unchecked Sendable {
     #expect(model.sessionHistory.hasAuthorizedOwner)
 }
 
+@Test @MainActor func sessionHistoryQueuedTurnOfflineBeforeDispatchFailsAndCanRetry() async throws {
+    let profile = try historyData(try #require(historyObject()["later_historical_answer"]))
+    let caps = Data(#"{"capabilities":{"session_conversation_history":true,"session_flow_text_search":true},"contract_versions":{"session_conversation_history":1,"session_flow_text_search":1}}"#.utf8)
+    let fixture = HistoryWireFixture { request in (200, request.url!.path.hasSuffix("/capabilities") ? caps : profile, 0) }
+    defer { fixture.close() }
+    let (model, defaults, name) = fixture.model(); defer { defaults.removePersistentDomain(forName: name) }
+    await model.sessionHistory.prepare()
+    model.askDJDraft = "Queued before connection loss"
+    model.sessionHistory.sendText()
+    model.recordConnectionMode(.offline, baseURL: fixture.baseURL)
+    try await Task.sleep(for: .milliseconds(100))
+    #expect(fixture.requests.allSatisfy { $0.httpMethod != "POST" })
+    #expect(!model.isSendingAskDJText && model.sessionHistory.hasAuthorizedOwner)
+    let turn = try #require(model.sessionHistory.pendingTurns.first)
+    #expect(turn.failed && !turn.contextChanged)
+    model.recordConnectionMode(.local, baseURL: fixture.baseURL)
+    model.sessionHistory.retry(turn)
+    model.recordConnectionMode(.offline, baseURL: fixture.baseURL)
+    try await Task.sleep(for: .milliseconds(100))
+    #expect(fixture.requests.allSatisfy { $0.httpMethod != "POST" })
+    #expect(!model.isSendingAskDJText && model.sessionHistory.pendingTurns.first?.failed == true)
+}
+
 @Test(arguments: ["profile", "network"]) @MainActor
 func sessionHistoryActualComposerHandlesFailureAfterTransportGoesOffline(_ failure: String) async throws {
     let receipt = try historyObject()
