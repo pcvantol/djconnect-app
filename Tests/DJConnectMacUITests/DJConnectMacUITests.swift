@@ -208,7 +208,7 @@ final class DJConnectMacUITests: XCTestCase {
     }
 
     func testActualCoreConversationArchiveSearchAndIndependentPlayer() async throws {
-        let base = URL(string: "http://127.0.0.1:18191")!
+        let base = URL(string: "http://127.0.0.1:18194")!
         func control(_ operation: String) async throws {
             var request = URLRequest(url: base.appendingPathComponent("__apple_fixture/" + operation))
             request.httpMethod = "POST"; request.setValue("Bearer synthetic-fixture-token", forHTTPHeaderField: "Authorization")
@@ -318,7 +318,7 @@ final class DJConnectMacUITests: XCTestCase {
 
 
     func testActualCoreArchiveAndPlayerNavigationPreservesSessionB() async throws {
-        let base = URL(string: "http://127.0.0.1:18191")!
+        let base = URL(string: "http://127.0.0.1:18194")!
         func control(_ operation: String, method: String = "POST") async throws -> [String: Any] {
             var request = URLRequest(url: base.appendingPathComponent("__apple_fixture/" + operation))
             request.httpMethod = method; request.setValue("Bearer synthetic-fixture-token", forHTTPHeaderField: "Authorization")

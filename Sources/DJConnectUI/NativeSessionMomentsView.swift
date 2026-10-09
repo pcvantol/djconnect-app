@@ -25,6 +25,7 @@ struct NativeSessionMomentsView: View {
     var returnToCurrent: () -> Void = {}
     var showsFlow = true
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @State private var selectedMomentID: String?
 
     private func text(_ key: String) -> String {
@@ -35,14 +36,23 @@ struct NativeSessionMomentsView: View {
         TimelineView(.periodic(from: .now, by: 1)) { clock in
             let current = currentMoment(at: clock.date)
             VStack(alignment: .leading, spacing: 24) {
-                ViewThatFits(in: .horizontal) {
-                    HStack(alignment: .top, spacing: 24) {
-                        currentCard(current).frame(minWidth: 380, maxWidth: .infinity)
-                        musicContext.frame(width: 260)
-                    }
-                    VStack(alignment: .leading, spacing: 20) {
-                        currentCard(current)
-                        musicContext
+                Group {
+                    if dynamicTypeSize.isAccessibilitySize {
+                        VStack(alignment: .leading, spacing: 20) {
+                            currentCard(current)
+                            musicContext
+                        }
+                    } else {
+                        ViewThatFits(in: .horizontal) {
+                            HStack(alignment: .top, spacing: 24) {
+                                currentCard(current).frame(minWidth: 380, maxWidth: .infinity)
+                                musicContext.frame(width: 260)
+                            }
+                            VStack(alignment: .leading, spacing: 20) {
+                                currentCard(current)
+                                musicContext
+                            }
+                        }
                     }
                 }
                 .id("native-session-current")

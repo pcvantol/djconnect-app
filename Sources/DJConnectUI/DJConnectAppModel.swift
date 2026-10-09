@@ -9652,7 +9652,7 @@ public final class DJConnectAppModel: ObservableObject {
         return octets[0] == 10 || (octets[0] == 172 && (16...31).contains(octets[1])) || (octets[0] == 192 && octets[1] == 168)
     }
 
-    public func applyUITestRuntimeFixture(_ rawScenario: String) {
+    public func applyUITestRuntimeFixture(_ rawScenario: String, physicalTestHost: String? = nil) {
         let scenario = rawScenario.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         isUITestRuntimeFixtureActive = true
         uiTestRuntimeFixtureScenario = scenario
@@ -9675,8 +9675,13 @@ public final class DJConnectAppModel: ObservableObject {
         backendAvailable = true
         updateRequiredMessage = nil
         if scenario == "session_history_contract" {
-            guard Self.allowsSessionHistoryTestEndpoint(homeAssistantURL, environment: ProcessInfo.processInfo.environment,
-                                                       arguments: ProcessInfo.processInfo.arguments) else {
+            var environment = ProcessInfo.processInfo.environment
+            var arguments = ProcessInfo.processInfo.arguments
+            if let physicalTestHost {
+                environment["DJCONNECT_UITEST_PHYSICAL_HISTORY_HOST"] = physicalTestHost
+                arguments.append("--physical-session-history-test")
+            }
+            guard Self.allowsSessionHistoryTestEndpoint(homeAssistantURL, environment: environment, arguments: arguments) else {
                 pairingStatus = .unpaired; isConnected = false; return
             }
             webSocketFastPathEnabled = ProcessInfo.processInfo.environment["DJCONNECT_UITEST_HISTORY_TRANSPORT"] == "websocket"

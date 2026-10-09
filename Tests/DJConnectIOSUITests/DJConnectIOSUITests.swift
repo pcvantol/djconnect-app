@@ -924,7 +924,7 @@ private extension XCUIElement {
 
 extension DJConnectIOSUITests {
     func testActualCoreConversationArchiveSearchAndIndependentPlayer() async throws {
-        let base = URL(string: "http://127.0.0.1:18191")!
+        let base = URL(string: "http://127.0.0.1:18194")!
         func control(_ operation: String) async throws {
             var request = URLRequest(url: base.appendingPathComponent("__apple_fixture/" + operation))
             request.httpMethod = "POST"; request.setValue("Bearer synthetic-fixture-token", forHTTPHeaderField: "Authorization")
@@ -1042,7 +1042,7 @@ extension DJConnectIOSUITests {
     }
 
     func testActualCoreArchiveAndPlayerNavigationPreservesSessionB() async throws {
-        let base = URL(string: "http://127.0.0.1:18191")!
+        let base = URL(string: "http://127.0.0.1:18194")!
         func control(_ operation: String, method: String = "POST") async throws -> [String: Any] {
             var request = URLRequest(url: base.appendingPathComponent("__apple_fixture/" + operation))
             request.httpMethod = method; request.setValue("Bearer synthetic-fixture-token", forHTTPHeaderField: "Authorization")
@@ -1106,7 +1106,7 @@ extension DJConnectIOSUITests {
     }
 
     func testActualCoreSessionHistoryLongDraftRemainsReachable() async throws {
-        let base = URL(string: "http://127.0.0.1:18191")!
+        let base = URL(string: "http://127.0.0.1:18194")!
         var request = URLRequest(url: base.appendingPathComponent("__apple_fixture/start"))
         request.httpMethod = "POST"
         request.setValue("Bearer synthetic-fixture-token", forHTTPHeaderField: "Authorization")
@@ -1133,7 +1133,7 @@ extension DJConnectIOSUITests {
     }
 
     func testActualCoreSessionHistoryNativeAccessibility() async throws {
-        let base = URL(string: "http://127.0.0.1:18191")!
+        let base = URL(string: "http://127.0.0.1:18194")!
         func control(_ operation: String) async throws {
             var request = URLRequest(url: base.appendingPathComponent("__apple_fixture/" + operation))
             request.httpMethod = "POST"; request.setValue("Bearer synthetic-fixture-token", forHTTPHeaderField: "Authorization")
