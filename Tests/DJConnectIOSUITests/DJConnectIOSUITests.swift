@@ -1024,11 +1024,18 @@ extension DJConnectIOSUITests {
         let question = app.textViews.firstMatch
         XCTAssertTrue(question.waitForExistence(timeout: 5)); question.tap(); question.typeText("Wanneer heb ik eerder naar Metallica geluisterd?")
         app.buttons["ask-dj-composer-send"].tap()
-        let open = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "open-session-")).firstMatch
-        XCTAssertTrue(open.waitForExistence(timeout: 15))
+        let openButtons = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "open-session-"))
+        guard openButtons.firstMatch.waitForExistence(timeout: 15) else {
+            XCTFail("No backend-confirmed historical match with Open session action"); return
+        }
+        guard let open = openButtons.allElementsBoundByIndex.first(where: { $0.isHittable }) else {
+            XCTFail("No visible historical match action"); return
+        }
+        let expectedAnchor = String(open.identifier.dropFirst("open-session-".count))
         try saveHistoryScreenshot("ios-history-07-real-historical-matches")
         open.tap()
         XCTAssertTrue(app.descendants(matching: .any)["screen-history-timeline"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.descendants(matching: .any)["session-entry-" + expectedAnchor].waitForExistence(timeout: 10))
         try saveHistoryScreenshot("ios-history-08-open-matched-entry")
     }
 

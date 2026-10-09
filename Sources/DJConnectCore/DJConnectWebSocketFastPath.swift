@@ -143,7 +143,7 @@ public actor DJConnectHomeAssistantWebSocketFastPath: DJConnectWebSocketFastPath
             throw DJConnectError.routeMissing(message: "Scoped Profile history is unavailable")
         }
         let request = DJConnectWebSocketProfileHistoryMessage(id: allocateID(), identity: identity)
-        return try await sendResult(request, timeout: 10, responseType: DJConnectProfileConversationHistory.self)
+        return try await sendResult(request, timeout: 10, responseType: DJConnectProfileConversationHistory.self, privateResponse: true)
     }
 
     public func askDJHistory(
@@ -391,7 +391,8 @@ public actor DJConnectHomeAssistantWebSocketFastPath: DJConnectWebSocketFastPath
     private func sendResult<T: Encodable, U: Decodable & Sendable>(
         _ message: T,
         timeout: TimeInterval,
-        responseType: U.Type
+        responseType: U.Type,
+        privateResponse: Bool = false
     ) async throws -> U {
         do {
             guard task != nil else {
@@ -407,9 +408,17 @@ public actor DJConnectHomeAssistantWebSocketFastPath: DJConnectWebSocketFastPath
             }
             return result
         } catch {
-            markUnhealthy(error)
-            throw error
+            let safeError = recordTransportFailure(error, privateResponse: privateResponse)
+            throw safeError
         }
+    }
+
+    /// Private conversation responses never enter exportable diagnostics as free text.
+    @discardableResult
+    func recordTransportFailure(_ error: Error, privateResponse: Bool) -> Error {
+        let safeError: Error = privateResponse ? DJConnectError.network(message: "Scoped Profile history request failed") : error
+        markUnhealthy(safeError)
+        return safeError
     }
 
     private func send<T: Encodable>(_ value: T) async throws {

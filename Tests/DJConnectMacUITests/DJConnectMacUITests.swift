@@ -261,7 +261,7 @@ final class DJConnectMacUITests: XCTestCase {
         selected.tap()
         app.buttons["Zoeken sluiten"].firstMatch.tap()
         XCTAssertTrue(app.descendants(matching: .any)["session-question-context"].waitForExistence(timeout: 5))
-        let input = app.textViews.firstMatch
+        let input = app.textFields.firstMatch
         XCTAssertTrue(input.waitForExistence(timeout: 5)); input.tap(); input.typeText("Vertel over deze bijdrage")
         print("CLIENT FLAGS", app.staticTexts["session-history-runtime-diagnostics"].label)
         guard app.buttons["ask-dj-composer-send"].isEnabled else {
@@ -284,7 +284,7 @@ final class DJConnectMacUITests: XCTestCase {
         try saveHistoryScreenshot("mac-history-05-player-during-session")
         app.buttons["DJ-sessie"].firstMatch.tap()
         let end = app.buttons["Sessie beëindigen"].firstMatch
-        for _ in 0..<15 where !end.isHittable { app.swipeUp() }
+        for _ in 0..<15 where !end.isHittable { app.scrollViews.firstMatch.scroll(byDeltaX: 0, deltaY: -400) }
         XCTAssertTrue(end.isHittable); end.tap()
         XCTAssertTrue(app.buttons["Start DJ-sessie"].waitForExistence(timeout: 15))
         try await control("restart")
@@ -296,14 +296,21 @@ final class DJConnectMacUITests: XCTestCase {
         app.terminate(); app.launch()
         XCTAssertTrue(app.buttons["Start DJ-sessie"].waitForExistence(timeout: 10))
         app.buttons["Ask DJ"].firstMatch.tap()
-        let question = app.textViews.firstMatch
+        let question = app.textFields.firstMatch
         XCTAssertTrue(question.waitForExistence(timeout: 5)); question.tap(); question.typeText("Wanneer heb ik eerder naar Metallica geluisterd?")
         app.buttons["ask-dj-composer-send"].tap()
-        let open = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "open-session-")).firstMatch
-        XCTAssertTrue(open.waitForExistence(timeout: 15))
+        let openButtons = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "open-session-"))
+        guard openButtons.firstMatch.waitForExistence(timeout: 15) else {
+            XCTFail("No backend-confirmed historical match with Open session action"); return
+        }
+        guard let open = openButtons.allElementsBoundByIndex.first(where: { $0.isHittable }) else {
+            XCTFail("No visible historical match action"); return
+        }
+        let expectedAnchor = String(open.identifier.dropFirst("open-session-".count))
         try saveHistoryScreenshot("mac-history-07-real-historical-matches")
         open.tap()
         XCTAssertTrue(app.descendants(matching: .any)["screen-history-timeline"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.descendants(matching: .any)["session-entry-" + expectedAnchor].waitForExistence(timeout: 10))
         try saveHistoryScreenshot("mac-history-08-open-matched-entry")
     }
 

@@ -11792,6 +11792,7 @@ private struct AskDJView: View {
             .background(DJConnectCanvasBackground())
             .djStatusToastOverlay(text: toast, systemImage: "bubble.left.and.bubble.right")
             .navigationTitle(screenTitle(model.language, key: "Ask DJ", isDemoMode: model.isDemoMode))
+            .accessibilityElement(children: .contain)
             .accessibilityIdentifier("screen-ask-dj")
             .toolbar {
                 #if os(macOS)

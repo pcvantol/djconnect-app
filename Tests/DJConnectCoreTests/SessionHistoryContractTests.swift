@@ -412,3 +412,16 @@ private final class HistoryReplySequence: @unchecked Sendable {
     #expect(object["type"] as? String == "djconnect/ask_dj/history")
     #expect((object["identity"] as? [String: Any])?["device_id"] as? String == identity.deviceID)
 }
+
+@Test func sessionHistoryPrivateWebSocketFailureNeverExportsConversationText() async throws {
+    let transport = DJConnectHomeAssistantWebSocketFastPath(baseURL: URL(string: "http://127.0.0.1:18191")!, homeAssistantAuth: DJConnectHomeAssistantWebSocketAuth { nil })
+    let privateText = "private-question-7d94f60b"
+    let wire = Data(("{\"error\":{\"code\":\"invalid_context\",\"message\":\"" + privateText + "\"}}").utf8)
+    let envelope = try #require(JSONSerialization.jsonObject(with: wire) as? [String: Any])
+    let error = try #require(envelope["error"] as? [String: String])
+    let safe = await transport.recordTransportFailure(DJConnectError.server(statusCode: 200, message: error["message"]), privateResponse: true)
+    let diagnostics = await transport.diagnostics
+    #expect(diagnostics.lastWebSocketError == "Scoped Profile history request failed")
+    #expect(!String(describing: safe).contains(privateText))
+    #expect(!String(describing: diagnostics).contains(privateText))
+}
