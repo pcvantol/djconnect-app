@@ -179,6 +179,15 @@ struct SessionTimelineScreen: View {
             }
             .background(DJConnectCanvasBackground())
             .toolbar {
+                if activeSession != nil {
+                    Button(role: .destructive) { Task { await model.endDJSession() } } label: {
+                        Image(systemName: "xmark.circle")
+                    }
+                    .disabled(model.isLoadingDJSession)
+                    .accessibilityLabel(text("ui.session.end"))
+                    .accessibilityIdentifier("session-end-button")
+                    .help(text("ui.session.end"))
+                }
                 Button {
                     if searching { closeSearch(proxy: proxy) }
                     else { priorSearchPosition = visibleEntry; searching = true; searchFocused = true }
@@ -399,7 +408,8 @@ struct SessionHistoryMatchCard: View {
     let open: (DJConnectSessionOpenAction) -> Void
     private func text(_ key: String) -> String { DJConnectLocalization.localized(key: key, language: language) }
     var body: some View {
-        if entry.kind == .playbackObserved, entry.isRetained(),
+        TimelineView(.periodic(from: .now, by: 1)) { clock in
+        if entry.kind == .playbackObserved, entry.isRetained(at: clock.date),
            entry.playback?.coverage == "observed_playing_not_full_listen",
            entry.requiresSpotifyAttribution != true || spotifyAttributionLogo != nil {
             VStack(alignment: .leading, spacing: 8) {
@@ -417,6 +427,7 @@ struct SessionHistoryMatchCard: View {
                 }
             }.padding(14).frame(maxWidth: .infinity, alignment: .leading)
                 .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 14))
+        }
         }
     }
 }

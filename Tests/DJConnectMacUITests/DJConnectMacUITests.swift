@@ -283,8 +283,7 @@ final class DJConnectMacUITests: XCTestCase {
         XCTAssertTrue(app.descendants(matching: .any)["screen-now-playing"].waitForExistence(timeout: 5))
         try saveHistoryScreenshot("mac-history-05-player-during-session")
         app.buttons["DJ-sessie"].firstMatch.tap()
-        let end = app.buttons["Sessie beëindigen"].firstMatch
-        for _ in 0..<15 where !end.isHittable { app.scrollViews.firstMatch.scroll(byDeltaX: 0, deltaY: -400) }
+        let end = app.buttons["session-end-button"]
         XCTAssertTrue(end.isHittable); end.tap()
         XCTAssertTrue(app.buttons["Start DJ-sessie"].waitForExistence(timeout: 15))
         try await control("restart")

@@ -425,3 +425,30 @@ private final class HistoryReplySequence: @unchecked Sendable {
     #expect(!String(describing: safe).contains(privateText))
     #expect(!String(describing: diagnostics).contains(privateText))
 }
+
+@Test func sessionHistoryCorrectiveHTTPProducerUsesStrictProfileNamespace() async throws {
+    let bytes = try historyFixture("http-scope-fix-producer-receipt")
+    #expect(SHA256.hash(data: bytes).map { String(format: "%02x", $0) }.joined() == "2462f35a06413716e41734be7fd03ac9181e717c857877765e1493a5148537bc")
+    let receipt = try #require(JSONSerialization.jsonObject(with: bytes) as? [String: Any])
+    let requests = try #require(receipt["requests"] as? [[String: Any]])
+    let profileRead = try #require(requests.first { r in
+        r["path"] as? String == "/api/djconnect/v1/ask_dj/history" && r["status"] as? Int == 200 &&
+        (r["query"] as? [String: Any])?["conversation_scope"] as? String == "profile"
+    })
+    let body = try historyData(try #require(profileRead["body"]))
+    let fixture = HistoryWireFixture { _ in (200, body, 0) }; defer { fixture.close() }
+    let decoded = try await fixture.client().profileConversationHistory()
+    #expect(decoded.ownerScope == "profile-a" && decoded.base.userID == nil)
+    #expect(decoded.base.messages.count == 2)
+    let responseBody = try #require(profileRead["body"] as? [String: Any])
+    #expect(decoded.base.historyLimit == responseBody["history_limit"] as? Int)
+    let wire = try #require(fixture.requests.first)
+    #expect(URLComponents(url: wire.url!, resolvingAgainstBaseURL: false)?.queryItems?.contains(.init(name: "conversation_scope", value: "profile")) == true)
+    let legacy = try #require(requests.first { r in
+        r["path"] as? String == "/api/djconnect/v1/ask_dj/history" && r["status"] as? Int == 200 &&
+        (r["query"] as? [String: Any])?["conversation_scope"] == nil
+    })
+    #expect(throws: DecodingError.self) {
+        try JSONDecoder().decode(DJConnectProfileConversationHistory.self, from: historyData(try #require(legacy["body"])))
+    }
+}

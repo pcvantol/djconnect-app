@@ -19,11 +19,13 @@ sys.dont_write_bytecode = True
 ROOT = Path(os.environ["DJC_SOURCE_ROOT"])
 LAB = Path(os.environ["DJC_LAB_ROOT"])
 TOKEN = "synthetic-fixture-token"
-PIN = "19b815612319291cc7e4ab1fca4718667f173970"
+PIN = "4ada2b611f5195090bdb1fe52b28749ad539a100"
 
 
 def load_pinned_bootstrap():
-    receipt = json.loads((ROOT / "examples/client_contracts/session_conversation_history/http-producer-receipt.json").read_text())
+    receipt_path = ROOT / "examples/client_contracts/profile_history_http_scope_fix/http-producer-receipt.json"
+    assert hashlib.sha256(receipt_path.read_bytes()).hexdigest() == "2462f35a06413716e41734be7fd03ac9181e717c857877765e1493a5148537bc"
+    receipt = json.loads(receipt_path.read_text())
     for relative, expected in receipt["source_files_sha256"].items():
         assert hashlib.sha256((ROOT / relative).read_bytes()).hexdigest() == expected, relative
     path = ROOT / "scripts/verification/verify_session_conversation_history_http.py"

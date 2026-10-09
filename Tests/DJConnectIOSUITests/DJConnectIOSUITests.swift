@@ -1007,8 +1007,7 @@ extension DJConnectIOSUITests {
         try saveHistoryScreenshot("ios-history-05-player-during-session")
         let tab = app.tabBars.buttons["DJ-sessie"].exists ? app.tabBars.buttons["DJ-sessie"] : app.buttons["DJ-sessie"].firstMatch
         tab.tap()
-        let end = app.buttons["Sessie beëindigen"].firstMatch
-        for _ in 0..<15 where !end.isHittable { app.swipeUp() }
+        let end = app.buttons["session-end-button"]
         XCTAssertTrue(end.isHittable); end.tap()
         XCTAssertTrue(app.buttons["Start DJ-sessie"].waitForExistence(timeout: 15))
         try await control("restart")
