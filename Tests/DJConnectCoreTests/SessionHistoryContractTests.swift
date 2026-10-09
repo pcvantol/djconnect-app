@@ -1,6 +1,7 @@
 import Foundation
 import Testing
 import CryptoKit
+import Combine
 @testable import DJConnectCore
 @testable import DJConnectUI
 
@@ -84,6 +85,17 @@ private final class HistoryWireFixture: @unchecked Sendable {
     }
 }
 
+private struct HistoryWireDelayedFailure: Error {
+    let error: URLError
+    let delay: TimeInterval
+}
+private final class HistoryComposerOfflineSignal: @unchecked Sendable {
+    private let lock = NSLock()
+    private var callback: (@Sendable () -> Void)?
+    func install(_ action: @escaping @Sendable () -> Void) { lock.withLock { callback = action } }
+    func signal() { lock.withLock { callback }?() }
+}
+
 private final class HistoryWireProtocol: URLProtocol, @unchecked Sendable {
     private static let registryLock = NSLock()
     nonisolated(unsafe) private static var fixtures: [String: HistoryWireFixture] = [:]
@@ -103,6 +115,11 @@ private final class HistoryWireProtocol: URLProtocol, @unchecked Sendable {
                     headerFields: ["Content-Type": "application/json", "Cache-Control": "no-store"]) else { return }
                 client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
                 client?.urlProtocol(self, didLoad: data); client?.urlProtocolDidFinishLoading(self)
+            }
+        } catch let error as HistoryWireDelayedFailure {
+            DispatchQueue.global().asyncAfter(deadline: .now() + error.delay) { [self] in
+                guard !stateLock.withLock({ stopped }) else { return }
+                client?.urlProtocol(self, didFailWithError: error.error)
             }
         } catch { client?.urlProtocol(self, didFailWithError: error) }
     }
@@ -536,23 +553,34 @@ func sessionHistoryActualComposerHandlesFailureAfterTransportGoesOffline(_ failu
     let timeline = try historyData(try #require(receipt["archived_timeline"]))
     let page = try JSONDecoder().decode(DJConnectSessionTimelinePage.self, from: timeline)
     let caps = Data(#"{"capabilities":{"session_conversation_history":true,"session_flow_text_search":true},"contract_versions":{"session_conversation_history":1,"session_flow_text_search":1}}"#.utf8)
+    let offlineSignal = HistoryComposerOfflineSignal()
     let fixture = HistoryWireFixture { request in
         if request.url!.path.hasSuffix("/capabilities") { return (200, caps, 0) }
         if request.httpMethod == "POST" && request.url!.path.hasSuffix("/ask_dj/message") {
-            if failure == "network" { throw URLError(.notConnectedToInternet) }
-            return (403, Data(#"{"success":false,"error":"invalid_profile"}"#.utf8), 0)
+            offlineSignal.signal()
+            if failure == "network" { throw HistoryWireDelayedFailure(error: URLError(.notConnectedToInternet), delay: 0.1) }
+            return (403, Data(#"{"success":false,"error":"invalid_profile"}"#.utf8), 0.1)
         }
         return (200, request.url!.path.hasSuffix("/ask_dj/history") ? profile : timeline, 0)
     }
     defer { fixture.close() }
     let (model, defaults, name) = fixture.model(); defer { defaults.removePersistentDomain(forName: name) }
     await model.sessionHistory.prepare(); await model.sessionHistory.loadTimeline(page.session.id)
+    let baseURL = fixture.baseURL
+    offlineSignal.install { [weak model] in
+        Task { @MainActor in model?.recordConnectionMode(.offline, baseURL: baseURL) }
+    }
+    var offlineWhileSending = false
+    let connectionObservation = model.$haConnectionMode.sink { mode in
+        if mode == .offline && model.isSendingAskDJText { offlineWhileSending = true }
+    }
+    defer { connectionObservation.cancel() }
     model.askDJDraft = "Actual composer failure"
     model.sessionHistory.sendText()
     #expect(model.isSendingAskDJText && model.sessionHistory.pendingTurns.count == 1)
     for _ in 0..<200 where model.isSendingAskDJText { try await Task.sleep(for: .milliseconds(50)) }
     #expect(fixture.requests.contains(where: { $0.httpMethod == "POST" && $0.url!.path.hasSuffix("/ask_dj/message") }))
-    #expect(model.haConnectionMode == .offline)
+    #expect(offlineWhileSending)
     #expect(!model.isSendingAskDJText)
     if failure == "profile" {
         #expect(!model.sessionHistory.hasAuthorizedOwner)
@@ -560,4 +588,31 @@ func sessionHistoryActualComposerHandlesFailureAfterTransportGoesOffline(_ failu
     } else {
         #expect(model.sessionHistory.pendingTurns.count == 1 && model.sessionHistory.pendingTurns.first?.failed == true)
     }
+}
+
+@Test @MainActor func sessionHistoryPeriodicReadCannotSupersedeExplicitOpen() async throws {
+    let receipt = try historyObject()
+    let profile = try historyData(try #require(receipt["later_historical_answer"]))
+    let timeline = try historyData(try #require(receipt["archived_timeline"]))
+    let opened = try historyData(try #require(receipt["validated_open_target"]))
+    let page = try JSONDecoder().decode(DJConnectSessionTimelinePage.self, from: timeline)
+    let target = try JSONDecoder().decode(DJConnectSessionOpenResponse.self, from: opened)
+    let caps = Data(#"{"capabilities":{"session_conversation_history":true,"session_flow_text_search":true},"contract_versions":{"session_conversation_history":1,"session_flow_text_search":1}}"#.utf8)
+    let fixture = HistoryWireFixture { request in
+        if request.url!.path.hasSuffix("/capabilities") { return (200, caps, 0) }
+        if request.url!.path.hasSuffix("/ask_dj/history") { return (200, profile, 0) }
+        if request.url!.path.hasSuffix("/history/open") { return (200, opened, 0.15) }
+        return (200, timeline, 0)
+    }
+    defer { fixture.close() }
+    let (model, defaults, name) = fixture.model(); defer { defaults.removePersistentDomain(forName: name) }
+    await model.sessionHistory.prepare(); await model.sessionHistory.loadTimeline(page.session.id)
+    let action = DJConnectSessionOpenAction(reference: target.entry.reference)
+    let navigation = Task { await model.sessionHistory.open(action) }
+    try await Task.sleep(for: .milliseconds(30))
+    let readsBefore = fixture.requests.filter { $0.httpMethod == "GET" && $0.url!.path.contains("/session/history/") }.count
+    await model.sessionHistory.refreshVisibleTimeline(page.session.id, anchor: nil)
+    #expect(fixture.requests.filter { $0.httpMethod == "GET" && $0.url!.path.contains("/session/history/") }.count == readsBefore)
+    #expect(await navigation.value)
+    #expect(model.sessionHistory.openTarget == target.entry.reference)
 }

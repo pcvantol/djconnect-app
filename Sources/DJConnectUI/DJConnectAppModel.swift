@@ -10155,7 +10155,7 @@ public final class DJConnectAppModel: ObservableObject {
         }
     }
 
-    private func recordConnectionMode(_ mode: DJConnectHAConnectionMode, baseURL: URL?) {
+    func recordConnectionMode(_ mode: DJConnectHAConnectionMode, baseURL: URL?) {
         haConnectionMode = mode
         defaults.set(mode.rawValue, forKey: haConnectionModeKey)
         if mode == .local, let baseURL {

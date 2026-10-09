@@ -75,6 +75,7 @@ struct SessionTimelineScreen: View {
     @State private var positionUnavailable = false
     @State private var resumePosition: String?
     @State private var anchorGeneration = UUID()
+    @State private var sceneRestoreTask: Task<Void, Never>?
     @FocusState private var inputFocused: Bool
     @FocusState private var searchFocused: Bool
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -215,7 +216,7 @@ struct SessionTimelineScreen: View {
                     try? await Task.sleep(for: .seconds(10))
                 }
             }
-            .onChange(of: query) { _, value in anchorGeneration = UUID(); history.search(sessionID: sessionID, query: value) }
+            .onChange(of: query) { _, value in sceneRestoreTask?.cancel(); anchorGeneration = UUID(); history.search(sessionID: sessionID, query: value) }
             .onChange(of: history.searchMatches) {
                 guard searching, !matches.isEmpty else { return }
                 if !matches.contains(where: { $0.id == selectedMatchID }) {
@@ -232,10 +233,13 @@ struct SessionTimelineScreen: View {
             .onChange(of: scenePhase) {
                 if scenePhase == .inactive { resumePosition = visibleEntry }
                 if scenePhase == .active {
-                    Task {
+                    sceneRestoreTask?.cancel()
+                    let restoreGeneration = anchorGeneration
+                    sceneRestoreTask = Task {
                         await history.restoreVisibleTimeline(sessionID, active: activeSession != nil, anchor: resumePosition)
+                        guard !Task.isCancelled, restoreGeneration == anchorGeneration else { return }
                         guard let resumePosition else {
-                            if let initialAnchor { await selectAnchor(initialAnchor, proxy: proxy) }
+                            if let initialAnchor { await selectAnchor(initialAnchor, proxy: proxy, restoreRequest: true) }
                             else if activeSession != nil { jump("current", proxy: proxy) }
                             return
                         }
@@ -243,28 +247,33 @@ struct SessionTimelineScreen: View {
                             if history.pendingTurns.contains(where: { "pending-" + $0.id == resumePosition }) { jump(resumePosition, proxy: proxy) }
                             else if activeSession != nil { jump("current", proxy: proxy) }
                         } else if !["current", "tail"].contains(resumePosition) {
-                            await selectAnchor(resumePosition, proxy: proxy)
+                            await selectAnchor(resumePosition, proxy: proxy, restoreRequest: true)
                         } else if activeSession != nil { jump("current", proxy: proxy) }
                     }
                 }
             }
-            .onDisappear { anchorGeneration = UUID(); history.clearSearch() }
+            .onDisappear { sceneRestoreTask?.cancel(); anchorGeneration = UUID(); history.clearSearch() }
             .accessibilityElement(children: .contain)
             .accessibilityIdentifier(activeSession == nil ? "screen-history-timeline" : "screen-session-conversation")
         }
     }
 
     private func jump(_ id: String, proxy: ScrollViewProxy) {
+        sceneRestoreTask?.cancel()
         anchorGeneration = UUID()
-        withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.2)) { proxy.scrollTo(id, anchor: .top) }
-        visibleEntry = id
+        // One scroll controller: mixing proxy animation with the bound target can
+        // let a layout/keyboard measurement overwrite the requested anchor.
+        withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.2)) { visibleEntry = id }
     }
-    private func selectAnchor(_ id: String, proxy: ScrollViewProxy, searchRequest: Bool = false) async {
+    private func selectAnchor(_ id: String, proxy: ScrollViewProxy, searchRequest: Bool = false, restoreRequest: Bool = false) async {
         guard !id.hasPrefix("pending-"), !["current", "tail"].contains(id), !searchRequest || searching else { return }
+        if !restoreRequest { sceneRestoreTask?.cancel() }
         let generation = UUID(); anchorGeneration = generation
         let capturedQuery = query
         let action = DJConnectSessionOpenAction(reference: .init(sessionID: sessionID, entryID: id))
         let accepted = await history.open(action, navigate: false)
+        // Publish the canonical row before asking SwiftUI to position it.
+        await Task.yield()
         guard accepted, generation == anchorGeneration, !searchRequest || (searching && capturedQuery == query && selectedMatchID == id), timeline.entries.contains(where: { $0.id == id && $0.isRetained() }) else { return }
         jump(id, proxy: proxy)
     }

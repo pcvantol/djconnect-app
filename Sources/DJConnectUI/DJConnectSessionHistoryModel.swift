@@ -55,6 +55,7 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
     private var listRevision: String?
     private var listGeneration = UUID()
     private var timelineGenerations: [String: UUID] = [:]
+    private var timelineNavigations: [String: UUID] = [:]
     private var searchGeneration = UUID()
     private var searchRevision: String?
     private var searchTask: Task<Void, Never>?
@@ -118,13 +119,13 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
         sessions = []; timelines = [:]; historicalMatches = [:]; pendingTurns = []
         selectedEntry = nil; openTarget = nil; voiceContext = nil; voiceClientID = nil; voicePayload = nil
         listNextCursor = nil; listRevision = nil; listLoading = false; listErrorKey = nil
-        clearSearch(); navigationErrorKey = nil; timelineGenerations = [:]
+        clearSearch(); navigationErrorKey = nil; timelineGenerations = [:]; timelineNavigations = [:]
     }
 
     public func suspend() {
         preparationTask?.cancel(); preparationTask = nil; preparationID = UUID(); preparing = false
         epoch = UUID(); ownerScope = nil
-        listGeneration = UUID(); timelineGenerations = [:]; navigationGeneration = UUID()
+        listGeneration = UUID(); timelineGenerations = [:]; timelineNavigations = [:]; navigationGeneration = UUID()
         listLoading = false; listNextCursor = nil; listRevision = nil
         searchTask?.cancel(); searchTask = nil
         timelines = [:]; sessions = []; historicalMatches = [:]; searchMatches = []
@@ -180,7 +181,8 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
 
     public func loadTimeline(_ sessionID: String, more: Bool = false, window: DJConnectHistoryWindow? = nil,
                              anchorEntryID: String? = nil, limit: Int = 20) async {
-        guard available, let host, host.canRefreshSessionHistory, !(timelines[sessionID]?.loading ?? false) else { return }
+        guard available, let host, host.canRefreshSessionHistory, !(timelines[sessionID]?.loading ?? false),
+              timelineNavigations[sessionID] == nil else { return }
         let cursor = more ? timelines[sessionID]?.nextCursor : nil
         if more && cursor == nil { return }
         let captured = epoch; let generation = UUID(); timelineGenerations[sessionID] = generation
@@ -221,6 +223,8 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
         navigationErrorKey = nil
         let captured = epoch; let generation = UUID(); navigationGeneration = generation
         timelineGenerations[action.sessionID] = generation
+        timelineNavigations[action.sessionID] = generation
+        defer { if timelineNavigations[action.sessionID] == generation { timelineNavigations[action.sessionID] = nil } }
         do {
             let response = try await host.withHomeAssistantClient { try await $0.openSavedSession(action) }
             guard captured == epoch, generation == navigationGeneration, timelineGenerations[action.sessionID] == generation, response.entry.isRetained() else { return false }
@@ -479,7 +483,7 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
 
     public func restoreVisibleTimeline(_ sessionID: String, active: Bool, anchor: String?) async {
         await prepare()
-        guard hasAuthorizedOwner else { return }
+        guard hasAuthorizedOwner, !Task.isCancelled else { return }
         if let anchor, !["current", "tail"].contains(anchor), !anchor.hasPrefix("pending-") {
             await loadTimeline(sessionID, window: .anchor, anchorEntryID: anchor)
             if timelines[sessionID]?.entries.contains(where: { $0.id == anchor && $0.isRetained() }) == true { return }

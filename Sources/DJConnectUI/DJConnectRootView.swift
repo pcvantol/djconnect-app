@@ -807,10 +807,12 @@ public struct DJConnectRootView: View {
                     .opacity(0.01)
                     .accessibilityIdentifier("uitest-runtime-fixture-active")
                     .accessibilityLabel("uitest-runtime-fixture-active")
-                if model.uiTestRuntimeFixtureScenario == "session_history_contract" {
+                if model.uiTestRuntimeFixtureScenario == "session_history_contract",
+                   ProcessInfo.processInfo.environment["DJCONNECT_UITEST_DIAGNOSTICS"] == "1" {
                     Text(verbatim: "available=\(history.available) scope=\(history.profileScopeActive) owner=\(history.hasAuthorizedOwner) foreground=\(model.canRefreshSessionHistory) compatible=\(model.isRuntimeCompatible) mode=\(model.haConnectionMode.rawValue) canAsk=\(model.canUseProfileConversation) sending=\(model.isSendingAskDJText) draft=\(model.askDJDraft.count)")
                         .font(.caption2).frame(width: 1, height: 1).opacity(0.01)
                         .accessibilityIdentifier("session-history-runtime-diagnostics")
+                        .accessibilityHidden(true)
                 }
                 if let scenario = model.uiTestRuntimeFixtureScenario {
                     Text("uitest-runtime-fixture-\(scenario)")
@@ -1462,6 +1464,7 @@ private struct DJConnectTopTabButton: View {
                 .font(.headline.weight(.semibold))
                 .labelStyle(.titleAndIcon)
                 .lineLimit(1)
+                .fixedSize(horizontal: true, vertical: true)
                 .foregroundStyle(isSelected ? djConnectAccent : .primary)
                 .frame(minWidth: 118)
                 .padding(.horizontal, 16)
@@ -14150,6 +14153,7 @@ struct AskDJInputBar: View {
                 TextField("", text: $model.askDJDraft, axis: .vertical)
                     .lineLimit(1...4)
                     .textFieldStyle(.plain)
+                    .accessibilityLabel("Ask DJ")
                     .focused(isInputFocused)
                     .foregroundStyle(.white)
                     .padding(.horizontal, 14)
@@ -14197,7 +14201,7 @@ struct AskDJInputBar: View {
                         .tint(.white)
                 } else {
                     Image(systemName: "paperplane.fill")
-                        .font(.headline.weight(.semibold))
+                        .font(.system(size: 18, weight: .semibold))
                 }
             }
             .buttonStyle(.plain)
@@ -14271,6 +14275,7 @@ private struct AskDJPromptTextView: UIViewRepresentable {
         let textView = UITextView()
         textView.delegate = context.coordinator
         textView.backgroundColor = .clear
+        textView.accessibilityLabel = "Ask DJ"
         textView.textColor = .white
         textView.tintColor = UIColor(djConnectAccent)
         textView.font = .preferredFont(forTextStyle: .body)
@@ -14382,7 +14387,7 @@ private struct AskDJVoiceInputButton: View {
                         .tint(.white)
                 } else {
                     Image(systemName: isActive ? "stop.fill" : "mic.fill")
-                        .font(.headline.weight(.semibold))
+                        .font(.system(size: 18, weight: .semibold))
                         .foregroundStyle(.white)
                         .symbolEffect(.pulse, isActive: isActive)
                 }

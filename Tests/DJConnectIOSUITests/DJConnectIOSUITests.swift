@@ -1105,6 +1105,57 @@ extension DJConnectIOSUITests {
         try saveHistoryScreenshot("ios-history-11-player-without-session")
     }
 
+    func testActualCoreSessionHistoryNativeAccessibility() async throws {
+        let base = URL(string: "http://127.0.0.1:18191")!
+        func control(_ operation: String) async throws {
+            var request = URLRequest(url: base.appendingPathComponent("__apple_fixture/" + operation))
+            request.httpMethod = "POST"; request.setValue("Bearer synthetic-fixture-token", forHTTPHeaderField: "Authorization")
+            let (_, response) = try await URLSession.shared.data(for: request)
+            XCTAssertEqual((response as? HTTPURLResponse)?.statusCode, 200)
+        }
+        var authRequest = URLRequest(url: base.appendingPathComponent("__apple_fixture/state"))
+        authRequest.setValue("Bearer synthetic-fixture-token", forHTTPHeaderField: "Authorization")
+        let (authData, _) = try await URLSession.shared.data(for: authRequest)
+        let labAuth = try XCTUnwrap(JSONSerialization.jsonObject(with: authData) as? [String: Any])
+        let websocketToken = try XCTUnwrap(labAuth["websocket_access_token"] as? String)
+        let app = XCUIApplication()
+        app.terminate()
+        app.launchArguments = ["--uitesting", "--runtime-fixture=session_history_contract", "-AppleLanguages", "(nl)", "-AppleLocale", "nl_NL"]
+        app.launchEnvironment["DJCONNECT_UITEST_HA_URL"] = base.absoluteString
+        app.launchEnvironment["DJCONNECT_UITEST_RUNTIME_FIXTURE"] = "session_history_contract"
+        app.launchEnvironment["DJCONNECT_UITEST_HA_WS_TOKEN"] = websocketToken
+        app.launch()
+        try await Task.sleep(for: .milliseconds(400))
+        app.terminate()
+        try await control("start")
+        var request = URLRequest(url: URL(string: base.absoluteString + "/api/djconnect/v1/session/active?device_id=djconnect-ios-ABCDEF123456&client_type=ios")!)
+        request.setValue("Bearer synthetic-fixture-token", forHTTPHeaderField: "Authorization")
+        let (data, _) = try await URLSession.shared.data(for: request)
+        let envelope = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        let session = try XCTUnwrap(envelope["session"] as? [String: Any])
+        let sessionID = try XCTUnwrap(session["session_id"] as? String)
+        request.url = URL(string: base.absoluteString + "/api/djconnect/v1/session/history/" + sessionID + "?device_id=djconnect-ios-ABCDEF123456&client_type=ios&window=tail")!
+        let (timelineData, _) = try await URLSession.shared.data(for: request)
+        let timeline = try XCTUnwrap(JSONSerialization.jsonObject(with: timelineData) as? [String: Any])
+        let entries = try XCTUnwrap(timeline["entries"] as? [[String: Any]])
+        let moment = try XCTUnwrap(entries.first { $0["kind"] as? String == "dj_moment" })
+        let momentText = try XCTUnwrap(moment["text"] as? String)
+        app.launch()
+        if app.buttons["Niet nu"].waitForExistence(timeout: 2) { app.buttons["Niet nu"].tap() }
+        guard app.descendants(matching: .any)["uitest-runtime-fixture-active"].waitForExistence(timeout: 10),
+              app.descendants(matching: .any)["screen-session-conversation"].waitForExistence(timeout: 15) else {
+            XCTFail("Actual loopback fixture/timeline was not activated; no mock or stale screen acceptance."); return
+        }
+        XCTAssertTrue(app.staticTexts[momentText].firstMatch.exists)
+        try saveHistoryScreenshot("ios-history-12-native-large-text")
+        try app.performAccessibilityAudit(for: [.sufficientElementDescription, .textClipped, .trait]) { issue in
+            print("HISTORY_NATIVE_AUDIT", issue.compactDescription, issue.detailedDescription,
+                  issue.element?.identifier ?? "no-id", issue.element?.label ?? "no-label")
+            return false
+        }
+        try await control("end")
+    }
+
     private func saveHistoryScreenshot(_ name: String) throws {
         let screenshot = XCUIScreen.main.screenshot()
         let attachment = XCTAttachment(screenshot: screenshot); attachment.name = name; attachment.lifetime = .keepAlways; add(attachment)
