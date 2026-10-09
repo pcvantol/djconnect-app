@@ -306,7 +306,13 @@ struct SessionTimelineScreen: View {
             HStack {
                 TextField(text("ui.session.history.search"), text: $query)
                     .textFieldStyle(.roundedBorder).focused($searchFocused)
-                    .onSubmit { moveMatch(1, proxy: proxy) }
+                    .submitLabel(.search)
+                    .onSubmit {
+                        #if os(iOS)
+                        searchFocused = false
+                        #endif
+                        moveMatch(1, proxy: proxy)
+                    }
                     .accessibilityIdentifier("session-search-field")
                 if history.searchLoading { ProgressView() }
                 Button { moveMatch(-1, proxy: proxy) } label: { Image(systemName: "chevron.up") }
@@ -450,6 +456,9 @@ struct SessionHistoryMatchCard: View {
                 }
                 if let action = entry.openAction, action.reference == entry.reference {
                     Button(text("ui.session.history.open")) { open(action) }
+                        .buttonStyle(.plain)
+                        .frame(minHeight: 44, alignment: .leading)
+                        .contentShape(Rectangle())
                         .accessibilityIdentifier("open-session-" + entry.id)
                 }
             }.padding(14).frame(maxWidth: .infinity, alignment: .leading)

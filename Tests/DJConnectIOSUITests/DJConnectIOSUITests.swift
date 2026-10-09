@@ -969,9 +969,10 @@ extension DJConnectIOSUITests {
         try saveHistoryScreenshot("ios-history-01-live-moment")
         app.buttons["session-search-toggle"].tap()
         let momentSearch = app.textFields["session-search-field"]
-        momentSearch.tap(); momentSearch.typeText("geleidelijk")
+        momentSearch.tap(); momentSearch.typeText("geleidelijk\n")
         let selected = app.buttons["ask-entry-" + entryID]
-        guard selected.waitForExistence(timeout: 15), selected.isHittable else {
+        let selectableMoment = XCTNSPredicateExpectation(predicate: NSPredicate(format: "hittable == true"), object: selected)
+        guard selected.waitForExistence(timeout: 15), await XCTWaiter.fulfillment(of: [selectableMoment], timeout: 15) == .completed else {
             XCTFail("Canonical Moment search/anchor was not reached."); return
         }
         selected.tap()
@@ -979,9 +980,8 @@ extension DJConnectIOSUITests {
         XCTAssertTrue(app.descendants(matching: .any)["session-question-context"].waitForExistence(timeout: 5))
         let input = app.textViews.firstMatch
         XCTAssertTrue(input.waitForExistence(timeout: 5)); input.tap(); input.typeText("Vertel over deze bijdrage")
-        print("CLIENT FLAGS", app.staticTexts["session-history-runtime-diagnostics"].label)
         guard app.buttons["ask-dj-composer-send"].isEnabled else {
-            XCTFail("Authorized conversation composer is disabled: " + app.staticTexts["session-history-runtime-diagnostics"].label); return
+            XCTFail("Authorized conversation composer is disabled; native draft: " + (input.value as? String ?? "unavailable")); return
         }
         app.buttons["ask-dj-composer-send"].tap()
         guard app.staticTexts["Deze bijdrage: " + momentText].firstMatch.waitForExistence(timeout: 15) else {
@@ -1037,7 +1037,8 @@ extension DJConnectIOSUITests {
         XCTAssertTrue(app.descendants(matching: .any)["session-entry-" + expectedAnchor].waitForExistence(timeout: 10))
         let anchorButton = app.buttons["ask-entry-" + expectedAnchor]
         let visibleAnchor = XCTNSPredicateExpectation(predicate: NSPredicate(format: "hittable == true"), object: anchorButton)
-        XCTAssertEqual(XCTWaiter.wait(for: [visibleAnchor], timeout: 8), .completed, "Open session must place its exact backend entry on screen")
+        let anchorResult = await XCTWaiter.fulfillment(of: [visibleAnchor], timeout: 8)
+        XCTAssertEqual(anchorResult, .completed, "Open session must place its exact backend entry on screen")
         try saveHistoryScreenshot("ios-history-08-open-matched-entry")
     }
 

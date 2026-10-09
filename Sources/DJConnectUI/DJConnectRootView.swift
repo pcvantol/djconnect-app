@@ -12291,9 +12291,29 @@ struct AskDJMessageBubble: View {
     var historicalMatches: [DJConnectHistoryEntry] = []
     var openHistoryAction: ((DJConnectSessionOpenAction) -> Void)? = nil
 
-    @ViewBuilder private var renderedMessageText: some View {
-        if let serverHighlights { SessionHighlightedText(text: displayText, highlights: serverHighlights) }
-        else { AskDJMarkdownText(text: displayText, highlight: searchText) }
+    private var renderedMessageText: some View {
+        Group {
+            if let serverHighlights { SessionHighlightedText(text: displayText, highlights: serverHighlights) }
+            else { AskDJMarkdownText(text: displayText, highlight: searchText) }
+        }
+        .contextMenu {
+            if !isReadOnly && canSetPrompt && !isStaleHistory {
+                Button {
+                    DJConnectHaptics.selection()
+                    setPromptAction(promptText)
+                } label: {
+                    Label(localizedKey(language, "ui.set.in.prompt"), systemImage: "text.cursor")
+                }
+            }
+            if canReportFeedback {
+                Button {
+                    DJConnectHaptics.selection()
+                    feedbackAction(message)
+                } label: {
+                    Label(localizedKey(language, "ui.report.answer"), systemImage: "exclamationmark.bubble")
+                }
+            }
+        }
     }
 
     private var isUser: Bool {
@@ -12570,24 +12590,7 @@ struct AskDJMessageBubble: View {
         }
         .frame(maxWidth: .infinity, alignment: isUser ? .trailing : .leading)
         .contentShape(Rectangle())
-        .contextMenu {
-            if !isReadOnly && canSetPrompt && !isStaleHistory {
-                Button {
-                    DJConnectHaptics.selection()
-                    setPromptAction(promptText)
-                } label: {
-                    Label(localizedKey(language, "ui.set.in.prompt"), systemImage: "text.cursor")
-                }
-            }
-            if canReportFeedback {
-                Button {
-                    DJConnectHaptics.selection()
-                    feedbackAction(message)
-                } label: {
-                    Label(localizedKey(language, "ui.report.answer"), systemImage: "exclamationmark.bubble")
-                }
-            }
-        }
+
     }
 
     private var messageMetadataText: String {
