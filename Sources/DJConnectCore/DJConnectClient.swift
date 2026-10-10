@@ -267,6 +267,173 @@ public final class DJConnectClient: Sendable {
         return try await decodedResponse(for: request)
     }
 
+    public func pairedOwnerLiveCapability() async throws -> DJConnectPairedOwnerLiveCapability? {
+        // Public discovery carries no identity or bearer and must not redirect.
+        guard var origin = URLComponents(url: baseURL, resolvingAgainstBaseURL: false),
+              ["https", "http"].contains(origin.scheme), origin.host != nil,
+              origin.user == nil, origin.password == nil else { throw DJConnectError.invalidResponse }
+        origin.path = "/api/djconnect/v1/capabilities"; origin.query = nil; origin.fragment = nil
+        guard let url = origin.url else { throw DJConnectError.invalidResponse }
+        var request = URLRequest(url: url)
+        request.cachePolicy = .reloadIgnoringLocalCacheData
+        request.setValue("no-store", forHTTPHeaderField: "Cache-Control")
+        let discovery = pairedLiveCredentialFreeSession(from: session)
+        defer { discovery.invalidateAndCancel() }
+        let (data, response) = try await discovery.data(for: request)
+        guard let response = response as? HTTPURLResponse, response.url == url else { throw DJConnectError.invalidResponse }
+        if response.statusCode >= 500 { throw DJConnectError.server(statusCode: response.statusCode, message: nil) }
+        guard response.statusCode == 200 else { throw DJConnectError.routeMissing(message: "Paired live discovery unavailable") }
+        try DJConnectIncomingPayloadLimiter.validate(data)
+        guard let decoded = try? decoder.decode(DJConnectPairedOwnerLiveDiscovery.self, from: data) else {
+            throw DJConnectError.routeMissing(message: "Paired live discovery contract unsupported")
+        }
+        return decoded.sessionBroadcast?.pairedOwnerWebsocket
+    }
+
+    public func sessionHistoryCapabilities() async throws -> DJConnectSessionHistoryCapabilities {
+        try await decodedResponse(for: sessionHistoryReadRequest(route: "capabilities"), using: sessionProjectionSession)
+    }
+
+    public func savedSessions(cursor: String? = nil) async throws -> DJConnectSessionHistoryPage {
+        let page: DJConnectSessionHistoryPage = try await decodedResponse(
+            for: sessionHistoryReadRequest(route: "session/history", cursor: cursor), using: sessionProjectionSession)
+        guard page.success, page.schemaVersion == 1, page.sessions.count <= 50,
+              page.sessions.allSatisfy(\.isContractValid) else { throw DJConnectError.invalidResponse }
+        return page
+    }
+
+    public func sessionTimeline(sessionID: String, cursor: String? = nil, window: DJConnectHistoryWindow? = nil,
+                                anchorEntryID: String? = nil, limit: Int = 20) async throws -> DJConnectSessionTimelinePage {
+        guard window == nil || cursor == nil else { throw DJConnectError.invalidResponse }
+        var query: [URLQueryItem] = []
+        if let window { query.append(URLQueryItem(name: "window", value: window.rawValue)) }
+        if let anchorEntryID { query.append(URLQueryItem(name: "anchor_entry_id", value: anchorEntryID)) }
+        let page: DJConnectSessionTimelinePage = try await decodedResponse(
+            for: sessionHistoryReadRequest(route: "session/history/" + historyPathComponent(sessionID), cursor: cursor, queryItems: query, limit: limit), using: sessionProjectionSession)
+        guard page.success, page.schemaVersion == 1, page.session.isContractValid, page.session.id == sessionID,
+              page.window == window?.rawValue, page.anchorEntryID == anchorEntryID,
+              page.entries.count <= 50, page.entries.allSatisfy({ $0.sessionID == sessionID && $0.isContractValid }) else {
+            throw DJConnectError.invalidResponse
+        }
+        if window != nil {
+            guard page.windowLimit == limit, page.scanComplete != nil, page.nextCursor == nil else { throw DJConnectError.invalidResponse }
+            if !page.entries.isEmpty {
+                guard let lower = page.scannedOrderMin, let upper = page.scannedOrderMax, lower <= upper,
+                      page.entries.allSatisfy({ $0.order >= lower && $0.order <= upper }) else { throw DJConnectError.invalidResponse }
+            }
+        }
+        return page
+    }
+
+    public func searchSession(sessionID: String, query: String, cursor: String? = nil) async throws -> DJConnectSessionSearchPage {
+        let page: DJConnectSessionSearchPage = try await decodedResponse(for: sessionHistoryReadRequest(
+            route: "session/history/" + historyPathComponent(sessionID) + "/search", cursor: cursor,
+            queryItems: [URLQueryItem(name: "q", value: query)]), using: sessionProjectionSession)
+        guard page.success, page.schemaVersion == 1, page.sessionID == sessionID, page.query == query,
+              page.normalization == "NFKC-casefold", page.highlightUnits == "utf16",
+              page.matches.count <= 50, page.returnedCount == page.matches.count,
+              page.matches.allSatisfy({ $0.sessionID == sessionID && $0.isContractValid }),
+              page.complete == (page.nextCursor == nil),
+              page.totalCount == nil || (page.complete && cursor == nil && page.totalCount == page.returnedCount) else {
+            throw DJConnectError.invalidResponse
+        }
+        return page
+    }
+
+    public func openSavedSession(_ action: DJConnectSessionOpenAction) async throws -> DJConnectSessionOpenResponse {
+        let payload = HistoryOpenPayload(deviceID: identity.deviceID, clientType: identity.clientType, action: action)
+        let response: DJConnectSessionOpenResponse = try await decodedResponse(
+            for: jsonRequest(path: Self.apiV1Path("session/history/open"), payload: payload), using: sessionProjectionSession)
+        guard response.success, response.schemaVersion == 1, response.navigationOnly,
+              response.session.isContractValid, response.entry.isContractValid, response.readOnly == response.session.readOnly,
+              response.session.id == action.sessionID, response.entry.sessionID == action.sessionID,
+              response.entry.id == action.entryID else { throw DJConnectError.invalidResponse }
+        return response
+    }
+
+    public func sendSessionConversation(_ payload: DJConnectAskDJRequest) async throws -> DJConnectSessionConversationResponse {
+        guard let context = payload.conversationContext, payload.clientMessageID?.isEmpty == false else { throw DJConnectError.invalidResponse }
+        let response: DJConnectSessionConversationResponse = try await decodedResponse(
+            for: askDJMessageRequest(payload), using: sessionProjectionSession)
+        try validateConversation(response, context: context, inputType: "text")
+        return response
+    }
+
+    public func profileConversationHistory() async throws -> DJConnectProfileConversationHistory {
+        let response: DJConnectProfileConversationHistory
+        if let scoped = try await webSocketFastPathResult({ fastPath, token in
+            try await fastPath.profileConversationHistory(identity: makeDJConnectIdentity(deviceToken: token))
+        }) { response = scoped }
+        else {
+            response = try await decodedResponse(for: sessionHistoryReadRequest(route: "ask_dj/history",
+                queryItems: [URLQueryItem(name: "conversation_scope", value: "profile")]), using: sessionProjectionSession)
+        }
+        guard response.base.success == true, !response.ownerScope.isEmpty,
+              response.base.messages.count <= 1000, response.historicalMatches.values.joined().allSatisfy(\.isContractValid) else {
+            throw DJConnectError.invalidResponse
+        }
+        return response
+    }
+
+    public func clearProfileConversationHistory() async throws -> DJConnectProfileConversationHistory {
+        try await decodedResponse(for: jsonRequest(path: Self.apiV1Path("ask_dj/history/clear"), payload: [
+            "device_id": identity.deviceID, "client_type": identity.clientType.rawValue, "conversation_scope": "profile"
+        ]), using: sessionProjectionSession)
+    }
+
+    public func sendSessionVoice(wavData: Data, context: DJConnectConversationContext,
+                                 clientMessageID: String, language: String, mood: Int? = nil,
+                                 djStyle: String? = nil, musicDNAKey: String? = nil) async throws -> DJConnectSessionConversationResponse {
+        var request = try voiceRequest(wavData: wavData, mood: mood, djStyle: djStyle, musicDNAKey: musicDNAKey, language: language)
+        request.setValue("profile", forHTTPHeaderField: "X-DJConnect-Conversation-Scope")
+        request.setValue(clientMessageID, forHTTPHeaderField: "X-DJConnect-Client-Message-ID")
+        request.setValue(context.sessionID, forHTTPHeaderField: "X-DJConnect-Session-ID")
+        request.setValue(context.selectedEntry?.entryID, forHTTPHeaderField: "X-DJConnect-Entry-ID")
+        request.setValue(context.selectedEntry?.sessionID, forHTTPHeaderField: "X-DJConnect-Reference-Session-ID")
+        let response: DJConnectSessionConversationResponse = try await decodedResponse(for: request, using: sessionProjectionSession)
+        try validateConversation(response, context: context, inputType: "voice")
+        return response
+    }
+
+    public func sessionHistoryReadRequest(route: String, cursor: String? = nil,
+                                         queryItems: [URLQueryItem] = [], limit: Int = 20) throws -> URLRequest {
+        guard (1...50).contains(limit) else { throw DJConnectError.invalidResponse }
+        var components = URLComponents(url: endpoint(path: Self.apiV1Path(route)), resolvingAgainstBaseURL: false)!
+        components.queryItems = [URLQueryItem(name: "device_id", value: identity.deviceID),
+                                 URLQueryItem(name: "client_type", value: identity.clientType.rawValue)] + queryItems
+        if route != "capabilities" { components.queryItems?.append(URLQueryItem(name: "limit", value: String(limit))) }
+        if let cursor { components.queryItems?.append(URLQueryItem(name: "cursor", value: cursor)) }
+        var request = try authenticatedRequest(url: components.url!)
+        request.httpMethod = "GET"
+        request.cachePolicy = .reloadIgnoringLocalCacheData
+        request.setValue("no-store", forHTTPHeaderField: "Cache-Control")
+        return request
+    }
+
+    private func historyPathComponent(_ id: String) throws -> String {
+        guard !id.isEmpty, id.count <= 512, let encoded = id.addingPercentEncoding(
+            withAllowedCharacters: .alphanumerics.union(CharacterSet(charactersIn: "-._~"))) else {
+            throw DJConnectError.invalidResponse
+        }
+        return encoded
+    }
+
+    private func validateConversation(_ response: DJConnectSessionConversationResponse,
+                                      context: DJConnectConversationContext, inputType: String) throws {
+        guard response.conversation.schemaVersion == 1, !response.conversation.turnID.isEmpty,
+              !response.ownerScope.isEmpty, response.historicalMatches.allSatisfy(\.isContractValid),
+              response.conversation.context == context, response.conversation.inputType == inputType else {
+            throw DJConnectError.invalidResponse
+        }
+    }
+
+    private struct HistoryOpenPayload: Encodable {
+        let deviceID: String
+        let clientType: DJConnectClientType
+        let action: DJConnectSessionOpenAction
+        enum CodingKeys: String, CodingKey { case deviceID = "device_id", clientType = "client_type", action }
+    }
+
     public var fastPathDiagnostics: DJConnectFastPathDiagnostics {
         get async {
             await webSocketFastPath?.diagnostics ?? DJConnectFastPathDiagnostics()
@@ -829,6 +996,7 @@ public final class DJConnectClient: Sendable {
         case .backendUnavailable: return .backendUnavailable(message: nil)
         case let .authStale(status, _): return .authStale(statusCode: status, message: nil)
         case .notConfigured: return .notConfigured(message: nil)
+        case .routeMissing: return .routeMissing(message: nil)
         case let .server(status, _): return .server(statusCode: status, message: nil)
         case let .profile(code, status, _): return .profile(code: code, statusCode: status, message: nil)
         default: return error
@@ -1021,6 +1189,9 @@ public final class DJConnectClient: Sendable {
     private static func requestSummary(_ request: URLRequest) -> String {
         let method = request.httpMethod ?? "GET"
         let path = request.url?.path.isEmpty == false ? request.url?.path ?? "/" : "/"
+        if path.hasPrefix("/api/djconnect/v1/session/history/") && !path.hasSuffix("/open") {
+            return "\(method) /api/djconnect/v1/session/history/{session_id}" + (path.hasSuffix("/search") ? "/search" : "")
+        }
         return "\(method) \(path)"
     }
 

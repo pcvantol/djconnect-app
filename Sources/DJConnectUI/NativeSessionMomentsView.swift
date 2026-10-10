@@ -7,6 +7,15 @@ import AppKit
 #endif
 
 extension View {
+    func djSessionFrostedSurface(cornerRadius: CGFloat) -> some View {
+        background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .strokeBorder(.white.opacity(0.16), lineWidth: 0.75)
+                    .allowsHitTesting(false)
+            }
+    }
+
     @ViewBuilder func djSessionNavigationTitleStyle() -> some View {
         #if os(iOS)
         navigationBarTitleDisplayMode(.large)
@@ -21,9 +30,13 @@ struct NativeSessionMomentsView: View {
     let session: DJConnectSessionRuntime
     let language: String
     var isRecovering = false
+    var isLiveUnavailable = false
+    var retryConnection: () -> Void = {}
     var artworkBaseURL: URL? = nil
     var returnToCurrent: () -> Void = {}
+    var showsFlow = true
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @State private var selectedMomentID: String?
 
     private func text(_ key: String) -> String {
@@ -34,18 +47,28 @@ struct NativeSessionMomentsView: View {
         TimelineView(.periodic(from: .now, by: 1)) { clock in
             let current = currentMoment(at: clock.date)
             VStack(alignment: .leading, spacing: 24) {
-                ViewThatFits(in: .horizontal) {
-                    HStack(alignment: .top, spacing: 24) {
-                        currentCard(current).frame(minWidth: 380, maxWidth: .infinity)
-                        musicContext.frame(width: 260)
-                    }
-                    VStack(alignment: .leading, spacing: 20) {
-                        currentCard(current)
-                        musicContext
+                Group {
+                    if dynamicTypeSize.isAccessibilitySize {
+                        VStack(alignment: .leading, spacing: 20) {
+                            currentCard(current)
+                            musicContext
+                        }
+                    } else {
+                        ViewThatFits(in: .horizontal) {
+                            HStack(alignment: .top, spacing: 24) {
+                                currentCard(current).frame(minWidth: 380, maxWidth: .infinity)
+                                musicContext.frame(width: 260)
+                            }
+                            VStack(alignment: .leading, spacing: 20) {
+                                currentCard(current)
+                                musicContext
+                            }
+                        }
                     }
                 }
                 .id("native-session-current")
                 .animation(djSessionReducedMotion(reduceMotion) ? nil : .easeInOut(duration: 0.2), value: current?.id)
+                if showsFlow {
                 Text(text("ui.session.flow")).font(.title2.bold()).accessibilityAddTraits(.isHeader)
                 ForEach(flowItems) { item in
                     if let moment = flowMoments.first(where: { $0.id == item.momentID }) {
@@ -70,6 +93,7 @@ struct NativeSessionMomentsView: View {
                         Text(item.label).font(.callout).foregroundStyle(.secondary)
                             .padding(14).frame(maxWidth: .infinity, alignment: .leading)
                     }
+                }
                 }
             }
             .frame(maxWidth: 1000, alignment: .leading)
@@ -133,14 +157,22 @@ struct NativeSessionMomentsView: View {
     }
 
     @ViewBuilder private func currentCard(_ moment: DJConnectMoment?) -> some View {
-        if isRecovering {
+        if isLiveUnavailable {
+            VStack(alignment: .leading, spacing: 12) {
+                Text(text("ui.session.live_unavailable")).font(.title2.weight(.semibold))
+                    .accessibilityAddTraits(.isHeader)
+                Button(text("ui.retry"), action: retryConnection)
+            }
+            .padding(24).frame(maxWidth: .infinity, alignment: .leading)
+            .djSessionFrostedSurface(cornerRadius: 24)
+        } else if isRecovering {
             VStack(alignment: .leading, spacing: 12) {
                 ProgressView()
                 Text(text("ui.session.reconnecting")).font(.title2.weight(.semibold))
                     .accessibilityAddTraits(.isHeader)
             }
             .padding(24).frame(maxWidth: .infinity, alignment: .leading)
-            .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 24))
+            .djSessionFrostedSurface(cornerRadius: 24)
         } else if let moment {
             MomentCard(moment: moment, kind: kind(moment), presentation: presentation(for: moment), language: language)
                 .id(moment.id)
@@ -152,7 +184,7 @@ struct NativeSessionMomentsView: View {
                 Text(text("ui.session.quiet")).font(.title2.weight(.semibold))
             }
             .padding(24).frame(maxWidth: .infinity, alignment: .leading)
-            .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 24))
+            .djSessionFrostedSurface(cornerRadius: 24)
         }
     }
 
@@ -176,7 +208,7 @@ struct NativeSessionMomentsView: View {
     }
 }
 
-private struct MomentCard: View {
+struct MomentCard: View {
     let moment: DJConnectMoment
     let kind: String
     let presentation: DJConnectPresentation?
@@ -195,7 +227,7 @@ private struct MomentCard: View {
                let logo = spotifyAttributionLogo, let url = moment.nativeSourceURLs.first {
                 Link(destination: url) {
                     logo.resizable().scaledToFit().frame(width: 110, height: 31)
-                        .padding(16).background(Color.black, in: RoundedRectangle(cornerRadius: 8))
+                        .padding(16)
                 }
                 .accessibilityLabel("Spotify")
                 .accessibilityValue(url.absoluteString)
@@ -208,7 +240,7 @@ private struct MomentCard: View {
             }
         }
         .padding(24).frame(maxWidth: .infinity, alignment: .leading)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 24))
+        .djSessionFrostedSurface(cornerRadius: 24)
         .accessibilityElement(children: .contain)
     }
     private func sourceLabel(_ url: URL) -> String {
@@ -219,7 +251,7 @@ private struct MomentCard: View {
     }
 }
 
-private var spotifyAttributionLogo: Image? {
+var spotifyAttributionLogo: Image? {
     #if os(iOS)
     UIImage(named: "SpotifyAttribution").map { Image(uiImage: $0) }
     #elseif os(macOS)

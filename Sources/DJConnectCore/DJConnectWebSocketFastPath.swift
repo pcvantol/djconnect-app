@@ -57,6 +57,7 @@ public protocol DJConnectWebSocketFastPathTransport: Sendable {
     func command<T: Decodable & Sendable>(_ payload: DJConnectCommandPayload, identity: DJConnectAPIIdentity, responseType: T.Type) async throws -> T
     func askDJMessage(_ payload: DJConnectAskDJRequest, identity: DJConnectAPIIdentity) async throws -> DJConnectAskDJMessageResponse
     func askDJHistory(identity: DJConnectAPIIdentity, sinceRevision: Int?) async throws -> DJConnectAskDJHistoryResponse
+    func profileConversationHistory(identity: DJConnectAPIIdentity) async throws -> DJConnectProfileConversationHistory
     func clearAskDJHistory(identity: DJConnectAPIIdentity, musicDNAKey: String?) async throws -> DJConnectAskDJHistoryResponse
     func musicDNAProfile(identity: DJConnectAPIIdentity, mood: Int?, musicDNAKey: String?, language: String?) async throws -> DJConnectMusicDNAProfileResponse
     func setMusicDNAEnabled(_ enabled: Bool, identity: DJConnectAPIIdentity, mood: Int?, musicDNAKey: String?, language: String?) async throws -> DJConnectMusicDNAProfileResponse
@@ -67,6 +68,12 @@ public protocol DJConnectWebSocketFastPathTransport: Sendable {
     func sendMusicDiscoveryFeedback(_ payload: DJConnectMusicDiscoveryFeedbackRequest, identity: DJConnectAPIIdentity) async throws -> DJConnectCommandResponse
     func trackInsight(_ payload: DJConnectTrackInsightRequest, identity: DJConnectAPIIdentity) async throws -> TrackInsight
     func vibeCast(_ payload: DJConnectVibeCastRequest, identity: DJConnectAPIIdentity) async throws -> DJConnectVibeCastResponse
+}
+
+public extension DJConnectWebSocketFastPathTransport {
+    func profileConversationHistory(identity: DJConnectAPIIdentity) async throws -> DJConnectProfileConversationHistory {
+        throw DJConnectError.routeMissing(message: "Scoped Profile history is unavailable")
+    }
 }
 
 public actor DJConnectHomeAssistantWebSocketFastPath: DJConnectWebSocketFastPathTransport {
@@ -129,6 +136,14 @@ public actor DJConnectHomeAssistantWebSocketFastPath: DJConnectWebSocketFastPath
         }
         let request = DJConnectWebSocketAskDJMessage(id: allocateID(), identity: identity, payload: payload)
         return try await sendResult(request, timeout: 15, responseType: DJConnectAskDJMessageResponse.self)
+    }
+
+    public func profileConversationHistory(identity: DJConnectAPIIdentity) async throws -> DJConnectProfileConversationHistory {
+        guard try await ensureCapabilities().contains(.askDJHistory) else {
+            throw DJConnectError.routeMissing(message: "Scoped Profile history is unavailable")
+        }
+        let request = DJConnectWebSocketProfileHistoryMessage(id: allocateID(), identity: identity)
+        return try await sendResult(request, timeout: 10, responseType: DJConnectProfileConversationHistory.self, privateResponse: true)
     }
 
     public func askDJHistory(
@@ -376,7 +391,8 @@ public actor DJConnectHomeAssistantWebSocketFastPath: DJConnectWebSocketFastPath
     private func sendResult<T: Encodable, U: Decodable & Sendable>(
         _ message: T,
         timeout: TimeInterval,
-        responseType: U.Type
+        responseType: U.Type,
+        privateResponse: Bool = false
     ) async throws -> U {
         do {
             guard task != nil else {
@@ -392,9 +408,17 @@ public actor DJConnectHomeAssistantWebSocketFastPath: DJConnectWebSocketFastPath
             }
             return result
         } catch {
-            markUnhealthy(error)
-            throw error
+            let safeError = recordTransportFailure(error, privateResponse: privateResponse)
+            throw safeError
         }
+    }
+
+    /// Private conversation responses never enter exportable diagnostics as free text.
+    @discardableResult
+    func recordTransportFailure(_ error: Error, privateResponse: Bool) -> Error {
+        let safeError: Error = privateResponse ? DJConnectError.network(message: "Scoped Profile history request failed") : error
+        markUnhealthy(safeError)
+        return safeError
     }
 
     private func send<T: Encodable>(_ value: T) async throws {
@@ -625,7 +649,7 @@ private struct DJConnectWebSocketFeatures: Decodable {
     }
 }
 
-private struct DJConnectWebSocketFallback: Decodable {
+struct DJConnectWebSocketFallback: Decodable {
     var httpPath: String?
     var httpPaths: [String]?
 
@@ -634,8 +658,22 @@ private struct DJConnectWebSocketFallback: Decodable {
         case httpPaths = "http_paths"
     }
 
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        httpPath = try container.decodeIfPresent(String.self, forKey: .httpPath)
+        if try !container.contains(.httpPaths) || container.decodeNil(forKey: .httpPaths) {
+            httpPaths = nil
+        } else if let paths = try? container.decode([String].self, forKey: .httpPaths) {
+            httpPaths = paths
+        } else {
+            // Core publishes operation-to-path maps; retain support for older arrays.
+            let paths = try container.decode([String: String].self, forKey: .httpPaths)
+            httpPaths = paths.keys.sorted().compactMap { paths[$0] }
+        }
+    }
+
     var hasHTTPPath: Bool {
-        httpPath?.isEmpty == false || httpPaths?.isEmpty == false
+        httpPath?.isEmpty == false || httpPaths?.contains(where: { !$0.isEmpty }) == true
     }
 }
 
@@ -1082,4 +1120,11 @@ private struct DJConnectWebSocketVibeCastMessage: Encodable {
         case timezone
         case capabilities
     }
+}
+
+struct DJConnectWebSocketProfileHistoryMessage: Encodable {
+    let id: Int
+    let type = DJConnectFastPathRoute.askDJHistory.rawValue
+    let identity: DJConnectAPIIdentity
+    let payload = ["conversation_scope": "profile"]
 }

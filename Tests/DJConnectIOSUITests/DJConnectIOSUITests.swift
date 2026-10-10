@@ -921,3 +921,334 @@ private extension XCUIElement {
         }
     }
 }
+
+extension DJConnectIOSUITests {
+    func testActualCoreConversationArchiveSearchAndIndependentPlayer() async throws {
+        let base = URL(string: "http://127.0.0.1:18194")!
+        func control(_ operation: String) async throws {
+            var request = URLRequest(url: base.appendingPathComponent("__apple_fixture/" + operation))
+            request.httpMethod = "POST"; request.setValue("Bearer synthetic-fixture-token", forHTTPHeaderField: "Authorization")
+            let (_, response) = try await URLSession.shared.data(for: request)
+            XCTAssertEqual((response as? HTTPURLResponse)?.statusCode, 200)
+        }
+        var authRequest = URLRequest(url: base.appendingPathComponent("__apple_fixture/state"))
+        authRequest.setValue("Bearer synthetic-fixture-token", forHTTPHeaderField: "Authorization")
+        let (authData, _) = try await URLSession.shared.data(for: authRequest)
+        let labAuth = try XCTUnwrap(JSONSerialization.jsonObject(with: authData) as? [String: Any])
+        let websocketToken = try XCTUnwrap(labAuth["websocket_access_token"] as? String)
+        let app = XCUIApplication()
+        app.terminate()
+        app.launchArguments = ["--uitesting", "--runtime-fixture=session_history_contract", "-AppleLanguages", "(nl)", "-AppleLocale", "nl_NL"]
+        app.launchEnvironment["DJCONNECT_UITEST_HA_URL"] = base.absoluteString
+        app.launchEnvironment["DJCONNECT_UITEST_RUNTIME_FIXTURE"] = "session_history_contract"
+        app.launchEnvironment["DJCONNECT_UITEST_HA_WS_TOKEN"] = websocketToken
+        app.launch()
+        try await Task.sleep(for: .milliseconds(400))
+        app.terminate()
+        try await control("start")
+        var request = URLRequest(url: URL(string: base.absoluteString + "/api/djconnect/v1/session/active?device_id=djconnect-ios-ABCDEF123456&client_type=ios")!)
+        request.setValue("Bearer synthetic-fixture-token", forHTTPHeaderField: "Authorization")
+        let (data, _) = try await URLSession.shared.data(for: request)
+        let envelope = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        let session = try XCTUnwrap(envelope["session"] as? [String: Any])
+        let sessionID = try XCTUnwrap(session["session_id"] as? String)
+        request.url = URL(string: base.absoluteString + "/api/djconnect/v1/session/history/" + sessionID + "?device_id=djconnect-ios-ABCDEF123456&client_type=ios&window=tail")!
+        let (timelineData, _) = try await URLSession.shared.data(for: request)
+        let timeline = try XCTUnwrap(JSONSerialization.jsonObject(with: timelineData) as? [String: Any])
+        let entries = try XCTUnwrap(timeline["entries"] as? [[String: Any]])
+        let moment = try XCTUnwrap(entries.first { $0["kind"] as? String == "dj_moment" })
+        let entryID = try XCTUnwrap(moment["entry_id"] as? String)
+        let momentText = try XCTUnwrap(moment["text"] as? String)
+        app.launch()
+        if app.buttons["Niet nu"].waitForExistence(timeout: 2) { app.buttons["Niet nu"].tap() }
+        guard app.descendants(matching: .any)["uitest-runtime-fixture-active"].waitForExistence(timeout: 10),
+              app.descendants(matching: .any)["screen-session-conversation"].waitForExistence(timeout: 15) else {
+            XCTFail("Actual loopback fixture/timeline was not activated; no mock or stale screen acceptance."); return
+        }
+        XCTAssertTrue(app.staticTexts[momentText].firstMatch.exists)
+        try saveHistoryScreenshot("ios-history-01-live-moment")
+        app.buttons["session-search-toggle"].tap()
+        let momentSearch = app.textFields["session-search-field"]
+        momentSearch.tap(); momentSearch.typeText("geleidelijk\n")
+        let selected = app.buttons["ask-entry-" + entryID]
+        let selectableMoment = XCTNSPredicateExpectation(predicate: NSPredicate(format: "hittable == true"), object: selected)
+        guard selected.waitForExistence(timeout: 15), await XCTWaiter.fulfillment(of: [selectableMoment], timeout: 15) == .completed else {
+            XCTFail("Canonical Moment search/anchor was not reached."); return
+        }
+        selected.tap()
+        app.buttons["Zoeken sluiten"].firstMatch.tap()
+        XCTAssertTrue(app.descendants(matching: .any)["session-question-context"].waitForExistence(timeout: 5))
+        let input = app.textViews.firstMatch
+        XCTAssertTrue(input.waitForExistence(timeout: 5)); input.tap(); input.typeText("Vertel over deze bijdrage")
+        guard app.buttons["ask-dj-composer-send"].isEnabled else {
+            XCTFail("Authorized conversation composer is disabled; native draft: " + (input.value as? String ?? "unavailable")); return
+        }
+        app.buttons["ask-dj-composer-send"].tap()
+        guard app.staticTexts["Deze bijdrage: " + momentText].firstMatch.waitForExistence(timeout: 15) else {
+            XCTFail("No confirmed native reply; diagnostic only, not acceptance."); return
+        }
+        try saveHistoryScreenshot("ios-history-02-confirmed-text-turn")
+        app.buttons["session-search-toggle"].tap()
+        let search = app.textFields["session-search-field"]
+        XCTAssertTrue(search.waitForExistence(timeout: 5)); search.tap(); search.typeText("ONE")
+        XCTAssertTrue(app.staticTexts["session-search-count"].waitForExistence(timeout: 15))
+        XCTAssertTrue(app.staticTexts["One · Metallica · …And Justice for All"].firstMatch.waitForExistence(timeout: 10))
+        try saveHistoryScreenshot("ios-history-03-search-beyond-loaded-page")
+        app.buttons["Zoeken sluiten"].firstMatch.tap()
+        if app.frame.width > 600 {
+            XCUIDevice.shared.orientation = .landscapeLeft
+            try await Task.sleep(for: .seconds(1))
+            try saveHistoryScreenshot("ipad-history-04-landscape")
+            XCUIDevice.shared.orientation = .portrait
+        }
+        let more = app.tabBars.buttons["Meer"].exists ? app.tabBars.buttons["Meer"] : app.buttons["Meer"].firstMatch
+        more.tap(); app.buttons["Speelt Nu"].firstMatch.tap()
+        XCTAssertTrue(app.navigationBars["Speelt Nu"].waitForExistence(timeout: 5))
+        try saveHistoryScreenshot("ios-history-05-player-during-session")
+        let tab = app.tabBars.buttons["DJ-sessie"].exists ? app.tabBars.buttons["DJ-sessie"] : app.buttons["DJ-sessie"].firstMatch
+        tab.tap()
+        let end = app.buttons["session-end-button"]
+        XCTAssertTrue(end.isHittable); end.tap()
+        XCTAssertTrue(app.buttons["Start DJ-sessie"].waitForExistence(timeout: 15))
+        try await control("restart")
+        more.tap(); app.buttons["Eerdere sessies"].firstMatch.tap()
+        let saved = app.buttons["saved-session-" + sessionID]
+        XCTAssertTrue(saved.waitForExistence(timeout: 10)); saved.tap()
+        XCTAssertTrue(app.descendants(matching: .any)["screen-history-timeline"].waitForExistence(timeout: 10))
+        try saveHistoryScreenshot("ios-history-06-readonly-after-server-restart")
+        app.terminate(); app.launch()
+        XCTAssertTrue(app.buttons["Start DJ-sessie"].waitForExistence(timeout: 10))
+        let ask = app.tabBars.buttons["Ask DJ"].exists ? app.tabBars.buttons["Ask DJ"] : app.buttons["Ask DJ"].firstMatch
+        ask.tap()
+        let question = app.textViews.firstMatch
+        XCTAssertTrue(question.waitForExistence(timeout: 5))
+        let generalQuestion = "Wat heb ik eerder geluisterd? Clientproef " + UUID().uuidString
+        question.tap(); question.typeText(generalQuestion)
+        app.buttons["ask-dj-composer-send"].tap()
+        XCTAssertTrue(app.staticTexts[generalQuestion].firstMatch.waitForExistence(timeout: 10))
+        XCTAssertTrue(app.staticTexts["Ik zie geen Spotify tracks die het afgelopen uur zijn afgespeeld."].firstMatch.waitForExistence(timeout: 15))
+        XCTAssertFalse(app.staticTexts["Ask DJ offline"].exists)
+        try saveHistoryScreenshot("ios-history-14-general-text-without-audio")
+        question.tap(); question.typeText("Wanneer heb ik eerder naar Metallica geluisterd?")
+        app.buttons["ask-dj-composer-send"].tap()
+        let openButtons = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "open-session-"))
+        guard openButtons.firstMatch.waitForExistence(timeout: 15) else {
+            XCTFail("No backend-confirmed historical match with Open session action"); return
+        }
+        guard let open = openButtons.allElementsBoundByIndex.first(where: { $0.isHittable }) else {
+            XCTFail("No visible historical match action"); return
+        }
+        let expectedAnchor = String(open.identifier.dropFirst("open-session-".count))
+        try saveHistoryScreenshot("ios-history-07-real-historical-matches")
+        open.tap()
+        XCTAssertTrue(app.descendants(matching: .any)["screen-history-timeline"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.descendants(matching: .any)["session-entry-" + expectedAnchor].waitForExistence(timeout: 10))
+        let anchorButton = app.buttons["ask-entry-" + expectedAnchor]
+        let visibleAnchor = XCTNSPredicateExpectation(predicate: NSPredicate(format: "hittable == true"), object: anchorButton)
+        let anchorResult = await XCTWaiter.fulfillment(of: [visibleAnchor], timeout: 8)
+        XCTAssertEqual(anchorResult, .completed, "Open session must place its exact backend entry on screen")
+        try saveHistoryScreenshot("ios-history-08-open-matched-entry")
+    }
+
+    func testActualPairedOwnerLiveNativeSnapshotUpdateReconnectAndPlayer() async throws {
+        let base = URL(string: "http://127.0.0.1:18196")!
+        func control(_ operation: String, method: String = "POST") async throws -> [String: Any] {
+            var request = URLRequest(url: base.appendingPathComponent("__apple_paired_fixture/" + operation))
+            request.httpMethod = method
+            request.setValue("Bearer apple-paired-fixture-control", forHTTPHeaderField: "Authorization")
+            let (data, response) = try await URLSession.shared.data(for: request)
+            XCTAssertEqual((response as? HTTPURLResponse)?.statusCode, 200)
+            return try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        }
+        _ = try await control("restore_profile")
+        let before = try await control("start")
+        let sessionID = try XCTUnwrap((before["active"] as? [String: Any])?["session_id"] as? String)
+        let app = XCUIApplication(); app.terminate()
+        app.launchArguments = ["--uitesting", "--runtime-fixture=paired_owner_contract", "-AppleLanguages", "(nl)", "-AppleLocale", "nl_NL"]
+        app.launchEnvironment["DJCONNECT_UITEST_HA_URL"] = base.absoluteString
+        app.launchEnvironment["DJCONNECT_UITEST_RUNTIME_FIXTURE"] = "paired_owner_contract"
+        // Actual POST /pair from an empty local store; no HA/SDK token injected.
+        app.launch()
+        if app.buttons["Niet nu"].waitForExistence(timeout: 2) { app.buttons["Niet nu"].tap() }
+        XCTAssertTrue(app.descendants(matching: .any)["screen-session-conversation"].waitForExistence(timeout: 20))
+        XCTAssertTrue(app.staticTexts["We voeren de energie geleidelijk op."].firstMatch.waitForExistence(timeout: 15))
+        try saveHistoryScreenshot("paired-ios-01-authorized-native-snapshot")
+        _ = try await control("update")
+        XCTAssertTrue(app.staticTexts["Paired native update"].firstMatch.waitForExistence(timeout: 10))
+        try saveHistoryScreenshot("paired-ios-02-native-live-update")
+        XCUIDevice.shared.press(.home)
+        _ = try await control("resume_update")
+        app.activate()
+        XCTAssertTrue(app.staticTexts["Paired resume update"].firstMatch.waitForExistence(timeout: 15))
+        try saveHistoryScreenshot("paired-ios-03-authorized-reconnect")
+        let navigationBefore = try await control("state", method: "GET")
+        let more = app.tabBars.buttons["Meer"].exists ? app.tabBars.buttons["Meer"] : app.buttons["Meer"].firstMatch
+        more.tap(); app.buttons["Speelt Nu"].firstMatch.tap()
+        XCTAssertTrue(app.navigationBars["Speelt Nu"].waitForExistence(timeout: 5))
+        let after = try await control("state", method: "GET")
+        XCTAssertEqual((after["active"] as? [String: Any])?["session_id"] as? String, sessionID)
+        XCTAssertEqual((after["active"] as? [String: Any])?["now_playing"] as? NSDictionary,
+                       (navigationBefore["active"] as? [String: Any])?["now_playing"] as? NSDictionary)
+        XCTAssertEqual(after["ha_refresh_tokens"] as? Int, after["initial_ha_refresh_tokens"] as? Int)
+        try saveHistoryScreenshot("paired-ios-04-player-preserves-session")
+        _ = try await control("end")
+        let dj = app.tabBars.buttons["DJ-sessie"].exists ? app.tabBars.buttons["DJ-sessie"] : app.buttons["DJ-sessie"].firstMatch
+        dj.tap()
+        XCTAssertTrue(app.buttons["Start DJ-sessie"].waitForExistence(timeout: 15))
+        more.tap(); app.buttons["Speelt Nu"].firstMatch.tap()
+        XCTAssertTrue(app.navigationBars["Speelt Nu"].waitForExistence(timeout: 5))
+        try saveHistoryScreenshot("paired-ios-05-player-after-session-end")
+    }
+
+    func testActualCoreArchiveAndPlayerNavigationPreservesSessionB() async throws {
+        let base = URL(string: "http://127.0.0.1:18194")!
+        func control(_ operation: String, method: String = "POST") async throws -> [String: Any] {
+            var request = URLRequest(url: base.appendingPathComponent("__apple_fixture/" + operation))
+            request.httpMethod = method; request.setValue("Bearer synthetic-fixture-token", forHTTPHeaderField: "Authorization")
+            let (data, response) = try await URLSession.shared.data(for: request)
+            XCTAssertEqual((response as? HTTPURLResponse)?.statusCode, 200)
+            return try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        }
+        func activeID() async throws -> String? {
+            let state = try await control("state", method: "GET")
+            return (state["active"] as? [String: Any])?["session_id"] as? String
+        }
+        let auth = try await control("state", method: "GET")
+        let app = XCUIApplication(); app.terminate()
+        app.launchArguments = ["--uitesting", "--runtime-fixture=session_history_contract", "-AppleLanguages", "(nl)", "-AppleLocale", "nl_NL"]
+        app.launchEnvironment["DJCONNECT_UITEST_HA_URL"] = base.absoluteString
+        app.launchEnvironment["DJCONNECT_UITEST_RUNTIME_FIXTURE"] = "session_history_contract"
+        app.launchEnvironment["DJCONNECT_UITEST_HA_WS_TOKEN"] = try XCTUnwrap(auth["websocket_access_token"] as? String)
+        app.launch(); try await Task.sleep(for: .milliseconds(400)); app.terminate()
+        let a = try await control("start")
+        let sessionA = try XCTUnwrap((a["active"] as? [String: Any])?["session_id"] as? String)
+        _ = try await control("end"); _ = try await control("restart")
+        let b = try await control("start")
+        let sessionB = try XCTUnwrap((b["active"] as? [String: Any])?["session_id"] as? String)
+        XCTAssertNotEqual(sessionA, sessionB)
+        app.launch()
+        guard app.descendants(matching: .any)["screen-session-conversation"].waitForExistence(timeout: 15) else {
+            XCTFail("Actual current Session B was not rendered"); return
+        }
+        let more = app.tabBars.buttons["Meer"].exists ? app.tabBars.buttons["Meer"] : app.buttons["Meer"].firstMatch
+        more.tap(); app.buttons["Eerdere sessies"].firstMatch.tap()
+        let savedA = app.buttons["saved-session-" + sessionA]
+        guard savedA.waitForExistence(timeout: 10) else { XCTFail("Ended Session A missing from real archive"); return }
+        XCUIDevice.shared.press(.home); app.activate()
+        XCTAssertTrue(savedA.waitForExistence(timeout: 15), "Visible archive must reload after background")
+        savedA.tap()
+        XCTAssertTrue(app.descendants(matching: .any)["screen-history-timeline"].waitForExistence(timeout: 10))
+        XCUIDevice.shared.press(.home); app.activate()
+        let restoredEntry = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "ask-entry-")).firstMatch
+        XCTAssertTrue(restoredEntry.waitForExistence(timeout: 15), "Visible readonly timeline must reload after background")
+        let readback1 = try await activeID()
+        XCTAssertEqual(readback1, sessionB)
+        try saveHistoryScreenshot("ios-history-09-readonly-A-while-B-active")
+        let dj = app.tabBars.buttons["DJ-sessie"].exists ? app.tabBars.buttons["DJ-sessie"] : app.buttons["DJ-sessie"].firstMatch
+        dj.tap()
+        XCTAssertTrue(app.descendants(matching: .any)["screen-session-conversation"].waitForExistence(timeout: 10))
+        let readback2 = try await activeID()
+        XCTAssertEqual(readback2, sessionB)
+        more.tap(); app.buttons["Speelt Nu"].firstMatch.tap()
+        XCTAssertTrue(app.navigationBars["Speelt Nu"].waitForExistence(timeout: 5))
+        let readback3 = try await activeID()
+        XCTAssertEqual(readback3, sessionB)
+        try saveHistoryScreenshot("ios-history-10-player-preserves-B")
+        _ = try await control("end")
+        dj.tap()
+        XCTAssertTrue(app.buttons["Start DJ-sessie"].waitForExistence(timeout: 15))
+        more.tap(); app.buttons["Speelt Nu"].firstMatch.tap()
+        XCTAssertTrue(app.navigationBars["Speelt Nu"].waitForExistence(timeout: 5))
+        let finalReadback = try await activeID()
+        XCTAssertNil(finalReadback)
+        try saveHistoryScreenshot("ios-history-11-player-without-session")
+    }
+
+    func testActualCoreSessionHistoryLongDraftRemainsReachable() async throws {
+        let base = URL(string: "http://127.0.0.1:18194")!
+        var request = URLRequest(url: base.appendingPathComponent("__apple_fixture/start"))
+        request.httpMethod = "POST"
+        request.setValue("Bearer synthetic-fixture-token", forHTTPHeaderField: "Authorization")
+        let (_, response) = try await URLSession.shared.data(for: request)
+        XCTAssertEqual((response as? HTTPURLResponse)?.statusCode, 200)
+        let app = XCUIApplication()
+        app.launchArguments = ["--uitesting", "--runtime-fixture=session_history_contract", "-AppleLanguages", "(nl)", "-AppleLocale", "nl_NL"]
+        app.launchEnvironment["DJCONNECT_UITEST_HA_URL"] = base.absoluteString
+        app.launchEnvironment["DJCONNECT_UITEST_RUNTIME_FIXTURE"] = "session_history_contract"
+        app.launch()
+        if app.buttons["Niet nu"].waitForExistence(timeout: 2) { app.buttons["Niet nu"].tap() }
+        XCTAssertTrue(app.descendants(matching: .any)["screen-session-conversation"].waitForExistence(timeout: 15))
+        let input = app.textViews["ask-dj-composer-input"].firstMatch
+        XCTAssertTrue(input.waitForExistence(timeout: 10))
+        input.tap()
+        let draft = (1...12).map { "Regel \($0) over de bijdrage" }.joined(separator: "\n") + "\nLaatste zichtbare regel"
+        input.typeText(draft)
+        XCTAssertEqual(input.value as? String, draft)
+        XCTAssertTrue(app.buttons["ask-dj-composer-send"].isEnabled)
+        try saveHistoryScreenshot("ios-history-13-long-draft-keyboard")
+        app.terminate()
+        request.url = base.appendingPathComponent("__apple_fixture/end")
+        _ = try await URLSession.shared.data(for: request)
+    }
+
+    func testActualCoreSessionHistoryNativeAccessibility() async throws {
+        let base = URL(string: "http://127.0.0.1:18194")!
+        func control(_ operation: String) async throws {
+            var request = URLRequest(url: base.appendingPathComponent("__apple_fixture/" + operation))
+            request.httpMethod = "POST"; request.setValue("Bearer synthetic-fixture-token", forHTTPHeaderField: "Authorization")
+            let (_, response) = try await URLSession.shared.data(for: request)
+            XCTAssertEqual((response as? HTTPURLResponse)?.statusCode, 200)
+        }
+        var authRequest = URLRequest(url: base.appendingPathComponent("__apple_fixture/state"))
+        authRequest.setValue("Bearer synthetic-fixture-token", forHTTPHeaderField: "Authorization")
+        let (authData, _) = try await URLSession.shared.data(for: authRequest)
+        let labAuth = try XCTUnwrap(JSONSerialization.jsonObject(with: authData) as? [String: Any])
+        let websocketToken = try XCTUnwrap(labAuth["websocket_access_token"] as? String)
+        let app = XCUIApplication()
+        app.terminate()
+        app.launchArguments = ["--uitesting", "--runtime-fixture=session_history_contract", "-AppleLanguages", "(nl)", "-AppleLocale", "nl_NL"]
+        app.launchEnvironment["DJCONNECT_UITEST_HA_URL"] = base.absoluteString
+        app.launchEnvironment["DJCONNECT_UITEST_RUNTIME_FIXTURE"] = "session_history_contract"
+        app.launchEnvironment["DJCONNECT_UITEST_HA_WS_TOKEN"] = websocketToken
+        app.launch()
+        try await Task.sleep(for: .milliseconds(400))
+        app.terminate()
+        try await control("start")
+        var request = URLRequest(url: URL(string: base.absoluteString + "/api/djconnect/v1/session/active?device_id=djconnect-ios-ABCDEF123456&client_type=ios")!)
+        request.setValue("Bearer synthetic-fixture-token", forHTTPHeaderField: "Authorization")
+        let (data, _) = try await URLSession.shared.data(for: request)
+        let envelope = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        let session = try XCTUnwrap(envelope["session"] as? [String: Any])
+        let sessionID = try XCTUnwrap(session["session_id"] as? String)
+        request.url = URL(string: base.absoluteString + "/api/djconnect/v1/session/history/" + sessionID + "?device_id=djconnect-ios-ABCDEF123456&client_type=ios&window=tail")!
+        let (timelineData, _) = try await URLSession.shared.data(for: request)
+        let timeline = try XCTUnwrap(JSONSerialization.jsonObject(with: timelineData) as? [String: Any])
+        let entries = try XCTUnwrap(timeline["entries"] as? [[String: Any]])
+        let moment = try XCTUnwrap(entries.first { $0["kind"] as? String == "dj_moment" })
+        let momentText = try XCTUnwrap(moment["text"] as? String)
+        app.launch()
+        if app.buttons["Niet nu"].waitForExistence(timeout: 2) { app.buttons["Niet nu"].tap() }
+        guard app.descendants(matching: .any)["uitest-runtime-fixture-active"].waitForExistence(timeout: 10),
+              app.descendants(matching: .any)["screen-session-conversation"].waitForExistence(timeout: 15) else {
+            XCTFail("Actual loopback fixture/timeline was not activated; no mock or stale screen acceptance."); return
+        }
+        XCTAssertTrue(app.staticTexts[momentText].firstMatch.exists)
+        try saveHistoryScreenshot("ios-history-12-native-large-text")
+        try app.performAccessibilityAudit(for: [.sufficientElementDescription, .textClipped, .trait]) { issue in
+            print("HISTORY_NATIVE_AUDIT", issue.compactDescription, issue.detailedDescription,
+                  issue.element?.identifier ?? "no-id", issue.element?.label ?? "no-label")
+            return false
+        }
+        try await control("end")
+    }
+
+    private func saveHistoryScreenshot(_ name: String) throws {
+        let screenshot = XCUIScreen.main.screenshot()
+        let attachment = XCTAttachment(screenshot: screenshot); attachment.name = name; attachment.lifetime = .keepAlways; add(attachment)
+        let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+        let directory = root.appendingPathComponent("build/session-conversation-history/screenshots")
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let name = XCUIApplication().frame.width > 600 ? name.replacingOccurrences(of: "ios-", with: "ipad-") : name
+        try screenshot.pngRepresentation.write(to: directory.appendingPathComponent(name + ".png"))
+    }
+}

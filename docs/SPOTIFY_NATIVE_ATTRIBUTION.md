@@ -8,8 +8,8 @@ https://developer.spotify.com/documentation/design
 File: `Apps/Shared/Assets.xcassets/SpotifyAttribution.imageset/Spotify_Full_Logo_RGB_White.png`.
 SHA256: `14a6a4faf018cf8b2f46a35a272db84b3d6b61a094707f225eb0106ea90ef979`.
 No recoloring, cropping, tracing or generated substitute. The original image is
-scaled proportionally to 110pt width inside an isolated black background with
-16pt clearance. The full logo is also a link to the exact producer album URL.
+scaled proportionally to110pt width with its original transparency and16pt
+clearance on the native frosted surface. No additional black backing is drawn. The full logo is also a link to the exact producer album URL.
 
 Only native_delivery v1 qualified current associated-playback cards with original
 source/display deadlines, required Spotify attribution, recognized metadata-display

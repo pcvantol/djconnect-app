@@ -1,0 +1,9 @@
+{
+  "producer_sha": "4ada2b611f5195090bdb1fe52b28749ad539a100",
+  "qualification": "Actual isolated physical native lab response; failure/lifecycle regression only, not voice acceptance",
+  "response": {
+    "success": false,
+    "error": "music_dna_unavailable",
+    "message": "music_dna_unavailable"
+  }
+}

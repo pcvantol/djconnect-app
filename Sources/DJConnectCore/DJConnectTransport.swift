@@ -119,6 +119,16 @@ public final class DJConnectHATransportManager: Sendable {
                 return result
             } catch let error as DJConnectError {
                 lastError = error
+                // A provider error is a response from reachable Home Assistant.
+                // Preserve transport reachability; playback availability remains separate.
+                if case .backendUnavailable = error {
+                    modeReporter?(candidate.mode, baseURL)
+                    throw error
+                }
+                if case let .server(statusCode, _) = error, (100...599).contains(statusCode) {
+                    modeReporter?(candidate.mode, baseURL)
+                    throw error
+                }
                 let canRetry = index + 1 < candidates.count && Self.isRetryable(error)
                 if !canRetry {
                     if candidate.mode == .remote || index + 1 >= candidates.count {

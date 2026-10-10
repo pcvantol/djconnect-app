@@ -995,3 +995,37 @@
 "ui.session.source_previous" = "Previous recording";
 
 "ui.session.reconnecting" = "Reconnecting to the DJ Session…";
+
+// Native Session conversation and owner history
+"ui.session.history.title" = "Earlier sessions";
+"ui.session.history.coverage" = "Only permitted saved entries are shown; this is not a complete listening history.";
+"ui.session.history.loading" = "Loading sessions";
+"ui.session.history.unavailable" = "Session history is unavailable. Please try again.";
+"ui.session.history.empty" = "No saved sessions";
+"ui.session.history.ended" = "Ended";
+"ui.session.history.interrupted" = "Interrupted";
+"ui.session.history.more" = "Load more";
+"ui.session.history.readonly" = "Read-only session";
+"ui.session.history.no_entries" = "This session has no saved contributions.";
+"ui.session.history.changed" = "The context or history has changed. Please try again.";
+"ui.session.history.current_context" = "Use current context";
+"ui.session.history.awaiting" = "Waiting for the DJ response";
+"ui.session.history.new_entries" = "New entries";
+"ui.session.history.selected_context" = "Selected contribution";
+"ui.session.history.search" = "Search this session";
+"ui.session.history.no_match" = "No matches in this session";
+"ui.session.history.complete" = "Search complete";
+"ui.session.history.partial" = "More results may follow";
+"ui.session.history.voice" = "Voice question";
+"ui.session.history.playback" = "Observed playback";
+"ui.session.history.ask_entry" = "Ask about this entry";
+"ui.session.history.observed" = "Playback was observed; a full listen is not proven.";
+"ui.session.history.open" = "Open session";
+"ui.session.history.earlier" = "Load earlier entries";
+
+"ui.session.history.voice_failed" = "Recording or voice request failed. Try recording again.";
+
+"ui.session.history.no_entries_active" = "There are no contributions in this session yet.";
+"ui.music.dna.temporarily_unavailable" = "Music DNA is unavailable right now. Please try again.";
+
+"ui.session.live_unavailable" = "The DJ session cannot be updated right now.";

@@ -705,6 +705,43 @@ public struct DJConnectPairingResponse: Codable, Equatable, Sendable {
         self.djAnnouncement = djAnnouncement
     }
 
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        success = try container.decode(Bool.self, forKey: .success)
+        deviceToken = try container.decodeIfPresent(String.self, forKey: .deviceToken)
+        token = try container.decodeIfPresent(String.self, forKey: .token)
+        bearerToken = try container.decodeIfPresent(String.self, forKey: .bearerToken)
+        setupPending = try container.decodeIfPresent(Bool.self, forKey: .setupPending)
+        message = try container.decodeIfPresent(String.self, forKey: .message)
+        deviceID = try container.decodeIfPresent(String.self, forKey: .deviceID)
+        clientType = try container.decodeIfPresent(DJConnectClientType.self, forKey: .clientType)
+        haLocalURL = try container.decodeIfPresent(String.self, forKey: .haLocalURL)
+        haRemoteURL = try container.decodeIfPresent(String.self, forKey: .haRemoteURL)
+        remoteSupported = try container.decodeIfPresent(Bool.self, forKey: .remoteSupported)
+        musicBackend = try container.decodeIfPresent(String.self, forKey: .musicBackend)
+        musicBackendName = try container.decodeIfPresent(String.self, forKey: .musicBackendName)
+        musicBackendAvailable = try container.decodeIfPresent(Bool.self, forKey: .musicBackendAvailable)
+        musicBackendRevision = try container.decodeIfPresent(Int.self, forKey: .musicBackendRevision)
+        musicBackendCapabilities = try container.decodeIfPresent(DJConnectMusicBackendCapabilities.self, forKey: .musicBackendCapabilities)
+        musicTargetPlayer = try container.decodeIfPresent(DJConnectMusicTargetPlayer.self, forKey: .musicTargetPlayer)
+        musicBackendError = container.decodeMusicBackendErrorIfPresent(.musicBackendError)
+        deviceLanguage = try container.decodeIfPresent(String.self, forKey: .deviceLanguage)
+        language = try container.decodeIfPresent(String.self, forKey: .language)
+        assistPipelineID = try container.decodeIfPresent(String.self, forKey: .assistPipelineID)
+        apiBase = try container.decodeIfPresent(String.self, forKey: .apiBase)
+        voicePath = try container.decodeIfPresent(String.self, forKey: .voicePath)
+        statusPath = try container.decodeIfPresent(String.self, forKey: .statusPath)
+        eventPath = try container.decodeIfPresent(String.self, forKey: .eventPath)
+        bootstrapProof = try container.decodeIfPresent(String.self, forKey: .bootstrapProof)
+        haInstallID = try container.decodeIfPresent(String.self, forKey: .haInstallID)
+        integrationVersion = try container.decodeIfPresent(String.self, forKey: .integrationVersion)
+        pairingSessionID = try container.decodeIfPresent(String.self, forKey: .pairingSessionID)
+        djAnnouncement = try container.decodeIfPresent(DJAnnouncementCapabilities.self, forKey: .djAnnouncement)
+        askDJSupported = try container.decodeIfPresent(Bool.self, forKey: .askDJSupported)
+        askDJVoiceSupported = try container.decodeIfPresent(Bool.self, forKey: .askDJVoiceSupported)
+        askDJAudioResponseSupported = try container.decodeIfPresent(Bool.self, forKey: .askDJAudioResponseSupported)
+    }
+
     enum CodingKeys: String, CodingKey {
         case success
         case deviceToken = "device_token"
@@ -1049,6 +1086,7 @@ public struct DJConnectAskDJRequest: Codable, Equatable, Sendable, DJConnectProf
     public var sessionID: String?
     public var privateSession: Bool?
     public var requestSource: DJConnectProfileRequestSource?
+    public var conversationContext: DJConnectConversationContext? = nil
 
     public init(
         identity: DJConnectIdentity,
@@ -1103,6 +1141,7 @@ public struct DJConnectAskDJRequest: Codable, Equatable, Sendable, DJConnectProf
         case sessionID = "session_id"
         case privateSession = "private_session"
         case requestSource = "request_source"
+        case conversationContext = "conversation_context"
     }
 }
 
@@ -1129,17 +1168,27 @@ public struct DJAnnouncementTarget: Codable, Equatable, Sendable {
     }
 }
 
+/// Server outcome of response-audio preparation, distinct from the requested policy.
+public enum DJAnnouncementAudioResponse: String, Codable, Equatable, Sendable {
+    case auto
+    case always
+    case never
+    case unavailable
+    case serverOnly = "server_only"
+}
+
 public struct DJAnnouncement: Codable, Equatable, Sendable {
     public var output: DJAnnouncementOutput?
     public var delivery: DJAnnouncementOutput?
-    public var audioResponseEffective: DJConnectAskDJRequest.AudioResponse?
+    public var audioResponseEffective: DJAnnouncementAudioResponse?
     public var audioURL: URL?
     public var audioType: String?
     public var target: DJAnnouncementTarget?
     public var warnings: [String]
 
     public var clientReplayAudioURL: URL? {
-        guard (delivery ?? output)?.allowsClientAudio == true else {
+        guard audioResponseEffective != .unavailable, audioResponseEffective != .serverOnly,
+              (delivery ?? output)?.allowsClientAudio == true else {
             return nil
         }
         return audioURL
@@ -1159,7 +1208,7 @@ public struct DJAnnouncement: Codable, Equatable, Sendable {
     public init(
         output: DJAnnouncementOutput? = nil,
         delivery: DJAnnouncementOutput? = nil,
-        audioResponseEffective: DJConnectAskDJRequest.AudioResponse? = nil,
+        audioResponseEffective: DJAnnouncementAudioResponse? = nil,
         audioURL: URL? = nil,
         audioType: String? = nil,
         target: DJAnnouncementTarget? = nil,
@@ -1178,7 +1227,7 @@ public struct DJAnnouncement: Codable, Equatable, Sendable {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         output = try container.decodeIfPresent(DJAnnouncementOutput.self, forKey: .output)
         delivery = try container.decodeIfPresent(DJAnnouncementOutput.self, forKey: .delivery)
-        audioResponseEffective = try container.decodeIfPresent(DJConnectAskDJRequest.AudioResponse.self, forKey: .audioResponseEffective)
+        audioResponseEffective = try container.decodeIfPresent(DJAnnouncementAudioResponse.self, forKey: .audioResponseEffective)
         audioURL = try container.decodeIfPresent(URL.self, forKey: .audioURL)
             ?? container.decodeIfPresentIgnoringErrors(URL.self, forKey: .audioUrl)
         audioType = try container.decodeIfPresent(String.self, forKey: .audioType)
@@ -3587,7 +3636,7 @@ public struct DJConnectAskDJHistoryMessage: Codable, Equatable, Identifiable, Se
         self.links = links
         self.sources = sources
         self.announcement = announcement
-        self.audioURL = announcement?.clientReplayAudioURL ?? audioURL
+        self.audioURL = announcement == nil ? audioURL : announcement?.clientReplayAudioURL
         self.playbackActions = playbackActions
         self.confirmationActions = confirmationActions
         self.intentInfo = intentInfo
@@ -6084,7 +6133,7 @@ public struct DJConnectAskDJMessageResponse: Codable, Equatable, Sendable {
         self.historyRevision = historyRevision
         self.clearRevision = clearRevision
         self.announcement = announcement
-        self.audioURL = announcement?.clientReplayAudioURL ?? audioURL
+        self.audioURL = announcement == nil ? audioURL : announcement?.clientReplayAudioURL
         self.historyLimit = historyLimit
         self.historyTrimmedBefore = historyTrimmedBefore
         self.historyTrimmedCount = historyTrimmedCount
@@ -6144,7 +6193,7 @@ public struct DJConnectAskDJMessageResponse: Codable, Equatable, Sendable {
         if assistantMessage?.announcement == nil, let announcement {
             assistantMessage?.announcement = announcement
             assistantMessage?.audioURL = announcement.clientReplayAudioURL
-        } else if assistantMessage?.audioURL == nil, let audioURL {
+        } else if assistantMessage?.announcement == nil, assistantMessage?.audioURL == nil, let audioURL {
             assistantMessage?.audioURL = audioURL
         }
         if assistantMessage?.textSource == nil, let textSource {
@@ -6212,7 +6261,7 @@ public struct DJConnectAskDJMessageResponse: Codable, Equatable, Sendable {
                 if updated.announcement == nil, let announcement {
                     updated.announcement = announcement
                     updated.audioURL = announcement.clientReplayAudioURL
-                } else if updated.audioURL == nil, let audioURL {
+                } else if updated.announcement == nil, updated.audioURL == nil, let audioURL {
                     updated.audioURL = audioURL
                 }
                 if updated.textSource == nil, let textSource {
@@ -8279,7 +8328,7 @@ public struct DJConnectCommandResponse: Codable, Equatable, Sendable {
         self.sources = sources
         self.items = items
         self.announcement = announcement
-        self.audioURL = announcement?.clientReplayAudioURL ?? audioURL
+        self.audioURL = announcement == nil ? audioURL : announcement?.clientReplayAudioURL
         self.backendAvailable = backendAvailable
         self.haVersion = haVersion
         self.haMajorMinor = haMajorMinor
@@ -8526,7 +8575,7 @@ public struct DJConnectCommandResponse: Codable, Equatable, Sendable {
 
     private mutating func normalizeAskDJAssistantMessage() {
         let topLevelAnnouncement = announcement
-        let topLevelAudioURL = topLevelAnnouncement?.clientReplayAudioURL ?? audioURL
+        let topLevelAudioURL = topLevelAnnouncement == nil ? audioURL : topLevelAnnouncement?.clientReplayAudioURL
         let topLevelImages = images ?? []
         let topLevelLinks = links ?? []
         let topLevelSources = sources ?? []
@@ -8563,7 +8612,7 @@ public struct DJConnectCommandResponse: Codable, Equatable, Sendable {
         if assistantMessage?.announcement == nil, let topLevelAnnouncement {
             assistantMessage?.announcement = topLevelAnnouncement
             assistantMessage?.audioURL = topLevelAnnouncement.clientReplayAudioURL
-        } else if assistantMessage?.audioURL == nil {
+        } else if assistantMessage?.announcement == nil, assistantMessage?.audioURL == nil {
             assistantMessage?.audioURL = topLevelAudioURL
         }
         if assistantMessage?.origin == nil {
@@ -8649,6 +8698,26 @@ public struct DJConnectCommandResponse: Codable, Equatable, Sendable {
     }
 }
 
+private extension KeyedDecodingContainer {
+    func decodeMusicBackendErrorIfPresent(_ keys: Key...) -> String? {
+        for key in keys {
+            if let value = try? decodeIfPresent(String.self, forKey: key), !value.isEmpty {
+                return value
+            }
+            if let value = try? decodeIfPresent(DJConnectMusicBackendErrorPayload.self, forKey: key) {
+                if let message = value.message?.trimmingCharacters(in: .whitespacesAndNewlines), !message.isEmpty {
+                    return message
+                }
+                if let code = value.code?.trimmingCharacters(in: .whitespacesAndNewlines), !code.isEmpty {
+                    return code
+                }
+            }
+        }
+        return nil
+    }
+
+}
+
 private extension KeyedDecodingContainer where Key == DJConnectCommandResponse.CodingKeys {
     func decodeBoolAliasIfPresent(_ keys: Key...) -> Bool? {
         for key in keys {
@@ -8663,23 +8732,6 @@ private extension KeyedDecodingContainer where Key == DJConnectCommandResponse.C
         for key in keys {
             if let value = try? decodeIfPresent(String.self, forKey: key), !value.isEmpty {
                 return value
-            }
-        }
-        return nil
-    }
-
-    func decodeMusicBackendErrorIfPresent(_ keys: Key...) -> String? {
-        for key in keys {
-            if let value = try? decodeIfPresent(String.self, forKey: key), !value.isEmpty {
-                return value
-            }
-            if let value = try? decodeIfPresent(DJConnectMusicBackendErrorPayload.self, forKey: key) {
-                if let message = value.message?.trimmingCharacters(in: .whitespacesAndNewlines), !message.isEmpty {
-                    return message
-                }
-                if let code = value.code?.trimmingCharacters(in: .whitespacesAndNewlines), !code.isEmpty {
-                    return code
-                }
             }
         }
         return nil

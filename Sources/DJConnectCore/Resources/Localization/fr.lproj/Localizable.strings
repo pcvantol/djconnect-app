@@ -294,10 +294,10 @@
 "ui.clear.chat" = "Clear chat";
 "ui.clear.ask.dj.chat" = "Clear Ask DJ chat?";
 "ui.clear.chat.9ad354" = "Clear Chat";
-"ui.previous.result" = "Previous result";
-"ui.next.result" = "Next result";
+"ui.previous.result" = "Résultat précédent";
+"ui.next.result" = "Résultat suivant";
 "ui.search" = "Search";
-"ui.close.search" = "Close search";
+"ui.close.search" = "Fermer la recherche";
 "ui.search.queue" = "Search Queue";
 "ui.search.playlists" = "Search Playlists";
 "ui.no.search.results" = "No search results";
@@ -995,3 +995,37 @@
 "ui.session.source_previous" = "Enregistrement précédent";
 
 "ui.session.reconnecting" = "Reconnexion à la session DJ…";
+
+// Native Session conversation and owner history
+"ui.session.history.title" = "Sessions précédentes";
+"ui.session.history.coverage" = "Seules les contributions enregistrées autorisées sont affichées ; cet historique ne couvre pas toutes les écoutes.";
+"ui.session.history.loading" = "Chargement des sessions";
+"ui.session.history.unavailable" = "L’historique des sessions est indisponible. Réessayez.";
+"ui.session.history.empty" = "Aucune session enregistrée";
+"ui.session.history.ended" = "Terminée";
+"ui.session.history.interrupted" = "Interrompue";
+"ui.session.history.more" = "Charger davantage";
+"ui.session.history.readonly" = "Session en lecture seule";
+"ui.session.history.no_entries" = "Cette session ne contient aucune contribution enregistrée.";
+"ui.session.history.changed" = "Le contexte ou l’historique a changé. Réessayez.";
+"ui.session.history.current_context" = "Utiliser le contexte actuel";
+"ui.session.history.awaiting" = "En attente de la réponse du DJ";
+"ui.session.history.new_entries" = "Nouvelles contributions";
+"ui.session.history.selected_context" = "Contribution sélectionnée";
+"ui.session.history.search" = "Rechercher dans cette session";
+"ui.session.history.no_match" = "Aucun résultat dans cette session";
+"ui.session.history.complete" = "Recherche terminée";
+"ui.session.history.partial" = "D’autres résultats peuvent suivre";
+"ui.session.history.voice" = "Question vocale";
+"ui.session.history.playback" = "Lecture observée";
+"ui.session.history.ask_entry" = "Question sur cette contribution";
+"ui.session.history.observed" = "Une lecture a été observée ; l’écoute complète n’est pas prouvée.";
+"ui.session.history.open" = "Ouvrir la session";
+"ui.session.history.earlier" = "Charger les contributions précédentes";
+
+"ui.session.history.voice_failed" = "L’enregistrement ou la demande vocale a échoué. Réessayez d’enregistrer.";
+
+"ui.session.history.no_entries_active" = "Cette session ne contient pas encore de contributions.";
+"ui.music.dna.temporarily_unavailable" = "Music DNA est indisponible pour le moment. Réessaie.";
+
+"ui.session.live_unavailable" = "La session DJ ne peut pas être actualisée pour le moment.";

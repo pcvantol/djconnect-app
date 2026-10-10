@@ -25,29 +25,36 @@ struct DJConnectIOSApp: App {
     private static func makeModel() -> DJConnectAppModel {
         #if DEBUG
         let processInfo = ProcessInfo.processInfo
-        if processInfo.arguments.contains("--uitesting") || processInfo.arguments.contains("--monkey-testing") {
+        let bundledPhysicalTestURL = Bundle.main.object(forInfoDictionaryKey: "DJConnectPhysicalHistoryTestURL") as? String
+        let bundledPhysicalTest = Bundle.main.object(forInfoDictionaryKey: "DJConnectPhysicalHistoryTestEnabled") as? Bool == true
+        if processInfo.arguments.contains("--uitesting") || processInfo.arguments.contains("--monkey-testing") || bundledPhysicalTest {
             let suiteName = "dev.djconnect.uitests"
             let defaults = UserDefaults(suiteName: suiteName) ?? .standard
             defaults.removePersistentDomain(forName: suiteName)
             let shouldShowWelcome = processInfo.environment["DJCONNECT_UITEST_SHOW_WELCOME"] == "1"
             defaults.set(!shouldShowWelcome, forKey: "DJConnectWelcomeSeen")
-            if let homeAssistantURL = processInfo.environment["DJCONNECT_UITEST_HA_URL"], !homeAssistantURL.isEmpty {
+            if let homeAssistantURL = bundledPhysicalTest ? bundledPhysicalTestURL : processInfo.environment["DJCONNECT_UITEST_HA_URL"], !homeAssistantURL.isEmpty {
                 defaults.set(homeAssistantURL, forKey: "DJConnectHomeAssistantURL")
             }
-            let runtimeFixture = processInfo.environment["DJCONNECT_UITEST_RUNTIME_FIXTURE"]
+            let runtimeFixture = bundledPhysicalTest ? "session_history_contract" : processInfo.environment["DJCONNECT_UITEST_RUNTIME_FIXTURE"]
                 ?? launchArgumentValue(named: "--runtime-fixture", arguments: processInfo.arguments)
                 ?? launchArgumentValue(named: "-DJCONNECTRuntimeFixture", arguments: processInfo.arguments)
+            if let runtimeFixture, ["session_history_contract", "paired_owner_contract"].contains(runtimeFixture) {
+                defaults.set("ABCDEF123456", forKey: "DJConnectInstallID")
+            }
             let tokenStore = DJConnectInMemoryTokenStore(
                 token: nil
             )
             let model = DJConnectAppModel(
                 defaults: defaults,
                 tokenStore: tokenStore,
+                homeAssistantWebSocketAuth: runtimeFixture == "session_history_contract" ? DJConnectAppModel.sessionHistoryTestWebSocketAuth(token: processInfo.environment["DJCONNECT_UITEST_HA_WS_TOKEN"]) : nil,
                 startBackgroundTasks: runtimeFixture == nil,
                 monkeyTestingMode: processInfo.arguments.contains("--monkey-testing")
             )
             if let runtimeFixture, !runtimeFixture.isEmpty {
-                model.applyUITestRuntimeFixture(runtimeFixture)
+                model.applyUITestRuntimeFixture(runtimeFixture,
+                    physicalTestHost: bundledPhysicalTest ? bundledPhysicalTestURL.flatMap { URL(string: $0)?.host } : nil)
             }
             return model
         }

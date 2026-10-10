@@ -1,0 +1,49 @@
+{
+  "producer_sha": "4ada2b611f5195090bdb1fe52b28749ad539a100",
+  "qualification": "Actual isolated native Core HTTP response; no live provider",
+  "response": {
+    "error": "music_backend_not_configured",
+    "message": "Kies een muziekbackend in de DJConnect-opties.",
+    "success": false,
+    "provider": "later_manual",
+    "source": "later_manual",
+    "backend_available": false,
+    "ha_install_id": "ha_p653dya1Xs3jy3kZPuI7s_k_yWEeyKLj",
+    "integration_version": "4.0.0-rc.1",
+    "ha_version": "4.0.0-rc.1",
+    "ha_major_minor": "4.0",
+    "music_backend": "later_manual",
+    "music_backend_name": "Later / handmatig",
+    "music_backend_available": false,
+    "music_backend_revision": 0,
+    "music_backend_capabilities": {
+      "supports_search": false,
+      "supports_playlists": false,
+      "supports_queue": false,
+      "supports_outputs": false,
+      "supports_volume": false,
+      "supports_favorites": false,
+      "supports_recently_played": false,
+      "supports_top_items": false,
+      "supports_recommendations": false,
+      "supports_library_profile": false,
+      "supports_shuffle": false,
+      "supports_repeat": false,
+      "supports_seek": false,
+      "supports_transfer_or_output_selection": false
+    },
+    "music_backend_observation_capabilities": {
+      "supports_current_playback_status": false,
+      "supports_media_change_observation": false,
+      "observation_mode_event": false,
+      "observation_mode_polling": false,
+      "supports_playback_instance_identity": false,
+      "supports_continue_stage2": false
+    },
+    "music_target_player": {},
+    "music_backend_error": {
+      "code": "music_backend_not_configured",
+      "message": "Kies een muziekbackend in de DJConnect-opties."
+    }
+  }
+}

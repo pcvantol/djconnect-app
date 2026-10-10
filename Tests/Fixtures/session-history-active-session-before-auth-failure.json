@@ -1,0 +1,248 @@
+{
+  "producer_sha": "4ada2b611f5195090bdb1fe52b28749ad539a100",
+  "qualification": "Actual isolated physical native lab response; failure/lifecycle regression only, not voice acceptance",
+  "response": {
+    "success": true,
+    "session": {
+      "session_id": "session-6cf3c555ab2d4545ae942841a92a30c6",
+      "owner_profile_id": "profile-a",
+      "room": "",
+      "selected_mood": "groove",
+      "dj_persona": "home_dj",
+      "locale": "nl",
+      "music_backend": "later_manual",
+      "runtime_state": "active",
+      "created_at": "2026-10-09T19:43:48.391266+00:00",
+      "started_at": "2026-10-09T19:43:48.392989+00:00",
+      "session_start_strategy": "manual",
+      "initial_session_mood": "groove",
+      "interaction_profile": "balanced",
+      "session_direction": {
+        "direction": "maintaining_energy",
+        "initialized_at": "2026-10-09T19:43:48.391266+00:00",
+        "updated_at": "2026-10-09T19:43:48.391266+00:00",
+        "start_strategy": "manual"
+      },
+      "discover_personalization_available": false,
+      "performance_memory": {
+        "source_flow_id": "flow-session-6cf3c555ab2d4545ae942841a92a30c6",
+        "recent_moment_ids": [
+          "moment-122031129b0a471fa1dd0aef1fe27167"
+        ],
+        "recent_moment_types": [
+          "silence"
+        ],
+        "recent_artists": [],
+        "recent_albums": [],
+        "recent_genres": [],
+        "recent_recommendations": [],
+        "recent_session_directions": [],
+        "recent_silence_count": 1
+      },
+      "planner": {
+        "planner_state": "ready",
+        "planning_horizon_minutes": 15,
+        "created_at": "2026-10-09T19:43:48.391266+00:00",
+        "last_replan_at": "2026-10-09T19:43:48.394498+00:00",
+        "current_goal": "",
+        "configuration": {
+          "minimum_time_between_moments_seconds": 60.0,
+          "maximum_track_context_per_track": 1,
+          "allow_consecutive_silence": true,
+          "recommendation_preference": "balanced",
+          "exploration_preference": "balanced",
+          "energy_preference": "balanced",
+          "interaction_profile": "balanced"
+        },
+        "pending_events": [],
+        "output": {
+          "session_flow": {
+            "flow_id": "flow-session-6cf3c555ab2d4545ae942841a92a30c6",
+            "flow_revision": 1,
+            "planning_horizon_minutes": 15,
+            "created_at": "2026-10-09T19:43:48.394498+00:00",
+            "items": [
+              {
+                "item_id": "now-current-track",
+                "item_type": "current_track",
+                "position": "now",
+                "label": "Current Track"
+              },
+              {
+                "item_id": "next-planning-horizon",
+                "item_type": "planning_horizon",
+                "position": "next",
+                "label": "Planning Horizon"
+              },
+              {
+                "item_id": "next-maintain-direction",
+                "item_type": "maintain_direction",
+                "position": "next",
+                "label": "Maintain Direction"
+              },
+              {
+                "item_id": "later-future-direction",
+                "item_type": "future_direction",
+                "position": "later",
+                "label": "Future Direction"
+              },
+              {
+                "item_id": "later-future-placeholder",
+                "item_type": "future_placeholder",
+                "position": "later",
+                "label": "Future Placeholder"
+              },
+              {
+                "item_id": "moment-moment-122031129b0a471fa1dd0aef1fe27167",
+                "item_type": "dj_moment",
+                "position": "next",
+                "label": "Stilte",
+                "moment_id": "moment-122031129b0a471fa1dd0aef1fe27167",
+                "moment_type": "silence"
+              }
+            ]
+          }
+        }
+      },
+      "broadcast": {
+        "session": {
+          "session_id": "session-6cf3c555ab2d4545ae942841a92a30c6",
+          "runtime_state": "active",
+          "selected_mood": "groove",
+          "locale": "nl"
+        },
+        "playback": {
+          "state": "idle"
+        },
+        "planner": {
+          "planning_state": "ready",
+          "planning_horizon_minutes": 15,
+          "current_direction": "maintaining_energy",
+          "session_direction": {
+            "direction": "maintaining_energy",
+            "initialized_at": "2026-10-09T19:43:48.391266+00:00",
+            "updated_at": "2026-10-09T19:43:48.391266+00:00",
+            "start_strategy": "manual"
+          }
+        },
+        "session_flow": {
+          "flow_id": "flow-session-6cf3c555ab2d4545ae942841a92a30c6",
+          "flow_revision": 1,
+          "planning_horizon_minutes": 15,
+          "created_at": "2026-10-09T19:43:48.394498+00:00",
+          "items": [
+            {
+              "item_id": "now-current-track",
+              "item_type": "current_track",
+              "position": "now",
+              "label": "Current Track"
+            },
+            {
+              "item_id": "next-planning-horizon",
+              "item_type": "planning_horizon",
+              "position": "next",
+              "label": "Planning Horizon"
+            },
+            {
+              "item_id": "next-maintain-direction",
+              "item_type": "maintain_direction",
+              "position": "next",
+              "label": "Maintain Direction"
+            },
+            {
+              "item_id": "later-future-direction",
+              "item_type": "future_direction",
+              "position": "later",
+              "label": "Future Direction"
+            },
+            {
+              "item_id": "later-future-placeholder",
+              "item_type": "future_placeholder",
+              "position": "later",
+              "label": "Future Placeholder"
+            },
+            {
+              "item_id": "moment-moment-122031129b0a471fa1dd0aef1fe27167",
+              "item_type": "dj_moment",
+              "position": "next",
+              "label": "Stilte",
+              "moment_id": "moment-122031129b0a471fa1dd0aef1fe27167",
+              "moment_type": "silence"
+            }
+          ]
+        },
+        "audience": {
+          "signal_totals": {},
+          "recent_activity": []
+        },
+        "dj_moments": [
+          {
+            "moment_id": "moment-122031129b0a471fa1dd0aef1fe27167",
+            "session_id": "session-6cf3c555ab2d4545ae942841a92a30c6",
+            "created_at": "2026-10-09T19:43:48.394325+00:00",
+            "type": "silence",
+            "knowledge_intent": {
+              "type": "silence",
+              "goal": "Do not interrupt the music."
+            },
+            "presentation_intent": {
+              "source_session_mood": "groove",
+              "dj_persona": "home_dj",
+              "tone_of_voice": "warm and conversational",
+              "energy_level": "groove",
+              "delivery_style": "short contextual music story",
+              "voice_style": "persona-guided",
+              "visual_theme": "music-context",
+              "importance": "normal",
+              "maximum_duration_seconds": 25,
+              "delivery_channels": [
+                "broadcast",
+                "owner",
+                "shared"
+              ],
+              "visibility": "session_shared"
+            },
+            "title": "Stilte",
+            "summary": "De dj kiest er bewust voor de muziek niet te onderbreken.",
+            "content": "",
+            "artwork": null,
+            "actions": [],
+            "visibility": "session_shared",
+            "delivery_channels": [
+              "broadcast",
+              "owner",
+              "shared"
+            ],
+            "importance": "normal",
+            "source_references": [],
+            "generation_metadata": {
+              "reason": "invalid_ai_output",
+              "validated": "true"
+            }
+          }
+        ],
+        "presentations": [
+          {
+            "presentation_id": "presentation-moment-122031129b0a471fa1dd0aef1fe27167",
+            "source_moment_id": "moment-122031129b0a471fa1dd0aef1fe27167",
+            "source_moment_type": "silence",
+            "visibility": "session_shared"
+          }
+        ],
+        "broadcast": {
+          "started_at": "2026-10-09T19:43:48.391266+00:00",
+          "snapshot_watermark": 5
+        },
+        "native_delivery": {
+          "schema_version": 1,
+          "session_id": "session-6cf3c555ab2d4545ae942841a92a30c6",
+          "current_moment_id": null,
+          "active_flow_moment_ids": [],
+          "admissions": [],
+          "revocation_scope": "session",
+          "revision": "311b52313a5aed00a526991e"
+        }
+      }
+    }
+  }
+}

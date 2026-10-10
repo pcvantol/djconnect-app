@@ -294,10 +294,10 @@
 "ui.clear.chat" = "Clear chat";
 "ui.clear.ask.dj.chat" = "Clear Ask DJ chat?";
 "ui.clear.chat.9ad354" = "Clear Chat";
-"ui.previous.result" = "Previous result";
-"ui.next.result" = "Next result";
+"ui.previous.result" = "Vorheriger Treffer";
+"ui.next.result" = "Nächster Treffer";
 "ui.search" = "Search";
-"ui.close.search" = "Close search";
+"ui.close.search" = "Suche schließen";
 "ui.search.queue" = "Search Queue";
 "ui.search.playlists" = "Search Playlists";
 "ui.no.search.results" = "No search results";
@@ -995,3 +995,37 @@
 "ui.session.source_previous" = "Vorherige Aufnahme";
 
 "ui.session.reconnecting" = "Verbindung zur DJ-Sitzung wird wiederhergestellt…";
+
+// Native Session conversation and owner history
+"ui.session.history.title" = "Frühere Sitzungen";
+"ui.session.history.coverage" = "Nur erlaubte gespeicherte Beiträge werden angezeigt; dies ist kein vollständiger Hörverlauf.";
+"ui.session.history.loading" = "Sitzungen laden";
+"ui.session.history.unavailable" = "Der Sitzungsverlauf ist nicht verfügbar. Bitte erneut versuchen.";
+"ui.session.history.empty" = "Keine gespeicherten Sitzungen";
+"ui.session.history.ended" = "Beendet";
+"ui.session.history.interrupted" = "Unterbrochen";
+"ui.session.history.more" = "Mehr laden";
+"ui.session.history.readonly" = "Schreibgeschützte Sitzung";
+"ui.session.history.no_entries" = "Diese Sitzung enthält keine gespeicherten Beiträge.";
+"ui.session.history.changed" = "Der Kontext oder Verlauf hat sich geändert. Bitte erneut versuchen.";
+"ui.session.history.current_context" = "Aktuellen Kontext verwenden";
+"ui.session.history.awaiting" = "Warten auf die DJ-Antwort";
+"ui.session.history.new_entries" = "Neue Beiträge";
+"ui.session.history.selected_context" = "Ausgewählter Beitrag";
+"ui.session.history.search" = "Diese Sitzung durchsuchen";
+"ui.session.history.no_match" = "Keine Treffer in dieser Sitzung";
+"ui.session.history.complete" = "Suche abgeschlossen";
+"ui.session.history.partial" = "Weitere Treffer können folgen";
+"ui.session.history.voice" = "Sprachfrage";
+"ui.session.history.playback" = "Beobachtete Wiedergabe";
+"ui.session.history.ask_entry" = "Zu diesem Beitrag fragen";
+"ui.session.history.observed" = "Wiedergabe wurde beobachtet; vollständiges Hören ist nicht belegt.";
+"ui.session.history.open" = "Sitzung öffnen";
+"ui.session.history.earlier" = "Frühere Beiträge laden";
+
+"ui.session.history.voice_failed" = "Die Aufnahme oder Sprachanfrage ist fehlgeschlagen. Nimm sie erneut auf.";
+
+"ui.session.history.no_entries_active" = "In dieser Sitzung gibt es noch keine Beiträge.";
+"ui.music.dna.temporarily_unavailable" = "Music DNA ist gerade nicht verfügbar. Bitte versuche es erneut.";
+
+"ui.session.live_unavailable" = "Die DJ-Sitzung kann gerade nicht aktualisiert werden.";
