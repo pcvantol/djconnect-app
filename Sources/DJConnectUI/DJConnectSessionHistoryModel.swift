@@ -100,12 +100,12 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
         let captured = epoch
         do {
             let caps = try await host.withHomeAssistantClient { try await $0.sessionHistoryCapabilities() }
-            guard captured == epoch else { return }
+            guard captured == epoch, host.canRefreshSessionHistory, !Task.isCancelled else { return }
             available = caps.available; searchAvailable = caps.searchAvailable
             if available && !profileScopeActive {
                 while host.isSendingAskDJText || host.isRecordingVoice || host.voiceStatus == .processing {
                     try await Task.sleep(for: .milliseconds(50))
-                    guard captured == epoch, !Task.isCancelled else { return }
+                    guard captured == epoch, host.canRefreshSessionHistory, !Task.isCancelled else { return }
                 }
                 profileScopeActive = true
                 host.enterProfileConversationScope()
@@ -124,6 +124,7 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
         searchTask?.cancel(); searchTask = nil
         available = false; searchAvailable = false; profileScopeActive = false; ownerScope = nil
         sessions = []; timelines = [:]; historicalMatches = [:]; pendingTurns = []; readingAnchors = [:]
+        host?.setProfileConversationSending(false)
         selectedEntry = nil; openTarget = nil; voiceContext = nil; voiceClientID = nil; voicePayload = nil
         listNextCursor = nil; listRevision = nil; listLoading = false; listErrorKey = nil
         clearSearch(); navigationErrorKey = nil; timelineGenerations = [:]; timelineNavigations = [:]

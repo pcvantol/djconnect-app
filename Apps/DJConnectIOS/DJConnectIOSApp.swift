@@ -39,7 +39,7 @@ struct DJConnectIOSApp: App {
             let runtimeFixture = bundledPhysicalTest ? "session_history_contract" : processInfo.environment["DJCONNECT_UITEST_RUNTIME_FIXTURE"]
                 ?? launchArgumentValue(named: "--runtime-fixture", arguments: processInfo.arguments)
                 ?? launchArgumentValue(named: "-DJCONNECTRuntimeFixture", arguments: processInfo.arguments)
-            if runtimeFixture == "session_history_contract" {
+            if let runtimeFixture, ["session_history_contract", "paired_owner_contract"].contains(runtimeFixture) {
                 defaults.set("ABCDEF123456", forKey: "DJConnectInstallID")
             }
             let tokenStore = DJConnectInMemoryTokenStore(

@@ -1050,6 +1050,56 @@ extension DJConnectIOSUITests {
         try saveHistoryScreenshot("ios-history-08-open-matched-entry")
     }
 
+    func testActualPairedOwnerLiveNativeSnapshotUpdateReconnectAndPlayer() async throws {
+        let base = URL(string: "http://127.0.0.1:18196")!
+        func control(_ operation: String, method: String = "POST") async throws -> [String: Any] {
+            var request = URLRequest(url: base.appendingPathComponent("__apple_paired_fixture/" + operation))
+            request.httpMethod = method
+            request.setValue("Bearer apple-paired-fixture-control", forHTTPHeaderField: "Authorization")
+            let (data, response) = try await URLSession.shared.data(for: request)
+            XCTAssertEqual((response as? HTTPURLResponse)?.statusCode, 200)
+            return try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        }
+        _ = try await control("restore_profile")
+        let before = try await control("start")
+        let sessionID = try XCTUnwrap((before["active"] as? [String: Any])?["session_id"] as? String)
+        let app = XCUIApplication(); app.terminate()
+        app.launchArguments = ["--uitesting", "--runtime-fixture=paired_owner_contract", "-AppleLanguages", "(nl)", "-AppleLocale", "nl_NL"]
+        app.launchEnvironment["DJCONNECT_UITEST_HA_URL"] = base.absoluteString
+        app.launchEnvironment["DJCONNECT_UITEST_RUNTIME_FIXTURE"] = "paired_owner_contract"
+        // Actual POST /pair from an empty local store; no HA/SDK token injected.
+        app.launch()
+        if app.buttons["Niet nu"].waitForExistence(timeout: 2) { app.buttons["Niet nu"].tap() }
+        XCTAssertTrue(app.descendants(matching: .any)["screen-session-conversation"].waitForExistence(timeout: 20))
+        XCTAssertTrue(app.staticTexts["We voeren de energie geleidelijk op."].firstMatch.waitForExistence(timeout: 15))
+        try saveHistoryScreenshot("paired-ios-01-authorized-native-snapshot")
+        _ = try await control("update")
+        XCTAssertTrue(app.staticTexts["Paired native update"].firstMatch.waitForExistence(timeout: 10))
+        try saveHistoryScreenshot("paired-ios-02-native-live-update")
+        XCUIDevice.shared.press(.home)
+        _ = try await control("resume_update")
+        app.activate()
+        XCTAssertTrue(app.staticTexts["Paired resume update"].firstMatch.waitForExistence(timeout: 15))
+        try saveHistoryScreenshot("paired-ios-03-authorized-reconnect")
+        let navigationBefore = try await control("state", method: "GET")
+        let more = app.tabBars.buttons["Meer"].exists ? app.tabBars.buttons["Meer"] : app.buttons["Meer"].firstMatch
+        more.tap(); app.buttons["Speelt Nu"].firstMatch.tap()
+        XCTAssertTrue(app.navigationBars["Speelt Nu"].waitForExistence(timeout: 5))
+        let after = try await control("state", method: "GET")
+        XCTAssertEqual((after["active"] as? [String: Any])?["session_id"] as? String, sessionID)
+        XCTAssertEqual((after["active"] as? [String: Any])?["now_playing"] as? NSDictionary,
+                       (navigationBefore["active"] as? [String: Any])?["now_playing"] as? NSDictionary)
+        XCTAssertEqual(after["ha_refresh_tokens"] as? Int, after["initial_ha_refresh_tokens"] as? Int)
+        try saveHistoryScreenshot("paired-ios-04-player-preserves-session")
+        _ = try await control("end")
+        let dj = app.tabBars.buttons["DJ-sessie"].exists ? app.tabBars.buttons["DJ-sessie"] : app.buttons["DJ-sessie"].firstMatch
+        dj.tap()
+        XCTAssertTrue(app.buttons["Start DJ-sessie"].waitForExistence(timeout: 15))
+        more.tap(); app.buttons["Speelt Nu"].firstMatch.tap()
+        XCTAssertTrue(app.navigationBars["Speelt Nu"].waitForExistence(timeout: 5))
+        try saveHistoryScreenshot("paired-ios-05-player-after-session-end")
+    }
+
     func testActualCoreArchiveAndPlayerNavigationPreservesSessionB() async throws {
         let base = URL(string: "http://127.0.0.1:18194")!
         func control(_ operation: String, method: String = "POST") async throws -> [String: Any] {

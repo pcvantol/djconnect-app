@@ -267,6 +267,29 @@ public final class DJConnectClient: Sendable {
         return try await decodedResponse(for: request)
     }
 
+    public func pairedOwnerLiveCapability() async throws -> DJConnectPairedOwnerLiveCapability? {
+        // Public discovery carries no identity or bearer and must not redirect.
+        guard var origin = URLComponents(url: baseURL, resolvingAgainstBaseURL: false),
+              ["https", "http"].contains(origin.scheme), origin.host != nil,
+              origin.user == nil, origin.password == nil else { throw DJConnectError.invalidResponse }
+        origin.path = "/api/djconnect/v1/capabilities"; origin.query = nil; origin.fragment = nil
+        guard let url = origin.url else { throw DJConnectError.invalidResponse }
+        var request = URLRequest(url: url)
+        request.cachePolicy = .reloadIgnoringLocalCacheData
+        request.setValue("no-store", forHTTPHeaderField: "Cache-Control")
+        let discovery = pairedLiveCredentialFreeSession(from: session)
+        defer { discovery.invalidateAndCancel() }
+        let (data, response) = try await discovery.data(for: request)
+        guard let response = response as? HTTPURLResponse, response.url == url else { throw DJConnectError.invalidResponse }
+        if response.statusCode >= 500 { throw DJConnectError.server(statusCode: response.statusCode, message: nil) }
+        guard response.statusCode == 200 else { throw DJConnectError.routeMissing(message: "Paired live discovery unavailable") }
+        try DJConnectIncomingPayloadLimiter.validate(data)
+        guard let decoded = try? decoder.decode(DJConnectPairedOwnerLiveDiscovery.self, from: data) else {
+            throw DJConnectError.routeMissing(message: "Paired live discovery contract unsupported")
+        }
+        return decoded.sessionBroadcast?.pairedOwnerWebsocket
+    }
+
     public func sessionHistoryCapabilities() async throws -> DJConnectSessionHistoryCapabilities {
         try await decodedResponse(for: sessionHistoryReadRequest(route: "capabilities"), using: sessionProjectionSession)
     }

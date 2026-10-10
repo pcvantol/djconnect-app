@@ -1771,10 +1771,12 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     public func markInactiveSession(enteringBackground: Bool = true) {
-        if enteringBackground && sessionHistory.profileScopeActive {
-            cancelVoiceRecording()
+        if enteringBackground {
+            if sessionHistory.profileScopeActive {
+                cancelVoiceRecording()
+                clearAskDJHistoryLocally()
+            }
             sessionHistory.suspend()
-            clearAskDJHistoryLocally()
         }
         invalidateSessionRequest()
         isLoadingDJSession = false
@@ -4759,7 +4761,7 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     public func refreshActiveDJSession() async {
-        guard pairingStatus == .paired, !isLoadingDJSession else { return }
+        guard isAppInForeground, pairingStatus == .paired, !isLoadingDJSession else { return }
         let request = UUID()
         sessionRequestGeneration = request
         isLoadingDJSession = true
@@ -4900,8 +4902,16 @@ public final class DJConnectAppModel: ObservableObject {
         sessionBroadcastGeneration = UUID()
         let generation = sessionBroadcastGeneration
         sessionBroadcastSessionID = session.id
-        let auth = homeAssistantWebSocketAuth ?? webSocketSessionAuthProvider(for: baseURL).auth
-        let transport = DJConnectSessionBroadcastTransport(baseURL: baseURL, auth: auth, session: urlSession)
+        let transport: DJConnectSessionBroadcastTransport
+        if let auth = homeAssistantWebSocketAuth {
+            // Explicit legacy/test HA credentials only; no automatic issuer fallback.
+            transport = DJConnectSessionBroadcastTransport(baseURL: baseURL, auth: auth, session: urlSession)
+        } else {
+            let client = DJConnectClient(baseURL: baseURL, identity: identity, tokenStore: tokenStore, session: urlSession)
+            let store = tokenStore
+            transport = DJConnectSessionBroadcastTransport(baseURL: baseURL, session: urlSession,
+                discover: { try await client.pairedOwnerLiveCapability() }, pairedToken: { try store.loadToken() })
+        }
         let previousTransport = sessionBroadcastTransport
         sessionBroadcastTransport = transport
         Task { await previousTransport?.stop() }
@@ -4956,9 +4966,38 @@ public final class DJConnectAppModel: ObservableObject {
                         self.djSessionLiveUnavailable = self.activeDJSession != nil
                         self.log(.warning, "Session live subscription unavailable before socket connection")
                     }
+                },
+                onAuthorityWithdrawn: { [weak self] code in
+                    await self?.handlePairedAuthorityWithdrawal(code, broadcastGeneration: generation)
                 }
             )
         }
+    }
+
+    private func handlePairedAuthorityWithdrawal(_ code: String, broadcastGeneration: UUID) async {
+        guard sessionBroadcastGeneration == broadcastGeneration else { return }
+        await recoverAfterPairedAuthorityWithdrawal(code)
+    }
+
+    func recoverAfterPairedAuthorityWithdrawal(_ code: String) async {
+        cancelVoiceRecording()
+        clearAskDJHistoryLocally()
+        clearRuntimeState(backendAvailableAfterClear: false)
+        voiceErrorMessage = nil
+        if ["invalid_auth", "invalid_identity", "unauthorized", "pairing_revoked"].contains(code) {
+            apply(error: .authStale(statusCode: 401, message: nil))
+            return
+        }
+        guard code == "profile_changed", canRefreshSessionHistory else {
+            djSessionErrorMessage = localized(key: "ui.session.unavailable")
+            return
+        }
+        let request = sessionRequestGeneration
+        let epoch = sessionHistory.responseEpoch
+        await sessionHistory.prepare()
+        guard request == sessionRequestGeneration, epoch == sessionHistory.responseEpoch,
+              canRefreshSessionHistory, !Task.isCancelled else { return }
+        await refreshActiveDJSession()
     }
 
     private func invalidateSessionRequest() {
@@ -9707,7 +9746,7 @@ public final class DJConnectAppModel: ObservableObject {
         pairingMessage = nil
         backendAvailable = true
         updateRequiredMessage = nil
-        if scenario == "session_history_contract" {
+        if scenario == "session_history_contract" || scenario == "paired_owner_contract" {
             var environment = ProcessInfo.processInfo.environment
             var arguments = ProcessInfo.processInfo.arguments
             if let physicalTestHost {
@@ -9718,6 +9757,28 @@ public final class DJConnectAppModel: ObservableObject {
                 pairingStatus = .unpaired; isConnected = false; return
             }
             webSocketFastPathEnabled = ProcessInfo.processInfo.environment["DJCONNECT_UITEST_HISTORY_TRANSPORT"] == "websocket"
+            if scenario == "paired_owner_contract" {
+                guard let url = URL(string: homeAssistantURL), ["127.0.0.1", "localhost"].contains(url.host),
+                      url.scheme == "http", url.user == nil, url.password == nil, url.query == nil,
+                      homeAssistantWebSocketAuth == nil else {
+                    pairingStatus = .unpaired; isConnected = false; return
+                }
+                // Empty local test store, then actual ordinary pairing. No token override/HA credential.
+                try? tokenStore.clearToken()
+                pairingStatus = .unpaired; isConnected = false
+                playback = nil; queueItems = []; playlistItems = []; askDJMessages = []
+                Task {
+                    do {
+                        let client = DJConnectClient(baseURL: url, identity: identity, tokenStore: tokenStore, session: urlSession)
+                        let response = try await client.pair(DJConnectPairingPayload(identity: identity,
+                            pairingToken: identity.clientType == .macos ? "654321" : "123456"))
+                        apply(musicBackendSummary: response.musicBackendSummary)
+                        pairingStatus = .paired; isConnected = true
+                        await sessionHistory.prepare(); await refreshActiveDJSession()
+                    } catch { pairingStatus = .unpaired; isConnected = false; log(.warning, "Paired native test setup failed") }
+                }
+                return
+            }
             try? tokenStore.saveToken("synthetic-fixture-token")
             playback = nil; queueItems = []; playlistItems = []; askDJMessages = []
             isAppInForeground = true; voiceStatus = .idle; voiceErrorMessage = nil

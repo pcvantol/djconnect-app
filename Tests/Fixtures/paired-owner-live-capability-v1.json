@@ -1,0 +1,24 @@
+{
+  "session_broadcast": {
+    "paired_owner_websocket": {
+      "available": true,
+      "path": "/api/djconnect/v1/session/broadcast/paired",
+      "version": 1,
+      "auth": "paired_device_first_frame",
+      "audience": "active_owner_broadcast",
+      "client_types": [
+        "ios",
+        "macos",
+        "watchos"
+      ],
+      "commands": [
+        "djconnect/session/broadcast/subscribe",
+        "djconnect/session/broadcast/recover"
+      ],
+      "lease_seconds": 300,
+      "auth_timeout_seconds": 5,
+      "revocation_check_seconds": 1,
+      "ha_credentials_issued": false
+    }
+  }
+}

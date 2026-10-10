@@ -705,6 +705,43 @@ public struct DJConnectPairingResponse: Codable, Equatable, Sendable {
         self.djAnnouncement = djAnnouncement
     }
 
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        success = try container.decode(Bool.self, forKey: .success)
+        deviceToken = try container.decodeIfPresent(String.self, forKey: .deviceToken)
+        token = try container.decodeIfPresent(String.self, forKey: .token)
+        bearerToken = try container.decodeIfPresent(String.self, forKey: .bearerToken)
+        setupPending = try container.decodeIfPresent(Bool.self, forKey: .setupPending)
+        message = try container.decodeIfPresent(String.self, forKey: .message)
+        deviceID = try container.decodeIfPresent(String.self, forKey: .deviceID)
+        clientType = try container.decodeIfPresent(DJConnectClientType.self, forKey: .clientType)
+        haLocalURL = try container.decodeIfPresent(String.self, forKey: .haLocalURL)
+        haRemoteURL = try container.decodeIfPresent(String.self, forKey: .haRemoteURL)
+        remoteSupported = try container.decodeIfPresent(Bool.self, forKey: .remoteSupported)
+        musicBackend = try container.decodeIfPresent(String.self, forKey: .musicBackend)
+        musicBackendName = try container.decodeIfPresent(String.self, forKey: .musicBackendName)
+        musicBackendAvailable = try container.decodeIfPresent(Bool.self, forKey: .musicBackendAvailable)
+        musicBackendRevision = try container.decodeIfPresent(Int.self, forKey: .musicBackendRevision)
+        musicBackendCapabilities = try container.decodeIfPresent(DJConnectMusicBackendCapabilities.self, forKey: .musicBackendCapabilities)
+        musicTargetPlayer = try container.decodeIfPresent(DJConnectMusicTargetPlayer.self, forKey: .musicTargetPlayer)
+        musicBackendError = container.decodeMusicBackendErrorIfPresent(.musicBackendError)
+        deviceLanguage = try container.decodeIfPresent(String.self, forKey: .deviceLanguage)
+        language = try container.decodeIfPresent(String.self, forKey: .language)
+        assistPipelineID = try container.decodeIfPresent(String.self, forKey: .assistPipelineID)
+        apiBase = try container.decodeIfPresent(String.self, forKey: .apiBase)
+        voicePath = try container.decodeIfPresent(String.self, forKey: .voicePath)
+        statusPath = try container.decodeIfPresent(String.self, forKey: .statusPath)
+        eventPath = try container.decodeIfPresent(String.self, forKey: .eventPath)
+        bootstrapProof = try container.decodeIfPresent(String.self, forKey: .bootstrapProof)
+        haInstallID = try container.decodeIfPresent(String.self, forKey: .haInstallID)
+        integrationVersion = try container.decodeIfPresent(String.self, forKey: .integrationVersion)
+        pairingSessionID = try container.decodeIfPresent(String.self, forKey: .pairingSessionID)
+        djAnnouncement = try container.decodeIfPresent(DJAnnouncementCapabilities.self, forKey: .djAnnouncement)
+        askDJSupported = try container.decodeIfPresent(Bool.self, forKey: .askDJSupported)
+        askDJVoiceSupported = try container.decodeIfPresent(Bool.self, forKey: .askDJVoiceSupported)
+        askDJAudioResponseSupported = try container.decodeIfPresent(Bool.self, forKey: .askDJAudioResponseSupported)
+    }
+
     enum CodingKeys: String, CodingKey {
         case success
         case deviceToken = "device_token"
@@ -8661,6 +8698,26 @@ public struct DJConnectCommandResponse: Codable, Equatable, Sendable {
     }
 }
 
+private extension KeyedDecodingContainer {
+    func decodeMusicBackendErrorIfPresent(_ keys: Key...) -> String? {
+        for key in keys {
+            if let value = try? decodeIfPresent(String.self, forKey: key), !value.isEmpty {
+                return value
+            }
+            if let value = try? decodeIfPresent(DJConnectMusicBackendErrorPayload.self, forKey: key) {
+                if let message = value.message?.trimmingCharacters(in: .whitespacesAndNewlines), !message.isEmpty {
+                    return message
+                }
+                if let code = value.code?.trimmingCharacters(in: .whitespacesAndNewlines), !code.isEmpty {
+                    return code
+                }
+            }
+        }
+        return nil
+    }
+
+}
+
 private extension KeyedDecodingContainer where Key == DJConnectCommandResponse.CodingKeys {
     func decodeBoolAliasIfPresent(_ keys: Key...) -> Bool? {
         for key in keys {
@@ -8675,23 +8732,6 @@ private extension KeyedDecodingContainer where Key == DJConnectCommandResponse.C
         for key in keys {
             if let value = try? decodeIfPresent(String.self, forKey: key), !value.isEmpty {
                 return value
-            }
-        }
-        return nil
-    }
-
-    func decodeMusicBackendErrorIfPresent(_ keys: Key...) -> String? {
-        for key in keys {
-            if let value = try? decodeIfPresent(String.self, forKey: key), !value.isEmpty {
-                return value
-            }
-            if let value = try? decodeIfPresent(DJConnectMusicBackendErrorPayload.self, forKey: key) {
-                if let message = value.message?.trimmingCharacters(in: .whitespacesAndNewlines), !message.isEmpty {
-                    return message
-                }
-                if let code = value.code?.trimmingCharacters(in: .whitespacesAndNewlines), !code.isEmpty {
-                    return code
-                }
             }
         }
         return nil

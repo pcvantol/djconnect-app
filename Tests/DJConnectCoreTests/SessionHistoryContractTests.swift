@@ -561,6 +561,61 @@ private final class HistoryAuthorityGate: @unchecked Sendable {
     #expect(model.sessionHistory.hasAuthorizedOwner)
 }
 
+@Test @MainActor func pairedProfileRecoveryCannotReadSessionAfterBackgroundDuringPreparation() async throws {
+    let profile = try historyData(try #require(historyObject()["later_historical_answer"]))
+    let caps = Data(#"{"capabilities":{"session_conversation_history":true,"session_flow_text_search":true},"contract_versions":{"session_conversation_history":1,"session_flow_text_search":1}}"#.utf8)
+    let fixture = HistoryWireFixture { request in
+        (200, request.url!.path.hasSuffix("/capabilities") ? caps : profile,
+         request.url!.path.hasSuffix("/capabilities") ? 0.2 : 0)
+    }
+    defer { fixture.close() }
+    let (model, defaults, name) = fixture.model(); defer { defaults.removePersistentDomain(forName: name) }
+    let recovery = Task { await model.recoverAfterPairedAuthorityWithdrawal("profile_changed") }
+    for _ in 0..<100 where fixture.requests.isEmpty { try await Task.sleep(for: .milliseconds(10)) }
+    #expect(fixture.requests.contains { $0.url!.path.hasSuffix("/capabilities") })
+    model.markInactiveSession()
+    await recovery.value
+    await model.refreshActiveDJSession()
+    #expect(fixture.requests.allSatisfy { $0.url!.path.hasSuffix("/capabilities") })
+    #expect(!model.sessionHistory.hasAuthorizedOwner && !model.sessionHistory.profileScopeActive)
+    #expect(model.activeDJSession == nil && model.askDJMessages.isEmpty)
+}
+
+@Test @MainActor func pairedProfileRecoveryClearsPendingSendingAndIgnoresOldReply() async throws {
+    let receipt = try historyObject()
+    let profile = try historyData(try #require(receipt["later_historical_answer"]))
+    let response = try historyData(try #require(receipt["voice_derived_turn"]))
+    let caps = Data(#"{"capabilities":{"session_conversation_history":true,"session_flow_text_search":true},"contract_versions":{"session_conversation_history":1,"session_flow_text_search":1}}"#.utf8)
+    let fixture = HistoryWireFixture { request in
+        if request.url!.path.hasSuffix("/capabilities") { return (200, caps, 0) }
+        if request.httpMethod == "POST" { return (200, response, 0.3) }
+        if request.url!.path.hasSuffix("/session/active") { return (200, Data(#"{"success":true,"session":null}"#.utf8), 0) }
+        return (200, profile, 0)
+    }
+    defer { fixture.close() }
+    let (model, defaults, name) = fixture.model(); defer { defaults.removePersistentDomain(forName: name) }
+    await model.sessionHistory.prepare()
+    model.askDJDraft = "Pending old-owner question"
+    model.sessionHistory.sendText()
+    for _ in 0..<100 where !fixture.requests.contains(where: { $0.httpMethod == "POST" }) {
+        try await Task.sleep(for: .milliseconds(10))
+    }
+    #expect(model.isSendingAskDJText && fixture.requests.contains { $0.httpMethod == "POST" })
+    let oldEpoch = model.sessionHistory.responseEpoch
+    let recovery = Task { await model.recoverAfterPairedAuthorityWithdrawal("profile_changed") }
+    for _ in 0..<100 where model.sessionHistory.responseEpoch == oldEpoch || !model.sessionHistory.hasAuthorizedOwner {
+        try await Task.sleep(for: .milliseconds(10))
+    }
+    #expect(model.sessionHistory.hasAuthorizedOwner && !model.isSendingAskDJText)
+    #expect(model.sessionHistory.responseEpoch != oldEpoch && model.sessionHistory.pendingTurns.isEmpty)
+    recovery.cancel()
+    await recovery.value
+    let recoveredMessages = model.askDJMessages.map(\.id)
+    try await Task.sleep(for: .milliseconds(400))
+    #expect(model.askDJMessages.map(\.id) == recoveredMessages)
+    #expect(!model.isSendingAskDJText && model.sessionHistory.pendingTurns.isEmpty)
+}
+
 @Test @MainActor func sessionHistoryReadingAnchorsRemainPresentationOnlyAndClearWithAuthority() async throws {
     let profile = try historyData(try #require(historyObject()["later_historical_answer"]))
     let caps = Data(#"{"capabilities":{"session_conversation_history":true,"session_flow_text_search":true},"contract_versions":{"session_conversation_history":1,"session_flow_text_search":1}}"#.utf8)
@@ -829,4 +884,205 @@ func sessionHistoryActualComposerHandlesFailureAfterTransportGoesOffline(_ failu
     #expect(fixture.requests.filter { $0.url!.path.hasSuffix("/active") }.count == 2)
     #expect(fixture.requests.allSatisfy { !$0.url!.path.hasSuffix("/start") && !$0.url!.path.hasSuffix("/end") })
     model.markInactiveSession()
+}
+
+
+private func pairedCapabilityWire() throws -> Data {
+    try Data(contentsOf: URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+        .appendingPathComponent("Fixtures/paired-owner-live-capability-v1.json"))
+}
+
+@Test func pairedLiveRejectsOverbroadOrForeignDiscovery() throws {
+    let wire = try pairedCapabilityWire()
+    let valid = try #require(JSONDecoder().decode(DJConnectPairedOwnerLiveDiscovery.self, from: wire).sessionBroadcast?.pairedOwnerWebsocket)
+    let url = try valid.websocketURL(baseURL: URL(string: "https://trusted.invalid/?credential=forbidden#fragment")!, clientType: .ios)
+    #expect(url.absoluteString == "wss://trusted.invalid/api/djconnect/v1/session/broadcast/paired")
+    #expect(throws: (any Error).self) { try valid.websocketURL(baseURL: URL(string: "https://user:secret@trusted.invalid")!, clientType: .ios) }
+    for (key, value) in ["version": 2, "path": "https://foreign.invalid/live", "ha_credentials_issued": true,
+                         "audience": "admin", "lease_seconds": 301, "commands": ["homeassistant/services/call"]] as [String: Any] {
+        var root = try #require(JSONSerialization.jsonObject(with: wire) as? [String: Any])
+        var broadcast = try #require(root["session_broadcast"] as? [String: Any])
+        var cap = try #require(broadcast["paired_owner_websocket"] as? [String: Any]); cap[key] = value
+        broadcast["paired_owner_websocket"] = cap; root["session_broadcast"] = broadcast
+        let denied = try #require(JSONDecoder().decode(DJConnectPairedOwnerLiveDiscovery.self,
+            from: JSONSerialization.data(withJSONObject: root)).sessionBroadcast?.pairedOwnerWebsocket)
+        #expect(throws: (any Error).self) { try denied.websocketURL(baseURL: URL(string: "https://trusted.invalid")!, clientType: .ios) }
+    }
+}
+
+@Test func pairedLiveDiscoveryNeverCarriesIdentityOrConfiguredAuthorization() async throws {
+    let wire = try pairedCapabilityWire()
+    let fixture = HistoryWireFixture { _ in (200, wire, 0) }; defer { fixture.close() }
+    let configuration = URLSessionConfiguration.ephemeral
+    configuration.protocolClasses = [HistoryWireProtocol.self]
+    configuration.httpAdditionalHeaders = ["Authorization": "Bearer must-not-leave", "X-DJConnect-Device-ID": "must-not-leave"]
+    let client = DJConnectClient(baseURL: URL(string: fixture.baseURL.absoluteString + "?secret=must-not-leave")!,
+        identity: .init(deviceID: "djconnect-ios-ABCDEF123456", deviceName: "Fixture", clientType: .ios, firmware: "4.0.0", platform: .ios),
+        tokenStore: DJConnectInMemoryTokenStore(token: "must-not-leave"), session: URLSession(configuration: configuration))
+    let cap = try await client.pairedOwnerLiveCapability()
+    #expect(cap?.available == true)
+    let request = try #require(fixture.requests.last)
+    #expect(request.url?.query == nil && request.url?.user == nil)
+    #expect(request.value(forHTTPHeaderField: "Authorization") == nil)
+    #expect(request.value(forHTTPHeaderField: "X-DJConnect-Device-ID") == nil)
+}
+
+@Test func pairedLiveAuthAndCommandExcludeCallerAuthorityAndURLSecrets() throws {
+    let auth = DJConnectPairedOwnerAuthRequest(deviceID: "djconnect-ios-ABCDEF123456", clientType: .ios, deviceToken: "fixture-paired-secret")
+    let object = try #require(JSONSerialization.jsonObject(with: JSONEncoder().encode(auth)) as? [String: Any])
+    #expect(Set(object.keys) == ["type", "protocol_version", "device_id", "client_type", "device_token"])
+    #expect((object["protocol_version"] as? NSNumber)?.objCType.pointee != 99) // NSNumber Bool uses c; protocol must be integer.
+    let command = try #require(JSONSerialization.jsonObject(with: JSONEncoder().encode(DJConnectPairedOwnerSubscribeRequest(sessionID: "session-a"))) as? [String: Any])
+    #expect(Set(command.keys) == ["id", "type", "session_id"])
+    #expect(command["owner_profile_id"] == nil && command["device_token"] == nil)
+}
+
+private actor PairedProducerProbe {
+    private var snapshots: [DJConnectSessionBroadcastSubscription] = []
+    private var events: [DJConnectSessionBroadcastEvent] = []
+    private var unavailable = false
+    private var ended = false
+    private var authorityCode: String?
+    func authority(_ code: String) { authorityCode = code }
+    func withdrawnCode() -> String? { authorityCode }
+    func snapshot(_ value: DJConnectSessionBroadcastSubscription) { snapshots.append(value) }
+    func event(_ value: DJConnectSessionBroadcastEvent) { events.append(value) }
+    func withdraw() { unavailable = true }
+    func end() { ended = true }
+    func hasSnapshot(_ id: String) -> Bool { snapshots.contains { $0.sessionID == id && $0.success } }
+    func hasUpdate() -> Bool { events.contains { $0.payload.playback?.title == "Paired native update" } }
+    func isEnded() -> Bool { ended }
+    func isUnavailable() -> Bool { unavailable }
+}
+
+@Test(.enabled(if: ProcessInfo.processInfo.environment["DJCONNECT_TEST_PAIRED_PRODUCER"] == "1"))
+func pairedLiveActualProducerPairsWithoutHAUserThenStreamsAndEnds() async throws {
+    let base = URL(string: "http://127.0.0.1:18196")!
+    func control(_ name: String) async throws -> [String: Any] {
+        var request = URLRequest(url: base.appendingPathComponent("__apple_paired_fixture/" + name))
+        request.httpMethod = name == "state" ? "GET" : "POST"
+        request.setValue("Bearer apple-paired-fixture-control", forHTTPHeaderField: "Authorization")
+        let (data, response) = try await URLSession.shared.data(for: request)
+        #expect((response as? HTTPURLResponse)?.statusCode == 200)
+        return try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
+    }
+    _ = try await control("start")
+    let identity = DJConnectIdentity(deviceID: "djconnect-ios-ABCDEF123456", deviceName: "Native transport proof", clientType: .ios, firmware: "4.0.0-rc.1", platform: .ios)
+    let store = DJConnectInMemoryTokenStore()
+    let client = DJConnectClient(baseURL: base, identity: identity, tokenStore: store)
+    _ = try await client.pair(DJConnectPairingPayload(identity: identity, pairingToken: "123456"))
+    #expect(try store.loadToken()?.isEmpty == false)
+    let state = try await control("state")
+    #expect((state["ha_refresh_tokens"] as? Int) == (state["initial_ha_refresh_tokens"] as? Int))
+    #expect((state["ha_users"] as? Int) == (state["initial_ha_users"] as? Int))
+    let active = try #require(state["active"] as? [String: Any])
+    let id = try #require(active["session_id"] as? String)
+    let probe = PairedProducerProbe()
+    let transport = DJConnectSessionBroadcastTransport(baseURL: base,
+        discover: { try await client.pairedOwnerLiveCapability() }, pairedToken: { try store.loadToken() })
+    await transport.start(sessionID: id, identity: DJConnectAPIIdentity(identity: identity),
+        onSnapshot: { await probe.snapshot($0) }, onEvent: { await probe.event($0) }, onTerminated: { await probe.end() },
+        onUnavailable: { await probe.withdraw() }, onConnectionUnavailable: { await probe.withdraw() })
+    for _ in 0..<100 { if await probe.hasSnapshot(id) { break }; try await Task.sleep(for: .milliseconds(100)) }
+    #expect(await probe.hasSnapshot(id))
+    #expect(await !probe.isUnavailable())
+    _ = try await control("update")
+    for _ in 0..<100 { if await probe.hasUpdate() { break }; try await Task.sleep(for: .milliseconds(100)) }
+    #expect(await probe.hasUpdate())
+    _ = try await control("end")
+    for _ in 0..<100 { if await probe.isEnded() { break }; try await Task.sleep(for: .milliseconds(100)) }
+    #expect(await probe.isEnded())
+    await transport.stop()
+}
+
+
+@Test(.enabled(if: ProcessInfo.processInfo.environment["DJCONNECT_TEST_PAIRED_PRODUCER"] == "1"))
+func pairedLiveActualProducerWithdrawsChangedProfileAndRejectsInvalidToken() async throws {
+    let base = URL(string: "http://127.0.0.1:18196")!
+    func control(_ name: String) async throws {
+        var request = URLRequest(url: base.appendingPathComponent("__apple_paired_fixture/" + name))
+        request.httpMethod = "POST"
+        request.setValue("Bearer apple-paired-fixture-control", forHTTPHeaderField: "Authorization")
+        let (_, response) = try await URLSession.shared.data(for: request)
+        #expect((response as? HTTPURLResponse)?.statusCode == 200)
+    }
+    try await control("restore_profile"); try await control("start")
+    let identity = DJConnectIdentity(deviceID: "djconnect-ios-ABCDEF123456", deviceName: "Native negative proof", clientType: .ios, firmware: "4.0.0-rc.1", platform: .ios)
+    let store = DJConnectInMemoryTokenStore()
+    let client = DJConnectClient(baseURL: base, identity: identity, tokenStore: store)
+    _ = try await client.pair(DJConnectPairingPayload(identity: identity, pairingToken: "123456"))
+    let sessionID = try #require(try await client.activeSession().resolvedSession?.sessionID)
+    let probe = PairedProducerProbe()
+    let transport = DJConnectSessionBroadcastTransport(baseURL: base,
+        discover: { try await client.pairedOwnerLiveCapability() }, pairedToken: { try store.loadToken() })
+    await transport.start(sessionID: sessionID, identity: DJConnectAPIIdentity(identity: identity),
+        onSnapshot: { await probe.snapshot($0) }, onEvent: { await probe.event($0) }, onTerminated: { await probe.end() },
+        onUnavailable: { await probe.withdraw() }, onConnectionUnavailable: { await probe.withdraw() },
+        onAuthorityWithdrawn: { await probe.authority($0) })
+    for _ in 0..<100 { if await probe.hasSnapshot(sessionID) { break }; try await Task.sleep(for: .milliseconds(50)) }
+    #expect(await probe.hasSnapshot(sessionID))
+    try await control("switch_profile")
+    for _ in 0..<100 { if await probe.withdrawnCode() != nil { break }; try await Task.sleep(for: .milliseconds(50)) }
+    #expect(await probe.withdrawnCode() == "profile_changed")
+    await transport.stop()
+    try await control("restore_profile")
+    let denied = PairedProducerProbe()
+    let invalid = DJConnectSessionBroadcastTransport(baseURL: base,
+        discover: { try await client.pairedOwnerLiveCapability() }, pairedToken: { "synthetic-invalid-token" })
+    await invalid.start(sessionID: sessionID, identity: DJConnectAPIIdentity(identity: identity),
+        onSnapshot: { await denied.snapshot($0) }, onEvent: { await denied.event($0) }, onTerminated: { await denied.end() },
+        onUnavailable: { await denied.withdraw() }, onConnectionUnavailable: { await denied.withdraw() },
+        onAuthorityWithdrawn: { await denied.authority($0) })
+    for _ in 0..<100 { if await denied.withdrawnCode() != nil { break }; try await Task.sleep(for: .milliseconds(50)) }
+    #expect(await denied.withdrawnCode() == "unauthorized")
+    #expect(await !denied.hasSnapshot(sessionID))
+    #expect(await !denied.hasUpdate())
+    await invalid.stop()
+}
+
+@Test func pairedLivePairingRetainsBackendFailureWithoutRejectingCredential() throws {
+    let wire = Data(#"{"success":true,"device_token":"synthetic-paired-secret","client_type":"ios","music_backend_available":false,"music_backend_error":{"code":"music_backend_not_configured","message":"Kies een muziekbackend"}}"#.utf8)
+    let paired = try JSONDecoder().decode(DJConnectPairingResponse.self, from: wire)
+    #expect(paired.success && paired.resolvedDeviceToken != nil)
+    #expect(paired.musicBackendAvailable == false && paired.musicBackendError == "Kies een muziekbackend")
+    let malformed = Data(#"{"success":true,"device_token":42,"client_type":"ios"}"#.utf8)
+    #expect(throws: (any Error).self) { try JSONDecoder().decode(DJConnectPairingResponse.self, from: malformed) }
+}
+
+
+@Test func pairedLiveUpgradeRejectsRedirectAndIdentityButAllowsFoundationHTTPMapping() {
+    let expected = URL(string: "wss://trusted.invalid/api/djconnect/v1/session/broadcast/paired")!
+    #expect(pairedLiveUpgradeMatches(URL(string: "https://trusted.invalid:443/api/djconnect/v1/session/broadcast/paired"), expected: expected))
+    for denied in ["http://trusted.invalid/api/djconnect/v1/session/broadcast/paired", "https://foreign.invalid/api/djconnect/v1/session/broadcast/paired", "https://trusted.invalid/other", "https://trusted.invalid/api/djconnect/v1/session/broadcast/paired?token=forbidden", "https://user:secret@trusted.invalid/api/djconnect/v1/session/broadcast/paired"] {
+        #expect(!pairedLiveUpgradeMatches(URL(string: denied), expected: expected))
+    }
+}
+
+@Test func pairedLiveDiscoveryRejectsRealRedirectBeforeDestinationOrCredentialExposure() async throws {
+    let repo = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+    let file = FileManager.default.temporaryDirectory.appendingPathComponent("paired-redirect-" + UUID().uuidString + ".json")
+    let process = Process(); process.executableURL = URL(fileURLWithPath: "/usr/bin/python3")
+    process.arguments = [repo.appendingPathComponent("Tools/paired_discovery_http_fixture.py").path, file.path]
+    let output = Pipe(); process.standardOutput = output; process.standardError = Pipe()
+    try process.run()
+    defer { process.terminate(); process.waitUntilExit(); try? FileManager.default.removeItem(at: file) }
+    var line = Data()
+    while let byte = try output.fileHandleForReading.read(upToCount: 1), !byte.isEmpty {
+        if byte == Data([10]) { break }; line.append(byte)
+    }
+    let ports = try #require(JSONSerialization.jsonObject(with: line) as? [String: Int])
+    let port = try #require(ports["source_port"])
+    let configuration = URLSessionConfiguration.ephemeral
+    configuration.httpAdditionalHeaders = ["Authorization": "fixture-must-not-leave", "X-DJConnect-Device-ID": "fixture-must-not-leave"]
+    let client = DJConnectClient(baseURL: URL(string: "http://127.0.0.1:\(port)/?identity=fixture-must-not-leave")!,
+        identity: .init(deviceID: "djconnect-ios-ABCDEF123456", deviceName: "Fixture", clientType: .ios, firmware: "4.0.0", platform: .ios),
+        tokenStore: DJConnectInMemoryTokenStore(token: "fixture-must-not-leave"), session: URLSession(configuration: configuration))
+    do { _ = try await client.pairedOwnerLiveCapability(); Issue.record("A redirect must not supply live discovery") }
+    catch let error as DJConnectError { guard case .routeMissing = error else { throw error } }
+    let records = try #require(JSONSerialization.jsonObject(with: Data(contentsOf: file)) as? [String: Any])
+    #expect((records["source_requests"] as? Int) == 1)
+    #expect((records["target_requests"] as? Int) == 0)
+    #expect((records["authorization_present"] as? Bool) == false)
+    #expect((records["identity_present"] as? Bool) == false)
+    #expect((records["query_present"] as? Bool) == false)
 }
