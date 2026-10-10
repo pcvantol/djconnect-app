@@ -2,17 +2,17 @@
 
 Assignment: `DJC-APPLE-SESSION-CONVERSATION-HISTORY-V1-20261008`, with `DJC-SESSION-FLOW-TEXT-SEARCH-V1-20261008`.
 
-**IN PROGRESS. Local ordinary paired native iPhone/iPad/Mac transport and render qualification PASS. Physical iPhone spoken question/answer is owner-confirmed on40012. Installed HA acceptance, genuine Mac spoken input, protected delivery, exact-main and separate Finalization remain open.**
+**SOURCE DELIVERED through PR97/main65c744b; exact reviewed/main trees match and mainCI/coverage PASS. Local paired native iPhone/iPad/Mac qualification PASS. Physical40012 voice is owner-reported on its earlier source; genuine Mac spoken/current installed-HA acceptance remain open. Automatic source-main SHA-evidence is verified PASS; separate Finalization is being reconciled and product acceptance is PARTIAL.**
 
 ## Exact source, dependency and ownership
 
-One reused Apple writer, branch `codex/apple-session-conversation-history`, base/current remote Apple main `4291a7c53fc35a65a300423ea4b637eadbd13cca`. Current ordinary paired consumer implementation is hash-bound WIP above committed `41cd51858039d81653a53b3a95231c47f36787e2`, recorded in `paired-owner-live/qualification.json`; 457 local tests and paired native qualification are described below. Earlier diagnostics-only source `a8b2526c3cd8fa179e969e38a15f4458cf9b3aaf` is historical. Full447 serial tests and iOS/Mac builds PASS at documentation candidate `bbd56cc4a0380f535618556b118c0079602351a4`; native renderer proofs remain bound to `c7a711be826eb321e6a7eea5d81e26b7d8bf66fd` and earlier sources below. Original separate WIP preserved; #95/#96 terminal. No Core writes or next-capability pickup.
+One reused Apple writer, branch `codex/apple-session-conversation-history`, original source base `4291a7c53fc35a65a300423ea4b637eadbd13cca`, current exact source-main `65c744b6a7d1f1a2620af7283dc8df1dcc6a8e0a`. Current ordinary paired consumer source is protected merged from `d49aa9b2aca5f4affd2e15e0ae60b1e8c32fefb1` to exact main `65c744b6a7d1f1a2620af7283dc8df1dcc6a8e0a`, identical tree `2b202e8e96814c5f189b1aa76ff16586196202ec`. The preceding local freeze above41cd518 is recorded in `paired-owner-live/qualification.json`; 457 local tests and paired native qualification are described below. Earlier diagnostics-only source `a8b2526c3cd8fa179e969e38a15f4458cf9b3aaf` is historical. Full447 serial tests and iOS/Mac builds PASS at documentation candidate `bbd56cc4a0380f535618556b118c0079602351a4`; native renderer proofs remain bound to `c7a711be826eb321e6a7eea5d81e26b7d8bf66fd` and earlier sources below. Original separate WIP preserved; #95/#96 terminal. No Core writes or next-capability pickup.
 
 Immutable Core producer `4ada2b611f5195090bdb1fe52b28749ad539a100`, protected source `2337e06f514dfa2d847d9de26189a10bc618b555`, producer Finalization main `69315f43dd1cce8cca4d70f28eccfbc3daa37c66` (documentation-only final delta). Contract SHA256 `aa9774882e4b6b556055bb997f58b5d171f562c09b90e4bcfede074f911a45d5`, schema `40d4994880705e6fa94af05d6674b66faefb2320ae95f5ef0d26de5382b6953d`, actual corrective HTTP receipt `2462f35a06413716e41734be7fd03ac9181e717c857877765e1493a5148537bc`. All124 producer source hashes verified.
 
 The lab initializes genuine HA/Core HTTP, Session Runtime, Ask DJ Store and SQLite. Synthetic profile/pairing/source metadata and26 controlled playback observations per run are explicit: One followed by repeated Nothing Else Matters with distinct synthetic media identities. Repeated tracks/sessions are pagination/search test input, never the user's live listening history. No synthetic answers, injected STT transcripts or raw voice archive. Existing real local HA/Wyoming STT readiness is separate from human microphone acceptance. Physical phone and simulator/Mac use independent lab instances/profile stores so tests cannot end the phone's Session.
 
-## Verification and repairs
+## Historical verification and repairs at02e8b3a/7674a47
 
 - Full serial Swift suite **444 PASS** at02e8b3a: ownership, wire decode, pagination/search/Open, privacy, retry/background/end and ephemeral reading-anchor cleanup. Independent read-only technical and UX **source GO** at02e8b3a; neither claims voice or delivery acceptance.
 - WebSocket18 messages/16 advertised routes, HTTP29 routes, fixture-security, five-language1019-key and offline projection checks PASS at7674a47. Final required remote checks remain open.
@@ -22,7 +22,7 @@ The lab initializes genuine HA/Core HTTP, Session Runtime, Ask DJ Store and SQLi
 - Genuine generic Profile response originally failed Apple decoding at `announcement.audio_response_effective:"unavailable"`. The full response DID contain owner/profile/conversation confirmation; the initial missing-envelope diagnosis was incorrect and no Core blocker was filed. Apple now separates canonical response outcomes (including `server_only`) from request policy and preserves them. Server replay-denial cannot be bypassed by top-level or nested fallback URLs. Actual-receipt and three nested normalization regressions PASS; genuine native Mac and iPhone confirmed-text/no-audio proofs exist at7674a47.
 - Final Mac continuation exposed a reachable-HA music-provider error being reported as transport offline.02e8b3a preserves the reached route for `.backendUnavailable` and rethrows it: playback remains blocked, Profile conversations retain their existing server authority. Genuine HTTP decode→transport→model regression PASS; network/failover/auth/background checks retained. Native repeat after player remains an explicit qualification gate.
 
-## Native Mac and physical phone boundaries
+## Historical native Mac and physical phone boundaries at7674a47/02e8b3a
 
 Mac uses only the owner's separately approved temporary Debug app/XCTest bundles, local ad-hoc signing, deep-strict verified. Actual NSWindow/public Accessibility captures at7674a47 prove current expressive Moment, search outside initial20-entry page, selected One entry and confirmed contextual bubbles, player with identical Runtime readback, explicit native end, genuine Store/SQLite restart and readonly archive. Earlier482a51d proof adds later historical Ask DJ/Open exact highlighted entry and B archive/player equality; current02e8b3a continuation is kept separate. Mac XCTest automation initialization timed out: **NOT PASS**, never relabeled as the actual-window result.
 
@@ -30,13 +30,13 @@ Owner explicitly requested deployment on their iPhone for the voice test. Develo
 
 **Physical spoken question and visible question/answer: OWNER_REPORTED_SUCCESS at40012. Independent exact selected-entry/server receipt correlation remains OPEN.** Two genuine physical microphone WAV requests reached the test server and failed422 `stt_failed`: the incomplete Assist configuration supplied `nl-NL`, while the actual Wyoming engine supports `nl`. No transcript or confirmed conversation resulted. The corrected independent lab now has a genuine SDK-managed preferred `nl` pipeline and metadata validation; this is readiness, not human voice acceptance. Silence, synthesized input and injected transcripts cannot satisfy this gate. Mac spoken-input acceptance is also unclaimed.
 
-## Durable artifacts and remaining delivery
+## Historical artifacts and remaining delivery at02e8b3a/7674a47
 
 Owning#87 latest registered continuation: [6087596083](https://github.com/pcvantol/djconnect-app/issues/87#issuecomment-6087596083), exact body readback verified. Local evidence is in the sole writer's ignored `build/session-conversation-history`; failed results retained. Recovery Git bundle in the primary checkout preserves the reused branch. Old complete #95 xcresults were compressed only after all10,944 file hashes matched; original source/WIP/products/screenshots retained.
 
 Remaining: finish exact latest native repetitions, genuine human spoken-input proof on the required devices, concrete evidence/review handoff, required remote checks, SHA-specific authority for automatic internal publication, protected source delivery/exact-main reconciliation with Core and separate mandatory Apple Finalization. No source branch push, PR, merge or release performed; no old release grant inherited. Stop after this single Apple slice.
 
-## October9 user-reported root-cause correction (candidate WIP)
+## Historical October9 root-cause correction (candidate WIP)
 
 Physical40011 diagnostics establish forced temporary lab endpoint/defaults, missing musicprovider, MusicDNA503 and STT422. This is an incomplete Apple test environment, not a proven live-HA outage or a user configuration error. The bounded build40012 device package removed only the ephemeral Info test flag/URL and restores ordinary startup using preserved standard settings/tokenstore; installation and independent version/build readback PASS; automatic launch denied because phone locked. Subsequent owner diagnostics confirm normal settings/pairing/Spotify. Ordinary paired live access remains unqualified. No reset, new pairing, real MusicDNA opt-in or HA deployment is authorized by this correction.
 
@@ -50,7 +50,7 @@ A separate private Apple root lab on18195 now initializes the actual backend Mus
 
 The root candidate first concurrent447-test run failed seven timing assertions in three existing fast-path/What'sNew tests; failures retained. The full serial retry PASS447, including the real503 opt-in regression. Source technical/UX review is separate from native/device/voice/delivery qualification.
 
-## Current exact c7a711b native results
+## Historical exact c7a711b native results
 
 - iPhone two actual-Core native scenarios PASS, exported directly from iphone-native-c7a711b.xcresult into evidence-c7a711b-iphone.
 - iPad two actual-Core native scenarios PASS, portrait/landscape, player without/during/after Session and independent B preservation. Exact result ipad-native-c7a711b.xcresult; exported attachments in evidence-c7a711b-ipad.
@@ -89,4 +89,4 @@ Native iPhone simulator and iPad each PASS: empty store → actual HTTP pair →
 
 Current screenshot sequences and hash-bound evidence are in ignored `build/session-conversation-history/evidence-paired-{iphone,ipad,mac}-current`; portable sanitized receipts and exact source/log hashes are in [paired-owner-live/qualification.json](paired-owner-live/qualification.json). Mac screenshot06 captures a stable current Moment in a fresh separate Session after the loader disappeared. Screenshot04 was taken too early and shows the startup spinner; screenshot01 captured a later quiet interval. Both failed/expired images are retained honestly. Stable iPad01/03 are the visual evidence; screenshot02 captured a transition frame. Initial native failures are retained: attempt1 used an inaccessible accessibility marker; attempt2 incorrectly required the old contribution after it had legitimately been withdrawn on a track update. Corrected iPhone attempt3 and receipt-backed attempt4 PASS; iPad attempt1 PASS. No mock-screen substitution, microphone capture or injected spoken transcript.
 
-Physical iPhone40012 voice remains OWNER_REPORTED_PHYSICAL_NATIVE_VOICE_SUCCESS on its earlier exact source. Genuine Mac spoken proof remains unavailable at the owner's explicit request. These local checks do not constitute protected delivery, exact-main acceptance or mandatory separate Finalization; all three remain OPEN. No new physical installation, Store release or HA deployment occurred.
+Physical iPhone40012 voice remains OWNER_REPORTED_PHYSICAL_NATIVE_VOICE_SUCCESS on its earlier exact source. Genuine Mac spoken proof remains unavailable at the owner's explicit request. At that local freeze, protected delivery, exact-main acceptance and separate Finalization were OPEN. SourcePR97 has now protected merged with exact-tree readback and mainCI/coverage PASS; separate Finalization and physical acceptance are distinguished in the current snapshot. No new physical installation, Store release or HA deployment occurred.

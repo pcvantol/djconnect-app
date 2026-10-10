@@ -1,6 +1,45 @@
 # DJConnect Repository Status
 
-## Current Apple assignment — 2026-10-08
+## Current conversation/history source — 2026-10-10
+
+`DJC-APPLE-SESSION-CONVERSATION-HISTORY-V1-20261008`, with
+`DJC-SESSION-FLOW-TEXT-SEARCH-V1-20261008`, is source-delivered through
+[PR #97](https://github.com/pcvantol/djconnect-app/pull/97). Exact reviewed head
+`d49aa9b2aca5f4affd2e15e0ae60b1e8c32fefb1` protected squash merged to
+`65c744b6a7d1f1a2620af7283dc8df1dcc6a8e0a`; both trees are
+`2b202e8e96814c5f189b1aa76ff16586196202ec`. Official exact-SHA
+[Owner Authorization38051518758](https://github.com/pcvantol/djconnect/actions/runs/38051518758)
+PASS; no admin merge bypass. The same Apple writer and original separate WIP
+were preserved. Closed #95/#96 remain terminal.
+
+Native Profile conversation, readonly archived Sessions, historical Ask DJ
+matches/exact-entry Open, text search and ordinary paired live subscriptions
+now share the actual Core-owned contracts and native decode/state/render route.
+Independent iOS More → Now Playing and macOS sidebar player remain reachable;
+navigation preserves Session-ID and complete playback projection. No local
+DJ intelligence or private conversation broadcast is introduced.
+
+Local457 Swift tests, actual paired10 tests (repeated with privacy-safe wire
+observation), native iPhone/iPad/Mac proof, five-language1022-key checks and
+independent technical/UX source review PASS. Physical iPhone40012 spoken
+question/answer is owner-reported on earlier sourcec7a711b. Genuine Mac spoken
+input remains unqualified at the owner's explicit unavailability; installed
+HA/current physical live, physical speaker playback and Music DNA activation
+are not inferred from the isolated configured-source lab. Product acceptance
+is therefore PARTIAL, not a claim that every real-device requirement passed.
+
+Exact source-mainCI38051574012/coverage and automatic SHA-evidence38052015643
+PASS; downloaded formal JSON hash/integrity/redaction validated against the
+exact canonical policy. Separate Finalization publication is being reconciled. See the
+[Finalization snapshot](docs/history/prompts/2026-10-10-apple-session-conversation-history-finalization.md),
+[native evidence](docs/verification/SESSION_CONVERSATION_HISTORY_NATIVE_EVIDENCE.md)
+and [owning #87](https://github.com/pcvantol/djconnect-app/issues/87).
+The unchanged optional TDE observe workflow failed because its Python3.9
+runtime is below the published TDE1.1.1 minimum3.11; that assessment is NOT_RUN,
+not a technical qualification PASS. No new capability, Store/TestFlight,
+installation, HA deployment or Core writer is authorized by this record.
+
+## Previous closed Apple assignment — 2026-10-08
 
 `DJC-APPLE-MOMENT-FIRST-SESSION-V1-20261008` bron is beschermd gemergd:
 [Apple #95](https://github.com/pcvantol/djconnect-app/pull/95), reviewed head

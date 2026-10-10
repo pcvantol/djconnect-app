@@ -1,0 +1,26 @@
+{
+  "assignment": "DJC-APPLE-SESSION-CONVERSATION-HISTORY-V1-20261008",
+  "source_pr": 97,
+  "reviewed_head": "d49aa9b2aca5f4affd2e15e0ae60b1e8c32fefb1",
+  "source_main": "65c744b6a7d1f1a2620af7283dc8df1dcc6a8e0a",
+  "source_tree": "2b202e8e96814c5f189b1aa76ff16586196202ec",
+  "exact_main_tree_equal": true,
+  "source_ci_run": 38051574012,
+  "source_ci_and_coverage": "PASS",
+  "source_post_merge_evidence_run": 38052015643,
+  "source_qualification_sha256": "bac69c8ec6fc8e51074917e3d455256e646603bf52cc32d07cbdedbe2b2ca2cb",
+  "canonical_integrity": "02c4af28390c4c43eea483c35c13762165a5e1324286d9b653d5605c798d8a7e",
+  "canonical_validator_revision": "ebbb35f038a7a3c7d46c12660968bcd50eb67580",
+  "canonical_validator_sha256": "2419a355e1fb6b85448d362681c061470d59d45936b06f2b9a6249278351a449",
+  "canonical_validation": "PASS",
+  "product_acceptance": "PARTIAL",
+  "repository_reconciliation": "FINALIZATION_CANDIDATE_NOT_YET_PUBLISHED",
+  "limits": [
+    "Genuine Mac human microphone proof unavailable",
+    "Owner-reported physical40012voice remains bound to earlierc7a711b",
+    "Installed HA/current physical live/player/Music DNA acceptance not inferred",
+    "Optional TDE observe Python3.9 incompatible with runtime minimum3.11; assessment NOT_RUN",
+    "No new install/Store/TestFlight/HA or next capability authority"
+  ],
+  "finalization_effects": "Require separate exact-candidate owner permission; final-main/readback recorded only after execution"
+}
