@@ -4029,10 +4029,12 @@ public final class DJConnectAppModel: ObservableObject {
             guard operation == voiceOperationGeneration, historyEpoch == sessionHistory.responseEpoch else { return }
             voiceStatus = .processing
             if sessionHistory.profileScopeActive {
+                log(.info, "Uploading profile conversation voice WAV (\(data.count) bytes)")
                 try await sessionHistory.uploadVoice(data)
                 guard operation == voiceOperationGeneration, historyEpoch == sessionHistory.responseEpoch else { return }
                 voiceErrorMessage = nil
                 voiceStatus = .idle
+                log(.info, "Profile conversation voice request confirmed")
                 resumeWakeWordListeningIfNeeded()
                 return
             }
@@ -4065,6 +4067,11 @@ public final class DJConnectAppModel: ObservableObject {
         } catch let error as DJConnectError {
             guard operation == voiceOperationGeneration, historyEpoch == sessionHistory.responseEpoch else { return }
             if sessionHistory.profileScopeActive {
+                if case .server(let status, _) = error {
+                    log(.warning, "Profile conversation voice request failed: HTTP \(status)")
+                } else {
+                    log(.warning, "Profile conversation voice request failed before confirmation")
+                }
                 sessionHistory.cancelVoiceContext()
                 if case .server(let status, _) = error, status == 409 {
                     voiceErrorMessage = localized(key: "ui.session.history.changed")
@@ -4113,6 +4120,7 @@ public final class DJConnectAppModel: ObservableObject {
         voiceRecordingURL = nil
         isRecordingVoice = false
         voiceStatus = .processing
+        log(.info, "Voice recording stopped for submission")
         dismissWakeWordListeningMessage()
         #if os(iOS)
         Task {
@@ -4946,6 +4954,7 @@ public final class DJConnectAppModel: ObservableObject {
                         self.activeDJSession?.broadcast.clearNativeAuthority()
                         self.djSessionIsRecovering = false
                         self.djSessionLiveUnavailable = self.activeDJSession != nil
+                        self.log(.warning, "Session live subscription unavailable before socket connection")
                     }
                 }
             )
@@ -11017,6 +11026,8 @@ public final class DJConnectAppModel: ObservableObject {
         notification_permission: \(notificationPermissionStatus.rawValue)
         local_network_permission: \(localNetworkPermissionStatus.rawValue)
         voice_enabled: \(voiceEnabled)
+        voice_recording: \(isRecordingVoice)
+        voice_status: \(voiceStatus)
         wakeword_enabled: \(wakeWordEnabled)
         wakeword_phrase: \(wakeWordPhrase)
         wakeword_status: \(wakeWordStatus)
