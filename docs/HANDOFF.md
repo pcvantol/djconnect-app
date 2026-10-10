@@ -1,5 +1,16 @@
 # DJConnect iOS/macOS/watchOS App Handoff
 
+## Current bounded Apple handoff — 2026-10-10
+
+SourcePR97/current source-main65c744b delivers the selected native
+conversation/history/search/paired-live slice. One original Apple writer;
+#95/#96 closed; unrelated primary WIP retained. The source/main trees are equal.
+See [Finalization snapshot](history/prompts/2026-10-10-apple-session-conversation-history-finalization.md)
+for exact SHAs, producer pins, reviews, evidence and qualification limits.
+Genuine Mac spoken-input acceptance remains open; owner-reported physical
+40012voice is a separate earlier-source result. No next capability or implicit
+installation/Store/HA authority follows from the source merge.
+
 This handoff is for building native iOS, macOS, and watchOS DJConnect clients
 that use the same Home Assistant custom integration backend as the ESP32
 firmware.
