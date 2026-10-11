@@ -1117,7 +1117,15 @@ extension DJConnectIOSUITests {
         more.tap(); app.buttons["Speelt Nu"].firstMatch.tap()
         XCTAssertTrue(app.navigationBars["Speelt Nu"].waitForExistence(timeout: 5))
         try saveHistoryScreenshot("paired-ios-05-player-after-session-end")
-        more.tap(); app.buttons["Eerdere sessies"].firstMatch.tap()
+        let moreBack = app.navigationBars["Speelt Nu"].buttons["Meer"]
+        if moreBack.exists { moreBack.tap() } else { more.tap() }
+        let earlierSessions = app.descendants(matching: .any)["Eerdere sessies"].firstMatch
+        try saveHistoryScreenshot("paired-ui-more-before-archive")
+        guard earlierSessions.waitForExistence(timeout: 10) else {
+            print(app.debugDescription)
+            XCTFail("Native earlier-session destination not present"); return
+        }
+        earlierSessions.tap()
         XCTAssertTrue(app.buttons["saved-session-" + sessionID].waitForExistence(timeout: 10))
         try saveHistoryScreenshot("paired-ui-archive-dates-gradient")
     }
